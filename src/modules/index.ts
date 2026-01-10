@@ -4,3 +4,4 @@
 
 export * from './nav-sidebar';
 export * from './window-toolbar';
+export * from './global-search';
