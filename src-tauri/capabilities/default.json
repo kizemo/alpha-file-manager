@@ -27,6 +27,7 @@
     "core:webview:allow-get-all-webviews",
     "core:tray:default",
     "store:default",
+    "window-state:default",
     {
       "identifier": "opener:allow-open-path",
       "allow": [

@@ -91,7 +91,7 @@ pub fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: tauri::menu::Men
     match event.id.as_ref() {
         "show_main_window" => show_main_window(app),
         "reload_main_window" => reload_main_window(app),
-        "quit" => quit_app(),
+        "quit" => quit_app(app),
         _ => {}
     }
 }
@@ -149,6 +149,6 @@ pub fn update_tray_shortcut(app: tauri::AppHandle, shortcut: String) {
     }
 }
 
-pub fn quit_app() {
-    std::process::exit(0);
+pub fn quit_app<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    let _ = app.exit(0);
 }

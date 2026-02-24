@@ -4552,6 +4552,7 @@ dependencies = [
  "tauri-plugin-os",
  "tauri-plugin-store",
  "tauri-plugin-system-fonts",
+ "tauri-plugin-window-state",
  "tokio",
  "trash",
  "walkdir",
@@ -5331,6 +5332,21 @@ checksum = "7ad16fdc3a5ea7de468670338d3b5fe7f1b560a8f72445e8612f4b4ef0fa252c"
 dependencies = [
  "fontdb",
  "serde",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.12",
+]
+
+[[package]]
+name = "tauri-plugin-window-state"
+version = "2.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73736611e14142408d15353e21e3cca2f12a3cfb523ad0ce85999b6d2ef1a704"
+dependencies = [
+ "bitflags 2.9.1",
+ "log",
+ "serde",
+ "serde_json",
  "tauri",
  "tauri-plugin",
  "thiserror 2.0.12",
