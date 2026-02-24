@@ -265,7 +265,7 @@ watch(isPositionPopoverOpen, (isOpen) => {
             </DropdownMenuTrigger>
           </TooltipTrigger>
           <DropdownMenuContent
-            side="top"
+            side="bottom"
             align="start"
           >
             <DropdownMenuItem
@@ -295,7 +295,6 @@ watch(isPositionPopoverOpen, (isOpen) => {
                 align="start"
                 :side-offset="8"
                 class="home-banner__position-popover"
-                @interact-outside="preventPopoverClose"
                 @focus-outside="preventPopoverClose"
               >
                 <div class="home-banner__position-controls">

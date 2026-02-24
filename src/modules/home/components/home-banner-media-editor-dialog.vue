@@ -188,7 +188,26 @@ onUnmounted(() => {
             <h3 class="home-banner-media-editor__section-title">
               {{ t('dialogs.homeBannerPickerDialog.customBackgrounds') }}
             </h3>
-
+            <div class="home-banner-media-editor__url-input-row">
+              <GlobeIcon
+                :size="16"
+                class="home-banner-media-editor__url-input-icon"
+              />
+              <Input
+                v-model="urlInput"
+                class="home-banner-media-editor__url-input"
+                :placeholder="t('home.addMediaUrlPlaceholder')"
+                @keydown.enter="handleAddUrl"
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                :disabled="!urlInput.trim()"
+                @click="handleAddUrl"
+              >
+                {{ t('add') }}
+              </Button>
+            </div>
             <div class="home-banner-media-editor__grid">
               <button
                 type="button"
@@ -262,27 +281,6 @@ onUnmounted(() => {
                   </Tooltip>
                 </div>
               </div>
-            </div>
-
-            <div class="home-banner-media-editor__url-input-row">
-              <GlobeIcon
-                :size="16"
-                class="home-banner-media-editor__url-input-icon"
-              />
-              <Input
-                v-model="urlInput"
-                class="home-banner-media-editor__url-input"
-                :placeholder="t('home.addMediaUrlPlaceholder')"
-                @keydown.enter="handleAddUrl"
-              />
-              <Button
-                variant="secondary"
-                size="sm"
-                :disabled="!urlInput.trim()"
-                @click="handleAddUrl"
-              >
-                {{ t('add') }}
-              </Button>
             </div>
           </div>
 
@@ -458,7 +456,7 @@ onUnmounted(() => {
 .home-banner-media-editor__url-input-row {
   display: flex;
   align-items: center;
-  margin-top: 12px;
+  margin-bottom: 12px;
   gap: 8px;
 }
 
