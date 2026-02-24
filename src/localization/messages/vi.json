@@ -742,6 +742,8 @@
     "cannotOpenPath": "Error: cannot open the path"
   },
   "shortcutsUI": {
+    "sourceUser": "Người dùng",
+    "sourceSystem": "Hệ thống",
     "globalShortcutsSystemScope": "Phím tắt chung (phạm vi hệ thống)",
     "globalShortcutsTriggerActionsWhenNotFocused": "Các phím tắt chung sẽ kích hoạt hành động ngay cả khi ứng dụng không được đặt tiêu điểm.",
     "changeShortcut": "Thay đổi phím tắt",
@@ -751,6 +753,7 @@
   },
   "shortcuts": {
     "openCloseTheAppWindow": "Mở/đóng cửa sổ ứng dụng",
+    "focusAppWindow": "Hiển thị cửa sổ ứng dụng",
     "openGlobalSearch": "Mở tìm kiếm toàn cầu",
     "openTheAppWindowCreateANewNote": "Mở cửa sổ ứng dụng và tạo ghi chú mới",
     "displayShortcutList": "Hiển thị danh sách phím tắt",

@@ -742,6 +742,8 @@
     "cannotOpenPath": "Errore: impossibile aprire il percorso"
   },
   "shortcutsUI": {
+    "sourceUser": "Utente",
+    "sourceSystem": "Sistema",
     "globalShortcutsSystemScope": "Scorciatoie globali (sistema)",
     "globalShortcutsTriggerActionsWhenNotFocused": "Le scorciatoie globali attivano azioni anche quando l'app non è focalizzata.",
     "changeShortcut": "Cambia scorciatoia",
@@ -751,6 +753,7 @@
   },
   "shortcuts": {
     "openCloseTheAppWindow": "Apri / chiudi la finestra dell'app",
+    "focusAppWindow": "Mostra la finestra dell'app",
     "openGlobalSearch": "Apri la ricerca globale",
     "openTheAppWindowCreateANewNote": "Apri la finestra dell'app e crea una nuova nota",
     "displayShortcutList": "Mostra la lista delle scorciatoie",

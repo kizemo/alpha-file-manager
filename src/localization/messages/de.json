@@ -742,6 +742,8 @@
     "cannotOpenPath": "Error: cannot open the path"
   },
   "shortcutsUI": {
+    "sourceUser": "Benutzer",
+    "sourceSystem": "System",
     "globalShortcutsSystemScope": "Globale Verknüpfungen (Systembereich)",
     "globalShortcutsTriggerActionsWhenNotFocused": "Globale Verknüpfungen lösen Aktionen aus, auch wenn die App nicht fokussiert ist.",
     "changeShortcut": "Verknüpfung ändern",
@@ -751,6 +753,7 @@
   },
   "shortcuts": {
     "openCloseTheAppWindow": "App-Fenster öffnen / schließen",
+    "focusAppWindow": "App-Fenster fokussieren",
     "openGlobalSearch": "Globale Suche öffnen",
     "openTheAppWindowCreateANewNote": "Öffne das App-Fenster und erstelle eine neue Notiz",
     "displayShortcutList": "Kurzwahlliste anzeigen",

@@ -755,6 +755,8 @@
     "cannotOpenPath": "Napaka: ne morem odpreti poti"
   },
   "shortcutsUI": {
+    "sourceUser": "Uporabnik",
+    "sourceSystem": "Sistem",
     "globalShortcutsSystemScope": "Globalne bližnjice (sistemski obseg)",
     "globalShortcutsTriggerActionsWhenNotFocused": "Globalne bližnjice bodo sprožile dejanja tudi, ko aplikacija ni v fokusu.",
     "changeShortcut": "Spremeni bližnjico",
@@ -764,6 +766,7 @@
   },
   "shortcuts": {
     "openCloseTheAppWindow": "Odpri / zapri okno aplikacije",
+    "focusAppWindow": "Prikaži okno aplikacije",
     "openGlobalSearch": "Odpri globalno iskanje",
     "openTheAppWindowCreateANewNote": "Odpri okno aplikacije & ustvari novo opombo",
     "displayShortcutList": "Prikaži seznam bližnjic",

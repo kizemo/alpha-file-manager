@@ -742,6 +742,8 @@
     "cannotOpenPath": "Error: cannot open the path"
   },
   "shortcutsUI": {
+    "sourceUser": "ユーザー",
+    "sourceSystem": "システム",
     "globalShortcutsSystemScope": "グローバル ショートカット (システム スコープ)",
     "globalShortcutsTriggerActionsWhenNotFocused": "グローバル ショートカットは、アプリがフォーカスされていなくてもアクションをトリガーします。",
     "changeShortcut": "ショートカットを変更",
@@ -751,6 +753,7 @@
   },
   "shortcuts": {
     "openCloseTheAppWindow": "アプリ ウィンドウを開く / 閉じる",
+    "focusAppWindow": "アプリ ウィンドウをフォーカスする",
     "openGlobalSearch": "グローバル検索を開く",
     "openTheAppWindowCreateANewNote": "アプリ ウィンドウを開いて新しいメモを作成",
     "displayShortcutList": "ショートカット一覧を表示",

@@ -8,14 +8,17 @@ use tauri::{
     AppHandle, Manager, Runtime,
 };
 
-pub fn setup_system_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
+fn build_tray_menu<R: Runtime>(app: &AppHandle<R>, shortcut_hint: Option<&str>) -> tauri::Result<Menu<R>> {
     let app_version = app.package_info().version.to_string();
     let app_name = app.package_info().name.to_string();
     let main_title_text = format!("{} – v{}", app_name, app_version);
-    let tooltip_text = &main_title_text;
 
+    let show_text = match shortcut_hint {
+        Some(hint) => format!("Open window ({})", hint),
+        None => "Open window".to_string(),
+    };
     let title_item = MenuItem::with_id(app, "title", &main_title_text, false, None::<&str>)?;
-    let show_item = MenuItem::with_id(app, "show_main_window", "Open window", true, None::<&str>)?;
+    let show_item = MenuItem::with_id(app, "show_main_window", &show_text, true, None::<&str>)?;
     let reload_item = MenuItem::with_id(
         app,
         "reload_main_window",
@@ -25,7 +28,7 @@ pub fn setup_system_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     )?;
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
 
-    let menu = Menu::with_items(
+    Menu::with_items(
         app,
         &[
             &title_item,
@@ -35,7 +38,15 @@ pub fn setup_system_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
             &PredefinedMenuItem::separator(app)?,
             &quit_item,
         ],
-    )?;
+    )
+}
+
+pub fn setup_system_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
+    let app_version = app.package_info().version.to_string();
+    let app_name = app.package_info().name.to_string();
+    let tooltip_text = format!("{} – v{}", app_name, app_version);
+
+    let menu = build_tray_menu(app, None)?;
 
     let _tray = TrayIconBuilder::with_id("main")
         .tooltip(&tooltip_text)
@@ -122,6 +133,20 @@ pub fn reload_main_window<R: Runtime>(app: &AppHandle<R>) {
 #[tauri::command]
 pub fn reload_webview(app: tauri::AppHandle) {
     reload_main_window(&app);
+}
+
+#[tauri::command]
+pub fn update_tray_shortcut(app: tauri::AppHandle, shortcut: String) {
+    if let Some(tray) = app.tray_by_id("main") {
+        let shortcut_hint = if shortcut.is_empty() {
+            None
+        } else {
+            Some(shortcut.as_str())
+        };
+        if let Ok(menu) = build_tray_menu(&app, shortcut_hint) {
+            let _ = tray.set_menu(Some(menu));
+        }
+    }
 }
 
 pub fn quit_app() {

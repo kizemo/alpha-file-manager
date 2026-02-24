@@ -343,8 +343,8 @@ export function formatShortcutKeys(keys: ShortcutKeys): string {
 
   if (keys.ctrl) parts.push('Ctrl');
   if (keys.alt) parts.push('Alt');
+  if (keys.meta) parts.push('Win');
   if (keys.shift) parts.push('Shift');
-  if (keys.meta) parts.push('Meta');
 
   let keyDisplay = keys.key;
 

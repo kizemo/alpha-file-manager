@@ -52,6 +52,7 @@ import {
   CornerDownLeftIcon,
   Undo2Icon,
   FlipHorizontalIcon,
+  AppWindowIcon,
 } from 'lucide-vue-next';
 import type { Component } from 'vue';
 import {
@@ -61,9 +62,16 @@ import {
   type ShortcutId,
   type ShortcutKeys,
 } from '@/stores/runtime/shortcuts';
+import {
+  useGlobalShortcutsStore,
+  shortcutKeysToTauriFormat,
+  formatTauriShortcut,
+  type GlobalShortcutId,
+} from '@/stores/runtime/global-shortcuts';
 
 const { t } = useI18n();
 const shortcutsStore = useShortcutsStore();
+const globalShortcutsStore = useGlobalShortcutsStore();
 
 const shortcutIcons: Record<ShortcutId, Component> = {
   toggleGlobalSearch: SearchIcon,
@@ -91,18 +99,45 @@ const shortcutIcons: Record<ShortcutId, Component> = {
   switchToRightPane: FlipHorizontalIcon,
 };
 
+const globalShortcutIcons: Record<GlobalShortcutId, Component> = {
+  launchApp: AppWindowIcon,
+};
+
 const isDialogOpen = ref(false);
 const editingShortcutId = ref<ShortcutId | null>(null);
+const editingGlobalShortcutId = ref<GlobalShortcutId | null>(null);
 const recordedKeys = ref<ShortcutKeys | null>(null);
 const isRecording = ref(false);
 const recordButtonRef = ref<HTMLButtonElement | null>(null);
 
+const isEditingGlobalShortcut = computed(() => editingGlobalShortcutId.value !== null);
+
 const editingDefinition = computed(() => {
+  if (editingGlobalShortcutId.value) {
+    const globalDef = globalShortcutsStore.definitions.find(
+      definitionItem => definitionItem.id === editingGlobalShortcutId.value,
+    );
+
+    if (globalDef) {
+      return {
+        id: globalDef.id,
+        labelKey: globalDef.labelKey,
+        isReadOnly: false,
+      };
+    }
+
+    return null;
+  }
+
   if (!editingShortcutId.value) return null;
   return shortcutsStore.getShortcutDefinition(editingShortcutId.value);
 });
 
 const currentEditingShortcutLabel = computed(() => {
+  if (editingGlobalShortcutId.value) {
+    return globalShortcutsStore.getShortcutLabel(editingGlobalShortcutId.value);
+  }
+
   if (!editingShortcutId.value) return '';
   return shortcutsStore.getShortcutLabel(editingShortcutId.value);
 });
@@ -113,7 +148,28 @@ const recordedKeysLabel = computed(() => {
 });
 
 const conflictingShortcut = computed(() => {
-  if (!recordedKeys.value || !editingShortcutId.value) return null;
+  if (!recordedKeys.value) return null;
+
+  if (editingGlobalShortcutId.value) {
+    const recordedTauri = shortcutKeysToTauriFormat(recordedKeys.value);
+    const recordedLabel = formatTauriShortcut(recordedTauri);
+
+    for (const definition of globalShortcutsStore.definitions) {
+      if (definition.id === editingGlobalShortcutId.value) continue;
+      const existingLabel = globalShortcutsStore.getShortcutLabel(definition.id);
+
+      if (existingLabel === recordedLabel) {
+        return {
+          id: definition.id,
+          labelKey: definition.labelKey,
+        };
+      }
+    }
+
+    return null;
+  }
+
+  if (!editingShortcutId.value) return null;
   return shortcutsStore.findConflictingShortcut(recordedKeys.value, editingShortcutId.value);
 });
 
@@ -124,6 +180,19 @@ function openShortcutEditor(shortcutId: ShortcutId) {
   if (definition?.isReadOnly) return;
 
   editingShortcutId.value = shortcutId;
+  editingGlobalShortcutId.value = null;
+  recordedKeys.value = null;
+  isRecording.value = true;
+  isDialogOpen.value = true;
+
+  nextTick(() => {
+    focusRecordButton();
+  });
+}
+
+function openGlobalShortcutEditor(globalShortcutId: GlobalShortcutId) {
+  editingGlobalShortcutId.value = globalShortcutId;
+  editingShortcutId.value = null;
   recordedKeys.value = null;
   isRecording.value = true;
   isDialogOpen.value = true;
@@ -181,8 +250,17 @@ function handleRecordKeyDown(event: KeyboardEvent) {
 }
 
 async function saveShortcut() {
-  if (!editingShortcutId.value || !recordedKeys.value || hasConflict.value) return;
+  if (!recordedKeys.value || hasConflict.value) return;
 
+  if (editingGlobalShortcutId.value) {
+    await globalShortcutsStore.setShortcut(editingGlobalShortcutId.value, recordedKeys.value);
+    isDialogOpen.value = false;
+    editingGlobalShortcutId.value = null;
+    recordedKeys.value = null;
+    return;
+  }
+
+  if (!editingShortcutId.value) return;
   await shortcutsStore.setShortcut(editingShortcutId.value, recordedKeys.value);
   isDialogOpen.value = false;
   editingShortcutId.value = null;
@@ -190,8 +268,15 @@ async function saveShortcut() {
 }
 
 async function resetShortcut() {
-  if (!editingShortcutId.value) return;
+  if (editingGlobalShortcutId.value) {
+    await globalShortcutsStore.resetShortcut(editingGlobalShortcutId.value);
+    isDialogOpen.value = false;
+    editingGlobalShortcutId.value = null;
+    recordedKeys.value = null;
+    return;
+  }
 
+  if (!editingShortcutId.value) return;
   await shortcutsStore.resetShortcut(editingShortcutId.value);
   isDialogOpen.value = false;
   editingShortcutId.value = null;
@@ -209,7 +294,11 @@ function getConditionsLabel(shortcutId: ShortcutId): string {
 }
 
 function getSourceLabel(shortcutId: ShortcutId): string {
-  return shortcutsStore.getSource(shortcutId) === 'user' ? 'User' : 'System';
+  return shortcutsStore.getSource(shortcutId) === 'user' ? t('shortcutsUI.sourceUser') : t('shortcutsUI.sourceSystem');
+}
+
+function getGlobalSourceLabel(globalShortcutId: GlobalShortcutId): string {
+  return globalShortcutsStore.getSource(globalShortcutId) === 'user' ? t('shortcutsUI.sourceUser') : t('shortcutsUI.sourceSystem');
 }
 
 function getSourceIcon(shortcutId: ShortcutId): Component {
@@ -221,6 +310,7 @@ watch(isDialogOpen, (open) => {
     isRecording.value = false;
     recordedKeys.value = null;
     editingShortcutId.value = null;
+    editingGlobalShortcutId.value = null;
   }
 });
 
@@ -257,83 +347,165 @@ watch(isDialogOpen, (open) => {
     </div>
 
     <div class="shortcuts-section">
-      <div class="shortcuts-table">
-        <div class="shortcuts-table__header">
-          <div class="shortcuts-table__header-cell shortcuts-table__cell--command">
-            {{ t('command') }}
-          </div>
-          <div class="shortcuts-table__header-cell shortcuts-table__cell--keybinding">
-            {{ t('keybinding') }}
-          </div>
-          <div class="shortcuts-table__header-cell shortcuts-table__cell--when">
-            {{ t('when') }}
-          </div>
-          <div class="shortcuts-table__header-cell shortcuts-table__cell--source">
-            {{ t('source') }}
+      <div class="shortcuts-section__group">
+        <div class="shortcuts-section__group-header">
+          <div class="shortcuts-section__group-info">
+            <h4 class="shortcuts-section__group-title">
+              {{ t('shortcutsUI.globalShortcutsSystemScope') }}
+            </h4>
+            <p class="shortcuts-section__group-description">
+              {{ t('shortcutsUI.globalShortcutsTriggerActionsWhenNotFocused') }}
+            </p>
           </div>
         </div>
 
-        <div class="shortcuts-table__body">
-          <div
-            v-for="definition in shortcutsStore.definitions"
-            :key="definition.id"
-            class="shortcuts-table__row"
-            :class="{ 'shortcuts-table__row--readonly': definition.isReadOnly }"
-            @click="openShortcutEditor(definition.id)"
-          >
-            <div class="shortcuts-table__cell shortcuts-table__cell--command">
-              <component
-                :is="shortcutIcons[definition.id]"
-                :size="14"
-                class="shortcuts-table__cell-icon"
-              />
-              <span class="shortcuts-table__cell-text">
-                {{ t(definition.labelKey) }}
-              </span>
+        <div class="shortcuts-table">
+          <div class="shortcuts-table__header">
+            <div class="shortcuts-table__header-cell shortcuts-table__cell--command">
+              {{ t('command') }}
             </div>
-
-            <div class="shortcuts-table__cell shortcuts-table__cell--keybinding">
-              <kbd class="shortcuts-table__kbd">
-                {{ shortcutsStore.getShortcutLabel(definition.id) }}
-              </kbd>
+            <div class="shortcuts-table__header-cell shortcuts-table__cell--keybinding">
+              {{ t('keybinding') }}
             </div>
-
-            <div class="shortcuts-table__cell shortcuts-table__cell--when">
-              <TooltipProvider v-if="getConditionsLabel(definition.id)">
-                <Tooltip>
-                  <TooltipTrigger as-child>
-                    <code class="shortcuts-table__when-code">
-                      {{ getConditionsLabel(definition.id) }}
-                    </code>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <code class="shortcuts-table__when-tooltip-code">
-                      {{ getConditionsLabel(definition.id) }}
-                    </code>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+            <div class="shortcuts-table__header-cell shortcuts-table__cell--when" />
+            <div class="shortcuts-table__header-cell shortcuts-table__cell--source">
+              {{ t('source') }}
             </div>
+          </div>
 
-            <div class="shortcuts-table__cell shortcuts-table__cell--source">
-              <span
-                class="shortcuts-table__source"
-                :class="{
-                  'shortcuts-table__source--user': shortcutsStore.getSource(definition.id) === 'user',
-                  'shortcuts-table__source--system': shortcutsStore.getSource(definition.id) === 'system',
-                }"
-              >
+          <div class="shortcuts-table__body">
+            <div
+              v-for="definition in globalShortcutsStore.definitions"
+              :key="definition.id"
+              class="shortcuts-table__row"
+              @click="openGlobalShortcutEditor(definition.id)"
+            >
+              <div class="shortcuts-table__cell shortcuts-table__cell--command">
                 <component
-                  :is="getSourceIcon(definition.id)"
-                  :size="12"
+                  :is="globalShortcutIcons[definition.id]"
+                  :size="14"
+                  class="shortcuts-table__cell-icon"
                 />
-                {{ getSourceLabel(definition.id) }}
-              </span>
-              <LockIcon
-                v-if="definition.isReadOnly"
-                :size="10"
-                class="shortcuts-table__lock-icon"
-              />
+                <span class="shortcuts-table__cell-text">
+                  {{ t(definition.labelKey) }}
+                </span>
+              </div>
+
+              <div class="shortcuts-table__cell shortcuts-table__cell--keybinding">
+                <kbd class="shortcuts-table__kbd">
+                  {{ globalShortcutsStore.getShortcutLabel(definition.id) }}
+                </kbd>
+              </div>
+
+              <div class="shortcuts-table__cell shortcuts-table__cell--when" />
+
+              <div class="shortcuts-table__cell shortcuts-table__cell--source">
+                <span
+                  class="shortcuts-table__source"
+                  :class="{
+                    'shortcuts-table__source--user': globalShortcutsStore.getSource(definition.id) === 'user',
+                    'shortcuts-table__source--system': globalShortcutsStore.getSource(definition.id) === 'system',
+                  }"
+                >
+                  <component
+                    :is="globalShortcutsStore.getSource(definition.id) === 'user' ? UserIcon : SettingsIcon"
+                    :size="12"
+                  />
+                  {{ getGlobalSourceLabel(definition.id) }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="shortcuts-section__group">
+        <div class="shortcuts-section__group-header">
+          <div class="shortcuts-section__group-info">
+            <h4 class="shortcuts-section__group-title">
+              {{ t('shortcutsUI.localShortcutsAppScope') }}
+            </h4>
+          </div>
+        </div>
+
+        <div class="shortcuts-table">
+          <div class="shortcuts-table__header">
+            <div class="shortcuts-table__header-cell shortcuts-table__cell--command">
+              {{ t('command') }}
+            </div>
+            <div class="shortcuts-table__header-cell shortcuts-table__cell--keybinding">
+              {{ t('keybinding') }}
+            </div>
+            <div class="shortcuts-table__header-cell shortcuts-table__cell--when">
+              {{ t('when') }}
+            </div>
+            <div class="shortcuts-table__header-cell shortcuts-table__cell--source">
+              {{ t('source') }}
+            </div>
+          </div>
+
+          <div class="shortcuts-table__body">
+            <div
+              v-for="definition in shortcutsStore.definitions"
+              :key="definition.id"
+              class="shortcuts-table__row"
+              :class="{ 'shortcuts-table__row--readonly': definition.isReadOnly }"
+              @click="openShortcutEditor(definition.id)"
+            >
+              <div class="shortcuts-table__cell shortcuts-table__cell--command">
+                <component
+                  :is="shortcutIcons[definition.id]"
+                  :size="14"
+                  class="shortcuts-table__cell-icon"
+                />
+                <span class="shortcuts-table__cell-text">
+                  {{ t(definition.labelKey) }}
+                </span>
+              </div>
+
+              <div class="shortcuts-table__cell shortcuts-table__cell--keybinding">
+                <kbd class="shortcuts-table__kbd">
+                  {{ shortcutsStore.getShortcutLabel(definition.id) }}
+                </kbd>
+              </div>
+
+              <div class="shortcuts-table__cell shortcuts-table__cell--when">
+                <TooltipProvider v-if="getConditionsLabel(definition.id)">
+                  <Tooltip>
+                    <TooltipTrigger as-child>
+                      <code class="shortcuts-table__when-code">
+                        {{ getConditionsLabel(definition.id) }}
+                      </code>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <code class="shortcuts-table__when-tooltip-code">
+                        {{ getConditionsLabel(definition.id) }}
+                      </code>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+
+              <div class="shortcuts-table__cell shortcuts-table__cell--source">
+                <span
+                  class="shortcuts-table__source"
+                  :class="{
+                    'shortcuts-table__source--user': shortcutsStore.getSource(definition.id) === 'user',
+                    'shortcuts-table__source--system': shortcutsStore.getSource(definition.id) === 'system',
+                  }"
+                >
+                  <component
+                    :is="getSourceIcon(definition.id)"
+                    :size="12"
+                  />
+                  {{ getSourceLabel(definition.id) }}
+                </span>
+                <LockIcon
+                  v-if="definition.isReadOnly"
+                  :size="10"
+                  class="shortcuts-table__lock-icon"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -361,14 +533,14 @@ watch(isDialogOpen, (open) => {
             </div>
 
             <div
-              v-if="editingDefinition && getConditionsLabel(editingDefinition.id)"
+              v-if="!isEditingGlobalShortcut && editingShortcutId && getConditionsLabel(editingShortcutId)"
               class="shortcut-editor__info-row"
             >
               <span class="shortcut-editor__label">
                 {{ t('when') }}:
               </span>
               <code class="shortcut-editor__when-code">
-                {{ getConditionsLabel(editingDefinition.id) }}
+                {{ getConditionsLabel(editingShortcutId) }}
               </code>
             </div>
 
@@ -490,6 +662,39 @@ watch(isDialogOpen, (open) => {
 .shortcuts-section {
   display: flex;
   flex-direction: column;
+}
+
+.shortcuts-section__group-header {
+  display: flex;
+  align-items: flex-start;
+  padding: 1rem;
+  gap: 0.75rem;
+}
+
+.shortcuts-section__group-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: hsl(var(--muted-foreground));
+}
+
+.shortcuts-section__group-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.shortcuts-section__group-title {
+  margin: 0;
+  color: hsl(var(--foreground));
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.shortcuts-section__group-description {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+  line-height: 1.4;
 }
 
 .shortcuts-table {

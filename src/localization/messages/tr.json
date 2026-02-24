@@ -742,6 +742,8 @@
     "cannotOpenPath": "Error: cannot open the path"
   },
   "shortcutsUI": {
+    "sourceUser": "Kullanıcı",
+    "sourceSystem": "Sistem",
     "globalShortcutsSystemScope": "Global kısayollar (sistem kapsamı)",
     "globalShortcutsTriggerActionsWhenNotFocused": "Genel kısayollar, uygulama odaklanmadığında bile eylemleri tetikler.",
     "changeShortcut": "Kısayolu değiştir",
@@ -751,6 +753,7 @@
   },
   "shortcuts": {
     "openCloseTheAppWindow": "Uygulama penceresini aç / kapat",
+    "focusAppWindow": "Uygulama penceresini odakla",
     "openGlobalSearch": "Global aramayı aç",
     "openTheAppWindowCreateANewNote": "Uygulama penceresini aç ve yeni bir not oluştur",
     "displayShortcutList": "Kısayol listesini görüntüle",

@@ -742,6 +742,8 @@
     "cannotOpenPath": "Error: cannot open the path"
   },
   "shortcutsUI": {
+    "sourceUser": "Usuario",
+    "sourceSystem": "Sistema",
     "globalShortcutsSystemScope": "Accesos directos globales (alcance del sistema)",
     "globalShortcutsTriggerActionsWhenNotFocused": "Los accesos directos globales activarán acciones incluso cuando la aplicación no esté enfocada",
     "changeShortcut": "Cambiar acceso directo",
@@ -751,6 +753,7 @@
   },
   "shortcuts": {
     "openCloseTheAppWindow": "Abrir/cerrar la ventana de la aplicación",
+    "focusAppWindow": "Enfocar la ventana de la aplicación",
     "openGlobalSearch": "Abrir búsqueda global",
     "openTheAppWindowCreateANewNote": "Abre la ventana de la aplicación y crea una nueva nota",
     "displayShortcutList": "Mostrar lista de accesos directos",

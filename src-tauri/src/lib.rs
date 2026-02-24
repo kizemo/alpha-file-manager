@@ -21,11 +21,13 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_system_fonts::init())
         .plugin(tauri_plugin_drag::init())
         .invoke_handler(tauri::generate_handler![
             app_updater::check_for_updates,
             system_tray::reload_webview,
+            system_tray::update_tray_shortcut,
             dir_reader::read_dir,
             dir_reader::get_system_drives,
             dir_reader::get_parent_dir,
@@ -66,6 +68,14 @@ pub fn run() {
             dir_watcher::get_watched_directories,
         ])
         .setup(setup_handler)
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "main" {
+                    let _ = window.hide();
+                    api.prevent_close();
+                }
+            }
+        })
         .on_menu_event(system_tray::handle_menu_event)
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

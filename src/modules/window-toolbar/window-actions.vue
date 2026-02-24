@@ -25,7 +25,7 @@ function maximizeWindow() {
 }
 
 function closeWindow() {
-  appWindow.close();
+  appWindow.hide();
 }
 </script>
 

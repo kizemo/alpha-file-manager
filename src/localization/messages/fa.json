@@ -741,6 +741,8 @@
     "cannotOpenPath": "Error: cannot open the path"
   },
   "shortcutsUI": {
+    "sourceUser": "کاربر",
+    "sourceSystem": "سیستم",
     "globalShortcutsSystemScope": "میانبرهای جهانی (حوزه سیستم)",
     "globalShortcutsTriggerActionsWhenNotFocused": "میانبرهای جهانی حتی زمانی که برنامه متمرکز نشده باشد، عملکردها را فعال می کند.",
     "changeShortcut": "تغییر میانبر",
@@ -750,6 +752,7 @@
   },
   "shortcuts": {
     "openCloseTheAppWindow": "باز کردن / بستن پنجره برنامه",
+    "focusAppWindow": "نمایش پنجره برنامه",
     "openGlobalSearch": "باز کردن جستجوی جهانی",
     "openTheAppWindowCreateANewNote": "پنجره برنامه را باز کنید و یک یادداشت جدید ایجاد کنید",
     "displayShortcutList": "نمایش لیست میانبر",

@@ -755,6 +755,8 @@
     "cannotOpenPath": "Error: cannot open the path"
   },
   "shortcutsUI": {
+    "sourceUser": "User",
+    "sourceSystem": "System",
     "globalShortcutsSystemScope": "Global shortcuts (system scope)",
     "globalShortcutsTriggerActionsWhenNotFocused": "Global shortcuts will trigger actions even when the app is not focused.",
     "changeShortcut": "Change shortcut",
@@ -764,6 +766,7 @@
   },
   "shortcuts": {
     "openCloseTheAppWindow": "Open / close the app window",
+    "focusAppWindow": "Focus the app window",
     "openGlobalSearch": "Open global search",
     "openTheAppWindowCreateANewNote": "Open the app window & create a new note",
     "displayShortcutList": "Display shortcut list",

@@ -755,6 +755,8 @@
     "cannotOpenPath": "Error: cannot open the path"
   },
   "shortcutsUI": {
+    "sourceUser": "Пользователь",
+    "sourceSystem": "Система",
     "globalShortcutsSystemScope": "Глобальные шорткаты (в системе)",
     "globalShortcutsTriggerActionsWhenNotFocused": "Глобальные шорткаты будут запускать действия, даже если приложение не сфокусировано.",
     "changeShortcut": "Изменить шорткат",
@@ -764,6 +766,7 @@
   },
   "shortcuts": {
     "openCloseTheAppWindow": "Открыть/закрыть окно приложения",
+    "focusAppWindow": "Показать окно приложения",
     "openGlobalSearch": "Открыть глобальный поиск",
     "openTheAppWindowCreateANewNote": "Открыть окно приложения и создать новую заметку",
     "displayShortcutList": "Показать список шорткатов",

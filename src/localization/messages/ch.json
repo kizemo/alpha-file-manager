@@ -742,6 +742,8 @@
     "cannotOpenPath": "错误：无法打开该路径"
   },
   "shortcutsUI": {
+    "sourceUser": "用户",
+    "sourceSystem": "系统",
     "globalShortcutsSystemScope": "全局快捷键（系统范围）",
     "globalShortcutsTriggerActionsWhenNotFocused": "即使应用程序未获得焦点，全局快捷键也会触发操作。",
     "changeShortcut": "更改快捷键",
@@ -751,6 +753,7 @@
   },
   "shortcuts": {
     "openCloseTheAppWindow": "打开/关闭应用程序窗口",
+    "focusAppWindow": "聚焦应用程序窗口",
     "openGlobalSearch": "打开全局搜索",
     "openTheAppWindowCreateANewNote": "打开应用程序窗口并创建一个新笔记",
     "displayShortcutList": "显示快捷键列表",

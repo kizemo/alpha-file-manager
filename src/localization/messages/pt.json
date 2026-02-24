@@ -742,6 +742,8 @@
     "cannotOpenPath": "Erro: não é possível abrir o caminho"
   },
   "shortcutsUI": {
+    "sourceUser": "Usuário",
+    "sourceSystem": "Sistema",
     "globalShortcutsSystemScope": "Atalhos globais (escopo do sistema)",
     "globalShortcutsTriggerActionsWhenNotFocused": "Atalhos globais acionarão ações mesmo quando o aplicativo não estiver em foco",
     "changeShortcut": "Alterar atalho",
@@ -751,6 +753,7 @@
   },
   "shortcuts": {
     "openCloseTheAppWindow": "Abrir/fechar a janela do aplicativo",
+    "focusAppWindow": "Focar a janela do aplicativo",
     "openGlobalSearch": "Abrir pesquisa global",
     "openTheAppWindowCreateANewNote": "Abra a janela do aplicativo e crie uma nova nota",
     "displayShortcutList": "Exibir lista de atalhos",

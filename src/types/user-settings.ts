@@ -94,6 +94,10 @@ export type ShortcutId
 
 export type UserShortcuts = Partial<Record<ShortcutId, ShortcutKeys>>;
 
+export type GlobalShortcutId = 'launchApp';
+
+export type UserGlobalShortcuts = Partial<Record<GlobalShortcutId, string>>;
+
 export type AppUpdatesSettings = {
   autoCheck: boolean;
   lastCheckTimestamp: number;
@@ -125,6 +129,7 @@ export type UserSettings = {
   infusion: InfusionSettings;
   settingsCurrentTab: string;
   shortcuts?: UserShortcuts;
+  globalShortcuts?: UserGlobalShortcuts;
   focusWindowOnDriveConnected: boolean;
   appUpdates: AppUpdatesSettings;
   changelog: ChangelogSettings;
