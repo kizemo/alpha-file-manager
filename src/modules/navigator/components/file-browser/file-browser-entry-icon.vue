@@ -31,7 +31,7 @@ const systemIconSrc = ref<string | null>(null);
 
 const cacheKey = computed(() => {
   if (props.entry.is_dir) {
-    return `dir:${props.size}`;
+    return `dir:${props.entry.path.toLowerCase()}:${props.size}`;
   }
 
   const extensionKey = (props.entry.ext || '').toLowerCase();

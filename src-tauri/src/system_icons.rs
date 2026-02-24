@@ -50,7 +50,7 @@ fn has_unique_icon(extension: &Option<String>) -> bool {
 
 fn file_icon_cache_key(path: &str, is_dir: bool, extension: &Option<String>, size: u16) -> String {
     if is_dir {
-        return format!("dir:{size}");
+        return format!("dir:{}:{size}", path.to_lowercase());
     }
 
     let normalized_extension = extension
