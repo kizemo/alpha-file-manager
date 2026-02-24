@@ -21,14 +21,6 @@ export const homeBannerMedia: BannerMedia[] = [
     positionY: 50,
   },
   {
-    name: 'Cyberpunk street',
-    fileName: 'Cyberpunk street by Aleksey Hoffman.jpg',
-    type: 'image',
-    author: 'Aleksey Hoffman',
-    positionX: 50,
-    positionY: 30,
-  },
-  {
     name: 'Serenity',
     fileName: 'Serenity by Alena Aenami.jpg',
     type: 'image',
@@ -61,20 +53,12 @@ export const homeBannerMedia: BannerMedia[] = [
     positionY: 30,
   },
   {
-    name: 'The City Before The Wall',
-    fileName: 'The City Before The Wall by Klaus Pillon.jpg',
-    type: 'image',
-    author: 'Klaus Pillon',
-    positionX: 50,
-    positionY: 40,
-  },
-  {
     name: 'Cyber Neon City',
     fileName: 'Cyber Neon City by Laury Guintrand.jpg',
     type: 'image',
     author: 'Laury Guintrand',
     positionX: 50,
-    positionY: 50,
+    positionY: 100,
   },
   {
     name: 'Ice Cave',
@@ -114,7 +98,7 @@ export const homeBannerMedia: BannerMedia[] = [
     type: 'image',
     author: 'Vadim Sadovski',
     positionX: 50,
-    positionY: 50,
+    positionY: 85,
   },
   {
     name: 'Canyon',
@@ -146,7 +130,7 @@ export const homeBannerMedia: BannerMedia[] = [
     type: 'image',
     author: 'Sweeper3d (Austin Richey)',
     positionX: 50,
-    positionY: 50,
+    positionY: 100,
   },
   {
     name: 'Lip Sync',
