@@ -8,7 +8,10 @@ use tauri::{
     AppHandle, Manager, Runtime,
 };
 
-fn build_tray_menu<R: Runtime>(app: &AppHandle<R>, shortcut_hint: Option<&str>) -> tauri::Result<Menu<R>> {
+fn build_tray_menu<R: Runtime>(
+    app: &AppHandle<R>,
+    shortcut_hint: Option<&str>,
+) -> tauri::Result<Menu<R>> {
     let app_version = app.package_info().version.to_string();
     let app_name = app.package_info().name.to_string();
     let main_title_text = format!("{} – v{}", app_name, app_version);
