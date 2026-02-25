@@ -89,6 +89,7 @@ export type ShortcutId
     | 'escape'
     | 'quickView'
     | 'openNewTab'
+    | 'closeCurrentTab'
     | 'openTerminal'
     | 'openTerminalAdmin'
     | 'navigateUp'
@@ -198,7 +199,10 @@ export type ListSortColumn = 'name' | 'items' | 'size' | 'modified';
 
 export type ListSortDirection = 'asc' | 'desc';
 
+export type LastTabCloseBehavior = 'createDefaultTab' | 'closeWindow' | 'navigateToHomePage';
+
 export type UserSettingsNavigator = {
+  lastTabCloseBehavior: LastTabCloseBehavior;
   layout: NavigatorLayout;
   infoPanel: UserSettingsNavigatorInfoPanel;
   showHiddenFiles: boolean;

@@ -57,6 +57,7 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
       },
     },
     navigator: {
+      lastTabCloseBehavior: 'createDefaultTab',
       layout: {
         type: {
           title: 'listLayout',
