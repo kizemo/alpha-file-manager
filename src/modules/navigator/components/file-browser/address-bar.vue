@@ -19,11 +19,7 @@ import { dirname } from '@tauri-apps/api/path';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from '@/components/ui/popover';
+import { onClickOutside, useDebounceFn } from '@vueuse/core';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -67,15 +63,18 @@ const selectedIndex = ref(-1);
 const addressBarRef = ref<HTMLElement | null>(null);
 const breadcrumbsContainerRef = ref<HTMLElement | null>(null);
 const pathInputRef = ref<InstanceType<typeof Input> | null>(null);
-const popoverWidth = ref(0);
 const separatorDropdowns = ref<{ [key: number]: string[] }>({});
 const openSeparatorIndex = ref<number | null>(null);
 
-function updatePopoverWidth() {
-  if (addressBarRef.value) {
-    popoverWidth.value = addressBarRef.value.offsetWidth;
-  }
-}
+onClickOutside(
+  addressBarRef,
+  () => {
+    if (isEditorOpen.value && !isPinned.value) {
+      isEditorOpen.value = false;
+    }
+  },
+  { ignore: [] },
+);
 
 const addressParts = computed(() => {
   if (!props.currentPath) return [];
@@ -175,7 +174,6 @@ async function openEditor() {
   const initialPath = props.currentPath;
   pathQuery.value = initialPath;
   selectedIndex.value = -1;
-  updatePopoverWidth();
   isEditorOpen.value = true;
 
   await nextTick();
@@ -183,47 +181,45 @@ async function openEditor() {
   await updateAutocompleteList(initialPath);
 }
 
-async function handlePathInput(value: string | number | undefined) {
+const debouncedUpdateAutocomplete = useDebounceFn(updateAutocompleteList, 120);
+
+function handlePathInput(value: string | number | undefined) {
   const stringValue = normalizePath(String(value ?? ''));
   pathQuery.value = stringValue;
   selectedIndex.value = -1;
-  await updateAutocompleteList(stringValue);
+  debouncedUpdateAutocomplete(stringValue);
 }
 
 async function updateAutocompleteList(queryValue: string) {
-  const normalizedQuery = normalizePath(queryValue);
+  const normalizedQuery = normalizePath(queryValue).trim();
+
+  if (!normalizedQuery) {
+    autocompleteList.value = [];
+    return;
+  }
 
   try {
-    let dirPath = normalizedQuery;
-
-    try {
-      const result = await invoke<DirContents>('read_dir', { path: normalizedQuery });
-      const entries = result.entries
-        .filter(entry => entry.is_dir)
-        .map(entry => entry.path);
-      autocompleteList.value = entries;
-
-      if (normalizedQuery !== props.currentPath) {
-        emit('navigate', normalizedQuery);
-      }
-
-      return;
-    }
-    catch {
-      dirPath = normalizePath(await dirname(normalizedQuery));
-    }
-
-    const result = await invoke<DirContents>('read_dir', { path: dirPath });
-    const queryLower = normalizedQuery.toLowerCase();
+    const result = await invoke<DirContents>('read_dir', { path: normalizedQuery });
     const entries = result.entries
       .filter(entry => entry.is_dir)
       .map(entry => entry.path)
-      .filter(path => path.toLowerCase().startsWith(queryLower));
-
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
     autocompleteList.value = entries;
   }
   catch {
-    autocompleteList.value = [];
+    try {
+      const parentPath = normalizePath(await dirname(normalizedQuery));
+      const result = await invoke<DirContents>('read_dir', { path: parentPath });
+      const lastSegment = normalizedQuery.split('/').pop()?.toLowerCase() ?? '';
+      const entries = result.entries
+        .filter(entry => entry.is_dir && entry.name.toLowerCase().startsWith(lastSegment))
+        .map(entry => entry.path)
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      autocompleteList.value = entries;
+    }
+    catch {
+      autocompleteList.value = [];
+    }
   }
 }
 
@@ -243,8 +239,8 @@ function handleKeydown(event: KeyboardEvent) {
     if (selectedIndex.value >= 0 && autocompleteList.value[selectedIndex.value]) {
       handlePathSelect(autocompleteList.value[selectedIndex.value]);
     }
-    else if (pathQuery.value) {
-      emit('navigate', pathQuery.value);
+    else if (pathQuery.value.trim()) {
+      emit('navigate', pathQuery.value.trim());
 
       if (!isPinned.value) {
         isEditorOpen.value = false;
@@ -293,7 +289,6 @@ function handleKeydown(event: KeyboardEvent) {
       scrollSelectedIntoView();
     }
 
-    // Keep focus on input
     pathInputRef.value?.$el?.focus();
   }
 }
@@ -383,147 +378,62 @@ onUnmounted(() => {
         </TooltipContent>
       </Tooltip>
     </DropdownMenu>
-    <Popover
-      :open="isEditorOpen"
-      @update:open="(open: boolean) => { if (open || !isPinned) isEditorOpen = open }"
-    >
-      <PopoverTrigger as-child>
-        <div
-          ref="breadcrumbsContainerRef"
-          class="address-bar__breadcrumbs"
-          @wheel="handleBreadcrumbsWheel"
-          @click="openEditor"
-        >
-          <div class="address-bar__breadcrumbs-inner">
-            <template
-              v-for="(part, index) in addressParts"
-              :key="index"
+    <template v-if="isEditorOpen">
+      <div class="address-bar__editor-row">
+        <Input
+          ref="pathInputRef"
+          :model-value="pathQuery"
+          :placeholder="t('settings.addressBar.enterValidPath')"
+          class="address-bar__path-input"
+          @update:model-value="handlePathInput"
+          @keydown="handleKeydown"
+        />
+        <Tooltip>
+          <TooltipTrigger as-child>
+            <Button
+              variant="ghost"
+              size="icon"
+              tabindex="-1"
+              class="address-bar__pin-button"
+              :class="{ 'address-bar__pin-button--active': isPinned }"
+              @click="isPinned = !isPinned"
             >
-              <button
-                class="address-bar__part"
-                :class="{ 'address-bar__part--last': part.isLast }"
-                :disabled="part.isLast"
-                :title="part.path"
-                @click.stop="navigateToPart(part.path)"
-              >
-                {{ part.name }}
-              </button>
-              <DropdownMenu
-                v-if="!part.isLast"
-                @update:open="(open: boolean) => {
-                  if (open) {
-                    loadSeparatorDirectories(index);
-                    openSeparatorIndex = index;
-                  } else {
-                    openSeparatorIndex = null;
-                  }
-                }"
-              >
-                <DropdownMenuTrigger as-child>
-                  <button
-                    class="address-bar__separator"
-                    :title="t('settings.addressBar.showSiblingDirectories')"
-                    @click.stop
-                  >
-                    <ChevronRightIcon
-                      :size="12"
-                      :class="{ 'address-bar__separator-icon--open': openSeparatorIndex === index }"
-                    />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  :side="'bottom'"
-                  :align="'start'"
-                  class="address-bar__separator-menu"
-                >
-                  <ScrollArea
-                    as-child
-                    class="address-bar__separator-menu-scroll"
-                  >
-                    <DropdownMenuItem
-                      v-for="dirPath in separatorDropdowns[index]"
-                      :key="dirPath"
-                      @select="handleSeparatorNavigate(dirPath)"
-                    >
-                      <FolderIcon
-                        :size="14"
-                        class="address-bar__separator-menu-icon"
-                      />
-                      <span class="address-bar__separator-menu-path">{{ dirPath.split('/').pop() || dirPath }}</span>
-                    </DropdownMenuItem>
-                  </ScrollArea>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </template>
-          </div>
-        </div>
-      </PopoverTrigger>
-      <PopoverContent
-        class="address-bar__editor"
-        :style="{ width: `${popoverWidth}px` }"
-        :side="'bottom'"
-        :align="'end'"
-        :side-offset="4"
-        @open-auto-focus.prevent
-        @escape-key-down="(event: KeyboardEvent) => { if (isPinned) event.preventDefault(); else isEditorOpen = false }"
-        @pointer-down-outside="(event: Event) => { if (isPinned) event.preventDefault() }"
-        @interact-outside="(event: Event) => { if (isPinned) event.preventDefault() }"
-      >
-        <div class="address-bar__editor-header">
-          <Input
-            ref="pathInputRef"
-            :model-value="pathQuery"
-            :placeholder="t('settings.addressBar.enterValidPath')"
-            class="address-bar__path-input"
-            @update:model-value="handlePathInput"
-            @keydown="handleKeydown"
-          />
-          <Tooltip>
-            <TooltipTrigger as-child>
-              <Button
-                variant="ghost"
-                size="icon"
-                tabindex="-1"
-                class="address-bar__pin-button"
-                :class="{ 'address-bar__pin-button--active': isPinned }"
-                @click="isPinned = !isPinned"
-              >
-                <PinIcon :size="14" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {{ t('settings.addressBar.keepEditorOpened') }}
-              <span
-                v-if="isPinned"
-                class="address-bar__tooltip-status"
-              >{{ t('enabled') }}
-              </span>
-              <span
-                v-else
-                class="address-bar__tooltip-status"
-              >{{ t('disabled') }}
-              </span>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger as-child>
-              <Button
-                variant="ghost"
-                size="icon"
-                tabindex="-1"
-                class="address-bar__close-button"
-                @click="isEditorOpen = false"
-              >
-                <XIcon :size="14" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {{ t('settings.addressBar.closeEditor') }}
-              <kbd class="shortcut">Esc</kbd>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-
+              <PinIcon :size="14" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {{ t('settings.addressBar.keepEditorOpened') }}
+            <span
+              v-if="isPinned"
+              class="address-bar__tooltip-status"
+            >{{ t('enabled') }}
+            </span>
+            <span
+              v-else
+              class="address-bar__tooltip-status"
+            >{{ t('disabled') }}
+            </span>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger as-child>
+            <Button
+              variant="ghost"
+              size="icon"
+              tabindex="-1"
+              class="address-bar__close-button"
+              @click="isEditorOpen = false"
+            >
+              <XIcon :size="14" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {{ t('settings.addressBar.closeEditor') }}
+            <kbd class="shortcut">Esc</kbd>
+          </TooltipContent>
+        </Tooltip>
+      </div>
+      <div class="address-bar__editor-dropdown">
         <ScrollArea
           v-if="autocompleteList.length > 0"
           class="address-bar__suggestions"
@@ -544,14 +454,12 @@ onUnmounted(() => {
             <span class="address-bar__suggestion-path">{{ path }}</span>
           </button>
         </ScrollArea>
-
         <div
           v-else
           class="address-bar__empty"
         >
           {{ t('settings.addressBar.noMatchingDirectories') }}
         </div>
-
         <div class="address-bar__editor-hints">
           <span class="address-bar__hint-key">↑↓</span>
           /
@@ -562,25 +470,95 @@ onUnmounted(() => {
           <span class="address-bar__hint-key">Enter</span>
           {{ t('settings.addressBar.toOpenThePath') }}
         </div>
-      </PopoverContent>
-    </Popover>
-
-    <Tooltip>
-      <TooltipTrigger as-child>
-        <Button
-          variant="ghost"
-          size="icon"
-          class="address-bar__edit-button"
-          @click="openEditor"
-        >
-          <TextCursorIcon :size="14" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>
-        {{ t('settings.addressBar.editAddress') }}
-        <kbd class="shortcut">Ctrl+P</kbd>
-      </TooltipContent>
-    </Tooltip>
+      </div>
+    </template>
+    <template v-else>
+      <div
+        ref="breadcrumbsContainerRef"
+        class="address-bar__breadcrumbs"
+        @wheel="handleBreadcrumbsWheel"
+        @click="openEditor"
+      >
+        <div class="address-bar__breadcrumbs-inner">
+          <template
+            v-for="(part, index) in addressParts"
+            :key="index"
+          >
+            <button
+              class="address-bar__part"
+              :class="{ 'address-bar__part--last': part.isLast }"
+              :disabled="part.isLast"
+              :title="part.path"
+              @click.stop="navigateToPart(part.path)"
+            >
+              {{ part.name }}
+            </button>
+            <DropdownMenu
+              v-if="!part.isLast"
+              @update:open="(open: boolean) => {
+                if (open) {
+                  loadSeparatorDirectories(index);
+                  openSeparatorIndex = index;
+                } else {
+                  openSeparatorIndex = null;
+                }
+              }"
+            >
+              <DropdownMenuTrigger as-child>
+                <button
+                  class="address-bar__separator"
+                  :title="t('settings.addressBar.showSiblingDirectories')"
+                  @click.stop
+                >
+                  <ChevronRightIcon
+                    :size="12"
+                    :class="{ 'address-bar__separator-icon--open': openSeparatorIndex === index }"
+                  />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                :side="'bottom'"
+                :align="'start'"
+                class="address-bar__separator-menu"
+              >
+                <ScrollArea
+                  as-child
+                  class="address-bar__separator-menu-scroll"
+                >
+                  <DropdownMenuItem
+                    v-for="dirPath in separatorDropdowns[index]"
+                    :key="dirPath"
+                    @select="handleSeparatorNavigate(dirPath)"
+                  >
+                    <FolderIcon
+                      :size="14"
+                      class="address-bar__separator-menu-icon"
+                    />
+                    <span class="address-bar__separator-menu-path">{{ dirPath.split('/').pop() || dirPath }}</span>
+                  </DropdownMenuItem>
+                </ScrollArea>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </template>
+        </div>
+      </div>
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <Button
+            variant="ghost"
+            size="icon"
+            class="address-bar__edit-button"
+            @click="openEditor"
+          >
+            <TextCursorIcon :size="14" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          {{ t('settings.addressBar.editAddress') }}
+          <kbd class="shortcut">Ctrl+P</kbd>
+        </TooltipContent>
+      </Tooltip>
+    </template>
   </div>
 </template>
 
@@ -598,6 +576,34 @@ onUnmounted(() => {
   background-color: hsl(var(--background) / 50%);
   gap: 2px;
   transition: background-color 0.15s, border-color 0.15s;
+}
+
+.address-bar:has(.address-bar__editor-row) {
+  overflow: visible;
+}
+
+.address-bar__editor-row {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  flex: 1;
+  align-items: center;
+  padding: 0 4px;
+  gap: 4px;
+}
+
+.address-bar__editor-dropdown {
+  position: absolute;
+  z-index: 50;
+  top: 100%;
+  right: 0;
+  left: 0;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-lg);
+  margin-top: 4px;
+  background-color: hsl(var(--background-3));
+  color: hsl(var(--popover-foreground));
 }
 
 .address-bar:hover {
@@ -689,7 +695,6 @@ onUnmounted(() => {
 .address-bar__separator svg {
   transition: transform 0.1s ease-in-out;
 }
-
 </style>
 
 <style>
@@ -701,27 +706,10 @@ onUnmounted(() => {
   gap: 8px;
 }
 
-.address-bar__editor.sigma-ui-popover-content {
-  min-width: 300px;
-  padding: 0;
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius-lg);
-  background-color: hsl(var(--background-3));
-  box-shadow: 0 10px 40px hsl(var(--foreground) / 10%);
-  color: hsl(var(--popover-foreground));
-}
-
-.address-bar__editor-header {
-  display: flex;
-  align-items: center;
-  padding: 8px;
-  gap: 4px;
-}
-
 .address-bar__path-input {
-  height: 32px;
+  min-width: 0;
+  height: calc(100% - 8px);
   flex: 1;
-  margin-right: 8px;
   font-size: 13px;
 }
 
@@ -742,9 +730,8 @@ onUnmounted(() => {
 }
 
 .address-bar__suggestions {
-  max-height: 200px;
+  max-height: 140px;
   padding: 4px 0;
-  border-top: 1px solid hsl(var(--border));
 }
 
 .address-bar__suggestion {
@@ -766,17 +753,10 @@ onUnmounted(() => {
   outline-offset: -2px;
 }
 
-.address-bar__suggestion:hover {
-  background-color: hsl(var(--primary) / 30%);
-}
-
+.address-bar__suggestion:hover,
 .address-bar__suggestion--selected {
-  background-color: hsl(var(--primary) / 15%);
-  color: hsl(var(--primary) / 90%);
-}
-
-.address-bar__suggestion--selected .address-bar__suggestion-icon {
-  color: hsl(var(--primary));
+  background-color: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
 }
 
 .address-bar__suggestion-icon {
@@ -789,10 +769,6 @@ onUnmounted(() => {
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.address-bar__separator-menu-icon {
-  flex-shrink: 0;
 }
 
 .address-bar__empty {

@@ -61,7 +61,7 @@ withDefaults(defineProps<Props>(), {
 
 .sigma-ui-button:focus-visible {
   outline: 2px solid hsl(var(--ring));
-  outline-offset: 2px;
+  outline-offset: 0;
 }
 
 .sigma-ui-button:disabled {
