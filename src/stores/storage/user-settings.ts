@@ -140,9 +140,9 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
   });
 
   function createDefaultInfusionBackground() {
-    const media = homeBannerMedia.find((item) => item.fileName === DEFAULT_INFUSION_BACKGROUND_FILE_NAME)
+    const media = homeBannerMedia.find(item => item.fileName === DEFAULT_INFUSION_BACKGROUND_FILE_NAME)
       ?? homeBannerMedia[0];
-    const index = homeBannerMedia.findIndex((item) => item.fileName === media.fileName);
+    const index = homeBannerMedia.findIndex(item => item.fileName === media.fileName);
 
     return {
       type: media.type as 'image' | 'video',

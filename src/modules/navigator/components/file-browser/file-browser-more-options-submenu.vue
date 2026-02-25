@@ -68,9 +68,11 @@ async function loadShellContextMenu() {
 
   isLoading.value = true;
   loadError.value = null;
+
   if (hasLoadedForPath.value !== currentPath) {
     menuItems.value = [];
   }
+
   hasLoadedForPath.value = currentPath;
 
   try {

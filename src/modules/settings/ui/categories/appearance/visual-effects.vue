@@ -149,7 +149,7 @@ async function onSameSettingsForAllPagesChange(checked: boolean) {
 }
 
 const backgroundMediaOptions = computed(() => {
-  return allMediaItems.value.map((item) => ({
+  return allMediaItems.value.map(item => ({
     name: getItemDisplayName(item),
     value: getPositionKey(item),
     item,
@@ -158,21 +158,25 @@ const backgroundMediaOptions = computed(() => {
 
 function getInfusionBackgroundMediaId() {
   const background = currentPageSettings.value.background;
+
   if (background.mediaId && background.mediaId.trim()) {
     return background.mediaId;
   }
+
   const builtinIndex = typeof background.index === 'number' ? background.index : 0;
   const legacyMedia = homeBannerMedia[builtinIndex];
+
   if (legacyMedia) {
     return legacyMedia.fileName;
   }
+
   return DEFAULT_INFUSION_BACKGROUND_FILE_NAME;
 }
 
 const selectedBackground = computed({
   get: () => {
     const mediaId = getInfusionBackgroundMediaId();
-    return backgroundMediaOptions.value.find((option) => option.value === mediaId)
+    return backgroundMediaOptions.value.find(option => option.value === mediaId)
       ?? backgroundMediaOptions.value[0];
   },
   set: (option) => {
@@ -181,7 +185,7 @@ const selectedBackground = computed({
       const item = option.item;
       const type = item.kind === 'builtin' ? item.data.type : item.type;
       const path = item.kind === 'builtin' ? item.data.fileName : item.path;
-      const index = backgroundMediaOptions.value.findIndex((opt) => opt.value === option.value);
+      const index = backgroundMediaOptions.value.findIndex(opt => opt.value === option.value);
       const background = {
         type,
         path,
@@ -199,7 +203,7 @@ function selectNextBackground() {
   if (options.length === 0) return;
 
   const currentMediaId = getInfusionBackgroundMediaId();
-  const currentIdx = options.findIndex((opt) => opt.value === currentMediaId);
+  const currentIdx = options.findIndex(opt => opt.value === currentMediaId);
   const nextIdx = (currentIdx >= 0 ? currentIdx + 1 : 0) % options.length;
   const option = options[nextIdx];
 

@@ -53,7 +53,7 @@ async function migrateUserSettingsStep(storage: StorageAdapter, fromVersion: num
       const isLegacyFormat = customMediaValue.length > 0 && typeof customMediaValue[0] === 'string';
 
       if (isLegacyFormat) {
-        migratedCustom = (customMediaValue as string[]).map((path) => ({
+        migratedCustom = (customMediaValue as string[]).map(path => ({
           path,
           id: generateShortId(),
         }));
@@ -66,7 +66,7 @@ async function migrateUserSettingsStep(storage: StorageAdapter, fromVersion: num
 
     const positionsValue = await storage.get<Record<string, HomeBannerPosition>>('homeBannerPositions');
     const hasNumericKeys = positionsValue && typeof positionsValue === 'object'
-      && Object.keys(positionsValue).some((key) => /^\d+$/.test(key));
+      && Object.keys(positionsValue).some(key => /^\d+$/.test(key));
 
     if (hasNumericKeys && positionsValue) {
       const migratedPositions: Record<string, HomeBannerPosition> = {};
@@ -75,6 +75,7 @@ async function migrateUserSettingsStep(storage: StorageAdapter, fromVersion: num
         if (!position || typeof position !== 'object') continue;
 
         const index = parseInt(key, 10);
+
         if (Number.isNaN(index)) {
           migratedPositions[key] = position;
           continue;
@@ -91,6 +92,7 @@ async function migrateUserSettingsStep(storage: StorageAdapter, fromVersion: num
         }
         else {
           const builtinIndex = index - migratedCustom.length;
+
           if (builtinIndex >= 0 && builtinIndex < homeBannerMedia.length) {
             migratedPositions[homeBannerMedia[builtinIndex].fileName] = validPosition;
           }
@@ -116,6 +118,7 @@ async function migrateUserSettingsStep(storage: StorageAdapter, fromVersion: num
       if (totalCount > 0 && rawIndex >= 0 && rawIndex < totalCount) {
         if (rawIndex < customCount) {
           const entry = (customMediaValue as HomeBannerCustomMediaItem[])?.[rawIndex];
+
           if (entry && typeof entry === 'object' && entry.id) {
             resolvedMediaId = entry.id;
           }
@@ -123,6 +126,7 @@ async function migrateUserSettingsStep(storage: StorageAdapter, fromVersion: num
         else {
           const builtinIndex = rawIndex - customCount;
           const media = homeBannerMedia[builtinIndex];
+
           if (media) {
             resolvedMediaId = media.fileName;
           }
@@ -138,7 +142,10 @@ async function migrateUserSettingsStep(storage: StorageAdapter, fromVersion: num
 
     for (const pageKey of infusionPageKeys) {
       const storageKey = `infusion.pages.${pageKey}.background`;
-      const background = await storage.get<{ type?: string; path?: string; index?: number; mediaId?: string }>(storageKey);
+      const background = await storage.get<{ type?: string;
+        path?: string;
+        index?: number;
+        mediaId?: string; }>(storageKey);
 
       if (background && typeof background === 'object' && !background.mediaId && typeof background.index === 'number') {
         const builtinIndex = background.index;

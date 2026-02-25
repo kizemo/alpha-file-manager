@@ -30,26 +30,37 @@ const effectivePageSettings = computed(() => {
   return settings.pages[currentRouteName.value] || settings.pages[''];
 });
 
-function getInfusionMediaFromBackground(background: { index?: number; mediaId?: string }) {
+function getInfusionMediaFromBackground(background: { index?: number;
+  mediaId?: string; }) {
   const mediaId = (typeof background.mediaId === 'string' && background.mediaId.trim())
     ? background.mediaId
     : DEFAULT_INFUSION_BACKGROUND_FILE_NAME;
 
   const items = allMediaItems.value;
-  const item = items.find((i) => getPositionKey(i) === mediaId);
+  const item = items.find(i => getPositionKey(i) === mediaId);
 
   if (item) {
-    return { url: getMediaUrl(item), type: item.kind === 'builtin' ? item.data.type : item.type };
+    return {
+      url: getMediaUrl(item),
+      type: item.kind === 'builtin' ? item.data.type : item.type,
+    };
   }
 
   const fallback = items.find(
-    (i) => i.kind === 'builtin' && i.data.fileName === DEFAULT_INFUSION_BACKGROUND_FILE_NAME,
+    i => i.kind === 'builtin' && i.data.fileName === DEFAULT_INFUSION_BACKGROUND_FILE_NAME,
   ) ?? items[0];
+
   if (fallback) {
-    return { url: getMediaUrl(fallback), type: fallback.kind === 'builtin' ? fallback.data.type : fallback.type };
+    return {
+      url: getMediaUrl(fallback),
+      type: fallback.kind === 'builtin' ? fallback.data.type : fallback.type,
+    };
   }
 
-  return { url: '', type: 'image' as const };
+  return {
+    url: '',
+    type: 'image' as const,
+  };
 }
 
 const infusionSrc = computed(() => getInfusionMediaFromBackground(effectivePageSettings.value.background).url);
