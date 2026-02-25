@@ -126,6 +126,13 @@ function handleContextMenu(event: MouseEvent) {
   isDropdownOpen.value = true;
 }
 
+function handleAuxClick(event: MouseEvent) {
+  if (event.button === 1) {
+    event.preventDefault();
+    emit('close-tab', props.tabGroup);
+  }
+}
+
 function closeOtherTabs() {
   workspacesStore.closeOtherTabGroups(props.tabGroup);
 }
@@ -159,6 +166,7 @@ function closeAllTabs() {
             }"
             :is-active="isActive"
             @click.stop="tabOnClick(props.tabGroup)"
+            @auxclick.stop="handleAuxClick"
             @contextmenu="handleContextMenu"
             @pointerdown="handlePointerDown"
           >

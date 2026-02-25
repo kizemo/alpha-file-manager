@@ -388,6 +388,14 @@ async function handleOpenNewTabShortcut() {
   await workspacesStore.openNewTabGroup(currentActivePath.value);
 }
 
+async function handleCloseCurrentTabShortcut() {
+  const tabGroup = workspacesStore.currentTabGroup;
+
+  if (tabGroup) {
+    await workspacesStore.closeTabGroup(tabGroup);
+  }
+}
+
 async function handleOpenTerminalShortcut() {
   await openTerminalWithOptions(false);
 }
@@ -459,6 +467,7 @@ function registerShortcutHandlers() {
   shortcutsStore.registerHandler('escape', handleEscapeKey);
   shortcutsStore.registerHandler('quickView', handleQuickViewShortcut, { checkItemSelected: hasSelectedItems });
   shortcutsStore.registerHandler('openNewTab', handleOpenNewTabShortcut);
+  shortcutsStore.registerHandler('closeCurrentTab', handleCloseCurrentTabShortcut);
   shortcutsStore.registerHandler('openTerminal', handleOpenTerminalShortcut);
   shortcutsStore.registerHandler('openTerminalAdmin', handleOpenTerminalAdminShortcut);
   shortcutsStore.registerHandler('navigateUp', () => callActivePaneMethod('navigateUp'));
