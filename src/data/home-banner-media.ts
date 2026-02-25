@@ -13,6 +13,14 @@ export type BannerMedia = {
 
 export const homeBannerMedia: BannerMedia[] = [
   {
+    name: 'Exile',
+    fileName: 'Exile by Aleksey Hoffman.jpg',
+    type: 'image',
+    author: 'Aleksey Hoffman',
+    positionX: 50,
+    positionY: 50,
+  },
+  {
     name: 'Glowing Chinese city in mountains',
     fileName: 'Glowing Chinese city in mountains by Aleksey Hoffman.jpg',
     type: 'image',
