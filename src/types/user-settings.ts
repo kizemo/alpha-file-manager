@@ -28,7 +28,14 @@ export type HomeBannerPosition = {
   zoom: number;
 };
 
-export type HomeBannerPositions = Record<number, HomeBannerPosition>;
+export type HomeBannerPositions = Record<string, HomeBannerPosition>;
+
+export type HomeBannerCustomMediaItem = {
+  path: string;
+  id: string;
+};
+
+export type HomeBannerCustomMedia = HomeBannerCustomMediaItem[];
 
 export type UserDirectoryCustomization = {
   title?: string;
@@ -47,6 +54,7 @@ export type InfusionPageSettings = {
     type: 'image' | 'video';
     path: string;
     index: number;
+    mediaId?: string;
   };
 };
 
@@ -122,7 +130,8 @@ export type UserSettings = {
   globalSearch: UserSettingsGlobalSearch;
   UIZoomLevel?: number;
   homeBannerIndex: number;
-  homeBannerCustomMedia: string[];
+  homeBannerMediaId: string;
+  homeBannerCustomMedia: HomeBannerCustomMedia;
   homeBannerPositions: HomeBannerPositions;
   driveCard: DriveCardSettings;
   userDirectories: UserDirectoriesCustomizations;
