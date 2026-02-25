@@ -29,6 +29,8 @@ export function useFileBrowserFilter(options: {
   dismissalLayerStore: DismissalLayerStore;
   globalSearchStore: GlobalSearchStore;
   currentPath?: Ref<string>;
+  componentRef?: Ref<HTMLElement | null>;
+  isDefaultPane?: boolean;
 }) {
   const filterQuery = ref('');
   const isFilterOpen = ref(false);
@@ -92,6 +94,17 @@ export function useFileBrowserFilter(options: {
     const hasModifiers = event.ctrlKey || event.altKey || event.shiftKey || event.metaKey;
 
     if (keyIsAlphaNum && !hasModifiers) {
+      const rootEl = options.componentRef?.value;
+      const activeElement = document.activeElement;
+      const focusInAnyPane = Array.from(document.querySelectorAll('.file-browser')).some(
+        paneEl => paneEl.contains(activeElement),
+      );
+      const isDefaultPane = options.isDefaultPane ?? true;
+
+      if (rootEl && !rootEl.contains(activeElement) && (focusInAnyPane || !isDefaultPane)) {
+        return;
+      }
+
       openFilter();
     }
   }

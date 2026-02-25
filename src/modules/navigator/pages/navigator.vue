@@ -190,16 +190,6 @@ function setPaneRef(element: FileBrowserInstance | null, tabId: string) {
   }
 }
 
-function getFilterState(pane: FileBrowserInstance): boolean {
-  const state = pane.isFilterOpen;
-
-  if (typeof state === 'object' && state !== null && 'value' in state) {
-    return Boolean((state as { value: boolean }).value);
-  }
-
-  return Boolean(state);
-}
-
 function getActivePaneRef(): FileBrowserInstance | undefined {
   if (isSearchSelectionActive.value && globalSearchStore.isOpen) {
     const searchFileBrowser = globalSearchViewRef.value?.getActiveFileBrowser?.();
@@ -261,39 +251,10 @@ async function handleGlobalSearchOpenEntry(entry: DirEntry) {
 }
 
 function handleFilterShortcut() {
-  if (!isSplitView.value) {
-    const pane = singlePaneRef.value || Array.from(paneRefsMap.value.values())[0];
+  const pane = getActivePaneRef();
 
-    if (pane) {
-      pane.toggleFilter();
-    }
-
-    return;
-  }
-
-  const tabGroup = workspacesStore.currentTabGroup;
-
-  if (!tabGroup || tabGroup.length < 2) return;
-
-  const firstPane = paneRefsMap.value.get(tabGroup[0].id);
-  const secondPane = paneRefsMap.value.get(tabGroup[1].id);
-
-  if (!firstPane || !secondPane) return;
-
-  const firstOpen = getFilterState(firstPane);
-  const secondOpen = getFilterState(secondPane);
-
-  if (!firstOpen && !secondOpen) {
-    firstPane.openFilter();
-  }
-  else if (firstOpen && !secondOpen) {
-    firstPane.closeFilter();
-    setTimeout(() => {
-      secondPane.openFilter();
-    }, 50);
-  }
-  else {
-    secondPane.closeFilter();
+  if (pane) {
+    pane.toggleFilter();
   }
 }
 
