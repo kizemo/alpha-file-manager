@@ -96,6 +96,11 @@ const isActive = computed(() => (
   props.tabGroup?.[0]?.id === workspacesStore.currentTab?.id
 ));
 
+const showCloseButton = computed(() => {
+  const tabGroups = workspacesStore.currentWorkspace?.tabGroups ?? [];
+  return tabGroups.length > 1;
+});
+
 const tabName = computed(() => {
   const firstTab = props.tabGroup?.[0];
   const secondTab = props.tabGroup?.[1];
@@ -148,6 +153,7 @@ function closeAllTabs() {
             ref="tabRef"
             v-wave
             class="tab"
+            :class="{ 'tab--no-close': !showCloseButton }"
             :style="{
               '--tab-width': `${props.tabGroup.length === 2 ? NAVIGATOR_TAB_WIDTH * 2 : NAVIGATOR_TAB_WIDTH}px`
             }"
@@ -163,6 +169,7 @@ function closeAllTabs() {
             </div>
 
             <button
+              v-if="showCloseButton"
               class="tab__close-button"
               x-small
               icon
@@ -266,6 +273,10 @@ function closeAllTabs() {
   font-size: 12px;
   text-overflow: clip;
   white-space: nowrap;
+}
+
+.tab--no-close .tab__title {
+  width: 100%;
 }
 
 .tab__close-button {
