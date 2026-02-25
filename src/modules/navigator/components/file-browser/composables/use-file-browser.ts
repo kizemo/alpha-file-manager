@@ -84,6 +84,7 @@ function setupNavigationDataSource(
     userSettingsStore,
     dismissalLayerStore,
     globalSearchStore,
+    currentPath: navigation.currentPath,
   });
 
   const showHiddenFiles = computed(() => userSettingsStore.userSettings.navigator.showHiddenFiles);

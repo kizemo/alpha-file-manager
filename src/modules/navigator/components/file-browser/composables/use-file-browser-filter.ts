@@ -3,6 +3,7 @@
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
 import { onMounted, onUnmounted, ref, watch } from 'vue';
+import type { Ref } from 'vue';
 import type { DismissalLayerType } from '@/stores/runtime/dismissal-layer';
 
 type DismissalLayerStore = {
@@ -27,6 +28,7 @@ export function useFileBrowserFilter(options: {
   userSettingsStore: UserSettingsStore;
   dismissalLayerStore: DismissalLayerStore;
   globalSearchStore: GlobalSearchStore;
+  currentPath?: Ref<string>;
 }) {
   const filterQuery = ref('');
   const isFilterOpen = ref(false);
@@ -117,6 +119,14 @@ export function useFileBrowserFilter(options: {
       closeFilter();
     }
   });
+
+  if (options.currentPath) {
+    watch(options.currentPath, (newPath, oldPath) => {
+      if (oldPath !== undefined && newPath !== oldPath) {
+        closeFilter();
+      }
+    });
+  }
 
   onMounted(() => {
     window.addEventListener('keydown', handleKeydownForFilter);
