@@ -123,7 +123,8 @@ const sectionTitle = computed(() => {
   transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
 }
 
-.drives-section:hover .drives-section__add-button {
+.drives-section:hover .drives-section__add-button,
+.drives-section:focus-within .drives-section__add-button {
   opacity: 1;
 }
 
