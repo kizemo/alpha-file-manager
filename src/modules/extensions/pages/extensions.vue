@@ -11,6 +11,6 @@ const { t } = useI18n();
 
 <template>
   <div class="extensions-page">
-    {{ t('pages.extensions') }}
+    {{ t('dialogs.appGuideDialog.comingSoon') }}
   </div>
 </template>
