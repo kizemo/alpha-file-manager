@@ -4,17 +4,22 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 -->
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { PlusIcon } from 'lucide-vue-next';
 import { useDrives } from '@/modules/home/composables';
 import { usePlatformStore } from '@/stores/runtime/platform';
 import { Button } from '@/components/ui/button';
 import { DropTargetCard } from '@/components/drop-target-card';
 import DriveCard from './drive-card.vue';
+import MountDialog from './mount-dialog.vue';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const { t } = useI18n();
 const { drives, isLoading, error, refresh } = useDrives();
 const platformStore = usePlatformStore();
+
+const showMountDialog = ref(false);
 
 const sectionTitle = computed(() => {
   return platformStore.isWindows ? t('drives') : t('locations');
@@ -23,9 +28,25 @@ const sectionTitle = computed(() => {
 
 <template>
   <section class="drives-section">
-    <h2 class="drives-section__title">
-      {{ sectionTitle }}
-    </h2>
+    <div class="drives-section__header">
+      <h2 class="drives-section__title">
+        {{ sectionTitle }}
+      </h2>
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <Button
+            class="drives-section__add-button"
+            variant="outline"
+            size="xs"
+            @click="showMountDialog = true"
+          >
+            <PlusIcon :size="14" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{{ t('mountableDevices') }}</TooltipContent>
+      </Tooltip>
+      <Tooltip />
+    </div>
 
     <div
       v-if="isLoading"
@@ -40,6 +61,7 @@ const sectionTitle = computed(() => {
       class="drives-section__error"
     >
       <span>{{ error }}</span>
+
       <Button
         variant="outline"
         size="sm"
@@ -68,6 +90,11 @@ const sectionTitle = computed(() => {
         <DriveCard :drive="drive" />
       </DropTargetCard>
     </div>
+
+    <MountDialog
+      :open="showMountDialog"
+      @update:open="showMountDialog = $event"
+    />
   </section>
 </template>
 
@@ -76,13 +103,28 @@ const sectionTitle = computed(() => {
   margin-bottom: 16px;
 }
 
-.drives-section__title {
+.drives-section__header {
+  display: flex;
+  align-items: center;
   margin-bottom: 12px;
+  gap: 8px;
+}
+
+.drives-section__title {
   color: hsl(var(--muted-foreground));
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.5px;
   text-transform: uppercase;
+}
+
+.drives-section__add-button {
+  opacity: 0;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.drives-section:hover .drives-section__add-button {
+  opacity: 1;
 }
 
 .drives-section__grid {

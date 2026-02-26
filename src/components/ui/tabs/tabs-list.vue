@@ -24,9 +24,9 @@ const props = defineProps<TabsListProps>();
   height: 2.5rem;
   align-items: center;
   justify-content: center;
-  padding: 2px;
+  padding: 4px;
   border-radius: var(--radius-md);
-  background-color: hsl(var(--muted));
+  background-color: hsl(var(--secondary));
   color: hsl(var(--muted-foreground));
 }
 </style>

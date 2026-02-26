@@ -30,6 +30,7 @@ const forwardedProps = useForwardProps(props);
   border-radius: var(--radius-sm);
   font-size: 0.875rem;
   font-weight: 500;
+  gap: 0.375rem;
   padding-inline: 0.75rem;
   transition-duration: 150ms;
   transition-property: all;
@@ -48,7 +49,7 @@ const forwardedProps = useForwardProps(props);
 }
 
 .sigma-ui-tabs-trigger[data-state="active"] {
-  background-color: hsl(var(--secondary));
+  background-color: hsl(var(--muted));
   box-shadow:
     0 1px 3px 0 rgb(0 0 0 / 10%),
     0 1px 2px -1px rgb(0 0 0 / 10%);
