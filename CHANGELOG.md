@@ -11,6 +11,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.0-beta.2] - February 2026
+
+Global shortcuts, new settings, new features, improved file filtering, improved address bar, home banner improvements, and bug fixes.
+
+### Global Shortcuts
+
+You can now use keyboard shortcuts to interact with the app even when it's not in focus.
+
+Added shortcuts:
+
+- `Win+Shift+E` to show and focus the app window;
+
+### New settings
+
+Added setting to choose what happens when the last tab is closed.
+
+![Setting close last tab](./public/changelog/beta-2/setting-close-last-tab.png)
+
+### New features
+
+Added new early preview features:
+
+- Network locations: allows you to connect a network location (SSHFS (SSH) / NFS / SMB / CIFS);
+- [Linux] Drive mounting: allows you to unmount locations;
+
+### File Filter
+
+The file filter was improved:
+- Now when you change directory, it clears and closes automatically;
+- The "filter on type" feature activates in the selected pane, not the first one; 
+
+### Address Bar
+
+- Improved design and autocomplete logic;
+- The path dividers are now dropdown menus that provide quick navigation to any parent directory;
+
+![Divider menus](./public/changelog/beta-2/divider-menus.png)
+
+### Home Banner / Background effects
+
+- Improved media banner editor design: 
+  - Media banner options menu now opens to the bottom to avoid obscuring the view; 
+  - You can now click outside to close the background position editor;
+  - URL input moved above custom backgrounds; 
+- Custom images/videos can be used in background visual effects;
+- Removed some default media banner images;
+- Added new banner image "Exile by Aleksey Hoffman";
+
+### UX Improvements
+
+- App restores previous window position on launch;
+- The current tab can now be closed with shortcut `Ctrl+W` or middle mouse click;
+- Increased file icon size in grid layout view;
+
+### Bug Fixes
+
+- Fixed moving files between tabs sometimes moving them to the wrong location;
+- Fixed navigator sometimes showing wrong system icons for directories;
+- Fixed multiple app and tray instances being created;
+- Fixed shell extensions menu refetching data periodically which was forcing the list to scroll top all the time;
+
 ## [2.0.0-beta.1] - February 2026
 
 Major usability and design improvements including keyboard navigation, new shortcuts, open in terminal, directory auto-refresh, drag and drop, and enhanced search and list views.

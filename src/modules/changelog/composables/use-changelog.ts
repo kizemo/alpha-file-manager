@@ -60,7 +60,7 @@ function parseChangelog(markdown: string): Release[] {
 
       if (currentFeatureTitle) {
         if (trimmedLine) {
-          currentFeatureContent.push(trimmedLine);
+          currentFeatureContent.push(/^\s*-\s/.test(line) ? line : trimmedLine);
         }
       }
       else if (trimmedLine && !summary) {

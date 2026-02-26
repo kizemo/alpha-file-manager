@@ -102,10 +102,50 @@ function renderMedia(alt: string, src: string): string {
   return `<div class="changelog-dialog__feature-media-container"><img src="${resolvedSrc}" alt="${alt}" class="changelog-dialog__feature-image"></div>`;
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function renderInlineCode(text: string): string {
+  return text.replace(/`([^`]*)`/g, (_, code) =>
+    `<code class="changelog-dialog__inline-code">${escapeHtml(code)}</code>`,
+  );
+}
+
+function getListIndent(line: string): number {
+  const match = line.match(/^(\s*)- /);
+  return match ? match[1].length : -1;
+}
+
 function renderMarkdown(text: string): string {
   const lines = text.split('\n');
   const result: string[] = [];
-  let inList = false;
+  let lastListLevel = -1;
+
+  function endList() {
+    for (let level = lastListLevel; level >= 0; level--) {
+      result.push('</li></ul>');
+    }
+
+    lastListLevel = -1;
+  }
+
+  function closeToLevel(targetLevel: number) {
+    while (lastListLevel > targetLevel) {
+      result.push('</li></ul>');
+      lastListLevel--;
+    }
+
+    if (lastListLevel >= 0 && targetLevel >= 0) {
+      result.push('</li>');
+    }
+
+    lastListLevel = targetLevel;
+  }
 
   for (const line of lines) {
     const trimmedLine = line.trim();
@@ -113,50 +153,50 @@ function renderMarkdown(text: string): string {
     const htmlVideoMatch = trimmedLine.match(/<video[^>]*src="([^"]+)"[^>]*>/i);
 
     if (mediaMatch) {
-      if (inList) {
-        result.push('</ul>');
-        inList = false;
-      }
-
+      endList();
       result.push(renderMedia(mediaMatch[1], mediaMatch[2]));
     }
     else if (htmlVideoMatch) {
-      if (inList) {
-        result.push('</ul>');
-        inList = false;
-      }
-
+      endList();
       result.push(renderMedia('', htmlVideoMatch[1]));
     }
     else if (trimmedLine.startsWith('#### ')) {
-      if (inList) {
-        result.push('</ul>');
-        inList = false;
-      }
-
-      result.push(`<h4 class="changelog-dialog__feature-subheading">${trimmedLine.slice(5)}</h4>`);
+      endList();
+      result.push(`<h4 class="changelog-dialog__feature-subheading">${renderInlineCode(trimmedLine.slice(5))}</h4>`);
     }
-    else if (trimmedLine.startsWith('- ')) {
-      if (!inList) {
-        result.push('<ul class="changelog-dialog__feature-list">');
-        inList = true;
-      }
+    else {
+      const listIndent = getListIndent(line);
 
-      result.push(`<li>${trimmedLine.slice(2)}</li>`);
-    }
-    else if (trimmedLine) {
-      if (inList) {
-        result.push('</ul>');
-        inList = false;
-      }
+      if (listIndent >= 0) {
+        const listLevel = Math.floor(listIndent / 2);
+        const listContent = trimmedLine.slice(2);
 
-      result.push(`<p>${trimmedLine}</p>`);
+        if (lastListLevel < 0) {
+          result.push('<ul class="changelog-dialog__feature-list">');
+        }
+        else if (listLevel < lastListLevel) {
+          closeToLevel(listLevel);
+        }
+        else if (listLevel === lastListLevel) {
+          result.push('</li>');
+        }
+        else {
+          for (let level = lastListLevel; level < listLevel; level++) {
+            result.push('<ul class="changelog-dialog__feature-list changelog-dialog__feature-list--nested">');
+          }
+        }
+
+        result.push(`<li>${renderInlineCode(listContent)}`);
+        lastListLevel = listLevel;
+      }
+      else if (trimmedLine) {
+        endList();
+        result.push(`<p>${renderInlineCode(trimmedLine)}</p>`);
+      }
     }
   }
 
-  if (inList) {
-    result.push('</ul>');
-  }
+  endList();
 
   return result.join('');
 }
@@ -573,13 +613,26 @@ function renderMarkdown(text: string): string {
 }
 
 .changelog-dialog__feature-list {
-  padding-left: 1.25rem;
+  padding-left: 32px;
   margin: 0.5rem 0;
   list-style-type: disc;
 }
 
+.changelog-dialog__feature-list--nested {
+  margin: 0.25rem 0 0.25rem 1rem;
+  list-style-type: circle;
+}
+
 .changelog-dialog__feature-list li {
   margin-bottom: 0.25rem;
+}
+
+.changelog-dialog__inline-code {
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-sm);
+  background-color: hsl(var(--muted));
+  font-family: ui-monospace, monospace;
+  font-size: 0.875em;
 }
 
 .changelog-dialog__feature-media-container {
