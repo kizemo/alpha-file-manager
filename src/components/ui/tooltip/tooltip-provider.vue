@@ -8,6 +8,7 @@ import { TooltipProvider, type TooltipProviderProps, useForwardProps } from 'rek
 
 const props = withDefaults(defineProps<TooltipProviderProps>(), {
   delayDuration: 0,
+  ignoreNonKeyboardFocus: true,
 });
 
 const forwarded = useForwardProps(props);
