@@ -4,7 +4,9 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 -->
 
 <script setup lang="ts">
-import { ref, onBeforeUnmount, computed } from 'vue';
+import {
+  ref, onBeforeUnmount, computed, watch, nextTick,
+} from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Tab, TabDraggable } from '.';
 import { Button } from '@/components/ui/button';
@@ -30,6 +32,20 @@ const props = withDefaults(defineProps<{
 
 const workspacesStore = useWorkspacesStore();
 const shortcutsStore = useShortcutsStore();
+
+const tabGroupCount = computed(() => workspacesStore.currentWorkspace?.tabGroups?.length ?? 0);
+
+watch(tabGroupCount, (newCount, previousCount) => {
+  if (previousCount !== undefined && newCount > previousCount) {
+    nextTick(() => {
+      const container = scrollContainerRef.value;
+
+      if (container) {
+        container.scrollLeft = container.scrollWidth;
+      }
+    });
+  }
+});
 
 const teleportDisabled = computed(() => !props.teleportTarget);
 const teleportTo = computed(() => props.teleportTarget || 'body');
