@@ -445,7 +445,9 @@
       "linearVertical": "Lineare {'|'} verticale",
       "linearHorizontal": "Lineare {'|'} orizzontale",
       "linearHorizontalCentered": "Lineare {'|'} orizzontale {'|'} centrato",
-      "circular": "Circolare"
+      "circular": "Circolare",
+      "preventDropdownCloseFocusReturn": "Impedire il ritorno del focus alla chiusura dei menu a discesa",
+      "preventDropdownCloseFocusReturnDescription": "Quando attivato, la chiusura di un menu a discesa (es. con Esc) non riporterà il focus sul pulsante di attivazione, evitando la visualizzazione del contorno di focus e del tooltip"
     },
     "homePageMediaBanner": {
       "title": "Banner multimediale nella pagina iniziale",

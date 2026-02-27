@@ -445,7 +445,9 @@
       "linearVertical": "Linear {'|'} Vertikal",
       "linearHorizontal": "Linear {'|'} Horizontal",
       "linearHorizontalCentered": "Linear {'|'} horizontal {'|'} zentriert",
-      "circular": "Kreisförmig"
+      "circular": "Kreisförmig",
+      "preventDropdownCloseFocusReturn": "Fokus-Rückgabe beim Schließen von Dropdowns verhindern",
+      "preventDropdownCloseFocusReturnDescription": "Wenn aktiviert, wird beim Schließen eines Dropdowns (z. B. mit Escape) der Fokus nicht zum Auslöser-Button zurückgegeben, wodurch Fokusring und Tooltip vermieden werden"
     },
     "homePageMediaBanner": {
       "title": "Homepage-Medienbanner",

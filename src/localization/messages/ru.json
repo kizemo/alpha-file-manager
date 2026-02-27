@@ -458,7 +458,9 @@
       "linearVertical": "Линейный {'|'} вертикальный",
       "linearHorizontal": "Линейный {'|'} горизонтальный",
       "linearHorizontalCentered": "Линейный {'|'} горизонтальный {'|'} по центру",
-      "circular": "Круговой"
+      "circular": "Круговой",
+      "preventDropdownCloseFocusReturn": "Не возвращать фокус при закрытии выпадающих меню",
+      "preventDropdownCloseFocusReturnDescription": "При включении закрытие выпадающего меню (например, по Escape) не вернёт фокус на кнопку, что исключит отображение рамки фокуса и подсказки"
     },
     "homePageMediaBanner": {
       "title": "Медиа-баннер на главной странице",

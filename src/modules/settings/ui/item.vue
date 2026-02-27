@@ -62,15 +62,23 @@ const props = defineProps<Props>();
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius);
   background-color: hsl(var(--card));
+  container-type: inline-size;
 }
 
 .settings-view-item__main {
   display: flex;
-  flex-wrap: wrap;
+  flex-flow: row nowrap;
   align-items: center;
   justify-content: space-between;
   padding: 1rem;
   gap: 2rem;
+}
+
+@container (max-width: 500px) {
+  .settings-view-item__main {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 .settings-view-item__header {

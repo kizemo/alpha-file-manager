@@ -141,6 +141,7 @@ export type UserSettings = {
   shortcuts?: UserShortcuts;
   globalShortcuts?: UserGlobalShortcuts;
   focusWindowOnDriveConnected: boolean;
+  preventDropdownCloseFocusReturn: boolean;
   appUpdates: AppUpdatesSettings;
   changelog: ChangelogSettings;
 };

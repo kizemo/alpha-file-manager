@@ -458,7 +458,9 @@
       "linearVertical": "Linear {'|'} vertical",
       "linearHorizontal": "Linear {'|'} horizontal",
       "linearHorizontalCentered": "Linear {'|'} horizontal {'|'} centered",
-      "circular": "Circular"
+      "circular": "Circular",
+      "preventDropdownCloseFocusReturn": "Prevent focus return when closing dropdowns",
+      "preventDropdownCloseFocusReturnDescription": "When enabled, closing a dropdown (e.g. with Escape) will not return focus to the trigger button, avoiding focus ring and tooltip display"
     },
     "homePageMediaBanner": {
       "title": "Home page media banner",

@@ -445,7 +445,9 @@
       "linearVertical": "Doğrusal {'|'} dikey",
       "linearHorizontal": "Doğrusal {'|'} yatay",
       "linearHorizontalCentered": "Doğrusal {'|'} yatay {'|'} merkezli",
-      "circular": "Dairesel"
+      "circular": "Dairesel",
+      "preventDropdownCloseFocusReturn": "Açılır menüler kapatıldığında odak dönüşünü engelle",
+      "preventDropdownCloseFocusReturnDescription": "Etkinleştirildiğinde, bir açılır menüyü kapatmak (ör. Escape ile) odağı tetikleyici düğmeye geri döndürmeyecek, odak halkası ve araç ipucu görüntülenmesini önleyecektir"
     },
     "homePageMediaBanner": {
       "title": "Ana sayfa medya banner'ı",

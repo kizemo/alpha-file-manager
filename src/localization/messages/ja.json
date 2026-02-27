@@ -445,7 +445,9 @@
       "linearVertical": "線形 {'|'} 垂直",
       "linearHorizontal": "線形 {'|'} 水平",
       "linearHorizontalCentered": "線形 {'|'} 水平 {'|'} 中央揃え",
-      "circular": "円形"
+      "circular": "円形",
+      "preventDropdownCloseFocusReturn": "ドロップダウンを閉じた時にフォーカスを戻さない",
+      "preventDropdownCloseFocusReturnDescription": "有効にすると、ドロップダウンを閉じても（Escapeキーなど）フォーカスがトリガーボタンに戻らず、フォーカスリングやツールチップの表示を防ぎます"
     },
     "homePageMediaBanner": {
       "title": "ホームページメディアバナー",

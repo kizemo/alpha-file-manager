@@ -445,7 +445,9 @@
       "linearVertical": "Linéaire {'|'} vertical",
       "linearHorizontal": "Linéaire {'|'} horizontal",
       "linearHorizontalCentered": "Linéaire {'|'} horizontal {'|'} centré",
-      "circular": "Circulaire"
+      "circular": "Circulaire",
+      "preventDropdownCloseFocusReturn": "Empêcher le retour du focus à la fermeture des menus déroulants",
+      "preventDropdownCloseFocusReturnDescription": "Lorsqu'activé, la fermeture d'un menu déroulant (par ex. avec Échap) ne ramènera pas le focus sur le bouton déclencheur, évitant l'affichage du contour de focus et de l'infobulle"
     },
     "homePageMediaBanner": {
       "title": "Bannière média de la page d'accueil",

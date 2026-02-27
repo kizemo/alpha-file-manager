@@ -458,7 +458,9 @@
       "linearVertical": "Linearno {'|'} vertikalno",
       "linearHorizontal": "Linearno {'|'} horizontalno",
       "linearHorizontalCentered": "Linearno {'|'} horizontalno {'|'} centrirano",
-      "circular": "Krožno"
+      "circular": "Krožno",
+      "preventDropdownCloseFocusReturn": "Prepreči vrnitev fokusa ob zapiranju spustnih menijev",
+      "preventDropdownCloseFocusReturnDescription": "Ko je omogočeno, zapiranje spustnega menija (npr. z Escape) ne bo vrnilo fokusa na gumb aktivacije, kar prepreči prikaz obroča fokusa in namiga"
     },
     "homePageMediaBanner": {
       "title": "Medijska pasica domače strani",

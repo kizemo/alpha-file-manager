@@ -444,7 +444,9 @@
       "linearVertical": "خطی {'|'} عمودی",
       "linearHorizontal": "خطی {'|'} افقی",
       "linearHorizontalCentered": "خطی {'|'} افقی {'|'} مرکز",
-      "circular": "گرد"
+      "circular": "گرد",
+      "preventDropdownCloseFocusReturn": "جلوگیری از بازگشت فوکوس هنگام بستن منوهای کشویی",
+      "preventDropdownCloseFocusReturnDescription": "وقتی فعال است، بستن یک منوی کشویی (مثلاً با Escape) فوکوس را به دکمه راه‌اندازی برنمی‌گرداند و از نمایش حلقه فوکوس و راهنما جلوگیری می‌کند"
     },
     "homePageMediaBanner": {
       "title": "بنر رسانه صفحه اصلی",

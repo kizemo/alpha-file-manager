@@ -445,7 +445,9 @@
       "linearVertical": "线 {'|'} 垂直 {'|'} 左侧",
       "linearHorizontal": "线 {'|'} 水平 {'|'} 底部",
       "linearHorizontalCentered": "线 {'|'} 水平 {'|'} 居中",
-      "circular": "圆"
+      "circular": "圆",
+      "preventDropdownCloseFocusReturn": "关闭下拉菜单时不返回焦点",
+      "preventDropdownCloseFocusReturnDescription": "启用后，关闭下拉菜单（例如按 Escape）时不会将焦点返回到触发按钮，从而避免显示焦点环和工具提示"
     },
     "homePageMediaBanner": {
       "title": "主页媒体横幅",

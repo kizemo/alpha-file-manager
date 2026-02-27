@@ -4,6 +4,7 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 -->
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import {
   DropdownMenuContent,
   type DropdownMenuContentEmits,
@@ -11,26 +12,43 @@ import {
   DropdownMenuPortal,
   useForwardPropsEmits,
 } from 'reka-ui';
+import { useUserSettingsStore } from '@/stores/storage/user-settings';
 
 defineOptions({
   inheritAttrs: false,
 });
 
 const props = withDefaults(
-  defineProps<DropdownMenuContentProps>(),
+  defineProps<DropdownMenuContentProps & { preventCloseFocusReturn?: boolean }>(),
   {
     sideOffset: 4,
+    preventCloseFocusReturn: undefined,
   },
 );
 const emits = defineEmits<DropdownMenuContentEmits>();
 
+const userSettingsStore = useUserSettingsStore();
+const preventCloseFocusReturn = computed(() =>
+  props.preventCloseFocusReturn ?? userSettingsStore.userSettings.preventDropdownCloseFocusReturn ?? false,
+);
+
 const forwarded = useForwardPropsEmits(props, emits);
+
+function handleCloseAutoFocus(event: Event) {
+  if (preventCloseFocusReturn.value) {
+    event.preventDefault();
+  }
+}
 </script>
 
 <template>
   <DropdownMenuPortal>
     <DropdownMenuContent
-      v-bind="{ ...forwarded, ...$attrs }"
+      v-bind="{
+        ...forwarded,
+        ...$attrs,
+        ...(preventCloseFocusReturn ? { onCloseAutoFocus: handleCloseAutoFocus } : {}),
+      }"
       class="sigma-ui-dropdown-menu-content"
       :class="$attrs.class"
     >

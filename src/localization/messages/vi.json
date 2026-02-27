@@ -445,7 +445,9 @@
       "linearVertical": "Tuyến tính {'|'} dọc",
       "linearHorizontal": "Tuyến tính {'|'} ngang",
       "linearHorizontalCentered": "Tuyến tính {'|'} ngang {'|'} chính giữa",
-      "circular": "Dạng hình tròn"
+      "circular": "Dạng hình tròn",
+      "preventDropdownCloseFocusReturn": "Ngăn trả lại tiêu điểm khi đóng menu thả xuống",
+      "preventDropdownCloseFocusReturnDescription": "Khi bật, đóng menu thả xuống (ví dụ bằng phím Escape) sẽ không trả tiêu điểm về nút kích hoạt, tránh hiển thị vòng tiêu điểm và chú thích"
     },
     "homePageMediaBanner": {
       "title": "Biểu ngữ truyền thông trang chủ",

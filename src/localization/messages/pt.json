@@ -445,7 +445,9 @@
       "linearVertical": "Linear {'|'} vertical",
       "linearHorizontal": "Linear {'|'} horizontal",
       "linearHorizontalCentered": "Linear {'|'} horizontais {'|'} centrado",
-      "circular": "Circular"
+      "circular": "Circular",
+      "preventDropdownCloseFocusReturn": "Impedir o retorno do foco ao fechar menus suspensos",
+      "preventDropdownCloseFocusReturnDescription": "Quando ativado, fechar um menu suspenso (ex.: com Escape) não retornará o foco ao botão de ativação, evitando a exibição do anel de foco e da dica de ferramenta"
     },
     "homePageMediaBanner": {
       "title": "Banner de mídia da página inicial",

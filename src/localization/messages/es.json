@@ -445,7 +445,9 @@
       "linearVertical": "Lineal {'|'} vertical",
       "linearHorizontal": "Lineal {'|'} horizontal",
       "linearHorizontalCentered": "Lineal {'|'} horizontal {'|'} centrado",
-      "circular": "Circular"
+      "circular": "Circular",
+      "preventDropdownCloseFocusReturn": "Evitar devolver el foco al cerrar menús desplegables",
+      "preventDropdownCloseFocusReturnDescription": "Cuando está activado, cerrar un menú desplegable (p. ej. con Escape) no devolverá el foco al botón de activación, evitando el anillo de foco y la tooltip"
     },
     "homePageMediaBanner": {
       "title": "Banner de medios de la página de inicio",
