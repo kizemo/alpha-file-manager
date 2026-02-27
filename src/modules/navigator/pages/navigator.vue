@@ -356,6 +356,11 @@ function handleEscapeKey(): boolean {
     return true;
   }
 
+  if (globalSearchStore.isOpen) {
+    globalSearchStore.close();
+    return true;
+  }
+
   return false;
 }
 
