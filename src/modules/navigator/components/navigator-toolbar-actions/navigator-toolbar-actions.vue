@@ -4,16 +4,14 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 -->
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -47,8 +45,6 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const userSettingsStore = useUserSettingsStore();
 
-const isLayoutPopoverOpen = ref(false);
-
 const currentLayout = computed(() => {
   const layoutName = userSettingsStore.userSettings.navigator.layout.type.name;
   return layoutName === 'compact-list' ? 'list' : layoutName;
@@ -62,7 +58,6 @@ async function setLayout(layoutName: LayoutType) {
     title: layoutTitle,
     name: layoutName,
   });
-  isLayoutPopoverOpen.value = false;
 }
 
 function handleToggleHiddenFiles(checked: boolean) {
@@ -93,7 +88,34 @@ function handleToggleHiddenFiles(checked: boolean) {
             :align="'end'"
             class="navigator-settings-menu"
           >
-            <DropdownMenuLabel>{{ t('settings.navigator.navigatorOptions') }}</DropdownMenuLabel>
+            <DropdownMenuItem
+              @select.prevent
+              class="navigator-settings-menu__item navigator-settings-menu__item--layout"
+            >
+              <div class="navigator-settings-menu__layout-label">
+                {{ t('settings.navigator.navigatorViewLayout') }}
+              </div>
+              <div class="navigator-settings-menu__layout-row">
+                <button
+                  type="button"
+                  class="navigator-settings-menu__layout-option"
+                  :class="{ 'navigator-settings-menu__layout-option--active': currentLayout === 'list' }"
+                  @click="setLayout('list')"
+                >
+                  <ListIcon :size="20" />
+                  <span>{{ t('list') }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="navigator-settings-menu__layout-option"
+                  :class="{ 'navigator-settings-menu__layout-option--active': currentLayout === 'grid' }"
+                  @click="setLayout('grid')"
+                >
+                  <LayoutGridIcon :size="20" />
+                  <span>{{ t('grid') }}</span>
+                </button>
+              </div>
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               class="navigator-settings-menu__item"
@@ -113,57 +135,6 @@ function handleToggleHiddenFiles(checked: boolean) {
         </Tooltip>
       </DropdownMenu>
 
-      <Popover
-        :open="isLayoutPopoverOpen"
-        @update:open="isLayoutPopoverOpen = $event"
-      >
-        <Tooltip>
-          <TooltipTrigger as-child>
-            <PopoverTrigger as-child>
-              <Button
-                variant="ghost"
-                size="icon"
-              >
-                <LayoutGridIcon
-                  v-if="currentLayout === 'grid'"
-                  :size="16"
-                  class="navigator-toolbar-actions__icon"
-                />
-                <ListIcon
-                  v-else
-                  :size="16"
-                  class="navigator-toolbar-actions__icon"
-                />
-              </Button>
-            </PopoverTrigger>
-          </TooltipTrigger>
-          <PopoverContent
-            :side="'bottom'"
-            :align="'end'"
-            class="navigator-layout-popover"
-          >
-            <button
-              class="navigator-layout-option"
-              :class="{ 'navigator-layout-option--active': currentLayout === 'list' }"
-              @click="setLayout('list')"
-            >
-              <ListIcon :size="16" />
-              <span>{{ t('listLayout') }}</span>
-            </button>
-            <button
-              class="navigator-layout-option"
-              :class="{ 'navigator-layout-option--active': currentLayout === 'grid' }"
-              @click="setLayout('grid')"
-            >
-              <LayoutGridIcon :size="16" />
-              <span>{{ t('gridLayout') }}</span>
-            </button>
-          </PopoverContent>
-          <TooltipContent>
-            {{ t('settings.navigator.navigatorViewLayout') }}
-          </TooltipContent>
-        </Tooltip>
-      </Popover>
       <Tooltip>
         <TooltipTrigger as-child>
           <Button
@@ -229,44 +200,62 @@ function handleToggleHiddenFiles(checked: boolean) {
   stroke: hsl(var(--primary));
 }
 
-.navigator-layout-popover.sigma-ui-popover-content {
-  display: flex;
-  width: auto;
-  flex-direction: column;
-  padding: 4px;
-  gap: 2px;
+.navigator-settings-menu__layout-label.sigma-ui-dropdown-menu-label {
+  padding-bottom: 4px;
 }
 
-.navigator-layout-option {
+.navigator-settings-menu__layout-row {
   display: flex;
+  width: 100%;
+  height: 64px;
   align-items: center;
-  padding: 8px 12px;
-  border: none;
+  justify-content: center;
+  gap: 8px;
+}
+
+.navigator-settings-menu__item--layout.sigma-ui-dropdown-menu-item {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.navigator-settings-menu__layout-option {
+  display: flex;
+  height: 100%;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 4px;
+  border: 1px solid hsl(var(--border));
   border-radius: var(--radius-sm);
   background: transparent;
   color: hsl(var(--foreground));
   cursor: pointer;
-  font-size: 13px;
-  gap: 8px;
-  transition: background-color 0.15s;
+  font-size: 11px;
+  gap: 2px;
+  transition: background-color 0.15s, color 0.15s;
 }
 
-.navigator-layout-option:focus-visible {
+.navigator-settings-menu__layout-option:focus-visible {
   outline: 2px solid hsl(var(--ring));
   outline-offset: 2px;
 }
 
-.navigator-layout-option:hover {
+.navigator-settings-menu__layout-option:hover {
   background-color: hsl(var(--secondary));
 }
 
-.navigator-layout-option--active {
+.navigator-settings-menu__layout-option--active {
   background-color: hsl(var(--primary) / 15%);
   color: hsl(var(--primary));
 }
 
-.navigator-layout-option--active:hover {
+.navigator-settings-menu__layout-option--active:hover {
   background-color: hsl(var(--primary) / 25%);
+}
+
+.navigator-settings-menu__layout-option svg {
+  flex-shrink: 0;
 }
 
 .navigator-settings-menu.sigma-ui-dropdown-menu-content {
@@ -275,10 +264,9 @@ function handleToggleHiddenFiles(checked: boolean) {
 
 .navigator-settings-menu__item.sigma-ui-dropdown-menu-item {
   display: flex;
-  align-items: center;
   justify-content: space-between;
   cursor: default;
-  gap: 12px;
+  gap: 8px;
 }
 
 .navigator-settings-menu__item.sigma-ui-dropdown-menu-item:focus,
