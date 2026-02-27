@@ -259,9 +259,12 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
     return newTabGroup;
   }
 
-  async function openNewTabGroup(path?: string) {
+  async function openNewTabGroup(path?: string, options?: { activate?: boolean }) {
     const newTabGroup = await addNewTabGroup(path);
-    openTabGroup(newTabGroup);
+
+    if (options?.activate !== false) {
+      openTabGroup(newTabGroup);
+    }
   }
 
   function setTabFilterQuery(tab: Tab, filterQuery: string) {

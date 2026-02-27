@@ -137,6 +137,13 @@ export function useFileBrowserSelection(
   }
 
   function handleEntryMouseDown(entry: DirEntry, event: MouseEvent) {
+    if (event.button === 1 && entry.is_dir) {
+      event.preventDefault();
+      event.stopPropagation();
+      openEntriesInNewTabs([entry]);
+      return;
+    }
+
     const wasSelected = isEntrySelected(entry);
     const ctrlKey = event.ctrlKey || event.metaKey;
     const shiftKey = event.shiftKey;
@@ -158,7 +165,6 @@ export function useFileBrowserSelection(
   }
 
   function handleEntryMouseUp(entry: DirEntry, event: MouseEvent) {
-    // Ignore right-click (context menu) mouseup events
     if (event.button === 2) {
       return;
     }
@@ -229,7 +235,7 @@ export function useFileBrowserSelection(
     const directoryEntries = entries.filter(entry => entry.is_dir);
 
     for (const entry of directoryEntries) {
-      await workspacesStore.openNewTabGroup(entry.path);
+      await workspacesStore.openNewTabGroup(entry.path, { activate: false });
     }
   }
 

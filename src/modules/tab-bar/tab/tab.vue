@@ -121,9 +121,10 @@ function handleContextMenu(event: MouseEvent) {
   isDropdownOpen.value = true;
 }
 
-function handleAuxClick(event: MouseEvent) {
+function handleTabMouseDown(event: MouseEvent) {
   if (event.button === 1) {
     event.preventDefault();
+    event.stopPropagation();
     emit('close-tab', props.tabGroup);
   }
 }
@@ -160,7 +161,7 @@ function closeAllTabs() {
             }"
             :is-active="isActive"
             @click.stop="tabOnClick(props.tabGroup)"
-            @auxclick.stop="handleAuxClick"
+            @mousedown="handleTabMouseDown"
             @contextmenu="handleContextMenu"
             @pointerdown="handlePointerDown"
           >
