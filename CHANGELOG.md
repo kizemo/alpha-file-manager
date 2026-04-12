@@ -220,7 +220,7 @@ Added shortcuts:
 
 Added setting to choose what happens when the last tab is closed.
 
-![Setting close last tab](./public/changelog/beta-2/setting-close-last-tab.png)
+![Setting close last tab](./public/changelog/assets/beta-2/setting-close-last-tab.png)
 
 ### New features
 
@@ -240,7 +240,7 @@ The file filter was improved:
 - Improved design and autocomplete logic;
 - The path dividers are now dropdown menus that provide quick navigation to any parent directory;
 
-![Divider menus](./public/changelog/beta-2/divider-menus.png)
+![Divider menus](./public/changelog/assets/beta-2/divider-menus.png)
 
 ### Home Banner / Background effects
 
@@ -289,7 +289,7 @@ The navigator view automatically refreshes when files are created, deleted, rena
 
 ### Drag and Drop
 
-<video width="100%" mute autoplay loop controls src="./public/changelog/beta-1/drag-and-drop.mp4"></video>
+<video width="100%" mute autoplay loop controls src="./public/changelog/assets/beta-1/drag-and-drop.mp4"></video>
 
 You can now drag files and folders around to copy/move them with ease. Drag between panes, from or to search results lists, from or to external apps.
 
@@ -379,14 +379,14 @@ Preview files without fully opening them using a lightweight preview window.
 - Close instantly with `Space` or `Escape`.
 - Supports images, videos, audio, text files, PDFs, and more;
 
-<video width="100%" mute autoplay loop controls src="./public/changelog/alpha-6/quick-view.mp4"></video>
+<video width="100%" mute autoplay loop controls src="./public/changelog/assets/alpha-6/quick-view.mp4"></video>
 
 ### Directory Size Calculation
 
 - The size of directories is now auto calculated;
 - You can see the total size of all directories, including all subdirectories and files, as soon as you open any directory;
 
-![Open With](./public/changelog/alpha-6/size.png)
+![Open With](./public/changelog/assets/alpha-6/size.png)
 
 ### New Context Menu Options
 
@@ -397,14 +397,14 @@ Preview files without fully opening them using a lightweight preview window.
 - View all compatible applications for any file type;
 - Set default applications for specific file types;
 
-![Open With](./public/changelog/alpha-6/open-with.png)
+![Open With](./public/changelog/assets/alpha-6/open-with.png)
 
 #### Shell Extensions
 
 - Access Windows shell context menu items;
 - Access third-party shell extensions (7-Zip, Git, etc.);
 
-![Shell Extensions](./public/changelog/alpha-6/shell-extensions.png)
+![Shell Extensions](./public/changelog/assets/alpha-6/shell-extensions.png)
 
 ### New Settings
 
@@ -450,7 +450,7 @@ Improved global search with a hybrid indexed + direct search system for more rel
 
 Powerful full-disk search that indexes and searches files across all your drives. Features fuzzy matching to find files even with typos, automatic periodic re-indexing, priority indexing for frequently used directories, and optional parallel scanning for faster indexing.
 
-![Global Search](./public/changelog/alpha-5/search.png)
+![Global Search](./public/changelog/assets/alpha-5/search.png)
 
 ### File Operations
 
