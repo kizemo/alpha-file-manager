@@ -106,6 +106,7 @@ export type ShortcutId
     | 'quickView'
     | 'openNewTab'
     | 'closeCurrentTab'
+    | 'restoreLastClosedTab'
     | 'openTerminal'
     | 'openTerminalAdmin'
     | 'navigateUp'

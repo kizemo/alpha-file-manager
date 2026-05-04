@@ -152,6 +152,26 @@ describe('shortcuts store', () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
+  it('matches Ctrl+Shift+T for restoring the last closed tab', async () => {
+    const shortcutsStore = useShortcutsStore();
+    const restoreLastClosedTabHandler = vi.fn();
+
+    shortcutsStore.registerHandler('restoreLastClosedTab', restoreLastClosedTabHandler);
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'T',
+      code: 'KeyT',
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    await expect(shortcutsStore.handleKeydown(event)).resolves.toBe(true);
+    expect(restoreLastClosedTabHandler).toHaveBeenCalledTimes(1);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
   it('does not trigger app or extension shortcuts while capture is active', async () => {
     const shortcutsStore = useShortcutsStore();
     const zoomInHandler = vi.fn();

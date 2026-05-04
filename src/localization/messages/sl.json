@@ -800,6 +800,7 @@
     "uiZoomReset": "Ponastavi UI povečavo",
     "newTabInCurrentWorkspace": "Nov zavihek v trenutnem delovnem prostoru",
     "closeCurrentTab": "Zapri trenutni zavihek / zapri okno aplikacije",
+    "restoreLastClosedTab": "Obnovi zadnji zaprti zavihek",
     "closeAllTabsInCurrentWorkspace": "Zapri vse zavihke v trenutnem delovnem prostoru / zapri okno aplikacije",
     "closeAppWindow": "Zapri okno aplikacije",
     "scrollPageToTheTop": "Pomakni stran na vrh",

@@ -781,6 +781,7 @@
     "uiZoomReset": "Réinitialisation du zoom de l'interface utilisateur",
     "newTabInCurrentWorkspace": "Nouvel onglet dans l'espace de travail actuel",
     "closeCurrentTab": "Fermer l'onglet actuel / fermer la fenêtre de l'application",
+    "restoreLastClosedTab": "Restaurer le dernier onglet fermé",
     "closeAllTabsInCurrentWorkspace": "Fermer tous les onglets dans l'espace de travail actuel / fermer la fenêtre de l'application",
     "closeAppWindow": "Fermer la fenêtre de l'application",
     "scrollPageToTheTop": "Faites défiler la page vers le haut",

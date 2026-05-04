@@ -783,6 +783,7 @@
     "uiZoomReset": "Redefinir zoom da interface do usuário",
     "newTabInCurrentWorkspace": "Nova aba na área de trabalho atual",
     "closeCurrentTab": "Fechar aba atual/fechar janela do aplicativo",
+    "restoreLastClosedTab": "Restaurar última aba fechada",
     "closeAllTabsInCurrentWorkspace": "Fechar todas as abas no espaço de trabalho atual/fechar a janela do aplicativo",
     "closeAppWindow": "Fechar janela do aplicativo",
     "scrollPageToTheTop": "Rolar a página para cima",

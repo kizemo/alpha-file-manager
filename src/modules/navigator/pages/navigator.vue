@@ -568,6 +568,10 @@ async function handleCloseCurrentTabShortcut() {
   }
 }
 
+async function handleRestoreLastClosedTabShortcut() {
+  return workspacesStore.restoreLastClosedTabGroup();
+}
+
 async function handleOpenTerminalShortcut() {
   await openTerminalWithOptions(false);
 }
@@ -677,6 +681,7 @@ function registerShortcutHandlers() {
   shortcutsStore.registerHandler('quickView', handleQuickViewShortcut, { checkItemSelected: hasSelectedItems });
   shortcutsStore.registerHandler('openNewTab', handleOpenNewTabShortcut);
   shortcutsStore.registerHandler('closeCurrentTab', handleCloseCurrentTabShortcut);
+  shortcutsStore.registerHandler('restoreLastClosedTab', handleRestoreLastClosedTabShortcut);
   shortcutsStore.registerHandler('openTerminal', handleOpenTerminalShortcut);
   shortcutsStore.registerHandler('openTerminalAdmin', handleOpenTerminalAdminShortcut);
   shortcutsStore.registerHandler('navigateUp', () => callActivePaneMethod('navigateUp'));

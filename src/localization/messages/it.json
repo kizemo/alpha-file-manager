@@ -781,6 +781,7 @@
     "uiZoomReset": "Reimpostazione zoom della UI",
     "newTabInCurrentWorkspace": "Nuova scheda nell'area di lavoro attuale",
     "closeCurrentTab": "Chiudi la scheda attuale / chiudi la finestra dell'app",
+    "restoreLastClosedTab": "Ripristina l'ultima scheda chiusa",
     "closeAllTabsInCurrentWorkspace": "Chiudi tutte le schede nell'area di lavoro attuale / chiudi la finestra dell'app",
     "closeAppWindow": "Chiudi la finestra dell'app",
     "scrollPageToTheTop": "Scorri la pagina verso l'alto",

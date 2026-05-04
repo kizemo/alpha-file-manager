@@ -781,6 +781,7 @@
     "uiZoomReset": "UI缩放重置",
     "newTabInCurrentWorkspace": "当前工作区中的新选项卡",
     "closeCurrentTab": "关闭当前选项卡/关闭应用程序窗口",
+    "restoreLastClosedTab": "恢复上次关闭的标签页",
     "closeAllTabsInCurrentWorkspace": "关闭当前工作区中的所有选项卡/关闭应用程序窗口",
     "closeAppWindow": "关闭应用程序窗口",
     "scrollPageToTheTop": "将页面滚动到顶部",

@@ -800,6 +800,7 @@
     "uiZoomReset": "UI زوم ری سیٹ کریں",
     "newTabInCurrentWorkspace": "موجودہ ورک اسپیس میں نیا ٹیب",
     "closeCurrentTab": "موجودہ ٹیب بند کریں / ایپ ونڈو بند کریں",
+    "restoreLastClosedTab": "آخری بند ٹیب بحال کریں",
     "closeAllTabsInCurrentWorkspace": "موجودہ ورک اسپیس کے تمام ٹیب بند کریں / ایپ ونڈو بند کریں",
     "closeAppWindow": "ایپ ونڈو بند کریں",
     "scrollPageToTheTop": "صفحہ کے اوپر سکرول کریں",

@@ -50,10 +50,9 @@ const { scrollFadeClass, scrollFadeStyle, updateScrollFade } = useHorizontalScro
 
 watch(tabGroupCount, (newCount, previousCount) => {
   nextTick(() => {
-    const container = scrollContainerRef.value;
-
-    if (previousCount !== undefined && newCount > previousCount && container) {
-      container.scrollLeft = container.scrollWidth;
+    if (previousCount !== undefined && newCount > previousCount) {
+      scrollSelectedTabGroupIntoView();
+      return;
     }
 
     updateScrollFade();

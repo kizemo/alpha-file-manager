@@ -800,6 +800,7 @@
     "uiZoomReset": "UI zoom reset",
     "newTabInCurrentWorkspace": "New tab in current workspace",
     "closeCurrentTab": "Close current tab / close app window",
+    "restoreLastClosedTab": "Restore last closed tab",
     "closeAllTabsInCurrentWorkspace": "Close all tabs in current workspace / close app window",
     "closeAppWindow": "Close app window",
     "scrollPageToTheTop": "Scroll page to the top",

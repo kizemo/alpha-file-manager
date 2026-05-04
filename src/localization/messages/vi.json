@@ -781,6 +781,7 @@
     "uiZoomReset": "Đặt lại thu phóng giao diện người dùng",
     "newTabInCurrentWorkspace": "Tab mới trong không gian làm việc hiện tại",
     "closeCurrentTab": "Đóng tab hiện tại / đóng cửa sổ ứng dụng",
+    "restoreLastClosedTab": "Khôi phục tab đã đóng gần nhất",
     "closeAllTabsInCurrentWorkspace": "Đóng tất cả các tab trong không gian làm việc hiện tại/đóng cửa sổ ứng dụng",
     "closeAppWindow": "Đóng cửa sổ ứng dụng",
     "scrollPageToTheTop": "Cuộn trang lên đầu",

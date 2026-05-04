@@ -781,6 +781,7 @@
     "uiZoomReset": "UIズームリセット",
     "newTabInCurrentWorkspace": "現在のワークスペースの新しいタブ",
     "closeCurrentTab": "現在のタブを閉じる / アプリ ウィンドウを閉じる",
+    "restoreLastClosedTab": "最後に閉じたタブを復元",
     "closeAllTabsInCurrentWorkspace": "現在のワークスペースのすべてのタブを閉じる / アプリ ウィンドウを閉じる",
     "closeAppWindow": "アプリウィンドウを閉じる",
     "scrollPageToTheTop": "ページを一番上までスクロール",

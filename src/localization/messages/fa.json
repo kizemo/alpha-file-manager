@@ -780,6 +780,7 @@
     "uiZoomReset": "بازنشانی بزرگنمایی UI",
     "newTabInCurrentWorkspace": "برگه جدید در فضای کاری فعلی",
     "closeCurrentTab": "بستن برگه فعلی / بستن پنجره برنامه",
+    "restoreLastClosedTab": "بازگرداندن آخرین برگه بسته شده",
     "closeAllTabsInCurrentWorkspace": "بستن همه برگه ها در فضای کاری فعلی / بستن پنجره برنامه",
     "closeAppWindow": "بستن پنجره برنامه",
     "scrollPageToTheTop": "صفحه را به بالا بروید",

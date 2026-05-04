@@ -781,6 +781,7 @@
     "uiZoomReset": "Restablecimiento del zoom de la interfaz de usuario",
     "newTabInCurrentWorkspace": "Nueva pestaña en el espacio de trabajo actual",
     "closeCurrentTab": "Cerrar pestaña actual/cerrar ventana de aplicación",
+    "restoreLastClosedTab": "Restaurar la última pestaña cerrada",
     "closeAllTabsInCurrentWorkspace": "Cerrar todas las pestañas en el espacio de trabajo actual/cerrar la ventana de la aplicación",
     "closeAppWindow": "Cerrar ventana de la aplicación",
     "scrollPageToTheTop": "Desplazar la página hacia arriba",

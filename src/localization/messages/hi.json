@@ -800,6 +800,7 @@
     "uiZoomReset": "यूआई ज़ूम रीसेट",
     "newTabInCurrentWorkspace": "वर्तमान कार्यक्षेत्र में नया टैब",
     "closeCurrentTab": "वर्तमान टैब बंद करें / ऐप विंडो बंद करें",
+    "restoreLastClosedTab": "अंतिम बंद टैब पुनर्स्थापित करें",
     "closeAllTabsInCurrentWorkspace": "वर्तमान कार्यक्षेत्र में सभी टैब बंद करें/ऐप विंडो बंद करें",
     "closeAppWindow": "ऐप विंडो बंद करें",
     "scrollPageToTheTop": "पृष्ठ को शीर्ष तक स्क्रॉल करें",

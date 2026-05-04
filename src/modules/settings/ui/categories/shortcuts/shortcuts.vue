@@ -103,6 +103,7 @@ const shortcutIcons: Record<ShortcutId, Component> = {
   quickView: EyeIcon,
   openNewTab: PlusIcon,
   closeCurrentTab: XIcon,
+  restoreLastClosedTab: RotateCcwIcon,
   openTerminal: TerminalSquareIcon,
   openTerminalAdmin: TerminalSquareIcon,
   navigateUp: ArrowUpIcon,

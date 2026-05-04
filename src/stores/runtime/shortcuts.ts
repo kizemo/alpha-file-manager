@@ -275,6 +275,21 @@ const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
     isReadOnly: false,
   },
   {
+    id: 'restoreLastClosedTab',
+    labelKey: 'shortcuts.restoreLastClosedTab',
+    defaultKeys: {
+      ctrl: true,
+      shift: true,
+      key: 't',
+    },
+    scope: 'navigator',
+    conditions: {
+      inputFieldIsActive: false,
+      dialogIsOpened: false,
+    },
+    isReadOnly: false,
+  },
+  {
     id: 'openTerminal',
     labelKey: 'shortcuts.openCurrentDirInTerminal',
     defaultKeys: {

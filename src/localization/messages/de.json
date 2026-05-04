@@ -781,6 +781,7 @@
     "uiZoomReset": "UI-Zoom zurücksetzen",
     "newTabInCurrentWorkspace": "Neuer Tab im aktuellen Arbeitsbereich",
     "closeCurrentTab": "Aktuellen Tab schließen / App-Fenster schließen",
+    "restoreLastClosedTab": "Zuletzt geschlossenen Tab wiederherstellen",
     "closeAllTabsInCurrentWorkspace": "Alle Tabs im aktuellen Arbeitsbereich schließen / App-Fenster schließen",
     "closeAppWindow": "App-Fenster schließen",
     "scrollPageToTheTop": "Seite nach oben scrollen",

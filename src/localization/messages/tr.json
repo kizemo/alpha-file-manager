@@ -781,6 +781,7 @@
     "uiZoomReset": "UI yakınlaştırma sıfırlama",
     "newTabInCurrentWorkspace": "Mevcut çalışma alanında yeni sekme",
     "closeCurrentTab": "Geçerli sekmeyi kapat / uygulama penceresini kapat",
+    "restoreLastClosedTab": "Son kapatılan sekmeyi geri yükle",
     "closeAllTabsInCurrentWorkspace": "Geçerli çalışma alanındaki tüm sekmeleri kapat / uygulama penceresini kapat",
     "closeAppWindow": "Uygulama penceresini kapat",
     "scrollPageToTheTop": "Sayfayı yukarı kaydır",
