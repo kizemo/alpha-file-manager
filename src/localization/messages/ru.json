@@ -391,6 +391,7 @@
       "theme": {
         "title": "Тема",
         "themeType": "Тип темы",
+        "extensionThemes": "Темы расширений",
         "themeTypeRadio": {
           "dark": "Темная",
           "lightFilter": "Светлый фильтр",

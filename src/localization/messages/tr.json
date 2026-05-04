@@ -372,6 +372,7 @@
       "theme": {
         "title": "Tema",
         "themeType": "Tema türü",
+        "extensionThemes": "Uzantı temaları",
         "themeTypeRadio": {
           "dark": "Karanlık",
           "lightFilter": "Işık filtresi",

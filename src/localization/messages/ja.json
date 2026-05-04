@@ -372,6 +372,7 @@
       "theme": {
         "title": "テーマ",
         "themeType": "テーマタイプ",
+        "extensionThemes": "拡張機能のテーマ",
         "themeTypeRadio": {
           "dark": "暗い",
           "lightFilter": "光フィルター",

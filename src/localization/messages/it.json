@@ -372,6 +372,7 @@
       "theme": {
         "title": "Tema",
         "themeType": "Tipo di tema",
+        "extensionThemes": "Temi delle estensioni",
         "themeTypeRadio": {
           "dark": "Scuro",
           "lightFilter": "Filtro chiaro",

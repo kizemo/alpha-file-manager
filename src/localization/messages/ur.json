@@ -391,6 +391,7 @@
       "theme": {
         "title": "تھیم",
         "themeType": "تھیم کی قسم",
+        "extensionThemes": "ایکسٹینشن تھیمز",
         "themeTypeRadio": {
           "dark": "ڈارک",
           "lightFilter": "لائٹ فلٹر",

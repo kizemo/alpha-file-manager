@@ -391,6 +391,7 @@
       "theme": {
         "title": "Theme",
         "themeType": "Theme type",
+        "extensionThemes": "Extension themes",
         "themeTypeRadio": {
           "dark": "Dark",
           "lightFilter": "Light filter",

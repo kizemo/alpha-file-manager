@@ -372,6 +372,7 @@
       "theme": {
         "title": "Chủ đề",
         "themeType": "Loại chủ đề",
+        "extensionThemes": "Chủ đề tiện ích mở rộng",
         "themeTypeRadio": {
           "dark": "Tối",
           "lightFilter": "Bộ lọc ánh sáng",

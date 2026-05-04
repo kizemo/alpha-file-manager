@@ -372,6 +372,7 @@
       "theme": {
         "title": "Thema",
         "themeType": "Thementyp",
+        "extensionThemes": "Erweiterungsthemen",
         "themeTypeRadio": {
           "dark": "Dunkel",
           "lightFilter": "Hell",

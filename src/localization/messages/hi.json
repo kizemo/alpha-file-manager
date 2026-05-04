@@ -391,6 +391,7 @@
       "theme": {
         "title": "विषय",
         "themeType": "थीम प्रकार",
+        "extensionThemes": "एक्सटेंशन थीम",
         "themeTypeRadio": {
           "dark": "अँधेरा",
           "lightFilter": "हल्का फ़िल्टर",

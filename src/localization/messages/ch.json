@@ -372,6 +372,7 @@
       "theme": {
         "title": "主题",
         "themeType": "主题类型",
+        "extensionThemes": "扩展主题",
         "themeTypeRadio": {
           "dark": "暗色",
           "lightFilter": "滤光",

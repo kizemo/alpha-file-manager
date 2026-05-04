@@ -371,6 +371,7 @@
       "theme": {
         "title": "موضوع",
         "themeType": "نوع تم",
+        "extensionThemes": "تم‌های افزونه",
         "themeTypeRadio": {
           "dark": "تاریک",
           "lightFilter": "فیلتر نور",

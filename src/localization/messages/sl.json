@@ -391,6 +391,7 @@
       "theme": {
         "title": "Tema",
         "themeType": "Tip teme",
+        "extensionThemes": "Teme razširitev",
         "themeTypeRadio": {
           "dark": "Temna",
           "lightFilter": "Svetla filtrirana",
