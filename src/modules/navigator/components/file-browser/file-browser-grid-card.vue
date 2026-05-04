@@ -66,7 +66,7 @@ const videoThumbnail = computed(() => {
     return undefined;
   }
 
-  return ctx.getVideoThumbnail(props.entry, previewSize.value);
+  return ctx.getVideoThumbnail(props.entry);
 });
 
 function shouldLoadPreviewNearViewport(): boolean {
@@ -225,7 +225,9 @@ onBeforeUnmount(() => {
       {
         'file-browser-grid-card--hidden': props.entry.is_hidden,
         'file-browser-grid-card--image': props.variant === 'video' && videoThumbnail,
-        'file-browser-grid-card--icon-full': props.variant === 'other' || (props.variant === 'video' && !videoThumbnail),
+        'file-browser-grid-card--icon-full': props.variant === 'other'
+          || (props.variant === 'image' && !imagePreviewSrc)
+          || (props.variant === 'video' && !videoThumbnail),
       },
     ]"
     :data-entry-path="props.entry.path"
@@ -450,18 +452,18 @@ onBeforeUnmount(() => {
 
 .file-browser-grid-card--icon-full .file-browser-grid-card__preview {
   position: absolute;
-  top: 8px;
-  left: 8px;
-  width: 48px;
-  height: 48px;
+  width: 100%;
+  height: 100%;
   align-items: flex-start;
   justify-content: flex-start;
   background-color: transparent;
+  inset: 0;
 }
 
 .file-browser-grid-card--icon-full .file-browser-grid-card__icon {
   width: 48px;
   height: 48px;
+  margin: 8px;
 }
 
 .file-browser-grid-card__name {

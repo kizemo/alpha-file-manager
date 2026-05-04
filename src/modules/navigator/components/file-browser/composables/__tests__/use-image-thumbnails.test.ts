@@ -7,13 +7,13 @@ import { normalizeImageThumbnailMaxDimension } from '../use-image-thumbnails';
 
 describe('normalizeImageThumbnailMaxDimension', () => {
   it('uses the default size when no valid size is provided', () => {
-    expect(normalizeImageThumbnailMaxDimension()).toBe(512);
-    expect(normalizeImageThumbnailMaxDimension(Number.NaN)).toBe(512);
+    expect(normalizeImageThumbnailMaxDimension()).toBe(384);
+    expect(normalizeImageThumbnailMaxDimension(Number.NaN)).toBe(384);
   });
 
   it('uses one cache size for every requested thumbnail size', () => {
-    expect(normalizeImageThumbnailMaxDimension(1)).toBe(512);
-    expect(normalizeImageThumbnailMaxDimension(340)).toBe(512);
-    expect(normalizeImageThumbnailMaxDimension(10_000)).toBe(512);
+    expect(normalizeImageThumbnailMaxDimension(1)).toBe(384);
+    expect(normalizeImageThumbnailMaxDimension(340)).toBe(384);
+    expect(normalizeImageThumbnailMaxDimension(10_000)).toBe(384);
   });
 });

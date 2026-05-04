@@ -6,7 +6,7 @@ import { ref } from 'vue';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import type { DirEntry } from '@/types/dir-entry';
 
-const IMAGE_THUMBNAIL_MAX_DIMENSION = 512;
+const IMAGE_THUMBNAIL_MAX_DIMENSION = 384;
 const MAX_CONCURRENT_IMAGE_THUMBNAILS = 3;
 const UNSUPPORTED_IMAGE_THUMBNAIL_EXTENSIONS = new Set(['svg']);
 

@@ -7,7 +7,6 @@ import {
 } from 'vue';
 import type { DirEntry } from '@/types/dir-entry';
 import type { ContextMenuAction, ContextMenuState } from '@/modules/navigator/components/file-browser/types';
-import type { VideoThumbnailSize } from './use-video-thumbnails';
 
 export interface FileBrowserContext {
   entries: ComputedRef<DirEntry[]>;
@@ -21,7 +20,7 @@ export interface FileBrowserContext {
   contextMenu: Ref<ContextMenuState>;
 
   getImageThumbnail: (entry: DirEntry, maxDimension?: number) => string | undefined;
-  getVideoThumbnail: (entry: DirEntry, targetSize?: VideoThumbnailSize) => string | undefined;
+  getVideoThumbnail: (entry: DirEntry) => string | undefined;
   setEntriesContainerRef: (element: Element | ComponentPublicInstance | null) => void;
 
   onEntryMouseDown: (entry: DirEntry, event: MouseEvent) => void;
