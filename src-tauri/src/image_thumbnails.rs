@@ -3,20 +3,20 @@
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
 use std::fs;
+use std::fs::File;
+use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
+use image::codecs::png::{CompressionType, FilterType as PngFilterType, PngEncoder};
 use image::{imageops::FilterType, ImageReader, Limits};
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
 use tauri::Manager;
 
 const IMAGE_THUMBNAIL_CACHE_DIR: &str = "image-thumbnails";
-const IMAGE_THUMBNAIL_CACHE_VERSION: &str = "v1";
-const DEFAULT_THUMBNAIL_MAX_DIMENSION: u32 = 384;
-const MIN_THUMBNAIL_MAX_DIMENSION: u32 = 64;
-const MAX_THUMBNAIL_MAX_DIMENSION: u32 = 1024;
+const THUMBNAIL_MAX_DIMENSION: u32 = 512;
 const MAX_THUMBNAIL_CACHE_ITEM_COUNT: usize = 5000;
 const MAX_THUMBNAIL_CACHE_SIZE_BYTES: u64 = 1024 * 1024 * 1024;
 const THUMBNAIL_CACHE_LIMIT_CHECK_INTERVAL: usize = 100;
@@ -42,10 +42,8 @@ struct ThumbnailCacheMaintenanceState {
     generated_since_check: usize,
 }
 
-fn normalize_thumbnail_max_dimension(max_dimension: Option<u32>) -> u32 {
-    max_dimension
-        .unwrap_or(DEFAULT_THUMBNAIL_MAX_DIMENSION)
-        .clamp(MIN_THUMBNAIL_MAX_DIMENSION, MAX_THUMBNAIL_MAX_DIMENSION)
+fn normalize_thumbnail_max_dimension(_max_dimension: Option<u32>) -> u32 {
+    THUMBNAIL_MAX_DIMENSION
 }
 
 fn hash_to_hex(bytes: &[u8]) -> String {
@@ -57,8 +55,6 @@ fn hash_to_hex(bytes: &[u8]) -> String {
 
 fn thumbnail_cache_key(path: &str, modified_time: u64, size: u64, max_dimension: u32) -> String {
     let mut hasher = Sha256::new();
-    hasher.update(IMAGE_THUMBNAIL_CACHE_VERSION.as_bytes());
-    hasher.update([0]);
     hasher.update(path.as_bytes());
     hasher.update([0]);
     hasher.update(modified_time.to_le_bytes());
@@ -219,6 +215,10 @@ fn validate_image_thumbnail_source(
     Ok(())
 }
 
+fn should_use_original_image_thumbnail(width: u32, height: u32, max_dimension: u32) -> bool {
+    width <= max_dimension && height <= max_dimension
+}
+
 fn image_dimensions(source_path: &Path) -> Result<(u32, u32), String> {
     let mut reader = ImageReader::open(source_path)
         .map_err(|error| format!("Failed to open image thumbnail source: {error}"))?
@@ -241,6 +241,21 @@ fn decode_image_thumbnail_source(source_path: &Path) -> Result<image::DynamicIma
     reader
         .decode()
         .map_err(|error| format!("Failed to decode image thumbnail source: {error}"))
+}
+
+fn write_image_thumbnail(
+    thumbnail: &image::DynamicImage,
+    thumbnail_path: &Path,
+) -> Result<(), String> {
+    let file = File::create(thumbnail_path)
+        .map_err(|error| format!("Failed to create image thumbnail: {error}"))?;
+    let writer = BufWriter::new(file);
+    let encoder =
+        PngEncoder::new_with_quality(writer, CompressionType::Default, PngFilterType::Adaptive);
+
+    thumbnail
+        .write_with_encoder(encoder)
+        .map_err(|error| format!("Failed to write image thumbnail: {error}"))
 }
 
 fn generate_image_thumbnail_file(
@@ -292,13 +307,17 @@ fn generate_image_thumbnail_file(
     let (source_width, source_height) = image_dimensions(source_path)?;
     validate_image_thumbnail_source(source_metadata.len(), source_width, source_height)?;
 
+    if should_use_original_image_thumbnail(source_width, source_height, max_dimension) {
+        return Ok(canonical_source_path.to_string_lossy().to_string());
+    }
+
     let image = decode_image_thumbnail_source(source_path)?;
-    let thumbnail = image.resize(max_dimension, max_dimension, FilterType::Triangle);
+    let thumbnail = image.resize(max_dimension, max_dimension, FilterType::Lanczos3);
     let temporary_path = temporary_thumbnail_path(&thumbnail_path);
 
-    if let Err(error) = thumbnail.save_with_format(&temporary_path, image::ImageFormat::Png) {
+    if let Err(error) = write_image_thumbnail(&thumbnail, &temporary_path) {
         let _ = fs::remove_file(&temporary_path);
-        return Err(format!("Failed to write image thumbnail: {error}"));
+        return Err(error);
     }
 
     {
@@ -349,14 +368,20 @@ mod tests {
     use super::{
         enforce_thumbnail_cache_limits, generate_image_thumbnail_file,
         normalize_thumbnail_max_dimension, path_is_same_or_descendant, thumbnail_cache_key,
-        thumbnail_cache_stats, validate_image_thumbnail_source, DEFAULT_THUMBNAIL_MAX_DIMENSION,
-        MAX_THUMBNAIL_CACHE_ITEM_COUNT, MAX_THUMBNAIL_CACHE_SIZE_BYTES,
-        MAX_THUMBNAIL_MAX_DIMENSION, MAX_THUMBNAIL_SOURCE_FILE_SIZE_BYTES,
-        MAX_THUMBNAIL_SOURCE_PIXELS, MIN_THUMBNAIL_MAX_DIMENSION,
+        thumbnail_cache_stats, validate_image_thumbnail_source, MAX_THUMBNAIL_CACHE_ITEM_COUNT,
+        MAX_THUMBNAIL_CACHE_SIZE_BYTES, MAX_THUMBNAIL_SOURCE_FILE_SIZE_BYTES,
+        MAX_THUMBNAIL_SOURCE_PIXELS, THUMBNAIL_MAX_DIMENSION,
     };
     use std::fs;
     use std::fs::File;
     use std::path::Path;
+
+    fn write_test_png(path: &Path, width: u32, height: u32) {
+        let image = image::RgbaImage::from_pixel(width, height, image::Rgba([32, 64, 96, 255]));
+        image
+            .save_with_format(path, image::ImageFormat::Png)
+            .unwrap();
+    }
 
     #[test]
     fn thumbnail_cache_key_changes_when_metadata_changes() {
@@ -369,18 +394,18 @@ mod tests {
     }
 
     #[test]
-    fn thumbnail_dimension_is_clamped() {
+    fn thumbnail_dimension_is_fixed() {
         assert_eq!(
             normalize_thumbnail_max_dimension(None),
-            DEFAULT_THUMBNAIL_MAX_DIMENSION
+            THUMBNAIL_MAX_DIMENSION
         );
         assert_eq!(
             normalize_thumbnail_max_dimension(Some(1)),
-            MIN_THUMBNAIL_MAX_DIMENSION
+            THUMBNAIL_MAX_DIMENSION
         );
         assert_eq!(
             normalize_thumbnail_max_dimension(Some(10_000)),
-            MAX_THUMBNAIL_MAX_DIMENSION
+            THUMBNAIL_MAX_DIMENSION
         );
     }
 
@@ -419,6 +444,29 @@ mod tests {
             result,
             thumbnail_path.canonicalize().unwrap().to_string_lossy()
         );
+    }
+
+    #[test]
+    fn small_thumbnail_sources_return_source_path() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let source_path = temp_dir.path().join("source.png");
+        let cache_dir = temp_dir.path().join("cache");
+        write_test_png(&source_path, 128, 128);
+
+        let result = generate_image_thumbnail_file(
+            cache_dir.clone(),
+            source_path.to_string_lossy().to_string(),
+            100,
+            source_path.metadata().unwrap().len(),
+            THUMBNAIL_MAX_DIMENSION,
+        )
+        .unwrap();
+
+        assert_eq!(
+            result,
+            source_path.canonicalize().unwrap().to_string_lossy()
+        );
+        assert_eq!(thumbnail_cache_stats(&cache_dir).unwrap().item_count, 0);
     }
 
     #[test]

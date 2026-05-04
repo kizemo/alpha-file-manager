@@ -6,9 +6,7 @@ import { ref } from 'vue';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import type { DirEntry } from '@/types/dir-entry';
 
-const DEFAULT_IMAGE_THUMBNAIL_MAX_DIMENSION = 384;
-const MIN_IMAGE_THUMBNAIL_MAX_DIMENSION = 64;
-const MAX_IMAGE_THUMBNAIL_MAX_DIMENSION = 1024;
+const IMAGE_THUMBNAIL_MAX_DIMENSION = 512;
 const MAX_CONCURRENT_IMAGE_THUMBNAILS = 3;
 const UNSUPPORTED_IMAGE_THUMBNAIL_EXTENSIONS = new Set(['svg']);
 
@@ -19,15 +17,12 @@ interface ImageThumbnailRequest {
   thumbnailKey: string;
 }
 
-function normalizeImageThumbnailMaxDimension(maxDimension?: number): number {
+export function normalizeImageThumbnailMaxDimension(maxDimension?: number): number {
   if (!maxDimension || !Number.isFinite(maxDimension)) {
-    return DEFAULT_IMAGE_THUMBNAIL_MAX_DIMENSION;
+    return IMAGE_THUMBNAIL_MAX_DIMENSION;
   }
 
-  return Math.min(
-    MAX_IMAGE_THUMBNAIL_MAX_DIMENSION,
-    Math.max(MIN_IMAGE_THUMBNAIL_MAX_DIMENSION, Math.round(maxDimension)),
-  );
+  return IMAGE_THUMBNAIL_MAX_DIMENSION;
 }
 
 function getImageThumbnailKey(entry: DirEntry, maxDimension: number): string {

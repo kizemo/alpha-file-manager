@@ -234,7 +234,7 @@ export function useVideoThumbnails() {
             drawRect.drawWidth,
             drawRect.drawHeight,
           );
-          const thumbnail = canvas.toDataURL('image/jpeg', 0.7);
+          const thumbnail = canvas.toDataURL('image/jpeg', 0.9);
 
           if (requestGeneration === thumbnailGeneration) {
             videoThumbnails.value = {
