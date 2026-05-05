@@ -19,6 +19,11 @@ import {
   parseQuickSearchSizePredicate,
 } from './file-browser-quick-search-numeric';
 
+const SECOND_MS = 1000;
+const MINUTE_MS = 60 * SECOND_MS;
+const HOUR_MS = 60 * MINUTE_MS;
+const RECENT_RELATIVE_DATE_WINDOW_MS = 6 * HOUR_MS;
+
 type QuickSearchParsedQuery = ReturnType<typeof parseQuickSearchQuery>;
 
 interface FileBrowserQuickSearchCacheItem {
@@ -92,6 +97,33 @@ function getDirSizeSignature(entry: DirEntry, dirSizesStore: DirSizesStore): str
   ].join(':');
 }
 
+function getRelativeModifiedDateCacheSignature(entry: DirEntry, context: FileBrowserQuickSearchContext): string {
+  if (!entry.modified_time || !isRelativeDateDisplayEnabled(context.showRelativeDates)) {
+    return '';
+  }
+
+  const elapsedMs = context.referenceNowMs - entry.modified_time;
+
+  if (elapsedMs < 0) {
+    return `future:${Math.floor(context.referenceNowMs / SECOND_MS)}`;
+  }
+
+  if (elapsedMs < MINUTE_MS) {
+    return `seconds:${Math.floor(elapsedMs / SECOND_MS)}`;
+  }
+
+  if (elapsedMs < HOUR_MS) {
+    return `minutes:${Math.floor(elapsedMs / MINUTE_MS)}`;
+  }
+
+  if (elapsedMs < RECENT_RELATIVE_DATE_WINDOW_MS) {
+    return `hours:${Math.floor(elapsedMs / HOUR_MS)}`;
+  }
+
+  const referenceDate = new Date(context.referenceNowMs);
+  return `calendar:${referenceDate.getFullYear()}:${referenceDate.getMonth()}:${referenceDate.getDate()}`;
+}
+
 function getEntrySignature(
   entry: DirEntry,
   dirSizesStore: DirSizesStore,
@@ -109,7 +141,7 @@ function getEntrySignature(
     entry.created_time,
     context.showRelativeDates,
     context.dateTimeSignature,
-    Math.floor(context.referenceNowMs / 60_000),
+    getRelativeModifiedDateCacheSignature(entry, context),
     getDirSizeSignature(entry, dirSizesStore),
   ].join('|');
 }
