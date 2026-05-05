@@ -260,6 +260,12 @@ export const useGlobalShortcutsStore = defineStore('globalShortcuts', () => {
     }
 
     try {
+      await unregister(shortcutString);
+    }
+    catch {
+    }
+
+    try {
       await register(shortcutString, createGlobalShortcutCallback(getExtensionHandler(commandId)));
       registeredExtensionShortcuts.value.set(commandId, shortcutString);
       return true;

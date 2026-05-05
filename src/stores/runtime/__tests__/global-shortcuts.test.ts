@@ -138,4 +138,33 @@ describe('globalShortcuts store', () => {
     expect(globalShortcutsStore.extensionDefinitions).toHaveLength(1);
     expect(globalShortcutsStore.getExtensionShortcutLabel('sigma.excalidraw.openPage')).toBe('Ctrl+Shift+E');
   });
+
+  it('clears stale OS registrations before registering extension global shortcuts', async () => {
+    getCurrentWebviewWindowMock.mockReturnValue({ label: 'main' });
+    registerMock.mockResolvedValue(undefined);
+    unregisterMock.mockResolvedValue(undefined);
+    extensionGlobalShortcuts.push({
+      extensionId: 'sigma.excalidraw',
+      commandId: 'sigma.excalidraw.openPage',
+      commandTitle: 'Open Excalidraw',
+      keys: {
+        ctrl: true,
+        shift: true,
+        key: 'e',
+      },
+      source: 'system',
+    });
+
+    const globalShortcutsStore = useGlobalShortcutsStore();
+    await globalShortcutsStore.init();
+
+    expect(unregisterMock).toHaveBeenCalledWith('Control+Shift+E');
+    expect(unregisterMock.mock.invocationCallOrder[1]).toBeLessThan(
+      registerMock.mock.invocationCallOrder[1],
+    );
+    expect(registerMock).toHaveBeenCalledWith(
+      'Control+Shift+E',
+      expect.any(Function),
+    );
+  });
 });
