@@ -24,6 +24,7 @@ export interface FileBrowserContext {
   contextMenu: Ref<ContextMenuState>;
 
   getImageThumbnail: (entry: DirEntry, maxDimension?: number) => string | undefined;
+  getImageThumbnailPlaceholder: (entry: DirEntry, maxDimension?: number) => string | undefined;
   cancelImageThumbnail: (entry: DirEntry, maxDimension?: number) => void;
   getVideoThumbnail: (entry: DirEntry) => string | undefined;
   cancelVideoThumbnail: (entry: DirEntry) => void;

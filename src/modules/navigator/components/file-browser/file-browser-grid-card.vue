@@ -4,10 +4,12 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 -->
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import {
+  computed, onBeforeUnmount, onMounted, ref, watch,
+} from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
-import { FileImageIcon, FileVideoIcon, LoaderCircleIcon } from '@lucide/vue';
+import { FileVideoIcon, LoaderCircleIcon } from '@lucide/vue';
 import type { DirEntry } from '@/types/dir-entry';
 import { formatBytes } from './utils';
 import { useClipboardStore } from '@/stores/runtime/clipboard';
@@ -35,8 +37,12 @@ const { t } = useI18n();
 const previewRef = ref<HTMLElement | null>(null);
 const previewSize = ref(DEFAULT_GRID_THUMBNAIL_SIZE);
 const isPreviewInLoadRange = ref(false);
+const loadedImagePreviewSrc = ref<string | undefined>();
+const loadedImagePreviewPlaceholderSrc = ref<string | undefined>();
 let previewResizeObserver: ResizeObserver | null = null;
 let previewIntersectionObserver: IntersectionObserver | null = null;
+let imagePreviewLoadFrame: number | null = null;
+let imagePreviewPlaceholderLoadFrame: number | null = null;
 
 const clipboardPathsMap = computed(() => {
   if (isToolbarSuppressed.value) {
@@ -60,6 +66,13 @@ const imagePreviewSrc = computed(() => {
 
   return ctx.getImageThumbnail(props.entry, imageThumbnailMaxDimension.value)
     ?? (canUseOriginalImagePreview.value ? getImageSrc(props.entry) : undefined);
+});
+const imagePreviewPlaceholderSrc = computed(() => {
+  if (props.variant !== 'image' || !isPreviewInLoadRange.value) {
+    return undefined;
+  }
+
+  return ctx.getImageThumbnailPlaceholder(props.entry, imageThumbnailMaxDimension.value);
 });
 const videoThumbnail = computed(() => {
   if (props.variant !== 'video' || !isPreviewInLoadRange.value) {
@@ -153,6 +166,64 @@ function handleEntryKeydown(event: KeyboardEvent): void {
   }
 }
 
+function cancelImagePreviewLoadFrame(): void {
+  if (
+    imagePreviewLoadFrame !== null
+    && typeof window !== 'undefined'
+    && typeof window.cancelAnimationFrame === 'function'
+  ) {
+    window.cancelAnimationFrame(imagePreviewLoadFrame);
+  }
+
+  imagePreviewLoadFrame = null;
+}
+
+function cancelImagePreviewPlaceholderLoadFrame(): void {
+  if (
+    imagePreviewPlaceholderLoadFrame !== null
+    && typeof window !== 'undefined'
+    && typeof window.cancelAnimationFrame === 'function'
+  ) {
+    window.cancelAnimationFrame(imagePreviewPlaceholderLoadFrame);
+  }
+
+  imagePreviewPlaceholderLoadFrame = null;
+}
+
+function handleImagePreviewLoad(): void {
+  const loadedSource = imagePreviewSrc.value;
+  cancelImagePreviewLoadFrame();
+
+  if (!loadedSource || typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+    loadedImagePreviewSrc.value = loadedSource;
+    return;
+  }
+
+  imagePreviewLoadFrame = window.requestAnimationFrame(() => {
+    imagePreviewLoadFrame = window.requestAnimationFrame(() => {
+      loadedImagePreviewSrc.value = loadedSource;
+      imagePreviewLoadFrame = null;
+    });
+  });
+}
+
+function handleImagePreviewPlaceholderLoad(): void {
+  const loadedSource = imagePreviewPlaceholderSrc.value;
+  cancelImagePreviewPlaceholderLoadFrame();
+
+  if (!loadedSource || typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+    loadedImagePreviewPlaceholderSrc.value = loadedSource;
+    return;
+  }
+
+  imagePreviewPlaceholderLoadFrame = window.requestAnimationFrame(() => {
+    imagePreviewPlaceholderLoadFrame = window.requestAnimationFrame(() => {
+      loadedImagePreviewPlaceholderSrc.value = loadedSource;
+      imagePreviewPlaceholderLoadFrame = null;
+    });
+  });
+}
+
 function cancelPreviewThumbnail(): void {
   if (props.variant === 'image') {
     ctx.cancelImageThumbnail(props.entry, imageThumbnailMaxDimension.value);
@@ -221,8 +292,20 @@ onMounted(() => {
 onBeforeUnmount(() => {
   cancelPreviewThumbnail();
   disconnectPreviewIntersectionObserver();
+  cancelImagePreviewLoadFrame();
+  cancelImagePreviewPlaceholderLoadFrame();
   previewResizeObserver?.disconnect();
   previewResizeObserver = null;
+});
+
+watch(imagePreviewSrc, () => {
+  cancelImagePreviewLoadFrame();
+  loadedImagePreviewSrc.value = undefined;
+});
+
+watch(imagePreviewPlaceholderSrc, () => {
+  cancelImagePreviewPlaceholderLoadFrame();
+  loadedImagePreviewPlaceholderSrc.value = undefined;
 });
 </script>
 
@@ -236,7 +319,6 @@ onBeforeUnmount(() => {
         'file-browser-grid-card--hidden': props.entry.is_hidden,
         'file-browser-grid-card--image': props.variant === 'video' && videoThumbnail,
         'file-browser-grid-card--icon-full': props.variant === 'other'
-          || (props.variant === 'image' && !imagePreviewSrc)
           || (props.variant === 'video' && !videoThumbnail),
       },
     ]"
@@ -269,17 +351,25 @@ onBeforeUnmount(() => {
       />
       <template v-else-if="props.variant === 'image'">
         <img
+          v-if="imagePreviewPlaceholderSrc"
+          :src="imagePreviewPlaceholderSrc"
+          :alt="props.entry.name"
+          class="file-browser-grid-card__image file-browser-grid-card__image--placeholder"
+          :class="{
+            'file-browser-grid-card__image--placeholder-loaded':
+              loadedImagePreviewPlaceholderSrc === imagePreviewPlaceholderSrc,
+          }"
+          @load="handleImagePreviewPlaceholderLoad"
+        >
+        <img
           v-if="imagePreviewSrc"
           :src="imagePreviewSrc"
           :alt="props.entry.name"
-          class="file-browser-grid-card__image animate-fade-in-x2"
+          class="file-browser-grid-card__image file-browser-grid-card__image--final"
+          :class="{ 'file-browser-grid-card__image--final-loaded': loadedImagePreviewSrc === imagePreviewSrc }"
           loading="lazy"
+          @load="handleImagePreviewLoad"
         >
-        <FileImageIcon
-          v-else
-          :size="48"
-          class="file-browser-grid-card__icon"
-        />
       </template>
       <template v-else-if="props.variant === 'video'">
         <img
@@ -420,10 +510,35 @@ onBeforeUnmount(() => {
 }
 
 .file-browser-grid-card__image {
+  position: absolute;
   width: 100%;
   height: 100%;
+  inset: 0;
   object-fit: cover;
   pointer-events: none;
+}
+
+.file-browser-grid-card__image--placeholder {
+  z-index: 1;
+  filter: blur(12px);
+  opacity: 0;
+  transition:
+    opacity 3s ease,
+    filter 3s ease;
+}
+
+.file-browser-grid-card__image--placeholder-loaded {
+  opacity: 0.5;
+}
+
+.file-browser-grid-card__image--final {
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 1s ease-out;
+}
+
+.file-browser-grid-card__image--final-loaded {
+  opacity: 1;
 }
 
 .file-browser-grid-card__icon {

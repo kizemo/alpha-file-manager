@@ -79,6 +79,7 @@ provideFileBrowserContext({
   isEntrySelected: fb.isEntrySelected,
   contextMenu: fb.contextMenu,
   getImageThumbnail: fb.getImageThumbnail,
+  getImageThumbnailPlaceholder: fb.getImageThumbnailPlaceholder,
   cancelImageThumbnail: fb.cancelImageThumbnail,
   getVideoThumbnail: fb.getVideoThumbnail,
   cancelVideoThumbnail: fb.cancelVideoThumbnail,

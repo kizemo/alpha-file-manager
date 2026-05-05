@@ -289,6 +289,7 @@ export function useFileBrowser(options: UseFileBrowserOptions) {
     ? useImageThumbnails()
     : {
         getImageThumbnail: () => undefined,
+        getImageThumbnailPlaceholder: () => undefined,
         cancelImageThumbnail: () => undefined,
         clearThumbnails: () => undefined,
       };
@@ -510,6 +511,7 @@ export function useFileBrowser(options: UseFileBrowserOptions) {
     permanentDeleteConfirm: selection.permanentDeleteConfirm,
 
     getImageThumbnail: imageThumbnails.getImageThumbnail,
+    getImageThumbnailPlaceholder: imageThumbnails.getImageThumbnailPlaceholder,
     cancelImageThumbnail: imageThumbnails.cancelImageThumbnail,
     getVideoThumbnail: videoThumbnails.getVideoThumbnail,
     cancelVideoThumbnail: videoThumbnails.cancelVideoThumbnail,

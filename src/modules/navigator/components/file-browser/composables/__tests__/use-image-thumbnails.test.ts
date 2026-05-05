@@ -3,6 +3,7 @@
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
 import {
+  afterEach,
   beforeEach,
   describe,
   expect,
@@ -13,6 +14,11 @@ import type { DirEntry } from '@/types/dir-entry';
 
 const mockConvertFileSrc = vi.hoisted(() => vi.fn((path: string) => `asset://${path}`));
 const mockInvoke = vi.hoisted(() => vi.fn());
+const mockFetch = vi.fn();
+const mockCreateImageBitmap = vi.fn();
+const mockDrawImage = vi.fn();
+const mockCloseImageBitmap = vi.fn();
+const PLACEHOLDER_DATA_URL = 'data:image/jpeg;base64,placeholder';
 
 vi.mock('@tauri-apps/api/core', () => ({
   convertFileSrc: (path: string) => mockConvertFileSrc(path),
@@ -57,13 +63,45 @@ function createImageEntry(fileName: string): DirEntry {
 }
 
 async function flushThumbnailWork(): Promise<void> {
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let flushIndex = 0; flushIndex < 10; flushIndex += 1) {
+    await Promise.resolve();
+  }
+}
+
+function createFetchResponse(blob: Blob): Response {
+  return {
+    ok: true,
+    blob: () => Promise.resolve(blob),
+  } as Response;
+}
+
+function setupImagePlaceholderMocks(): void {
+  mockFetch.mockResolvedValue(createFetchResponse(new Blob(['image'])));
+  mockCreateImageBitmap.mockResolvedValue({
+    close: mockCloseImageBitmap,
+  } as unknown as ImageBitmap);
+  vi.stubGlobal('fetch', mockFetch);
+  vi.stubGlobal('createImageBitmap', mockCreateImageBitmap);
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => {
+    return {
+      drawImage: mockDrawImage,
+    } as unknown as CanvasRenderingContext2D;
+  });
+  vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue(PLACEHOLDER_DATA_URL);
 }
 
 beforeEach(() => {
   mockConvertFileSrc.mockClear();
   mockInvoke.mockReset();
+  mockFetch.mockReset();
+  mockCreateImageBitmap.mockReset();
+  mockDrawImage.mockReset();
+  mockCloseImageBitmap.mockReset();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe('normalizeImageThumbnailMaxDimension', () => {
@@ -131,5 +169,74 @@ describe('useImageThumbnails', () => {
 
     expect(thumbnails.imageThumbnails.value).toEqual({});
     expect(mockConvertFileSrc).not.toHaveBeenCalled();
+  });
+
+  it('creates a 20x20 placeholder with createImageBitmap when supported', async () => {
+    setupImagePlaceholderMocks();
+
+    const thumbnails = useImageThumbnails();
+    const entry = createImageEntry('image.jpg');
+
+    expect(thumbnails.getImageThumbnailPlaceholder(entry)).toBeUndefined();
+    await flushThumbnailWork();
+
+    expect(thumbnails.getImageThumbnailPlaceholder(entry)).toBe(PLACEHOLDER_DATA_URL);
+    expect(mockFetch).toHaveBeenCalledWith(`asset://${entry.path}`, expect.any(Object));
+    expect(mockCreateImageBitmap).toHaveBeenCalledWith(expect.any(Blob), {
+      resizeWidth: 20,
+      resizeHeight: 20,
+      resizeQuality: 'low',
+    });
+    expect(mockDrawImage).toHaveBeenCalled();
+    expect(mockCloseImageBitmap).toHaveBeenCalled();
+  });
+
+  it('keeps the icon fallback when createImageBitmap is unavailable', async () => {
+    vi.stubGlobal('fetch', mockFetch);
+    vi.stubGlobal('createImageBitmap', undefined);
+
+    const thumbnails = useImageThumbnails();
+    const entry = createImageEntry('image.jpg');
+
+    expect(thumbnails.getImageThumbnailPlaceholder(entry)).toBeUndefined();
+    await flushThumbnailWork();
+
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(thumbnails.imageThumbnailPlaceholders.value).toEqual({});
+  });
+
+  it('does not generate placeholders for large image files', async () => {
+    setupImagePlaceholderMocks();
+
+    const thumbnails = useImageThumbnails();
+    const entry = {
+      ...createImageEntry('large-image.jpg'),
+      size: 17 * 1024 * 1024,
+    };
+
+    expect(thumbnails.getImageThumbnailPlaceholder(entry)).toBeUndefined();
+    await flushThumbnailWork();
+
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(thumbnails.imageThumbnailPlaceholders.value).toEqual({});
+  });
+
+  it('removes queued placeholder requests when they are cancelled', async () => {
+    setupImagePlaceholderMocks();
+    const pendingResponse = createDeferred<Response>();
+    mockFetch.mockReturnValue(pendingResponse.promise);
+
+    const thumbnails = useImageThumbnails();
+    const firstEntry = createImageEntry('image-1.jpg');
+    const secondEntry = createImageEntry('image-2.jpg');
+
+    thumbnails.getImageThumbnailPlaceholder(firstEntry);
+    thumbnails.getImageThumbnailPlaceholder(secondEntry);
+    thumbnails.cancelImageThumbnail(secondEntry);
+    pendingResponse.resolve(createFetchResponse(new Blob(['image'])));
+    await flushThumbnailWork();
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(Object.keys(thumbnails.imageThumbnailPlaceholders.value)).toHaveLength(1);
   });
 });
