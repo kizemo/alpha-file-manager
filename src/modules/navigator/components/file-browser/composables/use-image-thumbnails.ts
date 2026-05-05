@@ -39,6 +39,7 @@ export function useImageThumbnails() {
   const imageThumbnails = ref<Record<string, string>>({});
   const thumbnailQueue: ImageThumbnailRequest[] = [];
   const processingThumbnails = new Set<string>();
+  const cancelledThumbnails = new Set<string>();
   const failedThumbnails = new Set<string>();
   let thumbnailGeneration = 0;
 
@@ -71,6 +72,8 @@ export function useImageThumbnails() {
   }
 
   async function processImageThumbnail(request: ImageThumbnailRequest): Promise<void> {
+    const processingKey = getProcessingThumbnailKey(request);
+
     try {
       const thumbnailPath = await invoke<string>('generate_image_thumbnail', {
         path: request.entry.path,
@@ -79,7 +82,7 @@ export function useImageThumbnails() {
         maxDimension: request.maxDimension,
       });
 
-      if (request.generation === thumbnailGeneration) {
+      if (request.generation === thumbnailGeneration && !cancelledThumbnails.has(processingKey)) {
         imageThumbnails.value = {
           ...imageThumbnails.value,
           [request.thumbnailKey]: convertFileSrc(thumbnailPath),
@@ -87,12 +90,13 @@ export function useImageThumbnails() {
       }
     }
     catch {
-      if (request.generation === thumbnailGeneration) {
+      if (request.generation === thumbnailGeneration && !cancelledThumbnails.has(processingKey)) {
         failedThumbnails.add(request.thumbnailKey);
       }
     }
     finally {
-      processingThumbnails.delete(getProcessingThumbnailKey(request));
+      processingThumbnails.delete(processingKey);
+      cancelledThumbnails.delete(processingKey);
       processNextThumbnail();
     }
   }
@@ -121,8 +125,13 @@ export function useImageThumbnails() {
     const cachedThumbnail = imageThumbnails.value[thumbnailKey];
     const processingKey = `${thumbnailGeneration}|${thumbnailKey}`;
 
-    if (cachedThumbnail || processingThumbnails.has(processingKey) || failedThumbnails.has(thumbnailKey)) {
+    if (cachedThumbnail || failedThumbnails.has(thumbnailKey)) {
       return cachedThumbnail;
+    }
+
+    if (processingThumbnails.has(processingKey)) {
+      cancelledThumbnails.delete(processingKey);
+      return undefined;
     }
 
     enqueueImageThumbnail(entry, normalizedMaxDimension, thumbnailKey);
@@ -130,16 +139,40 @@ export function useImageThumbnails() {
     return undefined;
   }
 
+  function cancelImageThumbnail(entry: DirEntry, maxDimension?: number): void {
+    if (!canGenerateImageThumbnail(entry)) {
+      return;
+    }
+
+    const normalizedMaxDimension = normalizeImageThumbnailMaxDimension(maxDimension);
+    const thumbnailKey = getImageThumbnailKey(entry, normalizedMaxDimension);
+    const processingKey = `${thumbnailGeneration}|${thumbnailKey}`;
+
+    for (let requestIndex = thumbnailQueue.length - 1; requestIndex >= 0; requestIndex -= 1) {
+      const request = thumbnailQueue[requestIndex];
+
+      if (request.thumbnailKey === thumbnailKey && request.generation === thumbnailGeneration) {
+        thumbnailQueue.splice(requestIndex, 1);
+      }
+    }
+
+    if (processingThumbnails.has(processingKey)) {
+      cancelledThumbnails.add(processingKey);
+    }
+  }
+
   function clearThumbnails() {
     thumbnailGeneration += 1;
     imageThumbnails.value = {};
     thumbnailQueue.length = 0;
+    cancelledThumbnails.clear();
     failedThumbnails.clear();
   }
 
   return {
     imageThumbnails,
     getImageThumbnail,
+    cancelImageThumbnail,
     clearThumbnails,
   };
 }

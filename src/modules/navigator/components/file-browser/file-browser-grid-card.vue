@@ -153,6 +153,15 @@ function handleEntryKeydown(event: KeyboardEvent): void {
   }
 }
 
+function cancelPreviewThumbnail(): void {
+  if (props.variant === 'image') {
+    ctx.cancelImageThumbnail(props.entry, imageThumbnailMaxDimension.value);
+  }
+  else if (props.variant === 'video') {
+    ctx.cancelVideoThumbnail(props.entry);
+  }
+}
+
 function getDirSizeDisplay(entry: DirEntry): string | null {
   const sizeInfo = dirSizesStore.getSize(entry.path);
   const itemCountStr = entry.item_count !== null ? t('fileBrowser.itemCount', { count: entry.item_count }) : null;
@@ -210,6 +219,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  cancelPreviewThumbnail();
   disconnectPreviewIntersectionObserver();
   previewResizeObserver?.disconnect();
   previewResizeObserver = null;

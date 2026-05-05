@@ -282,12 +282,14 @@ export function useFileBrowser(options: UseFileBrowserOptions) {
     ? useVideoThumbnails()
     : {
         getVideoThumbnail: () => undefined,
+        cancelVideoThumbnail: () => undefined,
         clearThumbnails: () => undefined,
       };
   const imageThumbnails = !isExternalMode
     ? useImageThumbnails()
     : {
         getImageThumbnail: () => undefined,
+        cancelImageThumbnail: () => undefined,
         clearThumbnails: () => undefined,
       };
 
@@ -435,6 +437,8 @@ export function useFileBrowser(options: UseFileBrowserOptions) {
     });
 
     onUnmounted(() => {
+      imageThumbnails.clearThumbnails();
+      videoThumbnails.clearThumbnails();
       unregisterNavigationProvider();
       unregisterNavigateToPath();
     });
@@ -506,7 +510,9 @@ export function useFileBrowser(options: UseFileBrowserOptions) {
     permanentDeleteConfirm: selection.permanentDeleteConfirm,
 
     getImageThumbnail: imageThumbnails.getImageThumbnail,
+    cancelImageThumbnail: imageThumbnails.cancelImageThumbnail,
     getVideoThumbnail: videoThumbnails.getVideoThumbnail,
+    cancelVideoThumbnail: videoThumbnails.cancelVideoThumbnail,
     entriesContainerRef,
     setEntriesContainerRef,
     setScrollViewportRef: virtualLayout.setScrollViewportRef,

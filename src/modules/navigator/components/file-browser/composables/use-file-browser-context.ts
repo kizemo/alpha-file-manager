@@ -24,7 +24,9 @@ export interface FileBrowserContext {
   contextMenu: Ref<ContextMenuState>;
 
   getImageThumbnail: (entry: DirEntry, maxDimension?: number) => string | undefined;
+  cancelImageThumbnail: (entry: DirEntry, maxDimension?: number) => void;
   getVideoThumbnail: (entry: DirEntry) => string | undefined;
+  cancelVideoThumbnail: (entry: DirEntry) => void;
   setEntriesContainerRef: (element: Element | ComponentPublicInstance | null) => void;
   setScrollViewportRef: (element: Element | ComponentPublicInstance | null) => void;
   handleVirtualScroll: (event: Event) => void;

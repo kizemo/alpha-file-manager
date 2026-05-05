@@ -75,21 +75,44 @@ export function useVideoThumbnails() {
   const videoThumbnails = ref<Record<string, string>>({});
   const thumbnailQueue: VideoThumbnailRequest[] = [];
   const processingThumbnails = new Set<string>();
+  const cancelledThumbnails = new Set<string>();
+  const abortedThumbnails = new Set<string>();
+  const activeVideoCleanups = new Map<string, () => void>();
   const failedThumbnails = new Set<string>();
   let thumbnailGeneration = 0;
 
   function createVideoThumbnailDataUrl(request: VideoThumbnailRequest): Promise<string> {
     return new Promise((resolve) => {
+      const processingKey = getProcessingVideoThumbnailKey(request.thumbnailKey, request.generation);
       const video = document.createElement('video');
+      let isResolved = false;
       video.preload = 'metadata';
       video.muted = true;
       video.playsInline = true;
       video.crossOrigin = 'anonymous';
 
       function cleanup() {
+        video.onloadeddata = null;
+        video.onseeked = null;
+        video.onerror = null;
+        video.pause();
         video.src = '';
+        video.load();
         video.remove();
+        activeVideoCleanups.delete(processingKey);
       }
+
+      function resolveThumbnail(thumbnailDataUrl: string) {
+        if (isResolved) {
+          return;
+        }
+
+        isResolved = true;
+        resolve(thumbnailDataUrl);
+        cleanup();
+      }
+
+      activeVideoCleanups.set(processingKey, () => resolveThumbnail(''));
 
       video.onloadeddata = () => {
         video.currentTime = Math.min(1, video.duration * 0.1);
@@ -115,18 +138,15 @@ export function useVideoThumbnails() {
             drawRect.drawWidth,
             drawRect.drawHeight,
           );
-          resolve(canvas.toDataURL('image/jpeg', 0.8));
+          resolveThumbnail(canvas.toDataURL('image/jpeg', 0.8));
         }
         else {
-          resolve('');
+          resolveThumbnail('');
         }
-
-        cleanup();
       };
 
       video.onerror = () => {
-        resolve('');
-        cleanup();
+        resolveThumbnail('');
       };
 
       video.src = convertFileSrc(request.entry.path);
@@ -159,6 +179,8 @@ export function useVideoThumbnails() {
   }
 
   async function processVideoThumbnail(request: VideoThumbnailRequest): Promise<void> {
+    const processingKey = getProcessingVideoThumbnailKey(request.thumbnailKey, request.generation);
+
     try {
       let cachedThumbnail: string | undefined;
 
@@ -170,7 +192,7 @@ export function useVideoThumbnails() {
       }
 
       if (cachedThumbnail) {
-        if (request.generation === thumbnailGeneration) {
+        if (request.generation === thumbnailGeneration && !cancelledThumbnails.has(processingKey)) {
           videoThumbnails.value = {
             ...videoThumbnails.value,
             [request.thumbnailKey]: cachedThumbnail,
@@ -180,10 +202,14 @@ export function useVideoThumbnails() {
         return;
       }
 
+      if (request.generation !== thumbnailGeneration || cancelledThumbnails.has(processingKey)) {
+        return;
+      }
+
       const thumbnailDataUrl = await createVideoThumbnailDataUrl(request);
 
       if (!thumbnailDataUrl) {
-        if (request.generation === thumbnailGeneration) {
+        if (request.generation === thumbnailGeneration && !cancelledThumbnails.has(processingKey)) {
           failedThumbnails.add(request.thumbnailKey);
         }
 
@@ -199,7 +225,7 @@ export function useVideoThumbnails() {
         thumbnailSrc = thumbnailDataUrl;
       }
 
-      if (request.generation === thumbnailGeneration) {
+      if (request.generation === thumbnailGeneration && !cancelledThumbnails.has(processingKey)) {
         videoThumbnails.value = {
           ...videoThumbnails.value,
           [request.thumbnailKey]: thumbnailSrc,
@@ -207,12 +233,15 @@ export function useVideoThumbnails() {
       }
     }
     catch {
-      if (request.generation === thumbnailGeneration) {
+      if (request.generation === thumbnailGeneration && !cancelledThumbnails.has(processingKey)) {
         failedThumbnails.add(request.thumbnailKey);
       }
     }
     finally {
-      processingThumbnails.delete(getProcessingVideoThumbnailKey(request.thumbnailKey, request.generation));
+      processingThumbnails.delete(processingKey);
+      cancelledThumbnails.delete(processingKey);
+      abortedThumbnails.delete(processingKey);
+      activeVideoCleanups.delete(processingKey);
       processNextThumbnail();
     }
   }
@@ -241,7 +270,7 @@ export function useVideoThumbnails() {
     processVideoThumbnail(nextRequest);
   }
 
-  function enqueueVideoThumbnail(entry: DirEntry) {
+  function enqueueVideoThumbnail(entry: DirEntry, allowProcessingDuplicate = false) {
     const normalizedTargetSize = normalizeVideoThumbnailSize();
     const thumbnailKey = getVideoThumbnailKey(entry, normalizedTargetSize);
     const requestGeneration = thumbnailGeneration;
@@ -249,7 +278,7 @@ export function useVideoThumbnails() {
 
     if (
       videoThumbnails.value[thumbnailKey]
-      || processingThumbnails.has(processingKey)
+      || (!allowProcessingDuplicate && processingThumbnails.has(processingKey))
       || failedThumbnails.has(thumbnailKey)
       || thumbnailQueue.some(request => request.thumbnailKey === thumbnailKey)
     ) {
@@ -271,23 +300,71 @@ export function useVideoThumbnails() {
     const cached = videoThumbnails.value[thumbnailKey];
     const processingKey = getProcessingVideoThumbnailKey(thumbnailKey, thumbnailGeneration);
 
-    if (!cached && !processingThumbnails.has(processingKey) && !failedThumbnails.has(thumbnailKey)) {
+    if (cached || failedThumbnails.has(thumbnailKey)) {
+      return cached;
+    }
+
+    if (processingThumbnails.has(processingKey)) {
+      if (abortedThumbnails.has(processingKey)) {
+        enqueueVideoThumbnail(entry, true);
+      }
+      else {
+        cancelledThumbnails.delete(processingKey);
+      }
+
+      return undefined;
+    }
+
+    if (!cached) {
       enqueueVideoThumbnail(entry);
     }
 
     return cached;
   }
 
+  function cancelVideoThumbnail(entry: DirEntry): void {
+    const normalizedTargetSize = normalizeVideoThumbnailSize();
+    const thumbnailKey = getVideoThumbnailKey(entry, normalizedTargetSize);
+    const processingKey = getProcessingVideoThumbnailKey(thumbnailKey, thumbnailGeneration);
+
+    for (let requestIndex = thumbnailQueue.length - 1; requestIndex >= 0; requestIndex -= 1) {
+      const request = thumbnailQueue[requestIndex];
+
+      if (request.thumbnailKey === thumbnailKey && request.generation === thumbnailGeneration) {
+        thumbnailQueue.splice(requestIndex, 1);
+      }
+    }
+
+    if (processingThumbnails.has(processingKey)) {
+      cancelledThumbnails.add(processingKey);
+      const cleanupActiveVideo = activeVideoCleanups.get(processingKey);
+
+      if (cleanupActiveVideo) {
+        abortedThumbnails.add(processingKey);
+        cleanupActiveVideo();
+      }
+    }
+  }
+
   function clearThumbnails() {
     thumbnailGeneration += 1;
     videoThumbnails.value = {};
     thumbnailQueue.length = 0;
+    cancelledThumbnails.clear();
+    abortedThumbnails.clear();
     failedThumbnails.clear();
+
+    for (const cleanupActiveVideo of Array.from(activeVideoCleanups.values())) {
+      cleanupActiveVideo();
+    }
+
+    activeVideoCleanups.clear();
   }
 
   return {
     videoThumbnails,
     getVideoThumbnail,
+    cancelVideoThumbnail,
     clearThumbnails,
   };
 }
