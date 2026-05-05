@@ -15,6 +15,7 @@ import type { FocusOutsideEvent, PointerDownOutsideEvent } from 'reka-ui';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useStatusCenterStore } from '@/stores/runtime/status-center';
 import { useDirSizesStore } from '@/stores/runtime/dir-sizes';
 import { useArchiveJobsStore } from '@/stores/runtime/archive-jobs';
@@ -362,185 +363,193 @@ function getOperationDetails(operation: typeof statusCenterStore.operationsList[
 
 <template>
   <div class="status-center-toolbar-button animate-fade-in">
-    <Popover v-model:open="statusCenterPopoverOpen">
-      <PopoverTrigger as-child>
-        <Button
-          variant="ghost"
-          size="icon"
-          class="status-center-toolbar-button__button"
-          :class="{ 'status-center-toolbar-button__button--active': statusCenterStore.hasActiveOperations }"
-        >
-          <LoaderCircleIcon
-            v-if="statusCenterStore.hasActiveOperations"
-            :size="16"
-            class="status-center-toolbar-button__icon status-center-toolbar-button__icon--spinning"
-          />
-          <ActivityIcon
-            v-else
-            :size="16"
-            class="status-center-toolbar-button__icon"
-          />
-          <span
-            v-if="statusCenterStore.activeCount > 0"
-            class="status-center-toolbar-button__badge"
-          >
-            {{ statusCenterStore.activeCount }}
-          </span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        :side-offset="8"
-        class="status-center-popover"
-        @pointer-down-outside="handleStatusCenterPointerDownOutside"
-        @focus-outside="handleStatusCenterFocusOutside"
-      >
-        <div class="status-center">
-          <div class="status-center__header">
-            <h3 class="status-center__title">
-              {{ t('statusCenter.title') }}
-            </h3>
+    <Tooltip>
+      <Popover v-model:open="statusCenterPopoverOpen">
+        <TooltipTrigger as-child>
+          <PopoverTrigger as-child>
             <Button
-              variant="secondary"
-              size="xs"
-              class="status-center__clear-btn"
-              :class="{ 'status-center__clear-btn--hidden': !hasCompletedOperations }"
-              :disabled="!hasCompletedOperations"
-              @click="handleClearCompleted"
+              variant="ghost"
+              size="icon"
+              class="status-center-toolbar-button__button"
+              :class="{ 'status-center-toolbar-button__button--active': statusCenterStore.hasActiveOperations }"
+              :aria-label="t('statusCenter.title')"
             >
-              {{ t('statusCenter.clearCompleted') }}
+              <LoaderCircleIcon
+                v-if="statusCenterStore.hasActiveOperations"
+                :size="16"
+                class="status-center-toolbar-button__icon status-center-toolbar-button__icon--spinning"
+              />
+              <ActivityIcon
+                v-else
+                :size="16"
+                class="status-center-toolbar-button__icon"
+              />
+              <span
+                v-if="statusCenterStore.activeCount > 0"
+                class="status-center-toolbar-button__badge"
+              >
+                {{ statusCenterStore.activeCount }}
+              </span>
             </Button>
-          </div>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent>
+          {{ t('statusCenter.title') }}
+        </TooltipContent>
+        <PopoverContent
+          align="end"
+          :side-offset="8"
+          class="status-center-popover"
+          @pointer-down-outside="handleStatusCenterPointerDownOutside"
+          @focus-outside="handleStatusCenterFocusOutside"
+        >
+          <div class="status-center">
+            <div class="status-center__header">
+              <h3 class="status-center__title">
+                {{ t('statusCenter.title') }}
+              </h3>
+              <Button
+                variant="secondary"
+                size="xs"
+                class="status-center__clear-btn"
+                :class="{ 'status-center__clear-btn--hidden': !hasCompletedOperations }"
+                :disabled="!hasCompletedOperations"
+                @click="handleClearCompleted"
+              >
+                {{ t('statusCenter.clearCompleted') }}
+              </Button>
+            </div>
 
-          <ScrollArea
-            v-if="hasOperations"
-            class="status-center__content"
-          >
-            <div
-              v-for="group in statusCenterStore.groupedOperations"
-              :key="group.type"
-              class="status-center__group"
+            <ScrollArea
+              v-if="hasOperations"
+              class="status-center__content"
             >
-              <div class="status-center__group-header">
-                <div class="status-center__group-title-wrapper">
-                  <component
-                    :is="getOperationIcon(group.type)"
-                    :size="14"
-                    class="status-center__group-icon"
-                  />
-                  <span class="status-center__group-title">{{ t(`statusCenter.groups.${group.type}`) }}</span>
-                </div>
-                <div
-                  v-if="getGroupActiveCount(group.operations) > 0"
-                  class="status-center__group-actions"
-                >
-                  <span class="status-center__group-count">
-                    {{ getGroupActiveCount(group.operations) }} {{ t('statusCenter.active') }}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    class="status-center__group-cancel"
-                    @click="handleCancelGroup(group.operations)"
-                  >
-                    {{ t('statusCenter.cancelAll') }}
-                  </Button>
-                </div>
-              </div>
-
-              <div class="status-center__operations">
-                <div
-                  v-for="operation in group.operations"
-                  :key="operation.id"
-                  class="status-center__operation"
-                  :class="`status-center__operation--${operation.status}`"
-                >
-                  <div class="status-center__operation-icon">
+              <div
+                v-for="group in statusCenterStore.groupedOperations"
+                :key="group.type"
+                class="status-center__group"
+              >
+                <div class="status-center__group-header">
+                  <div class="status-center__group-title-wrapper">
                     <component
-                      :is="getStatusIcon(operation.status)"
+                      :is="getOperationIcon(group.type)"
                       :size="14"
-                      :class="{
-                        'status-center__spinner':
-                          operation.status === 'in-progress'
-                          || operation.status === 'pending'
-                          || operation.status === 'cancelling',
-                        'status-center__check': operation.status === 'completed',
-                        'status-center__error': operation.status === 'cancelled' || operation.status === 'error',
-                      }"
+                      class="status-center__group-icon"
                     />
+                    <span class="status-center__group-title">{{ t(`statusCenter.groups.${group.type}`) }}</span>
                   </div>
-                  <div class="status-center__operation-info">
-                    <span class="status-center__operation-label">{{ operationPrimaryLabel(operation) }}</span>
-                    <div
-                      v-if="
-                        operation.progress != null
-                          && (
+                  <div
+                    v-if="getGroupActiveCount(group.operations) > 0"
+                    class="status-center__group-actions"
+                  >
+                    <span class="status-center__group-count">
+                      {{ getGroupActiveCount(group.operations) }} {{ t('statusCenter.active') }}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      class="status-center__group-cancel"
+                      @click="handleCancelGroup(group.operations)"
+                    >
+                      {{ t('statusCenter.cancelAll') }}
+                    </Button>
+                  </div>
+                </div>
+
+                <div class="status-center__operations">
+                  <div
+                    v-for="operation in group.operations"
+                    :key="operation.id"
+                    class="status-center__operation"
+                    :class="`status-center__operation--${operation.status}`"
+                  >
+                    <div class="status-center__operation-icon">
+                      <component
+                        :is="getStatusIcon(operation.status)"
+                        :size="14"
+                        :class="{
+                          'status-center__spinner':
                             operation.status === 'in-progress'
                             || operation.status === 'pending'
-                            || operation.status === 'cancelling'
-                          )
-                      "
-                      class="status-center__operation-progress"
-                    >
-                      <div
-                        class="status-center__operation-progress-bar"
-                        :style="{ width: `${Math.min(100, Math.max(0, operation.progress))}%` }"
+                            || operation.status === 'cancelling',
+                          'status-center__check': operation.status === 'completed',
+                          'status-center__error': operation.status === 'cancelled' || operation.status === 'error',
+                        }"
                       />
                     </div>
-                    <span
-                      v-if="getOperationDetails(operation)"
-                      class="status-center__operation-details"
+                    <div class="status-center__operation-info">
+                      <span class="status-center__operation-label">{{ operationPrimaryLabel(operation) }}</span>
+                      <div
+                        v-if="
+                          operation.progress != null
+                            && (
+                              operation.status === 'in-progress'
+                              || operation.status === 'pending'
+                              || operation.status === 'cancelling'
+                            )
+                        "
+                        class="status-center__operation-progress"
+                      >
+                        <div
+                          class="status-center__operation-progress-bar"
+                          :style="{ width: `${Math.min(100, Math.max(0, operation.progress))}%` }"
+                        />
+                      </div>
+                      <span
+                        v-if="getOperationDetails(operation)"
+                        class="status-center__operation-details"
+                      >
+                        {{ getOperationDetails(operation) }}
+                      </span>
+                      <span
+                        v-if="operation.status === 'error' && operation.message"
+                        class="status-center__operation-error"
+                      >
+                        {{ operation.message }}
+                      </span>
+                    </div>
+                    <Button
+                      v-if="operation.status === 'in-progress' || operation.status === 'pending'"
+                      variant="ghost"
+                      size="sm"
+                      class="status-center__operation-cancel"
+                      @click="handleCancelOperation(operation)"
                     >
-                      {{ getOperationDetails(operation) }}
-                    </span>
-                    <span
-                      v-if="operation.status === 'error' && operation.message"
-                      class="status-center__operation-error"
+                      <BanIcon :size="12" />
+                    </Button>
+                    <div
+                      v-else-if="operation.status === 'cancelling'"
+                      class="status-center__operation-action-slot"
+                      aria-hidden="true"
+                    />
+                    <Button
+                      v-else
+                      variant="ghost"
+                      size="sm"
+                      class="status-center__operation-dismiss"
+                      @click="handleDismiss(operation.id)"
                     >
-                      {{ operation.message }}
-                    </span>
+                      <XIcon :size="12" />
+                    </Button>
                   </div>
-                  <Button
-                    v-if="operation.status === 'in-progress' || operation.status === 'pending'"
-                    variant="ghost"
-                    size="sm"
-                    class="status-center__operation-cancel"
-                    @click="handleCancelOperation(operation)"
-                  >
-                    <BanIcon :size="12" />
-                  </Button>
-                  <div
-                    v-else-if="operation.status === 'cancelling'"
-                    class="status-center__operation-action-slot"
-                    aria-hidden="true"
-                  />
-                  <Button
-                    v-else
-                    variant="ghost"
-                    size="sm"
-                    class="status-center__operation-dismiss"
-                    @click="handleDismiss(operation.id)"
-                  >
-                    <XIcon :size="12" />
-                  </Button>
                 </div>
               </div>
-            </div>
-          </ScrollArea>
+            </ScrollArea>
 
-          <div
-            v-else
-            class="status-center__empty"
-          >
-            <ActivityIcon
-              :size="24"
-              class="status-center__empty-icon"
-            />
-            <span>{{ t('statusCenter.noOperations') }}</span>
+            <div
+              v-else
+              class="status-center__empty"
+            >
+              <ActivityIcon
+                :size="24"
+                class="status-center__empty-icon"
+              />
+              <span>{{ t('statusCenter.noOperations') }}</span>
+            </div>
           </div>
-        </div>
-      </PopoverContent>
-    </Popover>
+        </PopoverContent>
+      </Popover>
+    </Tooltip>
   </div>
 </template>
 
