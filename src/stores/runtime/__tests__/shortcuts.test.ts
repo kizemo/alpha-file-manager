@@ -100,11 +100,31 @@ describe('shortcuts store', () => {
       routeName: shortcut.routeName,
       label: shortcutsStore.getShortcutLabel(shortcut.id),
     }))).toEqual([
-      { id: 'switchToHomePage', routeName: 'home', label: 'Alt+1' },
-      { id: 'switchToNavigatorPage', routeName: 'navigator', label: 'Alt+2' },
-      { id: 'switchToDashboardPage', routeName: 'dashboard', label: 'Alt+3' },
-      { id: 'switchToSettingsPage', routeName: 'settings', label: 'Alt+4' },
-      { id: 'switchToExtensionsPage', routeName: 'extensions', label: 'Alt+5' },
+      {
+        id: 'switchToHomePage',
+        routeName: 'home',
+        label: 'Alt+1',
+      },
+      {
+        id: 'switchToNavigatorPage',
+        routeName: 'navigator',
+        label: 'Alt+2',
+      },
+      {
+        id: 'switchToDashboardPage',
+        routeName: 'dashboard',
+        label: 'Alt+3',
+      },
+      {
+        id: 'switchToSettingsPage',
+        routeName: 'settings',
+        label: 'Alt+4',
+      },
+      {
+        id: 'switchToExtensionsPage',
+        routeName: 'extensions',
+        label: 'Alt+5',
+      },
     ]);
   });
 
@@ -424,6 +444,31 @@ describe('shortcuts store', () => {
 
     await expect(shortcutsStore.handleKeydown(event)).resolves.toBe(true);
     expect(executeCommandMock).toHaveBeenCalledWith('test.extension.command');
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('executes extension mouse shortcuts from the effective extensions store keybindings', async () => {
+    const shortcutsStore = useShortcutsStore();
+
+    extensionKeybindings.push({
+      extensionId: 'test.extension',
+      commandId: 'test.extension.mouse-command',
+      keys: {
+        alt: true,
+        key: 'MouseButton4',
+      },
+      when: 'always',
+    });
+
+    const event = new MouseEvent('mousedown', {
+      button: 3,
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    await expect(shortcutsStore.handleMouseDown(event)).resolves.toBe(true);
+    expect(executeCommandMock).toHaveBeenCalledWith('test.extension.mouse-command');
     expect(event.defaultPrevented).toBe(true);
   });
 

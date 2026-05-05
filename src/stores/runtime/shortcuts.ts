@@ -13,6 +13,7 @@ import {
   KEYBOARD_MAIN_KEY_UNUSABLE,
   shortcutMainKeyDisplayLabel,
 } from '@/localization/shortcut-main-key-label';
+import { isDialogOpened, isInputFieldActive } from '@/utils/dom-interaction-state';
 
 export type { ShortcutId, ShortcutKeys, UserShortcuts };
 
@@ -1008,25 +1009,6 @@ export function getSelectedTextForCopy(): string | null {
   return text;
 }
 
-function isInputFieldActive(): boolean {
-  const activeElement = document.activeElement;
-  if (!activeElement) return false;
-  const tagName = activeElement.tagName.toLowerCase();
-  return tagName === 'input' || tagName === 'textarea' || (activeElement as HTMLElement).isContentEditable === true;
-}
-
-function isDialogOpened(): boolean {
-  const dialogs = document.querySelectorAll('[role="dialog"]');
-
-  for (const dialog of dialogs) {
-    if (!dialog.classList.contains('sigma-ui-popover-content')) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 type ShortcutHandler = () => void | boolean | Promise<void | boolean>;
 type ShortcutHandlerResult = ReturnType<ShortcutHandler>;
 
@@ -1245,6 +1227,15 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
     }
   }
 
+  async function executeExtensionKeybinding(commandId: string): Promise<void> {
+    try {
+      await extensionsStore.executeCommand(commandId);
+    }
+    catch (error) {
+      console.error(`Failed to execute extension command ${commandId}:`, error);
+    }
+  }
+
   async function handleExtensionKeybindings(event: KeyboardEvent): Promise<boolean> {
     for (const keybinding of extensionsStore.keybindings) {
       if (!keybinding.keys.key) continue;
@@ -1254,12 +1245,24 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
       event.preventDefault();
       event.stopPropagation();
 
-      try {
-        await extensionsStore.executeCommand(keybinding.commandId);
-      }
-      catch (error) {
-        console.error(`Failed to execute extension command ${keybinding.commandId}:`, error);
-      }
+      await executeExtensionKeybinding(keybinding.commandId);
+
+      return true;
+    }
+
+    return false;
+  }
+
+  async function handleExtensionMouseKeybindings(event: MouseEvent): Promise<boolean> {
+    for (const keybinding of extensionsStore.keybindings) {
+      if (!keybinding.keys.key) continue;
+      if (!matchesMouseShortcut(event, keybinding.keys)) continue;
+      if (!checkExtensionKeybindingCondition(keybinding.when)) continue;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      await executeExtensionKeybinding(keybinding.commandId);
 
       return true;
     }
@@ -1308,6 +1311,9 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
     if (isShortcutCaptureActive.value) {
       return false;
     }
+
+    const extensionHandled = await handleExtensionMouseKeybindings(event);
+    if (extensionHandled) return true;
 
     const matchingShortcutIds = findAllMatchingMouseShortcuts(event);
     if (matchingShortcutIds.length === 0) return false;
