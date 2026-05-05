@@ -4,7 +4,7 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 -->
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   DropdownMenu,
@@ -32,6 +32,7 @@ import { getPathDisplayName } from '@/utils/normalize-path';
 
 const { t } = useI18n();
 const ctx = useFileBrowserContext();
+const isMenuOpen = ref(false);
 
 const currentPath = computed(() => ctx.currentPath.value);
 
@@ -59,6 +60,7 @@ function applyContextMenuState() {
 }
 
 function handleAction(action: ContextMenuAction) {
+  isMenuOpen.value = false;
   applyContextMenuState();
 
   if (action === 'create-file' || action === 'create-directory') {
@@ -70,11 +72,13 @@ function handleAction(action: ContextMenuAction) {
 }
 
 function handleOpenCustomDialog() {
+  isMenuOpen.value = false;
   applyContextMenuState();
   ctx.openOpenWithDialog(ctx.contextMenu.value.selectedEntries);
 }
 
 async function handleExtensionAction(registration: ContextMenuItemRegistration) {
+  isMenuOpen.value = false;
   applyContextMenuState();
   const context = {
     selectedEntries: ctx.contextMenu.value.selectedEntries.map(entry => ({
@@ -97,7 +101,7 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
 
 <template>
   <Tooltip>
-    <DropdownMenu>
+    <DropdownMenu v-model:open="isMenuOpen">
       <TooltipTrigger as-child>
         <DropdownMenuTrigger as-child>
           <Button
