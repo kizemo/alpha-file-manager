@@ -55,6 +55,9 @@ import {
   FlipHorizontalIcon,
   AppWindowIcon,
   FullscreenIcon,
+  HomeIcon,
+  FolderClosedIcon,
+  BookmarkIcon,
 } from '@lucide/vue';
 import type { Component } from 'vue';
 import {
@@ -86,6 +89,13 @@ const globalShortcutsStore = useGlobalShortcutsStore();
 
 const shortcutIcons: Record<ShortcutId, Component> = {
   toggleGlobalSearch: SearchIcon,
+  switchToHomePage: HomeIcon,
+  switchToNavigatorPage: FolderClosedIcon,
+  switchToDashboardPage: BookmarkIcon,
+  switchToSettingsPage: SettingsIcon,
+  switchToExtensionsPage: BlocksIcon,
+  navigatePageBack: ArrowLeftIcon,
+  navigatePageForward: ArrowRightIcon,
   toggleFilter: TextSearchIcon,
   reloadCurrentDirectory: RotateCcwIcon,
   toggleSettingsSearch: TextSearchIcon,
@@ -112,6 +122,9 @@ const shortcutIcons: Record<ShortcutId, Component> = {
   navigateRight: ArrowRightIcon,
   openSelected: CornerDownLeftIcon,
   navigateBack: Undo2Icon,
+  navigateHistoryBack: ArrowLeftIcon,
+  navigateHistoryForward: ArrowRightIcon,
+  goUpDirectory: ArrowUpIcon,
   switchToLeftPane: FlipHorizontalIcon,
   switchToRightPane: FlipHorizontalIcon,
   uiZoomIncrease: PlusIcon,
@@ -137,6 +150,7 @@ const globalRegisterFailed = ref(false);
 
 let recordCaptureKeyDown: ((event: KeyboardEvent) => void) | null = null;
 let recordCaptureKeyUp: ((event: KeyboardEvent) => void) | null = null;
+let recordCaptureMouseDown: ((event: MouseEvent) => void) | null = null;
 
 function shouldIgnorePhysicalCodeForCaptureTracking(code: string): boolean {
   return code === 'Tab' || code === 'Enter';
@@ -222,7 +236,26 @@ function detachRecordCaptureListeners() {
     recordCaptureKeyUp = null;
   }
 
+  if (recordCaptureMouseDown) {
+    window.removeEventListener('mousedown', recordCaptureMouseDown, true);
+    recordCaptureMouseDown = null;
+  }
+
   resetCaptureKeyTracking();
+}
+
+function canRecordMouseShortcut(): boolean {
+  if (isEditingGlobalShortcut.value) return false;
+  if (editingExtensionKeybinding.value?.scope === 'global') return false;
+
+  return true;
+}
+
+function getMouseShortcutKey(button: number): string | null {
+  if (button === 3) return 'MouseButton4';
+  if (button === 4) return 'MouseButton5';
+
+  return null;
 }
 
 function attachRecordCaptureListeners() {
@@ -285,8 +318,35 @@ function attachRecordCaptureListeners() {
     refocusRecordControl();
   };
 
+  recordCaptureMouseDown = (event: MouseEvent) => {
+    if (!isDialogOpen.value || !isRecording.value || !canRecordMouseShortcut()) {
+      return;
+    }
+
+    const mainKey = getMouseShortcutKey(event.button);
+
+    if (!mainKey) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    pressedPhysicalCodes.clear();
+    lastCaptureKeyboardEvent.value = null;
+    recordedKeys.value = {
+      key: mainKey,
+      ctrl: event.ctrlKey,
+      alt: event.altKey,
+      shift: event.shiftKey,
+      meta: event.metaKey,
+    };
+    captureDisplayLabel.value = formatShortcutKeys(recordedKeys.value);
+    refocusRecordControl();
+  };
+
   window.addEventListener('keydown', recordCaptureKeyDown, true);
   window.addEventListener('keyup', recordCaptureKeyUp, true);
+  window.addEventListener('mousedown', recordCaptureMouseDown, true);
 }
 
 watch(

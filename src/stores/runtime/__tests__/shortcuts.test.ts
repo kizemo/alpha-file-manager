@@ -56,7 +56,10 @@ vi.mock('@/modules/extensions/context', () => ({
   getCurrentPath: () => '',
 }));
 
-import { useShortcutsStore } from '@/stores/runtime/shortcuts';
+import {
+  BUILTIN_NAVIGATION_PAGE_SHORTCUTS,
+  useShortcutsStore,
+} from '@/stores/runtime/shortcuts';
 
 describe('shortcuts store', () => {
   beforeEach(() => {
@@ -87,6 +90,121 @@ describe('shortcuts store', () => {
     await expect(shortcutsStore.handleKeydown(event)).resolves.toBe(true);
     expect(zoomInHandler).toHaveBeenCalledTimes(1);
     expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('defines Alt+number shortcuts for built-in navigation pages', () => {
+    const shortcutsStore = useShortcutsStore();
+
+    expect(BUILTIN_NAVIGATION_PAGE_SHORTCUTS.map(shortcut => ({
+      id: shortcut.id,
+      routeName: shortcut.routeName,
+      label: shortcutsStore.getShortcutLabel(shortcut.id),
+    }))).toEqual([
+      { id: 'switchToHomePage', routeName: 'home', label: 'Alt+1' },
+      { id: 'switchToNavigatorPage', routeName: 'navigator', label: 'Alt+2' },
+      { id: 'switchToDashboardPage', routeName: 'dashboard', label: 'Alt+3' },
+      { id: 'switchToSettingsPage', routeName: 'settings', label: 'Alt+4' },
+      { id: 'switchToExtensionsPage', routeName: 'extensions', label: 'Alt+5' },
+    ]);
+  });
+
+  it('matches Alt+number for built-in navigation page shortcuts', async () => {
+    const shortcutsStore = useShortcutsStore();
+    const switchToNavigatorPageHandler = vi.fn();
+
+    shortcutsStore.registerHandler('switchToNavigatorPage', switchToNavigatorPageHandler);
+
+    const event = new KeyboardEvent('keydown', {
+      key: '2',
+      code: 'Digit2',
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    await expect(shortcutsStore.handleKeydown(event)).resolves.toBe(true);
+    expect(switchToNavigatorPageHandler).toHaveBeenCalledTimes(1);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('defines customizable mouse page and Alt+arrow pane navigation shortcuts', () => {
+    const shortcutsStore = useShortcutsStore();
+
+    expect(shortcutsStore.getShortcutLabel('navigatePageBack')).toBe('Mouse Button 4');
+    expect(shortcutsStore.getShortcutLabel('navigatePageForward')).toBe('Mouse Button 5');
+    expect(shortcutsStore.getShortcutLabel('navigateHistoryBack')).toBe('Alt+←');
+    expect(shortcutsStore.getShortcutLabel('navigateHistoryForward')).toBe('Alt+→');
+    expect(shortcutsStore.getShortcutLabel('goUpDirectory')).toBe('Alt+↑');
+  });
+
+  it('matches mouse shortcuts for page history navigation', async () => {
+    const shortcutsStore = useShortcutsStore();
+    const navigatePageBackHandler = vi.fn();
+    const navigatePageForwardHandler = vi.fn();
+
+    shortcutsStore.registerHandler('navigatePageBack', navigatePageBackHandler);
+    shortcutsStore.registerHandler('navigatePageForward', navigatePageForwardHandler);
+
+    const backEvent = new MouseEvent('mousedown', {
+      button: 3,
+      bubbles: true,
+      cancelable: true,
+    });
+    const forwardEvent = new MouseEvent('mousedown', {
+      button: 4,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    await expect(shortcutsStore.handleMouseDown(backEvent)).resolves.toBe(true);
+    await expect(shortcutsStore.handleMouseDown(forwardEvent)).resolves.toBe(true);
+    expect(navigatePageBackHandler).toHaveBeenCalledTimes(1);
+    expect(navigatePageForwardHandler).toHaveBeenCalledTimes(1);
+    expect(backEvent.defaultPrevented).toBe(true);
+    expect(forwardEvent.defaultPrevented).toBe(true);
+  });
+
+  it('matches Alt+arrow shortcuts for navigator pane navigation', async () => {
+    const shortcutsStore = useShortcutsStore();
+    const navigateHistoryBackHandler = vi.fn();
+    const navigateHistoryForwardHandler = vi.fn();
+    const goUpDirectoryHandler = vi.fn();
+
+    shortcutsStore.registerHandler('navigateHistoryBack', navigateHistoryBackHandler);
+    shortcutsStore.registerHandler('navigateHistoryForward', navigateHistoryForwardHandler);
+    shortcutsStore.registerHandler('goUpDirectory', goUpDirectoryHandler);
+
+    const backEvent = new KeyboardEvent('keydown', {
+      key: 'ArrowLeft',
+      code: 'ArrowLeft',
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    const forwardEvent = new KeyboardEvent('keydown', {
+      key: 'ArrowRight',
+      code: 'ArrowRight',
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    const upEvent = new KeyboardEvent('keydown', {
+      key: 'ArrowUp',
+      code: 'ArrowUp',
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    await expect(shortcutsStore.handleKeydown(backEvent)).resolves.toBe(true);
+    await expect(shortcutsStore.handleKeydown(forwardEvent)).resolves.toBe(true);
+    await expect(shortcutsStore.handleKeydown(upEvent)).resolves.toBe(true);
+    expect(navigateHistoryBackHandler).toHaveBeenCalledTimes(1);
+    expect(navigateHistoryForwardHandler).toHaveBeenCalledTimes(1);
+    expect(goUpDirectoryHandler).toHaveBeenCalledTimes(1);
+    expect(backEvent.defaultPrevented).toBe(true);
+    expect(forwardEvent.defaultPrevented).toBe(true);
+    expect(upEvent.defaultPrevented).toBe(true);
   });
 
   it('keeps zoom and fullscreen shortcuts active while a dialog is open', async () => {

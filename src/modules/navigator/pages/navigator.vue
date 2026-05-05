@@ -52,6 +52,9 @@ type FileBrowserInstance = InstanceType<typeof FileBrowser> & {
   navigateRight?: () => void;
   openSelected?: () => void;
   navigateBack?: () => void;
+  goBack?: () => void | Promise<void>;
+  goForward?: () => void | Promise<void>;
+  navigateToParent?: () => void | Promise<void>;
 };
 
 type GlobalSearchViewInstance = InstanceType<typeof GlobalSearchView> & {
@@ -624,7 +627,7 @@ function hasBlockingRekaDismissableLayersForNavigatorShortcuts(): boolean {
 
 function callActivePaneMethod(method: keyof Pick<
   FileBrowserInstance,
-  'navigateUp' | 'navigateDown' | 'navigateLeft' | 'navigateRight' | 'openSelected' | 'navigateBack'
+  'navigateUp' | 'navigateDown' | 'navigateLeft' | 'navigateRight' | 'openSelected' | 'navigateBack' | 'goBack' | 'goForward' | 'navigateToParent'
 >): boolean {
   if (hasBlockingDismissalLayersForNavigatorShortcuts()) return false;
 
@@ -653,6 +656,18 @@ function handleNavigateBackShortcut(): boolean {
   }
 
   return callActivePaneMethod('navigateBack');
+}
+
+function handleNavigateHistoryBackShortcut(): boolean {
+  return callActivePaneMethod('goBack');
+}
+
+function handleNavigateHistoryForwardShortcut(): boolean {
+  return callActivePaneMethod('goForward');
+}
+
+function handleGoUpDirectoryShortcut(): boolean {
+  return callActivePaneMethod('navigateToParent');
 }
 
 function registerShortcutHandlers() {
@@ -685,6 +700,9 @@ function registerShortcutHandlers() {
   shortcutsStore.registerHandler('navigateRight', () => callActivePaneMethod('navigateRight'));
   shortcutsStore.registerHandler('openSelected', () => callActivePaneMethod('openSelected'), { checkItemSelected: hasSelectedItems });
   shortcutsStore.registerHandler('navigateBack', handleNavigateBackShortcut);
+  shortcutsStore.registerHandler('navigateHistoryBack', handleNavigateHistoryBackShortcut);
+  shortcutsStore.registerHandler('navigateHistoryForward', handleNavigateHistoryForwardShortcut);
+  shortcutsStore.registerHandler('goUpDirectory', handleGoUpDirectoryShortcut);
   shortcutsStore.registerHandler('switchToLeftPane', () => switchToPane(0));
   shortcutsStore.registerHandler('switchToRightPane', () => switchToPane(1));
   shortcutsStore.registerHandler('toggleSplitView', () => {

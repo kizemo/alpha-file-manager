@@ -9,6 +9,10 @@ import { useRouter } from 'vue-router';
 import { BlocksIcon, HardDriveIcon, NetworkIcon, UsbIcon } from '@lucide/vue';
 import { useAppStore } from '@/stores/runtime/app';
 import { useExtensionsStore } from '@/stores/runtime/extensions';
+import {
+  BUILTIN_NAVIGATION_PAGE_SHORTCUTS,
+  useShortcutsStore,
+} from '@/stores/runtime/shortcuts';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import { useWorkspacesStore } from '@/stores/storage/workspaces';
 import { useDrives } from '@/modules/home/composables';
@@ -29,6 +33,7 @@ import UbuntuWslIcon from '@/components/icons/ubuntu-wsl-icon.vue';
 const router = useRouter();
 const appStore = useAppStore();
 const extensionsStore = useExtensionsStore();
+const shortcutsStore = useShortcutsStore();
 const userSettingsStore = useUserSettingsStore();
 const workspacesStore = useWorkspacesStore();
 const { drives } = useDrives();
@@ -69,6 +74,14 @@ function openExtensionPage(pageId: string) {
     name: 'extension-page',
     params: { fullPageId: pageId },
   });
+}
+
+function getPageShortcutLabel(routeName: unknown): string {
+  const shortcut = BUILTIN_NAVIGATION_PAGE_SHORTCUTS.find(
+    item => item.routeName === routeName,
+  );
+
+  return shortcut ? shortcutsStore.getShortcutLabel(shortcut.id) : '';
 }
 
 function getExtensionPageShortcutLabel(pageId: string): string {
@@ -140,6 +153,14 @@ function getDriveIcon(drive: {
             :collision-padding="6"
             class="nav-sidebar__quick-access-tooltip"
           >
+            <div class="nav-sidebar__quick-access-title">
+              <div class="nav-sidebar__tooltip-row">
+                <span>{{ item.title }}</span>
+                <ContextMenuShortcut v-if="getPageShortcutLabel(item.name)">
+                  {{ getPageShortcutLabel(item.name) }}
+                </ContextMenuShortcut>
+              </div>
+            </div>
             <QuickAccessPanel />
           </TooltipContent>
         </Tooltip>
@@ -165,7 +186,12 @@ function getDriveIcon(drive: {
             side="right"
             :side-offset="12"
           >
-            {{ item.title }}
+            <div class="nav-sidebar__tooltip-row">
+              <span>{{ item.title }}</span>
+              <ContextMenuShortcut v-if="getPageShortcutLabel(item.name)">
+                {{ getPageShortcutLabel(item.name) }}
+              </ContextMenuShortcut>
+            </div>
           </TooltipContent>
         </Tooltip>
       </template>
@@ -346,6 +372,11 @@ function getDriveIcon(drive: {
   padding: 0;
   border: none;
   margin-top: 0;
+}
+
+.nav-sidebar__quick-access-title {
+  padding: 8px 10px;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .nav-sidebar-drive-tooltip {

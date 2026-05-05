@@ -168,6 +168,28 @@ vi.mock('@/stores/runtime/app-window', () => ({
 }));
 
 vi.mock('@/stores/runtime/shortcuts', () => ({
+  BUILTIN_NAVIGATION_PAGE_SHORTCUTS: [
+    {
+      id: 'switchToHomePage',
+      routeName: 'home',
+    },
+    {
+      id: 'switchToNavigatorPage',
+      routeName: 'navigator',
+    },
+    {
+      id: 'switchToDashboardPage',
+      routeName: 'dashboard',
+    },
+    {
+      id: 'switchToSettingsPage',
+      routeName: 'settings',
+    },
+    {
+      id: 'switchToExtensionsPage',
+      routeName: 'extensions',
+    },
+  ],
   useShortcutsStore: () => ({
     init: shortcutsInitMock,
     registerHandler: vi.fn(),

@@ -11,7 +11,10 @@ import { useWorkspacesStore } from '@/stores/storage/workspaces';
 import { usePlatformStore } from '@/stores/runtime/platform';
 import { useGlobalSearchStore } from '@/stores/runtime/global-search';
 import { useAppWindowStore } from '@/stores/runtime/app-window';
-import { useShortcutsStore } from '@/stores/runtime/shortcuts';
+import {
+  BUILTIN_NAVIGATION_PAGE_SHORTCUTS,
+  useShortcutsStore,
+} from '@/stores/runtime/shortcuts';
 import { useGlobalShortcutsStore } from '@/stores/runtime/global-shortcuts';
 import { useTerminalsStore } from '@/stores/runtime/terminals';
 import { useBackgroundMediaStore } from '@/stores/runtime/background-media';
@@ -79,6 +82,19 @@ export function useInit() {
         globalSearchStore.close();
       }
     });
+
+    for (const shortcut of BUILTIN_NAVIGATION_PAGE_SHORTCUTS) {
+      shortcutsStore.registerHandler(shortcut.id, () => {
+        router.push({ name: shortcut.routeName });
+      });
+    }
+
+    shortcutsStore.registerHandler('navigatePageBack', () => {
+      router.go(-1);
+    });
+    shortcutsStore.registerHandler('navigatePageForward', () => {
+      router.go(1);
+    });
     shortcutsStore.registerHandler('uiZoomIncrease', () => {
       void applyUiZoomStep(1);
     });
@@ -92,6 +108,13 @@ export function useInit() {
 
   function unregisterShortcutHandlers() {
     shortcutsStore.unregisterHandler('toggleGlobalSearch');
+
+    for (const shortcut of BUILTIN_NAVIGATION_PAGE_SHORTCUTS) {
+      shortcutsStore.unregisterHandler(shortcut.id);
+    }
+
+    shortcutsStore.unregisterHandler('navigatePageBack');
+    shortcutsStore.unregisterHandler('navigatePageForward');
     shortcutsStore.unregisterHandler('uiZoomIncrease');
     shortcutsStore.unregisterHandler('uiZoomDecrease');
     shortcutsStore.unregisterHandler('toggleFullscreen');

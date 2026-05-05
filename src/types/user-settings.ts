@@ -90,6 +90,13 @@ export type ShortcutKeys = {
 
 export type ShortcutId
   = 'toggleGlobalSearch'
+    | 'switchToHomePage'
+    | 'switchToNavigatorPage'
+    | 'switchToDashboardPage'
+    | 'switchToSettingsPage'
+    | 'switchToExtensionsPage'
+    | 'navigatePageBack'
+    | 'navigatePageForward'
     | 'toggleFilter'
     | 'toggleSettingsSearch'
     | 'toggleCommandPalette'
@@ -115,6 +122,9 @@ export type ShortcutId
     | 'navigateRight'
     | 'openSelected'
     | 'navigateBack'
+    | 'navigateHistoryBack'
+    | 'navigateHistoryForward'
+    | 'goUpDirectory'
     | 'switchToLeftPane'
     | 'switchToRightPane'
     | 'reloadCurrentDirectory'

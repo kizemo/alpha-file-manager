@@ -31,6 +31,63 @@ export type ShortcutDefinition = {
   isReadOnly: boolean;
 };
 
+type BuiltinNavigationPageRouteName = 'home' | 'navigator' | 'dashboard' | 'settings' | 'extensions';
+
+type BuiltinNavigationPageShortcut = {
+  id: ShortcutId;
+  routeName: BuiltinNavigationPageRouteName;
+  labelKey: string;
+  defaultKeys: ShortcutKeys;
+};
+
+export const BUILTIN_NAVIGATION_PAGE_SHORTCUTS: BuiltinNavigationPageShortcut[] = [
+  {
+    id: 'switchToHomePage',
+    routeName: 'home',
+    labelKey: 'shortcuts.switchToHomePage',
+    defaultKeys: {
+      alt: true,
+      key: '1',
+    },
+  },
+  {
+    id: 'switchToNavigatorPage',
+    routeName: 'navigator',
+    labelKey: 'shortcuts.switchToNavigatorPage',
+    defaultKeys: {
+      alt: true,
+      key: '2',
+    },
+  },
+  {
+    id: 'switchToDashboardPage',
+    routeName: 'dashboard',
+    labelKey: 'shortcuts.switchToDashboardPage',
+    defaultKeys: {
+      alt: true,
+      key: '3',
+    },
+  },
+  {
+    id: 'switchToSettingsPage',
+    routeName: 'settings',
+    labelKey: 'shortcuts.switchToSettingsPage',
+    defaultKeys: {
+      alt: true,
+      key: '4',
+    },
+  },
+  {
+    id: 'switchToExtensionsPage',
+    routeName: 'extensions',
+    labelKey: 'shortcuts.switchToExtensionsPage',
+    defaultKeys: {
+      alt: true,
+      key: '5',
+    },
+  },
+];
+
 const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   {
     id: 'toggleGlobalSearch',
@@ -94,6 +151,41 @@ const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
     },
     scope: 'global',
     conditions: {},
+    isReadOnly: false,
+  },
+  ...BUILTIN_NAVIGATION_PAGE_SHORTCUTS.map((shortcut): ShortcutDefinition => ({
+    id: shortcut.id,
+    labelKey: shortcut.labelKey,
+    defaultKeys: shortcut.defaultKeys,
+    scope: 'global',
+    conditions: {
+      inputFieldIsActive: false,
+      dialogIsOpened: false,
+    },
+    isReadOnly: false,
+  })),
+  {
+    id: 'navigatePageBack',
+    labelKey: 'shortcuts.navigatePageBack',
+    defaultKeys: {
+      key: 'MouseButton4',
+    },
+    scope: 'global',
+    conditions: {
+      dialogIsOpened: false,
+    },
+    isReadOnly: false,
+  },
+  {
+    id: 'navigatePageForward',
+    labelKey: 'shortcuts.navigatePageForward',
+    defaultKeys: {
+      key: 'MouseButton5',
+    },
+    scope: 'global',
+    conditions: {
+      dialogIsOpened: false,
+    },
     isReadOnly: false,
   },
   {
@@ -398,6 +490,48 @@ const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
     isReadOnly: false,
   },
   {
+    id: 'navigateHistoryBack',
+    labelKey: 'shortcuts.navigateHistoryBack',
+    defaultKeys: {
+      alt: true,
+      key: 'ArrowLeft',
+    },
+    scope: 'navigator',
+    conditions: {
+      inputFieldIsActive: false,
+      dialogIsOpened: false,
+    },
+    isReadOnly: false,
+  },
+  {
+    id: 'navigateHistoryForward',
+    labelKey: 'shortcuts.navigateHistoryForward',
+    defaultKeys: {
+      alt: true,
+      key: 'ArrowRight',
+    },
+    scope: 'navigator',
+    conditions: {
+      inputFieldIsActive: false,
+      dialogIsOpened: false,
+    },
+    isReadOnly: false,
+  },
+  {
+    id: 'goUpDirectory',
+    labelKey: 'shortcuts.goUpDirectory',
+    defaultKeys: {
+      alt: true,
+      key: 'ArrowUp',
+    },
+    scope: 'navigator',
+    conditions: {
+      inputFieldIsActive: false,
+      dialogIsOpened: false,
+    },
+    isReadOnly: false,
+  },
+  {
     id: 'switchToLeftPane',
     labelKey: 'shortcuts.switchToLeftPane',
     defaultKeys: {
@@ -660,7 +794,13 @@ export function resolveShortcutKeyFromKeyboardEvent(
 function formatShortcutMainKeyForDisplay(rawKey: string): string {
   let keyDisplay = shortcutMainKeyDisplayLabel(rawKey);
 
-  if (keyDisplay === ' ') {
+  if (keyDisplay === 'MouseButton4') {
+    keyDisplay = 'Mouse Button 4';
+  }
+  else if (keyDisplay === 'MouseButton5') {
+    keyDisplay = 'Mouse Button 5';
+  }
+  else if (keyDisplay === ' ') {
     keyDisplay = 'Space';
   }
   else if (keyDisplay.length === 1) {
@@ -754,7 +894,27 @@ export function parseShortcutString(shortcutString: string): ShortcutKeys | null
   return keys;
 }
 
+function mouseButtonToShortcutKey(button: number): string | null {
+  if (button === 3) return 'MouseButton4';
+  if (button === 4) return 'MouseButton5';
+
+  return null;
+}
+
+function modifiersMatch(event: KeyboardEvent | MouseEvent, keys: ShortcutKeys): boolean {
+  const eventCtrl = event.ctrlKey || event.metaKey;
+  const expectedCtrl = keys.ctrl || keys.meta || false;
+
+  if (eventCtrl !== expectedCtrl) return false;
+  if (event.altKey !== (keys.alt || false)) return false;
+  if (event.shiftKey !== (keys.shift || false)) return false;
+
+  return true;
+}
+
 function matchesShortcut(event: KeyboardEvent, keys: ShortcutKeys): boolean {
+  if (keys.key.startsWith('MouseButton')) return false;
+
   const eventCtrl = event.ctrlKey || event.metaKey;
   const expectedCtrl = keys.ctrl || keys.meta || false;
 
@@ -796,6 +956,13 @@ function matchesShortcut(event: KeyboardEvent, keys: ShortcutKeys): boolean {
 
   const codeLower = event.code.toLowerCase();
   return eventKey === expectedKey || codeLower === `key${expectedKey}`;
+}
+
+function matchesMouseShortcut(event: MouseEvent, keys: ShortcutKeys): boolean {
+  if (!modifiersMatch(event, keys)) return false;
+
+  const eventKey = mouseButtonToShortcutKey(event.button);
+  return eventKey !== null && eventKey.toLowerCase() === keys.key.toLowerCase();
 }
 
 export function formatConditionsLabel(conditions: ShortcutConditions): string {
@@ -1024,6 +1191,20 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
     return matchingShortcuts;
   }
 
+  function findAllMatchingMouseShortcuts(event: MouseEvent): ShortcutId[] {
+    const matchingShortcuts: ShortcutId[] = [];
+
+    for (const definition of definitions.value) {
+      const keys = getShortcutKeys(definition.id);
+
+      if (matchesMouseShortcut(event, keys)) {
+        matchingShortcuts.push(definition.id);
+      }
+    }
+
+    return matchingShortcuts;
+  }
+
   function findConflictingShortcut(keys: ShortcutKeys, excludeShortcutId?: ShortcutId): ShortcutDefinition | null {
     const keysLabel = formatShortcutKeys(keys);
 
@@ -1123,19 +1304,50 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
     return false;
   }
 
+  async function handleMouseDown(event: MouseEvent): Promise<boolean> {
+    if (isShortcutCaptureActive.value) {
+      return false;
+    }
+
+    const matchingShortcutIds = findAllMatchingMouseShortcuts(event);
+    if (matchingShortcutIds.length === 0) return false;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    for (const shortcutId of matchingShortcutIds) {
+      const result = callShortcutHandler(shortcutId);
+      if (result === null) continue;
+
+      const isHandled = result instanceof Promise
+        ? (await result) !== false
+        : result !== false;
+
+      return isHandled;
+    }
+
+    return false;
+  }
+
   function globalKeydownHandler(event: KeyboardEvent): void {
     handleKeydown(event);
+  }
+
+  function globalMouseDownHandler(event: MouseEvent): void {
+    handleMouseDown(event);
   }
 
   function startGlobalListener(): void {
     if (isListenerActive.value) return;
     document.addEventListener('keydown', globalKeydownHandler, { capture: true });
+    document.addEventListener('mousedown', globalMouseDownHandler, { capture: true });
     isListenerActive.value = true;
   }
 
   function stopGlobalListener(): void {
     if (!isListenerActive.value) return;
     document.removeEventListener('keydown', globalKeydownHandler, { capture: true });
+    document.removeEventListener('mousedown', globalMouseDownHandler, { capture: true });
     isListenerActive.value = false;
   }
 
@@ -1190,6 +1402,7 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
     findMatchingShortcut,
     findConflictingShortcut,
     handleKeydown,
+    handleMouseDown,
     startGlobalListener,
     stopGlobalListener,
     init,
