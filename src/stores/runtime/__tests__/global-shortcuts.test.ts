@@ -32,6 +32,8 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
 }));
 
+const consoleWarnMock = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
 const userSettingsStoreMock = {
   userSettings: {
     globalShortcuts: {},
@@ -89,6 +91,7 @@ describe('globalShortcuts store', () => {
     userSettingsStoreMock.setUserSettingsStorage.mockReset();
     extensionGlobalShortcuts.splice(0, extensionGlobalShortcuts.length);
     executeCommandMock.mockReset();
+    consoleWarnMock.mockClear();
   });
 
   it('does not register OS global shortcuts when the webview label is not main', async () => {
@@ -164,6 +167,107 @@ describe('globalShortcuts store', () => {
     );
     expect(registerMock).toHaveBeenCalledWith(
       'Control+Shift+E',
+      expect.any(Function),
+    );
+  });
+
+  it('does not let extension command shortcuts replace app-owned shortcuts', async () => {
+    getCurrentWebviewWindowMock.mockReturnValue({ label: 'main' });
+    registerMock.mockResolvedValue(undefined);
+    unregisterMock.mockResolvedValue(undefined);
+    extensionGlobalShortcuts.push({
+      extensionId: 'sigma.excalidraw',
+      commandId: 'sigma.excalidraw.openPage',
+      commandTitle: 'Open Excalidraw',
+      keys: {
+        meta: true,
+        shift: true,
+        key: 'e',
+      },
+      source: 'system',
+    });
+
+    const globalShortcutsStore = useGlobalShortcutsStore();
+    await globalShortcutsStore.init();
+
+    const superShiftERegistrations = registerMock.mock.calls.filter(
+      ([shortcut]) => shortcut === 'Super+Shift+E',
+    );
+    const superShiftEUnregistrations = unregisterMock.mock.calls.filter(
+      ([shortcut]) => shortcut === 'Super+Shift+E',
+    );
+
+    expect(superShiftERegistrations).toHaveLength(1);
+    expect(superShiftEUnregistrations).toHaveLength(1);
+    expect(consoleWarnMock).toHaveBeenCalledWith(
+      expect.stringContaining('already registered for "launchApp"'),
+    );
+  });
+
+  it('does not let duplicate extension command shortcuts replace each other', async () => {
+    getCurrentWebviewWindowMock.mockReturnValue({ label: 'main' });
+    registerMock.mockResolvedValue(undefined);
+    unregisterMock.mockResolvedValue(undefined);
+    extensionGlobalShortcuts.push(
+      {
+        extensionId: 'sigma.excalidraw',
+        commandId: 'sigma.excalidraw.openPage',
+        commandTitle: 'Open Excalidraw',
+        keys: {
+          ctrl: true,
+          shift: true,
+          key: 'e',
+        },
+        source: 'system',
+      },
+      {
+        extensionId: 'sigma.excalidraw',
+        commandId: 'sigma.excalidraw.exportPage',
+        commandTitle: 'Export Excalidraw',
+        keys: {
+          ctrl: true,
+          shift: true,
+          key: 'e',
+        },
+        source: 'system',
+      },
+    );
+
+    const globalShortcutsStore = useGlobalShortcutsStore();
+    await globalShortcutsStore.init();
+
+    const controlShiftERegistrations = registerMock.mock.calls.filter(
+      ([shortcut]) => shortcut === 'Control+Shift+E',
+    );
+    const controlShiftEHandler = controlShiftERegistrations[0]?.[1] as (shortcutEvent: { state: string }) => Promise<void>;
+
+    expect(controlShiftERegistrations).toHaveLength(1);
+    expect(consoleWarnMock).toHaveBeenCalledWith(
+      expect.stringContaining('already registered for "sigma.excalidraw.openPage"'),
+    );
+
+    await controlShiftEHandler({ state: 'Pressed' });
+
+    expect(executeCommandMock).toHaveBeenCalledWith('sigma.excalidraw.openPage');
+    expect(executeCommandMock).not.toHaveBeenCalledWith('sigma.excalidraw.exportPage');
+
+    const controlShiftEUnregistrationsBeforeChange = unregisterMock.mock.calls.filter(
+      ([shortcut]) => shortcut === 'Control+Shift+E',
+    );
+
+    await globalShortcutsStore.setExtensionShortcut('sigma.excalidraw.exportPage', {
+      ctrl: true,
+      alt: true,
+      key: 'e',
+    });
+
+    const controlShiftEUnregistrationsAfterChange = unregisterMock.mock.calls.filter(
+      ([shortcut]) => shortcut === 'Control+Shift+E',
+    );
+
+    expect(controlShiftEUnregistrationsAfterChange).toHaveLength(controlShiftEUnregistrationsBeforeChange.length);
+    expect(registerMock).toHaveBeenCalledWith(
+      'Control+Alt+E',
       expect.any(Function),
     );
   });
