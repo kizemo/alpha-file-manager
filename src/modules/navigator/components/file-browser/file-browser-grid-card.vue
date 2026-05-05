@@ -354,6 +354,7 @@ onBeforeUnmount(() => {
   cursor: default;
   scroll-margin-top: calc(var(--file-browser-grid-section-header-height) + 8px);
   text-align: left;
+  user-select: none;
 }
 
 .file-browser-grid-card:focus-visible {
@@ -533,8 +534,8 @@ onBeforeUnmount(() => {
 }
 
 .file-browser-grid-card__overlay--selected {
-  background-color: hsl(var(--primary) / 12%);
-  box-shadow: inset 0 0 0 1px hsl(var(--primary) / 50%);
+  background-color: hsl(var(--primary) / 20%);
+  box-shadow: inset 0 0 0 2px hsl(var(--primary) / 60%);
   opacity: 0;
 }
 
@@ -547,7 +548,7 @@ onBeforeUnmount(() => {
 }
 
 .file-browser-grid-card--image[data-selected] .file-browser-grid-card__overlay--selected {
-  background-color: hsl(var(--primary) / 30%);
+  background-color: hsl(var(--primary) / 50%);
 }
 
 .file-browser-grid-card__overlay--clipboard {

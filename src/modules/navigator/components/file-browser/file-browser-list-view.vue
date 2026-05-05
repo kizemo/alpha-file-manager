@@ -220,6 +220,7 @@ const { clockRef: listModifiedClock } = useRelativeDateDisplayClock(shouldTrackL
   grid-template-columns: var(--file-browser-list-columns);
   scroll-margin-top: var(--file-browser-list-header-height);
   text-align: left;
+  user-select: none;
 }
 
 .file-browser-list-view__entry:focus-visible {
