@@ -102,7 +102,9 @@
     "closeOtherTabs": "دوسرے ٹیب بند کریں",
     "closeDuplicateTabs": "ڈپلیکیٹ بند کریں",
     "closeAllTabs": "تمام ٹیب بند کریں",
-    "defaultTabOpened": "ڈیفالٹ ٹیب کھولا گیا"
+    "defaultTabOpened": "ڈیفالٹ ٹیب کھولا گیا",
+    "closedTabRestored": "بند ٹیب بحال کر دیا گیا",
+    "noClosedTabsToRestore": "بحال کرنے کے لیے کوئی بند ٹیب نہیں"
   },
   "splitView": "تقسیم شدہ منظر",
   "workspaces": {

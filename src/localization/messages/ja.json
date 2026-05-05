@@ -102,7 +102,9 @@
     "closeOtherTabs": "他のタブを閉じる",
     "closeDuplicateTabs": "重複を閉じる",
     "closeAllTabs": "すべてのタブを閉じる",
-    "defaultTabOpened": "デフォルトタブが開きました"
+    "defaultTabOpened": "デフォルトタブが開きました",
+    "closedTabRestored": "閉じたタブを復元しました",
+    "noClosedTabsToRestore": "復元できる閉じたタブはありません"
   },
   "splitView": "分割表示",
   "workspaces": {

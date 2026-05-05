@@ -102,7 +102,9 @@
     "closeOtherTabs": "Закрыть другие вкладки",
     "closeDuplicateTabs": "Закрыть дубликаты",
     "closeAllTabs": "Закрыть все вкладки",
-    "defaultTabOpened": "Открыта вкладка по умолчанию"
+    "defaultTabOpened": "Открыта вкладка по умолчанию",
+    "closedTabRestored": "Закрытая вкладка восстановлена",
+    "noClosedTabsToRestore": "Нет закрытых вкладок для восстановления"
   },
   "splitView": "Разделённый вид",
   "workspaces": {

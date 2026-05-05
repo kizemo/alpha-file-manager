@@ -102,7 +102,9 @@
     "closeOtherTabs": "بستن سایر برگه ها",
     "closeDuplicateTabs": "بستن تکراری‌ها",
     "closeAllTabs": "بستن همه برگه ها",
-    "defaultTabOpened": "برگه پیش‌فرض باز شد"
+    "defaultTabOpened": "برگه پیش‌فرض باز شد",
+    "closedTabRestored": "برگه بسته‌شده بازیابی شد",
+    "noClosedTabsToRestore": "برگه بسته‌شده‌ای برای بازیابی وجود ندارد"
   },
   "workspaces": {
     "title": "فضای کار",

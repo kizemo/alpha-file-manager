@@ -102,7 +102,9 @@
     "closeOtherTabs": "Diğer sekmeleri kapat",
     "closeDuplicateTabs": "Yinelenenleri kapat",
     "closeAllTabs": "Tüm sekmeleri kapat",
-    "defaultTabOpened": "Varsayılan sekme açıldı"
+    "defaultTabOpened": "Varsayılan sekme açıldı",
+    "closedTabRestored": "Kapatılan sekme geri yüklendi",
+    "noClosedTabsToRestore": "Geri yüklenecek kapatılmış sekme yok"
   },
   "splitView": "Bölünmüş görünüm",
   "workspaces": {

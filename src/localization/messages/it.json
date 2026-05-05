@@ -102,7 +102,9 @@
     "closeOtherTabs": "Chiudi altre schede",
     "closeDuplicateTabs": "Chiudi duplicati",
     "closeAllTabs": "Chiudi tutte le schede",
-    "defaultTabOpened": "La scheda predefinita è stata aperta"
+    "defaultTabOpened": "La scheda predefinita è stata aperta",
+    "closedTabRestored": "Scheda chiusa ripristinata",
+    "noClosedTabsToRestore": "Nessuna scheda chiusa da ripristinare"
   },
   "splitView": "Vista divisa",
   "workspaces": {

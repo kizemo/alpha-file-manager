@@ -102,7 +102,9 @@
     "closeOtherTabs": "Cerrar otras pestañas",
     "closeDuplicateTabs": "Cerrar duplicados",
     "closeAllTabs": "Cerrar todas las pestañas",
-    "defaultTabOpened": "Se abrió la pestaña predeterminada"
+    "defaultTabOpened": "Se abrió la pestaña predeterminada",
+    "closedTabRestored": "Pestaña cerrada restaurada",
+    "noClosedTabsToRestore": "No hay pestañas cerradas para restaurar"
   },
   "splitView": "Vista dividida",
   "workspaces": {

@@ -102,7 +102,9 @@
     "closeOtherTabs": "Zapri druge zavihke",
     "closeDuplicateTabs": "Zapri podvojene",
     "closeAllTabs": "Zapri vse zavihke",
-    "defaultTabOpened": "Privzeti zavihek je bil odprt"
+    "defaultTabOpened": "Privzeti zavihek je bil odprt",
+    "closedTabRestored": "Zaprt zavihek je bil obnovljen",
+    "noClosedTabsToRestore": "Ni zaprtih zavihkov za obnovitev"
   },
   "splitView": "Razdeljen pogled",
   "workspaces": {

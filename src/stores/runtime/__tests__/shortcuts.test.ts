@@ -172,6 +172,46 @@ describe('shortcuts store', () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
+  it('prevents default when an async shortcut handler resolves true', async () => {
+    const shortcutsStore = useShortcutsStore();
+    const restoreLastClosedTabHandler = vi.fn(() => Promise.resolve(true));
+
+    shortcutsStore.registerHandler('restoreLastClosedTab', restoreLastClosedTabHandler);
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'T',
+      code: 'KeyT',
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    await expect(shortcutsStore.handleKeydown(event)).resolves.toBe(true);
+    expect(restoreLastClosedTabHandler).toHaveBeenCalledTimes(1);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('does not prevent default when an async shortcut handler resolves false', async () => {
+    const shortcutsStore = useShortcutsStore();
+    const restoreLastClosedTabHandler = vi.fn(() => Promise.resolve(false));
+
+    shortcutsStore.registerHandler('restoreLastClosedTab', restoreLastClosedTabHandler);
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'T',
+      code: 'KeyT',
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    await expect(shortcutsStore.handleKeydown(event)).resolves.toBe(false);
+    expect(restoreLastClosedTabHandler).toHaveBeenCalledTimes(1);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
   it('does not trigger app or extension shortcuts while capture is active', async () => {
     const shortcutsStore = useShortcutsStore();
     const zoomInHandler = vi.fn();

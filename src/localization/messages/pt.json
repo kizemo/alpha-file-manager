@@ -102,7 +102,9 @@
     "closeOtherTabs": "Fechar outras guias",
     "closeDuplicateTabs": "Fechar duplicados",
     "closeAllTabs": "Fechar todas as guias",
-    "defaultTabOpened": "Guia padrão foi aberta"
+    "defaultTabOpened": "Guia padrão foi aberta",
+    "closedTabRestored": "Guia fechada restaurada",
+    "noClosedTabsToRestore": "Nenhuma guia fechada para restaurar"
   },
   "splitView": "Visualização dividida",
   "workspaces": {

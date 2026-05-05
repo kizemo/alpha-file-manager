@@ -102,7 +102,9 @@
     "closeOtherTabs": "Close other tabs",
     "closeDuplicateTabs": "Close duplicates",
     "closeAllTabs": "Close all tabs",
-    "defaultTabOpened": "Default tab was opened"
+    "defaultTabOpened": "Default tab was opened",
+    "closedTabRestored": "Closed tab restored",
+    "noClosedTabsToRestore": "No closed tabs to restore"
   },
   "splitView": "Split view",
   "workspaces": {

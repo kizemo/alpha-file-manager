@@ -1108,20 +1108,16 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
       const result = callShortcutHandler(shortcutId);
       if (result === null) continue;
 
-      if (result instanceof Promise) {
+      const isHandled = result instanceof Promise
+        ? (await result) !== false
+        : result !== false;
+
+      if (isHandled) {
         event.preventDefault();
         event.stopPropagation();
-        const asyncResult = await result;
-        return asyncResult !== false;
       }
-      else {
-        if (result !== false) {
-          event.preventDefault();
-          event.stopPropagation();
-        }
 
-        return result !== false;
-      }
+      return isHandled;
     }
 
     return false;

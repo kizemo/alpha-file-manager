@@ -102,7 +102,9 @@
     "closeOtherTabs": "Fermer les autres onglets",
     "closeDuplicateTabs": "Fermer les doublons",
     "closeAllTabs": "Fermer tous les onglets",
-    "defaultTabOpened": "L'onglet par défaut a été ouvert"
+    "defaultTabOpened": "L'onglet par défaut a été ouvert",
+    "closedTabRestored": "Onglet fermé restauré",
+    "noClosedTabsToRestore": "Aucun onglet fermé à restaurer"
   },
   "splitView": "Vue partagée",
   "workspaces": {

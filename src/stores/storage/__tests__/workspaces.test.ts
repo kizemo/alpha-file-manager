@@ -187,6 +187,89 @@ describe('workspaces storage duplicate tabs', () => {
     expect(workspacesStore.currentTabGroup?.[0]?.id).not.toBe(secondTab.id);
   });
 
+  it('shows the restored path when restoring a closed tab group', async () => {
+    mockDirectoryReadResponses();
+
+    const firstTab = createTab('first-tab', 'C:/Users/aleks/First');
+    const secondTab = createTab('second-tab', 'C:/Users/aleks/Second');
+    const workspacesStore = useWorkspacesStore();
+    workspacesStore.workspaces = [
+      createWorkspace([
+        [firstTab],
+        [secondTab],
+      ]),
+    ];
+
+    await workspacesStore.closeTabGroup([secondTab]);
+    await workspacesStore.restoreLastClosedTabGroup();
+
+    expect(toastCustomMock).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({
+      componentProps: {
+        data: {
+          title: 'tabs.closedTabRestored',
+          description: 'C:/Users/aleks/Second',
+        },
+      },
+    }));
+  });
+
+  it('shows a toast when there is no closed tab group to restore', async () => {
+    const workspacesStore = useWorkspacesStore();
+
+    const restored = await workspacesStore.restoreLastClosedTabGroup();
+
+    expect(restored).toBe(false);
+    expect(toastCustomMock).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({
+      componentProps: {
+        data: {
+          title: 'tabs.noClosedTabsToRestore',
+        },
+      },
+    }));
+  });
+
+  it('restores a closed tab group with renamed paths', async () => {
+    mockDirectoryReadResponses();
+
+    const firstTab = createTab('first-tab', 'C:/Users/aleks/First');
+    const renamedTab = createTab('renamed-tab', 'C:/Users/aleks/Old/Child');
+    const workspacesStore = useWorkspacesStore();
+    workspacesStore.workspaces = [
+      createWorkspace([
+        [firstTab],
+        [renamedTab],
+      ]),
+    ];
+
+    await workspacesStore.closeTabGroup([renamedTab]);
+    workspacesStore.handlePathRenamed('C:/Users/aleks/Old', 'C:/Users/aleks/New');
+    const restored = await workspacesStore.restoreLastClosedTabGroup();
+
+    expect(restored).toBe(true);
+    expect(workspacesStore.currentTabGroup?.[0]?.path).toBe('C:/Users/aleks/New/Child');
+  });
+
+  it('restores a closed tab group with deleted paths redirected to home', async () => {
+    mockDirectoryReadResponses();
+
+    const firstTab = createTab('first-tab', 'C:/Users/aleks/First');
+    const deletedTab = createTab('deleted-tab', 'C:/Users/aleks/Deleted/Child');
+    const workspacesStore = useWorkspacesStore();
+    workspacesStore.workspaces = [
+      createWorkspace([
+        [firstTab],
+        [deletedTab],
+      ]),
+    ];
+
+    await workspacesStore.closeTabGroup([deletedTab]);
+    workspacesStore.handlePathsDeleted(['C:/Users/aleks/Deleted']);
+    const restored = await workspacesStore.restoreLastClosedTabGroup();
+
+    expect(restored).toBe(true);
+    expect(workspacesStore.currentTabGroup?.[0]?.path).toBe('C:/Users/aleks');
+  });
+
   it('keeps only the 20 most recent closed tab groups', async () => {
     mockDirectoryReadResponses();
 

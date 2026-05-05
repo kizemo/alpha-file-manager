@@ -102,7 +102,9 @@
     "closeOtherTabs": "Đóng các tab khác",
     "closeDuplicateTabs": "Đóng bản trùng",
     "closeAllTabs": "Đóng tất cả tab",
-    "defaultTabOpened": "Đã mở tab mặc định"
+    "defaultTabOpened": "Đã mở tab mặc định",
+    "closedTabRestored": "Đã khôi phục tab đã đóng",
+    "noClosedTabsToRestore": "Không có tab đã đóng nào để khôi phục"
   },
   "splitView": "Chế độ chia màn hình",
   "workspaces": {
