@@ -2,8 +2,6 @@
 // License: GNU GPLv3 or later. See the license file in the project root for more information.
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
-import { isDialogOpened, isEditableElement, isInputFieldActive } from '@/utils/dom-interaction-state';
-
 function disableContextMenu() {
   document.addEventListener('contextmenu', (event) => {
     event.preventDefault();
@@ -38,19 +36,11 @@ function disableNativeHistoryNavigation() {
     }
   }
 
-  function isHistoryArrowKey(event: KeyboardEvent): boolean {
-    return event.key === 'ArrowLeft' || event.key === 'ArrowRight' || event.key === 'ArrowUp';
-  }
-
-  function shouldPreventKeyboardHistoryNavigation(event: KeyboardEvent): boolean {
-    if (!event.altKey || !isHistoryArrowKey(event)) return false;
-    if (isEditableElement(event.target) || isInputFieldActive() || isDialogOpened()) return false;
-
-    return true;
-  }
-
   document.addEventListener('keydown', (event) => {
-    if (shouldPreventKeyboardHistoryNavigation(event)) {
+    if (
+      event.altKey
+      && (event.key === 'ArrowLeft' || event.key === 'ArrowRight' || event.key === 'ArrowUp')
+    ) {
       event.preventDefault();
     }
   }, { capture: true });
