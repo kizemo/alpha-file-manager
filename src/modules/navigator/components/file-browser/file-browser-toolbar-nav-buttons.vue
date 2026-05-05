@@ -232,7 +232,7 @@ const shortcutsStore = useShortcutsStore();
   gap: 12px;
 }
 
-@container (width < 400px) {
+@container (width < 600px) {
   .file-browser-toolbar-nav-buttons--expanded {
     display: none;
   }

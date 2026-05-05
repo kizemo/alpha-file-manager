@@ -31,8 +31,8 @@ import { InfoPanel } from '@/modules/navigator/components/info-panel';
 import { NavigatorToolbarActions } from '@/modules/navigator/components/navigator-toolbar-actions';
 import { ClipboardToolbar } from '@/modules/navigator/components/clipboard-toolbar';
 import { GlobalSearchView } from '@/modules/global-search';
-import { UI_CONSTANTS } from '@/constants';
 import type { DirEntry } from '@/types/dir-entry';
+import { useIsSmallScreen } from '@/composables/use-responsive-query';
 
 type FileBrowserInstance = InstanceType<typeof FileBrowser> & {
   rootElement?: HTMLElement | null;
@@ -93,8 +93,7 @@ watch(selectedEntries, (entries) => {
 
 const currentDirEntry = ref<DirEntry | null>(null);
 const activeTabId = ref<string | null>(null);
-const smallScreenMediaQuery = window.matchMedia(`(max-width: ${UI_CONSTANTS.SMALL_SCREEN_BREAKPOINT}px)`);
-const isSmallScreen = ref(smallScreenMediaQuery.matches);
+const isSmallScreen = useIsSmallScreen();
 
 watch(() => workspacesStore.currentTabGroup, (newGroup, oldGroup) => {
   const currentTabIds = new Set(
@@ -119,10 +118,6 @@ watch(() => workspacesStore.currentTabGroup, (newGroup, oldGroup) => {
     }
   }
 });
-
-function handleSmallScreenChange(event: MediaQueryListEvent) {
-  isSmallScreen.value = event.matches;
-}
 
 const currentLayout = computed(() => {
   const layoutName = userSettingsStore.userSettings.navigator.layout.type.name;
@@ -700,14 +695,12 @@ function registerShortcutHandlers() {
 
 onMounted(() => {
   registerShortcutHandlers();
-  smallScreenMediaQuery.addEventListener('change', handleSmallScreenChange);
 
   // Recover any in-progress directory size calculations from backend
   dirSizesStore.recoverActiveCalculations();
 });
 
 onUnmounted(() => {
-  smallScreenMediaQuery.removeEventListener('change', handleSmallScreenChange);
   navigatorSelectionStore.setSelectedDirEntries([]);
 });
 </script>
@@ -768,6 +761,7 @@ onUnmounted(() => {
                     :layout="currentLayout"
                     :track-relative-time="trackNavigatorRelativeTime"
                     :is-active-pane="activeTabId ? activeTabId === tab.id : index === 0"
+                    :is-split-view="true"
                     class="navigator-page__pane"
                     @update:selected-entries="(entries) => handleSelectionChange(entries, tab.id)"
                     @update:current-dir-entry="handleCurrentDirChange"

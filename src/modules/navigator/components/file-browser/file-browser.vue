@@ -31,6 +31,7 @@ const props = withDefaults(defineProps<{
   entryDescription?: (entry: DirEntry) => string | undefined;
   trackRelativeTime?: boolean;
   isActivePane?: boolean;
+  isSplitView?: boolean;
 }>(), {
   tab: undefined,
   paneIndex: undefined,
@@ -40,6 +41,7 @@ const props = withDefaults(defineProps<{
   entryDescription: undefined,
   trackRelativeTime: true,
   isActivePane: undefined,
+  isSplitView: false,
 });
 
 const emit = defineEmits<{
@@ -139,6 +141,7 @@ defineExpose({
       :can-go-forward="fb.canGoForward.value"
       :can-go-up="!!fb.parentPath.value"
       :is-loading="fb.isLoading.value || fb.isRefreshing.value"
+      :is-split-view="props.isSplitView"
       @go-back="fb.goBack"
       @go-forward="fb.goForward"
       @go-up="fb.navigateToParent"
