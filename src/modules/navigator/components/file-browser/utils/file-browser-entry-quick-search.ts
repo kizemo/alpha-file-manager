@@ -19,6 +19,29 @@ import {
   parseQuickSearchSizePredicate,
 } from './file-browser-quick-search-numeric';
 
+type QuickSearchParsedQuery = ReturnType<typeof parseQuickSearchQuery>;
+
+interface FileBrowserQuickSearchCacheItem {
+  signature: string;
+  value: string;
+}
+
+export interface FileBrowserQuickSearchCache {
+  haystacks: WeakMap<DirEntry, Map<string, FileBrowserQuickSearchCacheItem>>;
+}
+
+export interface FileBrowserQuickSearchContext {
+  showRelativeDates: boolean;
+  referenceNowMs: number;
+  dateTimeSignature: string;
+}
+
+export function createFileBrowserQuickSearchCache(): FileBrowserQuickSearchCache {
+  return {
+    haystacks: new WeakMap(),
+  };
+}
+
 function getFileBrowserItemCountForFilter(entry: DirEntry): number | null {
   if (!entry.is_dir) {
     return null;
@@ -31,8 +54,120 @@ function getFileBrowserItemCountForFilter(entry: DirEntry): number | null {
   return null;
 }
 
-export function buildFileBrowserQuickSearchHaystack(entry: DirEntry, dirSizesStore: DirSizesStore): string {
-  const showRelativeDates = useUserSettingsStore().userSettings.dateTime.showRelativeDates;
+function getQuickSearchContext(): FileBrowserQuickSearchContext {
+  const dateTimeOptions = useUserSettingsStore().userSettings.dateTime;
+
+  return {
+    showRelativeDates: dateTimeOptions.showRelativeDates,
+    referenceNowMs: Date.now(),
+    dateTimeSignature: [
+      i18n.global.locale.value,
+      dateTimeOptions.month,
+      dateTimeOptions.hour12,
+      dateTimeOptions.autoDetectRegionalFormat,
+      dateTimeOptions.regionalFormat?.code ?? '',
+      dateTimeOptions.properties.showSeconds,
+      dateTimeOptions.properties.showMilliseconds,
+    ].join(':'),
+  };
+}
+
+function getDirSizeSignature(entry: DirEntry, dirSizesStore: DirSizesStore): string {
+  if (entry.is_file) {
+    return '';
+  }
+
+  const sizeInfo = dirSizesStore.getSize(entry.path);
+
+  if (!sizeInfo) {
+    return '';
+  }
+
+  return [
+    sizeInfo.status,
+    sizeInfo.size,
+    sizeInfo.fileCount,
+    sizeInfo.dirCount,
+    sizeInfo.calculatedAt,
+  ].join(':');
+}
+
+function getEntrySignature(
+  entry: DirEntry,
+  dirSizesStore: DirSizesStore,
+  context: FileBrowserQuickSearchContext,
+): string {
+  return [
+    entry.name,
+    entry.ext ?? '',
+    entry.mime ?? '',
+    entry.path,
+    entry.size,
+    entry.item_count ?? '',
+    entry.modified_time,
+    entry.accessed_time,
+    entry.created_time,
+    context.showRelativeDates,
+    context.dateTimeSignature,
+    Math.floor(context.referenceNowMs / 60_000),
+    getDirSizeSignature(entry, dirSizesStore),
+  ].join('|');
+}
+
+function getCachedHaystack(
+  cache: FileBrowserQuickSearchCache | undefined,
+  entry: DirEntry,
+  cacheKey: string,
+  signature: string,
+  build: () => string,
+): string {
+  if (!cache) {
+    return build();
+  }
+
+  let entryCache = cache.haystacks.get(entry);
+
+  if (!entryCache) {
+    entryCache = new Map();
+    cache.haystacks.set(entry, entryCache);
+  }
+
+  const cachedItem = entryCache.get(cacheKey);
+
+  if (cachedItem?.signature === signature) {
+    return cachedItem.value;
+  }
+
+  const value = build();
+  entryCache.set(cacheKey, {
+    signature,
+    value,
+  });
+  return value;
+}
+
+function entryNameHaystackIncludes(entry: DirEntry, valueNormalized: string): boolean {
+  if (entry.name.toLowerCase().includes(valueNormalized)) {
+    return true;
+  }
+
+  if (entry.ext) {
+    const extensionLower = entry.ext.toLowerCase();
+
+    if (extensionLower.includes(valueNormalized) || `.${extensionLower}`.includes(valueNormalized)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function buildFileBrowserQuickSearchHaystack(
+  entry: DirEntry,
+  dirSizesStore: DirSizesStore,
+  context: FileBrowserQuickSearchContext = getQuickSearchContext(),
+): string {
+  const { showRelativeDates, referenceNowMs } = context;
   const parts: string[] = [entry.name.toLowerCase()];
 
   if (entry.ext) {
@@ -67,7 +202,7 @@ export function buildFileBrowserQuickSearchHaystack(entry: DirEntry, dirSizesSto
   }
 
   if (entry.modified_time && isRelativeDateDisplayEnabled(showRelativeDates)) {
-    parts.push(formatFileBrowserListModifiedDate(entry.modified_time, Date.now()).toLowerCase());
+    parts.push(formatFileBrowserListModifiedDate(entry.modified_time, referenceNowMs).toLowerCase());
   }
 
   return parts.join(' ');
@@ -77,6 +212,7 @@ function buildHaystackForProperty(
   entry: DirEntry,
   property: QuickSearchProperty,
   dirSizesStore: DirSizesStore,
+  context: FileBrowserQuickSearchContext,
 ): string {
   if (property === 'name') {
     const parts: string[] = [entry.name.toLowerCase()];
@@ -121,11 +257,11 @@ function buildHaystackForProperty(
     if (!entry.modified_time) return '';
     const absolute = formatDate(entry.modified_time).toLowerCase();
 
-    if (!isRelativeDateDisplayEnabled(useUserSettingsStore().userSettings.dateTime.showRelativeDates)) {
+    if (!isRelativeDateDisplayEnabled(context.showRelativeDates)) {
       return absolute;
     }
 
-    const listLabel = formatFileBrowserListModifiedDate(entry.modified_time, Date.now()).toLowerCase();
+    const listLabel = formatFileBrowserListModifiedDate(entry.modified_time, context.referenceNowMs).toLowerCase();
     return `${absolute} ${listLabel}`;
   }
 
@@ -149,27 +285,37 @@ export function fileBrowserEntryMatchesQuickSearch(
   filterQueryRaw: string,
   dirSizesStore: DirSizesStore,
 ): boolean {
+  return createFileBrowserQuickSearchMatcher(filterQueryRaw, dirSizesStore)(entry);
+}
+
+export function createFileBrowserQuickSearchMatcher(
+  filterQueryRaw: string,
+  dirSizesStore: DirSizesStore,
+  cache?: FileBrowserQuickSearchCache,
+): (entry: DirEntry) => boolean {
   const trimmed = filterQueryRaw.trim();
 
   if (!trimmed) {
-    return true;
+    return () => true;
   }
 
   const parsed = parseQuickSearchQuery(trimmed);
   const valueRaw = parsed.property !== null ? parsed.value.trim() : trimmed;
   const valueNormalized = valueRaw.toLowerCase();
+  const context = getQuickSearchContext();
 
   if (parsed.property !== null && !valueNormalized) {
-    return true;
+    return () => true;
   }
 
   if (parsed.property === 'size') {
     const sizePredicate = parseQuickSearchSizePredicate(valueRaw);
 
     if (sizePredicate.kind !== 'substring') {
-      const sizeBytes = getFileBrowserEntryResolvedSizeBytes(entry, dirSizesStore);
-
-      return evaluateQuickSearchSizePredicate(sizePredicate, sizeBytes);
+      return (entry) => {
+        const sizeBytes = getFileBrowserEntryResolvedSizeBytes(entry, dirSizesStore);
+        return evaluateQuickSearchSizePredicate(sizePredicate, sizeBytes);
+      };
     }
   }
 
@@ -177,23 +323,45 @@ export function fileBrowserEntryMatchesQuickSearch(
     const itemsPredicate = parseQuickSearchItemsPredicate(valueRaw);
 
     if (itemsPredicate.kind !== 'substring') {
-      const itemCount = getFileBrowserItemCountForFilter(entry);
+      return (entry) => {
+        const itemCount = getFileBrowserItemCountForFilter(entry);
 
-      if (itemCount === null) {
-        return false;
-      }
+        if (itemCount === null) {
+          return false;
+        }
 
-      return evaluateQuickSearchItemsPredicate(itemsPredicate, itemCount);
+        return evaluateQuickSearchItemsPredicate(itemsPredicate, itemCount);
+      };
     }
   }
 
   if (!valueNormalized) {
-    return true;
+    return () => true;
   }
 
-  const haystack = parsed.property !== null
-    ? buildHaystackForProperty(entry, parsed.property, dirSizesStore)
-    : buildFileBrowserQuickSearchHaystack(entry, dirSizesStore);
+  return (entry) => {
+    if ((parsed.property === null || parsed.property === 'name') && entryNameHaystackIncludes(entry, valueNormalized)) {
+      return true;
+    }
 
-  return haystack.includes(valueNormalized);
+    const haystack = getQuickSearchHaystack(entry, parsed, dirSizesStore, context, cache);
+    return haystack.includes(valueNormalized);
+  };
+}
+
+function getQuickSearchHaystack(
+  entry: DirEntry,
+  parsed: QuickSearchParsedQuery,
+  dirSizesStore: DirSizesStore,
+  context: FileBrowserQuickSearchContext,
+  cache?: FileBrowserQuickSearchCache,
+): string {
+  const propertyKey = parsed.property ?? 'all';
+  const signature = getEntrySignature(entry, dirSizesStore, context);
+
+  return getCachedHaystack(cache, entry, propertyKey, signature, () => {
+    return parsed.property !== null
+      ? buildHaystackForProperty(entry, parsed.property, dirSizesStore, context)
+      : buildFileBrowserQuickSearchHaystack(entry, dirSizesStore, context);
+  });
 }

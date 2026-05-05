@@ -63,6 +63,7 @@ const fb = useFileBrowser({
   componentRef: fileBrowserRef,
   isDefaultPane: props.paneIndex === 0 || props.paneIndex === undefined,
   isActivePane: () => props.isActivePane ?? (props.paneIndex === 0 || props.paneIndex === undefined),
+  entryDescription: props.entryDescription,
 });
 
 const permanentDeleteIsOpen = fb.permanentDeleteConfirm.isOpen;
@@ -80,6 +81,16 @@ provideFileBrowserContext({
   getImageThumbnail: fb.getImageThumbnail,
   getVideoThumbnail: fb.getVideoThumbnail,
   setEntriesContainerRef: fb.setEntriesContainerRef,
+  setScrollViewportRef: fb.setScrollViewportRef,
+  handleVirtualScroll: fb.handleVirtualScroll,
+  virtualRows: fb.virtualRows,
+  visibleVirtualRows: fb.visibleVirtualRows,
+  activeGridSectionRow: fb.activeGridSectionRow,
+  virtualTotalSize: fb.virtualTotalSize,
+  virtualOffsetY: fb.virtualOffsetY,
+  virtualSpacerStyle: fb.virtualSpacerStyle,
+  virtualWindowStyle: fb.virtualWindowStyle,
+  virtualGridColumnCount: fb.virtualGridColumnCount,
   onEntryMouseDown: fb.onEntryMouseDown,
   onEntryMouseUp: fb.onEntryMouseUp,
   handleEntryFocus: fb.handleEntryFocus,

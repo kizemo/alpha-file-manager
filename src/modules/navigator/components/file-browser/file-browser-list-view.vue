@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import FileBrowserEntryIcon from './file-browser-entry-icon.vue';
 import { useRelativeDateDisplayClock } from '@/composables/use-relative-date-display';
 import { useFileBrowserContext } from './composables/use-file-browser-context';
+import type { FileBrowserListVirtualRow } from './composables/use-file-browser-virtual-layout';
 
 const props = withDefaults(defineProps<{
   trackRelativeTime?: boolean;
@@ -40,6 +41,9 @@ const shouldTrackListRelativeTime = computed(() => {
   return props.trackRelativeTime
     && showModifiedColumn.value
     && ctx.entries.value.some(entry => entry.modified_time > 0);
+});
+const visibleRows = computed(() => {
+  return ctx.visibleVirtualRows.value.filter((row): row is FileBrowserListVirtualRow => row.type === 'list-entry');
 });
 
 const clipboardPathsMap = computed(() => {
@@ -98,6 +102,12 @@ function handleEntryKeydown(event: KeyboardEvent): void {
   }
 }
 
+function getEntryStyle(row: FileBrowserListVirtualRow): Record<string, string> {
+  return {
+    height: `${row.size}px`,
+  };
+}
+
 const { t } = useI18n();
 
 const { clockRef: listModifiedClock } = useRelativeDateDisplayClock(shouldTrackListRelativeTime);
@@ -111,78 +121,87 @@ const { clockRef: listModifiedClock } = useRelativeDateDisplayClock(shouldTrackL
     <div
       :key="ctx.currentPath.value"
       class="file-browser-list-view__list file-browser-list-view__list--animate"
+      :style="ctx.virtualSpacerStyle.value"
+      :data-virtual-total-rows="ctx.virtualRows.value.length"
+      :data-virtual-visible-rows="visibleRows.length"
     >
-      <button
-        v-for="entry in ctx.entries.value"
-        :key="entry.path"
-        class="file-browser-list-view__entry"
-        :class="{
-          'file-browser-list-view__entry--dir': entry.is_dir,
-          'file-browser-list-view__entry--file': entry.is_file,
-          'file-browser-list-view__entry--hidden': entry.is_hidden,
-        }"
-        :data-entry-path="entry.path"
-        :data-selected="ctx.isEntrySelected(entry) || undefined"
-        :data-in-clipboard="clipboardPathsMap.has(entry.path) || undefined"
-        :data-clipboard-type="clipboardPathsMap.get(entry.path) || undefined"
-        :data-drop-target="entry.is_dir || undefined"
-        @mousedown="ctx.onEntryMouseDown(entry, $event)"
-        @mouseup="ctx.onEntryMouseUp(entry, $event)"
-        @focus="ctx.handleEntryFocus(entry, $event)"
-        @contextmenu="ctx.handleEntryContextMenu(entry)"
-        @keydown="handleEntryKeydown"
+      <div
+        class="file-browser-list-view__virtual-window"
+        :style="ctx.virtualWindowStyle.value"
       >
-        <div class="file-browser-list-view__overlay-container">
-          <div class="file-browser-list-view__overlay file-browser-list-view__overlay--selected" />
-          <div class="file-browser-list-view__overlay file-browser-list-view__overlay--clipboard" />
-          <div class="file-browser-list-view__overlay file-browser-list-view__overlay--hover" />
-        </div>
-        <div class="file-browser-list-view__entry-name">
-          <FileBrowserEntryIcon
-            :entry="entry"
-            :size="18"
-            class="file-browser-list-view__entry-icon"
-            :class="{ 'file-browser-list-view__entry-icon--folder': entry.is_dir }"
-          />
-          <div class="file-browser-list-view__entry-name-content">
-            <span class="file-browser-list-view__entry-text">{{ entry.name }}</span>
-            <span
-              v-if="ctx.entryDescription?.(entry)"
-              class="file-browser-list-view__entry-description"
-            >{{ ctx.entryDescription!(entry) }}</span>
+        <button
+          v-for="row in visibleRows"
+          :key="row.key"
+          class="file-browser-list-view__entry"
+          :class="{
+            'file-browser-list-view__entry--dir': row.entry.is_dir,
+            'file-browser-list-view__entry--file': row.entry.is_file,
+            'file-browser-list-view__entry--hidden': row.entry.is_hidden,
+          }"
+          :style="getEntryStyle(row)"
+          :data-entry-path="row.entry.path"
+          :data-selected="ctx.isEntrySelected(row.entry) || undefined"
+          :data-in-clipboard="clipboardPathsMap.has(row.entry.path) || undefined"
+          :data-clipboard-type="clipboardPathsMap.get(row.entry.path) || undefined"
+          :data-drop-target="row.entry.is_dir || undefined"
+          @mousedown="ctx.onEntryMouseDown(row.entry, $event)"
+          @mouseup="ctx.onEntryMouseUp(row.entry, $event)"
+          @focus="ctx.handleEntryFocus(row.entry, $event)"
+          @contextmenu="ctx.handleEntryContextMenu(row.entry)"
+          @keydown="handleEntryKeydown"
+        >
+          <div class="file-browser-list-view__overlay-container">
+            <div class="file-browser-list-view__overlay file-browser-list-view__overlay--selected" />
+            <div class="file-browser-list-view__overlay file-browser-list-view__overlay--clipboard" />
+            <div class="file-browser-list-view__overlay file-browser-list-view__overlay--hover" />
           </div>
-        </div>
-        <span
-          v-if="showItemsColumn"
-          class="file-browser-list-view__entry-items"
-        >
-          {{ getItemsDisplay(entry) }}
-        </span>
-        <span
-          v-if="showSizeColumn"
-          class="file-browser-list-view__entry-size"
-        >
-          <LoaderCircleIcon
-            v-if="isDirLoadingWithProgress(entry)"
-            :size="12"
-            class="file-browser-list-view__spinner"
-          />
-          <Skeleton
-            v-if="getSizeDisplay(entry) === null"
-            class="file-browser-list-view__size-skeleton"
-          />
-          <template v-else>{{ getSizeDisplay(entry) }}</template>
-        </span>
-        <span
-          v-if="showModifiedColumn"
-          class="file-browser-list-view__entry-modified"
-        >
-          <DateHoverDisplay
-            :timestamp="entry.modified_time"
-            :reference-now="listModifiedClock"
-          />
-        </span>
-      </button>
+          <div class="file-browser-list-view__entry-name">
+            <FileBrowserEntryIcon
+              :entry="row.entry"
+              :size="18"
+              class="file-browser-list-view__entry-icon"
+              :class="{ 'file-browser-list-view__entry-icon--folder': row.entry.is_dir }"
+            />
+            <div class="file-browser-list-view__entry-name-content">
+              <span class="file-browser-list-view__entry-text">{{ row.entry.name }}</span>
+              <span
+                v-if="ctx.entryDescription?.(row.entry)"
+                class="file-browser-list-view__entry-description"
+              >{{ ctx.entryDescription!(row.entry) }}</span>
+            </div>
+          </div>
+          <span
+            v-if="showItemsColumn"
+            class="file-browser-list-view__entry-items"
+          >
+            {{ getItemsDisplay(row.entry) }}
+          </span>
+          <span
+            v-if="showSizeColumn"
+            class="file-browser-list-view__entry-size"
+          >
+            <LoaderCircleIcon
+              v-if="isDirLoadingWithProgress(row.entry)"
+              :size="12"
+              class="file-browser-list-view__spinner"
+            />
+            <Skeleton
+              v-if="getSizeDisplay(row.entry) === null"
+              class="file-browser-list-view__size-skeleton"
+            />
+            <template v-else>{{ getSizeDisplay(row.entry) }}</template>
+          </span>
+          <span
+            v-if="showModifiedColumn"
+            class="file-browser-list-view__entry-modified"
+          >
+            <DateHoverDisplay
+              :timestamp="row.entry.modified_time"
+              :reference-now="listModifiedClock"
+            />
+          </span>
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -195,8 +214,18 @@ const { clockRef: listModifiedClock } = useRelativeDateDisplayClock(shouldTrackL
 }
 
 .file-browser-list-view__list {
+  position: relative;
   display: flex;
   flex-direction: column;
+}
+
+.file-browser-list-view__virtual-window {
+  position: absolute;
+  right: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
 }
 
 .file-browser-list-view__list--animate {
@@ -206,6 +235,7 @@ const { clockRef: listModifiedClock } = useRelativeDateDisplayClock(shouldTrackL
 .file-browser-list-view__entry {
   position: relative;
   display: grid;
+  width: 100%;
   min-height: var(--navigator-list-view-entry-height);
   padding: var(--file-browser-list-row-padding-y) var(--file-browser-list-row-padding-x);
   border: none;

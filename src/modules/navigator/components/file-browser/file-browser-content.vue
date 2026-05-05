@@ -14,6 +14,7 @@ import { ScrollBar } from '@/components/ui/scroll-area';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import FileBrowserListHeader from './file-browser-list-header.vue';
 import FileBrowserContentBody from './file-browser-content-body.vue';
+import { useFileBrowserContext } from './composables/use-file-browser-context';
 
 const props = withDefaults(defineProps<{
   layout?: 'list' | 'grid';
@@ -24,6 +25,7 @@ const props = withDefaults(defineProps<{
 });
 
 const userSettingsStore = useUserSettingsStore();
+const ctx = useFileBrowserContext();
 
 const columnVisibility = computed(() => userSettingsStore.userSettings.navigator.listColumnVisibility);
 const showItemsColumn = computed(() => columnVisibility.value.items);
@@ -56,7 +58,11 @@ const listColumnsTemplate = computed(() => {
       type="auto"
       class="file-browser__content-scroll"
     >
-      <ScrollAreaViewport class="file-browser__scroll-area-viewport">
+      <ScrollAreaViewport
+        :ref="ctx.setScrollViewportRef"
+        class="file-browser__scroll-area-viewport"
+        @scroll.passive="ctx.handleVirtualScroll"
+      >
         <div class="file-browser__content-inner">
           <FileBrowserListHeader v-if="props.layout === 'list'" />
 

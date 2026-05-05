@@ -89,6 +89,14 @@ export function useFileBrowserExternalDrop(options: {
     }
   }
 
+  function refreshDropTargets() {
+    if (!isExternalDragActive.value) {
+      return;
+    }
+
+    collectDropTargets();
+  }
+
   function findDropTarget(logicalX: number, logicalY: number): DropTargetInfo | null {
     for (const target of dropTargets) {
       const rect = target.element.getBoundingClientRect();
@@ -371,5 +379,6 @@ export function useFileBrowserExternalDrop(options: {
     isUrlDrop,
     isCurrentDirLocked,
     isTargetingEntry,
+    refreshDropTargets,
   };
 }

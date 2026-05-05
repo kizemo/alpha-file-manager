@@ -8,6 +8,8 @@ import type { useDirSizesStore } from '@/stores/runtime/dir-sizes';
 
 export type DirSizesStore = ReturnType<typeof useDirSizesStore>;
 
+const nameCollator = new Intl.Collator(undefined, { numeric: true });
+
 export function getFileBrowserEntryResolvedSizeBytes(entry: DirEntry, dirSizesStore: DirSizesStore): number {
   if (entry.is_file) {
     return Number(entry.size) || 0;
@@ -40,7 +42,7 @@ export function sortFileBrowserEntries(
     let comparison: number;
 
     if (column === 'name') {
-      comparison = entryA.name.localeCompare(entryB.name, undefined, { numeric: true });
+      comparison = nameCollator.compare(entryA.name, entryB.name);
     }
     else if (column === 'items') {
       const itemsA = Number(entryA.item_count ?? -1);
