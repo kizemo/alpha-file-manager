@@ -80,6 +80,7 @@ provideFileBrowserContext({
   contextMenu: fb.contextMenu,
   getImageThumbnail: fb.getImageThumbnail,
   getImageThumbnailPlaceholder: fb.getImageThumbnailPlaceholder,
+  shouldShowImageThumbnailFallback: fb.shouldShowImageThumbnailFallback,
   cancelImageThumbnail: fb.cancelImageThumbnail,
   getVideoThumbnail: fb.getVideoThumbnail,
   cancelVideoThumbnail: fb.cancelVideoThumbnail,

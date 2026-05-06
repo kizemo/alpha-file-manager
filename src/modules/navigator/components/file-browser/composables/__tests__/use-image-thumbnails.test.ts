@@ -191,7 +191,7 @@ describe('useImageThumbnails', () => {
     expect(mockCloseImageBitmap).toHaveBeenCalled();
   });
 
-  it('keeps the icon fallback when createImageBitmap is unavailable', async () => {
+  it('skips placeholder generation when createImageBitmap is unavailable', async () => {
     vi.stubGlobal('fetch', mockFetch);
     vi.stubGlobal('createImageBitmap', undefined);
 
@@ -203,6 +203,65 @@ describe('useImageThumbnails', () => {
 
     expect(mockFetch).not.toHaveBeenCalled();
     expect(thumbnails.imageThumbnailPlaceholders.value).toEqual({});
+  });
+
+  it('does not show the image fallback while placeholder generation is pending', async () => {
+    setupImagePlaceholderMocks();
+    const pendingResponse = createDeferred<Response>();
+    mockFetch.mockReturnValue(pendingResponse.promise);
+
+    const thumbnails = useImageThumbnails();
+    const entry = createImageEntry('image.jpg');
+
+    thumbnails.getImageThumbnailPlaceholder(entry);
+
+    expect(thumbnails.shouldShowImageThumbnailFallback(entry)).toBe(false);
+
+    pendingResponse.resolve(createFetchResponse(new Blob(['image'])));
+    await flushThumbnailWork();
+
+    expect(thumbnails.shouldShowImageThumbnailFallback(entry)).toBe(false);
+  });
+
+  it('shows the image fallback when thumbnail generation is unsupported', () => {
+    const thumbnails = useImageThumbnails();
+    const entry = {
+      ...createImageEntry('image'),
+      ext: '',
+    };
+
+    expect(thumbnails.shouldShowImageThumbnailFallback(entry)).toBe(true);
+  });
+
+  it('shows the image fallback when thumbnail generation fails', async () => {
+    mockInvoke.mockRejectedValue(new Error('thumbnail failed'));
+
+    const thumbnails = useImageThumbnails();
+    const entry = createImageEntry('image.jpg');
+
+    thumbnails.getImageThumbnail(entry);
+
+    expect(thumbnails.shouldShowImageThumbnailFallback(entry)).toBe(false);
+
+    await flushThumbnailWork();
+
+    expect(thumbnails.shouldShowImageThumbnailFallback(entry)).toBe(true);
+  });
+
+  it('shows the image fallback when placeholder generation fails', async () => {
+    setupImagePlaceholderMocks();
+    mockCreateImageBitmap.mockRejectedValue(new Error('placeholder failed'));
+
+    const thumbnails = useImageThumbnails();
+    const entry = createImageEntry('image.jpg');
+
+    thumbnails.getImageThumbnailPlaceholder(entry);
+
+    expect(thumbnails.shouldShowImageThumbnailFallback(entry)).toBe(false);
+
+    await flushThumbnailWork();
+
+    expect(thumbnails.shouldShowImageThumbnailFallback(entry)).toBe(true);
   });
 
   it('does not generate placeholders for large image files', async () => {
@@ -238,5 +297,30 @@ describe('useImageThumbnails', () => {
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(Object.keys(thumbnails.imageThumbnailPlaceholders.value)).toHaveLength(1);
+  });
+
+  it('aborts an active placeholder request when it is cancelled', async () => {
+    setupImagePlaceholderMocks();
+    const pendingResponse = createDeferred<Response>();
+    let placeholderAbortSignal: AbortSignal | undefined;
+    mockFetch.mockImplementation((_source: RequestInfo | URL, options?: RequestInit) => {
+      placeholderAbortSignal = options?.signal ?? undefined;
+
+      return pendingResponse.promise;
+    });
+
+    const thumbnails = useImageThumbnails();
+    const entry = createImageEntry('image.jpg');
+
+    thumbnails.getImageThumbnailPlaceholder(entry);
+
+    expect(placeholderAbortSignal).toBeDefined();
+    expect(placeholderAbortSignal?.aborted).toBe(false);
+
+    thumbnails.cancelImageThumbnail(entry);
+
+    expect(placeholderAbortSignal?.aborted).toBe(true);
+    pendingResponse.resolve(createFetchResponse(new Blob(['image'])));
+    await flushThumbnailWork();
   });
 });

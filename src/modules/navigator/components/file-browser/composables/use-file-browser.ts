@@ -290,6 +290,7 @@ export function useFileBrowser(options: UseFileBrowserOptions) {
     : {
         getImageThumbnail: () => undefined,
         getImageThumbnailPlaceholder: () => undefined,
+        shouldShowImageThumbnailFallback: () => true,
         cancelImageThumbnail: () => undefined,
         clearThumbnails: () => undefined,
       };
@@ -512,6 +513,7 @@ export function useFileBrowser(options: UseFileBrowserOptions) {
 
     getImageThumbnail: imageThumbnails.getImageThumbnail,
     getImageThumbnailPlaceholder: imageThumbnails.getImageThumbnailPlaceholder,
+    shouldShowImageThumbnailFallback: imageThumbnails.shouldShowImageThumbnailFallback,
     cancelImageThumbnail: imageThumbnails.cancelImageThumbnail,
     getVideoThumbnail: videoThumbnails.getVideoThumbnail,
     cancelVideoThumbnail: videoThumbnails.cancelVideoThumbnail,

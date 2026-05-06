@@ -9,7 +9,7 @@ import {
 } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
-import { FileVideoIcon, LoaderCircleIcon } from '@lucide/vue';
+import { FileImageIcon, FileVideoIcon, LoaderCircleIcon } from '@lucide/vue';
 import type { DirEntry } from '@/types/dir-entry';
 import { formatBytes } from './utils';
 import { useClipboardStore } from '@/stores/runtime/clipboard';
@@ -74,6 +74,10 @@ const imagePreviewPlaceholderSrc = computed(() => {
 
   return ctx.getImageThumbnailPlaceholder(props.entry, imageThumbnailMaxDimension.value);
 });
+const shouldShowImageFallback = computed(() => props.variant === 'image'
+  && isPreviewInLoadRange.value
+  && !imagePreviewSrc.value
+  && ctx.shouldShowImageThumbnailFallback(props.entry, imageThumbnailMaxDimension.value));
 const videoThumbnail = computed(() => {
   if (props.variant !== 'video' || !isPreviewInLoadRange.value) {
     return undefined;
@@ -319,6 +323,7 @@ watch(imagePreviewPlaceholderSrc, () => {
         'file-browser-grid-card--hidden': props.entry.is_hidden,
         'file-browser-grid-card--image': props.variant === 'video' && videoThumbnail,
         'file-browser-grid-card--icon-full': props.variant === 'other'
+          || shouldShowImageFallback
           || (props.variant === 'video' && !videoThumbnail),
       },
     ]"
@@ -351,7 +356,7 @@ watch(imagePreviewPlaceholderSrc, () => {
       />
       <template v-else-if="props.variant === 'image'">
         <img
-          v-if="imagePreviewPlaceholderSrc"
+          v-if="imagePreviewPlaceholderSrc && !shouldShowImageFallback"
           :src="imagePreviewPlaceholderSrc"
           :alt="props.entry.name"
           class="file-browser-grid-card__image file-browser-grid-card__image--placeholder"
@@ -370,6 +375,11 @@ watch(imagePreviewPlaceholderSrc, () => {
           loading="lazy"
           @load="handleImagePreviewLoad"
         >
+        <FileImageIcon
+          v-if="shouldShowImageFallback"
+          :size="48"
+          class="file-browser-grid-card__icon"
+        />
       </template>
       <template v-else-if="props.variant === 'video'">
         <img

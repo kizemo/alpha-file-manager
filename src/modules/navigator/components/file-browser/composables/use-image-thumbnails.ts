@@ -2,7 +2,7 @@
 // License: GNU GPLv3 or later. See the license file in the project root for more information.
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
-import { ref } from 'vue';
+import { reactive, ref } from 'vue';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import type { DirEntry } from '@/types/dir-entry';
 
@@ -78,8 +78,8 @@ export function useImageThumbnails() {
   const processingPlaceholders = new Set<string>();
   const cancelledThumbnails = new Set<string>();
   const cancelledPlaceholders = new Set<string>();
-  const failedThumbnails = new Set<string>();
-  const failedPlaceholders = new Set<string>();
+  const failedThumbnails = reactive(new Set<string>());
+  const failedPlaceholders = reactive(new Set<string>());
   const activePlaceholderAbortControllers = new Map<string, AbortController>();
   let thumbnailGeneration = 0;
 
@@ -89,6 +89,14 @@ export function useImageThumbnails() {
 
   function getProcessingPlaceholderKey(request: ImageThumbnailPlaceholderRequest): string {
     return `${request.generation}|${request.thumbnailKey}`;
+  }
+
+  function markThumbnailFailed(thumbnailKey: string): void {
+    failedThumbnails.add(thumbnailKey);
+  }
+
+  function markPlaceholderFailed(thumbnailKey: string): void {
+    failedPlaceholders.add(thumbnailKey);
   }
 
   function processNextThumbnail() {
@@ -160,7 +168,7 @@ export function useImageThumbnails() {
     }
     catch {
       if (request.generation === thumbnailGeneration && !cancelledThumbnails.has(processingKey)) {
-        failedThumbnails.add(request.thumbnailKey);
+        markThumbnailFailed(request.thumbnailKey);
       }
     }
     finally {
@@ -236,12 +244,12 @@ export function useImageThumbnails() {
         && request.generation === thumbnailGeneration
         && !cancelledPlaceholders.has(processingKey)
       ) {
-        failedPlaceholders.add(request.thumbnailKey);
+        markPlaceholderFailed(request.thumbnailKey);
       }
     }
     catch {
       if (request.generation === thumbnailGeneration && !cancelledPlaceholders.has(processingKey)) {
-        failedPlaceholders.add(request.thumbnailKey);
+        markPlaceholderFailed(request.thumbnailKey);
       }
     }
     finally {
@@ -328,6 +336,17 @@ export function useImageThumbnails() {
     return undefined;
   }
 
+  function shouldShowImageThumbnailFallback(entry: DirEntry, maxDimension?: number): boolean {
+    if (!canGenerateImageThumbnail(entry)) {
+      return true;
+    }
+
+    const normalizedMaxDimension = normalizeImageThumbnailMaxDimension(maxDimension);
+    const thumbnailKey = getImageThumbnailKey(entry, normalizedMaxDimension);
+
+    return failedThumbnails.has(thumbnailKey) || failedPlaceholders.has(thumbnailKey);
+  }
+
   function cancelImageThumbnail(entry: DirEntry, maxDimension?: number): void {
     if (!canGenerateImageThumbnail(entry)) {
       return;
@@ -359,6 +378,7 @@ export function useImageThumbnails() {
 
     if (processingPlaceholders.has(processingKey)) {
       cancelledPlaceholders.add(processingKey);
+      activePlaceholderAbortControllers.get(processingKey)?.abort();
     }
   }
 
@@ -385,6 +405,7 @@ export function useImageThumbnails() {
     imageThumbnailPlaceholders,
     getImageThumbnail,
     getImageThumbnailPlaceholder,
+    shouldShowImageThumbnailFallback,
     cancelImageThumbnail,
     clearThumbnails,
   };

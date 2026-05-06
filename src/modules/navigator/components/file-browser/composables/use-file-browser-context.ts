@@ -25,6 +25,7 @@ export interface FileBrowserContext {
 
   getImageThumbnail: (entry: DirEntry, maxDimension?: number) => string | undefined;
   getImageThumbnailPlaceholder: (entry: DirEntry, maxDimension?: number) => string | undefined;
+  shouldShowImageThumbnailFallback: (entry: DirEntry, maxDimension?: number) => boolean;
   cancelImageThumbnail: (entry: DirEntry, maxDimension?: number) => void;
   getVideoThumbnail: (entry: DirEntry) => string | undefined;
   cancelVideoThumbnail: (entry: DirEntry) => void;
