@@ -51,7 +51,6 @@ type FileBrowserInstance = InstanceType<typeof FileBrowser> & {
   navigateLeft?: () => void;
   navigateRight?: () => void;
   openSelected?: () => void;
-  navigateBack?: () => void;
   goBack?: () => void | Promise<void>;
   goForward?: () => void | Promise<void>;
   navigateToParent?: () => void | Promise<void>;
@@ -627,7 +626,7 @@ function hasBlockingRekaDismissableLayersForNavigatorShortcuts(): boolean {
 
 function callActivePaneMethod(method: keyof Pick<
   FileBrowserInstance,
-  'navigateUp' | 'navigateDown' | 'navigateLeft' | 'navigateRight' | 'openSelected' | 'navigateBack' | 'goBack' | 'goForward' | 'navigateToParent'
+  'navigateUp' | 'navigateDown' | 'navigateLeft' | 'navigateRight' | 'openSelected' | 'goBack' | 'goForward' | 'navigateToParent'
 >): boolean {
   if (hasBlockingDismissalLayersForNavigatorShortcuts()) return false;
 
@@ -641,21 +640,6 @@ function callActivePaneMethod(method: keyof Pick<
   }
 
   return false;
-}
-
-function handleNavigateBackShortcut(): boolean {
-  const pane = getActivePaneRef();
-
-  if (
-    pane?.isFilterOpen
-    && typeof pane.filterQuery === 'string'
-    && pane.filterQuery.length > 0
-  ) {
-    pane.filterQuery = pane.filterQuery.slice(0, -1);
-    return true;
-  }
-
-  return callActivePaneMethod('navigateBack');
 }
 
 function handleNavigateHistoryBackShortcut(): boolean {
@@ -699,7 +683,6 @@ function registerShortcutHandlers() {
   shortcutsStore.registerHandler('navigateLeft', () => callActivePaneMethod('navigateLeft'));
   shortcutsStore.registerHandler('navigateRight', () => callActivePaneMethod('navigateRight'));
   shortcutsStore.registerHandler('openSelected', () => callActivePaneMethod('openSelected'), { checkItemSelected: hasSelectedItems });
-  shortcutsStore.registerHandler('navigateBack', handleNavigateBackShortcut);
   shortcutsStore.registerHandler('navigateHistoryBack', handleNavigateHistoryBackShortcut);
   shortcutsStore.registerHandler('navigateHistoryForward', handleNavigateHistoryForwardShortcut);
   shortcutsStore.registerHandler('goUpDirectory', handleGoUpDirectoryShortcut);

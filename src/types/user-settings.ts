@@ -121,7 +121,6 @@ export type ShortcutId
     | 'navigateLeft'
     | 'navigateRight'
     | 'openSelected'
-    | 'navigateBack'
     | 'navigateHistoryBack'
     | 'navigateHistoryForward'
     | 'goUpDirectory'

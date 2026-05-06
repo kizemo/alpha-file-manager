@@ -19,7 +19,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogClose,
 } from '@/components/ui/dialog';
 import {
   Tooltip,
@@ -51,7 +50,6 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   CornerDownLeftIcon,
-  Undo2Icon,
   FlipHorizontalIcon,
   AppWindowIcon,
   FullscreenIcon,
@@ -72,8 +70,6 @@ import {
 } from '@/stores/runtime/shortcuts';
 import {
   useGlobalShortcutsStore,
-  shortcutKeysToTauriFormat,
-  formatTauriShortcut,
   type GlobalShortcutId,
 } from '@/stores/runtime/global-shortcuts';
 import { formatKeybindingKeys } from '@/modules/extensions/api';
@@ -86,6 +82,7 @@ import { SettingsItem } from '@/modules/settings';
 const { t } = useI18n();
 const shortcutsStore = useShortcutsStore();
 const globalShortcutsStore = useGlobalShortcutsStore();
+const unassignedShortcutLabel = '—';
 
 const shortcutIcons: Record<ShortcutId, Component> = {
   toggleGlobalSearch: SearchIcon,
@@ -121,7 +118,6 @@ const shortcutIcons: Record<ShortcutId, Component> = {
   navigateLeft: ArrowLeftIcon,
   navigateRight: ArrowRightIcon,
   openSelected: CornerDownLeftIcon,
-  navigateBack: Undo2Icon,
   navigateHistoryBack: ArrowLeftIcon,
   navigateHistoryForward: ArrowRightIcon,
   goUpDirectory: ArrowUpIcon,
@@ -393,6 +389,8 @@ const editingExtensionKeybinding = ref<{
 
 const isEditingExtension = computed(() => editingExtensionKeybinding.value !== null);
 
+type ShortcutConflictRestore = () => Promise<void>;
+
 const editingDefinition = computed(() => {
   if (editingGlobalShortcutId.value) {
     const globalDef = globalShortcutsStore.definitions.find(
@@ -436,46 +434,91 @@ function shortcutKeysMatch(firstKeys: ShortcutKeys, secondKeys: ShortcutKeys): b
     && (firstKeys.meta || false) === (secondKeys.meta || false);
 }
 
-function findConflictingExtensionKeybinding(
+function createUnassignedShortcutKeys(): ShortcutKeys {
+  return { key: '' };
+}
+
+function shortcutKeysConflict(firstKeys: ShortcutKeys, secondKeys: ShortcutKeys): boolean {
+  return Boolean(firstKeys.key && secondKeys.key) && shortcutKeysMatch(firstKeys, secondKeys);
+}
+
+function findConflictingAppShortcuts(
+  keys: ShortcutKeys,
+  excludeShortcutId?: ShortcutId,
+) {
+  return shortcutsStore.definitions.filter((definition) => {
+    if (definition.id === excludeShortcutId) {
+      return false;
+    }
+
+    return shortcutKeysConflict(shortcutsStore.getShortcutKeys(definition.id), keys);
+  });
+}
+
+function findConflictingGlobalAppShortcuts(
+  keys: ShortcutKeys,
+  excludeGlobalShortcutId?: GlobalShortcutId,
+) {
+  return globalShortcutsStore.definitions.filter((definition) => {
+    if (definition.id === excludeGlobalShortcutId) {
+      return false;
+    }
+
+    return shortcutKeysConflict(globalShortcutsStore.getShortcutKeys(definition.id), keys);
+  });
+}
+
+function findConflictingExtensionKeybindings(
   keys: ShortcutKeys,
   excludeCommandId?: string,
 ) {
-  return extensionKeybindings.value.find((keybinding) => {
+  return extensionKeybindings.value.filter((keybinding) => {
     if (keybinding.commandId === excludeCommandId) {
       return false;
     }
 
-    return shortcutKeysMatch(keybinding.keys, keys);
-  }) ?? null;
+    return shortcutKeysConflict(keybinding.keys, keys);
+  });
+}
+
+function findConflictingExtensionKeybinding(
+  keys: ShortcutKeys,
+  excludeCommandId?: string,
+) {
+  return findConflictingExtensionKeybindings(keys, excludeCommandId)[0] ?? null;
+}
+
+function findConflictingGlobalExtensionShortcuts(
+  keys: ShortcutKeys,
+  excludeCommandId?: string,
+) {
+  return globalExtensionShortcuts.value.filter((shortcut) => {
+    if (shortcut.commandId === excludeCommandId) {
+      return false;
+    }
+
+    return shortcutKeysConflict(shortcut.keys, keys);
+  });
 }
 
 function findConflictingGlobalExtensionShortcut(
   keys: ShortcutKeys,
   excludeCommandId?: string,
 ) {
-  return globalExtensionShortcuts.value.find((shortcut) => {
-    if (shortcut.commandId === excludeCommandId) {
-      return false;
-    }
-
-    return shortcutKeysMatch(shortcut.keys, keys);
-  }) ?? null;
+  return findConflictingGlobalExtensionShortcuts(keys, excludeCommandId)[0] ?? null;
 }
 
 const conflictLabel = computed(() => {
   if (!recordedKeys.value) return null;
 
   if (editingGlobalShortcutId.value) {
-    const recordedTauri = shortcutKeysToTauriFormat(recordedKeys.value);
-    const recordedLabel = formatTauriShortcut(recordedTauri);
+    const conflictingGlobalAppShortcut = findConflictingGlobalAppShortcuts(
+      recordedKeys.value,
+      editingGlobalShortcutId.value,
+    )[0];
 
-    for (const definition of globalShortcutsStore.definitions) {
-      if (definition.id === editingGlobalShortcutId.value) continue;
-      const existingLabel = globalShortcutsStore.getShortcutLabel(definition.id);
-
-      if (existingLabel === recordedLabel) {
-        return t(definition.labelKey);
-      }
+    if (conflictingGlobalAppShortcut) {
+      return t(conflictingGlobalAppShortcut.labelKey);
     }
 
     const conflictingGlobalExtensionShortcut = findConflictingGlobalExtensionShortcut(recordedKeys.value);
@@ -488,12 +531,10 @@ const conflictLabel = computed(() => {
   }
 
   if (editingExtensionKeybinding.value?.scope === 'global') {
-    for (const definition of globalShortcutsStore.definitions) {
-      const existingKeys = globalShortcutsStore.getShortcutKeys(definition.id);
+    const conflictingGlobalAppShortcut = findConflictingGlobalAppShortcuts(recordedKeys.value)[0];
 
-      if (shortcutKeysMatch(existingKeys, recordedKeys.value)) {
-        return t(definition.labelKey);
-      }
+    if (conflictingGlobalAppShortcut) {
+      return t(conflictingGlobalAppShortcut.labelKey);
     }
 
     const conflictingGlobalExtensionShortcut = findConflictingGlobalExtensionShortcut(
@@ -508,10 +549,10 @@ const conflictLabel = computed(() => {
     return null;
   }
 
-  const conflictingAppShortcut = shortcutsStore.findConflictingShortcut(
+  const conflictingAppShortcut = findConflictingAppShortcuts(
     recordedKeys.value,
     editingShortcutId.value ?? undefined,
-  );
+  )[0] ?? null;
 
   if (conflictingAppShortcut) {
     return t(conflictingAppShortcut.labelKey);
@@ -626,8 +667,8 @@ function handleRecordKeyDown(event: KeyboardEvent) {
   updateCaptureDisplayLabel();
 }
 
-async function saveShortcut() {
-  if (!recordedKeys.value || hasConflict.value) return;
+async function saveShortcut(): Promise<boolean> {
+  if (!recordedKeys.value || hasConflict.value) return false;
 
   if (editingGlobalShortcutId.value) {
     globalRegisterFailed.value = false;
@@ -638,20 +679,21 @@ async function saveShortcut() {
 
     if (!registered) {
       globalRegisterFailed.value = true;
-      return;
+      return false;
     }
 
     isDialogOpen.value = false;
     editingGlobalShortcutId.value = null;
     recordedKeys.value = null;
-    return;
+    return true;
   }
 
-  if (!editingShortcutId.value) return;
+  if (!editingShortcutId.value) return false;
   await shortcutsStore.setShortcut(editingShortcutId.value, recordedKeys.value);
   isDialogOpen.value = false;
   editingShortcutId.value = null;
   recordedKeys.value = null;
+  return true;
 }
 
 async function resetShortcut() {
@@ -674,6 +716,176 @@ async function resetAllShortcuts() {
   await shortcutsStore.resetAllShortcuts();
 }
 
+async function clearConflictingAppShortcuts(
+  keys: ShortcutKeys,
+  excludeShortcutId?: ShortcutId,
+): Promise<ShortcutConflictRestore[]> {
+  const conflictingShortcuts = findConflictingAppShortcuts(keys, excludeShortcutId);
+  const restoreActions: ShortcutConflictRestore[] = [];
+
+  for (const shortcut of conflictingShortcuts) {
+    const previousKeys = shortcutsStore.getShortcutKeys(shortcut.id);
+    const previousSource = shortcutsStore.getSource(shortcut.id);
+    restoreActions.push(async () => {
+      if (previousSource === 'system') {
+        await shortcutsStore.resetShortcut(shortcut.id);
+        return;
+      }
+
+      await shortcutsStore.setShortcut(shortcut.id, previousKeys);
+    });
+    await shortcutsStore.setShortcut(shortcut.id, createUnassignedShortcutKeys());
+  }
+
+  return restoreActions;
+}
+
+async function clearConflictingGlobalAppShortcuts(
+  keys: ShortcutKeys,
+  excludeGlobalShortcutId?: GlobalShortcutId,
+): Promise<ShortcutConflictRestore[]> {
+  const conflictingShortcuts = findConflictingGlobalAppShortcuts(keys, excludeGlobalShortcutId);
+  const restoreActions: ShortcutConflictRestore[] = [];
+
+  for (const shortcut of conflictingShortcuts) {
+    const previousKeys = globalShortcutsStore.getShortcutKeys(shortcut.id);
+    const previousSource = globalShortcutsStore.getSource(shortcut.id);
+    restoreActions.push(async () => {
+      if (previousSource === 'system') {
+        await globalShortcutsStore.resetShortcut(shortcut.id);
+        return;
+      }
+
+      await globalShortcutsStore.setShortcut(shortcut.id, previousKeys);
+    });
+    await globalShortcutsStore.unsetShortcut(shortcut.id);
+  }
+
+  return restoreActions;
+}
+
+async function clearConflictingLocalExtensionKeybindings(
+  keys: ShortcutKeys,
+  excludeCommandId?: string,
+): Promise<ShortcutConflictRestore[]> {
+  const conflictingKeybindings = findConflictingExtensionKeybindings(keys, excludeCommandId);
+  const restoreActions: ShortcutConflictRestore[] = [];
+
+  for (const keybinding of conflictingKeybindings) {
+    const previousOverride = extensionsStorageStore.getKeybindingOverride(
+      keybinding.extensionId,
+      keybinding.commandId,
+      'local',
+    );
+    restoreActions.push(async () => {
+      if (previousOverride) {
+        await extensionsStorageStore.setKeybindingOverride(keybinding.extensionId, previousOverride);
+        extensionsStore.applyKeybindingOverride(keybinding.commandId, previousOverride.keys);
+        return;
+      }
+
+      await extensionsStorageStore.removeKeybindingOverride(
+        keybinding.extensionId,
+        keybinding.commandId,
+        'local',
+      );
+      extensionsStore.resetKeybindingOverride(keybinding.commandId);
+    });
+
+    const override: ExtensionKeybindingOverride = {
+      commandId: keybinding.commandId,
+      scope: 'local',
+      keys: createUnassignedShortcutKeys(),
+    };
+
+    await extensionsStorageStore.setKeybindingOverride(keybinding.extensionId, override);
+    extensionsStore.applyKeybindingOverride(keybinding.commandId, createUnassignedShortcutKeys());
+  }
+
+  return restoreActions;
+}
+
+async function clearConflictingGlobalExtensionShortcuts(
+  keys: ShortcutKeys,
+  excludeCommandId?: string,
+): Promise<ShortcutConflictRestore[]> {
+  const conflictingShortcuts = findConflictingGlobalExtensionShortcuts(keys, excludeCommandId);
+  const restoreActions: ShortcutConflictRestore[] = [];
+
+  for (const shortcut of conflictingShortcuts) {
+    const previousOverride = extensionsStorageStore.getKeybindingOverride(
+      shortcut.extensionId,
+      shortcut.commandId,
+      'global',
+    );
+    restoreActions.push(async () => {
+      if (previousOverride) {
+        await extensionsStorageStore.setKeybindingOverride(shortcut.extensionId, previousOverride);
+      }
+      else {
+        await extensionsStorageStore.removeKeybindingOverride(
+          shortcut.extensionId,
+          shortcut.commandId,
+          'global',
+        );
+      }
+
+      await globalShortcutsStore.syncExtensionShortcuts();
+    });
+
+    const override: ExtensionKeybindingOverride = {
+      commandId: shortcut.commandId,
+      scope: 'global',
+      keys: createUnassignedShortcutKeys(),
+    };
+
+    await extensionsStorageStore.setKeybindingOverride(shortcut.extensionId, override);
+  }
+
+  await globalShortcutsStore.syncExtensionShortcuts();
+  return restoreActions;
+}
+
+async function clearConflictingShortcuts(keys: ShortcutKeys): Promise<ShortcutConflictRestore[]> {
+  const restoreActions: ShortcutConflictRestore[] = [];
+
+  if (editingGlobalShortcutId.value) {
+    restoreActions.push(...await clearConflictingGlobalAppShortcuts(keys, editingGlobalShortcutId.value));
+    restoreActions.push(...await clearConflictingGlobalExtensionShortcuts(keys));
+    return restoreActions;
+  }
+
+  if (editingExtensionKeybinding.value?.scope === 'global') {
+    restoreActions.push(...await clearConflictingGlobalAppShortcuts(keys));
+    restoreActions.push(...await clearConflictingGlobalExtensionShortcuts(keys, editingExtensionKeybinding.value.commandId));
+    return restoreActions;
+  }
+
+  restoreActions.push(...await clearConflictingAppShortcuts(keys, editingShortcutId.value ?? undefined));
+  restoreActions.push(...await clearConflictingLocalExtensionKeybindings(keys, editingExtensionKeybinding.value?.commandId));
+  return restoreActions;
+}
+
+async function restoreClearedShortcuts(restoreActions: ShortcutConflictRestore[]): Promise<void> {
+  for (const restoreAction of [...restoreActions].reverse()) {
+    await restoreAction();
+  }
+}
+
+async function replaceShortcut() {
+  if (!recordedKeys.value || !hasConflict.value) return;
+
+  const restoreActions = await clearConflictingShortcuts(recordedKeys.value);
+
+  const saved = isEditingExtension.value
+    ? await saveExtensionKeybinding()
+    : await saveShortcut();
+
+  if (!saved) {
+    await restoreClearedShortcuts(restoreActions);
+  }
+}
+
 function getConditionsLabel(shortcutId: ShortcutId): string {
   const definition = shortcutsStore.getShortcutDefinition(shortcutId);
   if (!definition) return '';
@@ -690,6 +902,10 @@ function getGlobalSourceLabel(globalShortcutId: GlobalShortcutId): string {
 
 function getSourceIcon(shortcutId: ShortcutId): Component {
   return shortcutsStore.getSource(shortcutId) === 'user' ? UserIcon : SettingsIcon;
+}
+
+function getShortcutListLabel(label: string): string {
+  return label || unassignedShortcutLabel;
 }
 
 function openExtensionKeybindingEditor(extensionId: string, commandId: string, commandTitle: string) {
@@ -730,8 +946,8 @@ function openExtensionGlobalShortcutEditor(extensionId: string, commandId: strin
   });
 }
 
-async function saveExtensionKeybinding() {
-  if (!editingExtensionKeybinding.value || !recordedKeys.value) return;
+async function saveExtensionKeybinding(): Promise<boolean> {
+  if (!editingExtensionKeybinding.value || !recordedKeys.value || hasConflict.value) return false;
 
   if (editingExtensionKeybinding.value.scope === 'global') {
     globalRegisterFailed.value = false;
@@ -742,7 +958,7 @@ async function saveExtensionKeybinding() {
 
     if (!registered) {
       globalRegisterFailed.value = true;
-      return;
+      return false;
     }
   }
 
@@ -766,6 +982,7 @@ async function saveExtensionKeybinding() {
   isDialogOpen.value = false;
   editingExtensionKeybinding.value = null;
   recordedKeys.value = null;
+  return true;
 }
 
 async function resetExtensionKeybinding() {
@@ -840,7 +1057,7 @@ const extensionKeybindings = computed(() => {
       keybindingLabel: formatKeybindingKeys(keybinding.keys),
       whenLabel: keybinding.when || 'always',
     };
-  }).filter(keybinding => keybinding.keys.key);
+  });
 });
 
 const globalExtensionShortcuts = computed(() => {
@@ -916,7 +1133,7 @@ const globalExtensionShortcuts = computed(() => {
 
               <div class="shortcuts-table__cell shortcuts-table__cell--keybinding">
                 <kbd class="shortcuts-table__kbd">
-                  {{ globalShortcutsStore.getShortcutLabel(definition.id) }}
+                  {{ getShortcutListLabel(globalShortcutsStore.getShortcutLabel(definition.id)) }}
                 </kbd>
               </div>
 
@@ -957,7 +1174,7 @@ const globalExtensionShortcuts = computed(() => {
 
               <div class="shortcuts-table__cell shortcuts-table__cell--keybinding">
                 <kbd class="shortcuts-table__kbd">
-                  {{ shortcut.keybindingLabel }}
+                  {{ getShortcutListLabel(shortcut.keybindingLabel) }}
                 </kbd>
               </div>
 
@@ -1029,7 +1246,7 @@ const globalExtensionShortcuts = computed(() => {
 
               <div class="shortcuts-table__cell shortcuts-table__cell--keybinding">
                 <kbd class="shortcuts-table__kbd">
-                  {{ shortcutsStore.getShortcutLabel(definition.id) }}
+                  {{ getShortcutListLabel(shortcutsStore.getShortcutLabel(definition.id)) }}
                 </kbd>
               </div>
 
@@ -1113,7 +1330,7 @@ const globalExtensionShortcuts = computed(() => {
 
               <div class="shortcuts-table__cell shortcuts-table__cell--keybinding">
                 <kbd class="shortcuts-table__kbd">
-                  {{ keybinding.keybindingLabel }}
+                  {{ getShortcutListLabel(keybinding.keybindingLabel) }}
                 </kbd>
               </div>
 
@@ -1253,11 +1470,14 @@ const globalExtensionShortcuts = computed(() => {
               {{ t('shortcutsUI.resetShortcut') }}
             </ConfirmButton>
             <div class="shortcut-editor-dialog__footer-right">
-              <DialogClose as-child>
-                <Button variant="outline">
-                  {{ t('cancel') }}
-                </Button>
-              </DialogClose>
+              <Button
+                v-if="hasConflict"
+                variant="secondary"
+                :disabled="!recordedKeys"
+                @click="replaceShortcut"
+              >
+                {{ t('conflictDialog.replace') }}
+              </Button>
               <Button
                 :disabled="!recordedKeys || hasConflict"
                 @click="isEditingExtension ? saveExtensionKeybinding() : saveShortcut()"

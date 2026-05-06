@@ -283,6 +283,25 @@ describe('globalShortcuts store', () => {
     );
   });
 
+  it('allows app global shortcuts to be unassigned', async () => {
+    getCurrentWebviewWindowMock.mockReturnValue({ label: 'main' });
+    registerMock.mockResolvedValue(undefined);
+    unregisterMock.mockResolvedValue(undefined);
+
+    const globalShortcutsStore = useGlobalShortcutsStore();
+    await globalShortcutsStore.init();
+    await globalShortcutsStore.unsetShortcut('launchApp');
+
+    expect(globalShortcutsStore.getShortcutLabel('launchApp')).toBe('');
+    expect(userSettingsStoreMock.userSettings.globalShortcuts).toEqual({
+      launchApp: '',
+    });
+    expect(unregisterMock).toHaveBeenCalledWith('Super+Shift+E');
+    expect(invokeMock).toHaveBeenLastCalledWith('update_tray_shortcut', {
+      shortcut: '',
+    });
+  });
+
   it('does not let duplicate extension command shortcuts replace each other', async () => {
     getCurrentWebviewWindowMock.mockReturnValue({ label: 'main' });
     registerMock.mockResolvedValue(undefined);

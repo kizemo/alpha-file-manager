@@ -478,19 +478,6 @@ const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
     isReadOnly: false,
   },
   {
-    id: 'navigateBack',
-    labelKey: 'shortcuts.navigateBack',
-    defaultKeys: {
-      key: 'Backspace',
-    },
-    scope: 'navigator',
-    conditions: {
-      inputFieldIsActive: false,
-      dialogIsOpened: false,
-    },
-    isReadOnly: false,
-  },
-  {
     id: 'navigateHistoryBack',
     labelKey: 'shortcuts.navigateHistoryBack',
     defaultKeys: {
@@ -853,6 +840,10 @@ export function formatCaptureChordLabel(
 }
 
 export function formatShortcutKeys(keys: ShortcutKeys): string {
+  if (!keys.key) {
+    return '';
+  }
+
   const parts: string[] = [];
 
   if (keys.ctrl) parts.push('Ctrl');

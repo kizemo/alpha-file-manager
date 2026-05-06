@@ -214,16 +214,11 @@ export function useFileBrowserKeyboardNavigation(options: {
     }
   }
 
-  function navigateBack() {
-    options.goBack();
-  }
-
   return {
     navigateUp,
     navigateDown,
     navigateLeft,
     navigateRight,
     openSelected,
-    navigateBack,
   };
 }

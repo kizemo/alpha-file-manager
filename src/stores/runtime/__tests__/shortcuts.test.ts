@@ -58,6 +58,7 @@ vi.mock('@/modules/extensions/context', () => ({
 
 import {
   BUILTIN_NAVIGATION_PAGE_SHORTCUTS,
+  formatShortcutKeys,
   useShortcutsStore,
 } from '@/stores/runtime/shortcuts';
 
@@ -182,6 +183,26 @@ describe('shortcuts store', () => {
     expect(navigatePageForwardHandler).toHaveBeenCalledTimes(1);
     expect(backEvent.defaultPrevented).toBe(true);
     expect(forwardEvent.defaultPrevented).toBe(true);
+  });
+
+  it('allows app shortcuts to be unassigned', async () => {
+    const shortcutsStore = useShortcutsStore();
+    const navigatePageBackHandler = vi.fn();
+
+    shortcutsStore.registerHandler('navigatePageBack', navigatePageBackHandler);
+    await shortcutsStore.setShortcut('navigatePageBack', { key: '' });
+
+    const backEvent = new MouseEvent('mousedown', {
+      button: 3,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    await expect(shortcutsStore.handleMouseDown(backEvent)).resolves.toBe(false);
+    expect(shortcutsStore.getShortcutLabel('navigatePageBack')).toBe('');
+    expect(formatShortcutKeys({ key: '' })).toBe('');
+    expect(navigatePageBackHandler).not.toHaveBeenCalled();
+    expect(backEvent.defaultPrevented).toBe(false);
   });
 
   it('matches Alt+arrow shortcuts for navigator pane navigation', async () => {

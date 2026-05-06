@@ -590,6 +590,17 @@ export const useGlobalShortcutsStore = defineStore('globalShortcuts', () => {
     await syncExtensionShortcuts();
   }
 
+  async function unsetShortcut(globalShortcutId: GlobalShortcutId): Promise<void> {
+    await unregisterShortcut(globalShortcutId);
+    const newShortcuts = {
+      ...userGlobalShortcuts.value,
+      [globalShortcutId]: '',
+    };
+    userGlobalShortcuts.value = newShortcuts;
+    await syncTrayShortcutHint();
+    await syncExtensionShortcuts();
+  }
+
   async function registerAllShortcuts(): Promise<void> {
     for (const definition of definitions.value) {
       await registerShortcut(definition.id);
@@ -639,6 +650,7 @@ export const useGlobalShortcutsStore = defineStore('globalShortcuts', () => {
     setExtensionShortcut,
     setShortcut,
     resetShortcut,
+    unsetShortcut,
     registerAllShortcuts,
     unregisterAllShortcuts,
     syncExtensionShortcuts,

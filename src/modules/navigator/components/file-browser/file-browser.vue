@@ -130,7 +130,6 @@ defineExpose({
   navigateLeft: fb.navigateLeft,
   navigateRight: fb.navigateRight,
   openSelected: fb.openSelected,
-  navigateBack: fb.navigateBack,
   goBack: fb.goBack,
   goForward: fb.goForward,
   navigateToParent: fb.navigateToParent,

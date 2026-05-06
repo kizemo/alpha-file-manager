@@ -808,7 +808,6 @@
     "navigateLeft": "左に移動",
     "navigateRight": "右に移動",
     "openSelectedEntry": "選択したディレクトリまたはファイルを開く",
-    "navigateBack": "履歴で戻る",
     "navigateHistoryBack": "履歴を戻る",
     "navigateHistoryForward": "履歴を進む",
     "switchToLeftPane": "左ペインに切り替え",

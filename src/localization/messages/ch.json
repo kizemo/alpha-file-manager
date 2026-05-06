@@ -808,7 +808,6 @@
     "navigateLeft": "向左导航",
     "navigateRight": "向右导航",
     "openSelectedEntry": "打开选定的目录或文件",
-    "navigateBack": "在历史记录中后退",
     "navigateHistoryBack": "在历史记录中返回",
     "navigateHistoryForward": "在历史记录中前进",
     "switchToLeftPane": "切换到左窗格",

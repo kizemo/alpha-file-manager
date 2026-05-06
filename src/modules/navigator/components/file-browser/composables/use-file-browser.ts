@@ -568,6 +568,5 @@ export function useFileBrowser(options: UseFileBrowserOptions) {
     navigateLeft: keyboardNav.navigateLeft,
     navigateRight: keyboardNav.navigateRight,
     openSelected: keyboardNav.openSelected,
-    navigateBack: keyboardNav.navigateBack,
   };
 }
