@@ -329,12 +329,11 @@ function openTaggedItem(item: TaggedItem) {
 
 <style scoped>
 .quick-access-panel {
-  --header-height: 45px;
+  --header-height: 32px;
   --max-height: calc(100vh - 12px);
 
   width: var(--quick-access-panel-width);
   max-height: var(--max-height);
-  border: 1px solid hsl(var(--border));
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
 }
@@ -342,7 +341,7 @@ function openTaggedItem(item: TaggedItem) {
 .quick-access-panel__header {
   height: var(--header-height);
   padding: 12px 16px;
-  border-bottom: 1px solid hsl(var(--border));
+  padding-bottom: 0;
 }
 
 .quick-access-panel__title {

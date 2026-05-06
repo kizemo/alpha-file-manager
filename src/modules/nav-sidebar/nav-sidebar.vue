@@ -370,13 +370,13 @@ function getDriveIcon(drive: {
 <style>
 .nav-sidebar__quick-access-tooltip {
   padding: 0;
-  border: none;
+  border: 1px solid hsl(var(--border) / 50%);
   margin-top: 0;
 }
 
 .nav-sidebar__quick-access-title {
   padding: 8px 10px;
-  border-bottom: 1px solid hsl(var(--border));
+  border-bottom: 1px solid hsl(var(--border) / 50%);
 }
 
 .nav-sidebar-drive-tooltip {
