@@ -327,7 +327,10 @@ export function useImageThumbnails() {
     }
 
     if (processingPlaceholders.has(processingKey)) {
-      cancelledPlaceholders.delete(processingKey);
+      if (cancelledPlaceholders.has(processingKey)) {
+        enqueueImageThumbnailPlaceholder(entry, thumbnailKey);
+      }
+
       return undefined;
     }
 

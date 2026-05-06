@@ -30,17 +30,21 @@ import { normalizeImageThumbnailMaxDimension, useImageThumbnails } from '../use-
 interface Deferred<T> {
   promise: Promise<T>;
   resolve: (value: T) => void;
+  reject: (reason?: unknown) => void;
 }
 
 function createDeferred<T>(): Deferred<T> {
   let resolveDeferred!: (value: T) => void;
-  const promise = new Promise<T>((resolve) => {
+  let rejectDeferred!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolve, reject) => {
     resolveDeferred = resolve;
+    rejectDeferred = reject;
   });
 
   return {
     promise,
     resolve: resolveDeferred,
+    reject: rejectDeferred,
   };
 }
 
@@ -322,5 +326,42 @@ describe('useImageThumbnails', () => {
     expect(placeholderAbortSignal?.aborted).toBe(true);
     pendingResponse.resolve(createFetchResponse(new Blob(['image'])));
     await flushThumbnailWork();
+  });
+
+  it('retries a placeholder after cancellation and immediate re-request', async () => {
+    setupImagePlaceholderMocks();
+    const firstResponse = createDeferred<Response>();
+    const secondResponse = createDeferred<Response>();
+    const pendingResponses = [firstResponse, secondResponse];
+    mockFetch.mockImplementation((_source: RequestInfo | URL, options?: RequestInit) => {
+      const pendingResponse = pendingResponses.shift();
+
+      if (!pendingResponse) {
+        return Promise.reject(new Error('Unexpected placeholder fetch'));
+      }
+
+      options?.signal?.addEventListener('abort', () => {
+        pendingResponse.reject(new Error('Placeholder aborted'));
+      });
+
+      return pendingResponse.promise;
+    });
+
+    const thumbnails = useImageThumbnails();
+    const entry = createImageEntry('image.jpg');
+
+    thumbnails.getImageThumbnailPlaceholder(entry);
+    thumbnails.cancelImageThumbnail(entry);
+    thumbnails.getImageThumbnailPlaceholder(entry);
+    await flushThumbnailWork();
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(thumbnails.shouldShowImageThumbnailFallback(entry)).toBe(false);
+
+    secondResponse.resolve(createFetchResponse(new Blob(['image'])));
+    await flushThumbnailWork();
+
+    expect(thumbnails.getImageThumbnailPlaceholder(entry)).toBe(PLACEHOLDER_DATA_URL);
+    expect(thumbnails.shouldShowImageThumbnailFallback(entry)).toBe(false);
   });
 });

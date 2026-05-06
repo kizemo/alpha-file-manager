@@ -34,15 +34,17 @@ export type ExtensionGlobalShortcutDefinition = {
   source: 'system' | 'user';
 };
 
-type GlobalShortcutOwner =
-  | {
-      type: 'app';
-      id: GlobalShortcutId;
+type GlobalShortcutOwner
+  = | {
+    type: 'app';
+    id: GlobalShortcutId;
   }
   | {
-      type: 'extension';
-      commandId: string;
+    type: 'extension';
+    commandId: string;
   };
+
+type ExtensionGlobalShortcutOwner = Extract<GlobalShortcutOwner, { type: 'extension' }>;
 
 const DEFAULT_GLOBAL_SHORTCUTS: GlobalShortcutDefinition[] = [
   {
@@ -210,6 +212,22 @@ export const useGlobalShortcutsStore = defineStore('globalShortcuts', () => {
     }
   }
 
+  async function unregisterExtensionShortcutOwner(
+    shortcutString: string,
+    owner: ExtensionGlobalShortcutOwner,
+  ): Promise<boolean> {
+    try {
+      await unregister(shortcutString);
+      clearShortcutOwner(shortcutString, owner);
+      registeredExtensionShortcuts.value.delete(owner.commandId);
+      return true;
+    }
+    catch (error) {
+      console.error(`Failed to unregister global shortcut "${shortcutString}" for "${owner.commandId}":`, error);
+      return false;
+    }
+  }
+
   async function registerShortcutForOwner(
     shortcutString: string,
     owner: GlobalShortcutOwner,
@@ -218,17 +236,27 @@ export const useGlobalShortcutsStore = defineStore('globalShortcuts', () => {
     const currentOwner = registeredShortcutOwners.get(shortcutString);
 
     if (currentOwner && !isSameShortcutOwner(currentOwner, owner)) {
-      console.warn(
-        `Skipping global shortcut "${shortcutString}" for "${getShortcutOwnerLabel(owner)}": already registered for "${getShortcutOwnerLabel(currentOwner)}".`,
-      );
-      return false;
-    }
+      if (owner.type === 'app' && currentOwner.type === 'extension') {
+        const unregistered = await unregisterExtensionShortcutOwner(shortcutString, currentOwner);
 
-    try {
-      await unregister(shortcutString);
-      clearShortcutOwner(shortcutString, owner);
+        if (!unregistered) {
+          return false;
+        }
+      }
+      else {
+        console.warn(
+          `Skipping global shortcut "${shortcutString}" for "${getShortcutOwnerLabel(owner)}": already registered for "${getShortcutOwnerLabel(currentOwner)}".`,
+        );
+        return false;
+      }
     }
-    catch {
+    else {
+      try {
+        await unregister(shortcutString);
+        clearShortcutOwner(shortcutString, owner);
+      }
+      catch {
+      }
     }
 
     try {
@@ -251,7 +279,10 @@ export const useGlobalShortcutsStore = defineStore('globalShortcuts', () => {
 
     const registered = await registerShortcutForOwner(
       shortcutString,
-      { type: 'app', id: globalShortcutId },
+      {
+        type: 'app',
+        id: globalShortcutId,
+      },
       handler,
     );
 
@@ -271,7 +302,10 @@ export const useGlobalShortcutsStore = defineStore('globalShortcuts', () => {
 
     try {
       await unregister(shortcutString);
-      clearShortcutOwner(shortcutString, { type: 'app', id: globalShortcutId });
+      clearShortcutOwner(shortcutString, {
+        type: 'app',
+        id: globalShortcutId,
+      });
       registeredShortcuts.value.delete(globalShortcutId);
     }
     catch (error) {
@@ -326,7 +360,10 @@ export const useGlobalShortcutsStore = defineStore('globalShortcuts', () => {
 
     const registered = await registerShortcutForOwner(
       shortcutString,
-      { type: 'extension', commandId },
+      {
+        type: 'extension',
+        commandId,
+      },
       getExtensionHandler(commandId),
     );
 
@@ -348,7 +385,10 @@ export const useGlobalShortcutsStore = defineStore('globalShortcuts', () => {
 
     try {
       await unregister(shortcutString);
-      clearShortcutOwner(shortcutString, { type: 'extension', commandId });
+      clearShortcutOwner(shortcutString, {
+        type: 'extension',
+        commandId,
+      });
     }
     catch (error) {
       console.error(`Failed to unregister global shortcut "${shortcutString}" for "${commandId}":`, error);
@@ -417,7 +457,10 @@ export const useGlobalShortcutsStore = defineStore('globalShortcuts', () => {
       try {
         const restored = await registerShortcutForOwner(
           previousShortcutString,
-          { type: 'extension', commandId },
+          {
+            type: 'extension',
+            commandId,
+          },
           getExtensionHandler(commandId),
         );
 
@@ -473,7 +516,10 @@ export const useGlobalShortcutsStore = defineStore('globalShortcuts', () => {
     try {
       const registered = await registerShortcutForOwner(
         newTauriShortcut,
-        { type: 'app', id: globalShortcutId },
+        {
+          type: 'app',
+          id: globalShortcutId,
+        },
         handler,
       );
 
@@ -489,6 +535,7 @@ export const useGlobalShortcutsStore = defineStore('globalShortcuts', () => {
       };
       userGlobalShortcuts.value = newShortcuts;
       await syncTrayShortcutHint();
+      await syncExtensionShortcuts();
       return true;
     }
     catch (error) {
@@ -498,7 +545,10 @@ export const useGlobalShortcutsStore = defineStore('globalShortcuts', () => {
       if (registeredNewShortcut) {
         try {
           await unregister(newTauriShortcut);
-          clearShortcutOwner(newTauriShortcut, { type: 'app', id: globalShortcutId });
+          clearShortcutOwner(newTauriShortcut, {
+            type: 'app',
+            id: globalShortcutId,
+          });
         }
         catch (unregisterError) {
           console.error(`Failed to unregister global shortcut "${newTauriShortcut}" for "${globalShortcutId}":`, unregisterError);
@@ -509,7 +559,10 @@ export const useGlobalShortcutsStore = defineStore('globalShortcuts', () => {
         if (oldEffective) {
           const restored = await registerShortcutForOwner(
             oldEffective,
-            { type: 'app', id: globalShortcutId },
+            {
+              type: 'app',
+              id: globalShortcutId,
+            },
             handler,
           );
 
@@ -522,6 +575,7 @@ export const useGlobalShortcutsStore = defineStore('globalShortcuts', () => {
         console.error(`Failed to restore global shortcut "${oldEffective}" for "${globalShortcutId}":`, restoreError);
       }
 
+      await syncExtensionShortcuts();
       return false;
     }
   }
@@ -533,6 +587,7 @@ export const useGlobalShortcutsStore = defineStore('globalShortcuts', () => {
     userGlobalShortcuts.value = newShortcuts;
     await registerShortcut(globalShortcutId);
     await syncTrayShortcutHint();
+    await syncExtensionShortcuts();
   }
 
   async function registerAllShortcuts(): Promise<void> {

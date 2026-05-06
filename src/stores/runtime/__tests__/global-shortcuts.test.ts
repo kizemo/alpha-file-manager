@@ -6,6 +6,7 @@ import {
   beforeEach, describe, expect, it, vi,
 } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
+import { reactive } from 'vue';
 
 const getCurrentWebviewWindowMock = vi.fn();
 
@@ -35,9 +36,9 @@ vi.mock('@tauri-apps/api/core', () => ({
 const consoleWarnMock = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
 const userSettingsStoreMock = {
-  userSettings: {
+  userSettings: reactive({
     globalShortcuts: {},
-  },
+  }),
   setUserSettingsStorage: vi.fn(),
 };
 
@@ -199,6 +200,84 @@ describe('globalShortcuts store', () => {
 
     expect(superShiftERegistrations).toHaveLength(1);
     expect(superShiftEUnregistrations).toHaveLength(1);
+    expect(consoleWarnMock).toHaveBeenCalledWith(
+      expect.stringContaining('already registered for "launchApp"'),
+    );
+  });
+
+  it('registers a skipped extension shortcut after the app shortcut frees its key', async () => {
+    getCurrentWebviewWindowMock.mockReturnValue({ label: 'main' });
+    registerMock.mockResolvedValue(undefined);
+    unregisterMock.mockResolvedValue(undefined);
+    extensionGlobalShortcuts.push({
+      extensionId: 'sigma.excalidraw',
+      commandId: 'sigma.excalidraw.openPage',
+      commandTitle: 'Open Excalidraw',
+      keys: {
+        meta: true,
+        shift: true,
+        key: 'e',
+      },
+      source: 'system',
+    });
+
+    const globalShortcutsStore = useGlobalShortcutsStore();
+    await globalShortcutsStore.init();
+    await globalShortcutsStore.setShortcut('launchApp', {
+      meta: true,
+      shift: true,
+      key: 'f',
+    });
+
+    const superShiftERegistrations = registerMock.mock.calls.filter(
+      ([shortcut]) => shortcut === 'Super+Shift+E',
+    );
+    const restoredExtensionHandler = superShiftERegistrations[superShiftERegistrations.length - 1]?.[1] as (
+      shortcutEvent: { state: string },
+    ) => Promise<void>;
+
+    expect(superShiftERegistrations).toHaveLength(2);
+
+    await restoredExtensionHandler({ state: 'Pressed' });
+
+    expect(executeCommandMock).toHaveBeenCalledWith('sigma.excalidraw.openPage');
+  });
+
+  it('lets an app shortcut reset reclaim its default from an extension shortcut', async () => {
+    getCurrentWebviewWindowMock.mockReturnValue({ label: 'main' });
+    registerMock.mockResolvedValue(undefined);
+    unregisterMock.mockResolvedValue(undefined);
+    userSettingsStoreMock.userSettings.globalShortcuts = {
+      launchApp: 'Super+Shift+F',
+    };
+    extensionGlobalShortcuts.push({
+      extensionId: 'sigma.excalidraw',
+      commandId: 'sigma.excalidraw.openPage',
+      commandTitle: 'Open Excalidraw',
+      keys: {
+        meta: true,
+        shift: true,
+        key: 'e',
+      },
+      source: 'system',
+    });
+
+    const globalShortcutsStore = useGlobalShortcutsStore();
+    await globalShortcutsStore.init();
+    await globalShortcutsStore.resetShortcut('launchApp');
+
+    const superShiftERegistrations = registerMock.mock.calls.filter(
+      ([shortcut]) => shortcut === 'Super+Shift+E',
+    );
+    const resetAppHandler = superShiftERegistrations[superShiftERegistrations.length - 1]?.[1] as (
+      shortcutEvent: { state: string },
+    ) => Promise<void>;
+
+    expect(superShiftERegistrations).toHaveLength(2);
+
+    await resetAppHandler({ state: 'Pressed' });
+
+    expect(executeCommandMock).not.toHaveBeenCalled();
     expect(consoleWarnMock).toHaveBeenCalledWith(
       expect.stringContaining('already registered for "launchApp"'),
     );
