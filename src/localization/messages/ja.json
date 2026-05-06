@@ -688,6 +688,7 @@
     "gpuSystemMemory": "GPU、システム、メモリ、RAM、パフォーマンス",
     "workspaces": "ワークスペース",
     "tabs": "タブ、レイアウト",
+    "tabAppearance": "タブ、アクティブなタブ、太字、テキスト",
     "navigatorHistory": "ナビゲーター、ナビゲーション、履歴",
     "mouseButtons": "マウス、ボタン、入力、アクション",
     "globalSearch": "グローバル、検索、検索、検索、フィルター、スキャン",

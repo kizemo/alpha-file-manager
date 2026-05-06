@@ -688,6 +688,7 @@
     "gpuSystemMemory": "GPU, System, Arbeitsspeicher, RAM, Leistung",
     "workspaces": "Arbeitsplätze",
     "tabs": "Tabs, Layout",
+    "tabAppearance": "Tabs, aktiver Tab, fett, Text",
     "navigatorHistory": "navigator, navigation, geschichte",
     "mouseButtons": "Maus, Tasten, Eingaben, Aktionen",
     "globalSearch": "global, suchen, finden, suchen, filtern, scannen",

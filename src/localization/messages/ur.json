@@ -707,6 +707,7 @@
     "gpuSystemMemory": "gpu, ram, میموری",
     "workspaces": "ورک اسپیس",
     "tabs": "ٹیب, لے آؤٹ",
+    "tabAppearance": "ٹیب, فعال ٹیب, بولڈ, متن",
     "navigatorHistory": "نیویگیٹر, سابقات",
     "mouseButtons": "ماؤس, بٹن",
     "globalSearch": "عالمی تلاش, تلاش, اسکین",

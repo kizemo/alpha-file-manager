@@ -707,6 +707,7 @@
     "gpuSystemMemory": "gpu, system, memory, ram, performance",
     "workspaces": "workspaces",
     "tabs": "tabs, layout",
+    "tabAppearance": "zavihki, aktiven zavihek, krepko, besedilo",
     "navigatorHistory": "navigator, navigation, history",
     "mouseButtons": "mouse, buttons, input, actions",
     "globalSearch": "global, search, find, look, filter, scan",

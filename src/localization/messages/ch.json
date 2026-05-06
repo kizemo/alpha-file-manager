@@ -688,6 +688,7 @@
     "gpuSystemMemory": "GPU,系统,内存,RAM,性能",
     "workspaces": "工作区",
     "tabs": "标签,布局",
+    "tabAppearance": "标签,活动标签,加粗,文本",
     "navigatorHistory": "导航器,导航,历史",
     "mouseButtons": "鼠标、按钮、输入、操作",
     "globalSearch": "全局,搜索,查找,查看,过滤,扫描",

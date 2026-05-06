@@ -688,6 +688,7 @@
     "gpuSystemMemory": "gpu, hệ thống, bộ nhớ, ram, hiệu suất",
     "workspaces": "không gian làm việc",
     "tabs": "tab, bố cục",
+    "tabAppearance": "tab, tab đang hoạt động, in đậm, văn bản",
     "navigatorHistory": "điều hướng, điều hướng, lịch sử",
     "mouseButtons": "chuột, nút, đầu vào, hành động",
     "globalSearch": "toàn cầu, tìm kiếm, tìm, xem, lọc, quét",

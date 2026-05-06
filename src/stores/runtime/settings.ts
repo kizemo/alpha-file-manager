@@ -337,7 +337,7 @@ export const useSettingsStore = defineStore('settings', () => {
       {
         key: 'tabAppearance',
         titleKey: 'settings.tabs.tabAppearance.title',
-        tags: 'settingsTags.tabsWorkspaces',
+        tags: 'settingsTags.tabAppearance',
         component: markRaw(TabAppearanceSection),
         category: 'tabs',
       },
