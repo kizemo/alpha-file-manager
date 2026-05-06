@@ -535,6 +535,11 @@
         "closeWindow": "Cerrar ventana",
         "navigateToHomePage": "Navegar a la página de inicio"
       },
+      "tabAppearance": {
+        "title": "Apariencia de las pestañas",
+        "description": "Personaliza cómo se muestran las pestañas del navegador.",
+        "boldActiveTabTitle": "Texto en negrita para la pestaña activa"
+      },
       "tabs": "Pestañas",
       "tabBehavior": "Comportamiento de la pestaña",
       "immutable": "Inmutable",

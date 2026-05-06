@@ -554,6 +554,11 @@
         "closeWindow": "विंडो बंद",
         "navigateToHomePage": "होम पेज पर नेविगेट करें"
       },
+      "tabAppearance": {
+        "title": "टैब का रूप",
+        "description": "नेविगेटर टैब कैसे दिखते हैं, इसे अनुकूलित करें।",
+        "boldActiveTabTitle": "सक्रिय टैब का टेक्स्ट बोल्ड करें"
+      },
       "tabs": "टैब",
       "tabBehavior": "टैब व्यवहार",
       "immutable": "अडिग",

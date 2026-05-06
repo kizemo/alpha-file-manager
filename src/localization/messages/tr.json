@@ -535,6 +535,11 @@
         "closeWindow": "Pencereyi kapat",
         "navigateToHomePage": "Ana sayfaya git"
       },
+      "tabAppearance": {
+        "title": "Sekme görünümü",
+        "description": "Gezgin sekmelerinin nasıl görüntüleneceğini özelleştirin.",
+        "boldActiveTabTitle": "Etkin sekme metnini kalın yap"
+      },
       "tabs": "Sekmeler",
       "tabBehavior": "Sekme davranışı",
       "immutable": "Değişmez",

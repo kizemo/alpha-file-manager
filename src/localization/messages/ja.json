@@ -535,6 +535,11 @@
         "closeWindow": "ウィンドウを閉じる",
         "navigateToHomePage": "ホームページに移動"
       },
+      "tabAppearance": {
+        "title": "タブの外観",
+        "description": "ナビゲーターのタブの表示方法をカスタマイズします。",
+        "boldActiveTabTitle": "アクティブなタブのテキストを太字にする"
+      },
       "tabs": "タブ",
       "tabBehavior": "タブの動作",
       "immutable": "不変",

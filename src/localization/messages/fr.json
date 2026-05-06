@@ -535,6 +535,11 @@
         "closeWindow": "Fermer la fenêtre",
         "navigateToHomePage": "Accéder à la page d'accueil"
       },
+      "tabAppearance": {
+        "title": "Apparence des onglets",
+        "description": "Personnalisez l'affichage des onglets du navigateur.",
+        "boldActiveTabTitle": "Texte de l'onglet actif en gras"
+      },
       "tabs": "Onglets",
       "tabBehavior": "Comportement des onglets",
       "immutable": "Immuable",

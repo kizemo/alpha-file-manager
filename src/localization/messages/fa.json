@@ -534,6 +534,11 @@
         "closeWindow": "بستن پنجره",
         "navigateToHomePage": "رفتن به صفحه اصلی"
       },
+      "tabAppearance": {
+        "title": "ظاهر برگه‌ها",
+        "description": "نحوه نمایش برگه‌های ناوبر را سفارشی کنید.",
+        "boldActiveTabTitle": "متن برگه فعال را پررنگ کنید"
+      },
       "tabs": "برگه ها",
       "tabBehavior": "رفتار برگه",
       "immutable": "تغییر ناپذیر",

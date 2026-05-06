@@ -535,6 +535,11 @@
         "closeWindow": "Đóng cửa sổ",
         "navigateToHomePage": "Điều hướng đến trang chủ"
       },
+      "tabAppearance": {
+        "title": "Giao diện tab",
+        "description": "Tùy chỉnh cách hiển thị các tab trình điều hướng.",
+        "boldActiveTabTitle": "In đậm văn bản tab đang hoạt động"
+      },
       "tabs": "Tab",
       "tabBehavior": "Hành vi tab",
       "immutable": "bất biến",

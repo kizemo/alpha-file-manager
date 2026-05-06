@@ -554,6 +554,11 @@
         "closeWindow": "Close window",
         "navigateToHomePage": "Navigate to home page"
       },
+      "tabAppearance": {
+        "title": "Tab appearance",
+        "description": "Customize how navigator tabs are displayed.",
+        "boldActiveTabTitle": "Bold active tab text"
+      },
       "tabs": "Tabs",
       "tabBehavior": "Tab behavior",
       "immutable": "Immutable",

@@ -8,6 +8,7 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useTimeoutFn, useEventListener } from '@vueuse/core';
 import { useWorkspacesStore } from '@/stores/storage/workspaces';
+import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import type { Tab } from '@/types/workspaces';
 import { Layers, XIcon, XLineTopIcon } from '@lucide/vue';
 import { getPathDisplayName, getPathDisplayValue } from '@/utils/normalize-path';
@@ -40,6 +41,7 @@ const emit = defineEmits<Emits>();
 
 const { t } = useI18n();
 const workspacesStore = useWorkspacesStore();
+const userSettingsStore = useUserSettingsStore();
 
 const showTabPreview = true;
 const NAVIGATOR_TAB_WIDTH = 100;
@@ -175,6 +177,7 @@ function closeAllTabs() {
             ref="tabRef"
             v-wave
             class="tab"
+            :class="{ 'tab--active-title-bold': userSettingsStore.userSettings.navigator.boldActiveTabTitle }"
             :style="{
               '--tab-width': `${props.tabGroup.length === 2 ? NAVIGATOR_TAB_WIDTH * 2 : NAVIGATOR_TAB_WIDTH}px`
             }"
@@ -277,6 +280,10 @@ function closeAllTabs() {
   background-color: hsl(var(--background-2));
   color: hsl(var(--foreground) / 80%);
   opacity: 1;
+}
+
+.tab[is-active="true"].tab--active-title-bold .tab__title {
+  font-weight: 700;
 }
 
 .tab::after {

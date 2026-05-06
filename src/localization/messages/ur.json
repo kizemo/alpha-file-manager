@@ -554,6 +554,11 @@
         "closeWindow": "ونڈو بند کریں",
         "navigateToHomePage": "ہوم صفحے پر جائیں"
       },
+      "tabAppearance": {
+        "title": "ٹیب کی ظاہری شکل",
+        "description": "نیویگیٹر ٹیبز کے دکھنے کا طریقہ حسب ضرورت بنائیں۔",
+        "boldActiveTabTitle": "فعال ٹیب کا متن بولڈ کریں"
+      },
       "tabs": "ٹیبز",
       "tabBehavior": "ٹیب رویہ",
       "immutable": "ناقابل تبدیلی",

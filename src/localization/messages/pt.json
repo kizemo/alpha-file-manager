@@ -535,6 +535,11 @@
         "closeWindow": "Fechar janela",
         "navigateToHomePage": "Navegar para a página inicial"
       },
+      "tabAppearance": {
+        "title": "Aparência das guias",
+        "description": "Personalize como as guias do navegador são exibidas.",
+        "boldActiveTabTitle": "Texto da guia ativa em negrito"
+      },
       "tabs": "guias",
       "tabBehavior": "Comportamento da guia",
       "immutable": "Imutável",

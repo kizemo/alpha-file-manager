@@ -535,6 +535,11 @@
         "closeWindow": "Chiudi finestra",
         "navigateToHomePage": "Vai alla pagina iniziale"
       },
+      "tabAppearance": {
+        "title": "Aspetto delle schede",
+        "description": "Personalizza la visualizzazione delle schede del navigatore.",
+        "boldActiveTabTitle": "Testo della scheda attiva in grassetto"
+      },
       "tabs": "Schede",
       "tabBehavior": "Comportamento della scheda",
       "immutable": "Immutabile",

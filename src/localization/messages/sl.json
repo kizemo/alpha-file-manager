@@ -554,6 +554,11 @@
         "closeWindow": "Zapri okno",
         "navigateToHomePage": "Pojdi na domačo stran"
       },
+      "tabAppearance": {
+        "title": "Videz zavihkov",
+        "description": "Prilagodite prikaz zavihkov navigatorja.",
+        "boldActiveTabTitle": "Krepko besedilo aktivnega zavihka"
+      },
       "tabs": "Zavihki",
       "tabBehavior": "Obnašanje zavihka",
       "immutable": "Neprenosljiv",

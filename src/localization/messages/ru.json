@@ -554,6 +554,11 @@
         "closeWindow": "Закрыть окно",
         "navigateToHomePage": "Перейти на главную страницу"
       },
+      "tabAppearance": {
+        "title": "Внешний вид вкладок",
+        "description": "Настройте отображение вкладок навигатора.",
+        "boldActiveTabTitle": "Жирный текст активной вкладки"
+      },
       "tabs": "Вкладки",
       "tabBehavior": "Поведение во вкладке",
       "immutable": "Неизменный",

@@ -535,6 +535,11 @@
         "closeWindow": "Fenster schließen",
         "navigateToHomePage": "Zur Startseite navigieren"
       },
+      "tabAppearance": {
+        "title": "Tab-Darstellung",
+        "description": "Passen Sie an, wie Navigator-Tabs angezeigt werden.",
+        "boldActiveTabTitle": "Aktiven Tab-Text fett darstellen"
+      },
       "tabs": "Tabs",
       "tabBehavior": "Tab-Verhalten",
       "immutable": "Unveränderlich",

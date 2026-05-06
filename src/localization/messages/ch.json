@@ -535,6 +535,11 @@
         "closeWindow": "关闭窗口",
         "navigateToHomePage": "导航到主页"
       },
+      "tabAppearance": {
+        "title": "标签外观",
+        "description": "自定义导航器标签的显示方式。",
+        "boldActiveTabTitle": "加粗活动标签文本"
+      },
       "tabs": "标签",
       "tabBehavior": "选项卡行为",
       "immutable": "不可变",
