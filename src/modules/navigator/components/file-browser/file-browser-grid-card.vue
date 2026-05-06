@@ -544,7 +544,7 @@ watch(imagePreviewPlaceholderSrc, () => {
 .file-browser-grid-card__image--final {
   z-index: 2;
   opacity: 0;
-  transition: opacity 1s ease-out;
+  transition: opacity 0.5s ease-out;
 }
 
 .file-browser-grid-card__image--final-loaded {
