@@ -6,6 +6,7 @@ import {
   beforeEach, describe, expect, it, vi,
 } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
+import { reactive } from 'vue';
 
 const {
   setAppKeybindingConflictCheckerMock,
@@ -66,7 +67,9 @@ describe('shortcuts store', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     extensionKeybindings.splice(0, extensionKeybindings.length);
-    userSettingsStoreMock.userSettings.shortcuts = {};
+    userSettingsStoreMock.userSettings = reactive({
+      shortcuts: {},
+    });
     userSettingsStoreMock.setUserSettingsStorage.mockReset();
     setAppKeybindingConflictCheckerMock.mockReset();
     executeCommandMock.mockReset();

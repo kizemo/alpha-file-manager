@@ -7,6 +7,11 @@ import { ref, computed } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import type { DirEntry } from '@/types/dir-entry';
 import { i18n } from '@/localization';
+import {
+  arePathsEquivalent,
+  getSharedSourceDirectory,
+  isDestinationInsideAnySourceDirectory,
+} from '@/utils/file-operation-paths';
 
 export type ClipboardOperationType = 'copy' | 'move' | '';
 export type ConflictResolution = 'replace' | 'skip' | 'auto-rename';
@@ -48,23 +53,6 @@ export interface ConflictItem {
   relative_path: string;
 }
 
-/**
- * Gets the parent directory path from a file/folder path
- */
-function getParentPath(path: string): string {
-  const lastSeparatorIndex = path.lastIndexOf('/');
-
-  if (lastSeparatorIndex <= 0) {
-    return path;
-  }
-
-  return path.substring(0, lastSeparatorIndex);
-}
-
-function normalizePathForComparison(path: string): string {
-  return path.toLowerCase();
-}
-
 export const useClipboardStore = defineStore('clipboard', () => {
   const clipboardType = ref<ClipboardOperationType>('');
   const clipboardItems = ref<DirEntry[]>([]);
@@ -81,18 +69,9 @@ export const useClipboardStore = defineStore('clipboard', () => {
    * Gets the source directory (parent directory of clipboard items)
    * Returns null if items are from different directories
    */
-  const sourceDirectory = computed(() => {
-    if (clipboardItems.value.length === 0) {
-      return null;
-    }
-
-    const firstItemParent = getParentPath(clipboardItems.value[0].path);
-    const allFromSameDir = clipboardItems.value.every(
-      item => normalizePathForComparison(getParentPath(item.path)) === normalizePathForComparison(firstItemParent),
-    );
-
-    return allFromSameDir ? firstItemParent : null;
-  });
+  const sourceDirectory = computed(() =>
+    getSharedSourceDirectory(clipboardItems.value.map(item => item.path)),
+  );
 
   function setClipboard(
     type: ClipboardOperationType,
@@ -158,7 +137,7 @@ export const useClipboardStore = defineStore('clipboard', () => {
       return false;
     }
 
-    return normalizePathForComparison(destinationPath) === normalizePathForComparison(sourceDirectory.value);
+    return arePathsEquivalent(destinationPath, sourceDirectory.value);
   }
 
   /**
@@ -166,15 +145,11 @@ export const useClipboardStore = defineStore('clipboard', () => {
    * (can't move/copy a folder into itself)
    */
   function isDestinationInsideClipboardItem(destinationPath: string): boolean {
-    const normalizedDest = normalizePathForComparison(destinationPath);
-    return clipboardItems.value.some((item) => {
-      if (!item.is_dir) {
-        return false;
-      }
-
-      const normalizedItemPath = normalizePathForComparison(item.path);
-      return normalizedDest.startsWith(normalizedItemPath + '/');
-    });
+    return isDestinationInsideAnySourceDirectory(
+      destinationPath,
+      clipboardItems.value.map(item => item.path),
+      clipboardItems.value.map(item => item.is_dir),
+    );
   }
 
   /**

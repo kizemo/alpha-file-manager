@@ -905,6 +905,7 @@ function modifiersMatch(event: KeyboardEvent | MouseEvent, keys: ShortcutKeys): 
 }
 
 function matchesShortcut(event: KeyboardEvent, keys: ShortcutKeys): boolean {
+  if (!keys.key) return false;
   if (keys.key.startsWith('MouseButton')) return false;
 
   const eventCtrl = event.ctrlKey || event.metaKey;
@@ -951,6 +952,7 @@ function matchesShortcut(event: KeyboardEvent, keys: ShortcutKeys): boolean {
 }
 
 function matchesMouseShortcut(event: MouseEvent, keys: ShortcutKeys): boolean {
+  if (!keys.key) return false;
   if (!modifiersMatch(event, keys)) return false;
 
   const eventKey = mouseButtonToShortcutKey(event.button);

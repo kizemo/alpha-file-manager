@@ -433,9 +433,10 @@ const { clockRef: listModifiedClock } = useRelativeDateDisplayClock(shouldTrackL
 }
 
 .file-browser-list-view__entry[data-drag-over] .file-browser-list-view__overlay--hover {
-  background-color: hsl(var(--primary) / 15%);
-  box-shadow: inset 0 0 0 2px hsl(var(--primary) / 60%);
+  background-color: var(--drop-target-background);
   opacity: 1;
+  outline: var(--drop-target-outline);
+  outline-offset: var(--drop-target-outline-offset);
   transition: opacity var(--hover-transition-duration-in);
 }
 

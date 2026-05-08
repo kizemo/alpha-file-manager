@@ -34,6 +34,7 @@ import { useFileBrowserActions } from './use-file-browser-actions';
 import { useFileBrowserKeyboardNavigation } from './use-file-browser-keyboard-navigation';
 import { useFileBrowserLifecycle } from './use-file-browser-lifecycle';
 import { useFileBrowserDrag } from './use-file-browser-drag';
+import { useFileBrowserInternalDropHandler } from './use-file-browser-internal-drop';
 import { useFileBrowserExternalDrop } from './use-file-browser-external-drop';
 import { useFileBrowserVirtualLayout } from './use-file-browser-virtual-layout';
 import { useImageThumbnails } from './use-image-thumbnails';
@@ -227,6 +228,7 @@ export function useFileBrowser(options: UseFileBrowserOptions) {
   const isExternalMode = !!options.externalEntries;
   const quickViewStore = useQuickViewStore();
   const clipboardStore = useClipboardStore();
+  const internalDropHandler = useFileBrowserInternalDropHandler();
 
   const dataSource = isExternalMode
     ? setupExternalDataSource(options)
@@ -310,6 +312,7 @@ export function useFileBrowser(options: UseFileBrowserOptions) {
     replaceSelection: selection.replaceSelection,
     entriesContainerRef,
     disableBackgroundDrop: isExternalMode,
+    fallbackDropHandler: internalDropHandler,
     onDrop: async (items, destinationPath, operation) => {
       if (operation === 'copy') {
         clipboardStore.setClipboard('copy', items, { keepToolbarHidden: true });

@@ -751,9 +751,10 @@ watch(imagePreviewPlaceholderSrc, () => {
 }
 
 .file-browser-grid-card[data-drag-over] .file-browser-grid-card__overlay--hover {
-  background-color: hsl(var(--primary) / 15%);
-  box-shadow: inset 0 0 0 2px hsl(var(--primary) / 60%);
+  background-color: var(--drop-target-background);
   opacity: 1;
+  outline: var(--drop-target-outline);
+  outline-offset: var(--drop-target-outline-offset);
   transition: opacity var(--hover-transition-duration-in);
 }
 </style>

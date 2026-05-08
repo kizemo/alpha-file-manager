@@ -15,7 +15,6 @@ import FileBrowserStatusBar from './file-browser-status-bar.vue';
 import FileBrowserRenameDialog from './file-browser-rename-dialog.vue';
 import FileBrowserNewItemDialog from './file-browser-new-item-dialog.vue';
 import FileBrowserOpenWithDialog from './file-browser-open-with-dialog.vue';
-import FileBrowserDragOverlay from './file-browser-drag-overlay.vue';
 import FileBrowserInboundDragOverlay from './file-browser-inbound-drag-overlay.vue';
 import FileBrowserConflictDialog from './file-browser-conflict-dialog.vue';
 import PermanentDeleteConfirmDialog from './permanent-delete-confirm-dialog.vue';
@@ -205,14 +204,6 @@ defineExpose({
       v-model:open="fb.openWithState.value.isOpen"
       :entries="fb.openWithState.value.entries"
       @close="fb.closeOpenWithDialog"
-    />
-
-    <FileBrowserDragOverlay
-      :is-active="fb.isDragging.value"
-      :item-count="fb.dragItems.value.length"
-      :operation-type="fb.dragOperationType.value"
-      :cursor-x="fb.dragCursorX.value"
-      :cursor-y="fb.dragCursorY.value"
     />
 
     <Transition name="cross-pane-drop-overlay">

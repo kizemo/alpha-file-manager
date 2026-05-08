@@ -4,7 +4,7 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 -->
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useTimeoutFn, useEventListener } from '@vueuse/core';
 import { useWorkspacesStore } from '@/stores/storage/workspaces';
@@ -23,6 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useFileBrowserDragSession } from '@/modules/navigator/components/file-browser/composables/use-file-browser-drag-session';
 
 interface Props {
   tabGroup: Tab[];
@@ -42,16 +43,20 @@ const emit = defineEmits<Emits>();
 const { t } = useI18n();
 const workspacesStore = useWorkspacesStore();
 const userSettingsStore = useUserSettingsStore();
+const dragSession = useFileBrowserDragSession();
+const activeFileBrowserDragState = dragSession.dragState;
 
 const showTabPreview = true;
 const NAVIGATOR_TAB_WIDTH = 100;
 const LONG_PRESS_DELAY = 500;
 const LONG_PRESS_MOVE_THRESHOLD = 10;
+const TAB_DRAG_HOVER_OPEN_DELAY = 500;
 
 const tabRef = ref<HTMLElement | null>(null);
 const isDropdownOpen = ref(false);
 const isLongPressing = ref(false);
 const isPressing = ref(false);
+const isDragOver = ref(false);
 const startPosition = ref({
   x: 0,
   y: 0,
@@ -100,6 +105,20 @@ const isActive = computed(() => (
 ));
 
 const canCloseDuplicateTabs = computed(() => props.tabGroup.length === 1);
+const dropTargetTab = computed(() => props.tabGroup.find(tab => tab.type === 'directory'));
+const isFileBrowserDragActive = computed(() => activeFileBrowserDragState.value.isActive);
+const isTabPreviewDisabled = computed(() =>
+  !(props.previewEnabled && showTabPreview) || isDropdownOpen.value || isFileBrowserDragActive.value,
+);
+const canDropOnTab = computed(() => isFileBrowserDragActive.value && !!dropTargetTab.value?.path);
+
+const { start: startDragHoverOpenTimer, stop: stopDragHoverOpenTimer } = useTimeoutFn(() => {
+  if (!isFileBrowserDragActive.value || isActive.value || props.tabGroup.length === 0) {
+    return;
+  }
+
+  workspacesStore.openTabGroup(props.tabGroup);
+}, TAB_DRAG_HOVER_OPEN_DELAY, { immediate: false });
 
 function getTabDisplayName(tab: Tab | undefined): string {
   if (!tab) {
@@ -142,6 +161,37 @@ function handleTabMouseDown(event: MouseEvent) {
   }
 }
 
+function handleTabMouseEnter() {
+  if (!isFileBrowserDragActive.value || props.tabGroup.length === 0) {
+    return;
+  }
+
+  isDragOver.value = canDropOnTab.value;
+
+  if (isActive.value) {
+    return;
+  }
+
+  startDragHoverOpenTimer();
+}
+
+function handleTabMouseLeave() {
+  isDragOver.value = false;
+  stopDragHoverOpenTimer();
+}
+
+function handleTabMouseUp(event: MouseEvent) {
+  if (!canDropOnTab.value || !dropTargetTab.value?.path) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+  isDragOver.value = false;
+  stopDragHoverOpenTimer();
+  dragSession.dropOn(dropTargetTab.value.path, event.shiftKey ? 'copy' : undefined);
+}
+
 function closeOtherTabs() {
   workspacesStore.closeOtherTabGroups(props.tabGroup);
 }
@@ -157,6 +207,11 @@ function closeDuplicateTabs() {
 function closeAllTabs() {
   workspacesStore.closeAllTabGroups();
 }
+
+onBeforeUnmount(() => {
+  isDragOver.value = false;
+  stopDragHoverOpenTimer();
+});
 </script>
 
 <template>
@@ -164,8 +219,8 @@ function closeAllTabs() {
     v-model:open="isDropdownOpen"
   >
     <Tooltip
-      :disabled="!(props.previewEnabled && showTabPreview) || isDropdownOpen"
-      :key="props.previewEnabled && showTabPreview ? 'enabled' : 'disabled'"
+      :disabled="isTabPreviewDisabled"
+      :key="isTabPreviewDisabled ? 'disabled' : 'enabled'"
     >
       <TooltipTrigger as-child>
         <DropdownMenuTrigger
@@ -182,10 +237,14 @@ function closeAllTabs() {
               '--tab-width': `${props.tabGroup.length === 2 ? NAVIGATOR_TAB_WIDTH * 2 : NAVIGATOR_TAB_WIDTH}px`
             }"
             :is-active="isActive"
+            :data-drag-over="isDragOver || undefined"
             @click.stop="tabOnClick(props.tabGroup)"
             @mousedown="handleTabMouseDown"
+            @mouseup="handleTabMouseUp"
             @contextmenu="handleContextMenu"
             @pointerdown="handlePointerDown"
+            @mouseenter="handleTabMouseEnter"
+            @mouseleave="handleTabMouseLeave"
           >
             <div class="tab__title">
               <span>
@@ -305,6 +364,12 @@ function closeAllTabs() {
 
 .tab:hover {
   background-color: hsl(var(--background-2) / 70%)
+}
+
+.tab[data-drag-over] {
+  background-color: var(--drop-target-background);
+  outline: var(--drop-target-outline);
+  outline-offset: var(--drop-target-outline-offset);
 }
 
 .tab__title {

@@ -879,7 +879,8 @@ onUnmounted(() => {
 }
 
 .address-bar .dir-entry-interactive[data-drag-over] > .address-bar__part {
-  background-color: hsl(var(--primary) / 15%);
-  box-shadow: inset 0 0 0 2px hsl(var(--primary) / 60%);
+  background-color: var(--drop-target-background);
+  outline: var(--drop-target-outline);
+  outline-offset: var(--drop-target-outline-offset);
 }
 </style>

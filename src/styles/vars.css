@@ -5,6 +5,10 @@
   --hover-transition-duration-in: 0s;
   --hover-transition-duration-out: 0.15s;
   --hover-transition-easing-out: ease-out;
+  --drop-target-background: hsl(var(--primary) / 15%);
+  --drop-target-subtle-background: hsl(var(--primary) / 8%);
+  --drop-target-outline: 2px dashed hsl(var(--primary) / 60%);
+  --drop-target-outline-offset: -2px;
 
   /* Drive progress indicator colors */
   --drive-progress-color-green: 174deg 100% 27%;

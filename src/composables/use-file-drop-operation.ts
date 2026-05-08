@@ -10,6 +10,11 @@ import type { ConflictItem } from '@/stores/runtime/clipboard';
 import { useCopyMoveJobsStore } from '@/stores/runtime/copy-move-jobs';
 import { useDirSizesStore } from '@/stores/runtime/dir-sizes';
 import { useConflictResolutionDialog } from '@/composables/use-conflict-resolution-dialog';
+import {
+  arePathsEquivalent,
+  getSharedSourceDirectory,
+  isDestinationInsideAnySourceDirectory,
+} from '@/utils/file-operation-paths';
 
 export function useFileDropOperation() {
   const { t } = useI18n();
@@ -33,6 +38,33 @@ export function useFileDropOperation() {
 
     const isCopy = operation === 'copy';
 
+    let sourcePathIsDir: boolean[];
+
+    try {
+      sourcePathIsDir = await invoke<boolean[]>('paths_are_directories', {
+        paths: sourcePaths,
+      });
+    }
+    catch {
+      sourcePathIsDir = sourcePaths.map(() => true);
+    }
+
+    if (isDestinationInsideAnySourceDirectory(targetPath, sourcePaths, sourcePathIsDir)) {
+      toast.error(t('fileBrowser.cannotPasteIntoItself'));
+      return;
+    }
+
+    const sharedSourceDirectory = getSharedSourceDirectory(sourcePaths);
+
+    if (
+      operation === 'move'
+      && sharedSourceDirectory !== null
+      && arePathsEquivalent(sharedSourceDirectory, targetPath)
+    ) {
+      toast.error(t('fileBrowser.cannotMoveToSameDirectory'));
+      return;
+    }
+
     const resolutionPayload = await showConflictDialog(operation, () =>
       invoke<ConflictItem[]>('check_conflicts', {
         sourcePaths,
@@ -48,17 +80,6 @@ export function useFileDropOperation() {
       = resolutionPayload === undefined ? undefined : resolutionPayload;
 
     const displayPath = targetPath.split(/[/\\]/).pop() ?? targetPath;
-
-    let sourcePathIsDir: boolean[];
-
-    try {
-      sourcePathIsDir = await invoke<boolean[]>('paths_are_directories', {
-        paths: sourcePaths,
-      });
-    }
-    catch {
-      sourcePathIsDir = sourcePaths.map(() => true);
-    }
 
     try {
       const result = await copyMoveJobsStore.startJob(
