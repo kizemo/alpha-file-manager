@@ -308,7 +308,10 @@ describe('shortcuts store', () => {
 
     await shortcutsStore.setShortcut(
       'navigateHistoryBack',
-      { alt: true, key: 'h' },
+      {
+        alt: true,
+        key: 'h',
+      },
       1,
     );
 

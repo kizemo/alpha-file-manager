@@ -1126,6 +1126,7 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
 
     for (const shortcutId of Object.keys(next) as ShortcutId[]) {
       const slots = next[shortcutId];
+
       if (slots?.length) {
         cleaned[shortcutId] = slots;
       }
