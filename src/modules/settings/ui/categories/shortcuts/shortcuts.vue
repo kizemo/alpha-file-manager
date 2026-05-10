@@ -26,6 +26,12 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
+import {
   KeyboardIcon,
   RotateCcwIcon,
   AlertTriangleIcon,
@@ -65,6 +71,7 @@ import {
   formatCaptureChordLabel,
   isModifierPhysicalKeyCode,
   resolveShortcutKeyFromKeyboardEvent,
+  type ShortcutDefinition,
   type ShortcutId,
   type ShortcutKeys,
 } from '@/stores/runtime/shortcuts';
@@ -134,7 +141,7 @@ const globalShortcutIcons: Record<GlobalShortcutId, Component> = {
 const extensionsStorageStore = useExtensionsStorageStore();
 
 const isDialogOpen = ref(false);
-const editingShortcutId = ref<ShortcutId | null>(null);
+const editingAppShortcutDefinition = ref<ShortcutDefinition | null>(null);
 const editingGlobalShortcutId = ref<GlobalShortcutId | null>(null);
 const recordedKeys = ref<ShortcutKeys | null>(null);
 const isRecording = ref(false);
@@ -408,8 +415,8 @@ const editingDefinition = computed(() => {
     return null;
   }
 
-  if (!editingShortcutId.value) return null;
-  return shortcutsStore.getShortcutDefinition(editingShortcutId.value);
+  if (!editingAppShortcutDefinition.value) return null;
+  return editingAppShortcutDefinition.value;
 });
 
 const currentEditingShortcutLabel = computed(() => {
@@ -417,8 +424,8 @@ const currentEditingShortcutLabel = computed(() => {
     return globalShortcutsStore.getShortcutLabel(editingGlobalShortcutId.value);
   }
 
-  if (!editingShortcutId.value) return '';
-  return shortcutsStore.getShortcutLabel(editingShortcutId.value);
+  if (!editingAppShortcutDefinition.value) return '';
+  return shortcutsStore.getShortcutBindingLabel(editingAppShortcutDefinition.value);
 });
 
 const recordedKeysLabel = computed(() => {
@@ -438,20 +445,57 @@ function createUnassignedShortcutKeys(): ShortcutKeys {
   return { key: '' };
 }
 
+async function contextUnassignShortcutBinding(definition: ShortcutDefinition): Promise<void> {
+  await shortcutsStore.setShortcut(
+    definition.id,
+    createUnassignedShortcutKeys(),
+    definition.bindingSlot ?? 0,
+  );
+}
+
+async function contextAddAlternateShortcutBinding(definition: ShortcutDefinition): Promise<void> {
+  await shortcutsStore.addUserAlternateChordBinding(definition.id, definition);
+}
+
+async function contextRemoveUserAlternateBinding(definition: ShortcutDefinition): Promise<void> {
+  await shortcutsStore.removeUserAlternateChordBindingRow(definition.id, definition.bindingSlot ?? 0);
+}
+
+async function contextResetAppShortcutBinding(definition: ShortcutDefinition): Promise<void> {
+  await shortcutsStore.resetShortcut(definition.id, definition.bindingSlot ?? 0);
+}
+
+async function contextResetGlobalShortcut(globalShortcutId: GlobalShortcutId): Promise<void> {
+  await globalShortcutsStore.resetShortcut(globalShortcutId);
+}
+
+async function contextUnassignGlobalShortcut(globalShortcutId: GlobalShortcutId): Promise<void> {
+  globalRegisterFailed.value = false;
+  await globalShortcutsStore.unsetShortcut(globalShortcutId);
+}
+
 function shortcutKeysConflict(firstKeys: ShortcutKeys, secondKeys: ShortcutKeys): boolean {
   return Boolean(firstKeys.key && secondKeys.key) && shortcutKeysMatch(firstKeys, secondKeys);
 }
 
+function shortcutDefinitionsMatchSlot(
+  firstDefinition: ShortcutDefinition,
+  secondDefinition: ShortcutDefinition,
+): boolean {
+  return firstDefinition.id === secondDefinition.id
+    && (firstDefinition.bindingSlot ?? 0) === (secondDefinition.bindingSlot ?? 0);
+}
+
 function findConflictingAppShortcuts(
   keys: ShortcutKeys,
-  excludeShortcutId?: ShortcutId,
+  excludeDefinition?: ShortcutDefinition,
 ) {
   return shortcutsStore.definitions.filter((definition) => {
-    if (definition.id === excludeShortcutId) {
+    if (excludeDefinition && shortcutDefinitionsMatchSlot(definition, excludeDefinition)) {
       return false;
     }
 
-    return shortcutKeysConflict(shortcutsStore.getShortcutKeys(definition.id), keys);
+    return shortcutKeysConflict(shortcutsStore.resolveShortcutBindingKeys(definition), keys);
   });
 }
 
@@ -551,7 +595,7 @@ const conflictLabel = computed(() => {
 
   const conflictingAppShortcut = findConflictingAppShortcuts(
     recordedKeys.value,
-    editingShortcutId.value ?? undefined,
+    editingAppShortcutDefinition.value ?? undefined,
   )[0] ?? null;
 
   if (conflictingAppShortcut) {
@@ -572,11 +616,10 @@ const conflictLabel = computed(() => {
 
 const hasConflict = computed(() => conflictLabel.value !== null);
 
-function openShortcutEditor(shortcutId: ShortcutId) {
-  const definition = shortcutsStore.getShortcutDefinition(shortcutId);
-  if (definition?.isReadOnly) return;
+function openShortcutEditor(definition: ShortcutDefinition) {
+  if (definition.isReadOnly) return;
 
-  editingShortcutId.value = shortcutId;
+  editingAppShortcutDefinition.value = definition;
   editingExtensionKeybinding.value = null;
   editingGlobalShortcutId.value = null;
   recordedKeys.value = null;
@@ -592,7 +635,7 @@ function openShortcutEditor(shortcutId: ShortcutId) {
 function openGlobalShortcutEditor(globalShortcutId: GlobalShortcutId) {
   editingGlobalShortcutId.value = globalShortcutId;
   editingExtensionKeybinding.value = null;
-  editingShortcutId.value = null;
+  editingAppShortcutDefinition.value = null;
   recordedKeys.value = null;
   globalRegisterFailed.value = false;
   isRecording.value = true;
@@ -688,28 +731,16 @@ async function saveShortcut(): Promise<boolean> {
     return true;
   }
 
-  if (!editingShortcutId.value) return false;
-  await shortcutsStore.setShortcut(editingShortcutId.value, recordedKeys.value);
+  if (!editingAppShortcutDefinition.value) return false;
+  await shortcutsStore.setShortcut(
+    editingAppShortcutDefinition.value.id,
+    recordedKeys.value,
+    editingAppShortcutDefinition.value.bindingSlot ?? 0,
+  );
   isDialogOpen.value = false;
-  editingShortcutId.value = null;
+  editingAppShortcutDefinition.value = null;
   recordedKeys.value = null;
   return true;
-}
-
-async function resetShortcut() {
-  if (editingGlobalShortcutId.value) {
-    await globalShortcutsStore.resetShortcut(editingGlobalShortcutId.value);
-    isDialogOpen.value = false;
-    editingGlobalShortcutId.value = null;
-    recordedKeys.value = null;
-    return;
-  }
-
-  if (!editingShortcutId.value) return;
-  await shortcutsStore.resetShortcut(editingShortcutId.value);
-  isDialogOpen.value = false;
-  editingShortcutId.value = null;
-  recordedKeys.value = null;
 }
 
 async function resetAllShortcuts() {
@@ -718,23 +749,27 @@ async function resetAllShortcuts() {
 
 async function clearConflictingAppShortcuts(
   keys: ShortcutKeys,
-  excludeShortcutId?: ShortcutId,
+  excludeDefinition?: ShortcutDefinition,
 ): Promise<ShortcutConflictRestore[]> {
-  const conflictingShortcuts = findConflictingAppShortcuts(keys, excludeShortcutId);
+  const conflictingShortcuts = findConflictingAppShortcuts(keys, excludeDefinition);
   const restoreActions: ShortcutConflictRestore[] = [];
 
   for (const shortcut of conflictingShortcuts) {
-    const previousKeys = shortcutsStore.getShortcutKeys(shortcut.id);
-    const previousSource = shortcutsStore.getSource(shortcut.id);
+    const previousKeys = shortcutsStore.resolveShortcutBindingKeys(shortcut);
+    const previousSource = shortcutsStore.getShortcutBindingSource(shortcut);
     restoreActions.push(async () => {
       if (previousSource === 'system') {
-        await shortcutsStore.resetShortcut(shortcut.id);
+        await shortcutsStore.resetShortcut(shortcut.id, shortcut.bindingSlot ?? 0);
         return;
       }
 
-      await shortcutsStore.setShortcut(shortcut.id, previousKeys);
+      await shortcutsStore.setShortcut(shortcut.id, previousKeys, shortcut.bindingSlot ?? 0);
     });
-    await shortcutsStore.setShortcut(shortcut.id, createUnassignedShortcutKeys());
+    await shortcutsStore.setShortcut(
+      shortcut.id,
+      createUnassignedShortcutKeys(),
+      shortcut.bindingSlot ?? 0,
+    );
   }
 
   return restoreActions;
@@ -861,7 +896,7 @@ async function clearConflictingShortcuts(keys: ShortcutKeys): Promise<ShortcutCo
     return restoreActions;
   }
 
-  restoreActions.push(...await clearConflictingAppShortcuts(keys, editingShortcutId.value ?? undefined));
+  restoreActions.push(...await clearConflictingAppShortcuts(keys, editingAppShortcutDefinition.value ?? undefined));
   restoreActions.push(...await clearConflictingLocalExtensionKeybindings(keys, editingExtensionKeybinding.value?.commandId));
   return restoreActions;
 }
@@ -886,26 +921,26 @@ async function replaceShortcut() {
   }
 }
 
-function getConditionsLabel(shortcutId: ShortcutId): string {
-  const definition = shortcutsStore.getShortcutDefinition(shortcutId);
-  if (!definition) return '';
+function getConditionsLabelFromDefinition(definition: ShortcutDefinition): string {
   return formatConditionsLabel(definition.conditions);
 }
 
-function getSourceLabel(shortcutId: ShortcutId): string {
-  return shortcutsStore.getSource(shortcutId) === 'user' ? t('shortcutsUI.sourceUser') : t('shortcutsUI.sourceSystem');
+function getShortcutBindingSourceLabel(definition: ShortcutDefinition): string {
+  return shortcutsStore.getShortcutBindingSource(definition) === 'user'
+    ? t('shortcutsUI.sourceUser')
+    : t('shortcutsUI.sourceSystem');
 }
 
 function getGlobalSourceLabel(globalShortcutId: GlobalShortcutId): string {
   return globalShortcutsStore.getSource(globalShortcutId) === 'user' ? t('shortcutsUI.sourceUser') : t('shortcutsUI.sourceSystem');
 }
 
-function getSourceIcon(shortcutId: ShortcutId): Component {
-  return shortcutsStore.getSource(shortcutId) === 'user' ? UserIcon : SettingsIcon;
+function getShortcutBindingSourceIcon(definition: ShortcutDefinition): Component {
+  return shortcutsStore.getShortcutBindingSource(definition) === 'user' ? UserIcon : SettingsIcon;
 }
 
-function getShortcutListLabel(label: string): string {
-  return label || unassignedShortcutLabel;
+function isShortcutLabelAssigned(label: string): boolean {
+  return label.trim().length > 0;
 }
 
 function openExtensionKeybindingEditor(extensionId: string, commandId: string, commandTitle: string) {
@@ -915,7 +950,7 @@ function openExtensionKeybindingEditor(extensionId: string, commandId: string, c
     commandTitle,
     scope: 'local',
   };
-  editingShortcutId.value = null;
+  editingAppShortcutDefinition.value = null;
   editingGlobalShortcutId.value = null;
   recordedKeys.value = null;
   globalRegisterFailed.value = false;
@@ -934,7 +969,7 @@ function openExtensionGlobalShortcutEditor(extensionId: string, commandId: strin
     commandTitle,
     scope: 'global',
   };
-  editingShortcutId.value = null;
+  editingAppShortcutDefinition.value = null;
   editingGlobalShortcutId.value = null;
   recordedKeys.value = null;
   globalRegisterFailed.value = false;
@@ -985,31 +1020,11 @@ async function saveExtensionKeybinding(): Promise<boolean> {
   return true;
 }
 
-async function resetExtensionKeybinding() {
-  if (!editingExtensionKeybinding.value) return;
-
-  await extensionsStorageStore.removeKeybindingOverride(
-    editingExtensionKeybinding.value.extensionId,
-    editingExtensionKeybinding.value.commandId,
-    editingExtensionKeybinding.value.scope,
-  );
-
-  if (editingExtensionKeybinding.value.scope === 'local') {
-    extensionsStore.resetKeybindingOverride(editingExtensionKeybinding.value.commandId);
-  }
-
-  await globalShortcutsStore.syncExtensionShortcuts();
-
-  isDialogOpen.value = false;
-  editingExtensionKeybinding.value = null;
-  recordedKeys.value = null;
-}
-
 watch(isDialogOpen, (open) => {
   if (!open) {
     isRecording.value = false;
     recordedKeys.value = null;
-    editingShortcutId.value = null;
+    editingAppShortcutDefinition.value = null;
     editingGlobalShortcutId.value = null;
     editingExtensionKeybinding.value = null;
   }
@@ -1024,6 +1039,39 @@ watch(isDialogOpen, (open) => {
 });
 
 const extensionsStore = useExtensionsStore();
+
+async function resetExtensionKeybindingAt(
+  extensionId: string,
+  commandId: string,
+  scope: 'local' | 'global',
+): Promise<void> {
+  await extensionsStorageStore.removeKeybindingOverride(extensionId, commandId, scope);
+
+  if (scope === 'local') {
+    extensionsStore.resetKeybindingOverride(commandId);
+  }
+
+  await globalShortcutsStore.syncExtensionShortcuts();
+}
+
+async function unassignExtensionKeybindingAt(
+  extensionId: string,
+  commandId: string,
+  scope: 'local' | 'global',
+): Promise<void> {
+  const override: ExtensionKeybindingOverride = {
+    commandId,
+    scope,
+    keys: createUnassignedShortcutKeys(),
+  };
+  await extensionsStorageStore.setKeybindingOverride(extensionId, override);
+
+  if (scope === 'local') {
+    extensionsStore.applyKeybindingOverride(commandId, createUnassignedShortcutKeys());
+  }
+
+  await globalShortcutsStore.syncExtensionShortcuts();
+}
 
 const extensionKeybindings = computed(() => {
   return extensionsStore.keybindings.map((keybinding) => {
@@ -1114,88 +1162,136 @@ const globalExtensionShortcuts = computed(() => {
           </div>
 
           <div class="shortcuts-table__body">
-            <div
+            <ContextMenu
               v-for="definition in globalShortcutsStore.definitions"
               :key="definition.id"
-              class="shortcuts-table__row"
-              @click="openGlobalShortcutEditor(definition.id)"
             >
-              <div class="shortcuts-table__cell shortcuts-table__cell--command">
-                <component
-                  :is="globalShortcutIcons[definition.id]"
-                  :size="14"
-                  class="shortcuts-table__cell-icon"
-                />
-                <span class="shortcuts-table__cell-text">
-                  {{ t(definition.labelKey) }}
-                </span>
-              </div>
-
-              <div class="shortcuts-table__cell shortcuts-table__cell--keybinding">
-                <kbd class="shortcuts-table__kbd">
-                  {{ getShortcutListLabel(globalShortcutsStore.getShortcutLabel(definition.id)) }}
-                </kbd>
-              </div>
-
-              <div class="shortcuts-table__cell shortcuts-table__cell--when" />
-
-              <div class="shortcuts-table__cell shortcuts-table__cell--source">
-                <span
-                  class="shortcuts-table__source"
-                  :class="{
-                    'shortcuts-table__source--user': globalShortcutsStore.getSource(definition.id) === 'user',
-                    'shortcuts-table__source--system': globalShortcutsStore.getSource(definition.id) === 'system',
-                  }"
+              <ContextMenuTrigger as-child>
+                <div
+                  class="shortcuts-table__row"
+                  @click="openGlobalShortcutEditor(definition.id)"
                 >
-                  <component
-                    :is="globalShortcutsStore.getSource(definition.id) === 'user' ? UserIcon : SettingsIcon"
-                    :size="12"
-                  />
-                  {{ getGlobalSourceLabel(definition.id) }}
-                </span>
-              </div>
-            </div>
+                  <div class="shortcuts-table__cell shortcuts-table__cell--command">
+                    <component
+                      :is="globalShortcutIcons[definition.id]"
+                      :size="14"
+                      class="shortcuts-table__cell-icon"
+                    />
+                    <span class="shortcuts-table__cell-text">
+                      {{ t(definition.labelKey) }}
+                    </span>
+                  </div>
 
-            <div
+                  <div class="shortcuts-table__cell shortcuts-table__cell--keybinding">
+                    <kbd
+                      v-if="isShortcutLabelAssigned(globalShortcutsStore.getShortcutLabel(definition.id))"
+                      class="shortcuts-table__kbd"
+                    >
+                      {{ globalShortcutsStore.getShortcutLabel(definition.id) }}
+                    </kbd>
+                    <span
+                      v-else
+                      class="shortcuts-keybinding-unassigned"
+                    >
+                      {{ unassignedShortcutLabel }}
+                    </span>
+                  </div>
+
+                  <div class="shortcuts-table__cell shortcuts-table__cell--when" />
+
+                  <div class="shortcuts-table__cell shortcuts-table__cell--source">
+                    <span
+                      class="shortcuts-table__source"
+                      :class="{
+                        'shortcuts-table__source--user': globalShortcutsStore.getSource(definition.id) === 'user',
+                        'shortcuts-table__source--system': globalShortcutsStore.getSource(definition.id) === 'system',
+                      }"
+                    >
+                      <component
+                        :is="globalShortcutsStore.getSource(definition.id) === 'user' ? UserIcon : SettingsIcon"
+                        :size="12"
+                      />
+                      {{ getGlobalSourceLabel(definition.id) }}
+                    </span>
+                  </div>
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent class="shortcuts-settings-context-menu">
+                <ContextMenuItem @select="contextResetGlobalShortcut(definition.id)">
+                  {{ t('shortcutsUI.resetShortcut') }}
+                </ContextMenuItem>
+                <ContextMenuItem @select="contextUnassignGlobalShortcut(definition.id)">
+                  {{ t('shortcutsUI.unassignBinding') }}
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
+
+            <ContextMenu
               v-for="shortcut in globalExtensionShortcuts"
-              :key="shortcut.commandId"
-              class="shortcuts-table__row"
-              @click="openExtensionGlobalShortcutEditor(shortcut.extensionId, shortcut.commandId, shortcut.commandTitle)"
+              :key="`${shortcut.extensionId}-${shortcut.commandId}`"
             >
-              <div class="shortcuts-table__cell shortcuts-table__cell--command">
-                <BlocksIcon
-                  :size="14"
-                  class="shortcuts-table__cell-icon"
-                />
-                <span class="shortcuts-table__cell-text">
-                  {{ shortcut.commandTitle }}
-                </span>
-              </div>
-
-              <div class="shortcuts-table__cell shortcuts-table__cell--keybinding">
-                <kbd class="shortcuts-table__kbd">
-                  {{ getShortcutListLabel(shortcut.keybindingLabel) }}
-                </kbd>
-              </div>
-
-              <div class="shortcuts-table__cell shortcuts-table__cell--when" />
-
-              <div class="shortcuts-table__cell shortcuts-table__cell--source">
-                <span
-                  class="shortcuts-table__source"
-                  :class="{
-                    'shortcuts-table__source--user': shortcut.source === 'user',
-                    'shortcuts-table__source--system': shortcut.source === 'system',
-                  }"
+              <ContextMenuTrigger as-child>
+                <div
+                  class="shortcuts-table__row"
+                  @click="openExtensionGlobalShortcutEditor(shortcut.extensionId, shortcut.commandId, shortcut.commandTitle)"
                 >
-                  <component
-                    :is="shortcut.source === 'user' ? UserIcon : SettingsIcon"
-                    :size="12"
-                  />
-                  {{ shortcut.extensionName }}
-                </span>
-              </div>
-            </div>
+                  <div class="shortcuts-table__cell shortcuts-table__cell--command">
+                    <BlocksIcon
+                      :size="14"
+                      class="shortcuts-table__cell-icon"
+                    />
+                    <span class="shortcuts-table__cell-text">
+                      {{ shortcut.commandTitle }}
+                    </span>
+                  </div>
+
+                  <div class="shortcuts-table__cell shortcuts-table__cell--keybinding">
+                    <kbd
+                      v-if="isShortcutLabelAssigned(shortcut.keybindingLabel)"
+                      class="shortcuts-table__kbd"
+                    >
+                      {{ shortcut.keybindingLabel }}
+                    </kbd>
+                    <span
+                      v-else
+                      class="shortcuts-keybinding-unassigned"
+                    >
+                      {{ unassignedShortcutLabel }}
+                    </span>
+                  </div>
+
+                  <div class="shortcuts-table__cell shortcuts-table__cell--when" />
+
+                  <div class="shortcuts-table__cell shortcuts-table__cell--source">
+                    <span
+                      class="shortcuts-table__source"
+                      :class="{
+                        'shortcuts-table__source--user': shortcut.source === 'user',
+                        'shortcuts-table__source--system': shortcut.source === 'system',
+                      }"
+                    >
+                      <component
+                        :is="shortcut.source === 'user' ? UserIcon : SettingsIcon"
+                        :size="12"
+                      />
+                      {{ shortcut.extensionName }}
+                    </span>
+                  </div>
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent class="shortcuts-settings-context-menu">
+                <ContextMenuItem
+                  @select="resetExtensionKeybindingAt(shortcut.extensionId, shortcut.commandId, 'global')"
+                >
+                  {{ t('shortcutsUI.resetShortcut') }}
+                </ContextMenuItem>
+                <ContextMenuItem
+                  @select="unassignExtensionKeybindingAt(shortcut.extensionId, shortcut.commandId, 'global')"
+                >
+                  {{ t('shortcutsUI.unassignBinding') }}
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
           </div>
         </div>
       </div>
@@ -1226,66 +1322,105 @@ const globalExtensionShortcuts = computed(() => {
           </div>
 
           <div class="shortcuts-table__body">
-            <div
+            <ContextMenu
               v-for="definition in shortcutsStore.definitions"
-              :key="definition.id"
-              class="shortcuts-table__row"
-              :class="{ 'shortcuts-table__row--readonly': definition.isReadOnly }"
-              @click="openShortcutEditor(definition.id)"
+              :key="`${definition.id}-${definition.bindingSlot ?? 0}`"
             >
-              <div class="shortcuts-table__cell shortcuts-table__cell--command">
-                <component
-                  :is="shortcutIcons[definition.id]"
-                  :size="14"
-                  class="shortcuts-table__cell-icon"
-                />
-                <span class="shortcuts-table__cell-text">
-                  {{ t(definition.labelKey) }}
-                </span>
-              </div>
-
-              <div class="shortcuts-table__cell shortcuts-table__cell--keybinding">
-                <kbd class="shortcuts-table__kbd">
-                  {{ getShortcutListLabel(shortcutsStore.getShortcutLabel(definition.id)) }}
-                </kbd>
-              </div>
-
-              <div class="shortcuts-table__cell shortcuts-table__cell--when">
-                <Tooltip v-if="getConditionsLabel(definition.id)">
-                  <TooltipTrigger as-child>
-                    <code class="shortcuts-table__when-code">
-                      {{ getConditionsLabel(definition.id) }}
-                    </code>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <code class="shortcuts-table__when-tooltip-code">
-                      {{ getConditionsLabel(definition.id) }}
-                    </code>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-
-              <div class="shortcuts-table__cell shortcuts-table__cell--source">
-                <span
-                  class="shortcuts-table__source"
+              <ContextMenuTrigger
+                as-child
+                :disabled="definition.isReadOnly"
+              >
+                <div
+                  class="shortcuts-table__row"
                   :class="{
-                    'shortcuts-table__source--user': shortcutsStore.getSource(definition.id) === 'user',
-                    'shortcuts-table__source--system': shortcutsStore.getSource(definition.id) === 'system',
+                    'shortcuts-table__row--readonly': definition.isReadOnly,
+                    'shortcuts-table__row--alternate-chord': definition.alternateChordRow,
                   }"
+                  @click="openShortcutEditor(definition)"
                 >
-                  <component
-                    :is="getSourceIcon(definition.id)"
-                    :size="12"
-                  />
-                  {{ getSourceLabel(definition.id) }}
-                </span>
-                <LockIcon
-                  v-if="definition.isReadOnly"
-                  :size="10"
-                  class="shortcuts-table__lock-icon"
-                />
-              </div>
-            </div>
+                  <div class="shortcuts-table__cell shortcuts-table__cell--command">
+                    <component
+                      :is="shortcutIcons[definition.id]"
+                      :size="14"
+                      class="shortcuts-table__cell-icon"
+                    />
+                    <span class="shortcuts-table__cell-text">
+                      {{ t(definition.labelKey) }}
+                    </span>
+                  </div>
+
+                  <div class="shortcuts-table__cell shortcuts-table__cell--keybinding">
+                    <kbd
+                      v-if="isShortcutLabelAssigned(shortcutsStore.getShortcutBindingLabel(definition))"
+                      class="shortcuts-table__kbd"
+                    >
+                      {{ shortcutsStore.getShortcutBindingLabel(definition) }}
+                    </kbd>
+                    <span
+                      v-else
+                      class="shortcuts-keybinding-unassigned"
+                    >
+                      {{ unassignedShortcutLabel }}
+                    </span>
+                  </div>
+
+                  <div class="shortcuts-table__cell shortcuts-table__cell--when">
+                    <Tooltip v-if="getConditionsLabelFromDefinition(definition)">
+                      <TooltipTrigger as-child>
+                        <code class="shortcuts-table__when-code">
+                          {{ getConditionsLabelFromDefinition(definition) }}
+                        </code>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <code class="shortcuts-table__when-tooltip-code">
+                          {{ getConditionsLabelFromDefinition(definition) }}
+                        </code>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+
+                  <div class="shortcuts-table__cell shortcuts-table__cell--source">
+                    <span
+                      class="shortcuts-table__source"
+                      :class="{
+                        'shortcuts-table__source--user': shortcutsStore.getShortcutBindingSource(definition) === 'user',
+                        'shortcuts-table__source--system': shortcutsStore.getShortcutBindingSource(definition) === 'system',
+                      }"
+                    >
+                      <component
+                        :is="getShortcutBindingSourceIcon(definition)"
+                        :size="12"
+                      />
+                      {{ getShortcutBindingSourceLabel(definition) }}
+                    </span>
+                    <LockIcon
+                      v-if="definition.isReadOnly"
+                      :size="10"
+                      class="shortcuts-table__lock-icon"
+                    />
+                  </div>
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent
+                v-if="!definition.isReadOnly"
+                class="shortcuts-settings-context-menu"
+              >
+                <ContextMenuItem @select="contextResetAppShortcutBinding(definition)">
+                  {{ t('shortcutsUI.resetShortcut') }}
+                </ContextMenuItem>
+                <ContextMenuItem @select="contextUnassignShortcutBinding(definition)">
+                  {{ t('shortcutsUI.unassignBinding') }}
+                </ContextMenuItem>
+                <ContextMenuItem @select="contextAddAlternateShortcutBinding(definition)">
+                  {{ t('shortcutsUI.addAlternateBinding') }}
+                </ContextMenuItem>
+                <template v-if="definition.userDefinedAlternateChord">
+                  <ContextMenuItem @select="contextRemoveUserAlternateBinding(definition)">
+                    {{ t('shortcutsUI.removeAlternateBinding') }}
+                  </ContextMenuItem>
+                </template>
+              </ContextMenuContent>
+            </ContextMenu>
           </div>
         </div>
       </div>
@@ -1312,41 +1447,67 @@ const globalExtensionShortcuts = computed(() => {
           </div>
 
           <div class="shortcuts-table__body">
-            <div
+            <ContextMenu
               v-for="keybinding in extensionKeybindings"
-              :key="keybinding.commandId"
-              class="shortcuts-table__row"
-              @click="openExtensionKeybindingEditor(keybinding.extensionId, keybinding.commandId, keybinding.commandTitle)"
+              :key="`${keybinding.extensionId}-${keybinding.commandId}`"
             >
-              <div class="shortcuts-table__cell shortcuts-table__cell--command">
-                <BlocksIcon
-                  :size="14"
-                  class="shortcuts-table__cell-icon"
-                />
-                <span class="shortcuts-table__cell-text">
-                  {{ keybinding.commandTitle }}
-                </span>
-              </div>
+              <ContextMenuTrigger as-child>
+                <div
+                  class="shortcuts-table__row"
+                  @click="openExtensionKeybindingEditor(keybinding.extensionId, keybinding.commandId, keybinding.commandTitle)"
+                >
+                  <div class="shortcuts-table__cell shortcuts-table__cell--command">
+                    <BlocksIcon
+                      :size="14"
+                      class="shortcuts-table__cell-icon"
+                    />
+                    <span class="shortcuts-table__cell-text">
+                      {{ keybinding.commandTitle }}
+                    </span>
+                  </div>
 
-              <div class="shortcuts-table__cell shortcuts-table__cell--keybinding">
-                <kbd class="shortcuts-table__kbd">
-                  {{ getShortcutListLabel(keybinding.keybindingLabel) }}
-                </kbd>
-              </div>
+                  <div class="shortcuts-table__cell shortcuts-table__cell--keybinding">
+                    <kbd
+                      v-if="isShortcutLabelAssigned(keybinding.keybindingLabel)"
+                      class="shortcuts-table__kbd"
+                    >
+                      {{ keybinding.keybindingLabel }}
+                    </kbd>
+                    <span
+                      v-else
+                      class="shortcuts-keybinding-unassigned"
+                    >
+                      {{ unassignedShortcutLabel }}
+                    </span>
+                  </div>
 
-              <div class="shortcuts-table__cell shortcuts-table__cell--when">
-                <code class="shortcuts-table__when-code">
-                  {{ keybinding.whenLabel }}
-                </code>
-              </div>
+                  <div class="shortcuts-table__cell shortcuts-table__cell--when">
+                    <code class="shortcuts-table__when-code">
+                      {{ keybinding.whenLabel }}
+                    </code>
+                  </div>
 
-              <div class="shortcuts-table__cell shortcuts-table__cell--source">
-                <span class="shortcuts-table__source shortcuts-table__source--extension">
-                  <BlocksIcon :size="12" />
-                  {{ keybinding.extensionName }}
-                </span>
-              </div>
-            </div>
+                  <div class="shortcuts-table__cell shortcuts-table__cell--source">
+                    <span class="shortcuts-table__source shortcuts-table__source--extension">
+                      <BlocksIcon :size="12" />
+                      {{ keybinding.extensionName }}
+                    </span>
+                  </div>
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent class="shortcuts-settings-context-menu">
+                <ContextMenuItem
+                  @select="resetExtensionKeybindingAt(keybinding.extensionId, keybinding.commandId, 'local')"
+                >
+                  {{ t('shortcutsUI.resetShortcut') }}
+                </ContextMenuItem>
+                <ContextMenuItem
+                  @select="unassignExtensionKeybindingAt(keybinding.extensionId, keybinding.commandId, 'local')"
+                >
+                  {{ t('shortcutsUI.unassignBinding') }}
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
           </div>
         </div>
       </template>
@@ -1373,20 +1534,29 @@ const globalExtensionShortcuts = computed(() => {
               <span class="shortcut-editor__label">
                 {{ t('dialogs.shortcutEditorDialog.shortcut') }}:
               </span>
-              <kbd class="shortcut-editor__kbd">
+              <kbd
+                v-if="isShortcutLabelAssigned(currentEditingShortcutLabel)"
+                class="shortcut-editor__kbd"
+              >
                 {{ currentEditingShortcutLabel }}
               </kbd>
+              <span
+                v-else
+                class="shortcuts-keybinding-unassigned"
+              >
+                {{ unassignedShortcutLabel }}
+              </span>
             </div>
 
             <div
-              v-if="!isEditingGlobalShortcut && editingShortcutId && getConditionsLabel(editingShortcutId)"
+              v-if="!isEditingGlobalShortcut && editingAppShortcutDefinition && getConditionsLabelFromDefinition(editingAppShortcutDefinition)"
               class="shortcut-editor__info-row"
             >
               <span class="shortcut-editor__label">
                 {{ t('when') }}:
               </span>
               <code class="shortcut-editor__when-code">
-                {{ getConditionsLabel(editingShortcutId) }}
+                {{ getConditionsLabelFromDefinition(editingAppShortcutDefinition) }}
               </code>
             </div>
 
@@ -1461,30 +1631,22 @@ const globalExtensionShortcuts = computed(() => {
           </div>
 
           <div class="shortcut-editor-dialog__footer">
-            <ConfirmButton
+            <Button
+              v-if="hasConflict"
               variant="outline"
-              class="shortcut-editor-dialog__footer-button"
-              @click="isEditingExtension ? resetExtensionKeybinding() : resetShortcut()"
+              class="shortcut-editor-dialog__replace-button"
+              :disabled="!recordedKeys"
+              @click="replaceShortcut"
             >
-              <RotateCcwIcon :size="14" />
-              {{ t('shortcutsUI.resetShortcut') }}
-            </ConfirmButton>
-            <div class="shortcut-editor-dialog__footer-right">
-              <Button
-                v-if="hasConflict"
-                variant="secondary"
-                :disabled="!recordedKeys"
-                @click="replaceShortcut"
-              >
-                {{ t('conflictDialog.replace') }}
-              </Button>
-              <Button
-                :disabled="!recordedKeys || hasConflict"
-                @click="isEditingExtension ? saveExtensionKeybinding() : saveShortcut()"
-              >
-                {{ t('save') }}
-              </Button>
-            </div>
+              {{ t('conflictDialog.replace') }}
+            </Button>
+            <Button
+              v-if="!hasConflict"
+              :disabled="!recordedKeys"
+              @click="isEditingExtension ? saveExtensionKeybinding() : saveShortcut()"
+            >
+              {{ t('save') }}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1595,7 +1757,7 @@ const globalExtensionShortcuts = computed(() => {
   background-color: hsl(var(--muted) / 30%);
   font-size: 0.75rem;
   font-weight: 600;
-  grid-template-columns: 1fr 140px 160px 100px;
+  grid-template-columns: minmax(140px, 1fr) 140px 160px 100px;
   text-transform: uppercase;
 }
 
@@ -1613,7 +1775,7 @@ const globalExtensionShortcuts = computed(() => {
   display: grid;
   border-bottom: 1px solid hsl(var(--border) / 50%);
   cursor: pointer;
-  grid-template-columns: 1fr 140px 160px 100px;
+  grid-template-columns: minmax(140px, 1fr) 140px 160px 100px;
   transition: background-color 0.1s ease;
 }
 
@@ -1624,6 +1786,10 @@ const globalExtensionShortcuts = computed(() => {
 .shortcuts-table__row--readonly {
   cursor: not-allowed;
   opacity: 0.7;
+}
+
+.shortcuts-table__row--alternate-chord {
+  background-color: hsl(var(--muted) / 30%);
 }
 
 .shortcuts-table__row--readonly:hover {
@@ -1639,19 +1805,32 @@ const globalExtensionShortcuts = computed(() => {
 
 .shortcuts-table__cell--command {
   overflow: hidden;
+  min-width: 0;
+  align-items: flex-start;
 }
 
 .shortcuts-table__cell-icon {
   flex-shrink: 0;
+  margin-top: 2px;
   color: hsl(var(--muted-foreground));
 }
 
 .shortcuts-table__cell-text {
+  display: -webkit-box;
   overflow: hidden;
+  min-width: 0;
+  -webkit-box-orient: vertical;
   color: hsl(var(--foreground));
   font-size: 0.875rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.shortcuts-keybinding-unassigned {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.875rem;
 }
 
 .shortcuts-table__kbd {
@@ -1870,19 +2049,20 @@ const globalExtensionShortcuts = computed(() => {
 .shortcut-editor-dialog__footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding-top: 1rem;
   border-top: 1px solid hsl(var(--border));
   margin-top: 0.5rem;
   gap: 0.5rem;
 }
 
-.shortcut-editor-dialog__footer-button {
-  gap: 8px;
+.shortcut-editor-dialog__replace-button.sigma-ui-button {
+  border-color: hsl(var(--destructive));
+  color: hsl(var(--destructive));
 }
 
-.shortcut-editor-dialog__footer-right {
-  display: flex;
-  gap: 0.5rem;
+.shortcut-editor-dialog__replace-button.sigma-ui-button:hover {
+  background-color: hsl(var(--destructive) / 12%);
+  color: hsl(var(--destructive));
 }
 </style>

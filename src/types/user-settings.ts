@@ -88,6 +88,8 @@ export type ShortcutKeys = {
   key: string;
 };
 
+export type UserShortcutStoredValue = ShortcutKeys | Array<ShortcutKeys | null>;
+
 export type ShortcutId
   = 'toggleGlobalSearch'
     | 'switchToHomePage'
@@ -131,7 +133,9 @@ export type ShortcutId
     | 'uiZoomDecrease'
     | 'toggleFullscreen';
 
-export type UserShortcuts = Partial<Record<ShortcutId, ShortcutKeys>>;
+export type UserShortcuts = Partial<Record<ShortcutId, UserShortcutStoredValue>>;
+
+export type ShortcutUserAlternateChordSlots = Partial<Record<ShortcutId, number[]>>;
 
 export type GlobalShortcutId = 'launchApp';
 
@@ -172,6 +176,7 @@ export type UserSettings = {
   visualFilters: VisualFiltersSettings;
   settingsCurrentTab: string;
   shortcuts?: UserShortcuts;
+  shortcutUserAlternateChordSlots?: ShortcutUserAlternateChordSlots;
   globalShortcuts?: UserGlobalShortcuts;
   focusWindowOnDriveConnected: boolean;
   preventDropdownCloseFocusReturn: boolean;

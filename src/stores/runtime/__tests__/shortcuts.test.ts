@@ -69,6 +69,7 @@ describe('shortcuts store', () => {
     extensionKeybindings.splice(0, extensionKeybindings.length);
     userSettingsStoreMock.userSettings = reactive({
       shortcuts: {},
+      shortcutUserAlternateChordSlots: {},
     });
     userSettingsStoreMock.setUserSettingsStorage.mockReset();
     setAppKeybindingConflictCheckerMock.mockReset();
@@ -154,20 +155,22 @@ describe('shortcuts store', () => {
   it('defines customizable mouse page and Alt+arrow pane navigation shortcuts', () => {
     const shortcutsStore = useShortcutsStore();
 
-    expect(shortcutsStore.getShortcutLabel('navigatePageBack')).toBe('Mouse Button 4');
-    expect(shortcutsStore.getShortcutLabel('navigatePageForward')).toBe('Mouse Button 5');
+    expect(shortcutsStore.getShortcutLabel('navigatePageBack')).toBe('');
+    expect(shortcutsStore.getShortcutLabel('navigatePageForward')).toBe('');
     expect(shortcutsStore.getShortcutLabel('navigateHistoryBack')).toBe('Alt+←');
     expect(shortcutsStore.getShortcutLabel('navigateHistoryForward')).toBe('Alt+→');
     expect(shortcutsStore.getShortcutLabel('goUpDirectory')).toBe('Alt+↑');
   });
 
-  it('matches mouse shortcuts for page history navigation', async () => {
+  it('matches mouse shortcuts for page history navigation when assigned', async () => {
     const shortcutsStore = useShortcutsStore();
     const navigatePageBackHandler = vi.fn();
     const navigatePageForwardHandler = vi.fn();
 
     shortcutsStore.registerHandler('navigatePageBack', navigatePageBackHandler);
     shortcutsStore.registerHandler('navigatePageForward', navigatePageForwardHandler);
+    await shortcutsStore.setShortcut('navigatePageBack', { key: 'MouseButton4' });
+    await shortcutsStore.setShortcut('navigatePageForward', { key: 'MouseButton5' });
 
     const backEvent = new MouseEvent('mousedown', {
       button: 3,
@@ -249,6 +252,79 @@ describe('shortcuts store', () => {
     expect(backEvent.defaultPrevented).toBe(true);
     expect(forwardEvent.defaultPrevented).toBe(true);
     expect(upEvent.defaultPrevented).toBe(true);
+  });
+
+  it('matches default mouse back and forward for directory history alongside Alt+arrow', async () => {
+    const shortcutsStore = useShortcutsStore();
+    const navigateHistoryBackHandler = vi.fn();
+    const navigateHistoryForwardHandler = vi.fn();
+
+    shortcutsStore.registerHandler('navigateHistoryBack', navigateHistoryBackHandler);
+    shortcutsStore.registerHandler('navigateHistoryForward', navigateHistoryForwardHandler);
+
+    const mouseBackEvent = new MouseEvent('mousedown', {
+      button: 3,
+      bubbles: true,
+      cancelable: true,
+    });
+    const mouseForwardEvent = new MouseEvent('mousedown', {
+      button: 4,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    await expect(shortcutsStore.handleMouseDown(mouseBackEvent)).resolves.toBe(true);
+    await expect(shortcutsStore.handleMouseDown(mouseForwardEvent)).resolves.toBe(true);
+    expect(navigateHistoryBackHandler).toHaveBeenCalledTimes(1);
+    expect(navigateHistoryForwardHandler).toHaveBeenCalledTimes(1);
+    expect(mouseBackEvent.defaultPrevented).toBe(true);
+    expect(mouseForwardEvent.defaultPrevented).toBe(true);
+  });
+
+  it('applies setShortcut without binding slot only to binding slot 0 and leaves slot 1 defaults', async () => {
+    const shortcutsStore = useShortcutsStore();
+
+    await shortcutsStore.setShortcut('navigateHistoryBack', {
+      ctrl: true,
+      key: 'h',
+    });
+
+    expect(shortcutsStore.getShortcutLabel('navigateHistoryBack')).toBe('Ctrl+H');
+
+    const mouseBackDefinition = shortcutsStore.definitions.find(
+      definition =>
+        definition.id === 'navigateHistoryBack'
+        && (definition.bindingSlot ?? 0) === 1,
+    );
+
+    expect(mouseBackDefinition).toBeDefined();
+    expect(shortcutsStore.resolveShortcutBindingKeys(mouseBackDefinition!)).toEqual({
+      key: 'MouseButton4',
+    });
+  });
+
+  it('applies setShortcut with binding slot 1 without changing slot 0 keys', async () => {
+    const shortcutsStore = useShortcutsStore();
+
+    await shortcutsStore.setShortcut(
+      'navigateHistoryBack',
+      { alt: true, key: 'h' },
+      1,
+    );
+
+    expect(shortcutsStore.getShortcutLabel('navigateHistoryBack')).toBe('Alt+←');
+
+    const mouseDefinition = shortcutsStore.definitions.find(
+      definition =>
+        definition.id === 'navigateHistoryBack'
+        && (definition.bindingSlot ?? 0) === 1,
+    );
+
+    expect(mouseDefinition).toBeDefined();
+    expect(shortcutsStore.resolveShortcutBindingKeys(mouseDefinition!)).toEqual({
+      alt: true,
+      key: 'h',
+    });
   });
 
   it('keeps zoom and fullscreen shortcuts active while a dialog is open', async () => {

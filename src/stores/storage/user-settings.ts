@@ -151,6 +151,7 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
     visualFilters: createDefaultVisualFiltersSettings(),
     settingsCurrentTab: 'general',
     shortcuts: {},
+    shortcutUserAlternateChordSlots: {},
     globalShortcuts: {},
     focusWindowOnDriveConnected: true,
     preventDropdownCloseFocusReturn: false,
