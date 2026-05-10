@@ -1951,12 +1951,32 @@
     "title": "ステータスセンター",
     "clearCompleted": "完了した操作を消去",
     "noOperations": "実行中の操作はありません",
+    "activeOperations": "実行中の操作",
+    "completedOperations": "完了した操作",
     "active": "アクティブ",
     "cancelAll": "すべてキャンセル",
     "cancelling": "キャンセルしています…",
     "deleteSelectedCount": "{count} 件",
     "selectedItemsCount": "{count} 件",
     "preparing": "準備中",
+    "operationSummary": "{operationType}{' | '}{operationStatus}",
+    "operationTypeShort": {
+      "copy": "コピー",
+      "move": "移動",
+      "trash": "ゴミ箱",
+      "deletePermanent": "削除",
+      "archive": "アーカイブ",
+      "dirSize": "フォルダー サイズ"
+    },
+    "operationStatusShort": {
+      "completed": "成功",
+      "cancelled": "キャンセル済み",
+      "error": "エラー",
+      "inProgress": "処理中",
+      "pending": "保留中",
+      "cancelling": "キャンセル中…"
+    },
+    "toolbarActiveCount": "0 件の処理 | 1 件の処理 | {n} 件の処理 | {n} 件の処理",
     "groups": {
       "dir-size": "ディレクトリサイズ計算",
       "copy": "アイテムコピー",

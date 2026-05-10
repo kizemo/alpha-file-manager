@@ -136,12 +136,32 @@
     "title": "Центр статусов",
     "clearCompleted": "Очистить завершённые",
     "noOperations": "Нет операций",
+    "activeOperations": "Активные операции",
+    "completedOperations": "Завершённые операции",
     "active": "активно",
     "cancelAll": "Отменить все",
     "cancelling": "Отмена…",
     "deleteSelectedCount": "{count} элементов",
     "selectedItemsCount": "{count} элементов",
     "preparing": "Подготовка",
+    "operationSummary": "{operationType}{' | '}{operationStatus}",
+    "operationTypeShort": {
+      "copy": "Копирование",
+      "move": "Перемещение",
+      "trash": "Корзина",
+      "deletePermanent": "Удаление",
+      "archive": "Архив",
+      "dirSize": "Размер папки"
+    },
+    "operationStatusShort": {
+      "completed": "Успех",
+      "cancelled": "Отменено",
+      "error": "Ошибка",
+      "inProgress": "Выполняется",
+      "pending": "Ожидание",
+      "cancelling": "Отмена…"
+    },
+    "toolbarActiveCount": "0 операций | 1 операция | {n} операций | {n} операций",
     "groups": {
       "dir-size": "Расчёт размера папок",
       "copy": "Операции копирования",

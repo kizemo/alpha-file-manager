@@ -22,10 +22,10 @@ import {
 } from '@lucide/vue';
 import QuickAccessItemIcon from './quick-access-item-icon.vue';
 import {
+  Collapsible,
   CollapsibleContent,
-  CollapsibleRoot,
   CollapsibleTrigger,
-} from 'reka-ui';
+} from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DirEntryInteractive } from '@/components/dir-entry-interactive';
 import { useUserStatsStore } from '@/stores/storage/user-stats';
@@ -152,12 +152,11 @@ function openTaggedItem(item: TaggedItem) {
 
     <ScrollArea class="quick-access-panel__scroll">
       <div class="quick-access-panel__content">
-        <CollapsibleRoot
+        <Collapsible
           v-model:open="favoritesOpen"
           class="quick-access-panel__section"
         >
           <CollapsibleTrigger
-            as-child
             class="quick-access-panel__section-trigger"
           >
             <button
@@ -214,14 +213,13 @@ function openTaggedItem(item: TaggedItem) {
               </button>
             </DirEntryInteractive>
           </CollapsibleContent>
-        </CollapsibleRoot>
+        </Collapsible>
 
-        <CollapsibleRoot
+        <Collapsible
           v-model:open="tagsOpen"
           class="quick-access-panel__section"
         >
           <CollapsibleTrigger
-            as-child
             class="quick-access-panel__section-trigger"
           >
             <button
@@ -321,7 +319,7 @@ function openTaggedItem(item: TaggedItem) {
               </DirEntryInteractive>
             </div>
           </CollapsibleContent>
-        </CollapsibleRoot>
+        </Collapsible>
       </div>
     </ScrollArea>
   </div>
@@ -429,20 +427,14 @@ function openTaggedItem(item: TaggedItem) {
 }
 
 .quick-access-panel__section-content {
-  overflow: hidden;
   padding-bottom: 4px;
   padding-left: 20px;
   margin-right: 8px;
 }
 
-.quick-access-panel__section-content[data-state="open"] {
-  animation: sigma-ui-collapsible-down 0.2s ease-out;
-}
-
 .quick-access-panel__section-content[data-state="closed"] {
   padding-top: 0;
   padding-bottom: 0;
-  animation: sigma-ui-collapsible-up 0.2s ease-out;
 }
 
 .quick-access-panel__empty {

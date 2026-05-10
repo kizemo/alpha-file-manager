@@ -1948,19 +1948,39 @@
     "run": "Exécuter"
   },
   "statusCenter": {
-    "title": "Status center",
-    "clearCompleted": "Clear completed",
-    "noOperations": "No operations",
-    "active": "active",
-    "cancelAll": "Cancel all",
+    "title": "Centre d'état",
+    "clearCompleted": "Effacer les terminées",
+    "noOperations": "Aucune opération",
+    "activeOperations": "Opérations en cours",
+    "completedOperations": "Opérations terminées",
+    "active": "actives",
+    "cancelAll": "Tout annuler",
     "cancelling": "Annulation…",
     "deleteSelectedCount": "{count} éléments",
     "selectedItemsCount": "{count} éléments",
     "preparing": "Préparation",
+    "operationSummary": "{operationType}{' | '}{operationStatus}",
+    "operationTypeShort": {
+      "copy": "Copier",
+      "move": "Déplacer",
+      "trash": "Corbeille",
+      "deletePermanent": "Supprimer",
+      "archive": "Archive",
+      "dirSize": "Taille du dossier"
+    },
+    "operationStatusShort": {
+      "completed": "Réussi",
+      "cancelled": "Annulé",
+      "error": "Erreur",
+      "inProgress": "En cours",
+      "pending": "En attente",
+      "cancelling": "Annulation…"
+    },
+    "toolbarActiveCount": "0 opérations | 1 opération | {n} opérations | {n} opérations",
     "groups": {
-      "dir-size": "Directory size calculations",
-      "copy": "Copy operations",
-      "move": "Move operations",
+      "dir-size": "Calculs de taille de dossiers",
+      "copy": "Opérations de copie",
+      "move": "Opérations de déplacement",
       "deleteTrash": "Opérations corbeille",
       "deletePermanent": "Opérations de suppression définitive",
       "archive": "Opérations d'archive"

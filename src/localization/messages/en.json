@@ -136,12 +136,32 @@
     "title": "Status center",
     "clearCompleted": "Clear completed",
     "noOperations": "No operations",
+    "activeOperations": "Active operations",
+    "completedOperations": "Completed operations",
     "active": "active",
     "cancelAll": "Cancel all",
     "cancelling": "Canceling…",
     "deleteSelectedCount": "{count} items",
     "selectedItemsCount": "{count} items",
     "preparing": "Preparing",
+    "operationSummary": "{operationType}{' | '}{operationStatus}",
+    "operationTypeShort": {
+      "copy": "Copy",
+      "move": "Move",
+      "trash": "Trash",
+      "deletePermanent": "Delete",
+      "archive": "Archive",
+      "dirSize": "Folder size"
+    },
+    "operationStatusShort": {
+      "completed": "Success",
+      "cancelled": "Canceled",
+      "error": "Error",
+      "inProgress": "In progress",
+      "pending": "Pending",
+      "cancelling": "Canceling…"
+    },
+    "toolbarActiveCount": "0 operations | 1 operation | {n} operations | {n} operations",
     "groups": {
       "dir-size": "Directory size calculations",
       "copy": "Copy operations",

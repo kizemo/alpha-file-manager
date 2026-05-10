@@ -1951,12 +1951,32 @@
     "title": "状态中心",
     "clearCompleted": "清除已完成",
     "noOperations": "无操作",
+    "activeOperations": "进行中的操作",
+    "completedOperations": "已完成的操作",
     "active": "进行中",
     "cancelAll": "全部取消",
     "cancelling": "正在取消…",
     "deleteSelectedCount": "{count} 项",
     "selectedItemsCount": "{count} 项",
     "preparing": "正在准备",
+    "operationSummary": "{operationType}{' | '}{operationStatus}",
+    "operationTypeShort": {
+      "copy": "复制",
+      "move": "移动",
+      "trash": "回收站",
+      "deletePermanent": "删除",
+      "archive": "归档",
+      "dirSize": "文件夹大小"
+    },
+    "operationStatusShort": {
+      "completed": "成功",
+      "cancelled": "已取消",
+      "error": "错误",
+      "inProgress": "进行中",
+      "pending": "等待中",
+      "cancelling": "正在取消…"
+    },
+    "toolbarActiveCount": "0 项操作 | 1 项操作 | {n} 项操作 | {n} 项操作",
     "groups": {
       "dir-size": "目录大小计算",
       "copy": "复制操作",

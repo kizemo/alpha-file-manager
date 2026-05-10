@@ -1948,19 +1948,39 @@
     "run": "Çalıştır"
   },
   "statusCenter": {
-    "title": "Status center",
-    "clearCompleted": "Clear completed",
-    "noOperations": "No operations",
-    "active": "active",
-    "cancelAll": "Cancel all",
+    "title": "Durum merkezi",
+    "clearCompleted": "Tamamlananları temizle",
+    "noOperations": "İşlem yok",
+    "activeOperations": "Devam eden işlemler",
+    "completedOperations": "Tamamlanan işlemler",
+    "active": "etkin",
+    "cancelAll": "Tümünü iptal et",
     "cancelling": "İptal ediliyor…",
     "deleteSelectedCount": "{count} öğe",
     "selectedItemsCount": "{count} öğe",
     "preparing": "Hazırlanıyor",
+    "operationSummary": "{operationType}{' | '}{operationStatus}",
+    "operationTypeShort": {
+      "copy": "Kopyala",
+      "move": "Taşı",
+      "trash": "Çöp",
+      "deletePermanent": "Sil",
+      "archive": "Arşiv",
+      "dirSize": "Klasör boyutu"
+    },
+    "operationStatusShort": {
+      "completed": "Başarılı",
+      "cancelled": "İptal edildi",
+      "error": "Hata",
+      "inProgress": "Devam ediyor",
+      "pending": "Beklemede",
+      "cancelling": "İptal ediliyor…"
+    },
+    "toolbarActiveCount": "0 işlem | 1 işlem | {n} işlem | {n} işlem",
     "groups": {
-      "dir-size": "Directory size calculations",
-      "copy": "Copy operations",
-      "move": "Move operations",
+      "dir-size": "Klasör boyutu hesaplamaları",
+      "copy": "Kopyalama işlemleri",
+      "move": "Taşıma işlemleri",
       "deleteTrash": "Çöp kutusu işlemleri",
       "deletePermanent": "Kalıcı silme işlemleri",
       "archive": "Arşiv işlemleri"

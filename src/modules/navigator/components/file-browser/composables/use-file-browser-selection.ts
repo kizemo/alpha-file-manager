@@ -22,7 +22,9 @@ import { useLanShare } from '@/composables/use-lan-share';
 import { useConflictResolutionDialog } from '@/composables/use-conflict-resolution-dialog';
 import { UI_CONSTANTS } from '@/constants';
 import normalizePath from '@/utils/normalize-path';
+import { getSharedSourceDirectory } from '@/utils/file-operation-paths';
 import { createIndexedFileName, safeFileNameFromUrl } from '@/utils/remote-file';
+import { basenameFromPath } from '@/utils/source-display-name';
 import { usePermanentDeleteConfirm } from '@/composables/use-permanent-delete-confirm';
 import { resolveNavigableItemTarget } from '@/utils/resolve-navigable-item-target';
 
@@ -386,6 +388,7 @@ export function useFileBrowserSelection(
       path: item.path,
       is_dir: item.is_dir,
     }));
+    const sourceDirectoryBeforePaste = clipboardStore.sourceDirectory;
     const result = await clipboardStore.pasteItems(targetPath, conflictPayload?.perPathResolutions);
 
     if (!result.success && result.error && !result.fromStatusCenterJob) {
@@ -396,7 +399,7 @@ export function useFileBrowserSelection(
       await dirSizesStore.refreshSizesAfterCopyMove(sourcesForSizes, targetPath, [
         targetPath,
         currentPathRef.value,
-        clipboardStore.sourceDirectory,
+        sourceDirectoryBeforePaste,
       ].filter((pathItem): pathItem is string => Boolean(pathItem)));
     }
 
@@ -953,9 +956,10 @@ export function useFileBrowserSelection(
     }
 
     const paths = entries.map(entry => entry.path);
-    const displayPath = entries.length === 1
-      ? entries[0].name
-      : t('statusCenter.deleteSelectedCount', { count: entries.length });
+    const sharedParentDirectory = getSharedSourceDirectory(paths);
+    const displayPath = sharedParentDirectory
+      ? basenameFromPath(sharedParentDirectory)
+      : '';
 
     try {
       const result = await deleteJobsStore.startJob(paths, useTrash, {

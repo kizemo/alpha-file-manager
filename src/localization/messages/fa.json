@@ -1951,12 +1951,32 @@
     "title": "Status center",
     "clearCompleted": "Clear completed",
     "noOperations": "No operations",
+    "activeOperations": "Active operations",
+    "completedOperations": "Completed operations",
     "active": "active",
     "cancelAll": "Cancel all",
     "cancelling": "در حال لغو…",
     "deleteSelectedCount": "{count} مورد",
     "selectedItemsCount": "{count} مورد",
     "preparing": "در حال آماده‌سازی",
+    "operationSummary": "{operationType}{' | '}{operationStatus}",
+    "operationTypeShort": {
+      "copy": "کپی",
+      "move": "جابه‌جایی",
+      "trash": "زباله",
+      "deletePermanent": "حذف",
+      "archive": "بایگانی",
+      "dirSize": "اندازه پوشه"
+    },
+    "operationStatusShort": {
+      "completed": "موفق",
+      "cancelled": "لغو شد",
+      "error": "خطا",
+      "inProgress": "در حال انجام",
+      "pending": "در انتظار",
+      "cancelling": "در حال لغو…"
+    },
+    "toolbarActiveCount": "0 عملیات | 1 عملیات | {n} عملیات | {n} عملیات",
     "groups": {
       "dir-size": "Directory size calculations",
       "copy": "Copy operations",

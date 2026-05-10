@@ -136,12 +136,32 @@
     "title": "حالت مرکز",
     "clearCompleted": "مکمل ہٹائیں",
     "noOperations": "کوئی کارروائی نہیں",
+    "activeOperations": "فعال کارروائیاں",
+    "completedOperations": "مکمل کارروائیاں",
     "active": "فعال",
     "cancelAll": "سب منسوخ کریں",
     "cancelling": "منسوخ ہو رہا ہے…",
     "deleteSelectedCount": "{count} اشیاء",
     "selectedItemsCount": "{count} اشیاء",
     "preparing": "تیاری",
+    "operationSummary": "{operationType}{' | '}{operationStatus}",
+    "operationTypeShort": {
+      "copy": "نقل",
+      "move": "منتقلی",
+      "trash": "ٹریش",
+      "deletePermanent": "حذف",
+      "archive": "آرکائیو",
+      "dirSize": "فولڈر سائز"
+    },
+    "operationStatusShort": {
+      "completed": "کامیابی",
+      "cancelled": "منسوخ",
+      "error": "خرابی",
+      "inProgress": "جاری",
+      "pending": "منتظر",
+      "cancelling": "منسوخ ہو رہا ہے…"
+    },
+    "toolbarActiveCount": "0 آپریشنز | 1 آپریشن | {n} آپریشنز | {n} آپریشنز",
     "groups": {
       "dir-size": "فولڈر سائز کا حساب",
       "copy": "کاپی کارروائیاں",

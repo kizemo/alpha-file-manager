@@ -1948,19 +1948,39 @@
     "run": "Ausführen"
   },
   "statusCenter": {
-    "title": "Status center",
-    "clearCompleted": "Clear completed",
-    "noOperations": "No operations",
-    "active": "active",
-    "cancelAll": "Cancel all",
+    "title": "Statuscenter",
+    "clearCompleted": "Abgeschlossene löschen",
+    "noOperations": "Keine Vorgänge",
+    "activeOperations": "Aktive Vorgänge",
+    "completedOperations": "Abgeschlossene Vorgänge",
+    "active": "aktiv",
+    "cancelAll": "Alle abbrechen",
     "cancelling": "Wird abgebrochen…",
     "deleteSelectedCount": "{count} Elemente",
     "selectedItemsCount": "{count} Elemente",
     "preparing": "Vorbereitung",
+    "operationSummary": "{operationType}{' | '}{operationStatus}",
+    "operationTypeShort": {
+      "copy": "Kopieren",
+      "move": "Verschieben",
+      "trash": "Papierkorb",
+      "deletePermanent": "Löschen",
+      "archive": "Archiv",
+      "dirSize": "Ordnergröße"
+    },
+    "operationStatusShort": {
+      "completed": "Erfolg",
+      "cancelled": "Abgebrochen",
+      "error": "Fehler",
+      "inProgress": "Läuft",
+      "pending": "Ausstehend",
+      "cancelling": "Wird abgebrochen…"
+    },
+    "toolbarActiveCount": "0 Vorgänge | 1 Vorgang | {n} Vorgänge | {n} Vorgänge",
     "groups": {
-      "dir-size": "Directory size calculations",
-      "copy": "Copy operations",
-      "move": "Move operations",
+      "dir-size": "Ordnergrößenberechnungen",
+      "copy": "Kopiervorgänge",
+      "move": "Verschiebevorgänge",
       "deleteTrash": "Papierkorb-Operationen",
       "deletePermanent": "Operationen zum endgültigen Löschen",
       "archive": "Archivoperationen"

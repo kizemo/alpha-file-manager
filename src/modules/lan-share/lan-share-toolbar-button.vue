@@ -54,7 +54,7 @@ const isHubSession = computed(() => (activeSession.value?.hubPaths?.length ?? 0)
               variant="ghost"
               size="icon"
               class="lan-share-toolbar-button__trigger"
-              :class="{ 'lan-share-toolbar-button__trigger--active': activeSession }"
+              :class="{ 'lan-share-toolbar-button__trigger--active': activeSession || isPopoverOpen }"
               :aria-label="t('lanShare.toolbarTooltip')"
             >
               <Share2Icon
@@ -298,8 +298,8 @@ const isHubSession = computed(() => (activeSession.value?.hubPaths?.length ?? 0)
   stroke: hsl(var(--foreground) / 50%);
 }
 
-.lan-share-toolbar-button__trigger--active :deep(.sigma-ui-button) {
-  background: hsl(var(--primary) / 10%);
+.lan-share-toolbar-button__trigger--active {
+  background-color: hsl(var(--secondary));
 }
 
 .lan-share-toolbar-button__trigger--active .lan-share-toolbar-button__icon {

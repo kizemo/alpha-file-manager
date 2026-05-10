@@ -118,8 +118,22 @@ export const useClipboardStore = defineStore('clipboard', () => {
     isToolbarSuppressed.value = false;
   }
 
-  function finalizeSuccessfulPaste() {
-    clearClipboard();
+  function snapshotClipboard(): {
+    type: ClipboardOperationType;
+    items: DirEntry[];
+    suppressed: boolean;
+  } {
+    return {
+      type: clipboardType.value,
+      items: clipboardItems.value.map(item => ({ ...item })),
+      suppressed: isToolbarSuppressed.value,
+    };
+  }
+
+  function restoreClipboardFromSnapshot(snapshot: ReturnType<typeof snapshotClipboard>) {
+    clipboardType.value = snapshot.type;
+    clipboardItems.value = snapshot.items;
+    isToolbarSuppressed.value = snapshot.suppressed;
   }
 
   function isItemInClipboard(item: DirEntry): boolean {
@@ -212,59 +226,54 @@ export const useClipboardStore = defineStore('clipboard', () => {
     }
 
     const sourcePaths = clipboardItems.value.map(item => item.path);
+    const operationType = clipboardType.value;
+    const clipboardSnapshot = snapshotClipboard();
     isOperationInProgress.value = true;
 
     const displayPath = destinationPath.split(/[/\\]/).pop() ?? destinationPath;
 
-    try {
-      const { useCopyMoveJobsStore } = await import('@/stores/runtime/copy-move-jobs');
-      const copyMoveJobsStore = useCopyMoveJobsStore();
-
-      if (clipboardType.value === 'copy') {
-        const result = await copyMoveJobsStore.startJob(
-          'copy',
-          sourcePaths,
-          destinationPath,
-          null,
-          perPathResolutions,
-          {
-            label: i18n.global.t('notifications.copyingItems'),
-            displayPath,
-          },
-        );
-
-        if (result.success) {
-          finalizeSuccessfulPaste();
-        }
-
-        return result;
-      }
-      else if (clipboardType.value === 'move') {
-        const result = await copyMoveJobsStore.startJob(
-          'move',
-          sourcePaths,
-          destinationPath,
-          null,
-          perPathResolutions,
-          {
-            label: i18n.global.t('notifications.movingItems'),
-            displayPath,
-          },
-        );
-
-        if (result.success) {
-          finalizeSuccessfulPaste();
-        }
-
-        return result;
-      }
-
+    if (operationType !== 'copy' && operationType !== 'move') {
+      isOperationInProgress.value = false;
       return {
         success: false,
         error: i18n.global.t('fileBrowser.invalidClipboardOperation'),
       };
     }
+
+    // Clear immediately so the clipboard toolbar disappears as soon as the job is queued.
+    // The backend already received `sourcePaths` and does not depend on the clipboard.
+    // Restore the snapshot if the job ends up failing or being cancelled so the user can retry.
+    clearClipboard();
+
+    try {
+      const { useCopyMoveJobsStore } = await import('@/stores/runtime/copy-move-jobs');
+      const copyMoveJobsStore = useCopyMoveJobsStore();
+
+      const result = await copyMoveJobsStore.startJob(
+        operationType,
+        sourcePaths,
+        destinationPath,
+        null,
+        perPathResolutions,
+        {
+          label: operationType === 'copy'
+            ? i18n.global.t('notifications.copyingItems')
+            : i18n.global.t('notifications.movingItems'),
+          displayPath,
+        },
+      );
+
+      if (!result.success && !clipboardItems.value.length) {
+        restoreClipboardFromSnapshot(clipboardSnapshot);
+      }
+
+      return result;
+    }
     catch (error) {
+      if (!clipboardItems.value.length) {
+        restoreClipboardFromSnapshot(clipboardSnapshot);
+      }
+
       return {
         success: false,
         error: String(error),

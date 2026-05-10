@@ -1948,19 +1948,39 @@
     "run": "Chạy"
   },
   "statusCenter": {
-    "title": "Status center",
-    "clearCompleted": "Clear completed",
-    "noOperations": "No operations",
-    "active": "active",
-    "cancelAll": "Cancel all",
+    "title": "Trung tâm trạng thái",
+    "clearCompleted": "Xóa mục đã hoàn thành",
+    "noOperations": "Không có thao tác",
+    "activeOperations": "Thao tác đang chạy",
+    "completedOperations": "Thao tác đã hoàn thành",
+    "active": "đang chạy",
+    "cancelAll": "Hủy tất cả",
     "cancelling": "Đang hủy…",
     "deleteSelectedCount": "{count} mục",
     "selectedItemsCount": "{count} mục",
     "preparing": "Đang chuẩn bị",
+    "operationSummary": "{operationType}{' | '}{operationStatus}",
+    "operationTypeShort": {
+      "copy": "Sao chép",
+      "move": "Di chuyển",
+      "trash": "Thùng rác",
+      "deletePermanent": "Xóa",
+      "archive": "Lưu trữ",
+      "dirSize": "Kích thước thư mục"
+    },
+    "operationStatusShort": {
+      "completed": "Thành công",
+      "cancelled": "Đã hủy",
+      "error": "Lỗi",
+      "inProgress": "Đang chạy",
+      "pending": "Đang chờ",
+      "cancelling": "Đang hủy…"
+    },
+    "toolbarActiveCount": "0 thao tác | 1 thao tác | {n} thao tác | {n} thao tác",
     "groups": {
-      "dir-size": "Directory size calculations",
-      "copy": "Copy operations",
-      "move": "Move operations",
+      "dir-size": "Tính kích thước thư mục",
+      "copy": "Thao tác sao chép",
+      "move": "Thao tác di chuyển",
       "deleteTrash": "Thao tác thùng rác",
       "deletePermanent": "Thao tác xóa vĩnh viễn",
       "archive": "Thao tác nén và giải nén"

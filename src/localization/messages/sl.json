@@ -136,12 +136,32 @@
     "title": "Center stanja",
     "clearCompleted": "Počisti dokončane",
     "noOperations": "Ni operacij",
+    "activeOperations": "Aktivne operacije",
+    "completedOperations": "Dokončane operacije",
     "active": "aktivno",
     "cancelAll": "Prekliči vse",
     "cancelling": "Preklicovanje …",
     "deleteSelectedCount": "{count} predmetov",
     "selectedItemsCount": "{count} predmetov",
     "preparing": "Pripravljanje",
+    "operationSummary": "{operationType}{' | '}{operationStatus}",
+    "operationTypeShort": {
+      "copy": "Kopiranje",
+      "move": "Premikanje",
+      "trash": "Koš",
+      "deletePermanent": "Brisanje",
+      "archive": "Arhiv",
+      "dirSize": "Velikost mape"
+    },
+    "operationStatusShort": {
+      "completed": "Uspeh",
+      "cancelled": "Preklicano",
+      "error": "Napaka",
+      "inProgress": "V teku",
+      "pending": "V čakanju",
+      "cancelling": "Preklic…"
+    },
+    "toolbarActiveCount": "0 opravil | 1 opravilo | {n} opravil | {n} opravil",
     "groups": {
       "dir-size": "Izračuni velikosti map",
       "copy": "Operacije kopiranja",

@@ -136,12 +136,32 @@
     "title": "स्थिति केंद्र",
     "clearCompleted": "स्पष्टतः पूरा",
     "noOperations": "कोई परिचालन नहीं",
+    "activeOperations": "सक्रिय परिचालन",
+    "completedOperations": "पूर्ण परिचालन",
     "active": "सक्रिय",
     "cancelAll": "सभी रद्द करें",
     "cancelling": "रद्द किया जा रहा है...",
     "deleteSelectedCount": "{count} आइटम",
     "selectedItemsCount": "{count} आइटम",
     "preparing": "तैयारी",
+    "operationSummary": "{operationType}{' | '}{operationStatus}",
+    "operationTypeShort": {
+      "copy": "कॉपी",
+      "move": "स्थानांतरण",
+      "trash": "ट्रैश",
+      "deletePermanent": "हटाएँ",
+      "archive": "संग्रह",
+      "dirSize": "फ़ोल्डर आकार"
+    },
+    "operationStatusShort": {
+      "completed": "सफलता",
+      "cancelled": "रद्द",
+      "error": "त्रुटि",
+      "inProgress": "प्रगति पर",
+      "pending": "लंबित",
+      "cancelling": "रद्द हो रहा है…"
+    },
+    "toolbarActiveCount": "0 ऑपरेशन | 1 ऑपरेशन | {n} ऑपरेशन | {n} ऑपरेशन",
     "groups": {
       "dir-size": "निर्देशिका आकार की गणना",
       "copy": "प्रतिलिपि संचालन",
