@@ -481,6 +481,7 @@ function handleClearCompleted() {
 
 .status-center__content {
   --status-center-scroll-max: min(400px, calc(100vh - 82px));
+
   max-height: var(--status-center-scroll-max);
 }
 

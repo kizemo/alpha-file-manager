@@ -38,6 +38,7 @@ import { GlobalSearchView } from '@/modules/global-search';
 import type { DirEntry } from '@/types/dir-entry';
 import { useIsSmallScreen } from '@/composables/use-responsive-query';
 import { useFileDropOperation } from '@/composables/use-file-drop-operation';
+import { arePathsEquivalent, getParentPath } from '@/utils/file-operation-paths';
 
 type FileBrowserInstance = InstanceType<typeof FileBrowser> & {
   rootElement?: HTMLElement | null;
@@ -84,9 +85,27 @@ const {
   performDrop: performInternalDrop,
 } = useFileDropOperation();
 
-provideFileBrowserInternalDropHandler((items, destinationPath, operation) =>
-  performInternalDrop(items.map(item => item.path), destinationPath, operation),
-);
+provideFileBrowserInternalDropHandler(async (items, destinationPath, operation) => {
+  const didCompleteSuccessfully = await performInternalDrop(
+    items.map(item => item.path),
+    destinationPath,
+    operation,
+  );
+
+  if (!didCompleteSuccessfully) {
+    return;
+  }
+
+  const pathsToRefresh = new Set<string>([destinationPath]);
+
+  if (operation === 'move') {
+    for (const item of items) {
+      pathsToRefresh.add(getParentPath(item.path));
+    }
+  }
+
+  await refreshFileBrowsersAtPaths([...pathsToRefresh]);
+});
 
 const TEXT_COPY_PREVIEW_MAX_LENGTH = 400;
 
@@ -257,6 +276,44 @@ function setPaneRef(element: FileBrowserInstance | null, tabId: string) {
   else {
     paneRefsMap.value.delete(tabId);
   }
+}
+
+async function refreshFileBrowsersAtPaths(directoryPaths: string[]) {
+  if (directoryPaths.length === 0) {
+    return;
+  }
+
+  const seenPanes = new Set<FileBrowserInstance>();
+  const refreshTasks: Promise<unknown>[] = [];
+
+  function scheduleRefresh(pane: FileBrowserInstance | null | undefined) {
+    if (!pane?.refresh || !pane.currentPath) {
+      return;
+    }
+
+    const matchesPath = directoryPaths.some(directoryPath =>
+      arePathsEquivalent(pane.currentPath!, directoryPath),
+    );
+
+    if (!matchesPath || seenPanes.has(pane)) {
+      return;
+    }
+
+    seenPanes.add(pane);
+    refreshTasks.push(
+      Promise.resolve(pane.refresh()).catch((error: unknown) => {
+        console.error('File browser refresh failed:', error);
+      }),
+    );
+  }
+
+  for (const pane of paneRefsMap.value.values()) {
+    scheduleRefresh(pane);
+  }
+
+  scheduleRefresh(singlePaneRef.value);
+
+  await Promise.all(refreshTasks);
 }
 
 function getFocusedSplitPaneRef(): FileBrowserInstance | undefined {

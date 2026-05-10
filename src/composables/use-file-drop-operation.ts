@@ -31,9 +31,9 @@ export function useFileDropOperation() {
     sourcePaths: string[],
     targetPath: string,
     operation: 'copy' | 'move',
-  ) {
+  ): Promise<boolean> {
     if (sourcePaths.length === 0) {
-      return;
+      return false;
     }
 
     const isCopy = operation === 'copy';
@@ -51,7 +51,7 @@ export function useFileDropOperation() {
 
     if (isDestinationInsideAnySourceDirectory(targetPath, sourcePaths, sourcePathIsDir)) {
       toast.error(t('fileBrowser.cannotPasteIntoItself'));
-      return;
+      return false;
     }
 
     const sharedSourceDirectory = getSharedSourceDirectory(sourcePaths);
@@ -62,7 +62,7 @@ export function useFileDropOperation() {
       && arePathsEquivalent(sharedSourceDirectory, targetPath)
     ) {
       toast.error(t('fileBrowser.cannotMoveToSameDirectory'));
-      return;
+      return false;
     }
 
     const resolutionPayload = await showConflictDialog(operation, () =>
@@ -73,7 +73,7 @@ export function useFileDropOperation() {
     );
 
     if (resolutionPayload === null) {
-      return;
+      return false;
     }
 
     const conflictPayload
@@ -96,13 +96,16 @@ export function useFileDropOperation() {
 
       const copiedCount = result.copied_count ?? 0;
 
-      if (!result.cancelled && copiedCount > 0) {
+      if (!result.cancelled && result.success && copiedCount > 0) {
         const sourcesForSizes = sourcePaths.map((path, index) => ({
           path,
           is_dir: sourcePathIsDir[index] ?? false,
         }));
         await dirSizesStore.refreshSizesAfterCopyMove(sourcesForSizes, targetPath, [targetPath]);
+        return true;
       }
+
+      return false;
     }
     catch (error: unknown) {
       toast.custom(markRaw(ToastStatic), {
@@ -114,6 +117,7 @@ export function useFileDropOperation() {
         },
         duration: 5000,
       });
+      return false;
     }
   }
 

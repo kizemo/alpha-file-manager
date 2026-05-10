@@ -40,6 +40,7 @@ import { applyUiZoomStep } from '@/utils/ui-zoom';
 import { toggleMainWindowFullscreen } from '@/utils/window-fullscreen';
 import { removeAppSplash } from '@/utils/app-splash';
 import { logInitTrace, traceInitStep } from '@/utils/init-trace';
+import { warmPathComparisonVolumeCache } from '@/utils/path-comparison-volume-cache';
 
 const APP_LAUNCH_ARGS_EVENT = 'app-launch-args';
 const STARTUP_BACKGROUND_REFRESH_TIMEOUT_MS = 1500;
@@ -256,6 +257,7 @@ export function useInit() {
     logInitTrace(`init started (mainWindow=${isMainWindow})`);
 
     await traceInitStep('platformStore.init', () => platformStore.init());
+    await traceInitStep('pathComparisonVolumeCache.warm', () => warmPathComparisonVolumeCache());
     await traceInitStep('userPathsStore.init', () => userPathsStore.init());
     await traceInitStep('userSettingsStore.init', () => userSettingsStore.init());
 

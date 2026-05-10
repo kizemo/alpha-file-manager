@@ -2,8 +2,16 @@
 // License: GNU GPLv3 or later. See the license file in the project root for more information.
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
+import { shouldFoldPathCaseForComparison } from '@/utils/path-comparison-volume-cache';
+
 export function normalizePathForComparison(path: string): string {
-  return path.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+  const withoutTrailingSlashes = path.replace(/\\/g, '/').replace(/\/+$/, '');
+
+  if (shouldFoldPathCaseForComparison(withoutTrailingSlashes)) {
+    return withoutTrailingSlashes.toLowerCase();
+  }
+
+  return withoutTrailingSlashes;
 }
 
 export function arePathsEquivalent(firstPath: string, secondPath: string): boolean {
