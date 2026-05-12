@@ -488,7 +488,27 @@
       "copyPathToClipboard": "Yolu panoya kopyala",
       "openCopiedPath": "Kopyalanan yolu aç",
       "noMatchingDirectories": "Eşleşen dizin yok",
-      "showSiblingDirectories": "Kardeş dizinleri göster"
+      "showSiblingDirectories": "Kardeş dizinleri göster",
+      "openEntryPlaceholder": "Öğe aç",
+      "recentEntries": "Son öğeler",
+      "recent": "Son",
+      "removeRecentEntry": "Son öğelerden kaldır",
+      "userLocations": "Kullanıcı klasörleri",
+      "recentEntry": "Son",
+      "directoryEntries": "Dizin öğeleri",
+      "exactMatch": "Tam eşleşme",
+      "results": "Sonuçlar",
+      "noMatchingEntries": "Eşleşen öğe yok",
+      "hints": {
+        "navigate": "gezin",
+        "expand": "genişlet",
+        "open": "aç",
+        "reveal": "dizinde göster",
+        "historyBack": "geri",
+        "historyForward": "ileri",
+        "goUp": "üst klasör",
+        "close": "kapat"
+      }
     },
     "clipboard": {
       "inactiveUnselectable": "etkin değil seçilemez",
@@ -806,7 +826,8 @@
     "switchBetweenTabs": "Sekmeler arasında geçiş yap",
     "switchBetweenWorkspaces": "Çalışma alanları arasında geçiş yap",
     "switchBetweenViews": "Görünümler arasında geçiş yap",
-    "toggleAddressBar": "Adres çubuğunu değiştir",
+    "toggleAddressBar": "Geçerli yolla adres düzenleyiciyi aç",
+    "openEntry": "Adres düzenleyiciyi aç",
     "copyCurrentDirectoryPathToClipboard": "Geçerli dizin yolunu panoya kopyala",
     "openCopiedPath": "Kopyalanan yolu aç",
     "openCurrentDirInNewTab": "Geçerli dizini yeni sekmede aç",

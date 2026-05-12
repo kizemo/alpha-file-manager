@@ -12,6 +12,7 @@ defineProps<{
 
 const emit = defineEmits<{
   (event: 'navigate', path: string): void;
+  (event: 'edit'): void;
 }>();
 </script>
 
@@ -20,6 +21,7 @@ const emit = defineEmits<{
     :current-path="currentPath"
     class="file-browser-toolbar-address-bar"
     @navigate="emit('navigate', $event)"
+    @edit="emit('edit')"
   />
 </template>
 

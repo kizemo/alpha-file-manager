@@ -527,7 +527,27 @@
       "copyPathToClipboard": "راستہ کاپی کریں",
       "openCopiedPath": "چسپاں راستہ کھولیں",
       "noMatchingDirectories": "کوئی میل کھاتا فولڈر نہیں",
-      "showSiblingDirectories": "ہم سطح فولڈر دکھائیں"
+      "showSiblingDirectories": "ہم سطح فولڈر دکھائیں",
+      "openEntryPlaceholder": "آئٹم کھولیں",
+      "recentEntries": "حالیہ آئٹمز",
+      "recent": "حالیہ",
+      "removeRecentEntry": "حالیہ فہرست سے ہٹائیں",
+      "userLocations": "صارف کے فولڈر",
+      "recentEntry": "حالیہ",
+      "directoryEntries": "فولڈر کے آئٹمز",
+      "exactMatch": "درست مماثلت",
+      "results": "نتائج",
+      "noMatchingEntries": "کوئی میل کھاتا آئٹم نہیں",
+      "hints": {
+        "navigate": "نیویگیٹ کریں",
+        "expand": "پھیلائیں",
+        "open": "کھولیں",
+        "reveal": "فولڈر میں دکھائیں",
+        "historyBack": "واپس",
+        "historyForward": "آگے",
+        "goUp": "پیرنٹ فولڈر",
+        "close": "بند کریں"
+      }
     },
     "clipboard": {
       "inactiveUnselectable": "غیر فعال غیر منتخب",
@@ -845,7 +865,8 @@
     "switchBetweenTabs": "ٹیب بدلیں",
     "switchBetweenWorkspaces": "ورک اسپیس بدلیں",
     "switchBetweenViews": "منظر بدلیں",
-    "toggleAddressBar": "پتہ پٹی ٹوگل کریں",
+    "toggleAddressBar": "موجودہ راستے کے ساتھ پتہ ایڈیٹر کھولیں",
+    "openEntry": "پتہ ایڈیٹر کھولیں",
     "copyCurrentDirectoryPathToClipboard": "موجودہ فولڈر کا راستہ کلپ بورڈ پر کاپی کریں",
     "openCopiedPath": "کاپی شدہ راستہ کھولیں",
     "openCurrentDirInNewTab": "موجودہ فولڈر نئے ٹیب میں کھولیں",

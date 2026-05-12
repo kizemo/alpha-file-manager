@@ -102,6 +102,8 @@ export type ShortcutId
     | 'toggleFilter'
     | 'toggleSettingsSearch'
     | 'toggleCommandPalette'
+    | 'toggleAddressBar'
+    | 'openEntry'
     | 'toggleSplitView'
     | 'copyCurrentDirectoryPath'
     | 'copy'

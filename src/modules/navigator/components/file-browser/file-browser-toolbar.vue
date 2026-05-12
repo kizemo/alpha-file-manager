@@ -35,6 +35,7 @@ const emit = defineEmits<{
   (event: 'refresh'): void;
   (event: 'submitPath'): void;
   (event: 'navigateTo', path: string): void;
+  (event: 'openAddressEditor'): void;
   (event: 'createNewDirectory'): void;
   (event: 'createNewFile'): void;
   (event: 'filterInputFocused'): void;
@@ -68,6 +69,7 @@ function handleAddressBarNavigate(path: string) {
         class="file-browser-toolbar__address-bar"
         :current-path="pathInput"
         @navigate="handleAddressBarNavigate"
+        @edit="emit('openAddressEditor')"
       />
 
       <div class="file-browser-toolbar__actions">

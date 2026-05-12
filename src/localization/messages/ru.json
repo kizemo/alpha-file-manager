@@ -527,7 +527,27 @@
       "copyPathToClipboard": "Копировать путь",
       "openCopiedPath": "Вставить и открыть скопированный путь",
       "noMatchingDirectories": "Нет подходящих каталогов",
-      "showSiblingDirectories": "Показать соседние каталоги"
+      "showSiblingDirectories": "Показать соседние каталоги",
+      "openEntryPlaceholder": "Открыть элемент",
+      "recentEntries": "Недавние элементы",
+      "recent": "Недавние",
+      "removeRecentEntry": "Удалить из недавних",
+      "userLocations": "Пользовательские папки",
+      "recentEntry": "Недавнее",
+      "directoryEntries": "Элементы каталога",
+      "exactMatch": "Точное совпадение",
+      "results": "Результаты",
+      "noMatchingEntries": "Нет подходящих элементов",
+      "hints": {
+        "navigate": "навигация",
+        "expand": "развернуть",
+        "open": "открыть",
+        "reveal": "показать в каталоге",
+        "historyBack": "назад",
+        "historyForward": "вперёд",
+        "goUp": "родительская папка",
+        "close": "закрыть"
+      }
     },
     "clipboard": {
       "inactiveUnselectable": "неактивный невыбираемый",
@@ -845,7 +865,8 @@
     "switchBetweenTabs": "Переключение между вкладками",
     "switchBetweenWorkspaces": "Переключение между рабочими пространствами",
     "switchBetweenViews": "Переключение между представлениями",
-    "toggleAddressBar": "Переключить адресную строку",
+    "toggleAddressBar": "Открыть редактор адреса с текущим путём",
+    "openEntry": "Открыть редактор адреса",
     "copyCurrentDirectoryPathToClipboard": "Скопировать текущий путь к папке в буфер обмена",
     "openCopiedPath": "Открыть скопированный путь",
     "openCurrentDirInNewTab": "Открыть текущую папку в новой вкладке",

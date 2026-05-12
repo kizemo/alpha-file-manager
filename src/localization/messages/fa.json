@@ -487,7 +487,27 @@
       "copyPathToClipboard": "کپی مسیر به کلیپ بورد",
       "openCopiedPath": "باز کردن مسیر کپی شده",
       "noMatchingDirectories": "هیچ پوشه‌ای مطابقت ندارد",
-      "showSiblingDirectories": "نمایش پوشه‌های همسطح"
+      "showSiblingDirectories": "نمایش پوشه‌های همسطح",
+      "openEntryPlaceholder": "باز کردن مورد",
+      "recentEntries": "موارد اخیر",
+      "recent": "اخیر",
+      "removeRecentEntry": "حذف از موارد اخیر",
+      "userLocations": "پوشه‌های کاربر",
+      "recentEntry": "اخیر",
+      "directoryEntries": "موارد پوشه",
+      "exactMatch": "مطابقت دقیق",
+      "results": "نتایج",
+      "noMatchingEntries": "هیچ موردی مطابقت ندارد",
+      "hints": {
+        "navigate": "پیمایش",
+        "expand": "گسترش",
+        "open": "باز کردن",
+        "reveal": "نمایش در پوشه",
+        "historyBack": "قبلی",
+        "historyForward": "بعدی",
+        "goUp": "پوشهٔ والد",
+        "close": "بستن"
+      }
     },
     "clipboard": {
       "inactiveUnselectable": "غیر فعال غیر قابل انتخاب",
@@ -805,7 +825,8 @@
     "switchBetweenTabs": "تغییر بین برگه ها",
     "switchBetweenWorkspaces": "تغییر بین فضاهای کاری",
     "switchBetweenViews": "تغییر بین نماها",
-    "toggleAddressBar": "تغییر نوار آدرس",
+    "toggleAddressBar": "باز کردن ویرایشگر آدرس با مسیر فعلی",
+    "openEntry": "باز کردن ویرایشگر آدرس",
     "copyCurrentDirectoryPathToClipboard": "کپی مسیر دایرکتوری فعلی در کلیپ بورد",
     "openCopiedPath": "باز کردن مسیر کپی شده",
     "openCurrentDirInNewTab": "باز کردن مسیر فعلی در تب جدید",

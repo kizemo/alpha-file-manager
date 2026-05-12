@@ -28,6 +28,8 @@ import { basenameFromPath } from '@/utils/source-display-name';
 import { usePermanentDeleteConfirm } from '@/composables/use-permanent-delete-confirm';
 import { resolveNavigableItemTarget } from '@/utils/resolve-navigable-item-target';
 
+export const FILE_BROWSER_REVEAL_STALE_FOCUS_GUARD_MS = 500;
+
 export function useFileBrowserSelection(
   entriesRef: Ref<DirEntry[]>,
   currentPathRef: Ref<string>,
@@ -85,9 +87,20 @@ export function useFileBrowserSelection(
     };
 
   const pendingFocusRequest = ref<PendingFocusRequest | null>(null);
+  const focusRevealStaleRestoreGuardUntil = ref(0);
 
   function clearPendingFocusRequest() {
     pendingFocusRequest.value = null;
+  }
+
+  function armFocusRevealStaleRestoreGuard(
+    durationMs: number = FILE_BROWSER_REVEAL_STALE_FOCUS_GUARD_MS,
+  ) {
+    const until = performance.now() + durationMs;
+    focusRevealStaleRestoreGuardUntil.value = Math.max(
+      focusRevealStaleRestoreGuardUntil.value,
+      until,
+    );
   }
 
   function requestFocusEntryAfterRefresh(parentDirectoryPath: string, entryPath: string) {
@@ -288,6 +301,17 @@ export function useFileBrowserSelection(
   }
 
   function handleEntryFocus(entry: DirEntry, event: FocusEvent) {
+    if (pendingFocusRequest.value != null) {
+      return;
+    }
+
+    if (
+      performance.now() < focusRevealStaleRestoreGuardUntil.value
+      && !isEntrySelected(entry)
+    ) {
+      return;
+    }
+
     const target = event.currentTarget;
 
     if (!(target instanceof HTMLElement) || !target.matches(':focus-visible')) {
@@ -1026,6 +1050,7 @@ export function useFileBrowserSelection(
     pendingFocusRequest,
     clearPendingFocusRequest,
     requestFocusEntryAfterRefresh,
+    armFocusRevealStaleRestoreGuard,
     conflictDialogState,
     handleConflictResolution,
     handleConflictCancel,

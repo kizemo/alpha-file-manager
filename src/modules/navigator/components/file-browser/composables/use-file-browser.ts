@@ -428,6 +428,10 @@ export function useFileBrowser(options: UseFileBrowserOptions) {
       return;
     }
 
+    if (selection.pendingFocusRequest.value != null) {
+      return;
+    }
+
     applyFilteredFirstEntrySelection(entries, () => isCancelled);
   });
 
@@ -500,6 +504,7 @@ export function useFileBrowser(options: UseFileBrowserOptions) {
     selectAll: selection.selectAll,
     selectEntryByPath: selection.selectEntryByPath,
     requestFocusEntryAfterRefresh: selection.requestFocusEntryAfterRefresh,
+    armFocusRevealStaleRestoreGuard: selection.armFocusRevealStaleRestoreGuard,
     removeFromSelection: selection.removeFromSelection,
     handleEntryFocus: selection.handleEntryFocus,
     handleEntryContextMenu: selection.handleEntryContextMenu,

@@ -18,6 +18,23 @@ function disableNativeFind() {
   }, { capture: true });
 }
 
+function disableNativePrintShortcut() {
+  document.addEventListener('keydown', (event) => {
+    const isCtrlOrCmd = event.ctrlKey || event.metaKey;
+
+    if (
+      !isCtrlOrCmd
+      || event.shiftKey
+      || event.altKey
+      || event.key.toLowerCase() !== 'p'
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+  }, { capture: true });
+}
+
 function disableNativeHistoryNavigation() {
   function isHistoryMouseButton(event: MouseEvent): boolean {
     return event.button === 3 || event.button === 4;
@@ -52,8 +69,12 @@ function disableNativeHistoryNavigation() {
   document.addEventListener('auxclick', blockMouseHistoryNavigation, { capture: true });
 }
 
-export function disableWebViewFeatures() {
+export function disableWebViewFeatures(suppressNativePrintShortcut = true) {
   disableContextMenu();
   disableNativeFind();
   disableNativeHistoryNavigation();
+
+  if (suppressNativePrintShortcut) {
+    disableNativePrintShortcut();
+  }
 }

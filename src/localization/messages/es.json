@@ -488,7 +488,27 @@
       "copyPathToClipboard": "Copiar ruta al portapapeles",
       "openCopiedPath": "Abrir ruta copiada",
       "noMatchingDirectories": "No hay directorios coincidentes",
-      "showSiblingDirectories": "Mostrar directorios hermanos"
+      "showSiblingDirectories": "Mostrar directorios hermanos",
+      "openEntryPlaceholder": "Abrir entrada",
+      "recentEntries": "Entradas recientes",
+      "recent": "Recientes",
+      "removeRecentEntry": "Eliminar de las entradas recientes",
+      "userLocations": "Carpetas de usuario",
+      "recentEntry": "Reciente",
+      "directoryEntries": "Entradas del directorio",
+      "exactMatch": "Coincidencia exacta",
+      "results": "Resultados",
+      "noMatchingEntries": "No hay entradas coincidentes",
+      "hints": {
+        "navigate": "navegar",
+        "expand": "expandir",
+        "open": "abrir",
+        "reveal": "mostrar en el directorio",
+        "historyBack": "atrás",
+        "historyForward": "adelante",
+        "goUp": "carpeta superior",
+        "close": "cerrar"
+      }
     },
     "clipboard": {
       "inactiveUnselectable": "inactivo no seleccionable",
@@ -806,7 +826,8 @@
     "switchBetweenTabs": "Cambiar entre pestañas",
     "switchBetweenWorkspaces": "Cambiar entre espacios de trabajo",
     "switchBetweenViews": "Cambiar entre vistas",
-    "toggleAddressBar": "Alternar barra de direcciones",
+    "toggleAddressBar": "Abrir editor de dirección con la ruta actual",
+    "openEntry": "Abrir editor de dirección",
     "copyCurrentDirectoryPathToClipboard": "Copiar la ruta del directorio actual al portapapeles",
     "openCopiedPath": "Abrir ruta copiada",
     "openCurrentDirInNewTab": "Abrir el directorio actual en una nueva pestaña",

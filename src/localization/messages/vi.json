@@ -488,7 +488,27 @@
       "copyPathToClipboard": "Sao chép đường dẫn vào khay nhớ tạm",
       "openCopiedPath": "Mở đường dẫn đã sao chép",
       "noMatchingDirectories": "Không có thư mục phù hợp",
-      "showSiblingDirectories": "Hiển thị thư mục anh chị em"
+      "showSiblingDirectories": "Hiển thị thư mục anh chị em",
+      "openEntryPlaceholder": "Mở mục",
+      "recentEntries": "Mục gần đây",
+      "recent": "Gần đây",
+      "removeRecentEntry": "Xóa khỏi mục gần đây",
+      "userLocations": "Thư mục cá nhân",
+      "recentEntry": "Gần đây",
+      "directoryEntries": "Mục trong thư mục",
+      "exactMatch": "Khớp chính xác",
+      "results": "Kết quả",
+      "noMatchingEntries": "Không có mục phù hợp",
+      "hints": {
+        "navigate": "điều hướng",
+        "expand": "mở rộng",
+        "open": "mở",
+        "reveal": "hiển thị trong thư mục",
+        "historyBack": "quay lại",
+        "historyForward": "đi tiếp",
+        "goUp": "thư mục cha",
+        "close": "đóng"
+      }
     },
     "clipboard": {
       "inactiveUnselectable": "không hoạt động không thể chọn",
@@ -806,7 +826,8 @@
     "switchBetweenTabs": "Chuyển giữa các tab",
     "switchBetweenWorkspaces": "Chuyển đổi giữa các không gian làm việc",
     "switchBetweenViews": "Chuyển giữa các chế độ xem",
-    "toggleAddressBar": "Chuyển đổi thanh địa chỉ",
+    "toggleAddressBar": "Mở trình chỉnh sửa địa chỉ với đường dẫn hiện tại",
+    "openEntry": "Mở trình chỉnh sửa địa chỉ",
     "copyCurrentDirectoryPathToClipboard": "Sao chép đường dẫn thư mục hiện tại vào clipboard",
     "openCopiedPath": "Mở đường dẫn đã sao chép",
     "openCurrentDirInNewTab": "Mở thư mục hiện tại trong tab mới",

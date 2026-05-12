@@ -488,7 +488,27 @@
       "copyPathToClipboard": "复制路径到剪贴板",
       "openCopiedPath": "打开复制的路径",
       "noMatchingDirectories": "没有匹配的目录",
-      "showSiblingDirectories": "显示同级文件夹"
+      "showSiblingDirectories": "显示同级文件夹",
+      "openEntryPlaceholder": "打开项目",
+      "recentEntries": "最近项目",
+      "recent": "最近",
+      "removeRecentEntry": "从最近记录中移除",
+      "userLocations": "用户文件夹",
+      "recentEntry": "最近",
+      "directoryEntries": "目录项目",
+      "exactMatch": "精确匹配",
+      "results": "结果",
+      "noMatchingEntries": "没有匹配的项目",
+      "hints": {
+        "navigate": "导航",
+        "expand": "展开",
+        "open": "打开",
+        "reveal": "在目录中显示",
+        "historyBack": "后退",
+        "historyForward": "前进",
+        "goUp": "上一级文件夹",
+        "close": "关闭"
+      }
     },
     "clipboard": {
       "inactiveUnselectable": "不可选择不活动的",
@@ -806,7 +826,8 @@
     "switchBetweenTabs": "在选项卡之间切换",
     "switchBetweenWorkspaces": "在工作区之间切换",
     "switchBetweenViews": "在视图之间切换",
-    "toggleAddressBar": "切换地址栏",
+    "toggleAddressBar": "使用当前路径打开地址编辑器",
+    "openEntry": "打开地址编辑器",
     "copyCurrentDirectoryPathToClipboard": "复制当前目录路径到剪贴板",
     "openCopiedPath": "打开复制的路径",
     "openCurrentDirInNewTab": "在新标签页中打开当前目录",

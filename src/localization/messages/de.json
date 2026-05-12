@@ -488,7 +488,27 @@
       "copyPathToClipboard": "Pfad in die Zwischenablage kopieren",
       "openCopiedPath": "Kopierpfad öffnen",
       "noMatchingDirectories": "Keine passenden Verzeichnisse",
-      "showSiblingDirectories": "Geschwisterverzeichnisse anzeigen"
+      "showSiblingDirectories": "Geschwisterverzeichnisse anzeigen",
+      "openEntryPlaceholder": "Eintrag öffnen",
+      "recentEntries": "Zuletzt verwendete Einträge",
+      "recent": "Zuletzt",
+      "removeRecentEntry": "Aus den letzten Einträgen entfernen",
+      "userLocations": "Persönliche Ordner",
+      "recentEntry": "Zuletzt",
+      "directoryEntries": "Verzeichniseinträge",
+      "exactMatch": "Exakte Übereinstimmung",
+      "results": "Ergebnisse",
+      "noMatchingEntries": "Keine passenden Einträge",
+      "hints": {
+        "navigate": "navigieren",
+        "expand": "erweitern",
+        "open": "öffnen",
+        "reveal": "im Verzeichnis anzeigen",
+        "historyBack": "zurück",
+        "historyForward": "vor",
+        "goUp": "übergeordneter Ordner",
+        "close": "schließen"
+      }
     },
     "clipboard": {
       "inactiveUnselectable": "inaktiv nicht wählbar",
@@ -806,7 +826,8 @@
     "switchBetweenTabs": "Zwischen Registerkarten wechseln",
     "switchBetweenWorkspaces": "Zwischen Arbeitsbereichen wechseln",
     "switchBetweenViews": "Zwischen Ansichten wechseln",
-    "toggleAddressBar": "Adressleiste umschalten",
+    "toggleAddressBar": "Adresseditor mit aktuellem Pfad öffnen",
+    "openEntry": "Adresseditor öffnen",
     "copyCurrentDirectoryPathToClipboard": "Aktuellen Verzeichnispfad in die Zwischenablage kopieren",
     "openCopiedPath": "Kopierpfad öffnen",
     "openCurrentDirInNewTab": "Aktuelles Verzeichnis in neuem Tab öffnen",

@@ -4,21 +4,39 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 -->
 
 <script setup lang="ts">
+import { computed } from 'vue';
+import { reactiveOmit } from '@vueuse/core';
 import { useForwardPropsEmits } from 'reka-ui';
 import type { DialogRootEmits, DialogRootProps } from 'reka-ui';
 import Command from './command.vue';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
-const props = defineProps<DialogRootProps>();
+type CommandDialogProps = DialogRootProps & {
+  commandIgnoreFilter?: boolean;
+  commandResetSearchTermOnSelect?: boolean;
+};
+
+const props = defineProps<CommandDialogProps>();
 const emits = defineEmits<DialogRootEmits>();
 
-const forwarded = useForwardPropsEmits(props, emits);
+const delegatedDialogProps = reactiveOmit(props, 'commandIgnoreFilter', 'commandResetSearchTermOnSelect');
+const forwarded = useForwardPropsEmits(delegatedDialogProps, emits);
+
+const commandComboboxBindings = computed(() => ({
+  ...(props.commandIgnoreFilter ? { ignoreFilter: true } : {}),
+  ...(props.commandResetSearchTermOnSelect !== undefined
+    ? { resetSearchTermOnSelect: props.commandResetSearchTermOnSelect }
+    : {}),
+}));
 </script>
 
 <template>
   <Dialog v-bind="forwarded">
     <DialogContent class="sigma-ui-command-dialog">
-      <Command class="sigma-ui-command-dialog__command">
+      <Command
+        class="sigma-ui-command-dialog__command"
+        v-bind="commandComboboxBindings"
+      >
         <slot />
       </Command>
     </DialogContent>

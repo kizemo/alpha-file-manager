@@ -163,6 +163,32 @@ const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
     conditions: {},
     isReadOnly: false,
   },
+  {
+    id: 'toggleAddressBar',
+    labelKey: 'shortcuts.toggleAddressBar',
+    defaultKeys: {
+      ctrl: true,
+      key: 'l',
+    },
+    scope: 'navigator',
+    conditions: {
+      dialogIsOpened: false,
+    },
+    isReadOnly: false,
+  },
+  {
+    id: 'openEntry',
+    labelKey: 'shortcuts.openEntry',
+    defaultKeys: {
+      ctrl: true,
+      key: 'p',
+    },
+    scope: 'navigator',
+    conditions: {
+      dialogIsOpened: false,
+    },
+    isReadOnly: false,
+  },
   ...BUILTIN_NAVIGATION_PAGE_SHORTCUTS.map((shortcut): ShortcutDefinition => ({
     id: shortcut.id,
     labelKey: shortcut.labelKey,
@@ -992,7 +1018,7 @@ function modifiersMatch(event: KeyboardEvent | MouseEvent, keys: ShortcutKeys): 
   return true;
 }
 
-function matchesShortcut(event: KeyboardEvent, keys: ShortcutKeys): boolean {
+export function matchesShortcut(event: KeyboardEvent, keys: ShortcutKeys): boolean {
   if (!keys.key) return false;
   if (keys.key.startsWith('MouseButton')) return false;
 
@@ -1045,6 +1071,40 @@ function matchesMouseShortcut(event: MouseEvent, keys: ShortcutKeys): boolean {
 
   const eventKey = mouseButtonToShortcutKey(event.button);
   return eventKey !== null && eventKey.toLowerCase() === keys.key.toLowerCase();
+}
+
+const ADDRESS_BAR_PATH_EDITOR_YIELD_NAVIGATOR_IDS: ReadonlySet<ShortcutId> = new Set([
+  'goUpDirectory',
+  'navigateHistoryBack',
+  'navigateHistoryForward',
+]);
+
+function keyboardEventTouchesAddressBarPathEditor(event: KeyboardEvent): boolean {
+  const composedPathSegments =
+    typeof event.composedPath === 'function'
+      ? [...event.composedPath()]
+      : [];
+
+  const candidateTargets = [...composedPathSegments];
+
+  if (
+    typeof event.target === 'object'
+    && event.target !== null
+    && !composedPathSegments.some(candidate => candidate === event.target)
+  ) {
+    candidateTargets.unshift(event.target);
+  }
+
+  for (const candidate of candidateTargets) {
+    if (
+      candidate instanceof Element
+      && candidate.getAttribute('data-address-bar-editor-path') === 'open'
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export function formatConditionsLabel(conditions: ShortcutConditions): string {
@@ -1651,7 +1711,16 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
     const extensionHandled = await handleExtensionKeybindings(event);
     if (extensionHandled) return true;
 
-    const matchingShortcutIds = findAllMatchingShortcuts(event);
+    const matchingShortcutCandidates = findAllMatchingShortcuts(event);
+
+    let matchingShortcutIds = matchingShortcutCandidates;
+
+    if (keyboardEventTouchesAddressBarPathEditor(event)) {
+      matchingShortcutIds = matchingShortcutCandidates.filter(candidateShortcutId =>
+        !ADDRESS_BAR_PATH_EDITOR_YIELD_NAVIGATOR_IDS.has(candidateShortcutId),
+      );
+    }
+
     if (matchingShortcutIds.length === 0) return false;
 
     for (const shortcutId of matchingShortcutIds) {

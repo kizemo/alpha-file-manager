@@ -27,6 +27,7 @@ import { useTerminalsStore } from '@/stores/runtime/terminals';
 import { useDirSizesStore } from '@/stores/runtime/dir-sizes';
 import { useNavigatorSelectionStore } from '@/stores/runtime/navigator-selection';
 import { FileBrowser } from '@/modules/navigator/components/file-browser';
+import type { AddressBarEditorMode } from '@/modules/navigator/components/file-browser/address-bar-editor-utils';
 import FileBrowserConflictDialog from '@/modules/navigator/components/file-browser/file-browser-conflict-dialog.vue';
 import FileBrowserDragOverlay from '@/modules/navigator/components/file-browser/file-browser-drag-overlay.vue';
 import { useActiveFileBrowserDragState } from '@/modules/navigator/components/file-browser/composables/use-file-browser-drag';
@@ -46,6 +47,7 @@ type FileBrowserInstance = InstanceType<typeof FileBrowser> & {
   isFilterOpen?: boolean;
   currentPath?: string;
   focusFilter?: () => void;
+  openAddressBarEditor?: (mode: AddressBarEditorMode) => void;
   navigateToPath?: (path: string) => Promise<void>;
   openFile?: (path: string) => Promise<void>;
   refresh?: () => void | Promise<void>;
@@ -438,6 +440,17 @@ function handleFilterShortcut() {
   }
 }
 
+function openAddressBarEditor(mode: AddressBarEditorMode): boolean {
+  const pane = getNavigatorPaneRef();
+
+  if (!pane?.openAddressBarEditor) {
+    return false;
+  }
+
+  pane.openAddressBarEditor(mode);
+  return true;
+}
+
 async function handleReloadShortcut() {
   const pane = getActivePaneRef();
 
@@ -728,6 +741,8 @@ function handleGoUpDirectoryShortcut(): boolean {
 }
 
 function registerShortcutHandlers() {
+  shortcutsStore.registerHandler('toggleAddressBar', () => openAddressBarEditor('path'));
+  shortcutsStore.registerHandler('openEntry', () => openAddressBarEditor('entry'));
   shortcutsStore.registerHandler('toggleFilter', handleFilterShortcut);
   shortcutsStore.registerHandler('reloadCurrentDirectory', handleReloadShortcut);
   shortcutsStore.registerHandler('copyCurrentDirectoryPath', handleCopyCurrentDirectoryPathShortcut);

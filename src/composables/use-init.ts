@@ -319,7 +319,7 @@ export function useInit() {
       await traceInitStep('globalShortcutsStore.init', () => globalShortcutsStore.init());
     }
 
-    disableWebViewFeatures();
+    disableWebViewFeatures(isMainWindow);
 
     runInBackgroundWithTrace('background:restoreStartupTabs', async () => {
       if (!loadedInitialTabGroup) {

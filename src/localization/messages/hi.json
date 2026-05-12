@@ -527,7 +527,27 @@
       "copyPathToClipboard": "पथ कॉपी करें",
       "openCopiedPath": "कॉपी किया गया पथ चिपकाएँ और खोलें",
       "noMatchingDirectories": "कोई मेल खाती निर्देशिका नहीं",
-      "showSiblingDirectories": "सहोदर निर्देशिकाएँ दिखाएँ"
+      "showSiblingDirectories": "सहोदर निर्देशिकाएँ दिखाएँ",
+      "openEntryPlaceholder": "आइटम खोलें",
+      "recentEntries": "हाल के आइटम",
+      "recent": "हाल के",
+      "removeRecentEntry": "हाल की सूची से हटाएं",
+      "userLocations": "उपयोगकर्ता फ़ोल्डर",
+      "recentEntry": "हाल का",
+      "directoryEntries": "निर्देशिका आइटम",
+      "exactMatch": "सटीक मिलान",
+      "results": "परिणाम",
+      "noMatchingEntries": "कोई मेल खाता आइटम नहीं",
+      "hints": {
+        "navigate": "नेविगेट करें",
+        "expand": "विस्तार करें",
+        "open": "खोलें",
+        "reveal": "निर्देशिका में दिखाएँ",
+        "historyBack": "पीछे",
+        "historyForward": "आगे",
+        "goUp": "मूल फ़ोल्डर",
+        "close": "बंद करें"
+      }
     },
     "clipboard": {
       "inactiveUnselectable": "निष्क्रिय अचयन योग्य",
@@ -845,7 +865,8 @@
     "switchBetweenTabs": "टैब के बीच स्विच करें",
     "switchBetweenWorkspaces": "कार्यस्थानों के बीच स्विच करें",
     "switchBetweenViews": "दृश्यों के बीच स्विच करें",
-    "toggleAddressBar": "पता बार टॉगल करें",
+    "toggleAddressBar": "वर्तमान पथ के साथ पता संपादक खोलें",
+    "openEntry": "पता संपादक खोलें",
     "copyCurrentDirectoryPathToClipboard": "वर्तमान निर्देशिका पथ को क्लिपबोर्ड पर कॉपी करें",
     "openCopiedPath": "कॉपी किया गया पथ खोलें",
     "openCurrentDirInNewTab": "वर्तमान डीआईआर को नए टैब में खोलें",

@@ -527,7 +527,27 @@
       "copyPathToClipboard": "Copy path",
       "openCopiedPath": "Paste and open copied path",
       "noMatchingDirectories": "No matching directories",
-      "showSiblingDirectories": "Show sibling directories"
+      "showSiblingDirectories": "Show sibling directories",
+      "openEntryPlaceholder": "Open entry",
+      "recentEntries": "Recent entries",
+      "recent": "Recent",
+      "removeRecentEntry": "Remove from recent entries",
+      "userLocations": "User locations",
+      "recentEntry": "Recent",
+      "directoryEntries": "Directory entries",
+      "exactMatch": "Exact match",
+      "results": "Results",
+      "noMatchingEntries": "No matching entries",
+      "hints": {
+        "navigate": "navigate",
+        "expand": "expand",
+        "open": "open",
+        "reveal": "reveal in directory",
+        "historyBack": "back",
+        "historyForward": "forward",
+        "goUp": "parent folder",
+        "close": "close"
+      }
     },
     "clipboard": {
       "inactiveUnselectable": "inactive unselectable",
@@ -845,7 +865,8 @@
     "switchBetweenTabs": "Switch between tabs",
     "switchBetweenWorkspaces": "Switch between workspaces",
     "switchBetweenViews": "Switch between views",
-    "toggleAddressBar": "Toggle address bar",
+    "toggleAddressBar": "Open address editor with the current path",
+    "openEntry": "Open address editor",
     "copyCurrentDirectoryPathToClipboard": "Copy current directory path to clipboard",
     "openCopiedPath": "Open copied path",
     "openCurrentDirInNewTab": "Open current dir in new tab",

@@ -12,6 +12,7 @@ import {
   type ComputedRef,
 } from 'vue';
 import type { DirEntry } from '@/types/dir-entry';
+import normalizePath from '@/utils/normalize-path';
 import { groupFileBrowserEntries } from '../file-browser-entry-groups';
 
 const LIST_ENTRY_HEIGHT = 42;
@@ -24,6 +25,7 @@ const GRID_SECTION_HEADER_HEIGHT = 42;
 const GRID_DIR_ENTRY_HEIGHT = 52;
 const GRID_ENTRY_HEIGHT = 120;
 const VIRTUAL_OVERSCAN_PX = 700;
+const SCROLL_TO_PATH_DOM_SYNC_ATTEMPTS = 12;
 const STATUS_BAR_BORDER_CLEARANCE = 2;
 const SCROLL_VIEWPORT_SELECTOR = '.file-browser__scroll-area-viewport';
 const ENTRIES_CONTAINER_SELECTOR = '.file-browser__entries-container';
@@ -485,6 +487,10 @@ export function useFileBrowserVirtualLayout(options: {
     }
   }
 
+  function entryPathsMatch(left: string, right: string): boolean {
+    return normalizePath(left) === normalizePath(right);
+  }
+
   function getEntryElement(path: string): HTMLElement | null {
     const viewport = scrollViewportRef.value;
 
@@ -492,7 +498,20 @@ export function useFileBrowserVirtualLayout(options: {
       return null;
     }
 
-    return viewport.querySelector<HTMLElement>(`[data-entry-path="${escapeCssAttribute(path)}"]`);
+    const normalizedPath = normalizePath(path);
+    const candidates = path === normalizedPath ? [path] : [normalizedPath, path];
+
+    for (const candidate of [...new Set(candidates)]) {
+      const match = viewport.querySelector<HTMLElement>(
+        `[data-entry-path="${escapeCssAttribute(candidate)}"]`,
+      );
+
+      if (match) {
+        return match;
+      }
+    }
+
+    return null;
   }
 
   async function ensureEntryElementInView(
@@ -542,11 +561,11 @@ export function useFileBrowserVirtualLayout(options: {
   function findRowByPath(path: string): FileBrowserVirtualRow | null {
     return rows.value.find((row) => {
       if (row.type === 'list-entry') {
-        return row.entry.path === path;
+        return entryPathsMatch(row.entry.path, path);
       }
 
       if (row.type === 'grid-items') {
-        return row.entries.some(entry => entry.path === path);
+        return row.entries.some(entry => entryPathsMatch(entry.path, path));
       }
 
       return false;
@@ -608,9 +627,22 @@ export function useFileBrowserVirtualLayout(options: {
       return false;
     }
 
-    await scrollToRow(row, align);
-    await ensureEntryElementInView(path, row, align);
-    return true;
+    for (let attemptIndex = 0; attemptIndex < SCROLL_TO_PATH_DOM_SYNC_ATTEMPTS; attemptIndex += 1) {
+      await scrollToRow(row, align);
+      await nextTick();
+      await new Promise<void>((resolveFrame) => {
+        requestAnimationFrame(() => resolveFrame());
+      });
+
+      const entryElement = getEntryElement(path);
+
+      if (entryElement) {
+        await ensureEntryElementInView(path, row, align);
+        return true;
+      }
+    }
+
+    return false;
   }
 
   async function scrollToIndex(index: number, align: ScrollLogicalPosition = 'nearest'): Promise<boolean> {

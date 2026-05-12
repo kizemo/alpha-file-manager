@@ -488,7 +488,27 @@
       "copyPathToClipboard": "パスをクリップボードにコピー",
       "openCopiedPath": "コピーしたパスを開く",
       "noMatchingDirectories": "一致するディレクトリがありません",
-      "showSiblingDirectories": "同じ階層のディレクトリを表示"
+      "showSiblingDirectories": "同じ階層のディレクトリを表示",
+      "openEntryPlaceholder": "項目を開く",
+      "recentEntries": "最近の項目",
+      "recent": "最近",
+      "removeRecentEntry": "最近の一覧から削除",
+      "userLocations": "ユーザーフォルダー",
+      "recentEntry": "最近",
+      "directoryEntries": "ディレクトリ内の項目",
+      "exactMatch": "完全一致",
+      "results": "結果",
+      "noMatchingEntries": "一致する項目がありません",
+      "hints": {
+        "navigate": "移動",
+        "expand": "展開",
+        "open": "開く",
+        "reveal": "ディレクトリで表示",
+        "historyBack": "戻る",
+        "historyForward": "進む",
+        "goUp": "親フォルダ",
+        "close": "閉じる"
+      }
     },
     "clipboard": {
       "inactiveUnselectable": "非アクティブ選択不可",
@@ -806,7 +826,8 @@
     "switchBetweenTabs": "タブを切り替える",
     "switchBetweenWorkspaces": "ワークスペースを切り替える",
     "switchBetweenViews": "ビューを切り替える",
-    "toggleAddressBar": "アドレスバーの切り替え",
+    "toggleAddressBar": "現在のパスでアドレスエディターを開く",
+    "openEntry": "アドレスエディターを開く",
     "copyCurrentDirectoryPathToClipboard": "現在のディレクトリパスをクリップボードにコピー",
     "openCopiedPath": "コピーしたパスを開く",
     "openCurrentDirInNewTab": "現在のディレクトリを新しいタブで開く",

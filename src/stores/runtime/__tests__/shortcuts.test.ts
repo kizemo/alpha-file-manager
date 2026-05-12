@@ -162,6 +162,40 @@ describe('shortcuts store', () => {
     expect(shortcutsStore.getShortcutLabel('goUpDirectory')).toBe('Alt+↑');
   });
 
+  it('matches default address editor shortcuts', async () => {
+    const shortcutsStore = useShortcutsStore();
+    const toggleAddressBarHandler = vi.fn();
+    const openEntryHandler = vi.fn();
+
+    shortcutsStore.registerHandler('toggleAddressBar', toggleAddressBarHandler);
+    shortcutsStore.registerHandler('openEntry', openEntryHandler);
+
+    expect(shortcutsStore.getShortcutLabel('toggleAddressBar')).toBe('Ctrl+L');
+    expect(shortcutsStore.getShortcutLabel('openEntry')).toBe('Ctrl+P');
+
+    const editAddressEvent = new KeyboardEvent('keydown', {
+      key: 'l',
+      code: 'KeyL',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    const openEntryEvent = new KeyboardEvent('keydown', {
+      key: 'p',
+      code: 'KeyP',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    await expect(shortcutsStore.handleKeydown(editAddressEvent)).resolves.toBe(true);
+    await expect(shortcutsStore.handleKeydown(openEntryEvent)).resolves.toBe(true);
+    expect(toggleAddressBarHandler).toHaveBeenCalledTimes(1);
+    expect(openEntryHandler).toHaveBeenCalledTimes(1);
+    expect(editAddressEvent.defaultPrevented).toBe(true);
+    expect(openEntryEvent.defaultPrevented).toBe(true);
+  });
+
   it('matches mouse shortcuts for page history navigation when assigned', async () => {
     const shortcutsStore = useShortcutsStore();
     const navigatePageBackHandler = vi.fn();

@@ -488,7 +488,27 @@
       "copyPathToClipboard": "Copiar caminho para a área de transferência",
       "openCopiedPath": "abrir caminho copiado",
       "noMatchingDirectories": "Nenhum diretório correspondente",
-      "showSiblingDirectories": "Mostrar diretórios irmãos"
+      "showSiblingDirectories": "Mostrar diretórios irmãos",
+      "openEntryPlaceholder": "Abrir item",
+      "recentEntries": "Itens recentes",
+      "recent": "Recentes",
+      "removeRecentEntry": "Remover das entradas recentes",
+      "userLocations": "Pastas do usuário",
+      "recentEntry": "Recente",
+      "directoryEntries": "Itens do diretório",
+      "exactMatch": "Correspondência exata",
+      "results": "Resultados",
+      "noMatchingEntries": "Nenhum item correspondente",
+      "hints": {
+        "navigate": "navegar",
+        "expand": "expandir",
+        "open": "abrir",
+        "reveal": "revelar no diretório",
+        "historyBack": "voltar",
+        "historyForward": "avançar",
+        "goUp": "pasta superior",
+        "close": "fechar"
+      }
     },
     "clipboard": {
       "inactiveUnselectable": "inativo Não selecionável",
@@ -808,7 +828,8 @@
     "switchBetweenTabs": "Alternar entre guias",
     "switchBetweenWorkspaces": "Alternar entre espaços de trabalho",
     "switchBetweenViews": "Alternar entre visualizações",
-    "toggleAddressBar": "Alternar barra de endereço",
+    "toggleAddressBar": "Abrir editor de endereço com o caminho atual",
+    "openEntry": "Abrir editor de endereço",
     "copyCurrentDirectoryPathToClipboard": "Copiar caminho do diretório atual para a área de transferência",
     "openCopiedPath": "Caminho copiado aberto",
     "openCurrentDirInNewTab": "Abrir o diretório atual em nova aba",

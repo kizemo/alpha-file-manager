@@ -488,7 +488,27 @@
       "copyPathToClipboard": "Copia il percorso",
       "openCopiedPath": "Incolla e apri il percorso copiato",
       "noMatchingDirectories": "Nessuna cartella corrispondente",
-      "showSiblingDirectories": "Mostra cartelle sorelle"
+      "showSiblingDirectories": "Mostra cartelle sorelle",
+      "openEntryPlaceholder": "Apri elemento",
+      "recentEntries": "Elementi recenti",
+      "recent": "Recenti",
+      "removeRecentEntry": "Rimuovi dagli elementi recenti",
+      "userLocations": "Cartelle utente",
+      "recentEntry": "Recente",
+      "directoryEntries": "Elementi della cartella",
+      "exactMatch": "Corrispondenza esatta",
+      "results": "Risultati",
+      "noMatchingEntries": "Nessun elemento corrispondente",
+      "hints": {
+        "navigate": "naviga",
+        "expand": "espandi",
+        "open": "apri",
+        "reveal": "mostra nella cartella",
+        "historyBack": "indietro",
+        "historyForward": "avanti",
+        "goUp": "cartella superiore",
+        "close": "chiudi"
+      }
     },
     "clipboard": {
       "inactiveUnselectable": "inattivo non selezionabile",
@@ -806,7 +826,8 @@
     "switchBetweenTabs": "Passa da una scheda all'altra",
     "switchBetweenWorkspaces": "Passa tra gli spazi di lavoro",
     "switchBetweenViews": "Passa da una vista all'altra",
-    "toggleAddressBar": "Alterna la barra degli indirizzi",
+    "toggleAddressBar": "Apri l'editor dell'indirizzo con il percorso corrente",
+    "openEntry": "Apri l'editor dell'indirizzo",
     "copyCurrentDirectoryPathToClipboard": "Copia il percorso della directory corrente negli appunti",
     "openCopiedPath": "Apri il percorso copiato",
     "openCurrentDirInNewTab": "Apri la cartella attuale in una nuova scheda",

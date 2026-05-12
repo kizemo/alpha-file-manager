@@ -18,6 +18,8 @@ import FileBrowserOpenWithDialog from './file-browser-open-with-dialog.vue';
 import FileBrowserInboundDragOverlay from './file-browser-inbound-drag-overlay.vue';
 import FileBrowserConflictDialog from './file-browser-conflict-dialog.vue';
 import PermanentDeleteConfirmDialog from './permanent-delete-confirm-dialog.vue';
+import AddressBarEditorDialog from './address-bar-editor-dialog.vue';
+import type { AddressBarEditorMode } from './address-bar-editor-utils';
 
 const props = withDefaults(defineProps<{
   tab?: Tab;
@@ -50,6 +52,7 @@ const emit = defineEmits<{
 }>();
 
 const fileBrowserRef = ref<HTMLElement | null>(null);
+const addressBarEditorRef = ref<InstanceType<typeof AddressBarEditorDialog> | null>(null);
 
 const fb = useFileBrowser({
   tab: () => props.tab,
@@ -67,6 +70,16 @@ const fb = useFileBrowser({
 
 const permanentDeleteIsOpen = fb.permanentDeleteConfirm.isOpen;
 const permanentDeletePendingEntries = fb.permanentDeleteConfirm.pendingEntries;
+
+function openAddressBarEditor(mode: AddressBarEditorMode) {
+  addressBarEditorRef.value?.open(mode);
+}
+
+async function revealAddressBarEntry(parentPath: string, entryPath: string) {
+  fb.armFocusRevealStaleRestoreGuard();
+  fb.requestFocusEntryAfterRefresh(parentPath, entryPath);
+  await fb.navigateToPath(parentPath);
+}
 
 provideFileBrowserContext({
   entries: fb.entries,
@@ -119,10 +132,12 @@ defineExpose({
   openFilter: fb.openFilter,
   closeFilter: fb.closeFilter,
   navigateToPath: fb.navigateToPath,
+  openAddressBarEditor,
   openFile: fb.openFile,
   clearSelection: fb.clearSelection,
   selectAll: fb.selectAll,
   requestFocusEntryAfterRefresh: fb.requestFocusEntryAfterRefresh,
+  armFocusRevealStaleRestoreGuard: fb.armFocusRevealStaleRestoreGuard,
   selectFirstEntry: fb.selectFirstEntry,
   navigateUp: fb.navigateUp,
   navigateDown: fb.navigateDown,
@@ -165,9 +180,17 @@ defineExpose({
       @refresh="fb.refresh"
       @submit-path="fb.handlePathSubmit"
       @navigate-to="fb.navigateToPath"
+      @open-address-editor="openAddressBarEditor('path')"
       @create-new-directory="fb.openNewItemDialog('directory')"
       @create-new-file="fb.openNewItemDialog('file')"
       @filter-input-focused="fb.clearFilterInputFocusRequest"
+    />
+    <AddressBarEditorDialog
+      ref="addressBarEditorRef"
+      :current-path="fb.pathInput.value"
+      @open-directory="fb.navigateToPath"
+      @open-file="fb.openFile"
+      @reveal="revealAddressBarEntry"
     />
 
     <FileBrowserContent

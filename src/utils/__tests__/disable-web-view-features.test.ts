@@ -6,6 +6,32 @@ import { describe, expect, it } from 'vitest';
 import { disableWebViewFeatures } from '@/utils/disable-web-view-features';
 
 describe('disableWebViewFeatures', () => {
+  it('prevents native Ctrl/Cmd+P print shortcut without blocking Ctrl+Shift+P', () => {
+    disableWebViewFeatures();
+
+    const printEvent = new KeyboardEvent('keydown', {
+      key: 'p',
+      code: 'KeyP',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    const commandPaletteChord = new KeyboardEvent('keydown', {
+      key: 'p',
+      code: 'KeyP',
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    document.dispatchEvent(printEvent);
+    document.dispatchEvent(commandPaletteChord);
+
+    expect(printEvent.defaultPrevented).toBe(true);
+    expect(commandPaletteChord.defaultPrevented).toBe(false);
+  });
+
   it('prevents native Alt+arrow history navigation', () => {
     disableWebViewFeatures();
 

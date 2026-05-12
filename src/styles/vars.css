@@ -55,6 +55,8 @@
     monospace;
   --shadow-md:
     0 4px 6px -1px rgb(0 0 0 / 2%), 0 2px 4px -1px rgb(0 0 0 / 2%), 0 12px 24px rgb(0 0 0 / 5%);
+  --shadow-lg:
+    0 10px 15px -3px rgb(0 0 0 / 10%), 0 4px 6px -4px rgb(0 0 0 / 7%), 0 20px 40px rgb(0 0 0 / 30%);
 
   /* Light theme */
   --light: 0 0% 100%;
