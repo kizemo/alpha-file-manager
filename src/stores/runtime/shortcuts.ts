@@ -254,6 +254,21 @@ const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
     isReadOnly: false,
   },
   {
+    id: 'openCopiedPath',
+    labelKey: 'shortcuts.openCopiedPath',
+    defaultKeys: {
+      ctrl: true,
+      shift: true,
+      key: 'v',
+    },
+    scope: 'navigator',
+    conditions: {
+      inputFieldIsActive: false,
+      dialogIsOpened: false,
+    },
+    isReadOnly: false,
+  },
+  {
     id: 'copy',
     labelKey: 'shortcuts.setSelectedItemsForCopying',
     defaultKeys: {
@@ -1079,6 +1094,10 @@ const ADDRESS_BAR_PATH_EDITOR_YIELD_NAVIGATOR_IDS: ReadonlySet<ShortcutId> = new
   'navigateHistoryForward',
 ]);
 
+const EARLY_PREVENT_DEFAULT_SHORTCUT_IDS: ReadonlySet<ShortcutId> = new Set([
+  'copyCurrentDirectoryPath',
+]);
+
 function keyboardEventTouchesAddressBarPathEditor(event: KeyboardEvent): boolean {
   const composedPathSegments
     = typeof event.composedPath === 'function'
@@ -1552,6 +1571,16 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
     return registration.handler();
   }
 
+  function canCallShortcutHandler(shortcutId: ShortcutId): boolean {
+    const definition = getShortcutDefinition(shortcutId);
+    if (!definition) return false;
+
+    const registration = handlers.value.get(shortcutId);
+    if (!registration) return false;
+
+    return checkConditions(definition, registration);
+  }
+
   async function executeShortcut(shortcutId: ShortcutId): Promise<boolean> {
     const result = callShortcutHandler(shortcutId);
     if (result === null) return false;
@@ -1708,9 +1737,6 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
       event.stopPropagation();
     }
 
-    const extensionHandled = await handleExtensionKeybindings(event);
-    if (extensionHandled) return true;
-
     const matchingShortcutCandidates = findAllMatchingShortcuts(event);
 
     let matchingShortcutIds = matchingShortcutCandidates;
@@ -1720,6 +1746,18 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
         !ADDRESS_BAR_PATH_EDITOR_YIELD_NAVIGATOR_IDS.has(candidateShortcutId),
       );
     }
+
+    const shouldPreventDefaultEarly = matchingShortcutIds.some(shortcutId =>
+      EARLY_PREVENT_DEFAULT_SHORTCUT_IDS.has(shortcutId) && canCallShortcutHandler(shortcutId),
+    );
+
+    if (shouldPreventDefaultEarly) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    const extensionHandled = await handleExtensionKeybindings(event);
+    if (extensionHandled) return true;
 
     if (matchingShortcutIds.length === 0) return false;
 

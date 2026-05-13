@@ -488,6 +488,7 @@
       "toOpenThePath": "ouvrir le chemin",
       "copyPathToClipboard": "Copier le chemin dans le presse-papiers",
       "openCopiedPath": "Ouvrir le chemin copié",
+      "clipboardDoesntHaveValidPath": "Le presse-papiers ne contient pas de chemin valide",
       "noMatchingDirectories": "Aucun répertoire correspondant",
       "showSiblingDirectories": "Afficher les répertoires frères",
       "openEntryPlaceholder": "Ouvrir un élément",

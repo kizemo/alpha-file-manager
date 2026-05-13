@@ -8,6 +8,7 @@ import { ref } from 'vue';
 import type { DirEntry } from '@/types/dir-entry';
 import type { Tab } from '@/types/workspaces';
 import { useFileBrowser } from './composables/use-file-browser';
+import { useOpenCopiedPath } from './composables/use-open-copied-path';
 import { provideFileBrowserContext } from './composables/use-file-browser-context';
 import FileBrowserContent from './file-browser-content.vue';
 import FileBrowserToolbar from './file-browser-toolbar.vue';
@@ -70,6 +71,10 @@ const fb = useFileBrowser({
 
 const permanentDeleteIsOpen = fb.permanentDeleteConfirm.isOpen;
 const permanentDeletePendingEntries = fb.permanentDeleteConfirm.pendingEntries;
+const { openCopiedPath } = useOpenCopiedPath({
+  openDirectory: fb.navigateToPath,
+  openFile: fb.openFile,
+});
 
 function openAddressBarEditor(mode: AddressBarEditorMode) {
   addressBarEditorRef.value?.open(mode);
@@ -133,6 +138,7 @@ defineExpose({
   closeFilter: fb.closeFilter,
   navigateToPath: fb.navigateToPath,
   openAddressBarEditor,
+  openCopiedPath,
   openFile: fb.openFile,
   clearSelection: fb.clearSelection,
   selectAll: fb.selectAll,
@@ -180,6 +186,7 @@ defineExpose({
       @refresh="fb.refresh"
       @submit-path="fb.handlePathSubmit"
       @navigate-to="fb.navigateToPath"
+      @open-file="fb.openFile"
       @open-address-editor="openAddressBarEditor('path')"
       @create-new-directory="fb.openNewItemDialog('directory')"
       @create-new-file="fb.openNewItemDialog('file')"

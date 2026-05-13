@@ -488,6 +488,7 @@
       "toOpenThePath": "để mở đường",
       "copyPathToClipboard": "Sao chép đường dẫn vào khay nhớ tạm",
       "openCopiedPath": "Mở đường dẫn đã sao chép",
+      "clipboardDoesntHaveValidPath": "Bảng nhớ tạm không có đường dẫn hợp lệ",
       "noMatchingDirectories": "Không có thư mục phù hợp",
       "showSiblingDirectories": "Hiển thị thư mục anh chị em",
       "openEntryPlaceholder": "Mở mục",

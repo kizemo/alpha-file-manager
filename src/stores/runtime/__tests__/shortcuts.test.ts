@@ -427,6 +427,55 @@ describe('shortcuts store', () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
+  it('prevents Ctrl+Shift+C default behavior before async shortcut handlers finish', async () => {
+    const shortcutsStore = useShortcutsStore();
+    let resolveHandler: (value: boolean) => void = () => {};
+    const copyCurrentDirectoryPathHandler = vi.fn(() => new Promise<boolean>((resolve) => {
+      resolveHandler = resolve;
+    }));
+
+    shortcutsStore.registerHandler('copyCurrentDirectoryPath', copyCurrentDirectoryPathHandler);
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'C',
+      code: 'KeyC',
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    const handledPromise = shortcutsStore.handleKeydown(event);
+
+    expect(event.defaultPrevented).toBe(true);
+
+    await Promise.resolve();
+    expect(copyCurrentDirectoryPathHandler).toHaveBeenCalledTimes(1);
+
+    resolveHandler(true);
+    await expect(handledPromise).resolves.toBe(true);
+  });
+
+  it('matches Ctrl+Shift+V for opening the copied path', async () => {
+    const shortcutsStore = useShortcutsStore();
+    const openCopiedPathHandler = vi.fn();
+
+    shortcutsStore.registerHandler('openCopiedPath', openCopiedPathHandler);
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'V',
+      code: 'KeyV',
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    await expect(shortcutsStore.handleKeydown(event)).resolves.toBe(true);
+    expect(openCopiedPathHandler).toHaveBeenCalledTimes(1);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
   it('matches Ctrl+Shift+T for restoring the last closed tab', async () => {
     const shortcutsStore = useShortcutsStore();
     const restoreLastClosedTabHandler = vi.fn();

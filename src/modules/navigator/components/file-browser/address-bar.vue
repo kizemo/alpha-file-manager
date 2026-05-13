@@ -43,6 +43,7 @@ import { DirEntryInteractive } from '@/components/dir-entry-interactive';
 import { registerDropContainer, unregisterDropContainer } from '@/composables/use-drop-target-registry';
 import { useShortcutsStore } from '@/stores/runtime/shortcuts';
 import normalizePath, { getPathDisplayName, getPathSegments, isUncPath } from '@/utils/normalize-path';
+import { useOpenCopiedPath } from './composables/use-open-copied-path';
 
 const props = defineProps<{
   currentPath: string;
@@ -50,11 +51,17 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   navigate: [path: string];
+  openFile: [path: string];
   edit: [];
 }>();
 
 const { t } = useI18n();
 const shortcutsStore = useShortcutsStore();
+const { openCopiedPath } = useOpenCopiedPath({
+  openDirectory: path => emit('navigate', path),
+  openFile: path => emit('openFile', path),
+});
+const openCopiedPathShortcutLabel = computed(() => shortcutsStore.getShortcutLabel('openCopiedPath'));
 
 const addressBarRef = ref<HTMLElement | null>(null);
 const breadcrumbsContainerRef = ref<HTMLElement | null>(null);
@@ -173,19 +180,6 @@ async function copyPathToClipboard() {
   }
 }
 
-async function openCopiedPath() {
-  try {
-    const clipboardText = await navigator.clipboard.readText();
-
-    if (clipboardText) {
-      emit('navigate', clipboardText);
-    }
-  }
-  catch (error) {
-    console.error('Failed to read clipboard:', error);
-  }
-}
-
 let dropContainerId: number | null = null;
 
 onMounted(() => {
@@ -238,9 +232,13 @@ onUnmounted(() => {
             <span>{{ t('settings.addressBar.copyPathToClipboard') }}</span>
             <ContextMenuShortcut>{{ shortcutsStore.getShortcutLabel('copyCurrentDirectoryPath') }}</ContextMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuItem @select="openCopiedPath">
+          <DropdownMenuItem
+            class="address-bar__menu-item-with-shortcut"
+            @select="openCopiedPath"
+          >
             <ClipboardPasteIcon :size="16" />
             <span>{{ t('settings.addressBar.openCopiedPath') }}</span>
+            <ContextMenuShortcut>{{ openCopiedPathShortcutLabel }}</ContextMenuShortcut>
           </DropdownMenuItem>
         </DropdownMenuContent>
         <TooltipContent>

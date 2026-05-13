@@ -488,6 +488,7 @@
       "toOpenThePath": "abrir el camino",
       "copyPathToClipboard": "Copiar ruta al portapapeles",
       "openCopiedPath": "Abrir ruta copiada",
+      "clipboardDoesntHaveValidPath": "El portapapeles no contiene una ruta válida",
       "noMatchingDirectories": "No hay directorios coincidentes",
       "showSiblingDirectories": "Mostrar directorios hermanos",
       "openEntryPlaceholder": "Abrir entrada",

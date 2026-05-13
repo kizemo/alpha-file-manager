@@ -488,6 +488,7 @@
       "toOpenThePath": "den Weg öffnen",
       "copyPathToClipboard": "Pfad in die Zwischenablage kopieren",
       "openCopiedPath": "Kopierpfad öffnen",
+      "clipboardDoesntHaveValidPath": "Die Zwischenablage enthält keinen gültigen Pfad",
       "noMatchingDirectories": "Keine passenden Verzeichnisse",
       "showSiblingDirectories": "Geschwisterverzeichnisse anzeigen",
       "openEntryPlaceholder": "Eintrag öffnen",

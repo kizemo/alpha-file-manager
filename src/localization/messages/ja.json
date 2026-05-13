@@ -488,6 +488,7 @@
       "toOpenThePath": "パスを開く",
       "copyPathToClipboard": "パスをクリップボードにコピー",
       "openCopiedPath": "コピーしたパスを開く",
+      "clipboardDoesntHaveValidPath": "クリップボードに有効なパスがありません",
       "noMatchingDirectories": "一致するディレクトリがありません",
       "showSiblingDirectories": "同じ階層のディレクトリを表示",
       "openEntryPlaceholder": "項目を開く",

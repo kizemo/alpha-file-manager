@@ -488,6 +488,7 @@
       "toOpenThePath": "yolu açmak",
       "copyPathToClipboard": "Yolu panoya kopyala",
       "openCopiedPath": "Kopyalanan yolu aç",
+      "clipboardDoesntHaveValidPath": "Panoda geçerli bir yol yok",
       "noMatchingDirectories": "Eşleşen dizin yok",
       "showSiblingDirectories": "Kardeş dizinleri göster",
       "openEntryPlaceholder": "Öğe aç",

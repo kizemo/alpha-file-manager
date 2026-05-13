@@ -48,6 +48,7 @@ type FileBrowserInstance = InstanceType<typeof FileBrowser> & {
   currentPath?: string;
   focusFilter?: () => void;
   openAddressBarEditor?: (mode: AddressBarEditorMode) => void;
+  openCopiedPath?: () => Promise<boolean>;
   navigateToPath?: (path: string) => Promise<void>;
   openFile?: (path: string) => Promise<void>;
   refresh?: () => void | Promise<void>;
@@ -712,7 +713,7 @@ function hasBlockingRekaDismissableLayersForNavigatorShortcuts(): boolean {
 
 function callActivePaneMethod(method: keyof Pick<
   FileBrowserInstance,
-  'navigateUp' | 'navigateDown' | 'navigateLeft' | 'navigateRight' | 'openSelected' | 'goBack' | 'goForward' | 'navigateToParent'
+  'navigateUp' | 'navigateDown' | 'navigateLeft' | 'navigateRight' | 'openSelected' | 'goBack' | 'goForward' | 'navigateToParent' | 'openCopiedPath'
 >): boolean {
   if (hasBlockingDismissalLayersForNavigatorShortcuts()) return false;
 
@@ -746,6 +747,7 @@ function registerShortcutHandlers() {
   shortcutsStore.registerHandler('toggleFilter', handleFilterShortcut);
   shortcutsStore.registerHandler('reloadCurrentDirectory', handleReloadShortcut);
   shortcutsStore.registerHandler('copyCurrentDirectoryPath', handleCopyCurrentDirectoryPathShortcut);
+  shortcutsStore.registerHandler('openCopiedPath', () => callActivePaneMethod('openCopiedPath'));
   shortcutsStore.registerHandler('copy', handleCopyShortcut);
   shortcutsStore.registerHandler('cut', handleCutShortcut);
   shortcutsStore.registerHandler('paste', handlePasteShortcut);

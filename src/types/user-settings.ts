@@ -106,6 +106,7 @@ export type ShortcutId
     | 'openEntry'
     | 'toggleSplitView'
     | 'copyCurrentDirectoryPath'
+    | 'openCopiedPath'
     | 'copy'
     | 'cut'
     | 'paste'

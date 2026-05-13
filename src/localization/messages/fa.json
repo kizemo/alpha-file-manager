@@ -487,6 +487,7 @@
       "toOpenThePath": "برای باز کردن راه",
       "copyPathToClipboard": "کپی مسیر به کلیپ بورد",
       "openCopiedPath": "باز کردن مسیر کپی شده",
+      "clipboardDoesntHaveValidPath": "کلیپ‌بورد مسیر معتبری ندارد",
       "noMatchingDirectories": "هیچ پوشه‌ای مطابقت ندارد",
       "showSiblingDirectories": "نمایش پوشه‌های همسطح",
       "openEntryPlaceholder": "باز کردن مورد",

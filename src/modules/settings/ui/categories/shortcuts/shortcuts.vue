@@ -108,6 +108,7 @@ const shortcutIcons: Record<ShortcutId, Component> = {
   openEntry: SearchIcon,
   toggleSplitView: FlipHorizontalIcon,
   copyCurrentDirectoryPath: CopyIcon,
+  openCopiedPath: ClipboardPasteIcon,
   copy: CopyIcon,
   cut: FolderInputIcon,
   paste: ClipboardPasteIcon,
