@@ -386,8 +386,14 @@ describe('address bar editor utils', () => {
   it('builds a user directories suggestion group with display names', () => {
     const group = createUserDirectoriesSuggestionGroup(
       [
-        { path: '/home/user/docs', displayName: 'Documents' },
-        { path: '/media/usb', displayName: 'USB' },
+        {
+          path: '/home/user/docs',
+          displayName: 'Documents',
+        },
+        {
+          path: '/media/usb',
+          displayName: 'USB',
+        },
       ],
       'User locations',
     );
@@ -457,7 +463,10 @@ describe('address bar editor utils', () => {
       },
     ], 'Recent', 10);
     const userDirsGroup = createUserDirectoriesSuggestionGroup(
-      [{ path: sharedDownloadsPath, displayName: 'Downloads' }],
+      [{
+        path: sharedDownloadsPath,
+        displayName: 'Downloads',
+      }],
       'Locations',
     );
 

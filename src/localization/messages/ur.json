@@ -519,6 +519,7 @@
     "addressBar": {
       "addressBarActions": "پتہ پٹی کے اعمال",
       "editAddress": "پتہ میں ترمیم",
+      "dialogAccessibleDescription": "راستہ درج کریں یا نام سے تلاش کریں۔ فہرست سے منتخب کریں یا کھولنے کے لیے Enter دبائیں۔",
       "enterValidPath": "فائل / فولڈر کا درست راستہ درج کریں۔",
       "keepEditorOpened": "باہر کلک پر بھی پتہ ایڈیٹر کھلا رکھیں",
       "closeEditor": "پتہ ایڈیٹر بند کریں",
@@ -2003,6 +2004,8 @@
     }
   },
   "commandPalette": {
+    "accessibleDialogTitle": "کمانڈ پیلیٹ",
+    "accessibleDialogDescription": "فلٹر کے لیے ٹائپ کریں، پھر فہرست سے ایک کمانڈ منتخب کریں۔",
     "searchPlaceholder": "کمانڈ ٹائپ یا تلاش کریں…",
     "noResults": "کوئی کمانڈ نہیں۔",
     "noCommands": "کوئی کمانڈ رجسٹر نہیں۔ کمانڈز کے لیے ایکسٹینشنز انسٹال اور چالو کریں۔",

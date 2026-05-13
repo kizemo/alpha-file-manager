@@ -130,6 +130,7 @@ const groupOpenState = ref<Record<string, boolean>>({});
 const quickSearchCache = ref(createFileBrowserQuickSearchCache());
 let suggestionRequestId = 0;
 const suggestionRowsContainerReference = shallowRef<HTMLElement | null>(null);
+const addressBarCommandInputMountReference = shallowRef<HTMLElement | null>(null);
 const suppressDebouncedSuggestionsOnQueryMutation = ref(false);
 const addressEditorNavigationSteps = ref<string[]>([]);
 const addressEditorNavigationIndex = ref(0);
@@ -1034,6 +1035,23 @@ async function open(modeToOpen: AddressBarEditorMode): Promise<void> {
 
     await refreshSuggestions(query.value, 'preserve');
   });
+
+  await moveAddressBarInputCaretToEndAfterPaint();
+}
+
+async function moveAddressBarInputCaretToEndAfterPaint(): Promise<void> {
+  await nextTick();
+  requestAnimationFrame(() => {
+    const mountRoot = addressBarCommandInputMountReference.value;
+    const inputElement = mountRoot?.querySelector('input');
+
+    if (!(inputElement instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const length = inputElement.value.length;
+    inputElement.setSelectionRange(length, length);
+  });
 }
 
 function close(): void {
@@ -1051,13 +1069,17 @@ defineExpose({
     v-model:open="dialogOpen"
     command-ignore-filter
     :command-reset-search-term-on-select="false"
+    :accessible-title="t('settings.addressBar.editAddress')"
+    :accessible-description="t('settings.addressBar.dialogAccessibleDescription')"
   >
-    <CommandInput
-      v-bind="pathEditorYieldMarkerBindings"
-      v-model="query"
-      :placeholder="inputPlaceholder"
-      @keydown="handleInputKeydown"
-    />
+    <div ref="addressBarCommandInputMountReference">
+      <CommandInput
+        v-bind="pathEditorYieldMarkerBindings"
+        v-model="query"
+        :placeholder="inputPlaceholder"
+        @keydown="handleInputKeydown"
+      />
+    </div>
     <ScrollAreaRoot
       v-bind="pathEditorYieldMarkerBindings"
       type="auto"

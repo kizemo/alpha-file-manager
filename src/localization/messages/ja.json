@@ -480,6 +480,7 @@
     "addressBar": {
       "addressBarActions": "アドレスバーアクション",
       "editAddress": "アドレスを編集",
+      "dialogAccessibleDescription": "パスを入力するか名前で検索します。一覧から選ぶか Enter で開きます。",
       "enterValidPath": "ファイル/ディレクトリへの有効なパスを入力してください。",
       "keepEditorOpened": "外側をクリックしてもアドレスバーエディタを開いたままにする",
       "closeEditor": "アドレスバーエディターを閉じる",
@@ -1964,6 +1965,8 @@
     }
   },
   "commandPalette": {
+    "accessibleDialogTitle": "コマンドパレット",
+    "accessibleDialogDescription": "入力して絞り込み、一覧からコマンドを選びます。",
     "searchPlaceholder": "コマンドを入力するか検索...",
     "noResults": "コマンドが見つかりません。",
     "noCommands": "コマンドが登録されていません。拡張機能をインストールして有効化するとコマンドが追加されます。",

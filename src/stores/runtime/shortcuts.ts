@@ -1080,8 +1080,8 @@ const ADDRESS_BAR_PATH_EDITOR_YIELD_NAVIGATOR_IDS: ReadonlySet<ShortcutId> = new
 ]);
 
 function keyboardEventTouchesAddressBarPathEditor(event: KeyboardEvent): boolean {
-  const composedPathSegments =
-    typeof event.composedPath === 'function'
+  const composedPathSegments
+    = typeof event.composedPath === 'function'
       ? [...event.composedPath()]
       : [];
 

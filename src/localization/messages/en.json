@@ -519,6 +519,7 @@
     "addressBar": {
       "addressBarActions": "Address bar actions",
       "editAddress": "Edit address",
+      "dialogAccessibleDescription": "Type a path or search by name. Pick from the list or press Enter to open.",
       "enterValidPath": "Enter valid path to a file / directory.",
       "keepEditorOpened": "Keep address bar editor opened when clicking outside",
       "closeEditor": "Close address bar editor",
@@ -2003,6 +2004,8 @@
     }
   },
   "commandPalette": {
+    "accessibleDialogTitle": "Command palette",
+    "accessibleDialogDescription": "Type to filter commands, then choose one from the list.",
     "searchPlaceholder": "Type a command or search...",
     "noResults": "No commands found.",
     "noCommands": "No commands registered. Install and enable extensions to add commands.",

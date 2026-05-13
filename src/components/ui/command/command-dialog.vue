@@ -5,22 +5,41 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { reactiveOmit } from '@vueuse/core';
 import { useForwardPropsEmits } from 'reka-ui';
 import type { DialogRootEmits, DialogRootProps } from 'reka-ui';
 import Command from './command.vue';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 
 type CommandDialogProps = DialogRootProps & {
   commandIgnoreFilter?: boolean;
   commandResetSearchTermOnSelect?: boolean;
+  accessibleTitle?: string;
+  accessibleDescription?: string;
 };
 
 const props = defineProps<CommandDialogProps>();
 const emits = defineEmits<DialogRootEmits>();
 
-const delegatedDialogProps = reactiveOmit(props, 'commandIgnoreFilter', 'commandResetSearchTermOnSelect');
+const delegatedDialogProps = reactiveOmit(
+  props,
+  'commandIgnoreFilter',
+  'commandResetSearchTermOnSelect',
+  'accessibleTitle',
+  'accessibleDescription',
+);
 const forwarded = useForwardPropsEmits(delegatedDialogProps, emits);
+
+const { t } = useI18n();
+
+const resolvedAccessibleTitle = computed(() =>
+  props.accessibleTitle ?? t('commandPalette.accessibleDialogTitle'),
+);
+
+const resolvedAccessibleDescription = computed(() =>
+  props.accessibleDescription ?? t('commandPalette.accessibleDialogDescription'),
+);
 
 const commandComboboxBindings = computed(() => ({
   ...(props.commandIgnoreFilter ? { ignoreFilter: true } : {}),
@@ -33,6 +52,12 @@ const commandComboboxBindings = computed(() => ({
 <template>
   <Dialog v-bind="forwarded">
     <DialogContent class="sigma-ui-command-dialog">
+      <DialogTitle class="sigma-ui-command-dialog__visually-hidden">
+        {{ resolvedAccessibleTitle }}
+      </DialogTitle>
+      <DialogDescription class="sigma-ui-command-dialog__visually-hidden">
+        {{ resolvedAccessibleDescription }}
+      </DialogDescription>
       <Command
         class="sigma-ui-command-dialog__command"
         v-bind="commandComboboxBindings"
@@ -44,6 +69,18 @@ const commandComboboxBindings = computed(() => ({
 </template>
 
 <style>
+.sigma-ui-command-dialog__visually-hidden {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border-width: 0;
+  margin: -1px;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .sigma-ui-command-dialog {
   overflow: hidden;
   padding: 0;

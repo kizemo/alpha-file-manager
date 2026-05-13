@@ -480,6 +480,7 @@
     "addressBar": {
       "addressBarActions": "地址栏操作",
       "editAddress": "编辑地址",
+      "dialogAccessibleDescription": "输入路径或按名称搜索。从列表中选择或按 Enter 打开。",
       "enterValidPath": "输入文件/目录的有效路径。",
       "keepEditorOpened": "在外部单击时保持地址栏编辑器打开",
       "closeEditor": "关闭地址栏编辑器",
@@ -1964,6 +1965,8 @@
     }
   },
   "commandPalette": {
+    "accessibleDialogTitle": "命令面板",
+    "accessibleDialogDescription": "输入文字筛选，然后从列表中选择命令。",
     "searchPlaceholder": "输入命令或搜索...",
     "noResults": "未找到命令。",
     "noCommands": "未注册任何命令。安装并启用扩展以添加命令。",

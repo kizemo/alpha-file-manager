@@ -480,6 +480,7 @@
     "addressBar": {
       "addressBarActions": "Ações da barra de endereço",
       "editAddress": "Editar Endereço",
+      "dialogAccessibleDescription": "Digite um caminho ou pesquise pelo nome. Escolha na lista ou pressione Enter para abrir.",
       "enterValidPath": "Insira um caminho válido para um arquivo/diretório.",
       "keepEditorOpened": "Mantenha o editor da barra de endereço aberto ao clicar fora",
       "closeEditor": "Fechar editor da barra de endereço",
@@ -1976,6 +1977,8 @@
     }
   },
   "commandPalette": {
+    "accessibleDialogTitle": "Paleta de comandos",
+    "accessibleDialogDescription": "Digite para filtrar e escolha um comando na lista.",
     "searchPlaceholder": "Digite um comando ou pesquise...",
     "noResults": "Nenhum comando encontrado.",
     "noCommands": "Nenhum comando registrado. Instale e habilite extensões para adicionar comandos.",

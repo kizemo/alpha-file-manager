@@ -480,6 +480,7 @@
     "addressBar": {
       "addressBarActions": "Hành động trên thanh địa chỉ",
       "editAddress": "Sửa địa chỉ",
+      "dialogAccessibleDescription": "Nhập đường dẫn hoặc tìm theo tên. Chọn trong danh sách hoặc nhấn Enter để mở.",
       "enterValidPath": "Nhập đường dẫn hợp lệ tới tệp/thư mục.",
       "keepEditorOpened": "Giữ mở trình chỉnh sửa thanh địa chỉ khi nhấp vào bên ngoài",
       "closeEditor": "Đóng trình chỉnh sửa thanh địa chỉ",
@@ -1964,6 +1965,8 @@
     }
   },
   "commandPalette": {
+    "accessibleDialogTitle": "Bảng lệnh",
+    "accessibleDialogDescription": "Gõ để lọc, rồi chọn một lệnh trong danh sách.",
     "searchPlaceholder": "Nhập lệnh hoặc tìm kiếm...",
     "noResults": "Không tìm thấy lệnh.",
     "noCommands": "Chưa có lệnh nào được đăng ký. Cài đặt và bật tiện ích mở rộng để thêm lệnh.",

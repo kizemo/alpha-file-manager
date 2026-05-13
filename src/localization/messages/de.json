@@ -480,6 +480,7 @@
     "addressBar": {
       "addressBarActions": "Aktionen in der Adressleiste",
       "editAddress": "Adresse bearbeiten",
+      "dialogAccessibleDescription": "Pfad eingeben oder Einträge durchsuchen. Aus der Liste wählen oder mit Enter öffnen.",
       "enterValidPath": "Geben Sie einen gültigen Pfad zu einer Datei / einem Verzeichnis ein.",
       "keepEditorOpened": "Adressleisten-Editor geöffnet lassen, wenn außerhalb geklickt wird",
       "closeEditor": "Adressleisten-Editor schließen",
@@ -1964,6 +1965,8 @@
     }
   },
   "commandPalette": {
+    "accessibleDialogTitle": "Befehlspalette",
+    "accessibleDialogDescription": "Tippen zum Filtern, dann einen Befehl aus der Liste wählen.",
     "searchPlaceholder": "Befehl eingeben oder suchen...",
     "noResults": "Keine Befehle gefunden.",
     "noCommands": "Keine Befehle registriert. Installiere und aktiviere Erweiterungen, um Befehle hinzuzufügen.",

@@ -480,6 +480,7 @@
     "addressBar": {
       "addressBarActions": "Adres çubuğu işlemleri",
       "editAddress": "Adresi düzelt",
+      "dialogAccessibleDescription": "Yol yazın veya ada göre arayın. Listeden seçin veya Enter ile açın.",
       "enterValidPath": "Bir dosyaya/dizine giden geçerli yolu girin.",
       "keepEditorOpened": "Dışarı tıkladığınızda adres çubuğu düzenleyicisini açık tutun",
       "closeEditor": "Adres çubuğu düzenleyicisini kapat",
@@ -1964,6 +1965,8 @@
     }
   },
   "commandPalette": {
+    "accessibleDialogTitle": "Komut paleti",
+    "accessibleDialogDescription": "Filtrelemek için yazın ve listeden bir komut seçin.",
     "searchPlaceholder": "Bir komut yazın veya arayın...",
     "noResults": "Komut bulunamadı.",
     "noCommands": "Kayıtlı komut yok. Komut eklemek için uzantıları yükleyip etkinleştirin.",

@@ -519,6 +519,7 @@
     "addressBar": {
       "addressBarActions": "पता बार क्रियाएँ",
       "editAddress": "पता संपादित करें",
+      "dialogAccessibleDescription": "पथ दर्ज करें या नाम से खोजें। सूची से चुनें या खोलने के लिए Enter दबाएँ।",
       "enterValidPath": "किसी फ़ाइल/निर्देशिका के लिए मान्य पथ दर्ज करें।",
       "keepEditorOpened": "बाहर क्लिक करते समय एड्रेस बार एडिटर खुला रखें",
       "closeEditor": "पता बार संपादक बंद करें",
@@ -2003,6 +2004,8 @@
     }
   },
   "commandPalette": {
+    "accessibleDialogTitle": "कमांड पैलेट",
+    "accessibleDialogDescription": "फ़िल्टर करने के लिए टाइप करें, फिर सूची से एक कमांड चुनें।",
     "searchPlaceholder": "एक कमांड टाइप करें या खोजें...",
     "noResults": "कोई आदेश नहीं मिला.",
     "noCommands": "कोई आदेश पंजीकृत नहीं. कमांड जोड़ने के लिए एक्सटेंशन इंस्टॉल और सक्षम करें।",

@@ -519,6 +519,7 @@
     "addressBar": {
       "addressBarActions": "Dejanja naslovne vrstice",
       "editAddress": "Uredi naslov",
+      "dialogAccessibleDescription": "Vnesite pot ali iščite po imenu. Izberite s seznama ali pritisnite Enter za odprtje.",
       "enterValidPath": "Vnesite veljavno pot do datoteke / mape.",
       "keepEditorOpened": "Obdržite urejevalnik naslovne vrstice odprt pri kliku zunaj",
       "closeEditor": "Zapri urejevalnik naslovne vrstice",
@@ -2103,6 +2104,8 @@
     }
   },
   "commandPalette": {
+    "accessibleDialogTitle": "Ukazna paleta",
+    "accessibleDialogDescription": "Tipkajte za filter in izberite ukaz s seznama.",
     "searchPlaceholder": "Type a command or search...",
     "noResults": "No commands found.",
     "noCommands": "No commands registered. Install and enable extensions to add commands.",

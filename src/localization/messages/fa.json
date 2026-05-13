@@ -479,6 +479,7 @@
     "addressBar": {
       "addressBarActions": "عملکردهای نوار آدرس",
       "editAddress": "ویرایش آدرس",
+      "dialogAccessibleDescription": "مسیر را وارد کنید یا با نام جستجو کنید. از لیست انتخاب کنید یا Enter را برای باز کردن بزنید.",
       "enterValidPath": "مسیر معتبر یک فایل/دایرکتوری را وارد کنید.",
       "keepEditorOpened": "ویرایشگر نوار آدرس را هنگام کلیک کردن در خارج باز نگه دارید",
       "closeEditor": "بستن ویرایشگر نوار آدرس",
@@ -1963,6 +1964,8 @@
     }
   },
   "commandPalette": {
+    "accessibleDialogTitle": "پالت فرمان",
+    "accessibleDialogDescription": "برای فیلتر کردن تایپ کنید، سپس یک فرمان را از لیست انتخاب کنید.",
     "searchPlaceholder": "یک فرمان تایپ کنید یا جستجو کنید...",
     "noResults": "هیچ فرمانی پیدا نشد.",
     "noCommands": "هیچ فرمانی ثبت نشده است. برای افزودن فرمان‌ها افزونه‌ها را نصب و فعال کنید.",
