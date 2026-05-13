@@ -4,7 +4,6 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 -->
 
 <script setup lang="ts">
-import FileBrowserCurrentDirMenu from './file-browser-current-dir-menu.vue';
 import FileBrowserToolbarAddressBar from './file-browser-toolbar-address-bar.vue';
 import FileBrowserToolbarNavButtons from './file-browser-toolbar-nav-buttons.vue';
 import FileBrowserToolbarCreateButton from './file-browser-toolbar-create-button.vue';
@@ -87,7 +86,6 @@ function handleAddressBarNavigate(path: string) {
           @update:is-filter-open="emit('update:isFilterOpen', $event)"
           @filter-input-focused="emit('filterInputFocused')"
         />
-        <FileBrowserCurrentDirMenu />
       </div>
     </div>
   </div>

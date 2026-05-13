@@ -34,6 +34,7 @@ import { registerDropContainer, unregisterDropContainer } from '@/composables/us
 import type { FavoriteItem, ItemTag, TaggedItem } from '@/types/user-stats';
 import { getPathDisplayName } from '@/utils/normalize-path';
 import { resolveNavigableItemTarget } from '@/utils/resolve-navigable-item-target';
+import { arePathsEquivalent } from '@/utils/file-operation-paths';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -108,6 +109,11 @@ function getItemName(path: string): string {
 
 function isFavoriteFile(item: FavoriteItem): boolean {
   return !item.path.endsWith('/') && item.path.includes('.');
+}
+
+function isCurrentDirectoryItem(path: string, isFile: boolean): boolean {
+  const currentPath = workspacesStore.currentTab?.path;
+  return !isFile && !!currentPath && arePathsEquivalent(path, currentPath);
 }
 
 async function openItem(path: string, isFile: boolean) {
@@ -198,6 +204,7 @@ function openTaggedItem(item: TaggedItem) {
               :key="item.path"
               :path="item.path"
               :is-file="isFavoriteFile(item)"
+              :is-current-directory-context="isCurrentDirectoryItem(item.path, isFavoriteFile(item))"
             >
               <button
                 type="button"
@@ -274,6 +281,7 @@ function openTaggedItem(item: TaggedItem) {
                 :key="item.path"
                 :path="item.path"
                 :is-file="item.isFile"
+                :is-current-directory-context="isCurrentDirectoryItem(item.path, item.isFile)"
               >
                 <button
                   type="button"
@@ -303,6 +311,7 @@ function openTaggedItem(item: TaggedItem) {
                 :key="item.path"
                 :path="item.path"
                 :is-file="item.isFile"
+                :is-current-directory-context="isCurrentDirectoryItem(item.path, item.isFile)"
               >
                 <button
                   type="button"

@@ -45,8 +45,10 @@ const props = withDefaults(defineProps<{
   menuItemComponent: object;
   menuSeparatorComponent: object;
   disableDestructiveActions?: boolean;
+  isCurrentDirectoryContext?: boolean;
 }>(), {
   disableDestructiveActions: false,
+  isCurrentDirectoryContext: false,
 });
 
 const emit = defineEmits<{
@@ -159,6 +161,14 @@ const canPasteToSelectedDirectory = computed(() => {
 });
 
 const isShiftHeld = ref(false);
+
+const trashTooltipKey = computed(() => props.isCurrentDirectoryContext
+  ? 'shortcuts.moveCurrentDirectoryToTrash'
+  : 'shortcuts.moveSelectedItemsToTrash');
+
+const deleteTooltipKey = computed(() => props.isCurrentDirectoryContext
+  ? 'shortcuts.deleteCurrentDirectoryFromDrive'
+  : 'shortcuts.deleteSelectedItemsFromDrive');
 
 function handleKeyDown(event: KeyboardEvent) {
   if (event.key === 'Shift') {
@@ -287,11 +297,11 @@ function handleDeleteClick() {
       </TooltipTrigger>
       <TooltipContent class="file-browser-actions-menu__tooltip">
         <div class="file-browser-actions-menu__tooltip-row">
-          {{ t('shortcuts.moveSelectedItemsToTrash') }}
+          {{ t(trashTooltipKey) }}
           <ContextMenuShortcut>{{ shortcutsStore.getShortcutLabel('delete') }}</ContextMenuShortcut>
         </div>
         <div class="file-browser-actions-menu__tooltip-row">
-          {{ t('shortcuts.deleteSelectedItemsFromDrive') }}
+          {{ t(deleteTooltipKey) }}
           <ContextMenuShortcut>{{ shortcutsStore.getShortcutLabel('deletePermanently') }}</ContextMenuShortcut>
         </div>
       </TooltipContent>

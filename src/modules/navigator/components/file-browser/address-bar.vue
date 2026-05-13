@@ -262,6 +262,7 @@ onUnmounted(() => {
           <DirEntryInteractive
             :path="part.path"
             :is-file="false"
+            :is-current-directory-context="part.isLast"
           >
             <button
               class="address-bar__part"
@@ -406,7 +407,7 @@ onUnmounted(() => {
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: hsl(var(--foreground) / 80%);
+  color: hsl(var(--muted-foreground) / 70%);
   cursor: pointer;
   font-size: 13px;
   transition: background-color 0.1s, color 0.1s;

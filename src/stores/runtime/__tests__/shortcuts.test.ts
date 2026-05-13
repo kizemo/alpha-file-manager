@@ -429,7 +429,9 @@ describe('shortcuts store', () => {
 
   it('prevents Ctrl+Shift+C default behavior before async shortcut handlers finish', async () => {
     const shortcutsStore = useShortcutsStore();
+
     let resolveHandler: (value: boolean) => void = () => {};
+
     const copyCurrentDirectoryPathHandler = vi.fn(() => new Promise<boolean>((resolve) => {
       resolveHandler = resolve;
     }));
