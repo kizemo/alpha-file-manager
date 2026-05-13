@@ -136,6 +136,12 @@ export function useInit() {
     return launchContext.hadDelegatedShellPaths && launchContext.args.length <= 1;
   }
 
+  function isCurrentNavigationReload(): boolean {
+    const [navigationEntry] = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+
+    return navigationEntry?.type === 'reload';
+  }
+
   async function revealMainWindow(
     launchContextOverride?: LaunchContext,
     openedLaunchTargets = false,
@@ -163,7 +169,10 @@ export function useInit() {
       }
       else {
         await traceInitStep('revealMainWindow:show', () => currentWindow.show());
-        await traceInitStep('revealMainWindow:setFocus', () => currentWindow.setFocus());
+
+        if (!isCurrentNavigationReload()) {
+          await traceInitStep('revealMainWindow:setFocus', () => currentWindow.setFocus());
+        }
       }
     }
 
