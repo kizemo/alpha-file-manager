@@ -324,4 +324,59 @@ describe('resolve navigator folder settings', () => {
       'C:/Users/aleks/Keep': remainingSettings,
     });
   });
+
+  it('returns tree layout when global navigator is set to tree', () => {
+    const navigator = createNavigator({
+      layout: {
+        type: { title: 'treeLayout', name: 'tree' },
+        dirItemOptions: {
+          title: { height: 32 },
+          directory: { height: 48 },
+          file: { height: 48 },
+        },
+      },
+    });
+
+    expect(createNavigatorFolderSettingsSnapshot(navigator)).toEqual(
+      expect.objectContaining({ layout: 'tree' }),
+    );
+  });
+
+  it('resolves a folder-scoped tree layout override', () => {
+    const folderSettings = createFolderSettings({ layout: 'tree' });
+    const navigator = createNavigator({
+      layout: {
+        type: { title: 'listLayout', name: 'list' },
+        dirItemOptions: {
+          title: { height: 32 },
+          directory: { height: 48 },
+          file: { height: 48 },
+        },
+      },
+      folderSettings: {
+        'C:/Users/aleks/Documents': folderSettings,
+      },
+    });
+
+    expect(resolveNavigatorFolderSettings(navigator, 'C:/Users/aleks/Documents')).toEqual(
+      expect.objectContaining({ layout: 'tree' }),
+    );
+  });
+
+  it('falls back to the global tree layout when folder setting is missing', () => {
+    const navigator = createNavigator({
+      layout: {
+        type: { title: 'treeLayout', name: 'tree' },
+        dirItemOptions: {
+          title: { height: 32 },
+          directory: { height: 48 },
+          file: { height: 48 },
+        },
+      },
+    });
+
+    expect(resolveNavigatorFolderSettings(navigator, 'C:/Users/aleks/Documents')).toEqual(
+      expect.objectContaining({ layout: 'tree' }),
+    );
+  });
 });
