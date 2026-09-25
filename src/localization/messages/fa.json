@@ -220,7 +220,11 @@
       "startupPage": {
         "title": "صفحه راه‌اندازی",
         "description": "صفحه‌ای را که هنگام شروع برنامه نشان داده می‌شود انتخاب کنید.",
-        "last": "آخرین صفحه"
+        "last": "آخرین صفحه",
+        "customPath": "Custom path...",
+        "customPathPlaceholder": "Pick a directory to open at startup",
+        "browse": "Browse...",
+        "browseTitle": "Pick a startup directory"
       }
     },
     "actions": {
