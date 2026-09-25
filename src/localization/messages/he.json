@@ -1263,5 +1263,6 @@
     "replaceShareDialogTitle": "להחליף את השיתוף הנוכחי?",
     "replaceShareDialogDescription": "קבצים כבר משותפים ברשת. השיתוף הנוכחי ייעצר ויוחלף בחדש.",
     "replaceShareDialogConfirm": "החלף"
-  }
+  },
+  "tree": "Tree"
 }
