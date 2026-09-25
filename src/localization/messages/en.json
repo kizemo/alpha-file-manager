@@ -764,6 +764,7 @@
   "run": "run",
   "list": "List",
   "grid": "Grid",
+  "tree": "Tree",
   "listLayout": "List layout",
   "gridLayout": "Grid layout",
   "highlight": "Highlight",
