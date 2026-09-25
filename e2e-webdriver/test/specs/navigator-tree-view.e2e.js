@@ -3,7 +3,7 @@
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
 // FORK-MODIFICATION: e2e placeholder for tree view (issue #499)
-// Skipped until layout toggle UI lands; renders no assertions.
+// Toggle UI landed 2026-09-25 (feat/tree-view toolbar dropdown). Still skipped — assertions pending (out of scope of toolbar-toggle plan).
 
 import { browser } from '@wdio/globals';
 
