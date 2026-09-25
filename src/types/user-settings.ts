@@ -342,7 +342,7 @@ export type DefaultDirectorySettings = {
 
 export type SplitViewMode = 'split' | 'linked';
 
-export type NavigatorFolderLayoutName = 'list' | 'grid';
+export type NavigatorFolderLayoutName = 'list' | 'grid' | 'tree';
 
 export type NavigatorFolderSettings = {
   layout: NavigatorFolderLayoutName;
