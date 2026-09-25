@@ -29,6 +29,7 @@ import {
   PanelLeftRightDashedIcon,
   PanelRightOpenIcon,
   LayoutGridIcon,
+  FolderTreeIcon,
   ListIcon,
   CircleHelpIcon,
   EllipsisVerticalIcon,
@@ -46,7 +47,7 @@ import type {
 } from '@/modules/navigator/utils/resolve-navigator-folder-settings';
 import NavigatorLayoutSortControls from './navigator-layout-sort-controls.vue';
 
-type LayoutType = 'list' | 'grid';
+type LayoutType = 'list' | 'grid' | 'tree';
 
 const props = defineProps<{
   isSplitView: boolean;
@@ -263,6 +264,15 @@ function handleSettingsScopeChange(value: string | number) {
                     >
                       <LayoutGridIcon :size="24" />
                       <span>{{ t('grid') }}</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="navigator-settings-menu__layout-option"
+                      :class="{ 'navigator-settings-menu__layout-option--active': currentLayout === 'tree' }"
+                      @click="setLayout('tree')"
+                    >
+                      <FolderTreeIcon :size="24" />
+                      <span>{{ t('tree') }}</span>
                     </button>
                   </div>
                 </DropdownMenuItem>
