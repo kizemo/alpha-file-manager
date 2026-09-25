@@ -8,7 +8,8 @@ import type { Tab } from '@/types/workspaces';
 export interface FileBrowserProps {
   tab?: Tab;
   paneIndex?: number;
-  layout?: 'list' | 'grid';
+  // FORK-MODIFICATION: 'tree' added for tree view (issue #499)
+  layout?: 'list' | 'grid' | 'tree';
 }
 
 export interface FileBrowserEmits {
