@@ -391,8 +391,8 @@ export type UserSettingsNavigatorInfoPanel = {
 
 export type NavigatorLayout = {
   type: {
-    title: 'compactListLayout' | 'listLayout' | 'gridLayout';
-    name: 'compact-list' | 'list' | 'grid';
+    title: 'compactListLayout' | 'listLayout' | 'gridLayout' | 'treeLayout';
+    name: 'compact-list' | 'list' | 'grid' | 'tree';
   };
   dirItemOptions: {
     title: {
