@@ -13,6 +13,8 @@ import {
 import { ScrollBar } from '@/components/ui/scroll-area';
 import FileBrowserListHeader from './file-browser-list-header.vue';
 import FileBrowserContentBody from './file-browser-content-body.vue';
+// FORK-MODIFICATION: tree view (issue #499)
+import FileBrowserTreeView from './file-browser-tree-view.vue';
 import { useFileBrowserContext } from './composables/use-file-browser-context';
 import { provideFileBrowserListColumns } from './composables/use-file-browser-list-columns';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
@@ -22,7 +24,8 @@ import {
 } from './utils/file-browser-layout-gaps';
 
 const props = withDefaults(defineProps<{
-  layout?: 'list' | 'grid';
+  // FORK-MODIFICATION: 'tree' added for tree view (issue #499)
+  layout?: 'list' | 'grid' | 'tree';
   trackRelativeTime?: boolean;
 }>(), {
   layout: undefined,
@@ -63,6 +66,13 @@ function handleViewportScroll(event: Event) {
 
   listHeaderRef.value?.syncHorizontalScroll(viewport.scrollLeft);
 }
+
+// FORK-MODIFICATION: tree view activation handler (issue #499)
+function onTreeActivate(path: string) {
+  // Navigate to the file's parent directory (tree roots at currentPath, leaf is a file path)
+  const parent = path.split(/[\\/]/).slice(0, -1).join('/') || path;
+  void ctx.navigateToPath(parent);
+}
 </script>
 
 <template>
@@ -71,10 +81,19 @@ function handleViewportScroll(event: Event) {
     :class="{
       'file-browser__content--fill-column-width': listColumnFillWidth,
       'file-browser__content--grid': props.layout === 'grid',
+      'file-browser__content--tree': props.layout === 'tree',
       'file-browser__content--increased-gaps': ctx.increaseFileViewGaps,
     }"
     :style="contentStyle"
   >
+    <!-- FORK-MODIFICATION: tree view branch (issue #499) -->
+    <FileBrowserTreeView
+      v-if="props.layout === 'tree' && !!ctx.currentPath.value"
+      class="file-browser__tree-view"
+      :root-paths="[ctx.currentPath.value]"
+      @activate="onTreeActivate"
+    />
+
     <div
       v-if="props.layout === 'list'"
       class="file-browser__list-header-shell"
@@ -139,6 +158,12 @@ function handleViewportScroll(event: Event) {
 
 .file-browser__content--grid {
   --file-browser-scrollbar-gutter: 1.25rem;
+}
+
+/* FORK-MODIFICATION: tree view layout (issue #499) */
+.file-browser__content--tree :deep(.file-browser__tree-view) {
+  flex: 1;
+  min-height: 0;
 }
 
 .file-browser__content--grid :deep(.file-browser__entries-container),

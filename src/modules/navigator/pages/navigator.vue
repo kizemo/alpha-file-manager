@@ -298,7 +298,7 @@ const {
   () => canUseFolderSettingsForActivePath.value,
 );
 
-function getLayoutForPath(path: string | undefined): 'list' | 'grid' {
+function getLayoutForPath(path: string | undefined): 'list' | 'grid' | 'tree' {
   return resolveForPath(path).layout;
 }
 
