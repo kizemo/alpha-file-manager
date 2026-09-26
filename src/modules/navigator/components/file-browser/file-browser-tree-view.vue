@@ -14,7 +14,7 @@ list and loaded. Failures surface via `store.markLoadError` and the row
 stays visible (just with no children). See handoff-2026-09-26-tree-sync-retro.
 -->
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { watch } from 'vue';
 import { ChevronRightIcon, ChevronDownIcon, FolderIcon, FileIcon } from '@lucide/vue';
 import { storeToRefs } from 'pinia';
 import {
@@ -24,7 +24,11 @@ import {
 import { useFileTree } from '@/modules/navigator/composables/use-file-tree';
 
 const props = withDefaults(defineProps<{
-  /** Initial root paths. Subsequent changes are picked up via `expandedPaths`. */
+  /** Root directory paths (typically the drives from `useDrives()`).
+   *  Ancestors of the selected path that are *not* in this list are still
+   *  loadable — `useFileTree` walks up to a known ancestor in the tree
+   *  instead of duplicating the path as a new root. This keeps the depth
+   *  display correct (see handoff-2026-09-26-tree-sync-v6-3.md). */
   rootPaths?: string[];
 }>(), {
   rootPaths: () => [],
@@ -37,36 +41,8 @@ const emit = defineEmits<{
 const folderTreeStore = useFolderTreeStore();
 const { expandedPaths, selectedPath } = storeToRefs(folderTreeStore);
 
-// Dynamic root list: starts with caller-provided roots, grows as ancestors of
-// the selected path need to be loaded (e.g. user navigates to a deep folder
-// that wasn't in the initial root set).
-const dynamicRoots = ref<string[]>([...props.rootPaths]);
-
-watch(() => props.rootPaths, (next) => {
-  const merged = [...next];
-  for (const r of dynamicRoots.value) {
-    if (!merged.includes(r)) merged.push(r);
-  }
-  dynamicRoots.value = merged;
-});
-
-watch(selectedPath, (path) => {
-  if (!path) return;
-  const ancestors = computeAncestorPaths(path);
-  if (ancestors.length === 0) return;
-  const next = [...dynamicRoots.value];
-  let changed = false;
-  for (const a of ancestors) {
-    if (!next.includes(a)) {
-      next.push(a);
-      changed = true;
-    }
-  }
-  if (changed) dynamicRoots.value = next;
-}, { immediate: true });
-
 const { rows, ensureAncestorsLoaded } = useFileTree({
-  rootPaths: dynamicRoots,
+  rootPaths: () => props.rootPaths,
   expandedPaths,
   onLoadStart: (path) => {
     folderTreeStore.markLoadError(path, false);
@@ -84,23 +60,25 @@ const { rows, ensureAncestorsLoaded } = useFileTree({
 
 // Whenever the selected path changes, make sure every ancestor directory has
 // its children loaded so the user sees the selected entry highlighted in its
-// expanded ancestor chain. This is the v6 replacement for the v0..v5
-// imperative `treeViewRef.value?.expandToPath(path)` dance.
+// expanded ancestor chain.
 watch(selectedPath, async (path) => {
   if (!path) return;
   await ensureAncestorsLoaded(computeAncestorPaths(path));
 }, { immediate: true });
 
-// v6.2: a click on a tree row both navigates and (for directories) toggles
-// expansion. This matches the user's "single click = expand + jump" flow
-// (see handoff-2026-09-26-tree-sync-v6-2.md). Files navigate to their
-// parent directory; the parent decides what to do with the activation
-// (typically pane navigation).
-function onClick(row: { path: string; isDirectory: boolean }) {
+// v6.3: separate the chevron click (expand/collapse only) from the row
+// click (emit activate → parent navigates). Per user feedback: clicking the
+// icon should expand/collapse without changing the current path; clicking
+// the name (or row body) should open/navigate.
+function onChevronClick(row: { path: string }) {
+  folderTreeStore.toggleExpanded(row.path);
+}
+
+function onRowClick(row: { path: string; isDirectory: boolean }) {
   emit('activate', row.path);
-  if (row.isDirectory) {
-    folderTreeStore.toggleExpanded(row.path);
-  }
+  // Don't manually toggle expand on name click — the store's
+  // setSelectedPath already auto-expands ancestors when the parent
+  // (navigator.vue) syncs the new selected path into the store.
 }
 
 function isRowSelected(path: string): boolean {
@@ -132,12 +110,14 @@ function isRowLoadError(path: string): boolean {
       :data-tree-path="row.path"
       :data-selected="isRowSelected(row.path) || undefined"
       :title="row.path"
-      @click="onClick(row)"
+      @click="onRowClick(row)"
     >
       <component
         :is="row.isDirectory && row.isExpanded ? ChevronDownIcon : ChevronRightIcon"
         v-if="row.isDirectory"
         :size="14"
+        class="file-tree-row__chevron"
+        @click.stop="onChevronClick(row)"
       />
       <span v-else class="file-tree-row__spacer" />
       <component
@@ -185,6 +165,22 @@ function isRowLoadError(path: string): boolean {
 .file-tree-row__spacer {
   display: inline-block;
   width: 14px;
+}
+
+/* v6.3: chevron is a dedicated expand/collapse affordance — show its
+ * own pointer cursor + hover background so the user can discover that
+ * clicking it expands/collapses without navigating (the row body click
+ * still navigates per the v6.2 contract). */
+.file-tree-row__chevron {
+  display: inline-flex;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 1px;
+  flex-shrink: 0;
+}
+
+.file-tree-row__chevron:hover {
+  background-color: hsl(var(--muted) / 70%);
 }
 
 .file-tree-row__name {
