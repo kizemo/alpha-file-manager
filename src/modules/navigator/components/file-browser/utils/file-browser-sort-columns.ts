@@ -34,7 +34,7 @@ export const FILE_BROWSER_SORT_COLUMN_LABEL_KEYS: Record<ListSortColumn, string>
 
 export type FileBrowserListColumnLabelId = ListSortColumn | 'linkTarget';
 
-export type NavigatorSortLayout = 'list' | 'grid' | 'compact-list' | undefined;
+export type NavigatorSortLayout = 'list' | 'grid' | 'compact-list' | 'tree' | undefined;
 
 export type NavigatorSortSettingKeys = {
   column: 'navigator.listSortColumn' | 'navigator.gridSortColumn';

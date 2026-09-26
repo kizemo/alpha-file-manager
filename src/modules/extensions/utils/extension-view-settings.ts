@@ -87,7 +87,15 @@ export function getNavigatorSortLayoutForViewLayout(
 }
 
 export function readExtensionViewLayout(navigator: UserSettingsNavigator): ExtensionViewLayout {
-  return navigator.layout.type.name;
+  // FORK-MODIFICATION: navigator supports 'tree' (issue #499) but the
+  // @sigma-file-manager/api ExtensionViewLayout union hasn't been widened
+  // yet. Tree layout has no extension-equivalent (extensions are list/grid
+  // only), so callers should fall back to a sensible default before calling
+  // here. Narrow with a runtime guard to keep this type-safe.
+  const name = navigator.layout.type.name;
+  return name === 'compact-list' || name === 'list' || name === 'grid'
+    ? name
+    : 'list';
 }
 
 export function readExtensionViewSorting(

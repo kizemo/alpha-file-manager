@@ -53,7 +53,7 @@ export function useFileBrowserSelection(
   onOpen: (entry: DirEntry) => void,
   onOpenProperties: (entries: DirEntry[]) => void,
   onRefresh: () => void,
-  layout?: () => 'list' | 'grid' | undefined,
+  layout?: () => 'list' | 'grid' | 'tree' | undefined,
 ) {
   const { t } = useI18n();
   const platformStore = usePlatformStore();
