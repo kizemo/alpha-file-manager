@@ -372,15 +372,27 @@ const showFolderTree = ref(
 const { drives } = useDrives();
 const treeRootPaths = computed(() => drives.value.map((d) => d.path));
 // v6.4: drive volume labels + drive path set so the sidebar tree can show
-// "C: 系统盘" instead of just "C:" and use a drive icon instead of a
+// "Win (C:)" instead of just "C:" and use a drive icon instead of a
 // folder icon for drive roots.
+//
+// The Rust backend (DriveInfo.name) already includes the drive letter in
+// the form "VolumeLabel (X:)" — e.g. "Win (C:)", "Program (D:)". Don't
+// append the path again or you get "Win (C:) (C:)" (regression caught
+// in v6.4 testing). Use `drive.name` as-is; fall back to the path
+// basename for drives without a label.
 const treeRootLabels = computed<Record<string, string>>(() => {
   const out: Record<string, string> = {};
   for (const d of drives.value) {
     if (!d.path) continue;
-    const label = d.name?.trim() || '';
-    if (!label) continue;
-    out[d.path] = `${label} (${d.path.replace(/[\\/]+$/, '')})`;
+    const name = d.name?.trim();
+    if (name) {
+      out[d.path] = name;
+    }
+    else {
+      // No label from Rust — fall back to path basename.
+      const parts = d.path.split(/[\\/]+/).filter(Boolean);
+      out[d.path] = parts[parts.length - 1] ?? d.path;
+    }
   }
   return out;
 });
