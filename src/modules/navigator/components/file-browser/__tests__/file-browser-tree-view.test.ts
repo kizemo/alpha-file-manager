@@ -61,7 +61,10 @@ describe('FileBrowserTreeView (store-driven sync)', () => {
     expect(store.isExpanded('C:/Users/foo')).toBe(true);
   });
 
-  it('clicking a directory row emits `activate` AND toggles expandedPaths (v6.2 single-click flow)', async () => {
+  it('clicking a directory row emits `activate` (name click → navigate only)', async () => {
+    // v6.3 contract: clicking the row body (or name) emits `activate` so
+    // the parent navigates. It does NOT toggle expansion directly —
+    // setSelectedPath's replace-ancestors policy handles expansion.
     const store = useFolderTreeStore();
     const wrapper = mount(FileBrowserTreeView, {
       props: { rootPaths: ['C:/work'] },
@@ -71,24 +74,34 @@ describe('FileBrowserTreeView (store-driven sync)', () => {
     const row = wrapper.find('[data-tree-path="C:/work"]');
     expect(row.exists()).toBe(true);
 
-    const activateEvents: string[] = [];
-    wrapper.vm.$emit = ((event: string, ...args: unknown[]) => {
-      if (event === 'activate') activateEvents.push(args[0] as string);
-    }) as never;
-    // Re-attach the listener through the actual emit API for correctness:
-    wrapper.vm.$emit = ((event: string, ...args: unknown[]) => {
-      if (event === 'activate') activateEvents.push(args[0] as string);
-    }) as never;
-    // Use the prop emit instead — vue-test-utils exposes emits via emitted():
     await row.trigger('click');
 
     expect(wrapper.emitted('activate')?.[0]).toEqual(['C:/work']);
-    expect(store.isExpanded('C:/work')).toBe(true);
-
-    // second click collapses AND re-emits
-    await row.trigger('click');
-    expect(wrapper.emitted('activate')?.length).toBe(2);
     expect(store.isExpanded('C:/work')).toBe(false);
+
+    wrapper.unmount();
+  });
+
+  it('clicking the chevron toggles expandedPaths without emitting `activate`', async () => {
+    // v6.3: the chevron is a dedicated expand/collapse affordance — clicking
+    // it expands/collapses without changing the current path.
+    const store = useFolderTreeStore();
+    const wrapper = mount(FileBrowserTreeView, {
+      props: { rootPaths: ['C:/work'] },
+    });
+    await nextTick();
+
+    const chevron = wrapper.find('.file-tree-row__chevron');
+    expect(chevron.exists()).toBe(true);
+
+    await chevron.trigger('click');
+    expect(store.isExpanded('C:/work')).toBe(true);
+    expect(wrapper.emitted('activate')).toBeUndefined();
+
+    // Collapse
+    await chevron.trigger('click');
+    expect(store.isExpanded('C:/work')).toBe(false);
+    expect(wrapper.emitted('activate')).toBeUndefined();
 
     wrapper.unmount();
   });

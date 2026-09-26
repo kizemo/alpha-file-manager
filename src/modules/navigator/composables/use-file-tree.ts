@@ -150,18 +150,68 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
     node.isLoaded = true;
   }
 
+  /** Pure helper: return parent directory of `path`, or null if root. */
+  function parentDirectoryOfPath(path: string): string | null {
+    if (!path) return null;
+    if (path === '/') return null;
+    if (/^[A-Z]:\/?$/i.test(path)) return null;
+    const lastSlash = path.lastIndexOf('/');
+    if (lastSlash === -1) return null;
+    if (lastSlash === 0) return '/';
+    let parent = path.substring(0, lastSlash);
+    if (/^[A-Z]:$/i.test(parent)) parent = `${parent}/`;
+    return parent;
+  }
+
+  /**
+   * v6.3: ensure `path` is in the tree AND its children are loaded.
+   *
+   * The previous version called `addRoot` for any path that wasn't already
+   * a root — that produced duplicate depth-0 nodes when ancestors got
+   * auto-expanded (e.g. `selectedPath = "E:/办公文件/002内衣项目"`
+   * caused `办公文件` and `002内衣项目` to be added as standalone roots
+   * alongside `E:/`, breaking the depth display — see
+   * handoff-2026-09-26-tree-sync-v6-3.md).
+   *
+   * New behavior: if `path` isn't in the tree, walk up to find the closest
+   * ancestor that IS in the tree, then load that ancestor's children so
+   * `path` gets discovered as a descendant. If no ancestor is in the
+   * tree (genuinely new root, e.g. a path outside any drive), fall back
+   * to `addRoot`.
+   */
   async function ensureLoaded(path: string): Promise<void> {
     if (loadedSet.value.has(path)) return;
 
-    // Path may not exist yet as a root — add it dynamically (ancestor case).
-    if (!findNode(nodes.value, path)) {
-      addRoot(path);
+    let node = findNode(nodes.value, path);
+    if (!node) {
+      // Walk up to the nearest ancestor already in the tree and load it
+      // so `path` shows up as a child after.
+      let cur = path;
+      while (true) {
+        const parent = parentDirectoryOfPath(cur);
+        if (parent === null || parent === cur) break;
+        const parentNode = findNode(nodes.value, parent);
+        if (parentNode) {
+          // Reload parent — this populates parent.children which should
+          // include `path` as one entry.
+          await loadChildrenOfNode(parentNode);
+          // Re-find `path` now that the parent has been loaded.
+          node = findNode(nodes.value, path);
+          break;
+        }
+        cur = parent;
+      }
+
+      // If still not in tree, fall back to addRoot (genuinely new root).
+      if (!node) {
+        addRoot(path);
+        node = findNode(nodes.value, path);
+      }
     }
 
-    let didLoad = false;
-    const node = findNode(nodes.value, path);
     if (!node?.isDirectory) return;
 
+    let didLoad = false;
     options.onLoadStart?.(path);
     try {
       await loadChildren(node);
@@ -179,6 +229,26 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
       if (!didLoad) {
         nodes.value = [...nodes.value];
       }
+    }
+  }
+
+  /** Internal: load children of an already-existing node, bypassing the
+   *  ancestor walk. Used when ensureLoaded needs to populate a parent's
+   *  children to discover the actual target path as a descendant. */
+  async function loadChildrenOfNode(node: FileTreeNode): Promise<void> {
+    if (node.isLoaded || !node.isDirectory) return;
+    options.onLoadStart?.(node.path);
+    try {
+      await loadChildren(node);
+      options.onLoadEnd?.(node.path);
+    }
+    catch (err) {
+      options.onLoadError?.(node.path, err);
+    }
+    finally {
+      loadedSet.value = new Set(loadedSet.value).add(node.path);
+      // Trigger re-render so newly-discovered children appear in rows().
+      nodes.value = [...nodes.value];
     }
   }
 
