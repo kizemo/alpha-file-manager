@@ -27,10 +27,6 @@
 - **测试**：259 个单元测试全部通过。
 - **上游追踪**：本工作对应上游 issue [#499](https://github.com/aleksey-hoffman/sigma-file-manager/issues/499)。
 
-## 即将推出
-
-- **文件选择对话框焦点同步**（Listary 风格）：当其他应用调用 Sigma 自带文件选择对话框时，地址栏 / 目录树会自动聚焦到调用方所在的目录。仅作用于 Sigma 自己的选择器，不挂全局系统钩子。实现方案位于元仓库的 `docs/superpowers/plans/2026-09-26-dialog-focus-sync.md`，待选择器相关基础设施就绪后即移植到本分支。
-
 ## 致谢
 
 - 上游：[aleksey-hoffman/sigma-file-manager](https://github.com/aleksey-hoffman)，作者 [Aleksey Hoffman](https://github.com/aleksey-hoffman)。所有产品功能、品牌与发布流程均归属于上游。

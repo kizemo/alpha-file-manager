@@ -27,10 +27,6 @@ A left-side **folder tree sidebar** that mirrors the file system and follows the
 - **Tests:** 259 unit tests passing.
 - **Upstream tracking:** this work is tracked against upstream issue [#499](https://github.com/aleksey-hoffman/sigma-file-manager/issues/499).
 
-## Coming soon
-
-- **File picker dialog focus sync** (Listary-style): when Sigma's own file picker is opened from another app, the address bar / tree will pre-focus the directory the requesting app started in. Scoped to Sigma's picker only; no global system hooks. Implementation plan lives at `docs/superpowers/plans/2026-09-26-dialog-focus-sync.md` in the meta repo and will be ported into this fork once the picker plumbing is in place.
-
 ## Credits
 
 - Upstream: [aleksey-hoffman/sigma-file-manager](https://github.com/aleksey-hoffman/sigma-file-manager) by [Aleksey Hoffman](https://github.com/aleksey-hoffman). All product features, branding, and release pipelines belong to upstream.
