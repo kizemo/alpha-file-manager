@@ -41,6 +41,14 @@ export interface UseFileTreeOptions {
    */
   rootPaths: MaybeRefOrGetter<string[]>;
   /**
+   * Optional display labels for root paths (e.g. drive volume labels like
+   * "Windows (C:)" instead of just "C:"). Keys are root paths, values are
+   * the label to use as the row's `name`. Paths without a label fall back
+   * to the path basename. v6.4: lets drives show their volume name in
+   * the sidebar tree.
+   */
+  rootLabels?: MaybeRefOrGetter<Record<string, string>>;
+  /**
    * Reactive set of currently expanded directory paths.
    * The caller owns this state — typically `storeToRefs(folderTreeStore).expandedPaths`.
    */
@@ -105,7 +113,7 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
     if (rootSet.value.has(path)) return false;
     const newRoot: FileTreeNode = {
       path,
-      name: path.split(/[\\/]/).pop() ?? path,
+      name: deriveRootName(path, toValue(options.rootLabels)),
       isDirectory: true,
       isExpanded: false,
       isLoaded: false,
@@ -283,13 +291,14 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
 
   function initializeNodes(paths: string[]) {
     rootSet.value = new Set(paths);
-    nodes.value = buildRoots(paths);
+    nodes.value = buildRoots(paths, toValue(options.rootLabels));
   }
 
   function rebuildRoots(paths: string[]) {
     const nextRoots = new Set(paths);
     const next: FileTreeNode[] = [];
     const previousRoots = rootSet.value;
+    const labels = toValue(options.rootLabels);
 
     for (const p of paths) {
       if (previousRoots.has(p)) {
@@ -300,7 +309,7 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
           continue;
         }
       }
-      next.push(...buildRoots([p]));
+      next.push(...buildRoots([p], labels));
     }
 
     rootSet.value = nextRoots;
@@ -316,16 +325,28 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
   };
 }
 
-function buildRoots(paths: string[]): FileTreeNode[] {
+function buildRoots(paths: string[], labels?: Record<string, string>): FileTreeNode[] {
   return paths.map((p) => ({
     path: p,
-    name: p.split(/[\\/]/).pop() ?? p,
+    name: deriveRootName(p, labels),
     isDirectory: true,
     isExpanded: false,
     isLoaded: false,
     depth: 0,
     children: null,
   }));
+}
+
+/** v6.4: derive a display name for a root path. Order:
+ *  1. Caller-provided label (e.g. drive volume name) for the exact path.
+ *  2. Basename of the path, treating both `/` and `\` as separators and
+ *     collapsing consecutive separators (so trailing slash / backslash
+ *     doesn't produce an empty name). */
+function deriveRootName(path: string, labels?: Record<string, string>): string {
+  if (labels && labels[path]) return labels[path];
+  const parts = path.split(/[\\/]+/).filter(Boolean);
+  if (parts.length > 0) return parts[parts.length - 1];
+  return path;
 }
 
 function defaultDeps(): UseFileTreeDeps {

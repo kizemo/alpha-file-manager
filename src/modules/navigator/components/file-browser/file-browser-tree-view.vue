@@ -14,8 +14,14 @@ list and loaded. Failures surface via `store.markLoadError` and the row
 stays visible (just with no children). See handoff-2026-09-26-tree-sync-retro.
 -->
 <script setup lang="ts">
-import { watch } from 'vue';
-import { ChevronRightIcon, ChevronDownIcon, FolderIcon, FileIcon } from '@lucide/vue';
+import { computed, watch } from 'vue';
+import {
+  ChevronRightIcon,
+  ChevronDownIcon,
+  FolderIcon,
+  FileIcon,
+  HardDriveIcon,
+} from '@lucide/vue';
 import { storeToRefs } from 'pinia';
 import {
   computeAncestorPaths,
@@ -30,8 +36,16 @@ const props = withDefaults(defineProps<{
    *  instead of duplicating the path as a new root. This keeps the depth
    *  display correct (see handoff-2026-09-26-tree-sync-v6-3.md). */
   rootPaths?: string[];
+  /** v6.4: optional display-name overrides for root paths (e.g. drive
+   *  volume labels like "系统盘 (C:)"). Pass the drives' names here. */
+  rootLabels?: Record<string, string>;
+  /** v6.4: paths that are drive roots (vs regular folders). Used by the
+   *  template to swap the folder icon for a hard-drive icon. */
+  drivePaths?: string[];
 }>(), {
   rootPaths: () => [],
+  rootLabels: () => ({}),
+  drivePaths: () => [],
 });
 
 const emit = defineEmits<{
@@ -41,8 +55,16 @@ const emit = defineEmits<{
 const folderTreeStore = useFolderTreeStore();
 const { expandedPaths, selectedPath } = storeToRefs(folderTreeStore);
 
+// Set for O(1) drive-path lookup during template render.
+const drivePathSet = computed<Set<string>>(() => new Set(props.drivePaths ?? []));
+
+function isDrivePath(path: string): boolean {
+  return drivePathSet.value.has(path);
+}
+
 const { rows, ensureAncestorsLoaded } = useFileTree({
   rootPaths: () => props.rootPaths,
+  rootLabels: () => props.rootLabels ?? {},
   expandedPaths,
   onLoadStart: (path) => {
     folderTreeStore.markLoadError(path, false);
@@ -92,6 +114,13 @@ function isRowLoading(path: string): boolean {
 function isRowLoadError(path: string): boolean {
   return folderTreeStore.hasLoadError(path);
 }
+
+function getRowIcon(row: { path: string; isDirectory: boolean }): typeof FolderIcon {
+  if (!row.isDirectory) return FileIcon;
+  // v6.4: drive roots use the hard-drive icon to distinguish them from
+  // regular folders.
+  return isDrivePath(row.path) ? HardDriveIcon : FolderIcon;
+}
 </script>
 
 <template>
@@ -121,7 +150,7 @@ function isRowLoadError(path: string): boolean {
       />
       <span v-else class="file-tree-row__spacer" />
       <component
-        :is="row.isDirectory ? FolderIcon : FileIcon"
+        :is="getRowIcon(row)"
         :size="14"
       />
       <span class="file-tree-row__name" :title="row.name">{{ row.name }}</span>
