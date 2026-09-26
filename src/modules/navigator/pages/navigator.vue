@@ -229,6 +229,20 @@ const currentDirEntry = ref<DirEntry | null>(
 const activeTabId = ref<string | null>(null);
 const isSmallScreen = useIsSmallScreen();
 
+// FORK-MODIFICATION: split-view tree sync (issue #499, v6.2).
+// In split view the tree should reflect the path of whichever pane the user
+// last focused, not just `workspacesStore.currentTab` (which is always the
+// first tab in the group). When the active pane changes — via
+// `activateTabPane`, a click on a pane, or split-view toggling — mirror its
+// path into the folder-tree store so the sidebar tree expands to it.
+watch([activeTabId, () => isSplitView.value], () => {
+  if (!isSplitView.value) return;
+  const activeTab = workspacesStore.currentTabGroup?.find(
+    (tab) => tab.id === activeTabId.value,
+  );
+  folderTreeStore.setSelectedPath(activeTab?.path ?? null);
+}, { immediate: true });
+
 watch(() => workspacesStore.currentTabGroup, (newGroup, oldGroup) => {
   const currentTabIds = new Set(
     workspacesStore.currentTabGroup?.map(tab => tab.id) || [],

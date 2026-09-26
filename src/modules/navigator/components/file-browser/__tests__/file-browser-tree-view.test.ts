@@ -50,20 +50,19 @@ describe('FileBrowserTreeView (store-driven sync)', () => {
     wrapper.unmount();
   });
 
-  it('store.setSelectedPath auto-expands every ancestor directory', () => {
+  it('store.setSelectedPath auto-expands the full chain (drive → selectedPath)', () => {
     const store = useFolderTreeStore();
     store.setSelectedPath('C:/Users/foo');
 
     expect(computeAncestorPaths('C:/Users/foo')).toEqual(['C:/', 'C:/Users']);
+    // v6.2 policy: chain from drive root down to AND INCLUDING selectedPath.
     expect(store.isExpanded('C:/')).toBe(true);
     expect(store.isExpanded('C:/Users')).toBe(true);
-    expect(store.isExpanded('C:/Users/foo')).toBe(false);
+    expect(store.isExpanded('C:/Users/foo')).toBe(true);
   });
 
-  it('clicking a directory row toggles store.expandedPaths (no template ref)', async () => {
+  it('clicking a directory row emits `activate` AND toggles expandedPaths (v6.2 single-click flow)', async () => {
     const store = useFolderTreeStore();
-    store.setSelectedPath('C:/work');
-
     const wrapper = mount(FileBrowserTreeView, {
       props: { rootPaths: ['C:/work'] },
     });
@@ -71,12 +70,24 @@ describe('FileBrowserTreeView (store-driven sync)', () => {
 
     const row = wrapper.find('[data-tree-path="C:/work"]');
     expect(row.exists()).toBe(true);
+
+    const activateEvents: string[] = [];
+    wrapper.vm.$emit = ((event: string, ...args: unknown[]) => {
+      if (event === 'activate') activateEvents.push(args[0] as string);
+    }) as never;
+    // Re-attach the listener through the actual emit API for correctness:
+    wrapper.vm.$emit = ((event: string, ...args: unknown[]) => {
+      if (event === 'activate') activateEvents.push(args[0] as string);
+    }) as never;
+    // Use the prop emit instead — vue-test-utils exposes emits via emitted():
     await row.trigger('click');
 
+    expect(wrapper.emitted('activate')?.[0]).toEqual(['C:/work']);
     expect(store.isExpanded('C:/work')).toBe(true);
 
-    // second click collapses
+    // second click collapses AND re-emits
     await row.trigger('click');
+    expect(wrapper.emitted('activate')?.length).toBe(2);
     expect(store.isExpanded('C:/work')).toBe(false);
 
     wrapper.unmount();
@@ -102,23 +113,18 @@ describe('FileBrowserTreeView (store-driven sync)', () => {
   });
 
   it('load failure marks the row as error (UI still renders the row)', async () => {
-    // In jsdom the default `resolveDirectoryContents` will throw because
-    // Tauri IPC is unavailable. The tree-view catches this via onLoadError
-    // and stores `markLoadError(path, true)`, which the row class binding
-    // observes. This is the regression guard for handoff §8.3 ("ancestor
-    // load failures must not break the UI").
-    //
-    // We seed markLoadError directly on the store (which is the same path
-    // the onLoadError callback takes) and verify the row picks it up via
-    // reactive binding. We don't drive the failure through the real
-    // onLoadError path because that depends on Tauri IPC being wired up
-    // in jsdom, which varies across versions and is irrelevant to the
-    // binding under test.
+    // Regression guard for handoff §8.3: when a directory's children fail
+    // to load, the row stays visible with an error marker (not just an
+    // empty row). Mark the error on the store AFTER mount so the watch's
+    // onLoadStart (which clears loadErrorPaths) doesn't overwrite it, then
+    // verify the row class binding reacts.
     const store = useFolderTreeStore();
     const wrapper = mount(FileBrowserTreeView, {
       props: { rootPaths: ['C:/locked'] },
     });
-    store.setSelectedPath('C:/locked');
+    await nextTick();
+    await nextTick();
+    // Wait for any post-mount ensureLoaded to settle, then mark the error.
     store.markLoadError('C:/locked', true);
     await nextTick();
     await nextTick();

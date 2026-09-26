@@ -91,12 +91,15 @@ watch(selectedPath, async (path) => {
   await ensureAncestorsLoaded(computeAncestorPaths(path));
 }, { immediate: true });
 
+// v6.2: a click on a tree row both navigates and (for directories) toggles
+// expansion. This matches the user's "single click = expand + jump" flow
+// (see handoff-2026-09-26-tree-sync-v6-2.md). Files navigate to their
+// parent directory; the parent decides what to do with the activation
+// (typically pane navigation).
 function onClick(row: { path: string; isDirectory: boolean }) {
+  emit('activate', row.path);
   if (row.isDirectory) {
     folderTreeStore.toggleExpanded(row.path);
-  }
-  else {
-    emit('activate', row.path);
   }
 }
 
@@ -128,6 +131,7 @@ function isRowLoadError(path: string): boolean {
       :aria-expanded="row.isDirectory ? row.isExpanded : undefined"
       :data-tree-path="row.path"
       :data-selected="isRowSelected(row.path) || undefined"
+      :title="row.path"
       @click="onClick(row)"
     >
       <component
@@ -140,7 +144,7 @@ function isRowLoadError(path: string): boolean {
         :is="row.isDirectory ? FolderIcon : FileIcon"
         :size="14"
       />
-      <span class="file-tree-row__name">{{ row.name }}</span>
+      <span class="file-tree-row__name" :title="row.name">{{ row.name }}</span>
       <span
         v-if="isRowLoadError(row.path)"
         class="file-tree-row__error-marker"
@@ -184,9 +188,16 @@ function isRowLoadError(path: string): boolean {
 }
 
 .file-tree-row__name {
+  /* Keep one line per tree depth level so siblings align; long names clip
+   * with ellipsis. The full path/name is also exposed via the `title`
+   * attribute on the row + name span so hovering shows the whole thing in
+   * a native tooltip — see handoff-2026-09-26-tree-sync-v6-2.md. */
+  overflow-wrap: anywhere;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
 }
 
 .file-tree-row__error-marker {
