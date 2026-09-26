@@ -22,7 +22,10 @@ import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import { useClipboardStore } from '@/stores/runtime/clipboard';
 import { useDismissalLayerStore } from '@/stores/runtime/dismissal-layer';
 import { useFolderTreeStore } from '@/stores/runtime/folder-tree';
+import { useDrives } from '@/modules/home/composables/use-drives';
+import FileBrowserTreeView from '@/modules/navigator/components/file-browser/file-browser-tree-view.vue';
 import { useGlobalSearchStore } from '@/stores/runtime/global-search';
+import { useQuickViewStore } from '@/stores/runtime/quick-view';
 import { useShortcutsStore, getSelectedTextForCopy } from '@/stores/runtime/shortcuts';
 import { toast, ToastStatic } from '@/components/ui/toaster';
 import {
@@ -346,6 +349,23 @@ function handleToggleSplitView() {
 const userSettingsStore = useUserSettingsStore();
 const splitViewMode = computed(() => userSettingsStore.userSettings.navigator.splitViewMode);
 
+// FORK-MODIFICATION: sidebar tree (issue #499). Persisted in user settings
+// so the toggle state survives restarts. Defaults to true when the key is
+// absent.
+const showFolderTree = ref(
+  userSettingsStore.userSettings.navigator.showFolderTree ?? true,
+);
+const { drives } = useDrives();
+const treeRootPaths = computed(() => drives.value.map((d) => d.path));
+
+watch(showFolderTree, (next) => {
+  void userSettingsStore.set('navigator.showFolderTree', next);
+});
+
+function handleToggleFolderTree() {
+  showFolderTree.value = !showFolderTree.value;
+}
+
 const isLinkedMode = computed(() => splitViewMode.value === 'linked' && isSplitView.value);
 
 const linkedPaneSyncQueue = createLinkedPaneSyncQueueState();
@@ -462,6 +482,24 @@ function handleCurrentDirChange(entry: DirEntry | null) {
   // forwarding. Replaces the v0..v5 broken `treeViewRef.value?.expandToPath`
   // chain (see handoff-2026-09-26-tree-sync-retro.md).
   folderTreeStore.setSelectedPath(entry?.path ?? null);
+}
+
+// FORK-MODIFICATION: sidebar tree handlers (issue #499).
+// Activating a tree row navigates the active pane to that path (or its
+// parent if the user clicked a leaf file path inside the tree, where the
+// tree's root is a directory). Previews open the quick-view window.
+function handleTreeActivate(path: string) {
+  const pane = getNavigatorPaneRef();
+  if (!pane?.navigateToPath) return;
+  void pane.navigateToPath(path);
+}
+
+function handleTreePreview(path: string) {
+  // The sidebar tree emits 'preview' only for file rows (file-browser-tree-view
+  // emits activate for directories and preview for leaf files). Open quick
+  // view for the file.
+  const quickViewStore = useQuickViewStore();
+  void quickViewStore.toggleQuickView(path);
 }
 
 function handlePaneFocus(tabId: string) {
@@ -1198,11 +1236,13 @@ onUnmounted(() => {
   <NavigatorToolbarActions
     :is-split-view="isSplitView"
     :show-info-panel="showInfoPanel"
+    :show-folder-tree="showFolderTree"
     :is-global-search-open="globalSearchStore.isOpen"
     :active-path="folderSettingsActivePath"
     :can-use-folder-settings="canUseFolderSettings"
     @toggle-split-view="handleToggleSplitView"
     @toggle-info-panel="handleToggleInfoPanel"
+    @toggle-folder-tree="handleToggleFolderTree"
   />
   <div class="navigator-page">
     <TabBar v-if="!isSmallScreen" />
@@ -1235,19 +1275,49 @@ onUnmounted(() => {
           :min-size="mainPanelMinSize"
         >
           <div class="navigator-page__panes-wrapper">
-            <div class="navigator-page__panes-container">
-              <GlobalSearchView
-                ref="globalSearchViewRef"
-                v-show="globalSearchStore.isOpen"
-                class="navigator-page__search-panel"
-                @close="globalSearchStore.close()"
-                @open-entry="handleGlobalSearchOpenEntry"
-                @update:selected-entries="handleSearchSelectionChange"
-              />
-              <ResizablePanelGroup
-                direction="horizontal"
-                class="navigator-page__panes"
+            <ResizablePanelGroup
+              direction="horizontal"
+              class="navigator-page__tree-and-panes"
+              :class="{ 'navigator-page__tree-and-panes--tree-hidden': !showFolderTree }"
+            >
+              <ResizablePanel
+                v-if="showFolderTree"
+                :order="1"
+                :default-size="22"
+                :min-size="12"
+                :max-size="40"
+                class="navigator-page__folder-tree-panel"
               >
+                <FileBrowserTreeView
+                  class="navigator-page__folder-tree"
+                  :root-paths="treeRootPaths"
+                  @activate="handleTreeActivate"
+                  @preview="handleTreePreview"
+                />
+              </ResizablePanel>
+              <ResizableHandle
+                v-if="showFolderTree"
+                with-handle
+              />
+              <ResizablePanel
+                :order="2"
+                :default-size="100"
+                :min-size="40"
+                class="navigator-page__panes-section"
+              >
+                <div class="navigator-page__panes-container">
+                  <GlobalSearchView
+                    ref="globalSearchViewRef"
+                    v-show="globalSearchStore.isOpen"
+                    class="navigator-page__search-panel"
+                    @close="globalSearchStore.close()"
+                    @open-entry="handleGlobalSearchOpenEntry"
+                    @update:selected-entries="handleSearchSelectionChange"
+                  />
+                  <ResizablePanelGroup
+                    direction="horizontal"
+                    class="navigator-page__panes"
+                  >
                 <template v-if="workspacesStore.currentTabGroup && isSplitView">
                   <template
                     v-for="(tab, index) in workspacesStore.currentTabGroup"
@@ -1308,7 +1378,9 @@ onUnmounted(() => {
                   />
                 </ResizablePanel>
               </ResizablePanelGroup>
-            </div>
+              </div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
             <ClipboardToolbar
               :current-path="currentActivePath"
               :is-split-view="isSplitView"
@@ -1376,19 +1448,49 @@ onUnmounted(() => {
         v-else
         class="navigator-page__panes-wrapper"
       >
-        <div class="navigator-page__panes-container">
-          <GlobalSearchView
-            ref="globalSearchViewRef"
-            v-show="globalSearchStore.isOpen"
-            class="navigator-page__search-panel"
-            @close="globalSearchStore.close()"
-            @open-entry="handleGlobalSearchOpenEntry"
-            @update:selected-entries="handleSearchSelectionChange"
-          />
-          <ResizablePanelGroup
-            direction="horizontal"
-            class="navigator-page__panes"
+        <ResizablePanelGroup
+          direction="horizontal"
+          class="navigator-page__tree-and-panes"
+          :class="{ 'navigator-page__tree-and-panes--tree-hidden': !showFolderTree }"
+        >
+          <ResizablePanel
+            v-if="showFolderTree"
+            :order="1"
+            :default-size="22"
+            :min-size="12"
+            :max-size="40"
+            class="navigator-page__folder-tree-panel"
           >
+            <FileBrowserTreeView
+              class="navigator-page__folder-tree"
+              :root-paths="treeRootPaths"
+              @activate="handleTreeActivate"
+              @preview="handleTreePreview"
+            />
+          </ResizablePanel>
+          <ResizableHandle
+            v-if="showFolderTree"
+            with-handle
+          />
+          <ResizablePanel
+            :order="2"
+            :default-size="100"
+            :min-size="40"
+            class="navigator-page__panes-section"
+          >
+            <div class="navigator-page__panes-container">
+              <GlobalSearchView
+                ref="globalSearchViewRef"
+                v-show="globalSearchStore.isOpen"
+                class="navigator-page__search-panel"
+                @close="globalSearchStore.close()"
+                @open-entry="handleGlobalSearchOpenEntry"
+                @update:selected-entries="handleSearchSelectionChange"
+              />
+              <ResizablePanelGroup
+                direction="horizontal"
+                class="navigator-page__panes"
+              >
             <template v-if="workspacesStore.currentTabGroup && isSplitView">
               <template
                 v-for="(tab, index) in workspacesStore.currentTabGroup"
@@ -1448,8 +1550,10 @@ onUnmounted(() => {
                 @update:current-dir-entry="handleCurrentDirChange"
               />
             </ResizablePanel>
-          </ResizablePanelGroup>
-        </div>
+              </ResizablePanelGroup>
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
         <ClipboardToolbar
           :current-path="currentActivePath"
           :is-split-view="isSplitView"
@@ -1583,6 +1687,42 @@ onUnmounted(() => {
   flex: 1;
   flex-direction: column;
   gap: 6px;
+}
+
+.navigator-page__tree-and-panes {
+  display: flex;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  gap: 6px;
+}
+
+.navigator-page__tree-and-panes :deep([data-panel]) {
+  display: flex;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+}
+
+.navigator-page__folder-tree-panel {
+  border: 1px solid hsl(var(--border) / 40%);
+  border-radius: var(--radius-sm);
+  background-color: hsl(var(--background-2) / 60%);
+}
+
+.navigator-page__folder-tree {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
+
+.navigator-page__panes-section {
+  display: flex;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
 }
 
 .navigator-page__panes-container {

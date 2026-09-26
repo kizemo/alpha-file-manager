@@ -194,7 +194,9 @@
     "newDirectoryFile": "نیا فولڈر / فائل",
     "newDirectory": "نیا فولڈر",
     "newFile": "نئی فائل",
-    "reloadCurrentDirectory": "موجودہ فولڈر دوبارہ لوڈ کریں"
+    "reloadCurrentDirectory": "موجودہ فولڈر دوبارہ لوڈ کریں",
+    "showFolderTree": "Show folder tree",
+    "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
     "subtitle": "پسندیدہ، ٹیگ والی اور اکثر استعمال ہونے والی اشیاء تک فوری رسائی",

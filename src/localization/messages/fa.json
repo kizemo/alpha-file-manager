@@ -161,7 +161,9 @@
     "newDirectoryFile": "دایرکتوری / فایل جدید",
     "newDirectory": "دایرکتوری جدید",
     "newFile": "فایل جدید",
-    "reloadCurrentDirectory": "بارگیری مجدد فهرست فعلی"
+    "reloadCurrentDirectory": "بارگیری مجدد فهرست فعلی",
+    "showFolderTree": "Show folder tree",
+    "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
     "subtitle": "دسترسی سریع به موارد دلخواه، برچسب‌گذاری شده و پرکاربرد",

@@ -194,7 +194,9 @@
     "newDirectoryFile": "תיקייה / קובץ חדש",
     "newDirectory": "תיקייה חדשה",
     "newFile": "קובץ חדש",
-    "reloadCurrentDirectory": "טען מחדש את התיקייה הנוכחית"
+    "reloadCurrentDirectory": "טען מחדש את התיקייה הנוכחית",
+    "showFolderTree": "Show folder tree",
+    "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
     "subtitle": "גישה מהירה לפריטים המועדפים, המתויגים והנפוצים שלך",

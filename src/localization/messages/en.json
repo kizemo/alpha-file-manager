@@ -194,7 +194,9 @@
     "newDirectoryFile": "New directory / file",
     "newDirectory": "New directory",
     "newFile": "New file",
-    "reloadCurrentDirectory": "Reload current directory"
+    "reloadCurrentDirectory": "Reload current directory",
+    "showFolderTree": "Show folder tree",
+    "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
     "subtitle": "Quick access to your favorite, tagged, and frequently used items",

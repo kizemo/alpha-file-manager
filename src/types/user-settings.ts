@@ -377,6 +377,8 @@ export type UserSettingsNavigator = {
   gridSortDirection: ListSortDirection;
   enableBoxSelection: boolean;
   increaseFileViewGaps: boolean;
+  // FORK-MODIFICATION: sidebar tree toggle persistence (issue #499)
+  showFolderTree?: boolean;
 };
 
 export type UserSettingsNavigatorInfoPanel = {
