@@ -45,6 +45,24 @@ Designed, developed, and maintained by [Aleksey Hoffman](https://github.com/alek
 - **Localization:** The app has translations for all most used languages. 
 - And more. Extensions provide additional features like video downloading (1000+ sites supported, including YouTube, Twitch, etc.), media converter, image size optimizer, etc.
 
+## kizemo fork additions
+
+This fork extends upstream [`aleksey-hoffman/sigma-file-manager`](https://github.com/aleksey-hoffman/sigma-file-manager) with features tuned to the kizemo workflow. All additions are additive and can be toggled per user.
+
+![Sigma File Manager with tree sidebar showing E:/办公文件 directory](./docs/screenshots/tree-sidebar-v6.4.1.png)
+
+#### Major additions in this fork:
+
+- **Folder tree sidebar:** A toggleable tree view alongside the main file list. Click a folder to navigate; chevron clicks expand or collapse without changing the current path. Syncs with the address bar, is split-view aware, and persists across sessions via `userSettings.navigator.showFolderTree`.
+- **Coming soon — file picker focus sync:** When Sigma loses focus to a file dialog (Save As / Open), the dialog will remember the navigator path so returning to Sigma drops you back where you left off. Inspired by Listary's quick-switch.
+
+#### Branch and history:
+
+- Folder tree shipped on branch `feat/tree-sidebar-v6-1` (HEAD `8caf14ae`, v6.4.1, 6 atomic commits, 259 unit tests passing).
+- Tracks upstream issue [#499](https://github.com/aleksey-hoffman/sigma-file-manager/issues/499).
+
+See [`docs/FORK-NOTES.md`](./docs/FORK-NOTES.md) for the full architecture, file map, and persistence model.
+
 ## Sponsors
 
 <table>
