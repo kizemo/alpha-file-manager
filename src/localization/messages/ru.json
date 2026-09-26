@@ -194,7 +194,9 @@
     "newDirectoryFile": "Новая папка / файл",
     "newDirectory": "Новая директория",
     "newFile": "Новый файл",
-    "reloadCurrentDirectory": "Перезагрузить текущую папку"
+    "reloadCurrentDirectory": "Перезагрузить текущую папку",
+    "showFolderTree": "Show folder tree",
+    "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
     "subtitle": "Быстрый доступ к избранным, помеченным и часто используемым элементам",

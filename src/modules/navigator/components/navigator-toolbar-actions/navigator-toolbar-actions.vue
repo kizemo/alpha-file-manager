@@ -47,11 +47,12 @@ import type {
 } from '@/modules/navigator/utils/resolve-navigator-folder-settings';
 import NavigatorLayoutSortControls from './navigator-layout-sort-controls.vue';
 
-type LayoutType = 'list' | 'grid' | 'tree';
+type LayoutType = 'list' | 'grid';
 
 const props = defineProps<{
   isSplitView: boolean;
   showInfoPanel: boolean;
+  showFolderTree: boolean;
   isGlobalSearchOpen: boolean;
   activePath?: string;
   canUseFolderSettings?: boolean;
@@ -60,6 +61,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'toggle-split-view': [];
   'toggle-info-panel': [];
+  'toggle-folder-tree': [];
 }>();
 
 const { t } = useI18n();
@@ -164,6 +166,32 @@ function handleSettingsScopeChange(value: string | number) {
               </Button>
             </DropdownMenuTrigger>
           </TooltipTrigger>
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <Button
+                variant="ghost"
+                size="icon"
+                :class="{
+                  'navigator-toolbar-actions__button--active': props.showFolderTree,
+                }"
+                :aria-label="props.showFolderTree ? t('navigator.hideFolderTree') : t('navigator.showFolderTree')"
+                @click="emit('toggle-folder-tree')"
+              >
+                <FolderTreeIcon
+                  :size="16"
+                  class="navigator-toolbar-actions__icon"
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent
+              :side="'bottom'"
+              class="navigator-toolbar-actions__tooltip"
+            >
+              <div class="navigator-toolbar-actions__tooltip-row">
+                {{ props.showFolderTree ? t('navigator.hideFolderTree') : t('navigator.showFolderTree') }}
+              </div>
+            </TooltipContent>
+          </Tooltip>
           <DropdownMenuContent
             :side="'bottom'"
             :align="'end'"
@@ -264,15 +292,6 @@ function handleSettingsScopeChange(value: string | number) {
                     >
                       <LayoutGridIcon :size="24" />
                       <span>{{ t('grid') }}</span>
-                    </button>
-                    <button
-                      type="button"
-                      class="navigator-settings-menu__layout-option"
-                      :class="{ 'navigator-settings-menu__layout-option--active': currentLayout === 'tree' }"
-                      @click="setLayout('tree')"
-                    >
-                      <FolderTreeIcon :size="24" />
-                      <span>{{ t('tree') }}</span>
                     </button>
                   </div>
                 </DropdownMenuItem>

@@ -194,7 +194,9 @@
     "newDirectoryFile": "Nova mapa / datoteka",
     "newDirectory": "Nova mapa",
     "newFile": "Nova datoteka",
-    "reloadCurrentDirectory": "Ponovno naloži trenutno mapo"
+    "reloadCurrentDirectory": "Ponovno naloži trenutno mapo",
+    "showFolderTree": "Show folder tree",
+    "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
     "subtitle": "Hiter dostop do vaših priljubljenih, označenih in pogosto uporabljenih predmetov",

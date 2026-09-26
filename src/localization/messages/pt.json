@@ -165,7 +165,9 @@
     "newDirectoryFile": "novo arquivo de diretorio",
     "newDirectory": "novo diretorio",
     "newFile": "novo arquivo",
-    "reloadCurrentDirectory": "recarregar o diretório atual"
+    "reloadCurrentDirectory": "recarregar o diretório atual",
+    "showFolderTree": "Show folder tree",
+    "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
     "subtitle": "Acesso rápido aos seus itens favoritos, marcados e frequentemente usados",

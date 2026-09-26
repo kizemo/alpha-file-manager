@@ -165,7 +165,9 @@
     "newDirectoryFile": "Neues Verzeichnis / Datei",
     "newDirectory": "Neues Verzeichnis",
     "newFile": "Neue Datei",
-    "reloadCurrentDirectory": "Aktuelles Verzeichnis neu laden"
+    "reloadCurrentDirectory": "Aktuelles Verzeichnis neu laden",
+    "showFolderTree": "Show folder tree",
+    "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
     "subtitle": "Schneller Zugriff auf Ihre Favoriten, markierte und häufig verwendete Elemente",

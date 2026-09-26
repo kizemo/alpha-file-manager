@@ -165,7 +165,9 @@
     "newDirectoryFile": "Thư mục/tệp mới",
     "newDirectory": "Thư mục mới",
     "newFile": "Tệp mới",
-    "reloadCurrentDirectory": "Tải lại thư mục hiện tại"
+    "reloadCurrentDirectory": "Tải lại thư mục hiện tại",
+    "showFolderTree": "Show folder tree",
+    "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
     "subtitle": "Truy cập nhanh các mục yêu thích, được gắn thẻ và thường dùng",

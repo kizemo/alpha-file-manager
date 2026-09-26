@@ -165,7 +165,9 @@
     "newDirectoryFile": "新しいディレクトリ/ファイル",
     "newDirectory": "新しいディレクトリ",
     "newFile": "新しいファイル",
-    "reloadCurrentDirectory": "現在のディレクトリをリロード"
+    "reloadCurrentDirectory": "現在のディレクトリをリロード",
+    "showFolderTree": "Show folder tree",
+    "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
     "subtitle": "お気に入り、タグ付け、よく使うアイテムへのクイックアクセス",

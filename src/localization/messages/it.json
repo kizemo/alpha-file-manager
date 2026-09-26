@@ -165,7 +165,9 @@
     "newDirectoryFile": "Nuova cartella/file",
     "newDirectory": "Nuova cartella",
     "newFile": "Nuovo file",
-    "reloadCurrentDirectory": "Ricarica la cartella corrente"
+    "reloadCurrentDirectory": "Ricarica la cartella corrente",
+    "showFolderTree": "Show folder tree",
+    "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
     "subtitle": "Accesso rapido ai tuoi elementi preferiti, taggati e usati frequentemente",
