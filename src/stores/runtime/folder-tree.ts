@@ -87,26 +87,23 @@ export const useFolderTreeStore = defineStore('folderTree', () => {
   }
 
   /**
-   * Set the selected path. Side effect: auto-expand every ancestor directory
-   * so the tree reveals the selection. This is a pure synchronous update of
-   * `expandedPaths`; child data loading happens in the tree-view's watch.
+   * Set the selected path. Side effect: replace `expandedPaths` with the
+   * chain from the drive/root down to (and including) the selected path so
+   * the tree reveals the selection while everything else collapses back to
+   * drive level. This is the v6.2 "single-active-path" policy — see
+   * handoff-2026-09-26-tree-sync-v6-2.md. Manual expansions of unrelated
+   * branches are cleared on every navigation.
    */
   function setSelectedPath(path: string | null): void {
     selectedPath.value = path;
-    if (!path) return;
+    if (!path) {
+      expandedPaths.value = new Set();
+      return;
+    }
     const ancestors = computeAncestorPaths(path);
-    if (ancestors.length === 0) return;
-    const next = new Set(expandedPaths.value);
-    let changed = false;
-    for (const a of ancestors) {
-      if (!next.has(a)) {
-        next.add(a);
-        changed = true;
-      }
-    }
-    if (changed) {
-      expandedPaths.value = next;
-    }
+    const next = new Set<string>(ancestors);
+    next.add(path);
+    expandedPaths.value = next;
   }
 
   function toggleExpanded(path: string): void {

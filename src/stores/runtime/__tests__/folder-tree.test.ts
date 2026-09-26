@@ -63,30 +63,33 @@ describe('useFolderTreeStore', () => {
     expect(store.loadErrorPaths.size).toBe(0);
   });
 
-  it('setSelectedPath stores the path and auto-expands ancestors', () => {
+  it('setSelectedPath stores the path and auto-expands the full chain', () => {
     const store = useFolderTreeStore();
     store.setSelectedPath('C:/Users/foo');
     expect(store.selectedPath).toBe('C:/Users/foo');
+    // v6.2 policy: chain from drive root down to (and including) selected path
     expect(store.isExpanded('C:/')).toBe(true);
     expect(store.isExpanded('C:/Users')).toBe(true);
-    expect(store.isExpanded('C:/Users/foo')).toBe(false);
+    expect(store.isExpanded('C:/Users/foo')).toBe(true);
   });
 
-  it('setSelectedPath(null) clears the path without dropping expanded set', () => {
+  it('setSelectedPath(null) clears the path AND drops the expanded set', () => {
     const store = useFolderTreeStore();
     store.setSelectedPath('C:/Users/foo');
     store.setSelectedPath(null);
     expect(store.selectedPath).toBeNull();
-    // ancestors stay expanded so the tree keeps its shape
-    expect(store.isExpanded('C:/Users')).toBe(true);
+    expect(store.expandedPaths.size).toBe(0);
   });
 
-  it('setSelectedPath merges ancestors into existing expanded set (no clobber)', () => {
+  it('setSelectedPath replaces expanded set — unrelated branches collapse (single-active-path policy)', () => {
     const store = useFolderTreeStore();
     store.expandPath('D:/other');
     store.setSelectedPath('C:/Users/foo');
-    expect(store.isExpanded('D:/other')).toBe(true);
+    // D:/other is NOT preserved — only the new chain stays expanded
+    expect(store.isExpanded('D:/other')).toBe(false);
+    expect(store.isExpanded('C:/')).toBe(true);
     expect(store.isExpanded('C:/Users')).toBe(true);
+    expect(store.isExpanded('C:/Users/foo')).toBe(true);
   });
 
   it('toggleExpanded adds and removes paths', () => {
