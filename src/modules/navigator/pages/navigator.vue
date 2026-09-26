@@ -371,6 +371,20 @@ const showFolderTree = ref(
 );
 const { drives } = useDrives();
 const treeRootPaths = computed(() => drives.value.map((d) => d.path));
+// v6.4: drive volume labels + drive path set so the sidebar tree can show
+// "C: 系统盘" instead of just "C:" and use a drive icon instead of a
+// folder icon for drive roots.
+const treeRootLabels = computed<Record<string, string>>(() => {
+  const out: Record<string, string> = {};
+  for (const d of drives.value) {
+    if (!d.path) continue;
+    const label = d.name?.trim() || '';
+    if (!label) continue;
+    out[d.path] = `${label} (${d.path.replace(/[\\/]+$/, '')})`;
+  }
+  return out;
+});
+const drivePaths = computed<string[]>(() => drives.value.map((d) => d.path));
 
 watch(showFolderTree, (next) => {
   void userSettingsStore.set('navigator.showFolderTree', next);
@@ -1305,6 +1319,8 @@ onUnmounted(() => {
                 <FileBrowserTreeView
                   class="navigator-page__folder-tree"
                   :root-paths="treeRootPaths"
+                  :root-labels="treeRootLabels"
+                  :drive-paths="drivePaths"
                   @activate="handleTreeActivate"
                   @preview="handleTreePreview"
                 />
@@ -1478,6 +1494,8 @@ onUnmounted(() => {
             <FileBrowserTreeView
               class="navigator-page__folder-tree"
               :root-paths="treeRootPaths"
+              :root-labels="treeRootLabels"
+              :drive-paths="drivePaths"
               @activate="handleTreeActivate"
               @preview="handleTreePreview"
             />

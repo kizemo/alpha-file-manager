@@ -186,4 +186,35 @@ describe('useFileTree', () => {
     expect(tree.rows.value).toHaveLength(1);
     expect(tree.rows.value[0].path).toBe('D:/projects');
   });
+
+  it('uses rootLabels for drive root display names (v6.4)', () => {
+    // v6.4: drive roots show their volume label, not just "E:".
+    const tree = makeTree({
+      rootPaths: ['E:/'],
+      rootLabels: { 'E:/': '系统盘 (E:)' },
+      expandedPaths: ref(new Set()),
+    });
+    expect(tree.rows.value).toHaveLength(1);
+    expect(tree.rows.value[0].name).toBe('系统盘 (E:)');
+    expect(tree.rows.value[0].path).toBe('E:/');
+  });
+
+  it('falls back to path basename when rootLabels has no entry', () => {
+    const tree = makeTree({
+      rootPaths: ['C:/work'],
+      rootLabels: {}, // empty
+      expandedPaths: ref(new Set()),
+    });
+    expect(tree.rows.value[0].name).toBe('work');
+  });
+
+  it('handles trailing backslash / slash without producing an empty name', () => {
+    // Regression guard: `E:\\` (Windows-style with trailing backslash) used
+    // to render as an empty name because the basename split kept nothing.
+    const tree = makeTree({
+      rootPaths: ['E:\\'],
+      expandedPaths: ref(new Set()),
+    });
+    expect(tree.rows.value[0].name).toBe('E:');
+  });
 });
