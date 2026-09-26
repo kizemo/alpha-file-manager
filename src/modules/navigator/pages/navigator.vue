@@ -21,6 +21,7 @@ import { useWorkspacesStore } from '@/stores/storage/workspaces';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import { useClipboardStore } from '@/stores/runtime/clipboard';
 import { useDismissalLayerStore } from '@/stores/runtime/dismissal-layer';
+import { useFolderTreeStore } from '@/stores/runtime/folder-tree';
 import { useGlobalSearchStore } from '@/stores/runtime/global-search';
 import { useShortcutsStore, getSelectedTextForCopy } from '@/stores/runtime/shortcuts';
 import { toast, ToastStatic } from '@/components/ui/toaster';
@@ -101,6 +102,7 @@ type GlobalSearchViewInstance = InstanceType<typeof GlobalSearchView> & {
 const workspacesStore = useWorkspacesStore();
 const clipboardStore = useClipboardStore();
 const dismissalLayerStore = useDismissalLayerStore();
+const folderTreeStore = useFolderTreeStore();
 const globalSearchStore = useGlobalSearchStore();
 const shortcutsStore = useShortcutsStore();
 const terminalsStore = useTerminalsStore();
@@ -454,6 +456,12 @@ function handleSearchSelectionChange(entries: DirEntry[]) {
 
 function handleCurrentDirChange(entry: DirEntry | null) {
   currentDirEntry.value = entry;
+  // FORK-MODIFICATION: tree sync v6 (issue #499). Drive the folder-tree store
+  // directly here so FileBrowserTreeView (which subscribes via storeToRefs)
+  // reveals the selected path's ancestor chain without any imperative ref
+  // forwarding. Replaces the v0..v5 broken `treeViewRef.value?.expandToPath`
+  // chain (see handoff-2026-09-26-tree-sync-retro.md).
+  folderTreeStore.setSelectedPath(entry?.path ?? null);
 }
 
 function handlePaneFocus(tabId: string) {

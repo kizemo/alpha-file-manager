@@ -276,7 +276,7 @@ function createGridRows(
 
 export function createFileBrowserVirtualRows(options: {
   entries: readonly DirEntry[];
-  layout: 'list' | 'grid' | undefined;
+  layout: 'list' | 'grid' | 'tree' | undefined;
   viewportWidth: number;
   entryDescription?: (entry: DirEntry) => string | undefined;
   increaseFileViewGaps?: boolean;
@@ -321,7 +321,7 @@ export function getFileBrowserGridNavigationEntry(
 
 export function useFileBrowserVirtualLayout(options: {
   entries: ComputedRef<DirEntry[]>;
-  layout: () => 'list' | 'grid' | undefined;
+  layout: () => 'list' | 'grid' | 'tree' | undefined;
   entryDescription?: (entry: DirEntry) => string | undefined;
   increaseFileViewGaps?: () => boolean;
 }) {

@@ -2,33 +2,115 @@
 License: GNU GPLv3 or later. See the license file in the project root for more information.
 Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
-FORK-MODIFICATION: new file (tree view). Keep during upstream sync.
+FORK-MODIFICATION: tree view. Keep during upstream sync.
 Tracking issue: aleksey-hoffman/sigma-file-manager#499
+
+v6: this component is now store-driven (no defineExpose, no template ref
+forwarding). Expansion state lives in `useFolderTreeStore`; this component
+just renders `rows` computed from `useFileTree({ expandedPaths, ... })`,
+where `useFileTree` itself watches `expandedPaths` and lazy-loads children.
+When `store.selectedPath` changes, ancestors are added to the dynamic root
+list and loaded. Failures surface via `store.markLoadError` and the row
+stays visible (just with no children). See handoff-2026-09-26-tree-sync-retro.
 -->
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, watch } from 'vue';
 import { ChevronRightIcon, ChevronDownIcon, FolderIcon, FileIcon } from '@lucide/vue';
+import { storeToRefs } from 'pinia';
+import {
+  computeAncestorPaths,
+  useFolderTreeStore,
+} from '@/stores/runtime/folder-tree';
 import { useFileTree } from '@/modules/navigator/composables/use-file-tree';
 
-const props = defineProps<{
-  rootPaths: string[];
-}>();
+const props = withDefaults(defineProps<{
+  /** Initial root paths. Subsequent changes are picked up via `expandedPaths`. */
+  rootPaths?: string[];
+}>(), {
+  rootPaths: () => [],
+});
 
 const emit = defineEmits<{
   activate: [path: string];
 }>();
 
-const { rows, toggle } = useFileTree({ rootPaths: props.rootPaths });
+const folderTreeStore = useFolderTreeStore();
+const { expandedPaths, selectedPath } = storeToRefs(folderTreeStore);
 
-function onClick(row: { path: string; isDirectory: boolean; isExpanded: boolean }) {
+// Dynamic root list: starts with caller-provided roots, grows as ancestors of
+// the selected path need to be loaded (e.g. user navigates to a deep folder
+// that wasn't in the initial root set).
+const dynamicRoots = ref<string[]>([...props.rootPaths]);
+
+watch(() => props.rootPaths, (next) => {
+  const merged = [...next];
+  for (const r of dynamicRoots.value) {
+    if (!merged.includes(r)) merged.push(r);
+  }
+  dynamicRoots.value = merged;
+});
+
+watch(selectedPath, (path) => {
+  if (!path) return;
+  const ancestors = computeAncestorPaths(path);
+  if (ancestors.length === 0) return;
+  const next = [...dynamicRoots.value];
+  let changed = false;
+  for (const a of ancestors) {
+    if (!next.includes(a)) {
+      next.push(a);
+      changed = true;
+    }
+  }
+  if (changed) dynamicRoots.value = next;
+}, { immediate: true });
+
+const { rows, ensureAncestorsLoaded } = useFileTree({
+  rootPaths: dynamicRoots,
+  expandedPaths,
+  onLoadStart: (path) => {
+    folderTreeStore.markLoadError(path, false);
+    folderTreeStore.markLoading(path, true);
+  },
+  onLoadEnd: (path) => {
+    folderTreeStore.markLoading(path, false);
+  },
+  onLoadError: (path, err) => {
+    folderTreeStore.markLoading(path, false);
+    folderTreeStore.markLoadError(path, true);
+    console.error('[file-browser-tree-view] failed to load', path, err);
+  },
+});
+
+// Whenever the selected path changes, make sure every ancestor directory has
+// its children loaded so the user sees the selected entry highlighted in its
+// expanded ancestor chain. This is the v6 replacement for the v0..v5
+// imperative `treeViewRef.value?.expandToPath(path)` dance.
+watch(selectedPath, async (path) => {
+  if (!path) return;
+  await ensureAncestorsLoaded(computeAncestorPaths(path));
+}, { immediate: true });
+
+function onClick(row: { path: string; isDirectory: boolean }) {
   if (row.isDirectory) {
-    void toggle(row.path);
-  } else {
+    folderTreeStore.toggleExpanded(row.path);
+  }
+  else {
     emit('activate', row.path);
   }
 }
 
-const expandedSet = computed(() => new Set(rows.value.filter(r => r.isExpanded).map(r => r.path)));
+function isRowSelected(path: string): boolean {
+  return folderTreeStore.selectedPath === path;
+}
+
+function isRowLoading(path: string): boolean {
+  return folderTreeStore.isLoading(path);
+}
+
+function isRowLoadError(path: string): boolean {
+  return folderTreeStore.hasLoadError(path);
+}
 </script>
 
 <template>
@@ -37,9 +119,15 @@ const expandedSet = computed(() => new Set(rows.value.filter(r => r.isExpanded).
       v-for="row in rows"
       :key="row.path"
       class="file-tree-row"
+      :class="{
+        'file-tree-row--selected': isRowSelected(row.path),
+        'file-tree-row--loading': isRowLoading(row.path),
+        'file-tree-row--error': isRowLoadError(row.path),
+      }"
       :style="{ paddingLeft: `${row.depth * 16 + 8}px` }"
       :aria-expanded="row.isDirectory ? row.isExpanded : undefined"
       :data-tree-path="row.path"
+      :data-selected="isRowSelected(row.path) || undefined"
       @click="onClick(row)"
     >
       <component
@@ -53,6 +141,11 @@ const expandedSet = computed(() => new Set(rows.value.filter(r => r.isExpanded).
         :size="14"
       />
       <span class="file-tree-row__name">{{ row.name }}</span>
+      <span
+        v-if="isRowLoadError(row.path)"
+        class="file-tree-row__error-marker"
+        title="Failed to load children"
+      >!</span>
     </div>
   </div>
 </template>
@@ -77,6 +170,14 @@ const expandedSet = computed(() => new Set(rows.value.filter(r => r.isExpanded).
   background-color: hsl(var(--muted) / 50%);
 }
 
+.file-tree-row--selected {
+  background-color: hsl(var(--primary) / 18%);
+}
+
+.file-tree-row--loading {
+  opacity: 0.6;
+}
+
 .file-tree-row__spacer {
   display: inline-block;
   width: 14px;
@@ -86,5 +187,11 @@ const expandedSet = computed(() => new Set(rows.value.filter(r => r.isExpanded).
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.file-tree-row__error-marker {
+  margin-left: auto;
+  color: hsl(var(--destructive));
+  font-weight: 700;
 }
 </style>

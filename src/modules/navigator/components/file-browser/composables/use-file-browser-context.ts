@@ -58,6 +58,7 @@ export interface FileBrowserContext {
   openOpenWithDialog: (entries: DirEntry[]) => void;
   openNewItemDialog: (type: 'file' | 'directory', targetPaths?: string[]) => void;
   navigateToHome: () => void | Promise<void>;
+  navigateToPath: (path: string) => Promise<void>;
 
   refresh: () => void;
 
