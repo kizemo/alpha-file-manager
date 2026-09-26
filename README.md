@@ -7,7 +7,9 @@
 
 "Sigma File Manager" is a free, open-source, quickly evolving, modern file manager (explorer / finder) app for Windows and Linux.
 
-This repository is a personal fork maintained by [kizemo](https://github.com/kizemo) that tracks upstream [`aleksey-hoffman/sigma-file-manager`](https://github.com/aleksey-hoffman/sigma-file-manager) and adds tree-view and other ergonomic improvements on top of it. The fork does **not** ship its own installers or releases; build from source or sync with upstream for binary downloads.
+This repository is a personal fork maintained by [kizemo](https://github.com/kizemo) that tracks upstream [`aleksey-hoffman/sigma-file-manager`](https://github.com/aleksey-hoffman/sigma-file-manager) and adds tree-view and other ergonomic improvements on top of it.
+
+**Pre-built fork binary**: download [**v2.2.0-tree.1 — Folder Tree Sidebar**](https://github.com/kizemo/sigma-file-manager/releases/tag/v2.2.0-tree.1) — a Windows NSIS installer built from the `feat/tree-sidebar-v6-1` branch (HEAD `8caf14ae`). This fork does **not** have a code-signing certificate, so Windows SmartScreen will warn "Unknown publisher" on first launch — click **More info** → **Run anyway**. Installer sha256: `c63ef9194c1e284e983a06d22c4e85f54eef9c5f9c18c0105570b18de58b2f35`.
 
 ## Folder tree sidebar (the main fork feature)
 

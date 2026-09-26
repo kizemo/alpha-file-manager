@@ -7,7 +7,9 @@
 
 "Sigma File Manager" 是一款免费、开源、迭代迅速、面向 Windows 与 Linux 的现代文件管理器（资源管理器 / Finder 类）应用。
 
-本仓库是 [kizemo](https://github.com/kizemo) 维护的个人分支，跟随上游 [`aleksey-hoffman/sigma-file-manager`](https://github.com/aleksey-hoffman/sigma-file-manager) 同步，并在其基础上新增目录树视图与其他易用性改进。本分支**不**单独发布安装包或发行版本；如需二进制安装包，请直接使用上游或从源码自行构建。
+本仓库是 [kizemo](https://github.com/kizemo) 维护的个人分支，跟随上游 [`aleksey-hoffman/sigma-file-manager`](https://github.com/aleksey-hoffman/sigma-file-manager) 同步，并在其基础上新增目录树视图与其他易用性改进。
+
+**下载分支预构建版本**：[**v2.2.0-tree.1 — Folder Tree Sidebar**](https://github.com/kizemo/sigma-file-manager/releases/tag/v2.2.0-tree.1) —— 基于 `feat/tree-sidebar-v6-1` 分支（HEAD `8caf14ae`）构建的 Windows NSIS 安装包。本分支**未**购买代码签名证书，首次启动时 Windows SmartScreen 会提示"未知发布者"，选择**更多信息 → 仍要运行**即可。安装包 sha256：`c63ef9194c1e284e983a06d22c4e85f54eef9c5f9c18c0105570b18de58b2f35`。
 
 ## 目录树侧边栏（分支核心功能）
 
