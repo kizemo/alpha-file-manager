@@ -194,7 +194,9 @@
     "newDirectoryFile": "نیا فولڈر / فائل",
     "newDirectory": "نیا فولڈر",
     "newFile": "نئی فائل",
-    "reloadCurrentDirectory": "موجودہ فولڈر دوبارہ لوڈ کریں"
+    "reloadCurrentDirectory": "موجودہ فولڈر دوبارہ لوڈ کریں",
+    "showFolderTree": "Show folder tree",
+    "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
     "subtitle": "پسندیدہ، ٹیگ والی اور اکثر استعمال ہونے والی اشیاء تک فوری رسائی",
@@ -1263,5 +1265,6 @@
     "replaceShareDialogTitle": "موجودہ شیئر بدلیں؟",
     "replaceShareDialogDescription": "فائلیں پہلے سے نیٹ ورک پر ہیں۔ موجودہ شیئر بند ہو کر نئے سے بدل جائے گا۔",
     "replaceShareDialogConfirm": "بدل دیں"
-  }
+  },
+  "tree": "Tree"
 }

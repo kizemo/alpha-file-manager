@@ -342,7 +342,7 @@ export type DefaultDirectorySettings = {
 
 export type SplitViewMode = 'split' | 'linked';
 
-export type NavigatorFolderLayoutName = 'list' | 'grid';
+export type NavigatorFolderLayoutName = 'list' | 'grid' | 'tree';
 
 export type NavigatorFolderSettings = {
   layout: NavigatorFolderLayoutName;
@@ -377,6 +377,8 @@ export type UserSettingsNavigator = {
   gridSortDirection: ListSortDirection;
   enableBoxSelection: boolean;
   increaseFileViewGaps: boolean;
+  // FORK-MODIFICATION: sidebar tree toggle persistence (issue #499)
+  showFolderTree?: boolean;
 };
 
 export type UserSettingsNavigatorInfoPanel = {
@@ -391,8 +393,8 @@ export type UserSettingsNavigatorInfoPanel = {
 
 export type NavigatorLayout = {
   type: {
-    title: 'compactListLayout' | 'listLayout' | 'gridLayout';
-    name: 'compact-list' | 'list' | 'grid';
+    title: 'compactListLayout' | 'listLayout' | 'gridLayout' | 'treeLayout';
+    name: 'compact-list' | 'list' | 'grid' | 'tree';
   };
   dirItemOptions: {
     title: {

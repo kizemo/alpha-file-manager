@@ -22,7 +22,8 @@ import {
 } from './utils/file-browser-layout-gaps';
 
 const props = withDefaults(defineProps<{
-  layout?: 'list' | 'grid';
+  // FORK-MODIFICATION: 'tree' added for tree view (issue #499)
+  layout?: 'list' | 'grid' | 'tree';
   trackRelativeTime?: boolean;
 }>(), {
   layout: undefined,
@@ -71,10 +72,12 @@ function handleViewportScroll(event: Event) {
     :class="{
       'file-browser__content--fill-column-width': listColumnFillWidth,
       'file-browser__content--grid': props.layout === 'grid',
+      'file-browser__content--tree': props.layout === 'tree',
       'file-browser__content--increased-gaps': ctx.increaseFileViewGaps,
     }"
     :style="contentStyle"
   >
+
     <div
       v-if="props.layout === 'list'"
       class="file-browser__list-header-shell"
@@ -139,6 +142,12 @@ function handleViewportScroll(event: Event) {
 
 .file-browser__content--grid {
   --file-browser-scrollbar-gutter: 1.25rem;
+}
+
+/* FORK-MODIFICATION: tree view layout (issue #499) */
+.file-browser__content--tree :deep(.file-browser__tree-view) {
+  flex: 1;
+  min-height: 0;
 }
 
 .file-browser__content--grid :deep(.file-browser__entries-container),

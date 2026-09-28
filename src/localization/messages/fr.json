@@ -165,7 +165,9 @@
     "newDirectoryFile": "Nouveau répertoire/fichier",
     "newDirectory": "Nouveau répertoire",
     "newFile": "Nouveau fichier",
-    "reloadCurrentDirectory": "Recharger le répertoire courant"
+    "reloadCurrentDirectory": "Recharger le répertoire courant",
+    "showFolderTree": "Show folder tree",
+    "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
     "subtitle": "Accès rapide à vos éléments favoris, tagués et fréquemment utilisés",
@@ -1263,5 +1265,6 @@
     "replaceShareDialogTitle": "Remplacer le partage en cours ?",
     "replaceShareDialogDescription": "Des fichiers sont déjà partagés sur le réseau. Le partage actuel sera arrêté et remplacé par le nouveau.",
     "replaceShareDialogConfirm": "Remplacer"
-  }
+  },
+  "tree": "Tree"
 }

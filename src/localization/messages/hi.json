@@ -194,7 +194,9 @@
     "newDirectoryFile": "नई निर्देशिका/फ़ाइल",
     "newDirectory": "नई निर्देशिका",
     "newFile": "नई फ़ाइल",
-    "reloadCurrentDirectory": "वर्तमान निर्देशिका पुनः लोड करें"
+    "reloadCurrentDirectory": "वर्तमान निर्देशिका पुनः लोड करें",
+    "showFolderTree": "Show folder tree",
+    "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
     "subtitle": "आपके पसंदीदा, टैग किए गए और अक्सर उपयोग किए जाने वाले आइटम तक त्वरित पहुंच",
@@ -1263,5 +1265,6 @@
     "replaceShareDialogTitle": "वर्तमान शेयर बदलें?",
     "replaceShareDialogDescription": "फ़ाइलें पहले से ही नेटवर्क पर साझा की जा रही हैं. वर्तमान शेयर बंद कर दिया जाएगा और उसके स्थान पर नया शेयर ले लिया जाएगा।",
     "replaceShareDialogConfirm": "प्रतिस्थापित करें"
-  }
+  },
+  "tree": "Tree"
 }

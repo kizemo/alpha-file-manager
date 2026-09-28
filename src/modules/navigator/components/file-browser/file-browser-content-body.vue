@@ -16,7 +16,8 @@ import FileBrowserError from './file-browser-error.vue';
 import { useFileBrowserContext } from './composables/use-file-browser-context';
 
 const props = withDefaults(defineProps<{
-  layout?: 'list' | 'grid';
+  // FORK-MODIFICATION: 'tree' added for tree view (issue #499)
+  layout?: 'list' | 'grid' | 'tree';
   trackRelativeTime?: boolean;
 }>(), {
   layout: undefined,

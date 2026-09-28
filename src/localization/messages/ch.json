@@ -165,7 +165,9 @@
     "newDirectoryFile": "新建目录/文件",
     "newDirectory": "新建目录",
     "newFile": "新建文件",
-    "reloadCurrentDirectory": "重新加载当前目录"
+    "reloadCurrentDirectory": "重新加载当前目录",
+    "showFolderTree": "Show folder tree",
+    "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
     "subtitle": "快速访问您的收藏、标记和常用项目",
@@ -1263,5 +1265,6 @@
     "replaceShareDialogTitle": "替换当前共享？",
     "replaceShareDialogDescription": "文件已在网络上共享。当前共享将被停止并替换为新的共享。",
     "replaceShareDialogConfirm": "替换"
-  }
+  },
+  "tree": "Tree"
 }

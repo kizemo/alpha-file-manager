@@ -165,7 +165,9 @@
     "newDirectoryFile": "Nuevo directorio/archivo",
     "newDirectory": "Nuevo directorio",
     "newFile": "Archivo nuevo",
-    "reloadCurrentDirectory": "Recargar directorio actual"
+    "reloadCurrentDirectory": "Recargar directorio actual",
+    "showFolderTree": "Show folder tree",
+    "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
     "subtitle": "Acceso rápido a tus elementos favoritos, etiquetados y más utilizados",
@@ -1263,5 +1265,6 @@
     "replaceShareDialogTitle": "¿Reemplazar el recurso compartido?",
     "replaceShareDialogDescription": "Ya se están compartiendo archivos en la red. El recurso compartido actual se detendrá y será reemplazado por uno nuevo.",
     "replaceShareDialogConfirm": "Reemplazar"
-  }
+  },
+  "tree": "Tree"
 }
