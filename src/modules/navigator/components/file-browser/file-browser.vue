@@ -28,7 +28,8 @@ import ArchiveOptionsDialog, { type ArchiveOptions } from './archive-options-dia
 const props = withDefaults(defineProps<{
   tab?: Tab;
   paneIndex?: number;
-  layout?: 'list' | 'grid';
+  // FORK-MODIFICATION: 'tree' added for tree view (issue #499)
+  layout?: 'list' | 'grid' | 'tree';
   externalEntries?: DirEntry[];
   basePath?: string;
   hideToolbar?: boolean;
@@ -171,6 +172,7 @@ provideFileBrowserContext({
   openOpenWithDialog: fb.openOpenWithDialog,
   openNewItemDialog: fb.openNewItemDialog,
   navigateToHome: fb.navigateToHome,
+  navigateToPath: fb.navigateToPath,
   refresh: fb.refresh,
   requestFocusEntryAfterRefresh: fb.requestFocusEntryAfterRefresh,
   entryDescription: props.entryDescription,

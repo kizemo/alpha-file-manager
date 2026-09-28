@@ -84,7 +84,7 @@ function getGridEntryBounds(
 export function collectFileBrowserBoxSelectionEntries(options: {
   rows: readonly FileBrowserVirtualRow[];
   selectionBox: FileBrowserBoxSelectionBox;
-  layout: 'list' | 'grid' | undefined;
+  layout: 'list' | 'grid' | 'tree' | undefined;
   contentRect: DOMRect;
   viewportRect: DOMRect;
   contentWidth: number;

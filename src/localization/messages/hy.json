@@ -194,7 +194,9 @@
     "newDirectoryFile": "Նոր պանակ / ֆայլ",
     "newDirectory": "Նոր պանակ",
     "newFile": "Նոր ֆայլ",
-    "reloadCurrentDirectory": "Թարմացնել այս պանակը"
+    "reloadCurrentDirectory": "Թարմացնել այս պանակը",
+    "showFolderTree": "Show folder tree",
+    "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
     "subtitle": "Արագ տեսեք ձեր սիրված, թեգված և հաճախ օգտագործվող իրերը",
@@ -1263,5 +1265,6 @@
     "replaceShareDialogTitle": "Փոխարինե՞լ ներկայիս կիսումը:",
     "replaceShareDialogDescription": "Ֆայլերն արդեն կիսվում են ցանցում: Ընթացիկ կիսումը կդադարեցվի և կփոխարինվի նորով:",
     "replaceShareDialogConfirm": "Փոխարինել"
-  }
+  },
+  "tree": "Tree"
 }

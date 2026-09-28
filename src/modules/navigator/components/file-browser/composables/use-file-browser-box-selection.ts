@@ -88,7 +88,7 @@ function applyEdgeAutoScroll(
 
 export function useFileBrowserBoxSelection(options: {
   enabled: ComputedRef<boolean>;
-  layout: () => 'list' | 'grid' | undefined;
+  layout: () => 'list' | 'grid' | 'tree' | undefined;
   paneElementRef: Ref<HTMLElement | null>;
   scrollViewportRef: Ref<HTMLElement | null>;
   entriesContainerRef: Ref<HTMLElement | null>;

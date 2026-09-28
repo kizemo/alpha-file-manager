@@ -165,7 +165,9 @@
     "newDirectoryFile": "Yeni dizin / dosya",
     "newDirectory": "Yeni direktör",
     "newFile": "Yeni dosya",
-    "reloadCurrentDirectory": "Geçerli dizini yeniden yükle"
+    "reloadCurrentDirectory": "Geçerli dizini yeniden yükle",
+    "showFolderTree": "Show folder tree",
+    "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
     "subtitle": "Favorilerinize, etiketli ve sık kullanılan öğelerinize hızlı erişim",
@@ -1263,5 +1265,6 @@
     "replaceShareDialogTitle": "Mevcut paylaşım değiştirilsin mi?",
     "replaceShareDialogDescription": "Ağ üzerinden zaten dosyalar paylaşılıyor. Mevcut paylaşım durdurulup yenisiyle değiştirilecek.",
     "replaceShareDialogConfirm": "Değiştir"
-  }
+  },
+  "tree": "Tree"
 }

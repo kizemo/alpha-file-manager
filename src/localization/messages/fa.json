@@ -161,7 +161,9 @@
     "newDirectoryFile": "دایرکتوری / فایل جدید",
     "newDirectory": "دایرکتوری جدید",
     "newFile": "فایل جدید",
-    "reloadCurrentDirectory": "بارگیری مجدد فهرست فعلی"
+    "reloadCurrentDirectory": "بارگیری مجدد فهرست فعلی",
+    "showFolderTree": "Show folder tree",
+    "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
     "subtitle": "دسترسی سریع به موارد دلخواه، برچسب‌گذاری شده و پرکاربرد",
@@ -1263,5 +1265,6 @@
     "replaceShareDialogTitle": "اشتراک‌گذاری فعلی جایگزین شود؟",
     "replaceShareDialogDescription": "فایل‌ها از قبل از طریق شبکه به اشتراک گذاشته شده‌اند. اشتراک‌گذاری فعلی متوقف و با مورد جدید جایگزین خواهد شد.",
     "replaceShareDialogConfirm": "جایگزینی"
-  }
+  },
+  "tree": "Tree"
 }

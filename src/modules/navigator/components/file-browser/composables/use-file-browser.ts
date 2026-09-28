@@ -52,18 +52,18 @@ import { resolveNavigatorFolderSettings } from '@/modules/navigator/utils/resolv
 
 function createNavigatorSortSettingsComputed(
   getSource: () => NavigatorSortSource,
-  layout: () => 'list' | 'grid' | undefined,
+  layout: () => 'list' | 'grid' | 'tree' | undefined,
 ) {
   return computed(() => getNavigatorSortSettingsForLayout(getSource(), layout()));
 }
 
-function shouldApplyNavigatorSort(layout: 'list' | 'grid' | undefined) {
+function shouldApplyNavigatorSort(layout: 'list' | 'grid' | 'tree' | undefined) {
   return layout === 'list' || layout === 'grid';
 }
 
 export interface UseFileBrowserOptions {
   tab: () => Tab | undefined;
-  layout: () => 'list' | 'grid' | undefined;
+  layout: () => 'list' | 'grid' | 'tree' | undefined;
   externalEntries?: () => DirEntry[];
   basePath?: () => string;
   onSelectedEntriesChange: (entries: DirEntry[]) => void;

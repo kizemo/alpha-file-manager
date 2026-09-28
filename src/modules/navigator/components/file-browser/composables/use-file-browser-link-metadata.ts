@@ -20,7 +20,7 @@ interface UseFileBrowserLinkMetadataOptions {
   currentPath: ComputedRef<string>;
   directoryEntries: ComputedRef<DirEntry[]>;
   visibleRows: ComputedRef<FileBrowserVirtualRow[]>;
-  layout: () => 'list' | 'grid' | undefined;
+  layout: () => 'list' | 'grid' | 'tree' | undefined;
 }
 
 const VISIBLE_METADATA_REQUEST_DELAY_MS = 50;

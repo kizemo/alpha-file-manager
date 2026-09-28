@@ -59,7 +59,7 @@ export function getFileBrowserGridEntryOrder(entries: readonly DirEntry[]): DirE
 
 export function getFileBrowserVisualEntryOrder(
   entries: readonly DirEntry[],
-  layout: 'list' | 'grid' | undefined,
+  layout: 'list' | 'grid' | 'tree' | undefined,
 ): DirEntry[] {
   if (layout === 'grid') {
     return getFileBrowserGridEntryOrder(entries);
