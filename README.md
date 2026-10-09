@@ -1,57 +1,112 @@
 **[English](README.md)** | **[中文](README.zh-CN.md)**
 
-<h1>
-  <img valign="middle" src="https://github.com/aleksey-hoffman/sigma-file-manager/raw/main/.github/media/logo-1024x1024.png" width="64px">
-  &nbsp;&nbsp;Sigma File Manager (kizemo fork)
-</h1>
+<h1>&nbsp;&nbsp;Alpha File Manager</h1>
 
-"Sigma File Manager" is a free, open-source, quickly evolving, modern file manager (explorer / finder) app for Windows and Linux.
+**A modern file manager for Windows and Linux — with the two things you miss
+most in Explorer: a real folder tree, and file dialogs that follow you between apps.**
 
-This repository is a personal fork maintained by [kizemo](https://github.com/kizemo) that tracks upstream [`aleksey-hoffman/sigma-file-manager`](https://github.com/aleksey-hoffman/sigma-file-manager) and adds tree-view and other ergonomic improvements on top of it.
+Alpha File Manager is an independent build of
+[Sigma File Manager](https://github.com/aleksey-hoffman/sigma-file-manager),
+maintained by [kizemo](https://github.com/kizemo). It tracks upstream and layers
+on two workflow improvements:
 
-**Pre-built fork binary**: download [**v2.2.0-tree.1 — Folder Tree Sidebar**](https://github.com/kizemo/alpha-file-manager/releases/tag/v2.2.0-tree.1) — a Windows NSIS installer built from the `feat/tree-sidebar-v6-1` branch (HEAD `8caf14ae`). This fork does **not** have a code-signing certificate, so Windows SmartScreen will warn "Unknown publisher" on first launch — click **More info** → **Run anyway**. Installer sha256: `c63ef9194c1e284e983a06d22c4e85f54eef9c5f9c18c0105570b18de58b2f35`.
+> 🗂️ **"Where am I?"** — a persistent folder tree that always shows the shape of where you are.
+> ⚡ **"Why am I typing this path again?"** — every file dialog follows the folder you're browsing.
 
-## Folder tree sidebar (the main fork feature)
+> [!IMPORTANT]
+> **Alpha File Manager is an independent community project.** It is not affiliated
+> with, endorsed by, or supported by the Sigma File Manager project. The base
+> application's features and branding belong to [Aleksey Hoffman](https://github.com/aleksey-hoffman).
 
-![Sigma File Manager with tree sidebar showing E:/办公文件 directory](./docs/screenshots/tree-sidebar-v6.4.1.png)
+---
 
-A left-side **folder tree sidebar** that mirrors the file system and follows the active pane, so you always see where you are and can jump up/down the hierarchy with a single click.
+## 🗂️ Folder tree sidebar
 
-- **Toggle:** a dedicated `FolderTree` icon button in the navigator toolbar — it is intentionally **not** inside the layout dropdown, so the toggle stays one click away at all times.
-- **Sync sources:** the tree automatically follows the address bar, the favorites / quick-access panel, and the **active pane** in split-view, so each side keeps its own tree state.
-- **Single-path expand:** when you navigate, only the ancestor chain of the current path stays open; previously-open branches elsewhere are collapsed, keeping the tree compact and scannable.
-- **Click semantics:** clicking a row navigates to that folder; clicking the chevron expands or collapses the branch without changing the current directory.
-- **Drive labels:** root nodes show both the volume label and the drive letter, e.g. `Win (C:)`, so multi-WSD / multi-drive setups are disambiguated at a glance.
-- **Persistence:** the show/hide state survives restarts via `userSettings.navigator.showFolderTree`.
-- **Implementation branch:** [`feat/tree-sidebar-v6-1`](https://github.com/kizemo/alpha-file-manager/tree/feat/tree-sidebar-v6-1), HEAD `8caf14ae` — 6 atomic commits, ~3000 lines including tests and docs.
-- **Tests:** 259 unit tests passing.
-- **Upstream tracking:** this work is tracked against upstream issue [#499](https://github.com/aleksey-hoffman/sigma-file-manager/issues/499).
+![Alpha File Manager with the folder tree sidebar showing E:/办公文件](./docs/screenshots/tree-sidebar-v6.4.1.png)
 
-## Listary-style focus sync (Experimental)
+A folder tree down the left edge that mirrors the file system and tracks
+whichever pane is active — so you can see the shape of where you are and reach
+any ancestor in one click.
 
-A second experimental fork feature: any Windows app's file dialog (Chrome downloads, Word "Save As", VS Code "Open Folder", 钉钉 / 飞书 save flows, etc.) auto-jumps to Sigma's current folder when you Alt-Tab from the dialog to Sigma and back.
+- **Always one click away** — a dedicated `FolderTree` button in the navigator
+  toolbar, deliberately *not* buried in the layout dropdown.
+- **Follows everything** — tracks the address bar, the favourites panel, and the
+  **active pane** in split view; each side keeps its own expansion state.
+- **Stays compact** — on navigation only the current path's ancestor chain stays
+  open; everything else collapses.
+- **Predictable clicks** — click a row to enter it, click the chevron to expand
+  without changing directory.
+- **Unambiguous drives** — root nodes show volume label *and* drive letter
+  (`Win (C:)`), so multi-drive and WSL setups read at a glance.
+- **Remembers** — show/hide state persists across restarts.
 
-**Status**: Experimental — UI Automation coverage validated via the [`sigma-listary-spike/`](./../sigma-listary-spike/) subdirectory. The spike binary builds cleanly on Windows 11 with `windows` crate 0.62 and empirically validates all three capabilities (detect / read / write) on a standard Win32 OpenFileDialog. Chromium hosts are shielded by an `EnableWindow(FALSE)` RAII guard ported from QwenLM (measured 7/8 → 0 z-drops on Chromium).
+Tracks upstream issue [#499](https://github.com/aleksey-hoffman/sigma-file-manager/issues/499) · 259 unit tests passing.
 
-**Enable**: launch `sigma-listary-spike/target/release/spike.exe` before opening Sigma. The binary communicates with Sigma over TCP on `127.0.0.1:37421` (line-based JSON protocol: `set_path`, `get_status`, `quit`).
+---
 
-**Limitations**:
-- **No headless GUI verification on all 7 target apps** — only the Win32 #32770 dialog path is auto-verified. Manual GUI verification recommended per app before production use.
-- **fg_bypass covers Chromium only** — UWP / XAML hosts are not specially shielded (port omitted QwenLM's UWP branch per spike simplification).
-- **STA threading constraint** — spike uses a single-threaded tokio runtime to keep UIA on the main COM STA thread.
+## ⚡ Focus Sync — file dialogs that follow you
 
-**Source attribution** (MIT / Apache-2.0 licenses preserved per file):
-- [`inaku-Gyan/PathWrap`](https://github.com/inaku-Gyan/PathWrap) — `src/os/dialog.rs` (MIT) + `src/os/monitor.rs` (MIT)
-- [`QwenLM/qwen-code`](https://github.com/QwenLM/qwen-code) — `fg_bypass.rs` (Apache-2.0)
+Browse to a folder, then open a **Save As / Open** dialog in *any* Windows app —
+Chrome downloads, Word, VS Code, DingTalk, Feishu — and it's already sitting in
+that same folder.
 
-**Spike report**: [`docs/superpowers/spike-reports/2026-09-27-listary-focus-sync-spike.md`](./../docs/superpowers/spike-reports/2026-09-27-listary-focus-sync-spike.md)
-**Decision**: [`docs/superpowers/decisions/2026-09-27-listary-focus-sync-decision.md`](./../docs/superpowers/decisions/2026-09-27-listary-focus-sync-decision.md)
+**Zero configuration.** The installer bundles the extension and a small local
+companion process; a Windows scheduled task starts it at logon. There is nothing
+to launch by hand.
+
+**The rules it holds itself to**
+
+| | |
+|---|---|
+| **Never steals focus** | If the dialog isn't in the foreground, the write waits — it is never forced. |
+| **Never leaves a dirty filename** | The address bar is the target. When a fallback must touch the filename field, it restores the original and **reads the value back** before committing. |
+| **Never writes a stale path** | If Alpha FM isn't running, writes are refused rather than filling your dialog with where you *used to* be. |
+
+The extension requests only `commands`, `toolbar`, `notifications`, and HTTP to
+`127.0.0.1` — **no shell access, no filesystem access.**
+
+> **Status** — still being hardened. Validated against native Win32 dialogs;
+> behaviour varies across Chromium and UWP hosts.
+
+---
+
+## 📦 Getting it
+
+**Prebuilt release:** [`v2.2.0-tree.1`](https://github.com/kizemo/alpha-file-manager/releases/tag/v2.2.0-tree.1)
+— a folder-tree build from 26 Sep 2026.
+
+> That tag predates the Focus Sync packaging work on `main`: it gives you the
+> tree sidebar but not the current one-step installer. A fresh build is on the way.
+
+Windows builds are unsigned, so SmartScreen reports *"Unknown publisher"* — click
+**More info → Run anyway**.
+
+---
 
 ## Credits
 
-- Upstream: [aleksey-hoffman/sigma-file-manager](https://github.com/aleksey-hoffman/sigma-file-manager) by [Aleksey Hoffman](https://github.com/aleksey-hoffman). All product features, branding, and release pipelines belong to upstream.
-- Fork maintainer: [kizemo](https://github.com/kizemo).
+- **Upstream:** [aleksey-hoffman/sigma-file-manager](https://github.com/aleksey-hoffman/sigma-file-manager)
+  by [Aleksey Hoffman](https://github.com/aleksey-hoffman). The base application,
+  its features and its branding belong to upstream.
+- **Focus Sync extension:** [kizemo/focus-sync](https://github.com/kizemo/focus-sync)
+- **Maintainer of this fork:** [kizemo](https://github.com/kizemo)
+
+Additional code reused under its original terms:
+[inaku-Gyan/PathWrap](https://github.com/inaku-Gyan/PathWrap) (MIT) ·
+[QwenLM/qwen-code](https://github.com/QwenLM/qwen-code) (Apache-2.0).
+
+---
 
 ## License
 
-GPL-3.0-or-later — see [`LICENSE.md`](./LICENSE.md). Fork additions are contributed under the same license.
+**GPL-3.0-or-later** — see [`LICENSE.md`](./LICENSE.md). Fork additions are
+contributed under the same license.
+
+As required by GPL-3, the corresponding source for every shipped binary is
+available at:
+
+| Component | Source |
+|---|---|
+| Alpha File Manager (this fork) | <https://github.com/kizemo/alpha-file-manager> |
+| Sigma File Manager (base) | <https://github.com/aleksey-hoffman/sigma-file-manager> |
+| Focus Sync extension + sidecar | <https://github.com/kizemo/focus-sync> |
