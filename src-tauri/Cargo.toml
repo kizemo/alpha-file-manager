@@ -1,5 +1,5 @@
 [package]
-name = "sigma-file-manager"
+name = "alpha-file-manager"
 description = "Alpha File Manager"
 version = "2.2.0"
 license = "GPL-3.0-or-later"
