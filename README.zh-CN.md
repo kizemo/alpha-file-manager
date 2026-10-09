@@ -9,7 +9,7 @@
 
 本仓库是 [kizemo](https://github.com/kizemo) 维护的个人分支，跟随上游 [`aleksey-hoffman/sigma-file-manager`](https://github.com/aleksey-hoffman/sigma-file-manager) 同步，并在其基础上新增目录树视图与其他易用性改进。
 
-**下载分支预构建版本**：[**v2.2.0-tree.1 — Folder Tree Sidebar**](https://github.com/kizemo/sigma-file-manager/releases/tag/v2.2.0-tree.1) —— 基于 `feat/tree-sidebar-v6-1` 分支（HEAD `8caf14ae`）构建的 Windows NSIS 安装包。本分支**未**购买代码签名证书，首次启动时 Windows SmartScreen 会提示"未知发布者"，选择**更多信息 → 仍要运行**即可。安装包 sha256：`c63ef9194c1e284e983a06d22c4e85f54eef9c5f9c18c0105570b18de58b2f35`。
+**下载分支预构建版本**：[**v2.2.0-tree.1 — Folder Tree Sidebar**](https://github.com/kizemo/alpha-file-manager/releases/tag/v2.2.0-tree.1) —— 基于 `feat/tree-sidebar-v6-1` 分支（HEAD `8caf14ae`）构建的 Windows NSIS 安装包。本分支**未**购买代码签名证书，首次启动时 Windows SmartScreen 会提示"未知发布者"，选择**更多信息 → 仍要运行**即可。安装包 sha256：`c63ef9194c1e284e983a06d22c4e85f54eef9c5f9c18c0105570b18de58b2f35`。
 
 ## 目录树侧边栏（分支核心功能）
 
@@ -23,7 +23,7 @@
 - **点击语义**：点击行内容即跳转到该目录；点击行首的折叠箭头仅展开或折叠该分支，不会改变当前目录。
 - **驱动器标签**：根节点同时显示卷标与盘符，例如 `Win (C:)`，在多 WSL / 多硬盘环境下也能一目了然地分辨盘符。
 - **状态持久化**：显示 / 隐藏状态通过 `userSettings.navigator.showFolderTree` 保存，重启后自动恢复。
-- **实现分支**：[`feat/tree-sidebar-v6-1`](https://github.com/kizemo/sigma-file-manager/tree/feat/tree-sidebar-v6-1)，HEAD `8caf14ae` —— 共 6 个原子提交，含测试与文档约 3000 行代码。
+- **实现分支**：[`feat/tree-sidebar-v6-1`](https://github.com/kizemo/alpha-file-manager/tree/feat/tree-sidebar-v6-1)，HEAD `8caf14ae` —— 共 6 个原子提交，含测试与文档约 3000 行代码。
 - **测试**：259 个单元测试全部通过。
 - **上游追踪**：本工作对应上游 issue [#499](https://github.com/aleksey-hoffman/sigma-file-manager/issues/499)。
 
