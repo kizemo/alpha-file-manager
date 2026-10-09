@@ -1,0 +1,45 @@
+[package]
+name = "sigma-listary-spike"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Spike binary for Listary-style global focus sync. Port route: PathWrap dialog + PathWrap monitor (MIT)."
+
+[lib]
+name = "spike"
+path = "src/lib.rs"
+
+[[bin]]
+name = "spike"
+path = "src/main.rs"
+
+[dependencies]
+windows = { version = "0.62", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Dwm",
+  "Win32_System_Com",
+  "Win32_System_LibraryLoader",
+  "Win32_System_RemoteDesktop",
+  "Win32_System_Threading",
+  "Win32_UI_HiDpi",
+  "Win32_UI_Accessibility",
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_Shell",
+  "Win32_UI_Shell_Common",
+] }
+tokio = { version = "1", features = ["net", "io-util", "macros", "rt-multi-thread", "sync", "time", "signal"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+tracing-appender = "0.2"
+clap = { version = "4", features = ["derive"] }
+tiny_http = "0.12"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true

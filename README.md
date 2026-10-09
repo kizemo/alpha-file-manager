@@ -88,7 +88,11 @@ Windows builds are unsigned, so SmartScreen reports *"Unknown publisher"* — cl
 - **Upstream:** [aleksey-hoffman/sigma-file-manager](https://github.com/aleksey-hoffman/sigma-file-manager)
   by [Aleksey Hoffman](https://github.com/aleksey-hoffman). The base application,
   its features and its branding belong to upstream.
-- **Focus Sync extension:** [kizemo/focus-sync](https://github.com/kizemo/focus-sync)
+- **Focus Sync extension:** lives in THIS repository under
+  [`extensions/kizemo.focus-sync/`](./extensions/kizemo.focus-sync/) —
+  extension payload, sidecar source and the standalone installer.
+  Released standalone installers are archived at
+  [kizemo/focus-sync](https://github.com/kizemo/focus-sync).
 - **Maintainer of this fork:** [kizemo](https://github.com/kizemo)
 
 Additional code reused under its original terms:
@@ -109,4 +113,4 @@ available at:
 |---|---|
 | Alpha File Manager (this fork) | <https://github.com/kizemo/alpha-file-manager> |
 | Sigma File Manager (base) | <https://github.com/aleksey-hoffman/sigma-file-manager> |
-| Focus Sync extension + sidecar | <https://github.com/kizemo/focus-sync> |
+| Focus Sync extension + sidecar | bundled in this repository, `extensions/kizemo.focus-sync/` |

@@ -1,0 +1,82 @@
+{
+  "id": "kizemo.focus-sync",
+  "name": "Focus Sync",
+  "version": "0.5.8",
+  "description": "Listary-style global focus sync. Sidecar runs as a Windows Scheduled Task (independent of Sigma FM lifecycle).",
+  "publisher": {
+    "name": "kizemo",
+    "url": "https://github.com/kizemo"
+  },
+  "repository": "https://github.com/kizemo/focus-sync",
+  "license": "MIT",
+  "icon": "icon.png",
+  "categories": [
+    "productivity",
+    "navigation"
+  ],
+  "tags": [
+    "listary",
+    "focus",
+    "sync",
+    "file-dialog"
+  ],
+  "extensionType": "api",
+  "main": "dist/index.js",
+  "type": "module",
+  "engines": {
+    "sigmaFileManager": ">=2.2.0",
+    "extensionApi": ">=1.0.0"
+  },
+  "permissions": [
+    "commands",
+    "toolbar",
+    {
+      "name": "http",
+      "hosts": [
+        "http://127.0.0.1:37421"
+      ]
+    },
+    "notifications"
+  ],
+  "activationEvents": [
+    "onStartup"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "id": "focus-sync.syncNow",
+        "title": "Focus Sync — Sync current path to all open dialogs",
+        "description": "Push Sigma's current folder to all detected file dialogs (Chrome / Word / VS Code / etc.)",
+        "icon": "mdi-target"
+      },
+      {
+        "id": "focus-sync.toggle",
+        "title": "Focus Sync — Enable / Disable",
+        "description": "Toggle focus sync on/off (sidecar stays running but stops pushing paths when disabled)",
+        "icon": "mdi-pause-circle"
+      }
+    ],
+    "toolbar": [
+      {
+        "id": "focus-sync.toolbar",
+        "title": "Focus Sync",
+        "icon": "mdi-target",
+        "items": [
+          {
+            "id": "syncNow",
+            "title": "Sync Now",
+            "commandId": "focus-sync.syncNow"
+          },
+          {
+            "id": "separator"
+          },
+          {
+            "id": "toggle",
+            "title": "Enable / Disable",
+            "commandId": "focus-sync.toggle"
+          }
+        ]
+      }
+    ]
+  }
+}

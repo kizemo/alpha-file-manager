@@ -1,0 +1,15 @@
+{
+  "extensionName": "焦点同步",
+  "extensionDescription": "Listary 风格的全局焦点同步 —— 任何 Windows 应用的文件对话框自动跳转到 Sigma 当前目录。",
+  "command.syncNow.title": "立即将当前路径推送到所有打开的对话框",
+  "command.toggle.title": "启用 / 停用焦点同步",
+  "toolbar.title": "焦点同步",
+  "toolbar.item.syncNow": "立即同步",
+  "toolbar.item.toggle": "启用 / 停用",
+  "notification.synced": "已同步:{{path}}",
+  "notification.enabled": "焦点同步已启用",
+  "notification.disabled": "焦点同步已停用",
+  "notification.binaryMissing": "sidecar 二进制未安装,请重新安装扩展。",
+  "notification.spawnFailed": "启动 sidecar 失败:{{error}}",
+  "notification.noCurrentPath": "Sigma 导航中无当前路径。"
+}

@@ -1,0 +1,15 @@
+{
+  "extensionName": "Focus Sync",
+  "extensionDescription": "Listary-style global focus sync — external file dialogs auto-jump to Sigma's current folder.",
+  "command.syncNow.title": "Sync current path to all open dialogs",
+  "command.toggle.title": "Enable / Disable focus sync",
+  "toolbar.title": "Focus Sync",
+  "toolbar.item.syncNow": "Sync Now",
+  "toolbar.item.toggle": "Enable / Disable",
+  "notification.synced": "Synced: {{path}}",
+  "notification.enabled": "Focus sync enabled",
+  "notification.disabled": "Focus sync disabled",
+  "notification.binaryMissing": "Sidecar binary not installed. Reinstall the extension.",
+  "notification.spawnFailed": "Failed to start sidecar: {{error}}",
+  "notification.noCurrentPath": "No current path in Sigma navigator."
+}
