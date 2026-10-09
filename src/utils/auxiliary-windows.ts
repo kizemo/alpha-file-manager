@@ -22,7 +22,7 @@ const AUXILIARY_WINDOW_READY_EVENTS: Record<AuxiliaryWindowLabel, string> = {
 
 const AUXILIARY_WINDOW_OPTIONS: Record<AuxiliaryWindowLabel, ConstructorParameters<typeof WebviewWindow>[1]> = {
   'quick-view': {
-    title: 'Sigma File Manager | Quick View',
+    title: 'Alpha File Manager | Quick View',
     url: '/quick-view',
     width: 1280,
     height: 720,
@@ -35,7 +35,7 @@ const AUXILIARY_WINDOW_OPTIONS: Record<AuxiliaryWindowLabel, ConstructorParamete
     visible: false,
   },
   'print-view': {
-    title: 'Sigma File Manager | Print',
+    title: 'Alpha File Manager | Print',
     url: '/print-view',
     width: 1280,
     height: 720,

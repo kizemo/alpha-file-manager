@@ -41,6 +41,15 @@ extensions/kizemo.focus-sync/installer/*.exe
 # Upstream ships a release/ folder with prebuilt installers. This repo builds
 # its own into src-tauri/target/release/bundle/, so that folder is dead weight.
 release/
+# Explicit backstop for the built installers. Tauri names them after
+# productName, which CONTAINS SPACES: "Alpha File Manager_2.2.0_x64-setup.exe".
+# The bare `release/` rule above covers it, but a rule that silently stops
+# matching the moment productName changes is exactly the safety net that fails
+# when you need it most - so name the real shape explicitly. The legacy Sigma
+# spelling is kept while Sigma->Alpha upgrades are still supported.
+release/Alpha File Manager_*.exe
+release/Sigma File Manager_*.exe
+release/Alpha-File-Manager-*.exe
 
 *.tsbuildinfo
 

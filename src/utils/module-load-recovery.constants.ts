@@ -5,4 +5,4 @@
 export const MODULE_LOAD_RECOVERY_STORAGE_KEY = 'sigma-file-manager:module-load-recovery-at';
 export const MODULE_LOAD_RECOVERY_WINDOW_MS = 30000;
 export const MODULE_LOAD_RECOVERY_RELOAD_DELAY_MS = 1500;
-export const MODULE_LOAD_RECOVERY_MESSAGE = 'Failed to load Sigma File Manager. Please restart the app.';
+export const MODULE_LOAD_RECOVERY_MESSAGE = 'Failed to load Alpha File Manager. Please restart the app.';

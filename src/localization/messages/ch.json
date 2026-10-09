@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Sigma File Manager",
+    "name": "Alpha File Manager",
     "description": "是一个免费、开源、先进、现代的文件管理器应用程序，在 GNU GPLv3 或更高版本下授权。",
     "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
   },
@@ -450,7 +450,7 @@
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "将 Sigma File Manager 设为默认文件管理器",
+        "title": "将 Alpha File Manager 设为默认文件管理器",
         "description": "此选项会修改系统注册表，并且可能会对您的设备产生意外的副作用。请自行承担风险后继续。",
         "unavailableInMicrosoftStore": "Microsoft Store 版本不可用"
       }
@@ -1191,10 +1191,10 @@
       "reloadFailed": "更新二进制设置后重新加载扩展失败"
     },
     "engineIncompatibleShort": "需要更新",
-    "engineAppWarning": "需要 Sigma File Manager {range}（当前为 {current}）",
+    "engineAppWarning": "需要 Alpha File Manager {range}（当前为 {current}）",
     "engineApiWarning": "需要扩展 API {range}（当前为 {current}）",
     "engineRequirements": "要求",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "扩展 API",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",

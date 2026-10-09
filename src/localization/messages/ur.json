@@ -479,7 +479,7 @@
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "Sigma File Manager کو ڈیفالٹ فائل مینیجر بنائیں",
+        "title": "Alpha File Manager کو ڈیفالٹ فائل مینیجر بنائیں",
         "description": "یہ اختیار سسٹم رجسٹری بدلتا ہے اور غیر متوقع اثر کر سکتا ہے۔ اپنے خطرے پر آگے بڑھیں۔",
         "unavailableInMicrosoftStore": "Microsoft Store ورژن میں دستیاب نہیں"
       }
@@ -1186,7 +1186,7 @@
     },
     "badges": {
       "official": "سرکاری",
-      "officialTooltip": "Sigma File Manager ٹیم بناتی اور رکھتی ہے",
+      "officialTooltip": "Alpha File Manager ٹیم بناتی اور رکھتی ہے",
       "community": "کمیونٹی",
       "communityTooltip": "کمیونٹی ایکسٹینشن؛ انسٹال سے پہلے سورس دیکھیں۔",
       "local": "مقامی",
@@ -1221,10 +1221,10 @@
       "stop": "روکیں"
     },
     "engineIncompatibleShort": "اپ ڈیٹ درکار",
-    "engineAppWarning": "Sigma File Manager {range} درکار ہے (آپ کے پاس {current})",
+    "engineAppWarning": "Alpha File Manager {range} درکار ہے (آپ کے پاس {current})",
     "engineApiWarning": "ایکسٹینشن API {range} درکار ہے (آپ کے پاس {current})",
     "engineRequirements": "ضروریات",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "ایکسٹینشن API",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",

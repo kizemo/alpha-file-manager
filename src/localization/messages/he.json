@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Sigma File Manager",
+    "name": "Alpha File Manager",
     "description": "הוא יישום מתקדם ומודרני לניהול קבצים, חופשי ובקוד פתוח, המופץ ברישיון GNU GPLv3 או מתקדם יותר.",
     "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
   },
@@ -479,7 +479,7 @@
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "הגדר את Sigma File Manager כמנהל הקבצים שמוגדר כברירת מחדל",
+        "title": "הגדר את Alpha File Manager כמנהל הקבצים שמוגדר כברירת מחדל",
         "description": "אפשרות זו משנה את רישום המערכת ועלולה לגרום לתופעות לוואי בלתי צפויות במכשירך. המשך על אחריותך.",
         "unavailableInMicrosoftStore": "לא זמין בגרסת Microsoft Store"
       }
@@ -1186,7 +1186,7 @@
     },
     "badges": {
       "official": "רשמי",
-      "officialTooltip": "תוסף זה נוצר ומתוחזק על-ידי צוות Sigma File Manager",
+      "officialTooltip": "תוסף זה נוצר ומתוחזק על-ידי צוות Alpha File Manager",
       "community": "קהילה",
       "communityTooltip": "זהו תוסף קהילתי. סקור את קוד המקור לפני ההתקנה.",
       "local": "מקומי",
@@ -1221,10 +1221,10 @@
       "stop": "עצור"
     },
     "engineIncompatibleShort": "נדרש עדכון",
-    "engineAppWarning": "דורש Sigma File Manager {range} (הגרסה שלך {current})",
+    "engineAppWarning": "דורש Alpha File Manager {range} (הגרסה שלך {current})",
     "engineApiWarning": "דורש API של תוספים {range} (הגרסה שלך {current})",
     "engineRequirements": "דרישות",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "API של תוספים",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",

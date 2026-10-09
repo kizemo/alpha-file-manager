@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Sigma File Manager",
+    "name": "Alpha File Manager",
     "description": "ist eine freie, quelloffene, fortschrittliche, moderne Dateimanager-Anwendung, lizenziert unter GNU GPLv3 oder höher.",
     "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
   },
@@ -450,7 +450,7 @@
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "Sigma File Manager als Standard-Dateimanager festlegen",
+        "title": "Alpha File Manager als Standard-Dateimanager festlegen",
         "description": "Diese Option ändert die Systemregistrierung und kann unerwartete Nebenwirkungen auf Ihrem Gerät haben. Fahren Sie auf eigenes Risiko fort.",
         "unavailableInMicrosoftStore": "In der Microsoft Store-Version nicht verfügbar"
       }
@@ -1095,7 +1095,7 @@
     },
     "badges": {
       "official": "Offiziell",
-      "officialTooltip": "Diese Erweiterung wurde vom Sigma File Manager Team erstellt und wird von ihm gepflegt",
+      "officialTooltip": "Diese Erweiterung wurde vom Alpha File Manager Team erstellt und wird von ihm gepflegt",
       "community": "Community",
       "communityTooltip": "Dies ist eine Community-Erweiterung. Überprüfen Sie den Quellcode vor der Installation.",
       "local": "Lokal",
@@ -1191,10 +1191,10 @@
       "reloadFailed": "Erweiterung konnte nach Aktualisierung der Binäreinstellungen nicht neu geladen werden"
     },
     "engineIncompatibleShort": "Update erforderlich",
-    "engineAppWarning": "Erfordert Sigma File Manager {range} (installiert: {current})",
+    "engineAppWarning": "Erfordert Alpha File Manager {range} (installiert: {current})",
     "engineApiWarning": "Erfordert Extension-API {range} (installiert: {current})",
     "engineRequirements": "Anforderungen",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "Extension-API",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",

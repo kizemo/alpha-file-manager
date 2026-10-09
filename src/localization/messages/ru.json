@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Sigma File Manager",
+    "name": "Alpha File Manager",
     "description": "это бесплатный, продвинутый, современный файловый менеджер с открытым исходным кодом, лицензированный по GNU GPLv3 или более поздней версии.",
     "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
   },
@@ -479,7 +479,7 @@
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "Сделать Sigma File Manager файловым менеджером по умолчанию",
+        "title": "Сделать Alpha File Manager файловым менеджером по умолчанию",
         "description": "Эта опция изменяет системный реестр и может вызвать неожиданные побочные эффекты на вашем устройстве. Продолжайте на свой страх и риск.",
         "unavailableInMicrosoftStore": "Недоступно в версии из Microsoft Store"
       }
@@ -1124,7 +1124,7 @@
     },
     "badges": {
       "official": "Официальное",
-      "officialTooltip": "Это расширение создано и поддерживается командой Sigma File Manager",
+      "officialTooltip": "Это расширение создано и поддерживается командой Alpha File Manager",
       "community": "Сообщество",
       "communityTooltip": "Это расширение сообщества. Проверьте исходный код перед установкой.",
       "local": "Локальное",
@@ -1221,10 +1221,10 @@
       "reloadFailed": "Не удалось перезагрузить расширение после обновления настроек бинарных файлов"
     },
     "engineIncompatibleShort": "Нужно обновление",
-    "engineAppWarning": "Требуется Sigma File Manager {range} (у вас {current})",
+    "engineAppWarning": "Требуется Alpha File Manager {range} (у вас {current})",
     "engineApiWarning": "Требуется API расширений {range} (у вас {current})",
     "engineRequirements": "Требования",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "API расширений",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",

@@ -365,7 +365,7 @@ export const useExtensionsStore = defineStore('extensions', () => {
 
     if (!compatibility.isAppCompatible) {
       requirements.push(
-        `Sigma File Manager ${compatibility.appRequirement} (current: ${appVersion})`,
+        `Alpha File Manager ${compatibility.appRequirement} (current: ${appVersion})`,
       );
     }
 

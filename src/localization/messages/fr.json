@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Sigma File Manager",
+    "name": "Alpha File Manager",
     "description": "est une application gratuite, open source, avancée et moderne de gestion de fichiers, sous licence GNU GPLv3 ou ultérieure.",
     "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
   },
@@ -450,7 +450,7 @@
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "Définir Sigma File Manager comme gestionnaire de fichiers par défaut",
+        "title": "Définir Alpha File Manager comme gestionnaire de fichiers par défaut",
         "description": "Cette option modifie le registre système et peut avoir des effets secondaires inattendus sur votre appareil. Continuez à vos propres risques.",
         "unavailableInMicrosoftStore": "Indisponible dans la version Microsoft Store"
       }
@@ -1095,7 +1095,7 @@
     },
     "badges": {
       "official": "Officiel",
-      "officialTooltip": "Cette extension est créée et maintenue par l'équipe Sigma File Manager",
+      "officialTooltip": "Cette extension est créée et maintenue par l'équipe Alpha File Manager",
       "community": "Communauté",
       "communityTooltip": "Ceci est une extension communautaire. Vérifiez le code source avant l'installation.",
       "local": "Local",
@@ -1191,10 +1191,10 @@
       "reloadFailed": "Échec du rechargement de l'extension après la mise à jour des paramètres binaires"
     },
     "engineIncompatibleShort": "Mise à jour requise",
-    "engineAppWarning": "Nécessite Sigma File Manager {range} (vous avez {current})",
+    "engineAppWarning": "Nécessite Alpha File Manager {range} (vous avez {current})",
     "engineApiWarning": "Nécessite l'API d'extensions {range} (vous avez {current})",
     "engineRequirements": "Prérequis",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "API d'extensions",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",

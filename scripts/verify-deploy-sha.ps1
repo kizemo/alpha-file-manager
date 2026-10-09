@@ -69,8 +69,14 @@ if ((Test-Path -LiteralPath $aPath) -and ($sidecarPaths -notcontains $aPath)) { 
 $groups = @(
     [pscustomobject]@{
         Label = 'index.js'
+        # 2026-10-09: this used to read 'release\extension\dist\index.js', a
+        # path from BEFORE the plugin source moved into this repo. That path no
+        # longer exists, and the "first existing path becomes the baseline"
+        # fallback then promoted the INSTALLED copy to be its own baseline --
+        # a VACUOUS PASS: the file was compared against itself and could never
+        # fail. Point the baseline at the in-repo source of truth.
         Paths = @(
-            (Join-Path $RepoRoot 'release\extension\dist\index.js'),
+            (Join-Path $pluginRoot 'dist\index.js'),
             (Join-Path $extDir 'dist\index.js')
         )
     },
@@ -108,6 +114,18 @@ foreach ($g in $groups) {
     if ($null -eq $baseline) {
         $failures++
         Write-Host ("[{0}] ----NO-BASELINE---- {1,-13} {2}" -f 'FAIL', $g.Label, $rows[0].Path)
+        continue
+    }
+
+    # 2026-10-09: the generic "first EXISTING path wins" fallback above is what
+    # let a stale baseline hide: when the declared source of truth went missing
+    # it silently promoted the installed copy to be its own baseline, and the
+    # group reported PASS forever. Require the declared baseline to be present
+    # so this class of degradation becomes a loud failure instead.
+    if (-not $rows[0].Exists) {
+        $failures++
+        Write-Host ("[{0}] ----BASELINE-STALE---- {1,-13} {2}" -f 'FAIL', $g.Label, $rows[0].Path)
+        Write-Host ("       declared source of truth is missing; refusing to self-compare" )
         continue
     }
 

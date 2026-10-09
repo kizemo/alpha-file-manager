@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Sigma File Manager",
+  "productName": "Alpha File Manager",
   "version": "../package.json",
   "identifier": "com.sigma-file-manager.app",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Sigma File Manager",
+        "title": "Alpha File Manager",
         "width": 1280,
         "height": 720,
         "minWidth": 500,
@@ -29,7 +29,7 @@
       {
         "label": "quick-view",
         "create": false,
-        "title": "Sigma File Manager | Quick View",
+        "title": "Alpha File Manager | Quick View",
         "width": 1280,
         "height": 720,
         "minWidth": 300,
@@ -44,7 +44,7 @@
       {
         "label": "print-view",
         "create": false,
-        "title": "Sigma File Manager | Print",
+        "title": "Alpha File Manager | Print",
         "width": 1280,
         "height": 720,
         "minWidth": 300,
