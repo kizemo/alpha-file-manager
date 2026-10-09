@@ -16,7 +16,14 @@ use super::security::verify_integrity_sha256_digest;
 use super::types::{FetchUrlResult, MAX_TEXT_FETCH_BYTES};
 
 const HTTP_TIMEOUT_SECS: u64 = 900;
-const HTTP_CONNECT_TIMEOUT_SECS: u64 = 15;
+// v6.5.1: was 15s. raw.githubusercontent.com intermittently blackholes on
+// mainland-CN connections, and this value is charged ONCE PER CANDIDATE, per
+// registry entry, per startup — before the jsDelivr candidate is even tried.
+// 15s x retries x N probes was the entire 180s cold start. A reachable CDN or
+// GitHub connects in well under a second, so 5s costs nothing when the network
+// is fine and saves ~2/3 of the stall when it is not. See extensions.ts
+// `runStartupMarketplaceSync` for the other half of that fix.
+const HTTP_CONNECT_TIMEOUT_SECS: u64 = 5;
 const HTTP_POOL_IDLE_TIMEOUT_SECS: u64 = 30;
 const HTTP_TCP_KEEPALIVE_SECS: u64 = 30;
 const PROGRESS_EMIT_INTERVAL_BYTES: u64 = 256 * 1024;
