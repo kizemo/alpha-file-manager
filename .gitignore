@@ -27,6 +27,21 @@ coverage
 *.sln
 *.sw?
 
+# --- Focus Sync plugin (added 2026-10-09) ---
+# The root-level `dist` rule above matches at ANY depth, so it would swallow
+# the plugin's hand-maintained runtime payload. Re-include the DIRECTORY
+# (not the files inside it): git cannot descend into an excluded directory,
+# so negating the files themselves would silently not work.
+!extensions/kizemo.focus-sync/dist/
+# Build outputs of the plugin, never committed.
+extensions/kizemo.focus-sync/bin/
+extensions/kizemo.focus-sync/*.exe
+# makensis bundles the sidecar from beside installer.nsi, so a copy lands here.
+extensions/kizemo.focus-sync/installer/*.exe
+# Upstream ships a release/ folder with prebuilt installers. This repo builds
+# its own into src-tauri/target/release/bundle/, so that folder is dead weight.
+release/
+
 *.tsbuildinfo
 
 flatpak/.deb-input/

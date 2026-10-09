@@ -21,21 +21,26 @@
 #
 # NOTE: ASCII-only on purpose (hard constraint 9 -- PS 5.1 reads .ps1 as ANSI).
 #
-# Usage:
-#   powershell -NoProfile -ExecutionPolicy Bypass -File sigma-file-manager\scripts\verify-nsis-warnings.ps1
+# Usage (run from the repo root):
+#   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-nsis-warnings.ps1
 # ============================================================================
 
 [CmdletBinding()]
 param(
-    [string]$RepoRoot = "F:\soft\00selfmade\filemanager"
+    [string]$RepoRoot = ""
 )
 
 $ErrorActionPreference = 'Stop'
 
+# 2026-10-09: this gate now runs from inside the fork itself. Default to the
+# repo containing this script; the old default pointed at a sibling checkout
+# and silently FAILed with a confusing "hooks.nsh not found".
+if (-not $RepoRoot) { $RepoRoot = Split-Path $PSScriptRoot -Parent }
+
 $makensis = 'C:\Program Files (x86)\NSIS\makensis.exe'
-$nsisDir  = Join-Path $RepoRoot 'sigma-file-manager\src-tauri\target\release\nsis\x64'
+$nsisDir  = Join-Path $RepoRoot 'src-tauri\target\release\nsis\x64'
 $nsi      = Join-Path $nsisDir 'installer.nsi'
-$hooks    = Join-Path $RepoRoot 'sigma-file-manager\src-tauri\installer\hooks.nsh'
+$hooks    = Join-Path $RepoRoot 'src-tauri\installer\hooks.nsh'
 $probe    = Join-Path $env:TEMP 'nsis-warning-probe.exe'
 
 function Fail([string]$m) { Write-Host "RESULT: FAIL -- $m"; exit 1 }
