@@ -60,12 +60,17 @@ Var RESOLVEDAPPDATA
   Pop $0
   nsExec::ExecToLog 'taskkill /F /IM "Sigma File Manager Renderer.exe" /T'
   Pop $0
-  ; v2.2.0-alpha (2026-10-09): productName is now "Alpha File Manager", so the
-  ; shipped main exe is "Alpha File Manager.exe". Add its kill targets, otherwise
-  ; an in-place reinstall over a RUNNING install would fail in Tauri's
-  ; CheckIfAppIsRunning. The Sigma* entries above are kept deliberately: they
-  ; are the upgrade path for users who still have Sigma FM installed
+  ; v2.2.0-alpha (2026-10-09): the main exe is now named from the Cargo
+  ; package name (see [package] name in Cargo.toml), NOT from productName.
+  ; productName only names the *installer* and the window title. After the
+  ; rename that is "alpha-file-manager.exe". This entry is NOT optional: if it
+  ; is missing, an in-place reinstall over a RUNNING install fails in Tauri's
+  ; CheckIfAppIsRunning -- silently, since Tauri swallows the reason.
+  ; The Sigma* entries above are kept deliberately: they are the upgrade path
+  ; for users who still have Sigma FM installed
   ; (kill it -> reuse its InstallLocation -> upgrade in place).
+  nsExec::ExecToLog 'taskkill /F /IM alpha-file-manager.exe /T'
+  Pop $0
   nsExec::ExecToLog 'taskkill /F /IM "Alpha File Manager.exe" /T'
   Pop $0
   nsExec::ExecToLog 'taskkill /F /IM AlphaFileManager.exe /T'
@@ -373,6 +378,26 @@ Var RESOLVEDAPPDATA
 
   stage9_skip:
 
+  ; ---------------------------------------------------------------------
+  ; v2.2.0-alpha (2026-10-09): remove the legacy main binary.
+  ; The exe is named from the Cargo package name, which was renamed
+  ; sigma-file-manager.exe -> alpha-file-manager.exe. NSIS only manages the
+  ; files it wrote, so an in-place upgrade would otherwise leave a ~44 MB
+  ; orphan "sigma-file-manager.exe" next to the new one -- two launchers,
+  ; and the stale one would keep resurrecting on any old shortcut.
+  ; Placed AFTER stage9_skip so the Goto above cannot bypass it.
+  ; ---------------------------------------------------------------------
+  ${If} ${FileExists} "$INSTDIR\alpha-file-manager.exe"
+    ${If} ${FileExists} "$INSTDIR\sigma-file-manager.exe"
+      Delete "$INSTDIR\sigma-file-manager.exe"
+      ${If} ${FileExists} "$INSTDIR\sigma-file-manager.exe"
+        DetailPrint "==> WARNING: legacy sigma-file-manager.exe could not be removed."
+      ${Else}
+        DetailPrint "==> Removed legacy sigma-file-manager.exe from $INSTDIR."
+      ${EndIf}
+    ${EndIf}
+  ${EndIf}
+
   DetailPrint "==> [POSTINSTALL HOOK END] Deployed kizemo.focus-sync v0.3.0"
   DetailPrint "    Extension files: $RESOLVEDAPPDATA\com.sigma-file-manager.app\extensions\kizemo.focus-sync\"
   DetailPrint "    Sidecar binary:  $RESOLVEDAPPDATA\com.sigma-file-manager.app\extensions\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe (canonical, per-user)"
@@ -393,9 +418,11 @@ Var RESOLVEDAPPDATA
   ; Disable so it doesn't respawn during file deletion.
   nsExec::ExecToLog 'schtasks /Change /TN "\KizemoFocusSync" /DISABLE 2>nul'
   Pop $0
-  ; v0.5.2: also kill any residual Sigma FM processes (if user is uninstalling
-  ; only the extension, Sigma FM might still be running with WebView2 children
+  ; v0.5.2: also kill any residual app processes (if user is uninstalling
+  ; only the extension, the app might still be running with WebView2 children
   ; holding extension files). Belt-and-suspenders.
+  nsExec::ExecToLog 'taskkill /F /IM alpha-file-manager.exe /T 2>nul'
+  Pop $0
   nsExec::ExecToLog 'taskkill /F /IM sigma-file-manager.exe /T 2>nul'
   Pop $0
   nsExec::ExecToLog 'taskkill /F /IM SigmaFileManager.exe /T 2>nul'
