@@ -13,6 +13,13 @@
 // `onLoadError` and the UI keeps rendering (the row stays visible, just with
 // no children). This breaks the imperative "parent calls child.expandToPath"
 // chain that was unfixable in v0..v5 — see handoff-2026-09-26-tree-sync-retro.
+//
+// v6.5: adds `invalidate(path)`. v6 made the tree permanently stale: nothing
+// could ever clear `loadedSet` or `node.isLoaded`, so a directory read once
+// was never read again and a folder created inside an already-expanded
+// directory never appeared. `invalidate` is that missing escape hatch; the
+// idempotent `ensureLoaded` early return is intentionally left alone (see
+// handoff-2026-10-09-alpha-fm-brand-release.md §3.3).
 
 import {
   computed,
@@ -78,6 +85,24 @@ export interface UseFileTreeApi {
   ensureAncestorsLoaded: (ancestorPaths: string[]) => Promise<void>;
   /** Add a path as a root if it isn't already one. Returns true if added. */
   addRoot: (path: string) => boolean;
+  /**
+   * v6.5: forget the cached children of `path` **and its whole subtree**, then
+   * immediately re-read whatever is still expanded.
+   *
+   * This is the only escape hatch from the two caches in this composable, and
+   * both have to be cleared together:
+   *   - `loadedSet` gates the early return at the top of `ensureLoaded`
+   *   - `node.isLoaded` gates `loadChildren` and `loadChildrenOfNode`
+   *
+   * Filesystem mutations that happen outside the tree (create / rename /
+   * delete) must reach the tree through this, otherwise a directory that was
+   * read once can never be read again and the tree goes permanently stale.
+   *
+   * Deliberately additive: `ensureLoaded` keeps its idempotent early return
+   * (locked by "ensureLoaded is idempotent on already-loaded paths"), because
+   * expanding a folder should still never re-hit the disk on its own.
+   */
+  invalidate: (path: string) => Promise<void>;
 }
 
 export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
@@ -266,6 +291,58 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
     }
   }
 
+  /** Pre-order DFS over the cached subtree. A directory always appears
+   *  before its descendants — callers rely on that ordering. */
+  function collectSubtreePaths(node: FileTreeNode): string[] {
+    const out: string[] = [node.path];
+
+    for (const child of node.children ?? []) {
+      if (child.isDirectory) out.push(...collectSubtreePaths(child));
+    }
+
+    return out;
+  }
+
+  async function invalidate(path: string): Promise<void> {
+    const node = findNode(nodes.value, path);
+    const stale = node ? collectSubtreePaths(node) : [path];
+
+    // Clear BOTH caches across the subtree. Clearing only one leaves the
+    // directory unreadable forever — that pairing was the original bug.
+    const nextLoaded = new Set(loadedSet.value);
+    let touched = false;
+
+    for (const p of stale) {
+      if (nextLoaded.delete(p)) touched = true;
+      const n = findNode(nodes.value, p);
+
+      // `children` is deliberately kept: stale-while-revalidate, so the row
+      // doesn't visibly empty out. loadChildren replaces the whole array
+      // when the re-read succeeds.
+      if (n?.isLoaded) {
+        n.isLoaded = false;
+        touched = true;
+      }
+    }
+
+    if (touched) {
+      loadedSet.value = nextLoaded;
+      nodes.value = [...nodes.value];
+    }
+
+    // Re-read only what's visible. Sequential and parents-first, because a
+    // parent's loadChildren replaces its children objects wholesale — a
+    // descendant must look itself up again *after* that, or it would hold a
+    // detached node and write its result somewhere nobody renders.
+    const expanded = toValue(options.expandedPaths);
+
+    for (const p of stale) {
+      if (expanded.has(p)) {
+        await ensureLoaded(p);
+      }
+    }
+  }
+
   const loadedPaths = computed<Set<string>>(() => loadedSet.value);
 
   const rows = computed<FileTreeFlatRow[]>(() => {
@@ -322,6 +399,7 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
     ensureLoaded,
     ensureAncestorsLoaded,
     addRoot,
+    invalidate,
   };
 }
 

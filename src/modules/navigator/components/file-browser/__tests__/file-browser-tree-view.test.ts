@@ -13,7 +13,11 @@
 // template ref, no parent→child imperative call.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
+import {
+  flushPromises,
+  mount,
+  type VueWrapper,
+} from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { nextTick } from 'vue';
 import FileBrowserTreeView from '@/modules/navigator/components/file-browser/file-browser-tree-view.vue';
@@ -21,6 +25,12 @@ import {
   computeAncestorPaths,
   useFolderTreeStore,
 } from '@/stores/runtime/folder-tree';
+import { resolveDirectoryContents } from '@/utils/virtual-locations';
+import type { DirContents, DirEntry } from '@/types/dir-entry';
+
+vi.mock('@/utils/virtual-locations', () => ({
+  resolveDirectoryContents: vi.fn(),
+}));
 
 // Stub the Tauri IPC entry that resolveDirectoryContents uses in production.
 // In jsdom there is no window.__TAURI__ so reading `.invoke` throws — we
@@ -147,6 +157,146 @@ describe('FileBrowserTreeView (store-driven sync)', () => {
     const row = wrapper.find('[data-tree-path="C:/locked"]');
     expect(row.exists()).toBe(true);
     expect(row.classes()).toContain('file-tree-row--error');
+
+    wrapper.unmount();
+  });
+});
+
+describe('FileBrowserTreeView — filesystem mutation reaches the tree (v6.5)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.mocked(resolveDirectoryContents).mockReset();
+  });
+
+  function entry(path: string, name: string, isDir: boolean): DirEntry {
+    return {
+      name,
+      ext: null,
+      path,
+      size: 0,
+      item_count: null,
+      modified_time: 0,
+      accessed_time: 0,
+      created_time: 0,
+      mime: null,
+      is_file: !isDir,
+      is_dir: isDir,
+      is_symlink: false,
+      is_hidden: false,
+    };
+  }
+
+  function dirContents(path: string, entries: DirEntry[]): DirContents {
+    return {
+      path,
+      entries,
+      total_count: entries.length,
+      dir_count: entries.filter(e => e.is_dir).length,
+      file_count: entries.filter(e => !e.is_dir).length,
+      opened_directory_times: {
+        modified_time: 0,
+        accessed_time: 0,
+        created_time: 0,
+      },
+    };
+  }
+
+  /** Mount with the given roots, backed by a mutable fake filesystem. */
+  async function mountWithFakeFs(rootPaths: string[], contents: Record<string, DirEntry[]>) {
+    vi.mocked(resolveDirectoryContents).mockImplementation(async (path: string) => {
+      return dirContents(path, contents[path] ?? []);
+    });
+
+    const store = useFolderTreeStore();
+    const wrapper = mount(FileBrowserTreeView, {
+      props: { rootPaths },
+    });
+    await flushPromises();
+
+    return {
+      store,
+      wrapper,
+    };
+  }
+
+  function renderedPaths(wrapper: VueWrapper): (string | undefined)[] {
+    return wrapper.findAll('[data-tree-path]').map(r => r.attributes('data-tree-path'));
+  }
+
+  it('a folder created inside an expanded directory appears without re-expanding', async () => {
+    // The reported bug, end to end: create a folder in an expanded directory
+    // and the tree never showed it, because nothing could invalidate the
+    // tree's per-directory children cache.
+    const contents: Record<string, DirEntry[]> = {
+      'C:/work': [entry('C:/work/a.md', 'a.md', false)],
+    };
+    const { store, wrapper } = await mountWithFakeFs(['C:/work'], contents);
+
+    store.expandPath('C:/work');
+    await flushPromises();
+    expect(renderedPaths(wrapper)).toEqual(['C:/work', 'C:/work/a.md']);
+
+    // A file browser pane creates a folder, then publishes the changed dir.
+    contents['C:/work'].push(entry('C:/work/fresh', 'fresh', true));
+    store.markTreeStale(['C:/work']);
+    await flushPromises();
+
+    // Never collapsed, never re-expanded by hand.
+    expect(store.isExpanded('C:/work')).toBe(true);
+    expect(renderedPaths(wrapper)).toEqual(['C:/work', 'C:/work/a.md', 'C:/work/fresh']);
+
+    wrapper.unmount();
+  });
+
+  it('a deleted folder disappears from the expanded directory', async () => {
+    // The same dead cache also pinned deleted entries on screen.
+    const contents: Record<string, DirEntry[]> = {
+      'C:/work': [entry('C:/work/doomed', 'doomed', true)],
+    };
+    const { store, wrapper } = await mountWithFakeFs(['C:/work'], contents);
+
+    store.expandPath('C:/work');
+    await flushPromises();
+    expect(renderedPaths(wrapper)).toEqual(['C:/work', 'C:/work/doomed']);
+
+    contents['C:/work'] = [];
+    store.markTreeStale(['C:/work']);
+    await flushPromises();
+
+    expect(renderedPaths(wrapper)).toEqual(['C:/work']);
+
+    wrapper.unmount();
+  });
+
+  it('picks up an invalidation published while the tree panel was unmounted', async () => {
+    // navigator.vue mounts the tree under v-if="showFolderTree", so an
+    // invalidation can be published with no consumer listening.
+    const contents: Record<string, DirEntry[]> = {
+      'C:/work': [entry('C:/work/seen.txt', 'seen.txt', false)],
+    };
+    vi.mocked(resolveDirectoryContents).mockImplementation(async (path: string) => {
+      return dirContents(path, contents[path] ?? []);
+    });
+
+    const store = useFolderTreeStore();
+    store.markTreeStale(['C:/work']); // nothing is mounted yet
+    expect(store.staleTreePaths.size).toBe(1);
+
+    store.expandPath('C:/work');
+    const wrapper = mount(FileBrowserTreeView, {
+      props: { rootPaths: ['C:/work'] },
+    });
+    await flushPromises();
+
+    // The mount consumed it, and the directory really was re-read.
+    expect(store.consumeStaleTreePaths()).toEqual([]);
+    expect(vi.mocked(resolveDirectoryContents).mock.calls.map(c => c[0])).toContain('C:/work');
+    expect(renderedPaths(wrapper)).toEqual(['C:/work', 'C:/work/seen.txt']);
+    // Two reads here, and that is deliberate: the immediate expansion watcher
+    // starts a read on mount, and that read may have started *before* the
+    // mutation the pending invalidation represents — so it must be re-read
+    // rather than trusted. Collapse-and-re-expand does NOT have this problem,
+    // which is why the two tests above see exactly one extra read.
 
     wrapper.unmount();
   });
