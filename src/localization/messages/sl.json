@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Sigma File Manager",
+    "name": "Alpha File Manager",
     "description": "je brezplačni, odprtokodni, napredni, moderen upravitelj datotek, licenciran pod GNU GPLv3 ali poznejšo licenco.",
     "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
   },
@@ -479,7 +479,7 @@
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "Nastavi Sigma File Manager kot privzeti upravljalnik datotek",
+        "title": "Nastavi Alpha File Manager kot privzeti upravljalnik datotek",
         "description": "Ta možnost spremeni sistemski register in lahko povzroči nepričakovane stranske učinke na vaši napravi. Nadaljujte na lastno odgovornost.",
         "unavailableInMicrosoftStore": "Ni na voljo v različici iz trgovine Microsoft Store"
       }
@@ -1186,7 +1186,7 @@
     },
     "badges": {
       "official": "Uradna",
-      "officialTooltip": "To razširitev je ustvarila in vzdržuje ekipa Sigma File Manager",
+      "officialTooltip": "To razširitev je ustvarila in vzdržuje ekipa Alpha File Manager",
       "community": "Skupnost",
       "communityTooltip": "To je razširitev skupnosti. Pred namestitvijo pregledajte izvorno kodo.",
       "local": "Lokalna",
@@ -1221,10 +1221,10 @@
       "stop": "Ustavi"
     },
     "engineIncompatibleShort": "Potrebna posodobitev",
-    "engineAppWarning": "Zahteva Sigma File Manager {range} (imate {current})",
+    "engineAppWarning": "Zahteva Alpha File Manager {range} (imate {current})",
     "engineApiWarning": "Zahteva API razširitev {range} (imate {current})",
     "engineRequirements": "Zahteve",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "API razširitev",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",

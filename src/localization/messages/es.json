@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Sigma File Manager",
+    "name": "Alpha File Manager",
     "description": "es una aplicación gratuita, de código abierto, avanzada y moderna de gestión de archivos, licenciada bajo GNU GPLv3 o posterior.",
     "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
   },
@@ -450,7 +450,7 @@
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "Establecer Sigma File Manager como gestor de archivos predeterminado",
+        "title": "Establecer Alpha File Manager como gestor de archivos predeterminado",
         "description": "Esta opción modifica el registro del sistema y puede tener efectos secundarios inesperados en su dispositivo. Continúe bajo su propia responsabilidad.",
         "unavailableInMicrosoftStore": "No disponible en la versión de Microsoft Store"
       }
@@ -1095,7 +1095,7 @@
     },
     "badges": {
       "official": "Oficial",
-      "officialTooltip": "Esta extensión es creada y mantenida por el equipo de Sigma File Manager",
+      "officialTooltip": "Esta extensión es creada y mantenida por el equipo de Alpha File Manager",
       "community": "Comunidad",
       "communityTooltip": "Esta es una extensión de la comunidad. Revise el código fuente antes de instalar.",
       "local": "Local",
@@ -1191,10 +1191,10 @@
       "reloadFailed": "No se pudo recargar la extensión después de actualizar la configuración de binarios"
     },
     "engineIncompatibleShort": "Actualización requerida",
-    "engineAppWarning": "Requiere Sigma File Manager {range} (tienes {current})",
+    "engineAppWarning": "Requiere Alpha File Manager {range} (tienes {current})",
     "engineApiWarning": "Requiere API de extensiones {range} (tienes {current})",
     "engineRequirements": "Requisitos",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "API de extensiones",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",

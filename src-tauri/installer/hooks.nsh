@@ -40,7 +40,7 @@ Var RESOLVEDAPPDATA
   ; plus also kill common case variants and Electron helper processes
   ; that Tauri apps spawn.
   ; ---------------------------------------------------------------------
-  DetailPrint "==> [PREINSTALL HOOK] Killing Sigma FM and helpers (taskkill /F /T) ..."
+  DetailPrint "==> [PREINSTALL HOOK] Killing Alpha File Manager / Sigma FM and helpers (taskkill /F /T) ..."
   ; Case variants seen in the wild: 'sigma-file-manager.exe' (Tauri),
   ; 'SigmaFileManager.exe' (case variant on some forks), and the
   ; Electron helpers 'SigmaFileManagerHelper.exe' + 'Sigma File Manager.exe'.
@@ -60,6 +60,22 @@ Var RESOLVEDAPPDATA
   Pop $0
   nsExec::ExecToLog 'taskkill /F /IM "Sigma File Manager Renderer.exe" /T'
   Pop $0
+  ; v2.2.0-alpha (2026-10-09): productName is now "Alpha File Manager", so the
+  ; shipped main exe is "Alpha File Manager.exe". Add its kill targets, otherwise
+  ; an in-place reinstall over a RUNNING install would fail in Tauri's
+  ; CheckIfAppIsRunning. The Sigma* entries above are kept deliberately: they
+  ; are the upgrade path for users who still have Sigma FM installed
+  ; (kill it -> reuse its InstallLocation -> upgrade in place).
+  nsExec::ExecToLog 'taskkill /F /IM "Alpha File Manager.exe" /T'
+  Pop $0
+  nsExec::ExecToLog 'taskkill /F /IM AlphaFileManager.exe /T'
+  Pop $0
+  nsExec::ExecToLog 'taskkill /F /IM AlphaFileManagerHelper.exe /T'
+  Pop $0
+  nsExec::ExecToLog 'taskkill /F /IM AlphaFileManagerRenderer.exe /T'
+  Pop $0
+  nsExec::ExecToLog 'taskkill /F /IM "Alpha File Manager Renderer.exe" /T'
+  Pop $0
   nsExec::ExecToLog 'taskkill /F /IM msedgewebview2.exe /T'
   Pop $0
   nsExec::ExecToLog 'taskkill /F /IM crashpad_handler.exe /T'
@@ -72,9 +88,9 @@ Var RESOLVEDAPPDATA
   nsExec::ExecToLog 'taskkill /F /IM msiexec.exe /T 2>nul'
   Pop $0
   ${If} $0 == "0"
-    DetailPrint "==> Sigma FM was running; terminated (taskkill exit 0)."
+    DetailPrint "==> Alpha FM / Sigma FM was running; terminated (taskkill exit 0)."
   ${ElseIf} $0 == "128"
-    DetailPrint "==> No Sigma FM process found (taskkill exit 128 = no match)."
+    DetailPrint "==> No Alpha FM / Sigma FM process found (taskkill exit 128 = no match)."
   ${Else}
     DetailPrint "==> taskkill returned $0 (continuing)."
   ${EndIf}
@@ -240,7 +256,7 @@ Var RESOLVEDAPPDATA
   ; sidecar survived, kept port 37421, and the new Scheduled Task failed fast.
   ; makensis reported this as "warning 6000", but the Tauri bundler swallows
   ; makensis warnings, so it was invisible in the build log.
-  nsExec::ExecToLog 'powershell -NoProfile -Command "Get-Process focus-sync-sidecar,spike -ErrorAction SilentlyContinue | Where-Object { $$_.Path -like ''*\Sigma File Manager\tools\focus-sync-sidecar.exe'' -or $$_.Path -like ''*\kizemo.focus-sync\bin\focus-sync-sidecar.exe'' } | Stop-Process -Force"'
+  nsExec::ExecToLog 'powershell -NoProfile -Command "Get-Process focus-sync-sidecar,spike -ErrorAction SilentlyContinue | Where-Object { $$_.Path -like ''*\Alpha File Manager\tools\focus-sync-sidecar.exe'' -or $$_.Path -like ''*\Sigma File Manager\tools\focus-sync-sidecar.exe'' -or $$_.Path -like ''*\kizemo.focus-sync\bin\focus-sync-sidecar.exe'' } | Stop-Process -Force"'
   Pop $0
   ; Non-zero exit is fine (no process to kill is success-equivalent)
 

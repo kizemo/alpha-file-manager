@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Sigma File Manager",
+    "name": "Alpha File Manager",
     "description": "là một ứng dụng quản lý tệp hiện đại, mã nguồn mở, miễn phí, được cấp phép theo GNU GPLv3 trở lên.",
     "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
   },
@@ -450,7 +450,7 @@
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "Đặt Sigma File Manager làm trình quản lý tệp mặc định",
+        "title": "Đặt Alpha File Manager làm trình quản lý tệp mặc định",
         "description": "Tùy chọn này sửa đổi sổ đăng ký hệ thống và có thể gây ra tác dụng phụ ngoài ý muốn trên thiết bị của bạn. Hãy tiếp tục với rủi ro của riêng bạn.",
         "unavailableInMicrosoftStore": "Không khả dụng trong phiên bản Microsoft Store"
       }
@@ -1095,7 +1095,7 @@
     },
     "badges": {
       "official": "Chính thức",
-      "officialTooltip": "Tiện ích mở rộng này được tạo và duy trì bởi đội ngũ Sigma File Manager",
+      "officialTooltip": "Tiện ích mở rộng này được tạo và duy trì bởi đội ngũ Alpha File Manager",
       "community": "Cộng đồng",
       "communityTooltip": "Đây là tiện ích mở rộng cộng đồng. Xem xét mã nguồn trước khi cài đặt.",
       "local": "Cục bộ",
@@ -1191,10 +1191,10 @@
       "reloadFailed": "Không thể tải lại tiện ích sau khi cập nhật cài đặt tệp nhị phân"
     },
     "engineIncompatibleShort": "Cần cập nhật",
-    "engineAppWarning": "Yêu cầu Sigma File Manager {range} (bạn đang dùng {current})",
+    "engineAppWarning": "Yêu cầu Alpha File Manager {range} (bạn đang dùng {current})",
     "engineApiWarning": "Yêu cầu API extension {range} (bạn đang dùng {current})",
     "engineRequirements": "Yêu cầu",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "API extension",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",

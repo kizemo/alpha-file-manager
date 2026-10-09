@@ -1221,10 +1221,10 @@
       "stop": "रुकना"
     },
     "engineIncompatibleShort": "अपडेट आवश्यक",
-    "engineAppWarning": "Sigma File Manager {range} आवश्यक है (आपके पास {current})",
+    "engineAppWarning": "Alpha File Manager {range} आवश्यक है (आपके पास {current})",
     "engineApiWarning": "एक्सटेंशन API {range} आवश्यक है (आपके पास {current})",
     "engineRequirements": "आवश्यकताएँ",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "एक्सटेंशन API",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",

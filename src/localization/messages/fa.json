@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Sigma File Manager",
+    "name": "Alpha File Manager",
     "description": "یک برنامه مدیریت فایل رایگان، منبع باز، پیشرفته و مدرن است که تحت مجوز GNU GPLv3 یا جدیدتر است.",
     "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
   },
@@ -446,7 +446,7 @@
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "Sigma File Manager را به عنوان مدیر فایل پیش فرض تنظیم کنید",
+        "title": "Alpha File Manager را به عنوان مدیر فایل پیش فرض تنظیم کنید",
         "description": "این گزینه رجیستری سیستم را تغییر می دهد و ممکن است عوارض جانبی غیرمنتظره ای روی دستگاه شما داشته باشد. با مسئولیت خود ادامه دهید.",
         "unavailableInMicrosoftStore": "در نسخه Microsoft Store در دسترس نیست"
       }
@@ -1091,7 +1091,7 @@
     },
     "badges": {
       "official": "رسمی",
-      "officialTooltip": "این افزونه توسط تیم Sigma File Manager ایجاد و نگهداری می‌شود",
+      "officialTooltip": "این افزونه توسط تیم Alpha File Manager ایجاد و نگهداری می‌شود",
       "community": "جامعه",
       "communityTooltip": "این یک افزونه جامعه است. قبل از نصب، کد منبع را بررسی کنید.",
       "local": "محلی",
@@ -1187,10 +1187,10 @@
       "reloadFailed": "پس از به‌روزرسانی تنظیمات باینری، بارگذاری مجدد افزونه ناموفق بود"
     },
     "engineIncompatibleShort": "به‌روزرسانی لازم است",
-    "engineAppWarning": "به Sigma File Manager {range} نیاز دارد (نسخه شما {current})",
+    "engineAppWarning": "به Alpha File Manager {range} نیاز دارد (نسخه شما {current})",
     "engineApiWarning": "به API افزونه {range} نیاز دارد (نسخه شما {current})",
     "engineRequirements": "نیازمندی‌ها",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "API افزونه",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",

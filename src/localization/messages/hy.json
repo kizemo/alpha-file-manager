@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Sigma File Manager",
+    "name": "Alpha File Manager",
     "description": "անվճար, բաց կոդով, առաջադեմ, ժամանակակից ֆայլային մենեջեր, լիցենզիա՝ GNU GPLv3 կամ ավելի ուշ լիցենզիայով։",
     "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
   },
@@ -479,7 +479,7 @@
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "Դնել Sigma File Manager որպես լռելյայն ֆայլային մենեջեր",
+        "title": "Դնել Alpha File Manager որպես լռելյայն ֆայլային մենեջեր",
         "description": "Այս տարբերակը փոխում է համակարգի կարգավորումները և կարող է անսպասելի ազդեցություններ ունենալ սարքի վրա։ Շարունակեք Ձեր ռիսկով։",
         "unavailableInMicrosoftStore": "Հասանելի չէ Microsoft Store-ից ներբեռնված վերսիայում"
       }

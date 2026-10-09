@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Sigma File Manager",
+    "name": "Alpha File Manager",
     "description": "はフリー、オープンソース、高機能、モダンなファイルマネージャーアプリで、GNU GPLv3またはそれ以降でライセンスされています。",
     "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
   },
@@ -450,7 +450,7 @@
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "Sigma File Manager を既定のファイルマネージャーとして設定",
+        "title": "Alpha File Manager を既定のファイルマネージャーとして設定",
         "description": "このオプションはシステム レジストリを変更するため、デバイスで予期しない副作用が発生する可能性があります。自己責任で続行してください。",
         "unavailableInMicrosoftStore": "Microsoft Store 版では利用できません"
       }
@@ -1095,7 +1095,7 @@
     },
     "badges": {
       "official": "公式",
-      "officialTooltip": "この拡張機能はSigma File Managerチームによって作成・管理されています",
+      "officialTooltip": "この拡張機能はAlpha File Managerチームによって作成・管理されています",
       "community": "コミュニティ",
       "communityTooltip": "これはコミュニティ拡張機能です。インストール前にソースコードを確認してください。",
       "local": "ローカル",
@@ -1191,10 +1191,10 @@
       "reloadFailed": "バイナリ設定の更新後に拡張機能を再読み込みできませんでした"
     },
     "engineIncompatibleShort": "更新が必要",
-    "engineAppWarning": "Sigma File Manager {range} が必要です（現在: {current}）",
+    "engineAppWarning": "Alpha File Manager {range} が必要です（現在: {current}）",
     "engineApiWarning": "拡張機能 API {range} が必要です（現在: {current}）",
     "engineRequirements": "要件",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "拡張機能 API",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",

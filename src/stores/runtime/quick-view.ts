@@ -233,7 +233,7 @@ export const useQuickViewStore = defineStore('quickView', () => {
 
     const opened = await runAuxiliaryWindowTask('quick-view', async ({ window: quickWindow, isCurrent }) => {
       return runAuxiliaryWindowSteps(isCurrent, [
-        () => quickWindow.setTitle(`Sigma File Manager | Quick View - ${getFileName(path)}`),
+        () => quickWindow.setTitle(`Alpha File Manager | Quick View - ${getFileName(path)}`),
         () => emitAuxiliaryWindowEvent('quick-view', QUICK_VIEW_LOAD_FILE_EVENT, {
           path,
           siblingPaths:
@@ -264,7 +264,7 @@ export const useQuickViewStore = defineStore('quickView', () => {
 
     const opened = await runAuxiliaryWindowTask('print-view', async ({ window: printWindow, isCurrent }) => {
       return runAuxiliaryWindowSteps(isCurrent, [
-        () => printWindow.setTitle(`Sigma File Manager | Print - ${getFileName(path)}`),
+        () => printWindow.setTitle(`Alpha File Manager | Print - ${getFileName(path)}`),
         () => printWindow.center(),
         () => printWindow.show(),
         () => printWindow.setFocus(),

@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Sigma File Manager",
+    "name": "Alpha File Manager",
     "description": "é um aplicativo gratuito, de código aberto, avançado e moderno de gerenciamento de arquivos, licenciado sob GNU GPLv3 ou posterior.",
     "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
   },
@@ -450,7 +450,7 @@
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "Definir o Sigma File Manager como gerenciador de arquivos padrão",
+        "title": "Definir o Alpha File Manager como gerenciador de arquivos padrão",
         "description": "Esta opção modifica o registro do sistema e pode causar efeitos colaterais inesperados no seu dispositivo. Continue por sua conta e risco.",
         "unavailableInMicrosoftStore": "Não disponível na versão da Microsoft Store"
       }
@@ -1093,7 +1093,7 @@
     },
     "badges": {
       "official": "Oficial",
-      "officialTooltip": "Esta extensão é criada e mantida pela equipe Sigma File Manager",
+      "officialTooltip": "Esta extensão é criada e mantida pela equipe Alpha File Manager",
       "community": "Comunidade",
       "communityTooltip": "Esta é uma extensão da comunidade. Verifique o código-fonte antes da instalação.",
       "local": "Local",
@@ -1190,10 +1190,10 @@
       "reloadFailed": "Falha ao recarregar a extensão após atualizar as configurações de binários"
     },
     "engineIncompatibleShort": "Atualização necessária",
-    "engineAppWarning": "Requer Sigma File Manager {range} (você tem {current})",
+    "engineAppWarning": "Requer Alpha File Manager {range} (você tem {current})",
     "engineApiWarning": "Requer API de extensões {range} (você tem {current})",
     "engineRequirements": "Requisitos",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "API de extensões",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",
