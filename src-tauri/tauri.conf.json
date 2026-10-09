@@ -77,10 +77,21 @@
       "app",
       "dmg"
     ],
+    "resources": {
+      "../../release/extension/package.json": "extensions/kizemo.focus-sync/package.json",
+      "../../release/extension/dist": "extensions/kizemo.focus-sync/dist",
+      "../../release/extension/locales": "extensions/kizemo.focus-sync/locales",
+      "../../release/extension-installer/register.ps1": "tools/register.ps1",
+      "../../release/extension-installer/resolve_user_appdata.ps1": "tools/resolve_user_appdata.ps1",
+      "../../release/extension-installer/register-scheduled-task.ps1": "tools/register-scheduled-task.ps1",
+      "../../release/extension-installer/unregister-scheduled-task.ps1": "tools/unregister-scheduled-task.ps1",
+      "../../release/extension/bin/focus-sync-sidecar.exe": "tools/focus-sync-sidecar.exe"
+    },
     "windows": {
       "nsis": {
-        "installMode": "currentUser",
-        "installerIcon": "icons/icon.ico"
+        "installMode": "perMachine",
+        "installerIcon": "icons/icon.ico",
+        "installerHooks": "installer/hooks.nsh"
       }
     },
     "icon": [

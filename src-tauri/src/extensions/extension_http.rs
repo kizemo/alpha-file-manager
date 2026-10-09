@@ -30,6 +30,20 @@ fn extension_http_client() -> Result<&'static reqwest::Client, String> {
                 .connect_timeout(Duration::from_secs(15))
                 .redirect(reqwest::redirect::Policy::limited(5))
                 .user_agent(HTTP_USER_AGENT)
+                // focus-21 v0.3.7 (Mavis 8th-round L1 review): honor system
+                // NO_PROXY. Without this, reqwest 0.13 routes ALL requests
+                // through HTTPS_PROXY/HTTP_PROXY (clash/mihomo/cowboy etc.),
+                // even for localhost/127.0.0.1 targets. Result: every
+                // focus-sync PUSH to http://127.0.0.1:37421 gets proxied,
+                // the proxy returns 502, the extension sees
+                // "PUSH response status=502", and sidecar never receives
+                // the path → dialog never navigates. NO_PROXY=localhost,
+                // 127.0.0.1,::1 is already set in the user's environment
+                // (Mavis §2.3 confirmed). Calling .no_proxy() makes reqwest
+                // honor that env var; localhost/127.0.0.1/::1 requests
+                // bypass the proxy, other hosts still go through it (since
+                // NO_PROXY is whitelisted, not blanket-bypassed).
+                .no_proxy()
                 .build()
                 .map_err(|error| format!("Failed to create HTTP client: {}", error))
         })
