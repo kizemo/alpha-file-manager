@@ -2038,6 +2038,37 @@ export const useExtensionsStore = defineStore('extensions', () => {
     });
   }
 
+  /**
+   * v6.5.1: marketplace work that must never gate a locally installed
+   * extension from starting.
+   *
+   * Measured 2026-10-09: `init()` used to `await fetchRegistry()` (which
+   * itself runs `filterReachableRegistryEntries` — one raw.githubusercontent.com
+   * probe per registry entry), then `prefetchAllVersions()` (one more per
+   * entry), then `autoUpdateAllExtensions()` — and only THEN load extensions.
+   *
+   * On a mainland-CN connection raw.githubusercontent.com intermittently
+   * blackholes, so each probe burned the 15s connect timeout plus retries
+   * before falling through to the jsDelivr candidate. Measured on a real
+   * install: window visible at 0.6s, extension activation at 180.5s. The app
+   * looked broken for three minutes for what was only a marketplace refresh.
+   *
+   * Local extensions are already on disk — nothing about starting them needs
+   * the network. So they go first, and the marketplace sync runs afterwards
+   * without being awaited. A slow, unreachable or hostile registry now costs
+   * an installed extension exactly nothing.
+   */
+  async function runStartupMarketplaceSync(): Promise<void> {
+    try {
+      await fetchRegistry();
+      await prefetchAllVersions();
+      await autoUpdateAllExtensions();
+    }
+    catch (error) {
+      console.error('Failed to sync extension marketplace at startup:', error);
+    }
+  }
+
   async function init(): Promise<void> {
     if (isInitialized.value) return;
 
@@ -2061,17 +2092,6 @@ export const useExtensionsStore = defineStore('extensions', () => {
 
     recentCommandIds.value = storageStore.getRecentCommandIds();
 
-    await fetchRegistry();
-
-    await prefetchAllVersions();
-
-    try {
-      await autoUpdateAllExtensions();
-    }
-    catch (error) {
-      console.error('Failed to auto-update extensions:', error);
-    }
-
     for (const extension of enabledExtensions.value) {
       if (!shouldActivateOnStartup(extension.manifest)) {
         continue;
@@ -2085,6 +2105,8 @@ export const useExtensionsStore = defineStore('extensions', () => {
         console.error(`Failed to load extension ${extension.id}: ${message}`);
       }
     }
+
+    void runStartupMarketplaceSync();
 
     filterRecentCommandsToExisting();
 
