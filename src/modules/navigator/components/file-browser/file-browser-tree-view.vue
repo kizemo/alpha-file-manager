@@ -62,7 +62,7 @@ function isDrivePath(path: string): boolean {
   return drivePathSet.value.has(path);
 }
 
-const { rows, ensureAncestorsLoaded } = useFileTree({
+const { rows, ensureAncestorsLoaded, invalidate } = useFileTree({
   rootPaths: () => props.rootPaths,
   rootLabels: () => props.rootLabels ?? {},
   expandedPaths,
@@ -79,6 +79,17 @@ const { rows, ensureAncestorsLoaded } = useFileTree({
     console.error('[file-browser-tree-view] failed to load', path, err);
   },
 });
+
+// v6.5: filesystem mutations (create / rename / delete) run in the file browser
+// panes, which know nothing about the tree and cannot reach it. They publish
+// the affected directory into the folder-tree store; this is the single place
+// that turns those into an actual re-read. `immediate` so a mount also picks
+// up invalidations published while the tree panel was hidden.
+watch(() => folderTreeStore.staleTreeRevision, () => {
+  for (const stalePath of folderTreeStore.consumeStaleTreePaths()) {
+    void invalidate(stalePath);
+  }
+}, { immediate: true });
 
 // Whenever the selected path changes, make sure every ancestor directory has
 // its children loaded so the user sees the selected entry highlighted in its

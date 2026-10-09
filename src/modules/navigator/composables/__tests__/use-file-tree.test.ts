@@ -218,3 +218,221 @@ describe('useFileTree', () => {
     expect(tree.rows.value[0].name).toBe('E:');
   });
 });
+
+describe('useFileTree — invalidate (v6.5)', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('invalidate lets ensureLoaded re-read a path that was already loaded', async () => {
+    // The contract this preserves: `ensureLoaded` stays idempotent on its own
+    // ("ensureLoaded is idempotent on already-loaded paths" above asserts
+    // three calls produce one read). `invalidate` is the only way to buy a
+    // second read.
+    const newFolder = {
+      path: 'C:/work/new',
+      name: 'new',
+      is_dir: true,
+      size: 0,
+      modifiedAt: 0,
+    };
+    const expanded = ref<Set<string>>(new Set());
+    let readCount = 0;
+    const readDir = vi.fn().mockImplementation(async () => {
+      readCount++;
+
+      if (readCount === 1) {
+        return [];
+      }
+
+      return [newFolder];
+    });
+    const tree = makeTree({
+      rootPaths: ['C:/work'],
+      expandedPaths: expanded,
+      deps: { readDir },
+    });
+
+    await tree.ensureLoaded('C:/work');
+    expect(readDir).toHaveBeenCalledTimes(1);
+    expect(tree.rows.value).toHaveLength(1); // no children yet
+
+    expanded.value = new Set(['C:/work']);
+    await nextTick();
+
+    await tree.invalidate('C:/work');
+
+    expect(readDir).toHaveBeenCalledTimes(2);
+    expect(tree.rows.value.map(r => r.path)).toEqual(['C:/work', 'C:/work/new']);
+  });
+
+  it('surfaces a new child of an already-expanded dir without collapse/re-expand', async () => {
+    // The exact user report: create a folder inside an expanded directory and
+    // it never appears. Previously unreachable — no code path cleared the cache.
+    const oldFile = {
+      path: 'C:/work/a.md',
+      name: 'a.md',
+      is_dir: false,
+      size: 0,
+      modifiedAt: 0,
+    };
+    const freshFolder = {
+      path: 'C:/work/fresh',
+      name: 'fresh',
+      is_dir: true,
+      size: 0,
+      modifiedAt: 0,
+    };
+    const expanded = ref<Set<string>>(new Set());
+    let readCount = 0;
+    const readDir = vi.fn().mockImplementation(async () => {
+      readCount++;
+
+      if (readCount === 1) {
+        return [oldFile];
+      }
+
+      return [oldFile, freshFolder];
+    });
+    const tree = makeTree({
+      rootPaths: ['C:/work'],
+      expandedPaths: expanded,
+      deps: { readDir },
+    });
+
+    expanded.value = new Set(['C:/work']);
+    await nextTick();
+    await nextTick();
+    expect(tree.rows.value.map(r => r.path)).toEqual(['C:/work', 'C:/work/a.md']);
+
+    // The filesystem mutation publishes the changed directory.
+    await tree.invalidate('C:/work');
+
+    // Expanded the whole time — no manual toggle, and invalidate had to
+    // re-read on its own.
+    expect(expanded.value.has('C:/work')).toBe(true);
+    expect(readDir).toHaveBeenCalledTimes(2);
+    expect(tree.rows.value.map(r => r.path)).toEqual([
+      'C:/work',
+      'C:/work/a.md',
+      'C:/work/fresh',
+    ]);
+  });
+
+  it('invalidate drops the loaded-subtree cache so expanded descendants re-read', async () => {
+    // Guards the desync: reloading a parent replaces its child objects with
+    // fresh, unloaded ones while `loadedSet` still claims they are loaded.
+    // Without clearing the subtree, an expanded grandchild renders empty.
+    const subEntry = {
+      path: 'C:/work/sub',
+      name: 'sub',
+      is_dir: true,
+      size: 0,
+      modifiedAt: 0,
+    };
+    const leafEntry = {
+      path: 'C:/work/sub/leaf.txt',
+      name: 'leaf.txt',
+      is_dir: false,
+      size: 0,
+      modifiedAt: 0,
+    };
+    const expanded = ref<Set<string>>(new Set());
+    const readDir = vi.fn().mockImplementation(async (p: string) => {
+      if (p === 'C:/work') {
+        return [subEntry];
+      }
+
+      if (p === 'C:/work/sub') {
+        return [leafEntry];
+      }
+
+      return [];
+    });
+    const tree = makeTree({
+      rootPaths: ['C:/work'],
+      expandedPaths: expanded,
+      deps: { readDir },
+    });
+
+    // Build the starting state through awaited, sequential loads rather than
+    // the expansion watcher: the watcher fires its loads concurrently, which
+    // would make the read-order assertion below meaningless.
+    await tree.ensureLoaded('C:/work');
+    expanded.value = new Set(['C:/work']);
+    await nextTick();
+    await tree.ensureLoaded('C:/work/sub');
+    expanded.value = new Set(['C:/work', 'C:/work/sub']);
+    await nextTick();
+
+    expect(readDir.mock.calls.map(c => c[0])).toEqual(['C:/work', 'C:/work/sub']);
+    expect(tree.rows.value.map(r => r.path)).toContain('C:/work/sub/leaf.txt');
+
+    await tree.invalidate('C:/work');
+
+    // Parent re-read, then the still-expanded child — in that order, or the
+    // child would load a node object the parent is about to replace.
+    expect(readDir.mock.calls.map(c => c[0])).toEqual([
+      'C:/work',
+      'C:/work/sub',
+      'C:/work',
+      'C:/work/sub',
+    ]);
+    expect(tree.rows.value.map(r => r.path)).toContain('C:/work/sub/leaf.txt');
+  });
+
+  it('invalidate on an unknown path is a no-op that does not throw', async () => {
+    const expanded = ref<Set<string>>(new Set());
+    const readDir = vi.fn().mockResolvedValue([]);
+    const tree = makeTree({
+      rootPaths: ['C:/work'],
+      expandedPaths: expanded,
+      deps: { readDir },
+    });
+
+    await expect(tree.invalidate('C:/never/existed')).resolves.toBeUndefined();
+    expect(tree.rows.value).toHaveLength(1);
+  });
+
+  it('invalidate keeps stale children visible until the re-read lands (no flicker)', async () => {
+    const oldChild = {
+      path: 'C:/work/old',
+      name: 'old',
+      is_dir: false,
+      size: 0,
+      modifiedAt: 0,
+    };
+    const readGate: { resolve?: (value: unknown[]) => void } = {};
+    const expanded = ref<Set<string>>(new Set());
+    let readCount = 0;
+    const readDir = vi.fn().mockImplementation(async () => {
+      readCount++;
+
+      if (readCount === 1) {
+        return [oldChild];
+      }
+
+      return new Promise<unknown[]>((r) => {
+        readGate.resolve = r;
+      });
+    });
+    const tree = makeTree({
+      rootPaths: ['C:/work'],
+      expandedPaths: expanded,
+      deps: { readDir },
+    });
+
+    expanded.value = new Set(['C:/work']);
+    await nextTick();
+    await nextTick();
+    expect(tree.rows.value.map(r => r.path)).toEqual(['C:/work', 'C:/work/old']);
+
+    const pending = tree.invalidate('C:/work');
+    // Mid-flight: the old child is still rendered rather than a blank gap.
+    expect(tree.rows.value.map(r => r.path)).toEqual(['C:/work', 'C:/work/old']);
+
+    readGate.resolve?.([]);
+    await pending;
+    expect(tree.rows.value.map(r => r.path)).toEqual(['C:/work']);
+  });
+});

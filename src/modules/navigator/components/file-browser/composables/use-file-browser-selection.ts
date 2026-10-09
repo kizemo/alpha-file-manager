@@ -17,6 +17,7 @@ import {
 import { useDirSizesStore } from '@/stores/runtime/dir-sizes';
 import { useLinkMetadataStore } from '@/stores/runtime/link-metadata';
 import { useDeleteJobsStore } from '@/stores/runtime/delete-jobs';
+import { useFolderTreeStore, parentDirectoryPath } from '@/stores/runtime/folder-tree';
 import { toast, ToastProgress, ToastStatic } from '@/components/ui/toaster';
 import { useLanShare } from '@/composables/use-lan-share';
 import { useCopyMoveWithConflicts } from '@/composables/use-copy-move-with-conflicts';
@@ -64,6 +65,7 @@ export function useFileBrowserSelection(
   const dirSizesStore = useDirSizesStore();
   const linkMetadataStore = useLinkMetadataStore();
   const deleteJobsStore = useDeleteJobsStore();
+  const folderTreeStore = useFolderTreeStore();
   const { startShare } = useLanShare();
   const permanentDeleteConfirm = usePermanentDeleteConfirm();
   const {
@@ -786,8 +788,13 @@ export function useFileBrowserSelection(
         workspacesStore.handlePathRenamed(oldPath, newPath);
         userStatsStore.handlePathRenamed(oldPath, newPath);
         userSettingsStore.handlePathRenamed(oldPath, newPath);
+        folderTreeStore.handlePathRenamed(oldPath, newPath);
 
         dirSizesStore.invalidate([entry.path, currentPathRef.value]);
+
+        // v6.5: the tree caches each directory's children and nothing ever
+        // cleared them, so the renamed entry would keep showing its old name.
+        folderTreeStore.markTreeStale([parentDir]);
 
         cancelRename();
         clearSelection();
@@ -850,6 +857,7 @@ export function useFileBrowserSelection(
 
     let successCount = 0;
     let lastError: string | null = null;
+    const changedDirs: string[] = [];
 
     for (const directoryPath of directoryPaths) {
       try {
@@ -861,6 +869,7 @@ export function useFileBrowserSelection(
 
         if (result.success) {
           successCount++;
+          changedDirs.push(directoryPath);
           dirSizesStore.invalidate([directoryPath]);
 
           if (directoryPath === currentPathRef.value) {
@@ -891,6 +900,10 @@ export function useFileBrowserSelection(
           },
         },
       });
+      // v6.5: this is the reported bug — a folder created inside an already
+      // expanded directory never appeared in the tree, because the tree's
+      // per-directory child cache had no way to be invalidated.
+      folderTreeStore.markTreeStale(changedDirs);
       onRefresh();
       return true;
     }
@@ -1073,6 +1086,13 @@ export function useFileBrowserSelection(
         userSettingsStore.handlePathsDeleted(result.deletedPaths);
 
         dirSizesStore.invalidate([currentPathRef.value, ...result.deletedPaths]);
+
+        // v6.5: the same dead child cache that hid newly created folders also
+        // kept deleted ones and stale rename targets on screen.
+        const changedParents = result.deletedPaths
+          .map(parentDirectoryPath)
+          .filter((p): p is string => p !== null);
+        folderTreeStore.markTreeStale(changedParents);
 
         clearSelection();
         onRefresh();

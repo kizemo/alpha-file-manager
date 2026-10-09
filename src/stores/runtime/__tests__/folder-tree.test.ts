@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import {
   computeAncestorPaths,
+  parentDirectoryPath,
   useFolderTreeStore,
 } from '@/stores/runtime/folder-tree';
 
@@ -164,5 +165,114 @@ describe('useFolderTreeStore', () => {
     store.markLoadError('C:/Users', true);
     expect(store.isExpanded('C:/Users')).toBe(true);
     expect(store.hasLoadError('C:/Users')).toBe(true);
+  });
+});
+
+describe('folderTree store — stale-path channel (v6.5)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  it('markTreeStale normalizes separators and drops descendants of a stale ancestor', () => {
+    // Invalidating an ancestor already re-reads everything beneath it, so
+    // keeping the descendant would only cost a second, redundant disk read.
+    const store = useFolderTreeStore();
+    store.markTreeStale(['C:\\work', 'C:/work/sub', 'C:/work/sub/deeper', 'D:/other']);
+
+    expect([...store.staleTreePaths].sort()).toEqual(['C:/work', 'D:/other']);
+  });
+
+  it('markTreeStale handles drive roots and trailing slashes', () => {
+    const store = useFolderTreeStore();
+    store.markTreeStale(['C:/', 'C:/Users/', 'E:/']);
+    expect([...store.staleTreePaths].sort()).toEqual(['C:/', 'E:/']);
+  });
+
+  it('markTreeStale ignores empty input and bumps the revision', () => {
+    // The revision is what makes a watcher fire: the stale Set dedupes, so
+    // invalidating the same path twice is otherwise invisible to a watcher
+    // that only tracks the Set.
+    const store = useFolderTreeStore();
+    const before = store.staleTreeRevision;
+
+    store.markTreeStale(['C:/work']);
+    const afterFirst = store.staleTreeRevision;
+    expect(afterFirst).toBeGreaterThan(before);
+
+    store.markTreeStale(['C:/work']);
+    expect(store.staleTreeRevision).toBeGreaterThan(afterFirst);
+    expect([...store.staleTreePaths]).toEqual(['C:/work']);
+
+    store.markTreeStale(['', '   ']);
+    expect([...store.staleTreePaths]).toEqual(['C:/work']);
+  });
+
+  it('consumeStaleTreePaths hands over the paths and clears them', () => {
+    const store = useFolderTreeStore();
+    store.markTreeStale(['C:/work']);
+
+    expect(store.consumeStaleTreePaths()).toEqual(['C:/work']);
+    expect(store.consumeStaleTreePaths()).toEqual([]);
+    expect(store.staleTreePaths.size).toBe(0);
+  });
+
+  it('consumeStaleTreePaths preserves paths published while the tree panel is hidden', () => {
+    // navigator.vue mounts FileBrowserTreeView under v-if="showFolderTree".
+    // Invalidation published while it is unmounted must survive until the
+    // tree comes back — the consumer only reads on mount/r revision change.
+    const store = useFolderTreeStore();
+    store.markTreeStale(['C:/work']);
+    expect(store.consumeStaleTreePaths()).toEqual(['C:/work']);
+
+    store.markTreeStale(['C:/work']);
+    expect(store.consumeStaleTreePaths()).toEqual(['C:/work']);
+  });
+
+  it('handlePathRenamed moves expansion and selection onto the new path', () => {
+    const store = useFolderTreeStore();
+    store.setSelectedPath('C:/work/sub');
+    store.expandPath('C:/work');
+
+    store.handlePathRenamed('C:/work/sub', 'C:/work/renamed');
+
+    expect(store.isExpanded('C:/work/renamed')).toBe(true);
+    expect(store.isExpanded('C:/work/sub')).toBe(false);
+    expect(store.selectedPath).toBe('C:/work/renamed');
+  });
+
+  it('handlePathRenamed is a no-op for unchanged or empty paths', () => {
+    const store = useFolderTreeStore();
+    store.setSelectedPath('C:/work/sub');
+
+    store.handlePathRenamed('C:/work/sub', 'C:/work/sub');
+    expect(store.selectedPath).toBe('C:/work/sub');
+
+    store.handlePathRenamed('', 'C:/x');
+    store.handlePathRenamed('C:/a', '');
+    expect(store.selectedPath).toBe('C:/work/sub');
+  });
+
+  it('reset clears pending stale paths', () => {
+    const store = useFolderTreeStore();
+    store.markTreeStale(['C:/work']);
+    store.reset();
+    expect(store.staleTreePaths.size).toBe(0);
+    expect(store.consumeStaleTreePaths()).toEqual([]);
+  });
+});
+
+describe('parentDirectoryPath', () => {
+  it('returns the parent for nested paths', () => {
+    expect(parentDirectoryPath('C:/Users/foo')).toBe('C:/Users');
+    expect(parentDirectoryPath('C:/Users/foo/bar.txt')).toBe('C:/Users/foo');
+    expect(parentDirectoryPath('/usr/local/bin')).toBe('/usr/local');
+  });
+
+  it('returns null for roots and non-paths', () => {
+    expect(parentDirectoryPath('')).toBeNull();
+    expect(parentDirectoryPath('/')).toBeNull();
+    expect(parentDirectoryPath('C:/')).toBeNull();
+    expect(parentDirectoryPath('C:')).toBeNull();
+    expect(parentDirectoryPath('foo')).toBeNull();
   });
 });
