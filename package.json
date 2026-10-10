@@ -34,8 +34,8 @@
     "sync-version": "node ./scripts/sync-version.js",
     "tauri:dev": "npm run sync-version && tauri dev",
     "tauri:dev:webkit-igpu": "npm run sync-version && env WEBKIT_DISABLE_COMPOSITING_MODE=1 tauri dev",
-    "tauri:build": "npm run sync-version && tauri build",
-    "tauri:build:linux": "npm run sync-version && NO_STRIP=true tauri build",
+    "tauri:build": "npm run sync-version && tauri build && node ./scripts/publish-bundle-to-release.mjs",
+    "tauri:build:linux": "npm run sync-version && NO_STRIP=true tauri build && node ./scripts/publish-bundle-to-release.mjs",
     "flatpak:build": "bash ./flatpak/build-flatpak.sh",
     "tauri:gen-icons": "tauri icon ./src/assets/icons/logo-1024x1024.png",
     "tauri:cargo-update": "cd ./src-tauri && cargo update",
@@ -43,7 +43,7 @@
     "sync-i18n": "npx tsx ./scripts/sync-i18n.js",
     "sync-license": "npx tsx ./scripts/sync-license.js",
     "patch-tauri-windows-bundle": "node ./scripts/patch-tauri-windows-bundle.js",
-    "tauri:windows:build": "npm run sync-version && npm run patch-tauri-windows-bundle && tauri-windows-bundle build"
+    "tauri:windows:build": "npm run sync-version && npm run patch-tauri-windows-bundle && tauri-windows-bundle build && node ./scripts/publish-bundle-to-release.mjs"
   },
   "dependencies": {
     "@crabnebula/tauri-plugin-drag": "^2.1.0",
