@@ -38,8 +38,8 @@ extensions/kizemo.focus-sync/bin/
 extensions/kizemo.focus-sync/*.exe
 # makensis bundles the sidecar from beside installer.nsi, so a copy lands here.
 extensions/kizemo.focus-sync/installer/*.exe
-# Upstream ships a release/ folder with prebuilt installers. This repo builds
-# its own into src-tauri/target/release/bundle/, so that folder is dead weight.
+# The build publishes its installers here (see scripts/publish-bundle-to-release.mjs),
+# so `release/` is a build output and stays untracked.
 release/
 # Explicit backstop for the built installers. Tauri names them after
 # productName, which CONTAINS SPACES: "Alpha File Manager_2.2.0_x64-setup.exe".
