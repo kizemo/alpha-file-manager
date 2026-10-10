@@ -28,6 +28,14 @@ import { useUserPathsStore } from './user-paths';
 import { useExtensionsStorageStore } from './extensions';
 import { i18n } from '@/localization';
 import { getLanguage } from '@/localization/data';
+import { resolveAppLocaleFromSystem } from '@/localization/system-locale';
+import {
+  isDefaultFileManager,
+  setDefaultFileManager,
+} from '@/utils/default-file-manager';
+import { canUseDefaultFileManager } from '@/stores/runtime/platform';
+import { locale, platform } from '@tauri-apps/plugin-os';
+import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { emit, listen, type UnlistenFn } from '@tauri-apps/api/event';
 import {
@@ -75,7 +83,7 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
       isHumanReviewed: true,
       isRtl: false,
     },
-    theme: 'dark',
+    theme: 'light',
     text: {
       font: 'system-ui',
     },
@@ -483,6 +491,84 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
     await setUserSettingsStorage('language', newLanguage);
   }
 
+  /**
+   * v6.6: the one-shot marker separating "first launch after install" from
+   * every later launch. Everything gated on it must run exactly once per data
+   * directory, because re-running it later would silently overwrite a choice
+   * the user made by hand.
+   */
+  const FIRST_RUN_MARKER_KEY = 'appDefaultsInitialized';
+
+  async function isFirstRun() {
+    if (!userSettingsStorage.value) {
+      return false;
+    }
+
+    return !(await userSettingsStorage.value.get(FIRST_RUN_MARKER_KEY));
+  }
+
+  /**
+   * First launch only, and only when there is no stored language yet.
+   *
+   * The second condition is what protects users upgrading from an older build:
+   * the language they already picked is an explicit choice, so it outranks the
+   * system locale. Runs before `initLanguage()`, which is what actually applies
+   * `userSettings.language` to the running i18n instance.
+   */
+  async function applyFirstRunLanguage() {
+    if (!await isFirstRun()) {
+      return;
+    }
+
+    // An upgrade carries a stored language forward. Respect it.
+    if (await userSettingsStorage.value?.get('language')) {
+      return;
+    }
+
+    try {
+      const appLocale = resolveAppLocaleFromSystem(await locale());
+      const language = getLanguage(appLocale);
+
+      if (language) {
+        userSettings.value.language = language;
+        await setUserSettingsStorage('language', language);
+      }
+    }
+    catch (error) {
+      // Detection must never break startup; the English default stays in place.
+      console.error('[UserSettings] System locale detection failed:', error);
+    }
+  }
+
+  /**
+   * First launch only: register as the Windows default file manager.
+   *
+   * Deliberately kept out of the pre-`initLanguage` path — writing shell
+   * registry keys is much slower than reading the system locale, and there is
+   * no reason to make the first paint wait on it. Also writes the one-shot
+   * marker, which is why it must run after {@link applyFirstRunLanguage}.
+   */
+  async function applyFirstRunDefaults() {
+    if (!await isFirstRun()) {
+      return;
+    }
+
+    try {
+      const available = await invoke<boolean>('default_file_manager_available');
+
+      if (canUseDefaultFileManager(platform(), available) && !await isDefaultFileManager()) {
+        await setDefaultFileManager(true);
+      }
+    }
+    catch (error) {
+      console.error('[UserSettings] Failed to register as default file manager:', error);
+    }
+
+    // Written last and unconditionally: even a failed claim must not make the
+    // next launch retry the whole thing.
+    await setUserSettingsStorage(FIRST_RUN_MARKER_KEY, true);
+  }
+
   function initTheme() {
     setTheme(userSettings.value.theme);
   }
@@ -621,8 +707,13 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
     initTheme();
     themeTransitionsEnabled.value = true;
     await ensureThemeChangeListener();
+    // Must precede initLanguage(): that call is what pushes
+    // userSettings.language into the running i18n instance.
+    await applyFirstRunLanguage();
     initLanguage();
     await initZoom();
+    // Last, because it mutates shell registry state and is the slowest step.
+    await applyFirstRunDefaults();
   }
 
   return {

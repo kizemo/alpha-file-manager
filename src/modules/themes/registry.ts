@@ -6,7 +6,7 @@ import type { InstalledExtensionData } from '@/types/extension';
 import type { BuiltinThemeId, Theme } from '@/types/user-settings';
 
 export const BUILTIN_THEME_IDS = ['dark', 'light', 'system'] as const;
-export const DEFAULT_THEME_ID: BuiltinThemeId = 'dark';
+export const DEFAULT_THEME_ID: BuiltinThemeId = 'light';
 
 type ResolvedBuiltinThemeId = Exclude<BuiltinThemeId, 'system'>;
 

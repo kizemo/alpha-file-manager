@@ -22,6 +22,7 @@ const {
   emitMock,
   lazyStoreSaveMock,
   lazyStoreSetMock,
+  lazyStoreGetMock,
   listenMock,
   themeEventCallbacks,
   webviewSetZoomMock,
@@ -29,6 +30,7 @@ const {
   emitMock: vi.fn(),
   lazyStoreSaveMock: vi.fn(),
   lazyStoreSetMock: vi.fn(),
+  lazyStoreGetMock: vi.fn(),
   listenMock: vi.fn(),
   themeEventCallbacks: new Map<string, ThemeEventCallback>(),
   webviewSetZoomMock: vi.fn(),
@@ -44,10 +46,23 @@ vi.mock('@tauri-apps/plugin-store', () => ({
       await lazyStoreSetMock(key, value);
     }
 
+    async get(key: string): Promise<unknown> {
+      return lazyStoreGetMock(key);
+    }
+
     async entries(): Promise<[string, unknown][]> {
       return [];
     }
   },
+}));
+
+// The startup path reads the system locale to pick a first-run language.
+// Keep it inert here so these theme tests do not depend on the host locale,
+// and report a non-Windows platform so the default-file-manager claim (which
+// mutates shell registry state) is short-circuited away.
+vi.mock('@tauri-apps/plugin-os', () => ({
+  locale: vi.fn(async () => null),
+  platform: vi.fn(() => 'linux'),
 }));
 
 vi.mock('@tauri-apps/api/event', () => ({
@@ -98,6 +113,8 @@ describe('user settings theme sync', () => {
     emitMock.mockReset().mockResolvedValue(undefined);
     lazyStoreSaveMock.mockReset();
     lazyStoreSetMock.mockReset();
+    // Default: no stored keys, so the startup path takes its first-run branch.
+    lazyStoreGetMock.mockReset().mockResolvedValue(undefined);
     webviewSetZoomMock.mockReset();
     themeEventCallbacks.clear();
     listenMock.mockReset().mockImplementation(async (
@@ -158,6 +175,8 @@ describe('user settings folder settings path lifecycle', () => {
     emitMock.mockReset().mockResolvedValue(undefined);
     lazyStoreSaveMock.mockReset();
     lazyStoreSetMock.mockReset();
+    // Default: no stored keys, so the startup path takes its first-run branch.
+    lazyStoreGetMock.mockReset().mockResolvedValue(undefined);
     webviewSetZoomMock.mockReset();
     themeEventCallbacks.clear();
     listenMock.mockReset().mockImplementation(async (

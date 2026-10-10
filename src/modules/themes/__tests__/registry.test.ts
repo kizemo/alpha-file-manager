@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import type { InstalledExtensionData } from '@/types/extension';
 import {
   createExtensionThemeId,
+  DEFAULT_THEME_ID,
   getAvailableThemeOptions,
   normalizeThemeSelection,
   parseThemeId,
@@ -85,8 +86,8 @@ describe('theme registry', () => {
     ]);
   });
 
-  it('normalizes missing extension themes back to dark', () => {
-    expect(normalizeThemeSelection('extension:test.palette:missing', {})).toBe('dark');
+  it('normalizes missing extension themes back to the default theme', () => {
+    expect(normalizeThemeSelection('extension:test.palette:missing', {})).toBe(DEFAULT_THEME_ID);
   });
 
   it('parses extension theme ids', () => {
