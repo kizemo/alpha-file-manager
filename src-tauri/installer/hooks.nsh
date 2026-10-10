@@ -153,8 +153,25 @@ Var RESOLVEDAPPDATA
   DetailPrint "==> [PREINSTALL HOOK START] $INSTDIR (before detection) = $INSTDIR"
   StrCpy $0 ""
 
+  ; 0. v2.2.0-alpha: the P4 rename also changed the NSIS uninstall-record key
+  ;    from the identifier-based "com.sigma-file-manager.app_is1" to the
+  ;    productName-based "Alpha File Manager". Detection below only read the
+  ;    OLD name, so it missed a live install and let a reinstall fall through
+  ;    to the default C:\Program Files — leaving the user's previous folder
+  ;    (e.g. D:\) behind as an orphan directory nothing ever cleans up.
+  ;    Check the current name FIRST, then fall back to the legacy ones.
+  ReadRegStr $0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Alpha File Manager" "InstallLocation"
+  ${If} $0 == ""
+    ReadRegStr $0 HKLM "SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Alpha File Manager" "InstallLocation"
+  ${EndIf}
+  ${If} $0 == ""
+    ReadRegStr $0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Alpha File Manager_is1" "InstallLocation"
+  ${EndIf}
+
   ; 1. Tauri registry key (perMachine install via current installer)
-  ReadRegStr $0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\com.sigma-file-manager.app_is1" "InstallLocation"
+  ${If} $0 == ""
+    ReadRegStr $0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\com.sigma-file-manager.app_is1" "InstallLocation"
+  ${EndIf}
   ${If} $0 == ""
     ReadRegStr $0 HKLM "SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\com.sigma-file-manager.app_is1" "InstallLocation"
   ${EndIf}
@@ -497,5 +514,35 @@ Var RESOLVEDAPPDATA
   DetailPrint "==> Stage 2: Deleting SidecarPath registry key..."
   DeleteRegKey HKLM "SOFTWARE\kizemo\focus-sync"
 
-  DetailPrint "==> [POSTUNINSTALL HOOK END] Cleanup complete (extension, sidecar binary, task, registry)."
+  ; ---------------------------------------------------------------------
+  ; STAGE 3 (v2.2.0-alpha): remove runtime-generated leftovers under $INSTDIR.
+  ;
+  ; NSIS only deletes files recorded in its own install manifest. The
+  ; resolve_user_appdata.ps1 outputs (user_appdata.txt, user_appdata_uninst.txt)
+  ; are produced by PowerShell at install/uninstall time and are never in that
+  ; manifest, so neither they nor the tools\ directory holding them survive an
+  ; uninstall -- the user is left with an orphaned folder and has to remove it
+  ; by hand.
+  ;
+  ; Delete first, then RMDir, and re-probe afterwards: a silent leftover is
+  ; exactly the failure mode this stage exists to prevent, so a still-present
+  ; directory is reported rather than passed over in silence.
+  ; ---------------------------------------------------------------------
+  DetailPrint "==> Stage 3: Removing runtime-generated files under $INSTDIR..."
+  Delete "$INSTDIR\tools\user_appdata.txt"
+  Delete "$INSTDIR\tools\user_appdata_uninst.txt"
+  RMDir /r "$INSTDIR\tools"
+  RMDir "$INSTDIR"
+
+  ${If} ${FileExists} "$INSTDIR\tools\user_appdata.txt"
+    DetailPrint "==> WARNING: $INSTDIR\tools\user_appdata.txt survived (file locked?)."
+  ${ElseIf} ${FileExists} "$INSTDIR\tools"
+    DetailPrint "==> WARNING: $INSTDIR\tools survived (directory locked?)."
+  ${ElseIf} ${FileExists} "$INSTDIR"
+    DetailPrint "==> WARNING: $INSTDIR survived (locked?)."
+  ${Else}
+    DetailPrint "==> $INSTDIR fully removed."
+  ${EndIf}
+
+  DetailPrint "==> [POSTUNINSTALL HOOK END] Cleanup complete (extension, sidecar binary, task, registry, install dir)."
 !macroend
