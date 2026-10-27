@@ -4,7 +4,7 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 -->
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { DirEntry } from '@/types/dir-entry';
 import {
@@ -17,6 +17,10 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { getPathDisplayValue } from '@/utils/normalize-path';
+import {
+  isPermanentDeleteConfirmInteractiveTarget,
+  shouldConfirmPermanentDeleteOnEnter,
+} from './utils/permanent-delete-confirm-keyboard';
 
 const props = defineProps<{
   open: boolean;
@@ -55,6 +59,40 @@ function onRequestClose() {
 function onConfirm() {
   emit('confirm');
 }
+
+// FORK-MODIFICATION 2026-10-27：裸回车 = 确认删除。
+// reka-ui 打开对话框时把焦点落在对话框容器本身，两个按钮都没被激活，
+// 裸回车什么都不会发生。焦点若已在按钮上则交给浏览器原生行为处理。
+function handleDocumentKeydown(event: KeyboardEvent) {
+  if (!props.open) {
+    return;
+  }
+
+  const activeElement = typeof document !== 'undefined' ? document.activeElement : null;
+  const shouldConfirm = shouldConfirmPermanentDeleteOnEnter({
+    key: event.key,
+    defaultPrevented: event.defaultPrevented,
+    isComposing: event.isComposing,
+    isFocusOnInteractiveControl: isPermanentDeleteConfirmInteractiveTarget(activeElement),
+  });
+
+  if (!shouldConfirm) {
+    return;
+  }
+
+  // capture 阶段拦截：别让应用级的回车快捷键同时生效。
+  event.preventDefault();
+  event.stopPropagation();
+  onConfirm();
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleDocumentKeydown, true);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', handleDocumentKeydown, true);
+});
 </script>
 
 <template>

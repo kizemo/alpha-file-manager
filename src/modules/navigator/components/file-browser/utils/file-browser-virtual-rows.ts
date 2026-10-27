@@ -6,8 +6,13 @@ import type { DirEntry } from '@/types/dir-entry';
 
 export const GRID_VIEW_PADDING_X = 0;
 
-export type FileBrowserGridSectionKey = 'dirs' | 'images' | 'videos' | 'others';
-export type FileBrowserGridEntryVariant = 'dir' | 'image' | 'video' | 'other';
+// FORK-MODIFICATION: 列表视图按类型分区后，分区键 / 分区变体与网格视图共用同一套，
+// 免得两处各写一份字面量而漂移。旧的网格别名保留，网格侧代码一行都不用改。
+export type FileBrowserSectionKey = 'dirs' | 'images' | 'videos' | 'others';
+export type FileBrowserSectionVariant = 'dir' | 'image' | 'video' | 'other';
+
+export type FileBrowserGridSectionKey = FileBrowserSectionKey;
+export type FileBrowserGridEntryVariant = FileBrowserSectionVariant;
 
 interface FileBrowserVirtualRowBase {
   key: string;
@@ -19,6 +24,15 @@ export interface FileBrowserListVirtualRow extends FileBrowserVirtualRowBase {
   type: 'list-entry';
   entry: DirEntry;
   entryIndex: number;
+}
+
+// FORK-MODIFICATION: 列表视图的分区标题行。它不是条目：不可点选、不进选中集合、
+// 不响应条目级事件，只占一段固定高度，把不同类型的条目隔开。
+export interface FileBrowserListSectionVirtualRow extends FileBrowserVirtualRowBase {
+  type: 'list-section';
+  sectionKey: FileBrowserSectionKey;
+  variant: FileBrowserSectionVariant;
+  count: number;
 }
 
 export interface FileBrowserGridSectionVirtualRow extends FileBrowserVirtualRowBase {

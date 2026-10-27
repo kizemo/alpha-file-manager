@@ -7,7 +7,13 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import { computed, ref } from 'vue';
-import { LinkIcon } from '@lucide/vue';
+import {
+  FileIcon,
+  FileImageIcon,
+  FileVideoIcon,
+  FolderIcon,
+  LinkIcon,
+} from '@lucide/vue';
 import type { DirEntry } from '@/types/dir-entry';
 import { formatBytes } from './utils';
 import { useClipboardStore } from '@/stores/runtime/clipboard';
@@ -29,7 +35,12 @@ import {
 // FORK-MODIFICATION 2026-10-20：按当前路径算「实际可见性」。
 import { useFileBrowserListColumnVisibility } from './composables/use-file-browser-list-column-visibility';
 import FileBrowserListViewColumnCell from './file-browser-list-view-column-cell.vue';
-import type { FileBrowserListVirtualRow } from './composables/use-file-browser-virtual-layout';
+import FileBrowserGridSectionBar from './file-browser-grid-section-bar.vue';
+import type {
+  FileBrowserListSectionVirtualRow,
+  FileBrowserListVirtualRow,
+  FileBrowserSectionKey,
+} from './composables/use-file-browser-virtual-layout';
 import type { ItemTag } from '@/types/user-stats';
 import {
   getDirEntryKindKey,
@@ -86,6 +97,19 @@ interface FileBrowserListDisplayRow extends FileBrowserListVirtualRow {
   linkTargetKindLabel: string;
   memoKey: string;
 }
+
+/**
+ * FORK-MODIFICATION: 分区标题行的展示模型。
+ * 它不是条目：没有 entry、没有选中态、不响应条目级事件，
+ * 只负责把不同类型的条目隔开，并标出这一组是什么。
+ */
+interface FileBrowserListSectionDisplayRow extends FileBrowserListSectionVirtualRow {
+  label: string;
+  sectionStyle: Record<string, string>;
+  memoKey: string;
+}
+
+type FileBrowserListDisplayItem = FileBrowserListDisplayRow | FileBrowserListSectionDisplayRow;
 
 const emptyDateDisplay: FileBrowserListDateDisplay = {
   primary: '',
@@ -430,10 +454,46 @@ function createDisplayRow(row: FileBrowserListVirtualRow): FileBrowserListDispla
   };
 }
 
-const visibleRows = computed<FileBrowserListDisplayRow[]>(() => {
+// FORK-MODIFICATION: 分区标题的文案与网格视图共用同一批 i18n key，
+// 不新增任何语言包条目。
+function getSectionLabel(sectionKey: FileBrowserSectionKey): string {
+  switch (sectionKey) {
+    case 'dirs':
+      return t('fileBrowser.folders');
+    case 'images':
+      return t('fileBrowser.images');
+    case 'videos':
+      return t('fileBrowser.videos');
+    case 'others':
+      return t('fileBrowser.otherFiles');
+  }
+}
+
+function createSectionDisplayRow(row: FileBrowserListSectionVirtualRow): FileBrowserListSectionDisplayRow {
+  const label = getSectionLabel(row.sectionKey);
+
+  return {
+    ...row,
+    label,
+    sectionStyle: {
+      height: `${row.size}px`,
+    },
+    memoKey: `section:${row.sectionKey}:${row.count}:${label}`,
+  };
+}
+
+const visibleRows = computed<FileBrowserListDisplayItem[]>(() => {
   return ctx.visibleVirtualRows.value
-    .filter((row): row is FileBrowserListVirtualRow => row.type === 'list-entry')
-    .map(createDisplayRow);
+    .filter((row): row is FileBrowserListVirtualRow | FileBrowserListSectionVirtualRow => {
+      return row.type === 'list-entry' || row.type === 'list-section';
+    })
+    .map((row) => {
+      if (row.type === 'list-section') {
+        return createSectionDisplayRow(row);
+      }
+
+      return createDisplayRow(row);
+    });
 });
 </script>
 
@@ -462,86 +522,127 @@ const visibleRows = computed<FileBrowserListDisplayRow[]>(() => {
         class="file-browser-list-view__virtual-window"
         :style="ctx.virtualWindowStyle.value"
       >
-        <div
+        <!--
+          FORK-MODIFICATION: v-memo 必须落在「带 v-for 的那个节点」上。
+          把它写在 <template> 的子元素上，所有行会共用同一个缓存槽（缓存退化，
+          等于失去 memo）；写在 <template> 上则与「v-for + v-memo 同元素」编译出的
+          形态完全等价，仍然是逐行缓存。
+        -->
+        <!-- eslint-disable vue/no-useless-template-attributes -->
+        <template
           v-for="row in visibleRows"
           :key="row.key"
           v-memo="[row.memoKey, showListThumbnails]"
-          role="button"
-          tabindex="0"
-          class="file-browser-list-view__entry"
-          :class="{
-            'file-browser-list-view__entry--dir': row.entry.is_dir,
-            'file-browser-list-view__entry--file': row.entry.is_file,
-            'file-browser-list-view__entry--hidden': row.entry.is_hidden,
-          }"
-          :style="row.entryStyle"
-          :data-entry-path="row.entry.path"
-          :data-selected="row.isSelected || undefined"
-          :data-in-clipboard="row.isInClipboard || undefined"
-          :data-clipboard-type="row.clipboardType"
-          :data-link-status="row.entry.link_status || undefined"
-          :data-drop-target="row.entry.is_dir || undefined"
-          @mousedown="ctx.onEntryMouseDown(row.entry, $event)"
-          @mouseup="ctx.onEntryMouseUp(row.entry, $event)"
-          @focus="ctx.handleEntryFocus(row.entry, $event)"
-          @contextmenu="ctx.handleEntryContextMenu(row.entry)"
-          @keydown="handleEntryKeydown($event, row.entry)"
         >
-          <div class="file-browser-list-view__entry-name">
-            <FileBrowserListEntryThumbnail
-              v-if="showListThumbnails"
-              :entry="row.entry"
-            />
-            <FileBrowserEntryIcon
-              v-else
-              :entry="row.entry"
-              :size="18"
-              class="file-browser-list-view__entry-icon"
-              :class="{ 'file-browser-list-view__entry-icon--folder': row.entry.is_dir }"
-            />
-            <div class="file-browser-list-view__entry-name-content">
-              <div class="file-browser-list-view__entry-name-row">
-                <span class="file-browser-list-view__entry-text">{{ row.entry.name }}</span>
-                <span
-                  v-if="columnVisibility.linkTarget && row.entry.link_target"
-                  class="file-browser-list-view__entry-link-target"
-                >
-                  <LinkIcon
-                    :size="11"
-                    class="file-browser-list-view__entry-link-target-icon"
-                  />
-                  <span
-                    v-if="row.entry.link_type"
-                    class="file-browser-list-view__entry-link-target-type"
-                  >
-                    {{ row.linkTargetKindLabel }}:
-                  </span>
-                  <span class="file-browser-list-view__entry-link-target-text">
-                    {{ row.entry.link_target }}
-                  </span>
-                </span>
-              </div>
-              <span
-                v-if="row.entryDescription"
-                class="file-browser-list-view__entry-description"
-              >{{ row.entryDescription }}</span>
-            </div>
+          <div
+            v-if="row.type === 'list-section'"
+            class="file-browser-list-view__section"
+            :style="row.sectionStyle"
+          >
+            <FileBrowserGridSectionBar
+              :label="row.label"
+              :count="row.count"
+            >
+              <template #icon>
+                <FolderIcon
+                  v-if="row.sectionKey === 'dirs'"
+                  :size="14"
+                />
+                <FileImageIcon
+                  v-else-if="row.sectionKey === 'images'"
+                  :size="14"
+                />
+                <FileVideoIcon
+                  v-else-if="row.sectionKey === 'videos'"
+                  :size="14"
+                />
+                <FileIcon
+                  v-else
+                  :size="14"
+                />
+              </template>
+            </FileBrowserGridSectionBar>
           </div>
-          <FileBrowserListViewColumnCell
-            v-for="column in visibleOptionalListColumns"
-            :key="column.id"
-            :column-id="getOptionalColumnId(column)"
-            :row="row"
-            :available-tags="availableTags"
-            @toggle-tag="handleToggleEntryTag"
-            @create-tag="handleCreateEntryTag"
-            @rename-tag="renameTag"
-            @update-tag-color="updateTagColor"
-            @reorder-tags="setTags"
-            @tags-open-change="handleEntryTagsOpenChange"
-            @open-tag-selector="openEntryTagSelector"
-          />
-        </div>
+          <div
+            v-else
+            role="button"
+            tabindex="0"
+            class="file-browser-list-view__entry"
+            :class="{
+              'file-browser-list-view__entry--dir': row.entry.is_dir,
+              'file-browser-list-view__entry--file': row.entry.is_file,
+              'file-browser-list-view__entry--hidden': row.entry.is_hidden,
+            }"
+            :style="row.entryStyle"
+            :data-entry-path="row.entry.path"
+            :data-selected="row.isSelected || undefined"
+            :data-in-clipboard="row.isInClipboard || undefined"
+            :data-clipboard-type="row.clipboardType"
+            :data-link-status="row.entry.link_status || undefined"
+            :data-drop-target="row.entry.is_dir || undefined"
+            @mousedown="ctx.onEntryMouseDown(row.entry, $event)"
+            @mouseup="ctx.onEntryMouseUp(row.entry, $event)"
+            @focus="ctx.handleEntryFocus(row.entry, $event)"
+            @contextmenu="ctx.handleEntryContextMenu(row.entry)"
+            @keydown="handleEntryKeydown($event, row.entry)"
+          >
+            <div class="file-browser-list-view__entry-name">
+              <FileBrowserListEntryThumbnail
+                v-if="showListThumbnails"
+                :entry="row.entry"
+              />
+              <FileBrowserEntryIcon
+                v-else
+                :entry="row.entry"
+                :size="18"
+                class="file-browser-list-view__entry-icon"
+                :class="{ 'file-browser-list-view__entry-icon--folder': row.entry.is_dir }"
+              />
+              <div class="file-browser-list-view__entry-name-content">
+                <div class="file-browser-list-view__entry-name-row">
+                  <span class="file-browser-list-view__entry-text">{{ row.entry.name }}</span>
+                  <span
+                    v-if="columnVisibility.linkTarget && row.entry.link_target"
+                    class="file-browser-list-view__entry-link-target"
+                  >
+                    <LinkIcon
+                      :size="11"
+                      class="file-browser-list-view__entry-link-target-icon"
+                    />
+                    <span
+                      v-if="row.entry.link_type"
+                      class="file-browser-list-view__entry-link-target-type"
+                    >
+                      {{ row.linkTargetKindLabel }}:
+                    </span>
+                    <span class="file-browser-list-view__entry-link-target-text">
+                      {{ row.entry.link_target }}
+                    </span>
+                  </span>
+                </div>
+                <span
+                  v-if="row.entryDescription"
+                  class="file-browser-list-view__entry-description"
+                >{{ row.entryDescription }}</span>
+              </div>
+            </div>
+            <FileBrowserListViewColumnCell
+              v-for="column in visibleOptionalListColumns"
+              :key="column.id"
+              :column-id="getOptionalColumnId(column)"
+              :row="row"
+              :available-tags="availableTags"
+              @toggle-tag="handleToggleEntryTag"
+              @create-tag="handleCreateEntryTag"
+              @rename-tag="renameTag"
+              @update-tag-color="updateTagColor"
+              @reorder-tags="setTags"
+              @tags-open-change="handleEntryTagsOpenChange"
+              @open-tag-selector="openEntryTagSelector"
+            />
+          </div>
+        </template>
+        <!-- eslint-enable vue/no-useless-template-attributes -->
       </div>
     </div>
   </div>
@@ -586,6 +687,28 @@ const visibleRows = computed<FileBrowserListDisplayRow[]>(() => {
 
 .file-browser-list-view__list--animate {
   animation: sigma-ui-fade-in 0.2s ease-out;
+}
+
+/*
+ * FORK-MODIFICATION: 列表视图的分区标题行。
+ * 高度由虚拟行内联给出（40px = 上下各 2px padding + 36px 的段头 bar），
+ * 这里必须显式 min-height: 0 —— 否则会继承条目行的
+ * --navigator-list-view-entry-height（64px），把区隔行撑高，
+ * 与虚拟模型算出的行高对不上，滚动就会错位。
+ */
+.file-browser-list-view__section {
+  position: relative;
+  display: block;
+  flex: none;
+  width: 100%;
+  min-height: 0;
+  padding: 2px var(--file-browser-list-row-padding-x);
+  border: none;
+  margin: 0;
+  background: transparent;
+  box-sizing: border-box;
+  contain: layout paint style;
+  overflow: hidden;
 }
 
 .file-browser-list-view__entry {

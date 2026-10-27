@@ -14,7 +14,11 @@ import {
   createFileBrowserVirtualRows,
   getFileBrowserGridNavigationEntry,
   getGridColumnCount,
+  LIST_SECTION_HEADER_HEIGHT,
   resolveViewportContentWidth,
+  type FileBrowserListSectionVirtualRow,
+  type FileBrowserListVirtualRow,
+  type FileBrowserVirtualRow,
   useFileBrowserVirtualLayout,
 } from '../use-file-browser-virtual-layout';
 import type { ThumbnailSize } from '../../types';
@@ -74,8 +78,17 @@ describe('createFileBrowserVirtualRows', () => {
       entryDescription: entry => (entry.name === 'second' ? 'Description' : undefined),
     });
 
-    expect(rows.map(row => row.start)).toEqual([0, 64, 142]);
-    expect(rows.map(row => row.size)).toEqual([64, 78, 64]);
+    // FORK-MODIFICATION: 列表视图按类型分区后，三个条目同属「其它文件」组，
+    // 前面会多出一行区隔标题行（LIST_SECTION_HEADER_HEIGHT = 40），
+    // 所以条目行的 start 整体后移 40。
+    expect(rows.map(row => row.type)).toEqual([
+      'list-section',
+      'list-entry',
+      'list-entry',
+      'list-entry',
+    ]);
+    expect(rows.map(row => row.start)).toEqual([0, 40, 104, 182]);
+    expect(rows.map(row => row.size)).toEqual([40, 64, 78, 64]);
   });
 
   // FORK-MODIFICATION: 需求 3.6 四档重定 32/48/64/80，行高 = 缩略图 + 16（带说明行 +14）。
@@ -91,7 +104,7 @@ describe('createFileBrowserVirtualRows', () => {
         entryDescription: e => (e.name === 'b' ? 'desc' : undefined),
         thumbnailSize: 'medium',
       });
-      expect(rows.map(row => row.size)).toEqual([64, 78, 64]);
+      expect(rows.filter(row => row.type === 'list-entry').map(row => row.size)).toEqual([64, 78, 64]);
     });
 
     it('small: media list rows shrink to 48 / 62', () => {
@@ -103,7 +116,7 @@ describe('createFileBrowserVirtualRows', () => {
         entryDescription: e => (e.name === 'b' ? 'desc' : undefined),
         thumbnailSize: 'small',
       });
-      expect(rows.map(row => row.size)).toEqual([48, 62]);
+      expect(rows.filter(row => row.type === 'list-entry').map(row => row.size)).toEqual([48, 62]);
     });
 
     it('large: media list rows grow to 80 / 94', () => {
@@ -115,7 +128,7 @@ describe('createFileBrowserVirtualRows', () => {
         entryDescription: e => (e.name === 'b' ? 'desc' : undefined),
         thumbnailSize: 'large',
       });
-      expect(rows.map(row => row.size)).toEqual([80, 94, 80]);
+      expect(rows.filter(row => row.type === 'list-entry').map(row => row.size)).toEqual([80, 94, 80]);
     });
 
     it('xlarge: media list rows grow to 96 / 110', () => {
@@ -127,7 +140,7 @@ describe('createFileBrowserVirtualRows', () => {
         entryDescription: e => (e.name === 'b' ? 'desc' : undefined),
         thumbnailSize: 'xlarge',
       });
-      expect(rows.map(row => row.size)).toEqual([96, 110, 96]);
+      expect(rows.filter(row => row.type === 'list-entry').map(row => row.size)).toEqual([96, 110, 96]);
     });
 
     // FORK-MODIFICATION: 需求 3.6.3 —— 档位以前对网格完全无效，
@@ -498,13 +511,18 @@ describe('resolveViewportContentWidth', () => {
 describe('list rows without a thumbnail', () => {
   const SIZES: ThumbnailSize[] = ['small', 'medium', 'large', 'xlarge'];
 
+  // FORK-MODIFICATION: 列表视图按类型分区后，行序列里混着区隔标题行
+  // （固定 40px，不随缩略图档位变）。行高相关的断言只关心条目行，
+  // 所以这里把区隔行滤掉 —— 否则「非媒体行四档同高」这类结论会被 40 污染。
   function listSizes(entries: DirEntry[], size: ThumbnailSize): number[] {
     return createFileBrowserVirtualRows({
       entries,
       layout: 'list',
       viewportWidth: 500,
       thumbnailSize: size,
-    }).map(row => row.size);
+    })
+      .filter(row => row.type === 'list-entry')
+      .map(row => row.size);
   }
 
   it('keeps directory rows at one height across all four sizes', () => {
@@ -565,5 +583,127 @@ describe('list rows without a thumbnail', () => {
       expect(rows).toContain(metrics.listRowHeight);
       expect(rows).toContain(metrics.listFileEntryHeight);
     }
+  });
+});
+
+// FORK-MODIFICATION: 列表视图按类型分区（目录 / 图片 / 视频 / 其它文件）。
+// 判别力来源：这一组用例同时锁住六件事 ——
+//   ① 每个非空分组前面恰好一个区隔行，且顺序是 目录→图片→视频→其它；
+//   ② 区隔行与条目行的 offset 无缝隙（虚拟模型与渲染高度同源）；
+//   ③ 组内保序（用户设置的排序在组内照旧生效）；
+//   ④ 区隔行高度不随缩略图档位变（固定 LIST_SECTION_HEADER_HEIGHT）；
+//   ⑤ 区隔行上的计数与该组条目数一致；
+//   ⑥ tree 布局保持平铺。
+// 只要实现退回到「平铺」或「offset 累加与渲染高度不同源」，其中至少一条会红。
+describe('list rows grouped by type', () => {
+  const SIZES: ThumbnailSize[] = ['small', 'medium', 'large', 'xlarge'];
+
+  // 混着四种类型的条目，且输入顺序刻意打乱（先文件后目录）——
+  // 这样「按类型重排」与「保持输入顺序」两种实现会给出不同的结果。
+  const MIXED_ENTRIES: DirEntry[] = [
+    createEntry('notes.txt', { ext: 'txt' }),
+    createEntry('folder-a', { is_dir: true }),
+    createEntry('photo.png', { ext: 'png' }),
+    createEntry('clip.mp4', { ext: 'mp4' }),
+    createEntry('readme.md', { ext: 'md' }),
+  ];
+
+  function listRows(
+    entries: DirEntry[],
+    size: ThumbnailSize = 'medium',
+  ): FileBrowserVirtualRow[] {
+    return createFileBrowserVirtualRows({
+      entries,
+      layout: 'list',
+      viewportWidth: 500,
+      thumbnailSize: size,
+    });
+  }
+
+  function sectionRows(rows: FileBrowserVirtualRow[]): FileBrowserListSectionVirtualRow[] {
+    return rows.filter(
+      (row): row is FileBrowserListSectionVirtualRow => row.type === 'list-section',
+    );
+  }
+
+  function entryRows(rows: FileBrowserVirtualRow[]): FileBrowserListVirtualRow[] {
+    return rows.filter(
+      (row): row is FileBrowserListVirtualRow => row.type === 'list-entry',
+    );
+  }
+
+  it('inserts one section row in front of every non-empty group', () => {
+    const rows = listRows(MIXED_ENTRIES);
+
+    expect(rows.map(row => row.type)).toEqual([
+      'list-section',
+      'list-entry',
+      'list-section',
+      'list-entry',
+      'list-section',
+      'list-entry',
+      'list-section',
+      'list-entry',
+      'list-entry',
+    ]);
+    expect(sectionRows(rows).map(row => row.sectionKey)).toEqual([
+      'dirs',
+      'images',
+      'videos',
+      'others',
+    ]);
+    expect(sectionRows(rows).map(row => row.count)).toEqual([1, 1, 1, 2]);
+  });
+
+  it('keeps the entries of each group in the order the user sorted them', () => {
+    const rows = listRows(MIXED_ENTRIES);
+
+    expect(entryRows(rows).map(row => row.entry.name)).toEqual([
+      'folder-a',
+      'photo.png',
+      'clip.mp4',
+      'notes.txt',
+      'readme.md',
+    ]);
+  });
+
+  it('lays the section and entry rows out without gaps', () => {
+    const rows = listRows(MIXED_ENTRIES);
+    let expectedStart = 0;
+
+    for (const row of rows) {
+      expect(row.start).toBe(expectedStart);
+      expectedStart += row.size;
+    }
+  });
+
+  it('keeps the section row height constant across all four thumbnail sizes', () => {
+    for (const size of SIZES) {
+      const sizes = sectionRows(listRows(MIXED_ENTRIES, size)).map(row => row.size);
+
+      expect(sizes, `${size} 的区隔行高变了`).toEqual([
+        LIST_SECTION_HEADER_HEIGHT,
+        LIST_SECTION_HEADER_HEIGHT,
+        LIST_SECTION_HEADER_HEIGHT,
+        LIST_SECTION_HEADER_HEIGHT,
+      ]);
+    }
+  });
+
+  it('does not group the tree layout', () => {
+    const rows = createFileBrowserVirtualRows({
+      entries: MIXED_ENTRIES,
+      layout: 'tree',
+      viewportWidth: 500,
+    });
+
+    expect(sectionRows(rows)).toEqual([]);
+    expect(entryRows(rows).map(row => row.entry.name)).toEqual([
+      'notes.txt',
+      'folder-a',
+      'photo.png',
+      'clip.mp4',
+      'readme.md',
+    ]);
   });
 });

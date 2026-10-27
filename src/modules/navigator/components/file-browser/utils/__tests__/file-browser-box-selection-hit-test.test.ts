@@ -4,14 +4,19 @@
 
 import { describe, expect, it } from 'vitest';
 import type { DirEntry } from '@/types/dir-entry';
-import { createFileBrowserVirtualRows } from '../../composables/use-file-browser-virtual-layout';
+import {
+  createFileBrowserVirtualRows,
+  LIST_SECTION_HEADER_HEIGHT,
+} from '../../composables/use-file-browser-virtual-layout';
 import { collectFileBrowserBoxSelectionEntries } from '../file-browser-box-selection-hit-test';
 import { findVirtualRowRangeOverlappingContentSpan } from '../file-browser-virtual-rows';
 import { resolveThumbnailMetrics } from '../file-browser-thumbnail-sizes';
 
 // FORK-MODIFICATION: 列表行高来自缩略图档位度量表，写死像素值会在改档位时静默失配。
+// 列表视图按类型分区后，条目行前面多出一段区隔标题行 —— 行内位置的基线
+// 必须把它算进去，否则框选会落到上一段的条目上。
 function getMediumListRowTop(): number {
-  return 200 + resolveThumbnailMetrics('medium').listRowHeight;
+  return 200 + LIST_SECTION_HEADER_HEIGHT + resolveThumbnailMetrics('medium').listRowHeight;
 }
 
 function createEntry(path: string): DirEntry {

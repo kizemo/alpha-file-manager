@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import type { DirEntry } from '@/types/dir-entry';
 import {
   getFileBrowserGridEntryOrder,
+  getFileBrowserSectionEntryOrder,
   getFileBrowserVisualEntryOrder,
   groupFileBrowserEntries,
 } from '../file-browser-entry-groups';
@@ -115,7 +116,9 @@ describe('file browser entry groups', () => {
     ]);
   });
 
-  it('returns flat order for list layout and grid order for grid layout', () => {
+  // FORK-MODIFICATION: 列表视图也按类型分区了，所以 list 与 grid 的「视觉顺序」
+  // 是同一套分组顺序；tree 布局保持平铺 —— 那是层级视图，顺序由层级关系决定。
+  it('returns section grouped order for list and grid layouts and flat order for tree', () => {
     const entries = [
       createEntry('photo.png', { ext: 'png' }),
       createEntry('clips', {
@@ -126,8 +129,8 @@ describe('file browser entry groups', () => {
     ];
 
     expect(getFileBrowserVisualEntryOrder(entries, 'list').map(entry => entry.name)).toEqual([
-      'photo.png',
       'clips',
+      'photo.png',
       'notes.txt',
     ]);
     expect(getFileBrowserVisualEntryOrder(entries, 'grid').map(entry => entry.name)).toEqual([
@@ -135,5 +138,41 @@ describe('file browser entry groups', () => {
       'photo.png',
       'notes.txt',
     ]);
+    expect(getFileBrowserVisualEntryOrder(entries, 'tree').map(entry => entry.name)).toEqual([
+      'photo.png',
+      'clips',
+      'notes.txt',
+    ]);
+    expect(getFileBrowserVisualEntryOrder(entries, undefined).map(entry => entry.name)).toEqual([
+      'photo.png',
+      'clips',
+      'notes.txt',
+    ]);
+  });
+
+  // 分组顺序只有这一个来源：网格视图委托它，列表视图也用它。
+  // 两条路径各写一份字面量，迟早会漂移 —— 所以这里钉住「两者永远相等」。
+  it('exposes one shared section order for both grid and list layouts', () => {
+    const entries = [
+      createEntry('archive.zip', { ext: 'zip' }),
+      createEntry('photo.png', { ext: 'png' }),
+      createEntry('clips', {
+        is_dir: true,
+        is_file: false,
+      }),
+      createEntry('movie.mp4', { ext: 'mp4' }),
+      createEntry('notes.txt', { ext: 'txt' }),
+    ];
+
+    expect(getFileBrowserSectionEntryOrder(entries).map(entry => entry.name)).toEqual([
+      'clips',
+      'photo.png',
+      'movie.mp4',
+      'archive.zip',
+      'notes.txt',
+    ]);
+    expect(getFileBrowserGridEntryOrder(entries).map(entry => entry.name)).toEqual(
+      getFileBrowserSectionEntryOrder(entries).map(entry => entry.name),
+    );
   });
 });
