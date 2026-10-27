@@ -12,9 +12,9 @@
 |---|---|
 | 用户要什么 | ① 永久删除确认框里**直接回车要等于「删除」**（现在回车什么都不会发生）；② 目录窗口的**列表视图**要像缩略图视图那样，在「文件夹 / 图片 / 视频 / 其它文件」之间给出区隔；③ **中途追加**：按 F2 或右键「重命名」（非批量）时**不弹模态框**，直接在文件名上就地编辑，改完后用 ↑/↓ 切文件仍保持可编辑状态，便于手工连续批量改名；④ 优化与测试通过后**直接打包发版**，升级 README、新版本说明、aiec 版本记录，上传 GitHub 与 aiec |
 | 这次发哪个版本 | **3.6.3**（3.6.2 已于 2026-10-26 发布）。三块优化合并进 3.6.3（3.6.3 尚未对外发布，合并比拆版本省） |
-| 现在卡在哪 | **三块优化全部完成并通过真机验收**（优化 C 的就地重命名：右键路径、F2 / 回车 / ↓ / ↑ / Esc、缩略图视图全部 PASS，见第 13.6 节）。剩余只有发版收尾：提交 → push → 双端上传 → 汇报。详见第 13–17 节 |
+| 现在卡在哪 | **3.6.3 已经全部发完**：三块优化都通过真机验收，发版提交 `a9fed27a` 已 push 到 `origin/main`，GitHub release `v3.6.3` 与站点 aiec.fun 均已上线并回读校验通过（sha256 `FEE1F2A8…44644B`，20,716,092 B）。**剩下的只有外围事项**：winget PR（须等 3.5.1 的 `#460744` 合并）、安装包代码签名、远程条目的就地改名验证。详见第 13–17 节 |
 | 已落盘的东西 | 4 笔 commit（`82d42190` / `605efae8` / `d1c96f70` / `dff656a4`）+ 优化 C 的 13 个源文件（**已通过真机验收，随本次发版提交一并提交**）+ 3.6.3 安装包 / winget 清单 / 站点文件 / 18 个发版文档（**随本次发版提交一并提交**） |
-| 仓库状态 | 内层仓 `sigma-file-manager` 分支 `main`，HEAD `dff656a4`，**工作区有未提交改动**（发版文档 + 优化 C），**尚未 push**；上游 `origin/main` = `https://github.com/kizemo/alpha-file-manager.git` |
+| 仓库状态 | 内层仓 `sigma-file-manager` 分支 `main`，HEAD `a9fed27a`，**已 push**，`origin/main` = `a9fed27a98708c8465b2ecc96f67f4c0a7c67eb5`（用 `gh api .../commits/main --jq '.sha'` 核对一致）；上游 `https://github.com/kizemo/alpha-file-manager.git`；工作区干净 |
 | 最容易踩的坑 | ① **真机验收只能用 `tauri build` 产物**，`tauri dev` 的路由页内容区全空白，界面结论一律作废；② 打包前必须停 `alpha-file-manager` 进程**并把 `src-tauri/target/release/alpha-file-manager.exe` 移走**（只杀进程不够，上一轮就是这么被 `os error 5` 卡住的）；③ `eslint .` 是整仓口径，基线 **188 errors**；④ `.cmd` 里 `echo` 不能出现 `>`；⑤ `.ps1` / `.cmd` 必须纯 ASCII（中文要用 `[char]0x....` 拼）；⑥ `app-key.ps1` 只认**裸名 token**（传 `'{F2}'` 会静默不发送）；⑦ WebView2 里 UIA 的 `FocusedElement` 不可信，判「选中」要看状态栏「已选择 N 个项目」；⑧ **会话锁住时 `SendInput` / `SetCursorPos` 全废（err=5），但 `PostMessage` 合成鼠标消息与 `WM_KEYDOWN` 照样能穿透到渲染进程** ⇒ 键盘链路（F2 / 回车 / ↑↓ / Esc）也能在锁屏状态下真机验收；⑨ 文件浏览器右键菜单里**没有文字「重命名」项**，改名入口是 quick-actions 行**第 1 个无名按钮（铅笔）**，要靠 UIA `InvokePattern` 或按坐标点 |
 
 ---
@@ -83,7 +83,7 @@
 | **优化 C 门禁** | ✅ 通过 | `eslint .` = 188 errors / 0 warnings（= 基线）；`npm run ts` exit 0 |
 | **3.6.3 重打包 + winget 清单 + 站点同步** | ✅ 完成 | 见第 14 节（新 sha / 字节数） |
 | **优化 C 真机验收** | ✅ **全部 PASS**（右键路径 / F2 / 回车 / ↓ / ↑ / Esc / 缩略图视图） | 见第 13.6 节 |
-| **发版提交 + push + 双端上传** | ❌ 未做 | 第 15 节 |
+| **发版提交 + push + 双端上传** | ✅ **已完成** | commit `a9fed27a` → `origin/main`；GitHub release `v3.6.3` + 站点 aiec.fun 线上均 3.6.3，`release:status` / `release:verify` 版本 / 大小 / sha256 三项一致 |
 
 ---
 
@@ -477,7 +477,11 @@ npm --prefix $repo run check:winget
 
 ## 11. 一句话接力 prompt
 
-> 接手 `F:\soft\00selfmade\filemanager\sigma-file-manager`（Alpha File Manager，Tauri 2 + Vue3 + reka-ui）的 **3.6.3 发版收尾**：先读 `F:\soft\00selfmade\filemanager\AGENTS.md`（项目硬约束，**必读**）与 `F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-10-27-delete-enter-key-and-list-view-grouping.md`（本文，**唯一权威状态源**：第 0 节速查表、第 13 节优化 C 的规格与**最终验收结论**、第 14 节发版资产现状、第 15 节剩余步骤、第 16–17 节经验），然后**只做本文第 15 节里还没打勾的那几步**：发版提交 → push 到 `origin/main` → `release:upload` / `release:github` / `release:status` / `release:verify` 双端发布 → 用简体中文汇报（必须写明「sticky 段头未做」、winget PR 仍待 3.5.1 合并、安装包无代码签名、workspace 已回滚到验收前快照）；发版权威流程见 `docs/operations/release-workflow.md`，全程遵守 `AGENTS.md` 的中文输出与各项硬约束。
+> 接手 `F:\soft\00selfmade\filemanager\sigma-file-manager`（Alpha File Manager，Tauri 2 + Vue3 + reka-ui）：先读 `F:\soft\00selfmade\filemanager\AGENTS.md`（项目硬约束，**必读**）与 `F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-10-27-delete-enter-key-and-list-view-grouping.md`（本文，**唯一权威状态源**：第 0 节速查表、第 13 节优化 C 的规格与**最终验收结论**、第 14 节发版资产现状、第 17.4 节**发布结果**、第 16–17 节经验）。
+>
+> **3.6.3 已于 2026-10-28 全部发完**（commit `a9fed27a` → `origin/main`；GitHub release `v3.6.3` 与站点 aiec.fun 线上均为 3.6.3，sha256 `FEE1F2A874FA8F89A32F71AA03B6B934C4A8A2E6DB4F23F95D7FF03B1E44644B`，20,716,092 B）⇒ **不要重复发版、不要重跑已完成的验收**。
+>
+> 下一轮请先跟用户确认做哪一项（候选：① 等 `microsoft/winget-pkgs#460744`（3.5.1）合并后补提 3.6.3 的 winget PR；② 列表视图分区的 **sticky 段头**；③ 远程条目（`renameRemoteEntry`）的就地改名真机验证；④ 虚拟滚动下编辑态行被滚出的边界；⑤ 下一个补丁版本 3.6.4），再按本文第 13–17 节既定的口径动手。发版权威流程见 `docs\operations\release-workflow.md`，全程遵守 `AGENTS.md` 的中文输出与各项硬约束。
 
 ## 12. 涉及文件完整路径清单
 
@@ -751,14 +755,14 @@ F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\click-webview
 - `docs/winget\README.md` 的 3.6.3 章节已更新（sha / 字节数 / 「三处改动」表述）。
 - **只备清单，不提 PR**（见第 10 节第 1 条）。
 
-### 14.4 站点（aiec.fun 源目录，**尚未上传**）
+### 14.4 站点（aiec.fun 源目录 + **线上已生效**）
 
 `E:\办公文件\L1网站\alpha-file-manager\` 已含：
 - `Alpha_File_Manager_3.6.3_x64-setup.exe`（20,716,092 B）
 - `version.json`（version = 3.6.3，sha 前缀 `fee1f2a874fa8f89`，history = 18，**未重复归档**）
 - `_release-notes-v3.6.3.md`（1,404 B，**已含「就地重命名」**）
 
-### 14.5 发版文档（18 个文件已改，**未提交**）
+### 14.5 发版文档（18 个文件已改，**已随 `a9fed27a` 提交**）
 
 - `_notes.md`：首行加「；重命名改成在文件名上就地编辑」+ 新增「**就地重命名：**」段落。
 - 根 `CHANGELOG.md` + 14 个 `public/changelog/<loc>/changelog.md` 的 3.6.3 段：Summary 改为「Three things / 三件」并追加 `**Added: renaming happens in place.**` / `**新增：重命名就地编辑。**`。
@@ -782,7 +786,7 @@ F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\click-webview
 
 ---
 
-## 15. 剩余步骤（**验收与还原都已完成**，只剩发版收尾）
+## 15. 剩余步骤（**已全部完成**，本节留作发版流程记录）
 
 | # | 动作 | 命令 / 要点 | 状态 |
 |---|---|---|---|
@@ -790,10 +794,10 @@ F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\click-webview
 | 2 | 优化 C 真机验收 | `accept-363-inline-rename-v5/v6/v7/v8.ps1`（**锁屏下用 `PostMessage` + `WM_KEYDOWN`**，见第 13.5 节） | ✅ 全部 PASS |
 | 3 | 还原工作区 + 清夹具 | 先杀进程 → `node .superpowers\sdd\pin-workspace.cjs restore` → 核对 2,350 B / sha `1F586B6A…557C` → `mavis-trash.cmd -- "$env:USERPROFILE\afm-inline-lab"` | ✅ 已完成 |
 | 4 | 补提交信息 | `.superpowers\sdd\msg-363-release.txt` —— 已写入优化 A / B / C 三条 + 实测验收结论 + sha `FEE1F2A874FA8F89A32F71AA03B6B934C4A8A2E6DB4F23F95D7FF03B1E44644B` + 字节数 20,716,092 | ✅ |
-| 5 | 发版提交 | `git -C F:\soft\00selfmade\filemanager\sigma-file-manager add -A` → `git -C … commit -F F:\…\.superpowers\sdd\msg-363-release.txt`（**信息必须走文件**） | ⬜ |
-| 6 | push | `git -C … -c http.proxy= push origin main`；核对远端 SHA 用 `gh api repos/kizemo/alpha-file-manager/commits/main --jq '.sha'`（**不要用 `git ls-remote`**） | ⬜ |
-| 7 | 双端上传 | `npm --prefix <repo> run release:upload`（aiec.fun）→ `npm --prefix <repo> run release:github`（GitHub release `v3.6.3`，资产名 `Alpha_File_Manager_3.6.3_x64-setup.exe`）→ `release:status` → `release:verify` | ⬜ |
-| 8 | 汇报 | 简体中文；**必须写明**：① **sticky 段头未做**（列表视图分区是随内容滚动的内联标题）；② winget PR 仍待 `#460744`（3.5.1）合并，3.6.3 只备清单未提 PR；③ 安装包**无代码签名**；④ workspace 已回滚到验收前快照；⑤ 缩略图视图的就地编辑**已**做真机验证 | ⬜ |
+| 5 | 发版提交 | `git -C F:\soft\00selfmade\filemanager\sigma-file-manager add -A` → `git -C … commit -F F:\…\.superpowers\sdd\msg-363-release.txt`（**信息必须走文件**） | ✅ `a9fed27a`（42 files / +1600 / −102） |
+| 6 | push | `git -C … -c http.proxy= push origin main`；核对远端 SHA 用 `gh api repos/kizemo/alpha-file-manager/commits/main --jq '.sha'`（**不要用 `git ls-remote`**） | ✅ 远端 = `a9fed27a98708c8465b2ecc96f67f4c0a7c67eb5` |
+| 7 | 双端上传 | `npm --prefix <repo> run release:upload`（aiec.fun）→ `npm --prefix <repo> run release:github`（GitHub release `v3.6.3`，资产名 `Alpha_File_Manager_3.6.3_x64-setup.exe`）→ `release:status` → `release:verify` | ✅ 站点 + GitHub 均已上线，版本 / 大小 / sha256 三项一致 |
+| 8 | 汇报 | 简体中文；**必须写明**：① **sticky 段头未做**（列表视图分区是随内容滚动的内联标题）；② winget PR 仍待 `#460744`（3.5.1）合并，3.6.3 只备清单未提 PR；③ 安装包**无代码签名**；④ workspace 已回滚到验收前快照；⑤ 缩略图视图的就地编辑**已**做真机验证 | ✅ 已汇报 |
 
 ### 15.1 发版顺序铁律（再强调一次）
 
@@ -877,3 +881,18 @@ F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\click-webview
 - **安装包无代码签名**（`NotSigned`），需用户自备证书。
 - 远程条目（`renameRemoteEntry`）的就地改名**未做真机验证**（本轮夹具全是本地文件）。
 - 虚拟滚动下**编辑态行被滚出可视区会被回收**，输入框消失但 `renameState` 仍留着 entry —— 已知边界，本轮未处理。
+
+### 17.4 3.6.3 发布结果（2026-10-28）
+
+| 环节 | 结果 |
+|---|---|
+| 发版提交 | `a9fed27a` —— `release: 发版 3.6.3 —— 永久删除确认框回车即生效；列表视图按类型分区；重命名就地编辑`（42 files / +1600 / −102） |
+| push | `origin/main` = `a9fed27a98708c8465b2ecc96f67f4c0a7c67eb5`（`gh api repos/kizemo/alpha-file-manager/commits/main --jq '.sha'` 核对一致） |
+| GitHub release | `v3.6.3` 已创建：https://github.com/kizemo/alpha-file-manager/releases/tag/v3.6.3 ；资产 `Alpha_File_Manager_3.6.3_x64-setup.exe`，20,716,092 B，sha256 `FEE1F2A874FA8F89A32F71AA03B6B934C4A8A2E6DB4F23F95D7FF03B1E44644B` |
+| 站点 aiec.fun | SFTP 上传 + cache-busting 回读通过：线上版本 3.6.3，源站包 20,716,092 B，边缘包 20,716,092 B（`CF-Cache-Status=HIT`），sha256 一致 |
+| `release:status` | exit 0 —— package.json 3.6.3 / 安装包 20,716,092 B / 站点源 version.json 3.6.3，sha 三处相同 |
+| `release:verify` | exit 0 —— **版本号 / 大小 / sha256 三项均一致（源站与边缘都已生效）** |
+| winget | 3.6.3 清单四件套已备（`docs/winget/manifests/k/kizemo/AlphaFileManager/3.6.3/`），`npm run check:winget` 全绿；**未提 PR**（`microsoft/winget-pkgs#460744`（3.5.1）仍 OPEN + REVIEW_REQUIRED，同包 ID 不能同时开第二个 PR） |
+| 日志 | `.superpowers\sdd\release-363-github.log`、`.superpowers\sdd\release-363-status-verify.log`（站点上传日志在 `release:upload` 的 stdout 里） |
+
+> **仍未做 / 待后续**（不阻塞本次发版）：sticky 段头、安装包代码签名、winget PR、远程条目的就地改名真机验证、虚拟滚动下编辑态行被滚出的边界。
