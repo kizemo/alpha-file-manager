@@ -282,6 +282,8 @@ const searchMatchCount = computed(() => {
 });
 
 provideFileBrowserContext({
+  // FORK-MODIFICATION 2026-10-27：就地重命名。
+  inlineRename: fb.inlineRename,
   entries: fb.entries,
   directoryEntryCount: computed(() => fb.dirContents.value?.total_count ?? 0),
   currentPath: fb.currentPath,

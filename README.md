@@ -187,45 +187,42 @@ GitHub releases carry the same installer and act as a fallback mirror:
 
 ---
 
-## 🆕 What's new in 3.6.2
+## 🆕 What's new in 3.6.3
 
-### 🔄 Remote transfers now say what happened
+### ⏎ Enter confirms the permanent delete
 
-**Fixed.** Uploading to a remote server used to fail with nothing but a number
-in the way — no reason, and no way to tell whether the server had refused the
-file or the application had quietly skipped it. When the remote already held a
-file with the same name, the old policy was to skip it silently, and the reason
-never reached the interface.
+**Fixed.** Choosing *Delete from drive* — or pressing Shift+Delete — opens a
+confirmation with two buttons, *Cancel* and *Delete*. Pressing Enter right after
+it opened did nothing: the keyboard focus landed on the *Cancel* button, so Enter activated Cancel and the dialog closed again without deleting anything. It now confirms the
+deletion.
 
-The result dialog now reports what happened to every file: which ones were
-transferred, which ones were skipped, which ones failed, and why.
+The rule is deliberately narrow. If the focus is already on a button, Enter keeps
+its normal meaning, so tabbing to *Cancel* and pressing Enter still cancels, and
+a second press never deletes anything twice.
 
-### 📋 Pasting into the remote pane works
+### 📂 The list view groups entries by type
 
-**Fixed.** Pasting files into a remote pane reported *Destination path does not
-exist* — which was never a statement about the server. The remote path was
-being handed to the local copy engine, which asked the local file system
-whether it existed and of course found nothing there. Pasting into a remote
-pane now goes through the remote transfer channel, with the same rules as a
-transfer started from the toolbar.
+**Added.** The list view showed every entry in one long, unbroken list — which is
+exactly where the thumbnail view draws a line between folders, pictures, videos
+and everything else. The list view now draws the same line, with a heading for
+each group.
 
-### ❓ Remote transfers ask before they overwrite
+The sorting you chose still applies inside each group, the tree layout is
+untouched, and what the keyboard selects — including a Shift range — follows the
+order you actually see, so a range stays a range instead of jumping across the
+headings.
 
-**Added.** If the remote already has a file with the same name, a dialog lists
-them and lets you decide one by one — overwrite, or skip. Tick *use the same
-choice for all files with the same name* and one decision settles the whole
-batch, which is what you want when you are moving a folder of files across.
-The files you chose to overwrite are the only ones that get replaced; nothing
-else on the server is touched.
+### ✏️ Renaming happens in place
 
-### 📊 Remote transfers show a progress bar
+**Added.** Pressing F2 — or picking *Rename* in the right-click menu for a single
+entry — used to open a dialog with the name in it. The name is now edited right
+where it stands, in the list or in the thumbnail view.
 
-**Added.** Uploading or downloading a large tree used to be a wait with nothing
-to look at. The progress dialog says what is being transferred and how many
-items are done out of how many — and the totals are worked out before the
-transfer starts, so the bar moves forward instead of jumping to the end and
-back to the start again. Downloading a remote file is available from the
-right-click menu of the remote entry.
+Press Enter to keep the new name, Escape to put the old one back. And the part
+that matters when a lot of files need renaming: once a name has been changed, the
+arrow keys still move to the next and the previous entry with the field ready, so
+a whole run of files can be renamed in a row without going back to the mouse.
+Bulk renaming, and renaming in the tree layout, keep using the dialog.
 
 ---
 

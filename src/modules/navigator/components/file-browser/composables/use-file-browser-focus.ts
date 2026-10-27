@@ -13,6 +13,11 @@ type PendingFocusRequest
     type: 'path';
     targetPath: string;
     path: string;
+    /**
+     * FORK-MODIFICATION 2026-10-27：刷新后要不要把 DOM 焦点也带走。
+     * 就地改名走这条路时**不要**抢焦点 —— 焦点可能已经在下一个条目的输入框里了。
+     */
+    shouldFocus?: boolean;
   }
   | {
     type: 'diff';
@@ -96,6 +101,13 @@ export function useFileBrowserFocus(options: {
       }
 
       if (!options.selectEntryByPath(targetEntry.path)) {
+        return;
+      }
+
+      // FORK-MODIFICATION 2026-10-27：就地改名只要「选中」，不要抢 DOM 焦点 ——
+      // 焦点可能已经在下一个条目的输入框里了，抢过去会把输入打断。
+      if (request.shouldFocus === false) {
+        options.clearPendingFocusRequest();
         return;
       }
 

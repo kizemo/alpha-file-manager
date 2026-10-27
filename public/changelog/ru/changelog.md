@@ -1,4 +1,17 @@
 # Список изменений
+
+## [3.6.3] - October 2026
+
+**Summary:** Three things that were quietly getting in the way. Deleting a file for good now does what you expect when you press Enter — the confirmation used to open with the keyboard focus on *Cancel*, so Enter closed it again and left the file where it was - the only way to confirm was to reach for the mouse. And the list view now separates folders, pictures, videos and other files into groups, the way the thumbnail view already did, so the thing you are looking for is one heading away instead of somewhere in the middle of a long list. Renaming no longer opens a dialog either: the name turns into a field right where it stands, and the arrow keys keep taking you from one file to the next with the field still ready, so a whole pile of files can be renamed in a row.
+
+### What changed
+
+**Fixed: Enter now confirms the permanent delete.** Choosing *Delete from drive* (or pressing Shift+Delete) opens a confirmation with two buttons, *Cancel* and *Delete*. Pressing Enter right after it opened did nothing at all: the keyboard focus landed on the *Cancel* button, so Enter activated Cancel and the dialog closed again without deleting anything. It now confirms the deletion. The rule is deliberately narrow: if the focus is already on a button, Enter keeps its normal meaning, so tabbing to *Cancel* and pressing Enter still cancels, and a second press never deletes anything twice.
+
+**Added: the list view groups entries by type.** The list view showed every entry in one long, unbroken list, which is exactly where the thumbnail view draws a line between folders, pictures, videos and everything else. The list view now draws the same line, and each group gets a heading of its own. The sorting you chose still applies inside each group, the tree layout is untouched, and what the keyboard selects — including a Shift range — follows the order you actually see, so a range stays a range instead of jumping across the headings.
+
+**Added: renaming happens in place.** Pressing F2 — or picking *Rename* in the right-click menu for a single entry — used to open a dialog with the name in it. The name is now edited right where it stands, in the list or in the thumbnail view. Enter keeps the new name, Escape puts the old one back. And the part that matters when a lot of files need renaming: once a name has been changed, the arrow keys still move to the next and the previous entry with the field ready, so a whole run of files can be renamed in a row without going back to the mouse. Bulk renaming, and renaming in the tree layout, keep using the dialog.
+
 ## [3.6.2] - October 2026
 
 **Summary:** Copying files to and from a remote server (SFTP, FTP or FTPS) now tells you what is actually happening. Uploading used to fail with nothing but a number in the way — no reason, and no way to tell whether the server had refused the file or the application had quietly skipped it. Pasting files into the remote pane reported *Destination path does not exist*, which was never a statement about the server at all: the remote path was being handed to the local copy engine, which asked the local file system and of course found nothing there. The remote transfer channel now has its own path, shows a progress bar while it works, and asks before it replaces anything.

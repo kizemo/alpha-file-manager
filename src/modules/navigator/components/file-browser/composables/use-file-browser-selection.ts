@@ -57,6 +57,17 @@ import { refreshDrives } from '@/modules/home/composables/use-drives';
 // 与 `use-dir-entry-actions.ts` 共用同一份流程，避免破坏性动作的确认框漏一处。
 import { useFileLockWorkflow } from '@/composables/use-file-lock-workflow';
 import { shouldOpenFavoriteCategoryDialog } from '@/modules/navigator/components/file-browser/utils/file-browser-favorites';
+// FORK-MODIFICATION 2026-10-27：就地重命名（F2 / 右键「重命名」不弹框）。
+// 校验规则与选区规则直接复用 `utils/file-browser-inline-rename.ts`，
+// 那份与 `file-browser-rename-dialog.vue` 同源，两边不许各写一套。
+import {
+  getInlineRenameChainStateAfterCancel,
+  getInlineRenameChainStateAfterCommit,
+  isValidInlineRenameName,
+  shouldEnterInlineRenameOnNavigationTarget,
+  type InlineRenameCommitOutcome,
+  type InlineRenameCommitTrigger,
+} from '@/modules/navigator/components/file-browser/utils/file-browser-inline-rename';
 // FORK-MODIFICATION 2026-10-26：粘到远程面板走远程通道。
 //
 // 旧行为是把 `sfm://remote/...` 丢给本地复制引擎，引擎拿 `Path::exists()`
@@ -70,6 +81,17 @@ import {
 } from '@/modules/remote/utils/remote-transfer-service';
 
 export const FILE_BROWSER_REVEAL_STALE_FOCUS_GUARD_MS = 500;
+
+/**
+ * FORK-MODIFICATION 2026-10-27：单项改名的两种形态。
+ *
+ * - `dialog`：现有的模态框（tree 布局 / 批量重命名 / 首页等场景）。
+ * - `inline`：就地编辑（列表视图 / 缩略图视图）。
+ *
+ * 布局分流必须显式做：tree 没有就地编辑实现，让它共用同一份选中态
+ * 只会变成「按了 F2 什么也没发生」。
+ */
+export type FileBrowserRenameMode = 'dialog' | 'inline';
 
 /**
  * FORK-MODIFICATION 2026-10-22：超过这个条目数就算「大批量」。
@@ -88,7 +110,8 @@ export function useFileBrowserSelection(
   // FORK-MODIFICATION: 用户反馈（2026-10-15）——「添加到收藏」多一步选分类。
   // 由 use-file-browser.ts 回填成 dialogs.openFavoriteCategoryDialog。
   onRequestFavoriteCategoryDialog: (entries: DirEntry[]) => void,
-  onRefresh: () => void,
+  // FORK-MODIFICATION 2026-10-27：就地改名要等刷新落地才能继续导航，允许它返回 Promise。
+  onRefresh: () => void | Promise<void>,
   layout?: () => 'list' | 'grid' | 'tree' | undefined,
 ) {
   const { t } = useI18n();
@@ -133,6 +156,11 @@ export function useFileBrowserSelection(
   const renameState = ref({
     isActive: false,
     entry: null as DirEntry | null,
+    // FORK-MODIFICATION 2026-10-27：就地编辑（见 `FileBrowserRenameMode`）。
+    mode: 'dialog' as FileBrowserRenameMode,
+    // FORK-MODIFICATION 2026-10-27：连续改名模式。
+    // 提交成功后打开，此时用 ↑/↓ 切到相邻条目，落点条目会自动进入编辑态。
+    isChainActive: false,
   });
 
   type PendingFocusRequest
@@ -140,6 +168,11 @@ export function useFileBrowserSelection(
       type: 'path';
       targetPath: string;
       path: string;
+      /**
+       * FORK-MODIFICATION 2026-10-27：刷新后要不要把 DOM 焦点也带走。
+       * 就地改名走这条路时**不要**抢焦点 —— 焦点可能已经在下一个条目的输入框里了。
+       */
+      shouldFocus?: boolean;
     }
     | {
       type: 'diff';
@@ -164,11 +197,16 @@ export function useFileBrowserSelection(
     );
   }
 
-  function requestFocusEntryAfterRefresh(parentDirectoryPath: string, entryPath: string) {
+  function requestFocusEntryAfterRefresh(
+    parentDirectoryPath: string,
+    entryPath: string,
+    options?: { shouldFocus?: boolean },
+  ) {
     pendingFocusRequest.value = {
       type: 'path',
       targetPath: normalizePath(parentDirectoryPath),
       path: normalizePath(entryPath),
+      shouldFocus: options?.shouldFocus,
     };
   }
 
@@ -833,6 +871,19 @@ export function useFileBrowserSelection(
     }
   }
 
+  /**
+   * 当前布局是否支持就地编辑。
+   *
+   * FORK-MODIFICATION 2026-10-27：显式分流 ——
+   * 列表视图（list）与缩略图视图（grid）走就地编辑，
+   * 树形视图（tree）**没有**就地编辑实现，仍走模态框。
+   */
+  function canEditInline(): boolean {
+    const currentLayout = layout?.();
+
+    return currentLayout === 'list' || currentLayout === 'grid';
+  }
+
   function startRename(entry: DirEntry) {
     if (!canPerformAction('rename', [entry])) {
       return;
@@ -841,6 +892,10 @@ export function useFileBrowserSelection(
     renameState.value = {
       isActive: true,
       entry,
+      mode: canEditInline() ? 'inline' : 'dialog',
+      // FORK-MODIFICATION 2026-10-27：进入就地编辑态时**不**开连续模式 ——
+      // 连续模式是「提交一次之后」才开的。
+      isChainActive: false,
     };
   }
 
@@ -848,6 +903,8 @@ export function useFileBrowserSelection(
     renameState.value = {
       isActive: false,
       entry: null,
+      mode: 'dialog',
+      isChainActive: false,
     };
   }
 
@@ -860,7 +917,11 @@ export function useFileBrowserSelection(
    * 而远程条目**不在这些账里**（它们记的是本地路径）。
    * 混在一起写会出现「远程改名之后去更新本地收藏夹」这种莫名其妙的事。
    */
-  async function confirmRemoteRename(entry: DirEntry, trimmedName: string): Promise<boolean> {
+  async function confirmRemoteRename(
+    entry: DirEntry,
+    trimmedName: string,
+    inlineTrigger?: InlineRenameCommitTrigger,
+  ): Promise<boolean> {
     const result = await renameRemoteEntry(entry, trimmedName);
 
     if (!result.ok) {
@@ -873,6 +934,7 @@ export function useFileBrowserSelection(
         },
       });
 
+      applyInlineRenameCommitState(inlineTrigger, 'failed');
       return false;
     }
 
@@ -891,6 +953,14 @@ export function useFileBrowserSelection(
     const parentDir = entry.path.substring(0, entry.path.lastIndexOf('/'));
     folderTreeStore.markTreeStale([parentDir]);
 
+    // FORK-MODIFICATION 2026-10-27：就地改名的成功路径（远程条目同理）。
+    if (inlineTrigger) {
+      requestFocusEntryAfterRefresh(parentDir, `${parentDir}/${trimmedName}`, { shouldFocus: false });
+      applyInlineRenameCommitState(inlineTrigger, 'renamed');
+      await onRefresh();
+      return true;
+    }
+
     cancelRename();
     clearSelection();
     onRefresh();
@@ -898,8 +968,16 @@ export function useFileBrowserSelection(
     return true;
   }
 
-  async function confirmRename(newName: string): Promise<boolean> {
+  async function confirmRename(
+    newName: string,
+    inlineTrigger?: InlineRenameCommitTrigger,
+  ): Promise<boolean> {
     if (!renameState.value.entry || !newName.trim()) {
+      if (inlineTrigger) {
+        applyInlineRenameCommitState(inlineTrigger, 'failed');
+        return false;
+      }
+
       cancelRename();
       return false;
     }
@@ -908,6 +986,11 @@ export function useFileBrowserSelection(
     const trimmedName = newName.trim();
 
     if (trimmedName === entry.name) {
+      if (inlineTrigger) {
+        applyInlineRenameCommitState(inlineTrigger, 'unchanged');
+        return true;
+      }
+
       cancelRename();
       return true;
     }
@@ -917,7 +1000,7 @@ export function useFileBrowserSelection(
     // 本地的 `rename_item` 对 `sfm://remote/...` 只会得到一个「路径不存在」——
     // 那不是「功能没做」，是**接错了通道**。
     if (isRemotePath(entry.path)) {
-      return confirmRemoteRename(entry, trimmedName);
+      return confirmRemoteRename(entry, trimmedName, inlineTrigger);
     }
 
     try {
@@ -951,6 +1034,17 @@ export function useFileBrowserSelection(
         // cleared them, so the renamed entry would keep showing its old name.
         folderTreeStore.markTreeStale([parentDir]);
 
+        // FORK-MODIFICATION 2026-10-27：就地改名的成功路径。
+        //
+        // **不**清空选区 —— 清了之后条目路径就变了，↑/↓ 会找不到当前条目，
+        // 落点会跳回首项。改成刷新之后按新路径重新选中（但不要抢 DOM 焦点）。
+        if (inlineTrigger) {
+          requestFocusEntryAfterRefresh(parentDir, newPath, { shouldFocus: false });
+          applyInlineRenameCommitState(inlineTrigger, 'renamed');
+          await onRefresh();
+          return true;
+        }
+
         cancelRename();
         clearSelection();
         onRefresh();
@@ -965,6 +1059,7 @@ export function useFileBrowserSelection(
             },
           },
         });
+        applyInlineRenameCommitState(inlineTrigger, 'failed');
         return false;
       }
     }
@@ -977,8 +1072,111 @@ export function useFileBrowserSelection(
           },
         },
       });
+      applyInlineRenameCommitState(inlineTrigger, 'failed');
       return false;
     }
+  }
+
+  /**
+   * 把「连续改名状态机」的结论写回 `renameState`。
+   *
+   * 没有 `trigger`（模态框那条路）时**什么都不做** ——
+   * 模态框的开关由对话框自己管。
+   */
+  function applyInlineRenameCommitState(
+    trigger: InlineRenameCommitTrigger | undefined,
+    outcome: InlineRenameCommitOutcome,
+  ) {
+    if (!trigger) {
+      return;
+    }
+
+    const nextState = getInlineRenameChainStateAfterCommit(trigger, outcome);
+
+    renameState.value = {
+      ...renameState.value,
+      isActive: nextState.isEditing,
+      entry: nextState.isEditing ? renameState.value.entry : null,
+      isChainActive: nextState.isChainActive,
+    };
+  }
+
+  /**
+   * 就地改名的提交入口。
+   *
+   * 只在「就地编辑模式」下生效 —— 模态框那条路走 `confirmRename`。
+   */
+  async function submitInlineRename(
+    newName: string,
+    trigger: InlineRenameCommitTrigger,
+  ): Promise<boolean> {
+    if (!renameState.value.isActive || renameState.value.mode !== 'inline') {
+      return false;
+    }
+
+    const trimmedName = newName.trim();
+
+    // 名字不合法 ⇒ 不提交（视图层已经拦了一道，这里再兜一层）。
+    if (!trimmedName || !isValidInlineRenameName(trimmedName)) {
+      return false;
+    }
+
+    return confirmRename(trimmedName, trigger);
+  }
+
+  /**
+   * 放弃就地编辑（Esc）。
+   */
+  function cancelInlineRename() {
+    if (renameState.value.mode !== 'inline') {
+      cancelRename();
+      return;
+    }
+
+    const nextState = getInlineRenameChainStateAfterCancel();
+
+    renameState.value = {
+      isActive: nextState.isEditing,
+      entry: nextState.isEditing ? renameState.value.entry : null,
+      mode: 'inline',
+      isChainActive: nextState.isChainActive,
+    };
+  }
+
+  /**
+   * 连续改名模式：导航落点自动进入编辑态。
+   */
+  function handleInlineRenameNavigationTarget(entry: DirEntry) {
+    if (!shouldEnterInlineRenameOnNavigationTarget(
+      renameState.value.isChainActive,
+      canEditInline(),
+    )) {
+      return;
+    }
+
+    renameState.value = {
+      isActive: true,
+      entry,
+      mode: 'inline',
+      isChainActive: true,
+    };
+  }
+
+  /**
+   * 结束「连续改名模式」。
+   *
+   * 鼠标点到别的条目上时调用 —— 连续模式是给「手不离开键盘」用的，
+   * 一旦用户开始用鼠标点，就不该再自动把落点切进编辑态。
+   */
+  function endInlineRenameChain() {
+    if (!renameState.value.isChainActive) {
+      return;
+    }
+
+    renameState.value = {
+      ...renameState.value,
+      isChainActive: false,
+    };
   }
 
   /**
@@ -1584,6 +1782,12 @@ export function useFileBrowserSelection(
     startRename,
     cancelRename,
     confirmRename,
+    // FORK-MODIFICATION 2026-10-27：就地改名。
+    submitInlineRename,
+    cancelInlineRename,
+    handleInlineRenameNavigationTarget,
+    endInlineRenameChain,
+    canEditInline,
     createNewItem,
     pendingFocusRequest,
     clearPendingFocusRequest,

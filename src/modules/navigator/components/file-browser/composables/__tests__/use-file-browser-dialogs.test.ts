@@ -37,16 +37,19 @@ vi.mock('@/components/ui/toaster', () => ({
   ToastStatic: { name: 'ToastStatic' },
 }));
 
-import { useFileBrowserDialogs } from '../use-file-browser-dialogs';
+import { useFileBrowserDialogs, type FileBrowserRenameState } from '../use-file-browser-dialogs';
 
 const REMOTE_DIR = 'sfm://remote/conn-1/docs';
 const LOCAL_DIR = 'C:/Users/Duanyi';
 
 function createDialogs(currentPath: string) {
   return useFileBrowserDialogs({
-    renameState: ref({
+    renameState: ref<FileBrowserRenameState>({
       isActive: false,
       entry: null,
+      // FORK-MODIFICATION 2026-10-27：改名会话的模式与连续模式标记。
+      mode: 'dialog',
+      isChainActive: false,
     }),
     cancelRename: vi.fn(),
     confirmRename: vi.fn(),

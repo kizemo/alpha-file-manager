@@ -11,6 +11,7 @@
 | 3.6.0 | 不提交 | 清单留在 `manifests/.../3.6.0/` 备查，但**跳过这一版**（2026-10-26 决定） |
 | 3.6.1 | 不提交 | 清单留在 `manifests/.../3.6.1/` 备查，但**跳过这一版**（2026-10-26 决定：3.6.2 已发布，直接提 3.6.2） |
 | 3.6.2 | 尚未提交 | 清单**已备好**（`manifests/.../3.6.2/`），**3.5.1 合并后开 PR** |
+| 3.6.3 | 尚未提交 | 清单**已备好**（`manifests/.../3.6.3/`），**3.5.1 合并后直接提这一版**（winget 允许跳版，3.6.2 留作备份） |
 
 目录结构与上游仓库一致：
 
@@ -218,11 +219,55 @@ locale 文件不重复声明 defaultLocale；locale 文件只带可翻译字段�
 
 ### 3.5.1 合并后要做的
 
+这一节的**版本号已被 3.6.3 取代** —— 3.5.1 合并后直接提 **3.6.3**，
+步骤见下一章「3.6.3 的清单」。`3.6.2/` 下的四个文件保留在仓库里备查。
+
+## 3.6.3 的清单：已备好，3.5.1 合并后直接提
+
+2026-10-27 决定：**3.6.3 只备清单，不提交 PR**。
+
+同一个包 ID（`kizemo.AlphaFileManager`）在 `microsoft/winget-pkgs` 里
+**不允许同时开第二个 PR** —— 3.5.1 的
+[PR #460744](https://github.com/microsoft/winget-pkgs/pull/460744) 在 2026-10-27 复查
+仍是 `OPEN`（标签 `Azure-Pipeline-Passed` + `Validation-Completed` + `New-Package`，
+CLA 已由 `@microsoft-github-policy-service agree` 签掉），
+`reviewDecision` 还是 `REVIEW_REQUIRED`，**只等社区版主审批合并**。
+
+3.5.1 一合并，**直接提 3.6.3**，不再提 3.6.2：winget 不要求版本号连续，跳版是允许的，
+而每多提一版就多一轮版主评审 —— 用户装到的直接就是最新能用的版本。
+
+`manifests/k/kizemo/AlphaFileManager/3.6.3/` 下四个文件已经写好并入库，
+本地自检（`npm run check:winget`）全绿。
+
+### 这一版清单的几个取舍
+
+1. **`ManifestVersion` 仍是 `1.12.0`，不升到上游当前的 `1.28.0`。**
+   与 3.5.1 / 3.6.2 保持一致 —— 旧 schema 版本照收不误，风险最低。
+
+2. **`Tags` 一个不动** —— 3.5.1 已经把 16 个标签的上限用满，
+   3.6.3 没有「新的功能类别」值得加标签，硬加就得先删一个。
+
+3. **`ReleaseDate` 用 `2026-10-27`** —— 3.6.3 的实际发布日，
+   且必须**严格晚于** 3.5.1 的 `2026-10-24`。
+
+4. **`ShortDescription` 与 `Description` 沿用 3.6.2 那一版** ——
+   3.6.3 的三处改动（永久删除确认框回车即生效、列表视图按类型分区、重命名可就地编辑）
+   都是**交互改进**而不是新的功能类别，不写进描述。
+
+5. **`InstallerSha256` = `FEE1F2A8…644B`**，与 GitHub release v3.6.3 的资产、
+   `release/` 下的本地安装包、站点 `version.json` 四方一致（20,716,092 字节）。
+
+### 本地自检
+
+```powershell
+npm run check:winget
+```
+
+### 3.5.1 合并后要做的
+
 1. fork `microsoft/winget-pkgs`（本地还没有克隆，需要先 clone）；
-2. 从 `master` 拉分支，把 `manifests/k/kizemo/AlphaFileManager/3.6.2/` 四个文件放进去；
-3. 向 `master` 开 PR，标题 `Update kizemo.AlphaFileManager to 3.6.2`
-   （3.5.1 合并后包已存在，属于版本更新；上游不校验标题，
-   沿用 3.5.1 的 `New package: kizemo.AlphaFileManager version 3.6.2` 也能过）；
+2. 从 `master` 拉分支，把 `manifests/k/kizemo/AlphaFileManager/3.6.3/` 四个文件放进去；
+3. 向 `master` 开 PR，标题 `New package: kizemo.AlphaFileManager version 3.6.3`；
 4. 机器人要求时回一行 `@microsoft-github-policy-service agree`；
 5. 等校验跑完（看标签，不看 check runs），再等版主评审。
 

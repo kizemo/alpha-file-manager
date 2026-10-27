@@ -13,7 +13,30 @@ import type {
   FileBrowserVirtualRow,
 } from './use-file-browser-virtual-layout';
 
+/**
+ * FORK-MODIFICATION 2026-10-27：就地改名的上下文。
+ *
+ * 视图层（列表视图 / 缩略图卡片）只认这个接口，不直接碰 selection ——
+ * 这样「编辑态是哪一个条目」这件事只有一处说了算。
+ */
+export interface FileBrowserInlineRenameContext {
+  /** 当前是否有条目处于就地编辑态。 */
+  isActive: ComputedRef<boolean>;
+  /** 处于就地编辑态的条目路径；没有则 `null`。 */
+  editingEntryPath: ComputedRef<string | null>;
+  /** 连续改名模式是否开着（提交过一次之后 ↑/↓ 的落点会自动进入编辑态）。 */
+  isChainActive: ComputedRef<boolean>;
+  /** 提交当前编辑。 */
+  submit: (name: string, trigger: 'enter' | 'blur') => Promise<boolean>;
+  /** 放弃当前编辑（Esc）。 */
+  cancel: () => void;
+  /** 编辑态内按 ↑/↓：先提交当前改名，提交成功再移动到相邻条目。 */
+  move: (direction: 'up' | 'down', currentName: string) => Promise<void>;
+}
+
 export interface FileBrowserContext {
+  /** FORK-MODIFICATION 2026-10-27：就地重命名。 */
+  inlineRename: FileBrowserInlineRenameContext;
   entries: ComputedRef<DirEntry[]>;
   directoryEntryCount: ComputedRef<number>;
   currentPath: ComputedRef<string>;

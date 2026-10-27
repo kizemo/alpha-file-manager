@@ -523,6 +523,8 @@ export function useFileBrowser(options: UseFileBrowserOptions) {
     scrollToPath: virtualLayout.scrollToPath,
     getEntryElement: virtualLayout.getEntryElement,
     getGridNavigationEntry: virtualLayout.getGridNavigationEntry,
+    // FORK-MODIFICATION 2026-10-27：连续改名模式 —— 落点条目自动进入编辑态。
+    onNavigationTargetApplied: selection.handleInlineRenameNavigationTarget,
     goBack: dataSource.goBack,
     openEntry: isExternalMode
       ? (entry) => { options.onOpenEntry(entry); }
@@ -790,8 +792,40 @@ export function useFileBrowser(options: UseFileBrowserOptions) {
     isCurrentDirLocked: externalDrop.isCurrentDirLocked,
     isTargetingEntry: externalDrop.isTargetingEntry,
 
+    // FORK-MODIFICATION 2026-10-27：就地改名的上下文（视图层只认这一个接口）。
+    inlineRename: {
+      isActive: computed(() => selection.renameState.value.isActive
+        && selection.renameState.value.mode === 'inline'),
+      editingEntryPath: computed(() => selection.renameState.value.mode === 'inline'
+        ? selection.renameState.value.entry?.path ?? null
+        : null),
+      isChainActive: computed(() => selection.renameState.value.isChainActive),
+      submit: (name: string, trigger: 'enter' | 'blur') => selection.submitInlineRename(name, trigger),
+      cancel: () => selection.cancelInlineRename(),
+      move: async (direction: 'up' | 'down', currentName: string) => {
+        const renamed = await selection.submitInlineRename(currentName, 'move');
+
+        if (!renamed) {
+          return;
+        }
+
+        if (direction === 'up') {
+          keyboardNav.navigateUp();
+        }
+        else {
+          keyboardNav.navigateDown();
+        }
+      },
+    },
+
     onContextMenuAction: actions.onContextMenuAction,
-    onEntryMouseDown: actions.onEntryMouseDown,
+    // FORK-MODIFICATION 2026-10-27：鼠标点到条目上 ⇒ 结束「连续改名模式」。
+    // 键盘导航不走这里（它走 `selectEntryByPath`），所以连续模式只会被
+    // 「鼠标操作」打断，不会被自己的 ↑/↓ 打断。
+    onEntryMouseDown: (entry: DirEntry, event: MouseEvent) => {
+      selection.endInlineRenameChain();
+      actions.onEntryMouseDown(entry, event);
+    },
     onEntryMouseUp: actions.onEntryMouseUp,
     handleEntriesContainerPointerDown: boxSelection.handleEntriesContainerPointerDown,
     increaseFileViewGaps,
