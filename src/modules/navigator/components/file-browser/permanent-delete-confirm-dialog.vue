@@ -4,7 +4,9 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 -->
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted } from 'vue';
+import {
+  computed, nextTick, onBeforeUnmount, onMounted, watch,
+} from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { DirEntry } from '@/types/dir-entry';
 import {
@@ -18,6 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { getPathDisplayValue } from '@/utils/normalize-path';
 import {
+  focusPermanentDeleteConfirmContent,
   isPermanentDeleteConfirmInteractiveTarget,
   shouldConfirmPermanentDeleteOnEnter,
 } from './utils/permanent-delete-confirm-keyboard';
@@ -61,8 +64,29 @@ function onConfirm() {
 }
 
 // FORK-MODIFICATION 2026-10-27：裸回车 = 确认删除。
-// reka-ui 打开对话框时把焦点落在对话框容器本身，两个按钮都没被激活，
-// 裸回车什么都不会发生。焦点若已在按钮上则交给浏览器原生行为处理。
+// reka-ui 的 FocusScope 在对话框挂载时把焦点落到内容里第一个可聚焦控件上，
+// 而本对话框里那个控件是「取消」按钮 ⇒ 「刚打开就回车」= 取消，不是删除。
+// 因此对话框打开后把焦点挪到对话框容器（容器不是可交互控件）上，
+// 裸回车落到「焦点不在控件上 ⇒ 确认删除」的兜底分支；
+// 用户 Tab 之后焦点在按钮上时，仍然交给浏览器原生行为。
+watch(
+  () => props.open,
+  async (open) => {
+    if (!open) {
+      return;
+    }
+
+    await nextTick();
+
+    // 等一拍再挪：reka-ui 的 FocusScope 在挂载之后还会再抢一次焦点。
+    setTimeout(() => {
+      if (props.open) {
+        focusPermanentDeleteConfirmContent();
+      }
+    }, 0);
+  },
+);
+
 function handleDocumentKeydown(event: KeyboardEvent) {
   if (!props.open) {
     return;
