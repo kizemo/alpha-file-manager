@@ -51,8 +51,11 @@ export interface FileBrowserGridItemsVirtualRow extends FileBrowserVirtualRowBas
   rowIndex: number;
 }
 
+// FORK-MODIFICATION: 列表视图的分区标题行也是虚拟行的一员，必须进联合类型，
+// 否则 TS 会把 row.type === 'list-section' 判成「永不成立」而直接报错。
 export type FileBrowserVirtualRow
   = FileBrowserListVirtualRow
+    | FileBrowserListSectionVirtualRow
     | FileBrowserGridSectionVirtualRow
     | FileBrowserGridItemsVirtualRow;
 
