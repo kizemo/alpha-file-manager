@@ -232,9 +232,11 @@ describe('useFileBrowserSelection 的锚点与键盘光标', () => {
     selection.replaceSelection(first);
     selection.selectRange(first, third);
 
+    // FORK-MODIFICATION: 列表视图按类型分区后，范围选择也走分组顺序
+    // （图片组排在「其它文件」组之前），所以 alpha.txt → gamma.md 这一段
+    // 不再经过 beta.png —— 视觉顺序 / 键盘顺序 / 范围顺序必须三者一致。
     expect(selection.selectedEntries.value.map(entry => entry.name)).toEqual([
       'alpha.txt',
-      'beta.png',
       'gamma.md',
     ]);
     expect(selection.focusedEntry.value?.name).toBe('gamma.md');
@@ -250,10 +252,16 @@ describe('useFileBrowserSelection 的锚点与键盘光标', () => {
     selection.selectRange(first, second);
     expect(selection.lastSelectedEntry.value?.name).toBe('alpha.txt');
 
+    // FORK-MODIFICATION: 分组顺序是 [beta.png, alpha.txt, gamma.md] ——
+    // alpha.txt → beta.png 这一段跨到了图片组的第一项。
+    expect(selection.selectedEntries.value.map(entry => entry.name)).toEqual([
+      'beta.png',
+      'alpha.txt',
+    ]);
+
     selection.selectRange(first, third);
     expect(selection.selectedEntries.value.map(entry => entry.name)).toEqual([
       'alpha.txt',
-      'beta.png',
       'gamma.md',
     ]);
     expect(selection.lastSelectedEntry.value?.name).toBe('alpha.txt');
@@ -282,9 +290,11 @@ describe('useFileBrowserSelection 的锚点与键盘光标', () => {
 
     selection.handleEntryFocus(second, createFocusEvent());
 
+    // FORK-MODIFICATION: 分组顺序 [beta.png, alpha.txt] ——
+    // 选择集合按分组顺序排列，不按传入顺序排列。
     expect(selection.selectedEntries.value.map(entry => entry.name)).toEqual([
-      'alpha.txt',
       'beta.png',
+      'alpha.txt',
     ]);
     expect(selection.focusedEntry.value?.name).toBe('beta.png');
   });

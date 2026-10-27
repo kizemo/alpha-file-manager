@@ -24,6 +24,8 @@ import {
   type FileBrowserGridSectionKey,
   type FileBrowserGridSectionVirtualRow,
   type FileBrowserListVirtualRow,
+  type FileBrowserSectionKey,
+  type FileBrowserSectionVariant,
   type FileBrowserVirtualRow,
 } from '../utils/file-browser-virtual-rows';
 import { resolveThumbnailMetrics } from '../utils/file-browser-thumbnail-sizes';
@@ -38,7 +40,10 @@ export type {
   FileBrowserGridItemsVirtualRow,
   FileBrowserGridSectionKey,
   FileBrowserGridSectionVirtualRow,
+  FileBrowserListSectionVirtualRow,
   FileBrowserListVirtualRow,
+  FileBrowserSectionKey,
+  FileBrowserSectionVariant,
   FileBrowserVirtualRow,
 } from '../utils/file-browser-virtual-rows';
 export { getGridColumnCount } from '../utils/file-browser-virtual-rows';
@@ -46,6 +51,11 @@ export { getGridColumnCount } from '../utils/file-browser-virtual-rows';
 // FORK-MODIFICATION: 缩略图四档的行高 / 卡高 / 最小列宽已全部移入
 // ../utils/file-browser-thumbnail-sizes.ts，这里不再重复任何数字。
 const GRID_SECTION_HEADER_HEIGHT = 42;
+// FORK-MODIFICATION: 列表视图分区标题行的高度。
+// 它必须与渲染侧（file-browser-list-view.vue 的 .file-browser-list-view__section）
+// 同源：区隔行内联 height = 40px（上下各 2px padding + 36px 的段头 bar），
+// 虚拟模型按同一个数累加 offset —— 两边对不上就会滚动错位。
+export const LIST_SECTION_HEADER_HEIGHT = 40;
 const VIRTUAL_OVERSCAN_PX = 420;
 const SCROLL_TO_PATH_DOM_SYNC_ATTEMPTS = 12;
 const STATUS_BAR_BORDER_CLEARANCE = 2;
@@ -62,6 +72,14 @@ interface GridSectionDefinition {
   entries: DirEntry[];
   stickyIndex: number;
   entryHeight: number;
+}
+
+// FORK-MODIFICATION: 列表视图的分区定义。段头不做 sticky（任务书允许不做），
+// 所以这里没有 stickyIndex，只有分区键、变体与成员条目。
+interface ListSectionDefinition {
+  key: FileBrowserSectionKey;
+  variant: FileBrowserSectionVariant;
+  entries: DirEntry[];
 }
 
 function resolveScrollViewportElement(element: HTMLElement): HTMLElement {
@@ -97,7 +115,8 @@ function getRowScrollMarginTop(
   virtualContentOffset: number,
   gridGap: number,
 ): number {
-  if (row.type === 'list-entry') {
+  // FORK-MODIFICATION: 列表分区标题行与条目行同属列表流，滚动留白规则一致。
+  if (row.type === 'list-entry' || row.type === 'list-section') {
     return virtualContentOffset;
   }
 
@@ -196,6 +215,84 @@ function createListRows(
     offset += size;
     return row;
   });
+}
+
+// FORK-MODIFICATION: 列表视图按类型分区：目录 / 图片 / 视频 / 其它文件，
+// 每个非空分组前面插一行区隔标题行（行内不可点选、不进选中集合）。
+//
+// 两个必须对齐的点：
+// ① 区隔行高度 = LIST_SECTION_HEADER_HEIGHT，与渲染侧内联的 height 同源，
+//    否则虚拟行的 start 累加会和实际渲染高度对不上，滚动就会错位；
+// ② 条目行的 entryIndex 用「显示顺序里的序号」，与未分区时的语义保持一致
+//    （它表示这个条目排在第几个，而不是它在原始数组里的下标）。
+function createGroupedListRows(
+  entries: readonly DirEntry[],
+  entryDescription?: (entry: DirEntry) => string | undefined,
+  thumbnailSize: ThumbnailSize = 'medium',
+): FileBrowserVirtualRow[] {
+  const groupedEntries = groupFileBrowserEntries(entries);
+  const sections: ListSectionDefinition[] = [
+    {
+      key: 'dirs',
+      variant: 'dir',
+      entries: groupedEntries.dirs,
+    },
+    {
+      key: 'images',
+      variant: 'image',
+      entries: groupedEntries.images,
+    },
+    {
+      key: 'videos',
+      variant: 'video',
+      entries: groupedEntries.videos,
+    },
+    {
+      key: 'others',
+      variant: 'other',
+      entries: groupedEntries.others,
+    },
+  ];
+
+  const rows: FileBrowserVirtualRow[] = [];
+  let offset = 0;
+  let entryIndex = 0;
+
+  for (const section of sections) {
+    if (section.entries.length === 0) {
+      continue;
+    }
+
+    rows.push({
+      type: 'list-section',
+      key: `list-section:${section.key}`,
+      sectionKey: section.key,
+      variant: section.variant,
+      count: section.entries.length,
+      start: offset,
+      size: LIST_SECTION_HEADER_HEIGHT,
+    });
+
+    offset += LIST_SECTION_HEADER_HEIGHT;
+
+    for (const entry of section.entries) {
+      const size = getEntryDescriptionHeight(entry, entryDescription, thumbnailSize);
+
+      rows.push({
+        type: 'list-entry',
+        key: `list:${entry.path}`,
+        entry,
+        entryIndex,
+        start: offset,
+        size,
+      });
+
+      offset += size;
+      entryIndex += 1;
+    }
+  }
+
+  return rows;
 }
 
 function createGridSectionRows(
@@ -333,6 +430,12 @@ export function createFileBrowserVirtualRows(options: {
       gridGap,
       thumbnailSize,
     );
+  }
+
+  // FORK-MODIFICATION: 列表布局按类型分区；tree 布局保持平铺 —— 它是层级视图，
+  // 条目的先后由层级关系决定，不是由类型决定。
+  if (options.layout === 'list') {
+    return createGroupedListRows(options.entries, options.entryDescription, thumbnailSize);
   }
 
   return createListRows(options.entries, options.entryDescription, thumbnailSize);

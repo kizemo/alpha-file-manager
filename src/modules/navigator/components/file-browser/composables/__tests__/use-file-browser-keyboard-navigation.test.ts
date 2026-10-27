@@ -141,7 +141,27 @@ describe('useFileBrowserKeyboardNavigation', () => {
     expect(selectedEntries.value.map(entry => entry.name)).toEqual(['movie.mp4']);
   });
 
-  it('uses flat entry order in list layout', () => {
+  // FORK-MODIFICATION: 列表视图按类型分区后，键盘导航的顺序也变成分组顺序
+  // （图片组排在「其它文件」组之前）。这里必须钉住：视觉顺序一旦和键盘顺序
+  // 分叉，用户按方向键就会「跳到看不见的条目上」。
+  it('uses section grouped entry order in list layout', () => {
+    const first = createEntry('alpha.txt', { ext: 'txt' });
+    const second = createEntry('beta.png', {
+      ext: 'png',
+      mime: 'image/png',
+    });
+    const { navigation, selectedEntries } = createKeyboardNavigationHarness({
+      entries: [first, second],
+      layout: () => 'list',
+      initialSelection: second,
+    });
+
+    // 分组顺序 [beta.png, alpha.txt]：beta.png 在前，方向键往后走到 alpha.txt。
+    navigation.navigateRight();
+    expect(selectedEntries.value.map(entry => entry.name)).toEqual(['alpha.txt']);
+  });
+
+  it('stops at the end of the last group in list layout', () => {
     const first = createEntry('alpha.txt', { ext: 'txt' });
     const second = createEntry('beta.png', {
       ext: 'png',
@@ -153,8 +173,9 @@ describe('useFileBrowserKeyboardNavigation', () => {
       initialSelection: first,
     });
 
+    // alpha.txt 在分组顺序里是最后一项 —— 再往后没有条目了，原地不动。
     navigation.navigateRight();
-    expect(selectedEntries.value.map(entry => entry.name)).toEqual(['beta.png']);
+    expect(selectedEntries.value.map(entry => entry.name)).toEqual(['alpha.txt']);
   });
 
   it('extends and shrinks list selection with shift plus arrow keys', () => {
@@ -170,25 +191,25 @@ describe('useFileBrowserKeyboardNavigation', () => {
       initialSelection: first,
     });
 
+    // FORK-MODIFICATION: 分组顺序 [beta.png, alpha.txt, gamma.md] ——
+    // 从 alpha.txt 往后只到 gamma.md，中间不再经过 beta.png。
     navigation.navigateDown(true);
-    expect(selectedEntries.value.map(entry => entry.name)).toEqual(['alpha.txt', 'beta.png']);
+    expect(selectedEntries.value.map(entry => entry.name)).toEqual(['alpha.txt', 'gamma.md']);
     expect(lastSelectedEntry.value?.name).toBe('alpha.txt');
-    expect(focusedEntry.value?.name).toBe('beta.png');
+    expect(focusedEntry.value?.name).toBe('gamma.md');
 
     navigation.navigateDown(true);
-    expect(selectedEntries.value.map(entry => entry.name)).toEqual([
-      'alpha.txt',
-      'beta.png',
-      'gamma.md',
-    ]);
+    expect(selectedEntries.value.map(entry => entry.name)).toEqual(['alpha.txt', 'gamma.md']);
     expect(focusedEntry.value?.name).toBe('gamma.md');
 
     navigation.navigateUp(true);
-    expect(selectedEntries.value.map(entry => entry.name)).toEqual(['alpha.txt', 'beta.png']);
+    expect(selectedEntries.value.map(entry => entry.name)).toEqual(['alpha.txt']);
     expect(lastSelectedEntry.value?.name).toBe('alpha.txt');
-    expect(focusedEntry.value?.name).toBe('beta.png');
+    expect(focusedEntry.value?.name).toBe('alpha.txt');
   });
 
+  // FORK-MODIFICATION: 分组顺序 [beta.png, alpha.txt, gamma.md] ——
+  // 「锚点在中间」的那个条目换成了 alpha.txt（它在分组顺序里排第二）。
   it('extends a list range past the original anchor in the opposite direction', () => {
     const first = createEntry('alpha.txt', { ext: 'txt' });
     const second = createEntry('beta.png', {
@@ -199,16 +220,16 @@ describe('useFileBrowserKeyboardNavigation', () => {
     const { navigation, selectedEntries, lastSelectedEntry, focusedEntry } = createKeyboardNavigationHarness({
       entries: [first, second, third],
       layout: () => 'list',
-      initialSelection: second,
+      initialSelection: first,
     });
 
     navigation.navigateUp(true);
-    expect(selectedEntries.value.map(entry => entry.name)).toEqual(['alpha.txt', 'beta.png']);
+    expect(selectedEntries.value.map(entry => entry.name)).toEqual(['beta.png', 'alpha.txt']);
 
     navigation.navigateDown(true);
     navigation.navigateDown(true);
-    expect(selectedEntries.value.map(entry => entry.name)).toEqual(['beta.png', 'gamma.md']);
-    expect(lastSelectedEntry.value?.name).toBe('beta.png');
+    expect(selectedEntries.value.map(entry => entry.name)).toEqual(['alpha.txt', 'gamma.md']);
+    expect(lastSelectedEntry.value?.name).toBe('alpha.txt');
     expect(focusedEntry.value?.name).toBe('gamma.md');
   });
 
@@ -222,10 +243,14 @@ describe('useFileBrowserKeyboardNavigation', () => {
     const { navigation, selectedEntries, lastSelectedEntry } = createKeyboardNavigationHarness({
       entries: [first, second, third],
       layout: () => 'list',
-      initialSelection: first,
+      initialSelection: second,
     });
 
+    // FORK-MODIFICATION: 分组顺序 [beta.png, alpha.txt, gamma.md] ——
+    // 锚点换成 beta.png（分组顺序里的第一项），后面还有两项可以走。
     navigation.navigateDown(true);
+    expect(selectedEntries.value.map(entry => entry.name)).toEqual(['beta.png', 'alpha.txt']);
+
     navigation.navigateDown();
     expect(selectedEntries.value.map(entry => entry.name)).toEqual(['gamma.md']);
     expect(lastSelectedEntry.value?.name).toBe('gamma.md');

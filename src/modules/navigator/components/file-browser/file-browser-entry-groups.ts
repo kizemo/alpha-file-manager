@@ -47,7 +47,9 @@ export function groupFileBrowserEntries(entries: readonly DirEntry[]): GroupedEn
   };
 }
 
-export function getFileBrowserGridEntryOrder(entries: readonly DirEntry[]): DirEntry[] {
+// FORK-MODIFICATION: 目录 / 图片 / 视频 / 其它文件的先后顺序由这一个函数说了算。
+// 网格视图委托它，列表视图也用它，于是两边的分组顺序永远一致。
+export function getFileBrowserSectionEntryOrder(entries: readonly DirEntry[]): DirEntry[] {
   const groupedEntries = groupFileBrowserEntries(entries);
   return [
     ...groupedEntries.dirs,
@@ -57,12 +59,20 @@ export function getFileBrowserGridEntryOrder(entries: readonly DirEntry[]): DirE
   ];
 }
 
+export function getFileBrowserGridEntryOrder(entries: readonly DirEntry[]): DirEntry[] {
+  return getFileBrowserSectionEntryOrder(entries);
+}
+
 export function getFileBrowserVisualEntryOrder(
   entries: readonly DirEntry[],
   layout: 'list' | 'grid' | 'tree' | undefined,
 ): DirEntry[] {
-  if (layout === 'grid') {
-    return getFileBrowserGridEntryOrder(entries);
+  // FORK-MODIFICATION: 列表视图也分区了。键盘导航（getNavigationEntries）与
+  // Shift 范围选择（getOrderedEntries）都走这里，于是「视觉顺序 / 键盘顺序 /
+  // 范围选择顺序」三者天然一致，不必各自维护一份。
+  // tree 布局保持平铺 —— 那是层级视图，顺序另有含义。
+  if (layout === 'grid' || layout === 'list') {
+    return getFileBrowserSectionEntryOrder(entries);
   }
 
   return [...entries];
