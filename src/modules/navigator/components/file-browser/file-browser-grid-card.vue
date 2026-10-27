@@ -17,6 +17,8 @@ import { useDirSizesStore } from '@/stores/runtime/dir-sizes';
 import { useItemCountsStore } from '@/stores/runtime/item-counts';
 import { Skeleton } from '@/components/ui/skeleton';
 import FileBrowserEntryIcon from './file-browser-entry-icon.vue';
+// FORK-MODIFICATION 2026-10-27：就地重命名的输入框。
+import FileBrowserInlineRenameInput from './file-browser-inline-rename-input.vue';
 import { useFileBrowserContext } from './composables/use-file-browser-context';
 import { usePlatformStore } from '@/stores/runtime/platform';
 import { resolveImageDisplaySrc } from '@/modules/navigator/utils/resolve-image-display-src';
@@ -452,7 +454,14 @@ watch(imagePreviewPlaceholderSrc, () => {
         'file-browser-grid-card__info--bottom': props.variant === 'other',
       }"
     >
-      <span class="file-browser-grid-card__name">{{ entry.name }}</span>
+      <FileBrowserInlineRenameInput
+        v-if="ctx.inlineRename.editingEntryPath.value === props.entry.path"
+        :entry="props.entry"
+      />
+      <span
+        v-else
+        class="file-browser-grid-card__name"
+      >{{ entry.name }}</span>
       <div class="file-browser-grid-card__meta">
         <LoaderCircleIcon
           v-if="props.variant === 'dir' && isDirLoadingWithProgress(props.entry)"

@@ -8,13 +8,20 @@ import type { DirEntry } from '@/types/dir-entry';
 import { toast, ToastStatic } from '@/components/ui/toaster';
 import { canCreateItemIn } from '@/modules/remote/utils/remote-write';
 
-type RenameState = {
+export type FileBrowserRenameState = {
   isActive: boolean;
   entry: DirEntry | null;
+  /**
+   * FORK-MODIFICATION 2026-10-27：改名会话的模式。
+   * `dialog` = 模态框（树形视图等），`inline` = 就地编辑（列表视图 / 缩略图视图）。
+   */
+  mode: 'dialog' | 'inline';
+  /** FORK-MODIFICATION 2026-10-27：连续改名模式是否开着。 */
+  isChainActive: boolean;
 };
 
 export function useFileBrowserDialogs(options: {
-  renameState: Ref<RenameState>;
+  renameState: Ref<FileBrowserRenameState>;
   cancelRename: () => void;
   confirmRename: (newName: string) => Promise<boolean>;
   createNewItem: (name: string, itemType: 'directory' | 'file', targetPaths?: string[]) => Promise<boolean>;
@@ -70,7 +77,9 @@ export function useFileBrowserDialogs(options: {
   });
 
   const isRenameDialogOpen = computed({
-    get: () => options.renameState.value.isActive,
+    // FORK-MODIFICATION 2026-10-27：只有模态框模式才弹对话框 ——
+    // 就地编辑模式（列表视图 / 缩略图视图）由条目上的输入框承担。
+    get: () => options.renameState.value.isActive && options.renameState.value.mode === 'dialog',
     set: (value: boolean) => {
       if (!value) {
         options.cancelRename();

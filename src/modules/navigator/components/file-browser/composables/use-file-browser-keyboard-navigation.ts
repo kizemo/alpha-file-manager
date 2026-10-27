@@ -15,6 +15,11 @@ export function useFileBrowserKeyboardNavigation(options: {
   lastSelectedEntry: Ref<DirEntry | null>;
   focusedEntry: Ref<DirEntry | null>;
   layout: () => 'list' | 'grid' | 'tree' | undefined;
+  /**
+   * FORK-MODIFICATION 2026-10-27：导航落点已经应用之后的回调。
+   * 连续改名模式用它把落点条目切进「就地编辑态」。
+   */
+  onNavigationTargetApplied?: (entry: DirEntry) => void;
   selectEntryByPath: (path: string) => boolean;
   selectRange: (fromEntry: DirEntry, toEntry: DirEntry, additive?: boolean) => void;
   scrollToPath?: (path: string, align?: ScrollLogicalPosition) => Promise<boolean>;
@@ -86,6 +91,10 @@ export function useFileBrowserKeyboardNavigation(options: {
     if (element) {
       element.focus({ preventScroll: true });
     }
+
+    // FORK-MODIFICATION 2026-10-27：落点回调放在最后 ——
+    // 选区、滚动、DOM 焦点都落定之后，再把落点切进就地编辑态。
+    options.onNavigationTargetApplied?.(entry);
   }
 
   function navigateFlat(direction: 'previous' | 'next', extendSelection: boolean) {

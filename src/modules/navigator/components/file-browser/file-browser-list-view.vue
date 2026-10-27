@@ -24,6 +24,8 @@ import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import { usePlatformStore } from '@/stores/runtime/platform';
 import FileBrowserEntryIcon from './file-browser-entry-icon.vue';
 import FileBrowserListEntryThumbnail from './file-browser-list-entry-thumbnail.vue';
+// FORK-MODIFICATION 2026-10-27：就地重命名的输入框。
+import FileBrowserInlineRenameInput from './file-browser-inline-rename-input.vue';
 import { useRelativeDateDisplayClock } from '@/composables/use-relative-date-display';
 import { useFileBrowserContext } from './composables/use-file-browser-context';
 import { useFileBrowserTags } from './composables/use-file-browser-tags';
@@ -74,6 +76,8 @@ interface FileBrowserListSizeDisplay {
 interface FileBrowserListDisplayRow extends FileBrowserListVirtualRow {
   entry: DirEntry;
   entryDescription: string | undefined;
+  // FORK-MODIFICATION 2026-10-27：这一行是不是正处于「就地编辑态」。
+  isInlineRenameTarget: boolean;
   entryStyle: Record<string, string>;
   isSelected: boolean;
   isInClipboard: boolean;
@@ -393,6 +397,10 @@ function createDisplayRow(row: FileBrowserListVirtualRow): FileBrowserListDispla
   const linkStatusLabel = visible.linkStatus ? getLinkStatusDisplay(entry) : '';
   const isTagSelectorMounted = visible.tags && activeTagSelectorPath.value === entry.path;
   const tagSummary = visible.tags ? getEntryTagSummary(selectedTags, selectedTagIds) : '';
+  // FORK-MODIFICATION 2026-10-27：这一行是不是正处于「就地编辑态」。
+  // 行上有 `v-memo` 缓存 —— 编辑态变了却没换 memoKey 的话，
+  // 那一行会被缓存住，输入框永远不出现。
+  const isInlineRenameTarget = ctx.inlineRename.editingEntryPath.value === entry.path;
   const memoParts = [
     visibleColumnMemoKey.value,
     row.key,
@@ -424,6 +432,7 @@ function createDisplayRow(row: FileBrowserListVirtualRow): FileBrowserListDispla
     linkStatusLabel,
     isLinkSkeletonVisible ? 'link-skeleton' : '',
     isTagSelectorMounted ? 'tags-open' : '',
+    isInlineRenameTarget ? 'inline-rename' : '',
   ];
 
   return {
@@ -445,6 +454,8 @@ function createDisplayRow(row: FileBrowserListVirtualRow): FileBrowserListDispla
     tagBadges,
     tagSummary,
     isTagSelectorMounted,
+    // FORK-MODIFICATION 2026-10-27：这一行是不是正处于「就地编辑态」。
+    isInlineRenameTarget,
     kindLabel,
     linksDisplay,
     linkStatusLabel,
@@ -600,7 +611,14 @@ const visibleRows = computed<FileBrowserListDisplayItem[]>(() => {
               />
               <div class="file-browser-list-view__entry-name-content">
                 <div class="file-browser-list-view__entry-name-row">
-                  <span class="file-browser-list-view__entry-text">{{ row.entry.name }}</span>
+                  <FileBrowserInlineRenameInput
+                    v-if="row.isInlineRenameTarget"
+                    :entry="row.entry"
+                  />
+                  <span
+                    v-else
+                    class="file-browser-list-view__entry-text"
+                  >{{ row.entry.name }}</span>
                   <span
                     v-if="columnVisibility.linkTarget && row.entry.link_target"
                     class="file-browser-list-view__entry-link-target"
