@@ -2,8 +2,9 @@
 // License: GNU GPLv3 or later. See the license file in the project root for more information.
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
+  focusPermanentDeleteConfirmContent,
   isPermanentDeleteConfirmInteractiveTarget,
   shouldConfirmPermanentDeleteOnEnter,
 } from '../permanent-delete-confirm-keyboard';
@@ -83,5 +84,51 @@ describe('isPermanentDeleteConfirmInteractiveTarget', () => {
 
   it('空目标不算作可交互控件', () => {
     expect(isPermanentDeleteConfirmInteractiveTarget(null)).toBe(false);
+  });
+});
+
+describe('focusPermanentDeleteConfirmContent', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  function makeContent(): HTMLElement {
+    const content = document.createElement('div');
+    content.className = 'permanent-delete-confirm-dialog';
+    const cancel = document.createElement('button');
+    const confirm = document.createElement('button');
+    content.appendChild(cancel);
+    content.appendChild(confirm);
+    document.body.appendChild(content);
+
+    return content;
+  }
+
+  it('把焦点落到对话框容器上', () => {
+    const content = makeContent();
+
+    expect(focusPermanentDeleteConfirmContent(document)).toBe(true);
+    expect(document.activeElement).toBe(content);
+  });
+
+  it('容器不是可交互控件 —— 裸回车会走「确认删除」分支', () => {
+    const content = makeContent();
+    focusPermanentDeleteConfirmContent(document);
+
+    expect(isPermanentDeleteConfirmInteractiveTarget(content)).toBe(false);
+    expect(shouldConfirmPermanentDeleteOnEnter({
+      key: 'Enter',
+      defaultPrevented: false,
+      isComposing: false,
+      isFocusOnInteractiveControl: isPermanentDeleteConfirmInteractiveTarget(document.activeElement),
+    })).toBe(true);
+  });
+
+  it('找不到容器时返回 false，不抛异常', () => {
+    expect(focusPermanentDeleteConfirmContent(document)).toBe(false);
+  });
+
+  it('没有 root 时返回 false，不抛异常', () => {
+    expect(focusPermanentDeleteConfirmContent(null)).toBe(false);
   });
 });
