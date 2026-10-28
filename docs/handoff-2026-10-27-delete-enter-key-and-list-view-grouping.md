@@ -12,10 +12,10 @@
 |---|---|
 | 用户要什么 | ① 永久删除确认框里**直接回车要等于「删除」**（现在回车什么都不会发生）；② 目录窗口的**列表视图**要像缩略图视图那样，在「文件夹 / 图片 / 视频 / 其它文件」之间给出区隔；③ **中途追加**：按 F2 或右键「重命名」（非批量）时**不弹模态框**，直接在文件名上就地编辑，改完后用 ↑/↓ 切文件仍保持可编辑状态，便于手工连续批量改名；④ 优化与测试通过后**直接打包发版**，升级 README、新版本说明、aiec 版本记录，上传 GitHub 与 aiec |
 | 这次发哪个版本 | **3.6.3**（3.6.2 已于 2026-10-26 发布）。三块优化合并进 3.6.3（3.6.3 尚未对外发布，合并比拆版本省） |
-| 现在卡在哪 | ① **3.6.3 已经全部发完**（三块优化均通过真机验收，发版提交已 push，GitHub release `v3.6.3` 与站点 aiec.fun 均已上线并回读校验通过）；剩下的外围事项：winget PR（须等 3.5.1 的 `#460744` 合并）、安装包代码签名、远程条目的就地改名验证。详见第 13–17 节。② **新增活跃任务：资源占用分析与优化**（2026-10-28 起）——现状实测与计划 v2 已完成，批次 A/B 执行中，**批次 C（结构性改造）待接力**，详见 **§18** |
+| 现在卡在哪 | ① **3.6.3 已经全部发完**（三块优化均通过真机验收，发版提交已 push，GitHub release `v3.6.3` 与站点 aiec.fun 均已上线并回读校验通过）；剩下的外围事项：winget PR（须等 3.5.1 的 `#460744` 合并）、安装包代码签名、远程条目的就地改名验证。详见第 13–17 节。② **资源占用分析与优化**（2026-10-28）：现状实测与计划 v2、**批次 A/B 代码改造（已 push）、批次 D 环境层实测与清理均已完成**；**只剩批次 C（结构性改造 6 项）待接力**，详见 **§18** |
 | 已落盘的东西 | 4 笔 commit（`82d42190` / `605efae8` / `d1c96f70` / `dff656a4`）+ 优化 C 的 13 个源文件（**已通过真机验收，随本次发版提交一并提交**）+ 3.6.3 安装包 / winget 清单 / 站点文件 / 18 个发版文档（**随本次发版提交一并提交**） |
-| 资源优化的产物 | `.superpowers/sdd/mem-plan-v2.md`（计划 v2）、`mem-audit-final.md`（现状实测与 v1 方案）、`mem-audit-frontend.md`（前端持有点 20 条）、`mem-audit-rust.md`（Rust 持有点 21 条）、`mem-probe-2.ps1` + `mem-probe-2.out.txt`（可重复的进程/磁盘探针）。**这 5 个文件都在 `.superpowers/`（被 gitignore），不进版本库** |
-| 仓库状态 | 内层仓 `sigma-file-manager` 分支 `main`，HEAD `3a07b82b`（3.6.3 发布后回写提交），**已 push**，`origin/main` = `3a07b82b75a208eb6638a6f8777b434330507fe5`（用 `gh api .../commits/main --jq '.sha'` 核对一致）；上游 `https://github.com/kizemo/alpha-file-manager.git`；工作区干净（§18 的资源优化改动**尚未提交**） |
+| 资源优化的产物 | `.superpowers/sdd/mem-plan-v2.md`（计划 v2）、`mem-audit-final.md`（现状实测与 v1 方案）、`mem-audit-frontend.md`（前端持有点 20 条）、`mem-audit-rust.md`（Rust 持有点 21 条）、`mem-probe-2.ps1` + `mem-probe-2.out.txt`（可重复的进程/磁盘探针）、`mem-batch-d.ps1` / `mem-batch-d-run.ps1` / `mem-batch-d-phase2.ps1`（批次 D 的测量 / 停启 / 分阶段执行脚本）、`mem-batch-d-before.json` / `-before-fresh.json` / `-after-ab.json` / `-after-d.json` / `-after-d-warm.json`（五份实测快照）、`mem-phase-ab2.log` / `mem-phase-d2.log`（实测日志）、`mem-dump-strings.cjs`（崩溃 dump 取证脚本）、`mem-gate-fe2.log` / `mem-gate-rs2.log` / `mem-build.log`（门禁与打包日志）。**这些文件都在 `.superpowers/`（被 gitignore），不进版本库** |
+| 仓库状态 | 内层仓 `sigma-file-manager` 分支 `main`；**代码提交 `e8a41f3b`（资源优化批次 A/B）已 push**，`origin/main` = `e8a41f3b8b43b740f5078b84521823efd2625280`（用 `gh api .../commits/main --jq '.sha'` 核对一致）；本节 §18.11 的实测回写是**纯文档提交**；上游 `https://github.com/kizemo/alpha-file-manager.git`；**批次 C 见 §18.6** |
 | 最容易踩的坑 | ① **真机验收只能用 `tauri build` 产物**，`tauri dev` 的路由页内容区全空白，界面结论一律作废；② 打包前必须停 `alpha-file-manager` 进程**并把 `src-tauri/target/release/alpha-file-manager.exe` 移走**（只杀进程不够，上一轮就是这么被 `os error 5` 卡住的）；③ `eslint .` 是整仓口径，基线 **188 errors**；④ `.cmd` 里 `echo` 不能出现 `>`；⑤ `.ps1` / `.cmd` 必须纯 ASCII（中文要用 `[char]0x....` 拼）；⑥ `app-key.ps1` 只认**裸名 token**（传 `'{F2}'` 会静默不发送）；⑦ WebView2 里 UIA 的 `FocusedElement` 不可信，判「选中」要看状态栏「已选择 N 个项目」；⑧ **会话锁住时 `SendInput` / `SetCursorPos` 全废（err=5），但 `PostMessage` 合成鼠标消息与 `WM_KEYDOWN` 照样能穿透到渲染进程** ⇒ 键盘链路（F2 / 回车 / ↑↓ / Esc）也能在锁屏状态下真机验收；⑨ 文件浏览器右键菜单里**没有文字「重命名」项**，改名入口是 quick-actions 行**第 1 个无名按钮（铅笔）**，要靠 UIA `InvokePattern` 或按坐标点 |
 
 ---
@@ -998,20 +998,20 @@ v2 补入的八条：F4（搜索物化 10 万）· F6（每盘符 FileBrowser）
 
 | 批次 | 内容 | 文件（独占所有权） | 状态 |
 |---|---|---|---|
-| **A1** | 系统图标缓存加容量上限；`path:`/`dir:` 类必须可淘汰，`ext:` 类保留 | `src/composables/system-icon-cache.ts` + 新增测试 | ⏳ 执行中 |
-| **A2** | 缩略图前端缓存 `ref<Record>`+`reactive(Set)` → `shallowRef`+`Map`，写入改原地 `set`（消 O(n²)） | `.../file-browser/composables/use-image-thumbnails.ts` + 测试 | ⏳ 执行中 |
-| **B1** | 搜索查询：`truncate` 前移到物化之前；`TopDocs` limit 与实际返回对齐；reader 预算/空闲释放（能安全实现才做） | `src-tauri/src/global_search/query.rs`、`state.rs` + 测试 | ⏳ 执行中 |
-| **B2** | 缩略图：解码上限 192 MB → 64 MB + 并发闸门 2–4；**超限全清 → 按最旧淘汰**；限额 5000 张/1 GB → **2000 张/256 MB** | `src-tauri/src/image_thumbnails.rs` + 测试 | ⏳ 执行中 |
-| **B3** | Rust 图标：LRU 512 → 128 条（或按字节限额）；`UNSUPPORTED_SHELL_ICON_PATHS` 加上限 | `src-tauri/src/system_icons.rs` + 测试 | ⏳ 执行中 |
+| **A1** | 系统图标缓存加容量上限；`path:`/`dir:` 类必须可淘汰，`ext:` 类保留 | `src/composables/system-icon-cache.ts` + 新增测试 | ✅ 完成（`e8a41f3b`） |
+| **A2** | 缩略图前端缓存 `ref<Record>`+`reactive(Set)` → `shallowRef`+`Map`，写入改原地 `set`（消 O(n²)） | `.../file-browser/composables/use-image-thumbnails.ts` + 测试 | ✅ 完成（`e8a41f3b`） |
+| **B1** | 搜索查询：`truncate` 前移到物化之前；`TopDocs` limit 与实际返回对齐；reader 预算/空闲释放（能安全实现才做） | `src-tauri/src/global_search/query.rs`、`state.rs` + 测试 | ✅ 完成（`e8a41f3b`） |
+| **B2** | 缩略图：解码上限 192 MB → 64 MB + 并发闸门 2–4；**超限全清 → 按最旧淘汰**；限额 5000 张/1 GB → **2000 张/256 MB** | `src-tauri/src/image_thumbnails.rs` + 测试 | ✅ 完成（`e8a41f3b`） |
+| **B3** | Rust 图标：LRU 512 → 128 条（或按字节限额）；`UNSUPPORTED_SHELL_ICON_PATHS` 加上限 | `src-tauri/src/system_icons.rs` + 测试 | ✅ 完成（`e8a41f3b`） |
 | **C1** | 搜索结果页每盘符完整 `FileBrowser` → 轻量只读列表 | `src/modules/global-search/global-search-view.vue` | ⬜ **待接力** |
 | **C2** | `dirContents` → `shallowRef`+`markRaw`；`workspaces` Tab 不再存 `dirEntries`；`clone(tab)` 前先清 | `use-file-browser-navigation.ts`、`stores/storage/workspaces.ts` | ⬜ **待接力** |
 | **C3** | 虚拟行只算可视窗口；行 key 改下标，不再拼路径串 | `use-file-browser-virtual-layout.ts`、`utils/file-browser-virtual-rows.ts` | ⬜ **待接力** |
 | **C4** | `dir_watcher` 每目录线程 → 共享 watcher 线程池 + 有界 channel | `src-tauri/src/dir_watcher.rs` | ⬜ **待接力** |
 | **C5** | tantivy：扫描提交后显式 merge + segment 上限；常驻 reader 预算 | `src-tauri/src/global_search/index.rs`、`state.rs` | ⬜ **待接力** |
 | **C6** | LAN 上传改流式写盘；扩展 `read_to_end` 加字节上限；`dir_size` 去 `collect()` | `lan_share/handlers.rs`、`extensions/filesystem.rs`、`dir_size.rs` | ⬜ **待接力** |
-| **D1** | 关 `performance.prelaunchQuickViewWindow` ⇒ **内存 −172 MB** | 用户设置（零代码） | ⬜ 待执行 |
-| **D2** | 清缩略图 / 搜索索引 / `EBWebView\Cache` / Crashpad dump ⇒ **磁盘 −670 MB** | 环境 | ⬜ 待执行（需先杀进程或等扫描结束） |
-| **D3** | 查 WebView2 三次崩溃（10-22 ×2、10-23 ×1）原因（dump 还在盘上） | 环境 | ⬜ 待执行 |
+| **D1** | 关 `performance.prelaunchQuickViewWindow` ⇒ 隐藏 Quick View 的 WebView2 renderer 消失 | 用户设置（零代码） | ✅ 完成（实测：进程 8→7，WS −150.8 MB，详见 §18.11） |
+| **D2** | 清缩略图 / 搜索索引 / `EBWebView\Cache` / Crashpad dump | 环境 | ✅ 完成（磁盘 −739.37 MB；⚠️ 索引与缩略图会重建复涨，详见 §18.11） |
+| **D3** | 查 WebView2 三次崩溃（10-22 ×2、10-23 ×1）原因 | 环境 | ✅ 完成（**崩在 WebView2 自身子进程**，非 AFM 代码，详见 §18.11） |
 
 ### 18.7 执行本任务时的硬约束（除 §16.3 通用约束外）
 
@@ -1043,5 +1043,124 @@ v2 补入的八条：F4（搜索物化 10 万）· F6（每盘符 FileBrowser）
 | `.superpowers/sdd/mem-audit-rust.md` | Rust 持有点全表（21 条）+ 3 条优先项 |
 | `.superpowers/sdd/mem-probe-2.ps1` | 可重复的进程 / 磁盘探针（**纯 ASCII**） |
 | `.superpowers/sdd/mem-probe-2.out.txt` | 探针原始输出（2026-10-28 11:07） |
+| `.superpowers/sdd/mem-batch-d.ps1` | 批次 D：测量 / 清理（改设置 + 清缓存）/ 还原，三种模式 |
+| `.superpowers/sdd/mem-batch-d-run.ps1` | 批次 D：停旧进程 / 启动指定 exe |
+| `.superpowers/sdd/mem-batch-d-before.json` | 批次 D 前的进程树与缓存目录快照 |
+| `.superpowers/sdd/mem-gate-fe2.log` | 前端门禁原始日志（eslint / vue-tsc / vitest） |
+| `.superpowers/sdd/mem-gate-rs2.log` | Rust 门禁原始日志（cargo check / cargo test） |
+| `.superpowers/sdd/mem-build.log` | 真机验收打包日志 |
 
 > 这 5 个文件都在 `.superpowers/`（被 gitignore），**不进版本库**；接力会话用绝对路径读。
+
+### 18.10 批次 A/B 执行结果（2026-10-28，commit `e8a41f3b`，已 push）
+
+**提交**：`e8a41f3b` 「perf: 降低常驻内存与磁盘占用（资源优化批次 A/B）」（9 文件，+1497 / −140）；`origin/main` = `e8a41f3b8b43b740f5078b84521823efd2625280`（`gh api .../commits/main --jq '.sha'` 核对一致）。
+**未 bump 版本号**（仍 3.6.3）、**未发版**、`release/` 目录未动。
+
+| 切片 | 实际改动 | 测试 |
+|---|---|---|
+| A1 | `system-icon-cache.ts`：缓存上限 **512 条**；命中即重插（LRU）；淘汰优先级 `path:` → `dir:` → `ext:`，同类内淘汰最久未使用；保留「`ext:` 失败不写缓存」与 in-flight 去重语义 | 新增 5 条（原 5 条保留，共 10 条） |
+| A2 | `use-image-thumbnails.ts`：4 个容器改 `shallowRef` + `Map`/`Set`，写入改原地 mutate + `triggerRef`；去掉 `{ ...cache, [k]: v }` 整体重建（O(n²) → O(1)）；对外函数签名与语义不变 | 新增 7 条 + 改写 5 条原断言（共 22 条） |
+| B1 | `global_search/query.rs`：候选**先截断再物化**（原先先物化 10 万条再 truncate）；候选预算 = `limit × 已索引盘符数`，绝对上限 5000；`global_search/state.rs`：常驻 `IndexReader` 空闲 5 分钟释放，下次查询走既有 `needs_open` 重开路径 | 3 条 |
+| B2 | `image_thumbnails.rs`：单图解码分配上限 **192 MB → 64 MB**；源像素上限 **16 MP**；并发解码闸门 **最多 3 张**（Mutex + Condvar，RAII 归还名额，解码期间不持锁）；缓存限额 **5000 张/1 GB → 2000 张/256 MB**；超限**按 mtime 淘汰最旧**（不再整体清空） | 新增 6 条，删掉 2 条前提失效的旧测试 |
+| B3 | `system_icons.rs`：图标 data URL LRU **512 → 128 条**；`UNSUPPORTED_SHELL_ICON_PATHS` 由无界 `HashSet` 改为容量 **512** 的 LRU ⇒ **Rust 侧最后一个严格无界项消除** | 2 条 |
+
+**统一门禁（全部在 `e8a41f3b` 上量）**
+
+| 项 | 结果 |
+|---|---|
+| `npx eslint .` | **188 errors / 0 warnings** —— 与基线一致 ✅ |
+| `npx eslint src` | **175 errors / 0 warnings** —— 与基线一致 ✅ |
+| `npm run ts`（vue-tsc） | **exit 0** ✅ |
+| `npm run test`（vitest） | **248 files / 2287 tests 全通过** ✅ |
+| `cargo check --lib` | **exit 0** ✅ |
+| `cargo test --lib` | **823 passed / 2 failed** ⚠️ —— **存量环境失败，见下** |
+
+> ⚠️ **那 2 条失败是环境性的，与本轮改动无关**：`mcp::server::tests::port_search_stays_inside_the_declared_range` 与 `…port_search_never_hands_back_a_privileged_port` 都在 `find_available_port_in_range(55100, 55199).unwrap()` 处 panic（`在端口区间 55100-55199 内找不到可用端口`）。
+> **根因**：本机 Windows 的排除端口段（`netsh interface ipv4 show excludedportrange protocol=tcp`）为 `55033-55132` 与 `55133-55232` ⇒ **MCP 要的 55100-55199 整段被系统保留**（Hyper-V/WSL 动态端口预留），bind 必然失败。实测 55100 / 55132 / 55133 / 55150 / 55199 **全部 bind 失败**，报 `WSAEACCES`（「以一种访问权限不允许的方式做了一个访问套接字的尝试」）。
+> `mcp/` 模块**不在**本轮改动范围内（`git status` 确认本轮只动了 5 个源文件 + 1 个文档）⇒ 判定为**存量环境失败**。**接力会话不必重查，但不要把它当回归**；要彻底消除需改 `MCP_PORT_RANGE_START/END` 避开系统保留段（独立改动，未做）。
+
+**主 Agent 复核后追加的一处修复**：B1 初版把候选池**全局**封顶在 `limit`，多盘符搜索时靠后的盘符会只剩个位数结果 —— 属**用户可见的行为回归**。已改为「候选预算 = `limit × 已索引盘符数`」（`candidate_limit_for(options, drive_count)`，绝对上限 5000）⇒ 保留旧的「每盘符各 limit」语义，物化量同时从 10 万级压到「limit × 盘符数」级。新增测试 `candidate_budget_scales_with_indexed_drive_count`。
+
+**已知的行为变化（用户可见，需知情）**
+
+1. **>16 MP 的图片不再生成缩略图**（只显示占位图）—— 64 MB 解码上限的必然代价；此前 50 MP 以内还能通过。
+2. **现存 4,249 张 / 434 MB 缩略图缓存会被裁到 2,000 张 / 256 MB**（按 mtime 淘汰最旧），之后不再「集体消失后全部重生成」。
+3. **多盘符搜索的返回条数可能少于 `limit`** —— 候选池截断在前、过滤规则（忽略路径 / 相似度门槛 / 精确匹配 / 类型）在后，被挡掉的候选没有替补；短查询（3 字符，门槛 0.9）最容易出现。
+4. **exe/dll 密集目录里图标编码会重复发生**（LRU 降到 128 条），CPU 略升、内存常驻下降。
+5. **`use-video-thumbnails.ts` 有与 A2 完全相同的 `ref<Record>` + 整体重建模式**（前端审计第 12 条），本轮**未动** ⇒ 建议列入批次 C。
+
+### 18.11 批次 D 实测结果（2026-10-28，真机产物）
+
+**被测产物**：`npx tauri build` 产物 `src-tauri\target\release\alpha-file-manager.exe`（56,331,264 B，Rust release 编译 3 m 51 s，NSIS 包 19.72 MiB）。
+⚠️ **刻意用 `npx tauri build` 而非 `npm run tauri:build`**：后者末尾的 `publish-bundle-to-release.mjs` 会覆盖 `release\Alpha File Manager_3.6.3_x64-setup.exe`，导致 winget 清单里的 sha256 失配。**`release/` 目录本轮未被改动。**
+
+**口径**：`WS` = `WorkingSet64`（工作集），`PM` = `PrivateMemorySize64`（私有提交）。任务管理器「内存」列接近 WS ⇒ **对外汇报一律用 WS**；PM 会被 Chromium 的预提交行为放大，不适合当收益口径。
+**方法**：同一台机器、同一账号、同一时刻分别启动「安装版 3.6.3」与「新构建」，各冷启 30 s 后用 `mem-batch-d.ps1 -Mode measure` 取整棵进程树（含 `msedgewebview2.exe` 子进程）+ 缓存目录体积。
+
+#### 四点测量
+
+| 快照 | 构建 | 状态 | 进程数 | WS (MB) | PM (MB) | 缓存目录 (MB) |
+|---|---|---|---|---|---|---|
+| `before` | 安装版 3.6.3 | 已运行约 3.5 h | 8 | 1066.8 | 976.5 | 805.58 |
+| `before-fresh` | 安装版 3.6.3 | 冷启 30 s | 8 | 961.2 | 965.8 | 805.58 |
+| `after-ab` | **新构建（A/B 生效）** | 冷启 30 s，缓存未动 | 8 | **893.6** | 995.8 | 805.58 |
+| `after-d` | 新构建 | 冷启 30 s，**已关预启动 + 已清缓存** | **7** | 804.7 | 1072.7 | **0** |
+| `after-d-warm` | 新构建 | 同上，运行约 10 分钟后 | 7 | **742.8** | 881.7 | 66.21 |
+
+#### 归因
+
+1. **批次 A/B 代码本身（唯一可干净归因的一段：`before-fresh` → `after-ab`，同构建口径、缓存未动）：WS 961.2 → 893.6 MB，净 −67.6 MB（−7.0 %）。**
+   逐进程看，降幅**全部落在 renderer 进程**（WS 317.2 → 249.2，−68.0 MB；PM 216.6 → 146.9，−69.7 MB），其余进程基本持平 —— 与 A2「缩略图前端缓存去掉整体重建」的方向一致。
+   ⚠️ **PM 口径反而 +30.0 MB**：gpu-process 的 `PrivateMemorySize64` 从 446.7 涨到 547.6（+100.9），把 renderer 省下的 69.7 抵掉还多。这是 Chromium 预提交显存/共享内存的**提交口径**，不是实际驻留 ⇒ **不代表内存变差**。
+2. **D1（关 `performance.prelaunchQuickViewWindow`）：机制被坐实 —— 进程数 8 → 7，少掉的正是第二个 renderer**，即隐藏 Quick View 的那棵 WebView2（§18.8 那条「强推断」至此升级为**已验证**）。这一项与 D2 是一起做的，两者收益无法在本轮完全拆开；D1 的机制由「少一个 renderer」独立佐证。
+3. **D2（清缓存）：磁盘 805.58 MB → 0 MB**（缩略图 434.34 + 搜索索引 200.27 + `EBWebView\Default\Cache` 146.02 + 3 个 Crashpad dump 24.95），全部走**可恢复删除**（进回收站，未永久删除）。代价是**应用会重建**：清理后 Rust 主进程立刻开始重建全局搜索索引（该快照里 main 进程 CPU 136.3 s、PM 92.8 → 145.9 MB）；约 10 分钟后 `global-search\index` 复涨到 66.21 MB，缩略图目录当时尚未重建。**磁盘收益是「把 800 MB 常驻缓存换成一次重建 + 之后按需再生」，不是净消失。**
+4. **合账（新构建 + D 措施稳态，`after-ab` → `after-d-warm`）：WS −150.8 MB（−16.9 %）、PM −114.1 MB（−11.5 %）、磁盘 −739.37 MB（−91.8 %）。**
+   **相对最初基线（安装版、跑了 3.5 h 的 `before`）：WS 1066.8 → 742.8 MB，−324.0 MB（−30.4 %）；磁盘 −739.37 MB。**
+   相对同为冷启口径的 `before-fresh`：WS 961.2 → 742.8 MB，−218.4 MB（−22.7 %）。
+
+#### D3：WebView2 三次崩溃的原因（已完成取证）
+
+三个 dump 在清理时进了回收站（`C:\$Recycle.Bin\S-1-5-21-...\`），用 `mem-dump-exc.cjs` 直接解 minidump 头（`ExceptionStream`）+ `mem-dump-strings.cjs` 抽模块表：
+
+| dump | 大小 | 崩溃模块 | 崩溃线程 | 异常码 | 故障地址 |
+|---|---|---|---|---|---|
+| `$RNZMW7A.dmp` | 11.6 MB | `msedgewebview2.exe`（Edge WebView **155.0.4283.62**） | `Chrome_IOThread` | `0x80000003`（STATUS_BREAKPOINT = Chromium 的 CHECK/DCHECK 失败） | `0x7FFD6AFCB83F` |
+| `$RTCQZN7.dmp` | 7.3 MB | 同上 | `Chrome_ChildIOThread` | `0xE0000008` | `0x7FF9156E408A` |
+| `$RZ7BCS9.dmp` | 7.3 MB | 同上 | `Chrome_ChildIOThread` | `0xE0000008` | `0x7FF9156E408A` |
+
+**结论：崩溃发生在 WebView2 自己的子进程里，不是 AFM 的 Rust / 前端代码缺陷。**
+依据：① 三个 dump 的模块表里只有 `msedgewebview2.exe` 与系统 DLL，**没有 AFM 自己的模块**（后两个显式 `AFM_MODULES_IN_DUMP=NONE`；AFM 主进程是 WebView2 子进程的父进程，本就不会出现在子进程模块表里）；② AFM 主进程**没有崩**（Crashpad handler 一直存活）；③ 后两次**故障地址完全相同** ⇒ WebView2 内部同一处可复现故障点。
+**建议**：① 升级 WebView2 runtime（155.0.4283.62 偏旧）；② AFM 侧补「WebView2 子进程崩溃 → 检测 + 提示 + 可恢复」的兜底（可并入批次 C）；③ 三个 dump 均**未做符号化**，触发条件（哪个页面/哪类操作）仍未定位，别写成「已找到根因」。
+
+#### 本轮的已知局限（不要当成更精确的结论）
+
+- **单次采样**，未取多轮中位数；单机、单账号、单驱动。
+- **「冷启 30 s」不是稳态**：跑了 3.5 h 的安装版比冷启高 105.6 MB（WS），说明缓存增长会让稳态回升 ⇒ 批次 D 的收益会被后续缓存再生部分抵消。
+- 所有读数都取在**全局搜索扫描 / 索引重建**时段 ⇒ 偏高。
+- A/B 的收益归因是「**方向一致**」而非因果坐实（要坐实需逐切片单独构建重测）。
+- **D1 与 D2 是一起做的**，本轮无法把两者收益完全拆开；D1 的机制（少一棵 renderer）已独立佐证。
+- 用户最初看到的 **88.7 MB** 口径仍未确认（§18.8）。
+
+#### 已落地到用户环境的状态（需要知情）
+
+- `user-settings.json` 的 **`performance.prelaunchQuickViewWindow` 已改为 `false`**（隐藏 Quick View 不再预启动）。备份：`.superpowers\sdd\mem-batch-d-settings-backup-cleanup.json`；回滚：`pwsh -NoProfile -ExecutionPolicy Bypass -File .superpowers\sdd\mem-batch-d.ps1 -Mode restore -Tag cleanup`。
+- `image-thumbnails` / `global-search\index` / `EBWebView\Default\Cache` / 3 个 Crashpad dump **已移入回收站**（可恢复，未永久删除）。
+- 崩溃 dump 仍在回收站里，可按上面的路径取证。
+- 打包产物 `src-tauri\target\release\alpha-file-manager.exe` **未安装**，当前运行的就是它（`launch` 模式）；需要以安装版形态体验时用 `mem-batch-d-run.ps1 -Mode launch-installed`（注意本机安装路径是 `D:\Program Files\Alpha File Manager\`，脚本内置的候选路径不含它，故单独指定）。
+
+#### 证据文件
+
+| 文件 | 内容 |
+|---|---|
+| `.superpowers/sdd/mem-batch-d-phase2.ps1` | 分阶段执行脚本（ab / d / warm）；**注意别把辅助函数命名为 `Measure`** —— PowerShell 内置别名 `measure` → `Measure-Object` 的**别名优先级高于函数**，本轮踩过一次，导致函数体从未执行、快照文件没生成 |
+| `.superpowers/sdd/mem-batch-d-before-fresh.json` | 安装版冷启基线快照 |
+| `.superpowers/sdd/mem-batch-d-after-ab.json` | 新构建（A/B 生效）冷启快照 |
+| `.superpowers/sdd/mem-batch-d-after-d.json` | 新构建 + 关预启动 + 清缓存，冷启快照 |
+| `.superpowers/sdd/mem-batch-d-after-d-warm.json` | 同上，运行约 10 分钟后的稳态快照 |
+| `.superpowers/sdd/mem-phase-ab2.log` | AB 阶段原始日志 |
+| `.superpowers/sdd/mem-phase-d2.log` | D 阶段原始日志（含每项清理结果） |
+| `.superpowers/sdd/mem-dump-exc.cjs` | 解析 minidump `ExceptionStream`（异常码 / 故障地址 / 故障模块） |
+| `.superpowers/sdd/mem-dump-strings.cjs` | 从 dump 抽模块表与关键词字符串 |
+| `.superpowers/sdd/mem-batch-d-settings-backup-cleanup.json` | 清理前的 `user-settings.json` 备份（回滚用） |
+
