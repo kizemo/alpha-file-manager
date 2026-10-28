@@ -12,10 +12,10 @@
 |---|---|
 | 用户要什么 | ① 永久删除确认框里**直接回车要等于「删除」**（现在回车什么都不会发生）；② 目录窗口的**列表视图**要像缩略图视图那样，在「文件夹 / 图片 / 视频 / 其它文件」之间给出区隔；③ **中途追加**：按 F2 或右键「重命名」（非批量）时**不弹模态框**，直接在文件名上就地编辑，改完后用 ↑/↓ 切文件仍保持可编辑状态，便于手工连续批量改名；④ 优化与测试通过后**直接打包发版**，升级 README、新版本说明、aiec 版本记录，上传 GitHub 与 aiec |
 | 这次发哪个版本 | **3.6.3**（3.6.2 已于 2026-10-26 发布）。三块优化合并进 3.6.3（3.6.3 尚未对外发布，合并比拆版本省） |
-| 现在卡在哪 | ① **3.6.3 已经全部发完**（三块优化均通过真机验收，发版提交已 push，GitHub release `v3.6.3` 与站点 aiec.fun 均已上线并回读校验通过）；剩下的外围事项：winget PR（须等 3.5.1 的 `#460744` 合并）、安装包代码签名、远程条目的就地改名验证。详见第 13–17 节。② **资源占用分析与优化**（2026-10-28）：现状实测与计划 v2、**批次 A/B 代码改造（已 push）、批次 D 环境层实测与清理均已完成**；**只剩批次 C（结构性改造 6 项）待接力**，详见 **§18** |
+| 现在卡在哪 | ① **3.6.3 已经全部发完**（三块优化均通过真机验收，发版提交已 push，GitHub release `v3.6.3` 与站点 aiec.fun 均已上线并回读校验通过）；剩下的外围事项：winget PR（须等 3.5.1 的 `#460744` 合并）、安装包代码签名、远程条目的就地改名验证。详见第 13–17 节。② **资源占用分析与优化**（2026-10-28）：现状实测与计划 v2、**批次 A/B 代码改造（已 push）、批次 D 环境层实测与清理均已完成**；**批次 C（结构性改造 6 项）代码已全部完成并通过全量门禁**（C1 / C3 均已真机验收 PASS，见 §18.12），**工作树尚未 commit**；**资源占用问题的来源归因见 §18.13**（结论：**AFM 二次编辑引入 0 项**，19 条全部来自上游 SFM） |
 | 已落盘的东西 | 4 笔 commit（`82d42190` / `605efae8` / `d1c96f70` / `dff656a4`）+ 优化 C 的 13 个源文件（**已通过真机验收，随本次发版提交一并提交**）+ 3.6.3 安装包 / winget 清单 / 站点文件 / 18 个发版文档（**随本次发版提交一并提交**） |
-| 资源优化的产物 | `.superpowers/sdd/mem-plan-v2.md`（计划 v2）、`mem-audit-final.md`（现状实测与 v1 方案）、`mem-audit-frontend.md`（前端持有点 20 条）、`mem-audit-rust.md`（Rust 持有点 21 条）、`mem-probe-2.ps1` + `mem-probe-2.out.txt`（可重复的进程/磁盘探针）、`mem-batch-d.ps1` / `mem-batch-d-run.ps1` / `mem-batch-d-phase2.ps1`（批次 D 的测量 / 停启 / 分阶段执行脚本）、`mem-batch-d-before.json` / `-before-fresh.json` / `-after-ab.json` / `-after-d.json` / `-after-d-warm.json`（五份实测快照）、`mem-phase-ab2.log` / `mem-phase-d2.log`（实测日志）、`mem-dump-strings.cjs`（崩溃 dump 取证脚本）、`mem-gate-fe2.log` / `mem-gate-rs2.log` / `mem-build.log`（门禁与打包日志）。**这些文件都在 `.superpowers/`（被 gitignore），不进版本库** |
-| 仓库状态 | 内层仓 `sigma-file-manager` 分支 `main`；**代码提交 `e8a41f3b`（资源优化批次 A/B）已 push**，`origin/main` = `e8a41f3b8b43b740f5078b84521823efd2625280`（用 `gh api .../commits/main --jq '.sha'` 核对一致）；本节 §18.11 的实测回写是**纯文档提交**；上游 `https://github.com/kizemo/alpha-file-manager.git`；**批次 C 见 §18.6** |
+| 资源优化的产物 | `.superpowers/sdd/mem-plan-v2.md`（计划 v2）、`mem-audit-final.md`（现状实测与 v1 方案）、`mem-audit-frontend.md`（前端持有点 20 条）、`mem-audit-rust.md`（Rust 持有点 21 条）、`mem-probe-2.ps1` + `mem-probe-2.out.txt`（可重复的进程/磁盘探针）、`mem-batch-d.ps1` / `mem-batch-d-run.ps1` / `mem-batch-d-phase2.ps1`（批次 D 的测量 / 停启 / 分阶段执行脚本）、`mem-batch-d-before.json` / `-before-fresh.json` / `-after-ab.json` / `-after-d.json` / `-after-d-warm.json`（五份实测快照）、`mem-phase-ab2.log` / `mem-phase-d2.log`（实测日志）、`mem-dump-strings.cjs`（崩溃 dump 取证脚本）、`mem-gate-fe2.log` / `mem-gate-rs2.log` / `mem-build.log`（门禁与打包日志）；**批次 C**：`mem-batch-c1-report.md` … `mem-batch-c6-report.md`（六个切片报告）、`mem-origin-attribution.md`（来源归因，48 KB）、`mem-batch-c-frontend-gate.log` / `mem-batch-c-tauri-build.log`（批次 C 门禁与打包日志）、`accept-c1-v4.ps1` / `accept-c3-virtual-rows.ps1`（真机验收脚本）、`mem-accept-c1-v*.log`（C1 验收各轮日志）、**沙箱验收工具链**：`sandbox-c1-accept.ps1`（隔离桌面沙箱验收脚本，不抢用户焦点）、`mem-accept-c1-sandbox.log`（沙箱验收日志）、`mem-accept-c1-sandbox.stdout.txt`、`c1-sandbox-full.png` / `c1-sandbox-uia.csv`（沙箱截图与 UIA 转储）、**接力件**：`relay-rules-batch-c.md`（防异常终止对策 + 沙箱坑位清单）、`relay-prompt-batch-c.txt`（新会话接力 prompt）。**这些文件都在 `.superpowers/`（被 gitignore），不进版本库** |
+| 仓库状态 | 内层仓 `sigma-file-manager` 分支 `main`；**代码提交 `e8a41f3b`（资源优化批次 A/B）已 push**，`origin/main` = `e8a41f3b8b43b740f5078b84521823efd2625280`（用 `gh api .../commits/main --jq '.sha'` 核对一致）；本节 §18.11 的实测回写是**纯文档提交**；上游 `https://github.com/kizemo/alpha-file-manager.git`；**批次 C 见 §18.12**；归因结论见 §18.13 |
 | 最容易踩的坑 | ① **真机验收只能用 `tauri build` 产物**，`tauri dev` 的路由页内容区全空白，界面结论一律作废；② 打包前必须停 `alpha-file-manager` 进程**并把 `src-tauri/target/release/alpha-file-manager.exe` 移走**（只杀进程不够，上一轮就是这么被 `os error 5` 卡住的）；③ `eslint .` 是整仓口径，基线 **188 errors**；④ `.cmd` 里 `echo` 不能出现 `>`；⑤ `.ps1` / `.cmd` 必须纯 ASCII（中文要用 `[char]0x....` 拼）；⑥ `app-key.ps1` 只认**裸名 token**（传 `'{F2}'` 会静默不发送）；⑦ WebView2 里 UIA 的 `FocusedElement` 不可信，判「选中」要看状态栏「已选择 N 个项目」；⑧ **会话锁住时 `SendInput` / `SetCursorPos` 全废（err=5），但 `PostMessage` 合成鼠标消息与 `WM_KEYDOWN` 照样能穿透到渲染进程** ⇒ 键盘链路（F2 / 回车 / ↑↓ / Esc）也能在锁屏状态下真机验收；⑨ 文件浏览器右键菜单里**没有文字「重命名」项**，改名入口是 quick-actions 行**第 1 个无名按钮（铅笔）**，要靠 UIA `InvokePattern` 或按坐标点 |
 
 ---
@@ -1003,12 +1003,12 @@ v2 补入的八条：F4（搜索物化 10 万）· F6（每盘符 FileBrowser）
 | **B1** | 搜索查询：`truncate` 前移到物化之前；`TopDocs` limit 与实际返回对齐；reader 预算/空闲释放（能安全实现才做） | `src-tauri/src/global_search/query.rs`、`state.rs` + 测试 | ✅ 完成（`e8a41f3b`） |
 | **B2** | 缩略图：解码上限 192 MB → 64 MB + 并发闸门 2–4；**超限全清 → 按最旧淘汰**；限额 5000 张/1 GB → **2000 张/256 MB** | `src-tauri/src/image_thumbnails.rs` + 测试 | ✅ 完成（`e8a41f3b`） |
 | **B3** | Rust 图标：LRU 512 → 128 条（或按字节限额）；`UNSUPPORTED_SHELL_ICON_PATHS` 加上限 | `src-tauri/src/system_icons.rs` + 测试 | ✅ 完成（`e8a41f3b`） |
-| **C1** | 搜索结果页每盘符完整 `FileBrowser` → 轻量只读列表 | `src/modules/global-search/global-search-view.vue` | ⬜ **待接力** |
-| **C2** | `dirContents` → `shallowRef`+`markRaw`；`workspaces` Tab 不再存 `dirEntries`；`clone(tab)` 前先清 | `use-file-browser-navigation.ts`、`stores/storage/workspaces.ts` | ⬜ **待接力** |
-| **C3** | 虚拟行只算可视窗口；行 key 改下标，不再拼路径串 | `use-file-browser-virtual-layout.ts`、`utils/file-browser-virtual-rows.ts` | ⬜ **待接力** |
-| **C4** | `dir_watcher` 每目录线程 → 共享 watcher 线程池 + 有界 channel | `src-tauri/src/dir_watcher.rs` | ⬜ **待接力** |
-| **C5** | tantivy：扫描提交后显式 merge + segment 上限；常驻 reader 预算 | `src-tauri/src/global_search/index.rs`、`state.rs` | ⬜ **待接力** |
-| **C6** | LAN 上传改流式写盘；扩展 `read_to_end` 加字节上限；`dir_size` 去 `collect()` | `lan_share/handlers.rs`、`extensions/filesystem.rs`、`dir_size.rs` | ⬜ **待接力** |
+| **C1** | 搜索结果页每盘符完整 `FileBrowser` → 轻量只读列表 | `src/modules/global-search/global-search-view.vue` | ✅ 完成（见 §18.12） |
+| **C2** | `dirContents` → `shallowRef`+`markRaw`；`workspaces` Tab 不再存 `dirEntries`；`clone(tab)` 前先清 | `use-file-browser-navigation.ts`、`stores/storage/workspaces.ts` | ✅ 完成（见 §18.12） |
+| **C3** | 虚拟行只算可视窗口；行 key 改下标，不再拼路径串 | `use-file-browser-virtual-layout.ts`、`utils/file-browser-virtual-rows.ts` | ✅ 完成（见 §18.12） |
+| **C4** | `dir_watcher` 每目录线程 → 共享 watcher 线程池 + 有界 channel | `src-tauri/src/dir_watcher.rs` | ✅ 完成（见 §18.12） |
+| **C5** | tantivy：扫描提交后显式 merge + segment 上限；常驻 reader 预算 | `src-tauri/src/global_search/index.rs`、`state.rs` | ✅ 完成（见 §18.12） |
+| **C6** | LAN 上传改流式写盘；扩展 `read_to_end` 加字节上限；`dir_size` 去 `collect()` | `lan_share/handlers.rs`、`extensions/filesystem.rs`、`dir_size.rs` | ✅ 完成（见 §18.12） |
 | **D1** | 关 `performance.prelaunchQuickViewWindow` ⇒ 隐藏 Quick View 的 WebView2 renderer 消失 | 用户设置（零代码） | ✅ 完成（实测：进程 8→7，WS −150.8 MB，详见 §18.11） |
 | **D2** | 清缩略图 / 搜索索引 / `EBWebView\Cache` / Crashpad dump | 环境 | ✅ 完成（磁盘 −739.37 MB；⚠️ 索引与缩略图会重建复涨，详见 §18.11） |
 | **D3** | 查 WebView2 三次崩溃（10-22 ×2、10-23 ×1）原因 | 环境 | ✅ 完成（**崩在 WebView2 自身子进程**，非 AFM 代码，详见 §18.11） |
@@ -1164,3 +1164,152 @@ v2 补入的八条：F4（搜索物化 10 万）· F6（每盘符 FileBrowser）
 | `.superpowers/sdd/mem-dump-strings.cjs` | 从 dump 抽模块表与关键词字符串 |
 | `.superpowers/sdd/mem-batch-d-settings-backup-cleanup.json` | 清理前的 `user-settings.json` 备份（回滚用） |
 
+### 18.12 批次 C 执行结果（2026-10-28，结构性资源优化 C1–C6）
+
+**提交状态**：C1–C6 代码全部落地并通过全量门禁，**但尚未 commit**（工作树 17 个已改文件 + 2 处未跟踪）。**未 bump 版本号**（仍 3.6.3）、**未发版**、`release/` 目录**未动**。
+⚠️ `release/Alpha File Manager_3.6.3_x64-setup.exe` 曾被一次误用 `npm run tauri:build` 的构建覆盖成 20,717,408 B，**已用 `node fs.copyFileSync` 从 `.superpowers/sdd/superseded/bundle-nsis/` 还原为原版 20,670,028 B / 2026-10-27 16:23:31**。**后续验收构建一律用 `npx tauri build`，不要用 `npm run tauri:build`。**
+
+**规模**：`git diff --stat` = 17 files changed, 2857 insertions(+), 699 deletions(-)。
+
+#### 六个切片
+
+| 切片 | 实际改动 | 关键点 | 测试 |
+|---|---|---|---|
+| **C1** | 搜索结果页每命中一个盘符挂一个完整 `<FileBrowser>` → **轻量只读列表** | 新增 `global-search-result-rows.ts` + `global-search-result-list.vue`；`global-search-view.vue` 删掉 `<FileBrowser>`；`stores/runtime/global-search.ts` 的 `results` 改 `shallowRef` + `markRaw` | 新增 7 条 |
+| **C2** | `dirContents` → `shallowRef`；workspaces 的 Tab 不再存 `dirEntries` | `stores/storage/workspaces.ts` 用**闭包内非响应式 `Map`** 缓存（上限 8、FIFO 淘汰），移除 `cloneDeep`；`clone(tab)` 前先清条目 | 新增 5 条 |
+| **C3** | 虚拟行**只算可视窗口**；行 key 改下标 | `file-browser-virtual-rows.ts` 重写为「元数据 + 惰性物化」两层模型；`use-file-browser-virtual-layout.ts` 改 Proxy 惰性数组 + `rowModel` / `visibleRange` | **真机验收 PASS（6 条断言）** |
+| **C4** | `dir_watcher` 每监听目录 2 个线程 + 无界 mpsc → **共享 watcher 线程池 + 有界 channel** | 全局单例 `SHARED_WATCHER` + 单个 `RecommendedWatcher` + 单消费线程 `afm-dir-watcher`（栈 256 KB）；`EventQueue<T>` 有界队列（容量 1024，**满时丢最旧**）；`DebounceTracker` 复刻 300 ms 节流；`retain_watched` 清理失效目录；`resolve_watched_path` 最长前缀反推（Windows 大小写不敏感）；`MAX_ACTIVE_WATCHERS = 256` | `cargo test --lib dir_watcher` → **8 passed** |
+| **C5** | tantivy 扫描提交后**显式 merge** + segment 上限 + reader 预算 | `MAX_INDEX_SEGMENTS = 4` + `merge_index_segments(writer)`；`scan.rs` 两处 commit 后 `merge()` + `wait_merging_threads()`；`state.rs` 加 `READER_RESIDENT_BUDGET_BYTES = 256 MiB` + `READER_IDLE_RELEASE_AFTER_MS_OVER_BUDGET = 60_000` + `reader_idle_threshold_ms()`；`query.rs` 调 `release_idle_reader_if_needed()`。**`NoMergePolicy` 保留不动**（§18.5 的铁律） | `cargo test --lib global_search` → **30 passed** |
+| **C6** | LAN 上传**流式写盘** + 扩展读文件**加字节上限** + `dir_size` **去 `collect()`** | `lan_share/handlers.rs` 改流式写盘 + `tokio::io::BufWriter` 64 KiB（**失败时删掉半截文件**）；`extensions/filesystem.rs` 加 `MAX_EXTENSION_FILE_READ_BYTES = 64 MiB`（`take(limit + 1)`）；`dir_size.rs` 加 `SIZE_SCAN_CHUNK = 4096` + `accumulate_entry_sizes()`，不再把整棵树 `collect()` 进内存 | `cargo check --lib` exit 0 |
+
+#### C1 引入的快捷键回归（**已修**，12 处改动）
+
+轻量列表换掉 `<FileBrowser>` 之后，搜索结果**不再挂在导航格的 FileBrowser 上**，于是「当前选中项」永远为空 ⇒ 复制/剪切/删除/重命名/属性全部退化成空操作。修复口径是**「动作路由由『哪个条目』决定，而不是『哪个窗格』决定」**：
+
+| 位置 | 改动 |
+|---|---|
+| `navigator.vue:1044` `getActivePaneSelectedEntries()` | 搜索激活时直接读 `globalSearchViewRef.getSelectedEntries()`（导航格的选择已被清空） |
+| `navigator.vue:1008` `getActivePaneRef()` | 统一回落导航格 pane，避免搜索激活时拿到 `null` |
+| `navigator.vue:1262` `handleSelectAllShortcut()` | 搜索激活**或**搜索面板有焦点时走 `selectAllResults()` |
+| `navigator.vue:805/1301/1317` | 删除 / 永久删除成功后 `clearSelections()` |
+| `navigator.vue:1576` rename handler | 搜索激活时走 `globalSearchViewRef.startRename(entry)` |
+| `global-search-view.vue` | 引入 `FileBrowserRenameDialog` + `useDirEntryActions`；根节点加 `@focusin/@focusout` 跟踪面板焦点；搜索框加 `@keydown.enter.prevent`（无聚焦项时打开第一条）；`defineExpose` 增补 5 个成员 |
+
+**Ctrl+A 判定口径（容易再踩）**：搜索面板是**侧边面板**（`v-show` + ResizablePanel），不是遮罩，用户可以同时操作导航格 ⇒ **单看 `globalSearchStore.isOpen` 会误清导航格的选择**。现在的口径是「`isSearchSelectionActive` **或** 搜索面板有焦点」，焦点用根节点的 `focusin` / `focusout` 跟踪（`relatedTarget` 仍在根内则不置 false）。
+
+**重命名通道**：搜索结果不在导航格列表里，就地编辑不可见 ⇒ 搜索面板自挂 `FileBrowserRenameDialog` + `useDirEntryActions().renameItem(entry, newName)`（本地 `invoke('rename_item', {sourcePath, newName})`；远程 `renameRemoteEntry`）。
+⚠️ **已知局限**：重命名成功后，搜索列表**仍显示旧文件名**，直到下一次搜索 / 扫描。
+
+#### 统一门禁（全部在最终代码上量）
+
+| 项 | 结果 |
+|---|---|
+| `npx eslint .` | **188 errors / 0 warnings** —— 与基线一致 ✅ |
+| `npm run ts`（vue-tsc） | **exit 0** ✅ |
+| `npm run test`（vitest） | **250 files / 2309 tests 全通过** ✅ |
+| `cargo check --lib` | **exit 0** ✅ |
+| `cargo test --lib` | 823 passed / 2 failed —— **存量环境失败**，同 §18.10 的两条 MCP 端口用例，**不要当回归** |
+
+**打包**：`npx tauri build` → `TAURI_BUILD_EXIT=0`（Rust release 3 m 05 s，NSIS 19.76 MiB）。
+产物：`src-tauri\target\release\alpha-file-manager.exe` **56,495,104 B / 2026-10-28 12:58:39**；`src-tauri\target\release\bundle\nsis\Alpha File Manager_3.6.3_x64-setup.exe` **20,717,765 B / 12:58:36**。
+
+#### 真机验收
+
+| 切片 | 结论 |
+|---|---|
+| **C3** | ✅ **PASS**（6 条断言）——`.superpowers\sdd\accept-c3-virtual-rows.ps1` + `shots\c3-vrows-*.png` |
+| **C1** | ✅ **PASS**（**沙箱验收**：隔离桌面，脚本 `.superpowers\sdd\sandbox-c1-accept.ps1`，日志 `mem-accept-c1-sandbox.log`，查询词 `"2026`，11 条断言全部通过：（①）S1 operator desktop foreground untouched；（②）S2 global search panel opened with the mouse；（③）S2 query text entered in sandbox；（④）S3 results summary present；（⑤）S4 one accessible row per result；（⑥）S5 drive groups exposed as lists；（⑦）S6 positive control: left pane shows a selection badge；（⑧）S7 a result row inside the window was clicked；（⑨）S8 search row selection routed into the navigator (left pane selection cleared)；（⑩）S9 screenshot captured in sandbox；（⑪）S10 operator desktop foreground still untouched at the end）。⚠️ **本轮结论的边界**：沙箱桌面里**无法注入键盘**（`SendInput` 只到输入桌面），因此 `Ctrl+A` / `Ctrl+C` 这两条**键位路径没有在沙箱内取证**；已取证的是「动作路由按选中项走」这条底层逻辑（搜索选中会清掉导航格的选择）。 |
+
+#### 已知的行为变化（用户可见，需知情）
+
+1. **扩展读文件超过 64 MiB 直接返回 Err**（C6 的有意取舍）。
+2. **`dir_watcher` 的 OS `watch()` 失败现在返回 Err**（原来静默忽略）；同时修掉旧实现「线程先退出、注册表后写入」的 stale 登记竞态；节流刷新事件顺带刷新 `last_emit`。
+3. **重命名搜索结果后列表仍显示旧文件名**（直到下一次搜索 / 扫描）。
+4. **C4 的有界队列满时丢最旧事件**（文件系统最终一致，不丢最终状态）。
+5. **C5 让 segment 收敛** ⇒ 索引体积会下降，但**合并期间有一次 CPU / IO 尖峰**。
+
+#### 证据文件
+
+| 文件 | 内容 |
+|---|---|
+| `.superpowers/sdd/mem-batch-c1-report.md` … `mem-batch-c6-report.md` | 六个切片各自的实现报告 |
+| `.superpowers/sdd/mem-origin-attribution.md` | 来源归因完整取证（48,123 B / 473 行） |
+| `.superpowers/sdd/mem-batch-c-frontend-gate.log` | eslint / vue-tsc / vitest 原始输出 |
+| `.superpowers/sdd/mem-batch-c-tauri-build.log` | `npx tauri build` 原始日志 |
+| `.superpowers/sdd/batch-c-gate.ps1` / `batch-c-build.ps1` | 门禁 / 打包脚本（**纯 ASCII**） |
+| `.superpowers/sdd/accept-c1-search-actions.ps1` / `accept-c1-v4.ps1` | C1 真机验收脚本（**纯 ASCII**；v4 加了置前校验 + UIA 直调 + ValuePattern 设值） |
+| `.superpowers/sdd/accept-c3-virtual-rows.ps1` + `shots/c3-vrows-*.png` | C3 真机验收脚本与截图 |
+| `.superpowers/sdd/mem-accept-c1-v*.log` | C1 验收各轮原始日志（含两次失败的原因） |
+
+### 18.13 资源占用问题的来源归因（上游 SFM vs AFM 二次编辑）
+
+> 完整取证见 `.superpowers/sdd/mem-origin-attribution.md`（48,123 B / 473 行）。本节只给结论。
+
+**一句话结论：被审计的 19 条资源占用问题（F1–F12e），AFM 二次编辑引入 0 条。** 全部 19 条的「首次引入 commit」都是上游 SFM 的提交（作者一律 `aleksey-hoffman`，`git merge-base --is-ancestor <sha> upstream/main` 全部返回 0）。
+
+**口径说明**：`upstream` remote = `aleksey-hoffman/sigma-file-manager`（**原仓 SFM**），`origin` = `kizemo/alpha-file-manager`（**AFM 自己**）。merge base = `fed49cee`（2026-08-27），上游独有提交 23 个、AFM 独有 302 个（文档旧值 251 已过期，AFM 在 10-19 之后又补了约 51 个提交）。
+
+#### 归因汇总
+
+| 判定 | 条数 | 条目 |
+|---|---|---|
+| 上游 SFM 自带，AFM **未修**（当前 HEAD 仍在） | **10** | F1、F3、F6、F7、F8、F11、F12a、F12b、F12c、F12d |
+| 上游 SFM 自带，AFM **批次 A/B 已修** | **6** | F2、F4、F5、F9、F10、F12e（部分：reader 已释放，`Index` 仍常驻） |
+| **AFM 二次编辑引入** | **0** | — |
+| AFM **放大了上游问题**（仅量级层面） | **1** | F2 的磁盘占用量级：AFM 独有的缩略图四档尺寸让同一源图按尺寸存成多份缓存文件 |
+| 未能判定 | **0** | — |
+
+#### 三大占用块（按对实测占用的贡献排序）
+
+| 占用块 | 实测量 | 归属 | 关键证据 |
+|---|---|---|---|
+| **F1 隐藏 Quick View renderer** | 171.9 MB（常驻第二个 renderer） | **纯上游** | 机制由上游 `d59e8e9e`（2026-06-30「New settings: Window memory / performance control」）引入；上游默认 `prelaunchQuickViewWindow: true`。AFM 只改过窗口标题（品牌改名 `d2be2373`）。批次 D1 已在**用户机器**上关掉（改设置，非代码） |
+| **F3 tantivy `NoMergePolicy`** | 搜索索引 299.16 MB（7+ segment 永不合并） | **纯上游** | 上游 `054e2472`（2026-06-24「UX: indexing stability improvements」）；AFM 对 `global_search/index.rs` 的提交数 = **0**；上游当前版本仍是 `NoMergePolicy` |
+| **F2 缩略图缓存** | 434.34 MB / 4,249 张 | 上游设计 + **AFM 放大量级** | 上游 `9f20b226` 定下 5000 张 / 1 GB；AFM 批次 A/B（B2）已改为 2000 张 / 256 MB 并按 mtime 淘汰。**四档缩略图尺寸是 AFM 独有的** ⇒ 同一源图落盘多份 |
+
+**WebView2 子树 888.8 MB 与 Rust 主进程 230.1 MB 的常驻成分，主要由上游 SFM 造成**（F1 隐藏 renderer + F3 索引常驻 + F12e `Index` 常驻 + 上游的 `dir_watcher` 每目录 2 线程）。
+
+#### 批次 C 修的正是「上游自带且未修」的那批
+
+| 条目 | 上游引入 | 批次 C 对应切片 |
+|---|---|---|
+| F6 每命中一个盘符挂一个完整 `<FileBrowser>` | `7a62a0d0`（AFM 对 `global-search-view.vue` 提交数 = 0） | **C1** |
+| F7 `dirContents` 深响应式 / 每 Tab 各存一份 `dirEntries` / `clone(tab)` 深拷 | `ef1b1fed` + `ebc762ef` / `733e2f42` | **C2** |
+| F8 虚拟行全量物化 O(N) + 每行拼完整路径当 key | `afa479de` | **C3** |
+| F11 `dir_watcher` 每监听目录 2 个线程 + 无界 mpsc | `385157ae`（AFM 对 `dir_watcher.rs` 提交数 = 0） | **C4** |
+| F3 tantivy segment 不合并 | `054e2472` | **C5** |
+| F12a / F12b / F12c | `053fb4b2` / `9864c72c` / `6cc7928a`（AFM 三个文件提交数均为 0） | **C6** |
+
+**F12d**（启动时 5 个用户存储 JSON 常驻副本）**本轮未修** —— 它是上游 `b839e298` 的 `preloaded: Arc<OnceCell<…>>` 语义，改动面波及启动路径，留待下一批次。
+
+#### 附带发现：上游还有一个**功能性**缺陷（与资源占用无关，但同属「上游自带」）
+
+`src-tauri/src/global_search/scoring.rs` 的 `get_min_score_for_query_length()`：查询长度 **1–3 字符 → 相似度门槛 0.9**，4–6 → 0.65，7–9 → 0.55，其余 → 0.5。
+而 `calculate_similarity_score()` 对「文件名包含查询词」只给 `0.8 + (len(query)/len(name)) * 0.15`：3 字符查询对 `a.txt`(0.89)、`report.txt`(0.845)、`2026年10月26日 20:53.txt`(0.821) **一律 < 0.9** ⇒ **1–3 字符的全局搜索恒返回 0 条**。
+实测对照：查询 `txt`（3 字符）→ 面板显示「什么都没找到」；查询 `2026`（4 字符，门槛 0.65）→ 「在 3 个驱动器上找到 96 项」。
+上游提交 `b8a1c1b4`（2026-03-28 拆文件提交），**AFM 从未修改该文件**（`git diff` 为空、`git log` 只有上游那条）⇒ 同属**上游自带**，本轮**未修**（改它等于改搜索排序策略，属产品决策）。
+⚠️ **验收脚本必须用 ≥4 字符的查询词**，否则会把上游缺陷误判成 C1 回归。
+
+#### 归因方法的已知坑（接力时若要复核）
+
+- `git blame` 给的是「该行最后一次被触碰」，**不等于语义引入**（例：F3 的 `NoMergePolicy` 当前行 blame = `31c665c6f`，纯格式提交；语义引入其实是 `054e2472`）⇒ 一律以 `git log --reverse -S'<逐字字符串>'` 的首次出现为准。
+- `-S` 数的是**出现次数**，格式调整也会命中，要结合提交内容判断。
+- `git log --follow` 只在文件被 **rename** 时有效；本仓 2026-03-28 `b8a1c1b4` 是「拆文件」而非 rename ⇒ `--follow` 会断链，需按任意路径重查。
+- 取证期间有并行 writer 在改同一工作副本（正是批次 C 的改动）⇒ 涉及被改文件的归因已用 `git blame HEAD` + `git log -S` 只读复核，结论不变。
+
+### 18.14 批次 C 之后的待办（接力入口）
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 1 | **批次 C 尚未 commit**：工作树 17 个已改文件 + 2 处未跟踪，**由主 Agent 统一提交**，子 Agent 不提交 | ⬜ 待提交 |
+| 2 | **C1 真机验收**（沙箱内执行，脚本 `sandbox-c1-accept.ps1`）：已 PASS（见 §18.12） | ✅ |
+| 3 | **F12d 未修**：启动时 5 个用户存储 JSON 常驻副本（上游 `b839e298` 的 `preloaded: Arc<OnceCell<…>>` 语义），改动面波及启动路径 | ⬜ 未做 |
+| 4 | **`use-video-thumbnails.ts` 仍有 A2 同款模式**（`ref<Record>` + 整体重建），批次 A/B 只改了 `use-image-thumbnails.ts` | ⬜ 未做 |
+| 5 | **WebView2 子进程崩溃兜底**（§18.11 D3 建议 ②）：检测 + 提示 + 可恢复 | ⬜ 未做 |
+| 6 | **版本号仍是 3.6.3**，批次 C 不单独发版；是否随下一版统一发由用户决定 | ⬜ 待决策 |
+| 7 | **索引重建代价**：实测一次完整重建约 **17 分钟**（1,016 s，1,956,015 条）；验收脚本必须先确认索引就绪再判 FAIL | ⚠️ 已知 |
+| 8 | **上游缺陷候选**：`global_search/scoring.rs` 的 `get_min_score_for_query_length()` 对 1–3 字符查询给 0.9 门槛，使「含扩展名的文件名」普遍落在 0.82–0.89 ⇒ **短查询恒 0 结果**（上游 `b8a1c1b4`，AFM 未改） | ⬜ 未修（上游） |
+| 9 | **真机验收必须进隔离桌面沙箱**（用户 2026-10-28 要求）：不得在用户桌面上启动 AFM 抢焦点；沙箱脚本 `sandbox-c1-accept.ps1`，坑位清单见 `.superpowers\sdd\relay-rules-batch-c.md` | ✅ 已落地 |
+| 10 | **新会话接力 prompt**：`.superpowers\sdd\relay-prompt-batch-c.txt`（一句话 + 完整路径，引导新会话读必要文档） | ✅ 已落地 |
+
+> **接力时先读**：外层仓 `F:\soft\00selfmade\filemanager\AGENTS.md`（硬约束全集）→ 本文 **§0** 与 **§18** → `.superpowers\sdd\mem-batch-c-handoff-18-12.md` / `-18-13.md`（本节的底稿）→ `.superpowers\sdd\mem-origin-attribution.md`（归因完整取证）→ `.superpowers\sdd\sandbox-c1-accept.ps1`（沙箱验收脚本）→ `.superpowers\sdd\relay-rules-batch-c.md`（防异常终止对策）。

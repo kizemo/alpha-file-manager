@@ -10,6 +10,7 @@ use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::Router;
+use tokio::io::AsyncWriteExt;
 
 use crate::utils::unique_path_with_index;
 
@@ -20,6 +21,9 @@ use super::types::{
     DirEntryInfo, ListQuery, ShareState, UploadQuery, APP_ICON_PNG, FTP_HTML, FTP_MAX_UPLOAD_BYTES,
     STREAM_HTML,
 };
+
+/// 上传写盘缓冲区大小（64 KiB）。
+const UPLOAD_WRITE_BUFFER_BYTES: usize = 64 * 1024;
 
 pub(super) fn build_stream_router(state: ShareState) -> Router {
     Router::new()
@@ -256,7 +260,7 @@ async fn ftp_upload_handler(
 
     let mut uploaded_count: u32 = 0;
 
-    while let Ok(Some(field)) = multipart.next_field().await {
+    while let Ok(Some(mut field)) = multipart.next_field().await {
         let raw_name = match field.file_name() {
             Some(name) => name.to_string(),
             None => continue,
@@ -269,13 +273,66 @@ async fn ftp_upload_handler(
 
         let dest_path = get_unique_path(&target_dir.join(&safe_name));
 
-        let bytes = match field.bytes().await {
-            Ok(bytes) => bytes,
-            Err(_) => continue,
+        // 流式写盘：改前用 field.bytes().await 把整个分片读进内存，
+        // 传一个几 GB 的文件就会把几 GB 的内存顶起来；改后按 chunk 边收边写，
+        // 常驻内存只有缓冲区大小。
+        let file = match tokio::fs::File::create(&dest_path).await {
+            Ok(file) => file,
+            Err(error) => {
+                log::warn!(
+                    "[lan-upload] Failed to create destination path={} error={}",
+                    dest_path.display(),
+                    error
+                );
+                continue;
+            }
         };
 
-        if tokio::fs::write(&dest_path, &bytes).await.is_ok() {
+        let mut writer = tokio::io::BufWriter::with_capacity(UPLOAD_WRITE_BUFFER_BYTES, file);
+        let mut upload_ok = true;
+
+        loop {
+            match field.chunk().await {
+                Ok(Some(chunk)) => {
+                    if let Err(error) = writer.write_all(&chunk).await {
+                        log::warn!(
+                            "[lan-upload] Failed to write chunk path={} error={}",
+                            dest_path.display(),
+                            error
+                        );
+                        upload_ok = false;
+                        break;
+                    }
+                }
+                Ok(None) => break,
+                Err(error) => {
+                    log::warn!(
+                        "[lan-upload] Failed to read upload chunk path={} error={}",
+                        dest_path.display(),
+                        error
+                    );
+                    upload_ok = false;
+                    break;
+                }
+            }
+        }
+
+        if upload_ok {
+            if let Err(error) = writer.flush().await {
+                log::warn!(
+                    "[lan-upload] Failed to flush path={} error={}",
+                    dest_path.display(),
+                    error
+                );
+                upload_ok = false;
+            }
+        }
+
+        if upload_ok {
             uploaded_count += 1;
+        } else {
+            // 半截文件不要留在共享目录里。
+            let _ = tokio::fs::remove_file(&dest_path).await;
         }
     }
 

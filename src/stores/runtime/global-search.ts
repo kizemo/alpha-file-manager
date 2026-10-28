@@ -4,7 +4,9 @@
 
 import { defineStore } from 'pinia';
 import { invoke } from '@tauri-apps/api/core';
-import { computed, ref, watch } from 'vue';
+import {
+  computed, markRaw, ref, shallowRef, watch,
+} from 'vue';
 import type { DirEntry } from '@/types/dir-entry';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import { useUserStatsStore } from '@/stores/storage/user-stats';
@@ -60,7 +62,12 @@ const MIN_AUTO_REINDEX_SUPPRESSION_MS = 60 * 1000;
 export const useGlobalSearchStore = defineStore('globalSearch', () => {
   const isOpen = ref(false);
   const query = ref('');
-  const results = ref<DirEntry[]>([]);
+  // FORK-MODIFICATION 2026-10-28（批次 C1）：搜索结果不再做深度响应式。
+  // 一条结果就是一个不可变的数据对象，深度代理只会白白多出一份
+  // 「每个字段一个 Proxy」的常驻内存；搜索结果页要同时挂多个盘符的结果列表，
+  // 这份代理开销会被成倍放大。条目本身用 `markRaw` 标记，
+  // 之后即使被塞进别的 `ref` 也不会再被代理。
+  const results = shallowRef<DirEntry[]>([]);
   const isSearching = ref(false);
   const isScanInProgress = ref(false);
   const isCommitting = ref(false);
@@ -410,7 +417,7 @@ export const useGlobalSearchStore = defineStore('globalSearch', () => {
 
       const mergedResults = mergeAndDeduplicateResults(indexedResults, priorityResults);
 
-      results.value = mergedResults.map(item => ({
+      results.value = mergedResults.map(item => markRaw({
         name: item.name,
         ext: item.ext ?? null,
         path: item.path,

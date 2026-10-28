@@ -423,7 +423,16 @@ fn finalize_results(
 /// 因此紧接着的 `needs_open` 分支会重新打开一套 (index, reader, fields) 覆盖回去，
 /// 状态保持自洽。
 fn release_idle_reader_if_needed() -> Result<(), String> {
-    if !is_reader_idle(now_millis()) {
+    // reader 的「常驻体积预算」：tantivy 没有内存旋钮，
+    // 只能用「索引越大越早释放」来近似（见 state.rs 的 READER_RESIDENT_BUDGET_BYTES）。
+    let index_size_bytes = {
+        let state = GLOBAL_SEARCH_STATE
+            .read()
+            .map_err(|error| error.to_string())?;
+        state.status.index_size_bytes
+    };
+
+    if !is_reader_idle(now_millis(), index_size_bytes) {
         return Ok(());
     }
 

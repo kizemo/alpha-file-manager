@@ -292,6 +292,62 @@ pub(super) fn create_bulk_index_writer(index: &Index) -> Result<IndexWriter, Str
     Ok(writer)
 }
 
+/// 索引 segment 数量上限。
+///
+/// 上游用 `NoMergePolicy`（关掉后台自动合并），每提交一次扫描就多一个 segment。
+/// segment 越多，reader 需要 mmap 的文件越多，常驻内存与句柄随 segment 线性增长。
+pub(super) const MAX_INDEX_SEGMENTS: usize = 4;
+
+/// 提交之后显式合并 segment，把数量压回上限。返回被并进去的 segment 数。
+///
+/// 关键点：tantivy 的 `IndexWriter::merge()` 是**显式**合并入口，它直接走
+/// `segment_updater.make_merge_operation()`，**不经过 merge policy**；
+/// 而 `NoMergePolicy` 只负责让「后台自动合并」不发生。
+/// 于是两个目标可以同时成立：
+///   * 扫描过程中索引结构完全不动（`NoMergePolicy` 的稳定性意图，AFM 2026-06-24 加的）；
+///   * 扫描提交后 segment 数量不会无限增长（靠这里的显式 `merge()`）。
+///
+/// 合并对象取「文档数最少」的一批：合并代价与被合并体积成正比，
+/// 不必为了压数量把整个索引重写一遍。
+pub(super) fn merge_index_segments(writer: &mut IndexWriter) -> Result<usize, String> {
+    // `IndexWriter` 内部的 `Index` 与外部句柄共享同一份 segment 列表（`Arc<IndexInner>`），
+    // 但这份列表在 writer 提交后不会自动刷新，需要显式 `load_metas()` 重读 meta.json。
+    let segment_metas = {
+        let index = writer.index();
+        index.load_metas().map_err(|error| error.to_string())?;
+        index
+            .searchable_segment_metas()
+            .map_err(|error| error.to_string())?
+    };
+
+    if segment_metas.len() <= MAX_INDEX_SEGMENTS {
+        return Ok(0);
+    }
+
+    // 合并 k 个 segment 之后数量变成 n - k + 1，令其 <= 上限 ⇒ k >= n + 1 - 上限。
+    let needed = segment_metas.len() + 1 - MAX_INDEX_SEGMENTS;
+
+    let mut ordered = segment_metas;
+    ordered.sort_by_key(|meta| meta.num_docs());
+
+    let segment_ids: Vec<_> = ordered
+        .iter()
+        .take(needed)
+        .map(|meta| meta.id())
+        .collect();
+
+    // `merge()` 返回的 Future 会阻塞到合并真正结束（tantivy 的 `FutureResult::wait`）。
+    writer
+        .merge(&segment_ids)
+        .wait()
+        .map_err(|error| error.to_string())?;
+
+    // 合并后的 segment 列表要再提交一次才会落盘（meta.json）。
+    writer.commit().map_err(|error| error.to_string())?;
+
+    Ok(segment_ids.len())
+}
+
 pub(super) fn open_or_create_index(
     index_path: &Path,
 ) -> Result<(Index, IndexReader, GlobalSearchIndexFields), String> {
@@ -467,6 +523,89 @@ mod tests {
 
         let error = validate_staged_index(&staged_path, 2).unwrap_err();
         assert!(error.contains("document count mismatch"));
+    }
+
+    #[test]
+    fn merge_index_segments_collapses_segments_above_limit() {
+        let temp = TempDir::new().unwrap();
+        let index_path = index_dir(temp.path());
+        let (index, fields) = create_fresh_index(&index_path).unwrap();
+
+        let mut writer = create_bulk_index_writer(&index).unwrap();
+
+        // `NoMergePolicy` 下每次 commit 产生一个新 segment，不会自动合并。
+        for round in 0..(MAX_INDEX_SEGMENTS + 3) {
+            let path_string = format!("/doc-{round}");
+            let name_string = format!("doc-{round}");
+            let name_lower_string = name_string.to_lowercase();
+
+            writer
+                .add_document(doc!(
+                    fields.path => path_string.as_str(),
+                    fields.name => name_string.as_str(),
+                    fields.name_lower => name_lower_string.as_str(),
+                    fields.is_file => 1u64,
+                    fields.is_dir => 0u64,
+                    fields.modified_time => 0u64,
+                    fields.size => 0u64,
+                ))
+                .unwrap();
+            writer.commit().unwrap();
+        }
+
+        index.load_metas().unwrap();
+        let before = index.searchable_segment_metas().unwrap().len();
+        assert!(
+            before > MAX_INDEX_SEGMENTS,
+            "expected more than {MAX_INDEX_SEGMENTS} segments before merge, got {before}"
+        );
+
+        let merged = merge_index_segments(&mut writer).unwrap();
+        assert!(merged > 0, "expected a merge to happen");
+        writer.wait_merging_threads().unwrap();
+
+        index.load_metas().unwrap();
+        let after = index.searchable_segment_metas().unwrap().len();
+        assert!(
+            after <= MAX_INDEX_SEGMENTS,
+            "expected at most {MAX_INDEX_SEGMENTS} segments after merge, got {after}"
+        );
+
+        // 合并不能丢文档。
+        let reader = index
+            .reader_builder()
+            .reload_policy(ReloadPolicy::Manual)
+            .try_into()
+            .unwrap();
+        assert_eq!(
+            reader.searcher().num_docs(),
+            (MAX_INDEX_SEGMENTS + 3) as u64,
+            "merge must not lose documents"
+        );
+    }
+
+    #[test]
+    fn merge_index_segments_is_noop_below_limit() {
+        let temp = TempDir::new().unwrap();
+        let index_path = index_dir(temp.path());
+        let (index, fields) = create_fresh_index(&index_path).unwrap();
+
+        let mut writer = create_bulk_index_writer(&index).unwrap();
+        let path_string = "/only".to_string();
+        writer
+            .add_document(doc!(
+                fields.path => path_string.as_str(),
+                fields.name => path_string.as_str(),
+                fields.name_lower => path_string.as_str(),
+                fields.is_file => 1u64,
+                fields.is_dir => 0u64,
+                fields.modified_time => 0u64,
+                fields.size => 0u64,
+            ))
+            .unwrap();
+        writer.commit().unwrap();
+
+        assert_eq!(merge_index_segments(&mut writer).unwrap(), 0);
     }
 
     #[test]

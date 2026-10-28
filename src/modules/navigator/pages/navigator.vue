@@ -113,8 +113,13 @@ type FileBrowserInstance = InstanceType<typeof FileBrowser> & {
 };
 
 type GlobalSearchViewInstance = InstanceType<typeof GlobalSearchView> & {
-  getActiveFileBrowser?: () => FileBrowserInstance | undefined;
   clearSelections?: () => void;
+  // FORK-MODIFICATION 批次 C1：搜索面板不再挂 FileBrowser，
+  // 动作入口改由搜索面板自己提供。
+  getSelectedEntries?: () => DirEntry[];
+  isSearchPanelFocused?: () => boolean;
+  selectAllResults?: () => void;
+  startRename?: (entry: DirEntry) => void;
 };
 
 const workspacesStore = useWorkspacesStore();
@@ -1006,14 +1011,9 @@ function applyPendingLaunchReveal() {
 }
 
 function getActivePaneRef(): FileBrowserInstance | undefined {
-  if (isSearchSelectionActive.value && globalSearchStore.isOpen) {
-    const searchFileBrowser = globalSearchViewRef.value?.getActiveFileBrowser?.();
-
-    if (searchFileBrowser) {
-      return searchFileBrowser;
-    }
-  }
-
+  // FORK-MODIFICATION 批次 C1：搜索面板不再挂 FileBrowser，
+  // 这里统一回落到导航格 —— 动作要作用在哪个条目上，
+  // 由 getActivePaneSelectedEntries() 决定，不再由「哪个窗格」决定。
   return getNavigatorPaneRef();
 }
 
@@ -1042,6 +1042,17 @@ function syncActivePaneSelectionToGlobal() {
 }
 
 function getActivePaneSelectedEntries(): DirEntry[] {
+  // FORK-MODIFICATION 批次 C1：搜索激活时，选中项在全局搜索面板里，
+  // 导航格的选择已被清空 —— 必须直接读搜索面板的选择，
+  // 否则复制/剪切/删除/属性这些动作会全部退化成空操作。
+  if (isSearchSelectionActive.value) {
+    const searchSelection = globalSearchViewRef.value?.getSelectedEntries?.();
+
+    if (searchSelection) {
+      return searchSelection;
+    }
+  }
+
   const pane = getActivePaneRef();
 
   if (pane) {
@@ -1260,6 +1271,14 @@ async function handlePasteToPane(paneIndex: number) {
 }
 
 function handleSelectAllShortcut() {
+  // FORK-MODIFICATION 批次 C1：焦点在搜索面板里（或搜索结果已有选中）时，
+  // Ctrl+A 全选的是搜索结果 —— 不能落到导航格上，
+  // 否则会把搜索面板里的选择清掉，还会在导航格里选中一批无关条目。
+  if (isSearchSelectionActive.value || globalSearchViewRef.value?.isSearchPanelFocused?.()) {
+    globalSearchViewRef.value?.selectAllResults?.();
+    return;
+  }
+
   const pane = getActivePaneRef();
 
   if (pane) {
@@ -1274,7 +1293,13 @@ async function handleDeleteShortcut() {
   const activePaneSelection = getActivePaneSelectedEntries();
 
   if (activePaneSelection.length > 0) {
-    await pane.deleteItems(activePaneSelection, true);
+    const succeeded = await pane.deleteItems(activePaneSelection, true);
+
+    // FORK-MODIFICATION 批次 C1：搜索结果被删掉后清掉搜索面板里的选中态
+    // （旧实现里这一步由搜索面板自己的 FileBrowser 负责）。
+    if (succeeded) {
+      globalSearchViewRef.value?.clearSelections?.();
+    }
   }
 }
 
@@ -1285,7 +1310,12 @@ async function handleDeletePermanentlyShortcut() {
   const activePaneSelection = getActivePaneSelectedEntries();
 
   if (activePaneSelection.length > 0) {
-    await pane.deleteItems(activePaneSelection, false);
+    const succeeded = await pane.deleteItems(activePaneSelection, false);
+
+    // FORK-MODIFICATION 批次 C1：同上，删除成功后清掉搜索面板里的选中态。
+    if (succeeded) {
+      globalSearchViewRef.value?.clearSelections?.();
+    }
   }
 }
 
@@ -1574,10 +1604,22 @@ function registerShortcutHandlers() {
   shortcutsStore.registerHandler('delete', handleDeleteShortcut);
   shortcutsStore.registerHandler('deletePermanently', handleDeletePermanentlyShortcut);
   shortcutsStore.registerHandler('rename', () => {
-    const pane = getActivePaneRef();
     const activePaneSelection = getActivePaneSelectedEntries();
 
-    if (pane && activePaneSelection.length > 0) {
+    if (activePaneSelection.length === 0) {
+      return;
+    }
+
+    // FORK-MODIFICATION 批次 C1：搜索结果不在导航格的列表里，
+    // 就地编辑看不见 —— 改走搜索面板自带的重命名对话框。
+    if (isSearchSelectionActive.value) {
+      globalSearchViewRef.value?.startRename?.(activePaneSelection[0]);
+      return;
+    }
+
+    const pane = getActivePaneRef();
+
+    if (pane) {
       pane.startRename(activePaneSelection[0]);
     }
   }, { checkItemSelected: hasSelectedItems });

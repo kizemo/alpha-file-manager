@@ -5,8 +5,9 @@
 import {
   beforeEach, describe, expect, it, vi,
 } from 'vitest';
+import { nextTick } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
-import type { DirContents } from '@/types/dir-entry';
+import type { DirContents, DirEntry } from '@/types/dir-entry';
 import type { Tab, TabGroup, Workspace } from '@/types/workspaces';
 
 const {
@@ -14,6 +15,7 @@ const {
   invokeMock,
   lazyStoreGetMock,
   lazyStoreSaveMock,
+  lazyStoreSetMock,
   routerPushMock,
   toastCustomMock,
   updateInfoPanelMock,
@@ -23,6 +25,7 @@ const {
   invokeMock: vi.fn(),
   lazyStoreGetMock: vi.fn(),
   lazyStoreSaveMock: vi.fn(),
+  lazyStoreSetMock: vi.fn(),
   routerPushMock: vi.fn(),
   toastCustomMock: vi.fn(),
   updateInfoPanelMock: vi.fn(),
@@ -57,7 +60,9 @@ vi.mock('@tauri-apps/plugin-store', () => ({
       return lazyStoreGetMock(key);
     }
 
-    async set(): Promise<void> {}
+    async set(key: string, value: unknown): Promise<void> {
+      lazyStoreSetMock(key, value);
+    }
   },
 }));
 
@@ -112,6 +117,7 @@ describe('workspaces storage duplicate tabs', () => {
     invokeMock.mockReset();
     lazyStoreGetMock.mockReset();
     lazyStoreSaveMock.mockReset();
+    lazyStoreSetMock.mockReset();
     routerPushMock.mockReset();
     toastCustomMock.mockReset();
     updateInfoPanelMock.mockReset();
@@ -266,7 +272,9 @@ describe('workspaces storage duplicate tabs', () => {
     await projectsOpen;
 
     expect(currentTab.path).toBe('D:/Documents');
-    expect(currentTab.dirEntries.map(entry => entry.path)).toEqual(['D:/Documents/current.txt']);
+    expect(currentTab.dirEntries).toEqual([]);
+    expect(workspacesStore.getCachedDirectoryEntries('D:/Documents')?.map(entry => entry.path))
+      .toEqual(['D:/Documents/current.txt']);
   });
 
   it('does not request history when reopening the current tab path', async () => {
@@ -635,6 +643,7 @@ describe('workspaces storage duplicate tabs', () => {
     expect(consoleWarnSpy).toHaveBeenCalledWith(
       'Failed to preload directory entries for C:/Users/aleks/Projects: Reading directory timed out after 5000 ms',
     );
+    expect(workspacesStore.getCachedDirectoryEntries('C:/Users/aleks/Projects')).toBeNull();
 
     consoleWarnSpy.mockRestore();
   });
@@ -784,6 +793,142 @@ describe('workspaces storage duplicate tabs', () => {
 
     expect(workspacesStore.currentWorkspace?.tabGroups).toHaveLength(1);
     expect(workspacesStore.currentTabGroup?.[0]?.path).toBe('D:/Work');
+  });
+
+  it('keeps directory entries out of the tab and caches them by path', async () => {
+    invokeMock.mockImplementation((command: string, payload?: { path?: string }) => {
+      if (command === 'read_dir_with_timeout') {
+        return Promise.resolve(createDirContents(payload?.path ?? '', `${payload?.path ?? ''}/file.txt`));
+      }
+
+      if (command === 'get_dir_entry_with_timeout') {
+        return Promise.resolve({
+          path: payload?.path ?? '',
+        });
+      }
+
+      return Promise.resolve(null);
+    });
+
+    const currentTab = createTab('current-tab', 'C:/Users/aleks/Projects');
+    const workspacesStore = useWorkspacesStore();
+    workspacesStore.workspaces = [
+      createWorkspace([
+        [currentTab],
+      ]),
+    ];
+
+    await workspacesStore.openTabGroup([currentTab]);
+
+    expect(currentTab.dirEntries).toEqual([]);
+    expect(currentTab.selectedDirEntries).toEqual([]);
+    expect(workspacesStore.getCachedDirectoryEntries('C:/Users/aleks/Projects')?.map(entry => entry.path))
+      .toEqual(['C:/Users/aleks/Projects/file.txt']);
+  });
+
+  it('does not copy directory entries into the split pane tab', async () => {
+    mockDirectoryReadResponses();
+
+    const onlyTab = createTab('only-tab', 'C:/Users/aleks/Projects');
+    const workspacesStore = useWorkspacesStore();
+    workspacesStore.workspaces = [
+      createWorkspace([
+        [onlyTab],
+      ]),
+    ];
+
+    workspacesStore.toggleSplitView();
+
+    const splitTab = workspacesStore.currentTabGroup?.[1];
+
+    expect(splitTab).toBeDefined();
+    expect(splitTab?.id).not.toBe(onlyTab.id);
+    expect(splitTab?.path).toBe(onlyTab.path);
+    expect(splitTab?.dirEntries).toEqual([]);
+    expect(splitTab?.selectedDirEntries).toEqual([]);
+    expect(onlyTab.dirEntries).toEqual([]);
+  });
+
+  it('does not copy directory entries into a closed tab group snapshot', async () => {
+    mockDirectoryReadResponses();
+
+    const firstTab = createTab('first-tab', 'C:/Users/aleks/First');
+    const secondTab = createTab('second-tab', 'C:/Users/aleks/Second');
+    const workspacesStore = useWorkspacesStore();
+    workspacesStore.workspaces = [
+      createWorkspace([
+        [firstTab],
+        [secondTab],
+      ]),
+    ];
+
+    await workspacesStore.closeTabGroup([secondTab]);
+
+    const snapshot = workspacesStore.closedTabGroupHistory[0]?.tabGroup[0];
+
+    expect(snapshot?.path).toBe('C:/Users/aleks/Second');
+    expect(snapshot?.dirEntries).toEqual([]);
+    expect(snapshot?.selectedDirEntries).toEqual([]);
+    expect(secondTab.dirEntries).toEqual([]);
+  });
+
+  it('evicts the oldest cached directory when the cache limit is exceeded', async () => {
+    mockDirectoryReadResponses();
+
+    const workspacesStore = useWorkspacesStore();
+
+    for (let index = 0; index < 10; index += 1) {
+      workspacesStore.cacheDirectoryEntries(`C:/Users/aleks/Dir-${index}`, [
+        { name: `file-${index}.txt` } as DirEntry,
+      ]);
+    }
+
+    expect(workspacesStore.getCachedDirectoryEntries('C:/Users/aleks/Dir-0')).toBeNull();
+    expect(workspacesStore.getCachedDirectoryEntries('C:/Users/aleks/Dir-1')).toBeNull();
+    expect(workspacesStore.getCachedDirectoryEntries('C:/Users/aleks/Dir-9')).toHaveLength(1);
+  });
+
+  it('never persists directory entries in the workspace payload', async () => {
+    vi.useFakeTimers();
+
+    try {
+      mockDirectoryReadResponses();
+
+      const workspacesStore = useWorkspacesStore();
+
+      await workspacesStore.init({
+        path: 'mock/user-workspaces.json',
+        status: 'ready',
+        data: {
+          __schemaVersion: 1,
+          currentTabGroupIndex: 0,
+          workspaces: [
+            createWorkspace([
+              [createTab('bootstrapped-tab', 'C:/Users/aleks/Projects')],
+            ]),
+          ],
+        },
+        schemaVersion: 1,
+        error: null,
+      });
+
+      const currentTab = workspacesStore.currentTab;
+
+      expect(currentTab).not.toBeNull();
+      workspacesStore.setTabFilterQuery(currentTab as Tab, 'notes');
+
+      await nextTick();
+      await vi.advanceTimersByTimeAsync(10_000);
+
+      const persistedCall = lazyStoreSetMock.mock.calls.find(call => call[0] === 'workspaces');
+
+      expect(persistedCall).toBeDefined();
+      expect(JSON.stringify(persistedCall?.[1])).not.toContain('dirEntries');
+      expect(JSON.stringify(persistedCall?.[1])).not.toContain('selectedDirEntries');
+    }
+    finally {
+      vi.useRealTimers();
+    }
   });
 });
 

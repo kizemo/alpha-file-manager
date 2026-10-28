@@ -9,6 +9,7 @@ import {
   onMounted,
   onActivated,
   ref,
+  shallowRef,
   watch,
 } from 'vue';
 import { useRoute } from 'vue-router';
@@ -32,10 +33,19 @@ import { openSettingsTab } from '@/modules/settings/utils/open-settings';
 import { getDriveByPath } from '@/modules/home/composables/use-drives';
 import type { DirEntry } from '@/types/dir-entry';
 import type { DriveInfo } from '@/types/drive-info';
-import FileBrowser from '@/modules/navigator/components/file-browser/file-browser.vue';
+import GlobalSearchResultList from './components/global-search-result-list.vue';
+import {
+  applyGlobalSearchSingleSelection,
+  applyGlobalSearchToggleSelection,
+  findGlobalSearchResultIndex,
+  groupGlobalSearchResults,
+  resolveGlobalSearchRange,
+  type GlobalSearchNavigateDirection,
+} from './components/global-search-result-rows';
+// FORK-MODIFICATION 批次 C1：搜索结果的重命名对话框与改名通道。
+import FileBrowserRenameDialog from '@/modules/navigator/components/file-browser/file-browser-rename-dialog.vue';
+import { useDirEntryActions } from '@/composables/use-dir-entry-actions';
 import { SEARCH_CONSTANTS } from '@/constants';
-
-type FileBrowserInstance = InstanceType<typeof FileBrowser>;
 
 const emit = defineEmits<{
   'close': [];
@@ -137,20 +147,6 @@ type GroupedResults = {
   entries: DirEntry[];
 };
 
-function getDriveRoot(path: string): string {
-  if (/^[a-zA-Z]:/.test(path)) {
-    return path.substring(0, 2).toUpperCase() + '/';
-  }
-
-  const parts = path.split('/').filter(Boolean);
-
-  if (parts.length > 0) {
-    return '/' + parts[0];
-  }
-
-  return '/';
-}
-
 const filteredResults = computed(() => {
   return globalSearchStore.results.filter((entry) => {
     if (entry.is_file && !includeFiles.value) return false;
@@ -160,27 +156,11 @@ const filteredResults = computed(() => {
 });
 
 const groupedResults = computed<GroupedResults[]>(() => {
-  const groups = new Map<string, DirEntry[]>();
-
-  for (const entry of filteredResults.value) {
-    const driveRoot = getDriveRoot(entry.path);
-    const existing = groups.get(driveRoot);
-
-    if (existing) {
-      existing.push(entry);
-    }
-    else {
-      groups.set(driveRoot, [entry]);
-    }
-  }
-
-  return Array.from(groups.entries())
-    .sort(([driveRootA], [driveRootB]) => driveRootA.localeCompare(driveRootB))
-    .map(([driveRoot, entries]) => ({
-      driveRoot,
-      driveInfo: getDriveByPath(driveRoot),
-      entries,
-    }));
+  return groupGlobalSearchResults(filteredResults.value).map(group => ({
+    driveRoot: group.driveRoot,
+    driveInfo: getDriveByPath(group.driveRoot),
+    entries: group.entries,
+  }));
 });
 
 const totalResultsCount = computed(() => filteredResults.value.length);
@@ -204,56 +184,261 @@ function isDriveCollapsed(driveRoot: string): boolean {
   return collapsedDrives.value.has(driveRoot);
 }
 
-function getEntryDescription(entry: DirEntry): string | undefined {
-  return entry.path;
+/**
+ * 批次 C1：选择状态上提到父组件。
+ *
+ * 选中项用 `shallowRef` 存 —— 搜索结果的条目本身是不可变数据，
+ * 不需要为每个字段都建响应式代理。
+ */
+const selectedEntries = shallowRef<DirEntry[]>([]);
+const selectedPaths = computed(() => {
+  return new Set(selectedEntries.value.map(entry => entry.path));
+});
+const focusedPath = ref<string | null>(null);
+const anchorPath = ref<string | null>(null);
+
+/** 全部结果摊平后的顺序列表：键盘导航与 Shift 区间选择都按它算。 */
+const allEntries = computed(() => {
+  const entries: DirEntry[] = [];
+
+  for (const group of groupedResults.value) {
+    entries.push(...group.entries);
+  }
+
+  return entries;
+});
+
+function setSelectedEntries(entries: DirEntry[]) {
+  selectedEntries.value = entries;
+  emit('update:selectedEntries', entries);
 }
 
-const searchFileBrowserRefs = ref<Map<string, FileBrowserInstance>>(new Map());
-const activeSearchDriveRoot = ref<string | null>(null);
+function handleResultSelect(entry: DirEntry, additive: boolean) {
+  focusedPath.value = entry.path;
+  anchorPath.value = entry.path;
 
-function setSearchFileBrowserRef(element: FileBrowserInstance | null, driveRoot: string) {
-  if (element) {
-    searchFileBrowserRefs.value.set(driveRoot, element);
+  if (additive) {
+    setSelectedEntries(applyGlobalSearchToggleSelection(selectedEntries.value, entry));
+    return;
   }
-  else {
-    searchFileBrowserRefs.value.delete(driveRoot);
+
+  setSelectedEntries(applyGlobalSearchSingleSelection(entry));
+}
+
+function handleResultSelectRange(entry: DirEntry) {
+  focusedPath.value = entry.path;
+
+  const entries = allEntries.value;
+  const anchorIndex = anchorPath.value ? findGlobalSearchResultIndex(entries, anchorPath.value) : -1;
+
+  if (anchorIndex < 0) {
+    setSelectedEntries(applyGlobalSearchSingleSelection(entry));
+    return;
+  }
+
+  const targetIndex = findGlobalSearchResultIndex(entries, entry.path);
+  const range = resolveGlobalSearchRange(entries, anchorIndex, targetIndex);
+
+  setSelectedEntries(range.length > 0 ? range : applyGlobalSearchSingleSelection(entry));
+}
+
+function focusEntryAt(index: number) {
+  const entry = allEntries.value[index];
+
+  if (!entry) {
+    return;
+  }
+
+  focusedPath.value = entry.path;
+  anchorPath.value = entry.path;
+  setSelectedEntries(applyGlobalSearchSingleSelection(entry));
+}
+
+function extendSelectionTo(index: number) {
+  const entry = allEntries.value[index];
+
+  if (!entry) {
+    return;
+  }
+
+  focusedPath.value = entry.path;
+
+  const entries = allEntries.value;
+  const anchorIndex = anchorPath.value ? findGlobalSearchResultIndex(entries, anchorPath.value) : -1;
+  const range = resolveGlobalSearchRange(entries, anchorIndex, index);
+
+  setSelectedEntries(range.length > 0 ? range : applyGlobalSearchSingleSelection(entry));
+}
+
+function handleResultNavigate(direction: GlobalSearchNavigateDirection, extend: boolean) {
+  const entries = allEntries.value;
+
+  if (entries.length === 0) {
+    return;
+  }
+
+  const currentIndex = focusedPath.value ? findGlobalSearchResultIndex(entries, focusedPath.value) : -1;
+  let nextIndex = 0;
+
+  if (direction === 'next') {
+    nextIndex = currentIndex < 0 ? 0 : Math.min(currentIndex + 1, entries.length - 1);
+  }
+  else if (direction === 'previous') {
+    nextIndex = currentIndex < 0 ? 0 : Math.max(currentIndex - 1, 0);
+  }
+  else if (direction === 'last') {
+    nextIndex = entries.length - 1;
+  }
+
+  if (extend) {
+    extendSelectionTo(nextIndex);
+    return;
+  }
+
+  focusEntryAt(nextIndex);
+}
+
+function handleResultActivate() {
+  if (!focusedPath.value) {
+    return;
+  }
+
+  const entry = allEntries.value.find(item => item.path === focusedPath.value);
+
+  if (entry) {
+    emit('openEntry', entry);
   }
 }
 
-function handleSearchSelectionChange(entries: DirEntry[], driveRoot: string) {
-  if (entries.length > 0) {
-    activeSearchDriveRoot.value = driveRoot;
-
-    searchFileBrowserRefs.value.forEach((fileBrowser, key) => {
-      if (key !== driveRoot) {
-        fileBrowser.clearSelection();
-      }
-    });
-
-    emit('update:selectedEntries', entries);
-  }
-  else if (driveRoot === activeSearchDriveRoot.value) {
-    activeSearchDriveRoot.value = null;
-    emit('update:selectedEntries', []);
-  }
-}
-
-function getActiveFileBrowser(): FileBrowserInstance | undefined {
-  if (activeSearchDriveRoot.value) {
-    return searchFileBrowserRefs.value.get(activeSearchDriveRoot.value);
-  }
-
-  return undefined;
+function focusFirstResult() {
+  focusEntryAt(0);
 }
 
 function clearSelections() {
-  searchFileBrowserRefs.value.forEach(fileBrowser => fileBrowser.clearSelection());
-  activeSearchDriveRoot.value = null;
+  focusedPath.value = null;
+  anchorPath.value = null;
+
+  if (selectedEntries.value.length === 0) {
+    return;
+  }
+
+  selectedEntries.value = [];
+  emit('update:selectedEntries', []);
+}
+
+/**
+ * 批次 C1：搜索面板与导航页之间的动作桥。
+ *
+ * 搜索结果不在导航格的列表里 —— 导航页自己的「当前选中项」永远是空的。
+ * 所以复制/剪切/删除/重命名这些动作必须由搜索面板自己提供入口，
+ * 导航页只做转发。
+ */
+
+/** 根元素：用于判断焦点是否落在搜索面板里。 */
+const rootElementRef = ref<HTMLElement | null>(null);
+
+/** 焦点是否在搜索面板内。 */
+const isPanelFocused = ref(false);
+
+/** 批次 C1：重命名对话框状态。 */
+const renameDialogOpen = ref(false);
+const renameTarget = ref<DirEntry | null>(null);
+
+const { renameItem } = useDirEntryActions();
+
+function handlePanelFocusIn() {
+  isPanelFocused.value = true;
+}
+
+function handlePanelFocusOut(event: FocusEvent) {
+  const nextTarget = event.relatedTarget as Node | null;
+
+  if (nextTarget && rootElementRef.value?.contains(nextTarget)) {
+    return;
+  }
+
+  isPanelFocused.value = false;
+}
+
+/** 焦点是否在搜索面板里 —— 供导航页决定 Ctrl+A 作用于谁。 */
+function isSearchPanelFocused(): boolean {
+  return isPanelFocused.value;
+}
+
+/** 当前选中的搜索结果 —— 供导航页的复制/剪切/删除取用。 */
+function getSelectedEntries(): DirEntry[] {
+  return [...selectedEntries.value];
+}
+
+/** 全选全部搜索结果（跨盘符）。 */
+function selectAllResults() {
+  const entries = allEntries.value;
+
+  if (entries.length === 0) {
+    return;
+  }
+
+  focusedPath.value = entries[0].path;
+  anchorPath.value = entries[0].path;
+  setSelectedEntries([...entries]);
+}
+
+/**
+ * 重命名搜索结果。
+ *
+ * 导航格的就地编辑只对「当前目录里的行」有效，搜索结果不在其中，
+ * 所以这里挂一个独立的重命名对话框（与目录树复用同一个组件）。
+ */
+function startRename(entry: DirEntry) {
+  renameTarget.value = entry;
+  renameDialogOpen.value = true;
+}
+
+async function handleRenameConfirm(newName: string) {
+  const target = renameTarget.value;
+
+  renameDialogOpen.value = false;
+  renameTarget.value = null;
+
+  if (target) {
+    await renameItem(target, newName);
+  }
+}
+
+function handleRenameCancel() {
+  renameDialogOpen.value = false;
+  renameTarget.value = null;
+}
+
+/**
+ * 在搜索输入框里按回车：打开当前聚焦的结果；没有聚焦项时打开第一条。
+ *
+ * 旧实现靠搜索面板里的 FileBrowser 承接这个快捷键，
+ * 换成轻量列表之后这条链路没有了，在这里补回来。
+ */
+function handleSearchInputEnter() {
+  const entries = allEntries.value;
+
+  if (entries.length === 0) {
+    return;
+  }
+
+  const entry = focusedPath.value
+    ? entries.find(item => item.path === focusedPath.value) ?? entries[0]
+    : entries[0];
+
+  if (entry) {
+    focusedPath.value = entry.path;
+    emit('openEntry', entry);
+  }
 }
 
 defineExpose({
-  getActiveFileBrowser,
   clearSelections,
+  getSelectedEntries,
+  isSearchPanelFocused,
+  selectAllResults,
+  startRename,
 });
 
 function handleSearchEntryOpen(entry: DirEntry) {
@@ -305,7 +490,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="global-search-view">
+  <div
+    ref="rootElementRef"
+    class="global-search-view"
+    @focusin="handlePanelFocusIn"
+    @focusout="handlePanelFocusOut"
+  >
     <div class="global-search-view__header">
       <div class="global-search-view__search-container">
         <SearchIcon
@@ -324,6 +514,8 @@ onMounted(() => {
           :placeholder="t('globalSearch.globalSearch')"
           class="global-search-view__input"
           :disabled="!hasIndexData && globalSearchStore.scanPhase === 'idle'"
+          @keydown.down.prevent="focusFirstResult"
+          @keydown.enter.prevent="handleSearchInputEnter"
           @update:model-value="globalSearchStore.setQuery(String($event ?? ''))"
         />
         <Button
@@ -561,17 +753,15 @@ onMounted(() => {
                 v-if="!isDriveCollapsed(group.driveRoot)"
                 class="global-search-view__list"
               >
-                <FileBrowser
-                  :ref="(element: any) => setSearchFileBrowserRef(element as FileBrowserInstance, group.driveRoot)"
-                  :external-entries="group.entries"
-                  :base-path="group.driveRoot"
-                  layout="list"
-                  :hide-toolbar="true"
-                  :hide-status-bar="true"
-                  :track-relative-time="false"
-                  :entry-description="getEntryDescription"
+                <GlobalSearchResultList
+                  :entries="group.entries"
+                  :selected-paths="selectedPaths"
+                  :focused-path="focusedPath"
+                  @select="handleResultSelect"
+                  @select-range="handleResultSelectRange"
                   @open-entry="handleSearchEntryOpen"
-                  @update:selected-entries="(entries: DirEntry[]) => handleSearchSelectionChange(entries, group.driveRoot)"
+                  @navigate="handleResultNavigate"
+                  @activate="handleResultActivate"
                 />
               </div>
             </div>
@@ -579,6 +769,12 @@ onMounted(() => {
         </div>
       </ScrollArea>
     </div>
+    <FileBrowserRenameDialog
+      v-model:open="renameDialogOpen"
+      :entry="renameTarget"
+      @confirm="handleRenameConfirm"
+      @cancel="handleRenameCancel"
+    />
   </div>
 </template>
 

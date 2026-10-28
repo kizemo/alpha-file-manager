@@ -15,7 +15,6 @@ import { useNavigatorStore } from '@/stores/runtime/navigator';
 import { useUserPathsStore } from '@/stores/storage/user-paths';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import { UI_CONSTANTS } from '@/constants';
-import clone from '@/utils/clone';
 import normalizePath, { canonicalizePath, getPathDisplayName } from '@/utils/normalize-path';
 import {
   isVirtualLocationPath,
@@ -58,6 +57,11 @@ type CurrentTabPathNavigationRequest = {
 
 const CLOSED_TAB_GROUP_HISTORY_LIMIT = 20;
 
+/**
+ * 目录条目缓存的容量上限（按路径去重，先进先出淘汰）。
+ */
+const DIRECTORY_ENTRIES_CACHE_LIMIT = 8;
+
 export const useWorkspacesStore = defineStore('workspaces', () => {
   const { t } = useI18n();
   const userPathsStore = useUserPathsStore();
@@ -74,6 +78,50 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
   const closedTabGroupHistory = ref<ClosedTabGroupHistoryEntry[]>([]);
   const currentTabPathNavigationRequest = ref<CurrentTabPathNavigationRequest | null>(null);
   const pendingLaunchReveal = computed(() => pendingLaunchRevealQueue.value[0] ?? null);
+
+  /**
+   * 目录条目缓存：普通 Map，**刻意不是 ref**。
+   *
+   * 批次 C2 之前，目录条目是存在 Tab.dirEntries 里的 —— 于是每个标签页各存一份，
+   * 而且因为 workspaces 是深响应式的 ref，这些条目对象全都被套进了 Vue 代理。
+   * 现在标签页只记路径，条目对象统一放这里：既不随 store 变化触发更新，
+   * 也不会在切标签组时被 cloneDeep 复制一遍。
+   *
+   * 刻意不把这个 Map 放进 store 的 return 里：Pinia 只会把返回出去的 state
+   * 变成响应式，留在闭包里的普通 Map 永远不会被代理。
+   */
+  const directoryEntriesCache = new Map<string, DirEntry[]>();
+
+  function getCachedDirectoryEntries(path: string): DirEntry[] | null {
+    const cachedEntries = directoryEntriesCache.get(normalizePath(path));
+
+    if (!cachedEntries || cachedEntries.length === 0) {
+      return null;
+    }
+
+    return cachedEntries;
+  }
+
+  function cacheDirectoryEntries(path: string, entries: DirEntry[]): void {
+    const key = normalizePath(path);
+
+    directoryEntriesCache.delete(key);
+    directoryEntriesCache.set(key, entries);
+
+    while (directoryEntriesCache.size > DIRECTORY_ENTRIES_CACHE_LIMIT) {
+      const oldestKey = directoryEntriesCache.keys().next().value;
+
+      if (oldestKey === undefined) {
+        break;
+      }
+
+      directoryEntriesCache.delete(oldestKey);
+    }
+  }
+
+  function removeCachedDirectoryEntries(path: string): void {
+    directoryEntriesCache.delete(normalizePath(path));
+  }
 
   const primaryWorkspace: ComputedRef<Workspace | null> = computed(() => (
     workspaces.value?.find(workspace => workspace.isPrimary) || null
@@ -165,11 +213,40 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
     currentWorkspace.value?.tabGroups?.push(tabGroup);
   }
 
+  /**
+   * 标签页的标量浅拷贝。
+   *
+   * 批次 C2 之前这里是 clone(tab)（lodash cloneDeep）：整棵条目对象树被复制一遍，
+   * 而那些条目对象本来就不该被标签页持有。现在标签页只剩标量字段，
+   * 逐字段抄一遍既便宜，也不会把条目对象带进快照。
+   */
+  function createTabSnapshot(tab: Tab): Tab {
+    const tabSnapshot: Tab = {
+      id: tab.id,
+      name: tab.name,
+      path: tab.path,
+      type: tab.type,
+      paneWidth: tab.paneWidth,
+      filterQuery: tab.filterQuery,
+      dirEntries: [],
+      selectedDirEntries: [],
+    };
+
+    // 运行期交接位：分栏出来的 pane 要继承过滤词与「强制列表样式」标记。
+    if (tab.pendingFilterQuery !== undefined) {
+      tabSnapshot.pendingFilterQuery = tab.pendingFilterQuery;
+    }
+
+    if (tab.pendingForceListLayout !== undefined) {
+      tabSnapshot.pendingForceListLayout = tab.pendingForceListLayout;
+    }
+
+    return tabSnapshot;
+  }
+
   function createClosedTabSnapshot(tab: Tab): Tab {
-    const tabSnapshot = clone(tab);
+    const tabSnapshot = createTabSnapshot(tab);
     tabSnapshot.id = uniqueId();
-    tabSnapshot.dirEntries = [];
-    tabSnapshot.selectedDirEntries = [];
     return tabSnapshot;
   }
 
@@ -535,8 +612,6 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
           path,
         };
     updateTabPath(currentTab.value, path);
-    currentTab.value.dirEntries = [];
-    currentTab.value.selectedDirEntries = [];
     currentTab.value.filterQuery = '';
     await loadCurrentTabGroup();
   }
@@ -682,7 +757,8 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
         });
 
         if (tab.type === 'directory' && normalizePath(tab.path) === requestedPath) {
-          tab.dirEntries = dirEntries;
+          // 条目对象不进标签页：标签页只记路径，条目统一放进按路径去重的缓存。
+          cacheDirectoryEntries(tab.path, dirEntries);
         }
       }
     }));
@@ -817,7 +893,7 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
   }
 
   function splitTabGroup(tabGroup: TabGroup) {
-    const newTab = clone(tabGroup[0]);
+    const newTab = createTabSnapshot(tabGroup[0]);
     newTab.id = uniqueId();
     tabGroup.push(newTab);
   }
@@ -1052,6 +1128,9 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
     openOrFocusTabGroup,
     preloadDefaultTab,
     getDirEntry,
+    getCachedDirectoryEntries,
+    cacheDirectoryEntries,
+    removeCachedDirectoryEntries,
     loadCurrentTabGroup,
     openTabGroup,
     closeTabGroup,
