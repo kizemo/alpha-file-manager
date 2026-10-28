@@ -6,6 +6,8 @@ import type { SigmaExtensionAPI } from '@/modules/extensions/api';
 import { ensureClipboardChangeBridge } from '@/modules/extensions/api/clipboard-change-bridge';
 import type { Disposable, ExtensionActivateContext, ModalHandle } from '@/types/extension';
 import { createExtensionApiMethodMap } from '@/modules/extensions/runtime/api-method-map';
+import extensionWorkerUrl from '@/modules/extensions/runtime/extension-worker.ts?worker&url';
+import { createSandboxedWorker, type SandboxedWorker } from '@/modules/extensions/runtime/sandboxed-worker';
 import { createRequestId } from '@/modules/extensions/runtime/worker-protocol';
 import { cloneBridgeResult } from '@/modules/extensions/utils/worker-message-clone';
 import {
@@ -39,15 +41,12 @@ export type WorkerHost = {
   destroy: () => void;
 };
 
-function createWorker(): Worker {
-  return new Worker(
-    new URL('./extension-worker.ts', import.meta.url),
-    { type: 'module' },
-  );
+function createWorker(): SandboxedWorker {
+  return createSandboxedWorker(new URL(extensionWorkerUrl, window.location.href).href);
 }
 
 function postWorkerRequest<T>(
-  worker: Worker,
+  worker: SandboxedWorker,
   pendingRequests: Map<string, PendingRequest>,
   message: Record<string, unknown>,
 ): Promise<T> {
@@ -97,6 +96,12 @@ export function createWorkerHost(
 
     pendingHandlerCalls.clear();
   }
+
+  worker.onsetuperror = (error) => {
+    const setupError = error instanceof Error ? error : new Error(String(error));
+
+    rejectAllPending(setupError);
+  };
 
   worker.onerror = (event: ErrorEvent) => {
     const message = event.message || 'Extension worker failed to load';
