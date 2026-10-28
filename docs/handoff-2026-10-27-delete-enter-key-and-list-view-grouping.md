@@ -1551,3 +1551,15 @@ BrowserProcessGone（浏览器进程整体没了，reload 也没用）
 - 批量改文档用「纯文本数据文件 + node 插补脚本」，写完立刻验 **U+FFFD = 0 且无 BOM**；标记正则要允许**小写** locale（`/^===([A-Za-z0-9_]+)===$/`），只允许大写会漏掉 `===LOCALE_ch===`。
 - winget 生成器里 `InstallerSha256` 那行是**缩进两格**的 ⇒ 正则必须用 `/^(\s*)InstallerSha256: .*$/m`。
 - release 构建里 `SFM_E2E_DATA_DIR` 隔离覆盖被编译掉 ⇒ 沙箱实例与真实实例**共用 user-data**；沙箱测量/验收前必须先结束真实实例。
+- ⚠️ **2026-10-28：push 别再固定用 `git -c http.proxy=`** —— 本仓 git 已配代理
+  `http.proxy=http://127.0.0.1:7897`，清空代理后直连 github.com 报
+  `Recv failure: Connection was reset`；**用默认代理 `git push origin main` 一次就成功**。
+  正确姿势：**先带默认代理，失败再退回 `-c http.proxy=` 重试**。
+- **Node 的 `fetch` 不走 git 的代理**：要加 `NODE_USE_ENV_PROXY=1` + `HTTPS_PROXY=http://127.0.0.1:7897`。
+  ⚠️ 不加时 `release:upload` 的**收尾 fetch 会 `UND_ERR_CONNECT_TIMEOUT`**，
+  表现成「上传失败 exit 1」，**但实际上传早已成功**（4 个安装包 md5+size 全一致、线上 version.json 已是 3.6.4）。
+  **看到这报错别重跑上传**，直接 `npm run release:verify` 复核即可。
+- **3.6.4 双端发布结果**：GitHub release `v3.6.4` 资产
+  `Alpha_File_Manager_3.6.4_x64-setup.exe`（20,697,849 B，digest
+  `sha256:d070bb8d4adf4716c8522ce071157c531cfca8e080b355790daaa4fcf0c79493`）；
+  aiec.fun 源站与边缘（`CF-Cache-Status=MISS`）大小/sha256 三项一致；提交 `bd375f1b` 已 push。
