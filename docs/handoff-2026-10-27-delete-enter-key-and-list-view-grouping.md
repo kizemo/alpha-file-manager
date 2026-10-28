@@ -10,15 +10,14 @@
 
 | 问 | 答 |
 |---|---|
-| 用户要什么 | ① 永久删除确认框里**直接回车要等于「删除」**（现在回车什么都不会发生）；② 目录窗口的**列表视图**要像缩略图视图那样，在「文件夹 / 图片 / 视频 / 其它文件」之间给出区隔；③ **中途追加**：按 F2 或右键「重命名」（非批量）时**不弹模态框**，直接在文件名上就地编辑，改完后用 ↑/↓ 切文件仍保持可编辑状态，便于手工连续批量改名；④ 优化与测试通过后**直接打包发版**，升级 README、新版本说明、aiec 版本记录，上传 GitHub 与 aiec |
-| 这次发哪个版本 | **3.6.3**（3.6.2 已于 2026-10-26 发布）。三块优化合并进 3.6.3（3.6.3 尚未对外发布，合并比拆版本省） |
-| 现在卡在哪 | ① **3.6.3 已经全部发完**（三块优化均通过真机验收，发版提交已 push，GitHub release `v3.6.3` 与站点 aiec.fun 均已上线并回读校验通过）；剩下的外围事项：winget PR（须等 3.5.1 的 `#460744` 合并）、安装包代码签名、远程条目的就地改名验证。详见第 13–17 节。② **资源占用分析与优化**（2026-10-28）：现状实测与计划 v2、**批次 A/B 代码改造（已 push）、批次 D 环境层实测与清理均已完成**；**批次 C（结构性改造 6 项）代码已全部完成并通过全量门禁**（C1 / C3 均已真机验收 PASS，见 §18.12），**工作树尚未 commit**；**资源占用问题的来源归因见 §18.13**（结论：**AFM 二次编辑引入 0 项**，19 条全部来自上游 SFM） |
-| 已落盘的东西 | 4 笔 commit（`82d42190` / `605efae8` / `d1c96f70` / `dff656a4`）+ 优化 C 的 13 个源文件（**已通过真机验收，随本次发版提交一并提交**）+ 3.6.3 安装包 / winget 清单 / 站点文件 / 18 个发版文档（**随本次发版提交一并提交**） |
-| 资源优化的产物 | `.superpowers/sdd/mem-plan-v2.md`（计划 v2）、`mem-audit-final.md`（现状实测与 v1 方案）、`mem-audit-frontend.md`（前端持有点 20 条）、`mem-audit-rust.md`（Rust 持有点 21 条）、`mem-probe-2.ps1` + `mem-probe-2.out.txt`（可重复的进程/磁盘探针）、`mem-batch-d.ps1` / `mem-batch-d-run.ps1` / `mem-batch-d-phase2.ps1`（批次 D 的测量 / 停启 / 分阶段执行脚本）、`mem-batch-d-before.json` / `-before-fresh.json` / `-after-ab.json` / `-after-d.json` / `-after-d-warm.json`（五份实测快照）、`mem-phase-ab2.log` / `mem-phase-d2.log`（实测日志）、`mem-dump-strings.cjs`（崩溃 dump 取证脚本）、`mem-gate-fe2.log` / `mem-gate-rs2.log` / `mem-build.log`（门禁与打包日志）；**批次 C**：`mem-batch-c1-report.md` … `mem-batch-c6-report.md`（六个切片报告）、`mem-origin-attribution.md`（来源归因，48 KB）、`mem-batch-c-frontend-gate.log` / `mem-batch-c-tauri-build.log`（批次 C 门禁与打包日志）、`accept-c1-v4.ps1` / `accept-c3-virtual-rows.ps1`（真机验收脚本）、`mem-accept-c1-v*.log`（C1 验收各轮日志）、**沙箱验收工具链**：`sandbox-c1-accept.ps1`（隔离桌面沙箱验收脚本，不抢用户焦点）、`mem-accept-c1-sandbox.log`（沙箱验收日志）、`mem-accept-c1-sandbox.stdout.txt`、`c1-sandbox-full.png` / `c1-sandbox-uia.csv`（沙箱截图与 UIA 转储）、**接力件**：`relay-rules-batch-c.md`（防异常终止对策 + 沙箱坑位清单）、`relay-prompt-batch-c.txt`（新会话接力 prompt）。**这些文件都在 `.superpowers/`（被 gitignore），不进版本库** |
-| 仓库状态 | 内层仓 `sigma-file-manager` 分支 `main`；**代码提交 `e8a41f3b`（资源优化批次 A/B）已 push**，`origin/main` = `e8a41f3b8b43b740f5078b84521823efd2625280`（用 `gh api .../commits/main --jq '.sha'` 核对一致）；本节 §18.11 的实测回写是**纯文档提交**；上游 `https://github.com/kizemo/alpha-file-manager.git`；**批次 C 见 §18.12**；归因结论见 §18.13 |
-| 最容易踩的坑 | ① **真机验收只能用 `tauri build` 产物**，`tauri dev` 的路由页内容区全空白，界面结论一律作废；② 打包前必须停 `alpha-file-manager` 进程**并把 `src-tauri/target/release/alpha-file-manager.exe` 移走**（只杀进程不够，上一轮就是这么被 `os error 5` 卡住的）；③ `eslint .` 是整仓口径，基线 **188 errors**；④ `.cmd` 里 `echo` 不能出现 `>`；⑤ `.ps1` / `.cmd` 必须纯 ASCII（中文要用 `[char]0x....` 拼）；⑥ `app-key.ps1` 只认**裸名 token**（传 `'{F2}'` 会静默不发送）；⑦ WebView2 里 UIA 的 `FocusedElement` 不可信，判「选中」要看状态栏「已选择 N 个项目」；⑧ **会话锁住时 `SendInput` / `SetCursorPos` 全废（err=5），但 `PostMessage` 合成鼠标消息与 `WM_KEYDOWN` 照样能穿透到渲染进程** ⇒ 键盘链路（F2 / 回车 / ↑↓ / Esc）也能在锁屏状态下真机验收；⑨ 文件浏览器右键菜单里**没有文字「重命名」项**，改名入口是 quick-actions 行**第 1 个无名按钮（铅笔）**，要靠 UIA `InvokePattern` 或按坐标点 |
-
----
+| 项目是什么 | `F:\soft\00selfmade\filemanager\sigma-file-manager` = **Alpha File Manager（AFM）**，Tauri 2 + Vue 3 + reka-ui 的 Windows 文件管理器；fork 自上游 `aleksey-hoffman/sigma-file-manager`（SFM） |
+| 用户要什么（2026-10-28） | ① 回答「相较优化前资源占用减少多少」并给数据；② 版本升到 **3.6.4 并发版**（README / 升级日志 / aiec 版本文件 / GitHub / aiec.fun）；③ 解释上游 `global_search/scoring.rs` 短查询门槛缺陷的成因与影响并判断能否修 |
+| 本轮做到了哪 | ①②③ **全部完成**：3.6.4 已于 2026-10-28 发布（commit `bd375f1b` + `6c6aeb8e` → `origin/main`；GitHub release `v3.6.4` 与 aiec.fun 线上均为 3.6.4）；资源数据见 §19.3；scoring 缺陷已修并随 3.6.4 发布，见 §19.5 |
+| 现在卡在哪 | 无阻塞。**下一阶段 = mac Finder 风格主题**（§20）：摸清主题机制 → 出 3 个方向初稿给用户选 → 落地浅色 / 深色两套 → 沙箱验收 → 发 **3.6.5** |
+| 已落盘的东西 | 3.6.4 安装包（`release/Alpha File Manager_3.6.4_x64-setup.exe`，20,697,849 B，sha256 `D070BB8D4ADF4716C8522CE071157C531CFCA8E080B355790DAAA4FCF0C79493`）、winget 3.6.4 清单四件套、站点 `version.json`（3.6.4 / history 19 条）、`_release-notes-v3.6.4.md`、17 个发版文档、交接文档 §19 + §20 |
+| 仓库状态 | 内层仓 `sigma-file-manager` 分支 `main`，HEAD = `6c6aeb8e`，与 `origin/main` 一致（用 `gh api repos/kizemo/alpha-file-manager/commits/main --jq '.sha'` 核对）；**工作树干净**；外层仓 `F:\soft\00selfmade\filemanager` 只改了 `AGENTS.md`（本地 commit `fcc9fae`，未 push） |
+| 门禁基线 | `npx eslint .` = **188 errors / 0 warnings**；`npm run ts` exit 0；`npm run test` = 251 files / 2314 tests；`cargo check --all-targets` exit 0；`cargo test --lib` = 856 passed / **2 failed（存量环境问题：MCP 端口 55100–55199 被占、WSAEACCES，非回归）** |
+| 最容易踩的坑 | ① 真机验收只能用 `tauri build` 产物（`tauri dev` 路由页内容区全白）；② 验收必须跑在**隔离桌面沙箱**内（`AGENTS.md` §2.8）；③ `eslint .` 是整仓口径，基线 188；④ `.cmd` 的 `echo` 里不能有 `>`、`.cmd` 运行期间不能编辑；⑤ `.ps1`/`.cmd` 必须纯 ASCII；⑥ **push 先走默认代理**，清空代理会 `Recv failure: Connection was reset`；⑦ Node `fetch` 要 `NODE_USE_ENV_PROXY=1` + `HTTPS_PROXY=http://127.0.0.1:7897`；⑧ `release/` 里的历史安装包不许删（winget 清单按 sha256 比对） |
 
 ## 1. 任务是什么（用户原话）
 
@@ -47,12 +46,11 @@
 
 ### 2.2 版本现状
 
-- `package.json` = **3.6.3**；`src-tauri/Cargo.toml`、`src-tauri/default-file-manager-common/Cargo.toml`、`src-tauri/default-file-manager-launcher/Cargo.toml` 三处都 = **3.6.3**（`src-tauri/tauri.conf.json` 的 version 指向 `"../package.json"`，不用改）。**版本号已 bump 完毕，不要再 bump**（重打包要加 `--bump none`）。
-- **本次发版目标版本 = 3.6.3**（`release:prepare --bump patch` 会把三处一起 bump，记得用 `npm run sync-version` 或让脚本处理）。
-- 3.6.2 已发布：GitHub `kizemo/alpha-file-manager` release `v3.6.2`（非 draft / 非 prerelease）、aiec.fun 站点 `version.json` 已升到 3.6.2、winget 3.6.2 清单四件套已备好。
-  - 3.6.2 安装包：`release/Alpha File Manager_3.6.2_x64-setup.exe`，20,671,224 B，sha256 `65B3AF7CE60755D6163A1C4E0ED42C41A7D97FEAD02BD887500FF5E000BFDC89`（GitHub 资产 digest / 站点 `version.json` / winget `InstallerSha256` 四方一致）。
-- `release/` 目录里堆了 2.2.0 → 3.6.3 的历史安装包，**都在，别删**（winget 清单要按 sha256 比对这里的实际文件）。
-- **3.6.3 的产物**（安装包 sha / 字节数 / winget 清单 / 站点文件）见第 14 节。
+- **当前版本 = 3.6.4**（`package.json`；`src-tauri/Cargo.toml`、`src-tauri/default-file-manager-common/Cargo.toml`、`src-tauri/default-file-manager-launcher/Cargo.toml` 三处同步；`src-tauri/tauri.conf.json` 的 version 指向 `"../package.json"`，不用改）。
+- **3.6.4 已于 2026-10-28 发布完毕**（commit `bd375f1b` + `6c6aeb8e` → `origin/main`；GitHub release `v3.6.4`；站点 aiec.fun 线上 3.6.4）。
+  - 安装包：`release/Alpha File Manager_3.6.4_x64-setup.exe`，**20,697,849 B**，sha256 **`D070BB8D4ADF4716C8522CE071157C531CFCA8E080B355790DAAA4FCF0C79493`**（GitHub 资产 digest / 站点 `version.json` / winget `InstallerSha256` 四方一致）。
+- **下一版目标 = 3.6.5**（mac Finder 风格主题，见 §20）。升版本用 `npm run release:prepare -- --bump patch`；**万一只是重打包必须 `--bump none`**。
+- `release/` 目录里堆了 2.2.0 → 3.6.4 的历史安装包，**都在，别删**（winget 清单要按 sha256 比对这里的实际文件）。
 
 ### 2.3 项目形态要点
 
@@ -478,11 +476,11 @@ npm --prefix $repo run check:winget
 
 ## 11. 一句话接力 prompt
 
-> 接手 `F:\soft\00selfmade\filemanager\sigma-file-manager`（Alpha File Manager，Tauri 2 + Vue3 + reka-ui）：先读 `F:\soft\00selfmade\filemanager\AGENTS.md`（项目硬约束，**必读**）与 `F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-10-27-delete-enter-key-and-list-view-grouping.md`（本文，**唯一权威状态源**：第 0 节速查表、第 13 节优化 C 的规格与**最终验收结论**、第 14 节发版资产现状、第 17.4 节**发布结果**、第 16–17 节经验）。
+> 接手 `F:\soft\00selfmade\filemanager\sigma-file-manager`（Alpha File Manager，Tauri 2 + Vue3 + reka-ui）：先读 `F:\soft\00selfmade\filemanager\AGENTS.md`（项目硬约束，**必读**：第 2 节真机验收铁律、§2.8 隔离桌面沙箱约束、§2.2 末尾 push/Node 代理两条新规）、`F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-10-27-delete-enter-key-and-list-view-grouping.md`（本文，**唯一权威状态源**：§0 速查表、§19 的 3.6.4 发布结果与资源数据、**§20 的主题制作计划与机制调研结论**、§7.2 与 §15.1 发版铁律、§16–18 的环境坑位）、以及 `F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\relay-rules-batch-c.md`（沙箱验收坑位清单，是纪律清单不是任务清单）。
 >
-> **3.6.3 已于 2026-10-28 全部发完**（commit `a9fed27a` → `origin/main`；GitHub release `v3.6.3` 与站点 aiec.fun 线上均为 3.6.3，sha256 `FEE1F2A874FA8F89A32F71AA03B6B934C4A8A2E6DB4F23F95D7FF03B1E44644B`，20,716,092 B）⇒ **不要重复发版、不要重跑已完成的验收**。
+> **3.6.4 已于 2026-10-28 全部发完**（commit `bd375f1b` + `6c6aeb8e` → `origin/main`；GitHub release `v3.6.4` 与站点 aiec.fun 线上均为 3.6.4，安装包 20,697,849 B / sha256 `D070BB8D4ADF4716C8522CE071157C531CFCA8E080B355790DAAA4FCF0C79493`）⇒ **不要重复发 3.6.4、不要重跑已完成的验收**。
 >
-> 下一轮请先跟用户确认做哪一项（候选：① 等 `microsoft/winget-pkgs#460744`（3.5.1）合并后补提 3.6.3 的 winget PR；② 列表视图分区的 **sticky 段头**；③ 远程条目（`renameRemoteEntry`）的就地改名真机验证；④ 虚拟滚动下编辑态行被滚出的边界；⑤ 下一个补丁版本 3.6.4），再按本文第 13–17 节既定的口径动手。发版权威流程见 `docs\operations\release-workflow.md`，全程遵守 `AGENTS.md` 的中文输出与各项硬约束。
+> 下一轮做 **mac Finder 风格主题**（用户 2026-10-28 指定）：按 §20.5 的顺序 —— 先摸清主题变量的实际消费面（§20.2 已给全机制与文件行号，不必重新调研）→ 按 §20.4 出 3 个 mac Finder 方向初稿交用户选 → 落地浅色 / 深色两套主题（只改 `src/styles/vars.css` 的颜色与形状 token，**保持资源管理器布局框架不变**，浅色设为默认）→ 跑门禁 → `tauri build` 出包后在**隔离桌面沙箱**内做视觉验收（不得抢用户桌面焦点）→ 按 §7.2 / §15.1 的顺序发 **3.6.5**（README、升级日志、aiec 版本文件、push 到 GitHub 与 aiec.fun）。
 
 ## 12. 涉及文件完整路径清单
 
@@ -1563,3 +1561,119 @@ BrowserProcessGone（浏览器进程整体没了，reload 也没用）
   `Alpha_File_Manager_3.6.4_x64-setup.exe`（20,697,849 B，digest
   `sha256:d070bb8d4adf4716c8522ce071157c531cfca8e080b355790daaa4fcf0c79493`）；
   aiec.fun 源站与边缘（`CF-Cache-Status=MISS`）大小/sha256 三项一致；提交 `bd375f1b` 已 push。
+
+## 20. 下一阶段：AFM 主题制作（mac Finder 风格 · 浅色 / 深色）（2026-10-28 晚 新增）
+
+### 20.1 用户原话
+
+> 下一阶段，希望深入研究 AFM 主题制作的方式方法，必要时访问 https://github.com/sigma-hub/sigma-ui 了解 SFM 的 UI 设计机制。
+> 在掌握 AFM 主题制作方式的前提下，调用 /huashu-design 为 AFM 设计两套 mac Finder 风格主题，分别为浅色和深色，保持当前的资源管理器布局框架不变，在 mac finder 风格基础上进一步美化。制作后，设置 mac 浅色风格主题为默认。
+> 在通过测试后，升级版本号打包、发版，升级 readme 文档、升级日志、aiec 版本文件，push 到 github 和 aiec。
+
+### 20.2 主题机制调研结论（本轮已做完，新会话直接用，不必重查）
+
+AFM 的主题**不是**「改一份 CSS 就完事」，它分两层。
+
+**第一层 · 内置主题（`light` / `dark` / `system`）**
+
+- 类型定义：`src/types/user-settings.ts:269-270`
+  `BuiltinThemeId = 'light' | 'dark' | 'system'`；`Theme = BuiltinThemeId | \`extension:${string}:${string}\``
+- 注册表：`src/modules/themes/registry.ts`
+  - `BUILTIN_THEME_IDS = ['dark','light','system']`（第 8 行）
+  - **`DEFAULT_THEME_ID = 'light'`（第 9 行）⇒ 当前默认已经是浅色**
+  - `parseThemeId` / `findThemeOption` / `normalizeThemeSelection` / `getAvailableThemeOptions`
+- 应用：`src/stores/storage/composables/use-theme.ts`
+  - 内置主题 ⇒ `document.documentElement.classList.toggle('dark', isDark)`（第 59 行）
+  - 切换动画：**View Transitions + clip-path 圆形扩散，500 ms**；`prefers-reduced-motion` 自动降级（`runThemeTransition`）
+  - `watchEffect` 跟随设置项，`matchMedia('(prefers-color-scheme: dark)')` 变化时刷新 `system` 主题
+- 变量表：`src/styles/vars.css`（共 144 行）
+  - `:root` = 浅色（第 1–110 行）；`.dark` = 深色（第 112–143 行）
+  - **变量值是 HSL 三元组**（`220 13% 93%`），消费写法是 `hsl(var(--x) / N%)`
+  - 分三块：
+    ① AFM 自有：`--background-2/3`、`--window-toolbar`、`--icon`、尺寸类 `--nav-sidebar-width`、`--window-toolbar-height`、`--action-toolbar-height`、`--tab-height` 等
+    ② `/* SIGMA-UI */` 设计 token：`--background`、`--foreground`、`--muted`、`--muted-foreground`、`--popover`、`--card`、`--border`、`--input`、`--primary`、`--secondary`、`--destructive`、`--ring`、`--success`、`--dangerous`、`--warning`
+    ③ 形状/阴影/字体：`--radius*`（`--radius` / `--radius-full` / `--radius-xl|md|sm|xs`）、`--shadow-md` / `--shadow-lg`、`--font-mono`
+  - ⚠️ **带 `FORK-MODIFICATION` 注释的尺寸类变量不要动**。例如 `--navigator-list-view-entry-height: 42px` 是「运行时注入有没有生效」的判据（真机在 medium 档量出 42px = 注入断了），改了就把这个信号永久抹掉（见 vars.css 第 38–47 行注释）。
+- 设置界面：`src/modules/settings/ui/categories/appearance/theme.vue`
+- 单测：`src/modules/themes/__tests__/registry.test.ts`、`src/stores/storage/composables/__tests__/use-theme.test.ts`
+
+**第二层 · 扩展主题（`contributes.themes`）**
+
+- 主题条目形状（`src/modules/themes/registry.ts:19-28`）：
+  ```ts
+  { id: string; title: string; description?: string;
+    baseTheme: 'light' | 'dark';
+    variables: Record<`--${string}`, string> }
+  ```
+- 主题 id 形态：`extension:<extensionId>:<themeId>`（`createExtensionThemeId`）；`themeId` 必须匹配 `/^[a-z0-9-]+$/`
+- 来源：扩展 manifest 的 `contributes.themes[]`（`registry.ts:103`）
+- 应用顺序（`use-theme.ts:154-178`）：先清掉上次注入的变量 → 按 `baseTheme` 切 light/dark 类 → 再逐个 `style.setProperty()` 注入扩展变量
+- ⇒ **扩展主题可以只覆盖变量、不动结构**，这正好满足用户「保持当前资源管理器布局框架不变」
+
+**sigma-ui 是什么**（https://github.com/sigma-hub/sigma-ui）
+
+- 作者就是 SFM 上游作者 Aleksey Hoffman；定位「Well designed components for your Vue apps. Built on Reka-UI (Radix) primitives. Similar to shadcn/ui」
+- **拷贝式（copy-paste）组件库，不是 npm 依赖**：CLI `sigma-ui add <name>` 把组件源码写进你的仓库，你自己维护副本；`sigma-ui add <name> --diff` 显示与上游的漂移
+- 站点 `sigma-ui.dev`；MIT；102 stars
+- **AFM 已经在用它的设计 token**：`src/styles/vars.css` 里明确有 `/* SIGMA-UI */` 注释块（浅色第 62 行、深色第 122 行）
+- ⇒ 调研 SFM 的 UI 设计机制时，**sigma-ui 是 token 层的上游**，AFM 的 `vars.css` 就是它的落地形态
+
+### 20.3 落地路径的取舍（**关键决策点，新会话照此走**）
+
+用户要求「mac 浅色主题设为默认」。当前 `DEFAULT_THEME_ID = 'light'`（内置常量，见 registry.ts:9）。
+
+- **路线 A（主线，推荐）**：直接把 `src/styles/vars.css` 的 `:root` / `.dark` 两套变量改造成 mac Finder 风格。
+  - 「浅色为默认」天然成立（默认本来就是 light）；随 3.6.5 发行直接到用户端；不依赖扩展机制。
+  - 代价：与上游 diff 变大 ⇒ 改动的变量行要标 `FORK-MODIFICATION: 2026-10-28`（本仓既有惯例）。
+  - 只改**颜色/形状 token**（`--background*`、`--foreground`、`--muted*`、`--popover`、`--card`、`--border`、`--input`、`--primary`、`--secondary`、`--ring`、`--radius*`、`--shadow-*`），**不要碰尺寸类变量**。
+- **路线 B（可选叠加）**：再做一个扩展主题包（`contributes.themes`），让用户在设置里额外选「mac Finder 增强版」。
+  - 限制：扩展主题**无法成为全局默认**（`DEFAULT_THEME_ID` 是常量），且 AFM 发行版不自带扩展 ⇒ 拿不到「默认」效果。
+- ⇒ **先做 A；B 视时间再说。**
+
+### 20.4 与 `/huashu-design` 的冲突点（**要处理，别无视**）
+
+- 技能自述要求：「任何新设计 100% 先出三个方向初稿给用户选（指定品牌/风格也不豁免）」；
+  而用户已指定方向（mac Finder 风格）与交付物（浅色 + 深色两套）。
+- ⇒ 建议做法：新会话先按技能流程产出**三个 mac Finder 变体方向**的初稿（如「原生还原 / 精致现代 / 半透明玻璃」）交用户选，
+  **选定一个方向后**再分别做浅色、深色两套。既不违技能流程，也不违用户指令。
+
+### 20.5 下一步执行顺序（建议）
+
+1. **摸清变量消费面**：全仓 grep `hsl(var(--` 与 `var(--` 的覆盖面，产出「要改的颜色 token 清单」，
+   并做一张对照表（token ← mac 取色）。⚠️ 先确认哪些 token 真被用上，别改了一堆没人用的变量。
+2. **出设计方向**：按 §20.4 产出 3 个方向初稿（可用 `/huashu-design` 的 HTML 原型做），交用户选。
+3. **落地**：改 `src/styles/vars.css` 的 `:root` / `.dark`；必要时清 `src/styles/general.css`、`main.css` 里的硬编码色值。
+4. **测试**：eslint（基线 188 errors / 0 warnings）、`npm run ts`、`npm run test`（基线 251 files / 2314 tests）；
+   `use-theme.test.ts` 与 `registry.test.ts` 必须仍过（改的是变量值不是逻辑，通常不受影响）。
+5. **真机验收（硬约束）**：`tauri dev` 的路由页内容区全白 ⇒ **必须 `tauri build` 出包**后，
+   在**隔离桌面沙箱**内验收（脚本见 §20.7），用 `PrintWindow` 截图取证浅色 / 深色两套。
+   - ⚠️ 本机 DPI 144（150%），量像素要 ÷1.5；
+   - ⚠️ 验收前先结束真实 `alpha-file-manager` 实例（release 构建里 `SFM_E2E_DATA_DIR` 覆盖被编译掉，会抢单实例）；
+   - ⚠️ 视觉验收走 `PrintWindow`（离屏渲染），**不要**用屏幕 BitBlt（会拍到别的窗口）。
+6. **发版 3.6.5**：严格按 §7.2 / §15.1 的顺序
+   `npm run verify-changelog` → `npm run release:prepare -- --bump patch` → `npm run release:prepare -- --write-notes ./_notes.md`
+   → commit / push → `npm run release:upload` → `npm run release:github` → `npm run release:status` → `npm run release:verify` → `npm run check:winget`
+   - 文档清单照 §19.1 的口径（CHANGELOG + 14 个本地化 changelog + README 中英 + winget 清单 + 站点 `version.json`）
+   - ⚠️ **3.6.4 的安装包必须留在 `release/` 不动**（20,697,849 B / `D070BB8D4ADF4716C8522CE071157C531CFCA8E080B355790DAAA4FCF0C79493`）
+   - ⚠️ push 走**默认代理**（清空代理会 `Recv failure: Connection was reset`，见 §19.6）
+   - ⚠️ Node 的 `fetch` 要 `NODE_USE_ENV_PROXY=1` + `HTTPS_PROXY=http://127.0.0.1:7897`，否则 `release:upload` 收尾会假失败
+
+### 20.6 本阶段不做
+
+- 不动布局结构（用户明确「保持当前的资源管理器布局框架不变」）
+- 不动受保护常量（mDNS 服务名、legacy 数据目录名、Tauri identifier `com.sigma-file-manager.app`）
+- 不顺手重构 `use-theme.ts` 的动画逻辑（除非新主题真暴露问题）
+- 不重新发 3.6.4（已发完，§19.6）
+
+### 20.7 沙箱验收工具链（路径已核对存在）
+
+- 脚本：`F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\sandbox-c1-accept.ps1`
+- 纪律清单：`F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\relay-rules-batch-c.md`
+- ⚠️ 用户口述的路径 `…\sigma-file-manager.superpowers\sdd\…` **少了 `sigma-file-manager` 后面的反斜杠**，实际路径以上面两行为准。
+- 其余沙箱坑位见 `AGENTS.md` §2.8 与本文 §16–17。
+
+### 20.8 本轮（2026-10-28 晚）顺手做的两件事
+
+- `AGENTS.md` 补记两条会误导下一轮的规则：① push 要先走默认代理、失败再退回 `-c http.proxy=`；
+  ② Node `fetch` 需 `NODE_USE_ENV_PROXY=1` + `HTTPS_PROXY`。
+- 交接文档 §19 补记 3.6.4 双端发布结果。
