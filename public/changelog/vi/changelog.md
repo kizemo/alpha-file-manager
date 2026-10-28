@@ -1,5 +1,17 @@
 # Nhật ký thay đổi
 
+## [3.6.4] - October 2026
+
+**Summary:** Ba điều, một điều không thấy được. Ứng dụng giờ dùng bộ nhớ ít hơn nhiều - trên cùng máy, cùng tài khoản và cùng ổ đĩa, tập làm việc lúc khởi động nguội giảm từ 961,2 MB xuống 742,8 MB (-22,7%), và bộ nhớ đệm trên đĩa giảm từ 805,58 MB xuống 66,21 MB (-91,8%). Khi tiến trình kết xuất của WebView2 sập, cửa sổ trắng không còn đứng lại nữa: một trình giám sát tự tải lại trang, và chỉ hỏi khởi động lại khi trang không quay lại. Tìm kiếm toàn cục cũng không còn trả về rỗng với từ khóa ngắn: "pdf", "doc" hay "095" trước đây thường không tìm thấy gì cả.
+
+### What changed
+
+**Cải thiện: ứng dụng dùng ít bộ nhớ hơn nhiều.** Bộ nhớ đệm ảnh thu nhỏ của giao diện không còn được dựng lại từ đầu mỗi khi khung nhìn đổi (tiến trình kết xuất trả lại 68 MB - phần giảm gần như toàn bộ đến từ đây), cửa sổ Quick View ẩn không còn được mở sẵn (bớt hẳn một tiến trình kết xuất WebView2), và một loạt thay đổi mang tính cấu trúc (chỉ mục tìm kiếm, theo dõi thư mục, danh sách ảo hóa) loại phần còn lại. Bộ nhớ đệm ảnh thu nhỏ và chỉ mục tìm kiếm tích tụ cũng đã được dọn: giải phóng 739 MB trên đĩa, và được dựng lại khi cần.
+
+**Thêm mới: sập WebView2 tự phục hồi.** Khi tiến trình kết xuất chết, cửa sổ cứ trắng và cách duy nhất là mở lại chương trình. Nay đã có một trình giám sát: nếu tiến trình kết xuất biến mất, hoặc giao diện ngừng gửi nhịp sống quá 20 giây, trang sẽ được tải lại. Nếu trang quay lại thì không có gì xảy ra; nếu không, một hộp thoại của hệ thống sẽ hỏi bạn có khởi động lại chương trình không - mỗi lần sập chỉ một lần.
+
+**Sửa: từ khóa ngắn trong tìm kiếm toàn cục không ra kết quả.** Tìm "pdf", "doc" hay "095" thường trả về danh sách rỗng. Phần chấm điểm trả về sớm ở trường hợp "tên chứa từ khóa", nên phần so khớp theo token không bao giờ được chạy tới: một kết quả hiển nhiên như "doc" trong "report.docx" chỉ được 0,845 điểm, trong khi ngưỡng cho từ khóa ba ký tự là 0,9 - nên bị loại bỏ, và tìm theo phần mở rộng gần như luôn trống. Nay hai đường đi lấy điểm cao hơn, nên một kết quả không nằm ở đầu tên vẫn vượt ngưỡng. Bản thân ngưỡng không đổi; tìm kiếm mờ với từ khóa ngắn vẫn chặt chẽ như trước.
+
 ## [3.6.3] - October 2026
 
 **Summary:** Three things that were quietly getting in the way. Deleting a file for good now does what you expect when you press Enter — the confirmation used to open with the keyboard focus on *Cancel*, so Enter closed it again and left the file where it was - the only way to confirm was to reach for the mouse. And the list view now separates folders, pictures, videos and other files into groups, the way the thumbnail view already did, so the thing you are looking for is one heading away instead of somewhere in the middle of a long list. Renaming no longer opens a dialog either: the name turns into a field right where it stands, and the arrow keys keep taking you from one file to the next with the field still ready, so a whole pile of files can be renamed in a row.

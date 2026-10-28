@@ -187,42 +187,41 @@ GitHub releases carry the same installer and act as a fallback mirror:
 
 ---
 
-## 🆕 What's new in 3.6.3
+## 🆕 What's new in 3.6.4
 
-### ⏎ Enter confirms the permanent delete
+### 🧠 A lot less memory held on to
 
-**Fixed.** Choosing *Delete from drive* — or pressing Shift+Delete — opens a
-confirmation with two buttons, *Cancel* and *Delete*. Pressing Enter right after
-it opened did nothing: the keyboard focus landed on the *Cancel* button, so Enter activated Cancel and the dialog closed again without deleting anything. It now confirms the
-deletion.
+**Improved.** The same machine, the same account, the same drive: the working set
+dropped from 961.2 MB to 742.8 MB on a cold start (-22.7 %), and the cache on disk
+from 805.58 MB to 66.21 MB (-91.8 %).
 
-The rule is deliberately narrow. If the focus is already on a button, Enter keeps
-its normal meaning, so tabbing to *Cancel* and pressing Enter still cancels, and
-a second press never deletes anything twice.
+Four things did it. The thumbnail cache in the interface is no longer rebuilt from
+scratch every time the view changes - the rendering process gives 68 MB back, and
+that is where almost the whole reduction comes from. The hidden Quick View window is
+no longer started ahead of time, which takes one whole WebView2 rendering process
+off the list. A batch of structural changes - the search index, the directory
+watchers, the virtualised list - takes the rest. And the accumulated thumbnail and
+search-index cache was cleared: 739 MB off the disk, rebuilt on demand afterwards.
 
-### 📂 The list view groups entries by type
+### 🛟 A crashed WebView2 comes back on its own
 
-**Added.** The list view showed every entry in one long, unbroken list — which is
-exactly where the thumbnail view draws a line between folders, pictures, videos
-and everything else. The list view now draws the same line, with a heading for
-each group.
+**Added.** When the WebView2 rendering process died, the window stayed blank and the
+only way out was to start the program again. A watchdog now keeps an eye on it: if
+the rendering process disappears, or the interface stops sending its heartbeat for
+more than 20 seconds, the page is reloaded. If it comes back, nothing happens. If it
+does not, a system dialog offers to restart the program - once per failure, so it
+never nags.
 
-The sorting you chose still applies inside each group, the tree layout is
-untouched, and what the keyboard selects — including a Shift range — follows the
-order you actually see, so a range stays a range instead of jumping across the
-headings.
+### 🔎 Short queries in the global search
 
-### ✏️ Renaming happens in place
-
-**Added.** Pressing F2 — or picking *Rename* in the right-click menu for a single
-entry — used to open a dialog with the name in it. The name is now edited right
-where it stands, in the list or in the thumbnail view.
-
-Press Enter to keep the new name, Escape to put the old one back. And the part
-that matters when a lot of files need renaming: once a name has been changed, the
-arrow keys still move to the next and the previous entry with the field ready, so
-a whole run of files can be renamed in a row without going back to the mouse.
-Bulk renaming, and renaming in the tree layout, keep using the dialog.
+**Fixed.** Searching for "pdf", "doc" or "095" used to return an empty list. The
+scoring code returned early on "the name contains the query", so the token comparison
+never got its turn: a hit as obvious as "doc" in "report.docx" scored 0.845, while the
+threshold for a three-character query is 0.9, so it was thrown away - searching by
+file extension came up almost empty. The two paths now keep the higher of the two
+scores, so a hit that does not sit at the start of the name survives the threshold.
+The threshold itself is unchanged, and fuzzy matching for short queries stays just
+as strict.
 
 ---
 

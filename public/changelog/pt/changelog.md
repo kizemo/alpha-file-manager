@@ -1,5 +1,17 @@
 # Registro de alterações
 
+## [3.6.4] - October 2026
+
+**Summary:** Três coisas, uma delas invisível. A aplicação passa a ocupar muito menos memória do que antes - na mesma máquina, na mesma conta e no mesmo disco, o working set na arranque a frio desce de 961,2 MB para 742,8 MB (-22,7%) e a cache em disco de 805,58 MB para 66,21 MB (-91,8%). Uma falha do processo de renderização do WebView2 já não deixa uma janela em branco: um watchdog recarrega a página sozinho e só pede para reiniciar se ela não voltar. E a pesquisa global deixa de devolver nada em consultas curtas: "pdf", "doc" ou "095" muitas vezes não encontrava nada.
+
+### What changed
+
+**Melhorado: a aplicação ocupa muito menos memória.** A cache de miniaturas da interface já não é reconstruída de raiz a cada mudança de vista (o processo de renderização devolve 68 MB - quase toda a poupança vem daqui), a janela oculta de pré-visualização já não é iniciada antecipadamente (um processo de renderização do WebView2 a menos) e um conjunto de alterações estruturais (índice de pesquisa, observação de pastas, lista virtualizada) trata do resto. A cache acumulada de miniaturas e do índice de pesquisa também foi limpa: 739 MB a menos no disco, reconstruídos quando forem precisos.
+
+**Adicionado: uma falha do WebView2 recupera-se sozinha.** Quando o processo de renderização morria, a janela ficava branca e a única saída era reiniciar o programa. Agora um watchdog vigia-o: se o processo de renderização desaparecer, ou se a interface deixar de enviar o sinal de vida durante mais de 20 segundos, a página é recarregada. Se voltar, nada acontece. Se não voltar, uma caixa de diálogo do sistema pergunta se quer reiniciar o programa - uma vez por falha.
+
+**Corrigido: consultas curtas na pesquisa global não devolviam nada.** Pesquisar "pdf", "doc" ou "095" devolvia normalmente uma lista vazia. O cálculo da pontuação saía cedo em «o nome contém a consulta», pelo que a comparação por tokens nunca chegava a correr: uma correspondência tão óbvia como "doc" em "report.docx" ficava com 0,845, enquanto o limiar para consultas de três caracteres é 0,9 - era descartada, e a pesquisa por extensão ficava quase sempre vazia. Agora os dois caminhos guardam o maior dos dois valores, pelo que uma correspondência que não está no início do nome ultrapassa o limiar. O limiar em si não muda; a pesquisa aproximada em consultas curtas continua igualmente rigorosa.
+
 ## [3.6.3] - October 2026
 
 **Summary:** Three things that were quietly getting in the way. Deleting a file for good now does what you expect when you press Enter — the confirmation used to open with the keyboard focus on *Cancel*, so Enter closed it again and left the file where it was - the only way to confirm was to reach for the mouse. And the list view now separates folders, pictures, videos and other files into groups, the way the thumbnail view already did, so the thing you are looking for is one heading away instead of somewhere in the middle of a long list. Renaming no longer opens a dialog either: the name turns into a field right where it stands, and the arrow keys keep taking you from one file to the next with the field still ready, so a whole pile of files can be renamed in a row.

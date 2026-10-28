@@ -11,6 +11,7 @@ import { InfusionWrapper } from '@/components/ui/infusion';
 import { ChangelogDialog } from '@/modules/changelog';
 import { PageIframeLayout } from '@/layouts';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
+import { useWebviewGuard } from '@/composables/use-webview-guard';
 import { useEmbedPages } from '@/modules/extensions/composables/use-embed-pages';
 import ExtensionDialog from '@/modules/extensions/components/extension-dialog.vue';
 import ExtensionEmbed from '@/modules/extensions/components/extension-embed.vue';
@@ -19,6 +20,9 @@ import ExtensionModalsContainer from '@/modules/extensions/components/extension-
 
 const userSettingsStore = useUserSettingsStore();
 const { activeEmbedPageId, visitedEmbedPages } = useEmbedPages();
+
+// WebView2 子进程崩溃兜底：稳定发心跳，并把后端推来的状态变成用户看得见的提示。
+useWebviewGuard();
 </script>
 
 <template>

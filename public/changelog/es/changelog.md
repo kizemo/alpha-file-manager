@@ -1,5 +1,17 @@
 # Registro de cambios
 
+## [3.6.4] - October 2026
+
+**Summary:** Tres cosas, una de ellas invisible. La aplicación ahora ocupa mucha menos memoria que antes: en la misma máquina, la misma cuenta y la misma unidad, el conjunto de trabajo en el arranque en frío pasa de 961,2 MB a 742,8 MB (−22,7 %) y la caché en disco baja de 805,58 MB a 66,21 MB (−91,8 %). Una caída del proceso de renderizado de WebView2 ya no deja una ventana en blanco: un vigilante recarga la página por sí solo y solo propone reiniciar si la página no vuelve. Y la búsqueda global deja de devolver nada en las consultas cortas: "pdf", "doc" u "095" solían no encontrar nada.
+
+### What changed
+
+**Mejorado: la aplicación ocupa mucha menos memoria.** La caché de miniaturas de la interfaz ya no se rehace desde cero cada vez que cambia la vista (el proceso de renderizado devuelve 68 MB, y de ahí sale casi toda la reducción), la ventana oculta de Quick View ya no se adelanta (todo un proceso de renderizado de WebView2 menos) y un lote de cambios estructurales (el índice de búsqueda, la vigilancia de carpetas, la lista virtualizada) se lleva el resto. También se purgaron las miniaturas y el índice de búsqueda acumulados: 739 MB menos en disco, que la aplicación reconstruye cuando hacen falta.
+
+**Añadido: una caída de WebView2 se recupera sola.** Cuando el proceso de renderizado moría, la ventana se quedaba en blanco y la única salida era arrancar el programa de nuevo. Ahora un vigilante lo vigila: si el proceso de renderizado desaparece, o si la interfaz deja de enviar su latido durante más de 20 segundos, la página se recarga. Si vuelve, no ocurre nada. Si no vuelve, un diálogo del sistema propone reiniciar el programa: una vez por fallo, para que no insista.
+
+**Corregido: las consultas cortas en la búsqueda global no encontraban nada.** Buscar "pdf", "doc" u "095" devolvía normalmente una lista vacía. El cálculo de la puntuación salía pronto en «el nombre contiene la consulta», así que la comparación por tokens no llegaba a ejecutarse: un acierto tan evidente como "doc" en "report.docx" obtenía solo 0,845, mientras que el umbral para una consulta de tres caracteres es 0,9, de modo que se descartaba y la búsqueda por extensión quedaba casi siempre vacía. Ahora los dos caminos conservan el mayor de los dos valores, así que un acierto que no está al principio del nombre supera el umbral. El umbral no cambia: la búsqueda aproximada en consultas cortas sigue siendo igual de estricta.
+
 ## [3.6.3] - October 2026
 
 **Summary:** Three things that were quietly getting in the way. Deleting a file for good now does what you expect when you press Enter — the confirmation used to open with the keyboard focus on *Cancel*, so Enter closed it again and left the file where it was - the only way to confirm was to reach for the mouse. And the list view now separates folders, pictures, videos and other files into groups, the way the thumbnail view already did, so the thing you are looking for is one heading away instead of somewhere in the middle of a long list. Renaming no longer opens a dialog either: the name turns into a field right where it stands, and the arrow keys keep taking you from one file to the next with the field still ready, so a whole pile of files can be renamed in a row.

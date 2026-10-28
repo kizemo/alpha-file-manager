@@ -1305,11 +1305,249 @@ v2 补入的八条：F4（搜索物化 10 万）· F6（每盘符 FileBrowser）
 | 2 | **C1 真机验收**（沙箱内执行，脚本 `sandbox-c1-accept.ps1`）：已 PASS（见 §18.12） | ✅ |
 | 3 | **F12d 已评估·不修**：实测 5 个真实 JSON 合计约 **75 KB**（`user-stats.json` 34,477 B、`user-extensions.json` 32,461 B、`user-settings.json` 4,266 B、`user-workspaces.json` 2,736 B、`user-remote-connections.json` 1,154 B），载体是上游 `b839e298` 的 `preloaded: Arc<OnceCell<…>>`；常驻上限只是百 KB 级，改启动路径的风险与收益不成比例 | ⏸️ 已评估·不修 |
 | 4 | **`use-video-thumbnails.ts` 已按 A2 同款改造并提交**：`ref<Record>` → `shallowRef<Map>`，写入走 `setVideoThumbnail()`（等值早退 → `Map.set` → `triggerRef`，把单调增长时的 O(n²) 分配降为 O(1)），`clearThumbnails()` 改 `= new Map()`；测试断言同步改 `.value.size === 0`。已 commit `0d89768c`（3 files / +25 / −18，独立 follow-up，未 amend 进 `bb003f97`）；门禁 `eslint .` = **188 / 0**（与基线逐字一致）、`npm run test` **250 文件 / 2309 用例全通过**、`npm run ts` exit 0 | ✅ 已提交 |
-| 5 | **WebView2 子进程崩溃兜底**（§18.11 D3 建议 ②）：检测 + 提示 + 可恢复 —— **这是 §18.14 剩下的唯一代码项，下一阶段从这里开工**。取证基础见 §18.11 D3：崩溃发生在 `msedgewebview2.exe` 子进程（`0x80000003` / `0xE0000008`，后两次故障地址相同），**AFM 主进程存活** ⇒ 兜底不能指望「出了事的那一方自己报错」，只能靠**主进程侧探测渲染子进程存活**或**前端心跳**。验收时崩溃无法按需复现，可「手动杀掉 AFM 名下的 `msedgewebview2.exe` 子进程」制造现场（必须在沙箱内、打包产物上做） | ⬜ 未做·下一步 |
+| 5 | **WebView2 子进程崩溃兜底**（§18.11 D3 建议 ②）：检测 + 提示 + 可恢复 —— **已完成**，实现与验收见 §18.15（取证基础见 §18.11 D3）。方案 = 「前端心跳 + sysinfo 进程树」（放弃 COM `IWebView2ProcessFailed`：`windows-core 0.62.2` 无 `implement` feature，做不了 COM 事件接收器）。落点：`webview_guard.rs`（纯逻辑）+ `webview_guard_runtime.rs`（tauri 接线）+ `use-webview-guard.ts` + 17 个语言包；门禁 `eslint .` 188/0、`npm run test` 251 文件 / 2314 用例、`cargo test --lib webview_guard` 13/0；沙箱真机验收见 §18.15.7 | ✅ 已完成 |
 | 6 | **版本号仍是 3.6.3**，批次 C 不单独发版；是否随下一版统一发由用户决定 | ⬜ 待决策 |
 | 7 | **索引重建代价**：实测一次完整重建约 **17 分钟**（1,016 s，1,956,015 条）；验收脚本必须先确认索引就绪再判 FAIL | ⚠️ 已知 |
 | 8 | **上游缺陷候选**：`global_search/scoring.rs` 的 `get_min_score_for_query_length()` 对 1–3 字符查询给 0.9 门槛，使「含扩展名的文件名」普遍落在 0.82–0.89 ⇒ **短查询恒 0 结果**（上游 `b8a1c1b4`，AFM 未改） | ⬜ 未修（上游） |
 | 9 | **真机验收必须进隔离桌面沙箱**（用户 2026-10-28 要求）：不得在用户桌面上启动 AFM 抢焦点；沙箱脚本 `sandbox-c1-accept.ps1`，坑位清单见 `.superpowers\sdd\relay-rules-batch-c.md` | ✅ 已落地 |
-| 10 | **新会话接力 prompt**：`.superpowers\sdd\relay-prompt-batch-c.txt`（一句话 + 完整路径，引导新会话读必要文档；已按「第 4 项已提交、下一步第 5 项」的当前状态刷新，不重复本文内容） | ✅ 已落地 |
+| 10 | **新会话接力 prompt**：`.superpowers\sdd\relay-prompt-batch-c.txt`（一句话 + 完整路径，引导新会话读必要文档；已按「第 5 项已完成」的当前状态刷新，不重复本文内容） | ✅ 已落地 |
 
 > **接力时先读**：外层仓 `F:\soft\00selfmade\filemanager\AGENTS.md`（硬约束全集）→ 本文 **§0** 与 **§18** → `.superpowers\sdd\mem-batch-c-handoff-18-12.md` / `-18-13.md`（本节的底稿）→ `.superpowers\sdd\mem-origin-attribution.md`（归因完整取证）→ `.superpowers\sdd\sandbox-c1-accept.ps1`（沙箱验收脚本）→ `.superpowers\sdd\relay-rules-batch-c.md`（防异常终止对策）。
+
+### 18.15 WebView2 子进程崩溃兜底（§18.14 第 5 项的实现与验收）
+
+#### 18.15.1 方案选型：为什么没有走 COM 事件
+
+§18.11 D3 的取证结论是：崩溃发生在 `msedgewebview2.exe` **自己的子进程**里（`0x80000003` / `0xE0000008`），**AFM 主进程存活** ⇒ 兜底不能指望「出了事的那一方自己报错」。
+
+最"正统"的做法是 WebView2 的 `IWebView2ProcessFailed` 事件，但本仓锁定的 `windows-core 0.62.2` **没有 `implement` feature**，无法实现 COM 事件接收器（`windows` crate 的 COM 支持需要 `implement` 宏）。⇒ 放弃 COM 路线，改用：
+
+> **前端心跳 + sysinfo 进程树** —— 主进程侧主动探测「界面还在不在」。
+
+#### 18.15.2 代码落点
+
+| 文件 | 作用 |
+|---|---|
+| `src-tauri/src/webview_guard.rs` | **纯逻辑**，不 import tauri。常量、`decide_health`、`collect_webview_pids`、`scan_webview_processes`，13 个单测 |
+| `src-tauri/src/webview_guard_runtime.rs` | **tauri 接线**。命令 `webview_guard_heartbeat` / `webview_guard_status`、看门狗线程 `afm-webview-guard`、`WebviewGuardState`、原生提示框、延迟重启 |
+| `src-tauri/src/lib.rs` | `mod` 声明、`.manage(...)`、命令注册、`.build()` + `app.run()`（退出期抑制）、setup 里启动看门狗线程 |
+| `src/composables/use-webview-guard.ts` | 前端接线：5 秒一次心跳 + 订阅 `webview-guard://status` + toast |
+| `src/layouts/window/app.vue` | 调 `useWebviewGuard()` |
+| `src/localization/messages/*.json`（17 个） | 新增顶层 `webviewGuard{detected,recovered,recoveryFailed}`（ch 中文，其余 16 包英文） |
+
+**为什么必须拆两个文件**：`cargo test --lib` 的测试二进制有一条隐形红线 —— 被测试链接到的代码一旦碰到 `tauri::AppHandle`（默认 `R = Wry`），就会单态化出 `tauri_runtime_wry`，把 tao 整条窗口链拖进来；tao 里有 `comctl32.dll!TaskDialogIndirect`（属 comctl32 v6，只有 application manifest 声明了才解析得到），测试二进制没有 manifest ⇒ 加载器找不到导出，整个测试二进制以 `STATUS_ENTRYPOINT_NOT_FOUND` (0xC0000139) 崩掉，**一个用例都跑不了**。纯逻辑放独立文件 ⇒ 测试二进制里只链进 `sysinfo`，tao 一条导入都没有。
+
+#### 18.15.3 判定口径
+
+| 常量 | 值 | 含义 |
+|---|---|---|
+| `HEARTBEAT_INTERVAL_MS` | 5 s | 前端心跳间隔 |
+| `HEARTBEAT_TIMEOUT_MS` | 20 s | 心跳超时 ⇒ 该窗口渲染进程失联 |
+| `HUNG_TIMEOUT_MULTIPLIER` | 3 | 超时 × 3（60 s）仍无心跳且窗口可见 ⇒ 判「卡死」 |
+| `WATCHDOG_POLL_INTERVAL_MS` | 2 s | 看门狗轮询间隔 |
+| `BROWSER_GONE_CONFIRM_TICKS` | 2 | 「浏览器进程没了」需连续命中 2 次（4 s） |
+| `RECOVERY_DEADLINE_MS` | 15 s | reload 之后等心跳回来的时限 |
+| `PROCESS_EVIDENCE_WINDOW_MS` | 30 s | 「有 WebView2 子进程消失过」这个旁证的保鲜时长 |
+
+- **心跳超时 且 30 s 内有 pid 消失旁证** ⇒ `RendererCrashed`
+- **旁证有两类**：① 进程表里少了 WebView2 子进程；② **浏览器进程被换掉**（旧 pid 一个不剩、换成了新 pid）—— 杀浏览器进程时 WebView2 会自己把浏览器进程拉起来，被杀的那个在进程表里可能还挂着（句柄没释放前不会真正消失）⇒ 第 ① 类旁证不成立，只能靠第 ② 类认（见 §18.15.5 第 5 条）
+- **心跳超时 ≥ 60 s 且无旁证 且 窗口可见** ⇒ `WindowHung`
+- **见过浏览器进程后连续 2 次没有浏览器进程** ⇒ `BrowserProcessGone`（致命）
+- **隐藏 / 最小化的窗口不判卡死** —— Chromium 会限流后台定时器，心跳变长是限流的产物，不是界面卡住（前端心跳则无条件发送，由后端按可见性决定）
+
+#### 18.15.4 恢复阶梯与提示通道
+
+```
+RendererCrashed / WindowHung
+   └─ window.reload()          → 等 15 s 看心跳是否回来
+        ├─ 回来了  → 发 recovered 事件（前端 toast）
+        └─ 没回来  → 原生提示框（Yes/No）→ 选 Yes = 延迟重启应用
+BrowserProcessGone（浏览器进程整体没了，reload 也没用）
+   └─ 直接原生提示框 → 选 Yes = 延迟重启应用
+```
+
+**提示必须有非 webview 通道**：崩的是承载主窗口的渲染进程时，网页里的 UI 也没了 ⇒ toast 这条路在那个场景下根本不存在 ⇒ 用 Win32 `MessageBoxW`（`MB_YESNO|MB_ICONERROR|MB_TOPMOST`）。重启必须**延迟拉起**（`cmd /C "ping -n 3 127.0.0.1 >nul & start ..."` + `CREATE_NO_WINDOW`），否则会被单实例插件截胡（新实例把启动参数转发给老实例就退出了，而老实例此刻正是坏的那个）。
+
+#### 18.15.5 实现期踩到的七个坑（改代码前必读）
+
+1. **主窗口判活必须用 HWND，不能用 Tauri 窗口表**。
+   WebView2 浏览器进程死亡时，wry 有可能把 webview 窗口对象一并从 Tauri 的窗口表里摘掉 ⇒ `app.get_webview_window("main").is_some()` 变 `None` ⇒ 看门狗在每轮开头就 `return`，**「浏览器进程没了 ⇒ 提示用户重启」这条路永远走不到**。
+   现在的做法：启动时抓 `window.hwnd()` 存进 `WebviewGuardState.main_hwnd`（`AtomicIsize`），之后用 Win32 `IsWindow(hwnd)` 判活（HWND 属于宿主窗口 tao 建的，浏览器进程死掉不会销毁它）。窗口可能比看门狗线程晚建出来 ⇒ 句柄为 0 时每轮补抓一次。
+
+2. **原生提示框同一场故障只能弹一次**。
+   `MessageBoxW` 是模态的，会**阻塞看门狗线程**直到用户答复；而且用户关掉之后，下一轮又会重新判定成「浏览器进程没了」⇒ 每 2 秒弹一次，变成无法关闭的刷屏。
+   现在的做法：`native_prompt_shown` 闩锁（`claim_native_prompt` 抢名额）；**解锁依据是「前端又发心跳了」，不是「判定回到 Healthy」**（后者会在故障还没结束时误解锁，见第 6 条）。
+
+3. **退出期必须抑制误报**。
+   WebView2 的子进程在应用退出时本来就会先死 ⇒ 没有闸就会被判成「崩溃」。双保险：① `.build()` + `App::run()` 拿 `RunEvent::ExitRequested | Exit` ⇒ `mark_shutting_down`；② 主窗口真的没了就不判定。
+
+4. **`collect_webview_pids` 必须显式排除宿主 pid**。
+   生产环境宿主是 `alpha-file-manager.exe`，名字对不上本来也进不来，但契约不该依赖「宿主不可能同名」这个隐含前提（单测里宿主就叫 `msedgewebview2.exe`）。这条曾经让 `cargo test --lib webview_guard` 挂 2 条。
+
+5. **「旁证」不能拿 `u64` 初值 0 冒充**（沙箱真机验收抓出来的真实缺陷，已修）。
+   旁证时刻原本存成 `last_vanish_ms: u64`，初值 0；而判定写的是「距今 ≤ 30 s 就算有旁证」
+   ⇒ **看门狗启动后的头 30 秒里，「距今 0 ms」被当成了「刚刚发生过」**
+   ⇒ 那段时间内任何心跳超时都会被误判成「渲染进程崩了」，而不是「卡死」。
+   沙箱场景 B 正好撞上：应用刚起 22 秒就杀浏览器进程，判定给出的是「有旁证」，
+   但日志里**根本没有 pid 消失的记录** —— 旁证是初值 0 白送的。
+   修法：① `last_vanish_ms` 改成 `Option<u64>`，真发生过才置 `Some`；
+   ② 补一条真正能命中「杀浏览器进程」的旁证 —— `browser_process_replaced(previous, current)`
+   （旧浏览器 pid 全没了且出现了新 pid），纯逻辑里实现，带 4 个单测。
+
+6. **「同一场故障只弹一次」的闩锁不能用「判定回到 Healthy」来解锁**（沙箱真机验收抓出来的真实缺陷，已修）。
+   `Healthy` 只代表「暂时还没判成故障」—— 渲染进程死掉之后、心跳超时还没到 60 s 卡死门槛的那段时间里，判定同样是 `Healthy`
+   ⇒ 闩锁在**故障还没结束**的时候被解开 ⇒ 下一轮又弹一次框（实测 12:55:58 判卡死、12:56:14 又弹了一次提示框）。
+   解锁的唯一依据改成「前端又发心跳了」（`webview_guard_heartbeat` 里清闩锁 + 一条日志）——
+   那是「界面真的活着」的阳性信号；`Healthy` 判定不再碰闩锁。
+
+7. **判「浏览器进程没了」的前提是「看门狗先见过浏览器进程」**（`browser_seen`）。
+   看门狗第一轮在启动后约 4 s；应用刚起来 2 s 就把浏览器杀掉的话，看门狗从头到尾没见过浏览器
+   ⇒ `expect_browser` 一直为 false ⇒ `BrowserProcessGone` 那条路按设计是禁用的（启动初期不算异常）
+   ⇒ 判定退化成「心跳超时」这条路。
+   验收脚本因此必须**等看门狗先观测到浏览器再杀**（脚本里等 12 s），否则测的根本不是那条分支。
+
+#### 18.15.6 门禁
+
+| 项 | 结果 |
+|---|---|
+| `npx eslint .` | **188 errors / 0 warnings**（与基线逐字一致） |
+| `npm run ts` | exit 0 |
+| `npm run test` | **251 文件 / 2314 用例全过** |
+| `cargo check --all-targets` | exit 0（仅存量 warning） |
+| `cargo test --lib webview_guard` | **13 passed / 0 failed** |
+
+#### 18.15.7 沙箱真机验收
+
+验收在**隔离桌面沙箱**内进行（`CreateDesktop` + `STARTUPINFO.lpDesktop`），不抢用户桌面焦点；
+被测对象是 `npx tauri build` 的打包产物 `src-tauri/target/release/alpha-file-manager.exe`。
+
+**断言：21 PASS / 0 FAIL**（共 21 条；完整报告见 `.superpowers/sdd/guard-accept-report.md`）。
+
+| 断言 | 结果 | 现场 |
+|---|---|---|
+| A1 heartbeat channel established | PASS | line=[2026-10-28][13:08:24][sigma_file_manager_lib::webview_guard_runtime][INFO] webview guard: heartbeat established for window main |
+| A2 operator foreground untouched | PASS | before=6755746 after=6755746 |
+| A3 browser process found | PASS | pid=228104 |
+| A4 renderer process found | PASS | pid=23500 |
+| A5 no false positive while healthy | PASS | hits= |
+| A6 no native dialog while healthy | PASS | hwnd=0 |
+| B1 crash detected after the renderer kill | PASS | line=[2026-10-28][13:09:50][sigma_file_manager_lib::webview_guard_runtime][ERROR] webview guard: renderer-crashed detected for window main (no heartbeat for 20207 ms), reloading it |
+| B2 auto recovery completed | PASS | line=[2026-10-28][13:09:52][sigma_file_manager_lib::webview_guard_runtime][INFO] webview guard: window main is alive again after the reload |
+| B3 no native dialog for a recovered crash | PASS | hwnd=0 |
+| B5 the app process survived the crash | PASS | instances=1 |
+| B6 operator foreground still untouched | PASS | before=6755746 after=6755746 |
+| C1 heartbeat channel established | PASS | line=[2026-10-28][13:09:56][sigma_file_manager_lib::webview_guard_runtime][INFO] webview guard: heartbeat established for window main |
+| C2 browser process found | PASS | pid=292156 |
+| C3 the fault is detected after the browser kill | PASS | browser-gone=[2026-10-28][13:10:13][sigma_file_manager_lib::webview_guard_runtime][ERROR] webview guard: the WebView2 browser process is gone; every webview of this app is dead / detected= |
+| C4 native prompt shown | PASS | hwnd=2627356 title=Alpha File Manager |
+| C5 native prompt captured | PASS | path=F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\guard-accept-dialog.png |
+| C6 the native prompt can be dismissed | PASS | still=0 |
+| C7 the native prompt is shown exactly once | PASS | count=1 |
+| C8 the watchdog keeps running and the latch blocks a second prompt | PASS | line=[2026-10-28][13:10:25][sigma_file_manager_lib::webview_guard_runtime][WARN] webview guard: the native prompt was already shown; skip |
+| C9 answering "no" does not restart the app | PASS | instances=1 |
+| C10 operator foreground still untouched | PASS | before=6755746 after=6755746 |
+
+**两条路径的实测结论**：
+
+- **A 渲染进程崩溃**：杀光该 app 名下全部 renderer ⇒ 看门狗判定崩溃并 `window.reload()`，心跳恢复 ⇒ **自动救活**（日志出现 `alive again after the reload`）。
+- **B 浏览器进程死亡**：杀浏览器进程 ⇒ 看门狗判定 `browser process is gone`（连续 2 次命中，约 4 s） ⇒ 弹出**原生 Win32 提示框**（`MessageBoxW`，不依赖 webview）；同一场故障只弹一次（`the native prompt was already shown; skip`）。
+
+看门狗日志（本次会话，UTC）：
+
+```
+[2026-10-28][13:08:23][sigma_file_manager_lib::webview_guard_runtime][INFO] webview guard: main window handle captured
+[2026-10-28][13:08:24][sigma_file_manager_lib::webview_guard_runtime][INFO] webview guard: heartbeat established for window main
+[2026-10-28][13:09:26][sigma_file_manager_lib::webview_guard_runtime][INFO] webview guard: alive, tick=30, heartbeat_interval_ms=5000, browser_alive=true, windows=[main:981ms]
+[2026-10-28][13:09:32][sigma_file_manager_lib::webview_guard_runtime][WARN] webview guard: WebView2 child process(es) vanished: [23500]
+[2026-10-28][13:09:50][sigma_file_manager_lib::webview_guard_runtime][ERROR] webview guard: renderer-crashed detected for window main (no heartbeat for 20207 ms), reloading it
+[2026-10-28][13:09:52][sigma_file_manager_lib::webview_guard_runtime][INFO] webview guard: window main is alive again after the reload
+[2026-10-28][13:09:55][sigma_file_manager_lib::webview_guard_runtime][INFO] webview guard: main window handle captured
+[2026-10-28][13:09:56][sigma_file_manager_lib::webview_guard_runtime][INFO] webview guard: heartbeat established for window main
+[2026-10-28][13:10:11][sigma_file_manager_lib::webview_guard_runtime][WARN] webview guard: WebView2 child process(es) vanished: [279280, 292156, 253012, 95552, 230948, 2440]
+[2026-10-28][13:10:13][sigma_file_manager_lib::webview_guard_runtime][ERROR] webview guard: the WebView2 browser process is gone; every webview of this app is dead
+[2026-10-28][13:10:25][sigma_file_manager_lib::webview_guard_runtime][WARN] webview guard: the native prompt was already shown; skip
+```
+
+> 完整工件：`.superpowers/sdd/guard-accept-sandbox.log`（脚本 stdout）、
+> `.superpowers/sdd/guard-accept-evidence.log`（看门狗日志）、
+> `.superpowers/sdd/guard-accept-summary.txt`（汇总）、
+> `.superpowers/sdd/guard-accept-dialog.png`（原生提示框截图，若有）、
+> `.superpowers/sdd/guard-accept-report.md`（可读报告）。
+
+#### 18.15.8 已知限制
+
+- **只监控主窗口**。隐藏的 Quick View / Print View 崩溃不处理（对用户无影响，且隐藏窗口的心跳会被 Chromium 限流，判卡死必然误报）。
+- **恢复手段只有 `window.reload()`**。若渲染进程死后 reload 也拉不回来（本轮沙箱实测见 §18.15.7），兜底会退化成「原生提示框 + 重启应用」，而不是自动救活。
+- **COM 路线没做**（`windows-core 0.62.2` 缺 `implement` feature）。若将来升级 `windows` crate，可考虑用 `IWebView2ProcessFailed` 做更精确的归因（哪个进程、什么退出码）。
+- **看门狗每 2 秒全量扫一次进程表**（`sysinfo`）。本机 400+ 进程，实测开销可接受，但它是一份常驻 CPU 开销。
+- **看门狗线程被原生提示框阻塞时完全停摆**（这是刻意的：提示框就是要用户先决策）。此时若有第二个故障不会被检出。
+- **启动后头 ~4 s 内发生的崩溃会丢旁证**：看门狗第一轮还没来得及采样，进程就已经没了 ⇒ 没有 pid 消失的记录可查，判定只能退化成「心跳超时」。真实使用中崩溃很少发生在应用刚起 4 s 内。
+- **`BrowserProcessGone` 分支只在看门狗见过浏览器进程之后才会命中**（`browser_seen`）。应用启动瞬间就崩的场景会走「心跳超时」那条路（恢复阶梯一样能兜底，只是判定标签不同）。
+
+## 19. 3.6.4 发版记录（2026-10-28）
+
+### 19.1 本次发版包含什么
+
+| 类别 | 内容 | 状态 |
+|---|---|---|
+| 资源优化 | 批次 A/B/C 结构性优化（缩略图缓存不再整体重建、关掉隐藏的 Quick View 预启动窗口、索引 / 目录监听 / 列表虚拟化） | 已 commit，随 3.6.4 发布 |
+| WebView2 兜底 | `webview_guard` 看门狗：渲染进程消失或心跳超 20 s 自动 `window.reload()`；浏览器进程死亡弹原生 Win32 提示框 | 本次提交，§18.15 已验收 21 PASS / 0 FAIL |
+| 全局搜索短查询 | `src-tauri/src/global_search/scoring.rs`：子串命中提前返回导致短查询被 0.9 门槛滤掉 | 本次提交，8 条回归用例 |
+| 文档 | CHANGELOG / README（中英）/ 14 个本地化 changelog / 17 个语言包 / winget 清单 / 站点 version.json | 已改 |
+
+### 19.2 资产
+
+- 安装包：`release/Alpha File Manager_3.6.4_x64-setup.exe`，20,697,849 B，sha256 `D070BB8D4ADF4716C8522CE071157C531CFCA8E080B355790DAAA4FCF0C79493`
+- 站点源：`E:\办公文件\L1网站\alpha-file-manager\Alpha_File_Manager_3.6.4_x64-setup.exe`（同 sha256）
+- winget 清单：`docs/winget/manifests/k/kizemo/AlphaFileManager/3.6.4/`（4 个 yaml，`npm run check:winget` exit 0）
+- 3.6.3 在 `release/` 保持原样：20,670,028 B / `D258E57A…B662B22`（**未被覆盖**）
+
+### 19.3 资源占用的两个口径（**别混着用**）
+
+合账口径（§18，优化前 vs 优化后）：
+
+| 指标 | 优化前 | 优化后 | 差 |
+|---|---|---|---|
+| 工作集（冷启 30 s） | 961.2 MB | 742.8 MB | −218.4 MB / −22.7% |
+| 工作集（3.5 h 稳态基线） | 1066.8 MB | 742.8 MB | −324.0 MB / −30.4% |
+| 磁盘缓存 | 805.58 MB | 66.21 MB | −739.37 MB / −91.8% |
+
+受控复测口径（同一份磁盘缓存 200.68 MB，三次各冷启 45 s，跑在隔离桌面沙箱里）：
+
+| 组 | 版本 / 设置 | 工作集 WS | 私有内存 PM | 进程数 |
+|---|---|---|---|---|
+| A | 安装版 3.6.3，预启动开 | 729.5 MB | 736.7 MB | 7 |
+| B | 3.6.4 构建，预启动开 | 723.6 MB | 705.6 MB | 7 |
+| C | 3.6.4 构建，预启动关 | 707.2 MB | 732.9 MB | 7 |
+
+归因：A→B 是**纯代码差**（WS −5.9 MB / −0.8%，PM −31.1 MB / −4.2%）；B→C 是关掉 Quick View 预启动（WS −16.4 MB）。
+
+**结论**：内存的大头是那份该清的缓存（−739 MB）；代码改造本身贡献约 **−5.9 MB WS / −31.1 MB PM**。
+
+复现工具：`.superpowers/sdd/sandbox-mem-364.ps1` + `.superpowers/sdd/mem364-all.cmd`；快照 `sandbox-mem-{a363-base,b364-code,c364-now}.json`。
+
+### 19.4 复测的已知局限（不要当成更精确的结论）
+
+- **单次采样**：三次各只跑了一遍，没有中位数与重复实验。
+- 单机、单账号、单驱动，没有跨机器对照。
+- 读数落在**索引重建时段**内；索引重建本身吃内存，收敛后的稳态可能更低。
+- D1（`last_vanish_ms` 改 `Option`）与 D2（闩锁改由前端心跳解锁）的收益**没有单独拆开**，合在 A→B 里。
+- 最早那个「88.7 MB」口径**始终没确认**是什么（§18.2），本轮也没有再追。
+
+### 19.5 scoring.rs 短查询门槛缺陷
+
+**病根是打分口径，不是门槛数值。**
+
+`score_match` 里「子串命中」这条路径**提前 return**，token 分支根本没机会执行 ⇒ 只有子串命中的文件拿到的是子串分（0.845 附近），而 1–3 字符的短查询门槛是 **0.9** ⇒ 直接被硬过滤掉。
+
+- 后果：搜 "pdf"、"doc"、"095" 这类**扩展名 / 中间片段**，几乎全灭。
+- **不是召回问题**：tantivy 侧能召回（"doc" 能召回 "report.docx"），瓶颈在 Rust 侧的**硬过滤**（`src-tauri/src/global_search/query.rs`）。
+- 修法：两条路径**取分数较高者**，门槛数值**不动** ⇒ 非前缀的子串命中可达 ≥0.92，能过 0.9；短查询的模糊匹配仍然保持严格。
+
+### 19.6 本轮新增的坑与工具
+
+- `release:prepare --write-notes <文件>` **只生成正文、不触发构建** ⇒ `_notes.md` 改完可以重跑，不会重复打包。**但顺序仍必须是「打包完成 → 再 write-notes」**，因为正文里要写大小与 sha256。
+- 自写 C# `STARTUPINFO` 的 `lpDesktop` / `lpReserved` / `lpTitle` 必须是 `IntPtr`；桌面名要用 `Marshal::StringToHGlobalUni` 转成指针、调用后 `FreeHGlobal`。照抄 `.superpowers/sdd/sandbox-c1-accept.ps1`（`Sbx` 类第 75–86 行结构体、第 287–289 行调用方式）。
+- 批量改文档用「纯文本数据文件 + node 插补脚本」，写完立刻验 **U+FFFD = 0 且无 BOM**；标记正则要允许**小写** locale（`/^===([A-Za-z0-9_]+)===$/`），只允许大写会漏掉 `===LOCALE_ch===`。
+- winget 生成器里 `InstallerSha256` 那行是**缩进两格**的 ⇒ 正则必须用 `/^(\s*)InstallerSha256: .*$/m`。
+- release 构建里 `SFM_E2E_DATA_DIR` 隔离覆盖被编译掉 ⇒ 沙箱实例与真实实例**共用 user-data**；沙箱测量/验收前必须先结束真实实例。

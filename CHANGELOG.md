@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.6.4] - October 2026
+
+**Summary:** Three things, one of them invisible. The application now holds on to far less memory than it used to - on the same machine, the same account and the same drive, the working set on a cold start went from 961.2 MB to 742.8 MB (-22.7 %), and the cache on disk shrank from 805.58 MB to 66.21 MB (-91.8 %). A crash in the WebView2 rendering process no longer leaves a blank window behind: a watchdog reloads the page by itself and only asks to restart if the page does not come back. And the global search stops coming up empty for short queries - "pdf", "doc" or "095" used to find nothing at all.
+
+### What changed
+
+**Improved: the application holds much less memory.** The thumbnail cache in the interface is no longer rebuilt from scratch every time the view changes (the rendering process gives 68 MB back, which is where almost the whole reduction comes from), the hidden Quick View window is no longer started ahead of time (one whole WebView2 rendering process less), and a batch of structural changes - the search index, the directory watchers, the virtualised list - takes care of the rest. The accumulated thumbnail and search-index cache was cleared as well: 739 MB off the disk, rebuilt on demand afterwards.
+
+**Added: a crash in the WebView2 rendering process is recovered.** When the rendering process died, the window stayed blank and the only way out was to start the program again. A watchdog now keeps an eye on it: if the rendering process disappears, or the interface stops sending its heartbeat for more than 20 seconds, the page is reloaded. If it comes back, nothing happens. If it does not, a system dialog offers to restart the program - once per failure, so it never nags.
+
+**Fixed: short queries in the global search found nothing.** Searching for "pdf", "doc" or "095" usually returned an empty list. The scoring code returned early on "the name contains the query", so the token comparison never got its turn: a hit as obvious as "doc" in "report.docx" scored 0.845, while the threshold for a three-character query is 0.9, so it was thrown away - searching by file extension came up almost empty. The two paths now keep the higher of the two scores, so a hit that does not sit at the start of the name survives the threshold. The threshold itself is unchanged, and fuzzy matching for short queries stays just as strict.
+
 ## [3.6.3] - October 2026
 
 **Summary:** Three things that were quietly getting in the way. Deleting a file for good now does what you expect when you press Enter — the confirmation used to open with the keyboard focus on *Cancel*, so Enter closed it again and left the file where it was - the only way to confirm was to reach for the mouse. And the list view now separates folders, pictures, videos and other files into groups, the way the thumbnail view already did, so the thing you are looking for is one heading away instead of somewhere in the middle of a long list. Renaming no longer opens a dialog either: the name turns into a field right where it stands, and the arrow keys keep taking you from one file to the next with the field still ready, so a whole pile of files can be renamed in a row.

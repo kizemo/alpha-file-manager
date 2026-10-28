@@ -1830,5 +1830,10 @@
     "noHolders": "没有找到占用该文件的程序。",
     "endProcess": "结束进程",
     "diagnoseFailed": "无法查出哪些程序正在使用该文件"
+  },
+  "webviewGuard": {
+    "detected": "检测到界面渲染进程异常，正在尝试自动恢复",
+    "recovered": "界面已恢复正常",
+    "recoveryFailed": "界面无法自动恢复，请重启应用"
   }
 }

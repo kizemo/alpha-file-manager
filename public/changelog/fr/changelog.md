@@ -1,5 +1,17 @@
 # Journal des modifications
 
+## [3.6.4] - October 2026
+
+**Summary:** Trois choses, dont une invisible. L'application consomme nettement moins de mémoire qu'avant : sur la même machine, le même compte et le même disque, l'espace de travail au démarrage à froid passe de 961,2 Mo à 742,8 Mo (-22,7 %) et le cache sur le disque de 805,58 Mo à 66,21 Mo (-91,8 %). Un plantage du processus de rendu WebView2 ne laisse plus une fenêtre blanche : un chien de garde recharge la page tout seul et ne demande un redémarrage que si la page ne revient pas. Et la recherche globale ne renvoie plus rien pour les requêtes courtes : "pdf", "doc" ou "095" ne trouvaient souvent rien du tout.
+
+### What changed
+
+**Amélioré : l'application consomme nettement moins de mémoire.** Le cache des miniatures de l'interface n'est plus reconstruit à chaque changement de vue (le processus de rendu rend 68 Mo - l'essentiel de la réduction vient de là), la fenêtre cachée Quick View n'est plus démarrée par anticipation (un processus de rendu WebView2 de moins), et un ensemble de changements structurels (index de recherche, surveillance des dossiers, liste virtualisée) prend le relais. Le cache accumulé des miniatures et de l'index de recherche a lui aussi été purgé : 739 Mo de moins sur le disque, reconstruits à la demande.
+
+**Ajouté : un plantage de WebView2 se répare tout seul.** Quand le processus de rendu mourait, la fenêtre restait blanche et la seule issue était de relancer le programme. Un chien de garde le surveille désormais : si le processus de rendu disparaît, ou si l'interface n'envoie plus son signal de vie pendant plus de 20 secondes, la page est rechargée. Si elle revient, il ne se passe rien. Si elle ne revient pas, une boîte de dialogue du système propose de redémarrer le programme - une seule fois par incident.
+
+**Corrigé : les requêtes courtes ne trouvaient rien dans la recherche globale.** Chercher "pdf", "doc" ou "095" renvoyait le plus souvent une liste vide. Le calcul du score revenait tôt sur « le nom contient la requête », si bien que la comparaison par jetons n'avait jamais lieu : une correspondance aussi évidente que "doc" dans "report.docx" n'obtenait que 0,845, alors que le seuil pour une requête de trois caractères est de 0,9 - elle était donc écartée, et la recherche par extension revenait presque toujours vide. Les deux chemins conservent désormais le meilleur des deux scores : une correspondance qui n'est pas en début de nom franchit le seuil. Le seuil lui-même n'a pas changé ; la recherche approximative sur des requêtes courtes reste aussi stricte qu'avant.
+
 ## [3.6.3] - October 2026
 
 **Summary:** Three things that were quietly getting in the way. Deleting a file for good now does what you expect when you press Enter — the confirmation used to open with the keyboard focus on *Cancel*, so Enter closed it again and left the file where it was - the only way to confirm was to reach for the mouse. And the list view now separates folders, pictures, videos and other files into groups, the way the thumbnail view already did, so the thing you are looking for is one heading away instead of somewhere in the middle of a long list. Renaming no longer opens a dialog either: the name turns into a field right where it stands, and the arrow keys keep taking you from one file to the next with the field still ready, so a whole pile of files can be renamed in a row.
