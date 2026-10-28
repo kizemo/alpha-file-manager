@@ -9,15 +9,30 @@ use image::codecs::png::PngEncoder;
 use image::ImageEncoder;
 use lru::LruCache;
 use once_cell::sync::Lazy;
-use std::collections::HashSet;
 use std::fs;
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+/// 图标 data URL 缓存的条数上限。
+///
+/// 2026-10-28 从 512 降到 128：单条 base64 PNG 在 256px 时可达百 KB 级，
+/// 512 条理论上能到 60 MB 常驻。key 里 `ext:<扩展名>:<尺寸>` 那一族是全目录共享的
+/// （几十个扩展名 × 3 档尺寸），真正把槽位撑满的是 `path:<完整路径>:<尺寸>`
+/// 那一族 —— 而它本来就是「每个 exe 各占一条」，被淘汰的代价最小。
+const ICON_DATA_URL_CACHE_CAPACITY: usize = 128;
+
+/// 「取不到图标」的路径标记的条数上限。
+///
+/// 2026-10-28 之前这个集合只增不减，是 Rust 侧唯一严格无界的容器。
+/// 超出上限时按最旧优先淘汰：这些路径只是「取不到图标」的标记，
+/// 命中与否只影响图标是否 fallback，淘汰掉最多让下次多试一次系统调用。
+const MAX_UNSUPPORTED_SHELL_ICON_PATHS: usize = 512;
+
 static ICON_DATA_URL_CACHE: Lazy<Mutex<LruCache<String, String>>> = Lazy::new(|| {
     Mutex::new(LruCache::new(
-        NonZeroUsize::new(512).unwrap_or_else(|| NonZeroUsize::new(512).unwrap()),
+        NonZeroUsize::new(ICON_DATA_URL_CACHE_CAPACITY)
+            .unwrap_or_else(|| NonZeroUsize::new(ICON_DATA_URL_CACHE_CAPACITY).unwrap()),
     ))
 });
 
@@ -29,8 +44,12 @@ static ICON_PROBE_DIR: Lazy<Result<PathBuf, String>> = Lazy::new(|| {
     Ok(dir)
 });
 
-static UNSUPPORTED_SHELL_ICON_PATHS: Lazy<Mutex<HashSet<String>>> =
-    Lazy::new(|| Mutex::new(HashSet::new()));
+static UNSUPPORTED_SHELL_ICON_PATHS: Lazy<Mutex<LruCache<String, ()>>> = Lazy::new(|| {
+    Mutex::new(LruCache::new(
+        NonZeroUsize::new(MAX_UNSUPPORTED_SHELL_ICON_PATHS)
+            .unwrap_or_else(|| NonZeroUsize::new(MAX_UNSUPPORTED_SHELL_ICON_PATHS).unwrap()),
+    ))
+});
 
 fn normalize_path_for_os(path: &str) -> PathBuf {
     #[cfg(windows)]
@@ -213,13 +232,24 @@ fn is_shell_parsable_path(_path: &Path) -> bool {
     true
 }
 
+/// 记一条「取不到图标」的路径，返回 true 表示这是新记的。
+///
+/// 容量超限时 LRU 自动淘汰最旧的一条。语义不变：这些路径只是
+/// 「取不到图标」的标记，命中与否只影响图标是否 fallback。
+fn remember_unsupported_shell_icon_key(
+    unsupported_paths: &mut LruCache<String, ()>,
+    path_key: String,
+) -> bool {
+    unsupported_paths.put(path_key, ()).is_none()
+}
+
 fn remember_unsupported_shell_icon_path(path: &Path) -> bool {
     let path_key = path.to_string_lossy().to_ascii_lowercase();
     let Ok(mut unsupported_paths) = UNSUPPORTED_SHELL_ICON_PATHS.lock() else {
         return false;
     };
 
-    unsupported_paths.insert(path_key)
+    remember_unsupported_shell_icon_key(&mut unsupported_paths, path_key)
 }
 
 fn is_remembered_unsupported_shell_icon_path(path: &Path) -> bool {
@@ -227,7 +257,7 @@ fn is_remembered_unsupported_shell_icon_path(path: &Path) -> bool {
     UNSUPPORTED_SHELL_ICON_PATHS
         .lock()
         .ok()
-        .is_some_and(|unsupported_paths| unsupported_paths.contains(&path_key))
+        .is_some_and(|mut unsupported_paths| unsupported_paths.get(&path_key).is_some())
 }
 
 fn absolute_existing_path(path: &Path) -> Option<PathBuf> {
@@ -464,5 +494,53 @@ mod tests {
     fn forward_slash_paths_are_normalized_for_shell_lookup() {
         let forward_slash_path = PathBuf::from(r"C:/Windows/System32/cmd.exe");
         assert!(get_path_icon_data_url(&forward_slash_path, 32).is_some());
+    }
+
+    /// 「取不到图标」的路径标记必须有上限：它是 Rust 侧唯一严格无界的容器，
+    /// 2026-10-28 之前只增不减。
+    #[test]
+    fn unsupported_shell_icon_paths_are_capped() {
+        let mut unsupported_paths = LruCache::new(
+            NonZeroUsize::new(MAX_UNSUPPORTED_SHELL_ICON_PATHS)
+                .unwrap_or_else(|| NonZeroUsize::new(MAX_UNSUPPORTED_SHELL_ICON_PATHS).unwrap()),
+        );
+
+        for path_index in 0..(MAX_UNSUPPORTED_SHELL_ICON_PATHS + 64) {
+            remember_unsupported_shell_icon_key(
+                &mut unsupported_paths,
+                format!("c:/fake/path-{path_index}.exe"),
+            );
+        }
+
+        assert!(
+            unsupported_paths.len() <= MAX_UNSUPPORTED_SHELL_ICON_PATHS,
+            "路径标记条数 {} 超过了上限 {MAX_UNSUPPORTED_SHELL_ICON_PATHS}",
+            unsupported_paths.len(),
+        );
+        assert_eq!(unsupported_paths.len(), MAX_UNSUPPORTED_SHELL_ICON_PATHS);
+        assert!(
+            !unsupported_paths.contains("c:/fake/path-0.exe"),
+            "最早的路径应被淘汰"
+        );
+        assert!(
+            unsupported_paths.contains(&format!(
+                "c:/fake/path-{}.exe",
+                MAX_UNSUPPORTED_SHELL_ICON_PATHS + 63
+            )),
+            "最新的路径应被保留"
+        );
+    }
+
+    /// 图标 data URL 缓存的条数上限被收紧到 128（2026-10-28 之前是 512）。
+    #[test]
+    fn icon_data_url_cache_capacity_stays_tightened() {
+        assert_eq!(ICON_DATA_URL_CACHE_CAPACITY, 128);
+
+        let cache_capacity = ICON_DATA_URL_CACHE
+            .lock()
+            .map(|cache| cache.cap().get())
+            .unwrap_or_default();
+
+        assert_eq!(cache_capacity, ICON_DATA_URL_CACHE_CAPACITY);
     }
 }

@@ -46,6 +46,15 @@ function createEntry(overrides: Partial<DirEntry> = {}): DirEntry {
   };
 }
 
+function createExeIconRequest(entryIndex: number, size = 32) {
+  return {
+    path: `C:/apps/app-${entryIndex}.exe`,
+    isDir: false,
+    extension: 'exe',
+    size,
+  };
+}
+
 describe('system icon cache', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -186,6 +195,151 @@ describe('system icon cache', () => {
 
     expect(invokeMock).toHaveBeenCalledTimes(10);
     expect(activeRequestCount).toBe(0);
+  });
+
+  it('keeps the system icon cache within its capacity limit', async () => {
+    invokeMock.mockResolvedValue('exe-icon');
+
+    const {
+      fetchSystemIconCached,
+      __getSystemIconCacheStatsForTests,
+    } = await import('@/composables/system-icon-cache');
+
+    const limit = __getSystemIconCacheStatsForTests().limit;
+
+    for (let entryIndex = 0; entryIndex < limit + 40; entryIndex += 1) {
+      await fetchSystemIconCached(createExeIconRequest(entryIndex));
+    }
+
+    const stats = __getSystemIconCacheStatsForTests();
+
+    expect(stats.total).toBeLessThanOrEqual(limit);
+    expect(stats.path).toBe(limit);
+  });
+
+  it('evicts unique path entries before generic extension entries', async () => {
+    invokeMock.mockResolvedValue('icon');
+
+    const {
+      fetchSystemIconCached,
+      __getSystemIconCacheStatsForTests,
+    } = await import('@/composables/system-icon-cache');
+
+    await fetchSystemIconCached({
+      path: 'C:/docs/readme.txt',
+      isDir: false,
+      extension: 'txt',
+      size: 32,
+    });
+    await fetchSystemIconCached({
+      path: 'C:/docs/readme.md',
+      isDir: false,
+      extension: 'md',
+      size: 32,
+    });
+
+    const limit = __getSystemIconCacheStatsForTests().limit;
+
+    for (let entryIndex = 0; entryIndex < limit + 40; entryIndex += 1) {
+      await fetchSystemIconCached(createExeIconRequest(entryIndex));
+    }
+
+    const stats = __getSystemIconCacheStatsForTests();
+
+    expect(stats.total).toBeLessThanOrEqual(limit);
+    expect(stats.extension).toBe(2);
+
+    const invokeCountBeforeExtensionHit = invokeMock.mock.calls.length;
+    const extensionIcon = await fetchSystemIconCached({
+      path: 'C:/docs/other.txt',
+      isDir: false,
+      extension: 'txt',
+      size: 32,
+    });
+
+    expect(extensionIcon).toBe('icon');
+    expect(invokeMock).toHaveBeenCalledTimes(invokeCountBeforeExtensionHit);
+  });
+
+  it('deduplicates concurrent requests for the same system icon cache key', async () => {
+    const pendingRequests: PendingIconRequest[] = [];
+
+    invokeMock.mockImplementation(() => new Promise((resolveIcon) => {
+      pendingRequests.push({ resolveIcon });
+    }));
+
+    const { fetchSystemIconCached } = await import('@/composables/system-icon-cache');
+    const request = createExeIconRequest(0);
+    const firstRequest = fetchSystemIconCached(request);
+    const secondRequest = fetchSystemIconCached(request);
+
+    await flushPromises();
+
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+
+    pendingRequests.shift()?.resolveIcon('exe-icon');
+
+    expect(await firstRequest).toBe('exe-icon');
+    expect(await secondRequest).toBe('exe-icon');
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes the least recently used order when a cache entry is hit', async () => {
+    invokeMock.mockResolvedValue('exe-icon');
+
+    const {
+      fetchSystemIconCached,
+      __getSystemIconCacheStatsForTests,
+    } = await import('@/composables/system-icon-cache');
+
+    const limit = __getSystemIconCacheStatsForTests().limit;
+
+    for (let entryIndex = 0; entryIndex < limit; entryIndex += 1) {
+      await fetchSystemIconCached(createExeIconRequest(entryIndex));
+    }
+
+    // 命中 app-0.exe，把它刷新成「最近使用」
+    expect(await fetchSystemIconCached(createExeIconRequest(0))).toBe('exe-icon');
+
+    // 再插入一条新条目触发淘汰，最久未使用的 app-1.exe 应当被淘汰
+    await fetchSystemIconCached(createExeIconRequest(limit));
+
+    const invokeCountBeforeRefetch = invokeMock.mock.calls.length;
+
+    expect(await fetchSystemIconCached(createExeIconRequest(0))).toBe('exe-icon');
+    expect(invokeMock).toHaveBeenCalledTimes(invokeCountBeforeRefetch);
+
+    expect(await fetchSystemIconCached(createExeIconRequest(1))).toBe('exe-icon');
+    expect(invokeMock).toHaveBeenCalledTimes(invokeCountBeforeRefetch + 1);
+  });
+
+  it('counts directory cache entries separately and clears the cache on demand', async () => {
+    invokeMock.mockResolvedValue('icon');
+
+    const {
+      fetchSystemIconCached,
+      __getSystemIconCacheStatsForTests,
+      __resetSystemIconCacheForTests,
+    } = await import('@/composables/system-icon-cache');
+
+    await fetchSystemIconCached({
+      path: 'C:/Projects',
+      isDir: true,
+      extension: null,
+      size: 32,
+    });
+    await fetchSystemIconCached(createExeIconRequest(0));
+
+    const stats = __getSystemIconCacheStatsForTests();
+
+    expect(stats.total).toBe(2);
+    expect(stats.directory).toBe(1);
+    expect(stats.path).toBe(1);
+    expect(stats.extension).toBe(0);
+
+    __resetSystemIconCacheForTests();
+
+    expect(__getSystemIconCacheStatsForTests().total).toBe(0);
   });
 });
 

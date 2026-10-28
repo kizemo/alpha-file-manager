@@ -12,9 +12,10 @@
 |---|---|
 | 用户要什么 | ① 永久删除确认框里**直接回车要等于「删除」**（现在回车什么都不会发生）；② 目录窗口的**列表视图**要像缩略图视图那样，在「文件夹 / 图片 / 视频 / 其它文件」之间给出区隔；③ **中途追加**：按 F2 或右键「重命名」（非批量）时**不弹模态框**，直接在文件名上就地编辑，改完后用 ↑/↓ 切文件仍保持可编辑状态，便于手工连续批量改名；④ 优化与测试通过后**直接打包发版**，升级 README、新版本说明、aiec 版本记录，上传 GitHub 与 aiec |
 | 这次发哪个版本 | **3.6.3**（3.6.2 已于 2026-10-26 发布）。三块优化合并进 3.6.3（3.6.3 尚未对外发布，合并比拆版本省） |
-| 现在卡在哪 | **3.6.3 已经全部发完**：三块优化都通过真机验收，发版提交 `a9fed27a` 已 push 到 `origin/main`，GitHub release `v3.6.3` 与站点 aiec.fun 均已上线并回读校验通过（sha256 `FEE1F2A8…44644B`，20,716,092 B）。**剩下的只有外围事项**：winget PR（须等 3.5.1 的 `#460744` 合并）、安装包代码签名、远程条目的就地改名验证。详见第 13–17 节 |
+| 现在卡在哪 | ① **3.6.3 已经全部发完**（三块优化均通过真机验收，发版提交已 push，GitHub release `v3.6.3` 与站点 aiec.fun 均已上线并回读校验通过）；剩下的外围事项：winget PR（须等 3.5.1 的 `#460744` 合并）、安装包代码签名、远程条目的就地改名验证。详见第 13–17 节。② **新增活跃任务：资源占用分析与优化**（2026-10-28 起）——现状实测与计划 v2 已完成，批次 A/B 执行中，**批次 C（结构性改造）待接力**，详见 **§18** |
 | 已落盘的东西 | 4 笔 commit（`82d42190` / `605efae8` / `d1c96f70` / `dff656a4`）+ 优化 C 的 13 个源文件（**已通过真机验收，随本次发版提交一并提交**）+ 3.6.3 安装包 / winget 清单 / 站点文件 / 18 个发版文档（**随本次发版提交一并提交**） |
-| 仓库状态 | 内层仓 `sigma-file-manager` 分支 `main`，HEAD `a9fed27a`，**已 push**，`origin/main` = `a9fed27a98708c8465b2ecc96f67f4c0a7c67eb5`（用 `gh api .../commits/main --jq '.sha'` 核对一致）；上游 `https://github.com/kizemo/alpha-file-manager.git`；工作区干净 |
+| 资源优化的产物 | `.superpowers/sdd/mem-plan-v2.md`（计划 v2）、`mem-audit-final.md`（现状实测与 v1 方案）、`mem-audit-frontend.md`（前端持有点 20 条）、`mem-audit-rust.md`（Rust 持有点 21 条）、`mem-probe-2.ps1` + `mem-probe-2.out.txt`（可重复的进程/磁盘探针）。**这 5 个文件都在 `.superpowers/`（被 gitignore），不进版本库** |
+| 仓库状态 | 内层仓 `sigma-file-manager` 分支 `main`，HEAD `3a07b82b`（3.6.3 发布后回写提交），**已 push**，`origin/main` = `3a07b82b75a208eb6638a6f8777b434330507fe5`（用 `gh api .../commits/main --jq '.sha'` 核对一致）；上游 `https://github.com/kizemo/alpha-file-manager.git`；工作区干净（§18 的资源优化改动**尚未提交**） |
 | 最容易踩的坑 | ① **真机验收只能用 `tauri build` 产物**，`tauri dev` 的路由页内容区全空白，界面结论一律作废；② 打包前必须停 `alpha-file-manager` 进程**并把 `src-tauri/target/release/alpha-file-manager.exe` 移走**（只杀进程不够，上一轮就是这么被 `os error 5` 卡住的）；③ `eslint .` 是整仓口径，基线 **188 errors**；④ `.cmd` 里 `echo` 不能出现 `>`；⑤ `.ps1` / `.cmd` 必须纯 ASCII（中文要用 `[char]0x....` 拼）；⑥ `app-key.ps1` 只认**裸名 token**（传 `'{F2}'` 会静默不发送）；⑦ WebView2 里 UIA 的 `FocusedElement` 不可信，判「选中」要看状态栏「已选择 N 个项目」；⑧ **会话锁住时 `SendInput` / `SetCursorPos` 全废（err=5），但 `PostMessage` 合成鼠标消息与 `WM_KEYDOWN` 照样能穿透到渲染进程** ⇒ 键盘链路（F2 / 回车 / ↑↓ / Esc）也能在锁屏状态下真机验收；⑨ 文件浏览器右键菜单里**没有文字「重命名」项**，改名入口是 quick-actions 行**第 1 个无名按钮（铅笔）**，要靠 UIA `InvokePattern` 或按坐标点 |
 
 ---
@@ -896,3 +897,151 @@ F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\click-webview
 | 日志 | `.superpowers\sdd\release-363-github.log`、`.superpowers\sdd\release-363-status-verify.log`（站点上传日志在 `release:upload` 的 stdout 里） |
 
 > **仍未做 / 待后续**（不阻塞本次发版）：sticky 段头、安装包代码签名、winget PR、远程条目的就地改名真机验证、虚拟滚动下编辑态行被滚出的边界。
+
+---
+
+## 18. 资源占用分析与优化（2026-10-28 新增任务）
+
+### 18.1 任务是什么
+
+用户原话（第一轮）：
+
+> 当前，AFM 占用系统资源为 88.7MB，是否有系统资源占用的优化空间？请进行分析，并制定优化方案，**先深入分析，不用执行**。
+
+用户原话（第二轮，本节成型的依据）：
+
+> 请再次进行一次深入分析，研究计划是否还存在可以优化的部分。然后按照你优化后的计划开始执行。如有必要新开会话接力任务执行优化，请更新完整的 handoff 文档，和一句话 prompt。
+
+**性质**：与 §1–§17 完全独立的新任务线。§1–§17 的三块优化已随 3.6.3 发布完毕，**不要重跑、不要重复发版**。
+
+### 18.2 口径澄清：「88.7 MB」不是 AFM 的全貌
+
+AFM **代码里没有任何进程内存自报机制**：
+
+- Rust 侧 `sysinfo` 只用于枚举磁盘类型（`src-tauri/src/dir_reader/drives.rs:17,80-83`），**没有**取进程内存的调用；
+- 前端没有任何 memory / rss 指标。
+
+⇒ **88.7 MB 一定来自外部工具**（任务管理器 / 资源监视器）。本机同时存在三种解释：
+
+| 解释 | 依据 | 可信度 |
+|---|---|---|
+| ① Rust 主进程**冷启动后、扫描前**的基线 | 同一进程现在 PM 165.2 MB；`global_search/index.rs:119` 的 `BULK_INDEX_MEMORY_BUDGET_BYTES = 100_000_000` 正是批量索引的内存预算，**扫描期间**才涨上去。88.7 落在「基线」与「扫描峰值」之间 | 高 |
+| ② 任务管理器「内存」列 = **私有工作集**，而本文给的是**工作集 (WS)**（含共享 DLL 页） | 两个口径天然不等 | 高 |
+| ③ 测的是**别的应用**的 WebView2 renderer | 本机另有两棵**不属于 AFM** 的 msedgewebview2 树（PPID 9044 / 9716），其中就有 PM 88.5 MB 的进程 | 中 |
+
+**结论**：88.7 MB ≈ AFM 一个进程的四分之一。真实全貌是**整棵进程树**。
+
+### 18.3 现状实测（2026-10-28 11:00–11:10，应用 08:01:59 启动）
+
+**内存**：AFM 进程树共 **8 个进程**，WS 合计 **1,118.9 MB**，私有提交（PM）合计 **1,031.5 MB**。
+
+| 进程 | PID | 类型 | WS MB | PM MB | 线程 | 句柄 | CPU s |
+|---|---|---|---|---|---|---|---|
+| alpha-file-manager.exe | 154732 | **Rust 主进程** | 230.1 | 165.2 | **77** | **1250** | 2555.1 |
+| msedgewebview2.exe | 154944 | browser 宿主 | 203.1 | 87.8 | 58 | 1750 | 113.4 |
+| msedgewebview2.exe | 155492 | renderer（主窗口，活跃） | **309.7** | 254.1 | 31 | 353 | 377.5 |
+| msedgewebview2.exe | 156216 | renderer（**隐藏的 Quick View**） | 171.9 | 128.1 | 30 | 342 | **15.5** |
+| msedgewebview2.exe | 155316 | gpu-process | 121.9 | **371.2** | 53 | 713 | 45.6 |
+| msedgewebview2.exe | 155392 / 155348 | utility ×2 | 68.4 | 22.3 | 26 | 496 | 20.5 |
+| msedgewebview2.exe | 154980 | crashpad | 13.8 | 2.8 | 8 | 184 | 0.1 |
+
+读数要点：
+
+- **WebView2 子树 888.8 MB WS**，是 Rust 主进程（230.1 MB）的 **3.9 倍** ⇒ 优化重点在 WebView2 侧。
+- gpu-process **PM 371.2 > WS 121.9** ⇒ 提交量远大于驻留，**不是真实 RAM 占用**（也是任务管理器数字对不上的原因）。
+- **系统内存不是瓶颈**（63.9 GB 总 / 41.6 GB 空闲）⇒ 优化收益是「更轻快 / 更干净」，不是「救火」。
+
+**磁盘（≈ 1.18 GB）**：
+
+| 位置 | 体积 | 明细 |
+|---|---|---|
+| `Roaming\...\image-thumbnails` | **434.34 MB** | 4,249 张（4,177 PNG + 72 JPG）；中位 121.5 KB / p90 187.9 KB / 最大 317.6 KB；**全部产生于 2026-10**（最早 10-12，最新 10-28） |
+| `Roaming\...\global-search` | **299.16 MB** | `index\` 46 文件 / 7+ 个 store segment（单个 13–17 MB）；**测量时正有一次扫描在跑**（`.index.staging.1793156733828.154732\` 有 11:06 的新文件，而 `index\` 里是 10:01–10:05 的旧 segment）⇒ **新旧索引并存，磁盘翻倍** |
+| `Local\...\EBWebView` | **541.13 MB** | `Default` 443.79（含 `Default\Cache\Cache_Data\data_3` 12.01）；`Crashpad` 24.96（**3 个崩溃转储**：10-23 15:47 / 10-22 20:16 / 10-22 14:55）；`component_crx_cache` 21.18；`WidevineCdm` 21.92（**DRM，文件管理器用不到**）；`Subresource Filter` 12.29；`GrShaderCache` 10.58 |
+| `Roaming\...\extensions` / `user-data` / `Local\...\logs` | 3.90 / 2.29 / 1.80 MB | — |
+
+### 18.4 代码级根因（21 条前端 + 21 条 Rust 全表见 `.superpowers/sdd/mem-audit-*.md`）
+
+**F1 · 隐藏的 Quick View 常驻一个 renderer（≈172 MB）** — `tauri.conf.json:29-35` 的 `quick-view` 窗口 `"create": false`，但 `src/utils/auxiliary-windows.ts:64-72` 的 `isAuxiliaryWindowPrelaunchEnabled` + 用户设置 `performance.prelaunchQuickViewWindow = true` 会把它**预拉起并隐藏**。Tauri **每窗口一个独立 renderer** ⇒ **窗口不可见 ≠ 没有开销**。应用自己的文案已写明代价：`src/localization/messages/ch.json:263-266`「约占用 200 MB 内存」。
+
+**F2 · 缩略图缓存「超限全清」而非 LRU（体验炸弹）** — `src-tauri/src/image_thumbnails.rs:21-25`（限额 5000 张 / 1 GB / 每 100 次写检查一次）、`:257-267` `enforce_thumbnail_cache_limits()` **超限整个目录清空**。当前 4,249 张、增长约 **265 张/天** ⇒ **约 2026-10-31 撞线，缩略图集体消失并全部重生成**。
+
+**F3 · tantivy 显式禁用 segment 合并** — `src-tauri/src/global_search/index.rs:10` `use tantivy::indexer::{IndexWriter, NoMergePolicy};` ⇒ 每次扫描产生新 segment 且**永不 merge** ⇒ 索引体积膨胀、查询要开更多 segment（更慢更吃内存）、扫描期间磁盘翻倍。
+
+**F4 · 单次搜索物化 10 万条文档** — `src-tauri/src/global_search/query.rs:196` `TopDocs::with_limit(100_000)`，而 `:297` 的 `truncate(options.limit)` 发生在 `searcher.doc()` **物化之后** ⇒ 峰值 30–80 MB。**这是 Rust 主进程涨到 165 MB 的直接原因之一。**
+
+**F5 · 前端唯一「只增不减」的全局缓存** — `src/composables/system-icon-cache.ts:33` 模块级 `Map<string, string|null>`，值是 **base64 PNG data URL**；key 规则 `:100-114` 中 **exe/dll/ico/lnk/scr/cpl/msi/appx/msix 走 `path:<全路径>:<size>`** ⇒ 每个 exe/dll × 3 档尺寸（18/24/48）永久常驻，**零淘汰逻辑**。
+
+**F6 · 每盘符一个完整 FileBrowser** — `src/modules/global-search/global-search-view.vue:162-184,532-576`：`v-for="group in groupedResults"` 每组渲染一个**完整 `<FileBrowser>`**（虚拟布局 / 选择 / 图标 / 缩略图全套 composables）⇒ 搜索命中 N 个盘符 = N 套完整文件浏览器同时挂载。**前端最大放大器。**
+
+**F7 · 前端目录数据是深响应式 + 每标签页各存一份** — `use-file-browser-navigation.ts:281` `dirContents = ref<DirContents>`；`stores/storage/workspaces.ts:69,573` 每 Tab 存一份 `dirEntries`；`:169` `clone(tab)` 深拷整份目录列表（瞬时 2×）；`:820` 分屏再常驻一份副本。
+
+**F8 · 虚拟滚动只做了一半** — `use-file-browser-virtual-layout.ts:493` `rows` computed **全量物化** O(N) 行对象；`:208` key = `list:${entry.path}`、`:334` = `paths.join('|')` ⇒ 每行一条含完整路径的新字符串。
+
+**F9 · Rust 侧图标缓存** — `src-tauri/src/system_icons.rs:18-22` 另有 **512 条 base64 PNG LRU**（理论 60 MB）；`:32-33` `UNSUPPORTED_SHELL_ICON_PATHS`（`:216-223` insert）**只增不减，是 Rust 侧唯一严格无界项**。
+
+**F10 · 缩略图解码尖峰** — `src-tauri/src/image_thumbnails.rs:29` **单图解码上限 192 MB**（`:303-309`、`:412-421`）。
+
+**F11 · 77 线程的真正主因** — `src-tauri/src/dir_watcher.rs:15,122,135-142` **每个监听目录起 1 个应用线程 + 1 个 notify 线程**，`:128` `std::sync::mpsc` **无界 channel** ⇒ 线程数随监听目录数线性增长。
+
+**F12 · 其他 P2** — `lan_share/handlers.rs:272` 上传体整块进内存（≤512 MB）；`extensions/filesystem.rs:66` `read_to_end` 无字节上限；`dir_size.rs:169-181` WalkDir 全量 `collect`；`startup_storage_bootstrap.rs:44,58-63` 5 个用户存储 JSON 常驻副本；`global_search/state.rs:26-32` 常驻 `Index` + `IndexReader` 且 reader 无内存预算。
+
+### 18.5 计划 v2：v1 的一处错误 + 八条补入
+
+> 完整计划见 `.superpowers/sdd/mem-plan-v2.md`。
+
+**⚠️ v1 的错误建议已作废**：v1 写「把 tantivy 换回默认 merge 策略」。**不能这样改** —— `NoMergePolicy` 是 2026-06-24 提交 `054e2472`「UX: indexing stability improvements」**刻意加入的稳定性措施**，同一提交还引入了 `BULK_INDEX_MEMORY_BUDGET_BYTES = 100_000_000` 与 `writer_with_num_threads(1, …)`。正确改法是**保留 NoMergePolicy，在扫描提交完成后显式 `merge()` + `wait_merging_threads()`**，让 segment 收敛而不回退稳定性改进。
+
+v2 补入的八条：F4（搜索物化 10 万）· F6（每盘符 FileBrowser）· F10（192 MB 解码上限）· F11（每目录线程）· F9（Rust 图标 LRU + 唯一无界项）· F12 的五项 P2 · 以及 `global-search-view.vue` / `use-image-thumbnails.ts` / `dir-sizes.ts` / `folder-tree.ts` 等深响应式容器。
+
+### 18.6 执行批次与状态
+
+| 批次 | 内容 | 文件（独占所有权） | 状态 |
+|---|---|---|---|
+| **A1** | 系统图标缓存加容量上限；`path:`/`dir:` 类必须可淘汰，`ext:` 类保留 | `src/composables/system-icon-cache.ts` + 新增测试 | ⏳ 执行中 |
+| **A2** | 缩略图前端缓存 `ref<Record>`+`reactive(Set)` → `shallowRef`+`Map`，写入改原地 `set`（消 O(n²)） | `.../file-browser/composables/use-image-thumbnails.ts` + 测试 | ⏳ 执行中 |
+| **B1** | 搜索查询：`truncate` 前移到物化之前；`TopDocs` limit 与实际返回对齐；reader 预算/空闲释放（能安全实现才做） | `src-tauri/src/global_search/query.rs`、`state.rs` + 测试 | ⏳ 执行中 |
+| **B2** | 缩略图：解码上限 192 MB → 64 MB + 并发闸门 2–4；**超限全清 → 按最旧淘汰**；限额 5000 张/1 GB → **2000 张/256 MB** | `src-tauri/src/image_thumbnails.rs` + 测试 | ⏳ 执行中 |
+| **B3** | Rust 图标：LRU 512 → 128 条（或按字节限额）；`UNSUPPORTED_SHELL_ICON_PATHS` 加上限 | `src-tauri/src/system_icons.rs` + 测试 | ⏳ 执行中 |
+| **C1** | 搜索结果页每盘符完整 `FileBrowser` → 轻量只读列表 | `src/modules/global-search/global-search-view.vue` | ⬜ **待接力** |
+| **C2** | `dirContents` → `shallowRef`+`markRaw`；`workspaces` Tab 不再存 `dirEntries`；`clone(tab)` 前先清 | `use-file-browser-navigation.ts`、`stores/storage/workspaces.ts` | ⬜ **待接力** |
+| **C3** | 虚拟行只算可视窗口；行 key 改下标，不再拼路径串 | `use-file-browser-virtual-layout.ts`、`utils/file-browser-virtual-rows.ts` | ⬜ **待接力** |
+| **C4** | `dir_watcher` 每目录线程 → 共享 watcher 线程池 + 有界 channel | `src-tauri/src/dir_watcher.rs` | ⬜ **待接力** |
+| **C5** | tantivy：扫描提交后显式 merge + segment 上限；常驻 reader 预算 | `src-tauri/src/global_search/index.rs`、`state.rs` | ⬜ **待接力** |
+| **C6** | LAN 上传改流式写盘；扩展 `read_to_end` 加字节上限；`dir_size` 去 `collect()` | `lan_share/handlers.rs`、`extensions/filesystem.rs`、`dir_size.rs` | ⬜ **待接力** |
+| **D1** | 关 `performance.prelaunchQuickViewWindow` ⇒ **内存 −172 MB** | 用户设置（零代码） | ⬜ 待执行 |
+| **D2** | 清缩略图 / 搜索索引 / `EBWebView\Cache` / Crashpad dump ⇒ **磁盘 −670 MB** | 环境 | ⬜ 待执行（需先杀进程或等扫描结束） |
+| **D3** | 查 WebView2 三次崩溃（10-22 ×2、10-23 ×1）原因（dump 还在盘上） | 环境 | ⬜ 待执行 |
+
+### 18.7 执行本任务时的硬约束（除 §16.3 通用约束外）
+
+1. **Rust 测试红线**：被测试链接到的代码**不得触碰 `tauri::AppHandle` 或 `tauri::async_runtime::*`**，否则 `cargo test --lib` 在**加载阶段**以 `STATUS_ENTRYPOINT_NOT_FOUND` (0xC0000139) 崩掉，一个测试都跑不了且报错看不出关联。需要异步时用项目现成的 `*_blocking` 同步内核入口（`dir_reader.rs`、`global_search.rs` 是范例）。
+   ⚠️ `image_thumbnails.rs:664-727` 有 5 处 `tauri::async_runtime::spawn_blocking`（command 包装层）—— 新测试**不能**把这些包装层链接进测试二进制。
+2. **tantivy 的 merge 策略不能动**（见 §18.5），只能「保留 + 扫描后显式 merge」。
+3. **`system_icons.rs` 的 `UNSUPPORTED_SHELL_ICON_PATHS` 与 `image_thumbnails.rs` 的限额常量**：改上限前先 grep 全仓（含 `src/`）确认有没有被设置界面 / i18n 展示出来，展示值要同步改。
+4. **门禁判据**：`eslint .` = **188**（`eslint src` = 175）；`npm run ts`（vue-tsc）必须过；`npm run test` 全绿；`cargo check --lib` 无 error。
+5. **不要顺手改 `tauri.conf.json` 的 `identifier`、mDNS 服务名、legacy 目录名**（受保护常量）。
+6. **本任务不涉及版本号**：当前 `package.json` = 3.6.3，**不要 bump**；本轮改动不单独发版，等批次 C/D 完成后统一评估。
+7. **真机验收**：若改动需要界面证据，必须用 `tauri build` 产物（`npm run tauri:build`），`tauri dev` 的路由页内容区全空白、界面结论一律作废。构建脚本放 `.superpowers/sdd/*.cmd` 且**必须纯 ASCII**。
+
+### 18.8 未确认项（不要当成已验证结论）
+
+- **88.7 MB 的确切口径**需确认（任务管理器哪一列、哪个进程）。
+- **renderer 156216 = 隐藏 Quick View** 是**强推断**（CPU 15.5 s 几乎空闲 + `Vis=False` 窗口存在 + 设置里 prelaunch 开着），**未用窗口句柄直接绑定 renderer 与 WebView**。
+- **WebView2 三次崩溃原因未查**。
+- **前端各项「规模」是代码结构推算**，无 heap snapshot / DevTools 取数。
+- **测量时刻全局搜索正在扫描**，该时段的磁盘与内存读数偏高。
+- Rust 侧审计结论**全部为源码静态推算**，未做运行时 RSS 采样。
+
+### 18.9 证据文件索引
+
+| 文件 | 内容 |
+|---|---|
+| `.superpowers/sdd/mem-plan-v2.md` | 计划 v2（批次 A–D、硬约束、验收判据、实测基线） |
+| `.superpowers/sdd/mem-audit-final.md` | 现状实测全文 + v1 方案 + 复现命令 |
+| `.superpowers/sdd/mem-audit-frontend.md` | 前端持有点全表（20 条）+ 3 条优先项 |
+| `.superpowers/sdd/mem-audit-rust.md` | Rust 持有点全表（21 条）+ 3 条优先项 |
+| `.superpowers/sdd/mem-probe-2.ps1` | 可重复的进程 / 磁盘探针（**纯 ASCII**） |
+| `.superpowers/sdd/mem-probe-2.out.txt` | 探针原始输出（2026-10-28 11:07） |
+
+> 这 5 个文件都在 `.superpowers/`（被 gitignore），**不进版本库**；接力会话用绝对路径读。
