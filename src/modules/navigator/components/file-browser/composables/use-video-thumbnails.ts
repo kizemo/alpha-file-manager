@@ -2,7 +2,7 @@
 // License: GNU GPLv3 or later. See the license file in the project root for more information.
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
-import { ref } from 'vue';
+import { shallowRef, triggerRef } from 'vue';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import type { DirEntry } from '@/types/dir-entry';
 
@@ -72,7 +72,11 @@ function getCoverDrawRect(
 }
 
 export function useVideoThumbnails() {
-  const videoThumbnails = ref<Record<string, string>>({});
+  // FORK-MODIFICATION 2026-10-28（内存优化 A2）：与 `use-image-thumbnails.ts` 同款改造 ——
+  // 视频缩略图缓存从深响应式 `ref<Record>` 改成 `shallowRef<Map>`：base64 条目不再逐个进代理，
+  // 写入从「整体重建对象」在单调增长时的 O(n²) 分配变成原地 `Map.set` 的 O(1)，
+  // 响应式由写入后的 `triggerRef` 主动触发 —— 依赖 `.value` 的模板与 computed 照常重新求值。
+  const videoThumbnails = shallowRef<Map<string, string>>(new Map());
   const thumbnailQueue: VideoThumbnailRequest[] = [];
   const processingThumbnails = new Set<string>();
   const cancelledThumbnails = new Set<string>();
@@ -80,6 +84,15 @@ export function useVideoThumbnails() {
   const activeVideoCleanups = new Map<string, () => void>();
   const failedThumbnails = new Set<string>();
   let thumbnailGeneration = 0;
+
+  function setVideoThumbnail(thumbnailKey: string, thumbnailSrc: string): void {
+    if (videoThumbnails.value.get(thumbnailKey) === thumbnailSrc) {
+      return;
+    }
+
+    videoThumbnails.value.set(thumbnailKey, thumbnailSrc);
+    triggerRef(videoThumbnails);
+  }
 
   function createVideoThumbnailDataUrl(request: VideoThumbnailRequest): Promise<string> {
     return new Promise((resolve) => {
@@ -193,10 +206,7 @@ export function useVideoThumbnails() {
 
       if (cachedThumbnail) {
         if (request.generation === thumbnailGeneration && !cancelledThumbnails.has(processingKey)) {
-          videoThumbnails.value = {
-            ...videoThumbnails.value,
-            [request.thumbnailKey]: cachedThumbnail,
-          };
+          setVideoThumbnail(request.thumbnailKey, cachedThumbnail);
         }
 
         return;
@@ -226,10 +236,7 @@ export function useVideoThumbnails() {
       }
 
       if (request.generation === thumbnailGeneration && !cancelledThumbnails.has(processingKey)) {
-        videoThumbnails.value = {
-          ...videoThumbnails.value,
-          [request.thumbnailKey]: thumbnailSrc,
-        };
+        setVideoThumbnail(request.thumbnailKey, thumbnailSrc);
       }
     }
     catch {
@@ -258,7 +265,7 @@ export function useVideoThumbnails() {
     }
 
     if (
-      videoThumbnails.value[nextRequest.thumbnailKey]
+      videoThumbnails.value.get(nextRequest.thumbnailKey)
       || processingThumbnails.has(getProcessingVideoThumbnailKey(nextRequest.thumbnailKey, nextRequest.generation))
       || failedThumbnails.has(nextRequest.thumbnailKey)
     ) {
@@ -277,7 +284,7 @@ export function useVideoThumbnails() {
     const processingKey = getProcessingVideoThumbnailKey(thumbnailKey, requestGeneration);
 
     if (
-      videoThumbnails.value[thumbnailKey]
+      videoThumbnails.value.get(thumbnailKey)
       || (!allowProcessingDuplicate && processingThumbnails.has(processingKey))
       || failedThumbnails.has(thumbnailKey)
       || thumbnailQueue.some(request => request.thumbnailKey === thumbnailKey)
@@ -297,7 +304,7 @@ export function useVideoThumbnails() {
   function getVideoThumbnail(entry: DirEntry): string | undefined {
     const normalizedTargetSize = normalizeVideoThumbnailSize();
     const thumbnailKey = getVideoThumbnailKey(entry, normalizedTargetSize);
-    const cached = videoThumbnails.value[thumbnailKey];
+    const cached = videoThumbnails.value.get(thumbnailKey);
     const processingKey = getProcessingVideoThumbnailKey(thumbnailKey, thumbnailGeneration);
 
     if (cached || failedThumbnails.has(thumbnailKey)) {
@@ -348,7 +355,7 @@ export function useVideoThumbnails() {
 
   function clearThumbnails() {
     thumbnailGeneration += 1;
-    videoThumbnails.value = {};
+    videoThumbnails.value = new Map();
     thumbnailQueue.length = 0;
     cancelledThumbnails.clear();
     abortedThumbnails.clear();
