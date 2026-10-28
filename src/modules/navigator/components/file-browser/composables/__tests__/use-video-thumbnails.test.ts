@@ -125,7 +125,7 @@ describe('useVideoThumbnails', () => {
     pendingRequest.resolve('C:/thumb.jpg');
     await flushThumbnailWork();
 
-    expect(thumbnails.videoThumbnails.value).toEqual({});
+    expect(thumbnails.videoThumbnails.value.size).toBe(0);
     expect(mockConvertFileSrc).toHaveBeenCalledWith('C:/thumb.jpg');
   });
 });

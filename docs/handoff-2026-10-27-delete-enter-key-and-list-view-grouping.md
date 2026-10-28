@@ -1301,10 +1301,10 @@ v2 补入的八条：F4（搜索物化 10 万）· F6（每盘符 FileBrowser）
 
 | # | 事项 | 状态 |
 |---|---|---|
-| 1 | **批次 C 尚未 commit**：工作树 17 个已改文件 + 2 处未跟踪，**由主 Agent 统一提交**，子 Agent 不提交 | ⬜ 待提交 |
+| 1 | **批次 C 已 commit**：`bb003f97`（22 files / +3963 / −708，代码 + 本文回写同一个 perf commit）；**未 push、未发版、未 bump 版本号** | ✅ 已提交 |
 | 2 | **C1 真机验收**（沙箱内执行，脚本 `sandbox-c1-accept.ps1`）：已 PASS（见 §18.12） | ✅ |
-| 3 | **F12d 未修**：启动时 5 个用户存储 JSON 常驻副本（上游 `b839e298` 的 `preloaded: Arc<OnceCell<…>>` 语义），改动面波及启动路径 | ⬜ 未做 |
-| 4 | **`use-video-thumbnails.ts` 仍有 A2 同款模式**（`ref<Record>` + 整体重建），批次 A/B 只改了 `use-image-thumbnails.ts` | ⬜ 未做 |
+| 3 | **F12d 已评估·不修**：实测 5 个真实 JSON 合计约 **75 KB**（`user-stats.json` 34,477 B、`user-extensions.json` 32,461 B、`user-settings.json` 4,266 B、`user-workspaces.json` 2,736 B、`user-remote-connections.json` 1,154 B），载体是上游 `b839e298` 的 `preloaded: Arc<OnceCell<…>>`；常驻上限只是百 KB 级，改启动路径的风险与收益不成比例 | ⏸️ 已评估·不修 |
+| 4 | **`use-video-thumbnails.ts` 已按 A2 同款改造**：`ref<Record>` → `shallowRef<Map>`，写入走 `setVideoThumbnail()`（等值早退 → `Map.set` → `triggerRef`，把单调增长时的 O(n²) 分配降为 O(1)），`clearThumbnails()` 改 `= new Map()`；测试断言同步改 `.value.size === 0`；`npm run ts` exit 0、该文件单测 3/3 通过 | ✅ 已修 |
 | 5 | **WebView2 子进程崩溃兜底**（§18.11 D3 建议 ②）：检测 + 提示 + 可恢复 | ⬜ 未做 |
 | 6 | **版本号仍是 3.6.3**，批次 C 不单独发版；是否随下一版统一发由用户决定 | ⬜ 待决策 |
 | 7 | **索引重建代价**：实测一次完整重建约 **17 分钟**（1,016 s，1,956,015 条）；验收脚本必须先确认索引就绪再判 FAIL | ⚠️ 已知 |
