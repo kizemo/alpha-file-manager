@@ -13,26 +13,23 @@ import {
 } from 'vue';
 import type { DirEntry } from '@/types/dir-entry';
 import normalizePath from '@/utils/normalize-path';
-import { computeVerticalVirtualRange } from '@/composables/use-vertical-virtual-list';
-import { groupFileBrowserEntries } from '../file-browser-entry-groups';
 import { getFileBrowserGridGap } from '../utils/file-browser-layout-gaps';
 import { getElementContentBoxWidth } from '../utils/file-browser-content-box';
 import {
+  computeVirtualRowRange,
+  createFileBrowserVirtualRowModel,
+  createLazyVirtualRowArray,
+  findVirtualRowDisplayIndex,
+  getFileBrowserGridNavigationEntry,
   getGridColumnCount,
-  type FileBrowserGridEntryVariant,
-  type FileBrowserGridItemsVirtualRow,
-  type FileBrowserGridSectionKey,
+  GRID_SECTION_HEADER_HEIGHT,
+  materializeVirtualRow,
+  resolveVirtualRowIndexByDisplayIndex,
   type FileBrowserGridSectionVirtualRow,
-  type FileBrowserListVirtualRow,
-  type FileBrowserSectionKey,
-  type FileBrowserSectionVariant,
   type FileBrowserVirtualRow,
+  type FileBrowserVirtualRowModel,
 } from '../utils/file-browser-virtual-rows';
 import { resolveThumbnailMetrics } from '../utils/file-browser-thumbnail-sizes';
-import {
-  isFileBrowserImageEntry,
-  isFileBrowserVideoEntry,
-} from '../file-browser-entry-groups';
 import type { ThumbnailSize } from '../types';
 
 export type {
@@ -47,15 +44,12 @@ export type {
   FileBrowserVirtualRow,
 } from '../utils/file-browser-virtual-rows';
 export { getGridColumnCount } from '../utils/file-browser-virtual-rows';
+// FORK-MODIFICATION（批次 C3）：行模型、区隔行高度、网格导航都搬到
+// ../utils/file-browser-virtual-rows.ts（与行模型同源，避免两处各写一份数字）。
+// 这里保留 re-export —— 既有调用方（框选命中测试等）是从这个路径 import 的。
+export { LIST_SECTION_HEADER_HEIGHT } from '../utils/file-browser-virtual-rows';
+export { getFileBrowserGridNavigationEntry } from '../utils/file-browser-virtual-rows';
 
-// FORK-MODIFICATION: 缩略图四档的行高 / 卡高 / 最小列宽已全部移入
-// ../utils/file-browser-thumbnail-sizes.ts，这里不再重复任何数字。
-const GRID_SECTION_HEADER_HEIGHT = 42;
-// FORK-MODIFICATION: 列表视图分区标题行的高度。
-// 它必须与渲染侧（file-browser-list-view.vue 的 .file-browser-list-view__section）
-// 同源：区隔行内联 height = 40px（上下各 2px padding + 36px 的段头 bar），
-// 虚拟模型按同一个数累加 offset —— 两边对不上就会滚动错位。
-export const LIST_SECTION_HEADER_HEIGHT = 40;
 const VIRTUAL_OVERSCAN_PX = 420;
 const SCROLL_TO_PATH_DOM_SYNC_ATTEMPTS = 12;
 const STATUS_BAR_BORDER_CLEARANCE = 2;
@@ -65,22 +59,6 @@ const CONTENT_INNER_SELECTOR = '.file-browser__content-inner';
 const FILE_BROWSER_SELECTOR = '.file-browser';
 const STATUS_BAR_SELECTOR = '.file-browser-status-bar';
 const VIRTUAL_SPACER_SELECTOR = '.file-browser-list-view__list, .file-browser-grid-view__spacer';
-
-interface GridSectionDefinition {
-  key: FileBrowserGridSectionKey;
-  variant: FileBrowserGridEntryVariant;
-  entries: DirEntry[];
-  stickyIndex: number;
-  entryHeight: number;
-}
-
-// FORK-MODIFICATION: 列表视图的分区定义。段头不做 sticky（任务书允许不做），
-// 所以这里没有 stickyIndex，只有分区键、变体与成员条目。
-interface ListSectionDefinition {
-  key: FileBrowserSectionKey;
-  variant: FileBrowserSectionVariant;
-  entries: DirEntry[];
-}
 
 function resolveScrollViewportElement(element: HTMLElement): HTMLElement {
   if (element.matches(SCROLL_VIEWPORT_SELECTOR)) {
@@ -149,35 +127,6 @@ function escapeCssAttribute(value: string): string {
   return typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(value) : value.replace(/"/g, '\\"');
 }
 
-/**
- * 列表行高：有缩略图（图片 / 视频）才跟着档位走。
- *
- * FORK-MODIFICATION: 反馈 4（2026-10-15）。判据必须与渲染侧一致：
- * file-browser-list-entry-thumbnail.vue 里 `isMedia` 就是
- * `isFileBrowserImageEntry || isFileBrowserVideoEntry`，非媒体时那个组件渲染空，
- * 行里只剩一个 19px 的文件图标。拿别的谓词（比如「不是目录」）当判据，
- * 会把非媒体文件也当成有缩略图而行高照样长 —— 那正好是用户报的现象。
- *
- * 与 CSS 的 `--navigator-list-view-entry-height` 也必须同源：
- * 那一行是 `min-height`，若它还随档位变，虚拟行给 64 而 min-height 给 96，
- * 元素会撑到 96 并压到下一个虚拟行槽位上，滚动就会错位。
- */
-function getEntryDescriptionHeight(
-  entry: DirEntry,
-  entryDescription?: (entry: DirEntry) => string | undefined,
-  thumbnailSize: ThumbnailSize = 'medium',
-): number {
-  const metrics = resolveThumbnailMetrics(thumbnailSize);
-  const hasThumbnail = isFileBrowserImageEntry(entry) || isFileBrowserVideoEntry(entry);
-
-  const rowHeight = hasThumbnail ? metrics.listRowHeight : metrics.listFileEntryHeight;
-  const rowHeightWithDescription = hasThumbnail
-    ? metrics.listRowHeightWithDescription
-    : metrics.listFileEntryHeightWithDescription;
-
-  return entryDescription?.(entry) ? rowHeightWithDescription : rowHeight;
-}
-
 export function resolveViewportContentWidth(viewport: HTMLElement): number {
   const entriesContainer = viewport.querySelector<HTMLElement>(ENTRIES_CONTAINER_SELECTOR);
 
@@ -194,218 +143,16 @@ export function resolveViewportContentWidth(viewport: HTMLElement): number {
   return getElementContentBoxWidth(viewport);
 }
 
-function createListRows(
-  entries: readonly DirEntry[],
-  entryDescription?: (entry: DirEntry) => string | undefined,
-  thumbnailSize: ThumbnailSize = 'medium',
-): FileBrowserVirtualRow[] {
-  let offset = 0;
-
-  return entries.map((entry, entryIndex) => {
-    const size = getEntryDescriptionHeight(entry, entryDescription, thumbnailSize);
-    const row: FileBrowserListVirtualRow = {
-      type: 'list-entry',
-      key: `list:${entry.path}`,
-      entry,
-      entryIndex,
-      start: offset,
-      size,
-    };
-
-    offset += size;
-    return row;
-  });
-}
-
-// FORK-MODIFICATION: 列表视图按类型分区：目录 / 图片 / 视频 / 其它文件，
-// 每个非空分组前面插一行区隔标题行（行内不可点选、不进选中集合）。
-//
-// 两个必须对齐的点：
-// ① 区隔行高度 = LIST_SECTION_HEADER_HEIGHT，与渲染侧内联的 height 同源，
-//    否则虚拟行的 start 累加会和实际渲染高度对不上，滚动就会错位；
-// ② 条目行的 entryIndex 用「显示顺序里的序号」，与未分区时的语义保持一致
-//    （它表示这个条目排在第几个，而不是它在原始数组里的下标）。
-function createGroupedListRows(
-  entries: readonly DirEntry[],
-  entryDescription?: (entry: DirEntry) => string | undefined,
-  thumbnailSize: ThumbnailSize = 'medium',
-): FileBrowserVirtualRow[] {
-  const groupedEntries = groupFileBrowserEntries(entries);
-  const sections: ListSectionDefinition[] = [
-    {
-      key: 'dirs',
-      variant: 'dir',
-      entries: groupedEntries.dirs,
-    },
-    {
-      key: 'images',
-      variant: 'image',
-      entries: groupedEntries.images,
-    },
-    {
-      key: 'videos',
-      variant: 'video',
-      entries: groupedEntries.videos,
-    },
-    {
-      key: 'others',
-      variant: 'other',
-      entries: groupedEntries.others,
-    },
-  ];
-
-  const rows: FileBrowserVirtualRow[] = [];
-  let offset = 0;
-  let entryIndex = 0;
-
-  for (const section of sections) {
-    if (section.entries.length === 0) {
-      continue;
-    }
-
-    rows.push({
-      type: 'list-section',
-      key: `list-section:${section.key}`,
-      sectionKey: section.key,
-      variant: section.variant,
-      count: section.entries.length,
-      start: offset,
-      size: LIST_SECTION_HEADER_HEIGHT,
-    });
-
-    offset += LIST_SECTION_HEADER_HEIGHT;
-
-    for (const entry of section.entries) {
-      const size = getEntryDescriptionHeight(entry, entryDescription, thumbnailSize);
-
-      rows.push({
-        type: 'list-entry',
-        key: `list:${entry.path}`,
-        entry,
-        entryIndex,
-        start: offset,
-        size,
-      });
-
-      offset += size;
-      entryIndex += 1;
-    }
-  }
-
-  return rows;
-}
-
-function createGridSectionRows(
-  section: GridSectionDefinition,
-  columnCount: number,
-  offset: number,
-  gridGap: number,
-): {
-  rows: FileBrowserVirtualRow[];
-  offset: number;
-} {
-  if (section.entries.length === 0) {
-    return {
-      rows: [],
-      offset,
-    };
-  }
-
-  const rows: FileBrowserVirtualRow[] = [
-    {
-      type: 'grid-section',
-      key: `grid-section:${section.key}`,
-      sectionKey: section.key,
-      variant: section.variant,
-      count: section.entries.length,
-      stickyIndex: section.stickyIndex,
-      start: offset,
-      size: GRID_SECTION_HEADER_HEIGHT + gridGap,
-    },
-  ];
-
-  offset += GRID_SECTION_HEADER_HEIGHT + gridGap;
-
-  for (let entryIndex = 0, rowIndex = 0; entryIndex < section.entries.length; entryIndex += columnCount, rowIndex += 1) {
-    const rowEntries = section.entries.slice(entryIndex, entryIndex + columnCount);
-
-    rows.push({
-      type: 'grid-items',
-      key: `grid-items:${section.key}:${rowIndex}:${rowEntries.map(entry => entry.path).join('|')}`,
-      sectionKey: section.key,
-      variant: section.variant,
-      entries: rowEntries,
-      rowIndex,
-      start: offset,
-      size: section.entryHeight + gridGap,
-    });
-
-    offset += section.entryHeight + gridGap;
-  }
-
-  return {
-    rows,
-    offset,
-  };
-}
-
-// FORK-MODIFICATION: 需求 3.6.3 —— 这里以前只吃 columnCount/gridGap，
-// 缩略图档位完全传不进来，所以网格卡片一直是固定的 120/52。
-function createGridRows(
-  entries: readonly DirEntry[],
-  columnCount: number,
-  gridGap: number,
-  thumbnailSize: ThumbnailSize,
-): FileBrowserVirtualRow[] {
-  const metrics = resolveThumbnailMetrics(thumbnailSize);
-  const groupedEntries = groupFileBrowserEntries(entries);
-  const sections: GridSectionDefinition[] = [
-    {
-      key: 'dirs',
-      variant: 'dir',
-      entries: groupedEntries.dirs,
-      stickyIndex: 10,
-      entryHeight: metrics.gridDirEntryHeight,
-    },
-    {
-      key: 'images',
-      variant: 'image',
-      entries: groupedEntries.images,
-      stickyIndex: 11,
-      entryHeight: metrics.gridEntryHeight,
-    },
-    {
-      key: 'videos',
-      variant: 'video',
-      entries: groupedEntries.videos,
-      stickyIndex: 12,
-      entryHeight: metrics.gridEntryHeight,
-    },
-    {
-      key: 'others',
-      variant: 'other',
-      entries: groupedEntries.others,
-      stickyIndex: 13,
-      // FORK-MODIFICATION: 反馈 2（2026-10-15）——非媒体文件行高改用固定值。
-      // 行高必须跟着卡高走：这一段的卡由 CSS 的 --navigator-grid-view-file-entry-height
-      // 定高，而虚拟滚动按 entryHeight 算 offset/滚动条总高，两者不是同一个数会直接
-      // 错位（卡之间留缝或互相压住，滚到底部对不齐）。
-      entryHeight: metrics.gridFileEntryHeight,
-    },
-  ];
-
-  let offset = 0;
-  const rows: FileBrowserVirtualRow[] = [];
-
-  for (const section of sections) {
-    const result = createGridSectionRows(section, columnCount, offset, gridGap);
-    rows.push(...result.rows);
-    offset = result.offset;
-  }
-
-  return rows;
-}
-
+/**
+ * FORK-MODIFICATION（批次 C3）：行数组入口。
+ *
+ * 返回的仍然是一个 `FileBrowserVirtualRow[]`，但它是**惰性**的：
+ * 内部只持有紧凑的数值元数据（偏移 / 高度 / 类型 / 条目下标），
+ * 行对象等到真的被读到时才物化。
+ *
+ * 既有调用方（框选命中测试、列表 / 网格视图）一行都不用改 ——
+ * `length`、下标、`slice()` 都照旧可用。
+ */
 export function createFileBrowserVirtualRows(options: {
   entries: readonly DirEntry[];
   layout: 'list' | 'grid' | 'tree' | undefined;
@@ -416,55 +163,21 @@ export function createFileBrowserVirtualRows(options: {
   thumbnailSize?: ThumbnailSize;
 }): FileBrowserVirtualRow[] {
   const thumbnailSize = options.thumbnailSize ?? 'medium';
-
-  if (options.layout === 'grid') {
-    const gridGap = getFileBrowserGridGap(!!options.increaseFileViewGaps);
-
-    return createGridRows(
-      options.entries,
-      getGridColumnCount(
-        options.viewportWidth,
-        gridGap,
-        resolveThumbnailMetrics(thumbnailSize).gridMinColumnWidth,
-      ),
+  const gridGap = getFileBrowserGridGap(!!options.increaseFileViewGaps);
+  const model = createFileBrowserVirtualRowModel({
+    entries: options.entries,
+    layout: options.layout,
+    columnCount: getGridColumnCount(
+      options.viewportWidth,
       gridGap,
-      thumbnailSize,
-    );
-  }
-
-  // FORK-MODIFICATION: 列表布局按类型分区；tree 布局保持平铺 —— 它是层级视图，
-  // 条目的先后由层级关系决定，不是由类型决定。
-  if (options.layout === 'list') {
-    return createGroupedListRows(options.entries, options.entryDescription, thumbnailSize);
-  }
-
-  return createListRows(options.entries, options.entryDescription, thumbnailSize);
-}
-
-export function getFileBrowserGridNavigationEntry(
-  rows: readonly FileBrowserVirtualRow[],
-  path: string,
-  direction: 'up' | 'down',
-): DirEntry | null {
-  const currentRow = rows.find((row): row is FileBrowserGridItemsVirtualRow => {
-    return row.type === 'grid-items' && row.entries.some(entry => entry.path === path);
+      resolveThumbnailMetrics(thumbnailSize).gridMinColumnWidth,
+    ),
+    gridGap,
+    thumbnailSize,
+    entryDescription: options.entryDescription,
   });
 
-  if (!currentRow) {
-    return null;
-  }
-
-  const currentColumnIndex = currentRow.entries.findIndex(entry => entry.path === path);
-  const gridRows = rows.filter((row): row is FileBrowserGridItemsVirtualRow => row.type === 'grid-items');
-  const currentGridRowIndex = gridRows.findIndex(row => row === currentRow);
-  const targetGridRowIndex = direction === 'down' ? currentGridRowIndex + 1 : currentGridRowIndex - 1;
-  const targetRow = gridRows[targetGridRowIndex];
-
-  if (!targetRow) {
-    return null;
-  }
-
-  return targetRow.entries[Math.min(currentColumnIndex, targetRow.entries.length - 1)] ?? null;
+  return createLazyVirtualRowArray(model, index => materializeVirtualRow(model, index));
 }
 
 export function useFileBrowserVirtualLayout(options: {
@@ -490,49 +203,74 @@ export function useFileBrowserVirtualLayout(options: {
     resolveThumbnailMetrics(options.thumbnailSize?.() ?? 'medium').gridMinColumnWidth,
   ));
 
+  // FORK-MODIFICATION（批次 C3）：**行模型**。
+  //
+  // 改造前这里直接算出「全部条目 × 全部行」的行对象数组：十万条目的目录
+  // 就是十万个行对象，外加十万条含完整路径的 key 字符串。
+  // 现在只分配紧凑的数值元数据（TypedArray）+ 一份条目引用数组，
+  // **一个行对象都不建**；行对象留给可视窗口按需物化。
+  const rowModel = computed<FileBrowserVirtualRowModel>(() => createFileBrowserVirtualRowModel({
+    entries: options.entries.value,
+    layout: options.layout(),
+    columnCount: gridColumnCount.value,
+    gridGap: gridGap.value,
+    thumbnailSize: options.thumbnailSize?.() ?? 'medium',
+    entryDescription: options.entryDescription,
+  }));
+
+  // 行数组：类型仍是 FileBrowserVirtualRow[]（既有调用方零改动），
+  // 但行对象只在被读到时才物化。
   const rows = computed<FileBrowserVirtualRow[]>(() => {
-    return createFileBrowserVirtualRows({
-      entries: options.entries.value,
-      layout: options.layout(),
-      viewportWidth: viewportWidth.value,
-      entryDescription: options.entryDescription,
-      increaseFileViewGaps: options.increaseFileViewGaps?.(),
-      thumbnailSize: options.thumbnailSize?.() ?? 'medium',
-    });
+    const model = rowModel.value;
+
+    return createLazyVirtualRowArray(model, index => materializeVirtualRow(model, index));
   });
 
-  const totalSize = computed(() => {
-    const lastRow = rows.value[rows.value.length - 1];
-    return (lastRow ? getRowEnd(lastRow) : 0) + bottomScrollMargin.value;
-  });
+  const totalSize = computed(() => rowModel.value.totalSize + bottomScrollMargin.value);
 
-  const visibleRows = computed(() => {
+  // 可视窗口：在模型的 TypedArray 上二分，与改造前
+  // computeVerticalVirtualRange 的语义逐字等价（同一个 overscan / 夹取规则）。
+  const visibleRange = computed(() => {
     const virtualScrollTop = Math.max(0, scrollTop.value - virtualContentOffset.value);
-    const rowItems = rows.value;
-    const visibleRange = computeVerticalVirtualRange({
-      items: rowItems,
+
+    return computeVirtualRowRange(rowModel.value, {
       overscanPx: VIRTUAL_OVERSCAN_PX,
       scrollTop: virtualScrollTop,
       viewportHeight: viewportHeight.value,
     });
-
-    return rowItems.slice(visibleRange.start, visibleRange.end);
   });
 
-  const activeGridSectionRow = computed(() => {
+  // 只物化可视窗口这一段行对象。
+  const visibleRows = computed<FileBrowserVirtualRow[]>(() => {
+    const range = visibleRange.value;
+
+    return rows.value.slice(range.start, range.end);
+  });
+
+  const activeGridSectionRow = computed<FileBrowserGridSectionVirtualRow | null>(() => {
     if (options.layout() !== 'grid') {
       return null;
     }
 
-    let activeRow: FileBrowserGridSectionVirtualRow | null = null;
+    const model = rowModel.value;
     const virtualScrollTop = Math.max(0, scrollTop.value - virtualContentOffset.value);
+    let activeRow: FileBrowserGridSectionVirtualRow | null = null;
 
-    for (const row of rows.value) {
-      if (row.start > virtualScrollTop) {
+    // 改造前这里是把整个 rows 数组扫一遍；现在只扫分区（最多 4 个）。
+    for (const section of model.sections) {
+      if (section.headerRowIndex < 0) {
+        continue;
+      }
+
+      const headerStart = model.starts[section.headerRowIndex];
+
+      if (headerStart > virtualScrollTop) {
         break;
       }
 
-      if (row.type === 'grid-section') {
+      const row = materializeVirtualRow(model, section.headerRowIndex);
+
+      if (row && row.type === 'grid-section') {
         activeRow = row;
       }
     }
@@ -631,10 +369,6 @@ export function useFileBrowserVirtualLayout(options: {
     }
   }
 
-  function entryPathsMatch(left: string, right: string): boolean {
-    return normalizePath(left) === normalizePath(right);
-  }
-
   function getEntryElement(path: string): HTMLElement | null {
     const viewport = scrollViewportRef.value;
 
@@ -702,18 +436,28 @@ export function useFileBrowserVirtualLayout(options: {
     }
   }
 
+  /**
+   * 按路径找行。
+   *
+   * 改造前是把整个 rows 数组扫一遍（O(N)，而且 rows 本身已经是 O(N) 个行对象）。
+   * 现在走「路径 → 显示顺序下标 → 行序列下标 → 物化这一行」，
+   * 路径索引在模型上惰性构建一次（键直接复用条目上已有的 path 字符串）。
+   */
   function findRowByPath(path: string): FileBrowserVirtualRow | null {
-    return rows.value.find((row) => {
-      if (row.type === 'list-entry') {
-        return entryPathsMatch(row.entry.path, path);
-      }
+    const model = rowModel.value;
+    const displayIndex = findVirtualRowDisplayIndex(model, path);
 
-      if (row.type === 'grid-items') {
-        return row.entries.some(entry => entryPathsMatch(entry.path, path));
-      }
+    if (displayIndex === undefined) {
+      return null;
+    }
 
-      return false;
-    }) ?? null;
+    const rowIndex = resolveVirtualRowIndexByDisplayIndex(model, displayIndex);
+
+    if (rowIndex === undefined) {
+      return null;
+    }
+
+    return materializeVirtualRow(model, rowIndex) ?? null;
   }
 
   function getMaxScrollTop() {
@@ -800,10 +544,10 @@ export function useFileBrowserVirtualLayout(options: {
   }
 
   function getGridNavigationEntry(path: string, direction: 'up' | 'down'): DirEntry | null {
-    return getFileBrowserGridNavigationEntry(rows.value, path, direction);
+    return getFileBrowserGridNavigationEntry(rowModel.value, path, direction);
   }
 
-  watch(rows, () => {
+  watch(rowModel, () => {
     const viewport = scrollViewportRef.value;
 
     if (!viewport) {
@@ -839,6 +583,7 @@ export function useFileBrowserVirtualLayout(options: {
     virtualContentOffset,
     gridColumnCount,
     gridGap,
+    rowModel,
     rows,
     visibleRows,
     activeGridSectionRow,

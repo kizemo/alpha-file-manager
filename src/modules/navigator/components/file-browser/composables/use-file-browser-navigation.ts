@@ -4,6 +4,7 @@
 
 import {
   ref,
+  shallowRef,
   computed,
   watch,
   nextTick,
@@ -278,7 +279,10 @@ export function useFileBrowserNavigation(
   }
 
   const currentPath = ref('');
-  const dirContents = ref<DirContents | null>(null);
+  // 批次 C2：目录条目是「一次性读出来、整体换掉」的数据，用 shallowRef
+  // 只追踪 .value 本身的替换 —— 条目对象不会被套上 Vue 代理，
+  // 也就不会在每次读盘时多出一份深响应式的代理树。
+  const dirContents = shallowRef<DirContents | null>(null);
   const isLoading = ref(false);
   const isRefreshing = ref(false);
   const error = ref<string | null>(null);
@@ -529,6 +533,13 @@ export function useFileBrowserNavigation(
   const canGoBack = computed(() => historyIndex.value > 0);
   const canGoForward = computed(() => historyIndex.value < history.value.length - 1);
 
+  /**
+   * 按路径取回上次读到的目录条目。
+   *
+   * 批次 C2 之前这份缓存挂在 Tab.dirEntries 上 —— 也就是「每个标签页各存一份」，
+   * 而且条目对象还被 store 的深响应式代理过。现在缓存统一放在 store 的
+   * 非响应式 Map 里（按路径去重），标签页只记路径。
+   */
   function getCachedDirContentsForPath(path: string): DirContents | null {
     const currentTab = tab();
 
@@ -536,15 +547,13 @@ export function useFileBrowserNavigation(
       return null;
     }
 
-    if (normalizePath(currentTab.path) !== path) {
+    const cachedEntries = workspacesStore.getCachedDirectoryEntries(path);
+
+    if (!cachedEntries) {
       return null;
     }
 
-    if (!Array.isArray(currentTab.dirEntries) || currentTab.dirEntries.length === 0) {
-      return null;
-    }
-
-    return buildDirContentsFromEntries(path, currentTab.dirEntries);
+    return buildDirContentsFromEntries(path, cachedEntries);
   }
 
   function applyDirectoryContents(
@@ -566,11 +575,13 @@ export function useFileBrowserNavigation(
     currentPath.value = result.path;
     pathInput.value = result.path;
 
+    // 读到的条目进按路径去重的缓存（不进标签页）：切回这个目录时可以先显示再复核。
+    workspacesStore.cacheDirectoryEntries(result.path, result.entries);
+
     const currentTab = tab();
 
     if (currentTab) {
       currentTab.path = result.path;
-      currentTab.dirEntries = result.entries;
 
       if (options.updateTabName) {
         // 远程路径优先：连接根要显示连接名而不是 uuid（见 getRemoteTabName）。
@@ -654,10 +665,7 @@ export function useFileBrowserNavigation(
       invalidateDirectoryItemCounts(result);
       primeDirectoryMetadataCaches(result, readOptions);
       dirContents.value = result;
-
-      if (currentTab) {
-        currentTab.dirEntries = result.entries;
-      }
+      workspacesStore.cacheDirectoryEntries(result.path, result.entries);
 
       scheduleDirectoryIconPrefetch(result.entries);
 
@@ -845,6 +853,10 @@ export function useFileBrowserNavigation(
       // `describeRemoteError` 对本地错误的行为与原来完全一致，只多认一种形状。
       const errorMessage = describeRemoteError(caughtError);
       error.value = errorMessage;
+
+      // 这次读盘失败了，缓存里那份多半已经过期（目录多半被删了）。
+      // 留着它只会让下一次重试先闪一份陈旧内容再报错。
+      workspacesStore.removeCachedDirectoryEntries(normalizedPath);
       console.error(caughtError);
     }
     finally {

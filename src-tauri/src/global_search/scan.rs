@@ -12,9 +12,9 @@ use walkdir::WalkDir;
 use super::ignore::{builtin_ignored_paths, normalize_case, IgnoredPathMatcher};
 use super::index::{
     calculate_dir_size, cleanup_orphan_index_dirs, clear_index, create_bulk_index_writer,
-    create_fresh_index, index_dir, open_or_create_index, read_meta, remove_dir_force,
-    replace_index_dir, staging_index_dir, validate_index, validate_staged_index, write_meta,
-    GlobalSearchMeta, SCHEMA_VERSION,
+    create_fresh_index, index_dir, merge_index_segments, open_or_create_index, read_meta,
+    remove_dir_force, replace_index_dir, staging_index_dir, validate_index, validate_staged_index,
+    write_meta, GlobalSearchMeta, SCHEMA_VERSION,
 };
 use super::state::{now_millis, GlobalSearchIndexFields, GlobalSearchState, GLOBAL_SEARCH_STATE};
 use super::types::{
@@ -553,7 +553,19 @@ pub async fn global_search_start_scan(
                 }
 
                 writer.commit().map_err(|error| error.to_string())?;
-                drop(writer);
+
+                // 提交后显式合并，把 segment 数量压回上限。
+                // `NoMergePolicy` 只关掉后台自动合并，显式 `merge()` 不受它影响。
+                // 合并失败**不**让这次扫描失败：索引已经提交成功且可用，
+                // 只是 segment 会多一些（下次扫描还会再合并）。
+                if let Err(error) = merge_index_segments(&mut writer) {
+                    log::warn!(
+                        "[global-search] Failed to merge index segments after commit: {}",
+                        error
+                    );
+                }
+                writer.wait_merging_threads().map_err(|error| error.to_string())?;
+
                 drop(index);
 
                 let final_count = indexed_count.load(Ordering::Relaxed);
@@ -756,6 +768,18 @@ fn global_search_index_paths_blocking(
 
     if did_mutate_index {
         writer.commit().map_err(|error| error.to_string())?;
+
+        // 增量扫描直接往常驻索引里提交，每提交一次就多一个 segment。
+        // 提交后显式合并，把 segment 数量压回上限。
+        // 合并失败不影响本次增量扫描的结果（索引已提交且可用）。
+        if let Err(error) = merge_index_segments(&mut writer) {
+            log::warn!(
+                "[global-search] Failed to merge index segments after commit: {}",
+                error
+            );
+        }
+        writer.wait_merging_threads().map_err(|error| error.to_string())?;
+
         reader.reload().map_err(|error| error.to_string())?;
 
         let new_total = reader.searcher().num_docs();

@@ -23,6 +23,10 @@ import {
 } from '../use-file-browser-virtual-layout';
 import type { ThumbnailSize } from '../../types';
 import {
+  createFileBrowserVirtualRowModel,
+  materializeVirtualRows,
+} from '../../utils/file-browser-virtual-rows';
+import {
   GRID_DIR_ENTRY_HEIGHT,
   GRID_FILE_ENTRY_HEIGHT,
   LIST_FILE_ENTRY_HEIGHT,
@@ -331,15 +335,23 @@ describe('getFileBrowserGridNavigationEntry', () => {
       }),
     ];
 
-    const rows = createFileBrowserVirtualRows({
+    // FORK-MODIFICATION（批次 C3）：网格导航现在吃「行模型」而不是「行数组」。
+    // 行数组是惰性的 —— 按行扫描它会物化全部行，导航就退化成 O(N) 了。
+    const model = createFileBrowserVirtualRowModel({
       entries,
       layout: 'grid',
-      viewportWidth: 500,
+      columnCount: getGridColumnCount(
+        500,
+        12,
+        resolveThumbnailMetrics('medium').gridMinColumnWidth,
+      ),
+      gridGap: 12,
+      thumbnailSize: 'medium',
     });
 
-    expect(getFileBrowserGridNavigationEntry(rows, '/dir-2', 'down')?.path).toBe('/dir-4');
-    expect(getFileBrowserGridNavigationEntry(rows, '/dir-4', 'down')?.path).toBe('/image-2');
-    expect(getFileBrowserGridNavigationEntry(rows, '/image-2', 'up')?.path).toBe('/dir-4');
+    expect(getFileBrowserGridNavigationEntry(model, '/dir-2', 'down')?.path).toBe('/dir-4');
+    expect(getFileBrowserGridNavigationEntry(model, '/dir-4', 'down')?.path).toBe('/image-2');
+    expect(getFileBrowserGridNavigationEntry(model, '/image-2', 'up')?.path).toBe('/dir-4');
   });
 });
 
@@ -705,5 +717,176 @@ describe('list rows grouped by type', () => {
       'clip.mp4',
       'readme.md',
     ]);
+  });
+});
+
+// FORK-MODIFICATION（批次 C3）：行模型 —— 元数据 + 只算可视窗口物化。
+//
+// 这一组用例守三件事：
+//   ① 大目录（1 万 / 10 万条）下**行对象数量**与条目数无关，只与可视窗口有关；
+//   ② 行 key 由**下标**组成，不含完整路径；
+//   ③ 区隔行的 start 恰好等于前一行 start + size（虚拟模型与渲染高度同源）。
+describe('metadata row model', () => {
+  function createLargeEntries(count: number): DirEntry[] {
+    return Array.from({ length: count }, (_unused, index) => createEntry(`item-${index}`));
+  }
+
+  // FORK-MODIFICATION: 十万条目的目录以前要物化十万个行对象，
+  // 外加十万条含完整路径的 key 字符串。现在元数据层只分配 TypedArray，
+  // 建模型的过程里一个行对象都不造 —— 这就是下面那条断言的判别力。
+  it('creates no row objects for a 100k directory until a window is materialized', () => {
+    const entries = createLargeEntries(100_000);
+    const model = createFileBrowserVirtualRowModel({
+      entries,
+      layout: 'list',
+      columnCount: 1,
+      gridGap: 12,
+      thumbnailSize: 'medium',
+    });
+
+    // 元数据层：十万条目 = 十万条目行 + 一行区隔标题行。
+    expect(model.rowCount).toBe(100_001);
+    expect(model.materializedRowCount).toBe(0);
+
+    const windowRows = materializeVirtualRows(model, 0, 24);
+
+    expect(windowRows).toHaveLength(24);
+    expect(model.materializedRowCount).toBe(24);
+  });
+
+  // FORK-MODIFICATION: 组合器层面的同一件事 —— 打开一个大目录时，
+  // 真正造出来的行对象只够一屏用。
+  it('keeps the materialized row objects bounded by the visible window', () => {
+    const entries = createLargeEntries(10_000);
+    let layout!: ReturnType<typeof useFileBrowserVirtualLayout>;
+    const wrapper = mount(defineComponent({
+      setup() {
+        layout = useFileBrowserVirtualLayout({
+          entries: computed(() => entries),
+          layout: () => 'list',
+        });
+
+        return () => h('div');
+      },
+    }));
+
+    const model = layout.rowModel.value;
+
+    expect(model.rowCount).toBe(10_001);
+    expect(model.materializedRowCount).toBe(0);
+
+    // 读行数不物化任何行对象。
+    expect(layout.rows.value.length).toBe(10_001);
+    expect(model.materializedRowCount).toBe(0);
+
+    const visibleRows = layout.visibleRows.value;
+
+    expect(visibleRows.length).toBeGreaterThan(0);
+    // 余量 4 行留给区隔标题行 / sticky 段头行 —— 关键是量级与条目数无关。
+    expect(model.materializedRowCount).toBeLessThanOrEqual(visibleRows.length + 4);
+    expect(model.materializedRowCount).toBeLessThan(100);
+
+    wrapper.unmount();
+  });
+
+  // FORK-MODIFICATION: 行 key 以前是 `list:${entry.path}` /
+  // `grid-items:${section}:${rowIndex}:${paths.join('|')}` ——
+  // 每行一条含完整路径的新字符串，十万行就是十万条常驻字符串。
+  // 现在 key 只由下标组成。
+  it('keys list rows by the display index instead of the full path', () => {
+    const rows = createFileBrowserVirtualRows({
+      entries: [
+        createEntry('dir-1', {
+          is_dir: true,
+          is_file: false,
+        }),
+        createEntry('photo.png', { ext: 'png' }),
+        createEntry('notes.txt', { ext: 'txt' }),
+      ],
+      layout: 'list',
+      viewportWidth: 800,
+    });
+
+    expect(rows.map(row => row.key)).toEqual([
+      'list-section:dirs',
+      'list:0',
+      'list-section:images',
+      'list:1',
+      'list-section:others',
+      'list:2',
+    ]);
+
+    for (const row of rows) {
+      expect(row.key).not.toContain('/');
+      expect(row.key).not.toContain('\\');
+    }
+  });
+
+  it('keys grid rows by a global row index instead of the full path', () => {
+    const rows = createFileBrowserVirtualRows({
+      entries: [
+        createEntry('dir-1', {
+          is_dir: true,
+          is_file: false,
+        }),
+        createEntry('dir-2', {
+          is_dir: true,
+          is_file: false,
+        }),
+        createEntry('dir-3', {
+          is_dir: true,
+          is_file: false,
+        }),
+        createEntry('notes.txt', { ext: 'txt' }),
+      ],
+      layout: 'grid',
+      viewportWidth: 800,
+    });
+
+    // 800 宽 / medium 档：列数 = floor((800 + 12) / (225 + 12)) = 3。
+    expect(rows.map(row => row.key)).toEqual([
+      'grid-section:dirs',
+      'grid-items:0',
+      'grid-section:others',
+      'grid-items:1',
+    ]);
+
+    for (const row of rows) {
+      expect(row.key).not.toContain('/');
+      expect(row.key).not.toContain('\\');
+    }
+  });
+
+  // FORK-MODIFICATION: 区隔行的 start 必须恰好等于前一行 start + size。
+  // 区隔行高度与渲染侧内联的 height 不同源时，滚动就会错位 ——
+  // 这条断言是那类错位唯一的数值护栏。
+  it('anchors every section row to the end of the previous row', () => {
+    const rows = createFileBrowserVirtualRows({
+      entries: [
+        createEntry('notes.txt', { ext: 'txt' }),
+        createEntry('dir-1', {
+          is_dir: true,
+          is_file: false,
+        }),
+        createEntry('photo.png', { ext: 'png' }),
+        createEntry('clip.mp4', { ext: 'mp4' }),
+        createEntry('readme.md', { ext: 'md' }),
+      ],
+      layout: 'list',
+      viewportWidth: 800,
+    });
+    const sectionIndexes = rows
+      .map((row, index) => (row.type === 'list-section' ? index : -1))
+      .filter(index => index >= 0);
+
+    expect(sectionIndexes).toHaveLength(4);
+
+    for (const sectionIndex of sectionIndexes) {
+      const section = rows[sectionIndex];
+      const previous = sectionIndex > 0 ? rows[sectionIndex - 1] : null;
+
+      expect(section.type).toBe('list-section');
+      expect(section.start).toBe(previous ? previous.start + previous.size : 0);
+    }
   });
 });

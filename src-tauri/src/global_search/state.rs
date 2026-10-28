@@ -92,6 +92,18 @@ pub(super) fn now_millis() -> u64 {
 // 用户无感），同时不至于让「连续搜索」的用户频繁付重开的代价。
 pub(super) const READER_IDLE_RELEASE_AFTER_MS: u64 = 5 * 60 * 1000;
 
+/// 索引体积超过 `READER_RESIDENT_BUDGET_BYTES` 时，reader 的空闲释放阈值（毫秒）。
+///
+/// 索引越大，reader 攥着的 segment mmap 越多，就越应该早点放掉。
+pub(super) const READER_IDLE_RELEASE_AFTER_MS_OVER_BUDGET: u64 = 60 * 1000;
+
+/// 常驻 reader 的体积预算（字节）。
+///
+/// tantivy 0.26 的 `IndexReaderBuilder` 只有 `reload_policy` 与 `try_into`，
+/// **没有**内存预算旋钮，所以这一层的「预算」只能用「按体积提前释放」来实现：
+/// 索引在预算之内按 5 分钟释放，超出预算按 1 分钟释放。
+pub(super) const READER_RESIDENT_BUDGET_BYTES: u64 = 256 * 1024 * 1024;
+
 /// 上一次查询的时间戳（毫秒）。
 ///
 /// 首次访问时初始化（进程启动阶段被 `GLOBAL_SEARCH_STATE` 的初始化顺带钉住，
@@ -103,8 +115,48 @@ pub(super) fn mark_query_activity() {
     LAST_QUERY_AT_MS.store(now_millis(), Ordering::Relaxed);
 }
 
-/// 常驻 reader 是否已经空闲超过阈值。
-pub(super) fn is_reader_idle(now_ms: u64) -> bool {
+/// 常驻 reader 是否已经空闲超过阈值（按索引体积自适应）。
+pub(super) fn is_reader_idle(now_ms: u64, index_size_bytes: u64) -> bool {
     let last_query_at = LAST_QUERY_AT_MS.load(Ordering::Relaxed);
-    now_ms.saturating_sub(last_query_at) >= READER_IDLE_RELEASE_AFTER_MS
+    let idle_ms = now_ms.saturating_sub(last_query_at);
+
+    idle_ms >= reader_idle_threshold_ms(index_size_bytes)
+}
+
+/// reader 的空闲释放阈值（毫秒）：索引越大，越早放掉常驻 reader。
+pub(super) fn reader_idle_threshold_ms(index_size_bytes: u64) -> u64 {
+    if index_size_bytes > READER_RESIDENT_BUDGET_BYTES {
+        READER_IDLE_RELEASE_AFTER_MS_OVER_BUDGET
+    } else {
+        READER_IDLE_RELEASE_AFTER_MS
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reader_idle_threshold_is_shorter_when_index_exceeds_budget() {
+        let under_budget = READER_RESIDENT_BUDGET_BYTES;
+        let over_budget = READER_RESIDENT_BUDGET_BYTES + 1;
+
+        assert_eq!(
+            reader_idle_threshold_ms(under_budget),
+            READER_IDLE_RELEASE_AFTER_MS
+        );
+        assert_eq!(
+            reader_idle_threshold_ms(over_budget),
+            READER_IDLE_RELEASE_AFTER_MS_OVER_BUDGET
+        );
+        assert!(
+            READER_IDLE_RELEASE_AFTER_MS_OVER_BUDGET < READER_IDLE_RELEASE_AFTER_MS,
+            "超预算时必须更早释放 reader"
+        );
+    }
+
+    #[test]
+    fn reader_idle_threshold_uses_default_for_zero_sized_index() {
+        assert_eq!(reader_idle_threshold_ms(0), READER_IDLE_RELEASE_AFTER_MS);
+    }
 }
