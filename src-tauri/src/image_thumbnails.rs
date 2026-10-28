@@ -7,7 +7,8 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Condvar, Mutex};
+use std::time::SystemTime;
 
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
@@ -20,13 +21,36 @@ use sha2::{Digest, Sha256};
 
 const IMAGE_THUMBNAIL_CACHE_DIR: &str = "image-thumbnails";
 const THUMBNAIL_MAX_DIMENSION: u32 = 384;
-const MAX_THUMBNAIL_CACHE_ITEM_COUNT: usize = 5000;
-const MAX_THUMBNAIL_CACHE_SIZE_BYTES: u64 = 1024 * 1024 * 1024;
+/// 缩略图缓存的条目数上限。
+///
+/// 2026-10-28 从 5000 收紧到 2000：实测增长约 265 张/天，5000 的上限意味着
+/// 「某一刻全部缩略图被清空、全部重生成」。超限现在按最旧优先淘汰，
+/// 不再整体清空，所以这个数字只决定缓存能长到多大，不再决定体验。
+const MAX_THUMBNAIL_CACHE_ITEM_COUNT: usize = 2000;
+/// 缩略图缓存的字节数上限（256 MB）。
+///
+/// 2026-10-28 从 1 GB 收紧到 256 MB：实测 4249 张就占了 434 MB，
+/// 单张中位数 121 KB，1 GB 迟早会撞上。
+const MAX_THUMBNAIL_CACHE_SIZE_BYTES: u64 = 256 * 1024 * 1024;
 const THUMBNAIL_CACHE_LIMIT_CHECK_INTERVAL: usize = 100;
 const MAX_THUMBNAIL_SOURCE_FILE_SIZE_BYTES: u64 = 128 * 1024 * 1024;
 const MAX_THUMBNAIL_SOURCE_DIMENSION: u32 = 32_768;
-const MAX_THUMBNAIL_SOURCE_PIXELS: u64 = 50_000_000;
-const MAX_THUMBNAIL_DECODE_ALLOCATION_BYTES: u64 = 192 * 1024 * 1024;
+/// 单张源图允许的最大像素数（16 MP = 2^24 像素 ≈ 64 MiB RGBA）。
+///
+/// 2026-10-28 从 50 MP 收紧到 16 MP：与下面的解码分配上限精确对齐
+/// （16 MP × 4 字节 = 64 MiB），超限的图在解码之前就被挡掉，
+/// 不会先分配再失败。
+const MAX_THUMBNAIL_SOURCE_PIXELS: u64 = 16_777_216;
+/// 单张源图解码允许的最大分配字节数（64 MB）。
+///
+/// 2026-10-28 从 192 MB 收紧到 64 MB：一张大图解码的瞬时占用
+/// 从「接近 200 MB」降到「不超过 64 MB」。
+const MAX_THUMBNAIL_DECODE_ALLOCATION_BYTES: u64 = 64 * 1024 * 1024;
+/// 同时解码的缩略图张数上限。
+///
+/// 解码是内存尖峰来源，多张大图同时解码峰值会叠加。
+/// 3 是「够用又不打爆」的折中：2 太保守，4 以上并发峰值又会叠加上去。
+const MAX_CONCURRENT_THUMBNAIL_DECODES: usize = 3;
 const MAX_ORIGINAL_IMAGE_THUMBNAIL_SOURCE_SIZE_BYTES: u64 = 512 * 1024;
 const MAX_VIDEO_THUMBNAIL_CACHE_BYTES: usize = 2 * 1024 * 1024;
 const IMAGE_THUMBNAIL_RESIZE_FILTER: FilterType = FilterType::Triangle;
@@ -37,6 +61,68 @@ static IMAGE_THUMBNAIL_CACHE_FILE_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::ne
 static IMAGE_THUMBNAIL_CACHE_MAINTENANCE: Lazy<Mutex<ThumbnailCacheMaintenanceState>> =
     Lazy::new(|| Mutex::new(ThumbnailCacheMaintenanceState::default()));
 static TEMPORARY_THUMBNAIL_COUNTER: AtomicU64 = AtomicU64::new(0);
+static THUMBNAIL_DECODE_GATE: Lazy<ThumbnailDecodeGate> = Lazy::new(ThumbnailDecodeGate::new);
+
+/// 解码并发闸门。
+///
+/// 解码一张大图会瞬时占用几十 MB（上限见 `MAX_THUMBNAIL_DECODE_ALLOCATION_BYTES`），
+/// 批量生成缩略图时多个解码并发跑，峰值直接叠加。这里把并发解码数压在
+/// `MAX_CONCURRENT_THUMBNAIL_DECODES` 以内。
+///
+/// 刻意用 `std::sync` 实现而不是 `tokio::sync::Semaphore`：解码发生在
+/// `spawn_blocking` 的阻塞线程里，同步内核不能碰异步运行时
+/// （`tauri::async_runtime` 一旦被链接进测试二进制，就会把整条 tao 窗口链拖进来，
+/// 测试二进制会在加载阶段以 `STATUS_ENTRYPOINT_NOT_FOUND` 崩掉）。
+struct ThumbnailDecodeGate {
+    active_decodes: Mutex<usize>,
+    slot_available: Condvar,
+}
+
+impl ThumbnailDecodeGate {
+    fn new() -> Self {
+        Self {
+            active_decodes: Mutex::new(0),
+            slot_available: Condvar::new(),
+        }
+    }
+
+    /// 占一个解码名额；名额用完时阻塞等待。
+    fn acquire(&self) -> ThumbnailDecodeSlot<'_> {
+        let mut active_decodes = self
+            .active_decodes
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+        while *active_decodes >= MAX_CONCURRENT_THUMBNAIL_DECODES {
+            active_decodes = self
+                .slot_available
+                .wait(active_decodes)
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+        }
+
+        *active_decodes += 1;
+
+        ThumbnailDecodeSlot { gate: self }
+    }
+}
+
+/// 闸门的占用凭证：离开作用域就还回去一个名额。
+struct ThumbnailDecodeSlot<'a> {
+    gate: &'a ThumbnailDecodeGate,
+}
+
+impl Drop for ThumbnailDecodeSlot<'_> {
+    fn drop(&mut self) {
+        let mut active_decodes = self
+            .gate
+            .active_decodes
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+        *active_decodes = active_decodes.saturating_sub(1);
+        self.gate.slot_available.notify_one();
+    }
+}
 
 #[derive(Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -254,16 +340,103 @@ fn clear_thumbnail_cache_dir(cache_dir: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn enforce_thumbnail_cache_limits(cache_dir: &Path) -> Result<(), String> {
-    let stats = thumbnail_cache_stats(cache_dir)?;
+/// 缓存目录里的一个文件，以及淘汰排序需要的元信息。
+struct ThumbnailCacheEntry {
+    path: PathBuf,
+    modified_time: SystemTime,
+    size_bytes: u64,
+}
 
-    if stats.item_count >= MAX_THUMBNAIL_CACHE_ITEM_COUNT
-        || stats.size_bytes > MAX_THUMBNAIL_CACHE_SIZE_BYTES
+/// 递归收集缓存目录里的所有文件。
+///
+/// 缓存目录是平铺的（只有生成出来的缩略图文件），这里仍然递归一层，
+/// 以防目录里出现子目录时统计与淘汰的口径不一致。
+fn collect_thumbnail_cache_entries(
+    cache_dir: &Path,
+    entries: &mut Vec<ThumbnailCacheEntry>,
+) -> Result<(), String> {
+    for entry in fs::read_dir(cache_dir)
+        .map_err(|error| format!("Failed to read thumbnail cache directory: {error}"))?
     {
-        clear_thumbnail_cache_dir(cache_dir)?;
+        let entry = entry.map_err(|error| format!("Failed to read thumbnail cache item: {error}"))?;
+        let path = entry.path();
+        let metadata = fs::symlink_metadata(&path)
+            .map_err(|error| format!("Failed to read cache item: {error}"))?;
+
+        if metadata.is_dir() {
+            collect_thumbnail_cache_entries(&path, entries)?;
+            continue;
+        }
+
+        if !metadata.is_file() {
+            continue;
+        }
+
+        // 读不到修改时间就按「最旧」处理：宁可先淘汰它，
+        // 也不要因为排序依据缺失而让整个缓存被清空。
+        let modified_time = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+
+        entries.push(ThumbnailCacheEntry {
+            path,
+            modified_time,
+            size_bytes: metadata.len(),
+        });
     }
 
     Ok(())
+}
+
+/// 缓存超限时**按最旧优先淘汰**，直到回到限额内。
+///
+/// 2026-10-28 之前这里是「超限就清空整个目录」：缓存涨到上限的那一刻，
+/// 用户会看到所有缩略图集体消失、全部重新生成。现在只淘汰最旧的文件，
+/// 新生成的那批总是最新、因此总是留下。
+///
+/// 限额做成参数是为了让单测能用小数字精确验证淘汰顺序；
+/// 生产入口见 `enforce_thumbnail_cache_limits`。
+fn enforce_thumbnail_cache_limits_with_limits(
+    cache_dir: &Path,
+    max_item_count: usize,
+    max_size_bytes: u64,
+) -> Result<(), String> {
+    let mut entries = Vec::new();
+    collect_thumbnail_cache_entries(cache_dir, &mut entries)?;
+
+    let mut item_count = entries.len();
+    let mut size_bytes = entries
+        .iter()
+        .map(|entry| entry.size_bytes)
+        .fold(0u64, |total, size| total.saturating_add(size));
+
+    if item_count <= max_item_count && size_bytes <= max_size_bytes {
+        return Ok(());
+    }
+
+    // 最旧的先淘汰。
+    entries.sort_by(|left, right| left.modified_time.cmp(&right.modified_time));
+
+    for entry in entries {
+        if item_count <= max_item_count && size_bytes <= max_size_bytes {
+            break;
+        }
+
+        // 单个文件删不掉（被占用等）就跳过它，不应该让整轮淘汰失败。
+        if fs::remove_file(&entry.path).is_ok() {
+            item_count -= 1;
+            size_bytes = size_bytes.saturating_sub(entry.size_bytes);
+        }
+    }
+
+    Ok(())
+}
+
+/// 缓存超限时按最旧优先淘汰，直到回到限额内（不再整体清空）。
+fn enforce_thumbnail_cache_limits(cache_dir: &Path) -> Result<(), String> {
+    enforce_thumbnail_cache_limits_with_limits(
+        cache_dir,
+        MAX_THUMBNAIL_CACHE_ITEM_COUNT,
+        MAX_THUMBNAIL_CACHE_SIZE_BYTES,
+    )
 }
 
 fn should_enforce_thumbnail_cache_limits() -> Result<bool, String> {
@@ -620,7 +793,11 @@ fn generate_image_thumbnail_file(
         return Ok(canonical_source_path.to_string_lossy().to_string());
     }
 
-    let image = decode_image_thumbnail_source(source_path)?;
+    // 解码大图是内存尖峰来源，多张同时解码峰值会叠加 ⇒ 走并发闸门。
+    let image = {
+        let _decode_slot = THUMBNAIL_DECODE_GATE.acquire();
+        decode_image_thumbnail_source(source_path)?
+    };
     let thumbnail = image.resize(max_dimension, max_dimension, IMAGE_THUMBNAIL_RESIZE_FILTER);
     let temporary_path = temporary_thumbnail_path(&thumbnail_path);
 
@@ -743,17 +920,23 @@ pub async fn cache_video_thumbnail(
 mod tests {
     use super::{
         clear_thumbnail_cache_dir, clear_thumbnail_cache_in_app_data_dir,
-        enforce_thumbnail_cache_limits, generate_image_thumbnail_file,
-        normalize_thumbnail_max_dimension, path_is_same_or_descendant, thumbnail_cache_key,
-        thumbnail_cache_stats, thumbnail_cache_stats_in_app_data_dir,
-        validate_image_thumbnail_source, IMAGE_THUMBNAIL_CACHE_DIR,
-        MAX_ORIGINAL_IMAGE_THUMBNAIL_SOURCE_SIZE_BYTES, MAX_THUMBNAIL_CACHE_ITEM_COUNT,
-        MAX_THUMBNAIL_CACHE_SIZE_BYTES, MAX_THUMBNAIL_SOURCE_FILE_SIZE_BYTES,
+        enforce_thumbnail_cache_limits, enforce_thumbnail_cache_limits_with_limits,
+        generate_image_thumbnail_file, normalize_thumbnail_max_dimension,
+        path_is_same_or_descendant, thumbnail_cache_key, thumbnail_cache_stats,
+        thumbnail_cache_stats_in_app_data_dir, validate_image_thumbnail_source,
+        ThumbnailDecodeGate, IMAGE_THUMBNAIL_CACHE_DIR,
+        MAX_CONCURRENT_THUMBNAIL_DECODES, MAX_ORIGINAL_IMAGE_THUMBNAIL_SOURCE_SIZE_BYTES,
+        MAX_THUMBNAIL_CACHE_ITEM_COUNT, MAX_THUMBNAIL_CACHE_SIZE_BYTES,
+        MAX_THUMBNAIL_DECODE_ALLOCATION_BYTES, MAX_THUMBNAIL_SOURCE_FILE_SIZE_BYTES,
         MAX_THUMBNAIL_SOURCE_PIXELS, THUMBNAIL_MAX_DIMENSION,
     };
     use std::fs;
     use std::fs::File;
     use std::path::Path;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use std::thread;
+    use std::time::{Duration, SystemTime};
 
     fn write_test_png(path: &Path, width: u32, height: u32) {
         let image = image::RgbaImage::from_pixel(width, height, image::Rgba([32, 64, 96, 255]));
@@ -981,32 +1164,198 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[test]
-    fn thumbnail_cache_is_cleared_at_item_limit() {
-        let temp_dir = tempfile::tempdir().unwrap();
+    /// 写一个带指定修改时间的缓存文件。
+    ///
+    /// 淘汰按 mtime 排序，所以测试必须能控制每个文件的「新旧」，
+    /// 否则只能靠 sleep 排序，既慢又不稳定。
+    fn write_cache_file_with_modified_time(path: &Path, contents: &[u8], modified_seconds: u64) {
+        fs::write(path, contents).unwrap();
 
-        for item_index in 0..MAX_THUMBNAIL_CACHE_ITEM_COUNT {
-            fs::write(temp_dir.path().join(format!("{item_index}.png")), b"thumb").unwrap();
-        }
-
-        enforce_thumbnail_cache_limits(temp_dir.path()).unwrap();
-
-        let stats = thumbnail_cache_stats(temp_dir.path()).unwrap();
-        assert_eq!(stats.item_count, 0);
-        assert_eq!(stats.size_bytes, 0);
+        let file = fs::OpenOptions::new().write(true).open(path).unwrap();
+        let modified_time = SystemTime::UNIX_EPOCH + Duration::from_secs(modified_seconds);
+        file.set_times(fs::FileTimes::new().set_modified(modified_time))
+            .unwrap();
     }
 
+    /// 超限时**淘汰最旧的**，而不是清空整个目录。
+    ///
+    /// 这条是 2026-10-28 那次「超限全清」改动的守门测试：
+    /// 如果哪天又退回整体清空，这里会直接红。
     #[test]
-    fn thumbnail_cache_is_cleared_above_size_limit() {
+    fn thumbnail_cache_evicts_oldest_items_instead_of_clearing() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let file = File::create(temp_dir.path().join("large.png")).unwrap();
-        file.set_len(MAX_THUMBNAIL_CACHE_SIZE_BYTES + 1).unwrap();
+
+        for item_index in 0..5u64 {
+            write_cache_file_with_modified_time(
+                &temp_dir.path().join(format!("{item_index}.png")),
+                b"thumb",
+                1_600_000_000 + item_index,
+            );
+        }
+
+        enforce_thumbnail_cache_limits_with_limits(temp_dir.path(), 3, u64::MAX).unwrap();
+
+        let stats = thumbnail_cache_stats(temp_dir.path()).unwrap();
+        assert_eq!(
+            stats.item_count, 3,
+            "应只淘汰到限额内，而不是清空整个缓存目录"
+        );
+        assert!(
+            !temp_dir.path().join("0.png").exists(),
+            "最旧的条目应被淘汰"
+        );
+        assert!(
+            !temp_dir.path().join("1.png").exists(),
+            "次旧的条目应被淘汰"
+        );
+        assert!(
+            temp_dir.path().join("2.png").exists(),
+            "较新的条目应被保留"
+        );
+        assert!(
+            temp_dir.path().join("3.png").exists(),
+            "较新的条目应被保留"
+        );
+        assert!(
+            temp_dir.path().join("4.png").exists(),
+            "最新的条目应被保留"
+        );
+    }
+
+    /// 字节数超限时同样按最旧优先淘汰。
+    #[test]
+    fn thumbnail_cache_evicts_oldest_items_above_size_limit() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        for item_index in 0..4u64 {
+            write_cache_file_with_modified_time(
+                &temp_dir.path().join(format!("{item_index}.png")),
+                &[0u8; 100],
+                1_600_000_000 + item_index,
+            );
+        }
+
+        // 4 × 100 B = 400 B，限额 250 B ⇒ 必须淘汰掉最旧的两个。
+        enforce_thumbnail_cache_limits_with_limits(temp_dir.path(), usize::MAX, 250).unwrap();
+
+        let stats = thumbnail_cache_stats(temp_dir.path()).unwrap();
+        assert_eq!(stats.item_count, 2, "应淘汰到字节限额内");
+        assert_eq!(stats.size_bytes, 200, "应淘汰到字节限额内");
+        assert!(
+            !temp_dir.path().join("0.png").exists(),
+            "最旧的条目应被淘汰"
+        );
+        assert!(
+            !temp_dir.path().join("1.png").exists(),
+            "次旧的条目应被淘汰"
+        );
+        assert!(
+            temp_dir.path().join("2.png").exists(),
+            "较新的条目应被保留"
+        );
+        assert!(
+            temp_dir.path().join("3.png").exists(),
+            "较新的条目应被保留"
+        );
+    }
+
+    /// 没超限时一个文件都不能动。
+    #[test]
+    fn thumbnail_cache_keeps_everything_within_limits() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        for item_index in 0..3u64 {
+            write_cache_file_with_modified_time(
+                &temp_dir.path().join(format!("{item_index}.png")),
+                b"thumb",
+                1_600_000_000 + item_index,
+            );
+        }
+
+        enforce_thumbnail_cache_limits_with_limits(temp_dir.path(), 3, 300).unwrap();
+
+        let stats = thumbnail_cache_stats(temp_dir.path()).unwrap();
+        assert_eq!(stats.item_count, 3, "限额内的条目不应被淘汰");
+        for item_index in 0..3u64 {
+            assert!(
+                temp_dir.path().join(format!("{item_index}.png")).exists(),
+                "限额内的条目不应被淘汰"
+            );
+        }
+    }
+
+    /// 生产入口（走真实限额）在没超限时不应动任何文件。
+    #[test]
+    fn thumbnail_cache_production_limits_keep_small_caches_intact() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        write_cache_file_with_modified_time(
+            &temp_dir.path().join("a.png"),
+            b"thumb",
+            1_600_000_000,
+        );
 
         enforce_thumbnail_cache_limits(temp_dir.path()).unwrap();
 
         let stats = thumbnail_cache_stats(temp_dir.path()).unwrap();
-        assert_eq!(stats.item_count, 0);
-        assert_eq!(stats.size_bytes, 0);
+        assert_eq!(stats.item_count, 1);
+        assert!(
+            temp_dir.path().join("a.png").exists(),
+            "限额内的条目不应被淘汰"
+        );
+    }
+
+    /// 限额常量不得被悄悄放宽。
+    #[test]
+    fn thumbnail_cache_limits_stay_tightened() {
+        assert_eq!(MAX_THUMBNAIL_CACHE_ITEM_COUNT, 2000);
+        assert_eq!(MAX_THUMBNAIL_CACHE_SIZE_BYTES, 256 * 1024 * 1024);
+        assert_eq!(MAX_THUMBNAIL_DECODE_ALLOCATION_BYTES, 64 * 1024 * 1024);
+        assert_eq!(
+            MAX_THUMBNAIL_SOURCE_PIXELS * 4,
+            MAX_THUMBNAIL_DECODE_ALLOCATION_BYTES,
+            "像素上限应与解码分配上限对齐（每像素 4 字节 RGBA）"
+        );
+    }
+
+    /// 解码并发闸门：同时解码的张数不得超过上限。
+    #[test]
+    fn thumbnail_decode_gate_caps_concurrent_decodes() {
+        let gate = Arc::new(ThumbnailDecodeGate::new());
+        let active_decodes = Arc::new(AtomicUsize::new(0));
+        let peak_decodes = Arc::new(AtomicUsize::new(0));
+
+        let handles: Vec<_> = (0..MAX_CONCURRENT_THUMBNAIL_DECODES * 4)
+            .map(|_| {
+                let gate = Arc::clone(&gate);
+                let active_decodes = Arc::clone(&active_decodes);
+                let peak_decodes = Arc::clone(&peak_decodes);
+
+                thread::spawn(move || {
+                    let _decode_slot = gate.acquire();
+
+                    let current = active_decodes.fetch_add(1, Ordering::SeqCst) + 1;
+                    peak_decodes.fetch_max(current, Ordering::SeqCst);
+
+                    thread::sleep(Duration::from_millis(50));
+
+                    active_decodes.fetch_sub(1, Ordering::SeqCst);
+                })
+            })
+            .collect();
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        let peak = peak_decodes.load(Ordering::SeqCst);
+        assert!(
+            peak <= MAX_CONCURRENT_THUMBNAIL_DECODES,
+            "并发解码峰值 {peak} 超过了上限 {MAX_CONCURRENT_THUMBNAIL_DECODES}"
+        );
+        assert!(
+            peak > 1,
+            "闸门应当允许多张同时解码，实际峰值 {peak}"
+        );
     }
 
     #[test]

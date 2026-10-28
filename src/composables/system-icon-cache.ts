@@ -30,8 +30,30 @@ const MACOS_UNIQUE_ICON_EXTENSIONS = new Set([
 export const NAVIGATOR_ICON_PREFETCH_SIZES = [18, 24, 48] as const;
 const SYSTEM_ICON_PREFETCH_CONCURRENCY = 6;
 
+// 系统图标缓存的容量上限。缓存值是 base64 PNG data URL（体积大），
+// 原本只有写入、没有任何淘汰逻辑，浏览含大量 exe/dll 的目录时内存会单调增长。
+const SYSTEM_ICON_CACHE_MAX_ENTRIES = 512;
+
+type SystemIconCacheKeyClass = 'extension' | 'path' | 'directory';
+
+// 淘汰优先级：ext: 类命中率高、条数天然有界，优先保留；
+// path: 类（exe/dll 等）最容易无限增长，最先被淘汰；dir: 类次之。
+const SYSTEM_ICON_CACHE_EVICTION_ORDER: readonly SystemIconCacheKeyClass[] = [
+  'path',
+  'directory',
+  'extension',
+];
+
 const systemIconCache = new Map<string, string | null>();
 const systemIconInFlight = new Map<string, Promise<string | null>>();
+
+export interface SystemIconCacheStats {
+  total: number;
+  extension: number;
+  path: number;
+  directory: number;
+  limit: number;
+}
 
 export interface SystemIconRequest {
   path: string;
@@ -72,6 +94,52 @@ function getUniqueIconExtensions(): Set<string> {
 
 function isExtensionCacheKey(cacheKey: string): boolean {
   return cacheKey.startsWith('ext:');
+}
+
+function getSystemIconCacheKeyClass(cacheKey: string): SystemIconCacheKeyClass {
+  if (isExtensionCacheKey(cacheKey)) {
+    return 'extension';
+  }
+
+  if (cacheKey.startsWith('path:')) {
+    return 'path';
+  }
+
+  return 'directory';
+}
+
+// Map 保持插入序，删除后重新插入即可把该条目标记为「最近使用」。
+function touchSystemIconCacheEntry(cacheKey: string, icon: string | null): void {
+  systemIconCache.delete(cacheKey);
+  systemIconCache.set(cacheKey, icon);
+}
+
+function setSystemIconCacheEntry(cacheKey: string, icon: string | null): void {
+  touchSystemIconCacheEntry(cacheKey, icon);
+  enforceSystemIconCacheLimit();
+}
+
+function enforceSystemIconCacheLimit(): void {
+  while (systemIconCache.size > SYSTEM_ICON_CACHE_MAX_ENTRIES) {
+    if (!evictLeastRecentlyUsedSystemIconEntry()) {
+      return;
+    }
+  }
+}
+
+// 按淘汰优先级找出最久未使用的条目并删除：先 path:，再 dir:，最后 ext:。
+// 同一类别内部按插入序遍历，第一个即最久未使用的那一条。
+function evictLeastRecentlyUsedSystemIconEntry(): boolean {
+  for (const keyClass of SYSTEM_ICON_CACHE_EVICTION_ORDER) {
+    for (const cacheKey of systemIconCache.keys()) {
+      if (getSystemIconCacheKeyClass(cacheKey) === keyClass) {
+        systemIconCache.delete(cacheKey);
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 async function runWithConcurrencyLimit<T>(
@@ -127,6 +195,7 @@ export async function fetchSystemIconCached(request: SystemIconRequest): Promise
   const cached = systemIconCache.get(requestCacheKey);
 
   if (cached !== undefined) {
+    touchSystemIconCacheEntry(requestCacheKey, cached);
     return cached;
   }
 
@@ -144,14 +213,14 @@ export async function fetchSystemIconCached(request: SystemIconRequest): Promise
   })
     .then((result) => {
       if (result !== null || !isExtensionCacheKey(requestCacheKey)) {
-        systemIconCache.set(requestCacheKey, result);
+        setSystemIconCacheEntry(requestCacheKey, result);
       }
 
       return result;
     })
     .catch(() => {
       if (!isExtensionCacheKey(requestCacheKey)) {
-        systemIconCache.set(requestCacheKey, null);
+        setSystemIconCacheEntry(requestCacheKey, null);
       }
 
       return null;
@@ -197,4 +266,27 @@ export function prefetchSystemIconsForEntries(
     SYSTEM_ICON_PREFETCH_CONCURRENCY,
     request => fetchSystemIconCached(request),
   );
+}
+
+// 仅供测试使用，生产路径不得调用。
+export function __getSystemIconCacheStatsForTests(): SystemIconCacheStats {
+  const stats: SystemIconCacheStats = {
+    total: systemIconCache.size,
+    extension: 0,
+    path: 0,
+    directory: 0,
+    limit: SYSTEM_ICON_CACHE_MAX_ENTRIES,
+  };
+
+  for (const cacheKey of systemIconCache.keys()) {
+    stats[getSystemIconCacheKeyClass(cacheKey)] += 1;
+  }
+
+  return stats;
+}
+
+// 仅供测试使用，生产路径不得调用。
+export function __resetSystemIconCacheForTests(): void {
+  systemIconCache.clear();
+  systemIconInFlight.clear();
 }

@@ -16,7 +16,9 @@ use walkdir::WalkDir;
 use super::ignore::{builtin_ignored_paths, get_drive_root, normalize_case, IgnoredPathMatcher};
 use super::index::{index_dir, open_or_create_index};
 use super::scoring::{calculate_similarity_score, get_min_score_for_query_length};
-use super::state::{GlobalSearchIndexFields, GLOBAL_SEARCH_STATE};
+use super::state::{
+    is_reader_idle, mark_query_activity, now_millis, GlobalSearchIndexFields, GLOBAL_SEARCH_STATE,
+};
 use super::types::{GlobalSearchQueryOptions, GlobalSearchResultEntry};
 
 pub(super) fn build_query(
@@ -144,6 +146,10 @@ pub(super) fn global_search_query_blocking(
 ) -> Result<Vec<GlobalSearchResultEntry>, String> {
     let index_path = index_dir(&base_dir);
 
+    // 空闲释放：常驻 reader 闲置超过阈值就先丢掉，紧接着的 needs_open 分支
+    // 会重新打开它（索引与字段仍留在 state 里，状态保持自洽）。
+    release_idle_reader_if_needed()?;
+
     let needs_open = {
         let state = GLOBAL_SEARCH_STATE
             .read()
@@ -188,14 +194,99 @@ pub(super) fn global_search_query_blocking(
         .as_ref()
         .ok_or_else(|| "Search index fields are not initialized".to_string())?;
 
+    // 本次查询算「活跃」：空闲释放的判断以「上一次查询时间」为准。
+    mark_query_activity();
+
     let searcher = reader.searcher();
     let normalized_query = normalize_case(&query);
 
-    let query_boxed = build_query(&fields, &query, &options);
+    // FORK-MODIFICATION: 2026-10-28 —— 关键顺序：**先按 limit 截断候选，再物化**。
+    //
+    // 旧实现是 `TopDocs::with_limit(100_000)` → 先把 10 万条 tantivy 文档全部
+    // `searcher.doc()` 物化出来 → 最后才 `truncate(options.limit)`，于是单次查询的
+    // 峰值内存被「本来用不上的那几万条文档」顶起来（30–80 MB 量级）。
+    //
+    // 现在：候选条数直接用 `options.limit`（取值依据见 `candidate_limit_for`），
+    // 物化条数因此 ≤ limit。
+    // 候选预算按「每个盘符各 limit」计算：保留旧的多盘符语义
+    // （旧实现是在盘符分组内 truncate(limit)，总条数可达 limit x 盘符数），
+    // 同时把物化量从 10 万级压到「limit x 盘符数」级。
+    let drive_count = state.status.indexed_drive_roots.len();
+    let candidate_limit = candidate_limit_for(&options, drive_count);
+    let candidates =
+        collect_candidate_addresses(&searcher, &fields, &query, &options, candidate_limit)?;
+    let (results, _materialized_count) =
+        materialize_candidates(&searcher, &fields, &options, &normalized_query, &candidates);
+
+    Ok(finalize_results(results, options.limit))
+}
+
+/// 单次查询允许物化的文档条数上限。
+///
+/// 取值依据：`options.limit` **就是**「结果条数上限」旋钮本身
+/// （前端 `globalSearch.resultLimit`，UI 夹取到 [10, 500]、默认 50；
+/// MCP 侧 `clamp_result_limit` 夹取到 [1, 500]），所以候选条数直接用它，
+/// 不再另写常量 —— 旧代码写死的 `100_000` 与实际需要没有任何关系。
+///
+/// **按盘符数放大**：旧实现是在「盘符分组内」`truncate(options.limit)`，
+/// 多盘符时总条数可达 `limit × 盘符数`。若候选只给 limit，靠后的盘符会被挤成
+/// 个位数（用户可见的结果变少），因此候选预算 = `limit × 盘符数`。
+///
+/// `TopDocs::with_limit(0)` 会 panic，这里兜底成 1。
+fn candidate_limit_for(options: &GlobalSearchQueryOptions, drive_count: usize) -> usize {
+    let per_drive = options.limit.max(1);
+    let drives = drive_count.max(1);
+
+    per_drive
+        .saturating_mul(drives)
+        .min(MAX_SEARCH_CANDIDATE_MATERIALIZATION)
+}
+
+/// 单次查询允许物化的文档条数绝对上限。
+///
+/// 兜底，防止「盘符数 × limit」在极端配置下失控
+/// （limit ≤ 500、已索引盘符数通常为个位数）。
+const MAX_SEARCH_CANDIDATE_MATERIALIZATION: usize = 5_000;
+
+/// 取候选文档地址（只取地址，不物化文档）。
+///
+/// 候选条数按 `limit` 封顶 —— 这是「先截断、后物化」的关键：物化条数被限制在
+/// `limit` 以内，而不是先把一堆文档物化出来再 truncate。
+fn collect_candidate_addresses(
+    searcher: &tantivy::Searcher,
+    fields: &GlobalSearchIndexFields,
+    query: &str,
+    options: &GlobalSearchQueryOptions,
+    limit: usize,
+) -> Result<Vec<tantivy::DocAddress>, String> {
+    let query_boxed = build_query(fields, query, options);
     let top_docs = searcher
-        .search(&query_boxed, &TopDocs::with_limit(100_000).order_by_score())
+        .search(&query_boxed, &TopDocs::with_limit(limit).order_by_score())
         .map_err(|error| error.to_string())?;
 
+    // 收集器本身已经按 limit 封顶；这里再 take 一次，是为了让「物化条数 ≤ limit」
+    // 这条不变量写死在代码里（将来换收集器也不会漏）。
+    Ok(top_docs
+        .into_iter()
+        .map(|(_tantivy_score, doc_address)| doc_address)
+        .take(limit)
+        .collect())
+}
+
+/// 把候选文档物化成结果条目。
+///
+/// 返回 `(结果条目, 实际物化条数)`；物化条数 = 调用 `searcher.doc()` 的次数，
+/// 恒 ≤ 候选条数 ≤ limit。
+///
+/// 过滤规则（忽略路径 / 精确匹配 / 相似度门槛 / 文件-目录类型）与改动前完全一致，
+/// 只是**物化时机**从「先全量物化再截断」挪到了「先截断再物化」。
+fn materialize_candidates(
+    searcher: &tantivy::Searcher,
+    fields: &GlobalSearchIndexFields,
+    options: &GlobalSearchQueryOptions,
+    normalized_query: &str,
+    candidates: &[tantivy::DocAddress],
+) -> (Vec<GlobalSearchResultEntry>, usize) {
     let internal_ignored: Vec<String> = builtin_ignored_paths()
         .iter()
         .map(|path| path.to_string())
@@ -206,78 +297,95 @@ pub(super) fn global_search_query_blocking(
         .min_score_threshold
         .unwrap_or_else(|| get_min_score_for_query_length(normalized_query.len()));
 
-    let results: Vec<GlobalSearchResultEntry> = top_docs
-        .par_iter()
-        .filter_map(|(_tantivy_score, doc_address)| {
-            let retrieved: tantivy::TantivyDocument = searcher.doc(*doc_address).ok()?;
+    let mut results: Vec<GlobalSearchResultEntry> = Vec::with_capacity(candidates.len());
+    let mut materialized_count = 0usize;
 
-            let path_value = retrieved
-                .get_first(fields.path)
-                .and_then(|value| value.as_str())?
-                .to_string();
+    // 候选最多几百条（limit ≤ 500），顺序遍历即可：既省掉 rayon 的调度开销，
+    // 又让结果顺序可复现（旧的 par_iter 顺序是不确定的）。
+    for doc_address in candidates {
+        materialized_count += 1;
 
-            if internal_ignored_matcher.is_ignored(&path_value) {
-                return None;
-            }
+        let retrieved: tantivy::TantivyDocument = match searcher.doc(*doc_address) {
+            Ok(document) => document,
+            Err(_) => continue,
+        };
 
-            let name_value = retrieved
-                .get_first(fields.name)
-                .and_then(|value| value.as_str())?
-                .to_string();
+        let path_value = match retrieved.get_first(fields.path).and_then(|value| value.as_str()) {
+            Some(value) => value.to_string(),
+            None => continue,
+        };
 
-            if options.exact_match && !matches_exact_name(&normalized_query, &name_value) {
-                return None;
-            }
+        if internal_ignored_matcher.is_ignored(&path_value) {
+            continue;
+        }
 
-            let name_score = calculate_similarity_score(&normalized_query, &name_value);
+        let name_value = match retrieved.get_first(fields.name).and_then(|value| value.as_str()) {
+            Some(value) => value.to_string(),
+            None => continue,
+        };
 
-            if name_score < min_score {
-                return None;
-            }
+        if options.exact_match && !matches_exact_name(normalized_query, &name_value) {
+            continue;
+        }
 
-            let doc_is_file = retrieved
-                .get_first(fields.is_file)
-                .and_then(|value| value.as_u64())
-                .unwrap_or(0);
-            let doc_is_dir = retrieved
-                .get_first(fields.is_dir)
-                .and_then(|value| value.as_u64())
-                .unwrap_or(0);
+        let name_score = calculate_similarity_score(normalized_query, &name_value);
 
-            if !matches_type(doc_is_file, doc_is_dir, &options) {
-                return None;
-            }
+        if name_score < min_score {
+            continue;
+        }
 
-            let modified_time = retrieved
-                .get_first(fields.modified_time)
-                .and_then(|value| value.as_u64())
-                .unwrap_or(0);
-            let size = retrieved
-                .get_first(fields.size)
-                .and_then(|value| value.as_u64())
-                .unwrap_or(0);
+        let doc_is_file = retrieved
+            .get_first(fields.is_file)
+            .and_then(|value| value.as_u64())
+            .unwrap_or(0);
+        let doc_is_dir = retrieved
+            .get_first(fields.is_dir)
+            .and_then(|value| value.as_u64())
+            .unwrap_or(0);
 
-            let ext = path_extension_lowercase(Path::new(&path_value));
+        if !matches_type(doc_is_file, doc_is_dir, options) {
+            continue;
+        }
 
-            Some(GlobalSearchResultEntry {
-                name: name_value,
-                ext,
-                path: path_value,
-                size,
-                item_count: None,
-                modified_time,
-                accessed_time: 0,
-                created_time: 0,
-                mime: None,
-                is_file: doc_is_file == 1,
-                is_dir: doc_is_dir == 1,
-                is_symlink: false,
-                is_hidden: false,
-                score: name_score,
-            })
-        })
-        .collect();
+        let modified_time = retrieved
+            .get_first(fields.modified_time)
+            .and_then(|value| value.as_u64())
+            .unwrap_or(0);
+        let size = retrieved
+            .get_first(fields.size)
+            .and_then(|value| value.as_u64())
+            .unwrap_or(0);
 
+        let ext = path_extension_lowercase(Path::new(&path_value));
+
+        results.push(GlobalSearchResultEntry {
+            name: name_value,
+            ext,
+            path: path_value,
+            size,
+            item_count: None,
+            modified_time,
+            accessed_time: 0,
+            created_time: 0,
+            mime: None,
+            is_file: doc_is_file == 1,
+            is_dir: doc_is_dir == 1,
+            is_symlink: false,
+            is_hidden: false,
+            score: name_score,
+        });
+    }
+
+    (results, materialized_count)
+}
+
+/// 按盘符分组 → 组内按相似度降序 → 每组截断到 limit → 合并后整体按相似度降序。
+///
+/// 分组 / 排序 / 截断的口径与改动前一致。
+fn finalize_results(
+    results: Vec<GlobalSearchResultEntry>,
+    limit: usize,
+) -> Vec<GlobalSearchResultEntry> {
     let mut drive_groups: std::collections::HashMap<String, Vec<GlobalSearchResultEntry>> =
         std::collections::HashMap::new();
 
@@ -294,7 +402,7 @@ pub(super) fn global_search_query_blocking(
                 .partial_cmp(&entry_a.score)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
-        entries.truncate(options.limit);
+        entries.truncate(limit);
         final_results.extend(entries);
     }
 
@@ -305,7 +413,48 @@ pub(super) fn global_search_query_blocking(
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
-    Ok(final_results)
+    final_results
+}
+
+/// 空闲释放：常驻 reader 闲置超过阈值就丢掉，让下一次查询走 `needs_open` 重开。
+///
+/// 只在「确实有常驻 reader」且「没有正在扫描 / 提交索引」时执行；
+/// 释放本身只是把 `state.reader` 置空，索引与字段仍留在 state 里，
+/// 因此紧接着的 `needs_open` 分支会重新打开一套 (index, reader, fields) 覆盖回去，
+/// 状态保持自洽。
+fn release_idle_reader_if_needed() -> Result<(), String> {
+    if !is_reader_idle(now_millis()) {
+        return Ok(());
+    }
+
+    {
+        let state = GLOBAL_SEARCH_STATE
+            .read()
+            .map_err(|error| error.to_string())?;
+
+        if state.status.is_committing
+            || state.status.is_scan_in_progress
+            || state.reader.is_none()
+        {
+            return Ok(());
+        }
+    }
+
+    let mut state = GLOBAL_SEARCH_STATE
+        .write()
+        .map_err(|error| error.to_string())?;
+
+    // 拿到写锁后再确认一次：期间可能已经开始扫描了。
+    if state.status.is_committing
+        || state.status.is_scan_in_progress
+        || state.reader.is_none()
+    {
+        return Ok(());
+    }
+
+    state.reader = None;
+
+    Ok(())
 }
 
 pub async fn global_search_query_paths(
@@ -1003,5 +1152,182 @@ mod tests {
                 "容错不该把毫不相关的文件名也收进来"
             );
         }
+    }
+
+    // FORK-MODIFICATION: 2026-10-28 —— 搜索内存优化（B1）的回归测试。
+    //
+    // 盯住三条不变量：
+    //  1. 物化条数 ≤ limit（旧实现先物化 10 万条文档再 truncate，峰值 30–80 MB）；
+    //  2. 候选条数先按 limit 截断；
+    //  3. 排序 / 过滤语义与改动前一致（相似度高的排前面、类型过滤照旧生效）。
+    //
+    // 刻意**不**碰 `tauri::async_runtime` / `AppHandle`：测试二进制一旦链接到
+    // 它们，Wry 运行时会被拖进来，`cargo test --lib` 会在加载阶段以
+    // STATUS_ENTRYPOINT_NOT_FOUND 崩掉（见 dir_reader.rs 顶部的说明）。
+
+    /// 建一个内存索引。entries 是 (文件名, is_file, is_dir)。
+    fn build_budget_fixture(
+        entries: &[(&str, u64, u64)],
+    ) -> (tantivy::Index, tantivy::IndexReader, GlobalSearchIndexFields) {
+        let (schema, fields) = build_schema();
+        let index = tantivy::Index::create_in_ram(schema);
+        let mut writer = index.writer(50_000_000).unwrap();
+
+        for (name, is_file, is_dir) in entries {
+            writer
+                .add_document(doc!(
+                    fields.path => format!("C:/afm-search-fixture/{name}"),
+                    fields.name => name.to_string(),
+                    fields.name_lower => name.to_lowercase(),
+                    fields.is_file => *is_file,
+                    fields.is_dir => *is_dir,
+                    fields.modified_time => 0u64,
+                    fields.size => 0u64,
+                ))
+                .unwrap();
+        }
+
+        writer.commit().unwrap();
+
+        let reader = index
+            .reader_builder()
+            .reload_policy(tantivy::ReloadPolicy::Manual)
+            .try_into()
+            .unwrap();
+
+        (index, reader, fields)
+    }
+
+    fn budget_options(limit: usize, include_directories: bool) -> GlobalSearchQueryOptions {
+        GlobalSearchQueryOptions {
+            limit,
+            include_files: true,
+            include_directories,
+            exact_match: false,
+            typo_tolerance: true,
+            min_score_threshold: None,
+        }
+    }
+
+    #[test]
+    fn materialized_documents_never_exceed_the_limit() {
+        let entries: Vec<(String, u64, u64)> = (0..50)
+            .map(|index| (format!("needle_{index:02}.txt"), 1u64, 0u64))
+            .collect();
+        let borrowed: Vec<(&str, u64, u64)> = entries
+            .iter()
+            .map(|(name, is_file, is_dir)| (name.as_str(), *is_file, *is_dir))
+            .collect();
+
+        let (_index, reader, fields) = build_budget_fixture(&borrowed);
+        let query_options = budget_options(10, true);
+
+        let searcher = reader.searcher();
+        let candidates = collect_candidate_addresses(
+            &searcher,
+            &fields,
+            "needle",
+            &query_options,
+            candidate_limit_for(&query_options, 1),
+        )
+        .unwrap();
+
+        assert_eq!(
+            candidates.len(),
+            10,
+            "候选文档必须先按 limit 截断，不能把 50 条都交给物化"
+        );
+
+        let (results, materialized_count) = materialize_candidates(
+            &searcher,
+            &fields,
+            &query_options,
+            &normalize_case("needle"),
+            &candidates,
+        );
+
+        assert!(
+            materialized_count <= query_options.limit,
+            "物化条数必须 ≤ limit，实际 {materialized_count}"
+        );
+        assert_eq!(materialized_count, 10);
+        assert!(
+            results.len() <= query_options.limit,
+            "结果条数必须 ≤ limit，实际 {}",
+            results.len()
+        );
+    }
+
+    #[test]
+    fn candidate_budget_scales_with_indexed_drive_count() {
+        let options = budget_options(50, true);
+
+        assert_eq!(
+            candidate_limit_for(&options, 1),
+            50,
+            "单盘符时候选预算应等于 limit"
+        );
+        assert_eq!(
+            candidate_limit_for(&options, 3),
+            150,
+            "多盘符时候选预算应为 limit 乘盘符数（保留旧的每盘符 limit 语义）"
+        );
+        assert_eq!(
+            candidate_limit_for(&options, 0),
+            50,
+            "盘符数未知时按单盘符兜底"
+        );
+        assert_eq!(
+            candidate_limit_for(&options, usize::MAX),
+            MAX_SEARCH_CANDIDATE_MATERIALIZATION,
+            "极端盘符数必须被绝对上限截断"
+        );
+    }
+
+    #[test]
+    fn keeps_similarity_ordering_and_type_filtering() {
+        let (_index, reader, fields) = build_budget_fixture(&[
+            ("needle.txt", 1, 0),
+            ("needle longer name.txt", 1, 0),
+            ("needle folder", 0, 1),
+        ]);
+
+        let query_options = budget_options(10, false);
+        let searcher = reader.searcher();
+        let candidates = collect_candidate_addresses(
+            &searcher,
+            &fields,
+            "needle",
+            &query_options,
+            candidate_limit_for(&query_options, 1),
+        )
+        .unwrap();
+        let (materialized, _) = materialize_candidates(
+            &searcher,
+            &fields,
+            &query_options,
+            &normalize_case("needle"),
+            &candidates,
+        );
+
+        let results = finalize_results(materialized, query_options.limit);
+
+        assert_eq!(
+            results.len(),
+            2,
+            "include_directories=false 时目录必须被过滤掉；实际 {:?}",
+            results.iter().map(|entry| &entry.name).collect::<Vec<_>>()
+        );
+        assert!(results.iter().all(|entry| entry.is_file));
+        assert_eq!(
+            results[0].name, "needle.txt",
+            "相似度高的（完全相等 1.0）必须排在前面"
+        );
+        assert!(
+            results[0].score > results[1].score,
+            "排序必须按相似度降序，实际 {} vs {}",
+            results[0].score,
+            results[1].score
+        );
     }
 }

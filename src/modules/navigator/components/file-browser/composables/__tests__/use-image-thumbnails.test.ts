@@ -10,6 +10,7 @@ import {
   it,
   vi,
 } from 'vitest';
+import { computed, nextTick } from 'vue';
 import type { DirEntry } from '@/types/dir-entry';
 
 const mockConvertFileSrc = vi.hoisted(() => vi.fn((path: string) => `asset://${path}`));
@@ -70,6 +71,14 @@ async function flushThumbnailWork(): Promise<void> {
   for (let flushIndex = 0; flushIndex < 10; flushIndex += 1) {
     await Promise.resolve();
   }
+}
+
+// 一次 macrotask 就能排空整条微任务链：每张缩略图的生成都是 `await invoke(...)`
+// 串起来的微任务链，中途还会继续派发队列里的下一张。
+async function flushAllThumbnailWork(): Promise<void> {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
 }
 
 function createFetchResponse(blob: Blob): Response {
@@ -173,7 +182,7 @@ describe('useImageThumbnails', () => {
     pendingRequest.resolve('C:/thumb.jpg');
     await flushThumbnailWork();
 
-    expect(thumbnails.imageThumbnails.value).toEqual({});
+    expect(thumbnails.imageThumbnails.value.size).toBe(0);
     expect(mockConvertFileSrc).not.toHaveBeenCalled();
   });
 
@@ -208,7 +217,7 @@ describe('useImageThumbnails', () => {
     await flushThumbnailWork();
 
     expect(mockFetch).not.toHaveBeenCalled();
-    expect(thumbnails.imageThumbnailPlaceholders.value).toEqual({});
+    expect(thumbnails.imageThumbnailPlaceholders.value.size).toBe(0);
   });
 
   it('does not show the image fallback while placeholder generation is pending', async () => {
@@ -283,7 +292,7 @@ describe('useImageThumbnails', () => {
     await flushThumbnailWork();
 
     expect(mockFetch).not.toHaveBeenCalled();
-    expect(thumbnails.imageThumbnailPlaceholders.value).toEqual({});
+    expect(thumbnails.imageThumbnailPlaceholders.value.size).toBe(0);
   });
 
   it('does not generate placeholders for gif files', async () => {
@@ -299,7 +308,7 @@ describe('useImageThumbnails', () => {
     await flushThumbnailWork();
 
     expect(mockFetch).not.toHaveBeenCalled();
-    expect(thumbnails.imageThumbnailPlaceholders.value).toEqual({});
+    expect(thumbnails.imageThumbnailPlaceholders.value.size).toBe(0);
   });
 
   it('removes queued placeholder requests when they are cancelled', async () => {
@@ -318,7 +327,7 @@ describe('useImageThumbnails', () => {
     await flushThumbnailWork();
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(Object.keys(thumbnails.imageThumbnailPlaceholders.value)).toHaveLength(1);
+    expect(thumbnails.imageThumbnailPlaceholders.value.size).toBe(1);
   });
 
   it('aborts an active placeholder request when it is cancelled', async () => {
@@ -381,5 +390,135 @@ describe('useImageThumbnails', () => {
 
     expect(thumbnails.getImageThumbnailPlaceholder(entry)).toBe(PLACEHOLDER_DATA_URL);
     expect(thumbnails.shouldShowImageThumbnailFallback(entry)).toBe(false);
+  });
+});
+
+describe('useImageThumbnails cache container', () => {
+  function mockSuccessfulThumbnailGeneration(): void {
+    mockInvoke.mockImplementation((_command: string, args: { path: string }) => {
+      return Promise.resolve(`C:/thumb-${args.path}.jpg`);
+    });
+  }
+
+  it('stores one entry per generated thumbnail', async () => {
+    mockSuccessfulThumbnailGeneration();
+
+    const thumbnails = useImageThumbnails();
+    const entries: DirEntry[] = [];
+
+    for (let entryIndex = 0; entryIndex < 12; entryIndex += 1) {
+      entries.push(createImageEntry(`image-${entryIndex}.jpg`));
+    }
+
+    entries.forEach((entry) => {
+      thumbnails.getImageThumbnail(entry);
+    });
+
+    await flushAllThumbnailWork();
+
+    expect(thumbnails.imageThumbnails.value.size).toBe(12);
+  });
+
+  it('does not create duplicate entries when the same thumbnail key is written twice', async () => {
+    mockSuccessfulThumbnailGeneration();
+
+    const thumbnails = useImageThumbnails();
+    const entry = createImageEntry('image.jpg');
+
+    thumbnails.getImageThumbnail(entry);
+    await flushAllThumbnailWork();
+
+    const cachedThumbnailKeys = Array.from(thumbnails.imageThumbnails.value.keys());
+
+    expect(cachedThumbnailKeys).toHaveLength(1);
+
+    thumbnails.imageThumbnails.value.set(cachedThumbnailKeys[0], 'asset://C:/thumb-updated.jpg');
+    thumbnails.imageThumbnails.value.set(cachedThumbnailKeys[0], 'asset://C:/thumb-newest.jpg');
+
+    expect(thumbnails.imageThumbnails.value.size).toBe(1);
+  });
+
+  it('returns the newest value after a cached thumbnail key is overwritten', async () => {
+    mockSuccessfulThumbnailGeneration();
+
+    const thumbnails = useImageThumbnails();
+    const entry = createImageEntry('image.jpg');
+
+    thumbnails.getImageThumbnail(entry);
+    await flushAllThumbnailWork();
+
+    const cachedThumbnailKeys = Array.from(thumbnails.imageThumbnails.value.keys());
+
+    thumbnails.imageThumbnails.value.set(cachedThumbnailKeys[0], 'asset://C:/thumb-newest.jpg');
+
+    expect(thumbnails.imageThumbnails.value.get(cachedThumbnailKeys[0])).toBe('asset://C:/thumb-newest.jpg');
+    expect(thumbnails.getImageThumbnail(entry)).toBe('asset://C:/thumb-newest.jpg');
+  });
+
+  it('updates computed values that depend on the thumbnail cache size', async () => {
+    mockSuccessfulThumbnailGeneration();
+
+    const thumbnails = useImageThumbnails();
+    const entry = createImageEntry('image.jpg');
+    const thumbnailCount = computed(() => thumbnails.imageThumbnails.value.size);
+
+    expect(thumbnailCount.value).toBe(0);
+
+    thumbnails.getImageThumbnail(entry);
+    await flushAllThumbnailWork();
+    await nextTick();
+
+    expect(thumbnailCount.value).toBe(1);
+  });
+
+  it('updates computed values that depend on the placeholder cache size', async () => {
+    setupImagePlaceholderMocks();
+
+    const thumbnails = useImageThumbnails();
+    const entry = createImageEntry('image.jpg');
+    const placeholderCount = computed(() => thumbnails.imageThumbnailPlaceholders.value.size);
+
+    expect(placeholderCount.value).toBe(0);
+
+    thumbnails.getImageThumbnailPlaceholder(entry);
+    await flushAllThumbnailWork();
+    await nextTick();
+
+    expect(placeholderCount.value).toBe(1);
+  });
+
+  it('updates computed values when thumbnail generation fails', async () => {
+    mockInvoke.mockRejectedValue(new Error('thumbnail failed'));
+
+    const thumbnails = useImageThumbnails();
+    const entry = createImageEntry('image.jpg');
+    const showsImageFallback = computed(() => thumbnails.shouldShowImageThumbnailFallback(entry));
+
+    expect(showsImageFallback.value).toBe(false);
+
+    thumbnails.getImageThumbnail(entry);
+    await flushAllThumbnailWork();
+    await nextTick();
+
+    expect(showsImageFallback.value).toBe(true);
+  });
+
+  it('empties the cache and refreshes dependent computed values when cleared', async () => {
+    mockSuccessfulThumbnailGeneration();
+
+    const thumbnails = useImageThumbnails();
+    const entry = createImageEntry('image.jpg');
+    const thumbnailCount = computed(() => thumbnails.imageThumbnails.value.size);
+
+    thumbnails.getImageThumbnail(entry);
+    await flushAllThumbnailWork();
+
+    expect(thumbnailCount.value).toBe(1);
+
+    thumbnails.clearThumbnails();
+    await nextTick();
+
+    expect(thumbnails.imageThumbnails.value.size).toBe(0);
+    expect(thumbnailCount.value).toBe(0);
   });
 });

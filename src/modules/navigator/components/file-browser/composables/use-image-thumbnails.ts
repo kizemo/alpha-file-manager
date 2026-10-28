@@ -2,7 +2,7 @@
 // License: GNU GPLv3 or later. See the license file in the project root for more information.
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
-import { reactive, ref } from 'vue';
+import { shallowRef, triggerRef } from 'vue';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import type { DirEntry } from '@/types/dir-entry';
 
@@ -80,16 +80,21 @@ function supportsImageThumbnailPlaceholder(): boolean {
 }
 
 export function useImageThumbnails() {
-  const imageThumbnails = ref<Record<string, string>>({});
-  const imageThumbnailPlaceholders = ref<Record<string, string>>({});
+  // FORK-MODIFICATION 2026-10-28（内存优化 A2）：缩略图缓存从深响应式 `ref<Record>`
+  // 改成 `shallowRef<Map>`。深响应式会让每个 base64 条目都进代理与依赖表，
+  // 而原先「`{ ...cache, [key]: value }` 整体重建」在单调增长时是 O(n²) 分配。
+  // 现在写入是原地 `Map.set`（O(1)），响应式由写入后的 `triggerRef` 主动触发 ——
+  // 依赖 `.value` 的模板与 computed 会照常重新求值。
+  const imageThumbnails = shallowRef<Map<string, string>>(new Map());
+  const imageThumbnailPlaceholders = shallowRef<Map<string, string>>(new Map());
   const thumbnailQueue: ImageThumbnailRequest[] = [];
   const placeholderQueue: ImageThumbnailPlaceholderRequest[] = [];
   const processingThumbnails = new Set<string>();
   const processingPlaceholders = new Set<string>();
   const cancelledThumbnails = new Set<string>();
   const cancelledPlaceholders = new Set<string>();
-  const failedThumbnails = reactive(new Set<string>());
-  const failedPlaceholders = reactive(new Set<string>());
+  const failedThumbnails = shallowRef<Set<string>>(new Set());
+  const failedPlaceholders = shallowRef<Set<string>>(new Set());
   const activePlaceholderAbortControllers = new Map<string, AbortController>();
   let thumbnailGeneration = 0;
 
@@ -101,12 +106,40 @@ export function useImageThumbnails() {
     return `${request.generation}|${request.thumbnailKey}`;
   }
 
+  function setImageThumbnail(thumbnailKey: string, thumbnailSrc: string): void {
+    if (imageThumbnails.value.get(thumbnailKey) === thumbnailSrc) {
+      return;
+    }
+
+    imageThumbnails.value.set(thumbnailKey, thumbnailSrc);
+    triggerRef(imageThumbnails);
+  }
+
+  function setImageThumbnailPlaceholder(thumbnailKey: string, placeholderDataUrl: string): void {
+    if (imageThumbnailPlaceholders.value.get(thumbnailKey) === placeholderDataUrl) {
+      return;
+    }
+
+    imageThumbnailPlaceholders.value.set(thumbnailKey, placeholderDataUrl);
+    triggerRef(imageThumbnailPlaceholders);
+  }
+
   function markThumbnailFailed(thumbnailKey: string): void {
-    failedThumbnails.add(thumbnailKey);
+    if (failedThumbnails.value.has(thumbnailKey)) {
+      return;
+    }
+
+    failedThumbnails.value.add(thumbnailKey);
+    triggerRef(failedThumbnails);
   }
 
   function markPlaceholderFailed(thumbnailKey: string): void {
-    failedPlaceholders.add(thumbnailKey);
+    if (failedPlaceholders.value.has(thumbnailKey)) {
+      return;
+    }
+
+    failedPlaceholders.value.add(thumbnailKey);
+    triggerRef(failedPlaceholders);
   }
 
   function processNextThumbnail() {
@@ -121,9 +154,9 @@ export function useImageThumbnails() {
     }
 
     if (
-      imageThumbnails.value[nextRequest.thumbnailKey]
+      imageThumbnails.value.get(nextRequest.thumbnailKey)
       || processingThumbnails.has(getProcessingThumbnailKey(nextRequest))
-      || failedThumbnails.has(nextRequest.thumbnailKey)
+      || failedThumbnails.value.has(nextRequest.thumbnailKey)
     ) {
       processNextThumbnail();
       return;
@@ -145,10 +178,10 @@ export function useImageThumbnails() {
     }
 
     if (
-      imageThumbnails.value[nextRequest.thumbnailKey]
-      || imageThumbnailPlaceholders.value[nextRequest.thumbnailKey]
+      imageThumbnails.value.get(nextRequest.thumbnailKey)
+      || imageThumbnailPlaceholders.value.get(nextRequest.thumbnailKey)
       || processingPlaceholders.has(getProcessingPlaceholderKey(nextRequest))
-      || failedPlaceholders.has(nextRequest.thumbnailKey)
+      || failedPlaceholders.value.has(nextRequest.thumbnailKey)
     ) {
       processNextPlaceholder();
       return;
@@ -170,10 +203,7 @@ export function useImageThumbnails() {
       });
 
       if (request.generation === thumbnailGeneration && !cancelledThumbnails.has(processingKey)) {
-        imageThumbnails.value = {
-          ...imageThumbnails.value,
-          [request.thumbnailKey]: convertFileSrc(thumbnailPath),
-        };
+        setImageThumbnail(request.thumbnailKey, convertFileSrc(thumbnailPath));
       }
     }
     catch {
@@ -242,12 +272,9 @@ export function useImageThumbnails() {
         placeholderDataUrl
         && request.generation === thumbnailGeneration
         && !cancelledPlaceholders.has(processingKey)
-        && !imageThumbnails.value[request.thumbnailKey]
+        && !imageThumbnails.value.get(request.thumbnailKey)
       ) {
-        imageThumbnailPlaceholders.value = {
-          ...imageThumbnailPlaceholders.value,
-          [request.thumbnailKey]: placeholderDataUrl,
-        };
+        setImageThumbnailPlaceholder(request.thumbnailKey, placeholderDataUrl);
       }
       else if (
         !placeholderDataUrl
@@ -304,10 +331,10 @@ export function useImageThumbnails() {
 
     const normalizedMaxDimension = normalizeImageThumbnailMaxDimension(maxDimension);
     const thumbnailKey = getImageThumbnailKey(entry, normalizedMaxDimension);
-    const cachedThumbnail = imageThumbnails.value[thumbnailKey];
+    const cachedThumbnail = imageThumbnails.value.get(thumbnailKey);
     const processingKey = `${thumbnailGeneration}|${thumbnailKey}`;
 
-    if (cachedThumbnail || failedThumbnails.has(thumbnailKey)) {
+    if (cachedThumbnail || failedThumbnails.value.has(thumbnailKey)) {
       return cachedThumbnail;
     }
 
@@ -328,11 +355,11 @@ export function useImageThumbnails() {
 
     const normalizedMaxDimension = normalizeImageThumbnailMaxDimension(maxDimension);
     const thumbnailKey = getImageThumbnailKey(entry, normalizedMaxDimension);
-    const cachedThumbnail = imageThumbnails.value[thumbnailKey];
-    const cachedPlaceholder = imageThumbnailPlaceholders.value[thumbnailKey];
+    const cachedThumbnail = imageThumbnails.value.get(thumbnailKey);
+    const cachedPlaceholder = imageThumbnailPlaceholders.value.get(thumbnailKey);
     const processingKey = `${thumbnailGeneration}|${thumbnailKey}`;
 
-    if (cachedThumbnail || cachedPlaceholder || failedPlaceholders.has(thumbnailKey)) {
+    if (cachedThumbnail || cachedPlaceholder || failedPlaceholders.value.has(thumbnailKey)) {
       return cachedPlaceholder;
     }
 
@@ -357,7 +384,7 @@ export function useImageThumbnails() {
     const normalizedMaxDimension = normalizeImageThumbnailMaxDimension(maxDimension);
     const thumbnailKey = getImageThumbnailKey(entry, normalizedMaxDimension);
 
-    return failedThumbnails.has(thumbnailKey) || failedPlaceholders.has(thumbnailKey);
+    return failedThumbnails.value.has(thumbnailKey) || failedPlaceholders.value.has(thumbnailKey);
   }
 
   function cancelImageThumbnail(entry: DirEntry, maxDimension?: number): void {
@@ -397,14 +424,18 @@ export function useImageThumbnails() {
 
   function clearThumbnails() {
     thumbnailGeneration += 1;
-    imageThumbnails.value = {};
-    imageThumbnailPlaceholders.value = {};
+    imageThumbnails.value.clear();
+    imageThumbnailPlaceholders.value.clear();
     thumbnailQueue.length = 0;
     placeholderQueue.length = 0;
     cancelledThumbnails.clear();
     cancelledPlaceholders.clear();
-    failedThumbnails.clear();
-    failedPlaceholders.clear();
+    failedThumbnails.value.clear();
+    failedPlaceholders.value.clear();
+    triggerRef(imageThumbnails);
+    triggerRef(imageThumbnailPlaceholders);
+    triggerRef(failedThumbnails);
+    triggerRef(failedPlaceholders);
 
     for (const abortController of activePlaceholderAbortControllers.values()) {
       abortController.abort();
