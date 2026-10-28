@@ -50,6 +50,8 @@ mod version_json;
 mod windows_installation;
 #[cfg(windows)]
 mod windows_print_view_webview;
+mod webview_guard;
+mod webview_guard_runtime;
 
 use serde::Serialize;
 use tauri::{Emitter, Manager};
@@ -307,7 +309,9 @@ pub fn run() {
     }
 
     let mut builder = tauri::Builder::default()
-        .manage(startup_storage_bootstrap::StartupStorageBootstrapState::default());
+        .manage(startup_storage_bootstrap::StartupStorageBootstrapState::default())
+        // WebView2 子进程崩溃兜底的状态。看门狗线程由 setup_handler 启动。
+        .manage(webview_guard_runtime::WebviewGuardState::default());
 
     // 隔离的 e2e 实例不能把启动交接给（也不能去聚焦）一个正在用真实数据
     // 运行的已安装 SFM，所以隔离模式下整个不装单实例插件。
@@ -315,7 +319,7 @@ pub fn run() {
         builder = builder.plugin(tauri_plugin_single_instance::init(handle_second_instance));
     }
 
-    builder
+    let app = builder
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(window_state_plugin.build())
         .plugin(tauri_plugin_opener::init())
@@ -527,6 +531,8 @@ pub fn run() {
             mcp::commands::mcp_list_clients,
             mcp::commands::mcp_install_client,
             mcp::commands::mcp_uninstall_client,
+            webview_guard_runtime::webview_guard_heartbeat,
+            webview_guard_runtime::webview_guard_status,
         ])
         .setup(setup_handler)
         .on_window_event(|window, event| {
@@ -545,13 +551,26 @@ pub fn run() {
             }
         })
         .on_menu_event(system_tray::handle_menu_event)
-        .run({
+        .build({
             // 必须在 .run() 之前落盘：真正的窗口创建与 WebView2 加载发生在
             // .run() 内部，这条标记是「进去之前」的最后一站。
             startup_probe::mark("run: builder built, entering .run()");
             tauri::generate_context!()
         })
-        .expect("error while running tauri application");
+        .expect("error while building tauri application");
+
+    // 这里用 `build()` + `App::run()`，而不是一把梭的 `Builder::run()`：
+    // 后者拿不到 `RunEvent`，而看门狗必须知道「应用正在退出」——
+    // 退出时 WebView2 的子进程会先死，没有这个信号就会被误判成
+    // 「浏览器进程消失」，然后弹出一个莫名其妙的重启提示框。
+    app.run(|app_handle, event| {
+        if matches!(
+            event,
+            tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
+        ) {
+            webview_guard_runtime::mark_shutting_down(app_handle);
+        }
+    });
 }
 
 fn setup_handler(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
@@ -593,6 +612,10 @@ fn setup_handler(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
     );
 
     system_tray::setup_system_tray(app.handle())?;
+
+    // WebView2 子进程崩溃兜底：启动看门狗线程。
+    // 判定逻辑在 webview_guard.rs（纯逻辑，不引用 tauri），这里只做接线。
+    webview_guard_runtime::start_webview_guard(app.handle());
     startup_storage_bootstrap::migrate_legacy_user_storage_filenames(app.handle());
     // FORK-MODIFICATION 2026-10-20：移植上游 8908e214。
     //

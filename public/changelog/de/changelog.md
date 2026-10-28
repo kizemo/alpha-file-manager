@@ -1,5 +1,17 @@
 # Änderungsprotokoll
 
+## [3.6.4] - October 2026
+
+**Summary:** Drei Dinge, eines davon unsichtbar. Die Anwendung belegt deutlich weniger Speicher als zuvor - auf demselben Rechner, demselben Konto und demselben Laufwerk sinkt der Arbeitssatz beim Kaltstart von 961,2 MB auf 742,8 MB (-22,7 %), der Cache auf der Festplatte von 805,58 MB auf 66,21 MB (-91,8 %). Ein Absturz des WebView2-Renderprozesses lässt kein weißes Fenster mehr stehen: Ein Wächter lädt die Seite neu und fragt nur dann nach einem Neustart, wenn sie nicht zurückkommt. Und die globale Suche liefert bei kurzen Suchbegriffen nicht länger nichts: "pdf", "doc" oder "095" fanden früher oft überhaupt nichts.
+
+### What changed
+
+**Verbessert: Die Anwendung belegt deutlich weniger Speicher.** Der Miniaturansicht-Cache der Oberfläche wird bei jeder Ansichtsänderung nicht mehr komplett neu aufgebaut (der Renderprozess gibt 68 MB zurück - fast die gesamte Einsparung kommt von hier), das versteckte Quick-View-Fenster wird nicht mehr vorab gestartet (ein ganzer WebView2-Renderprozess weniger), und eine Reihe struktureller Änderungen (Suchindex, Verzeichnisüberwachung, virtualisierte Liste) erledigt den Rest. Der angesammelte Miniaturen- und Suchindex-Cache wurde ebenfalls gelöscht: 739 MB weniger auf der Festplatte, bei Bedarf neu aufgebaut.
+
+**Hinzugefügt: Ein Absturz von WebView2 erholt sich selbst.** Starb der Renderprozess, blieb das Fenster weiß und es half nur ein Neustart des Programms. Ein Wächter behält ihn jetzt im Blick: Verschwindet der Renderprozess oder sendet die Oberfläche mehr als 20 Sekunden lang keinen Heartbeat, wird die Seite neu geladen. Kommt sie zurück, passiert nichts. Kommt sie nicht zurück, fragt ein Systemdialog, ob das Programm neu gestartet werden soll - einmal je Absturz, damit er nicht nervt.
+
+**Behoben: Kurze Suchbegriffe in der globalen Suche fanden nichts.** Die Suche nach "pdf", "doc" oder "095" lieferte meist eine leere Liste. Die Bewertung kehrte bei "der Name enthält die Suchanfrage" früh zurück, sodass der Token-Vergleich nie an die Reihe kam: Ein Treffer wie "doc" in "report.docx" kam nur auf 0,845 Punkte, während die Schwelle für dreistellige Suchbegriffe bei 0,9 liegt - er wurde also weggeworfen und die Suche nach Dateiendungen blieb fast immer leer. Die beiden Wege behalten jetzt den höheren der beiden Werte, sodass auch ein Treffer, der nicht am Anfang des Namens steht, die Schwelle übersteht. Die Schwelle selbst bleibt unverändert; die unscharfe Suche bei kurzen Begriffen bleibt so streng wie bisher.
+
 ## [3.6.3] - October 2026
 
 **Summary:** Three things that were quietly getting in the way. Deleting a file for good now does what you expect when you press Enter — the confirmation used to open with the keyboard focus on *Cancel*, so Enter closed it again and left the file where it was - the only way to confirm was to reach for the mouse. And the list view now separates folders, pictures, videos and other files into groups, the way the thumbnail view already did, so the thing you are looking for is one heading away instead of somewhere in the middle of a long list. Renaming no longer opens a dialog either: the name turns into a field right where it stands, and the arrow keys keep taking you from one file to the next with the field still ready, so a whole pile of files can be renamed in a row.

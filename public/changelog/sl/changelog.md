@@ -1,5 +1,17 @@
 # Dnevnik sprememb
 
+## [3.6.4] - October 2026
+
+**Summary:** Tri stvari, ena izmed njih nevidna. Aplikacija zdaj zasede precej manj pomnilnika - na isti napravi, istem računu in istem disku se delovni nabor ob hladnem zagonu zmanjša z 961,2 MB na 742,8 MB (-22,7 %), predpomnik na disku pa z 805,58 MB na 66,21 MB (-91,8 %). Sesuv procesa za risanje WebView2 ne pušča več belega okna: varuh sam znova naloži stran, za ponovni zagon pa vpela šele, ko se stran ne vrne. Tudi globalno iskanje ni več prazno pri kratkih izrazih: "pdf", "doc" ali "095" so pogosto našli čisto nič.
+
+### What changed
+
+**Izboljšano: aplikacija zasede precej manj pomnilnika.** Predpomnik miniatur vmesnika se ne gradi več od začetka ob vsaki spremembi pogleda (proces za risanje vrne 68 MB - skoraj celoten prihranek od tod), skrito okno Quick View se ne zažene več vnaprej (manj en celoten proces za risanje WebView2), serija strukturnih sprememb (iskalni indeks, spremljanje map, virtualiziran seznam) pa poskrbi preostalo. Zbrani predpomnik miniatur in iskalnega indeksa je prav tako počiščen: 739 MB manj na disku, ki se po potrebi znova zgradi.
+
+**Dodano: sesuv WebView2 se sam odpravi.** Ko je proces za risanje umrl, je okno ostalo belo, edina pot pa je bila ponovni zagon programa. Zdaj ga spremlja varuh: če proces za risanje izgine ali če vmesnik več kot 20 sekund ne pošilja odmeva, se stran znova naloži. Če se vrne, se ne zgodi nič; če se ne, sistemski pogovor vpela, ali želiš program znova zagnati - le enkrat pri vsaki napaki.
+
+**Popravljeno: kratki izrazi v globalnem iskanju niso našli ničesar.** Iskanje "pdf", "doc" ali "095" je navadno vrnilo prazen seznam. Točkovanje se je zgodaj končalo pri "ime vsebuje izraz", zato primerjava po žetonih nikoli ni bila izvedena: tako očitno ujemanje kot "doc" v "report.docx" je dobilo le 0,845 točke, prag za triznakovni izraz pa je 0,9 - zato je bilo odvrženo in iskanje po končnicah je bilo skoraj vedno prazno. Zdaj oba pota ohranita višjega od obeh ocen, zato ujemanje, ki ni na začetku imena, prag preskoči. Sama vrednost praga se ni spremenila; mehko iskanje pri kratkih izrazih ostane enako strogo kot prej.
+
 ## [3.6.3] - October 2026
 
 **Summary:** Three things that were quietly getting in the way. Deleting a file for good now does what you expect when you press Enter — the confirmation used to open with the keyboard focus on *Cancel*, so Enter closed it again and left the file where it was - the only way to confirm was to reach for the mouse. And the list view now separates folders, pictures, videos and other files into groups, the way the thumbnail view already did, so the thing you are looking for is one heading away instead of somewhere in the middle of a long list. Renaming no longer opens a dialog either: the name turns into a field right where it stands, and the arrow keys keep taking you from one file to the next with the field still ready, so a whole pile of files can be renamed in a row.

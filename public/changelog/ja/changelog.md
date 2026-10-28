@@ -1,5 +1,17 @@
 # 変更履歴
 
+## [3.6.4] - October 2026
+
+**Summary:** 3つの改善で、1つは見えない所の Clubs など。アプリケーションが使うメモリがぐっと減りました。同じマシン、同じアカウント、同じドライブで、コールドスタート時のワークセットは 961.2 MB から 742.8 MB へ（−22.7%）、ディスクのキャッシュは 805.58 MB から 66.21 MB へ（−91.8%）減っています。WebView2 のレンダリングプロセスがクラッシュしても白画面のまま残らなくなり、ウォッチドッグが自動でページを再読み込みします。グローバル検索も短いキーワードで空振りしなくなりました - "pdf"、"doc"、"095" のような語は以前は何も見つかりませんでした。
+
+### What changed
+
+**改善：メモリの使用量が大幅に減りました。** サムネイルのキャッシュが画面が変わるたびに作り直されなくなり（レンダリングプロセスが 68 MB 分を返す - 減少のほぼ全部がここです）、隠れた Quick View ウィンドウも 미리起動されなくなり（WebView2 のレンダリングプロセスが 1 つ減る）、検索インデックスやディレクトリ監視、リストの仮想化といった構造面の改善が残りを担当します。溜まっていたサムネイルと検索インデックスのキャッシュも削除し、ディスクから 739 MB を軽量化しました（必要なものは後から再生成されます）。
+
+**追加：WebView2 のクラッシュを自動で復旧します。** レンダリングプロセスが死ぬと、ウィンドウは白画面のままとなり、アプリを起動し直すしかありませんでした。今はウォッチドッグが見張っています。レンダリングプロセスが消えたとき、または画面からのハートビートが 20 秒以上途切れたときに、ページを再読み込みします。戻ってきたら何もしません。戻らなかったときはシステムのダイアログが出て、再起動するかを確認します。ダイアログは 1 回の障害につき 1 回だけです。
+
+**修正：グローバル検索で短いキーワードが空振りしていました。** "pdf"、"doc"、"095" のような検索で結果が空になることがよくありました。スコアリングの処理が「名前が検索語を含む」で早期に返ってしまい、トークン比較の機会が来ないままでした。"doc" が "report.docx" に含まれるような明らかなヒットでもスコアが 0.845、3文字の検索のしきい値は 0,9 なので捨てられていました - 拡張子での検索はほぼ何も出てきませんでした。今は 2 つの経路のうち高い方のスコアを採用するので、名前の先頭ではない部分一致もしきい値を超えます。しきい値そのものは変えておらず、短いキーワードのあいまい検索はこれまでどおり厳格です。
+
 ## [3.6.3] - October 2026
 
 **Summary:** Three things that were quietly getting in the way. Deleting a file for good now does what you expect when you press Enter — the confirmation used to open with the keyboard focus on *Cancel*, so Enter closed it again and left the file where it was - the only way to confirm was to reach for the mouse. And the list view now separates folders, pictures, videos and other files into groups, the way the thumbnail view already did, so the thing you are looking for is one heading away instead of somewhere in the middle of a long list. Renaming no longer opens a dialog either: the name turns into a field right where it stands, and the arrow keys keep taking you from one file to the next with the field still ready, so a whole pile of files can be renamed in a row.

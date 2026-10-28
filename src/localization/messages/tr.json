@@ -1830,5 +1830,10 @@
     "noHolders": "No program was found holding this file.",
     "endProcess": "End process",
     "diagnoseFailed": "Could not check which programs are using this file"
+  },
+  "webviewGuard": {
+    "detected": "The interface renderer process crashed. Trying to recover automatically...",
+    "recovered": "The interface is working again.",
+    "recoveryFailed": "The interface could not be recovered automatically. Please restart the app."
   }
 }

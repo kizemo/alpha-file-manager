@@ -1,5 +1,17 @@
 # Registro delle modifiche
 
+## [3.6.4] - October 2026
+
+**Summary:** Tre cose, una delle quali invisibile. L'applicazione occupa molta meno memoria di prima: sulla stessa macchina, lo stesso account e lo stesso disco, il working set all'avvio a freddo passa da 961,2 MB a 742,8 MB (-22,7%) e la cache su disco da 805,58 MB a 66,21 MB (-91,8%). Un crash del processo di rendering di WebView2 non lascia più una finestra bianca: un watchdog ricarica la pagina da solo e chiede di riavviare solo se la pagina non torna. E la ricerca globale non torna più vuota con le ricerche corte: "pdf", "doc" o "095" prima non trovavano quasi nulla.
+
+### What changed
+
+**Migliorato: l'applicazione occupa molta meno memoria.** La cache delle miniature dell'interfaccia non viene più ricostruita da capo a ogni cambio di vista (il processo di rendering restituisce 68 MB: quasi tutto il risparmio viene da qui), la finestra nascosta Quick View non viene più avviata in anticipo (un intero processo di rendering WebView2 in meno) e un insieme di modifiche strutturali (indice di ricerca, sorveglianza delle cartelle, lista virtualizzata) copre il resto. Sono state svuotate anche le miniature e l'indice di ricerca accumulati: 739 MB liberati su disco, ricostruiti su richiesta.
+
+**Aggiunto: un crash di WebView2 si recupera da solo.** Quando il processo di rendering moriva, la finestra restava bianca e l'unica uscita era riavviare il programma. Ora un watchdog lo sorveglia: se il processo di rendering sparisce, o se l'interfaccia smette di inviare il battito per più di 20 secondi, la pagina viene ricaricata. Se torna, non succede nulla. Se non torna, una finestra di dialogo di sistema propone di riavviare il programma: una sola volta per ogni guasto.
+
+**Corretto: le ricerche corte nella ricerca globale non trovavano nulla.** Cercare "pdf", "doc" o "095" restituiva quasi sempre una lista vuota. Il calcolo del punteggio usciva presto su "il nome contiene la ricerca", quindi il confronto per token non arrivava mai: un abbinamento evidente come "doc" in "report.docx" otteneva solo 0,845, mentre la soglia per una ricerca di tre caratteri è 0,9 - veniva quindi scartato e la ricerca per estensione restituiva quasi sempre nulla. Ora i due percorsi conservano il punteggio maggiore, così un abbinamento che non è all'inizio del nome supera la soglia. La soglia non cambia: la ricerca fuzzy sulle query corte resta altrettanto rigida.
+
 ## [3.6.3] - October 2026
 
 **Summary:** Three things that were quietly getting in the way. Deleting a file for good now does what you expect when you press Enter — the confirmation used to open with the keyboard focus on *Cancel*, so Enter closed it again and left the file where it was - the only way to confirm was to reach for the mouse. And the list view now separates folders, pictures, videos and other files into groups, the way the thumbnail view already did, so the thing you are looking for is one heading away instead of somewhere in the middle of a long list. Renaming no longer opens a dialog either: the name turns into a field right where it stands, and the arrow keys keep taking you from one file to the next with the field still ready, so a whole pile of files can be renamed in a row.

@@ -1,5 +1,17 @@
 # Değişiklik Günlüğü
 
+## [3.6.4] - October 2026
+
+**Summary:** Üç şey, biri görünmeyen. Uygulama artık çok daha az bellek kullanıyor - aynı makinede, aynı hesapta ve aynı diskte soğuk başlangıçtaki çalışma kümesi 961,2 MB'den 742,8 MB'ye (-%22,7), diskteki önbellek ise 805,58 MB'den 66,21 MB'ye (-%91,8) düşüyor. WebView2 işleme sürecinin çökmesi artık beyaz pencere bırakmıyor: bir gözcü sayfayı kendisi yeniden yüklüyor ve yalnızca sayfa geri gelmezse yeniden başlatma soruyor. Ayrıca genel arama kısa sorgularda artık boş dönme değil: "pdf", "doc" ya da "095" gibi terimler önceden hiçbir şey bulamıyordu.
+
+### What changed
+
+**İyileştirildi: Uygulama çok daha az bellek kullanıyor.** Arayüzün küçük resim önbelleği her görünüm değişiminde baştan kurulmuyor (işleme süreci 68 MB geri veriyor - azalmanın neredeyse tamamı buradan geliyor), gizli Quick View penceresi artık önceden başlatılmıyor (bir WebView2 işleme süreci daha eksik) ve yapısal bir dizi değişiklik (arama dizini, dizin izleme, sanallaştırılmış liste) kalanı karşılıyor. Biriken küçük resim ve arama dizini önbelleği de temizlendi: diskten 739 MB kazanıldı, ihtiyaç duyulduğunda yeniden kurulur.
+
+**Eklendi: WebView2 çökmesi kendi kendine toparlanıyor.** İşleme süreci öldüğünde pencere beyaz kalıyor ve tek çıkış programı yeniden başlatmaktı. Artık bir gözcü onu izliyor: işleme süreci kaybolursa ya da arayüz 20 saniyeden uzun süre sinyal göndermezse sayfa yeniden yükleniyor. Sayfa geri dönerse hiçbir şey olmuyor; dönmezse sistem iletişim kutusu programı yeniden başlatmak isteyip istemediğinizi soruyor - her arıza için yalnızca bir kez.
+
+**Düzeltildi: Genel aramada kısa sorgular hiçbir şey bulamıyordu.** "pdf", "doc" ya da "095" diye aramak genellikle boş bir liste döndürüyordu. Puanlama, "ad sorguyu içeriyor" durumunda erken dönüyor ve belirteç karşılaştırmasına hiç sıra gelmiyordu: "report.docx" içindeki "doc" gibi apaçık bir eşleşme yalnızca 0,845 puan alıyor, oysa üç karakterlik sorguların eşiği 0,9 - yani eşleşme atılıyordu ve uzantıya göre arama neredeyse hep boş çıkıyordu. Artık iki yol daha yüksek puanı koruyor, böylece adın başında olmayan bir eşleşme de eşiği geçiyor. Eşiğin kendisi değişmedi; kısa sorgulardaki bulanık eşleştirme eskisi kadar katı kalıyor.
+
 ## [3.6.3] - October 2026
 
 **Summary:** Three things that were quietly getting in the way. Deleting a file for good now does what you expect when you press Enter — the confirmation used to open with the keyboard focus on *Cancel*, so Enter closed it again and left the file where it was - the only way to confirm was to reach for the mouse. And the list view now separates folders, pictures, videos and other files into groups, the way the thumbnail view already did, so the thing you are looking for is one heading away instead of somewhere in the middle of a long list. Renaming no longer opens a dialog either: the name turns into a field right where it stands, and the arrow keys keep taking you from one file to the next with the field still ready, so a whole pile of files can be renamed in a row.
