@@ -1304,12 +1304,12 @@ v2 补入的八条：F4（搜索物化 10 万）· F6（每盘符 FileBrowser）
 | 1 | **批次 C 已 commit**：`bb003f97`（22 files / +3963 / −708，代码 + 本文回写同一个 perf commit）；**未 push、未发版、未 bump 版本号** | ✅ 已提交 |
 | 2 | **C1 真机验收**（沙箱内执行，脚本 `sandbox-c1-accept.ps1`）：已 PASS（见 §18.12） | ✅ |
 | 3 | **F12d 已评估·不修**：实测 5 个真实 JSON 合计约 **75 KB**（`user-stats.json` 34,477 B、`user-extensions.json` 32,461 B、`user-settings.json` 4,266 B、`user-workspaces.json` 2,736 B、`user-remote-connections.json` 1,154 B），载体是上游 `b839e298` 的 `preloaded: Arc<OnceCell<…>>`；常驻上限只是百 KB 级，改启动路径的风险与收益不成比例 | ⏸️ 已评估·不修 |
-| 4 | **`use-video-thumbnails.ts` 已按 A2 同款改造**：`ref<Record>` → `shallowRef<Map>`，写入走 `setVideoThumbnail()`（等值早退 → `Map.set` → `triggerRef`，把单调增长时的 O(n²) 分配降为 O(1)），`clearThumbnails()` 改 `= new Map()`；测试断言同步改 `.value.size === 0`；`npm run ts` exit 0、该文件单测 3/3 通过 | ✅ 已修 |
-| 5 | **WebView2 子进程崩溃兜底**（§18.11 D3 建议 ②）：检测 + 提示 + 可恢复 | ⬜ 未做 |
+| 4 | **`use-video-thumbnails.ts` 已按 A2 同款改造并提交**：`ref<Record>` → `shallowRef<Map>`，写入走 `setVideoThumbnail()`（等值早退 → `Map.set` → `triggerRef`，把单调增长时的 O(n²) 分配降为 O(1)），`clearThumbnails()` 改 `= new Map()`；测试断言同步改 `.value.size === 0`。已 commit `0d89768c`（3 files / +25 / −18，独立 follow-up，未 amend 进 `bb003f97`）；门禁 `eslint .` = **188 / 0**（与基线逐字一致）、`npm run test` **250 文件 / 2309 用例全通过**、`npm run ts` exit 0 | ✅ 已提交 |
+| 5 | **WebView2 子进程崩溃兜底**（§18.11 D3 建议 ②）：检测 + 提示 + 可恢复 —— **这是 §18.14 剩下的唯一代码项，下一阶段从这里开工**。取证基础见 §18.11 D3：崩溃发生在 `msedgewebview2.exe` 子进程（`0x80000003` / `0xE0000008`，后两次故障地址相同），**AFM 主进程存活** ⇒ 兜底不能指望「出了事的那一方自己报错」，只能靠**主进程侧探测渲染子进程存活**或**前端心跳**。验收时崩溃无法按需复现，可「手动杀掉 AFM 名下的 `msedgewebview2.exe` 子进程」制造现场（必须在沙箱内、打包产物上做） | ⬜ 未做·下一步 |
 | 6 | **版本号仍是 3.6.3**，批次 C 不单独发版；是否随下一版统一发由用户决定 | ⬜ 待决策 |
 | 7 | **索引重建代价**：实测一次完整重建约 **17 分钟**（1,016 s，1,956,015 条）；验收脚本必须先确认索引就绪再判 FAIL | ⚠️ 已知 |
 | 8 | **上游缺陷候选**：`global_search/scoring.rs` 的 `get_min_score_for_query_length()` 对 1–3 字符查询给 0.9 门槛，使「含扩展名的文件名」普遍落在 0.82–0.89 ⇒ **短查询恒 0 结果**（上游 `b8a1c1b4`，AFM 未改） | ⬜ 未修（上游） |
 | 9 | **真机验收必须进隔离桌面沙箱**（用户 2026-10-28 要求）：不得在用户桌面上启动 AFM 抢焦点；沙箱脚本 `sandbox-c1-accept.ps1`，坑位清单见 `.superpowers\sdd\relay-rules-batch-c.md` | ✅ 已落地 |
-| 10 | **新会话接力 prompt**：`.superpowers\sdd\relay-prompt-batch-c.txt`（一句话 + 完整路径，引导新会话读必要文档） | ✅ 已落地 |
+| 10 | **新会话接力 prompt**：`.superpowers\sdd\relay-prompt-batch-c.txt`（一句话 + 完整路径，引导新会话读必要文档；已按「第 4 项已提交、下一步第 5 项」的当前状态刷新，不重复本文内容） | ✅ 已落地 |
 
 > **接力时先读**：外层仓 `F:\soft\00selfmade\filemanager\AGENTS.md`（硬约束全集）→ 本文 **§0** 与 **§18** → `.superpowers\sdd\mem-batch-c-handoff-18-12.md` / `-18-13.md`（本节的底稿）→ `.superpowers\sdd\mem-origin-attribution.md`（归因完整取证）→ `.superpowers\sdd\sandbox-c1-accept.ps1`（沙箱验收脚本）→ `.superpowers\sdd\relay-rules-batch-c.md`（防异常终止对策）。
