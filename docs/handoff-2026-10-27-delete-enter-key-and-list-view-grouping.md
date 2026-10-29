@@ -1918,3 +1918,42 @@ sha256 与备份一致）。
 - **`prepare --write-notes` 不能省**：它是 `_release-notes-v<版本>.md` 的**唯一生成入口**，
   `release:github` 只读它 ⇒ 漏了不会报错，只会安静地发一个正文为空的 release。
 - **`verify-changelog` 升版本前后各跑一次**（见 §21.7）。
+
+### 22.8 发版执行结果（2026-10-29）
+
+三个提交，全部已 push 到 `origin/main`：
+
+| commit | 内容 |
+|---|---|
+| `521901d9` | `feat: 3.6.5 —— 默认背景本地化打包；新增六套 mac Finder 风格主题`（62 files, +1779 / −307） |
+| `666bee25` | `release: 补 winget manifest 3.6.5`（4 个新文件入库） |
+| `512c8f50` | `docs: 补 winget 3.6.5 清单登记与 3.5.1 PR 复查结论` |
+
+- **`release:prepare --bump none --skip-build --notes-file .superpowers/sdd/notes-365.md`** → `PREPARE_EXIT=0`：
+  版本 3.6.5 → 3.6.5；安装包 45,474,813 B / sha256 `b8848f9e…9d0`；
+  站点旧版本 **3.6.4 自动归档进 `history[]`**（history 现 20 条）；
+  `version.json` 改成 3.6.5；安装包复制到站点源目录且 **sha256 一致**。
+- **`prepare --write-notes`** → 生成 `E:\办公文件\L1网站\alpha-file-manager\_release-notes-v3.6.5.md`
+  （1540 B：正文 + 「构建信息」段）。**这一步不能省**，它是该文件的唯一生成入口。
+- **`release:github`** → `GITHUB_EXIT=0`：GitHub 上原本没有 v3.6.5，已创建
+  `https://github.com/kizemo/alpha-file-manager/releases/tag/v3.6.5`，
+  资产 `Alpha_File_Manager_3.6.5_x64-setup.exe`（45,474,813 B，sha256 与本地一致）。
+  回读核验（`gh release view v3.6.5`）：`isDraft=false`、`isPrerelease=false`、
+  正文 = `_release-notes-v3.6.5.md` 全文（含「构建信息」段：版本号 / 文件名 / 大小 / SHA-256）、
+  资产 `state=uploaded` 且 `digest=sha256:b8848f9e…9d0`。
+  ⚠️ 用 `gh ... --json` 的输出喂给 `node -e` 解析时，**PowerShell 管道会加 UTF-8 BOM**，
+  `JSON.parse` 直接报 `Unexpected token '﻿'` ⇒ 解析前先 `.replace(/^\uFEFF/,'')`。
+- **`release:upload`**（SFTP / paramiko，主机 `47.120.26.175`）→ 27 个文件 / 448.37 MB 逐个上传，
+  `version.json` 与 3.6.5 安装包都在其中；输出是 cp936，**中文是乱码属正常**（`get_console` 时按代码页解）。
+- **`release:status`** → `STATUS_EXIT=0`：本地 `package.json` / `release/` 安装包 /
+  站点源 `version.json` 三方一致（版本 3.6.5、sha256、45,474,813 B）。
+- **`npm run check:winget`** → `WINGET_EXIT=0`，四项全绿：4 文件齐全且 UTF-8 无 BOM / LF /
+  末尾换行、四个 YAML 可解析、`InstallerSha256` 与**本地安装包实际字节**一致、
+  `InstallerUrl` 指向 v3.6.5 的 GitHub release 资产。
+- **winget 的处置**：3.5.1 的 PR #460744 仍是 `OPEN`（`mergedAt=null`、`REVIEW_REQUIRED`，
+  标签 `Validation-Completed` + `Azure-Pipeline-Passed` + `New-Package`），
+  同一个包 ID 在 `microsoft/winget-pkgs` 里**不允许同时开第二个 PR**
+  ⇒ **3.6.5 只备清单、不提交 PR**，等 3.5.1 合并后直接提 3.6.5。
+  清单在 `docs/winget/manifests/k/kizemo/AlphaFileManager/3.6.5/`，
+  `ManifestVersion` 仍 `1.12.0`、`Tags` 不动、`ReleaseDate` = `2026-10-29`、
+  `InstallerSha256` = `B8848F9E…9D0`；`docs/winget/README.md` 已补登记与取舍说明。
