@@ -18,7 +18,7 @@ import {
   beforeEach, describe, expect, it, vi,
 } from 'vitest';
 import type * as VueI18nModule from 'vue-i18n';
-import { h } from 'vue';
+import { h, type VNode } from 'vue';
 import { mount } from '@vue/test-utils';
 import Theme from '@/modules/settings/ui/categories/appearance/theme.vue';
 
@@ -45,10 +45,12 @@ vi.mock('@/stores/storage/extensions', () => ({
   useExtensionsStorageStore: () => extensionsStorageStoreMock,
 }));
 
+// 替身组件的 setup 参数必须显式标类型：vi.mock 的工厂函数没有上下文类型，
+// 不标的话 tsconfig.vitest.json（strict）下就是 implicit any，npm run ts 直接红。
 vi.mock('@/modules/settings', () => ({
   SettingsItem: {
     props: ['title', 'description', 'icon'],
-    setup(_props, { slots }) {
+    setup(_props: Record<string, unknown>, { slots }: { slots: { default?: () => VNode[] } }) {
       return () => h('section', { class: 'settings-view-item' }, slots.default?.());
     },
   },
@@ -58,7 +60,15 @@ vi.mock('@/modules/settings', () => ({
 vi.mock('@/components/base', () => ({
   BaseCombobox: {
     props: ['modelValue', 'options', 'optionGroups', 'by'],
-    setup(props) {
+    setup(props: {
+      optionGroups?: {
+        heading?: string;
+        options?: {
+          value: string;
+          name: string;
+        }[];
+      }[];
+    }) {
       return () => h('div', { class: 'base-combobox' }, (props.optionGroups ?? []).map(
         (group, index) => h('div', {
           class: 'combobox-group',
