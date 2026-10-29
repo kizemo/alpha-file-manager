@@ -2175,3 +2175,71 @@ NEW 阶段改用**安装日志 + kill 日志 + 装出版本**，不再用沙箱�
 - 收尾后 `alpha-file-manager` / `focus-sync-sidecar` 进程数 = **0**；
 - 机器上最终保留的是**修好的 3.6.6**（`release\Alpha File Manager_3.6.6_x64-setup.exe`，
   45,490,743 B，sha256 `954AB0AA…EE4`，与 `src-tauri\target\release\bundle\nsis\` 下的构建产物逐字节一致）。
+
+---
+
+## 24. 缺陷（取证已结案 / 修复待做）：安装完成后约 11 分钟，安装对话框又出现一次（2026-10-29）
+
+### 24.1 时间线（全部来自 `alpha-file-manager-install.log` / `alpha-file-manager-kill.log` / Application 日志）
+
+| 本地时间 | 事件 |
+|---|---|
+| 13:21:57 | 我的沙箱验收 pass-1 拉起 `release\…3.6.6…setup.exe`（`detectedVersion=3.6.5`） |
+| 13:22:38 | 13:17 失败卸载遗留的 `uninstall.exe-672576` **仍在模块表里**（RestartManager `reason=512`，进程已消失）⇒ kill.log `OUTCOME=locked exit=3` |
+| 13:22:50 / 13:23:48 | 两次 `phase=PREUNINSTALL`，执行体都是 `D:\Program Files\…\uninstall.exe-672576`（带后缀的**改名残留副本**） |
+| 13:23:36 | 3.6.6 安装成功（沙箱内，Finish 页滞留） |
+| 13:24:02 → 13:24:36 | v2 独立复跑：PREUNINSTALL 3.6.5 → POSTUNINSTALL 3.6.5 → PREINSTALL 3.6.6 → POSTINSTALL 3.6.6 |
+| 13:24:23 | 驱动脚本 `SUMMARY pass=9 fail=0`，后台任务结束；随后按 §23.8 杀掉 app/sidecar 并恢复用户数据 |
+| **13:34:55** | **kill 脚本第三次启动（pid 706828，`caller pid resolved to 710832`）** |
+| **13:35:13.624** | **`phase=PREINSTALL installerVersion=3.6.6 sameVersionReinstall=yes detectedVersion=3.6.6 installer='F:\soft\…\release\Alpha File Manager_3.6.6_x64-setup.exe'`** |
+| 13:35:13.785 | RestartManager 会话 1 启动、并同时结束（Application 日志 id=10000 / 10001）—— 与 PREINSTALL 同毫秒 |
+| **13:35:51.461** | **`phase=POSTINSTALL`（同版本覆盖安装，耗时 38 s）** |
+
+**硬证据**：事发后 `alpha-file-manager.exe`（**pid=757724**）的父进程 = **710832**，
+正是 13:35 那次安装的 caller。⇒ 13:35 **不是一次残留或重绘**，而是一次
+**完整、独立、成功**的安装，并在结束时拉起了当前正在运行的应用。
+
+### 24.2 「自动重跑」的载体已逐条排除（实测，不是推测）
+
+| 怀疑对象 | 结论 | 依据 |
+|---|---|---|
+| 我的验收/构建脚本 | **排除** | `.superpowers\sdd` 全目录（含子目录）**13:28–13:50 无任何文件 mtime**；驱动任务 13:24:23 已结束 |
+| 计划任务 | **排除** | 全机扫描只有 `\KizemoFocusSync` 命中 AFM：`state=Disabled`、action=`focus-sync-sidecar.exe --service`、trigger 仅 Logon；**无任何任务指向 setup.exe**（另两条命中是 Windows 自带 `la57setup.exe`/`OOBEFodSetup`，无关） |
+| `HKLM/HKCU\…\Run`、`RunOnce`、两个 Startup 文件夹 | **排除** | 逐键枚举，无 Alpha File Manager 条目 |
+| ARP 卸载条目 | **排除** | `UninstallString` 指向 `D:\Program Files\…\uninstall.exe`；`QuietUninstallString` 空；`InstallDate` 空 |
+| 应用内更新器 | **排除** | `Cargo.toml` **没有 `tauri-plugin-updater`**；`tauri.conf.json` 无 `createUpdaterArtifacts` / updater endpoints。`tauri-plugin-autostart` 拉起的是**应用**，不是安装包 |
+| hooks.nsh 注册开机任务 | **排除** | 全文只注册 `\KizemoFocusSync`（扩展 sidecar），无 setup 相关注册 |
+| PCA 程序兼容性助手 | **无法取证** | 本机 `Microsoft-Windows-PCA/Program`、`/Launcher` 通道**不存在** |
+| 进程创建审计 | **无法取证** | `Security` 4688 未开启；`Kernel-Audit-API-Calls` 不可读；**710832 已退出，父链断裂** |
+
+⇒ **诚实结论：日志能证明「确实又完整安装了一次」，但本机现有证据无法证明它是「自动」触发的。**
+最简约的解释：`release\…3.6.6…setup.exe` 在 13:34 被**再次启动了一次**（人工双击，或从
+Explorer「最近使用 / 下载」里再次点击）。此判断**未被证实** —— 注意我的沙箱那两次跑在**隐藏桌面**
+（用户看不到向导），只有真实桌面上的启动才会"弹出安装对话框"，与用户所见一致。
+
+### 24.3 取证过程中坐实的两个**真实安装器缺陷**（可修的部分）
+
+1. **安装器没有单实例互斥**：`installer.nsi` 与 `hooks.nsh` 的 `.onInit`
+   **没有任何 `CreateMutex` / 实例检测**。⇒ 同一个 setup 被重复启动时**会再弹一个完整向导**，
+   并与前一个实例并发跑「杀进程 → 卸旧 → 装新」，互相抢文件锁。
+   **这正是「又弹一次安装对话框」的放大机制。**
+2. **同版本覆盖安装零拦截**：日志里 `sameVersionReinstall=yes` 说明安装器**已经算出**
+   "装的就是当前版本、当前目录"，却照样**杀应用 → 全量覆盖 → 重启应用**。
+   对用户的观感就是「我什么都没点，软件突然自己重启了一遍」。
+   叠加 `MUI_FINISHPAGE_NOAUTOCLOSE`（向导停在 Finish 页不自动关）
+   与提权 helper（`nsis-*.tmp elevated`）长留，进一步坐实"弹窗阴魂不散"的印象。
+
+### 24.4 修复待办（本轮取证结束时未实施；2026-10-29 决定：按用户偏好直接实施，不再等确认）
+
+- **A. 安装器单实例互斥**：`.onInit` 用
+  `System::Call 'kernel32::CreateMutexW(i0,i0,w"Local\AlphaFileManagerSetup")'`，
+  `GetLastResult != 18`（`ERROR_ALREADY_EXISTS`）时提示"安装程序已在运行"并 `Abort`。
+  ⚠️ 互斥名要**只在实际安装进程侧判定**，Tauri 模板的提权重跑 helper 与主进程同名会**自锁**。
+- **B. 同版本重装给选择权**：`detectedVersion == installerVersion` 且 `InstallLocation` 一致时，
+  从「静默全量覆盖」改为「修复安装 / 取消」；取消则不杀进程、不重启应用。
+- **C. 要坐实「自动」必须补取证手段**：临时开启进程创建审计
+  （`auditpol /set /subcategory:"A process was created" /success:enable`）
+  —— 属**系统级改动，须用户同意**，下次触发直接读 4688 的父进程字段。
+- **D. 顺带可清的一条**：`D:\Program Files\Alpha File Manager\uninstall.exe-672576`
+  这类**改名残留卸载器**至今仍在模块表里被 RestartManager 认定"占用"（`reason=512`），
+  是 §23 那类失败的同源诱因；卸载收尾应把带后缀的副本删干净。
