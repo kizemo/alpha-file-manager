@@ -1943,8 +1943,15 @@ sha256 与备份一致）。
   资产 `state=uploaded` 且 `digest=sha256:b8848f9e…9d0`。
   ⚠️ 用 `gh ... --json` 的输出喂给 `node -e` 解析时，**PowerShell 管道会加 UTF-8 BOM**，
   `JSON.parse` 直接报 `Unexpected token '﻿'` ⇒ 解析前先 `.replace(/^\uFEFF/,'')`。
-- **`release:upload`**（SFTP / paramiko，主机 `47.120.26.175`）→ 27 个文件 / 448.37 MB 逐个上传，
-  `version.json` 与 3.6.5 安装包都在其中；输出是 cp936，**中文是乱码属正常**（`get_console` 时按代码页解）。
+- **`release:upload`**（SFTP / paramiko，主机 `47.120.26.175`）→ **上传完成**：
+  27 个文件 / 448.37 MB 逐个上传，第 4 步远端复核「md5 + size 全部一致」全绿
+  （含 `version.json` 与 3.6.5 安装包）。
+  输出是 cp936，**中文是乱码属正常**（按代码页解即可）。
+- **`release:verify`**（公网回读）→ `VERIFY_EXIT=0`：线上版本 3.6.5、
+  发布日期 `2026-10-29T02:12:21Z`、清单 sha256 与本地包 sha256 一致；
+  **源站包 45,474,813 B（绕过缓存，用户看不到这个）**、
+  **边缘包 45,474,813 B（`CF-Cache-Status=HIT`）** ⇒ 版本号 / 大小 / sha256 三项均一致，
+  源站与边缘都已生效。
 - **`release:status`** → `STATUS_EXIT=0`：本地 `package.json` / `release/` 安装包 /
   站点源 `version.json` 三方一致（版本 3.6.5、sha256、45,474,813 B）。
 - **`npm run check:winget`** → `WINGET_EXIT=0`，四项全绿：4 文件齐全且 UTF-8 无 BOM / LF /
