@@ -78,6 +78,26 @@ export function useTheme(
     }
   }
 
+  /**
+   * FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：把主题标识写到 `<html data-afm-theme>`。
+   *
+   * 少量形状特征（衬线小标题、彩色左边条、彩色图标块）用 CSS 变量表达不了，
+   * 靠这个属性在 `src/styles/afm-themes.css` 里做作用域覆盖。
+   * 非 AFM 主题必须把属性**删掉**，否则会残留上一套主题的形状特征。
+   */
+  function applyCssThemeId(cssThemeId: string | undefined) {
+    if (typeof document === 'undefined' || !document.documentElement) {
+      return;
+    }
+
+    if (cssThemeId) {
+      document.documentElement.dataset.afmTheme = cssThemeId;
+    }
+    else {
+      delete document.documentElement.dataset.afmTheme;
+    }
+  }
+
   function getTransitionOrigin(): ThemeTransitionOrigin {
     return transitionOriginRef?.value ?? {
       x: window.innerWidth,
@@ -176,6 +196,7 @@ export function useTheme(
 
     if (!themeOption) {
       applyBaseTheme('dark');
+      applyCssThemeId(undefined);
       return;
     }
 
@@ -186,6 +207,7 @@ export function useTheme(
       if (themeOption.variables && themeOption.baseTheme) {
         applyBaseTheme(themeOption.baseTheme);
         applyThemeVariables(themeOption.variables);
+        applyCssThemeId(themeOption.cssThemeId);
         return;
       }
 
@@ -195,11 +217,13 @@ export function useTheme(
         : 'dark';
 
       applyBaseTheme(resolvedTheme);
+      applyCssThemeId(undefined);
       return;
     }
 
     applyBaseTheme(themeOption.baseTheme);
     applyThemeVariables(themeOption.variables);
+    applyCssThemeId(undefined);
   }
 
   function setTheme(theme: Theme) {

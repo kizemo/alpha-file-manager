@@ -8,6 +8,11 @@ import {
   isMacVariantThemeId,
   MAC_VARIANT_THEMES,
 } from '@/modules/themes/mac-variants';
+// FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：三套品牌重设计主题。
+import {
+  isAfmThemeId,
+  AFM_THEMES,
+} from '@/modules/themes/afm-themes';
 
 export const BUILTIN_THEME_IDS = ['dark', 'light', 'system'] as const;
 export const DEFAULT_THEME_ID: BuiltinThemeId = 'light';
@@ -27,6 +32,11 @@ type BuiltinThemeOption = {
    */
   baseTheme?: 'light' | 'dark';
   variables?: Record<`--${string}`, string>;
+  /**
+   * FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：写入 `<html data-afm-theme>` 的值。
+   * 少量 token 表达不了的形状特征靠它做作用域覆盖（见 `src/styles/afm-themes.css`）。
+   */
+  cssThemeId?: string;
 };
 
 type ExtensionThemeOption = {
@@ -80,6 +90,14 @@ export function parseThemeId(theme: string): ParsedThemeId | null {
     };
   }
 
+  // FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：三套品牌重设计主题同样走 builtin 通道。
+  if (isAfmThemeId(theme)) {
+    return {
+      source: 'builtin',
+      builtinThemeId: theme,
+    };
+  }
+
   if (!theme.startsWith(EXTENSION_THEME_PREFIX)) {
     return null;
   }
@@ -124,6 +142,22 @@ export function getMacVariantThemeOptions(): ThemeOption[] {
     builtinThemeId: theme.id,
     baseTheme: theme.baseTheme,
     variables: theme.variables,
+  }));
+}
+
+/**
+ * FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：三套品牌重设计主题。
+ * 与上面两组同构（基础明暗 + CSS 变量覆盖），额外带 `cssThemeId`，
+ * 供 `use-theme.ts` 写到 `<html data-afm-theme>` 上做形状特征的作用域覆盖。
+ */
+export function getAfmThemeOptions(): ThemeOption[] {
+  return AFM_THEMES.map(theme => ({
+    id: theme.id,
+    source: 'builtin' as const,
+    builtinThemeId: theme.id,
+    baseTheme: theme.baseTheme,
+    variables: theme.variables,
+    cssThemeId: theme.cssThemeId,
   }));
 }
 
@@ -176,6 +210,7 @@ export function getAvailableThemeOptions(
   return [
     ...getBuiltinThemeOptions(),
     ...getMacVariantThemeOptions(),
+    ...getAfmThemeOptions(),
     ...getExtensionThemeOptions(installedExtensions),
   ];
 }
@@ -199,7 +234,9 @@ export function findThemeOption(
     }
 
     return getMacVariantThemeOptions()
-      .find(option => option.id === parsedTheme.builtinThemeId);
+      .find(option => option.id === parsedTheme.builtinThemeId)
+      ?? getAfmThemeOptions()
+        .find(option => option.id === parsedTheme.builtinThemeId);
   }
 
   return getExtensionThemeOptions(installedExtensions).find((option) => {

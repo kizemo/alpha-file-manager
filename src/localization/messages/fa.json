@@ -340,6 +340,7 @@
         "title": "موضوع",
         "extensionThemes": "تم‌های افزونه",
         "macVariantThemes": "تم‌های با سبک macOS",
+        "afmThemeThemes": "تم‌های برند AFM",
         "macVariants": {
           "classicLight": "macOS بومی · روشن",
           "classicDark": "macOS بومی · تیره",
@@ -347,6 +348,11 @@
           "modernDark": "مدرن صیقلی · تیره",
           "glassLight": "شیشه نیمه‌شفاف · روشن",
           "glassDark": "شیشه نیمه‌شفاف · تیره"
+        },
+        "afmThemes": {
+          "warmLight": "کاغذ گرم · روشن",
+          "warmDark": "کاغذ گرم · تیره",
+          "vividLight": "انرژی پرشور"
         },
         "themeTypeRadio": {
           "dark": "تاریک",

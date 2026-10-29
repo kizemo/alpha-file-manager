@@ -347,6 +347,7 @@
         "title": "テーマ",
         "extensionThemes": "拡張機能のテーマ",
         "macVariantThemes": "macOS風テーマ",
+        "afmThemeThemes": "AFM ブランドテーマ",
         "macVariants": {
           "classicLight": "macOSネイティブ · ライト",
           "classicDark": "macOSネイティブ · ダーク",
@@ -354,6 +355,11 @@
           "modernDark": "カジュアルモダン · ダーク",
           "glassLight": "半透明ガラス · ライト",
           "glassDark": "半透明ガラス · ダーク"
+        },
+        "afmThemes": {
+          "warmLight": "ウォームペーパー · ライト",
+          "warmDark": "ウォームペーパー · ダーク",
+          "vividLight": "バイビッド"
         },
         "themeTypeRadio": {
           "dark": "暗い",

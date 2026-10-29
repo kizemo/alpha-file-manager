@@ -1,0 +1,149 @@
+/*
+ * FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：三套品牌重设计主题的形状特征层。
+ *
+ * 主题换肤分两层：
+ *   1. token 层（`src/modules/themes/afm-themes.ts`）—— 配色 / 圆角 / 阴影 / 字族，
+ *      由 `use-theme.ts` 写成内联变量，**不需要这个文件**。
+ *   2. 形状特征层（本文件）—— 少量 token 表达不了的东西：衬线小标题、
+ *      彩色左边条、深色图标轨的悬浮态。
+ *
+ * 两条硬约束，违反其一就是改框架而不是改视觉：
+ *
+ *   A. **只写颜色 / 形状 / 字体 / 阴影，绝不写宽度、高度、间距、位置。**
+ *      需要「加一根线」时一律用 `box-shadow: inset`（不占布局），
+ *      不用 `border-left`（会把内容挤开 2px）。
+ *
+ *   B. **每条选择器都必须带 `html[data-afm-theme='...']` 前缀。**
+ *      Vue 的 scoped 编译会把组件内的 `.foo` 变成 `.foo[data-v-xxxx]`（特异性 0,2,0），
+ *      裸 `.foo` 只有 0,1,0，**写在这里也会输**。
+ *      带前缀后是 0,2,1，稳定压过组件样式。
+ *
+ * 主题标识由 `use-theme.ts` 写到 `<html data-afm-theme>`；
+ * 切回非 AFM 主题时该属性会被删除，所以本文件的规则自动失效。
+ */
+
+/* --------------------------------------------------------------------------
+ * D1 / D2 —— 暖纸（浅色 / 暗色）
+ *
+ * 气质：印刷编辑风。直角卡片、衬线小标题、赤陶色选中标记、状态条左缘的品牌钢蓝。
+ * -------------------------------------------------------------------------- */
+
+html[data-afm-theme='afm-warm-light'] .file-browser-grid-card,
+html[data-afm-theme='afm-warm-dark'] .file-browser-grid-card {
+  /* Vignelli 栅格纪律：近直角。--radius-sm 在 --radius: 0.25rem 下正好是 0px。 */
+  border-radius: var(--radius-sm);
+}
+
+html[data-afm-theme='afm-warm-light'] .file-browser-list-view__entry,
+html[data-afm-theme='afm-warm-dark'] .file-browser-list-view__entry {
+  border-radius: var(--radius-sm);
+}
+
+/* 衬线小标题：只改字族，不改字号与行高。 */
+html[data-afm-theme='afm-warm-light'] .quick-access-panel__section-title,
+html[data-afm-theme='afm-warm-dark'] .quick-access-panel__section-title,
+html[data-afm-theme='afm-warm-light'] .file-browser-grid-section-bar,
+html[data-afm-theme='afm-warm-dark'] .file-browser-grid-section-bar,
+html[data-afm-theme='afm-warm-light'] .info-panel-header__name,
+html[data-afm-theme='afm-warm-dark'] .info-panel-header__name {
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+}
+
+/* 选中态：赤陶色左边标记 + 赤陶色文字。inset 阴影不占布局。 */
+html[data-afm-theme='afm-warm-light'] .file-tree-row--selected,
+html[data-afm-theme='afm-warm-dark'] .file-tree-row--selected {
+  box-shadow: inset 2px 0 0 hsl(var(--accent));
+}
+
+html[data-afm-theme='afm-warm-light'] .file-tree-row--selected .file-tree-row__name,
+html[data-afm-theme='afm-warm-dark'] .file-tree-row--selected .file-tree-row__name {
+  color: hsl(var(--accent-ink));
+}
+
+/* 状态条左缘的品牌钢蓝：R2「品牌主色每套主题至少一处承载」就落在这一根线上。 */
+html[data-afm-theme='afm-warm-light'] .file-browser-status-bar,
+html[data-afm-theme='afm-warm-dark'] .file-browser-status-bar {
+  box-shadow: inset 2px 0 0 hsl(var(--brand));
+}
+
+/* 图标轨选中态：品牌钢蓝直接压在激活图标上（--primary 在这两套里就是品牌色）。 */
+html[data-afm-theme='afm-warm-light'] .nav-sidebar-item[is-active='true'],
+html[data-afm-theme='afm-warm-dark'] .nav-sidebar-item[is-active='true'] {
+  background-color: hsl(var(--brand) / 12%);
+}
+
+/* --------------------------------------------------------------------------
+ * D3 —— 跃动活力
+ *
+ * 气质：年轻、跳跃。深钢蓝图标轨、12px 圆角卡片、四色循环的彩色左边条与图标块。
+ * -------------------------------------------------------------------------- */
+
+/*
+ * 彩色左边条：四色循环。
+ * 用 inset 阴影而不是 border，理由见文件头 A 条。
+ * nth-child 的计数基准是同父级的兄弟节点；即使兄弟里混进了非卡片元素，
+ * 也只是让配色错开一位，不会破版。
+ */
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-grid-card {
+  border-radius: var(--radius);
+  box-shadow: inset 4px 0 0 hsl(var(--primary)), var(--shadow-md);
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-list-view__entry {
+  border-radius: var(--radius);
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-grid-card:nth-child(4n + 2) {
+  box-shadow: inset 4px 0 0 hsl(172deg 100% 38%), var(--shadow-md);
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-grid-card:nth-child(4n + 3) {
+  box-shadow: inset 4px 0 0 hsl(349deg 100% 68%), var(--shadow-md);
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-grid-card:nth-child(4n) {
+  box-shadow: inset 4px 0 0 hsl(42deg 100% 62%), var(--shadow-md);
+}
+
+/* 彩色图标块：只加底色与圆角，不加 padding（避免挤动标题）。 */
+html[data-afm-theme='afm-vivid-light'] .file-browser-grid-card__icon {
+  border-radius: var(--radius-md);
+  background-color: hsl(var(--accent-muted));
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-grid-card:nth-child(4n + 2) .file-browser-grid-card__icon {
+  background-color: hsl(172deg 100% 38% / 14%);
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-grid-card:nth-child(4n + 3) .file-browser-grid-card__icon {
+  background-color: hsl(349deg 100% 68% / 14%);
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-grid-card:nth-child(4n) .file-browser-grid-card__icon {
+  background-color: hsl(42deg 100% 62% / 18%);
+}
+
+/* 深色图标轨上的悬浮与选中态：原来的 `hsl(var(--foreground) / 5%)` 在深底上是黑的，看不见。 */
+html[data-afm-theme='afm-vivid-light'] .nav-sidebar-item:hover {
+  background-color: hsl(var(--nav-rail-foreground) / 12%);
+}
+
+html[data-afm-theme='afm-vivid-light'] .nav-sidebar-item[is-active='true'] {
+  background-color: hsl(var(--primary) / 32%);
+}
+
+html[data-afm-theme='afm-vivid-light'] .nav-sidebar-item[is-active='true'] .nav-sidebar-item-icon {
+  stroke: hsl(var(--nav-rail-foreground));
+}
+
+/* 状态条左缘的品牌钢蓝（R2 落位）。 */
+html[data-afm-theme='afm-vivid-light'] .file-browser-status-bar {
+  box-shadow: inset 2px 0 0 hsl(var(--brand));
+}
+
+/* 属性面板标题用品牌色，跟状态条那根线呼应。 */
+html[data-afm-theme='afm-vivid-light'] .info-panel-header__name {
+  color: hsl(var(--brand));
+}

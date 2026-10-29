@@ -2337,3 +2337,351 @@ nsExec 命令追加 `-CommandLineFile "$PLUGINSDIR\afm-commandline.txt"`（不�
 32 位与 64 位 PowerShell 探针**均读到 3.6.6**。
 ⚠️ 剥离 `Software\` 前缀必须用 `-replace '^Software\\', ''`，
 **不能用 `Substring(8)`**（`Software\` 长度是 9，会拼出双反斜杠路径）。
+
+---
+
+## 25. UI 重设计（Alpha File Manager 品牌化）—— 根因、两轮九稿与三套主题落地
+
+> 本节记录 2026-10-29 一整轮 UI 重设计：从「现有主题为什么看着不像自家产品」这个根因出发，
+> 经两轮共九稿设计、三次用户决策，直到三套主题（暖纸浅 / 暖纸暗 / 跃动活力）落进代码。
+> 设计稿目录 `.superpowers/sdd/design-demos/` 被 gitignore，**不进版本库**，需要时从工作副本取。
+
+### 25.1 根因：六套内置变体全都不是「自家产品」
+
+实测 `src/modules/themes/mac-variants.ts` 的六套内置变体（mac-classic / mac-modern / mac-glass × light / dark）：
+
+- **色相全部集中在 240 与 211**（蓝紫 / 青蓝）⇒ 六套之间的差异只剩明度与饱和度；
+- **底色 ≈ Win11 Fluent 冷灰**（`--background` 全落在 210–240 的低饱和冷灰区间）；
+- **品牌主色一次都没出现过** —— 品牌钢蓝 `#607A87`（logo 像素实测众数，区间 `#5F7986`–`#607A89`）在六套里一次都没被引用；
+- 形状语言是**大圆角 + 浅灰卡片 + 发丝描边**，典型的 Fluent 翻版。
+
+结论：用户说的「界面不好看、没辨识度」不是配色没调好，而是**整个设计语言是借来的**。
+只换几个色值解决不了，必须重做形状语言 + 承载品牌色。
+
+### 25.2 设计流程（两轮九稿）
+
+**第一轮 · 6 稿**（三套逻辑各出 2 个差异化诠释，出稿后停轮等选）：
+
+| 稿 | 文件名 | 方向 |
+|---|---|---|
+| A1 | `a1-origami-grid` | 折纸式网格 |
+| A2 | `a2-warm-editorial` | 暖调编辑式 |
+| B1 | `b1-command-palette` | 命令面板式 |
+| B2 | `b2-workbench` | 工作台式 |
+| C1 | `c1-vignelli-grid` | Vignelli 栅格纪律 |
+| C2 | `c2-tool-surface` | 工具面式 |
+
+每稿 = HTML + 1440×900 截图，落在 `.superpowers/sdd/design-demos/`。
+自检器 `.superpowers/sdd/check-tags.cjs`（标签配平 + CSS 类名撞车 + 编码体检）在这一轮暴露并修掉 3 处真实渲染缺陷
+（C2 漏闭合 `<span>`、B2 `.body` 类名撞车、B1 inline 元素写法）。
+
+**第二轮 · 3 稿**（D1 / D2 / D3）：改成**同一套真实产品骨架上的三种皮肤**。
+用户「UI 框架不要大的改变」的指令**优先于**技能原文「三版骨架必须互异」的要求 —— 这条冲突的裁决记录在这里，
+避免下一轮又按技能原文去改骨架。
+
+共用栅格（照抄真实产品，未改）：
+`42px | 212px | 1fr | 264px`（图标轨 | 目录树 | 主区 | 属性面板） ×
+`44px | 44px | 36px | 1fr | 26px`（标签栏 | 工具条 | 次级条 | 内容 | 状态条）。
+
+### 25.3 用户决策链（三次）
+
+1. 第一轮 6 稿后选定 **「定稿1」= A2（暖纸）× C1（Vignelli 栅格纪律）**，并追加三条要求：
+   配一套暗色、框架不大改、再出一款年轻化跳跃配色，总共出 3 套供选。
+2. 第二轮 3 稿后回复：**「选择本次设计的三轮设计的这三套，开始设计。」** ⇒ **D1 / D2 / D3 三套全选**，进入实现。
+3. 同一轮追加要求：**更新完整的 handoff 文档，并给出一句话 prompt 用于新开会话接力设计任务**
+   （prompt 要引导新会话读必要文档、掌握背景/目标/进度/下阶段计划，**不要复述 handoff 的具体内容**，文档要给完整路径）。
+
+**Gate**：技能 `huashu-design` 要求实现开工前 `direction-approved.md` 第 6 节齐备。
+该节已改写为「第二轮选择原话（实现开工放行）」，**逐字写入用户原话**，并新增 §6.1「实现阶段的落地口径」表（C1–C4 / R1–R3）。
+`brand-spec.md`（6,228 B）与 `design-spec.md`（10,497 B）、`INDEX.md`（5,458 B）同批产出。
+
+### 25.4 用户给定的硬约束（C1–C4）与设计要求（R1–R3）
+
+| 编号 | 内容 |
+|---|---|
+| C1 | 左侧导航栏**不得增宽** ⇒ 图标轨保持 **42px**（`--nav-sidebar-width: 42px`） |
+| C2 | 左侧导航栏**不得添加文字** ⇒ 只有图标 + tooltip |
+| C3 | **UI 框架不得大改** ⇒ 区域拓扑 / 面板宽度 / 控件层级与现状一致 |
+| C4 | 只改 **token 层**（配色、字族、圆角、描边、阴影、图标风格、密度质感），**不触碰布局栅格** |
+| R1 | 形状**去系统化**（不要 Fluent 味） |
+| R2 | 品牌主色 `#607A87` 每套主题**至少一处承载** |
+| R3 | **明暗都要成立** |
+
+C1 的 42px 同时是**运行时注入判据**，所以它不能被任何主题覆盖 —— 单测里有一条专门的守卫断言。
+
+### 25.5 实现架构：两层落地
+
+```
+token 层        src/modules/themes/afm-themes.ts   （三套变量定义）
+              + src/styles/vars.css                （:root / .dark 各新增 11 个 token）
+形状特征层     src/styles/afm-themes.css            （token 表达不了的形状特征）
+```
+
+形状特征层负责的是 token 表达不了的东西：衬线小标题、赤陶/四色 inset 左边条、彩色图标块、深色轨的悬浮与选中态。
+
+### 25.6 十个关键实现决策
+
+1. **新增独立模块 `afm-themes.ts`，不塞进 `mac-variants.ts`**
+   —— 保住现有六套 mac 变体与其单测（那条单测断言长度为 6，改了会红）；
+   语义上「macOS 风格」与「AFM 品牌重设计」也是两类东西。id 前缀 `afm-` 以示区分。
+
+2. **`afm-themes.css` 每条选择器必须带 `html[data-afm-theme='...']` 前缀**
+   —— 特异性 0,2,1，才能压过 Vue scoped 编译出的 `.foo[data-v-x]`（0,2,0）。
+   该文件必须在 `src/styles/index.css` **最后** import（`@import "./afm-themes.css";`）。
+
+3. **形状特征一律用 `box-shadow: inset`，不用 `border-left`**
+   —— inset 不占布局；border 会把内容挤开 2px，直接违反 C3 / C4。
+
+4. **不覆盖全局正文字体**
+   —— `--font` 是用户设置的内联值（`app.vue:31`），主题不该抢走；衬线只作用于小标题（`--font-display`）。
+   （另注：`--default-mono-font-family` 全仓未定义，`--font-mono` 定义在 `vars.css:73` 且 `.dark` 未重定义。）
+
+5. **品牌色落位（R2）**
+   - D1 / D2：`--primary` = 品牌钢蓝 ⇒ 图标轨激活图标、主按钮、焦点环**天然**带上品牌色；
+   - D3：轨底换成同色系深钢蓝 `#33454F`，品牌钢蓝 `#607A87` 落在状态条左缘线与属性面板标题。
+
+6. **圆角阶梯合法性**
+   `--radius` 决定派生值。D1/D2 取 `0.25rem`(4px) → `--radius-sm`=0px（近直角）/`--radius-md`=2px/`--radius-xs`=1.6px，全为合法值。
+   **若取 2px 会让 `--radius-sm`=-2px 触发 invalid calc**。D3 取 `0.75rem`(12px) → 8 / 10 / 4.8px。
+
+7. **可读性是硬门槛**：所有小字 / 点缀文字 ≥ 4.5:1。
+   初版有 **3 个值没过线**：暖纸浅的三级文字 3.36、跃动活力的珊瑚 2.97 与柠檬 3.48。
+   由 `.superpowers/sdd/afm-palette-solve.cjs` 求解出**等色相**的合规色再落进 token。
+
+8. **token 一律裸 HSL 三元组**（`--popover` / `--input` 唯一例外）
+   —— 全仓有大量 `hsl(var(--token) / N%)` 的「二次加 alpha」写法。
+   ⚠️ 初版 `--accent-muted` 带了 alpha，会让**所有** `hsl(var(--accent-muted) / N%)` 写法语法整体失效。已改为实色：
+   D1 `15 45% 92%` / D2 `18 30% 20%` / D3 `251 100% 95%`。
+
+9. **品牌/点缀的前景色不能想当然用白**
+   - D1 赤陶底压白字只有 **3.24:1** ⇒ `--accent-foreground` 改墨色 `30 16.7% 14.1%`（**6.48:1**）；
+   - D1 `--accent-ink` 压 `--background-2` 只有 **4.27:1** ⇒ 从 43.5% 压到 42% ⇒ `16 46% 42%`（**4.53:1**）。
+
+10. **零回归保证**
+    基础 `--nav-rail-background` / `--nav-rail-foreground` / `--nav-rail-muted-foreground`
+    与原 `--background-2` / `--icon` / `--muted-foreground` **逐值相同**（明暗皆然）
+    ⇒ 把 `nav-sidebar.vue` token 化，对旧六套主题**外观零影响**。
+
+### 25.7 三套主题最终 token（定稿，可直接用于验收比对）
+
+**D1 暖纸 · 浅色**（`afm-warm-light`，base = light，`--radius: 0.25rem`）
+
+| token | 值 | | token | 值 |
+|---|---|---|---|---|
+| `--background` | `37 39.4% 93.5%` | | `--primary` | `200 16.9% 45.3%` |
+| `--background-2` | `38 34.5% 89.2%` | | `--ring` | `200 18.8% 37.6%` |
+| `--background-3` | `37 36.4% 91.4%` | | `--accent` | `15 52.3% 58%` |
+| `--foreground` | `30 16.7% 14.1%` | | `--accent-foreground` | `30 16.7% 14.1%` |
+| `--muted-foreground` | `33 11.5% 37.6%` | | `--accent-ink` | `16 46% 42%` |
+| `--card` | `43 53.8% 97.5%` | | `--accent-muted` | `15 45% 92%` |
+| `--border` | `37 25% 79.6%` | | `--brand` | `200 16.9% 45.3%` |
+| `--nav-rail-background` | `38 34.5% 89.2%` | | `--nav-rail-foreground` | `33 11.5% 37.6%` |
+| `--nav-rail-muted-foreground` | `33 10% 39%` | | `--font-display` | 衬线栈 |
+
+**D2 暖纸 · 暗色**（`afm-warm-dark`，base = dark，`--radius: 0.25rem`，同一衬线栈）
+
+| token | 值 | | token | 值 |
+|---|---|---|---|---|
+| `--background` | `30 17.4% 9%` | | `--primary` | `201 20.4% 63.5%` |
+| `--background-2` | `30 17.2% 11.4%` | | `--ring` | `200 27.2% 70.4%` |
+| `--background-3` | `27 17% 10.4%` | | `--accent` | `18 66.3% 63.9%` |
+| `--foreground` | `38 42.9% 89%` | | `--accent-foreground` | `30 17.4% 9%` |
+| `--muted-foreground` | `33 14.1% 59.8%` | | `--accent-ink` | `17 69.7% 71.6%` |
+| `--card` | `34 21.9% 12.5%` | | `--accent-muted` | `18 30% 20%` |
+| `--border` | `30 16% 19.6%` | | `--brand` | `201 20.4% 63.5%` |
+| `--nav-rail-background` | `30 17.2% 11.4%` | | `--nav-rail-foreground` | `33 14.1% 59.8%` |
+| `--nav-rail-muted-foreground` | `33 10% 52%` | | | |
+
+**D3 跃动活力**（`afm-vivid-light`，base = light，`--radius: 0.75rem`，无衬线栈）
+
+| token | 值 | | token | 值 |
+|---|---|---|---|---|
+| `--background` | `220 21.4% 94.5%` | | `--primary` | `251 100% 63.9%` |
+| `--background-2` | `220 27.3% 91.4%` | | `--ring` | `251 100% 63.9%` |
+| `--background-3` | `218 28.6% 94.5%` | | `--accent` | `251 100% 63.9%` |
+| `--foreground` | `225 13.3% 11.8%` | | `--accent-foreground` | `0 0% 100%` |
+| `--muted-foreground` | `220 10.3% 39.8%` | | `--accent-ink` | `252 79.3% 56.5%` |
+| `--card` | `0 0% 100%` | | `--accent-muted` | `251 100% 95%` |
+| `--border` | `220 27.3% 91.4%` | | `--brand` | `200 16.9% 45.3%` |
+| `--nav-rail-background` | `201 21.5% 25.5%` | | `--nav-rail-foreground` | `210 20% 92%` |
+| `--nav-rail-muted-foreground` | `210 14% 70%` | | | |
+
+D3 的四色循环在 `afm-themes.css` 里以**字面 HSL** 使用：`172deg 100% 38%` / `349deg 100% 68%` / `42deg 100% 62%`。
+
+### 25.8 接线清单（本轮改动文件）
+
+| 文件 | 改动 |
+|---|---|
+| `src/modules/themes/afm-themes.ts` | **新增**。`AfmThemeId` 类型、`AFM_THEME_IDS` / `AFM_THEMES` / `isAfmThemeId` / `getAfmTheme` |
+| `src/styles/afm-themes.css` | **新增**。形状特征层，全部选择器带 `html[data-afm-theme='…']` 作用域前缀 |
+| `src/modules/themes/__tests__/afm-themes.test.ts` | **新增**。16 条用例（见 §25.10） |
+| `src/styles/vars.css` | `:root` 与 `.dark` 各新增 11 个 token（品牌 / 点缀 / 轨色 / 字族），**全部裸 HSL 三元组** |
+| `src/styles/index.css` | 末尾 `@import "./afm-themes.css";` |
+| `src/types/user-settings.ts` | `BuiltinThemeId` union 追加 3 个 `afm-*` id |
+| `src/modules/themes/registry.ts` | import `afm-themes`；`BuiltinThemeOption` 加 `cssThemeId?: string`；`parseThemeId` 识别 `afm-*`；新增 `getAfmThemeOptions()`；接入 `getAvailableThemeOptions` / `findThemeOption` |
+| `src/stores/storage/composables/use-theme.ts` | 新增 `applyCssThemeId()`（写/删 `document.documentElement.dataset.afmTheme`）；`applyTheme` 三条分支全部接入 |
+| `src/modules/nav-sidebar/nav-sidebar.vue` | 5 处 token 化（`.nav-sidebar` / `.nav-sidebar-header` 底色、`.nav-sidebar-item-icon` stroke、`.nav-sidebar-drive-icon` color+stroke、`.nav-sidebar-drive-label` text-stroke） |
+| `src/modules/settings/ui/categories/appearance/theme.vue` | 新增 `afmThemeOptions` computed + `getAfmThemeName()`；`themeOptions` / `themeOptionGroups` 加 AFM 分组（key `settings.homeBannerEffects.theme.afmThemeThemes`） |
+| `src/localization/messages/*.json`（17 个） | 补 `settings.homeBannerEffects.theme.afmThemeThemes` + `afmThemes.{warmLight,warmDark,vividLight}` |
+
+⚠️ 中文 locale code 是 **`ch`**，不是 `zh`。
+写入脚本 `.superpowers/sdd/add-afm-theme-locales.cjs`（幂等，跑第二遍应 `failures=0`）。
+⚠️ 该脚本首版 `__dirname` 只跳一级目录 ⇒ 写到了错误路径，已修。
+
+### 25.9 可复用的工具脚本
+
+| 脚本 | 作用 |
+|---|---|
+| `.superpowers/sdd/afm-palette-to-hsl.cjs` | hex → 裸 HSL + WCAG 对比度体检，输出 `afm-palette.json` |
+| `.superpowers/sdd/afm-palette-solve.cjs` | 等色相可访问色求解器，输出 `afm-palette-solved.json` |
+| `.superpowers/sdd/add-afm-theme-locales.cjs` | 17 个语言包幂等写入 |
+| `.superpowers/sdd/check-tags.cjs` | HTML 自检（标签配平 + CSS 类名撞车 + 编码体检） |
+| `.superpowers/sdd/build-afm-theme.cmd` | 打包（纯 ASCII、内部 `>> log 2>&1`、末尾写 `BUILD_EXIT=`） |
+| `.superpowers/sdd/gate-366.cmd` | 全量门禁 |
+
+⚠️ `afm-palette-solve.cjs` 的**第一版有 bug**：HSL 往返时 `s` 被二次 `/100`，导致候选色全灰。
+已重写为「按比例缩放原 RGB」。
+
+### 25.10 自动化守卫：16 条用例（`afm-themes.test.ts`）
+
+1. 3 套 id 数量正确、互不重复
+2. `BuiltinThemeId` union 与模块**双向漂移守卫**（正则扫 `user-settings.ts`）
+3. `parseThemeId` 能识别 builtin
+4. 注册表暴露 + `cssThemeId` 透出
+5. 全部颜色 token 必填
+6. **裸 HSL 三元组正则断言**；alpha 仅允许 `--popover` / `--input`
+7. **11 个尺寸 token 一律不定义**（防越权碰栅格）
+8. **C1 守卫**：`vars.css` 仍含 `--nav-sidebar-width: 42px;`
+9. 圆角阶梯合法（≥ 4px）
+10. **9 组 WCAG 对比度实算 ≥ 4.5**
+11. **R2 品牌色在 CSS 里真的被用上**
+12. **R3 明暗成对**
+13. 每条形状规则都带主题作用域前缀
+14. **C4 守卫**：形状层无任何布局属性
+15. `index.css` 末位 import 断言
+16. 其余覆盖项
+
+⚠️ 写这个测试时踩到的两个 TS 坑：
+- `CONTRAST_PAIRS` 若显式标注为 `{foreground: string}[]` 会**丢字面量类型** ⇒ TS7053；
+- `findThemeOption` 返回联合类型后，不先 `source === 'builtin'` 收窄就读 `cssThemeId` ⇒ TS2339。
+
+### 25.11 本轮踩坑清单
+
+- **`--accent-muted` 带 alpha** ⇒ 所有 `hsl(var(--x) / N%)` 语法整体失效（见 §25.6 ⑧）。
+- **D1 `--accent-foreground` 用白色** ⇒ 赤陶底上只有 3.24:1（见 §25.6 ⑨）。
+- **D1 `--accent-ink` 保持 43.5% 亮度** ⇒ 压 `--background-2` 只有 4.27:1。
+- **求解器第一版 HSL 往返** ⇒ `s` 二次 `/100`，候选全灰（见 §25.9）。
+- **`add-afm-theme-locales.cjs` 首版 `__dirname` 只跳一级** ⇒ 写错路径。
+- **测试里用 `Object.values()` 位置化取 `{h,s,l}`** ⇒ 顺序一变就取错值。
+- **测试里写 `const linearize = () => {}`** ⇒ 违反 `func-style`，须改成 `function linearizeChannel()`。
+- **stylelint**：`hue-degree-notation`（`172` → `172deg`，6 处）、`rule-empty-line-before`、`comment-empty-line-before`、`value-keyword-case`（`Roboto` → `roboto`）、D3 `.file-browser-grid-card` 两条重复规则合并成一条。
+  ⚠️ `vars.css` 第 23 / 38 行是**既有基线违规**，本轮**没有动**。
+
+### 25.12 真机验收口径
+
+- ⚠️ **必须用 `tauri build` 的打包产物**，`tauri dev` 的路由页内容区全白，不能做界面验收。
+- ⚠️ 本机已装 3.6.6，同版本安装会命中 §24 的 `.onInit` 守卫**静默退出（零窗口）**
+  ⇒ 装新包**必须带 `/FORCE`**（`setup.exe /FORCE`），且必须按 AGENTS.md §2.8 在**隔离桌面沙箱**内跑
+  （`DESKTOP_ALL 0x1FF`、`lpDesktop` 指沙箱、`lpCurrentDirectory` 非 NULL、跨进程点击用 `SendMessageTimeout` ≤ 3s）。
+- ⚠️ release 构建**不认 `SFM_E2E_DATA_DIR`**（该 override 是 `#[cfg(debug_assertions)]`）
+  ⇒ 换主题验收的纪律是「备份 `user-settings.json` → 改 `theme` 字段 → 启动 → 截图 → **杀进程** → 还原 → 核对」。
+- 人工核对清单：图标轨仍 42px 且纯图标、区域拓扑与面板宽度未变、形状特征生效、品牌色可见、明暗都成立。
+
+### 25.13 后续计划
+
+1. 全量门禁（eslint 188 / stylelint 184 / ts / verify-changelog / vitest 256 文件 2356 用例）。
+2. 隔离沙箱真机验收：D1 / D2 / D3 依次截图人工核对。
+3. 新包复制到 `release/`（node `fs.copyFileSync`；**历史包不许删**）。
+4. 提交 + 推送（内层仓库；先默认代理 `http://127.0.0.1:7897`，失败再 `-c http.proxy=` 重试）。
+5. 下一轮 UI 工作（尚未定）：把形状特征层覆盖到更多区域（属性面板内区块、设置页、比较并同步对话框），
+   以及图标风格统一（当前仍是 Lucide 线性图标，未做品牌化描边改造）。
+
+### 25.14 本轮收尾补充（2026-10-29）
+
+本节记录三套主题落地后的**收尾实测数字**，供下一棒直接对照，不必重跑一遍就知道基线在哪。
+
+#### 25.14.1 门禁实测（本轮唯一权威口径）
+
+用 `git worktree add --detach <tmp> HEAD` + `node_modules` junction 量干净检出基线，再量工作树：
+
+| 门禁 | 干净检出（HEAD）基线 | 本轮工作树 | 判定 |
+|---|---|---|---|
+| ESLint | 188 errors / 0 warnings | **188 errors / 0 warnings** | 零新增 |
+| Stylelint | 184 errors / 0 warnings | **184 errors / 0 warnings** | 零新增 |
+| TypeScript（`vue-tsc --build`） | — | **0** | 通过 |
+| CHANGELOG 覆盖 | — | **0** | 通过 |
+| Vitest | 256 files / 2356 tests | **257 files / 2372 tests 全绿** | +1 文件 +16 用例 |
+
+⚠️ ESLint / Stylelint 的 **退出码是非 0**（存量违规），**判定要看数字而不是退出码**。
+⚠️ Vitest 文件数 256 → 257、用例 2356 → 2372，来自新增的 `afm-themes.test.ts`（16 个用例），属预期增量。
+
+**首轮门禁曾红过 4 个用例**，根因是**产品有意新增 3 套主题后，既有测试的旧数量断言失效**（9 选项 → 12、1 个分组标题 → 2、2 个 group → 3、期望数组缺 3 个 `afm-*` id），已同步更新 `registry.test.ts` 与 `appearance/__tests__/theme.test.ts` 后复跑 23/23 绿。
+
+⚠️ **Stylelint 首轮多出 1 条（185 vs 184）**，逐文件对比干净检出定位到是本轮在 `nav-sidebar.vue` 新增的注释缺空行（`451:3 comment-empty-line-before`），已补空行修掉。
+⚠️ `src/modules/settings/ui/categories/remote/trusted-hosts-section.vue` 的 4 条在**干净检出里同样存在**，属存量，不是本轮引入。
+
+#### 25.14.2 CHANGELOG 同步（易漏点，必读）
+
+更新日志弹窗的内容源**不是只有根 `CHANGELOG.md`**：
+- 英文 → 根 `CHANGELOG.md`（`use-changelog.ts:9` 的 `?raw` 导入）
+- 其余语言 → `fetch('/changelog/<locale>/changelog.md')`（`use-changelog.ts:116`）⇒ `public/changelog/<locale>/changelog.md`
+
+`public/changelog/` 下**没有 `en` 目录**（英文直接用根文件），其余 **14 个 locale**：ch / de / es / fa / fr / hi / it / ja / pt / ru / sl / tr / ur / vi。
+
+本轮三套主题是**用户可见的新功能**，所以 15 个文件全部补了 3.6.6 条目：根 + 14 个 locale。
+脚本：`.superpowers/sdd/add-theme-changelog.cjs`（幂等，按 marker 字符串判重；写入前检查 U+FFFD，写入后复查无 BOM / 无 CR / 无替换字符）。
+本轮实测：**15/15 INSERTED，VERIFY_FAILURES=0，ENCODING_BAD=0**。
+
+⚠️ 上一轮的「重复运行安装包不再弹向导」条目**只进了根 `CHANGELOG.md`，没进 14 个 locale**（`ch` 的 3.6.6 段落只有 572 字符、`ja` 787，其余 locale 约 1600–2040）。这是既有欠账，本轮未一并补（翻译量与本轮主题无关），接力时可择机补齐。
+
+#### 25.14.3 真机验收证据清单
+
+全部在隔离桌面沙箱内、用 `tauri build` 的 release 产物拍摄，窗口物理尺寸 **2582×1390**、屏幕坐标 **(-11,-11)**。
+
+首轮（整窗左上 1920×1080）：
+
+| 文件 | 字节 | meanRgb | 结论 |
+|---|---|---|---|
+| `theme-accept-afm-warm-light.png` | 2,093,563 | 213.2, 205.6, 197.8 | 暖米色 ✓ |
+| `theme-accept-afm-warm-dark.png` | 2,081,417 | 57.6, 50.7, 47.7 | 暖黑 ✓ |
+| `theme-accept-afm-vivid-light.png` | 2,153,214 | 193.7, 194.8, 200.5 | 冷浅 ✓ |
+
+区域补拍（`run-region-accept.ps1` → `sandbox-theme-region.ps1`，坐标是**窗口内相对坐标**，不是屏幕坐标）：
+
+| 文件 | 区域 | 结论 |
+|---|---|---|
+| `theme-accept-afm-warm-light-panelD1.png` | 2150,0 420×700 | 属性面板：钢蓝文件夹图标（品牌色 R2）+ 衬线体文件名 ✓ |
+| `theme-accept-afm-warm-dark-panelD2.png` | 2150,0 420×700 | 暗色属性面板 ✓ |
+| `theme-accept-afm-vivid-light-panelD3.png` | 2150,0 420×700 | 亮色属性面板 ✓ |
+| `theme-accept-afm-warm-light-barD1.png` | 1000,1320 1582×60 | 状态条 ✓（左缘钢蓝线在 x=0，被取景切掉） |
+| `theme-accept-afm-warm-dark-barD2.png` | 1000,1320 1582×60 | 状态条 ✓ |
+| `theme-accept-afm-vivid-light-barD3.png` | 1000,1320 1582×60 | 状态条 ✓ |
+| `theme-accept-afm-warm-light-barD1left.png` | 0,1325 760×65 | 状态条左缘：**品牌钢蓝竖线** ✓ + 「23 个项目」+ 卡片选中态钢蓝淡染 ✓ |
+| `theme-accept-afm-vivid-light-barD3left.png` | 0,1325 760×65 | 同位置 D3：卡片选中态电光紫淡染 ✓ |
+
+⚠️ **状态条左缘的钢蓝线在窗口最左侧 x≈63 处**（图标轨右侧），拍状态条必须从 **x=0** 起拍才拍得到，只拍 x≥1000 会漏掉 R2 的这处落点。
+
+**像素取样（System.Drawing 直方图 + 包围盒，不用肉眼判色）**：
+
+卡片选中态底色走 `hsl(var(--primary) / 25%)`（`src/modules/navigator/components/file-browser/file-browser-grid-card.vue:742` 的 `__overlay--selected`），所以它天然带主题色：
+
+| 主题 | 主导色 | HSL | 解读 |
+|---|---|---|---|
+| D1 | `#C6C6C0` | 60 / 5% / 76% | 品牌钢蓝在 25% 淡染 + 暖米底 ⇒ 几乎无饱和度 |
+| D3 | `#C3C1E4` | 243 / 39% / 83% | 电光紫淡染 ✓ |
+| D1 页面底 | `#DED8CE` | 38 / 20% / 84% | 暖米 ✓ |
+| D3 页面底 | `#E0E3E7` | 214 / 13% / 89% | 冷浅 ✓ |
+
+⇒ ⚠️ **肉眼极易把「钢蓝 25% 淡染 + 暖米底」误读成「冷灰蓝块」并当成主题没跟上**。
+判断颜色**必须取像素**，别靠截图观感下结论——本轮就差点误判成缺陷。
+
+**用户数据纪律每轮都核对过**：backup / restore 后 SHA256 与字节数完全一致（`36bb304e…654ebbd` / 4667 B），`theme=system`、`lastSeenVersion=none`。
+
+#### 25.14.4 交付产物
+
+- 新包：`src-tauri/target/release/bundle/nsis/Alpha File Manager_3.6.6_x64-setup.exe` = **45,490,474 B**
+  （与上一轮交付的 45,492,568 B 不同，因前端资源变了；**同名替换**，版本号仍为 3.6.6）
+- 已用 `node fs.copyFileSync` 覆盖 `release/` 同名包，**历史包一个没删**（2.2.0 … 3.6.5 全在）
+- `release/SHA256SUMS.txt` **未更新**：它只登记了最早的 `Sigma-File-Manager-2.2.0-focus.1` 那一个包，不是本项目的产物清单
+- ⚠️ **同版本重装会被本轮自己做的守卫拦下（零窗口静默退出）**。真机装新包必须带 `/FORCE`：`setup.exe /FORCE`，
+  且按 AGENTS.md §2.8 在**隔离桌面沙箱**内跑。

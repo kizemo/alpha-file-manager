@@ -382,6 +382,7 @@
         "title": "विषय",
         "extensionThemes": "एक्सटेंशन थीम",
         "macVariantThemes": "macOS शैली थीम",
+        "afmThemeThemes": "AFM ब्रांड थीम",
         "macVariants": {
           "classicLight": "मूल macOS · हल्का",
           "classicDark": "मूल macOS · गहरा",
@@ -389,6 +390,11 @@
           "modernDark": "परिष्कृत आधुनिक · गहरा",
           "glassLight": "पारदर्शी काँच · हल्का",
           "glassDark": "पारदर्शी काँच · गहरा"
+        },
+        "afmThemes": {
+          "warmLight": "वार्म पेपर · लाइट",
+          "warmDark": "वार्म पेपर · डार्क",
+          "vividLight": "वाइविड एनर्जी"
         },
         "themeTypeRadio": {
           "dark": "अँधेरा",

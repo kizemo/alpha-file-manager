@@ -89,6 +89,11 @@ describe('theme registry', () => {
       'mac-modern-dark',
       'mac-glass-light',
       'mac-glass-dark',
+      // FORK-MODIFICATION 2026-10-29：AFM 品牌重设计主题，与 mac 变体同属 builtin 通道，
+      // 排在 mac 变体之后、扩展主题之前。
+      'afm-warm-light',
+      'afm-warm-dark',
+      'afm-vivid-light',
       'extension:test.palette:midnight',
     ]);
   });

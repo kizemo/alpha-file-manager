@@ -382,6 +382,7 @@
         "title": "Տեսք",
         "extensionThemes": "Ընդլայնման տեսք",
         "macVariantThemes": "macOS ոճի թեմաներ",
+        "afmThemeThemes": "AFM այքի թեմաներ",
         "macVariants": {
           "classicLight": "macOS բնիկ · Լույս",
           "classicDark": "macOS բնիկ · Դուրջ",
@@ -389,6 +390,11 @@
           "modernDark": "Նրբելուս մոդեռն · Դուրջ",
           "glassLight": "Կիսաթափով ապակեղ · Լույս",
           "glassDark": "Կիսաթափով ապակեղ · Դուրջ"
+        },
+        "afmThemes": {
+          "warmLight": "Լա թղթ · բաց",
+          "warmDark": "Լա թղթ · մուգ",
+          "vividLight": "Կենդանի էներգիա"
         },
         "themeTypeRadio": {
           "dark": "Մութ",
