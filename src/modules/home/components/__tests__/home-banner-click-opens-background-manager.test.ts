@@ -38,7 +38,6 @@ vi.mock('@/modules/home/composables/use-background-media', () => ({
     getMediaUrl: () => 'asset://exile.jpg',
     getPreviewUrl: () => 'asset://exile.jpg',
     selectMedia: vi.fn(),
-    ensureMediaCached: vi.fn(),
     resolveOffsetMediaSelection: vi.fn(),
   }),
 }));

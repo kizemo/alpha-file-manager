@@ -1,5 +1,15 @@
 # Registro delle modifiche
 
+## [3.6.5] - October 2026
+
+**Summary:** Due cose visibili. Tutti gli sfondi predefetti sono ora inclusi nel pacchetto di installazione e si cambiano all'istante: l'immagine di copertina della home viene ridisegnata nel momento in cui ne scegli una, invece di aspettare un download che potrebbe non concludersi mai. E il selettore del tema offre ora sei aspetti in stile Finder di macOS, in versione chiara e scura, accanto a quelli già presenti.
+
+### What changed
+
+**Corretto: l'immagine di copertina della home cambia all'istante quando scegli uno sfondo.** Facendo clic sulla copertina si apriva il gestore degli sfondi, ma scegliere un'immagine da lì non produceva alcun effetto visibile: la foto restava quella di prima. Il motivo: tutti gli sfondi predefiniti venivano ancora scaricati dalla rete nel momento del clic, quindi il cambio richiedeva molto tempo oppure non avveniva affatto. Ora sono tutti dentro il pacchetto di installazione (21 immagini, circa 24 MB), l'elenco si apre senza una sola richiesta di rete e la copertina viene ridisegnata in una frazione di secondo: circa 240 ms sulla macchina di prova.
+
+**Aggiunto: sei temi in stile Finder di macOS.** Il selettore del tema contiene ora tre nuovi aspetti, ciascuno in versione chiara e scura, che si possono alternare in qualsiasi momento con quelli già esistenti. *macOS Native* è il più essenziale: finestra bianca, barra laterale grigio chiaro, il blu di sistema, separatori sottili come un capello. *Refined Modern* mantiene il tono quasi nero che l'applicazione ha sempre avuto e ne cambia la stratificazione: angoli più arrotondati, ombre più morbide, più respiro. *Translucent Glass* lascia intravedere l'immagine dietro la finestra attraverso i menu e i riquadri sovrapposti. I tre già presenti - Chiaro, Scuro e Segui il sistema - restano esattamente come erano.
+
 ## [3.6.4] - October 2026
 
 **Summary:** Tre cose, una delle quali invisibile. L'applicazione occupa molta meno memoria di prima: sulla stessa macchina, lo stesso account e lo stesso disco, il working set all'avvio a freddo passa da 961,2 MB a 742,8 MB (-22,7%) e la cache su disco da 805,58 MB a 66,21 MB (-91,8%). Un crash del processo di rendering di WebView2 non lascia più una finestra bianca: un watchdog ricarica la pagina da solo e chiede di riavviare solo se la pagina non torna. E la ricerca globale non torna più vuota con le ricerche corte: "pdf", "doc" o "095" prima non trovavano quasi nulla.

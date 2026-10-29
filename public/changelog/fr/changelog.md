@@ -1,5 +1,15 @@
 # Journal des modifications
 
+## [3.6.5] - October 2026
+
+**Summary:** Deux choses visibles. Tous les fonds par défaut sont maintenant fournis avec l'installateur et se changent instantanément - l'image de couverture de la page d'accueil est redessinée dès que vous en choisissez une, au lieu d'attendre un téléchargement qui n'aboutit peut-être jamais. Et le sélecteur de thème propose désormais six apparences inspirées du Finder de macOS, en clair et en sombre, à côté de celles qui existaient déjà.
+
+### What changed
+
+**Corrigé : l'image de couverture de la page d'accueil change dès que vous choisissez un fond.** Un clic sur la couverture ouvrait le gestionnaire d'images de fond, mais le choix d'une image n'avait aucun effet visible : le tableau restait inchangé. La raison : tous les fonds par défaut étaient encore récupérés depuis le réseau au moment du clic, si bien que le changement prenait longtemps ou n'arrivait jamais. Ils sont désormais tous dans l'installateur (21 images, environ 24 Mo), la liste s'ouvre sans une seule requête réseau, et la couverture est redessinée en une fraction de seconde - environ 240 ms sur la machine de test.
+
+**Ajouté : six thèmes inspirés du Finder de macOS.** Le sélecteur de thème comporte maintenant trois apparences nouvelles, chacune en version claire et sombre, que l'on peut alterner à tout moment avec les précédentes. *macOS Native* est la plus sobre : fenêtre blanche, barre latérale gris clair, le bleu du système, des séparations d'un cheveu. *Refined Modern* conserve l'accent presque noir que l'application a toujours eu et modifie les couches : coins plus arrondis, ombres plus douces, plus d'air. *Translucent Glass* laisse transparaître l'image située derrière la fenêtre à travers les menus et les fenêtres contextuelles. Les trois thèmes déjà présents - Clair, Sombre et Suivre le système - restent exactement ce qu'ils étaient.
+
 ## [3.6.4] - October 2026
 
 **Summary:** Trois choses, dont une invisible. L'application consomme nettement moins de mémoire qu'avant : sur la même machine, le même compte et le même disque, l'espace de travail au démarrage à froid passe de 961,2 Mo à 742,8 Mo (-22,7 %) et le cache sur le disque de 805,58 Mo à 66,21 Mo (-91,8 %). Un plantage du processus de rendu WebView2 ne laisse plus une fenêtre blanche : un chien de garde recharge la page tout seul et ne demande un redémarrage que si la page ne revient pas. Et la recherche globale ne renvoie plus rien pour les requêtes courtes : "pdf", "doc" ou "095" ne trouvaient souvent rien du tout.

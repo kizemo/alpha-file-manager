@@ -346,6 +346,15 @@
       "theme": {
         "title": "テーマ",
         "extensionThemes": "拡張機能のテーマ",
+        "macVariantThemes": "macOS風テーマ",
+        "macVariants": {
+          "classicLight": "macOSネイティブ · ライト",
+          "classicDark": "macOSネイティブ · ダーク",
+          "modernLight": "カジュアルモダン · ライト",
+          "modernDark": "カジュアルモダン · ダーク",
+          "glassLight": "半透明ガラス · ライト",
+          "glassDark": "半透明ガラス · ダーク"
+        },
         "themeTypeRadio": {
           "dark": "暗い",
           "light": "ライト（開発中）"

@@ -381,6 +381,15 @@
       "theme": {
         "title": "Tema",
         "extensionThemes": "Teme razširitev",
+        "macVariantThemes": "Teme v slogu macOS",
+        "macVariants": {
+          "classicLight": "macOS izvirno · Svetla",
+          "classicDark": "macOS izvirno · Temna",
+          "modernLight": "Drobno moderen · Svetla",
+          "modernDark": "Drobno moderen · Temna",
+          "glassLight": "Polprozoren steklo · Svetla",
+          "glassDark": "Polprozoren steklo · Temna"
+        },
         "themeTypeRadio": {
           "dark": "Temna",
           "light": "Svetla (v razvoju)"

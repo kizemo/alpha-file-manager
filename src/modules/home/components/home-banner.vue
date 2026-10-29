@@ -54,7 +54,6 @@ const {
   getPositionKey,
   getMediaUrl,
   selectMedia,
-  ensureMediaCached,
   resolveOffsetMediaSelection,
 } = useBackgroundMedia();
 
@@ -161,12 +160,6 @@ watch([shouldPlayBannerVideo, videoRef], ([shouldPlay]) => {
   }
   else {
     videoElement.pause();
-  }
-}, { immediate: true });
-
-watch(currentItem, (item) => {
-  if (item) {
-    ensureMediaCached(item);
   }
 }, { immediate: true });
 

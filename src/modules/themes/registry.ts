@@ -4,16 +4,29 @@
 
 import type { InstalledExtensionData } from '@/types/extension';
 import type { BuiltinThemeId, Theme } from '@/types/user-settings';
+import {
+  isMacVariantThemeId,
+  MAC_VARIANT_THEMES,
+} from '@/modules/themes/mac-variants';
 
 export const BUILTIN_THEME_IDS = ['dark', 'light', 'system'] as const;
 export const DEFAULT_THEME_ID: BuiltinThemeId = 'light';
 
-type ResolvedBuiltinThemeId = Exclude<BuiltinThemeId, 'system'>;
+// FORK-MODIFICATION 2026-10-29：原来这里是 `Exclude<BuiltinThemeId, 'system'>`，
+// BuiltinThemeId 扩出六个 mac 变体 id 之后，那个排除会把变体 id 也算进来，
+// 而扩展主题的 baseTheme 只允许 'light' / 'dark'，所以这里必须写死。
+type ResolvedBuiltinThemeId = 'light' | 'dark';
 
 type BuiltinThemeOption = {
   id: BuiltinThemeId;
   source: 'builtin';
   builtinThemeId: BuiltinThemeId;
+  /**
+   * FORK-MODIFICATION 2026-10-29：内置变体主题（macOS Finder 风格六套）的 CSS 变量覆盖。
+   * 经典主题（light / dark / system）没有这个字段；`use-theme.ts` 用它区分两条应用路径。
+   */
+  baseTheme?: 'light' | 'dark';
+  variables?: Record<`--${string}`, string>;
 };
 
 type ExtensionThemeOption = {
@@ -45,12 +58,22 @@ type ParsedThemeId = ParsedBuiltinThemeId | ParsedExtensionThemeId;
 const EXTENSION_THEME_PREFIX = 'extension:';
 const EXTENSION_THEME_ID_PATTERN = /^[a-z0-9-]+$/;
 
+const CLASSIC_BUILTIN_THEME_IDS: readonly string[] = BUILTIN_THEME_IDS;
+
 export function createExtensionThemeId(extensionId: string, themeId: string): Theme {
   return `${EXTENSION_THEME_PREFIX}${extensionId}:${themeId}` as Theme;
 }
 
 export function parseThemeId(theme: string): ParsedThemeId | null {
-  if (theme === 'dark' || theme === 'light' || theme === 'system') {
+  if (CLASSIC_BUILTIN_THEME_IDS.includes(theme)) {
+    return {
+      source: 'builtin',
+      builtinThemeId: theme as BuiltinThemeId,
+    };
+  }
+
+  // FORK-MODIFICATION 2026-10-29：内置 macOS Finder 风格变体也走 builtin 通道。
+  if (isMacVariantThemeId(theme)) {
     return {
       source: 'builtin',
       builtinThemeId: theme,
@@ -87,6 +110,20 @@ export function getBuiltinThemeOptions(): ThemeOption[] {
     id: themeId,
     source: 'builtin' as const,
     builtinThemeId: themeId,
+  }));
+}
+
+/**
+ * FORK-MODIFICATION 2026-10-29：六套内置 macOS Finder 风格主题。
+ * 与扩展主题同构（基础明暗 + CSS 变量覆盖），所以 `use-theme.ts` 应用逻辑完全复用。
+ */
+export function getMacVariantThemeOptions(): ThemeOption[] {
+  return MAC_VARIANT_THEMES.map(theme => ({
+    id: theme.id,
+    source: 'builtin' as const,
+    builtinThemeId: theme.id,
+    baseTheme: theme.baseTheme,
+    variables: theme.variables,
   }));
 }
 
@@ -138,6 +175,7 @@ export function getAvailableThemeOptions(
 ): ThemeOption[] {
   return [
     ...getBuiltinThemeOptions(),
+    ...getMacVariantThemeOptions(),
     ...getExtensionThemeOptions(installedExtensions),
   ];
 }
@@ -153,7 +191,15 @@ export function findThemeOption(
   }
 
   if (parsedTheme.source === 'builtin') {
-    return getBuiltinThemeOptions().find(option => option.id === parsedTheme.builtinThemeId);
+    const builtinOption = getBuiltinThemeOptions()
+      .find(option => option.id === parsedTheme.builtinThemeId);
+
+    if (builtinOption) {
+      return builtinOption;
+    }
+
+    return getMacVariantThemeOptions()
+      .find(option => option.id === parsedTheme.builtinThemeId);
   }
 
   return getExtensionThemeOptions(installedExtensions).find((option) => {

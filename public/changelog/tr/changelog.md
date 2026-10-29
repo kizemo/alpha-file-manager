@@ -1,5 +1,15 @@
 # Değişiklik Günlüğü
 
+## [3.6.5] - October 2026
+
+**Summary:** İki görünür değişiklik. Tüm varsayılan arka planlar artık kurulum paketinin içinde ve anında değişiyor - ana sayfadaki kapak görseli, bir tanesini seçtiğiniz anda yeniden çiziliyor; hiç bitmeyebilecek bir indirmeyi beklemek yerine. Üstelik tema seçici artık macOS Finder tarzı altı görünüm sunuyor; her birinin açık ve koyu sürümüyle, hâlihazırda var olanların yanında.
+
+### What changed
+
+**Düzeltildi: Ana sayfadaki kapak görseli, arka plan seçildiği anda değişiyor.** Kapak resmine tıklamak arka plan yöneticisini açıyordu, ama oradan bir görsel seçmek görünür bir değişiklik yaratmıyordu - resim yerinde kalıyordu. Sebebi şuydu: tüm varsayılan arka planlar tıklama anında hâlâ ağdan çekiliyordu, bu yüzden değişim ya çok uzun sürüyor ya da hiç gerçekleşmiyordu. Artık hepsi kurulum paketinin içinde (21 görsel, yaklaşık 24 MB); liste hiçbir ağ isteği üretmeden açılıyor ve kapak saniyenin küçük bir bölümünde yeniden çiziliyor - test makinesinde yaklaşık 240 milisaniye.
+
+**Eklendi: macOS Finder tarzı altı tema.** Tema seçici artık üç yeni görünüm içeriyor; her birinin açık ve koyu sürümüyle ve bunları mevcutlarla istediğiniz zaman değiştirebilirsiniz. *macOS Native* en sade olanı: beyaz pencere, açık gri kenar çubuğu, sistem mavisi, saç teli inceliğinde ayırıcılar. *Refined Modern* uygulamanın her zaman taşıdığı neredeyse siyah vurgu rengini korur; bunun yerine katmanları değiştirir: daha yuvarlak köşeler, daha yumuşak gölgeler, daha fazla nefes alanı. *Translucent Glass* pencerenin arkasındaki görselin menülerin ve açılır pencerelerin içinden görünmesine izin verir. Zaten var olan üçü - Açık, Koyu ve Sistemi izle - tam olarak oldukları gibi kalır.
+
 ## [3.6.4] - October 2026
 
 **Summary:** Üç şey, biri görünmeyen. Uygulama artık çok daha az bellek kullanıyor - aynı makinede, aynı hesapta ve aynı diskte soğuk başlangıçtaki çalışma kümesi 961,2 MB'den 742,8 MB'ye (-%22,7), diskteki önbellek ise 805,58 MB'den 66,21 MB'ye (-%91,8) düşüyor. WebView2 işleme sürecinin çökmesi artık beyaz pencere bırakmıyor: bir gözcü sayfayı kendisi yeniden yüklüyor ve yalnızca sayfa geri gelmezse yeniden başlatma soruyor. Ayrıca genel arama kısa sorgularda artık boş dönme değil: "pdf", "doc" ya da "095" gibi terimler önceden hiçbir şey bulamıyordu.

@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.6.5] - October 2026
+
+**Summary:** Two visible changes. Every default background now ships inside the installer and switches instantly - the cover image on the home page refreshes the moment you pick one, instead of waiting for a download that may never finish. And the theme picker now offers six macOS Finder-style looks, in light and dark, side by side with the ones that were already there.
+
+### What changed
+
+**Fixed: the cover image on the home page now changes the moment you pick a background.** Clicking the cover used to open the background manager, but choosing an image from there did nothing visible - the picture stayed as it was. The reason was that every default background was still being fetched from the network at the moment you clicked it, so the change either took a long time or never arrived at all. All of them are now inside the installer (21 images, about 24 MB), the list opens without a single network request, and the cover repaints itself in a fraction of a second - about 240 ms on the test machine.
+
+**Added: six macOS Finder-style themes.** The theme picker now carries three new looks, each in a light and a dark version, and you can switch between them and the existing ones at any time. *macOS Native* is the plain one: white window, pale grey sidebar, the system blue, hairline separators. *Refined Modern* keeps the near-black accent the application has always had and changes the layering instead - rounder corners, softer shadows, more air. *Translucent Glass* lets the picture behind the window show through the menus and pop-ups. The three that were already there - Light, Dark and Follow the system - stay exactly as they were.
+
 ## [3.6.4] - October 2026
 
 **Summary:** Three things, one of them invisible. The application now holds on to far less memory than it used to - on the same machine, the same account and the same drive, the working set on a cold start went from 961.2 MB to 742.8 MB (-22.7 %), and the cache on disk shrank from 805.58 MB to 66.21 MB (-91.8 %). A crash in the WebView2 rendering process no longer leaves a blank window behind: a watchdog reloads the page by itself and only asks to restart if the page does not come back. And the global search stops coming up empty for short queries - "pdf", "doc" or "095" used to find nothing at all.

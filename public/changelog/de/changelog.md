@@ -1,5 +1,15 @@
 # Änderungsprotokoll
 
+## [3.6.5] - October 2026
+
+**Summary:** Zwei sichtbare Dinge. Alle Standard-Hintergründe liegen jetzt im Installationspaket und lassen sich sofort umschalten - das Titelbild auf der Startseite wird neu gezeichnet, sobald man eines auswählt, statt auf einen Download zu warten, der womöglich nie fertig wird. Und die Themenauswahl bietet jetzt sechs Looks im Stil des macOS-Finders, je in hell und dunkel, direkt neben den bisherigen.
+
+### What changed
+
+**Behoben: Das Titelbild auf der Startseite wechselt sofort, wenn ein Hintergrund ausgewählt wird.** Ein Klick auf das Titelbild öffnete den Hintergrund-Manager, aber eine dort gewählte Datei blieb ohne sichtbare Wirkung - das Bild änderte sich nicht. Der Grund: Alle Standard-Hintergründe wurden beim Klick noch aus dem Netz geladen, der Wechsel dauerte daher entweder lange oder fand gar nicht statt. Jetzt liegen sie alle im Installationspaket (21 Bilder, rund 24 MB), die Liste öffnet ohne einen einzigen Netzzugriff, und das Titelbild wird in einem Bruchteil einer Sekunde neu gezeichnet - auf dem Testrechner etwa 240 ms.
+
+**Hinzugefügt: Sechs Themes im Stil des macOS-Finders.** Die Themenauswahl enthält jetzt drei neue Looks, jeweils in einer hellen und einer dunklen Fassung, die sich jederzeit mit den bisherigen umschalten lassen. *macOS Native* ist die schlichte Variante: weisses Fenster, hellgraue Seitenleiste, das System-Blau, haarfeine Trennlinien. *Refined Modern* behält die nahezu schwarze Akzentfarbe der Anwendung und ändert stattdessen die Ebenen - grössere Radien, weichere Schatten, mehr Luft. *Translucent Glass* lässt das Bild hinter dem Fenster durch Menüs und Pop-ups scheinen. Die drei bisherigen - Light, Dark und dem System folgen - bleiben genau wie sie waren.
+
 ## [3.6.4] - October 2026
 
 **Summary:** Drei Dinge, eines davon unsichtbar. Die Anwendung belegt deutlich weniger Speicher als zuvor - auf demselben Rechner, demselben Konto und demselben Laufwerk sinkt der Arbeitssatz beim Kaltstart von 961,2 MB auf 742,8 MB (-22,7 %), der Cache auf der Festplatte von 805,58 MB auf 66,21 MB (-91,8 %). Ein Absturz des WebView2-Renderprozesses lässt kein weißes Fenster mehr stehen: Ein Wächter lädt die Seite neu und fragt nur dann nach einem Neustart, wenn sie nicht zurückkommt. Und die globale Suche liefert bei kurzen Suchbegriffen nicht länger nichts: "pdf", "doc" oder "095" fanden früher oft überhaupt nichts.

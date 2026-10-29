@@ -4,7 +4,7 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 -->
 
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { Infusion } from './index';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
@@ -25,7 +25,7 @@ const appStateStore = useAppStateStore();
 const appWindowStore = useAppWindowStore();
 const dropOverlayStore = useDropOverlayStore();
 const route = useRoute();
-const { getMediaUrl, ensureMediaCached, resolveMediaSelection } = useBackgroundMedia();
+const { getMediaUrl, resolveMediaSelection } = useBackgroundMedia();
 
 const infusionSettings = computed(() => userSettingsStore.userSettings.infusion);
 
@@ -71,19 +71,6 @@ const infusionMediaInfo = computed(() => getInfusionMediaFromBackground(effectiv
 
 const infusionSrc = computed(() => infusionMediaInfo.value.url);
 const infusionType = computed(() => infusionMediaInfo.value.type);
-
-watch(
-  () => resolveMediaSelection(
-    effectivePageSettings.value.background,
-    infusionMediaSelectionOptions,
-  )?.item ?? null,
-  (selectionItem) => {
-    if (selectionItem) {
-      ensureMediaCached(selectionItem);
-    }
-  },
-  { immediate: true },
-);
 
 const infusionOpacity = computed(() => effectivePageSettings.value.opacity / 100);
 const infusionBlur = computed(() => effectivePageSettings.value.blur);

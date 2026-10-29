@@ -339,6 +339,15 @@
       "theme": {
         "title": "موضوع",
         "extensionThemes": "تم‌های افزونه",
+        "macVariantThemes": "تم‌های با سبک macOS",
+        "macVariants": {
+          "classicLight": "macOS بومی · روشن",
+          "classicDark": "macOS بومی · تیره",
+          "modernLight": "مدرن صیقلی · روشن",
+          "modernDark": "مدرن صیقلی · تیره",
+          "glassLight": "شیشه نیمه‌شفاف · روشن",
+          "glassDark": "شیشه نیمه‌شفاف · تیره"
+        },
         "themeTypeRadio": {
           "dark": "تاریک",
           "light": "نور (در حال توسعه)"
