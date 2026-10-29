@@ -1,5 +1,13 @@
 # Değişiklik Günlüğü
 
+## [3.6.6] - October 2026
+
+**Summary:** Uygulama hâlâ çalışırken güncelleme artık başarısız olmuyor. Yeni bir sürümü eskisinin üzerine kurmak, çalışan uygulamayı kapatma uyarısında «Tamam» dediğiniz halde «Uninstall was not successfully» ile durabiliyordu: eski kaldırıcı uygulamadan kendini kapatmasını istiyor, ama gerçekten kapandığını beklemiyordu; ardından işletim sistemine «kurulu program hâlâ kullanılıyor mu» diye soruyor, cevap hâlâ «evet» çıkıyor ve vazgeçiyordu. Artık kurulum programı uygulamayı kendisi kapatıyor ve program dosyası gerçekten serbest bırakılana kadar bekledikten sonra eski kaldırıcıyı çağırıyor; yani bu soru hiç sorulmuyor.
+
+### What changed
+
+**Düzeltildi: Güncelleme yolu, önceki sürümle birlikte yayımlanan kaldırıcıyı çalıştırır ve bu kaldırıcı artık değiştirilemez — çünkü zaten güncellenecek makinelerde duruyor. Çalışan uygulamadan kendini kapatmasını istiyor, hemen dönüyor ve yaklaşık iki saniye sonra işletim sistemine «kurulu program hâlâ kullanımda mı» diye soruyordu. Cevap yine «evet» çıkıyordu, bu yüzden «Uygulama çalışıyor, sonlandırmak için Tamam’a tıklayın» diyordu; «Tamam»a tıkladıktan sonra bile kapatma başarısız olabiliyor, kaldırıcı hata ile duruyor ve kurulum programı bunu başarısız kaldırma olarak bildiriyordu. Artık kurulum programı uygulamayı kendisi kapatıyor ve program dosyası yalnızca açılabilir hâle gelene kadar — yani hiçbir sürecin tutmadığı kanıtı — bekledikten sonra eski kaldırıcıyı çağırıyor. Bekleme iki yönde de geçerli: kurulumdan önce bir kez, kaldırmadan önce bir kez. Sonuç: soru hiç sorulmuyor ve güncelleme kendi yolunda ilerliyor.**
+
 ## [3.6.5] - October 2026
 
 **Summary:** İki görünür değişiklik. Tüm varsayılan arka planlar artık kurulum paketinin içinde ve anında değişiyor - ana sayfadaki kapak görseli, bir tanesini seçtiğiniz anda yeniden çiziliyor; hiç bitmeyebilecek bir indirmeyi beklemek yerine. Üstelik tema seçici artık macOS Finder tarzı altı görünüm sunuyor; her birinin açık ve koyu sürümüyle, hâlihazırda var olanların yanında.

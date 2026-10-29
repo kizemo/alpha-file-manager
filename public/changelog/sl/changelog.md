@@ -1,5 +1,13 @@
 # Dnevnik sprememb
 
+## [3.6.6] - October 2026
+
+**Summary:** Posodobitev se več ne spopedi, medtem ko je aplikacija še vedno zagnana. Namestitev nove različice čez starejšo se je lahko ustavila z »Uninstall was not successfully«, tudi potem, ko ste pri pozivu, da zaprete tekočo aplikacijo, kliknili »V redu«: star odstranitev je aplikacijo prosil, naj se zapre, a nikoli ni počakal, da bi se res zaprla, nato pa je operacijski sistem vprašal, ali je nameščeni program še v uporabi — odgovor je bil še vedno »da« in odstranitev je odpovedala. Namestilnik zdaj aplikacijo zapre sam in počaka, da je datoteka programa res sproščena, preden pokliče starega odstranitevalca, zato vprašanje sploh ni zastavljeno.
+
+### What changed
+
+**Popravljeno: Pot posodobitve zažene odstranitevalca, ki je bil objavljen skupaj s prejšnjo različico, tega odstranitevalca pa ni več mogoče spremeniti — nameščan je prav na napravah, ki se posodabljajo. Tekočo aplikacijo je prosil, naj se zapre, takoj se je vrnil in približno dve sekundi pozneje vprašal operacijski sistem, ali je nameščeni program še v uporabi. Odgovor je bil še vedno »da«, zato je prikazal »Aplikacija teče, kliknite V redu, da jo končate«; tudi po kliku »V redu« se je končanje lahko izkazalo neuspešno, odstranitevalec je odpovedal z napako, namestilnik pa je poročil o neuspešni odstranitvi. Zdaj namestilnik aplikacijo zapre sam in počaka, da je datoteko programa mogoče odpreti izključno — dokaz, da je ne drži noben proces — preden pokliče starega odstranitevalca. Čakanje poteka v obe smeri: enkrat pred namestitvijo in enkrat pred odstranitvijo. Rezultat: vprašanje sploh ni zastavljeno in posodobitev nadaljuje sama.**
+
 ## [3.6.5] - October 2026
 
 **Summary:** Dve vidni spremembi. Vse privzete ozadje je zdaj v namestitvenem paketu in se menja takoj - naslovna slika na domači strani se prekrije v trenutku, ko jo izberete, namesto da čakate prenos, ki se morda nikoli ne konča. Izbirnik tem ponuja zdaj šest videzov v slogu Finderja iz macOS, v svetli in temni različici, poleg tistih, ki so bili že tam.

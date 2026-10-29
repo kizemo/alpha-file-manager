@@ -1,5 +1,13 @@
 # Registro de alterações
 
+## [3.6.6] - October 2026
+
+**Summary:** Uma atualização não falha mais enquanto o aplicativo ainda está em execução. Ao instalar uma versão nova por cima de uma antiga, a instalação podia parar com «Uninstall was not successfully» mesmo depois de você clicar em OK no aviso que pedia para fechar o aplicativo em execução: o desinstalador antigo pedia que o aplicativo se fechasse, mas nunca esperava que isso realmente acontecesse, e depois perguntava ao sistema operacional se o programa instalado continuava em uso — a resposta continuava sendo que sim, e ele desistia. Agora o instalador fecha o aplicativo por conta própria e espera até que o arquivo do programa esteja realmente liberado antes de chamar o desinstalador antigo, de modo que a pergunta nem chega a ser feita.
+
+### What changed
+
+**Corrigido: O caminho da atualização executa o desinstalador publicado com a versão anterior, e esse desinstalador não pode mais ser alterado: ele já está nas máquinas que estão sendo atualizadas. Ele pedia que o aplicativo em execução se fechasse, retornava de imediato e, cerca de dois segundos depois, perguntava ao sistema operacional se o programa instalado ainda estava em uso. A resposta continuava sendo que sim, então ele mostrava «O aplicativo está em execução, clique em OK para encerrá-lo»; mesmo depois do clique em OK o encerramento podia falhar, o desinstalador abortava com um erro e o instalador reportava uma desinstalação falha. Agora o instalador fecha o aplicativo por conta própria e espera até que o arquivo do programa possa ser aberto em exclusividade — prova de que nenhum processo o mantém aberto — antes de chamar o desinstalador antigo. A espera acontece nos dois sentidos: uma vez antes de instalar e uma vez antes de desinstalar. O resultado é que a pergunta nunca é feita e a atualização segue sozinha.**
+
 ## [3.6.5] - October 2026
 
 **Summary:** Duas coisas visíveis. Todos os fundos padrão agora vêm dentro do instalador e mudam de imediato: a imagem de capa da página inicial é redesenhada assim que você escolhe uma, em vez de esperar por um download que talvez nunca termine. E o seletor de temas agora oferece seis aparências no estilo do Finder do macOS, em claro e escuro, ao lado das que já existiam.

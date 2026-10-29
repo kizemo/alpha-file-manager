@@ -1,5 +1,13 @@
 # Nhật ký thay đổi
 
+## [3.6.6] - October 2026
+
+**Summary:** Bản cập nhật không còn thất bại khi ứng dụng vẫn đang chạy. Khi cài phiên bản mới lên bản cũ, việc cài đặt có thể dừng lại với thông báo «Uninstall was not successfully» — ngay cả khi bạn đã bấm «OK» ở lời nhắc yêu cầu đóng ứng dụng đang chạy: trình gỡ cài đặt cũ chỉ yêu cầu ứng dụng đóng mà không hề chờ ứng dụng thực sự kết thúc, rồi hỏi hệ điều hành xem chương trình đã cài còn đang được dùng hay không — câu trả lời vẫn là «có», và nó bỏ cuộc. Giờ đây trình cài đặt tự đóng ứng dụng và chờ tới khi tệp chương trình thực sự được giải phóng trước khi gọi trình gỡ cài đặt cũ, nên câu hỏi ấy không còn xuất hiện.
+
+### What changed
+
+**Sửa: Đường đi của bản cập nhật chạy trình gỡ cài đặt đã phát hành cùng phiên bản trước, và trình gỡ cài đặt đó không thể sửa nữa — nó vốn đã nằm trên chính những máy đang được cập nhật. Nó yêu cầu ứng dụng đang chạy đóng lại, quay về ngay lập tức, rồi khoảng hai giây sau hỏi hệ điều hành xem chương trình đã cài còn đang được sử dụng không. Câu trả lời vẫn là «có», nên nó hiện thông báo «Ứng dụng đang chạy, bấm OK để kết thúc»; ngay cả sau khi bấm OK, việc đóng ứng dụng vẫn có thể thất bại, trình gỡ cài đặt hủy với lỗi, và trình cài đặt báo là gỡ cài đặt thất bại. Giờ đây trình cài đặt tự đóng ứng dụng và chờ tới khi tệp chương trình có thể mở ở chế độ độc quyền — bằng chứng rằng không còn tiến trình nào giữ nó — rồi mới gọi trình gỡ cài đặt cũ. Việc chờ xảy ra theo cả hai chiều: một lần trước khi cài đặt và một lần trước khi gỡ cài đặt. Kết quả là câu hỏi ấy không bao giờ được hỏi, và bản cập nhật tự đi tiếp.**
+
 ## [3.6.5] - October 2026
 
 **Summary:** Hai điều nhìn thấy được. Tất cả nền mặc định giờ nằm ngay trong bộ cài đặt và đổi tức thì: ảnh bìa của trang chủ được vẽ lại ngay khoảnh khắc bạn chọn một ảnh, thay vì phải chờ một bản tải về có thể không bao giờ xong. Và bộ chọn chủ đề giờ có sáu kiểu dáng theo phong cách Finder của macOS, cả bản sáng lẫn bản tối, đứng cạnh những kiểu đã có sẵn.

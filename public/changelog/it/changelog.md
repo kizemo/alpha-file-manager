@@ -1,5 +1,13 @@
 # Registro delle modifiche
 
+## [3.6.6] - October 2026
+
+**Summary:** Un aggiornamento non fallisce più mentre l’applicazione è ancora in esecuzione. Installando una versione nuova sopra una più vecchia, l’installazione poteva fermarsi con «Uninstall was not successfully» anche dopo aver premuto OK nell’avviso che chiedeva di chiudere l’applicazione in esecuzione: il vecchio programma di disinstallazione chiedeva all’applicazione di chiudersi ma non aspettava mai che lo facesse davvero, poi interrogava il sistema operativo per sapere se il programma installato fosse ancora in uso - la risposta era sempre sì, e si arrendeva. Ora il programma di installazione chiude l’applicazione per conto proprio e aspetta che il file del programma venga davvero liberato prima di richiamare il vecchio programma di disinstallazione, così la domanda non viene nemmeno posta.
+
+### What changed
+
+**Corretto: Il percorso di aggiornamento esegue il programma di disinstallazione pubblicato con la versione precedente, e quel programma di disinstallazione non può più essere modificato: è già presente sulle macchine che verranno aggiornate. Chiedeva all’applicazione in esecuzione di chiudersi, tornava subito indietro e circa due secondi dopo interrogava il sistema operativo per sapere se il programma installato fosse ancora in uso. La risposta era sempre sì, quindi mostrava «L’applicazione è in esecuzione, fare clic su OK per terminarla»; anche dopo il clic su OK lo spegnimento poteva fallire, il programma di disinstallazione si interrompeva con un errore e il programma di installazione segnalava una disinstallazione fallita. Ora il programma di installazione chiude l’applicazione per conto proprio e aspetta che il file del programma possa essere aperto in esclusiva - prova che nessun processo lo trattiene più - prima di richiamare il vecchio programma di disinstallazione. L’attesa avviene in entrambe le direzioni: una volta prima di installare e una volta prima di disinstallare. Il risultato è che la domanda non viene posta e l’aggiornamento prosegue da solo.**
+
 ## [3.6.5] - October 2026
 
 **Summary:** Due cose visibili. Tutti gli sfondi predefetti sono ora inclusi nel pacchetto di installazione e si cambiano all'istante: l'immagine di copertina della home viene ridisegnata nel momento in cui ne scegli una, invece di aspettare un download che potrebbe non concludersi mai. E il selettore del tema offre ora sei aspetti in stile Finder di macOS, in versione chiara e scura, accanto a quelli già presenti.
