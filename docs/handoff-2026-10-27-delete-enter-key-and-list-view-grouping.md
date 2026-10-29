@@ -1964,3 +1964,214 @@ sha256 与备份一致）。
   清单在 `docs/winget/manifests/k/kizemo/AlphaFileManager/3.6.5/`，
   `ManifestVersion` 仍 `1.12.0`、`Tags` 不动、`ReleaseDate` = `2026-10-29`、
   `InstallerSha256` = `B8848F9E…9D0`；`docs/winget/README.md` 已补登记与取舍说明。
+
+## 23. 升级安装失败缺陷修复：Uninstall was not successfully（2026-10-29）
+
+### 23.1 用户报的现象
+
+2026-10-29 上午，用户安装 3.6.5 时：按提示点「确定」关闭运行中的 AFM，
+setup 仍然弹出 **"Uninstall was not successfully"**，AFM 没有完全关闭，**安装失败**。
+
+### 23.2 现场取证
+
+用户机 `%TEMP%\alpha-file-manager-install.log`：
+
+```
+2026-10-29 10:27:23.033 [install] phase=PREUNINSTALL installerVersion=3.6.4 ...
+```
+
+- 有 `PREUNINSTALL`、**没有 `POSTUNINSTALL`** ⇒ 旧卸载器进了 Uninstall 段却中途 Abort；
+- 3.6.5 的 `PREINSTALL` 从未出现 ⇒ setup 在进入 `Section Install` 之前就中止了。
+
+用户机 `%TEMP%\alpha-file-manager-kill.log`（同一分钟，1540 行）：
+
+```
+10:27:20.474 snapshot: 301 processes
+10:27:20.734 target found: PID=403472 alpha-file-manager.exe
+10:27:20.838 terminated PID=403472 alpha-file-manager.exe
+10:27:20.852 done: killed=8 failed=0, installer alive.
+10:27:20.855 OUTCOME=ok exit=0
+```
+
+⇒ 杀进程脚本**自认为成功**（killed=8 / failed=0 / exit=0），但从 kill 结束到
+`PREUNINSTALL` 只隔 **2.18 s**。旧脚本的语义是「**发信号即返**」：
+既不等进程真正退出，也不校验目标 exe 是否已解锁。
+
+### 23.3 根因（源码级 + 日志级闭合）
+
+Tauri 2.12.0 NSIS 模板 `utils.nsh` 的 `CheckIfAppIsRunning` 宏：
+
+| 行 | 语义 |
+|---|---|
+| L39 | `RmGetList`（Restart Manager 快照） |
+| L41 | 返回 `ERROR_MORE_DATA` ⇒ **仍有进程占用** `$INSTDIR\alpha-file-manager.exe` |
+| L42 | `IfSilent` 时静默跳过弹框 |
+| L43 | 交互式 `MessageBox MB_OKCANCEL`（「正在运行！点击确定以终止运行」）——用户点的就是这个「确定」 |
+| L47 | `RmShutdown(RmForceShutdown)` 强制关闭占用者 |
+| L51-63 | 仍失败 ⇒ `Abort $R3`（`$(failedToKillApp)`）——**用户看到的 "Uninstall was not successfully" 就是这条 Abort** |
+| 模板 L414-429 | `$0 <> 0` ⇒ `MessageBox "$(unableToUninstall)"` + `Abort` ⇒ setup 判失败 |
+
+模板段序（`installer.nsi`）：`Section Install` L685-692（PREINSTALL hook → `CheckIfAppIsRunning`）→
+`Section Uninstall` L823-829（PREUNINSTALL hook → `CheckIfAppIsRunning`）→
+**POSTUNINSTALL hook 在 L933-935** ⇒ Abort 必然发生在 POSTUNINSTALL 之前，
+与 10:27 日志「有 PREUNINSTALL、无 POSTUNINSTALL」完全一致。
+
+**根因一句话**：旧 kill 脚本「发信号即返」，旧卸载器紧接着做 Restart Manager 快照时
+占用者还没真正消失 ⇒ 强杀失败 ⇒ Abort ⇒ setup 报「卸载不成功」。
+
+> 补充：占用者**不一定是 app 本体**（10:27 时 app 已被 TerminateProcess），
+> 也可能是 Defender / 索引器等**瞬时持有 exe 句柄**的第三方进程。
+> 所以修复不能只依赖「等 app 进程消失」，必须**直接证明 exe 已解锁**。
+
+### 23.4 修复（三处同时改，缺一不可）
+
+**① 卸载侧 —— `src-tauri/installer/kill-app-tree.ps1`（整体重写，21,946 B，纯 ASCII / LF）**
+
+- 新增参数：`-InstDir`、`-DisableScheduledTask`、`-WaitTimeoutMs`、`-VerifyTimeoutMs`；
+- 新增 `Wait-PidsGone`：等目标 pid **真正从进程表消失**；
+- 新增 `Test-ExclusiveOpen`：`File.Open(..., FileShare::None)` **独占打开 AFM 自身二进制**
+  ⇒ 独占成功即证明无人持有/映射该 exe ⇒ Restart Manager 必然查不到它；
+- 最多 **2 轮** deepest-first 强杀 → 等待 → 复验；独占校验失败只告警不 Abort
+  （可能是 Defender 的短暂句柄），并长轮询重试（默认 20 s）；
+- 退出码 **0 / 1 / 2 / 3**，其中 **3 = 二进制仍被占用**（`OUTCOME=locked exit=3`）；
+- 成功时打印 `verified: N binary path(s) can be opened exclusively.`。
+
+**② 钩子侧 —— `src-tauri/installer/hooks.nsh`**
+
+- `Var AlphaKillInstDir` / `Var AlphaLegacyInstDir`；`AlphaTerminateAppProcesses`
+  的 nsExec 改为带 `-InstDir "$AlphaKillInstDir" -DisableScheduledTask`；
+- PREINSTALL / PREUNINSTALL **共用**同一套「杀干净再继续」；删掉 PREUNINSTALL 里的盲等 `Sleep 1000`；
+- 新增 `Function AlphaPrepareLegacyUninstall` + `!define AFM_HOOK_PRELEGACY_UNINSTALL`
+  + `!macro NSIS_HOOK_PRELEGACY_UNINSTALL`（`File /oname=$PLUGINSDIR\kill-app-tree.ps1` 解包 + nsExec）。
+
+**③ 安装侧 —— `src-tauri/installer/installer.nsi`（vendor Tauri 2.12.0 模板，1,025 行）**
+
+在 `reinst_uninstall:` 段里、**`ExecWait '$R1' $0`（调旧卸载器）之前**插入钩子：
+
+```nsis
+; AFM PATCH (2026-10-29)
+!ifdef AFM_HOOK_PRELEGACY_UNINSTALL
+  !insertmacro NSIS_HOOK_PRELEGACY_UNINSTALL
+!endif
+```
+
+> **为什么必须改安装侧**：旧卸载器里那份 kill 脚本是**随旧版本冻结**的，改不了。
+> 跨版本升级（3.6.5 → 3.6.6）时只有**新版 setup** 能在调旧卸载器之前
+> 先把进程树杀干净并**证明 exe 已解锁**，旧卸载器的 RM 快照才会查不到占用者。
+> 用 `!ifdef` + `!insertmacro`（而非 `!ifmacrodef`）：hooks 缺失时退回上游行为，仍可编译。
+
+配套：`src-tauri/tauri.conf.json` 的 `bundle.windows.nsis` 指向 `installerHooks` / `template`；
+`package.json` 的 `@tauri-apps/cli` 由 `^2.4.0` **精确 pin 到 `2.12.0`**（模板必须与 vendored 版本同源）；
+版本 3.6.5 → **3.6.6**（`package.json` / `src-tauri/Cargo.toml` / 两个 `default-file-manager-*/Cargo.toml` 一致）。
+
+### 23.5 门禁与产物
+
+| 门禁 | 结果 |
+|---|---|
+| `embed-kill-script.mjs --sync` / `--check` | 内嵌 kill 脚本与仓库副本一致（exit 0） |
+| `npm run ts` | exit 0 |
+| `npm run lint:check` | **188 errors / 0 warnings**（= 基线） |
+| `npm run lint:stylelint:check` | **184 errors / 0 warnings**（= 基线） |
+| `npm run test:unit:run` | **255 files / 2345 tests passed** |
+| `node scripts/verify-changelog.mjs` | exit 0（根 + 14 个语言包全覆盖） |
+| `npm run tauri build` | **BUILD_EXIT=0**（NSIS 改动当编译期门禁） |
+
+- 产物：`src-tauri/target/release/bundle/nsis/Alpha File Manager_3.6.6_x64-setup.exe`，
+  **45,490,743 B**（已单独复制进 `release/`，**历史安装包一个没删**）。
+- 新增守卫单测 `src-tauri/installer/__tests__/nsis-template-patch.test.ts`（9 条）：
+  模板带 AFM PATCH 块、钩子夹在两个 `ExecWait '$R1' $0` 之间、`!ifdef`/`!insertmacro` 各 1 处、
+  hooks 传 `-InstDir`/`-DisableScheduledTask`、`tauri.conf.json` 指向正确、CLI 精确 pin 2.12.0、
+  三处版本一致、kill 脚本纯 ASCII 且含 `Test-ExclusiveOpen`/`Wait-PidsGone`/exit 3。
+
+### 23.6 隔离沙箱 A/B 验收（2026-10-29）
+
+按 AGENTS.md §2.8，全部在**隔离桌面沙箱**里跑，不抢用户桌面焦点。
+脚本：`.superpowers/sdd/accept-upgrade-366.ps1`（v2：`.superpowers/sdd/accept-upgrade-366-v2.ps1`）。
+
+驱动要点（踩坑记录）：
+
+- 跨进程点按钮必须用 **`SendMessageTimeout(BM_CLICK, 3 s)`**，不能用阻塞 `SendMessage`
+  ——否则与 NSIS 的 `ExecWait` 互锁死锁（本轮第一次跑就卡死在这里）；
+- `EnumDesktopWindows` 在本机**不按桌面隔离**（会混入用户桌面的 Sogou / IME 窗口）
+  ⇒ 只能点击进程名属于 `uninstall` / `Alpha File Manager_*setup*` 的窗口；
+- 沙箱内 `CreateProcess` 的 `lpCurrentDirectory` **不能为 NULL**（盘符映射按桌面隔离，
+  NULL 会得到 win32=123），必须传 exe 父目录；
+- 沙箱**没有键盘输入**，只能做鼠标等价断言；消息框按钮要按文案区分
+  （Yes/OK/确定/是 永远可点，`&Uninstall` 只点一次，同页同签名不重复点前进按钮）。
+
+**NEW（3.6.5 → 3.6.6，修复后）实测时间线**（安装日志 `%TEMP%\alpha-file-manager-install.log` + 杀进程日志）：
+
+```
+13:12:27.645  phase=PREUNINSTALL  installerVersion=3.6.5   <- 旧卸载器启动
+13:12:35.423  phase=POSTUNINSTALL installerVersion=3.6.5   <- 旧卸载器**成功完成**（10:27 缺的正是这一行）
+13:13:06.559  [kill-app-tree] verified: 1 binary path(s) can be opened exclusively.
+13:13:06.562  [kill-app-tree] OUTCOME=ok exit=0
+13:13:12.473  phase=PREINSTALL  installerVersion=3.6.6
+13:13:49.661  phase=POSTINSTALL installerVersion=3.6.6
+```
+
+装后 `alpha-file-manager.exe` 的 ProductVersion = **3.6.6**。
+⇒ **新 kill 脚本在旧卸载器动手之前就证明 exe 已完全解锁**，
+旧卸载器的 RM 快照查不到占用者 ⇒ POSTUNINSTALL 顺利写出 ⇒ 安装一次走完。
+
+**OLD（3.6.4 → 3.6.5，旧模板）对照**：沙箱里旧链路**也**成功卸载了
+（同样有 PREUNINSTALL + POSTUNINSTALL），即 **10:27 的失败在沙箱未复现**——
+这是竞态：用户机上 app 终止与 RM 快照之间只隔 2.18 s，占用者可能还在。
+⇒ 缺陷的证据是**用户机的原始日志**，沙箱能稳定复现的是 A/B 的**结构性差异**：
+
+| 对照项 | OLD（3.6.5 setup） | NEW（3.6.6 setup） |
+|---|---|---|
+| 旧卸载器前是否跑新 kill 脚本 | **否** | **是**（`PRELEGACY_UNINSTALL` 钩子） |
+| kill 日志里有 `verified:` 证明 | **无** | **有**（`verified: 1 binary path(s) …`） |
+| 旧卸载器 RM 快照时 exe 是否保证已解锁 | **不保证**（杀完即返） | **保证**（独占打开证明） |
+| 用户现场结果 | 10:27 Abort → "Uninstall was not successfully" | 安装成功，装出 3.6.6 |
+
+**沙箱环境的两处已知假象**（不要当成产品缺陷）：
+
+- setup 点完 Finish 后**不退出**：Tauri 模板的 `MUI_FINISHPAGE_RUN_FUNCTION RunMainBinary`
+  用 `nsis_tauri_utils::RunAsUser`（ShellExecute `runas`），在无交互沙箱桌面里这个
+  「运行应用」动作永远等不到结果 ⇒ setup 进程滞留，驱动只能超时后终止它。
+  ⇒ **验收判据取安装日志的 `POSTINSTALL` + 装出版本 + kill 日志的 `verified:`，不取 setup 退出码**；
+- `updater.exe` 进程与本项目无关（是夸克浏览器的 QuarkUpdater 服务），排查时不要误判为 AFM 的残留。
+
+### 23.7 遗留与限制
+
+- **10:27 真机失败的直接占用者仍未定位**：不是 app 本体（已被 TerminateProcess），
+  候选是 Defender / 索引器等**瞬时持有 exe 句柄**的第三方进程，或 app 终止未完全 reap。
+  ⇒ 修复采取的是「**不依赖具体占用者**」的策略：独占打开证明 + 长轮询重试。
+- `rm shutdown` 的兜底是 `OUTCOME=locked exit=3`：**只告警不 Abort**，
+  避免因第三方瞬时句柄把用户的安装直接判死。
+- 共享的 `msedgewebview2.exe` **不参与**独占校验（多个应用共用，必然打不开）。
+- `package-lock.json` 仍是旧版本（本轮决定不改），若要用 `npm ci` 需另行处理。
+- 3.6.6 只做**缺陷修复**，**不重做发版链路**（不提交 winget PR、不发 GitHub release）。
+
+### 23.8 独立复跑与验收收尾（2026-10-29 13:23）
+
+把判据按实测修正后（OLD 阶段改为「旧路径没有解锁证明」+ 如实记录沙箱结果；
+NEW 阶段改用**安装日志 + kill 日志 + 装出版本**，不再用沙箱里必然滞留的 setup 退出码），
+**独立复跑一遍 NEW 路径**：`.superpowers/sdd/accept-upgrade-366-v2.ps1`，
+流程 = 卸载 3.6.6 → 静默装回 3.6.5 基线 → 沙箱里起 app → 跑 3.6.6 setup。
+
+```
+13:23:22.520  phase=PREUNINSTALL  installerVersion=3.6.5
+13:23:29.031  phase=POSTUNINSTALL installerVersion=3.6.5
+13:24:02.174  phase=PREINSTALL  installerVersion=3.6.6
+13:24:36.349  phase=POSTINSTALL installerVersion=3.6.6
+===== SUMMARY: pass=9 fail=0 =====        V2_EXIT=0
+```
+
+9 条断言全绿：沙箱里 app 正常运行且把已安装二进制映射进模块表（Restart Manager 看得见）、
+旧卸载器 PREUNINSTALL + **POSTUNINSTALL**、3.6.6 安装完成、kill 日志里有
+`verified:` 与 `OUTCOME=ok`、**没有出现 "Uninstall was not successfully" 对话框**、
+装出的 ProductVersion = **3.6.6**。
+
+**验收收尾：用户数据已按字节恢复**（沙箱跑的是 release 构建，会读写真实 user-data）：
+
+- 顺序必须是「**先结束 `alpha-file-manager` / `focus-sync-sidecar` 进程 → 再 restore**」
+  —— 应用退出时会把内存里的统计状态写回真实 `user-stats.json`，
+  不先杀进程的话夹具/测试态会被再写回去一次；
+- 实测：备份 24 文件 / 2,940,581 B → 恢复后 **24 文件 / 2,940,581 B**，
+  4 个文件被覆盖写回、20 个本就一致、**0 个哈希不一致、0 个多余文件**；
+- 收尾后 `alpha-file-manager` / `focus-sync-sidecar` 进程数 = **0**；
+- 机器上最终保留的是**修好的 3.6.6**（`release\Alpha File Manager_3.6.6_x64-setup.exe`，
+  45,490,743 B，sha256 `954AB0AA…EE4`，与 `src-tauri\target\release\bundle\nsis\` 下的构建产物逐字节一致）。
