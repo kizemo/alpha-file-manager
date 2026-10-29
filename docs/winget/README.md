@@ -12,6 +12,8 @@
 | 3.6.1 | 不提交 | 清单留在 `manifests/.../3.6.1/` 备查，但**跳过这一版**（2026-10-26 决定：3.6.2 已发布，直接提 3.6.2） |
 | 3.6.2 | 尚未提交 | 清单**已备好**（`manifests/.../3.6.2/`），**3.5.1 合并后开 PR** |
 | 3.6.3 | 尚未提交 | 清单**已备好**（`manifests/.../3.6.3/`），**3.5.1 合并后直接提这一版**（winget 允许跳版，3.6.2 留作备份） |
+| 3.6.4 | 不提交 | 清单留在 `manifests/.../3.6.4/` 备查，但**跳过这一版**（2026-10-29 补记：3.5.1 未合并，直接提 3.6.5） |
+| 3.6.5 | 尚未提交 | 清单**已备好**（`manifests/.../3.6.5/`），**3.5.1 合并后直接提这一版**（winget 允许跳版，3.6.4 留作备份） |
 
 目录结构与上游仓库一致：
 
@@ -268,6 +270,53 @@ npm run check:winget
 1. fork `microsoft/winget-pkgs`（本地还没有克隆，需要先 clone）；
 2. 从 `master` 拉分支，把 `manifests/k/kizemo/AlphaFileManager/3.6.3/` 四个文件放进去；
 3. 向 `master` 开 PR，标题 `New package: kizemo.AlphaFileManager version 3.6.3`；
+4. 机器人要求时回一行 `@microsoft-github-policy-service agree`；
+5. 等校验跑完（看标签，不看 check runs），再等版主评审。
+
+## 3.6.4 / 3.6.5 的清单：已备好，3.5.1 合并后直接提 3.6.5
+
+2026-10-29 复查：3.5.1 的
+[PR #460744](https://github.com/microsoft/winget-pkgs/pull/460744) 仍是 `OPEN`
+（标签 `Validation-Completed` + `Azure-Pipeline-Passed` + `New-Package`，
+`mergedAt` 为 null，`reviewDecision` 仍是 `REVIEW_REQUIRED`），**只等社区版主审批合并**。
+
+同一个包 ID（`kizemo.AlphaFileManager`）在 `microsoft/winget-pkgs` 里
+**不允许同时开第二个 PR** ⇒ 3.6.4 与 3.6.5 都**只备清单、不提交 PR**；
+3.5.1 一合并，直接提 **3.6.5**（winget 不要求版本号连续，跳版是允许的，
+而每多提一版就多一轮版主评审）。
+
+`manifests/k/kizemo/AlphaFileManager/3.6.4/` 与 `.../3.6.5/` 下的四个文件
+都已写好并入库，3.6.5 的本地自检（`npm run check:winget`）全绿。
+
+### 这一版清单的几个取舍
+
+1. **`ManifestVersion` 仍是 `1.12.0`，不升到上游当前的 `1.28.0`。**
+   与 3.5.1 / 3.6.2 / 3.6.3 保持一致 —— 旧 schema 版本照收不误，风险最低。
+
+2. **`Tags` 一个不动**（15 个）—— 3.6.5 的两处改动（默认背景本地化、
+   六套 macOS Finder 风格主题）都不是新的功能类别，硬加就得先删一个。
+
+3. **`ReleaseDate` 用 `2026-10-29`** —— 3.6.5 的实际发布日，
+   且必须**严格晚于** 3.5.1 的 `2026-10-24`。
+
+4. **`ShortDescription` 不动**，`Description` 末尾**加了一段** 3.6.5 的新特性
+   （默认背景随安装包打包、六套 macOS Finder 风格主题）——
+   长度远在 schema 上限内（256 / 10000）。
+
+5. **`InstallerSha256` = `B8848F9E…9D0`**，与 GitHub release v3.6.5 的资产、
+   `release/` 下的本地安装包、站点 `version.json` 四方一致（45,474,813 字节）。
+
+### 本地自检
+
+```powershell
+npm run check:winget
+```
+
+### 3.5.1 合并后要做的
+
+1. fork `microsoft/winget-pkgs`（本地还没有克隆，需要先 clone）；
+2. 从 `master` 拉分支，把 `manifests/k/kizemo/AlphaFileManager/3.6.5/` 四个文件放进去；
+3. 向 `master` 开 PR，标题 `New package: kizemo.AlphaFileManager version 3.6.5`；
 4. 机器人要求时回一行 `@microsoft-github-policy-service agree`；
 5. 等校验跑完（看标签，不看 check runs），再等版主评审。
 
