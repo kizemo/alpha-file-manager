@@ -96,12 +96,13 @@ describe('useTheme', () => {
     expect(document.documentElement.classList.contains('dark')).toBe(true);
     expect(document.documentElement.style.getPropertyValue('--primary')).toBe('200 80% 60%');
 
-    theme.value = 'light';
+    theme.value = 'afm-warm-light';
     await nextTick();
 
     expect(currentTheme.value).toBe('light');
     expect(document.documentElement.classList.contains('dark')).toBe(false);
-    expect(document.documentElement.style.getPropertyValue('--primary')).toBe('');
+    // 切走后扩展主题的 --primary 被 AFM 默认主题（暖纸浅）自己的同名变量取代。
+    expect(document.documentElement.style.getPropertyValue('--primary')).toBe('200 16.9% 45.3%');
   });
 
   it('uses a view transition after initial theme changes', async () => {
@@ -134,7 +135,7 @@ describe('useTheme', () => {
 
     expect(startViewTransitionMock).not.toHaveBeenCalled();
 
-    theme.value = 'light';
+    theme.value = 'afm-warm-light';
     await nextTick();
 
     expect(startViewTransitionMock).toHaveBeenCalledTimes(1);
@@ -185,7 +186,7 @@ describe('useTheme', () => {
     const transitionsEnabled = ref(false);
     useTheme(theme, undefined, transitionsEnabled);
 
-    theme.value = 'light';
+    theme.value = 'afm-warm-light';
     await nextTick();
 
     expect(startViewTransitionMock).not.toHaveBeenCalled();
@@ -235,7 +236,7 @@ describe('useTheme', () => {
     const theme = ref<Theme>('dark');
     useTheme(theme);
 
-    theme.value = 'light';
+    theme.value = 'afm-warm-light';
     await nextTick();
     await Promise.resolve();
 
