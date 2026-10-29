@@ -52,7 +52,10 @@ async function waitForIconHtml(
   getHtml: () => string,
   expectedClass: string,
 ): Promise<string> {
-  for (let attempt = 0; attempt < 30; attempt += 1) {
+  // 30 x 10ms = 300ms 的预算在「全量单测并行跑 250+ 个文件」时不够用：
+  // 真实 lucide 模块的动态 import 在机器满载时会超过 300ms 才 resolve，
+  // 于是这两个用例会假红（单跑必绿）。假红比没有门禁更糟，这里放宽到 1s。
+  for (let attempt = 0; attempt < 100; attempt += 1) {
     await flushPromises();
     const html = getHtml();
 

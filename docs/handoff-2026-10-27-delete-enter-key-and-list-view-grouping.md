@@ -2219,8 +2219,17 @@ Explorer「最近使用 / 下载」里再次点击）。此判断**未被证实*
 
 ### 24.3 取证过程中坐实的两个**真实安装器缺陷**（可修的部分）
 
-1. **安装器没有单实例互斥**：`installer.nsi` 与 `hooks.nsh` 的 `.onInit`
-   **没有任何 `CreateMutex` / 实例检测**。⇒ 同一个 setup 被重复启动时**会再弹一个完整向导**，
+> **2026-10-29 更正**：本节第 1 条原先写成「安装器没有单实例互斥，`installer.nsi` 与
+> `hooks.nsh` 的 `.onInit` 没有任何 `CreateMutex` / 实例检测」—— **这个表述是错的，
+> 已被 `hooks.nsh` 原文证伪**：`AlphaCheckSingleInstance`（2026-10-19 加的）**确实存在**，
+> 跑在 `NSIS_HOOK_PREINSTALL`（向导页之后、真正开装之前），规则是**同一份 setup 的多个
+> 副本里 PID 最小的当选，其余立刻退出**。真正缺的是**`.onInit` 阶段的早期拦截**：
+> 等走到 PREINSTALL 才查「有没有别人在装」，此时向导**已经弹出来了**，对用户没有意义。
+> 另见 §24.5 —— 本轮最终没有加互斥体，而是改用「同版本/更旧直接静默退出」。
+
+1. **缺少 `.onInit` 阶段的早期拦截**：`hooks.nsh` 的 `AlphaCheckSingleInstance`
+   只在 `NSIS_HOOK_PREINSTALL` 触发 ⇒ **同一个 setup 被重复启动时，每个副本都会先弹一个
+   完整向导**，只有走到 PREINSTALL 才有其中一个退出。⇒ 用户看到的是「弹了一个又一个」，
    并与前一个实例并发跑「杀进程 → 卸旧 → 装新」，互相抢文件锁。
    **这正是「又弹一次安装对话框」的放大机制。**
 2. **同版本覆盖安装零拦截**：日志里 `sameVersionReinstall=yes` 说明安装器**已经算出**
@@ -2243,3 +2252,88 @@ Explorer「最近使用 / 下载」里再次点击）。此判断**未被证实*
 - **D. 顺带可清的一条**：`D:\Program Files\Alpha File Manager\uninstall.exe-672576`
   这类**改名残留卸载器**至今仍在模块表里被 RestartManager 认定"占用"（`reason=512`），
   是 §23 那类失败的同源诱因；卸载收尾应把带后缀的副本删干净。
+
+### 24.5 本轮已实施：`.onInit` 早期版本守卫（2026-10-29）
+
+**根因（运行时实锤）**：会话界面里的 `<media type="file" src="…setup.exe" />` 附件标签，
+宿主渲染层**每次渲染**都会 `setLastPreviewedFile` + `autoOpen`；`.exe` 没有内置预览器
+⇒ `dist/main/ipc/documentPreview.ipc.js` 的 `invokeSystemOpen` → `electron.shell.openPath`
+→ **直接执行 setup.exe** ⇒ NSIS 向导弹出。**「切回会话界面」= 重新渲染 = 再弹一次。**
+宿主行为不由本仓库发布，改不了 ⇒ 只能让「重复运行安装包」在**向导出现前**无害化。
+
+**实现**：
+- `src-tauri/installer/early-guard.ps1`（新增，纯 ASCII）：读注册表 `DisplayVersion`，
+  与安装包版本做完整 semver 比较（含预发布号）。
+- `src-tauri/installer/hooks.nsh`：新增 `AFM_HOOK_EARLYINIT` 宏 + `AlphaCaptureCommandLine`
+  + `AlphaEarlyInstallGuard` 函数，在 `.onInit` 里跑（`InitPluginsDir` → 内嵌解包脚本 →
+  `nsExec::ExecToLog` → 判定文件 → `Quit`）。
+  ⚠️ `/FORCE` 的**识别不在 NSIS 侧**：NSIS 只负责把 `$CMDLINE` 原样写进
+  `$PLUGINSDIR\afm-commandline.txt`，判定在守卫脚本里做 —— 原因见 §24.6 ②。
+- `src-tauri/installer/installer.nsi`：`.onInit` 顶部 `StrCpy` 喂入 `${VERSION}` /
+  `${UNINSTKEY}` 后 `!insertmacro NSIS_HOOK_EARLYINIT`。
+  ⚠️ `${VERSION}` / `${UNINSTKEY}` 定义在 `!include "{{installer_hooks}}"` **之后**，
+  hooks.nsh 内拿不到编译期常量 ⇒ 必须由模板 `StrCpy` 写进 hooks 声明的 `Var`。
+
+**判定规则**：未安装 → 放行；版本更新 → 放行；**同版本 / 更旧 → 静默 `Quit`（零界面）**；
+判不出来（读不到注册表 / 版本解析失败）→ **失败开放**（放行：守卫坏了不能让人装不上）；
+`/FORCE` → 放行。
+
+**为什么「更旧」也静默**：会话历史里同时存在 3.6.5 与 3.6.6 两个安装包附件标签，
+将来装上 3.6.7 之后，历史里的旧包仍会被重新渲染 —— 只拦同版本拦不住。
+
+**为什么不弹 MessageBox**：用户诉求是「切回界面不再弹窗」，任何模态框都违背。
+同版本 / 旧版本一律静默退出，并把决定写进 `%TEMP%\alpha-file-manager-early-guard.log`
+与 `%TEMP%\alpha-file-manager-early-guard.last.txt`。
+
+**逃生口**：人工重装 / 降级用 `setup.exe /FORCE`（守卫跳过版本判定，照常走向导）。
+
+**单测**：`src-tauri/installer/__tests__/early-guard.test.ts` —— 11 条用例（接线断言 +
+8 条版本判定表 + 1 条**命令行 `/FORCE` 判定表**（7 个子情形：整词匹配，`/XFORCE` 不误判）+
+1 条**判别力**：故意把守卫的同版本分支改坏，断言必须转红）。
+
+**验收**：`.superpowers/sdd/accept-early-guard.ps1`（隔离桌面沙箱）——
+① **阳性对照**：旧 3.6.5 包**会**弹向导（证明窗口探测器是活的）；
+② 新 3.6.6 包**零窗口**、进程自行退出、守卫日志记 `decision=quit reason=same-version`、
+已装程序与注册表**未变**；③ 新包带 `/FORCE` **仍会**弹向导（逃生口有效）。
+
+### 24.6 `/FORCE` 识别搬到 PowerShell 侧的原因（NSIS `StrCmp` 通配实测不可用）
+
+**问题**：第一版守卫把 `/FORCE` 的识别写在 NSIS 里（`Function AlphaDetectForceFlag` +
+`Var AlphaGuardForce`），用 `StrCmp $CMDLINE "* /FORCE *"` 这类星号通配去匹配命令行。
+
+**实测结论（最小复现探针 `.superpowers/sdd/probe-force.nsi` / `probe-force2.nsi`，makensis 现场编译）**：
+
+- `$CMDLINE` 内容确实是 `"C:\…\probe-force2.exe" /FORCE`（含引号、完整）；
+- **8 种 `StrCmp` 形态一次都没匹配上**（`FORCE=0`）—— NSIS 的 `StrCmp` 不支持 `*` 通配；
+- 安装器进程里 **`$1` 是空的**（NSIS 只在卸载器里把参数放进 `$1..$9`）；
+- `FileWrite $9 "$CMDLINE"` **原样写出完整命令行**（含引号、无换行污染）✔ 可用。
+
+**改法**：NSIS 只负责"把命令行交出去"——
+`Function AlphaCaptureCommandLine`（`InitPluginsDir` → `FileOpen $9 "$PLUGINSDIR\afm-commandline.txt" w`
+→ `FileWrite $9 "$CMDLINE"` → `FileClose $9`），
+`NSIS_HOOK_EARLYINIT` 改为 `Call AlphaCaptureCommandLine` + `Call AlphaEarlyInstallGuard`；
+nsExec 命令追加 `-CommandLineFile "$PLUGINSDIR\afm-commandline.txt"`（不再传 `-Force`）。
+守卫脚本 `early-guard.ps1` 新增 `-CommandLineFile` 参数与 `Test-ForceRequested` 函数，
+正则 `(?i)(?:^|[\s"'])/FORCE(?:[\s"']|$)` 做**整词匹配**（`/XFORCE` 不误判）。
+
+**为什么判定逻辑放 PowerShell 侧**：NSIS 里的字符串匹配写起来省事，但**坏了没人发现**
+—— 判定逻辑应该放在**有单测覆盖**的那一侧。
+
+**直接验证（32 位 PowerShell，无需打包）**：7 种情形全对。
+`/FORCE` / `/force` / `/FORCE /S` / `/S /FORCE` → `force=1` + `OUTCOME=proceed reason=forced` + exit=0；
+`/XFORCE` / 无 `/FORCE` / 无命令行文件 → `force=0` + `OUTCOME=quit reason=same-version` + exit=10。
+
+**教训（写进验收脚本）**：上一轮「`/FORCE` 有效」的 PASS 是**假阳性**——
+验收脚本 `Invoke-SetupRun` 把参数命名为 `$args`，而 **PowerShell 的 `$args` 是自动变量，
+函数里声明同名参数不会绑定**（实测 `bound args=[] exe=[X]`）⇒ `/FORCE` 从未传进安装器；
+当时守卫读不到版本而**失败开放**放行，向导照样弹，于是"看起来" `/FORCE` 有效。
+已把参数改名为 `$setupArgs`，并在返回值里加 `ArgsUsed`；验收脚本新增显式断言
+`Check ($r3.ArgsUsed -eq '/FORCE') 'force: the /FORCE argument really reached the installer'`。
+
+**另一处踩坑：32 位注册表视图**。安装器是 32 位进程（NSIS），注册表访问被重定向到
+`Wow6432Node`。第一版守卫用 `OpenRemoteBaseKey` + 3 参 `OpenSubKey` 想切视图，
+实测**在 32 位进程里基键已被重定向、无法再切**，永远读不到 `DisplayVersion`。
+改用 `OpenBaseKey(hive, view)` + **单参** `OpenSubKey`（遍历 HKLM/HKCU × Registry64/Registry32），
+32 位与 64 位 PowerShell 探针**均读到 3.6.6**。
+⚠️ 剥离 `Software\` 前缀必须用 `-replace '^Software\\', ''`，
+**不能用 `Substring(8)`**（`Software\` 长度是 9，会拼出双反斜杠路径）。

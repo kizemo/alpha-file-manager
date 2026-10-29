@@ -522,6 +522,23 @@ FunctionEnd
 {{/each}}
 
 Function .onInit
+  ; ---------------------------------------------------------------------
+  ; 2026-10-29 早期安装守卫（版本守卫）。
+  ;
+  ; 这是模板里**唯一**能在向导页出现之前拿到控制权的位置：会话界面里
+  ; 带着 setup.exe 附件，宿主每次重新渲染都会「自动打开」它，于是每次
+  ; 都弹一次安装向导。同版本 / 更旧的包在里静默退出，一个窗口都不弹。
+  ;
+  ; 完整说明见 hooks.nsh 里的 AFM_HOOK_EARLYINIT。
+  ;
+  ; 用 !ifdef 包一层：hooks.nsh 缺失时模板仍然能编译，退回上游行为。
+  ; ---------------------------------------------------------------------
+  !ifdef AFM_HOOK_EARLYINIT
+    StrCpy $AlphaGuardInstallerVersion "${VERSION}"
+    StrCpy $AlphaGuardUninstKey "${UNINSTKEY}"
+    !insertmacro NSIS_HOOK_EARLYINIT
+  !endif
+
   ${GetOptions} $CMDLINE "/P" $PassiveMode
   ${IfNot} ${Errors}
     StrCpy $PassiveMode 1

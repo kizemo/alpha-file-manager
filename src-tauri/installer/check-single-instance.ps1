@@ -26,13 +26,19 @@
 # ahead; every other one exits immediately.
 #
 # Why "lowest pid wins" and not "the first one to ask wins":
-#   - A lock/mutex would need to be held for the whole install, and there is no
-#     hook before the wizard pages in the Tauri NSIS template, so the lock
-#     could only be taken in PREINSTALL -- same place as this check.
 #   - "Whoever asks first" is a race: two installers reaching PREINSTALL at
 #     the same moment could both see "no other installer" and both proceed.
 #     "Lowest pid wins" is deterministic: exactly ONE of them proceeds, no
 #     matter how the two interleave. No livelock, no double install.
+#   - A lock/mutex would need to be held for the whole install, and the only
+#     place this check can run is PREINSTALL -- the same place the lock would
+#     have to be taken. CORRECTION (2026-10-29): an earlier version of this
+#     comment claimed the Tauri NSIS template has no hook before the wizard
+#     pages and that .onInit cannot be used. That was wrong: we ship our own
+#     vendored template and do hook .onInit (AFM_HOOK_EARLYINIT, the version
+#     guard). That hook answers "is there anything to install", which is a
+#     different question from "is another installer running" -- the latter
+#     needs live installer processes to look at, so the election stays here.
 #   - Windows hands out process ids roughly in increasing order, so the lowest
 #     pid is also (almost always) the installer that started first, i.e. the
 #     one the user is actually looking at.
