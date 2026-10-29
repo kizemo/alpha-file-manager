@@ -78,19 +78,12 @@ describe('theme registry', () => {
       }),
     });
 
+    // FORK-MODIFICATION 2026-10-30：六套 macOS Finder 风格主题已删除，
+    // 内置 'light'（亮色·开发中）已从可选主题下架，'light' 仅保留在类型与 CSS 基座里
+    // 供 ResolvedBuiltinThemeId / 扩展主题 baseTheme 使用。默认主题改为 afm-warm-light。
     expect(availableThemes.map(theme => theme.id)).toEqual([
       'dark',
-      'light',
       'system',
-      // FORK-MODIFICATION 2026-10-29：六套内置 macOS Finder 风格主题。
-      'mac-classic-light',
-      'mac-classic-dark',
-      'mac-modern-light',
-      'mac-modern-dark',
-      'mac-glass-light',
-      'mac-glass-dark',
-      // FORK-MODIFICATION 2026-10-29：AFM 品牌重设计主题，与 mac 变体同属 builtin 通道，
-      // 排在 mac 变体之后、扩展主题之前。
       'afm-warm-light',
       'afm-warm-dark',
       'afm-vivid-light',

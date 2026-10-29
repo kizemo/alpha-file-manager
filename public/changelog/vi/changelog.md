@@ -1,5 +1,13 @@
 # Nhật ký thay đổi
 
+## [3.6.7] - October 2026
+
+**Summary:** Bộ chọn chủ đề ngắn hơn và diện mạo mặc định đã thay đổi. Sáu chủ đề kiểu macOS Finder cùng tùy chọn tích hợp *Sáng* chưa hoàn thiện đã bị loại bỏ, và ứng dụng nay mở bằng *Giấy ấm (sáng)*, một trong những chủ đề thương hiệu mới. *Tối* và *Theo hệ thống* giữ nguyên.
+
+### What changed
+
+**Thay đổi: ít chủ đề hơn và một mặc định mới.** Bộ chọn trước đây liệt kê mười hai kiểu tích hợp. Sáu chủ đề kiểu macOS Finder (macOS Native, Refined Modern và Translucent Glass, mỗi loại có bản sáng và tối) đã bị loại bỏ, cùng với tùy chọn tích hợp *Sáng* vốn vẫn được đánh dấu là đang phát triển. Còn lại là *Tối*, *Theo hệ thống* và ba chủ đề thương hiệu: *Giấy ấm (sáng)*, *Giấy ấm (tối)* và *Vivid*. *Giấy ấm (sáng)* nay là mặc định — bản cài mới sẽ mở bằng nó, và Ctrl+T chuyển giữa nó với *Tối*. Nếu chủ đề đã lưu của bạn thuộc nhóm bị loại bỏ, ứng dụng sẽ chuyển bạn sang *Giấy ấm (sáng)* ở lần khởi động kế tiếp và không đụng tới bất kỳ thiết lập nào khác.
+
 ## [3.6.6] - October 2026
 
 **Summary:** Bản cập nhật không còn thất bại khi ứng dụng vẫn đang chạy. Khi cài phiên bản mới lên bản cũ, việc cài đặt có thể dừng lại với thông báo «Uninstall was not successfully» — ngay cả khi bạn đã bấm «OK» ở lời nhắc yêu cầu đóng ứng dụng đang chạy: trình gỡ cài đặt cũ chỉ yêu cầu ứng dụng đóng mà không hề chờ ứng dụng thực sự kết thúc, rồi hỏi hệ điều hành xem chương trình đã cài còn đang được dùng hay không — câu trả lời vẫn là «có», và nó bỏ cuộc. Giờ đây trình cài đặt tự đóng ứng dụng và chờ tới khi tệp chương trình thực sự được giải phóng trước khi gọi trình gỡ cài đặt cũ, nên câu hỏi ấy không còn xuất hiện.

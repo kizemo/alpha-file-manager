@@ -6,7 +6,7 @@ import {
   ref, computed, type Ref, type ComputedRef, watchEffect,
 } from 'vue';
 import type { BuiltinThemeId, Theme } from '@/types/user-settings';
-import { findThemeOption, parseThemeId } from '@/modules/themes/registry';
+import { DEFAULT_THEME_ID, findThemeOption, parseThemeId } from '@/modules/themes/registry';
 import { useExtensionsStorageStore } from '@/stores/storage/extensions';
 
 export type ThemeTransitionOrigin = {
@@ -201,7 +201,7 @@ export function useTheme(
     }
 
     if (themeOption.source === 'builtin') {
-      // FORK-MODIFICATION 2026-10-29：内置变体主题（macOS Finder 风格六套）
+      // FORK-MODIFICATION 2026-10-29：内置变体主题（AFM 品牌三套）
       // 带 CSS 变量覆盖，走「基础明暗 class + 变量覆盖」这条通道，
       // 与扩展主题完全同构，所以 `.dark` 选择器仍然生效。
       if (themeOption.variables && themeOption.baseTheme) {
@@ -239,7 +239,7 @@ export function useTheme(
   }
 
   function toggleTheme() {
-    return setTheme(currentTheme.value === 'dark' ? 'light' : 'dark');
+    return setTheme(currentTheme.value === 'dark' ? DEFAULT_THEME_ID : 'dark');
   }
 
   function handleSystemThemeChange(event: MediaQueryListEvent) {

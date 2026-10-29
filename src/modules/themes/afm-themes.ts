@@ -7,7 +7,7 @@
 // 设计稿来源：`.superpowers/sdd/design-demos/` 下的 D1 / D2 / D3（真实产品骨架上的三种皮肤），
 // 方向确认见同目录 `direction-approved.md`（第 6 节记录了用户逐字选择原话）。
 //
-// 约束（与 `mac-variants.ts` 完全一致，改这个文件前务必先读那边的四条说明）：
+// 约束（改这个文件前务必先读下面几条说明）：
 //
 // 1. 所有颜色 token 必须是裸 HSL 三元组（`240 30% 99%`），**不能自带 alpha**。
 //    全仓有大量 `hsl(var(--token) / N%)` 的「二次加 alpha」写法。
@@ -26,8 +26,8 @@
 //    设计稿初版的三个值没过线（暖纸浅色的三级文字、跃动活力版的珊瑚红与柠檬黄），
 //    已由 `.superpowers/sdd/afm-palette-solve.cjs` 求解出等色相的合规色再落进下面的 token。
 //
-// 与 `mac-variants.ts` 的分工：那六套是「macOS Finder 风格」的外来风格，
-// 这三套是 AFM 自己的品牌重设计，id 前缀 `afm-` 以示区分，两组并存可在设置里切换。
+// 2026-10-30 主题精简之后，这三套是内置主题里唯一「带 CSS 变量覆盖」的一组，
+// id 前缀 `afm-`，与经典主题（暗色 / 跟随系统）并存，可在设置里切换。
 
 export type AfmThemeId
   = | 'afm-warm-light'

@@ -1,5 +1,13 @@
 # Änderungsprotokoll
 
+## [3.6.7] - October 2026
+
+**Summary:** Die Themenauswahl ist kürzer geworden und das Standardaussehen hat sich geändert. Die sechs macOS-Finder-Themes und die unfertige eingebaute Option *Hell* sind entfernt; die Anwendung startet jetzt mit *Warmes Papier (Hell)*, einem der neuen Marken-Themes. *Dunkel* und *System folgen* bleiben unverändert.
+
+### What changed
+
+**Geändert: weniger Themes und ein neuer Standard.** Die Auswahl führte bisher zwölf eingebaute Erscheinungsbilder. Die sechs macOS-Finder-Themes (macOS Native, Refined Modern und Translucent Glass, jeweils in einer hellen und einer dunklen Version) sind entfernt, ebenso die eingebaute Option *Hell*, die noch als in Entwicklung gekennzeichnet war. Übrig bleiben *Dunkel*, *System folgen* und die drei Marken-Themes: *Warmes Papier (Hell)*, *Warmes Papier (Dunkel)* und *Vivid*. *Warmes Papier (Hell)* ist jetzt der Standard - eine frische Installation startet damit, und Ctrl+T wechselt zwischen ihm und *Dunkel*. War eines der entfernten Themes gespeichert, wechselt die Anwendung beim nächsten Start auf *Warmes Papier (Hell)* und lässt alle übrigen Einstellungen unberührt.
+
 ## [3.6.6] - October 2026
 
 **Summary:** Eine Aktualisierung schlägt nicht mehr fehl, während die Anwendung noch läuft. Beim Installieren einer neuen Version über eine ältere konnte die Installation mit „Uninstall was not successfully“ abbrechen, selbst nachdem Sie im Hinweis zum Schließen der laufenden Anwendung auf OK geklickt hatten: Der alte Deinstallierer bat die Anwendung, sich zu schließen, wartete aber nicht darauf, dass sie wirklich endete, und fragte danach das Betriebssystem, ob die installierte Datei noch geöffnet war - die Antwort war weiterhin ja, und er gab auf. Der Installer schließt die Anwendung nun selbst und wartet, bis die Programmdatei tatsächlich freigegeben ist, bevor er den alten Deinstallierer aufruft, sodass die Frage gar nicht erst gestellt wird.

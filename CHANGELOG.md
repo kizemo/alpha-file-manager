@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.6.7] - October 2026
+
+**Summary:** The theme picker is shorter and the default look has changed. The six macOS Finder-style themes and the unfinished built-in *Light* option are gone, and the application now opens in *Warm Paper (Light)*, one of the new brand themes. *Dark* and *Follow the system* stay as they were.
+
+### What changed
+
+**Changed: fewer themes, and a new default.** The picker used to list twelve built-in looks. The six macOS Finder-style ones (macOS Native, Refined Modern and Translucent Glass, each in a light and a dark version) are removed, and so is the built-in *Light* option, which was still marked as in development. What remains is *Dark*, *Follow the system*, and the three brand themes: *Warm Paper (Light)*, *Warm Paper (Dark)* and *Vivid*. *Warm Paper (Light)* is now the default - a fresh install opens in it, and Ctrl+T switches between it and *Dark*. If your saved theme was one of the removed ones, the application moves you to *Warm Paper (Light)* on the next start and leaves the rest of your settings alone.
+
 ## [3.6.6] - October 2026
 
 **Summary:** An update no longer fails when the application is still running. Installing a new version over an older copy could stop with "Uninstall was not successfully" even after you clicked OK on the prompt that asked you to close the running application: the old uninstaller asked the application to close but never waited for it to actually exit, then asked the operating system whether anything still had the installed program open - the answer was still yes, and it gave up. The installer now closes the application itself and waits until the program file is genuinely released before the old uninstaller is called, so the question never comes up. Three brand themes have been added as well: a warm-paper light look, a warm-paper dark look, and a lively look with brighter accents, all built around the application’s own steel-blue brand colour.

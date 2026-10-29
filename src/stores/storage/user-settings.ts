@@ -90,7 +90,7 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
       isHumanReviewed: true,
       isRtl: false,
     },
-    theme: 'light',
+    theme: 'afm-warm-light',
     text: {
       font: 'system-ui',
     },

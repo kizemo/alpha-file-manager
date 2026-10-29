@@ -381,24 +381,14 @@
       "theme": {
         "title": "Тема",
         "extensionThemes": "Темы расширений",
-        "macVariantThemes": "Темы в стиле macOS",
         "afmThemeThemes": "Брендовые темы AFM",
-        "macVariants": {
-          "classicLight": "Нативный macOS · Светлая",
-          "classicDark": "Нативный macOS · Тёмная",
-          "modernLight": "Утончённый современный · Светлая",
-          "modernDark": "Утончённый современный · Тёмная",
-          "glassLight": "Полупрозрачное стекло · Светлая",
-          "glassDark": "Полупрозрачное стекло · Тёмная"
-        },
         "afmThemes": {
           "warmLight": "Тёплая бумага · Светлая",
           "warmDark": "Тёплая бумага · Тёмная",
           "vividLight": "Яркая энергия"
         },
         "themeTypeRadio": {
-          "dark": "Темная",
-          "light": "Светлая (в разработке)"
+          "dark": "Темная"
         }
       }
     },

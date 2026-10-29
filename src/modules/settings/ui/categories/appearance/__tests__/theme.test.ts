@@ -2,14 +2,19 @@
 // License: GNU GPLv3 or later. See the license file in the project root for more information.
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
-// 这组测试盯的是「外观 → 主题」选择器（3.6.5 新增六套 macOS Finder 风格变体，
-// 2026-10-29 新增三套 AFM 品牌重设计主题）：
+// 这组测试盯的是「外观 → 主题」选择器。
+// FORK-MODIFICATION 2026-10-30：六套 macOS Finder 风格变体已删除，
+// 系统自带的「亮色（开发中）」也从可选主题里下架（'light' 只保留在 BuiltinThemeId 类型
+// 与 vars.css 的浅色 token 基座里，因为 ResolvedBuiltinThemeId、扩展主题 baseTheme
+// 与 afm-warm-light / afm-vivid-light 都依赖它）。
+// 默认为 AFM 暖纸浅，所以可选主题只剩 5 个：
+//   经典组（无标题）：暗色 / 跟随系统
+//   AFM 品牌组：暖纸浅 / 暖纸暗 / 跃动活力
 //
-// 1. **必须真的渲染出 12 个选项**：注册表里有 id 不等于界面上看得见。组合框的选项来自
-//    四段过滤（经典 / 内置变体 / AFM 主题 / 扩展主题），任何一段的过滤条件写错，主题就会从界面里
+// 1. **必须真的渲染出 5 个选项**：注册表里有 id 不等于界面上看得见。组合框的选项来自
+//    三段过滤（经典 / AFM 主题 / 扩展主题），任何一段的过滤条件写错，主题就会从界面里
 //    消失，而 npm run ts 与单测都不会报错。
-// 2. **分组标题必须在**：变体主题与 AFM 主题要各自单独归组，否则用户要从
-//    一长串里自己找。
+// 2. **分组标题必须在**：AFM 主题要单独归组，否则用户要从一长串里自己找。
 // 3. **名字键不能拼错**：拼错不会报错，只会渲染出原始 key 字符串。
 //
 // 替身组件一律用 h() 渲染函数，不写 HTML 模板字符串：模板字符串里的标签会让
@@ -26,7 +31,7 @@ import Theme from '@/modules/settings/ui/categories/appearance/theme.vue';
 const { userSettingsStoreMock, extensionsStorageStoreMock } = vi.hoisted(() => ({
   userSettingsStoreMock: {
     userSettings: {
-      theme: 'light',
+      theme: 'afm-warm-light',
     },
     set: vi.fn(async () => {}),
     setThemeTransitionOrigin: vi.fn(),
@@ -100,16 +105,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
   };
 });
 
-const MAC_GROUP_HEADING = 'settings.homeBannerEffects.theme.macVariantThemes';
-const MAC_VARIANT_NAME_KEYS = [
-  'settings.homeBannerEffects.theme.macVariants.classicLight',
-  'settings.homeBannerEffects.theme.macVariants.classicDark',
-  'settings.homeBannerEffects.theme.macVariants.modernLight',
-  'settings.homeBannerEffects.theme.macVariants.modernDark',
-  'settings.homeBannerEffects.theme.macVariants.glassLight',
-  'settings.homeBannerEffects.theme.macVariants.glassDark',
-];
-// FORK-MODIFICATION 2026-10-29：AFM 品牌重设计主题（暖纸浅 / 暖纸暗 / 跃动活力）。
+// FORK-MODIFICATION 2026-10-30：AFM 品牌重设计主题（暖纸浅 / 暖纸暗 / 跃动活力）。
 const AFM_GROUP_HEADING = 'settings.homeBannerEffects.theme.afmThemeThemes';
 const AFM_NAME_KEYS = [
   'settings.homeBannerEffects.theme.afmThemes.warmLight',
@@ -118,33 +114,42 @@ const AFM_NAME_KEYS = [
 ];
 const CLASSIC_NAME_KEYS = [
   'settings.homeBannerEffects.theme.themeTypeRadio.dark',
-  'settings.homeBannerEffects.theme.themeTypeRadio.light',
   'system',
+];
+// 已下架 / 已删除的主题：界面上一个都不能再出现。
+const REMOVED_NAME_KEYS = [
+  'settings.homeBannerEffects.theme.themeTypeRadio.light',
+  'settings.homeBannerEffects.theme.macVariantThemes',
+  'settings.homeBannerEffects.theme.macVariants.classicLight',
+  'settings.homeBannerEffects.theme.macVariants.classicDark',
+  'settings.homeBannerEffects.theme.macVariants.modernLight',
+  'settings.homeBannerEffects.theme.macVariants.modernDark',
+  'settings.homeBannerEffects.theme.macVariants.glassLight',
+  'settings.homeBannerEffects.theme.macVariants.glassDark',
 ];
 
 describe('theme settings', () => {
   beforeEach(() => {
-    userSettingsStoreMock.userSettings.theme = 'light';
+    userSettingsStoreMock.userSettings.theme = 'afm-warm-light';
     userSettingsStoreMock.set.mockClear();
   });
 
-  it('lists the three classic themes plus the six macOS variants plus the three AFM themes', () => {
+  it('lists the two classic themes plus the three AFM themes', () => {
     const wrapper = mount(Theme);
     const options = wrapper.findAll('.combobox-option');
 
-    expect(options, '主题选择器应当有 12 个选项').toHaveLength(12);
+    expect(options, '主题选择器应当有 5 个选项').toHaveLength(5);
   });
 
-  it('groups the macOS variants and the AFM themes under their own headings', () => {
+  it('groups the AFM themes under their own heading', () => {
     const wrapper = mount(Theme);
     const headings = wrapper.findAll('.combobox-group__heading');
 
-    expect(headings, '经典主题没有标题，变体主题与 AFM 主题各有一个分组标题').toHaveLength(2);
-    expect(headings[0].text()).toBe(MAC_GROUP_HEADING);
-    expect(headings[1].text()).toBe(AFM_GROUP_HEADING);
+    expect(headings, '经典主题没有标题，AFM 主题有一个分组标题').toHaveLength(1);
+    expect(headings[0].text()).toBe(AFM_GROUP_HEADING);
   });
 
-  it('names every classic theme, every macOS variant and every AFM theme', () => {
+  it('names every classic theme and every AFM theme', () => {
     const wrapper = mount(Theme);
     const names = wrapper.findAll('.combobox-option').map(option => option.text());
 
@@ -152,22 +157,28 @@ describe('theme settings', () => {
       expect(names, `经典主题应当包含 ${key}`).toContain(key);
     }
 
-    for (const key of MAC_VARIANT_NAME_KEYS) {
-      expect(names, `变体主题应当包含 ${key}`).toContain(key);
-    }
-
     for (const key of AFM_NAME_KEYS) {
       expect(names, `AFM 主题应当包含 ${key}`).toContain(key);
     }
   });
 
-  it('keeps the macOS variants and the AFM themes in their own groups', () => {
+  it('no longer offers the removed light option or the macOS variants', () => {
+    const wrapper = mount(Theme);
+    const names = wrapper.findAll('.combobox-option').map(option => option.text());
+    const headings = wrapper.findAll('.combobox-group__heading').map(node => node.text());
+
+    for (const key of REMOVED_NAME_KEYS) {
+      expect(names, `已下架的主题不应再出现：${key}`).not.toContain(key);
+      expect(headings, `已删除的分组标题不应再出现：${key}`).not.toContain(key);
+    }
+  });
+
+  it('keeps the AFM themes in their own group', () => {
     const wrapper = mount(Theme);
     const groups = wrapper.findAll('.combobox-group');
 
-    expect(groups).toHaveLength(3);
-    expect(groups[0].findAll('.combobox-option')).toHaveLength(3);
-    expect(groups[1].findAll('.combobox-option')).toHaveLength(6);
-    expect(groups[2].findAll('.combobox-option')).toHaveLength(3);
+    expect(groups).toHaveLength(2);
+    expect(groups[0].findAll('.combobox-option')).toHaveLength(2);
+    expect(groups[1].findAll('.combobox-option')).toHaveLength(3);
   });
 });

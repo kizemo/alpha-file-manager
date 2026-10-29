@@ -1,5 +1,13 @@
 # Journal des modifications
 
+## [3.6.7] - October 2026
+
+**Summary:** Le sélecteur de thèmes est plus court et l’apparence par défaut a changé. Les six thèmes de style macOS Finder et l’option intégrée *Clair*, encore inachevée, ont disparu, et l’application s’ouvre désormais sur *Papier chaud (clair)*, l’un des nouveaux thèmes de marque. *Sombre* et *Suivre le système* restent inchangés.
+
+### What changed
+
+**Changement : moins de thèmes et un nouveau thème par défaut.** Le sélecteur proposait jusqu’ici douze apparences intégrées. Les six thèmes de style macOS Finder (macOS Native, Refined Modern et Translucent Glass, chacun en version claire et sombre) sont supprimés, tout comme l’option intégrée *Clair*, encore signalée comme en développement. Il reste *Sombre*, *Suivre le système* et les trois thèmes de marque : *Papier chaud (clair)*, *Papier chaud (sombre)* et *Vivid*. *Papier chaud (clair)* est désormais le thème par défaut : une installation neuve s’ouvre dessus et Ctrl+T alterne entre lui et *Sombre*. Si votre thème enregistré était l’un de ceux qui ont été supprimés, l’application vous bascule sur *Papier chaud (clair)* au prochain démarrage et ne touche à aucun autre réglage.
+
 ## [3.6.6] - October 2026
 
 **Summary:** Une mise à jour n’échoue plus lorsque l’application est encore en cours d’exécution. L’installation d’une nouvelle version par-dessus une ancienne pouvait s’interrompre avec « Uninstall was not successfully », même après avoir cliqué sur OK dans l’invite demandant de fermer l’application en cours : l’ancien désinstallateur demandait à l’application de se fermer mais n’attendait jamais qu’elle le fasse vraiment, puis interrogeait le système d’exploitation pour savoir si le programme installé était encore utilisé - la réponse était toujours oui, et il abandonnait. Le programme d’installation ferme maintenant l’application lui-même et attend que le fichier du programme soit réellement libéré avant d’appeler l’ancien désinstallateur, si bien que la question n’est même plus posée.

@@ -381,24 +381,14 @@
       "theme": {
         "title": "تھیم",
         "extensionThemes": "ایکسٹینشن تھیمز",
-        "macVariantThemes": "macOS اسٹائل تھیمز",
         "afmThemeThemes": "AFM برانڈ تھیمز",
-        "macVariants": {
-          "classicLight": "اصل macOS · ہلکا",
-          "classicDark": "اصل macOS · گہرا",
-          "modernLight": "نفیس جدید · ہلکا",
-          "modernDark": "نفیس جدید · گہرا",
-          "glassLight": "نیم شفاف شیشہ · ہلکا",
-          "glassDark": "نیم شفاف شیشہ · گہرا"
-        },
         "afmThemes": {
           "warmLight": "گرم کاغذ · روشن",
           "warmDark": "گرم کاغذ · تاریک",
           "vividLight": "جوشنگار انرژی"
         },
         "themeTypeRadio": {
-          "dark": "ڈارک",
-          "light": "لائٹ (ترقی میں)"
+          "dark": "ڈارک"
         }
       }
     },

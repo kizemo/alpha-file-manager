@@ -5,7 +5,7 @@
 // FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：三套品牌重设计主题的单测。
 //
 // 这份用例守的是三组约束：
-//   1. 与 `mac-variants.ts` 同构的**技术约束** —— 裸 HSL 三元组、颜色 token 全覆盖、
+//   1. **技术约束** —— 裸 HSL 三元组、颜色 token 全覆盖、
 //      尺寸 token 一律不动、id 与 `BuiltinThemeId` 同步。
 //   2. 用户本轮下达的**框架约束**（C1/C3/C4）—— 图标轨仍是 42px、
 //      形状特征层不得出现任何布局属性、圆角阶梯不得推出负值。
@@ -40,7 +40,7 @@ const INDEX_CSS = readRepoFile('src', 'styles', 'index.css');
 const VARS_CSS = readRepoFile('src', 'styles', 'vars.css');
 const USER_SETTINGS_TS = readRepoFile('src', 'types', 'user-settings.ts');
 
-/** 基础色板：与 `mac-variants.ts` 的必备 token 集合保持一致。 */
+/** 基础色板：AFM 主题必须覆盖的必备 token 集合。 */
 const BASE_COLOR_TOKENS = [
   '--background',
   '--background-2',

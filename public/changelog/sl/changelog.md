@@ -1,5 +1,13 @@
 # Dnevnik sprememb
 
+## [3.6.7] - October 2026
+
+**Summary:** Izbirnik tem je krajši in privzeti videz se je spremenil. Šest tem v slogu macOS Finder in nedokončana vgrajena možnost *Svetlo* sta odstranjeni; aplikacija se zdaj odpre v *Topel papir (svetlo)*, eni od novih tem blagovne znamke. *Temno* in *Sledi sistemu* ostaneta nespremenjeni.
+
+### What changed
+
+**Spremenjeno: manj tem in nova privzeta.** Izbirnik je doslej našteval dvanajst vgrajenih videzov. Šest tem v slogu macOS Finder (macOS Native, Refined Modern in Translucent Glass, vsaka v svetli in temni različici) je odstranjenih, prav tako vgrajena možnost *Svetlo*, ki je bila še označena kot v razvoju. Ostanejo *Temno*, *Sledi sistemu* in tri teme blagovne znamke: *Topel papir (svetlo)*, *Topel papir (temno)* in *Vivid*. *Topel papir (svetlo)* je zdaj privzeta tema: nova namestitev se odpre v njej, Ctrl+T pa preklaplja med njo in *Temno*. Če je bila shranjena tema ena od odstranjenih, vas aplikacija ob naslednjem zagonu prestavi v *Topel papir (svetlo)* in pusti ostale nastavitve pri miru.
+
 ## [3.6.6] - October 2026
 
 **Summary:** Posodobitev se več ne spopedi, medtem ko je aplikacija še vedno zagnana. Namestitev nove različice čez starejšo se je lahko ustavila z »Uninstall was not successfully«, tudi potem, ko ste pri pozivu, da zaprete tekočo aplikacijo, kliknili »V redu«: star odstranitev je aplikacijo prosil, naj se zapre, a nikoli ni počakal, da bi se res zaprla, nato pa je operacijski sistem vprašal, ali je nameščeni program še v uporabi — odgovor je bil še vedno »da« in odstranitev je odpovedala. Namestilnik zdaj aplikacijo zapre sam in počaka, da je datoteka programa res sproščena, preden pokliče starega odstranitevalca, zato vprašanje sploh ni zastavljeno.
