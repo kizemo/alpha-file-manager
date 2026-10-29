@@ -65,6 +65,24 @@ Var AlphaKillInstDir
 Var AlphaLegacyInstDir
 
 ; -----------------------------------------------------------------------
+; 2026-10-29 早期安装守卫（.onInit 阶段）用的变量。
+;
+; AlphaGuardInstallerVersion = 本次安装包的版本号（由 installer.nsi 写入）
+; AlphaGuardUninstKey       = 已安装产品记录的注册表子键（由 installer.nsi 写入）
+;
+; 为什么要这两个由模板来写：hooks.nsh 在 installer.nsi 的 !include 位置
+; 早于 !define VERSION / !define UNINSTKEY，宏展开时拿不到那两个编译期
+; 常量。所以值从模板传进来，逻辑留在本文件里。
+;
+; 2026-10-29：原先还有一个 AlphaGuardForce（命令行里有 /FORCE 时置 1），
+; 现已删除 —— 「/FORCE 有没有被识别」这个判断搬进了 early-guard.ps1
+; （PowerShell 有正则，也能被单元测试覆盖）。NSIS 侧用 StrCmp 匹配通配符
+; 实测不可用，详见 AlphaCaptureCommandLine 的注释。
+; -----------------------------------------------------------------------
+Var AlphaGuardInstallerVersion
+Var AlphaGuardUninstKey
+
+; -----------------------------------------------------------------------
 ; AlphaNormalizeInstDir — the single gate between "a registry string" and
 ; "$INSTDIR".
 ;
@@ -274,6 +292,107 @@ FunctionEnd
 !macroend
 
 ; -----------------------------------------------------------------------
+; AFM_HOOK_EARLYINIT — 模板在 .onInit 的最前面调用它。
+;
+; installer.nsi 里长这样：
+;
+;   !ifdef AFM_HOOK_EARLYINIT
+;     StrCpy $AlphaGuardInstallerVersion "${VERSION}"
+;     StrCpy $AlphaGuardUninstKey "${UNINSTKEY}"
+;     !insertmacro NSIS_HOOK_EARLYINIT
+;   !endif
+;
+; 为什么必须是 .onInit：那是模板里**唯一**能在向导页出现之前拿到控制权的
+; 位置。PREINSTALL 太晚了 —— 向导已经弹出来了，关掉它对用户没有意义。
+;
+; 这个钩子解决的具体问题（2026-10-29 真机复现）：
+; 会话界面里带着安装包附件（<media type="file" src="...setup.exe" />），
+; 宿主渲染这个附件时会「自动打开」它 —— .exe 没有内置预览器，于是走
+; 系统默认处理 = 直接执行 setup.exe = NSIS 向导弹窗。**每次切回会话
+; 界面就重新渲染一次，于是每次都弹一次。**
+;
+; 安装包改不了宿主，但可以让「重复运行自己」变得无害：版本不比已装的
+; 更新时（同一个版本，或者更旧），根本没东西可装 —— 于是在任何窗口
+; 出现之前静默退出。
+;
+; 静默是刻意的：弹窗场景就是「用户没要求装」，任何模态框都只是把一种
+; 弹窗换成另一种弹窗。人工要重装 / 降级时用 setup.exe /FORCE。
+; -----------------------------------------------------------------------
+!define AFM_HOOK_EARLYINIT
+!macro NSIS_HOOK_EARLYINIT
+  Call AlphaCaptureCommandLine
+  Call AlphaEarlyInstallGuard
+!macroend
+
+; -----------------------------------------------------------------------
+; AlphaCaptureCommandLine — 把本次启动的完整命令行原样写进 $PLUGINSDIR。
+;
+; 「人工重装 / 降级」的逃生口是 setup.exe /FORCE。这个开关的**识别**放在
+; early-guard.ps1 里做（PowerShell 有正则，也有单元测试能覆盖），NSIS 这一侧
+; 只负责把原始命令行交出去。
+;
+; 为什么不在 NSIS 里用 StrCmp 匹配 /FORCE：
+;   实测（2026-10-29，本机 NSIS 3.x，最小复现探针 probe-force.nsi）：
+;   $CMDLINE 的内容确实是
+;       "C:\...\setup.exe" /FORCE
+;   但 StrCmp $CMDLINE "* /FORCE" 判定为**不相等**，8 种形态一次都没匹配上，
+;   于是 /FORCE 形同虚设（守卫日志里 force 永远是 0）。
+;
+; 为什么不用 $1 .. $9：
+;   实测同一个探针里，安装器进程中的 $1 是**空的** —— NSIS 只在卸载器里把
+;   命令行参数放进 $1..$9，安装器里拿不到。
+;
+; 为什么写成文件而不是直接当命令行参数传给 nsExec：
+;   $CMDLINE 里带双引号，插进 nsExec 的命令行会把引号结构打破。走文件没有
+;   这个问题。FileWrite 会原样写出内容（实测无换行污染）。
+; -----------------------------------------------------------------------
+Function AlphaCaptureCommandLine
+  InitPluginsDir
+  FileOpen $9 "$PLUGINSDIR\afm-commandline.txt" w
+  FileWrite $9 "$CMDLINE"
+  FileClose $9
+FunctionEnd
+
+; -----------------------------------------------------------------------
+; AlphaEarlyInstallGuard — 「这次运行值不值得弹界面」的判定。
+;
+; 判据（详见 early-guard.ps1 顶部注释）：
+;   没装过 / 版本更新 / 判不出来 -> 放行
+;   同版本 / 版本更旧              -> 静默退出（一个窗口都不弹）
+;
+; 判定逻辑放在独立的 PowerShell 脚本里（编译期内嵌、运行期原样解包到
+; $PLUGINSDIR），原因有二：
+;   1. 版本比较要读注册表、还要正确处理预发布号，NSIS 里写不划算；
+;   2. 「判不出来就放行」这条失败开放策略，用脚本更容易写清楚、也更容易
+;      被单测覆盖 —— 守卫坏了不能让产品装不上。
+;
+; 脚本通过「判定文件」回话，而不是靠 nsExec 的退出码：nsExec::ExecToLog
+; 不回传退出码，而 ExecToStack 的压栈顺序不值得赌（与本文件里既有的
+; 单实例守卫同一个理由）。
+; -----------------------------------------------------------------------
+Function AlphaEarlyInstallGuard
+  ; --- 1. 解包并运行判定脚本 ---------------------------------------------
+  InitPluginsDir
+  File /oname=$PLUGINSDIR\early-guard.ps1 "${__FILEDIR__}\early-guard.ps1"
+  Delete "$PLUGINSDIR\alpha-early-guard.verdict"
+
+  DetailPrint "==> [EARLY GUARD] checking whether this installer has anything to do ..."
+  DetailPrint "==> [EARLY GUARD] guard log: $TEMP\alpha-file-manager-early-guard.log"
+
+  nsExec::ExecToLog /TIMEOUT=20000 'powershell -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\early-guard.ps1" -InstallerVersion "$AlphaGuardInstallerVersion" -UninstKey "$AlphaGuardUninstKey" -CommandLineFile "$PLUGINSDIR\afm-commandline.txt" -VerdictFile "$PLUGINSDIR\alpha-early-guard.verdict"'
+
+  ; --- 2. 只有「判定为不要弹界面」时脚本才会留下判定文件 ------------------
+  ; 文件不存在 = 放行。脚本自己跑挂 / 读不到注册表 / 版本比不出来，
+  ; 都会走到「放行」这一侧。
+  IfFileExists "$PLUGINSDIR\alpha-early-guard.verdict" 0 alpha_early_guard_done
+    DetailPrint "==> [EARLY GUARD] the installed version is not older than this package; nothing to do."
+    DetailPrint "==> [EARLY GUARD] exiting without showing the wizard."
+    DetailPrint "==> [EARLY GUARD] run the setup with /FORCE to show the wizard anyway."
+    Quit
+  alpha_early_guard_done:
+FunctionEnd
+
+; -----------------------------------------------------------------------
 ; AlphaCheckSingleInstance — 2026-10-19 单实例守卫。
 ;
 ; 真机症状：用户只点了一次安装，同一份安装包却跑起了 6 个安装器进程
@@ -292,10 +411,12 @@ FunctionEnd
 ; 可能互相都看不到对方，于是两个都装。最低 PID 当选是确定性的：无论怎么交错，
 ; **恰好一个**会继续。不死锁、不重装。
 ;
-; 为什么不用互斥体：互斥体要「整个安装期间」持有，而 Tauri 的 NSIS 模板
-; 在向导页之前没有任何钩子（只有 PREINSTALL / POSTINSTALL / PREUNINSTALL /
-; POSTUNINSTALL 四个，.onInit 是模板自己的、无法覆盖），能拿锁的地方
+; 为什么不用互斥体：互斥体要「整个安装期间」持有，而这里能拿锁的位置
 ; 恰好就是现在做检查的地方 —— 锁和选举解决的是同一个问题。
+; （2026-10-29 更正：早先这里写的是「模板在向导页之前没有任何钩子」，那是
+; 错的 —— 我们自己在 vendor 模板的 .onInit 里挂了一个钩子。只是那个钩子
+; 判的是「版本要不要装」，不是「有没有别人在装」；单实例选举仍然只在这里做，
+; 因为它要看的是**还活着的安装器进程**，只有等安装器真的跑起来才有意义。）
 ;
 ; 判定逻辑在 installer/check-single-instance.ps1 里（可单测，见
 ; installer/_acceptance/test-single-instance-guard.ps1）。本函数只负责
