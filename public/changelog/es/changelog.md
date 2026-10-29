@@ -1,5 +1,13 @@
 # Registro de cambios
 
+## [3.6.7] - October 2026
+
+**Summary:** El selector de temas es más corto y el aspecto predeterminado ha cambiado. Los seis temas de estilo macOS Finder y la opción integrada *Claro*, aún sin terminar, han desaparecido, y la aplicación se abre ahora en *Papel cálido (claro)*, uno de los nuevos temas de marca. *Oscuro* y *Seguir el sistema* quedan igual.
+
+### What changed
+
+**Cambiado: menos temas y un nuevo predeterminado.** El selector ofrecía hasta ahora doce aspectos integrados. Los seis de estilo macOS Finder (macOS Native, Refined Modern y Translucent Glass, cada uno en versión clara y oscura) se han eliminado, igual que la opción integrada *Claro*, que todavía figuraba como en desarrollo. Quedan *Oscuro*, *Seguir el sistema* y los tres temas de marca: *Papel cálido (claro)*, *Papel cálido (oscuro)* y *Vivid*. *Papel cálido (claro)* es ahora el predeterminado: una instalación nueva se abre con él y Ctrl+T alterna entre él y *Oscuro*. Si tu tema guardado era uno de los eliminados, la aplicación te pasa a *Papel cálido (claro)* en el siguiente inicio y no toca nada más.
+
 ## [3.6.6] - October 2026
 
 **Summary:** Una actualización ya no falla mientras la aplicación sigue en marcha. Al instalar una versión nueva sobre una anterior, la instalación podía detenerse con «Uninstall was not successfully» incluso después de haber pulsado Aceptar en el aviso que pedía cerrar la aplicación en ejecución: el desinstalador antiguo pedía a la aplicación que se cerrara, pero nunca esperaba a que terminara de verdad, y después preguntaba al sistema operativo si el programa instalado seguía en uso; la respuesta seguía siendo que sí, y se rendía. Ahora el instalador cierra la aplicación por sí mismo y espera a que el archivo del programa quede realmente liberado antes de llamar al desinstalador antiguo, así que la pregunta ni siquiera llega a formularse.

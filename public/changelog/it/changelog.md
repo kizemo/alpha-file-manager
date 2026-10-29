@@ -1,5 +1,13 @@
 # Registro delle modifiche
 
+## [3.6.7] - October 2026
+
+**Summary:** Il selettore del tema è più corto e l’aspetto predefinito è cambiato. I sei temi in stile macOS Finder e l’opzione integrata *Chiaro*, ancora incompleta, sono stati rimossi, e l’applicazione ora si apre con *Carta calda (chiaro)*, uno dei nuovi temi del brand. *Scuro* e *Segui il sistema* restano invariati.
+
+### What changed
+
+**Cambiato: meno temi e un nuovo predefinito.** Il selettore elencava finora dodici aspetti integrati. I sei in stile macOS Finder (macOS Native, Refined Modern e Translucent Glass, ciascuno in versione chiara e scura) sono stati rimossi, così come l’opzione integrata *Chiaro*, ancora contrassegnata come in sviluppo. Restano *Scuro*, *Segui il sistema* e i tre temi del brand: *Carta calda (chiaro)*, *Carta calda (scuro)* e *Vivid*. *Carta calda (chiaro)* è ora il predefinito: una nuova installazione si apre con esso e Ctrl+T passa tra esso e *Scuro*. Se il tema salvato era uno di quelli rimossi, l’applicazione ti sposta su *Carta calda (chiaro)* al prossimo avvio e non tocca nessun’altra impostazione.
+
 ## [3.6.6] - October 2026
 
 **Summary:** Un aggiornamento non fallisce più mentre l’applicazione è ancora in esecuzione. Installando una versione nuova sopra una più vecchia, l’installazione poteva fermarsi con «Uninstall was not successfully» anche dopo aver premuto OK nell’avviso che chiedeva di chiudere l’applicazione in esecuzione: il vecchio programma di disinstallazione chiedeva all’applicazione di chiudersi ma non aspettava mai che lo facesse davvero, poi interrogava il sistema operativo per sapere se il programma installato fosse ancora in uso - la risposta era sempre sì, e si arrendeva. Ora il programma di installazione chiude l’applicazione per conto proprio e aspetta che il file del programma venga davvero liberato prima di richiamare il vecchio programma di disinstallazione, così la domanda non viene nemmeno posta.

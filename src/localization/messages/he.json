@@ -381,24 +381,14 @@
       "theme": {
         "title": "ערכת נושא",
         "extensionThemes": "ערכות נושא מתוספים",
-        "macVariantThemes": "ערכות נושא בסגנון macOS",
         "afmThemeThemes": "ערכות נושא של AFM",
-        "macVariants": {
-          "classicLight": "macOS מקורי · בהיר",
-          "classicDark": "macOS מקורי · כהה",
-          "modernLight": "מודרני מעודן · בהיר",
-          "modernDark": "מודרני מעודן · כהה",
-          "glassLight": "זכוכית שקופה למחצה · בהיר",
-          "glassDark": "זכוכית שקופה למחצה · כהה"
-        },
         "afmThemes": {
           "warmLight": "נייר חמים · בהיר",
           "warmDark": "נייר חמים · כהה",
           "vividLight": "אנרגיה עזה"
         },
         "themeTypeRadio": {
-          "dark": "כהה",
-          "light": "בהיר (בפיתוח)"
+          "dark": "כהה"
         }
       }
     },

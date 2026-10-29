@@ -381,24 +381,14 @@
       "theme": {
         "title": "Theme",
         "extensionThemes": "Extension themes",
-        "macVariantThemes": "macOS-style themes",
         "afmThemeThemes": "AFM Brand Themes",
-        "macVariants": {
-          "classicLight": "macOS Native · Light",
-          "classicDark": "macOS Native · Dark",
-          "modernLight": "Refined Modern · Light",
-          "modernDark": "Refined Modern · Dark",
-          "glassLight": "Translucent Glass · Light",
-          "glassDark": "Translucent Glass · Dark"
-        },
         "afmThemes": {
           "warmLight": "Warm Paper · Light",
           "warmDark": "Warm Paper · Dark",
           "vividLight": "Vivid Energy"
         },
         "themeTypeRadio": {
-          "dark": "Dark",
-          "light": "Light (in development)"
+          "dark": "Dark"
         }
       }
     },

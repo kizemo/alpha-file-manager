@@ -346,24 +346,14 @@
       "theme": {
         "title": "Tema",
         "extensionThemes": "Uzantı temaları",
-        "macVariantThemes": "macOS tarzı temalar",
         "afmThemeThemes": "AFM marka temaları",
-        "macVariants": {
-          "classicLight": "macOS yerel · Açık",
-          "classicDark": "macOS yerel · Koyu",
-          "modernLight": "Rafine modern · Açık",
-          "modernDark": "Rafine modern · Koyu",
-          "glassLight": "Yarı saydam cam · Açık",
-          "glassDark": "Yarı saydam cam · Koyu"
-        },
         "afmThemes": {
           "warmLight": "Sıcak kağıt · Açık",
           "warmDark": "Sıcak kağıt · Koyu",
           "vividLight": "Canlı enerji"
         },
         "themeTypeRadio": {
-          "dark": "Karanlık",
-          "light": "Hafif (geliştirme aşamasında)"
+          "dark": "Karanlık"
         }
       }
     },

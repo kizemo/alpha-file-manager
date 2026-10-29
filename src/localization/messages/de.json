@@ -346,24 +346,14 @@
       "theme": {
         "title": "Thema",
         "extensionThemes": "Erweiterungsthemen",
-        "macVariantThemes": "macOS-Stil-Themes",
         "afmThemeThemes": "AFM-Markenthemen",
-        "macVariants": {
-          "classicLight": "macOS nativ · Hell",
-          "classicDark": "macOS nativ · Dunkel",
-          "modernLight": "Refiniert modern · Hell",
-          "modernDark": "Refiniert modern · Dunkel",
-          "glassLight": "Transluzentes Glas · Hell",
-          "glassDark": "Transluzentes Glas · Dunkel"
-        },
         "afmThemes": {
           "warmLight": "Warmes Papier · Hell",
           "warmDark": "Warmes Papier · Dunkel",
           "vividLight": "Lebendige Farben"
         },
         "themeTypeRadio": {
-          "dark": "Dunkel",
-          "light": "Licht (in Entwicklung)"
+          "dark": "Dunkel"
         }
       }
     },

@@ -381,24 +381,14 @@
       "theme": {
         "title": "Tema",
         "extensionThemes": "Teme razširitev",
-        "macVariantThemes": "Teme v slogu macOS",
         "afmThemeThemes": "Znamke teme AFM",
-        "macVariants": {
-          "classicLight": "macOS izvirno · Svetla",
-          "classicDark": "macOS izvirno · Temna",
-          "modernLight": "Drobno moderen · Svetla",
-          "modernDark": "Drobno moderen · Temna",
-          "glassLight": "Polprozoren steklo · Svetla",
-          "glassDark": "Polprozoren steklo · Temna"
-        },
         "afmThemes": {
           "warmLight": "Topel papir · Svetla",
           "warmDark": "Topel papir · Temna",
           "vividLight": "Živa energija"
         },
         "themeTypeRadio": {
-          "dark": "Temna",
-          "light": "Svetla (v razvoju)"
+          "dark": "Temna"
         }
       }
     },

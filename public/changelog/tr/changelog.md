@@ -1,5 +1,13 @@
 # Değişiklik Günlüğü
 
+## [3.6.7] - October 2026
+
+**Summary:** Tema seçici kısaldı ve varsayılan görünüm değişti. Altı macOS Finder tarzı tema ile henüz bitmemiş yerleşik *Açık* seçeneği kaldırıldı; uygulama artık yeni marka temalarından biri olan *Sıcak Kağıt (açık)* ile açılıyor. *Koyu* ve *Sistemi takip et* olduğu gibi kaldı.
+
+### What changed
+
+**Değişti: daha az tema ve yeni bir varsayılan.** Seçici bugüne kadar on iki yerleşik görünüm listeliyordu. Altı macOS Finder tarzı tema (macOS Native, Refined Modern ve Translucent Glass, her biri açık ve koyu sürümlü) kaldırıldı; hâlâ geliştirme aşamasında olarak işaretli yerleşik *Açık* seçeneği de öyle. Geriye *Koyu*, *Sistemi takip et* ve üç marka teması kaldı: *Sıcak Kağıt (açık)*, *Sıcak Kağıt (koyu)* ve *Vivid*. *Sıcak Kağıt (açık)* artık varsayılan: yeni bir kurulum onunla açılır ve Ctrl+T onunla *Koyu* arasında geçiş yapar. Kayıtlı temanız kaldırılanlardan biriyse, uygulama bir sonraki açılışta sizi *Sıcak Kağıt (açık)* temasına taşır ve diğer ayarlarınıza dokunmaz.
+
 ## [3.6.6] - October 2026
 
 **Summary:** Uygulama hâlâ çalışırken güncelleme artık başarısız olmuyor. Yeni bir sürümü eskisinin üzerine kurmak, çalışan uygulamayı kapatma uyarısında «Tamam» dediğiniz halde «Uninstall was not successfully» ile durabiliyordu: eski kaldırıcı uygulamadan kendini kapatmasını istiyor, ama gerçekten kapandığını beklemiyordu; ardından işletim sistemine «kurulu program hâlâ kullanılıyor mu» diye soruyor, cevap hâlâ «evet» çıkıyor ve vazgeçiyordu. Artık kurulum programı uygulamayı kendisi kapatıyor ve program dosyası gerçekten serbest bırakılana kadar bekledikten sonra eski kaldırıcıyı çağırıyor; yani bu soru hiç sorulmuyor.

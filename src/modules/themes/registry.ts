@@ -4,21 +4,17 @@
 
 import type { InstalledExtensionData } from '@/types/extension';
 import type { BuiltinThemeId, Theme } from '@/types/user-settings';
-import {
-  isMacVariantThemeId,
-  MAC_VARIANT_THEMES,
-} from '@/modules/themes/mac-variants';
 // FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：三套品牌重设计主题。
 import {
   isAfmThemeId,
   AFM_THEMES,
 } from '@/modules/themes/afm-themes';
 
-export const BUILTIN_THEME_IDS = ['dark', 'light', 'system'] as const;
-export const DEFAULT_THEME_ID: BuiltinThemeId = 'light';
+export const BUILTIN_THEME_IDS = ['dark', 'system'] as const;
+export const DEFAULT_THEME_ID: BuiltinThemeId = 'afm-warm-light';
 
 // FORK-MODIFICATION 2026-10-29：原来这里是 `Exclude<BuiltinThemeId, 'system'>`，
-// BuiltinThemeId 扩出六个 mac 变体 id 之后，那个排除会把变体 id 也算进来，
+// BuiltinThemeId 扩出 afm-* 变体 id 之后，那个排除会把变体 id 也算进来，
 // 而扩展主题的 baseTheme 只允许 'light' / 'dark'，所以这里必须写死。
 type ResolvedBuiltinThemeId = 'light' | 'dark';
 
@@ -27,8 +23,8 @@ type BuiltinThemeOption = {
   source: 'builtin';
   builtinThemeId: BuiltinThemeId;
   /**
-   * FORK-MODIFICATION 2026-10-29：内置变体主题（macOS Finder 风格六套）的 CSS 变量覆盖。
-   * 经典主题（light / dark / system）没有这个字段；`use-theme.ts` 用它区分两条应用路径。
+   * FORK-MODIFICATION 2026-10-29：内置变体主题（AFM 品牌三套）的 CSS 变量覆盖。
+   * 经典主题（dark / system）没有这个字段；`use-theme.ts` 用它区分两条应用路径。
    */
   baseTheme?: 'light' | 'dark';
   variables?: Record<`--${string}`, string>;
@@ -82,14 +78,6 @@ export function parseThemeId(theme: string): ParsedThemeId | null {
     };
   }
 
-  // FORK-MODIFICATION 2026-10-29：内置 macOS Finder 风格变体也走 builtin 通道。
-  if (isMacVariantThemeId(theme)) {
-    return {
-      source: 'builtin',
-      builtinThemeId: theme,
-    };
-  }
-
   // FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：三套品牌重设计主题同样走 builtin 通道。
   if (isAfmThemeId(theme)) {
     return {
@@ -132,22 +120,8 @@ export function getBuiltinThemeOptions(): ThemeOption[] {
 }
 
 /**
- * FORK-MODIFICATION 2026-10-29：六套内置 macOS Finder 风格主题。
- * 与扩展主题同构（基础明暗 + CSS 变量覆盖），所以 `use-theme.ts` 应用逻辑完全复用。
- */
-export function getMacVariantThemeOptions(): ThemeOption[] {
-  return MAC_VARIANT_THEMES.map(theme => ({
-    id: theme.id,
-    source: 'builtin' as const,
-    builtinThemeId: theme.id,
-    baseTheme: theme.baseTheme,
-    variables: theme.variables,
-  }));
-}
-
-/**
  * FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：三套品牌重设计主题。
- * 与上面两组同构（基础明暗 + CSS 变量覆盖），额外带 `cssThemeId`，
+ * 与扩展主题同构（基础明暗 + CSS 变量覆盖），额外带 `cssThemeId`，
  * 供 `use-theme.ts` 写到 `<html data-afm-theme>` 上做形状特征的作用域覆盖。
  */
 export function getAfmThemeOptions(): ThemeOption[] {
@@ -209,7 +183,6 @@ export function getAvailableThemeOptions(
 ): ThemeOption[] {
   return [
     ...getBuiltinThemeOptions(),
-    ...getMacVariantThemeOptions(),
     ...getAfmThemeOptions(),
     ...getExtensionThemeOptions(installedExtensions),
   ];
@@ -233,10 +206,8 @@ export function findThemeOption(
       return builtinOption;
     }
 
-    return getMacVariantThemeOptions()
-      .find(option => option.id === parsedTheme.builtinThemeId)
-      ?? getAfmThemeOptions()
-        .find(option => option.id === parsedTheme.builtinThemeId);
+    return getAfmThemeOptions()
+      .find(option => option.id === parsedTheme.builtinThemeId);
   }
 
   return getExtensionThemeOptions(installedExtensions).find((option) => {

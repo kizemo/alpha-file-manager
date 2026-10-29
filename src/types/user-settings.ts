@@ -266,22 +266,16 @@ export type LocalizationLanguage = {
   isRtl: boolean;
 };
 
-// FORK-MODIFICATION 2026-10-29（AFM 3.6.5）：新增六个内置 macOS Finder 风格主题
-// （原生还原 / 精致现代 / 半透明玻璃 × 浅色 / 深色），与 light / dark / system 并存可切换。
-// 这六个 id 与 `src/modules/themes/mac-variants.ts` 里的 `MAC_VARIANT_THEME_IDS` 一一对应，
-// 该文件有单测断言两边不漂移。
+// FORK-MODIFICATION 2026-10-30（AFM 3.6.7 · 主题精简）：六套 macOS Finder 风格主题与
+// 系统自带的「亮色（开发中）」已从**可选主题**中下架（见 `registry.ts` 的 `BUILTIN_THEME_IDS`）。
+// 但 `light` 必须保留在本类型里：它是 `ResolvedBuiltinThemeId` 与浅色 token 基座
+// （`src/styles/vars.css` 的 `:root`），AFM 浅色主题与扩展主题的 `baseTheme` 都依赖它。
 export type BuiltinThemeId
   = | 'light'
     | 'dark'
     | 'system'
-    | 'mac-classic-light'
-    | 'mac-classic-dark'
-    | 'mac-modern-light'
-    | 'mac-modern-dark'
-    | 'mac-glass-light'
-    | 'mac-glass-dark'
     // FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：三套品牌重设计主题
-    // （暖纸浅色 / 暖纸暗色 / 跃动活力），与上面的 macOS 风格变体并存可切换。
+    // （暖纸浅色 / 暖纸暗色 / 跃动活力），与经典主题（暗色 / 跟随系统）并存可切换。
     // 这三个 id 与 `src/modules/themes/afm-themes.ts` 里的 `AFM_THEME_IDS` 一一对应，
     // 该文件有单测断言两边不漂移。
     | 'afm-warm-light'
