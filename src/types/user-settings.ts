@@ -279,7 +279,14 @@ export type BuiltinThemeId
     | 'mac-modern-light'
     | 'mac-modern-dark'
     | 'mac-glass-light'
-    | 'mac-glass-dark';
+    | 'mac-glass-dark'
+    // FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：三套品牌重设计主题
+    // （暖纸浅色 / 暖纸暗色 / 跃动活力），与上面的 macOS 风格变体并存可切换。
+    // 这三个 id 与 `src/modules/themes/afm-themes.ts` 里的 `AFM_THEME_IDS` 一一对应，
+    // 该文件有单测断言两边不漂移。
+    | 'afm-warm-light'
+    | 'afm-warm-dark'
+    | 'afm-vivid-light';
 export type Theme = BuiltinThemeId | `extension:${string}:${string}`;
 export type NavigatorIconTheme = string;
 

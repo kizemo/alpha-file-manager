@@ -347,6 +347,7 @@
         "title": "Tema",
         "extensionThemes": "Temi delle estensioni",
         "macVariantThemes": "Temi in stile macOS",
+        "afmThemeThemes": "Temi del marchio AFM",
         "macVariants": {
           "classicLight": "macOS nativo · Chiaro",
           "classicDark": "macOS nativo · Scuro",
@@ -354,6 +355,11 @@
           "modernDark": "Moderno raffinato · Scuro",
           "glassLight": "Vetro traslucido · Chiaro",
           "glassDark": "Vetro traslucido · Scuro"
+        },
+        "afmThemes": {
+          "warmLight": "Carta calda · Chiaro",
+          "warmDark": "Carta calda · Scuro",
+          "vividLight": "Energia vivace"
         },
         "themeTypeRadio": {
           "dark": "Scuro",

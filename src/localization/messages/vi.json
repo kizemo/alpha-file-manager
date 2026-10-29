@@ -347,6 +347,7 @@
         "title": "Chủ đề",
         "extensionThemes": "Chủ đề tiện ích mở rộng",
         "macVariantThemes": "Chủ đề phong cách macOS",
+        "afmThemeThemes": "Chủ đề thương hiệu AFM",
         "macVariants": {
           "classicLight": "macOS gốc · Sáng",
           "classicDark": "macOS gốc · Tối",
@@ -354,6 +355,11 @@
           "modernDark": "Hiện đại tinh tế · Tối",
           "glassLight": "Kính bán trong suốt · Sáng",
           "glassDark": "Kính bán trong suốt · Tối"
+        },
+        "afmThemes": {
+          "warmLight": "Giấy ấm · Sáng",
+          "warmDark": "Giấy ấm · Tối",
+          "vividLight": "Năng lượng rực rỡ"
         },
         "themeTypeRadio": {
           "dark": "Tối",

@@ -107,6 +107,28 @@
   --success: 174 100% 27%;
   --dangerous: 4 82% 58%;
   --warning: 38 70% 50%;
+
+  /* FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：品牌与主题扩展 token。
+     三套重设计主题（暖纸浅色 / 暖纸暗色 / 跃动活力）覆盖这批变量换肤，
+     扩展主题也可以复用同一批变量名。
+     注意：全部是裸 HSL 三元组，不带 alpha —— 全仓有 `hsl(var(--token) / N%)`
+     的二次加 alpha 写法，token 自带 alpha 会让那些声明整体失效。 */
+  --brand: 200 16.9% 45.3%;
+  --brand-foreground: 0 0% 100%;
+  --accent: 220 13% 40%;
+  --accent-foreground: 0 0% 100%;
+  --accent-ink: 220 16% 28%;
+  --accent-muted: 220 13% 93%;
+
+  /* 左侧图标轨底色（宽度由 --nav-sidebar-width 控制，这里只给颜色） */
+  --nav-rail-background: 220 13% 93%;
+  --nav-rail-foreground: 220 9% 38%;
+  --nav-rail-muted-foreground: 220 8.9% 46.1%;
+
+  /* 标题字族：主题可以换成衬线等风格 */
+  --font-display:
+    system-ui, -apple-system, "Segoe UI", roboto, "Helvetica Neue", "PingFang SC", "Microsoft YaHei",
+    sans-serif;
 }
 
 .dark {
@@ -140,4 +162,15 @@
   --success: 174 100% 27%;
   --dangerous: 4 82% 58%;
   --warning: 43 70% 56%;
+
+  /* FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：暗色底下的品牌与点缀 token。 */
+  --brand: 200 27.2% 70.4%;
+  --brand-foreground: 220 14% 8%;
+  --accent: 198 19% 58%;
+  --accent-foreground: 220 14% 8%;
+  --accent-ink: 198 24% 76%;
+  --accent-muted: 225 10% 20%;
+  --nav-rail-background: 225 10% 16%;
+  --nav-rail-foreground: 0 0% 62%;
+  --nav-rail-muted-foreground: 0 0% 62%;
 }

@@ -347,6 +347,7 @@
         "title": "主题",
         "extensionThemes": "扩展主题",
         "macVariantThemes": "macOS 风格主题",
+        "afmThemeThemes": "AFM 品牌主题",
         "macVariants": {
           "classicLight": "macOS 原生 · 浅色",
           "classicDark": "macOS 原生 · 深色",
@@ -354,6 +355,11 @@
           "modernDark": "精致现代 · 深色",
           "glassLight": "半透明玻璃 · 浅色",
           "glassDark": "半透明玻璃 · 深色"
+        },
+        "afmThemes": {
+          "warmLight": "暖纸 · 浅色",
+          "warmDark": "暖纸 · 深色",
+          "vividLight": "跃动活力"
         },
         "themeTypeRadio": {
           "dark": "暗色",
