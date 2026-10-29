@@ -187,41 +187,33 @@ GitHub releases carry the same installer and act as a fallback mirror:
 
 ---
 
-## 🆕 What's new in 3.6.4
+## 🆕 What's new in 3.6.5
 
-### 🧠 A lot less memory held on to
+### 🖼️ The home cover reacts right away
 
-**Improved.** The same machine, the same account, the same drive: the working set
-dropped from 961.2 MB to 742.8 MB on a cold start (-22.7 %), and the cache on disk
-from 805.58 MB to 66.21 MB (-91.8 %).
+**Fixed.** Clicking the cover on the home page used to look broken: nothing happened
+for a long moment, because every default background still had to be downloaded over the
+network before it could be shown. All 21 default backgrounds now ship inside the
+installer, so picking one takes effect immediately - the new cover is on screen in
+about a quarter of a second and no network connection is involved at all. The download
+progress bar is gone with them.
 
-Four things did it. The thumbnail cache in the interface is no longer rebuilt from
-scratch every time the view changes - the rendering process gives 68 MB back, and
-that is where almost the whole reduction comes from. The hidden Quick View window is
-no longer started ahead of time, which takes one whole WebView2 rendering process
-off the list. A batch of structural changes - the search index, the directory
-watchers, the virtualised list - takes the rest. And the accumulated thumbnail and
-search-index cache was cleared: 739 MB off the disk, rebuilt on demand afterwards.
+### 🎨 Six macOS Finder-style themes
 
-### 🛟 A crashed WebView2 comes back on its own
+**Added.** The theme picker now offers six new themes, in three families, each with a
+light and a dark variant:
 
-**Added.** When the WebView2 rendering process died, the window stayed blank and the
-only way out was to start the program again. A watchdog now keeps an eye on it: if
-the rendering process disappears, or the interface stops sending its heartbeat for
-more than 20 seconds, the page is reloaded. If it comes back, nothing happens. If it
-does not, a system dialog offers to restart the program - once per failure, so it
-never nags.
+- **Classic** - the macOS system look, rebuilt faithfully: system blue accent, the
+  original sidebar and toolbar tones.
+- **Modern** - softer layering, rounder corners, ambient shadows, and a near-black
+  accent that keeps Alpha File Manager's own character.
+- **Glass** - translucent panels floating over a blurred backdrop, for a lighter,
+  more airy feel.
 
-### 🔎 Short queries in the global search
-
-**Fixed.** Searching for "pdf", "doc" or "095" used to return an empty list. The
-scoring code returned early on "the name contains the query", so the token comparison
-never got its turn: a hit as obvious as "doc" in "report.docx" scored 0.845, while the
-threshold for a three-character query is 0.9, so it was thrown away - searching by
-file extension came up almost empty. The two paths now keep the higher of the two
-scores, so a hit that does not sit at the start of the name survives the threshold.
-The threshold itself is unchanged, and fuzzy matching for short queries stays just
-as strict.
+All three families come in a light and a dark variant, so six new themes are available
+next to the existing light, dark and system themes - nine in total. They are built on
+the same mechanism as the built-in themes, so they follow the system appearance and
+keep every setting you have made. Pick one in **Settings → Appearance → Theme**.
 
 ---
 

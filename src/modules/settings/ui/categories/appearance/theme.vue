@@ -10,6 +10,7 @@ import {
   getAvailableThemeOptions,
   normalizeThemeSelection,
 } from '@/modules/themes/registry';
+import { isMacVariantThemeId, type MacVariantThemeId } from '@/modules/themes/mac-variants';
 import { useExtensionsStorageStore } from '@/stores/storage/extensions';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import type { Theme } from '@/types/user-settings';
@@ -37,23 +38,63 @@ const availableThemeOptions = computed(() => {
   return getAvailableThemeOptions(extensionsStorageStore.extensionsData.installedExtensions);
 });
 
-const builtinThemeOptions = computed<ThemeSelectOption[]>(() => {
+// FORK-MODIFICATION 2026-10-29（AFM 3.6.5）：经典三套（亮色 / 暗色 / 跟随系统）。
+// 内置变体主题带 CSS 变量覆盖（option.variables），所以这里用 variables 把两组分开。
+const classicThemeOptions = computed<ThemeSelectOption[]>(() => {
   return availableThemeOptions.value.flatMap((option) => {
-    if (option.source === 'builtin') {
-      return [{
-        name: option.builtinThemeId === 'dark'
-          ? t('settings.homeBannerEffects.theme.themeTypeRadio.dark')
-          : option.builtinThemeId === 'light'
-            ? t('settings.homeBannerEffects.theme.themeTypeRadio.light')
-            : t('system'),
-        value: option.id,
-        source: option.source,
-      }];
+    if (option.source !== 'builtin' || option.variables) {
+      return [];
     }
 
-    return [];
+    return [{
+      name: option.builtinThemeId === 'dark'
+        ? t('settings.homeBannerEffects.theme.themeTypeRadio.dark')
+        : option.builtinThemeId === 'light'
+          ? t('settings.homeBannerEffects.theme.themeTypeRadio.light')
+          : t('system'),
+      value: option.id,
+      source: option.source,
+    }];
   });
 });
+
+// FORK-MODIFICATION 2026-10-29（AFM 3.6.5）：六套内置 macOS Finder 风格主题。
+const macVariantThemeOptions = computed<ThemeSelectOption[]>(() => {
+  return availableThemeOptions.value.flatMap((option) => {
+    if (option.source !== 'builtin' || !option.variables) {
+      return [];
+    }
+
+    if (!isMacVariantThemeId(option.builtinThemeId)) {
+      return [];
+    }
+
+    return [{
+      name: getMacVariantThemeName(option.builtinThemeId),
+      value: option.id,
+      source: option.source,
+    }];
+  });
+});
+
+function getMacVariantThemeName(themeId: MacVariantThemeId): string {
+  switch (themeId) {
+    case 'mac-classic-light':
+      return t('settings.homeBannerEffects.theme.macVariants.classicLight');
+    case 'mac-classic-dark':
+      return t('settings.homeBannerEffects.theme.macVariants.classicDark');
+    case 'mac-modern-light':
+      return t('settings.homeBannerEffects.theme.macVariants.modernLight');
+    case 'mac-modern-dark':
+      return t('settings.homeBannerEffects.theme.macVariants.modernDark');
+    case 'mac-glass-light':
+      return t('settings.homeBannerEffects.theme.macVariants.glassLight');
+    case 'mac-glass-dark':
+      return t('settings.homeBannerEffects.theme.macVariants.glassDark');
+  }
+
+  return '';
+}
 
 const extensionThemeOptions = computed<ThemeSelectOption[]>(() => {
   return availableThemeOptions.value.flatMap((option) => {
@@ -70,16 +111,24 @@ const extensionThemeOptions = computed<ThemeSelectOption[]>(() => {
 });
 
 const themeOptions = computed<ThemeSelectOption[]>(() => [
-  ...builtinThemeOptions.value,
+  ...classicThemeOptions.value,
+  ...macVariantThemeOptions.value,
   ...extensionThemeOptions.value,
 ]);
 
 const themeOptionGroups = computed<ThemeSelectOptionGroup[]>(() => {
   const groups: ThemeSelectOptionGroup[] = [
     {
-      options: builtinThemeOptions.value,
+      options: classicThemeOptions.value,
     },
   ];
+
+  if (macVariantThemeOptions.value.length > 0) {
+    groups.push({
+      heading: t('settings.homeBannerEffects.theme.macVariantThemes'),
+      options: macVariantThemeOptions.value,
+    });
+  }
 
   if (extensionThemeOptions.value.length > 0) {
     groups.push({

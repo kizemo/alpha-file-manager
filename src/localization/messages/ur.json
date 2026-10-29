@@ -381,6 +381,15 @@
       "theme": {
         "title": "تھیم",
         "extensionThemes": "ایکسٹینشن تھیمز",
+        "macVariantThemes": "macOS اسٹائل تھیمز",
+        "macVariants": {
+          "classicLight": "اصل macOS · ہلکا",
+          "classicDark": "اصل macOS · گہرا",
+          "modernLight": "نفیس جدید · ہلکا",
+          "modernDark": "نفیس جدید · گہرا",
+          "glassLight": "نیم شفاف شیشہ · ہلکا",
+          "glassDark": "نیم شفاف شیشہ · گہرا"
+        },
         "themeTypeRadio": {
           "dark": "ڈارک",
           "light": "لائٹ (ترقی میں)"

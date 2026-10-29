@@ -1643,7 +1643,7 @@ AFM 的主题**不是**「改一份 CSS 就完事」，它分两层。
    并做一张对照表（token ← mac 取色）。⚠️ 先确认哪些 token 真被用上，别改了一堆没人用的变量。
 2. **出设计方向**：按 §20.4 产出 3 个方向初稿（可用 `/huashu-design` 的 HTML 原型做），交用户选。
 3. **落地**：改 `src/styles/vars.css` 的 `:root` / `.dark`；必要时清 `src/styles/general.css`、`main.css` 里的硬编码色值。
-4. **测试**：eslint（基线 188 errors / 0 warnings）、`npm run ts`、`npm run test`（基线 251 files / 2314 tests）；
+4. **测试**：eslint（基线 188 errors / 0 warnings）、`npm run ts`、`npm run test`（当前 252 files / 2323 tests —— 背景本地化新增了 2 个测试文件，见 §21.1）；
    `use-theme.test.ts` 与 `registry.test.ts` 必须仍过（改的是变量值不是逻辑，通常不受影响）。
 5. **真机验收（硬约束）**：`tauri dev` 的路由页内容区全白 ⇒ **必须 `tauri build` 出包**后，
    在**隔离桌面沙箱**内验收（脚本见 §20.7），用 `PrintWindow` 截图取证浅色 / 深色两套。
@@ -1677,3 +1677,244 @@ AFM 的主题**不是**「改一份 CSS 就完事」，它分两层。
 - `AGENTS.md` 补记两条会误导下一轮的规则：① push 要先走默认代理、失败再退回 `-c http.proxy=`；
   ② Node `fetch` 需 `NODE_USE_ENV_PROXY=1` + `HTTPS_PROXY`。
 - 交接文档 §19 补记 3.6.4 双端发布结果。
+
+---
+
+## 21. 主页封面图缺陷修复 + 默认背景本地化（2026-10-29 新增）
+
+### 21.1 用户拍板的方案与做出来的东西
+
+用户原话：「请把所有默认背景，都下载到本地并打包到安装包中。」并要求修复
+「点击主页封面图 → 后台管理器 → 点击默认背景缩略图，无反应或反应很慢，
+无法立刻更新封面图（主页顶部的背景图片）」。
+
+**方案（用户拍板，不保留远程兜底）**：21 张默认背景图 + 21 张预览图在构建期
+静态打包进前端产物，运行期选内置背景**零网络、零等待**。
+
+- 新增 `src/data/background-media-assets.ts`：`import.meta.glob` 全尺寸静态导入
+  + 预览 glob；`buildBackgroundAssetIndex()` / `buildBackgroundPreviewIndex()`
+  （预览按**去扩展名基名**索引，`.mp4` → `.jpg`）/ `resolveBackgroundAssetUrl()`。
+- 重写 `src/modules/home/composables/use-background-media.ts`（542 → 450 行）：
+  删掉 `BACKGROUND_REPO_BASE`、远程下载与缓存、`ensureMediaCached`、`useUserPathsStore` 依赖；
+  `selectMedia` 改为**直接 `applySelection`**，不触发任何网络请求。
+- 构建期守卫**方向反转**：删 `src/build/background-source-import-guard.ts`（及其测试），
+  新增 `src/build/background-source-bundle-guard.ts` —— 素材目录与内置背景清单必须
+  **严格一一对应**，缺一或出现孤儿即构建失败（`vite.config.ts` 接入）。
+- Rust：`src-tauri/src/background_sources.rs` 删除命令 `resolve_background_source_to_cache`
+  （同步移除 `src-tauri/src/lib.rs` 注册）；`download_to_dir` 加 5s 连接 / 120s 总超时，
+  **只服务「用户自定义 URL 背景」**。
+- 调用点清理：`home-banner.vue`、`infusion-wrapper.vue`、`visual-effects.vue`。
+
+### 21.2 打包与入包验证（硬证据）
+
+- `tauri build` **BUILD_EXIT=0**（Rust release 编译 6m00s）。
+- 安装包 `src-tauri\target\release\bundle\nsis\Alpha File Manager_3.6.4_x64-setup.exe`
+  = 45,475,336 B = **43.37 MiB**（3.6.4 正式包是 20,697,849 B ≈ 19.7 MiB），
+  增量与 23.53 MB 素材吻合。
+- `verify-bundle-assets.cjs` → **RESULT=PASS，ASSETS_FOUND=21/21**
+  （按基名前缀 + 字节精确匹配 `dist/assets/`），SOURCE_BYTES=24,677,062。
+- `verify-exe-assets.cjs` → **RESULT=PASS，ASSET_NAMES_FOUND=45/45**
+  （素材文件名确实嵌在 77.15 MB 的 `alpha-file-manager.exe` 里）。
+- ⚠️ 打包用 `npm run tauri build`（**不是** `tauri:build`）：`tauri:build` 末段
+  `publish-bundle-to-release.mjs` 会遍历 `bundle/nsis/` 全部历史包逐个 `rmSync` +
+  复制到 `release/`，只要 `release/` 里任一旧包被锁就整步 exit 1（而 build 早已成功）。
+  发版阶段再单独处理 `release/` 复制。
+
+### 21.3 隔离桌面沙箱验收：6/6 全绿
+
+脚本：`.superpowers\sdd\sandbox-bg-accept.ps1`（纯 ASCII）+ `run-bg-accept.ps1`（编排）
++ `bg-accept-data.cjs`（backup / patch-home / restore / inspect）+ `bg-builtin-names.json`（22 条内置名称）。
+
+| 断言 | 内容 | 结果 |
+|---|---|---|
+| S1 | 操作员前台窗口未被抢（before=69124 after=69124） | PASS |
+| S2 | 选择落盘：`homeBannerMediaId` 由 `builtin:Out of time by Alena Aenami.jpg` 变为 `builtin:Exile by Aleksey Hoffman.jpg` | PASS |
+| S3 | 落盘耗时 **236 ms** < 3s（不等下载） | PASS |
+| S4a | 两张对照图的抽屉状态相同（都是打开） | PASS |
+| S4 | **同一抽屉状态**下主页封面像素已变 | PASS |
+| S5 | 关闭抽屉后封面像素相对初始态已变 | PASS |
+
+`SUMMARY pass=6 fail=0`，`ACCEPT_EXIT=0`。门禁同轮全绿：`npm run ts` 通过、
+`eslint .` = **188 problems（188 errors / 0 warnings，与基线一致）**、
+vitest = **252 文件 / 2323 用例全部通过**（比 3.6.4 基线多 2 个测试文件，
+就是背景本地化新增的那两个）。
+
+### 21.4 本轮最关键的方法论修正（比代码更重要）
+
+**「后台管理器」是 vaul 底部抽屉，而且不是模态的**：它**不加遮罩、不调暗页面**，
+主页封面在抽屉打开时**完全可见**。所以：
+
+- 用户可见的真判据是「**抽屉还开着的时候，顶部封面有没有立刻换掉**」，
+  而不是「关掉抽屉之后封面变了」。
+- ⇒ 像素断言必须用**同抽屉状态的两张对照图**（点击前 / 点击后），
+  否则「打开抽屉 → 页面被调暗」会让 before/after 无条件不等，**判据形同虚设**。
+  本轮第一版脚本就栽在这里（`background manager closed = False`，ESC 的
+  `PostMessage` 没送达渲染进程，抽屉一直在），第二轮加了 mid-before / mid-after
+  对照才拿到真结论。
+- 抽屉关闭的可靠办法：ESC 的 `PostMessage` **无效**；先找「关闭」按钮（`Button`，
+  可访问名「关闭」= U+5173 U+95ED）调 `InvokePattern` **再**用屏幕坐标 `Click` 点一次；
+  都不行就点抽屉面板**上方**的遮罩空白区（遮罩在最上层，点击不会落到页面内容上）。
+- 视觉证据：`bg-accept-mid-before.png` 顶部是粉红晚霞「Out of time」，
+  `bg-accept-mid-after.png`（抽屉仍打开）顶部已变成暗色森林「Exile」。
+
+### 21.5 沙箱坐标与 UIA 取证要点
+
+- `BgSbx.Click(host, screenX, screenY)` 收的是**屏幕坐标**，内部自己减去窗口原点换算客户区；
+  `Capture` 以 `GetWindowRect(main)` 的左上角为原点 ⇒ **签名区域要减 `$mr.Left / $mr.Top`**。
+- UIA `BoundingRectangle` 是**物理像素**；本机 DPI 150%。
+- 主页封面 `<img alt="">` **不进可访问性树**（空 alt 被忽略）⇒ 只能用「主页」标题几何反推，
+  且导航栏也有「主页」文本，**取最右侧那个**。
+- 抽屉里内置缩略图的可访问名 = `item.data.name`，**不带扩展名**（`Exile` / `Out of time`）。
+- UIA 树启动后约 1.2 s 才有 22 个元素、约 2.4 s 才有 111 个 ⇒ 探针阈值要等 `elements > 40`。
+
+### 21.6 数据纪律（release 构建会读真实用户数据）
+
+- release 构建把 `SFM_E2E_DATA_DIR` 编译掉了 ⇒ 只能「备份真实文件 → 灌夹具 → 验收 → 恢复」。
+- **恢复前必须先杀进程**（`Get-Process alpha-file-manager` 为 0），否则应用退出时会把
+  内存状态再写回真实文件。验收后已核对：进程 0、`homeBannerMediaId` 回到
+  `builtin:Out of time by Alena Aenami.jpg`、`startupPage` 回到 `navigator`、
+  真实文件 4544 B 与备份字节数一致。
+
+### 21.7 发版链路的新发现（3.6.5 直接可用）
+
+- `release/` 下 45 个历史安装包**全部未加锁** ⇒ `publish-bundle-to-release.mjs` 本轮不会踩坑。
+- 站点源目录 = `E:\办公文件\L1网站\alpha-file-manager`（`AFM_SITE_DIR` 可覆盖），
+  `version.json` 当前停在 **3.6.4**，`history[]` 已有 10 条；
+  `prepare` 会把站点上的旧版本自动归档进 `history[]`。
+- `verify-changelog` 校验的是「**package.json 的当前版本**必须有 CHANGELOG 条目」⇒
+  **升版本前后各跑一次**：升之前跑校验新条目的格式与倒序（此时版本号还是旧的，
+  报错含义明确），升之后跑才校验「3.6.5 有条目」。
+- `release:prepare` 内部已经含 `tauri build` ⇒ **发版只构建一次**。
+- `release:prepare --write-notes <文件>` 是 `_release-notes-v<版本>.md` 的**唯一生成入口**，
+  `release:github` 只读它、从不生成 ⇒ 漏了会安静地发一个正文为空的 release。
+
+### 21.8 当前状态（2026-10-29）
+
+- **未提交**：背景本地化的全部改动在工作树里，HEAD 仍是 `13427d04`，版本号仍是 **3.6.4**。
+  改动文件：`src-tauri/src/background_sources.rs`、`src-tauri/src/lib.rs`、
+  `src/components/ui/infusion/infusion-wrapper.vue`、
+  `src/modules/home/components/home-banner.vue`、
+  `src/modules/home/composables/use-background-media.ts`、
+  `src/modules/settings/ui/categories/appearance/visual-effects.vue`、`vite.config.ts`；
+  新增 `src/build/background-source-bundle-guard.ts`、`src/data/background-media-assets.ts`
+  及两个测试文件；删除 `src/build/background-source-import-guard.ts` 及其测试。
+- **已完成**：背景本地化代码 + 门禁全绿 + 打包 + 入包验证 + 沙箱真机验收 6/6。
+- **进行中**：mac Finder 主题（§20 主线）—— 三个变体初稿见
+  `.superpowers\sdd\theme-mac-variants.md`，**等用户选型**；选型后只改
+  `src/styles/vars.css` 的颜色与形状 token，落地浅色 + 深色两套。
+- 随后按 §20.5 第 4–6 步走：门禁 → `tauri build` → 隔离沙箱视觉验收（浅色 / 深色两套）
+  → 发 3.6.5。
+
+---
+
+## 22. mac Finder 六套主题落地 + 3.6.5 发版（2026-10-29）
+
+用户拍板「A+B+C 都做，出三套（加深色六套）」⇒ 经典 / 精致现代 / 半透明玻璃 × 浅色 / 深色，
+与原有 `light` / `dark` / `system` 并存，**共 9 套可切换**，`DEFAULT_THEME_ID` 仍是 `light`。
+
+### 22.1 落地范围（改动文件）
+
+- **新增** `src/modules/themes/mac-variants.ts`（10,618 B）：6 个 id
+  `mac-classic-light/dark`、`mac-modern-light/dark`、`mac-glass-light/dark`；
+  每个变体 24 个颜色 token + `--radius` / `--shadow-md` / `--shadow-lg`
+  （玻璃另加 `--backdrop-filter-blur: 48px`）；文件头写死四条设计约束
+  （只改颜色与形状 token / 不动布局结构 / 颜色 token 保持裸 HSL 三元组 / 不改带
+  `FORK-MODIFICATION` 注释的尺寸变量）。
+- **改** `src/types/user-settings.ts`：`BuiltinThemeId` 由 3 个扩为 9 个。
+- **改** `src/modules/themes/registry.ts`：新增 `getMacVariantThemeOptions()`；
+  `BuiltinThemeOption` 增 `baseTheme?` / `variables?`；`parseThemeId()` 把 mac 变体识别为 builtin；
+  `ResolvedBuiltinThemeId` 收窄为 `'light' | 'dark'`。
+- **改** `src/stores/storage/composables/use-theme.ts`：`applyTheme()` 拆成三分支
+  （classic / mac 变体 / 扩展主题），抽出 `applyThemeVariables()`；`.dark` class 语义不变。
+- **改** `src/modules/settings/ui/categories/appearance/theme.vue`：拆出
+  `classicThemeOptions` / `macVariantThemeOptions` / `extensionThemeOptions`，
+  新增分组标题「macOS 风格主题」，`getMacVariantThemeName()` 用 6 个静态 i18n key switch。
+- **17 个语言包**全部补齐 `settings.homeBannerEffects.theme.macVariantThemes` 与
+  `.macVariants.{classicLight,…,glassDark}`（补丁脚本 `.superpowers/sdd/theme-locale-patch.cjs` 幂等，
+  校验输出 `ALL 17 LOCALES OK (parse/bom/fffd/key)`）。
+- **测试**：新增 `src/modules/themes/__tests__/mac-variants.test.ts`（9 个 it）、
+  `src/modules/settings/ui/categories/appearance/__tests__/theme.test.ts`（4 个 it）、
+  更新 `src/modules/themes/__tests__/registry.test.ts`。
+
+### 22.2 关键设计决策
+
+- 走「**builtin 通道 + baseTheme + CSS 变量覆盖**」，与扩展主题同构
+  ⇒ `.dark` class 仍由 `use-theme.ts` 切换，`infusion.vue` / `dashboard-hero.vue`
+  两条 `.dark` 规则**无需改动**。
+- 变体 C（玻璃）**不能**给基础面 token 加 alpha（会与「裸 HSL 三元组」约束冲突）
+  ⇒ 改用 `--popover` / `--input` 带 alpha + `--backdrop-filter-blur: 48px`
+  + 实色面板 + 淡发丝边。
+- 深色变体必须覆盖 `.dark` 块**全部**颜色 token —— 已由单测强制。
+- 17 语言包必须全改：`messages-key-alignment.test.ts` 查 key 对齐，
+  且 `createI18n` **未配 `fallbackLocale`** ⇒ 漏改直接显示 key 原文。
+
+### 22.3 沙箱真机视觉验收 8/8 全绿
+
+脚本 `.superpowers/sdd/run-theme-accept.ps1`（+ `theme-accept-data.cjs` 做 backup / set-theme / restore），
+日志 `theme-accept-run.log`，汇总 `theme-accept-summary.txt`，截图 `theme-accept-<id>.png`。
+口径：每轮 **杀进程 → 等进程消失 → patch `user-settings.json` 的 `theme` → 启动 → 等 9 s → 截图 → 杀进程**。
+
+| 主题 | meanRgb | 字节 | sha256 前 16 |
+|---|---|---|---|
+| mac-classic-light | 226.4,222.4,223.5 | 1420454 | FB7AE78E2885529 |
+| mac-classic-dark | 55.9,52.0,55.9 | 1683664 | D6462931595F57AA |
+| mac-modern-light | 228.3,224.1,226.2 | 1288690 | BFA5F2830266D856 |
+| mac-modern-dark | 50.2,46.1,49.2 | 1689339 | BC5360A1FE13F1A2 |
+| mac-glass-light | 226.1,222.1,226.3 | 1491712 | 65E603495CBB3EC1 |
+| mac-glass-dark | 51.1,47.1,53.2 | 1694706 | 20AB14C032A2063E |
+| light（对照） | 221.0,218.2,221.3 | 1453397 | 741E242543F1DB64 |
+| dark（对照） | 54.4,51.6,58.1 | 1692215 | 2B10DEA849B42AFE |
+
+结论：`captures=8 failures=0`、`ACCEPT_EXIT=0`；每个家族 dark 明显暗于 light；
+三家族浅色 226~228 / 深色 50~56，**家族差异主要在大面积背景**，需结合肉眼截图判断可区分性。
+验收后 `PROC_COUNT=0`，真实数据已恢复（`theme=light`、`lastSeenVersion=none`、BYTES=4544、
+sha256 与备份一致）。
+
+### 22.4 验收脚本的 4 个真 bug（已修，脚本留在 `.superpowers/sdd/`）
+
+1. **`Add-Type` 缺 `-ReferencedAssemblies`** ⇒ PS 5.1 找不到 `System.Drawing.Imaging`，
+   `ThemeSbx` 类型编译失败 ⇒ 加 `@('System.dll','System.Core.dll','System.Drawing')`，
+   并加「类型存在」硬断言（失败 `exit 5`）。
+   注意 `[Type]::GetType('ThemeSbx')` 在动态程序集里返回 **null**，不代表失败。
+2. **0 截图也 `exit 0`（假成功）** ⇒ 末尾断言 `captures == themeIds.Count`，否则 `exit 6`。
+3. **每轮 kill 后未等进程真正退出就 patch** ⇒ 加 20 s 轮询等待，仍存活则 FAIL。
+4. **PowerShell 变量名不区分大小写**：`$ThemeIds`（param）与 `$themeIds`（局部数组）撞名
+   ⇒ `$ThemeIds.Split` 抛错、数组被展平成字符串、只抓 1 张且文件名带空格
+   ⇒ 参数改名 `$OnlyThemes`，并先把 `$themeIds[0]` 复制到标量 `$firstTheme` 再传 node。
+
+### 22.5 新增踩坑：release 构建的「首启一次性初始化」会覆盖磁盘 patch
+
+`use-changelog.ts` 判定 `lastSeenVersion !== appVersion.value` 就弹「新功能」模态框；
+而 release 构建**首次启动**的一次性数据初始化会用内存默认值**覆盖磁盘上的 patch**
+⇒ 模态框弹出、整页压暗，首轮 `mac-classic-light` 量到 `meanRgb=103.7`
+（**真因不是配色错误**）。
+**解法：加「预热启动」段** —— 先空跑一次让初始化落地，再进入截图循环，之后全部干净。
+
+### 22.6 3.6.5 发版事实
+
+- 版本已顶到 **3.6.5**：`package.json` + `npm run sync-version`
+  → `Synced 3 Cargo manifests to 3.6.5`（`src-tauri/Cargo.toml` + 两个 default-file-manager-*）。
+  `src-tauri/tauri.conf.json` 的 version 是 `"../package.json"`。
+- 安装包：`src-tauri\target\release\bundle\nsis\Alpha File Manager_3.6.5_x64-setup.exe`
+  = **45,474,813 B（43.37 MiB）**；已复制进 `release/`，
+  SHA256 = `b8848f9e1eeb805cce93998cf5db53bb23eaa1ac7b7bb4eeab1789140a6959d0`。
+  `release/` 下 exe 共 43 个，`latestInstaller` 取 mtime 最新的那个（实测取到的正是 3.6.5）。
+- 门禁（`gate-theme2.cmd` / `gate-theme2.log`）：`TS_EXIT=0`、
+  `ESLINT_EXIT=1` 且 **188 problems（= 基线）**、`TEST_EXIT=0` 且
+  **254 files / 2336 tests passed**。
+- README.md（英文）/ README.zh-CN.md（中文）的 3.6.5 段落已写；
+  `CHANGELOG.md` 与 `public/changelog/ch/changelog.md` 的 `## [3.6.5] - 2026 年 10 月` 已写；
+  **13 个非中英语言包**（de/es/fa/fr/hi/it/ja/pt/ru/sl/tr/ur/vi）的 3.6.5 条目
+  由 `.superpowers/sdd/patch-changelog-365-i18n.cjs` 幂等补齐（复跑 `patched=0 skipped=13`）。
+- `verify-changelog` 通过（`应用版本 3.6.5 / CHANGELOG 条目 35`）。
+- 发版说明正文 `.superpowers/sdd/notes-365.md`（构建信息由 `prepare --write-notes` 追加）。
+
+### 22.7 本轮踩坑补充
+
+- **发版构建用 `npm run tauri build`，不用 `npm run tauri:build`**：
+  后者尾步 `publish-bundle-to-release.mjs` 会遍历 `bundle/nsis/` 下所有历史安装包并复制到 `release/`，
+  旧包被锁就整步 exit 1（而 `tauri build` 本身早已成功）。
+  ⇒ 先 `tauri build`，再用 node 单独把新包复制进 `release/`。
+- **`prepare --write-notes` 不能省**：它是 `_release-notes-v<版本>.md` 的**唯一生成入口**，
+  `release:github` 只读它 ⇒ 漏了不会报错，只会安静地发一个正文为空的 release。
+- **`verify-changelog` 升版本前后各跑一次**（见 §21.7）。

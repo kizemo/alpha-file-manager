@@ -381,6 +381,15 @@
       "theme": {
         "title": "Տեսք",
         "extensionThemes": "Ընդլայնման տեսք",
+        "macVariantThemes": "macOS ոճի թեմաներ",
+        "macVariants": {
+          "classicLight": "macOS բնիկ · Լույս",
+          "classicDark": "macOS բնիկ · Դուրջ",
+          "modernLight": "Նրբելուս մոդեռն · Լույս",
+          "modernDark": "Նրբելուս մոդեռն · Դուրջ",
+          "glassLight": "Կիսաթափով ապակեղ · Լույս",
+          "glassDark": "Կիսաթափով ապակեղ · Դուրջ"
+        },
         "themeTypeRadio": {
           "dark": "Մութ",
           "light": "Լուսավոր"

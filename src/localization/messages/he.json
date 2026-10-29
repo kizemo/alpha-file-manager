@@ -381,6 +381,15 @@
       "theme": {
         "title": "ערכת נושא",
         "extensionThemes": "ערכות נושא מתוספים",
+        "macVariantThemes": "ערכות נושא בסגנון macOS",
+        "macVariants": {
+          "classicLight": "macOS מקורי · בהיר",
+          "classicDark": "macOS מקורי · כהה",
+          "modernLight": "מודרני מעודן · בהיר",
+          "modernDark": "מודרני מעודן · כהה",
+          "glassLight": "זכוכית שקופה למחצה · בהיר",
+          "glassDark": "זכוכית שקופה למחצה · כהה"
+        },
         "themeTypeRadio": {
           "dark": "כהה",
           "light": "בהיר (בפיתוח)"

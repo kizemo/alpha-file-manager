@@ -5,8 +5,17 @@
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
+use std::time::Duration;
 
 use crate::utils::unique_path_with_index;
+
+// FORK-MODIFICATION 2026-10-28：给下载器加上超时上限。
+// 之前用的是 reqwest::get(url)，既没有 connect timeout 也没有总超时：
+// 目标站不可达时请求会一直挂着，调用方（前端）在 await 上永远等不到结果，
+// 表现就是「点了没反应」。内置背景已经改成随安装包分发，这段下载器现在只服务
+// 「用户自定义 URL 背景」，但那一条路同样不能无限期挂死。
+const DOWNLOAD_CONNECT_TIMEOUT_SECS: u64 = 5;
+const DOWNLOAD_TOTAL_TIMEOUT_SECS: u64 = 120;
 
 fn verify_file_readable(path: &Path) -> bool {
     fs::File::open(path)
@@ -28,15 +37,6 @@ async fn wait_until_file_readable(path: &Path) -> Result<(), String> {
         "File not readable after retries: {}",
         path.display()
     ))
-}
-
-#[tauri::command]
-pub async fn resolve_background_source_to_cache(
-    url: String,
-    cache_dir: String,
-    filename: String,
-) -> Result<String, String> {
-    download_to_dir(&url, &cache_dir, &filename).await
 }
 
 #[tauri::command]
@@ -69,7 +69,15 @@ async fn download_to_dir(url: &str, dir: &str, filename: &str) -> Result<String,
         return Ok(dest_path.to_string_lossy().to_string());
     }
 
-    let response = reqwest::get(url)
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(DOWNLOAD_CONNECT_TIMEOUT_SECS))
+        .timeout(Duration::from_secs(DOWNLOAD_TOTAL_TIMEOUT_SECS))
+        .build()
+        .map_err(|error| format!("Failed to create the HTTP client: {}", error))?;
+
+    let response = client
+        .get(url)
+        .send()
         .await
         .map_err(|error| format!("Failed to download: {}", error))?;
 

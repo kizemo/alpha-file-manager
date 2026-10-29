@@ -1,5 +1,15 @@
 # Nhật ký thay đổi
 
+## [3.6.5] - October 2026
+
+**Summary:** Hai điều nhìn thấy được. Tất cả nền mặc định giờ nằm ngay trong bộ cài đặt và đổi tức thì: ảnh bìa của trang chủ được vẽ lại ngay khoảnh khắc bạn chọn một ảnh, thay vì phải chờ một bản tải về có thể không bao giờ xong. Và bộ chọn chủ đề giờ có sáu kiểu dáng theo phong cách Finder của macOS, cả bản sáng lẫn bản tối, đứng cạnh những kiểu đã có sẵn.
+
+### What changed
+
+**Sửa: ảnh bìa của trang chủ đổi ngay khi bạn chọn nền.** Bấm vào ảnh bìa sẽ mở trình quản lý nền, nhưng việc chọn một ảnh ở đó không tạo ra thay đổi nào nhìn thấy được: bức ảnh vẫn y nguyên. Nguyên nhân là mọi nền mặc định vẫn còn được lấy từ mạng đúng lúc bạn bấm, nên việc đổi hoặc mất rất lâu, hoặc không xảy ra. Bây giờ chúng đều nằm trong bộ cài đặt (21 ảnh, khoảng 24 MB), danh sách mở ra mà không phát sinh một yêu cầu mạng nào, và ảnh bìa được vẽ lại trong một phần giây: khoảng 240 mili giây trên máy thử nghiệm.
+
+**Thêm mới: sáu chủ đề theo phong cách Finder của macOS.** Bộ chọn chủ đề giờ có ba kiểu dáng mới, mỗi kiểu một bản sáng và một bản tối, và bạn có thể chuyển qua lại với các kiểu cũ bất cứ lúc nào. *macOS Native* là kiểu mộc mạc nhất: cửa sổ trắng, thanh bên xám nhạt, màu xanh hệ thống, các đường phân cách mảnh như sợi tóc. *Refined Modern* giữ lại màu nhấn gần như đen mà ứng dụng luôn dùng, nhưng thay đổi lớp bố cục: góc bo tròn hơn, bóng đổ mềm hơn, thoáng hơn. *Translucent Glass* để bức ảnh phía sau cửa sổ hiện ra qua các menu và hộp thoại nổi. Ba kiểu đã có sẵn - Sáng, Tối và Theo hệ thống - giữ nguyên đúng như cũ.
+
 ## [3.6.4] - October 2026
 
 **Summary:** Ba điều, một điều không thấy được. Ứng dụng giờ dùng bộ nhớ ít hơn nhiều - trên cùng máy, cùng tài khoản và cùng ổ đĩa, tập làm việc lúc khởi động nguội giảm từ 961,2 MB xuống 742,8 MB (-22,7%), và bộ nhớ đệm trên đĩa giảm từ 805,58 MB xuống 66,21 MB (-91,8%). Khi tiến trình kết xuất của WebView2 sập, cửa sổ trắng không còn đứng lại nữa: một trình giám sát tự tải lại trang, và chỉ hỏi khởi động lại khi trang không quay lại. Tìm kiếm toàn cục cũng không còn trả về rỗng với từ khóa ngắn: "pdf", "doc" hay "095" trước đây thường không tìm thấy gì cả.

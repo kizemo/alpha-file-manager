@@ -5,7 +5,7 @@
 import {
   ref, computed, type Ref, type ComputedRef, watchEffect,
 } from 'vue';
-import type { Theme } from '@/types/user-settings';
+import type { BuiltinThemeId, Theme } from '@/types/user-settings';
 import { findThemeOption, parseThemeId } from '@/modules/themes/registry';
 import { useExtensionsStorageStore } from '@/stores/storage/extensions';
 
@@ -59,8 +59,23 @@ export function useTheme(
     document.documentElement.classList.toggle('dark', currentTheme.value === 'dark');
   }
 
-  function resolveBuiltinTheme(theme: 'light' | 'dark' | 'system'): 'light' | 'dark' {
-    return theme === 'system' ? getSystemPreference() : theme;
+  function resolveBuiltinTheme(theme: BuiltinThemeId): 'light' | 'dark' {
+    if (theme === 'system') {
+      return getSystemPreference();
+    }
+
+    if (theme === 'light' || theme === 'dark') {
+      return theme;
+    }
+
+    return 'dark';
+  }
+
+  function applyThemeVariables(variables: Record<`--${string}`, string>) {
+    for (const [variableName, variableValue] of Object.entries(variables)) {
+      document.documentElement.style.setProperty(variableName, variableValue);
+      appliedThemeVariables.add(variableName);
+    }
   }
 
   function getTransitionOrigin(): ThemeTransitionOrigin {
@@ -159,7 +174,21 @@ export function useTheme(
       extensionsStorageStore.extensionsData.installedExtensions,
     );
 
-    if (!themeOption || themeOption.source === 'builtin') {
+    if (!themeOption) {
+      applyBaseTheme('dark');
+      return;
+    }
+
+    if (themeOption.source === 'builtin') {
+      // FORK-MODIFICATION 2026-10-29：内置变体主题（macOS Finder 风格六套）
+      // 带 CSS 变量覆盖，走「基础明暗 class + 变量覆盖」这条通道，
+      // 与扩展主题完全同构，所以 `.dark` 选择器仍然生效。
+      if (themeOption.variables && themeOption.baseTheme) {
+        applyBaseTheme(themeOption.baseTheme);
+        applyThemeVariables(themeOption.variables);
+        return;
+      }
+
       const parsedTheme = parseThemeId(theme);
       const resolvedTheme = parsedTheme?.source === 'builtin'
         ? resolveBuiltinTheme(parsedTheme.builtinThemeId)
@@ -170,11 +199,7 @@ export function useTheme(
     }
 
     applyBaseTheme(themeOption.baseTheme);
-
-    for (const [variableName, variableValue] of Object.entries(themeOption.variables)) {
-      document.documentElement.style.setProperty(variableName, variableValue);
-      appliedThemeVariables.add(variableName);
-    }
+    applyThemeVariables(themeOption.variables);
   }
 
   function setTheme(theme: Theme) {

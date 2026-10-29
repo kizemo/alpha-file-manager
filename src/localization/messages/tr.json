@@ -346,6 +346,15 @@
       "theme": {
         "title": "Tema",
         "extensionThemes": "Uzantı temaları",
+        "macVariantThemes": "macOS tarzı temalar",
+        "macVariants": {
+          "classicLight": "macOS yerel · Açık",
+          "classicDark": "macOS yerel · Koyu",
+          "modernLight": "Rafine modern · Açık",
+          "modernDark": "Rafine modern · Koyu",
+          "glassLight": "Yarı saydam cam · Açık",
+          "glassDark": "Yarı saydam cam · Koyu"
+        },
         "themeTypeRadio": {
           "dark": "Karanlık",
           "light": "Hafif (geliştirme aşamasında)"

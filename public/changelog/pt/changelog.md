@@ -1,5 +1,15 @@
 # Registro de alterações
 
+## [3.6.5] - October 2026
+
+**Summary:** Duas coisas visíveis. Todos os fundos padrão agora vêm dentro do instalador e mudam de imediato: a imagem de capa da página inicial é redesenhada assim que você escolhe uma, em vez de esperar por um download que talvez nunca termine. E o seletor de temas agora oferece seis aparências no estilo do Finder do macOS, em claro e escuro, ao lado das que já existiam.
+
+### What changed
+
+**Corrigido: a imagem de capa da página inicial muda assim que você escolhe um fundo.** Clicar na capa abria o gerenciador de fundos, mas escolher uma imagem ali não produzia efeito visível algum: a foto continuava a mesma. O motivo: todos os fundos padrão ainda eram buscados na rede no instante do clique, então a mudança demorava muito ou nem acontecia. Agora todos estão dentro do instalador (21 imagens, cerca de 24 MB), a lista abre sem uma única requisição de rede e a capa é redesenhada em uma fração de segundo: cerca de 240 ms na máquina de teste.
+
+**Adicionado: seis temas no estilo do Finder do macOS.** O seletor de temas traz agora três aparências novas, cada uma em versão clara e escura, que podem ser alternadas com as existentes a qualquer momento. *macOS Native* é a mais sóbria: janela branca, barra lateral cinza-clara, o azul do sistema, divisórias finíssimas. *Refined Modern* mantém o acento quase preto que o aplicativo sempre teve e muda as camadas: cantos mais arredondados, sombras mais suaves, mais espaço. *Translucent Glass* deixa a imagem atrás da janela aparecer através dos menus e das janelas suspensas. As três que já existiam - Claro, Escuro e Seguir o sistema - permanecem exatamente como estavam.
+
 ## [3.6.4] - October 2026
 
 **Summary:** Três coisas, uma delas invisível. A aplicação passa a ocupar muito menos memória do que antes - na mesma máquina, na mesma conta e no mesmo disco, o working set na arranque a frio desce de 961,2 MB para 742,8 MB (-22,7%) e a cache em disco de 805,58 MB para 66,21 MB (-91,8%). Uma falha do processo de renderização do WebView2 já não deixa uma janela em branco: um watchdog recarrega a página sozinho e só pede para reiniciar se ela não voltar. E a pesquisa global deixa de devolver nada em consultas curtas: "pdf", "doc" ou "095" muitas vezes não encontrava nada.

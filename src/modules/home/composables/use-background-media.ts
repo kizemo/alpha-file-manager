@@ -2,16 +2,20 @@
 // License: GNU GPLv3 or later. See the license file in the project root for more information.
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
-import { computed, ref } from 'vue';
-import { convertFileSrc, invoke } from '@tauri-apps/api/core';
+import { computed } from 'vue';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
-import { useUserPathsStore } from '@/stores/storage/user-paths';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import { useBackgroundMediaStore } from '@/stores/runtime/background-media';
 import { storeToRefs } from 'pinia';
 import defaultBannerImage from '@/assets/media/default-background/Exile by Aleksey Hoffman.jpg';
 import { backgroundMedia, DEFAULT_BACKGROUND_FILE_NAME } from '@/data/background-media';
 import type { BackgroundMedia } from '@/data/background-media';
+import {
+  fullSizeBackgroundAssets,
+  previewBackgroundAssets,
+  resolveBackgroundAssetUrl,
+} from '@/data/background-media-assets';
 import { homeBannerStorageKeys } from '../background-storage-keys';
 import {
   resolveMediaSelectionIndex as resolveSelectionIndex,
@@ -22,18 +26,13 @@ import type {
   ResolveMediaSelectionOptions,
 } from './background-media-selection';
 
-const BACKGROUND_REPO_BASE = 'https://raw.githubusercontent.com/aleksey-hoffman/sigma-file-manager/main/src/assets/media/source-backgrounds';
+// FORK-MODIFICATION 2026-10-28：内置背景全部随安装包分发，运行期不再下载。
+// 原来的远程下载分支（raw.githubusercontent.com + resolve_background_source_to_cache）
+// 已经整段移除：源站不可达时下载器无超时 ⇒ 请求永久挂住，
+// 而「点了没反应」的表象正是这段代码造成的。现在切换封面是同步的、零网络的。
 const defaultBuiltinMedia = backgroundMedia.find(item => item.fileName === DEFAULT_BACKGROUND_FILE_NAME)
   ?? backgroundMedia[0];
 const sourceBackgroundPreviewMedia = backgroundMedia.filter(item => item.fileName !== DEFAULT_BACKGROUND_FILE_NAME);
-
-const sourceBackgroundPreviewImages = import.meta.glob('@/assets/media/source-backgrounds-previews/*.jpg', {
-  eager: true,
-  import: 'default',
-}) as Record<string, string>;
-
-const cachedMediaPaths = ref<Record<string, string>>({});
-const pendingMediaCacheDownloads = new Map<string, Promise<string>>();
 
 export type MediaItem
   = | {
@@ -83,7 +82,6 @@ function isVideoExtension(ext: string): boolean {
 
 export function useBackgroundMedia(target?: BackgroundMediaTarget) {
   const backgroundMediaStore = useBackgroundMediaStore();
-  const userPathsStore = useUserPathsStore();
   const userSettingsStore = useUserSettingsStore();
   const { userSettings } = storeToRefs(userSettingsStore);
   const { customBackgrounds } = storeToRefs(backgroundMediaStore);
@@ -181,7 +179,11 @@ export function useBackgroundMedia(target?: BackgroundMediaTarget) {
       return defaultBannerImage;
     }
 
-    return `${BACKGROUND_REPO_BASE}/${encodeURIComponent(item.fileName)}`;
+    // 全尺寸素材随安装包分发，直接命中打包资源；理论上的兜底是缩略图，
+    // 再兜底为空串（构建期守卫保证这条路径不会真的走到）。
+    return resolveBackgroundAssetUrl(fullSizeBackgroundAssets, item.fileName)
+      ?? resolveBackgroundAssetUrl(previewBackgroundAssets, item.fileName)
+      ?? '';
   }
 
   function getBuiltinPreviewUrl(item: BackgroundMedia): string {
@@ -189,10 +191,12 @@ export function useBackgroundMedia(target?: BackgroundMediaTarget) {
       return defaultBannerImage;
     }
 
+    // 预览图统一是 .jpg，3 个视频背景的原名是 .mp4 ⇒ 按「去扩展名的基名」索引。
     const baseName = item.fileName.replace(/\.[^.]+$/, '');
-    const key = Object.keys(sourceBackgroundPreviewImages).find(path => path.includes(baseName));
 
-    return key ? sourceBackgroundPreviewImages[key] : getBuiltinMediaUrl(item);
+    return resolveBackgroundAssetUrl(previewBackgroundAssets, baseName)
+      ?? resolveBackgroundAssetUrl(fullSizeBackgroundAssets, item.fileName)
+      ?? '';
   }
 
   function getPositionKey(item: MediaItem): string {
@@ -283,99 +287,12 @@ export function useBackgroundMedia(target?: BackgroundMediaTarget) {
     return buildResolvedMediaSelection(optionsList[nextSelectionIndex] ?? null);
   }
 
-  function getMediaUrlSource(item: MediaItem): string | null {
-    if (item.kind === 'builtin') {
-      if (item.data.fileName === DEFAULT_BACKGROUND_FILE_NAME) {
-        return null;
-      }
-
-      return `${BACKGROUND_REPO_BASE}/${encodeURIComponent(item.data.fileName)}`;
-    }
-
-    return null;
-  }
-
   function getMediaUrl(item: MediaItem): string {
-    if (item.kind === 'builtin' && item.data.fileName === DEFAULT_BACKGROUND_FILE_NAME) {
-      return defaultBannerImage;
-    }
-
     if (item.kind === 'custom') {
       return convertFileSrc(item.path);
     }
 
-    const source = getMediaUrlSource(item);
-
-    if (source && cachedMediaPaths.value[source]) {
-      return convertFileSrc(cachedMediaPaths.value[source]);
-    }
-
-    if (item.kind === 'builtin') {
-      return getBuiltinPreviewUrl(item.data);
-    }
-
-    return '';
-  }
-
-  async function ensureMediaCached(item: MediaItem): Promise<boolean> {
-    const source = getMediaUrlSource(item);
-
-    if (!source) {
-      return true;
-    }
-
-    const cacheDir = userPathsStore.customPaths.appUserDataSourceBackgroundsPath;
-
-    if (!cacheDir) {
-      return false;
-    }
-
-    if (cachedMediaPaths.value[source]) {
-      return true;
-    }
-
-    if (item.kind !== 'builtin') {
-      return true;
-    }
-
-    const pendingDownload = pendingMediaCacheDownloads.get(source);
-
-    if (pendingDownload) {
-      try {
-        const localPath = await pendingDownload;
-        cachedMediaPaths.value = {
-          ...cachedMediaPaths.value,
-          [source]: localPath,
-        };
-        return true;
-      }
-      catch {
-        return false;
-      }
-    }
-
-    const downloadPromise = invoke<string>('resolve_background_source_to_cache', {
-      url: source,
-      cacheDir,
-      filename: item.data.fileName,
-    });
-
-    pendingMediaCacheDownloads.set(source, downloadPromise);
-
-    try {
-      const localPath = await downloadPromise;
-      cachedMediaPaths.value = {
-        ...cachedMediaPaths.value,
-        [source]: localPath,
-      };
-      return true;
-    }
-    catch {
-      return false;
-    }
-    finally {
-      pendingMediaCacheDownloads.delete(source);
-    }
+    return getBuiltinMediaUrl(item.data);
   }
 
   function getPreviewUrl(item: MediaItem): string {
@@ -390,12 +307,8 @@ export function useBackgroundMedia(target?: BackgroundMediaTarget) {
     const selection = buildResolvedMediaSelection(mediaOptions.value[index] ?? null);
 
     if (selection) {
-      const isReady = await ensureMediaCached(selection.item);
-
-      if (!isReady) {
-        return;
-      }
-
+      // 素材已经在安装包里，不需要「先下载再切换」。直接应用选择，
+      // 封面这一帧就是最终画面（此前要先等下载成功，失败还会被静默吞掉）。
       await activeTarget.applySelection(selection);
     }
   }
@@ -530,13 +443,11 @@ export function useBackgroundMedia(target?: BackgroundMediaTarget) {
     resolveMediaSelection,
     resolveOffsetMediaSelection,
     selectMedia,
-    ensureMediaCached,
     openFilePicker,
     addFilesFromPaths,
     addMediaUrl,
     removeCustomMedia,
     customItems,
     builtinCount,
-    cachedMediaPaths,
   };
 }

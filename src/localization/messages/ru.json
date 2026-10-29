@@ -381,6 +381,15 @@
       "theme": {
         "title": "Тема",
         "extensionThemes": "Темы расширений",
+        "macVariantThemes": "Темы в стиле macOS",
+        "macVariants": {
+          "classicLight": "Нативный macOS · Светлая",
+          "classicDark": "Нативный macOS · Тёмная",
+          "modernLight": "Утончённый современный · Светлая",
+          "modernDark": "Утончённый современный · Тёмная",
+          "glassLight": "Полупрозрачное стекло · Светлая",
+          "glassDark": "Полупрозрачное стекло · Тёмная"
+        },
         "themeTypeRadio": {
           "dark": "Темная",
           "light": "Светлая (в разработке)"

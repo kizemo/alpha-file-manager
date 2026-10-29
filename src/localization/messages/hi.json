@@ -381,6 +381,15 @@
       "theme": {
         "title": "विषय",
         "extensionThemes": "एक्सटेंशन थीम",
+        "macVariantThemes": "macOS शैली थीम",
+        "macVariants": {
+          "classicLight": "मूल macOS · हल्का",
+          "classicDark": "मूल macOS · गहरा",
+          "modernLight": "परिष्कृत आधुनिक · हल्का",
+          "modernDark": "परिष्कृत आधुनिक · गहरा",
+          "glassLight": "पारदर्शी काँच · हल्का",
+          "glassDark": "पारदर्शी काँच · गहरा"
+        },
         "themeTypeRadio": {
           "dark": "अँधेरा",
           "light": "प्रकाश (विकास में)"

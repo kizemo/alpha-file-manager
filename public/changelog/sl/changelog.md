@@ -1,5 +1,15 @@
 # Dnevnik sprememb
 
+## [3.6.5] - October 2026
+
+**Summary:** Dve vidni spremembi. Vse privzete ozadje je zdaj v namestitvenem paketu in se menja takoj - naslovna slika na domači strani se prekrije v trenutku, ko jo izberete, namesto da čakate prenos, ki se morda nikoli ne konča. Izbirnik tem ponuja zdaj šest videzov v slogu Finderja iz macOS, v svetli in temni različici, poleg tistih, ki so bili že tam.
+
+### What changed
+
+**Popravljeno: naslovna slika na domači strani se zamenja takoj, ko izberete ozadje.** Klik na naslovno sliko je odprl upravljalnik ozadja, a izbira slike tam ni imela nobene vidne posledice - slika je ostala ista. Razlog je bil, da se je vse privzeto ozadje še vedno prenašalo iz omrežja ob trenutku klika, zato se je zamenjava ali zavela dolgo ali pa se sploh ni zgodila. Zdaj je vse znotraj namestitvenega paketa (21 slik, približno 24 MB), seznam se odpre brez ene same omrežne zahteve, naslovna slika pa se prekrije v delu sekunde: na testni napravi približno 240 ms.
+
+**Dodano: šest tem v slogu Finderja iz macOS.** Izbirnik tem zdaj vsebuje tri nove videze, vsakega v svetli in temni različici, ki jih lahko kadar koli zamenjate s prvotnimi. *macOS Native* je najpreprostejši: belo okno, svetlo siv stranski stolpec, sistemska modra, lasne črte. *Refined Modern* ohrani skoraj črn poudarek, ki ga je aplikacija imela vedno, spremeni pa plasti: bolj zaobljeni robovi, mehkejše sence, več zraka. *Translucent Glass* pusti sliko za oknom pokazati skozi menije in plavajoče okne. Tri prejšnje teme - svetla, temna in sledi sistemu - ostanejo natanko take, kot so bile.
+
 ## [3.6.4] - October 2026
 
 **Summary:** Tri stvari, ena izmed njih nevidna. Aplikacija zdaj zasede precej manj pomnilnika - na isti napravi, istem računu in istem disku se delovni nabor ob hladnem zagonu zmanjša z 961,2 MB na 742,8 MB (-22,7 %), predpomnik na disku pa z 805,58 MB na 66,21 MB (-91,8 %). Sesuv procesa za risanje WebView2 ne pušča več belega okna: varuh sam znova naloži stran, za ponovni zagon pa vpela šele, ko se stran ne vrne. Tudi globalno iskanje ni več prazno pri kratkih izrazih: "pdf", "doc" ali "095" so pogosto našli čisto nič.

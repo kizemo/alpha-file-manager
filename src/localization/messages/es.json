@@ -346,6 +346,15 @@
       "theme": {
         "title": "Temática",
         "extensionThemes": "Temas de extensiones",
+        "macVariantThemes": "Temas de estilo macOS",
+        "macVariants": {
+          "classicLight": "macOS nativo · Claro",
+          "classicDark": "macOS nativo · Oscuro",
+          "modernLight": "Moderno refinado · Claro",
+          "modernDark": "Moderno refinado · Oscuro",
+          "glassLight": "Cristal translúcido · Claro",
+          "glassDark": "Cristal translúcido · Oscuro"
+        },
         "themeTypeRadio": {
           "dark": "Oscuro",
           "light": "Luz (en desarrollo)"

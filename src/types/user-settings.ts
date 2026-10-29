@@ -266,7 +266,20 @@ export type LocalizationLanguage = {
   isRtl: boolean;
 };
 
-export type BuiltinThemeId = 'light' | 'dark' | 'system';
+// FORK-MODIFICATION 2026-10-29（AFM 3.6.5）：新增六个内置 macOS Finder 风格主题
+// （原生还原 / 精致现代 / 半透明玻璃 × 浅色 / 深色），与 light / dark / system 并存可切换。
+// 这六个 id 与 `src/modules/themes/mac-variants.ts` 里的 `MAC_VARIANT_THEME_IDS` 一一对应，
+// 该文件有单测断言两边不漂移。
+export type BuiltinThemeId
+  = | 'light'
+    | 'dark'
+    | 'system'
+    | 'mac-classic-light'
+    | 'mac-classic-dark'
+    | 'mac-modern-light'
+    | 'mac-modern-dark'
+    | 'mac-glass-light'
+    | 'mac-glass-dark';
 export type Theme = BuiltinThemeId | `extension:${string}:${string}`;
 export type NavigatorIconTheme = string;
 

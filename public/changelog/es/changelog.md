@@ -1,5 +1,15 @@
 # Registro de cambios
 
+## [3.6.5] - October 2026
+
+**Summary:** Dos cosas visibles. Todos los fondos predeterminados ahora vienen dentro del instalador y se cambian al instante: la imagen de portada de la página de inicio se vuelve a dibujar en cuanto eliges una, en lugar de esperar una descarga que quizá nunca termine. Y el selector de temas ofrece ahora seis aspectos con el estilo del Finder de macOS, en claro y en oscuro, junto a los que ya había.
+
+### What changed
+
+**Corregido: la imagen de portada de la página de inicio cambia en cuanto eliges un fondo.** Al hacer clic en la portada se abría el gestor de fondos, pero elegir una imagen allí no producía ningún cambio visible: el gráfico se quedaba igual. La razón: todos los fondos predeterminados todavía se descargaban de la red en el momento de la pulsación, así que el cambio tardaba mucho o no ocurría nunca. Ahora todos están dentro del instalador (21 imágenes, unos 24 MB), la lista se abre sin una sola petición de red y la portada se vuelve a dibujar en una fracción de segundo: unos 240 ms en la máquina de prueba.
+
+**Añadido: seis temas con el estilo del Finder de macOS.** El selector de temas incluye ahora tres aspectos nuevos, cada uno en versión clara y oscura, que se pueden alternar con los existentes en cualquier momento. *macOS Native* es el más sobrio: ventana blanca, barra lateral gris claro, el azul del sistema, separadores de un solo pelo. *Refined Modern* mantiene el acento casi negro que la aplicación ha tenido siempre y cambia las capas: esquinas más redondeadas, sombras más suaves y más aire. *Translucent Glass* deja ver la imagen de fondo a través de los menús y los pop-ups. Los tres que ya existían - Claro, Oscuro y Seguir al sistema - quedan exactamente como estaban.
+
 ## [3.6.4] - October 2026
 
 **Summary:** Tres cosas, una de ellas invisible. La aplicación ahora ocupa mucha menos memoria que antes: en la misma máquina, la misma cuenta y la misma unidad, el conjunto de trabajo en el arranque en frío pasa de 961,2 MB a 742,8 MB (−22,7 %) y la caché en disco baja de 805,58 MB a 66,21 MB (−91,8 %). Una caída del proceso de renderizado de WebView2 ya no deja una ventana en blanco: un vigilante recarga la página por sí solo y solo propone reiniciar si la página no vuelve. Y la búsqueda global deja de devolver nada en las consultas cortas: "pdf", "doc" u "095" solían no encontrar nada.

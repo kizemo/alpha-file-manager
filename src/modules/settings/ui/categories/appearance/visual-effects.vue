@@ -47,10 +47,7 @@ const isBackgroundManagerOpen = ref(false);
 watch(isBackgroundManagerOpen, (open) => {
   dropOverlayStore.setBackgroundManagerOpen(open);
 }, { immediate: true });
-const {
-  ensureMediaCached,
-  resolveOffsetMediaSelection,
-} = useBackgroundMedia();
+const { resolveOffsetMediaSelection } = useBackgroundMedia();
 
 const infusionSettings = computed(() => userSettingsStore.userSettings.infusion);
 
@@ -293,12 +290,6 @@ const infusionMediaSelectionOptions = {
 };
 
 async function applyInfusionBackgroundSelection(selection: ResolvedMediaSelection) {
-  const isReady = await ensureMediaCached(selection.item);
-
-  if (!isReady) {
-    return;
-  }
-
   const page = effectivePageToCustomize.value;
   const background = {
     type: selection.type,

@@ -381,6 +381,15 @@
       "theme": {
         "title": "Theme",
         "extensionThemes": "Extension themes",
+        "macVariantThemes": "macOS-style themes",
+        "macVariants": {
+          "classicLight": "macOS Native · Light",
+          "classicDark": "macOS Native · Dark",
+          "modernLight": "Refined Modern · Light",
+          "modernDark": "Refined Modern · Dark",
+          "glassLight": "Translucent Glass · Light",
+          "glassDark": "Translucent Glass · Dark"
+        },
         "themeTypeRadio": {
           "dark": "Dark",
           "light": "Light (in development)"

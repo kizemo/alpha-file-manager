@@ -82,6 +82,13 @@ describe('theme registry', () => {
       'dark',
       'light',
       'system',
+      // FORK-MODIFICATION 2026-10-29：六套内置 macOS Finder 风格主题。
+      'mac-classic-light',
+      'mac-classic-dark',
+      'mac-modern-light',
+      'mac-modern-dark',
+      'mac-glass-light',
+      'mac-glass-dark',
       'extension:test.palette:midnight',
     ]);
   });

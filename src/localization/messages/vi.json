@@ -346,6 +346,15 @@
       "theme": {
         "title": "Chủ đề",
         "extensionThemes": "Chủ đề tiện ích mở rộng",
+        "macVariantThemes": "Chủ đề phong cách macOS",
+        "macVariants": {
+          "classicLight": "macOS gốc · Sáng",
+          "classicDark": "macOS gốc · Tối",
+          "modernLight": "Hiện đại tinh tế · Sáng",
+          "modernDark": "Hiện đại tinh tế · Tối",
+          "glassLight": "Kính bán trong suốt · Sáng",
+          "glassDark": "Kính bán trong suốt · Tối"
+        },
         "themeTypeRadio": {
           "dark": "Tối",
           "light": "Ánh sáng (đang phát triển)"

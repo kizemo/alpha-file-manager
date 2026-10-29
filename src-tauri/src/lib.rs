@@ -512,7 +512,6 @@ pub fn run() {
             extensions::get_shared_binaries_base_dir,
             extensions::fetch_github_tags,
             extensions::fetch_url_text,
-            background_sources::resolve_background_source_to_cache,
             background_sources::download_url_to_path,
             background_sources::copy_files_to_backgrounds,
             lan_share::start_lan_share,
