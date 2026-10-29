@@ -56,6 +56,15 @@ Var AlphaLogPhase
 Var AlphaLogInstDir
 
 ; -----------------------------------------------------------------------
+; 2026-10-29 升级安装失败修复用的变量。
+;
+; AlphaKillInstDir   = 杀进程时要校验解锁的安装目录（PREINSTALL / PREUNINSTALL）
+; AlphaLegacyInstDir = 调用旧卸载器前，旧版本所在的安装目录
+; -----------------------------------------------------------------------
+Var AlphaKillInstDir
+Var AlphaLegacyInstDir
+
+; -----------------------------------------------------------------------
 ; AlphaNormalizeInstDir — the single gate between "a registry string" and
 ; "$INSTDIR".
 ;
@@ -185,7 +194,15 @@ FunctionEnd
   ;
   ; 现在脚本自己取父进程 PID：nsExec 直接 spawn powershell.exe，所以它的父进程
   ; 就是安装器。这条链路是结构性的，不会再漂。
-  nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\kill-app-tree.ps1"'
+  ;
+  ; v3.6.6 (2026-10-29)：脚本现在会**等被杀的进程真的退出**，并且用「独占打开」
+  ; **证明**主程序二进制已经没有任何进程持有（-InstDir）。这两件事正是升级安装
+  ; 在 2026-10-29 失败的原因：杀完就返回，卸载器随后用 Windows Restart Manager
+  ; 一查，发现「还有进程在用这个 exe」，于是弹框、RmShutdown 失败、Abort。
+  ;
+  ; -DisableScheduledTask 交给脚本在动手之前先把 \KizemoFocusSync 停掉，
+  ; 免得 sidecar 在杀进程的中途被任务拉起来、又锁回二进制。
+  nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\kill-app-tree.ps1" -InstDir "$AlphaKillInstDir" -DisableScheduledTask'
   Pop $0
 !macroend
 
@@ -196,6 +213,65 @@ FunctionEnd
 Function un.AlphaTerminateAppProcesses
   !insertmacro AlphaTerminateAppProcessesBody
 FunctionEnd
+
+; -----------------------------------------------------------------------
+; AlphaPrepareLegacyUninstall — 2026-10-29 升级安装失败修复（**安装器**侧）。
+;
+; 失败链路（真机日志 2026-10-29 10:27）：
+;   1. setup 在 PageLeaveReinstall 里 ExecWait 旧卸载器（3.6.4/3.6.5 的
+;      uninstall.exe）。旧卸载器是**已经发布出去的二进制，改不了**。
+;   2. 旧卸载器的 PREUNINSTALL 钩子杀了应用，但**不等它退出**。
+;   3. 约 2.4 秒后，模板的 CheckIfAppIsRunning 用 Windows Restart Manager
+;      查「还有没有进程在用 $INSTDIR\alpha-file-manager.exe」，答案还是「有」
+;      → 弹出「程序正在运行！点击确定以终止运行」。
+;   4. 用户点确定 → RmShutdown 失败 → 卸载器 Abort（退出码非 0，POSTUNINSTALL
+;      不执行）→ setup 判失败 → 安装失败。
+;
+; 修法：**在调用旧卸载器之前**先把应用彻底关掉，并**证明**二进制已经解锁。
+; 这样旧卸载器跑到自己的 CheckIfAppIsRunning 时，Restart Manager 什么也查不到，
+; 既不会弹框，也不会 Abort。
+;
+; 这一步只能做在 setup 侧 —— 旧卸载器已经发出去了，改不了。
+; -----------------------------------------------------------------------
+Function AlphaPrepareLegacyUninstall
+  ; $4 = 旧版本的安装目录（模板在 reinst_uninstall 段从注册表读出）。
+  ; 读不到就退回 $INSTDIR。
+  StrCpy $AlphaLegacyInstDir "$4"
+  ${If} $AlphaLegacyInstDir == ""
+    StrCpy $AlphaLegacyInstDir "$INSTDIR"
+  ${EndIf}
+
+  ; 编译期内嵌原文件、运行期原样解包到 $PLUGINSDIR：字节精确，
+  ; 不经 ANSI 代码页转换，也不需要任何转义。
+  File /oname=$PLUGINSDIR\kill-app-tree.ps1 "${__FILEDIR__}\kill-app-tree.ps1"
+
+  DetailPrint "==> [PRE-LEGACY-UNINSTALL] Closing the running application in $AlphaLegacyInstDir before the old uninstaller runs ..."
+  nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\kill-app-tree.ps1" -InstDir "$AlphaLegacyInstDir" -DisableScheduledTask'
+  Pop $0
+
+  ${If} $0 == "0"
+    DetailPrint "==> [PRE-LEGACY-UNINSTALL] the application is closed and its binary is unlocked."
+  ${Else}
+    DetailPrint "==> WARNING: [PRE-LEGACY-UNINSTALL] kill-app-tree.ps1 returned $0"
+    DetailPrint "    The old uninstaller may still ask the user to close the application."
+  ${EndIf}
+FunctionEnd
+
+; -----------------------------------------------------------------------
+; NSIS_HOOK_PRELEGACY_UNINSTALL — 我们 vendor 出来的 NSIS 模板在
+; 「调用旧卸载器之前」调用它。模板里的调用点长这样：
+;
+;   !ifdef AFM_HOOK_PRELEGACY_UNINSTALL
+;     !insertmacro NSIS_HOOK_PRELEGACY_UNINSTALL
+;   !endif
+;
+; 用 !ifdef 包一层，是为了在 hooks.nsh 缺失时模板仍然能编译 ——
+; 模板与 hooks 不同步只会退回到「上游行为」，不会把整个安装包卡死。
+; -----------------------------------------------------------------------
+!define AFM_HOOK_PRELEGACY_UNINSTALL
+!macro NSIS_HOOK_PRELEGACY_UNINSTALL
+  Call AlphaPrepareLegacyUninstall
+!macroend
 
 ; -----------------------------------------------------------------------
 ; AlphaCheckSingleInstance — 2026-10-19 单实例守卫。
@@ -360,10 +436,18 @@ FunctionEnd
   ; 已用模拟进程树验证：新脚本 4 项断言全过；把同一套用例换回旧的
   ; taskkill /T 跑，安装器（harness）在跑到一半时被杀、连结果文件都没
   ; 写出来 —— 也就是本 bug 的原始形态。
+  ;
+  ; v3.6.6 (2026-10-29)：告诉脚本要校验哪个目录。杀完之后脚本会用「独占打开」
+  ; 证明 $INSTDIR\alpha-file-manager.exe 已经解锁 —— 这正是 Tauri 随后那次
+  ; Restart Manager 检查想要确认的东西。先证明，就能让那一步直接通过。
+  StrCpy $AlphaKillInstDir "$INSTDIR"
   DetailPrint "==> [PREINSTALL HOOK] Terminating Alpha/Sigma FM and helpers (PID-targeted; installer subtree protected) ..."
   Call AlphaTerminateAppProcesses
   ${If} $0 == "0"
     DetailPrint "==> kill-app-tree.ps1 completed; installer survived."
+  ${ElseIf} $0 == "3"
+    DetailPrint "==> WARNING: the application binary is still in use after the kill."
+    DetailPrint "    The Restart Manager check that follows may ask the user to close it."
   ${Else}
     DetailPrint "==> kill-app-tree.ps1 returned $0 (continuing)."
   ${EndIf}
@@ -844,9 +928,20 @@ FunctionEnd
   ; sidecar (`spike.exe`) and disable its Scheduled Task so NSIS can
   ; delete the sidecar binary and remove the Scheduled Task without
   ; "file in use" errors.
+  ;
+  ; v3.6.6 (2026-10-29)：这一段是 2026-10-29 那次升级安装失败的**直接原因**。
+  ; 旧版只发出 kill 请求就返回；卸载器随后让 Windows Restart Manager 检查
+  ; 「还有没有进程在用 $INSTDIR\alpha-file-manager.exe」，答案还是「有」，
+  ; 于是弹出「程序正在运行！点击确定以终止运行」，RmShutdown 失败后卸载器
+  ; Abort（退出码非 0）→ 上层 setup 判定卸载失败 → 安装失败。
+  ; 现在脚本会等进程真的退出，并用「独占打开」**证明**二进制已经解锁。
+  StrCpy $AlphaKillInstDir "$INSTDIR"
   DetailPrint "==> [PREUNINSTALL HOOK] Terminating Alpha/Sigma FM, helpers and sidecar (PID-targeted; uninstaller subtree protected) ..."
   Call un.AlphaTerminateAppProcesses
-  ${If} $0 != "0"
+  ${If} $0 == "3"
+    DetailPrint "==> WARNING: the application binary is still locked after the kill."
+    DetailPrint "    The Restart Manager check that follows may ask the user to close it."
+  ${ElseIf} $0 != "0"
     DetailPrint "==> WARNING: kill-app-tree.ps1 returned $0 during uninstall"
   ${EndIf}
 
@@ -858,8 +953,9 @@ FunctionEnd
   ; msedgewebview2.exe」把它删了，这里却一直留着，属于两处不一致。
   ; kill-app-tree.ps1 只清理「目标进程的子树」，其中自然包含它自己的
   ; WebView2 子进程，既能解锁文件，又不会波及其他应用。
-  ; Brief settle delay so the process can release any open handles.
-  Sleep 1000
+  ; v3.6.6 (2026-10-29)：原来这里是 `Sleep 1000`（盲等一秒）。删掉了 ——
+  ; 等待现在由 kill-app-tree.ps1 负责，而且等的是「进程真的退出」而不是
+  ; 「睡够一秒」。盲等既不保证句柄已释放，又白白拖慢安装。
 
   ; 卸载也要留痕：否则「装了几次、卸了几次」永远说不清。
   StrCpy $AlphaLogPhase "PREUNINSTALL"

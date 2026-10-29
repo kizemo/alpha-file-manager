@@ -1,5 +1,13 @@
 # Journal des modifications
 
+## [3.6.6] - October 2026
+
+**Summary:** Une mise à jour n’échoue plus lorsque l’application est encore en cours d’exécution. L’installation d’une nouvelle version par-dessus une ancienne pouvait s’interrompre avec « Uninstall was not successfully », même après avoir cliqué sur OK dans l’invite demandant de fermer l’application en cours : l’ancien désinstallateur demandait à l’application de se fermer mais n’attendait jamais qu’elle le fasse vraiment, puis interrogeait le système d’exploitation pour savoir si le programme installé était encore utilisé - la réponse était toujours oui, et il abandonnait. Le programme d’installation ferme maintenant l’application lui-même et attend que le fichier du programme soit réellement libéré avant d’appeler l’ancien désinstallateur, si bien que la question n’est même plus posée.
+
+### What changed
+
+**Corrigé : Le chemin de mise à jour exécute le désinstallateur publié avec la version précédente, et ce désinstallateur ne peut plus être modifié : il est déjà sur les machines que l’on va mettre à jour. Il demandait à l’application en cours de se fermer, revenait immédiatement, puis environ deux secondes plus tard interrogeait le système d’exploitation pour savoir si le programme installé était encore utilisé. La réponse était toujours oui : il affichait alors « L’application est en cours d’exécution, cliquez sur OK pour l’arrêter » ; même après le clic sur OK, l’arrêt pouvait échouer, le désinstallateur abandonnait avec une erreur, et le programme d’installation signalait une désinstallation échouée. Maintenant, le programme d’installation ferme l’application lui-même et attend que le fichier du programme puisse être ouvert en exclusivité - preuve qu’aucun processus ne le retient encore - avant d’appeler l’ancien désinstallateur. L’attente a lieu dans les deux sens : une fois avant l’installation et une fois avant la désinstallation. Résultat : la question n’est jamais posée et la mise à jour se poursuit toute seule.**
+
 ## [3.6.5] - October 2026
 
 **Summary:** Deux choses visibles. Tous les fonds par défaut sont maintenant fournis avec l'installateur et se changent instantanément - l'image de couverture de la page d'accueil est redessinée dès que vous en choisissez une, au lieu d'attendre un téléchargement qui n'aboutit peut-être jamais. Et le sélecteur de thème propose désormais six apparences inspirées du Finder de macOS, en clair et en sombre, à côté de celles qui existaient déjà.

@@ -1,5 +1,13 @@
 # Registro de cambios
 
+## [3.6.6] - October 2026
+
+**Summary:** Una actualización ya no falla mientras la aplicación sigue en marcha. Al instalar una versión nueva sobre una anterior, la instalación podía detenerse con «Uninstall was not successfully» incluso después de haber pulsado Aceptar en el aviso que pedía cerrar la aplicación en ejecución: el desinstalador antiguo pedía a la aplicación que se cerrara, pero nunca esperaba a que terminara de verdad, y después preguntaba al sistema operativo si el programa instalado seguía en uso; la respuesta seguía siendo que sí, y se rendía. Ahora el instalador cierra la aplicación por sí mismo y espera a que el archivo del programa quede realmente liberado antes de llamar al desinstalador antiguo, así que la pregunta ni siquiera llega a formularse.
+
+### What changed
+
+**Corregido: La ruta de actualización ejecuta el desinstalador que se publicó con la versión anterior, y ese desinstalador ya no se puede cambiar: está en los mismos equipos que se van a actualizar. Pedía a la aplicación en ejecución que se cerrara, regresaba de inmediato y unos dos segundos después preguntaba al sistema operativo si el programa instalado seguía en uso. La respuesta seguía siendo que sí, así que mostraba «La aplicación está en marcha, pulse Aceptar para terminarla»; incluso después de pulsar Aceptar el cierre podía fallar, el desinstalador abortaba con un error y el instalador informaba de una desinstalación fallida. Ahora el instalador cierra la aplicación por sí mismo y espera a que el archivo del programa se pueda abrir en exclusiva - prueba de que ningún proceso lo mantiene abierto - antes de llamar al desinstalador antiguo. La espera se produce en ambos sentidos: una vez antes de instalar y una vez antes de desinstalar. El resultado es que la pregunta no llega a formularse y la actualización continúa por sí sola.**
+
 ## [3.6.5] - October 2026
 
 **Summary:** Dos cosas visibles. Todos los fondos predeterminados ahora vienen dentro del instalador y se cambian al instante: la imagen de portada de la página de inicio se vuelve a dibujar en cuanto eliges una, en lugar de esperar una descarga que quizá nunca termine. Y el selector de temas ofrece ahora seis aspectos con el estilo del Finder de macOS, en claro y en oscuro, junto a los que ya había.

@@ -1,5 +1,13 @@
 # Änderungsprotokoll
 
+## [3.6.6] - October 2026
+
+**Summary:** Eine Aktualisierung schlägt nicht mehr fehl, während die Anwendung noch läuft. Beim Installieren einer neuen Version über eine ältere konnte die Installation mit „Uninstall was not successfully“ abbrechen, selbst nachdem Sie im Hinweis zum Schließen der laufenden Anwendung auf OK geklickt hatten: Der alte Deinstallierer bat die Anwendung, sich zu schließen, wartete aber nicht darauf, dass sie wirklich endete, und fragte danach das Betriebssystem, ob die installierte Datei noch geöffnet war - die Antwort war weiterhin ja, und er gab auf. Der Installer schließt die Anwendung nun selbst und wartet, bis die Programmdatei tatsächlich freigegeben ist, bevor er den alten Deinstallierer aufruft, sodass die Frage gar nicht erst gestellt wird.
+
+### What changed
+
+**Behoben: Der Aktualisierungspfad ruft den Deinstallierer auf, der zusammen mit der vorherigen Version veröffentlicht wurde, und dieser Deinstallierer lässt sich nicht mehr ändern - er ist bereits auf genau den Rechnern, die aktualisiert werden. Er bat die laufende Anwendung, sich zu schließen, kehrte sofort zurück und fragte etwa zwei Sekunden später das Betriebssystem, ob das installierte Programm noch benutzt wurde. Die Antwort war weiterhin ja, also zeigte er „Die Anwendung wird ausgeführt, zum Beenden auf OK klicken“; selbst nach einem Klick auf OK konnte das Beenden scheitern, der Deinstallierer brach mit einem Fehler ab, und der Installer meldete eine fehlgeschlagene Deinstallation. Jetzt schließt der Installer die Anwendung selbst und wartet, bis die Programmdatei exklusiv geöffnet werden kann - ein Beweis dafür, dass kein Prozess sie mehr hält -, bevor er den alten Deinstallierer aufruft. Das Warten erfolgt in beide Richtungen: einmal vor dem Installieren und einmal vor dem Deinstallieren. Das Ergebnis: Die Frage wird gar nicht erst gestellt, und die Aktualisierung läuft von selbst weiter.**
+
 ## [3.6.5] - October 2026
 
 **Summary:** Zwei sichtbare Dinge. Alle Standard-Hintergründe liegen jetzt im Installationspaket und lassen sich sofort umschalten - das Titelbild auf der Startseite wird neu gezeichnet, sobald man eines auswählt, statt auf einen Download zu warten, der womöglich nie fertig wird. Und die Themenauswahl bietet jetzt sechs Looks im Stil des macOS-Finders, je in hell und dunkel, direkt neben den bisherigen.

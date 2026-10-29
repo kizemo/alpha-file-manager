@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.6.6] - October 2026
+
+**Summary:** An update no longer fails when the application is still running. Installing a new version over an older copy could stop with "Uninstall was not successfully" even after you clicked OK on the prompt that asked you to close the running application: the old uninstaller asked the application to close but never waited for it to actually exit, then asked the operating system whether anything still had the installed program open - the answer was still yes, and it gave up. The installer now closes the application itself and waits until the program file is genuinely released before the old uninstaller is called, so the question never comes up.
+
+### What changed
+
+**Fixed: an update no longer fails with "Uninstall was not successfully".** The upgrade path runs the uninstaller that was published with the previous version, and that uninstaller cannot be changed any more - it is already on the very machines that are being updated. It asked the running application to close, returned immediately, and about two seconds later asked the operating system whether the installed program was still in use. The answer was still yes, so it showed "the application is running, click OK to terminate it"; even after you clicked OK the shutdown could fail, the uninstaller aborted with an error, and the installer reported a failed uninstall. Now the installer closes the application by itself and waits until the program file can be opened exclusively - proof that no process holds it any more - before calling the old uninstaller. The waiting happens in both directions: once before installing and once before uninstalling. The result is that the question is never asked and the update carries on by itself.
+
 ## [3.6.5] - October 2026
 
 **Summary:** Two visible changes. Every default background now ships inside the installer and switches instantly - the cover image on the home page refreshes the moment you pick one, instead of waiting for a download that may never finish. And the theme picker now offers six macOS Finder-style looks, in light and dark, side by side with the ones that were already there.

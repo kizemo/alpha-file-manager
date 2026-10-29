@@ -92,7 +92,8 @@
       "nsis": {
         "installMode": "perMachine",
         "installerIcon": "icons/icon.ico",
-        "installerHooks": "installer/hooks.nsh"
+        "installerHooks": "installer/hooks.nsh",
+        "template": "installer/installer.nsi"
       }
     },
     "icon": [
