@@ -350,7 +350,8 @@
         "afmThemes": {
           "warmLight": "Giấy ấm · Sáng",
           "warmDark": "Giấy ấm · Tối",
-          "vividLight": "Năng lượng rực rỡ"
+          "vividLight": "Năng lượng rực rỡ",
+          "coolLight": "Thông lạnh"
         },
         "themeTypeRadio": {
           "dark": "Tối"

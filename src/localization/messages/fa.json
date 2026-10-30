@@ -343,7 +343,8 @@
         "afmThemes": {
           "warmLight": "کاغذ گرم · روشن",
           "warmDark": "کاغذ گرم · تیره",
-          "vividLight": "انرژی پرشور"
+          "vividLight": "انرژی پرشور",
+          "coolLight": "کاج سرد"
         },
         "themeTypeRadio": {
           "dark": "تاریک"

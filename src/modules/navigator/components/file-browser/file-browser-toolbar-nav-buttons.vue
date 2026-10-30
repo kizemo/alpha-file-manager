@@ -102,7 +102,7 @@ function openThumbnailSizeDialog() {
         >
           <component
             :is="backHistoryIcon"
-            class="file-browser-toolbar-nav-buttons__icon"
+            class="file-browser-toolbar-nav-buttons__icon file-browser-toolbar-nav-buttons__icon--nav"
           />
         </Button>
       </TooltipTrigger>
@@ -124,7 +124,7 @@ function openThumbnailSizeDialog() {
         >
           <component
             :is="forwardHistoryIcon"
-            class="file-browser-toolbar-nav-buttons__icon"
+            class="file-browser-toolbar-nav-buttons__icon file-browser-toolbar-nav-buttons__icon--nav"
           />
         </Button>
       </TooltipTrigger>
@@ -144,7 +144,7 @@ function openThumbnailSizeDialog() {
           :disabled="!canGoUp"
           @click="emit('goUp')"
         >
-          <ArrowUpIcon class="file-browser-toolbar-nav-buttons__icon" />
+          <ArrowUpIcon class="file-browser-toolbar-nav-buttons__icon file-browser-toolbar-nav-buttons__icon--nav" />
         </Button>
       </TooltipTrigger>
       <TooltipContent>
@@ -163,7 +163,7 @@ function openThumbnailSizeDialog() {
           data-test="go-locations-button"
           @click="emit('goHome')"
         >
-          <HomeIcon class="file-browser-toolbar-nav-buttons__icon" />
+          <HomeIcon class="file-browser-toolbar-nav-buttons__icon file-browser-toolbar-nav-buttons__icon--location" />
         </Button>
       </TooltipTrigger>
       <TooltipContent>{{ t('locations') }}</TooltipContent>
@@ -178,7 +178,7 @@ function openThumbnailSizeDialog() {
           @click="emit('refresh')"
         >
           <RefreshCwIcon
-            class="file-browser-toolbar-nav-buttons__icon"
+            class="file-browser-toolbar-nav-buttons__icon file-browser-toolbar-nav-buttons__icon--refresh"
             :class="{ 'file-browser-toolbar-nav-buttons__icon--spin': isLoading }"
           />
         </Button>
@@ -202,11 +202,11 @@ function openThumbnailSizeDialog() {
         >
           <LayoutGridIcon
             v-if="isGridLayout"
-            class="file-browser-toolbar-nav-buttons__icon"
+            class="file-browser-toolbar-nav-buttons__icon file-browser-toolbar-nav-buttons__icon--view"
           />
           <ListIcon
             v-else
-            class="file-browser-toolbar-nav-buttons__icon"
+            class="file-browser-toolbar-nav-buttons__icon file-browser-toolbar-nav-buttons__icon--view"
           />
         </Button>
       </TooltipTrigger>
@@ -224,7 +224,7 @@ function openThumbnailSizeDialog() {
           :aria-label="t('settings.general.fileView.thumbnailSizeTitle')"
           @click="openThumbnailSizeDialog"
         >
-          <ImageIcon class="file-browser-toolbar-nav-buttons__icon" />
+          <ImageIcon class="file-browser-toolbar-nav-buttons__icon file-browser-toolbar-nav-buttons__icon--thumbnail" />
         </Button>
       </TooltipTrigger>
       <TooltipContent>
@@ -241,7 +241,7 @@ function openThumbnailSizeDialog() {
           class="file-browser-toolbar-nav-buttons__button"
           :title="t('settingsCategories.navigation')"
         >
-          <EllipsisIcon class="file-browser-toolbar-nav-buttons__icon" />
+          <EllipsisIcon class="file-browser-toolbar-nav-buttons__icon file-browser-toolbar-nav-buttons__icon--more" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent

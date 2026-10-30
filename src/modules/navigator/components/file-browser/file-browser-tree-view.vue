@@ -481,6 +481,23 @@ function getRowIcon(row: { path: string; isDirectory: boolean }): typeof FolderI
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+
+  /* FORK-MODIFICATION 2026-10-30：滚动条配色随主题走。
+     只改颜色，不改宽度 —— 宽度一变，目录树行宽就会跳。 */
+  scrollbar-color: hsl(var(--scrollbar-thumb)) hsl(var(--scrollbar-track));
+}
+
+/* Chromium / WebView2 的滚动条伪元素：同样只换配色。 */
+.file-tree-view__scroll::-webkit-scrollbar-track {
+  background-color: hsl(var(--scrollbar-track));
+}
+
+.file-tree-view__scroll::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--scrollbar-thumb));
+}
+
+.file-tree-view__scroll::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--scrollbar-thumb-hover));
 }
 
 .file-tree-row {
@@ -500,6 +517,16 @@ function getRowIcon(row: { path: string; isDirectory: boolean }): typeof FolderI
 
 .file-tree-row--selected {
   background-color: hsl(var(--primary) / 18%);
+}
+
+/*
+ * FORK-MODIFICATION 2026-10-30：目录树奇偶行斑马纹。
+ * 用 :not() 排除 hover 与选中行 —— 斑马纹只负责「静态隔行」，
+ * 交互反馈（悬浮 / 选中）必须仍然看得见，所以这两条要显式排除。
+ */
+
+.file-tree-row:nth-child(even):not(:hover, .file-tree-row--selected) {
+  background-color: hsl(var(--surface-stripe));
 }
 
 .file-tree-row--loading {

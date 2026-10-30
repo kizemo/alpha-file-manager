@@ -68,7 +68,7 @@ const BASE_COLOR_TOKENS = [
   '--warning',
 ] as const;
 
-/** 三套重设计主题新增的品牌 / 点缀 / 图标轨 token。 */
+/** 四套重设计主题新增的品牌 / 点缀 / 图标轨 / 层次 token。 */
 const AFM_EXTRA_COLOR_TOKENS = [
   '--brand',
   '--brand-foreground',
@@ -79,6 +79,19 @@ const AFM_EXTRA_COLOR_TOKENS = [
   '--nav-rail-background',
   '--nav-rail-foreground',
   '--nav-rail-muted-foreground',
+  '--brand-ink',
+  '--surface-sidebar',
+  '--surface-panel',
+  '--surface-stripe',
+  '--state-hover',
+  '--state-selected',
+  '--state-active',
+  '--border-subtle',
+  '--tab-surface-active',
+  '--tab-indicator',
+  '--scrollbar-track',
+  '--scrollbar-thumb',
+  '--scrollbar-thumb-hover',
 ] as const;
 
 const REQUIRED_COLOR_TOKENS = [
@@ -293,10 +306,10 @@ const FORBIDDEN_LAYOUT_PROPERTIES = [
 ];
 
 describe('AFM brand redesign themes', () => {
-  it('ships three themes', () => {
-    expect(AFM_THEME_IDS).toHaveLength(3);
-    expect(new Set(AFM_THEME_IDS).size).toBe(3);
-    expect(AFM_THEMES).toHaveLength(3);
+  it('ships four themes', () => {
+    expect(AFM_THEME_IDS).toHaveLength(4);
+    expect(new Set(AFM_THEME_IDS).size).toBe(4);
+    expect(AFM_THEMES).toHaveLength(4);
   });
 
   it('keeps every theme id in sync with the BuiltinThemeId union', () => {
@@ -314,6 +327,7 @@ describe('AFM brand redesign themes', () => {
       'afm-warm-light',
       'afm-warm-dark',
       'afm-vivid-light',
+      'afm-cool-light',
     ];
 
     for (const id of AFM_THEME_IDS) {

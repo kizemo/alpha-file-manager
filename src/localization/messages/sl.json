@@ -385,7 +385,8 @@
         "afmThemes": {
           "warmLight": "Topel papir · Svetla",
           "warmDark": "Topel papir · Temna",
-          "vividLight": "Živa energija"
+          "vividLight": "Živa energija",
+          "coolLight": "Hladna borovnica"
         },
         "themeTypeRadio": {
           "dark": "Temna"

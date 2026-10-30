@@ -32,7 +32,8 @@
 export type AfmThemeId
   = | 'afm-warm-light'
     | 'afm-warm-dark'
-    | 'afm-vivid-light';
+    | 'afm-vivid-light'
+    | 'afm-cool-light';
 
 export type AfmThemeDefinition = {
   id: AfmThemeId;
@@ -52,6 +53,7 @@ export const AFM_THEME_IDS: AfmThemeId[] = [
   'afm-warm-light',
   'afm-warm-dark',
   'afm-vivid-light',
+  'afm-cool-light',
 ];
 
 const AFM_THEME_ID_SET = new Set<string>(AFM_THEME_IDS);
@@ -108,6 +110,7 @@ const AFM_WARM_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--backdrop-filter-blur': '32px',
   // 品牌与点缀
   '--brand': '200 16.9% 45.3%',
+  '--brand-ink': '200 16.9% 41%',
   '--brand-foreground': '0 0% 100%',
   '--accent': '15 52.3% 58%',
   // 赤陶底色偏亮，白字压上去只有 3.24:1，所以前景改成墨色（6.48:1）。
@@ -118,9 +121,22 @@ const AFM_WARM_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   // token 自带 alpha 会让 `hsl(var(--token) / N%)` 这种二次加 alpha 的写法整体失效。
   '--accent-muted': '15 45% 92%',
   // 左侧图标轨（用户要求保持 42px 宽，这里只提供颜色）
-  '--nav-rail-background': '38 34.5% 89.2%',
+  '--nav-rail-background': '38 34.5% 87.2%',
   '--nav-rail-foreground': '33 11.5% 37.6%',
-  '--nav-rail-muted-foreground': '33 10% 39%',
+  '--nav-rail-muted-foreground': '33 12% 37%',
+  // 层次面 / 状态层 / 描边 / 标签 / 滚动条（2026-10-30 主题视觉细节优化）
+  '--surface-sidebar': '38 34.5% 87.2%',
+  '--surface-panel': '43 53.8% 97.5%',
+  '--surface-stripe': '38 36% 91.8%',
+  '--state-hover': '38 36.4% 91.4%',
+  '--state-selected': '38 33.3% 85.9%',
+  '--state-active': '38 34.5% 85%',
+  '--border-subtle': '37 25% 82%',
+  '--tab-surface-active': '43 53.8% 97.5%',
+  '--tab-indicator': '200 16.9% 45.3%',
+  '--scrollbar-track': '38 34.5% 89.2%',
+  '--scrollbar-thumb': '38 24% 44%',
+  '--scrollbar-thumb-hover': '38 26% 40%',
   // 字族
   '--font-display': SERIF_FONT_STACK,
 };
@@ -161,14 +177,28 @@ const AFM_WARM_DARK_VARIABLES: Record<`--${string}`, string> = {
   '--shadow-lg': '0 14px 36px rgb(0 0 0 / 52%)',
   '--backdrop-filter-blur': '32px',
   '--brand': '201 20.4% 63.5%',
+  '--brand-ink': '201 20.4% 63.5%',
   '--brand-foreground': '30 17.4% 9%',
   '--accent': '18 66.3% 63.9%',
   '--accent-foreground': '30 17.4% 9%',
   '--accent-ink': '17 69.7% 71.6%',
   '--accent-muted': '18 30% 20%',
-  '--nav-rail-background': '30 17.2% 11.4%',
+  '--nav-rail-background': '27 17% 7.6%',
   '--nav-rail-foreground': '33 14.1% 59.8%',
   '--nav-rail-muted-foreground': '33 10% 52%',
+  // 层次面 / 状态层 / 描边 / 标签 / 滚动条（2026-10-30 主题视觉细节优化）
+  '--surface-sidebar': '27 17% 7.6%',
+  '--surface-panel': '34 21.9% 12.5%',
+  '--surface-stripe': '30 17% 11%',
+  '--state-hover': '30 15.9% 14%',
+  '--state-selected': '30 15.9% 17.3%',
+  '--state-active': '30 15.9% 20%',
+  '--border-subtle': '30 16% 16%',
+  '--tab-surface-active': '34 21.9% 12.5%',
+  '--tab-indicator': '201 20.4% 63.5%',
+  '--scrollbar-track': '27 17% 10%',
+  '--scrollbar-thumb': '30 14% 42%',
+  '--scrollbar-thumb-hover': '30 16% 52%',
   '--font-display': SERIF_FONT_STACK,
 };
 
@@ -210,6 +240,7 @@ const AFM_VIVID_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--shadow-lg': '0 16px 40px rgb(26 28 34 / 16%)',
   '--backdrop-filter-blur': '32px',
   '--brand': '200 16.9% 45.3%',
+  '--brand-ink': '200 16.9% 41%',
   '--brand-foreground': '0 0% 100%',
   '--accent': '251 100% 63.9%',
   '--accent-foreground': '0 0% 100%',
@@ -218,6 +249,82 @@ const AFM_VIVID_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--nav-rail-background': '201 21.5% 25.5%',
   '--nav-rail-foreground': '210 20% 92%',
   '--nav-rail-muted-foreground': '210 14% 70%',
+  // 层次面 / 状态层 / 描边 / 标签 / 滚动条（2026-10-30 主题视觉细节优化）
+  '--surface-sidebar': '201 21.5% 25.5%',
+  '--surface-panel': '0 0% 100%',
+  '--surface-stripe': '220 27.3% 91.4%',
+  '--state-hover': '220 27.3% 91.4%',
+  '--state-selected': '251 100% 95%',
+  '--state-active': '218 28.6% 87%',
+  '--border-subtle': '220 27.3% 88%',
+  '--tab-surface-active': '0 0% 100%',
+  '--tab-indicator': '251 100% 63.9%',
+  '--scrollbar-track': '218 28.6% 94.5%',
+  '--scrollbar-thumb': '220 20% 46%',
+  '--scrollbar-thumb-hover': '220 24% 36%',
+  '--font-display': SANS_FONT_STACK,
+};
+
+// ---------------------------------------------------------------------------
+// D4 —— 冷杉（浅色，静态固定）
+//
+// 「跟随系统」不再是可选项之后，需要一套静态冷色主题顶替它的位置：
+// 冷调蓝绿底 + 品牌钢蓝主色 + 近直角卡片 + 无衬线工具感字族。
+// 品牌钢蓝落在 --brand 上（R2：每套主题至少一处承载品牌主色 #607A87）。
+// baseTheme 固定 light —— 这套主题**不跟随系统**，明暗都由它自己决定。
+// ---------------------------------------------------------------------------
+const AFM_COOL_LIGHT_VARIABLES: Record<`--${string}`, string> = {
+  '--background': '210 30% 96%',
+  '--background-2': '210 28% 92%',
+  '--background-3': '210 30% 94%',
+  '--window-toolbar': '210 30% 94%',
+  '--icon': '205 16% 38%',
+  '--foreground': '205 24% 14%',
+  '--muted': '210 26% 90%',
+  '--muted-foreground': '205 14% 40%',
+  '--popover': '210 40% 99%',
+  '--popover-foreground': '205 24% 14%',
+  '--card': '210 40% 99%',
+  '--card-foreground': '205 24% 14%',
+  '--border': '210 24% 84%',
+  '--input': '210 26% 90%',
+  '--primary': '200 16.9% 45.3%',
+  '--primary-foreground': '0 0% 100%',
+  '--secondary': '210 26% 90%',
+  '--secondary-foreground': '205 24% 14%',
+  '--destructive': '4 62% 45%',
+  '--destructive-foreground': '0 0% 100%',
+  '--ring': '200 18.8% 37.6%',
+  '--success': '174 60% 30%',
+  '--dangerous': '4 62% 45%',
+  '--warning': '38 70% 42%',
+  '--radius': '0.25rem',
+  '--shadow-md': '0 1px 2px rgb(20 30 38 / 6%), 0 4px 12px rgb(20 30 38 / 8%)',
+  '--shadow-lg': '0 12px 32px rgb(20 30 38 / 14%)',
+  '--backdrop-filter-blur': '32px',
+  '--brand': '200 16.9% 45.3%',
+  '--brand-ink': '200 16.9% 41%',
+  '--brand-foreground': '0 0% 100%',
+  '--accent': '174 55% 32%',
+  '--accent-foreground': '0 0% 100%',
+  '--accent-ink': '174 50% 28%',
+  '--accent-muted': '174 40% 92%',
+  '--nav-rail-background': '205 24% 24%',
+  '--nav-rail-foreground': '200 30% 92%',
+  '--nav-rail-muted-foreground': '200 18% 70%',
+  // 层次面 / 状态层 / 描边 / 标签 / 滚动条（2026-10-30 主题视觉细节优化）
+  '--surface-sidebar': '205 24% 24%',
+  '--surface-panel': '210 40% 99%',
+  '--surface-stripe': '210 28% 93%',
+  '--state-hover': '210 28% 93%',
+  '--state-selected': '200 30% 90%',
+  '--state-active': '210 26% 87%',
+  '--border-subtle': '210 22% 88%',
+  '--tab-surface-active': '210 40% 99%',
+  '--tab-indicator': '200 16.9% 45.3%',
+  '--scrollbar-track': '210 28% 92%',
+  '--scrollbar-thumb': '205 18% 48%',
+  '--scrollbar-thumb-hover': '205 22% 38%',
   '--font-display': SANS_FONT_STACK,
 };
 
@@ -239,6 +346,12 @@ export const AFM_THEMES: AfmThemeDefinition[] = [
     baseTheme: 'light',
     cssThemeId: 'afm-vivid-light',
     variables: AFM_VIVID_LIGHT_VARIABLES,
+  },
+  {
+    id: 'afm-cool-light',
+    baseTheme: 'light',
+    cssThemeId: 'afm-cool-light',
+    variables: AFM_COOL_LIGHT_VARIABLES,
   },
 ];
 

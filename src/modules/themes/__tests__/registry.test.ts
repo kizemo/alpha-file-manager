@@ -83,10 +83,10 @@ describe('theme registry', () => {
     // 供 ResolvedBuiltinThemeId / 扩展主题 baseTheme 使用。默认主题改为 afm-warm-light。
     expect(availableThemes.map(theme => theme.id)).toEqual([
       'dark',
-      'system',
       'afm-warm-light',
       'afm-warm-dark',
       'afm-vivid-light',
+      'afm-cool-light',
       'extension:test.palette:midnight',
     ]);
   });

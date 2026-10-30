@@ -1020,8 +1020,18 @@ const visibleRows = computed<FileBrowserListDisplayItem[]>(() => {
   pointer-events: none;
 }
 
+/*
+ * FORK-MODIFICATION 2026-10-30：列表视图的彩色左边条。
+ * 复用已有的 inset 通道；颜色由主题层通过 --entry-accent 灌进来，
+ * 跃动活力下与网格视图共用同一组四色循环色（见 src/styles/afm-themes.css）。
+ * --entry-accent 没定义时整条声明失效，退化成「没有左边条」，
+ * 所以暖纸两套与经典两套完全不受影响。
+ * 选中态 / 剪贴板态的规则排在这条之后、特异性相同 —— 状态优先，类型色让位。
+ */
+
 .file-browser-list-view__entry::before {
-  opacity: 0;
+  box-shadow: inset 3px 0 0 0 hsl(var(--entry-accent));
+  opacity: 1;
 }
 
 .file-browser-list-view__entry[data-selected]::before {

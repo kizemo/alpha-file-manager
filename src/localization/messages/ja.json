@@ -350,7 +350,8 @@
         "afmThemes": {
           "warmLight": "ウォームペーパー · ライト",
           "warmDark": "ウォームペーパー · ダーク",
-          "vividLight": "バイビッド"
+          "vividLight": "バイビッド",
+          "coolLight": "クールパイン"
         },
         "themeTypeRadio": {
           "dark": "暗い"

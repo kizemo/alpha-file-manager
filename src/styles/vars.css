@@ -129,6 +129,22 @@
   --font-display:
     system-ui, -apple-system, "Segoe UI", roboto, "Helvetica Neue", "PingFang SC", "Microsoft YaHei",
     sans-serif;
+
+  /* FORK-MODIFICATION 2026-10-30（AFM 主题视觉细节优化）：层次 / 状态 / 描边 / 滚动条 token。
+     全部是裸 HSL 三元组，不带 alpha —— 全仓有 `hsl(var(--token) / N%)` 的二次加 alpha 写法，
+     token 自带 alpha 会让那些声明整体失效。 */
+  --surface-sidebar: 220 13% 93%;
+  --surface-panel: 0 0% 100%;
+  --surface-stripe: 220 14% 97%;
+  --state-hover: 220 14% 98%;
+  --state-selected: 220 13% 93%;
+  --state-active: 220 13% 91%;
+  --border-subtle: 220 13% 91%;
+  --tab-surface-active: 220 13% 93%;
+  --tab-indicator: 220.9 39.3% 11%;
+  --scrollbar-track: 220 14% 97%;
+  --scrollbar-thumb: 220 16% 50%;
+  --scrollbar-thumb-hover: 220 18% 40%;
 }
 
 .dark {
@@ -170,7 +186,21 @@
   --accent-foreground: 220 14% 8%;
   --accent-ink: 198 24% 76%;
   --accent-muted: 225 10% 20%;
-  --nav-rail-background: 225 10% 16%;
+  --nav-rail-background: 225 12% 13%;
   --nav-rail-foreground: 0 0% 62%;
   --nav-rail-muted-foreground: 0 0% 62%;
+
+  /* FORK-MODIFICATION 2026-10-30（AFM 主题视觉细节优化）：暗色底座的层次 token。 */
+  --surface-sidebar: 225 12% 13%;
+  --surface-panel: 225 11% 19%;
+  --surface-stripe: 225 10% 18%;
+  --state-hover: 225 10% 20%;
+  --state-selected: 225 10% 22%;
+  --state-active: 225 10% 24%;
+  --border-subtle: 225 10% 20%;
+  --tab-surface-active: 225 11% 22%;
+  --tab-indicator: 198 19% 58%;
+  --scrollbar-track: 225 12% 13%;
+  --scrollbar-thumb: 225 10% 44%;
+  --scrollbar-thumb-hover: 225 12% 52%;
 }

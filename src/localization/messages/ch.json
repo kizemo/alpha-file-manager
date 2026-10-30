@@ -350,7 +350,8 @@
         "afmThemes": {
           "warmLight": "暖纸 · 浅色",
           "warmDark": "暖纸 · 深色",
-          "vividLight": "跃动活力"
+          "vividLight": "跃动活力",
+          "coolLight": "冷杉"
         },
         "themeTypeRadio": {
           "dark": "暗色"
