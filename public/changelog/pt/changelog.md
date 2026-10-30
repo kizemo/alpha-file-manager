@@ -1,5 +1,20 @@
 # Registro de alterações
 
+## [3.7.0] - October 2026
+
+**Summary:** Os temas da marca ganharam profundidade. *Warm Paper* já não se lê como uma única folha creme lisa: a barra de ícones à esquerda, os separadores dos diretórios abertos, o separador ativo, a árvore de pastas, o painel de detalhes à direita e a coluna de navegação da página de definições têm agora cada um a sua tonalidade, e a árvore de pastas alterna linha a linha. *Energia vibrante* pinta agora os ícones da barra de ferramentas com cores diferentes em vez de um só cinzento, e a vista de lista mostra a mesma margem esquerda colorida em cada entrada que a vista de miniaturas já tinha. *Seguir o sistema* foi mantido como um tema frio fixo chamado *Pinheiro frio*, a opacidade da sobreposição predefinida é agora 5% e todo o conjunto foi reformulado para que o claro e o escuro se sustentem bem.
+
+### What changed
+
+**Melhorado: os temas têm profundidade em vez de uma cor chapada.** A janela era um único campo creme e só o texto distinguia as coisas. Agora cada região tem a sua tonalidade, para que o olho as distinga sem ler: a barra de ícones à esquerda é a superfície mais escura, os separadores dos diretórios que abriu percorrem um segundo e um terceiro tom, o separador em que está efetivamente fica acima deles, a árvore de pastas alterna entre dois tons linha a linha, o painel de detalhes à direita fica um degrau atrás e a coluna de navegação da página de definições tem uma tonalidade própria. As barras de deslocamento da árvore de pastas são pintadas na família de cores do papel quente, e não no cinzento do sistema.
+
+**Melhorado: os ícones da barra de ferramentas em *Energia vibrante* têm cores diferentes.** Os ícones da barra de ferramentas do explorador de ficheiros eram todos desenhados no mesmo tom de cinzento, o que os fazia ler-se como uma única linha desfocada. Em *Energia vibrante* passam agora a ter cores diferentes conforme aquilo que fazem, para que encontre o botão que procura de relance. Os dois temas *Warm Paper* mantêm o seu cinzento discreto, porque é esse o seu propósito.
+
+**Melhorado: a vista de lista mostra uma margem esquerda colorida.** Na vista de miniaturas, cada entrada já tinha uma faixa colorida ao longo da margem esquerda. A vista de lista só a tinha como marca para as entradas assinaladas para cópia ou deslocação. Agora o tipo da entrada - uma pasta, uma imagem, um vídeo, um ficheiro de áudio, um documento, um arquivo comprimido - é indicado pela cor dessa margem, nos dois modos de visualização, para que ambos se leiam do mesmo modo.
+
+**Alterado: *Seguir o sistema* é agora um tema frio fixo chamado *Pinheiro frio*.** Seguir o sistema operativo fazia a aplicação parecer diferente em cada máquina, e não é para isso que serve um tema da marca. O seletor de temas já não o oferece; no lugar dele está *Pinheiro frio*, um tema calmo azul-esverdeado que é o mesmo em todo o lado e que se aguenta no seletor ao lado dos temas quentes. Uma instalação nova abre em *Papel quente · Claro*. Se o seu tema guardado era *Seguir o sistema*, passa a *Pinheiro frio* no arranque seguinte, e as restantes definições ficam como estavam.
+
+**Alterado: a opacidade da sobreposição predefinida é 5%.** Os efeitos visuais nas definições podiam ser fortes ao seu gosto, mas o valor predefinido era forte demais para ler texto por cima com conforto. Agora começam nos 5%, o que mantém o efeito visível sem atrapalhar.
 ## [3.6.7] - October 2026
 
 **Summary:** O seletor de temas ficou mais curto e a aparência padrão mudou. Os seis temas de estilo macOS Finder e a opção integrada *Claro*, ainda inacabada, foram removidos, e a aplicação abre agora em *Papel quente (claro)*, um dos novos temas da marca. *Escuro* e *Seguir o sistema* continuam iguais.

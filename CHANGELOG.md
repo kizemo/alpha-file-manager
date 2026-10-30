@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.7.0] - October 2026
+
+**Summary:** The brand themes have been given depth. *Warm Paper (Light)* no longer reads as one flat sheet of cream: the icon rail on the left, the open directory tabs, the active tab, the folder tree, the details panel on the right and the navigation column of the settings page each sit on their own shade, and the folder tree alternates row by row. *Vivid* now paints the toolbar icons in different colours instead of one grey, and the list view shows the same coloured left edge on every entry that the thumbnail view already had. *Follow the system* has been kept as a fixed cool theme called *Cool Pine*, the default overlay opacity is now 5 %, and the whole set was reworked so that light and dark both hold together.
+
+### What changed
+
+**Improved: the themes have depth instead of one flat colour.** The window used to be a single cream field with only the text telling things apart. Now every region has its own shade, so the eye can tell them apart without reading: the icon rail on the left is the darkest surface, the tabs of the directories you have opened step through a second and a third shade, the tab you are actually in is raised above them, the folder tree alternates between two shades row by row, the details panel on the right sits one step back, and the navigation column of the settings page has a tint of its own. The scroll bars of the folder tree are painted in the warm-paper colour family rather than the system grey.
+
+**Improved: the toolbar icons in *Vivid* have different colours.** The icons in the toolbar of the file browser were all drawn in the same shade of grey, which made them read as one blurred row. In *Vivid* they now take on different colours according to what they do, so you can find the button you want at a glance. The two *Warm Paper* themes keep their quiet grey, because that is the point of them.
+
+**Improved: the list view shows a coloured left edge.** In the thumbnail view every entry already had a coloured stripe down its left edge. The list view had it only as a mark for entries that are marked for copying or moving. Now the type of the entry - a folder, an image, a video, an audio file, a document, an archive - is shown by the colour of that edge, in both views, so the two views can be read the same way.
+
+**Changed: *Follow the system* is now a fixed cool theme called *Cool Pine*.** Following the operating system made the application look different on every machine, which is not what a brand theme is for. The picker no longer offers it; in its place there is *Cool Pine*, a calm blue-green theme that stays the same everywhere and holds its own in the picker next to the warm ones. A fresh installation opens in *Warm Paper (Light)*. If your saved theme was *Follow the system*, you are moved to *Cool Pine* the next time you start, and the rest of your settings are left alone.
+
+**Changed: the default overlay opacity is 5 %.** The visual effects in the settings could be made as strong as you liked, but the default was too strong to read text comfortably over them. It now starts at 5 %, which keeps the effect visible without getting in the way.
+
 ## [3.6.7] - October 2026
 
 **Summary:** The theme picker is shorter and the default look has changed. The six macOS Finder-style themes and the unfinished built-in *Light* option are gone, and the application now opens in *Warm Paper (Light)*, one of the new brand themes. *Dark* and *Follow the system* stay as they were.

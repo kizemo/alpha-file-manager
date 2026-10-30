@@ -187,33 +187,49 @@ GitHub releases carry the same installer and act as a fallback mirror:
 
 ---
 
-## 🆕 What's new in 3.6.5
+## 🆕 What's new in 3.7.0
 
-### 🖼️ The home cover reacts right away
+### 🛠️ Updating over a running copy now works
 
-**Fixed.** Clicking the cover on the home page used to look broken: nothing happened
-for a long moment, because every default background still had to be downloaded over the
-network before it could be shown. All 21 default backgrounds now ship inside the
-installer, so picking one takes effect immediately - the new cover is on screen in
-about a quarter of a second and no network connection is involved at all. The download
-progress bar is gone with them.
+**Fixed.** Installing a new version while Alpha File Manager was still open could stop with
+"Uninstall was not successfully", even after you agreed to close the running application.
+The old uninstaller asked the program to close but never waited for it to actually exit,
+then asked the operating system whether the installed folder was still in use - the answer
+was still yes, so it gave up. The installer now closes the application itself and waits
+until the program file can be opened exclusively, which proves nothing is holding it any
+more, before the old uninstaller is called. It also checks the installed version before
+showing any window, so re-running the same installer closes silently instead of popping
+the setup wizard again. Run `setup.exe /FORCE` to install the same version on purpose.
 
-### 🎨 Six macOS Finder-style themes
+### 🎨 A theme set that has depth
 
-**Added.** The theme picker now offers six new themes, in three families, each with a
-light and a dark variant:
+**Reworked.** The brand themes - *Warm Paper (Light)*, *Warm Paper (Dark)* and *Vivid* -
+were rebuilt so that each region of the window sits on its own shade. The icon rail on
+the left is the darkest surface, the tabs of the directories you have opened step through
+several shades, the tab you are actually in is raised above them, the folder tree
+alternates row by row, the details panel on the right sits one step back, and the
+navigation column of the settings page carries a tint of its own. The scroll bars of the
+folder tree are painted in the warm-paper colour family instead of the system grey.
 
-- **Classic** - the macOS system look, rebuilt faithfully: system blue accent, the
-  original sidebar and toolbar tones.
-- **Modern** - softer layering, rounder corners, ambient shadows, and a near-black
-  accent that keeps Alpha File Manager's own character.
-- **Glass** - translucent panels floating over a blurred backdrop, for a lighter,
-  more airy feel.
+*Follow the system* is no longer offered - it made the application look different on
+every machine, which is not what a brand theme is for. In its place there is *Cool Pine*,
+a fixed blue-green theme that looks the same everywhere. A fresh installation opens in
+*Warm Paper (Light)*; if your saved theme was *Follow the system*, you are moved to
+*Cool Pine* on the next start and the rest of your settings are left alone.
 
-All three families come in a light and a dark variant, so six new themes are available
-next to the existing light, dark and system themes - nine in total. They are built on
-the same mechanism as the built-in themes, so they follow the system appearance and
-keep every setting you have made. Pick one in **Settings → Appearance → Theme**.
+### 🔀 Colours where they help
+
+**Improved.** In *Vivid* the toolbar icons are drawn in different colours according to
+what they do, instead of one blurred row of grey. In both the thumbnail view and the list
+view, the coloured stripe down the left edge of every entry now shows what kind of entry
+it is - a folder, an image, a video, an audio file, a document, an archive - so the two
+views can be read the same way.
+
+### 🪟 A calmer default
+
+**Changed.** The overlay opacity of the visual effects now starts at 5 % instead of a
+value that made text hard to read. The effect is still there, it just no longer gets in
+the way.
 
 ---
 

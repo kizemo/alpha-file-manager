@@ -1,5 +1,20 @@
 # Dnevnik sprememb
 
+## [3.7.0] - October 2026
+
+**Summary:** Blagovne znamke so dobile globino. *Warm Paper* se ne prebere več kot en ravna kremasta lista: vrstica z ikonami levo, zavihki odprtih map, aktivna zavihek, drevo map, podokno s podrobnostmi na desni in stolpec navigacije na strani nastavitev imajo vsak svoje odtenke, drevo map pa se izmenjuje vrstico za vrstico. *Živa energija* zdaj orodno vrstico barva z različnimi barvami namesto ene sive, pogled seznama pa pri vsakem vnosu prikaže isto barvno levico, ki jo je imel že pogled miniatur. *Sledi sistemu* je ostal kot fiksna hladna tema z imenom *Hladna borovnica*, privzeta prosojnost prekrivanja je zdaj 5 %, celoten nabor pa je bil preoblikovan tako, da se dobro držita tako svetla kot temna.
+
+### What changed
+
+**Izboljšano: teme imajo globino namesto ene ravne barve.** Okno je bilo eno samo kremasto polje in stvari je razlikoval samo besedilo. Zdaj ima vsak del svoje odtenke, tako da jih oko razloči brez branja: vrstica z ikonami levo je najtemnejša površina, zavihki map, ki ste jih odprli, se stopnjujejo skozi drugi in tretji ton, zavihek, v katerem ste, je dvignjen nad njimi, drevo map se izmenjuje med dvema odtenkoma vrstico za vrstico, podokno s podrobnostmi na desni je korak nazaj, stolpec navigacije na strani nastavitev pa ima lasten odtenek. Drsne vrstice drevesa map so pobarvane v barvni družini toplega papirja in ne v sistemski sivi.
+
+**Izboljšano: ikone orodne vrstice v *Živa energija* imajo različne barve.** Ikone na orodni vrstici upravljalnika datotek so bile vse narisane v istem odtenku sive, zato so se brali kot ena zamegljena vrstica. V *Živa energija* imajo zdaj različne barve glede na to, kaj počnejo, tako da želeno gumb najdete na pogled. Obeh tem *Warm Paper* zadržata svojo mirno sivo, saj je to prav njun namen.
+
+**Izboljšano: pogled seznama prikaže barvno levico.** V pogledu miniatur je imel vsak vnos že barvno progo ob levem robu. Pogled seznama jo je imel le kot oznako za vnose, označene za kopiranje ali premikanje. Zdaj vrsto vnosa - mapa, slika, video, zvočna datoteka, dokument, arhiv - prikazuje barva te levice, in sicer v obeh pogledih, da se lahko oba pogleda bereta enako.
+
+**Spremenjeno: *Sledi sistemu* je zdaj fiksna hladna tema z imenom *Hladna borovnica*.** Sledenje operacijskemu sistemu je naredilo aplikacijo na vsakem računalniku drugačno, to pa ni namen blagovne teme. Izbirnik tem je ne ponuja več; namesto nje je tam *Hladna borovnica*, mirna modro-zelena tema, ki je povsod enaka in v izbirniku stoji ob toplih temah. Nova namestitev se odpre v *Topel papir · Svetla*. Če je bila vaša shranjena tema *Sledi sistemu*, vas aplikacija ob naslednjem zagonu prestavi v *Hladna borovnica*, preostalih nastavitev pa ne spremeni.
+
+**Spremenjeno: privzeta prosojnost prekrivanja je 5 %.** Vizualne učinke v nastavitvah ste lahko naredili tako močne, kot ste želeli, a privzeta vrednost je bila premočna, da bi udobno brali besedilo čez njih. Zdaj se začnejo pri 5 %, kar učinek ohrani vidnega, ne da bi motil.
 ## [3.6.7] - October 2026
 
 **Summary:** Izbirnik tem je krajši in privzeti videz se je spremenil. Šest tem v slogu macOS Finder in nedokončana vgrajena možnost *Svetlo* sta odstranjeni; aplikacija se zdaj odpre v *Topel papir (svetlo)*, eni od novih tem blagovne znamke. *Temno* in *Sledi sistemu* ostaneta nespremenjeni.

@@ -1,5 +1,20 @@
 # Änderungsprotokoll
 
+## [3.7.0] - October 2026
+
+**Summary:** Die Marken-Themes haben Tiefe bekommen. *Warm Paper* liest sich nicht mehr wie eine einzige flache Cremefläche: die Symbolleiste links, die Reiter der geöffneten Verzeichnisse, der aktive Reiter, der Ordnerbaum, der Detailbereich rechts und die Navigationsspalte der Einstellungsseite sitzen jetzt je auf eigenem Ton, und der Ordnerbaum wechselt von Zeile zu Zeile die Farbe. *Lebendige Farben* malt die Symbole der Symbolleiste jetzt in unterschiedlichen Farben statt in einem einzigen Grau, und die Listenansicht zeigt an jedem Eintrag denselben farbigen linken Rand, den die Miniaturansicht schon hatte. *System folgen* ist als festes kühles Theme namens *Kühle Kiefer* erhalten geblieben, die Standarddeckkraft der Überlagerungen liegt jetzt bei 5 %, und die ganze Reihe wurde so überarbeitet, dass Hell und Dunkel beide stimmig bleiben.
+
+### What changed
+
+**Verbessert: Die Themes haben Tiefe statt einer einzigen flachen Farbe.** Das Fenster war früher ein einziges cremefarbenes Feld, in dem allein die Schrift die Dinge unterschied. Jetzt hat jeder Bereich seinen eigenen Ton, sodass das Auge sie ohne Lesen unterscheidet: die Symbolleiste links ist die dunkelste Fläche, die Reiter der Verzeichnisse, die Sie geöffnet haben, gehen durch einen zweiten und einen dritten Ton, der Reiter, in dem Sie gerade sind, hebt sich über sie hinaus, der Ordnerbaum wechselt von Zeile zu Zeile zwischen zwei Tönen, der Detailbereich rechts sitzt eine Stufe zurück, und die Navigationsspalte der Einstellungsseite hat einen eigenen Farbstich. Die Bildlaufleisten des Ordnerbaums sind in der Farbfamilie von *Warm Paper* gezeichnet statt im Systemgrau.
+
+**Verbessert: Die Symbole der Symbolleiste in *Lebendige Farben* haben unterschiedliche Farben.** Die Symbole in der Symbolleiste des Dateibrowsers waren alle im selben Grauton gezeichnet, was sie wie eine verschwommene Reihe lesen ließ. In *Lebendige Farben* haben sie jetzt je nach Aufgabe unterschiedliche Farben, sodass Sie die gewünschte Schaltfläche auf einen Blick finden. Die beiden *Warm Paper*-Themes behalten ihr ruhiges Grau, denn genau darum geht es bei ihnen.
+
+**Verbessert: Die Listenansicht zeigt einen farbigen linken Rand.** In der Miniaturansicht hatte jeder Eintrag bereits einen farbigen Streifen an seinem linken Rand. Die Listenansicht hatte ihn nur als Kennzeichnung für Einträge, die zum Kopieren oder Verschieben vorgemerkt sind. Jetzt zeigt die Art des Eintrags - ein Ordner, ein Bild, ein Video, eine Audiodatei, ein Dokument, ein Archiv - sich an der Farbe dieses Randes, in beiden Ansichten, damit sich die beiden Ansichten gleich lesen lassen.
+
+**Geändert: *System folgen* ist jetzt ein festes kühles Theme namens *Kühle Kiefer*.** Dem Betriebssystem zu folgen ließ die Anwendung auf jedem Rechner anders aussehen, und darum geht es bei einem Marken-Theme nicht. Die Themenauswahl bietet es nicht mehr an; an seiner Stelle steht *Kühle Kiefer*, ein ruhiges blaugrünes Theme, das überall gleich bleibt und in der Auswahl neben den warmen Themes gut besteht. Eine frische Installation startet mit *Warmes Papier · Hell*. War Ihr gespeichertes Theme *System folgen*, werden Sie beim nächsten Start auf *Kühle Kiefer* umgestellt, und alle übrigen Einstellungen bleiben unberührt.
+
+**Geändert: Die Standarddeckkraft der Überlagerungen liegt jetzt bei 5 %.** Die visuellen Effekte in den Einstellungen konnten so stark eingestellt werden, wie Sie wollten, der Standard war aber zu stark, um Text bequem darüber zu lesen. Sie starten jetzt bei 5 %, was den Effekt sichtbar lässt, ohne sich in den Weg zu stellen.
 ## [3.6.7] - October 2026
 
 **Summary:** Die Themenauswahl ist kürzer geworden und das Standardaussehen hat sich geändert. Die sechs macOS-Finder-Themes und die unfertige eingebaute Option *Hell* sind entfernt; die Anwendung startet jetzt mit *Warmes Papier (Hell)*, einem der neuen Marken-Themes. *Dunkel* und *System folgen* bleiben unverändert.
