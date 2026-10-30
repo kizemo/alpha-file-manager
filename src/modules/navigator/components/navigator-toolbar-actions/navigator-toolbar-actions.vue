@@ -155,7 +155,7 @@ function handleSettingsScopeChange(value: string | number) {
               >
                 <EllipsisVerticalIcon
                   :size="16"
-                  class="navigator-toolbar-actions__icon"
+                  class="navigator-toolbar-actions__icon navigator-toolbar-actions__icon--more"
                 />
               </Button>
             </DropdownMenuTrigger>
@@ -173,7 +173,7 @@ function handleSettingsScopeChange(value: string | number) {
               >
                 <FolderTreeIcon
                   :size="16"
-                  class="navigator-toolbar-actions__icon"
+                  class="navigator-toolbar-actions__icon navigator-toolbar-actions__icon--tree"
                 />
               </Button>
             </TooltipTrigger>
@@ -401,7 +401,7 @@ function handleSettingsScopeChange(value: string | number) {
             -->
             <FlipHorizontalIcon
               :size="16"
-              class="navigator-toolbar-actions__icon"
+              class="navigator-toolbar-actions__icon navigator-toolbar-actions__icon--split"
             />
           </Button>
         </TooltipTrigger>
@@ -428,7 +428,7 @@ function handleSettingsScopeChange(value: string | number) {
           >
             <GitCompareArrowsIcon
               :size="16"
-              class="navigator-toolbar-actions__icon"
+              class="navigator-toolbar-actions__icon navigator-toolbar-actions__icon--compare"
             />
           </Button>
         </TooltipTrigger>
@@ -446,7 +446,7 @@ function handleSettingsScopeChange(value: string | number) {
           >
             <PanelRightOpenIcon
               :size="16"
-              class="navigator-toolbar-actions__icon"
+              class="navigator-toolbar-actions__icon navigator-toolbar-actions__icon--info"
             />
           </Button>
         </TooltipTrigger>

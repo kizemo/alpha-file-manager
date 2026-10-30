@@ -84,6 +84,7 @@ const thumbnailSize = computed<ThumbnailSize>(
   () => userSettingsStore.userSettings.navigator.thumbnailSize,
 );
 const isThumbnailSizeDialogOpen = ref(false);
+
 function openThumbnailSizeDialog() {
   isThumbnailSizeDialogOpen.value = true;
 }
@@ -102,7 +103,7 @@ function openThumbnailSizeDialog() {
         >
           <component
             :is="backHistoryIcon"
-            class="file-browser-toolbar-nav-buttons__icon file-browser-toolbar-nav-buttons__icon--nav"
+            class="file-browser-toolbar-nav-buttons__icon file-browser-toolbar-nav-buttons__icon--nav file-browser-toolbar-nav-buttons__icon--back"
           />
         </Button>
       </TooltipTrigger>
@@ -124,7 +125,7 @@ function openThumbnailSizeDialog() {
         >
           <component
             :is="forwardHistoryIcon"
-            class="file-browser-toolbar-nav-buttons__icon file-browser-toolbar-nav-buttons__icon--nav"
+            class="file-browser-toolbar-nav-buttons__icon file-browser-toolbar-nav-buttons__icon--nav file-browser-toolbar-nav-buttons__icon--forward"
           />
         </Button>
       </TooltipTrigger>
@@ -144,7 +145,7 @@ function openThumbnailSizeDialog() {
           :disabled="!canGoUp"
           @click="emit('goUp')"
         >
-          <ArrowUpIcon class="file-browser-toolbar-nav-buttons__icon file-browser-toolbar-nav-buttons__icon--nav" />
+          <ArrowUpIcon class="file-browser-toolbar-nav-buttons__icon file-browser-toolbar-nav-buttons__icon--nav file-browser-toolbar-nav-buttons__icon--up" />
         </Button>
       </TooltipTrigger>
       <TooltipContent>
@@ -256,6 +257,7 @@ function openThumbnailSizeDialog() {
           <component
             :is="backHistoryIcon"
             :size="14"
+            class="file-browser-toolbar-nav-buttons__icon--back"
           />
           {{ t('fileBrowser.goBack') }}
         </DropdownMenuItem>
@@ -266,6 +268,7 @@ function openThumbnailSizeDialog() {
           <component
             :is="forwardHistoryIcon"
             :size="14"
+            class="file-browser-toolbar-nav-buttons__icon--forward"
           />
           {{ t('fileBrowser.goForward') }}
         </DropdownMenuItem>
@@ -273,18 +276,27 @@ function openThumbnailSizeDialog() {
           :disabled="!canGoUp"
           @click="emit('goUp')"
         >
-          <ArrowUpIcon :size="14" />
+          <ArrowUpIcon
+            :size="14"
+            class="file-browser-toolbar-nav-buttons__icon--up"
+          />
           {{ t('fileBrowser.goUp') }}
         </DropdownMenuItem>
         <DropdownMenuItem @click="emit('goHome')">
-          <HomeIcon :size="14" />
+          <HomeIcon
+            :size="14"
+            class="file-browser-toolbar-nav-buttons__icon--location"
+          />
           {{ t('locations') }}
         </DropdownMenuItem>
         <DropdownMenuItem
           :disabled="isLoading"
           @click="emit('refresh')"
         >
-          <RefreshCwIcon :size="14" />
+          <RefreshCwIcon
+            :size="14"
+            class="file-browser-toolbar-nav-buttons__icon--refresh"
+          />
           {{ t('fileBrowser.refresh') }}
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -294,10 +306,12 @@ function openThumbnailSizeDialog() {
           <LayoutGridIcon
             v-if="isGridLayout"
             :size="14"
+            class="file-browser-toolbar-nav-buttons__icon--view"
           />
           <ListIcon
             v-else
             :size="14"
+            class="file-browser-toolbar-nav-buttons__icon--view"
           />
           {{ isGridLayout ? t('list') : t('grid') }}
         </DropdownMenuItem>
@@ -307,7 +321,10 @@ function openThumbnailSizeDialog() {
           data-test="thumbnail-size-menu-item"
           @click="openThumbnailSizeDialog"
         >
-          <ImageIcon :size="14" />
+          <ImageIcon
+            :size="14"
+            class="file-browser-toolbar-nav-buttons__icon--thumbnail"
+          />
           {{ t('settings.general.fileView.thumbnailSizeTitle') }}
         </DropdownMenuItem>
         <DropdownMenuSeparator />

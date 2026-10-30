@@ -20,6 +20,7 @@
 
   /* Sizes */
   --nav-sidebar-width: 42px;
+
   /* FORK-MODIFICATION: 反馈 5c（2026-10-15）—— 260px → 300px。
      侧栏面板里分组标题与条目内容左右挤在一起，且要留出「常用/历史」默认收起后
      标题右侧计数与跳转箭头的呼吸位。 */
@@ -35,6 +36,7 @@
   --info-panel-properties-header-height: 36px;
   --info-panel-properties-rows-min-width: 250px;
   --navigator-sorting-header-height: 36px;
+
   /* FORK-MODIFICATION: 以下三个变量是「运行时注入没有发生」时的静态兜底（需求 3.6）。
      正常路径由 file-browser.vue 根元素按 navigator.thumbnailSize 逐档覆盖，
      度量唯一来源是 utils/file-browser-thumbnail-sizes.ts —— 要改档位请先改那张表。
@@ -145,6 +147,46 @@
   --scrollbar-track: 220 14% 97%;
   --scrollbar-thumb: 220 16% 50%;
   --scrollbar-thumb-hover: 220 18% 40%;
+
+  /* FORK-MODIFICATION 2026-10-30（E1 档案纸档 · 第二轮细化）：
+     下面这批是「所有主题」共用的扩展 token 默认值。
+     AFM 主题会通过 afm-themes.ts 用内联变量覆盖它们；
+     经典主题（暗色 / 跟随系统）走这里的默认值。
+     全部是裸 HSL 三元组，不带 alpha。 */
+  --icon-stroke: 220 9% 38%;
+  --moss: 150 25% 34%;
+  --moss-soft: 150 30% 92%;
+  --terra: 6 52% 45%;
+  --terra-soft: 6 55% 94%;
+  --row-dir-bg: 220 14% 96%;
+  --row-file-bg: 0 0% 100%;
+  --tab-idle-bg: 220 14% 97%;
+  --tab-idle-border: 220 13% 91%;
+  --list-header-bg: 220 14% 98%;
+  --list-header-border: 220 13% 91%;
+  --list-header-foreground: 220 9% 38%;
+  --family-split: 174 40% 30%;
+  --family-tree: 150 25% 34%;
+  --family-info: 200 16.9% 45.3%;
+  --family-more: 220 13% 40%;
+  --family-extension: 200 16.9% 45.3%;
+  --family-search: 200 16.9% 45.3%;
+  --family-create: 174 40% 30%;
+  --family-filter: 220 13% 38%;
+  --nav-back: 205 24% 34%;
+  --nav-forward: 205 16% 45%;
+  --nav-up: 6 52% 45%;
+  --nav-location: 174 40% 30%;
+  --nav-refresh: 174 45% 30%;
+  --nav-view: 205 24% 30%;
+  --nav-thumbnail: 6 52% 45%;
+  --nav-more: 220 13% 45%;
+
+  /* FORK-MODIFICATION 2026-10-30（任务 3）：标签宽度自适应 + 最大宽度。
+     --tab-min-width 是「一个标签页」的下限；双标签组时组件会把下限翻倍。
+     --tab-max-width 是标签自适应增长的上限，超出部分标题出省略号。 */
+  --tab-min-width: 100px;
+  --tab-max-width: 280px;
 }
 
 .dark {
@@ -203,4 +245,9 @@
   --scrollbar-track: 225 12% 13%;
   --scrollbar-thumb: 225 10% 44%;
   --scrollbar-thumb-hover: 225 12% 52%;
+
+  /* FORK-MODIFICATION 2026-10-30（任务 4）：目录行 / 文件行底色区隔。
+     经典暗色主题必须自己给值，否则会继承 :root 的浅色值（白底行）。 */
+  --row-dir-bg: 225 10% 19%;
+  --row-file-bg: 225 10% 16%;
 }

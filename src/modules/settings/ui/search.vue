@@ -57,7 +57,7 @@ onBeforeUnmount(() => {
                 :class="{ 'settings-search-toolbar-button__button--active': isSearchOpen }"
               >
                 <SearchIcon
-                  class="settings-search-toolbar-button__icon"
+                  class="settings-search-toolbar-button__icon settings-search-toolbar-button__icon--search"
                   :size="16"
                 />
               </Button>

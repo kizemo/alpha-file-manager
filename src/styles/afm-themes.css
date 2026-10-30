@@ -169,49 +169,12 @@ html[data-afm-theme='afm-vivid-light'] .file-browser-list-view__entry:nth-child(
 }
 
 /*
- * 工具栏图标按语义分五色（跃动活力专属）。
- * 暖纸两套不写任何规则 —— 保持中性灰。
- * 只改 stroke，不动 DOM 结构，也不改尺寸。
- * 语义分组：导航（后退/前进/上级）= 主色紫；位置 = 品牌钢蓝；
- * 刷新 = 青；视图切换 = 柠檬；缩略图 = 珊瑚。
+ * 工具栏图标按语义分色（跃动活力专属）。
+ * 本段的硬编码颜色规则已被下方 E1「1a / 1b」段整体取代：
+ * 颜色统一走 token（--family-* / --nav-*），
+ * 由对比度求解器按标题栏底色算出，保证 ≥ 3:1。
+ * 语义分组：导航（后退/前进/上级）/ 位置 / 刷新 / 视图切换 / 缩略图 / 更多。
  */
-
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--nav,
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--more {
-  stroke: hsl(var(--accent));
-}
-
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--location {
-  stroke: hsl(var(--brand));
-}
-
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--refresh {
-  stroke: #08917f;
-}
-
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--view {
-  stroke: #c78d05;
-}
-
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--thumbnail {
-  stroke: #e21239;
-}
-
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-create-button__icon {
-  stroke: #08917f;
-}
-
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-filter__icon {
-  stroke: #c78d05;
-}
-
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-swap-panes-button svg {
-  stroke: hsl(var(--brand));
-}
-
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-sync-browsing-button svg {
-  stroke: #08917f;
-}
 
 /* --------------------------------------------------------------------------
  * D4 —— 冷杉（浅色）
@@ -234,4 +197,221 @@ html[data-afm-theme='afm-cool-light'] .nav-sidebar-item[is-active='true'] {
 
 html[data-afm-theme='afm-cool-light'] .info-panel-header__name {
   color: hsl(var(--brand-ink));
+}
+
+
+/* --------------------------------------------------------------------------
+ * E1 档案纸档 · 第二轮细化（2026-10-30）
+ *
+ * 任务 1 → afm-vivid-light（跃动活力）
+ *   1a 右上角按钮按功能族分色
+ *   1b 地址栏左侧四个按钮分色
+ *   1c 标题栏上下边线 + 背景加深
+ *   1d 目录树滚动条槽色（token 侧给值）
+ *
+ * 任务 2 → afm-warm-light / afm-warm-dark（暖纸）
+ *   2a 主区调亮降饱和（token 侧给值）
+ *   2b 未激活标签降亮
+ *   2c 标签浅米灰边线
+ *   2d 左边栏深底浅图标
+ *   2e 标题栏边线 / 背景加深
+ *   2f 全部图标浅米色线条
+ *
+ * 颜色一律走 token（hsl(var(--x))），token 值在 afm-themes.ts，
+ * 由「对比度求解器」按各自主题的标题栏底色算出，保证 ≥ 3:1。
+ * -------------------------------------------------------------------------- */
+
+/* --- 1a：右上角按钮按功能族分色（跃动活力） --- */
+html[data-afm-theme='afm-vivid-light'] .navigator-toolbar-actions__icon--split,
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-swap-panes-button__icon--split,
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-sync-browsing-button__icon--split {
+  color: hsl(var(--family-split));
+  stroke: hsl(var(--family-split));
+}
+
+html[data-afm-theme='afm-vivid-light'] .navigator-toolbar-actions__icon--tree {
+  color: hsl(var(--family-tree));
+  stroke: hsl(var(--family-tree));
+}
+
+html[data-afm-theme='afm-vivid-light'] .navigator-toolbar-actions__icon--info,
+html[data-afm-theme='afm-vivid-light'] .navigator-toolbar-actions__icon--compare {
+  color: hsl(var(--family-info));
+  stroke: hsl(var(--family-info));
+}
+
+html[data-afm-theme='afm-vivid-light'] .navigator-toolbar-actions__icon--more {
+  color: hsl(var(--family-more));
+  stroke: hsl(var(--family-more));
+}
+
+html[data-afm-theme='afm-vivid-light'] .extensions-toolbar-actions__icon--extension {
+  color: hsl(var(--family-extension));
+  stroke: hsl(var(--family-extension));
+}
+
+html[data-afm-theme='afm-vivid-light'] .settings-search-toolbar-button__icon--search {
+  color: hsl(var(--family-search));
+  stroke: hsl(var(--family-search));
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-create-button__icon--create {
+  color: hsl(var(--family-create));
+  stroke: hsl(var(--family-create));
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-filter__icon--filter {
+  color: hsl(var(--family-filter));
+  stroke: hsl(var(--family-filter));
+}
+
+/* --- 1b：地址栏左侧按钮分色（跃动活力） --- */
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--back {
+  color: hsl(var(--nav-back));
+  stroke: hsl(var(--nav-back));
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--forward {
+  color: hsl(var(--nav-forward));
+  stroke: hsl(var(--nav-forward));
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--up {
+  color: hsl(var(--nav-up));
+  stroke: hsl(var(--nav-up));
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--location {
+  color: hsl(var(--nav-location));
+  stroke: hsl(var(--nav-location));
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--refresh {
+  color: hsl(var(--nav-refresh));
+  stroke: hsl(var(--nav-refresh));
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--view {
+  color: hsl(var(--nav-view));
+  stroke: hsl(var(--nav-view));
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--thumbnail {
+  color: hsl(var(--nav-thumbnail));
+  stroke: hsl(var(--nav-thumbnail));
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--more {
+  color: hsl(var(--nav-more));
+  stroke: hsl(var(--nav-more));
+}
+
+/* --- 1c / 2e：标题栏上下边线 + 背景加深 ---
+   上边线用 inset box-shadow（不占布局，行高不变），下边线复用已有的 border-bottom。 */
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-list-view__header-container,
+html[data-afm-theme='afm-warm-light'] .file-browser-list-view__header-container,
+html[data-afm-theme='afm-warm-dark'] .file-browser-list-view__header-container {
+  border-bottom-color: hsl(var(--list-header-border));
+  background-color: hsl(var(--list-header-bg));
+  box-shadow: inset 0 1px 0 0 hsl(var(--list-header-border));
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-list-view__header-layout,
+html[data-afm-theme='afm-vivid-light'] .file-browser-list-view__header-columns-actions,
+html[data-afm-theme='afm-warm-light'] .file-browser-list-view__header-layout,
+html[data-afm-theme='afm-warm-light'] .file-browser-list-view__header-columns-actions,
+html[data-afm-theme='afm-warm-dark'] .file-browser-list-view__header-layout,
+html[data-afm-theme='afm-warm-dark'] .file-browser-list-view__header-columns-actions {
+  background-color: hsl(var(--list-header-bg));
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-list-view__header,
+html[data-afm-theme='afm-warm-light'] .file-browser-list-view__header,
+html[data-afm-theme='afm-warm-dark'] .file-browser-list-view__header {
+  color: hsl(var(--list-header-foreground));
+}
+
+/* --- 2b / 2c：未激活标签降亮 + 浅米灰边线（暖纸） --- */
+html[data-afm-theme='afm-warm-light'] .tab:not([is-active="true"]),
+html[data-afm-theme='afm-warm-dark'] .tab:not([is-active="true"]) {
+  border-color: hsl(var(--tab-idle-border));
+  background-color: hsl(var(--tab-idle-bg));
+  color: hsl(var(--muted-foreground));
+}
+
+html[data-afm-theme='afm-warm-light'] .tab:not([is-active="true"]):hover,
+html[data-afm-theme='afm-warm-dark'] .tab:not([is-active="true"]):hover {
+  background-color: hsl(var(--state-active));
+}
+
+/* --- 2d：左边栏深底浅图标（暖纸） ---
+   组件里写的是 hsl(var(--foreground) / N%)，在深色轨上等于「深墨压深底」= 看不见；
+   这里改成基于轨前景色（浅米色）的低透明度叠加。 */
+
+html[data-afm-theme='afm-warm-light'] .nav-sidebar-item:hover,
+html[data-afm-theme='afm-warm-dark'] .nav-sidebar-item:hover,
+html[data-afm-theme='afm-warm-light'] .nav-sidebar-drive:hover,
+html[data-afm-theme='afm-warm-dark'] .nav-sidebar-drive:hover {
+  background-color: hsl(var(--nav-rail-foreground) / 12%);
+}
+
+html[data-afm-theme='afm-warm-light'] .nav-sidebar-item[is-active="true"] .nav-sidebar-item-icon,
+html[data-afm-theme='afm-warm-dark'] .nav-sidebar-item[is-active="true"] .nav-sidebar-item-icon {
+  stroke: hsl(var(--nav-rail-foreground));
+}
+
+html[data-afm-theme='afm-warm-light'] .nav-sidebar-drive-label,
+html[data-afm-theme='afm-warm-dark'] .nav-sidebar-drive-label {
+  color: hsl(var(--nav-rail-foreground));
+}
+
+html[data-afm-theme='afm-warm-light'] .nav-sidebar-drive:hover .nav-sidebar-drive-label,
+html[data-afm-theme='afm-warm-dark'] .nav-sidebar-drive:hover .nav-sidebar-drive-label {
+  color: hsl(var(--nav-rail-foreground));
+}
+
+html[data-afm-theme='afm-warm-light'] .nav-sidebar-drive:hover .nav-sidebar-drive-icon,
+html[data-afm-theme='afm-warm-dark'] .nav-sidebar-drive:hover .nav-sidebar-drive-icon {
+  color: hsl(var(--nav-rail-foreground));
+  stroke: hsl(var(--nav-rail-foreground));
+}
+
+html[data-afm-theme='afm-warm-light'] .nav-sidebar-drive--add,
+html[data-afm-theme='afm-warm-dark'] .nav-sidebar-drive--add {
+  border-color: hsl(var(--nav-rail-muted-foreground));
+  color: hsl(var(--nav-rail-muted-foreground));
+}
+
+/* --- 2f：全部图标浅米色线条（暖纸） ---
+   目录图标用低饱和绿点缀，文件图标走 --icon-stroke 浅米灰。 */
+
+html[data-afm-theme='afm-warm-light'] .file-tree-row svg:not(.file-tree-row__chevron),
+html[data-afm-theme='afm-warm-dark'] .file-tree-row svg:not(.file-tree-row__chevron) {
+  color: hsl(var(--icon-stroke));
+  stroke: hsl(var(--icon-stroke));
+}
+
+html[data-afm-theme='afm-warm-light'] .file-browser-list-view__entry-icon,
+html[data-afm-theme='afm-warm-dark'] .file-browser-list-view__entry-icon {
+  color: hsl(var(--icon-stroke));
+  stroke: hsl(var(--icon-stroke));
+}
+
+html[data-afm-theme='afm-warm-light'] .file-browser-list-view__entry-icon--folder,
+html[data-afm-theme='afm-warm-dark'] .file-browser-list-view__entry-icon--folder {
+  color: hsl(var(--moss));
+  stroke: hsl(var(--moss));
+}
+
+html[data-afm-theme='afm-warm-light'] .file-browser-grid-card__icon,
+html[data-afm-theme='afm-warm-dark'] .file-browser-grid-card__icon {
+  color: hsl(var(--icon-stroke));
+  stroke: hsl(var(--icon-stroke));
+}
+
+html[data-afm-theme='afm-warm-light'] .file-browser-grid-card__icon--folder,
+html[data-afm-theme='afm-warm-dark'] .file-browser-grid-card__icon--folder {
+  color: hsl(var(--moss));
+  stroke: hsl(var(--moss));
 }

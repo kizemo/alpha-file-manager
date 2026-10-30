@@ -2,7 +2,7 @@
 #
 # v0.3.0 (focus-sync Scheduled Task migration)
 # Creates a per-user Windows Scheduled Task that runs focus-sync-sidecar.exe
-# at user logon. The task is the lifecycle owner of the sidecar — Sigma FM
+# at user logon. The task is the lifecycle owner of the sidecar - Sigma FM
 # no longer spawns/kills it, so 7 classes of reload triggers (locale watcher,
 # binary edit, install/update, Sigma FM restart, etc.) cannot kill the sidecar.
 #
@@ -16,7 +16,7 @@
 #
 # Designed for PowerShell 5.1 (Windows 11 default).
 
-# NOTE: v0.3.0 hotfix — removed [CmdletBinding()] because NSIS nsExec::ExecToLog
+# NOTE: v0.3.0 hotfix - removed [CmdletBinding()] because NSIS nsExec::ExecToLog
 # invocation (via cmd.exe) was triggering "AmbiguousParameterSet" errors when
 # -SidecarPath contained spaces. Without CmdletBinding, the function-style
 # parameter binding is unambiguous.
@@ -31,7 +31,7 @@ $ErrorActionPreference = 'Stop'
 $taskName = 'KizemoFocusSync'
 
 # ---------------------------------------------------------------------------
-# v2 review M2 (v0.4) — cross-installer path-change detection.
+# v2 review M2 (v0.4) - cross-installer path-change detection.
 # If an existing task points to a DIFFERENT sidecar binary path
 # (e.g. user upgraded from Installer B's $LOCALAPPDATA\... to
 # Installer A's $PROGRAMFILES\...$), unregister the stale task before
@@ -54,7 +54,7 @@ if ($existingTask) {
 }
 
 # ---------------------------------------------------------------------------
-# Create task if not already present. Idempotent — re-run is safe.
+# Create task if not already present. Idempotent - re-run is safe.
 # v3 review V3.22: --service flag is appended by the task action so the
 # sidecar knows to use fail-fast port mode. Without it, the sidecar would
 # try retry-bind 800ms x 3, which on multi-user machines triggers Task
@@ -89,8 +89,27 @@ if (-not $existingTask) {
 # ---------------------------------------------------------------------------
 # Always try to start the task (covers both first-install and re-run cases
 # where user just wants to ensure the task is running NOW, not waiting for
-# next logon). v0.3.0 M7: 0x800710D5 = "task already running" — silently OK.
+# next logon). v0.3.0 M7: 0x800710D5 = "task already running" - silently OK.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# v0.5.9 (2026-10-30) fix: re-enable the task before starting it.
+#
+# Root cause: the AFM installer (src-tauri/installer/hooks.nsh, PREINSTALL)
+# runs Disable-ScheduledTask so the sidecar cannot respawn while files are
+# overwritten. Nothing ever re-enabled it, so after every install/upgrade the
+# task stayed Disabled, Start-ScheduledTask failed silently, and the
+# focus-sync extension permanently reported "Sidecar not reachable on
+# 127.0.0.1:37421".
+#
+# Enable-ScheduledTask is idempotent (enabling an already-enabled task is a
+# no-op), so calling it on every run is safe.
+# ---------------------------------------------------------------------------
+try {
+    Enable-ScheduledTask -TaskName $taskName -ErrorAction Stop | Out-Null
+} catch {
+    Write-Host "WARNING: Enable-ScheduledTask failed: $($_.Exception.Message)"
+}
+
 try {
     Start-ScheduledTask -TaskName $taskName -ErrorAction Stop | Out-Null
 } catch {

@@ -1,5 +1,5 @@
 # ============================================================================
-# register.ps1 — Register kizemo.focus-sync in Sigma FM's user-extensions.json
+# register.ps1 - Register kizemo.focus-sync in Sigma FM's user-extensions.json
 # ============================================================================
 # This script is invoked by installer.nsi after copying the extension files.
 # It edits %APPDATA%\com.sigma-file-manager.app\user-data\user-extensions.json
@@ -28,6 +28,20 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# ---------------------------------------------------------------------------
+# v0.5.9 (2026-10-30) encoding fix.
+#
+# This file is UTF-8 without BOM, and PowerShell 5.1 parses BOM-less scripts
+# using the system ANSI code page (cp936 on this machine). Any non-ASCII
+# literal in the source therefore lands in the output as mojibake: the
+# em-dash (U+2014, UTF-8 bytes E2 80 94) decoded as cp936 became "U+95C2 + ?",
+# which is exactly the "Focus Sync U+95C2?Sync current path" garbage that
+# landed in user-extensions.json.
+#
+# Fix: keep the source pure ASCII and inject the em-dash at runtime via
+# [char]0x2014. Everything below is ASCII-only on purpose.
+# ---------------------------------------------------------------------------
+$emdash = [char]0x2014
 # ---- Resolve target APPDATA (round 19d) ----
 # Priority: explicit -UserAppData parameter > $env:APPDATA (current context)
 if ($UserAppData) {
@@ -45,11 +59,11 @@ $jsonPath      = Join-Path $userDataDir 'user-extensions.json'
 
 # ---- Sandbox gate (focus-21 Phase 4) ----
 # register.ps1 does not copy index.js itself (installer.nsi copies the files
-# before invoking this script), so we validate the DEPLOYED copy — the exact
+# before invoking this script), so we validate the DEPLOYED copy - the exact
 # file Sigma FM's loader.ts will read on next startup.
 # If any sandbox regex matches (even inside a comment), validateExtensionCode()
 # rejects the extension and loader.ts throws BEFORE `new Worker()`: the
-# extension silently never loads — no UI error, no notification, sidecar 0
+# extension silently never loads - no UI error, no notification, sidecar 0
 # requests. Rules are read LIVE from sandbox.ts, so this gate never goes stale.
 $sandboxScanner  = Join-Path $PSScriptRoot '..\..\scripts\scan-sandbox-dynamic.cjs'
 $sandboxTs       = Join-Path $PSScriptRoot '..\..\sigma-file-manager\src\modules\extensions\runtime\sandbox.ts'
@@ -63,7 +77,7 @@ if ((Test-Path $sandboxScanner) -and (Test-Path $deployedIndexJs) -and (Test-Pat
         Write-Error @"
 SANDBOX VALIDATION FAILED (exit $LASTEXITCODE).
 Refusing to register an extension Sigma FM will reject. It would load
-SILENTLY-NEVER — no UI error, no notification, sidecar gets 0 requests.
+SILENTLY-NEVER - no UI error, no notification, sidecar gets 0 requests.
 "@
         exit 1
     }
@@ -78,15 +92,15 @@ SILENTLY-NEVER — no UI error, no notification, sidecar gets 0 requests.
 # silently failed on fresh installs (Sigma FM never launched) and on
 # %APPDATA% trees wiped between uninstall and install. Bootstrap them here.
 if (-not (Test-Path $appDataDir)) {
-    Write-Host "==> appDataDir missing: $appDataDir — creating."
+    Write-Host "==> appDataDir missing: $appDataDir - creating."
     New-Item -ItemType Directory -Path $appDataDir -Force | Out-Null
 }
 if (-not (Test-Path $userDataDir)) {
-    Write-Host "==> userDataDir missing: $userDataDir — creating."
+    Write-Host "==> userDataDir missing: $userDataDir - creating."
     New-Item -ItemType Directory -Path $userDataDir -Force | Out-Null
 }
 if (-not (Test-Path $jsonPath)) {
-    Write-Host "==> user-extensions.json missing — bootstrapping with empty structure."
+    Write-Host "==> user-extensions.json missing - bootstrapping with empty structure."
     $bootstrap = [ordered]@{
         installedExtensions = [ordered]@{}
         recentCommandIds    = @()
@@ -108,7 +122,11 @@ try {
 
 # ---- Read existing JSON ----
 Write-Host "==> Reading $jsonPath"
-$json = Get-Content $jsonPath -Raw | ConvertFrom-Json
+# v0.5.9 (2026-10-30): read the JSON as UTF-8 explicitly.
+# Get-Content -Raw defaults to the ANSI code page in PS 5.1, which turns
+# any non-ASCII byte sequence in the file into mojibake before
+# ConvertFrom-Json ever sees it.
+$json = [System.IO.File]::ReadAllText($jsonPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
 
 # ---- Build kizemo manifest (in declared field order) ----
 $kizemoManifest = [ordered]@{
@@ -133,7 +151,7 @@ $kizemoManifest = [ordered]@{
         extensionApi     = '>=1.0.0'
     }
     permissions  = @(
-        # 'shell' REMOVED in v0.3.0 — sidecar no longer spawned by Sigma FM
+        # 'shell' REMOVED in v0.3.0 - sidecar no longer spawned by Sigma FM
         'commands',
         'toolbar',
         [ordered]@{
@@ -143,25 +161,25 @@ $kizemoManifest = [ordered]@{
         'notifications'
     )
     activationEvents = @('onStartup')
-    # binaries[] REMOVED in v0.3.0 — sidecar owned by Windows Task Scheduler
+    # binaries[] REMOVED in v0.3.0 - sidecar owned by Windows Task Scheduler
     contributes  = [ordered]@{
         commands = @(
             [ordered]@{
                 id          = 'focus-sync.syncNow'
-                title       = 'Focus Sync — Sync current path to all open dialogs'
+                title       = "Focus Sync $emdash Sync current path to all open dialogs"
                 description = "Push Sigma's current folder to all detected file dialogs (Chrome / Word / VS Code / etc.)"
                 icon        = 'mdi-target'
             },
             [ordered]@{
                 id          = 'focus-sync.toggle'
-                title       = 'Focus Sync — Enable / Disable'
+                title       = "Focus Sync $emdash Enable / Disable"
                 description = 'Toggle focus sync on/off (sidecar stays running but stops pushing paths when disabled)'
                 icon        = 'mdi-pause-circle'
             },
             [ordered]@{
                 id          = 'focus-sync.toggleAutoConfirm'
-                title       = 'Focus Sync — Toggle Auto-Confirm'
-                description = "Toggle auto-confirm mode (default OFF). When ON, the sidecar auto-clicks Save once per dialog session — useful when you want Sigma FM path changes to immediately save."
+                title       = "Focus Sync $emdash Toggle Auto-Confirm"
+                description = "Toggle auto-confirm mode (default OFF). When ON, the sidecar auto-clicks Save once per dialog session $emdash useful when you want Sigma FM path changes to immediately save."
                 icon        = 'mdi-flash-auto'
             }
         )
@@ -201,7 +219,7 @@ $installedAt = [DateTimeOffset]::Now.ToUnixTimeMilliseconds()
 # CRITICAL: `isLocal: true` is required to prevent Sigma FM's startup
 # `removeUnapprovedInstalledExtensions()` from auto-removing this entry
 # (it deletes any installed extension that's NOT in the marketplace registry
-# and NOT marked as local — see runtime/extensions.ts:1884).
+# and NOT marked as local - see runtime/extensions.ts:1884).
 $kizemoEntry = [ordered]@{
     autoUpdate                = if ($existing) { $existing.autoUpdate } else { $true }
     enabled                   = if ($existing) { $existing.enabled } else { $true }
@@ -222,7 +240,7 @@ $kizemoEntry = [ordered]@{
 # Sigma FM normalizes the JSON (strips whitespace, possibly corrupts em-dash
 # to `E9 88 A5 3F` due to its writer's encoding bug). If we re-serialize
 # via ConvertTo-Json, we produce a DIFFERENT byte-level format that Sigma FM
-# then has to re-normalize on next save — and in the meantime it may reject
+# then has to re-normalize on next save - and in the meantime it may reject
 # the entry as "new / never seen" and skip auto-activation.
 #
 # Lesson from 09-29 round-19c verified install: once Sigma FM has saved an
@@ -243,7 +261,7 @@ $binPath = $null
 if (Test-Path $canonicalBin) { $binPath = $canonicalBin }
 elseif (Test-Path $sharedBin) { $binPath = $sharedBin }
 else {
-    Write-Host "==> Sidecar binary not at APPDATA path (expected in v0.3.0 — sidecar owned by Scheduled Task at $INSTDIR\tools\)"
+    Write-Host "==> Sidecar binary not at APPDATA path (expected in v0.3.0 - sidecar owned by Scheduled Task at $INSTDIR\tools\)"
 }
 $now = [DateTimeOffset]::Now.ToUnixTimeMilliseconds()
 $binEntry = [ordered]@{
@@ -269,7 +287,7 @@ if ($hasExisting) {
     $existingVersion = $json.installedExtensions.'kizemo.focus-sync'.version
     if ($existingVersion -ne '0.5.5') {
         # focus-17 fix: detect v0.2.0 (or older) entry and upgrade ONLY the
-        # version fields in-place. Do NOT re-serialize the entire entry —
+        # version fields in-place. Do NOT re-serialize the entire entry -
         # round 19c showed Sigma FM normalizes its JSON and re-serializing
         # breaks auto-activation.
         #
@@ -283,6 +301,26 @@ if ($hasExisting) {
         Write-Host "==> UPGRADED kizemo.focus-sync entry: v$existingVersion -> v0.5.4 (other fields preserved per round 19c)"
     } else {
         Write-Host "==> kizemo.focus-sync entry ALREADY EXISTS at v0.5.4 - preserving as-is (Sigma FM normalized)"
+        # v0.5.9 (2026-10-30): repair mojibake titles left behind by the
+        # ANSI-decode bug. The mojibake sequence is the em-dash decoded as
+        # cp936 (U+95C2 followed by '?'). We rewrite the three known command
+        # titles in place by id, and leave every other field untouched.
+        $canonicalTitles = @{
+            'focus-sync.syncNow'         = "Focus Sync $emdash Sync current path to all open dialogs"
+            'focus-sync.toggle'           = "Focus Sync $emdash Enable / Disable"
+            'focus-sync.toggleAutoConfirm'= "Focus Sync $emdash Toggle Auto-Confirm"
+        }
+        $existingCommands = $json.installedExtensions.'kizemo.focus-sync'.manifest.contributes.commands
+        if ($existingCommands) {
+            foreach ($cmd in $existingCommands) {
+                if ($canonicalTitles.ContainsKey($cmd.id)) {
+                    if ($cmd.title -ne $canonicalTitles[$cmd.id]) {
+                        Write-Host "==> Repairing mojibake title for '$($cmd.id)'"
+                        $cmd.title = $canonicalTitles[$cmd.id]
+                    }
+                }
+            }
+        }
         Write-Host "    version: $($json.installedExtensions.'kizemo.focus-sync'.version)"
         Write-Host "    enabled: $($json.installedExtensions.'kizemo.focus-sync'.enabled)"
     }

@@ -1,15 +1,15 @@
 # ============================================================================
-# manual-install.ps1 — Manual install (Sigma FM must be closed first)
+# manual-install.ps1 - Manual install (Sigma FM must be closed first)
 # ============================================================================
 # This script replicates the manually-verified install workflow that has
 # been proven to work as of round-19c / 2026-09-30. Steps:
-#   1. Detect if Sigma FM is running — ABORT if yes (per ROOT-CAUSE-2026-09-30).
+#   1. Detect if Sigma FM is running - ABORT if yes (per ROOT-CAUSE-2026-09-30).
 #   2. Copy extension files to %APPDATA%\com.sigma-file-manager.app\extensions\kizemo.focus-sync\
 #      - 3a: package.json, dist/index.js, locales\*.json
 #      - 3b: bin\focus-sync-sidecar\focus-sync-sidecar.exe (round 19c)
 #   3. Run register.ps1 to add kizemo.focus-sync to user-extensions.json.
 #      Round-2 fix: if entry already exists, leave it alone (preserves Sigma FM's
-#      normalized state — see register.ps1 comments).
+#      normalized state - see register.ps1 comments).
 #   4. (Optional) Re-launch Sigma FM from registry-detected install path.
 #
 # Usage:
@@ -44,7 +44,7 @@ Write-Host "    Destination: $extDir"
 # MUST run before any copy: once index.js lands in %APPDATA%, Sigma FM will
 # try to load it. If any sandbox regex matches (even inside a comment),
 # validateExtensionCode() rejects it and loader.ts throws BEFORE new Worker(),
-# so the extension silently never loads — no UI error, no notification, and
+# so the extension silently never loads - no UI error, no notification, and
 # the sidecar receives 0 requests. Rules are read LIVE from sandbox.ts.
 $srcIndexJs     = Join-Path $srcDir 'dist\index.js'
 $sandboxScanner = Join-Path $ScriptDir '..\..\scripts\scan-sandbox-dynamic.cjs'
@@ -62,7 +62,7 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error @"
 SANDBOX VALIDATION FAILED (exit $LASTEXITCODE).
 Refusing to deploy an extension Sigma FM will reject. It would load
-SILENTLY-NEVER — no UI error, no notification, sidecar gets 0 requests.
+SILENTLY-NEVER - no UI error, no notification, sidecar gets 0 requests.
 "@
     exit 1
 }
