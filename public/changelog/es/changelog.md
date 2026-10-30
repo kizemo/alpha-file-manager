@@ -1,5 +1,25 @@
 # Registro de cambios
 
+## [3.8.0] - October 2026
+
+**Summary:** El aspecto de *papel de archivo* ha tenido una segunda ronda de trabajo. Los dos temas *Warm Paper* son más claros y menos saturados en el área principal, todos los iconos están dibujados como trazo beige claro, los iconos de carpeta llevan un acento verde apagado, las pestañas inactivas están atenuadas y llevan un borde beige grisáceo, la cabecera de la lista se apoya en un fondo más oscuro con una línea arriba y abajo, y las carpetas y los archivos ya no comparten el mismo fondo. En *Vivid* los botones de la barra de herramientas se colorean según la función que cumplen, las pestañas se ajustan a su título y el icono de la aplicación se ha redibujado con la paleta de papel cálido. La extensión *Seguir rutas* vuelve a funcionar después de una actualización.
+
+### What changed
+
+**Mejorado: los temas *Warm Paper* se han ajustado por segunda vez.** El área principal es más clara y está menos saturada que antes. Todos los iconos están dibujados con el mismo trazo beige claro, los iconos de carpeta llevan un acento verde apagado, las pestañas en las que no estás están atenuadas y llevan un borde beige grisáceo, la cabecera de la lista se apoya en un fondo más oscuro con una línea arriba y abajo, y la barra de iconos de la izquierda es un tono de tinta profundo con iconos claros encima.
+
+**Mejorado: los botones de la barra de herramientas se colorean según su función.** En *Vivid* cada botón de la esquina superior derecha toma un color propio - vista dividida, árbol de carpetas, detalles, comparar, más, extensiones, buscar, nuevo, filtrar - y los botones de la izquierda de la barra de direcciones (atrás, adelante, subir, inicio) reciben también un color cada uno. Cada color se calculó sobre la barra de título de su tema, así que ningún icono baja del 3 : 1 que exigen los gráficos sin texto.
+
+**Mejorado: una pestaña ocupa sólo el ancho que necesita su título.** Antes todas las pestañas tenían el mismo ancho, así que un nombre corto dejaba un hueco y uno largo quedaba apretado. Ahora la pestaña crece con su título hasta un máximo, y un título todavía demasiado largo se recorta con puntos suspensivos.
+
+**Mejorado: una fila de carpeta y una de archivo ya no se apoyan en el mismo fondo.** En la vista de lista la fila de carpeta recibe un tono propio, un poco más cálido, mientras los archivos se quedan en la superficie lisa, de modo que una lista larga se puede leer por su forma en lugar de leer cada línea.
+
+**Cambiado: el icono de la aplicación se ha redibujado con la paleta de papel cálido.** Para la vía oscura de la interfaz es una carpeta clara con una alpha de tinta oscura encima; para el instalador y la barra de tareas es una carpeta de tinta oscura con una alpha clara.
+
+**Corregido: la extensión *Seguir rutas* vuelve a funcionar tras una instalación o una actualización.** El paso de desinstalación del instalador deshabilitaba la tarea programada de la extensión, y el paso de instalación sólo la arrancaba, algo que no puede funcionar con una tarea deshabilitada. Ahora el instalador habilita la tarea antes de arrancarla, así que la extensión vuelve por sí sola tras actualizarse. Si todavía no responde, reinicia la aplicación una vez.
+
+**Corregido: el script de instalación de la extensión ya no escribe un título corrupto.** El guion del título estaba guardado como carácter literal y se leía con la página de códigos del sistema, así que en un Windows con otro idioma el título de la lista de extensiones salía como caracteres sin sentido. El script es ahora ASCII puro, construye el guion en tiempo de ejecución y repara un título que ya se había escrito corrupto.
+
 ## [3.7.0] - October 2026
 
 **Summary:** Los temas de marca han ganado profundidad. *Warm Paper* ya no se lee como una sola hoja plana de crema: la barra de iconos de la izquierda, las pestañas de los directorios abiertos, la pestaña activa, el árbol de carpetas, el panel de detalles de la derecha y la columna de navegación de la página de Configuración se apoyan cada uno en su propio tono, y el árbol de carpetas alterna fila a fila. *Energía vibrante* ahora pinta los iconos de la barra de herramientas en distintos colores en lugar de un solo gris, y la vista de lista muestra en cada entrada el mismo borde izquierdo de color que la vista de miniaturas ya tenía. *Seguir el sistema* se ha conservado como un tema frío fijo llamado *Pino frío*, la opacidad predeterminada de las superposiciones es ahora del 5 % y todo el conjunto se ha rehecho para que tanto el claro como el oscuro se sostengan.

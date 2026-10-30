@@ -1,5 +1,25 @@
 # Änderungsprotokoll
 
+## [3.8.0] - October 2026
+
+**Summary:** Der *Archivpapier*-Look hat eine zweite Runde hinter sich. Die beiden *Warm Paper*-Themes sind in der Hauptfläche heller und entsättigter, alle Symbole sind als helle beigefarbene Linienzeichnung gezeichnet, Ordnersymbole tragen einen gedämpften grünen Akzent, inaktive Reiter sind abgedunkelt und haben eine helle beige-graue Kante bekommen, die Listenüberschrift sitzt auf einem dunkleren Grund mit Linie darüber und darunter, und Ordner und Dateien teilen sich nicht mehr denselben Hintergrund. In *Lebendige Farben* sind die Schaltflächen der Symbolleiste nach ihrer Aufgabe eingefärbt, Reiter richten sich nach ihrem Titel, und das Anwendungssymbol wurde in der Warm-Paper-Farbpalette neu gezeichnet. Die Erweiterung *Pfade folgen* funktioniert außerdem wieder nach einem Update.
+
+### What changed
+
+**Verbessert: die *Warm Paper*-Themes wurden ein zweites Mal abgestimmt.** Die Hauptfläche ist heller und entsättigter als zuvor. Alle Symbole sind als einheitliche helle beige Linienzeichnung gezeichnet, Ordnersymbole tragen einen gedämpften grünen Akzent, inaktive Reiter sind abgedunkelt und tragen eine helle beige-graue Kante, die Listenüberschrift sitzt auf einem dunkleren Grund mit Linie darüber und darunter, und die Symbolleiste links ist ein tiefer Tint mit hellen Symbolen darauf.
+
+**Verbessert: die Schaltflächen der Symbolleiste sind nach ihrer Aufgabe eingefärbt.** In *Lebendige Farben* bekommt jede Schaltfläche oben rechts eine eigene Farbe - geteilte Ansicht, Ordnerbaum, Details, Vergleich, mehr, Erweiterungen, Suche, neu, Filter - und die Schaltflächen links in der Adresszeile (zurück, vorwärts, eine Ebene höher, Start) ebenfalls je eine. Jede Farbe wurde gegen die Titelleiste des jeweiligen Themes berechnet, damit kein Symbol unter dem Kontrast von 3 : 1 fällt, den Grafiken ohne Text halten müssen.
+
+**Verbessert: ein Reiter nimmt nur so viel Breite wie sein Titel braucht.** Reiter hatten alle dieselbe Breite, kurze Titel ließen eine Lücke und lange wurden zusammengedrückt. Jetzt wächst ein Reiter mit seinem Titel bis zu einem Maximum, und ein noch zu langer Titel wird mit Auslassungspunkten gekürzt.
+
+**Verbessert: eine Ordnerzeile und eine Dateizeile sitzen nicht mehr auf demselben Grund.** In der Listenansicht bekommt eine Ordnerzeile einen eigenen, leicht wärmeren Ton, Dateien bleiben auf der glatten Fläche, und eine lange Liste lässt sich an der Form ablesen, statt jede Zeile zu lesen.
+
+**Geändert: das Anwendungssymbol wurde in der Warm-Paper-Farbpalette neu gezeichnet.** Für die dunkle Schiene in der Oberfläche ist es ein heller Ordner mit dunklem Tinta-alpha darauf; für das Installationsprogramm und die Taskleiste ein dunkler Ordner mit hellem alpha.
+
+**Behoben: die Erweiterung *Pfade folgen* funktioniert nach einer Installation oder einem Update wieder.** Der Uninstallationsschritt des Installers hat den geplanten Task der Erweiterung deaktiviert, der Installationsschritt hat ihn nur gestartet - bei einem deaktivierten Task kann das nicht gelingen. Der Installer aktiviert den Task jetzt vor dem Starten, damit die Erweiterung nach einem Update von selbst zurückkehrt. Antwortet sie noch nicht, starten Sie die Anwendung einmal neu.
+
+**Behoben: das Installationsskript der Erweiterung schreibt keinen kaputten Titel mehr.** Der Gedankenstrich im Titel war als echtes Zeichen abgelegt und wurde mit der Codepage des Systems gelesen, sodass auf einem Windows mit anderer Sprache der Titel in der Erweiterungsliste als Zeichenbrei erschien. Das Skript ist jetzt reines ASCII, erzeugt den Gedankenstrich zur Laufzeit und repariert einen bereits kaputt geschriebenen Titel.
+
 ## [3.7.0] - October 2026
 
 **Summary:** Die Marken-Themes haben Tiefe bekommen. *Warm Paper* liest sich nicht mehr wie eine einzige flache Cremefläche: die Symbolleiste links, die Reiter der geöffneten Verzeichnisse, der aktive Reiter, der Ordnerbaum, der Detailbereich rechts und die Navigationsspalte der Einstellungsseite sitzen jetzt je auf eigenem Ton, und der Ordnerbaum wechselt von Zeile zu Zeile die Farbe. *Lebendige Farben* malt die Symbole der Symbolleiste jetzt in unterschiedlichen Farben statt in einem einzigen Grau, und die Listenansicht zeigt an jedem Eintrag denselben farbigen linken Rand, den die Miniaturansicht schon hatte. *System folgen* ist als festes kühles Theme namens *Kühle Kiefer* erhalten geblieben, die Standarddeckkraft der Überlagerungen liegt jetzt bei 5 %, und die ganze Reihe wurde so überarbeitet, dass Hell und Dunkel beide stimmig bleiben.

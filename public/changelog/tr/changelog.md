@@ -1,5 +1,25 @@
 # Değişiklik Günlüğü
 
+## [3.8.0] - October 2026
+
+**Summary:** Arşiv kâğıdı görünümü ikinci bir turdan geçti. İki *Warm Paper* temasının ana bölgesi daha aydın ve daha az doygun; tüm simgeler açık bej çizgi olarak çizildi, klasör simgelerine kısık yeşil bir vurgu eklendi, etkin olmayan sekmeler karartıldı ve açık bej-gri kenar aldı, liste başlığı üstü ve altı çizgili daha koyu bir zemine oturdu, klasörlerle dosyalar artık aynı arka planı paylaşmıyor. *Vivid* temasında araç çubuğu düğmeleri yaptıkları işe göre renk aldı, sekmeler başlıklarına göre genişlik kazandı ve uygulama simgesi sıcak kâğıt paletiyle yeniden çizildi. *Yol Takibi* eklentisi güncellemeden sonra yeniden çalışıyor.
+
+### What changed
+
+**İyileştirildi: *Warm Paper* temaları ikinci kez ayarlandı.** Ana bölge öncesine göre daha aydın ve daha az doygun. Tüm simgeler tek bir açık bej çizgi diliyle çizildi, klasör simgeleri kısık yeşil vurgu taşıyor, üzerinde olmadığınız sekmeler karartılıp açık bej-gri kenar aldı, liste başlığı üst ve alt çizgili daha koyu bir zemine oturdu ve soldaki simge rayı açık simgeler taşıyan derin bir mürekkep rengi.
+
+**İyileştirildi: araç çubuğu düğmeleri yaptıkları işe göre renk alıyor.** *Vivid* temasında sağ üstteki her düğme kendi rengini alıyor — bölünmüş görünüm, klasör ağacı, ayrıntılar, karşılaştır, daha fazla, eklentiler, ara, yeni, süzgeç — ve adres çubuğunun solundaki düğmeler (geri, ileri, yukarı, ana sayfa) de her biri ayrı renk alıyor. Her renk kendi temasının başlık çubuğuna göre hesaplandı, böylece hiçbir simge metinsiz grafiklerin tutması gereken 3 : 1’in altına düşmüyor.
+
+**İyileştirildi: sekme yalnızca başlığının gerektirdiği genişliği alıyor.** Önceden bütün sekmeler aynı genişlikteydi, kısa bir ad boşluk bırakıyor ve uzun bir ad sıkışıyordu. Artık sekme başlığıyla birlikte bir üst sınıra kadar büyüyor, hâlâ fazla uzun başlıklar üç nokta ile kırpılıyor.
+
+**İyileştirildi: klasör satırı ile dosya satırı artık aynı zemin üzerinde değil.** Liste görünümünde klasör satırı kendi biraz daha sıcak tonunu alıyor, dosyalar ise düz yüzeyde kalıyor; böylece uzun bir liste her satırı okumak yerine biçiminden okunabiliyor.
+
+**Değişti: uygulama simgesi sıcak kâğıt paletiyle yeniden çizildi.** Arayüzdeki derin ray için açık bir klasör ve üzerinde koyu mürekkep alfası, kurulum programı ve görev çubuğu için ise koyu mürekkep klasörü ve üzerinde açık alfa kullanılıyor.
+
+**Düzeltildi: *Yol Takibi* eklentisi kurulumdan veya güncellemeden sonra yeniden çalışıyor.** Kurulum programının kaldırma adımı eklentinin zamanlanmış görevini devre dışı bırakıyor, kurulum adımı ise yalnızca başlatıyordu — devre dışı bırakılmış bir görev için bu başarılı olamaz. Kurulum programı artık görevi başlatmadan önce etkinleştiriyor, böylece eklenti güncellemeden sonra kendiliğinden geri geliyor. Hâlâ yanıt vermiyorsa uygulamayı bir kez yeniden başlatın.
+
+**Düzeltildi: eklentinin kurulum betiği artık bozuk başlık yazmıyor.** Başlıktaki tire doğrudan bir karakter olarak saklanıyor ve sistemin kod sayfasıyla okunuyordu, bu yüzden başka dilli bir Windows’ta eklenti listesindeki başlık okunmaz bir hâle geliyordu. Betik artık saf ASCII, tireyi çalışma anında üretiyor ve hâlihazırda bozulmuş bir başlığı onarıyor.
+
 ## [3.7.0] - October 2026
 
 **Summary:** Marka temalarına derinlik kazandırıldı. *Warm Paper* artık tek düz bir krem rengi sayfa gibi okunmuyor: soldaki simge şeridi, açılan klasörlerin sekmeleri, etkin sekme, klasör ağacı, sağdaki ayrıntı paneli ve ayarlar sayfasının gezinme sütunu artık her biri kendi tonunda, klasör ağacı da satır satır dönüşümlü. *Canlı enerji* araç çubuğu simgelerini artık tek bir gri yerine farklı renklerle boyuyor ve liste görünümü, küçük resim görünümünün zaten taşıdığı renkli sol kenarı her ögede gösteriyor. *Sistemi takip et* sabit bir soğuk tema olarak *Soğuk çam* adıyla korundu, varsayılan yer paylaşımı opaklığı artık %5 ve tüm set açık ve koyu görünümlerin bir arada durması için yeniden düzenlendi.

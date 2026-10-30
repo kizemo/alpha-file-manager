@@ -1,5 +1,25 @@
 # Registro delle modifiche
 
+## [3.8.0] - October 2026
+
+**Summary:** L'aspetto *carta d'archivio* ha avuto un secondo round di lavoro. I due temi *Warm Paper* sono più chiari e meno saturi nell'area principale, tutte le icone sono disegnate come tratto beige chiaro, le icone di cartella portano un accento verde spento, le schede inattive sono scurite e hanno un bordo beige-grigio, l'intestazione dell'elenco poggia su un fondo più scuro con una linea sopra e sotto, e cartelle e file non condividono più lo stesso fondo. In *Vivid* i pulsanti della barra degli strumenti sono colorati secondo la funzione che svolgono, le schede si dimensionano sul proprio titolo e l'icona dell'applicazione è stata ridisegnata nella palette della carta calda. L'estensione *Segui percorsi* funziona di nuovo dopo un aggiornamento.
+
+### What changed
+
+**Migliorato: i temi *Warm Paper* sono stati accordati una seconda volta.** L'area principale è più chiara e meno satura di prima. Tutte le icone sono disegnate con lo stesso tratto beige chiaro, le icone di cartella portano un accento verde spento, le schede in cui non sei sono scurite e hanno un bordo beige-grigio, l'intestazione dell'elenco poggia su un fondo più scuro con una linea sopra e sotto, e la barra delle icone a sinistra è un inchiostro profondo con icone chiare.
+
+**Migliorato: i pulsanti della barra degli strumenti sono colorati secondo la loro funzione.** In *Vivid* ogni pulsante in alto a destra prende un colore proprio - vista divisa, albero delle cartelle, dettagli, confronta, altro, estensioni, ricerca, nuovo, filtro - e anche i pulsanti a sinistra della barra degli indirizzi (indietro, avanti, su, home) ne prendono uno ciascuno. Ogni colore è stato calcolato sulla barra del titolo del proprio tema, così nessuna icona scende sotto il 3 : 1 che le grafiche senza testo devono rispettare.
+
+**Migliorato: una scheda occupa solo la larghezza che serve al suo titolo.** Prima tutte le schede avevano la stessa larghezza, quindi un nome corto lasciava un vuoto e un nome lungo veniva stretto. Ora una scheda cresce con il suo titolo fino a un massimo, e un titolo ancora troppo lungo viene troncato con i puntini di sospensione.
+
+**Migliorato: una riga di cartella e una di file non poggiano più sullo stesso fondo.** Nella vista a elenco la riga di cartella riceve una tonalità propria, un po' più calda, mentre i file restano sulla superficie liscia: così un elenco lungo si legge per forma, senza leggere ogni riga.
+
+**Cambiato: l'icona dell'applicazione è stata ridisegnata nella palette della carta calda.** Per la barra scura dell'interfaccia è una cartella chiara con un alpha di inchiostro profondo sopra; per il programma di installazione e la barra delle applicazioni è una cartella di inchiostro profondo con un alpha chiaro.
+
+**Corretto: l'estensione *Segui percorsi* funziona di nuovo dopo un'installazione o un aggiornamento.** Il passo di disinstallazione del programma di installazione disattivava l'attività pianificata dell'estensione, e il passo di installazione si limitava ad avviarla, cosa impossibile per un'attività disattivata. Ora il programma di installazione attiva l'attività prima di avviarla, così l'estensione torna da sola dopo un aggiornamento. Se continua a non rispondere, riavvia una volta l'applicazione.
+
+**Corretto: lo script di installazione dell'estensione non scrive più un titolo corrotto.** Il trattino nel titolo era salvato come carattere letterale e letto con la tabella di codice del sistema, così su un Windows in un'altra lingua il titolo nell'elenco delle estensioni usciva come scarabocchi. Ora lo script è solo ASCII, costruisce il trattino a runtime e ripara un titolo già scritto corrotto.
+
 ## [3.7.0] - October 2026
 
 **Summary:** I temi del brand hanno ora una profondità. *Warm Paper* non si legge più come un unico foglio piatto color crema: la barra delle icone a sinistra, le schede delle directory aperte, la scheda attiva, l’albero delle cartelle, il pannello dei dettagli a destra e la colonna di navigazione della pagina delle impostazioni poggiano ciascuno sulla propria tonalità, e l’albero delle cartelle alterna riga per riga. *Energia vivace* ora dipinge le icone della barra degli strumenti con colori diversi invece che con un unico grigio, e la vista a elenco mostra su ogni voce lo stesso bordo sinistro colorato che la vista a miniature aveva già. *Segui il sistema* è stato mantenuto come tema freddo fisso chiamato *Pino freddo*, l’opacità predefinita delle sovrapposizioni è ora del 5% e l’intero insieme è stato rifatto perché chiaro e scuro reggano entrambi.

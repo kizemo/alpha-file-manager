@@ -1,5 +1,25 @@
 # Dnevnik sprememb
 
+## [3.8.0] - October 2026
+
+**Summary:** Videz *arhivskega papirja* je doživel še en krog dela. Obe temi *Warm Paper* sta v glavnem delu svetlejši in manj nasičeni, vse ikone so narisane s svetlo bež črto, ikone map imajo prigušen zelen poudarek, neaktivne zavihki so potemnjeni in imajo svetlo bež-sivo obrobo, glava seznama leži na temnejši podlagi s črto zgoraj in spodaj, mape in datoteke pa ne delijo več istega ozadja. V temi *Vivid* dobijo gumbi orodne vrstice barvo glede na nalogo, zavihki se prilagodijo svojemu naslovu, ikona aplikacije pa je bila znova narisana v barvah toplega papirja. Razširitev *Sledi potem* po posodobitvi znova deluje.
+
+### What changed
+
+**Izboljšano: temi *Warm Paper* sta bili drugič prilagojeni.** Glavni del je svetlejši in manj nasičen kot prej. Vse ikone so narisane z isto svetlo bež črto, ikone map imajo prigušen zelen poudarek, neaktivni zavihki so potemnjeni in imajo svetlo bež-sivo obrobo, glava seznama leži na temnejši podlagi s črto zgoraj in spodaj, pas ikon na levi pa je temno črnilo s svetlimi ikonami.
+
+**Izboljšano: gumbi orodne vrstice dobijo barvo glede na svojo nalogo.** V temi *Vivid* vsak gumb zgoraj desno dobi svojo barvo — razdeljen pogled, drevo map, podrobnosti, primerjava, več, razširitve, iskanje, novo, filter — tudi gumbi na levi naslovne vrstice (nazaj, naprej, gor, domov) imajo vsak svojo. Vsaka barva je bila izračunana glede na naslovno vrstico svoje teme, zato nobena ikona ne pade pod 3 : 1, ki ga potrebujejo grafi brez besedila.
+
+**Izboljšano: zavihek zasede le toliko širine, kolikor potrebuje njegov naslov.** Prej so bili vsi zavihki enako široki, zato je kratko ime pustilo vrzel, dolgo pa je bilo stisnjeno. Zavihek se zdaj razširja s svojim naslovom do meje, predolg naslov pa je odrezan s tričpičjem.
+
+**Izboljšano: vrstica mape in vrstica datoteke ne ležita več na isti podlagi.** V seznamu vrstica mape dobi lasten, malo bolj topl odtenek, datoteke pa ostanejo na gladki površini, zato se lahko dolg seznam prebere po obliki, ne po vrstici za vrstico.
+
+**Spremenjeno: ikona aplikacije je bila znova narisana v barvah toplega papirja.** Za temni pas v vmesniku je to svetla mapa s temnim črnilom alfe na njej; za namestitveni program in opravilno vrstico pa temna mapa s svetlo alfo.
+
+**Popravljeno: razširitev *Sledi potem* po namestitvi ali posodobitvi znova deluje.** Korak odstranitve v namestitvenem programu je onemogočil razporejeni opravil razširitve, korak namestitve pa ga je samo zagnal — za onemogočen opravil to ne more uspeti. Namestitveni program zdaj opravil najprej omogoči in šele nato zažene, zato razširitev po posodobitvi sama pride nazaj. Če še vedno ne odgovarja, aplikacijo enkrat znova zaženite.
+
+**Popravljeno: namestitveni skript razširitve ne zapisuje več pokvarjenega naslova.** Pomičaj v naslovu je bil shranjen kot navadna znakovna konstanta in prebran s kodno stranjo sistema, zato je bil v Windowsu z drugim jezikom naslov na seznamu razširitev popačen. Skript je zdaj čisti ASCII, pomičaj sestavi med izvajanjem in popravi že popačen naslov.
+
 ## [3.7.0] - October 2026
 
 **Summary:** Blagovne znamke so dobile globino. *Warm Paper* se ne prebere več kot en ravna kremasta lista: vrstica z ikonami levo, zavihki odprtih map, aktivna zavihek, drevo map, podokno s podrobnostmi na desni in stolpec navigacije na strani nastavitev imajo vsak svoje odtenke, drevo map pa se izmenjuje vrstico za vrstico. *Živa energija* zdaj orodno vrstico barva z različnimi barvami namesto ene sive, pogled seznama pa pri vsakem vnosu prikaže isto barvno levico, ki jo je imel že pogled miniatur. *Sledi sistemu* je ostal kot fiksna hladna tema z imenom *Hladna borovnica*, privzeta prosojnost prekrivanja je zdaj 5 %, celoten nabor pa je bil preoblikovan tako, da se dobro držita tako svetla kot temna.

@@ -1,5 +1,25 @@
 # Journal des modifications
 
+## [3.8.0] - October 2026
+
+**Summary:** L aspect *papier d'archive* a connu une seconde série de travaux. Les deux thèmes *Warm Paper* sont plus clairs et moins saturés dans la zone principale, toutes les icônes sont tracées en filet beige clair, les icônes de dossier portent un accent vert sourd, les onglets inactifs sont assombris et bordés d'un liseré beige grisâtre, l'en-tête de liste repose sur un fond plus sombre bordé d'un trait en haut et en bas, et les dossiers comme les fichiers ne partagent plus le même fond. Dans *Vivid*, les boutons de la barre d'outils sont colorés selon leur fonction, les onglets se dimensionnent selon leur titre, et l'icône de l'application a été redessinée dans la palette papier chaud. L'extension *Suivre les chemins* fonctionne de nouveau après une mise à jour.
+
+### What changed
+
+**Amélioré: les thèmes *Warm Paper* ont été réajustés une seconde fois.** La zone principale est plus claire et moins saturée qu'avant. Toutes les icônes sont tracées dans le même filet beige clair, les icônes de dossier portent un accent vert sourd, les onglets inactifs sont assombris et portent un liseré beige grisâtre, l'en-tête de liste repose sur un fond plus sombre avec un trait au-dessus et au-dessous, et le rail d'icônes à gauche est un encre sombre avec des icônes claires.
+
+**Amélioré: les boutons de la barre d'outils sont colorés selon leur fonction.** Dans *Vivid*, chaque bouton en haut à droite prend une couleur qui lui est propre - vue divisée, arborescence, détails, comparer, plus, extensions, recherche, nouveau, filtre - et les boutons à gauche de la barre d'adresse (retour, avant, niveau supérieur, accueil) en reçoivent une chacun. Chaque couleur a été calculée sur la barre de titre de son thème, si bien qu'aucune icône ne descend sous le 3 : 1 que doivent tenir les graphiques sans texte.
+
+**Amélioré: un onglet ne prend que la largeur dont son titre a besoin.** Tous les onglets avaient la même largeur : un nom court laissait un vide et un nom long était à l'étroit. Un onglet grandit maintenant avec son titre jusqu'à un maximum, et un titre encore trop long est coupé par des points de suspension.
+
+**Amélioré: une ligne de dossier et une ligne de fichier ne reposent plus sur le même fond.** Dans la vue liste, une ligne de dossier reçoit sa propre teinte, un peu plus chaude, tandis que les fichiers restent sur la surface nue : une longue liste se lit alors à la forme, sans lire chaque ligne.
+
+**Changement: l'icône de l'application a été redessinée dans la palette papier chaud.** Pour le rail sombre de l'interface, c'est un dossier clair avec un alpha d'encre sombre posé dessus ; pour le programme d'installation et la barre des tâches, c'est un dossier d'encre sombre avec un alpha clair.
+
+**Corrigé: l'extension *Suivre les chemins* fonctionne de nouveau après une installation ou une mise à jour.** L'étape de désinstallation de l'installateur désactivait la tâche planifiée de l'extension, et l'étape d'installation se contentait de la démarrer - ce qui ne peut pas aboutir pour une tâche désactivée. L'installateur active désormais la tâche avant de la démarrer, si bien que l'extension revient d'elle-même après une mise à jour. Si elle ne répond toujours pas, redémarrez une fois l'application.
+
+**Corrigé: le script d'installation de l'extension n'écrit plus un titre de travers.** Le tiret du titre était stocké comme caractère littéral puis relu avec la page de code du système : sous Windows dans une autre langue, le titre de la liste des extensions apparaissait comme un charabia. Le script est désormais en ASCII pur, construit le tiret à l'exécution et répare un titre déjà écrit de travers.
+
 ## [3.7.0] - October 2026
 
 **Summary:** Les thèmes de marque ont désormais de la profondeur. *Warm Paper* ne se lit plus comme une seule feuille plate de crème : le rail d’icônes à gauche, les onglets des répertoires ouverts, l’onglet actif, l’arborescence des dossiers, le panneau de détails à droite et la colonne de navigation de la page des paramètres reposent chacun sur leur propre teinte, et l’arborescence des dossiers alterne ligne par ligne. *Énergie vive* peint maintenant les icônes de la barre d’outils dans des couleurs différentes au lieu d’un seul gris, et la vue en liste montre sur chaque entrée la même bordure gauche colorée que la vue en vignettes avait déjà. *Suivre le système* a été conservé sous la forme d’un thème froid fixe nommé *Pin froid*, l’opacité par défaut des superpositions est désormais de 5 %, et l’ensemble a été refait pour que le clair comme le sombre tiennent la route.
