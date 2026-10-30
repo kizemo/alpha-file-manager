@@ -48,9 +48,9 @@ const classicThemeOptions = computed<ThemeSelectOption[]>(() => {
     }
 
     return [{
-      name: option.builtinThemeId === 'dark'
-        ? t('settings.homeBannerEffects.theme.themeTypeRadio.dark')
-        : t('system'),
+      // FORK-MODIFICATION 2026-10-30：「跟随系统」已从可选主题中下架，
+      // 经典组现在只剩「暗色」一项。
+      name: t('settings.homeBannerEffects.theme.themeTypeRadio.dark'),
       value: option.id,
       source: option.source,
     }];
@@ -85,6 +85,8 @@ function getAfmThemeName(themeId: AfmThemeId): string {
       return t('settings.homeBannerEffects.theme.afmThemes.warmDark');
     case 'afm-vivid-light':
       return t('settings.homeBannerEffects.theme.afmThemes.vividLight');
+    case 'afm-cool-light':
+      return t('settings.homeBannerEffects.theme.afmThemes.coolLight');
   }
 
   return '';

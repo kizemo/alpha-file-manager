@@ -350,7 +350,8 @@
         "afmThemes": {
           "warmLight": "Papier chaud · Clair",
           "warmDark": "Papier chaud · Sombre",
-          "vividLight": "Énergie vive"
+          "vividLight": "Énergie vive",
+          "coolLight": "Pin froid"
         },
         "themeTypeRadio": {
           "dark": "Sombre"

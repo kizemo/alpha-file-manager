@@ -385,7 +385,8 @@
         "afmThemes": {
           "warmLight": "گرم کاغذ · روشن",
           "warmDark": "گرم کاغذ · تاریک",
-          "vividLight": "جوشنگار انرژی"
+          "vividLight": "جوشنگار انرژی",
+          "coolLight": "ٹھنڈا چراب"
         },
         "themeTypeRadio": {
           "dark": "ڈارک"

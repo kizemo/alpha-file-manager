@@ -10,7 +10,10 @@ import {
   AFM_THEMES,
 } from '@/modules/themes/afm-themes';
 
-export const BUILTIN_THEME_IDS = ['dark', 'system'] as const;
+// FORK-MODIFICATION 2026-10-30：「跟随系统」不再是**可选主题**（下拉里不再出现），
+// 它的位置由静态冷色主题冷杉（afm-cool-light）接替。老配置里的 'system'
+// 通过 LEGACY_THEME_ALIASES 平滑落到冷杉，而不是回默认暖纸。
+export const BUILTIN_THEME_IDS = ['dark'] as const;
 export const DEFAULT_THEME_ID: BuiltinThemeId = 'afm-warm-light';
 
 // FORK-MODIFICATION 2026-10-29：原来这里是 `Exclude<BuiltinThemeId, 'system'>`，
@@ -64,7 +67,17 @@ type ParsedThemeId = ParsedBuiltinThemeId | ParsedExtensionThemeId;
 const EXTENSION_THEME_PREFIX = 'extension:';
 const EXTENSION_THEME_ID_PATTERN = /^[a-z0-9-]+$/;
 
-const CLASSIC_BUILTIN_THEME_IDS: readonly string[] = BUILTIN_THEME_IDS;
+// FORK-MODIFICATION 2026-10-30：经典解析分支**保留不动** —— 'system' 仍然算一个合法
+// 的历史主题 id，只是不再出现在可选列表里。
+const CLASSIC_BUILTIN_THEME_IDS: readonly string[] = ['dark', 'system'];
+
+/**
+ * FORK-MODIFICATION 2026-10-30：历史主题 id 的落点。
+ * 'system' -> 'afm-cool-light'（冷杉）。
+ */
+const LEGACY_THEME_ALIASES: Readonly<Record<string, string>> = {
+  system: 'afm-cool-light',
+};
 
 export function createExtensionThemeId(extensionId: string, themeId: string): Theme {
   return `${EXTENSION_THEME_PREFIX}${extensionId}:${themeId}` as Theme;
@@ -192,7 +205,7 @@ export function findThemeOption(
   theme: string,
   installedExtensions: Record<string, InstalledExtensionData>,
 ): ThemeOption | undefined {
-  const parsedTheme = parseThemeId(theme);
+  const parsedTheme = parseThemeId(LEGACY_THEME_ALIASES[theme] ?? theme);
 
   if (!parsedTheme) {
     return undefined;

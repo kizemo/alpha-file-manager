@@ -350,7 +350,8 @@
         "afmThemes": {
           "warmLight": "Sıcak kağıt · Açık",
           "warmDark": "Sıcak kağıt · Koyu",
-          "vividLight": "Canlı enerji"
+          "vividLight": "Canlı enerji",
+          "coolLight": "Soğuk çam"
         },
         "themeTypeRadio": {
           "dark": "Karanlık"

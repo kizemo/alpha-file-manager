@@ -280,7 +280,8 @@ export type BuiltinThemeId
     // 该文件有单测断言两边不漂移。
     | 'afm-warm-light'
     | 'afm-warm-dark'
-    | 'afm-vivid-light';
+    | 'afm-vivid-light'
+    | 'afm-cool-light';
 export type Theme = BuiltinThemeId | `extension:${string}:${string}`;
 export type NavigatorIconTheme = string;
 

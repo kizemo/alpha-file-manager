@@ -385,7 +385,8 @@
         "afmThemes": {
           "warmLight": "Լա թղթ · բաց",
           "warmDark": "Լա թղթ · մուգ",
-          "vividLight": "Կենդանի էներգիա"
+          "vividLight": "Կենդանի էներգիա",
+          "coolLight": "Սառը Փին"
         },
         "themeTypeRadio": {
           "dark": "Մութ"

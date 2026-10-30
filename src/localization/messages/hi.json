@@ -385,7 +385,8 @@
         "afmThemes": {
           "warmLight": "वार्म पेपर · लाइट",
           "warmDark": "वार्म पेपर · डार्क",
-          "vividLight": "वाइविड एनर्जी"
+          "vividLight": "वाइविड एनर्जी",
+          "coolLight": "ठंडा पाइन"
         },
         "themeTypeRadio": {
           "dark": "अँधेरा"

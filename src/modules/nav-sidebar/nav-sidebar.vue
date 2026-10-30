@@ -451,7 +451,7 @@ async function handleRemoteEdit(connection: RemoteConnection) {
 
   /* FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：图标轨底色改走 token，
      让「跃动活力」那套能把整条轨换成深钢蓝。宽度仍由 --nav-sidebar-width 决定（42px 不变）。 */
-  background-color: hsl(var(--nav-rail-background));
+  background-color: hsl(var(--surface-sidebar));
 }
 
 .nav-sidebar-header {
@@ -463,7 +463,7 @@ async function handleRemoteEdit(connection: RemoteConnection) {
   justify-content: center;
   border-radius: var(--radius-sm);
   margin-bottom: 12px;
-  background-color: hsl(var(--nav-rail-background));
+  background-color: hsl(var(--surface-sidebar));
 }
 
 .nav-sidebar-items {
@@ -608,7 +608,7 @@ async function handleRemoteEdit(connection: RemoteConnection) {
   line-height: 1;
   paint-order: stroke fill;
   pointer-events: none;
-  -webkit-text-stroke: 2px hsl(var(--nav-rail-background));
+  -webkit-text-stroke: 2px hsl(var(--surface-sidebar));
   transform: translate(-50%, 10%);
   white-space: nowrap;
 }

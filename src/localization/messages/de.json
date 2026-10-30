@@ -350,7 +350,8 @@
         "afmThemes": {
           "warmLight": "Warmes Papier · Hell",
           "warmDark": "Warmes Papier · Dunkel",
-          "vividLight": "Lebendige Farben"
+          "vividLight": "Lebendige Farben",
+          "coolLight": "Kühle Kiefer"
         },
         "themeTypeRadio": {
           "dark": "Dunkel"

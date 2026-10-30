@@ -385,7 +385,8 @@
         "afmThemes": {
           "warmLight": "Тёплая бумага · Светлая",
           "warmDark": "Тёплая бумага · Тёмная",
-          "vividLight": "Яркая энергия"
+          "vividLight": "Яркая энергия",
+          "coolLight": "Холодная сосна"
         },
         "themeTypeRadio": {
           "dark": "Темная"

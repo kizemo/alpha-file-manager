@@ -297,7 +297,7 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
       blur: 64,
       mediaContrast: 100,
       mediaBrightness: 100,
-      opacity: 15,
+      opacity: 5,
       noise: 5,
       noiseScale: 0.5,
       mixBlendMode: DEFAULT_INFUSION_BLEND_MODE,

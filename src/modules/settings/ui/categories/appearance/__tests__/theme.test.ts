@@ -105,16 +105,16 @@ vi.mock('vue-i18n', async (importOriginal) => {
   };
 });
 
-// FORK-MODIFICATION 2026-10-30：AFM 品牌重设计主题（暖纸浅 / 暖纸暗 / 跃动活力）。
+// FORK-MODIFICATION 2026-10-30：AFM 品牌重设计主题（暖纸浅 / 暖纸暗 / 跃动活力 / 冷杉）。
 const AFM_GROUP_HEADING = 'settings.homeBannerEffects.theme.afmThemeThemes';
 const AFM_NAME_KEYS = [
   'settings.homeBannerEffects.theme.afmThemes.warmLight',
   'settings.homeBannerEffects.theme.afmThemes.warmDark',
   'settings.homeBannerEffects.theme.afmThemes.vividLight',
+  'settings.homeBannerEffects.theme.afmThemes.coolLight',
 ];
 const CLASSIC_NAME_KEYS = [
   'settings.homeBannerEffects.theme.themeTypeRadio.dark',
-  'system',
 ];
 // 已下架 / 已删除的主题：界面上一个都不能再出现。
 const REMOVED_NAME_KEYS = [
@@ -134,7 +134,7 @@ describe('theme settings', () => {
     userSettingsStoreMock.set.mockClear();
   });
 
-  it('lists the two classic themes plus the three AFM themes', () => {
+  it('lists the classic dark theme plus the four AFM themes', () => {
     const wrapper = mount(Theme);
     const options = wrapper.findAll('.combobox-option');
 
@@ -178,7 +178,7 @@ describe('theme settings', () => {
     const groups = wrapper.findAll('.combobox-group');
 
     expect(groups).toHaveLength(2);
-    expect(groups[0].findAll('.combobox-option')).toHaveLength(2);
-    expect(groups[1].findAll('.combobox-option')).toHaveLength(3);
+    expect(groups[0].findAll('.combobox-option')).toHaveLength(1);
+    expect(groups[1].findAll('.combobox-option')).toHaveLength(4);
   });
 });

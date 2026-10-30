@@ -385,7 +385,8 @@
         "afmThemes": {
           "warmLight": "נייר חמים · בהיר",
           "warmDark": "נייר חמים · כהה",
-          "vividLight": "אנרגיה עזה"
+          "vividLight": "אנרגיה עזה",
+          "coolLight": "אורן קר"
         },
         "themeTypeRadio": {
           "dark": "כהה"

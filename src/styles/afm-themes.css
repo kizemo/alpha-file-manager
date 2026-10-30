@@ -91,8 +91,16 @@ html[data-afm-theme='afm-vivid-light'] .file-browser-grid-card {
   box-shadow: inset 4px 0 0 hsl(var(--primary)), var(--shadow-md);
 }
 
+/*
+ * 列表视图的彩色左边条：与网格视图**共用同一组四色循环色**。
+ * 颜色通过 --entry-accent 灌进列表条目的 ::before 通道（inset，不占布局）。
+ * 网格卡片那边写死 hsl(...)，这边写进自定义属性，值完全一致。
+ */
+
 html[data-afm-theme='afm-vivid-light'] .file-browser-list-view__entry {
   border-radius: var(--radius);
+
+  --entry-accent: var(--primary);
 }
 
 html[data-afm-theme='afm-vivid-light'] .file-browser-grid-card:nth-child(4n + 2) {
@@ -145,5 +153,85 @@ html[data-afm-theme='afm-vivid-light'] .file-browser-status-bar {
 
 /* 属性面板标题用品牌色，跟状态条那根线呼应。 */
 html[data-afm-theme='afm-vivid-light'] .info-panel-header__name {
-  color: hsl(var(--brand));
+  color: hsl(var(--brand-ink));
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-list-view__entry:nth-child(4n + 2) {
+  --entry-accent: 172 100% 38%;
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-list-view__entry:nth-child(4n + 3) {
+  --entry-accent: 349 100% 68%;
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-list-view__entry:nth-child(4n) {
+  --entry-accent: 42 100% 62%;
+}
+
+/*
+ * 工具栏图标按语义分五色（跃动活力专属）。
+ * 暖纸两套不写任何规则 —— 保持中性灰。
+ * 只改 stroke，不动 DOM 结构，也不改尺寸。
+ * 语义分组：导航（后退/前进/上级）= 主色紫；位置 = 品牌钢蓝；
+ * 刷新 = 青；视图切换 = 柠檬；缩略图 = 珊瑚。
+ */
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--nav,
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--more {
+  stroke: hsl(var(--accent));
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--location {
+  stroke: hsl(var(--brand));
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--refresh {
+  stroke: #08917f;
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--view {
+  stroke: #c78d05;
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--thumbnail {
+  stroke: #e21239;
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-create-button__icon {
+  stroke: #08917f;
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-filter__icon {
+  stroke: #c78d05;
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-swap-panes-button svg {
+  stroke: hsl(var(--brand));
+}
+
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-sync-browsing-button svg {
+  stroke: #08917f;
+}
+
+/* --------------------------------------------------------------------------
+ * D4 —— 冷杉（浅色）
+ *
+ * 气质：冷静、工具感。冷蓝绿底 + 品牌钢蓝主色 + 近直角卡片。
+ * -------------------------------------------------------------------------- */
+
+html[data-afm-theme='afm-cool-light'] .file-browser-grid-card,
+html[data-afm-theme='afm-cool-light'] .file-browser-list-view__entry {
+  border-radius: var(--radius-sm);
+}
+
+html[data-afm-theme='afm-cool-light'] .file-browser-status-bar {
+  box-shadow: inset 2px 0 0 hsl(var(--brand));
+}
+
+html[data-afm-theme='afm-cool-light'] .nav-sidebar-item[is-active='true'] {
+  background-color: hsl(var(--brand) / 12%);
+}
+
+html[data-afm-theme='afm-cool-light'] .info-panel-header__name {
+  color: hsl(var(--brand-ink));
 }

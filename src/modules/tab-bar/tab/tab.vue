@@ -352,7 +352,7 @@ onBeforeUnmount(() => {
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   -webkit-app-region: no-drag;
-  background-color: transparent;
+  background-color: hsl(var(--state-hover));
   color: hsl(var(--muted-foreground));
   cursor: pointer;
   opacity: 0.9;
@@ -360,7 +360,7 @@ onBeforeUnmount(() => {
 }
 
 .tab[is-active="true"] {
-  background-color: hsl(var(--background-2));
+  background-color: hsl(var(--tab-surface-active));
   color: hsl(var(--foreground) / 80%);
   opacity: 1;
 }
@@ -382,12 +382,13 @@ onBeforeUnmount(() => {
 }
 
 .tab[is-active="true"]::after {
-  background-color: hsl(var(--primary) / 40%);
-  box-shadow: 0 0 8px hsl(var(--primary) / 90%);
+  background-color: hsl(var(--tab-indicator));
+  box-shadow: 0 0 8px hsl(var(--tab-indicator));
 }
 
-.tab:hover {
-  background-color: hsl(var(--background-2) / 70%)
+/* 已激活的标签不参与 hover 变底，否则激活态的专属底色会被冲掉。 */
+.tab:not([is-active="true"]):hover {
+  background-color: hsl(var(--state-active));
 }
 
 .tab[data-drag-over] {

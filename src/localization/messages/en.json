@@ -385,7 +385,8 @@
         "afmThemes": {
           "warmLight": "Warm Paper · Light",
           "warmDark": "Warm Paper · Dark",
-          "vividLight": "Vivid Energy"
+          "vividLight": "Vivid Energy",
+          "coolLight": "Cool Pine"
         },
         "themeTypeRadio": {
           "dark": "Dark"
