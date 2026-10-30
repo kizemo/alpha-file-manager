@@ -64,7 +64,10 @@ function toggleSyncBrowsing() {
         data-e2e-root="toolbar-sync-browsing"
         @click="toggleSyncBrowsing"
       >
-        <LinkIcon :size="16" />
+        <LinkIcon
+          :size="16"
+          class="file-browser-toolbar-sync-browsing-button__icon file-browser-toolbar-sync-browsing-button__icon--split"
+        />
       </Button>
     </TooltipTrigger>
     <TooltipContent>

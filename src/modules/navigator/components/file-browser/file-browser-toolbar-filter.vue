@@ -160,7 +160,7 @@ function selectProperty(property: QuickSearchProperty) {
             :class="{ 'file-browser-toolbar-filter__button--active': filterQuery }"
             @click="handleFilterButtonClick"
           >
-            <TextSearchIcon class="file-browser-toolbar-filter__icon" />
+            <TextSearchIcon class="file-browser-toolbar-filter__icon file-browser-toolbar-filter__icon--filter" />
           </Button>
         </PopoverTrigger>
       </TooltipTrigger>
@@ -367,21 +367,21 @@ function selectProperty(property: QuickSearchProperty) {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
   margin-bottom: 8px;
   color: hsl(var(--muted-foreground));
   font-size: 11px;
   font-weight: 600;
+  gap: 8px;
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
 .file-browser-toolbar-filter__options-panel-count {
   color: hsl(var(--muted-foreground) / 80%);
+  font-variant-numeric: tabular-nums;
   font-weight: 500;
   letter-spacing: normal;
   text-transform: none;
-  font-variant-numeric: tabular-nums;
 }
 
 .file-browser-toolbar-filter__options-row {
@@ -392,18 +392,18 @@ function selectProperty(property: QuickSearchProperty) {
 }
 
 .file-browser-toolbar-filter__option-label {
-  font-size: 12px;
   cursor: pointer;
+  font-size: 12px;
 }
 
 .file-browser-toolbar-filter__options-limit-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
   padding-top: 8px;
-  margin-top: 6px;
   border-top: 1px solid hsl(var(--border) / 40%);
+  margin-top: 6px;
+  gap: 8px;
 }
 
 .file-browser-toolbar-filter__options-limit-field {

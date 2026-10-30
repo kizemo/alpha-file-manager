@@ -80,65 +80,100 @@ const SANS_FONT_STACK
 // 品牌钢蓝落在 `--primary` 上，于是图标轨激活图标、主按钮、焦点环自然带上品牌色。
 // ---------------------------------------------------------------------------
 const AFM_WARM_LIGHT_VARIABLES: Record<`--${string}`, string> = {
-  '--background': '37 39.4% 93.5%',
-  '--background-2': '38 34.5% 89.2%',
-  '--background-3': '37 36.4% 91.4%',
-  '--window-toolbar': '37 36.4% 91.4%',
-  '--icon': '33 11.5% 37.6%',
+  '--background': '38.2 40.7% 94.7%',
+  '--background-2': '40 39.6% 89.6%',
+  '--background-3': '39.2 41.9% 87.8%',
+  '--window-toolbar': '39.2 41.9% 87.8%',
+  '--icon': '32.7 11.5% 37.6%',
   '--foreground': '30 16.7% 14.1%',
-  '--muted': '38 33.3% 85.9%',
-  '--muted-foreground': '33 11.5% 37.6%',
-  '--popover': '43 53.8% 97.5%',
+  '--muted': '39.1 34.3% 86.9%',
+  '--muted-foreground': '32.7 11.5% 37.6%',
+  '--popover': '45 57.1% 97.3%',
   '--popover-foreground': '30 16.7% 14.1%',
-  '--card': '43 53.8% 97.5%',
+  '--card': '45 57.1% 97.3%',
   '--card-foreground': '30 16.7% 14.1%',
-  '--border': '37 25% 79.6%',
-  '--input': '38 33.3% 85.9%',
+  '--border': '37.8 27.8% 81.0%',
+  '--input': '40 39.6% 89.6%',
   '--primary': '200 16.9% 45.3%',
   '--primary-foreground': '0 0% 100%',
-  '--secondary': '37 36.4% 91.4%',
+  '--secondary': '39.2 41.9% 87.8%',
   '--secondary-foreground': '30 16.7% 14.1%',
-  '--destructive': '4 62% 45%',
+  '--destructive': '15.9 45.9% 43.5%',
   '--destructive-foreground': '0 0% 100%',
   '--ring': '200 18.8% 37.6%',
-  '--success': '82 16.6% 41.4%',
-  '--dangerous': '4 62% 45%',
-  '--warning': '32 70% 42%',
+  '--success': '112.7 18.2% 35.5%',
+  '--dangerous': '15.9 45.9% 43.5%',
+  '--warning': '39.1 50.0% 36.1%',
   '--radius': '0.25rem',
   '--shadow-md': '0 1px 2px rgb(42 36 30 / 6%), 0 4px 12px rgb(42 36 30 / 8%)',
   '--shadow-lg': '0 12px 32px rgb(42 36 30 / 14%)',
   '--backdrop-filter-blur': '32px',
   // 品牌与点缀
   '--brand': '200 16.9% 45.3%',
-  '--brand-ink': '200 16.9% 41%',
+  '--brand-ink': '200 18.8% 37.6%',
   '--brand-foreground': '0 0% 100%',
-  '--accent': '15 52.3% 58%',
-  // 赤陶底色偏亮，白字压上去只有 3.24:1，所以前景改成墨色（6.48:1）。
-  '--accent-foreground': '30 16.7% 14.1%',
-  // 选中态树行文字压 --background-2 的对比度要 >= 4.5，这里从 43.5% 压到 42%。
-  '--accent-ink': '16 46% 42%',
-  // 点缀色的「淡底」版本。**必须是不带 alpha 的实色**：
-  // token 自带 alpha 会让 `hsl(var(--token) / N%)` 这种二次加 alpha 的写法整体失效。
-  '--accent-muted': '15 45% 92%',
+  '--accent': '15.9 45.9% 43.5%',
+  '--accent-foreground': '0 0% 100%',
+  '--accent-ink': '15.9 45.9% 42.5%',
+  '--accent-muted': '19.3 41.2% 86.7%',
   // 左侧图标轨（用户要求保持 42px 宽，这里只提供颜色）
-  '--nav-rail-background': '38 34.5% 87.2%',
-  '--nav-rail-foreground': '33 11.5% 37.6%',
-  '--nav-rail-muted-foreground': '33 12% 37%',
-  // 层次面 / 状态层 / 描边 / 标签 / 滚动条（2026-10-30 主题视觉细节优化）
-  '--surface-sidebar': '38 34.5% 87.2%',
-  '--surface-panel': '43 53.8% 97.5%',
-  '--surface-stripe': '38 36% 91.8%',
-  '--state-hover': '38 36.4% 91.4%',
-  '--state-selected': '38 33.3% 85.9%',
-  '--state-active': '38 34.5% 85%',
-  '--border-subtle': '37 25% 82%',
-  '--tab-surface-active': '43 53.8% 97.5%',
-  '--tab-indicator': '200 16.9% 45.3%',
-  '--scrollbar-track': '38 34.5% 89.2%',
-  '--scrollbar-thumb': '38 24% 44%',
-  '--scrollbar-thumb-hover': '38 26% 40%',
+  '--nav-rail-background': '30 16.7% 14.1%',
+  '--nav-rail-foreground': '39.1 34.3% 86.9%',
+  '--nav-rail-muted-foreground': '41.1 15.8% 56.7%',
+  // 层次面 / 状态层 / 描边 / 标签 / 滚动条
+  '--surface-sidebar': '30 16.7% 14.1%',
+  '--surface-panel': '45 57.1% 97.3%',
+  '--surface-stripe': '39.1 43.4% 89.6%',
+  '--state-hover': '40 39.6% 89.6%',
+  '--state-selected': '41.1 38.8% 90.4%',
+  '--state-active': '39.3 27.6% 79.4%',
+  '--border-subtle': '37.8 27.8% 81.0%',
+  '--tab-surface-active': '45 57.1% 97.3%',
+  '--tab-indicator': '112.7 18.2% 35.5%',
+  '--scrollbar-track': '40 39.6% 89.6%',
+  '--scrollbar-thumb': '39.3 27.6% 79.4%',
+  '--scrollbar-thumb-hover': '37.8 27.8% 74%',
   // 字族
   '--font-display': SERIF_FONT_STACK,
+  // 线条图标色 / 低饱和点缀色（用户要求：低饱和绿 + 低饱和红）
+  '--icon-stroke': '36.4 13% 42%',
+  '--moss': '112.7 18.2% 35.5%',
+  '--moss-soft': '78.8 22.9% 86.3%',
+  '--terra': '15.9 45.9% 43.5%',
+  '--terra-soft': '19.3 41.2% 86.7%',
+
+  // 目录 / 文件区隔底色（任务 4）
+  '--row-dir-bg': '39.1 43.4% 89.6%',
+  '--row-file-bg': '42.9 53.8% 97.5%',
+
+  // 标签栏（任务 2b / 2c / 任务 3）
+  '--tab-idle-bg': '40 34.3% 86.3%',
+  '--tab-idle-border': '39.3 27.6% 79.4%',
+
+  // 列表头（任务 1c / 2e）
+  '--list-header-bg': '39.2 41.9% 84%',
+  '--list-header-border': '39.4 23.5% 68%',
+  '--list-header-foreground': '32.7 11.5% 37.1%',
+
+  // 右上角功能族分色（任务 1a）
+  '--family-split': '173 45% 29%',
+  '--family-tree': '113 18% 34.5%',
+  '--family-info': '200 17% 37%',
+  '--family-more': '31 9% 44%',
+  '--family-extension': '251 60% 60%',
+  '--family-search': '42 85% 28.5%',
+  '--family-create': '173 45% 29%',
+  '--family-filter': '349 55% 48%',
+
+  // 地址栏导航按钮分色（任务 1b）
+  '--nav-back': '205 15% 38%',
+  '--nav-forward': '203 16% 44%',
+  '--nav-up': '349 55% 48%',
+  '--nav-location': '200 17% 37%',
+  '--nav-refresh': '173 45% 29%',
+  '--nav-view': '39 50% 34%',
+  '--nav-thumbnail': '349 55% 52%',
+  '--nav-more': '31 9% 40.5%',
 };
 
 // ---------------------------------------------------------------------------
@@ -166,11 +201,11 @@ const AFM_WARM_DARK_VARIABLES: Record<`--${string}`, string> = {
   '--primary-foreground': '30 17.4% 9%',
   '--secondary': '27 17% 10.4%',
   '--secondary-foreground': '38 42.9% 89%',
-  '--destructive': '4 70% 50%',
-  '--destructive-foreground': '0 0% 100%',
+  '--destructive': '18 55% 62%',
+  '--destructive-foreground': '30 17.4% 9%',
   '--ring': '200 27.2% 70.4%',
-  '--success': '85 22.9% 58.8%',
-  '--dangerous': '4 70% 52%',
+  '--success': '110 25% 62%',
+  '--dangerous': '18 55% 62%',
   '--warning': '38 74% 56%',
   '--radius': '0.25rem',
   '--shadow-md': '0 1px 2px rgb(0 0 0 / 34%), 0 4px 14px rgb(0 0 0 / 38%)',
@@ -186,7 +221,6 @@ const AFM_WARM_DARK_VARIABLES: Record<`--${string}`, string> = {
   '--nav-rail-background': '27 17% 7.6%',
   '--nav-rail-foreground': '33 14.1% 59.8%',
   '--nav-rail-muted-foreground': '33 10% 52%',
-  // 层次面 / 状态层 / 描边 / 标签 / 滚动条（2026-10-30 主题视觉细节优化）
   '--surface-sidebar': '27 17% 7.6%',
   '--surface-panel': '34 21.9% 12.5%',
   '--surface-stripe': '30 17% 11%',
@@ -195,11 +229,50 @@ const AFM_WARM_DARK_VARIABLES: Record<`--${string}`, string> = {
   '--state-active': '30 15.9% 20%',
   '--border-subtle': '30 16% 16%',
   '--tab-surface-active': '34 21.9% 12.5%',
-  '--tab-indicator': '201 20.4% 63.5%',
+  '--tab-indicator': '110 25% 62%',
   '--scrollbar-track': '27 17% 10%',
   '--scrollbar-thumb': '30 14% 42%',
   '--scrollbar-thumb-hover': '30 16% 52%',
   '--font-display': SERIF_FONT_STACK,
+  // 线条图标色 / 低饱和点缀色（用户要求：低饱和绿 + 低饱和红）
+  '--icon-stroke': '36 14% 74%',
+  '--moss': '110 25% 62%',
+  '--moss-soft': '110 18% 24%',
+  '--terra': '18 55% 62%',
+  '--terra-soft': '18 35% 24%',
+
+  // 目录 / 文件区隔底色（任务 4）
+  '--row-dir-bg': '30 15% 13%',
+  '--row-file-bg': '34 20% 13%',
+
+  // 标签栏（任务 2b / 2c / 任务 3）
+  '--tab-idle-bg': '30 15% 15%',
+  '--tab-idle-border': '30 14% 22%',
+
+  // 列表头（任务 1c / 2e）
+  '--list-header-bg': '28 16% 14%',
+  '--list-header-border': '30 14% 24%',
+  '--list-header-foreground': '33 14% 70%',
+
+  // 右上角功能族分色（任务 1a）
+  '--family-split': '173 45% 50%',
+  '--family-tree': '113 18% 50%',
+  '--family-info': '200 17% 50%',
+  '--family-more': '31 9% 50%',
+  '--family-extension': '251 60% 60.5%',
+  '--family-search': '42 85% 50%',
+  '--family-create': '173 45% 50%',
+  '--family-filter': '349 55% 55.5%',
+
+  // 地址栏导航按钮分色（任务 1b）
+  '--nav-back': '205 15% 51.5%',
+  '--nav-forward': '203 16% 50%',
+  '--nav-up': '349 55% 55.5%',
+  '--nav-location': '200 17% 50%',
+  '--nav-refresh': '173 45% 50%',
+  '--nav-view': '39 50% 50%',
+  '--nav-thumbnail': '349 55% 51.5%',
+  '--nav-more': '31 9% 50%',
 };
 
 // ---------------------------------------------------------------------------
@@ -249,7 +322,6 @@ const AFM_VIVID_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--nav-rail-background': '201 21.5% 25.5%',
   '--nav-rail-foreground': '210 20% 92%',
   '--nav-rail-muted-foreground': '210 14% 70%',
-  // 层次面 / 状态层 / 描边 / 标签 / 滚动条（2026-10-30 主题视觉细节优化）
   '--surface-sidebar': '201 21.5% 25.5%',
   '--surface-panel': '0 0% 100%',
   '--surface-stripe': '220 27.3% 91.4%',
@@ -259,10 +331,49 @@ const AFM_VIVID_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--border-subtle': '220 27.3% 88%',
   '--tab-surface-active': '0 0% 100%',
   '--tab-indicator': '251 100% 63.9%',
-  '--scrollbar-track': '218 28.6% 94.5%',
+  '--scrollbar-track': '218 28.6% 88%',
   '--scrollbar-thumb': '220 20% 46%',
   '--scrollbar-thumb-hover': '220 24% 36%',
   '--font-display': SANS_FONT_STACK,
+  // 线条图标色 / 低饱和点缀色（用户要求：低饱和绿 + 低饱和红）
+  '--icon-stroke': '220 10.3% 39.8%',
+  '--moss': '150 30% 32%',
+  '--moss-soft': '150 35% 92%',
+  '--terra': '349 55.6% 45%',
+  '--terra-soft': '349 60% 94%',
+
+  // 目录 / 文件区隔底色（任务 4）
+  '--row-dir-bg': '220 27.3% 91.4%',
+  '--row-file-bg': '0 0% 100%',
+
+  // 标签栏（任务 2b / 2c / 任务 3）
+  '--tab-idle-bg': '220 27.3% 91.4%',
+  '--tab-idle-border': '220 27.3% 88%',
+
+  // 列表头（任务 1c / 2e）
+  '--list-header-bg': '220 26% 89%',
+  '--list-header-border': '220 24% 78%',
+  '--list-header-foreground': '220 10.3% 39.8%',
+
+  // 右上角功能族分色（任务 1a）
+  '--family-split': '173 45% 29.5%',
+  '--family-tree': '113 18% 35.5%',
+  '--family-info': '200 17% 38%',
+  '--family-more': '31 9% 45%',
+  '--family-extension': '251 60% 60%',
+  '--family-search': '42 85% 29.5%',
+  '--family-create': '173 45% 29.5%',
+  '--family-filter': '349 55% 49%',
+
+  // 地址栏导航按钮分色（任务 1b）
+  '--nav-back': '205 15% 39%',
+  '--nav-forward': '203 16% 45%',
+  '--nav-up': '349 55% 49%',
+  '--nav-location': '200 17% 38%',
+  '--nav-refresh': '173 45% 29.5%',
+  '--nav-view': '39 50% 35%',
+  '--nav-thumbnail': '349 55% 53%',
+  '--nav-more': '31 9% 41.5%',
 };
 
 // ---------------------------------------------------------------------------
@@ -294,7 +405,7 @@ const AFM_COOL_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--secondary-foreground': '205 24% 14%',
   '--destructive': '4 62% 45%',
   '--destructive-foreground': '0 0% 100%',
-  '--ring': '200 18.8% 37.6%',
+  '--ring': '200 16.9% 45.3%',
   '--success': '174 60% 30%',
   '--dangerous': '4 62% 45%',
   '--warning': '38 70% 42%',
@@ -312,7 +423,6 @@ const AFM_COOL_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--nav-rail-background': '205 24% 24%',
   '--nav-rail-foreground': '200 30% 92%',
   '--nav-rail-muted-foreground': '200 18% 70%',
-  // 层次面 / 状态层 / 描边 / 标签 / 滚动条（2026-10-30 主题视觉细节优化）
   '--surface-sidebar': '205 24% 24%',
   '--surface-panel': '210 40% 99%',
   '--surface-stripe': '210 28% 93%',
@@ -326,6 +436,45 @@ const AFM_COOL_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--scrollbar-thumb': '205 18% 48%',
   '--scrollbar-thumb-hover': '205 22% 38%',
   '--font-display': SANS_FONT_STACK,
+  // 线条图标色 / 低饱和点缀色（用户要求：低饱和绿 + 低饱和红）
+  '--icon-stroke': '205 16% 38%',
+  '--moss': '160 35% 32%',
+  '--moss-soft': '160 35% 93%',
+  '--terra': '4 62% 45%',
+  '--terra-soft': '4 55% 94%',
+
+  // 目录 / 文件区隔底色（任务 4）
+  '--row-dir-bg': '210 28% 94%',
+  '--row-file-bg': '210 40% 99%',
+
+  // 标签栏（任务 2b / 2c / 任务 3）
+  '--tab-idle-bg': '210 26% 90%',
+  '--tab-idle-border': '210 24% 84%',
+
+  // 列表头（任务 1c / 2e）
+  '--list-header-bg': '210 28% 90%',
+  '--list-header-border': '210 24% 78%',
+  '--list-header-foreground': '205 14% 40%',
+
+  // 右上角功能族分色（任务 1a）
+  '--family-split': '173 45% 30.5%',
+  '--family-tree': '113 18% 36.5%',
+  '--family-info': '200 17% 39%',
+  '--family-more': '31 9% 46%',
+  '--family-extension': '251 60% 60%',
+  '--family-search': '42 85% 30%',
+  '--family-create': '173 45% 30.5%',
+  '--family-filter': '349 55% 50%',
+
+  // 地址栏导航按钮分色（任务 1b）
+  '--nav-back': '205 15% 40%',
+  '--nav-forward': '203 16% 46.5%',
+  '--nav-up': '349 55% 50%',
+  '--nav-location': '200 17% 39%',
+  '--nav-refresh': '173 45% 30.5%',
+  '--nav-view': '39 50% 35.5%',
+  '--nav-thumbnail': '349 55% 54.5%',
+  '--nav-more': '31 9% 42.5%',
 };
 
 export const AFM_THEMES: AfmThemeDefinition[] = [

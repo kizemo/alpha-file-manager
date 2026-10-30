@@ -714,19 +714,20 @@ const visibleRows = computed<FileBrowserListDisplayItem[]>(() => {
  * --navigator-list-view-entry-height（64px），把区隔行撑高，
  * 与虚拟模型算出的行高对不上，滚动就会错位。
  */
+
 .file-browser-list-view__section {
   position: relative;
   display: block;
-  flex: none;
+  overflow: hidden;
   width: 100%;
   min-height: 0;
+  box-sizing: border-box;
+  flex: none;
   padding: 2px var(--file-browser-list-row-padding-x);
   border: none;
   margin: 0;
   background: transparent;
-  box-sizing: border-box;
   contain: layout paint style;
-  overflow: hidden;
 }
 
 .file-browser-list-view__entry {
@@ -749,6 +750,18 @@ const visibleRows = computed<FileBrowserListDisplayItem[]>(() => {
   scroll-margin-top: var(--file-browser-list-header-height);
   text-align: start;
   user-select: none;
+}
+
+/* FORK-MODIFICATION 2026-10-30（任务 4）：目录行 / 文件行底色区隔。
+   颜色走 token：AFM 主题在 afm-themes.ts 给值，经典主题在 vars.css 给值。
+   规则紧跟在基础规则之后，源序天然胜出，不需要额外提高权重。 */
+
+.file-browser-list-view__entry--dir {
+  background-color: hsl(var(--row-dir-bg));
+}
+
+.file-browser-list-view__entry--file {
+  background-color: hsl(var(--row-file-bg));
 }
 
 .file-browser-list-view__entry:focus-visible {
@@ -888,6 +901,7 @@ const visibleRows = computed<FileBrowserListDisplayItem[]>(() => {
    之所以是居中的，是因为它们各自有 display:flex + align-items:center。
    日期列内部那个 __date-hover 是 inline-grid 且 primary/absolute 都是
    place-self:start，但它的盒子高度只有一行文字，所以把外层居中即可。 */
+
 .file-browser-list-view__entry-kind,
 .file-browser-list-view__entry-items,
 .file-browser-list-view__entry-modified,

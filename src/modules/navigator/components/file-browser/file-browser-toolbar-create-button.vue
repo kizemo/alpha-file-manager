@@ -55,7 +55,7 @@ const shortcutsStore = useShortcutsStore();
             size="icon"
             class="file-browser-toolbar-create-button"
           >
-            <PlusIcon class="file-browser-toolbar-create-button__icon" />
+            <PlusIcon class="file-browser-toolbar-create-button__icon file-browser-toolbar-create-button__icon--create" />
           </Button>
         </DropdownMenuTrigger>
       </TooltipTrigger>

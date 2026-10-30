@@ -62,7 +62,7 @@ async function handleInstallLocal(): Promise<void> {
               >
                 <EllipsisVerticalIcon
                   :size="16"
-                  class="extensions-toolbar-actions__icon"
+                  class="extensions-toolbar-actions__icon extensions-toolbar-actions__icon--extension"
                 />
               </Button>
             </DropdownMenuTrigger>

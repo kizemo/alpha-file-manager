@@ -1000,9 +1000,18 @@ FunctionEnd
   ; 用户看到的就是「装完自己在报故障」。
   ;
   ; 显式 Start 把恢复动作从「注册任务顺带拉起来的副作用」变成「我们自己负责的动作」。
+  ; v0.5.12 (2026-10-30) fix: re-enable the task before starting it.
+  ; PREINSTALL above runs Disable-ScheduledTask so the sidecar cannot respawn
+  ; while files are overwritten, but nothing re-enabled it. After every
+  ; install/upgrade the task stayed Disabled and the Start below failed
+  ; silently, so the focus-sync extension permanently reported
+  ; "Sidecar not reachable on 127.0.0.1:37421".
+  ; Enable-ScheduledTask is idempotent, so it is safe on every run.
+  nsExec::ExecToLog 'powershell -NoProfile -Command "Enable-ScheduledTask -TaskName ''KizemoFocusSync'' -ErrorAction SilentlyContinue"'
+  Pop $0
   nsExec::ExecToLog 'powershell -NoProfile -Command "Start-ScheduledTask -TaskName ''KizemoFocusSync'' -ErrorAction SilentlyContinue"'
   Pop $0
-  DetailPrint "==> Stage 9b: requested the sidecar task to start."
+  DetailPrint "==> Stage 9b: re-enabled the sidecar task and requested it to start."
 
   stage9_skip:
 

@@ -245,7 +245,7 @@ onBeforeUnmount(() => {
             class="tab"
             :class="{ 'tab--active-title-bold': userSettingsStore.userSettings.navigator.boldActiveTabTitle }"
             :style="{
-              '--tab-width': `${props.tabGroup.length === 2 ? NAVIGATOR_TAB_WIDTH * 2 : NAVIGATOR_TAB_WIDTH}px`
+              '--tab-min-width': `${props.tabGroup.length === 2 ? NAVIGATOR_TAB_WIDTH * 2 : NAVIGATOR_TAB_WIDTH}px`
             }"
             :is-active="isActive"
             :data-drag-over="isDragOver || undefined"
@@ -343,12 +343,13 @@ onBeforeUnmount(() => {
   position: relative;
   display: flex;
   overflow: hidden;
-  width: var(--tab-width, 100px);
-  min-width: 0;
+  width: auto;
+  min-width: var(--tab-min-width, 100px);
+  max-width: var(--tab-max-width, 280px);
   height: var(--tab-height);
   align-items: center;
   padding: 0 10px;
-  padding-right: 4px;
+  padding-right: 28px;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   -webkit-app-region: no-drag;
@@ -399,9 +400,10 @@ onBeforeUnmount(() => {
 
 .tab__title {
   overflow: hidden;
-  width: calc(100% - 24px);
+  min-width: 0;
+  flex: 1 1 auto;
   font-size: 12px;
-  text-overflow: clip;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

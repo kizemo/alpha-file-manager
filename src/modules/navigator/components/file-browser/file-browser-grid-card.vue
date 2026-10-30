@@ -532,6 +532,7 @@ watch(imagePreviewPlaceholderSrc, () => {
   flex-direction: row;
   align-items: center;
   padding: 8px 12px;
+  background-color: hsl(var(--row-dir-bg));
   contain-intrinsic-size: auto var(--navigator-grid-view-dir-entry-height);
   gap: 10px;
 }
@@ -564,6 +565,7 @@ watch(imagePreviewPlaceholderSrc, () => {
    保持高度不变，调缩略图档位时只改宽度。
    视频即使暂时没缩略图（--icon-full）也仍然算媒体：它是媒体文件，只是图还没到。
    高度来源 utils/file-browser-thumbnail-sizes.ts 的 GRID_FILE_ENTRY_HEIGHT，四档同值。 */
+
 .file-browser-grid-card--other {
   height: var(--navigator-grid-view-file-entry-height);
   contain-intrinsic-size: auto var(--navigator-grid-view-file-entry-height);
@@ -666,6 +668,7 @@ watch(imagePreviewPlaceholderSrc, () => {
    附近插一段媒体专用样式，顺序就反过来了，图标会静默变回 48px。
    图片/视频卡即使没有缩略图也**不**走这条 —— 它们仍然是媒体卡，
    高度按媒体档走，48px 图标在 120px 起的卡里放得下。 */
+
 .file-browser-grid-card--other.file-browser-grid-card--icon-full .file-browser-grid-card__icon {
   width: 24px;
   height: 24px;
@@ -756,6 +759,7 @@ watch(imagePreviewPlaceholderSrc, () => {
   从左边按比例铺满。**不用** `background-color` + 宽度百分比，那是整块染色，
   看不出「占了多少」；也不用 conic-gradient（会变成饼图，和文字抢注意力）。
 */
+
 .file-browser-grid-card__overlay--drive-usage {
   background-image: linear-gradient(
     to right,
@@ -775,7 +779,7 @@ watch(imagePreviewPlaceholderSrc, () => {
 .file-browser-grid-card__overlay--drive-usage-low {
   background-image: linear-gradient(
     to right,
-    hsl(0 55% 62% / 14%) 0 var(--afm-drive-used),
+    hsl(0deg 55% 62% / 14%) 0 var(--afm-drive-used),
     transparent var(--afm-drive-used) 100%
   );
 }

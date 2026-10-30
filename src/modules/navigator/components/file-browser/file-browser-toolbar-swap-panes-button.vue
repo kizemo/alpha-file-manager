@@ -31,7 +31,10 @@ const { t } = useI18n();
         data-e2e-root="toolbar-swap-panes"
         @click="emit('swap-panes')"
       >
-        <ArrowLeftRightIcon :size="16" />
+        <ArrowLeftRightIcon
+          :size="16"
+          class="file-browser-toolbar-swap-panes-button__icon file-browser-toolbar-swap-panes-button__icon--split"
+        />
       </Button>
     </TooltipTrigger>
     <TooltipContent>
