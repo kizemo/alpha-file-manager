@@ -1,5 +1,25 @@
 # Registro de alterações
 
+## [3.8.0] - October 2026
+
+**Summary:** O visual de *papel de arquivo* passou por uma segunda rodada de trabalho. Os dois temas *Warm Paper* ficaram mais claros e menos saturados na área principal, todos os ícones passaram a ser desenhados em traço bege claro, os ícones de pasta ganharam um destaque verde abafado, as abas inativas ficaram esmaecidas e ganharam uma borda bege acinzentada, o cabeçalho da lista passou a assentar sobre um fundo mais escuro com uma linha acima e abaixo, e pastas e arquivos não dividem mais o mesmo fundo. No *Vivid* os botões da barra de ferramentas recebem cores conforme a função que exercem, as abas se ajustam ao próprio título, e o ícone do aplicativo foi redesenhado na paleta de papel quente. A extensão *Seguir caminhos* voltou a funcionar depois de uma atualização.
+
+### What changed
+
+**Melhorado: os temas *Warm Paper* foram ajustados uma segunda vez.** A área principal está mais clara e menos saturada do que antes. Todos os ícones são desenhados no mesmo traço bege claro, os ícones de pasta ganham um destaque verde abafado, as abas em que você não está ficam esmaecidas e levam uma borda bege acinzentada, o cabeçalho da lista assenta sobre um fundo mais escuro com uma linha acima e abaixo, e a régua de ícones à esquerda é uma tinta escura com ícones claros sobre ela.
+
+**Melhorado: os botões da barra de ferramentas recebem cores conforme sua função.** No *Vivid* cada botão no canto superior direito ganha uma cor própria - visão dividida, árvore de pastas, detalhes, comparar, mais, extensões, pesquisar, novo, filtro - e os botões à esquerda da barra de endereço (voltar, avançar, subir, início) também recebem um cada. Toda cor foi calculada sobre a barra de título do seu tema, de modo que nenhum ícone fica abaixo do 3 : 1 que os gráficos sem texto precisam manter.
+
+**Melhorado: uma aba ocupa só a largura de que o título precisa.** Antes todas as abas tinham a mesma largura, então um nome curto deixava um vão e um nome longo era espremido. Agora a aba cresce com o título até um máximo, e um título ainda longo demais é cortado com reticências.
+
+**Melhorado: uma linha de pasta e uma de arquivo não assentam mais sobre o mesmo fundo.** Na visão de lista a linha de pasta ganha um tom próprio, um pouco mais quente, enquanto os arquivos permanecem na superfície lisa, de modo que uma lista longa se lê pela forma em vez de ler cada linha.
+
+**Alterado: o ícone do aplicativo foi redesenhado na paleta de papel quente.** Para a régua escura dentro do aplicativo, é uma pasta clara com um alfa de tinta escura sobre ela; para o instalador e a barra de tarefas, é uma pasta de tinta escura com um alfa claro.
+
+**Corrigido: a extensão *Seguir caminhos* volta a funcionar depois de uma instalação ou atualização.** A etapa de desinstalação do instalador desativava a tarefa agendada da extensão, e a etapa de instalação apenas a iniciava - o que não pode funcionar com uma tarefa desativada. O instalador agora ativa a tarefa antes de iniciá-la, de modo que a extensão volta sozinha depois de uma atualização. Se ela ainda não responder, reinicie o aplicativo uma vez.
+
+**Corrigido: o script de instalação da extensão não escreve mais um título corrompido.** O travessão do título era gravado como caractere literal e lido com a página de código do sistema, então em um Windows de outra língua o título na lista de extensões saía como um emaranhado. O script agora é ASCII puro, monta o travessão em tempo de execução e repara um título que já havia sido gravado corrompido.
+
 ## [3.7.0] - October 2026
 
 **Summary:** Os temas da marca ganharam profundidade. *Warm Paper* já não se lê como uma única folha creme lisa: a barra de ícones à esquerda, os separadores dos diretórios abertos, o separador ativo, a árvore de pastas, o painel de detalhes à direita e a coluna de navegação da página de definições têm agora cada um a sua tonalidade, e a árvore de pastas alterna linha a linha. *Energia vibrante* pinta agora os ícones da barra de ferramentas com cores diferentes em vez de um só cinzento, e a vista de lista mostra a mesma margem esquerda colorida em cada entrada que a vista de miniaturas já tinha. *Seguir o sistema* foi mantido como um tema frio fixo chamado *Pinheiro frio*, a opacidade da sobreposição predefinida é agora 5% e todo o conjunto foi reformulado para que o claro e o escuro se sustentem bem.

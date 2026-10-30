@@ -187,49 +187,41 @@ GitHub releases carry the same installer and act as a fallback mirror:
 
 ---
 
-## 🆕 What's new in 3.7.0
+## 🆕 What's new in 3.8.0
 
-### 🛠️ Updating over a running copy now works
+### 🎨 The archival-paper look, refined again
 
-**Fixed.** Installing a new version while Alpha File Manager was still open could stop with
-"Uninstall was not successfully", even after you agreed to close the running application.
-The old uninstaller asked the program to close but never waited for it to actually exit,
-then asked the operating system whether the installed folder was still in use - the answer
-was still yes, so it gave up. The installer now closes the application itself and waits
-until the program file can be opened exclusively, which proves nothing is holding it any
-more, before the old uninstaller is called. It also checks the installed version before
-showing any window, so re-running the same installer closes silently instead of popping
-the setup wizard again. Run `setup.exe /FORCE` to install the same version on purpose.
+**Improved.** The two *Warm Paper* themes were tuned a second time: the main area is brighter
+and less saturated, all icons are drawn in one pale beige line art, folder icons carry a muted
+green accent, the tabs you are not in are dimmed and given a pale beige-grey edge, the list
+header sits on a deeper ground with a rule above and below it, and the icon rail on the left is
+a deep ink colour with pale icons on it. In *Vivid* the toolbar buttons are coloured by the job
+they do - split view, folder tree, details, compare, more, extensions, search, new, filter - and
+the buttons at the left of the address bar each get a colour of their own. Every colour was
+solved against the title bar of its theme, so no icon falls below the 3 : 1 that non-text
+graphics have to keep.
 
-### 🎨 A theme set that has depth
+### 📐 Tabs size themselves, rows tell themselves apart
 
-**Reworked.** The brand themes - *Warm Paper (Light)*, *Warm Paper (Dark)* and *Vivid* -
-were rebuilt so that each region of the window sits on its own shade. The icon rail on
-the left is the darkest surface, the tabs of the directories you have opened step through
-several shades, the tab you are actually in is raised above them, the folder tree
-alternates row by row, the details panel on the right sits one step back, and the
-navigation column of the settings page carries a tint of its own. The scroll bars of the
-folder tree are painted in the warm-paper colour family instead of the system grey.
+**Improved.** A tab now takes only as much width as its title needs, up to a maximum, and a
+title that is still too long is cut with an ellipsis. In the list view a folder row and a file
+row no longer sit on the same ground - folders get a tint of their own - so a long list can be
+read by shape instead of by reading every line.
 
-*Follow the system* is no longer offered - it made the application look different on
-every machine, which is not what a brand theme is for. In its place there is *Cool Pine*,
-a fixed blue-green theme that looks the same everywhere. A fresh installation opens in
-*Warm Paper (Light)*; if your saved theme was *Follow the system*, you are moved to
-*Cool Pine* on the next start and the rest of your settings are left alone.
+### 🖼️ A new application icon, in the warm-paper palette
 
-### 🔀 Colours where they help
+**Changed.** The icon is a pale folder with a dark ink alpha on it for the deep rail inside the
+interface, and a dark ink folder with a pale alpha for the installer and the task bar.
 
-**Improved.** In *Vivid* the toolbar icons are drawn in different colours according to
-what they do, instead of one blurred row of grey. In both the thumbnail view and the list
-view, the coloured stripe down the left edge of every entry now shows what kind of entry
-it is - a folder, an image, a video, an audio file, a document, an archive - so the two
-views can be read the same way.
+### 🛠️ The *Follow Path* extension works again
 
-### 🪟 A calmer default
-
-**Changed.** The overlay opacity of the visual effects now starts at 5 % instead of a
-value that made text hard to read. The effect is still there, it just no longer gets in
-the way.
+**Fixed.** The uninstall step of the installer disabled the scheduled task of the extension and
+the install step only started it, which cannot succeed for a task that is disabled - the
+extension stopped answering after every install and every update. The installer now enables the
+task before it starts it, so the extension comes back on its own. Its install script also no
+longer writes a garbled title into the extension list, because the dash in the title is now
+built at runtime instead of being read with the code page of the system. If the extension still
+does not answer after an update, restart the application once.
 
 ---
 

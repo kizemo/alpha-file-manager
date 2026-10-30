@@ -1,5 +1,25 @@
 # Changelog
 
+## [3.8.0] - October 2026
+
+**Summary:** The *Archival Paper* look has had a second round of work. The two *Warm Paper* themes are brighter and less saturated in the main area, every icon is drawn as pale beige line art, folder icons carry a muted green accent, inactive tabs are dimmed and given a pale beige-grey edge, the list header sits on a deeper ground with a rule above and below, and folders and files no longer share one background. In *Vivid* the toolbar buttons are coloured by the job they do, the tabs size themselves to their title, and the application icon was redrawn in the warm-paper palette. The *Follow Path* extension also works again after an update.
+
+### What changed
+
+**Improved: the *Warm Paper* themes were tuned a second time.** The main area is brighter and less saturated than before. All icons are drawn in one pale beige line art, folder icons carry a muted green accent, the tabs you are not in are dimmed and carry a pale beige-grey edge, the list header sits on a deeper ground with a rule above and below it, and the icon rail on the left is a deep ink colour with pale icons on it.
+
+**Improved: the toolbar buttons are coloured by what they do.** In *Vivid* every button at the top right takes a colour of its own - split view, folder tree, details, compare, more, extensions, search, new, filter - and the buttons at the left of the address bar (back, forward, up, home) each get a colour as well. Every colour was solved against the title bar of its theme, so no icon falls below the 3 : 1 that non-text graphics have to keep.
+
+**Improved: a tab takes only the width its title needs.** Tabs used to be all the same width, so a short name left a gap and a long name was squeezed. A tab now stretches with its title up to a maximum, and a title that is still too long is cut with an ellipsis.
+
+**Improved: a folder row and a file row no longer sit on the same ground.** In the list view a folder row gets a tint of its own while files stay on the plain surface, so a long list can be read by shape instead of by reading every line.
+
+**Changed: the application icon was redrawn in the warm-paper palette.** For the deep rail inside the interface the icon is a pale folder with a dark ink alpha on it; for the installer and the task bar it is a dark ink folder with a pale alpha.
+
+**Fixed: the *Follow Path* extension works again after an install or an update.** The uninstall step of the installer disabled the scheduled task of the extension, and the install step only started it - which cannot succeed for a task that is disabled. The installer now enables the task before it starts it, so the extension comes back on its own after an update. If it still does not answer, restart the application once.
+
+**Fixed: the install script of the extension no longer writes a garbled title.** The dash in the title was stored as a literal character and read with the code page of the system, so on a Windows with another language the title in the extension list came out as gibberish. The script is now plain ASCII, builds the dash at runtime, and repairs a title that was already written garbled.
+
 ## [3.7.0] - October 2026
 
 **Summary:** The brand themes have been given depth. *Warm Paper (Light)* no longer reads as one flat sheet of cream: the icon rail on the left, the open directory tabs, the active tab, the folder tree, the details panel on the right and the navigation column of the settings page each sit on their own shade, and the folder tree alternates row by row. *Vivid* now paints the toolbar icons in different colours instead of one grey, and the list view shows the same coloured left edge on every entry that the thumbnail view already had. *Follow the system* has been kept as a fixed cool theme called *Cool Pine*, the default overlay opacity is now 5 %, and the whole set was reworked so that light and dark both hold together.

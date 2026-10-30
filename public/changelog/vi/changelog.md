@@ -1,5 +1,25 @@
 # Nhật ký thay đổi
 
+## [3.8.0] - October 2026
+
+**Summary:** Diện mạo *giấy lưu trữ* đã trải qua một vòng hoàn thiện thứ hai. Hai chủ đề *Warm Paper* ở khu vực chính sáng hơn và bớt bão hòa, mọi biểu tượng được vẽ bằng nét be nhạt, biểu tượng thư mục mang điểm nhấn xanh nhạt, các tab không hoạt động được làm tối hơn và có viền be xám, tiêu đề danh sách nằm trên nền tối hơn có đường kẻ trên và dưới, và thư mục cùng tập tin không còn dùng chung một nền. Trong *Vivid*, các nút trên thanh công cụ được tô màu theo đúng việc chúng làm, tab co giãn theo tiêu đề, và biểu tượng ứng dụng được vẽ lại theo bảng màu giấy ấm. Tiện ích *Theo dõi đường dẫn* hoạt động trở lại sau khi cập nhật.
+
+### What changed
+
+**Cải thiện: hai chủ đề *Warm Paper* được hiệu chỉnh lần thứ hai.** Khu vực chính sáng hơn và bớt bão hòa hơn trước. Mọi biểu tượng được vẽ bằng cùng một nét be nhạt, biểu tượng thư mục mang điểm nhấn xanh nhạt, tab không hoạt động tối hơn và có viền be xám, tiêu đề danh sách nằm trên nền tối hơn với đường kẻ trên và dưới, còn thanh biểu tượng bên trái là mực đậm với biểu tượng nhạt đặt trên.
+
+**Cải thiện: các nút thanh công cụ được tô màu theo đúng việc chúng làm.** Trong *Vivid*, mỗi nút ở góc trên bên phải có một màu riêng — chia đôi, cây thư mục, chi tiết, so sánh, thêm, tiện ích, tìm kiếm, tạo mới, lọc — và các nút bên trái thanh địa chỉ (quay lại, tiến, lên, trang chủ) cũng có màu riêng từng nút. Mọi màu đều được tính trên nền thanh tiêu đề của chủ đề tương ứng, nên không biểu tượng nào rơi xuống dưới mức 3 : 1 mà hình không chữ phải giữ.
+
+**Cải thiện: một tab chỉ chiếm đúng bề rộng tiêu đề của nó cần.** Trước đây mọi tab đều rộng như nhau, tên ngắn để lại khoảng trống còn tên dài bị bóp. Nay tab lớn dần theo tiêu đề tới một giới hạn, và tiêu đề vẫn quá dài sẽ bị cắt bằng dấu ba chấm.
+
+**Cải thiện: dòng thư mục và dòng tập tin không còn nằm trên cùng một nền.** Ở chế độ danh sách, dòng thư mục có sắc thái riêng ấm hơn một chút, còn tập tin vẫn nằm trên mặt phẳng trơn, nên một danh sách dài có thể đọc bằng hình dáng thay vì đọc từng dòng.
+
+**Thay đổi: biểu tượng ứng dụng được vẽ lại theo bảng màu giấy ấm.** Với thanh tối trong giao diện, đó là một thư mục nhạt có lớp alpha mực đậm đặt trên; với trình cài đặt và thanh tác vụ, đó là một thư mục mực đậm có lớp alpha nhạt.
+
+**Đã sửa: tiện ích *Theo dõi đường dẫn* hoạt động trở lại sau khi cài hoặc cập nhật.** Bước gỡ cài đặt của trình cài đặt đã vô hiệu hoá tác vụ theo lịch của tiện ích, còn bước cài đặt chỉ khởi động nó — điều không thể thành công với một tác vụ đã bị vô hiệu hoá. Nay trình cài đặt bật tác vụ trước khi khởi động, nên tiện ích tự quay lại sau khi cập nhật. Nếu vẫn không phản hồi, hãy khởi động lại ứng dụng một lần.
+
+**Đã sửa: kịch bản cài tiện ích không còn ghi tiêu đề hỏng.** Dấu gạch trong tiêu đề trước đây được lưu dưới dạng ký tự thật và đọc theo bảng mã của hệ thống, nên trên Windows dùng ngôn ngữ khác, tiêu đề trong danh sách tiện ích hiện ra thành ký tự vô nghĩa. Nay kịch bản chỉ còn ASCII thuần, dựng dấu gạch khi chạy, và sửa luôn tiêu đề đã bị ghi hỏng.
+
 ## [3.7.0] - October 2026
 
 **Summary:** Các chủ đề thương hiệu đã có thêm chiều sâu. *Warm Paper* không còn đọc ra như một tờ kem phẳng: thanh biểu tượng bên trái, các thẻ thư mục đã mở, thẻ đang hoạt động, cây thư mục, bảng chi tiết bên phải và cột điều hướng của trang cài đặt giờ mỗi thứ nằm trên sắc thái riêng, còn cây thư mục thì đổi màu từng dòng. *Năng lượng rực rỡ* nay vẽ các biểu tượng trên thanh công cụ bằng nhiều màu khác nhau thay vì một màu xám, và chế độ xem danh sách hiện dải màu ở mép trái giống hệt dải màu mà chế độ xem hình thu nhỏ vốn đã có trên mọi mục. *Theo hệ thống* được giữ lại như một chủ đề mát cố định có tên *Thông lạnh*, độ mờ của lớp phủ mặc định nay là 5% và toàn bộ bộ chủ đề được thiết kế lại để cả bản sáng lẫn bản tối đều vững vàng.
