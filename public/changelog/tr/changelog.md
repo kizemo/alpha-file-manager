@@ -1,5 +1,20 @@
 # Değişiklik Günlüğü
 
+## [3.7.0] - October 2026
+
+**Summary:** Marka temalarına derinlik kazandırıldı. *Warm Paper* artık tek düz bir krem rengi sayfa gibi okunmuyor: soldaki simge şeridi, açılan klasörlerin sekmeleri, etkin sekme, klasör ağacı, sağdaki ayrıntı paneli ve ayarlar sayfasının gezinme sütunu artık her biri kendi tonunda, klasör ağacı da satır satır dönüşümlü. *Canlı enerji* araç çubuğu simgelerini artık tek bir gri yerine farklı renklerle boyuyor ve liste görünümü, küçük resim görünümünün zaten taşıdığı renkli sol kenarı her ögede gösteriyor. *Sistemi takip et* sabit bir soğuk tema olarak *Soğuk çam* adıyla korundu, varsayılan yer paylaşımı opaklığı artık %5 ve tüm set açık ve koyu görünümlerin bir arada durması için yeniden düzenlendi.
+
+### What changed
+
+**İyileştirildi: temalar tek düz bir renk yerine derinliğe sahip.** Pencere daha önce tek bir krem alandı; ayırt etmeyi yalnızca metin sağlıyordu. Artık her bölgenin kendi tonu var, böylece göz okumadan ayırt edebiliyor: soldaki simge şeridi en koyu yüzey, açtığınız klasörlerin sekmeleri ikinci ve üçüncü tondan geçiyor, içinde bulunduğunuz sekme onların üzerine çıkıyor, klasör ağacı satır satır iki ton arasında değişiyor, sağdaki ayrıntı paneli bir adım geride duruyor ve ayarlar sayfasının gezinme sütununun kendi rengi var. Klasör ağacının kaydırma çubukları, sistem grisi yerine sıcak kağıt renk ailesinde boyanıyor.
+
+**İyileştirildi: *Canlı enerji* içinde araç çubuğu simgeleri farklı renklerde.** Dosya tarayıcısının araç çubuğundaki simgelerin hepsi aynı gri tonunda çiziliyordu; bu yüzden tek bir bulanık sıra gibi okunuyorlardı. *Canlı enerji* içinde artık ne yaptıklarına göre farklı renk alıyorlar, böylece istediğiniz düğmeyi bir bakışta bulabiliyorsunuz. İki *Warm Paper* teması sakin grilerini koruyor, çünkü mesele bu.
+
+**İyileştirildi: liste görünümü renkli bir sol kenar gösteriyor.** Küçük resim görünümünde her ögenin sol kenarında zaten renkli bir şerit vardı. Liste görünümünde bu şerit yalnızca kopyalanmak veya taşınmak üzere işaretlenen ögeler için bir işaretti. Artık ögenin türü - bir klasör, bir görsel, bir video, bir ses dosyası, bir belge, bir arşiv - bu kenarın rengiyle, her iki görünümde de gösteriliyor; böylece iki görünüm de aynı şekilde okunabiliyor.
+
+**Değişti: *Sistemi takip et* artık *Soğuk çam* adında sabit bir soğuk tema.** İşletim sistemini takip etmek uygulamayı her makinede farklı gösteriyordu; marka temasının amacı bu değil. Tema seçici artık onu sunmuyor; onun yerinde sakin bir mavi-yeşil tema olan *Soğuk çam* var; her yerde aynı kalıyor ve seçicide sıcak temaların yanında kendi yerini sağlıyor. Yeni bir kurulum *Sıcak kağıt · Açık* ile açılıyor. Kayıtlı temanız *Sistemi takip et* ise bir sonraki açılışta sizi *Soğuk çam* temasına taşıyor ve diğer ayarlarınıza dokunmuyor.
+
+**Değişti: varsayılan yer paylaşımı opaklığı %5.** Ayarlardaki görsel efektleri istediğiniz kadar güçlü yapabiliyordunuz, ama varsayılan değer metnin üzerini rahat okunmayacak kadar güçlüydü. Artık %5 ile başlıyor; efekt görünür kalıyor ama yolunu kapatmıyor.
 ## [3.6.7] - October 2026
 
 **Summary:** Tema seçici kısaldı ve varsayılan görünüm değişti. Altı macOS Finder tarzı tema ile henüz bitmemiş yerleşik *Açık* seçeneği kaldırıldı; uygulama artık yeni marka temalarından biri olan *Sıcak Kağıt (açık)* ile açılıyor. *Koyu* ve *Sistemi takip et* olduğu gibi kaldı.

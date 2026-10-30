@@ -1,5 +1,20 @@
 # Nhật ký thay đổi
 
+## [3.7.0] - October 2026
+
+**Summary:** Các chủ đề thương hiệu đã có thêm chiều sâu. *Warm Paper* không còn đọc ra như một tờ kem phẳng: thanh biểu tượng bên trái, các thẻ thư mục đã mở, thẻ đang hoạt động, cây thư mục, bảng chi tiết bên phải và cột điều hướng của trang cài đặt giờ mỗi thứ nằm trên sắc thái riêng, còn cây thư mục thì đổi màu từng dòng. *Năng lượng rực rỡ* nay vẽ các biểu tượng trên thanh công cụ bằng nhiều màu khác nhau thay vì một màu xám, và chế độ xem danh sách hiện dải màu ở mép trái giống hệt dải màu mà chế độ xem hình thu nhỏ vốn đã có trên mọi mục. *Theo hệ thống* được giữ lại như một chủ đề mát cố định có tên *Thông lạnh*, độ mờ của lớp phủ mặc định nay là 5% và toàn bộ bộ chủ đề được thiết kế lại để cả bản sáng lẫn bản tối đều vững vàng.
+
+### What changed
+
+**Cải thiện: các chủ đề có chiều sâu thay vì một màu phẳng.** Cửa sổ trước đây chỉ là một mảng kem duy nhất và chỉ có chữ phân biệt được mọi thứ. Nay mỗi vùng có sắc thái riêng, nên con mắt phân biệt được mà không cần đọc: thanh biểu tượng bên trái là bề mặt tối nhất, các thẻ của những thư mục bạn đã mở đi qua sắc thái thứ hai và thứ ba, thẻ bạn đang ở được nâng cao hơn chúng, cây thư mục đổi xen kẽ giữa hai sắc thái theo từng dòng, bảng chi tiết bên phải lùi lại một bước, còn cột điều hướng của trang cài đặt có sắc thái riêng. Các thanh cuộn của cây thư mục được tô bằng bảng màu giấy ấm thay vì màu xám của hệ thống.
+
+**Cải thiện: các biểu tượng trên thanh công cụ trong *Năng lượng rực rỡ* có màu khác nhau.** Trước đây các biểu tượng trên thanh công cụ của trình duyệt tệp đều được vẽ bằng cùng một sắc xám, khiến chúng đọc ra như một hàng dính liền mờ mịt. Trong *Năng lượng rực rỡ*, chúng nay mang màu khác nhau theo đúng việc mình làm, nên bạn tìm được nút mình muốn ngay lập tức. Hai chủ đề *Warm Paper* vẫn giữ màu xám dịu dàng của chúng, bởi đó là điều chúng tồn tại để làm.
+
+**Cải thiện: chế độ xem danh sách hiện mép trái có màu.** Ở chế độ xem hình thu nhỏ, mọi mục vốn đã có một dải màu chạy dọc mép trái. Chế độ xem danh sách chỉ có dải đó để đánh dấu những mục được chọn để sao chép hoặc di chuyển. Nay loại của mục - một thư mục, một hình ảnh, một video, một tệp âm thanh, một tài liệu, một tệp nén - được hiện ra bằng màu của mép đó, ở cả hai chế độ, để hai chế độ có thể được đọc theo cùng một cách.
+
+**Thay đổi: *Theo hệ thống* nay là một chủ đề mát cố định có tên *Thông lạnh*.** Theo hệ điều hành khiến ứng dụng trông khác nhau trên mỗi máy, mà đó không phải việc một chủ đề thương hiệu nên làm. Bộ chọn không còn đưa ra lựa chọn đó; thay vào đó là *Thông lạnh*, một chủ đề xanh lục dịu dàng giống nhau ở mọi nơi và đứng vững trong bộ chọn bên cạnh những chủ đề ấm. Một bản cài mới sẽ mở bằng *Giấy ấm · Sáng*. Nếu chủ đề đã lưu của bạn là *Theo hệ thống*, ứng dụng sẽ chuyển bạn sang *Thông lạnh* ở lần khởi động kế tiếp, và không đụng tới bất kỳ thiết lập nào khác.
+
+**Thay đổi: độ mờ của lớp phủ mặc định là 5%.** Các hiệu ứng hình ảnh trong cài đặt có thể được đặt mạnh tuỳ ý, nhưng mức mặc định lại quá mạnh để đọc chữ thoải mái phía trên. Nay nó bắt đầu ở mức 5%, giữ hiệu ứng vẫn thấy được mà không chen đường.
 ## [3.6.7] - October 2026
 
 **Summary:** Bộ chọn chủ đề ngắn hơn và diện mạo mặc định đã thay đổi. Sáu chủ đề kiểu macOS Finder cùng tùy chọn tích hợp *Sáng* chưa hoàn thiện đã bị loại bỏ, và ứng dụng nay mở bằng *Giấy ấm (sáng)*, một trong những chủ đề thương hiệu mới. *Tối* và *Theo hệ thống* giữ nguyên.

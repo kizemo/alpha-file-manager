@@ -1,5 +1,20 @@
 # Registro de cambios
 
+## [3.7.0] - October 2026
+
+**Summary:** Los temas de marca han ganado profundidad. *Warm Paper* ya no se lee como una sola hoja plana de crema: la barra de iconos de la izquierda, las pestañas de los directorios abiertos, la pestaña activa, el árbol de carpetas, el panel de detalles de la derecha y la columna de navegación de la página de Configuración se apoyan cada uno en su propio tono, y el árbol de carpetas alterna fila a fila. *Energía vibrante* ahora pinta los iconos de la barra de herramientas en distintos colores en lugar de un solo gris, y la vista de lista muestra en cada entrada el mismo borde izquierdo de color que la vista de miniaturas ya tenía. *Seguir el sistema* se ha conservado como un tema frío fijo llamado *Pino frío*, la opacidad predeterminada de las superposiciones es ahora del 5 % y todo el conjunto se ha rehecho para que tanto el claro como el oscuro se sostengan.
+
+### What changed
+
+**Mejorado: los temas tienen profundidad en lugar de un solo color plano.** La ventana era antes un único campo crema en el que solo el texto distinguía las cosas. Ahora cada región tiene su propio tono, así que el ojo las distingue sin leer: la barra de iconos de la izquierda es la superficie más oscura, las pestañas de los directorios que has abierto avanzan por un segundo y un tercer tono, la pestaña en la que estás se eleva por encima de ellas, el árbol de carpetas alterna entre dos tonos fila a fila, el panel de detalles de la derecha queda un escalón atrás, y la columna de navegación de la página de Configuración tiene un tinte propio. Las barras de desplazamiento del árbol de carpetas están pintadas en la familia de color de *Warm Paper* y no en el gris del sistema.
+
+**Mejorado: los iconos de la barra de herramientas en *Energía vibrante* tienen colores distintos.** Los iconos de la barra de herramientas del explorador de archivos estaban dibujados todos en el mismo tono de gris, lo que los hacía leer como una fila borrosa. En *Energía vibrante* ahora adoptan colores distintos según lo que hacen, así que encuentras el botón que quieres de un vistazo. Los dos temas *Warm Paper* conservan su gris tranquilo, porque ese es justamente su propósito.
+
+**Mejorado: la vista de lista muestra un borde izquierdo de color.** En la vista de miniaturas cada entrada ya tenía una franja de color en su borde izquierdo. La vista de lista solo la tenía como marca para las entradas marcadas para copiar o mover. Ahora el tipo de la entrada - una carpeta, una imagen, un vídeo, un archivo de audio, un documento, un archivo comprimido - se muestra mediante el color de ese borde, en ambas vistas, de modo que las dos se leen igual.
+
+**Cambiado: *Seguir el sistema* es ahora un tema frío fijo llamado *Pino frío*.** Seguir al sistema operativo hacía que la aplicación se viera distinta en cada máquina, que no es para lo que sirve un tema de marca. El selector ya no lo ofrece; en su lugar está *Pino frío*, un tema azul verdoso tranquilo que se mantiene igual en todas partes y se sostiene en el selector junto a los temas cálidos. Una instalación nueva se abre con *Papel cálido · Claro*. Si tu tema guardado era *Seguir el sistema*, la aplicación te pasa a *Pino frío* la próxima vez que arranques, y el resto de tus ajustes no se tocan.
+
+**Cambiado: la opacidad predeterminada de las superposiciones es del 5 %.** Los efectos visuales de los ajustes se podían poner tan fuertes como quisieras, pero el valor predeterminado era demasiado fuerte para leer el texto cómodamente por encima. Ahora empiezan en el 5 %, lo que mantiene el efecto visible sin estorbar.
 ## [3.6.7] - October 2026
 
 **Summary:** El selector de temas es más corto y el aspecto predeterminado ha cambiado. Los seis temas de estilo macOS Finder y la opción integrada *Claro*, aún sin terminar, han desaparecido, y la aplicación se abre ahora en *Papel cálido (claro)*, uno de los nuevos temas de marca. *Oscuro* y *Seguir el sistema* quedan igual.

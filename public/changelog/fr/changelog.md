@@ -1,5 +1,20 @@
 # Journal des modifications
 
+## [3.7.0] - October 2026
+
+**Summary:** Les thèmes de marque ont désormais de la profondeur. *Warm Paper* ne se lit plus comme une seule feuille plate de crème : le rail d’icônes à gauche, les onglets des répertoires ouverts, l’onglet actif, l’arborescence des dossiers, le panneau de détails à droite et la colonne de navigation de la page des paramètres reposent chacun sur leur propre teinte, et l’arborescence des dossiers alterne ligne par ligne. *Énergie vive* peint maintenant les icônes de la barre d’outils dans des couleurs différentes au lieu d’un seul gris, et la vue en liste montre sur chaque entrée la même bordure gauche colorée que la vue en vignettes avait déjà. *Suivre le système* a été conservé sous la forme d’un thème froid fixe nommé *Pin froid*, l’opacité par défaut des superpositions est désormais de 5 %, et l’ensemble a été refait pour que le clair comme le sombre tiennent la route.
+
+### What changed
+
+**Amélioré : les thèmes ont de la profondeur au lieu d’une seule couleur plate.** La fenêtre était jusqu’ici un unique champ crème où seul le texte permettait de distinguer les choses. Maintenant chaque région a sa propre teinte, si bien que l’œil les distingue sans lire : le rail d’icônes à gauche est la surface la plus sombre, les onglets des répertoires que vous avez ouverts passent par une deuxième puis une troisième teinte, l’onglet dans lequel vous êtes se détache au-dessus d’eux, l’arborescence des dossiers alterne entre deux teintes ligne par ligne, le panneau de détails à droite se tient un cran en retrait, et la colonne de navigation de la page des paramètres a une teinte qui lui est propre. Les barres de défilement de l’arborescence des dossiers sont peintes dans la famille de couleurs de *Warm Paper* plutôt que dans le gris du système.
+
+**Amélioré : les icônes de la barre d’outils de *Énergie vive* ont des couleurs différentes.** Les icônes de la barre d’outils de l’explorateur de fichiers étaient toutes dessinées dans la même nuance de gris, ce qui les faisait lire comme une rangée floue. Dans *Énergie vive*, elles prennent maintenant des couleurs différentes selon ce qu’elles font, si bien que vous trouvez le bouton voulu d’un coup d’œil. Les deux thèmes *Warm Paper* gardent leur gris calme, car c’est précisément leur raison d’être.
+
+**Amélioré : la vue en liste montre une bordure gauche colorée.** Dans la vue en vignettes, chaque entrée avait déjà une bande colorée le long de son bord gauche. La vue en liste ne l’avait que comme marque pour les entrées marquées pour la copie ou le déplacement. Maintenant le type de l’entrée - un dossier, une image, une vidéo, un fichier audio, un document, une archive - se lit dans la couleur de cette bordure, dans les deux vues, si bien que les deux se lisent de la même façon.
+
+**Changement : *Suivre le système* est désormais un thème froid fixe nommé *Pin froid*.** Suivre le système d’exploitation faisait que l’application paraissait différente sur chaque machine, ce n’est pas à cela que sert un thème de marque. Le sélecteur ne le propose plus ; à sa place se trouve *Pin froid*, un thème bleu-vert calme qui reste identique partout et tient sa place dans le sélecteur à côté des thèmes chauds. Une installation neuve s’ouvre sur *Papier chaud · Clair*. Si votre thème enregistré était *Suivre le système*, l’application vous bascule sur *Pin froid* au prochain démarrage et ne touche à aucun autre réglage.
+
+**Changement : l’opacité par défaut des superpositions est de 5 %.** Les effets visuels des réglages pouvaient être poussés aussi fort qu’on le voulait, mais la valeur par défaut était trop forte pour lire confortablement le texte par-dessus. Ils démarrent maintenant à 5 %, ce qui garde l’effet visible sans gêner.
 ## [3.6.7] - October 2026
 
 **Summary:** Le sélecteur de thèmes est plus court et l’apparence par défaut a changé. Les six thèmes de style macOS Finder et l’option intégrée *Clair*, encore inachevée, ont disparu, et l’application s’ouvre désormais sur *Papier chaud (clair)*, l’un des nouveaux thèmes de marque. *Sombre* et *Suivre le système* restent inchangés.
