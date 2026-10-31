@@ -220,7 +220,7 @@ const showRelativeDates = computed({
   padding: 0.5rem 0.75rem;
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius);
-  background-color: hsl(var(--card));
+  background-color: hsl(var(--surface-settings-card));
   color: hsl(var(--foreground));
   font-size: 0.875rem;
   font-variant-numeric: tabular-nums;

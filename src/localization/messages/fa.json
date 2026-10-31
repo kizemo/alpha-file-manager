@@ -87,6 +87,8 @@
     "music": "موسیقی"
   },
   "tabs": {
+    "scrollTabsLeft": "پیمایش زبانه‌ها به چپ",
+    "scrollTabsRight": "پیمایش زبانه‌ها به راست",
     "newTab": "برگه جدید",
     "duplicateTab": "تکرار برگه",
     "closeOtherTabs": "بستن سایر برگه ها",
@@ -204,6 +206,9 @@
       "newTag": "New tag",
       "moveUp": "Move up",
       "moveDown": "Move down",
+      "moveUpWithName": "انتقال {name} به بالا",
+      "moveDownWithName": "انتقال {name} به پایین",
+      "dragToReorder": "برای مرتب‌سازی بکشید",
       "moveToCategory": "Move to category",
       "removeFavorite": "Remove from favorites",
       "removeTag": "Remove tag",

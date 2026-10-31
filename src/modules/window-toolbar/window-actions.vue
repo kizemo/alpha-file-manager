@@ -108,7 +108,7 @@ function closeWindow() {
 }
 
 .window-toolbar-button-icon {
-  stroke: hsl(var(--foreground) / 50%);
+  stroke: hsl(var(--toolbar-action-foreground));
 }
 
 .window-toolbar-button--red:hover {

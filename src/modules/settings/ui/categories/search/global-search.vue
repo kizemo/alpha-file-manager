@@ -727,7 +727,7 @@ onUnmounted(() => {
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius);
   margin-top: 12px;
-  background-color: hsl(var(--background));
+  background-color: hsl(var(--surface-settings-nested));
   gap: 16px;
 }
 
@@ -900,7 +900,7 @@ onUnmounted(() => {
   padding: 12px;
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius-sm);
-  background-color: hsl(var(--card));
+  background-color: hsl(var(--surface-settings-card));
   gap: 4px;
   text-align: center;
 }
@@ -924,7 +924,7 @@ onUnmounted(() => {
   padding: 12px;
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius-sm);
-  background-color: hsl(var(--card));
+  background-color: hsl(var(--surface-settings-card));
   gap: 8px;
 }
 

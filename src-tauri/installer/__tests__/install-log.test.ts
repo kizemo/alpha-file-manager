@@ -21,6 +21,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -186,6 +187,47 @@ describe('安装器安装日志', () => {
     const log = runLogScript(['-Phase', 'POSTINSTALL']);
 
     expect(log).toMatch(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} \[install\]/);
+  });
+
+  // 2026-10-31：守卫改判「构建身份」，日志必须记下安装包自身的哈希。
+  it.runIf(isWindows)('日志记录安装包自身的 SHA256（构建身份）', () => {
+    const versioned = findVersionedSystemFile();
+
+    expect(versioned, '本机应当能找到带版本资源的系统文件').not.toBe('');
+
+    const expected = crypto
+      .createHash('sha256')
+      .update(fs.readFileSync(versioned))
+      .digest('hex');
+
+    const log = runLogScript([
+      '-Phase',
+      'POSTINSTALL',
+      '-InstallerPath',
+      versioned,
+    ]);
+
+    // 守卫就是拿这一行跟当前安装包的哈希比对 —— 写错格式等于守卫瞎了。
+    expect(log).toContain(`installerSha256=${expected}`);
+  });
+
+  it.runIf(isWindows)('算不出哈希时记成 none（守卫据此失败开放）', () => {
+    const log = runLogScript(['-Phase', 'PREUNINSTALL']);
+
+    expect(log).toContain('installerSha256=none');
+  });
+
+  it.runIf(isWindows)('安装包路径不存在时记成 none，不让日志脚本失败', () => {
+    const missing = path.join(os.tmpdir(), 'afm-no-such-installer-setup.exe');
+
+    const log = runLogScript([
+      '-Phase',
+      'POSTINSTALL',
+      '-InstallerPath',
+      missing,
+    ]);
+
+    expect(log).toContain('installerSha256=none');
   });
 });
 

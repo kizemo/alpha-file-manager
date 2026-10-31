@@ -87,6 +87,8 @@
     "music": "Երգեր"
   },
   "tabs": {
+    "scrollTabsLeft": "Ոլորեք թաբերը ձախ",
+    "scrollTabsRight": "Ոլորեք թաբերը աջ",
     "newTab": "Նոր թաբ",
     "duplicateTab": "Կրկնօրինակել թաբը",
     "closeOtherTabs": "Փակել այլ թաբերը",
@@ -246,6 +248,9 @@
       "newTag": "New tag",
       "moveUp": "Move up",
       "moveDown": "Move down",
+      "moveUpWithName": "Տեղափոխել {name}-ը վերև",
+      "moveDownWithName": "Տեղափոխել {name}-ը ներքև",
+      "dragToReorder": "Տեղափոխել ստորադրականությունը փոխելու համար ձգեցրու",
       "moveToCategory": "Move to category",
       "removeFavorite": "Remove from favorites",
       "removeTag": "Remove tag",

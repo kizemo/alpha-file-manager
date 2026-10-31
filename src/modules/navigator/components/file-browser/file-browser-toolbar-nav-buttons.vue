@@ -384,9 +384,11 @@ function openThumbnailSizeDialog() {
   height: 36px;
 }
 
+/* FORK-MODIFICATION 2026-10-31（按钮配色统一）：地址栏左边这一排导航按钮与右上角按钮、地址栏内按钮共用 --toolbar-action-foreground。 */
 .file-browser-toolbar-nav-buttons__icon {
   width: 18px;
   height: 18px;
+  stroke: hsl(var(--toolbar-action-foreground));
 }
 
 .file-browser-toolbar-nav-buttons__icon--spin {

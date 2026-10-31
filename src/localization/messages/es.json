@@ -87,6 +87,8 @@
     "music": "Música"
   },
   "tabs": {
+    "scrollTabsLeft": "Desplazar pestañas a la izquierda",
+    "scrollTabsRight": "Desplazar pestañas a la derecha",
     "newTab": "Nueva pestaña",
     "duplicateTab": "Duplicar pestaña",
     "closeOtherTabs": "Cerrar otras pestañas",
@@ -211,6 +213,9 @@
       "newTag": "New tag",
       "moveUp": "Move up",
       "moveDown": "Move down",
+      "moveUpWithName": "Mover {name} hacia arriba",
+      "moveDownWithName": "Mover {name} hacia abajo",
+      "dragToReorder": "Arrastra para reordenar",
       "moveToCategory": "Move to category",
       "removeFavorite": "Remove from favorites",
       "removeTag": "Remove tag",

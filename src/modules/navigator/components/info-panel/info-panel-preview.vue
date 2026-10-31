@@ -262,7 +262,7 @@ watch(
 }
 
 .info-panel-preview__icon--folder {
-  color: hsl(var(--primary) / 50%);
+  color: hsl(var(--icon-stroke));
 }
 
 .info-panel-preview__media-container {

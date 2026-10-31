@@ -24,6 +24,13 @@ import {
   getStartupStorageRecord,
   type StartupStorageFileBootstrap,
 } from './utils/startup-storage-bootstrap';
+// FORK-MODIFICATION: 2026-10-31 —— 收藏夹排序的纯语义（拖到前面还是后面、
+// 能不能跨分类）集中在这里，组件只负责把指针位置翻译成 before / after。
+import {
+  reorderFavoriteCategoriesByDrop,
+  reorderFavoritesByDrop,
+  type DropPlacement,
+} from './utils/favorites-order';
 import { i18n } from '@/localization';
 import { getTagsByIdsInListOrder } from '@/utils/item-tag-order';
 import { reconcileMissingTagDefinitions as mergeTagDefinitionsFromTaggedItems } from '@/utils/reconcile-user-stats-tags';
@@ -379,6 +386,75 @@ export const useUserStatsStore = defineStore('userStats', () => {
     await saveStats();
   }
 
+  /**
+   * 收藏分类之间上移 / 下移一位。
+   *
+   * 「未分类」不是真实分类（没有 id、没有实体），它永远排在最后，
+   * 所以这里只在 `favoriteCategories` 这条真实列表上换位。
+   */
+  async function moveFavoriteCategory(categoryId: string, direction: -1 | 1) {
+    const categories = userStats.value.favoriteCategories;
+    const index = categories.findIndex(category => category.id === categoryId);
+
+    if (index === -1) {
+      return;
+    }
+
+    const targetIndex = index + direction;
+
+    if (targetIndex < 0 || targetIndex >= categories.length) {
+      return;
+    }
+
+    const next = [...categories];
+    const moved = next[index];
+    next[index] = next[targetIndex];
+    next[targetIndex] = moved;
+
+    await setFavoriteCategories(next);
+  }
+
+  /**
+   * 按拖放结果重排收藏分类。落点语义（目标前面 / 后面）由纯函数决定，
+   * 组件只负责判断指针落在目标框的哪一半。
+   */
+  async function reorderFavoriteCategories(
+    draggedId: string,
+    targetId: string,
+    placement: DropPlacement,
+  ) {
+    const next = reorderFavoriteCategoriesByDrop(
+      userStats.value.favoriteCategories,
+      draggedId,
+      targetId,
+      placement,
+    );
+
+    await setFavoriteCategories(next);
+  }
+
+  /**
+   * 按拖放结果重排某个分类内的收藏条目。
+   *
+   * 与 `moveFavoriteWithinCategory` 走的是同一份数据（`userStats.favorites`），
+   * 只是落点可以是任意一项而不只是相邻项 —— 两条路径最终都落到
+   * `saveStats()`，所以都真的落盘。
+   */
+  async function reorderFavorites(
+    draggedPath: string,
+    targetPath: string,
+    placement: DropPlacement,
+  ) {
+    const next = reorderFavoritesByDrop(
+      userStats.value.favorites,
+      draggedPath,
+      targetPath,
+      placement,
+    );
+
+    await setFavorites(next);
+  }
+
   function hasFavoriteCategoryNameConflict(name: string, excludedId: string | null = null): boolean {
     const normalizedName = name.trim().toLowerCase();
 
@@ -566,6 +642,24 @@ export const useUserStatsStore = defineStore('userStats', () => {
       item => item.path,
       (items) => {
         userStats.value.favorites = items;
+      },
+    );
+  }
+
+  /**
+   * 收藏分类的整体顺序。分类数组的顺序就是界面上的分区顺序，
+   * 所以「重排分类」只需要改这一个数组的顺序。
+   *
+   * 走 `replaceListIfMembershipMatches` 是为了跟 `setFavorites` / `setTags`
+   * 保持同一条规矩：只有「成员没变、只是顺序变了」才落盘。
+   */
+  async function setFavoriteCategories(nextCategories: FavoriteCategory[]) {
+    await replaceListIfMembershipMatches(
+      userStats.value.favoriteCategories,
+      nextCategories,
+      category => category.id,
+      (items) => {
+        userStats.value.favoriteCategories = items;
       },
     );
   }
@@ -873,6 +967,11 @@ export const useUserStatsStore = defineStore('userStats', () => {
     // FORK-MODIFICATION: 反馈 4 —— 收藏分类与收藏的编辑能力。
     moveFavoriteWithinCategory,
     moveFavoriteToCategory,
+    // FORK-MODIFICATION: 2026-10-31 —— 收藏分类与收藏条目的排序。
+    moveFavoriteCategory,
+    reorderFavoriteCategories,
+    reorderFavorites,
+    setFavoriteCategories,
     createFavoriteCategory,
     renameFavoriteCategory,
     deleteFavoriteCategory,

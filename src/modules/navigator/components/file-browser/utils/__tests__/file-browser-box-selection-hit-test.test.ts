@@ -6,17 +6,43 @@ import { describe, expect, it } from 'vitest';
 import type { DirEntry } from '@/types/dir-entry';
 import {
   createFileBrowserVirtualRows,
-  LIST_SECTION_HEADER_HEIGHT,
+  type FileBrowserGridItemsVirtualRow,
+  type FileBrowserListVirtualRow,
+  type FileBrowserVirtualRow,
 } from '../../composables/use-file-browser-virtual-layout';
 import { collectFileBrowserBoxSelectionEntries } from '../file-browser-box-selection-hit-test';
 import { findVirtualRowRangeOverlappingContentSpan } from '../file-browser-virtual-rows';
 import { resolveThumbnailMetrics } from '../file-browser-thumbnail-sizes';
 
 // FORK-MODIFICATION: 列表行高来自缩略图档位度量表，写死像素值会在改档位时静默失配。
-// 列表视图按类型分区后，条目行前面多出一段区隔标题行 —— 行内位置的基线
-// 必须把它算进去，否则框选会落到上一段的条目上。
-function getMediumListRowTop(): number {
-  return 200 + LIST_SECTION_HEADER_HEIGHT + resolveThumbnailMetrics('medium').listRowHeight;
+// 行内位置必须从**实际行模型**取：意见 9（2026-10-30）之后，目录里只有一种类型时
+// 不再有分类标题行（以前固定多出 LIST_SECTION_HEADER_HEIGHT = 40px），行整体上移 ——
+// 写死那个常数会让框选落到上一行的条目上。
+function getEntryRowTop(rows: FileBrowserVirtualRow[], entryIndex: number): number {
+  const entryRows = rows.filter(
+    (row): row is FileBrowserListVirtualRow => row.type === 'list-entry',
+  );
+  const target = entryRows[entryIndex];
+
+  if (!target) {
+    throw new Error('entry row not found: ' + entryIndex);
+  }
+
+  return 200 + target.start;
+}
+
+// 网格第一行卡片的屏幕纵坐标，同样从实际行模型取：
+// 网格分类标题行在不在由目录里的类型数决定，不能写死。
+function getFirstGridItemsRowTop(rows: FileBrowserVirtualRow[]): number {
+  const first = rows.find(
+    (row): row is FileBrowserGridItemsVirtualRow => row.type === 'grid-items',
+  );
+
+  if (!first) {
+    throw new Error('grid items row not found');
+  }
+
+  return 200 + first.start;
 }
 
 function createEntry(path: string): DirEntry {
@@ -51,7 +77,7 @@ describe('collectFileBrowserBoxSelectionEntries', () => {
     });
     const contentRect = new DOMRect(100, 200, 800, 600);
     const viewportRect = new DOMRect(100, 200, 800, 600);
-    const rowTop = getMediumListRowTop();
+    const rowTop = getEntryRowTop(rows, 1);
 
     const selectedEntries = collectFileBrowserBoxSelectionEntries({
       rows,
@@ -91,8 +117,7 @@ describe('collectFileBrowserBoxSelectionEntries', () => {
     const gridGap = 12;
     const columnCount = 4;
     const columnWidth = (800 - ((columnCount - 1) * gridGap)) / columnCount;
-    const sectionHeaderSize = 42 + gridGap;
-    const rowTop = 200 + sectionHeaderSize;
+    const rowTop = getFirstGridItemsRowTop(rows);
     const columnOneLeft = contentRect.left + columnWidth + gridGap;
 
     const selectedEntries = collectFileBrowserBoxSelectionEntries({
@@ -145,7 +170,7 @@ describe('collectFileBrowserBoxSelectionEntries', () => {
     });
     const contentRect = new DOMRect(100, 200, 800, 600);
     const viewportRect = new DOMRect(100, 200, 800, 600);
-    const rowTop = getMediumListRowTop();
+    const rowTop = getEntryRowTop(rows, 1);
     const selectionBox = {
       left: 100,
       top: rowTop + 2,
@@ -197,8 +222,7 @@ describe('collectFileBrowserBoxSelectionEntries', () => {
     });
     const contentRect = new DOMRect(100, 200, 800, 600);
     const viewportRect = new DOMRect(100, 200, 800, 600);
-    const gridGap = 12;
-    const rowTop = 200 + 42 + gridGap;
+    const rowTop = getFirstGridItemsRowTop(rows);
     // 列宽从档位表取，不写死像素值 —— 2026-10-15 网格四档整体上移后，
     // 写死的 170 / 283 已经不对应任何档位，标签会变成假话。
     // small 170：floor((800 + 12) / (170 + 12)) = 4 列，列宽 (800 - 3*12)/4 = 191，

@@ -10,6 +10,7 @@ import type { StartupStorageFileBootstrap } from '@/stores/storage/utils/startup
 import { useUserStatsStore } from '@/stores/storage/user-stats';
 import { DEFAULT_USER_STATS } from '@/types/user-stats';
 import type {
+  FavoriteCategory,
   FavoriteItem,
   ItemTag,
   TaggedItem,
@@ -589,5 +590,148 @@ describe('legacy favorite normalization (feedback 4)', () => {
 
     expect(store.favorites[0].isFile).toBe(false);
     expect(store.favorites[0].categoryId).toBe('cat-x');
+  });
+});
+
+// FORK-MODIFICATION: 2026-10-31 —— 收藏夹排序（拖拽 + 上移 / 下移）。
+//
+// 排序结果要**真的落到 user-stats.json**，所以这里断言的是 mock store 里
+// 真正写下去的那份数据（storedValues），而不是 store 内存里的数组 ——
+// 只断言内存状态抓不到「写列表漏了 favoriteCategories / favorites」的缺陷。
+describe('favorites and favorite categories reordering (2026-10-31)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    storedValues.clear();
+    lazyStoreSaveMock.mockReset();
+    lazyStoreSetMock.mockReset();
+  });
+
+  async function seedThreeCategories() {
+    const store = useUserStatsStore();
+
+    await store.init(createStatsBootstrap({
+      ...DEFAULT_USER_STATS,
+      favoriteCategories: [
+        {
+          id: 'cat-1',
+          name: 'Work',
+          createdAt: 1,
+        },
+        {
+          id: 'cat-2',
+          name: 'Home',
+          createdAt: 2,
+        },
+        {
+          id: 'cat-3',
+          name: 'Temp',
+          createdAt: 3,
+        },
+      ],
+      favorites: [
+        {
+          ...createFavorite('/w1'),
+          categoryId: 'cat-1',
+        },
+        {
+          ...createFavorite('/w2'),
+          categoryId: 'cat-1',
+        },
+        {
+          ...createFavorite('/w3'),
+          categoryId: 'cat-1',
+        },
+        {
+          ...createFavorite('/h1'),
+          categoryId: 'cat-2',
+        },
+      ],
+    }));
+
+    lazyStoreSetMock.mockClear();
+    lazyStoreSaveMock.mockClear();
+
+    return store;
+  }
+
+  function storedCategoryIds(): string[] {
+    const stored = storedValues.get('favoriteCategories') as FavoriteCategory[];
+
+    return stored.map(category => category.id);
+  }
+
+  function storedFavoritePaths(): string[] {
+    const stored = storedValues.get('favorites') as FavoriteItem[];
+
+    return stored.map(item => item.path);
+  }
+
+  it('writes the new favorite category order to disk', async () => {
+    const store = await seedThreeCategories();
+
+    await store.moveFavoriteCategory('cat-3', -1);
+
+    expect(store.favoriteCategories.map(category => category.id)).toEqual([
+      'cat-1',
+      'cat-3',
+      'cat-2',
+    ]);
+    expect(storedCategoryIds()).toEqual(['cat-1', 'cat-3', 'cat-2']);
+  });
+
+  // 边界项：已经在最上 / 最下的分类再点一次上移 / 下移，必须什么都不写。
+  it('writes nothing when a category is already at the boundary', async () => {
+    const store = await seedThreeCategories();
+
+    await store.moveFavoriteCategory('cat-1', -1);
+    await store.moveFavoriteCategory('cat-3', 1);
+
+    expect(store.favoriteCategories.map(category => category.id)).toEqual([
+      'cat-1',
+      'cat-2',
+      'cat-3',
+    ]);
+    expect(lazyStoreSetMock).not.toHaveBeenCalled();
+  });
+
+  it('writes the dragged favorite category order to disk', async () => {
+    const store = await seedThreeCategories();
+
+    await store.reorderFavoriteCategories('cat-3', 'cat-1', 'before');
+
+    expect(store.favoriteCategories.map(category => category.id)).toEqual([
+      'cat-3',
+      'cat-1',
+      'cat-2',
+    ]);
+    expect(storedCategoryIds()).toEqual(['cat-3', 'cat-1', 'cat-2']);
+  });
+
+  it('writes the dragged favorite order to disk', async () => {
+    const store = await seedThreeCategories();
+
+    await store.reorderFavorites('/w3', '/w1', 'before');
+
+    expect(store.favorites.map(item => item.path)).toEqual([
+      '/w3',
+      '/w1',
+      '/w2',
+      '/h1',
+    ]);
+    expect(storedFavoritePaths()).toEqual(['/w3', '/w1', '/w2', '/h1']);
+  });
+
+  it('writes nothing when a favorite is dropped into another category', async () => {
+    const store = await seedThreeCategories();
+
+    await store.reorderFavorites('/w1', '/h1', 'before');
+
+    expect(store.favorites.map(item => item.path)).toEqual([
+      '/w1',
+      '/w2',
+      '/w3',
+      '/h1',
+    ]);
+    expect(lazyStoreSetMock).not.toHaveBeenCalled();
   });
 });

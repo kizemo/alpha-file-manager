@@ -2189,7 +2189,7 @@ onUnmounted(() => {
 .navigator-page__folder-tree-panel {
   border: 1px solid hsl(var(--border) / 40%);
   border-radius: var(--radius-sm);
-  background-color: hsl(var(--background-2) / 60%);
+  background-color: hsl(var(--background-2) / 62%);
 }
 
 /* FORK-MODIFICATION: 目录树过长时无法滚动（验收反馈 2026-10-15）。

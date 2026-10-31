@@ -30,6 +30,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -43,6 +44,7 @@ const INSTALLER_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 const HOOKS_PATH = path.join(INSTALLER_DIR, 'hooks.nsh');
 const TEMPLATE_PATH = path.join(INSTALLER_DIR, 'installer.nsi');
 const GUARD_PATH = path.join(INSTALLER_DIR, 'early-guard.ps1');
+const LOG_SCRIPT_PATH = path.join(INSTALLER_DIR, 'write-install-log.ps1');
 
 const isWindows = process.platform === 'win32';
 
@@ -52,8 +54,135 @@ const GUARD_TIMEOUT_MS = 180_000;
 
 const VERDICT_FILE_NAME = 'alpha-early-guard.verdict';
 
+// 登记测试用的注册表键。装在 HKCU 下，不需要管理员权限。
+const registryKeyName = `AFM-Early-Guard-Test-${process.pid}`;
+const registrySubKey = `Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\${registryKeyName}`;
+
 function readFile(file: string): string {
   return fs.readFileSync(file, 'utf8');
+}
+
+function writeInstalledVersion(version: string | null): void {
+  // 用 reg.exe 而不是 PowerShell：参数少一层引号，行为确定。
+  // 写在 HKCU 下，不需要管理员权限。
+  const keyPath = `HKCU\\${registrySubKey}`;
+
+  if (version === null) {
+    spawnSync('reg', ['delete', keyPath, '/f'], { encoding: 'utf8' });
+
+    return;
+  }
+
+  spawnSync('reg', ['add', keyPath, '/v', 'DisplayVersion', '/t', 'REG_SZ', '/d', version, '/f'], {
+    encoding: 'utf8',
+  });
+}
+
+/**
+ * 真的跑一次 write-install-log.ps1，往安装日志里追加一条记录。
+ *
+ * 用真脚本而不是手搓一行文本：守卫比对的就是日志里那一行的格式，
+ * 手搓的行一旦与真脚本的输出漂移，这条用例就在验证一个不存在的东西。
+ */
+function writeInstallLog(logFile: string, phase: string, installerPath: string): void {
+  const result = spawnSync(
+    'powershell',
+    [
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      LOG_SCRIPT_PATH,
+      '-Phase',
+      phase,
+      '-InstallerPath',
+      installerPath,
+      '-LogFileOverride',
+      logFile,
+    ],
+    { encoding: 'utf8', timeout: 60_000 },
+  );
+
+  expect(result.status, `写日志脚本失败: ${result.stderr}`).toBe(0);
+}
+
+/** 造一个假的「安装包」，返回路径与它的 SHA256。 */
+function makeFakeInstaller(
+  directory: string,
+  name: string,
+  content: string,
+): { path: string; sha256: string } {
+  const filePath = path.join(directory, name);
+
+  fs.writeFileSync(filePath, content, 'utf8');
+
+  return {
+    path: filePath,
+    sha256: crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex'),
+  };
+}
+
+/** 跑一次守卫脚本，返回退出码、判定文件内容与全部输出。 */
+function runGuard(options: {
+  installerVersion: string;
+  installedVersion: string | null;
+  force?: boolean;
+  scriptPath?: string;
+  commandLine?: string | null;
+  installerPath?: string | null;
+  installLogFile?: string | null;
+}): { status: number | null; verdict: string | null; output: string } {
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'afm-early-guard-'));
+  const verdictPath = path.join(scratch, VERDICT_FILE_NAME);
+  const logPath = path.join(scratch, 'guard.log');
+  const scriptPath = options.scriptPath ?? GUARD_PATH;
+  const commandLinePath = path.join(scratch, 'commandline.txt');
+  // 安装日志默认指向一个**不存在**的路径 —— 「取不到信息必须放行」是默认分支，
+  // 而且绝不能读到本机真实的安装日志，否则结论不可复现。
+  const installLogPath = options.installLogFile ?? path.join(scratch, 'install.log');
+
+  writeInstalledVersion(options.installedVersion);
+
+  // commandLine 为 null 时**不写这个文件** —— 用来验「文件不存在」这条分支。
+  if (options.commandLine !== null && options.commandLine !== undefined) {
+    fs.writeFileSync(commandLinePath, options.commandLine, 'utf8');
+  }
+
+  const args = [
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-File',
+    scriptPath,
+    '-InstallerVersion',
+    options.installerVersion,
+    '-UninstKey',
+    registrySubKey,
+    '-Force',
+    options.force ? '1' : '0',
+    '-CommandLineFile',
+    commandLinePath,
+    '-InstallerPath',
+    options.installerPath ?? path.join(scratch, 'no-such-installer.exe'),
+    '-InstallLogFile',
+    installLogPath,
+    '-VerdictFile',
+    verdictPath,
+    '-LogFileOverride',
+    logPath,
+  ];
+
+  const result = spawnSync('powershell', args, { encoding: 'utf8', timeout: 120000 });
+
+  const verdict = fs.existsSync(verdictPath)
+    ? fs.readFileSync(verdictPath, 'utf8').trim()
+    : null;
+
+  return {
+    status: result.status,
+    verdict,
+    output: `${result.stdout ?? ''}${result.stderr ?? ''}`,
+  };
 }
 
 describe('安装器早期守卫：接线', () => {
@@ -193,6 +322,35 @@ describe('安装器早期守卫：接线', () => {
     expect(guard).toContain('/FORCE');
   });
 
+  it('构建身份判定需要安装包自身的路径：hooks 必须把 $EXEPATH 传给守卫', () => {
+    const hooks = readFile(HOOKS_PATH);
+    const guard = readFile(GUARD_PATH);
+
+    // 守卫要算当前安装包的 SHA256，就必须知道「当前这个安装包是哪个文件」。
+    // 不传的话守卫永远算不出构建身份，同版本一律放行 —— 守卫等于形同虚设。
+    expect(
+      hooks,
+      'nsExec 必须把 $EXEPATH（当前运行的 setup.exe）传给守卫的 -InstallerPath 参数。',
+    ).toContain('-InstallerPath "$EXEPATH"');
+
+    expect(guard).toMatch(/\[string\]\$InstallerPath\s*=\s*''/);
+
+    // 守卫还要读「上次成功安装用的是哪个安装包」，那就得读安装日志。
+    expect(guard).toContain('alpha-file-manager-install.log');
+    expect(guard).toMatch(/\[string\]\$InstallLogFile\s*=\s*''/);
+
+    // 守卫必须用 SHA256 比对构建身份，不能退回按版本号判定。
+    //
+    // 用 .NET 的 SHA256 而不是 Get-FileHash cmdlet：后者住在
+    // Microsoft.PowerShell.Utility 模块里，模块解析依赖 $env:PSModulePath。
+    // 2026-10-31 实测：由 node 拉起的 Windows PowerShell 5.1 子进程
+    // 继承到的 PSModulePath 里**解析不到** Get-FileHash
+    // （"The term 'Get-FileHash' is not recognized"），而安装器正是自己
+    // 拉起 PowerShell 的 —— 那才是常态，不是特例。
+    expect(guard).toContain('System.Security.Cryptography.SHA256');
+    expect(guard).toContain('installerSha256');
+  });
+
   it('守卫失败时必须放行（守卫坏了不能让产品装不上）', () => {
     const guard = readFile(GUARD_PATH);
 
@@ -210,78 +368,6 @@ describe('安装器早期守卫：接线', () => {
 });
 
 describe.skipIf(!isWindows)('安装器早期守卫：判定与判别力', () => {
-  const registryKeyName = `AFM-Early-Guard-Test-${process.pid}`;
-  const registrySubKey = `Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\${registryKeyName}`;
-
-  function writeInstalledVersion(version: string | null): void {
-    // 用 reg.exe 而不是 PowerShell：参数少一层引号，行为确定。
-    // 写在 HKCU 下，不需要管理员权限。
-    const keyPath = `HKCU\\${registrySubKey}`;
-
-    if (version === null) {
-      spawnSync('reg', ['delete', keyPath, '/f'], { encoding: 'utf8' });
-
-      return;
-    }
-
-    spawnSync('reg', ['add', keyPath, '/v', 'DisplayVersion', '/t', 'REG_SZ', '/d', version, '/f'], {
-      encoding: 'utf8',
-    });
-  }
-
-  function runGuard(options: {
-    installerVersion: string;
-    installedVersion: string | null;
-    force?: boolean;
-    scriptPath?: string;
-    commandLine?: string | null;
-  }): { status: number | null; verdict: string | null; output: string } {
-    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'afm-early-guard-'));
-    const verdictPath = path.join(scratch, VERDICT_FILE_NAME);
-    const logPath = path.join(scratch, 'guard.log');
-    const scriptPath = options.scriptPath ?? GUARD_PATH;
-    const commandLinePath = path.join(scratch, 'commandline.txt');
-
-    writeInstalledVersion(options.installedVersion);
-
-    // commandLine 为 null 时**不写这个文件** —— 用来验「文件不存在」这条分支。
-    if (options.commandLine !== null && options.commandLine !== undefined) {
-      fs.writeFileSync(commandLinePath, options.commandLine, 'utf8');
-    }
-
-    const args = [
-      '-NoProfile',
-      '-ExecutionPolicy',
-      'Bypass',
-      '-File',
-      scriptPath,
-      '-InstallerVersion',
-      options.installerVersion,
-      '-UninstKey',
-      registrySubKey,
-      '-Force',
-      options.force ? '1' : '0',
-      '-CommandLineFile',
-      commandLinePath,
-      '-VerdictFile',
-      verdictPath,
-      '-LogFileOverride',
-      logPath,
-    ];
-
-    const result = spawnSync('powershell', args, { encoding: 'utf8', timeout: 120000 });
-
-    const verdict = fs.existsSync(verdictPath)
-      ? fs.readFileSync(verdictPath, 'utf8').trim()
-      : null;
-
-    return {
-      status: result.status,
-      verdict,
-      output: `${result.stdout ?? ''}${result.stderr ?? ''}`,
-    };
-  }
-
   it('判定表全部符合预期', () => {
     const cases: {
       name: string;
@@ -293,8 +379,9 @@ describe.skipIf(!isWindows)('安装器早期守卫：判定与判别力', () => 
     }[] = [
       { name: '没装过 -> 放行', installer: '3.6.6', installed: null, expectQuit: false, expectReason: null },
       { name: '版本更新 -> 放行', installer: '3.6.7', installed: '3.6.6', expectQuit: false, expectReason: null },
-      { name: '同版本 -> 静默退出', installer: '3.6.6', installed: '3.6.6', expectQuit: true, expectReason: 'same-version' },
-      { name: '版本更旧 -> 静默退出', installer: '3.6.5', installed: '3.6.6', expectQuit: true, expectReason: 'older-version' },
+      // 降级必须放行：NSIS 模板自带「已安装更新版本」的确认页，
+      // 在守卫这一层拦掉它，用户连「要不要降级」都没机会回答。
+      { name: '版本更旧 -> 放行（交给模板的降级确认页）', installer: '3.6.5', installed: '3.6.6', expectQuit: false, expectReason: null },
       { name: '版本读不出来 -> 放行', installer: '3.6.6', installed: 'not-a-version', expectQuit: false, expectReason: null },
       { name: '/FORCE -> 放行', installer: '3.6.6', installed: '3.6.6', force: true, expectQuit: false, expectReason: null },
       {
@@ -305,11 +392,20 @@ describe.skipIf(!isWindows)('安装器早期守卫：判定与判别力', () => 
         expectReason: null,
       },
       {
-        name: '预发布版比正式版旧 -> 静默退出',
+        name: '预发布版比正式版旧 -> 放行',
         installer: '3.6.6-beta.1',
         installed: '3.6.6',
-        expectQuit: true,
-        expectReason: 'older-version',
+        expectQuit: false,
+        expectReason: null,
+      },
+      {
+        // 这条是本次事故的核心：同版本号不等于同一个构建。
+        // 取不到构建身份（这里没有安装日志）时必须放行 —— 失败开放。
+        name: '同版本但取不到构建身份 -> 放行',
+        installer: '3.6.6',
+        installed: '3.6.6',
+        expectQuit: false,
+        expectReason: null,
       },
     ];
 
@@ -342,6 +438,14 @@ describe.skipIf(!isWindows)('安装器早期守卫：判定与判别力', () => 
   }, GUARD_TIMEOUT_MS);
 
   it('命令行里的 /FORCE 才算逃生口：整词匹配，/XFORCE 不算', () => {
+    // 造一个「已经装好的构建」：当前这个安装包文件 + 日志里记着它的 SHA256。
+    // 只有在这种前提下，「没有 /FORCE」才会静默退出，/FORCE 才有意义。
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'afm-early-guard-force-'));
+    const installer = makeFakeInstaller(scratch, 'setup.exe', 'fake-installer-build-force');
+    const installLogPath = path.join(scratch, 'install.log');
+
+    writeInstallLog(installLogPath, 'POSTINSTALL', installer.path);
+
     const cases: {
       name: string;
       commandLine: string | null;
@@ -349,6 +453,8 @@ describe.skipIf(!isWindows)('安装器早期守卫：判定与判别力', () => 
     }[] = [
       { name: 'setup.exe /FORCE -> 放行', commandLine: '"C:\\setup.exe" /FORCE', expectQuit: false },
       { name: 'setup.exe /force -> 放行', commandLine: '"C:\\setup.exe" /force', expectQuit: false },
+      { name: 'setup.exe -force -> 放行', commandLine: '"C:\\setup.exe" -force', expectQuit: false },
+      { name: 'setup.exe --force -> 放行', commandLine: '"C:\\setup.exe" --force', expectQuit: false },
       { name: 'setup.exe /FORCE /S -> 放行', commandLine: '"C:\\setup.exe" /FORCE /S', expectQuit: false },
       { name: 'setup.exe /S /FORCE -> 放行', commandLine: '"C:\\setup.exe" /S /FORCE', expectQuit: false },
       { name: 'setup.exe /XFORCE -> 仍然静默退出', commandLine: '"C:\\setup.exe" /XFORCE', expectQuit: true },
@@ -361,6 +467,8 @@ describe.skipIf(!isWindows)('安装器早期守卫：判定与判别力', () => 
         installerVersion: '3.6.6',
         installedVersion: '3.6.6',
         commandLine: item.commandLine,
+        installerPath: installer.path,
+        installLogFile: installLogPath,
       });
 
       expect(
@@ -372,7 +480,7 @@ describe.skipIf(!isWindows)('安装器早期守卫：判定与判别力', () => 
         expect(
           result.verdict,
           `用例「${item.name}」应该留下判定文件，说明「不要弹界面」：\n${result.output}`,
-        ).toBe('same-version');
+        ).toBe('same-build');
       } else {
         expect(
           result.verdict,
@@ -388,39 +496,231 @@ describe.skipIf(!isWindows)('安装器早期守卫：判定与判别力', () => 
     const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'afm-early-guard-negative-'));
     const brokenPath = path.join(scratch, 'early-guard.ps1');
 
-    // 故意让「同版本」这条判据不再静默退出 —— 于是同版本会继续弹向导。
-    // 「同版本 -> 静默退出」那条用例必须失败。
+    // 故意让「同一个构建」这条判据不再静默退出 —— 于是同一个包重复打开会
+    // 继续弹向导。「同一个构建 -> 静默退出」那条用例必须失败。
     //
-    // 注意不能只改 elseif 的条件：改成永远不成立时，同版本会掉进
-    // 「更旧」那个 else 分支，结果照样是退出（守卫根本没被关掉）。
-    // 所以必须改「同版本这一支的决定本身」。
+    // 注意不能只改 elseif 的条件：改成永远不成立时，同版本会掉进别的分支，
+    // 结果照样是退出（守卫根本没被关掉）。所以必须改「这一支的决定本身」。
     const source = readFile(GUARD_PATH).replace(/\r\n/g, '\n');
 
     const broken = source.replace(
-      "    $decision = 'quit'\n    $reason = 'same-version'",
-      "    $decision = 'proceed'\n    $reason = 'same-version'",
+      "      $decision = 'quit'\n      $reason = 'same-build'",
+      "      $decision = 'proceed'\n      $reason = 'same-build'",
     );
 
     expect(
       broken,
-      '注入点没找到 —— 守卫脚本的同版本判定被改过了，判别力测试必须跟着更新。',
+      '注入点没找到 —— 守卫脚本的「同一个构建」判定被改过了，判别力测试必须跟着更新。',
     ).not.toBe(source);
 
     fs.writeFileSync(brokenPath, broken, 'utf8');
+
+    const installer = makeFakeInstaller(scratch, 'setup.exe', 'fake-installer-build-negative');
+    const installLogPath = path.join(scratch, 'install.log');
+
+    writeInstallLog(installLogPath, 'POSTINSTALL', installer.path);
+
+    // 先确认**没坏**的守卫确实会拦住 —— 否则下面那条「改坏之后」就没有意义。
+    const intact = runGuard({
+      installerVersion: '3.6.6',
+      installedVersion: '3.6.6',
+      installerPath: installer.path,
+      installLogFile: installLogPath,
+    });
+
+    expect(
+      intact.status,
+      `没坏的守卫居然没有拦住同一个构建（exit=${intact.status}）：\n${intact.output}\n`
+      + '这说明判定用例没有判别力 —— 它证明不了守卫真的会拦住重复弹窗。',
+    ).toBe(10);
 
     const result = runGuard({
       installerVersion: '3.6.6',
       installedVersion: '3.6.6',
       scriptPath: brokenPath,
+      installerPath: installer.path,
+      installLogFile: installLogPath,
     });
 
     expect(
       result.status,
-      `把守卫判定改坏之后，同版本居然还是退出了（exit=${result.status}）：\n${result.output}\n`
-      + '这说明判定用例没有判别力 —— 它证明不了守卫真的会拦住重复弹窗。',
+      `把守卫判定改坏之后，同一个构建居然还是退出了（exit=${result.status}）：\n${result.output}`,
     ).toBe(0);
 
     expect(result.verdict).toBeNull();
+
+    writeInstalledVersion(null);
+  }, GUARD_TIMEOUT_MS);
+});
+
+// ---------------------------------------------------------------------------
+// 2026-10-31：守卫改判「构建身份」而不是「版本号」。
+//
+// 事故（用户原话）：「双击安装包后什么都不发生，连窗口都不弹。」
+// 真机日志：installer version='3.8.0' installed version='3.8.0' -> OUTCOME=quit。
+//
+// 根因：守卫按**版本号**判定「同版本 -> 没什么可装 -> 静默退出」。但版本号
+// 不是构建身份 —— 同一个版本号可以对应多个构建（重新打包、打补丁、换一次
+// 打包环境）。于是「同版本号的新构建」被误判成「同一个包重复打开」，合法
+// 安装被挡在门外，NSIS 模板自带的「已安装相同版本，是否重新安装？」页面
+// 根本没机会出现。
+//
+// 修法：同版本时比**安装包文件自身的 SHA256**。安装日志里记着上次成功安装
+// 用的那个包的哈希；哈希相同 = 同一个构建 = 静默退出（守卫的初衷：宿主会话
+// 重复自动打开同一个附件）；哈希不同 = 新构建 = 放行。
+//
+// 失败开放：取不到哈希、取不到日志、算不出哈希 —— 一律放行。只有「明确判定
+// 为同一个构建」才 quit。
+// ---------------------------------------------------------------------------
+describe.skipIf(!isWindows)('安装器早期守卫：按构建身份判定', () => {
+  it('决策矩阵：版本相同时比的是安装包文件，不是版本号', () => {
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'afm-early-guard-identity-'));
+
+    // 两个「安装包」：版本号相同，字节不同。
+    const buildA = makeFakeInstaller(scratch, 'setup-a.exe', 'build-alpha-payload');
+    const buildB = makeFakeInstaller(scratch, 'setup-b.exe', 'build-beta-payload');
+
+    // 安装日志：先记 A，再记 B —— 「最近一条 POSTINSTALL」是 B。
+    const installLogPath = path.join(scratch, 'install.log');
+
+    writeInstallLog(installLogPath, 'PREINSTALL', buildA.path);
+    writeInstallLog(installLogPath, 'POSTINSTALL', buildA.path);
+    writeInstallLog(installLogPath, 'PREINSTALL', buildB.path);
+    writeInstallLog(installLogPath, 'POSTINSTALL', buildB.path);
+
+    // 一份「旧格式」日志：没有 installerSha256 字段（升级前写的老日志）。
+    const legacyLogPath = path.join(scratch, 'install-legacy.log');
+
+    fs.writeFileSync(
+      legacyLogPath,
+      '2026-10-31 10:00:00.000 [install] phase=POSTINSTALL installerVersion=3.8.0 '
+      + "sameVersionReinstall=yes detectedVersion=3.8.0 detectedLocation='none' "
+      + "instDir='none' installer='C:\\setup.exe'\n",
+      'utf8',
+    );
+
+    const cases: {
+      name: string;
+      installer: string;
+      installed: string | null;
+      installerPath: string;
+      installLogFile: string;
+      force?: boolean;
+      expectQuit: boolean;
+      expectReason: string | null;
+    }[] = [
+      {
+        name: '1 未安装 -> 放行',
+        installer: '3.8.0',
+        installed: null,
+        installerPath: buildA.path,
+        installLogFile: installLogPath,
+        expectQuit: false,
+        expectReason: null,
+      },
+      {
+        name: '2 升级 -> 放行',
+        installer: '3.9.0',
+        installed: '3.8.0',
+        installerPath: buildA.path,
+        installLogFile: installLogPath,
+        expectQuit: false,
+        expectReason: null,
+      },
+      {
+        name: '3 降级 -> 放行（交给模板的降级确认页）',
+        installer: '3.8.0',
+        installed: '3.9.0',
+        installerPath: buildA.path,
+        installLogFile: installLogPath,
+        expectQuit: false,
+        expectReason: null,
+      },
+      {
+        // 这条就是本次事故：同版本号、不同构建 —— 必须能装。
+        name: '4 同版本 + 不同构建 -> 放行',
+        installer: '3.8.0',
+        installed: '3.8.0',
+        installerPath: buildA.path,
+        installLogFile: installLogPath,
+        expectQuit: false,
+        expectReason: null,
+      },
+      {
+        // 守卫的初衷：同一个包重复打开（比如宿主会话自动打开附件）要无害。
+        name: '5 同版本 + 同一个构建 -> 静默退出',
+        installer: '3.8.0',
+        installed: '3.8.0',
+        installerPath: buildB.path,
+        installLogFile: installLogPath,
+        expectQuit: true,
+        expectReason: 'same-build',
+      },
+      {
+        name: '6 /FORCE -> 放行（连同一个构建也放行）',
+        installer: '3.8.0',
+        installed: '3.8.0',
+        installerPath: buildB.path,
+        installLogFile: installLogPath,
+        force: true,
+        expectQuit: false,
+        expectReason: null,
+      },
+      {
+        name: '7 取不到安装日志 -> 放行',
+        installer: '3.8.0',
+        installed: '3.8.0',
+        installerPath: buildB.path,
+        installLogFile: path.join(scratch, 'no-such-install.log'),
+        expectQuit: false,
+        expectReason: null,
+      },
+      {
+        name: '8 日志里没有哈希字段（旧格式日志）-> 放行',
+        installer: '3.8.0',
+        installed: '3.8.0',
+        installerPath: buildB.path,
+        installLogFile: legacyLogPath,
+        expectQuit: false,
+        expectReason: null,
+      },
+      {
+        name: '9 取不到安装包文件（算不出哈希）-> 放行',
+        installer: '3.8.0',
+        installed: '3.8.0',
+        installerPath: path.join(scratch, 'no-such-setup.exe'),
+        installLogFile: installLogPath,
+        expectQuit: false,
+        expectReason: null,
+      },
+    ];
+
+    for (const item of cases) {
+      const result = runGuard({
+        installerVersion: item.installer,
+        installedVersion: item.installed,
+        force: item.force,
+        installerPath: item.installerPath,
+        installLogFile: item.installLogFile,
+      });
+
+      expect(
+        result.status,
+        `用例「${item.name}」的退出码不对（期望 ${item.expectQuit ? 10 : 0}）：\n${result.output}`,
+      ).toBe(item.expectQuit ? 10 : 0);
+
+      if (item.expectQuit) {
+        expect(
+          result.verdict,
+          `用例「${item.name}」应该留下判定文件，说明「不要弹界面」：\n${result.output}`,
+        ).toBe(item.expectReason);
+      } else {
+        expect(
+          result.verdict,
+          `用例「${item.name}」不该留下判定文件 —— 留下就意味着守卫误杀了这次安装：\n${result.output}`,
+        ).toBeNull();
+      }
+    }
 
     writeInstalledVersion(null);
   }, GUARD_TIMEOUT_MS);

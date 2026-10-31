@@ -30,6 +30,7 @@ mod input_simulation;
 mod lan_share;
 mod link_operations;
 mod main_window_state;
+mod orphan_webview;
 // `pub` 是为了让 `examples/mcp-spike.rs` 能起同一个模块 —— Phase 0 的 spike
 // 与应用内跑的是同一份端点代码，不是另写一份。
 pub mod mcp;
@@ -293,6 +294,12 @@ pub fn run() {
     // release 构建里这段是编译不进去的（`cfg!(debug_assertions)`），
     // 所以对正式发布的包**零影响**。
     app_dirs::prepare_isolated_environment();
+
+    // 清理上一轮异常退出留下的 WebView2 孤儿进程。
+    // 它们会锁住 WebView2 用户数据目录，导致本次启动创建 webview 时失败
+    // （WebView2 error 0x800700AA）并 panic 退出（exit code 101）。
+    // 必须在任何 WebView2 进程被创建之前调用。
+    orphan_webview::cleanup_orphan_webview_processes();
 
     // 窗口状态文件：隔离模式下插件要把状态写到隔离目录的 config 下，
     // 否则 e2e 会读到用户上次真实使用时的窗口位置。

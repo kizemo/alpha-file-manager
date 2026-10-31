@@ -245,7 +245,7 @@ onBeforeUnmount(() => {
             class="tab"
             :class="{ 'tab--active-title-bold': userSettingsStore.userSettings.navigator.boldActiveTabTitle }"
             :style="{
-              '--tab-min-width': `${props.tabGroup.length === 2 ? NAVIGATOR_TAB_WIDTH * 2 : NAVIGATOR_TAB_WIDTH}px`
+              '--tab-min-width': `calc(var(--tab-group-base-width, ${NAVIGATOR_TAB_WIDTH}px) * ${props.tabGroup.length === 2 ? 2 : 1})`
             }"
             :is-active="isActive"
             :data-drag-over="isDragOver || undefined"

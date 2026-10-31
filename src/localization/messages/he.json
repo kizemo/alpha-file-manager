@@ -87,6 +87,8 @@
     "music": "מוזיקה"
   },
   "tabs": {
+    "scrollTabsLeft": "גלול כרטיסיות שמאלה",
+    "scrollTabsRight": "גלול כרטיסיות ימינה",
     "newTab": "לשונית חדשה",
     "duplicateTab": "שכפל לשונית",
     "closeOtherTabs": "סגור לשוניות אחרות",
@@ -246,6 +248,9 @@
       "newTag": "New tag",
       "moveUp": "Move up",
       "moveDown": "Move down",
+      "moveUpWithName": "העבר את {name} למעלה",
+      "moveDownWithName": "העבר את {name} למטה",
+      "dragToReorder": "גרור כדי לשנות את הסדר",
       "moveToCategory": "Move to category",
       "removeFavorite": "Remove from favorites",
       "removeTag": "Remove tag",

@@ -15,7 +15,10 @@ use crate::system_clipboard;
 static WATCHER_STARTED: AtomicBool = AtomicBool::new(false);
 static WATCHER_APP: OnceLock<AppHandle> = OnceLock::new();
 
-const POLL_INTERVAL_MS: u64 = 400;
+// FORK-MODIFICATION 2026-10-30（意见 10）：400ms 一次的开销主要在
+// 每次唤醒都要开一次剪贴板读 change token。降到 1000ms，
+// 复制检测最多晚 0.6 秒，日常感知不到，唤醒次数少 60%。
+const POLL_INTERVAL_MS: u64 = 1000;
 
 pub fn ensure_clipboard_watcher(app: AppHandle) {
     let _ = WATCHER_APP.get_or_init(|| app);

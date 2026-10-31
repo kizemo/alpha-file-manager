@@ -11,7 +11,38 @@ fn main() {
     #[cfg(target_os = "windows")]
     build_default_file_manager_launcher();
 
+    emit_icon_rerun_guards();
+
     tauri_build::build();
+}
+
+/// Re-runs this build script when the bundled application icons change.
+///
+/// Without these guards the build script only re-ran for the launcher sources
+/// listed above, so `tauri_build` reused the previously generated Windows
+/// resource script (`.rc` / `.res`) and the executable kept the old taskbar
+/// icon even after `icons/icon.ico` was regenerated.
+fn emit_icon_rerun_guards() {
+    for icon in [
+        "icons/icon.ico",
+        "icons/icon.png",
+        "icons/icon.icns",
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/Square30x30Logo.png",
+        "icons/Square44x44Logo.png",
+        "icons/Square71x71Logo.png",
+        "icons/Square89x89Logo.png",
+        "icons/Square107x107Logo.png",
+        "icons/Square142x142Logo.png",
+        "icons/Square150x150Logo.png",
+        "icons/Square284x284Logo.png",
+        "icons/Square310x310Logo.png",
+        "icons/StoreLogo.png",
+    ] {
+        println!("cargo:rerun-if-changed={icon}");
+    }
 }
 
 #[cfg(target_os = "windows")]

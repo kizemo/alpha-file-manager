@@ -23,7 +23,7 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
      左侧 42px 的悬停展开边栏不在本组件范围内，保持原有设计不动。 -->
 
 <script setup lang="ts">
-import dashboardHeroBackground from '@/assets/media/dashboard/dashboard-top-bg.jpg';
+import dashboardHeroBackground from '@/assets/media/dashboard/dashboard-top-bg-warm.jpg';
 
 defineProps<{
   title: string;
@@ -114,9 +114,12 @@ const heroStyle = {
 }
 
 /* 深色主题：背景图本来就是深色系（和 upstream 一致），压淡反而没东西了。
-   `.dark` 由 `use-theme.ts` 加在 documentElement 上。 */
+   `.dark` 由 `use-theme.ts` 加在 documentElement 上。
+   FORK-MODIFICATION 2026-10-30（意见 7）：新背景图是暖纸浅色，
+   暗色主题下直接铺会过亮，压暗并降饱和后再用。 */
 .dark .dashboard-hero__backdrop::before {
-  opacity: 1;
+  filter: brightness(0.55) saturate(0.8);
+  opacity: 0.9;
 }
 
 /* FORK-MODIFICATION：浅色主题适配。

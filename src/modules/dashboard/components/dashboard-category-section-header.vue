@@ -5,26 +5,41 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
 <!-- FORK-MODIFICATION: 需求反馈 4（2026-10-15）——收藏分类的分区标题。
      「未分类」这一组不显示编辑按钮：它不是一个真实分类，没有 id 可改名/删除，
-     给它挂一套无效操作比不显示更糟。 -->
+     给它挂一套无效操作比不显示更糟。
+
+     FORK-MODIFICATION: 2026-10-31 —— 分区标题加上排序入口（拖拽手柄 + 上移 / 下移）。
+     「未分类」同样不显示排序控件：它是虚拟分组，永远排在最后，没有可换位的对象。 -->
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { FolderTreeIcon, PencilIcon, Trash2Icon } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
+import DashboardOrderControls from '@/modules/dashboard/components/dashboard-order-controls.vue';
 import type { FavoriteCategory } from '@/types/user-stats';
 
-defineProps<{
+const props = defineProps<{
   name: string;
   count: number;
   category: FavoriteCategory | null;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }>();
 
 const emit = defineEmits<{
   'rename-category': [category: FavoriteCategory];
   'delete-category': [category: FavoriteCategory];
+  'move-up': [category: FavoriteCategory];
+  'move-down': [category: FavoriteCategory];
+  'drag-start': [category: FavoriteCategory];
+  'drag-end': [category: FavoriteCategory];
 }>();
 
 const { t } = useI18n();
+
+const moveUpLabel = computed(() => t('dashboard.actions.moveUpWithName', { name: props.name }));
+const moveDownLabel = computed(() => t('dashboard.actions.moveDownWithName', { name: props.name }));
+const dragLabel = computed(() => t('dashboard.actions.dragToReorder'));
 </script>
 
 <template>
@@ -41,6 +56,20 @@ const { t } = useI18n();
       v-if="category"
       class="dashboard-category-section-header__actions"
     >
+      <!-- FORK-MODIFICATION: 2026-10-31 —— 分类排序（拖拽 + 上移 / 下移）。 -->
+      <DashboardOrderControls
+        :can-move-up="canMoveUp"
+        :can-move-down="canMoveDown"
+        :drag-key="category.id"
+        :drag-label="dragLabel"
+        :move-up-label="moveUpLabel"
+        :move-down-label="moveDownLabel"
+        drag-image-selector=".dashboard-category-section-header"
+        @move-up="emit('move-up', category)"
+        @move-down="emit('move-down', category)"
+        @drag-start="emit('drag-start', category)"
+        @drag-end="emit('drag-end', category)"
+      />
       <Button
         variant="ghost"
         size="icon"
@@ -85,8 +114,8 @@ const { t } = useI18n();
 
 .dashboard-category-section-header__actions {
   display: flex;
-  margin-left: auto;
   align-items: center;
+  margin-left: auto;
   gap: 2px;
 }
 

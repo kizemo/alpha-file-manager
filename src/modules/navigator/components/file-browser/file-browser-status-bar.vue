@@ -49,7 +49,7 @@ import { isActionBlockedByEntryPolicy } from '@/utils/entry-action-policy';
 const MAX_VISIBLE_ITEMS = 100;
 
 /** MCP 状态轮询间隔。开着才轮询 —— 关着的时候没有任何理由产生请求。 */
-const MCP_POLL_INTERVAL_MS = 5000;
+const MCP_POLL_INTERVAL_MS = 10000;
 
 const props = withDefaults(defineProps<{
   dirContents: DirContents | null;

@@ -265,45 +265,10 @@ html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-filter__icon--filte
   stroke: hsl(var(--family-filter));
 }
 
-/* --- 1b：地址栏左侧按钮分色（跃动活力） --- */
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--back {
-  color: hsl(var(--nav-back));
-  stroke: hsl(var(--nav-back));
-}
-
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--forward {
-  color: hsl(var(--nav-forward));
-  stroke: hsl(var(--nav-forward));
-}
-
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--up {
-  color: hsl(var(--nav-up));
-  stroke: hsl(var(--nav-up));
-}
-
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--location {
-  color: hsl(var(--nav-location));
-  stroke: hsl(var(--nav-location));
-}
-
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--refresh {
-  color: hsl(var(--nav-refresh));
-  stroke: hsl(var(--nav-refresh));
-}
-
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--view {
-  color: hsl(var(--nav-view));
-  stroke: hsl(var(--nav-view));
-}
-
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--thumbnail {
-  color: hsl(var(--nav-thumbnail));
-  stroke: hsl(var(--nav-thumbnail));
-}
-
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon--more {
-  color: hsl(var(--nav-more));
-  stroke: hsl(var(--nav-more));
+/* --- 1b：地址栏左侧按钮统一配色（跃动活力） --- */
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon {
+  color: hsl(var(--toolbar-action-foreground));
+  stroke: hsl(var(--toolbar-action-foreground));
 }
 
 /* --- 1c / 2e：标题栏上下边线 + 背景加深 ---
@@ -334,14 +299,18 @@ html[data-afm-theme='afm-warm-dark'] .file-browser-list-view__header {
 
 /* --- 2b / 2c：未激活标签降亮 + 浅米灰边线（暖纸） --- */
 html[data-afm-theme='afm-warm-light'] .tab:not([is-active="true"]),
-html[data-afm-theme='afm-warm-dark'] .tab:not([is-active="true"]) {
+html[data-afm-theme='afm-warm-dark'] .tab:not([is-active="true"]),
+html[data-afm-theme='afm-vivid-light'] .tab:not([is-active="true"]),
+html[data-afm-theme='afm-cool-light'] .tab:not([is-active="true"]) {
   border-color: hsl(var(--tab-idle-border));
   background-color: hsl(var(--tab-idle-bg));
-  color: hsl(var(--muted-foreground));
+  color: hsl(var(--tab-idle-foreground));
 }
 
 html[data-afm-theme='afm-warm-light'] .tab:not([is-active="true"]):hover,
-html[data-afm-theme='afm-warm-dark'] .tab:not([is-active="true"]):hover {
+html[data-afm-theme='afm-warm-dark'] .tab:not([is-active="true"]):hover,
+html[data-afm-theme='afm-vivid-light'] .tab:not([is-active="true"]):hover,
+html[data-afm-theme='afm-cool-light'] .tab:not([is-active="true"]):hover {
   background-color: hsl(var(--state-active));
 }
 
@@ -414,4 +383,22 @@ html[data-afm-theme='afm-warm-light'] .file-browser-grid-card__icon--folder,
 html[data-afm-theme='afm-warm-dark'] .file-browser-grid-card__icon--folder {
   color: hsl(var(--moss));
   stroke: hsl(var(--moss));
+}
+
+/* 暖纸主题：全局正文切衬线；必须同时覆盖 --font 与 --default-font-family，否则 .app-layout 自带的 font-family 会盖掉 body 的衬线。 */
+html[data-afm-theme='afm-warm-light'],
+html[data-afm-theme='afm-warm-dark'] {
+  --font: var(--font-display);
+  --default-font-family: var(--font-display);
+}
+
+html[data-afm-theme='afm-warm-light'] body,
+html[data-afm-theme='afm-warm-dark'] body {
+  font-family: var(--font-display);
+}
+
+/* 暖纸主题：.app-layout 自身声明了 --default-font-family: var(--font, system-ui)，而 --font 由 inline style 注入（app.vue 的 :style 绑定），优先级高于本文件任何规则，导致主题字体被彻底盖掉。这里直接给 .app-layout 声明 font-family，绕开 inline style 对自定义属性的压制。 */
+html[data-afm-theme='afm-warm-light'] .app-layout,
+html[data-afm-theme='afm-warm-dark'] .app-layout {
+  font-family: var(--font-display);
 }

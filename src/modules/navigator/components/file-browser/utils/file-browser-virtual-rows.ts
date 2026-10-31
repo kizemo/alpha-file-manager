@@ -383,7 +383,10 @@ function createGroupedListRowModel(
     }
   }
 
-  const rowCount = displayEntries.length + sections.length;
+  // FORK-MODIFICATION 2026-10-30（意见 9）：目录里只有一种类型时不生成分类行。
+  // 只有一个分区时分类标题没有信息量，还会白白吃掉一行高度。
+  const hasSectionHeaders = sections.length > 1;
+  const rowCount = displayEntries.length + (hasSectionHeaders ? sections.length : 0);
   const starts = new Float64Array(rowCount);
   const sizes = new Float64Array(rowCount);
   const kinds = new Uint8Array(rowCount);
@@ -397,15 +400,17 @@ function createGroupedListRowModel(
     const section = sections[sectionIndex];
     const builder = sectionBuilders[sectionIndex];
 
-    section.headerRowIndex = rowIndex;
-    kinds[rowIndex] = ROW_KIND_LIST_SECTION;
-    sectionIndexes[rowIndex] = sectionIndex;
-    entryStarts[rowIndex] = -1;
-    entryCounts[rowIndex] = 0;
-    starts[rowIndex] = offset;
-    sizes[rowIndex] = LIST_SECTION_HEADER_HEIGHT;
-    offset += LIST_SECTION_HEADER_HEIGHT;
-    rowIndex += 1;
+    if (hasSectionHeaders) {
+      section.headerRowIndex = rowIndex;
+      kinds[rowIndex] = ROW_KIND_LIST_SECTION;
+      sectionIndexes[rowIndex] = sectionIndex;
+      entryStarts[rowIndex] = -1;
+      entryCounts[rowIndex] = 0;
+      starts[rowIndex] = offset;
+      sizes[rowIndex] = LIST_SECTION_HEADER_HEIGHT;
+      offset += LIST_SECTION_HEADER_HEIGHT;
+      rowIndex += 1;
+    }
 
     for (let index = 0; index < builder.entries.length; index += 1) {
       const size = getEntryDescriptionHeight(
@@ -473,6 +478,8 @@ function createGridRowModel(
     }
   }
 
+  // FORK-MODIFICATION 2026-10-30（意见 9）：单一类型时不生成网格分类行。
+  const hasSectionHeaders = sections.length > 1;
   let rowCount = 0;
   let gridOrdinal = 0;
 
@@ -483,7 +490,7 @@ function createGridRowModel(
     section.gridOrdinalStart = gridOrdinal;
     section.itemRowCount = Math.ceil(builder.entries.length / columnCount);
     gridOrdinal += section.itemRowCount;
-    rowCount += 1 + section.itemRowCount;
+    rowCount += (hasSectionHeaders ? 1 : 0) + section.itemRowCount;
   }
 
   const starts = new Float64Array(rowCount);
@@ -499,15 +506,17 @@ function createGridRowModel(
     const section = sections[sectionIndex];
     const builder = sectionBuilders[sectionIndex];
 
-    section.headerRowIndex = rowIndex;
-    kinds[rowIndex] = ROW_KIND_GRID_SECTION;
-    sectionIndexes[rowIndex] = sectionIndex;
-    entryStarts[rowIndex] = -1;
-    entryCounts[rowIndex] = 0;
-    starts[rowIndex] = offset;
-    sizes[rowIndex] = GRID_SECTION_HEADER_HEIGHT + options.gridGap;
-    offset += GRID_SECTION_HEADER_HEIGHT + options.gridGap;
-    rowIndex += 1;
+    if (hasSectionHeaders) {
+      section.headerRowIndex = rowIndex;
+      kinds[rowIndex] = ROW_KIND_GRID_SECTION;
+      sectionIndexes[rowIndex] = sectionIndex;
+      entryStarts[rowIndex] = -1;
+      entryCounts[rowIndex] = 0;
+      starts[rowIndex] = offset;
+      sizes[rowIndex] = GRID_SECTION_HEADER_HEIGHT + options.gridGap;
+      offset += GRID_SECTION_HEADER_HEIGHT + options.gridGap;
+      rowIndex += 1;
+    }
 
     section.itemRowStart = rowIndex;
 

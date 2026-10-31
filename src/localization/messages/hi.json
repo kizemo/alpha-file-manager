@@ -87,6 +87,8 @@
     "music": "संगीत"
   },
   "tabs": {
+    "scrollTabsLeft": "टैब को बाईं ओर स्क्रॉल करें",
+    "scrollTabsRight": "टैब को दाईं ओर स्क्रॉल करें",
     "newTab": "नया टैब",
     "duplicateTab": "टैब डुप्लिकेट करें",
     "closeOtherTabs": "अन्य टैब बंद करें",
@@ -246,6 +248,9 @@
       "newTag": "New tag",
       "moveUp": "Move up",
       "moveDown": "Move down",
+      "moveUpWithName": "{name} को ऊपर ले जाएँ",
+      "moveDownWithName": "{name} को नीचे ले जाएँ",
+      "dragToReorder": "क्रम बदलने के लिए खींचें",
       "moveToCategory": "Move to category",
       "removeFavorite": "Remove from favorites",
       "removeTag": "Remove tag",

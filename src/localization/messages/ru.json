@@ -87,6 +87,8 @@
     "music": "Музыка"
   },
   "tabs": {
+    "scrollTabsLeft": "Прокрутить вкладки влево",
+    "scrollTabsRight": "Прокрутить вкладки вправо",
     "newTab": "Новая вкладка",
     "duplicateTab": "Дублировать вкладку",
     "closeOtherTabs": "Закрыть другие вкладки",
@@ -246,6 +248,9 @@
       "newTag": "New tag",
       "moveUp": "Move up",
       "moveDown": "Move down",
+      "moveUpWithName": "Переместить {name} вверх",
+      "moveDownWithName": "Переместить {name} вниз",
+      "dragToReorder": "Перетащите, чтобы изменить порядок",
       "moveToCategory": "Move to category",
       "removeFavorite": "Remove from favorites",
       "removeTag": "Remove tag",

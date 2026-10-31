@@ -82,17 +82,16 @@ describe('createFileBrowserVirtualRows', () => {
       entryDescription: entry => (entry.name === 'second' ? 'Description' : undefined),
     });
 
-    // FORK-MODIFICATION: 列表视图按类型分区后，三个条目同属「其它文件」组，
-    // 前面会多出一行区隔标题行（LIST_SECTION_HEADER_HEIGHT = 40），
-    // 所以条目行的 start 整体后移 40。
+    // FORK-MODIFICATION 2026-10-30（意见 9）：目录里只有一种类型时不加分类行。
+    // 三个条目同属「其它文件」组 ⇒ 只有一个分区 ⇒ 没有分类标题行，
+    // 条目行从 0 开始平铺（第二个条目带说明行，78px）。
     expect(rows.map(row => row.type)).toEqual([
-      'list-section',
       'list-entry',
       'list-entry',
       'list-entry',
     ]);
-    expect(rows.map(row => row.start)).toEqual([0, 40, 104, 182]);
-    expect(rows.map(row => row.size)).toEqual([40, 64, 78, 64]);
+    expect(rows.map(row => row.start)).toEqual([0, 64, 142]);
+    expect(rows.map(row => row.size)).toEqual([64, 78, 64]);
   });
 
   // FORK-MODIFICATION: 需求 3.6 四档重定 32/48/64/80，行高 = 缩略图 + 16（带说明行 +14）。
@@ -667,6 +666,28 @@ describe('list rows grouped by type', () => {
     expect(sectionRows(rows).map(row => row.count)).toEqual([1, 1, 1, 2]);
   });
 
+  // FORK-MODIFICATION 2026-10-30（意见 9）：目录里只有一种类型时**不要**加分类行。
+  // 判别力来源：同一套模型，条目集合从「只有文件」变成「文件 + 目录」，
+  // 分类行的有无必须随之翻转 —— 只锁住「有分类行」的实现删掉分类行不会红，
+  // 只锁住「没分类行」的实现加回去也不会红，两边都要被同一组断言覆盖。
+  it('drops the section row when the directory holds a single entry type', () => {
+    const filesOnly = listRows([
+      createEntry('notes.txt', { ext: 'txt' }),
+      createEntry('readme.md', { ext: 'md' }),
+    ]);
+
+    expect(sectionRows(filesOnly)).toEqual([]);
+    expect(filesOnly.map(row => row.type)).toEqual(['list-entry', 'list-entry']);
+    expect(filesOnly.map(row => row.start)).toEqual([0, 64]);
+
+    const mixed = listRows([
+      createEntry('notes.txt', { ext: 'txt' }),
+      createEntry('folder-a', { is_dir: true }),
+    ]);
+
+    expect(sectionRows(mixed).map(row => row.sectionKey)).toEqual(['dirs', 'others']);
+  });
+
   it('keeps the entries of each group in the order the user sorted them', () => {
     const rows = listRows(MIXED_ENTRIES);
 
@@ -744,8 +765,8 @@ describe('metadata row model', () => {
       thumbnailSize: 'medium',
     });
 
-    // 元数据层：十万条目 = 十万条目行 + 一行区隔标题行。
-    expect(model.rowCount).toBe(100_001);
+    // 元数据层：十万条目同属一个分区 ⇒ 意见 9 之后没有分类标题行，只有十万条目行。
+    expect(model.rowCount).toBe(100_000);
     expect(model.materializedRowCount).toBe(0);
 
     const windowRows = materializeVirtualRows(model, 0, 24);
@@ -772,11 +793,11 @@ describe('metadata row model', () => {
 
     const model = layout.rowModel.value;
 
-    expect(model.rowCount).toBe(10_001);
+    expect(model.rowCount).toBe(10_000);
     expect(model.materializedRowCount).toBe(0);
 
     // 读行数不物化任何行对象。
-    expect(layout.rows.value.length).toBe(10_001);
+    expect(layout.rows.value.length).toBe(10_000);
     expect(model.materializedRowCount).toBe(0);
 
     const visibleRows = layout.visibleRows.value;
