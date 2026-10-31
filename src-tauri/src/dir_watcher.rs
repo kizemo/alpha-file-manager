@@ -419,7 +419,11 @@ fn ensure_shared_watcher(app: &AppHandle) -> Result<Arc<SharedWatcher>, String> 
                 events_for_callback.push(event);
             }
         },
-        Config::default().with_poll_interval(Duration::from_secs(1)),
+        // FORK-MODIFICATION 2026-10-30（意见 10）：这里的 poll_interval 对
+    // RecommendedWatcher 是 no-op —— notify 8.x 只把它用于 PollWatcher，
+    // 而 Windows 上的 RecommendedWatcher 走 ReadDirectoryChangesW（事件驱动）。
+    // 保留这行只为兼容其它平台，Windows 上不产生任何轮询。
+    Config::default().with_poll_interval(Duration::from_secs(1)),
     )
     .map_err(|error| format!("Failed to create directory watcher: {error}"))?;
 

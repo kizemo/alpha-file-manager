@@ -71,7 +71,7 @@ const staggerBinding = getStaggerSlideUpBinding(getNextSettingsItemStaggerIndex(
   overflow: hidden;
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius);
-  background-color: hsl(var(--card));
+  background-color: hsl(var(--surface-settings-card));
   container-type: inline-size;
 }
 
@@ -136,7 +136,7 @@ const staggerBinding = getStaggerSlideUpBinding(getNextSettingsItemStaggerIndex(
   justify-content: space-between;
   padding: 0.875rem 1rem;
   border-top: 1px solid hsl(var(--border));
-  background-color: hsl(var(--background));
+  background-color: hsl(var(--surface-settings-nested));
   gap: 1rem 2rem;
 }
 </style>

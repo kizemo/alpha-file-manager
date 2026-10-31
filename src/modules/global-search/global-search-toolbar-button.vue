@@ -63,7 +63,7 @@ function handleClick() {
 }
 
 .global-search-toolbar-button__icon {
-  stroke: hsl(var(--foreground) / 50%);
+  stroke: hsl(var(--toolbar-action-foreground));
 }
 
 .global-search-toolbar-button__tooltip-row {

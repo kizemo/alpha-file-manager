@@ -87,6 +87,8 @@
     "music": "Musique"
   },
   "tabs": {
+    "scrollTabsLeft": "Faire défiler les onglets vers la gauche",
+    "scrollTabsRight": "Faire défiler les onglets vers la droite",
     "newTab": "Nouvel onglet",
     "duplicateTab": "Dupliquer l'onglet",
     "closeOtherTabs": "Fermer les autres onglets",
@@ -211,6 +213,9 @@
       "newTag": "New tag",
       "moveUp": "Move up",
       "moveDown": "Move down",
+      "moveUpWithName": "Déplacer {name} vers le haut",
+      "moveDownWithName": "Déplacer {name} vers le bas",
+      "dragToReorder": "Faites glisser pour réorganiser",
       "moveToCategory": "Move to category",
       "removeFavorite": "Remove from favorites",
       "removeTag": "Remove tag",

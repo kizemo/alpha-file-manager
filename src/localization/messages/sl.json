@@ -87,6 +87,8 @@
     "music": "Glasba"
   },
   "tabs": {
+    "scrollTabsLeft": "Pomakni zavihke levo",
+    "scrollTabsRight": "Pomakni zavihke desno",
     "newTab": "Nov zavihek",
     "duplicateTab": "Podvoji zavihek",
     "closeOtherTabs": "Zapri druge zavihke",
@@ -246,6 +248,9 @@
       "newTag": "New tag",
       "moveUp": "Move up",
       "moveDown": "Move down",
+      "moveUpWithName": "Premakni {name} navzgor",
+      "moveDownWithName": "Premakni {name} navzdol",
+      "dragToReorder": "Povlecite za preurejanje",
       "moveToCategory": "Move to category",
       "removeFavorite": "Remove from favorites",
       "removeTag": "Remove tag",

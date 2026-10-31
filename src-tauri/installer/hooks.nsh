@@ -311,9 +311,9 @@ FunctionEnd
 ; 系统默认处理 = 直接执行 setup.exe = NSIS 向导弹窗。**每次切回会话
 ; 界面就重新渲染一次，于是每次都弹一次。**
 ;
-; 安装包改不了宿主，但可以让「重复运行自己」变得无害：版本不比已装的
-; 更新时（同一个版本，或者更旧），根本没东西可装 —— 于是在任何窗口
-; 出现之前静默退出。
+; 安装包改不了宿主，但可以让「重复运行自己」变得无害：**同一个安装包文件**
+; 已经装出当前这个构建时（按 SHA256 判定，不是按版本号），根本没东西可装
+; —— 于是在任何窗口出现之前静默退出。
 ;
 ; 静默是刻意的：弹窗场景就是「用户没要求装」，任何模态框都只是把一种
 ; 弹窗换成另一种弹窗。人工要重装 / 降级时用 setup.exe /FORCE。
@@ -357,8 +357,23 @@ FunctionEnd
 ; AlphaEarlyInstallGuard — 「这次运行值不值得弹界面」的判定。
 ;
 ; 判据（详见 early-guard.ps1 顶部注释）：
-;   没装过 / 版本更新 / 判不出来 -> 放行
-;   同版本 / 版本更旧              -> 静默退出（一个窗口都不弹）
+;   没装过 / 版本更新 / 版本更旧 / 判不出来 -> 放行
+;   同版本 -> 比**构建身份**（安装包自身的 SHA256）：
+;            同一个安装包文件 -> 静默退出（宿主重复自动打开同一个附件）
+;            不同的安装包文件 -> 放行（版本号相同的新构建，走模板自带的
+;                                    「已安装相同版本，是否重新安装？」页）
+;
+; 为什么按构建身份而不是按版本号（2026-10-31 真机事故）：
+;   用户双击 release 里的 3.8.0 安装包，**一个窗口都没弹**。守卫按版本号
+;   判定「已安装 3.8.0 == 安装包 3.8.0 -> 没什么可装」，于是静默退出。
+;   但版本号**不是**构建身份：同一个版本号可以对应多个构建（重新打包、
+;   打补丁、换一次打包环境），版本号区分不出来。于是「同版本号的新构建」
+;   会被误判成「同一个包重复打开」，合法安装被挡在门外。
+;   构建身份 = 安装包文件的 SHA256。install 日志（write-install-log.ps1）
+;   每次成功安装都会记下 installerSha256，守卫据此判断「是不是同一个文件」。
+;
+;   降级（已装版本更新）同样放行：模板自带「已安装更新版本」的确认页，
+;   在守卫这一层拦掉它，用户连「要不要降级」都没机会回答。
 ;
 ; 判定逻辑放在独立的 PowerShell 脚本里（编译期内嵌、运行期原样解包到
 ; $PLUGINSDIR），原因有二：
@@ -379,13 +394,16 @@ Function AlphaEarlyInstallGuard
   DetailPrint "==> [EARLY GUARD] checking whether this installer has anything to do ..."
   DetailPrint "==> [EARLY GUARD] guard log: $TEMP\alpha-file-manager-early-guard.log"
 
-  nsExec::ExecToLog /TIMEOUT=20000 'powershell -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\early-guard.ps1" -InstallerVersion "$AlphaGuardInstallerVersion" -UninstKey "$AlphaGuardUninstKey" -CommandLineFile "$PLUGINSDIR\afm-commandline.txt" -VerdictFile "$PLUGINSDIR\alpha-early-guard.verdict"'
+  ; -InstallerPath "$EXEPATH"：安装包自身（setup.exe）的路径。守卫要用它算
+  ; SHA256，据此判断「当前这个安装包文件」与「上次装成功用的那个文件」是不是
+  ; 同一个 —— 版本号做不到这件事，同一个版本号可以对应多个构建。
+  nsExec::ExecToLog /TIMEOUT=20000 'powershell -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\early-guard.ps1" -InstallerVersion "$AlphaGuardInstallerVersion" -UninstKey "$AlphaGuardUninstKey" -InstallerPath "$EXEPATH" -CommandLineFile "$PLUGINSDIR\afm-commandline.txt" -VerdictFile "$PLUGINSDIR\alpha-early-guard.verdict"'
 
   ; --- 2. 只有「判定为不要弹界面」时脚本才会留下判定文件 ------------------
-  ; 文件不存在 = 放行。脚本自己跑挂 / 读不到注册表 / 版本比不出来，
-  ; 都会走到「放行」这一侧。
+  ; 文件不存在 = 放行。脚本自己跑挂 / 读不到注册表 / 版本比不出来 / 算不出
+  ; 哈希，都会走到「放行」这一侧。
   IfFileExists "$PLUGINSDIR\alpha-early-guard.verdict" 0 alpha_early_guard_done
-    DetailPrint "==> [EARLY GUARD] the installed version is not older than this package; nothing to do."
+    DetailPrint "==> [EARLY GUARD] this exact installer package already produced the installed build; nothing to do."
     DetailPrint "==> [EARLY GUARD] exiting without showing the wizard."
     DetailPrint "==> [EARLY GUARD] run the setup with /FORCE to show the wizard anyway."
     Quit

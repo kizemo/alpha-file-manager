@@ -14,20 +14,42 @@
 # the NSIS wizard pops up over whatever the user is doing.
 #
 # The installer cannot change the host application, but it can make a
-# redundant launch harmless: when the version carried by this package is not
-# newer than the version already installed on this machine, there is nothing
-# to do -- so exit silently, before any window exists.
+# redundant launch harmless: when THIS VERY PACKAGE has already produced the
+# installed build, there is nothing to do -- so exit silently, before any
+# window exists.
 #
-# THE RULES
-# ---------
-#   not installed at all         -> proceed  (normal first install)
-#   installer version NEWER      -> proceed  (normal upgrade)
-#   installer version SAME       -> quit     (a reinstall changes nothing)
-#   installer version OLDER      -> quit     (would be a downgrade; /FORCE
-#                                           allows a deliberate one)
-#   version cannot be determined  -> proceed  (fail open: a broken guard must
+# THE RULES (2026-10-31: build identity, not version number)
+# ---------------------------------------------------------
+#   not installed at all          -> proceed  (normal first install)
+#   installer version NEWER       -> proceed  (normal upgrade)
+#   installer version OLDER       -> proceed  (downgrade; the NSIS template
+#                                            has its own confirmation page)
+#   installer version SAME        -> compare BUILD IDENTITY:
+#        same package file        -> quit     (this exact file already
+#                                            installed this exact build)
+#        different package file   -> proceed  (same version number, new
+#                                            build; the template's "already
+#                                            installed" page asks the user)
+#   anything cannot be determined -> proceed  (fail open: a broken guard must
 #                                           never make the product
 #                                           uninstallable)
+#
+# WHY BUILD IDENTITY INSTEAD OF THE VERSION NUMBER
+# -------------------------------------------------
+# The version number alone is NOT the identity of an installer package: one
+# version number can ship more than one build (a rebuilt package, a patched
+# build, a second packaging run), and the version number cannot tell them
+# apart. Guarding on the version number therefore blocked a LEGAL install:
+# the user double clicked a fresh 3.8.0 package while 3.8.0 was already
+# installed, the guard decided "same version, nothing to do" and the
+# installer exited before a single window appeared.
+#
+# The build identity is the SHA256 of the installer package itself. The
+# install log (write-install-log.ps1) records that hash on every successful
+# installation, so the guard can tell "this exact file already installed
+# this exact build" (the redundant host auto-open, which must stay silent)
+# from "a different file that happens to carry the same version number"
+# (a deliberate reinstall, which must show the wizard).
 #
 # /FORCE
 # ------
@@ -68,6 +90,16 @@ param(
   # Test-only override for the log destination.
   [string]$LogFileOverride = '',
 
+  # Full path of the setup executable that is running right now. The guard
+  # hashes it to identify the BUILD this package carries (see the header
+  # comment: the version number is not a build identity).
+  [string]$InstallerPath = '',
+
+  # Path of the durable install log that records which installer package the
+  # last successful installation used. The installer does not pass it (the
+  # default below is the real location); tests override it.
+  [string]$InstallLogFile = '',
+
   # 1 when the caller was invoked with /FORCE.
   [int]$Force = 0,
 
@@ -91,6 +123,12 @@ $ScriptLogFile = if ($LogFileOverride) { $LogFileOverride } else {
 
 $ScriptDecisionFile = if ($LogFileOverride) { "$LogFileOverride.last" } else {
   Join-Path $env:TEMP 'alpha-file-manager-early-guard.last.txt'
+}
+
+# The durable install log written by write-install-log.ps1. It is the only
+# place that remembers WHICH installer package produced the installed build.
+$ScriptInstallLogFile = if ($InstallLogFile) { $InstallLogFile } else {
+  Join-Path $env:TEMP 'alpha-file-manager-install.log'
 }
 
 function Write-Log {
@@ -243,12 +281,100 @@ function Test-ForceRequested {
 
   if (-not $text) { return $false }
 
-  # (?:^|[\s"'])/FORCE(?:[\s"']|$) - the token is delimited by whitespace or
-  # a quote on both sides, so "setup.exe /FORCE", "setup.exe /FORCE /S" and
-  # "setup.exe /force" all match while "/XFORCE" does not.
-  if ($text -match '(?i)(?:^|[\s"''])/FORCE(?:[\s"'']|$)') { return $true }
+  # (?i)(?:^|[\s"'])[-/]{0,2}FORCE(?:[\s"']|$) - the token is delimited by
+  # whitespace or a quote on both sides, and may carry up to two leading
+  # dashes/slashes. So "setup.exe /FORCE" (the NSIS spelling), "setup.exe
+  # /force", "setup.exe -force" and "setup.exe --force" all match, while
+  # "/XFORCE" and "C:\FORCE\setup.exe" do not.
+  if ($text -match '(?i)(?:^|[\s"''])[-/]{0,2}FORCE(?:[\s"'']|$)') { return $true }
 
   return $false
+}
+
+# SHA256 of a file, lower case, or '' when it cannot be computed.
+#
+# Used to identify the BUILD carried by the installer package. Any failure
+# (missing file, unreadable file) yields '' -- and the caller treats '' as
+# "unknown", which fails OPEN.
+#
+# WHY .NET INSTEAD OF Get-FileHash
+# --------------------------------
+# Get-FileHash lives in the Microsoft.PowerShell.Utility module, and module
+# resolution depends on $env:PSModulePath. Measured on the test machine
+# (2026-10-31): a Windows PowerShell 5.1 child process inherits a PSModulePath
+# in which the cmdlet is NOT resolvable -- "The term 'Get-FileHash' is not
+# recognized" -- while the very same script works when started from another
+# shell. The installer spawns PowerShell itself, so that case is the normal
+# case, not the exotic one. System.Security.Cryptography.SHA256 is part of
+# .NET Framework itself: always available, no module, no new dependency.
+function Get-FileSha256 {
+  param([string]$Path)
+
+  if (-not $Path) { return '' }
+
+  $sha = $null
+  $stream = $null
+
+  try {
+    if (-not (Test-Path -LiteralPath $Path)) { return '' }
+
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    # FileShare.ReadWrite: the installer hashes its own executable.
+    $stream = [System.IO.File]::Open($Path, 'Open', 'Read', 'ReadWrite')
+    $bytes = $sha.ComputeHash($stream)
+
+    $text = [System.BitConverter]::ToString($bytes).Replace('-', '').ToLowerInvariant()
+    if ($text) { return $text }
+  }
+  catch {
+  }
+  finally {
+    if ($null -ne $stream) { $stream.Close() }
+    if ($null -ne $sha) { $sha.Dispose() }
+  }
+
+  return ''
+}
+
+# SHA256 of the installer package used by the most recent SUCCESSFUL
+# installation, or '' when it cannot be determined.
+#
+# The install log is appended, one line per hook phase. Only the POSTINSTALL
+# lines describe a completed installation, and the LAST such line describes
+# the build that is installed right now. Older lines are skipped, so a later
+# upgrade (or a failed run) never shadows the record we care about.
+function Get-LastInstalledInstallerSha256 {
+  param([string]$LogPath)
+
+  if (-not $LogPath) { return '' }
+  if (-not (Test-Path -LiteralPath $LogPath)) { return '' }
+
+  $text = ''
+
+  try {
+    $fs = [System.IO.File]::Open($LogPath, 'Open', 'Read', 'ReadWrite')
+    $sr = New-Object System.IO.StreamReader($fs)
+    $text = $sr.ReadToEnd()
+    $sr.Close()
+    $fs.Close()
+  }
+  catch {
+    return ''
+  }
+
+  if (-not $text) { return '' }
+
+  $result = ''
+
+  foreach ($line in ($text -split "`r?`n")) {
+    if ($line -notmatch 'phase=POSTINSTALL(?:\s|$)') { continue }
+    if ($line -notmatch 'installerSha256=([0-9a-fA-F]{64})') { continue }
+
+    $candidate = $Matches[1].ToLowerInvariant()
+    if ($candidate -ne '') { $result = $candidate }
+  }
+
+  return $result
 }
 
 function ConvertTo-Semver {
@@ -345,6 +471,9 @@ Write-Log ("[early-guard] installer version='{0}' installed version='{1}' force=
 $decision = 'proceed'
 $reason = 'unknown'
 
+$installerSha = ''
+$lastInstalledSha = ''
+
 if ($forceRequested -ne 0) {
   $reason = 'forced'
 }
@@ -359,15 +488,39 @@ else {
     $reason = 'version-unparsable'
   }
   elseif ($cmp -gt 0) {
+    # Upgrade -> let the wizard handle it.
     $reason = 'upgrade'
   }
-  elseif ($cmp -eq 0) {
-    $decision = 'quit'
-    $reason = 'same-version'
+  elseif ($cmp -lt 0) {
+    # Downgrade -> let the wizard handle it. The NSIS template has its own
+    # "a newer version is installed" page; blocking it here removed the
+    # user's only chance to decide.
+    $reason = 'downgrade'
   }
   else {
-    $decision = 'quit'
-    $reason = 'older-version'
+    # Same version number. The version number is NOT a build identity, so
+    # the build identity decides: is THIS package file the one that produced
+    # the installed build?
+    $installerSha = Get-FileSha256 -Path $InstallerPath
+    $lastInstalledSha = Get-LastInstalledInstallerSha256 -LogPath $ScriptInstallLogFile
+
+    Write-Log ("[early-guard] installer sha256='{0}' last-install-sha256='{1}'" -f $installerSha, $lastInstalledSha)
+
+    if ($installerSha -eq '' -or $lastInstalledSha -eq '') {
+      # Fail open: without both hashes there is no PROOF that this is the
+      # very same package, and a legal install must never be blocked.
+      $reason = 'same-version-unknown-build'
+    }
+    elseif ($installerSha -eq $lastInstalledSha) {
+      # Byte for byte the same package that produced the installed build.
+      # This is the redundant host auto-open the guard exists for.
+      $decision = 'quit'
+      $reason = 'same-build'
+    }
+    else {
+      # Same version number, different build -> a real reinstall.
+      $reason = 'same-version-new-build'
+    }
   }
 }
 
@@ -376,7 +529,7 @@ Write-Log ("[early-guard] OUTCOME={0} reason={1}" -f $decision, $reason)
 # --- 3. publish the verdict ----------------------------------------------
 try {
   Set-Content -LiteralPath $ScriptDecisionFile -Encoding ASCII -Force -ErrorAction Stop `
-    -Value ("{0} installer={1} installed={2} decision={3} reason={4}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff'), $InstallerVersion, $installedVersion, $decision, $reason)
+    -Value ("{0} installer={1} installed={2} decision={3} reason={4} installerSha256={5} lastInstallSha256={6}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff'), $InstallerVersion, $installedVersion, $decision, $reason, $installerSha, $lastInstalledSha)
 }
 catch {
   # A missing decision file only costs us diagnostics, not correctness.

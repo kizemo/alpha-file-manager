@@ -87,6 +87,8 @@
     "music": "ミュージック"
   },
   "tabs": {
+    "scrollTabsLeft": "タブを左にスクロール",
+    "scrollTabsRight": "タブを右にスクロール",
     "newTab": "新しいタブ",
     "duplicateTab": "タブを複製",
     "closeOtherTabs": "他のタブを閉じる",
@@ -211,6 +213,9 @@
       "newTag": "New tag",
       "moveUp": "Move up",
       "moveDown": "Move down",
+      "moveUpWithName": "{name} を上へ移動",
+      "moveDownWithName": "{name} を下へ移動",
+      "dragToReorder": "ドラッグして並べ替え",
       "moveToCategory": "Move to category",
       "removeFavorite": "Remove from favorites",
       "removeTag": "Remove tag",

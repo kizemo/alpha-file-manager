@@ -87,6 +87,8 @@
     "music": "音乐"
   },
   "tabs": {
+    "scrollTabsLeft": "向左滚动标签页",
+    "scrollTabsRight": "向右滚动标签页",
     "newTab": "新标签页",
     "duplicateTab": "复制标签页",
     "closeOtherTabs": "关闭其他标签",
@@ -211,6 +213,9 @@
       "newTag": "新建标记",
       "moveUp": "上移",
       "moveDown": "下移",
+      "moveUpWithName": "上移 {name}",
+      "moveDownWithName": "下移 {name}",
+      "dragToReorder": "拖拽以排序",
       "moveToCategory": "移到分类",
       "removeFavorite": "取消收藏",
       "removeTag": "移除标记",

@@ -65,9 +65,17 @@ export function isAfmThemeId(theme: string): theme is AfmThemeId {
 /**
  * 衬线字族：暖纸两套用它做小标题，让「编辑式」气质落到字上而不只是落到颜色上。
  * 放在 token 里而不是写死在样式表里，是为了让「换字体」也走同一条变量通道。
+ *
+ * FORK-MODIFICATION 2026-10-31（暖纸加粗回退非衬线）：
+ * 栈里必须出现**本机真正装了的 CJK 衬线家族名**。Windows 上装的是
+ * "Noto Serif SC"（可变字重 200-900，自带粗体轴），而 "Noto Serif CJK SC"
+ * 这个家族名在本机**不存在**；两者取不到时浏览器会退回通用衬线，
+ * 再取不到中文粗体字形就退到无衬线兜底（微软雅黑）——表现就是
+ * 「普通字是衬线、加粗变雅黑」。把 "Noto Serif SC" 写进栈里，粗细两档
+ * 都由同一家族出，不会再跨到无衬线。
  */
 const SERIF_FONT_STACK
-  = '"Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC", serif';
+  = '"Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Songti SC", "Source Han Serif SC", "Noto Serif SC", "Noto Serif CJK SC", serif';
 
 /** 无衬线字族：跃动活力版用它，保证小字号下的清晰度。 */
 const SANS_FONT_STACK
@@ -81,8 +89,8 @@ const SANS_FONT_STACK
 // ---------------------------------------------------------------------------
 const AFM_WARM_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--background': '38.2 40.7% 94.7%',
-  '--background-2': '40 39.6% 89.6%',
-  '--background-3': '39.2 41.9% 87.8%',
+  '--background-2': '40 39.6% 91.6%',
+  '--background-3': '39.2 41.9% 89.8%',
   '--window-toolbar': '39.2 41.9% 87.8%',
   '--icon': '32.7 11.5% 37.6%',
   '--foreground': '30 16.7% 14.1%',
@@ -122,13 +130,16 @@ const AFM_WARM_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--nav-rail-muted-foreground': '41.1 15.8% 56.7%',
   // 层次面 / 状态层 / 描边 / 标签 / 滚动条
   '--surface-sidebar': '30 16.7% 14.1%',
-  '--surface-panel': '45 57.1% 97.3%',
+  '--surface-panel': '41 42% 94.4%',
+  // FORK-MODIFICATION 2026-10-30（意见 6）：设置页区块用非常浅的米色，不用纯白。
+  '--surface-settings-card': '42 46% 96.2%',
+  '--surface-settings-nested': '39 34% 91.5%',
   '--surface-stripe': '39.1 43.4% 89.6%',
   '--state-hover': '40 39.6% 89.6%',
   '--state-selected': '41.1 38.8% 90.4%',
   '--state-active': '39.3 27.6% 79.4%',
   '--border-subtle': '37.8 27.8% 81.0%',
-  '--tab-surface-active': '45 57.1% 97.3%',
+  '--tab-surface-active': '42 46% 96.2%',
   '--tab-indicator': '112.7 18.2% 35.5%',
   '--scrollbar-track': '40 39.6% 89.6%',
   '--scrollbar-thumb': '39.3 27.6% 79.4%',
@@ -143,12 +154,15 @@ const AFM_WARM_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--terra-soft': '19.3 41.2% 86.7%',
 
   // 目录 / 文件区隔底色（任务 4）
-  '--row-dir-bg': '39.1 43.4% 89.6%',
-  '--row-file-bg': '42.9 53.8% 97.5%',
+  '--row-dir-bg': '39.5 38% 92.6%',
+  '--toolbar-action-foreground': '12 42% 46%',
+  '--switch-checked-background': '30 24% 34%',
+  '--row-file-bg': '39.5 38% 92.6%',
 
   // 标签栏（任务 2b / 2c / 任务 3）
-  '--tab-idle-bg': '40 34.3% 86.3%',
-  '--tab-idle-border': '39.3 27.6% 79.4%',
+  '--tab-idle-bg': '38 22% 82%',
+  '--tab-idle-border': '37 20% 74%',
+  '--tab-idle-foreground': '32.7 11.5% 34%',
 
   // 列表头（任务 1c / 2e）
   '--list-header-bg': '39.2 41.9% 84%',
@@ -166,14 +180,6 @@ const AFM_WARM_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--family-filter': '349 55% 48%',
 
   // 地址栏导航按钮分色（任务 1b）
-  '--nav-back': '205 15% 38%',
-  '--nav-forward': '203 16% 44%',
-  '--nav-up': '349 55% 48%',
-  '--nav-location': '200 17% 37%',
-  '--nav-refresh': '173 45% 29%',
-  '--nav-view': '39 50% 34%',
-  '--nav-thumbnail': '349 55% 52%',
-  '--nav-more': '31 9% 40.5%',
 };
 
 // ---------------------------------------------------------------------------
@@ -184,8 +190,8 @@ const AFM_WARM_LIGHT_VARIABLES: Record<`--${string}`, string> = {
 // ---------------------------------------------------------------------------
 const AFM_WARM_DARK_VARIABLES: Record<`--${string}`, string> = {
   '--background': '30 17.4% 9%',
-  '--background-2': '30 17.2% 11.4%',
-  '--background-3': '27 17% 10.4%',
+  '--background-2': '30 17.2% 13.4%',
+  '--background-3': '27 17% 12.4%',
   '--window-toolbar': '27 17% 10.4%',
   '--icon': '33 14.1% 59.8%',
   '--foreground': '38 42.9% 89%',
@@ -222,13 +228,16 @@ const AFM_WARM_DARK_VARIABLES: Record<`--${string}`, string> = {
   '--nav-rail-foreground': '33 14.1% 59.8%',
   '--nav-rail-muted-foreground': '33 10% 52%',
   '--surface-sidebar': '27 17% 7.6%',
-  '--surface-panel': '34 21.9% 12.5%',
+  '--surface-panel': '34 21.9% 14%',
+  // FORK-MODIFICATION 2026-10-30（意见 6）：设置页区块用非常浅的米色，不用纯白。
+  '--surface-settings-card': '34 21.9% 15%',
+  '--surface-settings-nested': '30 17% 10.5%',
   '--surface-stripe': '30 17% 11%',
   '--state-hover': '30 15.9% 14%',
   '--state-selected': '30 15.9% 17.3%',
   '--state-active': '30 15.9% 20%',
   '--border-subtle': '30 16% 16%',
-  '--tab-surface-active': '34 21.9% 12.5%',
+  '--tab-surface-active': '38 30% 20%',
   '--tab-indicator': '110 25% 62%',
   '--scrollbar-track': '27 17% 10%',
   '--scrollbar-thumb': '30 14% 42%',
@@ -242,12 +251,15 @@ const AFM_WARM_DARK_VARIABLES: Record<`--${string}`, string> = {
   '--terra-soft': '18 35% 24%',
 
   // 目录 / 文件区隔底色（任务 4）
-  '--row-dir-bg': '30 15% 13%',
-  '--row-file-bg': '34 20% 13%',
+  '--row-dir-bg': '34 22% 14%',
+  '--toolbar-action-foreground': '12 40% 62%',
+  '--switch-checked-background': '32 28% 62%',
+  '--row-file-bg': '34 22% 14%',
 
   // 标签栏（任务 2b / 2c / 任务 3）
-  '--tab-idle-bg': '30 15% 15%',
-  '--tab-idle-border': '30 14% 22%',
+  '--tab-idle-bg': '30 13% 12%',
+  '--tab-idle-border': '30 14% 20%',
+  '--tab-idle-foreground': '33 14.1% 59.8%',
 
   // 列表头（任务 1c / 2e）
   '--list-header-bg': '28 16% 14%',
@@ -265,14 +277,6 @@ const AFM_WARM_DARK_VARIABLES: Record<`--${string}`, string> = {
   '--family-filter': '349 55% 55.5%',
 
   // 地址栏导航按钮分色（任务 1b）
-  '--nav-back': '205 15% 51.5%',
-  '--nav-forward': '203 16% 50%',
-  '--nav-up': '349 55% 55.5%',
-  '--nav-location': '200 17% 50%',
-  '--nav-refresh': '173 45% 50%',
-  '--nav-view': '39 50% 50%',
-  '--nav-thumbnail': '349 55% 51.5%',
-  '--nav-more': '31 9% 50%',
 };
 
 // ---------------------------------------------------------------------------
@@ -285,8 +289,8 @@ const AFM_WARM_DARK_VARIABLES: Record<`--${string}`, string> = {
 // ---------------------------------------------------------------------------
 const AFM_VIVID_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--background': '220 21.4% 94.5%',
-  '--background-2': '220 27.3% 91.4%',
-  '--background-3': '218 28.6% 94.5%',
+  '--background-2': '220 27.3% 93.2%',
+  '--background-3': '218 28.6% 96.3%',
   '--window-toolbar': '218 28.6% 94.5%',
   '--icon': '220 10.3% 39.8%',
   '--foreground': '225 13.3% 11.8%',
@@ -323,13 +327,16 @@ const AFM_VIVID_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--nav-rail-foreground': '210 20% 92%',
   '--nav-rail-muted-foreground': '210 14% 70%',
   '--surface-sidebar': '201 21.5% 25.5%',
-  '--surface-panel': '0 0% 100%',
+  '--surface-panel': '250 30% 97.5%',
+  // FORK-MODIFICATION 2026-10-30（意见 6）：设置页区块用非常浅的米色，不用纯白。
+  '--surface-settings-card': '250 30% 97%',
+  '--surface-settings-nested': '250 25% 93%',
   '--surface-stripe': '220 27.3% 91.4%',
   '--state-hover': '220 27.3% 91.4%',
   '--state-selected': '251 100% 95%',
   '--state-active': '218 28.6% 87%',
   '--border-subtle': '220 27.3% 88%',
-  '--tab-surface-active': '0 0% 100%',
+  '--tab-surface-active': '250 40% 97.5%',
   '--tab-indicator': '251 100% 63.9%',
   '--scrollbar-track': '218 28.6% 88%',
   '--scrollbar-thumb': '220 20% 46%',
@@ -343,12 +350,15 @@ const AFM_VIVID_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--terra-soft': '349 60% 94%',
 
   // 目录 / 文件区隔底色（任务 4）
-  '--row-dir-bg': '220 27.3% 91.4%',
-  '--row-file-bg': '0 0% 100%',
+  '--row-dir-bg': '220 22% 94%',
+  '--toolbar-action-foreground': '12 42% 46%',
+  '--switch-checked-background': '28 26% 34%',
+  '--row-file-bg': '220 22% 94%',
 
   // 标签栏（任务 2b / 2c / 任务 3）
-  '--tab-idle-bg': '220 27.3% 91.4%',
-  '--tab-idle-border': '220 27.3% 88%',
+  '--tab-idle-bg': '220 20% 86%',
+  '--tab-idle-border': '220 20% 80%',
+  '--tab-idle-foreground': '220 10.3% 37.5%',
 
   // 列表头（任务 1c / 2e）
   '--list-header-bg': '220 26% 89%',
@@ -366,14 +376,6 @@ const AFM_VIVID_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--family-filter': '349 55% 49%',
 
   // 地址栏导航按钮分色（任务 1b）
-  '--nav-back': '205 15% 39%',
-  '--nav-forward': '203 16% 45%',
-  '--nav-up': '349 55% 49%',
-  '--nav-location': '200 17% 38%',
-  '--nav-refresh': '173 45% 29.5%',
-  '--nav-view': '39 50% 35%',
-  '--nav-thumbnail': '349 55% 53%',
-  '--nav-more': '31 9% 41.5%',
 };
 
 // ---------------------------------------------------------------------------
@@ -386,8 +388,8 @@ const AFM_VIVID_LIGHT_VARIABLES: Record<`--${string}`, string> = {
 // ---------------------------------------------------------------------------
 const AFM_COOL_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--background': '210 30% 96%',
-  '--background-2': '210 28% 92%',
-  '--background-3': '210 30% 94%',
+  '--background-2': '210 28% 93.5%',
+  '--background-3': '210 30% 95.5%',
   '--window-toolbar': '210 30% 94%',
   '--icon': '205 16% 38%',
   '--foreground': '205 24% 14%',
@@ -424,13 +426,16 @@ const AFM_COOL_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--nav-rail-foreground': '200 30% 92%',
   '--nav-rail-muted-foreground': '200 18% 70%',
   '--surface-sidebar': '205 24% 24%',
-  '--surface-panel': '210 40% 99%',
+  '--surface-panel': '200 28% 95.5%',
+  // FORK-MODIFICATION 2026-10-30（意见 6）：设置页区块用非常浅的米色，不用纯白。
+  '--surface-settings-card': '200 28% 97%',
+  '--surface-settings-nested': '200 22% 93%',
   '--surface-stripe': '210 28% 93%',
   '--state-hover': '210 28% 93%',
   '--state-selected': '200 30% 90%',
   '--state-active': '210 26% 87%',
   '--border-subtle': '210 22% 88%',
-  '--tab-surface-active': '210 40% 99%',
+  '--tab-surface-active': '200 30% 96.5%',
   '--tab-indicator': '200 16.9% 45.3%',
   '--scrollbar-track': '210 28% 92%',
   '--scrollbar-thumb': '205 18% 48%',
@@ -444,12 +449,15 @@ const AFM_COOL_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--terra-soft': '4 55% 94%',
 
   // 目录 / 文件区隔底色（任务 4）
-  '--row-dir-bg': '210 28% 94%',
-  '--row-file-bg': '210 40% 99%',
+  '--row-dir-bg': '205 24% 95.5%',
+  '--toolbar-action-foreground': '12 40% 46%',
+  '--switch-checked-background': '210 18% 34%',
+  '--row-file-bg': '205 24% 95.5%',
 
   // 标签栏（任务 2b / 2c / 任务 3）
-  '--tab-idle-bg': '210 26% 90%',
-  '--tab-idle-border': '210 24% 84%',
+  '--tab-idle-bg': '205 20% 85%',
+  '--tab-idle-border': '205 18% 78%',
+  '--tab-idle-foreground': '205 14% 36%',
 
   // 列表头（任务 1c / 2e）
   '--list-header-bg': '210 28% 90%',
@@ -467,14 +475,6 @@ const AFM_COOL_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--family-filter': '349 55% 50%',
 
   // 地址栏导航按钮分色（任务 1b）
-  '--nav-back': '205 15% 40%',
-  '--nav-forward': '203 16% 46.5%',
-  '--nav-up': '349 55% 50%',
-  '--nav-location': '200 17% 39%',
-  '--nav-refresh': '173 45% 30.5%',
-  '--nav-view': '39 50% 35.5%',
-  '--nav-thumbnail': '349 55% 54.5%',
-  '--nav-more': '31 9% 42.5%',
 };
 
 export const AFM_THEMES: AfmThemeDefinition[] = [

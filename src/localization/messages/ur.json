@@ -87,6 +87,8 @@
     "music": "موسیقی"
   },
   "tabs": {
+    "scrollTabsLeft": "ٹیبز کو بائیں طرف اسکرول کریں",
+    "scrollTabsRight": "ٹیبز کو دائیں طرف اسکرول کریں",
     "newTab": "نیا ٹیب",
     "duplicateTab": "ٹیب نقل کریں",
     "closeOtherTabs": "دوسرے ٹیب بند کریں",
@@ -246,6 +248,9 @@
       "newTag": "New tag",
       "moveUp": "Move up",
       "moveDown": "Move down",
+      "moveUpWithName": "{name} کو اوپر منتقل کریں",
+      "moveDownWithName": "{name} کو نیچے منتقل کریں",
+      "dragToReorder": "ترتیب بدلنے کے لیے گھیچیں",
       "moveToCategory": "Move to category",
       "removeFavorite": "Remove from favorites",
       "removeTag": "Remove tag",

@@ -87,6 +87,8 @@
     "music": "Nhạc"
   },
   "tabs": {
+    "scrollTabsLeft": "Cuộn thẻ sang trái",
+    "scrollTabsRight": "Cuộn thẻ sang phải",
     "newTab": "Thẻ mới",
     "duplicateTab": "Nhân bản thẻ",
     "closeOtherTabs": "Đóng các thẻ khác",
@@ -211,6 +213,9 @@
       "newTag": "New tag",
       "moveUp": "Move up",
       "moveDown": "Move down",
+      "moveUpWithName": "Di chuyển {name} lên trên",
+      "moveDownWithName": "Di chuyển {name} xuống dưới",
+      "dragToReorder": "Kéo để sắp xếp lại",
       "moveToCategory": "Move to category",
       "removeFavorite": "Remove from favorites",
       "removeTag": "Remove tag",

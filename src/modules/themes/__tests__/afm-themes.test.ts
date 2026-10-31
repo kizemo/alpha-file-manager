@@ -92,6 +92,7 @@ const AFM_EXTRA_COLOR_TOKENS = [
   '--scrollbar-track',
   '--scrollbar-thumb',
   '--scrollbar-thumb-hover',
+  '--toolbar-action-foreground',
 ] as const;
 
 const REQUIRED_COLOR_TOKENS = [
@@ -384,6 +385,32 @@ describe('AFM brand redesign themes', () => {
         expect(value, `${theme.id} 的 ${token} 不是裸 HSL 三元组：${value}`)
           .toMatch(BARE_HSL_PATTERN);
       }
+    }
+  });
+
+  it('unifies the top-right and address-bar action icons on one token', () => {
+    const sources = [
+      'src/modules/window-toolbar/window-actions.vue',
+      'src/modules/global-search/global-search-toolbar-button.vue',
+      'src/modules/navigator/components/file-browser/address-bar.vue',
+      'src/modules/navigator/components/file-browser/file-browser-toolbar-nav-buttons.vue',
+    ];
+
+    for (const source of sources) {
+      const content = readRepoFile(...source.split('/'));
+
+      expect(content, `${source} 没有使用统一的按钮配色 token`).toContain('--toolbar-action-foreground');
+    }
+  });
+
+  it('keeps the unified button color legible as an icon', () => {
+    for (const theme of AFM_THEMES) {
+      const foreground = theme.variables['--toolbar-action-foreground'];
+      const toolbarRatio = contrastRatio(foreground, theme.variables['--window-toolbar']);
+      const backgroundRatio = contrastRatio(foreground, theme.variables['--background']);
+
+      expect(toolbarRatio, `${theme.id} 的工具栏按钮对比度不足 3:1`).toBeGreaterThanOrEqual(3);
+      expect(backgroundRatio, `${theme.id} 的地址栏按钮对比度不足 3:1`).toBeGreaterThanOrEqual(3);
     }
   });
 

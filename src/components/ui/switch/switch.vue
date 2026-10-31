@@ -55,8 +55,8 @@ const forwarded = useForwardPropsEmits(props, emits);
 }
 
 .sigma-ui-switch[data-state="checked"] {
-  background-color: hsl(var(--primary));
-  box-shadow: 0 4px 16px hsl(var(--primary) / 30%);
+  background-color: hsl(var(--switch-checked-background));
+  box-shadow: 0 4px 16px hsl(var(--switch-checked-background) / 30%);
 }
 
 .sigma-ui-switch[data-state="unchecked"] {

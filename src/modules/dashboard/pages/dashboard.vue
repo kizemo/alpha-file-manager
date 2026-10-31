@@ -34,6 +34,8 @@ import DashboardTagSectionHeader from '@/modules/dashboard/components/dashboard-
 // FORK-MODIFICATION: 需求反馈 4（2026-10-15）——收藏/标记的新建与编辑入口。
 import DashboardCategorySectionHeader from '@/modules/dashboard/components/dashboard-category-section-header.vue';
 import DashboardEntryActionsMenu from '@/modules/dashboard/components/dashboard-entry-actions-menu.vue';
+// FORK-MODIFICATION 2026-10-31：收藏夹排序（拖拽 + 上移 / 下移）。
+import DashboardOrderControls from '@/modules/dashboard/components/dashboard-order-controls.vue';
 import DashboardNameDialog from '@/modules/dashboard/components/dashboard-name-dialog.vue';
 import DashboardNewFavoriteDialog from '@/modules/dashboard/components/dashboard-new-favorite-dialog.vue';
 import EntryCard from '@/modules/dashboard/components/entry-card.vue';
@@ -48,6 +50,10 @@ import {
   type DashboardSizedItem,
 } from '@/modules/dashboard/composables/use-dashboard-item-sizes';
 import { formatDashboardRelativeTime } from '@/utils/dashboard-relative-time';
+import { getPathDisplayName } from '@/utils/normalize-path';
+// FORK-MODIFICATION 2026-10-31：拖放落点判定（指针落在目标框的哪一半）。
+import { getDropPlacement, getElementRect } from '@/modules/dashboard/utils/drop-placement';
+import type { DropPlacement } from '@/stores/storage/utils/favorites-order';
 import FileBrowserConflictDialog from '@/modules/navigator/components/file-browser/file-browser-conflict-dialog.vue';
 import FileBrowserTopLevelConflictDialog from '@/modules/navigator/components/file-browser/file-browser-top-level-conflict-dialog.vue';
 import type {
@@ -454,6 +460,224 @@ async function handleMoveFavoriteToCategory(path: string, categoryId: string | n
   await userStatsStore.moveFavoriteToCategory(path, categoryId);
 }
 
+// FORK-MODIFICATION: 2026-10-31 —— 收藏夹排序（拖拽 + 上移 / 下移）。
+//
+// 两条交互路径落到**同一份数据**上：
+//   - 上移 / 下移按钮 → store.moveFavoriteCategory / moveFavoriteWithinCategory
+//   - 拖拽          → store.reorderFavoriteCategories / reorderFavorites
+// 两条路径最后都走 store 的 saveStats()，所以都真的落盘到 user-stats.json。
+//
+// 拖拽状态：同时只会有一种拖拽在跑 —— 拖分类时 draggedCategoryId 有值，
+// 拖收藏条目时 draggedFavoritePath 有值。两者互斥，所以同一个 dragover
+// 事件里不会同时命中两种落点。
+const draggedCategoryId = ref<string | null>(null);
+const draggedFavoritePath = ref<string | null>(null);
+const categoryDropTargetKey = ref<string | null>(null);
+const categoryDropPlacement = ref<DropPlacement | null>(null);
+const favoriteDropTargetPath = ref<string | null>(null);
+const favoriteDropPlacement = ref<DropPlacement | null>(null);
+
+function clearCategoryDropTarget() {
+  categoryDropTargetKey.value = null;
+  categoryDropPlacement.value = null;
+}
+
+function clearFavoriteDropTarget() {
+  favoriteDropTargetPath.value = null;
+  favoriteDropPlacement.value = null;
+}
+
+// FORK-MODIFICATION: 2026-10-31 —— 拖拽离开落点时收起指示线。
+// `relatedTarget` 是**即将进入**的元素：指针只是挪到落点内部的子元素上时，
+// 不算离开，指示线要留着；真正离开整个落点才清。
+function handleCategoryDragLeave(event: DragEvent, section: FavoriteSection) {
+  if (categoryDropTargetKey.value !== section.key) {
+    return;
+  }
+
+  const current = getEventElement(event);
+  const related = event.relatedTarget;
+
+  if (current && related instanceof Node && current.contains(related)) {
+    return;
+  }
+
+  clearCategoryDropTarget();
+}
+
+function handleFavoriteDragLeave(event: DragEvent, item: FavoriteItem) {
+  if (favoriteDropTargetPath.value !== item.path) {
+    return;
+  }
+
+  const current = getEventElement(event);
+  const related = event.relatedTarget;
+
+  if (current && related instanceof Node && current.contains(related)) {
+    return;
+  }
+
+  clearFavoriteDropTarget();
+}
+
+function getEventElement(event: Event): Element | null {
+  return event.currentTarget instanceof Element ? event.currentTarget : null;
+}
+
+// 拖放落点只看指针坐标。抽出来是为了让「取指针位置」在四处调用点写法一致 ——
+// 对象字面量一个属性一行，是本仓 eslint 的硬规矩。
+function getPointerPosition(event: DragEvent) {
+  return {
+    x: event.clientX,
+    y: event.clientY,
+  };
+}
+
+/**
+ * 分类能不能上移 / 下移。只看**真实分类**列表 ——
+ * 「未分类」是虚拟分组，永远排在最后，没有可换位的对象。
+ */
+function canMoveFavoriteCategory(categoryId: string, direction: -1 | 1): boolean {
+  const index = favoriteCategories.value.findIndex(category => category.id === categoryId);
+
+  if (index === -1) {
+    return false;
+  }
+
+  return direction === -1 ? index > 0 : index < favoriteCategories.value.length - 1;
+}
+
+async function handleMoveFavoriteCategoryUp(category: FavoriteCategory) {
+  await userStatsStore.moveFavoriteCategory(category.id, -1);
+}
+
+async function handleMoveFavoriteCategoryDown(category: FavoriteCategory) {
+  await userStatsStore.moveFavoriteCategory(category.id, 1);
+}
+
+function handleCategoryDragStart(category: FavoriteCategory) {
+  draggedCategoryId.value = category.id;
+  draggedFavoritePath.value = null;
+  clearFavoriteDropTarget();
+}
+
+function handleCategoryDragEnd() {
+  draggedCategoryId.value = null;
+  clearCategoryDropTarget();
+}
+
+function handleCategoryDragOver(event: DragEvent, section: FavoriteSection) {
+  // 「未分类」是虚拟分区，不接受落点。
+  if (!draggedCategoryId.value || !section.category) {
+    return;
+  }
+
+  event.preventDefault();
+
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+
+  const rect = getElementRect(getEventElement(event));
+
+  if (!rect) {
+    return;
+  }
+
+  // 竖排列表：落在上半区 → 插到目标分类前面，下半区 → 插到后面。
+  categoryDropTargetKey.value = section.key;
+  categoryDropPlacement.value = getDropPlacement(
+    getPointerPosition(event),
+    rect,
+    'vertical',
+  );
+}
+
+async function handleCategoryDrop(event: DragEvent, section: FavoriteSection) {
+  const draggedId = draggedCategoryId.value;
+  const rect = getElementRect(getEventElement(event));
+  const placement = rect
+    ? getDropPlacement(getPointerPosition(event), rect, 'vertical')
+    : 'before';
+
+  handleCategoryDragEnd();
+
+  if (!draggedId || !section.category) {
+    return;
+  }
+
+  event.preventDefault();
+
+  await userStatsStore.reorderFavoriteCategories(draggedId, section.category.id, placement);
+}
+
+function handleFavoriteDragStart(item: FavoriteItem) {
+  draggedFavoritePath.value = item.path;
+  draggedCategoryId.value = null;
+  clearCategoryDropTarget();
+}
+
+function handleFavoriteDragEnd() {
+  draggedFavoritePath.value = null;
+  clearFavoriteDropTarget();
+}
+
+function handleFavoriteDragOver(event: DragEvent, item: FavoriteItem) {
+  if (!draggedFavoritePath.value) {
+    return;
+  }
+
+  event.preventDefault();
+
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+
+  const rect = getElementRect(getEventElement(event));
+
+  if (!rect) {
+    return;
+  }
+
+  // grid 是行优先排列：落在卡片左半区 → 插到它前面，右半区 → 插到后面。
+  favoriteDropTargetPath.value = item.path;
+  favoriteDropPlacement.value = getDropPlacement(
+    getPointerPosition(event),
+    rect,
+    'horizontal',
+  );
+}
+
+async function handleFavoriteDrop(event: DragEvent, item: FavoriteItem) {
+  const draggedPath = draggedFavoritePath.value;
+  const rect = getElementRect(getEventElement(event));
+  const placement = rect
+    ? getDropPlacement(getPointerPosition(event), rect, 'horizontal')
+    : 'before';
+
+  handleFavoriteDragEnd();
+
+  if (!draggedPath) {
+    return;
+  }
+
+  event.preventDefault();
+
+  await userStatsStore.reorderFavorites(draggedPath, item.path, placement);
+}
+
+function getFavoriteDisplayName(item: FavoriteItem): string {
+  return getPathDisplayName(item.path, t) || item.path;
+}
+
+function getFavoriteMoveUpLabel(item: FavoriteItem): string {
+  return t('dashboard.actions.moveUpWithName', { name: getFavoriteDisplayName(item) });
+}
+
+function getFavoriteMoveDownLabel(item: FavoriteItem): string {
+  return t('dashboard.actions.moveDownWithName', { name: getFavoriteDisplayName(item) });
+}
+
 async function handleCreateFavorite(path: string, isFile: boolean, categoryId: string | null) {
   await userStatsStore.addToFavorites(path, isFile, categoryId);
 }
@@ -675,47 +899,93 @@ function requestRemoveTaggedItem(item: TaggedItem, sectionTagId: string) {
               :key="section.key"
               class="dashboard-page__tagged-section"
             >
-              <div class="dashboard-page__tagged-section-head">
+              <!-- FORK-MODIFICATION: 2026-10-31 —— 分类排序的落点挂在**分区标题**上。
+                   排序的语义单位是「分类」本身，分区里还压着一堆收藏卡片，
+                   拿整个分区的高度判断插到前一个还是后一个分类会算错。 -->
+              <div
+                class="dashboard-page__tagged-section-head"
+                :class="{
+                  'dashboard-page__tagged-section-head--drop-before': categoryDropTargetKey === section.key && categoryDropPlacement === 'before',
+                  'dashboard-page__tagged-section-head--drop-after': categoryDropTargetKey === section.key && categoryDropPlacement === 'after',
+                }"
+                @dragover="handleCategoryDragOver($event, section)"
+                @drop="handleCategoryDrop($event, section)"
+                @dragleave="handleCategoryDragLeave($event, section)"
+              >
                 <DashboardCategorySectionHeader
                   :name="section.category?.name ?? t('dashboard.actions.uncategorized')"
                   :count="section.items.length"
                   :category="section.category"
+                  :can-move-up="section.category ? canMoveFavoriteCategory(section.category.id, -1) : false"
+                  :can-move-down="section.category ? canMoveFavoriteCategory(section.category.id, 1) : false"
                   @rename-category="openRenameCategoryDialog"
                   @delete-category="handleDeleteCategory"
+                  @move-up="handleMoveFavoriteCategoryUp"
+                  @move-down="handleMoveFavoriteCategoryDown"
+                  @drag-start="handleCategoryDragStart"
+                  @drag-end="handleCategoryDragEnd"
                 />
               </div>
               <div class="dashboard-page__items-grid">
-                <DirEntryInteractive
+                <!-- FORK-MODIFICATION: 2026-10-31 —— 收藏条目的落点。
+                     DirEntryInteractive 是多根节点组件，attrs 不会透传，
+                     所以外面套一层 div 当 drop target。 -->
+                <div
                   v-for="(item, itemIndex) in section.items"
                   :key="item.path"
-                  :path="item.path"
-                  :is-file="isFavoriteFile(item)"
+                  class="dashboard-page__favorite-item"
+                  :class="{
+                    'dashboard-page__favorite-item--drop-before': favoriteDropTargetPath === item.path && favoriteDropPlacement === 'before',
+                    'dashboard-page__favorite-item--drop-after': favoriteDropTargetPath === item.path && favoriteDropPlacement === 'after',
+                  }"
+                  @dragover="handleFavoriteDragOver($event, item)"
+                  @drop="handleFavoriteDrop($event, item)"
+                  @dragleave="handleFavoriteDragLeave($event, item)"
                 >
-                  <EntryCard
-                    v-bind="getStaggerSlideUpBinding(section.staggerBase + itemIndex)"
+                  <DirEntryInteractive
                     :path="item.path"
                     :is-file="isFavoriteFile(item)"
-                    :size-label="getSizeLabel(item.path)"
-                    @click="openFavoriteItem(item)"
                   >
-                    <DashboardEntryActionsMenu
-                      :can-move-up="canMoveWithinGroup(section.items, item.path, -1)"
-                      :can-move-down="canMoveWithinGroup(section.items, item.path, 1)"
-                      show-category-picker
-                      :categories="favoriteCategories"
-                      :current-category-id="item.categoryId"
-                      :remove-label="t('dashboard.actions.removeFavorite')"
-                      @move-up="handleMoveFavorite(item.path, -1)"
-                      @move-down="handleMoveFavorite(item.path, 1)"
-                      @move-to-category="categoryId => handleMoveFavoriteToCategory(item.path, categoryId)"
-                      @remove="requestRemoveFavorite(item.path, $event)"
-                    />
-                    <!-- FORK-MODIFICATION 2026-10-23：类型 + 「添加于 X 前」 -->
-                    <template #meta>
-                      <DashboardTaggedItemMeta :item="item" />
-                    </template>
-                  </EntryCard>
-                </DirEntryInteractive>
+                    <EntryCard
+                      v-bind="getStaggerSlideUpBinding(section.staggerBase + itemIndex)"
+                      :path="item.path"
+                      :is-file="isFavoriteFile(item)"
+                      :size-label="getSizeLabel(item.path)"
+                      @click="openFavoriteItem(item)"
+                    >
+                      <!-- FORK-MODIFICATION: 2026-10-31 —— 条目级排序（拖拽手柄 + 上移 / 下移）。 -->
+                      <DashboardOrderControls
+                        :can-move-up="canMoveWithinGroup(section.items, item.path, -1)"
+                        :can-move-down="canMoveWithinGroup(section.items, item.path, 1)"
+                        :drag-key="item.path"
+                        :drag-label="t('dashboard.actions.dragToReorder')"
+                        :move-up-label="getFavoriteMoveUpLabel(item)"
+                        :move-down-label="getFavoriteMoveDownLabel(item)"
+                        drag-image-selector=".entry-card"
+                        @move-up="handleMoveFavorite(item.path, -1)"
+                        @move-down="handleMoveFavorite(item.path, 1)"
+                        @drag-start="handleFavoriteDragStart(item)"
+                        @drag-end="handleFavoriteDragEnd"
+                      />
+                      <DashboardEntryActionsMenu
+                        :can-move-up="canMoveWithinGroup(section.items, item.path, -1)"
+                        :can-move-down="canMoveWithinGroup(section.items, item.path, 1)"
+                        show-category-picker
+                        :categories="favoriteCategories"
+                        :current-category-id="item.categoryId"
+                        :remove-label="t('dashboard.actions.removeFavorite')"
+                        @move-up="handleMoveFavorite(item.path, -1)"
+                        @move-down="handleMoveFavorite(item.path, 1)"
+                        @move-to-category="categoryId => handleMoveFavoriteToCategory(item.path, categoryId)"
+                        @remove="requestRemoveFavorite(item.path, $event)"
+                      />
+                      <!-- FORK-MODIFICATION 2026-10-23：类型 + 「添加于 X 前」 -->
+                      <template #meta>
+                        <DashboardTaggedItemMeta :item="item" />
+                      </template>
+                    </EntryCard>
+                  </DirEntryInteractive>
+                </div>
               </div>
             </section>
           </div>
@@ -965,13 +1235,14 @@ function requestRemoveTaggedItem(item: TaggedItem, sectionTagId: string) {
    胶囊压在背景图上，半透明 + 背景模糊才读得清。
    `display` 从 flex 改回 inline-flex：胶囊块按内容宽度收缩，
    像一块浮在 Hero 底部的玻璃，而不是横贯一整行。 */
+
 .dashboard-page__tabs-list {
   display: inline-flex;
   padding: 4px;
   border: 1px solid hsl(var(--border) / 70%);
   border-radius: var(--radius);
-  background-color: hsl(var(--card) / 72%);
   backdrop-filter: blur(10px);
+  background-color: hsl(var(--card) / 72%);
   gap: 4px;
 }
 
@@ -1029,7 +1300,55 @@ function requestRemoveTaggedItem(item: TaggedItem, sectionTagId: string) {
 }
 
 .dashboard-page__tagged-section-head {
+  position: relative;
   min-width: 0;
+}
+
+/* FORK-MODIFICATION: 2026-10-31 —— 收藏排序的落点指示线。 */
+.dashboard-page__tagged-section-head--drop-before::after,
+.dashboard-page__tagged-section-head--drop-after::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 2px;
+  border-radius: 1px;
+  background-color: hsl(var(--primary));
+  content: '';
+  pointer-events: none;
+}
+
+.dashboard-page__tagged-section-head--drop-before::after {
+  top: -5px;
+}
+
+.dashboard-page__tagged-section-head--drop-after::after {
+  bottom: -5px;
+}
+
+/* FORK-MODIFICATION: 2026-10-31 —— 收藏条目的落点容器 + 指示线。 */
+.dashboard-page__favorite-item {
+  position: relative;
+  min-width: 0;
+}
+
+.dashboard-page__favorite-item--drop-before::before,
+.dashboard-page__favorite-item--drop-after::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 2px;
+  background-color: hsl(var(--primary));
+  content: '';
+  pointer-events: none;
+}
+
+.dashboard-page__favorite-item--drop-before::before {
+  left: -6px;
+}
+
+.dashboard-page__favorite-item--drop-after::after {
+  right: -6px;
 }
 
 .dashboard-page__tagged-section-head .tag-selector__tag-name {

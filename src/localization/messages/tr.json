@@ -87,6 +87,8 @@
     "music": "Müzik"
   },
   "tabs": {
+    "scrollTabsLeft": "Sekmeleri sola kaydır",
+    "scrollTabsRight": "Sekmeleri sağa kaydır",
     "newTab": "Yeni sekme",
     "duplicateTab": "Sekmeyi çoğalt",
     "closeOtherTabs": "Diğer sekmeleri kapat",
@@ -211,6 +213,9 @@
       "newTag": "New tag",
       "moveUp": "Move up",
       "moveDown": "Move down",
+      "moveUpWithName": "{name} öğesini yukarı taşı",
+      "moveDownWithName": "{name} öğesini aşağı taşı",
+      "dragToReorder": "Sıralamak için sürükleyin",
       "moveToCategory": "Move to category",
       "removeFavorite": "Remove from favorites",
       "removeTag": "Remove tag",

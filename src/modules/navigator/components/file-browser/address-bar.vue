@@ -374,6 +374,15 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
+/* FORK-MODIFICATION 2026-10-31（按钮配色统一）：地址栏左侧这几个图标按钮
+   跟右上角的最小化 / 最大化 / 搜索按钮共用同一个颜色 token，
+   暖纸浅色下是低饱和度红，起强调作用。 */
+
+.address-bar__menu-button :deep(svg),
+.address-bar__edit-button :deep(svg) {
+  stroke: hsl(var(--toolbar-action-foreground));
+}
+
 .address-bar__tooltip-row {
   display: flex;
   align-items: center;

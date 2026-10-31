@@ -83,8 +83,8 @@
   /* Light theme */
   --light: 0 0% 100%;
   --dark: 0 0% 0%;
-  --background-2: 220 13% 93%;
-  --background-3: 220 14% 98%;
+  --background-2: 220 13% 94.5%;
+  --background-3: 220 14% 99.5%;
   --window-toolbar: 220 14% 96%;
   --icon: 220 9% 38%;
 
@@ -137,6 +137,10 @@
      token 自带 alpha 会让那些声明整体失效。 */
   --surface-sidebar: 220 13% 93%;
   --surface-panel: 0 0% 100%;
+
+  /* FORK-MODIFICATION 2026-10-30（意见 6）：设置页区块用非常浅的米色，不用纯白。 */
+  --surface-settings-card: 42 40% 96%;
+  --surface-settings-nested: 40 32% 92%;
   --surface-stripe: 220 14% 97%;
   --state-hover: 220 14% 98%;
   --state-selected: 220 13% 93%;
@@ -158,8 +162,10 @@
   --moss-soft: 150 30% 92%;
   --terra: 6 52% 45%;
   --terra-soft: 6 55% 94%;
-  --row-dir-bg: 220 14% 96%;
-  --row-file-bg: 0 0% 100%;
+  --row-dir-bg: 220 12% 96.5%;
+  --toolbar-action-foreground: 12 42% 46%;
+  --switch-checked-background: 30 24% 34%;
+  --row-file-bg: 220 12% 96.5%;
   --tab-idle-bg: 220 14% 97%;
   --tab-idle-border: 220 13% 91%;
   --list-header-bg: 220 14% 98%;
@@ -173,14 +179,6 @@
   --family-search: 200 16.9% 45.3%;
   --family-create: 174 40% 30%;
   --family-filter: 220 13% 38%;
-  --nav-back: 205 24% 34%;
-  --nav-forward: 205 16% 45%;
-  --nav-up: 6 52% 45%;
-  --nav-location: 174 40% 30%;
-  --nav-refresh: 174 45% 30%;
-  --nav-view: 205 24% 30%;
-  --nav-thumbnail: 6 52% 45%;
-  --nav-more: 220 13% 45%;
 
   /* FORK-MODIFICATION 2026-10-30（任务 3）：标签宽度自适应 + 最大宽度。
      --tab-min-width 是「一个标签页」的下限；双标签组时组件会把下限翻倍。
@@ -194,8 +192,8 @@
 
   --light: 0 0% 100%;
   --dark: 0 0% 0%;
-  --background-2: 225 10% 16%;
-  --background-3: 225 12% 13%;
+  --background-2: 225 10% 17.5%;
+  --background-3: 225 12% 14.5%;
   --window-toolbar: 220 11% 19%;
   --icon: 0 0% 62%;
 
@@ -235,6 +233,8 @@
   /* FORK-MODIFICATION 2026-10-30（AFM 主题视觉细节优化）：暗色底座的层次 token。 */
   --surface-sidebar: 225 12% 13%;
   --surface-panel: 225 11% 19%;
+  --surface-settings-card: 225 10% 17%;
+  --surface-settings-nested: 225 11% 14%;
   --surface-stripe: 225 10% 18%;
   --state-hover: 225 10% 20%;
   --state-selected: 225 10% 22%;
@@ -248,6 +248,8 @@
 
   /* FORK-MODIFICATION 2026-10-30（任务 4）：目录行 / 文件行底色区隔。
      经典暗色主题必须自己给值，否则会继承 :root 的浅色值（白底行）。 */
-  --row-dir-bg: 225 10% 19%;
+  --row-dir-bg: 225 10% 16%;
+  --toolbar-action-foreground: 12 40% 62%;
+  --switch-checked-background: 32 28% 62%;
   --row-file-bg: 225 10% 16%;
 }
