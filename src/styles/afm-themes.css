@@ -221,54 +221,226 @@ html[data-afm-theme='afm-cool-light'] .info-panel-header__name {
  * 由「对比度求解器」按各自主题的标题栏底色算出，保证 ≥ 3:1。
  * -------------------------------------------------------------------------- */
 
-/* --- 1a：右上角按钮按功能族分色（跃动活力） --- */
+/* --- 1a / 1a-2 / 1b（r15 重做）：右上角 + 地址栏旁图标按主题配色统一接线 ---
+   用户要求（2026-10-31）：不同主题的右上角图标、地址栏旁边图标都要跟各自主题的
+   配色走，而且主题之间要有区别。
+
+   做法：族色 token（--family-*）在 afm-themes.ts 里按主题各给一份——
+     暖纸（浅/暗）= 低饱和红（h 5..24，s 26..42%）；
+     跃动活力     = 多彩（紫/青/金…，沿用 r14 取值）；
+     冷杉         = 钢蓝冷调（h 185..228，r15 重新设计，r14 那份是跃动活力的紫色复制品）。
+   这里用「4 个主题并列的选择器 + 同一个 var(--family-*)」一次性接线，
+   以后加一个族色只需要改 token，不用再复制四份规则。
+
+   覆盖范围：
+     右上角 —— 动作条 5 个（分屏/目录树/信息/比较/更多）、局域网共享、状态中心、
+               扩展面板、设置页搜索；
+     地址栏旁 —— 左侧导航排（后退/前进/上级/位置/刷新/视图/缩略图/更多）、
+               右侧新建、过滤、交换窗格、同步浏览。
+
+   ⚠️ 激活态必须回到 --primary：族色规则是 (0,2,1)，组件 scoped 的激活态是 (0,2,0)，
+   族色会压过它 —— 所以下面显式再写一条激活态覆盖。
+   ⚠️ 地址栏左侧那排的修饰类（--back/--forward/...）在下拉菜单里被复用，
+   所以这里用复合选择器（基础类 + 修饰类）只命中工具栏上那一排。 */
+
+html[data-afm-theme='afm-warm-light'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--nav,
+html[data-afm-theme='afm-warm-dark'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--nav,
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--nav,
+html[data-afm-theme='afm-cool-light'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--nav {
+  color: hsl(var(--family-nav));
+  stroke: hsl(var(--family-nav));
+}
+
+html[data-afm-theme='afm-warm-light'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--location,
+html[data-afm-theme='afm-warm-dark'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--location,
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--location,
+html[data-afm-theme='afm-cool-light'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--location {
+  color: hsl(var(--family-location));
+  stroke: hsl(var(--family-location));
+}
+
+html[data-afm-theme='afm-warm-light'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--refresh,
+html[data-afm-theme='afm-warm-dark'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--refresh,
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--refresh,
+html[data-afm-theme='afm-cool-light'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--refresh {
+  color: hsl(var(--family-refresh));
+  stroke: hsl(var(--family-refresh));
+}
+
+html[data-afm-theme='afm-warm-light'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--view,
+html[data-afm-theme='afm-warm-dark'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--view,
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--view,
+html[data-afm-theme='afm-cool-light'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--view {
+  color: hsl(var(--family-view));
+  stroke: hsl(var(--family-view));
+}
+
+html[data-afm-theme='afm-warm-light'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--thumbnail,
+html[data-afm-theme='afm-warm-dark'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--thumbnail,
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--thumbnail,
+html[data-afm-theme='afm-cool-light'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--thumbnail {
+  color: hsl(var(--family-thumbnail));
+  stroke: hsl(var(--family-thumbnail));
+}
+
+html[data-afm-theme='afm-warm-light'] .navigator-toolbar-actions__icon--split,
+html[data-afm-theme='afm-warm-dark'] .navigator-toolbar-actions__icon--split,
 html[data-afm-theme='afm-vivid-light'] .navigator-toolbar-actions__icon--split,
+html[data-afm-theme='afm-cool-light'] .navigator-toolbar-actions__icon--split,
+html[data-afm-theme='afm-warm-light'] .file-browser-toolbar-swap-panes-button__icon--split,
+html[data-afm-theme='afm-warm-dark'] .file-browser-toolbar-swap-panes-button__icon--split,
 html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-swap-panes-button__icon--split,
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-sync-browsing-button__icon--split {
+html[data-afm-theme='afm-cool-light'] .file-browser-toolbar-swap-panes-button__icon--split,
+html[data-afm-theme='afm-warm-light'] .file-browser-toolbar-sync-browsing-button__icon--split,
+html[data-afm-theme='afm-warm-dark'] .file-browser-toolbar-sync-browsing-button__icon--split,
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-sync-browsing-button__icon--split,
+html[data-afm-theme='afm-cool-light'] .file-browser-toolbar-sync-browsing-button__icon--split {
   color: hsl(var(--family-split));
   stroke: hsl(var(--family-split));
 }
 
-html[data-afm-theme='afm-vivid-light'] .navigator-toolbar-actions__icon--tree {
+html[data-afm-theme='afm-warm-light'] .navigator-toolbar-actions__icon--tree,
+html[data-afm-theme='afm-warm-dark'] .navigator-toolbar-actions__icon--tree,
+html[data-afm-theme='afm-vivid-light'] .navigator-toolbar-actions__icon--tree,
+html[data-afm-theme='afm-cool-light'] .navigator-toolbar-actions__icon--tree {
   color: hsl(var(--family-tree));
   stroke: hsl(var(--family-tree));
 }
 
+html[data-afm-theme='afm-warm-light'] .navigator-toolbar-actions__icon--info,
+html[data-afm-theme='afm-warm-dark'] .navigator-toolbar-actions__icon--info,
 html[data-afm-theme='afm-vivid-light'] .navigator-toolbar-actions__icon--info,
-html[data-afm-theme='afm-vivid-light'] .navigator-toolbar-actions__icon--compare {
+html[data-afm-theme='afm-cool-light'] .navigator-toolbar-actions__icon--info,
+html[data-afm-theme='afm-warm-light'] .navigator-toolbar-actions__icon--compare,
+html[data-afm-theme='afm-warm-dark'] .navigator-toolbar-actions__icon--compare,
+html[data-afm-theme='afm-vivid-light'] .navigator-toolbar-actions__icon--compare,
+html[data-afm-theme='afm-cool-light'] .navigator-toolbar-actions__icon--compare {
   color: hsl(var(--family-info));
   stroke: hsl(var(--family-info));
 }
 
-html[data-afm-theme='afm-vivid-light'] .navigator-toolbar-actions__icon--more {
+html[data-afm-theme='afm-warm-light'] .navigator-toolbar-actions__icon--more,
+html[data-afm-theme='afm-warm-dark'] .navigator-toolbar-actions__icon--more,
+html[data-afm-theme='afm-vivid-light'] .navigator-toolbar-actions__icon--more,
+html[data-afm-theme='afm-cool-light'] .navigator-toolbar-actions__icon--more,
+html[data-afm-theme='afm-warm-light'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--more,
+html[data-afm-theme='afm-warm-dark'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--more,
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--more,
+html[data-afm-theme='afm-cool-light'] .file-browser-toolbar-nav-buttons__icon.file-browser-toolbar-nav-buttons__icon--more {
   color: hsl(var(--family-more));
   stroke: hsl(var(--family-more));
 }
 
-html[data-afm-theme='afm-vivid-light'] .extensions-toolbar-actions__icon--extension {
+html[data-afm-theme='afm-warm-light'] .extensions-toolbar-actions__icon--extension,
+html[data-afm-theme='afm-warm-dark'] .extensions-toolbar-actions__icon--extension,
+html[data-afm-theme='afm-vivid-light'] .extensions-toolbar-actions__icon--extension,
+html[data-afm-theme='afm-cool-light'] .extensions-toolbar-actions__icon--extension {
   color: hsl(var(--family-extension));
   stroke: hsl(var(--family-extension));
 }
 
-html[data-afm-theme='afm-vivid-light'] .settings-search-toolbar-button__icon--search {
+html[data-afm-theme='afm-warm-light'] .settings-search-toolbar-button__icon--search,
+html[data-afm-theme='afm-warm-dark'] .settings-search-toolbar-button__icon--search,
+html[data-afm-theme='afm-vivid-light'] .settings-search-toolbar-button__icon--search,
+html[data-afm-theme='afm-cool-light'] .settings-search-toolbar-button__icon--search {
   color: hsl(var(--family-search));
   stroke: hsl(var(--family-search));
 }
 
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-create-button__icon--create {
+html[data-afm-theme='afm-warm-light'] .file-browser-toolbar-create-button__icon--create,
+html[data-afm-theme='afm-warm-dark'] .file-browser-toolbar-create-button__icon--create,
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-create-button__icon--create,
+html[data-afm-theme='afm-cool-light'] .file-browser-toolbar-create-button__icon--create {
   color: hsl(var(--family-create));
   stroke: hsl(var(--family-create));
 }
 
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-filter__icon--filter {
+html[data-afm-theme='afm-warm-light'] .file-browser-toolbar-filter__icon--filter,
+html[data-afm-theme='afm-warm-dark'] .file-browser-toolbar-filter__icon--filter,
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-filter__icon--filter,
+html[data-afm-theme='afm-cool-light'] .file-browser-toolbar-filter__icon--filter {
   color: hsl(var(--family-filter));
   stroke: hsl(var(--family-filter));
 }
 
-/* --- 1b：地址栏左侧按钮统一配色（跃动活力） --- */
-html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-nav-buttons__icon {
-  color: hsl(var(--toolbar-action-foreground));
-  stroke: hsl(var(--toolbar-action-foreground));
+html[data-afm-theme='afm-warm-light'] .lan-share-toolbar-button__icon,
+html[data-afm-theme='afm-warm-dark'] .lan-share-toolbar-button__icon,
+html[data-afm-theme='afm-vivid-light'] .lan-share-toolbar-button__icon,
+html[data-afm-theme='afm-cool-light'] .lan-share-toolbar-button__icon {
+  color: hsl(var(--family-share));
+  stroke: hsl(var(--family-share));
+}
+
+html[data-afm-theme='afm-warm-light'] .status-center-toolbar-button__icon,
+html[data-afm-theme='afm-warm-dark'] .status-center-toolbar-button__icon,
+html[data-afm-theme='afm-vivid-light'] .status-center-toolbar-button__icon,
+html[data-afm-theme='afm-cool-light'] .status-center-toolbar-button__icon {
+  color: hsl(var(--family-status));
+  stroke: hsl(var(--family-status));
+}
+
+/* --- 激活态：统一回到 --primary --- */
+html[data-afm-theme='afm-warm-light'] .navigator-toolbar-actions__button--active .navigator-toolbar-actions__icon,
+html[data-afm-theme='afm-warm-dark'] .navigator-toolbar-actions__button--active .navigator-toolbar-actions__icon,
+html[data-afm-theme='afm-vivid-light'] .navigator-toolbar-actions__button--active .navigator-toolbar-actions__icon,
+html[data-afm-theme='afm-cool-light'] .navigator-toolbar-actions__button--active .navigator-toolbar-actions__icon {
+  color: hsl(var(--primary));
+  stroke: hsl(var(--primary));
+}
+
+/* --- 目录树 / 信息面板：族色优先于激活态 ---
+   暖纸主题的 `--primary` 是品牌钢蓝（200 16.9% 45.3%），而目录树按钮默认就处于激活态
+   （showFolderTree 默认 true）、信息面板按钮激活时同样带上 `--active`。
+   若沿用上面「激活态图标回 --primary」的规则，这两个图标会渲染成钢蓝而不是低饱和红，
+   等于让它们脱离族色体系 —— 暖纸主题右上角就会同时出现钢蓝与低饱和红两套红。
+   激活状态改由按钮底色（组件内 `--secondary` 底色）表达，图标色始终保持族色。 */
+
+html[data-afm-theme='afm-warm-light'] .navigator-toolbar-actions__button--active .navigator-toolbar-actions__icon--tree,
+html[data-afm-theme='afm-warm-dark'] .navigator-toolbar-actions__button--active .navigator-toolbar-actions__icon--tree,
+html[data-afm-theme='afm-vivid-light'] .navigator-toolbar-actions__button--active .navigator-toolbar-actions__icon--tree,
+html[data-afm-theme='afm-cool-light'] .navigator-toolbar-actions__button--active .navigator-toolbar-actions__icon--tree {
+  color: hsl(var(--family-tree));
+  stroke: hsl(var(--family-tree));
+}
+
+html[data-afm-theme='afm-warm-light'] .navigator-toolbar-actions__button--active .navigator-toolbar-actions__icon--info,
+html[data-afm-theme='afm-warm-dark'] .navigator-toolbar-actions__button--active .navigator-toolbar-actions__icon--info,
+html[data-afm-theme='afm-vivid-light'] .navigator-toolbar-actions__button--active .navigator-toolbar-actions__icon--info,
+html[data-afm-theme='afm-cool-light'] .navigator-toolbar-actions__button--active .navigator-toolbar-actions__icon--info {
+  color: hsl(var(--family-info));
+  stroke: hsl(var(--family-info));
+}
+
+html[data-afm-theme='afm-warm-light'] .lan-share-toolbar-button__trigger--active .lan-share-toolbar-button__icon,
+html[data-afm-theme='afm-warm-dark'] .lan-share-toolbar-button__trigger--active .lan-share-toolbar-button__icon,
+html[data-afm-theme='afm-vivid-light'] .lan-share-toolbar-button__trigger--active .lan-share-toolbar-button__icon,
+html[data-afm-theme='afm-cool-light'] .lan-share-toolbar-button__trigger--active .lan-share-toolbar-button__icon {
+  color: hsl(var(--primary));
+  stroke: hsl(var(--primary));
+}
+
+html[data-afm-theme='afm-warm-light'] .status-center-toolbar-button__icon--active,
+html[data-afm-theme='afm-warm-dark'] .status-center-toolbar-button__icon--active,
+html[data-afm-theme='afm-vivid-light'] .status-center-toolbar-button__icon--active,
+html[data-afm-theme='afm-cool-light'] .status-center-toolbar-button__icon--active {
+  color: hsl(var(--primary));
+  stroke: hsl(var(--primary));
+}
+
+html[data-afm-theme='afm-warm-light'] .file-browser-toolbar-sync-browsing-button--active .file-browser-toolbar-sync-browsing-button__icon--split,
+html[data-afm-theme='afm-warm-dark'] .file-browser-toolbar-sync-browsing-button--active .file-browser-toolbar-sync-browsing-button__icon--split,
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-sync-browsing-button--active .file-browser-toolbar-sync-browsing-button__icon--split,
+html[data-afm-theme='afm-cool-light'] .file-browser-toolbar-sync-browsing-button--active .file-browser-toolbar-sync-browsing-button__icon--split {
+  color: hsl(var(--primary));
+  stroke: hsl(var(--primary));
+}
+
+html[data-afm-theme='afm-warm-light'] .file-browser-toolbar-filter__button--active .file-browser-toolbar-filter__icon--filter,
+html[data-afm-theme='afm-warm-dark'] .file-browser-toolbar-filter__button--active .file-browser-toolbar-filter__icon--filter,
+html[data-afm-theme='afm-vivid-light'] .file-browser-toolbar-filter__button--active .file-browser-toolbar-filter__icon--filter,
+html[data-afm-theme='afm-cool-light'] .file-browser-toolbar-filter__button--active .file-browser-toolbar-filter__icon--filter {
+  color: hsl(var(--primary));
+  stroke: hsl(var(--primary));
 }
 
 /* --- 1c / 2e：标题栏上下边线 + 背景加深 ---

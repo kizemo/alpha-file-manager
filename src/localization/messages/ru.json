@@ -217,8 +217,8 @@
     "newDirectory": "Новая директория",
     "newFile": "Новый файл",
     "reloadCurrentDirectory": "Перезагрузить текущую папку",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "Показать дерево папок",
+    "hideFolderTree": "Скрыть дерево папок"
   },
   "dashboard": {
     "subtitle": "Избранное, помеченное и часто используемое — всё в одном месте",
@@ -409,7 +409,14 @@
       "selectedFont": "Выбранный шрифт",
       "defaultFont": "шрифт по умолчанию",
       "reFetchSystemFonts": "Повторно загрузить системные шрифты",
-      "resetFontToDefault": "Сбросить шрифт по умолчанию"
+      "resetFontToDefault": "Сбросить шрифт по умолчанию",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "Дата/время",
@@ -736,6 +743,18 @@
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
       }
+    },
+    "about": {
+      "title": "О программе",
+      "changelog": "История изменений",
+      "projectLinks": "Ссылки на проект",
+      "commits": "Коммиты",
+      "author": "Автор",
+      "developer": "段燚",
+      "website": "Веб-сайт",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "Отсканируйте, чтобы подписаться"
     }
   },
   "projectGithubButtons": {
@@ -752,7 +771,8 @@
     "stats": "Статистика",
     "experimental": "Экспериментальные",
     "extensions": "Расширения",
-    "remote": "Remote"
+    "remote": "Remote",
+    "about": "О программе"
   },
   "settingsTags": {
     "language": "язык",
@@ -787,7 +807,8 @@
     "infoPanelPreview": "info, panel, preview, image, thumbnail, memory, original, video, mute, autoplay",
     "performance": "performance, memory, quick view, print, window, launch, preload",
     "fileView": "вид файлов, рамка, выделение, перетаскивание, список, сетка, промежутки, отступы, folder, folders, first, top, sort, sorting, order, ordering, list, files, file, directory, directories, group, grouping, view, precedence",
-    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage"
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "о программе, версия, обновление, история изменений, github, автор, веб-сайт, wechat, qr-код"
   },
   "drag": {
     "holdShiftToChangeMode": "Удерживайте [Shift], чтобы изменить режим",

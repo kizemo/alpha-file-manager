@@ -220,6 +220,62 @@ watch(() => folderTreeStore.staleTreeRevision, () => {
 // 一次远距离跳转会把他正在看的浏览位置冲掉。
 const treeViewport = ref<HTMLElement | null>(null);
 
+/**
+ * FORK-MODIFICATION: 目录树只显示目录（需求 9，2026-10-31）。
+ *
+ * 目标路径是**文件**时树里根本没有对应行，定位与高亮都会落空。
+ * 这里把定位回退到「最近的、确实在树里的祖先目录行」并高亮它，
+ * 让用户至少能看到当前文件落在哪个目录下面。
+ */
+const fallbackHighlightPath = ref<string | null>(null);
+
+function findRowElementByPath(viewport: HTMLElement, path: string): HTMLElement | null {
+  for (const child of Array.from(viewport.children)) {
+    const row = child as HTMLElement;
+
+    if (row.dataset?.treePath === path) {
+      return row;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * 最近的、**确实在树里**的祖先目录路径。
+ *
+ * `computeAncestorPaths` 返回的是「根 → 近」的顺序，所以要从后往前找。
+ */
+function findNearestAncestorRowPath(path: string): string | null {
+  const ancestors = computeAncestorPaths(path);
+
+  for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+    const ancestor = ancestors[index];
+
+    if (rows.value.some(row => row.path === ancestor)) {
+      return ancestor;
+    }
+  }
+
+  return null;
+}
+
+function scrollRowIntoView(viewport: HTMLElement, row: HTMLElement): void {
+  const rowRect = row.getBoundingClientRect();
+  const viewRect = viewport.getBoundingClientRect();
+
+  const nextScrollTop = computeRevealScrollTop({
+    scrollTop: viewport.scrollTop,
+    viewportHeight: viewRect.height,
+    rowTopInViewport: rowRect.top - viewRect.top,
+    rowHeight: rowRect.height,
+  });
+
+  if (nextScrollTop !== null) {
+    viewport.scrollTop = nextScrollTop;
+  }
+}
+
 function revealSelectedRow(): void {
   const viewport = treeViewport.value;
   const target = selectedPath.value;
@@ -230,28 +286,28 @@ function revealSelectedRow(): void {
 
   // 按 dataset 匹配而不是拼 CSS 选择器：路径里有 `/`、`:`、`@`、`:` 和中文，
   // 直接拼选择器要处理一整类转义，而这里只是遍历一次子节点。
-  for (const child of Array.from(viewport.children)) {
-    const row = child as HTMLElement;
+  const exactRow = findRowElementByPath(viewport, target);
 
-    if (row.dataset?.treePath !== target) {
-      continue;
-    }
-
-    const rowRect = row.getBoundingClientRect();
-    const viewRect = viewport.getBoundingClientRect();
-
-    const nextScrollTop = computeRevealScrollTop({
-      scrollTop: viewport.scrollTop,
-      viewportHeight: viewRect.height,
-      rowTopInViewport: rowRect.top - viewRect.top,
-      rowHeight: rowRect.height,
-    });
-
-    if (nextScrollTop !== null) {
-      viewport.scrollTop = nextScrollTop;
-    }
+  if (exactRow) {
+    fallbackHighlightPath.value = null;
+    scrollRowIntoView(viewport, exactRow);
 
     return;
+  }
+
+  // FORK-MODIFICATION: 目录树只显示目录（需求 9，2026-10-31）。
+  // 目标是文件（或已被删除）时树里没有这一行 —— 回退到最近的祖先目录行。
+  const ancestorPath = findNearestAncestorRowPath(target);
+  fallbackHighlightPath.value = ancestorPath;
+
+  if (!ancestorPath) {
+    return;
+  }
+
+  const ancestorRow = findRowElementByPath(viewport, ancestorPath);
+
+  if (ancestorRow) {
+    scrollRowIntoView(viewport, ancestorRow);
   }
 }
 
@@ -295,8 +351,28 @@ const selectedRowIndex = computed(() => {
   return rows.value.findIndex(row => row.path === target);
 });
 
-watch(selectedRowIndex, (index) => {
-  if (index < 0) return;
+/**
+ * FORK-MODIFICATION: 目录树只显示目录（需求 9，2026-10-31）。
+ * 目标是文件时没有「目标行」，退而盯住「最近的祖先目录行」的下标。
+ */
+const fallbackSelectedRowIndex = computed(() => {
+  const target = selectedPath.value;
+
+  if (!target) {
+    return -1;
+  }
+
+  const ancestorPath = findNearestAncestorRowPath(target);
+
+  if (!ancestorPath) {
+    return -1;
+  }
+
+  return rows.value.findIndex(row => row.path === ancestorPath);
+});
+
+watch([selectedRowIndex, fallbackSelectedRowIndex], ([exactIndex, fallbackIndex]) => {
+  if (exactIndex < 0 && fallbackIndex < 0) return;
   // 行元素要等这一轮渲染结束才在 DOM 里。
   void nextTick().then(() => revealSelectedRow());
 }, { immediate: true });
@@ -317,7 +393,9 @@ function onRowClick(row: { path: string; isDirectory: boolean }) {
 }
 
 function isRowSelected(path: string): boolean {
-  return folderTreeStore.selectedPath === path;
+  // FORK-MODIFICATION: 目录树只显示目录（需求 9，2026-10-31）。
+  // 目标是文件时，高亮回退到最近的祖先目录行。
+  return folderTreeStore.selectedPath === path || fallbackHighlightPath.value === path;
 }
 
 function isRowLoading(path: string): boolean {
@@ -472,7 +550,7 @@ function getRowIcon(row: { path: string; isDirectory: boolean }): typeof FolderI
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  font-size: 13px;
+  font-size: calc(13px + var(--font-size-offset, 0px));
 }
 
 .file-tree-view__scroll {

@@ -27,7 +27,7 @@ defineProps<{
   border-radius: var(--radius-sm);
   background-color: hsl(var(--secondary) / 50%);
   color: hsl(var(--muted-foreground));
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   font-weight: 500;
   gap: 8px;
   line-height: 1rem;
@@ -38,6 +38,6 @@ defineProps<{
   padding: 2px 8px;
   border-radius: 10px;
   background-color: hsl(var(--background-3));
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
 }
 </style>

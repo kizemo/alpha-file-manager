@@ -48,8 +48,8 @@ describe('useFileTree', () => {
   it('loads children lazily on first expand (via side-effect watch)', async () => {
     const expanded = ref<Set<string>>(new Set());
     const readDir = vi.fn().mockResolvedValue([
-      { path: 'C:/work/a.md', name: 'a.md', isDirectory: false, size: 0, modifiedAt: 0 },
-      { path: 'C:/work/sub', name: 'sub', isDirectory: true, size: 0, modifiedAt: 0 },
+      { path: 'C:/work/a.md', name: 'a.md', is_dir: false, size: 0, modifiedAt: 0 },
+      { path: 'C:/work/sub', name: 'sub', is_dir: true, size: 0, modifiedAt: 0 },
     ]);
     const tree = makeTree({
       rootPaths: ['C:/work'],
@@ -62,8 +62,10 @@ describe('useFileTree', () => {
     await nextTick();
 
     expect(readDir).toHaveBeenCalledOnce();
-    expect(tree.rows.value).toHaveLength(3); // root + 2 children
+    // FORK-MODIFICATION 需求 9：目录树只显示目录 —— 文件条目被过滤掉。
+    expect(tree.rows.value).toHaveLength(2); // root + 1 directory
     expect(tree.rows.value[1].depth).toBe(1);
+    expect(tree.rows.value.map(row => row.path)).toEqual(['C:/work', 'C:/work/sub']);
   });
 
   it('ensureLoaded is idempotent on already-loaded paths', async () => {
@@ -374,7 +376,7 @@ describe('useFileTree', () => {
     const expanded = ref<Set<string>>(new Set(['C:/work']));
     const readDir = vi.fn().mockImplementation(async (p: string) => {
       if (p === 'C:/work') return [
-        { path: 'C:/work/sub', name: 'sub', isDirectory: true, size: 0, modifiedAt: 0 },
+        { path: 'C:/work/sub', name: 'sub', is_dir: true, size: 0, modifiedAt: 0 },
       ];
       return [];
     });
@@ -510,7 +512,8 @@ describe('useFileTree — invalidate (v6.5)', () => {
     expanded.value = new Set(['C:/work']);
     await nextTick();
     await nextTick();
-    expect(tree.rows.value.map(r => r.path)).toEqual(['C:/work', 'C:/work/a.md']);
+    // FORK-MODIFICATION 需求 9：a.md 是文件，不进树。
+    expect(tree.rows.value.map(r => r.path)).toEqual(['C:/work']);
 
     // The filesystem mutation publishes the changed directory.
     await tree.invalidate('C:/work');
@@ -521,7 +524,6 @@ describe('useFileTree — invalidate (v6.5)', () => {
     expect(readDir).toHaveBeenCalledTimes(2);
     expect(tree.rows.value.map(r => r.path)).toEqual([
       'C:/work',
-      'C:/work/a.md',
       'C:/work/fresh',
     ]);
   });
@@ -537,10 +539,12 @@ describe('useFileTree — invalidate (v6.5)', () => {
       size: 0,
       modifiedAt: 0,
     };
+    // FORK-MODIFICATION 需求 9：树里只显示目录，「后代」必须是目录，
+    // 否则它会被过滤掉，这条用例就测不到「展开的后代重新读」。
     const leafEntry = {
-      path: 'C:/work/sub/leaf.txt',
-      name: 'leaf.txt',
-      is_dir: false,
+      path: 'C:/work/sub/leaf',
+      name: 'leaf',
+      is_dir: true,
       size: 0,
       modifiedAt: 0,
     };
@@ -573,7 +577,7 @@ describe('useFileTree — invalidate (v6.5)', () => {
     await nextTick();
 
     expect(readDir.mock.calls.map(c => c[0])).toEqual(['C:/work', 'C:/work/sub']);
-    expect(tree.rows.value.map(r => r.path)).toContain('C:/work/sub/leaf.txt');
+    expect(tree.rows.value.map(r => r.path)).toContain('C:/work/sub/leaf');
 
     await tree.invalidate('C:/work');
 
@@ -585,7 +589,7 @@ describe('useFileTree — invalidate (v6.5)', () => {
       'C:/work',
       'C:/work/sub',
     ]);
-    expect(tree.rows.value.map(r => r.path)).toContain('C:/work/sub/leaf.txt');
+    expect(tree.rows.value.map(r => r.path)).toContain('C:/work/sub/leaf');
   });
 
   it('invalidate on an unknown path is a no-op that does not throw', async () => {
@@ -602,10 +606,11 @@ describe('useFileTree — invalidate (v6.5)', () => {
   });
 
   it('invalidate keeps stale children visible until the re-read lands (no flicker)', async () => {
+    // FORK-MODIFICATION 需求 9：子项必须是目录才会留在树里。
     const oldChild = {
       path: 'C:/work/old',
       name: 'old',
-      is_dir: false,
+      is_dir: true,
       size: 0,
       modifiedAt: 0,
     };
@@ -641,5 +646,135 @@ describe('useFileTree — invalidate (v6.5)', () => {
     readGate.resolve?.([]);
     await pending;
     expect(tree.rows.value.map(r => r.path)).toEqual(['C:/work']);
+  });
+});
+
+// FORK-MODIFICATION: 目录树只显示目录（需求 9，2026-10-31）。
+describe('useFileTree — 目录树只显示目录（需求 9）', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('过滤掉文件条目，只把目录放进树里', async () => {
+    const expanded = ref<Set<string>>(new Set());
+    const readDir = vi.fn().mockResolvedValue([
+      {
+        path: 'C:/work/a.md',
+        name: 'a.md',
+        is_dir: false,
+        size: 0,
+        modifiedAt: 0,
+      },
+      {
+        path: 'C:/work/photo.png',
+        name: 'photo.png',
+        is_dir: false,
+        size: 0,
+        modifiedAt: 0,
+      },
+      {
+        path: 'C:/work/sub',
+        name: 'sub',
+        is_dir: true,
+        size: 0,
+        modifiedAt: 0,
+      },
+      {
+        path: 'C:/work/other',
+        name: 'other',
+        is_dir: true,
+        size: 0,
+        modifiedAt: 0,
+      },
+    ]);
+    const tree = makeTree({
+      rootPaths: ['C:/work'],
+      expandedPaths: expanded,
+      deps: { readDir },
+    });
+
+    await tree.ensureLoaded('C:/work');
+    // rows 是「节点树 ∩ expandedPaths」—— 父节点不展开就看不到子节点。
+    expanded.value = new Set(['C:/work']);
+    await nextTick();
+    await nextTick();
+
+    expect(tree.rows.value.map(row => row.path)).toEqual([
+      'C:/work',
+      'C:/work/sub',
+      'C:/work/other',
+    ]);
+  });
+
+  it('只含文件的目录没有子节点，也就没有展开箭头', async () => {
+    const expanded = ref<Set<string>>(new Set());
+    const readDir = vi.fn().mockResolvedValue([
+      {
+        path: 'C:/work/a.md',
+        name: 'a.md',
+        is_dir: false,
+        size: 0,
+        modifiedAt: 0,
+      },
+      {
+        path: 'C:/work/b.txt',
+        name: 'b.txt',
+        is_dir: false,
+        size: 0,
+        modifiedAt: 0,
+      },
+    ]);
+    const tree = makeTree({
+      rootPaths: ['C:/work'],
+      expandedPaths: expanded,
+      deps: { readDir },
+    });
+
+    await tree.ensureLoaded('C:/work');
+
+    // 只有根这一行 —— 没有子节点，也就没有展开箭头。
+    expect(tree.rows.value).toHaveLength(1);
+    expect(tree.rows.value[0].path).toBe('C:/work');
+    expect(tree.rows.value[0].isExpanded).toBe(false);
+  });
+
+  it('文件路径不会被立成根', async () => {
+    const expanded = ref<Set<string>>(new Set());
+    const readDir = vi.fn().mockImplementation(async (p: string) => {
+      if (p === 'C:/work') {
+        return [
+          {
+            path: 'C:/work/a.md',
+            name: 'a.md',
+            is_dir: false,
+            size: 0,
+            modifiedAt: 0,
+          },
+          {
+            path: 'C:/work/sub',
+            name: 'sub',
+            is_dir: true,
+            size: 0,
+            modifiedAt: 0,
+          },
+        ];
+      }
+
+      return [];
+    });
+    const tree = makeTree({
+      rootPaths: ['C:/work'],
+      expandedPaths: expanded,
+      deps: { readDir },
+    });
+
+    await tree.ensureLoaded('C:/work');
+    const rowsBefore = tree.rows.value.map(row => row.path);
+
+    // 焦点落到一个**文件**上：它不能被立成根（否则树里会冒出假的文件夹行）。
+    await tree.ensureLoaded('C:/work/a.md');
+
+    expect(tree.rows.value.map(row => row.path)).toEqual(rowsBefore);
+    expect(tree.rows.value.map(row => row.path)).not.toContain('C:/work/a.md');
   });
 });

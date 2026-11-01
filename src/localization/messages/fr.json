@@ -182,8 +182,8 @@
     "newDirectory": "Nouveau répertoire",
     "newFile": "Nouveau fichier",
     "reloadCurrentDirectory": "Recharger le répertoire courant",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "Afficher l'arborescence",
+    "hideFolderTree": "Masquer l'arborescence"
   },
   "dashboard": {
     "subtitle": "Vos favoris, vos éléments tagués et les plus utilisés — au même endroit",
@@ -374,7 +374,14 @@
       "selectedFont": "Police sélectionnée",
       "defaultFont": "police par défaut",
       "reFetchSystemFonts": "Récupérer les polices système",
-      "resetFontToDefault": "Réinitialiser la police par défaut"
+      "resetFontToDefault": "Réinitialiser la police par défaut",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "Date/heure",
@@ -701,6 +708,18 @@
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
       }
+    },
+    "about": {
+      "title": "À propos",
+      "changelog": "Journal des modifications",
+      "projectLinks": "Liens du projet",
+      "commits": "Commits",
+      "author": "Auteur",
+      "developer": "段燚",
+      "website": "Site web",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "Scannez pour suivre"
     }
   },
   "projectGithubButtons": {
@@ -717,7 +736,8 @@
     "stats": "Statistiques",
     "experimental": "Expérimental",
     "extensions": "Extensions",
-    "remote": "Remote"
+    "remote": "Remote",
+    "about": "À propos"
   },
   "settingsTags": {
     "language": "Langue",
@@ -752,7 +772,8 @@
     "infoPanelPreview": "info, panel, preview, image, thumbnail, memory, original, video, mute, autoplay",
     "performance": "performance, memory, quick view, print, window, launch, preload",
     "fileView": "vue fichiers, cadre, sélection, glisser, liste, grille, espacements, remplissage, folder, folders, first, top, sort, sorting, order, ordering, list, files, file, directory, directories, group, grouping, view, precedence",
-    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage"
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "à propos, version, mise à jour, journal des modifications, github, auteur, site web, wechat, code qr"
   },
   "drag": {
     "holdShiftToChangeMode": "Maintenez [Shift] pour changer de mode",

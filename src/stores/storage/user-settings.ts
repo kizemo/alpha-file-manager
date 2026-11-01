@@ -53,6 +53,8 @@ import {
   DEFAULT_INFUSION_BLEND_TINT,
   normalizeInfusionBlendSettings,
 } from '@/utils/infusion-blend';
+// FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）。
+import { resolveFontSizeOffset } from '@/utils/font-size';
 import {
   canUseStartupStorageFastPath,
   getStartupStorageFile,
@@ -93,6 +95,12 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
     theme: 'afm-warm-light',
     text: {
       font: 'system-ui',
+      // FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）。
+      // 默认档 = 0 偏移，与本需求落地前的排版完全一致。
+      // 这个字段必须出现在**默认对象**里：
+      // 允许键集合（buildAllowedUserSettingsStorageKeys）是从默认对象自动派生的，
+      // 默认对象里没有 ⇒ 读侧不认、写侧也存不进去。
+      fontSize: 'default',
     },
     transparentToolbars: false,
     dateTime: {
@@ -364,6 +372,40 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
 
   const defaultFontFamily = computed(
     () => userSettings.value.text?.font ?? 'system-ui',
+  );
+
+  /**
+   * FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）。
+   *
+   * 绝对 **px 偏移**，不是倍率：默认 0 / 大 2 / 特大 4。
+   * 非法值（被手改过的配置文件）一律回落到 0 —— 宁可什么都不放大，
+   * 也不能让布局炸掉。
+   */
+  const fontSizeOffset = computed(
+    () => resolveFontSizeOffset(userSettings.value.text?.fontSize),
+  );
+
+  /**
+   * 把偏移量写到**根元素的内联 style** 上。
+   *
+   * 内联 style 的优先级高于样式表，所以 src/styles/vars.css 里的
+   * `--font-size-offset: 0px` 只是「变量不存在时 calc() 不炸」的兜底，
+   * 不会覆盖这里写的值。
+   */
+  function applyFontSizeOffset(offset: number) {
+    if (typeof document === 'undefined' || !document.documentElement) {
+      return;
+    }
+
+    document.documentElement.style.setProperty('--font-size-offset', `${offset}px`);
+  }
+
+  watch(
+    fontSizeOffset,
+    (offset) => {
+      applyFontSizeOffset(offset);
+    },
+    { immediate: true },
   );
   const themeSettingRef = computed(() => userSettings.value.theme);
   const normalizedThemeSelection = computed(() => {
@@ -781,6 +823,7 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
     userSettings,
     userSettingsDefault,
     defaultFontFamily,
+    fontSizeOffset,
     init,
     set,
     setMany,

@@ -182,8 +182,8 @@
     "newDirectory": "novo diretorio",
     "newFile": "novo arquivo",
     "reloadCurrentDirectory": "recarregar o diretório atual",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "Mostrar árvore de pastas",
+    "hideFolderTree": "Ocultar árvore de pastas"
   },
   "dashboard": {
     "subtitle": "Seus favoritos, itens marcados e os mais usados — tudo em um só lugar",
@@ -374,7 +374,14 @@
       "selectedFont": "Fonte selecionada",
       "defaultFont": "fonte padrão",
       "reFetchSystemFonts": "Recuperar fontes do sistema",
-      "resetFontToDefault": "Redefinir fonte para o padrão"
+      "resetFontToDefault": "Redefinir fonte para o padrão",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "Data e hora",
@@ -701,6 +708,18 @@
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
       }
+    },
+    "about": {
+      "title": "Sobre",
+      "changelog": "Registo de alterações",
+      "projectLinks": "Ligações do projeto",
+      "commits": "Commits",
+      "author": "Autor",
+      "developer": "段燚",
+      "website": "Site",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "Digitalize para seguir"
     }
   },
   "projectGithubButtons": {
@@ -717,7 +736,8 @@
     "stats": "Estatísticas",
     "experimental": "Experimental",
     "extensions": "Extensões",
-    "remote": "Remote"
+    "remote": "Remote",
+    "about": "Sobre"
   },
   "settingsTags": {
     "language": "idioma",
@@ -752,7 +772,8 @@
     "tabsWorkspaces": "abas, espaços de trabalho, fechar, última aba, aba padrão",
     "defaultDirectory": "início, locations, este computador, unidades, pasta padrão, diretório padrão, nova aba, caminho personalizado",
     "startupPage": "página de inicialização, início, abrir ao iniciar, página inicial, acesso rápido, navigator, última página, restaurar, página",
-    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage"
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "sobre, versão, atualização, registo de alterações, github, autor, site, wechat, código qr"
   },
   "drag": {
     "holdShiftToChangeMode": "Segure [Shift] para alterar os modos",

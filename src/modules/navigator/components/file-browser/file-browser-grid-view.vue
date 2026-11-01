@@ -208,7 +208,7 @@ function getSectionRowStyle(row: FileBrowserGridSectionVirtualRow): Record<strin
   backdrop-filter: blur(var(--backdrop-filter-blur));
   background-color: hsl(var(--background-3));
   color: hsl(var(--muted-foreground));
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   font-weight: 500;
   text-transform: uppercase;
 }
@@ -227,7 +227,7 @@ function getSectionRowStyle(row: FileBrowserGridSectionVirtualRow): Record<strin
   backdrop-filter: blur(var(--backdrop-filter-blur));
   background-color: hsl(var(--background-3));
   color: hsl(var(--muted-foreground));
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   font-weight: 500;
   text-transform: uppercase;
 }

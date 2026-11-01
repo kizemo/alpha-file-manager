@@ -18,6 +18,7 @@ const githubRepoApiLink = `${githubBaseApiUrl}/${githubFullRepoName}`;
 const githubLicenseLink = `${githubRepoLink}/blob/${githubMainBranch}/LICENSE.md`;
 const githubChangelogLink = `${githubRepoLink}/blob/${githubMainBranch}/CHANGELOG.md`;
 const githubIssuesLink = `${githubRepoLink}/issues/`;
+const githubCommitsLink = `${githubRepoLink}/commits/${githubMainBranch}`;
 const githubDiscussionsLink = `${githubRepoLink}/discussions/`;
 const githubIssueTemplateProblemReport = `${githubRepoLink}/issues/new?template=Problem_report.md`;
 const githubIssueTemplateFeatureRequest = `${githubRepoLink}/issues/new?template=Feature_request.md`;
@@ -44,7 +45,7 @@ const extensionsManifestSchemaUrl = `${extensionsApiBaseUrl}/manifest.schema.jso
 const updateChannelSiteUrl = 'https://www.aiec.fun/alpha-file-manager';
 
 // 「段燚的学习笔记」入口。人名 + 自定义标题，属专有名词，17 个语言包统一写同一字符串、不做英译。
-const learningNotesUrl = 'http://www.aiec.fun';
+const learningNotesUrl = 'https://www.aiec.fun';
 
 export default {
   githubRepo,
@@ -54,6 +55,7 @@ export default {
   githubLicenseLink,
   githubChangelogLink,
   githubIssuesLink,
+  githubCommitsLink,
   githubDiscussionsLink,
   githubIssueTemplateProblemReport,
   githubIssueTemplateFeatureRequest,

@@ -346,7 +346,12 @@ onBeforeUnmount(() => {
   width: auto;
   min-width: var(--tab-min-width, 100px);
   max-width: var(--tab-max-width, 280px);
-  height: var(--tab-height);
+  /* FORK-MODIFICATION 2026-10-31（r14 需求 3）：标签行高随字号档位变化。
+     单行文本元素按「base + 1.5 x offset」增长 —— 行高是字号的 1.5 倍，
+     所以每 1px 字号偏移带来 1.5px 行高增长。
+     offset 由根元素内联变量 --font-size-offset 提供（0 / 2 / 4），
+     缺省 0 = 与现状完全一致。 */
+  height: calc(var(--tab-height) + var(--font-size-offset, 0px) * 1.5);
   align-items: center;
   padding: 0 10px;
   padding-right: 28px;
@@ -361,6 +366,10 @@ onBeforeUnmount(() => {
 }
 
 .tab[is-active="true"] {
+  /* FORK-MODIFICATION 2026-10-31（r14 需求 6）：激活标签加可见边线。
+     颜色走 --tab-active-border（四套 AFM 主题各给一档）；经典主题没有这个
+     token，回退到 --border，保证任何主题下都有边线而不是 transparent。 */
+  border-color: hsl(var(--tab-active-border, var(--border)));
   background-color: hsl(var(--tab-surface-active));
   color: hsl(var(--foreground) / 80%);
   opacity: 1;
@@ -402,7 +411,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   min-width: 0;
   flex: 1 1 auto;
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -432,7 +441,7 @@ onBeforeUnmount(() => {
 .tab__tooltip-title {
   overflow: hidden;
   color: hsl(var(--foreground));
-  font-size: 16px;
+  font-size: calc(16px + var(--font-size-offset, 0px));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -440,7 +449,7 @@ onBeforeUnmount(() => {
 .tab__tooltip-subtitle {
   overflow: hidden;
   color: hsl(var(--foreground) / 50%);
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   text-overflow: ellipsis;
   white-space: nowrap;
 }

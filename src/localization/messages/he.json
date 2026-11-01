@@ -217,8 +217,8 @@
     "newDirectory": "תיקייה חדשה",
     "newFile": "קובץ חדש",
     "reloadCurrentDirectory": "טען מחדש את התיקייה הנוכחית",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "הצגת עץ התיקיות",
+    "hideFolderTree": "הסתרת עץ התיקיות"
   },
   "dashboard": {
     "subtitle": "המועדפים, המתויגים והנפוצים שלך — הכול במקום אחד",
@@ -409,7 +409,14 @@
       "selectedFont": "הגופן הנבחר",
       "defaultFont": "גופן ברירת המחדל",
       "reFetchSystemFonts": "טען מחדש את גופני המערכת",
-      "resetFontToDefault": "אפס את הגופן לברירת המחדל"
+      "resetFontToDefault": "אפס את הגופן לברירת המחדל",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "תאריך / שעה",
@@ -736,6 +743,18 @@
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
       }
+    },
+    "about": {
+      "title": "אודות",
+      "changelog": "יומן שינויים",
+      "projectLinks": "קישורי פרויקט",
+      "commits": "Commits",
+      "author": "מחבר",
+      "developer": "段燚",
+      "website": "אתר אינטרנט",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "סרקו כדי לעקוב"
     }
   },
   "projectGithubButtons": {
@@ -752,7 +771,8 @@
     "extensions": "תוספים",
     "stats": "סטטיסטיקה",
     "experimental": "ניסיוני",
-    "remote": "Remote"
+    "remote": "Remote",
+    "about": "אודות"
   },
   "settingsTags": {
     "language": "שפה",
@@ -787,7 +807,8 @@
     "tabsWorkspaces": "לשוניות, סביבות עבודה, סגור, לשונית אחרונה, לשונית ברירת מחדל",
     "defaultDirectory": "בית, locations, המחשב הזה, כוננים, תיקיית ברירת מחדל, לשונית חדשה, נתיב מותאם",
     "startupPage": "דף הפעלה, הפעלה, פתח בהפעלה, בית, גישה מהירה, נווט, העמוד האחרון, שחזור, דף",
-    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage"
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "אודות, גרסה, עדכון, יומן שינויים, גיטהאב, מחבר, אתר אינטרנט, וואטסאפ, קוד qr"
   },
   "drag": {
     "holdShiftToChangeMode": "החזק [Shift] כדי לשנות מצב",

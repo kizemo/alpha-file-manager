@@ -182,8 +182,8 @@
     "newDirectory": "新しいディレクトリ",
     "newFile": "新しいファイル",
     "reloadCurrentDirectory": "現在のディレクトリをリロード",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "フォルダーツリーを表示",
+    "hideFolderTree": "フォルダーツリーを非表示"
   },
   "dashboard": {
     "subtitle": "お気に入り、タグ付け、よく使うアイテム — すべてここに",
@@ -374,7 +374,14 @@
       "selectedFont": "選択したフォント",
       "defaultFont": "デフォルトのフォント",
       "reFetchSystemFonts": "システムフォントを再取得",
-      "resetFontToDefault": "フォントをデフォルトにリセット"
+      "resetFontToDefault": "フォントをデフォルトにリセット",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "日付時刻",
@@ -701,6 +708,18 @@
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
       }
+    },
+    "about": {
+      "title": "このアプリについて",
+      "changelog": "変更履歴",
+      "projectLinks": "プロジェクトリンク",
+      "commits": "コミット",
+      "author": "作者",
+      "developer": "段燚",
+      "website": "ウェブサイト",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "スキャンしてフォロー"
     }
   },
   "projectGithubButtons": {
@@ -717,7 +736,8 @@
     "stats": "統計",
     "experimental": "実験的",
     "extensions": "拡張機能",
-    "remote": "Remote"
+    "remote": "Remote",
+    "about": "このアプリについて"
   },
   "settingsTags": {
     "language": "言語",
@@ -752,7 +772,8 @@
     "tabsWorkspaces": "タブ, ワークスペース, 閉じる, 最後のタブ, デフォルトタブ",
     "defaultDirectory": "ホーム, locations, このPC, コンピュータ, ドライブ, デフォルトフォルダー, デフォルトディレクトリ, 新しいタブ, カスタムパス",
     "startupPage": "起動ページ, 起動, スタート, 起動時に開く, ホーム, クイックアクセス, ナビゲーター, 最後のページ, 復元, ページ",
-    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage"
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "このアプリについて, バージョン, 更新, 変更履歴, ギットハブ, 作者, ウェブサイト, wechat, qrコード"
   },
   "drag": {
     "holdShiftToChangeMode": "[Shift] を押してモードを変更",

@@ -182,8 +182,8 @@
     "newDirectory": "Thư mục mới",
     "newFile": "Tệp mới",
     "reloadCurrentDirectory": "Tải lại thư mục hiện tại",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "Hiện cây thư mục",
+    "hideFolderTree": "Ẩn cây thư mục"
   },
   "dashboard": {
     "subtitle": "Yêu thích, mục đã gắn thẻ và mục thường dùng — tất cả ở một nơi",
@@ -374,7 +374,14 @@
       "selectedFont": "Phông chữ đã chọn",
       "defaultFont": "phông chữ mặc định",
       "reFetchSystemFonts": "Tìm nạp lại phông chữ hệ thống",
-      "resetFontToDefault": "Đặt lại phông chữ về mặc định"
+      "resetFontToDefault": "Đặt lại phông chữ về mặc định",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "Ngày giờ",
@@ -701,6 +708,18 @@
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
       }
+    },
+    "about": {
+      "title": "Giới thiệu",
+      "changelog": "Nhật ký thay đổi",
+      "projectLinks": "Liên kết dự án",
+      "commits": "Commit",
+      "author": "Tác giả",
+      "developer": "段燚",
+      "website": "Trang web",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "Quét mã để theo dõi"
     }
   },
   "projectGithubButtons": {
@@ -717,7 +736,8 @@
     "stats": "Số liệu thống kê",
     "experimental": "Thử nghiệm",
     "extensions": "Tiện ích mở rộng",
-    "remote": "Remote"
+    "remote": "Remote",
+    "about": "Giới thiệu"
   },
   "settingsTags": {
     "language": "ngôn ngữ",
@@ -752,7 +772,8 @@
     "tabsWorkspaces": "tab, không gian làm việc, đóng, tab cuối, tab mặc định",
     "defaultDirectory": "home, locations, máy tính, ổ đĩa, thư mục mặc định, tab mới, đường dẫn tùy chỉnh",
     "startupPage": "trang khởi động, khởi động, mở khi khởi động, trang chủ, truy cập nhanh, navigator, trang gần nhất, khôi phục, trang",
-    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage"
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "giới thiệu, phiên bản, cập nhật, nhật ký thay đổi, github, tác giả, trang web, wechat, mã qr"
   },
   "drag": {
     "holdShiftToChangeMode": "Giữ [Shift] để thay đổi chế độ",

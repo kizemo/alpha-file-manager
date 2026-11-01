@@ -333,7 +333,7 @@ watch(
   padding: 8px 10px;
   color: hsl(var(--muted-foreground));
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   line-height: 1.45;
   overflow-wrap: anywhere;
   white-space: pre-wrap;

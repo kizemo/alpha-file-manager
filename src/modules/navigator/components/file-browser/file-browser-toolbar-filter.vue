@@ -319,7 +319,7 @@ function selectProperty(property: QuickSearchProperty) {
 .file-browser-toolbar-filter__property-panel-title {
   margin-bottom: 8px;
   color: hsl(var(--muted-foreground));
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -335,7 +335,7 @@ function selectProperty(property: QuickSearchProperty) {
   height: 1.375rem;
   min-height: 1.375rem;
   padding: 0 0.35rem;
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   line-height: 1.15;
   text-transform: capitalize;
 }
@@ -369,7 +369,7 @@ function selectProperty(property: QuickSearchProperty) {
   justify-content: space-between;
   margin-bottom: 8px;
   color: hsl(var(--muted-foreground));
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   font-weight: 600;
   gap: 8px;
   letter-spacing: 0.02em;
@@ -393,7 +393,7 @@ function selectProperty(property: QuickSearchProperty) {
 
 .file-browser-toolbar-filter__option-label {
   cursor: pointer;
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
 }
 
 .file-browser-toolbar-filter__options-limit-row {

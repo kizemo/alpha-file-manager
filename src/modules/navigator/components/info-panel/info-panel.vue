@@ -135,7 +135,7 @@ const isDrawerOpen = ref(false);
   }
 
   .info-panel :deep(.info-panel-header__name) {
-    font-size: 13px;
+    font-size: calc(13px + var(--font-size-offset, 0px));
     line-height: 1.3;
   }
 

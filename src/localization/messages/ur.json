@@ -217,8 +217,8 @@
     "newDirectory": "نیا فولڈر",
     "newFile": "نئی فائل",
     "reloadCurrentDirectory": "موجودہ فولڈر دوبارہ لوڈ کریں",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "فولڈر ٹری دکھائیں",
+    "hideFolderTree": "فولڈر ٹری چھپائیں"
   },
   "dashboard": {
     "subtitle": "پسندیدہ، ٹیگ والی اور اکثر استعمال ہونے والی اشیاء — سب ایک جگہ",
@@ -409,7 +409,14 @@
       "selectedFont": "منتخب فونٹ",
       "defaultFont": "ڈیفالٹ فونٹ",
       "reFetchSystemFonts": "سسٹم فونٹ دوبارہ لائیں",
-      "resetFontToDefault": "فونٹ ڈیفالٹ پر لائیں"
+      "resetFontToDefault": "فونٹ ڈیفالٹ پر لائیں",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "تاریخ / وقت",
@@ -736,6 +743,18 @@
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
       }
+    },
+    "about": {
+      "title": "تعارف",
+      "changelog": "تبدیلی لاگ",
+      "projectLinks": "پروجیکٹ لنکس",
+      "commits": "کمِٹ",
+      "author": "مصنف",
+      "developer": "段燚",
+      "website": "ویب سائٹ",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "فالو کرنے کے لیے اسکین کریں"
     }
   },
   "projectGithubButtons": {
@@ -752,7 +771,8 @@
     "extensions": "ایکسٹینشن",
     "stats": "اعداد و شمار",
     "experimental": "تجرباتی",
-    "remote": "Remote"
+    "remote": "Remote",
+    "about": "تعارف"
   },
   "settingsTags": {
     "language": "زبان, language",
@@ -787,7 +807,8 @@
     "tabsWorkspaces": "ٹیب, ورک اسپیس, بند, آخری ٹیب, ڈیفالٹ ٹیب",
     "defaultDirectory": "ہوم, locations, یہ پی سی, کمپیوٹر, ڈرائیو, ڈیفالٹ فولڈر, نیا ٹیب, حسب ضرورت راستہ",
     "startupPage": "اسٹارٹ اپ صفحہ, اسٹارٹ اپ, لانچ پر کھولیں, ہوم, فوری رسائی, نیویگیٹر, آخری صفحہ, بحال, صفحہ",
-    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage"
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "تعارف, ورژن, اپ ڈیٹ, تبدیلی لاگ, گٹ ہب, مصنف, ویب سائٹ, وی چیٹ, کیو آر کوڈ"
   },
   "drag": {
     "holdShiftToChangeMode": "موڈ بدلنے کے لیے [Shift] دبائے رکھیں",

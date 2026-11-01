@@ -77,7 +77,11 @@ const columnGridTemplate = computed(() => {
 
 const containerStyle = computed(() => {
   return {
-    ...resolveThumbnailCssVariables(userSettingsStore.userSettings.navigator.thumbnailSize),
+    ...resolveThumbnailCssVariables(
+      userSettingsStore.userSettings.navigator.thumbnailSize,
+      // FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）——绝对 px 偏移。
+      userSettingsStore.fontSizeOffset,
+    ),
     '--global-search-result-list-columns': columnGridTemplate.value,
   };
 });

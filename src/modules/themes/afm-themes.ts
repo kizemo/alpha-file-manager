@@ -92,13 +92,13 @@ const AFM_WARM_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--background-2': '40 39.6% 91.6%',
   '--background-3': '39.2 41.9% 89.8%',
   '--window-toolbar': '39.2 41.9% 87.8%',
-  '--icon': '32.7 11.5% 37.6%',
+  '--icon': '30 14% 28%',
   '--foreground': '30 16.7% 14.1%',
   '--muted': '39.1 34.3% 86.9%',
-  '--muted-foreground': '32.7 11.5% 37.6%',
-  '--popover': '45 57.1% 97.3%',
+  '--muted-foreground': '31 13% 30%',
+  '--popover': '40 36% 95%',
   '--popover-foreground': '30 16.7% 14.1%',
-  '--card': '45 57.1% 97.3%',
+  '--card': '40 36% 93%',
   '--card-foreground': '30 16.7% 14.1%',
   '--border': '37.8 27.8% 81.0%',
   '--input': '40 39.6% 89.6%',
@@ -132,8 +132,8 @@ const AFM_WARM_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--surface-sidebar': '30 16.7% 14.1%',
   '--surface-panel': '41 42% 94.4%',
   // FORK-MODIFICATION 2026-10-30（意见 6）：设置页区块用非常浅的米色，不用纯白。
-  '--surface-settings-card': '42 46% 96.2%',
-  '--surface-settings-nested': '39 34% 91.5%',
+  '--surface-settings-card': '40 36% 92%',
+  '--surface-settings-nested': '39 32% 88.5%',
   '--surface-stripe': '39.1 43.4% 89.6%',
   '--state-hover': '40 39.6% 89.6%',
   '--state-selected': '41.1 38.8% 90.4%',
@@ -141,13 +141,14 @@ const AFM_WARM_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--border-subtle': '37.8 27.8% 81.0%',
   '--tab-surface-active': '42 46% 96.2%',
   '--tab-indicator': '112.7 18.2% 35.5%',
+  '--tab-active-border': '30 24% 52%',
   '--scrollbar-track': '40 39.6% 89.6%',
   '--scrollbar-thumb': '39.3 27.6% 79.4%',
   '--scrollbar-thumb-hover': '37.8 27.8% 74%',
   // 字族
   '--font-display': SERIF_FONT_STACK,
   // 线条图标色 / 低饱和点缀色（用户要求：低饱和绿 + 低饱和红）
-  '--icon-stroke': '36.4 13% 42%',
+  '--icon-stroke': '34 15% 30%',
   '--moss': '112.7 18.2% 35.5%',
   '--moss-soft': '78.8 22.9% 86.3%',
   '--terra': '15.9 45.9% 43.5%',
@@ -162,22 +163,29 @@ const AFM_WARM_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   // 标签栏（任务 2b / 2c / 任务 3）
   '--tab-idle-bg': '38 22% 82%',
   '--tab-idle-border': '37 20% 74%',
-  '--tab-idle-foreground': '32.7 11.5% 34%',
+  '--tab-idle-foreground': '30 14% 26%',
 
   // 列表头（任务 1c / 2e）
   '--list-header-bg': '39.2 41.9% 84%',
   '--list-header-border': '39.4 23.5% 68%',
-  '--list-header-foreground': '32.7 11.5% 37.1%',
+  '--list-header-foreground': '31 13% 29%',
 
-  // 右上角功能族分色（任务 1a）
-  '--family-split': '173 45% 29%',
-  '--family-tree': '113 18% 34.5%',
-  '--family-info': '200 17% 37%',
-  '--family-more': '31 9% 44%',
-  '--family-extension': '251 60% 60%',
-  '--family-search': '42 85% 28.5%',
-  '--family-create': '173 45% 29%',
-  '--family-filter': '349 55% 48%',
+  // 右上角功能族分色（r15）：按主题配色一族一色，暖纸=低饱和红 / 跃动活力=多彩 / 冷杉=钢蓝
+  '--family-nav': '12 30% 38%',
+  '--family-location': '8 34% 36%',
+  '--family-refresh': '18 32% 37%',
+  '--family-view': '10 36% 35%',
+  '--family-thumbnail': '20 28% 39%',
+  '--family-split': '18 38% 43%',
+  '--family-tree': '12 30% 37%',
+  '--family-info': '16 34% 40%',
+  '--family-more': '22 26% 44%',
+  '--family-extension': '8 36% 50%',
+  '--family-search': '5 40% 38%',
+  '--family-create': '18 38% 43%',
+  '--family-filter': '24 42% 46%',
+  '--family-share': '16 36% 42%',
+  '--family-status': '8 30% 40%',
 
   // 地址栏导航按钮分色（任务 1b）
 };
@@ -239,6 +247,7 @@ const AFM_WARM_DARK_VARIABLES: Record<`--${string}`, string> = {
   '--border-subtle': '30 16% 16%',
   '--tab-surface-active': '38 30% 20%',
   '--tab-indicator': '110 25% 62%',
+  '--tab-active-border': '32 16% 52%',
   '--scrollbar-track': '27 17% 10%',
   '--scrollbar-thumb': '30 14% 42%',
   '--scrollbar-thumb-hover': '30 16% 52%',
@@ -266,15 +275,22 @@ const AFM_WARM_DARK_VARIABLES: Record<`--${string}`, string> = {
   '--list-header-border': '30 14% 24%',
   '--list-header-foreground': '33 14% 70%',
 
-  // 右上角功能族分色（任务 1a）
-  '--family-split': '173 45% 50%',
-  '--family-tree': '113 18% 50%',
-  '--family-info': '200 17% 50%',
-  '--family-more': '31 9% 50%',
-  '--family-extension': '251 60% 60.5%',
-  '--family-search': '42 85% 50%',
-  '--family-create': '173 45% 50%',
-  '--family-filter': '349 55% 55.5%',
+  // 右上角功能族分色（r15）：按主题配色一族一色，暖纸=低饱和红 / 跃动活力=多彩 / 冷杉=钢蓝
+  '--family-nav': '12 32% 60%',
+  '--family-location': '8 36% 62%',
+  '--family-refresh': '18 34% 59%',
+  '--family-view': '10 38% 63%',
+  '--family-thumbnail': '20 30% 61%',
+  '--family-split': '14 42% 62%',
+  '--family-tree': '10 34% 56%',
+  '--family-info': '16 38% 58%',
+  '--family-more': '22 28% 64%',
+  '--family-extension': '6 40% 66%',
+  '--family-search': '24 42% 60%',
+  '--family-create': '14 42% 62%',
+  '--family-filter': '20 42% 64%',
+  '--family-share': '16 34% 58%',
+  '--family-status': '8 30% 56%',
 
   // 地址栏导航按钮分色（任务 1b）
 };
@@ -338,6 +354,7 @@ const AFM_VIVID_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--border-subtle': '220 27.3% 88%',
   '--tab-surface-active': '250 40% 97.5%',
   '--tab-indicator': '251 100% 63.9%',
+  '--tab-active-border': '222 24% 50%',
   '--scrollbar-track': '218 28.6% 88%',
   '--scrollbar-thumb': '220 20% 46%',
   '--scrollbar-thumb-hover': '220 24% 36%',
@@ -351,8 +368,8 @@ const AFM_VIVID_LIGHT_VARIABLES: Record<`--${string}`, string> = {
 
   // 目录 / 文件区隔底色（任务 4）
   '--row-dir-bg': '220 22% 94%',
-  '--toolbar-action-foreground': '12 42% 46%',
-  '--switch-checked-background': '28 26% 34%',
+  '--toolbar-action-foreground': '251 55% 42%',
+  '--switch-checked-background': '251 100% 63.9%',
   '--row-file-bg': '220 22% 94%',
 
   // 标签栏（任务 2b / 2c / 任务 3）
@@ -365,7 +382,12 @@ const AFM_VIVID_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--list-header-border': '220 24% 78%',
   '--list-header-foreground': '220 10.3% 39.8%',
 
-  // 右上角功能族分色（任务 1a）
+  // 右上角功能族分色（r15）：按主题配色一族一色，暖纸=低饱和红 / 跃动活力=多彩 / 冷杉=钢蓝
+  '--family-nav': '200 28% 34%',
+  '--family-location': '173 38% 30%',
+  '--family-refresh': '113 32% 31%',
+  '--family-view': '200 34% 32%',
+  '--family-thumbnail': '251 55% 52%',
   '--family-split': '173 45% 29.5%',
   '--family-tree': '113 18% 35.5%',
   '--family-info': '200 17% 38%',
@@ -374,6 +396,8 @@ const AFM_VIVID_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--family-search': '42 85% 29.5%',
   '--family-create': '173 45% 29.5%',
   '--family-filter': '349 55% 49%',
+  '--family-share': '173 42% 31%',
+  '--family-status': '42 70% 31%',
 
   // 地址栏导航按钮分色（任务 1b）
 };
@@ -437,6 +461,7 @@ const AFM_COOL_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--border-subtle': '210 22% 88%',
   '--tab-surface-active': '200 30% 96.5%',
   '--tab-indicator': '200 16.9% 45.3%',
+  '--tab-active-border': '205 20% 52%',
   '--scrollbar-track': '210 28% 92%',
   '--scrollbar-thumb': '205 18% 48%',
   '--scrollbar-thumb-hover': '205 22% 38%',
@@ -450,7 +475,7 @@ const AFM_COOL_LIGHT_VARIABLES: Record<`--${string}`, string> = {
 
   // 目录 / 文件区隔底色（任务 4）
   '--row-dir-bg': '205 24% 95.5%',
-  '--toolbar-action-foreground': '12 40% 46%',
+  '--toolbar-action-foreground': '205 30% 38%',
   '--switch-checked-background': '210 18% 34%',
   '--row-file-bg': '205 24% 95.5%',
 
@@ -464,15 +489,22 @@ const AFM_COOL_LIGHT_VARIABLES: Record<`--${string}`, string> = {
   '--list-header-border': '210 24% 78%',
   '--list-header-foreground': '205 14% 40%',
 
-  // 右上角功能族分色（任务 1a）
-  '--family-split': '173 45% 30.5%',
-  '--family-tree': '113 18% 36.5%',
-  '--family-info': '200 17% 39%',
-  '--family-more': '31 9% 46%',
-  '--family-extension': '251 60% 60%',
-  '--family-search': '42 85% 30%',
-  '--family-create': '173 45% 30.5%',
-  '--family-filter': '349 55% 50%',
+  // 右上角功能族分色（r15）：按主题配色一族一色，暖纸=低饱和红 / 跃动活力=多彩 / 冷杉=钢蓝
+  '--family-nav': '205 26% 34%',
+  '--family-location': '195 30% 32%',
+  '--family-refresh': '215 28% 35%',
+  '--family-view': '200 24% 33%',
+  '--family-thumbnail': '225 26% 36%',
+  '--family-split': '190 30% 32%',
+  '--family-tree': '220 24% 35%',
+  '--family-info': '200 22% 34%',
+  '--family-more': '210 20% 38%',
+  '--family-extension': '190 28% 38%',
+  '--family-search': '210 26% 34%',
+  '--family-create': '185 32% 31%',
+  '--family-filter': '225 30% 37%',
+  '--family-share': '205 28% 34%',
+  '--family-status': '198 24% 33%',
 
   // 地址栏导航按钮分色（任务 1b）
 };

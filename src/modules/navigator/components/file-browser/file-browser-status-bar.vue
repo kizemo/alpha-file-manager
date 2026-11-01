@@ -577,7 +577,7 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
   background-color: hsl(var(--background-2));
   color: hsl(var(--muted-foreground));
   container-type: inline-size;
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   gap: 8px;
 }
 
@@ -631,7 +631,7 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
   gap: 4px;
   padding: 0 6px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   color: hsl(var(--primary));
   background: hsl(var(--primary) / 0.12);
 }
@@ -677,7 +677,7 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
 .file-browser-status-bar__button {
   height: 26px;
   padding: 0 8px;
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   gap: 4px;
 }
 
@@ -723,7 +723,7 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
 .file-browser-status-bar__items-header {
   padding: 4px 12px;
   color: hsl(var(--muted-foreground));
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
 }
 
 .file-browser-status-bar__scroll-area {
@@ -765,7 +765,7 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
 
 .file-browser-status-bar__item-name {
   overflow: hidden;
-  font-size: 13px;
+  font-size: calc(13px + var(--font-size-offset, 0px));
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -774,7 +774,7 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
 .file-browser-status-bar__item-path {
   overflow: hidden;
   color: hsl(var(--muted-foreground));
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -787,7 +787,7 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
 .file-browser-status-bar__no-items {
   padding: 16px;
   color: hsl(var(--muted-foreground));
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   text-align: center;
 }
 

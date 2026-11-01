@@ -135,7 +135,7 @@ const rootProps = computed<Record<string, unknown>>(() => {
   overflow: hidden;
   min-width: 0;
   flex: 1;
-  font-size: 14px;
+  font-size: calc(14px + var(--font-size-offset, 0px));
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;

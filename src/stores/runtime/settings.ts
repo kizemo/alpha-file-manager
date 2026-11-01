@@ -79,6 +79,10 @@ const settingsTabs: SettingsTab[] = [
     name: 'experimental',
     labelKey: 'settingsTabs.experimental',
   },
+  {
+    name: 'about',
+    labelKey: 'settingsTabs.about',
+  },
 ];
 
 function normalizeSettingsTabName(tabName: string): string {
@@ -227,6 +231,7 @@ export const useSettingsStore = defineStore('settings', () => {
       { default: DefaultFileManagerSection },
       { default: ThumbnailCacheSection },
       { default: McpServerSection },
+      { default: AboutInfoSection },
     ] = await Promise.all([
       import('@/modules/settings/ui/categories/general/language.vue'),
       import('@/modules/settings/ui/categories/general/date-time.vue'),
@@ -262,6 +267,7 @@ export const useSettingsStore = defineStore('settings', () => {
       import('@/modules/settings/ui/categories/experimental/default-file-manager.vue'),
       import('@/modules/settings/ui/categories/storage/thumbnail-cache.vue'),
       import('@/modules/settings/ui/categories/experimental/mcp-server.vue'),
+      import('@/modules/settings/ui/categories/about/about.vue'),
     ]);
 
     allSections.value = [
@@ -286,17 +292,6 @@ export const useSettingsStore = defineStore('settings', () => {
         component: markRaw(WhatsNewSection),
         category: 'general',
       },
-      ...(platformStore.appUpdatesManagedExternally
-        ? []
-        : [
-            {
-              key: 'appUpdates',
-              titleKey: 'appUpdates',
-              tags: 'settingsTags.updates',
-              component: markRaw(AppUpdatesSection),
-              category: 'general',
-            },
-          ]),
       {
         key: 'startup',
         titleKey: 'settings.general.startupBehavior',
@@ -507,6 +502,24 @@ export const useSettingsStore = defineStore('settings', () => {
         component: markRaw(McpServerSection),
         category: 'experimental',
       },
+      {
+        key: 'aboutInfo',
+        titleKey: 'settings.about.title',
+        tags: 'settingsTags.about',
+        component: markRaw(AboutInfoSection),
+        category: 'about',
+      },
+      ...(platformStore.appUpdatesManagedExternally
+        ? []
+        : [
+            {
+              key: 'appUpdates',
+              titleKey: 'appUpdates',
+              tags: 'settingsTags.updates',
+              component: markRaw(AppUpdatesSection),
+              category: 'about',
+            },
+          ]),
     ];
 
     const normalizedStoredTab = normalizeSettingsTabName(userSettingsStore.userSettings.settingsCurrentTab);

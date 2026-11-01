@@ -677,7 +677,7 @@ watch(imagePreviewPlaceholderSrc, () => {
 
 .file-browser-grid-card__name {
   overflow: hidden;
-  font-size: 13px;
+  font-size: calc(13px + var(--font-size-offset, 0px));
   font-weight: 500;
   overflow-wrap: break-word;
   text-overflow: ellipsis;
@@ -687,7 +687,7 @@ watch(imagePreviewPlaceholderSrc, () => {
 .file-browser-grid-card__meta {
   display: flex;
   align-items: center;
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   gap: 6px;
   opacity: 0.8;
 }
