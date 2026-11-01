@@ -157,6 +157,13 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
         autoplayVideoPreview: false,
       },
       showHiddenFiles: false,
+      // FORK-MODIFICATION 2026-11-01：目录树开关（navigator.showFolderTree）。
+      // 这个字段必须出现在**默认对象**里：
+      // 允许键集合（buildAllowedUserSettingsStorageKeys）是从默认对象自动派生的，
+      // 默认对象里没有 ⇒ 读侧不认（磁盘上的 false 被静默丢弃，目录树重启后又回来）、
+      // 写侧也存不进去。
+      // 默认值 true，与 navigator.vue 里 `?? true` 的兜底一致（没用过该开关的用户行为不变）。
+      showFolderTree: true,
       splitViewMode: 'split',
       folderSettings: {},
       folderIconTheme: BUILTIN_NAVIGATOR_ICON_THEME_IDS.system,
