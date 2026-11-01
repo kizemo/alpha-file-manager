@@ -182,8 +182,8 @@
     "newDirectory": "Nuova cartella",
     "newFile": "Nuovo file",
     "reloadCurrentDirectory": "Ricarica la cartella corrente",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "Mostra albero delle cartelle",
+    "hideFolderTree": "Nascondi albero delle cartelle"
   },
   "dashboard": {
     "subtitle": "Preferiti, elementi taggati e file più usati — tutto in un posto",
@@ -374,7 +374,14 @@
       "selectedFont": "Font selezionato",
       "defaultFont": "font predefinito",
       "reFetchSystemFonts": "Recupera i font di sistema",
-      "resetFontToDefault": "Ripristina il font predefinito"
+      "resetFontToDefault": "Ripristina il font predefinito",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "Data / ora",
@@ -701,6 +708,18 @@
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
       }
+    },
+    "about": {
+      "title": "Informazioni",
+      "changelog": "Registro modifiche",
+      "projectLinks": "Link del progetto",
+      "commits": "Commit",
+      "author": "Autore",
+      "developer": "段燚",
+      "website": "Sito web",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "Scansiona per seguire"
     }
   },
   "projectGithubButtons": {
@@ -717,7 +736,8 @@
     "stats": "Statistiche",
     "experimental": "Sperimentale",
     "extensions": "Estensioni",
-    "remote": "Remote"
+    "remote": "Remote",
+    "about": "Informazioni"
   },
   "settingsTags": {
     "language": "lingua",
@@ -752,7 +772,8 @@
     "tabsWorkspaces": "schede, spazi di lavoro, chiudi, ultima scheda, scheda predefinita",
     "defaultDirectory": "home, locations, questo PC, computer, unità, cartella predefinita, nuova scheda, percorso personalizzato",
     "startupPage": "pagina di avvio, avvio, apri all’avvio, home, accesso rapido, navigator, ultima pagina, ripristina, pagina",
-    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage"
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "informazioni, versione, aggiornamento, registro modifiche, github, autore, sito web, wechat, codice qr"
   },
   "drag": {
     "holdShiftToChangeMode": "Tieni premuto il tasto [Shift] per cambiare modalità",

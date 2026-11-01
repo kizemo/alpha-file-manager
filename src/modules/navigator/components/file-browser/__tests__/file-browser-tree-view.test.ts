@@ -279,13 +279,14 @@ describe('FileBrowserTreeView — filesystem mutation reaches the tree (v6.5)', 
     // and the tree never showed it, because nothing could invalidate the
     // tree's per-directory children cache.
     const contents: Record<string, DirEntry[]> = {
-      'C:/work': [entry('C:/work/a.md', 'a.md', false)],
+      // FORK-MODIFICATION 需求 9：目录树只显示目录，夹具必须是目录。
+      'C:/work': [entry('C:/work/old', 'old', true)],
     };
     const { store, wrapper } = await mountWithFakeFs(['C:/work'], contents);
 
     store.expandPath('C:/work');
     await flushPromises();
-    expect(renderedPaths(wrapper)).toEqual(['C:/work', 'C:/work/a.md']);
+    expect(renderedPaths(wrapper)).toEqual(['C:/work', 'C:/work/old']);
 
     // A file browser pane creates a folder, then publishes the changed dir.
     contents['C:/work'].push(entry('C:/work/fresh', 'fresh', true));
@@ -294,7 +295,7 @@ describe('FileBrowserTreeView — filesystem mutation reaches the tree (v6.5)', 
 
     // Never collapsed, never re-expanded by hand.
     expect(store.isExpanded('C:/work')).toBe(true);
-    expect(renderedPaths(wrapper)).toEqual(['C:/work', 'C:/work/a.md', 'C:/work/fresh']);
+    expect(renderedPaths(wrapper)).toEqual(['C:/work', 'C:/work/old', 'C:/work/fresh']);
 
     wrapper.unmount();
   });
@@ -323,7 +324,8 @@ describe('FileBrowserTreeView — filesystem mutation reaches the tree (v6.5)', 
     // navigator.vue mounts the tree under v-if="showFolderTree", so an
     // invalidation can be published with no consumer listening.
     const contents: Record<string, DirEntry[]> = {
-      'C:/work': [entry('C:/work/seen.txt', 'seen.txt', false)],
+      // FORK-MODIFICATION 需求 9：目录树只显示目录，夹具必须是目录。
+      'C:/work': [entry('C:/work/seen', 'seen', true)],
     };
     vi.mocked(resolveDirectoryContents).mockImplementation(async (path: string) => {
       return dirContents(path, contents[path] ?? []);
@@ -342,7 +344,7 @@ describe('FileBrowserTreeView — filesystem mutation reaches the tree (v6.5)', 
     // The mount consumed it, and the directory really was re-read.
     expect(store.consumeStaleTreePaths()).toEqual([]);
     expect(vi.mocked(resolveDirectoryContents).mock.calls.map(c => c[0])).toContain('C:/work');
-    expect(renderedPaths(wrapper)).toEqual(['C:/work', 'C:/work/seen.txt']);
+    expect(renderedPaths(wrapper)).toEqual(['C:/work', 'C:/work/seen']);
     // Two reads here, and that is deliberate: the immediate expansion watcher
     // starts a read on mount, and that read may have started *before* the
     // mutation the pending invalidation represents — so it must be re-read

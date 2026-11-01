@@ -65,6 +65,19 @@
 
   /* General */
   --backdrop-filter-blur: 32px;
+
+  /*
+   * FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）。
+   *
+   * 绝对 px 偏移的根变量：默认 0 / 大 2 / 特大 4。
+   * 真正的值由 store 写在 `document.documentElement` 的**内联 style** 上
+   * （内联 style 优先级高于样式表），这一条只是「变量不存在时 calc() 不炸」的兜底。
+   *
+   * ⚠️ 不要改 `html { font-size }` —— 全仓有几百处 rem 布局，
+   * 改根字号会把那些布局一起顶开。字号只按
+   * `font-size: calc(13px + var(--font-size-offset, 0px))` 逐处显式放大。
+   */
+  --font-size-offset: 0px;
   --radius: 0.5rem;
   --radius-full: 9999px;
   --radius-xl: calc(var(--radius) + 4px);

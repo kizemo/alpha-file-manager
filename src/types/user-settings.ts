@@ -2,6 +2,10 @@
 // License: GNU GPLv3 or later. See the license file in the project root for more information.
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
+// FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）。
+// 档位类型只有**一份**定义，在 @/utils/font-size —— 这里不再另起一份。
+import type { FontSizeTier } from '@/utils/font-size';
+
 type NestedPaths<T, K extends keyof T = keyof T> = K extends string
   ? T[K] extends Record<string, unknown>
     ? T[K] extends unknown[]
@@ -187,6 +191,12 @@ export type PerformanceSettings = {
 
 export type TextSettings = {
   font: string;
+  // FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）。
+  // 三档是「默认 / 大 / 特大」，对应绝对 px 偏移 0 / 2 / 4。
+  // 档位类型只有**一份**定义，见 @/utils/font-size
+  // （本文件曾经另起过一份 'xlarge'，与真实档位名 'extra-large' 漂移过）。
+  // 可选：升级前的存档里没有这个字段，读侧必须兜得住（见 resolveFontSizeOffset）。
+  fontSize?: FontSizeTier;
 };
 
 export type ClipboardSettings = {

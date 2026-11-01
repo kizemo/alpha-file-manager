@@ -217,8 +217,8 @@
     "newDirectory": "Nova mapa",
     "newFile": "Nova datoteka",
     "reloadCurrentDirectory": "Ponovno naloži trenutno mapo",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "Prikaži drevo map",
+    "hideFolderTree": "Skrij drevo map"
   },
   "dashboard": {
     "subtitle": "Priljubljeni, označeni in pogosto uporabljeni predmeti — vse na enem mestu",
@@ -409,7 +409,14 @@
       "selectedFont": "Izbrana pisava",
       "defaultFont": "privzeta pisava",
       "reFetchSystemFonts": "Ponovno pridobi sistemske pisave",
-      "resetFontToDefault": "Ponastavi pisavo na privzeto"
+      "resetFontToDefault": "Ponastavi pisavo na privzeto",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "Datum / čas",
@@ -736,6 +743,18 @@
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
       }
+    },
+    "about": {
+      "title": "O programu",
+      "changelog": "Dnevnik sprememb",
+      "projectLinks": "Povezave projekta",
+      "commits": "Commits",
+      "author": "Avtor",
+      "developer": "段燚",
+      "website": "Spletno mesto",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "Skenirajte za sledenje"
     }
   },
   "projectGithubButtons": {
@@ -752,7 +771,8 @@
     "stats": "Statistika",
     "experimental": "Eksperimentalno",
     "extensions": "Razširitve",
-    "remote": "Remote"
+    "remote": "Remote",
+    "about": "O programu"
   },
   "settingsTags": {
     "language": "language",
@@ -787,7 +807,8 @@
     "tabsWorkspaces": "zavihki, delovni prostori, zapri, zadnji zavihek, privzet zavihek",
     "defaultDirectory": "domov, locations, ta računalnik, pogoni, privzeta mapa, nov zavihek, pot po meri",
     "startupPage": "stran ob zagonu, zagon, odpri ob zagonu, domača stran, hitri dostop, navigator, zadnja stran, obnovi, stran",
-    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage"
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "o programu, različica, posodobitev, dnevnik sprememb, github, avtor, spletno mesto, wechat, qr koda"
   },
   "drag": {
     "holdShiftToChangeMode": "Zadržite [Shift] za spremembo načina",

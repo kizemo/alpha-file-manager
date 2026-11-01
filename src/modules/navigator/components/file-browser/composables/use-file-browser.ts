@@ -312,7 +312,11 @@ export function useFileBrowser(options: UseFileBrowserOptions) {
   // FORK-MODIFICATION: 框选命中测试必须和虚拟布局用同一档位的最小列宽，
   // 否则列数变了框选还会按旧列宽选到另一张卡片。
   const thumbnailMetrics = computed(
-    () => resolveThumbnailMetrics(userSettingsStore.userSettings.navigator.thumbnailSize),
+    () => resolveThumbnailMetrics(
+      userSettingsStore.userSettings.navigator.thumbnailSize,
+      // FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）——绝对 px 偏移。
+      userSettingsStore.fontSizeOffset,
+    ),
   );
 
   const dataSource = isExternalMode
@@ -363,6 +367,8 @@ export function useFileBrowser(options: UseFileBrowserOptions) {
     entryDescription: options.entryDescription,
     increaseFileViewGaps: () => increaseFileViewGaps.value,
     thumbnailSize: () => userSettingsStore.userSettings.navigator.thumbnailSize,
+    // FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）——绝对 px 偏移。
+    fontSizeOffset: () => userSettingsStore.fontSizeOffset,
   });
   const scrollStateKey = computed(() => options.scrollStateKey?.());
 

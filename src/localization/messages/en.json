@@ -409,7 +409,14 @@
       "selectedFont": "Selected font",
       "defaultFont": "default font",
       "reFetchSystemFonts": "Re-fetch system fonts",
-      "resetFontToDefault": "Reset font to default"
+      "resetFontToDefault": "Reset font to default",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "Date / time",
@@ -736,6 +743,18 @@
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
       }
+    },
+    "about": {
+      "title": "About",
+      "changelog": "Changelog",
+      "projectLinks": "Project links",
+      "commits": "Commits",
+      "author": "Author",
+      "developer": "段燚",
+      "website": "Website",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "Scan to follow"
     }
   },
   "projectGithubButtons": {
@@ -752,7 +771,8 @@
     "extensions": "Extensions",
     "stats": "Stats",
     "experimental": "Experimental",
-    "remote": "Remote"
+    "remote": "Remote",
+    "about": "About"
   },
   "settingsTags": {
     "language": "language",
@@ -787,7 +807,8 @@
     "performance": "performance, memory, quick view, print, window, launch, preload",
     "fileView": "file view, box selection, drag selection, list, grid, gaps, padding, spacing, folder, folders, first, top, sort, sorting, order, ordering, files, file, directory, directories, group, grouping, view, precedence",
     "extensions": "extensions, plugins, addons, configuration, settings",
-    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage"
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "about, version, update, changelog, github, author, website, wechat, qr code"
   },
   "drag": {
     "holdShiftToChangeMode": "Hold [Shift] to change mode",

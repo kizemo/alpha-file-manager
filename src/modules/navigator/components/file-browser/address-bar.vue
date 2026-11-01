@@ -424,7 +424,7 @@ onUnmounted(() => {
   background: transparent;
   color: hsl(var(--muted-foreground) / 70%);
   cursor: pointer;
-  font-size: 13px;
+  font-size: calc(13px + var(--font-size-offset, 0px));
   line-height: 18px;
   transition: background-color 0.1s, color 0.1s;
   white-space: nowrap;
@@ -455,7 +455,7 @@ onUnmounted(() => {
   background: transparent;
   color: hsl(var(--muted-foreground) / 60%);
   cursor: pointer;
-  font-size: 13px;
+  font-size: calc(13px + var(--font-size-offset, 0px));
   transition: background-color 0.1s, color 0.1s;
 }
 
@@ -505,7 +505,7 @@ onUnmounted(() => {
 
 .address-bar__separator-menu .sigma-ui-dropdown-menu-item {
   padding: 6px 12px;
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   gap: 8px;
 }
 

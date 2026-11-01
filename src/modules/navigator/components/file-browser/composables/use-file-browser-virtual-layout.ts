@@ -161,8 +161,11 @@ export function createFileBrowserVirtualRows(options: {
   increaseFileViewGaps?: boolean;
   // FORK-MODIFICATION: 缩略图大小档位（同时影响 list 行高与 grid 卡高/列宽）。默认 medium。
   thumbnailSize?: ThumbnailSize;
+  // FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）——绝对 px 偏移（0 / 2 / 4）。
+  fontSizeOffset?: number;
 }): FileBrowserVirtualRow[] {
   const thumbnailSize = options.thumbnailSize ?? 'medium';
+  const fontSizeOffset = options.fontSizeOffset ?? 0;
   const gridGap = getFileBrowserGridGap(!!options.increaseFileViewGaps);
   const model = createFileBrowserVirtualRowModel({
     entries: options.entries,
@@ -170,10 +173,11 @@ export function createFileBrowserVirtualRows(options: {
     columnCount: getGridColumnCount(
       options.viewportWidth,
       gridGap,
-      resolveThumbnailMetrics(thumbnailSize).gridMinColumnWidth,
+      resolveThumbnailMetrics(thumbnailSize, fontSizeOffset).gridMinColumnWidth,
     ),
     gridGap,
     thumbnailSize,
+    fontSizeOffset,
     entryDescription: options.entryDescription,
   });
 
@@ -187,6 +191,8 @@ export function useFileBrowserVirtualLayout(options: {
   increaseFileViewGaps?: () => boolean;
   // FORK-MODIFICATION: 缩略图大小档位（影响 list 行高与 grid 卡高/列宽）
   thumbnailSize?: () => ThumbnailSize;
+  // FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）——绝对 px 偏移（0 / 2 / 4）。
+  fontSizeOffset?: () => number;
 }) {
   const scrollViewportRef = ref<HTMLElement | null>(null);
   const viewportHeight = ref(0);
@@ -200,7 +206,10 @@ export function useFileBrowserVirtualLayout(options: {
   const gridColumnCount = computed(() => getGridColumnCount(
     viewportWidth.value,
     gridGap.value,
-    resolveThumbnailMetrics(options.thumbnailSize?.() ?? 'medium').gridMinColumnWidth,
+    resolveThumbnailMetrics(
+      options.thumbnailSize?.() ?? 'medium',
+      options.fontSizeOffset?.() ?? 0,
+    ).gridMinColumnWidth,
   ));
 
   // FORK-MODIFICATION（批次 C3）：**行模型**。
@@ -215,6 +224,7 @@ export function useFileBrowserVirtualLayout(options: {
     columnCount: gridColumnCount.value,
     gridGap: gridGap.value,
     thumbnailSize: options.thumbnailSize?.() ?? 'medium',
+    fontSizeOffset: options.fontSizeOffset?.() ?? 0,
     entryDescription: options.entryDescription,
   }));
 

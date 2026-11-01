@@ -744,7 +744,7 @@ const visibleRows = computed<FileBrowserListDisplayItem[]>(() => {
   column-gap: var(--file-browser-list-column-gap);
   contain: layout paint style;
   cursor: default;
-  font-size: 13px;
+  font-size: calc(13px + var(--font-size-offset, 0px));
   grid-template-columns: var(--file-browser-list-columns);
   padding-inline-end: calc(var(--file-browser-list-row-padding-x) + var(--file-browser-list-columns-button-width));
   scroll-margin-top: var(--file-browser-list-header-height);
@@ -830,7 +830,7 @@ const visibleRows = computed<FileBrowserListDisplayItem[]>(() => {
 .file-browser-list-view__entry-link-target {
   overflow: hidden;
   color: hsl(var(--muted-foreground));
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -889,7 +889,7 @@ const visibleRows = computed<FileBrowserListDisplayItem[]>(() => {
   z-index: 1;
   overflow: hidden;
   color: hsl(var(--muted-foreground));
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   text-overflow: ellipsis;
   white-space: nowrap;
 }

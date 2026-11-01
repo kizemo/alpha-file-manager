@@ -182,8 +182,8 @@
     "newDirectory": "Yeni direktör",
     "newFile": "Yeni dosya",
     "reloadCurrentDirectory": "Geçerli dizini yeniden yükle",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "Klasör ağacını göster",
+    "hideFolderTree": "Klasör ağacını gizle"
   },
   "dashboard": {
     "subtitle": "Favoriler, etiketli ve sık kullanılan öğeler — hepsi bir arada",
@@ -374,7 +374,14 @@
       "selectedFont": "Seçilen yazı tipi",
       "defaultFont": "varsayılan yazı tipi",
       "reFetchSystemFonts": "Sistem yazı tiplerini yeniden getir",
-      "resetFontToDefault": "Yazı tipini varsayılana sıfırla"
+      "resetFontToDefault": "Yazı tipini varsayılana sıfırla",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "Tarih / saat",
@@ -701,6 +708,18 @@
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
       }
+    },
+    "about": {
+      "title": "Hakkında",
+      "changelog": "Sürüm notları",
+      "projectLinks": "Proje bağlantıları",
+      "commits": "Commitler",
+      "author": "Yazar",
+      "developer": "段燚",
+      "website": "Web sitesi",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "Takip etmek için tarayın"
     }
   },
   "projectGithubButtons": {
@@ -717,7 +736,8 @@
     "stats": "İstatistikler",
     "experimental": "Deneysel",
     "extensions": "Uzantılar",
-    "remote": "Remote"
+    "remote": "Remote",
+    "about": "Hakkında"
   },
   "settingsTags": {
     "language": "dil",
@@ -752,7 +772,8 @@
     "tabsWorkspaces": "sekmeler, çalışma alanları, kapat, son sekme, varsayılan sekme",
     "defaultDirectory": "ana sayfa, locations, bu bilgisayar, sürücüler, varsayılan klasör, varsayılan dizin, yeni sekme, özel yol",
     "startupPage": "başlangıç sayfası, başlangıç, başlangıçta aç, ana sayfa, hızlı erişim, gezgin, son sayfa, geri yükle, sayfa",
-    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage"
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "hakkında, sürüm, güncelleme, sürüm notları, github, yazar, web sitesi, wechat, qr kodu"
   },
   "drag": {
     "holdShiftToChangeMode": "Modu değiştirmek için [Shift]'e basılı tutun",

@@ -85,6 +85,8 @@ const userSettingsStore = useUserSettingsStore();
 // 刻意不等于 medium 档的 64px：行高量到 42px 就是判定注入失效的信号。
 const thumbnailCssVariables = computed(() => resolveThumbnailCssVariables(
   userSettingsStore.userSettings.navigator.thumbnailSize,
+  // FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）——绝对 px 偏移。
+  userSettingsStore.fontSizeOffset,
 ));
 
 function getScrollStateKey(): string | undefined {

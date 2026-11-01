@@ -175,8 +175,8 @@
     "newDirectory": "دایرکتوری جدید",
     "newFile": "فایل جدید",
     "reloadCurrentDirectory": "بارگیری مجدد فهرست فعلی",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "نمایش درخت پوشه",
+    "hideFolderTree": "پنهان‌کردن درخت پوشه"
   },
   "dashboard": {
     "subtitle": "موارد دلخواه، برچسب‌گذاری‌شده و پرکاربرد — همه در یک جا",
@@ -367,7 +367,14 @@
       "selectedFont": "فونت انتخاب شده",
       "defaultFont": "فونت پیش فرض",
       "reFetchSystemFonts": "بازیابی فونت های سیستم",
-      "resetFontToDefault": "بازنشانی فونت به پیش فرض"
+      "resetFontToDefault": "بازنشانی فونت به پیش فرض",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "وقت قرار",
@@ -694,6 +701,18 @@
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
       }
+    },
+    "about": {
+      "title": "درباره",
+      "changelog": "گزارش تغییرات",
+      "projectLinks": "پیوندهای پروژه",
+      "commits": "کامیت‌ها",
+      "author": "نویسنده",
+      "developer": "段燚",
+      "website": "وب‌سایت",
+      "wechat": "وی‌چت",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "برای دنبال کردن اسکن کنید"
     }
   },
   "projectGithubButtons": {
@@ -710,7 +729,8 @@
     "stats": "آمار",
     "experimental": "آزمایشی",
     "extensions": "برنامه های افزودنی",
-    "remote": "Remote"
+    "remote": "Remote",
+    "about": "درباره"
   },
   "settingsTags": {
     "language": "زبان",
@@ -745,7 +765,8 @@
     "tabsWorkspaces": "برگه، فضای کاری، بستن، آخرین برگه، برگه پیش‌فرض",
     "defaultDirectory": "خانه، locations، این رایانه، درایو، پوشه پیش‌فرض، برگه جدید، مسیر سفارشی",
     "startupPage": "صفحه راه‌اندازی، راه‌اندازی، باز کردن هنگام راه‌اندازی، خانه، دسترسی سریع، ناوبری، آخرین صفحه، بازیابی، صفحه",
-    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage"
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "درباره, نسخه, به‌روزرسانی, گزارش تغییرات, گیت‌هاب, نویسنده, وب‌سایت, وی‌چت, کد qr"
   },
   "drag": {
     "holdShiftToChangeMode": "برای تغییر حالت، [Shift] را نگه دارید",

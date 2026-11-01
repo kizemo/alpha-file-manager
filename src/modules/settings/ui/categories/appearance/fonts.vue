@@ -24,6 +24,8 @@ import {
 import { SettingsItem } from '@/modules/settings';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import { getSystemFonts } from 'tauri-plugin-system-fonts-api';
+// FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）。
+import { FONT_SIZE_TIERS, type FontSizeTier } from '@/utils/font-size';
 
 const DEFAULT_FONT = 'system-ui';
 
@@ -75,6 +77,20 @@ const selectedFont = computed({
   },
   set: (font: FontOption) => {
     userSettingsStore.set('text.font', font.name);
+  },
+});
+
+/**
+ * FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）。
+ *
+ * 档位是**绝对 px 偏移**（0 / 2 / 4），不是倍率。
+ * 写进 `text.fontSize` 之后，store 的 watcher 会立刻把
+ * `--font-size-offset` 写到根元素上，界面随即重排。
+ */
+const selectedFontSize = computed({
+  get: () => userSettingsStore.userSettings.text.fontSize ?? 'default',
+  set: (tier: FontSizeTier) => {
+    void userSettingsStore.set('text.fontSize', tier);
   },
 });
 
@@ -211,6 +227,39 @@ onMounted(() => {
           {{ t('settings.fonts.resetFontToDefault') }}
         </TooltipContent>
       </Tooltip>
+    </div>
+  </SettingsItem>
+
+  <!--
+    FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）。
+    与字体族设置并列，属于同一页（fonts.vue）。
+  -->
+  <SettingsItem
+    :title="t('settings.fonts.fontSize.label')"
+    :description="t('settings.fonts.fontSize.description')"
+    :icon="TypeIcon"
+  >
+    <div class="fonts-row">
+      <div class="fonts-select-wrap">
+        <Select
+          v-model="selectedFontSize"
+        >
+          <SelectTrigger class="fonts-select-trigger">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent class="fonts-select-content">
+            <SelectItem
+              v-for="tier in FONT_SIZE_TIERS"
+              :key="tier"
+              :value="tier"
+            >
+              <SelectItemText>
+                {{ t(`settings.fonts.fontSize.${tier}`) }}
+              </SelectItemText>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   </SettingsItem>
 </template>

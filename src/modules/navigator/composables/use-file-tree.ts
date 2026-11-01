@@ -226,16 +226,58 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
   async function loadChildren(node: FileTreeNode): Promise<void> {
     if (!node.isDirectory || node.isLoaded) return;
     const entries = await deps.readDir(node.path);
-    node.children = entries.map((entry) => ({
-      path: entry.path,
-      name: entry.name,
-      isDirectory: entry.is_dir,
-      isExpanded: false,
-      isLoaded: !entry.is_dir,
-      depth: node.depth + 1,
-      children: null,
-    }));
+    // FORK-MODIFICATION: 目录树只显示目录（需求 9，2026-10-31）。
+    //
+    // 字段是 `is_dir`（见 src/types/dir-entry.ts），这里**只按真身写**，
+    // 不做 `is_dir || isDirectory` 的双写兼容 —— DirEntry 上根本没有 `isDirectory`。
+    //
+    // 过滤必须发生在 map **之前**：先 map 成树节点再过滤的话，
+    // 文件节点已经建出来了，还得再删一遍。
+    //
+    // 过滤后子节点恒为目录 ⇒ `isDirectory` 恒为 true、`isLoaded` 恒为 false
+    // （目录要等用户展开时才会去读）。一个只含文件的目录因此没有子节点，
+    // 树上也不会出现展开箭头。
+    node.children = entries
+      .filter(entry => entry.is_dir === true)
+      .map(entry => ({
+        path: entry.path,
+        name: entry.name,
+        isDirectory: true,
+        isExpanded: false,
+        isLoaded: false,
+        depth: node.depth + 1,
+        children: null,
+      }));
     node.isLoaded = true;
+  }
+
+  /**
+   * `path` 是不是「已知的非目录」（文件，或已被删除）。
+   *
+   * FORK-MODIFICATION: 目录树只显示目录（需求 9，2026-10-31）。
+   *
+   * 判据：父目录节点在树里、已经读过（子项已经读出来），
+   * 但它的子项里**没有**这条路径。由于 `loadChildren` 只把 `is_dir === true`
+   * 的条目收进树，「读过的父目录里没有它」就意味着它不是目录。
+   *
+   * ⚠️ 覆盖不到的边界：父目录**不在树里**（例如这条路径本身就是显式配置的根），
+   * 此时没有已加载的父目录可比对，只能按「新根」处理 ——
+   * 要判准需要额外的 stat 能力，而 `UseFileTreeDeps` 只有 `readDir`。
+   */
+  function isKnownNonDirectory(path: string): boolean {
+    const parent = parentDirectoryOfPath(path);
+
+    if (parent === null) {
+      return false;
+    }
+
+    const parentNode = findNode(nodes.value, parent);
+
+    if (!parentNode || !parentNode.isLoaded || !parentNode.children) {
+      return false;
+    }
+
+    return !parentNode.children.some(child => child.path === path);
   }
 
   /** Pure helper: return parent directory of `path`, or null if root. */
@@ -373,6 +415,14 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
 
         // If still not in tree, fall back to addRoot (genuinely new root).
         if (!node) {
+          // FORK-MODIFICATION: 目录树只显示目录（需求 9，2026-10-31）。
+          // 走到这里说明这条路径不在树里。它可能是**文件**（树里只有目录），
+          // 也可能是真正的新根目录 —— 靠「父目录已加载、但它的子项里没有它」区分。
+          // 文件不能被立成根，否则树里会冒出一个假的文件夹行。
+          if (isKnownNonDirectory(path)) {
+            return;
+          }
+
           addRoot(path);
           node = findNode(nodes.value, path);
         }

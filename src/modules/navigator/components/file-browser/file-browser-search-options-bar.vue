@@ -180,7 +180,7 @@ const matchCountText = computed(() => t('fileBrowser.searchOptions.matchCount', 
 
 .file-browser-search-options__title {
   color: hsl(var(--muted-foreground));
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   font-weight: 600;
   letter-spacing: 0.02em;
   line-height: 1.2;
@@ -201,7 +201,7 @@ const matchCountText = computed(() => t('fileBrowser.searchOptions.matchCount', 
 }
 
 .file-browser-search-options__label {
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   cursor: pointer;
   white-space: nowrap;
 }
@@ -214,7 +214,7 @@ const matchCountText = computed(() => t('fileBrowser.searchOptions.matchCount', 
   margin: 0;
   padding-bottom: 2px;
   color: hsl(var(--muted-foreground));
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   white-space: nowrap;
 }
 

@@ -217,8 +217,8 @@
     "newDirectory": "Նոր պանակ",
     "newFile": "Նոր ֆայլ",
     "reloadCurrentDirectory": "Թարմացնել այս պանակը",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "Տեղացույց ցուցադրել",
+    "hideFolderTree": "Տեղացույց թաքցնել"
   },
   "dashboard": {
     "subtitle": "Սիրվածները, թեգված և հաճախ օգտագործվող իրերը — բոլորը մի տեղում",
@@ -409,7 +409,14 @@
       "selectedFont": "Ընտրված ֆոնթ",
       "defaultFont": "լռելյայն ֆոնթ",
       "reFetchSystemFonts": "Վերաբեռնել համակարգի ֆոնթերը",
-      "resetFontToDefault": "Վերականգնել ֆոնթերը լռելյայնի"
+      "resetFontToDefault": "Վերականգնել ֆոնթերը լռելյայնի",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "Ամսաթիվ/ժամ",
@@ -736,6 +743,18 @@
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
       }
+    },
+    "about": {
+      "title": "Հետեր",
+      "changelog": "Փոխոխությունների մատյան",
+      "projectLinks": "Նախագծի հղումներ",
+      "commits": "Կոմիտներ",
+      "author": "Հեղինակ",
+      "developer": "段燚",
+      "website": "Կայք",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "Հետերվելու համար սկանեք"
     }
   },
   "projectGithubButtons": {
@@ -752,7 +771,8 @@
     "extensions": "Ընդլայնումներ",
     "stats": "Վիճակագրություն",
     "experimental": "Փորձնական",
-    "remote": "Remote"
+    "remote": "Remote",
+    "about": "Հետեր"
   },
   "settingsTags": {
     "language": "լեզու",
@@ -787,7 +807,8 @@
     "tabsWorkspaces": "թաբեր, աշխատատարածքներ, փակել, վերջին թաբ, լռելյայն թաբ",
     "defaultDirectory": "տուն, locations, այս համակարգիչ, սկավառակներ, լռելյայն պանակ, նոր թաբ, հատուկ ուղի",
     "startupPage": "գործարկման էջ, գործարկում, բացել գործարկման ժամանակ, գլխավոր, արագ մուտք, նավիգատոր, վերջին էջ, վերականգնել, էջ",
-    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage"
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "հետեր, տարբերակ, թարմացում, փոխոխությունների մատյան, գիթհաբ, հեղինակ, կայք, վեչատ, qr կոդ"
   },
   "drag": {
     "holdShiftToChangeMode": "Պահեք [Shift] կոճակը՝ ռեժիմը փոխելու համար",

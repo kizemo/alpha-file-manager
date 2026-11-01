@@ -182,8 +182,8 @@
     "newDirectory": "Nuevo directorio",
     "newFile": "Archivo nuevo",
     "reloadCurrentDirectory": "Recargar directorio actual",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "Mostrar árbol de carpetas",
+    "hideFolderTree": "Ocultar árbol de carpetas"
   },
   "dashboard": {
     "subtitle": "Tus favoritos, elementos etiquetados y los más usados, todo en un lugar",
@@ -374,7 +374,14 @@
       "selectedFont": "Fuente seleccionada",
       "defaultFont": "fuente predeterminada",
       "reFetchSystemFonts": "Recuperar fuentes del sistema",
-      "resetFontToDefault": "Restablecer fuente a la predeterminada"
+      "resetFontToDefault": "Restablecer fuente a la predeterminada",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "Fecha y hora",
@@ -701,6 +708,18 @@
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
       }
+    },
+    "about": {
+      "title": "Acerca de",
+      "changelog": "Registro de cambios",
+      "projectLinks": "Enlaces del proyecto",
+      "commits": "Commits",
+      "author": "Autor",
+      "developer": "段燚",
+      "website": "Sitio web",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "Escanea para seguir"
     }
   },
   "projectGithubButtons": {
@@ -717,7 +736,8 @@
     "stats": "Estadísticas",
     "experimental": "Experimental",
     "extensions": "Extensiones",
-    "remote": "Remote"
+    "remote": "Remote",
+    "about": "Acerca de"
   },
   "settingsTags": {
     "language": "idioma",
@@ -752,7 +772,8 @@
     "infoPanelPreview": "info, panel, preview, image, thumbnail, memory, original, video, mute, autoplay",
     "performance": "performance, memory, quick view, print, window, launch, preload",
     "fileView": "vista archivos, cuadro, selección, arrastrar, lista, cuadrícula, espacios, relleno, folder, folders, first, top, sort, sorting, order, ordering, list, files, file, directory, directories, group, grouping, view, precedence",
-    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage"
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "acerca de, versión, actualización, registro de cambios, github, autor, sitio web, wechat, código qr"
   },
   "drag": {
     "holdShiftToChangeMode": "Mantén presionado [Shift] para cambiar de modo",

@@ -112,14 +112,14 @@ const staggerBinding = getStaggerSlideUpBinding(getNextSettingsItemStaggerIndex(
 .settings-view-item__title {
   margin: 0;
   color: hsl(var(--foreground));
-  font-size: 1rem;
+  font-size: calc(1rem + var(--font-size-offset, 0px));
   font-weight: 600;
 }
 
 .settings-view-item__description {
   margin: 0;
   color: hsl(var(--muted-foreground));
-  font-size: 0.875rem;
+  font-size: calc(0.875rem + var(--font-size-offset, 0px));
   line-height: 1.4;
 }
 

@@ -168,12 +168,80 @@ const THUMBNAIL_METRICS_BY_SIZE = FILE_BROWSER_THUMBNAIL_METRICS as Record<
   FileBrowserThumbnailMetrics | undefined
 >;
 
-export function resolveThumbnailMetrics(size: ThumbnailSize): FileBrowserThumbnailMetrics {
-  if (!Object.hasOwn(THUMBNAIL_METRICS_BY_SIZE, size)) {
-    return FILE_BROWSER_THUMBNAIL_METRICS.medium;
+/**
+ * 全局行高（src/styles/preflight.css 的 `html, :host { line-height: 1.5 }`）。
+ *
+ * FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）——
+ * 行高换算要用它，见下面 `offsetMetricHeights` 的口径。
+ */
+const FONT_LINE_HEIGHT = 1.5;
+
+/**
+ * FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）——把**高度**类度量按字号偏移放大。
+ *
+ * **唯一口径：高度 = base + (1.5 × offset × 文本行数)**
+ *
+ * 推导：基准正文字号 13px、全局行高 1.5 ⇒ 一行文本盒高 = 13 × 1.5 = 19.5px；
+ * 字号 +offset 之后该行盒高 = (13 + offset) × 1.5 = 19.5 + 1.5 × offset，
+ * 也就是**每行**长高 1.5 × offset。
+ *
+ * offset ∈ {0, 2, 4} ⇒ 1.5 × offset ∈ {0, 3, 6}，全是整数，不会出现小数像素。
+ *
+ * 文本行数：
+ *   · 1 行：列表行（只有名称）/ 列表头 / 状态栏 / 目录树行；
+ *   · 2 行：带说明行的列表行、网格目录卡、网格非媒体文件卡的底部信息区
+ *     （名称行 13px + 元信息行 11px）。
+ *
+ * 网格目录卡的贴合度（为什么 2 行是 3 × offset）：
+ *   当前卡高 52px，内容区 = 52 − 2（边框）− 16（上下内边距）= 34px，
+ *   而两行字形要 19.5 + 2 + 16.5 = 38px —— **当前已经偏紧 4px**。
+ *   特大档下两行要 25.5 + 2 + 22.5 = 50px，卡高按 base + 3 × offset = 52 + 12 = 64px，
+ *   内容区 64 − 18 = 46px ⇒ 仍然偏紧 4px，**与现状同样的贴合度**，不会新裁字。
+ *
+ * **不**放大的两处，各有理由：
+ *   · `listThumbnailPx` 是缩略图边长，用户在「缩略图大小」里单独选过，不该被字号牵走；
+ *   · `gridEntryHeight` 是媒体卡的卡高，而媒体卡里的图片是 `object-fit: cover` 铺满整卡的 ——
+ *     放大卡高等于把图片一起放大，那是「缩略图大小」该管的事，不是「字体大小」该管的事。
+ *     媒体卡的文字是叠在图片上的浮层，特大档信息层 8 + 25.5 + 2 + 22.5 + 8 = 66px，
+ *     仍然装得进最小的 120px 卡里。
+ *
+ * `fontSizeOffset <= 0` 时**原样返回同一个对象**（不是拷贝）：
+ * 既有测试用 `toBe` 钉住了「未知档位回落到 medium 那一档对象本身」。
+ */
+function offsetMetricHeights(
+  metrics: FileBrowserThumbnailMetrics,
+  fontSizeOffset: number,
+): FileBrowserThumbnailMetrics {
+  if (!Number.isFinite(fontSizeOffset) || fontSizeOffset <= 0) {
+    return metrics;
   }
 
-  return THUMBNAIL_METRICS_BY_SIZE[size] as FileBrowserThumbnailMetrics;
+  const oneLine = Math.round(FONT_LINE_HEIGHT * fontSizeOffset);
+  const twoLines = Math.round(FONT_LINE_HEIGHT * fontSizeOffset * 2);
+
+  return {
+    ...metrics,
+    listRowHeight: metrics.listRowHeight + oneLine,
+    listRowHeightWithDescription: metrics.listRowHeightWithDescription + twoLines,
+    listFileEntryHeight: metrics.listFileEntryHeight + oneLine,
+    listFileEntryHeightWithDescription: metrics.listFileEntryHeightWithDescription + twoLines,
+    gridDirEntryHeight: metrics.gridDirEntryHeight + twoLines,
+    gridFileEntryHeight: metrics.gridFileEntryHeight + twoLines,
+  };
+}
+
+export function resolveThumbnailMetrics(
+  size: ThumbnailSize,
+  fontSizeOffset: number = 0,
+): FileBrowserThumbnailMetrics {
+  if (!Object.hasOwn(THUMBNAIL_METRICS_BY_SIZE, size)) {
+    return offsetMetricHeights(FILE_BROWSER_THUMBNAIL_METRICS.medium, fontSizeOffset);
+  }
+
+  return offsetMetricHeights(
+    THUMBNAIL_METRICS_BY_SIZE[size] as FileBrowserThumbnailMetrics,
+    fontSizeOffset,
+  );
 }
 
 /**
@@ -195,8 +263,11 @@ function resolveListEntryHeightFloorPx(
   return Math.min(listRowHeight, listFileEntryHeight);
 }
 
-export function resolveThumbnailCssVariables(size: ThumbnailSize): Record<string, string> {
-  const metrics = resolveThumbnailMetrics(size);
+export function resolveThumbnailCssVariables(
+  size: ThumbnailSize,
+  fontSizeOffset: number = 0,
+): Record<string, string> {
+  const metrics = resolveThumbnailMetrics(size, fontSizeOffset);
 
   return {
     '--navigator-list-view-entry-height': `${

@@ -78,7 +78,10 @@ vi.mock('vue-i18n', () => ({
 }));
 
 // logo 是静态资源 import,vitest 下按文件名解析即可,这里 stub 掉避免读二进制。
+// FORK-MODIFICATION 2026-10-31（r14 需求 7）：设置页同时挂浅底版与深底版两张图，
+// 由 <html>.dark 在 CSS 层互斥显示，所以两张都要 stub。
 vi.mock('@/assets/icons/logo-1024x1024.png', () => ({ default: '/logo.png' }));
+vi.mock('@/assets/icons/logo-1024x1024-dark.png', () => ({ default: '/logo-dark.png' }));
 
 type HeaderWrapper = VueWrapper;
 
@@ -213,5 +216,21 @@ describe('settings header 简介文案', () => {
     const text = normalizedText(mountSettingsHeader(EN));
 
     expect(text.split('Alpha File Manager').length - 1).toBe(1);
+  });
+});
+
+describe('settings header 软件图标的两套配色（r14 需求 7）', () => {
+  it('同时渲染浅底版与深底版,由 <html>.dark 在 CSS 层互斥显示', () => {
+    const wrapper = mountSettingsHeader();
+    const light = wrapper.find('img.settings-header__logo--light');
+    const dark = wrapper.find('img.settings-header__logo--dark');
+
+    // 两张都要在 DOM 里：只渲染一张再换 src 的话，主题切换会重新加载图片并闪一下。
+    expect(light.exists()).toBe(true);
+    expect(dark.exists()).toBe(true);
+
+    // 浅底版 = 深色文件夹 + 浅色 α；深底版 = 浅米文件夹 + 深色 α。
+    expect(light.attributes('src')).toBe('/logo.png');
+    expect(dark.attributes('src')).toBe('/logo-dark.png');
   });
 });

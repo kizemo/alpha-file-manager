@@ -287,7 +287,7 @@ defineExpose({
   padding: var(--file-browser-list-header-padding-y) var(--file-browser-list-header-padding-x);
   color: hsl(var(--muted-foreground));
   column-gap: var(--file-browser-list-column-gap);
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   font-weight: 500;
   grid-template-columns: var(--file-browser-list-columns);
   line-height: 1rem;
@@ -404,7 +404,7 @@ defineExpose({
 
 .file-browser-list-view__size-tooltip-title {
   color: hsl(var(--foreground));
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -433,7 +433,7 @@ defineExpose({
   background-color: hsl(var(--primary) / 15%);
   color: hsl(var(--primary));
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   font-weight: 500;
 }
 
@@ -453,7 +453,7 @@ defineExpose({
 
 .file-browser-list-view__size-tooltip-desc {
   color: hsl(var(--muted-foreground));
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   line-height: 1.4;
 }
 
@@ -461,7 +461,7 @@ defineExpose({
   padding-top: 6px;
   border-top: 1px solid hsl(var(--border) / 50%);
   color: hsl(var(--muted-foreground));
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   font-style: italic;
   line-height: 1.4;
 }

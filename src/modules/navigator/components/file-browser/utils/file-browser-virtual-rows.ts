@@ -207,8 +207,9 @@ function getEntryDescriptionHeight(
   entry: DirEntry,
   entryDescription?: (entry: DirEntry) => string | undefined,
   thumbnailSize: ThumbnailSize = 'medium',
+  fontSizeOffset: number = 0,
 ): number {
-  const metrics = resolveThumbnailMetrics(thumbnailSize);
+  const metrics = resolveThumbnailMetrics(thumbnailSize, fontSizeOffset);
   const hasThumbnail = isFileBrowserImageEntry(entry) || isFileBrowserVideoEntry(entry);
 
   const rowHeight = hasThumbnail ? metrics.listRowHeight : metrics.listFileEntryHeight;
@@ -227,6 +228,11 @@ export interface FileBrowserVirtualRowModelOptions {
   /** 网格卡片之间的间距（其它布局忽略） */
   gridGap: number;
   thumbnailSize: ThumbnailSize;
+  /**
+   * FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）。
+   * 绝对 px 偏移（0 / 2 / 4），只影响**高度**类度量（行高、卡高）。
+   */
+  fontSizeOffset?: number;
   entryDescription?: (entry: DirEntry) => string | undefined;
 }
 
@@ -291,7 +297,7 @@ export function createFileBrowserVirtualRowModel(
   options: FileBrowserVirtualRowModelOptions,
 ): FileBrowserVirtualRowModel {
   const { layout } = options;
-  const metrics = resolveThumbnailMetrics(options.thumbnailSize);
+  const metrics = resolveThumbnailMetrics(options.thumbnailSize, options.fontSizeOffset ?? 0);
 
   if (layout === 'grid') {
     return createGridRowModel(options, metrics);
@@ -323,6 +329,7 @@ function createFlatListRowModel(
       entries[index],
       options.entryDescription,
       options.thumbnailSize,
+      options.fontSizeOffset ?? 0,
     );
 
     kinds[index] = ROW_KIND_LIST_ENTRY;
@@ -417,6 +424,7 @@ function createGroupedListRowModel(
         builder.entries[index],
         options.entryDescription,
         options.thumbnailSize,
+        options.fontSizeOffset ?? 0,
       );
 
       kinds[rowIndex] = ROW_KIND_LIST_ENTRY;

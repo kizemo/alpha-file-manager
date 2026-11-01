@@ -217,8 +217,8 @@
     "newDirectory": "नई निर्देशिका",
     "newFile": "नई फ़ाइल",
     "reloadCurrentDirectory": "वर्तमान निर्देशिका पुनः लोड करें",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "फ़ोल्डर ट्री दिखाएँ",
+    "hideFolderTree": "फ़ोल्डर ट्री छिपाएँ"
   },
   "dashboard": {
     "subtitle": "आपके पसंदीदा, टैग किए गए और अक्सर उपयोग किए जाने वाले आइटम — सब एक जगह",
@@ -409,7 +409,14 @@
       "selectedFont": "चयनित फ़ॉन्ट",
       "defaultFont": "मूलभूत अक्षर",
       "reFetchSystemFonts": "सिस्टम फ़ॉन्ट पुनः प्राप्त करें",
-      "resetFontToDefault": "फ़ॉन्ट को डिफ़ॉल्ट पर रीसेट करें"
+      "resetFontToDefault": "फ़ॉन्ट को डिफ़ॉल्ट पर रीसेट करें",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "दिनांक समय",
@@ -736,6 +743,18 @@
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
       }
+    },
+    "about": {
+      "title": "परिचय",
+      "changelog": "परिवर्तन लॉग",
+      "projectLinks": "प्रोजेक्ट लिंक",
+      "commits": "कमिट",
+      "author": "लेखक",
+      "developer": "段燚",
+      "website": "वेबसाइट",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "फ़ॉलो करने के लिए स्कैन करें"
     }
   },
   "projectGithubButtons": {
@@ -752,7 +771,8 @@
     "extensions": "एक्सटेंशन",
     "stats": "आँकड़े",
     "experimental": "प्रयोगात्मक",
-    "remote": "Remote"
+    "remote": "Remote",
+    "about": "परिचय"
   },
   "settingsTags": {
     "language": "भाषा",
@@ -787,7 +807,8 @@
     "tabsWorkspaces": "टैब, वर्कस्पेस, बंद, अंतिम टैब, डिफ़ॉल्ट टैब",
     "defaultDirectory": "होम, locations, यह पीसी, कंप्यूटर, ड्राइव, डिफ़ॉल्ट फ़ोल्डर, नया टैब, कस्टम पथ",
     "startupPage": "स्टार्टअप पेज, स्टार्टअप, लॉन्च पर खोलें, होम, त्वरित पहुँच, नेविगेटर, अंतिम पृष्ठ, पुनर्स्थापित, पेज",
-    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage"
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "परिचय, संस्करण, अपडेट, परिवर्तन लॉग, गिटहब, लेखक, वेबसाइट, वीचैट, क्यूआर कोड"
   },
   "drag": {
     "holdShiftToChangeMode": "मोड बदलने के लिए [Shift] दबाए रखें",
