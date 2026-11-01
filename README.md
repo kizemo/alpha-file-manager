@@ -106,9 +106,17 @@ sync, batch rename, and a long list of day-to-day fixes.
 | | |
 |---|---|
 | 🎨 | **Background effects** — custom images and videos, with Photoshop-style blend modes |
+| 🌈 | **Multiple beautified custom themes** — switch freely between Vivid Energy, Cool Pine, Warm Paper · Light / Dark and more |
 | 🖼️ | **Quick view** — preview images, video, audio, PDFs and text with `Space`, without leaving the app |
 | 📦 | **Zip archives** — compress and extract without leaving the app |
 | 🪟 | **Can replace Explorer** — register as the default file manager on Windows |
+
+| | |
+|---|---|
+| ![Theme picker](docs/screenshots/afm-theme-picker-en.png) | **Theme picker** — open the theme dropdown in Settings → UI appearance and see every bundled theme at once |
+| ![Vivid Energy](docs/screenshots/afm-theme-vivid-light-en.png) | **Vivid Energy** — vivid accents on a light canvas |
+| ![Cool Pine](docs/screenshots/afm-theme-cool-light-en.png) | **Cool Pine** — a cool green take on the light theme |
+| ![Warm Paper Dark](docs/screenshots/afm-theme-warm-dark-en.png) | **Warm Paper · Dark** — the paper theme turned down for the night |
 
 ---
 
