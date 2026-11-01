@@ -97,9 +97,17 @@ SFTP/FTP/FTPS 远程服务器、目录递归比较与同步、批量改名，以
 | | |
 |---|---|
 | 🎨 | **背景视觉效果** —— 自定义图片与视频，支持 Photoshop 式混合模式 |
+| 🌈 | **多种美化的自定义主题自由切换** —— 跃动活力、冷杉、暖纸 · 浅色 / 深色等主题随时切换 |
 | 🖼️ | **快速查看** —— 按 `Space` 预览图片、视频、音频、PDF 与文本，不用离开应用 |
 | 📦 | **Zip 压缩包** —— 压缩与解压都在应用内完成 |
 | 🪟 | **可以接管资源管理器** —— 在 Windows 上注册为默认文件管理器 |
+
+| | |
+|---|---|
+| ![主题选择器](docs/screenshots/afm-theme-picker-zh.png) | **主题选择器** —— 在「设置 → UI 外观」点开主题下拉，一次看全所有内置主题 |
+| ![跃动活力](docs/screenshots/afm-theme-vivid-light-zh.png) | **跃动活力** —— 浅色底上的高饱和强调色 |
+| ![冷杉](docs/screenshots/afm-theme-cool-light-zh.png) | **冷杉** —— 偏冷绿调的浅色主题 |
+| ![暖纸深色](docs/screenshots/afm-theme-warm-dark-zh.png) | **暖纸 · 深色** —— 纸感主题的夜间版本 |
 
 ---
 
