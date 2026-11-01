@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.9.1] - November 2026
+
+**Summary:** The folder tree now stays hidden after a restart, and the extension worker can no longer reach the network.
+
+### What changed
+
+**Fixed: hiding the folder tree survives a restart.** The switch that hides the folder tree in the navigator was never registered as a user setting, so it was written into the configuration on the way out and then dropped again as an unknown key on the way in - the tree came back every single time. The switch is a proper setting now, and a hidden tree stays hidden.
+
+**Fixed: an extension can no longer reach the network.** Extension code runs in a worker of its own now, and that worker is started from a sandbox frame carrying a restrictive content security policy, so an extension can no longer import a remote module or open a network connection. The globals of the worker are frozen as well, and a worker that fails to start reports the failure instead of leaving the extension waiting for ever.
+
 ## [3.9.0] - November 2026
 
 **Summary:** The brand icon has been redrawn from the ground up, the type can now be set in three sizes, the settings page has an *About* page, and the folder tree button finally speaks the language of the interface instead of English. Underneath, the installer no longer turns down a reinstall of the version that is already there, and an application that was killed no longer leaves a locked WebView2 directory behind. The *Warm Paper* themes keep their serif type, the navigation buttons of all three themes are coloured the same way, and the two icons at the top right of the navigator wear a low-saturation red instead of a loud one.
