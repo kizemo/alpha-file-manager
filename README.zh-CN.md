@@ -18,7 +18,7 @@
 **一款面向 Windows 与 Linux 的现代文件管理器 —— 补上资源管理器最缺的两件事：
 一棵真正的目录树，以及会跟着你跨应用走的文件对话框。**
 
-![Alpha File Manager](docs/screenshots/afm-main-window.png)
+![Alpha File Manager](docs/screenshots/afm-main-window-zh.png)
 
 Alpha File Manager 是 [Sigma File Manager](https://github.com/aleksey-hoffman/sigma-file-manager)
 的独立衍生版本，由 [kizemo](https://github.com/kizemo) 维护。它跟随上游同步，并在其上叠加了
@@ -107,8 +107,19 @@ SFTP/FTP/FTPS 远程服务器、目录递归比较与同步、批量改名，以
 
 | | |
 |---|---|
-| ![快速访问](docs/screenshots/afm-dashboard-hero-light.png) | **快速访问** —— 收藏按分类分组，带缩略图、大小与「X 小时前」 |
-| ![仪表盘](docs/screenshots/afm-dashboard-card-enrichment.png) | **仪表盘** —— 收藏、标记、常用、历史都在一处 |
+| ![仪表板快速访问](docs/screenshots/afm-dashboard-hero-light-zh.png) | **快速访问** —— 收藏按分类分组，带缩略图、大小与「X 小时前」 |
+| ![仪表板卡片](docs/screenshots/afm-dashboard-card-enrichment-zh.png) | **仪表板卡片** —— 上层是名称、大小与路径，下层是类型与条目数，每张卡片自带拖动、排序与编辑快捷操作 |
+
+### 3.9.0 改了什么
+
+| | |
+|---|---|
+| 🎨 | **应用图标重画** —— 整组字形做了仿射放大、字符下移，图标在任务栏与安装器的小尺寸下也读得出形状。做了两套配色：界面深色侧边栏用「浅文件夹 + 深 α」，安装器与任务栏用「深墨文件夹 + 浅 α」 |
+| 🔴 | **导航器右上角两枚图标换成低饱和度的红** —— *暖纸* 主题里的分屏与目录树按钮原本是亮红，放在纸面上很扎眼 |
+| 🌍 | **目录树按钮的提示完成了翻译** —— 「显示目录树 / 隐藏目录树」过去无论什么语言都是英文，如今 17 个语言包都已补齐 |
+| 🔤 | **字体大小三档** —— 「默认 / 大 / 特大」，分别在当前字号上增加 0 / 2 / 4 像素，行高与右侧属性栏同步适配 |
+| 📄 | **设置页多了「关于」** —— 应用图标、名称、正在运行的版本号，以及更新日志、项目主页、提交记录、问题反馈的入口 |
+| ↕️ | **收藏夹可以排序了** —— 分类与分类里的收藏项都能拖拽调整位置，顺序在重启后保留 |
 
 ---
 
