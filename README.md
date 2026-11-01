@@ -18,7 +18,7 @@
 **A modern file manager for Windows and Linux — with the two things you miss most
 in Explorer: a real folder tree, and file dialogs that follow you between apps.**
 
-![Alpha File Manager](docs/screenshots/afm-main-window.png)
+![Alpha File Manager](docs/screenshots/afm-main-window-en.png)
 
 Alpha File Manager is an independent build of
 [Sigma File Manager](https://github.com/aleksey-hoffman/sigma-file-manager),
@@ -116,8 +116,19 @@ sync, batch rename, and a long list of day-to-day fixes.
 
 | | |
 |---|---|
-| ![Quick Access](docs/screenshots/afm-dashboard-hero-light.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
-| ![Compare and sync](docs/screenshots/afm-dashboard-card-enrichment.png) | **The dashboard** — a single place for favourites, tags, frequent places and history |
+| ![Dashboard quick access](docs/screenshots/afm-dashboard-hero-light-en.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
+| ![Dashboard cards](docs/screenshots/afm-dashboard-card-enrichment-en.png) | **Dashboard cards** — name, size and path on top, type and item count below, with drag, reorder and edit shortcuts on every card |
+
+### What changed in 3.9.0
+
+| | |
+|---|---|
+| 🎨 | **The application icon was redrawn** — the whole set of glyphs was scaled up and the characters moved down, so the mark reads as a solid shape at task bar and installer sizes. Two colourways of it: a pale folder with a dark alpha for the rail inside the interface, a dark folder with a pale alpha for the installer and the task bar |
+| 🔴 | **Two icons at the top right of the navigator wear a low-saturation red** — the split view and folder tree buttons in the *Warm Paper* themes were a bright red that did not sit well on the paper |
+| 🌍 | **The folder tree tooltip is now translated** — *Show folder tree* and *Hide folder tree* used to be English in every language; all seventeen language packs now carry them |
+| 🔤 | **Three font sizes** — *Default*, *Large* and *Extra large*, each a fixed step of 0, 2 and 4 pixels on top of the current size, with the line heights and the properties panel following along |
+| 📄 | **The settings page has an *About* page** — the logo, the name, the version that is running, and links out to the changelog, the project page, the commits and the issue tracker |
+| ↕️ | **Favourites can be put in order** — drag the categories and the favourites in them into place, and the order is kept between restarts |
 
 ---
 

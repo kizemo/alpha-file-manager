@@ -1,5 +1,43 @@
 # Changelog
 
+## [3.9.0] - November 2026
+
+**Summary:** The brand icon has been redrawn from the ground up, the type can now be set in three sizes, the settings page has an *About* page, and the folder tree button finally speaks the language of the interface instead of English. Underneath, the installer no longer turns down a reinstall of the version that is already there, and an application that was killed no longer leaves a locked WebView2 directory behind. The *Warm Paper* themes keep their serif type, the navigation buttons of all three themes are coloured the same way, and the two icons at the top right of the navigator wear a low-saturation red instead of a loud one.
+
+### What changed
+
+**Changed: the application icon was redrawn.** The whole set of glyphs was scaled up and the characters were moved down, so that the mark reads as a solid shape rather than a small drawing lost in the middle of the canvas. The folder is a brown of much lower saturation than before, and there are two colourways of it: a pale folder with a dark alpha for the deep rail inside the interface, a dark folder with a pale alpha for the installer and the task bar.
+
+**Improved: the text can be set in three sizes.** The settings page offers *Default*, *Large* and *Extra large*, each a fixed step of 0, 2 and 4 pixels on top of the current size. The line heights follow, and the text in the properties panel on the right grows with the rest.
+
+**Improved: the settings page has an *About* page.** It shows the logo, the name and the version that is running, and links out to the changelog, the project page, the commits, the issue tracker, the learning notes and the WeChat account.
+
+**Improved: the folder tree button says what it does in your language.** The tooltip that reads *Show folder tree* or *Hide folder tree* used to be English in every language; it is now translated in all seventeen language packs.
+
+**Improved: the favourites can be put in order.** The categories and the favourites in them can be dragged into place, and the order is kept between restarts.
+
+**Improved: the tabs take the room they need.** The width of a tab now depends on how many tabs are open, and a tab bar that runs out of room can be scrolled sideways.
+
+**Improved: the *Warm Paper* themes use a serif typeface.** The bold weights are now pinned to the serif family as well, so a heading no longer falls back to a sans-serif face in the middle of a serif page.
+
+**Improved: the navigation buttons are coloured the same way in all three themes.** The rainbow spread of the *Vivid* theme was taken away, and the accent of the *Warm Paper* themes is a low-saturation red.
+
+**Fixed: reinstalling the same version is no longer refused.** The guard in front of the installer used to compare version numbers, so installing over the build that was already there was quietly turned down and the user saw nothing happen. It now compares the identity of the build - the hash of the installer itself - and a downgrade is allowed instead of being refused.
+
+**Fixed: the application no longer crashes after it was killed.** A web view process left behind with no living parent kept the WebView2 directory locked, and the next start failed with a Windows error. These orphans are now cleared away at start-up.
+
+**Fixed: the two icons at the top right of the navigator wear a low-saturation red.** In the *Warm Paper* themes the split view and folder tree buttons were a bright red that did not sit well on the paper.
+
+**Fixed: the white blocks of the settings page are now a light cream.** They used to be plain white, which did not belong to the *Warm Paper* themes.
+
+**Fixed: the address bar, the folder tree and the tabs are darker in the *Warm Paper* themes.** Their text sat too lightly on the paper to be read without effort.
+
+**Fixed: the switches of the settings page are violet in the *Vivid* theme.** The colour they used was out of place in that theme.
+
+**Fixed: the tab you are in now has a visible edge.** With several tabs open it was hard to tell which one was active.
+
+**Fixed: the folder tree shows folders only.** Files used to take a row in the tree as well.
+
 ## [3.8.0] - October 2026
 
 **Summary:** The *Archival Paper* look has had a second round of work. The two *Warm Paper* themes are brighter and less saturated in the main area, every icon is drawn as pale beige line art, folder icons carry a muted green accent, inactive tabs are dimmed and given a pale beige-grey edge, the list header sits on a deeper ground with a rule above and below, and folders and files no longer share one background. In *Vivid* the toolbar buttons are coloured by the job they do, the tabs size themselves to their title, and the application icon was redrawn in the warm-paper palette. The *Follow Path* extension also works again after an update.

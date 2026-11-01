@@ -1,6 +1,6 @@
 {
   "name": "sigma-file-manager",
-  "version": "3.8.0",
+  "version": "3.9.0",
   "license": "GPL-3.0-or-later",
   "author": {
     "name": "kizemo",
@@ -54,7 +54,7 @@
     "release:verify": "node ./scripts/release-publish.mjs verify",
     "release:github": "node ./scripts/release-publish.mjs github",
     "flatpak:build": "bash ./flatpak/build-flatpak.sh",
-    "tauri:gen-icons": "tauri icon ./src/assets/icons/logo-1024x1024.png",
+    "tauri:gen-icons": "tauri icon ./src/assets/icons/logo-1024x1024-dark.png",
     "tauri:cargo-update": "cd ./src-tauri && cargo update",
     "tauri:cargo-build": "npm run sync-version && cd ./src-tauri && cargo build",
     "sync-i18n": "npx tsx ./scripts/sync-i18n.js",

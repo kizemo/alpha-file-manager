@@ -14,6 +14,7 @@
 | 3.6.3 | 尚未提交 | 清单**已备好**（`manifests/.../3.6.3/`），**3.5.1 合并后直接提这一版**（winget 允许跳版，3.6.2 留作备份） |
 | 3.6.4 | 不提交 | 清单留在 `manifests/.../3.6.4/` 备查，但**跳过这一版**（2026-10-29 补记：3.5.1 未合并，直接提 3.6.5） |
 | 3.6.5 | 尚未提交 | 清单**已备好**（`manifests/.../3.6.5/`），**3.5.1 合并后直接提这一版**（winget 允许跳版，3.6.4 留作备份） |
+| 3.9.0 | 尚未提交 | 清单**已备好**（`manifests/.../3.9.0/`），**3.5.1 合并后直接提这一版**（2026-11-01：3.9.0 已发布，按「只提最新一版」原则取代 3.6.5；3.5.1 未合并前不能提） |
 
 目录结构与上游仓库一致：
 
@@ -275,6 +276,10 @@ npm run check:winget
 
 ## 3.6.4 / 3.6.5 的清单：已备好，3.5.1 合并后直接提 3.6.5
 
+> **2026-11-01 更新：本节已被 3.9.0 取代。** 3.9.0 发布后，按「只提最新一版、每多一版就多一轮版主评审」
+> 的既定原则，3.5.1 合并后**直接提 3.9.0**，本节的 3.6.4 / 3.6.5 两个目录保留在仓库里备查，不提交。
+> 见下一节「3.9.0 的清单」。
+
 2026-10-29 复查：3.5.1 的
 [PR #460744](https://github.com/microsoft/winget-pkgs/pull/460744) 仍是 `OPEN`
 （标签 `Validation-Completed` + `Azure-Pipeline-Passed` + `New-Package`，
@@ -317,6 +322,50 @@ npm run check:winget
 1. fork `microsoft/winget-pkgs`（本地还没有克隆，需要先 clone）；
 2. 从 `master` 拉分支，把 `manifests/k/kizemo/AlphaFileManager/3.6.5/` 四个文件放进去；
 3. 向 `master` 开 PR，标题 `New package: kizemo.AlphaFileManager version 3.6.5`；
+4. 机器人要求时回一行 `@microsoft-github-policy-service agree`；
+5. 等校验跑完（看标签，不看 check runs），再等版主评审。
+
+## 3.9.0 的清单：已备好，3.5.1 合并后直接提这一版
+
+2026-11-01：3.9.0 已发布（站点 `aiec.fun` + GitHub 兜底双通道都已生效），按「只提最新一版、
+每多一版就多一轮版主评审、用户装到的应该是能用的最新版本」的既定原则，
+**3.5.1 合并后直接提 3.9.0**；3.6.2 / 3.6.3 / 3.6.4 / 3.6.5 四个目录保留在仓库里备查，不提交。
+
+2026-11-01 复查：3.5.1 的 [PR #460744](https://github.com/microsoft/winget-pkgs/pull/460744)
+仍是 `OPEN`（`mergedAt` 为 null，`reviewDecision` 仍是 `REVIEW_REQUIRED`，标签 `Validation-Completed` +
+`Azure-Pipeline-Passed` + `New-Package`），**只等社区版主审批合并**。
+同一个包 ID 在 `microsoft/winget-pkgs` 里不允许同时开第二个 PR ⇒ **3.9.0 的 PR 现在还不能提**。
+
+### 这一版清单的几个取舍
+
+1. **`ManifestVersion` 仍是 `1.12.0`**，与 3.5.1 / 3.6.2 / 3.6.3 / 3.6.5 保持一致 ——
+   旧 schema 版本照收不误，风险最低。
+
+2. **`Tags` 16 个**，与 3.5.1 / 3.6.5 一致 —— 正好卡在 schema 的 16 个上限内。
+   3.9.0 的新特性（字体大小三档、设置「关于」页、品牌图标重设计、收藏夹拖拽排序）
+   都不属于新的功能类别，硬加就得先删一个。
+
+3. **`ReleaseDate` 用 `2026-11-01`** —— 3.9.0 的实际发布时刻是 `2026-11-01T01:17:58Z`，
+   按本地（UTC+8）日期算就是 11-01；且严格晚于 3.5.1 的 `2026-10-24`。
+
+4. **`ShortDescription` 不动**，`Description` 末尾**加了一段** 3.9.0 的新特性
+   （图标重画、字体大小三档、关于页、收藏夹拖拽排序、安装器同版本重装修复）——
+   长度远在 schema 上限内（256 / 10000）。
+
+5. **`InstallerSha256` = `EC0EDA4D…B05`**，与 GitHub release v3.9.0 的资产、
+   `release/` 下的本地安装包、站点 `version.json` 四方一致（44,776,031 字节）。
+
+### 本地自检
+
+```powershell
+npm run check:winget
+```
+
+### 3.5.1 合并后要做的
+
+1. fork `microsoft/winget-pkgs`（本地还没有克隆，需要先 clone）；
+2. 从 `master` 拉分支，把 `manifests/k/kizemo/AlphaFileManager/3.9.0/` 四个文件放进去；
+3. 向 `master` 开 PR，标题 `New package: kizemo.AlphaFileManager version 3.9.0`；
 4. 机器人要求时回一行 `@microsoft-github-policy-service agree`；
 5. 等校验跑完（看标签，不看 check runs），再等版主评审。
 
