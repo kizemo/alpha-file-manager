@@ -237,3 +237,43 @@ cargo test --lib             # Rust 单测，基线 865 passed / 0 failed
 3. **提交已推送**：`origin/main` 与本地 HEAD 一致，`git status` 干净。
 4. **向用户汇报**：目录树修复结论（含验收证据）、winget PR #467381 的最新标签状态、需要用户拍板的事项（是否发 3.9.1 / 是否补 winget 3.9.1 清单 / 是否同步 upstream）。
 5. 报告里区分**「已验证 / 推断 / 未验证」**；没做的就说没做。
+
+---
+
+## 7. 本轮执行结果（2026-11-01 完成）
+
+### T1 真机验收 —— 通过
+
+- 隔离桌面沙箱（`CreateDesktop` + `STARTUPINFO.lpDesktop`），取证用 `PrintWindow(hwnd, hdc, 2)` 截图 + 落盘值，**不用 UIA**（tantivy 全盘索引重建会让 Chromium 无障碍提供方长时间阻塞）。
+- **修复后（3.9.0 候选构建，tag `post-fix`）**：播种 true → 启动 true → 点击 false → 退出 false → **重启后 false**；截图 C 目录树仍不可见。
+- **修复前（已安装 3.9.0 发布版，tag `prefix-390`）**：落盘链完全相同（重启后也是 false），但截图 C **目录树自己回来了** ⇒ 缺陷原样复现。
+- ⚠️ **判别器只能是截图**：`navigator.showFolderTree` 的写侧不校验，两个版本落盘都是 false，差异只在读侧被静默丢弃。
+- **出货产物 3.9.1 复验（tag `rel-391b`）**：同一链路通过（`afterRestart=false`），截图 `r42-rel-391b-C-restart.png` 重启后目录树仍隐藏。
+- 第一轮对 3.9.1 的 `rel-391` **作废**：夹具把 `changelog.lastSeenVersion` 硬编码成 3.9.0，而 3.9.1 构建必然触发「新功能」模态框挡住工具栏 ⇒ 点击落在模态框上。夹具已改为写 `changelog.showOnUpdate=false`（版本无关）。
+- 证据文件：`.superpowers/sdd/r42-acceptance-report.md`、`shots/r42-*`。
+
+### 真实用户数据 —— 已恢复
+
+`r39-finalize.ps1` → `RESTORE_VERIFIED`：`user-settings.json` 5375 B / E4F47527A403、`user-stats.json` 33708 B / 80E121863C15、`user-workspaces.json` 591 B / 1D10D5B8ED16，三项 sha256 + 字节数全部 MATCH；`alpha-file-manager` 进程数 0。
+已知残留：`.window-state.json` 与 tantivy 索引目录（`global-search`，约 423 MB）不在备份范围内，非用户数据。
+
+### T2 推送 —— 完成
+
+`git push origin main`：`d3619943..2654de9d main -> main`，`origin/main` = `2654de9d`，工作树干净。
+本轮新增推送：upstream 4 个 worker 加固 commit（`85de0f3e` / `84bb5aef` / `46e1009a` / `a7ae97ed`）+ `2654de9d chore(release): 3.9.1`。
+
+### T3 发版 3.9.1 —— 完成
+
+- 门禁（同步后第二轮，与基线同口径）：eslint `186 errors / 0 warnings`（基线 186/0）；vitest `2 files failed / 6 failed / 2451 passed (2457)`（基线 6 failed / 2416 passed，+35 条新用例，失败数不变）；`npm run ts` exit 0；`cargo test --lib` 865/0。
+- 安装包 `release\Alpha File Manager_3.9.1_x64-setup.exe`，44,775,751 B，sha256 `67996F5B…DCF2`；被测 exe sha256 `8C7F3665…E75BD`。
+- 站点：`release:upload` 通过，公网回读 `release:verify` 通过 —— 线上版本 3.9.1、清单 sha256、源站与边缘包大小 44,775,751 B 三项一致。
+- GitHub release：`v3.9.1` 已发布，资产 `Alpha_File_Manager_3.9.1_x64-setup.exe`（44,775,751 B，digest sha256 与本地一致），正文含中文说明 + 构建信息。
+- upstream 同步范围：**只落 worker 加固 4 个 commit**（用户拍板）；仪表盘重设计 `3eca4c17` 未同步。
+
+### T4 winget PR #467381 —— 清单已切 3.9.1，只差 CLA
+
+- 清单已从 3.9.0 替换为 3.9.1（4 个 yaml：version / installer / locale.en-US / locale.zh-CN），`InstallerUrl` 指向 GitHub release 资产，`InstallerSha256` = `67996F5B…DCF2`，`DefaultInstallLocation` = `%ProgramFiles%\Alpha File Manager`。
+- 分支 `kizemo/winget-pkgs:new-package-kizemo-alphafilemanager-3.9.0` 上已删 3.9.0 目录，PR files 现只剩 3.9.1 的 4 个 added；PR 标题已改为 `New package: kizemo.AlphaFileManager version 3.9.1`。
+- PR 仍 OPEN，labels：`Validation-Completed` + `Needs-CLA`。
+- **CLA 必须账号本人签**（本会话无法代劳）：
+  `gh pr comment 467381 --repo microsoft/winget-pkgs --body "@microsoft-github-policy-service agree"`
