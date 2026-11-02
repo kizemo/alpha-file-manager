@@ -40,6 +40,10 @@ import { useDirEntryActions } from '@/composables/use-dir-entry-actions';
 import FileBrowserRenameDialog from './file-browser-rename-dialog.vue';
 import FileTreeContextMenu from './file-tree-context-menu.vue';
 import type { DirEntry } from '@/types/dir-entry';
+import { toast } from '@/components/ui/toaster';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const props = withDefaults(defineProps<{
   /** Root directory paths (typically the drives from `useDrives()`).
@@ -149,6 +153,10 @@ async function handleContextAction(name: string) {
         }
         catch (err) {
           console.error('revealInExplorer failed:', err);
+          // FORK-MODIFICATION (2026-11-01)：失败要让用户看见，别只写控制台。
+          toast.error(t('fileBrowser.actions.openContainingDirectoryFailed'), {
+            description: err instanceof Error ? err.message : String(err),
+          });
         }
       }
       break;

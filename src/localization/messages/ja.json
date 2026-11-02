@@ -1206,6 +1206,7 @@
       "delete": "削除",
       "openWith": "アプリで開く...",
       "openContainingDirectory": "Open containing directory",
+      "openContainingDirectoryFailed": "親フォルダーを開けませんでした",
       "openContainingDirectoryInApp": "Show containing folder in split view",
       "properties": "プロパティ",
       "propertiesFailed": "プロパティを開けませんでした",

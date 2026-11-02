@@ -1245,6 +1245,7 @@
       "delete": "Ջնջել",
       "openWith": "Բացել․․․",
       "openContainingDirectory": "Open containing directory",
+      "openContainingDirectoryFailed": "Չհաջողվեց բացել պարունակող պանակը",
       "openContainingDirectoryInApp": "Show containing folder in split view",
       "properties": "Հատկություններ",
       "propertiesFailed": "Չհաջողվեց բացել հատկությունները",

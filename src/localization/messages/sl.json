@@ -1242,6 +1242,7 @@
       "delete": "Izbriši",
       "openWith": "Odpri z...",
       "openContainingDirectory": "Open containing directory",
+      "openContainingDirectoryFailed": "Mapečne mape ni bilo mogoče odpreti",
       "openContainingDirectoryInApp": "Show containing folder in split view",
       "properties": "Lastnosti",
       "propertiesFailed": "Lastnosti ni bilo mogoče odpreti",

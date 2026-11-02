@@ -111,7 +111,15 @@ fn is_sfm_absorbed_shell_path(path: &str) -> bool {
 
 #[cfg(windows)]
 fn open_in_native_explorer(path: &str) {
-    let _ = std::process::Command::new("explorer.exe").arg(path).spawn();
+    // FORK-MODIFICATION (2026-11-01)：**只加日志，不改语义**。
+    // 以前 `let _ = ...spawn()` 把错误整个吞掉，失败时日志里一行都没有，
+    // 事后根本没法判断是哪个 path 出的问题。
+    match std::process::Command::new("explorer.exe").arg(path).spawn() {
+        Ok(_) => log::info!("[reveal] open_in_native_explorer spawned: path={path}"),
+        Err(error) => log::error!(
+            "[reveal] open_in_native_explorer failed: path={path} error={error}"
+        ),
+    }
 }
 
 #[cfg(windows)]

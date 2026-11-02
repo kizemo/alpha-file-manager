@@ -1242,6 +1242,7 @@
       "delete": "Удалить",
       "openWith": "Открыть с помощью...",
       "openContainingDirectory": "Open containing directory",
+      "openContainingDirectoryFailed": "Не удалось открыть содержащую папку",
       "openContainingDirectoryInApp": "Show containing folder in split view",
       "properties": "Свойства",
       "propertiesFailed": "Не удалось открыть свойства",

@@ -12,6 +12,8 @@ mod network_shares;
 mod path_helpers;
 mod path_volume;
 mod read;
+#[cfg(windows)]
+mod reveal;
 mod types;
 
 #[allow(unused_imports)]
