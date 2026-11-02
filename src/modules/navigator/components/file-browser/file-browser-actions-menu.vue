@@ -21,6 +21,8 @@ import {
   SquarePlusIcon,
   StarIcon,
   FolderSearchIcon,
+  // FORK-MODIFICATION: 「打开文件所在目录」（原生 Explorer 定位）用的图标。
+  FolderOpenIcon,
   UnplugIcon,
   InfoIcon,
   TextCursorInputIcon,
@@ -471,6 +473,23 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   >
     <SquarePlusIcon :size="16" />
     <span>{{ t('fileBrowser.actions.openInNewTab') }}</span>
+  </component>
+  <!--
+    FORK-MODIFICATION: 「打开文件所在目录」—— 在原生 Windows Explorer 里定位选中文件。
+    这个动作的可见性规则（context-menu-action-visibility.ts：仅 Windows + 仅 file）
+    和后端处理（use-file-browser-actions.ts → revealInExplorer）**一直都在**，
+    但本菜单从来没渲染过这一项 ⇒ 入口实际不可达。
+    而目录树自 3.9.0 起只显示目录（use-file-tree.ts 过滤 is_dir === true），
+    树菜单里的同名项因此永远不显示（showOpenContainingDirectory 恒为 false）。
+    ⇒ 这里补上菜单项，把原生定位通道真正接回界面。
+  -->
+  <component
+    :is="menuItemComponent"
+    v-if="isActionVisible('open-containing-directory')"
+    @select="emitAction('open-containing-directory')"
+  >
+    <FolderOpenIcon :size="16" />
+    <span>{{ t('fileBrowser.actions.openContainingDirectory') }}</span>
   </component>
   <component
     :is="menuItemComponent"
