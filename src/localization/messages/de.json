@@ -1555,6 +1555,8 @@
     "deleteScanning": "Measuring what will be deleted…",
     "deleteScanningFound": "{count} items found",
     "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "Wird in den Papierkorb verschoben…",
+    "cancelNotAccepted": "Abbrechen nicht möglich: Die Dateien werden bereits in den Papierkorb verschoben.",
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "recalculate": "Recalculate",

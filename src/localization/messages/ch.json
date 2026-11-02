@@ -1559,6 +1559,8 @@
     "deleteScanning": "正在统计要删掉多少…",
     "deleteScanningFound": "已发现 {count} 项",
     "deleteItemsProgress": "已删除 {done} / {total} 项",
+    "deleteTrashing": "正在移至回收站…",
+    "cancelNotAccepted": "无法取消：文件正在移入回收站，搬运中途不能中断。",
     "deleteBytesProgress": "已释放 {done} / {total}"
   },
   "recalculate": "Recalculate",

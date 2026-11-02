@@ -153,6 +153,8 @@
     "deleteScanning": "Measuring what will be deleted…",
     "deleteScanningFound": "{count} items found",
     "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "ری سائیکل بین میں منتقل کیا جا رہا ہے…",
+    "cancelNotAccepted": "منسوخ نہیں کیا جا سکتا: فائلیں پہلے ہی ری سائیکل بن میں منتقل ہو رہی ہیں۔",
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "globalSearch": {

@@ -1555,6 +1555,8 @@
     "deleteScanning": "Measuring what will be deleted…",
     "deleteScanningFound": "{count} items found",
     "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "Spostamento nel cestino…",
+    "cancelNotAccepted": "Impossibile annullare: i file sono già in fase di spostamento nel cestino.",
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "recalculate": "Recalculate",

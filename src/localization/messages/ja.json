@@ -1555,6 +1555,8 @@
     "deleteScanning": "Measuring what will be deleted…",
     "deleteScanningFound": "{count} items found",
     "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "ごみ箱へ移動しています…",
+    "cancelNotAccepted": "キャンセルできません：ファイルはすでにごみ箱へ移動しています。",
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "recalculate": "Recalculate",

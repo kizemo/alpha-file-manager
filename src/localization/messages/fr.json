@@ -1555,6 +1555,8 @@
     "deleteScanning": "Measuring what will be deleted…",
     "deleteScanningFound": "{count} items found",
     "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "Déplacement vers la corbeille…",
+    "cancelNotAccepted": "Annulation impossible : les fichiers sont déjà déplacés vers la corbeille.",
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "recalculate": "Recalculate",

@@ -18,6 +18,17 @@ import { useStatusCenterStore, type Operation, type OperationStatus, type Operat
 import { useDirSizesStore } from '@/stores/runtime/dir-sizes';
 import { formatBytes } from '@/modules/navigator/components/file-browser/utils';
 import { useCancelOperation } from './use-cancel-operation';
+// FORK-MODIFICATION 2026-11-02：删除阶段的进度呈现。
+//
+// 回收站路径把整棵树一次性交给 shell 搬运，树内进度拿不到 ⇒ 这段时间报
+// 百分比就是在报假 0%（实测 50,051 项的目录删除时 0% 停了 38 秒）。
+import {
+  isDeleteCancellable,
+  isDeleteScanningPhase,
+  isIndeterminateDeletePhase,
+  isTrashMovePhase,
+  shouldReportDeletePercent,
+} from '@/utils/progress-presentation';
 
 interface Props {
   operation: Operation;
@@ -36,12 +47,32 @@ const isActive = computed(() =>
   || props.operation.status === 'cancelling',
 );
 
-const isCancellable = computed(() =>
-  props.operation.status === 'in-progress'
-  || props.operation.status === 'pending',
-);
+/**
+ * 这个作业现在能不能取消。
+ *
+ * FORK-MODIFICATION 2026-11-02：删除类作业要按阶段判。
+ *
+ * 回收站搬运期没有中断点（整棵树一次性交给 shell），摆一个「取消」按钮
+ * 出来只会骗人：点了显示「正在取消…」，作业照常把整棵树删完。所以搬运期
+ * 干脆不给取消按钮。
+ */
+const isCancellable = computed(() => {
+  if (
+    props.operation.status !== 'in-progress'
+    && props.operation.status !== 'pending'
+  ) {
+    return false;
+  }
 
-const isCancelling = computed(() => props.operation.status === 'cancelling');
+  if (
+    props.operation.type === 'deleteTrash'
+    || props.operation.type === 'deletePermanent'
+  ) {
+    return isDeleteCancellable(props.operation);
+  }
+
+  return true;
+});
 
 function operationTypeShortKey(type: OperationType): string {
   if (type === 'deleteTrash') {
@@ -75,15 +106,15 @@ const showProgressBar = computed(() =>
 );
 
 /**
- * 统计阶段还没有分母，进度条走不确定态。
+ * 统计阶段还没有分母，回收站搬运阶段也拿不到树内进度 —— 两种情况都走
+ * 不确定态。
  *
  * 报一个假的百分比比不报更糟 —— 这正是 2026-10-22 那次「进度条卡在 4%」
  * 事故的教训：进度条的语义是「离完成还有多远」，给不出这个答案时就不该
  * 假装能给出。
  */
-const isScanningPhase = computed(() =>
-  props.operation.phase === 'scanning'
-  && (props.operation.type === 'deleteTrash' || props.operation.type === 'deletePermanent'),
+const isIndeterminatePhase = computed(() =>
+  isIndeterminateDeletePhase(props.operation),
 );
 
 const statusIcon = computed(() => {
@@ -284,7 +315,8 @@ function buildOperationDetails(operation: Operation): string {
     ) {
       const sourceName = operation.sourceDisplayName ?? '';
       const segments: string[] = [];
-      const isScanning = operation.phase === 'scanning';
+      const isScanning = isDeleteScanningPhase(operation);
+      const isTrashMoving = isTrashMovePhase(operation);
 
       // FORK-MODIFICATION 2026-10-22：统计阶段与删除阶段分开呈现。
       //
@@ -300,10 +332,21 @@ function buildOperationDetails(operation: Operation): string {
         }
       }
       else {
-        const percent = operation.itemPercent ?? operation.progress;
+        // FORK-MODIFICATION 2026-11-02：回收站搬运期报「正在移至回收站…」。
+        if (isTrashMoving) {
+          segments.push(t('statusCenter.deleteTrashing'));
+        }
 
-        if (percent != null) {
-          segments.push(`${percent}%`);
+        // FORK-MODIFICATION 2026-11-02：回收站搬运期不报百分比。
+        //
+        // 整棵树一次性交给 shell 时树内进度拿不到，报出来的 0% 是假的 ——
+        // 进度条的语义是「离完成还有多远」，给不出就别假装能给出。
+        if (shouldReportDeletePercent(operation)) {
+          const percent = operation.itemPercent ?? operation.progress;
+
+          if (percent != null) {
+            segments.push(`${percent}%`);
+          }
         }
 
         if (operation.totalCount != null && operation.deletedItems != null) {
@@ -423,7 +466,7 @@ function handleDismiss() {
       >
         <div
           class="status-center-operation-row__progress-bar"
-          :class="{ 'status-center-operation-row__progress-bar--indeterminate': isScanningPhase }"
+          :class="{ 'status-center-operation-row__progress-bar--indeterminate': isIndeterminatePhase }"
           :style="{ width: `${Math.min(100, Math.max(0, operation.progress ?? 0))}%` }"
         />
       </div>
@@ -453,8 +496,11 @@ function handleDismiss() {
     >
       <BanIcon :size="12" />
     </Button>
+    <!-- FORK-MODIFICATION 2026-11-02：还在跑但取消不了的作业（回收站搬运期）
+         只占位，不摆关闭按钮 —— 作业还在跑，关掉这一行只会让它变成一个看不见
+         的后台作业。 -->
     <div
-      v-else-if="isCancelling"
+      v-else-if="isActive"
       class="status-center-operation-row__action-slot"
       aria-hidden="true"
     />
