@@ -38,7 +38,20 @@ use crate::webview_guard::{
 pub const WEBVIEW_GUARD_EVENT: &str = "webview-guard://status";
 
 /// reload 之后等待心跳恢复的时限（毫秒）。超过就升级成原生提示。
-const RECOVERY_DEADLINE_MS: u64 = 15_000;
+///
+/// FORK-MODIFICATION 2026-11-02：从 15 秒放宽到 60 秒。
+///
+/// 依据（2026-11-01 12:47 的真实日志）：看门狗判定 `window-hung` 后 reload，
+/// 15 秒就升级成「恢复失败」并弹原生提示框；但同一台机器上前端实际恢复用了
+/// **34 秒**（12:47:54 报 recovery failed，12:48:28 心跳才回来），从 reload 算起
+/// 是 **50 秒**。这台机器冷启动要 3–5 分钟、前端自举本身就慢，15 秒的窗口
+/// 必然把「正在自举」误判成「恢复失败」，于是每次 webview 抖动都会弹一个
+/// 用户看不懂的原生错误框。
+///
+/// 放宽到 60 秒只影响「多久之后才打扰用户」，不影响 `window-hung` 本身的判定
+/// （那条 20 秒 × 3 = 60 秒没心跳就记 ERROR 并 reload 的逻辑保持原样），
+/// 真崩了照样会升级。
+const RECOVERY_DEADLINE_MS: u64 = 60_000;
 
 /// 「有 WebView2 子进程消失过」这个旁证的保鲜时长（毫秒）。
 ///
