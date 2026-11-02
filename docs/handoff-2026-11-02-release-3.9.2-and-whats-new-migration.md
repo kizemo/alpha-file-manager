@@ -347,5 +347,60 @@ v2 验收脚本 `.superpowers\sdd\task3-search-accept-20261102-v2.ps1` 于 13:42
 ## §9 新会话接力用的一句话 prompt
 
 ```
-请先完整阅读 F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-11-02-release-3.9.2-and-whats-new-migration.md，并按其 §0 指引补读 F:\soft\00selfmade\filemanager\AGENTS.md 及两份前置 handoff 文档，据此掌握 Alpha File Manager 项目的背景、目标、已完成进度与下阶段计划（不要复述文档内容），然后按其 §6 的顺序推进任务 A→B→C→D，动手前先向我简述你理解的现状与准备先做哪一步。
+请先完整阅读 F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-11-02-release-3.9.2-and-whats-new-migration.md（重点看 §10 的执行结果）与 F:\soft\00selfmade\filemanager\AGENTS.md，据此掌握 Alpha File Manager 项目的现状。§6 的任务 A→B→C→D 已于 2026-11-02 全部完成（见 §10）。下一步只做两件事：(1) 等 winget PR #467381 被审核员批准合并后，用已备好的 .superpowers/sdd/winget-392/3.9.2/ 另开 3.9.2 的 PR；(2) 任务 3 的「全盘搜索极慢」优化落在扫描侧（并行化 / 避免全量重建），查询侧已证明无瓶颈，不要再改查询侧。
 ```
+
+---
+
+## §10 任务 A→D 执行结果（2026-11-02 20:40 收官）
+
+§6 的四个任务已全部执行完毕并验证。下表为准，§2 / §8 中与本节冲突的旧描述作废。
+
+| 任务 | 状态 | 结果 |
+|---|---|---|
+| A 「新功能」迁到「关于」页 | ✅ | commit `41d03516`。`whats-new.vue` 整条目平移到 `src/modules/settings/ui/categories/about/`，store 里 `category:'about'`、排在 `aboutInfo` 之后；新增单测 6 条全绿 + 负对照（改回 `general` → 2 条红 → 还原）；17 个语言包未动 |
+| B 发版 3.9.2 | ✅ | commit `8b0d8cd0` + 轻量 tag `v3.9.2`（已推 origin）；**含一次缺陷修复后的同版本重发**，见下 |
+| C 清理旧打包文件 | ✅ | 47 个旧安装包移出 `release/`；`src-tauri/target/debug`（69.74 GiB）整体迁出。**F: 净释放 62.3 GB**（74.3 → 136.60 GB），E: 暂存区再**回收 70.79 GB**（1,315 → 1,385.86 GB） |
+| D 任务 3 查询侧计时 | ✅ | 真机取到 `total=21ms`（index_open 0 / collect 18 / materialize 3，191 万文档）→ **查询侧不是瓶颈，不写修复代码**；瓶颈在扫描侧（4 轮 12.2–12.5 分钟/轮） |
+
+### 10.1 发版缺陷与「同版本重发」（重点留档）
+
+首个 3.9.2 安装包内嵌了**过期 changelog**：vite 在 08:03:39 把 `public/changelog/ch/changelog.md`（当时还没有 3.9.2）拷进 `dist/`，而 3.9.2 的 changelog 08:05:50 才写入源文件，cargo 08:07:49 链接时嵌的是旧 `dist/`。
+
+处置：重建 → **同版本重发**（不升 3.9.3）。新包占 `release/` 官方位，旧缺陷包隔离到 `release/local-builds/` 留痕。
+
+修正包（源站 / Cloudflare 边缘 / GitHub `v3.9.2` 三处一致）：
+
+```
+44,873,125 B
+sha256 fb9d4708ff1a6d3d0accaf41a3de44a31d8c3ee6b5a5b9cc6317f1b658d90428
+```
+
+⚠️ 首发时 **Cloudflare 边缘仍缓存旧包**（max-age=7200），而 `version.json` 已是新 sha256 → 用户会下到校验不过的包。
+处置用**定向 purge**（只清安装包与 version.json 两个 URL）；**不要用 `purge_everything`**，那会冲掉整个 aiec.fun 站点缓存。
+
+### 10.2 `release/` 目录约定（已确立）
+
+- **顶层** = 与 GitHub 官方资产逐字节一致的官方位（当前 3.9.2 / 3.7.0 / 3.6.5）
+- **`local-builds/`** = 隔离区，放本地重建产物 / 同名不同内容的包（当前旧缺陷 3.9.2 + 3.9.1）
+- `latestInstaller()` 同时搜两处、按 **mtime** 取最新 ⇒ 顶层新包必须比隔离区同名包新，否则会把错误 sha256 写进 `version.json`
+- 三份登记文件由 `.superpowers/sdd/release-mirror-fix-20261102.cjs` 生成；当前 `OFFICIAL_COPY=3 / LOCAL_REBUILD=2 / NO_OFFICIAL_ASSET=0`
+
+### 10.3 本轮已修复的小瑕疵
+
+`release/SHA256SUMS.txt` 之前 `sha256sum -c` 会多报 `1 line is improperly formatted`。
+根因：清单头与条目之间有一条**空行**——GNU `sha256sum` 只跳过 `#` 注释行，**不跳过空行**。已改成 `#`，并同步修正生成器。现在 3 条全 OK、**warning_count = 0**。
+
+### 10.4 winget PR 现状（2026-11-02 20:37 复查）
+
+PR `microsoft/winget-pkgs#467381`：`OPEN / REVIEW_REQUIRED / mergeable=MERGEABLE / mergeState=BLOCKED / reviews=0`。
+阻塞点是**社区审核员的 `Moderator-Approved` 还没给**（用户本人 11-02 07:51 已签 CLA），不是 PR 本身有问题。
+
+**用户已拍板**：保持 3.9.1 不动，**等本 PR 合并后另开 3.9.2 的 PR**。
+3.9.2 的 manifest 已备好在 `.superpowers/sdd/winget-392/3.9.2/`（4 个 yaml，脚本 `prepare-winget-392.cjs`，sha256/URL 取自 GitHub 实际资产，自检 `problems = 0`）。
+
+### 10.5 用户已拍板的三件事（2026-11-02）
+
+1. `E:\_afm-trash-20261102` 暂存区 → **永久删除**，已完成（F: 迁出 + E: 回收站清空，合计回收约 133 GB）
+2. F: 回收站里用户自有的 3 项 → **不清空**，保持原样
+3. 第二条 `total_items=101` 的删除作业 → **不再追查**（性质是 `use_trash=true`，进回收站可恢复，非永久删除）
