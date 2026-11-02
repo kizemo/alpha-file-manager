@@ -588,7 +588,17 @@ pub async fn unwatch_directory(path: String) -> Result<(), String> {
             active_watcher_paths(),
         );
     } else {
-        log::warn!(
+        // FORK-MODIFICATION 2026-11-02：这里从 WARN 降为 DEBUG。
+        //
+        // 这个分支的含义是「前端要求取消监听某个目录，但该目录本来就没在监听」，
+        // 属于幂等清理的正常路径（切目录、关标签页、组件卸载都会走一遍），
+        // 不是异常。原来的 WARN 在 2026-11-01 的日志里刷出
+        // `unwatch_directory no active watcher ... active_count=0` 这类噪音，
+        // 却没有任何可处置的信息。
+        //
+        // 真正需要可见的失败仍然保留 WARN：`watcher.unwatch()` 报错的分支在
+        // 上面（`Failed to unwatch path=...`），不在这一条。
+        log::debug!(
             "[dir-watcher-diag] unwatch_directory no active watcher path={} active_count={}",
             normalized_path,
             active_watcher_count(),

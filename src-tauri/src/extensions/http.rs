@@ -406,7 +406,18 @@ where
                 }
 
                 let delay = compute_backoff_delay(config, attempt, retry_after);
-                log::warn!(
+                // FORK-MODIFICATION 2026-11-02：中间重试从 WARN 降为 DEBUG。
+                //
+                // 一轮 metadata 拉取（`RetryConfig::for_metadata()` = 2 次尝试）
+                // 原来会因为「每次失败 + 最终放弃」各记一条 WARN，再叠上
+                // `fetch_url_across_urls` 换候选 URL 的 WARN，一次拉取刷出 4 条
+                // 重复告警（2026-11-01 日志里 86 条 WARN 大半是这么来的）。
+                //
+                // 降级只针对**中间过程**：下面 `attempt >= config.max_attempts`
+                // 的 `giving up after N attempts` 仍然是 WARN，`fetch_url_across_urls`
+                // 在全部候选失败后也仍然记一条 WARN。所以真正的失败不会丢日志，
+                // 丢掉的只是「这一次没成、下一次可能成」的中间态。
+                log::debug!(
                     "{}: attempt {}/{} failed: {}. Retrying in {}ms",
                     operation_label,
                     attempt,
@@ -740,11 +751,20 @@ pub async fn fetch_text_across_urls_with_config(
 
         match result {
             Ok(value) => return Ok(value),
-            Err(HttpRetryError::Permanent(message)) => return Err(message),
+            // FORK-MODIFICATION 2026-11-02：中间过程降为 DEBUG，最终结果才进 WARN。
+            //
+            // 旧实现把三层失败都记成 WARN：单次尝试失败、切换到下一个候选、
+            // 某个候选放弃。raw.githubusercontent.com 在国内经常整段不可达，
+            // 一次元数据拉取就要刷 4 条 WARN，日志里全是同一个原因、看不出
+            // 究竟失败了几次请求。现在只有「这次拉取最终失败了」进 WARN。
+            Err(HttpRetryError::Permanent(message)) => {
+                log::warn!("{}: {}", operation_label, message);
+                return Err(message);
+            }
             Err(HttpRetryError::Transient { message, .. }) => {
                 last_error = Some(message);
                 if index + 1 < urls.len() {
-                    log::warn!(
+                    log::debug!(
                         "{}: trying next fallback URL after transient failure",
                         operation_label
                     );
@@ -753,7 +773,14 @@ pub async fn fetch_text_across_urls_with_config(
         }
     }
 
-    Err(last_error.unwrap_or_else(|| format!("{} failed: no URL candidates", operation_label)))
+    let message = format!(
+        "{}: all {} URL candidate(s) failed. Last error: {}",
+        operation_label,
+        urls.len(),
+        last_error.unwrap_or_else(|| "no attempt was made".to_string())
+    );
+    log::warn!("{}", message);
+    Err(message)
 }
 
 pub async fn download_to_file_across_urls_with_retry(
