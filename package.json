@@ -52,6 +52,7 @@
     "release:prepare": "node ./scripts/release-publish.mjs prepare",
     "release:upload": "node ./scripts/release-publish.mjs upload",
     "release:verify": "node ./scripts/release-publish.mjs verify",
+    "verify:publish-quarantine": "node ./scripts/verify-publish-bundle-quarantine.mjs",
     "release:github": "node ./scripts/release-publish.mjs github",
     "flatpak:build": "bash ./flatpak/build-flatpak.sh",
     "tauri:gen-icons": "tauri icon ./src/assets/icons/logo-1024x1024-dark.png",
