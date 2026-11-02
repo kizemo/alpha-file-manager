@@ -236,7 +236,7 @@ export const useSettingsStore = defineStore('settings', () => {
       import('@/modules/settings/ui/categories/general/language.vue'),
       import('@/modules/settings/ui/categories/general/date-time.vue'),
       import('@/modules/settings/ui/categories/general/window-scaling.vue'),
-      import('@/modules/settings/ui/categories/general/whats-new.vue'),
+      import('@/modules/settings/ui/categories/about/whats-new.vue'),
       import('@/modules/settings/ui/categories/general/startup.vue'),
       import('@/modules/settings/ui/categories/general/startup-page.vue'),
       import('@/modules/settings/ui/categories/general/performance.vue'),
@@ -283,13 +283,6 @@ export const useSettingsStore = defineStore('settings', () => {
         titleKey: 'settings.general.windowScaling',
         tags: 'settingsTags.uiScaling',
         component: markRaw(WindowScalingSection),
-        category: 'general',
-      },
-      {
-        key: 'whatsNew',
-        titleKey: 'changelog.settingsTitle',
-        tags: 'settingsTags.whatsNew',
-        component: markRaw(WhatsNewSection),
         category: 'general',
       },
       {
@@ -507,6 +500,18 @@ export const useSettingsStore = defineStore('settings', () => {
         titleKey: 'settings.about.title',
         tags: 'settingsTags.about',
         component: markRaw(AboutInfoSection),
+        category: 'about',
+      },
+      // FORK-MODIFICATION 2026-11-02：「新功能」条目从「常规」页迁到「关于」页。
+      // 它本来就是关于版本与更新的内容，放在「关于」页比放在「常规」页更贴合语义；
+      // 条目本身（标题、说明、「查看更新日志」按钮、启动时是否自动弹出的开关）保持不变，
+      // 只是归属的分类变了 —— 搜索索引按 titleKey / tags 跨语言匹配、与分类无关，
+      // 因此在设置页搜「新功能 / 更新日志 / whats new」依然能命中这一条。
+      {
+        key: 'whatsNew',
+        titleKey: 'changelog.settingsTitle',
+        tags: 'settingsTags.whatsNew',
+        component: markRaw(WhatsNewSection),
         category: 'about',
       },
       ...(platformStore.appUpdatesManagedExternally
