@@ -1555,6 +1555,8 @@
     "deleteScanning": "Measuring what will be deleted…",
     "deleteScanningFound": "{count} items found",
     "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "Đang chuyển vào Thùng rác…",
+    "cancelNotAccepted": "Không thể hủy: các tệp đã được chuyển vào Thùng rác.",
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "recalculate": "Tính toán lại",

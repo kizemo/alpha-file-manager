@@ -153,6 +153,8 @@
     "deleteScanning": "Measuring what will be deleted…",
     "deleteScanningFound": "{count} items found",
     "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "Перемещение в корзину…",
+    "cancelNotAccepted": "Отменить нельзя: файлы уже перемещаются в корзину.",
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "globalSearch": {

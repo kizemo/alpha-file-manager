@@ -153,6 +153,8 @@
     "deleteScanning": "Measuring what will be deleted…",
     "deleteScanningFound": "{count} items found",
     "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "Premikanje v koš…",
+    "cancelNotAccepted": "Preklic ni mogoče: datoteke se že prestavljajo v koš.",
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "globalSearch": {

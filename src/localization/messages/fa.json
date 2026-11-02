@@ -1555,6 +1555,8 @@
     "deleteScanning": "Measuring what will be deleted…",
     "deleteScanningFound": "{count} items found",
     "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "در حال انتقال به سطل زباله…",
+    "cancelNotAccepted": "لغو امکان‌پذیر نیست: فایل‌ها هم‌اکنون در حال انتقال به سطل زباله هستند.",
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "recalculate": "Recalculate",

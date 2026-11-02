@@ -153,6 +153,8 @@
     "deleteScanning": "Measuring what will be deleted…",
     "deleteScanningFound": "{count} items found",
     "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "Տեղափոխվում է աղբյուրի…",
+    "cancelNotAccepted": "Չեղարկել հնարավոր չէ․ ֆայլերն արդեն տեղափոխվում են աղբյուրում։",
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "globalSearch": {

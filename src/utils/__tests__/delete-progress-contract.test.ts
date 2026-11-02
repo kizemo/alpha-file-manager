@@ -168,13 +168,37 @@ describe('批量删除进度的跨语言契约', () => {
     expect(ts).toContain('bytePercent?: number;');
   });
 
-  it('删除前的规模统计命令两侧接得上', () => {
+  it('删除链路上没有会阻塞主线程的同步预扫描命令', () => {
     const rust = read(DELETE_JOB_RS);
     const lib = read(LIB_RS);
     const ts = read(FILE_BROWSER_SELECTION_TS);
 
-    expect(rust).toContain('pub fn scan_delete_targets');
-    expect(lib).toContain('delete_job::scan_delete_targets');
-    expect(ts).toContain('invoke(\'scan_delete_targets\'');
+    // FORK-MODIFICATION 2026-11-01。
+    //
+    // 同步 `#[tauri::command]` 在 Tauri v2 里跑在**主线程**上。删除前那次
+    // 全树预扫描（`scan_delete_targets`）正是同步命令：扫一棵 80 万条目的
+    // 树会把整个窗口冻住，而前端又在 `await` 期间零反馈 —— 用户看到的就是
+    // 「删除后长时间无响应」。
+    //
+    // 规模统计改由删除作业自己的扫描阶段独家承担：同一遍遍历，既报进度、
+    // 又可取消，还省掉第二次扫描。
+    expect(rust).not.toContain('pub fn scan_delete_targets');
+    expect(lib).not.toContain('delete_job::scan_delete_targets');
+    expect(ts).not.toContain('invoke(\'scan_delete_targets\'');
+
+    // 分母仍然要有 —— 作业内部自己扫一遍。
+    expect(rust).toContain('delete_tree::scan_paths_with_progress');
+  });
+
+  it('作业一建起来就标成统计阶段，首个反馈不等后端事件', () => {
+    const ts = read(DELETE_JOBS_TS);
+
+    expect(ts).toContain('phase: \'scanning\'');
+  });
+
+  it('扫描阶段结束时把规模回调给界面', () => {
+    const ts = read(DELETE_JOBS_TS);
+
+    expect(ts).toContain('onScanCompleted');
   });
 });

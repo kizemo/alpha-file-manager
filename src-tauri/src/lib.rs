@@ -434,7 +434,11 @@ pub fn run() {
             copy_move_job::start_copy_move_job,
             copy_move_job::cancel_copy_move_job,
             delete_job::recycle_bin_unavailable_paths,
-            delete_job::scan_delete_targets,
+            // FORK-MODIFICATION 2026-11-01：`scan_delete_targets` 已注销。
+            //
+            // 那是删除**之前**另起的一趟同步预扫描 ⇒ Tauri v2 把它跑在主线程上
+            // ⇒ 扫一棵大树时整个窗口冻住，用户看到的就是「删除后长时间无响应」。
+            // 规模现在由删除作业自己的扫描阶段产出（同一趟遍历，不重复扫）。
             delete_job::start_delete_job,
             delete_job::cancel_delete_job,
             // FORK-MODIFICATION 2026-10-24：解除文件锁定 / 彻底删除。

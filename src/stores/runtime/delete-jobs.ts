@@ -10,6 +10,12 @@ import { toast, ToastStatic } from '@/components/ui/toaster';
 import { i18n } from '@/localization';
 import uniqueId from '@/utils/unique-id';
 import { sourceDisplayNameFromPaths } from '@/utils/source-display-name';
+// FORK-MODIFICATION 2026-11-01：删除作业扫描阶段的规模摘要。
+import {
+  isDeleteScanCompleted,
+  toDeleteScanSummary,
+  type DeleteScanSummary,
+} from '@/utils/delete-scan-summary';
 import { useStatusCenterStore } from './status-center';
 
 interface DeleteJobProgressPayload {
@@ -25,6 +31,14 @@ interface DeleteJobProgressPayload {
    * （用户看到「4% 卡住 40 分钟」）。新口径按条目推进，字节数作辅助。
    */
   phase?: 'scanning' | 'deleting';
+  /**
+   * FORK-MODIFICATION 2026-11-01：扫描阶段是否已经数完。
+   *
+   * 规模提示（「正在删除 N 个项目」）以前靠删除**之前**另起的一趟同步预扫描，
+   * 那趟扫描跑在 Tauri 主线程上，扫大树时把整个窗口冻住 —— 用户看到的就是
+   * 「删除后长时间无响应」。现在规模由作业自己的扫描阶段产出。
+   */
+  scanCompleted?: boolean;
   deletedItems?: number;
   freedBytes?: number;
   totalBytes?: number | null;
@@ -63,9 +77,34 @@ export interface DeleteJobResult {
   deletedPaths: string[];
 }
 
+/**
+ * 取消请求的结果。
+ *
+ * FORK-MODIFICATION 2026-11-02：后端不再无脑返回「已取消」。
+ *
+ * 回收站搬运期没有中断点，那时的取消**不生效**。后端据实回报，界面才不会
+ * 显示一个假的「正在取消…」。
+ */
+export interface DeleteCancelOutcome {
+  /** 这次取消有没有被接受。 */
+  accepted: boolean;
+  /** 作业当前阶段：`scanning` / `deleting`（作业不存在时为空串）。 */
+  phase: string;
+  /** 没被接受的原因代码（`trashMoveInProgress` / `unknownJob` / …）。 */
+  reason: string | null;
+}
+
 export interface StartDeleteJobOptions {
   label: string;
   displayPath: string;
+  /**
+   * FORK-MODIFICATION 2026-11-01：扫描阶段数完时回调一次（整个作业至多一次）。
+   *
+   * 规模提示的语义不变（「正在删除 N 个项目」是进行中提示，不是删除前的
+   * 确认框），只是来源换了：不再是删除前那趟会冻住主线程的同步预扫描，
+   * 而是删除作业自己的扫描阶段。
+   */
+  onScanCompleted?: (summary: DeleteScanSummary) => void;
 }
 
 function toastDeleteSuccess(payload: DeleteJobFinishedPayload) {
@@ -95,6 +134,8 @@ export const useDeleteJobsStore = defineStore('delete-jobs', () => {
     string,
     { resolve: (result: DeleteJobResult) => void }
   >();
+  // FORK-MODIFICATION 2026-11-01：扫描阶段的规模回调（每个作业至多一次）。
+  const scanHandlers = new Map<string, (summary: DeleteScanSummary) => void>();
 
   async function ensureEventListeners() {
     if (eventUnlisteners.value.length > 0) {
@@ -129,6 +170,16 @@ export const useDeleteJobsStore = defineStore('delete-jobs', () => {
           directories: payload.directories,
           currentPath: payload.currentPath,
         });
+
+        // FORK-MODIFICATION 2026-11-01：扫描数完的那一刻把规模递出去。
+        //
+        // 只在「统计完的那一条」触发一次；扫描途中的进度事件不触发。
+        const scanHandler = scanHandlers.get(payload.jobId);
+
+        if (scanHandler && isDeleteScanCompleted(payload)) {
+          scanHandlers.delete(payload.jobId);
+          scanHandler(toDeleteScanSummary(payload));
+        }
       },
     );
 
@@ -138,6 +189,8 @@ export const useDeleteJobsStore = defineStore('delete-jobs', () => {
         const payload = event.payload;
         const handlers = completionHandlers.get(payload.jobId);
         completionHandlers.delete(payload.jobId);
+        // 作业都结束了，不会再有规模回调 —— 别把闭包留在 map 里。
+        scanHandlers.delete(payload.jobId);
         const existingOp = statusCenterStore.getOperation(payload.jobId);
 
         if (!handlers) {
@@ -217,6 +270,11 @@ export const useDeleteJobsStore = defineStore('delete-jobs', () => {
 
     return new Promise((resolve, reject) => {
       completionHandlers.set(jobId, { resolve });
+
+      if (options.onScanCompleted) {
+        scanHandlers.set(jobId, options.onScanCompleted);
+      }
+
       statusCenterStore.addOperation({
         id: jobId,
         type: useTrash ? 'deleteTrash' : 'deletePermanent',
@@ -224,6 +282,12 @@ export const useDeleteJobsStore = defineStore('delete-jobs', () => {
         label: options.label,
         path: options.displayPath,
         progress: 0,
+        // FORK-MODIFICATION 2026-11-01：作业一建起来就标成统计阶段。
+        //
+        // 以前首个反馈要等后端第一次发进度事件（扫一棵大树时可能是好几秒后），
+        // 这段时间界面上只有一条空白作业 —— 用户以为程序死了。现在不等事件，
+        // 先把作业按扫描阶段摆出来，状态中心立刻显示「正在统计要删掉多少…」。
+        phase: 'scanning',
         sourceDisplayName: sourceDisplayNameFromPaths(paths),
       });
 
@@ -233,14 +297,15 @@ export const useDeleteJobsStore = defineStore('delete-jobs', () => {
         jobId,
       }).catch((error: unknown) => {
         completionHandlers.delete(jobId);
+        scanHandlers.delete(jobId);
         statusCenterStore.removeOperation(jobId);
         reject(error);
       });
     });
   }
 
-  async function cancelJob(jobId: string) {
-    await invoke<boolean>('cancel_delete_job', { jobId });
+  async function cancelJob(jobId: string): Promise<DeleteCancelOutcome> {
+    return await invoke<DeleteCancelOutcome>('cancel_delete_job', { jobId });
   }
 
   return {

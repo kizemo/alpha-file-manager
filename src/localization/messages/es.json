@@ -1555,6 +1555,8 @@
     "deleteScanning": "Measuring what will be deleted…",
     "deleteScanningFound": "{count} items found",
     "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "Moviendo a la papelera…",
+    "cancelNotAccepted": "No se puede cancelar: los archivos ya se están moviendo a la papelera.",
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "recalculate": "Recalculate",

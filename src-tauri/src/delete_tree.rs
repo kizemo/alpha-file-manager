@@ -313,10 +313,16 @@ where
     }
 }
 
-/// 预扫描一批顶层路径。
+/// 预扫描一批顶层路径（不带进度回调的便捷入口）。
 ///
 /// 每一项独立统计，这样「移到回收站」这种整棵树一次性搬走的操作也能把
 /// 条目数与字节数如实记到它头上。
+///
+/// FORK-MODIFICATION(2026-11-01): 删除作业的生产路径统一走
+/// `scan_paths_with_progress`——它才能把扫描进度实时推给界面。本函数因此只剩
+/// `delete_tree` 的单元测试在用，这里显式 `allow(dead_code)`，表明它是刻意保留的
+/// 测试入口，不是遗漏的死代码。
+#[allow(dead_code)]
 pub fn scan_paths(paths: &[String], cancel: &AtomicBool) -> ScanOutcome {
     let noop = |_progress: DeleteProgress| {};
     let reporter = ScanReporter::new(&noop);
@@ -489,6 +495,33 @@ fn report_progress<F>(
     if !throttle.should_emit(deleted_items) {
         return;
     }
+
+    throttle.mark_emitted(deleted_items);
+    on_progress(throttle.snapshot(counters, deleted_items));
+}
+
+/// 回收站搬运的心跳间隔。
+const TRASH_HEARTBEAT_INTERVAL: Duration = Duration::from_secs(2);
+
+/// 心跳线程的轮询粒度：让它在 shell 调用返回后能尽快退出。
+const TRASH_HEARTBEAT_POLL: Duration = Duration::from_millis(100);
+
+/// 无视节流闸门，立刻发一次进度。
+///
+/// 只用在「马上要进入一段拿不到任何回调的黑箱」之前与之中 —— 回收站搬运就是
+/// 这样的黑箱：整棵树交给 shell 之后，直到它返回都不会有任何原生回调。
+fn emit_progress_now<F>(
+    counters: &DeleteCounters,
+    throttle: &Mutex<ProgressThrottle>,
+    on_progress: &F,
+) where
+    F: Fn(DeleteProgress) + Sync,
+{
+    let deleted_items = counters.deleted_items.load(Ordering::Relaxed);
+
+    let Ok(mut throttle) = throttle.lock() else {
+        return;
+    };
 
     throttle.mark_emitted(deleted_items);
     on_progress(throttle.snapshot(counters, deleted_items));
@@ -747,6 +780,14 @@ where
 ///
 /// 回收站是**整棵树一次性搬走**的，拿不到逐条目进度，所以条目数与字节数
 /// 取自预扫描，在每个顶层路径搬完之后一次性计入。
+///
+/// FORK-MODIFICATION 2026-11-02：搬运期间补心跳。
+///
+/// 旧实现只在「整棵树搬完」之后发一次进度。一个 5 万文件的目录交给 shell 之后
+/// 可能搬几分钟，这段时间**一条事件都没有** —— 界面停在扫描结束那一刻、
+/// 日志里连 `phase=deleting` 都不出现，用户看到的正是「点了删除就卡死」。
+/// 现在进入 shell 之前先强制发一条（界面据此切到 deleting 阶段），搬运期间
+/// 每 [`TRASH_HEARTBEAT_INTERVAL`] 再发一条，让「还在搬」这件事始终可见。
 pub fn delete_paths_to_trash<F>(
     paths: &[String],
     scan: &ScanOutcome,
@@ -771,7 +812,40 @@ where
 
         counters.set_current_path(path);
 
-        match delete_path_to_trash(Path::new(path), path) {
+        // 先把「开始搬这一个」发出去：进入 shell 之后就没有原生回调了，
+        // 这一条是界面与日志从 scanning 切到 deleting 的唯一信号。
+        emit_progress_now(&counters, &throttle, on_progress);
+
+        let done = AtomicBool::new(false);
+
+        let moved = std::thread::scope(|scope| {
+            scope.spawn(|| {
+                let mut waited = Duration::ZERO;
+
+                loop {
+                    std::thread::sleep(TRASH_HEARTBEAT_POLL);
+
+                    if done.load(Ordering::Relaxed) {
+                        return;
+                    }
+
+                    waited += TRASH_HEARTBEAT_POLL;
+
+                    if waited < TRASH_HEARTBEAT_INTERVAL {
+                        continue;
+                    }
+
+                    waited = Duration::ZERO;
+                    emit_progress_now(&counters, &throttle, on_progress);
+                }
+            });
+
+            let result = delete_path_to_trash(Path::new(path), path);
+            done.store(true, Ordering::Relaxed);
+            result
+        });
+
+        match moved {
             Ok(()) => {
                 outcome.deleted_paths.push(path.clone());
 

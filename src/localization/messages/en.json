@@ -153,6 +153,8 @@
     "deleteScanning": "Measuring what will be deleted…",
     "deleteScanningFound": "{count} items found",
     "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "Moving to the Recycle Bin…",
+    "cancelNotAccepted": "Cannot cancel: files are already being moved to the Recycle Bin.",
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "globalSearch": {

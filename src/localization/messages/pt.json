@@ -1554,6 +1554,8 @@
     "deleteScanning": "Measuring what will be deleted…",
     "deleteScanningFound": "{count} items found",
     "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "A ser movido para a Lixeira…",
+    "cancelNotAccepted": "Não é possível cancelar: os arquivos já estão sendo movidos para a lixeira.",
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "items": "itens",
