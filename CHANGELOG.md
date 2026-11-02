@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.9.2] - November 2026
+
+**Summary:** *Open the containing folder* now finds shortcuts and says so when their target is gone, the entry is back in the context menu of the file list, the progress of a move to the recycle bin no longer lies, and the *What's New* section has moved over to the *About* page.
+
+### What changed
+
+**Improved: *Open the containing folder* works on shortcuts.** The item you pick may well be a shortcut, and the folder worth opening is then the one that holds its target, not the one that holds the shortcut. The target is resolved now and the folder it lives in is opened. When the target cannot be found, the action says so instead of opening the wrong folder.
+
+**Improved: the context menu of the file list offers *Open the containing folder* again.** The rule that decides whether the native Explorer channel is shown has been there all along - Windows only, files only - and so has the command behind it, but the menu of the file list never rendered the entry. Since the folder tree has shown directories only since 3.9.0, the same entry in the menu of the tree was never shown either, and the native way to open a folder had no way in at all. The menu renders the entry now, under the same rule as everywhere else.
+
+**Fixed: the progress of a move to the recycle bin stopped telling lies.** The recycle bin hands a whole tree to the shell in one go, so the count of items only moves on once a top level path has been carried over, while the progress bar went on reporting a percentage all the same: deleting a directory of 50,051 items sat at 0% for 38 seconds and then jumped to 100%. When the distance to the finish cannot be told, none is pretended, and cancelling is refused while the tree is being carried over, because there is no point at which it could be interrupted. The items are counted during the deletion itself now, in the background, instead of in a separate pass that ran before it and froze the window.
+
+**Improved: the *What's New* section sits on the *About* page.** It has moved over to the page that already talks about the application itself, next to the version number.
+
 ## [3.9.1] - November 2026
 
 **Summary:** The folder tree now stays hidden after a restart, and the extension worker can no longer reach the network.
