@@ -131,14 +131,21 @@ function siteFileName(version) {
 
 function latestInstaller(releaseDir) {
   if (!fs.existsSync(releaseDir)) return null;
-  const installers = fs
-    .readdirSync(releaseDir)
-    .filter(name => name.toLowerCase().endsWith('.exe'))
-    .map((name) => {
-      const full = path.join(releaseDir, name);
-      return { name, full, mtime: fs.statSync(full).mtimeMs };
-    })
-    .sort((a, b) => b.mtime - a.mtime);
+  // 本地构建被隔离到 local-builds/ 之后，最新的构建产物可能在那里。
+  // 只看顶层目录会挑到「旧的官方副本」，于是 prepare 写进 version.json 的
+  // sha256 会变成上一版安装包的哈希 —— 线上包与清单对不上，
+  // 应用下载后会因校验失败直接删文件。两个目录一起看，按 mtime 取最新的。
+  const searchDirs = [releaseDir, path.join(releaseDir, 'local-builds')];
+  const installers = [];
+  for (const dir of searchDirs) {
+    if (!fs.existsSync(dir)) continue;
+    for (const name of fs.readdirSync(dir)) {
+      if (!name.toLowerCase().endsWith('.exe')) continue;
+      const full = path.join(dir, name);
+      installers.push({ name, full, mtime: fs.statSync(full).mtimeMs });
+    }
+  }
+  installers.sort((a, b) => b.mtime - a.mtime);
 
   return installers[0] ?? null;
 }

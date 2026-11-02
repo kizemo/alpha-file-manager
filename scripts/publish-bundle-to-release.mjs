@@ -23,6 +23,7 @@
  * the installers directly, and `.gitignore` still names them explicitly.
  */
 
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,6 +31,52 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const bundleDir = path.join(repoRoot, 'src-tauri', 'target', 'release', 'bundle');
 const releaseDir = path.join(repoRoot, 'release');
+const localBuildDir = path.join(releaseDir, 'local-builds');
+
+/** 两个文件是否逐字节一致（先比大小，再比 sha256）。 */
+function sameContent(a, b) {
+  const statA = fs.statSync(a);
+  const statB = fs.statSync(b);
+  if (!statA.isFile() || !statB.isFile()) return false;
+  if (statA.size !== statB.size) return false;
+  const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+  return hash(a) === hash(b);
+}
+
+/**
+ * 把构建产物落到 release/，但**绝不覆盖内容不同的同名文件**。
+ *
+ * release/ 同时承担两个角色：GitHub Releases 的本地镜像 + 本地构建产物的落地目录。
+ * 过去这里是 `rmSync` + `cpSync` 的无条件覆盖，于是「给已发布版本重新构建一次」
+ * 就把本地构建写进了已发布版本的文件名里 —— 一个本地包就此冒充成官方发布物。
+ * 2026-11-02 核对发现 49 个本地安装包里有 12 个处于这种状态
+ * （3.8.0 / 3.9.0 / 3.9.1 等），它们的字节与线上已发布资产不同。
+ *
+ * 现在的规则：
+ *   - 目标不存在            → 照常落地到 release/ 顶层
+ *   - 目标存在且内容相同    → 什么都不做（同一次构建的重复执行）
+ *   - 目标存在但内容不同    → 它多半是已发布资产的副本，改写到 local-builds/ 并告警
+ */
+function placeArtifact(source, name) {
+  const target = path.join(releaseDir, name);
+
+  if (!fs.existsSync(target)) {
+    fs.cpSync(source, target, { recursive: true });
+    return name;
+  }
+
+  if (sameContent(source, target)) {
+    return name;
+  }
+
+  fs.mkdirSync(localBuildDir, { recursive: true });
+  const quarantined = path.join(localBuildDir, name);
+  fs.rmSync(quarantined, { recursive: true, force: true });
+  fs.cpSync(source, quarantined, { recursive: true });
+  console.warn(`[publish-bundle] ${name} 已存在且内容不同（多半是已发布资产的副本），`);
+  console.warn(`[publish-bundle]   改写入 ${path.relative(repoRoot, quarantined)}，不覆盖原文件。`);
+  return path.join('local-builds', name);
+}
 
 if (!fs.existsSync(bundleDir)) {
   console.log(`[publish-bundle] 未找到 ${path.relative(repoRoot, bundleDir)}，跳过。`);
@@ -45,24 +92,12 @@ for (const platformEntry of fs.readdirSync(bundleDir, { withFileTypes: true })) 
 
   // A file sitting directly under bundle/ is already flat; keep it as-is.
   if (!platformEntry.isDirectory()) {
-    const target = path.join(releaseDir, platformEntry.name);
-    fs.rmSync(target, { force: true });
-    fs.cpSync(platformPath, target);
-    published.push(platformEntry.name);
+    published.push(placeArtifact(platformPath, platformEntry.name));
     continue;
   }
 
   for (const artifact of fs.readdirSync(platformPath, { withFileTypes: true })) {
-    const source = path.join(platformPath, artifact.name);
-    const target = path.join(releaseDir, artifact.name);
-
-    // Only ever replace an entry carrying the same name. Anything else already
-    // in release/ (README, checksum manifests, installers from another source)
-    // is left alone.
-    fs.rmSync(target, { recursive: true, force: true });
-    fs.cpSync(source, target, { recursive: true });
-
-    published.push(artifact.name);
+    published.push(placeArtifact(path.join(platformPath, artifact.name), artifact.name));
   }
 }
 
