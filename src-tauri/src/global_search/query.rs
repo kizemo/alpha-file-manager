@@ -145,6 +145,14 @@ pub(super) fn global_search_query_blocking(
     options: GlobalSearchQueryOptions,
 ) -> Result<Vec<GlobalSearchResultEntry>, String> {
     let index_path = index_dir(&base_dir);
+    // FORK-MODIFICATION 2026-11-02：查询路径计时埋点。
+    //
+    // 用户报「全盘搜索非常缓慢，甚至等不到结果」，但此前 query.rs 里
+    // 零计时 —— 拿不到任何耗时数字，定位只能靠猜。这里把一次查询拆成
+    // 「索引打开 / 候选收集 / 物化 / 收尾」四段，连同索引总文档数一起
+    // 打进日志，让「慢」变成可比较的数字。
+    let query_started = std::time::Instant::now();
+    let mut index_open_ms: u128 = 0;
 
     // 空闲释放：常驻 reader 闲置超过阈值就先丢掉，紧接着的 needs_open 分支
     // 会重新打开它（索引与字段仍留在 state 里，状态保持自洽）。
@@ -161,7 +169,9 @@ pub(super) fn global_search_query_blocking(
     };
 
     if needs_open {
+        let open_started = std::time::Instant::now();
         let (index, reader, fields) = open_or_create_index(&index_path)?;
+        index_open_ms = open_started.elapsed().as_millis();
         let mut state = GLOBAL_SEARCH_STATE
             .write()
             .map_err(|error| error.to_string())?;
@@ -213,12 +223,33 @@ pub(super) fn global_search_query_blocking(
     // 同时把物化量从 10 万级压到「limit x 盘符数」级。
     let drive_count = state.status.indexed_drive_roots.len();
     let candidate_limit = candidate_limit_for(&options, drive_count);
+    let collect_started = std::time::Instant::now();
     let candidates =
         collect_candidate_addresses(&searcher, &fields, &query, &options, candidate_limit)?;
+    let collect_ms = collect_started.elapsed().as_millis();
+
+    let materialize_started = std::time::Instant::now();
     let (results, _materialized_count) =
         materialize_candidates(&searcher, &fields, &options, &normalized_query, &candidates);
+    let materialize_ms = materialize_started.elapsed().as_millis();
 
-    Ok(finalize_results(results, options.limit))
+    let finalize_started = std::time::Instant::now();
+    let finalized = finalize_results(results, options.limit);
+    let finalize_ms = finalize_started.elapsed().as_millis();
+
+    log::info!(
+        "[global-search] query timings: total={}ms index_open={}ms collect={}ms materialize={}ms finalize={}ms candidates={} results={} index_docs={}",
+        query_started.elapsed().as_millis(),
+        index_open_ms,
+        collect_ms,
+        materialize_ms,
+        finalize_ms,
+        candidates.len(),
+        finalized.len(),
+        searcher.num_docs()
+    );
+
+    Ok(finalized)
 }
 
 /// 单次查询允许物化的文档条数上限。
