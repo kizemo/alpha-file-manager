@@ -346,8 +346,13 @@ v2 验收脚本 `.superpowers\sdd\task3-search-accept-20261102-v2.ps1` 于 13:42
 
 ## §9 新会话接力用的一句话 prompt
 
+> ⚠️ **本文已被下一阶段的交接文档取代，接力请改用新的那篇：**
+> `F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-11-02-phase4-winget-and-search-scan.md`
+> 本文保留为**上一阶段的原始记录**（§7 任务 4 真机验收、§5 user-data 逐文件差异、§6 任务 A→D 原始定义、§10 执行结果），
+> 只在需要追溯细节时读。
+
 ```
-请先完整阅读 F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-11-02-release-3.9.2-and-whats-new-migration.md（重点看 §10 的执行结果）与 F:\soft\00selfmade\filemanager\AGENTS.md，据此掌握 Alpha File Manager 项目的现状。§6 的任务 A→B→C→D 已于 2026-11-02 全部完成（见 §10）。下一步只做两件事：(1) 等 winget PR #467381 被审核员批准合并后，用已备好的 .superpowers/sdd/winget-392/3.9.2/ 另开 3.9.2 的 PR；(2) 任务 3 的「全盘搜索极慢」优化落在扫描侧（并行化 / 避免全量重建），查询侧已证明无瓶颈，不要再改查询侧。
+请先按顺序完整阅读这 4 份文档（完整路径如下），据此掌握 Alpha File Manager 项目的背景、目标、已完成进度与下阶段计划，读完先向我简述你理解的当前现状与准备先做哪一步，不要复述文档内容，也不要重做已完成的事：1) F:\soft\00selfmade\filemanager\AGENTS.md —— 项目硬约束总纲，优先级最高；2) F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-11-02-phase4-winget-and-search-scan.md —— 本阶段交接入口，含当前状态与下阶段任务；3) F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-11-01-relay-four-tasks.md —— 四个任务的原始定义与验收判据；4) F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-11-02-release-3.9.2-and-whats-new-migration.md —— 上一阶段交接原文，含发版与清理的细节和踩坑记录。
 ```
 
 ---
