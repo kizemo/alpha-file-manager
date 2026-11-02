@@ -1205,6 +1205,7 @@
       "delete": "Excluir",
       "openWith": "Abrir com...",
       "openContainingDirectory": "Open containing directory",
+      "openContainingDirectoryFailed": "Não foi possível abrir a pasta contentora",
       "openContainingDirectoryInApp": "Show containing folder in split view",
       "properties": "Propriedades",
       "propertiesFailed": "Não foi possível abrir as propriedades",

@@ -146,15 +146,17 @@ pub fn path_comparison_volume_roots() -> Result<Vec<String>, String> {
 
 // FORK-MODIFICATION: 在 Windows Explorer 中选中文件（explorer.exe /select,<path>）。
 // 用于目录树右键菜单的「打开文件所在目录」action。非 Windows 平台返回不支持错误。
+//
+// FORK-MODIFICATION (2026-11-01)：真正的逻辑挪到 `dir_reader::reveal`（纯内核，
+// 不碰 tauri runtime —— `cargo test --lib` 的测试二进制一旦被拖进 tao/Wry，
+// 加载阶段就会以 0xC0000139 崩掉，详见 `dir_reader.rs` 顶部注释）。
+// 那边负责：绝对路径 explorer.exe、路径存在性校验、`.lnk` 目标解析、
+// 带 path 的成功/失败日志，以及带 path 的错误串。
 #[tauri::command]
 pub fn reveal_in_explorer(path: String) -> Result<(), String> {
     #[cfg(windows)]
     {
-        std::process::Command::new("explorer.exe")
-            .arg(format!("/select,{}", path))
-            .spawn()
-            .map_err(|e| format!("explorer.exe spawn failed: {e}"))?;
-        return Ok(());
+        return super::reveal::reveal_in_explorer_blocking(&path);
     }
 
     #[cfg(not(windows))]

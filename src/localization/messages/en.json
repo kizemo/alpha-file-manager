@@ -1250,6 +1250,7 @@
       "delete": "Delete",
       "openWith": "Open with...",
       "openContainingDirectory": "Open containing directory",
+      "openContainingDirectoryFailed": "Could not open the containing directory",
       "openContainingDirectoryInApp": "Show containing folder in split view",
       "properties": "Properties",
       "propertiesFailed": "Could not open properties",

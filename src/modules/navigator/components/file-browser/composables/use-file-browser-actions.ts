@@ -191,6 +191,11 @@ export function useFileBrowserActions(options: {
         if (!entry.is_dir) {
           void revealInExplorer(entry.path).catch((err: unknown) => {
             console.error('revealInExplorer failed:', err);
+            // FORK-MODIFICATION (2026-11-01)：失败必须让用户看见。
+            // 以前只 console.error，界面上毫无反馈，用户只能对着「什么也没发生」猜。
+            toast.error(t('fileBrowser.actions.openContainingDirectoryFailed'), {
+              description: err instanceof Error ? err.message : String(err),
+            });
           });
         }
       }

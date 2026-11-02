@@ -1242,6 +1242,7 @@
       "delete": "मिटाना",
       "openWith": "के साथ खोलें...",
       "openContainingDirectory": "Open containing directory",
+      "openContainingDirectoryFailed": "समावेशी निर्देशिका खोली नहीं जा सकी",
       "openContainingDirectoryInApp": "Show containing folder in split view",
       "properties": "गुण",
       "propertiesFailed": "गुण खोले नहीं जा सके",

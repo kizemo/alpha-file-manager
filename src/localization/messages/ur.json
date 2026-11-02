@@ -1242,6 +1242,7 @@
       "delete": "حذف",
       "openWith": "اس کے ساتھ کھولیں…",
       "openContainingDirectory": "Open containing directory",
+      "openContainingDirectoryFailed": "پوشہ کھولا نہیں جا سکا",
       "openContainingDirectoryInApp": "Show containing folder in split view",
       "properties": "خصوصیات",
       "propertiesFailed": "خصوصیات نہیں کھل سکیں",

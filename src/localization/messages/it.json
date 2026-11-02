@@ -1206,6 +1206,7 @@
       "delete": "Elimina",
       "openWith": "Apri con...",
       "openContainingDirectory": "Open containing directory",
+      "openContainingDirectoryFailed": "Impossibile aprire la cartella contenente",
       "openContainingDirectoryInApp": "Show containing folder in split view",
       "properties": "Proprietà",
       "propertiesFailed": "Impossibile aprire le proprietà",

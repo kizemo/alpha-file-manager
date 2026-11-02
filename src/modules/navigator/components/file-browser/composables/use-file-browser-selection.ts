@@ -43,6 +43,12 @@ import { isRemotePath } from '@/utils/remote-paths';
 import { usePlatformStore } from '@/stores/runtime/platform';
 import { isContextMenuActionVisible } from '@/modules/navigator/components/file-browser/utils/context-menu-action-visibility';
 import { formatBytes } from '@/modules/navigator/components/file-browser/utils';
+// FORK-MODIFICATION 2026-11-01：大批量删除的规模摘要（阈值与判定都在 util 里，
+// 这样「扫描阶段什么时候算完了」能被单测直接覆盖）。
+import {
+  shouldWarnLargeBatchDelete,
+  type DeleteScanSummary,
+} from '@/utils/delete-scan-summary';
 import { applyBackgroundContextMenu } from '@/modules/navigator/components/file-browser/utils/file-browser-background-context-menu';
 import { resolveNavigableItemTarget } from '@/utils/resolve-navigable-item-target';
 import type { CreateLinksResult, LinkCreationKind } from '@/utils/link-operations';
@@ -93,13 +99,8 @@ export const FILE_BROWSER_REVEAL_STALE_FOCUS_GUARD_MS = 500;
  */
 export type FileBrowserRenameMode = 'dialog' | 'inline';
 
-/**
- * FORK-MODIFICATION 2026-10-22：超过这个条目数就算「大批量」。
- *
- * 阈值取自 2026-10-22 那份批量删除分析报告的建议值（10,000）。低于它的时候
- * 删除是「秒级」的事，弹个规模提示纯属噪声。
- */
-export const LARGE_BATCH_ITEM_THRESHOLD = 10_000;
+// FORK-MODIFICATION 2026-11-01：「大批量」阈值（10,000）已迁到
+// `@/utils/delete-scan-summary`，与规模摘要的判定逻辑放在一起。
 
 export function useFileBrowserSelection(
   entriesRef: Ref<DirEntry[]>,
@@ -1533,39 +1534,22 @@ export function useFileBrowserSelection(
   }
 
   /**
-   * FORK-MODIFICATION 2026-10-22：大批量删除先把规模摆出来。
+   * FORK-MODIFICATION 2026-11-01：大批量删除把规模摆出来。
    *
    * 删一棵含 25 万个文件的目录树时，界面上从头到尾只看得见「1 个项目」。
    * 用户按下删除之前完全无从判断自己在删什么 —— 这是 2026-10-22 那份
-   * 分析报告 P2 的一条：删除前预扫描，展示「N 个文件 / M 个目录 / X GiB」。
+   * 分析报告 P2 的一条：展示「N 个文件 / M 个目录 / X GiB」。
    *
-   * 只统计**目录**：单个文件的规模一眼就知道，统计它没有意义。
-   * 统计失败绝不挡住删除 —— 统计是给人看的，不是删除的前置条件。
+   * 规模来源变了：以前是删除**之前**另起一趟同步预扫描（`scan_delete_targets`），
+   * 那趟扫描跑在 Tauri 主线程上，扫大树时整个窗口冻住 —— 用户看到的就是
+   * 「删除后长时间无响应」。现在由删除作业自己的扫描阶段产出：同一趟遍历，
+   * 既当进度分母又是提示来源，还跑在后台线程上、可取消。
+   *
+   * 提示的语义不变：「正在删除 N 个项目」是**进行中提示**，不是删除前的
+   * 确认框；作业的扫描阶段发生在真正删除之前，所以时机等价。
    */
-  async function showLargeBatchDeletePreview(targets: DirEntry[]): Promise<void> {
-    const directoryPaths = targets
-      .filter(entry => !entry.is_file)
-      .map(entry => entry.path);
-
-    if (directoryPaths.length === 0) {
-      return;
-    }
-
-    let summary: {
-      files: number;
-      directories: number;
-      totalItems: number;
-      totalBytes: number;
-    };
-
-    try {
-      summary = await invoke('scan_delete_targets', { paths: directoryPaths });
-    }
-    catch {
-      return;
-    }
-
-    if (!summary || summary.totalItems < LARGE_BATCH_ITEM_THRESHOLD) {
+  function showLargeBatchDeleteSummary(summary: DeleteScanSummary): void {
+    if (!shouldWarnLargeBatchDelete(summary)) {
       return;
     }
 
@@ -1598,7 +1582,12 @@ export function useFileBrowserSelection(
       return false;
     }
 
-    await showLargeBatchDeletePreview(entries);
+    // FORK-MODIFICATION 2026-11-01：规模提示改由删除作业的扫描阶段产出。
+    //
+    // 这里不再有「删除前先扫一遍」。一次删除可能被 `planDeleteJobs` 拆成多个
+    // 作业（回收站不可用的那部分走永久删除），提示只弹一次 —— 用这个开关
+    // 挡住后续作业的重复弹窗。
+    let largeBatchNoticeShown = false;
 
     // FORK-MODIFICATION 2026-10-20：移植上游 0ae258d6。
     //
@@ -1631,6 +1620,14 @@ export function useFileBrowserSelection(
         const result = await deleteJobsStore.startJob(job.paths, job.useTrash, {
           label: job.useTrash ? t('notifications.trashingItems') : t('notifications.deletingItems'),
           displayPath,
+          onScanCompleted: (summary) => {
+            if (largeBatchNoticeShown) {
+              return;
+            }
+
+            largeBatchNoticeShown = true;
+            showLargeBatchDeleteSummary(summary);
+          },
         });
 
         if (result.deletedPaths.length > 0) {

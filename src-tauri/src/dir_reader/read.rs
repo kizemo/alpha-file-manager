@@ -720,7 +720,7 @@ fn read_link_metadata(path: &Path, options: ReadEntryOptions) -> Option<DirEntry
 }
 
 #[cfg(windows)]
-fn resolve_windows_shortcut_target(path: &Path) -> Option<String> {
+pub(super) fn resolve_windows_shortcut_target(path: &Path) -> Option<String> {
     use std::os::windows::ffi::OsStrExt;
     use windows::core::{Interface, PCWSTR};
     use windows::Win32::System::Com::{

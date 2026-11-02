@@ -1206,6 +1206,7 @@
       "delete": "Xóa",
       "openWith": "Mở bằng...",
       "openContainingDirectory": "Open containing directory",
+      "openContainingDirectoryFailed": "Không thể mở thư mục chứa",
       "openContainingDirectoryInApp": "Show containing folder in split view",
       "properties": "Thuộc tính",
       "propertiesFailed": "Không thể mở thuộc tính",
