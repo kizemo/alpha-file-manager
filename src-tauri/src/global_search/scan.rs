@@ -276,6 +276,13 @@ fn scan_drive(
 ) -> Result<(), GlobalSearchDriveScanError> {
     let root_path = PathBuf::from(root);
     let root_string = normalize_path(root);
+    // FORK-MODIFICATION 2026-11-02：每个索引根的耗时与产出埋点。
+    //
+    // 现状 status.json 里只有「整轮扫描多久」这一个数（实测 22 分钟），
+    // 看不出是哪个根拖的、扫出多少文档。逐根打点才能定位「索引规模过大」
+    // 还是「某个根收集过深」。
+    let drive_started = std::time::Instant::now();
+    let mut drive_indexed_count: u64 = 0;
 
     if let Err(error) = std::fs::read_dir(&root_path) {
         return Err(GlobalSearchDriveScanError {
@@ -324,6 +331,7 @@ fn scan_drive(
         }
 
         indexed_count.fetch_add(1, Ordering::Relaxed);
+        drive_indexed_count += 1;
         items_since_last_update += 1;
 
         if items_since_last_update >= STATUS_UPDATE_INTERVAL {
@@ -333,6 +341,14 @@ fn scan_drive(
             items_since_last_update = 0;
         }
     }
+
+    log::info!(
+        "[global-search] scan root timings: root={} elapsed={}ms indexed={} depth={}",
+        root_string,
+        drive_started.elapsed().as_millis(),
+        drive_indexed_count,
+        scan_depth
+    );
 
     Ok(())
 }
