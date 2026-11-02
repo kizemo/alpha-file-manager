@@ -518,3 +518,52 @@ node -e "const fs=require('fs');const bak='F:/.../user-data-backup-20261102/user
 5. **任务 3（全盘搜索）**：按前置文档 §5.6 的顺序补计时埋点，未定案前不要写修复。
 6. **提交**：四组改动分开提交（任务 1 / 任务 2 / 任务 4 / 日志降噪），不要一锅端。
 7. **不发版**：3.9.1 已发布不可覆盖，下一版本号 **3.9.2**。
+
+---
+
+## 12. release/ 本地镜像核对与修复（2026-11-02 追加）
+
+### 12.1 问题定性：本地构建冒充已发布版本
+
+`release/` 同时承担两个角色：**GitHub Releases 的本地镜像** + **本地构建产物的落地目录**。
+`scripts/publish-bundle-to-release.mjs` 过去是 `rmSync` + `cpSync` 的**无条件覆盖** ——
+「给已发布版本重新构建一次」就会把本地构建写进已发布版本的文件名里，一个本地包就此冒充成官方发布物。
+
+用 GitHub Releases API 的资产 `digest` 字段（**不必下载就能拿到官方 SHA256**）核对 49 个本地安装包：
+
+| 判定 | 数量 | 说明 |
+|---|---|---|
+| `OFFICIAL_COPY` | 16 | 与官方资产逐字节一致 → 进 `SHA256SUMS.txt` |
+| `LOCAL_REBUILD` | 12 | 本地重建、字节与线上不同：2.2.2 / 3.0.1 / 3.1.1 / 3.2.4 / 3.2.11 / 3.5.0 / 3.5.1 / 3.6.3 / 3.6.4 / 3.8.0 / 3.9.0 / 3.9.1 |
+| `NO_OFFICIAL_ASSET` | 21 | 线上无同名资产（预发布 / 历史版本） |
+
+28 个官方 x64-setup 资产**全部**在本地有对应文件（没有缺版本），问题纯粹是「同版本、不同字节」。
+
+### 12.2 修复内容
+
+1. **镜像不再有静默错误**
+   - `release/SHA256SUMS.txt`：改为只收「与官方 digest 一致」的条目，`sha256sum -c` 可直接用；原先那条 3.8.0 的哈希（`9bcff…`）**既不等于本地文件、也不等于官方资产**，已剔除。
+   - `release/LOCAL-BUILDS.txt`（新增）：逐条登记本地重建文件 —— 本地 sha256 / 本地字节 / 官方 sha256 / 官方字节 / 官方下载地址。
+   - `release/README.md`：重写（原文件还是 Sigma File Manager 时代的 `v2.2.0-focus.1` 说明，仓库地址指向旧的 `kizemo/sigma-file-manager`）。
+2. **杜绝复发**
+   - `scripts/publish-bundle-to-release.mjs`：目标不存在 → 照常落到 `release/` 顶层；内容相同 → 不动；**内容不同 → 改写 `release/local-builds/` 并告警**，不再覆盖已发布资产的副本。
+   - `scripts/release-publish.mjs` 的 `latestInstaller()` 同步扫 `local-builds/`。**不扫会出事**：只看顶层会挑到「旧的官方副本」，`prepare` 于是把上一版的 sha256 写进 `version.json`，线上包与清单对不上，应用下载后会因校验失败直接删文件。
+3. **配了判别性验证**：`scripts/verify-publish-bundle-quarantine.mjs`（`npm run verify:publish-quarantine`）在临时沙箱里造三种情形跑真实脚本，并附一条**负对照**（用旧行为证明「原文件不被覆盖」这条断言确实会咬）。首轮跑就抓到实现漏接 `placeArtifact`、旧覆盖逻辑仍在生效。
+
+### 12.3 两个坑
+
+- **本机拉不动 GitHub 发行资产**：`curl` 实测 **0.01 MB/s**（20 秒下了 163 KB，`exit 28` 超时）⇒ 一个 44 MB 安装包要 40 分钟以上，所以**没有**走「下载官方资产覆盖本地」这条路，改为登记 + 隔离。
+- **`release/` 整个目录被 gitignore**（`.gitignore:43`）⇒ 里面三个文件的改动**不进仓库**，`git status` 里也看不到，别以为没生效。
+
+### 12.4 官方 SHA256 的取法（不用下载）
+
+```powershell
+$rel = Invoke-RestMethod -Uri 'https://api.github.com/repos/kizemo/alpha-file-manager/releases?per_page=100' -Headers @{'User-Agent'='afm'}
+$rel.assets | Select-Object name, size, digest   # digest 形如 "sha256:67996f5b…"
+```
+
+### 12.5 提交分组
+
+- `fix(release)`：`scripts/publish-bundle-to-release.mjs`、`scripts/release-publish.mjs`、`scripts/verify-publish-bundle-quarantine.mjs`、`package.json`
+- `docs`：本节
+
