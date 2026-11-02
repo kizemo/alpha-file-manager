@@ -289,21 +289,61 @@ reload 后 15 s 心跳没回来 ⇒ `escalate_to_prompt` 弹原生框。
 
 ---
 
-## 7. 任务 4「打开文件所在位置」—— 状态与下一步
+## 7. 任务 4「打开文件所在位置」—— 入口缺失已定位并修复，真机验收全绿
 
-代码已改并有 TDD 证据，但**本会话未复核真机验收结果**。
+### 7.1 真正的阻塞不是后端，而是「界面入口根本不存在」
 
-- 改动：`src-tauri/src/dir_reader/reveal.rs`（新，纯内核，刻意不碰 `tauri::AppHandle` / `tauri::async_runtime::*`，
-  否则 `cargo test --lib` 会在加载阶段以 `STATUS_ENTRYPOINT_NOT_FOUND` 崩掉）、
-  `dir_reader/commands.rs`、`use-file-browser-actions.ts`、`file-browser-tree-view.vue`、17 个语言包各 +1 行
-  `openContainingDirectoryFailed`。
-- 三处加固：`explorer.exe` 用绝对路径、`/select,<path>` 加引号、前端正斜杠转反斜杠；
-  **2026-11-02 追加**：快捷方式（`.lnk`）目标先校验 —— 目标失效就**本地拦下**返回错误，不再把坏快捷方式交给 Explorer 弹它的模态框。
-- TDD 证据：`.superpowers/sdd/reveal-lnk-green-test.log` 尾部 `test result: ok. 873 passed; 0 failed`。
-- **真机验收 runbook**：`.superpowers/sdd/reveal-accept-runbook.md`（含夹具构造、UIA 驱动脚本、收尾顺序）。
+可见性规则与后端调用链一直都在，但两处入口全部不可达：
 
-下一步：按 runbook 跑一遍真机验收（关键判据：Explorer 打开且**没有** `#32770` 模态框、
-坏快捷方式走 toast 而非 Explorer 弹框），收尾顺序同样是「**先杀进程 → 再恢复 `user-workspaces.json`**」。
+| 位置 | 事实 |
+|---|---|
+| 文件列表右键菜单 | `file-browser-actions-menu.vue` **从未渲染** `open-containing-directory` 这一项（`git log -S` 只命中 `68cbe1f0` 的 in-app 变体）⇒ 12 项菜单里没有任何原生 Explorer 定位入口 |
+| 目录树右键菜单 | `file-tree-context-menu.vue:59` `showOpenContainingDirectory = !target.isDirectory`；而 `use-file-tree.ts:240-241` 自 3.9.0 起过滤 `entry.is_dir === true`（提交 `d9dc92a1`，目录树只显示目录）⇒ 树里根本没有文件行，该项恒不显示 |
+
+⇒ **原生 Explorer 定位通道在界面上完全不可达**（不是后端缺陷）。
+
+### 7.2 修复（提交 `11675643`）
+
+- `src/modules/navigator/components/file-browser/file-browser-actions-menu.vue`：按既有
+  `isActionVisible('open-containing-directory')` 规则（仅 Windows + 仅 file）补上菜单项，
+  文案复用 17 语言包已有的 `fileBrowser.actions.openContainingDirectory`（ch = 「打开文件所在目录」）。
+- **未改** `use-file-tree.ts` 的「目录树只显示目录」产品决定（需求 9，2026-10-31）。
+- 新增判别性单测 `__tests__/file-browser-actions-menu-open-containing-directory.test.ts`
+  （文件选中出现 / 目录选中不出现 / 点击派发）；**负对照已验**：撤掉菜单项后 2 条失败、负对照仍通过。
+- 门禁：`npm run ts`=0、eslint（改动文件）=0、单测 3 passed；stylelint 那条
+  `rule-empty-line-before` 在 HEAD 副本上同样存在 ⇒ OLD，不修。
+
+### 7.3 真机验收（3.9.1 打包产物，2026-11-02 13:13–13:17，全绿）
+
+夹具 `C:\Users\Duanyi\afm-reveal-accept` = `target.txt` / `link.lnk`→target.txt / `broken.lnk`→does-not-exist.lnk
+
+| # | 判据 | 结果 |
+|---|---|---|
+| 1 | 右键 → 菜单出现「打开文件所在目录」 | ✅ 14 项菜单中第 7 项（正对照） |
+| 2 | InvokePattern 调用成功 | ✅ `INVOKED 打开文件所在目录` |
+| 3 | Explorer 打开并定位到目标 | ✅ 标题 `afm-reveal-accept - 文件资源管理器`；日志 `selected=…\target.txt` `from_shortcut=true` |
+| 4 | 无 `#32770` 模态框 | ✅ dialogs=0 |
+| 5 | 应用保持响应 | ✅ `SendMessageTimeout(WM_NULL)` 成功 |
+| 6 | 日志出现 `[reveal] reveal_in_explorer: …` | ✅ `path=…/link.lnk` |
+| 7 | 断链快捷方式走 toast 而非 Explorer 弹框 | ✅ toast「无法打开文件所在目录」+ description「Shortcut target does not exist: …\does-not-exist.lnk (shortcut: …\broken.lnk)」；无新 Explorer、无 `#32770` |
+
+产物：`.superpowers/sdd/accept-20261102-reveal/summary.txt`、`summary-case2.txt`、`summary-case2b.txt`、
+`case2-toast-1..5.png`、`reveal-log-case1.txt`。
+
+### 7.4 两个踩过的坑（写给下一轮）
+
+- **UIA 读不到 Radix Toast**：toast 在屏幕上确实出现（`case2-toast-3.png` 实拍可见），
+  但整棵 UIA 子树里搜不到它的名字 ⇒ 「UIA 命中数 = 0」**不能**判定 toast 没弹，必须配屏幕实拍取证。
+- **`WM_NULL` 的 LRESULT 本来就是 0**：用「返回值 != 0」判应用是否响应会得到**假的 HUNG**；
+  要用 `SendMessageTimeout` 的 **BOOL 返回值**。
+- 快捷方式目标失效时，后端在 `prepare_reveal` 就返回 Err，**不打任何日志** ⇒
+  「日志里没有 `[reveal]` 行」在断链场景是正常的，不是漏埋点。
+
+### 7.5 收尾已完成
+
+先杀进程 → 恢复 `user-workspaces.json`（5 个目录型 tab 全部还原，`00selfmade` → `F:/soft/00selfmade`，
+`currentTabGroupIndex=4` 保留）→ 回收站精准清理（移除我方 5 条、保留用户 7 条，复核通过）
+→ 验收夹具目录已移入回收站。
 
 ---
 
