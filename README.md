@@ -131,7 +131,7 @@ sync, batch rename, and a long list of day-to-day fixes.
 
 | | |
 |---|---|
-| 🎨 | **The application icon was redrawn** — the whole set of glyphs was scaled up and the characters moved down, so the mark reads as a solid shape at task bar and installer sizes. Two colourways of it: a pale folder with a dark alpha for the rail inside the interface, a dark folder with a pale alpha for the installer and the task bar |
+| 🎨 | **The application icon was redrawn** — the whole set of glyphs was scaled up and the characters moved down, so the mark reads as a solid shape at task bar and installer sizes. Two colourways of it: a dark folder with a pale alpha on light backgrounds, a pale folder with a dark alpha on dark backgrounds. The settings header follows the theme; the installer and the task bar use the dark-background colourway |
 | 🔴 | **Two icons at the top right of the navigator wear a low-saturation red** — the split view and folder tree buttons in the *Warm Paper* themes were a bright red that did not sit well on the paper |
 | 🌍 | **The folder tree tooltip is now translated** — *Show folder tree* and *Hide folder tree* used to be English in every language; all seventeen language packs now carry them |
 | 🔤 | **Three font sizes** — *Default*, *Large* and *Extra large*, each a fixed step of 0, 2 and 4 pixels on top of the current size, with the line heights and the properties panel following along |
@@ -229,8 +229,9 @@ read by shape instead of by reading every line.
 
 ### 🖼️ A new application icon, in the warm-paper palette
 
-**Changed.** The icon is a pale folder with a dark ink alpha on it for the deep rail inside the
-interface, and a dark ink folder with a pale alpha for the installer and the task bar.
+**Changed.** The icon comes in two colourways: a dark folder with a pale alpha on light
+backgrounds, and a pale folder with a dark alpha on dark backgrounds. The settings header
+follows the theme; the installer and the task bar use the dark-background colourway.
 
 ### 🛠️ The *Follow Path* extension works again
 
