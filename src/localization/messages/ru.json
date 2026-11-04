@@ -158,6 +158,8 @@
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "globalSearch": {
+    "scanModeFull": "Полный",
+    "scanModeIncremental": "Инкрементальный",
     "globalSearch": "Глобальный поиск",
     "driveScanInProgress": "Индексация диска выполняется",
     "searchDataIncomplete": "Данные поиска неполные",
@@ -1450,7 +1452,9 @@
       "broken": "Повреждено",
       "brokenTooltip": "Файлы расширения отсутствуют. Удалите расширение, чтобы убрать его из списка.",
       "disabled": "Отключено",
-      "disabledTooltip": "Это расширение отключено"
+      "disabledTooltip": "Это расширение отключено",
+      "source": "Источник",
+      "sourceTooltip": "Источник маркетплейса: {name}"
     },
     "stats": {
       "total": "Всего",
@@ -1549,7 +1553,20 @@
     "githubConnectivityIssue": "Не удаётся подключиться к GitHub",
     "githubConnectivityIssueDescription": "Не удалось проверить версии некоторых расширений, потому что приложение не смогло подключиться к GitHub. Проверьте подключение к интернету, VPN или настройки брандмауэра и повторите попытку позже.",
     "offlineIssue": "You are offline",
-    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features."
+    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features.",
+    "marketSources": "Источники маркетплейса",
+    "marketSourceAdd": "Добавить источник маркетплейса",
+    "marketSourceName": "Название",
+    "marketSourceUrl": "URL реестра",
+    "marketSourceOfficial": "Официальный",
+    "marketSourceCommunity": "Сообщество",
+    "marketSourceCustom": "Собственный",
+    "marketSourceAll": "Все",
+    "marketSourceEmpty": "Источники маркетплейса ещё не добавлены.",
+    "marketSourceRemove": "Удалить источник маркетплейса",
+    "marketSourceRemoveConfirm": "Удалить этот источник маркетплейса? Предоставляемые им расширения будут удалены при следующем обновлении маркетплейса.",
+    "marketSourceInvalidUrl": "Введите публичный URL по HTTPS.",
+    "marketSourceUnreachable": "Недоступен"
   },
   "commandPalette": {
     "accessibleDialogTitle": "Палитра команд",

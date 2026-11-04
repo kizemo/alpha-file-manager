@@ -266,7 +266,7 @@ F: → E: 必须 `copyFileSync` + `rmSync` 两步。
 | 类别 | 文件 |
 |---|---|
 | 真机验收 / 注入 | `app-key.ps1`（按键注入）、`afm-accept.ps1`（`Show-AfmWindows` / `Get-AfmMainWindow` / `Save-AfmShot` / `Test-AfmPointClear`）、`shift-occluders.ps1`（挪开遮挡窗口）、`dump-uia-20261102.ps1` |
-| 数据夹具 / 还原 | `dash-accept-data.cjs`（`backup|seed|restore`）、`restore-workspaces-20261102.cjs`、`reset-changelog-seen-20261102.cjs`、`userdata-diff-20261102.cjs`（只读） |
+| 数据夹具 / 还原 | `dash-accept-data.cjs`（`backup\|seed\|restore`）、`restore-workspaces-20261102.cjs`、`reset-changelog-seen-20261102.cjs`、`userdata-diff-20261102.cjs`（只读） |
 | 打包 | `build-392b.cmd` + `build-392b.log`（3.9.2 修正包重建，**纯 ASCII 模板**）、`build-reveal-menu-20261102-b.cmd` |
 | 发布 | `release-publish.mjs`（在 `scripts\` 下）、`release-swap-392.cjs`、`release-mirror-fix-20261102.cjs`、`fetch-official-assets-20261102.cjs`、`purge-cf-installer-20261102.py` |
 | winget | `prepare-winget-392.cjs`、`winget-391-gen.cjs`、`winget-391-push.cjs`、`submit-winget-pr.cjs`、`sync-winget-stage.cjs`、`push-winget-locale-fix.cjs`、`check-winget-manifest.cjs`、`check-winget-schema.cjs`、`check-winget-workflows.cjs`、`inspect-winget-pr.cjs`、`read-winget-comments.cjs`、`r39-winget-pr-body.md` |

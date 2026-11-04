@@ -34,8 +34,6 @@ import {
   DownloadIcon,
   ShieldIcon,
 } from '@lucide/vue';
-import { useClipboardStore } from '@/stores/runtime/clipboard';
-import { usePlatformStore } from '@/stores/runtime/platform';
 import { useUserStatsStore } from '@/stores/storage/user-stats';
 import { useShortcutsStore } from '@/stores/runtime/shortcuts';
 import type { DirEntry } from '@/types/dir-entry';
@@ -62,14 +60,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ContextMenuShortcut } from '@/components/ui/context-menu';
-import {
-  getAvailableLinkCreationOptions,
-  type LinkCreationKind,
-} from '@/utils/link-operations';
+import { type LinkCreationKind } from '@/utils/link-operations';
 import { useTextDirection } from '@/composables/use-text-direction';
-import { isSelectionVirtualLocation } from '@/utils/entry-action-policy';
-// FORK-MODIFICATION 2026-10-20：远程「新建文件」是永久非目标（规格 §1）。
-import { hasRemoteTarget } from '@/modules/remote/utils/remote-write';
 
 const props = withDefaults(defineProps<{
   selectedEntries: DirEntry[];
@@ -109,14 +101,17 @@ function handleCutClick() {
 
 const { t } = useI18n();
 
-const clipboardStore = useClipboardStore();
-const platformStore = usePlatformStore();
 const userStatsStore = useUserStatsStore();
 const shortcutsStore = useShortcutsStore();
 const selectedEntriesRef = toRef(props, 'selectedEntries');
 const { inlineEndSide } = useTextDirection();
 
-const { isActionVisible, selectionStats } = useContextMenuItems(
+const {
+  isMenuActionVisible,
+  isMenuActionDisabled,
+  hasVirtualLocationSelection,
+  linkCreationOptions,
+} = useContextMenuItems(
   selectedEntriesRef,
   {
     disableDestructiveActions: toRef(props, 'disableDestructiveActions'),
@@ -155,42 +150,6 @@ async function handleUpdateTagColor(tagId: string, color: string) {
 }
 
 const selectedItemTagIds = computed(() => getEntriesSharedTagIds(selectedEntriesRef.value));
-const linkCreationOptions = computed(() =>
-  getAvailableLinkCreationOptions(props.selectedEntries, platformStore.currentPlatform),
-);
-
-const selectedDirectory = computed(() => {
-  return props.selectedEntries.find(entry => entry.is_dir);
-});
-
-const hasVirtualLocationSelection = computed(() => {
-  return isSelectionVirtualLocation(props.selectedEntries);
-});
-
-/**
- * FORK-MODIFICATION 2026-10-20：目标目录能不能「新建空文件」。
- *
- * 目标就是**选中的那些目录**（右键菜单的「新建」建在选中目录里），
- * 没有选中目录时菜单本身不出现（`selectionStats.hasDirectories`）。
- *
- * **远程一律不行** —— 规格 §1 的永久非目标。
- */
-const canCreateFile = computed(() => {
-  const targets = props.selectedEntries
-    .filter(entry => entry.is_dir)
-    .map(entry => entry.path);
-
-  return !hasRemoteTarget(targets);
-});
-
-const canPasteToSelectedDirectory = computed(() => {
-  if (hasVirtualLocationSelection.value || !clipboardStore.hasItems || !selectedDirectory.value) {
-    return false;
-  }
-
-  return clipboardStore.canPasteTo(selectedDirectory.value.path);
-});
-
 const isShiftHeld = ref(false);
 
 const moveToTrashLabelKey = computed(() => props.isCurrentDirectoryContext
@@ -232,12 +191,14 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   <div class="file-browser-actions-menu__quick-actions">
     <slot name="quick-actions" />
     <Tooltip
-      v-if="isActionVisible('rename')"
+      v-if="isMenuActionVisible('rename')"
     >
       <TooltipTrigger as-child>
         <Button
           variant="ghost"
           size="xs"
+          :disabled="isMenuActionDisabled('rename')"
+          :aria-disabled="isMenuActionDisabled('rename')"
           @click="emitAction('rename')"
         >
           <PencilIcon :size="16" />
@@ -251,12 +212,14 @@ function handleCreateLink(linkKind: LinkCreationKind) {
       </TooltipContent>
     </Tooltip>
     <Tooltip
-      v-if="isActionVisible('batch-rename')"
+      v-if="isMenuActionVisible('batch-rename')"
     >
       <TooltipTrigger as-child>
         <Button
           variant="ghost"
           size="xs"
+          :disabled="isMenuActionDisabled('batch-rename')"
+          :aria-disabled="isMenuActionDisabled('batch-rename')"
           @click="emitAction('batch-rename')"
         >
           <TextCursorInputIcon :size="16" />
@@ -269,12 +232,14 @@ function handleCreateLink(linkKind: LinkCreationKind) {
       </TooltipContent>
     </Tooltip>
     <Tooltip
-      v-if="isActionVisible('copy')"
+      v-if="isMenuActionVisible('copy')"
     >
       <TooltipTrigger as-child>
         <Button
           variant="ghost"
           size="xs"
+          :disabled="isMenuActionDisabled('copy')"
+          :aria-disabled="isMenuActionDisabled('copy')"
           @click="handleCopyClick"
         >
           <CopyIcon :size="16" />
@@ -288,12 +253,14 @@ function handleCreateLink(linkKind: LinkCreationKind) {
       </TooltipContent>
     </Tooltip>
     <Tooltip
-      v-if="isActionVisible('cut')"
+      v-if="isMenuActionVisible('cut')"
     >
       <TooltipTrigger as-child>
         <Button
           variant="ghost"
           size="xs"
+          :disabled="isMenuActionDisabled('cut')"
+          :aria-disabled="isMenuActionDisabled('cut')"
           @click="handleCutClick"
         >
           <FolderInputIcon :size="16" />
@@ -306,13 +273,15 @@ function handleCreateLink(linkKind: LinkCreationKind) {
         </div>
       </TooltipContent>
     </Tooltip>
-    <Tooltip v-if="isActionVisible('link') && linkCreationOptions.length > 0">
+    <Tooltip v-if="isMenuActionVisible('link')">
       <DropdownMenu>
         <TooltipTrigger as-child>
           <DropdownMenuTrigger as-child>
             <Button
               variant="ghost"
               size="xs"
+              :disabled="isMenuActionDisabled('link')"
+              :aria-disabled="isMenuActionDisabled('link')"
             >
               <LinkIcon :size="16" />
             </Button>
@@ -345,12 +314,14 @@ function handleCreateLink(linkKind: LinkCreationKind) {
       </DropdownMenu>
     </Tooltip>
     <Tooltip
-      v-if="canPasteToSelectedDirectory"
+      v-if="isMenuActionVisible('paste')"
     >
       <TooltipTrigger as-child>
         <Button
           variant="ghost"
           size="xs"
+          :disabled="isMenuActionDisabled('paste')"
+          :aria-disabled="isMenuActionDisabled('paste')"
           @click="emitAction('paste')"
         >
           <ClipboardPasteIcon :size="16" />
@@ -377,11 +348,13 @@ function handleCreateLink(linkKind: LinkCreationKind) {
       图标不再跟着 Shift 变色（ShredderIcon）：按下 Shift 也不再有
       「点下去就是永久删除」这个含义了，菜单里已经写得很清楚。
     -->
-    <DropdownMenu v-if="isActionVisible('delete')">
+    <DropdownMenu v-if="isMenuActionVisible('delete')">
       <DropdownMenuTrigger as-child>
         <Button
           variant="ghost"
           size="xs"
+          :disabled="isMenuActionDisabled('delete')"
+          :aria-disabled="isMenuActionDisabled('delete')"
           class="file-browser-actions-menu__action--danger"
         >
           <Trash2Icon :size="16" />
@@ -392,11 +365,19 @@ function handleCreateLink(linkKind: LinkCreationKind) {
         side="bottom"
         class="file-browser-actions-menu__delete-dropdown"
       >
-        <DropdownMenuItem @select="emitAction('delete')">
+        <DropdownMenuItem
+          :disabled="isMenuActionDisabled('delete')"
+          :aria-disabled="isMenuActionDisabled('delete')"
+          @select="emitAction('delete')"
+        >
           <span>{{ t(moveToTrashLabelKey) }}</span>
           <DropdownMenuShortcut>{{ shortcutsStore.getShortcutLabel('delete') }}</DropdownMenuShortcut>
         </DropdownMenuItem>
-        <DropdownMenuItem @select="emitAction('delete-permanently')">
+        <DropdownMenuItem
+          :disabled="isMenuActionDisabled('delete-permanently')"
+          :aria-disabled="isMenuActionDisabled('delete-permanently')"
+          @select="emitAction('delete-permanently')"
+        >
           <span>{{ t(deleteFromDriveLabelKey) }}</span>
           <DropdownMenuShortcut>{{ shortcutsStore.getShortcutLabel('deletePermanently') }}</DropdownMenuShortcut>
         </DropdownMenuItem>
@@ -413,11 +394,13 @@ function handleCreateLink(linkKind: LinkCreationKind) {
       所以一律显示，点了没权限由后端如实报错。
     -->
     <Button
-      v-if="isActionVisible('remote-delete')"
+      v-if="isMenuActionVisible('remote-delete')"
       variant="ghost"
       size="xs"
       class="file-browser-actions-menu__action--danger"
       :title="t('remote.delete.menuItem')"
+      :disabled="isMenuActionDisabled('remote-delete')"
+      :aria-disabled="isMenuActionDisabled('remote-delete')"
       @click="emitAction('remote-delete')"
     >
       <Trash2Icon :size="16" />
@@ -425,7 +408,7 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   </div>
   <component :is="menuSeparatorComponent" />
   <FileBrowserOpenWithSubmenu
-    v-if="isActionVisible('open-with')"
+    v-if="isMenuActionVisible('open-with')"
     :selected-entries="selectedEntries"
     @open-custom-dialog="handleOpenCustomDialog"
   />
@@ -444,8 +427,10 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   />
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('quick-view')"
+    v-if="isMenuActionVisible('quick-view')"
     class="file-browser-actions-menu__item-with-shortcut"
+    :disabled="isMenuActionDisabled('quick-view')"
+    :aria-disabled="isMenuActionDisabled('quick-view')"
     @select="emitAction('quick-view')"
   >
     <EyeIcon :size="16" />
@@ -456,8 +441,10 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   </component>
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('print')"
+    v-if="isMenuActionVisible('print')"
     class="file-browser-actions-menu__item-with-shortcut"
+    :disabled="isMenuActionDisabled('print')"
+    :aria-disabled="isMenuActionDisabled('print')"
     @select="emitAction('print')"
   >
     <PrinterIcon :size="16" />
@@ -468,7 +455,9 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   </component>
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('open-in-new-tab')"
+    v-if="isMenuActionVisible('open-in-new-tab')"
+    :disabled="isMenuActionDisabled('open-in-new-tab')"
+    :aria-disabled="isMenuActionDisabled('open-in-new-tab')"
     @select="emitAction('open-in-new-tab')"
   >
     <SquarePlusIcon :size="16" />
@@ -485,7 +474,9 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   -->
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('open-containing-directory')"
+    v-if="isMenuActionVisible('open-containing-directory')"
+    :disabled="isMenuActionDisabled('open-containing-directory')"
+    :aria-disabled="isMenuActionDisabled('open-containing-directory')"
     @select="emitAction('open-containing-directory')"
   >
     <FolderOpenIcon :size="16" />
@@ -493,7 +484,9 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   </component>
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('open-containing-directory-in-app')"
+    v-if="isMenuActionVisible('open-containing-directory-in-app')"
+    :disabled="isMenuActionDisabled('open-containing-directory-in-app')"
+    :aria-disabled="isMenuActionDisabled('open-containing-directory-in-app')"
     @select="emitAction('open-containing-directory-in-app')"
   >
     <FolderSearchIcon :size="16" />
@@ -501,7 +494,9 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   </component>
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('disconnect')"
+    v-if="isMenuActionVisible('disconnect')"
+    :disabled="isMenuActionDisabled('disconnect')"
+    :aria-disabled="isMenuActionDisabled('disconnect')"
     @select="emitAction('disconnect')"
   >
     <UnplugIcon :size="16" />
@@ -509,7 +504,9 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   </component>
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('copy-path')"
+    v-if="isMenuActionVisible('copy-path')"
+    :disabled="isMenuActionDisabled('copy-path')"
+    :aria-disabled="isMenuActionDisabled('copy-path')"
     @select="emitAction('copy-path')"
   >
     <CopyIcon :size="16" />
@@ -529,7 +526,9 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   -->
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('unlock')"
+    v-if="isMenuActionVisible('unlock')"
+    :disabled="isMenuActionDisabled('unlock')"
+    :aria-disabled="isMenuActionDisabled('unlock')"
     @select="emitAction('unlock')"
   >
     <LockOpenIcon :size="16" />
@@ -537,8 +536,10 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   </component>
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('force-delete')"
+    v-if="isMenuActionVisible('force-delete')"
     class="file-browser-actions-menu__action--danger"
+    :disabled="isMenuActionDisabled('force-delete')"
+    :aria-disabled="isMenuActionDisabled('force-delete')"
     @select="emitAction('force-delete')"
   >
     <FlameIcon :size="16" />
@@ -549,7 +550,9 @@ function handleCreateLink(linkKind: LinkCreationKind) {
        `src/modules/remote/utils/remote-context-menu-visibility.ts`。 -->
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('upload-to-remote')"
+    v-if="isMenuActionVisible('upload-to-remote')"
+    :disabled="isMenuActionDisabled('upload-to-remote')"
+    :aria-disabled="isMenuActionDisabled('upload-to-remote')"
     @select="emitAction('upload-to-remote')"
   >
     <UploadIcon :size="16" />
@@ -557,7 +560,9 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   </component>
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('download-to-local')"
+    v-if="isMenuActionVisible('download-to-local')"
+    :disabled="isMenuActionDisabled('download-to-local')"
+    :aria-disabled="isMenuActionDisabled('download-to-local')"
     @select="emitAction('download-to-local')"
   >
     <DownloadIcon :size="16" />
@@ -565,7 +570,9 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   </component>
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('remote-permissions')"
+    v-if="isMenuActionVisible('remote-permissions')"
+    :disabled="isMenuActionDisabled('remote-permissions')"
+    :aria-disabled="isMenuActionDisabled('remote-permissions')"
     @select="emitAction('remote-permissions')"
   >
     <ShieldIcon :size="16" />
@@ -575,20 +582,24 @@ function handleCreateLink(linkKind: LinkCreationKind) {
        权限不足时点下去由后端报错（用户原话：「可以设置为灰色，但要保留菜单」）。 -->
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('remote-delete')"
+    v-if="isMenuActionVisible('remote-delete')"
+    :disabled="isMenuActionDisabled('remote-delete')"
+    :aria-disabled="isMenuActionDisabled('remote-delete')"
     @select="emitAction('remote-delete')"
   >
     <Trash2Icon :size="16" />
     <span>{{ t('remote.delete.menuItem') }}</span>
   </component>
   <FileBrowserNewSubmenu
-    v-if="selectionStats.hasDirectories && !hasVirtualLocationSelection"
-    :can-create-file="canCreateFile"
+    v-if="isMenuActionVisible('create-directory')"
+    :can-create-file="isMenuActionVisible('create-file')"
     @action="emitAction"
   />
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('share')"
+    v-if="isMenuActionVisible('share')"
+    :disabled="isMenuActionDisabled('share')"
+    :aria-disabled="isMenuActionDisabled('share')"
     @select="emitAction('share')"
   >
     <Share2Icon :size="16" />
@@ -596,8 +607,10 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   </component>
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('properties')"
+    v-if="isMenuActionVisible('properties')"
     class="file-browser-actions-menu__item-with-shortcut"
+    :disabled="isMenuActionDisabled('properties')"
+    :aria-disabled="isMenuActionDisabled('properties')"
     @select="emitAction('properties')"
   >
     <InfoIcon :size="16" />
@@ -609,7 +622,9 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   <component :is="menuSeparatorComponent" />
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('toggle-favorite')"
+    v-if="isMenuActionVisible('toggle-favorite')"
+    :disabled="isMenuActionDisabled('toggle-favorite')"
+    :aria-disabled="isMenuActionDisabled('toggle-favorite')"
     @select="emitAction('toggle-favorite')"
   >
     <StarIcon
@@ -619,7 +634,7 @@ function handleCreateLink(linkKind: LinkCreationKind) {
     <span>{{ allSelectedAreFavorites ? t('fileBrowser.actions.removeFromFavorites') : t('fileBrowser.actions.addToFavorites') }}</span>
   </component>
   <div
-    v-if="isActionVisible('edit-tags')"
+    v-if="isMenuActionVisible('edit-tags')"
     class="file-browser-actions-menu__tag-selector"
   >
     <TagSelector

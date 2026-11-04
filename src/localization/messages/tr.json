@@ -121,6 +121,8 @@
     }
   },
   "globalSearch": {
+    "scanModeFull": "Tam",
+    "scanModeIncremental": "Artımlı",
     "globalSearch": "Küresel arama",
     "driveScanInProgress": "Sürücü indeksleme devam ediyor",
     "searchDataIncomplete": "Arama verileri eksik",
@@ -1413,7 +1415,9 @@
       "broken": "Bozuk",
       "brokenTooltip": "Eklenti dosyaları eksik. Listeden kaldırmak için kaldırın.",
       "disabled": "Devre dışı",
-      "disabledTooltip": "Bu uzantı devre dışı"
+      "disabledTooltip": "Bu uzantı devre dışı",
+      "source": "Kaynak",
+      "sourceTooltip": "Market kaynağı: {name}"
     },
     "stats": {
       "total": "Toplam",
@@ -1511,7 +1515,20 @@
     "githubConnectivityIssue": "GitHub'a erişilemiyor",
     "githubConnectivityIssueDescription": "Uygulama GitHub'a bağlanamadığı için bazı eklenti sürüm kontrolleri başarısız oldu. İnternet bağlantınızı, VPN'inizi veya güvenlik duvarı ayarlarınızı kontrol edip daha sonra tekrar deneyin.",
     "offlineIssue": "You are offline",
-    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features."
+    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features.",
+    "marketSources": "Market kaynakları",
+    "marketSourceAdd": "Market kaynağı ekle",
+    "marketSourceName": "Ad",
+    "marketSourceUrl": "Kayıt defteri URL'si",
+    "marketSourceOfficial": "Resmi",
+    "marketSourceCommunity": "Topluluk",
+    "marketSourceCustom": "Özel",
+    "marketSourceAll": "Tümü",
+    "marketSourceEmpty": "Henüz hiçbir market kaynağı eklenmedi.",
+    "marketSourceRemove": "Market kaynağını kaldır",
+    "marketSourceRemoveConfirm": "Bu market kaynağı kaldırılsın mı? Sağladığı eklentiler, market bir sonraki yenilendiğinde kaldırılacak.",
+    "marketSourceInvalidUrl": "Herkese açık bir HTTPS URL'si girin.",
+    "marketSourceUnreachable": "Erişilemiyor"
   },
   "commandPalette": {
     "accessibleDialogTitle": "Komut paleti",

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "1.0.0",
+  "extensions": [
+    {
+      "id": "kizemo.git",
+      "name": "Git Tools",
+      "description": "Do Git work directly inside Alpha File Manager: init, clone, fetch, pull, push, sync, browse branches, commits and tracked files, and hand the repository to your IDE.",
+      "publisher": {
+      "name": "Alpha File Manager",
+        "url": "https://github.com/kizemo"
+      },
+      "repository": "https://github.com/kizemo/sfm-git-extension",
+      "featured": true,
+      "categories": [
+        "Developer Tools",
+        "Productivity"
+      ],
+      "tags": [
+        "git",
+        "vcs",
+        "developer",
+        "source-control"
+      ],
+      "releaseMetadata": {
+        "0.1.0": {
+          "integrity": "sha256:4f0111d93591f82a5ce5124053660e7f8f3d39d146eb3c720ee4e1fc7391b09a",
+          "manifest": "https://raw.githubusercontent.com/kizemo/sfm-git-extension/main/package.json"
+        }
+      }
+    }
+  ]
+}

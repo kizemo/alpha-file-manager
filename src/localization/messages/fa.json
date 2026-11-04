@@ -114,6 +114,8 @@
     }
   },
   "globalSearch": {
+    "scanModeFull": "کامل",
+    "scanModeIncremental": "افزایشی",
     "globalSearch": "جستجوی جهانی",
     "driveScanInProgress": "فهرست‌بندی درایو در حال انجام است",
     "searchDataIncomplete": "داده های جستجو ناقص است",
@@ -1406,7 +1408,9 @@
       "broken": "خراب",
       "brokenTooltip": "فایل‌های افزونه یافت نشدند. برای حذف از لیست، افزونه را حذف نصب کنید.",
       "disabled": "غیرفعال",
-      "disabledTooltip": "این افزونه غیرفعال است"
+      "disabledTooltip": "این افزونه غیرفعال است",
+      "source": "منبع",
+      "sourceTooltip": "منبع بازار: {name}"
     },
     "stats": {
       "total": "مجموع",
@@ -1504,7 +1508,20 @@
     "githubConnectivityIssue": "اتصال به GitHub برقرار نشد",
     "githubConnectivityIssueDescription": "برخی بررسی‌های نسخه افزونه‌ها به‌دلیل عدم اتصال برنامه به GitHub ناموفق بود. اتصال اینترنت، VPN یا تنظیمات فایروال را بررسی کنید و بعداً دوباره تلاش کنید.",
     "offlineIssue": "You are offline",
-    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features."
+    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features.",
+    "marketSources": "منابع بازار",
+    "marketSourceAdd": "افزودن منبع بازار",
+    "marketSourceName": "نام",
+    "marketSourceUrl": "نشانی رجیستری",
+    "marketSourceOfficial": "رسمی",
+    "marketSourceCommunity": "انجمن",
+    "marketSourceCustom": "اختصاصی",
+    "marketSourceAll": "همه",
+    "marketSourceEmpty": "هنوز هیچ منبع بازاری افزوده نشده است.",
+    "marketSourceRemove": "حذف منبع بازار",
+    "marketSourceRemoveConfirm": "این منبع بازار حذف شود؟ افزونه‌هایی که ارائه می‌کند، در تازه‌سازی بعدی بازار حذف خواهند شد.",
+    "marketSourceInvalidUrl": "یک نشانی HTTPS عمومی وارد کنید.",
+    "marketSourceUnreachable": "غیرقابل دسترس"
   },
   "commandPalette": {
     "accessibleDialogTitle": "پالت فرمان",

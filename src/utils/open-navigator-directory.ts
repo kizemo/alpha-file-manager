@@ -12,6 +12,8 @@ import {
 } from '@/utils/launch-directories';
 import normalizePath, { getParentDirectory } from '@/utils/normalize-path';
 import { resolveNavigableItemTarget } from '@/utils/resolve-navigable-item-target';
+// FORK-MODIFICATION (2026-11-03)：L1 —— 快捷方式按**目标**定位。
+import { resolveRevealEntryTarget } from '@/utils/resolve-reveal-entry-target';
 
 export function preloadNavigatorRoute(): void {
   void loadNavigatorRoute();
@@ -29,6 +31,14 @@ export interface OpenNavigatorPathOptions {
  */
 export interface OpenNavigatorRevealEntryOptions {
   filterQuery?: string;
+  /**
+   * FORK-MODIFICATION (2026-11-03)：默认资源管理器改造 L2。
+   *
+   * 「打开文件所在目录」**不是**搜索结果通道 —— 那里要的是当前这一格
+   * 跳到父目录并选中条目，不能拆栏（拆栏是搜索结果通道为了
+   * 「左边父目录、右边搜索结果」才需要的），也不能切到别的 pane。
+   */
+  reuseCurrentPaneOnly?: boolean;
 }
 
 function logNavigatorOpenError(error: unknown): void {
@@ -221,11 +231,26 @@ export function openNavigatorRevealEntry(
 ): void {
   ensureNavigatorRoute(router);
 
-  const parentPath = getParentDirectory(entryPath);
   const workspacesStore = useWorkspacesStore();
   const globalSearchStore = useGlobalSearchStore();
 
   runNavigatorOpenTask(async () => {
+    // FORK-MODIFICATION (2026-11-03)：L1 —— 快捷方式按**目标**定位。
+    // 解析不出 / 目标已删时回落成「打开 .lnk 自己的父目录 + 选中 .lnk」，不报错。
+    const revealTarget = await resolveRevealEntryTarget(entryPath);
+
+    // FORK-MODIFICATION (2026-11-03)：L2 —— 「打开文件所在目录」走当前这一格，
+    // 不拆栏、不切 pane。
+    if (options?.reuseCurrentPaneOnly) {
+      await workspacesStore.openPathInCurrentTab(revealTarget.directoryPath);
+      workspacesStore.setPendingLaunchReveal(
+        revealTarget.directoryPath,
+        revealTarget.focusPath,
+      );
+
+      return;
+    }
+
     const paneCount = workspacesStore.currentTabGroup?.length ?? 0;
     const isResultsPanelDedicated = globalSearchStore.isOpen;
 
@@ -244,8 +269,11 @@ export function openNavigatorRevealEntry(
     }
 
     workspacesStore.setCurrentTabIndex(targetPaneIndex);
-    await workspacesStore.openPathInCurrentTab(parentPath);
-    workspacesStore.setPendingLaunchReveal(parentPath, normalizePath(entryPath));
+    await workspacesStore.openPathInCurrentTab(revealTarget.directoryPath);
+    workspacesStore.setPendingLaunchReveal(
+      revealTarget.directoryPath,
+      revealTarget.focusPath,
+    );
   });
 }
 

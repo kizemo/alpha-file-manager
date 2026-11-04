@@ -491,8 +491,8 @@ function createUnassignedShortcutKeys(): ShortcutKeys {
 }
 
 async function contextUnassignShortcutBinding(definition: ShortcutDefinition): Promise<void> {
-  await shortcutsStore.setShortcut(
-    definition.id,
+  await shortcutsStore.setShortcutForAction(
+    shortcutsStore.getShortcutActionId(definition.id),
     createUnassignedShortcutKeys(),
     definition.bindingSlot ?? 0,
   );
@@ -507,7 +507,10 @@ async function contextRemoveUserAlternateBinding(definition: ShortcutDefinition)
 }
 
 async function contextResetAppShortcutBinding(definition: ShortcutDefinition): Promise<void> {
-  await shortcutsStore.resetShortcut(definition.id, definition.bindingSlot ?? 0);
+  await shortcutsStore.resetShortcutForAction(
+    shortcutsStore.getShortcutActionId(definition.id),
+    definition.bindingSlot ?? 0,
+  );
 }
 
 async function contextResetGlobalShortcut(globalShortcutId: GlobalShortcutId): Promise<void> {
@@ -777,8 +780,8 @@ async function saveShortcut(): Promise<boolean> {
   }
 
   if (!editingAppShortcutDefinition.value) return false;
-  await shortcutsStore.setShortcut(
-    editingAppShortcutDefinition.value.id,
+  await shortcutsStore.setShortcutForAction(
+    shortcutsStore.getShortcutActionId(editingAppShortcutDefinition.value.id),
     recordedKeys.value,
     editingAppShortcutDefinition.value.bindingSlot ?? 0,
   );
@@ -802,16 +805,17 @@ async function clearConflictingAppShortcuts(
   for (const shortcut of conflictingShortcuts) {
     const previousKeys = shortcutsStore.resolveShortcutBindingKeys(shortcut);
     const previousSource = shortcutsStore.getShortcutBindingSource(shortcut);
+    const actionId = shortcutsStore.getShortcutActionId(shortcut.id);
     restoreActions.push(async () => {
       if (previousSource === 'system') {
-        await shortcutsStore.resetShortcut(shortcut.id, shortcut.bindingSlot ?? 0);
+        await shortcutsStore.resetShortcutForAction(actionId, shortcut.bindingSlot ?? 0);
         return;
       }
 
-      await shortcutsStore.setShortcut(shortcut.id, previousKeys, shortcut.bindingSlot ?? 0);
+      await shortcutsStore.setShortcutForAction(actionId, previousKeys, shortcut.bindingSlot ?? 0);
     });
-    await shortcutsStore.setShortcut(
-      shortcut.id,
+    await shortcutsStore.setShortcutForAction(
+      actionId,
       createUnassignedShortcutKeys(),
       shortcut.bindingSlot ?? 0,
     );

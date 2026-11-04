@@ -217,6 +217,7 @@ function createRegistryEntry(extensionId: string, repository: string) {
     featured: false,
     categories: ['Media'],
     tags: [],
+    sourceId: 'official',
   };
 }
 
@@ -507,6 +508,19 @@ describe('extensions runtime store', () => {
           };
         }
 
+        // 社区源也要应答「成功但为空」：任何一个启用的源拉取失败都会让
+        // fetchRegistry 跳过卸载判定，本用例就测不到要测的行为了。
+        if (args?.url === externalLinks.extensionsCommunityRegistryUrl) {
+          return {
+            ok: true,
+            status: 200,
+            body: JSON.stringify({
+              schemaVersion: '1.0.0',
+              extensions: [],
+            }),
+          };
+        }
+
         if (args?.url === getMainBranchManifestUrl(approvedEntry.repository)) {
           return {
             ok: true,
@@ -580,6 +594,54 @@ describe('extensions runtime store', () => {
     expect(storageStore.extensionsData.installedExtensions['test.removed']).toBeDefined();
     expect(invokeMock).not.toHaveBeenCalledWith('delete_extension', { extensionId: 'test.removed' });
     expect(toastCustomMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps the official registry entries when the community source fails', async () => {
+    const officialEntry = createRegistryEntry(
+      'test.official',
+      'https://github.com/example/official-extension',
+    );
+
+    invokeMock.mockImplementation(async (command: string, args?: Record<string, unknown>) => {
+      if (command === 'fetch_github_tags') {
+        return [];
+      }
+
+      if (command === 'fetch_url_text') {
+        if (args?.url === externalLinks.extensionsRegistryUrl) {
+          return {
+            ok: true,
+            status: 200,
+            body: JSON.stringify({
+              schemaVersion: '1.0.0',
+              extensions: [officialEntry],
+            }),
+          };
+        }
+
+        if (args?.url === externalLinks.extensionsCommunityRegistryUrl) {
+          throw new Error('Network error');
+        }
+
+        if (args?.url === getMainBranchManifestUrl(officialEntry.repository)) {
+          return {
+            ok: true,
+            status: 200,
+            body: JSON.stringify(createRemoteManifest(officialEntry.id, officialEntry.repository)),
+          };
+        }
+      }
+
+      throw new Error(`Unexpected invoke command: ${command}`);
+    });
+
+    const extensionsStore = useExtensionsStore();
+    await extensionsStore.fetchRegistry(true);
+
+    // 内置社区源是「加进来」而不是「替换掉」：它拉不到时官方源必须照常上架。
+    expect(extensionsStore.availableExtensions.map(extension => extension.id)).toEqual([officialEntry.id]);
+    expect(extensionsStore.registrySourceStates['community']).toMatchObject({ status: 'error' });
+    expect(extensionsStore.registrySourceStates['official']?.status).toBe('ok');
   });
 
   it('passes install cancellation ids to extension archive downloads', async () => {

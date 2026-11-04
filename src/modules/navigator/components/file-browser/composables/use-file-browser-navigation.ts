@@ -62,9 +62,30 @@ interface DirChangePayload {
 
 const DIRECTORY_DWELL_TIME_MS = 3000;
 const WATCHER_DEBOUNCE_MS = 500;
+// FORK-MODIFICATION 2026-11-04：监听器登记/注销是「锦上添花」的副作用，不是读目录的前置条件。
+// 一旦这两个 invoke 静默挂起（后端不返回、也不报错），旧实现会让目录列表永远等下去。
+// 这里给它们加上限：超过这个时间就当它没完成，放行后续流程并留下告警。
+const WATCHER_OPERATION_TIMEOUT_MS = 5000;
 
 function dirWatcherDiagEnabled(): boolean {
-  return import.meta.env.DEV && localStorage.getItem('SFM_DIR_WATCHER_DIAG') === '1';
+  // FORK-MODIFICATION 2026-11-04：诊断开关绝不允许有能力打断主流程。
+  // 旧实现直接 `localStorage.getItem(...)`：在没有 localStorage 的宿主
+  // （Node/单元测试环境、隐私模式、被策略禁用的 WebView）里 `localStorage` 是 undefined，
+  // 抛出的 TypeError 会把 `readDir` 在真正读目录之前就打断 —— 表现为目录一直转圈。
+  try {
+    if (!import.meta.env.DEV) {
+      return false;
+    }
+
+    if (typeof localStorage === 'undefined' || localStorage === null) {
+      return false;
+    }
+
+    return localStorage.getItem('SFM_DIR_WATCHER_DIAG') === '1';
+  }
+  catch {
+    return false;
+  }
 }
 
 function logDirWatcherDiag(message: string, details?: Record<string, unknown>) {
@@ -78,6 +99,58 @@ function logDirWatcherDiag(message: string, details?: Record<string, unknown>) {
   }
 
   console.debug(`[dir-watcher-diag] ${message}`);
+}
+
+/**
+ * FORK-MODIFICATION 2026-11-04：给监听器登记/注销这两个 invoke 加超时兜底。
+ *
+ * 背景：`watch_directory` / `unwatch_directory` 是跨进程调用，后端可能因为任何原因
+ * 不返回（既不断开也不报错）。旧实现直接 `await`，于是一次挂起就会把
+ * `enqueueWatcherOperation` 的串行队列永久毒化 —— 之后所有导航都会等同一个死掉的 Promise，
+ * 症状是「目录进不去、刷新键一直转圈、整个浏览器全盘失效」，而后端日志一条错误都没有。
+ *
+ * 语义：这个函数**永不 reject**，超时或失败都只是放行并留下日志。
+ * 监听器状态因此可能与后端短暂不一致（最坏情况是少一次自动刷新），
+ * 这远优于把整个文件浏览主流程挂死。
+ */
+function withWatcherTimeout(operation: Promise<unknown>, label: string): Promise<void> {
+  return new Promise<void>((resolve) => {
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      console.warn(
+        `[dir-watcher] ${label} did not settle within ${WATCHER_OPERATION_TIMEOUT_MS} ms; continuing without it`,
+      );
+      resolve();
+    }, WATCHER_OPERATION_TIMEOUT_MS);
+
+    // Node/测试环境下让这个兜底计时器不阻止进程退出（浏览器里没有 unref，跳过）。
+    const unrefableTimer = timer as unknown as { unref?: () => void };
+
+    if (typeof unrefableTimer.unref === 'function') {
+      unrefableTimer.unref();
+    }
+
+    function settle() {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(timer);
+      resolve();
+    }
+
+    operation.then(settle, (error: unknown) => {
+      console.error(`[dir-watcher] ${label} failed:`, error);
+      settle();
+    });
+  });
 }
 
 function buildDirContentsFromEntries(path: string, entries: DirEntry[]): DirContents {
@@ -409,10 +482,16 @@ export function useFileBrowserNavigation(
       }
 
       try {
-        await invoke('watch_directory', { path: normalizedPath });
+        await withWatcherTimeout(
+          invoke('watch_directory', { path: normalizedPath }),
+          'watch_directory',
+        );
 
         if (isDisposed || normalizePath(currentPath.value) !== normalizedPath) {
-          await invoke('unwatch_directory', { path: normalizedPath });
+          await withWatcherTimeout(
+            invoke('unwatch_directory', { path: normalizedPath }),
+            'unwatch_directory',
+          );
           return;
         }
 
@@ -474,17 +553,22 @@ export function useFileBrowserNavigation(
 
     if (watchedPath) {
       const pathToStop = watchedPath;
+      // FORK-MODIFICATION 2026-11-04：先清空本地状态，再去 await 后端。
+      // 旧实现把 `watchedPath = null` 放在 await **之后**：一旦 unwatch 不返回，
+      // 状态就永久停留在「正在监听旧目录」，之后每次导航都会重复 await 同一个死 Promise。
+      watchedPath = null;
       logDirWatcherDiag('stopWatching begin', { path: pathToStop });
 
       try {
-        await invoke('unwatch_directory', { path: pathToStop });
+        await withWatcherTimeout(
+          invoke('unwatch_directory', { path: pathToStop }),
+          'unwatch_directory',
+        );
         logDirWatcherDiag('stopWatching complete', { path: pathToStop });
       }
       catch (error) {
         console.error('[dir-watcher-diag] Failed to stop directory watcher:', error);
       }
-
-      watchedPath = null;
     }
   }
 
@@ -786,23 +870,22 @@ export function useFileBrowserNavigation(
 
     onSelectionClear?.();
 
-    const stopWatcherPromise = (watchedPath && watchedPath !== normalizedPath)
-      ? (() => {
-          logDirWatcherDiag('readDir stopping watcher before navigation', {
-            from: watchedPath,
-            to: normalizedPath,
-          });
-          return stopWatching();
-        })()
-      : Promise.resolve();
+    // FORK-MODIFICATION 2026-11-04：停监听只是副作用，绝不参与「什么时候能画出列表」的决策。
+    // 旧实现是 `await Promise.all([loadDirectoryContents(...), stopWatching()])` ——
+    // unwatch 只要不返回，目录内容就算已经读到了也不会渲染，`isLoading` 一直停在 true，
+    // 用户看到的就是「点了目录长时间不出列表、刷新键一直转圈」。
+    if (watchedPath && watchedPath !== normalizedPath) {
+      logDirWatcherDiag('readDir stopping watcher before navigation', {
+        from: watchedPath,
+        to: normalizedPath,
+      });
+      void stopWatching();
+    }
 
     try {
       logDirWatcherDiag('readDir loading directory', { path: normalizedPath });
       const readOptions = createReadDirOptions(normalizedPath);
-      const [result] = await Promise.all([
-        loadDirectoryContents(path, readOptions),
-        stopWatcherPromise,
-      ]);
+      const result = await loadDirectoryContents(path, readOptions);
 
       if (isDisposed || requestGeneration !== readGeneration) {
         return;

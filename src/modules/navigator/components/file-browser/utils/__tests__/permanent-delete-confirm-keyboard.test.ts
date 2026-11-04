@@ -15,6 +15,7 @@ describe('shouldConfirmPermanentDeleteOnEnter', () => {
       key: 'Enter',
       defaultPrevented: false,
       isComposing: false,
+      isRepeat: false,
       isFocusOnInteractiveControl: false,
     })).toBe(true);
   });
@@ -24,6 +25,7 @@ describe('shouldConfirmPermanentDeleteOnEnter', () => {
       key: 'Enter',
       defaultPrevented: false,
       isComposing: false,
+      isRepeat: false,
       isFocusOnInteractiveControl: true,
     })).toBe(false);
   });
@@ -33,6 +35,7 @@ describe('shouldConfirmPermanentDeleteOnEnter', () => {
       key: 'Enter',
       defaultPrevented: true,
       isComposing: false,
+      isRepeat: false,
       isFocusOnInteractiveControl: false,
     })).toBe(false);
   });
@@ -42,6 +45,7 @@ describe('shouldConfirmPermanentDeleteOnEnter', () => {
       key: 'Enter',
       defaultPrevented: false,
       isComposing: true,
+      isRepeat: false,
       isFocusOnInteractiveControl: false,
     })).toBe(false);
   });
@@ -52,9 +56,19 @@ describe('shouldConfirmPermanentDeleteOnEnter', () => {
         key,
         defaultPrevented: false,
         isComposing: false,
+        isRepeat: false,
         isFocusOnInteractiveControl: false,
       })).toBe(false);
     }
+  });
+  it('长按自动重复（isRepeat）不响应：避免一次回车连开多个删除作业', () => {
+    expect(shouldConfirmPermanentDeleteOnEnter({
+      key: 'Enter',
+      defaultPrevented: false,
+      isComposing: false,
+      isRepeat: true,
+      isFocusOnInteractiveControl: false,
+    })).toBe(false);
   });
 });
 
@@ -120,6 +134,7 @@ describe('focusPermanentDeleteConfirmContent', () => {
       key: 'Enter',
       defaultPrevented: false,
       isComposing: false,
+      isRepeat: false,
       isFocusOnInteractiveControl: isPermanentDeleteConfirmInteractiveTarget(document.activeElement),
     })).toBe(true);
   });

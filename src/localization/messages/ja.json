@@ -121,6 +121,8 @@
     }
   },
   "globalSearch": {
+    "scanModeFull": "全体",
+    "scanModeIncremental": "差分",
     "globalSearch": "グローバル検索",
     "driveScanInProgress": "ドライブのインデックス作成中",
     "searchDataIncomplete": "検索データが不完全です",
@@ -1413,7 +1415,9 @@
       "broken": "破損",
       "brokenTooltip": "拡張機能のファイルが見つかりません。リストから削除するにはアンインストールしてください。",
       "disabled": "無効",
-      "disabledTooltip": "この拡張機能は無効です"
+      "disabledTooltip": "この拡張機能は無効です",
+      "source": "ソース",
+      "sourceTooltip": "マーケットソース: {name}"
     },
     "stats": {
       "total": "合計",
@@ -1511,7 +1515,20 @@
     "githubConnectivityIssue": "GitHub に接続できません",
     "githubConnectivityIssueDescription": "アプリが GitHub に接続できなかったため、一部の拡張機能のバージョン確認に失敗しました。インターネット接続、VPN、ファイアウォール設定を確認し、後でもう一度お試しください。",
     "offlineIssue": "You are offline",
-    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features."
+    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features.",
+    "marketSources": "マーケットソース",
+    "marketSourceAdd": "マーケットソースを追加",
+    "marketSourceName": "名前",
+    "marketSourceUrl": "レジストリの URL",
+    "marketSourceOfficial": "公式",
+    "marketSourceCommunity": "コミュニティ",
+    "marketSourceCustom": "カスタム",
+    "marketSourceAll": "すべて",
+    "marketSourceEmpty": "マーケットソースはまだ追加されていません。",
+    "marketSourceRemove": "マーケットソースを削除",
+    "marketSourceRemoveConfirm": "このマーケットソースを削除しますか？提供されている拡張機能は、次回マーケットプレイスを更新するときにアンインストールされます。",
+    "marketSourceInvalidUrl": "公開 HTTPS URL を入力してください。",
+    "marketSourceUnreachable": "接続できません"
   },
   "commandPalette": {
     "accessibleDialogTitle": "コマンドパレット",

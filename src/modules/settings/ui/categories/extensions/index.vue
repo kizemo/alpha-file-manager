@@ -5,6 +5,7 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
 <script setup lang="ts">
 import ExtensionsList from './extensions-list.vue';
+import MarketSources from './market-sources.vue';
 import { resetSettingsItemStaggerIndex } from '@/utils/settings-item-stagger';
 
 resetSettingsItemStaggerIndex();
@@ -13,6 +14,7 @@ resetSettingsItemStaggerIndex();
 <template>
   <div class="settings-category">
     <ExtensionsList />
+    <MarketSources />
   </div>
 </template>
 

@@ -5,6 +5,11 @@
 #![cfg(windows)]
 #![windows_subsystem = "windows"]
 
+// FORK-MODIFICATION (2026-11-03)：`/select` 参数解析（默认资源管理器改造 L3）。
+mod launch_args;
+
+use launch_args::parse_launch_arguments;
+
 use std::ffi::OsStr;
 use std::fs;
 use std::io::ErrorKind;
@@ -383,10 +388,15 @@ fn show_recovery_message(recovery_succeeded: bool) {
     }
 }
 
-fn launch_explorer(folder_path: Option<&str>) {
+// FORK-MODIFICATION (2026-11-03)：select 请求兜底时要用 `/select,<路径>`，
+// 直接把 `/select,C:\x` 当文件夹路径丢给 explorer 是打不开的。
+fn launch_explorer(folder_path: Option<&str>, select_path: Option<&str>) {
     let mut explorer = Command::new("explorer.exe");
 
-    if let Some(folder_path) = folder_path.filter(|path| !path.is_empty()) {
+    if let Some(select_path) = select_path.filter(|path| !path.is_empty()) {
+        explorer.arg(format!("/select,{select_path}"));
+    }
+    else if let Some(folder_path) = folder_path.filter(|path| !path.is_empty()) {
         explorer.arg(folder_path);
     }
 
@@ -427,10 +437,14 @@ fn cleanup_orphaned_deployment(data_dir: &Path) {
     schedule_self_deletion(data_dir);
 }
 
-fn self_heal_and_open_explorer(data_dir: &Path, folder_path: Option<&str>) {
+fn self_heal_and_open_explorer(
+    data_dir: &Path,
+    folder_path: Option<&str>,
+    select_path: Option<&str>,
+) {
     let recovery_succeeded = restore_previous_file_manager(data_dir).is_ok();
     show_recovery_message(recovery_succeeded);
-    launch_explorer(folder_path);
+    launch_explorer(folder_path, select_path);
 
     if recovery_succeeded {
         cleanup_orphaned_deployment(data_dir);
@@ -438,20 +452,25 @@ fn self_heal_and_open_explorer(data_dir: &Path, folder_path: Option<&str>) {
 }
 
 fn main() {
-    let launch_arguments: Vec<String> = std::env::args().skip(1).collect();
-    let folder_path = launch_arguments.first().map(String::as_str);
+    let raw_arguments: Vec<String> = std::env::args().skip(1).collect();
+
+    // FORK-MODIFICATION (2026-11-03)：默认资源管理器改造 L3 ——
+    // 把 `/select,<路径>` 从参数里拆出来，改写成主程序认得的规范形式。
+    let parsed_arguments = parse_launch_arguments(&raw_arguments);
+    let folder_path = parsed_arguments.passthrough.first().map(String::as_str);
+    let select_path = parsed_arguments.select_path.as_deref();
 
     let Some(data_dir) = local_data_dir() else {
-        launch_explorer(folder_path);
+        launch_explorer(folder_path, select_path);
         return;
     };
 
     let Some(launch_target) = read_launch_target(&data_dir) else {
-        self_heal_and_open_explorer(&data_dir, folder_path);
+        self_heal_and_open_explorer(&data_dir, folder_path, select_path);
         return;
     };
 
-    if !launch_target.is_file() || !launch_application(&launch_target, &launch_arguments) {
-        self_heal_and_open_explorer(&data_dir, folder_path);
+    if !launch_target.is_file() || !launch_application(&launch_target, &parsed_arguments.passthrough) {
+        self_heal_and_open_explorer(&data_dir, folder_path, select_path);
     }
 }

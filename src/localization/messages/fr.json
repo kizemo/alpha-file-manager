@@ -121,6 +121,8 @@
     }
   },
   "globalSearch": {
+    "scanModeFull": "Complet",
+    "scanModeIncremental": "Incrémental",
     "globalSearch": "Recherche globale",
     "driveScanInProgress": "Indexation du lecteur en cours",
     "searchDataIncomplete": "Les données de recherche sont incomplètes",
@@ -1413,7 +1415,9 @@
       "broken": "Défectueuse",
       "brokenTooltip": "Les fichiers de l'extension sont manquants. Désinstallez pour retirer de la liste.",
       "disabled": "Désactivée",
-      "disabledTooltip": "Cette extension est désactivée"
+      "disabledTooltip": "Cette extension est désactivée",
+      "source": "Source",
+      "sourceTooltip": "Source de la marketplace : {name}"
     },
     "stats": {
       "total": "Total",
@@ -1511,7 +1515,20 @@
     "githubConnectivityIssue": "Impossible de joindre GitHub",
     "githubConnectivityIssueDescription": "Certaines vérifications de version d'extension ont échoué car l'application n'a pas pu se connecter à GitHub. Vérifiez votre connexion Internet, votre VPN ou votre pare-feu, puis réessayez plus tard.",
     "offlineIssue": "You are offline",
-    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features."
+    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features.",
+    "marketSources": "Sources de la marketplace",
+    "marketSourceAdd": "Ajouter une source de marketplace",
+    "marketSourceName": "Nom",
+    "marketSourceUrl": "URL du registre",
+    "marketSourceOfficial": "Officiel",
+    "marketSourceCommunity": "Communauté",
+    "marketSourceCustom": "Personnalisée",
+    "marketSourceAll": "Toutes",
+    "marketSourceEmpty": "Aucune source de marketplace n'a encore été ajoutée.",
+    "marketSourceRemove": "Supprimer la source de marketplace",
+    "marketSourceRemoveConfirm": "Supprimer cette source de marketplace ? Les extensions qu'elle fournit seront désinstallées à la prochaine actualisation de la marketplace.",
+    "marketSourceInvalidUrl": "Saisissez une URL HTTPS publique.",
+    "marketSourceUnreachable": "Inaccessible"
   },
   "commandPalette": {
     "accessibleDialogTitle": "Palette de commandes",

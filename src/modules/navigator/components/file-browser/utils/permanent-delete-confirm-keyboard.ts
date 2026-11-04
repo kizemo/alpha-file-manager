@@ -28,6 +28,15 @@ export interface PermanentDeleteConfirmEnterContext {
   key: string;
   defaultPrevented: boolean;
   isComposing: boolean;
+  /**
+   * 这次 keydown 是不是**长按自动重复**产生的。
+   *
+   * 2026-11-03：永久删除「假失败」复现时，同一个文件在 12 秒内被连开 4 个删除作业 ——
+   * 确认框的回车监听挂在 document 的 capture 阶段，只要 `open` 还是 true 就一直响应，
+   * 长按回车（或作业没结束、框还没关就连按）会一次一次地重复触发删除。
+   * 自动重复不是用户的新意图，一律不响应。
+   */
+  isRepeat: boolean;
   /** 焦点当前是否落在可交互控件（按钮 / 链接 / 输入框等）上。 */
   isFocusOnInteractiveControl: boolean;
 }
@@ -50,6 +59,10 @@ export function shouldConfirmPermanentDeleteOnEnter(
   }
 
   if (context.defaultPrevented || context.isComposing) {
+    return false;
+  }
+
+  if (context.isRepeat) {
     return false;
   }
 

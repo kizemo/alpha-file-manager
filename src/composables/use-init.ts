@@ -41,8 +41,10 @@ import {
   setupAuxiliaryWindowLifecycle,
 } from '@/utils/auxiliary-windows';
 import {
+  getLaunchSelectRequest,
   hasLaunchDirectoryCandidates,
   resolveLaunchTargetsFromArgs,
+  resolveSelectLaunchTarget,
   type LaunchContext,
 } from '@/utils/launch-directories';
 import { applyUiZoomStep } from '@/utils/ui-zoom';
@@ -200,21 +202,33 @@ export function useInit() {
   }
 
   async function openDirectoriesFromLaunchArgs(launchContext: LaunchContext): Promise<boolean> {
-    const launchTargets = await resolveLaunchTargetsFromArgs(
-      launchContext,
-      path => workspacesStore.getDirEntry({
+    function getDirEntry(path: string) {
+      return workspacesStore.getDirEntry({
         path,
         timeoutMs: STARTUP_DIR_ENTRY_TIMEOUT_MS,
-      }),
-    );
+      });
+    }
 
-    if (launchTargets.length === 0) {
+    const launchTargets = await resolveLaunchTargetsFromArgs(launchContext, getDirEntry);
+
+    // FORK-MODIFICATION (2026-11-03)：L3 —— 「打开文件所在目录」的 select 请求。
+    // 语义是「打开条目的**父目录** + 选中该条目」，与普通「打开这个路径」不同
+    // （普通打开一个目录是「进入该目录、不选中」），所以单独解析、单独成目标。
+    const selectRequest = getLaunchSelectRequest(launchContext);
+    const selectTarget = selectRequest
+      ? await resolveSelectLaunchTarget(selectRequest.selectPath, getDirEntry)
+      : null;
+    const allLaunchTargets = selectTarget
+      ? [...launchTargets, selectTarget]
+      : launchTargets;
+
+    if (allLaunchTargets.length === 0) {
       return false;
     }
 
     await router.push({ name: 'navigator' });
 
-    for (const launchTarget of launchTargets) {
+    for (const launchTarget of allLaunchTargets) {
       await workspacesStore.openOrFocusTabGroup(launchTarget.directoryPath);
 
       if (launchTarget.focusPath) {

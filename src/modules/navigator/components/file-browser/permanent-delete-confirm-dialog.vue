@@ -97,6 +97,7 @@ function handleDocumentKeydown(event: KeyboardEvent) {
     key: event.key,
     defaultPrevented: event.defaultPrevented,
     isComposing: event.isComposing,
+    isRepeat: event.repeat,
     isFocusOnInteractiveControl: isPermanentDeleteConfirmInteractiveTarget(activeElement),
   });
 

@@ -158,6 +158,8 @@
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "globalSearch": {
+    "scanModeFull": "Popolno",
+    "scanModeIncremental": "Inkrementalno",
     "globalSearch": "Globalno iskanje",
     "driveScanInProgress": "Indeksiranje pogona je v teku",
     "searchDataIncomplete": "Podatki za iskanje so nepopolni",
@@ -1512,7 +1514,9 @@
       "broken": "Poškodovana",
       "brokenTooltip": "Datoteke razširitve manjkajo. Odstranite namestitev, da jo odstranite s seznama.",
       "disabled": "Onemogočeno",
-      "disabledTooltip": "Ta razširitev je onemogočena"
+      "disabledTooltip": "Ta razširitev je onemogočena",
+      "source": "Vir",
+      "sourceTooltip": "Vir trgovine: {name}"
     },
     "stats": {
       "total": "Total",
@@ -1549,7 +1553,20 @@
     "githubConnectivityIssue": "GitHub ni dosegljiv",
     "githubConnectivityIssueDescription": "Nekatera preverjanja različic razširitev niso uspela, ker se aplikacija ni mogla povezati z GitHubom. Preverite internetno povezavo, VPN ali požarni zid in poskusite znova pozneje.",
     "offlineIssue": "You are offline",
-    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features."
+    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features.",
+    "marketSources": "Viri trgovine",
+    "marketSourceAdd": "Dodaj vir trgovine",
+    "marketSourceName": "Ime",
+    "marketSourceUrl": "URL registra",
+    "marketSourceOfficial": "Uradna",
+    "marketSourceCommunity": "Skupnost",
+    "marketSourceCustom": "Lastna",
+    "marketSourceAll": "Vse",
+    "marketSourceEmpty": "Nobenih virov trgovine še ni bilo dodanih.",
+    "marketSourceRemove": "Odstrani vir trgovine",
+    "marketSourceRemoveConfirm": "Odstraniti ta vir trgovine? Razširitve, ki jih ponuja, bodo odstranjene ob naslednji osvežitvi trgovine.",
+    "marketSourceInvalidUrl": "Vnesite javni URL s protokolom HTTPS.",
+    "marketSourceUnreachable": "Nedosegljivo"
   },
   "commandPalette": {
     "accessibleDialogTitle": "Ukazna paleta",

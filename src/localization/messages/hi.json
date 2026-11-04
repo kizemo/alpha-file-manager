@@ -158,6 +158,8 @@
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "globalSearch": {
+    "scanModeFull": "पूर्ण",
+    "scanModeIncremental": "क्रमिक",
     "globalSearch": "वैश्विक खोज",
     "driveScanInProgress": "ड्राइव अनुक्रमण प्रगति पर है",
     "searchDataIncomplete": "खोज डेटा अधूरा है",
@@ -1512,7 +1514,9 @@
       "broken": "टूटा हुआ",
       "brokenTooltip": "एक्सटेंशन फ़ाइलें अनुपलब्ध हैं. सूची से हटाने के लिए अनइंस्टॉल करें.",
       "disabled": "अक्षम",
-      "disabledTooltip": "यह एक्सटेंशन अक्षम है"
+      "disabledTooltip": "यह एक्सटेंशन अक्षम है",
+      "source": "स्रोत",
+      "sourceTooltip": "बाज़ार स्रोत: {name}"
     },
     "stats": {
       "total": "कुल",
@@ -1549,7 +1553,20 @@
     "githubConnectivityIssue": "GitHub तक पहुँच नहीं हो सकी",
     "githubConnectivityIssueDescription": "ऐप GitHub से कनेक्ट नहीं हो सका, इसलिए कुछ एक्सटेंशन संस्करण जांच विफल रही। अपना इंटरनेट कनेक्शन, VPN या फ़ायरवॉल सेटिंग जांचें और बाद में फिर कोशिश करें।",
     "offlineIssue": "You are offline",
-    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features."
+    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features.",
+    "marketSources": "बाज़ार स्रोत",
+    "marketSourceAdd": "बाज़ार स्रोत जोड़ें",
+    "marketSourceName": "नाम",
+    "marketSourceUrl": "रजिस्ट्री URL",
+    "marketSourceOfficial": "आधिकारिक",
+    "marketSourceCommunity": "समुदाय",
+    "marketSourceCustom": "कस्टम",
+    "marketSourceAll": "सभी",
+    "marketSourceEmpty": "अभी तक कोई बाज़ार स्रोत नहीं जोड़ा गया है।",
+    "marketSourceRemove": "बाज़ार स्रोत हटाएँ",
+    "marketSourceRemoveConfirm": "यह बाज़ार स्रोत हटाएँ? इससे मिलने वाले एक्सटेंशन अगली बार बाज़ार रीफ़्रेश होने पर हटा दिए जाएँगे।",
+    "marketSourceInvalidUrl": "एक सार्वजनिक HTTPS URL दर्ज करें।",
+    "marketSourceUnreachable": "पहुँच योग्य नहीं"
   },
   "commandPalette": {
     "accessibleDialogTitle": "कमांड पैलेट",

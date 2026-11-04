@@ -5,6 +5,8 @@
 mod commands;
 mod ignore;
 mod index;
+mod incremental;
+mod index_watcher;
 mod query;
 mod scan;
 mod scoring;

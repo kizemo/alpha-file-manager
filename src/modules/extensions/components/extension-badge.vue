@@ -7,21 +7,29 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
-  CheckCircle2Icon, AlertTriangleIcon, HardDriveIcon, AlertCircleIcon, CircleOffIcon,
+  CheckCircle2Icon, AlertTriangleIcon, HardDriveIcon, AlertCircleIcon, CircleOffIcon, StoreIcon,
 } from '@lucide/vue';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
-type BadgeType = 'official' | 'community' | 'local' | 'broken' | 'disabled';
+type BadgeType = 'official' | 'community' | 'local' | 'broken' | 'disabled' | 'source';
 
 const props = defineProps<{
   type: BadgeType;
   showLabel?: boolean;
+  label?: string;
 }>();
 
 const { t } = useI18n();
 
 const badgeConfig = computed(() => {
   switch (props.type) {
+    case 'source':
+      return {
+        icon: StoreIcon,
+        label: props.label ?? t('extensions.badges.source'),
+        tooltip: t('extensions.badges.sourceTooltip', { name: props.label ?? '' }),
+        class: 'extension-badge--source',
+      };
     case 'broken':
       return {
         icon: AlertCircleIcon,
@@ -129,5 +137,10 @@ const badgeConfig = computed(() => {
 .extension-badge--disabled {
   background-color: hsl(0deg 84% 60% / 15%);
   color: hsl(0deg 84% 60%);
+}
+
+.extension-badge--source {
+  background-color: hsl(24deg 94% 50% / 15%);
+  color: hsl(24deg 94% 45%);
 }
 </style>

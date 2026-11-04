@@ -1,0 +1,136 @@
+{
+  "id": "kizemo.git",
+  "name": "Git Tools",
+  "version": "0.1.0",
+  "description": "Do Git work directly inside Alpha File Manager: init, clone, fetch, pull, push, sync, browse branches, commits and tracked files, and hand the repository to your IDE.",
+  "publisher": {
+    "name": "Alpha File Manager",
+    "url": "https://github.com/kizemo"
+  },
+  "repository": "https://github.com/kizemo/sfm-git-extension",
+  "license": "MIT",
+  "icon": "icon.png",
+  "categories": [
+    "Developer Tools",
+    "Productivity"
+  ],
+  "tags": [
+    "git",
+    "vcs",
+    "developer",
+    "source-control"
+  ],
+  "extensionType": "api",
+  "main": "dist/index.js",
+  "type": "module",
+  "engines": {
+    "sigmaFileManager": ">=3.9.0",
+    "extensionApi": ">=1.0.0"
+  },
+  "permissions": [
+    "commands",
+    "contextMenu",
+    "shell",
+    "notifications",
+    "dialogs"
+  ],
+  "activationEvents": [
+    "onStartup"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "id": "status",
+        "title": "Git - Repository status",
+        "description": "Show branch, upstream and changed entries of the current repository",
+        "icon": "mdi-source-branch"
+      },
+      {
+        "id": "init",
+        "title": "Git - Initialize repository",
+        "description": "Run git init in the current directory",
+        "icon": "mdi-source-branch-plus"
+      },
+      {
+        "id": "clone",
+        "title": "Git - Clone repository",
+        "description": "Clone a remote repository into a target directory",
+        "icon": "mdi-source-pull"
+      },
+      {
+        "id": "fetch",
+        "title": "Git - Fetch remotes",
+        "description": "Fetch all remotes of the current repository",
+        "icon": "mdi-cloud-download-outline"
+      },
+      {
+        "id": "pull",
+        "title": "Git - Pull",
+        "description": "Pull the current branch from its upstream",
+        "icon": "mdi-cloud-download"
+      },
+      {
+        "id": "push",
+        "title": "Git - Push",
+        "description": "Push the current branch to its upstream",
+        "icon": "mdi-cloud-upload"
+      },
+      {
+        "id": "sync",
+        "title": "Git - Sync (fetch + pull)",
+        "description": "Fetch all remotes and then pull the current branch",
+        "icon": "mdi-sync"
+      },
+      {
+        "id": "branches",
+        "title": "Git - Branches",
+        "description": "List local and remote branches",
+        "icon": "mdi-source-branch"
+      },
+      {
+        "id": "log",
+        "title": "Git - Commit history",
+        "description": "Show the last 50 commits of the current branch",
+        "icon": "mdi-history"
+      },
+      {
+        "id": "browse",
+        "title": "Git - Browse repository files",
+        "description": "List the tracked entries of HEAD",
+        "icon": "mdi-file-tree"
+      },
+      {
+        "id": "openInIde",
+        "title": "Git - Open in IDE",
+        "description": "Hand the repository directory to the configured editor command",
+        "icon": "mdi-code-tags"
+      },
+      {
+        "id": "configureIde",
+        "title": "Git - Set IDE command",
+        "description": "Choose the editor command used by Open in IDE",
+        "icon": "mdi-cog-outline"
+      }
+    ],
+    "contextMenu": [
+      {
+        "id": "openInIde",
+        "title": "Git - Open in IDE",
+        "group": "git",
+        "order": 40,
+        "when": {
+          "entryType": "directory"
+        }
+      },
+      {
+        "id": "init",
+        "title": "Git - Initialize repository here",
+        "group": "git",
+        "order": 41,
+        "when": {
+          "entryType": "directory"
+        }
+      }
+    ]
+  }
+}

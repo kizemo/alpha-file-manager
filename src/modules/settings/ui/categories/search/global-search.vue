@@ -124,6 +124,17 @@ const lastScanOutcomeLabel = computed(() => {
   }
 });
 
+const lastScanModeLabel = computed(() => {
+  switch (globalSearchStore.lastScanMode) {
+    case 'full':
+      return t('globalSearch.scanModeFull');
+    case 'incremental':
+      return t('globalSearch.scanModeIncremental');
+    default:
+      return null;
+  }
+});
+
 const lastScanItemCountLabel = computed(() => {
   const itemCount = globalSearchStore.lastScanIndexedItemCount;
   if (itemCount === null) return null;
@@ -141,6 +152,10 @@ const lastScanSummary = computed(() => {
   if (!lastScanOutcomeLabel.value) return null;
 
   const parts = [lastScanOutcomeLabel.value];
+
+  if (lastScanModeLabel.value) {
+    parts.push(lastScanModeLabel.value);
+  }
 
   if (lastScanItemCountLabel.value) {
     parts.push(lastScanItemCountLabel.value);

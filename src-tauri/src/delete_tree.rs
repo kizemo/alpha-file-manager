@@ -527,6 +527,64 @@ fn emit_progress_now<F>(
     on_progress(throttle.snapshot(counters, deleted_items));
 }
 
+/// 「路径已经不在了」—— 对删除来说这是**目标态已达成**，不是失败。
+///
+/// FIX 2026-11-03：永久删除假失败的三个成因之一。用户重复触发同一个删除时，
+/// 后一个作业扫到了文件、真正去删时前一个作业已经把它删掉了，于是拿到
+/// `os error 2`（系统找不到指定的文件）并弹「删除失败」。文件其实已经没了。
+fn is_already_gone(error: &std::io::Error) -> bool {
+    error.kind() == std::io::ErrorKind::NotFound
+}
+
+/// 此刻删不掉、稍后重试就能删掉的错误。
+///
+/// FIX 2026-11-03：`os error 5`（拒绝访问）在 Windows 上绝大多数是**共享冲突**
+/// —— 别的进程（杀软、预览、同一路径的另一个删除作业）还持有不带
+/// `FILE_SHARE_DELETE` 的句柄。`file_operations.rs` 的复制链路早就有同型的
+/// 有界重试，删除链路一直没有，所以别的进程一碰就报错。
+#[cfg(windows)]
+fn is_transient_delete_error(error: &std::io::Error) -> bool {
+    matches!(error.raw_os_error(), Some(5) | Some(32) | Some(33))
+}
+
+#[cfg(not(windows))]
+fn is_transient_delete_error(error: &std::io::Error) -> bool {
+    error.kind() == std::io::ErrorKind::PermissionDenied
+}
+
+/// 重试次数与间隔：总计最长约 1.65 秒，够跨过杀软扫描 / 预览句柄那一档，
+/// 又不至于让真被锁死的文件把作业拖成长任务。
+const REMOVE_RETRY_ATTEMPTS: u32 = 12;
+const REMOVE_RETRY_UNIT: Duration = Duration::from_millis(25);
+
+/// 删一个文件，带两件事：**已不存在算成功** + **瞬态错误有界重试**。
+///
+/// 重试期间尊重取消：每轮等待前后都查一次 `cancel`，取消后不再重试，
+/// 由调用方把它翻译成 `"cancelled"`。
+fn remove_file_resilient(path: &Path, cancel: &AtomicBool) -> std::io::Result<()> {
+    let mut last_error: Option<std::io::Error> = None;
+
+    for attempt in 0..REMOVE_RETRY_ATTEMPTS {
+        if attempt > 0 {
+            std::thread::sleep(REMOVE_RETRY_UNIT * attempt);
+
+            if cancel.load(Ordering::Relaxed) {
+                break;
+            }
+        }
+
+        match fs::remove_file(path) {
+            Ok(()) => return Ok(()),
+            // 已经没有这个文件了 —— 没有什么可做的。
+            Err(error) if is_already_gone(&error) => return Ok(()),
+            Err(error) if is_transient_delete_error(&error) => last_error = Some(error),
+            Err(error) => return Err(error),
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| std::io::Error::from_raw_os_error(5)))
+}
+
 /// 永久删除一棵目录树（不跟随符号链接）。
 ///
 /// `on_progress` 只在节流闸门放行时被调用。
@@ -542,6 +600,12 @@ where
 {
     let metadata = match fs::symlink_metadata(path) {
         Ok(value) => value,
+        // 目标已经不在：记一项「已删除」并当作成功，避免把「已被别人删掉」报成失败。
+        Err(error) if is_already_gone(&error) => {
+            counters.deleted_items.fetch_add(1, Ordering::Relaxed);
+            report_progress(counters, throttle, on_progress);
+            return Ok(());
+        }
         Err(error) => {
             let message = error.to_string();
             counters.record_failure(message.clone());
@@ -557,6 +621,17 @@ where
         }
 
         if let Err(error) = fs::remove_dir(path) {
+            if is_already_gone(&error) {
+                // 同上一条：整棵子树删到一半目录已被移走，算它删完了。
+                counters.deleted_items.fetch_add(1, Ordering::Relaxed);
+                report_progress(counters, throttle, on_progress);
+                return Ok(());
+            }
+
+            if cancel.load(Ordering::Relaxed) {
+                return Err("cancelled".to_string());
+            }
+
             let message = error.to_string();
             counters.record_failure(message.clone());
             return Err(message);
@@ -568,7 +643,12 @@ where
     else {
         let size = metadata.len();
 
-        if let Err(error) = fs::remove_file(path) {
+        if let Err(error) = remove_file_resilient(path, cancel) {
+            // 重试期间被取消：这是用户意图，不是失败，不要计入 failed_count。
+            if cancel.load(Ordering::Relaxed) {
+                return Err("cancelled".to_string());
+            }
+
             let message = error.to_string();
             counters.record_failure(message.clone());
             return Err(message);
@@ -746,7 +826,50 @@ where
 
         counters.set_current_path(path);
 
-        match delete_tree_permanently(Path::new(path), &counters, cancel, &throttle, on_progress) {
+        // FIX 2026-11-03：永久删除期间补心跳，形态与 [`delete_paths_to_trash`] 一致。
+        //
+        // 旧实现每个顶层路径只在删完之后发一条进度。单文件永久删除平时是亚毫秒，
+        // 但当 `remove_file` 被别的进程挡在内核里（实测 2026-11-03 一个 7.4 MB 的
+        // xlsx 阻塞了 11.8 秒），这段时间**一条事件都没有** —— 界面停在扫描那一刻，
+        // 用户以为没反应，于是再按一次 Shift+Del，撞上第二、第三个作业。
+        emit_progress_now(&counters, &throttle, on_progress);
+
+        let done = AtomicBool::new(false);
+
+        let deleted = std::thread::scope(|scope| {
+            scope.spawn(|| {
+                let mut waited = Duration::ZERO;
+
+                loop {
+                    std::thread::sleep(TRASH_HEARTBEAT_POLL);
+
+                    if done.load(Ordering::Relaxed) {
+                        return;
+                    }
+
+                    waited += TRASH_HEARTBEAT_POLL;
+
+                    if waited < TRASH_HEARTBEAT_INTERVAL {
+                        continue;
+                    }
+
+                    waited = Duration::ZERO;
+                    emit_progress_now(&counters, &throttle, on_progress);
+                }
+            });
+
+            let result = delete_tree_permanently(
+                Path::new(path),
+                &counters,
+                cancel,
+                &throttle,
+                on_progress,
+            );
+            done.store(true, Ordering::Relaxed);
+            result
+        });
+
+        match deleted {
             Ok(()) => outcome.deleted_paths.push(path.clone()),
             Err(error) => {
                 if error == "cancelled" {
@@ -1042,6 +1165,143 @@ mod tests {
         }
 
         let _ = fs::remove_dir_all(&root);
+    }
+
+    /// FIX 2026-11-03「假失败」之一：文件已被另一个作业删掉时，后来者拿到
+    /// os error 2 会记一条失败、弹「删除失败」，而目标态其实已经达成。
+    /// 这条用例断言「已经不存在」必须算成功、不留错误文案。
+    #[test]
+    fn delete_treats_already_missing_path_as_success() {
+        let root = temp_dir("already-gone");
+        fs::create_dir_all(&root).expect("夹具根目录要能建");
+        let ghost = root.join("ghost.txt");
+        let path = ghost.to_string_lossy().into_owned();
+
+        let cancel = AtomicBool::new(false);
+        let outcome = {
+            let progress = |_snapshot: DeleteProgress| {};
+            delete_paths_permanently(&[path], &cancel, None, &progress)
+        };
+
+        assert!(!outcome.cancelled);
+        assert_eq!(outcome.failed_count, 0, "不存在等于目标态已达成，不该记失败");
+        assert!(
+            outcome.last_error.is_none(),
+            "不该留下错误文案"
+        );
+        assert_eq!(outcome.deleted_items, 1, "仍要算作删掉 1 项");
+        assert_eq!(outcome.deleted_paths, vec![path_of(&ghost)]);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// FIX 2026-11-03「假失败」之二：同一个文件被并发作业 / 索引器 / 杀软短暂
+    /// 按住时 remove_file 返回 os error 5。占用在重试窗口内解除就必须成功，
+    /// 而不是报「拒绝访问」——真机日志里那三条亚毫秒的 error 5 全是这么产生的。
+    ///
+    /// 同时钉死心跳：修复前单文件永久删除全过程只发一条进度（末尾那条），
+    /// 界面在阻塞期间完全不动，用户以为没反应就再按一次 Shift+Del。
+    /// 修复后进入阻塞前必须先发一条，因此快照数必须 >= 2。
+    #[cfg(windows)]
+    #[test]
+    fn delete_retries_while_file_is_busy_and_reports_before_blocking() {
+        let root = temp_dir("busy-retry");
+        let target = root.join("file-000.dat");
+        make_file(&target, 4096);
+        let path = target.to_string_lossy().into_owned();
+
+        let busy_path = path.clone();
+        let holder = std::thread::spawn(move || {
+            // std 的 File::open 不带 FILE_SHARE_DELETE，正是「不报错的占用」形态
+            let handle = std::fs::File::open(&busy_path).expect("夹具要能打开自己");
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            drop(handle);
+        });
+        // 让持锁线程真的打开文件，否则测的是「没有竞争」的空壳
+        std::thread::sleep(std::time::Duration::from_millis(80));
+
+        let cancel = AtomicBool::new(false);
+        let seen: StdMutex<Vec<DeleteProgress>> = StdMutex::new(Vec::new());
+        let outcome = {
+            let recorder = &seen;
+            let progress = move |snapshot: DeleteProgress| {
+                recorder.lock().expect("锁不该失败").push(snapshot);
+            };
+            delete_paths_permanently(&[path], &cancel, None, &progress)
+        };
+        holder.join().expect("持锁线程不该崩");
+
+        assert!(!outcome.cancelled);
+        assert_eq!(outcome.failed_count, 0, "占用解除后必须成功，不该报「拒绝访问」");
+        assert_eq!(outcome.deleted_items, 1);
+        assert!(!target.exists(), "文件要真的没了");
+
+        let snapshots = seen.lock().expect("锁不该失败").clone();
+        assert!(
+            snapshots.len() >= 2,
+            "进入阻塞前必须先发一条进度，实际只有 {} 条",
+            snapshots.len()
+        );
+        assert_eq!(
+            snapshots[0].deleted_items, 0,
+            "第一条必须发生在删除完成之前，界面据此才动得起来"
+        );
+        assert!(
+            snapshots.last().expect("末尾必有快照").deleted_items >= 1,
+            "最后一条要带上已删完的条目数"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// FIX 2026-11-03 心跳：每个顶层路径删除完之后没有逐路径进度，
+    /// 20 个大目录的场景界面会一路停在同一个数字上。
+    /// 修复后每个顶层路径至少贡献一条进度，快照数必须跟得上路径数。
+    #[test]
+    fn delete_emits_one_progress_per_top_level_path() {
+        let root = temp_dir("per-path-progress");
+        let paths: Vec<String> = (0..6)
+            .map(|index| {
+                let dir = root.join(format!("d{:02}", index));
+                fs::create_dir_all(&dir).expect("夹具目录要能建");
+                make_file(&dir.join("f.bin"), 1);
+                dir.to_string_lossy().into_owned()
+            })
+            .collect();
+
+        let cancel = AtomicBool::new(false);
+        let seen: StdMutex<Vec<DeleteProgress>> = StdMutex::new(Vec::new());
+        {
+            let recorder = &seen;
+            let progress = move |snapshot: DeleteProgress| {
+                recorder.lock().expect("锁不该失败").push(snapshot);
+            };
+            let outcome = delete_paths_permanently(&paths, &cancel, None, &progress);
+            assert!(!outcome.cancelled);
+            assert_eq!(outcome.failed_count, 0);
+        }
+
+        let snapshots = seen.lock().expect("锁不该失败").clone();
+        assert!(
+            snapshots.len() >= paths.len(),
+            "6 个顶层路径不该只发 {} 条进度",
+            snapshots.len()
+        );
+        for pair in snapshots.windows(2) {
+            assert!(
+                pair[1].deleted_items >= pair[0].deleted_items,
+                "条目进度必须单调不减: {} -> {}",
+                pair[0].deleted_items,
+                pair[1].deleted_items
+            );
+        }
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// 把 PathBuf 转成与传入 delete_paths 完全一致的字符串，供断言比对
+    fn path_of(path: &std::path::Path) -> String {
+        path.to_string_lossy().into_owned()
     }
 
     #[test]

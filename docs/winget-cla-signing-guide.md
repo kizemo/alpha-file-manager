@@ -1,6 +1,7 @@
 # winget PR #467381：CLA 签署操作手册
 
 > 生成时间：2026-11-02
+> **状态：✅ 已执行完成（2026-11-02T07:51:22Z 用户发出 agree 评论，07:51:39Z 机器人摘掉 `Needs-CLA`）**
 > 适用对象：`kizemo`（GitHub 账号本人）
 > 目标 PR：https://github.com/microsoft/winget-pkgs/pull/467381 （`New package: kizemo.AlphaFileManager version 3.9.1`）
 
@@ -8,6 +9,11 @@
 
 你只需要在那个 PR 页面底部**发一条评论**，内容是一行固定文字。
 发完之后剩下的是等社区审核员批准，这一步谁都无法代劳，只能等。
+
+> 📌 **当前进展（2026-11-02 15:51 CST 复查）**：CLA 已签署并生效，`Needs-CLA` 已摘除，`mergeable` 从 `blocked` 变为 `MERGEABLE`。
+> 标签现为 `Azure-Pipeline-Passed | Validation-Completed | New-Package`。
+> **剩余唯一等待项**：社区审核员批准（等 `Moderator-Approved` 标签）—— 外部等待，无法加速。
+> 本手册保留作为操作参考与排障手册。
 
 ## 1. 现在卡在哪（2026-11-02 实测）
 
@@ -125,18 +131,16 @@ GitHub 上有个叫 `license/cla` 的检查项，**它现在已经是绿的（su
 
 ## 6. 命令行路径（可选，跟浏览器二选一）
 
-如果你更习惯敲命令。注意**本机 `gh` 现在没有登录**（`%APPDATA%\GitHub CLI\hosts.yml` 不存在），直接跑会报 `You are not logged into any GitHub hosts`。
-
-先登录（会弹出浏览器让你授权）：
-
-```powershell
-gh auth login
-```
-
-然后发评论：
+如果你更习惯敲命令。**2026-11-02 已实测：你的终端里 `gh` 有可用认证，直接跑就能发出去**（你已亲自跑过，成功返回评论链接 `issuecomment-6571937302`）。
 
 ```powershell
 gh pr comment 467381 --repo microsoft/winget-pkgs --body "@microsoft-github-policy-service agree"
+```
+
+万一你换一个终端或换台机器跑，遇到 `You are not logged into any GitHub hosts`，先补一次登录（会弹出浏览器让你授权）：
+
+```powershell
+gh auth login
 ```
 
 发完可以直接查标签确认：
@@ -204,7 +208,8 @@ https://github.com/microsoft/winget-pkgs/pulls?q=is%3Apr+is%3Aclosed+label%3AMod
 
 **已验证（本机实测）**
 - PR 的 state / labels / reviewDecision / mergeable_state / 全部评论原文（2026-11-02，`gh api`）
-- 本机 `gh` 2.96.0 未登录（清掉 `GITHUB_TOKEN` 后 `gh auth status` 报未登录，`hosts.yml` 不存在）
+- **已验证（2026-11-02 07:51Z 签署结果）**：用户发出 `@microsoft-github-policy-service agree` 后 **17 秒**（07:51:39Z）机器人即摘掉 `Needs-CLA`；`mergeable` 由 `blocked` 变 `MERGEABLE`；`Azure-Pipeline-Passed` + `Validation-Completed` 保持不变 ⇒ 整条路径与手册预期完全一致
+- 助手运行环境里 `gh` 2.96.0 在清掉注入的 `GITHUB_TOKEN` 后未登录（`hosts.yml` 不存在）；**用户自己的终端 `gh` 有可用认证**，2026-11-02 已实测评论发送成功
 - `license/cla` check 在 head sha 上 `conclusion=success`
 
 **已验证（上游官方文档原文）**

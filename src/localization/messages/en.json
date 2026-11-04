@@ -158,6 +158,8 @@
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "globalSearch": {
+    "scanModeFull": "Full",
+    "scanModeIncremental": "Incremental",
     "globalSearch": "Global search",
     "driveScanInProgress": "Drive indexing in progress",
     "searchDataIncomplete": "Search data is incomplete",
@@ -1523,7 +1525,9 @@
       "broken": "Broken",
       "brokenTooltip": "Extension files are missing. Uninstall to remove from the list.",
       "disabled": "Disabled",
-      "disabledTooltip": "This extension is disabled"
+      "disabledTooltip": "This extension is disabled",
+      "source": "Source",
+      "sourceTooltip": "Market source: {name}"
     },
     "stats": {
       "total": "Total",
@@ -1554,7 +1558,20 @@
     "engineApiWarning": "Requires extension API {range} (you have {current})",
     "engineRequirements": "Requirements",
     "requiresSigmaFileManager": "Alpha File Manager",
-    "requiresExtensionApi": "Extension API"
+    "requiresExtensionApi": "Extension API",
+    "marketSources": "Market sources",
+    "marketSourceAdd": "Add market source",
+    "marketSourceName": "Name",
+    "marketSourceUrl": "Registry URL",
+    "marketSourceOfficial": "Official",
+    "marketSourceCommunity": "Community",
+    "marketSourceCustom": "Custom",
+    "marketSourceAll": "All",
+    "marketSourceEmpty": "No market sources have been added yet.",
+    "marketSourceRemove": "Remove market source",
+    "marketSourceRemoveConfirm": "Remove this market source? The extensions it provides will be uninstalled the next time the marketplace refreshes.",
+    "marketSourceInvalidUrl": "Enter a public HTTPS URL.",
+    "marketSourceUnreachable": "Unreachable"
   },
   "commandPalette": {
     "accessibleDialogTitle": "Command palette",

@@ -21,6 +21,7 @@ type GlobalSearchDriveScanError = {
 };
 
 export type GlobalSearchScanReason = 'manual' | 'startup' | 'idle' | 'driveChange' | 'settingsChange';
+export type GlobalSearchScanMode = 'full' | 'incremental';
 export type GlobalSearchScanPhase = 'idle' | 'scanning' | 'canceling' | 'committing';
 export type GlobalSearchScanOutcome = 'completed' | 'canceled' | 'failed';
 
@@ -38,6 +39,10 @@ type GlobalSearchStatus = {
   last_scan_duration_ms: number | null;
   last_scan_indexed_item_count: number | null;
   last_scan_error: string | null;
+  last_scan_mode?: GlobalSearchScanMode | null;
+  incremental_ready?: boolean;
+  incremental_watcher_generation?: number;
+  last_incremental_failed?: boolean;
   indexed_item_count: number;
   scan_indexed_item_count: number;
   indexed_drive_roots: string[];
@@ -82,6 +87,10 @@ export const useGlobalSearchStore = defineStore('globalSearch', () => {
   const lastScanDurationMs = ref<number | null>(null);
   const lastScanIndexedItemCount = ref<number | null>(null);
   const lastScanError = ref<string | null>(null);
+  const lastScanMode = ref<GlobalSearchScanMode | null>(null);
+  const incrementalReady = ref(false);
+  const incrementalWatcherGeneration = ref(0);
+  const lastIncrementalFailed = ref(false);
   const indexedItemCount = ref<number>(0);
   const scanIndexedItemCount = ref<number>(0);
   const indexedDriveRoots = ref<string[]>([]);
@@ -188,6 +197,10 @@ export const useGlobalSearchStore = defineStore('globalSearch', () => {
     lastScanDurationMs.value = status.last_scan_duration_ms ?? null;
     lastScanIndexedItemCount.value = status.last_scan_indexed_item_count ?? null;
     lastScanError.value = status.last_scan_error ?? null;
+    lastScanMode.value = status.last_scan_mode ?? null;
+    incrementalReady.value = status.incremental_ready ?? false;
+    incrementalWatcherGeneration.value = status.incremental_watcher_generation ?? 0;
+    lastIncrementalFailed.value = status.last_incremental_failed ?? false;
     indexedItemCount.value = status.indexed_item_count ?? 0;
     scanIndexedItemCount.value = status.scan_indexed_item_count ?? 0;
     indexedDriveRoots.value = Array.isArray(status.indexed_drive_roots) ? status.indexed_drive_roots : [];
@@ -698,6 +711,10 @@ export const useGlobalSearchStore = defineStore('globalSearch', () => {
     lastScanDurationMs,
     lastScanIndexedItemCount,
     lastScanError,
+    lastScanMode,
+    incrementalReady,
+    incrementalWatcherGeneration,
+    lastIncrementalFailed,
     indexedItemCount,
     scanIndexedItemCount,
     indexedDriveRoots,

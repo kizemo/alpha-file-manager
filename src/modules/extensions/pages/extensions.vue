@@ -59,6 +59,8 @@ const {
   featuredExtensions,
   installedExtensionsWithManifest,
   isFetchingRegistry,
+  marketSources,
+  registrySourceStates,
   isFetchingExtensionRemoteMetadata,
   isLoadingManifest,
   registryError,
@@ -514,6 +516,8 @@ onUnmounted(() => {
         <ExtensionsMarketplace
           :extensions="filteredExtensions"
           :featured-extensions="featuredExtensions"
+          :market-sources="marketSources"
+          :market-source-states="registrySourceStates"
           :is-loading="isFetchingRegistry && filteredExtensions.length === 0"
           :error="registryError"
           :installing-extensions="installingExtensions"

@@ -37,6 +37,8 @@ import {
 
 export type ExtensionWithManifest = ExtensionRegistryEntry & {
   manifest?: ExtensionManifest;
+  sourceId?: string;
+  sourceName?: string;
   isInstalled: boolean;
   installPendingDependencies?: boolean;
   installedVersion?: string;
@@ -459,9 +461,14 @@ export function useExtensions() {
       const versions = extensionsStore.getCachedVersions(entry.repository);
       const latestVersion = versions.length > 0 ? versions[0] : null;
       const manifest = installedExt?.manifest || manifestCache.value.get(entry.id);
+      const marketSource = extensionsStore.allMarketSources.find(
+        item => item.id === entry.sourceId,
+      );
 
       return enrichExtensionWithCompatibility({
         ...entry,
+        sourceId: entry.sourceId,
+        sourceName: marketSource?.name,
         manifest,
         isInstalled: Boolean(installedExt && !installedExt.installPendingDependencies),
         installPendingDependencies: installedExt?.installPendingDependencies,
@@ -838,6 +845,8 @@ export function useExtensions() {
       () => extensionsStore.isFetchingExtensionRemoteMetadata,
     ),
     registryError: computed(() => extensionsStore.registryError),
+    marketSources: computed(() => extensionsStore.allMarketSources),
+    registrySourceStates: computed(() => extensionsStore.registrySourceStates),
     installingExtensions: computed(() => extensionsStore.installingExtensions),
     pendingFolderInstalls: computed(() => extensionsStore.pendingFolderInstalls),
     uninstallingExtensions: computed(() => extensionsStore.uninstallingExtensions),

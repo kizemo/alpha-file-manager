@@ -384,3 +384,58 @@ describe('useFileBrowserNavigation directory data', () => {
     consoleErrorSpy.mockRestore();
   });
 });
+
+describe('useFileBrowserNavigation watcher teardown isolation', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    invokeMock.mockReset();
+    listenMock.mockReset();
+    listenMock.mockResolvedValue(() => {});
+    invokeMock.mockImplementation((command: string, payload?: { path?: string }) => {
+      if (command === 'read_dir') {
+        return Promise.resolve(createDirContents(payload?.path ?? '', ['file.txt']));
+      }
+
+      if (command === 'read_dir_with_timeout') {
+        return Promise.resolve(createDirContents(payload?.path ?? '', []));
+      }
+
+      if (command === 'get_dir_entry_with_timeout') {
+        return Promise.resolve({ path: payload?.path ?? '' });
+      }
+
+      return Promise.resolve(null);
+    });
+  });
+
+  it('renders the next directory even when the previous watcher teardown never settles', async () => {
+    const { navigation } = createNavigationHarness(createTab('tab-a', 'C:/Users/aleks/Projects'));
+    await flushPromises();
+
+    expect(navigation().dirContents.value?.path).toBe('C:/Users/aleks/Projects');
+
+    // 回归护栏：模拟 `unwatch_directory` 静默挂死（后端不返回、不报错）。
+    // 目录读取不得被这个与读取无关的收尾动作拖住，否则表现为
+    // 「列表不出 + 刷新键一直转圈 + 之后每次导航都挂」。
+    const neverSettles = new Promise<never>(() => {});
+    invokeMock.mockImplementation((command: string, payload?: { path?: string }) => {
+      if (command === 'read_dir') {
+        return Promise.resolve(createDirContents(payload?.path ?? '', ['file.txt']));
+      }
+
+      if (command === 'unwatch_directory') {
+        return neverSettles;
+      }
+
+      return Promise.resolve(null);
+    });
+
+    void navigation().readDir('D:/Documents');
+    await flushPromises();
+
+    expect(navigation().currentPath.value).toBe('D:/Documents');
+    expect(navigation().dirContents.value?.path).toBe('D:/Documents');
+    expect(navigation().isLoading.value).toBe(false);
+    expect(navigation().isRefreshing.value).toBe(false);
+  });
+});

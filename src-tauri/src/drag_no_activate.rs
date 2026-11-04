@@ -300,34 +300,68 @@ mod win {
         sync_style();
     }
 
+    /// arm 之后的状态：`(armed_after, hover_bg_after, changed)`。
+    ///
+    /// `changed` 表示「状态真的翻转了」—— 只有这时才记日志。
+    ///
+    /// 前端**每跨过一个条目就会 arm 一次**（`mouseover` 冒泡到列表容器，
+    /// 每次都无条件发一次 IPC），所以「有没有变化」必须在这里判，
+    /// 否则应用日志会被刷爆。抽成纯函数是为了能进 `cargo test --lib` 断言。
+    fn arm_state(active: bool, armed: bool, hover_bg: bool) -> (bool, bool, bool) {
+        // 窗口不在前台时 arm 了一次 ⇒ 记下「失焦时 hover 也收得到」，
+        // fallback 可以关掉了。窗口在前台时不动这个标记。
+        let hover_bg_after = if active { hover_bg } else { true };
+
+        let changed = !armed || hover_bg_after != hover_bg;
+
+        (true, hover_bg_after, changed)
+    }
+
+    /// disarm 之后的状态：`(armed_after, changed)`。
+    fn disarm_state(armed: bool) -> (bool, bool) {
+        (false, armed)
+    }
+
     /// 置抑制令牌：指针停在可拖拽条目上。
+    ///
+    /// IPC 契约不变 —— 每次调用都照发，因为后端只有一个总开关，
+    /// 两个面板交替 arm/disarm 时漏发一次就等于把抑制丢了。
+    /// 变的只是**日志**：状态没翻转就不记。
     pub fn arm() {
-        if !IS_ACTIVE.load(Ordering::SeqCst) {
-            // 前端在**后台** arm 了一次 —— 说明失焦时 hover 也收得到，
-            // fallback 可以关掉了。
-            HOVER_REACHES_BACKGROUND.store(true, Ordering::SeqCst);
+        let active = IS_ACTIVE.load(Ordering::SeqCst);
+
+        let (armed_after, hover_bg_after, changed) =
+            arm_state(active, ARMED.load(Ordering::SeqCst), HOVER_REACHES_BACKGROUND.load(Ordering::SeqCst));
+
+        ARMED.store(armed_after, Ordering::SeqCst);
+        HOVER_REACHES_BACKGROUND.store(hover_bg_after, Ordering::SeqCst);
+
+        if changed {
+            log::info!(
+                "drag_no_activate: arm (active={} hover_bg={})",
+                active,
+                hover_bg_after,
+            );
         }
-
-        ARMED.store(true, Ordering::SeqCst);
-
-        log::info!(
-            "drag_no_activate: arm (active={} hover_bg={})",
-            IS_ACTIVE.load(Ordering::SeqCst),
-            HOVER_REACHES_BACKGROUND.load(Ordering::SeqCst),
-        );
 
         request_sync();
     }
 
     /// 撤抑制令牌。
+    ///
+    /// 同 `arm()`：只在令牌真的翻转时记日志。
     pub fn disarm() {
-        ARMED.store(false, Ordering::SeqCst);
+        let (armed_after, changed) = disarm_state(ARMED.load(Ordering::SeqCst));
 
-        log::info!(
-            "drag_no_activate: disarm (active={} hover_bg={})",
-            IS_ACTIVE.load(Ordering::SeqCst),
-            HOVER_REACHES_BACKGROUND.load(Ordering::SeqCst),
-        );
+        ARMED.store(armed_after, Ordering::SeqCst);
+
+        if changed {
+            log::info!(
+                "drag_no_activate: disarm (active={} hover_bg={})",
+                IS_ACTIVE.load(Ordering::SeqCst),
+                HOVER_REACHES_BACKGROUND.load(Ordering::SeqCst),
+            );
+        }
 
         request_sync();
     }
@@ -828,6 +862,38 @@ mod win {
             // 真实取值取决于跑测试时鼠标按没按，断言不了；
             // 这里只保证这层薄封装不会炸（签名写错的话编译期就挂）。
             let _ = left_mouse_button_down();
+        }
+
+        #[test]
+        fn arming_twice_reports_no_change_the_second_time() {
+            // 第一次 arm：armed 从 false 翻到 true ⇒ 算变化（要记一条日志）。
+            let (armed, hover_bg, changed) = arm_state(true, false, false);
+            assert!(armed);
+            assert!(!hover_bg);
+            assert!(changed);
+
+            // 第二次 arm：状态没变 ⇒ 不该再记一条日志。
+            let (_, _, changed_again) = arm_state(true, armed, hover_bg);
+            assert!(!changed_again);
+        }
+
+        #[test]
+        fn arming_in_the_background_flips_the_hover_flag() {
+            // 窗口不在前台时 arm ⇒ 记下「失焦时 hover 收得到」。
+            let (armed, hover_bg, changed) = arm_state(false, false, false);
+            assert!(armed);
+            assert!(hover_bg);
+            assert!(changed);
+
+            // 这个标记已经记过了 ⇒ 第二次不再算变化。
+            let (_, _, changed_again) = arm_state(false, armed, hover_bg);
+            assert!(!changed_again);
+        }
+
+        #[test]
+        fn disarming_only_counts_when_the_token_was_held() {
+            assert!(disarm_state(true).1);
+            assert!(!disarm_state(false).1);
         }
 
         #[test]
