@@ -198,32 +198,34 @@ git 经 bash 调用会打印 `/usr/bin/sh: warning: setlocale: LC_ALL: cannot ch
 **待取证据（4 项，对应诉求 1/2/3/4）**：官方徽章 / 精选区 / 作者名 / 来源徽章；
 外加 §4.3 的 bundled 更新是否真的覆盖已安装副本。
 
+> **2026-11-05 补充（Focus Sync 已上架）**：验收清单再加一项 —— 扩展市场「精选」区应出现 **Focus Sync**，
+> 名称右上角带「官方」徽章、作者显示 `Alpha File Manager`、来源显示为官方源。线上清单 blob 已与本地逐字节一致，
+> 且清单是热更新的 ⇒ 该项**不依赖新安装包**，但「官方」判定逻辑（`OFFICIAL_EXTENSION_OWNERS`）依赖 3.10.0。
+
 ## 七、阻塞与未决
 
-1. **Focus Sync 上架 —— 授权已解除（2026-11-04 用户答复「根据你的推荐操作」），但**尚未执行**
-   - 采纳方案 = 新建**公网**仓库 `kizemo/focus-sync`（只放已构建产物，不放源码与二进制 sidecar），
-     打 tag `v0.5.8`，作为纯条目加进官方清单并置 `featured: true`，再推线上。
-   - 现状：`https://github.com/kizemo/focus-sync` 仍 **404**；线上 `registry.json` 仍只有 `kizemo.git` 一条。
-   - **建仓文件白名单（实测大小，只上传这 7 项）**：
-     `package.json` 1969 B、`dist/index.js` 38 550 B、`dist/index.js.map` 4 263 B、
-     `icon.png` 2 360 B、`LICENSE` 1 763 B、`locales/en.json` 772 B、`locales/zh-CN.json` 820 B。
-     建议再加一份 `README.md`。
-   - **必须排除**：`bin/focus-sync-sidecar.exe` 2 837 504 B、`installer/`（11 个文件，含 2 831 360 B exe）、
-     `sidecar/`（Rust 源码 + **整个 `target/` 构建垃圾**，内含 15~35 MB 的 pdb/rlib）。
-     ⚠️ sidecar 随安装器分发（`src-tauri/tauri.conf.json:82-87` resources）、以 Windows 计划任务独立运行，
-     `dist/index.js` 只与 `127.0.0.1:37421` HTTP 通信 ⇒ **市场条目不含 sidecar 在功能上安全**。
-   - ⚠️ **manifest 的 `categories` 是小写 `productivity` / `navigation`**，与清单官方分类表
-     （`File Management / Media / Security / Backup & Sync / Productivity / Search & Filter / Appearance /
-     Integration / Developer Tools / Example / Other`）不一致 ⇒ 加条目必须用官方表值（`Productivity`，
-     或再补 `Integration`）；manifest 本身要不要一并改成表值由接力会话判断（改了要重新算 integrity/走 bundled 更新）。
-   - 建 tag 的可抄命令：`gh repo create kizemo/focus-sync --public --source <本地目录> --push`；
-     或逐文件 `gh api repos/kizemo/focus-sync/contents/<path> --method PUT -f content=<base64> -f message=...`
-     （**首次创建不带 `sha`**），随后 `gh api repos/kizemo/focus-sync/git/refs -f ref=refs/tags/v0.5.8 -f sha=<commit>`。
-     ⚠️ 建公网仓 + tag + 上传文件**尚未在本会话跑通过**，属需实测的新路径。
-   - 对照参考：`extensions/kizemo.git/` 顶层是 `dist locales src build.mjs icon.png package.json README.md`
-     （完整源码仓），而 focus-sync 只有产物 ⇒ 两种形状市场都能装。
-   - 拿到答复后可**单独推清单**（清单热更新，不需再发一版应用）。
-2. **`sigma-hub` 不列为官方**是可逆决策（写在 `src/data/extensions.ts` 注释里）。若用户希望 sigma 生态也算官方，
+1. **Focus Sync 上架 —— ✅ 已完成（2026-11-05 00:44 实测复核，原阻塞全部解除）**
+   - 公网仓库 <https://github.com/kizemo/focus-sync> 已建成：`created_at = 2026-11-04T16:34:21Z`、`visibility=public`、
+     `default_branch=main`、tag `v0.5.8` 已推。仓库**只含白名单 7 项产物 + 一份 `README.md`（1907 B，简体中文）**：
+     `package.json` 1969、`dist/index.js` 38550、`dist/index.js.map` 4263、`icon.png` 2360、`LICENSE` 1763、
+     `locales/en.json` 772、`locales/zh-CN.json` 820（逐项 copy 后回读核对字节数，`COPIED=7 MISSING=[]`）。
+     **不含** `bin/` `installer/` `sidecar/` —— sidecar 随安装器分发（`src-tauri/tauri.conf.json` resources），
+     `dist/index.js` 只与 `http://127.0.0.1:37421` 回环通信 ⇒ 市场条目不含 sidecar 在功能上安全。
+   - 线上清单 `kizemo/sfm-marketplace/registry.json` **已含 `kizemo.focus-sync` 条目**，且与本地工作副本**逐字节相同**：
+     线上 blob `00722a7b0be0aef5bcf8695c3cb533fcdc3ac490` == 本地 `git diff` 给出的 index blob `00722a7b`；
+     逐条目 deep-equal 输出 `SAME kizemo.focus-sync` / `SAME kizemo.git` ⇒ **无需再 PUT**。
+   - **`integrity` 已实测证实**：`https://github.com/kizemo/focus-sync/archive/refs/tags/v0.5.8.zip` 连下两次均为
+     **21197 B / sha256 `480ac78c5a49a08d5d7fb8a605fef5a36594b345d2223dce7688b587e2b50d15`（`STABLE = True`）**，
+     zip 内 11 项 = 白名单 7 项 + README + 目录项，与本地条目 `releaseMetadata["0.5.8"].integrity` 逐字相等（`MATCH_LOCAL_REGISTRY = True`）。
+   - **判别性对照成立**：同法取 Git Tools `v0.1.0.zip` = `4f0111d93591f82a5ce5124053660e7f8f3d39d146eb3c720ee4e1fc7391b09a`，
+     与线上条目 `integrity` 逐字相等（`CONTROL_MATCH = True`）⇒ 坐实「条目 `integrity` = GitHub tag archive 整包 sha256」这一口径，不是本地自拼 zip。
+     校验实现：`src-tauri/src/extensions/security.rs:312/:330` 把下载字节整包 sha256 与期望值逐字比较
+     （`:294 normalize_integrity_value` 剥可选 `sha256:` 前缀并转小写）；取值链 `src/modules/extensions/utils/manifest-utils.ts:131`
+     → `src/stores/runtime/extensions.ts:1181`/`:1533`；拼址 `src/data/extensions.ts:204-214`。
+   - `node scripts/ext-market/publish.mjs --validate --registry <绝对路径>` **通过（2 个条目）**。
+     分类采用官方表值 `Productivity` + `Integration`；manifest 内小写 `productivity`/`navigation` **保持不改**
+     （改了要重算 integrity 并触发 bundled 更新，代价不对称）。
+   - ⚠️ 仍未取的证据只剩**真机界面**一项（见 §八 第 10 步）。
    只需往 `OFFICIAL_EXTENSION_OWNERS` 加 `'sigma-hub'`，但会与「sigma = 第三方源」的上一轮决策相冲突。
 3. **`hi` / `hy` 语言包**仍是旧品牌串，follow-up。
 4. 上一轮「市场/已安装选项卡页面消失」的反馈**已由用户撤销**，不再排查。
@@ -233,6 +235,9 @@ git 经 bash 调用会打印 `/usr/bin/sh: warning: setlocale: LC_ALL: cannot ch
 > 用户 2026-11-04 明确授权本轮做完：**打包落地 → 补 tag `v3.10.0` → 上传 aiec 站点 `version.json` →
 > 建 GitHub Release**，并批准 Focus Sync 按推荐方案（建公网仓）执行。发版/公网发布**不需再问**。
 
+> **执行结果（2026-11-05 00:26 复核）**：上述四项授权动作 **全部完成** —— 打包落地 ✅、tag `v3.10.0` ✅、
+> aiec 站点 `version.json` ✅（线上 verify 版本号/大小/sha256 三项一致）、GitHub Release ✅（非 draft、资产已 uploaded）。
+> 接力会话**从第 8 步（Focus Sync 上架）开始做**，0~7 步不要重跑。
 0. ✅ **门禁 + 打包已全部完成**（`gate-build-310c.cmd` 已落 `GATE_C_DONE`，无需重挂、无需重跑）：
    `npm run ts` **TSC_EXIT=0**；`npm run verify-changelog` **CLG_EXIT=0**；`npx eslint .` **186 errors / 0 warnings**（与 HEAD 基线同口径、无新增回归；
    该命令设计上非零退出，口径是逐字对照基线）；`npm run tauri:build` **BUILD_EXIT=0**（23:29:14 → 23:34:21）；`cargo test --lib` **912 passed / exit 0**（勿重跑）。
@@ -252,24 +257,34 @@ git 经 bash 调用会打印 `/usr/bin/sh: warning: setlocale: LC_ALL: cannot ch
    - `git rev-parse v3.10.0^{commit}` = `18a349e71f0f8a6639e24c64636cab2518c6e1ca` = HEAD；`git show v3.10.0:package.json` ⇒ `3.10.0`
    - `git merge-base --is-ancestor 18a349e7 v3.10.0` ⇒ exit 0
    - `git show v3.10.0:src/data/extensions.ts` 命中 `OFFICIAL_EXTENSION_OWNERS = ['kizemo'];`；`v3.10.0:scripts/ext-market/registry.json` 命中 `"name": "Alpha File Manager"` + `"featured": true`；`v3.10.0:extensions/kizemo.focus-sync/package.json` 命中 `"name": "Alpha File Manager"`
-6. ⏳ **上传 aiec 站点：进行中**。`.superpowers/sdd/upload-310.cmd` = `npm run release:upload`（prepare 全量 + SFTP + 线上 `verify`）。
-   23:52 实测：`index.html OK` / `.htaccess OK` / **`version.json OK`** / `download.php OK` 已上传，随后按序补传历史包。
-   ⚠️ `_upload_alpha_files.py` 会补传**全部 33 个历史安装包（705.49 MB）**，耗时以十分钟计，**不是卡死**；日志是 **cp936**，读出乱码属正常。
-   完成判据：`logs/upload310.txt` 尾部 `UPLOAD_310_EXIT=0` + `UPLOAD_310_DONE`。**若中断就重挂同一条 detached 命令。**
+6. ✅ **站点已上传并线上核验通过**（`UPLOAD_310_EXIT=0` / `UPLOAD_310_DONE`，00:22:26）：33 个文件上传 **OK、0 个 failed**。
+   脚本内置 `verify` 的线上结论（`logs/upload310.txt` 第 130~137 行，逐字）：`[verify] 线上版本：3.10.0`；
+   `清单 sha256：73bbf8d812c58b5a332a2ff676ae38e8cf47fbb21f8d41b0afac59d1ef7b848e`；`源站包大小：44938742 字节`；
+   `边缘包大小：44938742 字节（CF-Cache-Status=MISS）`；**`[verify] 通过：版本号 / 大小 / sha256 三项均一致（源站与边缘都已生效）`**
+   ⇒ aiec 站点这一项**已闭环**，接力会话不必重跑 `release:upload` / `release:verify`。
+   沿用提醒：`_upload_alpha_files.py` 会补传**全部历史安装包（705.49 MB）**，耗时以十分钟计，**不是卡死**；日志是 **cp936**，读出乱码属正常；
    站点安装包文件名规则 `Alpha_File_Manager_<version>_x64-setup.exe`；`release/local-builds/` 会被内容改写 ⇒ `latestInstaller()` 必须一起扫该目录。
-7. ⏸ **建 GitHub Release：待启动**。脚本 `.superpowers/sdd/github-310.cmd` 已写好（纯 ASCII、内部重定向到日志、不挂管道），
-   **刻意与 `release:upload` 错开**以免同一上行链路争用。启动方式同 §5.2 的 `Start-Process` detached 写法。
-   `github()` 读 `package.json.version` ⇒ 只认远端 tag `v3.10.0`（✅ 已在 origin）；会上传站点目录里的下划线资产 44 938 742 B；
-   正文取站点 `_release-notes-v3.10.0.md`（✅ 2470 B，已由 `prepare --write-notes` 生成，漏跑会安静发出正文为空的 release）。
-   GitHub Release 资产的官方 sha256 用 API 的 `digest` 字段拿（本机到发行 CDN 被限速 0.01 MB/s，下载比对不可行）。
-8. **Focus Sync 上架**（§7.1，独立于构建，可在 `tauri build` 期间并行做）：建 `kizemo/focus-sync` 公网仓
-   → 只上传白名单 7 项 → tag `v0.5.8` → 往 `scripts/ext-market/registry.json` 加**纯条目**、
-   `featured: true`、`publisher.name` = `Alpha File Manager` → `publish.mjs --validate` →
-   PUT 线上并**回读确认** → 本地清单改动随下一次提交一起进仓。
-9. 3.10.0 装机真机验收 §6 四项证据；验收前必须先装新包，restore 真实数据前先杀进程。
-10. winget 清单更新只能手工开 PR（未授权自动提交）。
-11. follow-up：`hi` / `hy` 语言包旧品牌串；`registry.json` 里 `publisher` 块 `name` 行的缩进待顺手对齐。
-
+7. ✅ **GitHub Release 已建成**（`publishedAt = 2026-11-04T16:26:00Z` = 北京 00:26）。
+   `gh release view v3.10.0 --repo kizemo/alpha-file-manager --json tagName,name,url,isDraft,isPrerelease,publishedAt,assets` 实测：
+   `isDraft=false` / `isPrerelease=false` / `name="Alpha File Manager v3.10.0"`；资产 `Alpha_File_Manager_3.10.0_x64-setup.exe`
+   **44 938 742 B**、`state=uploaded`、官方 `digest = sha256:73bbf8d8…848e`（与本地包逐字一致）；
+   正文 **39 行中文发版说明**（新增 / 改进 / 修复齐全，与 `CHANGELOG.md` 的 3.10.0 同文），**没有发成空正文**。
+   URL：<https://github.com/kizemo/alpha-file-manager/releases/tag/v3.10.0>
+   ⚠️ 判 Release 是否建成**只能查 GitHub API**：本轮 `Start-Process` 未带 `-WorkingDirectory`，`.cmd` 里的相对路径日志没落在 `logs/`
+   （`gh310.txt` 自始至终不存在），只看日志会误判成「脚本没跑」。资产的官方 sha256 用 API 的 `digest` 字段拿（本机到发行 CDN 被限速 0.01 MB/s，下载比对不可行）。
+8. **Focus Sync 上架** ✅ **已完成**（判据与实测数据见 §七.1）：公网仓 `kizemo/focus-sync` + tag `v0.5.8` +
+   白名单 7 项 + `README.md`；条目进本地清单**并已在线上生效**（`featured:true`、`publisher.name=Alpha File Manager`、
+   `integrity` 经两次下载实测 + Git Tools 判别性对照证实）；`publish.mjs --validate` 2 条目通过。
+9. ✅ 清单与文档入仓（2026-11-05）：`scripts/ext-market/registry.json`（+28 行 `kizemo.focus-sync` 条目，
+   顺带修好 `kizemo.git` 里 `publisher.name` 行的缩进）与本 handoff 一起提交并推 `origin/main`；
+   **发版提交 `18a349e7` 与 tag `v3.10.0` 不动**（清单热更新，不需要再发一版应用）。提交 SHA 用
+   `git log -1 --format=%H -- docs/handoff-2026-11-04-extension-official-featured-branding-and-release-310.md` 取。
+10. **3.10.0 装机真机验收 §6 四项证据 + Focus Sync 精选可见性 —— 这是本任务唯一剩余项。**
+    本机现装 **v3.9.2** ⇒ 验收前必须先装 `release/Alpha File Manager_3.10.0_x64-setup.exe`
+    （44938742 B / sha256 `73bbf8d812c58b5a332a2ff676ae38e8cf47fbb21f8d41b0afac59d1ef7b848e`，与 GitHub Release 官方 `digest` 逐字一致）；
+    restore 真实数据前先杀进程（`Get-Process alpha-file-manager` 必须为空）。
+11. winget 清单更新只能手工开 PR（未授权自动提交）。
+12. follow-up：`hi` / `hy` 语言包旧品牌串。
 ## 九、证据文件路径清单
 
 | 内容 | 路径 |
@@ -288,6 +303,10 @@ git 经 bash 调用会打印 `/usr/bin/sh: warning: setlocale: LC_ALL: cannot ch
 | 3.9.2 验收 findings | `.superpowers/sdd/accept-20261104-market-sources-findings.md` |
 | 注册表与发布工具 | `scripts/ext-market/registry.json`、`scripts/ext-market/publish.mjs`、`scripts/ext-market/README.md` |
 | 发版脚本 CLI 面 | `scripts/release-publish.mjs`（子命令 `prepare / upload / verify / github / status`） |
+| **Focus Sync 归档取证（本轮）** | `.superpowers/sdd/fs-archive-hash.ps1`、`.superpowers/sdd/logs/fs-archive-hash.txt`（`CONTROL_MATCH` / `STABLE` / `MATCH_LOCAL_REGISTRY` 三行判据）、下载件 `logs/gt-a.zip` 31361 B、`logs/fs-a.zip` = `logs/fs-b.zip` 21197 B |
+| **线上清单快照（本轮）** | `.superpowers/sdd/logs/online-registry.json`（解码后正文）、`.superpowers/sdd/logs/online-registry.sha.txt` = `00722a7b0be0aef5bcf8695c3cb533fcdc3ac490` |
+| **Focus Sync 公网仓暂存目录** | `.superpowers/sdd/focus-sync-repo-v2/`（7 项白名单 + `README.md` 1907 B；独立嵌套 git 仓，`.superpowers/` 被主仓 gitignore ⇒ 不入主仓） |
+| 清单回填补丁 | `.superpowers/sdd/patch-handoff-310d.cjs`（第二轮）、`.superpowers/sdd/patch-handoff-310e.cjs`（第三轮） |
 
 ## 十、本轮新增的工具坑（**别再试原写法**）
 
@@ -302,3 +321,24 @@ git 经 bash 调用会打印 `/usr/bin/sh: warning: setlocale: LC_ALL: cannot ch
 - **`cargo test --lib` 必须在 `src-tauri/`**（本轮 exit 101 的真凶，不是测试失败）。
 - **后台 `cmd /c` 的完成通知不可信**（无 stdout 管道时提前报 succeeded，脚本仍在跑）⇒ 只看 `logs/` 文件尾部。
 - 并行跑门禁会打死整个进程树 ⇒ 严格串行。
+- **`Start-Process` 不带 `-WorkingDirectory` ⇒ `.cmd` 里的相对路径日志会漂走**（本轮 `gh310.txt` 始终不存在，而 `gh release create` 其实已成功）⇒ 判长任务结果**先查权威源**（GitHub API / 线上文件 / 落盘产物），日志只是辅助证据。
+- **`gh api … --jq '.body'` 在 pwsh 里返回字符串数组** ⇒ `$b.Length` 是**行数**不是字符数（本轮把 39 行读成「正文只有 39 字符」，差点误判成空正文）。要字符数用 `($b -join "`n").Length`。
+- **`Remove-Item` 会被本机安全策略整条拒掉**（要求走 mavis-trash）⇒ 别把「删旧日志」和「启动任务」写进同一条命令，一次拒绝会让**整条命令都不执行**；区分新旧日志改用**启动时刻时间戳**对比。
+- **`git rev-parse --short A B` 不接受多个 rev**（报 `fatal: Needed a single revision`）⇒ 逐个查；`v3.10.0` 要用 `'v3.10.0^{commit}'` 才取到提交而不是 tag 对象。
+- 改**已有文档**必须先程序化 dump 真实行内容再动手：本轮凭记忆写的 7 处 `edit` 锚点全数 count=0，正则 `^\|\s*(eslint|打包…)` 也匹配 0 行（单元格里带反引号与中文括注）⇒ 最终靠「行号 + 行首内容断言 + 自底向上 splice + 全通过才写盘」的 `.cjs` 一次成功。
+- **本机到 GitHub 的 archive 下载必须走 git 的代理**（2026-11-05 钉死，代价是三轮白跑）：`git config --global http.proxy` =
+  `http://127.0.0.1:7897`，而 **curl.exe / Invoke-WebRequest 都不读 git 配置** ⇒ 表现是「`git push` 和 `gh api`（api.github.com）全通，
+  唯独 `curl https://github.com/.../archive/...zip` 报 `exit 28 Failed to connect to github.com:443` / `exit 56 Recv failure: Connection was reset`」，
+  且 `netsh winhttp show proxy` 显示 Direct access、`HTTPS_PROXY` 环境变量全空 —— 三条证据都会把你引向「网络断了」的错误结论。
+  ⇒ **判 GitHub 可达性必须分链路测**：`api.github.com`（gh）/ `github.com` git 协议 / `raw.githubusercontent.com`（直连 200 OK）/ codeload archive（必须 `-x http://127.0.0.1:7897`）。
+  加 `--proxy` 后立刻通，一次拿到两个 archive 的 sha256。**别再对 archive 无代理重试。**
+- **清单顶层键是 `extensions`，不是 `entries`**（`scripts/ext-market/registry.json` 与线上 `registry.json` 同形）⇒
+  用 `j.entries.find(...)` 会抛 `TypeError: Cannot read properties of undefined`，而 schema 顶层 `additionalProperties:false`、**没有 `definitions` 键**。
+  本轮把「本地清单没有 focus-sync 条目」判错，就是脚本用错键名导致 —— **结构猜错会让「不存在」的假结论看起来成立**。读前先 `Object.keys()`。
+- `gh api <repo>/contents/registry.json` 返回的对象里带 `sha` 与 `content`（base64）⇒ 一行同时拿到线上 blob sha 和线上正文；
+  与本地 `git diff -- registry.json` 头里 `index d3e5e023..00722a7b` 的后半**同源可比**（本轮两者相同 ⇒ 直接判定无需 PUT，省掉一次写操作）。
+- `gh api repos/<o>/<r>/commits` 用 jq 取 `.message` 会报 `split cannot be applied to: null` ⇒ commit 列表里消息字段是 **`.commit.message`**，不是 `.message`。
+- **GitHub 动态 tag archive 在本轮实测中跨请求逐字节稳定**（同一 tag 连下两次同 SHA，且 Git Tools 的历史条目值今日仍能复现）⇒
+  旧笔记里「archive 字节可能不稳定」的顾虑在这些仓库上不成立；但**重新打 tag / 改内容必须重算 integrity**（值随 commit 变）。
+- **调用预算**：本轮实际 40+ 次工具调用，严重超支（铁律 ≤10）。超支全部来自 archive 下载反复试与清单结构猜键名 ⇒
+  下次「一个下载反复失败 + 一个 JSON 取不到值」时，**先各花一次调用查配置/键名，而不是各花三次试写法**。
