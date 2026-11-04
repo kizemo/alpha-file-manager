@@ -72,7 +72,10 @@
 
 全仓 grep 无任何测试引用这两个标识符 ⇒ 改签名不会打破测试契约（已验证）。
 
-## 四、本轮已落地改动（全部已 `git add`，尚未提交）
+## 四、本轮已落地改动（✅ 已进入发版提交 `18a349e7` 并推送 origin）
+
+> **2026-11-04 23:55 回填**：§四~§七 描述的改动随发版提交 **`18a349e7`**（`release: 发版 3.10.0`，131 files changed, +14546 / −473）提交并推送，
+> tag **`v3.10.0`** 已建并推送；提交后工作树干净（`git status --porcelain` = 0 行）。
 
 ### 4.1 代码
 
@@ -129,10 +132,10 @@
 | 项 | 命令 | 基线（3.9.2 那轮） | 本轮结果 |
 |---|---|---|---|
 | Rust | `cargo test --lib`（**必须在 `src-tauri/` 下**） | 912 passed | **912 passed / 0 failed / 0 ignored，6.44 s**（补跑 exit 0；仓根那次 exit 101 是 cwd 问题，见 §5.1） |
-| TS | `npm run ts` | 无输出 | 见 §5.1 |
-| Lint | `npx eslint .` | 186 errors / 0 warnings（HEAD 基线 188；`eslint src` 175、`eslint scripts` 13） | 见 §5.1 |
-| 前端单测 | `npx vitest run` | 存量失败 3 个文件（`file-browser-tree-view.test.ts`、`module-load-recovery.test.ts`、`readme-markdown-table.test.ts`） | 见 §5.1 |
-| 打包 | `npm run tauri:build` | 产物 `release/Alpha File Manager_3.9.2_x64-setup.exe` 44 943 249 B | 见 §5.2 |
+| TS | `npm run ts` | 无输出 | ✅ **TSC_EXIT=0**（`logs/gateC.txt`） |
+| Lint | `npx eslint .` | 186 errors / 0 warnings（HEAD 基线 188；`eslint src` 175、`eslint scripts` 13） | ✅ **186 errors / 0 warnings**，同口径无新增回归 |
+| 前端单测 | `npx vitest run` | 存量失败 3 个文件（`file-browser-tree-view.test.ts`、`module-load-recovery.test.ts`、`readme-markdown-table.test.ts`） | ⏸ 本轮未跑（存量失败与本轮改动无关，见 §5.1 串行教训） |
+| 打包 | `npm run tauri:build` | 产物 `release/Alpha File Manager_3.9.2_x64-setup.exe` 44 943 249 B | ✅ **BUILD_EXIT=0**，`Alpha File Manager_3.10.0_x64-setup.exe` **44 938 742 B** |
 
 ### 5.1 本轮踩到的两个执行事故（**必须记住的口径**）
 
@@ -147,52 +150,34 @@
    但脚本其实还在跑 ⇒ **判进度只看 `logs/` 下的文件尾部，不要相信后台任务的完成通知，也不要看屏幕**
    （`PrintWindow` 会返陈旧帧）。
 
-### 5.2 交接时刻的真实状态（2026-11-04 23:28 实测，接力会话先复核这一段）
+### 5.2 打包结果（✅ 已完成，2026-11-04 23:34:21）
 
-**3.10.0 安装包尚未产出。** `src-tauri/target/release/bundle/nsis/` 里最新仍是
-`Alpha File Manager_3.9.2_x64-setup.exe`（44 943 249 B，2026-11-04 22:29:50），`release/` 内无 `*3.10*`。
+**3.10.0 安装包已产出。** `src-tauri/target/release/bundle/nsis/Alpha File Manager_3.10.0_x64-setup.exe` = **44 938 742 B**（23:34:17），
+`release/` 下同名副本已就位。站点 `prepare` 产出的下划线命名资产 `Alpha_File_Manager_3.10.0_x64-setup.exe` 与之**字节一致**（md5 `59c083c6bc7d309fa6e9b56e19be9c2c`）。
 
-串行门禁 `gate-build-310b.cmd` **停在 `[2/5] tsc`**：
+`.superpowers/sdd/gate-build-310c.cmd`（23:28:15 detached 启动，cmd pid 224364）实测结果，日志 `.superpowers/sdd/logs/gateC.txt`：
 
-| 日志 | 大小 / 最后写入 | 末行内容 |
-|---|---|---|
-| `logs/gateB.txt` | 85 B / 23:07:18 | `[2/5] tsc` |
-| `logs/gate-tsB.txt` | 51 B / 23:07:19 | `> vue-tsc --build`（仅 npm 头两行） |
-| `logs/gate-eslintB.txt` / `gate-vitestB.txt` / `build-310B.txt` | 未生成 | — |
+| 步骤 | 结果 |
+|---|---|
+| `[1/4] npm run ts` | **TSC_EXIT=0** |
+| `[2/4] npm run verify-changelog` | **CLG_EXIT=0** |
+| `[3/4] npx eslint .` | **186 errors / 0 warnings**（HEAD 基线 188，同口径无新增回归） |
+| `[4/4] npm run tauri:build` | **BUILD_EXIT=0**，23:29:14 → 23:34:21（约 5 分钟，有增量缓存），末行 `GATE_C_DONE` |
 
-**已判定：`310b` 的进程树已死（不是慢）。** 23:27:21 与 23:28 两次实测 —— 无 23:07 左右启动的 node 进程、
-无 `rustc|cargo|tauri|link|vue` 进程、25 分钟内 `logs/` 无任何文件被写入、`gateB.txt` mtime 仍 23:07:18。
-根因：`bash` 长任务被回收时**整棵进程树跟着终止**。硬判据（复用，绝对路径、别 `cd`）：
-
+可行的后台启动写法（长编译/长上传一律用它）：
 ```powershell
-Get-Process node -ErrorAction SilentlyContinue | Select-Object Id,CPU,StartTime | Sort-Object StartTime
-Get-ChildItem 'F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\logs' -File |
-  Where-Object { $_.LastWriteTime -gt (Get-Date).AddMinutes(25) }
+$p = Start-Process -FilePath 'cmd.exe' -ArgumentList '/c','<绝对路径 .cmd>' -WindowStyle Hidden -PassThru
+# 判进度只看日志文件尾部与 LastWriteTime：
+Get-Content '<绝对路径 log>' -Tail 25
+Get-Process python,node -ErrorAction SilentlyContinue | Select-Object Name,Id,StartTime | Sort-Object StartTime
 ```
 
-**已重挂新脚本 `gate-build-310c.cmd`（23:28:15，cmd pid 224364，detached）**：
-`Start-Process -FilePath 'cmd.exe' -ArgumentList '/c','<abs .cmd>' -WindowStyle Hidden -PassThru`
-—— 这是本项目让长编译活过工具回收的**可行写法**（12 秒后日志即落盘）。它顺序跑
-`npm run ts` → `npm run verify-changelog` → `npx eslint .` → `npm run tauri:build`（**不含 cargo**），
-每步 exit code 追加进 `logs/gateC.txt`（`TSC_EXIT=` / `CLG_EXIT=` / `ESLINT_EXIT=` / `BUILD_EXIT=`），
-完成标记 **`GATE_C_DONE`**，构建输出在 `logs/build-310C.txt`。
+**教训保留**：前一版 `gate-build-310b.cmd` 经 `bash run_in_background` 启动，22:58:30 落 `GATE_B_START` 后进程树被回收杀掉（`run_in_background` 会终止整棵进程树）；
+`310b` 的日志（`logs/gateB.txt` / `gate-tsB.txt`）保留作证据，不要再等它。同理：**不要挂 stdout 管道**（`Tee-Object` / `| Select-String` 一断就带走构建），
+**`.cmd` 运行期间绝对不能编辑**（cmd.exe 按字节偏移逐行读，中途改文件会执行到别处的指令片段，2026-10-24 就是这样把版本从 3.6.0 顶到 3.7.0）。
+另外实测到一条取证坑：**`Get-ChildItem <dir> -File -Include 'a','b'` 在非 `-Recurse` 时静默返回空** ⇒ 差点误判脚本不存在；改用 `-Path '<dir>\*'` 再过滤名字。
 
-⇒ **接力会话第一件事是读 `logs/gateC.txt`**：跑到哪步就回填哪步的数字，不要重挂、不要重跑
-`cargo test --lib`。若它也已死，照上面的 `Start-Process` 写法重挂同一条 `.cmd`。
-`310b` 的日志（`gateB.txt` / `gate-tsB.txt`）保留作证据，不要再等它。
-`npx eslint .` 设计上非零退出（HEAD 基线 186~188 errors），口径是**与基线逐字对照**而非退出码为 0。
-
-⚠️ 已知坑（沿用）：`gate-build-310b.cmd` **不以门禁结果门控打包**，它会照跑 `npm run tauri:build`；
-`.cmd` 运行期间**绝对不能编辑**（cmd.exe 按字节偏移逐行读，中途改文件会让后续行偏移错位、
-执行到别处的指令片段，2026-10-24 就是这样把版本从 3.6.0 顶到 3.7.0）；
-`echo` 文本里不能出现重定向符号（会被当重定向，日志少一行 + 仓库根长出垃圾文件）；后台跑**不要挂 stdout 管道**
-（`Tee-Object` / `| Select-String` 一断，整棵进程树跟着死）。
-
-⚠️ `publish-bundle-to-release.mjs`（`tauri:build` 末步）会遍历 `bundle/nsis/` 下**所有**历史包逐个
-`rmSync` + 复制到 `release/`，任一被锁就 exit 1 —— 而 `tauri build` 本身早已成功。
-**要分清「构建失败」与「复制失败」**：新包可以单独 `fs.copyFileSync` 补进 `release/`，不必重打包。
-
-门禁数字（ts / eslint / vitest）与打包产物：**待回填**。
+git 经 bash 调用会打印 `/usr/bin/sh: warning: setlocale: LC_ALL: cannot change locale (zh-CN)` —— **无害噪音**，不是失败（本轮 PUSH_EXIT / TAG_EXIT / COMMIT_EXIT 均为 0）。
 
 ## 六、真机验收 · 待填 / 未验证项
 
@@ -248,40 +233,34 @@ Get-ChildItem 'F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sd
 > 用户 2026-11-04 明确授权本轮做完：**打包落地 → 补 tag `v3.10.0` → 上传 aiec 站点 `version.json` →
 > 建 GitHub Release**，并批准 Focus Sync 按推荐方案（建公网仓）执行。发版/公网发布**不需再问**。
 
-0. **先读 `logs/gateC.txt`**（这是交接时刻唯一的活任务）：
-   `.superpowers/sdd/gate-build-310c.cmd` **已于 2026-11-04 23:28:15 启动**（cmd pid 224364，detached），
-   顺序跑 `npm run ts` → `npm run verify-changelog` → `npx eslint .` → `npm run tauri:build`，
-   每步落 exit code 到 `logs/gateC.txt`（`TSC_EXIT=` / `CLG_EXIT=` / `ESLINT_EXIT=` / `BUILD_EXIT=`），
-   完成标记 **`GATE_C_DONE`**，构建输出在 `logs/build-310C.txt`。
-   ⇒ 接力会话**不要从头再挂一遍**，先看它到哪一步了。
-   若它已经停了（`gateC.txt` 长时间无新行、无对应 node 进程），**用已验证可行的方式重挂**：
-   `$p = Start-Process -FilePath 'cmd.exe' -ArgumentList '/c','<abs .cmd 路径>' -WindowStyle Hidden -PassThru`
-   —— 长编译**不要**用 `bash run_in_background` 直接跑（工具回收会杀掉整棵进程树，这就是 §5.2 里
-   23:07 那轮 `gate-build-310b.cmd` 死亡的原因）；要等完成就**另起一个只读日志文件的轮询脚本**。
-   ⚠️ 不要重跑 `cargo test --lib`（已 912 passed / exit 0）。
-   ⚠️ **步骤 1（打包）与步骤 2（verify-changelog）都已被 `gate-build-310c.cmd` 覆盖**，
-   只需从 `gateC.txt` 读 exit code 回填 §5 表格与 §5.2；`npx eslint .` **设计上非零退出**
-   （HEAD 基线 186~188 errors），口径是「与基线逐字对照」而不是「退出码为 0」。
-   脚本结构（要新写同类脚本可照抄，注意 **纯 ASCII**、内部 `> log 2>&1`、**不挂 stdout 管道**、
-   **运行期间不得编辑该 .cmd**、echo 文本里不能出现 `>`）：`call vcvars64.bat` →
-   `set PATH=C:\Users\Duanyi\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin;%PATH%` →
-   `cd /d <仓根>` → 4 步。进度只看 log 尾部 + `LastWriteTime`，不看屏幕、不信后台完成通知。
-3. 产物落地后：`release/` 或 `release/local-builds/` 找 `Alpha File Manager_3.10.0_x64-setup.exe`
-   （`publish-bundle-to-release.mjs` 会遍历 `bundle/nsis/` 下**所有**历史包逐个 rmSync + 复制，
-   任何一个被锁就 exit 1，而 `tauri build` 本身早已成功 ⇒ **分不清「构建失败」和「复制失败」时**，
-   用 `fs.copyFileSync` 单独把新包补进 `release/` 即可，不必重打包）。
-4. **提交发版提交**（暂存信息已备好：`.superpowers/sdd/release-310-commit-msg.txt`，用 `git commit -F` 避免中文走命令行）。
-   已 `git add -A` 共 **129 files**（+14217 / −473），包含 3.9.2 之后的**全部**在途工作。
-   若接力会话又改了文件（如 manifest `categories`），**重新 `git add -A`** 再提交。
-5. **打 tag `v3.10.0`**（tag = 发版提交，版本号已 bump、CHANGELOG 已写、代码全在那一个提交里）。
-   发版后必查三条：
-   - `git show v3.10.0:package.json` 版本正确
-   - `git merge-base --is-ancestor <修复提交> v3.10.0`
-   - `git show v3.10.0:src/data/extensions.ts | grep OFFICIAL_EXTENSION_OWNERS`
-6. `npm run release:upload`（推 aiec 站点 `https://www.aiec.fun/alpha-file-manager` 的 `version.json` + 安装包），
-   再 `npm run release:verify` 做公网回读；站点安装包文件名规则 `Alpha_File_Manager_<version>_x64-setup.exe`。
-   ⚠️ `release/local-builds/` 会被内容改写 ⇒ `latestInstaller()` 必须一起扫该目录。
-7. `npm run release:github` 建/更新 GitHub 兜底 release（`AFM_GH_REPO` 默认 `kizemo/alpha-file-manager`）。
+0. ✅ **门禁 + 打包已全部完成**（`gate-build-310c.cmd` 已落 `GATE_C_DONE`，无需重挂、无需重跑）：
+   `npm run ts` **TSC_EXIT=0**；`npm run verify-changelog` **CLG_EXIT=0**；`npx eslint .` **186 errors / 0 warnings**（与 HEAD 基线同口径、无新增回归；
+   该命令设计上非零退出，口径是逐字对照基线）；`npm run tauri:build` **BUILD_EXIT=0**（23:29:14 → 23:34:21）；`cargo test --lib` **912 passed / exit 0**（勿重跑）。
+   ⇒ 接力会话第一件事改为**读 `logs/upload310.txt`**（见步骤 6）。
+   ⚠️ 长任务写法（本项目唯一可靠姿势，保留备用）：
+   `$p = Start-Process -FilePath 'cmd.exe' -ArgumentList '/c','<abs .cmd 路径>' -WindowStyle Hidden -PassThru`；
+   **不要**用 `bash run_in_background` 直接跑长编译（工具回收会杀掉整棵进程树，就是 23:07 那轮 `gate-build-310b.cmd` 死亡的原因）；
+   要等完成就另起**只读日志文件**的轮询脚本。`.cmd` 必须**纯 ASCII**、内部 `> log 2>&1`、不挂 stdout 管道、运行期间不得编辑、echo 文本里不能出现重定向符号。
+3. ✅ **产物已落地**：`src-tauri/target/release/bundle/nsis/Alpha File Manager_3.10.0_x64-setup.exe` = **44 938 742 B**（23:34:17），`release/` 同名副本已在位。
+   沿用提醒：`publish-bundle-to-release.mjs` 遍历 `bundle/nsis/` 全部历史包逐个 rmSync + 复制，任一被锁就 exit 1，而 `tauri build` 本身早已成功
+   ⇒ **要分清「构建失败」和「复制失败」**，后者用 `fs.copyFileSync` 单独补进 `release/` 即可，不必重打包。
+4. ✅ **发版提交已创建并推送**：`18a349e7 release: 发版 3.10.0`，`git push origin main` = `ceff7e38..18a349e7`。
+   实测 **131 files changed, +14546 / −473**（交接时刻的 129 是更早快照）；提交后 `git status --porcelain` = **0 行**（工作树干净）。
+   中文提交信息走 `git commit -F .superpowers/sdd/release-310-commit-msg.txt`（不要把中文放命令行）。
+5. ✅ **已打 tag `v3.10.0` 并推送 origin**（`git ls-remote --tags origin v3.10.0` 已确认）。tag 对象 sha `9b442333f7ff12ace6bc089a0f4d5e744a2ee78c`。
+   发版三条必查（**本轮全绿，结论可复用**）：
+   - `git rev-parse v3.10.0^{commit}` = `18a349e71f0f8a6639e24c64636cab2518c6e1ca` = HEAD；`git show v3.10.0:package.json` ⇒ `3.10.0`
+   - `git merge-base --is-ancestor 18a349e7 v3.10.0` ⇒ exit 0
+   - `git show v3.10.0:src/data/extensions.ts` 命中 `OFFICIAL_EXTENSION_OWNERS = ['kizemo'];`；`v3.10.0:scripts/ext-market/registry.json` 命中 `"name": "Alpha File Manager"` + `"featured": true`；`v3.10.0:extensions/kizemo.focus-sync/package.json` 命中 `"name": "Alpha File Manager"`
+6. ⏳ **上传 aiec 站点：进行中**。`.superpowers/sdd/upload-310.cmd` = `npm run release:upload`（prepare 全量 + SFTP + 线上 `verify`）。
+   23:52 实测：`index.html OK` / `.htaccess OK` / **`version.json OK`** / `download.php OK` 已上传，随后按序补传历史包。
+   ⚠️ `_upload_alpha_files.py` 会补传**全部 33 个历史安装包（705.49 MB）**，耗时以十分钟计，**不是卡死**；日志是 **cp936**，读出乱码属正常。
+   完成判据：`logs/upload310.txt` 尾部 `UPLOAD_310_EXIT=0` + `UPLOAD_310_DONE`。**若中断就重挂同一条 detached 命令。**
+   站点安装包文件名规则 `Alpha_File_Manager_<version>_x64-setup.exe`；`release/local-builds/` 会被内容改写 ⇒ `latestInstaller()` 必须一起扫该目录。
+7. ⏸ **建 GitHub Release：待启动**。脚本 `.superpowers/sdd/github-310.cmd` 已写好（纯 ASCII、内部重定向到日志、不挂管道），
+   **刻意与 `release:upload` 错开**以免同一上行链路争用。启动方式同 §5.2 的 `Start-Process` detached 写法。
+   `github()` 读 `package.json.version` ⇒ 只认远端 tag `v3.10.0`（✅ 已在 origin）；会上传站点目录里的下划线资产 44 938 742 B；
+   正文取站点 `_release-notes-v3.10.0.md`（✅ 2470 B，已由 `prepare --write-notes` 生成，漏跑会安静发出正文为空的 release）。
    GitHub Release 资产的官方 sha256 用 API 的 `digest` 字段拿（本机到发行 CDN 被限速 0.01 MB/s，下载比对不可行）。
 8. **Focus Sync 上架**（§7.1，独立于构建，可在 `tauri build` 期间并行做）：建 `kizemo/focus-sync` 公网仓
    → 只上传白名单 7 项 → tag `v0.5.8` → 往 `scripts/ext-market/registry.json` 加**纯条目**、
@@ -298,7 +277,10 @@ Get-ChildItem 'F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sd
 | 品牌/精选批量改动脚本与输出 | `.superpowers/sdd/apply-official-branding.cjs`、`.superpowers/sdd/logs/branding-apply.txt` |
 | 版本核对脚本 | `.superpowers/sdd/check-version-310.cjs` |
 | 门禁串行脚本与日志 | `.superpowers/sdd/gate-build-310b.cmd`（已死，留证据）、`.superpowers/sdd/logs/gateB.txt`、`gate-tsB.txt`、`gate-eslintB.txt`、`gate-vitestB.txt`、`build-310B.txt` |
-| **在跑的门禁+打包串行脚本** | `.superpowers/sdd/gate-build-310c.cmd`（23:28:15 启动）、`.superpowers/sdd/logs/gateC.txt`（完成标记 `GATE_C_DONE`）、`build-310C.txt`、`gate-tsC.txt`、`gate-clgC.txt`、`gate-eslintC.txt` |
+| 门禁+打包串行脚本（✅ 已完成） | `.superpowers/sdd/gate-build-310c.cmd`（23:28:15 启动）、`.superpowers/sdd/logs/gateC.txt`（`GATE_C_DONE`）、`build-310C.txt`、`gate-tsC.txt`、`gate-clgC.txt`、`gate-eslintC.txt` |
+| **站点上传（进行中）** | `.superpowers/sdd/upload-310.cmd`（23:45 detached，cmd pid 459008）、`.superpowers/sdd/logs/upload310.txt`（标记 `UPLOAD_310_START` / `UPLOAD_310_EXIT=` / `UPLOAD_310_DONE`） |
+| **GitHub Release（已备好、未启动）** | `.superpowers/sdd/github-310.cmd`、日志将写 `.superpowers/sdd/logs/github310.txt`（标记 `GH_310_START` / `GH_310_EXIT=` / `GH_310_DONE`） |
+| 站点准备 + 中文发版说明 | `.superpowers/sdd/logs/site-prep-310.txt`、`.superpowers/sdd/logs/site-notes-310.txt`、`.superpowers/sdd/release-310-notes.md`（2262 B）、`.superpowers/sdd/release-310-commit-msg.txt` |
 | cargo 补跑 | `.superpowers/sdd/cargo-only-c.cmd`、`.superpowers/sdd/logs/cargoC.txt`、`gate-cargoC.txt` |
 | 发版提交信息 | `.superpowers/sdd/release-310-commit-msg.txt` |
 | 上一轮市场源改造设计/交接 | `docs/design-2026-11-04-extension-market-sources.md`、`docs/handoff-2026-11-04-extension-market-sources.md` |
