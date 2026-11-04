@@ -27,6 +27,14 @@ pub(super) struct GlobalSearchState {
     pub(super) reader: Option<IndexReader>,
     pub(super) fields: Option<GlobalSearchIndexFields>,
     pub(super) cancel_flag: Arc<AtomicBool>,
+    /// 应用自己的目录（索引目录、WebView2 缓存都在里面）。
+    ///
+    /// 它们**不能**进全局搜索索引，也不该产生 watcher 事件：
+    ///   * 索引目录会把索引自己写进索引（自指，索引每轮都在长）；
+    ///   * WebView2 缓存是几十万个小文件的纯噪音；
+    ///   * 更要命的是，watcher 递归监听盘根时，**写索引本身**就会产生事件
+    ///     ⇒ 增量通道会被自己的写入喂出无限循环。
+    pub(super) app_owned_prefixes: Vec<String>,
 }
 
 pub(super) static GLOBAL_SEARCH_STATE: Lazy<Arc<RwLock<GlobalSearchState>>> = Lazy::new(|| {
@@ -49,6 +57,10 @@ pub(super) static GLOBAL_SEARCH_STATE: Lazy<Arc<RwLock<GlobalSearchState>>> = La
             last_scan_duration_ms: None,
             last_scan_indexed_item_count: None,
             last_scan_error: None,
+            last_scan_mode: None,
+            incremental_ready: false,
+            incremental_watcher_generation: 0,
+            last_incremental_failed: false,
             indexed_item_count: 0,
             scan_indexed_item_count: 0,
             indexed_drive_roots: vec![],
@@ -64,6 +76,7 @@ pub(super) static GLOBAL_SEARCH_STATE: Lazy<Arc<RwLock<GlobalSearchState>>> = La
         reader: None,
         fields: None,
         cancel_flag: Arc::new(AtomicBool::new(false)),
+        app_owned_prefixes: Vec::new(),
     }))
 });
 

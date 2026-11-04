@@ -11,6 +11,8 @@ import { useRouter } from 'vue-router';
 import { openNativeProperties } from '@/utils/open-native-properties';
 import { revealInExplorer } from '@/utils/open-in-explorer';
 import { openNavigatorRevealEntry } from '@/utils/open-navigator-directory';
+// FORK-MODIFICATION (2026-11-03)：L2 —— 默认资源管理器时改走应用内定位。
+import { isDefaultFileManagerSafe } from '@/utils/default-file-manager';
 import { isContextMenuActionVisible } from '@/modules/navigator/components/file-browser/utils/context-menu-action-visibility';
 import { toast, ToastStatic } from '@/components/ui/toaster';
 import { markRaw } from 'vue';
@@ -186,19 +188,43 @@ export function useFileBrowserActions(options: {
     if (action === 'open-containing-directory') {
       const entries = options.contextMenu.value.selectedEntries;
 
-      // 仅 file 节点触发（visibility 规则已保证 directory 不会进来）
-      for (const entry of entries) {
-        if (!entry.is_dir) {
-          void revealInExplorer(entry.path).catch((err: unknown) => {
+      // FORK-MODIFICATION (2026-11-03)：默认资源管理器改造 L2。
+      //
+      // AFM 自己就是默认资源管理器时，「打开文件所在目录」不该再把用户
+      // 踢到系统 Explorer —— 应当在 AFM 内部定位到父目录并选中该条目。
+      // 不是默认资源管理器时维持原样（仍然走 Explorer）。
+      void (async () => {
+        const useInAppReveal = await isDefaultFileManagerSafe();
+        const filterQuery = options.getFilterQuery?.() ?? '';
+
+        // 仅 file 节点触发（visibility 规则已保证 directory 不会进来）
+        for (const entry of entries) {
+          if (entry.is_dir) {
+            continue;
+          }
+
+          if (useInAppReveal) {
+            openNavigatorRevealEntry(router, entry.path, {
+              filterQuery,
+              reuseCurrentPaneOnly: true,
+            });
+
+            continue;
+          }
+
+          try {
+            await revealInExplorer(entry.path);
+          }
+          catch (err: unknown) {
             console.error('revealInExplorer failed:', err);
             // FORK-MODIFICATION (2026-11-01)：失败必须让用户看见。
             // 以前只 console.error，界面上毫无反馈，用户只能对着「什么也没发生」猜。
             toast.error(t('fileBrowser.actions.openContainingDirectoryFailed'), {
               description: err instanceof Error ? err.message : String(err),
             });
-          });
+          }
         }
-      }
+      })();
 
       return;
     }

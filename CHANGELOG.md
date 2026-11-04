@@ -1,5 +1,25 @@
 # Changelog
 
+## [3.10.0] - November 2026
+
+**Summary:** Extensions are published under the **Alpha File Manager** name now, our own extensions carry an *Official* mark beside their title and are listed under *Featured*, and the extension market reads two sources - our official one first, the legacy Sigma one below it as a third-party source. Underneath: full-disk search indexes incrementally and scans in parallel, so a large directory no longer spins without showing its list, permanent deletion no longer reports failures that did not happen, and commands and keyboard shortcuts now resolve through one shared action registry.
+
+### What changed
+
+**New: the extension market has two sources.** The market pulls a registry of our own first, listed as the *Official* source, with the legacy Sigma registry below it as a *Third-party* source. The extension pages can filter by source and each card shows where it came from, so an extension that is not ours is no longer presented as if it were.
+
+**New: Git Tools.** An extension that does Git work inside the file manager: init, clone, fetch, pull, push and sync, browsing branches, commits and tracked files, and handing the repository over to your IDE.
+
+**Improved: our own extensions are marked *Official* and *Featured*.** Whether an extension is official is decided by the organisation that owns its repository rather than by a single hard-coded name, so every extension we publish - Git Tools included - is badged *Official* beside its title and offered in the *Featured* row of the market.
+
+**Changed: the publisher is named Alpha File Manager.** Market entries and extension manifests that used to read `kizemo` as their publisher now read *Alpha File Manager*, and the *Official* tooltip names the Alpha File Manager team. The links behind the publisher still point at the real repositories.
+
+**Improved: full-disk search keeps up with the disk.** The index is updated incrementally and watched for changes instead of being rebuilt, and the scan itself runs in parallel, so opening a directory that was slow to load no longer leaves the file list spinning without content.
+
+**Fixed: permanent deletion stopped reporting failures that did not happen.** Deleting a tree off the disk reports the outcome it actually got instead of claiming a failure after the files are gone.
+
+**Changed: commands and keyboard shortcuts resolve through one action registry.** The command palette and the shortcut table read the same registry the menus do, so an action cannot be listed in one place and missing in another.
+
 ## [3.9.2] - November 2026
 
 **Summary:** *Open the containing folder* now finds shortcuts and says so when their target is gone, the entry is back in the context menu of the file list, the progress of a move to the recycle bin no longer lies, and the *What's New* section has moved over to the *About* page.

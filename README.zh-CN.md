@@ -262,6 +262,13 @@ npm run tauri:build        # 发布构建
   [`extensions/kizemo.focus-sync/`](./extensions/kizemo.focus-sync/) 下 ——
   扩展载荷、sidecar 源码与独立安装器。单独发布的安装包归档在
   [kizemo/focus-sync](https://github.com/kizemo/focus-sync)。
+- **Git Tools 扩展：** 就在本仓库的
+  [`extensions/kizemo.git/`](./extensions/kizemo.git/) 下，发布仓库是
+  [kizemo/sfm-git-extension](https://github.com/kizemo/sfm-git-extension)。它通过我们自己的清单
+  [kizemo/sfm-marketplace](https://github.com/kizemo/sfm-marketplace) 下发给应用，
+  在扩展市场里作为**官方**源读取，排在上游 Sigma 清单（显示为**第三方**源）之上。
+- **我们发布的扩展，作者名统一为 Alpha File Manager：** 名称右上角标注**官方**，
+  并出现在市场的**精选**一栏。
 - **本衍生版本的维护者：** [kizemo](https://github.com/kizemo)
 
 按原条款复用的一小部分代码：
@@ -283,3 +290,4 @@ npm run tauri:build        # 发布构建
 | Alpha File Manager（本衍生版本） | <https://github.com/kizemo/alpha-file-manager> |
 | Sigma File Manager（底座） | <https://github.com/aleksey-hoffman/sigma-file-manager> |
 | Focus Sync 扩展 + sidecar | 随本仓库分发，`extensions/kizemo.focus-sync/` |
+| Git Tools 扩展 | 随本仓库分发，`extensions/kizemo.git/` |

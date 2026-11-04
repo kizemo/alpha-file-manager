@@ -15,7 +15,10 @@ export default defineConfigWithVueTs(
   // 里是 `*`，整个目录不进版本库）。它只在工作副本里存在，干净检出里根本没有，
   // 所以留着它 lint 会让 `eslint .` 的数字**不可复现** —— 同一份代码，在工作副本里
   // 是 689 个错误，在干净检出里是 177 个。门禁必须量的是仓库里真正存在的那部分。
-  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**', '**/e2e-webdriver/**', 'src-tauri/**', '_acceptance/**', '.superpowers/**', 'graphify-out/**']),
+  // `extensions/**/src/generated-*.js` 是扩展构建脚本生成的 i18n 兜底表
+  // （见 `extensions/kizemo.git/build.mjs`），跟 `dist/` 一样是产物而非手写源码，
+  // 不该进仓库门禁。其余 `extensions/**/src/*.js` 是手写源码，必须过 lint。
+  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**', '**/e2e-webdriver/**', 'src-tauri/**', '_acceptance/**', '.superpowers/**', 'graphify-out/**', 'extensions/**/src/generated-*.js']),
   pluginVue.configs['flat/strongly-recommended'],
   vueTsConfigs.recommended,
   pluginStylistic.configs.customize({

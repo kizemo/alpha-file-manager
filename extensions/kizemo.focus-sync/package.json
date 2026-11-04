@@ -4,7 +4,7 @@
   "version": "0.5.8",
   "description": "Listary-style global focus sync. Sidecar runs as a Windows Scheduled Task (independent of Sigma FM lifecycle).",
   "publisher": {
-    "name": "kizemo",
+    "name": "Alpha File Manager",
     "url": "https://github.com/kizemo"
   },
   "repository": "https://github.com/kizemo/focus-sync",

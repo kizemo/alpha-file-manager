@@ -166,7 +166,16 @@ export type ShortcutId
     | 'uiZoomDecrease'
     | 'toggleFullscreen';
 
-export type UserShortcuts = Partial<Record<ShortcutId, UserShortcutStoredValue>>;
+/**
+ * 持久化的快捷键绑定表。
+ *
+ * 键有两种格式：
+ * - 新格式：动作注册表 id（`sigma.shortcut.<shortcutId>`）
+ * - 旧格式：历史 `ShortcutId`，只为兼容既有用户数据保留，读取时自动回落到旧逻辑
+ *
+ * 值与旧格式一致：单槽是一个键位组合，多槽是按槽位排列的数组。
+ */
+export type UserShortcuts = Partial<Record<string, UserShortcutStoredValue>>;
 
 export type ShortcutUserAlternateChordSlots = Partial<Record<ShortcutId, number[]>>;
 

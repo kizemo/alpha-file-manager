@@ -158,6 +158,8 @@
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "globalSearch": {
+    "scanModeFull": "مکمل",
+    "scanModeIncremental": "تدریجی",
     "globalSearch": "عالمی تلاش",
     "driveScanInProgress": "ڈرائیو انڈیکسنگ جاری ہے",
     "searchDataIncomplete": "تلاش کا ڈیٹا نامکمل ہے",
@@ -1512,7 +1514,9 @@
       "broken": "خراب",
       "brokenTooltip": "فائلیں نہیں ملیں۔ فہرست سے ہٹانے کے لیے اَن انسٹال کریں۔",
       "disabled": "بند",
-      "disabledTooltip": "یہ ایکسٹینشن بند ہے"
+      "disabledTooltip": "یہ ایکسٹینشن بند ہے",
+      "source": "ذریعہ",
+      "sourceTooltip": "مارکیٹ ذریعہ: {name}"
     },
     "stats": {
       "total": "کل",
@@ -1549,7 +1553,20 @@
     "githubConnectivityIssue": "GitHub تک نہیں پہنچا جا سکا",
     "githubConnectivityIssueDescription": "کچھ ایکسٹینشن ورژن چیک ناکام ہوئے کیونکہ ایپ GitHub سے منسلک نہیں ہو سکی۔ اپنا انternet کنکشن، VPN یا فائر وال سیٹنگز چیک کریں اور بعد میں دوبارہ کوشش کریں۔",
     "offlineIssue": "You are offline",
-    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features."
+    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features.",
+    "marketSources": "مارکیٹ ذریعے",
+    "marketSourceAdd": "مارکیٹ ذریعہ شامل کریں",
+    "marketSourceName": "نام",
+    "marketSourceUrl": "رجسٹری URL",
+    "marketSourceOfficial": "سرکاری",
+    "marketSourceCommunity": "کمیونٹی",
+    "marketSourceCustom": "اپنا",
+    "marketSourceAll": "تمام",
+    "marketSourceEmpty": "ابھی تک کوئی مارکیٹ ذریعہ شامل نہیں کیا گیا۔",
+    "marketSourceRemove": "مارکیٹ ذریعہ ہٹائیں",
+    "marketSourceRemoveConfirm": "کیا یہ مارکیٹ ذریعہ ہٹا دیا جائے؟ اس کے فراہم کردہ ایکسٹینشنز اگلی بار مارکیٹ کی تازگی پر ہٹا دیے جائیں گے۔",
+    "marketSourceInvalidUrl": "عوامی HTTPS URL درج کریں۔",
+    "marketSourceUnreachable": "رسائی نہیں"
   },
   "commandPalette": {
     "accessibleDialogTitle": "کمانڈ پیلیٹ",

@@ -121,6 +121,8 @@
     }
   },
   "globalSearch": {
+    "scanModeFull": "Toàn bộ",
+    "scanModeIncremental": "Tăng dần",
     "globalSearch": "Tìm kiếm toàn cầu",
     "driveScanInProgress": "Đang lập chỉ mục ổ đĩa",
     "searchDataIncomplete": "Dữ liệu tìm kiếm không đầy đủ",
@@ -1413,7 +1415,9 @@
       "broken": "Lỗi",
       "brokenTooltip": "Thiếu tệp tiện ích mở rộng. Gỡ cài đặt để xóa khỏi danh sách.",
       "disabled": "Đã tắt",
-      "disabledTooltip": "Tiện ích mở rộng này đã bị tắt"
+      "disabledTooltip": "Tiện ích mở rộng này đã bị tắt",
+      "source": "Nguồn",
+      "sourceTooltip": "Nguồn cửa hàng: {name}"
     },
     "stats": {
       "total": "Tổng",
@@ -1511,7 +1515,20 @@
     "githubConnectivityIssue": "Không thể kết nối GitHub",
     "githubConnectivityIssueDescription": "Một số kiểm tra phiên bản tiện ích thất bại vì ứng dụng không thể kết nối tới GitHub. Hãy kiểm tra kết nối Internet, VPN hoặc tường lửa và thử lại sau.",
     "offlineIssue": "You are offline",
-    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features."
+    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features.",
+    "marketSources": "Nguồn cửa hàng",
+    "marketSourceAdd": "Thêm nguồn cửa hàng",
+    "marketSourceName": "Tên",
+    "marketSourceUrl": "URL kho",
+    "marketSourceOfficial": "Chính thức",
+    "marketSourceCommunity": "Cộng đồng",
+    "marketSourceCustom": "Tự tạo",
+    "marketSourceAll": "Tất cả",
+    "marketSourceEmpty": "Chưa thêm nguồn cửa hàng nào.",
+    "marketSourceRemove": "Xóa nguồn cửa hàng",
+    "marketSourceRemoveConfirm": "Xóa nguồn cửa hàng này? Các tiện ích mở rộng do nguồn này cung cấp sẽ bị gỡ cài đặt khi cửa hàng được làm mới lần sau.",
+    "marketSourceInvalidUrl": "Nhập một URL HTTPS công khai.",
+    "marketSourceUnreachable": "Không truy cập được"
   },
   "commandPalette": {
     "accessibleDialogTitle": "Bảng lệnh",

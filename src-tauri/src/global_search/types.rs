@@ -18,6 +18,16 @@ fn default_scan_reason() -> GlobalSearchScanReason {
     GlobalSearchScanReason::Manual
 }
 
+/// 这一轮扫描走的是哪条路。
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum GlobalSearchScanMode {
+    /// 全量重扫 —— 重建整棵索引。
+    Full,
+    /// 增量更新 —— 只把 watcher 报出来的变化应用到活索引。
+    Incremental,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum GlobalSearchScanPhase {
@@ -94,6 +104,14 @@ pub struct GlobalSearchStatus {
     pub last_scan_duration_ms: Option<u64>,
     pub last_scan_indexed_item_count: Option<u64>,
     pub last_scan_error: Option<String>,
+    /// 上一轮扫描走的是全量还是增量。
+    pub last_scan_mode: Option<GlobalSearchScanMode>,
+    /// 增量通道是否就绪（活索引有效 + watcher 在跑 + 代次对得上）。
+    pub incremental_ready: bool,
+    /// 增量 watcher 的代次 —— 换过一次就说明中间有缺口，不能只做增量。
+    pub incremental_watcher_generation: u64,
+    /// 上一轮增量应用是否失败。
+    pub last_incremental_failed: bool,
     pub indexed_item_count: u64,
     pub scan_indexed_item_count: u64,
     pub indexed_drive_roots: Vec<String>,

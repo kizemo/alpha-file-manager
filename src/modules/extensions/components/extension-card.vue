@@ -19,6 +19,7 @@ import ExtensionBadge from './extension-badge.vue';
 import ExtensionIcon from './extension-icon.vue';
 import type { ExtensionWithManifest } from '@/modules/extensions/composables/use-extensions';
 import { formatBytes } from '@/modules/navigator/components/file-browser/utils';
+import { OFFICIAL_MARKET_SOURCE_ID } from '@/modules/extensions/utils/market-sources';
 
 const props = defineProps<{
   extension: ExtensionWithManifest;
@@ -27,6 +28,15 @@ const props = defineProps<{
   isInstallDisabled?: boolean;
 }>();
 
+const sourceLabel = computed(() => {
+  const sourceId = props.extension.sourceId;
+
+  if (!sourceId || sourceId === OFFICIAL_MARKET_SOURCE_ID) {
+    return '';
+  }
+
+  return props.extension.sourceName ?? '';
+});
 const emit = defineEmits<{
   click: [event: MouseEvent];
   install: [];
@@ -130,6 +140,12 @@ function handleCancelClick(event: MouseEvent) {
           <ExtensionBadge
             v-else
             type="community"
+          />
+          <ExtensionBadge
+            v-if="sourceLabel"
+            type="source"
+            :label="sourceLabel"
+            show-label
           />
         </div>
         <p class="extension-card__publisher">

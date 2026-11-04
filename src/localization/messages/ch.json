@@ -121,6 +121,8 @@
     }
   },
   "globalSearch": {
+    "scanModeFull": "全量",
+    "scanModeIncremental": "增量",
     "globalSearch": "全局搜索",
     "driveScanInProgress": "正在索引驱动器",
     "searchDataIncomplete": "搜索数据不完整",
@@ -1409,7 +1411,7 @@
     },
     "badges": {
       "official": "官方",
-      "officialTooltip": "此扩展程序由 Sigma 文件管理器团队创建和维护",
+      "officialTooltip": "此扩展程序由 Alpha File Manager 团队创建和维护",
       "community": "社区",
       "communityTooltip": "这是社区扩展程序。安装前请查看源代码。",
       "local": "本地",
@@ -1417,7 +1419,9 @@
       "broken": "损坏",
       "brokenTooltip": "扩展文件缺失。卸载以从列表中移除。",
       "disabled": "已禁用",
-      "disabledTooltip": "此扩展已禁用"
+      "disabledTooltip": "此扩展已禁用",
+      "source": "来源",
+      "sourceTooltip": "市场源：{name}"
     },
     "stats": {
       "total": "总计",
@@ -1515,7 +1519,20 @@
     "githubConnectivityIssue": "无法连接 GitHub",
     "githubConnectivityIssueDescription": "部分扩展版本检查失败，因为应用无法连接到 GitHub。请检查网络连接、VPN 或防火墙设置，稍后再试。",
     "offlineIssue": "You are offline",
-    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features."
+    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features.",
+    "marketSources": "市场源",
+    "marketSourceAdd": "添加市场源",
+    "marketSourceName": "名称",
+    "marketSourceUrl": "清单地址",
+    "marketSourceOfficial": "官方",
+    "marketSourceCommunity": "第三方",
+    "marketSourceCustom": "自建",
+    "marketSourceAll": "全部",
+    "marketSourceEmpty": "还没有添加任何市场源。",
+    "marketSourceRemove": "移除市场源",
+    "marketSourceRemoveConfirm": "移除该市场源？它提供的扩展会在下次刷新市场时被卸载。",
+    "marketSourceInvalidUrl": "请输入公网 HTTPS 地址。",
+    "marketSourceUnreachable": "无法连接"
   },
   "commandPalette": {
     "accessibleDialogTitle": "命令面板",

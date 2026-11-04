@@ -158,6 +158,8 @@
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "globalSearch": {
+    "scanModeFull": "Ամբողի",
+    "scanModeIncremental": "Անհետևական",
     "globalSearch": "Գլոբալ որոնում",
     "driveScanInProgress": "Դրայվի ինդեքսավորումը ընթացքի մեջ է",
     "searchDataIncomplete": "Որոնման տվյալները թերի են",
@@ -1518,7 +1520,9 @@
       "broken": "Կոտրված",
       "brokenTooltip": "Ընդլայնման ֆայլերը բացակայում են: Ապատեղադրեք՝ ցանկից ջնջելու համար:",
       "disabled": "Անջատված",
-      "disabledTooltip": "Այս ընդլայնումը անջատված է"
+      "disabledTooltip": "Այս ընդլայնումը անջատված է",
+      "source": "Աղբյուր",
+      "sourceTooltip": "Շուկայի աղբյուրը: {name}"
     },
     "stats": {
       "total": "Ընդհանուր",
@@ -1549,7 +1553,20 @@
     "engineApiWarning": "Պահանջվում է {range} API ընդլայնում (դուք ունեք {current})",
     "engineRequirements": "Պահանջներ",
     "requiresSigmaFileManager": "Sigma ֆայլերի մենեջեր",
-    "requiresExtensionApi": "Ընդլայնման API"
+    "requiresExtensionApi": "Ընդլայնման API",
+    "marketSources": "Շուկայի աղբյուրներ",
+    "marketSourceAdd": "Ավելացնել շուկայի աղբյուր",
+    "marketSourceName": "Անուն",
+    "marketSourceUrl": "Ռեգիստրի URL",
+    "marketSourceOfficial": "Պաշտոնական",
+    "marketSourceCommunity": "Համայնք",
+    "marketSourceCustom": "Սեփական",
+    "marketSourceAll": "Բոլորը",
+    "marketSourceEmpty": "Շուկայի աղբյուրներ դեռ չեն ավելացվել։",
+    "marketSourceRemove": "Հեռացնել շուկայի աղբյուրը",
+    "marketSourceRemoveConfirm": "Հեռացնե՞լ այս շուկայի աղբյուրը։ Այն տալիս ընդլայնումները կհանվեն շուկայի հաջորդ թարմացման ժամանակ։",
+    "marketSourceInvalidUrl": "Մուտքագրեք հանրային HTTPS URL։",
+    "marketSourceUnreachable": "Հասանելի չէ"
   },
   "commandPalette": {
     "accessibleDialogTitle": "Հրամանների պալիտրա",

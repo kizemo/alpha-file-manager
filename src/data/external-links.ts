@@ -26,13 +26,24 @@ const githubAllReleases = `${githubRepoLink}/releases`;
 const githubLatestRelease = `${githubRepoLink}/releases/latest`;
 const githubReadmeSupportSectionLink = `${githubRepoLink}#supporters`;
 
+// 扩展市场源分两档，都由代码内置、不落盘：
+//   1. 官方源 = kizemo/sfm-marketplace（本仓库维护者自己的市场，排第一）
+//   2. 第三方源 = sigma-hub/sfm-marketplace（上游社区市场，排第二）
+// 官方源的清单地址同时决定「提交扩展指南」「开发 Wiki」这两个外链 ——
+// 用户从设置页点进去必须落到当前官方源仓库，否则会看到另一套收录规则。
 const extensionsRegistryRepo = 'sfm-marketplace';
-const extensionsRegistryOrg = 'sigma-hub';
+const extensionsRegistryOrg = 'kizemo';
 const extensionsRegistryFullRepoName = `${extensionsRegistryOrg}/${extensionsRegistryRepo}`;
 const extensionsRegistryBaseUrl = `${githubRawApiUrl}/${extensionsRegistryFullRepoName}/main`;
 const extensionsRegistryUrl = `${extensionsRegistryBaseUrl}/registry.json`;
 const extensionsSubmissionGuideUrl = `${githubBaseUrl}/${extensionsRegistryFullRepoName}#readme`;
 const extensionsDevelopmentWikiUrl = `${githubBaseUrl}/${extensionsRegistryFullRepoName}/wiki`;
+
+// 第三方内置源：上游社区市场（sigma-hub）。与官方源一样是常量，
+// 固定启用、不可删、不可改地址（设置页对内置源不渲染开关与删除按钮）。
+const extensionsCommunityRegistryOrg = 'sigma-hub';
+const extensionsCommunityRegistryFullRepoName = `${extensionsCommunityRegistryOrg}/${extensionsRegistryRepo}`;
+const extensionsCommunityRegistryUrl = `${githubRawApiUrl}/${extensionsCommunityRegistryFullRepoName}/main/registry.json`;
 const extensionsApiBaseUrl = `${githubRawApiUrl}/${githubFullRepoName}/${githubMainBranch}/packages/api`;
 const extensionsTypesUrl = `${extensionsApiBaseUrl}/index.d.ts`;
 const extensionsManifestSchemaUrl = `${extensionsApiBaseUrl}/manifest.schema.json`;
@@ -63,6 +74,7 @@ export default {
   githubLatestRelease,
   githubReadmeSupportSectionLink,
   extensionsRegistryUrl,
+  extensionsCommunityRegistryUrl,
   extensionsSubmissionGuideUrl,
   extensionsDevelopmentWikiUrl,
   extensionsTypesUrl,

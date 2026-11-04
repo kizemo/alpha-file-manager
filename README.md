@@ -288,6 +288,16 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites and the full workflow.
   extension payload, sidecar source and the standalone installer. Released
   standalone installers are archived at
   [kizemo/focus-sync](https://github.com/kizemo/focus-sync).
+- **Git Tools extension:** lives in THIS repository under
+  [`extensions/kizemo.git/`](./extensions/kizemo.git/) and is published from
+  [kizemo/sfm-git-extension](https://github.com/kizemo/sfm-git-extension). It is
+  served to the application from our own registry,
+  [kizemo/sfm-marketplace](https://github.com/kizemo/sfm-marketplace), which the
+  market reads as the *Official* source, above the legacy Sigma registry shown as
+  a *Third-party* source.
+- **Publisher of our extensions:** [Alpha File Manager](https://github.com/kizemo/alpha-file-manager).
+  Extensions we publish are badged *Official* next to their name and listed under
+  *Featured* in the market.
 - **Maintainer of this fork:** [kizemo](https://github.com/kizemo)
 
 Additional code reused under its original terms:
@@ -310,3 +320,4 @@ available at:
 | Alpha File Manager (this fork) | <https://github.com/kizemo/alpha-file-manager> |
 | Sigma File Manager (base) | <https://github.com/aleksey-hoffman/sigma-file-manager> |
 | Focus Sync extension + sidecar | bundled in this repository, `extensions/kizemo.focus-sync/` |
+| Git Tools extension | bundled in this repository, `extensions/kizemo.git/` |

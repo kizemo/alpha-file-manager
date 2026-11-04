@@ -113,6 +113,14 @@ pub(super) struct GlobalSearchMeta {
     pub(super) last_scan_error: Option<String>,
     #[serde(default)]
     pub(super) indexed_drive_roots: Vec<String>,
+    #[serde(default)]
+    pub(super) last_scan_mode: Option<super::types::GlobalSearchScanMode>,
+    #[serde(default)]
+    pub(super) incremental_ready: bool,
+    #[serde(default)]
+    pub(super) incremental_watcher_generation: u64,
+    #[serde(default)]
+    pub(super) last_incremental_failed: bool,
 }
 
 pub(super) const SCHEMA_VERSION: u32 = 1;

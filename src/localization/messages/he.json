@@ -158,6 +158,8 @@
     "deleteBytesProgress": "{done} / {total} freed"
   },
   "globalSearch": {
+    "scanModeFull": "מלא",
+    "scanModeIncremental": "מדרגתי",
     "globalSearch": "חיפוש גלובלי",
     "driveScanInProgress": "מתבצע אינדוקס של הכונן",
     "searchDataIncomplete": "נתוני החיפוש אינם שלמים",
@@ -1512,7 +1514,9 @@
       "broken": "שבור",
       "brokenTooltip": "קובצי התוסף חסרים. הסר את ההתקנה כדי להסירו מהרשימה.",
       "disabled": "מושבת",
-      "disabledTooltip": "התוסף הזה מושבת"
+      "disabledTooltip": "התוסף הזה מושבת",
+      "source": "מקור",
+      "sourceTooltip": "מקור חנות: {name}"
     },
     "stats": {
       "total": "סך הכול",
@@ -1549,7 +1553,20 @@
     "githubConnectivityIssue": "לא ניתן להגיע ל-GitHub",
     "githubConnectivityIssueDescription": "חלק מבדיקות הגרסאות של התוספים נכשלו כי האפליקציה לא הצליחה להתחבר ל-GitHub. בדוק את חיבור האינטרנט, ה-VPN או הגדרות חומת האש ונסה שוב מאוחר יותר.",
     "offlineIssue": "You are offline",
-    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features."
+    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features.",
+    "marketSources": "מקורות חנות",
+    "marketSourceAdd": "הוספת מקור חנות",
+    "marketSourceName": "שם",
+    "marketSourceUrl": "כתובת URL של המאגר",
+    "marketSourceOfficial": "רשמי",
+    "marketSourceCommunity": "קהילתי",
+    "marketSourceCustom": "מותאם אישית",
+    "marketSourceAll": "הכל",
+    "marketSourceEmpty": "עדיין לא נוספו מקורות חנות.",
+    "marketSourceRemove": "הסרת מקור חנות",
+    "marketSourceRemoveConfirm": "להסיר את מקור החנות הזה? התוספים שהוא מספק ייסרקו בעת הרענון הבא של החנות.",
+    "marketSourceInvalidUrl": "יש להזין כתובת HTTPS ציבורית.",
+    "marketSourceUnreachable": "לא ניתן להגיע"
   },
   "commandPalette": {
     "accessibleDialogTitle": "לוח הפקודות",
