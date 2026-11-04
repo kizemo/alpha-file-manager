@@ -179,28 +179,97 @@ Get-Process python,node -ErrorAction SilentlyContinue | Select-Object Name,Id,St
 
 git 经 bash 调用会打印 `/usr/bin/sh: warning: setlocale: LC_ALL: cannot change locale (zh-CN)` —— **无害噪音**，不是失败（本轮 PUSH_EXIT / TAG_EXIT / COMMIT_EXIT 均为 0）。
 
-## 六、真机验收 · 待填 / 未验证项
+### 5.3 真机安装复核（✅ 已完成，2026-11-05 00:45）
 
-验收资产（全纯 ASCII，`F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\`）：
-`accept-uia-dump.ps1 -All -Out …`、`accept-sidebar-probe.ps1`、`accept-nav.ps1 -OutDir … -Steps '…'`、
-`accept-market-filter.ps1`、`app-key.ps1 -Keys 'CTRL+V'`、`dash-accept-data.cjs backup|seed|restore`、`shift-occluders.ps1`
+`release/Alpha File Manager_3.10.0_x64-setup.exe` 已在本机**静默安装成功**（NSIS `/S`，`NSIS_EXIT=0`）：
 
-**硬性要点**（详细成因见 `AGENTS.md` §2）：
+| 项 | 验收前 | 验收后 |
+|---|---|---|
+| `D:\Program Files\Alpha File Manager\alpha-file-manager.exe` 的 ProductVersion | 3.9.2 | **3.10.0** |
+| exe mtime / 大小 | 2026-11-04 22:29:14 | **2026-11-04 23:33:42 / 80 642 560 B**（= 打包产物时间戳） |
+| 装机 bundled `extensions/kizemo.focus-sync/package.json` | publisher = `kizemo` | **publisher = `Alpha File Manager` / version = 0.5.8** |
 
-- 只能用 `tauri build` 产物；`tauri dev` 路由页内容区全空白，界面结论一律作废。
-- 脚本**在任何 user32 调用之前** `SetProcessDPIAware()`（判据 `GetSystemMetrics(0)` 从 1707 变 2560）。
-- 主窗口用 `EnumWindows` + pid 过滤 + class `Tauri Window` + 可见 + 面积最大；**不要用 `Process.MainWindowHandle`**。
-- 启动后会弹「新功能」模态，先点「关闭」再取 UIA 树。
-- TabItem 用 `SelectionItemPattern.Select()`；Button 用 `InvokePattern.Invoke()`，**成功 ≠ 生效**，需落盘/像素佐证。
-- `release` 构建下 `SFM_E2E_DATA_DIR` 不生效 ⇒ 要动真实数据只能「备份 → 灌夹具 → 验收 → **先杀进程** → restore → 核对字节数」。
-- UIA 命中数 = 0 **不能**判定 toast 没弹，必须配屏幕 BitBlt 实拍。
+驱动脚本 `.superpowers/sdd/accept-310-market-branding.ps1`（纯 ASCII，CJK 走码点构造），日志 `.superpowers/sdd/accept-310-market/accept-310-market.log`。
 
-**待取证据（4 项，对应诉求 1/2/3/4）**：官方徽章 / 精选区 / 作者名 / 来源徽章；
-外加 §4.3 的 bundled 更新是否真的覆盖已安装副本。
+## 六、真机验收 · 已完成（2026-11-05 00:45 → 01:10）
 
-> **2026-11-05 补充（Focus Sync 已上架）**：验收清单再加一项 —— 扩展市场「精选」区应出现 **Focus Sync**，
-> 名称右上角带「官方」徽章、作者显示 `Alpha File Manager`、来源显示为官方源。线上清单 blob 已与本地逐字节一致，
-> 且清单是热更新的 ⇒ 该项**不依赖新安装包**，但「官方」判定逻辑（`OFFICIAL_EXTENSION_OWNERS`）依赖 3.10.0。
+> 口径：只用 `tauri build` 的打包产物（`tauri dev` 的路由页内容区全空白，界面结论一律作废）；
+> 脚本在任何 user32 调用前 `SetProcessDPIAware()`；主窗口用 `EnumWindows` + pid + class `Tauri Window` + 可见 + 面积最大；
+> 恢复真实数据前**先杀进程**再 restore 并核对哈希。
+
+### 6.1 四项证据判定（诉求 1/2/3/4）
+
+| 诉求 | UI 上的真实载体 | 实测命中 | 判定 |
+|---|---|---|---|
+| 官方徽章 | 卡片标题行的 `ExtensionBadge type="official"`（**纯图标、无文本**）；市场源 tab 名为「官方」 | 像素：Focus Sync / Git Tools 标题右侧是**紫色圆形徽章**（社区卡片是蓝色盾牌）；UIA：市场源 tab 名称 = 官方 | ✅ |
+| 精选区 | `extensions.featured` → 「精选」区标题 + 精选网格 | UIA 命中「精选」；精选网格首两张 = **Focus Sync** / **Git Tools** | ✅ |
+| 作者名 | 卡片 publisher 行（`extension-card__publisher`） | Focus Sync 与 Git Tools 两张卡的 publisher 均为 **Alpha File Manager** | ✅ |
+| 来源徽章 | `ExtensionBadge type="source"`，label = 市场源名 | 社区源卡片上命中「第三方」来源徽章；**官方源条目按设计不显示来源徽章**（`extension-card.vue` 的 `sourceLabel` 对 `OFFICIAL_MARKET_SOURCE_ID` 返回空串） | ✅ |
+
+原始 UIA 行（`uia-tree.txt` / `uia-tree-recheck.txt`，按 Y,X 排序）：
+
+```
+Text   | 精选 | 1161,455 61x46
+Text   | Focus Sync | 1234,550 133x32
+Text   | Git Tools | 1799,550 107x32
+Text   | Alpha File Manager | 1234,590 196x27      <- Focus Sync 的 publisher 行
+Text   | Alpha File Manager | 1799,590 196x27      <- Git Tools 的 publisher 行
+Text   | 第三方 | 2677,557 55x24                   <- 社区源卡片上的来源徽章（label=市场源名）
+Text   | Productivity | 1156,725 104x24            <- Focus Sync 的分类标签
+Text   | Integration | 1292,725 97x24
+Text   | v0.5.8 | 1144,793 61x23                  <- 重启复验后的卡片版本
+```
+
+> ⚠️ **「官方徽章」本身没有可读文本**（`ExtensionBadge` 默认 `showLabel=false`，只有图标 + tooltip），
+> 所以 UIA 里搜不到「官方」二字属正常，不能据此判徽章没渲染；只有 `type="source"` 的徽章带文字。
+> 官方徽章的真证据是**像素**：`shot-printwindow.png` / `shot-recheck.png` 里 Focus Sync、Git Tools 标题右侧的**紫色圆形徽章**，
+> 与社区卡片的**蓝色盾牌徽章**形成对照。
+
+### 6.2 §4.3 bundled 更新是否真的覆盖已安装副本（✅ 是）
+
+| 对象 | 验收前 | 验收后（磁盘） | 验收后（UI） |
+|---|---|---|---|
+| `…\AppData\Roaming\com.sigma-file-manager.app\extensions\kizemo.focus-sync\package.json` | version 0.5.5 / publisher `kizemo` | **version 0.5.8 / publisher `Alpha File Manager`** | 卡片显示 **v0.5.8**（重启后） |
+| `…\extensions\kizemo.git\package.json` | version 0.1.0 / publisher `kizemo` | version 0.1.0 / publisher `kizemo`（**未变**） | 市场卡片 publisher = `Alpha File Manager`（取自清单条目） |
+
+⇒ **bundled 同步确实覆盖了已安装副本**：`kizemo.focus-sync` 的 publisher 由 `kizemo` 变成 `Alpha File Manager`、版本 0.5.5 → 0.5.8；
+`kizemo.git` 未被覆盖的原因见 §6.4 新发现 1。
+
+### 6.3 复验：bundled 同步在会话内不刷新 UI（不是缺陷，是刷新时机）
+
+- 第一轮（装完首次启动）：卡片显示 **`v0.5.5`**，而磁盘上已是 0.5.8。
+- 第二轮（**重启应用**，不重装）：同一张卡片显示 **`v0.5.8`**。
+- 机制：`use-extensions.ts` 的卡片版本取 `latestVersion || manifest?.version`，而 `manifest` 优先取**启动时**读到的
+  已安装扩展 manifest（`installedExt?.manifest`）；bundled 同步在启动后写盘，内存快照不刷新 ⇒ 同会话内仍显示旧版本号，**重启即正确**。
+- ⇒ **不是产品缺陷**；但「装完不重启 → 版本号显示旧值」值得写进发版说明。
+
+### 6.4 本轮新发现（不在原四项内，留给后续）
+
+1. **`kizemo.git` 不在 3.10.0 的 bundled 资源里** ⇒ 装机目录 `D:\Program Files\Alpha File Manager\extensions\`
+   **只有 `kizemo.focus-sync`** ⇒ Git Tools 的**已安装副本** publisher 仍是 `kizemo`，用户在「已安装」页会看到旧名
+   （市场页显示的是清单条目，已是 `Alpha File Manager`）。
+   要修：把 `extensions/kizemo.git` 加进 `tauri.conf.json` 的 resources 再发一版，或在清单层统一口径。
+2. **`PrintWindow` 截到下半屏黑块**（已知抓屏时机问题，非产品缺陷）；卡片区完整可读。
+3. **「从零安装扩展」链路本机未验证**：`github.com` 的 archive 需走 git 代理（`http://127.0.0.1:7897`）才可达，
+   本轮只取「市场页展示 + bundled 覆盖」证据，未做下载安装闭环。
+
+### 6.5 验收资产与真实数据处理
+
+| 内容 | 路径 |
+|---|---|
+| 第一轮（安装 + 展示 + bundled 覆盖） | `.superpowers/sdd/accept-310-market-branding.ps1` |
+| 第二轮（重启复验版本号） | `.superpowers/sdd/accept-310-recheck.ps1` |
+| 启动路由改写（`lastRoute` → 扩展页） | `.superpowers/sdd/set-start-route-310.cjs` |
+| 日志 | `.superpowers/sdd/accept-310-market/accept-310-market.log`、`accept-310-recheck.log` |
+| UIA 树 | `.superpowers/sdd/accept-310-market/uia-tree.txt`、`uia-tree-recheck.txt` |
+| 截图 | `.superpowers/sdd/accept-310-market/shot-printwindow.png`、`shot-screen.png`、`shot-recheck.png` |
+
+真实数据零污染（逐条核对）：
+
+- `user-settings.json` 备份为 `user-settings.json.acc310-backup` / `.acc310b-backup`，验收后**先杀进程 → restore →**
+  `SETTINGS_RESTORED_MATCH=True`；`AFM_ALIVE_BEFORE_RESTORE=0`（restore 前进程确已清空）。
+- 未改动 `user-stats.json` / `user-workspaces.json` / `user-extensions.json`。
+- 遮挡检查：窗口中心 `WindowFromPoint` 的根窗口 owner pid = 应用自身 pid ⇒ 截图期间无第三方窗口覆盖。
 
 ## 七、阻塞与未决
 
@@ -226,9 +295,13 @@ git 经 bash 调用会打印 `/usr/bin/sh: warning: setlocale: LC_ALL: cannot ch
      分类采用官方表值 `Productivity` + `Integration`；manifest 内小写 `productivity`/`navigation` **保持不改**
      （改了要重算 integrity 并触发 bundled 更新，代价不对称）。
    - ⚠️ 仍未取的证据只剩**真机界面**一项（见 §八 第 10 步）。
+2. **`sigma-hub` 不列为官方**是可逆决策（写在 `src/data/extensions.ts` 注释里）。若用户希望 sigma 生态也算官方，
    只需往 `OFFICIAL_EXTENSION_OWNERS` 加 `'sigma-hub'`，但会与「sigma = 第三方源」的上一轮决策相冲突。
 3. **`hi` / `hy` 语言包**仍是旧品牌串，follow-up。
 4. 上一轮「市场/已安装选项卡页面消失」的反馈**已由用户撤销**，不再排查。
+5. **`kizemo.git` 不在 3.10.0 的 bundled 资源里**（2026-11-05 真机验收新发现，见 §6.4）⇒ 装机目录只有 `kizemo.focus-sync`，
+   Git Tools 的**已安装副本** publisher 仍是 `kizemo`（市场页显示的是清单条目，已是 `Alpha File Manager`）。
+   要修：把 `extensions/kizemo.git` 加进 `tauri.conf.json` 的 resources 后再发一版。
 
 ## 八、下阶段计划（按顺序）
 
@@ -279,10 +352,11 @@ git 经 bash 调用会打印 `/usr/bin/sh: warning: setlocale: LC_ALL: cannot ch
    顺带修好 `kizemo.git` 里 `publisher.name` 行的缩进）与本 handoff 一起提交并推 `origin/main`；
    **发版提交 `18a349e7` 与 tag `v3.10.0` 不动**（清单热更新，不需要再发一版应用）。提交 SHA 用
    `git log -1 --format=%H -- docs/handoff-2026-11-04-extension-official-featured-branding-and-release-310.md` 取。
-10. **3.10.0 装机真机验收 §6 四项证据 + Focus Sync 精选可见性 —— 这是本任务唯一剩余项。**
-    本机现装 **v3.9.2** ⇒ 验收前必须先装 `release/Alpha File Manager_3.10.0_x64-setup.exe`
-    （44938742 B / sha256 `73bbf8d812c58b5a332a2ff676ae38e8cf47fbb21f8d41b0afac59d1ef7b848e`，与 GitHub Release 官方 `digest` 逐字一致）；
-    restore 真实数据前先杀进程（`Get-Process alpha-file-manager` 必须为空）。
+10. ✅ **3.10.0 装机真机验收 §六 四项证据 —— 已完成**（2026-11-05 00:45 → 01:10，结论与原始证据见 §六）：
+    3.10.0 已静默装到 `D:\Program Files\Alpha File Manager`（`ProductVersion` 3.9.2 → **3.10.0**，NSIS `/S` exit 0，
+    exe mtime = 2026-11-04 23:33:42 = 打包产物时间戳）；四项证据（官方徽章 / 精选区 / 作者名 / 来源徽章）**全部有 UIA + 像素双证据**；
+    §4.3 的 bundled 覆盖亦已确认（`kizemo.focus-sync` 的磁盘与 UI 都变成 0.5.8 / publisher `Alpha File Manager`）。
+    遗留见 §6.4（新发现 1：`kizemo.git` 不在 3.10.0 的 bundled 资源里，已安装副本 publisher 仍是 `kizemo`）。
 11. winget 清单更新只能手工开 PR（未授权自动提交）。
 12. follow-up：`hi` / `hy` 语言包旧品牌串。
 ## 九、证据文件路径清单
@@ -307,6 +381,7 @@ git 经 bash 调用会打印 `/usr/bin/sh: warning: setlocale: LC_ALL: cannot ch
 | **线上清单快照（本轮）** | `.superpowers/sdd/logs/online-registry.json`（解码后正文）、`.superpowers/sdd/logs/online-registry.sha.txt` = `00722a7b0be0aef5bcf8695c3cb533fcdc3ac490` |
 | **Focus Sync 公网仓暂存目录** | `.superpowers/sdd/focus-sync-repo-v2/`（7 项白名单 + `README.md` 1907 B；独立嵌套 git 仓，`.superpowers/` 被主仓 gitignore ⇒ 不入主仓） |
 | 清单回填补丁 | `.superpowers/sdd/patch-handoff-310d.cjs`（第二轮）、`.superpowers/sdd/patch-handoff-310e.cjs`（第三轮） |
+| **3.10.0 真机验收（本轮）** | `.superpowers/sdd/accept-310-market-branding.ps1`（安装 + 展示 + bundled 覆盖）、`.superpowers/sdd/accept-310-recheck.ps1`（重启复验版本号）、`.superpowers/sdd/set-start-route-310.cjs`（把 `lastRoute` 指向扩展页）、`.superpowers/sdd/accept-310-market/accept-310-market.log`、`accept-310-recheck.log`、`uia-tree.txt`、`uia-tree-recheck.txt`、`shot-printwindow.png`、`shot-screen.png`、`shot-recheck.png` |
 
 ## 十、本轮新增的工具坑（**别再试原写法**）
 
@@ -342,3 +417,11 @@ git 经 bash 调用会打印 `/usr/bin/sh: warning: setlocale: LC_ALL: cannot ch
   旧笔记里「archive 字节可能不稳定」的顾虑在这些仓库上不成立；但**重新打 tag / 改内容必须重算 integrity**（值随 commit 变）。
 - **调用预算**：本轮实际 40+ 次工具调用，严重超支（铁律 ≤10）。超支全部来自 archive 下载反复试与清单结构猜键名 ⇒
   下次「一个下载反复失败 + 一个 JSON 取不到值」时，**先各花一次调用查配置/键名，而不是各花三次试写法**。
+- **验收脚本必须「先切到市场 Tab，再等卡片文案」**：市场卡片只存在于「市场」Tab 内（`extensions.tabs.marketplace`），
+  先等文案会白等满 420 s 预算 ⇒ 等待循环里要每轮尝试 `SelectionItemPattern.Select()`。
+- **`ExtensionBadge` 的 official / community 徽章默认 `showLabel=false`** ⇒ 只有图标 + tooltip，**UIA 里没有文字**
+  ⇒ 「UIA 搜不到『官方』」**不能**判徽章没渲染；只有 `type="source"` 的徽章带文字（label = 市场源名）。
+  官方徽章只能靠**像素**判（紫色圆形 vs 社区的蓝色盾牌）。
+- **bundled 同步写盘后，同一会话内的 UI 仍显示旧版本号**（卡片取的是启动时的 manifest 快照）
+  ⇒ 验「bundled 更新是否生效」要**重启应用**再看卡片版本号，只看首次启动会误判成「更新没生效」。
+- **`.ps1` 里 `edit` 类锚点会因 CRLF 失配** ⇒ 改已有 `.ps1` 用 node 按行 splice，别用 `edit` 工具的整块 `old_string`。
