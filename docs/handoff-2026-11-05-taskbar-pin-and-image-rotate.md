@@ -482,3 +482,57 @@ CLICKED_VIA=InvokePattern
 - 夹具生成：`.superpowers/sdd/make-search-fixture.cjs`
 - winget 清单生成：`.superpowers/sdd/gen-winget-3110.cjs`
 - 应用日志：`%LOCALAPPDATA%\com.sigma-file-manager.app\logs\Alpha File Manager.log`（搜索扫描时间戳是 UTC，比本地早 8 小时；应用运行时用 `FileShare.ReadWrite` 读，否则被独占锁挡住）
+
+## 12. aiec 站点发布链路（2026-11-06 收尾）
+
+### 12.1 「aiec 版本说明」写在哪（实测澄清）
+
+站点页面 `index.html` 是从 `version.json` 动态渲染的：
+
+```js
+if (m.notes) { document.getElementById('notes').textContent = m.notes; }
+```
+
+⇒ **站点版本说明 = `version.json` 的 `notes` 字段**（历史条目另在 `history[].notes`）。
+`_release-notes-v*.md` **不在 SFTP 上传白名单**里 —— `_upload_alpha_files.py` 的 `SITE_FILES` 只有
+`index.html` / `.htaccess` / `version.json` / `download.php`，这些 md 只被 `release-publish.mjs github`
+读作 **GitHub Release 正文**。
+
+⇒ 改一次文案要改三处：`version.json.notes`、`version.json.history[0].notes`、`_release-notes-v3.11.0.md`。
+（应用内「更新日志」模态框读的是仓库里的 `public/changelog/<locale>/changelog.md`，与站点这套是两条线。）
+
+### 12.2 上传中断留下截断文件（本轮真发生，已修复）
+
+全量上传（35 文件 / 791 MB）在传 `Alpha_File_Manager_3.8.0_x64-setup.exe` 时连接中断，脚本以**退出码 1** 结束，
+但已写上去的半个文件留在远端：
+
+| 项 | 值 |
+|---|---|
+| 远端（坏） | 5,603,328 B |
+| 本地（应为） | 44,704,300 B |
+| 公网 HEAD | 200（**看不出坏**） |
+
+发现方式：逐版本 HEAD 比对大小，只有 3.8.0 对不上。磁盘不是原因（`/dev/vda3` 40G，用 29G，剩 8.5G）。
+
+修复：paramiko 单独 `put` 该文件 + 远端 `md5sum` 校验通过
+（md5 `87110e32b5a5262f23f2602b01a81b56`，44,704,300 B，与本地一致）。
+事后全量复核：**35 个文件远端 md5 + size 与本地全部一致（MISMATCH=0）**。
+
+脚本：`.superpowers/sdd/ssh-reupload-380.py`（单文件重传）、`.superpowers/sdd/ssh-verify-all.py`（全量比对）、
+`.superpowers/sdd/ssh-check-disk.py`（磁盘/远端目录巡检）、`.superpowers/sdd/sync-site-notes-3110.cjs`（文案同步）。
+
+### 12.3 3.11.0 发布收口状态（全部已验证）
+
+- `origin/main` = `f8ad4499`（含 README 双语、CHANGELOG 母版、`public/changelog/ch/changelog.md` 补强）。
+- tag `v3.11.0` → commit `bb2f9baa`；GitHub Release 资产 digest `sha256:b67b627e…a602` / 45,105,474 B，与本地包一致。
+- GitHub Release 正文已同步为准确口径（编码 5596 → 2117 毫秒，端到端 2243 毫秒）。
+- 站点源 `version.json` 的 `notes` 与 `history[0].notes` 已换成同一份准确文案 + `## 构建信息` 脚注；
+  `--files-only` 增量上传后**公网读回确认** `version=3.11.0`、新文案已生效（`has5596=true`、旧的「约 6.5 秒」已消失）。
+- `release-publish.mjs verify` 通过：版本号 / 大小 / sha256 三项一致（源站与 Cloudflare 边缘均已生效）。
+
+### 12.4 仍未覆盖 / 按策略不做
+
+- 3.11.0 的 13 个非中英语言 changelog 条目**未逐字改写**（版本覆盖完整，只是文案仍是旧表述）—— 避免引入低质量翻译。
+- 「应用内更新通道」的升级路径**未单独复测**（只测了手动双击 setup.exe）。
+- 最终 21:29 产出包**未**重跑「升级保留任务栏固定」验收（19:00 包实测 PASS，NSIS 源码未变 ⇒ 推断）。
+- winget PR **未提交**（3.5.1 的 PR #460744 仍 OPEN，按「同一包 ID 只提最新一版」原则只备清单）。
