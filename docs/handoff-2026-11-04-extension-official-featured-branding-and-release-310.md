@@ -595,4 +595,372 @@ Text | Light color themes for Sigma File Manager.                 <- 同上
 - **站点独立读取**：`E:\办公文件\L1网站\alpha-file-manager\version.json` 现 **73 115 B** @ `10:09:27`、`version=3.10.1`；`.superpowers\sdd\logs\upload-3101.log` 尾部逐字 `[verify] 通过：版本号 / 大小 / sha256 三项均一致（源站与边缘都已生效）`（该日志是 cp936，按 UTF-8 解出替换字符属正常，不影响判读）。
 - **未闭环**：与 §11.7 一致，本节未新增阻塞。**需求 3「应用内确实走了镜像」的硬证据仍缺**，是接力首选项。
 
+## 十二、§11.7 七条 follow-up 收口（2026-11-05）
+
+> **本轮范围**：只做 §11.7 的 7 条 follow-up，**不做发版动作**。版本号仍是 `3.10.1`，
+> `release/Alpha File Manager_3.10.1_x64-setup.exe`（已发布资产，sha256 `e074d023…e164`）**原样未动** ——
+> `scripts/publish-bundle-to-release.mjs` 对「同名异容」的产物会改写进 `release/local-builds/`，不会覆盖已发布资产。
+> 基线：HEAD `a2b4e4ad`（tag `v3.10.1`），本轮起始工作树干净。
+> 门禁全绿 + **需求 3 的「应用内确实走了中国镜像」硬证据已取到**（见 12.5）。
+
+### 12.1 七条 follow-up 收口一览
+
+| # | follow-up（§11.7 原文） | 状态 | 落点 |
+|---|---|---|---|
+| 1 | 需求 3 缺应用内硬证据 | ✅ 已补日志 + **装机取证成功** | `src-tauri/src/extensions/http.rs` |
+| 2 | `module-load-recovery.test.ts:108-124` 仍失败 | ✅ 已修 | `src/utils/__tests__/module-load-recovery.test.ts` |
+| 3 | 需求 4 触发源未落到具体函数名 | ✅ 已定位并解释缺口 | `src/stores/runtime/extensions.ts` |
+| 4 | `hi` / `hy` 语言包旧品牌串 | ✅ 已换 | `src/localization/messages/{hi,hy}.json` |
+| 5 | `kizemo.git` 未进 bundled resources | ✅ 已进（部署/注册仍开放） | `src-tauri/tauri.conf.json` |
+| 6 | 门禁脚本不落 `CARGO_TEST_EXIT` / `GATES_END` | ✅ 改逐步 state 文件 | `.superpowers/sdd/gates-3102.cmd` |
+| 7 | `extension-settings.vue` 用 AFM code 拼扩展语言包文件名 | ✅ 改 BCP-47 | `src/modules/settings/ui/categories/extensions/extension-settings.vue` |
+
+### 12.2 逐条说明
+
+#### 12.2.1 需求 3 ·「实际尝试了哪个 URL」的应用内取证
+
+**代码落点**：`src-tauri/src/extensions/http.rs`
+
+- 新增 `describe_candidate_for_log(url) -> String`：保留 **scheme + host + path**，丢掉 query / fragment / userinfo
+  （query 可能带访问令牌，绝不能落日志）。
+  中国镜像候选的完整形态是 `https://ghfast.top/https://raw.githubusercontent.com/owner/repo/main/file.json` ——
+  只记 host 看不出到底走了哪条路，所以专门补一条能直接当证据用的完整形态。
+- `fetch_text_across_urls_with_config()`：每个候选进循环先打
+  `[ext-http] attempt op=… candidate=i/n url=…`；成功打
+  `[ext-http] result op=… candidate=i/n status=… ok=… url=…`；候选失败打
+  `[ext-http] candidate-failed op=… candidate=i/n url=… reason=…`。
+- `download_to_file_across_urls_with_retry()`：同样加 attempt / result。
+- 单测 +2 条：`describe_candidate_for_log_keeps_full_china_mirror_shape`、
+  `describe_candidate_for_log_drops_query_and_fragment`。
+
+**为什么必须是 INFO 而不是 DEBUG**：`src-tauri/src/lib.rs:612-625` 的 `tauri_plugin_log` 是
+`.level(log::LevelFilter::Info)` ⇒ **DEBUG 不进 release 的日志文件**，写在 DEBUG 层的取证等于没写。
+
+**为什么之前明明有镜像、日志里却查无实据**（3.10.1 应用日志 `…\logs\Alpha File Manager.log`，14 106 行实测）：
+
+```
+L13199 cancel_all_extension_commands called for extension: kizemo.focus-sync
+L13200 download extension 'kizemo.focus-sync': attempt 1/4 on github.com failed
+L13204 download extension 'kizemo.focus-sync': attempt 3/4 on github.com failed
+L13217 download extension 'kizemo.focus-sync': giving up on github.com after 4 attempts
+L13218 download extension 'kizemo.focus-sync': trying next fallback URL after transient failure
+L13221 Renamed locked directory …\extensions\.kizemo.focus-sync.bac
+L13222 cancel_all_extension_commands called for extension: kizemo.focus-sync
+```
+
+`github.com` 候选 4 次全败 → 切下一个候选 → 紧接着就进入换装收尾（`.bak` 改名）⇒
+**下一个候选（`ghfast.top`）下载成功了，但成功路径一行日志都不打**
+（`download_to_file_across_urls_with_retry` 的成功分支就是 `Ok(()) => return Ok(())`）。
+⇒ 整份日志里 `ghfast` 命中 **0** 次。
+
+**教训**：「失败方的 WARN 只写 host」+「成功方完全不打日志」两头叠加，
+镜像链明明在候选队列里，却无法从应用内证明走过 —— 这正是本条 follow-up 要补的洞。
+
+#### 12.2.2 follow-up 2 · `module-load-recovery.test.ts` 失败用例
+
+**根因（实测，非推测）**：jsdom 的 `Storage` 是 **Proxy**，`get` 陷阱返回的是实现对象上的**绑定副本**，
+所以 `vi.spyOn(Storage.prototype, 'setItem')` 拦不到实际调用。探针实测：
+`spyIntercepts=false`、`sameFn=false`、`descriptorConfigurable=true`、`definePropertyThrows=false`、
+`stubIntercepts=true`。
+
+**修法**：整体替换 storage 对象，而不是改原型 ——
+`vi.stubGlobal('sessionStorage', { getItem, setItem(抛错), removeItem, clear, key, length })`，
+并在 `afterEach` 里加 `vi.unstubAllGlobals()`。
+定点复验：`npx vitest run src/utils/__tests__/module-load-recovery.test.ts` → **8 passed**（修前 1 failed / 7 passed）。
+
+#### 12.2.3 follow-up 3 · 需求 4 触发源落到具体函数名 + 缺口解释
+
+需求 4 的「装机副本生效」= 应用启动时自动把 `kizemo.focus-sync` 从 v0.5.8 换到 v0.5.9。
+**触发链（全部落到具体函数名）**：
+
+```
+src/stores/runtime/extensions.ts
+  init()                                  :2372
+  └─ void runStartupMarketplaceSync()    :2431   ← void，不 await（市场同步不阻塞启动）
+       └─ runStartupMarketplaceSync()    :2361
+            ├─ fetchRegistry()
+            ├─ prefetchAllVersions()
+            └─ autoUpdateAllExtensions()  :2365   ← 「启动自动更新」在这一行
+                 ├─ getAutoUpdateExtensions()     :2275  ← 筛选用同步的 hasUpdate()
+                 └─ await updateExtension(id)     :2298
+                      └─ updateExtension()         :1466
+                           ├─ unloadExtension()                :1486
+                           ├─ invoke('cancel_all_extension_commands') :1487 ← 日志里那条 cancel_all
+                           ├─ getLatestVersion() / fetchExtensionManifest()
+                           └─ (Rust) download_extension → src-tauri/src/extensions/install.rs:106
+                                ├─ UrlCandidates::new(url).with_china_mirrors()  install.rs:137-139
+                                └─ download_to_file_across_urls_with_retry()      install.rs:144
+```
+
+**`hasUpdate` 为什么不是触发源**：它（`src/stores/runtime/extensions.ts:2229-2247`）是**同步**函数，
+只读 `getCachedLatestVersion(registryEntry.repository)` 的缓存版本号与已装版本比大小，**不发任何网络请求**；
+在启动自动更新里它只当**筛选用**（`getAutoUpdateExtensions()`）。
+
+**「cancel_all 与启动自动更新之间的缺口」缺的是什么**：
+
+`cancel_all_extension_commands` **不是**启动钩子，而是 `updateExtension()` 的**第 2 步**（换装前把该扩展的进程全杀掉，
+见 :1486-1487）。前端 6 个调用点 —— `rollbackInstallAfterCancel:458` / `installExtension:1120` /
+`installLocalExtension:1235` / `refreshLocalExtension:1324` / `removeInstalledExtension:1413` /
+`updateExtension:1466` —— **全部**在安装/更新/卸载流程里，**没有一个是启动钩子**。
+
+缺口是「启动自动更新」这件事在应用日志里几乎没有自己的痕迹，**两头都看不见**：
+
+1. 前端唯一的启动标记是 `console.log('Auto-updating extension: ' + id)`
+   （`src/stores/runtime/extensions.ts:2297`），走 WebView console，
+   **不进 tauri_plugin_log 的日志文件**（该插件只落 Rust `log` crate 的输出，本仓没接前端 console 转发）
+   ⇒ 3.10.1 整份日志里 `Auto-updating` 命中 **0** 次。
+2. 后端唯一的痕迹是 `download extension 'kizemo.focus-sync'` 这条 WARN，而它只写 host
+   （`describe_url_for_log` → `github.com`），**看不出候选的完整 URL**。
+3. **候选成功时一行日志都不打**（见 12.2.1）。
+
+⇒ follow-up 1 补的 `[ext-http] attempt / result / candidate-failed` 正好把两头都补上：
+`op=download extension 'kizemo.focus-sync'` + 候选完整 URL = 一条能直接当应用内硬证据的链。
+
+#### 12.2.4 follow-up 4 · `hi` / `hy` 旧品牌串
+
+- `hi.json`：`officialTooltip` 的「सिग्मा फ़ाइल मैनेजर」→「Alpha File Manager」。
+- `hy.json`：`officialTooltip` / `engineAppWarning` / `requiresSigmaFileManager` 三处的
+  「Sigma ֆայլային մենեջեր」「Sigma ֆայլերի մենեջեր」→「Alpha File Manager」。
+- 不在范围：各语言包第 4 行的市场描述「is developed on top of Sigma File Manager」；
+  第三方扩展自带的 "Sigma File Manager" 文案；`engines.sigmaFileManager`、installer 进程名/路径检测、
+  代码注释里的 `Sigma FM`、API 名 `sigma.ui`。
+
+#### 12.2.5 follow-up 5 · `kizemo.git` 进 bundled resources
+
+`src-tauri/tauri.conf.json` 的 `bundle.resources` 新增 3 条：
+
+```
+"../extensions/kizemo.git/package.json": "extensions/kizemo.git/package.json"
+"../extensions/kizemo.git/dist":          "extensions/kizemo.git/dist"
+"../extensions/kizemo.git/locales":       "extensions/kizemo.git/locales"
+```
+
+**本轮做到哪一步**：装机目录（`$INSTDIR\extensions\`）从「只有 `kizemo.focus-sync`」变成「两个官方扩展都在」——
+真机实测 `D:\Program Files\Alpha File Manager\extensions\` 下 `kizemo.focus-sync` 与
+`kizemo.git`（含 `dist/`、`locales/`）**均已落地**（见 12.5）。
+
+**仍开放（本轮明确不做）**：把 `kizemo.git` **部署**到 `%APPDATA%\com.sigma-file-manager.app\extensions\`
+并写进 `user-extensions.json`。理由：
+① `src-tauri/installer/hooks.nsh` 的 POSTINSTALL hook 是**逐文件硬编码** `kizemo.focus-sync` 的
+（package.json / dist/index.js / dist/index.js.map / locales/en.json / locales/zh-CN.json），要带上 `kizemo.git`
+得扩 hook 与 `tools/register.ps1`；
+② Rust 侧**没有** `resource_dir` 的运行时消费者（实测全仓无 `resource_dir` / `resolve_resource` 命中），
+所以 bundled 的 `kizemo.git` 在当前形态下是「随包发布」而不是「自动装好」；
+③ 自动注册会**改变新装用户的默认扩展集合**，属产品决策，超出本轮 follow-up 范围。
+
+#### 12.2.6 follow-up 6 · 门禁脚本可靠标记
+
+`.superpowers/sdd/gates-3102.cmd`（纯 ASCII）：每步完成后**立刻把退出码写进独立的 state 文件**
+`.superpowers/sdd/state-3102.txt`，轮询侧只看「最后写进去的是哪一行」就能判定进度到哪一步，
+不再依赖「最后一步才写的尾标记」。
+
+```
+GATES_START
+TS_EXIT=0
+VITEST_EXIT=0
+ESLINT_EXIT=1
+CHANGELOG_EXIT=0
+CARGO_TEST_EXIT=0
+GATES_DONE
+```
+
+⚠️ 写 state 的 `echo` **必须在 `>` 前留一个空格**：`echo TS_EXIT=%ERRORLEVEL%>"%STATE%"` 在退出码为 `0` 时
+会被 cmd 解析成 **stdin 重定向 `0>`**，写出去只剩 `TS_EXIT=`（退出码丢失）——
+这是本轮实际踩到并修掉的 bug（第一版脚本就是这么写的，跑出来是空的 `TS_EXIT=`）。
+
+#### 12.2.7 follow-up 7 · 扩展语言包文件名改 BCP-47
+
+`src/modules/settings/ui/categories/extensions/extension-settings.vue` 的 `loadExtensionMessages()`
+原来用 AFM 自己的 locale code（`ch` / `he` / `hy`…）拼 `locales/${locale}.json`，
+而扩展包的语言包是 **BCP-47** 文件名（`locales/zh-CN.json`）⇒ 永远命中不了。
+
+修法：**复用**既有正确实现 `src/modules/extensions/utils/extension-locale.ts`
+（`getExtensionLocaleFileNames` / `EXTENSION_LOCALE_DIR` / `EXTENSION_DEFAULT_LOCALE`，
+内部走 `intlLocaleMapping` 做 AFM code → BCP-47 映射），不新造映射表；
+命中顺序 = BCP-47 候选 → AFM 原始 code → `locales/en.json` 兜底。
+
+### 12.3 门禁（本轮，已验证）
+
+```
+TS_EXIT=0
+VITEST_EXIT=0        284 个测试文件 / 2648 个用例全过
+ESLINT_EXIT=1        186 errors / 0 warnings —— 与 3.10.1 基线逐字相同（186/0）
+                     本轮 6 个改动文件单独复查：0 违规
+CHANGELOG_EXIT=0
+CARGO_TEST_EXIT=0     919 passed（3.10.1 基线 917 + 本轮新增 2 条单测）
+GATES_DONE
+```
+
+`eslint .` 退出码非零是**仓库既有状态**（186 条存量违规），门禁判据是「总数不高于基线 + 新文件 0 违规」，本轮两条都满足。
+
+本轮工作树改动 = 6 个文件（`git diff --stat`：127 insertions / 39 deletions）：
+
+```
+src-tauri/src/extensions/http.rs                            | 88 +++++++++++++++++++++-
+src-tauri/tauri.conf.json                                  |  5 +-
+src/localization/messages/hi.json                           |  2 +-
+src/localization/messages/hy.json                           |  6 +-
+src/modules/settings/ui/categories/extensions/extension-settings.vue | 49 +++++-------
+src/utils/__tests__/module-load-recovery.test.ts            | 16 +++-
+```
+
+### 12.4 本轮新增的工具坑（**别再试原写法**）
+
+1. **cmd 的 `echo X=%VAR%>file` 在 `VAR=0` 时会被解析成 stdin 重定向 `0>`** ⇒ 写出的内容只剩 `X=`，
+   退出码丢失。所有 `echo … >file` 都必须在 `>` 前留一个空格（`echo X=%VAR% >file`）。
+2. **应用日志里 `ghfast` 命中 0 次 ≠ 镜像没生效** —— 下载链路的成功分支不打日志，
+   只有失败方才有 WARN，而 WARN 还只写 host。判断「有没有走镜像」不能只看失败方的行。
+3. **前端 `console.log` 不进 `tauri_plugin_log` 的日志文件**（该插件只落 Rust `log` crate 的输出）。
+   任何「靠前端打印证明某件事发生过」的取证思路在本项目都不成立。
+4. **`rm -- <path>` 在本机被安全策略拦下**（要求 trusted launcher 的 trash 标记）。
+   一次性文件的处置改用 `Move-Item` 移到 `.superpowers/sdd/`（gitignore 区）—— 同样让工作树干净，且可恢复。
+5. **jsdom 的 `Storage` 是 Proxy**：`vi.spyOn(Storage.prototype, 'setItem')` 必然失效，
+   `vi.stubGlobal('sessionStorage', …)` 才有效。
+6. **`.cmd` 里的 `timeout /t N` 在无控制台的后台进程里会立刻失败**（`ERROR: Input redirection is not supported`，
+   错误被 `>nul 2>&1` 吞掉）⇒ **等待根本没发生**。第一轮装机脚本就是这么把「等 90 秒」变成了「等 0 秒」，
+   采集到的是应用刚启动 1 秒时的日志（`startup-probe.log` 的 mtime 正好等于启动秒数，是这个坑的指纹）。
+   后台脚本里改用 `ping -n N+1 127.0.0.1 >nul` 或 `powershell -c "Start-Sleep N"`。
+7. **安装包通配符别写成 `*_setup.exe`**：NSIS 产物叫 `Alpha File Manager_<ver>_x64-setup.exe`（**连字符**），
+   `*_setup.exe` 永远匹配不到 ⇒ 脚本静默走 `NO_INSTALLER` 分支。
+8. **Windows 的 `Get-ChildItem` 对「正在被进程打开写入的文件」会返回过期的 Length / LastWriteTime**：
+   同一份应用日志，`Get-ChildItem` 报 2 011 962 B @ 11:11:52，而 `node` 实读是 2 010 014 B（更短、更新）。
+   判日志内容一律用 `node` 读文件，**不要**用文件元数据推算内容。
+9. **应用的 SSRF 守卫在「连接时」用自定义 resolver 复核解析出的 IP**
+   （`http.rs` 的 `PublicOnlyResolver` → `ensure_public_socket_addrs` → `is_private_ip_address`）：
+   把域名指向 `127.0.0.1` 不会「让它连不上」，而是**在出网前就被拒**（`Access denied: target host is not allowed`），
+   且该错误被归类为 **Permanent** ⇒ 不会落到下一个候选 ⇒ 测不出镜像。
+   `security.rs` 明确**不拦** `198.18.0.0/15`（fake-IP 段），用它做黑洞才能既过守卫又制造超时。
+10. **注册表缓存 TTL 只有 5 分钟**（`EXTENSION_REGISTRY_CACHE_TTL_MS = 5 * 60 * 1000`），
+    缓存写在 `user-extensions.json` 里、跨启动保留 ⇒ 刚跑过一次市场同步后再立刻重启，
+    **整段同步会被跳过**，日志里一条 `[ext-http]` 都不会有。做取证前要先把缓存放过期。
+
+### 12.5 打包、装机与应用内取证
+
+#### 12.5.1 打包（`tauri build`，后台跑，未用 `tauri dev`）
+
+```
+.superpowers/sdd/build-3102.cmd   （纯 ASCII；内部 `> logfile 2>&1` 重定向，不挂 stdout 管道）
+.superpowers/sdd/state-build-3102.txt
+.superpowers/sdd/logs/build-3102.log
+```
+
+state 文件最终内容：
+
+```
+BUILD_START
+SYNC_VERSION_EXIT=0
+BUILD_EXIT=0
+BUILD_DONE
+```
+
+产物：`src-tauri\target\release\bundle\nsis\Alpha File Manager_3.10.1_x64-setup.exe`
+**44 960 646 B** @ `2026-11-05 11:11:45`。
+`publish-bundle-to-release.mjs` 把它落到 `release\local-builds\`，**没有覆盖**已发布的
+`release\Alpha File Manager_3.10.1_x64-setup.exe`（44 940 588 B，sha256 `e074d023…e164`）。
+
+#### 12.5.2 静默装机
+
+```
+.superpowers/sdd/accept-3102b.cmd   （修正安装包通配符后的版本）
+.superpowers/sdd/state-accept-3102.txt
+```
+
+```
+ACCEPT_START
+APP_STOPPED
+INSTALLER=…\bundle\nsis\Alpha File Manager_3.10.1_x64-setup.exe
+INSTALL_EXIT=0
+BUNDLED_KIZEMO_GIT=YES       ← follow-up 5 落地
+BUNDLED_FOCUS_SYNC=YES
+BUNDLED_KIZEMO_GIT_DIST=YES
+BUNDLED_KIZEMO_GIT_LOCALES=YES
+APP_LAUNCHED
+COLLECT_EXIT=0
+ACCEPT_DONE
+```
+
+装机目录 `D:\Program Files\Alpha File Manager\`：
+`alpha-file-manager.exe` **80 674 816 B** @ `2026-11-05 11:11:10`（= 本轮新构建）；
+`extensions\` 下 `kizemo.focus-sync` 与 `kizemo.git`（`@ 2026-11-05 11:13:34`）**两个官方扩展都在**。
+
+#### 12.5.3 需求 3 的硬证据：应用内确实走了中国镜像 ⭐
+
+**取证方法（不改产品代码、不改用户数据）**：让 primary 主机**连不通但不触发应用的 SSRF 守卫**，
+迫使候选链落到中国镜像候选。做法是临时改 hosts：
+
+```
+198.18.0.1 raw.githubusercontent.com
+198.18.0.1 github.com
+```
+
+- `198.18.0.1`（RFC 2544 benchmark 段）在 `security.rs::is_non_public_ipv4_address` 里**被明确放行**
+  （注释：fake-IP 代理工具会把这个段发给所有公网主机）⇒ 过得了连接时的 IP 复核；
+- 实测该 IP `:443` **连接超时**（`ghfast.top:443` 同时刻 CONNECTED）⇒ 归类为 **Transient**
+  ⇒ 候选链**继续往下走**（见 `http.rs:843-859`）；
+- hosts 文件全程**先备份、finally 还原、还原后比对 SHA256**，
+  三轮跑完 `HOSTS_HASH_AFTER == HOSTS_HASH_BEFORE`（`2D6BDFB3…57085`），**机器上无残留**。
+
+脚本与证据：
+
+```
+.superpowers/sdd/mirror-test.ps1        （第 1 轮，127.0.0.1 → 被守卫拦，未遂）
+.superpowers/sdd/mirror-test2.ps1       （第 2 轮，缓存 TTL 未过期，整段同步被跳过）
+.superpowers/sdd/mirror-test3.ps1       （第 3 轮，198.18.0.1 → 成功）
+.superpowers/sdd/state-mirror-test3.txt
+.superpowers/sdd/logs/mirror-test3-ext-http.log
+.superpowers/sdd/logs/app-log-before-mirror-test3.log
+```
+
+**应用日志实测（`C:\Users\Duanyi\AppData\Local\com.sigma-file-manager.app\logs\Alpha File Manager.log`，
+本轮装机产物，2026-11-05 03:26:34~03:26:57 UTC = 11:26 本地）**：
+
+```
+[ext-http] attempt op=fetch URL candidate=1/5 url=https://raw.githubusercontent.com/kizemo/sfm-marketplace/main/registry.json
+[ext-http] attempt op=fetch URL candidate=1/5 url=https://raw.githubusercontent.com/sigma-hub/sfm-marketplace/main/registry.json
+[ext-http] candidate-failed op=fetch URL candidate=1/5 url=https://raw.githubusercontent.com/kizemo/sfm-marketplace/main/registry.json reason=fetch URL (raw.githubusercontent.com): network timeout
+[ext-http] attempt op=fetch URL candidate=2/5 url=https://ghfast.top/https://raw.githubusercontent.com/kizemo/sfm-marketplace/main/registry.json
+[ext-http] attempt op=fetch URL candidate=2/5 url=https://ghfast.top/https://raw.githubusercontent.com/sigma-hub/sfm-marketplace/main/registry.json
+[ext-http] result op=fetch URL candidate=2/5 status=200 ok=true url=https://ghfast.top/https://raw.githubusercontent.com/sigma-hub/sfm-marketplace/main/registry.json
+[ext-http] result op=fetch URL candidate=2/5 status=200 ok=true url=https://ghfast.top/https://raw.githubusercontent.com/kizemo/sfm-marketplace/main/registry.json
+…（其余 8 个扩展的 package.json 同样 candidate=1/5 超时 → candidate=2/5 ghfast.top → status=200 ok=true）
+```
+
+统计（`collect-ext-http.cjs`）：`ghfast` 相关行 **20** 条，其中
+`result … status=200 ok=true` 的镜像成功行 **10** 条，覆盖
+`sfm-marketplace` × 2 + `focus-sync` / `sfm-git-extension` / `sfm-extension-clipboard` /
+`sfm-extension-excalidraw` / `sfm-extension-media-converter` / `sfm-extension-video-downloader` /
+`sigma-light-themes` / `sigma-file-manager` 共 **10 个仓库**。
+
+⇒ **§11.7 第 1 条闭环**：应用日志里能直接读出「实际尝试了哪个 URL」，
+并且已实测证明**确实走到了 `ghfast.top` 中国镜像候选并成功取回**。
+
+#### 12.5.4 需求 4 的旁证：装机副本自动更新到 v0.5.9
+
+同一份装机产物的首轮启动（11:13:51 启动、11:14 同步）日志：
+
+```
+[ext-http] attempt op=download extension 'kizemo.focus-sync' candidate=1/5 url=https://github.com/kizemo/focus-sync/archive/refs/tags/v0.5.9.zip
+[ext-http] result op=download extension 'kizemo.focus-sync' candidate=1/5 ok url=https://github.com/kizemo/focus-sync/archive/refs/tags/v0.5.9.zip
+Renamed locked directory C:\Users\Duanyi\AppData\Roaming\com.sigma-file-manager.app\extensions\.kizemo.focus-sync.bac
+delete job … finished in 49.7787848s: cancelled=false deleted_items=381 freed_bytes=348971
+```
+
+装机副本实测：`%APPDATA%\com.sigma-file-manager.app\extensions\kizemo.focus-sync\package.json`
+→ `version=0.5.9`、`publisher={name: Alpha File Manager}`，文件 mtime 全部为 `2026-11-05 11:14:24`
+（= 本轮自动更新的落盘时间）。
+扩展载荷里 `Sigma` 字样只剩 `dist/index.js` 的 **13** 处**代码标识符**（API 名等），
+`package.json` / `README.md` / `locales/*` **均为 0** —— 与 §11.1 的范围锁定一致。
+
+#### 12.5.5 尚在开放（本轮明确不做）
+
+- `kizemo.git` **自动部署**到 `%APPDATA%` 并注册进 `user-extensions.json`（理由见 12.2.5）。
+- **不发版**：本轮不升版本、不打 tag、不推站点、不发 GitHub Release。
+  工作树 6 个改动文件**未提交**，等下一轮统一收口。
+
+### 12.6 下一轮可直接接着做的事
+
+1. 提交本轮 6 个文件改动（提交信息按仓库既有 `docs:` / `fix:` 风格），必要时同步更新 CHANGELOG。
+2. 决定 `kizemo.git` 是否要「自动部署 + 自动注册」——属产品决策，需要先定「新装用户的默认扩展集合」。
+3. 若要把「中国镜像」做成用户可见能力（而不是内部候选链），再单开一轮设计。
+
 > **章节口径**：§六 / §八 / §十 描述的是**上一轮 3.10.0**（含当时发现的徽章缺陷）；3.10.1 的落点、验收与发版一律看 **§十一**。
