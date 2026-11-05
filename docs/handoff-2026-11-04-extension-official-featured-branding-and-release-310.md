@@ -425,3 +425,146 @@ Text   | v0.5.8 | 1144,793 61x23                  <- 重启复验后的卡片版
 - **bundled 同步写盘后，同一会话内的 UI 仍显示旧版本号**（卡片取的是启动时的 manifest 快照）
   ⇒ 验「bundled 更新是否生效」要**重启应用**再看卡片版本号，只看首次启动会误判成「更新没生效」。
 - **`.ps1` 里 `edit` 类锚点会因 CRLF 失配** ⇒ 改已有 `.ps1` 用 node 按行 splice，别用 `edit` 工具的整块 `old_string`。
+- **`.cmd` 的 `echo` 文本里不能出现 `>`**（2026-10-24 钉死，本轮再次确认）：cmd.exe 把 `>` 当重定向符，连注释里的都不放过；
+  `echo [release] bump minor -> 3.6.0` 会截断输出并**在仓库根生成一个名为 `3.6.0)` 的垃圾文件**。描述性文字改用 `to` / `=>`，或整句加引号。
+- **`.cmd` 运行期间绝对不能编辑它**：cmd.exe 按字节偏移逐行读脚本，跑到一半改文件会让后续偏移全部错位、执行到别处的指令片段
+  （历史事故：把 3.6.0 顶到 3.7.0 且日志被截断，Rust 构建产物全丢）⇒ 要改就**先停任务**，再**新起文件名**重跑。
+- **后台 `.cmd` 可能在最后几行 `echo` 写出前就被判为结束**（本轮 `gates-3101h.cmd` 日志缺 `CARGO_TEST_EXIT=` / `GATES_END`）
+  ⇒ 判结果**优先看被调命令自己的输出**（cargo 的 `test result:` 行），不要只认自己写的标记串。
+- **`cargo test --lib` 的测试二进制有条隐形红线：任何被测试链接到的代码都不能碰 `tauri::AppHandle` / `tauri::async_runtime::*`**
+  （会单态化出 `<Wry as Runtime>` → 拖进 tao → 加载期 `STATUS_ENTRYPOINT_NOT_FOUND` 0xC0000139，一个测试都跑不了，报错完全不指向你的模块）。
+  绕法：给业务模块加 `*_blocking` 同步内核入口，调用方自己选执行器。
+- **`#[tool_router]` 不等于接线完成**：`impl ServerHandler` 还必须加 `#[tool_handler]`，否则只有 `tools/list` 返回 `{"tools":[]}`；
+  rustc 对 `tool_router` 字段的 `never read` 警告在这里**不是误报**。
+
+## 十一、3.10.1 发版记录（2026-11-05 完成）
+
+> 本版承接用户 2026-11-05 的四项需求 + 「完成后打包发版」。**3.10.0 的 0~7 步不重跑**。
+
+### 11.1 四项需求与落点
+
+| # | 需求 | 落点 | 状态 |
+|---|---|---|---|
+| 1 | 自建的 `kizemo.focus-sync` / `kizemo.git` 在卡片名称右方显示「官方」**文字**标签 | `extension-card.vue` / `extensions-installed.vue` / `extension-detail.vue` 三处徽章优先级改为 **official > local > community**；`ExtensionBadge` 对该两处改为带文字 | ✅ 真机验收通过 |
+| 2 | 卡片说明文字跟随 AFM 设置语言（中文环境中文；第三方无中文语言包则回退英文） | 新建 `src/modules/extensions/utils/extension-locale.ts`（3329 B）+ `composables/use-extension-localized-description.ts`（6035 B）；改 `extension-card.vue` / `extension-detail.vue` 的 `description` computed | ✅ 真机验收通过 |
+| 3 | 配置仓库链接时在中国网络环境自动跳转中国镜像 | `src-tauri/src/extensions/http.rs` 新增 `UrlCandidates::with_china_mirrors()`(`:607`)、`CHINA_GITHUB_MIRROR_PREFIXES`(`:703`)、`is_china_mirror_supported_host`(`:706`)、`build_china_mirror_urls`(`:713`) + 5 条单测(`:1088-1145`)；`github.rs:228`、`install.rs:138`、`binaries.rs:178/:248/:525/:670` 共 6 处挂上 | ⚠️ 代码 + 单测 + 网络层证据齐；**应用内「确实走了镜像」的硬证据未取到**，记 follow-up |
+| 4 | Focus Sync 说明里的 "Sigma" → "File Manager" | 远端仓 `kizemo/focus-sync` 提交 `70c6f7d` + tag `v0.5.9`（`0.5.8` 未改写）+ registry 线上更新 + 装机副本生效 | ✅ 真机取证 |
+
+#### 需求 1 根因（一句话）
+
+`user-extensions.json` 里 `kizemo.git` 带 `isLocal=true`，而 `isOfficial` 本就为 true（`OFFICIAL_EXTENSION_OWNERS=['kizemo']`）；
+病根是三个组件把 `isLocal` 排在 `isOfficial` **之前**，于是官方扩展被渲染成「本地」。
+
+#### 需求 1 · 3.10.1 真机实测（UIA，已验证）
+
+```
+CARD Focus Sync at=1234,553 133x32 officialLabelsSameRow=1   -> LABEL Text at=1414,557 37x24
+CARD Git Tools  at=1799,553 107x32 officialLabelsSameRow=1   -> LABEL Text at=1953,557 37x24
+thirdPartyLabelsSameRow=0    EXT_LIST_READY=True    CHANGELOG_MODAL_CLOSED=none
+SHOT=.superpowers/sdd/accept-3101/shot-3101-installed.png ok=True    ACCEPT_3101_DONE
+```
+
+> ⚠️ 旧结论「『官方』当关键字搜 UIA 只会命中筛选按钮（78x44）」在本轮仍成立 —— 真标签宽 **37**，筛选按钮宽 **78**，
+> 判别必须带尺寸，否则会把筛选按钮当成徽章。
+
+#### 需求 2 · 3.10.1 真机实测（UIA 原文，已验证）
+
+```
+Text | Listary 风格的全局焦点同步 —— 任何 Windows 应用的文件对话框自动跳转到 File Manager 当前目录。 | 1144,645 488x90
+Text | 在 Alpha File Manager 里直接做 Git 操作：初始化、克隆、抓取、拉取、推送、同步，浏览分支与提交，并把仓库交给 IDE 打开。 | 1709,645 480x90
+Text | Catppuccin color and icon themes for Sigma File Manager.   <- 第三方无中文语言包，按设计回退英文
+Text | Light color themes for Sigma File Manager.                 <- 同上
+```
+
+单测：`src/modules/extensions/utils/__tests__/extension-locale.test.ts`（4596 B）**16 条全通过**。
+
+#### 需求 4 · Focus Sync 0.5.9（已验证）
+
+- 口径：tag 归档 ZIP 的 sha256 作 `integrity` —— **`9ec308531f9ade968a50733bb900e1de1b913f595d92c0bac30510cccf38cf94`** / **21 215 B**（codeload 直连 `HTTP=200`）。
+- 源码逐字节：`package.json` 1988 B / Sigma=0、`locales/en.json` 794 B / 0、`locales/zh-CN.json` 834 B / 0、`dist/index.js` 38558 B / **13**（全在代码注释与 `sigma.ui` API 调用，非用户可见文案）。package.json `version` = **`0.5.9`**。
+- 线上 registry：旧 blob `00722a7b…c490` → 新 **`7702d69825a16cc2bb0705546822ec9c19adb84f`**；回读 2119 B / `ENTRY_COUNT=2` / `VERSIONS=0.5.9,0.5.8` / `DESC_HAS_SIGMA=false`；`publish.mjs --validate` 通过。
+- 装机副本：`EXT_INSTALLED_VERSION=0.5.9`，三个文件 Sigma 计数 0/0/0。
+- 边界（范围锁定）：不动 `engines.sigmaFileManager`、不动 installer 里的进程名与安装路径检测、不改代码注释里的 `Sigma FM`、不改 API 全局名 `sigma.ui`；第三方扩展自带的 "Sigma File Manager" 不在范围。
+
+### 11.2 需求 3 · 中国镜像的实现与边界
+
+候选顺序：**primary → `ghfast.top` → `gh-proxy.com` → `ghproxy.net` → jsdelivr/codeload**。
+`with_china_mirrors()` **必须写在其它 `with_fallback` 之前**，否则镜像排在后面永远轮不到。
+`HTTP_TIMEOUT_SECS = 900`、`HTTP_CONNECT_TIMEOUT_SECS = 5`。
+
+网络实测（已验证）：
+
+| 目标 | 结果 |
+|---|---|
+| `github.com` 归档直连 | `http=000` / `(56) Recv failure: Connection was reset`（19.5 s） |
+| `ghfast.top` | `http=200` / **1.216 s** |
+| `codeload.github.com` 直连 | `http=200` / **0.642 s** |
+| `ghfast.top` / `gh-proxy.com` / `ghproxy.net` 代理 `codeload.github.com`、`api.github.com` | **403** ⇒ 已被 `is_china_mirror_supported_host` 排除并被单测锁定 |
+| `raw.gitmirror.com` | 已不可用 |
+
+> ⚠️ **降级原因**：`http.rs` 不打印实际尝试的 URL，而本机 `raw.githubusercontent.com` 与 `codeload.github.com` 直连都能 200
+> ⇒「市场安装成功」**不足以**证明镜像生效。要取证需给 `UrlCandidates` 加尝试日志后重跑。
+
+### 11.3 门禁（3.10.1，已验证）
+
+脚本 `.superpowers/sdd/gates-3101h.cmd`（1015 B，纯 ASCII），日志 `.superpowers/sdd/logs/gates-3101h.log`（1352 行）：
+
+| 步骤 | 结果 |
+|---|---|
+| `npm run ts` | **`TS_EXIT=0`** |
+| `npx eslint .` | `ESLINT_EXIT=1`，汇总 **186 problems (186 errors, 0 warnings)** —— 低于 188 基线；**三个新文件 0 违规** |
+| `npm run verify-changelog` | **`CHANGELOG_EXIT=0`** |
+| `cargo test --lib` | **`917 passed; 0 failed`**（与基线一致） |
+
+> 判据是「总违规数 ≤ 基线且新文件 0 违规」，**不是退出码**（`eslint .` 设计上非零退出）。
+> 本轮 4 条报错集中在 `file-browser-tree-view.test.ts` 的 `15:8 / 15:47 / 69:43 / 72:55`，经 `git diff` 核对**不在本轮新增的 13 行内**。
+> **既有格式违规刻意不跑 `--fix`**（会污染 `eslint .` 的计数口径）。
+
+### 11.4 打包、安装、恢复（已验证）
+
+| 环节 | 数据 |
+|---|---|
+| 打包脚本 | `.superpowers/sdd/build-3101g.cmd`（631 B，纯 ASCII）→ 日志 2137 行，`Finished 'release' profile in 3m 53s`、`TAURI_BUILD_EXIT=0` |
+| 安装包 | **44 940 588 B** / sha256 **`e074d02326ccf7d7a9c76ddb7cd922a31d71d8d6ff7cedb5cebc7f8e4de3e164`**（`bundle/nsis/`、`release/`、`release/local-builds/` 三方一致） |
+| 静默安装 | `install-3101g.ps1` → `RUN_RC=0`、`INSTALL_EXIT=0`、`DISPLAY_VERSION=3.10.1`、`PRODUCT_VERSION=3.10.1` |
+| 已装 exe | `D:\Program Files\Alpha File Manager\alpha-file-manager.exe` 80 659 968 B / `14946f67…283e` / mtime `2026-11-05 09:54:52`（由旧 f 包的 `c50e8604…` 变为新值 ⇒ 新包已生效） |
+| 真实数据恢复 | 先 `Stop-Process`（`PROCS_AFTER=0`）→ 再逐字节还原 5 个文件，全部 `RESTORED_OK`：`user-extensions.json` 1 867 668 B、`user-remote-connections.json` 1 154 B、`user-settings.json` 5 386 B、`user-stats.json` 32 088 B、`user-workspaces.json` 2 338 B |
+
+> ⚠️ **三处 exe 哈希互不相同**（已装 `14946f67` / `target\release` `94ec189d` / NSIS 内应是 `94ec189d`），
+> 推断为打包链时间戳差异，未继续追查；功能层证据已确认新包生效。**判安装成功看 `DisplayVersion` 与扩展文件 Sigma 计数，不看 NSIS `/S` 的 ExitCode**（历史上出现过 2）。
+
+### 11.5 提交 / 推送 / tag（已验证）
+
+- 单提交 **`bf747ff7` `release: 发版 3.10.1`**，`24 files changed, 640 insertions(+), 37 deletions(-)`；`git add -A` 后 `STAGED_ENTRIES=24`。
+- `git push origin main` → `75979b3d..bf747ff7`，`PUSH_MAIN_EXIT=0`。
+- `git tag -a v3.10.1` → `git push origin v3.10.1` → `* [new tag]`；`git ls-remote --tags origin`：`5ad7afc1…`（tag 对象）+ `bf747ff7… refs/tags/v3.10.1^{}`。
+- 提交后 `git status --porcelain` = **0 行**。
+- 版本四处同步：`package.json` + 三个 `Cargo.toml` + `src-tauri/Cargo.lock` 均为 `3.10.1`。
+- `CHANGELOG.md` 的 `## [3.10.1] - November 2026` 段补齐四项（+13 行）；`README.md:286-299` 写明 `Publisher of our extensions: Alpha File Manager` 与 `badged *Official* next to their name`。
+
+### 11.6 站点与 GitHub Release
+
+站点目录 `E:\办公文件\L1网站\alpha-file-manager\`：
+
+- `version.json` 已改 **3.10.1**（`sha256=e074d023…e164`；旧 3.10.0 归档进 `history[]` 首位、截到 20 条上限）。
+- 新增 `Alpha_File_Manager_3.10.1_x64-setup.exe`（44 940 588 B，sha256 与 release 一致，脚本回读校验）。
+- 新增 `_release-notes-v3.10.1.md`（由 `prepare --write-notes .superpowers/sdd/notes-3101.md` 生成）。
+- 上传口径：`合计 34 个文件, 748.34 MB`（会重传全部历史包，**十分钟级，不是卡死**）；日志 `.superpowers/sdd/logs/upload-3101.log`（cp936，读出乱码属正常）。
+- 发版命令链（**均可直接复用**）：
+  ```
+  node scripts/release-publish.mjs prepare --bump none --skip-build --notes-file .superpowers/sdd/notes-3101.md
+  node scripts/release-publish.mjs prepare --write-notes .superpowers/sdd/notes-3101.md
+  node scripts/release-publish.mjs upload     # 内置 verify
+  node scripts/release-publish.mjs github     # 建/替换 Release 资产
+  ```
+- `prepare --write-notes` 是 `main()` 里的**独立优先分支**，不递增版本、不重写 `pub_date`。
+
+### 11.7 本轮遗留（follow-up，不阻断发版）
+
+1. **需求 3 缺应用内硬证据**（见 11.2 ⚠️）：需给 `UrlCandidates` 加「实际尝试的 URL」日志后重跑。
+2. **`src/utils/__tests__/module-load-recovery.test.ts:108-124` 仍失败**：`vi.spyOn(Storage.prototype,'setItem')` 在 jsdom 的 Proxy 版 Storage 下没拦到实际调用。
+3. **需求 4 触发源未落到具体函数名**：`hasUpdate` 是同步函数，日志里 `cancel_all` 与「启动自动更新」之间的缺口未解释。
+4. **`hi` / `hy` 语言包旧品牌串**（承接 3.10.0 遗留）。
+5. **`kizemo.git` 未进 bundled resources**（承接 §6.4 新发现 1）：装机目录只有 `kizemo.focus-sync`。
+6. **`gates-3101h.cmd` 不落 `CARGO_TEST_EXIT` / `GATES_END`**：若后续靠标记串轮询该脚本，须知道这两行可能不出现，改判 cargo 自己的 `test result:`。
+7. **`extension-settings.vue:70-128`** 用 AFM code（`ch`）拼扩展语言包文件名是既有缺陷，**新代码不得照抄**（正确处理见 `extension-locale.ts`：扩展语言包是 BCP-47 `zh-CN.json`）。
