@@ -328,3 +328,157 @@ npm run verify-changelog → CHANGELOG 与 14 个语言目录的 changelog.md �
 > 再读 `F:\soft\00selfmade\filemanager\AGENTS.md` §2 的项目硬约束与真机验收要点，
 > 以及上一轮交接 `F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-11-04-extension-official-featured-branding-and-release-310.md` 的 §11.7 与 §12；
 > 掌握背景、目标、进度与下阶段计划后按该 handoff 的阶段 0→4 执行，自己决定实现细节，每个验收点都要给可核对的证据。
+
+---
+
+## 十一、本轮收口：3.11.0 发版完成（2026-11-05 21:00–23:40）
+
+> 本节由**执行会话**回填：把 §一–§十 的「下阶段计划」全部落地后的真实结果写清楚。
+> 沿用 §九 的三分法：**已验证 / 推断 / 未验证**。
+
+### 11.1 交付了什么
+
+| 产物 | 位置 | 状态 |
+|---|---|---|
+| 代码提交 | `0173e16f`（搜索右键菜单 + 安装器 `/UPDATE` 无条件化）、`eab5eaff`（图片旋转/翻转修复）、`bb2f9baa`（3.11.0 winget 清单） | 已 push `origin/main` |
+| 版本 | `3.11.0`（package.json / Cargo.toml / tauri.conf.json 三处一致） | — |
+| 安装包 | `release/Alpha File Manager_3.11.0_x64-setup.exe` = 45,105,474 B，sha256 `b67b627e1d051540478bbcc42aeb0dc5b1af6f80f662d45be76431af4cf5a602` | 与站点、winget 清单四方一致 |
+| tag / release | `v3.11.0` + GitHub Release（`kizemo/alpha-file-manager`） | — |
+| 站点 | `E:\办公文件\L1网站\alpha-file-manager\`：`version.json`（history 21 条，`topSha=true`）、`_release-notes-v3.11.0.md`、安装包副本 | — |
+| winget | `docs/winget/manifests/k/kizemo/AlphaFileManager/3.11.0/`（4 个文件） | **只入库备查，未提 PR** |
+
+### 11.2 需求 1 · 任务栏固定升级后保留 —— 已验证
+
+- 修复：`src-tauri/installer/installer.nsi` 里**只要检测到旧安装且是同一产品，就无条件给旧卸载器追加 `/UPDATE`**（不再依赖「新安装器自己带 `/UPDATE`」）。⇒ 手动双击升级也走"交接"而不是"清理"路径 ⇒ 不再触发 `UnpinShortcut` / `DeleteAppUserModelId` / 删快捷方式。
+- 守卫测试：`src-tauri/installer/__tests__/nsis-template-patch.test.ts`（14 个用例）锁住补丁的存在与位置。
+- 权威判据：`.lnk` 存在 **且** Taskband Favorites 含 `com.sigma-file-manager.app`。
+- 真机（19:00 包，手动双击 setup.exe 升级）：`RESULT_PIN_SURVIVED_UPGRADE=True`、`RESULT_VERSION_UPDATED=True`、`.lnk` 时间戳未变、Favorites AUMID 保留。
+- 判据 1.5（**主动卸载**仍应摘掉固定）由 `/UPDATE` 的条件分支保证，未单独回归。
+
+### 11.3 需求 2 · 图片旋转/翻转 —— 已验证（用户反馈的两个缺陷一起修）
+
+#### 11.3.1 缺陷 A：「向左旋转后 AFM 崩溃退出」
+
+**根因（源码级）**：`apply_image_edit` 原来是**同步 Tauri 命令**，在主线程上跑 `image::imageops` + JPEG 编码，单次 5596 ms。同步命令期间主线程被占住 → WebView2 消息泵停摆 → `src-tauri/src/webview_guard_runtime.rs` 的心跳（`webview_guard.rs` `HEARTBEAT_TIMEOUT_MS = 20_000`）超时 → 守卫**误判 renderer 崩溃** → `restart_app()`（`app.exit(0)` + `spawn_delayed_restart`）。
+⇒ **不是原生崩溃，是应用自己退出又重启**——用户看到的就是「崩溃退出」。
+
+**修复**（`eab5eaff`）：
+- 新的命令层 `src-tauri/src/image_edit_commands.rs`：`pub async fn apply_image_edit(...)` + `tokio::task::spawn_blocking`，**不再占用主线程**；
+- 内核 `src-tauri/src/image_edit.rs` 保持 **tauri-free**（不碰 `tauri::AppHandle` / `tauri::async_runtime::*` ⇒ `cargo test --lib` 的测试二进制不会把 tao 拖进来导致 `STATUS_ENTRYPOINT_NOT_FOUND`）；
+- `catch_unwind(AssertUnwindSafe(...))` + `JoinError` **双层兜底**：解码 panic 变成一条错误 toast，不带崩进程。
+
+**验收**（Phase A，真机，装机版 3.11.0）：
+
+```
+BIG_ELAPSED_MS=2243
+BIG_FILE_CHANGED=True
+APP_ALIVE_AFTER=True
+PHASE_A_RESULT=APP_ALIVE
+CLICKED_VIA=InvokePattern
+```
+
+⇒ 大图旋转后应用**仍在运行**，文件确实被改写。
+
+#### 11.3.2 缺陷 B：「操作成功的几次图片旋转非常缓慢」
+
+**根因**：原实现走 `image` crate 的 RGBA 中间缓冲：解码 → `to_rgba8` → 转置 → 编码；转置后还要转回 RGB，JPEG 编码默认 4:4:4。
+
+**修复**：新增直接依赖 `jpeg-encoder 0.5`（feature `std` + `simd`）；`encode_jpeg_bytes()` 用 `SamplingFactor::F_2_2`（4:2:0）+ `ColorType::Rgb`（RGB 直通，省掉 RGBA 往返）；`transform_rgb8()` 在 RGB 平面里原地转置。
+
+**实测**（同一张图、同一台机器）：
+
+| 口径 | 修复前 | 修复后 |
+|---|---|---|
+| 编码耗时 | 5596 ms | **2117 ms** |
+| 产物体积 | 943 KB | **790 KB** |
+| 真机端到端（大图） | — | **2243 ms** |
+
+**验收**（Phase B，四动作像素级比对，全部 PASS）：
+
+```
+rotate-right    48x64 @ TR      flip-horizontal 64x48 @ TR
+rotate-left     48x64 @ BL      flip-vertical   64x48 @ BL
+FIXTURE_RESTORED=1
+OCCLUDER_RESTORED pid=808224
+```
+
+#### 11.3.3 前端
+
+`src/utils/image-edit.ts`（新增）：`toast.loading` + `finally toast.dismiss`；17 个语言包新增 `fileBrowser.actions.imageEditInProgress`。
+
+### 11.4 需求 2 补充 · 搜索结果右键菜单 —— 已验证
+
+**用户反馈**：搜索结果里点右键**没有菜单**；之前能用的「打开所在目录」也没了。
+
+**根因**：`global-search-result-list.vue` 的结果列表被改写成轻量列表（`ControlType.ListItem`）后，右键菜单外壳（`ContextMenu` + `FileBrowserActionsMenu`）整个丢了，定位动作也没接上。
+
+**修复**（`0173e16f`）：结果行重新挂上 `ContextMenu` / `FileBrowserActionsMenu`（`is-search-results-view`），并抽出共享 util `src/utils/reveal-containing-directory.ts`（导航器与搜索面板走**同一条**定位路径）；新增 `src/utils/open-navigator-directory.ts`（应用内定位）。面板里做不了的动作（打开方式、编辑标签、两个「新建」）用 `EXCLUDED_ACTIONS` 排除。
+
+**验收**（真机，`.superpowers/sdd/accept-search-ctx-3110.ps1`）：
+
+```
+RESULT_ROW_FOUND='pristine-shot-a.png C:/Users/Duanyi/afm-acc/pristine-shot-a.png 5.2 KB' CT=ControlType.ListItem
+RIGHT_CLICKED=True
+MENU_ITEM_COUNT=17
+MENU_INAPP_FOUND=True          # 打开所属目录
+MENU_EXPLORER_FOUND=True       # 打开文件所在目录
+INVOKED_EXPLORER=True
+CLICKED_VIA=InvokePattern
+```
+
+**⚠️ 验收口径修正（重要）**：「打开文件所在目录」在 **AFM 是默认资源管理器**时会**在应用内**跳到父目录并选中文件，**不开系统 Explorer**（`reveal-containing-directory.ts` → `isDefaultFileManagerSafe()` → `openNavigatorRevealEntry`）。⇒ 判据是「目标目录的内容是否出现在文件列表里」，不是「有没有 Explorer 窗口」。
+本次实测：Invoke 之后应用已导航到 `C:\Users\Duanyi\afm-acc`，标记文件 `marker-3110.txt` 出现在文件列表（`NEEDLE_FOUND=True`）⇒ **动作真实生效**。
+
+### 11.5 门禁数字（同一台机器、同一条命令）
+
+| 门禁 | 本轮 | 基线 |
+|---|---|---|
+| `npx eslint .` | **180 errors / 0 warnings** | 188 / 0 |
+| `npm run test:unit:run` | **289 files / 2690 tests passed** | — |
+| `npm run ts` | 通过（exit 0） | — |
+| `npm run verify-changelog` | 通过（版本 3.11.0，条目 45，顺序正确） | — |
+| `npm run check:winget` | 通过（4 文件齐全、无 BOM、LF、末尾换行、YAML 可解析、`DefaultLocale` 一致、`Moniker` 只在 defaultLocale、schema 长度合规、`InstallerSha256` 与本地安装包逐字节一致、`InstallerUrl` 指向 v3.11.0） | — |
+| `npm run release:status` | 3.11.0 / 45,105,474 B / `b67b627e…` / 站点一致 | — |
+
+### 11.6 验收后清理（已完成）
+
+- `user-workspaces.json`：**先杀进程 → 再复原**（`C:\Users\Duanyi\afm-acc\user-workspaces.backup.json`）；group3 回到用户真实的 `G:/91(6)旧照片`。
+- 夹具已移入回收站（`mavis-trash`，可恢复）：`afm-search-fixture`、`afm-image-fixture`、`marker-3110.txt`、`pristine-shot-a.png`、`search-ctx-menu.png`。
+- ⚠️ 顺序铁律复核：应用退出时会把**内存里的统计状态写回**真实 `user-stats.json` ⇒ 夹具灌进去之后只要应用还在跑（哪怕被 `Stop-Process` 杀掉），磁盘上的真实文件就变成夹具残留 ⇒ **restore 前务必确认 `Get-Process alpha-file-manager` 为空**。
+
+### 11.7 本轮新增的工具坑（比 §十 更新的都要看）
+
+1. **PowerShell 5.1 没有 `[ushort]` 这个类型别名** —— 拿它当参数类型会抛 `找不到类型 [ushort]`（TypeNotFound），脚本在第一次调用就死。一律写 `[uint16]`；C# 代码里的 `ushort` 没问题（那是 C# 的类型）。
+2. **Radix 菜单打开时按 ESC = 把菜单关掉** —— 验收脚本里想「重置一下再查元素」，会把要点的菜单项弄丢。正确顺序是**先查 → 直接 Invoke**；菜单确实丢了才重新右键。
+3. **「打开文件所在目录」不一定开 Explorer** —— AFM 是默认资源管理器时走应用内定位（见 §11.4）。
+4. **全局搜索是基于磁盘索引的** —— 新创建的文件**搜不到**（要等全量扫描或 watcher 增量）。验收要用**扫描前就存在**的文件做靶子。
+5. **`Remove-Item` 会被运行时安全策略拦** —— 清理用 `mavis-trash -- <paths>`（可恢复）。
+6. **PowerShell 函数里有返回值就不能混用 `Write-Output`** —— 诊断输出会进管道把坐标变成字符串，脚本会在第一条断言前静默退出。
+7. **UIA 元素引用会过期** —— 菜单项每次都要重新 `FindAll` 查询后再 `InvokePattern`，不要复用上一轮拿到的元素对象。
+8. **枚举可见窗口要按 class 过滤** —— 本机同时有托盘窗 `com.sigma-file-manager.app-sic`、隐藏的 Quick View 窗；主窗口取 **class = `Tauri Window` + 可见 + 面积最大**。
+
+### 11.8 任务卡死的预防（用户 2026-11-05 明确要求补一节）
+
+上一轮出现过「任务卡死」，本轮把可执行的预防措施定死：
+
+1. **每个后台脚本必须写「终态标记」** —— 结束时往日志写一行 `=== <NAME> ACCEPT END ===` 和 `RESULT=<X>`。判定完成**只看这行标记**，不要只看进程是否消失。
+2. **长脚本分阶段落盘** —— 每阶段结束写一行进度（`PHASE n: ...`）。出问题能立刻知道卡在哪一段，不用重跑全程。
+3. **后台跑不要挂 stdout 管道** —— `Tee-Object` / `| Select-String` 一断，进程树跟着死。脚本内部用 `> logfile 2>&1` 重定向，再单独读文件看进度。
+4. **注入类探针必须带阳性对照** —— 先点一个必然有可见后果的元素，确认注入真的进去了，再去点目标。否则「没反应」分不清是注入失败还是功能没反应。
+5. **前台窗口要显式校验** —— `GetForegroundWindow()` 必须等于目标 hwnd，否则立刻 `ABORT` 并截图，绝不「注入完就宣布失败」。
+6. **不要在同一条会话里连做「改脚本 → 重跑」超过 3 次** —— 第 3 次还不通过就停下来，把中间产物（截图、日志、UIA dump）落盘，换一条思路。
+7. **断言前先自检前置条件** —— 本轮两次「搜不到 / 找不到」都是**环境前置条件**问题（新文件不在索引里、菜单被自己的 ESC 关掉），不是产品缺陷。先自检前置条件再断言产品行为。
+
+### 11.9 仍未验证 / 遗留
+
+- **需求 1 的「应用内更新通道」那条路**（§三 判据 1.2）本轮**没有**单独复测；只测了手动双击 setup.exe 升级那条路（19:00 包）。
+- 21:29 产出的 3.11.0 包与 19:00 包的 NSIS 源码**同一份**（`0173e16f` 之后未再改 `installer.nsi`），但 3.11.0 包**未**重跑升级验收 ⇒ 判据 1.1 在最终发布包上属于**推断**，不是实测。
+- winget PR **未提交**（3.5.1 的 PR #460744 仍 OPEN，按「同一包 ID 只提最新一版」原则先备清单不提交）。
+- `jpeg-encoder` 是 3.11.0 的**新增直接依赖**（feature `simd`）—— 换平台构建需确认 `simd` 在目标架构上可用。
+
+### 11.10 本轮新增的证据文件
+
+- 验收脚本：`.superpowers/sdd/accept-search-ctx-3110.ps1`（搜索右键 + 打开所属目录 / 打开文件所在目录）、`.superpowers/sdd/check-marker-visible.ps1`（在应用内查目标条目是否可见）
+- 夹具生成：`.superpowers/sdd/make-search-fixture.cjs`
+- winget 清单生成：`.superpowers/sdd/gen-winget-3110.cjs`
+- 应用日志：`%LOCALAPPDATA%\com.sigma-file-manager.app\logs\Alpha File Manager.log`（搜索扫描时间戳是 UTC，比本地早 8 小时；应用运行时用 `FileShare.ReadWrite` 读，否则被独占锁挡住）
