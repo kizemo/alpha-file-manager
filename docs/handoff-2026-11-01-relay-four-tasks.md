@@ -232,7 +232,7 @@ expected_total_items = 50051   （顶层目录自己算 1）
 | L21-29 | `param`：`-ExePath` / `-OutDir` / `-TargetName='target'` / `-ColdWaitSec=300` / `-JobWaitSec=900` / `[switch]$DoCancel` / `-CancelAfterSec=6` |
 | L36-41 | 中文码点常量 `$CN_CLOSE` `$CN_DELETE` `$CN_CANCEL` `$CN_SCANNING` `$CN_FOUND` |
 | — | VK：`$VK_A=0x41` `$VK_DELETE=0x2E` `$VK_CONTROL=0x11`；`INPUT_SIZE` 断言（必须 40，A3 实测 PASS） |
-| — | C# 类 `Acc`：`INPUT` 用 `[StructLayout(LayoutKind.Explicit, Size = 40)]`；`FindMainWindow(pid)`（class=`Tauri Window` + 可见 + 面积最大）、`FindRenderHost`、`Click`（`PostMessage` 0x0201/0x0202，`lParam=(cy<<16)|(cx&0xFFFF)`）、`Key`、`Capture`、`OwnerOf` |
+| — | C# 类 `Acc`：`INPUT` 用 `[StructLayout(LayoutKind.Explicit, Size = 40)]`；`FindMainWindow(pid)`（class=`Tauri Window` + 可见 + 面积最大）、`FindRenderHost`、`Click`（`PostMessage` 0x0201/0x0202，`lParam=(cy<<16)\|(cx&0xFFFF)`）、`Key`、`Capture`、`OwnerOf` |
 | L273-286 | `Find-All`（**已修**：原 `$els.GetElement($i)` 不存在 ⇒ RuntimeException；改为 `foreach` 枚举 + `List[object]` + `.ToArray()`） |
 | L288-334 | `El-Info` / `Dump-Tree` / `Invoke-ByName`（`GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)`） |
 | L336-379 | 启动 + 冷启动轮询 |
@@ -538,7 +538,7 @@ pub fn reveal_in_explorer(path: String) -> Result<(), String> {
 |---|---|---|
 | 内层仓 HEAD 提交树 | `git grep -F -e 'open_url failed' -e 'openFileLocation' -e 'isNamespaceExtendedPath' -e 'explorer.exe fallback' HEAD` | **0 命中** |
 | 内层仓工作树 | 同上 + `git status` | **0 命中**，且无 `deleted` 条目 ⇒ 不是「文件被误删」 |
-| 外层仓 HEAD（`focus-sync.git`） | 同上 | **0 命中**；`ls-tree` 里也没有任何 `open-path|open-with|reveal` 文件 |
+| 外层仓 HEAD（`focus-sync.git`） | 同上 | **0 命中**；`ls-tree` 里也没有任何 `open-path\|open-with\|reveal` 文件 |
 | 内层仓 `extensions/`、`packages/`、`src-shared/` | `Select-String`（2564 + 4 + 2 个文件） | **0 命中** |
 | `%APPDATA%\...\extensions\`（4 个扩展） | `Select-String`（52 个文件，含 `dist/index.js`） | **0 命中** |
 | `%APPDATA%\...\extensions-storage\`（36 个文件） | `Select-String` | **0 命中** |
@@ -860,7 +860,7 @@ Test-Path -LiteralPath '<绝对路径>'
 | 1 | ~~**两个报错弹窗的标题与正文**~~ | ✅ **已关闭**（2026-11-02 读图坐实）：dialog-1 = Explorer / Shell 的 `TfAlertWin`「已中止操作」（标题 = `.lnk` 路径）；dialog-2 = AFM 自家 webview guard「界面渲染进程已崩溃（窗口 main）…是否重启应用？」（**与 reveal 无关**）。见 §6.8.2 / §6.12.6 |
 | 2 | **12:45:26 UTC 的永久删除作业**：`job 7be5e1cf-240f-46f8-af17-e66b2edd4836 started: 1 path(s), use_trash=false` —— finished 行未见，目标与结果均未知 | ⏳ 是不是用户本人所为？若不是需立刻告知风险 |
 | 3 | **12:53:22 UTC 的删除作业**：`total_items=101 / deleted_items=101 / use_trash=true`（在回收站，可恢复） | ⏳ 来源未确认 |
-| 4 | **winget PR #467381**（`microsoft/winget-pkgs`）**CLA 已签，等待社区审核员批准** | ✅ **2026-11-02T07:51:22Z 用户发出 `@microsoft-github-policy-service agree`（comment 6571937302），07:51:39Z 机器人摘掉 `Needs-CLA`**；`mergeable` 由 `blocked` → `MERGEABLE`；现标签 `Azure-Pipeline-Passed | Validation-Completed | New-Package`。剩余唯一等待项 = 社区审核员打 `Moderator-Approved`（外部等待，无法加速；`New-Package` 类通常更慢，因无历史清单可参照）。**无任何需用户再动手的事项**。分步指导与排障手册：`docs/winget-cla-signing-guide.md`（已完成态存档） |
+| 4 | **winget PR #467381**（`microsoft/winget-pkgs`）**CLA 已签，等待社区审核员批准** | ✅ **2026-11-02T07:51:22Z 用户发出 `@microsoft-github-policy-service agree`（comment 6571937302），07:51:39Z 机器人摘掉 `Needs-CLA`**；`mergeable` 由 `blocked` → `MERGEABLE`；现标签 `Azure-Pipeline-Passed \| Validation-Completed \| New-Package`。剩余唯一等待项 = 社区审核员打 `Moderator-Approved`（外部等待，无法加速；`New-Package` 类通常更慢，因无历史清单可参照）。**无任何需用户再动手的事项**。分步指导与排障手册：`docs/winget-cla-signing-guide.md`（已完成态存档） |
 | 5 | **是否恢复 `user-data`** | ⏳ 整目录 restore 已从「必做」降级为「必须先问」；备份在 `.superpowers\sdd\user-data-backup-20261101\`（18 文件）+ `.superpowers\sdd\user-stats.backup-20261101.json`（32,649 B，sha256 前缀 `4A0236B864C77CD6`） |
 | 6 | **`release\` 目录里的同号包**：`release\Alpha File Manager_3.9.1_x64-setup.exe`（44,883,956 B @19:04:44）与已正式发布的 3.9.1（44,775,751 B，sha256 `67996F5B…DCF2`）**版本号相同** | ⏳ 有被误当成官方包上传的风险，收尾必须处理 |
 | 7 | **本轮验收夹具的清理**：`C:\Users\Duanyi\afm-accept-deletehang\`（5 万文件） | ⏳ 等轮 A/B 跑完后用 `mavis-trash.cmd` 清掉 |

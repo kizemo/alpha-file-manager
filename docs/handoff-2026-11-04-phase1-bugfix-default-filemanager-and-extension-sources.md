@@ -297,7 +297,7 @@ allMarketSources     = [ officialMarketSource, ...marketSources ]   // marketSou
 | 项 | 结论 | 证据 |
 |---|---|---|
 | 扩展页选项卡页面 | **正常存在**：`市场` / `已安装 3` / `依赖项` 三个 TabItem ⇒ 用户「页面消失」确认为误报 | `.superpowers/sdd/logs/sidebar-4.txt` |
-| 两个内置源都进 UI | 来源筛选条出现 `Button|全部` / `Button|官方` / `Button|第三方` | 同上 |
+| 两个内置源都进 UI | 来源筛选条出现 `Button\|全部` / `Button\|官方` / `Button\|第三方` | 同上 |
 | 两源内容真实渲染 | 列表同时有 kizemo 的 `Git Tools`（v0.1.0，已安装）与 sigma-hub 的 `Clipboard History`/`Video Downloader`/`Excalidraw`/`Media Converter`，另有 cos-overclock、hetima 条目 | 同上 |
 | 筛选判别性（官方） | 点 `官方` 后只剩 `Git Tools` / `kizemo`，**无任何 sigma-hub 条目** | `logs/filter-official.txt` |
 | 筛选判别性（第三方） | 点 `第三方` 后只剩 sigma-hub ×4 + cos-overclock + hetima，**无 kizemo 条目** | `logs/filter-community.txt` |

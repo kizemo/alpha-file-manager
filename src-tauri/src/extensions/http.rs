@@ -600,6 +600,17 @@ impl UrlCandidates {
         self
     }
 
+    /// 追加中国大陆镜像候选（排在 `primary` 之后、已有 fallback 之前）。
+    ///
+    /// 必须在其它 `with_fallback` 之前调用，才能让镜像优先于 jsDelivr / codeload
+    /// 这类回退源被尝试（实测镜像延迟明显更低）。
+    pub fn with_china_mirrors(mut self) -> Self {
+        for mirror in build_china_mirror_urls(&self.primary) {
+            self = self.with_fallback(Some(mirror));
+        }
+        self
+    }
+
     pub fn ordered(&self) -> Vec<reqwest::Url> {
         let mut all = Vec::with_capacity(1 + self.fallbacks.len());
         all.push(self.primary.clone());
@@ -679,6 +690,37 @@ pub fn build_codeload_fallback_url(url: &reqwest::Url) -> Option<reqwest::Url> {
     );
 
     reqwest::Url::parse(&candidate).ok()
+}
+
+/// 中国大陆可达的 GitHub 镜像前缀（按实测连接延迟从快到慢排列）。
+///
+/// 用法是把原始 GitHub 地址整体拼在前缀之后，例如
+/// `https://ghfast.top/https://raw.githubusercontent.com/o/r/main/f.json`。
+///
+/// 实测边界（2026-11-05）：这些镜像只代理 `raw.githubusercontent.com` 与
+/// `github.com` 两个 host；对 `codeload.github.com` 与 `api.github.com`
+/// 一律返回 403，因此不为这两个 host 生成候选。
+pub const CHINA_GITHUB_MIRROR_PREFIXES: &[&str] =
+    &["https://ghfast.top/", "https://gh-proxy.com/", "https://ghproxy.net/"];
+
+fn is_china_mirror_supported_host(host: &str) -> bool {
+    matches!(host, "raw.githubusercontent.com" | "github.com")
+}
+
+/// 为单个 GitHub 地址生成中国大陆镜像候选（不含原始地址本身）。
+///
+/// 仅接受 `https` 且 host 属于镜像支持范围的地址，其余返回空列表。
+pub fn build_china_mirror_urls(url: &reqwest::Url) -> Vec<reqwest::Url> {
+    let host = url.host_str().unwrap_or_default().to_ascii_lowercase();
+
+    if url.scheme() != "https" || !is_china_mirror_supported_host(&host) {
+        return Vec::new();
+    }
+
+    CHINA_GITHUB_MIRROR_PREFIXES
+        .iter()
+        .filter_map(|prefix| reqwest::Url::parse(&format!("{}{}", prefix, url.as_str())).ok())
+        .collect()
 }
 
 pub async fn fetch_text_across_urls_with_retry(
@@ -1035,6 +1077,72 @@ mod tests {
         let fallback = reqwest::Url::parse("https://mirror.example.com/a").unwrap();
         let candidates = UrlCandidates::new(primary).with_fallback(Some(fallback));
         assert_eq!(candidates.ordered().len(), 2);
+    }
+
+    #[test]
+    fn china_mirrors_cover_raw_githubusercontent() {
+        let url = reqwest::Url::parse(
+            "https://raw.githubusercontent.com/kizemo/focus-sync/main/locales/zh-CN.json",
+        )
+        .unwrap();
+        let mirrors = build_china_mirror_urls(&url);
+
+        assert_eq!(mirrors.len(), CHINA_GITHUB_MIRROR_PREFIXES.len());
+        assert_eq!(
+            mirrors[0].as_str(),
+            "https://ghfast.top/https://raw.githubusercontent.com/kizemo/focus-sync/main/locales/zh-CN.json"
+        );
+    }
+
+    #[test]
+    fn china_mirrors_cover_github_archive_downloads() {
+        let url = reqwest::Url::parse(
+            "https://github.com/kizemo/focus-sync/archive/refs/tags/v0.5.8.zip",
+        )
+        .unwrap();
+        let mirrors = build_china_mirror_urls(&url);
+
+        assert_eq!(mirrors.len(), CHINA_GITHUB_MIRROR_PREFIXES.len());
+        assert_eq!(
+            mirrors[0].as_str(),
+            "https://ghfast.top/https://github.com/kizemo/focus-sync/archive/refs/tags/v0.5.8.zip"
+        );
+    }
+
+    #[test]
+    fn china_mirrors_skip_hosts_that_return_403() {
+        for raw in [
+            "https://codeload.github.com/kizemo/focus-sync/zip/refs/tags/v0.5.8",
+            "https://api.github.com/repos/kizemo/focus-sync/tags",
+            "https://example.com/owner/repo/main/file.json",
+        ] {
+            let url = reqwest::Url::parse(raw).unwrap();
+            assert!(build_china_mirror_urls(&url).is_empty(), "{}", raw);
+        }
+    }
+
+    #[test]
+    fn china_mirrors_skip_non_https_urls() {
+        let url =
+            reqwest::Url::parse("http://raw.githubusercontent.com/o/r/main/file.json").unwrap();
+        assert!(build_china_mirror_urls(&url).is_empty());
+    }
+
+    #[test]
+    fn with_china_mirrors_orders_mirrors_before_other_fallbacks() {
+        let primary =
+            reqwest::Url::parse("https://raw.githubusercontent.com/o/r/main/file.json").unwrap();
+        let jsdelivr =
+            reqwest::Url::parse("https://cdn.jsdelivr.net/gh/o/r@main/file.json").unwrap();
+        let ordered = UrlCandidates::new(primary.clone())
+            .with_china_mirrors()
+            .with_fallback(Some(jsdelivr.clone()))
+            .ordered();
+
+        assert_eq!(ordered[0], primary);
+        assert_eq!(ordered[1].host_str(), Some("ghfast.top"));
+        assert_eq!(ordered.last().unwrap(), &jsdelivr);
+        assert_eq!(ordered.len(), 1 + CHINA_GITHUB_MIRROR_PREFIXES.len() + 1);
     }
 
     #[test]

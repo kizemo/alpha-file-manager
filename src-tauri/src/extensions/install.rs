@@ -135,6 +135,7 @@ pub async fn download_extension(
     let result = async {
         let client = build_remote_http_client()?;
         let candidates = UrlCandidates::new(validated_url.clone())
+            .with_china_mirrors()
             .with_fallback(build_codeload_fallback_url(&validated_url));
 
         let cancel_flag = get_extension_install_cancellation_flag(cancellation_id.as_ref());

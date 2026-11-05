@@ -32,6 +32,19 @@ vi.mock('@/utils/virtual-locations', () => ({
   resolveDirectoryContents: vi.fn(),
 }));
 
+// FORK-MODIFICATION: 2026-11-05 — tree-view 自身也新增了 useI18n()，本测试没装
+// vue-i18n plugin，useI18n() 在 setup 阶段直接抛错导致整棵树渲染不出来。把
+// useI18n mock 成恒等函数；其余导出（createI18n 等）必须保留真实实现，否则
+// `@/localization/index.ts` 经 clipboard store 被间接引入时会报
+// 「No "createI18n" export is defined on the "vue-i18n" mock」。
+vi.mock('vue-i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue-i18n')>();
+  return {
+    ...actual,
+    useI18n: () => ({ t: (key: string) => key }),
+  };
+});
+
 // FORK-MODIFICATION: 验收反馈 2026-10-13 — tree-view 加"重命名"后挂载
 // FileBrowserRenameDialog，它内部 useI18n() 但本测试没装 vue-i18n plugin。
 // stub RenameDialog 掉，避免为一个弹窗把整条 i18n 链拉进来。

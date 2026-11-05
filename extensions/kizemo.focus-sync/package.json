@@ -1,8 +1,8 @@
 {
   "id": "kizemo.focus-sync",
   "name": "Focus Sync",
-  "version": "0.5.8",
-  "description": "Listary-style global focus sync. Sidecar runs as a Windows Scheduled Task (independent of Sigma FM lifecycle).",
+  "version": "0.5.9",
+  "description": "Listary-style global focus sync. Sidecar runs as a Windows Scheduled Task (independent of the File Manager lifecycle).",
   "publisher": {
     "name": "Alpha File Manager",
     "url": "https://github.com/kizemo"
@@ -46,7 +46,7 @@
       {
         "id": "focus-sync.syncNow",
         "title": "Focus Sync — Sync current path to all open dialogs",
-        "description": "Push Sigma's current folder to all detected file dialogs (Chrome / Word / VS Code / etc.)",
+        "description": "Push the File Manager's current folder to all detected file dialogs (Chrome / Word / VS Code / etc.)",
         "icon": "mdi-target"
       },
       {

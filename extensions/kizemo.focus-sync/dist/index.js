@@ -559,7 +559,7 @@ async function syncNow() {
         try {
             sigma.ui.showNotification({
                 title: 'Focus Sync',
-                description: 'No current folder. Open a folder in Sigma FM first, then try again.',
+                description: 'No current folder. Open a folder in the File Manager first, then try again.',
                 type: 'warning',
             });
         } catch (e) {}
