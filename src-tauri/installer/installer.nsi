@@ -374,7 +374,33 @@ Function PageLeaveReinstall
     ${Else}
       ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
       ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
-      ${IfThen} $UpdateMode = 1 ${|} StrCpy $R1 "$R1 /UPDATE" ${|} ; append /UPDATE
+      ; -------------------------------------------------------------------
+      ; AFM PATCH (2026-11-05) - the legacy uninstaller must ALWAYS be started
+      ; in update mode, so an upgrade never removes the taskbar pin.
+      ;
+      ; Root cause of "the pinned taskbar icon disappears after every update":
+      ; the uninstaller of the already installed version was started WITHOUT
+      ; /UPDATE. Its own $UpdateMode therefore stayed 0 and its uninstall
+      ; section ran the "remove shortcuts if not updating" block, which calls
+      ; DeleteAppUserModelId and UnpinShortcut and deletes the .lnk files.
+      ; The pinned taskbar item points at the start menu shortcut, so it was
+      ; dropped as well.
+      ;
+      ; The previous version of this line appended /UPDATE only when the NEW
+      ; installer itself had been started with /UPDATE ($UpdateMode = 1). That
+      ; branch is never taken on a real upgrade: $UpdateMode = 1 makes the new
+      ; installer skip the uninstall step entirely (see PageLeaveReinstall
+      ; above), so the legacy uninstaller is never started at all. The
+      ; condition was dead code and the pin was always removed.
+      ;
+      ; The fix: always pass /UPDATE to the legacy uninstaller. It parses the
+      ; flag in un.onInit and sets its own $UpdateMode = 1, which keeps the
+      ; "remove shortcuts if not updating" block skipped. The legacy
+      ; uninstaller still removes the program files, so the upgrade itself
+      ; keeps working. A standalone uninstall (uninstall.exe started by the
+      ; user) does not go through this code path and still unpins normally.
+      ; -------------------------------------------------------------------
+      StrCpy $R1 "$R1 /UPDATE" ; append /UPDATE
       ${IfThen} $PassiveMode = 1 ${|} StrCpy $R1 "$R1 /P" ${|} ; append /P
       StrCpy $R1 "$R1 _?=$4" ; append uninstall directory
 

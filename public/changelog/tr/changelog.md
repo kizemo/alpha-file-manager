@@ -1,5 +1,16 @@
 # Değişiklik Günlüğü
 
+## [3.11.0] - November 2026
+
+**Summary:** Artık resimler doğrudan sağ tık menüsünden döndürülebilir ve çevrilebilir, değişiklik anında kaydedilir; görev çubuğuna sabitlenen simge güncellemeden sonra da kaybolmaz; ve genel arama sonuçlarının sağ tık menüsü, *İçeren klasörü aç* seçeneğiyle birlikte geri döndü.
+
+### What changed
+
+**Yeni:** Bir resmi sağ tık menüsünden döndürmek ve çevirmek. Tek bir resim dosyası seçildiğinde sağ tık menüsü *Sola döndür*, *Sağa döndür*, *Yatay çevir* ve *Dikey çevir* seçeneklerini sunar. Bunlardan biri seçildiğinde resim düzenlenir ve anında aynı dosyaya geri yazılır: onay penceresi yok, *Farklı Kaydet* yok, ikinci bir onay da yok. Döndürme ile çevirme birbirinin ters işlemidir; bu yüzden özgün görünüm her zaman karşıt işlemi bir kez daha uygulayarak geri getirilebilir. Bu dört seçenek yalnızca tek bir resim seçiliyken görünür — klasörlerde, birden çok dosya birlikte seçildiğinde ve düzenlenecek bitmap taşımayan SVG dosyalarında görünmez.
+
+**Düzeltildi:** Görev çubuğuna sabitlenen simge güncellemeden sonra artık kaybolmuyor. Yeni bir sürüm kurulduğunda eski kaldırıcı, programı kaldırmak istiyormuş gibi çalıştırılıyor ve bu arada görev çubuğu sabitlemesini de kaldırıyordu. Artık var olan bir sürümün üzerine kurulum yapıldığında eski kaldırıcı temizlik yapmak yerine devri yapar: sabitlenen simge, Başlat menüsü kısayolu ve otomatik başlatma girdisi yerinde kalır. Bilerek yapılan kaldırma işlemi onları yine de kaldırır.
+
+**Düzeltildi:** Genel arama sonuçları yeniden sağ tık menüsüne sahip. Sonuç listesi hafif bir liste olarak yeniden yazıldığında menü de onunla birlikte kaybolmuştu: bir sonuca sağ tıklamak hiçbir şey yapmıyordu ve dosyanın bulunduğu klasöre gidip dosyayı seçen *İçeren klasörü aç* seçeneği de ortadan kalkmıştı. Menü geri döndü; sağ tıkladığınız öğeyi taşıyor ve arama sonuçlarını gördüğünü biliyor: *İçeren klasörde aç* klasörü panelin yanındaki gezgin bölmesinde açar ve dosyayı orada seçer, *Dosyanın bulunduğu klasörü aç* ise konumu Windows Gezgini’ne devreder. Panelin içinde karşılığı bulunmayan seçenekler hiçbir işe yaramak yerine hiç gösterilmez.
 ## [3.8.0] - October 2026
 
 **Summary:** Arşiv kâğıdı görünümü ikinci bir turdan geçti. İki *Warm Paper* temasının ana bölgesi daha aydın ve daha az doygun; tüm simgeler açık bej çizgi olarak çizildi, klasör simgelerine kısık yeşil bir vurgu eklendi, etkin olmayan sekmeler karartıldı ve açık bej-gri kenar aldı, liste başlığı üstü ve altı çizgili daha koyu bir zemine oturdu, klasörlerle dosyalar artık aynı arka planı paylaşmıyor. *Vivid* temasında araç çubuğu düğmeleri yaptıkları işe göre renk aldı, sekmeler başlıklarına göre genişlik kazandı ve uygulama simgesi sıcak kâğıt paletiyle yeniden çizildi. *Yol Takibi* eklentisi güncellemeden sonra yeniden çalışıyor.

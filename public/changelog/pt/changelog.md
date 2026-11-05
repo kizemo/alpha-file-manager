@@ -1,5 +1,16 @@
 # Registro de alterações
 
+## [3.11.0] - November 2026
+
+**Summary:** As imagens já podem ser rodadas e invertidas pelo menu de contexto, com a alteração guardada de imediato; um ícone fixado na barra de tarefas sobrevive a uma atualização; e o menu de contexto dos resultados da pesquisa global voltou, incluindo «Abrir a pasta que contém».
+
+### What changed
+
+**Novo:** Rodar e inverter uma imagem pelo respetivo menu de contexto. Ao selecionar um único ficheiro de imagem, o menu de contexto passa a oferecer *Rodar para a esquerda*, *Rodar para a direita*, *Inverter horizontalmente* e *Inverter verticalmente*. Escolher uma destas opções edita a imagem e volta a escrevê-la imediatamente no mesmo ficheiro: sem diálogo, sem *Guardar como* e sem uma segunda confirmação. A rotação e a inversão são operações inversas uma da outra, por isso o aspeto original pode sempre ser reposto aplicando a operação oposta. As quatro entradas aparecem apenas com uma única imagem — nem em pastas, nem com vários ficheiros ao mesmo tempo, nem em SVG.
+
+**Corrigido:** Um ícone fixado na barra de tarefas já não desaparece depois de uma atualização. Ao instalar uma nova versão, o desinstalador antigo era executado como se se quisesse remover o programa e levava consigo a fixação na barra de tarefas. Agora, ao instalar por cima de uma versão existente, o desinstalador antigo entrega o programa em vez de fazer a limpeza: a fixação, o atalho do menu Iniciar e a entrada de arranque automático mantêm-se onde estavam. Uma desinstalação feita de propósito continua a removê-los.
+
+**Corrigido:** Os resultados da pesquisa global voltaram a ter menu de contexto. A lista de resultados tinha sido reescrita como uma lista leve, e o menu desapareceu com ela: clicar com o botão direito num resultado não fazia nada, e «Abrir a pasta que contém» — a entrada que salta para a pasta do ficheiro e o seleciona — também tinha desaparecido. O menu voltou, traz o item sobre o qual se clicou com o botão direito e sabe que está a ver resultados de pesquisa: «Abrir na pasta que contém» abre a pasta no painel de navegação ao lado e seleciona aí o ficheiro, enquanto «Abrir a pasta que contém» entrega a localização ao Explorador do Windows. As entradas que não podem funcionar dentro do painel são omitidas em vez de aparecerem sem efeito.
 ## [3.8.0] - October 2026
 
 **Summary:** O visual de *papel de arquivo* passou por uma segunda rodada de trabalho. Os dois temas *Warm Paper* ficaram mais claros e menos saturados na área principal, todos os ícones passaram a ser desenhados em traço bege claro, os ícones de pasta ganharam um destaque verde abafado, as abas inativas ficaram esmaecidas e ganharam uma borda bege acinzentada, o cabeçalho da lista passou a assentar sobre um fundo mais escuro com uma linha acima e abaixo, e pastas e arquivos não dividem mais o mesmo fundo. No *Vivid* os botões da barra de ferramentas recebem cores conforme a função que exercem, as abas se ajustam ao próprio título, e o ícone do aplicativo foi redesenhado na paleta de papel quente. A extensão *Seguir caminhos* voltou a funcionar depois de uma atualização.

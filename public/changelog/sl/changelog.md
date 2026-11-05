@@ -1,5 +1,16 @@
 # Dnevnik sprememb
 
+## [3.11.0] - November 2026
+
+**Summary:** Slike je zdaj mogoče zasukati in prezrcaliti neposredno v kontekstnem meniju, sprememba pa se shrani takoj; ikona, pripeta opravilni vrstici, preživi posodobitev; kontekstni meni rezultatov globalnega iskanja je spet tu, skupaj z možnostjo »Odpri vsebujočo mapo«.
+
+### What changed
+
+**Novo:** Zasuk in prevrtitev slike v kontekstnem meniju. Ko je izbrana ena sama datoteka slike, kontekstni meni ponudi *Zasukaj levo*, *Zasukaj desno*, *Prevrni vodoravno* in *Prevrni navpično*. Izbira enega od njih sliko uredi in jo takoj zapiše nazaj v isto datoteko: brez pogovornega okna, brez »Shrani kot« in brez druge potrditve. Zasuk in prevrtitev sta nasprotni si operaciji, zato je prvotni videz vedno mogoče obnoviti z nasprotno operacijo. Štirje vnosi se prikažejo le pri eni sliki — ne pri mapah, ne pri več izbranih datotekah in ne pri SVG.
+
+**Popravljeno:** Ikona, pripeta opravilni vrstici, po posodobitvi ne izgine več. Pri namestitvi nove različice se je star odstranjevalnik zagnal, kot da bi želeli program odstraniti, in pri tem odstranil tudi pripeto ikono na opravilni vrstici. Pri namestitvi čez obstoječo različico se star odstranjevalnik zdaj predaja, ne pa pospravlja: pripeta ikona, bližnjica v meniju Start in vnos samodejnega zagona ostanejo, kjer so. Namestitev, ki jo zahtevate sami, jih še vedno odstrani.
+
+**Popravljeno:** Rezultati globalnega iskanja imajo spet kontekstni meni. Seznam rezultatov je bil preurejen v lahko listo in meni je izginil z njim: desni klik na rezultat ni naredil ničesar, »Odpri vsebujočo mapo« — možnost, ki skoči v mapo datoteke in jo izbere — pa je manjkala tudi. Meni je spet tu, nosi element, na katerega ste res kliknili z desno tipko, in ve, da gleda rezultate iskanja: »Odpri v vsebujoči mapi« odpre mapo v navigacijski plošči poleg in tam izbere datoteko, »Odpri mapo datoteke« pa lokacijo preda Windows Explorerju. Vnosi, ki v plošči nimajo kaj izvesti, so izpuščeni, ne prikazani neuspešno.
 ## [3.8.0] - October 2026
 
 **Summary:** Videz *arhivskega papirja* je doživel še en krog dela. Obe temi *Warm Paper* sta v glavnem delu svetlejši in manj nasičeni, vse ikone so narisane s svetlo bež črto, ikone map imajo prigušen zelen poudarek, neaktivne zavihki so potemnjeni in imajo svetlo bež-sivo obrobo, glava seznama leži na temnejši podlagi s črto zgoraj in spodaj, mape in datoteke pa ne delijo več istega ozadja. V temi *Vivid* dobijo gumbi orodne vrstice barvo glede na nalogo, zavihki se prilagodijo svojemu naslovu, ikona aplikacije pa je bila znova narisana v barvah toplega papirja. Razširitev *Sledi potem* po posodobitvi znova deluje.

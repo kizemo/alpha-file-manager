@@ -127,6 +127,14 @@ sync, batch rename, and a long list of day-to-day fixes.
 | ![Dashboard quick access](docs/screenshots/afm-dashboard-hero-light-en.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
 | ![Dashboard cards](docs/screenshots/afm-dashboard-card-enrichment-en.png) | **Dashboard cards** — name, size and path on top, type and item count below, with drag, reorder and edit shortcuts on every card |
 
+### What changed in 3.11.0
+
+| | |
+|---|---|
+| 🔄 | **Turn and flip a picture from the right-click menu** — *Rotate left*, *Rotate right*, *Flip horizontally* and *Flip vertically* appear for a picture file; the edit is written back to the same file at once, with no dialog, no *Save as* and no second confirmation |
+| 📌 | **A taskbar icon you pinned survives an update** — installing over an existing version hands the program over instead of cleaning up, so the pinned icon, the Start Menu shortcut and the autostart entry all stay where they were |
+| 🔎 | **The global search results have their right-click menu again** — right-clicking a result opens the menu as before, and *Open the containing folder* jumps to the folder that holds the file and selects it there |
+
 ### What changed in 3.9.0
 
 | | |

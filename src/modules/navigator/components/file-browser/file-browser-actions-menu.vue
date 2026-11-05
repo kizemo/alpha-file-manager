@@ -71,10 +71,19 @@ const props = withDefaults(defineProps<{
   isCurrentDirectoryContext?: boolean;
   /** FORK-MODIFICATION: 供「打开所属目录」判定是否在搜索结果视图。 */
   isSearchResultsView?: boolean;
+  /**
+   * FORK-MODIFICATION (2026-11-05)：被调用方显式排除的动作。
+   *
+   * 有些界面复用同一份动作菜单，但其中几项在那儿**没有执行通道**
+   * （例如全局搜索结果面板的「打开方式」「编辑标签」「新建」）。
+   * 与其显示出来点了没反应，不如直接不显示。
+   */
+  excludedActions?: ContextMenuAction[];
 }>(), {
   disableDestructiveActions: false,
   isCurrentDirectoryContext: false,
   isSearchResultsView: false,
+  excludedActions: () => [],
 });
 
 const emit = defineEmits<{
@@ -107,7 +116,7 @@ const selectedEntriesRef = toRef(props, 'selectedEntries');
 const { inlineEndSide } = useTextDirection();
 
 const {
-  isMenuActionVisible,
+  isMenuActionVisible: isMenuActionAvailable,
   isMenuActionDisabled,
   hasVirtualLocationSelection,
   linkCreationOptions,
@@ -118,6 +127,20 @@ const {
     isSearchResultsView: toRef(props, 'isSearchResultsView'),
   },
 );
+
+/**
+ * FORK-MODIFICATION (2026-11-05)：被调用方排除的动作一律不显示。
+ *
+ * 与可见性判定（`useContextMenuItems`）分开：那一层判的是「这个动作在当前
+ * 上下文里能不能用」，这一层判的是「这个界面有没有它的执行通道」。
+ */
+function isMenuActionVisible(action: ContextMenuAction): boolean {
+  if (props.excludedActions.includes(action)) {
+    return false;
+  }
+
+  return isMenuActionAvailable(action);
+}
 
 const allSelectedAreFavorites = computed(() => {
   return props.selectedEntries.every(entry => userStatsStore.isFavorite(entry.path));

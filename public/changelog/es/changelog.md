@@ -1,5 +1,16 @@
 # Registro de cambios
 
+## [3.11.0] - November 2026
+
+**Summary:** Las imágenes ya se pueden girar y voltear desde el menú contextual y el cambio se guarda al momento; un icono anclado a la barra de tareas sobrevive a una actualización; y el menú contextual de los resultados de búsqueda global ha vuelto, con «Abrir la carpeta que lo contiene».
+
+### What changed
+
+**Nuevo:** Girar y voltear una imagen desde su menú contextual. Al seleccionar un único archivo de imagen, el menú contextual ofrece *Girar a la izquierda*, *Girar a la derecha*, *Voltear horizontalmente* y *Voltear verticalmente*. Al elegir una, la imagen se edita y se vuelve a guardar en el mismo archivo de inmediato: sin diálogo, sin *Guardar como* y sin una segunda confirmación. El giro y el volteo son operaciones inversas entre sí, así que el aspecto original siempre puede restaurarse aplicando la operación contraria. Las cuatro entradas solo aparecen con una única imagen: ni con carpetas, ni con varios archivos a la vez, ni con SVG, que no tiene mapa de bits que editar.
+
+**Corregido:** Un icono anclado a la barra de tareas ya no desaparece tras una actualización. Al instalar una nueva versión se ejecutaba el desinstalador antiguo como si se quisiera quitar el programa, y este se llevaba también el acceso fijo de la barra de tareas. Ahora, al instalar sobre una versión existente, el desinstalador antiguo entrega el programa en vez de limpiar: el acceso fijo, el acceso directo del menú Inicio y la entrada de inicio automático se quedan donde estaban. Una desinstalación hecha a propósito sigue quitándolos.
+
+**Corregido:** Los resultados de búsqueda global vuelven a tener su menú contextual. La lista de resultados se había reescrito como una lista ligera, y el menú se fue con ella: hacer clic derecho en un resultado no hacía nada y «Abrir la carpeta que lo contiene» —la entrada que salta a la carpeta del archivo y lo selecciona— tampoco estaba. El menú ha vuelto, lleva el elemento sobre el que se hizo clic derecho y sabe que está viendo resultados de búsqueda: «Abrir en la carpeta que lo contiene» abre la carpeta en el panel de navegación junto al panel y selecciona allí el archivo, mientras que «Abrir la carpeta que lo contiene» entrega la ubicación al Explorador de Windows. Las entradas que no pueden funcionar dentro del panel se omiten en lugar de mostrarse sin efecto.
 ## [3.8.0] - October 2026
 
 **Summary:** El aspecto de *papel de archivo* ha tenido una segunda ronda de trabajo. Los dos temas *Warm Paper* son más claros y menos saturados en el área principal, todos los iconos están dibujados como trazo beige claro, los iconos de carpeta llevan un acento verde apagado, las pestañas inactivas están atenuadas y llevan un borde beige grisáceo, la cabecera de la lista se apoya en un fondo más oscuro con una línea arriba y abajo, y las carpetas y los archivos ya no comparten el mismo fondo. En *Vivid* los botones de la barra de herramientas se colorean según la función que cumplen, las pestañas se ajustan a su título y el icono de la aplicación se ha redibujado con la paleta de papel cálido. La extensión *Seguir rutas* vuelve a funcionar después de una actualización.
