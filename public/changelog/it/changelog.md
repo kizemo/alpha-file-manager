@@ -1,5 +1,16 @@
 # Registro delle modifiche
 
+## [3.11.0] - November 2026
+
+**Summary:** Ora le immagini si possono ruotare e capovolgere direttamente dal menu contestuale e la modifica viene salvata subito; un’icona fissata alla barra delle attività sopravvive all’aggiornamento; e il menu contestuale dei risultati della ricerca globale è tornato, con «Apri la cartella contenitore».
+
+### What changed
+
+**Nuovo:** Ruota e capovolgi un’immagine dal suo menu contestuale. Selezionando un solo file immagine, il menu contestuale offre *Ruota a sinistra*, *Ruota a destra*, *Capovolgi orizzontalmente* e *Capovolgi verticalmente*. Scegliendone una, l’immagine viene modificata e riscritta subito nello stesso file: nessuna finestra di dialogo, nessun *Salva come*, nessuna seconda conferma. Rotazione e capovolgimento sono operazioni inverse l’una dell’altra, quindi l’aspetto originale si può sempre ripristinare ripetendo l’operazione opposta. Le quattro voci compaiono solo per una singola immagine: non per le cartelle, non per più file contemporaneamente e non per SVG.
+
+**Corretto:** Un’icona fissata alla barra delle attività non scompare più dopo un aggiornamento. Installando una nuova versione il vecchio uninstaller veniva eseguito come se si volesse rimuovere il programma, e portava via anche il collegamento fissato alla barra delle attività. Ora, installando sopra una versione esistente, il vecchio uninstaller passa il programma invece di fare pulizia: collegamento fissato, collegamento nel menu Start e voce di avvio automatico restano dove erano. Una disinstallazione voluta li rimuove ancora.
+
+**Corretto:** I risultati della ricerca globale hanno di nuovo il loro menu contestuale. L’elenco dei risultati era stato riscritto come elenco leggero, e il menu è sparito con esso: fare clic destro su un risultato non faceva nulla, e «Apri la cartella contenitore» – la voce che porta alla cartella del file e lo seleziona – era sparita anch’essa. Il menu è tornato, porta la voce su cui si è fatto clic destro e sa che sta guardando risultati di ricerca: «Apri nella cartella contenitore» apre la cartella nel riquadro di navigazione accanto e vi seleziona il file, mentre «Apri la cartella contenitore» passa il percorso a Esplora File. Le voci che nel pannello non possono funzionare sono omesse invece di comparire senza effetto.
 ## [3.8.0] - October 2026
 
 **Summary:** L'aspetto *carta d'archivio* ha avuto un secondo round di lavoro. I due temi *Warm Paper* sono più chiari e meno saturi nell'area principale, tutte le icone sono disegnate come tratto beige chiaro, le icone di cartella portano un accento verde spento, le schede inattive sono scurite e hanno un bordo beige-grigio, l'intestazione dell'elenco poggia su un fondo più scuro con una linea sopra e sotto, e cartelle e file non condividono più lo stesso fondo. In *Vivid* i pulsanti della barra degli strumenti sono colorati secondo la funzione che svolgono, le schede si dimensionano sul proprio titolo e l'icona dell'applicazione è stata ridisegnata nella palette della carta calda. L'estensione *Segui percorsi* funziona di nuovo dopo un aggiornamento.

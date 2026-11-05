@@ -208,3 +208,179 @@ describe('kill-app-tree.ps1 的「杀干净」能力', () => {
     expect(ps1).toContain('STILL LOCKED');
   });
 });
+
+//
+// FORK-MODIFICATION (2026-11-05): guard the "the taskbar pin survives an update" fix.
+//
+// Root cause, confirmed by reading the vendored NSIS template:
+//   - The template used to append /UPDATE to the legacy uninstaller command
+//     line only when the NEW installer itself ran with $UpdateMode = 1.
+//   - That branch is unreachable on a real upgrade: PageLeaveReinstall jumps
+//     straight to reinst_done when $UpdateMode = 1, so the legacy uninstaller
+//     is never started at all. The condition was dead code.
+//   - The legacy uninstaller therefore always ran with its own $UpdateMode = 0
+//     and its Section Uninstall executed the "remove shortcuts if not updating"
+//     block (DeleteAppUserModelId + UnpinShortcut + delete the .lnk files).
+//     That block is what drops the pinned taskbar icon on every update.
+//
+// The fix appends /UPDATE unconditionally, so the legacy uninstaller sets its
+// own $UpdateMode = 1 in un.onInit and skips that block.
+//
+// These assertions must have teeth: the analysis helper has to reject the old,
+// conditionally wrapped wording as well as a multi-line conditional block,
+// otherwise this guard would also pass on the broken template.
+//
+
+const UPDATE_APPEND_RE = /StrCpy\s+\$R1\s+"\$R1\s*\/UPDATE"/;
+const PASSIVE_APPEND_RE = /StrCpy\s+\$R1\s+"\$R1\s*\/P"/;
+const UNINSTALL_DIR_ARG_RE = /StrCpy\s+\$R1\s+"\$R1\s*_\?=\$4"/;
+
+interface UpdateAppendHit {
+  index: number;
+  line: string;
+  /** Empty when the statement is not guarded by any condition. */
+  condition: string;
+}
+
+interface UpdateAppendAnalysis {
+  occurrences: number;
+  hits: UpdateAppendHit[];
+}
+
+/**
+ * Find every place that appends /UPDATE to the legacy uninstaller command line
+ * and report whether each of them is guarded by a condition.
+ */
+function analyzeUpdateAppend(source: string): UpdateAppendAnalysis {
+  const lines = source.split(/\r?\n/);
+  const hits: UpdateAppendHit[] = [];
+
+  // One entry per open ${If} block. hasElse marks a block that has an
+  // ${Else}/${ElseIf} branch: such a block does NOT guard the statement,
+  // because the statement runs in one of the branches either way.
+  const blocks: Array<{ label: string; hasElse: boolean }> = [];
+
+  lines.forEach((raw, index) => {
+    const trimmed = raw.trim();
+
+    if (UPDATE_APPEND_RE.test(raw)) {
+      let condition = '';
+
+      if (/^\$\{IfThen\}/.test(trimmed)) condition = '${IfThen}';
+      else if (/^\$\{If\}/.test(trimmed)) condition = '${If}';
+      else if (/^\$\{Else\}/.test(trimmed)) condition = '${Else}';
+      else if (/\$\{IfThen\}/.test(trimmed)) condition = '${IfThen}';
+      else if (/\$UpdateMode/.test(trimmed)) condition = '$UpdateMode';
+
+      if (!condition) {
+        const guarding = blocks.filter((block) => !block.hasElse);
+
+        if (guarding.length > 0) condition = guarding[guarding.length - 1].label;
+      }
+
+      hits.push({ index, line: raw, condition });
+    }
+
+    const opens = (raw.match(/\$\{If\}/g) ?? []).length;
+    const closes = (raw.match(/\$\{EndIf\}/g) ?? []).length;
+
+    for (let i = 0; i < opens; i += 1) blocks.push({ label: trimmed, hasElse: false });
+
+    if (/\$\{Else\}|\$\{ElseIf\}/.test(raw) && blocks.length > 0) {
+      blocks[blocks.length - 1].hasElse = true;
+    }
+
+    for (let i = 0; i < closes; i += 1) blocks.pop();
+  });
+
+  return { occurrences: hits.length, hits };
+}
+
+describe('NSIS 模板补丁（更新安装不再摘掉任务栏固定）', () => {
+  const installerDir = findInstallerDir();
+  const templatePath = path.join(installerDir, 'installer.nsi');
+  const template = fs.readFileSync(templatePath, 'utf8');
+  const templateLines = template.split(/\r?\n/);
+
+  it('追加 /UPDATE 的语句全文件只有一处，且不再被 $UpdateMode 条件包裹', () => {
+    const analysis = analyzeUpdateAppend(template);
+
+    expect(analysis.occurrences).toBe(1);
+    expect(analysis.hits[0].condition).toBe('');
+    expect(analysis.hits[0].line).toMatch(/^\s*StrCpy\s+\$R1\s+"\$R1\s*\/UPDATE"/);
+    expect(analysis.hits[0].line).not.toContain('$UpdateMode');
+  });
+
+  it('断言本身有牙：条件包裹的旧写法会被判为「有条件」', () => {
+    // 旧写法：单行 ${IfThen} 条件包裹。
+    const conditional = '      ${IfThen} $UpdateMode = 1 ${|} StrCpy $R1 "$R1 /UPDATE" ${|} ; append /UPDATE';
+    const conditionalAnalysis = analyzeUpdateAppend(conditional);
+
+    expect(conditionalAnalysis.occurrences).toBe(1);
+    expect(conditionalAnalysis.hits[0].condition).not.toBe('');
+
+    // 旧写法：多行 ${If} ... ${EndIf} 条件块包裹。
+    const blockConditional = [
+      '      ${If} $UpdateMode = 1',
+      '        StrCpy $R1 "$R1 /UPDATE" ; append /UPDATE',
+      '      ${EndIf}',
+    ].join('\n');
+    const blockAnalysis = analyzeUpdateAppend(blockConditional);
+
+    expect(blockAnalysis.occurrences).toBe(1);
+    expect(blockAnalysis.hits[0].condition).not.toBe('');
+
+    // 修复后的写法必须被判为「无条件」。
+    const unconditional = '      StrCpy $R1 "$R1 /UPDATE" ; append /UPDATE';
+    const unconditionalAnalysis = analyzeUpdateAppend(unconditional);
+
+    expect(unconditionalAnalysis.occurrences).toBe(1);
+    expect(unconditionalAnalysis.hits[0].condition).toBe('');
+  });
+
+  it('/UPDATE 排在 /P 与 _?=$4 之前，且 /P 的条件语义没有被改动', () => {
+    const updateIdx = templateLines.findIndex((line) => UPDATE_APPEND_RE.test(line));
+    const passiveIdx = templateLines.findIndex((line) => PASSIVE_APPEND_RE.test(line));
+    const queryIdx = templateLines.findIndex((line) => UNINSTALL_DIR_ARG_RE.test(line));
+
+    expect(updateIdx).toBeGreaterThan(-1);
+    expect(passiveIdx).toBeGreaterThan(updateIdx);
+    expect(queryIdx).toBeGreaterThan(passiveIdx);
+
+    // /P 仍然只在该静默安装时才追加 —— 本次补丁不得顺手改掉它的语义。
+    expect(templateLines[passiveIdx]).toContain('${IfThen} $PassiveMode = 1');
+  });
+
+  it('真卸载段仍然摘固定 / 删快捷方式（用户单独跑 uninstall.exe 的行为不变）', () => {
+    const uninstallIdx = templateLines.findIndex((line) => line.trim() === 'Section Uninstall');
+
+    expect(uninstallIdx).toBeGreaterThan(-1);
+
+    const uninstallSection = templateLines.slice(uninstallIdx).join('\n');
+
+    expect(uninstallSection).toContain('!insertmacro DeleteAppUserModelId');
+    expect(uninstallSection).toContain('!insertmacro UnpinShortcut');
+
+    // 仍然被 $UpdateMode <> 1 包着：旧卸载器收到 /UPDATE 时跳过，用户单独卸载时不跳过。
+    const guardIdx = templateLines.findIndex(
+      (line, index) => index > uninstallIdx && line.includes('${If} $UpdateMode <> 1'),
+    );
+    const deleteIdx = templateLines.findIndex(
+      (line, index) => index > uninstallIdx && line.includes('!insertmacro DeleteAppUserModelId'),
+    );
+
+    expect(guardIdx).toBeGreaterThan(-1);
+    expect(deleteIdx).toBeGreaterThan(guardIdx);
+  });
+
+  it('旧卸载器会在 un.onInit 里解析 /UPDATE（这条修复生效的前提）', () => {
+    const unOnInitIdx = templateLines.findIndex((line) => line.trim() === 'Function un.onInit');
+
+    expect(unOnInitIdx).toBeGreaterThan(-1);
+
+    const unOnInit = templateLines.slice(unOnInitIdx, unOnInitIdx + 40).join('\n');
+
+    expect(unOnInit).toContain('${GetOptions} $CMDLINE "/UPDATE" $UpdateMode');
+    expect(unOnInit).toMatch(/StrCpy \$UpdateMode 1/);
+  });
+});

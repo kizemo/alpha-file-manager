@@ -1,5 +1,16 @@
 # Journal des modifications
 
+## [3.11.0] - November 2026
+
+**Summary:** Les images peuvent désormais être pivotées et retournées depuis le menu contextuel, la modification étant enregistrée immédiatement ; une icône épinglée à la barre des tâches survit à une mise à jour ; et le menu contextuel des résultats de recherche globale est de retour, « Ouvrir le dossier contenant » compris.
+
+### What changed
+
+**Nouveau :** Pivoter et retourner une image depuis son menu contextuel. Lorsqu’un seul fichier image est sélectionné, le menu contextuel propose *Pivoter à gauche*, *Pivoter à droite*, *Retourner horizontalement* et *Retourner verticalement*. Le choix édite l’image et la réécrit immédiatement dans le même fichier : aucune boîte de dialogue, aucun *Enregistrer sous*, aucune seconde confirmation. La rotation et le retournement sont réciproquement inverses, l’aspect d’origine peut donc toujours être retrouvé en appliquant l’opération inverse. Les quatre entrées n’apparaissent que pour une seule image : ni pour un dossier, ni pour plusieurs fichiers à la fois, ni pour le SVG, qui ne contient pas d’image matricielle à modifier.
+
+**Corrigé :** Une icône épinglée à la barre des tâches ne disparaît plus après une mise à jour. L’installation d’une nouvelle version lançait l’ancien désinstallateur comme si l’on voulait supprimer le programme, et celui-ci retirait aussi l’ancrage dans la barre des tâches. Lors d’une installation par-dessus une version existante, l’ancien désinstallateur transmet désormais le programme au lieu de faire le ménage : l’ancrage, le raccourci du menu Démarrer et l’entrée de démarrage automatique restent en place. Une désinstallation volontaire les retire toujours.
+
+**Corrigé :** Les résultats de recherche globale ont à nouveau leur menu contextuel. La liste des résultats avait été réécrite sous forme de liste légère, et le menu a disparu avec elle : un clic droit sur un résultat ne faisait rien, et « Ouvrir le dossier contenant » — l’entrée qui ouvre le dossier du fichier et le sélectionne — avait disparu également. Le menu est de retour, il porte l’élément sur lequel on a réellement fait un clic droit, et il sait qu’il regarde des résultats de recherche : « Ouvrir dans le dossier contenant » ouvre le dossier dans le volet de navigation voisin et y sélectionne le fichier, tandis que « Ouvrir le dossier contenant » confie l’emplacement à l’Explorateur Windows. Les entrées sans effet possible dans le panneau sont omises plutôt qu’affichées sans action.
 ## [3.8.0] - October 2026
 
 **Summary:** L aspect *papier d'archive* a connu une seconde série de travaux. Les deux thèmes *Warm Paper* sont plus clairs et moins saturés dans la zone principale, toutes les icônes sont tracées en filet beige clair, les icônes de dossier portent un accent vert sourd, les onglets inactifs sont assombris et bordés d'un liseré beige grisâtre, l'en-tête de liste repose sur un fond plus sombre bordé d'un trait en haut et en bas, et les dossiers comme les fichiers ne partagent plus le même fond. Dans *Vivid*, les boutons de la barre d'outils sont colorés selon leur fonction, les onglets se dimensionnent selon leur titre, et l'icône de l'application a été redessinée dans la palette papier chaud. L'extension *Suivre les chemins* fonctionne de nouveau après une mise à jour.

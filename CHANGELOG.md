@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.11.0] - November 2026
+
+**Summary:** Pictures can be turned and flipped straight from the context menu, and the edit is saved on the spot; an icon you pinned to the taskbar survives an update; and the global search results have their right-click menu back, *Open the containing folder* included.
+
+### What changed
+
+- **New** **Turn and flip a picture from its context menu** — A picture file now offers *Rotate left*, *Rotate right*, *Flip horizontally* and *Flip vertically*. Picking one edits the picture and writes it back to the same file right away: no dialog, no *Save as*, no second confirmation. The turn and the flip are each other's opposite, so the original look can always be restored by applying the mirror operation again. The four entries appear for a single picture only - not for a folder, not for several files at once, and not for SVG, which carries no bitmap to edit.
+- **Fixed** **A taskbar icon you pinned no longer disappears after an update** — Installing a new version ran the old uninstaller as if you had decided to remove the program, and that uninstaller also took the taskbar shortcut off the taskbar. Installing over an existing version now tells the old uninstaller to hand over instead of to clean up, so the pinned icon, the Start Menu shortcut and the autostart entry all stay where they were. Uninstalling on purpose still removes them, as it should.
+- **Fixed** **The global search results have their right-click menu again** — The result list had been rewritten as a light-weight list, and the menu went with it: right-clicking a result did nothing, and *Open the containing folder* - the entry that jumps to the folder holding the file and selects it - was gone as well. The menu is back, carrying the entry you actually right-clicked, and it knows it is looking at search results: *Open the containing folder* opens the folder in the navigator next to the panel and selects the file there, while *Open in the containing folder* hands the location over to Windows Explorer. Entries that have no way to work inside the panel - *Open with*, *Edit tags* and the two *New* items - are left out instead of being shown and doing nothing.
+
 ## [3.10.1] - November 2026
 
 **Summary:** 扩展体验四项修复：自家扩展安装后不再被「本地」徽章顶掉「官方」徽章且徽章改为带文字标注；扩展卡片的说明文字跟随界面语言显示；在中国网络环境下从镜像加速下载扩展；Focus Sync 说明文案里的旧品牌名统一为 File Manager。

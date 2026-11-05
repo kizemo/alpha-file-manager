@@ -762,6 +762,7 @@ onMounted(() => {
                   @open-entry="handleSearchEntryOpen"
                   @navigate="handleResultNavigate"
                   @activate="handleResultActivate"
+                  @rename="startRename"
                 />
               </div>
             </div>

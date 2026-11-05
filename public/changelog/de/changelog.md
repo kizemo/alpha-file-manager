@@ -1,5 +1,16 @@
 # Änderungsprotokoll
 
+## [3.11.0] - November 2026
+
+**Summary:** Bilder lassen sich jetzt direkt im Kontextmenü drehen und spiegeln, die Änderung wird sofort gespeichert; ein an der Taskleiste angeheftetes Symbol übersteht ein Update; und die Rechtsklick-Menü der globalen Suchergebnisse ist wieder da, samt „Ordner öffnen“.
+
+### What changed
+
+**Hinzugefügt:** Bilder im Kontextmenü drehen und spiegeln. Bei einer einzelnen Bilddatei bietet das Kontextmenü jetzt *Nach links drehen*, *Nach rechts drehen*, *Horizontal spiegeln* und *Vertikal spiegeln*. Die Auswahl bearbeitet das Bild und schreibt es sofort in dieselbe Datei zurück: kein Dialog, kein *Speichern unter*, keine zweite Rückfrage. Drehen und Spiegeln sind zueinander umkehrbar, das ursprüngliche Aussehen lässt sich also jederzeit wiederherstellen. Die vier Einträge erscheinen nur bei einem einzelnen Bild – nicht bei Ordnern, nicht bei mehreren Dateien und nicht bei SVG.
+
+**Behoben:** Ein an der Taskleiste angeheftetes Symbol verschwindet nach einem Update nicht mehr. Die Installation einer neuen Version startete den alten Deinstallierer, als ob man das Programm entfernen wollte, und der nahm dabei auch das Taskleistensymbol mit. Bei einer Installation über eine bestehende Version übergibt der alte Deinstallierer jetzt, statt aufzuräumen; angeheftetes Symbol, Startmenü-Verknüpfung und Autostarteintrag bleiben, wo sie sind. Eine bewusste Deinstallation entfernt sie weiterhin.
+
+**Behoben:** Die globalen Suchergebnisse haben wieder ihr Rechtsklick-Menü. Die Ergebnisliste war auf eine schlanke Liste umgestellt worden, und das Menü verschwand mit ihr: Rechtsklick auf ein Ergebnis tat nichts, und „Ordner öffnen“ – der Eintrag, der zum Ordner der Datei springt und sie auswählt – fehlte ebenfalls. Das Menü ist wieder da, es trägt den Eintrag, den man tatsächlich angeklickt hat, und weiß, dass es Suchergebnisse sieht: „Enthaltenden Ordner öffnen“ öffnet den Ordner in der Navigationsleiste neben dem Feld und wählt die Datei dort aus, während „Ordner öffnen“ den Ort an den Windows-Explorer übergibt. Einträge, die im Feld nichts ausrichten können, fehlen lieber, als dass sie wirkungslos erscheinen.
 ## [3.8.0] - October 2026
 
 **Summary:** Der *Archivpapier*-Look hat eine zweite Runde hinter sich. Die beiden *Warm Paper*-Themes sind in der Hauptfläche heller und entsättigter, alle Symbole sind als helle beigefarbene Linienzeichnung gezeichnet, Ordnersymbole tragen einen gedämpften grünen Akzent, inaktive Reiter sind abgedunkelt und haben eine helle beige-graue Kante bekommen, die Listenüberschrift sitzt auf einem dunkleren Grund mit Linie darüber und darunter, und Ordner und Dateien teilen sich nicht mehr denselben Hintergrund. In *Lebendige Farben* sind die Schaltflächen der Symbolleiste nach ihrer Aufgabe eingefärbt, Reiter richten sich nach ihrem Titel, und das Anwendungssymbol wurde in der Warm-Paper-Farbpalette neu gezeichnet. Die Erweiterung *Pfade folgen* funktioniert außerdem wieder nach einem Update.
