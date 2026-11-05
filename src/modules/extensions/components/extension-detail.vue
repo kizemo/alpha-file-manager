@@ -51,6 +51,7 @@ import {
   type ResolvedManifestMediaItem,
 } from '@/modules/extensions/utils/resolve-manifest-media';
 import { useQuickViewStore } from '@/stores/runtime/quick-view';
+import { useExtensionLocalizedDescription } from '@/modules/extensions/composables/use-extension-localized-description';
 
 const props = defineProps<{
   extension: ExtensionWithManifest;
@@ -95,8 +96,10 @@ const displayName = computed(() => {
   return props.extension.name || currentManifest.value?.name || props.extension.id.split('.').pop() || props.extension.id;
 });
 
+const { localizedDescription } = useExtensionLocalizedDescription(() => props.extension);
+
 const description = computed(() => {
-  return props.extension.description || t('extensions.noDescription');
+  return localizedDescription.value || props.extension.description || t('extensions.noDescription');
 });
 
 const publisherName = computed(() => {
@@ -746,13 +749,13 @@ onMounted(() => {
                   show-label
                 />
                 <ExtensionBadge
-                  v-else-if="isLocal"
-                  type="local"
+                  v-else-if="isOfficial"
+                  type="official"
                   show-label
                 />
                 <ExtensionBadge
-                  v-else-if="isOfficial"
-                  type="official"
+                  v-else-if="isLocal"
+                  type="local"
                   show-label
                 />
                 <ExtensionBadge

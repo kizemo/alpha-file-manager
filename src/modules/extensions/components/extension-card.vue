@@ -20,6 +20,7 @@ import ExtensionIcon from './extension-icon.vue';
 import type { ExtensionWithManifest } from '@/modules/extensions/composables/use-extensions';
 import { formatBytes } from '@/modules/navigator/components/file-browser/utils';
 import { OFFICIAL_MARKET_SOURCE_ID } from '@/modules/extensions/utils/market-sources';
+import { useExtensionLocalizedDescription } from '@/modules/extensions/composables/use-extension-localized-description';
 
 const props = defineProps<{
   extension: ExtensionWithManifest;
@@ -52,8 +53,10 @@ const displayName = computed(() => {
   return props.extension.name || props.extension.manifest?.name || props.extension.id.split('.').pop() || props.extension.id;
 });
 
+const { localizedDescription } = useExtensionLocalizedDescription(() => props.extension);
+
 const description = computed(() => {
-  return props.extension.description || t('extensions.noDescription');
+  return localizedDescription.value || props.extension.description || t('extensions.noDescription');
 });
 
 const publisherName = computed(() => {
@@ -130,12 +133,13 @@ function handleCancelClick(event: MouseEvent) {
             {{ displayName }}
           </h3>
           <ExtensionBadge
-            v-if="isLocal"
-            type="local"
+            v-if="isOfficial"
+            type="official"
+            show-label
           />
           <ExtensionBadge
-            v-else-if="isOfficial"
-            type="official"
+            v-else-if="isLocal"
+            type="local"
           />
           <ExtensionBadge
             v-else

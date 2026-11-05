@@ -175,7 +175,7 @@ pub async fn download_extension_binary(
 
     let client = build_remote_http_client()?;
     let cancel_flag = get_extension_install_cancellation_flag(request.cancellation_id.as_ref());
-    let candidates = UrlCandidates::new(validated_url);
+    let candidates = UrlCandidates::new(validated_url).with_china_mirrors();
     let mut on_progress = |_downloaded: u64, _total: Option<u64>| {};
 
     download_to_file_across_urls_with_retry(
@@ -245,7 +245,7 @@ pub async fn download_and_extract_extension_binary(
 
     let client = build_remote_http_client()?;
     let cancel_flag = get_extension_install_cancellation_flag(request.cancellation_id.as_ref());
-    let candidates = UrlCandidates::new(validated_url);
+    let candidates = UrlCandidates::new(validated_url).with_china_mirrors();
     let mut on_progress = |_downloaded: u64, _total: Option<u64>| {};
 
     if let Err(error) = download_to_file_across_urls_with_retry(
@@ -522,7 +522,7 @@ async fn run_download_shared_binary(
 
     let client = build_remote_http_client()?;
     let cancel_flag = get_extension_install_cancellation_flag(cancellation_id.as_ref());
-    let candidates = UrlCandidates::new(validated_url);
+    let candidates = UrlCandidates::new(validated_url).with_china_mirrors();
     let mut on_progress =
         make_shared_binary_progress_emitter(app_handle.clone(), progress_event_id.clone());
 
@@ -667,7 +667,7 @@ async fn run_download_and_extract_shared_binary(
 
     let client = build_remote_http_client()?;
     let cancel_flag = get_extension_install_cancellation_flag(cancellation_id.as_ref());
-    let candidates = UrlCandidates::new(validated_url);
+    let candidates = UrlCandidates::new(validated_url).with_china_mirrors();
     let mut on_progress =
         make_shared_binary_progress_emitter(app_handle.clone(), progress_event_id.clone());
 

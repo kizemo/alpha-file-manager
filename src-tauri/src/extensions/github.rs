@@ -225,6 +225,7 @@ pub async fn fetch_github_tags(repository: String) -> Result<Vec<String>, String
 pub async fn fetch_url_text(url: String) -> Result<FetchUrlResult, String> {
     let validated_url = validate_remote_url(&url)?;
     let candidates = UrlCandidates::new(validated_url.clone())
+        .with_china_mirrors()
         .with_fallback(build_jsdelivr_fallback_url(&validated_url));
 
     let client = build_remote_http_client()?;

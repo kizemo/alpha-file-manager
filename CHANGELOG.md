@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.10.1] - November 2026
+
+**Summary:** 扩展体验四项修复：自家扩展安装后不再被「本地」徽章顶掉「官方」徽章且徽章改为带文字标注；扩展卡片的说明文字跟随界面语言显示；在中国网络环境下从镜像加速下载扩展；Focus Sync 说明文案里的旧品牌名统一为 File Manager。
+
+### What changed
+
+- **Fixed** 徽章优先级 — 市场卡片（`extension-card.vue`）、已安装面板（`extensions-installed.vue`）与详情页（`extension-detail.vue`）标题行原先是「本地」优先于「官方」，导致已经安装的自家扩展（如 Git Tools）只显示紫色「本地」图标；现改为「官方」优先，其次才是「本地」「社区」。
+- **Added** 「官方」徽章的文字标注 — 原先只有对勾图标，界面上读不出「官方」二字，无障碍树里也搜不到该文本；现在徽章直接显示「官方」，与「第三方」徽章的带文字形态一致。
+- **Added** 扩展卡片说明跟随界面语言 — 卡片标题下方的说明文字现在按当前界面语言取扩展自带的语言包：界面语言为中文时显示扩展的中文说明；第三方扩展没有中文语言包时回退到英文说明，不会出现空白或键名。
+- **Added** 扩展下载的中国镜像 — 从 GitHub 下载扩展（市场安装、清单拉取、二进制定位）时会依次尝试 `ghfast.top`、`gh-proxy.com`、`ghproxy.net` 与 jsDelivr 镜像，再回退到官方 `codeload` 地址；镜像只对 `github.com` 与 `raw.githubusercontent.com` 生效，其余域名保持直连。
+- **Changed** Focus Sync 说明文案里的旧品牌名 — 扩展清单、中英文语言包与通知文案中的 "Sigma" 统一改为 "File Manager"，使同一份扩展说明在 Alpha File Manager 与 Sigma File Manager 上都成立。
+- **Note** 本版改动集中在扩展徽章展示、扩展说明本地化、扩展下载候选地址与一份扩展的说明文案，未改动扩展注册表、清单签名与权限模型；3.10.0 的官方判定、精选位与作者名（Alpha File Manager）保持不变。
+
 ## [3.10.0] - November 2026
 
 **Summary:** Extensions are published under the **Alpha File Manager** name now, our own extensions carry an *Official* mark beside their title and are listed under *Featured*, and the extension market reads two sources - our official one first, the legacy Sigma one below it as a third-party source. Underneath: full-disk search indexes incrementally and scans in parallel, so a large directory no longer spins without showing its list, permanent deletion no longer reports failures that did not happen, and commands and keyboard shortcuts now resolve through one shared action registry.

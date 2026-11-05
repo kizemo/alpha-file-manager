@@ -22,6 +22,10 @@
         "file-dialog"
       ],
       "releaseMetadata": {
+        "0.5.9": {
+          "integrity": "sha256:9ec308531f9ade968a50733bb900e1de1b913f595d92c0bac30510cccf38cf94",
+          "manifest": "https://raw.githubusercontent.com/kizemo/focus-sync/v0.5.9/package.json"
+        },
         "0.5.8": {
           "integrity": "sha256:480ac78c5a49a08d5d7fb8a605fef5a36594b345d2223dce7688b587e2b50d15",
           "manifest": "https://raw.githubusercontent.com/kizemo/focus-sync/main/package.json"
