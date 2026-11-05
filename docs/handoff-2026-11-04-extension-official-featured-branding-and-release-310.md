@@ -559,6 +559,19 @@ Text | Light color themes for Sigma File Manager.                 <- 同上
   ```
 - `prepare --write-notes` 是 `main()` 里的**独立优先分支**，不递增版本、不重写 `pub_date`。
 
+**最终核验（2026-11-05 完成，已验证）**
+
+- SFTP 上传：任务 `bg_284a02fe` 退出码 0，日志 `upload-3101.log`（9406 B）出现逐字：
+  `[verify] 线上版本  ：3.10.1` / `[verify] 清单 sha256：e074d023…e164` /
+  `[verify] 源站包大小：44940588 字节` / `[verify] 边缘包大小：44940588 字节（CF-Cache-Status=MISS）` /
+  **`[verify] 通过：版本号 / 大小 / sha256 三项均一致（源站与边缘都已生效）`**。
+- 独立复核：`https://www.aiec.fun/alpha-file-manager/version.json?_=<stamp>` → HTTP 200、`version=3.10.1`。
+- GitHub Release：`gh release view v3.10.1 --repo kizemo/alpha-file-manager` → `isDraft=false`、`isPrerelease=false`、
+  `publishedAt=2026-11-05T02:15:16Z`、资产 `Alpha_File_Manager_3.10.1_x64-setup.exe` **44940588 B**、
+  `digest=sha256:e074d02326ccf7d7a9c76ddb7cd922a31d71d8d6ff7cedb5cebc7f8e4de3e164`，
+  URL `https://github.com/kizemo/alpha-file-manager/releases/tag/v3.10.1`。
+- 收尾提交：`3aa4df85 docs: 回填 3.10.1 发版记录（handoff §十一 + 5 条新工具坑）` 已 push；`git status --porcelain` 为空。
+
 ### 11.7 本轮遗留（follow-up，不阻断发版）
 
 1. **需求 3 缺应用内硬证据**（见 11.2 ⚠️）：需给 `UrlCandidates` 加「实际尝试的 URL」日志后重跑。
