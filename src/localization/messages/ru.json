@@ -1258,7 +1258,14 @@
       "removeFromFavorites": "Удалить из избранного",
       "createLink": "Создать ссылку",
       "unlock": "Unlock file",
-      "forceDelete": "Force delete"
+      "forceDelete": "Force delete",
+      "rotateImageLeft": "Повернуть влево",
+      "rotateImageRight": "Повернуть вправо",
+      "flipImageHorizontal": "Отразить по горизонтали",
+      "flipImageVertical": "Отразить по вертикали",
+      "imageEditSucceeded": "Изображение успешно отредактировано",
+      "imageEditFailed": "Не удалось отредактировать изображение",
+      "imageEditInProgress": "Обработка…"
     },
     "linkTypes": {
       "symlink": "Символическая ссылка",

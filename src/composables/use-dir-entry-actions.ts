@@ -2,7 +2,7 @@
 // License: GNU GPLv3 or later. See the license file in the project root for more information.
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
-import { markRaw } from 'vue';
+import { getCurrentInstance, markRaw } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
@@ -45,6 +45,13 @@ import {
   remoteTransferItemsFromPaths,
   toRemoteTransferItems,
 } from '@/modules/remote/utils/remote-transfer-service';
+// FORK-MODIFICATION: 图片编辑四动作（左旋 / 右旋 / 左右翻 / 上下翻）的执行封装。
+import {
+  applyImageEdit,
+  getImageEditOperation,
+} from '@/utils/image-edit';
+// FORK-MODIFICATION: 共享缩略图缓存实例（navigator.vue 里 provide 的那一份）。
+import { useNavigatorImageThumbnails } from '@/modules/navigator/composables/use-navigator-image-thumbnails';
 
 export function useDirEntryActions() {
   const { t } = useI18n();
@@ -60,6 +67,14 @@ export function useDirEntryActions() {
   const folderTreeStore = useFolderTreeStore();
   const { startShare } = useLanShare();
   const permanentDeleteConfirm = usePermanentDeleteConfirm();
+
+  /**
+   * FORK-MODIFICATION: 共享的缩略图缓存实例。
+   *
+   * 由 navigator.vue `provide`、这里 `inject` —— 只在组件上下文里拿得到；
+   * 拿不到就不传（缓存失效由「目录重读 ⇒ mtime/size 变 ⇒ 缓存键变」兜底）。
+   */
+  const imageThumbnails = getCurrentInstance() ? useNavigatorImageThumbnails() : null;
   // FORK-MODIFICATION 2026-10-24：解除文件锁定 / 彻底删除。
   const fileLockWorkflow = useFileLockWorkflow();
   const {
@@ -696,6 +711,28 @@ export function useDirEntryActions() {
       case 'properties':
         void openProperties(entries);
         break;
+      // FORK-MODIFICATION: 图片编辑四动作（左旋 / 右旋 / 左右翻 / 上下翻）。
+      //
+      // 可见性判定保证选中的**只有一个**可编辑图片文件，
+      // 这里再兜一层长度判断（执行通道不能假设调用方一定判过）。
+      case 'rotate-image-left':
+      case 'rotate-image-right':
+      case 'flip-image-horizontal':
+
+      case 'flip-image-vertical': {
+        const entry = entries[0];
+
+        if (entries.length === 1 && entry) {
+          void applyImageEdit({
+            entry,
+            operation: getImageEditOperation(action),
+            thumbnailCache: imageThumbnails,
+          });
+        }
+
+        break;
+      }
+
       case 'disconnect':
         if (entries.length === 1) {
           void disconnectDriveEntry(entries[0]);

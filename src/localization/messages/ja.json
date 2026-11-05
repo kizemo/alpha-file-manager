@@ -1220,7 +1220,14 @@
       "removeFromFavorites": "お気に入りから削除",
       "createLink": "リンクを作成",
       "unlock": "Unlock file",
-      "forceDelete": "Force delete"
+      "forceDelete": "Force delete",
+      "rotateImageLeft": "左に回転",
+      "rotateImageRight": "右に回転",
+      "flipImageHorizontal": "左右反転",
+      "flipImageVertical": "上下反転",
+      "imageEditSucceeded": "画像を編集しました",
+      "imageEditFailed": "画像の編集に失敗しました",
+      "imageEditInProgress": "処理中…"
     },
     "linkTypes": {
       "symlink": "シンボリックリンク",

@@ -33,6 +33,11 @@ import {
   UploadIcon,
   DownloadIcon,
   ShieldIcon,
+  // FORK-MODIFICATION: 图片编辑四动作（左旋 / 右旋 / 左右翻 / 上下翻）。
+  RotateCcwIcon,
+  RotateCwIcon,
+  FlipHorizontalIcon,
+  FlipVerticalIcon,
 } from '@lucide/vue';
 import { useUserStatsStore } from '@/stores/storage/user-stats';
 import { useShortcutsStore } from '@/stores/runtime/shortcuts';
@@ -475,6 +480,55 @@ function handleCreateLink(linkKind: LinkCreationKind) {
     <ContextMenuShortcut v-if="shortcutsStore.getShortcutLabel('print')">
       {{ shortcutsStore.getShortcutLabel('print') }}
     </ContextMenuShortcut>
+  </component>
+  <!--
+    FORK-MODIFICATION: 图片编辑四动作。
+
+    可见性由 `context-menu-action-visibility.ts` 判定：
+    **只对单个可编辑图片文件出现**（多选 / 目录 / 非图片 / SVG / 远程 / 虚拟位置都不出现）。
+
+    动作 id 与后端 `operation` 的对应关系在 `src/utils/image-edit.ts` 里
+    （`IMAGE_EDIT_ACTIONS`）—— 菜单只负责发 id，不认识后端。
+  -->
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('rotate-image-left')"
+    :disabled="isMenuActionDisabled('rotate-image-left')"
+    :aria-disabled="isMenuActionDisabled('rotate-image-left')"
+    @select="emitAction('rotate-image-left')"
+  >
+    <RotateCcwIcon :size="16" />
+    <span>{{ t('fileBrowser.actions.rotateImageLeft') }}</span>
+  </component>
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('rotate-image-right')"
+    :disabled="isMenuActionDisabled('rotate-image-right')"
+    :aria-disabled="isMenuActionDisabled('rotate-image-right')"
+    @select="emitAction('rotate-image-right')"
+  >
+    <RotateCwIcon :size="16" />
+    <span>{{ t('fileBrowser.actions.rotateImageRight') }}</span>
+  </component>
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('flip-image-horizontal')"
+    :disabled="isMenuActionDisabled('flip-image-horizontal')"
+    :aria-disabled="isMenuActionDisabled('flip-image-horizontal')"
+    @select="emitAction('flip-image-horizontal')"
+  >
+    <FlipHorizontalIcon :size="16" />
+    <span>{{ t('fileBrowser.actions.flipImageHorizontal') }}</span>
+  </component>
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('flip-image-vertical')"
+    :disabled="isMenuActionDisabled('flip-image-vertical')"
+    :aria-disabled="isMenuActionDisabled('flip-image-vertical')"
+    @select="emitAction('flip-image-vertical')"
+  >
+    <FlipVerticalIcon :size="16" />
+    <span>{{ t('fileBrowser.actions.flipImageVertical') }}</span>
   </component>
   <component
     :is="menuItemComponent"

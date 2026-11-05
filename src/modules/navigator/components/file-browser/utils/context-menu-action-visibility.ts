@@ -113,9 +113,88 @@ const CONTEXT_MENU_ITEMS: ContextMenuItemConfig[] = [
     selectionTypes: ['single'],
     entryTypes: ['file', 'directory'],
   },
+  // FORK-MODIFICATION: 图片编辑四动作（左旋 / 右旋 / 左右翻 / 上下翻）。
+  //
+  // 表里只管「单选 + 文件」；「是不是**可编辑图片**」由下面的
+  // `isImageOnlyActionVisible` 补判 —— 两层判定各管一件事。
+  {
+    action: 'rotate-image-left',
+    selectionTypes: ['single'],
+    entryTypes: ['file'],
+  },
+  {
+    action: 'rotate-image-right',
+    selectionTypes: ['single'],
+    entryTypes: ['file'],
+  },
+  {
+    action: 'flip-image-horizontal',
+    selectionTypes: ['single'],
+    entryTypes: ['file'],
+  },
+  {
+    action: 'flip-image-vertical',
+    selectionTypes: ['single'],
+    entryTypes: ['file'],
+  },
 ];
 
 const WINDOWS_ONLY_ACTIONS = new Set<ContextMenuAction>(['properties', 'open-containing-directory']);
+
+// FORK-MODIFICATION: 图片编辑四动作。
+//
+// 这四个动作只对**单个可编辑图片文件**有意义：
+// 多选、目录、非图片、SVG 全部不显示。
+//
+// ⚠️ SVG 被排除在白名单之外 —— 矢量图没有「像素」可旋转，
+// 后端那套位图旋转 / 翻转对它没有意义（要改也得先栅格化，那是另一件事）。
+export const IMAGE_ONLY_ACTIONS = new Set<ContextMenuAction>([
+  'rotate-image-left',
+  'rotate-image-right',
+  'flip-image-horizontal',
+  'flip-image-vertical',
+]);
+
+/** 可编辑图片的扩展名白名单（SVG 不在其中）。 */
+export const EDITABLE_IMAGE_EXTENSIONS = new Set([
+  'png',
+  'jpg',
+  'jpeg',
+  'gif',
+  'bmp',
+  'webp',
+  'tiff',
+  'tif',
+  'ico',
+]);
+
+/** 这个条目是不是「可编辑图片」（单个文件 + 扩展名在白名单里）。 */
+export function isEditableImageEntry(entry: DirEntry): boolean {
+  if (entry.is_dir || !entry.is_file) {
+    return false;
+  }
+
+  const extension = entry.ext?.toLowerCase();
+
+  return extension ? EDITABLE_IMAGE_EXTENSIONS.has(extension) : false;
+}
+
+/**
+ * 图片专属动作的可见性：只有**单个可编辑图片文件**才放行。
+ *
+ * 不属于图片专属动作时一律返回 `true`（这一层不管它）。
+ */
+export function isImageOnlyActionVisible(action: ContextMenuAction, entries: DirEntry[]): boolean {
+  if (!IMAGE_ONLY_ACTIONS.has(action)) {
+    return true;
+  }
+
+  if (entries.length !== 1) {
+    return false;
+  }
+
+  return isEditableImageEntry(entries[0]);
+}
 
 // FORK-MODIFICATION 2026-10-24：「解除文件锁定」与「彻底删除」。
 //
@@ -218,6 +297,12 @@ export function isContextMenuActionVisible(
     return false;
   }
 
+  // FORK-MODIFICATION: 图片专属动作（旋转 / 翻转）额外要求
+  // 「选中的是单个可编辑图片文件」。
+  if (!isImageOnlyActionVisible(action, entries)) {
+    return false;
+  }
+
   if (WINDOWS_ONLY_ACTIONS.has(action) && platform !== 'windows') {
     return false;
   }
@@ -285,6 +370,11 @@ export const CONTEXT_MENU_ACTION_IDS: readonly ContextMenuAction[] = [
   'properties',
   'toggle-favorite',
   'edit-tags',
+  // FORK-MODIFICATION: 图片编辑四动作。
+  'rotate-image-left',
+  'rotate-image-right',
+  'flip-image-horizontal',
+  'flip-image-vertical',
   // 「删除」下拉里的第二项
   'delete-permanently',
   // 「新建」子菜单里的两项

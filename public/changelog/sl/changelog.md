@@ -11,6 +11,9 @@
 **Popravljeno:** Ikona, pripeta opravilni vrstici, po posodobitvi ne izgine več. Pri namestitvi nove različice se je star odstranjevalnik zagnal, kot da bi želeli program odstraniti, in pri tem odstranil tudi pripeto ikono na opravilni vrstici. Pri namestitvi čez obstoječo različico se star odstranjevalnik zdaj predaja, ne pa pospravlja: pripeta ikona, bližnjica v meniju Start in vnos samodejnega zagona ostanejo, kjer so. Namestitev, ki jo zahtevate sami, jih še vedno odstrani.
 
 **Popravljeno:** Rezultati globalnega iskanja imajo spet kontekstni meni. Seznam rezultatov je bil preurejen v lahko listo in meni je izginil z njim: desni klik na rezultat ni naredil ničesar, »Odpri vsebujočo mapo« — možnost, ki skoči v mapo datoteke in jo izbere — pa je manjkala tudi. Meni je spet tu, nosi element, na katerega ste res kliknili z desno tipko, in ve, da gleda rezultate iskanja: »Odpri v vsebujoči mapi« odpre mapo v navigacijski plošči poleg in tam izbere datoteko, »Odpri mapo datoteke« pa lokacijo preda Windows Explorerju. Vnosi, ki v plošči nimajo kaj izvesti, so izpuščeni, ne prikazani neuspešno.
+
+**Izboljšano:** urejanje velike slike ne zamrzi več okna. Delo poteka v ozadju, obvestilo prikazuje napredek do ponovnega shranjevanja, poškodovana datoteka pa sporoči težavo in ne potegne aplikacijo s seboj.
+
 ## [3.8.0] - October 2026
 
 **Summary:** Videz *arhivskega papirja* je doživel še en krog dela. Obe temi *Warm Paper* sta v glavnem delu svetlejši in manj nasičeni, vse ikone so narisane s svetlo bež črto, ikone map imajo prigušen zelen poudarek, neaktivne zavihki so potemnjeni in imajo svetlo bež-sivo obrobo, glava seznama leži na temnejši podlagi s črto zgoraj in spodaj, mape in datoteke pa ne delijo več istega ozadja. V temi *Vivid* dobijo gumbi orodne vrstice barvo glede na nalogo, zavihki se prilagodijo svojemu naslovu, ikona aplikacije pa je bila znova narisana v barvah toplega papirja. Razširitev *Sledi potem* po posodobitvi znova deluje.

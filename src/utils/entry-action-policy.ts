@@ -28,6 +28,12 @@ const VIRTUAL_LOCATION_BLOCKED_ACTIONS = new Set<ContextMenuAction>([
   'quick-view',
   'print',
   'share',
+  // FORK-MODIFICATION: 图片编辑四动作对虚拟位置也是非目标 ——
+  // 虚拟位置不是真实文件路径，后端那套「原地写回」对它没有意义。
+  'rotate-image-left',
+  'rotate-image-right',
+  'flip-image-horizontal',
+  'flip-image-vertical',
 ]);
 
 const SYSTEM_MOUNT_ROOT_BLOCKED_ACTIONS = new Set<ContextMenuAction>([
@@ -83,6 +89,12 @@ const REMOTE_PHASE0_BLOCKED_ACTIONS = new Set<ContextMenuAction>([
   'quick-view',
   'print',
   'share',
+  // FORK-MODIFICATION: 远程服务器上的图片不能原地旋转 / 翻转 ——
+  // 那是本地文件写操作，远程写操作走的是另一套通道（本轮未实现）。
+  'rotate-image-left',
+  'rotate-image-right',
+  'flip-image-horizontal',
+  'flip-image-vertical',
 ]);
 
 export function getEntryActionPolicy(path: string, platform: string | null): EntryActionPolicy {

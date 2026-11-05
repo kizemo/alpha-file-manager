@@ -1213,7 +1213,14 @@
       "removeFromFavorites": "حذف از موردعلاقه‌ها",
       "createLink": "ایجاد پیوند",
       "unlock": "Unlock file",
-      "forceDelete": "Force delete"
+      "forceDelete": "Force delete",
+      "rotateImageLeft": "چرخش به چپ",
+      "rotateImageRight": "چرخش به راست",
+      "flipImageHorizontal": "بازتاب افقی",
+      "flipImageVertical": "بازتاب عمودی",
+      "imageEditSucceeded": "تصویر با موفقیت ویرایش شد",
+      "imageEditFailed": "ویرایش تصویر ناموفق بود",
+      "imageEditInProgress": "در حال پردازش…"
     },
     "linkTypes": {
       "symlink": "پیوند نمادین",

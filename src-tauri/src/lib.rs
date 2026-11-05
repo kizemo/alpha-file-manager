@@ -25,6 +25,8 @@ mod file_lock;
 mod file_lock_commands;
 mod file_operations;
 mod global_search;
+mod image_edit;
+mod image_edit_commands;
 mod image_thumbnails;
 mod input_simulation;
 mod lan_share;
@@ -459,6 +461,7 @@ pub fn run() {
             image_thumbnails::generate_image_thumbnail,
             image_thumbnails::get_cached_video_thumbnail,
             image_thumbnails::get_thumbnail_cache_stats,
+            image_edit_commands::apply_image_edit,
             open_with::get_associated_programs,
             open_with::open_with_program,
             open_with::open_with_default,

@@ -71,11 +71,11 @@ describe('比较并同步对话框的取消按钮', () => {
  */
 describe('比较与同步对话框的进度指示', () => {
   it('必须订阅 compare-progress 事件', () => {
-    expect(source).toContain("'compare-progress'");
+    expect(source).toContain('\'compare-progress\'');
   });
 
   it('进度事件要按 jobId 对号入座，否则会串到别的任务上', () => {
-    const listener = source.indexOf("'compare-progress'");
+    const listener = source.indexOf('\'compare-progress\'');
     const filter = source.indexOf('event.payload.jobId !== compareJobId.value', listener);
 
     expect(listener).toBeGreaterThan(-1);
@@ -83,7 +83,7 @@ describe('比较与同步对话框的进度指示', () => {
   });
 
   it('比较时要把 jobId 传给后端 —— 不传就收不到进度事件', () => {
-    const compareCall = source.indexOf("invoke<CompareResponse>('compare_directories'");
+    const compareCall = source.indexOf('invoke<CompareResponse>(\'compare_directories\'');
     const jobId = source.indexOf('jobId: compareJobId.value', compareCall);
 
     expect(compareCall).toBeGreaterThan(-1);
@@ -91,7 +91,7 @@ describe('比较与同步对话框的进度指示', () => {
   });
 
   it('预览也要传 jobId，否则预览阶段同样没有进度', () => {
-    const previewCall = source.indexOf("invoke<ComparePlanResponse>('preview_compare_sync'");
+    const previewCall = source.indexOf('invoke<ComparePlanResponse>(\'preview_compare_sync\'');
     const jobId = source.indexOf('jobId: compareJobId.value', previewCall);
 
     expect(previewCall).toBeGreaterThan(-1);
@@ -111,7 +111,7 @@ describe('比较与同步对话框的结果渲染上限', () => {
   });
 
   it('条目太多时必须明说一共多少条，不能让人以为那就是全部', () => {
-    expect(source).toContain("t('compareSync.rowsTruncated'");
+    expect(source).toContain('t(\'compareSync.rowsTruncated\'');
     expect(source).toContain('v-if="hasMoreRows"');
   });
 

@@ -1220,7 +1220,14 @@
       "removeFromFavorites": "Xóa khỏi yêu thích",
       "createLink": "Tạo liên kết",
       "unlock": "Unlock file",
-      "forceDelete": "Force delete"
+      "forceDelete": "Force delete",
+      "rotateImageLeft": "Xoay sang trái",
+      "rotateImageRight": "Xoay sang phải",
+      "flipImageHorizontal": "Lật ngang",
+      "flipImageVertical": "Lật dọc",
+      "imageEditSucceeded": "Đã chỉnh sửa hình ảnh thành công",
+      "imageEditFailed": "Không thể chỉnh sửa hình ảnh",
+      "imageEditInProgress": "Đang xử lý…"
     },
     "linkTypes": {
       "symlink": "Liên kết tượng trưng",

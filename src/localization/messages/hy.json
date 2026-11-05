@@ -1260,7 +1260,14 @@
       "addToFavorites": "Ավելացնել սիրվածներին",
       "removeFromFavorites": "Ջնջել սիրվածներից",
       "unlock": "Unlock file",
-      "forceDelete": "Force delete"
+      "forceDelete": "Force delete",
+      "rotateImageLeft": "Ներձ աջ պտտել",
+      "rotateImageRight": "Ներձ ձայն պտտել",
+      "flipImageHorizontal": "Հորիզոնական շրջել",
+      "flipImageVertical": "Ուղղահայաց շրջել",
+      "imageEditSucceeded": "Նկարը հաջողությամբ խմբագրվեց",
+      "imageEditFailed": "Չհաջողվեց նկարը խմբագրել",
+      "imageEditInProgress": "Գործի ընթացքում…"
     },
     "linkTypes": {
       "symlink": "Սիմվոլիկ հղում",

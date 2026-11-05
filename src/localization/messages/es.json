@@ -1222,7 +1222,14 @@
       "removeFromFavorites": "Quitar de favoritos",
       "createLink": "Crear enlace",
       "unlock": "Unlock file",
-      "forceDelete": "Force delete"
+      "forceDelete": "Force delete",
+      "rotateImageLeft": "Girar a la izquierda",
+      "rotateImageRight": "Girar a la derecha",
+      "flipImageHorizontal": "Voltear horizontalmente",
+      "flipImageVertical": "Voltear verticalmente",
+      "imageEditSucceeded": "Imagen editada correctamente",
+      "imageEditFailed": "No se pudo editar la imagen",
+      "imageEditInProgress": "Procesando…"
     },
     "linkTypes": {
       "symlink": "Enlace simbólico",

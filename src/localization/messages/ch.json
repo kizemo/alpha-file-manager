@@ -1224,7 +1224,14 @@
       "removeFromFavorites": "从收藏中移除",
       "createLink": "创建链接",
       "unlock": "解除文件锁定",
-      "forceDelete": "彻底删除"
+      "forceDelete": "彻底删除",
+      "rotateImageLeft": "向左旋转",
+      "rotateImageRight": "向右旋转",
+      "flipImageHorizontal": "左右翻转",
+      "flipImageVertical": "上下翻转",
+      "imageEditSucceeded": "图片编辑成功",
+      "imageEditFailed": "图片编辑失败",
+      "imageEditInProgress": "处理中…"
     },
     "linkTypes": {
       "symlink": "符号链接",

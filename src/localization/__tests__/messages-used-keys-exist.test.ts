@@ -64,9 +64,11 @@ function hasKey(root: JsonObject, keyPath: string): boolean {
     if (node === null || typeof node !== 'object') {
       return false;
     }
+
     if (!Object.prototype.hasOwnProperty.call(node, part)) {
       return false;
     }
+
     node = (node as JsonObject)[part];
   }
 
@@ -114,6 +116,7 @@ describe('i18n keys referenced by code exist in the base locale', () => {
     LITERAL_KEY_CALL.lastIndex = 0;
 
     let match: RegExpExecArray | null;
+
     while ((match = LITERAL_KEY_CALL.exec(text)) !== null) {
       const key = match[2];
 
@@ -124,6 +127,7 @@ describe('i18n keys referenced by code exist in the base locale', () => {
       if (!referencesByKey.has(key)) {
         referencesByKey.set(key, new Set());
       }
+
       referencesByKey.get(key)?.add(relativePath);
     }
   }
