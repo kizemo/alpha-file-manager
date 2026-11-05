@@ -581,3 +581,18 @@ Text | Light color themes for Sigma File Manager.                 <- 同上
 5. **`kizemo.git` 未进 bundled resources**（承接 §6.4 新发现 1）：装机目录只有 `kizemo.focus-sync`。
 6. **`gates-3101h.cmd` 不落 `CARGO_TEST_EXIT` / `GATES_END`**：若后续靠标记串轮询该脚本，须知道这两行可能不出现，改判 cargo 自己的 `test result:`。
 7. **`extension-settings.vue:70-128`** 用 AFM code（`ch`）拼扩展语言包文件名是既有缺陷，**新代码不得照抄**（正确处理见 `extension-locale.ts`：扩展语言包是 BCP-47 `zh-CN.json`）。
+
+### 11.8 独立复核（另一并发会话，2026-11-05 10:15，已验证）
+
+> 本节由**并发会话**追加，只给 §11.4~§11.6 的结论补一份独立证据；**全程只读取证，未重复执行任何发布动作**（避免撞 `target\release` 构建锁与 `release\` 复制锁）。
+
+- **git 真相重量**：`git tag --list` 含 **`v3.10.1`**，`git rev-parse 'v3.10.1^{commit}'` = **`bf747ff7`**；`HEAD` = `origin/main` = **`487a9477`**，`git rev-list --left-right --count origin/main...HEAD` = **`0 0`**；`git status --porcelain` = **0 行**（工作树干净，本节追加之前）。
+- **出货包**：`release\Alpha File Manager_3.10.1_x64-setup.exe` **44 940 588 B** @ `2026-11-05 09:55:37`，sha256 **`e074d02326ccf7d7a9c76ddb7cd922a31d71d8d6ff7cedb5cebc7f8e4de3e164`** —— 与 §11.4 / §11.6 逐字一致。
+- **装机状态**：HKLM `DisplayVersion=3.10.1`、`InstallLocation=D:\Program Files\Alpha File Manager`；已装 `alpha-file-manager.exe` 80 659 968 B / `ver=3.10.1` / mtime **09:54:52** ⇒ 本机装的**就是最终出货包**，不是中间包。
+- ⚠️ **作废声明**：本会话早前那轮真机验收（`.superpowers\sdd\state-3101-accept.md`、`.superpowers\sdd\accept-3101-market\crop-3101-*.png`）针对的是 **`a30ed04d…42a37a` / 44 946 053 B** 的中间包（09:55 因 `tauri.conf.json` 的 `bundle.resources` 内嵌了 focus-sync 的 package.json/dist/locales 而重建）⇒ **该轮结论仅作过程记录，不再作为发版依据**。
+- **徽章的独立像素判读（最终包）**：直接判读 §11.1 那轮的裁切件 `.superpowers\sdd\accept-3101\crop-Git_Tools-2x.png` 与 `crop-Focus_Sync-2x.png` —— **两张均为绿色对勾 +「官方」文字**（3.10.0 同位置是紫色 HardDrive「本地」）；与 `accept-3101.log` 末次运行（09:59:48）的 `EXT_LIST_READY=True` / `officialLabelsSameRow=1` / 标签 `37x24` / `thirdPartyLabelsSameRow=0` / `shot-3101-installed.png ok=True` / `ACCEPT_3101_DONE` 相互印证。日志里 09:16:33 那跑是 `EXT_LIST_READY=False` 的未就绪无效跑，不作证据。
+- **GitHub Release 独立读取**：`gh release view v3.10.1 --json tagName,isDraft,assets` → `isDraft=false`、资产 `Alpha_File_Manager_3.10.1_x64-setup.exe` **44 940 588 B**、`digest=sha256:e074d023…e164`。
+- **站点独立读取**：`E:\办公文件\L1网站\alpha-file-manager\version.json` 现 **73 115 B** @ `10:09:27`、`version=3.10.1`；`.superpowers\sdd\logs\upload-3101.log` 尾部逐字 `[verify] 通过：版本号 / 大小 / sha256 三项均一致（源站与边缘都已生效）`（该日志是 cp936，按 UTF-8 解出替换字符属正常，不影响判读）。
+- **未闭环**：与 §11.7 一致，本节未新增阻塞。**需求 3「应用内确实走了镜像」的硬证据仍缺**，是接力首选项。
+
+> **章节口径**：§六 / §八 / §十 描述的是**上一轮 3.10.0**（含当时发现的徽章缺陷）；3.10.1 的落点、验收与发版一律看 **§十一**。
