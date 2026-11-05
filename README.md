@@ -134,6 +134,7 @@ sync, batch rename, and a long list of day-to-day fixes.
 | 🔄 | **Turn and flip a picture from the right-click menu** — *Rotate left*, *Rotate right*, *Flip horizontally* and *Flip vertically* appear for a picture file; the edit is written back to the same file at once, with no dialog, no *Save as* and no second confirmation |
 | 📌 | **A taskbar icon you pinned survives an update** — installing over an existing version hands the program over instead of cleaning up, so the pinned icon, the Start Menu shortcut and the autostart entry all stay where they were |
 | 🔎 | **The global search results have their right-click menu again** — right-clicking a result opens the menu as before, and *Open the containing folder* jumps to the folder that holds the file and selects it there |
+| ⚡ | **Turning a picture no longer takes the application down, and it is much faster** — the edit runs on a background thread, so the window stays responsive instead of the built-in watchdog shutting the program down and starting it again; encoding a large picture dropped from about 5.6 seconds to about 2.1 seconds |
 
 ### What changed in 3.9.0
 
