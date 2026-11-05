@@ -1258,7 +1258,14 @@
       "removeFromFavorites": "Odstrani iz priljubljenih",
       "createLink": "Ustvari povezavo",
       "unlock": "Unlock file",
-      "forceDelete": "Force delete"
+      "forceDelete": "Force delete",
+      "rotateImageLeft": "Zasukaj levo",
+      "rotateImageRight": "Zasukaj desno",
+      "flipImageHorizontal": "Zrni vodoravno",
+      "flipImageVertical": "Zrni navpično",
+      "imageEditSucceeded": "Slika je bila uspešno urejena",
+      "imageEditFailed": "Urejanje slike ni uspelo",
+      "imageEditInProgress": "Obdelava…"
     },
     "linkTypes": {
       "symlink": "Simbolična povezava",

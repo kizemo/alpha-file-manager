@@ -13,7 +13,9 @@
 //   2. 菜单打开时带的是那一行的条目，并且处于「搜索结果视图」语义；
 //   3. 空白处右键不弹菜单（避免菜单带着上一行的条目弹出）。
 
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import {
+  describe, expect, it, vi, beforeEach,
+} from 'vitest';
 import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import type { DirEntry } from '@/types/dir-entry';
@@ -36,12 +38,18 @@ vi.mock('vue-i18n', async (importOriginal) => {
 
   return {
     ...actual,
-    useI18n: () => ({ t: (key: string) => key, locale: { value: 'ch' } }),
+    useI18n: () => ({
+      t: (key: string) => key,
+      locale: { value: 'ch' },
+    }),
   };
 });
 
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+  }),
 }));
 
 vi.mock('@/composables/use-dir-entry-actions', () => ({
@@ -57,7 +65,10 @@ vi.mock('@/utils/reveal-containing-directory', () => ({
 }));
 
 vi.mock('@/components/ui/toaster', () => ({
-  toast: { error: toastErrorMock, success: vi.fn() },
+  toast: {
+    error: toastErrorMock,
+    success: vi.fn(),
+  },
 }));
 
 vi.mock('@/stores/storage/user-settings', () => ({
@@ -68,7 +79,10 @@ vi.mock('@/stores/storage/user-settings', () => ({
         listColumnWidths: {},
         thumbnailSize: 'medium',
       },
-      dateTime: { dateStyle: 'short', timeStyle: 'short' },
+      dateTime: {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      },
     },
     fontSizeOffset: 0,
   }),

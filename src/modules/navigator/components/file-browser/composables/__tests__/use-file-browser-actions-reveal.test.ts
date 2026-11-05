@@ -31,9 +31,18 @@ const {
   revealInExplorerMock: vi.fn<() => Promise<void>>(),
 }));
 
-vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+// NOTE: `createI18n` has to survive the mock. The mocked `vue-i18n` module is
+// pulled into the dependency graph of `@/localization`, which calls
+// `createI18n` at import time. Dropping it from the mock breaks every test
+// file of this directory with "No \"createI18n\" export is defined".
+vi.mock('vue-i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue-i18n')>();
+
+  return {
+    ...actual,
+    useI18n: () => ({ t: (key: string) => key }),
+  };
+});
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: vi.fn() }),

@@ -10,6 +10,8 @@
 - **Fixed** **A taskbar icon you pinned no longer disappears after an update** — Installing a new version ran the old uninstaller as if you had decided to remove the program, and that uninstaller also took the taskbar shortcut off the taskbar. Installing over an existing version now tells the old uninstaller to hand over instead of to clean up, so the pinned icon, the Start Menu shortcut and the autostart entry all stay where they were. Uninstalling on purpose still removes them, as it should.
 - **Fixed** **The global search results have their right-click menu again** — The result list had been rewritten as a light-weight list, and the menu went with it: right-clicking a result did nothing, and *Open the containing folder* - the entry that jumps to the folder holding the file and selects it - was gone as well. The menu is back, carrying the entry you actually right-clicked, and it knows it is looking at search results: *Open the containing folder* opens the folder in the navigator next to the panel and selects the file there, while *Open in the containing folder* hands the location over to Windows Explorer. Entries that have no way to work inside the panel - *Open with*, *Edit tags* and the two *New* items - are left out instead of being shown and doing nothing.
 
+**Improved:** editing a large picture no longer freezes the window. The work happens in the background, a toast shows the progress until the picture is written back, and a broken file reports the problem instead of taking the application down.
+
 ## [3.10.1] - November 2026
 
 **Summary:** 扩展体验四项修复：自家扩展安装后不再被「本地」徽章顶掉「官方」徽章且徽章改为带文字标注；扩展卡片的说明文字跟随界面语言显示；在中国网络环境下从镜像加速下载扩展；Focus Sync 说明文案里的旧品牌名统一为 File Manager。

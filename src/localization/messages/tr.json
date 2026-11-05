@@ -1220,7 +1220,14 @@
       "removeFromFavorites": "Favorilerden kaldır",
       "createLink": "Bağlantı oluştur",
       "unlock": "Unlock file",
-      "forceDelete": "Force delete"
+      "forceDelete": "Force delete",
+      "rotateImageLeft": "Sola çevir",
+      "rotateImageRight": "Sağa çevir",
+      "flipImageHorizontal": "Yatay çevir",
+      "flipImageVertical": "Dikey çevir",
+      "imageEditSucceeded": "Görsel başarıyla düzenlendi",
+      "imageEditFailed": "Görsel düzenlenemedi",
+      "imageEditInProgress": "İşleniyor…"
     },
     "linkTypes": {
       "symlink": "Sembolik bağlantı",

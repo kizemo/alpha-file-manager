@@ -1260,7 +1260,14 @@
       "addToFavorites": "הוסף למועדפים",
       "removeFromFavorites": "הסר מהמועדפים",
       "unlock": "Unlock file",
-      "forceDelete": "Force delete"
+      "forceDelete": "Force delete",
+      "rotateImageLeft": "סיבוב שמאלה",
+      "rotateImageRight": "סיבוב ימינה",
+      "flipImageHorizontal": "שיקוף אופקי",
+      "flipImageVertical": "שיקוף אנכי",
+      "imageEditSucceeded": "התמונה עודכנה בהצלחה",
+      "imageEditFailed": "עדכון התמונה נכשל",
+      "imageEditInProgress": "בעיבוד…"
     },
     "linkTypes": {
       "symlink": "קישור סימבולי",

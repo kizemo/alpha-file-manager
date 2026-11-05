@@ -1265,7 +1265,14 @@
       "addToFavorites": "Add to favorites",
       "removeFromFavorites": "Remove from favorites",
       "unlock": "Unlock file",
-      "forceDelete": "Force delete"
+      "forceDelete": "Force delete",
+      "rotateImageLeft": "Rotate Left",
+      "rotateImageRight": "Rotate Right",
+      "flipImageHorizontal": "Flip Horizontally",
+      "flipImageVertical": "Flip Vertically",
+      "imageEditSucceeded": "Image edited successfully",
+      "imageEditFailed": "Failed to edit the image",
+      "imageEditInProgress": "Processing…"
     },
     "linkTypes": {
       "symlink": "Symbolic link",

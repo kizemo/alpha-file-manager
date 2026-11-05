@@ -1258,7 +1258,14 @@
       "removeFromFavorites": "پسندیدہ سے",
       "createLink": "لنک بنائیں",
       "unlock": "Unlock file",
-      "forceDelete": "Force delete"
+      "forceDelete": "Force delete",
+      "rotateImageLeft": "بائیں طرف گھمائیں",
+      "rotateImageRight": "دائیں طرف گھمائیں",
+      "flipImageHorizontal": "افقی فلپ کریں",
+      "flipImageVertical": "عمودی فلپ کریں",
+      "imageEditSucceeded": "تصویر کی ترمیم کامیاب رہی",
+      "imageEditFailed": "تصویر کی ترمیم ناکام رہی",
+      "imageEditInProgress": "جاری ہے…"
     },
     "linkTypes": {
       "symlink": "علامتی لنک",

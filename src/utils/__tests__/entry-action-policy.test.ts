@@ -65,6 +65,20 @@ describe('entry-action-policy', () => {
       expect(isActionBlockedByEntryPolicy('toggle-favorite', entries, 'windows')).toBe(false);
     });
 
+    /**
+     * FORK-MODIFICATION: 图片编辑四动作（左旋 / 右旋 / 左右翻 / 上下翻）
+     * 对虚拟位置也是非目标 —— 虚拟位置不是真实文件路径，
+     * 后端那套「原地写回」对它没有意义。
+     */
+    it('blocks the image edit actions for virtual locations', () => {
+      const entries = [createEntry(LOCATIONS_VIRTUAL_PATH)];
+
+      expect(isActionBlockedByEntryPolicy('rotate-image-left', entries, 'windows')).toBe(true);
+      expect(isActionBlockedByEntryPolicy('rotate-image-right', entries, 'windows')).toBe(true);
+      expect(isActionBlockedByEntryPolicy('flip-image-horizontal', entries, 'windows')).toBe(true);
+      expect(isActionBlockedByEntryPolicy('flip-image-vertical', entries, 'windows')).toBe(true);
+    });
+
     it('honors disableDestructiveActions for mount-root entries', () => {
       const entries = [createEntry('D:/')];
 
@@ -119,6 +133,19 @@ describe('entry-action-policy', () => {
       const entries = [createEntry('sfm://remote/conn-a/pub')];
 
       expect(isActionBlockedByEntryPolicy('create-file', entries, 'windows')).toBe(true);
+    });
+
+    /**
+     * FORK-MODIFICATION: 图片编辑四动作在远程路径上一律屏蔽 ——
+     * 那是本地文件写操作（原地旋转 / 翻转），远程写操作走的是另一套通道。
+     */
+    it('blocks the image edit actions on remote paths', () => {
+      const entries = [createEntry('sfm://remote/conn-a/pub')];
+
+      expect(isActionBlockedByEntryPolicy('rotate-image-left', entries, 'windows')).toBe(true);
+      expect(isActionBlockedByEntryPolicy('rotate-image-right', entries, 'windows')).toBe(true);
+      expect(isActionBlockedByEntryPolicy('flip-image-horizontal', entries, 'windows')).toBe(true);
+      expect(isActionBlockedByEntryPolicy('flip-image-vertical', entries, 'windows')).toBe(true);
     });
 
     /**

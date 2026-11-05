@@ -16,8 +16,16 @@ import { openNavigatorRevealEntry } from '@/utils/open-navigator-directory';
 import { revealEntriesContainingDirectory } from '@/utils/reveal-containing-directory';
 import { isContextMenuActionVisible } from '@/modules/navigator/components/file-browser/utils/context-menu-action-visibility';
 import { toast, ToastStatic } from '@/components/ui/toaster';
-import { markRaw } from 'vue';
+import { getCurrentInstance, markRaw } from 'vue';
 import { useI18n } from 'vue-i18n';
+// FORK-MODIFICATION: 图片编辑四动作（左旋 / 右旋 / 左右翻 / 上下翻）的执行封装。
+import {
+  applyImageEdit,
+  getImageEditOperation,
+  isImageEditAction,
+} from '@/utils/image-edit';
+// FORK-MODIFICATION: 共享缩略图缓存实例（navigator.vue 里 provide 的那一份）。
+import { useNavigatorImageThumbnails } from '@/modules/navigator/composables/use-navigator-image-thumbnails';
 // FORK-MODIFICATION: 本地 ↔ 远程传输（上传 / 下载）与远程权限设置。
 //
 // 2026-10-26：上传 / 下载改走 `remote-transfer-service` ——
@@ -63,6 +71,16 @@ export function useFileBrowserActions(options: {
   const platformStore = usePlatformStore();
   const router = useRouter();
   const transferTargets = useRemoteTransferTargets();
+
+  /**
+   * FORK-MODIFICATION: 共享的缩略图缓存实例。
+   *
+   * 它由 navigator.vue `provide`、这里 `inject` —— 所以只有在组件上下文里
+   * 才拿得到（`getCurrentInstance()` 为空时就是没有组件级 provide，
+   * 例如单元测试直接调本 composable）。拿不到就不传，缓存失效交给
+   * 「目录重读 ⇒ mtime/size 变 ⇒ 缓存键变」这条既有机制兜底。
+   */
+  const imageThumbnails = getCurrentInstance() ? useNavigatorImageThumbnails() : null;
 
   /** 条目 → 传输用的条目。 */
   function toTransferItem(entry: DirEntry): RemoteTransferItem {
@@ -267,6 +285,26 @@ export function useFileBrowserActions(options: {
           path: entry.path,
           name: entry.name,
           isDirectory: entry.is_dir,
+        });
+      }
+
+      return;
+    }
+
+    // FORK-MODIFICATION: 图片编辑四动作（左旋 / 右旋 / 左右翻 / 上下翻）。
+    //
+    // 这里**必须自己拦下来**：文件浏览器链路最终的动作分派在
+    // `use-file-browser-selection.ts` 的 switch 里（那个文件不在本轮改动范围内），
+    // 放行过去等于「点了没反应」。
+    if (isImageEditAction(action)) {
+      const entries = options.contextMenu.value.selectedEntries;
+      const entry = entries[0];
+
+      if (entries.length === 1 && entry) {
+        void applyImageEdit({
+          entry,
+          operation: getImageEditOperation(action),
+          thumbnailCache: imageThumbnails,
         });
       }
 
