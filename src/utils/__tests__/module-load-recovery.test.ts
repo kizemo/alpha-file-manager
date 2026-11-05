@@ -39,6 +39,7 @@ describe('module load recovery', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     vi.useRealTimers();
     sessionStorage.clear();
   });
@@ -111,8 +112,19 @@ describe('module load recovery', () => {
       configurable: true,
       value: { reload: reloadMock },
     });
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new Error('Storage unavailable');
+    // jsdom 的 Storage 是 Proxy：它的 `get` 陷阱返回的是**实现对象上的绑定副本**，
+    // 之后再改 `Storage.prototype.setItem` 完全不会作用到 `sessionStorage.setItem`
+    // （实测 `sessionStorage.setItem !== Storage.prototype.setItem`）。
+    // 要模拟「session storage 不可用」，只能整个换掉 storage 对象本身。
+    vi.stubGlobal('sessionStorage', {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error('Storage unavailable');
+      },
+      removeItem: () => {},
+      clear: () => {},
+      key: () => null,
+      length: 0,
     });
 
     recoverFromModuleLoadFailure();
