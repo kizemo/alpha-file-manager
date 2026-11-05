@@ -723,6 +723,24 @@ pub fn build_china_mirror_urls(url: &reqwest::Url) -> Vec<reqwest::Url> {
         .collect()
 }
 
+/// 取证用的候选 URL 文本：保留 scheme / host / path，丢掉 query、fragment 与 userinfo。
+///
+/// 中国镜像候选的完整形态是
+/// `https://ghfast.top/https://raw.githubusercontent.com/owner/repo/main/file.json`，
+/// 只记 host（`describe_url_for_log` 的做法）看不出到底走了哪条路，
+/// 所以这里补一条能直接当应用内证据用的完整形态。
+/// query 可能带访问令牌，不落日志。
+fn describe_candidate_for_log(url: &reqwest::Url) -> String {
+    let host = url.host_str().unwrap_or("unknown-host");
+    let path = url.path();
+
+    if path.is_empty() {
+        format!("{}://{}", url.scheme(), host)
+    } else {
+        format!("{}://{}{}", url.scheme(), host, path)
+    }
+}
+
 pub async fn fetch_text_across_urls_with_retry(
     client: &reqwest::Client,
     candidates: UrlCandidates,
@@ -752,6 +770,14 @@ pub async fn fetch_text_across_urls_with_config(
     for (index, url) in urls.iter().enumerate() {
         let url_for_log = url.clone();
         let url_label = describe_url_for_log(&url_for_log);
+        let candidate_label = describe_candidate_for_log(&url_for_log);
+        log::info!(
+            "[ext-http] attempt op={} candidate={}/{} url={}",
+            operation_label,
+            index + 1,
+            urls.len(),
+            candidate_label
+        );
         let attempt_label = if index == 0 {
             format!("{} ({})", operation_label, url_label)
         } else {
@@ -792,7 +818,18 @@ pub async fn fetch_text_across_urls_with_config(
         .await;
 
         match result {
-            Ok(value) => return Ok(value),
+            Ok(value) => {
+                log::info!(
+                    "[ext-http] result op={} candidate={}/{} status={} ok={} url={}",
+                    operation_label,
+                    index + 1,
+                    urls.len(),
+                    value.status,
+                    value.ok,
+                    candidate_label
+                );
+                return Ok(value);
+            }
             // FORK-MODIFICATION 2026-11-02：中间过程降为 DEBUG，最终结果才进 WARN。
             //
             // 旧实现把三层失败都记成 WARN：单次尝试失败、切换到下一个候选、
@@ -804,6 +841,14 @@ pub async fn fetch_text_across_urls_with_config(
                 return Err(message);
             }
             Err(HttpRetryError::Transient { message, .. }) => {
+                log::info!(
+                    "[ext-http] candidate-failed op={} candidate={}/{} url={} reason={}",
+                    operation_label,
+                    index + 1,
+                    urls.len(),
+                    candidate_label,
+                    message
+                );
                 last_error = Some(message);
                 if index + 1 < urls.len() {
                     log::debug!(
@@ -844,6 +889,14 @@ pub async fn download_to_file_across_urls_with_retry(
 
     for (index, url) in urls.iter().enumerate() {
         let url_label = describe_url_for_log(url);
+        let candidate_label = describe_candidate_for_log(url);
+        log::info!(
+            "[ext-http] attempt op={} candidate={}/{} url={}",
+            operation_label,
+            index + 1,
+            urls.len(),
+            candidate_label
+        );
         let attempt_label = if index == 0 {
             format!("{} ({})", operation_label, url_label)
         } else {
@@ -872,7 +925,16 @@ pub async fn download_to_file_across_urls_with_retry(
             .await;
 
             match attempt_result {
-                Ok(()) => return Ok(()),
+                Ok(()) => {
+                    log::info!(
+                        "[ext-http] result op={} candidate={}/{} ok url={}",
+                        operation_label,
+                        index + 1,
+                        urls.len(),
+                        candidate_label
+                    );
+                    return Ok(());
+                }
                 Err(HttpRetryError::Permanent(message)) => return Err(message),
                 Err(HttpRetryError::Transient {
                     message,
@@ -1126,6 +1188,28 @@ mod tests {
         let url =
             reqwest::Url::parse("http://raw.githubusercontent.com/o/r/main/file.json").unwrap();
         assert!(build_china_mirror_urls(&url).is_empty());
+    }
+
+    #[test]
+    fn describe_candidate_for_log_keeps_full_china_mirror_shape() {
+        // 应用内取证的形态：scheme + host + path 全保留，能一眼看出走了哪条镜像。
+        let mirror = reqwest::Url::parse(
+            "https://ghfast.top/https://raw.githubusercontent.com/kizemo/focus-sync/main/locales/zh-CN.json",
+        )
+        .unwrap();
+
+        assert_eq!(
+            describe_candidate_for_log(&mirror),
+            "https://ghfast.top/https://raw.githubusercontent.com/kizemo/focus-sync/main/locales/zh-CN.json"
+        );
+    }
+
+    #[test]
+    fn describe_candidate_for_log_drops_query_and_fragment() {
+        // query 可能带访问令牌，绝不能落进日志。
+        let url = reqwest::Url::parse("https://example.com/a/b.json?token=secret#frag").unwrap();
+
+        assert_eq!(describe_candidate_for_log(&url), "https://example.com/a/b.json");
     }
 
     #[test]

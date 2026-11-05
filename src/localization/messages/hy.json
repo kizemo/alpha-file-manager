@@ -1512,7 +1512,7 @@
     },
     "badges": {
       "official": "Պաշտոնական",
-      "officialTooltip": "Այս ընդլայնումը ստեղծվել և պահպանվում է Sigma ֆայլային մենեջերի թիմի կողմից։",
+      "officialTooltip": "Այս ընդլայնումը ստեղծվել և պահպանվում է Alpha File Managerի թիմի կողմից։",
       "community": "Համայնք",
       "communityTooltip": "Սա համայնքի ընդլայնում է: Տեղադրելուց առաջ վերանայեք սկզբնական կոդը:",
       "local": "Տեղական",
@@ -1549,10 +1549,10 @@
       "stop": "Կանգնեցնել"
     },
     "engineIncompatibleShort": "Անհրաժեշտ է թարմացում",
-    "engineAppWarning": "Պահանջվում է Sigma ֆայլերի մենեջեր {range} (դուք ունեք {current})",
+    "engineAppWarning": "Պահանջվում է Alpha File Manager {range} (դուք ունեք {current})",
     "engineApiWarning": "Պահանջվում է {range} API ընդլայնում (դուք ունեք {current})",
     "engineRequirements": "Պահանջներ",
-    "requiresSigmaFileManager": "Sigma ֆայլերի մենեջեր",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "Ընդլայնման API",
     "marketSources": "Շուկայի աղբյուրներ",
     "marketSourceAdd": "Ավելացնել շուկայի աղբյուր",

@@ -6,6 +6,11 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { invokeAsExtension } from '@/modules/extensions/runtime/extension-invoke';
+import {
+  EXTENSION_DEFAULT_LOCALE,
+  EXTENSION_LOCALE_DIR,
+  getExtensionLocaleFileNames,
+} from '@/modules/extensions/utils/extension-locale';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -69,31 +74,24 @@ watch(locale, () => {
 
 async function loadExtensionMessages(): Promise<void> {
   try {
-    const filePath = `locales/${locale.value}.json`;
-    const exists = await invokeAsExtension<boolean>(
-      props.extension.id,
-      'extension_path_exists',
-      {
-        extensionId: props.extension.id,
-        filePath,
-      },
-    );
+    // 扩展包里的语言包是 BCP-47 文件名（`locales/zh-CN.json`），
+    // AFM 自己的 locale code 是 `ch`/`he`/`hy`…，直接拼 `locales/${locale}.json`
+    // 永远命中不了 —— 必须先过 `getExtensionLocaleFileNames` 展开成候选列表。
+    const candidatePaths = getExtensionLocaleFileNames(locale.value);
+    const fallbackPath = `${EXTENSION_LOCALE_DIR}/${EXTENSION_DEFAULT_LOCALE}.json`;
 
-    if (!exists) {
-      const enPath = 'locales/en.json';
-      const enExists = await invokeAsExtension<boolean>(
+    for (const filePath of [...candidatePaths, fallbackPath]) {
+      const exists = await invokeAsExtension<boolean>(
         props.extension.id,
         'extension_path_exists',
         {
           extensionId: props.extension.id,
-          filePath: enPath,
+          filePath,
         },
       );
 
-      if (!enExists) {
-        extensionMessages.value = null;
-
-        return;
+      if (!exists) {
+        continue;
       }
 
       const bytes = await invokeAsExtension<number[]>(
@@ -101,26 +99,17 @@ async function loadExtensionMessages(): Promise<void> {
         'read_extension_file',
         {
           extensionId: props.extension.id,
-          filePath: enPath,
+          filePath,
         },
       );
+
       const content = new TextDecoder().decode(new Uint8Array(bytes));
       extensionMessages.value = JSON.parse(content) as Record<string, string>;
 
       return;
     }
 
-    const bytes = await invokeAsExtension<number[]>(
-      props.extension.id,
-      'read_extension_file',
-      {
-        extensionId: props.extension.id,
-        filePath,
-      },
-    );
-
-    const content = new TextDecoder().decode(new Uint8Array(bytes));
-    extensionMessages.value = JSON.parse(content) as Record<string, string>;
+    extensionMessages.value = null;
   }
   catch {
     extensionMessages.value = null;
