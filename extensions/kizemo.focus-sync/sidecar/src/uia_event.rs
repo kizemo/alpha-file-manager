@@ -56,7 +56,16 @@ use windows::core::w;
 /// the monitor would push `Opened` every tick — the exact flash loop the
 /// round-18 dedup was added to prevent.
 pub(crate) fn should_resync_known_dialog(known_same: bool, pending: &str, last_written: Option<&str>) -> bool {
-    known_same && !pending.is_empty() && last_written != Some(pending)
+    // v0.5.16: 归一化后比较。reader 登记的是 `F:/dir`（正斜杠，shell 返回），
+    // AFM 推给侧车的是 `F:\dir`（反斜杠）—— 不归一化的话这个谓词恒为真 ⇒
+    // monitor 每 1200ms 触发一次无意义的 resync。真机日志里「1.2s 一次、
+    // 连续十几轮读失败」的读失败风暴就是这么来的。
+    known_same
+        && !pending.is_empty()
+        && match last_written {
+            Some(last) => !crate::state::paths_equal(last, pending),
+            None => true,
+        }
 }
 
 /// Information about a detected file dialog.
@@ -216,6 +225,10 @@ pub fn start_monitor(
     let mut last_resync_at: Option<Instant> = None;
     let resync_cooldown = Duration::from_millis(1200);
 
+    // v0.5.15 — AFM 前台上升沿跟踪。初值 false 是有意的：侧车一般由 AFM 拉起，
+    // 此刻 AFM 正前台，第一个 tick 就上弦，于是「启动后的首次同步」照旧成立。
+    let mut was_afm_foreground = false;
+
     loop {
         let loop_started = Instant::now();
         let current_dialog = get_active_file_dialog();
@@ -228,6 +241,16 @@ pub fn start_monitor(
                 .map(|d| d.hwnd as u32)
                 .unwrap_or(0),
         );
+
+        // v0.5.15 — 上弦只在这一处，且只认上升沿（否则 AFM 停在后台期间
+        // 每 tick 都会重新授权，闸门退化成恒真）。
+        // 本循环是全进程唯一带消息泵的前台观察方，所以由它来判定。
+        let afm_now = foreground_is_afm();
+        if afm_now && !was_afm_foreground {
+            state.arm_afm_visit();
+            debug!("[afm-gate] armed: AFM became foreground");
+        }
+        was_afm_foreground = afm_now;
 
         if let Some(info) = current_dialog {
             lost_ticks = 0;
@@ -495,6 +518,34 @@ fn get_window_text(hwnd: HWND) -> String {
             Ok(n) if n > 0 => String::from_utf16_lossy(&text[..n]),
             _ => String::new(),
         }
+    }
+}
+
+/// v0.5.15 — 这个窗口是不是 Alpha File Manager？
+///
+/// 判据 = 窗口类名 `Tauri Window` **且** 标题前缀 `Alpha File Manager`：
+/// - 类名挡掉「浏览器页面标题里出现 AFM」的误命中（Edge/Chrome 顶层窗口类是
+///   `Chrome_WidgetWin_1`）；
+/// - 标题前缀挡掉别人的 Tauri 应用，并天然覆盖 AFM 的三个窗口——
+///   `main`（"Alpha File Manager"）、`quick-view`（"... | Quick View"）、
+///   `print-view`（"... | Print"），切到任何一个都算「访问过 AFM」。
+///
+/// 依据：`src-tauri/tauri.conf.json` 的三个窗口 title；全仓 grep
+/// `document.title` 无命中（前端不改标题），`decorations: false` 不影响
+/// OS 窗口标题 ⇒ 标题静态可用。
+pub fn is_afm_window(hwnd: HWND) -> bool {
+    get_class_name(hwnd) == "Tauri Window"
+        && get_window_text(hwnd).starts_with("Alpha File Manager")
+}
+
+/// v0.5.15 — monitor 每 tick 用：当前前台窗口是否为 AFM（闸门的上弦信号）。
+fn foreground_is_afm() -> bool {
+    unsafe {
+        let hwnd = GetForegroundWindow();
+        if hwnd.is_invalid() {
+            return false;
+        }
+        is_afm_window(hwnd)
     }
 }
 

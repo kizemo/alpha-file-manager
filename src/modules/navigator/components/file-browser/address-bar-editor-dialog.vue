@@ -57,6 +57,7 @@ import {
 import { useVerticalVirtualList } from '@/composables/use-vertical-virtual-list';
 import {
   addressBarPathHasNoParentDirectory,
+  toAddressBarDisplayPath,
   addressBarTrimmedQueryLooksLikeFilesystemPath,
   createRecentSuggestionGroup,
   createTaggedSuggestionGroups,
@@ -442,6 +443,54 @@ async function applyEditorQueryWithoutDebouncedWatch(nextQueryExact: string): Pr
   suppressDebouncedSuggestionsOnQueryMutation.value = false;
   await refreshSuggestions(nextQueryExact);
 }
+
+/**
+ * 输入框里**给人看的**查询串：Windows 上用原生反斜杠。
+ *
+ * 内部 `query` 一律保持正斜杠（`normalizePath` 的归一结果）—— 比较键、缓存键、
+ * 「尾斜杠 = 浏览目录内」的语义全都依赖它，不能改。只在展示这一层做换算。
+ */
+const displayQuery = computed(() => toAddressBarDisplayPath(query.value, platformStore.isWindows));
+
+/**
+ * 用户自己打字时的光标位置。
+ *
+ * 输入框是受控组件：用户敲一个 `/`，显示值会被换算成 `\` 回写进去，
+ * 浏览器可能顺手把光标丢到末尾。只在「用户输入」这条路径上记一次光标，
+ * 回写之后原样放回去。
+ */
+let pendingEditorInputCaret: number | null = null;
+let pendingEditorInputQuery: string | null = null;
+
+function handleQueryModelUpdate(nextValue: string): void {
+  pendingEditorInputCaret = getAddressBarInputElement()?.selectionStart ?? null;
+  pendingEditorInputQuery = normalizePath(nextValue);
+  query.value = pendingEditorInputQuery;
+}
+
+watch(displayQuery, async () => {
+  // 只有「这次变化确实来自用户输入」时才恢复光标 ——
+  // 程序化改写 query（打开对话框、上移一级）时不能把光标按到旧位置。
+  if (pendingEditorInputCaret === null || pendingEditorInputQuery !== query.value) {
+    pendingEditorInputCaret = null;
+    pendingEditorInputQuery = null;
+    return;
+  }
+
+  const caret = pendingEditorInputCaret;
+  pendingEditorInputCaret = null;
+  pendingEditorInputQuery = null;
+
+  await nextTick();
+
+  const inputElement = getAddressBarInputElement();
+
+  if (!inputElement) {
+    return;
+  }
+
+  inputElement.setSelectionRange(caret, caret);
+});
 
 function appendEditorNavigateForwardStep(nextQueryExact: string): void {
   if (!allowAddressBarFilesystemNavigationShortcuts.value) {
@@ -1240,9 +1289,10 @@ defineExpose({
     <div ref="addressBarCommandInputMountReference">
       <CommandInput
         v-bind="pathEditorYieldMarkerBindings"
-        v-model="query"
+        :model-value="displayQuery"
         :placeholder="inputPlaceholder"
         @keydown="handleInputKeydown"
+        @update:model-value="handleQueryModelUpdate"
       />
     </div>
     <ScrollAreaRoot

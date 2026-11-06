@@ -127,6 +127,14 @@ sync, batch rename, and a long list of day-to-day fixes.
 | ![Dashboard quick access](docs/screenshots/afm-dashboard-hero-light-en.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
 | ![Dashboard cards](docs/screenshots/afm-dashboard-card-enrichment-en.png) | **Dashboard cards** — name, size and path on top, type and item count below, with drag, reorder and edit shortcuts on every card |
 
+### What changed in 3.12.1
+
+| | |
+|---|---|
+| 🖼️ | **A shortcut's icon no longer depends on your icon settings** — a `.lnk` shows its target's own icon whether the list is drawn from system icons or from the icon theme; a shortcut with a missing target still falls back to the generic one |
+| 🪟 | **The address bar you type into shows `\` too** — the editor and the suggestions under it were still showing `/` after 3.12.0; they now match the rest of the app, while the internal path spelling stays single |
+| 💾 | **Focus Sync follows *Save as* again** — the installer now carries 0.5.18 of the background component, which no longer loses the folder in a save dialog or in a localized one such as *Downloads* |
+
 ### What changed in 3.12.0
 
 | | |

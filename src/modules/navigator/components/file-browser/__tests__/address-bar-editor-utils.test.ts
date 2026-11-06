@@ -14,6 +14,7 @@ import {
   createTargetDirectorySuggestionGroup,
   createUserDirectoriesSuggestionGroup,
   ensureAddressBarDirectoryQuery,
+  toAddressBarDisplayPath,
   getAddressBarRevealTarget,
   orderDirectoryEntriesForSuggestionList,
   resolveAddressBarSuggestions,
@@ -699,5 +700,20 @@ describe('address bar editor utils', () => {
     ]);
 
     expect(ordered.map(item => item.name)).toEqual(['a', 'z', 'a.txt', 'b.txt']);
+  });
+});
+
+describe('toAddressBarDisplayPath', () => {
+  it('converts windows paths to native backslash separators', () => {
+    expect(toAddressBarDisplayPath('C:/ProgramData/Windows', true)).toBe('C:\\ProgramData\\Windows');
+    expect(toAddressBarDisplayPath('C:/ProgramData/Windows/', true)).toBe('C:\\ProgramData\\Windows\\');
+  });
+
+  it('keeps virtual remote paths untouched', () => {
+    expect(toAddressBarDisplayPath('sfm://remote/share', true)).toBe('sfm://remote/share');
+  });
+
+  it('keeps forward slashes on non-windows platforms', () => {
+    expect(toAddressBarDisplayPath('C:/ProgramData/Windows', false)).toBe('C:/ProgramData/Windows');
   });
 });

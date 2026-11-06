@@ -232,10 +232,35 @@ fn read_via_uia(uia: &IUIAutomation, hwnd: HWND) -> Option<String> {
 /// Returns `Err(ReadError::NoDirectoryFound)` when no directory-shaped value
 /// exists — callers must treat that as "do not write".
 pub fn read_path(hwnd_isize: isize) -> Result<String, ReadError> {
+    read_path_with_strategy(hwnd_isize).map(|(p, _)| p)
+}
+
+/// v0.5.16 — 读路径 + 实际生效的通道（`uia` / `com`），给日志用。
+///
+/// 通道必须可区分：UIA 读到的是地址栏文字，COM 读到的是对话框原生目录对象。
+/// 两者对「本地化特殊文件夹」的行为不同（前者拿不到路径，后者能拿到）。
+pub fn read_path_with_strategy(hwnd_isize: isize) -> Result<(String, &'static str), ReadError> {
     let uia = crate::uia_inject::automation().ok_or(ReadError::NoAutomation)?;
     let hwnd = HWND(hwnd_isize as *mut core::ffi::c_void);
 
-    read_via_uia(&uia, hwnd).ok_or(ReadError::NoDirectoryFound)
+    if let Some(dir) = read_via_uia(&uia, hwnd) {
+        return Ok((dir, "uia"));
+    }
+
+    // v0.5.16 — UIA 读不到路径形状时，改用对话框的原生 COM 对象读当前目录。
+    //
+    // 真机（2026-11-06）：Edge「另存为」停在本地化特殊文件夹「下载」时，地址
+    // 栏 Name 是 `地址: 下载` —— 本地化**显示名**，不是路径形状 ⇒ UIA 解析必然
+    // 失败。旧实现把「读失败」等同于「不该写」⇒ 写回被静默跳过 ⇒ 用户看到
+    // 「从 AFM 切到下载弹窗，路径没有切换」。
+    //
+    // COM 的 `IFileDialog::GetFolder` 给的是真实文件系统路径
+    // （`C:\Users\<user>\Downloads`），与界面语言无关。
+    match crate::uia_inject::read_current_folder_via_com(hwnd_isize as u32) {
+        Some(dir) if looks_like_dir(dir.trim()) => Ok((dir, "com")),
+        // 「此电脑」这类虚拟项不是路径形状 ⇒ 与读不到同等处理，不猜路径。
+        _ => Err(ReadError::NoDirectoryFound),
+    }
 }
 
 #[cfg(test)]

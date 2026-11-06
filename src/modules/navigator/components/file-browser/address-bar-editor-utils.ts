@@ -11,6 +11,7 @@ import normalizePath, {
   getPathDisplayName,
   isUncPath,
   isWindowsDriveRootPath,
+  toNativePathSeparators,
 } from '@/utils/normalize-path';
 import {
   driveInfoToDirEntry,
@@ -318,6 +319,20 @@ export function isAddressBarDirectoryShortcutCandidate(entry: DirEntry): boolean
 export function ensureAddressBarDirectoryQuery(path: string): string {
   const normalizedPath = normalizePath(path);
   return normalizedPath.endsWith('/') ? normalizedPath : `${normalizedPath}/`;
+}
+
+/**
+ * 地址栏里**给人看的**路径写法。
+ *
+ * 应用内部统一用正斜杠（`normalizePath` 把 `\` 归一成 `/`），那是比较键、
+ * 缓存键和「尾斜杠 = 浏览目录内」语义的依赖项，不能动。
+ *
+ * 但地址栏输入框和建议行是 Windows 上的原生体验，应该显示 `C:\Users\...`。
+ * 带 `://` 的虚拟 / 远程路径（`sfm://remote/...`）原样保留 ——
+ * 那里的 `/` 是协议语义，换成 `\` 会得到一个根本打不开的路径。
+ */
+export function toAddressBarDisplayPath(path: string, isWindows: boolean): string {
+  return toNativePathSeparators(path, isWindows);
 }
 
 export function addressBarPathHasNoParentDirectory(trimmedNormalizedQuery: string): boolean {

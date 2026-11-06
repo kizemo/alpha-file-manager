@@ -1,5 +1,14 @@
 # Journal des modifications
 
+## [3.12.1] - November 2026
+
+**Summary:** Two loose ends from 3.12.0 are closed: a shortcut now wears its target's icon whichever icon scheme the file list uses, and the address bar you type into finally writes paths the Windows way. The Focus Sync background component bundled into this build follows the save dialog again.
+
+### What changed
+
+- **Fixed** **A shortcut keeps its target's icon whatever the icon settings are** — 3.12.0 made a `.lnk` show the icon of what it points at, but only while *System icons* were switched on; with the file list drawn from the icon theme instead, every shortcut fell back to the same generic arrow again. Shortcuts now go through the shell whichever scheme the list uses, so what you see is the target's own icon. A shortcut whose target cannot be found still falls back to the generic shortcut icon.
+- **Fixed** **The address bar you type into writes paths the Windows way** — The 3.12.0 change covered the file list, the breadcrumb, *Copy path*, the properties panel and the rest, but the address bar editor and the suggestions beneath it still showed `/`. Both now show the native separator - `\` on Windows - while the application keeps a single internal spelling, so what you type, what gets matched and what ends up on the clipboard stay consistent, and the caret stays where you left it while you edit.
+- **Fixed** **Focus Sync follows the save dialog again** — The published 3.12.0 installer still carried the older background component, which lost track of the folder when a *Save as* dialog opened and when a folder was shown under a localized name such as *Downloads*, so nothing was written back. This build carries 0.5.18: it resolves localized folder names, no longer trusts a directory change that reports success without having changed anything, and checks the path before writing it.
 ## [3.12.0] - November 2026
 
 **Summary:** Paths are written the way Windows writes them, the right-click menu can paste a shortcut, and a shortcut shows the icon of the program it points at.

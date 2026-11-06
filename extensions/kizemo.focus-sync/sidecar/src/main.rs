@@ -307,13 +307,16 @@ async fn main() -> Result<()> {
                         // Read the dialog's current path so we can both register
                         // AND decide whether to write back current_path (which
                         // may have changed since the user's last Sigma FM nav).
-                        let initial_path: String = match spike::reader::read_path(info.hwnd) {
-                            Ok(path) => {
+                        let initial_path: String = match spike::reader::read_path_with_strategy(info.hwnd) {
+                            Ok((path, strategy)) => {
                                 log_event(&Event::Read {
                                     hwnd: hwnd_u32,
                                     app: class.clone(),
                                     path: path.clone(),
-                                    strategy: "uia".into(),
+                                    // v0.5.16: 记录实际生效的读通道（uia / com），
+                                    // 否则「读到的是显示名还是真实路径」无法从日志
+                                    // 区分（真机这次就是卡在这）。
+                                    strategy: strategy.into(),
                                     ts: now_iso8601(),
                                 });
                                 path
@@ -364,7 +367,30 @@ async fn main() -> Result<()> {
                         let mut wrote_back = false;
                         // v0.5.5 (Mavis Round 25 N-4): use helper for guard +
                         // simplify nested if-else per Round 25 I-1.
-                        if state.should_opened_write_back(&initial_path, &current) {
+                        //
+                        // v0.5.16: 读不到弹窗当前目录时，不再以「读不到」为理由
+                        // 拒写。真机（2026-11-06）：Edge「另存为」停在本地化特殊
+                        // 文件夹「下载」时，地址栏 Name 是 `地址: 下载`（显示名，
+                        // 不是路径形状）⇒ reader 解析失败 ⇒ `initial_path` 为空
+                        // ⇒ `should_opened_write_back` 恒假 ⇒ 写回被**静默跳过**
+                        // （连一行日志都没有）⇒ 用户看到「从 AFM 切到下载弹窗，
+                        // 路径没有切换」。
+                        //
+                        // 读不到时改用「这个 hwnd 上一次写入/登记的路径」做去重：
+                        // 同一弹窗同一目标路径只写一次（v0.5.13 防闪烁不变量不变），
+                        // AFM 路径变化时再写。
+                        let read_ok = !initial_path.trim().is_empty();
+                        let writable = if read_ok {
+                            state.should_opened_write_back(&initial_path, &current)
+                        } else {
+                            state.should_write_back_when_path_unknown(hwnd_u32, &current)
+                        };
+                        // v0.5.15 — 叠加 AFM 访问闩：只有使用者把窗口切到 AFM、
+                        // 再切回弹窗，才把 current_path 写进弹窗。两个条件互相
+                        // 独立，缺一个就不写；写成功后由下面清闩（一次访问只
+                        // 授权一次同步）。`FOCUS_SYNC_AFM_GATE=0` 时闸门恒开。
+                        let gate_open = state.afm_gate_open();
+                        if writable && gate_open {
                             // v0.5.7 G-2: hold the monitor off for the whole
                             // write. RAII clears the flag even on early return.
                             let _sync_guard = state.begin_sync();
@@ -445,6 +471,12 @@ async fn main() -> Result<()> {
                                 // 2026-10-07 22:08 — resync every 1.2s forever,
                                 // address bar accumulating `E:\` each time.)
                                 wrote_back = true;
+                                // v0.5.15: 这次访问兑现了 -- 消耗掉 AFM 访问闩,
+                                // 下一个弹窗要同步就必须再回 AFM 走一趟。
+                                // 写失败时**不下弦**: `if !wrote_back` 仍按
+                                // initial_path 登记, 冷却重试复用同一次授权,
+                                // 不该逼用户为了同一次操作回 AFM 两次。
+                                state.clear_afm_visit();
                                 state.register_dialog(DialogInfo {
                                     hwnd: hwnd_u32,
                                     app: class.clone(),
@@ -452,11 +484,40 @@ async fn main() -> Result<()> {
                                     write_strategy: None,
                                 });
                             }
-                        } else if !initial_path.is_empty() && initial_path != current {
+                        } else if writable && !gate_open {
+                            // v0.5.15: 本次需求的行为改动本体。路径确实和弹窗里登记的
+                            // 初值不同, 但用户自上次同步之后**没有访问过 AFM 窗口**,
+                            // 所以「打开弹窗 / 切回弹窗」不再把记忆路径推进去。
+                            // 下面 `if !wrote_back` 仍会用 initial_path 登记, 于是
+                            // 「回 AFM 取新路径 -> 再切回这个弹窗」照样能同步。
+                            // 必须排在哨兵分支**之前**: 被闩挡住时, 等首推已经不是
+                            // 跳过的原因, 报成 sentinel 会把取证方向带偏。
+                            log_event(&Event::SpikeError {
+                                kind: "opened_write_back_skip_no_afm_visit".into(),
+                                message: format!(
+                                    "dialog path='{}' current='{}' (no AFM visit); skipping",
+                                    initial_path, current
+                                ),
+                                ts: now_iso8601(),
+                            });
+                        } else if !read_ok {
+                            // v0.5.16: 读不到弹窗目录，且去重键说明这次访问已经
+                            // 写过同一个目标路径 ⇒ 不重复写。必须留一行日志：
+                            // 这一支以前是**完全静默**的（真机上一整轮同步就是
+                            // 「什么都没发生」，日志里一行都没有）。
+                            log_event(&Event::SpikeError {
+                                kind: "opened_write_back_skip_path_unknown".into(),
+                                message: format!(
+                                    "dialog path unreadable; current='{}' already written for this dialog; skipping",
+                                    current
+                                ),
+                                ts: now_iso8601(),
+                            });
+                        } else if !spike::state::paths_equal(&initial_path, &current) {
                             // v0.5.5 (Mavis Round 21 D): defensive log when
                             // should_opened_write_back returns false on the
                             // "first push not received" path. initial_path
-                            // empty / matching current are silent no-ops
+                            // matching current are silent no-ops
                             // (already excluded by the helper).
                             log_event(&Event::SpikeError {
                                 kind: "opened_write_back_skip_sentinel".into(),
@@ -484,12 +545,20 @@ async fn main() -> Result<()> {
                         // Structural fix: make the write branch `else`-exclusive so
                         // there is no flag to forget.
                         if !wrote_back {
-                            // Intentionally defensive only — `wrote_back` is set on
-                            // every path that reaches the write branch below.
+                            // v0.5.16: 读失败时**不要**用空串覆盖已登记的去重键。
+                            // 覆盖成 "" 会让下一 tick 的去重键退化成「未知」⇒
+                            // 被判成「还没写过」⇒ 每 1200ms 重写一次（闪烁回归）。
+                            // 保留原值即可：写失败时原值 != current ⇒ 既有 1200ms
+                            // 冷却继续驱动重试（v0.5.12 的「写了才算数」不变量）。
+                            let registered_path = if read_ok {
+                                initial_path
+                            } else {
+                                state.last_written_path(hwnd_u32).unwrap_or_default()
+                            };
                             state.register_dialog(DialogInfo {
                                 hwnd: hwnd_u32,
                                 app: class.clone(),
-                                last_known_path: initial_path,
+                                last_known_path: registered_path,
                                 write_strategy: None,
                             });
                         }

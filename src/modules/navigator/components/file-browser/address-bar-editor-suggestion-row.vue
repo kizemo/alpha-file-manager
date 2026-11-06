@@ -6,7 +6,8 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 <script setup lang="ts">
 import { XIcon } from '@lucide/vue';
 import FileBrowserEntryIcon from './file-browser-entry-icon.vue';
-import type { AddressBarSuggestion } from './address-bar-editor-utils';
+import { toAddressBarDisplayPath, type AddressBarSuggestion } from './address-bar-editor-utils';
+import { usePlatformStore } from '@/stores/runtime/platform';
 
 defineProps<{
   itemIndex: number;
@@ -19,6 +20,8 @@ defineProps<{
   /** 本分组最后一行 —— 树形导线的最后一条要画成「└」而不是「├」。 */
   isLastChild?: boolean;
 }>();
+
+const platformStore = usePlatformStore();
 
 const emit = defineEmits<{
   activate: [];
@@ -85,7 +88,7 @@ function handleRemoveRecentClick(event: MouseEvent) {
           <span
             v-if="showsPathBesideName"
             class="address-bar-editor-suggestion-row__name-path"
-          >{{ suggestion.path }}</span>
+          >{{ toAddressBarDisplayPath(suggestion.path, platformStore.isWindows) }}</span>
         </div>
       </div>
     </button>
