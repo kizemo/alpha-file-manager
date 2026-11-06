@@ -254,3 +254,131 @@
 - 恢复后 `Get-Process alpha-file-manager` = 0 ✓
 - 验收脚本：`…\.superpowers\sdd\afm-accept-3121e.ps1`（纯 ASCII）；
   日志 `accept-3121e-run.log`、摘要 `accept-3121e-summary.txt`、UIA dump `accept-3121e-uia-dump.txt`。
+
+## 九、发版结论（3.12.1，2026-11-06 已完成并线上核验）
+
+用户 2026-11-06 19:38 指令「请打包、发版，push 到 GitHub 和 aiec，更新日志、readme、版本文件等」，
+解除了此前「暂停发版」的旧约束。以下每一行都有命令退出码或线上回读支撑。
+
+### 9.1 版本与发布内容
+
+- 版本走 **patch：3.12.0 → 3.12.1**。三项改动都是补齐 3.12.0 已宣称但未真正到位的行为，
+  外加侧车 bug 修复，不构成新功能，因此升级日志口径全部是 **Fixed，不写 New**。
+- 发布内容三项：① 快捷方式显示目标图标，不再受图标主题与「系统图标」开关影响；
+  ② 地址栏编辑器与建议行改用 Windows 原生 `\`（内部仍是正斜杠语义，光标不跳）；
+  ③ focus-sync「另存为」侧车修复 **0.5.15 → 0.5.18**。
+
+### 9.2 打包与产物（`PREPARE_EXIT=0`）
+
+- `npm run release:prepare -- --bump patch`：vite `8.1.3` / 4013 modules，
+  Rust `Finished release profile in 3m 53s`、`Compiling alpha-file-manager v3.12.1`。
+- `package.json` = `3.12.1`；`src-tauri/Cargo.toml` `version = "3.12.1"`。
+- `release\Alpha File Manager_3.12.1_x64-setup.exe` **45,123,898 B @19:54:36**；
+  3.12.0 正包（45,112,805 B）**未被覆盖**。
+- sha256 = `e54266295931a2e930998e6dcf349e5aee4a0d0f0bde4e234772e9796e8a5b76`，
+  与站点 `version.json` **成对更新**（这是发版流水线的硬规则，不能只改一边）。
+- **内嵌侧车坐实**：`src-tauri\target\release\tools\focus-sync-sidecar.exe`
+  = 2,854,400 B / sha256 `A7424E1273A945123BBFFBD29ED04ACF30722C5E9E6B5D2EA891D3519281780D`
+  = **0.5.18**。公网 3.12.0 安装包内嵌的是带 bug 的 0.5.15，0.5.18 是靠本次打包才进包。
+- ⚠️ 侧车 sha 的权威位置是 `extensions\kizemo.focus-sync\bin\focus-sync-sidecar.exe`，
+  **不是** `src-tauri/resources/tools/`。
+
+### 9.3 文档盖章（17 份全 `OK`、`FFFD=0`、复跑全 `SKIP`）
+
+`…\.superpowers\sdd\stamp-docs-3121.cjs`：根 `CHANGELOG.md` 171902→173743 B、
+13 个非中文 locale 各 +1841 B、`ch` 58209→58876 B、`README.md` 21837→22552 B、
+`README.zh-CN.md` 11291→11581 B。`assets` 目录没有 changelog，已跳过。
+`verify-changelog.mjs`：47 条目、`[3.12.1] - November 2026` 顺序正确、`OK CHANGELOG.md 覆盖当前版本`。
+文案按文件惯例分流（根 CHANGELOG 与 13 locale 用英文，`public/changelog/ch/` 用中文段落式，
+README 两份各自语言表格），三处口径一致。README 只新增 3.12.1 小节，不删既有 3.9.0 小节。
+站点 `index.html:130` 动态读 `version.json`，页面版本文案**不手改**。
+
+### 9.4 门禁（分项口径，`GATE_SUMMARY ts=0 vchg=0 eslint=1 vitest=0`）
+
+- `vue-tsc --build` = **0**；`verify-changelog` = **0**；
+  `vitest` = **0** ⇒ `Test Files 289 passed (289)`、`Tests 2706 passed (2706)`、Duration 84.27 s。
+- `eslint . --max-warnings 1` = **1** ⇒ `180 problems (180 errors, 0 warnings)`。
+  **已证实 180 条全部不在本次改动文件里**：对 `use-navigator-item-icon`、`address-bar-editor`、
+  `normalize-path`、`system-icons`、`user-stats`、`favorite-categor` 六个 pattern 在 lint 报告里
+  逐条匹配，命中数均为 0。报错文件是 `file-tree.ts`、`folder-tree.ts`、`open-in-explorer.ts` 等存量，
+  规则集中在 `@stylistic/object-property-newline` / `eol-last` / `padding-line-between-statements`。
+- 历史基线 **186–188 errors** ⇒ 180 低于基线，**不是回归**。
+  结论：**`npm run check` 在本仓设计上不可能 exit 0**，对外汇报一律按分项口径给数字。
+
+### 9.5 winget manifest 3.12.1（`CM_EXIT=0`，8 项全绿）
+
+- `docs/winget/manifests/k/kizemo/AlphaFileManager/3.12.1/` 四件套齐：
+  `installer.yaml` 703→703 B、`locale.en-US.yaml` 2526→2918 B、`locale.zh-CN.yaml` 1707→1981 B、
+  `kizemo.AlphaFileManager.yaml` 293→293 B。4 个新文件全 `FFFD=0`、LF。
+- `node docs\winget\check-manifest.mjs 3.12.1` 8 项全 `+`，含
+  `InstallerSha256 matches the local installer (45123898 bytes)`、
+  `InstallerUrl points at this version's GitHub release asset`。
+- **只本地补齐、不提 winget-community 仓库的 PR**（用户口径）。
+- 盖章脚本 `…\.superpowers\sdd\stamp-winget-3121.cjs` 的写法要点（第一版锚点式替换已失败）：
+  改为「`rmSync` 3.12.1 → 从 3.12.0 整体复制 → 全局 `split/join` 替换 → block scalar 版本段整行替换」，
+  天然可重复。四个坑见 §9.8。
+
+### 9.6 aiec 站点上传 + 线上核验（`UPLOAD_EXIT=0`）
+
+- `npm run release:upload` 后自动跑 `verify`：23 个历史安装包全部 `OK md5+size 一致`，
+  `[DONE] 已上传到 https://www.aiec.fun/alpha-file-manager/`。
+- `verify` 回读：线上版本 **3.12.1**、发布日期 `2026-11-06T11:54:41Z`、
+  清单 sha256 与本地包 sha256 **逐字相同**（`e54266295931a2e9…6e8a5b76`）、
+  **源站包大小 45123898**（绕过缓存）、**边缘包大小 45123898**（`CF-Cache-Status=MISS`）⇒
+  `通过：版本号 / 大小 / sha256 三项均一致（源站与边缘都已生效）`。
+- 口径提醒：`verify` 只有**源站**大小不一致才 fail，Cloudflare 边缘不一致只 warn。
+
+### 9.7 GitHub Release + git（`GITHUB_EXIT=0`）
+
+- `git add -A` + `git reset -q -- extensions/kizemo.focus-sync/sidecar/src/bin` ⇒ `STAGED=45`。
+  含 17 份文档 + 3 份新增 docs + 4 个 winget yaml + 7 个 sidecar `.rs` + 两个版本文件 + `Cargo.lock` +
+  两个 workspace 成员 `Cargo.toml` + `system_icons.rs` + `use-navigator-item-icon.ts` 及测试 +
+  4 个地址栏前端文件 + 2 个测试。
+- `git commit -F …\.superpowers\sdd\commit-3121.txt` ⇒ **`dc173bd8`**，父提交 `9da52a16`。
+- `git push origin main` ⇒ `9da52a16..dc173bd8`（`PUSH_MAIN_EXIT=0`）；
+  `git push origin v3.12.1` ⇒ `* [new tag]`（`PUSH_TAG_EXIT=0`）。
+- **顺序必须是 push 先于 `release:github`**：`scripts/release-publish.mjs` 的 `github()`
+  走 `gh release create <tag>` 且**不带 `--target`** ⇒ 若 tag 不在远端，Release 会指向旧提交。
+  已回读 `gh api repos/kizemo/alpha-file-manager/tags`：`v3.12.1 -> dc173bd85d8c245adfde16cd129f3bad089e01ad` ✓
+- Release 回读（`gh api …/releases/tags/v3.12.1`）：`tag_name=v3.12.1`、
+  `name=Alpha File Manager v3.12.1`、**`body` 长度 888**（非空正文，不是漏跑 `--write-notes` 的空壳）、
+  资产 `Alpha_File_Manager_3.12.1_x64-setup.exe` `size=45123898` `state=uploaded`。
+  https://github.com/kizemo/alpha-file-manager/releases/tag/v3.12.1
+
+### 9.8 本轮新增的坑（写给下一棒）
+
+- **`.cmd` 的 `echo` 里不能出现 `>`**：cmd.exe 把它当重定向符，连注释和 echo 文本里的都不放过。
+  症状是「日志少一行 + `git status` 冒出一个看不懂的垃圾文件」。描述性文字改用 `to` / `=>`。
+- **`.cmd` 运行期间绝对不能编辑它**：cmd.exe 按字节偏移逐行读，中途改文件会让后面几行偏移错位，
+  执行到别处的指令片段（2026-10-24 就因此重复跑了 `release:prepare --bump minor`，版本被顶掉、产物全丢）。
+- **winget 盖章四坑**（第一版脚本全部踩中）：① `installer.yaml` 里 `PackageVersion: 3.12.0`
+  天然出现 **2 次** ⇒ 「唯一命中」断言必败，要用全局 `split/join`；② locale 文件的 `Description` 是
+  **YAML block scalar**（`Description: |-`），要替换的是缩进的版本段行
+  （en-US 以 `Version 3.12.0` 开头、zh-CN 以 `3.12.0 版` 开头），用
+  `/^  3\.12\.0[^\n]*$/m` 与 `/^  Version 3\.12\.0[^\n]*$/m` 各唯一命中；
+  「本地网络浏览器。」属于 `ShortDescription`，当 `Description` 锚点会 0 命中；
+  ③ 资产文件名 `Alpha_File_Manager_3.12.0_x64-setup.exe` 里的版本号会漏替 ⇒ `check-manifest` 报
+  `InstallerUrl … expected …3.12.1…`；④ `ReleaseDate` **只在 `installer.yaml` 存在**，
+  别对四个文件统一断言。
+- `check-manifest.mjs` **只传裸版本号**；传目录会被拼成不存在的路径而报四文件全 missing。
+- **FFFD 探针不要写成** `s.replace(String.fromCharCode(65533),'#')` 再 `match(/#/g)` ——
+  `replace` 只替换首个，数到的是 `# yaml-language-server` 注释行，**自造假阳性**。
+  正确写法：`(s.match(/\uFFFD/g)||[]).length`。
+- **后台任务 `status=succeeded` 不代表脚本内部命令成功**（`.cmd` 没有 `exit /b`）；
+  `npm` 输出经管道缓冲，跑完才落盘。判定终态一律看日志里的 `*_EXIT=` / `GATE_SUMMARY` 行。
+- **上传日志里的中文显示成 `` 是 stdout 代码页问题**（子进程输出按错误代码页解码），
+  不是上传失败 —— 结论以 `[verify] 通过` 与 `UPLOAD_EXIT=0` 为准。
+- `bash` 里 `Set-Location` 之后再写文件会被硬策略拒绝
+  （`write/delete targets cannot be verified safely after a command working directory change`）⇒
+  写文件一律用 `write` / `edit` 工具 + 绝对路径。
+- `gh … --json` 走管道时 stderr 会污染 JSON ⇒ 用 `--jq` 在服务端裁字段，或 `2>$null`。
+
+### 9.9 遗留事项
+
+- `extensions/kizemo.focus-sync/sidecar/src/bin/repro_save_dialog.rs` **未入库**（一次性复现工具，
+  已在 commit message 里说明）；侧车二进制由 `.gitignore:37/40` 排除。
+- `C:\Users\Duanyi\afm-accept-3120` 两个空目录待用户手工删除（不要代为删除）。
+- `IShellLinkW::GetIconLocation` 列为后续增强；本轮 Rust 侧**未改生产逻辑**
+  （探针实证 shell 自身透传目标图标）。
+- 上一轮 `%TEMP%\afm-baseline-eslint` 基线 worktree 已被清掉，现量 HEAD 需重建。
+- 本机 focus-sync 侧车 0.5.18 在跑（计划任务 `KizemoFocusSync`，端口 37421）。
