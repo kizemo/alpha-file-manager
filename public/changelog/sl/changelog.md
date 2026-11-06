@@ -1,5 +1,14 @@
 # Dnevnik sprememb
 
+## [3.12.0] - November 2026
+
+**Summary:** Paths are written the way Windows writes them, the right-click menu can paste a shortcut, and a shortcut shows the icon of the program it points at.
+
+### What changed
+
+- **New** **Paste a shortcut from the right-click menu** — Copy a file or a folder, then right-click a folder and pick *Paste shortcut*: whatever is on the clipboard lands there as a `.lnk` shortcut pointing at it instead of a copy of the file itself. The clipboard is left as it is, so the same content can be pasted into as many folders as you like. The entry appears only when the clipboard actually holds files - a picture on the clipboard cannot become a shortcut - and only where there is a folder to paste into.
+- **New** **A shortcut shows the icon of what it points at** — A `.lnk` in the file list used to carry one generic arrow for every shortcut, whatever it pointed at. It now shows the icon of its target, so a shortcut to an executable wears that program's own icon. A shortcut whose target cannot be found - a broken link, or one pointing at a place that no longer exists - falls back to the generic shortcut icon instead of showing nothing at all.
+- **Changed** **Paths are written the way Windows writes them** — Every path the application shows you, and every path it hands to the clipboard, now uses the native separator: `\` on Windows, `/` on macOS and Linux. This covers the address bar, the breadcrumb, *Copy path* on a file or a folder, the properties panel, the global search results, tab titles and the drive cards on the dashboard. Remote and virtual locations keep their own spelling, because there the separator is part of the address rather than a separator between folders.
 ## [3.11.0] - November 2026
 
 **Summary:** Slike je zdaj mogoče zasukati in prezrcaliti neposredno v kontekstnem meniju, sprememba pa se shrani takoj; ikona, pripeta opravilni vrstici, preživi posodobitev; kontekstni meni rezultatov globalnega iskanja je spet tu, skupaj z možnostjo »Odpri vsebujočo mapo«.

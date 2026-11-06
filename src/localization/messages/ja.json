@@ -1227,7 +1227,8 @@
       "flipImageVertical": "上下反転",
       "imageEditSucceeded": "画像を編集しました",
       "imageEditFailed": "画像の編集に失敗しました",
-      "imageEditInProgress": "処理中…"
+      "imageEditInProgress": "処理中…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "シンボリックリンク",

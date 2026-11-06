@@ -8,6 +8,7 @@ import normalizePath, {
   getAddressBarSegments,
   getPathDisplayName,
   getPathDisplayValue,
+  getNativePathDisplayValue,
   getParentPath,
   getPathLeafName,
   getPathSegments,
@@ -20,6 +21,7 @@ import normalizePath, {
   isWslHostRootUncPath,
   joinPath,
   stripTrailingSlashesPreservingRoot,
+  toNativePathSeparators,
 } from '@/utils/normalize-path';
 
 describe('normalizePath', () => {
@@ -125,5 +127,40 @@ describe('normalizePath', () => {
     expect(getPathDisplayValue('/')).toBe('/');
     expect(getPathDisplayValue('//wsl.localhost/Ubuntu-24.04/')).toBe('//wsl.localhost/Ubuntu-24.04');
     expect(getPathDisplayValue('C:/Users/aleks')).toBe('C:/Users/aleks');
+  });
+});
+
+describe('toNativePathSeparators', () => {
+  it('converts Windows paths to backslash separators', () => {
+    expect(toNativePathSeparators('C:/Users/aleks/Documents', true)).toBe('C:\\Users\\aleks\\Documents');
+  });
+
+  it('keeps non-Windows platforms untouched', () => {
+    expect(toNativePathSeparators('/Users/aleks/Documents', false)).toBe('/Users/aleks/Documents');
+    expect(toNativePathSeparators('C:/Users/aleks', false)).toBe('C:/Users/aleks');
+  });
+
+  it('keeps UNC paths but switches to the native separator', () => {
+    expect(toNativePathSeparators('//wsl.localhost/Ubuntu/home', true)).toBe('\\\\wsl.localhost\\Ubuntu\\home');
+  });
+
+  it('keeps remote and virtual protocol paths untouched', () => {
+    expect(toNativePathSeparators('sfm://remote/c/x', true)).toBe('sfm://remote/c/x');
+    expect(toNativePathSeparators('sfm://locations', true)).toBe('sfm://locations');
+  });
+
+  it('keeps empty paths empty', () => {
+    expect(toNativePathSeparators('', true)).toBe('');
+  });
+});
+
+describe('getNativePathDisplayValue', () => {
+  it('formats drive roots and paths with native separators', () => {
+    expect(getNativePathDisplayValue('C:/', true)).toBe('C:');
+    expect(getNativePathDisplayValue('C:/Users/aleks', true)).toBe('C:\\Users\\aleks');
+  });
+
+  it('keeps posix separators on non-Windows platforms', () => {
+    expect(getNativePathDisplayValue('/Users/aleks', false)).toBe('/Users/aleks');
   });
 });

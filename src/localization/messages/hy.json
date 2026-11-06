@@ -1267,7 +1267,8 @@
       "flipImageVertical": "Ուղղահայաց շրջել",
       "imageEditSucceeded": "Նկարը հաջողությամբ խմբագրվեց",
       "imageEditFailed": "Չհաջողվեց նկարը խմբագրել",
-      "imageEditInProgress": "Գործի ընթացքում…"
+      "imageEditInProgress": "Գործի ընթացքում…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "Սիմվոլիկ հղում",

@@ -41,6 +41,17 @@ const CONTEXT_MENU_ITEMS: ContextMenuItemConfig[] = [
     selectionTypes: ['single', 'multiple'],
     entryTypes: ['file', 'directory'],
   },
+  // FORK-MODIFICATION 2026-11-06：「粘贴快捷方式」——
+  // 把剪贴板里的文件 / 目录以 `.lnk` 的形式放进目标目录。
+  //
+  // ⚠️ 这张表只管「条目本身允不允许」，真正的入口条件在
+  // `isContextMenuActionAvailable` 里特判（与 `paste` 同源：
+  // 入口条件是「剪贴板能不能粘到目标目录」，不是条目类别）。
+  {
+    action: 'paste-shortcut',
+    selectionTypes: ['single', 'multiple'],
+    entryTypes: ['file', 'directory'],
+  },
   {
     action: 'delete',
     selectionTypes: ['single', 'multiple'],
@@ -350,6 +361,7 @@ export const CONTEXT_MENU_ACTION_IDS: readonly ContextMenuAction[] = [
   'cut',
   'link',
   'paste',
+  'paste-shortcut',
   'delete',
   'remote-delete',
   // 菜单项
@@ -402,6 +414,12 @@ export type ContextMenuActionVisibilityContext = {
   remoteTransfer?: RemoteTransferVisibilityOptions;
   /** 剪贴板能不能粘到选中的目录（既有 `canPasteToSelectedDirectory`）。 */
   canPaste?: boolean;
+  /**
+   * FORK-MODIFICATION 2026-11-06：剪贴板能不能以**快捷方式**形式粘到目标目录。
+   *
+   * 与 `canPaste` 只差一处：剪贴板里必须是**文件项** —— 图片剪贴板做不出 `.lnk`。
+   */
+  canPasteShortcut?: boolean;
   /** 当前平台能不能建链接（既有 `linkCreationOptions.length > 0`）。 */
   canCreateLink?: boolean;
   /** 目标目录能不能「新建空文件」（既有 `canCreateFile`）。 */
@@ -437,6 +455,12 @@ export function isContextMenuActionAvailable(
 ): boolean {
   if (action === 'paste') {
     return context.canPaste === true;
+  }
+
+  // FORK-MODIFICATION 2026-11-06：「粘贴快捷方式」的入口条件与「粘贴」同源：
+  // 剪贴板里得有**文件项**，且能落到目标目录。
+  if (action === 'paste-shortcut') {
+    return context.canPasteShortcut === true;
   }
 
   if (action === 'link') {

@@ -71,6 +71,18 @@ vi.mock('@/components/ui/toaster', () => ({
   },
 }));
 
+// FORK-MODIFICATION (2026-11-06)：结果行会走 `useNativePath()`，
+// 它在 setup 里读 platform store —— 这里直接替换掉，省掉整套 Pinia 依赖。
+vi.mock('@/stores/runtime/platform', () => ({
+  usePlatformStore: () => ({
+    currentPlatform: { value: 'windows' },
+    isWindows: true,
+    isMacOS: false,
+    isLinux: false,
+    isUnix: false,
+  }),
+}));
+
 vi.mock('@/stores/storage/user-settings', () => ({
   useUserSettingsStore: () => ({
     userSettings: {

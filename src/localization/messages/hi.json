@@ -1265,7 +1265,8 @@
       "flipImageVertical": "लंबवत फ़्लिप करें",
       "imageEditSucceeded": "छवि सफलतापूर्वक संपादित की गई",
       "imageEditFailed": "छवि संपादित करने में विफल",
-      "imageEditInProgress": "प्रोसेस हो रहा है…"
+      "imageEditInProgress": "प्रोसेस हो रहा है…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "प्रतीकात्मक लिंक",

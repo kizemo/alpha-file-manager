@@ -1220,7 +1220,8 @@
       "flipImageVertical": "بازتاب عمودی",
       "imageEditSucceeded": "تصویر با موفقیت ویرایش شد",
       "imageEditFailed": "ویرایش تصویر ناموفق بود",
-      "imageEditInProgress": "در حال پردازش…"
+      "imageEditInProgress": "در حال پردازش…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "پیوند نمادین",

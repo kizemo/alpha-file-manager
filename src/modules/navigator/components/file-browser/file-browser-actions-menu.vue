@@ -590,6 +590,20 @@ function handleCreateLink(linkKind: LinkCreationKind) {
     <span>{{ t('settings.addressBar.copyPathToClipboard') }}</span>
   </component>
   <!--
+    FORK-MODIFICATION 2026-11-06：「粘贴快捷方式」——
+    把剪贴板里的文件 / 目录以 `.lnk` 的形式放进目标目录。
+  -->
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('paste-shortcut')"
+    :disabled="isMenuActionDisabled('paste-shortcut')"
+    :aria-disabled="isMenuActionDisabled('paste-shortcut')"
+    @select="emitAction('paste-shortcut')"
+  >
+    <LinkIcon :size="16" />
+    <span>{{ t('fileBrowser.actions.pasteShortcut') }}</span>
+  </component>
+  <!--
     FORK-MODIFICATION 2026-10-24：「解除文件锁定」与「彻底删除」。
 
     这两个动作解决的是「文件被占用 → 删不掉」：
