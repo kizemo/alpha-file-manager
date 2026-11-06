@@ -26,6 +26,9 @@ import { toast, ToastStatic } from '@/components/ui/toaster';
 import { useLanShare } from '@/composables/use-lan-share';
 import { useCopyMoveWithConflicts } from '@/composables/use-copy-move-with-conflicts';
 import { getParentDirectory } from '@/utils/normalize-path';
+import { useNativePath } from '@/composables/use-native-path';
+// FORK-MODIFICATION 2026-11-06：「粘贴快捷方式」的执行封装。
+import { usePasteShortcut } from '@/composables/use-paste-shortcut';
 import { getSharedSourceDirectory } from '@/utils/file-operation-paths';
 import { basenameFromPath } from '@/utils/source-display-name';
 import { resolveNavigableItemTarget } from '@/utils/resolve-navigable-item-target';
@@ -56,6 +59,8 @@ import { useNavigatorImageThumbnails } from '@/modules/navigator/composables/use
 export function useDirEntryActions() {
   const { t } = useI18n();
   const platformStore = usePlatformStore();
+  const { toNativePath } = useNativePath();
+  const { pasteShortcut } = usePasteShortcut();
   const router = useRouter();
   const workspacesStore = useWorkspacesStore();
   const userStatsStore = useUserStatsStore();
@@ -586,7 +591,7 @@ export function useDirEntryActions() {
   function copyPath(entries: DirEntry[]) {
     if (entries.length === 0) return;
 
-    const pathText = entries.map(entry => entry.path).join('\n');
+    const pathText = entries.map(entry => toNativePath(entry.path)).join('\n');
     navigator.clipboard.writeText(pathText).then(() => {
       toast.custom(markRaw(ToastStatic), {
         componentProps: {
@@ -668,6 +673,23 @@ export function useDirEntryActions() {
 
         if (targetDir) {
           pasteItems(targetDir);
+        }
+
+        break;
+      }
+
+      // FORK-MODIFICATION 2026-11-06：「粘贴快捷方式」——
+      // 把剪贴板里的文件 / 目录以 `.lnk` 快捷方式的形式放进**右键的那一个目录**。
+      //
+      // 与「粘贴」的区别：粘的是**快捷方式**而不是副本；
+      // 与「创建链接」的区别：源是**剪贴板内容**，不是选中的条目。
+      case 'paste-shortcut': {
+        const targetDir = entries.length === 1 && !entries[0].is_file
+          ? entries[0].path
+          : undefined;
+
+        if (targetDir) {
+          void pasteShortcut(targetDir);
         }
 
         break;

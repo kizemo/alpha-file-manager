@@ -1265,7 +1265,8 @@
       "flipImageVertical": "Zrni navpično",
       "imageEditSucceeded": "Slika je bila uspešno urejena",
       "imageEditFailed": "Urejanje slike ni uspelo",
-      "imageEditInProgress": "Obdelava…"
+      "imageEditInProgress": "Obdelava…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "Simbolična povezava",

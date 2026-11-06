@@ -1267,7 +1267,8 @@
       "flipImageVertical": "שיקוף אנכי",
       "imageEditSucceeded": "התמונה עודכנה בהצלחה",
       "imageEditFailed": "עדכון התמונה נכשל",
-      "imageEditInProgress": "בעיבוד…"
+      "imageEditInProgress": "בעיבוד…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "קישור סימבולי",

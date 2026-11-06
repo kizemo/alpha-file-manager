@@ -206,3 +206,37 @@ export function getPathDisplayValue(path: string): string {
 
   return normalizedPath;
 }
+
+/**
+ * 把路径转成**当前平台的原生分隔符**。
+ *
+ * 应用内部统一用正斜杠 —— 后端 `normalize_path` 与前端 `normalizePath`
+ * 都把 `\` 归一成 `/`。那是**内部表示**，因为比较键、缓存键、远程路径
+ * （`sfm://remote/...` 里的 `/` 是协议语义）全都依赖它。
+ *
+ * 但**给人看的**路径、**复制到剪贴板的**路径必须是原生写法：
+ * Windows 是 `C:\Users\...`，macOS / Linux 是 `/Users/...`。
+ *
+ * ⚠️ 带 `://` 的路径（`sfm://remote/...`、`sfm://locations`）原样保留 ——
+ * 那里面的 `/` 不是本地路径分隔符，换成 `\` 会得到一个根本打不开的路径。
+ */
+export function toNativePathSeparators(path: string, isWindows: boolean): string {
+  if (!isWindows || !path) {
+    return path;
+  }
+
+  if (path.includes('://')) {
+    return path;
+  }
+
+  return path.replace(/\//g, '\\');
+}
+
+/**
+ * 展示用的路径值（原生分隔符）。
+ *
+ * = `getPathDisplayValue` 的语义 + 原生分隔符。
+ */
+export function getNativePathDisplayValue(path: string, isWindows: boolean): string {
+  return toNativePathSeparators(getPathDisplayValue(path), isWindows);
+}

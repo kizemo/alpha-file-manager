@@ -1229,7 +1229,8 @@
       "flipImageVertical": "Vertikal spiegeln",
       "imageEditSucceeded": "Bild erfolgreich bearbeitet",
       "imageEditFailed": "Bild konnte nicht bearbeitet werden",
-      "imageEditInProgress": "Wird verarbeitet…"
+      "imageEditInProgress": "Wird verarbeitet…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "Symbolischer Link",

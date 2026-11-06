@@ -92,6 +92,19 @@ export function useContextMenuItems(
     return clipboardStore.canPasteTo(selectedDirectory.value.path);
   });
 
+  /**
+   * FORK-MODIFICATION 2026-11-06：能不能把剪贴板内容以**快捷方式**粘到选中的目录。
+   *
+   * 与 `canPaste` 只差一处：剪贴板里必须是**文件项** —— 图片剪贴板做不出 `.lnk`。
+   */
+  const canPasteShortcut = computed(() => {
+    if (hasVirtualLocationSelection.value || !clipboardStore.hasFileItems || !selectedDirectory.value) {
+      return false;
+    }
+
+    return clipboardStore.canPasteTo(selectedDirectory.value.path);
+  });
+
   /** 当前平台可用的链接创建方式（快捷方式 / 符号链接 …）。 */
   const linkCreationOptions = computed(() =>
     getAvailableLinkCreationOptions(selectedEntries.value, platformStore.currentPlatform),
@@ -136,6 +149,7 @@ export function useContextMenuItems(
         isSearchResultsView: options?.isSearchResultsView?.value,
         remoteTransfer: remoteTransferContext.value,
         canPaste: canPaste.value,
+        canPasteShortcut: canPasteShortcut.value,
         canCreateLink: canCreateLink.value,
         canCreateFile: canCreateFile.value,
         hasCreateTarget: hasCreateTarget.value,
@@ -173,6 +187,7 @@ export function useContextMenuItems(
   return {
     selectionStats,
     canPaste,
+    canPasteShortcut,
     canCreateFile,
     canCreateLink,
     linkCreationOptions,

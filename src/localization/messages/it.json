@@ -1227,7 +1227,8 @@
       "flipImageVertical": "Capovolgi verticalmente",
       "imageEditSucceeded": "Immagine modificata con successo",
       "imageEditFailed": "Modifica dell'immagine non riuscita",
-      "imageEditInProgress": "Elaborazione…"
+      "imageEditInProgress": "Elaborazione…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "Collegamento simbolico",

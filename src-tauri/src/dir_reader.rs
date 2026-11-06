@@ -39,6 +39,16 @@ pub use commands::*;
 // 人类操作那条路完全不动。
 // ---------------------------------------------------------------------------
 
+/// FORK-MODIFICATION 2026-11-06：解析 Windows 快捷方式（`.lnk`）的目标路径。
+///
+/// `read::resolve_windows_shortcut_target` 是 `pub(super)`（只对 `dir_reader` 可见），
+/// 这里包一层 `pub(crate)` 给全 crate 用 —— `system_icons.rs` 要靠它给快捷方式
+/// 取**目标**的图标。
+#[cfg(windows)]
+pub(crate) fn resolve_shortcut_target_path(path: &std::path::Path) -> Option<String> {
+    read::resolve_windows_shortcut_target(path)
+}
+
 /// 列目录的阻塞内核。调用方负责放进合适的阻塞线程池。
 pub(crate) fn read_dir_blocking(
     path: String,

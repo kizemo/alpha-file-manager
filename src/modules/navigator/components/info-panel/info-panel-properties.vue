@@ -20,7 +20,7 @@ import { useLinkMetadataStore } from '@/stores/runtime/link-metadata';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import type { DirEntry } from '@/types/dir-entry';
 import type { RelativeTimeTranslations } from '@/modules/navigator/components/file-browser/utils';
-import { getPathDisplayValue } from '@/utils/normalize-path';
+import { useNativePath } from '@/composables/use-native-path';
 import { formatRelativeDateDisplay } from '@/utils/relative-date-display';
 import {
   getDirEntryKindKey,
@@ -39,6 +39,7 @@ const props = withDefaults(defineProps<{
 });
 
 const { t, locale } = useI18n();
+const { toNativeDisplayValue } = useNativePath();
 const dirSizesStore = useDirSizesStore();
 const linkMetadataStore = useLinkMetadataStore();
 const userSettingsStore = useUserSettingsStore();
@@ -155,7 +156,7 @@ const properties = computed<PropertyItem[]>(() => {
   });
   items.push({
     title: t('path'),
-    value: getPathDisplayValue(entry.path),
+    value: toNativeDisplayValue(entry.path),
   });
 
   if (entry.is_dir && entry.item_count !== null) {
@@ -218,7 +219,7 @@ const properties = computed<PropertyItem[]>(() => {
   });
   items.push({
     title: t('fileBrowser.linkTarget'),
-    value: entry.link_target ? getPathDisplayValue(entry.link_target) : '—',
+    value: entry.link_target ? toNativeDisplayValue(entry.link_target) : '—',
   });
   items.push({
     title: t('fileBrowser.linkStatus'),

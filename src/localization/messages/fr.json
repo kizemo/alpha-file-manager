@@ -1229,7 +1229,8 @@
       "flipImageVertical": "Retourner verticalement",
       "imageEditSucceeded": "Image modifiée avec succès",
       "imageEditFailed": "Échec de la modification de l'image",
-      "imageEditInProgress": "Traitement…"
+      "imageEditInProgress": "Traitement…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "Lien symbolique",

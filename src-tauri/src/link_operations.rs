@@ -389,7 +389,9 @@ fn create_junction(
 }
 
 #[cfg(windows)]
-fn create_shortcut(source_path: &Path, shortcut_path: &Path) -> std::io::Result<()> {
+// FORK-MODIFICATION 2026-11-06：改成 `pub(crate)`，
+// 让 `system_icons.rs` 的测试能用它造出真的 `.lnk` 夹具。
+pub(crate) fn create_shortcut(source_path: &Path, shortcut_path: &Path) -> std::io::Result<()> {
     use std::os::windows::ffi::OsStrExt;
     use windows::core::{Interface, PCWSTR};
     use windows::Win32::System::Com::{

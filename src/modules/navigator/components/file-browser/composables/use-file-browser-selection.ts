@@ -21,7 +21,9 @@ import { useFolderTreeStore, parentDirectoryPath } from '@/stores/runtime/folder
 import { toast, ToastProgress, ToastStatic } from '@/components/ui/toaster';
 import { useLanShare } from '@/composables/use-lan-share';
 import { useCopyMoveWithConflicts } from '@/composables/use-copy-move-with-conflicts';
-import normalizePath, { joinPath } from '@/utils/normalize-path';
+// FORK-MODIFICATION 2026-11-06：「粘贴快捷方式」的执行封装。
+import { usePasteShortcut } from '@/composables/use-paste-shortcut';
+import normalizePath, { joinPath, toNativePathSeparators } from '@/utils/normalize-path';
 import { isVirtualLocationPath } from '@/utils/virtual-locations';
 import {
   getSharedSourceDirectory,
@@ -121,6 +123,7 @@ export function useFileBrowserSelection(
   const userStatsStore = useUserStatsStore();
   const userSettingsStore = useUserSettingsStore();
   const clipboardStore = useClipboardStore();
+  const { pasteShortcut } = usePasteShortcut();
   const dirSizesStore = useDirSizesStore();
   const linkMetadataStore = useLinkMetadataStore();
   const deleteJobsStore = useDeleteJobsStore();
@@ -1401,6 +1404,18 @@ export function useFileBrowserSelection(
         break;
       }
 
+      // FORK-MODIFICATION 2026-11-06：「粘贴快捷方式」。
+      //
+      // 目标目录的取法与「粘贴」一致：右键了一个目录就用它，
+      // 否则（浏览器空白区右键）用当前目录。
+      case 'paste-shortcut': {
+        const targetDir = entries.length === 1 && !entries[0].is_file
+          ? entries[0].path
+          : currentPathRef.value;
+        void pasteShortcut(targetDir);
+        break;
+      }
+
       case 'delete':
         if (entries.length > 0) {
           deleteItems(entries, true);
@@ -1457,7 +1472,7 @@ export function useFileBrowserSelection(
         break;
       case 'copy-path':
         if (entries.length > 0) {
-          const pathText = entries.map(entry => entry.path).join('\n');
+          const pathText = entries.map(entry => toNativePathSeparators(entry.path, platformStore.isWindows)).join('\n');
           navigator.clipboard.writeText(pathText).then(() => {
             toast.custom(markRaw(ToastStatic), {
               componentProps: {

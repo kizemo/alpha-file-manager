@@ -13,7 +13,7 @@ import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import { openNavigatorPath, openNavigatorPathInNewTab } from '@/utils/open-navigator-directory';
 import { usePlatformStore } from '@/stores/runtime/platform';
 import toReadableBytes from '@/utils/to-readable-bytes';
-import { getPathDisplayValue } from '@/utils/normalize-path';
+import { useNativePath } from '@/composables/use-native-path';
 import type { DriveInfo } from '@/types/drive-info';
 import { canDisconnectDriveMetadata } from '@/utils/drive-disconnect-policy';
 import { createDriveEntryMetadata } from '@/utils/drive-icon';
@@ -28,6 +28,7 @@ const router = useRouter();
 const { t } = useI18n();
 const userSettingsStore = useUserSettingsStore();
 const platformStore = usePlatformStore();
+const { toNativeDisplayValue } = useNativePath();
 
 const isMounting = ref(false);
 
@@ -45,7 +46,7 @@ const formattedSpaceInfo = computed(() => {
   }
 
   if (!hasSpaceData.value) {
-    return getPathDisplayValue(props.drive.mount_point);
+    return toNativeDisplayValue(props.drive.mount_point);
   }
 
   const available = toReadableBytes(props.drive.available_space, 1);

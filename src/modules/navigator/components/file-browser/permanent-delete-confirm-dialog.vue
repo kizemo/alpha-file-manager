@@ -18,7 +18,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { getPathDisplayValue } from '@/utils/normalize-path';
+import { useNativePath } from '@/composables/use-native-path';
 import {
   focusPermanentDeleteConfirmContent,
   isPermanentDeleteConfirmInteractiveTarget,
@@ -36,13 +36,14 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const { toNativeDisplayValue } = useNativePath();
 
 const singlePathDisplay = computed(() => {
   if (props.entries.length !== 1) {
     return '';
   }
 
-  return getPathDisplayValue(props.entries[0].path);
+  return toNativeDisplayValue(props.entries[0].path);
 });
 
 const bodyPrimaryMultiple = computed(() => {

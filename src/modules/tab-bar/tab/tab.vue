@@ -11,7 +11,8 @@ import { useWorkspacesStore } from '@/stores/storage/workspaces';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import type { Tab } from '@/types/workspaces';
 import { CopyPlusIcon, Layers, XIcon, XLineTopIcon } from '@lucide/vue';
-import { getPathDisplayName, getPathDisplayValue } from '@/utils/normalize-path';
+import { getPathDisplayName } from '@/utils/normalize-path';
+import { useNativePath } from '@/composables/use-native-path';
 import {
   Tooltip,
   TooltipContent,
@@ -43,6 +44,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>();
 
 const { t } = useI18n();
+const { toNativeDisplayValue } = useNativePath();
 const workspacesStore = useWorkspacesStore();
 const shortcutsStore = useShortcutsStore();
 const userSettingsStore = useUserSettingsStore();
@@ -329,7 +331,7 @@ onBeforeUnmount(() => {
               {{ getTabDisplayName(tab) }}
             </div>
             <div class="tab__tooltip-subtitle">
-              {{ getPathDisplayValue(tab.path) }}
+              {{ toNativeDisplayValue(tab.path) }}
             </div>
           </div>
         </span>

@@ -127,6 +127,14 @@ sync, batch rename, and a long list of day-to-day fixes.
 | ![Dashboard quick access](docs/screenshots/afm-dashboard-hero-light-en.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
 | ![Dashboard cards](docs/screenshots/afm-dashboard-card-enrichment-en.png) | **Dashboard cards** — name, size and path on top, type and item count below, with drag, reorder and edit shortcuts on every card |
 
+### What changed in 3.12.0
+
+| | |
+|---|---|
+| 🪟 | **Paths are written the way Windows writes them** — every path you see, and every path you copy, now comes with `\` separators instead of `/`: the address bar, the breadcrumb, *Copy path*, the properties panel, a search result, a tab |
+| 🔗 | **Paste a shortcut from the right-click menu** — copy a file or a folder, right-click a folder and pick *Paste shortcut*: the clipboard content lands there as a `.lnk` shortcut instead of a copy, and the clipboard stays put so you can paste it into more than one folder |
+| 🖼️ | **A shortcut shows the icon of what it points at** — a `.lnk` to an executable wears that program's own icon in the file list; a shortcut whose target is gone falls back to the generic shortcut icon |
+
 ### What changed in 3.11.0
 
 | | |

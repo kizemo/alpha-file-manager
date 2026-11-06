@@ -1265,7 +1265,8 @@
       "flipImageVertical": "Отразить по вертикали",
       "imageEditSucceeded": "Изображение успешно отредактировано",
       "imageEditFailed": "Не удалось отредактировать изображение",
-      "imageEditInProgress": "Обработка…"
+      "imageEditInProgress": "Обработка…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "Символическая ссылка",

@@ -18,6 +18,7 @@ import { toast } from '@/components/ui/toaster';
 import FileBrowserActionsMenu from '@/modules/navigator/components/file-browser/file-browser-actions-menu.vue';
 import type { ContextMenuAction } from '@/modules/navigator/components/file-browser/types';
 import { useDirEntryActions } from '@/composables/use-dir-entry-actions';
+import { useNativePath } from '@/composables/use-native-path';
 import { openNavigatorRevealEntry } from '@/utils/open-navigator-directory';
 import { revealEntriesContainingDirectory } from '@/utils/reveal-containing-directory';
 import type { DirEntry } from '@/types/dir-entry';
@@ -56,6 +57,7 @@ const emit = defineEmits<{
 }>();
 
 const { t, locale } = useI18n();
+const { toNativePath } = useNativePath();
 const userSettingsStore = useUserSettingsStore();
 
 const listElementRef = ref<HTMLElement | null>(null);
@@ -350,7 +352,7 @@ watch(() => props.focusedPath, async (path) => {
             />
             <div class="global-search-result-list__entry-name-content">
               <span class="global-search-result-list__entry-text">{{ entry.name }}</span>
-              <span class="global-search-result-list__entry-description">{{ entry.path }}</span>
+              <span class="global-search-result-list__entry-description">{{ toNativePath(entry.path) }}</span>
             </div>
           </div>
           <span class="global-search-result-list__entry-size">{{ getEntrySizeDisplay(entry) }}</span>

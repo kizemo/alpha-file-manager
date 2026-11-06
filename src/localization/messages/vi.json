@@ -1227,7 +1227,8 @@
       "flipImageVertical": "Lật dọc",
       "imageEditSucceeded": "Đã chỉnh sửa hình ảnh thành công",
       "imageEditFailed": "Không thể chỉnh sửa hình ảnh",
-      "imageEditInProgress": "Đang xử lý…"
+      "imageEditInProgress": "Đang xử lý…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "Liên kết tượng trưng",

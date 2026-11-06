@@ -42,7 +42,7 @@ import { DirEntryInteractive } from '@/components/dir-entry-interactive';
 import { registerDropContainer, unregisterDropContainer } from '@/composables/use-drop-target-registry';
 import { useShortcutsStore } from '@/stores/runtime/shortcuts';
 import { usePlatformStore } from '@/stores/runtime/platform';
-import { getPathDisplayName } from '@/utils/normalize-path';
+import { getPathDisplayName, toNativePathSeparators } from '@/utils/normalize-path';
 import {
   buildLocationsDirectoryFromDrives,
   resolveDirectoryContents,
@@ -157,12 +157,13 @@ function openEditor() {
 
 async function copyPathToClipboard() {
   try {
-    await navigator.clipboard.writeText(props.currentPath);
+    const nativePath = toNativePathSeparators(props.currentPath, platformStore.isWindows);
+    await navigator.clipboard.writeText(nativePath);
     toast.custom(markRaw(ToastStatic), {
       componentProps: {
         data: {
           title: t('dialogs.localShareManagerDialog.addressCopiedToClipboard'),
-          description: props.currentPath,
+          description: nativePath,
         },
       },
       duration: 2000,
@@ -261,7 +262,7 @@ onUnmounted(() => {
             <button
               class="address-bar__part"
               :class="{ 'address-bar__part--last': part.isLast }"
-              :title="part.displayRootIcon ? t('locations') : part.path"
+              :title="part.displayRootIcon ? t('locations') : toNativePathSeparators(part.path, platformStore.isWindows)"
               :aria-label="part.displayRootIcon ? t('locations') : part.name"
               @click.stop="!part.isLast && navigateToPart(part.path)"
             >

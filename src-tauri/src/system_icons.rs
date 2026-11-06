@@ -282,6 +282,36 @@ fn absolute_existing_path(path: &Path) -> Option<PathBuf> {
         .filter(|resolved_path| is_usable_shell_icon_target(resolved_path))
 }
 
+/// FORK-MODIFICATION 2026-11-06：`.lnk` 快捷方式的目标路径（取图标用）。
+///
+/// 解析不出来、目标不存在、目标是 WindowsApps 别名 —— 一律返回 `None`，
+/// 由调用方回退到快捷方式自身的图标。
+#[cfg(windows)]
+fn resolve_shortcut_icon_target(path: &Path) -> Option<PathBuf> {
+    let extension = path.extension()?.to_str()?.to_ascii_lowercase();
+
+    if extension != "lnk" {
+        return None;
+    }
+
+    let target_path = PathBuf::from(crate::dir_reader::resolve_shortcut_target_path(path)?);
+
+    if !target_path.is_absolute() || !target_path.exists() {
+        return None;
+    }
+
+    if is_windows_apps_alias_path(&target_path.to_string_lossy()) {
+        return None;
+    }
+
+    Some(target_path)
+}
+
+#[cfg(not(windows))]
+fn resolve_shortcut_icon_target(_path: &Path) -> Option<PathBuf> {
+    None
+}
+
 fn resolve_shell_icon_path(
     path: &str,
     is_dir: bool,
@@ -301,6 +331,16 @@ fn resolve_shell_icon_path(
     }
 
     if normalized_path.is_file() {
+        // FORK-MODIFICATION 2026-11-06：`.lnk` 显示**目标**的图标。
+        //
+        // 系统给快捷方式文件本身的是通用「快捷方式」图标；把链接解析成目标再取图标，
+        // 才能显示 exe / 文档自己的图标。断链或解析失败时回退到 `.lnk` 自身。
+        if let Some(shortcut_target) = resolve_shortcut_icon_target(&normalized_path) {
+            if let Some(resolved_target) = absolute_existing_path(&shortcut_target) {
+                return Some(resolved_target);
+            }
+        }
+
         return absolute_existing_path(&normalized_path);
     }
 
@@ -529,6 +569,53 @@ mod tests {
             )),
             "最新的路径应被保留"
         );
+    }
+
+    /// FORK-MODIFICATION 2026-11-06：`.lnk` 要能解析出目标，才能取到**目标的**图标。
+    ///
+    /// 这条用例同时覆盖正反两面：
+    /// - 指向真实文件的快捷方式 ⇒ 解析出目标；
+    /// - 指向已删除文件的断链快捷方式 ⇒ 解析不出目标（回退到快捷方式自身的图标）。
+    #[test]
+    #[cfg(windows)]
+    fn shortcut_icon_target_resolves_lnk_target() {
+        let temp_dir = std::env::temp_dir().join("afm-shortcut-icon-target-test");
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        std::fs::create_dir_all(&temp_dir).expect("create temp dir");
+
+        let source_path = temp_dir.join("target.exe");
+        std::fs::write(&source_path, b"afm-shortcut-icon-test").expect("write source file");
+        let shortcut_path = temp_dir.join("target.lnk");
+        crate::link_operations::create_shortcut(&source_path, &shortcut_path)
+            .expect("create shortcut");
+        assert!(shortcut_path.exists(), "shortcut file should exist");
+
+        let resolved = crate::dir_reader::resolve_shortcut_target_path(&shortcut_path)
+            .expect("shortcut target should resolve");
+        assert!(
+            resolved.to_ascii_lowercase().ends_with("target.exe"),
+            "resolved target was {resolved}"
+        );
+
+        let icon_target =
+            resolve_shortcut_icon_target(&shortcut_path).expect("icon target should resolve");
+        assert_eq!(
+            icon_target
+                .file_name()
+                .map(|name| name.to_string_lossy().to_string()),
+            Some("target.exe".to_string())
+        );
+
+        let broken_shortcut_path = temp_dir.join("broken.lnk");
+        crate::link_operations::create_shortcut(&temp_dir.join("missing.exe"), &broken_shortcut_path)
+            .expect("create broken shortcut");
+
+        assert!(
+            resolve_shortcut_icon_target(&broken_shortcut_path).is_none(),
+            "broken shortcut must not resolve to an icon target"
+        );
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 
     /// 图标 data URL 缓存的条数上限被收紧到 128（2026-10-28 之前是 512）。

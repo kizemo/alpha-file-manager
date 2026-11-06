@@ -25,7 +25,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { getPathDisplayValue } from '@/utils/normalize-path';
+import { useNativePath } from '@/composables/use-native-path';
 import {
   describeLockHolder,
   type LockHolder,
@@ -50,8 +50,9 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const { toNativeDisplayValue } = useNativePath();
 
-const pathDisplay = computed(() => getPathDisplayValue(props.path));
+const pathDisplay = computed(() => toNativeDisplayValue(props.path));
 
 const isUnlockMode = computed(() => props.mode === 'unlock');
 

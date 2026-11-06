@@ -1227,7 +1227,8 @@
       "flipImageVertical": "Dikey çevir",
       "imageEditSucceeded": "Görsel başarıyla düzenlendi",
       "imageEditFailed": "Görsel düzenlenemedi",
-      "imageEditInProgress": "İşleniyor…"
+      "imageEditInProgress": "İşleniyor…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "Sembolik bağlantı",

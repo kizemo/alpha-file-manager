@@ -27,6 +27,8 @@ import FileBrowserTreeView from '@/modules/navigator/components/file-browser/fil
 import { useGlobalSearchStore } from '@/stores/runtime/global-search';
 import { useQuickViewStore } from '@/stores/runtime/quick-view';
 import { useShortcutsStore, getSelectedTextForCopy } from '@/stores/runtime/shortcuts';
+// FORK-MODIFICATION 2026-11-06：快捷键复制目录路径也要走原生分隔符。
+import { useNativePath } from '@/composables/use-native-path';
 import { toast, ToastStatic } from '@/components/ui/toaster';
 import {
   getVirtualLocationActionContext,
@@ -130,6 +132,8 @@ const folderTreeStore = useFolderTreeStore();
 const remoteConnectionsStore = useRemoteConnectionsStore();
 const globalSearchStore = useGlobalSearchStore();
 const shortcutsStore = useShortcutsStore();
+// FORK-MODIFICATION 2026-11-06：路径展示/复制按平台原生分隔符。
+const { toNativePath } = useNativePath();
 const terminalsStore = useTerminalsStore();
 const dirSizesStore = useDirSizesStore();
 provideNavigatorImageThumbnails();
@@ -1208,12 +1212,16 @@ async function handleCopyCurrentDirectoryPathShortcut() {
   }
 
   try {
-    await navigator.clipboard.writeText(currentPath);
+    // FORK-MODIFICATION 2026-11-06：内部路径是正斜杠，复制到剪贴板必须是原生写法。
+    // 真机实测（3.12.0，Ctrl+Shift+C）量到剪贴板拿到的是 `C:/Users/...`，
+    // 因为这条通道当时直接写入了 `currentPath`。
+    const nativePath = toNativePath(currentPath);
+    await navigator.clipboard.writeText(nativePath);
     toast.custom(markRaw(ToastStatic), {
       componentProps: {
         data: {
           title: t('dialogs.localShareManagerDialog.addressCopiedToClipboard'),
-          description: currentPath,
+          description: nativePath,
         },
       },
       duration: 2000,

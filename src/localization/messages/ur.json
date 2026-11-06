@@ -1265,7 +1265,8 @@
       "flipImageVertical": "عمودی فلپ کریں",
       "imageEditSucceeded": "تصویر کی ترمیم کامیاب رہی",
       "imageEditFailed": "تصویر کی ترمیم ناکام رہی",
-      "imageEditInProgress": "جاری ہے…"
+      "imageEditInProgress": "جاری ہے…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "علامتی لنک",
