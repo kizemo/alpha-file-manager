@@ -127,7 +127,7 @@ pub fn write_path(state: &crate::state::AppState, hwnd_isize: isize, target: &st
             crate::uia_inject::inject_folder_path(state, hwnd_u32, target, should_commit)
         });
 
-    match dialog_outcome {
+    let outcome = match dialog_outcome {
         crate::uia_inject::DialogOutcome::ComSetFolder => WriteOutcome::UiaSetValue,
         crate::uia_inject::DialogOutcome::AddressBarWritten => WriteOutcome::UiaSetValue,
         crate::uia_inject::DialogOutcome::Unsupported => {
@@ -159,7 +159,34 @@ pub fn write_path(state: &crate::state::AppState, hwnd_isize: isize, target: &st
             );
             WriteOutcome::Failed("dialog_gone".into())
         }
+    };
+
+    // v0.5.17 — UNIFIED WRITE-BACK VERIFICATION.
+    //
+    // "the log says Write succeeded" is NOT "the dialog switched to that
+    // folder". Both write channels can report success without moving the
+    // dialog (see the SetFolder note in `uia_inject::try_set_folder_via_com`:
+    // on an already-open dialog it returns S_OK and changes nothing).
+    //
+    // This is the only place where the claim can be checked uniformly: read
+    // the dialog's current directory back and compare it with the target.
+    //
+    // On a mismatch the outcome degrades to `write_not_verified`, so main.rs
+    // does NOT register the dialog as "already written" (the v0.5.12 rule) and
+    // the dialog stays eligible for the 1200ms resync cooldown. `Failed` is
+    // deliberately used instead of `Unsupported`: the dialog IS supported, the
+    // write simply did not land, and this must never raise the user-facing
+    // "this dialog type is not supported" notification.
+    if write_succeeded(&outcome) {
+        if !crate::uia_inject::verify_dialog_folder(hwnd_u32, target, 3) {
+            tracing::warn!(
+                "v0.5.17: write-back was NOT confirmed — the dialog's current \
+                 directory is not '{target}'; keeping the dialog retryable"
+            );
+            return WriteOutcome::Failed("write_not_verified".into());
+        }
     }
+    outcome
 }
 
 #[cfg(test)]

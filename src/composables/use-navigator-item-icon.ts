@@ -84,7 +84,35 @@ export function useNavigatorItemIcon(params: NavigatorItemIconParams) {
     );
   });
   const parsedTheme = computed(() => parseNavigatorIconThemeId(selectedIconTheme.value));
+  /**
+   * 是不是快捷方式（`.lnk`）。
+   *
+   * 快捷方式要显示的是**目标程序**的图标，而只有系统（shell）图标管线给得出这个图标 ——
+   * 主题图标库只会给一个通用文件图标，需求就落空了。所以快捷方式要绕开主题，
+   * 不管用户把文件图标主题换成什么，都走系统管线。
+   */
+  const isShortcutEntry = computed(() => {
+    if (isDir.value) {
+      return false;
+    }
+
+    const extensionValue = (extension.value ?? '').trim().toLowerCase();
+
+    if (extensionValue.replace(/^\./, '') === 'lnk') {
+      return true;
+    }
+
+    return path.value.toLowerCase().endsWith('.lnk');
+  });
   const useSystemIcons = computed(() => {
+    if (!enabled.value) {
+      return false;
+    }
+
+    if (isShortcutEntry.value) {
+      return true;
+    }
+
     return parsedTheme.value?.kind === 'builtin'
       && parsedTheme.value.themeId === BUILTIN_NAVIGATOR_ICON_THEME_IDS.system;
   });

@@ -969,8 +969,54 @@ fn is_winui3_wrapped_signature(has_filename_host: bool, has_1001: bool) -> bool 
 }
 
 /// Round 19f: try COM IFileDialog::SetFolder first. Returns true on success.
+/// v0.5.17 — read the dialog's current directory back and check it against the target.
+///
+/// `attempts` tries with a 200ms gap in between: the dialog needs a moment to
+/// repaint its breadcrumb after a successful navigation, so a single
+/// immediate read can still see the OLD folder and would wrongly reject a
+/// write that did land.
+pub fn verify_dialog_folder(dialog_hwnd: u32, target_path: &str, attempts: u32) -> bool {
+    let attempts = attempts.max(1);
+    for attempt in 0..attempts {
+        match crate::reader::read_path_with_strategy(dialog_hwnd as isize) {
+            Ok((actual, strategy)) => {
+                if folder_readback_matches(Some(&actual), target_path) {
+                    info!("v0.5.17: read-back confirmed '{target_path}' (via {strategy})");
+                    return true;
+                }
+                if attempt + 1 < attempts {
+                    std::thread::sleep(std::time::Duration::from_millis(200));
+                }
+            }
+            Err(_) => {
+                if attempt + 1 < attempts {
+                    std::thread::sleep(std::time::Duration::from_millis(200));
+                }
+            }
+        }
+    }
+    false
+}
+
+/// v0.5.17 — pure decision helper: does the folder read back from the dialog
+/// count as "the write took effect"?
+///
+/// Extracted from `verify_dialog_folder` so the decision itself is unit
+/// testable without a live dialog on screen.
+pub fn folder_readback_matches(actual: Option<&str>, target: &str) -> bool {
+    match actual {
+        Some(a) => crate::state::paths_equal(a, target),
+        None => false,
+    }
+}
+
 fn try_set_folder_via_com(dialog_hwnd: u32, target_path: &str) -> bool {
     use windows::Win32::UI::Accessibility::AccessibleObjectFromWindow;
+
+    // v0.5.18 — the calling thread (tokio worker / dialog monitor) never ran
+    // `CoInitializeEx`, so every COM call on it failed with
+    // `CO_E_NOTINITIALIZED`. Initialize COM for the duration of this call.
+    let _com = ComGuard::new();
 
     unsafe {
         let hwnd = HWND(dialog_hwnd as *mut core::ffi::c_void);
@@ -1017,14 +1063,178 @@ fn try_set_folder_via_com(dialog_hwnd: u32, target_path: &str) -> bool {
         // 5. SetFolder
         match file_dialog.SetFolder(&item) {
             Ok(()) => {
-                info!("SetFolder via COM succeeded for '{target_path}'");
-                true
+                // v0.5.17 — READ-BACK VERIFICATION.
+                //
+                // `IFileDialog::SetFolder` sets the dialog's *initial* folder and
+                // is only meaningful BEFORE `Show()`. On an ALREADY-OPEN dialog
+                // the call still returns S_OK while the current directory does
+                // not change at all — it "succeeds" while doing nothing.
+                //
+                // Measured on a real machine (2026-11-06): a genuine classic
+                // shell Save dialog parked in `C:\Users\Duanyi\Downloads` logged
+                // `Write target=... strategy=uia` while the address bar kept
+                // reading `地址: C:\Users\Duanyi\Downloads`. The old code
+                // returned success right here and skipped the UIA path
+                // entirely, so "the dialog did not switch to the AFM folder"
+                // stayed broken on every native shell dialog.
+                //
+                // Therefore: SetFolder only counts as a success when reading
+                // the dialog's current directory back actually yields the
+                // target path. Otherwise fall through to the UIA address bar.
+                if verify_dialog_folder(dialog_hwnd, target_path, 3) {
+                    info!(
+                        "SetFolder via COM succeeded for '{target_path}' \
+                         (read-back confirmed)"
+                    );
+                    true
+                } else {
+                    warn!(
+                        "IFileDialog::SetFolder returned Ok but the dialog's current \
+                         directory did not become '{target_path}' (expected on an \
+                         already-open dialog); falling back to the UIA address bar"
+                    );
+                    false
+                }
             }
             Err(e) => {
                 warn!("IFileDialog::SetFolder failed: {e:?}");
                 false
             }
         }
+    }
+}
+
+/// v0.5.16 — 通过对话框的原生 COM 对象读出它当前所在的文件夹。
+///
+/// 与 `try_set_folder_via_com` 走同一条链路（AccessibleObjectFromWindow →
+/// IServiceProvider → QueryService(SID_STopLevelBrowser) → IFileDialog），
+/// 区别只在最后一步：用 `GetFolder` 读回当前文件夹，再用
+/// `IShellItem::GetDisplayName(SIGDN_FILESYSPATH)` 取出真实文件系统路径。
+///
+/// 为什么需要它（2026-11-06 真机）：Edge「另存为」停在本地化特殊文件夹
+/// 「下载」时，地址栏 Name 是 `地址: 下载` —— 显示名，不是路径 ⇒ UIA 解析
+/// 必然失败。COM 这条路给的是 `C:\Users\<user>\Downloads`，与界面语言无关。
+///
+/// 任何一步失败都返回 None，由调用方按「读不到」处理
+/// （见 `state::should_write_back_when_path_unknown`），**绝不猜路径**。
+/// v0.5.18 — make sure COM is initialized on the CALLING thread.
+///
+/// The sidecar calls the COM helpers from tokio worker threads and from the
+/// dialog monitor thread, and none of those ever ran `CoInitializeEx`. Every
+/// COM call on such a thread fails with `CO_E_NOTINITIALIZED`, which made the
+/// whole COM channel silently dead — and the first step
+/// (`AccessibleObjectFromWindow`) had no log line at all, so the failure used
+/// to look exactly like "this dialog is not a native IFileDialog".
+struct ComGuard {
+    uninit: bool,
+}
+
+impl ComGuard {
+    fn new() -> Self {
+        use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
+        let hr = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
+        // S_OK / S_FALSE -> we own a reference and must uninitialize.
+        // RPC_E_CHANGED_MODE -> the thread is already COM-initialized with a
+        // different threading model; COM still works, but we must NOT
+        // uninitialize it (that would break the thread for its owner).
+        ComGuard { uninit: hr.is_ok() }
+    }
+}
+
+impl Drop for ComGuard {
+    fn drop(&mut self) {
+        if self.uninit {
+            unsafe { windows::Win32::System::Com::CoUninitialize() };
+        }
+    }
+}
+
+pub fn read_current_folder_via_com(dialog_hwnd: u32) -> Option<String> {
+    use windows::Win32::System::Com::CoTaskMemFree;
+    use windows::Win32::UI::Accessibility::AccessibleObjectFromWindow;
+    use windows::Win32::UI::Shell::{SIGDN_FILESYSPATH, SIGDN_NORMALDISPLAY};
+
+    if dialog_hwnd == 0 {
+        return None;
+    }
+
+    // v0.5.18 — COM must be initialized ON THE CALLING THREAD. The sidecar
+    // calls this from tokio worker threads and from the dialog monitor
+    // thread; without `CoInitializeEx` every call fails with
+    // `CO_E_NOTINITIALIZED` and the first step (`AccessibleObjectFromWindow`)
+    // had NO log line at all — the whole COM channel looked like it was
+    // "simply not available".
+    let _com = ComGuard::new();
+
+    unsafe {
+        let hwnd = HWND(dialog_hwnd as *mut core::ffi::c_void);
+
+        // 1. AccessibleObjectFromWindow → IAccessible
+        let mut ppv: *mut core::ffi::c_void = std::ptr::null_mut();
+        let ao_result = AccessibleObjectFromWindow(hwnd, OBJID_NATIVEOM, &IID_IAccessible, &mut ppv);
+        if let Err(e) = ao_result {
+            // v0.5.18 — "silent failure is worse than a crash": this branch
+            // used to `return None` with zero diagnostics, which made the
+            // missing `CoInitializeEx` indistinguishable from "this dialog
+            // is not a native IFileDialog".
+            warn!(
+                "[com-read] AccessibleObjectFromWindow failed for hwnd={dialog_hwnd} \
+                 err={e:?}; the COM read channel is unavailable for this dialog"
+            );
+            return None;
+        }
+        if ppv.is_null() {
+            warn!(
+                "[com-read] AccessibleObjectFromWindow returned a null object for \
+                 hwnd={dialog_hwnd}; the COM read channel is unavailable for this dialog"
+            );
+            return None;
+        }
+        let acc: windows::Win32::UI::Accessibility::IAccessible =
+            windows::Win32::UI::Accessibility::IAccessible::from_raw(ppv);
+
+        // 2. QI → IServiceProvider
+        let sp: IServiceProvider = match acc.cast() {
+            Ok(s) => s,
+            Err(e) => {
+                warn!("[com-read] QI IServiceProvider failed: {e:?}");
+                return None;
+            }
+        };
+
+        // 3. QueryService(SID_STopLevelBrowser) → IFileDialog
+        let file_dialog: IFileDialog = match sp.QueryService(&SID_STopLevelBrowser) {
+            Ok(f) => f,
+            Err(e) => {
+                warn!("[com-read] QueryService(SID_STopLevelBrowser) failed: {e:?}");
+                return None;
+            }
+        };
+
+        // 4. GetFolder → IShellItem → GetDisplayName
+        let item: IShellItem = match file_dialog.GetFolder() {
+            Ok(i) => i,
+            Err(e) => {
+                warn!("[com-read] IFileDialog::GetFolder failed: {e:?}");
+                return None;
+            }
+        };
+        for sigdn in [SIGDN_FILESYSPATH, SIGDN_NORMALDISPLAY] {
+            let name = match item.GetDisplayName(sigdn) {
+                Ok(n) => n,
+                Err(_) => continue,
+            };
+            let text = name.to_string().ok();
+            // GetDisplayName 的返回值是 CoTaskMem 分配的，必须自己释放。
+            CoTaskMemFree(Some(name.0 as *const core::ffi::c_void));
+            if let Some(s) = text {
+                if !s.trim().is_empty() {
+                    info!("[com-read] current folder = '{s}'");
+                    return Some(s);
+                }
+            }
+        }
+        None
     }
 }
 
@@ -1545,6 +1755,43 @@ mod f0_guard_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ----------------------------------------------------------------------
+    // v0.5.17 write-back verification
+    // ----------------------------------------------------------------------
+
+    /// A read-back that matches the target — modulo separator style, case and
+    /// a trailing separator — means the write landed.
+    #[test]
+    fn folder_readback_matches_target_paths() {
+        assert!(folder_readback_matches(
+            Some(r"F:\soft\00selfmade\filemanager"),
+            r"F:\soft\00selfmade\filemanager"
+        ));
+        assert!(folder_readback_matches(
+            Some(r"F:\soft\00selfmade\filemanager\"),
+            r"F:\soft\00selfmade\filemanager"
+        ));
+        assert!(folder_readback_matches(
+            Some("f:/soft/00selfmade/filemanager"),
+            r"F:\soft\00selfmade\filemanager"
+        ));
+    }
+
+    /// A read-back of a DIFFERENT folder means the write did not land, and an
+    /// unreadable folder means exactly the same thing: never report success
+    /// on an unverified write.
+    #[test]
+    fn folder_readback_rejects_other_paths() {
+        assert!(!folder_readback_matches(
+            Some(r"C:\Users\Duanyi\Downloads"),
+            r"F:\soft\00selfmade\filemanager"
+        ));
+        assert!(!folder_readback_matches(
+            None,
+            r"F:\soft\00selfmade\filemanager"
+        ));
+    }
 
     #[test]
     fn basename_top_level() {

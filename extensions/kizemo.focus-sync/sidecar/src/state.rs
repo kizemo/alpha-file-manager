@@ -112,6 +112,24 @@ pub struct AppState {
     // (observed 2026-10-07 21:37, 1364 resyncs of the SAME path, address bar
     // accumulating the path over and over).
     pub sync_in_progress: AtomicBool,
+
+    // ---- v0.5.15: AFM 访问闩（一次访问只授权一次同步）
+    //
+    // 用户诉求（2026-11-06）：此前「任何情况下打开弹窗 / 切回弹窗都会自动同步
+    // AFM 之前的路径」，超出预期。改为：只有使用者把窗口切到 AFM 窗口、
+    // 再切回弹窗，路径才进行同步。
+    //
+    // 语义是一次性授权：AFM 前台上升沿上弦，闸门开一次；路径真正写进弹窗后
+    // 下弦。所以「AFM -> 弹窗A（同步）-> 弹窗B（不再同步）」是预期行为，
+    // B 需要用户再回 AFM 一次。
+    //
+    // 上弦只在 uia_event.rs 的 monitor 循环里做——它是全进程唯一可靠的前台
+    // 观察方（带消息泵；state.rs 的 foreground_dialog 字段注释记录了 HTTP
+    // 线程自问 GetForegroundWindow 不可靠的事故）。
+    //
+    // 逃生阀：`FOCUS_SYNC_AFM_GATE=0|false|off` 时 afm_gate_open() 恒真，
+    // 完全回到 v0.5.14 行为，便于真机 A/B 对照。
+    pub afm_visit_latch: AtomicBool,
 }
 
 /// v0.5.7 G-2 — RAII guard so a write-back cannot be left stuck "in
@@ -135,6 +153,32 @@ impl<'a> std::ops::Deref for SyncGuard<'a> {
     }
 }
 
+/// v0.5.16 — 路径归一化：把「同一个目录」的两种写法变得可比。
+///
+/// 两侧来源不同：reader 从对话框读回的是 `F:/dir`（正斜杠，shell 返回），
+/// AFM 推给侧车的是 `F:\dir`（反斜杠）。字符串直接比较**永远**不相等 ⇒
+/// 同一个目录被判成「不同」⇒ 重复写入（v0.5.13 的闪烁回归）。
+///
+/// 归一化内容：统一分隔符为 `\`、去掉末尾分隔符（根目录 `C:\` 保留一个）、
+/// 忽略大小写（Windows 路径本身大小写不敏感）。
+pub fn normalize_path(p: &str) -> String {
+    let s = p.trim().replace('/', "\\").to_lowercase();
+    if s.is_empty() {
+        return String::new();
+    }
+    let mut out = s.trim_end_matches('\\').to_string();
+    // `C:\` 归一化成 `c:` 会与裸盘符 `c:` 混为一谈；根目录保留一个反斜杠。
+    if out.len() == 2 && out.ends_with(':') {
+        out.push('\\');
+    }
+    out
+}
+
+/// v0.5.16 — 两个路径是否指向同一个目录（归一化后比较）。
+pub fn paths_equal(a: &str, b: &str) -> bool {
+    normalize_path(a) == normalize_path(b)
+}
+
 impl AppState {
     pub fn new(initial_path: String, session_id: u32) -> Self {
         Self {
@@ -151,7 +195,26 @@ impl AppState {
             foreground_dialog_hwnd: AtomicI64::new(0),
             last_health_poll_ts: AtomicU64::new(0),
             sync_in_progress: AtomicBool::new(false),
+            // v0.5.15: 未访问过 AFM，闸门初始关闭。
+            afm_visit_latch: AtomicBool::new(false),
         }
+    }
+
+    /// v0.5.15 — 上弦：使用者把窗口切到了 AFM（monitor 观察到的上升沿）。
+    pub fn arm_afm_visit(&self) {
+        self.afm_visit_latch.store(true, Ordering::SeqCst);
+    }
+
+    /// v0.5.15 — 闸门是否放行「把 current_path 写进弹窗」。
+    /// 逃生阀命中时恒真（等于没有闸门，回到 v0.5.14 行为）。
+    pub fn afm_gate_open(&self) -> bool {
+        !Self::afm_gate_enabled() || self.afm_visit_latch.load(Ordering::SeqCst)
+    }
+
+    /// v0.5.15 — 下弦：路径确实写进弹窗了，一次访问只授权一次同步。
+    /// 只在写入成功后调用；写失败保持上弦，交给既有 1200ms 冷却重试。
+    pub fn clear_afm_visit(&self) {
+        self.afm_visit_latch.store(false, Ordering::SeqCst);
     }
 
     /// v0.5.7 F-1 — publish the current foreground dialog HWND.
@@ -250,8 +313,48 @@ impl AppState {
     /// changes if production logic changes.
     pub fn should_opened_write_back(&self, initial_path: &str, current_path: &str) -> bool {
         !initial_path.is_empty()
-            && initial_path != current_path
+            && !paths_equal(initial_path, current_path)
             && self.has_first_push_received()
+    }
+
+    /// v0.5.16 — 读不到弹窗当前目录时的写回决策。
+    ///
+    /// 背景（2026-11-06 真机）：Edge 的「另存为」对话框停在本地化特殊文件夹
+    /// 「下载」时，地址栏 Name 是 `地址: 下载`（显示名，不是路径形状）⇒
+    /// reader 解析失败 ⇒ `initial_path` 为空 ⇒ `should_opened_write_back`
+    /// 恒假 ⇒ 写回被**静默跳过**（连一行日志都没有）。用户看到的现象就是
+    /// 「从 AFM 切到下载弹窗，路径没有切换」。
+    ///
+    /// 新语义：**读不到 ≠ 不该写**。读不到时我们无法证明弹窗已经停在目标路
+    /// 径上，于是以「这个 hwnd 上一次写入/登记的路径」作为去重键：
+    ///   * 键为空（还没写过）⇒ 写；
+    ///   * 键 == current（这次访问已经写过了）⇒ 不重复写（v0.5.13 防闪烁不变
+    ///     量不变）；
+    ///   * 键 != current（AFM 路径变了）⇒ 写。
+    pub fn should_write_back_when_path_unknown(&self, hwnd: u32, current_path: &str) -> bool {
+        if !self.has_first_push_received() || current_path.trim().is_empty() {
+            return false;
+        }
+        match self.last_written_path(hwnd) {
+            Some(last) if !last.trim().is_empty() => !paths_equal(&last, current_path),
+            _ => true,
+        }
+    }
+
+    /// v0.5.15 — 逃生阀：`FOCUS_SYNC_AFM_GATE` 显式关闭 AFM 访问闩。
+    ///
+    /// 只读一次进程环境（`OnceLock`），因为环境变量在运行期不会变，而
+    /// `/health` 与 monitor 每 tick 都要问这个问题。
+    /// 认 `0` / `false` / `off`（大小写不敏感）；其他值（含未设置）都是启用。
+    pub fn afm_gate_enabled() -> bool {
+        static DISABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        !*DISABLED.get_or_init(|| match std::env::var("FOCUS_SYNC_AFM_GATE") {
+            Err(_) => false,
+            Ok(v) => {
+                let v = v.trim().to_ascii_lowercase();
+                v == "0" || v == "false" || v == "off"
+            }
+        })
     }
 
     /// v0.5.8 — record that the extension just pinged `/ext_alive`.
@@ -344,6 +447,8 @@ impl AppState {
             // v0.5.5 (Mavis Round 21 B-4): expose first_push_received for
             // extension UX (toolbar can show "⚠️ Sigma FM 未推送" if false).
             first_push_received: self.first_push_received.load(Ordering::SeqCst),
+            // v0.5.15: 闩的状态可直接观测，「被闩挡住」与「没接闸门」不再同名。
+            afm_visit_latched: self.afm_visit_latch.load(Ordering::SeqCst),
         }
     }
 }
@@ -364,6 +469,176 @@ pub struct HealthSnapshot {
     /// Extension reads this to detect "sidecar is waiting for PUSH" and
     /// show user a "Sync Now?" notification.
     pub first_push_received: bool,
+    /// v0.5.15: 使用者是否访问过 AFM 窗口且该授权尚未被消费（`FOCUS_SYNC_AFM_GATE`
+    /// 启用时才有意义）。
+    pub afm_visit_latched: bool,
+}
+
+/// v0.5.15 — AFM 访问闩的一次性授权语义。
+///
+/// 注意：不测 `FOCUS_SYNC_AFM_GATE` 逃生阀。`afm_gate_enabled()` 用
+/// `OnceLock` 缓存进程环境，用例之间会互相污染（谁先跑谁定终身）。
+/// 逃生阀留给真机 A/B 验收。
+/// v0.5.16 — 本次 bug 的判别性用例组。
+///
+/// 真机症状（2026-11-06）：Edge「另存为」停在本地化特殊文件夹「下载」时，
+/// 地址栏是 `地址: 下载`（显示名，不是路径）⇒ reader 读失败 ⇒ 旧实现把
+/// 「读不到」当成「不该写」⇒ 写回被静默跳过 ⇒ 用户看到「从 AFM 切到下载
+/// 弹窗，路径没有切换」。
+#[cfg(test)]
+mod v516_write_back_tests {
+    use super::AppState;
+    use super::DialogInfo;
+
+    const HWND: u32 = 5_001;
+    const AFM_PATH: &str = "F:\\soft\\00selfmade\\filemanager";
+
+    fn state_with_push() -> AppState {
+        let s = AppState::new(AFM_PATH.into(), 1);
+        s.mark_first_push_received();
+        s
+    }
+
+    fn register(state: &AppState, last: &str) {
+        state.register_dialog(DialogInfo {
+            hwnd: HWND,
+            app: "#32770".into(),
+            last_known_path: last.into(),
+            write_strategy: None,
+        });
+    }
+
+    #[test]
+    fn unreadable_dialog_path_still_allows_the_write() {
+        let state = state_with_push();
+        assert!(
+            state.should_write_back_when_path_unknown(HWND, AFM_PATH),
+            "读不到目录时必须仍然允许写入，否则用户永远看不到路径切换"
+        );
+    }
+
+    #[test]
+    fn unreadable_dialog_path_does_not_write_twice_for_the_same_target() {
+        let state = state_with_push();
+        register(&state, AFM_PATH);
+        assert!(
+            !state.should_write_back_when_path_unknown(HWND, AFM_PATH),
+            "已经写过同一个路径 ⇒ 不得重复写（v0.5.13 防闪烁不变量）"
+        );
+    }
+
+    #[test]
+    fn unreadable_dialog_path_writes_again_when_afm_path_changed() {
+        let state = state_with_push();
+        register(&state, "F:\\a");
+        assert!(
+            state.should_write_back_when_path_unknown(HWND, "F:\\b"),
+            "AFM 路径变了 ⇒ 必须再写一次"
+        );
+    }
+
+    #[test]
+    fn unreadable_dialog_path_respects_the_first_push_sentinel() {
+        let state = AppState::new(AFM_PATH.into(), 1);
+        assert!(
+            !state.should_write_back_when_path_unknown(HWND, AFM_PATH),
+            "还没收到第一次推送时不得写入"
+        );
+    }
+
+    #[test]
+    fn slash_direction_does_not_make_the_same_path_look_different() {
+        // reader 读回 `F:/dir`（正斜杠，shell 返回），AFM 推 `F:\dir`（反斜杠）。
+        assert!(super::paths_equal("F:/dir", "F:\\dir"));
+        assert!(super::paths_equal("F:/dir/", "F:\\dir"));
+        assert!(super::paths_equal("f:/DIR", "F:\\dir"));
+        assert!(!super::paths_equal("F:/dir", "F:\\other"));
+    }
+
+    #[test]
+    fn opened_write_back_uses_normalized_comparison() {
+        let state = state_with_push();
+        assert!(
+            !state.should_opened_write_back("F:/dir", "F:\\dir"),
+            "同一个目录（只是斜杠方向不同）不得触发写回"
+        );
+        assert!(
+            state.should_opened_write_back("F:/other", "F:\\dir"),
+            "不同目录必须触发写回"
+        );
+    }
+}
+
+#[cfg(test)]
+mod afm_gate_tests {
+    use super::AppState;
+
+    #[test]
+    fn latch_starts_closed_so_no_sync_without_afm_visit() {
+        // v0.5.15 判别性守卫:闸门本身必须处于「启用」态,否则 afm_gate_open() 恒真、
+        // 本模块其余断言全部变成平凡通过(2026-11-06 就踩过一次取反写反)。
+        // 安全前提:本模块没有任何用例改写 FOCUS_SYNC_AFM_GATE。
+        assert!(AppState::afm_gate_enabled(), "环境变量未设置时闸门应默认启用");
+        let state = AppState::new("E:\\Models".into(), 1);
+        assert!(!state.afm_gate_open(), "新侧车不该有同步授权");
+    }
+
+    #[test]
+    fn arm_opens_the_gate() {
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.arm_afm_visit();
+        assert!(state.afm_gate_open());
+    }
+
+    #[test]
+    fn one_visit_authorizes_exactly_one_sync() {
+        // 用户诉求的核心：AFM -> 弹窗A（同步）-> 弹窗B（不再同步）。
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.arm_afm_visit();
+        assert!(state.afm_gate_open(), "弹窗A 放行");
+        state.clear_afm_visit(); // A 写入成功
+        assert!(!state.afm_gate_open(), "弹窗B 必须再问一次用户");
+    }
+
+    #[test]
+    fn failed_write_keeps_the_authorization() {
+        // 写失败不算「写过」：沿用 v0.5.12 口径，保持上弦交冷却重试。
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.arm_afm_visit();
+        assert!(state.afm_gate_open());
+        assert!(state.afm_gate_open(), "没有任何清除动作时不该自己掉授权");
+    }
+
+    #[test]
+    fn re_arm_is_idempotent() {
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.arm_afm_visit();
+        state.arm_afm_visit();
+        assert!(state.afm_gate_open());
+        state.clear_afm_visit();
+        assert!(!state.afm_gate_open());
+    }
+
+    #[test]
+    fn health_snapshot_exposes_the_latch() {
+        let state = AppState::new("C:\\".into(), 3);
+        assert!(!state.health_snapshot().afm_visit_latched);
+        state.arm_afm_visit();
+        assert!(state.health_snapshot().afm_visit_latched);
+        state.clear_afm_visit();
+        assert!(!state.health_snapshot().afm_visit_latched);
+    }
+
+    #[test]
+    fn gate_is_orthogonal_to_the_first_push_sentinel() {
+        // 闩不该改变既有哨兵判定：两者各自独立成立。
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.set_current_path("E:\\obsidian".into());
+        assert!(state.should_opened_write_back("C:\\tmp", "E:\\obsidian"));
+        assert!(!state.afm_gate_open(), "哨兵通过但没访问过 AFM");
+        state.arm_afm_visit();
+        assert!(state.should_opened_write_back("C:\\tmp", "E:\\obsidian") && state.afm_gate_open());
+    }
 }
 
 #[cfg(test)]

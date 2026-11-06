@@ -152,6 +152,24 @@ describe('useNavigatorItemIcon', () => {
     fileScope.stop();
   });
 
+  it('always uses the system icon for shortcuts so the target icon stays visible', async () => {
+    userSettingsStoreMock.userSettings.navigator.fileIconTheme = BUILTIN_NAVIGATOR_ICON_THEME_IDS.default;
+
+    const { useNavigatorItemIcon } = await import('@/composables/use-navigator-item-icon');
+    const scope = effectScope();
+    const result = scope.run(() => useNavigatorItemIcon({
+      path: ref('C:/Users/example/Desktop/Tool.lnk'),
+      name: ref('Tool.lnk'),
+      isDir: ref(false),
+      extension: ref('lnk'),
+      size: ref(32),
+    }));
+
+    expect(result?.iconSrc.value).toBe('system-icon');
+
+    scope.stop();
+  });
+
   it('falls back to system icons when the selected extension theme is unavailable', async () => {
     userSettingsStoreMock.userSettings.navigator.fileIconTheme = 'extension:acme.icons:missing';
     loadInstalledIconThemeMock.mockResolvedValue(null);

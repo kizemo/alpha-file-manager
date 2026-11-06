@@ -630,4 +630,5 @@ mod tests {
 
         assert_eq!(cache_capacity, ICON_DATA_URL_CACHE_CAPACITY);
     }
-}
+
+        }

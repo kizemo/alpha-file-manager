@@ -64,7 +64,54 @@ use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
 // for every dialog: it targets the ADDRESS bar, read-backs before Enter, never
 // steals foreground, and never invokes the Save button. The v0.5.1 incident that
 // caused H1 to be demoted was `commit_save_button`, which is still absent.
-const SPIKE_VERSION: &str = "0.5.14";
+// v0.5.16: the READER could not parse a localized special-folder label.
+// The Windows "Save As" dialog parks on the local Downloads folder, whose
+// address bar Name is a localized DISPLAY name ("地址: 下载"), not a path.
+// `reader::parse_address_label` only accepts path-shaped values, so it returned
+// Err(NoDirectoryFound); `main.rs` then left `initial_path` empty and the
+// `else if !initial_path.is_empty()` guard SKIPPED the write-back silently.
+// Two independent layers now fix it:
+//   (1) exact: `reader::read_path_with_strategy` falls back to
+//       `IFileDialog::GetFolder` + `IShellItem::GetDisplayName(SIGDN_FILESYSPATH)`
+//       via COM, which yields a language-independent real path;
+//   (2) graceful: `state::should_write_back_when_path_unknown` writes anyway
+//       and de-duplicates against the last path written to that hwnd, so the
+//       v0.5.13 no-flicker invariant survives a failed read.
+// Path comparisons are normalized (separator, trailing separator, case) so the
+// reader's forward slashes no longer look different from AFM's backslashes.
+// v0.5.17 (2026-11-06) — the write-back is now VERIFIED instead of assumed.
+//
+// 真机实测：一个真实的经典 shell「另存为」对话框停在
+// `C:\Users\Duanyi\Downloads` 时，侧车记了
+// `Write target=... strategy=uia`，而地址栏仍然停在 Downloads。
+// 根因：`IFileDialog::SetFolder` 对**已打开**的对话框返回 S_OK 却完全不
+// 改当前目录（它只设置 Show() 之前的初始文件夹），旧代码在这里直接判定
+// 成功并跳过了 UIA 地址栏兜底 ⇒ 日志说成功、界面纹丝不动。
+//
+// 本版两处改动：
+//   1. `try_set_folder_via_com`：SetFolder 之后必须回读对话框当前目录，
+//      等于目标路径才算成功，否则继续走 UIA 地址栏路径；
+//   2. `writer::write_path`：所有成功通道统一做一次写后回读校验，
+//      不通过则降级为 `write_not_verified`，让对话框保持可重试
+//      （沿用 v0.5.12 语义），且**不**误报「不支持的对话框类型」。
+// v0.5.18 (2026-11-06) — the COM channel was dead on every thread that
+// actually uses it.
+//
+// 真机实测：对着一个真实的原生「另存为」对话框调用生产代码
+// `read_current_folder_via_com`，返回 NONE。根因不是「对话框不是原生
+// IFileDialog」，而是**调用线程从未初始化 COM**：侧车的 COM 调用发生在
+// tokio worker 线程和 dialog monitor 线程上，这两个线程都没跑过
+// `CoInitializeEx`，于是第一步 `AccessibleObjectFromWindow` 就以
+// CO_E_NOTINITIALIZED 失败 —— 而那一步**连日志都没有**，于是整个 COM
+// 通道长期处于「静默失效」状态。
+//
+// 本版改动：
+//   1. 新增 `ComGuard`：进入 COM 通道前在**当前线程**做
+//      `CoInitializeEx(COINIT_APARTMENTTHREADED)`，离开时按引用计数
+//      平衡 `CoUninitialize`（RPC_E_CHANGED_MODE 时不反初始化）；
+//   2. 给 `AccessibleObjectFromWindow` 失败补上明确的 warn 日志 ——
+//      「静默失败」比「崩溃」更难查，这是本轮定位耗时的主因。
+const SPIKE_VERSION: &str = "0.5.18";
 
 #[derive(Debug, Deserialize)]
 struct SetPathBody {
@@ -132,6 +179,9 @@ struct HealthResponse {
     last_health_poll_age_ms: i64,
     /// v0.5.8: the gate's verdict. Writes are refused unless this is true.
     extension_alive: bool,
+    /// v0.5.15: AFM 访问闩状态。true = 用户访问过 AFM 窗口且这份授权还没被消耗,
+    /// 下一次弹窗写回放行。真机验收靠它区分「闩没上弦」和「闸门被关掉」。
+    afm_visit_latched: bool,
 }
 
 /// Blocking HTTP server loop. Returns when the server is dropped (e.g. after
@@ -405,6 +455,10 @@ fn handle_set_path(
         let outcome = crate::writer::write_path(&state, d.hwnd as isize, &path, auto_confirm);
         match outcome {
             WriteOutcome::UiaSetValue => {
+                // v0.5.15: 路径真的写进弹窗了 -> 消耗 AFM 访问闩。/set_path
+                // 这一路**不加闸**(即时写要求弹窗前台 => AFM 必非前台, 加闸会让
+                // 下弦没有可靠时机), 只负责在成功后下弦。
+                state.clear_afm_visit();
                 log_event(&Event::Write {
                     hwnd: d.hwnd,
                     app: d.app.clone(),
@@ -414,6 +468,8 @@ fn handle_set_path(
                 });
             }
             WriteOutcome::SendInputFallback => {
+                // v0.5.15: 同上, 兜底策略写成功也下弦。
+                state.clear_afm_visit();
                 log_event(&Event::Write {
                     hwnd: d.hwnd,
                     app: d.app.clone(),
@@ -512,6 +568,8 @@ fn handle_health(
         last_health_poll_ts: last_poll,
         last_health_poll_age_ms: age_ms,
         extension_alive: alive_now,
+        // v0.5.15
+        afm_visit_latched: snap.afm_visit_latched,
     };
     respond_json(request, 200, &ResponseBody::Health(body))
 }
@@ -583,6 +641,9 @@ mod tests {
             unsupported_dialog_count: 0,
             // v0.5.5 (Mavis Round 21 B-4)
             first_push_received: true,
+            // v0.5.15: 取 true,配合下面的往返断言 —— 内存里有值不等于出得去
+            // (2026-10-15 的 `favoriteCategories` 就是这么丢的)。
+            afm_visit_latched: true,
         };
         let resp = HealthResponse {
             status: "ok",
@@ -600,6 +661,7 @@ mod tests {
             last_health_poll_ts: 0,
             last_health_poll_age_ms: -1,
             extension_alive: false,
+            afm_visit_latched: snap.afm_visit_latched,
         };
         let json = serde_json::to_string(&resp).unwrap();
         assert!(json.contains("\"status\":\"ok\""));
@@ -611,6 +673,11 @@ mod tests {
         assert!(json.contains(&format!("\"version\":\"{}\"", SPIKE_VERSION)));
         assert!(json.contains("\"mode\":\"service\""));
         assert!(json.contains("\"unsupported_dialog_count\":0"));
+        // v0.5.15: 闩状态必须真的上得了线。字段在内存里、没进 JSON,真机上就只能猜。
+        assert!(
+            json.contains("\"afm_visit_latched\":true"),
+            "expected field in JSON, got: {json}"
+        );
     }
 
     #[test]
@@ -634,6 +701,7 @@ mod tests {
             last_health_poll_ts: 0,
             last_health_poll_age_ms: -1,
             extension_alive: false,
+            afm_visit_latched: false,
         };
         let json = serde_json::to_string(&body).unwrap();
         assert!(json.contains("\"status\":\"degraded\""));
@@ -660,6 +728,7 @@ mod tests {
             last_health_poll_ts: 0,
             last_health_poll_age_ms: -1,
             extension_alive: false,
+            afm_visit_latched: false,
         };
         let json = serde_json::to_string(&body).unwrap();
         assert!(
