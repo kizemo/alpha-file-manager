@@ -415,8 +415,27 @@ pub(crate) fn get_path_icon_data_url(path: &Path, size: u16) -> Option<String> {
     get_icon_data_url_uncached(path, size).ok()
 }
 
+// FORK-MODIFICATION (2026-11-07)：搬到工作线程。
+//
+// `get_system_icon` 要做 COM 取图标 + PNG 编码，单次就不便宜；同步 command 跑在
+// Tauri 主线程上，一个列表页几十个条目就能把事件循环堵死 ⇒ WebView2 心跳断掉
+// ⇒ 看门狗判「窗口卡死」⇒ 渲染进程崩溃（2026-11-07 用户实测）。
+// 纯逻辑挪到 `get_system_icon_blocking`（不碰 tauri runtime，可被单测链接）。
 #[tauri::command]
-pub fn get_system_icon(
+pub async fn get_system_icon(
+    path: String,
+    is_dir: bool,
+    extension: Option<String>,
+    size: Option<u16>,
+) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        get_system_icon_blocking(path, is_dir, extension, size)
+    })
+    .await
+    .map_err(|join_error| format!("Failed to get system icon: {join_error}"))?
+}
+
+pub(crate) fn get_system_icon_blocking(
     path: String,
     is_dir: bool,
     extension: Option<String>,

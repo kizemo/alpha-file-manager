@@ -4,6 +4,7 @@
 
 use std::time::Duration;
 
+#[derive(Debug)]
 pub enum BlockingTimeoutError {
     JoinError(String),
     TimedOut(u64),

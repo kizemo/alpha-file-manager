@@ -14,13 +14,20 @@
 // ② 否则 → 走原生 Explorer 的 `revealInExplorer`；
 // ③ 目录条目跳过；定位失败要回调 `onError`（界面层要弹错误提示）。
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  beforeEach, describe, expect, it, vi,
+} from 'vitest';
 import type { DirEntry } from '@/types/dir-entry';
 
 const mocks = vi.hoisted(() => ({
   revealInExplorer: vi.fn(async () => undefined),
   openNavigatorRevealEntry: vi.fn(),
   isDefaultFileManagerSafe: vi.fn(async () => false),
+  resolveRevealEntryTarget: vi.fn(async () => ({
+    directoryPath: 'C:/Users/test',
+    focusPath: 'C:/Users/test/a.txt',
+    resolvedFromShortcut: false,
+  })),
 }));
 
 vi.mock('@/utils/open-in-explorer', () => ({
@@ -33,6 +40,10 @@ vi.mock('@/utils/open-navigator-directory', () => ({
 
 vi.mock('@/utils/default-file-manager', () => ({
   isDefaultFileManagerSafe: mocks.isDefaultFileManagerSafe,
+}));
+
+vi.mock('@/utils/resolve-reveal-entry-target', () => ({
+  resolveRevealEntryTarget: mocks.resolveRevealEntryTarget,
 }));
 
 import { revealEntriesContainingDirectory } from '../reveal-containing-directory';
@@ -61,6 +72,12 @@ describe('revealEntriesContainingDirectory — 打开文件所在目录', () => 
   beforeEach(() => {
     mocks.revealInExplorer.mockClear();
     mocks.openNavigatorRevealEntry.mockClear();
+    mocks.resolveRevealEntryTarget.mockClear();
+    mocks.resolveRevealEntryTarget.mockResolvedValue({
+      directoryPath: 'C:/Users/test',
+      focusPath: 'C:/Users/test/a.txt',
+      resolvedFromShortcut: false,
+    });
     mocks.isDefaultFileManagerSafe.mockReset();
     mocks.isDefaultFileManagerSafe.mockResolvedValue(false);
   });
@@ -85,7 +102,10 @@ describe('revealEntriesContainingDirectory — 打开文件所在目录', () => 
     expect(mocks.openNavigatorRevealEntry).toHaveBeenCalledWith(
       router,
       'C:/Users/test/a.txt',
-      { filterQuery: 'abc', reuseCurrentPaneOnly: true },
+      {
+        filterQuery: 'abc',
+        reuseCurrentPaneOnly: true,
+      },
     );
     expect(mocks.revealInExplorer).not.toHaveBeenCalled();
   });
@@ -97,6 +117,40 @@ describe('revealEntriesContainingDirectory — 打开文件所在目录', () => 
 
     expect(mocks.revealInExplorer).not.toHaveBeenCalled();
     expect(mocks.openNavigatorRevealEntry).not.toHaveBeenCalled();
+  });
+
+  it('快捷方式 → 传给 Explorer 的是**目标**路径，不是 .lnk 自己', async () => {
+    mocks.resolveRevealEntryTarget.mockResolvedValueOnce({
+      directoryPath: 'D:/Program Files/BaiduNetdisk',
+      focusPath: 'D:/Program Files/BaiduNetdisk/BaiduNetdisk.exe',
+      resolvedFromShortcut: true,
+    });
+
+    await revealEntriesContainingDirectory([
+      createEntry('C:/ProgramData/Start Menu/02/baidu.lnk', false),
+    ], {
+      router,
+    });
+
+    expect(mocks.revealInExplorer).toHaveBeenCalledWith(
+      'D:/Program Files/BaiduNetdisk/BaiduNetdisk.exe',
+    );
+  });
+
+  it('快捷方式解析不出目标 → 只传所在目录，绝不把 .lnk 交给 Explorer', async () => {
+    mocks.resolveRevealEntryTarget.mockResolvedValueOnce({
+      directoryPath: 'C:/ProgramData/Start Menu/02',
+      focusPath: 'C:/ProgramData/Start Menu/02/baidu.lnk',
+      resolvedFromShortcut: false,
+    });
+
+    await revealEntriesContainingDirectory([
+      createEntry('C:/ProgramData/Start Menu/02/baidu.lnk', false),
+    ], {
+      router,
+    });
+
+    expect(mocks.revealInExplorer).toHaveBeenCalledWith('C:/ProgramData/Start Menu/02');
   });
 
   it('定位失败要回调 onError（界面层弹提示）', async () => {

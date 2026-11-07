@@ -750,26 +750,67 @@ pub(super) fn resolve_windows_shortcut_target(path: &Path) -> Option<String> {
                 )
                 .ok()?;
 
-            let mut target_path_buffer = vec![0u16; 32_768];
-            shell_link
-                .GetPath(
-                    &mut target_path_buffer,
-                    std::ptr::null_mut(),
-                    SLGP_RAWPATH.0 as u32,
-                )
-                .ok()?;
+            // 读一次目标路径。
+            //
+            // GetPath 在「目标不存在」时返回的是 S_FALSE（不是错误），
+            // 所以这里不看 HRESULT，只看缓冲区里有没有东西。
+            let read_path = |flags: u32| -> Option<String> {
+                let mut buffer = vec![0u16; 32_768];
 
-            let target_path_length = target_path_buffer
-                .iter()
-                .position(|character| *character == 0)?;
+                let _ = shell_link.GetPath(&mut buffer, std::ptr::null_mut(), flags);
 
-            if target_path_length == 0 {
-                return None;
+                let length = buffer.iter().position(|character| *character == 0)?;
+
+                if length == 0 {
+                    return None;
+                }
+
+                Some(String::from_utf16_lossy(&buffer[..length]))
+            };
+
+            // FORK-MODIFICATION (2026-11-07)：原来这里用的是 SLGP_RAWPATH ——
+            // 它返回**未展开**的原始路径。第三方安装器写出来的快捷方式经常把目标
+            // 存成 `%ProgramFiles%\BaiduNetdisk\BaiduNetdisk.exe` 这种形式，
+            // 于是解析出来的是带 `%VAR%` 的字面量，exists() 判定必然失败
+            // ⇒ 快捷方式被误判成「解析不出目标」
+            // ⇒「打开文件所在目录」永远回落到「.lnk 自己所在的目录」
+            // （用户 2026-11-07 实测：点了没有跳转）。
+            //
+            // 现在按「展开 → 手工展开 %VAR%」两级取，
+            // 取到第一个**确实存在**的路径就返回。
+            let expanded = read_path(0);
+
+            if let Some(candidate) = expanded.clone() {
+                if Path::new(&candidate).exists() {
+                    return Some(candidate);
+                }
             }
 
-            Some(String::from_utf16_lossy(
-                &target_path_buffer[..target_path_length],
-            ))
+            // 第二级：拿原始路径，自己把 %VAR% 展开。
+            //
+            // ⚠️ 这里**绝对不能**调用 `IShellLinkW::Resolve()`：
+            // 目标失效时它会弹出 Windows 自己的模态框（「快捷方式存在问题」），
+            // 而 hwnd=NULL 时那个框没有父窗口 ⇒ 调用方被**永久阻塞**。
+            // 2026-11-07 实测：`cargo test --lib` 的测试二进制自己弹出了那个框
+            // （弹框的所有者就是测试进程本身，pid 与测试二进制一致），
+            // 用例 `system_icons::tests::shortcut_icon_target_resolves_lnk_target`
+            // 因此卡了 60 秒以上不结束。
+            // 更糟的是 `resolve_windows_shortcut_target` 还被**目录列表**调用
+            // ⇒ 列表里只要出现一个断链快捷方式，整个应用就会卡死。
+            // 展开环境变量我们自己就能做，没必要冒这个险。
+            if let Some(raw) = read_path(SLGP_RAWPATH.0 as u32) {
+                let manually_expanded = expand_environment_variables(&raw);
+
+                if Path::new(&manually_expanded).exists() {
+                    return Some(manually_expanded);
+                }
+
+                // 目标确实已经不在了（断链）：仍把原始路径带回去，
+                // 上层据此判断「目标失效」，而不是「解析失败」。
+                return Some(raw);
+            }
+
+            expanded
         })();
 
         if needs_uninitialize {
@@ -778,6 +819,44 @@ pub(super) fn resolve_windows_shortcut_target(path: &Path) -> Option<String> {
 
         resolved_path
     }
+}
+
+/// 把路径里的 `%VAR%` 展开成环境变量的值。
+///
+/// 第三方安装器写出来的快捷方式经常把目标存成
+/// `%ProgramFiles%\BaiduNetdisk\BaiduNetdisk.exe` 这种形式；
+/// `IShellLinkW::GetPath` 带 `SLGP_RAWPATH` 时返回的就是这种未展开的字面量，
+/// 直接拿去做 `exists()` 判定必然失败 ⇒ 快捷方式被误判成「解析不出目标」。
+#[cfg(windows)]
+fn expand_environment_variables(raw: &str) -> String {
+    let mut expanded = String::with_capacity(raw.len());
+    let mut rest = raw;
+
+    loop {
+        let Some(start) = rest.find('%') else {
+            expanded.push_str(rest);
+            break;
+        };
+
+        let Some(offset) = rest[start + 1..].find('%') else {
+            expanded.push_str(rest);
+            break;
+        };
+
+        let end = start + 1 + offset;
+        let name = &rest[start + 1..end];
+
+        expanded.push_str(&rest[..start]);
+
+        match std::env::var(name) {
+            Ok(value) => expanded.push_str(&value),
+            Err(_) => expanded.push_str(&rest[start..=end]),
+        }
+
+        rest = &rest[end + 1..];
+    }
+
+    expanded
 }
 
 #[cfg(windows)]
