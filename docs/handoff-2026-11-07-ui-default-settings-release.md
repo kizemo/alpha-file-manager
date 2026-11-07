@@ -3,7 +3,33 @@
 - 日期：2026-11-07
 - 仓库：`F:\soft\00selfmade\filemanager\sigma-file-manager`（分支 `main`）
 - 起点交接卡：`docs/handoff-2026-11-07-ui-default-settings.md`
-- 状态：**代码与元数据均已提交（`067640dc` / `e9c41a10` / `6e68d337`）；3.12.2 已打包、已装机、真机验收两阶段全部通过（见 §4）**
+- 状态：**3.12.2 已全渠道发布完成**——发版提交 `6e68d337`（annotated tag `v3.12.2`，tag 对象 `b50c3b08`，已推 origin），`main` HEAD = `6eabbc67` 且与 `origin/main` 同步；真机验收两阶段 9/9（见 §4）；站点与 GitHub Release 已上线并回读校验一致（见 §7.2）。
+
+---
+
+## 0. 项目背景（新会话先读这一节）
+
+**产品**：Alpha File Manager —— Windows 桌面文件管理器。技术栈 Tauri 2（Rust 后端）+ Vue 3 + Pinia + TypeScript（前端），安装器 NSIS。品牌名已锁定，不要重新讨论命名或图标。
+
+**两个独立仓库，别混**：
+
+| 仓库 | 路径 | 远端 | 内容 |
+|---|---|---|---|
+| 内层（产品） | `F:\soft\00selfmade\filemanager\sigma-file-manager` | `kizemo/alpha-file-manager` | 全部产品代码、发版脚本、`docs/` 交接卡 |
+| 外层（项目约定） | `F:\soft\00selfmade\filemanager` | `kizemo/focus-sync` | `AGENTS.md` 项目硬约束总表、扩展与文档 |
+
+两个仓各有独立 git 历史，**不要当成同一个仓操作**。
+
+**发版链路（本轮已完整跑通，可直接复用）**：
+
+1. 改 `package.json` 版本 → `npm run sync-version` 同步 3 个 Cargo manifest（`src-tauri/Cargo.toml`、`default-file-manager-common/Cargo.toml`、`default-file-manager-launcher/Cargo.toml`）；`src-tauri/tauri.conf.json` 引用 `"../package.json"`，无需改。
+2. **先写完所有发版元数据 → 再打包**：`CHANGELOG.md`、`README.md`、`README.zh-CN.md`、`_notes-<版本>.md`、`public/changelog/<locale>/changelog.md`（14 个语言包，中文 locale code 是 `ch` 不是 `zh`）。顺序反了会出现「安装包里带的还是上一版更新日志」——本轮真实踩到，见 §5。
+3. `npm run tauri:build` 打包（很慢，早启动丢后台）。构建脚本放 `F:\soft\00selfmade\filemanager\.superpowers\sdd\*.cmd`，**必须纯 ASCII**；Rust toolchain 路径里 `pc-` 不能省。
+4. `node scripts/release-publish.mjs prepare --bump none --skip-build --notes-file _notes-<版本>.md` 更新站点 `version.json` 并把安装包复制到站点源目录。
+5. 上传站点：**先传安装包，最后翻 `version.json`**（反过来用户会点到还没传完的包）。
+6. `node scripts/release-publish.mjs github` 建 GitHub Release；`node scripts/release-publish.mjs verify` 做公网回读（版本号 / 大小 / sha256 三项）。
+
+**输出语言**：面向用户一律简体中文；代码标识符、路径、命令保持原样。
 
 ---
 
@@ -50,7 +76,7 @@
 
 发版元数据：`CHANGELOG.md` 新增 `## [3.12.2] - November 2026`；`README.md` 新增 `### What changed in 3.12.2`；`README.zh-CN.md` 新增 `### 3.12.2 改了什么`；`_notes-3.12.2.md` 新建；**14 个 locale 的更新日志在 `public/changelog/<locale>/changelog.md`**（ch/de/es/fa/fr/hi/it/ja/pt/ru/sl/tr/ur/vi，ch 用中文段落式，其余英文），**不在** `src/localization/messages/*.json`（那里只是更新弹窗的 UI 文案）。`npm run verify-changelog` → exit 0。
 
-## 4. 真机验收（进行中）
+## 4. 真机验收（已完成）
 
 验收脚本：`F:\soft\00selfmade\filemanager\.superpowers\sdd\afm-accept-defaults2.ps1`（纯 ASCII，中文串一律走命令行参数）。
 证据输出目录：`F:\soft\00selfmade\filemanager\.superpowers\sdd\accept-defaults-3122\`。
@@ -108,24 +134,63 @@
 3. ✅ 第三个提交 `6e68d337`（23 个文件：4 个版本文件 + `Cargo.lock` + 18 个发版元数据文件 + `_notes-3.12.2.md`）。
 4. ✅ 交接卡（本文件）+ 接力 prompt（`docs/prompt-2026-11-07-ui-default-settings-release-next.md`）已落盘。
 
-未做 / 留给下一会话：
+未做 / 仍待处理（**线上发布已在 §7.2 完成，本节旧版本里「不做任何线上发布动作」的说法已作废，不要再拿它去问用户要不要发布**）：
 
-- **不做任何线上发布动作**（GitHub Release / winget / 站点 version.json）。`publish-bundle-to-release.mjs` 只做本地拷贝、不上传；要上传需用户另行指示。
+- ✅ **线上发布已全部完成**：站点 `version.json` → 3.12.2、GitHub Release `v3.12.2` 已建、公网回读三项一致 —— 详见 §7.2。
+- **winget 清单未做**：3.12.2 没有提交到 winget 仓库。参考 `F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-11-02-phase4-winget-and-search-scan.md`。
 - `extensions/kizemo.focus-sync/sidecar/src/bin/` 继续**刻意不入库**（沿用 3.12.1 的决策）。
-- 存量安装**不会自动迁移**到新的视觉效果默认值 —— 这是本轮明确的产品决定（需求只要求「新装」+「重置为默认」），CHANGELOG 与 `_notes-3.12.2.md` 已写明。若将来要做版本化迁移，需另起一轮设计（迁移键 + 幂等 + 老版本降级回退）。
-- `release/Alpha File Manager_3.12.2_x64-setup.exe` 与 `release/local-builds/Alpha File Manager_3.12.2_x64-setup.exe` 同时存在：前者是本轮手动覆盖的新包，后者是 `publish-bundle-to-release.mjs` 在内容不同时自动改写的旧包副本，二者内容不同属正常，要发哪个需人工确认。
+- 存量安装**不会自动迁移**到新的视觉效果默认值 —— 本轮明确的产品决定（需求只要求「新装」+「重置为默认」），CHANGELOG 与 `_notes-3.12.2.md` 已写明。若将来要做版本化迁移，需另起一轮设计（迁移键 + 幂等 + 老版本降级回退）。
+- `release\Alpha File Manager_3.12.2_x64-setup.exe`（根目录 = 最终新包，45169271 B，20:40:25，sha256 `47e08c97…`）与 `release\local-builds\Alpha File Manager_3.12.2_x64-setup.exe`（打包脚本在内容不同时自动改写的旧包副本）同时存在，二者内容不同属正常。**对外发布用的是根目录那份**，已逐字节核对。
 
-## 附：收尾补记（本次会话结束前）
+## 7.1 收尾补记（本次会话结束前）
 
 - 外层仓 `F:/soft/00selfmade/filemanager/AGENTS.md` 的两条新铁律（连同前几轮遗留未提交的项目硬约束，共 62 行）已提交：**`355aab1`**（外层仓 `main`）。该提交**只含 `AGENTS.md` 一个文件**，未卷入 `docs/extension-changelog.md` 与其它未跟踪文件。
 - 内层仓工作区仍只余一个刻意不入库的未跟踪目录：`extensions/kizemo.focus-sync/sidecar/src/bin/`（沿用 3.12.1 决策）。
 - `release/` 下 3.12.2 仍有两份安装包：根目录 = 最终新包（45169271 B，20:40:25，含 3.12.2 更新日志）；`release/local-builds/` = 打包脚本自动改写的旧包副本。对外发布前请人工确认取用**根目录那份**。
 
-## 附二：3.12.2 对外发布（已完成）
+## 7.2 3.12.2 对外发布（已完成）
 
 - **git push**：内层仓 `main` 由 `b49fbd31` 推到 `ca2215bb`（origin/main）；标签 `v3.12.2` 指向 **`6e68d337`（发版提交）**，与 `v3.12.1` 的惯例一致（tag = 发版提交，不是 HEAD）。
 - **站点版本清单**：`node scripts/release-publish.mjs prepare --bump none --skip-build --notes-file _notes-3.12.2.md` ⇒ `E:\办公文件\L1网站\alpha-file-manager\version.json` 变为 **3.12.2** / `sha256 47e08c97…` / `pub_date 2026-11-07T13:43:02Z`；`history[]` 首条归档 3.12.1（站点上挂着的那一版被顶掉时才归档，与仓库版本号无关）。站点说明文字直接取仓库的 `_notes-3.12.2.md`（已核对：3.12.1 的站点 notes 与 `_notes-3.12.1.md` 逐字相同）。
 - **上传顺序（别改）**：① 先把 45 MB 安装包单独 put 到服务器（paramiko 单文件 + 远端 `md5sum`/`stat` 校验，脚本 `.superpowers/sdd/upload-one.py`）⇒ `REMOTE_MATCH`；② 再传 `index.html` / `.htaccess` / `version.json` / `download.php`（`_upload_alpha_files.py --files-only`，四个文件远端 md5+size 全部 OK）。反过来会把 version.json 先翻到 3.12.2，让用户点到还没传完的包。
 - **GitHub Release**：`v3.12.2` 已创建（`kizemo/alpha-file-manager`），资产 `Alpha_File_Manager_3.12.2_x64-setup.exe`，45169271 字节，官方 digest `sha256:47e08c976e8906c2848623a4a7f6cbfdd80cea8833607904fe7efd1614280cd4`（与本地包逐字节一致），`draft=false` / `prerelease=false`。
 - **公网回读**：`node scripts/release-publish.mjs verify` ⇒ 线上版本 3.12.2，**版本号 / 大小 / sha256 三项一致**，源站与 Cloudflare 边缘（`CF-Cache-Status=MISS`）都已生效。
-- **本轮未做**：winget 清单；外层仓 `filemanager` 的 push（远端 `main` 被另一会话 force 改写，本地变成 ahead 81 / behind 2，变基在 `README.md` 上冲突，已 `rebase --abort` 保持本地原状；`355aab1` 的 AGENTS.md 追加只在本地）。
+- **本轮未做**：winget 清单；外层仓 `filemanager` 的 push —— 远端 `main` 被另一会话 force 改写（Focus Sync 0.5.8/0.5.9 发布线），本地现为 **ahead 82 / behind 2**，变基在 `README.md` 上 add/add 冲突，已 `rebase --abort` 保持本地原状；`355aab1` 与 `d3f9f44` 两条 AGENTS.md 提交**只在本地**。
+
+## 8. 下阶段计划（**范围尚未由用户定义**）
+
+开工前先向用户确认本轮范围。以下按「能不能直接做」排序：前两项可直接做，第 3 项是阻塞（需决策），第 4 项等需求。
+
+1. **winget 清单**（可直接做）。3.12.2 未提交 winget-pkgs；做法参考 `F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-11-02-phase4-winget-and-search-scan.md`。
+2. **`release/` 目录收敛**（可直接做，低风险）。`release/SHA256SUMS.txt` / `LOCAL-BUILDS.txt` 只到 3.9.2，属既有状况、`release/` 被 gitignore，本轮未动。若要统一，先归档 `release/local-builds/` 里的历史副本，否则重跑 `publish-bundle-to-release.mjs` 会再次改写。
+3. **外层仓 push 阻塞（需属主决策，禁止自行 force push）**。可选路径：(a) 交给属主合并；(b) `git -C F:\soft\00selfmade\filemanager push origin d3f9f44:refs/heads/agents-docs` 另开分支保住两条 AGENTS.md 提交；(c) 保持本地不动。
+4. **新功能需求**：未定义，等用户给。
+
+已完成、**不要再做一遍**：3.12.2 代码提交、版本号对齐、发版元数据、打包、装机、两阶段真机验收、站点上传、GitHub Release、公网回读。
+
+## 9. 必读文档与证据路径（全路径）
+
+按顺序读：
+
+1. 本文件 —— `F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-11-07-ui-default-settings-release.md`
+2. 本轮起点交接卡 —— `F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-11-07-ui-default-settings.md`
+3. 仓库硬约束总表（必读）—— `F:\soft\00selfmade\filemanager\AGENTS.md`：含 `.cmd`/`.ps1` 纯 ASCII、只有 `tauri build` 产物可做界面验收、真机数据「先杀进程 → 再 restore」、UIA 坐标必须 `SetProcessDPIAware()`、后台构建不挂 stdout 管道等铁律。
+4. reveal 缺陷排查与归档 —— `F:\soft\00selfmade\filemanager\sigma-file-manager\docs\work-2026-11-07-reveal-shortcut-target.md`、`F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-11-07-reveal-shortcut-target.md`
+5. 发版说明源 —— `F:\soft\00selfmade\filemanager\sigma-file-manager\_notes-3.12.2.md`
+6. 上一轮接力 prompt（格式参考，已被本轮 `docs\prompt-2026-11-07-relay-next.md` 取代）—— `F:\soft\00selfmade\filemanager\sigma-file-manager\docs\prompt-2026-11-07-ui-default-settings-release-next.md`
+
+证据与脚本：
+
+- 真机验收脚本：`F:\soft\00selfmade\filemanager\.superpowers\sdd\afm-accept-defaults2.ps1`（纯 ASCII，中文串走命令行参数）
+- 验收证据目录：`F:\soft\00selfmade\filemanager\.superpowers\sdd\accept-defaults-3122\`（阶段 A/B 读数 txt、三张 PNG、`user-settings.json` 原始备份）
+- 规格图副本：`F:\soft\00selfmade\filemanager\.superpowers\sdd\ui-defaults-spec-20261107.png`
+- 构建脚本：`F:\soft\00selfmade\filemanager\.superpowers\sdd\build-3122c.cmd`
+- 单文件上传脚本：`F:\soft\00selfmade\filemanager\.superpowers\sdd\upload-one.py`
+- 站点源目录：`E:\办公文件\L1网站\alpha-file-manager\`（`version.json` / `index.html` / `download.php` / `_upload_alpha_files.py` / `_release-notes-v*.md`）
+- SFTP 凭据：`E:\办公文件\L1网站\.vscode\sftp.json`（**勿外传**）；上传 venv：`E:\办公文件\L1网站\.venv-sftp\Scripts\python.exe`
+- 用户数据：`C:\Users\Duanyi\AppData\Roaming\com.sigma-file-manager.app\user-data\user-settings.json`
+
+结论可信度：
+
+- **已验证（有硬证据）**：两阶段真机验收 9/9（最终打包产物，非 dev）；`eslint .` 基线 180 → 177 零新增；站点 / GitHub Release / 公网回读三项一致；tag 与 HEAD 关系；两份 release 包 sha256 一致。
+- **未验证 / 无结论**：winget 清单不存在；存量用户迁移未实现（是设计缺口，不是缺陷）。
