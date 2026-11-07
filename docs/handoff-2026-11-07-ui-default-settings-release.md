@@ -114,3 +114,9 @@
 - `extensions/kizemo.focus-sync/sidecar/src/bin/` 继续**刻意不入库**（沿用 3.12.1 的决策）。
 - 存量安装**不会自动迁移**到新的视觉效果默认值 —— 这是本轮明确的产品决定（需求只要求「新装」+「重置为默认」），CHANGELOG 与 `_notes-3.12.2.md` 已写明。若将来要做版本化迁移，需另起一轮设计（迁移键 + 幂等 + 老版本降级回退）。
 - `release/Alpha File Manager_3.12.2_x64-setup.exe` 与 `release/local-builds/Alpha File Manager_3.12.2_x64-setup.exe` 同时存在：前者是本轮手动覆盖的新包，后者是 `publish-bundle-to-release.mjs` 在内容不同时自动改写的旧包副本，二者内容不同属正常，要发哪个需人工确认。
+
+## 附：收尾补记（本次会话结束前）
+
+- 外层仓 `F:/soft/00selfmade/filemanager/AGENTS.md` 的两条新铁律（连同前几轮遗留未提交的项目硬约束，共 62 行）已提交：**`355aab1`**（外层仓 `main`）。该提交**只含 `AGENTS.md` 一个文件**，未卷入 `docs/extension-changelog.md` 与其它未跟踪文件。
+- 内层仓工作区仍只余一个刻意不入库的未跟踪目录：`extensions/kizemo.focus-sync/sidecar/src/bin/`（沿用 3.12.1 决策）。
+- `release/` 下 3.12.2 仍有两份安装包：根目录 = 最终新包（45169271 B，20:40:25，含 3.12.2 更新日志）；`release/local-builds/` = 打包脚本自动改写的旧包副本。对外发布前请人工确认取用**根目录那份**。
