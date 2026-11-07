@@ -120,3 +120,12 @@
 - 外层仓 `F:/soft/00selfmade/filemanager/AGENTS.md` 的两条新铁律（连同前几轮遗留未提交的项目硬约束，共 62 行）已提交：**`355aab1`**（外层仓 `main`）。该提交**只含 `AGENTS.md` 一个文件**，未卷入 `docs/extension-changelog.md` 与其它未跟踪文件。
 - 内层仓工作区仍只余一个刻意不入库的未跟踪目录：`extensions/kizemo.focus-sync/sidecar/src/bin/`（沿用 3.12.1 决策）。
 - `release/` 下 3.12.2 仍有两份安装包：根目录 = 最终新包（45169271 B，20:40:25，含 3.12.2 更新日志）；`release/local-builds/` = 打包脚本自动改写的旧包副本。对外发布前请人工确认取用**根目录那份**。
+
+## 附二：3.12.2 对外发布（已完成）
+
+- **git push**：内层仓 `main` 由 `b49fbd31` 推到 `ca2215bb`（origin/main）；标签 `v3.12.2` 指向 **`6e68d337`（发版提交）**，与 `v3.12.1` 的惯例一致（tag = 发版提交，不是 HEAD）。
+- **站点版本清单**：`node scripts/release-publish.mjs prepare --bump none --skip-build --notes-file _notes-3.12.2.md` ⇒ `E:\办公文件\L1网站\alpha-file-manager\version.json` 变为 **3.12.2** / `sha256 47e08c97…` / `pub_date 2026-11-07T13:43:02Z`；`history[]` 首条归档 3.12.1（站点上挂着的那一版被顶掉时才归档，与仓库版本号无关）。站点说明文字直接取仓库的 `_notes-3.12.2.md`（已核对：3.12.1 的站点 notes 与 `_notes-3.12.1.md` 逐字相同）。
+- **上传顺序（别改）**：① 先把 45 MB 安装包单独 put 到服务器（paramiko 单文件 + 远端 `md5sum`/`stat` 校验，脚本 `.superpowers/sdd/upload-one.py`）⇒ `REMOTE_MATCH`；② 再传 `index.html` / `.htaccess` / `version.json` / `download.php`（`_upload_alpha_files.py --files-only`，四个文件远端 md5+size 全部 OK）。反过来会把 version.json 先翻到 3.12.2，让用户点到还没传完的包。
+- **GitHub Release**：`v3.12.2` 已创建（`kizemo/alpha-file-manager`），资产 `Alpha_File_Manager_3.12.2_x64-setup.exe`，45169271 字节，官方 digest `sha256:47e08c976e8906c2848623a4a7f6cbfdd80cea8833607904fe7efd1614280cd4`（与本地包逐字节一致），`draft=false` / `prerelease=false`。
+- **公网回读**：`node scripts/release-publish.mjs verify` ⇒ 线上版本 3.12.2，**版本号 / 大小 / sha256 三项一致**，源站与 Cloudflare 边缘（`CF-Cache-Status=MISS`）都已生效。
+- **本轮未做**：winget 清单；外层仓 `filemanager` 的 push（远端 `main` 被另一会话 force 改写，本地变成 ahead 81 / behind 2，变基在 `README.md` 上冲突，已 `rebase --abort` 保持本地原状；`355aab1` 的 AGENTS.md 追加只在本地）。
