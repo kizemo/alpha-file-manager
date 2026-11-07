@@ -127,6 +127,14 @@ sync, batch rename, and a long list of day-to-day fixes.
 | ![Dashboard quick access](docs/screenshots/afm-dashboard-hero-light-en.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
 | ![Dashboard cards](docs/screenshots/afm-dashboard-card-enrichment-en.png) | **Dashboard cards** — name, size and path on top, type and item count below, with drag, reorder and edit shortcuts on every card |
 
+### What changed in 3.12.2
+
+| | |
+|---|---|
+| 🔗 | **Revealing a shortcut opens the target's folder** — *Open file location* on a `.lnk` now lands in the folder its target really lives in, with the target selected; a shortcut whose target is gone quietly falls back to the folder the `.lnk` sits in |
+| 🛡️ | **The three system dialogs are gone** — *The operation has been aborted*, *The renderer process crashed (window main)* and *Windows can't find the `\` file* no longer interrupt the action, and the work now runs off the main thread instead of freezing the window |
+| 🎨 | **Visual effects defaults match the specification** — overlay blur 0px, overlay opacity 0% and overlay noise 0% (were 64px/32px, 5% and 5%); *Reset visual effects to defaults* and fresh installs get these values, existing installations are not migrated automatically |
+
 ### What changed in 3.12.1
 
 | | |
