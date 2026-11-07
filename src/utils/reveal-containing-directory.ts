@@ -6,6 +6,8 @@ import type { Router } from 'vue-router';
 import type { DirEntry } from '@/types/dir-entry';
 import { revealInExplorer } from '@/utils/open-in-explorer';
 import { openNavigatorRevealEntry } from '@/utils/open-navigator-directory';
+// FORK-MODIFICATION (2026-11-07)：原生 Explorer 分支也要先解析落点。
+import { resolveRevealEntryTarget } from '@/utils/resolve-reveal-entry-target';
 // FORK-MODIFICATION (2026-11-03)：L2 —— 默认资源管理器时改走应用内定位。
 import { isDefaultFileManagerSafe } from '@/utils/default-file-manager';
 
@@ -57,7 +59,25 @@ export async function revealEntriesContainingDirectory(
     }
 
     try {
-      await revealInExplorer(entry.path);
+      // FORK-MODIFICATION (2026-11-07)：先把落点解析出来，再交给 Explorer。
+      //
+      // 早先直接把 `entry.path`（**快捷方式自己**）丢给 Explorer，
+      // Explorer 会自己去解这个 `.lnk`：解得出来就打开目标（碰运气），
+      // 解不出来就弹 Windows 自己的模态框「已中止操作」——
+      // 用户 2026-11-07 实测到的正是这个框。
+      //
+      // 现在：
+      //   - 目标解析出来了 ⇒ 传**目标**路径
+      //     （Explorer 打开目标所在目录并选中目标）；
+      //   - 目标解析不出来 ⇒ 传**所在目录**
+      //     （只打开目录，绝不把坏 `.lnk` 交给 Explorer）。
+      const revealTarget = await resolveRevealEntryTarget(entry.path);
+      const isShortcut = entry.path.toLowerCase().endsWith('.lnk');
+      const explorerPath = isShortcut && !revealTarget.resolvedFromShortcut
+        ? revealTarget.directoryPath
+        : revealTarget.focusPath;
+
+      await revealInExplorer(explorerPath);
     }
     catch (error: unknown) {
       options.onError?.(error);

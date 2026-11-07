@@ -3,10 +3,13 @@
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
 //
-// FORK-MODIFICATION (2026-11-03)：默认资源管理器改造 L1 —— 快捷方式按**目标**定位。
+// FORK-MODIFICATION (2026-11-07)：快捷方式「打开文件所在目录」的落点解析。
 //
-// 判别点：`.lnk` 指向的目录还在 → 必须定位到**目标**；
-// 目标没了 / 解析不出来 → 回落成「选中 .lnk 自己」，**不报错**。
+// 判别点：
+//   - 指向**文件**的快捷方式 → 必须定位到**目标所在的目录**并选中目标
+//     （2026-11-03 的实现只认目录目标，这是本轮修的主 bug：用户点了没反应）；
+//   - 断链 / 后端解析不出 / 调用失败 → 回落成「打开 .lnk 自己的父目录 + 选中 .lnk」，
+//     **不报错**。
 //
 
 import {
@@ -28,8 +31,7 @@ import {
 
 function createDeps(overrides?: Partial<RevealEntryTargetDeps>): RevealEntryTargetDeps {
   return {
-    resolveShortcutTarget: vi.fn(async () => null),
-    pathExists: vi.fn(async () => false),
+    resolveTarget: vi.fn(async () => null),
     ...overrides,
   };
 }
@@ -39,10 +41,35 @@ describe('resolveRevealEntryTarget', () => {
     invokeMock.mockReset();
   });
 
-  it('指向目录的快捷方式 → 打开**目标的父目录**并选中目标', async () => {
+  it('指向文件的快捷方式 → 打开**目标所在的目录**并选中目标', async () => {
     const deps = createDeps({
-      resolveShortcutTarget: vi.fn(async () => 'C:/Users/aleks/Projects'),
-      pathExists: vi.fn(async () => true),
+      resolveTarget: vi.fn(async () => ({
+        directoryPath: 'D:/Program Files/UGREEN NAS',
+        focusPath: 'D:/Program Files/UGREEN NAS/UGREEN NAS.exe',
+        resolvedFromShortcut: true,
+      })),
+    });
+
+    await expect(
+      resolveRevealEntryTarget('C:/ProgramData/Start Menu/UGREEN NAS.lnk', deps),
+    ).resolves.toEqual({
+      directoryPath: 'D:/Program Files/UGREEN NAS',
+      focusPath: 'D:/Program Files/UGREEN NAS/UGREEN NAS.exe',
+      resolvedFromShortcut: true,
+    });
+
+    expect(deps.resolveTarget).toHaveBeenCalledWith(
+      'C:/ProgramData/Start Menu/UGREEN NAS.lnk',
+    );
+  });
+
+  it('指向目录的快捷方式 → 打开目标所在的目录并选中目标目录', async () => {
+    const deps = createDeps({
+      resolveTarget: vi.fn(async () => ({
+        directoryPath: 'C:/Users/aleks',
+        focusPath: 'C:/Users/aleks/Projects',
+        resolvedFromShortcut: true,
+      })),
     });
 
     await expect(
@@ -50,15 +77,13 @@ describe('resolveRevealEntryTarget', () => {
     ).resolves.toEqual({
       directoryPath: 'C:/Users/aleks',
       focusPath: 'C:/Users/aleks/Projects',
+      resolvedFromShortcut: true,
     });
-
-    expect(deps.resolveShortcutTarget).toHaveBeenCalledWith('C:/Users/aleks/Desktop/Projects.lnk');
   });
 
-  it('目标已被删除 → 回落成「打开 .lnk 自己的父目录 + 选中 .lnk」，不报错', async () => {
+  it('后端解析不出（断链）→ 回落成「打开 .lnk 自己的父目录 + 选中 .lnk」，不报错', async () => {
     const deps = createDeps({
-      resolveShortcutTarget: vi.fn(async () => 'C:/Users/aleks/Gone'),
-      pathExists: vi.fn(async () => false),
+      resolveTarget: vi.fn(async () => null),
     });
 
     await expect(
@@ -66,55 +91,7 @@ describe('resolveRevealEntryTarget', () => {
     ).resolves.toEqual({
       directoryPath: 'C:/Users/aleks/Desktop',
       focusPath: 'C:/Users/aleks/Desktop/Projects.lnk',
-    });
-  });
-
-  it('解析不出目标 → 同样回落，且不去白跑一次存在性检查', async () => {
-    const deps = createDeps({
-      resolveShortcutTarget: vi.fn(async () => null),
-    });
-
-    await expect(
-      resolveRevealEntryTarget('C:/Users/aleks/Desktop/Projects.lnk', deps),
-    ).resolves.toEqual({
-      directoryPath: 'C:/Users/aleks/Desktop',
-      focusPath: 'C:/Users/aleks/Desktop/Projects.lnk',
-    });
-
-    expect(deps.pathExists).not.toHaveBeenCalled();
-  });
-
-  it('普通文件 → 不查快捷方式，直接打开父目录 + 选中自己', async () => {
-    const deps = createDeps();
-
-    await expect(
-      resolveRevealEntryTarget('C:/Users/aleks/report.pdf', deps),
-    ).resolves.toEqual({
-      directoryPath: 'C:/Users/aleks',
-      focusPath: 'C:/Users/aleks/report.pdf',
-    });
-
-    expect(deps.resolveShortcutTarget).not.toHaveBeenCalled();
-  });
-
-  it('默认依赖走后端命令：解析成功且目标还在时定位目标', async () => {
-    invokeMock.mockImplementation(async (command: string) => {
-      if (command === 'resolve_windows_directory_shortcut') {
-        return 'C:/Users/aleks/Projects';
-      }
-
-      if (command === 'path_exists') {
-        return true;
-      }
-
-      return null;
-    });
-
-    await expect(
-      resolveRevealEntryTarget('C:/Users/aleks/Desktop/Projects.lnk'),
-    ).resolves.toEqual({
-      directoryPath: 'C:/Users/aleks',
-      focusPath: 'C:/Users/aleks/Projects',
+      resolvedFromShortcut: false,
     });
   });
 
@@ -126,6 +103,39 @@ describe('resolveRevealEntryTarget', () => {
     ).resolves.toEqual({
       directoryPath: 'C:/Users/aleks/Desktop',
       focusPath: 'C:/Users/aleks/Desktop/Projects.lnk',
+      resolvedFromShortcut: false,
+    });
+  });
+
+  it('默认依赖走后端命令：一次往返就拿到落点', async () => {
+    invokeMock.mockResolvedValue({
+      directoryPath: 'C:/Users/aleks',
+      focusPath: 'C:/Users/aleks/report.pdf',
+      resolvedFromShortcut: false,
+    });
+
+    await expect(
+      resolveRevealEntryTarget('C:/Users/aleks/report.pdf'),
+    ).resolves.toEqual({
+      directoryPath: 'C:/Users/aleks',
+      focusPath: 'C:/Users/aleks/report.pdf',
+      resolvedFromShortcut: false,
+    });
+
+    expect(invokeMock).toHaveBeenCalledWith('resolve_reveal_entry_target', {
+      path: 'C:/Users/aleks/report.pdf',
+    });
+  });
+
+  it('后端返回空 → 同样回落，不抛错', async () => {
+    invokeMock.mockResolvedValue(null);
+
+    await expect(
+      resolveRevealEntryTarget('C:/Users/aleks/Desktop/Projects.lnk'),
+    ).resolves.toEqual({
+      directoryPath: 'C:/Users/aleks/Desktop',
+      focusPath: 'C:/Users/aleks/Desktop/Projects.lnk',
+      resolvedFromShortcut: false,
     });
   });
 });

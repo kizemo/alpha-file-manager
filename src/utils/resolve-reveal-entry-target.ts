@@ -2,17 +2,21 @@
 // License: GNU GPLv3 or later. See the license file in the project root for more information.
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
-// FORK-MODIFICATION (2026-11-03)：默认资源管理器改造 L1 —— 快捷方式按**目标**定位。
+// FORK-MODIFICATION (2026-11-07)：快捷方式「打开文件所在目录」的落点解析。
 //
-// 「打开文件所在目录」如果作用在一个指向目录的 `.lnk` 上，用户要的是
-// **快捷方式指向的那个目录**，而不是 `.lnk` 自己所在的文件夹。
+// 2026-11-03 的 L1 版本在前端分两步做：
+//   ① `resolve_windows_directory_shortcut` → ② `path_exists`。
+// 两个问题都在 2026-11-07 修掉：
+//   1. ① 只认**目录**目标 ⇒ 指向**文件**的快捷方式（绝大多数）一律解析不出来，
+//      回落成「打开 `.lnk` 自己所在的目录」—— 用户看到的现象就是
+//      「点了没反应，没跳到快捷方式指向的文件所在目录」。
+//   2. ①② 都是**同步** Tauri command，跑在 Tauri 主线程上。COM 解析 / 网络盘 stat
+//      一慢就阻塞 tao 事件循环 ⇒ WebView2 心跳断掉 ⇒ 看门狗判「窗口卡死」
+//      ⇒ 渲染进程崩溃（用户截图里的「界面渲染进程已崩溃（窗口 main）」），
+//      右键菜单的子菜单加载不出来也是同一个冻结的表现。
 //
-// 口径（断链不报错）：
-//   - 解析出目标且目标还在 → 打开目标的父目录 + 选中目标。
-//   - 解析不出（不是快捷方式 / 目标不是目录 / 目标已删 / 调用失败）→
-//     回落成「打开 `.lnk` 自己的父目录 + 选中 `.lnk` 本身」，**不弹错误**。
-//
-// 依赖用参数注入是为了能单测：默认实现走 Tauri invoke，测试里换成假实现。
+// 现在改成**后端一次往返**：`resolve_reveal_entry_target` 内部 `spawn_blocking`
+// + 超时兜底，断链 / 超时 / 调用失败一律静默回落（不弹错误、不冻界面）。
 
 import { invoke } from '@tauri-apps/api/core';
 import normalizePath, { getParentDirectory } from '@/utils/normalize-path';
@@ -22,46 +26,70 @@ export interface RevealEntryTarget {
   directoryPath: string;
   /** 要选中的条目。 */
   focusPath: string;
+  /**
+   * 落点是不是从快捷方式解析出来的。
+   *
+   * `false` 且条目本身是 `.lnk` ⇒ 快捷方式**解析不出目标**
+   * （断链 / COM 读不了 / 环境变量没展开）。
+   * 此时 `focusPath` 就是 `.lnk` 自己 —— 绝不能把它交给 Windows Explorer：
+   * Explorer 会为解析不了的快捷方式弹「已中止操作」的模态框。
+   */
+  resolvedFromShortcut: boolean;
+}
+
+/** 后端命令的原始返回（serde `camelCase`）。 */
+export interface RevealEntryTargetPayload {
+  directoryPath: string;
+  focusPath: string;
+  resolvedFromShortcut: boolean;
 }
 
 export interface RevealEntryTargetDeps {
-  /** 解析 Windows 目录快捷方式的目标路径；解析不出返回 null。 */
-  resolveShortcutTarget: (path: string) => Promise<string | null>;
-  /** 目标路径是否还存在（目录也算）。 */
-  pathExists: (path: string) => Promise<boolean>;
+  /**
+   * 后端一次性解析落点。
+   * 解析不出（断链 / 超时 / 调用失败）返回 null —— 回落由调用方负责。
+   */
+  resolveTarget: (path: string) => Promise<RevealEntryTarget | null>;
 }
 
-export function isWindowsShortcutPath(path: string): boolean {
-  return path.toLowerCase().endsWith('.lnk');
-}
-
-export async function resolveWindowsShortcutTarget(path: string): Promise<string | null> {
+export async function resolveRevealEntryTargetFromBackend(
+  path: string,
+): Promise<RevealEntryTarget | null> {
   try {
-    return await invoke<string | null>('resolve_windows_directory_shortcut', { path });
+    const payload = await invoke<RevealEntryTargetPayload | null>(
+      'resolve_reveal_entry_target',
+      { path },
+    );
+
+    if (!payload?.directoryPath || !payload?.focusPath) {
+      return null;
+    }
+
+    return {
+      directoryPath: payload.directoryPath,
+      focusPath: payload.focusPath,
+      resolvedFromShortcut: payload.resolvedFromShortcut === true,
+    };
   }
   catch (error) {
-    console.error('Failed to resolve Windows directory shortcut:', error);
+    console.error('Failed to resolve reveal entry target:', error);
     return null;
-  }
-}
-
-export async function pathExists(path: string): Promise<boolean> {
-  try {
-    return await invoke<boolean>('path_exists', { path });
-  }
-  catch (error) {
-    console.error('Failed to check path existence:', error);
-    return false;
   }
 }
 
 export function createRevealEntryTargetDeps(): RevealEntryTargetDeps {
   return {
-    resolveShortcutTarget: resolveWindowsShortcutTarget,
-    pathExists,
+    resolveTarget: resolveRevealEntryTargetFromBackend,
   };
 }
 
+/**
+ * 解析「打开文件所在目录」的落点。
+ *
+ * 正常路径走后端命令（一次往返拿到「目录 + 选中条目」）；
+ * 后端解析不出 / 超时 / 调用失败时**静默回落**成
+ * 「打开条目自己的父目录 + 选中条目自己」，不抛错、不冻界面。
+ */
 export async function resolveRevealEntryTarget(
   entryPath: string,
   deps: RevealEntryTargetDeps = createRevealEntryTargetDeps(),
@@ -69,25 +97,14 @@ export async function resolveRevealEntryTarget(
   const fallbackTarget: RevealEntryTarget = {
     directoryPath: getParentDirectory(entryPath),
     focusPath: normalizePath(entryPath),
+    resolvedFromShortcut: false,
   };
 
-  if (!isWindowsShortcutPath(entryPath)) {
+  const resolvedTarget = await deps.resolveTarget(entryPath);
+
+  if (!resolvedTarget) {
     return fallbackTarget;
   }
 
-  const shortcutTarget = await deps.resolveShortcutTarget(entryPath);
-
-  if (!shortcutTarget) {
-    return fallbackTarget;
-  }
-
-  // 目标可能刚好在解析之后被删掉 —— 这时同样回落，不报错。
-  if (!await deps.pathExists(shortcutTarget)) {
-    return fallbackTarget;
-  }
-
-  return {
-    directoryPath: getParentDirectory(shortcutTarget),
-    focusPath: normalizePath(shortcutTarget),
-  };
+  return resolvedTarget;
 }
