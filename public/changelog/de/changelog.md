@@ -1,5 +1,14 @@
 # Änderungsprotokoll
 
+## [3.12.2] - November 2026
+
+**Summary:** *Reveal* on a shortcut now opens the folder its target actually lives in, and the three system dialogs that used to interrupt it are gone. The visual-effects defaults in *Settings* now match the specification sheet.
+
+### What changed
+
+- **Fixed** **Revealing a shortcut opens the target's folder** — *Open file location* on a `.lnk` used to do nothing whenever the shortcut pointed at a file rather than a folder: the target was only resolved for folder targets, and when resolving failed the `.lnk` itself was handed to Explorer. The target's path is now read with a two-step lookup that no longer blocks, so the shortcut's real folder opens and the target is selected inside it.
+- **Fixed** **The three system dialogs that interrupted it are gone** — *The operation has been aborted*, *The renderer process crashed (window main)* and *Windows can't find the `\` file* no longer show up. The shortcut work now runs off the main thread with a timeout, the shell resolve call that could block forever was dropped, and a shortcut whose target no longer exists quietly falls back to opening the folder the `.lnk` itself sits in instead of being handed to the shell.
+- **Changed** **The visual effects defaults now match the specification** — In *Settings > UI appearance > Visual effects* the overlay blur is 0px (was 64px on inner pages and 32px on the home page), the overlay opacity is 0% (was 5%) and the overlay noise is 0% (was 5%). Everything else - overlay media contrast 100%, overlay media brightness 100%, overlay noise scale 0.5, overlay blend mode *Normal*, blend with *Interface*, the three switches, and the style settings' brightness 100% / contrast 100% / dialog backdrop blur 8px - already matched and is unchanged. *Reset visual effects to defaults* on that page returns to these values, and so does a fresh install on first launch. **Existing installations are not migrated automatically** - press *Reset visual effects to defaults* on that page, or set the three values by hand, to pick them up.
 ## [3.12.1] - November 2026
 
 **Summary:** Two loose ends from 3.12.0 are closed: a shortcut now wears its target's icon whichever icon scheme the file list uses, and the address bar you type into finally writes paths the Windows way. The Focus Sync background component bundled into this build follows the save dialog again.
