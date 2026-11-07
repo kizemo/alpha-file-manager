@@ -13,7 +13,7 @@ import {
   useUserSettingsStore,
 } from '@/stores/storage/user-settings';
 import type { StartupStorageFileBootstrap } from '@/stores/storage/utils/startup-storage-bootstrap';
-import type { NavigatorFolderSettingsMap, Theme } from '@/types/user-settings';
+import type { InfusionPage, NavigatorFolderSettingsMap, Theme } from '@/types/user-settings';
 import { normalizePathForComparison } from '@/utils/file-operation-paths';
 
 type ThemeEventCallback = (event: { payload: { theme: Theme } }) => void;
@@ -190,6 +190,89 @@ describe('user settings theme sync', () => {
     expect(lazyStoreSetMock).not.toHaveBeenCalled();
     expect(lazyStoreSaveMock).not.toHaveBeenCalled();
     expect(emitMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('user settings 视觉效果 / 样式设置默认值（附图规格锁定）', () => {
+  const infusionPages: InfusionPage[] = ['', 'home', 'navigator', 'dashboard', 'settings', 'extensions'];
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    emitMock.mockReset().mockResolvedValue(undefined);
+    lazyStoreSaveMock.mockReset();
+    lazyStoreSetMock.mockReset();
+    lazyStoreGetMock.mockReset().mockResolvedValue(undefined);
+    webviewSetZoomMock.mockReset();
+    themeEventCallbacks.clear();
+    listenMock.mockReset().mockImplementation(async (
+      eventName: string,
+      callback: ThemeEventCallback,
+    ) => {
+      themeEventCallbacks.set(eventName, callback);
+
+      return vi.fn();
+    });
+  });
+
+  // 规格来源：附图「视觉效果」页（2026-11-07）。
+  // 叠加模糊 0px / 叠加不透明度 0% / 叠加噪点 0% —— 这三项是本次从 64|32 / 5 / 5 改过来的，
+  // 其余各项本来就与附图一致，一并断言是为了防漂移。
+  it('所有页面的叠加层默认参数与附图一致', async () => {
+    const userSettingsStore = useUserSettingsStore();
+
+    await userSettingsStore.init(createUserSettingsBootstrap('dark'));
+
+    const pages = userSettingsStore.userSettings.infusion.pages;
+
+    for (const page of infusionPages) {
+      expect(pages[page].blur).toBe(0);
+      expect(pages[page].opacity).toBe(0);
+      expect(pages[page].noise).toBe(0);
+      expect(pages[page].mediaContrast).toBe(100);
+      expect(pages[page].mediaBrightness).toBe(100);
+      expect(pages[page].noiseScale).toBe(0.5);
+      expect(pages[page].mixBlendMode).toBe('normal');
+      expect(pages[page].blendTarget).toBe('ui');
+    }
+  });
+
+  it('视觉效果的开关类默认值与附图一致', async () => {
+    const userSettingsStore = useUserSettingsStore();
+
+    await userSettingsStore.init(createUserSettingsBootstrap('dark'));
+
+    expect(userSettingsStore.userSettings.infusion.enabled).toBe(true);
+    expect(userSettingsStore.userSettings.infusion.sameSettingsForAllPages).toBe(true);
+    expect(userSettingsStore.userSettings.infusion.pauseVideoWhenIdle).toBe(true);
+    expect(userSettingsStore.userSettings.homeBannerPauseVideoWhenIdle).toBe(true);
+  });
+
+  // 「重置为默认」读的是 userSettingsDefault 快照（设置页 resetVisualEffectsSection 直接克隆它回写），
+  // 所以这份快照必须跟着默认值一起变 —— 否则重置按钮会把旧的 64/5/5 又写回去。
+  it('默认快照带同样的叠加层参数，保证「重置为默认」回到这组值', async () => {
+    const userSettingsStore = useUserSettingsStore();
+
+    await userSettingsStore.init(createUserSettingsBootstrap('dark'));
+
+    const defaults = userSettingsStore.userSettingsDefault;
+
+    expect(defaults).not.toBeNull();
+
+    for (const page of infusionPages) {
+      expect(defaults?.infusion.pages[page].blur).toBe(0);
+      expect(defaults?.infusion.pages[page].opacity).toBe(0);
+      expect(defaults?.infusion.pages[page].noise).toBe(0);
+    }
+  });
+
+  it('样式设置（亮度 / 对比度 / 对话框背景模糊）默认值与附图一致', async () => {
+    const userSettingsStore = useUserSettingsStore();
+
+    await userSettingsStore.init(createUserSettingsBootstrap('dark'));
+
+    expect(userSettingsStore.userSettings.visualFilters.brightness).toBe(100);
+    expect(userSettingsStore.userSettings.visualFilters.contrast).toBe(100);
+    expect(userSettingsStore.userSettings.visualFilters.dialogOverlayBlur).toBe(8);
   });
 });
 
