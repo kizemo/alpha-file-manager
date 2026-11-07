@@ -309,11 +309,11 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
     const background = createDefaultInfusionBackground();
 
     return {
-      blur: 64,
+      blur: 0,
       mediaContrast: 100,
       mediaBrightness: 100,
-      opacity: 5,
-      noise: 5,
+      opacity: 0,
+      noise: 0,
       noiseScale: 0.5,
       mixBlendMode: DEFAULT_INFUSION_BLEND_MODE,
       blendTarget: DEFAULT_INFUSION_BLEND_TARGET,
@@ -326,11 +326,11 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
     const background = createDefaultInfusionBackground();
 
     return {
-      blur: 32,
+      blur: 0,
       mediaContrast: 100,
       mediaBrightness: 100,
-      opacity: 5,
-      noise: 5,
+      opacity: 0,
+      noise: 0,
       noiseScale: 0.5,
       mixBlendMode: DEFAULT_INFUSION_BLEND_MODE,
       blendTarget: DEFAULT_INFUSION_BLEND_TARGET,
