@@ -781,6 +781,19 @@
           "noteRequired": "BDUSS обязателен, имя различает регистр (строчное bduss не принимается). STOKEN необязателен.",
           "noteExpiry": "После истечения срока действия Cookie приложение не сможет его обновить — войдите заново и скопируйте новый.",
           "notePrivacy": "Cookie так же чувствителен, как ваш пароль. Он хранится только в зашифрованном виде Windows DPAPI на этом ПК, никуда не отправляется и в журналы не пишется."
+        },
+        "embedded": {
+          "title": "Sign in inside the app",
+          "start": "Sign in with the built-in window",
+          "cancel": "Stop waiting",
+          "hint": "Opens a sign-in window inside the app. Once you are signed in, this form fills itself in — you only need to give the connection a name and save.",
+          "status": {
+            "waiting": "Waiting for you to finish signing in…",
+            "ready": "Signed in. Give this connection a name and save — the session is stored when you save.",
+            "closed": "The sign-in window was closed before signing in finished.",
+            "timeout": "Signing in took too long. Try again.",
+            "error": "Could not read the session. Use the Cookie field instead."
+          }
         }
       }
     },

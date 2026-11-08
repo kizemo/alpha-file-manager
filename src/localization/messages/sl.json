@@ -781,6 +781,19 @@
           "noteRequired": "BDUSS je obvezen, ime razlikuje med velikimi in majhnimi črkami (male črke bduss niso sprejete). STOKEN je neobvezen.",
           "noteExpiry": "Ko piškotek poteče, ga aplikacija ne more podaljšati; znova se prijavite in kopirajte novega.",
           "notePrivacy": "Piškotek je enako občutljiv kot vaše geslo. Shrani se le šifriran z Windows DPAPI na tem računalniku, nikoli ne zapusti naprave in se ne zapiše v dnevnik."
+        },
+        "embedded": {
+          "title": "Sign in inside the app",
+          "start": "Sign in with the built-in window",
+          "cancel": "Stop waiting",
+          "hint": "Opens a sign-in window inside the app. Once you are signed in, this form fills itself in — you only need to give the connection a name and save.",
+          "status": {
+            "waiting": "Waiting for you to finish signing in…",
+            "ready": "Signed in. Give this connection a name and save — the session is stored when you save.",
+            "closed": "The sign-in window was closed before signing in finished.",
+            "timeout": "Signing in took too long. Try again.",
+            "error": "Could not read the session. Use the Cookie field instead."
+          }
         }
       }
     },

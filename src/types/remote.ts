@@ -275,3 +275,36 @@ export function createRemoteConnectionId(): string {
 
   return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
 }
+
+/**
+ * 内嵌登录的「认领」结果（2026-11-08）。与后端
+ * `src-tauri/src/baidu_login.rs::BaiduLoginClaimPayload` 镜像。
+ *
+ * `claimed === false` **不是错误**：用户没走内嵌登录就直接点保存时，
+ * 后端没有待认领的会话，认领是一次空操作。
+ */
+export interface BaiduLoginClaimPayload {
+  claimed: boolean;
+  /** 只有 cookie 的名字与长度，不含任何明文片段。 */
+  summary: string;
+}
+
+/**
+ * 内嵌登录的进度事件（2026-11-08）。与后端
+ * `src-tauri/src/baidu_login.rs::BaiduLoginEvent` 镜像，由
+ * `afm://baidu-login` 频道推送。
+ *
+ * - `ready`：已经读回可用的登录态，**此时还没落盘** —— 落盘发生在
+ *   「保存」时（那时才有连接 id），所以界面文案要说清「填名字再保存」。
+ * - `closed`：用户自己关掉了登录窗且当时还没读到登录态。
+ * - `timeout` / `error`：放弃等待。
+ */
+export interface BaiduLoginEventPayload {
+  status: 'ready' | 'closed' | 'timeout' | 'error';
+  /** STOKEN 是否也拿到了（只影响上传加速，不是登录成功的前提）。 */
+  hasStoken: boolean;
+  /** 只有 cookie 的名字与长度，不含任何明文片段。 */
+  summary: string | null;
+  /** 面向用户的短说明，可直接展示。 */
+  message: string | null;
+}

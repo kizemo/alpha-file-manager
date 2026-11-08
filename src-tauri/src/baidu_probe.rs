@@ -360,6 +360,162 @@ fn append(path: &PathBuf, lines: &[&str]) {
     let _ = file.flush();
 }
 
+// ---------------------------------------------------------------------------
+// 自检驱动器（2026-11-09）
+// ---------------------------------------------------------------------------
+
+/// 自检开关。设为 `1` 时跑一遍完整链路：
+/// 「开登录窗 → 等到登录态 → 认领落盘」，走的是**真实命令**，
+/// 不是另写一套旁路。
+const SELFTEST_ENV: &str = "AFM_BAIDU_SELFTEST";
+/// 自检目标连接 id。给了就用它；不给就从连接表里挑第一条 `baidu_pan`。
+const SELFTEST_CONN_ENV: &str = "AFM_BAIDU_SELFTEST_CONN";
+/// 自检报告路径。
+const SELFTEST_OUT_ENV: &str = "AFM_BAIDU_SELFTEST_OUT";
+/// 自检最多等多久（秒）。
+const SELFTEST_WAIT: Duration = Duration::from_secs(180);
+
+/// 入口。由 `setup_handler` 调用；gate 未开时什么都不做。
+pub fn install_selftest(app: &tauri::AppHandle) {
+    if std::env::var(SELFTEST_ENV).ok().as_deref() != Some("1") {
+        return;
+    }
+    let app = app.clone();
+    std::thread::spawn(move || run_selftest(app));
+}
+
+fn selftest_out_path() -> PathBuf {
+    match std::env::var(SELFTEST_OUT_ENV) {
+        Ok(value) if !value.trim().is_empty() => PathBuf::from(value.trim()),
+        _ => std::env::temp_dir().join("afm-baidu-selftest.txt"),
+    }
+}
+
+fn run_selftest(app: tauri::AppHandle) {
+    let path = selftest_out_path();
+    let _ = std::fs::write(&path, b"");
+    append(&path, &[&format!("SELFTEST started_utc: {}", utc_stamp())]);
+
+    let connection_id = match resolve_selftest_connection(&app) {
+        Ok(id) => id,
+        Err(err) => {
+            append(
+                &path,
+                &[
+                    &format!("SELFTEST FATAL: cannot resolve connection: {err}"),
+                    "VERDICT_SELFTEST: FAIL",
+                ],
+            );
+            return;
+        }
+    };
+    append(&path, &[&format!("SELFTEST target connection: {connection_id}")]);
+
+    // 走真实命令：开登录窗。
+    match crate::baidu_login::remote_baidu_login_start(app.clone()) {
+        Ok(payload) => append(
+            &path,
+            &[&format!("SELFTEST login_start: opened={}", payload.opened)],
+        ),
+        Err(err) => {
+            append(
+                &path,
+                &[
+                    &format!("SELFTEST FATAL: login_start failed: {err}"),
+                    "VERDICT_SELFTEST: FAIL",
+                ],
+            );
+            return;
+        }
+    }
+
+    // 等认领槽位被填上。
+    let started = Instant::now();
+    let mut pending = None;
+    while started.elapsed() < SELFTEST_WAIT {
+        std::thread::sleep(Duration::from_secs(1));
+        let state = crate::baidu_login::remote_baidu_login_pending();
+        if state.pending {
+            pending = Some(state);
+            break;
+        }
+    }
+
+    let Some(state) = pending else {
+        append(
+            &path,
+            &[
+                &format!("SELFTEST RESULT: FAIL (no pending session within {SELFTEST_WAIT:?})"),
+                "VERDICT_SELFTEST: FAIL",
+            ],
+        );
+        return;
+    };
+    append(
+        &path,
+        &[&format!(
+            "SELFTEST pending: has_stoken={} summary={}",
+            state.has_stoken, state.summary
+        )],
+    );
+
+    // 认领落盘 —— 这一步会真的改写 `remote-credentials.json`。
+    match crate::baidu_login::remote_baidu_login_claim(app.clone(), connection_id.clone()) {
+        Ok(payload) => append(
+            &path,
+            &[
+                &format!(
+                    "SELFTEST claim: claimed={} summary={}",
+                    payload.claimed, payload.summary
+                ),
+                "PROBE_SEQUENCE: complete",
+                "VERDICT_SELFTEST: PASS",
+            ],
+        ),
+        Err(err) => append(
+            &path,
+            &[
+                &format!("SELFTEST FATAL: claim failed: {err}"),
+                "VERDICT_SELFTEST: FAIL",
+            ],
+        ),
+    }
+}
+
+/// 找自检要用的连接 id：环境变量优先，否则从连接表里挑第一条 `baidu_pan`。
+fn resolve_selftest_connection(app: &tauri::AppHandle) -> Result<String, String> {
+    if let Ok(value) = std::env::var(SELFTEST_CONN_ENV) {
+        let trimmed = value.trim().to_string();
+        if !trimmed.is_empty() {
+            return Ok(trimmed);
+        }
+    }
+
+    let dir = crate::app_dirs::app_data_dir(app).map_err(|err| err.to_string())?;
+    let path = dir.join("user-data").join("user-remote-connections.json");
+    let text = std::fs::read_to_string(&path)
+        .map_err(|err| format!("{}: {err}", path.display()))?;
+    let value: serde_json::Value = serde_json::from_str(&text).map_err(|err| err.to_string())?;
+    let connections = value
+        .get("connections")
+        .and_then(serde_json::Value::as_array)
+        .ok_or("连接表里没有 connections 数组")?;
+
+    for connection in connections {
+        let is_baidu = connection
+            .get("protocol")
+            .and_then(serde_json::Value::as_str)
+            == Some("baidu_pan");
+        if is_baidu {
+            if let Some(id) = connection.get("id").and_then(serde_json::Value::as_str) {
+                return Ok(id.to_string());
+            }
+        }
+    }
+
+    Err("连接表里没有 baidu_pan 连接".to_string())
+}
+
 fn utc_stamp() -> String {
     // 不引入 chrono：探针只需要一个粗时间戳，用 SystemTime 的秒数即可。
     std::time::SystemTime::now()
