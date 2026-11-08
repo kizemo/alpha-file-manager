@@ -128,9 +128,35 @@ VERDICT=LOCATIONS_FOUND
 ### 5.5 站点与 GitHub
 
 - `release:prepare --bump none --skip-build --notes-file .superpowers/sdd/release-notes-3.13.0.md` → 站点 `version.json` 升到 3.13.0，旧版 3.12.2 已归档进 `history[]`，安装包已复制到站点源目录（sha256 一致）。
-- `release:prepare --write-notes .superpowers/sdd/release-notes-3.13.0.md` → 生成 `_release-notes-v3.13.0.md`。
-- `release:upload` → SFTP 全量上传 + 公网回读校验（`_upload_alpha_files.py` 会把站点目录里**全部** .exe 重传一遍，约 1.5 GB，耗时长属正常）。
-- `release:github` → GitHub 兜底 Release。
+- `release:prepare --write-notes .superpowers/sdd/release-notes-3.13.0.md` → 生成 `_release-notes-v3.13.0.md`（带构建信息，供 GitHub 正文读取）。
+- `release:upload` → SFTP 全量上传 **exit 0**（`_upload_alpha_files.py` 会把站点目录里**全部** .exe 重传一遍，约 1.5 GB，耗时约 20 分钟属正常），随后自动公网回读校验通过。
+- `release:github` → GitHub 兜底 Release 已创建。
+
+### 5.6 对外发布结果（已回读确认）
+
+**站点**（`https://www.aiec.fun/alpha-file-manager/version.json`，带 cache-busting 回读）：
+
+| 项 | 值 |
+| --- | --- |
+| 线上版本 | `3.13.0` |
+| 发布日期 | `2026-11-08T14:02:54Z` |
+| 清单 sha256 | `21c8bef950663b76f9bd78ef88780f6d0ecb21373874b4eb98a721b82c9fc1c4` |
+| 下载直链 | `https://www.aiec.fun/alpha-file-manager/Alpha_File_Manager_3.13.0_x64-setup.exe` |
+| 源站 / 边缘包大小 | 45,370,188 字节 / 45,370,188 字节（`CF-Cache-Status=MISS`） |
+| 回读结论 | 版本号 / 大小 / sha256 **三项均一致**（源站与边缘都已生效） |
+
+站点 `index.html` **无硬编码版本号与安装包文件名**（实测 `EXE_REFS=[]`、`VER_LITERALS=[]`）⇒ 下载入口读 `version.json`，站点页无需改。
+
+**GitHub**：
+
+| 项 | 值 |
+| --- | --- |
+| Release | `https://github.com/kizemo/alpha-file-manager/releases/tag/v3.13.0` |
+| tag 指向 | `f6f8f865`（= 本地 `main` HEAD） |
+| 草稿 / 预发布 | `isDraft=false` / `isPrerelease=false`（会作为 Latest release） |
+| 发布时间 | `2026-11-08T14:13:45Z` |
+| 资产 | `Alpha_File_Manager_3.13.0_x64-setup.exe`，45,370,188 字节，digest sha256 与清单一致 |
+| 正文 | 已写入中文发布说明（非空，长度正常） |
 
 > ⚠️ **`release:prepare` 默认 `--bump patch` 且默认重新打包**。本轮首次误跑把 3.13.0 顶成 **3.13.1** 并触发重复构建，已 `git checkout -- package.json src-tauri/**` 还原版本号并停掉任务。
 > ⇒ 固定写法：`node scripts/release-publish.mjs prepare --bump none --skip-build --notes-file <说明文件>`。
@@ -164,6 +190,6 @@ VERDICT=LOCATIONS_FOUND
 
 | 项 | 状态 | 说明 |
 | --- | --- | --- |
-| 隔离配置下「未配置网盘/远程时不显示标题」的真机取证 | ⚠️ 未做 | 代码侧已由 `filter(section => section.entries.length > 0)` 保证；用全新 APPDATA 启动时应用停在初始态，脚本找不到文件浏览器工具栏锚点（`TOOLBAR_MISSING` / `NO_TOOLBAR_ANCHOR` exit 3）。可改用地址栏 `Ctrl+L` → `sfm://locations` 进入后重跑 |
+| 隔离配置下「未配置网盘/远程时不显示标题」的**真机**取证 | ⚠️ 未做（**不影响结论**） | 代码与单测已覆盖：`file-browser-location-groups.test.ts` 的 `renders no section header when only the drives group exists` 断言 `sections.length===1` 且 `headerRowIndex===-1` —— 空分区连段头行都不生成。真机侧用全新 APPDATA 启动时应用停在初始态，脚本找不到文件浏览器工具栏锚点（`TOOLBAR_MISSING` / `NO_TOOLBAR_ANCHOR` exit 3）。可改用地址栏 `Ctrl+L` → `sfm://locations` 进入后重跑 |
 | 需求 3 产品化（自动填 cookie） | 未开始 | 报告已给出可落地的 4 步接线方案，**本轮明确不改认证代码** |
 | `extensions/kizemo.focus-sync/sidecar/src/bin/` | 未跟踪 | 与本轮无关的既有未跟踪目录，**故意不提交** |
