@@ -193,3 +193,49 @@ f3 的自愈分支只按 UIA 找到表单按钮就直接 `SetCursorPos` + `mouse
 - 内嵌登录按钮：`Button|用内嵌窗口登录|1552,1188 198x61`，中心 `(1651,1218)`
 - 登录窗标题「百度网盘登录」，**用标题精确匹配区分，不要靠尺寸**
 - `uia-not-ready.txt` 只 dump 主窗子树，**不含登录窗内部**；要判断百度页渲染什么，需 `FromHandle(17892454)` 单独 dump
+
+## 2026-11-09 追加：根因定案 + 修复 + 真机验收通过 + 已合并 main
+
+### 根因（推翻此前结论）
+- **D1 白屏**：不是渲染问题，是**建窗死锁**。`tauri-runtime-wry-2.11.4/src/lib.rs:2767`
+  的 `create_webview` 注释要求「必须在独立线程调用」。命令从 WebView2 的 IPC 回调进来
+  = 事件循环线程 → 在那里 `build()` 会让 webview 创建派发回事件循环并等回复，而事件循环
+  正卡在该回调里 ⇒ 窗体建出来（看起来正常）但 webview 永远不渲染，且后续调用一起挂死。
+  `AppHandle::run_on_main_thread` **单独用不够**（任务里仍在事件循环线程上调 `build()`）。
+- **D2「cookies_for_url 在后台线程必然死锁」**：**结论作废**。探针实证后台线程调用可成功
+  （+2s 拿到 11 条 cookie）。真正的挂死点是上面那一条。
+
+### 修复（`src-tauri/src/baidu_login.rs` 整体重写）
+- 建窗改到 `std::thread::spawn`；
+- 轮询器加 **generation 计数器**（修掉「窗口已存在就提前 return、不重启轮询」的 bug）；
+- 读 cookie 改为另起线程 + `recv_timeout(10s)`，**超时判定挪到读 cookie 之前**
+  （否则读挂住时超时分支不可达），连续失败 3 次才放弃；
+- 新增文件诊断日志 `AFM_BAIDU_LOG`（只写状态，不写 cookie 明文）；
+- `baidu_probe.rs` 新增自检驱动器 `AFM_BAIDU_SELFTEST=1`，走**真实命令**链路
+  `remote_baidu_login_start` → `remote_baidu_login_pending` → `remote_baidu_login_claim`；
+- `remote/commands.rs` 的 `REMOTE_COMMANDS` 补 4 条登录命令（修掉 invoke_handler 反向检查的红测）。
+
+### 真机验收（`tauri build` 打包产物，装在 `D:\Program Files\Alpha File Manager`）
+- 证据目录 `.superpowers/sdd/baidu-embedded-accept/run6/`
+- `selftest.txt`：`VERDICT_SELFTEST: PASS`，登录态 `BDUSS(len=192) + STOKEN(len=64)`
+- `baidu-login.log`：建窗 +1.05s → 轮询读到登录态 +2.0s → 认领落盘 +3.2s
+- `login-window.png`：**登录窗渲染出完整百度网盘界面**（D1 白屏已消除）
+- 判据：`remote-credentials.json` mtime `2026-11-08 15:16:22` → `2026-11-09 02:58:34`，
+  SHA256 `0AB64B4BE07D590A` → `08960A348A44C087`；字节数 793 → 793
+- 裸 `CryptUnprotectData` 解密确认：`{"version":1,"bduss":…192…,"stoken":…64…}`
+- 新旧明文**逐字段不同**（旧 `dBRXR-…SdRqUj` → 新 `NVejZJ…Q-9qSm`）⇒ 不是「重写一遍」
+
+### 遗留（未证实也未证伪，如实记录）
+- 新落盘的 BDUSS **在百度服务端是否仍有效，未能证实也未能证伪**：
+  `/disk/main` 是 SPA 静态壳（带/不带 cookie 的 HTML 逐字相同，`uk=0`），
+  `gettemplatevariable` 不按 cookie 鉴权，老 `pcs/file` 接口已 404 ⇒ 三个判据都无鉴别力。
+  截图右上角显示「登录」而非用户名，疑为 SPA 初始渲染占位，**不能据此判定失效**。
+  要定性需用户在新登录窗里人工登录一次，或找一个真按 cookie 鉴权的接口。
+- 旧会话备份：`.superpowers/sdd/baidu-e2e-backup/remote-credentials.json`（793 B / `0AB64B4BE07D590A`）。
+
+### 合并与门禁
+- 提交 `f2599a0f feat(remote): 百度网盘内嵌登录窗口`，已 **fast-forward 合并回 `main`**
+  （`main` = `f2599a0f`，ahead origin/main 1，**未推送**）。
+- `cargo test --lib`：**1142 passed / 0 failed / 1 ignored**
+- `npx vue-tsc --build`：0；`node scripts/verify-changelog.mjs`：0
+- `npx eslint .`：177 errors / 0 warnings（存量；本次改动的 3 个前端文件**零错误**，基线 188）
