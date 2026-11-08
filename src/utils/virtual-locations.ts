@@ -27,6 +27,7 @@ import {
   WSL_HOST_VIRTUAL_PATH,
 } from '@/utils/virtual-path-constants';
 import { createDriveEntryMetadata } from '@/utils/drive-icon';
+import { getRemoteLocationRefs } from '@/utils/remote-location-refs';
 
 export {
   isVirtualDirectoryPath,
@@ -113,8 +114,39 @@ export function getWslDistributionDrives(drives: DriveInfo[]): DriveInfo[] {
   return drives.filter(drive => isWslDistributionDrive(drive));
 }
 
-export function buildLocationsDirectoryFromDrives(drives: DriveInfo[]): DirContents {
-  const entries = drives.map(drive => driveInfoToDirEntry(drive));
+/**
+ * 远程连接在「位置」页里的条目（用户 2026-11-08 需求 3）。
+ *
+ * 「位置」此前只有分区。用户已配置的网盘与远程服务器同样属于「位置」，
+ * 应该在同一页列出来、点一下就进去，而不是去设置页或悬停面板里找。
+ *
+ * 条目来自 `remote-location-refs` 注册表，由 `remote-connections` store 在连接变化时写入，
+ * 每条已是**连接根目录**，非法 id 在写入侧就被丢掉。
+ *
+ * 这里**不能**直接 import store：本模块被工具栏、地址栏和若干纯函数单测引入，
+ * 引入 store 会把 `@tauri-apps/plugin-store` 与 `@/data/user-paths` 一并拖进每个使用方的模块图，
+ * 实测拖坏 `use-file-browser-drag-session.test.ts` 的 8 条用例。
+ *
+ * 注册表为空（单测环境、或 store 尚未初始化）时，位置页退化成「只有分区」，与改动前一致。
+ */
+function getRemoteLocationEntries(): DirEntry[] {
+  return getRemoteLocationRefs().map(ref => createVirtualDirectoryEntry(ref.path, ref.name));
+}
+
+/**
+ * `remoteEntries` 做成**默认参数**，是为了让所有调用方口径一致。
+ *
+ * 位置页的条目由三处生成：`readLocationsDirectory`（真正读目录）、
+ * `buildVirtualDirectoryFromDrives`（盘符变化时重建）、
+ * `getLocationsDriveListDisplaySignature`（与当前目录比较判是否刷新）。
+ * 只要有一处不带远程条目，`use-file-browser-navigation.ts` 里的签名比较就永远不相等，
+ * 盘符每变化一次都会多触发一次 `silentRefresh`。默认参数把这条路堵死。
+ */
+export function buildLocationsDirectoryFromDrives(
+  drives: DriveInfo[],
+  remoteEntries: DirEntry[] = getRemoteLocationEntries(),
+): DirContents {
+  const entries = [...drives.map(drive => driveInfoToDirEntry(drive)), ...remoteEntries];
   const directoryCount = entries.length;
 
   return {

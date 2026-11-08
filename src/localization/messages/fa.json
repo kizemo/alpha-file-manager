@@ -699,7 +699,9 @@
         "emptyRemote": "هنوز هیچ اتصال راه دوری اضافه نشده است.",
         "empty": "No connections yet.",
         "split": "Split",
-        "editConnection": "Edit this connection"
+        "editConnection": "Edit this connection",
+        "homeTitle": "دیسک‌های ابری و اتصال‌های راه دور",
+        "homeEmpty": "هنوز هیچ دیسک ابری یا اتصال راه دوری پیکربندی نشده است."
       },
       "trustedHosts": {
         "title": "Trusted hosts",
@@ -736,10 +738,6 @@
           "noteExpiry": "پس از انقضای Cookie این برنامه نمی‌تواند آن را تمدید کند؛ دوباره وارد شوید و یک Cookie تازه کپی کنید.",
           "notePrivacy": "Cookie به همان اندازه رمز عبور شما حساس است. فقط با Windows DPAPI رمزنگاری‌شده روی همین رایانه نگه‌داری می‌شود، جایی ارسال نمی‌شود و در گزارش ثبت نمی‌شود."
         }
-      },
-      "tab": {
-        "netdisk": "افزودن دیسک ابری",
-        "remote": "افزودن اتصال راه دور"
       }
     },
     "about": {

@@ -9,6 +9,7 @@ import { useI18n } from 'vue-i18n';
 import {
   DrivesSection,
   HomeBanner,
+  RemoteEntriesSection,
   UserDirectoriesSection,
 } from '@/modules/home/components';
 import { PageHomeLayout } from '@/layouts';
@@ -63,6 +64,8 @@ usePageDropZone({
 
       <UserDirectoriesSection v-bind="getStaggerSlideUpBinding(0, {initialDelayMs: 0, stepMs: 300})" />
       <DrivesSection v-bind="getStaggerSlideUpBinding(1, {initialDelayMs: 0, stepMs: 300})" />
+      <!-- 用户 2026-11-08：位置页分区下方加「网盘」「远程连接」两个入口。 -->
+      <RemoteEntriesSection v-bind="getStaggerSlideUpBinding(2, {initialDelayMs: 0, stepMs: 300})" />
     </div>
 
     <FileBrowserConflictDialog

@@ -706,7 +706,9 @@
         "emptyRemote": "Noch keine Remote-Verbindungen.",
         "empty": "No connections yet.",
         "split": "Split",
-        "editConnection": "Edit this connection"
+        "editConnection": "Edit this connection",
+        "homeTitle": "Netzlaufwerke und Remote-Verbindungen",
+        "homeEmpty": "Noch keine Netzlaufwerke oder Remote-Verbindungen eingerichtet."
       },
       "trustedHosts": {
         "title": "Trusted hosts",
@@ -743,10 +745,6 @@
           "noteExpiry": "Läuft das Cookie ab, kann diese App es nicht verlängern – melden Sie sich neu an und kopieren Sie ein neues.",
           "notePrivacy": "Ein Cookie ist so vertraulich wie Ihr Passwort. Es wird nur als Windows-DPAPI-verschlüsselte Datei auf diesem Rechner gespeichert, nie hochgeladen und nicht protokolliert."
         }
-      },
-      "tab": {
-        "netdisk": "Netzlaufwerk hinzufügen",
-        "remote": "Remote-Verbindung hinzufügen"
       }
     },
     "about": {

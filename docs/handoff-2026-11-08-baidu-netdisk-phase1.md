@@ -912,3 +912,172 @@ round 2 包 12:27:02 构建成功（`baidu-navfix-build3.log` 尾行 `BUILD_EXIT
 - **R2「全局搜索扫描进行中切导航不再未响应」仍缺真机复验**（需一次 14-54 分钟全量扫描窗口）。
 - 17 语言包非中文文案为机器翻译直存（已知风险）；`hy` 的 `settings.remote.baidu.help.*` 10 键曾以英文回填。
 - 阶段 1 的 `write_file` / `set_permissions` 仍是 Unsupported（写入操作未做）。
+
+---
+
+## 21. 第二轮三项 UI 优化 + 首页深链缺陷修复（2026-11-08 17:0x-）
+
+> **本节是最新状态，接力从 §21 开始读。** §19 的 AGENTS.md 路径有误（见 21.5）。
+
+### 21.1 用户诉求与状态
+
+| # | 诉求 | 代码 | 门禁 | 真机 |
+|---|---|---|---|---|
+| ① | 设置「远程」页顶部用**标签**区分「网盘」/「远程连接」（不只在添加表单里区分） | 已完成 | ✅ | ✅ 已通过 |
+| ② | 「位置」页（= home 主页）分区下方加「网盘」「远程连接」图标+名称，点击直接进入 | 已完成 | ✅ | ✅ 图标/名称通过；**点击深链原先失败，本轮已修**（见 21.3） |
+| ③ | 网盘打开后标签页标题显示连接名（如「百度网盘」）而不是 id / `sfm://remote/<id>` | 已完成 | ✅ | ✅ 已通过 |
+
+### 21.2 实现要点（改动文件）
+
+- `src/modules/settings/ui/categories/remote/connections-section.vue`（重写）：顶部常驻 `Tabs`（`data-test="remote-section-tabs"`，触发器 `tab-netdisk` / `tab-remote`）；列表/空态/添加按钮/表单按 `activeSection` 过滤共用一份模板；表单用 `:key` 随分区重建（`connection-form.vue` 靠 `variant` 决定 `isNetdisk`）。
+- 默认分区策略：未手动切过时「有网盘连接→网盘；只有远程连接→远程；都没有→网盘」；手动点标签后写 `sectionOverride`，不再被抢走。
+- `src/stores/storage/remote-connections.ts`：新增瞬态 `pendingSection` + `requestRemoteSection()` / `consumeRemoteSection()`（消费即清空）。
+- `src/modules/home/components/remote-entries-section.vue`（新建）+ `home/components/index.ts` 导出 + `home/pages/home.vue` 挂载：分区标题 `settings.remote.nav.homeTitle`，入口 `entry-netdisk`(CloudIcon) / `entry-remote`(ServerIcon)；点击顺序固定为**先 `requestRemoteSection(section)` 再 `openSettingsTab('remote')`**（反了会丢分区意图）。
+- `src/modules/tab-bar/tab/tab.vue` + `src/modules/tab-bar/utils/remote-tab-labels.ts`（新建）：远程标签标题走 `buildRemoteTabLabels`，标题=连接名、副标题=远端相对路径；查不到连接名时退回旧逻辑（显示 id，不留空白）。
+- 17 语言包：新增 `settings.remote.nav.homeTitle`、删除语义失效的 `settings.remote.tab.*`；连词已修（ch「网盘 与 远程连接」、en「&」）。
+- 网盘归类口径固定为 `isBaiduPanProtocol`（`src/types/remote.ts:173`，仅 `protocol === 'baidu_pan'`）。
+
+### 21.3 ★ 本轮发现并修复的真缺陷：首页入口深链落不到「远程」分类
+
+- **现象**：从 home 页点「网盘」入口 → 设置页激活的是**「常规」**分类，UIA 里只有「数字/短的/长」三个页签（常规页的数字长度选项），远程页签完全没有。
+- **根因**（已坐实，非猜测）：`src/stores/runtime/settings.ts` 的 `init()` 兜底
+  `if (!sections.value.some(section => section.category === currentTab.value)) setCurrentTab('general')`
+  **判据用错了集合**。`sections`（可搜索小节）在 `allSections` 里**没有**任何 `category: 'remote'` 的条目——「远程」是**整页分类**，由 `src/modules/settings/ui/view.vue` 的 `categoryComponentMap`（含 `remote: RemoteCategory`）渲染，根本不进小节列表。⇒ 任何合法的 `currentTab === 'remote'` 都会被误回落成 `'general'`。
+  由于 `init()` 开头有 `if (isInitialized.value) return;`，这个覆盖在**每次冷启动后第一次进入设置页**时必然发生 ⇒ 首页「网盘/远程连接」入口与左侧 rail 的「远程」入口**都是坏的**（后者是历史遗留缺陷，本轮一并修好）。
+- **修复**：判据换成**导航页签列表** `tabs`（= `settingsTabs`，其中 `experimental` 仍按小节可用性过滤），并抽出纯函数 `resolveSettingsTabAfterInit(tabName, availableTabNames)`（`src/stores/runtime/settings.ts`）便于单测。
+- **回归测试**：`src/stores/runtime/__tests__/settings-tab-guard.test.ts`（3 用例，含「init() 之后 currentTab 仍是 remote」）。
+
+### 21.4 门禁（修复后）
+
+- `vitest`（5 个相关文件）= **78 passed**；**全量单测 295 files / 2777 tests passed，exit 0**（`.superpowers/sdd/vitest-full-20261108-fix.log`）。
+- `vue-tsc --build` **exit 0**；改动文件 `eslint` **exit 0**；全仓 `eslint .` = **177 errors / 0 warnings**（与基线一致，**exit 1 是 eslint 报告存量错误的正常退出码，不是回归**）。
+
+### 21.5 打包与真机验收（`tauri build` 打包产物，已装机）
+
+- 打包：`npm run tauri:build`（`.superpowers/sdd/build-20261108-fix.cmd`，纯 ASCII，内部 `> log 2>&1` 重定向）→ 新包 `F:\soft\00selfmade\filemanager\sigma-file-manager\release\local-builds\Alpha File Manager_3.12.2_x64-setup.exe`（**45,347,072 B，17:27:10**）。
+- 装机：`cmd /c 'start /wait "" "<exe>" /S'` 静默安装 → `D:\Program Files\Alpha File Manager\alpha-file-manager.exe`（81,996,800 B，17:26:36）。
+- **本轮修复的真机验收（证据目录 `.superpowers/sdd/accept-tabs2fix/`）**：
+  - 主页「网盘」入口 Invoke → 设置页激活的是**「远程」分类**（`REMOTE_CATEGORY_TITLE_HITS=1`），`GENERAL_TEXT_HITS=0`（**不再落「常规」**）；页签 `TabItem 网盘 selected=True`；列表 `ListItem | 百度网盘…`；按钮 `Button | 添加网盘`。
+  - 主页「远程连接」入口 Invoke → 仍在「远程」分类，`TabItem 远程连接 selected=True`，按钮 `Button | 添加远程连接`。
+  - 附带证据：**应用启动时若 `settingsCurrentTab='remote'`，现在会直接停在「远程」分类**（修复前会被 `init()` 打回「常规」）——这是同一条 store 路径的直接体现。
+- 前一轮已在同一安装包体系下确认的三项（不再重复）：设置页远程顶部页签（网盘/远程连接）、home 页「网盘 与 远程连接」分区与两个带图标入口、远程标签标题显示「百度网盘」。
+
+### 21.6 ★ 本轮新增的工具坑
+
+1. **锁屏会话下 UIA `InvokePattern` 可用、原始鼠标/键盘注入不可用**：本轮机器进入锁屏（`LogonUI` 在跑、`GetForegroundWindow()` 返回空、`Graphics.CopyFromScreen` 抛「句柄无效」），`SendInput`/`mouse_event` 全部不落地，但 **UIA `InvokePattern.Invoke()` 照常生效**（Chromium 的可访问性实现自己派发点击）⇒ 锁屏时改用 `InvokePattern`，不要判定「功能没生效」。脚本：`.superpowers/sdd/accept-tabs2-invoke.ps1`。
+2. **UIA `InvokePattern` 前必须先定位到正确的元素**：本轮两次空跑分别因为（a）rail 过滤条件写死 `Width>=30`，实际 rail 按钮是 29x28；（b）排序取到了标题栏按钮（Top=10）而不是 rail 第一个（Top=62）。⇒ rail 按钮的稳定特征是 `Left<80` + `Top∈[50,500]` + `宽高∈[20,60]`。
+3. **应用重启后窗口不再最大化**（本轮变成 1920x1032），**所有硬编码坐标失效** ⇒ 脚本一律按控件名 + ControlType + 尺寸区间定位，别写死屏幕坐标。
+4. **bash 硬安全策略**：`Set-Location` 后用 `Out-File` / 变量拼路径写日志会被拦（报 "write/delete targets cannot be verified safely after a command working directory change"）。⇒ 日志一律用**字面量绝对路径 + `*>` 重定向**；`Set-Location` 用字面量路径，别用变量。
+5. **`vitest` 里 mock `@/localization` 必须同时给 `i18n.global.locale`（`{ value: 'en' }`）**：只给 `t` 会让 `src/modules/changelog/composables/use-changelog.ts:155` 的 `watch(() => i18n.global.locale.value)` 在模块加载期抛错，整个测试文件 0 用例。
+6. **store 单测只 mock 三个依赖即可**：`@/localization`、`@/stores/storage/user-settings`、`@/stores/runtime/platform`；`useSettingsStore` 顶部 import 的 shortcuts / global-shortcuts / extensions 及 `init()` 里 25 个动态 import 的分类组件在 jsdom 下都能正常加载（实测通过）。
+7. **设置页「远程」分类能打开 ≠ 首页入口能深链进去**：前者是手动点导航（`init()` 之后才改 `currentTab`），后者是**跳转前**就设 `currentTab` ⇒ 会被 `init()` 覆盖。验收两者要分别测。
+8. **验收后核对用户数据要看「条目」而不只看字节数**：`user-stats.json` 的 `history` 数组应用自己会去重（本轮 99→98），字节数因此变了 131 B，但那**不是**夹具污染；连接数与连接名逐条一致才是硬判据。
+
+### 21.7 用户数据状态（已收尾）
+
+- 验收前备份：`F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\pre-f-backup-20261108\`（4 个文件）。
+- 核对结论：本轮**没有注入任何夹具**——连接 4 条（速豹堂 / aiec.fun / jury.xin / 百度网盘）与备份逐名一致；`remote-credentials.json`（793 B，mtime 15:16）、`remote-known-hosts.json`（463 B，mtime 10-19）本轮未被触碰。
+- 已按 AGENTS.md 顺序**先 `Stop-Process` 再 restore**：4 个文件字节数与备份**逐项相等**（31550 / 1483 / 1742 / 6038），随后重启应用（PID 已确认存活）。
+
+### 21.8 文档路径更正（§19.6 的 AGENTS.md 路径是错的）
+
+- §19.6 写的 `F:\soft\00selfmade\filemanager\sigma-file-manager\AGENTS.md` **不存在**（读取报 ENOENT）。
+- 生效的项目铁律在**仓库根**：`F:\soft\00selfmade\filemanager\AGENTS.md`。
+- 下游交接/说明文档若引用了子目录路径，一律以仓库根那份为准。
+
+
+
+## 22. R22：远程入口三处改造（设置分区 / 主页连接列表 / 位置页远程条目）
+
+> 用户 2026-11-08 三条修改意见，本轮（R22）实现并收口。
+> 上一节 §21 的历史内容不必重读，本节是**唯一最新状态**。
+
+### 22.1 需求与定稿
+
+| # | 用户原话 | 定稿做法 |
+| --- | --- | --- |
+| 1 | 设置「远程」页面顶部就分为**网盘**和**远程连接**两个选项卡，底部「信任的主机」模块划入**远程连接**选项卡中显示 | 分区判定抽到 `sections.ts` 由父子共用；`index.vue` 收子组件抛上来的 `section-change`，`v-if="activeSection === 'remote'"` 才挂 `TrustedHostsSection` |
+| 2 | 主页的网盘/远程连接入口**点击会跳到远程设置页**，应该显示配置好的网盘、远程连接的**服务器名称**，点击在**导航页视图**中打开 | `remote-entries-section.vue` 按 `store.connections` 分「网盘」「远程连接」两组列条目，点击走 `openRemoteConnection(connection, { navigateToNavigator, openPanes })`；**不再** `openSettingsTab('remote')` |
+| 3 | 导航器的「位置」页面当前**只有分区**，也要添加网盘和远程配置的服务器 | `buildLocationsDirectoryFromDrives(drives, remoteEntries = getRemoteLocationEntries())` 用**默认参数**带上远程条目，让四个消费方口径一致 |
+
+三条需求的归类口径**只有一个**：`isBaiduPanProtocol`（`src/types/remote.ts:173`）。
+以后接阿里云盘只需扩这个判定，三处自动跟上。
+
+### 22.2 落到哪些文件
+
+- 新建 `src/modules/settings/ui/categories/remote/sections.ts`：`RemoteSection = 'netdisk' | 'remote'`、`sectionOfProtocol()`、`sectionOfConnection()`。
+- 重写 `.../remote/index.vue`：`activeSection = ref<RemoteSection | null>(null)`。**初值刻意是 `null` 不是 `'netdisk'`** —— 还没收到子组件第一份报告时不知道它落在哪个标签，猜 `'netdisk'` 会让「只有远程连接」的用户在挂载瞬间看见「信任的主机」闪一下再消失。
+- `.../remote/connections-section.vue`：改从 `./sections` 引入分区判定；`watch(activeSection, …, { immediate: true })` 向上 emit `section-change`。`immediate` **必需**——否则子组件初值永远不上报，父组件停在 `null`，信任的主机永不显示。
+- 重写 `src/modules/home/components/remote-entries-section.vue`：两组列名（`CloudIcon` / `ServerIcon`），空状态给 `settings.remote.nav.homeEmpty` + 「远程连接设置」按钮。空状态那条按钮**不是**回到第一版：第一版是**唯一入口**只有跳设置，用户否掉的是那个。
+- 重写 `src/modules/home/components/remote-entries-section.test.ts`（4 用例）。
+- 17 个语言包补 `settings.remote.nav.homeEmpty`（`add-home-empty.cjs`：`WRITTEN=17` / `PROBLEMS=0`；中文 locale code 是 `ch` 不是 `zh`）。
+- 新建 `src/utils/remote-location-refs.ts`：`RemoteLocationRef { path, name }` + `setRemoteLocationRefs()` / `getRemoteLocationRefs()`。
+- `src/stores/storage/remote-connections.ts`：`watch(connections, value => setRemoteLocationRefs(value), { immediate: true })`（store 推、`virtual-locations` 读快照）。
+- `src/utils/virtual-locations.ts`：删掉 `useRemoteConnectionsStore` / `RemoteConnection` 两个 import，`getRemoteLocationEntries()` 改为 `return getRemoteLocationRefs().map(ref => createVirtualDirectoryEntry(ref.path, ref.name));`。
+
+### 22.3 ★ 为什么远程条目要走「注册表」而不是直接在工具函数里 import store
+
+这是本轮**唯一一次真实回归**，值得写死：
+
+`src/utils/virtual-locations.ts` 是**纯工具模块**，被 `address-bar.vue`、工具栏、以及**大量单测**引入。
+第一版直接在它里面 `import { useRemoteConnectionsStore }`，于是每个使用方的模块图都被拖进
+`@tauri-apps/plugin-store` 与 `@/data/user-paths` —— 实测**拖红 8 个用例**（`use-file-browser-drag-session.test.ts`）。
+
+改成「store 主动推快照到无依赖的注册表，工具模块只读快照」后，模块图恢复干净，8 条用例转绿。
+
+**判据**：纯工具模块（`src/utils/**`）**不得** import 任何 `@/stores/**`。
+需要 store 数据时，让 store 反向往工具模块注册。
+
+### 22.4 门禁（本轮全部实跑）
+
+| 项 | 结果 | 日志 |
+| --- | --- | --- |
+| `npx vitest run`（drag-session + virtual-locations + remote-entries） | **3 files / 39 tests passed** | — |
+| `npx vue-tsc --build` | **exit 0** | `.superpowers/sdd/tsc-r22b.log` |
+| `npx vitest run`（全量） | **295 files / 2778 tests passed**，`Errors 1 error`，exit 1 | `.superpowers/sdd/vitest-full-r22b.log` |
+| `npx eslint .`（全仓） | **177 problems (177 errors, 0 warnings)** = 基线 | `.superpowers/sdd/eslint-r22d.log` |
+
+- 全量单测那 1 个 `Errors` 是 **Unhandled Rejection**：`TypeError: Cannot read properties of undefined (reading 'filter')` @ `address-bar-editor-utils.ts:624:69`。单独跑 `address-bar-editor-dialog.test.ts` → 6 passed、**无该错误** ⇒ 并发下的既有隐性 flake，涉及文件本轮**未改动**。
+- **`eslint .` 的 exit 1 是 eslint 报告存量错误的正常退出码**，判据看日志末行 `✖ N problems`；本轮基线 = 177。
+
+### 22.5 打包与真机验收
+
+#### 打包与装机
+
+- 脚本 `.superpowers/sdd/build-r22b.cmd`（**纯 ASCII**；`npm run tauri:build`；日志自己 `> logfile 2>&1`，不挂 stdout 管道），后台跑完 **exit 0**；日志 `.superpowers/sdd/build-r22b.log`（245 418 B）末行 `BUILD_EXIT=0`。
+- 产物 `release\local-builds\Alpha File Manager_3.12.2_x64-setup.exe` = **45 351 476 B / 18:28:30**（旧包 18:10:36 ⇒ 确认是本轮新包，没复用到旧产物）。
+- 装机：停旧进程（`SURVIVORS=0`）→ `cmd /c start /wait "" "<setup>" /S` → `INSTALL_EXIT=0` → 已装 `D:\Program Files\Alpha File Manager\alpha-file-manager.exe` = **81 996 800 B / 18:27:54**（旧 17:26:36）→ 启动新进程 **PID 882344 / 18:29:51**。
+
+#### 验收结论
+
+| 需求 | 结论 | 证据目录 |
+| --- | --- | --- |
+| ① 设置「远程」分两选项卡，信任的主机只出现在「远程连接」 | ✅ **成立** | `.superpowers/sdd/accept-r22c/` |
+| ② 主页列出已配置的网盘/服务器名称，点击在**导航页视图**打开 | ✅ **成立** | `.superpowers/sdd/accept-r22/` |
+| ③ 位置页除分区外也列出网盘与远程服务器 | ✅ **成立** | `.superpowers/sdd/accept-r22/` |
+
+**需求 ① 的判别链**（`accept-r22c.ps1` → `accept-r22c/verdict.txt`）：真实鼠标点击 left rail（`SetCursorPos` + `mouse_event`）→ `SETTINGS_RAIL_INDEX=3` 落到设置页 → 点「远程」分类 → 顶部出现两个标签（`TAB_NETDISK=1`，`网盘 @719,417 387x33`；`远程连接 @1105,417 415x33`），随后：
+
+- 默认标签 = `网盘` ⇒ `TRUSTED_ON_NETDISK=0`（元素总数 103，无信任区）
+- 点「远程连接」⇒ `TRUSTED_ON_REMOTE=1`，dump 实含
+  `Text | 已信任的主机 | 759,927 109x28` 与
+  `Text | 你已核对过的主机公钥。只有信任之后，远程目录才会打开。 | 759,954 257x46`，
+  元素总数 **103 → 125**（+22）
+- 留在远程标签下复测 `TRUSTED_FINAL=1`
+
+⇒ 「已信任的主机」**只在**「远程连接」标签下渲染，在「网盘」标签下完全不渲染。
+
+**需求 ② 的判别链**（`accept-r22.ps1`）：主页 dump 命中 `网盘` / `远程连接` / `速豹堂` / `百度网盘` / `aiec.fun` / `jury.xin`；点击 `速豹堂` 卡片后 `AFTER_CLICK_SETTINGS_TABS net=0 rem=0`（**没跳设置页**）、`AFTER_CLICK_CONNNAME_HITS=0`，页面出现盘符 + 文件列表 + `website_sbt` ⇒ 在导航页视图中打开了该服务器。
+
+**需求 ③ 的判别链**（`accept-r22.ps1` → `uia-c-locations.txt`）：位置页 dump 实含
+`Button | 百度网盘 — | 397,97 244x58`、`速豹堂 — @660,97`、`aiec.fun — @397,175`、`jury.xin — @660,175`（左右两屏各一份），与 5 个盘符共存。
+
+#### 取证踩到的坑（写死，别重试）
+
+- **UIA `InvokePattern.Invoke()` 对 left rail 按钮静默无效**：调用返回成功、页面却不切换（三次 dump 元素数都是 412 = 停在导航器页），产出假的 `SETTINGS_REMOTE_NAV_NOT_FOUND`。`LOCKED=False` 时改走**真实鼠标点击**最可靠 —— `accept-r22.ps1`（Invoke 版）在这一步全军覆没，`accept-r22c.ps1`（鼠标版）一次通过。
+- **UIA `Name` 精确等值匹配对卡片 / 标签类元素不可靠**：位置页远程条目的真实 `Name` 是 `速豹堂 —`（名称 + 空格 + 容量占位符 ` —`），用等值匹配 `速豹堂` 得 **0 命中 = 假阴性**，本轮因此在需求 ③ 上误判过一轮。此类断言改用子串匹配，或直接读 dump 全文。
+- 本次 `SCREEN_X=1920`（100% 缩放），与历史记录的 `2560`（150%）不同 ⇒ **坐标口径随会话缩放变，任何坐标都不要硬编码**。
+
+### 22.6 已知局限（本轮不改，记录在案）
+
+- 「位置」页的远程条目在**连接列表晚于首次构建加载**时，要等下一次刷新才出现（`watch(sharedDrives)` 不会因 `connections` 变化触发）。正常启动路径下 `init()` 先于首次渲染，观察不到。

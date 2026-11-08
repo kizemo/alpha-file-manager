@@ -743,7 +743,9 @@
         "emptyRemote": "ابھی کوئی ریموٹ کنکشن نہیں ہے۔",
         "empty": "No connections yet.",
         "split": "Split",
-        "editConnection": "Edit this connection"
+        "editConnection": "Edit this connection",
+        "homeTitle": "کلاؤڈ ڈسکس او ریموٹ کنکشنز",
+        "homeEmpty": "ابھی تک کوئی کلاؤڈ ڈسک یا ریموٹ کنکشن کنفیگر نہیں کیا گیا۔"
       },
       "trustedHosts": {
         "title": "Trusted hosts",
@@ -780,10 +782,6 @@
           "noteExpiry": "Cookie کی میعاد ختم ہونے کے بعد یہ ایپ اسے تجدید نہیں کر سکتی؛ دوبارہ لاگ اِن کریں اور نیا کاپی کریں۔",
           "notePrivacy": "Cookie آپ کے پاس ورڈ جتنا حساس ہے۔ یہ صرف Windows DPAPI کے ذریعے انکرپٹ ہو کر اسی کمپیوٹر پر محفوظ ہوتا ہے، باہر نہیں جاتا اور لاگ میں نہیں لکھا جاتا۔"
         }
-      },
-      "tab": {
-        "netdisk": "کلاؤڈ ڈسک شامل کریں",
-        "remote": "ریموٹ کنکشن شامل کریں"
       }
     },
     "about": {

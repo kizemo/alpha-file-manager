@@ -706,7 +706,9 @@
         "emptyRemote": "Nessuna connessione remota.",
         "empty": "No connections yet.",
         "split": "Split",
-        "editConnection": "Edit this connection"
+        "editConnection": "Edit this connection",
+        "homeTitle": "Dischi cloud e Connessioni remote",
+        "homeEmpty": "Nessun disco cloud o connessione remota configurata."
       },
       "trustedHosts": {
         "title": "Trusted hosts",
@@ -743,10 +745,6 @@
           "noteExpiry": "Quando il cookie scade, l'app non può rinnovarlo; accedi di nuovo e copialo da capo.",
           "notePrivacy": "Il cookie vale quanto la tua password. Viene salvato solo cifrato con Windows DPAPI su questo PC, non viene caricato né scritto nei log."
         }
-      },
-      "tab": {
-        "netdisk": "Aggiungi disco cloud",
-        "remote": "Aggiungi connessione remota"
       }
     },
     "about": {

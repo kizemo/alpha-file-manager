@@ -743,7 +743,9 @@
         "emptyRemote": "अभी तक कोई रिमोट कनेक्शन नहीं है।",
         "empty": "No connections yet.",
         "split": "Split",
-        "editConnection": "Edit this connection"
+        "editConnection": "Edit this connection",
+        "homeTitle": "क्लाउड स्टोरेज औ रिमोट कनेक्शन",
+        "homeEmpty": "अभी तक कोई क्लाउड स्टोरेज या रिमोट कनेक्शन कॉन्फ़िगर नहीं किया गया है।"
       },
       "trustedHosts": {
         "title": "Trusted hosts",
@@ -780,10 +782,6 @@
           "noteExpiry": "Cookie की समय-सीमा समाप्त होने पर यह ऐप उसे नवीनीकृत नहीं कर सकता; फिर से साइन इन कर नया Cookie कॉपी करें।",
           "notePrivacy": "Cookie आपके पासवर्ड के बराबर संवेदनशील है। यह केवल इस कंप्यूटर पर Windows DPAPI से एन्क्रिप्ट होकर सहेजा जाता है, कभी अपलोड नहीं होता और लॉग में नहीं लिखा जाता।"
         }
-      },
-      "tab": {
-        "netdisk": "क्लाउड स्टोरेज जोड़ें",
-        "remote": "रिमोट कनेक्शन जोड़ें"
       }
     },
     "about": {

@@ -706,7 +706,9 @@
         "emptyRemote": "还没有远程连接。",
         "empty": "还没有配置任何远程连接。",
         "split": "双屏",
-        "editConnection": "编辑该连接"
+        "editConnection": "编辑该连接",
+        "homeTitle": "网盘 与 远程连接",
+        "homeEmpty": "还没有配置任何网盘或远程连接。"
       },
       "trustedHosts": {
         "title": "已信任的主机",
@@ -743,10 +745,6 @@
           "noteExpiry": "Cookie 到期后本应用无法自动续期，只能重新登录再复制一次。",
           "notePrivacy": "Cookie 等同于你的登录密码。它只以 Windows DPAPI 密文保存在本机，不会上传，也不会写进日志。"
         }
-      },
-      "tab": {
-        "netdisk": "添加网盘",
-        "remote": "添加远程连接"
       }
     },
     "about": {

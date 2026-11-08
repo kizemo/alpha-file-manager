@@ -706,7 +706,9 @@
         "emptyRemote": "リモート接続はまだありません。",
         "empty": "No connections yet.",
         "split": "Split",
-        "editConnection": "Edit this connection"
+        "editConnection": "Edit this connection",
+        "homeTitle": "クラウドディスク と リモート接続",
+        "homeEmpty": "クラウドディスクもリモート接続もまだ設定されていません。"
       },
       "trustedHosts": {
         "title": "Trusted hosts",
@@ -743,10 +745,6 @@
           "noteExpiry": "Cookie の有効期限が切れると、このアプリでは更新できません。再度ログインしてコピーし直してください。",
           "notePrivacy": "Cookie はパスワードと同じく機微な情報です。Windows DPAPI で暗号化された状態でのみこの PC に保存され、送信したりログに記録したりすることはありません。"
         }
-      },
-      "tab": {
-        "netdisk": "クラウドディスクを追加",
-        "remote": "リモート接続を追加"
       }
     },
     "about": {

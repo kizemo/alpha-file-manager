@@ -743,7 +743,9 @@
         "emptyRemote": "אין עדיין חיבורים מרוחקים.",
         "empty": "No connections yet.",
         "split": "Split",
-        "editConnection": "Edit this connection"
+        "editConnection": "Edit this connection",
+        "homeTitle": "כונני ענן ו חיבורים מרוחקים",
+        "homeEmpty": "עדיין לא הוגדרו כונני ענן או חיבורים מרוחקים."
       },
       "trustedHosts": {
         "title": "Trusted hosts",
@@ -780,10 +782,6 @@
           "noteExpiry": "כשתוקף ה-Cookie יפוג האפליקציה לא תוכל לחדש אותו — יש להתחבר מחדש ולהעתיק עוגייה חדשה.",
           "notePrivacy": "Cookie רגיש כמו הסיסמה שלכם. הוא נשמר רק בהצפנת Windows DPAPI במחשב הזה, לא עולה לרשת ולא נרשם ביומנים."
         }
-      },
-      "tab": {
-        "netdisk": "הוספת כונן ענן",
-        "remote": "הוספת חיבור מרוחק"
       }
     },
     "about": {
