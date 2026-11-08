@@ -28,6 +28,7 @@ import {
 } from '@/utils/virtual-path-constants';
 import { createDriveEntryMetadata } from '@/utils/drive-icon';
 import { getRemoteLocationRefs } from '@/utils/remote-location-refs';
+import { isBaiduPanProtocol } from '@/types/remote';
 
 export {
   isVirtualDirectoryPath,
@@ -130,7 +131,15 @@ export function getWslDistributionDrives(drives: DriveInfo[]): DriveInfo[] {
  * 注册表为空（单测环境、或 store 尚未初始化）时，位置页退化成「只有分区」，与改动前一致。
  */
 function getRemoteLocationEntries(): DirEntry[] {
-  return getRemoteLocationRefs().map(ref => createVirtualDirectoryEntry(ref.path, ref.name));
+  return getRemoteLocationRefs().map((ref) => {
+    const entry = createVirtualDirectoryEntry(ref.path, ref.name);
+
+    // 归类口径与设置页、主页**完全一致**：只有 `isBaiduPanProtocol` 一个判定。
+    // 以后接阿里云盘只要扩这个函数，「位置」页自动跟上。
+    entry.location_group = isBaiduPanProtocol(ref.protocol) ? 'netdisk' : 'remote';
+
+    return entry;
+  });
 }
 
 /**
@@ -146,7 +155,17 @@ export function buildLocationsDirectoryFromDrives(
   drives: DriveInfo[],
   remoteEntries: DirEntry[] = getRemoteLocationEntries(),
 ): DirContents {
-  const entries = [...drives.map(drive => driveInfoToDirEntry(drive)), ...remoteEntries];
+  const entries = [
+    ...drives.map((drive) => {
+      const entry = driveInfoToDirEntry(drive);
+
+      // 「位置」页分区（用户 2026-11-08 需求 1）：盘符 / 分区在最上面一组。
+      entry.location_group = 'drives';
+
+      return entry;
+    }),
+    ...remoteEntries,
+  ];
   const directoryCount = entries.length;
 
   return {

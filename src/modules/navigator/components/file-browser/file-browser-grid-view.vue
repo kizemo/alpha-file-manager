@@ -9,6 +9,10 @@ import {
   FileIcon,
   FileImageIcon,
   FileVideoIcon,
+  // FORK-MODIFICATION（2026-11-08，用户需求 1）：「位置」页三个分区的图标。
+  HardDriveIcon,
+  CloudIcon,
+  ServerIcon,
 } from '@lucide/vue';
 import { useI18n } from 'vue-i18n';
 import { computed } from 'vue';
@@ -47,7 +51,30 @@ function getSectionLabel(sectionKey: FileBrowserGridSectionKey): string {
       return t('fileBrowser.videos');
     case 'others':
       return t('fileBrowser.otherFiles');
+    // FORK-MODIFICATION（2026-11-08，用户需求 1）：「位置」页的分区标题。
+    case 'drives':
+      return t('fileBrowser.partitions');
+    case 'netdisk':
+      return t('settings.remote.nav.netdisk');
+    case 'remote':
+      return t('settings.remote.nav.remoteSection');
   }
+}
+
+// FORK-MODIFICATION（2026-11-08）：分区图标用一张表，粘性段头与内联段头共用，
+// 两处各写一份 `v-if` 链必然漂。
+const SECTION_ICONS = {
+  dirs: FolderIcon,
+  images: FileImageIcon,
+  videos: FileVideoIcon,
+  others: FileIcon,
+  drives: HardDriveIcon,
+  netdisk: CloudIcon,
+  remote: ServerIcon,
+} as const;
+
+function getSectionIcon(sectionKey: FileBrowserGridSectionKey) {
+  return SECTION_ICONS[sectionKey];
 }
 
 function getGridRowStyle(row: FileBrowserGridItemsVirtualRow): Record<string, string> {
@@ -93,20 +120,8 @@ function getSectionRowStyle(row: FileBrowserGridSectionVirtualRow): Record<strin
             :count="ctx.activeGridSectionRow.value.count"
           >
             <template #icon>
-              <FolderIcon
-                v-if="ctx.activeGridSectionRow.value.sectionKey === 'dirs'"
-                :size="14"
-              />
-              <FileImageIcon
-                v-else-if="ctx.activeGridSectionRow.value.sectionKey === 'images'"
-                :size="14"
-              />
-              <FileVideoIcon
-                v-else-if="ctx.activeGridSectionRow.value.sectionKey === 'videos'"
-                :size="14"
-              />
-              <FileIcon
-                v-else
+              <component
+                :is="getSectionIcon(ctx.activeGridSectionRow.value.sectionKey)"
                 :size="14"
               />
             </template>
@@ -133,20 +148,8 @@ function getSectionRowStyle(row: FileBrowserGridSectionVirtualRow): Record<strin
               :count="row.count"
             >
               <template #icon>
-                <FolderIcon
-                  v-if="row.sectionKey === 'dirs'"
-                  :size="14"
-                />
-                <FileImageIcon
-                  v-else-if="row.sectionKey === 'images'"
-                  :size="14"
-                />
-                <FileVideoIcon
-                  v-else-if="row.sectionKey === 'videos'"
-                  :size="14"
-                />
-                <FileIcon
-                  v-else
+                <component
+                  :is="getSectionIcon(row.sectionKey)"
                   :size="14"
                 />
               </template>

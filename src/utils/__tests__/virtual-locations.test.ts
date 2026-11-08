@@ -3,6 +3,7 @@
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
 import {
+  afterEach,
   beforeEach,
   describe,
   expect,
@@ -30,6 +31,8 @@ import {
   virtualLocationPathExists,
 } from '@/utils/virtual-locations';
 import type { DriveInfo } from '@/types/drive-info';
+import type { RemoteConnection } from '@/types/remote';
+import { setRemoteLocationRefs } from '@/utils/remote-location-refs';
 
 // FORK-MODIFICATION 2026-10-18：远程分支的判别点全在「invoke 了哪个 command」上，
 // 所以这里必须把 `@tauri-apps/api/core` 换成桩 —— 真实模块在测试环境里没有 IPC。
@@ -470,6 +473,82 @@ describe('virtual-locations', () => {
       expect(invokeMock).toHaveBeenCalledWith('get_dir_entry_with_timeout', {
         path: 'C:/Users',
         timeoutMs: 250,
+      });
+    });
+
+    // FORK-MODIFICATION（2026-11-08，用户需求 1）：「位置」页的分区标记。
+    //
+    // 盘符归「分区」，远程条目按协议归「网盘 / 远程连接」——
+    // 归类口径与设置页、主页完全一致，只有 `isBaiduPanProtocol` 一个判定。
+    describe('位置页分区标记', () => {
+      const drivePayload: DriveInfo = {
+        name: 'Local Disk (C:)',
+        path: 'C:/',
+        mount_point: 'C:\\',
+        file_system: 'NTFS',
+        drive_type: 'SSD',
+        total_space: 1000,
+        available_space: 500,
+        used_space: 500,
+        percent_used: 50,
+        is_removable: false,
+        is_read_only: false,
+        is_mounted: true,
+        device_path: '\\\\.\\C:',
+      };
+
+      afterEach(() => {
+        // 注册表是模块级状态，不清掉会污染后面所有用例。
+        setRemoteLocationRefs([]);
+      });
+
+      it('盘符打分区标记，远程条目按协议归类', () => {
+        const connections: RemoteConnection[] = [
+          {
+            id: 'conn-baidu',
+            name: '百度网盘',
+            protocol: 'baidu_pan',
+            host: 'pan.baidu.com',
+            port: 443,
+            username: '',
+            initialPath: '/',
+            proxy: { kind: 'direct' },
+          },
+          {
+            id: 'conn-sftp',
+            name: '速豹堂',
+            protocol: 'sftp',
+            host: 'example.com',
+            port: 22,
+            username: 'demo',
+            initialPath: '/',
+            proxy: { kind: 'direct' },
+          },
+        ];
+
+        setRemoteLocationRefs(connections);
+
+        const contents = buildLocationsDirectoryFromDrives([drivePayload]);
+
+        expect(contents.entries.map(entry => entry.name)).toEqual([
+          'Local Disk (C:)',
+          '百度网盘',
+          '速豹堂',
+        ]);
+        expect(contents.entries.map(entry => entry.location_group)).toEqual([
+          'drives',
+          'netdisk',
+          'remote',
+        ]);
+      });
+
+      it('没有配置远程连接时只留下分区组', () => {
+        setRemoteLocationRefs([]);
+
+        const contents = buildLocationsDirectoryFromDrives([drivePayload]);
+
+        expect(contents.entries).toHaveLength(1);
+        expect(contents.entries[0]?.location_group).toBe('drives');
       });
     });
 

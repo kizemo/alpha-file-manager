@@ -6,6 +6,8 @@ import type { DirEntry } from '@/types/dir-entry';
 import normalizePath from '@/utils/normalize-path';
 import {
   groupFileBrowserEntries,
+  groupFileBrowserLocationEntries,
+  hasLocationGroupEntries,
   isFileBrowserImageEntry,
   isFileBrowserVideoEntry,
 } from '../file-browser-entry-groups';
@@ -16,7 +18,18 @@ export const GRID_VIEW_PADDING_X = 0;
 
 // FORK-MODIFICATION: 列表视图按类型分区后，分区键 / 分区变体与网格视图共用同一套，
 // 免得两处各写一份字面量而漂移。旧的网格别名保留，网格侧代码一行都不用改。
-export type FileBrowserSectionKey = 'dirs' | 'images' | 'videos' | 'others';
+//
+// FORK-MODIFICATION（2026-11-08，用户需求 1）：新增三个键给「位置」页用 ——
+// `drives`（分区）、`netdisk`（网盘）、`remote`（远程连接）。
+// 它们的条目全是目录，变体仍是 `dir`；变的是**分区标题**，不是卡片长相。
+export type FileBrowserSectionKey
+  = | 'dirs'
+    | 'images'
+    | 'videos'
+    | 'others'
+    | 'drives'
+    | 'netdisk'
+    | 'remote';
 export type FileBrowserSectionVariant = 'dir' | 'image' | 'video' | 'other';
 
 export type FileBrowserGridSectionKey = FileBrowserSectionKey;
@@ -96,6 +109,10 @@ const GRID_SECTION_STICKY_INDEXES: Record<FileBrowserGridSectionKey, number> = {
   images: 11,
   videos: 12,
   others: 13,
+  // FORK-MODIFICATION（2026-11-08）：「位置」页的三个分区，层级沿用同一套递增值。
+  drives: 14,
+  netdisk: 15,
+  remote: 16,
 };
 
 const ROW_KIND_LIST_ENTRY = 0;
@@ -255,6 +272,38 @@ function createSectionBuilders(
   entries: readonly DirEntry[],
   metrics: ReturnType<typeof resolveThumbnailMetrics>,
 ): MutableSectionBuilder[] {
+  // FORK-MODIFICATION（2026-11-08，用户需求 1）：「位置」页按「分区 / 网盘 / 远程连接」分区。
+  // 判据是条目带 `location_group` 标记 —— 普通目录永远走下面那套类型分组。
+  if (hasLocationGroupEntries(entries)) {
+    const locationGroups = groupFileBrowserLocationEntries(entries);
+
+    // 显式标注类型：数组字面量直接写出来时，`key` 会被推断成 `string`，
+    // 赋值给 `MutableSectionBuilder[]` 就报错（TS2322）。
+    const locationSections: MutableSectionBuilder[] = [
+      {
+        key: 'drives',
+        variant: 'dir',
+        entries: locationGroups.drives,
+        entryHeight: metrics.gridDirEntryHeight,
+      },
+      {
+        key: 'netdisk',
+        variant: 'dir',
+        entries: locationGroups.netdisk,
+        entryHeight: metrics.gridDirEntryHeight,
+      },
+      {
+        key: 'remote',
+        variant: 'dir',
+        entries: locationGroups.remote,
+        entryHeight: metrics.gridDirEntryHeight,
+      },
+    ];
+
+    // 空组不出现 —— 「没有配置就不显示标题」。
+    return locationSections.filter(section => section.entries.length > 0);
+  }
+
   const groupedEntries = groupFileBrowserEntries(entries);
 
   const builders: MutableSectionBuilder[] = [

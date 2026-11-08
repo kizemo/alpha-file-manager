@@ -47,9 +47,68 @@ export function groupFileBrowserEntries(entries: readonly DirEntry[]): GroupedEn
   };
 }
 
+// ---------------------------------------------------------------------------
+// FORK-MODIFICATION（2026-11-08，用户需求 1）：「位置」页按「分区 / 网盘 / 远程」分组。
+//
+// 「位置」页（`sfm://locations`）里的条目都带 `location_group` 标记，
+// 普通的「目录 / 图片 / 视频 / 其它」分组对它是**错的** ——
+// 分区里的盘符与网盘条目都是目录，按旧口径会全落进「文件夹」一组。
+//
+// 判据是「条目有没有带标记」，不是「路径像不像」：普通目录里不可能出现这个标记。
+// ---------------------------------------------------------------------------
+
+export interface FileBrowserLocationGroups {
+  drives: DirEntry[];
+  netdisk: DirEntry[];
+  remote: DirEntry[];
+}
+
+export function hasLocationGroupEntries(entries: readonly DirEntry[]): boolean {
+  return entries.some(entry => entry.location_group !== undefined && entry.location_group !== null);
+}
+
+/**
+ * 按「分区 / 网盘 / 远程连接」分组。
+ *
+ * 没带标记的条目一律归到 `drives` —— 它们只可能出现在「位置」页里，
+ * 而「位置」页的默认分组就是分区组，不会凭空多出一个「未分组」区。
+ */
+export function groupFileBrowserLocationEntries(entries: readonly DirEntry[]): FileBrowserLocationGroups {
+  const groups: FileBrowserLocationGroups = {
+    drives: [],
+    netdisk: [],
+    remote: [],
+  };
+
+  for (const entry of entries) {
+    if (entry.location_group === 'netdisk') {
+      groups.netdisk.push(entry);
+    }
+    else if (entry.location_group === 'remote') {
+      groups.remote.push(entry);
+    }
+    else {
+      groups.drives.push(entry);
+    }
+  }
+
+  return groups;
+}
+
 // FORK-MODIFICATION: 目录 / 图片 / 视频 / 其它文件的先后顺序由这一个函数说了算。
 // 网格视图委托它，列表视图也用它，于是两边的分组顺序永远一致。
 export function getFileBrowserSectionEntryOrder(entries: readonly DirEntry[]): DirEntry[] {
+  // 「位置」页走自己的分组口径（分区 → 网盘 → 远程连接）。
+  if (hasLocationGroupEntries(entries)) {
+    const locationGroups = groupFileBrowserLocationEntries(entries);
+
+    return [
+      ...locationGroups.drives,
+      ...locationGroups.netdisk,
+      ...locationGroups.remote,
+    ];
+  }
+
   const groupedEntries = groupFileBrowserEntries(entries);
   return [
     ...groupedEntries.dirs,

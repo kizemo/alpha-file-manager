@@ -39,6 +39,7 @@ import {
   getLocationsEntriesDisplaySignature,
 } from '@/utils/virtual-locations';
 import { isRemotePath, parseRemotePath } from '@/utils/remote-paths';
+import { subscribeRemoteLocationRefs } from '@/utils/remote-location-refs';
 import {
   applyHostKeyTrust,
   buildHostKeyTrustPrompt,
@@ -597,11 +598,30 @@ export function useFileBrowserNavigation(
     void silentRefresh();
   }, { deep: true });
 
+  // FORK-MODIFICATION 2026-11-08：远程连接变了，「位置」页要立刻反映出来。
+  //
+  // 改动前「位置」页的条目是「读目录时顺手拼」的，而触发重读的只有 `watch(sharedDrives)`。
+  // 盘符变化会重读，连接列表变化不会 —— 新增/改名/删除连接之后，位置页要等下一次
+  // 切页或手动刷新才变（用户 2026-11-08 反馈的「位置」页问题之一）。
+  //
+  // 这里订阅 `remote-location-refs` 注册表的变化通知补上这条路。订阅而不是轮询：
+  // 轮询要么挂常驻定时器，要么把 store 拖进纯工具模块。
+  const unsubscribeRemoteLocationRefs = subscribeRemoteLocationRefs(() => {
+    // 不在「位置」页就不管 —— 别的页面不显示远程条目，刷新了也是白刷。
+    if (!isVirtualLocationPath(currentPath.value) || !dirContents.value) {
+      return;
+    }
+
+    void silentRefresh();
+  });
+
   onUnmounted(() => {
     isDisposed = true;
     readGeneration += 1;
     cancelPendingDirectoryRecord();
     stopWatching();
+
+    unsubscribeRemoteLocationRefs();
 
     if (iconPrefetchTimer) {
       clearTimeout(iconPrefetchTimer);
