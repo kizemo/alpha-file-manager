@@ -656,7 +656,7 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Save FTP, FTPS and SFTP connections here. Passwords are encrypted with Windows DPAPI and never leave this machine.",
+        "description": "Tukaj shranjujete povezave do omrežnih diskov, FTP, FTPS in SFTP. Poverilnice so šifrirane z Windows DPAPI in nikoli ne zapustijo tega računalnika.",
         "empty": "No connections yet."
       },
       "action": {
@@ -735,6 +735,12 @@
       "nav": {
         "openSettings": "Remote settings",
         "connect": "Connect",
+        "netdisk": "Omrežni diski",
+        "remoteSection": "Oddaljene povezave",
+        "addNetdisk": "Dodaj omrežni disk",
+        "addRemote": "Dodaj oddaljeno povezavo",
+        "emptyNetdisk": "Še ni omrežnih diskov.",
+        "emptyRemote": "Še ni oddaljenih povezav.",
         "empty": "No connections yet.",
         "split": "Split",
         "editConnection": "Edit this connection"
@@ -751,6 +757,7 @@
       },
       "baidu": {
         "hint": "Prijavite se v pan.baidu.com v brskalniku in nato sem kopirajte celoten glavo Cookie (mora vsebovati BDUSS). Poverilnice so šifrirane z Windows DPAPI in ne zapustijo tega računalnika.",
+        "cookiePlaceholder": "Prilepite celoten piškot, na primer BDUSS=xxx; STOKEN=yyy",
         "status": {
           "loading": "Branje stanja pooblastitev…",
           "missing": "Ni prijavljen",
@@ -773,6 +780,10 @@
           "noteExpiry": "Ko piškotek poteče, ga aplikacija ne more podaljšati; znova se prijavite in kopirajte novega.",
           "notePrivacy": "Piškotek je enako občutljiv kot vaše geslo. Shrani se le šifriran z Windows DPAPI na tem računalniku, nikoli ne zapusti naprave in se ne zapiše v dnevnik."
         }
+      },
+      "tab": {
+        "netdisk": "Dodaj omrežni disk",
+        "remote": "Dodaj oddaljeno povezavo"
       }
     },
     "about": {

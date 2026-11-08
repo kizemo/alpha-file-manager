@@ -29,11 +29,19 @@ type Props = {
   /**
    * 新建时预置的协议（2026-11-08）。
    *
-   * 左侧导航那颗常驻「+」传的是 `baidu_pan` —— 用户要的入口是「添加百度网盘」，
-   * 点开就应该落在百度那张表单上，而不是让人再去下拉里找一次。
    * 不传则退回原来的默认值 `ftp`，行为保持不变。
    */
   initialProtocol?: RemoteProtocol;
+  /**
+   * 表单形态（2026-11-08）。
+   *
+   * - `netdisk`：**网盘**表单 —— 没有服务器地址、没有端口、没有用户名，
+   *   凭据是一整段 Cookie，录入项按网盘重新组织过。
+   * - `remote`：**远程连接**表单 —— FTP / FTPS / SFTP 那套主机、端口、用户名。
+   * - `auto`（默认）：由 `connection.protocol` / `initialProtocol` 推断，
+   *   与拆标签页之前的行为一致。
+   */
+  variant?: 'auto' | 'netdisk' | 'remote';
 };
 
 const props = defineProps<Props>();
@@ -46,7 +54,13 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const store = useRemoteConnectionsStore();
 
-const PROTOCOLS: RemoteProtocol[] = ['ftp', 'ftps_explicit', 'ftps_implicit', 'sftp', 'baidu_pan'];
+/**
+ * 远程连接表单可选的协议。
+ *
+ * **不含百度网盘**：网盘有自己的标签页与专属的录入项，
+ * 把它塞进这个下拉等于给用户一条「选了却填不了对应字段」的死路。
+ */
+const PROTOCOLS: RemoteProtocol[] = ['ftp', 'ftps_explicit', 'ftps_implicit', 'sftp'];
 const PROXY_KINDS: RemoteProxyConfig['kind'][] = ['direct', 'socks5', 'http_connect'];
 
 /**
@@ -71,7 +85,15 @@ const BAIDU_PAN_HOST = 'pan.baidu.com';
  * 裸值与整串 Cookie 两种粘法都接受 —— 说明里必须只写做得到、且被代码允许的动作。
  */
 const BAIDU_PAN_URL = 'https://pan.baidu.com/';
-const cookieHelpOpen = ref(false);
+
+/**
+ * 「如何获取 Cookie」帮助块默认**展开**（2026-11-08）。
+ *
+ * 之前默认收起是为了不让这张已经很长的表单更长；现在网盘表单只剩四五个字段，
+ * 而「Cookie 从哪儿抄」是这一步**唯一**的新知识 —— 藏起来等于让用户
+ * 开着浏览器自己去搜教程。
+ */
+const cookieHelpOpen = ref(true);
 
 function openBaiduLoginPage() {
   openUrl(BAIDU_PAN_URL);
@@ -95,10 +117,26 @@ const proxyPassword = ref('');
 const hasSavedPassword = computed(() => Boolean(props.connection?.credentialKey));
 
 /**
- * 是不是百度网盘。百度的表单长得很不一样：没有主机、没有端口、没有用户名，
- * 凭据是一整段 Cookie 而不是口令。
+ * 这张表单是**网盘**表单还是**远程连接**表单。
+ *
+ * 网盘的录入项与 FTP 完全不同：没有主机、没有端口、没有用户名，
+ * 凭据是一整段 Cookie 而不是口令 —— 所以形态由调用方直接指定（`variant`），
+ * 只有没人指定时（`auto`）才从协议推断。
+ *
+ * ⚠️ **不能拿 `protocol.value` 判断**：改协议这个动作本身只有远程连接表单才有
+ * （网盘表单根本没有协议下拉），拿它当判据会把形态判断绕进循环。
  */
-const isBaidu = computed(() => isBaiduPanProtocol(protocol.value));
+const isNetdisk = computed(() => {
+  if (props.variant === 'netdisk') {
+    return true;
+  }
+
+  if (props.variant === 'remote') {
+    return false;
+  }
+
+  return isBaiduPanProtocol(props.connection?.protocol ?? props.initialProtocol ?? 'ftp');
+});
 
 watch(
   () => props.connection,
@@ -107,7 +145,10 @@ watch(
     // 的 else 分支里 TS 不会把 `connection` 收窄成非空。
     const existingProxy = connection?.proxy;
     const isDirect = !existingProxy || existingProxy.kind === 'direct';
-    const nextProtocol = connection?.protocol ?? props.initialProtocol ?? 'ftp';
+    // 网盘表单的协议恒为 `baidu_pan`：形态已经定了，协议没有第二个选择。
+    const nextProtocol = props.variant === 'netdisk'
+      ? 'baidu_pan'
+      : (connection?.protocol ?? props.initialProtocol ?? 'ftp');
 
     name.value = connection?.name ?? '';
     protocol.value = nextProtocol;
@@ -209,7 +250,8 @@ function buildForm(): RemoteConnectionForm {
     username: username.value,
     initialPath: initialPath.value,
     localPath: localPath.value,
-    proxy: buildProxy(),
+    // 网盘走的是应用自己封的 HTTPS 通道，没有代理这一说 —— 恒为直连。
+    proxy: isNetdisk.value ? { kind: 'direct' as const } : buildProxy(),
     password: password.value,
     clearPassword: clearPassword.value,
   };
@@ -254,7 +296,7 @@ const baiduStatus = ref<BaiduAuthStatusPayload | null>(null);
 const isLoadingBaiduStatus = ref(false);
 
 /** 只有「已保存的百度连接」才有状态可查 —— 新建中（还没 id）没有存档。 */
-const baiduConnectionId = computed(() => (isBaidu.value ? props.connection?.id : undefined));
+const baiduConnectionId = computed(() => (isNetdisk.value ? props.connection?.id : undefined));
 
 async function refreshBaiduStatus() {
   if (!baiduConnectionId.value) {
@@ -366,7 +408,14 @@ function onProtocolChange(value: unknown) {
       />
     </div>
 
-    <div class="remote-connection-form__row">
+    <!--
+      网盘表单没有「协议」这一项：形态已经定了，协议没有第二个选择。
+      摆一个只有一项的下拉框只会让用户以为还能选别的东西。
+    -->
+    <div
+      v-if="!isNetdisk"
+      class="remote-connection-form__row"
+    >
       <Label for="remote-protocol">{{ t('settings.remote.field.protocol') }}</Label>
       <Select
         :model-value="protocol"
@@ -388,7 +437,7 @@ function onProtocolChange(value: unknown) {
     </div>
 
     <div
-      v-if="!isBaidu"
+      v-if="!isNetdisk"
       class="remote-connection-form__row"
     >
       <Label for="remote-host">{{ t('settings.remote.field.host') }}</Label>
@@ -400,7 +449,7 @@ function onProtocolChange(value: unknown) {
     </div>
 
     <div
-      v-if="!isBaidu"
+      v-if="!isNetdisk"
       class="remote-connection-form__row"
     >
       <Label for="remote-port">{{ t('settings.remote.field.port') }}</Label>
@@ -413,7 +462,7 @@ function onProtocolChange(value: unknown) {
     </div>
 
     <div
-      v-if="!isBaidu"
+      v-if="!isNetdisk"
       class="remote-connection-form__row"
     >
       <Label for="remote-username">{{ t('settings.remote.field.username') }}</Label>
@@ -424,29 +473,48 @@ function onProtocolChange(value: unknown) {
       />
     </div>
 
-    <div class="remote-connection-form__row">
-      <Label for="remote-password">
-        {{ isBaidu ? t('settings.remote.field.cookie') : t('settings.remote.field.password') }}
-      </Label>
-      <Input
-        id="remote-password"
+    <!--
+      网盘的凭据是一整段 Cookie：用多行文本框，用户粘完能一眼看完有没有粘全。
+      密码框在网盘这一栏不成立 —— 那不是口令，是一串会话凭据。
+    -->
+    <div
+      v-if="isNetdisk"
+      class="remote-connection-form__row"
+    >
+      <Label for="remote-cookie">{{ t('settings.remote.field.cookie') }}</Label>
+      <textarea
+        id="remote-cookie"
         v-model="password"
-        :type="isBaidu ? 'text' : 'password'"
+        class="remote-connection-form__cookie"
+        rows="4"
         autocomplete="off"
-        data-test="field-password"
-        :data-baidu="isBaidu ? 'cookie' : undefined"
+        spellcheck="false"
+        data-test="field-cookie"
+        data-baidu="cookie"
+        :placeholder="t('settings.remote.baidu.cookiePlaceholder')"
       />
-      <!-- 百度网盘的凭据是一整段 Cookie，不是口令：
-           「留空表示保持不变」这句话对它不成立，单独给一条引导。 -->
       <p
-        v-if="isBaidu"
         class="remote-connection-form__hint"
         data-test="hint-cookie"
       >
         {{ t('settings.remote.baidu.hint') }}
       </p>
+    </div>
+
+    <div
+      v-else
+      class="remote-connection-form__row"
+    >
+      <Label for="remote-password">{{ t('settings.remote.field.password') }}</Label>
+      <Input
+        id="remote-password"
+        v-model="password"
+        type="password"
+        autocomplete="off"
+        data-test="field-password"
+      />
       <p
-        v-else-if="hasSavedPassword"
+        v-if="hasSavedPassword"
         class="remote-connection-form__hint"
       >
         {{ t('settings.remote.password.savedHint') }}
@@ -459,7 +527,7 @@ function onProtocolChange(value: unknown) {
       回来换 Cookie 的人不想再读一遍步骤。
     -->
     <div
-      v-if="isBaidu"
+      v-if="isNetdisk"
       class="remote-connection-form__cookie-help"
       data-test="baidu-cookie-help"
     >
@@ -581,7 +649,11 @@ function onProtocolChange(value: unknown) {
       </p>
     </div>
 
-    <div class="remote-connection-form__row">
+    <!-- 网盘走应用自己封的 HTTPS 通道，没有代理这一说 —— 整块不渲染。 -->
+    <div
+      v-if="!isNetdisk"
+      class="remote-connection-form__row"
+    >
       <Label for="remote-proxy-kind">{{ t('settings.remote.field.proxy') }}</Label>
       <Select
         :model-value="proxyKind"
@@ -602,7 +674,7 @@ function onProtocolChange(value: unknown) {
       </Select>
     </div>
 
-    <template v-if="proxyKind !== 'direct'">
+    <template v-if="!isNetdisk && proxyKind !== 'direct'">
       <div class="remote-connection-form__row">
         <Label for="remote-proxy-host">{{ t('settings.remote.field.proxyHost') }}</Label>
         <Input
@@ -768,6 +840,31 @@ function onProtocolChange(value: unknown) {
   margin: 0;
   color: hsl(var(--destructive));
   font-size: 0.875rem;
+}
+
+/*
+  网盘的 Cookie 输入框（2026-11-08）。
+
+  用原生 textarea 而不是单行 Input：Cookie 是一长串，粘进去之后要能一眼
+  看全没看全。样式跟着 `Input` 组件走（同样的边框、圆角、字号），
+  免得两个控件摆在一起像两个不同世界。
+*/
+.remote-connection-form__cookie {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.remote-connection-form__cookie:focus {
+  outline: 2px solid hsl(var(--ring) / 50%);
+  outline-offset: var(--ring-outline-offset);
 }
 
 /*

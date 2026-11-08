@@ -619,7 +619,7 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Save FTP, FTPS and SFTP connections here. Passwords are encrypted with Windows DPAPI and never leave this machine.",
+        "description": "Bulut diski, FTP, FTPS ve SFTP bağlantılarını burada kaydedin. Kimlik bilgileri Windows DPAPI ile şifrelenir ve bu bilgisayardan çıkmaz.",
         "empty": "No connections yet."
       },
       "action": {
@@ -698,6 +698,12 @@
       "nav": {
         "openSettings": "Remote settings",
         "connect": "Connect",
+        "netdisk": "Bulut diskleri",
+        "remoteSection": "Uzak bağlantılar",
+        "addNetdisk": "Bulut diski ekle",
+        "addRemote": "Uzak bağlantı ekle",
+        "emptyNetdisk": "Henüz bulut diski bağlantısı yok.",
+        "emptyRemote": "Henüz uzak bağlantı yok.",
         "empty": "No connections yet.",
         "split": "Split",
         "editConnection": "Edit this connection"
@@ -714,6 +720,7 @@
       },
       "baidu": {
         "hint": "Tarayıcıda pan.baidu.com adresine giriş yapın, ardından Cookie başlığının tamamını buraya yapıştırın (BDUSS içermelidir). Kimlik bilgisi Windows DPAPI ile şifrelenir ve bu bilgisayardan hiç çıkmaz.",
+        "cookiePlaceholder": "Cookie’nin tamamını buraya yapıştırın, örneğin BDUSS=xxx; STOKEN=yyy",
         "status": {
           "loading": "Yetkilendirme durumu okunuyor…",
           "missing": "Giriş yapılmamış",
@@ -736,6 +743,10 @@
           "noteExpiry": "Cookie süresi dolduğunda uygulama onu yenileyemez; yeniden oturum açıp yeni bir kopya almanız gerekir.",
           "notePrivacy": "Cookie, parolanız kadar hassastır. Yalnızca Windows DPAPI ile şifrelenmiş olarak bu bilgisayarda saklanır; yüklenmez ve günlere yazılmaz."
         }
+      },
+      "tab": {
+        "netdisk": "Bulut diski ekle",
+        "remote": "Uzak bağlantı ekle"
       }
     },
     "about": {

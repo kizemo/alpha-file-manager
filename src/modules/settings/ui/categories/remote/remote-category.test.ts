@@ -544,10 +544,10 @@ describe('远程设置分类', () => {
       expect(second.find('[data-test="field-name"]').exists()).toBe(false);
     });
 
-    it('左侧导航的「+」请求会直接打开新建表单，并按请求预选协议', async () => {
+    it('导航栏发来的新建请求会打开新建表单，并按请求预选协议', async () => {
       storageContents.set('connections', connections);
       const store = useRemoteConnectionsStore();
-      // 导航栏那颗「+」点完就是「先 request 再跳转」的那一路，请求里带着协议。
+      // 悬停面板里点「添加网盘」：请求里带着协议。
       store.requestRemoteCreate('baidu_pan');
 
       const wrapper = mountedCategory();
@@ -583,6 +583,68 @@ describe('远程设置分类', () => {
       const second = mountedCategory();
       await flushPromises();
       expect(second.find('[data-test="field-name"]').exists()).toBe(false);
+    });
+  });
+
+  // 用户 2026-11-08：添加连接页拆成「添加网盘」「添加远程连接」两个标签页。
+  // 两者的录入项根本不同，合成一张表单用户得先想清楚自己填的是哪一种。
+  describe('新建表单的两个标签页', () => {
+    it('两个标签页都在', async () => {
+      const wrapper = mountedCategory();
+      await flushPromises();
+      await wrapper.find('[data-test="add"]').trigger('click');
+      await flushPromises();
+
+      expect(wrapper.find('[data-test="tab-netdisk"]').exists()).toBe(true);
+      expect(wrapper.find('[data-test="tab-remote"]').exists()).toBe(true);
+    });
+
+    it('默认落在网盘页：没有服务器地址，改为 Cookie 输入框', async () => {
+      const wrapper = mountedCategory();
+      await flushPromises();
+      await wrapper.find('[data-test="add"]').trigger('click');
+      await flushPromises();
+
+      expect(wrapper.find('[data-test="field-cookie"]').exists()).toBe(true);
+      expect(wrapper.find('[data-test="field-host"]').exists()).toBe(false);
+    });
+
+    it('切到「添加远程连接」页签，服务器地址栏出现、Cookie 栏消失', async () => {
+      const wrapper = mountedCategory();
+      await flushPromises();
+      await wrapper.find('[data-test="add"]').trigger('click');
+      await flushPromises();
+
+      // ⚠️ 必须用 mousedown 而不是 click：reka-ui 的页签是在 `mousedown.left`
+      // 上切换的（真实浏览器里 mousedown 本来就先于 click 到达），
+      // 只派发 click 不会切页签。
+      await wrapper.find('[data-test="tab-remote"]').trigger('mousedown');
+      await flushPromises();
+
+      expect(wrapper.find('[data-test="field-host"]').exists()).toBe(true);
+      expect(wrapper.find('[data-test="field-cookie"]').exists()).toBe(false);
+    });
+
+    it('导航栏请求指向网盘时，落地的就是网盘页', async () => {
+      const store = useRemoteConnectionsStore();
+      store.requestRemoteCreate('baidu_pan');
+
+      const wrapper = mountedCategory();
+      await flushPromises();
+
+      expect(wrapper.find('[data-test="field-cookie"]').exists()).toBe(true);
+      expect(wrapper.find('[data-test="field-host"]').exists()).toBe(false);
+    });
+
+    it('导航栏请求指向 FTP 时，落地的就是远程连接页', async () => {
+      const store = useRemoteConnectionsStore();
+      store.requestRemoteCreate('ftp');
+
+      const wrapper = mountedCategory();
+      await flushPromises();
+
+      expect(wrapper.find('[data-test="field-host"]').exists()).toBe(true);
+      expect(wrapper.find('[data-test="field-cookie"]').exists()).toBe(false);
     });
   });
 });

@@ -41,7 +41,7 @@ import {
 } from '@/modules/remote/utils/open-remote-connection';
 import { openSettingsTab } from '@/modules/settings/utils/open-settings';
 import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
-import type { RemoteConnection } from '@/types/remote';
+import type { RemoteConnection, RemoteProtocol } from '@/types/remote';
 import UbuntuWslIcon from '@/components/icons/ubuntu-wsl-icon.vue';
 import { useTextDirection } from '@/composables/use-text-direction';
 
@@ -215,16 +215,18 @@ async function handleRemoteEdit(connection: RemoteConnection) {
  * 「添加连接」入口（2026-11-08）。
  *
  * 需求来源：用户反馈「左侧导航里找不到添加百度网盘的入口」。
- * 云图标展开的是**悬停面板**，对第一次用这个功能的人太隐蔽 ⇒
- * 图标轨上再加一颗常驻的「+」，悬停面板里也加一行「+ 添加连接」。
  *
- * 两个入口都只做两件事：往 store 里放一个**新建请求**（瞬态，消费即清空），
- * 再跳到设置页的远程分类 —— 表单由那一侧自己打开，
+ * 现在**只剩悬停面板这一个入口**：图标轨上那颗常驻的「+」按用户要求撤掉了
+ * （2026-11-08）。面板里分成「网盘」「远程连接」两个分区，各自带一颗添加按钮，
+ * 点哪颗就把新建请求的协议预置成对应的那个（网盘 → `baidu_pan`）。
+ *
+ * 入口只做两件事：往 store 里放一个**新建请求**（瞬态，消费即清空），
+ * 再跳到设置页的远程分类 —— 表单与标签页由那一侧自己打开，
  * 这里不直接操纵设置页的内部状态（那是设置页自己的职责）。
  */
-async function openRemoteCreate() {
+async function openRemoteCreate(protocol: RemoteProtocol) {
   remotePanelOpen.value = false;
-  remoteConnectionsStore.requestRemoteCreate('baidu_pan');
+  remoteConnectionsStore.requestRemoteCreate(protocol);
   await openSettingsTab('remote');
 }
 </script>
@@ -351,33 +353,6 @@ async function openRemoteCreate() {
             @open="handleRemoteOpen"
             @edit="handleRemoteEdit"
           />
-        </TooltipContent>
-      </Tooltip>
-
-      <!--
-        「添加连接」的常驻入口（2026-11-08）。
-
-        云图标展开的是悬停面板，对第一次用这个功能的人太隐蔽 —— 用户反馈
-        「左侧导航里找不到添加百度网盘的入口」。所以在图标轨上补一颗常驻的「+」：
-        不用悬停、不用展开，点一下直接落到设置页的远程分类并打开新建表单。
-      -->
-      <Tooltip>
-        <TooltipTrigger as-child>
-          <Button
-            class="nav-sidebar-item nav-sidebar-item--add-remote"
-            size="icon"
-            data-test="remote-nav-add"
-            :aria-label="t('settings.remote.action.add')"
-            @click="openRemoteCreate"
-          >
-            <span class="nav-sidebar-item-plus">+</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent
-          :side="inlineEndSide"
-          :side-offset="12"
-        >
-          {{ t('settings.remote.action.add') }}
         </TooltipContent>
       </Tooltip>
 
@@ -554,23 +529,6 @@ async function openRemoteCreate() {
 
 .nav-sidebar-item-icon {
   stroke: hsl(var(--nav-rail-foreground));
-}
-
-/*
- * 「+ 添加连接」按钮里的加号（2026-11-08）。
- *
- * 刻意用文字「+」而不是图标：图标轨只有 28px 宽，字形比图标更占得住地方，
- * 而且「+」本身比任何图标都更直白地表达「新增」。
- */
-.nav-sidebar-item-plus {
-  color: hsl(var(--nav-rail-foreground));
-  font-size: 1.15rem;
-  font-weight: 500;
-  line-height: 1;
-}
-
-.nav-sidebar-item--add-remote:hover .nav-sidebar-item-plus {
-  color: hsl(var(--primary));
 }
 
 .nav-sidebar-item[is-active="true"] .nav-sidebar-item-icon {

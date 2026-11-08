@@ -656,7 +656,7 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Save FTP, FTPS and SFTP connections here. Passwords are encrypted with Windows DPAPI and never leave this machine.",
+        "description": "Այստեղ պահվում են կայան սեփական դիսկների, FTP, FTPS և SFTP կապերը։ Հատկությունները կոդավորվում են Windows DPAPI-ով և չեն լեում այս համակարգից։",
         "empty": "No connections yet."
       },
       "action": {
@@ -735,6 +735,12 @@
       "nav": {
         "openSettings": "Remote settings",
         "connect": "Connect",
+        "netdisk": "Կայան սեփական դիսկներ",
+        "remoteSection": "Հեռակառուց կապեր",
+        "addNetdisk": "Ավելացնել կայան սեփական դիսկ",
+        "addRemote": "Ավելացնել հեռակառուց կապ",
+        "emptyNetdisk": "Կայան սեփական դիսկներ դեռ չկան։",
+        "emptyRemote": "Հեռակառուց կապեր դեռ չկան։",
         "empty": "No connections yet.",
         "split": "Split",
         "editConnection": "Edit this connection"
@@ -751,6 +757,7 @@
       },
       "baidu": {
         "hint": "Մտնեք pan.baidu.com-ը դիտարկիչում մուտք գործեք, ապա ամբողջ Cookie վերնագինը պատճենեք այստեղ (պետք է պարունակում BDUSS)։ Նուտմերը կոդավորվում են Windows DPAPI-ով և չեն դուրս գալիս այս համակարգից։",
+        "cookiePlaceholder": "Տեղադրեք ամբողջ Cookie-ն այստեղ, օր.՝ BDUSS=xxx; STOKEN=yyy",
         "status": {
           "loading": "Վերահաստատման վիճակը կարդում է…",
           "missing": "Մուտք չկա",
@@ -773,6 +780,10 @@
           "noteExpiry": "Once the Cookie expires, this app cannot renew it; sign in again and copy a fresh one.",
           "notePrivacy": "A Cookie is as sensitive as your password. It is stored only as Windows DPAPI-encrypted data on this PC, never uploaded and never written to logs."
         }
+      },
+      "tab": {
+        "netdisk": "Ավելացնել կայան սեփական դիսկ",
+        "remote": "Ավելացնել հեռակառուց կապ"
       }
     },
     "about": {
