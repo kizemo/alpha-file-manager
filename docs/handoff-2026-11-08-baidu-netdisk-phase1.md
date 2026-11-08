@@ -873,3 +873,42 @@ round 2 包 12:27:02 构建成功（`baidu-navfix-build3.log` 尾行 `BUILD_EXIT
 - **14:5x 那轮真机复验到底跑的是哪个包，未坐实**。证据只能证明「跑的是含新代码的 14:41:28 主二进制」（`release/` 里 11-07 那个包里根本没有 Cookie 帮助块，UIA 不可能看见它），但 NSIS 安装包当时并未复制进 `release/`，无法确认用户装的是 14:41 的包。⇒ 若用户报「界面没有帮助块」，第一反应是**核对装机版来源**（§17 就踩过一次「装机版滞后」的假缺陷），而不是改代码。
 - 诉求① R1/R2 是**根因级修复但缺真机证据**，§15.1 的归因链条是日志时间线 + 代码读，未做「修复前后对比」的真机复现。
 - ②③ 未做视觉回归（只看 UIA 树与实拍裁片，未逐语言检查 17 个语言包的中文以外文案是否通顺——机器翻译直存，已知风险）。
+
+## 20. 阶段 2 收尾 + 三项 UI 优化（2026-11-08 16:0x-17:2x）
+
+### 20.1 本轮产出
+
+- **阶段 1 已提交**：`12f33625`（接入百度网盘 provider）。**本轮优化已提交**：`4e44009b`（24 files）。**两者均未 push**（用户要求）。
+- 三项优化（用户指定）：① 去掉导航栏云图标下的常驻「+」；② 悬停面板「网盘 / 远程连接」上下分区、网盘在上；③ 添加连接页拆成「添加网盘 / 添加远程连接」双标签页并针对网盘优化录入项。
+- 实现要点：面板分区由 `isBaiduPanProtocol` 协议判定驱动（后续加阿里云盘只需标记协议，分区顺序写死网盘在前）；面板每区自带「文字 + 图标」添加按钮、事件载荷带协议；设置页按协议落对应标签页；保留单个 `connection-form.vue` + `variant` prop（`auto` 保持旧行为）。
+- 网盘表单形态：Cookie 用原生 `<textarea>`、隐藏协议/主机/端口/用户名/代理、步骤默认展开、代理恒直连、协议恒 `baidu_pan`。
+- 17 语言包用 node 脚本批量改写（`node .superpowers/sdd/i18n-remote-tabs.mjs`，`CHANGED=17 SKIPPED=0`，**勿重复执行**）。
+
+### 20.2 真机验收结论（`tauri build` 打包产物，已装机）
+
+- 打包：`npm run tauri:build` → `release\local-builds\Alpha File Manager_3.12.2_x64-setup.exe`（45,349,198 B，16:02:22）；装机走静默安装器 `/S`。
+- 优化①：左侧栏顶部仅 6 个按钮，云图标为最后一个（18,393 43x42），其下到 y=1782 全空白 ⇒ 无「+」。
+- 优化②：悬停云图标 → 面板命中「远程连接设置 / 网盘 / 添加网盘 / 百度网盘 / 远程连接 / 添加远程连接」⇒ 网盘区在上。
+- 优化③：设置页远程分类 → 「添加连接」→ 双 `TabItem`（添加网盘 1558,1098 / 添加远程连接 2138,1098）；切到远程页出现 2 个 ComboBox + 名称/服务器/用户名/密码/初始目录/本地目录，`COOKIE_TEXT_HITS=0`；网盘页无协议/主机/端口/用户名/代理。
+- **百度网盘添加成功闭环**：在「添加网盘」表单用真实 BDUSS+STOKEN 新增连接 `AcceptBaidu` → 保存成功（`remote-credentials.json` 由 1 条 DPAPI 条目变 2 条）→ 云图标面板里出现 `Button | AcceptBaidu`（79,550 320x50）→ 点击打开 → 路径栏 `位置 | prompts | 0736c40a… | dfc442674e…`（`sfm://remote/` 链路），目录树列出真实网盘目录（0000temp、01A_软件、01B_设计素材、02A_办公软件教程 … 86_混沌创新院）。
+- 门禁：`npx vitest run`（4 个相关测试文件）= **64 passed**；`npx vue-tsc --build` exit 0；本轮 7 个改动文件 `eslint` 0 问题；全仓 `eslint .` = **177 errors / 0 warnings**（记录基线 188 已过期，177 全部落在本轮未触碰文件）。
+- 证据目录：`.superpowers/sdd/accept-tabs1/`（`phaseA/B/E3/E4/E6*.txt`、`*-crop*.png`、`uia-*.txt`）。
+
+### 20.3 本轮新增的工具坑（务必遵守）
+
+1. **往 WebView2 里输文本：`KEYEVENTF_UNICODE` 逐字符键入是唯一可靠路径，剪贴板 + Ctrl+V 在设置页表单里不落地**。现象：剪贴板读回长度正确（271）、`SendInput` 返回 4、输入框有焦点边框，但 DOM 仍为空、Vue 校验直接报「连接名称不能为空。」⇒ 改用 `KEYEVENTF_UNICODE`（`wVk=0`、`wScan=码位`、`dwFlags=0x0004` 键下 + `0x0004|0x0002` 键上）后，`NAME_LEN=11`、`COOKIE_LEN_IN_FIELD=271` 全对，v-model 也同步。（旧记忆里「剪贴板 + Ctrl+V 可行」只对文件浏览器工具栏过滤框成立。）
+2. **`[System.Security.Cryptography.ProtectedData]::Unprotect` 对本项目 DPAPI 密文抛「参数错误」**，要用裸 `CryptUnprotectData`（无 entropy、`dwFlags=CRYPTPROTECT_UI_FORBIDDEN=1`）。
+3. **PowerShell 取 JSON 字典必须先取键名再回查**：`$obj.entries.PSObject.Properties[0].Value` **返回空串**（要 `$obj.entries.PSObject.Properties.Name` 取名后 `Properties[$k].Value`）。空串 ⇒ `FromBase64String` 得 0 字节 ⇒ Unprotect 报 87「参数错误」，看起来像「密文坏了」。
+4. **UIA 同名元素要按 ControlType 区分**：面板里的「AcceptBaidu」是 `Button`（79,550），设置页连接列表里同名的是 `ListItem`（1552,1086 1214x110）。只按名字取会点到设置页那一行。
+5. **「保存」按钮初始在屏幕外**（y=2170 > 窗口底 2099）⇒ 需先滚轮滚动（滚动会滚整个设置页）再点。
+6. **删除连接没有二次确认框**：点行内「删除」即刻生效。脚本若「点完再找一个确认按钮」，会误点到**下一行**的删除按钮——本轮就误删了「速豹堂」SFTP 连接，靠 `.superpowers/sdd/pre-e-backup/` 恢复。⇒ 删除类脚本必须**按行坐标定位**删除按钮、点击后**立即断言行数变化**，禁止再点第二个同名按钮。
+
+### 20.4 用户数据现状
+
+- 验收后已恢复：`user-data/user-remote-connections.json` = 4 条（速豹堂 / aiec.fun / jury.xin / 百度网盘，1483 B）、`remote-credentials.json` = 1 条 DPAPI 条目（793 B）、`remote-known-hosts.json`（463 B），字节数与 `.superpowers/sdd/pre-e-backup/` 逐项一致；恢复顺序按 AGENTS.md：**先 Stop-Process 再 restore**，restore 后应用已重启（PID 已确认存活）。
+
+### 20.5 仍未验证 / 已知风险
+
+- **R2「全局搜索扫描进行中切导航不再未响应」仍缺真机复验**（需一次 14-54 分钟全量扫描窗口）。
+- 17 语言包非中文文案为机器翻译直存（已知风险）；`hy` 的 `settings.remote.baidu.help.*` 10 键曾以英文回填。
+- 阶段 1 的 `write_file` / `set_permissions` 仍是 Unsupported（写入操作未做）。
