@@ -8,6 +8,7 @@ mod app_dirs;
 mod app_updater;
 mod archive;
 mod background_sources;
+mod baidu_login;
 mod baidu_probe;
 mod batch_rename;
 mod clipboard_source;
@@ -374,6 +375,10 @@ pub fn run() {
             remote::remote_baidu_save_session,
             remote::remote_baidu_auth_status,
             remote::remote_baidu_delete_session,
+            baidu_login::remote_baidu_login_start,
+            baidu_login::remote_baidu_login_pending,
+            baidu_login::remote_baidu_login_claim,
+            baidu_login::remote_baidu_login_cancel,
             remote::remote_test_connection,
             remote::remote_read_dir,
             remote::remote_stat_dir_entry,
@@ -683,6 +688,9 @@ fn setup_handler(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
         // T1/U1 探针：仅在 AFM_BAIDU_PROBE=1 时生效，否则立即返回、零副作用。
         // 见 src-tauri/src/baidu_probe.rs 顶部说明（含 cargo test --lib 红线）。
         baidu_probe::install(app.handle());
+        // 端到端自检：仅在 AFM_BAIDU_SELFTEST=1 时生效，
+        // 跑「开登录窗 → 等登录态 → 认领落盘」的真实命令链路。
+        baidu_probe::install_selftest(app.handle());
 
         let launched_only_with_delegated_paths = !filter_result.had_absorbed_paths
             && filter_result.had_delegated_paths()

@@ -744,6 +744,19 @@
           "noteRequired": "BDUSS es obligatorio y distingue mayúsculas de minúsculas (bduss en minúsculas no se acepta). STOKEN es opcional.",
           "noteExpiry": "Cuando la cookie caduque, esta app no puede renovarla; vuelve a iniciar sesión y copia una nueva.",
           "notePrivacy": "La cookie equivale a tu contraseña. Se guarda solo cifrada con Windows DPAPI en este equipo, no se sube ni se escribe en el registro."
+        },
+        "embedded": {
+          "title": "Sign in inside the app",
+          "start": "Sign in with the built-in window",
+          "cancel": "Stop waiting",
+          "hint": "Opens a sign-in window inside the app. Once you are signed in, this form fills itself in — you only need to give the connection a name and save.",
+          "status": {
+            "waiting": "Waiting for you to finish signing in…",
+            "ready": "Signed in. Give this connection a name and save — the session is stored when you save.",
+            "closed": "The sign-in window was closed before signing in finished.",
+            "timeout": "Signing in took too long. Try again.",
+            "error": "Could not read the session. Use the Cookie field instead."
+          }
         }
       }
     },

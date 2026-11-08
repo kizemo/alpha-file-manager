@@ -737,6 +737,19 @@
           "noteRequired": "BDUSS اجباری است و نامش به حروف بزرگ/کوچک حساس است (bduss با حروف کوچک پذیرفته نمی‌شود). STOKEN اختیاری است.",
           "noteExpiry": "پس از انقضای Cookie این برنامه نمی‌تواند آن را تمدید کند؛ دوباره وارد شوید و یک Cookie تازه کپی کنید.",
           "notePrivacy": "Cookie به همان اندازه رمز عبور شما حساس است. فقط با Windows DPAPI رمزنگاری‌شده روی همین رایانه نگه‌داری می‌شود، جایی ارسال نمی‌شود و در گزارش ثبت نمی‌شود."
+        },
+        "embedded": {
+          "title": "Sign in inside the app",
+          "start": "Sign in with the built-in window",
+          "cancel": "Stop waiting",
+          "hint": "Opens a sign-in window inside the app. Once you are signed in, this form fills itself in — you only need to give the connection a name and save.",
+          "status": {
+            "waiting": "Waiting for you to finish signing in…",
+            "ready": "Signed in. Give this connection a name and save — the session is stored when you save.",
+            "closed": "The sign-in window was closed before signing in finished.",
+            "timeout": "Signing in took too long. Try again.",
+            "error": "Could not read the session. Use the Cookie field instead."
+          }
         }
       }
     },

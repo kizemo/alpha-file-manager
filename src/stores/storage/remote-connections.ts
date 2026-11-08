@@ -17,6 +17,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { ref, watch } from 'vue';
 import type {
   BaiduAuthStatusPayload,
+  BaiduLoginClaimPayload,
   RemoteConnection,
   RemoteConnectionForm,
   RemoteConnectionTestReport,
@@ -337,6 +338,19 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
         });
         credentialKey = undefined;
       }
+      else {
+        // 内嵌登录（2026-11-08）：登录态先暂存在后端的「待认领槽位」里，
+        // 因为它比连接本身先产生 —— 用户是先登录、后点保存。
+        // 认领必须放在这里：只有走到这一步才会有 id 可以落盘。
+        // 槽位为空时后端返回 claimed:false，是一次空操作，不会覆盖已存会话。
+        const claimed = await invoke<BaiduLoginClaimPayload>('remote_baidu_login_claim', {
+          connectionId: id,
+        });
+
+        if (claimed.claimed) {
+          credentialKey = id;
+        }
+      }
     }
     else if (hasNewPassword) {
       await invoke('remote_save_credential', {
@@ -511,6 +525,25 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     });
   }
 
+  /**
+   * 打开**内嵌**百度网盘登录窗口（2026-11-08）。
+   *
+   * 窗口由 Rust 侧建（`src-tauri/src/baidu_login.rs`），前端只发起动作：
+   * 这样登录页跑在应用自己的 WebView2 里，cookie 直接落在应用的 cookie 罐，
+   * 后端 `cookies_for_url` 读得到 `HttpOnly` 的 `BDUSS` ——
+   * 走系统浏览器则完全读不回来（`HttpOnly` 就是防这个的）。
+   *
+   * 重复调用只会聚焦已经打开的窗口，不会开出第二个。
+   */
+  async function startBaiduLogin(): Promise<void> {
+    await invoke('remote_baidu_login_start');
+  }
+
+  /** 放弃内嵌登录：关窗口并丢弃已读到但没人认领的会话。 */
+  async function cancelBaiduLogin(): Promise<void> {
+    await invoke('remote_baidu_login_cancel');
+  }
+
   return {
     storage,
     connections,
@@ -530,6 +563,8 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     testConnection,
     getBaiduAuthStatus,
     deleteBaiduSession,
+    startBaiduLogin,
+    cancelBaiduLogin,
     requestRemoteEdit,
     consumeRemoteEdit,
     requestRemoteCreate,

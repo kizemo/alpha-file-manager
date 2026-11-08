@@ -744,6 +744,19 @@
           "noteRequired": "BDUSS bắt buộc và tên phân biệt chữ hoa/chữ thường (bduss viết thường không được chấp nhận). STOKEN không bắt buộc.",
           "noteExpiry": "Khi Cookie hết hạn, ứng dụng này không thể gia hạn; bạn phải đăng nhập lại và sao chép Cookie mới.",
           "notePrivacy": "Cookie nhạy cảm như mật khẩu của bạn. Nó chỉ được lưu trên máy này dưới dạng mã hóa Windows DPAPI, không bao giờ được tải lên hay ghi vào nhật ký."
+        },
+        "embedded": {
+          "title": "Sign in inside the app",
+          "start": "Sign in with the built-in window",
+          "cancel": "Stop waiting",
+          "hint": "Opens a sign-in window inside the app. Once you are signed in, this form fills itself in — you only need to give the connection a name and save.",
+          "status": {
+            "waiting": "Waiting for you to finish signing in…",
+            "ready": "Signed in. Give this connection a name and save — the session is stored when you save.",
+            "closed": "The sign-in window was closed before signing in finished.",
+            "timeout": "Signing in took too long. Try again.",
+            "error": "Could not read the session. Use the Cookie field instead."
+          }
         }
       }
     },

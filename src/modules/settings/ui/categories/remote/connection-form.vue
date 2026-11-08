@@ -4,8 +4,15 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 -->
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import {
+  computed,
+  onMounted,
+  onUnmounted,
+  ref,
+  watch,
+} from 'vue';
 import { useI18n } from 'vue-i18n';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { Input } from '@/components/ui/input';
@@ -20,7 +27,7 @@ import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
 import { getRemoteProtocolDefaultPort, isBaiduPanProtocol } from '@/types/remote';
 import normalizePath from '@/utils/normalize-path';
 import type {
-  BaiduAuthStatusPayload, RemoteConnection, RemoteConnectionForm, RemoteConnectionTestReport, RemoteProtocol, RemoteProxyConfig,
+  BaiduAuthStatusPayload, BaiduLoginEventPayload, RemoteConnection, RemoteConnectionForm, RemoteConnectionTestReport, RemoteProtocol, RemoteProxyConfig,
 } from '@/types/remote';
 
 type Props = {
@@ -73,13 +80,15 @@ const PROXY_KINDS: RemoteProxyConfig['kind'][] = ['direct', 'socks5', 'http_conn
 const BAIDU_PAN_HOST = 'pan.baidu.com';
 
 /**
- * 「如何获取 Cookie」帮助块（2026-11-08）。
+ * 手工粘贴 Cookie 的**降级路径**（2026-11-08）。
  *
- * 百度没有给第三方应用的 OAuth，Cookie 只能从**已登录的浏览器会话**里抠，
- * 本应用替不了用户登录。所以这里做两件事：
- * ① 一个直达登录页的外链，省掉手敲域名；
- * ② 把 F12 → 网络 → 复制 BDUSS 的步骤写在表单里，免得用户另开搜索。
+ * 百度没有给第三方应用的 OAuth，凭据只能从已登录的会话里取。
+ * 首选路径是内嵌登录窗（见 `handleStartBaiduLogin`）—— 由 Rust 侧直接
+ * 读 WebView2 的 cookie，用户不用碰 F12。
  *
+ * 保留这一段，是因为内嵌登录有它够不到的场合：WebView2 异常、
+ * 企业网络挡了第三方登录流程，或者用户本来就在自己浏览器里登录着、
+ * 只想把现成的 Cookie 粘过来。
  * 步骤口径与后端解析规则严格对齐（`src-tauri/src/remote/baidu_auth.rs`）：
  * `BDUSS` 必需且**大小写敏感**，`STOKEN` 可选（只影响上传加速），
  * 裸值与整串 Cookie 两种粘法都接受 —— 说明里必须只写做得到、且被代码允许的动作。
@@ -98,6 +107,89 @@ const cookieHelpOpen = ref(true);
 function openBaiduLoginPage() {
   openUrl(BAIDU_PAN_URL);
 }
+
+/**
+ * 内嵌登录（2026-11-08）。
+ *
+ * 登录窗由 Rust 侧创建（`src-tauri/src/baidu_login.rs`），cookie 也在
+ * **Rust 侧**读回并暂存 —— 前端从头到尾拿不到明文，只拿得到状态与摘要。
+ * 落盘发生在用户点「保存」时（`saveConnection` 里认领），因为只有走到
+ * 那一步才有连接 id 可以当凭据键。
+ */
+type BaiduLoginViewState = 'idle' | 'waiting' | BaiduLoginEventPayload['status'];
+
+const baiduLoginState = ref<BaiduLoginViewState>('idle');
+const baiduLoginSummary = ref('');
+const isStartingBaiduLogin = ref(false);
+
+async function handleStartBaiduLogin() {
+  if (isStartingBaiduLogin.value) return;
+
+  isStartingBaiduLogin.value = true;
+  baiduLoginSummary.value = '';
+  baiduLoginState.value = 'waiting';
+
+  try {
+    await store.startBaiduLogin();
+  }
+  catch (error) {
+    console.error('Failed to open embedded baidu login:', error);
+    baiduLoginState.value = 'error';
+  }
+  finally {
+    isStartingBaiduLogin.value = false;
+  }
+}
+
+async function handleCancelBaiduLogin() {
+  try {
+    await store.cancelBaiduLogin();
+  }
+  catch (error) {
+    console.error('Failed to cancel embedded baidu login:', error);
+  }
+  finally {
+    baiduLoginState.value = 'idle';
+    baiduLoginSummary.value = '';
+  }
+}
+
+/**
+ * 订阅登录进度。
+ *
+ * ⚠️ `listen` 是**异步注册**的，组件可能在它返回之前就卸载了 ——
+ * 卸载时除了调 `unlisten`，还要用 `disposed` 兜住「注册晚到」这一手，
+ * 否则每开一次表单就漏一个监听器。
+ */
+let unlistenBaiduLogin: UnlistenFn | null = null;
+let baiduLoginDisposed = false;
+
+onMounted(async () => {
+  try {
+    const unlisten = await listen<BaiduLoginEventPayload>('afm://baidu-login', (event) => {
+      const payload = event.payload;
+
+      baiduLoginState.value = payload.status;
+      baiduLoginSummary.value = payload.summary ?? payload.message ?? '';
+    });
+
+    if (baiduLoginDisposed) {
+      unlisten();
+      return;
+    }
+
+    unlistenBaiduLogin = unlisten;
+  }
+  catch (error) {
+    console.error('Failed to listen for embedded baidu login events:', error);
+  }
+});
+
+onUnmounted(() => {
+  baiduLoginDisposed = true;
+  unlistenBaiduLogin?.();
+  unlistenBaiduLogin = null;
+});
 
 const name = ref('');
 const protocol = ref<RemoteProtocol>('ftp');
@@ -211,6 +303,10 @@ function reset() {
   proxyPort.value = 1080;
   proxyUsername.value = '';
   proxyPassword.value = '';
+  // 保存成功后这一表单回到「新建」，内嵌登录的提示也得跟着归零 ——
+  // 否则下一条连接会带着上一条的「已登录」假象。
+  baiduLoginState.value = 'idle';
+  baiduLoginSummary.value = '';
 }
 
 /** 选一个本地目录。留空即可不摆双屏，所以这里不做任何默认填充。 */
@@ -498,6 +594,62 @@ function onProtocolChange(value: unknown) {
         data-test="hint-cookie"
       >
         {{ t('settings.remote.baidu.hint') }}
+      </p>
+    </div>
+
+    <!--
+      内嵌登录（2026-11-08）：在上面那个 Cookie 文本框之上再给一条「不用手工复制」的路。
+      登录窗由 Rust 侧开，登录完成后把会话直接写进待认领槽位，
+      这里只负责把「进行到哪一步」显示出来 —— Cookie 明文永远不进前端。
+    -->
+    <div
+      v-if="isNetdisk"
+      class="remote-connection-form__row"
+      data-test="baidu-embedded"
+    >
+      <Label>{{ t('settings.remote.baidu.embedded.title') }}</Label>
+      <div class="remote-connection-form__inline">
+        <Button
+          type="button"
+          variant="outline"
+          data-test="baidu-embedded-start"
+          :disabled="isStartingBaiduLogin"
+          @click="handleStartBaiduLogin"
+        >
+          {{ t('settings.remote.baidu.embedded.start') }}
+        </Button>
+        <Button
+          v-if="baiduLoginState === 'waiting'"
+          type="button"
+          variant="ghost"
+          data-test="baidu-embedded-cancel"
+          @click="handleCancelBaiduLogin"
+        >
+          {{ t('settings.remote.baidu.embedded.cancel') }}
+        </Button>
+      </div>
+      <p
+        class="remote-connection-form__hint"
+        data-test="baidu-embedded-hint"
+      >
+        {{ t('settings.remote.baidu.embedded.hint') }}
+      </p>
+      <p
+        v-if="baiduLoginState !== 'idle'"
+        class="remote-connection-form__hint"
+        :data-status="baiduLoginState"
+        data-test="baidu-embedded-status"
+      >
+        {{ baiduLoginState === 'waiting'
+          ? t('settings.remote.baidu.embedded.status.waiting')
+          : t(`settings.remote.baidu.embedded.status.${baiduLoginState}`) }}
+      </p>
+      <p
+        v-if="baiduLoginSummary"
+        class="remote-connection-form__hint"
+        data-test="baidu-embedded-summary"
+      >
+        {{ baiduLoginSummary }}
       </p>
     </div>
 

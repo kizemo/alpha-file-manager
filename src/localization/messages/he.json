@@ -781,6 +781,19 @@
           "noteRequired": "BDUSS חובה והשם רגיש לרישיות (bduss באותיות קטנות לא מתקבל). STOKEN רשות.",
           "noteExpiry": "כשתוקף ה-Cookie יפוג האפליקציה לא תוכל לחדש אותו — יש להתחבר מחדש ולהעתיק עוגייה חדשה.",
           "notePrivacy": "Cookie רגיש כמו הסיסמה שלכם. הוא נשמר רק בהצפנת Windows DPAPI במחשב הזה, לא עולה לרשת ולא נרשם ביומנים."
+        },
+        "embedded": {
+          "title": "Sign in inside the app",
+          "start": "Sign in with the built-in window",
+          "cancel": "Stop waiting",
+          "hint": "Opens a sign-in window inside the app. Once you are signed in, this form fills itself in — you only need to give the connection a name and save.",
+          "status": {
+            "waiting": "Waiting for you to finish signing in…",
+            "ready": "Signed in. Give this connection a name and save — the session is stored when you save.",
+            "closed": "The sign-in window was closed before signing in finished.",
+            "timeout": "Signing in took too long. Try again.",
+            "error": "Could not read the session. Use the Cookie field instead."
+          }
         }
       }
     },

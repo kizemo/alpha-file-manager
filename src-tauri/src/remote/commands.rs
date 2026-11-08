@@ -920,6 +920,14 @@ mod tests {
         "remote_baidu_save_session",
         "remote_baidu_auth_status",
         "remote_baidu_delete_session",
+        // 内嵌登录（2026-11-09）：这四条在 `baidu_login` 模块里实现，
+        // 但注册项写的是 `baidu_login::remote_baidu_login_*`，
+        // 取最后一段后同样以 `remote_` 开头 —— 所以也得登记在这儿，
+        // 否则反向检查会以为注册表里多出了「不存在的命令」。
+        "remote_baidu_login_start",
+        "remote_baidu_login_pending",
+        "remote_baidu_login_claim",
+        "remote_baidu_login_cancel",
         "remote_test_connection",
         "remote_read_dir",
         "remote_stat_dir_entry",

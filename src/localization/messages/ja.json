@@ -744,6 +744,19 @@
           "noteRequired": "BDUSS は必須で、名前の大文字小文字が区別されます（小文字の bduss は受け付けられません）。STOKEN は任意です。",
           "noteExpiry": "Cookie の有効期限が切れると、このアプリでは更新できません。再度ログインしてコピーし直してください。",
           "notePrivacy": "Cookie はパスワードと同じく機微な情報です。Windows DPAPI で暗号化された状態でのみこの PC に保存され、送信したりログに記録したりすることはありません。"
+        },
+        "embedded": {
+          "title": "Sign in inside the app",
+          "start": "Sign in with the built-in window",
+          "cancel": "Stop waiting",
+          "hint": "Opens a sign-in window inside the app. Once you are signed in, this form fills itself in — you only need to give the connection a name and save.",
+          "status": {
+            "waiting": "Waiting for you to finish signing in…",
+            "ready": "Signed in. Give this connection a name and save — the session is stored when you save.",
+            "closed": "The sign-in window was closed before signing in finished.",
+            "timeout": "Signing in took too long. Try again.",
+            "error": "Could not read the session. Use the Cookie field instead."
+          }
         }
       }
     },
