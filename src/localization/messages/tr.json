@@ -644,13 +644,15 @@
         "proxyPort": "Proxy port",
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
-        "localPath": "Local folder"
+        "localPath": "Local folder",
+        "cookie": "Cookie"
       },
       "protocol": {
         "ftp": "FTP",
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
-        "sftp": "SFTP"
+        "sftp": "SFTP",
+        "baidu_pan": "Baidu Netdisk"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -709,6 +711,31 @@
         "forgetFailed": "That host could not be removed. It is still on the list.",
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
+      },
+      "baidu": {
+        "hint": "Tarayıcıda pan.baidu.com adresine giriş yapın, ardından Cookie başlığının tamamını buraya yapıştırın (BDUSS içermelidir). Kimlik bilgisi Windows DPAPI ile şifrelenir ve bu bilgisayardan hiç çıkmaz.",
+        "status": {
+          "loading": "Yetkilendirme durumu okunuyor…",
+          "missing": "Giriş yapılmamış",
+          "ready": "Yetkilendirildi",
+          "stoken_expired": "STOKEN süresi doldu — yeniden giriş yapın",
+          "stoken_expiring_soon": "STOKEN süresi dolmak üzere"
+        },
+        "action": {
+          "deleteSession": "Kayıtlı oturumu sil"
+        },
+        "help": {
+          "toggle": "Cookie nasıl alınır",
+          "openLogin": "Baidu Netdisk giriş sayfasını aç",
+          "step1": "Tarayıcıda pan.baidu.com adresini açın ve Baidu hesabınızda oturum açın.",
+          "step2": "Geliştirici araçlarını açmak için F12 tuşuna basın ve Ağ paneline geçin.",
+          "step3": "Sayfayı yenileyin, herhangi bir isteğe tıklayın ve İstek Üst Bilgileri içindeki Cookie satırında BDUSS değerini bulun.",
+          "step4": "BDUSS değerini kopyalayın; STOKEN varsa onu da kopyalayın, böylece yükleme hızlandırması korunur.",
+          "step5": "Yukarıdaki alana yapıştırın: tüm Cookie dizesi, BDUSS=xxx; STOKEN=yyy ya da yalnızca BDUSS değeri olabilir.",
+          "noteRequired": "BDUSS zorunludur ve adı büyük/küçük harfe duyarlıdır (küçük harfli bduss kabul edilmez). STOKEN isteğe bağlıdır.",
+          "noteExpiry": "Cookie süresi dolduğunda uygulama onu yenileyemez; yeniden oturum açıp yeni bir kopya almanız gerekir.",
+          "notePrivacy": "Cookie, parolanız kadar hassastır. Yalnızca Windows DPAPI ile şifrelenmiş olarak bu bilgisayarda saklanır; yüklenmez ve günlere yazılmaz."
+        }
       }
     },
     "about": {

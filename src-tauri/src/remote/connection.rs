@@ -24,6 +24,12 @@ pub enum RemoteProtocol {
     /// 隐式 FTPS：直接连 TLS，默认端口 990。
     FtpsImplicit,
     Sftp,
+    /// 百度网盘：走 `pan.baidu.com` 的 HTTPS 接口。
+    ///
+    /// 它**不是**「主机 + 端口 + 账号密码」那种协议：登录态是整份 cookie
+    /// （`BDUSS` + `STOKEN`），没有「密码」可填。连接表里仍然要存 host / port，
+    /// 是为了让远程路径与侧边栏的呈现方式跟其它协议一致。
+    BaiduPan,
 }
 
 impl RemoteProtocol {
@@ -33,6 +39,7 @@ impl RemoteProtocol {
             Self::Ftp | Self::FtpsExplicit => 21,
             Self::FtpsImplicit => 990,
             Self::Sftp => 22,
+            Self::BaiduPan => 443,
         }
     }
 
@@ -42,6 +49,7 @@ impl RemoteProtocol {
             Self::FtpsExplicit => "ftps_explicit",
             Self::FtpsImplicit => "ftps_implicit",
             Self::Sftp => "sftp",
+            Self::BaiduPan => "baidu_pan",
         }
     }
 }
@@ -233,6 +241,18 @@ mod tests {
         assert_eq!(RemoteProtocol::FtpsExplicit.default_port(), 21);
         assert_eq!(RemoteProtocol::FtpsImplicit.default_port(), 990);
         assert_eq!(RemoteProtocol::Sftp.default_port(), 22);
+        // 百度网盘走 HTTPS。
+        assert_eq!(RemoteProtocol::BaiduPan.default_port(), 443);
+    }
+
+    /// 协议名会写进 `user-remote-connections.json` 与前端类型，
+    /// 一旦改名，老记录就再也读不出来了 —— 所以名字必须锁死。
+    #[test]
+    fn the_baidu_pan_protocol_has_its_own_stable_name() {
+        assert_eq!(RemoteProtocol::BaiduPan.as_str(), "baidu_pan");
+
+        let json = serde_json::to_string(&RemoteProtocol::BaiduPan).expect("serialize");
+        assert_eq!(json, "\"baidu_pan\"");
     }
 
     #[test]
@@ -296,7 +316,10 @@ mod tests {
     fn connections_round_trip_through_json_without_any_password_field() {
         let json = serde_json::to_string(&valid()).expect("serialize");
 
-        assert!(!json.contains("password"), "序列化结果绝不能带密码字段：{json}");
+        assert!(
+            !json.contains("password"),
+            "序列化结果绝不能带密码字段：{json}"
+        );
         assert!(json.contains("\"credentialKey\":\"cred-1\""));
 
         let parsed: RemoteConnection = serde_json::from_str(&json).expect("deserialize");
@@ -377,7 +400,10 @@ mod tests {
         assert!(json.contains("\"localPath\":\"C:/Users/test/Downloads\""));
 
         let parsed: RemoteConnection = serde_json::from_str(&json).expect("deserialize");
-        assert_eq!(parsed.local_path.as_deref(), Some("C:/Users/test/Downloads"));
+        assert_eq!(
+            parsed.local_path.as_deref(),
+            Some("C:/Users/test/Downloads")
+        );
         assert_eq!(parsed.validate(), Ok(()));
     }
 
@@ -429,14 +455,8 @@ mod tests {
 
     #[test]
     fn config_errors_map_to_a_hint_the_frontend_can_use() {
-        assert_eq!(
-            connection_error_hint(&RemoteError::protocol("x")),
-            "config"
-        );
-        assert_eq!(
-            connection_error_hint(&RemoteError::auth("x")),
-            "auth"
-        );
+        assert_eq!(connection_error_hint(&RemoteError::protocol("x")), "config");
+        assert_eq!(connection_error_hint(&RemoteError::auth("x")), "auth");
         assert_eq!(
             connection_error_hint(&RemoteError::unsupported("x")),
             "unsupported",

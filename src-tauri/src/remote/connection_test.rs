@@ -30,6 +30,8 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
+use super::baidu_api::{build_client, fetch_user_info};
+use super::baidu_auth::parse_manual_cookie_input;
 use super::connection::RemoteProtocol;
 use super::error::{RemoteError, RemoteErrorKind};
 use super::transport::{self, ProxyConfig, Socks5CommandKind, TransportStream};
@@ -86,9 +88,7 @@ impl ProbeOutcome {
     /// 但在那之前它只有测试在调，**别把它当成已经接上的映射表**。
     pub fn error_kind(self) -> RemoteErrorKind {
         match self {
-            Self::Verified | Self::AuthRejected | Self::MissingCredential => {
-                RemoteErrorKind::Auth
-            }
+            Self::Verified | Self::AuthRejected | Self::MissingCredential => RemoteErrorKind::Auth,
             Self::WrongProtocol | Self::ProtocolError => RemoteErrorKind::Protocol,
             Self::Unreachable => RemoteErrorKind::Unreachable,
         }
@@ -237,25 +237,27 @@ impl RemoteErrorKind {
     }
 }
 
-async fn probe_inner(target: &ProbeTarget, host: &str) -> Result<ConnectionTestReport, RemoteError> {
+async fn probe_inner(
+    target: &ProbeTarget,
+    host: &str,
+) -> Result<ConnectionTestReport, RemoteError> {
     let command = Socks5CommandKind::Connect;
 
     match target.protocol {
         RemoteProtocol::Sftp => probe_sftp(target, host, command).await,
+        // 百度网盘不走 TCP：它是一套 HTTPS 接口，凭据是整段 cookie。
+        RemoteProtocol::BaiduPan => probe_baidu(target).await,
         RemoteProtocol::Ftp => {
-            let stream =
-                transport::connect(&target.proxy, host, target.port, command).await?;
+            let stream = transport::connect(&target.proxy, host, target.port, command).await?;
             ftp_login(stream, target).await
         }
         RemoteProtocol::FtpsImplicit => {
-            let stream =
-                transport::connect(&target.proxy, host, target.port, command).await?;
+            let stream = transport::connect(&target.proxy, host, target.port, command).await?;
             let secure = upgrade_tls(stream, host).await?;
             ftp_login(secure, target).await
         }
         RemoteProtocol::FtpsExplicit => {
-            let stream =
-                transport::connect(&target.proxy, host, target.port, command).await?;
+            let stream = transport::connect(&target.proxy, host, target.port, command).await?;
             // RFC 4217：先在明文控制通道上协商，拿到 234 才升级。
             let mut raw = stream;
             let mut reply = Vec::new();
@@ -284,6 +286,33 @@ async fn probe_inner(target: &ProbeTarget, host: &str) -> Result<ConnectionTestR
             let secure = upgrade_tls(raw, host).await?;
             ftp_login(secure, target).await
         }
+    }
+}
+
+/// 百度网盘的「测试连接」：拿 cookie 打一次账号信息接口。
+///
+/// 百度网盘的凭据是**整段 cookie**（`BDUSS` + `STOKEN`），不是密码 ——
+/// 所以这里从 [`ProbeTarget::password`] 取：设置页在百度协议下，
+/// 那个输入框装的就是 cookie。
+///
+/// 没有 cookie 时报「还没授权」而不是「连接失败」：两者的处置完全不同。
+async fn probe_baidu(target: &ProbeTarget) -> Result<ConnectionTestReport, RemoteError> {
+    let Some(raw) = target.password.as_deref() else {
+        return Ok(ConnectionTestReport::new(
+            ProbeOutcome::AuthRejected,
+            "这条百度网盘连接还没有登录凭据，请先完成授权。",
+        ));
+    };
+
+    let session = parse_manual_cookie_input(raw)?;
+    let client = build_client()?;
+
+    match fetch_user_info(&client, &session).await {
+        Ok(info) => Ok(ConnectionTestReport::new(
+            ProbeOutcome::Verified,
+            format!("百度网盘连接正常，账号：{}", info.baidu_name),
+        )),
+        Err(error) => Ok(report_from_error(error)),
     }
 }
 
@@ -457,17 +486,11 @@ where
         Pin::new(&mut self.get_mut().inner).poll_write(context, buffer)
     }
 
-    fn poll_flush(
-        self: Pin<&mut Self>,
-        context: &mut Context<'_>,
-    ) -> Poll<std::io::Result<()>> {
+    fn poll_flush(self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<std::io::Result<()>> {
         Pin::new(&mut self.get_mut().inner).poll_flush(context)
     }
 
-    fn poll_shutdown(
-        self: Pin<&mut Self>,
-        context: &mut Context<'_>,
-    ) -> Poll<std::io::Result<()>> {
+    fn poll_shutdown(self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<std::io::Result<()>> {
         Pin::new(&mut self.get_mut().inner).poll_shutdown(context)
     }
 }
@@ -508,7 +531,9 @@ pub(crate) async fn read_ssh_banner(
     .await;
 
     if let Ok(Err(error)) = read {
-        return Err(RemoteError::unreachable(format!("读取 SSH 标识串失败：{error}")));
+        return Err(RemoteError::unreachable(format!(
+            "读取 SSH 标识串失败：{error}"
+        )));
     }
 
     // 一个字节都没收到 = 服务器没应答（例如 HTTP 这类「等你先说话」的服务）。
@@ -556,18 +581,12 @@ async fn probe_sftp(
         observed_key: Arc::clone(&observed),
     };
 
-    let mut session = russh::client::connect_stream(
-        Arc::new(russh::client::Config::default()),
-        stream,
-        handler,
-    )
-    .await
-    .map_err(classify_ssh_handshake_error)?;
+    let mut session =
+        russh::client::connect_stream(Arc::new(russh::client::Config::default()), stream, handler)
+            .await
+            .map_err(classify_ssh_handshake_error)?;
 
-    let identity = observed
-        .lock()
-        .ok()
-        .and_then(|slot| slot.clone());
+    let identity = observed.lock().ok().and_then(|slot| slot.clone());
 
     let Some(password) = target.password.as_deref() else {
         // 没有密码就只验到「这个 SSH 服务能完成握手」为止。
@@ -591,11 +610,12 @@ async fn probe_sftp(
         .map_err(|error| RemoteError::auth(format!("SSH 认证失败：{error}")))?;
 
     if result.success() {
-        return Ok(
-            ConnectionTestReport::new(ProbeOutcome::Verified, "连接成功，服务器已接受该凭据")
-                .with_identity(identity)
-                .with_password_checked(true),
-        );
+        return Ok(ConnectionTestReport::new(
+            ProbeOutcome::Verified,
+            "连接成功，服务器已接受该凭据",
+        )
+        .with_identity(identity)
+        .with_password_checked(true));
     }
 
     Ok(
@@ -644,10 +664,11 @@ where
 
     // 230：USER 阶段就已经登录成功（例如某些服务器认 USER 匿名）。
     if user_code == 230 {
-        return Ok(
-            ConnectionTestReport::new(ProbeOutcome::Verified, "连接成功，服务器已接受该用户名")
-                .with_identity(identity),
-        );
+        return Ok(ConnectionTestReport::new(
+            ProbeOutcome::Verified,
+            "连接成功，服务器已接受该用户名",
+        )
+        .with_identity(identity));
     }
 
     // 530 在 USER 阶段就出来 = **用户名**被拒，不是「没提供密码」。
@@ -681,11 +702,9 @@ where
         _ => format!("无法识别的登录结果：{pass_line}"),
     };
 
-    Ok(
-        ConnectionTestReport::new(outcome, message)
-            .with_identity(identity)
-            .with_password_checked(true),
-    )
+    Ok(ConnectionTestReport::new(outcome, message)
+        .with_identity(identity)
+        .with_password_checked(true))
 }
 
 pub(crate) async fn read_reply<S: AsyncRead + Unpin>(
@@ -696,9 +715,10 @@ pub(crate) async fn read_reply<S: AsyncRead + Unpin>(
     let mut byte = [0_u8; 1];
 
     loop {
-        let read = stream.read(&mut byte).await.map_err(|error| {
-            RemoteError::disconnected(format!("读取服务器回复失败：{error}"))
-        })?;
+        let read = stream
+            .read(&mut byte)
+            .await
+            .map_err(|error| RemoteError::disconnected(format!("读取服务器回复失败：{error}")))?;
 
         if read == 0 {
             // 对端在换行之前就关了连接。
@@ -888,7 +908,10 @@ mod tests {
         ];
 
         for (outcome, name) in outcomes.iter().zip(names) {
-            assert_eq!(serde_json::to_string(outcome).expect("serialize"), format!("\"{name}\""));
+            assert_eq!(
+                serde_json::to_string(outcome).expect("serialize"),
+                format!("\"{name}\"")
+            );
             assert_eq!(outcome.as_str(), name);
         }
     }
@@ -914,11 +937,26 @@ mod tests {
 
     #[test]
     fn every_outcome_maps_to_an_error_kind() {
-        assert_eq!(ProbeOutcome::AuthRejected.error_kind(), RemoteErrorKind::Auth);
-        assert_eq!(ProbeOutcome::MissingCredential.error_kind(), RemoteErrorKind::Auth);
-        assert_eq!(ProbeOutcome::Unreachable.error_kind(), RemoteErrorKind::Unreachable);
-        assert_eq!(ProbeOutcome::WrongProtocol.error_kind(), RemoteErrorKind::Protocol);
-        assert_eq!(ProbeOutcome::ProtocolError.error_kind(), RemoteErrorKind::Protocol);
+        assert_eq!(
+            ProbeOutcome::AuthRejected.error_kind(),
+            RemoteErrorKind::Auth
+        );
+        assert_eq!(
+            ProbeOutcome::MissingCredential.error_kind(),
+            RemoteErrorKind::Auth
+        );
+        assert_eq!(
+            ProbeOutcome::Unreachable.error_kind(),
+            RemoteErrorKind::Unreachable
+        );
+        assert_eq!(
+            ProbeOutcome::WrongProtocol.error_kind(),
+            RemoteErrorKind::Protocol
+        );
+        assert_eq!(
+            ProbeOutcome::ProtocolError.error_kind(),
+            RemoteErrorKind::Protocol
+        );
     }
 
     #[tokio::test]
@@ -981,7 +1019,8 @@ mod tests {
     /// 收发了一遍，并对成功密码与错误密码给出相反的结论。
     #[tokio::test]
     async fn logs_in_against_a_stub_ftp_server_and_verifies_the_password() {
-        let (address, expected_password, mut accepted) = spawn_stub_ftp("230 已登录", "530 密码不对");
+        let (address, expected_password, mut accepted) =
+            spawn_stub_ftp("230 已登录", "530 密码不对");
 
         let good = ProbeTarget {
             protocol: RemoteProtocol::Ftp,
@@ -1024,8 +1063,11 @@ mod tests {
     async fn a_530_on_the_user_stage_is_a_rejected_username_not_a_missing_password() {
         // 少了这条支路，它会落进 missing_credential，界面叫用户去检查密码框 ——
         // 而密码一个字都没错，错的是用户名。
-        let (address, _, accepted) =
-            spawn_stub_ftp_with("230 已登录", "530 密码不对", "530 that account is not allowed");
+        let (address, _, accepted) = spawn_stub_ftp_with(
+            "230 已登录",
+            "530 密码不对",
+            "530 that account is not allowed",
+        );
 
         let target = ProbeTarget {
             protocol: RemoteProtocol::Ftp,
@@ -1141,7 +1183,14 @@ mod tests {
                 };
                 let log = Arc::clone(&sink);
                 std::thread::spawn(move || {
-                    serve_one_ftp_session(socket, login_reply, reject_reply, user_reply, EXPECTED, log);
+                    serve_one_ftp_session(
+                        socket,
+                        login_reply,
+                        reject_reply,
+                        user_reply,
+                        EXPECTED,
+                        log,
+                    );
                 });
             }
         });
@@ -1237,10 +1286,7 @@ mod tests {
     fn a_server_that_never_stops_babbling_is_not_ssh() {
         // 20 行是 russh 自己的前导行上限；对齐它才不会两处判断打架。
         let payload = "220 nope\r\n".repeat(BANNER_MAX_PRE_LINES + 1);
-        assert_eq!(
-            classify_ssh_banner(payload.as_bytes()),
-            SshBanner::Foreign
-        );
+        assert_eq!(classify_ssh_banner(payload.as_bytes()), SshBanner::Foreign);
     }
 
     #[test]

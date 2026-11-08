@@ -644,13 +644,15 @@
         "proxyPort": "代理端口",
         "proxyUsername": "代理用户名",
         "proxyPassword": "代理密码",
-        "localPath": "本地目录"
+        "localPath": "本地目录",
+        "cookie": "Cookie"
       },
       "protocol": {
         "ftp": "FTP（明文）",
         "ftps_explicit": "FTPS（显式）",
         "ftps_implicit": "FTPS（隐式）",
-        "sftp": "SFTP"
+        "sftp": "SFTP",
+        "baidu_pan": "百度网盘"
       },
       "proxy": {
         "direct": "直连",
@@ -709,6 +711,31 @@
         "forgetFailed": "删除这条记录失败，它仍在列表中。",
         "kindSsh": "SSH 公钥",
         "kindX509": "X.509 证书"
+      },
+      "baidu": {
+        "hint": "在浏览器里登录 pan.baidu.com 后，复制整段 Cookie 粘贴到这里（必须包含 BDUSS）。凭据经 Windows DPAPI 加密，只保存在本机。",
+        "status": {
+          "loading": "正在读取授权状态…",
+          "missing": "尚未登录",
+          "ready": "已授权",
+          "stoken_expired": "STOKEN 已过期，需要重新登录",
+          "stoken_expiring_soon": "STOKEN 即将过期"
+        },
+        "action": {
+          "deleteSession": "删除已保存的会话"
+        },
+        "help": {
+          "toggle": "如何获取 Cookie",
+          "openLogin": "打开百度网盘登录页",
+          "step1": "用浏览器打开 pan.baidu.com 并登录你的百度账号。",
+          "step2": "按 F12 打开开发者工具，切到「网络 / Network」面板。",
+          "step3": "刷新页面，点任意一条请求，在请求标头（Request Headers）的 Cookie 那一行里找到 BDUSS。",
+          "step4": "复制 BDUSS 的值；如果还有 STOKEN，一并复制可以保留上传加速。",
+          "step5": "把复制到的内容粘贴到上面的输入框：整串 Cookie、BDUSS=xxx; STOKEN=yyy，或只粘 BDUSS 的值都可以。",
+          "noteRequired": "BDUSS 必填，名称区分大小写（小写 bduss 不会被接受）；STOKEN 可选。",
+          "noteExpiry": "Cookie 到期后本应用无法自动续期，只能重新登录再复制一次。",
+          "notePrivacy": "Cookie 等同于你的登录密码。它只以 Windows DPAPI 密文保存在本机，不会上传，也不会写进日志。"
+        }
       }
     },
     "about": {

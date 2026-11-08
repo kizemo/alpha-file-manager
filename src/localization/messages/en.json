@@ -681,13 +681,15 @@
         "proxyPort": "Proxy port",
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
-        "localPath": "Local folder"
+        "localPath": "Local folder",
+        "cookie": "Cookie"
       },
       "protocol": {
         "ftp": "FTP",
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
-        "sftp": "SFTP"
+        "sftp": "SFTP",
+        "baidu_pan": "Baidu Netdisk"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -746,6 +748,31 @@
         "forgetFailed": "That host could not be removed. It is still on the list.",
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
+      },
+      "baidu": {
+        "hint": "Sign in to pan.baidu.com in your browser, then paste the whole Cookie header here (it must contain BDUSS). The credential is encrypted with Windows DPAPI and never leaves this machine.",
+        "status": {
+          "loading": "Reading authorization status…",
+          "missing": "Not signed in",
+          "ready": "Authorized",
+          "stoken_expired": "STOKEN has expired — sign in again",
+          "stoken_expiring_soon": "STOKEN expires soon"
+        },
+        "action": {
+          "deleteSession": "Delete saved session"
+        },
+        "help": {
+          "toggle": "How to get the Cookie",
+          "openLogin": "Open the Baidu Netdisk sign-in page",
+          "step1": "Open pan.baidu.com in your browser and sign in to your Baidu account.",
+          "step2": "Press F12 to open the developer tools and switch to the Network panel.",
+          "step3": "Reload the page, click any request, and find BDUSS in the Cookie line under Request Headers.",
+          "step4": "Copy the BDUSS value. If STOKEN is listed too, copy it as well to keep upload acceleration.",
+          "step5": "Paste it into the field above: the full Cookie string, BDUSS=xxx; STOKEN=yyy, or just the bare BDUSS value all work.",
+          "noteRequired": "BDUSS is required and its name is case sensitive (lowercase bduss is not accepted). STOKEN is optional.",
+          "noteExpiry": "Once the Cookie expires, this app cannot renew it; sign in again and copy a fresh one.",
+          "notePrivacy": "A Cookie is as sensitive as your password. It is stored only as Windows DPAPI-encrypted data on this PC, never uploaded and never written to logs."
+        }
       }
     },
     "about": {

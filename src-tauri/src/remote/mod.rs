@@ -17,6 +17,9 @@
 // 那正是这条红线的正中间。command 在阶段 1 才接入。
 // ---------------------------------------------------------------------------
 
+mod baidu_api;
+mod baidu_auth;
+mod baidu_provider;
 mod commands;
 mod connection;
 mod connection_test;
@@ -35,6 +38,34 @@ mod sftp_provider;
 mod transfer;
 mod transport;
 
+pub use baidu_api::{
+    baidu_error_kind_coverage, baidu_seconds_to_unix_millis, build_client, build_download_client,
+    clamp_page_limit, classify_baidu_failure, classify_transport, dlink_url, download_file,
+    encode_query_component, entry_name, failure_from_errno, failure_from_http_status, fetch_dlink,
+    fetch_user_info, filemetas_url, get_text, list_dir, list_dir_url, next_page,
+    parse_dlink_response, parse_filemetas_response, parse_list_response, parse_uinfo_response,
+    sanitize_cookie_value, to_remote_entries, to_remote_entry, to_remote_error, transport_shape_of,
+    uinfo_url, BaiduDlink, BaiduErrorKindCoverage, BaiduFailure, BaiduFileEntry, BaiduSession,
+    BaiduUserInfo, ListPage, TransportErrorShape, BAIDU_CONNECT_TIMEOUT, BAIDU_COOKIE_BDUSS,
+    BAIDU_COOKIE_STOKEN, BAIDU_DOWNLOAD_TIMEOUT, BAIDU_LIST_PAGE_LIMIT, BAIDU_OPERATION_TIMEOUT,
+    BAIDU_PAN_APP_ID, BAIDU_PAN_BASE_URL, BAIDU_PAN_HOST, BAIDU_PAN_USER_AGENT,
+};
+pub use baidu_api::{
+    create_dir_url, delete_filelist, encode_form_body, fetch_bdstoken, filemanager_url,
+    parse_bdstoken, parse_write_response, post_form, rename_filelist, BaiduWriteError,
+    BAIDU_BDSTOKEN_TTL, BAIDU_PAN_HOME_URL, BAIDU_PAN_REFERER,
+};
+pub use baidu_auth::{
+    baidu_auth_status, decode_session, delete_baidu_session, describe_state, encode_session,
+    is_baidu_session_blob, is_expired, load_baidu_session, parse_cookie_header,
+    parse_manual_cookie_input, remaining_seconds, save_baidu_session, scan_cookies, scan_error,
+    unix_now, BaiduAuthStatus, BaiduCookieOutcome, BaiduCookieRecord, BaiduCookieScan,
+    BaiduSessionState, BaiduStokenState, BAIDU_SESSION_VERSION, BAIDU_STOKEN_EXPIRY_WARN_SECONDS,
+};
+pub use baidu_provider::{
+    BaiduApi, BaiduRemoteProvider, BaiduSessionStore, DpapiBaiduSessionStore, HttpBaiduApi,
+    BAIDU_DIRECTORY_TIMEOUT, BAIDU_FILE_TIMEOUT, BAIDU_MAX_DOWNLOAD_BYTES, BAIDU_MAX_LIST_PAGES,
+};
 pub use connection::{
     connection_error_hint, validate_proxy, NewRemoteConnection, RemoteConnection, RemoteProtocol,
 };
@@ -46,28 +77,26 @@ pub use commands::*;
 // `provider_with_protocol` 是 `pub(crate)`，glob 具名再导出**不会**带上它
 // （glob 只搬 `pub` 的项），所以这里单独放一行给 `compare` 模块用。
 pub(crate) use commands::provider_with_protocol;
-pub use connection_test::{
-    parse_ftp_reply_code, ConnectionTestReport, ProbeOutcome, ProbeTarget,
-};
+pub use connection_test::{parse_ftp_reply_code, ConnectionTestReport, ProbeOutcome, ProbeTarget};
 pub use credentials::{
-    delete_credential, load_credential, save_credential, credentials_path_in,
+    credentials_path_in, delete_credential, load_credential, save_credential,
     REMOTE_CREDENTIALS_FILE,
 };
 pub use dir_adapter::{extension_of, to_dir_contents, to_dir_entry};
 pub use error::{HostKeyIdentity, RemoteError, RemoteErrorKind};
 pub use fake::FakeRemoteProvider;
 pub use ftp_parsing::{
-    civil_to_unix_millis, parse_epsv_port, parse_ftp_timestamp, parse_list_line,
-    parse_mlsd_line, parse_pasv_endpoint, FtpRecord, MlsdKind,
+    civil_to_unix_millis, parse_epsv_port, parse_ftp_timestamp, parse_list_line, parse_mlsd_line,
+    parse_pasv_endpoint, FtpRecord, MlsdKind,
 };
 pub use ftp_provider::{
-    map_ftp_reply_code, parse_listing, pasv_host_to_use, FtpRemoteProvider,
-    FTP_OPERATION_TIMEOUT,
+    map_ftp_reply_code, parse_listing, pasv_host_to_use, FtpRemoteProvider, FTP_OPERATION_TIMEOUT,
 };
 pub use ftps_provider::{FtpsMode, FtpsRemoteProvider, PinnedCertificate, FTPS_OPERATION_TIMEOUT};
 pub use known_hosts::{
-    decide as decide_host_key, forget as forget_host_key, describe_server_key, load as load_known_hosts,
-    trust as trust_host_key, HostKeyDecision, KnownHostEntry, TrustKind, REMOTE_KNOWN_HOSTS_FILE,
+    decide as decide_host_key, describe_server_key, forget as forget_host_key,
+    load as load_known_hosts, trust as trust_host_key, HostKeyDecision, KnownHostEntry, TrustKind,
+    REMOTE_KNOWN_HOSTS_FILE,
 };
 pub use path::{
     build_remote_connection_path, build_remote_path, contains_control_characters,

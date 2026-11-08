@@ -14,14 +14,27 @@ pub async fn global_search_init(app: tauri::AppHandle) -> Result<GlobalSearchSta
         .map_err(|join_error| format!("Global search init task failed: {join_error}"))?
 }
 
+// FORK-MODIFICATION 2026-11-08：状态查询 / 取消扫描改成 async（挪到工作线程）。
+//
+// Tauri v2 的**同步 command 跑在主线程**，而主线程就是窗口的消息泵 ——
+// 在这里等锁（全局搜索的状态锁）或等磁盘，主线程一停，窗口就不再响应，
+// Windows 直接判「未响应」。用户 2026-11-08 反馈「点左侧导航切换时出现无响应」，
+// 应用日志里能看到 91 次心跳迟到 0.8~4.7 秒（心跳走 `invoke`，迟到即主线程被堵）。
+//
+// 状态查询是纯读、而且前端在扫描期间一直轮询它，最适合放到工作线程；
+// 取消扫描只是置一个原子标志，放到工作线程同样没有语义变化。
 #[tauri::command]
-pub fn global_search_get_status() -> Result<GlobalSearchStatus, String> {
-    super::scan::global_search_get_status()
+pub async fn global_search_get_status() -> Result<GlobalSearchStatus, String> {
+    tauri::async_runtime::spawn_blocking(super::scan::global_search_get_status)
+        .await
+        .map_err(|join_error| format!("Global search status task failed: {join_error}"))?
 }
 
 #[tauri::command]
-pub fn global_search_cancel_scan() -> Result<(), String> {
-    super::scan::global_search_cancel_scan()
+pub async fn global_search_cancel_scan() -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(super::scan::global_search_cancel_scan)
+        .await
+        .map_err(|join_error| format!("Global search cancel task failed: {join_error}"))?
 }
 
 #[tauri::command]

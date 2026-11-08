@@ -644,13 +644,15 @@
         "proxyPort": "Proxy port",
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
-        "localPath": "Local folder"
+        "localPath": "Local folder",
+        "cookie": "Cookie"
       },
       "protocol": {
         "ftp": "FTP",
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
-        "sftp": "SFTP"
+        "sftp": "SFTP",
+        "baidu_pan": "Baidu ネットディスク"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -709,6 +711,31 @@
         "forgetFailed": "That host could not be removed. It is still on the list.",
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
+      },
+      "baidu": {
+        "hint": "ブラウザで pan.baidu.com にログインし、Cookie ヘッダー全体をここに貼り付けてください（BDUSS を含む必要があります）。資格情報は Windows DPAPI で暗号化され、この端末の外には出ません。",
+        "status": {
+          "loading": "認可状態を確認しています…",
+          "missing": "未ログイン",
+          "ready": "認可済み",
+          "stoken_expired": "STOKEN の有効期限が切れました。再度ログインしてください",
+          "stoken_expiring_soon": "STOKEN の有効期限が近づいています"
+        },
+        "action": {
+          "deleteSession": "保存したセッションを削除"
+        },
+        "help": {
+          "toggle": "Cookie の取得方法",
+          "openLogin": "Baidu Netdisk のログインページを開く",
+          "step1": "ブラウザーで pan.baidu.com を開き、Baidu アカウントにログインします。",
+          "step2": "F12 で開発者ツールを開き、「ネットワーク / Network」パネルに切り替えます。",
+          "step3": "ページを再読み込みし、いずれかのリクエストをクリックして、リクエストヘッダーの Cookie 行から BDUSS を見つけます。",
+          "step4": "BDUSS の値をコピーします。STOKEN もあれば一緒にコピーすると、アップロードの高速化が保てます。",
+          "step5": "上の入力欄に貼り付けてください。Cookie 全体でも、BDUSS=xxx; STOKEN=yyy でも、BDUSS の値だけでも構いません。",
+          "noteRequired": "BDUSS は必須で、名前の大文字小文字が区別されます（小文字の bduss は受け付けられません）。STOKEN は任意です。",
+          "noteExpiry": "Cookie の有効期限が切れると、このアプリでは更新できません。再度ログインしてコピーし直してください。",
+          "notePrivacy": "Cookie はパスワードと同じく機微な情報です。Windows DPAPI で暗号化された状態でのみこの PC に保存され、送信したりログに記録したりすることはありません。"
+        }
       }
     },
     "about": {

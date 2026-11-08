@@ -78,9 +78,8 @@ fn read_vault(app_data_dir: &Path) -> CredentialVault {
 }
 
 fn write_vault(app_data_dir: &Path, vault: &CredentialVault) -> Result<(), RemoteError> {
-    std::fs::create_dir_all(app_data_dir).map_err(|error| {
-        RemoteError::unknown(format!("创建远程凭据目录失败: {error}"))
-    })?;
+    std::fs::create_dir_all(app_data_dir)
+        .map_err(|error| RemoteError::unknown(format!("创建远程凭据目录失败: {error}")))?;
 
     let payload = serde_json::to_string_pretty(vault)
         .map_err(|error| RemoteError::unknown(format!("序列化远程凭据失败: {error}")))?;
@@ -108,10 +107,10 @@ fn validate_key(key: &str) -> Result<(), RemoteError> {
 /// 而这是一条无人值守的后台路径，弹窗既没人看也挡不住。
 #[cfg(windows)]
 pub fn protect(plaintext: &[u8]) -> Result<Vec<u8>, RemoteError> {
+    use windows::core::PCWSTR;
     use windows::Win32::Security::Cryptography::{
         CryptProtectData, CRYPTPROTECT_UI_FORBIDDEN, CRYPT_INTEGER_BLOB,
     };
-    use windows::core::PCWSTR;
 
     let length = u32::try_from(plaintext.len())
         .map_err(|_| RemoteError::protocol("待加密的内容超过 DPAPI 的长度上限"))?;
@@ -199,7 +198,7 @@ pub fn unprotect(_ciphertext: &[u8]) -> Result<Vec<u8>, RemoteError> {
 /// DPAPI 分配的缓冲区由 `LocalFree` 释放，不是 Rust 的 `Vec`。
 #[cfg(windows)]
 fn free_dpapi_blob(pointer: *mut u8) {
-    use windows::Win32::Foundation::{HLOCAL, LocalFree};
+    use windows::Win32::Foundation::{LocalFree, HLOCAL};
 
     if pointer.is_null() {
         return;
@@ -234,7 +233,9 @@ pub fn load_credential(app_data_dir: &Path, key: &str) -> Result<Option<String>,
     };
 
     let ciphertext = BASE64_STANDARD.decode(encoded).map_err(|error| {
-        RemoteError::auth(format!("已保存的凭据不是有效的密文，请重新输入密码: {error}"))
+        RemoteError::auth(format!(
+            "已保存的凭据不是有效的密文，请重新输入密码: {error}"
+        ))
     })?;
 
     let plaintext = unprotect(&ciphertext)?;
@@ -383,7 +384,9 @@ mod tests {
             RemoteErrorKind::Unsupported
         );
         assert_eq!(
-            unprotect(b"x").expect_err("macOS / Linux 上没有 DPAPI").kind,
+            unprotect(b"x")
+                .expect_err("macOS / Linux 上没有 DPAPI")
+                .kind,
             RemoteErrorKind::Unsupported
         );
     }
@@ -397,7 +400,10 @@ mod tests {
         let path = credentials_path_in(dir.path());
 
         assert_eq!(path, dir.path().join(REMOTE_CREDENTIALS_FILE));
-        assert_eq!(path.file_name().and_then(|n| n.to_str()), Some("remote-credentials.json"));
+        assert_eq!(
+            path.file_name().and_then(|n| n.to_str()),
+            Some("remote-credentials.json")
+        );
     }
 
     #[test]
@@ -436,7 +442,9 @@ mod tests {
 
         // 二、文件里那条必须能被 unprotect 解回原文。
         let stored = extract_cipher_text(&String::from_utf8_lossy(&raw));
-        let ciphertext = BASE64_STANDARD.decode(&stored).expect("存档里应当是 base64");
+        let ciphertext = BASE64_STANDARD
+            .decode(&stored)
+            .expect("存档里应当是 base64");
         assert_eq!(
             unprotect(&ciphertext).expect("存档里必须是真正的 DPAPI 密文"),
             secret.as_bytes(),
@@ -452,7 +460,9 @@ mod tests {
         save_credential(dir.path(), "cred-1", secret).expect("save");
 
         assert_eq!(
-            load_credential(dir.path(), "cred-1").expect("load").as_deref(),
+            load_credential(dir.path(), "cred-1")
+                .expect("load")
+                .as_deref(),
             Some(secret)
         );
     }
@@ -480,7 +490,9 @@ mod tests {
         save_credential(dir.path(), "cred-1", "new").expect("second save");
 
         assert_eq!(
-            load_credential(dir.path(), "cred-1").expect("load").as_deref(),
+            load_credential(dir.path(), "cred-1")
+                .expect("load")
+                .as_deref(),
             Some("new")
         );
     }
@@ -494,15 +506,21 @@ mod tests {
         save_credential(dir.path(), "cred-3", "three").expect("save 3");
 
         assert_eq!(
-            load_credential(dir.path(), "cred-1").expect("load 1").as_deref(),
+            load_credential(dir.path(), "cred-1")
+                .expect("load 1")
+                .as_deref(),
             Some("one")
         );
         assert_eq!(
-            load_credential(dir.path(), "cred-2").expect("load 2").as_deref(),
+            load_credential(dir.path(), "cred-2")
+                .expect("load 2")
+                .as_deref(),
             Some("two")
         );
         assert_eq!(
-            load_credential(dir.path(), "cred-3").expect("load 3").as_deref(),
+            load_credential(dir.path(), "cred-3")
+                .expect("load 3")
+                .as_deref(),
             Some("three")
         );
     }
@@ -517,7 +535,9 @@ mod tests {
 
         assert_eq!(load_credential(dir.path(), "cred-1").expect("load 1"), None);
         assert_eq!(
-            load_credential(dir.path(), "cred-2").expect("load 2").as_deref(),
+            load_credential(dir.path(), "cred-2")
+                .expect("load 2")
+                .as_deref(),
             Some("two")
         );
     }
@@ -531,7 +551,9 @@ mod tests {
         delete_credential(dir.path(), "cred-absent").expect("delete twice");
 
         assert_eq!(
-            load_credential(dir.path(), "cred-1").expect("load").as_deref(),
+            load_credential(dir.path(), "cred-1")
+                .expect("load")
+                .as_deref(),
             Some("one")
         );
     }

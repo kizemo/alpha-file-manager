@@ -681,13 +681,15 @@
         "proxyPort": "Proxy port",
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
-        "localPath": "Local folder"
+        "localPath": "Local folder",
+        "cookie": "Cookie"
       },
       "protocol": {
         "ftp": "FTP",
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
-        "sftp": "SFTP"
+        "sftp": "SFTP",
+        "baidu_pan": "Baidu Netdisk"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -746,6 +748,31 @@
         "forgetFailed": "That host could not be removed. It is still on the list.",
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
+      },
+      "baidu": {
+        "hint": "Войдите на pan.baidu.com в браузере и вставьте сюда всю строку Cookie (в ней должен быть BDUSS). Учётные данные шифруются Windows DPAPI и не покидают этот компьютер.",
+        "status": {
+          "loading": "Чтение состояния авторизации…",
+          "missing": "Вход не выполнен",
+          "ready": "Авторизован",
+          "stoken_expired": "Срок действия STOKEN истёк — войдите снова",
+          "stoken_expiring_soon": "Срок действия STOKEN скоро истечёт"
+        },
+        "action": {
+          "deleteSession": "Удалить сохранённую сессию"
+        },
+        "help": {
+          "toggle": "Как получить Cookie",
+          "openLogin": "Открыть страницу входа в Baidu Netdisk",
+          "step1": "Откройте pan.baidu.com в браузере и войдите в свой аккаунт Baidu.",
+          "step2": "Нажмите F12, чтобы открыть инструменты разработчика, и перейдите на панель «Сеть».",
+          "step3": "Обновите страницу, щелкните любой запрос и найдите BDUSS в строке Cookie в заголовках запроса.",
+          "step4": "Скопируйте значение BDUSS; если есть и STOKEN, скопируйте его тоже — это сохранит ускорение загрузки.",
+          "step5": "Вставьте в поле выше: подойдет полная строка Cookie, BDUSS=xxx; STOKEN=yyy или только значение BDUSS.",
+          "noteRequired": "BDUSS обязателен, имя различает регистр (строчное bduss не принимается). STOKEN необязателен.",
+          "noteExpiry": "После истечения срока действия Cookie приложение не сможет его обновить — войдите заново и скопируйте новый.",
+          "notePrivacy": "Cookie так же чувствителен, как ваш пароль. Он хранится только в зашифрованном виде Windows DPAPI на этом ПК, никуда не отправляется и в журналы не пишется."
+        }
       }
     },
     "about": {

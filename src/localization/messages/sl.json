@@ -681,13 +681,15 @@
         "proxyPort": "Proxy port",
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
-        "localPath": "Local folder"
+        "localPath": "Local folder",
+        "cookie": "Cookie"
       },
       "protocol": {
         "ftp": "FTP",
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
-        "sftp": "SFTP"
+        "sftp": "SFTP",
+        "baidu_pan": "Baidu Netdisk"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -746,6 +748,31 @@
         "forgetFailed": "That host could not be removed. It is still on the list.",
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
+      },
+      "baidu": {
+        "hint": "Prijavite se v pan.baidu.com v brskalniku in nato sem kopirajte celoten glavo Cookie (mora vsebovati BDUSS). Poverilnice so šifrirane z Windows DPAPI in ne zapustijo tega računalnika.",
+        "status": {
+          "loading": "Branje stanja pooblastitev…",
+          "missing": "Ni prijavljen",
+          "ready": "Pooblastjeno",
+          "stoken_expired": "Veljavnost STOKEN je potekla — prijavite se znova",
+          "stoken_expiring_soon": "Veljavnost STOKEN bo kmalu potekla"
+        },
+        "action": {
+          "deleteSession": "Izbriši shranjeno sejo"
+        },
+        "help": {
+          "toggle": "Kako pridobiti piškotek",
+          "openLogin": "Odpri stran za prijavo v Baidu Netdisk",
+          "step1": "V brskalniku odprite pan.baidu.com in se prijavite v svoj račun Baidu.",
+          "step2": "Pritisnite F12, da odpre orodja za razvijalce, in preidite na zavihek Omrežje.",
+          "step3": "Osvežite stran, kliknite poljubno zahtevo in v vrstici Cookie v glavi zahteve poiščite BDUSS.",
+          "step4": "Kopirajte vrednost BDUSS; če je na voljo tudi STOKEN, ga kopirajte, da ohranite pospešeno nalaganje.",
+          "step5": "Prilepite ga v zgornje polje: celotna glava Cookie, BDUSS=xxx; STOKEN=yyy ali samo vrednost BDUSS.",
+          "noteRequired": "BDUSS je obvezen, ime razlikuje med velikimi in majhnimi črkami (male črke bduss niso sprejete). STOKEN je neobvezen.",
+          "noteExpiry": "Ko piškotek poteče, ga aplikacija ne more podaljšati; znova se prijavite in kopirajte novega.",
+          "notePrivacy": "Piškotek je enako občutljiv kot vaše geslo. Shrani se le šifriran z Windows DPAPI na tem računalniku, nikoli ne zapusti naprave in se ne zapiše v dnevnik."
+        }
       }
     },
     "about": {
