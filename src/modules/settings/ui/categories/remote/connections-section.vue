@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { ServerIcon, PlusIcon, TrashIcon } from '@lucide/vue';
 import ConnectionForm from './connection-form.vue';
 import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
-import type { RemoteConnection } from '@/types/remote';
+import type { RemoteConnection, RemoteProtocol } from '@/types/remote';
 
 const { t } = useI18n();
 const store = useRemoteConnectionsStore();
@@ -59,12 +59,38 @@ function applyPendingEdit(): void {
   editing.value = target;
 }
 
+/**
+ * 左侧导航栏那颗常驻的「+」按钮（2026-11-08）。
+ *
+ * 需求来源：用户反馈「左侧导航里找不到添加百度网盘的入口」。
+ * 导航栏云图标展开的是**悬停面板**，对第一次用这个功能的人太隐蔽，
+ * 所以图标轨上再加一颗常驻「+」，点它直接落到本分类并把新建表单打开。
+ *
+ * 走 store 的瞬态请求（`pendingCreate`），语义与 `pendingEditId` 一致：
+ * **消费即清空**，否则用户关掉表单后再切回远程分类，表单会凭空自己弹出来。
+ */
+const createProtocol = ref<RemoteProtocol>('ftp');
+
+function applyPendingCreate(): void {
+  const requested = store.consumeRemoteCreate();
+
+  if (!requested) {
+    return;
+  }
+
+  createProtocol.value = requested;
+  editing.value = null;
+  isCreating.value = true;
+}
+
 onMounted(async () => {
   await store.init();
   applyPendingEdit();
+  applyPendingCreate();
 });
 
 watch(() => store.pendingEditId, applyPendingEdit);
+watch(() => store.pendingCreate, applyPendingCreate);
 
 function startCreate() {
   editing.value = null;
@@ -206,6 +232,7 @@ function describeProxy(connection: RemoteConnection): string {
     <ConnectionForm
       v-if="isCreating"
       :connection="null"
+      :initial-protocol="createProtocol"
       @cancel="closeForm"
       @saved="closeForm"
     />

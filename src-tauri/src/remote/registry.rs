@@ -28,7 +28,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use super::connection::RemoteConnection;
+use super::connection::{RemoteConnection, RemoteProtocol};
 use super::credentials;
 use super::error::RemoteError;
 
@@ -116,6 +116,17 @@ pub fn resolve_connection(
     let connection = find_connection(user_data_dir, connection_id)?;
     connection.validate()?;
 
+    // 百度网盘的凭据**不是密码**：DPAPI 密文里装的是整份登录态
+    // （`BDUSS` + `STOKEN`），由 provider 自己按 `credential_key` 读。
+    // 走通用路径的话，这段 JSON 会被当成「密码」塞进 `ResolvedConnection.password`
+    // —— 白白让登录态在内存里多待一份，还可能被误发给别的协议。
+    if connection.protocol == RemoteProtocol::BaiduPan {
+        return Ok(ResolvedConnection {
+            connection,
+            password: None,
+        });
+    }
+
     let Some(credential_key) = connection.credential_key.as_deref() else {
         return Ok(ResolvedConnection {
             connection,
@@ -123,12 +134,13 @@ pub fn resolve_connection(
         });
     };
 
-    let password = credentials::load_credential(app_data_dir, credential_key)?.ok_or_else(|| {
-        RemoteError::auth(format!(
-            "这条连接标记了已保存密码，但本机找不到对应的加密记录。\
+    let password =
+        credentials::load_credential(app_data_dir, credential_key)?.ok_or_else(|| {
+            RemoteError::auth(format!(
+                "这条连接标记了已保存密码，但本机找不到对应的加密记录。\
              请到设置页重新保存一次密码。（连接：{connection_id}）"
-        ))
-    })?;
+            ))
+        })?;
 
     if password.is_empty() {
         return Err(RemoteError::auth(format!(
@@ -155,7 +167,8 @@ mod tests {
     const SHARED_FIXTURE: &str = include_str!("../../../src-shared/remote-connection.sample.json");
 
     fn write_connections(user_data_dir: &Path, contents: &str) {
-        std::fs::write(connections_path_in(user_data_dir), contents).expect("write connections file");
+        std::fs::write(connections_path_in(user_data_dir), contents)
+            .expect("write connections file");
     }
 
     fn connection(id: &str) -> RemoteConnection {
@@ -218,9 +231,14 @@ mod tests {
     fn a_missing_file_means_no_connections_rather_than_an_error() {
         let dir = TempDir::new().expect("temp dir");
 
-        assert_eq!(load_connections(dir.path()).expect("must not fail"), Vec::new());
         assert_eq!(
-            find_connection(dir.path(), "nobody").expect_err("must fail").kind,
+            load_connections(dir.path()).expect("must not fail"),
+            Vec::new()
+        );
+        assert_eq!(
+            find_connection(dir.path(), "nobody")
+                .expect_err("must fail")
+                .kind,
             RemoteErrorKind::NotFound
         );
     }
@@ -272,7 +290,8 @@ mod tests {
         std::fs::create_dir_all(&user_data).expect("mkdir");
         write_connections(&user_data, SHARED_FIXTURE);
 
-        let resolved = resolve_connection(&user_data, dir.path(), "no-secret").expect("must resolve");
+        let resolved =
+            resolve_connection(&user_data, dir.path(), "no-secret").expect("must resolve");
 
         assert_eq!(resolved.password, None);
         assert_eq!(resolved.connection.protocol, RemoteProtocol::Ftp);
@@ -287,8 +306,8 @@ mod tests {
         std::fs::create_dir_all(&user_data).expect("mkdir");
         write_connections(&user_data, SHARED_FIXTURE);
 
-        let error = resolve_connection(&user_data, dir.path(), "keep-me")
-            .expect_err("must fail loudly");
+        let error =
+            resolve_connection(&user_data, dir.path(), "keep-me").expect_err("must fail loudly");
 
         assert_eq!(error.kind, RemoteErrorKind::Auth);
     }
@@ -336,7 +355,8 @@ mod tests {
         );
         credentials::save_credential(dir.path(), "blank-secret", "").expect("save credential");
 
-        let error = resolve_connection(&user_data, dir.path(), "conn-blank").expect_err("must fail");
+        let error =
+            resolve_connection(&user_data, dir.path(), "conn-blank").expect_err("must fail");
 
         assert_eq!(error.kind, RemoteErrorKind::Auth);
     }
@@ -356,9 +376,48 @@ mod tests {
             .expect("serialize"),
         );
 
-        let error = resolve_connection(&user_data, dir.path(), "conn-broken")
-            .expect_err("must fail");
+        let error =
+            resolve_connection(&user_data, dir.path(), "conn-broken").expect_err("must fail");
 
         assert_eq!(error.kind, RemoteErrorKind::Protocol);
+    }
+
+    /// 百度网盘的凭据是一整份会话 JSON（BDUSS + STOKEN），不是「一句口令」。
+    ///
+    /// `resolve_connection` 必须把它原样留给 provider 自己去读，
+    /// 绝不能当成密码解出来塞进 `ResolvedConnection.password`：
+    /// 那会让百度会话以「密码」的身份流进普通口令路径，
+    /// 也让「没有密文」的百度连接被误判成「口令没填」。
+    #[test]
+    fn a_baidu_connection_resolves_without_a_password() {
+        let dir = TempDir::new().expect("temp dir");
+        let user_data = dir.path().join("user-data");
+        std::fs::create_dir_all(&user_data).expect("mkdir");
+        write_connections(
+            &user_data,
+            &serde_json::to_string(&ConnectionsFile {
+                connections: vec![RemoteConnection {
+                    id: "conn-baidu".to_string(),
+                    name: "百度网盘".to_string(),
+                    protocol: RemoteProtocol::BaiduPan,
+                    host: "pan.baidu.com".to_string(),
+                    port: 443,
+                    username: "测试用户".to_string(),
+                    initial_path: "/".to_string(),
+                    local_path: None,
+                    proxy: ProxyConfig::Direct,
+                    credential_key: Some("conn-baidu".to_string()),
+                }],
+            })
+            .expect("serialize"),
+        );
+
+        // 注意：这里刻意**没有**写任何密文。
+        // 百度连接不该因为「没有口令密文」而报错 —— 它的凭据在别处。
+        let resolved =
+            resolve_connection(&user_data, dir.path(), "conn-baidu").expect("must resolve");
+
+        assert_eq!(resolved.password, None);
+        assert_eq!(resolved.connection.protocol, RemoteProtocol::BaiduPan);
     }
 }

@@ -228,8 +228,7 @@ pub fn global_search_init(app: tauri::AppHandle) -> Result<GlobalSearchStatus, S
     // 应用自己的目录不进索引：索引目录会把索引自己写进索引，
     // WebView2 缓存是几十万个小文件的纯噪音。
     let mut app_owned_prefixes = vec![normalize_path(&base_dir.to_string_lossy())];
-    if let Ok(local_data_dir) = crate::app_dirs::resolve(&app, crate::app_dirs::AppDir::LocalData)
-    {
+    if let Ok(local_data_dir) = crate::app_dirs::resolve(&app, crate::app_dirs::AppDir::LocalData) {
         app_owned_prefixes.push(normalize_path(&local_data_dir.to_string_lossy()));
     }
     state.app_owned_prefixes = app_owned_prefixes;
@@ -327,7 +326,8 @@ fn delete_prefix(
     prefix: &str,
 ) -> Result<(), String> {
     let pattern = prefix_delete_pattern(prefix);
-    let query = RegexQuery::from_pattern(&pattern, fields.path).map_err(|error| error.to_string())?;
+    let query =
+        RegexQuery::from_pattern(&pattern, fields.path).map_err(|error| error.to_string())?;
 
     writer
         .delete_query(Box::new(query))
@@ -401,7 +401,10 @@ pub(super) fn apply_index_ops(
                 stats.applied_operations += 1;
             }
             IndexOp::UpsertFile { path } => {
-                if covered_prefixes.iter().any(|covered| is_under(path, covered)) {
+                if covered_prefixes
+                    .iter()
+                    .any(|covered| is_under(path, covered))
+                {
                     stats.skipped_operations += 1;
                     continue;
                 }
@@ -416,7 +419,10 @@ pub(super) fn apply_index_ops(
                 stats.applied_operations += 1;
             }
             IndexOp::UpsertDir { path } => {
-                if covered_prefixes.iter().any(|covered| is_under(path, covered)) {
+                if covered_prefixes
+                    .iter()
+                    .any(|covered| is_under(path, covered))
+                {
                     stats.skipped_operations += 1;
                     continue;
                 }
@@ -430,7 +436,10 @@ pub(super) fn apply_index_ops(
                 stats.applied_operations += 1;
             }
             IndexOp::UpsertTree { prefix } => {
-                if covered_prefixes.iter().any(|covered| is_under(prefix, covered)) {
+                if covered_prefixes
+                    .iter()
+                    .any(|covered| is_under(prefix, covered))
+                {
                     stats.skipped_operations += 1;
                     continue;
                 }
@@ -513,7 +522,9 @@ fn flush_pending_changes(
         );
     }
 
-    writer.wait_merging_threads().map_err(|error| error.to_string())?;
+    writer
+        .wait_merging_threads()
+        .map_err(|error| error.to_string())?;
     reader.reload().map_err(|error| error.to_string())?;
 
     Ok(stats)
@@ -1118,12 +1129,28 @@ pub async fn global_search_start_scan(
                 let final_count = indexed_count.load(Ordering::Relaxed);
                 validate_staged_index(&staging_path, final_count)?;
 
-                let mut state = GLOBAL_SEARCH_STATE
-                    .write()
-                    .map_err(|error| error.to_string())?;
-                state.index = None;
-                state.reader = None;
-                state.fields = None;
+                // FORK-MODIFICATION 2026-11-08：提交段的磁盘 IO 必须在状态锁**之外**。
+                //
+                // 根因（用户 2026-11-08 反馈「点左侧导航切换时出现无响应」）：
+                // 这一段要做「替换索引目录 + 打开新索引 + 把扫描期间攒下的变化补写进
+                // 索引 + 统计索引目录大小」，全是磁盘 IO；索引被上百万文件撑大、
+                // 磁盘又正被扫描打满时，光替换目录与补写就能跑上好几秒。
+                // 之前它整段在 `GLOBAL_SEARCH_STATE` 的**写锁**里，而 Tauri v2 的
+                // **同步 command 跑在主线程** —— `global_search_get_status`
+                // （前端在扫描期间一直在轮询）要抢同一把读锁，主线程被写锁挡住
+                // ⇒ 窗口消息泵停摆 ⇒ Windows 判「未响应」。
+                //
+                // 为什么移出去是安全的：提交窗口由 `status.is_committing` 标记，
+                // 查询侧（`query.rs`）在 `is_committing` 期间本来就直接返回空结果，
+                // 读不到「旧 reader 已清空、新 reader 还没装上」的中间态。
+                {
+                    let mut state = GLOBAL_SEARCH_STATE
+                        .write()
+                        .map_err(|error| error.to_string())?;
+                    state.index = None;
+                    state.reader = None;
+                    state.fields = None;
+                }
 
                 replace_index_dir(&staging_path, &index_path)?;
                 let (live_index, live_reader, live_fields) = open_or_create_index(&index_path)?;
@@ -1166,13 +1193,15 @@ pub async fn global_search_start_scan(
         }
 
         let result = result.map(
-            |(doc_count, indexed_drive_roots, index, reader, fields, index_size)| CommittedIndexUpdate {
-                doc_count,
-                index_size_bytes: index_size,
-                index,
-                reader,
-                fields,
-                indexed_drive_roots: Some(indexed_drive_roots),
+            |(doc_count, indexed_drive_roots, index, reader, fields, index_size)| {
+                CommittedIndexUpdate {
+                    doc_count,
+                    index_size_bytes: index_size,
+                    index,
+                    reader,
+                    fields,
+                    indexed_drive_roots: Some(indexed_drive_roots),
+                }
             },
         );
 
@@ -1322,7 +1351,9 @@ fn global_search_index_paths_blocking(
                 error
             );
         }
-        writer.wait_merging_threads().map_err(|error| error.to_string())?;
+        writer
+            .wait_merging_threads()
+            .map_err(|error| error.to_string())?;
 
         reader.reload().map_err(|error| error.to_string())?;
 

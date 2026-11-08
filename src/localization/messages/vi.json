@@ -644,13 +644,15 @@
         "proxyPort": "Proxy port",
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
-        "localPath": "Local folder"
+        "localPath": "Local folder",
+        "cookie": "Cookie"
       },
       "protocol": {
         "ftp": "FTP",
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
-        "sftp": "SFTP"
+        "sftp": "SFTP",
+        "baidu_pan": "Baidu Netdisk"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -709,6 +711,31 @@
         "forgetFailed": "That host could not be removed. It is still on the list.",
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
+      },
+      "baidu": {
+        "hint": "Hãy đăng nhập vào pan.baidu.com trong trình duyệt rồi dán toàn bộ tiêu đề Cookie vào đây (phải có BDUSS). Thông tin đăng nhập được mã hóa bằng Windows DPAPI và không rời khỏi máy này.",
+        "status": {
+          "loading": "Đang đọc trạng thái uỷ quyền…",
+          "missing": "Chưa đăng nhập",
+          "ready": "Đã uỷ quyền",
+          "stoken_expired": "STOKEN đã hết hạn — hãy đăng nhập lại",
+          "stoken_expiring_soon": "STOKEN sắp hết hạn"
+        },
+        "action": {
+          "deleteSession": "Xoá phiên đăng nhập đã lưu"
+        },
+        "help": {
+          "toggle": "Cách lấy Cookie",
+          "openLogin": "Mở trang đăng nhập Baidu Netdisk",
+          "step1": "Mở pan.baidu.com trong trình duyệt và đăng nhập vào tài khoản Baidu của bạn.",
+          "step2": "Nhấn F12 để mở Công cụ cho nhà phát triển rồi chuyển sang bảng Network.",
+          "step3": "Tải lại trang, nhấp vào một yêu cầu bất kỳ và tìm BDUSS trong dòng Cookie thuộc Request Headers.",
+          "step4": "Sao chép giá trị BDUSS; nếu có cả STOKEN thì sao chép luôn để giữ tốc độ tải lên.",
+          "step5": "Dán vào ô phía trên: toàn bộ Cookie, BDUSS=xxx; STOKEN=yyy hoặc chỉ riêng giá trị BDUSS đều được.",
+          "noteRequired": "BDUSS bắt buộc và tên phân biệt chữ hoa/chữ thường (bduss viết thường không được chấp nhận). STOKEN không bắt buộc.",
+          "noteExpiry": "Khi Cookie hết hạn, ứng dụng này không thể gia hạn; bạn phải đăng nhập lại và sao chép Cookie mới.",
+          "notePrivacy": "Cookie nhạy cảm như mật khẩu của bạn. Nó chỉ được lưu trên máy này dưới dạng mã hóa Windows DPAPI, không bao giờ được tải lên hay ghi vào nhật ký."
+        }
       }
     },
     "about": {

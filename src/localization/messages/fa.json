@@ -637,13 +637,15 @@
         "proxyPort": "Proxy port",
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
-        "localPath": "Local folder"
+        "localPath": "Local folder",
+        "cookie": "Cookie"
       },
       "protocol": {
         "ftp": "FTP",
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
-        "sftp": "SFTP"
+        "sftp": "SFTP",
+        "baidu_pan": "بائیدو نت‌دیسک"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -702,6 +704,31 @@
         "forgetFailed": "That host could not be removed. It is still on the list.",
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
+      },
+      "baidu": {
+        "hint": "در مرورگر وارد pan.baidu.com شوید و سپس کل سربرگ Cookie را اینجا بچسبانید (باید شامل BDUSS باشد). اطلاعات کاربری با Windows DPAPI رمزگذاری می‌شود و از این رایانه خارج نمی‌شود.",
+        "status": {
+          "loading": "در حال خواندن وضعیت مجوز…",
+          "missing": "وارد نشده‌اید",
+          "ready": "مجاز",
+          "stoken_expired": "اعتبار STOKEN به پایان رسید — دوباره وارد شوید",
+          "stoken_expiring_soon": "اعتبار STOKEN به‌زودی منقضی می‌شود"
+        },
+        "action": {
+          "deleteSession": "حذف نشست ذخیره‌شده"
+        },
+        "help": {
+          "toggle": "نحوه دریافت Cookie",
+          "openLogin": "باز کردن صفحه ورود به Baidu Netdisk",
+          "step1": "نشانی pan.baidu.com را در مرورگر باز کنید و در حساب کاربری Baidu خود وارد شوید.",
+          "step2": "با F12 ابزار توسعه‌دهنده را باز کنید و به بخش شبکه بروید.",
+          "step3": "صفحه را تازه‌سازی کنید، روی هر درخواست کلیک کنید و در خط Cookie سرصفحه‌ی درخواست‌ها BDUSS را پیدا کنید.",
+          "step4": "مقدار BDUSS را کپی کنید؛ اگر STOKEN هم هست آن را هم کپی کنید تا شتاب بارگذاری حفظ شود.",
+          "step5": "آن را در فیلد بالا بچسبانید: کل Cookie، عبارت BDUSS=xxx; STOKEN=yyy یا فقط مقدار BDUSS — هر سه قبول می‌شود.",
+          "noteRequired": "BDUSS اجباری است و نامش به حروف بزرگ/کوچک حساس است (bduss با حروف کوچک پذیرفته نمی‌شود). STOKEN اختیاری است.",
+          "noteExpiry": "پس از انقضای Cookie این برنامه نمی‌تواند آن را تمدید کند؛ دوباره وارد شوید و یک Cookie تازه کپی کنید.",
+          "notePrivacy": "Cookie به همان اندازه رمز عبور شما حساس است. فقط با Windows DPAPI رمزنگاری‌شده روی همین رایانه نگه‌داری می‌شود، جایی ارسال نمی‌شود و در گزارش ثبت نمی‌شود."
+        }
       }
     },
     "about": {

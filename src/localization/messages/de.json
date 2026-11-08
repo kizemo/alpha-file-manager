@@ -644,13 +644,15 @@
         "proxyPort": "Proxy port",
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
-        "localPath": "Local folder"
+        "localPath": "Local folder",
+        "cookie": "Cookie"
       },
       "protocol": {
         "ftp": "FTP",
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
-        "sftp": "SFTP"
+        "sftp": "SFTP",
+        "baidu_pan": "Baidu Netdisk"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -709,6 +711,31 @@
         "forgetFailed": "That host could not be removed. It is still on the list.",
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
+      },
+      "baidu": {
+        "hint": "Melde dich bei pan.baidu.com im Browser an und füge dann die gesamte Cookie-Zeile hier ein (sie muss BDUSS enthalten). Die Zugangsdaten werden mit Windows DPAPI verschlüsselt und verlassen diesen Rechner nicht.",
+        "status": {
+          "loading": "Autorisierungsstatus wird gelesen…",
+          "missing": "Nicht angemeldet",
+          "ready": "Autorisiert",
+          "stoken_expired": "STOKEN ist abgelaufen — bitte erneut anmelden",
+          "stoken_expiring_soon": "STOKEN läuft bald ab"
+        },
+        "action": {
+          "deleteSession": "Gespeicherte Sitzung löschen"
+        },
+        "help": {
+          "toggle": "So erhalten Sie das Cookie",
+          "openLogin": "Baidu-Netdisk-Anmeldeseite öffnen",
+          "step1": "Öffnen Sie pan.baidu.com im Browser und melden Sie sich bei Ihrem Baidu-Konto an.",
+          "step2": "Drücken Sie F12, um die Entwicklerwerkzeuge zu öffnen, und wechseln Sie zum Panel „Netzwerk“.",
+          "step3": "Laden Sie die Seite neu, klicken Sie eine beliebige Anfrage an und finden Sie BDUSS in der Cookie-Zeile der Request-Header.",
+          "step4": "Kopieren Sie den BDUSS-Wert. Falls STOKEN ebenfalls vorhanden ist, kopieren Sie ihn mit – das erhält die Beschleunigung beim Hochladen.",
+          "step5": "Fügen Sie das oben ein: kompletter Cookie-String, BDUSS=xxx; STOKEN=yyy oder nur der BDUSS-Wert.",
+          "noteRequired": "BDUSS ist Pflicht, der Name ist abhängig von Groß-/Kleinschreibung (kleingeschriebenes bduss wird nicht akzeptiert). STOKEN ist optional.",
+          "noteExpiry": "Läuft das Cookie ab, kann diese App es nicht verlängern – melden Sie sich neu an und kopieren Sie ein neues.",
+          "notePrivacy": "Ein Cookie ist so vertraulich wie Ihr Passwort. Es wird nur als Windows-DPAPI-verschlüsselte Datei auf diesem Rechner gespeichert, nie hochgeladen und nicht protokolliert."
+        }
       }
     },
     "about": {

@@ -188,4 +188,34 @@ describe('导航栏远程悬停面板', () => {
     expect(store.pendingEditId).toBeNull();
     expect(store.consumeRemoteEdit()).toBeNull();
   });
+
+  it('面板顶部有「+ 添加连接」入口，点它只发 add', async () => {
+    const wrapper = mountedPanel();
+    await flushPromises();
+
+    const addButton = wrapper.find('[data-test="remote-nav-add"]');
+    expect(addButton.exists()).toBe(true);
+
+    await addButton.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.emitted('add')).toHaveLength(1);
+    // 新建与「去设置页」是两件事，点了新建不该顺手把设置页也打开。
+    expect(wrapper.emitted('openSettings')).toBeUndefined();
+  });
+
+  it('新建请求进 store，携带协议、被消费一次后清空', async () => {
+    const store = useRemoteConnectionsStore();
+    await store.init();
+
+    store.requestRemoteCreate('baidu_pan');
+    expect(store.pendingCreate).toBe('baidu_pan');
+    expect(store.consumeRemoteCreate()).toBe('baidu_pan');
+    expect(store.pendingCreate).toBeNull();
+    expect(store.consumeRemoteCreate()).toBeNull();
+
+    // 不传协议时退回 ftp，保持既有调用方行为不变。
+    store.requestRemoteCreate();
+    expect(store.consumeRemoteCreate()).toBe('ftp');
+  });
 });

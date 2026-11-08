@@ -16,12 +16,14 @@ import { LazyStore } from '@tauri-apps/plugin-store';
 import { invoke } from '@tauri-apps/api/core';
 import { ref } from 'vue';
 import type {
+  BaiduAuthStatusPayload,
   RemoteConnection,
   RemoteConnectionForm,
   RemoteConnectionTestReport,
   RemoteProxyConfig,
+  RemoteProtocol,
 } from '@/types/remote';
-import { createRemoteConnectionId } from '@/types/remote';
+import { createRemoteConnectionId, isBaiduPanProtocol } from '@/types/remote';
 import { normalizeRemotePath } from '@/utils/remote-paths';
 import { useUserPathsStore } from './user-paths';
 import {
@@ -33,6 +35,16 @@ import {
 
 /** storage 文件里的键。与后端 `src-tauri/src/user_storage_files_config.rs` 无关，两边各存各的。 */
 const CONNECTIONS_KEY = 'connections';
+
+/**
+ * 百度网盘的固定主机与端口。
+ *
+ * 百度网盘没有「自选服务器」这回事 —— 用户填什么 host 都会被后端忽略，
+ * 但连接表里那个字段是必填的（Rust 侧 `RemoteConnection::validate` 要求非空），
+ * 所以前端统一写死这两个值，别让用户去填一个填了也没用的输入框。
+ */
+const BAIDU_PAN_HOST = 'pan.baidu.com';
+const BAIDU_PAN_PORT = 443;
 
 export const useRemoteConnectionsStore = defineStore('remoteConnections', () => {
   const userPathsStore = useUserPathsStore();
@@ -70,6 +82,29 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     return id;
   }
 
+  /**
+   * 「请新建一条连接」的一次性请求（2026-11-08）。
+   *
+   * 需求来源：用户反馈「左侧导航里找不到添加百度网盘的入口」。
+   * 左侧导航的云图标本身只展开一个**悬停面板**，对第一次用这个功能的人来说太隐蔽，
+   * 所以图标轨上再加一颗常驻的「+」按钮，点它直接跳到设置页的远程分类并打开新建表单。
+   *
+   * 与 `pendingEditId` 同理是 store 上的瞬态值：**消费即清空**，
+   * 否则用户关掉表单后再切回远程分类，表单会凭空自己弹出来。
+   */
+  const pendingCreate = ref<RemoteProtocol | null>(null);
+
+  function requestRemoteCreate(protocol: RemoteProtocol = 'ftp'): void {
+    pendingCreate.value = protocol;
+  }
+
+  /** 取走一次新建请求，连带要预置的协议。取走即清空，避免下次进设置页时误开表单。 */
+  function consumeRemoteCreate(): RemoteProtocol | null {
+    const requested = pendingCreate.value;
+    pendingCreate.value = null;
+    return requested;
+  }
+
   function isValidConnectionId(id: string): boolean {
     return id.length > 0 && !id.includes('/') && !id.includes('\\');
   }
@@ -90,16 +125,20 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
       return 'nameRequired';
     }
 
-    if (form.host.trim().length === 0) {
-      return 'hostRequired';
-    }
+    // 百度网盘没有「服务器地址」与「端口」的概念 —— 主机恒为 pan.baidu.com，
+    // 凭据是一整段 Cookie。拿 FTP 那套规则去卡它，用户根本填不出一个能保存的表单。
+    if (!isBaiduPanProtocol(form.protocol)) {
+      if (form.host.trim().length === 0) {
+        return 'hostRequired';
+      }
 
-    if (/\s/.test(form.host)) {
-      return 'hostHasWhitespace';
-    }
+      if (/\s/.test(form.host)) {
+        return 'hostHasWhitespace';
+      }
 
-    if (!Number.isInteger(form.port) || form.port < 1 || form.port > 65535) {
-      return 'portInvalid';
+      if (!Number.isInteger(form.port) || form.port < 1 || form.port > 65535) {
+        return 'portInvalid';
+      }
     }
 
     if (normalizeRemotePath(form.initialPath) === null) {
@@ -240,7 +279,26 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     // 第一步：密文先行。
     let credentialKey = existing?.credentialKey;
 
-    if (hasNewPassword) {
+    if (isBaiduPanProtocol(form.protocol)) {
+      // 百度网盘的凭据不是口令，是一整段会话 Cookie（BDUSS + STOKEN）。
+      // 走**独立**的 command：后端要解析出这两个值，并拒绝格式不合法的 cookie。
+      // 塞进通用的 `remote_save_credential` 等于把没解析过的垃圾也存成「已登录」，
+      // 界面上还显示「已保存密码」—— 用户会一直连不上却不知道原因。
+      if (hasNewPassword) {
+        await invoke('remote_baidu_save_session', {
+          connectionId: id,
+          cookie: form.password,
+        });
+        credentialKey = id;
+      }
+      else if (form.clearPassword) {
+        await invoke('remote_baidu_delete_session', {
+          connectionId: id,
+        });
+        credentialKey = undefined;
+      }
+    }
+    else if (hasNewPassword) {
       await invoke('remote_save_credential', {
         key: id,
         secret: form.password,
@@ -258,8 +316,14 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
       id,
       name: form.name.trim(),
       protocol: form.protocol,
-      host: form.host.trim(),
-      port: form.port,
+      // 百度网盘不认自定义主机 —— 恒为 pan.baidu.com:443。
+      // 写成别的值会让「远程位置」里那条连接连到别处去。
+      host: isBaiduPanProtocol(form.protocol)
+        ? BAIDU_PAN_HOST
+        : form.host.trim(),
+      port: isBaiduPanProtocol(form.protocol)
+        ? BAIDU_PAN_PORT
+        : form.port,
       username: form.username,
       initialPath: normalizedPath,
       // 空串 / 纯空白 → 字段整个不写出去，保持与「不摆双屏」同义。
@@ -360,9 +424,13 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
   async function testConnection(
     form: RemoteConnectionForm,
   ): Promise<RemoteConnectionTestReport> {
+    const isBaidu = isBaiduPanProtocol(form.protocol);
     let password = form.password.length > 0 && !form.clearPassword ? form.password : undefined;
 
-    if (password === undefined && form.id && !form.clearPassword) {
+    // 百度网盘**不走** `loadCredentialForTest`：那边取回来的是存档里的会话
+    // JSON（不是原始 cookie），当成 cookie 发过去必然解析失败。
+    // 这里留空即可 —— 后端会按 `credentialKey` 自己去读存档里的会话。
+    if (password === undefined && form.id && !form.clearPassword && !isBaidu) {
       // 编辑既有连接且密码框留空：空串的语义是「不碰已存的密码」，
       // 所以要把存过的那条取出来用，否则测的其实是「空密码」。
       password = (await loadCredentialForTest(form.id)) ?? undefined;
@@ -371,12 +439,35 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     return invoke<RemoteConnectionTestReport>('remote_test_connection', {
       request: {
         protocol: form.protocol,
-        host: form.host.trim(),
-        port: form.port,
+        // 百度网盘用存档里的会话去测；其余协议不需要这个字段。
+        credentialKey: isBaidu ? form.id : undefined,
+        host: isBaidu ? BAIDU_PAN_HOST : form.host.trim(),
+        port: isBaidu ? BAIDU_PAN_PORT : form.port,
         username: form.username,
         password,
         proxy: form.proxy,
       },
+    });
+  }
+
+  /**
+   * 百度网盘会话的当前状态，给设置页的授权卡用。
+   *
+   * **只返回状态，不返回凭据** —— 与后端一致：摘要里只有 cookie 的名字与长度，
+   * 没有任何明文片段。
+   */
+  async function getBaiduAuthStatus(
+    connectionId: string,
+  ): Promise<BaiduAuthStatusPayload> {
+    return invoke<BaiduAuthStatusPayload>('remote_baidu_auth_status', {
+      connectionId,
+    });
+  }
+
+  /** 删掉已保存的百度网盘会话（退出登录）。键不存在是成功的空操作。 */
+  async function deleteBaiduSession(connectionId: string): Promise<void> {
+    await invoke('remote_baidu_delete_session', {
+      connectionId,
     });
   }
 
@@ -385,6 +476,7 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     connections,
     isInitialized,
     pendingEditId,
+    pendingCreate,
 
     init,
     loadStorageData,
@@ -395,7 +487,11 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     saveProxySecret,
     loadCredentialForTest,
     testConnection,
+    getBaiduAuthStatus,
+    deleteBaiduSession,
     requestRemoteEdit,
     consumeRemoteEdit,
+    requestRemoteCreate,
+    consumeRemoteCreate,
   };
 });

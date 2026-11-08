@@ -8,6 +8,7 @@ mod app_dirs;
 mod app_updater;
 mod archive;
 mod background_sources;
+mod baidu_probe;
 mod batch_rename;
 mod clipboard_source;
 mod clipboard_watcher;
@@ -39,6 +40,7 @@ pub mod mcp;
 mod open_with;
 mod process_runner;
 pub mod remote;
+pub mod startup_probe;
 mod startup_storage_bootstrap;
 mod system_clipboard;
 mod system_icons;
@@ -48,13 +50,12 @@ mod terminal;
 mod url_drop;
 mod user_storage_files_config;
 pub mod utils;
-pub mod startup_probe;
 mod version_json;
+mod webview_guard;
+mod webview_guard_runtime;
 mod windows_installation;
 #[cfg(windows)]
 mod windows_print_view_webview;
-mod webview_guard;
-mod webview_guard_runtime;
 
 use serde::Serialize;
 use tauri::{Emitter, Manager};
@@ -118,9 +119,9 @@ fn open_in_native_explorer(path: &str) {
     // 事后根本没法判断是哪个 path 出的问题。
     match std::process::Command::new("explorer.exe").arg(path).spawn() {
         Ok(_) => log::info!("[reveal] open_in_native_explorer spawned: path={path}"),
-        Err(error) => log::error!(
-            "[reveal] open_in_native_explorer failed: path={path} error={error}"
-        ),
+        Err(error) => {
+            log::error!("[reveal] open_in_native_explorer failed: path={path} error={error}")
+        }
     }
 }
 
@@ -370,6 +371,9 @@ pub fn run() {
             remote::remote_save_credential,
             remote::remote_load_credential,
             remote::remote_delete_credential,
+            remote::remote_baidu_save_session,
+            remote::remote_baidu_auth_status,
+            remote::remote_baidu_delete_session,
             remote::remote_test_connection,
             remote::remote_read_dir,
             remote::remote_stat_dir_entry,
@@ -630,7 +634,9 @@ fn setup_handler(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
     log::info!(
         "setup_handler: app started, version={}, exe={}",
         app.package_info().version,
-        std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_default(),
+        std::env::current_exe()
+            .map(|p| p.display().to_string())
+            .unwrap_or_default(),
     );
 
     system_tray::setup_system_tray(app.handle())?;
@@ -674,6 +680,9 @@ fn setup_handler(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
         let filter_result = filter_shell_namespace_args(raw_args.clone());
         delegate_shell_namespace_paths(&filter_result.delegated_paths);
         url_drop::setup(app.handle());
+        // T1/U1 探针：仅在 AFM_BAIDU_PROBE=1 时生效，否则立即返回、零副作用。
+        // 见 src-tauri/src/baidu_probe.rs 顶部说明（含 cargo test --lib 红线）。
+        baidu_probe::install(app.handle());
 
         let launched_only_with_delegated_paths = !filter_result.had_absorbed_paths
             && filter_result.had_delegated_paths()

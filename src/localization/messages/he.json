@@ -681,13 +681,15 @@
         "proxyPort": "Proxy port",
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
-        "localPath": "Local folder"
+        "localPath": "Local folder",
+        "cookie": "Cookie"
       },
       "protocol": {
         "ftp": "FTP",
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
-        "sftp": "SFTP"
+        "sftp": "SFTP",
+        "baidu_pan": "Baidu Netdisk"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -746,6 +748,31 @@
         "forgetFailed": "That host could not be removed. It is still on the list.",
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
+      },
+      "baidu": {
+        "hint": "היכנסו ל-pan.baidu.com בדפדפן והדביקו כאן את כותרת ה-Cookie כולה (חייב להכיל BDUSS). הפרטים מוצפנים באמצעות Windows DPAPI ולא עוזבים את המחשב הזה.",
+        "status": {
+          "loading": "קורא את מצב ההרשאה…",
+          "missing": "לא מחובר",
+          "ready": "מורשה",
+          "stoken_expired": "תוקף ה-STOKEN פג — יש להיכנס שוב",
+          "stoken_expiring_soon": "תוקף ה-STOKEN עומד לפוג"
+        },
+        "action": {
+          "deleteSession": "מחק הפעלה שמורה"
+        },
+        "help": {
+          "toggle": "איך משיגים את ה-Cookie",
+          "openLogin": "פתיחת דף ההתחברות של Baidu Netdisk",
+          "step1": "היכנסו ל-pan.baidu.com בדפדפן והתחברו לחשבון Baidu שלכם.",
+          "step2": "לחצו F12 כדי לפתוח כלי מפתח ועברו ללשונית רשת.",
+          "step3": "רעננו את הדף, לחצו על כל בקשה ומצאו את BDUSS בשורת Cookie שבכותרות הבקשה.",
+          "step4": "העתיקו את הערך של BDUSS; אם מופיע גם STOKEN, העתיקו אותו גם כן כדי לשמור על האצת ההעלאה.",
+          "step5": "הדביקו בשדה למעלה — גם Cookie מלא, גם BDUSS=xxx; STOKEN=yyy וגם הערך של BDUSS לבד מתקבלים.",
+          "noteRequired": "BDUSS חובה והשם רגיש לרישיות (bduss באותיות קטנות לא מתקבל). STOKEN רשות.",
+          "noteExpiry": "כשתוקף ה-Cookie יפוג האפליקציה לא תוכל לחדש אותו — יש להתחבר מחדש ולהעתיק עוגייה חדשה.",
+          "notePrivacy": "Cookie רגיש כמו הסיסמה שלכם. הוא נשמר רק בהצפנת Windows DPAPI במחשב הזה, לא עולה לרשת ולא נרשם ביומנים."
+        }
       }
     },
     "about": {

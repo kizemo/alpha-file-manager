@@ -644,13 +644,15 @@
         "proxyPort": "Proxy port",
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
-        "localPath": "Local folder"
+        "localPath": "Local folder",
+        "cookie": "Cookie"
       },
       "protocol": {
         "ftp": "FTP",
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
-        "sftp": "SFTP"
+        "sftp": "SFTP",
+        "baidu_pan": "Baidu Netdisk"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -709,6 +711,31 @@
         "forgetFailed": "That host could not be removed. It is still on the list.",
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
+      },
+      "baidu": {
+        "hint": "Inicia sesión en pan.baidu.com en tu navegador y luego pega aquí toda la cabecera Cookie (debe contener BDUSS). La credencial se cifra con Windows DPAPI y nunca sale de este equipo.",
+        "status": {
+          "loading": "Leyendo el estado de autorización…",
+          "missing": "Sesión no iniciada",
+          "ready": "Autorizado",
+          "stoken_expired": "STOKEN ha caducado: vuelve a iniciar sesión",
+          "stoken_expiring_soon": "STOKEN caduca pronto"
+        },
+        "action": {
+          "deleteSession": "Eliminar la sesión guardada"
+        },
+        "help": {
+          "toggle": "Cómo obtener la cookie",
+          "openLogin": "Abrir la página de inicio de sesión de Baidu Netdisk",
+          "step1": "Abre pan.baidu.com en el navegador e inicia sesión en tu cuenta de Baidu.",
+          "step2": "Pulsa F12 para abrir las herramientas de desarrollo y ve al panel Red.",
+          "step3": "Recarga la página, pulsa cualquier solicitud y busca BDUSS en la línea Cookie de las cabeceras de solicitud.",
+          "step4": "Copia el valor de BDUSS; si también aparece STOKEN, cópialo para conservar la aceleración de subida.",
+          "step5": "Pégalo en el campo de arriba: vale la cookie completa, BDUSS=xxx; STOKEN=yyy o solo el valor de BDUSS.",
+          "noteRequired": "BDUSS es obligatorio y distingue mayúsculas de minúsculas (bduss en minúsculas no se acepta). STOKEN es opcional.",
+          "noteExpiry": "Cuando la cookie caduque, esta app no puede renovarla; vuelve a iniciar sesión y copia una nueva.",
+          "notePrivacy": "La cookie equivale a tu contraseña. Se guarda solo cifrada con Windows DPAPI en este equipo, no se sube ni se escribe en el registro."
+        }
       }
     },
     "about": {

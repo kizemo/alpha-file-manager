@@ -23,12 +23,13 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { ServerIcon, SettingsIcon } from '@lucide/vue';
+import { PlusIcon, ServerIcon, SettingsIcon } from '@lucide/vue';
 import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
 import { hasRemoteLocalPath } from '@/types/remote';
 import type { RemoteConnection } from '@/types/remote';
 
 const emit = defineEmits<{
+  add: [];
   openSettings: [];
   open: [connection: RemoteConnection];
   edit: [connection: RemoteConnection];
@@ -53,6 +54,16 @@ onMounted(async () => {
 
 <template>
   <div class="remote-nav-panel">
+    <button
+      type="button"
+      class="remote-nav-panel__row remote-nav-panel__row--add"
+      data-test="remote-nav-add"
+      @click="emit('add')"
+    >
+      <PlusIcon :size="14" />
+      <span>{{ t('settings.remote.action.add') }}</span>
+    </button>
+
     <button
       type="button"
       class="remote-nav-panel__row"
@@ -134,6 +145,17 @@ onMounted(async () => {
 
 .remote-nav-panel__row:hover {
   background-color: hsl(var(--foreground) / 5%);
+}
+
+/*
+ * 「+ 添加连接」行（2026-11-08）。
+ *
+ * 放在面板最上面：用户悬停云图标后第一眼看到的就是「怎么加一条连接」，
+ * 而不是「去设置页找」。
+ */
+.remote-nav-panel__row--add {
+  color: hsl(var(--primary));
+  font-weight: 500;
 }
 
 /*

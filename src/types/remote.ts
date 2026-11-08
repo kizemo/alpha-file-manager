@@ -11,8 +11,8 @@
 // - `RemoteProxyConfig` ← `ProxyConfig`（`#[serde(tag = "kind", rename_all = "snake_case")]`）
 // - `RemoteConnection` ← `RemoteConnection`（camelCase）
 
-/** 与后端 `RemoteProtocol` 的四个变体一一对应。 */
-export type RemoteProtocol = 'ftp' | 'ftps_explicit' | 'ftps_implicit' | 'sftp';
+/** 与后端 `RemoteProtocol` 的五个变体一一对应。 */
+export type RemoteProtocol = 'ftp' | 'ftps_explicit' | 'ftps_implicit' | 'sftp' | 'baidu_pan';
 
 /**
  * 代理出口。
@@ -154,9 +154,45 @@ export function getRemoteProtocolDefaultPort(protocol: RemoteProtocol): number {
       return 990;
     case 'sftp':
       return 22;
+    case 'baidu_pan':
+      // 百度网盘走 HTTPS。
+      return 443;
     default:
       return 21;
   }
+}
+
+/**
+ * 是不是百度网盘协议。
+ *
+ * 百度网盘的连接**没有**服务器地址与端口可言 —— 主机恒为 `pan.baidu.com`，
+ * 凭据也不是口令而是一整段 Cookie。
+ * 表单校验、保存分派、界面分支都靠它分流，所以抽成一个函数而不是到处写
+ * `protocol === 'baidu_pan'`。
+ */
+export function isBaiduPanProtocol(protocol: RemoteProtocol): boolean {
+  return protocol === 'baidu_pan';
+}
+
+/**
+ * 百度网盘会话的授权状态。与后端 `BaiduAuthStatusPayload` 逐条镜像。
+ *
+ * `status` 是**分类**，不是文案 —— 前端按它分支，文案另走 i18n。
+ * `summary` 是后端 `describe_state` 出来的脱敏一句话，可直接展示，
+ * 但**不能**拿它做逻辑判断（会随版本改措辞）。
+ */
+export type BaiduAuthStatusKind
+  = | 'missing'
+    | 'ready'
+    | 'stoken_expired'
+    | 'stoken_expiring_soon';
+
+export interface BaiduAuthStatusPayload {
+  status: BaiduAuthStatusKind;
+  /** STOKEN 还剩多少秒。只在「即将过期」时才有。 */
+  remainingSeconds?: number;
+  /** 脱敏状态说明。 */
+  summary: string;
 }
 
 /**
@@ -204,6 +240,13 @@ export interface RemoteTestConnectionRequest {
   username: string;
   /** `undefined` = 这次不打算提交凭据，不是「空密码」。 */
   password?: string;
+  /**
+   * 已保存会话的键（= 连接 id）。
+   *
+   * **只有百度网盘用得上**：它的凭据是一整段 Cookie，空密码框的语义是
+   * 「用已存的那份会话去测」，不是「没有凭据」。其余协议忽略这个字段。
+   */
+  credentialKey?: string;
   /** 缺省即直连。 */
   proxy?: RemoteProxyConfig;
 }

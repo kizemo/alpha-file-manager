@@ -34,6 +34,8 @@ use tauri::Emitter;
 
 use crate::dir_reader::{DirContents, DirEntry};
 
+use super::baidu_auth::{self, BaiduAuthStatus};
+use super::baidu_provider::BaiduRemoteProvider;
 use super::connection::RemoteProtocol;
 use super::connection_test::{self, ConnectionTestReport, ProbeTarget};
 use super::credentials;
@@ -54,9 +56,8 @@ use super::transport::ProxyConfig;
 /// FORK-MODIFICATION 2026-10-20：移植上游 8908e214。
 /// 走后端统一解析点，隔离的 e2e 实例才不会读到用户真实的远程凭据。
 fn app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, RemoteError> {
-    crate::app_dirs::app_data_dir(app).map_err(|error| {
-        RemoteError::unknown(format!("解析应用数据目录失败: {error}"))
-    })
+    crate::app_dirs::app_data_dir(app)
+        .map_err(|error| RemoteError::unknown(format!("解析应用数据目录失败: {error}")))
 }
 
 /// `user-data/` 目录。与前端 `setCustomPaths()` 的算法一致：
@@ -67,9 +68,8 @@ fn app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, RemoteError> {
 fn user_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, RemoteError> {
     let app_data_dir = app_data_dir(app)?;
 
-    Ok(app_data_dir.join(
-        &crate::user_storage_files_config::user_storage_files_config().user_data_dir_name,
-    ))
+    Ok(app_data_dir
+        .join(&crate::user_storage_files_config::user_storage_files_config().user_data_dir_name))
 }
 
 /// 加密并保存一个凭据。`key` 由前端给，通常就等于连接 id。
@@ -87,7 +87,9 @@ pub async fn remote_save_credential(
         credentials::save_credential(&app_data_dir, &key, &secret)
     })
     .await
-    .map_err(|join_error| RemoteError::unknown(format!("保存远程凭据的后台任务失败: {join_error}")))?
+    .map_err(|join_error| {
+        RemoteError::unknown(format!("保存远程凭据的后台任务失败: {join_error}"))
+    })?
 }
 
 /// 读回一个凭据。返回 `null` 表示「没存过」。
@@ -103,7 +105,9 @@ pub async fn remote_load_credential(
 
     tauri::async_runtime::spawn_blocking(move || credentials::load_credential(&app_data_dir, &key))
         .await
-        .map_err(|join_error| RemoteError::unknown(format!("读取远程凭据的后台任务失败: {join_error}")))?
+        .map_err(|join_error| {
+            RemoteError::unknown(format!("读取远程凭据的后台任务失败: {join_error}"))
+        })?
 }
 
 /// 删掉一个凭据。键不存在是成功的空操作。
@@ -118,7 +122,100 @@ pub async fn remote_delete_credential(
         credentials::delete_credential(&app_data_dir, &key)
     })
     .await
-    .map_err(|join_error| RemoteError::unknown(format!("删除远程凭据的后台任务失败: {join_error}")))?
+    .map_err(|join_error| {
+        RemoteError::unknown(format!("删除远程凭据的后台任务失败: {join_error}"))
+    })?
+}
+
+/// 百度网盘会话状态（给设置页看的可序列化形状）。
+///
+/// **只报状态，不报凭据** —— 摘要里只有 cookie 的名字与长度。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BaiduAuthStatusPayload {
+    /// `missing` / `ready` / `stoken_expired` / `stoken_expiring_soon`
+    pub status: String,
+    /// `STOKEN` 还剩多少秒。`None` = 不知道过期时间。
+    pub remaining_seconds: Option<u64>,
+    /// 脱敏描述，给日志与界面用。
+    pub summary: String,
+}
+
+/// 保存百度网盘的登录凭据（整段 cookie）。
+///
+/// **凭据不回传给前端**：只写不读回。格式非法的 cookie 在落盘前就被拒 ——
+/// 存档里只该有真正能用的凭据。
+#[tauri::command]
+pub async fn remote_baidu_save_session(
+    app: tauri::AppHandle,
+    connection_id: String,
+    cookie: String,
+) -> Result<(), RemoteError> {
+    let app_data_dir = app_data_dir(&app)?;
+
+    // 先解析再落盘。
+    let session = baidu_auth::parse_manual_cookie_input(&cookie)?;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        baidu_auth::save_baidu_session(&app_data_dir, &connection_id, &session, None)
+    })
+    .await
+    .map_err(|join_error| {
+        RemoteError::unknown(format!("保存百度网盘会话的后台任务失败: {join_error}"))
+    })?
+}
+
+/// 百度网盘会话的当前状态，给设置页看。
+#[tauri::command]
+pub async fn remote_baidu_auth_status(
+    app: tauri::AppHandle,
+    connection_id: String,
+) -> Result<BaiduAuthStatusPayload, RemoteError> {
+    let app_data_dir = app_data_dir(&app)?;
+
+    let state = tauri::async_runtime::spawn_blocking(move || {
+        baidu_auth::load_baidu_session(&app_data_dir, &connection_id)
+    })
+    .await
+    .map_err(|join_error| {
+        RemoteError::unknown(format!("读取百度网盘会话的后台任务失败: {join_error}"))
+    })??;
+
+    let now = baidu_auth::unix_now();
+    let status = baidu_auth::baidu_auth_status(state.as_ref(), now);
+    let remaining_seconds = state
+        .as_ref()
+        .and_then(|state| baidu_auth::remaining_seconds(state.stoken_expires_unix, now));
+
+    let status_name = match status {
+        BaiduAuthStatus::Missing => "missing",
+        BaiduAuthStatus::Ready => "ready",
+        BaiduAuthStatus::StokenExpired { .. } => "stoken_expired",
+        BaiduAuthStatus::StokenExpiringSoon { .. } => "stoken_expiring_soon",
+    };
+
+    Ok(BaiduAuthStatusPayload {
+        status: status_name.to_string(),
+        remaining_seconds,
+        summary: baidu_auth::describe_state(state.as_ref()),
+    })
+}
+
+/// 删掉已保存的百度网盘会话。键不存在是成功的空操作。
+#[tauri::command]
+pub async fn remote_baidu_delete_session(
+    app: tauri::AppHandle,
+    connection_id: String,
+) -> Result<(), RemoteError> {
+    let app_data_dir = app_data_dir(&app)?;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        baidu_auth::delete_baidu_session(&app_data_dir, &connection_id)
+    })
+    .await
+    .map_err(|join_error| {
+        RemoteError::unknown(format!("删除百度网盘会话的后台任务失败: {join_error}"))
+    })?
 }
 
 /// 「测试连接」的请求体。
@@ -141,6 +238,13 @@ pub struct RemoteTestConnectionRequest {
     /// 这里宁可让调用方显式写 `null`。
     #[serde(default)]
     pub proxy: Option<ProxyConfig>,
+    /// 已保存会话的键（= 连接 id）。
+    ///
+    /// **只有百度网盘用得上**：它的凭据是一整段 Cookie 而不是口令，
+    /// 所以「密码框留空」的语义是「用已存的那份会话去测」，
+    /// 不是「没有凭据」。FTP / SFTP 忽略这个字段。
+    #[serde(default)]
+    pub credential_key: Option<String>,
 }
 
 /// 真去连一次，把结论报回来。
@@ -154,14 +258,41 @@ pub struct RemoteTestConnectionRequest {
 /// 理由见 `connection_test` 模块顶部。
 #[tauri::command]
 pub async fn remote_test_connection(
+    app: tauri::AppHandle,
     request: RemoteTestConnectionRequest,
 ) -> Result<ConnectionTestReport, RemoteError> {
+    let mut password = request.password;
+
+    // 百度网盘：cookie 框留空 = 「用已保存的那份会话去测」，**不是**「没有凭据」。
+    //
+    // 少了这一步，编辑一条已经登录的百度连接时点「测试连接」必然回一句
+    // 「还没有登录凭据」—— 而用户明明已经存过会话了。
+    if request.protocol == RemoteProtocol::BaiduPan
+        && password.as_deref().map(str::trim).unwrap_or("").is_empty()
+    {
+        // 必须 clone 成 owned：`spawn_blocking` 要求 `'static`，
+        // 直接借用 `request.credential_key` 会借用到 request 被 drop。
+        if let Some(key) = request.credential_key.clone() {
+            let app_data_dir = app_data_dir(&app)?;
+
+            password = tauri::async_runtime::spawn_blocking(move || {
+                baidu_auth::load_baidu_session(&app_data_dir, &key)
+                    .ok()
+                    .flatten()
+                    .map(|state| baidu_auth::session_to_cookie_header(&state.session))
+            })
+            .await
+            .ok()
+            .flatten();
+        }
+    }
+
     let target = ProbeTarget {
         protocol: request.protocol,
         host: request.host,
         port: request.port,
         username: request.username,
-        password: request.password,
+        password,
         proxy: request.proxy.unwrap_or(ProxyConfig::Direct),
     };
 
@@ -223,6 +354,12 @@ async fn list_with_protocol(
                 .list(resolved, remote_path)
                 .await
         }
+        // 百度网盘：凭据是整份会话，不走「密码」那条路 —— provider 自己读。
+        RemoteProtocol::BaiduPan => {
+            BaiduRemoteProvider::new(user_data_dir, app_data_dir)?
+                .read_dir(&resolved.connection.id, remote_path)
+                .await
+        }
     }
 }
 
@@ -238,6 +375,12 @@ async fn stat_with_protocol(
                 .stat(resolved, remote_path)
                 .await
         }
+        // 百度网盘：凭据是整份会话，不走「密码」那条路 —— provider 自己读。
+        RemoteProtocol::BaiduPan => {
+            BaiduRemoteProvider::new(user_data_dir, app_data_dir)?
+                .stat(&resolved.connection.id, remote_path)
+                .await
+        }
         // 明文 FTP 与 FTPS 的 `stat` 都是「列父目录再按名字找」，
         // 协议部分完全一样 —— 所以这里直接复用同一个 provider。
         RemoteProtocol::Ftp | RemoteProtocol::FtpsExplicit | RemoteProtocol::FtpsImplicit => {
@@ -245,8 +388,7 @@ async fn stat_with_protocol(
                 FtpRemoteProvider::new(user_data_dir, app_data_dir)
                     .stat(resolved, remote_path)
                     .await
-            }
-            else {
+            } else {
                 FtpsRemoteProvider::new(user_data_dir, app_data_dir)
                     .stat(resolved, remote_path)
                     .await
@@ -258,16 +400,23 @@ async fn stat_with_protocol(
 /// 列出远端目录。前端只传 `path` —— 连接配置与密码由 Rust 自己解析
 /// （2026-10-18 拍板的方案 C），明文密码一次都不跨 IPC。
 #[tauri::command]
-pub async fn remote_read_dir(app: tauri::AppHandle, path: String) -> Result<DirContents, RemoteError> {
+pub async fn remote_read_dir(
+    app: tauri::AppHandle,
+    path: String,
+) -> Result<DirContents, RemoteError> {
     let (connection_id, remote_path) = split_remote_path(&path)?;
     let app_data_dir = app_data_dir(&app)?;
     let user_data_dir = user_data_dir(&app)?;
 
-    let resolved =
-        resolve_connection_blocking(user_data_dir.clone(), app_data_dir.clone(), connection_id.clone())
-            .await?;
+    let resolved = resolve_connection_blocking(
+        user_data_dir.clone(),
+        app_data_dir.clone(),
+        connection_id.clone(),
+    )
+    .await?;
 
-    let entries = list_with_protocol(&resolved, &user_data_dir, &app_data_dir, &remote_path).await?;
+    let entries =
+        list_with_protocol(&resolved, &user_data_dir, &app_data_dir, &remote_path).await?;
 
     // 回显**规范化之后**的路径：用户手输 `pub//docs` 之后，
     // 地址栏要显示它实际去到的地方。
@@ -289,7 +438,8 @@ pub async fn remote_stat_dir_entry(
     let user_data_dir = user_data_dir(&app)?;
 
     let resolved =
-        resolve_connection_blocking(user_data_dir.clone(), app_data_dir.clone(), connection_id).await?;
+        resolve_connection_blocking(user_data_dir.clone(), app_data_dir.clone(), connection_id)
+            .await?;
 
     match stat_with_protocol(&resolved, &user_data_dir, &app_data_dir, &remote_path).await {
         Ok(entry) => Ok(Some(dir_adapter::to_dir_entry(&entry))),
@@ -302,7 +452,9 @@ pub async fn remote_stat_dir_entry(
 
 /// 列出已信任的 SSH 主机。设置页的「查看 / 删除」用它。
 #[tauri::command]
-pub async fn remote_list_known_hosts(app: tauri::AppHandle) -> Result<Vec<KnownHostEntry>, RemoteError> {
+pub async fn remote_list_known_hosts(
+    app: tauri::AppHandle,
+) -> Result<Vec<KnownHostEntry>, RemoteError> {
     let app_data_dir = app_data_dir(&app)?;
 
     tauri::async_runtime::spawn_blocking(move || known_hosts::load(&app_data_dir))
@@ -330,9 +482,9 @@ pub async fn remote_trust_host(
     }
 
     if !known_hosts::fingerprint_matches_kind(&fingerprint, kind) {
-        return Err(RemoteError::protocol(
-            known_hosts::fingerprint_shape_hint(kind),
-        ));
+        return Err(RemoteError::protocol(known_hosts::fingerprint_shape_hint(
+            kind,
+        )));
     }
 
     let app_data_dir = app_data_dir(&app)?;
@@ -362,11 +514,13 @@ pub async fn remote_forget_host(
 ) -> Result<bool, RemoteError> {
     let app_data_dir = app_data_dir(&app)?;
 
-    tauri::async_runtime::spawn_blocking(move || known_hosts::forget(&app_data_dir, &host, port, kind))
-        .await
-        .map_err(|join_error| {
-            RemoteError::unknown(format!("删除已信任主机记录的后台任务失败: {join_error}"))
-        })?
+    tauri::async_runtime::spawn_blocking(move || {
+        known_hosts::forget(&app_data_dir, &host, port, kind)
+    })
+    .await
+    .map_err(|join_error| {
+        RemoteError::unknown(format!("删除已信任主机记录的后台任务失败: {join_error}"))
+    })?
 }
 
 // ---------------------------------------------------------------------------
@@ -389,13 +543,17 @@ pub(crate) async fn provider_with_protocol(
     app_data_dir: &Path,
 ) -> Box<dyn RemoteProvider> {
     match protocol {
-        RemoteProtocol::Sftp => {
-            Box::new(SftpRemoteProvider::new(user_data_dir, app_data_dir))
-        }
+        RemoteProtocol::Sftp => Box::new(SftpRemoteProvider::new(user_data_dir, app_data_dir)),
         RemoteProtocol::Ftp => Box::new(FtpRemoteProvider::new(user_data_dir, app_data_dir)),
         RemoteProtocol::FtpsExplicit | RemoteProtocol::FtpsImplicit => {
             Box::new(FtpsRemoteProvider::new(user_data_dir, app_data_dir))
         }
+        // 百度网盘：构造失败（HTTP 客户端建不起来）被**推迟**到第一次调用，
+        // 所以这里不用返回 `Result` —— 这个函数的签名是 `Box<dyn RemoteProvider>`。
+        RemoteProtocol::BaiduPan => Box::new(BaiduRemoteProvider::new_deferred(
+            user_data_dir,
+            app_data_dir,
+        )),
     }
 }
 
@@ -425,9 +583,12 @@ pub async fn remote_upload_paths(
     let app_data_dir = app_data_dir(&app)?;
     let user_data_dir = user_data_dir(&app)?;
 
-    let resolved =
-        resolve_connection_blocking(user_data_dir.clone(), app_data_dir.clone(), connection_id.clone())
-            .await?;
+    let resolved = resolve_connection_blocking(
+        user_data_dir.clone(),
+        app_data_dir.clone(),
+        connection_id.clone(),
+    )
+    .await?;
 
     let provider =
         provider_with_protocol(resolved.connection.protocol, &user_data_dir, &app_data_dir).await;
@@ -485,9 +646,8 @@ pub async fn remote_download_paths(
 
     for raw in &remote_paths {
         let (id, remote_path) = split_remote_path(raw)?;
-        let normalized = normalize_remote_path(&remote_path).ok_or_else(|| {
-            RemoteError::protocol(format!("远端路径不合法：{remote_path}"))
-        })?;
+        let normalized = normalize_remote_path(&remote_path)
+            .ok_or_else(|| RemoteError::protocol(format!("远端路径不合法：{remote_path}")))?;
 
         if connection_id.is_empty() {
             connection_id = id;
@@ -496,9 +656,12 @@ pub async fn remote_download_paths(
         normalized_paths.push(normalized);
     }
 
-    let resolved =
-        resolve_connection_blocking(user_data_dir.clone(), app_data_dir.clone(), connection_id.clone())
-            .await?;
+    let resolved = resolve_connection_blocking(
+        user_data_dir.clone(),
+        app_data_dir.clone(),
+        connection_id.clone(),
+    )
+    .await?;
 
     let provider =
         provider_with_protocol(resolved.connection.protocol, &user_data_dir, &app_data_dir).await;
@@ -573,20 +736,25 @@ pub async fn remote_chmod(
     let app_data_dir = app_data_dir(&app)?;
     let user_data_dir = user_data_dir(&app)?;
 
-    let resolved =
-        resolve_connection_blocking(user_data_dir.clone(), app_data_dir.clone(), connection_id.clone())
-            .await?;
+    let resolved = resolve_connection_blocking(
+        user_data_dir.clone(),
+        app_data_dir.clone(),
+        connection_id.clone(),
+    )
+    .await?;
 
     if resolved.connection.protocol != RemoteProtocol::Sftp {
         return Err(transfer::unsupported_set_permissions(
             match resolved.connection.protocol {
                 RemoteProtocol::Ftp => "FTP",
+                RemoteProtocol::BaiduPan => "百度网盘",
                 _ => "FTPS",
             },
         ));
     }
 
-    let provider = provider_with_protocol(RemoteProtocol::Sftp, &user_data_dir, &app_data_dir).await;
+    let provider =
+        provider_with_protocol(RemoteProtocol::Sftp, &user_data_dir, &app_data_dir).await;
 
     transfer::chmod(&*provider, &connection_id, &remote_path, mode, recursive).await
 }
@@ -607,9 +775,12 @@ pub async fn remote_get_permissions(
     let app_data_dir = app_data_dir(&app)?;
     let user_data_dir = user_data_dir(&app)?;
 
-    let resolved =
-        resolve_connection_blocking(user_data_dir.clone(), app_data_dir.clone(), connection_id.clone())
-            .await?;
+    let resolved = resolve_connection_blocking(
+        user_data_dir.clone(),
+        app_data_dir.clone(),
+        connection_id.clone(),
+    )
+    .await?;
 
     let provider =
         provider_with_protocol(resolved.connection.protocol, &user_data_dir, &app_data_dir).await;
@@ -642,14 +813,19 @@ pub async fn remote_remove_path(
     let app_data_dir = app_data_dir(&app)?;
     let user_data_dir = user_data_dir(&app)?;
 
-    let resolved =
-        resolve_connection_blocking(user_data_dir.clone(), app_data_dir.clone(), connection_id.clone())
-            .await?;
+    let resolved = resolve_connection_blocking(
+        user_data_dir.clone(),
+        app_data_dir.clone(),
+        connection_id.clone(),
+    )
+    .await?;
 
     let provider =
         provider_with_protocol(resolved.connection.protocol, &user_data_dir, &app_data_dir).await;
 
-    provider.remove_path(&connection_id, &remote_path, is_dir).await
+    provider
+        .remove_path(&connection_id, &remote_path, is_dir)
+        .await
 }
 
 /// 在远程目录里**新建一个目录**。
@@ -675,9 +851,12 @@ pub async fn remote_make_dir(
     let (parent, name) = super::path::split_remote_parent_and_name(&remote_path)?;
     super::path::validate_remote_entry_name(&name)?;
 
-    let resolved =
-        resolve_connection_blocking(user_data_dir.clone(), app_data_dir.clone(), connection_id.clone())
-            .await?;
+    let resolved = resolve_connection_blocking(
+        user_data_dir.clone(),
+        app_data_dir.clone(),
+        connection_id.clone(),
+    )
+    .await?;
 
     let provider =
         provider_with_protocol(resolved.connection.protocol, &user_data_dir, &app_data_dir).await;
@@ -714,9 +893,12 @@ pub async fn remote_rename_path(
     // 名字非法是本地判定 —— 一秒都不该花在网络上。
     super::path::validate_remote_entry_name(&new_name)?;
 
-    let resolved =
-        resolve_connection_blocking(user_data_dir.clone(), app_data_dir.clone(), connection_id.clone())
-            .await?;
+    let resolved = resolve_connection_blocking(
+        user_data_dir.clone(),
+        app_data_dir.clone(),
+        connection_id.clone(),
+    )
+    .await?;
 
     let provider =
         provider_with_protocol(resolved.connection.protocol, &user_data_dir, &app_data_dir).await;
@@ -735,6 +917,9 @@ mod tests {
         "remote_save_credential",
         "remote_load_credential",
         "remote_delete_credential",
+        "remote_baidu_save_session",
+        "remote_baidu_auth_status",
+        "remote_baidu_delete_session",
         "remote_test_connection",
         "remote_read_dir",
         "remote_stat_dir_entry",

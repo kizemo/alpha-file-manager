@@ -681,13 +681,15 @@
         "proxyPort": "Proxy port",
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
-        "localPath": "Local folder"
+        "localPath": "Local folder",
+        "cookie": "Cookie"
       },
       "protocol": {
         "ftp": "FTP",
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
-        "sftp": "SFTP"
+        "sftp": "SFTP",
+        "baidu_pan": "بائیڈو نیٹ ڈسک"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -746,6 +748,31 @@
         "forgetFailed": "That host could not be removed. It is still on the list.",
         "kindSsh": "SSH key",
         "kindX509": "X.509 certificate"
+      },
+      "baidu": {
+        "hint": "براؤزر میں pan.baidu.com پر لاگ اِن کریں اور پھر مکمل Cookie ہیڈر یہاں چسپاں کریں (اس میں BDUSS ہونا چاہیے)۔ اسناد Windows DPAPI کے ذریعے انکرپٹ ہوتی ہیں اور اس کمپیوٹر سے باہر نہیں جاتیں۔",
+        "status": {
+          "loading": "اجازت کی حالت پڑھی جا رہی ہے…",
+          "missing": "لاگ اِن نہیں",
+          "ready": "اجازت دی گئی",
+          "stoken_expired": "STOKEN کی میعاد ختم ہو گئی — دوبارہ لاگ اِن کریں",
+          "stoken_expiring_soon": "STOKEN کی میعاد ختم ہونے والی ہے"
+        },
+        "action": {
+          "deleteSession": "محفوظ شدہ سیشن حذف کریں"
+        },
+        "help": {
+          "toggle": "Cookie حاصل کرنے کا طریقہ",
+          "openLogin": "Baidu Netdisk کا لاگ اِن صفحہ کھولیں",
+          "step1": "براؤزر میں pan.baidu.com کھولیں اور اپنے Baidu اکاؤنٹ میں لاگ اِن کریں۔",
+          "step2": "ڈویلپر ٹولز کھولنے کے لیے F12 دبائیں اور نیٹ ورک پینل پر جائیں۔",
+          "step3": "صفحہ دوبارہ لوڈ کریں، کسی بھی درخواست پر کلک کریں اور Request Headers کی Cookie لائن میں BDUSS تلاش کریں۔",
+          "step4": "BDUSS کی قدر کاپی کریں؛ اگر STOKEN بھی موجود ہے تو اسے بھی کاپی کریں تاکہ اپ لوڈ کی رفتار برقرار رہے۔",
+          "step5": "اوپر والے خانے میں چسپاں کریں: مکمل Cookie، BDUSS=xxx; STOKEN=yyy، یا صرف BDUSS کی قدر — تینوں چلیں گی۔",
+          "noteRequired": "BDUSS لازمی ہے اور اس کے نام میں بڑے/چھوٹے حروف فرق کرتے ہیں (چھوٹے حروف میں bduss قبول نہیں ہوگا)۔ STOKEN اختیاری ہے۔",
+          "noteExpiry": "Cookie کی میعاد ختم ہونے کے بعد یہ ایپ اسے تجدید نہیں کر سکتی؛ دوبارہ لاگ اِن کریں اور نیا کاپی کریں۔",
+          "notePrivacy": "Cookie آپ کے پاس ورڈ جتنا حساس ہے۔ یہ صرف Windows DPAPI کے ذریعے انکرپٹ ہو کر اسی کمپیوٹر پر محفوظ ہوتا ہے، باہر نہیں جاتا اور لاگ میں نہیں لکھا جاتا۔"
+        }
       }
     },
     "about": {

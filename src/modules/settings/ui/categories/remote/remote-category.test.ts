@@ -543,5 +543,46 @@ describe('远程设置分类', () => {
       await flushPromises();
       expect(second.find('[data-test="field-name"]').exists()).toBe(false);
     });
+
+    it('左侧导航的「+」请求会直接打开新建表单，并按请求预选协议', async () => {
+      storageContents.set('connections', connections);
+      const store = useRemoteConnectionsStore();
+      // 导航栏那颗「+」点完就是「先 request 再跳转」的那一路，请求里带着协议。
+      store.requestRemoteCreate('baidu_pan');
+
+      const wrapper = mountedCategory();
+      await flushPromises();
+
+      expect(wrapper.find('[data-test="field-name"]').exists()).toBe(true);
+      // 百度网盘没有「服务器地址 / 端口」可填，表单被隐藏即说明协议真的预选成功了。
+      expect(wrapper.find('[data-test="field-host"]').exists()).toBe(false);
+    });
+
+    it('不带协议的新建请求退回 FTP，服务器地址栏照常出现', async () => {
+      storageContents.set('connections', connections);
+      const store = useRemoteConnectionsStore();
+      store.requestRemoteCreate();
+
+      const wrapper = mountedCategory();
+      await flushPromises();
+
+      expect(wrapper.find('[data-test="field-name"]').exists()).toBe(true);
+      expect(wrapper.find('[data-test="field-host"]').exists()).toBe(true);
+    });
+
+    it('新建请求被消费掉，再次进入本分类不会重复弹表单', async () => {
+      storageContents.set('connections', connections);
+      const store = useRemoteConnectionsStore();
+      store.requestRemoteCreate();
+
+      const first = mountedCategory();
+      await flushPromises();
+      expect(first.find('[data-test="field-name"]').exists()).toBe(true);
+      first.unmount();
+
+      const second = mountedCategory();
+      await flushPromises();
+      expect(second.find('[data-test="field-name"]').exists()).toBe(false);
+    });
   });
 });

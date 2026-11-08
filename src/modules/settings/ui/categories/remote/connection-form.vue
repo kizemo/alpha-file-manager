@@ -7,7 +7,9 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { open } from '@tauri-apps/plugin-dialog';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { Input } from '@/components/ui/input';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -15,15 +17,23 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
-import { getRemoteProtocolDefaultPort } from '@/types/remote';
+import { getRemoteProtocolDefaultPort, isBaiduPanProtocol } from '@/types/remote';
 import normalizePath from '@/utils/normalize-path';
 import type {
-  RemoteConnection, RemoteConnectionForm, RemoteConnectionTestReport, RemoteProtocol, RemoteProxyConfig,
+  BaiduAuthStatusPayload, RemoteConnection, RemoteConnectionForm, RemoteConnectionTestReport, RemoteProtocol, RemoteProxyConfig,
 } from '@/types/remote';
 
 type Props = {
   /** 传 `null` 表示新建。 */
   connection: RemoteConnection | null;
+  /**
+   * 新建时预置的协议（2026-11-08）。
+   *
+   * 左侧导航那颗常驻「+」传的是 `baidu_pan` —— 用户要的入口是「添加百度网盘」，
+   * 点开就应该落在百度那张表单上，而不是让人再去下拉里找一次。
+   * 不传则退回原来的默认值 `ftp`，行为保持不变。
+   */
+  initialProtocol?: RemoteProtocol;
 };
 
 const props = defineProps<Props>();
@@ -36,8 +46,36 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const store = useRemoteConnectionsStore();
 
-const PROTOCOLS: RemoteProtocol[] = ['ftp', 'ftps_explicit', 'ftps_implicit', 'sftp'];
+const PROTOCOLS: RemoteProtocol[] = ['ftp', 'ftps_explicit', 'ftps_implicit', 'sftp', 'baidu_pan'];
 const PROXY_KINDS: RemoteProxyConfig['kind'][] = ['direct', 'socks5', 'http_connect'];
+
+/**
+ * 百度网盘的固定主机。
+ *
+ * 百度网盘没有「自选服务器」这回事，用户填什么 host 都会被后端忽略，
+ * 而连接表里那个字段是必填的（Rust 侧 `RemoteConnection::validate` 要求非空）。
+ * 所以界面上干脆不显示主机输入框，固定写死这个值。
+ */
+const BAIDU_PAN_HOST = 'pan.baidu.com';
+
+/**
+ * 「如何获取 Cookie」帮助块（2026-11-08）。
+ *
+ * 百度没有给第三方应用的 OAuth，Cookie 只能从**已登录的浏览器会话**里抠，
+ * 本应用替不了用户登录。所以这里做两件事：
+ * ① 一个直达登录页的外链，省掉手敲域名；
+ * ② 把 F12 → 网络 → 复制 BDUSS 的步骤写在表单里，免得用户另开搜索。
+ *
+ * 步骤口径与后端解析规则严格对齐（`src-tauri/src/remote/baidu_auth.rs`）：
+ * `BDUSS` 必需且**大小写敏感**，`STOKEN` 可选（只影响上传加速），
+ * 裸值与整串 Cookie 两种粘法都接受 —— 说明里必须只写做得到、且被代码允许的动作。
+ */
+const BAIDU_PAN_URL = 'https://pan.baidu.com/';
+const cookieHelpOpen = ref(false);
+
+function openBaiduLoginPage() {
+  openUrl(BAIDU_PAN_URL);
+}
 
 const name = ref('');
 const protocol = ref<RemoteProtocol>('ftp');
@@ -56,6 +94,12 @@ const proxyPassword = ref('');
 
 const hasSavedPassword = computed(() => Boolean(props.connection?.credentialKey));
 
+/**
+ * 是不是百度网盘。百度的表单长得很不一样：没有主机、没有端口、没有用户名，
+ * 凭据是一整段 Cookie 而不是口令。
+ */
+const isBaidu = computed(() => isBaiduPanProtocol(protocol.value));
+
 watch(
   () => props.connection,
   (connection) => {
@@ -63,12 +107,20 @@ watch(
     // 的 else 分支里 TS 不会把 `connection` 收窄成非空。
     const existingProxy = connection?.proxy;
     const isDirect = !existingProxy || existingProxy.kind === 'direct';
-    const nextProtocol = connection?.protocol ?? 'ftp';
+    const nextProtocol = connection?.protocol ?? props.initialProtocol ?? 'ftp';
 
     name.value = connection?.name ?? '';
     protocol.value = nextProtocol;
     host.value = connection?.host ?? '';
     port.value = connection?.port ?? getRemoteProtocolDefaultPort(nextProtocol);
+
+    // 百度网盘不认自定义主机 —— 主机与端口恒定。
+    // 老记录里若被写成了别的值，这里纠正回来。
+    if (isBaiduPanProtocol(nextProtocol)) {
+      host.value = BAIDU_PAN_HOST;
+      port.value = getRemoteProtocolDefaultPort(nextProtocol);
+    }
+
     username.value = connection?.username ?? '';
     initialPath.value = connection?.initialPath ?? '/';
     localPath.value = connection?.localPath ?? '';
@@ -192,6 +244,59 @@ async function handleTestConnection() {
   }
 }
 
+/**
+ * 百度网盘的授权状态卡。
+ *
+ * **只显示状态，不显示凭据** —— 后端给回来的摘要里只有 cookie 的名字与长度，
+ * 没有任何明文片段。没有这张卡，用户只能靠「测试连接」去猜自己的会话还活着没。
+ */
+const baiduStatus = ref<BaiduAuthStatusPayload | null>(null);
+const isLoadingBaiduStatus = ref(false);
+
+/** 只有「已保存的百度连接」才有状态可查 —— 新建中（还没 id）没有存档。 */
+const baiduConnectionId = computed(() => (isBaidu.value ? props.connection?.id : undefined));
+
+async function refreshBaiduStatus() {
+  if (!baiduConnectionId.value) {
+    baiduStatus.value = null;
+    return;
+  }
+
+  isLoadingBaiduStatus.value = true;
+
+  try {
+    baiduStatus.value = await store.getBaiduAuthStatus(baiduConnectionId.value);
+  }
+  catch (error) {
+    console.error('Failed to load baidu auth status:', error);
+    baiduStatus.value = null;
+  }
+  finally {
+    isLoadingBaiduStatus.value = false;
+  }
+}
+
+/** 删掉已保存的会话（退出登录）。删完状态卡立刻回到「未登录」。 */
+async function handleDeleteBaiduSession() {
+  if (!baiduConnectionId.value) return;
+
+  try {
+    await store.deleteBaiduSession(baiduConnectionId.value);
+    baiduStatus.value = null;
+  }
+  catch (error) {
+    console.error('Failed to delete baidu session:', error);
+  }
+}
+
+watch(
+  () => [props.connection?.id, protocol.value],
+  () => {
+    void refreshBaiduStatus();
+  },
+  { immediate: true },
+);
+
 function onProxyKindChange(value: unknown) {
   const next = String(value ?? '') as RemoteProxyConfig['kind'];
 
@@ -227,6 +332,13 @@ function onProtocolChange(value: unknown) {
   // 只在端口还是上一个协议的默认值时才跟着换 ——
   // 用户手填过 2121 就不该因为选了协议被改掉。
   if (wasDefault) {
+    port.value = getRemoteProtocolDefaultPort(next);
+  }
+
+  // 百度网盘的主机与端口是固定值：用户没得选，
+  // 也不该被上一个协议的默认值带偏。
+  if (isBaiduPanProtocol(next)) {
+    host.value = BAIDU_PAN_HOST;
     port.value = getRemoteProtocolDefaultPort(next);
   }
 }
@@ -275,7 +387,10 @@ function onProtocolChange(value: unknown) {
       </Select>
     </div>
 
-    <div class="remote-connection-form__row">
+    <div
+      v-if="!isBaidu"
+      class="remote-connection-form__row"
+    >
       <Label for="remote-host">{{ t('settings.remote.field.host') }}</Label>
       <Input
         id="remote-host"
@@ -284,7 +399,10 @@ function onProtocolChange(value: unknown) {
       />
     </div>
 
-    <div class="remote-connection-form__row">
+    <div
+      v-if="!isBaidu"
+      class="remote-connection-form__row"
+    >
       <Label for="remote-port">{{ t('settings.remote.field.port') }}</Label>
       <Input
         id="remote-port"
@@ -294,7 +412,10 @@ function onProtocolChange(value: unknown) {
       />
     </div>
 
-    <div class="remote-connection-form__row">
+    <div
+      v-if="!isBaidu"
+      class="remote-connection-form__row"
+    >
       <Label for="remote-username">{{ t('settings.remote.field.username') }}</Label>
       <Input
         id="remote-username"
@@ -305,21 +426,114 @@ function onProtocolChange(value: unknown) {
 
     <div class="remote-connection-form__row">
       <Label for="remote-password">
-        {{ t('settings.remote.field.password') }}
+        {{ isBaidu ? t('settings.remote.field.cookie') : t('settings.remote.field.password') }}
       </Label>
       <Input
         id="remote-password"
         v-model="password"
-        type="password"
+        :type="isBaidu ? 'text' : 'password'"
         autocomplete="off"
         data-test="field-password"
+        :data-baidu="isBaidu ? 'cookie' : undefined"
       />
+      <!-- 百度网盘的凭据是一整段 Cookie，不是口令：
+           「留空表示保持不变」这句话对它不成立，单独给一条引导。 -->
       <p
-        v-if="hasSavedPassword"
+        v-if="isBaidu"
+        class="remote-connection-form__hint"
+        data-test="hint-cookie"
+      >
+        {{ t('settings.remote.baidu.hint') }}
+      </p>
+      <p
+        v-else-if="hasSavedPassword"
         class="remote-connection-form__hint"
       >
         {{ t('settings.remote.password.savedHint') }}
       </p>
+    </div>
+
+    <!--
+      获取 Cookie 的步骤说明（2026-11-08）：只跟着百度协议出现。
+      默认收起 —— 这张表单已经够长，第一次填的人要的是「怎么弄」，
+      回来换 Cookie 的人不想再读一遍步骤。
+    -->
+    <div
+      v-if="isBaidu"
+      class="remote-connection-form__cookie-help"
+      data-test="baidu-cookie-help"
+    >
+      <Collapsible v-model:open="cookieHelpOpen">
+        <CollapsibleTrigger as-child>
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            data-test="baidu-cookie-help-toggle"
+          >
+            {{ t('settings.remote.baidu.help.toggle') }}
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent class="remote-connection-form__cookie-help-body">
+          <Button
+            type="button"
+            variant="link"
+            size="xs"
+            data-test="baidu-open-login"
+            @click="openBaiduLoginPage"
+          >
+            {{ t('settings.remote.baidu.help.openLogin') }}
+          </Button>
+          <ol class="remote-connection-form__cookie-help-steps">
+            <li>{{ t('settings.remote.baidu.help.step1') }}</li>
+            <li>{{ t('settings.remote.baidu.help.step2') }}</li>
+            <li>{{ t('settings.remote.baidu.help.step3') }}</li>
+            <li>{{ t('settings.remote.baidu.help.step4') }}</li>
+            <li>{{ t('settings.remote.baidu.help.step5') }}</li>
+          </ol>
+          <ul class="remote-connection-form__cookie-help-notes">
+            <li>{{ t('settings.remote.baidu.help.noteRequired') }}</li>
+            <li>{{ t('settings.remote.baidu.help.noteExpiry') }}</li>
+            <li>{{ t('settings.remote.baidu.help.notePrivacy') }}</li>
+          </ul>
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
+
+    <!-- 百度网盘的授权卡：只显示状态，不显示凭据。
+         没有它，用户只能靠「测试连接」去猜自己的会话还有没有过期。 -->
+    <div
+      v-if="baiduConnectionId"
+      class="remote-connection-form__baidu"
+      data-test="baidu-status"
+    >
+      <div class="remote-connection-form__baidu-head">
+        <span
+          class="remote-connection-form__baidu-dot"
+          :data-status="baiduStatus?.status ?? 'missing'"
+          data-test="baidu-status-dot"
+        />
+        <span data-test="baidu-status-text">
+          {{ baiduStatus
+            ? t(`settings.remote.baidu.status.${baiduStatus.status}`)
+            : t('settings.remote.baidu.status.loading') }}
+        </span>
+      </div>
+      <p
+        v-if="baiduStatus?.summary"
+        class="remote-connection-form__hint"
+        data-test="baidu-status-summary"
+      >
+        {{ baiduStatus.summary }}
+      </p>
+      <Button
+        type="button"
+        variant="outline"
+        data-test="baidu-delete-session"
+        @click="handleDeleteBaiduSession"
+      >
+        {{ t('settings.remote.baidu.action.deleteSession') }}
+      </Button>
     </div>
 
     <div
@@ -476,11 +690,14 @@ function onProtocolChange(value: unknown) {
         {{ t('settings.remote.test.passwordNotChecked') }}
       </span>
       <!-- ⚠️ 只在 FTPS 上显示。SFTP 没有 TLS，跳过的是**主机密钥校验**，
-           挂一条「TLS 证书未经验证」纯属张冠李戴。 -->
+           挂一条「TLS 证书未经验证」纯属张冠李戴。
+           百度网盘走的是应用自己封的 HTTPS 通道，
+           同样不该在这里挂「TLS 证书未经验证」。 -->
       <span
         v-if="probeReport.outcome === 'verified'
           && probeReport.tlsVerified === false
           && protocol !== 'sftp'
+          && protocol !== 'baidu_pan'
           && probeReport.message"
         class="remote-connection-form__probe-note"
       >
@@ -551,6 +768,81 @@ function onProtocolChange(value: unknown) {
   margin: 0;
   color: hsl(var(--destructive));
   font-size: 0.875rem;
+}
+
+/*
+  「如何获取 Cookie」帮助块（2026-11-08）。
+  收起时只剩一行触发按钮；展开后的正文比输入框矮一档、字号小一号 ——
+  它是说明，不该比要填的字段更显眼。
+*/
+.remote-connection-form__cookie-help {
+  display: flex;
+  flex-direction: column;
+}
+
+.remote-connection-form__cookie-help-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.remote-connection-form__cookie-help-login {
+  align-self: flex-start;
+  height: auto;
+  padding: 0;
+  font-size: 0.75rem;
+}
+
+.remote-connection-form__cookie-help-steps,
+.remote-connection-form__cookie-help-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  padding-left: 1.125rem;
+}
+
+/*
+  百度网盘的授权卡。刻意做得比旁边的输入框矮一档 ——
+  它是**状态**，不是可以编辑的东西。
+*/
+.remote-connection-form__baidu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+}
+
+.remote-connection-form__baidu-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.remote-connection-form__baidu-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: hsl(var(--muted-foreground));
+}
+
+.remote-connection-form__baidu-dot[data-status='ready'] {
+  background: hsl(var(--foreground) / 60%);
+}
+
+.remote-connection-form__baidu-dot[data-status='stoken_expired'],
+.remote-connection-form__baidu-dot[data-status='stoken_expiring_soon'] {
+  background: hsl(var(--destructive));
 }
 
 .remote-connection-form__actions {
