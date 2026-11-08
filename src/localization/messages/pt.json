@@ -706,7 +706,9 @@
         "emptyRemote": "Nenhuma conexão remota ainda.",
         "empty": "No connections yet.",
         "split": "Split",
-        "editConnection": "Edit this connection"
+        "editConnection": "Edit this connection",
+        "homeTitle": "Discos na nuvem e Conexões remotas",
+        "homeEmpty": "Nenhum disco na nuvem ou conexão remota configurada ainda."
       },
       "trustedHosts": {
         "title": "Trusted hosts",
@@ -743,10 +745,6 @@
           "noteExpiry": "Quando o cookie expirar, este app não poderá renová-lo; faça login novamente e copie um novo.",
           "notePrivacy": "Um cookie é tão sensível quanto a sua senha. Ele é guardado apenas cifrado com Windows DPAPI neste PC, nunca é enviado nem escrito em registros."
         }
-      },
-      "tab": {
-        "netdisk": "Adicionar disco na nuvem",
-        "remote": "Adicionar conexão remota"
       }
     },
     "about": {

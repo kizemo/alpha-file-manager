@@ -112,6 +112,21 @@ function mountedCategory() {
   });
 }
 
+/**
+ * 切到页面顶部的某个分区标签（用户 2026-11-08）。
+ *
+ * ⚠️ 必须用 mousedown 而不是 click：reka-ui 的页签是在 `mousedown.left` 上
+ * 切换的（真实浏览器里 mousedown 本来就先于 click 到达），
+ * 只派发 click 不会切页签。
+ */
+async function switchSection(
+  wrapper: ReturnType<typeof mountedCategory>,
+  section: 'netdisk' | 'remote',
+): Promise<void> {
+  await wrapper.find(`[data-test="tab-${section}"]`).trigger('mousedown');
+  await flushPromises();
+}
+
 describe('远程设置分类', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
@@ -294,6 +309,10 @@ describe('远程设置分类', () => {
     const wrapper = mountedCategory();
     await flushPromises();
 
+    // 「测试连接」只存在于远程连接表单（网盘走 Cookie 登录，没有可测的协议端点），
+    // 所以先切到「远程连接」分区。
+    await switchSection(wrapper, 'remote');
+
     await wrapper.find('[data-test="add"]').trigger('click');
     await flushPromises();
 
@@ -321,6 +340,10 @@ describe('远程设置分类', () => {
 
     const wrapper = mountedCategory();
     await flushPromises();
+
+    // 「测试连接」只存在于远程连接表单（网盘走 Cookie 登录，没有可测的协议端点）。
+    await switchSection(wrapper, 'remote');
+
     await wrapper.find('[data-test="add"]').trigger('click');
     await flushPromises();
 
@@ -356,6 +379,10 @@ describe('远程设置分类', () => {
 
     const wrapper = mountedCategory();
     await flushPromises();
+
+    // 「测试连接」只存在于远程连接表单（网盘走 Cookie 登录，没有可测的协议端点）。
+    await switchSection(wrapper, 'remote');
+
     await wrapper.find('[data-test="add"]').trigger('click');
     await flushPromises();
 
@@ -586,15 +613,14 @@ describe('远程设置分类', () => {
     });
   });
 
-  // 用户 2026-11-08：添加连接页拆成「添加网盘」「添加远程连接」两个标签页。
-  // 两者的录入项根本不同，合成一张表单用户得先想清楚自己填的是哪一种。
-  describe('新建表单的两个标签页', () => {
-    it('两个标签页都在', async () => {
+  // 用户 2026-11-08：「添加连接页」的两个标签页上提到了页面顶部 ——
+  // 整个分类按「网盘 / 远程连接」分栏，列表、添加按钮与表单全部跟着标签走。
+  describe('分区标签与表单形态', () => {
+    it('两个标签常驻在页面顶部，不用先点「添加」', async () => {
       const wrapper = mountedCategory();
       await flushPromises();
-      await wrapper.find('[data-test="add"]').trigger('click');
-      await flushPromises();
 
+      expect(wrapper.find('[data-test="remote-section-tabs"]').exists()).toBe(true);
       expect(wrapper.find('[data-test="tab-netdisk"]').exists()).toBe(true);
       expect(wrapper.find('[data-test="tab-remote"]').exists()).toBe(true);
     });
@@ -609,7 +635,7 @@ describe('远程设置分类', () => {
       expect(wrapper.find('[data-test="field-host"]').exists()).toBe(false);
     });
 
-    it('切到「添加远程连接」页签，服务器地址栏出现、Cookie 栏消失', async () => {
+    it('切到「远程连接」标签，服务器地址栏出现、Cookie 栏消失', async () => {
       const wrapper = mountedCategory();
       await flushPromises();
       await wrapper.find('[data-test="add"]').trigger('click');
@@ -618,8 +644,7 @@ describe('远程设置分类', () => {
       // ⚠️ 必须用 mousedown 而不是 click：reka-ui 的页签是在 `mousedown.left`
       // 上切换的（真实浏览器里 mousedown 本来就先于 click 到达），
       // 只派发 click 不会切页签。
-      await wrapper.find('[data-test="tab-remote"]').trigger('mousedown');
-      await flushPromises();
+      await switchSection(wrapper, 'remote');
 
       expect(wrapper.find('[data-test="field-host"]').exists()).toBe(true);
       expect(wrapper.find('[data-test="field-cookie"]').exists()).toBe(false);
@@ -645,6 +670,110 @@ describe('远程设置分类', () => {
 
       expect(wrapper.find('[data-test="field-host"]').exists()).toBe(true);
       expect(wrapper.find('[data-test="field-cookie"]').exists()).toBe(false);
+    });
+  });
+
+  // 用户 2026-11-08：列表也要跟着标签走 —— 网盘连接不该出现在「远程连接」标签下。
+  describe('列表按分区分列', () => {
+    const netdiskConnection = {
+      id: 'nd1',
+      name: '我的网盘',
+      protocol: 'baidu_pan' as const,
+      host: 'pan.baidu.com',
+      port: 443,
+      username: '',
+      initialPath: '/',
+      proxy: {
+        kind: 'direct' as const,
+      },
+    };
+
+    const remoteConnection = {
+      id: 'rc1',
+      name: '机房服务器',
+      protocol: 'sftp' as const,
+      host: 'sftp.example.com',
+      port: 22,
+      username: 'me',
+      initialPath: '/',
+      proxy: {
+        kind: 'direct' as const,
+      },
+    };
+
+    it('默认落在有连接的分区上', async () => {
+      storageContents.set('connections', [netdiskConnection, remoteConnection]);
+
+      const wrapper = mountedCategory();
+      await flushPromises();
+
+      // 有网盘连接就落网盘分区 —— 用户不该看见一个「什么都没有」的列表。
+      expect(wrapper.find('[data-test="entry-nd1"]').exists()).toBe(true);
+      expect(wrapper.find('[data-test="entry-rc1"]').exists()).toBe(false);
+    });
+
+    it('切到「远程连接」标签，只剩远程连接', async () => {
+      storageContents.set('connections', [netdiskConnection, remoteConnection]);
+
+      const wrapper = mountedCategory();
+      await flushPromises();
+      await switchSection(wrapper, 'remote');
+
+      expect(wrapper.find('[data-test="entry-rc1"]').exists()).toBe(true);
+      expect(wrapper.find('[data-test="entry-nd1"]').exists()).toBe(false);
+    });
+
+    it('只有远程连接时，默认就落在远程连接分区', async () => {
+      storageContents.set('connections', [remoteConnection]);
+
+      const wrapper = mountedCategory();
+      await flushPromises();
+
+      expect(wrapper.find('[data-test="entry-rc1"]').exists()).toBe(true);
+    });
+
+    it('分区请求能直接落到指定标签上', async () => {
+      storageContents.set('connections', [netdiskConnection, remoteConnection]);
+
+      const store = useRemoteConnectionsStore();
+      // 主页「位置」页的两个入口点进来时的请求。
+      store.requestRemoteSection('remote');
+
+      const wrapper = mountedCategory();
+      await flushPromises();
+
+      expect(wrapper.find('[data-test="entry-rc1"]').exists()).toBe(true);
+      expect(wrapper.find('[data-test="entry-nd1"]').exists()).toBe(false);
+    });
+
+    it('分区请求被消费掉，再进这一页不会被拽回某个标签', async () => {
+      storageContents.set('connections', [netdiskConnection, remoteConnection]);
+
+      const store = useRemoteConnectionsStore();
+      store.requestRemoteSection('remote');
+
+      const first = mountedCategory();
+      await flushPromises();
+      first.unmount();
+
+      const second = mountedCategory();
+      await flushPromises();
+
+      // 回到默认分区（有网盘连接的网盘分区），而不是上一次的远程连接。
+      expect(second.find('[data-test="entry-nd1"]').exists()).toBe(true);
+      expect(second.find('[data-test="entry-rc1"]').exists()).toBe(false);
+    });
+
+    it('空态文案跟着分区走', async () => {
+      const wrapper = mountedCategory();
+      await flushPromises();
+
+      // i18n 打回键名，所以空态就是键本身。
+      expect(wrapper.find('[data-test="empty"]').text()).toBe('settings.remote.nav.emptyNetdisk');
+
+      await switchSection(wrapper, 'remote');
+
+      expect(wrapper.find('[data-test="empty"]').text()).toBe('settings.remote.nav.emptyRemote');
     });
   });
 });

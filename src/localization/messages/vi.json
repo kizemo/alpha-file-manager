@@ -706,7 +706,9 @@
         "emptyRemote": "Chưa có kết nối từ xa nào.",
         "empty": "No connections yet.",
         "split": "Split",
-        "editConnection": "Edit this connection"
+        "editConnection": "Edit this connection",
+        "homeTitle": "Đĩa đám mây và Kết nối từ xa",
+        "homeEmpty": "Chưa cấu hình đĩa đám mây hay kết nối từ xa nào."
       },
       "trustedHosts": {
         "title": "Trusted hosts",
@@ -743,10 +745,6 @@
           "noteExpiry": "Khi Cookie hết hạn, ứng dụng này không thể gia hạn; bạn phải đăng nhập lại và sao chép Cookie mới.",
           "notePrivacy": "Cookie nhạy cảm như mật khẩu của bạn. Nó chỉ được lưu trên máy này dưới dạng mã hóa Windows DPAPI, không bao giờ được tải lên hay ghi vào nhật ký."
         }
-      },
-      "tab": {
-        "netdisk": "Thêm đĩa đám mây",
-        "remote": "Thêm kết nối từ xa"
       }
     },
     "about": {

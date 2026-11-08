@@ -743,7 +743,9 @@
         "emptyRemote": "Удалённых подключений пока нет.",
         "empty": "No connections yet.",
         "split": "Split",
-        "editConnection": "Edit this connection"
+        "editConnection": "Edit this connection",
+        "homeTitle": "Облачные диски и Удалённые подключения",
+        "homeEmpty": "Облачные диски и удалённые подключения пока не настроены."
       },
       "trustedHosts": {
         "title": "Trusted hosts",
@@ -780,10 +782,6 @@
           "noteExpiry": "После истечения срока действия Cookie приложение не сможет его обновить — войдите заново и скопируйте новый.",
           "notePrivacy": "Cookie так же чувствителен, как ваш пароль. Он хранится только в зашифрованном виде Windows DPAPI на этом ПК, никуда не отправляется и в журналы не пишется."
         }
-      },
-      "tab": {
-        "netdisk": "Добавить облачный диск",
-        "remote": "Добавить удалённое подключение"
       }
     },
     "about": {

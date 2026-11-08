@@ -89,6 +89,22 @@ function normalizeSettingsTabName(tabName: string): string {
   return settingsTabs.some(tab => tab.name === tabName) ? tabName : 'general';
 }
 
+/**
+ * FORK-MODIFICATION 2026-11-08：初始化后判定「当前页签是否仍然可用」。
+ *
+ * 判据必须是「导航页签列表（tabs）」，不能是「可搜索小节列表（sections）」：
+ * 「远程」分类是整页分类（由 settings/ui/view.vue 的 categoryComponentMap 渲染），
+ * 它在 allSections 里**没有**任何 category === 'remote' 的小节；
+ * 用 sections 判定会把合法的 currentTab === 'remote' 误回落成 'general'，
+ * 导致首页「网盘 / 远程连接」入口跳转后落在「常规」页。
+ */
+export function resolveSettingsTabAfterInit(
+  tabName: string,
+  availableTabNames: string[],
+): string {
+  return availableTabNames.includes(tabName) ? tabName : 'general';
+}
+
 function getExtensionCommandSearchTitles(extensionId: string, commandId: string): string[] {
   const extensionsStore = useExtensionsStore();
   const titles = [commandId];
@@ -533,8 +549,14 @@ export const useSettingsStore = defineStore('settings', () => {
       setCurrentTab(normalizedStoredTab);
     }
 
-    if (!sections.value.some(section => section.category === currentTab.value)) {
-      setCurrentTab('general');
+    // FORK-MODIFICATION 2026-11-08：判据换成导航页签列表，理由见 resolveSettingsTabAfterInit。
+    const resolvedTab = resolveSettingsTabAfterInit(
+      currentTab.value,
+      tabs.value.map(tab => tab.name),
+    );
+
+    if (resolvedTab !== currentTab.value) {
+      setCurrentTab(resolvedTab);
     }
 
     isInitialized.value = true;

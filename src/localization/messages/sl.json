@@ -743,7 +743,9 @@
         "emptyRemote": "Še ni oddaljenih povezav.",
         "empty": "No connections yet.",
         "split": "Split",
-        "editConnection": "Edit this connection"
+        "editConnection": "Edit this connection",
+        "homeTitle": "Omrežni diski in Oddaljene povezave",
+        "homeEmpty": "Omrežni diski ali oddaljene povezave še niso nastavljeni."
       },
       "trustedHosts": {
         "title": "Trusted hosts",
@@ -780,10 +782,6 @@
           "noteExpiry": "Ko piškotek poteče, ga aplikacija ne more podaljšati; znova se prijavite in kopirajte novega.",
           "notePrivacy": "Piškotek je enako občutljiv kot vaše geslo. Shrani se le šifriran z Windows DPAPI na tem računalniku, nikoli ne zapusti naprave in se ne zapiše v dnevnik."
         }
-      },
-      "tab": {
-        "netdisk": "Dodaj omrežni disk",
-        "remote": "Dodaj oddaljeno povezavo"
       }
     },
     "about": {

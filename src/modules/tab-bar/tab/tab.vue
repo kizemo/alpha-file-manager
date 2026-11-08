@@ -12,6 +12,9 @@ import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import type { Tab } from '@/types/workspaces';
 import { CopyPlusIcon, Layers, XIcon, XLineTopIcon } from '@lucide/vue';
 import { getPathDisplayName } from '@/utils/normalize-path';
+import { parseRemotePath } from '@/utils/remote-paths';
+import { buildRemoteTabLabels } from '@/modules/tab-bar/utils/remote-tab-labels';
+import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
 import { useNativePath } from '@/composables/use-native-path';
 import {
   Tooltip,
@@ -48,6 +51,7 @@ const { toNativeDisplayValue } = useNativePath();
 const workspacesStore = useWorkspacesStore();
 const shortcutsStore = useShortcutsStore();
 const userSettingsStore = useUserSettingsStore();
+const remoteConnectionsStore = useRemoteConnectionsStore();
 const dragSession = useFileBrowserDragSession();
 const activeFileBrowserDragState = dragSession.dragState;
 
@@ -125,9 +129,62 @@ const { start: startDragHoverOpenTimer, stop: stopDragHoverOpenTimer } = useTime
   workspacesStore.openTabGroup(props.tabGroup);
 }, TAB_DRAG_HOVER_OPEN_DELAY, { immediate: false });
 
+/**
+ * 远程标签页的标题与副标题（2026-11-08）。
+ *
+ * 远程路径长这样：`sfm://remote/<连接id>/<远端路径>`。而 `getPathDisplayName`
+ * 对普通路径取的是叶子名 —— 对远程路径来说叶子就是那串连接 id，
+ * 于是标签页上摆的是「0736c40a51db4fd19f711c0b6934f103」，
+ * 用户完全看不出那是自己的百度网盘（用户 2026-11-08）。
+ *
+ * 这里换成**连接名**：连接根显示连接名，连接下面的子目录显示「连接名 / 目录名」。
+ *
+ * 算标签的纯逻辑放在 `utils/remote-tab-labels.ts` 里 —— 标签页这一圈依赖
+ * （工作区 store、快捷键 store、拖拽会话）在测试环境里拖不进完整应用上下文，
+ * 而这一行字恰恰是用户盯着看的。
+ */
+function getRemoteTabLabels(path: string) {
+  const parsed = parseRemotePath(path);
+
+  if (!parsed) {
+    return null;
+  }
+
+  const connectionName = remoteConnectionsStore.getConnection(parsed.connectionId)?.name;
+
+  return buildRemoteTabLabels(parsed, connectionName);
+}
+
+/**
+ * 标签页的副标题（悬停提示里的第二行）。
+ *
+ * 远程路径原本摆的是 `sfm://remote/<连接id>` —— 一串用户看不懂也不需要看的
+ * 技术串。这里换成远端自己的路径（`/`、`/prompts`），
+ * 连接名已经在标题那一行了，不必再重复一遍。
+ */
+function getTabSubtitle(tab: Tab | undefined): string {
+  if (!tab?.path) {
+    return '';
+  }
+
+  const labels = getRemoteTabLabels(tab.path);
+
+  if (labels) {
+    return labels.subtitle;
+  }
+
+  return toNativeDisplayValue(tab.path);
+}
+
 function getTabDisplayName(tab: Tab | undefined): string {
   if (!tab) {
     return '';
+  }
+
+  const labels = tab.path ? getRemoteTabLabels(tab.path) : null;
+
+  if (labels?.title) {
+    return labels.title;
   }
 
   return getPathDisplayName(tab.path, t) || getPathDisplayName(tab.name, t) || tab.name || tab.path;
@@ -331,7 +388,7 @@ onBeforeUnmount(() => {
               {{ getTabDisplayName(tab) }}
             </div>
             <div class="tab__tooltip-subtitle">
-              {{ toNativeDisplayValue(tab.path) }}
+              {{ getTabSubtitle(tab) }}
             </div>
           </div>
         </span>
@@ -348,6 +405,7 @@ onBeforeUnmount(() => {
   width: auto;
   min-width: var(--tab-min-width, 100px);
   max-width: var(--tab-max-width, 280px);
+
   /* FORK-MODIFICATION 2026-10-31（r14 需求 3）：标签行高随字号档位变化。
      单行文本元素按「base + 1.5 x offset」增长 —— 行高是字号的 1.5 倍，
      所以每 1px 字号偏移带来 1.5px 行高增长。

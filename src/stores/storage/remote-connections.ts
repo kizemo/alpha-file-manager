@@ -14,7 +14,7 @@
 import { defineStore } from 'pinia';
 import { LazyStore } from '@tauri-apps/plugin-store';
 import { invoke } from '@tauri-apps/api/core';
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import type {
   BaiduAuthStatusPayload,
   RemoteConnection,
@@ -25,6 +25,7 @@ import type {
 } from '@/types/remote';
 import { createRemoteConnectionId, isBaiduPanProtocol } from '@/types/remote';
 import { normalizeRemotePath } from '@/utils/remote-paths';
+import { setRemoteLocationRefs } from '@/utils/remote-location-refs';
 import { useUserPathsStore } from './user-paths';
 import {
   canUseStartupStorageFastPath,
@@ -51,6 +52,19 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
 
   const storage = ref<LazyStore | null>(null);
   const connections = ref<RemoteConnection[]>([]);
+
+  /**
+   * 把连接列表同步给「位置」页的注册表（用户 2026-11-08 需求 3）。
+   *
+   * 方向刻意是「store 推、`virtual-locations.ts` 读快照」：那个模块是纯工具，
+   * 被工具栏、地址栏与大量单测引入，让它反过来 import 本 store 会把
+   * `@tauri-apps/plugin-store` 与 `@/data/user-paths` 拖进每个使用方的模块图，
+   * 实测拖坏 `use-file-browser-drag-session.test.ts` 的 8 条用例。
+   *
+   * `immediate: true` 不能省：连接表可能在本 store 初始化之前就已就绪
+   * （启动存储快路径），否则注册表会一直是空的。
+   */
+  watch(connections, value => setRemoteLocationRefs(value), { immediate: true });
   const isInitialized = ref(false);
 
   /**
@@ -103,6 +117,32 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     const requested = pendingCreate.value;
     pendingCreate.value = null;
     return requested;
+  }
+
+  /**
+   * 「请把远程分类切到某个分区」的一次性请求（2026-11-08）。
+   *
+   * 需求来源：位置页（主页）底部新增了「网盘」「远程连接」两个入口，
+   * 点它们要直接落到设置页远程分类的**对应标签**上。
+   *
+   * 设置页的**顶层**分类由 `openSettingsTab('remote')` 负责，
+   * 但那一层只认得到「远程」这个分类，认不到分类内部的「网盘 / 远程连接」两个标签，
+   * 所以这里补一个瞬态值。
+   *
+   * 与 `pendingEditId` / `pendingCreate` 同理：**消费即清空**，
+   * 否则用户下次自己进这一页，会被莫名其妙地拽回某个标签。
+   */
+  const pendingSection = ref<'netdisk' | 'remote' | null>(null);
+
+  function requestRemoteSection(section: 'netdisk' | 'remote'): void {
+    pendingSection.value = section;
+  }
+
+  /** 取走一次分区请求。取走即清空。 */
+  function consumeRemoteSection(): 'netdisk' | 'remote' | null {
+    const section = pendingSection.value;
+    pendingSection.value = null;
+    return section;
   }
 
   function isValidConnectionId(id: string): boolean {
@@ -477,6 +517,7 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     isInitialized,
     pendingEditId,
     pendingCreate,
+    pendingSection,
 
     init,
     loadStorageData,
@@ -493,5 +534,7 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     consumeRemoteEdit,
     requestRemoteCreate,
     consumeRemoteCreate,
+    requestRemoteSection,
+    consumeRemoteSection,
   };
 });

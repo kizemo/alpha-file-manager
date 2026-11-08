@@ -743,7 +743,9 @@
         "emptyRemote": "No remote connections yet.",
         "empty": "No connections yet.",
         "split": "Split",
-        "editConnection": "Edit this connection"
+        "editConnection": "Edit this connection",
+        "homeTitle": "Netdisks & Remote connections",
+        "homeEmpty": "No netdisks or remote connections configured yet."
       },
       "trustedHosts": {
         "title": "Trusted hosts",
@@ -780,10 +782,6 @@
           "noteExpiry": "Once the Cookie expires, this app cannot renew it; sign in again and copy a fresh one.",
           "notePrivacy": "A Cookie is as sensitive as your password. It is stored only as Windows DPAPI-encrypted data on this PC, never uploaded and never written to logs."
         }
-      },
-      "tab": {
-        "netdisk": "Add netdisk",
-        "remote": "Add remote connection"
       }
     },
     "about": {
