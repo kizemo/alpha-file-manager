@@ -1,5 +1,18 @@
 # Nhật ký thay đổi
 
+## [3.13.0] - November 2026
+
+**Summary:** Baidu Netdisk is now a remote connection you can browse like any other server, and the places you reach a remote server from have been rebuilt around that. *Settings* splits net disks and remote connections into two tabs, the dashboard lists the connections you have saved, and the *Locations* page groups everything - volumes first, then net disks, then remote connections.
+
+### What changed
+
+- **New** **Baidu Netdisk can be browsed as a remote connection** - A *Baidu Netdisk* entry joins the remote family next to FTP and SFTP: add it from the cloud icon in the sidebar, give it the cookie of a signed-in session, and the file list opens the disk's own directory tree - listing, creating a folder, renaming, deleting and downloading all go through to the drive rather than to a local folder. The protocol has no host or port of its own - the host is fixed to `pan.baidu.com` over HTTPS and the agent is always a direct connection - so only the cookie is asked for.
+- **New** **Settings separates net disks from remote connections** - The *Remote* page in *Settings* is split into two tabs, *Net disk* and *Remote connection*. A connection is filed under the second tab unless its protocol is a net disk, and *Trusted hosts* is shown only where it applies. The *Add connection* page was split the same way and opens on the net disk tab.
+- **New** **The dashboard lists the connections you have saved** - The dashboard's *Net disk & remote connections* card now lists the servers you have configured by name instead of sending you to the settings page. Clicking one opens it in the navigator, and the empty state still offers the way to add one.
+- **New** **The *Locations* page groups what you can reach** - *Locations* used to be a flat list of volumes. It now has three groups: volumes first, then net disks, then remote connections. A group with nothing in it is not shown at all - no heading, no empty row - so a machine with no net disk configured shows just its volumes.
+- **Changed** **The sidebar's cloud icon is the one way in** - The permanent *+* under the cloud icon is gone; the cloud icon's own panel now lists the net disk and remote connection groups and is where *Add connection* lives.
+- **Fixed** **The navigator no longer stalls while a global search is running** - The disk I/O of a search submission held the state write lock, so the window's message pump could stop and the navigator would briefly report *not responding*. The I/O now runs off the lock and the status and cancel commands are asynchronous.
+
 ## [3.12.2] - November 2026
 
 **Summary:** *Reveal* on a shortcut now opens the folder its target actually lives in, and the three system dialogs that used to interrupt it are gone. The visual-effects defaults in *Settings* now match the specification sheet.
