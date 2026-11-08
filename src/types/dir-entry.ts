@@ -32,6 +32,19 @@ export type ExtendedVirtualEntry = {
   fullWidth?: boolean;
 };
 
+/**
+ * 「位置」页的分区归类（用户 2026-11-08 需求 1）。
+ *
+ * 只有 `sfm://locations` 这个虚拟目录里的条目会带这个标记：
+ * - `drives`：盘符 / 分区
+ * - `netdisk`：网盘连接（当前是百度网盘）
+ * - `remote`：远程服务器连接（FTP / FTPS / SFTP）
+ *
+ * 其它目录的条目一律**不带**这个标记。判据是「条目有没有带标记」，
+ * 不是「路径长得像不像」—— 后者会让任何普通目录都被误判成位置页。
+ */
+export type LocationGroup = 'drives' | 'netdisk' | 'remote';
+
 export type DirEntry = {
   name: string;
   ext: string | null;
@@ -51,6 +64,10 @@ export type DirEntry = {
   link_target?: string | null;
   link_status?: DirEntryLinkStatus | null;
   hard_link_count?: number | null;
+  /**
+   * 「位置」页分区标记。只有 `sfm://locations` 里的条目会带，详见 `LocationGroup`。
+   */
+  location_group?: LocationGroup | null;
 };
 
 export type DirEntryLinkMetadata = {

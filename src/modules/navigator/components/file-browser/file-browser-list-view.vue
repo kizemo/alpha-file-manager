@@ -13,6 +13,10 @@ import {
   FileVideoIcon,
   FolderIcon,
   LinkIcon,
+  // FORK-MODIFICATION（2026-11-08，用户需求 1）：「位置」页三个分区的图标。
+  HardDriveIcon,
+  CloudIcon,
+  ServerIcon,
 } from '@lucide/vue';
 import type { DirEntry } from '@/types/dir-entry';
 import { formatBytes } from './utils';
@@ -477,7 +481,29 @@ function getSectionLabel(sectionKey: FileBrowserSectionKey): string {
       return t('fileBrowser.videos');
     case 'others':
       return t('fileBrowser.otherFiles');
+    // FORK-MODIFICATION（2026-11-08，用户需求 1）：「位置」页的分区标题。
+    case 'drives':
+      return t('fileBrowser.partitions');
+    case 'netdisk':
+      return t('settings.remote.nav.netdisk');
+    case 'remote':
+      return t('settings.remote.nav.remoteSection');
   }
+}
+
+// FORK-MODIFICATION（2026-11-08）：分区图标用一张表，网格视图与列表视图同源。
+const SECTION_ICONS = {
+  dirs: FolderIcon,
+  images: FileImageIcon,
+  videos: FileVideoIcon,
+  others: FileIcon,
+  drives: HardDriveIcon,
+  netdisk: CloudIcon,
+  remote: ServerIcon,
+} as const;
+
+function getSectionIcon(sectionKey: FileBrowserSectionKey) {
+  return SECTION_ICONS[sectionKey];
 }
 
 function createSectionDisplayRow(row: FileBrowserListSectionVirtualRow): FileBrowserListSectionDisplayRow {
@@ -555,20 +581,8 @@ const visibleRows = computed<FileBrowserListDisplayItem[]>(() => {
               :count="row.count"
             >
               <template #icon>
-                <FolderIcon
-                  v-if="row.sectionKey === 'dirs'"
-                  :size="14"
-                />
-                <FileImageIcon
-                  v-else-if="row.sectionKey === 'images'"
-                  :size="14"
-                />
-                <FileVideoIcon
-                  v-else-if="row.sectionKey === 'videos'"
-                  :size="14"
-                />
-                <FileIcon
-                  v-else
+                <component
+                  :is="getSectionIcon(row.sectionKey)"
                   :size="14"
                 />
               </template>
