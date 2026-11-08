@@ -656,7 +656,7 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Save FTP, FTPS and SFTP connections here. Passwords are encrypted with Windows DPAPI and never leave this machine.",
+        "description": "کلاؤڈ ڈسک، FTP، FTPS اور SFTP کنکشنز یہاں محفوظ کریں۔ اسناد Windows DPAPI سے انکرپٹ ہوتی ہیں اور اس کمپیوٹر سے باہر نہیں جاتیں۔",
         "empty": "No connections yet."
       },
       "action": {
@@ -735,6 +735,12 @@
       "nav": {
         "openSettings": "Remote settings",
         "connect": "Connect",
+        "netdisk": "کلاؤڈ ڈسکس",
+        "remoteSection": "ریموٹ کنکشنز",
+        "addNetdisk": "کلاؤڈ ڈسک شامل کریں",
+        "addRemote": "ریموٹ کنکشن شامل کریں",
+        "emptyNetdisk": "ابھی کوئی کلاؤڈ ڈسک کنکشن نہیں ہے۔",
+        "emptyRemote": "ابھی کوئی ریموٹ کنکشن نہیں ہے۔",
         "empty": "No connections yet.",
         "split": "Split",
         "editConnection": "Edit this connection"
@@ -751,6 +757,7 @@
       },
       "baidu": {
         "hint": "براؤزر میں pan.baidu.com پر لاگ اِن کریں اور پھر مکمل Cookie ہیڈر یہاں چسپاں کریں (اس میں BDUSS ہونا چاہیے)۔ اسناد Windows DPAPI کے ذریعے انکرپٹ ہوتی ہیں اور اس کمپیوٹر سے باہر نہیں جاتیں۔",
+        "cookiePlaceholder": "مکمل Cookie یہاں چسپاں کریں، مثلاً BDUSS=xxx; STOKEN=yyy",
         "status": {
           "loading": "اجازت کی حالت پڑھی جا رہی ہے…",
           "missing": "لاگ اِن نہیں",
@@ -773,6 +780,10 @@
           "noteExpiry": "Cookie کی میعاد ختم ہونے کے بعد یہ ایپ اسے تجدید نہیں کر سکتی؛ دوبارہ لاگ اِن کریں اور نیا کاپی کریں۔",
           "notePrivacy": "Cookie آپ کے پاس ورڈ جتنا حساس ہے۔ یہ صرف Windows DPAPI کے ذریعے انکرپٹ ہو کر اسی کمپیوٹر پر محفوظ ہوتا ہے، باہر نہیں جاتا اور لاگ میں نہیں لکھا جاتا۔"
         }
+      },
+      "tab": {
+        "netdisk": "کلاؤڈ ڈسک شامل کریں",
+        "remote": "ریموٹ کنکشن شامل کریں"
       }
     },
     "about": {

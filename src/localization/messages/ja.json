@@ -619,7 +619,7 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Save FTP, FTPS and SFTP connections here. Passwords are encrypted with Windows DPAPI and never leave this machine.",
+        "description": "クラウドディスク、FTP、FTPS、SFTP の接続をここで保存します。資格情報は Windows DPAPI で暗号化され、このコンピューターから出ることはありません。",
         "empty": "No connections yet."
       },
       "action": {
@@ -698,6 +698,12 @@
       "nav": {
         "openSettings": "Remote settings",
         "connect": "Connect",
+        "netdisk": "クラウドディスク",
+        "remoteSection": "リモート接続",
+        "addNetdisk": "クラウドディスクを追加",
+        "addRemote": "リモート接続を追加",
+        "emptyNetdisk": "クラウドディスクの接続はまだありません。",
+        "emptyRemote": "リモート接続はまだありません。",
         "empty": "No connections yet.",
         "split": "Split",
         "editConnection": "Edit this connection"
@@ -714,6 +720,7 @@
       },
       "baidu": {
         "hint": "ブラウザで pan.baidu.com にログインし、Cookie ヘッダー全体をここに貼り付けてください（BDUSS を含む必要があります）。資格情報は Windows DPAPI で暗号化され、この端末の外には出ません。",
+        "cookiePlaceholder": "Cookie 全体をそのまま貼り付けてください（例: BDUSS=xxx; STOKEN=yyy）",
         "status": {
           "loading": "認可状態を確認しています…",
           "missing": "未ログイン",
@@ -736,6 +743,10 @@
           "noteExpiry": "Cookie の有効期限が切れると、このアプリでは更新できません。再度ログインしてコピーし直してください。",
           "notePrivacy": "Cookie はパスワードと同じく機微な情報です。Windows DPAPI で暗号化された状態でのみこの PC に保存され、送信したりログに記録したりすることはありません。"
         }
+      },
+      "tab": {
+        "netdisk": "クラウドディスクを追加",
+        "remote": "リモート接続を追加"
       }
     },
     "about": {

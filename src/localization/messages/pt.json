@@ -619,7 +619,7 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Save FTP, FTPS and SFTP connections here. Passwords are encrypted with Windows DPAPI and never leave this machine.",
+        "description": "Salve aqui as conexões de disco na nuvem, FTP, FTPS e SFTP. As credenciais são criptografadas com Windows DPAPI e nunca saem deste computador.",
         "empty": "No connections yet."
       },
       "action": {
@@ -698,6 +698,12 @@
       "nav": {
         "openSettings": "Remote settings",
         "connect": "Connect",
+        "netdisk": "Discos na nuvem",
+        "remoteSection": "Conexões remotas",
+        "addNetdisk": "Adicionar disco na nuvem",
+        "addRemote": "Adicionar conexão remota",
+        "emptyNetdisk": "Nenhum disco na nuvem ainda.",
+        "emptyRemote": "Nenhuma conexão remota ainda.",
         "empty": "No connections yet.",
         "split": "Split",
         "editConnection": "Edit this connection"
@@ -714,6 +720,7 @@
       },
       "baidu": {
         "hint": "Inicie sessão em pan.baidu.com no navegador e depois cole aqui o cabeçalho Cookie inteiro (tem de conter BDUSS). A credencial é cifrada com o Windows DPAPI e nunca sai deste computador.",
+        "cookiePlaceholder": "Cole aqui o cookie inteiro, por exemplo BDUSS=xxx; STOKEN=yyy",
         "status": {
           "loading": "A ler o estado da autorização…",
           "missing": "Sem sessão iniciada",
@@ -736,6 +743,10 @@
           "noteExpiry": "Quando o cookie expirar, este app não poderá renová-lo; faça login novamente e copie um novo.",
           "notePrivacy": "Um cookie é tão sensível quanto a sua senha. Ele é guardado apenas cifrado com Windows DPAPI neste PC, nunca é enviado nem escrito em registros."
         }
+      },
+      "tab": {
+        "netdisk": "Adicionar disco na nuvem",
+        "remote": "Adicionar conexão remota"
       }
     },
     "about": {

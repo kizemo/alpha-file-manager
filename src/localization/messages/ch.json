@@ -619,7 +619,7 @@
     "remote": {
       "connections": {
         "title": "远程连接",
-        "description": "在这里保存 FTP、FTPS 与 SFTP 连接。密码经 Windows DPAPI 加密，不会离开本机。",
+        "description": "在这里保存网盘、FTP、FTPS 与 SFTP 连接。凭据经 Windows DPAPI 加密，不会离开本机。",
         "empty": "还没有任何连接。"
       },
       "action": {
@@ -698,6 +698,12 @@
       "nav": {
         "openSettings": "远程连接设置",
         "connect": "连接",
+        "netdisk": "网盘",
+        "remoteSection": "远程连接",
+        "addNetdisk": "添加网盘",
+        "addRemote": "添加远程连接",
+        "emptyNetdisk": "还没有网盘连接。",
+        "emptyRemote": "还没有远程连接。",
         "empty": "还没有配置任何远程连接。",
         "split": "双屏",
         "editConnection": "编辑该连接"
@@ -714,6 +720,7 @@
       },
       "baidu": {
         "hint": "在浏览器里登录 pan.baidu.com 后，复制整段 Cookie 粘贴到这里（必须包含 BDUSS）。凭据经 Windows DPAPI 加密，只保存在本机。",
+        "cookiePlaceholder": "把整段 Cookie 粘贴到这里，例如 BDUSS=xxx; STOKEN=yyy",
         "status": {
           "loading": "正在读取授权状态…",
           "missing": "尚未登录",
@@ -736,6 +743,10 @@
           "noteExpiry": "Cookie 到期后本应用无法自动续期，只能重新登录再复制一次。",
           "notePrivacy": "Cookie 等同于你的登录密码。它只以 Windows DPAPI 密文保存在本机，不会上传，也不会写进日志。"
         }
+      },
+      "tab": {
+        "netdisk": "添加网盘",
+        "remote": "添加远程连接"
       }
     },
     "about": {

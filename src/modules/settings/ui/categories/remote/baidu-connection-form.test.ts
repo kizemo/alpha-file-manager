@@ -116,12 +116,21 @@ describe('百度网盘的连接表单', () => {
     const wrapper = mountForm(baiduConnection);
     await flushPromises();
 
-    const field = wrapper.find('[data-test="field-password"]');
+    const field = wrapper.find('[data-test="field-cookie"]');
 
     expect(field.exists()).toBe(true);
     expect(field.attributes('data-baidu')).toBe('cookie');
-    // Cookie 要能看见 —— 藏成密码点没法核对复制对没复制全。
-    expect(field.attributes('type')).toBe('text');
+    // Cookie 要能一眼看完 —— 单行输入框放不下一长串，粘没粘全看不出来。
+    expect(field.element.tagName).toBe('TEXTAREA');
+    // 密码那一栏在网盘表单里**不该**出现：它是给 FTP 那种口令用的。
+    expect(wrapper.find('[data-test="field-password"]').exists()).toBe(false);
+  });
+
+  it('网盘表单不摆协议下拉 —— 形态已经定了，没有第二个协议可选', async () => {
+    const wrapper = mountForm(baiduConnection);
+    await flushPromises();
+
+    expect(wrapper.find('[data-test="field-protocol"]').exists()).toBe(false);
   });
 
   it('给出「去哪儿复制 Cookie」的引导', async () => {
@@ -133,7 +142,8 @@ describe('百度网盘的连接表单', () => {
 
   // 一句话引导不够用：用户还得知道「BDUSS 少了会怎样」「能不能只粘一段」。
   // 2026-11-08 把详细步骤直接放进表单，省得他另开浏览器去搜教程。
-  it('展开说明后给出步骤与注意事项，且带登录页外链', async () => {
+  // 步骤默认展开：网盘表单只剩几项字段，而「Cookie 从哪儿抄」是这一步唯一的新知识。
+  it('步骤默认展开，直接给出步骤与注意事项，且带登录页外链', async () => {
     const wrapper = mountForm(baiduConnection);
     await flushPromises();
 
@@ -144,10 +154,8 @@ describe('百度网盘的连接表单', () => {
     const toggle = wrapper.find('[data-test="baidu-cookie-help-toggle"]');
 
     expect(toggle.exists()).toBe(true);
-    await toggle.trigger('click');
-    await flushPromises();
-
     expect(toggle.attributes('aria-expanded')).toBe('true');
+
     const body = wrapper.find('.remote-connection-form__cookie-help-body');
 
     expect(body.exists()).toBe(true);
@@ -156,11 +164,23 @@ describe('百度网盘的连接表单', () => {
     expect(help.text()).toContain('settings.remote.baidu.help.openLogin');
   });
 
-  it('点「打开百度网盘登录页」用系统浏览器打开 pan.baidu.com', async () => {
+  it('点开合一次能收起来，也能再展开', async () => {
     const wrapper = mountForm(baiduConnection);
     await flushPromises();
 
-    await wrapper.find('[data-test="baidu-cookie-help-toggle"]').trigger('click');
+    const toggle = wrapper.find('[data-test="baidu-cookie-help-toggle"]');
+
+    await toggle.trigger('click');
+    await flushPromises();
+    expect(toggle.attributes('aria-expanded')).toBe('false');
+
+    await toggle.trigger('click');
+    await flushPromises();
+    expect(toggle.attributes('aria-expanded')).toBe('true');
+  });
+
+  it('点「打开百度网盘登录页」用系统浏览器打开 pan.baidu.com', async () => {
+    const wrapper = mountForm(baiduConnection);
     await flushPromises();
 
     const link = wrapper.find('[data-test="baidu-open-login"]');

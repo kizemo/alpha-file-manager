@@ -656,7 +656,7 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Save FTP, FTPS and SFTP connections here. Passwords are encrypted with Windows DPAPI and never leave this machine.",
+        "description": "क्लाउड स्टोरेज, FTP, FTPS और SFTP कनेक्शन यहाँ सहेजें। क्रेडेंशियल Windows DPAPI से एन्क्रिप्ट होते हैं और इस कंप्यूटर से बाहर नहीं जाते।",
         "empty": "No connections yet."
       },
       "action": {
@@ -735,6 +735,12 @@
       "nav": {
         "openSettings": "Remote settings",
         "connect": "Connect",
+        "netdisk": "क्लाउड स्टोरेज",
+        "remoteSection": "रिमोट कनेक्शन",
+        "addNetdisk": "क्लाउड स्टोरेज जोड़ें",
+        "addRemote": "रिमोट कनेक्शन जोड़ें",
+        "emptyNetdisk": "अभी तक कोई क्लाउड स्टोरेज कनेक्शन नहीं है।",
+        "emptyRemote": "अभी तक कोई रिमोट कनेक्शन नहीं है।",
         "empty": "No connections yet.",
         "split": "Split",
         "editConnection": "Edit this connection"
@@ -751,6 +757,7 @@
       },
       "baidu": {
         "hint": "ब्राउज़र में pan.baidu.com पर लॉग इन करें, फिर पूरा Cookie हेडर यहाँ पेस्ट करें (इसमें BDUSS होना चाहिए)। क्रेडेंशियल Windows DPAPI से एन्क्रिप्ट होते हैं और इस कंप्यूटर से बाहर नहीं जाते।",
+        "cookiePlaceholder": "पूरी Cookie यहाँ चिपकाएँ, जैसे BDUSS=xxx; STOKEN=yyy",
         "status": {
           "loading": "प्राधिकरण स्थिति पढ़ी जा रही है…",
           "missing": "लॉग इन नहीं है",
@@ -773,6 +780,10 @@
           "noteExpiry": "Cookie की समय-सीमा समाप्त होने पर यह ऐप उसे नवीनीकृत नहीं कर सकता; फिर से साइन इन कर नया Cookie कॉपी करें।",
           "notePrivacy": "Cookie आपके पासवर्ड के बराबर संवेदनशील है। यह केवल इस कंप्यूटर पर Windows DPAPI से एन्क्रिप्ट होकर सहेजा जाता है, कभी अपलोड नहीं होता और लॉग में नहीं लिखा जाता।"
         }
+      },
+      "tab": {
+        "netdisk": "क्लाउड स्टोरेज जोड़ें",
+        "remote": "रिमोट कनेक्शन जोड़ें"
       }
     },
     "about": {

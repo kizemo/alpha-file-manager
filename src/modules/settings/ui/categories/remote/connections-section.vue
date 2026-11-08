@@ -8,9 +8,11 @@ import { onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { SettingsItem } from '@/modules/settings';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ServerIcon, PlusIcon, TrashIcon } from '@lucide/vue';
 import ConnectionForm from './connection-form.vue';
 import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
+import { isBaiduPanProtocol } from '@/types/remote';
 import type { RemoteConnection, RemoteProtocol } from '@/types/remote';
 
 const { t } = useI18n();
@@ -60,16 +62,21 @@ function applyPendingEdit(): void {
 }
 
 /**
- * 左侧导航栏那颗常驻的「+」按钮（2026-11-08）。
+ * 新建时的**标签页**（2026-11-08）。
  *
- * 需求来源：用户反馈「左侧导航里找不到添加百度网盘的入口」。
- * 导航栏云图标展开的是**悬停面板**，对第一次用这个功能的人太隐蔽，
- * 所以图标轨上再加一颗常驻「+」，点它直接落到本分类并把新建表单打开。
+ * 添加连接页拆成「添加网盘」「添加远程连接」两个标签页：两者的录入项根本不同
+ * （网盘要 Cookie，远程连接要服务器地址与端口），混在一张表单里用户得先想清楚
+ * 自己填的是哪一种。
  *
- * 走 store 的瞬态请求（`pendingCreate`），语义与 `pendingEditId` 一致：
- * **消费即清空**，否则用户关掉表单后再切回远程分类，表单会凭空自己弹出来。
+ * 导航栏悬停面板里点「添加网盘」来的请求落到网盘页，点「添加远程连接」来的
+ * 落到远程连接页 —— 请求里带的协议就是这两者唯一的区别。
+ *
+ * 默认落在**网盘**页：网盘是新增能力，也是用户第一次进这一页最可能要加的东西。
  */
+type CreateTab = 'netdisk' | 'remote';
+
 const createProtocol = ref<RemoteProtocol>('ftp');
+const createTab = ref<CreateTab>('netdisk');
 
 function applyPendingCreate(): void {
   const requested = store.consumeRemoteCreate();
@@ -79,6 +86,7 @@ function applyPendingCreate(): void {
   }
 
   createProtocol.value = requested;
+  createTab.value = isBaiduPanProtocol(requested) ? 'netdisk' : 'remote';
   editing.value = null;
   isCreating.value = true;
 }
@@ -94,6 +102,7 @@ watch(() => store.pendingCreate, applyPendingCreate);
 
 function startCreate() {
   editing.value = null;
+  createTab.value = 'netdisk';
   isCreating.value = true;
 }
 
@@ -229,17 +238,62 @@ function describeProxy(connection: RemoteConnection): string {
       {{ t('settings.remote.action.add') }}
     </Button>
 
-    <ConnectionForm
-      v-if="isCreating"
-      :connection="null"
-      :initial-protocol="createProtocol"
-      @cancel="closeForm"
-      @saved="closeForm"
-    />
+    <!--
+      新建：两个标签页（2026-11-08）。
 
+      「添加网盘」与「添加远程连接」的录入项完全不同 —— 网盘要 Cookie，
+      远程连接要服务器地址与端口。合成一张表单，用户得先想清楚自己填的是哪种。
+    -->
+    <Tabs
+      v-if="isCreating"
+      v-model="createTab"
+      class="remote-connections__tabs"
+      data-test="remote-create-tabs"
+    >
+      <TabsList>
+        <TabsTrigger
+          value="netdisk"
+          data-test="tab-netdisk"
+        >
+          {{ t('settings.remote.tab.netdisk') }}
+        </TabsTrigger>
+        <TabsTrigger
+          value="remote"
+          data-test="tab-remote"
+        >
+          {{ t('settings.remote.tab.remote') }}
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="netdisk">
+        <ConnectionForm
+          :connection="null"
+          variant="netdisk"
+          @cancel="closeForm"
+          @saved="closeForm"
+        />
+      </TabsContent>
+
+      <TabsContent value="remote">
+        <ConnectionForm
+          :connection="null"
+          variant="remote"
+          :initial-protocol="createProtocol"
+          @cancel="closeForm"
+          @saved="closeForm"
+        />
+      </TabsContent>
+    </Tabs>
+
+    <!--
+      编辑：按这条连接的类型选表单，**不给标签页** ——
+      编辑一条 FTP 连接时，另一个标签页里能填的东西跟它毫无关系，
+      摆出来只会让人以为要改两处。
+    -->
     <ConnectionForm
       v-else-if="editing"
       :connection="editing"
+      :variant="isBaiduPanProtocol(editing.protocol) ? 'netdisk' : 'remote'"
       @cancel="closeForm"
       @saved="closeForm"
     />
@@ -344,5 +398,18 @@ function describeProxy(connection: RemoteConnection): string {
   margin: 0;
   color: hsl(var(--muted-foreground));
   font-size: 0.875rem;
+}
+
+/*
+  新建时的两个标签页（2026-11-08）。
+
+  标签列表拉满整行：两个标签的文字长度差很多（「添加网盘」四个字，
+  「添加远程连接」六个字），不拉满的话两个标签的宽度不一样，
+  看起来像两个不同控件。
+*/
+.remote-connections__tabs :deep(.sigma-ui-tabs-list) {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
 }
 </style>

@@ -612,7 +612,7 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Save FTP, FTPS and SFTP connections here. Passwords are encrypted with Windows DPAPI and never leave this machine.",
+        "description": "اتصال‌های دیسک ابری، FTP، FTPS و SFTP را اینجا ذخیره کنید. اطلاعات محرمانه با Windows DPAPI رمزگذاری می‌شود و هرگز از این رایانه خارج نمی‌شود.",
         "empty": "No connections yet."
       },
       "action": {
@@ -691,6 +691,12 @@
       "nav": {
         "openSettings": "Remote settings",
         "connect": "Connect",
+        "netdisk": "دیسک‌های ابری",
+        "remoteSection": "اتصال‌های راه دور",
+        "addNetdisk": "افزودن دیسک ابری",
+        "addRemote": "افزودن اتصال راه دور",
+        "emptyNetdisk": "هنوز هیچ دیسک ابری‌ای اضافه نشده است.",
+        "emptyRemote": "هنوز هیچ اتصال راه دوری اضافه نشده است.",
         "empty": "No connections yet.",
         "split": "Split",
         "editConnection": "Edit this connection"
@@ -707,6 +713,7 @@
       },
       "baidu": {
         "hint": "در مرورگر وارد pan.baidu.com شوید و سپس کل سربرگ Cookie را اینجا بچسبانید (باید شامل BDUSS باشد). اطلاعات کاربری با Windows DPAPI رمزگذاری می‌شود و از این رایانه خارج نمی‌شود.",
+        "cookiePlaceholder": "کل کوکی را اینجا بچسبانید، برای مثال BDUSS=xxx; STOKEN=yyy",
         "status": {
           "loading": "در حال خواندن وضعیت مجوز…",
           "missing": "وارد نشده‌اید",
@@ -729,6 +736,10 @@
           "noteExpiry": "پس از انقضای Cookie این برنامه نمی‌تواند آن را تمدید کند؛ دوباره وارد شوید و یک Cookie تازه کپی کنید.",
           "notePrivacy": "Cookie به همان اندازه رمز عبور شما حساس است. فقط با Windows DPAPI رمزنگاری‌شده روی همین رایانه نگه‌داری می‌شود، جایی ارسال نمی‌شود و در گزارش ثبت نمی‌شود."
         }
+      },
+      "tab": {
+        "netdisk": "افزودن دیسک ابری",
+        "remote": "افزودن اتصال راه دور"
       }
     },
     "about": {

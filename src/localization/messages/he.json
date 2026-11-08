@@ -656,7 +656,7 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Save FTP, FTPS and SFTP connections here. Passwords are encrypted with Windows DPAPI and never leave this machine.",
+        "description": "שמור כאן חיבורים לכונני ענן, FTP, FTPS ו-SFTP. הפרטים מוצפנים באמצעות Windows DPAPI ואינם עוזבים את המחשב.",
         "empty": "No connections yet."
       },
       "action": {
@@ -735,6 +735,12 @@
       "nav": {
         "openSettings": "Remote settings",
         "connect": "Connect",
+        "netdisk": "כונני ענן",
+        "remoteSection": "חיבורים מרוחקים",
+        "addNetdisk": "הוספת כונן ענן",
+        "addRemote": "הוספת חיבור מרוחק",
+        "emptyNetdisk": "אין עדיין כונני ענן.",
+        "emptyRemote": "אין עדיין חיבורים מרוחקים.",
         "empty": "No connections yet.",
         "split": "Split",
         "editConnection": "Edit this connection"
@@ -751,6 +757,7 @@
       },
       "baidu": {
         "hint": "היכנסו ל-pan.baidu.com בדפדפן והדביקו כאן את כותרת ה-Cookie כולה (חייב להכיל BDUSS). הפרטים מוצפנים באמצעות Windows DPAPI ולא עוזבים את המחשב הזה.",
+        "cookiePlaceholder": "הדבק כאן את ה-cookie המלא, לדוגמה BDUSS=xxx; STOKEN=yyy",
         "status": {
           "loading": "קורא את מצב ההרשאה…",
           "missing": "לא מחובר",
@@ -773,6 +780,10 @@
           "noteExpiry": "כשתוקף ה-Cookie יפוג האפליקציה לא תוכל לחדש אותו — יש להתחבר מחדש ולהעתיק עוגייה חדשה.",
           "notePrivacy": "Cookie רגיש כמו הסיסמה שלכם. הוא נשמר רק בהצפנת Windows DPAPI במחשב הזה, לא עולה לרשת ולא נרשם ביומנים."
         }
+      },
+      "tab": {
+        "netdisk": "הוספת כונן ענן",
+        "remote": "הוספת חיבור מרוחק"
       }
     },
     "about": {

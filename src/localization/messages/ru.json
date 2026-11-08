@@ -656,7 +656,7 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Save FTP, FTPS and SFTP connections here. Passwords are encrypted with Windows DPAPI and never leave this machine.",
+        "description": "Здесь сохраняются подключения к облачным дискам, FTP, FTPS и SFTP. Учётные данные шифруются средствами Windows DPAPI и не покидают этот компьютер.",
         "empty": "No connections yet."
       },
       "action": {
@@ -735,6 +735,12 @@
       "nav": {
         "openSettings": "Remote settings",
         "connect": "Connect",
+        "netdisk": "Облачные диски",
+        "remoteSection": "Удалённые подключения",
+        "addNetdisk": "Добавить облачный диск",
+        "addRemote": "Добавить удалённое подключение",
+        "emptyNetdisk": "Облачных дисков пока нет.",
+        "emptyRemote": "Удалённых подключений пока нет.",
         "empty": "No connections yet.",
         "split": "Split",
         "editConnection": "Edit this connection"
@@ -751,6 +757,7 @@
       },
       "baidu": {
         "hint": "Войдите на pan.baidu.com в браузере и вставьте сюда всю строку Cookie (в ней должен быть BDUSS). Учётные данные шифруются Windows DPAPI и не покидают этот компьютер.",
+        "cookiePlaceholder": "Вставьте сюда всю строку Cookie, например BDUSS=xxx; STOKEN=yyy",
         "status": {
           "loading": "Чтение состояния авторизации…",
           "missing": "Вход не выполнен",
@@ -773,6 +780,10 @@
           "noteExpiry": "После истечения срока действия Cookie приложение не сможет его обновить — войдите заново и скопируйте новый.",
           "notePrivacy": "Cookie так же чувствителен, как ваш пароль. Он хранится только в зашифрованном виде Windows DPAPI на этом ПК, никуда не отправляется и в журналы не пишется."
         }
+      },
+      "tab": {
+        "netdisk": "Добавить облачный диск",
+        "remote": "Добавить удалённое подключение"
       }
     },
     "about": {

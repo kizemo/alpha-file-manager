@@ -189,17 +189,26 @@ describe('导航栏远程悬停面板', () => {
     expect(store.consumeRemoteEdit()).toBeNull();
   });
 
-  it('面板顶部有「+ 添加连接」入口，点它只发 add', async () => {
+  it('两个分区各有一颗添加按钮，点它们分别请求网盘与远程连接', async () => {
     const wrapper = mountedPanel();
     await flushPromises();
 
-    const addButton = wrapper.find('[data-test="remote-nav-add"]');
-    expect(addButton.exists()).toBe(true);
+    const netdiskAdd = wrapper.find('[data-test="remote-nav-add-netdisk"]');
+    const remoteAdd = wrapper.find('[data-test="remote-nav-add-remote"]');
 
-    await addButton.trigger('click');
+    expect(netdiskAdd.exists()).toBe(true);
+    expect(remoteAdd.exists()).toBe(true);
+
+    await netdiskAdd.trigger('click');
     await flushPromises();
 
-    expect(wrapper.emitted('add')).toHaveLength(1);
+    // 请求里必须带上协议：设置页那边靠它决定落到哪个标签页。
+    expect(wrapper.emitted('add')?.[0]?.[0]).toBe('baidu_pan');
+
+    await remoteAdd.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.emitted('add')?.[1]?.[0]).toBe('ftp');
     // 新建与「去设置页」是两件事，点了新建不该顺手把设置页也打开。
     expect(wrapper.emitted('openSettings')).toBeUndefined();
   });
@@ -217,5 +226,64 @@ describe('导航栏远程悬停面板', () => {
     // 不传协议时退回 ftp，保持既有调用方行为不变。
     store.requestRemoteCreate();
     expect(store.consumeRemoteCreate()).toBe('ftp');
+  });
+
+  // 用户 2026-11-08：网盘与 FTP 这类协议连接**上下分开**，网盘在上。
+  // 后续还要加阿里云盘等更多网盘，混排会让「网盘」越来越难认出来。
+  describe('分区', () => {
+    beforeEach(() => {
+      storageContents.set('connections', [
+        ...CONNECTIONS,
+        {
+          id: 'c3',
+          name: '百度网盘',
+          protocol: 'baidu_pan' as const,
+          host: 'pan.baidu.com',
+          port: 443,
+          username: '',
+          initialPath: '/',
+          proxy: {
+            kind: 'direct' as const,
+          },
+        },
+      ]);
+    });
+
+    it('网盘分区排在远程连接分区之上', async () => {
+      const wrapper = mountedPanel();
+      await flushPromises();
+
+      const html = wrapper.html();
+
+      expect(html).toContain('remote-nav-section-netdisk');
+      expect(html).toContain('remote-nav-section-remote');
+      expect(html.indexOf('remote-nav-section-netdisk'))
+        .toBeLessThan(html.indexOf('remote-nav-section-remote'));
+    });
+
+    it('百度网盘那条落进网盘分区，其余落进远程连接分区', async () => {
+      const wrapper = mountedPanel();
+      await flushPromises();
+
+      const netdisk = wrapper.find('[data-test="remote-nav-section-netdisk"]');
+      const remote = wrapper.find('[data-test="remote-nav-section-remote"]');
+
+      expect(netdisk.findAll('[data-test="remote-nav-connection-row"]')).toHaveLength(1);
+      expect(netdisk.find('[data-test="remote-nav-connection-row"]').attributes('data-protocol'))
+        .toBe('baidu_pan');
+      expect(remote.findAll('[data-test="remote-nav-connection-row"]')).toHaveLength(2);
+      expect(remote.find('[data-test="remote-nav-connection-row"]').attributes('data-protocol'))
+        .toBe('sftp');
+    });
+
+    it('两个分区各自有空态提示，不会只显示一片空白', async () => {
+      storageContents.set('connections', []);
+
+      const wrapper = mountedPanel();
+      await flushPromises();
+
+      expect(wrapper.find('[data-test="remote-nav-empty-netdisk"]').exists()).toBe(true);
+      expect(wrapper.find('[data-test="remote-nav-empty-remote"]').exists()).toBe(true);
+    });
   });
 });

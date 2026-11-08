@@ -619,7 +619,7 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Save FTP, FTPS and SFTP connections here. Passwords are encrypted with Windows DPAPI and never leave this machine.",
+        "description": "Hier lassen sich Verbindungen zu Netzlaufwerken, FTP, FTPS und SFTP speichern. Zugangsdaten werden mit Windows DPAPI verschlüsselt und verlassen diesen Rechner nie.",
         "empty": "No connections yet."
       },
       "action": {
@@ -698,6 +698,12 @@
       "nav": {
         "openSettings": "Remote settings",
         "connect": "Connect",
+        "netdisk": "Netzlaufwerke",
+        "remoteSection": "Remote-Verbindungen",
+        "addNetdisk": "Netzlaufwerk hinzufügen",
+        "addRemote": "Remote-Verbindung hinzufügen",
+        "emptyNetdisk": "Noch keine Netzlaufwerk-Verbindungen.",
+        "emptyRemote": "Noch keine Remote-Verbindungen.",
         "empty": "No connections yet.",
         "split": "Split",
         "editConnection": "Edit this connection"
@@ -714,6 +720,7 @@
       },
       "baidu": {
         "hint": "Melde dich bei pan.baidu.com im Browser an und füge dann die gesamte Cookie-Zeile hier ein (sie muss BDUSS enthalten). Die Zugangsdaten werden mit Windows DPAPI verschlüsselt und verlassen diesen Rechner nicht.",
+        "cookiePlaceholder": "Gesamtes Cookie hier einfügen, zum Beispiel BDUSS=xxx; STOKEN=yyy",
         "status": {
           "loading": "Autorisierungsstatus wird gelesen…",
           "missing": "Nicht angemeldet",
@@ -736,6 +743,10 @@
           "noteExpiry": "Läuft das Cookie ab, kann diese App es nicht verlängern – melden Sie sich neu an und kopieren Sie ein neues.",
           "notePrivacy": "Ein Cookie ist so vertraulich wie Ihr Passwort. Es wird nur als Windows-DPAPI-verschlüsselte Datei auf diesem Rechner gespeichert, nie hochgeladen und nicht protokolliert."
         }
+      },
+      "tab": {
+        "netdisk": "Netzlaufwerk hinzufügen",
+        "remote": "Remote-Verbindung hinzufügen"
       }
     },
     "about": {

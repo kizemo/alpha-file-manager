@@ -619,7 +619,7 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Save FTP, FTPS and SFTP connections here. Passwords are encrypted with Windows DPAPI and never leave this machine.",
+        "description": "Lưu các kết nối đĩa đám mây, FTP, FTPS và SFTP tại đây. Thông tin đăng nhập được mã hóa bằng Windows DPAPI và không bao giờ rời khỏi máy tính này.",
         "empty": "No connections yet."
       },
       "action": {
@@ -698,6 +698,12 @@
       "nav": {
         "openSettings": "Remote settings",
         "connect": "Connect",
+        "netdisk": "Đĩa đám mây",
+        "remoteSection": "Kết nối từ xa",
+        "addNetdisk": "Thêm đĩa đám mây",
+        "addRemote": "Thêm kết nối từ xa",
+        "emptyNetdisk": "Chưa có kết nối đĩa đám mây nào.",
+        "emptyRemote": "Chưa có kết nối từ xa nào.",
         "empty": "No connections yet.",
         "split": "Split",
         "editConnection": "Edit this connection"
@@ -714,6 +720,7 @@
       },
       "baidu": {
         "hint": "Hãy đăng nhập vào pan.baidu.com trong trình duyệt rồi dán toàn bộ tiêu đề Cookie vào đây (phải có BDUSS). Thông tin đăng nhập được mã hóa bằng Windows DPAPI và không rời khỏi máy này.",
+        "cookiePlaceholder": "Dán toàn bộ Cookie vào đây, ví dụ BDUSS=xxx; STOKEN=yyy",
         "status": {
           "loading": "Đang đọc trạng thái uỷ quyền…",
           "missing": "Chưa đăng nhập",
@@ -736,6 +743,10 @@
           "noteExpiry": "Khi Cookie hết hạn, ứng dụng này không thể gia hạn; bạn phải đăng nhập lại và sao chép Cookie mới.",
           "notePrivacy": "Cookie nhạy cảm như mật khẩu của bạn. Nó chỉ được lưu trên máy này dưới dạng mã hóa Windows DPAPI, không bao giờ được tải lên hay ghi vào nhật ký."
         }
+      },
+      "tab": {
+        "netdisk": "Thêm đĩa đám mây",
+        "remote": "Thêm kết nối từ xa"
       }
     },
     "about": {
