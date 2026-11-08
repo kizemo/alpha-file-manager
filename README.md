@@ -127,6 +127,16 @@ sync, batch rename, and a long list of day-to-day fixes.
 | ![Dashboard quick access](docs/screenshots/afm-dashboard-hero-light-en.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
 | ![Dashboard cards](docs/screenshots/afm-dashboard-card-enrichment-en.png) | **Dashboard cards** — name, size and path on top, type and item count below, with drag, reorder and edit shortcuts on every card |
 
+### What changed in 3.13.0
+
+| | |
+|---|---|
+| ☁ | **Baidu Netdisk is browsable as a remote connection** — add it from the cloud icon, give it the cookie of a signed-in session, and listing, creating a folder, renaming, deleting and downloading all reach the drive itself; no host or port is asked for, the host is fixed to `pan.baidu.com` and the agent is always direct |
+| ⚙ | **Settings separates net disks from remote connections** — the *Remote* page is split into *Net disk* and *Remote connection* tabs, the add-connection page opens on the net disk tab, and *Trusted hosts* shows only where it applies |
+| 🏠 | **The dashboard lists your connections** — the *Net disk & remote connections* card lists the servers you have saved by name and opens one in the navigator, instead of only offering a way to the settings page |
+| 📍 | **The *Locations* page groups what you can reach** — volumes first, then net disks, then remote connections; a group with nothing in it shows no heading at all |
+| 🐛 | **The navigator no longer stalls during a global search** — the search submission's disk I/O no longer holds the state write lock, so the window keeps responding while a scan runs |
+
 ### What changed in 3.12.2
 
 | | |
