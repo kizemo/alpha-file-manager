@@ -193,6 +193,12 @@ let notifiedSinceLastFailure = false;
 // A single dropped poll is not evidence of a broken sidecar; three in a row
 // (45s at the 15s cadence) is. Suppressing the transient case is the fix; the
 // banner still appears quickly when the sidecar is genuinely gone.
+//
+// v0.6.0 (2026-11-10): the sidecar is no longer owned by a Scheduled Task —
+// the Alpha main process starts it and kills it on exit, and the installer
+// removes the legacy 'KizemoFocusSync' task. The banner therefore points at
+// restarting Alpha itself; "run the task in Task Scheduler" is no longer
+// actionable (the task does not exist any more).
 const HEALTH_FAILURES_BEFORE_NOTIFY = 3;
 let consecutiveHealthFailures = 0;
 // focus-19: track the last-seen unsupported_dialog_count from /health so we
@@ -508,7 +514,7 @@ async function pingSidecarWithBody() {
                     title: 'Focus Sync',
                     description:
                         'Sidecar not reachable on 127.0.0.1:37421.\n' +
-                        'Open Task Scheduler → KizemoFocusSync → Run, or restart your PC.',
+                        'Restart Alpha File Manager — the sidecar is started together with the app.',
                     type: 'error',
                     duration: 15000,
                 });
@@ -855,9 +861,12 @@ const deactivate = async () => {
     await traceFlushNow();
     if (pushTimer !== null) { clearTimeout(pushTimer); pushTimer = null; }
     stopHealthCheck();
-    // v0.3.0: do NOT call /quit — the sidecar is owned by Task Scheduler,
-    // not by us. Shutting it down here would defeat the whole point of
-    // Scheduled Task mode.
+    // v0.6.0 (2026-11-10): the sidecar is owned by the Alpha main process
+    // (src/focus_sync_sidecar.rs starts it at app startup and kills it on
+    // exit), not by the legacy Scheduled Task. The extension still must NOT
+    // call /quit: the sidecar is not ours to shut down, and killing it would
+    // break the app-level lifecycle (Alpha would lose focus sync until it
+    // restarts).
 };
 
 var index = { activate, deactivate };
