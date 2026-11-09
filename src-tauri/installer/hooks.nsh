@@ -579,6 +579,34 @@ FunctionEnd
   ; v3.6.6 (2026-10-29)：告诉脚本要校验哪个目录。杀完之后脚本会用「独占打开」
   ; 证明 $INSTDIR\alpha-file-manager.exe 已经解锁 —— 这正是 Tauri 随后那次
   ; Restart Manager 检查想要确认的东西。先证明，就能让那一步直接通过。
+  ; v0.6.0 (2026-11-10): disable the legacy Scheduled Task BEFORE any process is
+  ; killed. That task was registered with -RestartCount 3 -RestartInterval 1min
+  ; (extensions/kizemo.focus-sync/installer/register-scheduled-task.ps1), so
+  ; killing the sidecar while the task is still enabled makes Task Scheduler
+  ; respawn it about a minute later. The respawned instance holds the canonical
+  ; sidecar binary open, the STAGE 7 delete then fails, and the installer jumps
+  ; to stage9_skip -- leaving the legacy task registered for good.
+  ;
+  ; v0.5.11 (2026-10-05): the original spelling was
+  ;   schtasks /Change /TN "\KizemoFocusSync" /DISABLE 2>nul
+  ; and it never worked: nsExec talks to CreateProcess directly, with no
+  ; cmd.exe in between, so "2>nul" was handed to schtasks as a literal
+  ; argument (real-machine install on 2026-10-13: "invalid parameter -2>nul")
+  ; and the task was never disabled. The PowerShell cmdlet also expresses
+  ; "task does not exist, never mind" via -ErrorAction SilentlyContinue.
+  ; v0.6.1 (2026-11-10): the PowerShell cmdlet form did not take effect
+  ; inside the installer -- a real-machine 3.13.5 install left the task
+  ; registered and the installer printed nothing, although the identical
+  ; command removes it from a normal shell. schtasks.exe is a native
+  ; binary, so it does not depend on the ScheduledTasks module being
+  ; loadable in the installer context. nsExec talks to CreateProcess
+  ; directly: there is no cmd.exe, so there is no redirection either.
+  nsExec::ExecToLog 'schtasks /Change /TN KizemoFocusSync /DISABLE'
+  Pop $0
+  ${If} $0 != "0"
+    DetailPrint "==> NOTE: schtasks /Change /DISABLE returned $0 (the task may be absent)."
+  ${EndIf}
+
   StrCpy $AlphaKillInstDir "$INSTDIR"
   DetailPrint "==> [PREINSTALL HOOK] Terminating Alpha/Sigma FM and helpers (PID-targeted; installer subtree protected) ..."
   Call AlphaTerminateAppProcesses
@@ -622,9 +650,10 @@ FunctionEnd
   ;
   ; 改用 PowerShell cmdlet：Disable-ScheduledTask 本身就是干这件事的，
   ; 而且 -ErrorAction SilentlyContinue 天然表达「任务不存在就算了」。
-  nsExec::ExecToLog 'powershell -NoProfile -Command "Disable-ScheduledTask -TaskName ''KizemoFocusSync'' -ErrorAction SilentlyContinue"'
-  Pop $0
-  ; Brief settle delay so the process can release any open handles.
+  ; The Disable-ScheduledTask call moved UP (right before the kill), so the
+  ; task cannot respawn the sidecar between "kill" and "overwrite the files".
+  ; What is left here is only the settle delay, so the killed processes have
+  ; released their open handles on the sidecar binary.
   Sleep 1500
 
   ; ---------------------------------------------------------------------
@@ -862,6 +891,30 @@ FunctionEnd
   ; The /IM filter requires the exact exe name; the PS Where-Object filters
   ; by Path to confirm it's our binary before killing.
   ; ---------------------------------------------------------------------
+  ; v0.6.0 (2026-11-10): the legacy Scheduled Task must be GONE before we touch
+  ; the sidecar binary, not merely disabled. STAGE 7 can bail out with
+  ; "Goto stage9_skip" (missing binary / locked file / failed copy) and every
+  ; one of those jumps used to skip the task removal as well -- the task then
+  ; stayed registered and kept respawning a --service sidecar that fights the
+  ; new one for port 37421. Removing it here makes the cleanup independent of
+  ; whether the sidecar deployment later succeeds.
+  ; Both calls are idempotent when the task does not exist.
+  DetailPrint "==> Stage 0.5a: Removing the legacy 'KizemoFocusSync' Scheduled Task..."
+  ; v0.6.1 (2026-11-10): the inline `powershell -NoProfile -Command "..."`
+  ; form did not remove the task inside the installer (real-machine 3.13.5
+  ; install: the task survived, the installer printed nothing), although
+  ; the identical command removes it from a normal shell. The cleanup now
+  ; runs from a bundled helper invoked with `powershell -File` -- the form
+  ; that is known to work inside the installer (STAGE 6 uses it for
+  ; register.ps1). The helper uses schtasks.exe (native) and appends to
+  ; %TEMP%\afm-legacy-task-cleanup.log as real-machine evidence.
+  nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\tools\remove-legacy-focus-task.ps1"'
+  Pop $0
+  ${If} $0 != "0"
+    DetailPrint "==> WARNING: remove-legacy-focus-task.ps1 exited with code $0"
+    DetailPrint "    See %TEMP%\afm-legacy-task-cleanup.log for the details."
+  ${EndIf}
+
   DetailPrint "==> Stage 0.5: Killing legacy v0.2.0 spawn-mode sidecar (precise path filter)..."
   ; "$$_" is required: NSIS expands a bare "$_" as an (empty) variable, which
   ; turns this filter into the invalid "Where-Object { .Path -like ... }". The
@@ -869,7 +922,12 @@ FunctionEnd
   ; sidecar survived, kept port 37421, and the new Scheduled Task failed fast.
   ; makensis reported this as "warning 6000", but the Tauri bundler swallows
   ; makensis warnings, so it was invisible in the build log.
-  nsExec::ExecToLog 'powershell -NoProfile -Command "Get-Process focus-sync-sidecar,spike -ErrorAction SilentlyContinue | Where-Object { $$_.Path -like ''*\Alpha File Manager\tools\focus-sync-sidecar.exe'' -or $$_.Path -like ''*\Sigma File Manager\tools\focus-sync-sidecar.exe'' -or $$_.Path -like ''*\kizemo.focus-sync\bin\focus-sync-sidecar.exe'' } | Stop-Process -Force"'
+  ;
+  ; v0.6.0 (2026-11-10): the kill now waits for the process to be really gone.
+  ; Stop-Process only requests the termination; the sidecar keeps a file handle
+  ; on its own binary until the process image is unmapped, so a Delete that runs
+  ; a moment later can still hit "file is open by another process".
+  nsExec::ExecToLog 'powershell -NoProfile -Command "$$p = Get-Process focus-sync-sidecar,spike -ErrorAction SilentlyContinue | Where-Object { $$_.Path -like ''*\Alpha File Manager\tools\focus-sync-sidecar.exe'' -or $$_.Path -like ''*\Sigma File Manager\tools\focus-sync-sidecar.exe'' -or $$_.Path -like ''*\kizemo.focus-sync\bin\focus-sync-sidecar.exe'' }; if ($$p) { $$p | Stop-Process -Force; $$p | Wait-Process -Timeout 5 -ErrorAction SilentlyContinue }"'
   Pop $0
   ; Non-zero exit is fine (no process to kill is success-equivalent)
 
@@ -969,9 +1027,10 @@ FunctionEnd
   Delete "$RESOLVEDAPPDATA\com.sigma-file-manager.app\extensions\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe"
   ${If} ${FileExists} "$RESOLVEDAPPDATA\com.sigma-file-manager.app\extensions\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe"
     DetailPrint "==> ERROR: stale sidecar binary is still locked and could not be removed."
-    DetailPrint "    The running focus-sync sidecar process is holding it open. Close the"
-    DetailPrint "    Scheduled Task \KizemoFocusSync (and the sidecar) and run this"
-    DetailPrint "    installer again; otherwise the OLD sidecar would keep being used."
+    DetailPrint "    A running focus-sync sidecar process is holding it open. The legacy"
+    DetailPrint "    Scheduled Task has already been removed at this point, so this is a"
+    DetailPrint "    sidecar owned by a running Alpha. Close Alpha and run this installer"
+    DetailPrint "    again; otherwise the OLD sidecar would keep being used."
     Goto stage9_skip
   ${EndIf}
   CopyFiles "$INSTDIR\tools\focus-sync-sidecar.exe" "$RESOLVEDAPPDATA\com.sigma-file-manager.app\extensions\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe"
@@ -1007,13 +1066,22 @@ FunctionEnd
   ; A leftover Scheduled Task would
   ; additionally outlive AFM and race the new instance for ports 37421 /
   ; 42721, so every install -- new or upgrade -- now REMOVES the task.
-  ; Both calls are idempotent when the task does not exist.
+  ;
+  ; The removal itself happens in STAGE 0.5a, BEFORE the sidecar binary is
+  ; touched, because every error path of STAGE 7 jumps to stage9_skip and
+  ; would otherwise skip the task removal as well. The two calls below are
+  ; kept as an idempotent safety net; they do nothing when the task is
+  ; already gone.
   ; ---------------------------------------------------------------------
-  DetailPrint "==> Stage 9: Removing the legacy 'KizemoFocusSync' Scheduled Task..."
-  nsExec::ExecToLog 'powershell -NoProfile -Command "Stop-ScheduledTask -TaskName ''KizemoFocusSync'' -ErrorAction SilentlyContinue"'
+  DetailPrint "==> Stage 9: Verifying the legacy 'KizemoFocusSync' Scheduled Task is gone..."
+  ; Idempotent safety net. The removal itself happens in STAGE 0.5a, BEFORE
+  ; the sidecar binary is touched, because every error path of STAGE 7
+  ; jumps to stage9_skip and would otherwise skip the removal as well.
+  nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\tools\remove-legacy-focus-task.ps1"'
   Pop $0
-  nsExec::ExecToLog 'powershell -NoProfile -Command "Unregister-ScheduledTask -TaskName ''KizemoFocusSync'' -Confirm:$$false -ErrorAction SilentlyContinue"'
-  Pop $0
+  ${If} $0 != "0"
+    DetailPrint "==> WARNING: remove-legacy-focus-task.ps1 exited with code $0 (see %TEMP%\afm-legacy-task-cleanup.log)"
+  ${EndIf}
 
   ; The helper script existed only to serve that task; drop it so a later
   ; install cannot fall back to a stale copy.
@@ -1022,7 +1090,7 @@ FunctionEnd
   ; process during setup (src/focus_sync_sidecar.rs), so tools\ is where the
   ; shipped copy lives.
   Delete "$INSTDIR\tools\register-scheduled-task.ps1"
-  DetailPrint "    Removed the legacy task and its helper script."
+  DetailPrint "    Legacy task verified gone; helper script removed."
 
   stage9_skip:
 

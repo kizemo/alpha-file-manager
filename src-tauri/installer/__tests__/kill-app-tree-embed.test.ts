@@ -141,14 +141,23 @@ describe('安装期执行语义的守卫（2026-10-13 事故）', () => {
     ).toEqual([]);
   });
 
-  it('禁用计划任务改用 Disable-ScheduledTask —— 原来的 schtasks 重定向是坏的', () => {
+  it('禁用计划任务：PREINSTALL 必须真禁用 \KizemoFocusSync', () => {
     const hooks = fs.readFileSync(path.join(INSTALLER_DIR, 'hooks.nsh'), 'utf8');
+    const preStart = hooks.indexOf('!macro NSIS_HOOK_PREINSTALL');
+    const preInstall = preStart < 0 ? '' : hooks.slice(preStart, hooks.indexOf('!macroend', preStart));
 
     expect(
-      hooks,
-      'PREINSTALL 必须真的把 \\KizemoFocusSync 禁掉，否则它会在 sidecar 被杀后'
-      + '按 -RestartCount 3 / -RestartInterval 1min 把它拉起来，重新锁住二进制。',
-    ).toMatch(/Disable-ScheduledTask\s+-TaskName\s+''KizemoFocusSync''/);
+      preInstall,
+      'PREINSTALL 必须真的把 \KizemoFocusSync 禁掉，否则它会在 sidecar 被杀后'
+      + '按 -RestartCount 3 / -RestartInterval 1min 把它拉起来，重新锁住二进制。'
+      + '两种等价写法都接受：PowerShell cmdlet（Disable-ScheduledTask -TaskName '
+      + "'KizemoFocusSync'）或原生 schtasks /Change /TN KizemoFocusSync /DISABLE —— "
+      + '后者是 2026-11-10 真机实测在安装器上下文里唯一确定生效的形态。',
+    ).toMatch(
+      // NOTE: 两个分支必须写在同一个正则字面量里。写成 `/a/ + /b/` 时 JS 的
+      // `+` 会走 RegExp.toString()，结果是字符串拼接，toMatch 会把它当子串匹配。
+      /Disable-ScheduledTask\s+-TaskName\s+''KizemoFocusSync''|schtasks\s+\/Change\s+\/TN\s+KizemoFocusSync\s+\/DISABLE/,
+    );
   });
 
   it('sidecar 部署必须先删旧文件 —— FileExists 只问「有没有」，不问「拷贝成了吗」', () => {
