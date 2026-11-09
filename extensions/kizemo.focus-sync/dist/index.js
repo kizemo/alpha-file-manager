@@ -210,9 +210,31 @@ let lastUnsupportedNotifyTs = 0;
 // the sidecar has never received a path.
 let lastKnownPath = null;
 
+/**
+ * 这个字符串是不是「Windows 本地目录」的形状？盘符路径或 UNC。
+ *
+ * v0.5.19: AFM 用 `sfm://remote/<id>/<dir>`（远程）与 `sfm://locations/`
+ * （位置面板）表示**不是 Windows 目录**的位置，必须与真实目录区分开。
+ */
+function isLocalDirShape(s) {
+    if (typeof s !== 'string') return false;
+    if (/^[A-Za-z]:[\\/]/.test(s)) return true;   // C:\... / C:/...
+    if (s.startsWith('\\\\')) return true;        // \\server\share
+    return false;
+}
+
 function normalizePath(p) {
     if (typeof p !== 'string') return p;
     let stripped = p.replace(/^sfm:\/?/i, '');
+    // v0.5.19: 剥掉 scheme 之后如果**不是** Windows 目录形状，说明它本来就是
+    // 虚拟路径（sfm://remote/...、sfm://locations/），必须原样保留。
+    //
+    // 旧实现无条件剥 scheme：`sfm://remote/<id>/0000temp` 被剥成
+    // `\remote\<id>\0000temp` —— 一个看起来像根相对路径、实际上根本不存在的
+    // 伪路径。它被写进别的程序的「打开」对话框后，Windows 弹「找不到该文件」
+    // 错误框；那个错误框又被侧车当成新对话框，于是每 1~2 秒重试一次，
+    // 表现为「关闭后还在反复报错」。
+    if (!isLocalDirShape(stripped)) return p;
     return stripped.replace(/\//g, '\\');
 }
 

@@ -111,7 +111,26 @@ use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
 //      平衡 `CoUninitialize`（RPC_E_CHANGED_MODE 时不反初始化）；
 //   2. 给 `AccessibleObjectFromWindow` 失败补上明确的 warn 日志 ——
 //      「静默失败」比「崩溃」更难查，这是本轮定位耗时的主因。
-const SPIKE_VERSION: &str = "0.5.18";
+// v0.5.19 (2026-11-09) — 两条独立的修复：
+//
+//   1. P1「虚拟路径外发」：百度网盘远程目录（`sfm://remote/<id>/<dir>`）
+//      以前会被扩展无条件剥掉 `sfm:/` 前缀，变成伪路径
+//      `\remote\<id>\0000temp`，再被写进别的程序的「打开」对话框，
+//      Windows 弹「找不到」错误框；错误框又被 monitor 当成新对话框，
+//      于是每 1-2 秒反复报错。现在扩展侧保留虚拟路径原样，sidecar 侧
+//      在**两个写站点**都先校验目标是真实存在的本地目录
+//      （`state::is_writable_local_path`），不合法就跳过并记日志。
+//
+//   2. P2「只上弦不下弦的旧闩」：v0.5.15 的 `afm_visit_latch` 一旦被上弦
+//      就永远不失效，于是 22 分钟前的一次 AFM -> 其它应用的切换，
+//      依然会让后续的对话框写入路径（真机日志实证）。现在换成
+//      **交接闸门** `state::afm_handoff`：记录「用户从 AFM 切走的那一刻」
+//      与「接手前台的进程 pid」，只有 (a) 确实发生过交接、(b) 未超 TTL、
+//      (c) 弹窗属于那个接手的进程，三条同时成立才允许写入。
+//
+// 环境变量逃生阀：FOCUS_SYNC_AFM_GATE=0 让闸门恒开（回到旧行为，便于 A/B）。
+// FOCUS_SYNC_AFM_HANDOFF_TTL_MS 调整交接时效（默认 120000ms）。
+const SPIKE_VERSION: &str = "0.5.19";
 
 #[derive(Debug, Deserialize)]
 struct SetPathBody {
@@ -372,6 +391,39 @@ fn handle_set_path(
             );
             continue;
         }
+        // v0.5.19 — 写进别人的对话框之前，两道闸门：
+        //
+        //   1. **路径合法性**：只有真实存在的本地目录才允许写。AFM 停在百度
+        //      网盘远程目录时推来的是虚拟路径，写进去只会换来对方的
+        //      「找不到该文件」错误框，而那个错误框又会被当成新对话框重试
+        //      ⇒ 关闭后仍反复报错（真机 2026-11-09 11:31）。
+        //   2. **交接闸门**：v0.5.15 的注释说这一路不加闸（「即时写要求弹窗
+        //      前台 => AFM 必非前台」）。那个推理有个洞：侧车重启后扩展的
+        //      补推（first_push_received 被复位）是**陈旧**的，会把旧路径写进
+        //      用户此刻正在看的对话框。交接闸门堵住这个洞。
+        if !crate::state::is_writable_local_path(&path) {
+            log_event(&Event::SpikeError {
+                kind: "set_path_skip_non_local_path".into(),
+                message: format!(
+                    "hwnd={} app={} path='{}' (not a writable local directory); skipping",
+                    d.hwnd, d.app, path
+                ),
+                ts: now_iso8601(),
+            });
+            continue;
+        }
+        let dialog_pid = crate::uia_event::window_pid_isize(d.hwnd as isize);
+        if !state.afm_handoff_allows(dialog_pid) {
+            log_event(&Event::SpikeError {
+                kind: "set_path_skip_no_handoff".into(),
+                message: format!(
+                    "hwnd={} app={} path='{}' (no direct AFM -> dialog handoff); skipping",
+                    d.hwnd, d.app, path
+                ),
+                ts: now_iso8601(),
+            });
+            continue;
+        }
         // v0.5.7 DEDUP-1: skip a dialog that already holds this EXACT path.
         //
         // Observed 2026-10-08 14:02: the Opened write-back injected once, then
@@ -458,7 +510,7 @@ fn handle_set_path(
                 // v0.5.15: 路径真的写进弹窗了 -> 消耗 AFM 访问闩。/set_path
                 // 这一路**不加闸**(即时写要求弹窗前台 => AFM 必非前台, 加闸会让
                 // 下弦没有可靠时机), 只负责在成功后下弦。
-                state.clear_afm_visit();
+                state.clear_afm_handoff();
                 log_event(&Event::Write {
                     hwnd: d.hwnd,
                     app: d.app.clone(),
@@ -469,7 +521,7 @@ fn handle_set_path(
             }
             WriteOutcome::SendInputFallback => {
                 // v0.5.15: 同上, 兜底策略写成功也下弦。
-                state.clear_afm_visit();
+                state.clear_afm_handoff();
                 log_event(&Event::Write {
                     hwnd: d.hwnd,
                     app: d.app.clone(),
