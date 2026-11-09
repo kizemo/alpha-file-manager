@@ -127,6 +127,19 @@ sync, batch rename, and a long list of day-to-day fixes.
 | ![Dashboard quick access](docs/screenshots/afm-dashboard-hero-light-en.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
 | ![Dashboard cards](docs/screenshots/afm-dashboard-card-enrichment-en.png) | **Dashboard cards** — name, size and path on top, type and item count below, with drag, reorder and edit shortcuts on every card |
 
+### What changed in 3.13.4
+
+| | | |
+|---|---|---|
+| 🔑 | **Baidu Netdisk signs in inside the app** — *Use the embedded window to sign in* opens the real Baidu login page in a built-in browser window; scanning the QR code there is enough, the session is picked up automatically and no cookie has to be copied by hand |
+| 🛡️ | **A stale session is no longer taken for a fresh sign-in** — each attempt starts from a clean cookie jar, a sign-in that hands back the same session as the one before is refused, and a session the server already treats as signed out is rejected instead of being stored |
+| 🚫 | **Saving without a signed-in session is refused** — the form points at *Sign in inside the app* instead of saving an entry that answers every request as signed out, and a sign-in that ends badly (window closed, timed out, session unreadable) now raises a toast instead of leaving one grey line of text |
+| 🩺 | ***Test connection* tells the truth** — with no stored credential it no longer claims the password was refused, and the backend's own message appears under the outcome, so a timeout, an expired session and a refused credential no longer read alike |
+| ⚡ | **Deleting a remote entry updates the listing at once** — the entries are removed from the listing before the refresh runs, so the change is visible without pressing *Refresh* |
+| 📁 | **Creating a folder on Baidu Netdisk works** — the request used to carry every parameter in the query string with an empty body, which the server answered with a protocol error; it now sends a proper form body, and the new folder is created on the drive itself |
+| 🐛 | **A failed remote *New folder* no longer leaves the dialog stuck** — the *Create* button is re-enabled when the operation fails and the dialog stays open for another attempt |
+| 📝 | **Remote operations leave traces in the log** — *List*, *Delete* and *Create folder* each log a begin/done pair with the connection, the path, the entry count and the elapsed time |
+
 ### What changed in 3.13.0
 
 | | |
