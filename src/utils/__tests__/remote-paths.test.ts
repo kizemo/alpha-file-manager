@@ -13,6 +13,7 @@ import {
   getRemoteParentPath,
   isRemoteConnectionRootPath,
   isRemotePath,
+  isRemoteRootPath,
   normalizeRemotePath,
   parseRemotePath,
   REMOTE_SCHEME,
@@ -122,6 +123,18 @@ describe('remote-paths', () => {
     expect(isRemoteConnectionRootPath('sfm://remote')).toBe(false);
     expect(isRemoteConnectionRootPath('sfm://remote/conn-a/pub')).toBe(false);
     expect(isRemoteConnectionRootPath('C:/Users')).toBe(false);
+  });
+
+  // FORK-MODIFICATION 2026-11-09 反馈 6：`isRemoteRootPath` 只服务前端的「远程根分流」——
+  // 后端 parse_remote_path 要求带连接 id，压根不存在「根」这个概念，因此这条**不参与**上面
+  // 声明的跨语言镜像，单独在这里把它自己的语义钉死（重点是尾斜杠与「带 id 就不算根」）。
+  it('recognizes only the remote root, never a connection root', () => {
+    expect(isRemoteRootPath('sfm://remote')).toBe(true);
+    expect(isRemoteRootPath('sfm://remote/')).toBe(true);
+    expect(isRemoteRootPath('sfm://remote/conn-a')).toBe(false);
+    expect(isRemoteRootPath('sfm://remote/conn-a/pub')).toBe(false);
+    expect(isRemoteRootPath('sfm://locations')).toBe(false);
+    expect(isRemoteRootPath('')).toBe(false);
   });
 
   it('exposes the same scheme string the backend uses', () => {

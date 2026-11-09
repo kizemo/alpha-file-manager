@@ -21,7 +21,14 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  confirm: [name: string];
+  /**
+   * `done` 是提交结果的回执：父组件**必须**在异步操作结束后调用它。
+   *
+   * 2026-11-09 批次 F.9 修 D1：父组件此前只在**成功**时关对话框，
+   * 失败时既不复位 `isSubmitting`（⇒「创建」按钮永久变灰、无法重试），
+   * 也不给父级任何信号。回执机制让失败路径也能解锁按钮。
+   */
+  confirm: [name: string, done: (ok: boolean) => void];
   cancel: [];
 }>();
 
@@ -91,7 +98,21 @@ async function handleSubmit() {
   if (!isValid.value || isSubmitting.value) return;
 
   isSubmitting.value = true;
-  emit('confirm', trimmedName.value);
+
+  let settled = false;
+
+  function done(ok: boolean) {
+    if (settled) return;
+    settled = true;
+
+    // 成功时父组件会关掉对话框，对话框关闭时统一复位；
+    // **失败时必须在这里复位**，否则「创建」按钮会永久保持禁用状态。
+    if (!ok) {
+      isSubmitting.value = false;
+    }
+  }
+
+  emit('confirm', trimmedName.value, done);
 }
 
 function handleCancel() {

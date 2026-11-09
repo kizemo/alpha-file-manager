@@ -714,7 +714,8 @@
         "remoteConnectionsStorageNotReady": "The connection list has not finished loading. Please try again in a moment.",
         "unknown": "Failed to save the connection.",
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
-        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port."
+        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
+        "baiduLoginRequired": "יש להתחבר ל-Baidu Pan בתוך היישום ואז לשמור את החיבור הזה."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -744,7 +745,6 @@
         "empty": "No connections yet.",
         "split": "Split",
         "editConnection": "Edit this connection",
-        "homeTitle": "כונני ענן ו חיבורים מרוחקים",
         "homeEmpty": "עדיין לא הוגדרו כונני ענן או חיבורים מרוחקים."
       },
       "trustedHosts": {
@@ -758,8 +758,6 @@
         "kindX509": "X.509 certificate"
       },
       "baidu": {
-        "hint": "היכנסו ל-pan.baidu.com בדפדפן והדביקו כאן את כותרת ה-Cookie כולה (חייב להכיל BDUSS). הפרטים מוצפנים באמצעות Windows DPAPI ולא עוזבים את המחשב הזה.",
-        "cookiePlaceholder": "הדבק כאן את ה-cookie המלא, לדוגמה BDUSS=xxx; STOKEN=yyy",
         "status": {
           "loading": "קורא את מצב ההרשאה…",
           "missing": "לא מחובר",
@@ -769,18 +767,6 @@
         },
         "action": {
           "deleteSession": "מחק הפעלה שמורה"
-        },
-        "help": {
-          "toggle": "איך משיגים את ה-Cookie",
-          "openLogin": "פתיחת דף ההתחברות של Baidu Netdisk",
-          "step1": "היכנסו ל-pan.baidu.com בדפדפן והתחברו לחשבון Baidu שלכם.",
-          "step2": "לחצו F12 כדי לפתוח כלי מפתח ועברו ללשונית רשת.",
-          "step3": "רעננו את הדף, לחצו על כל בקשה ומצאו את BDUSS בשורת Cookie שבכותרות הבקשה.",
-          "step4": "העתיקו את הערך של BDUSS; אם מופיע גם STOKEN, העתיקו אותו גם כן כדי לשמור על האצת ההעלאה.",
-          "step5": "הדביקו בשדה למעלה — גם Cookie מלא, גם BDUSS=xxx; STOKEN=yyy וגם הערך של BDUSS לבד מתקבלים.",
-          "noteRequired": "BDUSS חובה והשם רגיש לרישיות (bduss באותיות קטנות לא מתקבל). STOKEN רשות.",
-          "noteExpiry": "כשתוקף ה-Cookie יפוג האפליקציה לא תוכל לחדש אותו — יש להתחבר מחדש ולהעתיק עוגייה חדשה.",
-          "notePrivacy": "Cookie רגיש כמו הסיסמה שלכם. הוא נשמר רק בהצפנת Windows DPAPI במחשב הזה, לא עולה לרשת ולא נרשם ביומנים."
         },
         "embedded": {
           "title": "Sign in inside the app",
@@ -793,7 +779,8 @@
             "closed": "The sign-in window was closed before signing in finished.",
             "timeout": "Signing in took too long. Try again.",
             "error": "Could not read the session. Use the Cookie field instead."
-          }
+          },
+          "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
         }
       }
     },

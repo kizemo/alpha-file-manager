@@ -183,11 +183,19 @@ function handleCreateNewItem(type: 'file' | 'directory', targetPaths: string[]) 
   newItemDialogOpen.value = true;
 }
 
-async function handleNewItemConfirm(name: string) {
-  const success = await createNewItem(name, newItemDialogType.value, newItemTargetPaths.value);
+async function handleNewItemConfirm(name: string, done: (ok: boolean) => void) {
+  try {
+    const success = await createNewItem(name, newItemDialogType.value, newItemTargetPaths.value);
 
-  if (success) {
-    newItemDialogOpen.value = false;
+    if (success) {
+      newItemDialogOpen.value = false;
+    }
+
+    done(success);
+  }
+  catch (error) {
+    console.error('[new-item] create failed', error);
+    done(false);
   }
 }
 

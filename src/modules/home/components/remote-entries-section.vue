@@ -70,12 +70,6 @@ async function openRemoteSettings(): Promise<void> {
 
 <template>
   <section class="remote-entries-section">
-    <div class="remote-entries-section__header">
-      <h2 class="remote-entries-section__title">
-        {{ t('settings.remote.nav.homeTitle') }}
-      </h2>
-    </div>
-
     <div
       v-if="!hasConnections"
       class="remote-entries-section__empty"
@@ -170,33 +164,26 @@ async function openRemoteSettings(): Promise<void> {
   margin-bottom: 16px;
 }
 
-.remote-entries-section__header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 12px;
-  gap: 8px;
-}
-
-.remote-entries-section__title {
-  color: hsl(var(--muted-foreground));
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-}
-
 .remote-entries-section__group {
   margin-bottom: 16px;
 }
 
+/*
+  分区标题的字号、字距、大写与下边距必须与「用户目录」「驱动」分区的标题逐字一致
+  （user-directories-section__title + 其 header 的 margin-bottom: 12px），
+  否则同一页上两组标题看起来像出自两个应用。
+*/
+
 .remote-entries-section__group-title {
   display: flex;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   color: hsl(var(--muted-foreground));
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   gap: 6px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .remote-entries-section__grid {

@@ -67,8 +67,14 @@ const shortcutsStore = useShortcutsStore();
 const platformStore = usePlatformStore();
 const remoteConnectionsStore = useRemoteConnectionsStore();
 const { drives } = useDrives();
-const locationsDirectoryPaths = computed(() => {
-  return buildLocationsDirectoryFromDrives(drives.value).entries.map(entry => entry.path);
+const locationsDirectoryItems = computed(() => {
+  // 下拉要显示**连接名**而不是 32 位 ID（用户 2026-11-09 反馈 5）：
+  // 远程条目在地址栏里是 `sfm://remote/<uuid>`，`getPathDisplayName()` 只能回显末段 ID。
+  // `entry.name` 与「位置」页同源（remote-location-refs 里就是用户起的连接名）。
+  return buildLocationsDirectoryFromDrives(drives.value).entries.map(entry => ({
+    path: entry.path,
+    name: entry.name,
+  }));
 });
 const { openCopiedPath } = useOpenCopiedPath({
   openDirectory: path => emit('navigate', path),
@@ -78,7 +84,12 @@ const openCopiedPathShortcutLabel = computed(() => shortcutsStore.getShortcutLab
 
 const addressBarRef = ref<HTMLElement | null>(null);
 const breadcrumbsContainerRef = ref<HTMLElement | null>(null);
-const separatorDropdowns = ref<{ [key: number]: string[] }>({});
+const separatorDropdowns = ref<{
+  [key: number]: {
+    path: string;
+    name: string;
+  }[];
+}>({});
 const openSeparatorIndex = ref<number | null>(null);
 
 // FORK-MODIFICATION 2026-10-18：远程面包屑要用连接名而不是连接 id（阶段 2 需求 1）。
@@ -129,7 +140,8 @@ async function loadSeparatorDirectories(index: number) {
         name: entry.name,
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
-    separatorDropdowns.value[index] = directories.map(d => d.path);
+    // 保留 name：下拉要显示目录名而不是拼出来的路径（用户 2026-11-09 反馈 5）。
+    separatorDropdowns.value[index] = directories;
   }
   catch {
     separatorDropdowns.value[index] = [];
@@ -309,15 +321,15 @@ onUnmounted(() => {
                 class="address-bar__separator-menu-scroll"
               >
                 <DropdownMenuItem
-                  v-for="dirPath in part.useLocationsDropdown ? locationsDirectoryPaths : separatorDropdowns[index]"
-                  :key="dirPath"
-                  @select="handleSeparatorNavigate(dirPath)"
+                  v-for="item in (part.useLocationsDropdown ? locationsDirectoryItems : separatorDropdowns[index])"
+                  :key="item.path"
+                  @select="handleSeparatorNavigate(item.path)"
                 >
                   <FolderIcon
                     :size="14"
                     class="address-bar__separator-menu-icon"
                   />
-                  <span class="address-bar__separator-menu-path">{{ getPathDisplayName(dirPath) || dirPath }}</span>
+                  <span class="address-bar__separator-menu-path">{{ item.name || getPathDisplayName(item.path) || item.path }}</span>
                 </DropdownMenuItem>
               </ScrollArea>
             </DropdownMenuContent>
@@ -500,7 +512,11 @@ onUnmounted(() => {
 }
 
 .address-bar__separator-menu-scroll {
-  max-height: 250px;
+  /* 固定 250px 在窗口较矮、或地址栏靠近窗口下沿时会顶出可用空间：
+     菜单本体带 `overflow: hidden`，超出部分既看不见也滚不到，
+     看起来就是「下拉被下面的标题栏、目录视图遮挡」（用户 2026-11-09 反馈 5）。
+     绑到 Reka 的可用高度变量是仓内既有写法（见 navigator-toolbar-actions.vue）。 */
+  max-height: min(250px, var(--reka-dropdown-menu-content-available-height, calc(100vh - var(--window-toolbar-height) - 12px)));
   padding: 4px 0;
 }
 

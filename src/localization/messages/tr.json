@@ -677,7 +677,8 @@
         "remoteConnectionsStorageNotReady": "The connection list has not finished loading. Please try again in a moment.",
         "unknown": "Failed to save the connection.",
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
-        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port."
+        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
+        "baiduLoginRequired": "Önce uygulama içinde Baidu Pan'a giriş yapın, sonra bu bağlantıyı kaydedin."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -707,7 +708,6 @@
         "empty": "No connections yet.",
         "split": "Split",
         "editConnection": "Edit this connection",
-        "homeTitle": "Bulut diskleri ve Uzak bağlantılar",
         "homeEmpty": "Henüz bulut diski veya uzak bağlantı yapılandırılmadı."
       },
       "trustedHosts": {
@@ -721,8 +721,6 @@
         "kindX509": "X.509 certificate"
       },
       "baidu": {
-        "hint": "Tarayıcıda pan.baidu.com adresine giriş yapın, ardından Cookie başlığının tamamını buraya yapıştırın (BDUSS içermelidir). Kimlik bilgisi Windows DPAPI ile şifrelenir ve bu bilgisayardan hiç çıkmaz.",
-        "cookiePlaceholder": "Cookie’nin tamamını buraya yapıştırın, örneğin BDUSS=xxx; STOKEN=yyy",
         "status": {
           "loading": "Yetkilendirme durumu okunuyor…",
           "missing": "Giriş yapılmamış",
@@ -732,18 +730,6 @@
         },
         "action": {
           "deleteSession": "Kayıtlı oturumu sil"
-        },
-        "help": {
-          "toggle": "Cookie nasıl alınır",
-          "openLogin": "Baidu Netdisk giriş sayfasını aç",
-          "step1": "Tarayıcıda pan.baidu.com adresini açın ve Baidu hesabınızda oturum açın.",
-          "step2": "Geliştirici araçlarını açmak için F12 tuşuna basın ve Ağ paneline geçin.",
-          "step3": "Sayfayı yenileyin, herhangi bir isteğe tıklayın ve İstek Üst Bilgileri içindeki Cookie satırında BDUSS değerini bulun.",
-          "step4": "BDUSS değerini kopyalayın; STOKEN varsa onu da kopyalayın, böylece yükleme hızlandırması korunur.",
-          "step5": "Yukarıdaki alana yapıştırın: tüm Cookie dizesi, BDUSS=xxx; STOKEN=yyy ya da yalnızca BDUSS değeri olabilir.",
-          "noteRequired": "BDUSS zorunludur ve adı büyük/küçük harfe duyarlıdır (küçük harfli bduss kabul edilmez). STOKEN isteğe bağlıdır.",
-          "noteExpiry": "Cookie süresi dolduğunda uygulama onu yenileyemez; yeniden oturum açıp yeni bir kopya almanız gerekir.",
-          "notePrivacy": "Cookie, parolanız kadar hassastır. Yalnızca Windows DPAPI ile şifrelenmiş olarak bu bilgisayarda saklanır; yüklenmez ve günlere yazılmaz."
         },
         "embedded": {
           "title": "Sign in inside the app",
@@ -756,7 +742,8 @@
             "closed": "The sign-in window was closed before signing in finished.",
             "timeout": "Signing in took too long. Try again.",
             "error": "Could not read the session. Use the Cookie field instead."
-          }
+          },
+          "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
         }
       }
     },

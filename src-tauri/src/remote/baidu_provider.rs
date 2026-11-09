@@ -31,9 +31,9 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 
 use super::baidu_api::{
-    build_client, build_download_client, create_dir_url, delete_filelist, download_file,
-    encode_form_body, entry_name, fetch_bdstoken, fetch_dlink, filemanager_url, list_dir,
-    next_page, parse_write_response, post_form, rename_filelist, to_remote_entries,
+    build_client, build_download_client, create_dir_form_body, create_dir_url, delete_filelist,
+    download_file, encode_form_body, entry_name, fetch_bdstoken, fetch_dlink, filemanager_url,
+    list_dir, next_page, parse_write_response, post_form, rename_filelist, to_remote_entries,
     to_remote_entry, BaiduFileEntry, BaiduSession, ListPage, BAIDU_BDSTOKEN_TTL,
     BAIDU_LIST_PAGE_LIMIT,
 };
@@ -313,7 +313,12 @@ impl BaiduApi for HttpBaiduApi {
             let path = Arc::clone(&path);
             async move {
                 let url = create_dir_url(&token, path.as_str());
-                let body = post_form(&self.client, session, &url, "").await?;
+                // 2026-11-09 真机 A/B（证据 `.superpowers/sdd/accept-3134/baidu-create-ab.log`）：
+                // 只把参数放在 query、body 传空串时服务端恒回 `{"errno":2,"path":""}`；
+                // 同样的参数改成表单 body（`path` / `isdir=1` / `block_list=[]`）则 `errno:0`。
+                // ⇒ query 保留是为了兼容，**表单 body 必须带上**，否则创建目录必然失败。
+                let form = create_dir_form_body(path.as_str());
+                let body = post_form(&self.client, session, &url, &form).await?;
                 parse_write_response(&body).map_err(|error| error.to_remote_error())
             }
         })

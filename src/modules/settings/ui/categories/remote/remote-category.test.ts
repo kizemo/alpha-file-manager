@@ -319,7 +319,7 @@ describe('远程设置分类', () => {
     expect(wrapper.find('[data-test="test-connection"]').exists()).toBe(true);
   });
 
-  it('测试连接把结论按 outcome 渲染，不去解析 message', async () => {
+  it('测试连接按 outcome 渲染主文案，并把后端 message 原样展示', async () => {
     invokeMock.mockImplementation(async (command: string) => {
       if (command === 'get_startup_storage_bootstrap') {
         return {};
@@ -354,7 +354,10 @@ describe('远程设置分类', () => {
     expect(result.exists()).toBe(true);
     expect(result.attributes('data-outcome')).toBe('auth_rejected');
     expect(result.text()).toContain('settings.remote.test.outcome.auth_rejected');
-    expect(result.text()).not.toContain('AUTH_REJECTED_MESSAGE_MARKER');
+    // 后端 message 现在作为副行原样展示：用户看到的诊断必须来自后端，
+    // 不能再被固定文案盖住（2026-11-09 反馈：误报「服务器拒绝了用户名和密码」）。
+    // 「不拿 message 做逻辑判断」这条设计意图仍然成立：主文案走 outcome。
+    expect(result.text()).toContain('AUTH_REJECTED_MESSAGE_MARKER');
   });
 
   it('通过了但没核验密码时，必须额外提示', async () => {
@@ -625,14 +628,17 @@ describe('远程设置分类', () => {
       expect(wrapper.find('[data-test="tab-remote"]').exists()).toBe(true);
     });
 
-    it('默认落在网盘页：没有服务器地址，改为 Cookie 输入框', async () => {
+    // 用户 2026-11-09：内嵌窗口登录已验证可用，Cookie 讲解与输入框按要求删除。
+    // 断言方向随之翻转 —— 这里守的是「Cookie 栏不得回来」。
+    it('默认落在网盘页：没有服务器地址栏，也没有 Cookie 输入框', async () => {
       const wrapper = mountedCategory();
       await flushPromises();
       await wrapper.find('[data-test="add"]').trigger('click');
       await flushPromises();
 
-      expect(wrapper.find('[data-test="field-cookie"]').exists()).toBe(true);
+      expect(wrapper.find('[data-test="field-cookie"]').exists()).toBe(false);
       expect(wrapper.find('[data-test="field-host"]').exists()).toBe(false);
+      expect(wrapper.find('[data-test="baidu-embedded-start"]').exists()).toBe(true);
     });
 
     it('切到「远程连接」标签，服务器地址栏出现、Cookie 栏消失', async () => {
@@ -657,7 +663,7 @@ describe('远程设置分类', () => {
       const wrapper = mountedCategory();
       await flushPromises();
 
-      expect(wrapper.find('[data-test="field-cookie"]').exists()).toBe(true);
+      expect(wrapper.find('[data-test="field-cookie"]').exists()).toBe(false);
       expect(wrapper.find('[data-test="field-host"]').exists()).toBe(false);
     });
 

@@ -70,6 +70,21 @@ export function isRemotePath(path: string): boolean {
   return path === REMOTE_SCHEME || path.startsWith(`${REMOTE_SCHEME}/`);
 }
 
+/**
+ * 是否恰好是**远程空间的根**（`sfm://remote`，可带一个尾斜杠）。
+ *
+ * 它是 `isRemotePath` 的特例，但 `parseRemotePath` 对它返回 `null` —— 根上没有一个
+ * 「连接 id + 远端路径」可以解析出来。所以凡是拿 `parseRemotePath` 当唯一判据的地方，
+ * 都会把根当成非法路径（用户 2026-11-09 反馈 6：地址栏点「远程」直接报错）。
+ * 需要区分「根」与「根下某条路径」时，先判这个。
+ *
+ * 不改变任何规范化规则，只是把一个已存在的边界单独暴露出来，
+ * 因此不需要 Rust 侧 `remote/path.rs` 同步镜像。
+ */
+export function isRemoteRootPath(path: string): boolean {
+  return path === REMOTE_SCHEME || path === `${REMOTE_SCHEME}/`;
+}
+
 /** 解析并规范化。任一段是 `.` / `..`，或连接 id 为空，返回 `null`。 */
 export function parseRemotePath(path: string): RemotePath | null {
   if (!path.startsWith(`${REMOTE_SCHEME}/`)) {

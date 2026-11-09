@@ -37,7 +37,7 @@
 //! 派发出去的建窗请求才排得上队。
 
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -60,6 +60,8 @@ const LOGIN_COOKIE_URL: &str = "https://pan.baidu.com/";
 const LOGIN_EVENT: &str = "afm://baidu-login";
 /// `STOKEN` 的 cookie 名。
 const STOKEN_NAME: &str = "STOKEN";
+/// `BDUSS` 的 cookie 名。会话身份全靠它，基线比对只认这一个。
+const BDUSS_NAME: &str = "BDUSS";
 
 const POLL: Duration = Duration::from_secs(2);
 const GIVE_UP: Duration = Duration::from_secs(900);
@@ -75,6 +77,23 @@ const COOKIE_READ_BUDGET: Duration = Duration::from_secs(10);
 /// 连续读失败多少次就放弃这一轮登录。
 const MAX_READ_FAILURES: u32 = 3;
 
+/// 服务端验活的时间上限。探测接口是轻量 list，8 秒足够；
+/// 超时就按「证据不足」放行，绝不把窗口无限期挂着。
+const VERIFY_BUDGET: Duration = Duration::from_secs(8);
+
+/// 登录 harvest 短路缺陷的三道保险（2026-11-09 实测坐实）：
+///
+/// 旧 jar 里遗留的死 BDUSS/STOKEN 会被当成「刚登录成功」，建窗后 2.005 秒
+/// （第一个轮询 tick）就判 Ready 并自动关窗，用户根本没机会扫码；这对
+/// 死凭据随后被存进保险库，服务端连读接口都回 `errno=-6`。
+///
+/// 保险一：轮询开始前把 jar 里的 `BDUSS`/`STOKEN` 删掉（清不掉也有保险二）。
+/// 保险二：Ready 必须「当前 BDUSS ≠ 基线 BDUSS」，同值一票否决。
+/// 保险三：关窗之前对着服务端验活，只在拿到**确凿死亡证据**时才拒绝。
+///
+/// 代价说明：若清 jar 失败且百度把**同一个** BDUSS 原样续回（真「重新登录」
+/// 罕见），窗口会留到用户退出再登录或 900 秒超时 —— 宁可多等，不可误判 Ready。
+
 /// 诊断日志的环境变量；不给就用应用数据目录下的默认文件名。
 const LOG_ENV: &str = "AFM_BAIDU_LOG";
 const DEFAULT_LOG_NAME: &str = "baidu-login.log";
@@ -83,6 +102,9 @@ const DEFAULT_LOG_NAME: &str = "baidu-login.log";
 ///
 /// `BaiduSession` 本身没有 `stoken()` 访问器，所以 `STOKEN` 是否存在
 /// 要在这里显式记下来。
+///
+/// 注意：这里**不保存 BDUSS/STOKEN 明文之外的额外副本**——BDUSS 只在轮询线程的
+/// 局部作用域里参与基线比对与验活，claim 之后交给 `save_baidu_session` 落盘。
 struct PendingSession {
     state: BaiduSessionState,
     has_stoken: bool,
@@ -157,6 +179,102 @@ pub struct BaiduLoginClaimPayload {
 fn app_data_dir(app: &AppHandle) -> Result<PathBuf, RemoteError> {
     crate::app_dirs::app_data_dir(app)
         .map_err(|err| RemoteError::unknown(format!("无法定位应用数据目录：{err}")))
+}
+
+/// 独立 cookie 罐的根目录（应用数据目录下的子目录）。
+const LOGIN_PROFILE_ROOT: &str = "baidu-login-profile";
+
+/// 本轮登录专用的 webview 数据目录。
+///
+/// 登录窗原先与主窗口共用 data-dir，打开时必然继承主窗口（以及上一轮登录）
+/// 留在罐里的百度 cookie —— 用户看到的是「已登录的旧账号」，必须先手点退出
+/// 才能换号。而「建窗后主动删 cookie」这条路实测无效：`delete_cookie` 返回 Ok，
+/// 日志也如实报「尝试删掉 2 条、失败 0 条」，但 2 秒后轮询读到的 BDUSS 还是
+/// 原值（2026-11-09 真机日志坐实）。既然清不掉，就换成每轮一支空罐：
+/// 罐里本来没有 BDUSS，`purge` 只作兜底，基线否决自然失效。
+fn login_profile_dir(base: &Path, stamp_ms: u64) -> PathBuf {
+    base.join(LOGIN_PROFILE_ROOT)
+        .join(format!("session-{stamp_ms}"))
+}
+
+/// 清扫上一轮遗留的 profile 子目录。
+///
+/// 只在「确定没有在用登录窗」时调用（`remote_baidu_login_start` 已保证此时
+/// 窗口不存在），所以整棵 `session-*` 都是死数据。删除失败只记日志：
+/// 真删不掉（被占用）也不该让这一轮登录开不起来。
+fn sweep_login_profiles(app: &AppHandle, base: &Path) {
+    let root = base.join(LOGIN_PROFILE_ROOT);
+    let Ok(entries) = std::fs::read_dir(&root) else {
+        return;
+    };
+    let mut removed = 0usize;
+    let mut failed = 0usize;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let is_session = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(|name| name.starts_with("session-"))
+            .unwrap_or(false);
+        if !is_session {
+            continue;
+        }
+        match std::fs::remove_dir_all(&path) {
+            Ok(()) => removed += 1,
+            Err(_) => failed += 1,
+        }
+    }
+    if removed > 0 || failed > 0 {
+        log_line(
+            app,
+            &format!("login profile 清扫：删掉 {removed} 个旧 session 目录，失败 {failed} 个"),
+        );
+    }
+}
+
+/// 取一支本轮专用的、已经建好的空 cookie 罐。
+///
+/// 失败一律返回 `None`，调用方退回共享 data-dir（并写日志说明）——
+/// 宁可沿用旧行为，也不要让「换账号登录」因为建目录失败而彻底不可用。
+fn prepare_login_profile(app: &AppHandle) -> Option<PathBuf> {
+    let base = match app_data_dir(app) {
+        Ok(dir) => dir,
+        Err(err) => {
+            log_line(
+                app,
+                &format!("login profile: 拿不到应用数据目录，退回共享 jar: {err}"),
+            );
+            return None;
+        }
+    };
+    sweep_login_profiles(app, &base);
+    let stamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|value| value.as_millis() as u64)
+        .unwrap_or(0);
+    let dir = login_profile_dir(&base, stamp_ms);
+    match std::fs::create_dir_all(&dir) {
+        Ok(()) => {
+            log_line(
+                app,
+                &format!("login profile: 本轮独立 cookie 罐 {}", dir.display()),
+            );
+            Some(dir)
+        }
+        Err(err) => {
+            log_line(
+                app,
+                &format!(
+                    "login profile: 建目录失败，退回共享 jar（{}）: {err}",
+                    dir.display()
+                ),
+            );
+            None
+        }
+    }
 }
 
 fn emit_event(
@@ -263,11 +381,17 @@ fn spawn_window_builder(app: AppHandle) {
             }
         };
 
-        let window = match WebviewWindowBuilder::new(&app, LOGIN_WINDOW_LABEL, WebviewUrl::External(url))
-            .title("百度网盘登录")
-            .inner_size(1100.0, 820.0)
-            .build()
-        {
+        // 每轮登录换一支全新的 webview 数据目录：罐子天生是空的，
+        // 一打开就是未登录态，不再需要用户先手点「退出登录」再扫码。
+        // 建目录失败时退回共享 jar（`prepare_login_profile` 内已记日志）。
+        let mut builder =
+            WebviewWindowBuilder::new(&app, LOGIN_WINDOW_LABEL, WebviewUrl::External(url))
+                .title("百度网盘登录")
+                .inner_size(1100.0, 820.0);
+        if let Some(profile) = prepare_login_profile(&app) {
+            builder = builder.data_directory(profile);
+        }
+        let window = match builder.build() {
             Ok(window) => window,
             Err(err) => {
                 log_line(&app, &format!("login window build failed: {err}"));
@@ -401,6 +525,251 @@ fn read_cookies(
     }
 }
 
+/// `BAIDUID` 的 cookie 名。验活探针要把它一起带上（百度的风控会看这个）。
+const BAIDUID_NAME: &str = "BAIDUID";
+
+/// 验活探针端点：与读接口同一口径的目录列表，`limit=1` 把返回体压到最小。
+///
+/// 依据：`docs/2026-11-09-baidu-write-session-findings.md` §4-B 实测失效会话在这里
+/// 回 `status=200 errno=-6`；`baidu_api.rs` 的 errno 表同样写着
+/// 「`-6` 用户未登录/会话失效，实测 T1 探针」。两处口径一致。
+const PROBE_LIVE_URL: &str = "https://pan.baidu.com/rest/2.0/xpan/file?method=list&limit=1&order=name&asc=0&web=1&app_id=250528&clienttype=0&_input_charset=utf-8";
+
+/// 会话是否可用的判定结果。
+#[derive(Debug, PartialEq, Eq)]
+enum SessionVerdict {
+    /// 服务端确认这个会话能用。
+    Live,
+    /// 服务端**确凿地**把请求当成未登录 —— 放行的话就会把死凭据存进保险库。
+    Rejected(&'static str),
+    /// 判不出来（网络不通、返回体读不懂、预期外的状态码）。
+    /// 调用方按「放行」处理：探针自身失败不该打掉用户真的登录成功。
+    Inconclusive(&'static str),
+}
+
+/// 打开登录窗口**之前** cookie 罐里已有的会话身份（保险二的比对基准）。
+struct AuthBaseline {
+    bduss: Option<String>,
+}
+
+/// 从返回体里抠出 `errno` 的整数值。
+///
+/// 手法与 `baidu_api::errno_code` 一致（字节级滑窗，不做 JSON 反序列化）：
+/// 找到 `errno` → 跳引号/空白 → 必须紧跟 `:` → 再跳引号/空白 → 允许前导负号 → 取数字。
+/// `None` = 返回体里读不出 errno。
+fn probe_errno(body: &str) -> Option<i64> {
+    const KEY: &[u8] = b"errno";
+    let bytes = body.as_bytes();
+    let skip_noise = |mut i: usize| -> usize {
+        while i < bytes.len()
+            && (bytes[i] == b'"' || bytes[i] == b'\'' || bytes[i].is_ascii_whitespace())
+        {
+            i += 1;
+        }
+        i
+    };
+    let mut i = 0usize;
+    while i + KEY.len() <= bytes.len() {
+        if &bytes[i..i + KEY.len()] == KEY {
+            let colon = skip_noise(i + KEY.len());
+            if colon < bytes.len() && bytes[colon] == b':' {
+                let start = skip_noise(colon + 1);
+                let mut end = start;
+                if end < bytes.len() && bytes[end] == b'-' {
+                    end += 1;
+                }
+                let digits = end;
+                while end < bytes.len() && bytes[end].is_ascii_digit() {
+                    end += 1;
+                }
+                if end > digits {
+                    return std::str::from_utf8(&bytes[start..end]).ok()?.parse().ok();
+                }
+            }
+            i += KEY.len();
+            continue;
+        }
+        i += 1;
+    }
+    None
+}
+
+/// 纯函数：按探针的 HTTP 状态码 + 返回体判定会话。
+///
+/// 判据口径与 `baidu_api::classify_write_response` 一致（`-6` = 未登录/会话失效、
+/// 重定向 = 未登录），差别只在探针是 GET、不需要 bdstoken。
+/// **只有确凿证据才判 Rejected**：`403`/`429`/`5xx` 这类更像风控或自身故障，
+/// 一律 Inconclusive，不要把有效会话误杀。
+fn judge_session_probe(status: u16, body: &str) -> SessionVerdict {
+    if matches!(status, 301 | 302 | 303 | 307 | 308) {
+        return SessionVerdict::Rejected("被当成未登录重定向（3xx）");
+    }
+    if status == 401 {
+        return SessionVerdict::Rejected("服务端返回 401 未授权");
+    }
+    if status != 200 {
+        return SessionVerdict::Inconclusive("探针返回非 200，判不出会话状态");
+    }
+    match probe_errno(body) {
+        Some(0) => SessionVerdict::Live,
+        Some(-6) => SessionVerdict::Rejected("服务端判定未登录（errno=-6）"),
+        Some(_) => SessionVerdict::Inconclusive("探针返回预期外的 errno"),
+        None => SessionVerdict::Inconclusive("读不出探针返回体里的 errno"),
+    }
+}
+
+/// 取 cookie 罐里的 BDUSS 值。同名多条时取第一条 —— 与
+/// `baidu_auth::scan_cookies`「同名取第一个」的口径保持一致。
+fn current_bduss<'a>(
+    mut cookies: impl Iterator<Item = &'a tauri::webview::Cookie<'static>>,
+) -> Option<&'a str> {
+    cookies
+        .find(|cookie| cookie.name() == BDUSS_NAME)
+        .map(|cookie| cookie.value())
+}
+
+/// 纯函数：当前 BDUSS 是不是「与基线不同的新值」。
+///
+/// - 有值且 ≠ 基线 ⇒ 这次登录真的换发了新会话；
+/// - 有值且 = 基线 ⇒ 就是旧 jar 里那一条，一票否决；
+/// - 无值 ⇒ 也否决（调用点在 `Ready` 之后，属兜底）。
+fn has_new_bduss(baseline: &AuthBaseline, current: Option<&str>) -> bool {
+    match current {
+        Some(current) => baseline.bduss.as_deref() != Some(current),
+        None => false,
+    }
+}
+
+/// 保险三：拿**即将**存进保险库的那份会话，直接问一次百度「你认不认它」。
+///
+/// 执行器用一次性 `current-thread` tokio runtime + reqwest 异步 client：
+/// 本仓 reqwest 没开 `blocking` 特性，而这里绝不能用 `tauri::async_runtime`
+/// （模块头的 cargo-test 红线：被测试链接到的代码不能碰它）。
+fn probe_session_live(cookies: &[tauri::webview::Cookie<'static>]) -> SessionVerdict {
+    let mut jar = String::new();
+    for cookie in cookies {
+        if matches!(
+            cookie.name(),
+            BDUSS_NAME | STOKEN_NAME | BAIDUID_NAME
+        ) {
+            if !jar.is_empty() {
+                jar.push_str("; ");
+            }
+            jar.push_str(cookie.name());
+            jar.push('=');
+            jar.push_str(cookie.value());
+        }
+    }
+    if !jar.contains(BDUSS_NAME) {
+        return SessionVerdict::Inconclusive("cookie 串里没有 BDUSS");
+    }
+    let runtime = match tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+    {
+        Ok(runtime) => runtime,
+        Err(_) => return SessionVerdict::Inconclusive("无法创建验活运行时"),
+    };
+    let outcome = runtime.block_on(async move {
+        let client = reqwest::Client::builder()
+            .timeout(VERIFY_BUDGET)
+            // 不跟随重定向：302 是「未登录」的确凿证据，跟过去就只剩 200 了。
+            .redirect(reqwest::redirect::Policy::none())
+            .build()?;
+        let response = client
+            .get(PROBE_LIVE_URL)
+            .header(reqwest::header::COOKIE, jar)
+            .send()
+            .await?;
+        let status = response.status().as_u16();
+        let body = response.text().await.unwrap_or_default();
+        Ok::<_, reqwest::Error>((status, body))
+    });
+    match outcome {
+        Ok((status, body)) => judge_session_probe(status, &body),
+        Err(_) => SessionVerdict::Inconclusive("探针请求失败（网络不通或超时）"),
+    }
+}
+
+/// 保险一：建窗后第一件事 —— 读一次 cookie 罐，把旧的 `BDUSS`/`STOKEN` 删掉，
+/// 并把**删除之前**看到的 BDUSS 记成基线（清不掉也还有保险二兜着）。
+fn purge_stale_auth_cookies(
+    app: &AppHandle,
+    window: &tauri::WebviewWindow,
+    url: &tauri::Url,
+) -> AuthBaseline {
+    let mut baseline = AuthBaseline { bduss: None };
+    let cookies = match read_cookies(window, url.clone(), COOKIE_READ_BUDGET) {
+        CookieRead::Ok(cookies) => cookies,
+        CookieRead::Timeout => {
+            log_line(app, "purge: 读 cookie 罐超时，跳过清 jar（保险二/三仍在）");
+            return baseline;
+        }
+        CookieRead::Failed(err) => {
+            log_line(
+                app,
+                &format!("purge: 读 cookie 罐失败，跳过清 jar（保险二/三仍在）: {err}"),
+            );
+            return baseline;
+        }
+    };
+    baseline.bduss = current_bduss(cookies.iter()).map(str::to_owned);
+    let victims: Vec<_> = cookies
+        .into_iter()
+        .filter(|cookie| cookie.name() == BDUSS_NAME || cookie.name() == STOKEN_NAME)
+        .collect();
+    let total = victims.len();
+    if total == 0 {
+        log_line(app, "purge: jar 里没有 BDUSS/STOKEN 残留");
+        return baseline;
+    }
+    // 和 read_cookies 一样走一次性线程 + 带超时接收：`delete_cookie` 同样是
+    // 会同步等事件循环的 API，不能让它把轮询线程钉死。
+    let (tx, rx) = std::sync::mpsc::channel();
+    let worker_window = window.clone();
+    std::thread::spawn(move || {
+        let mut failed = 0usize;
+        for cookie in victims {
+            if worker_window.delete_cookie(cookie).is_err() {
+                failed += 1;
+            }
+        }
+        let _ = tx.send(failed);
+    });
+    match rx.recv_timeout(COOKIE_READ_BUDGET) {
+        Ok(failed) => {
+            log_line(
+                app,
+                &format!("purge: 尝试删掉 {total} 条旧 BDUSS/STOKEN，失败 {failed} 条"),
+            );
+        }
+        Err(_) => log_line(app, "purge: 删除线程超时（保险二/三仍在）"),
+    }
+    baseline
+}
+
+/// 连续读不到 cookie ⇒ 收场。
+///
+/// 读超时与读失败对用户是同一件事（这一轮永远等不到 Ready），所以收场逻辑共用。
+fn give_up_unreadable(app: &AppHandle) {
+    log_line(app, "give up: cookies unreadable");
+    settle();
+    emit_event(app, "error", false, None, Some("读取登录状态失败，请重试。"));
+    close_login_window(app);
+}
+
+/// `BaiduCookieOutcome` 里「为什么还没 Ready」的可读原因。
+///
+/// 只用于诊断日志：轮询每 2 秒跑一次，把原因写清楚才能事后区分
+/// 「用户还没扫码」（Missing）与「扫到了但值不合法」（Invalid）。
+fn not_ready_reason(outcome: &BaiduCookieOutcome) -> Option<&'static str> {
+    match outcome {
+        BaiduCookieOutcome::Ready => None,
+        BaiduCookieOutcome::Missing => Some("BDUSS 还没出现在 cookie 罐里"),
+        BaiduCookieOutcome::Invalid => Some("BDUSS 值不合法"),
+    }
+}
+
 fn poll_loop(app: AppHandle, window: tauri::WebviewWindow, generation: u64) {
     let started = Instant::now();
     let url = match tauri::Url::parse(LOGIN_COOKIE_URL) {
@@ -419,6 +788,19 @@ fn poll_loop(app: AppHandle, window: tauri::WebviewWindow, generation: u64) {
         }
     };
 
+    // 保险一：清掉 jar 里遗留的 BDUSS/STOKEN，并记下「建窗时还在的 BDUSS」作为基线。
+    // 用独立 cookie 罐时这一步天然是空操作（日志会报「jar 里没有 BDUSS/STOKEN 残留」），
+    // 正好可以当作「独立罐确实生效」的信号；退回共享 jar 时它仍是有效兜底。
+    let baseline = purge_stale_auth_cookies(&app, &window, &url);
+    // 已被服务端确证「死」的 BDUSS：同一个值不再重复探针，免得每 2 秒轰炸服务端。
+    let mut rejected_bduss: Option<String> = None;
+    // 「同值旧凭据」的提示日志按值去重，避免轮询把日志刷爆。
+    let mut stale_logged: Option<String> = None;
+    // 「为什么还没 Ready」按原因去重 —— 否则每 2 秒一条，日志很快就没法看了。
+    let mut not_ready_logged: Option<&'static str> = None;
+    // 「BDUSS 合法但会话字段缺失」只记一次。
+    let mut session_missing_logged = false;
+
     let mut stoken_deadline: Option<Instant> = None;
     let mut read_failures: u32 = 0;
 
@@ -433,6 +815,15 @@ fn poll_loop(app: AppHandle, window: tauri::WebviewWindow, generation: u64) {
         // 窗口已经没了（用户关闭 / cancel / 程序化收场）就直接收工，
         // 否则线程会空转到 900 秒。
         if app.get_webview_window(LOGIN_WINDOW_LABEL).is_none() {
+            // 补一条诊断：此前这里是静默 return，事后完全分不清
+            // 「消息还没到点就被关窗」与「轮询自己崩了」。
+            log_line(
+                &app,
+                &format!(
+                    "poller exit: 登录窗已不在（{}s）",
+                    started.elapsed().as_secs()
+                ),
+            );
             return;
         }
 
@@ -451,22 +842,19 @@ fn poll_loop(app: AppHandle, window: tauri::WebviewWindow, generation: u64) {
                 read_failures += 1;
                 log_line(&app, &format!("cookies read timed out ({read_failures})"));
                 if read_failures >= MAX_READ_FAILURES {
-                    log_line(&app, "give up: cookies unreadable");
-                    settle();
-                    emit_event(
-                        &app,
-                        "error",
-                        false,
-                        None,
-                        Some("读取登录状态失败，请重试。"),
-                    );
-                    close_login_window(&app);
+                    give_up_unreadable(&app);
                     return;
                 }
             }
             CookieRead::Failed(err) => {
+                // 读失败和读超时一样会让这一轮永远等不到 Ready。
+                // 旧行为只记日志不计数 ⇒ 会一路空转到 900 秒才收场。
                 read_failures += 1;
                 log_line(&app, &format!("cookies read failed ({read_failures}): {err}"));
+                if read_failures >= MAX_READ_FAILURES {
+                    give_up_unreadable(&app);
+                    return;
+                }
             }
             CookieRead::Ok(cookies) => {
                 read_failures = 0;
@@ -486,12 +874,41 @@ fn poll_loop(app: AppHandle, window: tauri::WebviewWindow, generation: u64) {
                 }
 
                 let scan = scan_cookies(&records);
-                if !matches!(scan.outcome, BaiduCookieOutcome::Ready) {
+                if let Some(reason) = not_ready_reason(&scan.outcome) {
+                    // 每 2 秒一条会把日志刷爆，所以只在原因变化时记一条。
+                    if not_ready_logged != Some(reason) {
+                        not_ready_logged = Some(reason);
+                        log_line(&app, &format!("login 尚未 Ready：{reason}，继续等"));
+                    }
+                    continue;
+                }
+
+                // 保险二：BDUSS 与「建窗时的基线」同值 ⇒ 这是旧 jar 里的遗留凭据，
+                // 不是用户这次新扫出来的。万一清 jar 没清掉，这里照样一票否决。
+                let Some(current_bduss) = current_bduss(cookies.iter()) else {
+                    continue;
+                };
+                if !has_new_bduss(&baseline, Some(current_bduss)) {
+                    if stale_logged.as_deref() != Some(current_bduss) {
+                        stale_logged = Some(current_bduss.to_owned());
+                        log_line(
+                            &app,
+                            "login 短路拦截：BDUSS 与基线同值（旧 jar 遗留），继续等真正的新登录",
+                        );
+                    }
+                    continue;
+                }
+                // 已经探出「死」的同一个 BDUSS 不再重复探针，等它的值发生变化。
+                if rejected_bduss.as_deref() == Some(current_bduss) {
                     continue;
                 }
 
                 let has_stoken = !matches!(scan.stoken, BaiduStokenState::Absent);
                 let Some(session) = scan.session else {
+                    if !session_missing_logged {
+                        session_missing_logged = true;
+                        log_line(&app, "login 尚未 Ready：BDUSS 合法但会话字段缺失，继续等");
+                    }
                     continue;
                 };
 
@@ -508,6 +925,23 @@ fn poll_loop(app: AppHandle, window: tauri::WebviewWindow, generation: u64) {
                     }
                 }
 
+                // 保险三：交给服务端判决。只有确凿证据（3xx / 401 / errno=-6）才拒绝，
+                // 判不出来一律放行 —— 宁可多等一轮，也不误杀一个有效会话。
+                match probe_session_live(&cookies) {
+                    SessionVerdict::Live => {}
+                    SessionVerdict::Rejected(reason) => {
+                        rejected_bduss = Some(current_bduss.to_owned());
+                        log_line(
+                            &app,
+                            &format!("login 验活被服务端拒绝（{reason}），不当作 Ready，继续等")
+                        );
+                        continue;
+                    }
+                    SessionVerdict::Inconclusive(reason) => {
+                        log_line(&app, &format!("login 验活判不出来，按放行处理: {reason}"));
+                    }
+                }
+
                 let state = BaiduSessionState::new(session, stoken_expires_unix);
                 let summary = describe_state(Some(&state));
                 log_line(&app, &format!("login state ready: {summary}"));
@@ -518,5 +952,141 @@ fn poll_loop(app: AppHandle, window: tauri::WebviewWindow, generation: u64) {
                 return;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn cookie(name: &'static str, value: &'static str) -> tauri::webview::Cookie<'static> {
+        tauri::webview::Cookie::new(name, value)
+    }
+
+    // ---------- probe_errno ----------
+
+    #[test]
+    fn probe_errno_reads_positive_and_negative() {
+        assert_eq!(probe_errno(r#"{"errno":0,"list":[]}"#), Some(0));
+        assert_eq!(probe_errno(r#"{"request_id":"1","errno":-6}"#), Some(-6));
+        assert_eq!(probe_errno(r#"{ "errno" : 2 , "x": 3 }"#), Some(2));
+    }
+
+    #[test]
+    fn probe_errno_is_a_byte_scan_not_a_json_parse() {
+        // 容忍字符串形态的 errno（服务端两种都出现过）
+        assert_eq!(probe_errno(r#"{"errno":"-6"}"#), Some(-6));
+        // 数字后面还有字符时取前面那段 —— 这是字节滑窗的取舍，不追求 JSON 严格性
+        assert_eq!(probe_errno(r#"{"errno":12ab}"#), Some(12));
+        // 缺冒号
+        assert_eq!(probe_errno(r#"{"errno"0}"#), None);
+        // 压根没有这个键
+        assert_eq!(probe_errno(r#"{"list":[1,2,3]}"#), None);
+        // 只有键名的一部分
+        assert_eq!(probe_errno(r#"{"errnox":0}"#), None);
+    }
+
+    // ---------- judge_session_probe ----------
+
+    #[test]
+    fn judge_accepts_only_errno_zero_as_live() {
+        assert_eq!(
+            judge_session_probe(200, r#"{"errno":0,"list":[]}"#),
+            SessionVerdict::Live
+        );
+    }
+
+    #[test]
+    fn judge_treats_ambiguous_evidence_as_inconclusive() {
+        // 没有 STOKEN 时服务端可能回别的 errno（findings §7-②），判不出来就放行
+        assert_eq!(
+            judge_session_probe(200, r#"{"errno":2,"list":[]}"#),
+            SessionVerdict::Inconclusive("探针返回预期外的 errno")
+        );
+        assert_eq!(
+            judge_session_probe(200, r#"{"no_errno":true}"#),
+            SessionVerdict::Inconclusive("读不出探针返回体里的 errno")
+        );
+    }
+
+    #[test]
+    fn judge_rejects_on_conclusive_evidence() {
+        assert_eq!(
+            judge_session_probe(200, r#"{"errno":-6,"list":[]}"#),
+            SessionVerdict::Rejected("服务端判定未登录（errno=-6）")
+        );
+        assert_eq!(
+            judge_session_probe(302, ""),
+            SessionVerdict::Rejected("被当成未登录重定向（3xx）")
+        );
+        assert_eq!(
+            judge_session_probe(401, ""),
+            SessionVerdict::Rejected("服务端返回 401 未授权")
+        );
+    }
+
+    #[test]
+    fn judge_keeps_throttling_and_server_errors_inconclusive() {
+        // 这四条是「有效会话不被误杀」的关键：风控与自身故障都不是拒绝证据
+        for status in [403u16, 429, 500, 503] {
+            assert_eq!(
+                judge_session_probe(status, r#"{"errno":-6}"#),
+                SessionVerdict::Inconclusive("探针返回非 200，判不出会话状态"),
+                "status={status} 不该被判成拒绝"
+            );
+        }
+    }
+
+    // ---------- current_bduss / has_new_bduss ----------
+
+    #[test]
+    fn current_bduss_takes_first_name_match() {
+        let cookies = vec![cookie("BAIDUID", "b"), cookie("BDUSS", "first"), cookie("BDUSS", "second")];
+        assert_eq!(current_bduss(cookies.iter()), Some("first"));
+
+        let without = vec![cookie("BAIDUID", "b")];
+        assert_eq!(current_bduss(without.iter()), None);
+    }
+
+    #[test]
+    fn has_new_bduss_vetoes_same_value_only() {
+        let baseline = AuthBaseline { bduss: Some("stale".to_owned()) };
+        // 同值 = 旧 jar 遗留 ⇒ 一票否决
+        assert!(!has_new_bduss(&baseline, Some("stale")));
+        // 换了值 = 用户真的重新授权了 ⇒ 放行
+        assert!(has_new_bduss(&baseline, Some("fresh")));
+        // jar 里本来没有 BDUSS ⇒ 不构成否决
+        assert!(!has_new_bduss(&baseline, None));
+        assert!(has_new_bduss(&AuthBaseline { bduss: None }, Some("any")));
+    }
+
+    // ---------- login_profile_dir ----------
+
+    #[test]
+    fn login_profile_dir_gives_each_round_its_own_jar() {
+        let base = Path::new("C:\\data");
+        let a = login_profile_dir(base, 1_794_202_786_497);
+        let b = login_profile_dir(base, 1_794_202_786_498);
+        // 相差 1 ms 也必须是两个目录 —— 每轮登录都要拿到一支空罐，
+        // 否则上一轮的 BDUSS 会让保险二（基线否决）把整轮登录卡死。
+        assert_ne!(a, b, "两轮登录不能共用同一个 cookie 罐");
+        assert!(a.starts_with(base.join(LOGIN_PROFILE_ROOT)));
+        assert_eq!(a.file_name().and_then(|n| n.to_str()), Some("session-1794202786497"));
+    }
+
+    // ---------- not_ready_reason ----------
+
+    #[test]
+    fn not_ready_reason_is_none_only_when_ready() {
+        assert_eq!(not_ready_reason(&BaiduCookieOutcome::Ready), None);
+    }
+
+    #[test]
+    fn not_ready_reason_distinguishes_missing_from_invalid() {
+        let missing = not_ready_reason(&BaiduCookieOutcome::Missing).expect("Missing 必须给出原因");
+        let invalid = not_ready_reason(&BaiduCookieOutcome::Invalid).expect("Invalid 必须给出原因");
+        // 日志按原因字符串去重：两条原因若相同，「BDUSS 没出现」和
+        // 「BDUSS 非法」就会在日志里合并成一条，排查时分不清是哪一种。
+        assert_ne!(missing, invalid);
     }
 }

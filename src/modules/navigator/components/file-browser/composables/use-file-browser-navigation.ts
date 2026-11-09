@@ -733,6 +733,33 @@ export function useFileBrowserNavigation(
     }, 0);
   }
 
+  // FORK-MODIFICATION 2026-11-09（用户反馈：删除成功后目录不实时更新，必须手点「刷新」）：
+  // 从当前目录列表里就地剔除已确认删除的路径，不等重新列举。
+  // 为什么不能只靠 silentRefresh()：① 它的守卫在并发导航时会早退；② 网盘服务端的
+  // 列表接口有秒级延迟，重列可能拿回删除前的快照 —— 两条都会让界面停在旧样子。
+  // 前提是「后端已确认删除成功」（调用方传的是 DeleteReport.deleted），不是「点了删除」。
+  function removeEntriesLocally(paths: string[]): void {
+    const snapshot = dirContents.value;
+
+    if (!snapshot || paths.length === 0) {
+      return;
+    }
+
+    const removed = new Set(paths.map(path => normalizePath(path)));
+    const kept = snapshot.entries.filter(entry => !removed.has(normalizePath(entry.path)));
+
+    if (kept.length === snapshot.entries.length) {
+      return;
+    }
+
+    // dirContents 是 shallowRef：只改 entries 数组不会触发响应式，必须整体换对象。
+    dirContents.value = {
+      ...snapshot,
+      entries: kept,
+    };
+    workspacesStore.cacheDirectoryEntries(snapshot.path, kept);
+  }
+
   async function silentRefresh(): Promise<void> {
     const requestGeneration = ++silentRefreshGeneration;
     const startingReadGeneration = readGeneration;
@@ -1170,6 +1197,7 @@ export function useFileBrowserNavigation(
     currentDirEntry,
     readDir,
     silentRefresh,
+    removeEntriesLocally,
     hostKeyPrompt,
     confirmHostKeyTrust,
     dismissHostKeyTrust,
