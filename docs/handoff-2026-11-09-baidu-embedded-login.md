@@ -841,3 +841,81 @@ C_UINFO STATUS=200 ERRNO=0 HAS_NAME=1      C_LIST STATUS=200 ERRNO=0 HAS_LIST=1 
   （`node scripts/release-publish.mjs github`）**均未执行** —— 属于对外发布动作，未获确认前不自动执行。
   注意：清单已改但**尚未上传**，用户端此刻还感知不到 3.13.4。
 
+---
+
+## 2026-11-09 追加批次 F.14（对外发布已执行：站点 + GitHub 兜底）
+
+用户 2026-11-09 19:24 明确「确认上传」⇒ F.13.4 的两项待办均已执行。
+
+### F.14.1 执行口径（**与 3.13.0 那轮不同，故意偏离**）
+
+3.13.0 那轮走的是 `release:upload` **全量上传**（站点目录里全部 `.exe` 重传，约 1.5 GB / 20 分钟）。
+本轮**没有**照搬，因为全量上传有一个真实缺陷：
+
+- `_upload_alpha_files.py` 的 `SITE_FILES`（含 `version.json`）**先于**所有 `.exe` 上传
+  ⇒ 全量上传期间，线上清单已经指向 3.13.4，但那个包**还没到服务器** ⇒ 用户点下载会拿到 404；
+- 且 1.5 GB 重传里绝大部分是**与本次发布无关**的旧版本。
+
+⇒ 本轮改为**定向上传、且把安装包排在清单前面**：
+
+1. `.superpowers/sdd/upload-alpha-one.py`（新增，ASCII 源码，路径全走命令行参数）
+   —— 复用站点 `_upload_alpha_files.py` 的成熟链路（`sftp.json` 取密码、paramiko、
+   `known_hosts` + `WarningPolicy`、上传后服务端 `md5sum` + `stat` 双向校验），
+   只上传白名单里的文件；
+2. 先传 `Alpha_File_Manager_3.13.4_x64-setup.exe` → 服务端 md5+size 一致；
+3. 再用站点**自带**脚本的 `--files-only` 模式传 `index.html` / `.htaccess` / `version.json` / `download.php`
+   → 服务端 md5+size 四个全一致；
+4. `node scripts/release-publish.mjs verify` 做公网回读。
+
+⇒ 效果：用户端从「清单已更新」到「包可下载」之间**没有空窗**，且没重传 1.5 GB。
+
+### F.14.2 站点回读结果（实测）
+
+```
+[verify] 线上版本  ：3.13.4
+[verify] 清单 sha256：cfc0511d41736b8ea7621d231f6f244becb10154aebf94151afb071a4b595c95
+[verify] 本地包    ：Alpha File Manager_3.13.4_x64-setup.exe  45354324 字节
+[verify] 源站包大小：45354324 字节
+[verify] 边缘包大小：45354324 字节（CF-Cache-Status=MISS）
+[verify] 通过：版本号 / 大小 / sha256 三项均一致（源站与边缘都已生效）
+```
+
+- 独立复核：公网 `HEAD` 安装包 URL → **HTTP 200 / content-length=45354324 / CF-Cache-Status=HIT**。
+- 清单 sha256 = 站点源安装包 sha256 = `release/local-builds` 里那个包 sha256
+  = `cfc0511d…4b595c95`（三方逐字一致）。
+- ⚠️ `release/` **顶层**另有一个 `Alpha File Manager_3.13.4_x64-setup.exe`（45,359,512 B / 17:10），
+  与本次发布的 45,354,324 B / 17:59 **不是同一个包**。发布用的是后者（= F.12 装机验收过的那个）。
+
+### F.14.3 GitHub 兜底 Release
+
+- tag `v3.13.4` **本地显式创建**在 `d9ceec55`（= `main` = `origin/main`），已推送（`git ls-remote` 复核指向一致）。
+  （v3.13.0 那个 tag 也是轻量 tag，口径保持一致。）
+- `node scripts/release-publish.mjs github` → 创建 release 成功：
+  - `tag=v3.13.4`、`name=Alpha File Manager v3.13.4`、`prerelease=false`、`draft=false`
+  - `publishedAt=2026-11-09T11:29:12Z`、`targetCommitish=main`
+  - 正文 `bodyLen=896`，首行 `## Alpha File Manager 3.13.4`（读自站点源 `_release-notes-v3.13.4.md`）
+  - 资产 `Alpha_File_Manager_3.13.4_x64-setup.exe` = **45354324 字节**
+  （sha256 与清单一致）
+  - `gh release list` 里 3.13.4 标记为 **Latest**，3.13.0 及更早自动降级。
+
+### F.14.4 本批次踩到的坑
+
+1. **`gh release view --json` 不能用 `isLatest` 字段** —— `gh` 的可用字段里没有它
+   （`apiUrl/assets/author/body/createdAt/databaseId/id/isDraft/isImmutable/isPrerelease/name/publishedAt/tagName/...`），
+   写了会直接报 `Unknown JSON field` 并退出 1。**判定「是不是 Latest」要用 `gh release list` 的输出**。
+2. **`gh ... --json` 的 stdout 前面可能夹着 `/usr/bin/sh: warning: setlocale: ...`**
+   （本机 git/gh 走 sh 时报 zh-CN locale 缺失）⇒ 直接 `ConvertFrom-Json` 会炸
+   `Unexpected character encountered while parsing value: U`。
+   ⇒ 用 `gh ... --json ... --jq '...'`（让 gh 自己出 jq 过滤结果）最稳，别在 PowerShell 里二次解析。
+3. **`release-publish.mjs verify` 会自己挑 `release/` 下 mtime 最新的 `.exe`**，
+   而顶层目录里存在一个**同版本号的旧包**（45,359,512 B）—— 判定「发布的到底是哪个包」
+   不能只看文件名，必须看字节数 + sha256 三方对照。
+
+### F.14.5 本批次状态
+
+- 对外发布：**已完成**（站点 + GitHub 双通道），用户端此刻已能感知 3.13.4。
+- 门禁：本轮**未改任何代码**（只新增 `.superpowers/sdd/upload-alpha-one.py` 这个一次性脚本），
+  故沿用 F.13.3 的口径：`vue-tsc` 0 / `eslint .` 177 errors（与基线一致）/ `verify-changelog` 0 /
+  `cargo test --lib` 1174 passed。
+- `main` 与 `origin/main` 一致（`d9ceec55`），**未推送新提交**（本轮无代码改动）。
+
