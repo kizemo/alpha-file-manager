@@ -198,9 +198,18 @@ async fn main() -> Result<()> {
     } else {
         log_event(&Event::SpikeError {
             kind: "service_mode".into(),
-            message: "--service flag set; heartbeat disabled (Task Scheduler manages lifecycle)".into(),
+            message: "--service flag set (legacy); heartbeat and parent watchdog disabled".into(),
             ts: now_iso8601(),
         });
+    }
+
+    // v0.6.0: AFM owns this process. The focus-sync extension launches the
+    // sidecar through the extension command API, so the AFM host is our
+    // parent. When AFM exits -- cleanly, by crash, or by Task Manager kill --
+    // the sidecar must follow instead of outliving it. --service (legacy
+    // Scheduled Task mode) keeps the old behaviour and skips the watchdog.
+    if !cli.service {
+        spawn_parent_watchdog();
     }
 
     let state = Arc::new(AppState::new(cfg.initial_path.clone(), session_id));
@@ -647,6 +656,135 @@ async fn main() -> Result<()> {
         ts: now_iso8601(),
     });
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// v0.6.0 parent watchdog: windows API surface
+//
+// Kept local to this module rather than added to the file-level imports so the
+// symbols stay next to the only code that uses them.
+// ---------------------------------------------------------------------------
+use windows::Win32::Foundation::{CloseHandle, HANDLE};
+use windows::Win32::System::Diagnostics::ToolHelp::{
+    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
+};
+use windows::Win32::System::Threading::{OpenProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE};
+
+/// `WAIT_OBJECT_0`. Named as a value rather than imported so this compiles
+/// against both the pre-0.56 `u32` and the newer `WAIT_EVENT` return type.
+const WAIT_OBJECT_0_VAL: u32 = 0x0000_0000;
+/// `INFINITE`, inlined for the same reason (its home module moved between
+/// windows crate releases).
+const INFINITE_VAL: u32 = 0xFFFF_FFFF;
+
+/// v0.6.0: AFM owns this process.
+///
+/// The focus-sync extension launches the sidecar through the extension command
+/// API (`sigma.shell.runWithProgress`), so the sidecar's parent is the AFM host
+/// process. That replaces the old Windows Scheduled Task ('KizemoFocusSync',
+/// AtLogOn + `--service`), which outlived AFM and then raced the next instance
+/// for ports 37421 / 42721.
+///
+/// We take a SYNCHRONIZE handle on the parent *at startup* and block on it.
+/// Holding the handle removes the PID-reuse race that a periodic "is the
+/// parent still alive" poll would carry, and it covers every exit path: clean
+/// shutdown, crash, and a Task Manager kill all signal the handle.
+///
+/// Failure to resolve or open the parent is non-fatal: we log it and keep
+/// serving. A sidecar that cannot watch its parent still works; it just has to
+/// be reaped some other way, and refusing to start would be worse.
+fn spawn_parent_watchdog() {
+    let parent_pid = match current_parent_pid() {
+        Some(pid) if pid != 0 => pid,
+        _ => {
+            log_event(&Event::SpikeError {
+                kind: "parent_watchdog_unavailable".into(),
+                message: "could not resolve the parent pid; lifecycle will not follow the host".into(),
+                ts: now_iso8601(),
+            });
+            return;
+        }
+    };
+
+    let handle = match unsafe { OpenProcess(PROCESS_SYNCHRONIZE, false, parent_pid) } {
+        Ok(h) if !h.is_invalid() => h,
+        _ => {
+            log_event(&Event::SpikeError {
+                kind: "parent_watchdog_unavailable".into(),
+                message: format!("OpenProcess failed for parent pid={parent_pid}"),
+                ts: now_iso8601(),
+            });
+            return;
+        }
+    };
+
+    log_event(&Event::SpikeError {
+        kind: "parent_watchdog_armed".into(),
+        message: format!("watching parent pid={parent_pid}"),
+        ts: now_iso8601(),
+    });
+
+    // HANDLE is not Send; carry the raw value across the thread boundary and
+    // rebuild it there. Ownership of that handle lives in the thread only, so
+    // nobody else can close it underneath the wait.
+    let raw = handle.0 as isize;
+    std::thread::Builder::new()
+        .name("spike-parent-watchdog".into())
+        .spawn(move || {
+            let handle = HANDLE(raw as *mut core::ffi::c_void);
+            let wait = unsafe { WaitForSingleObject(handle, INFINITE_VAL) };
+            unsafe {
+                let _ = CloseHandle(handle);
+            }
+            if wait.0 == WAIT_OBJECT_0_VAL {
+                log_event(&Event::SpikeError {
+                    kind: "parent_gone".into(),
+                    message: format!("parent pid={parent_pid} exited; shutting the sidecar down"),
+                    ts: now_iso8601(),
+                });
+                std::process::exit(0);
+            }
+            log_event(&Event::SpikeError {
+                kind: "parent_watchdog_error".into(),
+                message: format!("WaitForSingleObject returned {}", wait.0),
+                ts: now_iso8601(),
+            });
+        })
+        .expect("spawn parent watchdog thread");
+}
+
+/// Resolve the parent pid via a toolhelp snapshot.
+///
+/// The Rust standard library exposes no getppid, and the windows crate has no
+/// wrapper for this either, so we walk the process list looking for our own
+/// entry. Returns None when the snapshot cannot be created or our pid is not
+/// in it (both mean "cannot watch"), which the caller treats as non-fatal.
+fn current_parent_pid() -> Option<u32> {
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) }.ok()?;
+    if snapshot.is_invalid() {
+        return None;
+    }
+
+    let me = std::process::id();
+    let mut entry = unsafe { std::mem::zeroed::<PROCESSENTRY32W>() };
+    entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+
+    let mut parent = None;
+    unsafe {
+        if Process32FirstW(snapshot, &mut entry).is_ok() {
+            loop {
+                if entry.th32ProcessID == me {
+                    parent = Some(entry.th32ParentProcessID);
+                    break;
+                }
+                if Process32NextW(snapshot, &mut entry).is_err() {
+                    break;
+                }
+            }
+        }
+        let _ = CloseHandle(snapshot);
+    }
+    parent
 }
 
 /// Minimal app classifier from HWND class name.

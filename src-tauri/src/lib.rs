@@ -37,6 +37,7 @@ mod main_window_state;
 mod orphan_webview;
 // `pub` 是为了让 `examples/mcp-spike.rs` 能起同一个模块 —— Phase 0 的 spike
 // 与应用内跑的是同一份端点代码，不是另写一份。
+mod focus_sync_sidecar;
 pub mod mcp;
 mod open_with;
 mod process_runner;
@@ -601,6 +602,11 @@ pub fn run() {
         ) {
             webview_guard_runtime::mark_shutting_down(app_handle);
         }
+        // Focus Sync 侧车跟着应用退出。只在真正的 Exit 上杀：ExitRequested
+        // 可能被托盘逻辑取消，此时不应该把侧车拆掉。
+        if matches!(event, tauri::RunEvent::Exit) {
+            focus_sync_sidecar::stop(app_handle);
+        }
     });
 }
 
@@ -649,6 +655,9 @@ fn setup_handler(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
     // WebView2 子进程崩溃兜底：启动看门狗线程。
     // 判定逻辑在 webview_guard.rs（纯逻辑，不引用 tauri），这里只做接线。
     webview_guard_runtime::start_webview_guard(app.handle());
+    // Focus Sync 侧车：随应用启动，随应用退出（见 focus_sync_sidecar 模块注释）。
+    // 找不到二进制属于正常（用户没装该扩展），只记日志。
+    focus_sync_sidecar::start(app.handle());
     startup_storage_bootstrap::migrate_legacy_user_storage_filenames(app.handle());
     // FORK-MODIFICATION 2026-10-20：移植上游 8908e214。
     //
