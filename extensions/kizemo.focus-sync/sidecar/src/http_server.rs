@@ -130,7 +130,7 @@ use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
 //
 // 环境变量逃生阀：FOCUS_SYNC_AFM_GATE=0 让闸门恒开（回到旧行为，便于 A/B）。
 // FOCUS_SYNC_AFM_HANDOFF_TTL_MS 调整交接时效（默认 120000ms）。
-const SPIKE_VERSION: &str = "0.5.19";
+const SPIKE_VERSION: &str = "0.6.0";
 
 #[derive(Debug, Deserialize)]
 struct SetPathBody {

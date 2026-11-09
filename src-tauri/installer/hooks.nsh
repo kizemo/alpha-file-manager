@@ -997,39 +997,32 @@ FunctionEnd
   ; We invoke the PS via $INSTDIR\tools\register-scheduled-task.ps1 which
   ; is bundled into the installer by tauri.conf.json bundle.resources.
   ; ---------------------------------------------------------------------
-  DetailPrint "==> Stage 9: Registering Scheduled Task 'KizemoFocusSync'..."
-  nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\tools\register-scheduled-task.ps1" -SidecarPath "$RESOLVEDAPPDATA\com.sigma-file-manager.app\extensions\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe"'
-  Pop $0
-  ${If} $0 != "0"
-    DetailPrint "==> WARNING: register-scheduled-task.ps1 exited with code $0"
-    DetailPrint "    Scheduled Task may not be created. Run manually: schtasks /Create ..."
-  ${EndIf}
-
-  ; Drop the duplicate now that the task points at the canonical copy, so a
-  ; later install cannot silently fall back to a stale binary.
-  Delete "$INSTDIR\tools\focus-sync-sidecar.exe"
-  DetailPrint "    Removed the duplicate copy from $INSTDIR\tools\."
-
-  ; v0.5.11: 显式把 sidecar 拉起来，不要依赖 Register-ScheduledTask 的副作用。
+  ; ---------------------------------------------------------------------
+  ; v0.6.0 (2026-11-10): the sidecar is no longer a Scheduled Task.
   ;
-  ; 实测时间线（2026-10-13 15:10 一轮安装）：PREINSTALL 杀掉 sidecar 并禁用计划
-  ; 任务之后，它直到 15:11:33 才重新出现，中间约 45 秒端口 37421 是关的。这 45 秒
-  ; 里启动的 Alpha 会在 30 秒启动宽限期到期后弹红色 "Sidecar not reachable" ——
-  ; 用户看到的就是「装完自己在报故障」。
+  ; The lifecycle owner is Alpha itself: src/focus_sync_sidecar.rs spawns
+  ; tools\focus-sync-sidecar.exe during setup_handler, which makes the AFM
+  ; process its parent, and the sidecar's parent watchdog exits as soon as
+  ; that parent goes away (the Rust side also kills it on RunEvent::Exit).
+  ; A leftover Scheduled Task would
+  ; additionally outlive AFM and race the new instance for ports 37421 /
+  ; 42721, so every install -- new or upgrade -- now REMOVES the task.
+  ; Both calls are idempotent when the task does not exist.
+  ; ---------------------------------------------------------------------
+  DetailPrint "==> Stage 9: Removing the legacy 'KizemoFocusSync' Scheduled Task..."
+  nsExec::ExecToLog 'powershell -NoProfile -Command "Stop-ScheduledTask -TaskName ''KizemoFocusSync'' -ErrorAction SilentlyContinue"'
+  Pop $0
+  nsExec::ExecToLog 'powershell -NoProfile -Command "Unregister-ScheduledTask -TaskName ''KizemoFocusSync'' -Confirm:$$false -ErrorAction SilentlyContinue"'
+  Pop $0
+
+  ; The helper script existed only to serve that task; drop it so a later
+  ; install cannot fall back to a stale copy.
   ;
-  ; 显式 Start 把恢复动作从「注册任务顺带拉起来的副作用」变成「我们自己负责的动作」。
-  ; v0.5.12 (2026-10-30) fix: re-enable the task before starting it.
-  ; PREINSTALL above runs Disable-ScheduledTask so the sidecar cannot respawn
-  ; while files are overwritten, but nothing re-enabled it. After every
-  ; install/upgrade the task stayed Disabled and the Start below failed
-  ; silently, so the focus-sync extension permanently reported
-  ; "Sidecar not reachable on 127.0.0.1:37421".
-  ; Enable-ScheduledTask is idempotent, so it is safe on every run.
-  nsExec::ExecToLog 'powershell -NoProfile -Command "Enable-ScheduledTask -TaskName ''KizemoFocusSync'' -ErrorAction SilentlyContinue"'
-  Pop $0
-  nsExec::ExecToLog 'powershell -NoProfile -Command "Start-ScheduledTask -TaskName ''KizemoFocusSync'' -ErrorAction SilentlyContinue"'
-  Pop $0
-  DetailPrint "==> Stage 9b: re-enabled the sidecar task and requested it to start."
+  ; The sidecar binary itself is KEPT: it is now launched by the Alpha main
+  ; process during setup (src/focus_sync_sidecar.rs), so tools\ is where the
+  ; shipped copy lives.
+  Delete "$INSTDIR\tools\register-scheduled-task.ps1"
+  DetailPrint "    Removed the legacy task and its helper script."
 
   stage9_skip:
 
@@ -1057,7 +1050,7 @@ FunctionEnd
   DetailPrint "    Extension files: $RESOLVEDAPPDATA\com.sigma-file-manager.app\extensions\kizemo.focus-sync\"
   DetailPrint "    Sidecar binary:  $RESOLVEDAPPDATA\com.sigma-file-manager.app\extensions\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe (canonical, per-user)"
   DetailPrint "    Registry:        HKLM\SOFTWARE\kizemo\focus-sync\SidecarPath"
-  DetailPrint "    Scheduled Task:  KizemoFocusSync (AtLogOn, --service mode)"
+  DetailPrint "    Sidecar:         started by the Alpha main process at setup, exits with Alpha (no Scheduled Task)"
 
   ; ---------------------------------------------------------------------
   ; 落盘本次安装的第二条记录（安装已完成）。
