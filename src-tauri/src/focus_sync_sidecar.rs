@@ -57,7 +57,10 @@ fn resolve_sidecar_path(app: &tauri::AppHandle) -> Option<PathBuf> {
         }
     }
 
-    if let Ok(data_dir) = app.path().app_data_dir() {
+    // 走 app_dirs 的统一解析点：直接调 Tauri 自带的 app 数据目录解析器会绕过
+    // e2e 数据隔离（debug 构建下的 SFM_E2E_DATA_DIR 覆盖），
+    // 让隔离实例读到用户真实的 app 数据目录。
+    if let Ok(data_dir) = crate::app_dirs::app_data_dir(app) {
         candidates.push(
             data_dir
                 .join("extensions")

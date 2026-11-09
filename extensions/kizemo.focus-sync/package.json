@@ -2,7 +2,7 @@
   "id": "kizemo.focus-sync",
   "name": "Focus Sync",
   "version": "0.5.9",
-  "description": "Listary-style global focus sync. Sidecar runs as a Windows Scheduled Task (independent of the File Manager lifecycle).",
+  "description": "Listary-style global focus sync. The sidecar runs as a child process of Alpha File Manager and exits with the app.",
   "publisher": {
     "name": "Alpha File Manager",
     "url": "https://github.com/kizemo"
