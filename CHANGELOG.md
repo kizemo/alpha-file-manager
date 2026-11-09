@@ -1,5 +1,44 @@
 # Changelog
 
+## [3.13.4] - November 2026
+
+**Summary:** Three defects found while verifying 3.13.3 on a real machine - a failed remote *New folder* left the *Create* button greyed out for good, the backend left no trace at all of remote reads, deletes or folder creation, and creating a folder on Baidu Netdisk was rejected by the server because the request carried no form body.
+
+### What changed
+
+- **Fixed** **Creating a folder on Baidu Netdisk no longer fails with a protocol error** - The *Create folder* request put every parameter in the query string and sent an empty request body, and the server answered that with a parameter error, so a new remote folder could never be created. The same request with a proper form body succeeds, which an A/B probe against the live API confirmed. The request now sends the folder path, the directory flag and the empty block list as a form body.
+- **Fixed** **A failed remote *New folder* no longer leaves the dialog stuck** - The dialog only cleared its submitting state when the name changed, and the parent only closed the dialog on success, so a failure left *Create* disabled with no way to retry and no hint why. The dialog now takes a result receipt from its parent and re-enables the button when the operation fails, while the dialog stays open for another attempt.
+- **Added** **Remote operations now leave traces in the log** - *List*, *Delete* and *Create folder* each log a begin/done pair with the connection, the path, the entry count and the elapsed time, so "the listing did not refresh" can be told apart from "the request never reached the server".
+
+## [3.13.3] - November 2026
+
+**Summary:** Two follow-ups from using the Baidu Netdisk connection added in 3.13.2 - *Test connection* said the password had been refused when nothing had been checked at all, and a deleted file only left the listing after pressing *Refresh*.
+
+### What changed
+
+- **Fixed** **A Baidu Netdisk connection with no stored session no longer claims the password was rejected** - The probe answered *AuthRejected* when it had no credential to present, so the form read *Connected, but the server rejected the username and password.* for a check that never reached the server. It now reports a missing credential, and the text no longer asserts that a connection was made.
+- **Fixed** **The form shows what the check actually reported** - *Test connection* rendered one fixed sentence per outcome and dropped the backend's own message. That message now appears under the outcome, so a timeout, an expired session and a refused credential no longer read alike.
+- **Fixed** **An unsaved Baidu Netdisk connection is told to save first** - Testing a connection whose sign-in has not been stored yet runs no request and points at *Save* instead of guessing.
+- **Fixed** **Deleting remote entries updates the listing immediately** - A successful delete now removes the entries from the listing before the refresh runs, so the change is visible without pressing *Refresh*.
+
+## [3.13.2] - November 2026
+
+**Summary:** Removing a Baidu Netdisk connection and adding it back - signing out of the account the sign-in window had opened with, then scanning the QR code - now works. Before, the window came up already signed in to the old account, the round finished without a word, and the connection was saved with nothing behind it.
+
+### What changed
+
+- **Fixed** **Baidu Netdisk sign-in gets a clean cookie store per attempt** - The sign-in window shares the app's own WebView2 profile, so an account signed in earlier was still signed in when the window opened, and signing out inside the page did not clear it either: removing those cookies reported success and left them in the jar. Each attempt now runs in its own throwaway profile under `baidu-login-profile/session-<timestamp>`, swept at the start of the next attempt, so the window always opens on a real sign-in page.
+- **Fixed** **Saving without a signed-in session now says so** - Adding a Baidu Netdisk connection used to save it even when the sign-in round had produced nothing, leaving a connection that answered every request as signed out. Saving is now refused with *Sign in to Baidu Pan inside the app, then save this connection.*, and because the refusal happens before the connection is written, no half-made entry is left behind.
+- **Fixed** **A sign-in round that ends badly now reports it** - A closed window, a timeout, and a failure to read the session each used to change one line of grey text inside the form the user was not looking at. Each of them now raises a toast, and *Cancel* stays available in every state except *idle* and *ready*.
+
+## [3.13.1] - November 2026
+
+**Summary:** The Baidu Netdisk sign-in window no longer mistakes the cookies of an already-expired session for a fresh login. A net disk connection that saved fine but then answered every browse and delete with *the server rejected your username or password* should work now.
+
+### What changed
+
+- **Fixed** **Baidu Netdisk sign-in no longer short-circuits on a stale session** - The embedded sign-in window closed itself about two seconds after opening, because the `BDUSS` / `STOKEN` cookies left in the WebView2 cookie jar by an earlier, already-expired session satisfied the "am I logged in?" check immediately - the QR code never got scanned, and those dead cookies were what got saved into the vault. Stale authentication cookies are now cleared before the window opens; a login that hands back the *same* `BDUSS` as the one that was there before is refused; and every candidate session is probed against the drive, so a session the server still treats as signed out is rejected instead of stored. The window stays open until a real sign-in shows up.
+
 ## [3.13.0] - November 2026
 
 **Summary:** Baidu Netdisk is now a remote connection you can browse like any other server, and the places you reach a remote server from have been rebuilt around that. *Settings* splits net disks and remote connections into two tabs, the dashboard lists the connections you have saved, and the *Locations* page groups everything - volumes first, then net disks, then remote connections.

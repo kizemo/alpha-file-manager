@@ -1,5 +1,20 @@
 # Nhật ký thay đổi
 
+## [3.13.4] - November 2026
+
+**Summary:** Signing in to Baidu Netdisk now happens inside the app, and four defects found while verifying the previous build are fixed: a stale session could be taken for a fresh sign-in, *Test connection* claimed a password had been refused when nothing had been checked, a deleted file only left the listing after pressing *Refresh*, and creating a folder on Baidu Netdisk was rejected by the server because the request carried no form body.
+
+### What changed
+
+- **New** **Baidu Netdisk can be signed in inside the app** - *Use the embedded window to sign in* opens the real Baidu login page in a built-in browser window; scanning the QR code there is enough, the session is picked up automatically and no cookie has to be copied by hand.
+- **Fixed** **A stale session is no longer taken for a fresh sign-in** - Each attempt starts from a clean cookie jar, a sign-in that hands back the same session as the one before is refused, and a session the server already treats as signed out is rejected instead of being stored.
+- **Fixed** **Saving without a signed-in session is refused** - The form points at *Sign in inside the app* instead of saving an entry that answers every request as signed out, and a sign-in that ends badly (window closed, timed out, session unreadable) now raises a toast instead of leaving one grey line of text.
+- **Fixed** ***Test connection* no longer claims the password was refused** - With no stored credential the check reports a missing credential, and the backend's own message appears under the outcome, so a timeout, an expired session and a refused credential no longer read alike.
+- **Fixed** **Deleting a remote entry updates the listing immediately** - The entries are removed from the listing before the refresh runs, so the change is visible without pressing *Refresh*.
+- **Fixed** **Creating a folder on Baidu Netdisk no longer fails with a protocol error** - The request put every parameter in the query string and sent an empty body, which the server answered with a parameter error; the request now sends a proper form body and a new remote folder is created on the drive itself.
+- **Fixed** **A failed remote *New folder* no longer leaves the dialog stuck** - The *Create* button is re-enabled when the operation fails and the dialog stays open for another attempt.
+- **Added** **Remote operations now leave traces in the log** - *List*, *Delete* and *Create folder* each log a begin/done pair with the connection, the path, the entry count and the elapsed time.
+
 ## [3.13.0] - November 2026
 
 **Summary:** Baidu Netdisk is now a remote connection you can browse like any other server, and the places you reach a remote server from have been rebuilt around that. *Settings* splits net disks and remote connections into two tabs, the dashboard lists the connections you have saved, and the *Locations* page groups everything - volumes first, then net disks, then remote connections.
