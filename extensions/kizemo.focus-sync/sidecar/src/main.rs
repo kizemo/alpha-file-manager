@@ -389,8 +389,20 @@ async fn main() -> Result<()> {
                         // 再切回弹窗，才把 current_path 写进弹窗。两个条件互相
                         // 独立，缺一个就不写；写成功后由下面清闩（一次访问只
                         // 授权一次同步）。`FOCUS_SYNC_AFM_GATE=0` 时闸门恒开。
-                        let gate_open = state.afm_gate_open();
-                        if writable && gate_open {
+                        // v0.5.19 — 闸门换成「交接闸门」：必须发生过 AFM -> X 的
+                        // 交接、交接没过期、且弹窗属于接手 AFM 的那个应用。
+                        // 这正是用户诉求「如果没有直接从 AFM 切换到弹窗，则不要
+                        // 同步路径」——v0.5.15 的访问闩只上弦不下弦，22 分钟前
+                        // 的访问照样能授权后来弹出的对话框（真机 2026-11-09：
+                        // 11:09 停在百度网盘，11:31 在 practilog 被写进伪路径）。
+                        let dialog_pid = spike::uia_event::window_pid_isize(hwnd_u32 as isize);
+                        let gate_open = state.afm_handoff_allows(dialog_pid);
+                        // v0.5.19 — 路径合法性：只有**真实存在的本地目录**才允许
+                        // 写进别人的对话框。AFM 停在百度网盘远程目录时推来的是
+                        // 虚拟路径，写进去只会换来对方的「找不到该文件」错误框，
+                        // 而那个错误框又会被当成新对话框重试 ⇒ 反复报错。
+                        let path_ok = spike::state::is_writable_local_path(&current);
+                        if writable && gate_open && path_ok {
                             // v0.5.7 G-2: hold the monitor off for the whole
                             // write. RAII clears the flag even on early return.
                             let _sync_guard = state.begin_sync();
@@ -471,12 +483,12 @@ async fn main() -> Result<()> {
                                 // 2026-10-07 22:08 — resync every 1.2s forever,
                                 // address bar accumulating `E:\` each time.)
                                 wrote_back = true;
-                                // v0.5.15: 这次访问兑现了 -- 消耗掉 AFM 访问闩,
-                                // 下一个弹窗要同步就必须再回 AFM 走一趟。
+                                // v0.5.19: 这次同步兑现了 -- 消耗掉本次交接授权,
+                                // 下一个弹窗要同步就必须再从 AFM 切一次。
                                 // 写失败时**不下弦**: `if !wrote_back` 仍按
                                 // initial_path 登记, 冷却重试复用同一次授权,
                                 // 不该逼用户为了同一次操作回 AFM 两次。
-                                state.clear_afm_visit();
+                                state.clear_afm_handoff();
                                 state.register_dialog(DialogInfo {
                                     hwnd: hwnd_u32,
                                     app: class.clone(),
@@ -484,6 +496,18 @@ async fn main() -> Result<()> {
                                     write_strategy: None,
                                 });
                             }
+                        } else if writable && gate_open && !path_ok {
+                            // v0.5.19: 路径不可写（虚拟路径 / 目录不存在）。
+                            // 必须排在闸门分支**之前**: 被路径拦下时原因不是
+                            // 「没访问过 AFM」，报错方向要准。
+                            log_event(&Event::SpikeError {
+                                kind: "opened_write_back_skip_non_local_path".into(),
+                                message: format!(
+                                    "dialog path='{}' current='{}' (not a writable local directory); skipping",
+                                    initial_path, current
+                                ),
+                                ts: now_iso8601(),
+                            });
                         } else if writable && !gate_open {
                             // v0.5.15: 本次需求的行为改动本体。路径确实和弹窗里登记的
                             // 初值不同, 但用户自上次同步之后**没有访问过 AFM 窗口**,

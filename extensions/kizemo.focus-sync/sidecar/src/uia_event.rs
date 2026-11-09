@@ -242,13 +242,24 @@ pub fn start_monitor(
                 .unwrap_or(0),
         );
 
-        // v0.5.15 — 上弦只在这一处，且只认上升沿（否则 AFM 停在后台期间
-        // 每 tick 都会重新授权，闸门退化成恒真）。
-        // 本循环是全进程唯一带消息泵的前台观察方，所以由它来判定。
+        // v0.5.19 — 交接记录只在这一处（monitor 是全进程唯一带消息泵的前台
+        // 观察方，HTTP 线程自问 GetForegroundWindow 不可靠）。
+        //
+        // 语义从「访问闩」改成「交接」：
+        //   * AFM -> 非 AFM 的下降沿 = 用户把焦点交给了某个应用 ⇒ 记下
+        //     「接手的应用 pid」和时刻，这就是「直接从 AFM 切换」的起点；
+        //   * 非 AFM -> AFM 的上升沿 = 用户回到 AFM ⇒ 作废上一次交接
+        //     （陈旧授权不许复活）。
         let afm_now = foreground_is_afm();
-        if afm_now && !was_afm_foreground {
-            state.arm_afm_visit();
-            debug!("[afm-gate] armed: AFM became foreground");
+        if afm_now != was_afm_foreground {
+            if afm_now {
+                state.clear_afm_handoff();
+                debug!("[afm-gate] AFM back in foreground; previous handoff cleared");
+            } else {
+                let pid = foreground_window_pid();
+                state.set_afm_handoff(pid);
+                debug!("[afm-gate] handoff recorded: pid={}", pid);
+            }
         }
         was_afm_foreground = afm_now;
 
@@ -536,6 +547,42 @@ fn get_window_text(hwnd: HWND) -> String {
 pub fn is_afm_window(hwnd: HWND) -> bool {
     get_class_name(hwnd) == "Tauri Window"
         && get_window_text(hwnd).starts_with("Alpha File Manager")
+}
+
+/// v0.5.19 — 当前前台窗口所属的**进程 id**（0 = 取不到）。
+///
+/// 交接闸门要靠它回答「用户从 AFM 切给了哪个应用」。用进程而不是窗口：
+/// 同一个应用内部在主窗口和文件对话框之间切换不改变 pid，所以
+/// 「在 Edge 里点下载 → 弹出另存为」不会被误判成换了应用。
+pub fn foreground_window_pid() -> u32 {
+    unsafe {
+        let hwnd = GetForegroundWindow();
+        if hwnd.is_invalid() {
+            return 0;
+        }
+        let mut pid: u32 = 0;
+        windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId(
+            hwnd,
+            Some(&mut pid as *mut u32),
+        );
+        pid
+    }
+}
+
+/// v0.5.19 — 指定窗口所属的**进程 id**（0 = 取不到）。
+pub fn window_pid_isize(hwnd: isize) -> u32 {
+    unsafe {
+        let h = HWND(hwnd as *mut core::ffi::c_void);
+        if h.is_invalid() {
+            return 0;
+        }
+        let mut pid: u32 = 0;
+        windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId(
+            h,
+            Some(&mut pid as *mut u32),
+        );
+        pid
+    }
 }
 
 /// v0.5.15 — monitor 每 tick 用：当前前台窗口是否为 AFM（闸门的上弦信号）。

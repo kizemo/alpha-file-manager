@@ -113,23 +113,27 @@ pub struct AppState {
     // accumulating the path over and over).
     pub sync_in_progress: AtomicBool,
 
-    // ---- v0.5.15: AFM 访问闩（一次访问只授权一次同步）
+    // ---- v0.5.19: AFM 交接闸门（handoff gate）
     //
-    // 用户诉求（2026-11-06）：此前「任何情况下打开弹窗 / 切回弹窗都会自动同步
-    // AFM 之前的路径」，超出预期。改为：只有使用者把窗口切到 AFM 窗口、
-    // 再切回弹窗，路径才进行同步。
+    // v0.5.15 的「访问闩」只上弦、不下弦：只要曾经把窗口切到过 AFM，授权就
+    // 永久有效。真机证据（2026-11-09）：11:09:28 在 AFM 里停在百度网盘远程
+    // 目录，11:31:18 在另一个程序里打开对话框，路径照样被写进去 —— 中间隔了
+    // 22 分钟，用户中间已经切走过好几个程序。
     //
-    // 语义是一次性授权：AFM 前台上升沿上弦，闸门开一次；路径真正写进弹窗后
-    // 下弦。所以「AFM -> 弹窗A（同步）-> 弹窗B（不再同步）」是预期行为，
-    // B 需要用户再回 AFM 一次。
+    // v0.5.19 换成「交接」语义：记录「用户从 AFM 切走的那一刻」与「接手前台的
+    // 应用 pid」。放行要三条同时成立：
+    //   1. 确实发生过 AFM -> X 的交接；
+    //   2. 交接距今不超过 TTL（FOCUS_SYNC_AFM_HANDOFF_TTL_MS，默认 120 秒）；
+    //   3. 弹窗所属进程 == 接手 AFM 的那个应用。
+    // 这正是用户诉求：「如果没有直接从 AFM 切换到弹窗，则不要同步路径」。
     //
-    // 上弦只在 uia_event.rs 的 monitor 循环里做——它是全进程唯一可靠的前台
-    // 观察方（带消息泵；state.rs 的 foreground_dialog 字段注释记录了 HTTP
+    // 交接的观察点仍在 uia_event.rs 的 monitor 循环 —— 它是全进程唯一可靠的
+    // 前台观察方（带消息泵；state.rs 的 foreground_dialog 字段注释记录了 HTTP
     // 线程自问 GetForegroundWindow 不可靠的事故）。
     //
-    // 逃生阀：`FOCUS_SYNC_AFM_GATE=0|false|off` 时 afm_gate_open() 恒真，
-    // 完全回到 v0.5.14 行为，便于真机 A/B 对照。
-    pub afm_visit_latch: AtomicBool,
+    // 逃生阀不变：`FOCUS_SYNC_AFM_GATE=0|false|off` 时闸门恒开（回到 v0.5.14
+    // 行为），便于真机 A/B 对照。
+    pub afm_handoff: Mutex<Option<AfmHandoff>>,
 }
 
 /// v0.5.7 G-2 — RAII guard so a write-back cannot be left stuck "in
@@ -179,6 +183,57 @@ pub fn paths_equal(a: &str, b: &str) -> bool {
     normalize_path(a) == normalize_path(b)
 }
 
+/// v0.5.19 — 这个路径能不能被写进别的程序的对话框？
+///
+/// 背景（真机 2026-11-09 11:31）：AFM 停在百度网盘远程目录时，扩展把
+/// `sfm://remote/<id>/0000temp` 的 scheme 剥掉，得到伪路径
+/// `\remote\<id>\0000temp`，侧车把它写进了另一个程序的「打开」对话框 ⇒
+/// Windows 弹「找不到 \remote\...\0000temp」错误框；那个错误框又被
+/// monitor 当成新对话框 ⇒ 每 1~2 秒重试一次 ⇒ 关闭后仍反复报错。
+///
+/// 判定两段：
+///   1. **形状**：必须是盘符路径 `X:\...` 或 UNC `\\server\share`。
+///      根相对路径（`\remote\...`）、`sfm://...`、`\locations` 全部拒绝。
+///   2. **存在性**：本地路径必须是**真实存在的目录**。往别人的对话框里写
+///      一个不存在的目录，换来的一定是对方的报错框。
+///
+/// UNC 只查形状不查存在性：网络盘可能离线，探测会阻塞在 IO 上。
+pub fn is_writable_local_path(p: &str) -> bool {
+    let s = p.trim();
+    if s.is_empty() {
+        return false;
+    }
+    let b = s.as_bytes();
+    let is_drive = b.len() >= 3 && b[1] == b':' && (b[2] == b'\\' || b[2] == b'/');
+    let is_unc = s.starts_with("\\\\");
+    if !is_drive && !is_unc {
+        return false;
+    }
+    if is_unc {
+        return true;
+    }
+    std::path::Path::new(s).is_dir()
+}
+
+/// v0.5.19 — 一次「AFM -> 其它应用」的交接记录。
+///
+/// `pid` = 接手前台的**应用进程**（不是窗口）：同一个应用里在主窗口和
+/// 文件对话框之间来回切换不会改变 pid，所以「用户在 Edge 里点了下载，
+/// 弹出另存为」这种同应用内的切换不会被误判成「换了应用」。
+#[derive(Debug, Clone, Copy)]
+pub struct AfmHandoff {
+    pub pid: u32,
+    pub ts_ms: u64,
+}
+
+/// v0.5.19 — 当前 Unix 毫秒（交接时效判定用）。
+pub fn now_unix_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
 impl AppState {
     pub fn new(initial_path: String, session_id: u32) -> Self {
         Self {
@@ -195,26 +250,71 @@ impl AppState {
             foreground_dialog_hwnd: AtomicI64::new(0),
             last_health_poll_ts: AtomicU64::new(0),
             sync_in_progress: AtomicBool::new(false),
-            // v0.5.15: 未访问过 AFM，闸门初始关闭。
-            afm_visit_latch: AtomicBool::new(false),
+            // v0.5.19: 还没发生过 AFM -> X 的交接，闸门初始关闭。
+            afm_handoff: Mutex::new(None),
         }
     }
 
-    /// v0.5.15 — 上弦：使用者把窗口切到了 AFM（monitor 观察到的上升沿）。
-    pub fn arm_afm_visit(&self) {
-        self.afm_visit_latch.store(true, Ordering::SeqCst);
+    /// v0.5.19 — 记录「用户从 AFM 切走」：接手的应用 pid + 发生时刻。
+    ///
+    /// 由 uia_event.rs 的 monitor 在 **AFM -> 非 AFM** 的下降沿调用。
+    pub fn set_afm_handoff(&self, pid: u32) {
+        let mut guard = self.afm_handoff.lock().unwrap_or_else(|e| e.into_inner());
+        *guard = Some(AfmHandoff {
+            pid,
+            ts_ms: now_unix_millis(),
+        });
     }
 
-    /// v0.5.15 — 闸门是否放行「把 current_path 写进弹窗」。
-    /// 逃生阀命中时恒真（等于没有闸门，回到 v0.5.14 行为）。
-    pub fn afm_gate_open(&self) -> bool {
-        !Self::afm_gate_enabled() || self.afm_visit_latch.load(Ordering::SeqCst)
+    /// v0.5.19 — 用户回到 AFM：作废上一次交接（陈旧授权不许复活）。
+    pub fn clear_afm_handoff(&self) {
+        let mut guard = self.afm_handoff.lock().unwrap_or_else(|e| e.into_inner());
+        *guard = None;
     }
 
-    /// v0.5.15 — 下弦：路径确实写进弹窗了，一次访问只授权一次同步。
-    /// 只在写入成功后调用；写失败保持上弦，交给既有 1200ms 冷却重试。
-    pub fn clear_afm_visit(&self) {
-        self.afm_visit_latch.store(false, Ordering::SeqCst);
+    /// v0.5.19 — 当前持有的交接授权（None = 没有）。
+    pub fn afm_handoff(&self) -> Option<AfmHandoff> {
+        *self.afm_handoff.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// v0.5.19 — 闸门：这次弹窗写回能不能放行？
+    ///
+    /// 三条同时成立才放行：
+    ///   1. 发生过 AFM -> X 的交接；
+    ///   2. 交接距今不超过 TTL（默认 120 秒）；
+    ///   3. 弹窗所属进程 == 接手 AFM 的那个应用。
+    ///      认不出 pid 时（0）只查前两条，不做应用级限制。
+    ///
+    /// 逃生阀 `FOCUS_SYNC_AFM_GATE=0|false|off` 命中时恒真（回到 v0.5.14）。
+    pub fn afm_handoff_allows(&self, dialog_pid: u32) -> bool {
+        if !Self::afm_gate_enabled() {
+            return true;
+        }
+        let Some(handoff) = self.afm_handoff() else {
+            return false;
+        };
+        if now_unix_millis().saturating_sub(handoff.ts_ms) > Self::afm_handoff_ttl_ms() {
+            return false;
+        }
+        if handoff.pid == 0 || dialog_pid == 0 {
+            return true;
+        }
+        handoff.pid == dialog_pid
+    }
+
+    /// v0.5.19 — 交接授权的有效期（毫秒）。
+    ///
+    /// 环境变量 `FOCUS_SYNC_AFM_HANDOFF_TTL_MS` 可调，默认 120 秒。
+    /// 「直接从 AFM 切换到弹窗」在时间上就该是近的；22 分钟前的访问
+    /// （真机 2026-11-09 的事故）必须判为过期。
+    pub fn afm_handoff_ttl_ms() -> u64 {
+        static TTL: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+        *TTL.get_or_init(|| {
+            std::env::var("FOCUS_SYNC_AFM_HANDOFF_TTL_MS")
+                .ok()
+                .and_then(|v| v.trim().parse::<u64>().ok())
+                .unwrap_or(120_000)
+        })
     }
 
     /// v0.5.7 F-1 — publish the current foreground dialog HWND.
@@ -447,8 +547,9 @@ impl AppState {
             // v0.5.5 (Mavis Round 21 B-4): expose first_push_received for
             // extension UX (toolbar can show "⚠️ Sigma FM 未推送" if false).
             first_push_received: self.first_push_received.load(Ordering::SeqCst),
-            // v0.5.15: 闩的状态可直接观测，「被闩挡住」与「没接闸门」不再同名。
-            afm_visit_latched: self.afm_visit_latch.load(Ordering::SeqCst),
+            // v0.5.19: 交接授权的状态可直接观测，「被闸门挡住」与「没接闸门」
+            // 不再同名。
+            afm_visit_latched: self.afm_handoff().is_some(),
         }
     }
 }
@@ -571,73 +672,128 @@ mod v516_write_back_tests {
 
 #[cfg(test)]
 mod afm_gate_tests {
-    use super::AppState;
+    use super::{now_unix_millis, AfmHandoff, AppState};
 
     #[test]
-    fn latch_starts_closed_so_no_sync_without_afm_visit() {
-        // v0.5.15 判别性守卫:闸门本身必须处于「启用」态,否则 afm_gate_open() 恒真、
+    fn gate_starts_closed_so_no_sync_without_handoff() {
+        // v0.5.19 判别性守卫:闸门本身必须处于「启用」态,否则闸门恒真、
         // 本模块其余断言全部变成平凡通过(2026-11-06 就踩过一次取反写反)。
         // 安全前提:本模块没有任何用例改写 FOCUS_SYNC_AFM_GATE。
         assert!(AppState::afm_gate_enabled(), "环境变量未设置时闸门应默认启用");
         let state = AppState::new("E:\\Models".into(), 1);
-        assert!(!state.afm_gate_open(), "新侧车不该有同步授权");
+        assert!(!state.afm_handoff_allows(1234), "新侧车不该有同步授权");
     }
 
     #[test]
-    fn arm_opens_the_gate() {
+    fn handoff_to_the_dialog_app_authorizes_the_sync() {
+        // 用户诉求的正例:从 AFM 切到「有弹窗的那个应用」=> 放行。
         let state = AppState::new("E:\\Models".into(), 1);
-        state.arm_afm_visit();
-        assert!(state.afm_gate_open());
+        state.set_afm_handoff(4242);
+        assert!(
+            state.afm_handoff_allows(4242),
+            "弹窗属于接手 AFM 的那个应用 => 放行"
+        );
     }
 
     #[test]
-    fn one_visit_authorizes_exactly_one_sync() {
-        // 用户诉求的核心：AFM -> 弹窗A（同步）-> 弹窗B（不再同步）。
+    fn dialog_of_another_app_is_refused() {
+        // 「非直接从 AFM 切换到弹窗」:AFM 切给了 Edge,后来在 practilog 打开
+        // 对话框 => 那个对话框不是接手 AFM 的应用 => 拒绝。
         let state = AppState::new("E:\\Models".into(), 1);
-        state.arm_afm_visit();
-        assert!(state.afm_gate_open(), "弹窗A 放行");
-        state.clear_afm_visit(); // A 写入成功
-        assert!(!state.afm_gate_open(), "弹窗B 必须再问一次用户");
+        state.set_afm_handoff(4242);
+        assert!(!state.afm_handoff_allows(5555), "别的应用的弹窗必须拒绝");
     }
 
     #[test]
-    fn failed_write_keeps_the_authorization() {
-        // 写失败不算「写过」：沿用 v0.5.12 口径，保持上弦交冷却重试。
+    fn stale_handoff_expires() {
+        // 真机 2026-11-09:11:09 访问过 AFM,11:31 才在另一个程序打开对话框,
+        // 中间隔了 22 分钟 —— 旧实现照样授权。交接必须有有效期。
         let state = AppState::new("E:\\Models".into(), 1);
-        state.arm_afm_visit();
-        assert!(state.afm_gate_open());
-        assert!(state.afm_gate_open(), "没有任何清除动作时不该自己掉授权");
+        state.set_afm_handoff(4242);
+        {
+            let mut guard = state.afm_handoff.lock().unwrap_or_else(|e| e.into_inner());
+            *guard = Some(AfmHandoff {
+                pid: 4242,
+                ts_ms: now_unix_millis().saturating_sub(10 * 60 * 1000),
+            });
+        }
+        assert!(!state.afm_handoff_allows(4242), "过期交接必须拒绝");
     }
 
     #[test]
-    fn re_arm_is_idempotent() {
+    fn returning_to_afm_clears_the_handoff() {
+        // 用户回到 AFM 这一动作本身让旧交接作废。
         let state = AppState::new("E:\\Models".into(), 1);
-        state.arm_afm_visit();
-        state.arm_afm_visit();
-        assert!(state.afm_gate_open());
-        state.clear_afm_visit();
-        assert!(!state.afm_gate_open());
+        state.set_afm_handoff(4242);
+        state.clear_afm_handoff();
+        assert!(!state.afm_handoff_allows(4242), "回到 AFM 必须作废旧交接");
     }
 
     #[test]
-    fn health_snapshot_exposes_the_latch() {
+    fn health_snapshot_exposes_the_handoff() {
         let state = AppState::new("C:\\".into(), 3);
         assert!(!state.health_snapshot().afm_visit_latched);
-        state.arm_afm_visit();
+        state.set_afm_handoff(4242);
         assert!(state.health_snapshot().afm_visit_latched);
-        state.clear_afm_visit();
+        state.clear_afm_handoff();
         assert!(!state.health_snapshot().afm_visit_latched);
     }
 
     #[test]
     fn gate_is_orthogonal_to_the_first_push_sentinel() {
-        // 闩不该改变既有哨兵判定：两者各自独立成立。
+        // 闸门不该改变既有哨兵判定：两者各自独立成立。
         let state = AppState::new("E:\\Models".into(), 1);
         state.set_current_path("E:\\obsidian".into());
         assert!(state.should_opened_write_back("C:\\tmp", "E:\\obsidian"));
-        assert!(!state.afm_gate_open(), "哨兵通过但没访问过 AFM");
-        state.arm_afm_visit();
-        assert!(state.should_opened_write_back("C:\\tmp", "E:\\obsidian") && state.afm_gate_open());
+        assert!(!state.afm_handoff_allows(1234), "哨兵通过但没有交接授权");
+        state.set_afm_handoff(1234);
+        assert!(state.should_opened_write_back("C:\\tmp", "E:\\obsidian")
+            && state.afm_handoff_allows(1234));
+    }
+}
+
+/// v0.5.19 — 路径合法性：只有真实存在的本地目录才允许写进别人的对话框。
+///
+/// 真机事故（2026-11-09 11:31）：AFM 停在百度网盘远程目录时，扩展把
+/// `sfm://remote/<id>/0000temp` 剥成伪路径 `\remote\<id>\0000temp`，
+/// 侧车把它写进另一个程序的「打开」对话框 ⇒ Windows 弹「找不到」错误框
+/// ⇒ 错误框又被当成新对话框 ⇒ 每 1~2 秒重试 ⇒ 关闭后仍反复报错。
+#[cfg(test)]
+mod v519_path_validity_tests {
+    use super::is_writable_local_path;
+
+    #[test]
+    fn virtual_paths_are_never_writable() {
+        assert!(!is_writable_local_path(
+            "\\remote\\0f0696babf4f42d1aef22c61aa89b0a9\\0000temp"
+        ));
+        assert!(!is_writable_local_path(
+            "sfm://remote/0f0696babf4f42d1aef22c61aa89b0a9/0000temp"
+        ));
+        assert!(!is_writable_local_path("\\locations"));
+        assert!(!is_writable_local_path("C:"), "裸盘符不是目录");
+        assert!(!is_writable_local_path(""), "空路径不可写");
+    }
+
+    #[test]
+    fn existing_local_dir_is_writable_and_missing_one_is_not() {
+        let tmp = std::env::temp_dir();
+        assert!(
+            is_writable_local_path(tmp.to_str().unwrap()),
+            "临时目录必须可写：{}",
+            tmp.display()
+        );
+        let missing = tmp.join("afm-focus-sync-definitely-missing-dir");
+        assert!(
+            !is_writable_local_path(missing.to_str().unwrap()),
+            "不存在的目录不能写进别人的对话框"
+        );
+    }
+
+    #[test]
+    fn unc_shape_is_accepted_without_touching_the_network() {
+        // 网络盘可能离线，存在性探测会阻塞在 IO 上 ⇒ UNC 只查形状。
+        assert!(is_writable_local_path("\\\\server\\share"));
     }
 }
 
