@@ -383,6 +383,34 @@ describe('useFileBrowserNavigation directory data', () => {
 
     consoleErrorSpy.mockRestore();
   });
+
+  // 用户 2026-11-09 反馈：删除成功后目录不变，必须手点「刷新」才看到消失。
+  // 这里守的是「已确认删除的路径立刻从列表消失」，同时不误伤同名之外的其他条目。
+  it('drops the confirmed deletions from the listing without waiting for a re-read', async () => {
+    const directory = 'C:/Users/aleks/Projects';
+    const { navigation } = createNavigationHarness(createTab('tab-a', directory));
+    await flushPromises();
+
+    invokeMock.mockImplementation((command: string) => {
+      if (command === 'read_dir') {
+        return Promise.resolve(createDirContents(directory, ['keep.txt', 'gone.txt']));
+      }
+
+      return Promise.resolve(null);
+    });
+
+    await navigation().readDir(directory, false);
+    await flushPromises();
+
+    expect(navigation().dirContents.value?.entries.map(entry => entry.name))
+      .toEqual(['keep.txt', 'gone.txt']);
+
+    navigation().removeEntriesLocally([`${directory}/gone.txt`]);
+
+    expect(navigation().dirContents.value?.entries.map(entry => entry.name)).toEqual(['keep.txt']);
+    expect(useWorkspacesStore().getCachedDirectoryEntries(directory)?.map(entry => entry.name))
+      .toEqual(['keep.txt']);
+  });
 });
 
 describe('useFileBrowserNavigation watcher teardown isolation', () => {

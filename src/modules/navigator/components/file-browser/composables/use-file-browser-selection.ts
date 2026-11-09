@@ -116,6 +116,10 @@ export function useFileBrowserSelection(
   // FORK-MODIFICATION 2026-10-27：就地改名要等刷新落地才能继续导航，允许它返回 Promise。
   onRefresh: () => void | Promise<void>,
   layout?: () => 'list' | 'grid' | 'tree' | undefined,
+  // FORK-MODIFICATION 2026-11-09（用户反馈：删除成功后目录不实时更新）：
+  // 删除成功后的乐观更新回调，先把已删路径从本地列表剔除，再靠 onRefresh 校准。
+  // 放在最后一位是为了不破坏既有按位置传参的调用点。
+  onEntriesRemoved?: (paths: string[]) => void,
 ) {
   const { t } = useI18n();
   const platformStore = usePlatformStore();
@@ -1740,6 +1744,9 @@ export function useFileBrowserSelection(
       });
 
       clearSelection();
+      // FORK-MODIFICATION 2026-11-09：先本地剔除（界面立刻变），再静默刷新校准。
+      // 顺序不能反：onRefresh 是 async，且可能因守卫早退 / 服务端延迟拿回旧列表。
+      onEntriesRemoved?.(report.deleted);
       onRefresh();
     }
 

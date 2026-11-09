@@ -298,8 +298,13 @@ async fn probe_inner(
 /// 没有 cookie 时报「还没授权」而不是「连接失败」：两者的处置完全不同。
 async fn probe_baidu(target: &ProbeTarget) -> Result<ConnectionTestReport, RemoteError> {
     let Some(raw) = target.password.as_deref() else {
+        // ⚠️ 这里**不能**报 `AuthRejected`。
+        //
+        // 「没拿到凭据」与「服务器拒了这组凭据」是两件事：前者压根没发请求，
+        // 说成后者会让用户以为扫码登录白做了（2026-11-09 用户反馈就是这个形态）。
+        // `MissingCredential` 在前端是中性提示，与事实一致。
         return Ok(ConnectionTestReport::new(
-            ProbeOutcome::AuthRejected,
+            ProbeOutcome::MissingCredential,
             "这条百度网盘连接还没有登录凭据，请先完成授权。",
         ));
     };
@@ -1112,6 +1117,25 @@ mod tests {
         assert!(!commands_seen(&accepted)
             .iter()
             .any(|line| line.starts_with("PASS")));
+    }
+
+    /// 2026-11-09 用户反馈：扫码登录后点「测试连接」仍报「服务器拒绝了该用户名和密码」。
+    /// 根因是这里没有凭据时错报了 `AuthRejected`。没有 cookie 时一个请求都没发出去，
+    /// 不能把「没验证」说成「被拒绝」。
+    #[tokio::test]
+    async fn baidu_without_session_does_not_claim_the_server_rejected_it() {
+        let target = ProbeTarget {
+            protocol: RemoteProtocol::BaiduPan,
+            host: "pan.baidu.com".to_string(),
+            port: 443,
+            username: "baidu".to_string(),
+            password: None,
+            proxy: ProxyConfig::Direct,
+        };
+        let report = probe(&target).await.expect("探测应当成功返回报告");
+
+        assert_eq!(report.outcome, ProbeOutcome::MissingCredential);
+        assert!(!report.password_checked);
     }
 
     #[tokio::test]

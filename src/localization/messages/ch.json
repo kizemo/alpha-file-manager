@@ -677,7 +677,8 @@
         "remoteConnectionsStorageNotReady": "连接列表尚未加载完成，请稍后重试。",
         "unknown": "保存连接失败。",
         "localPathHasWhitespace": "本地目录不能包含空格。",
-        "testInvalidInput": "当前设置无法测试，请先填好服务器地址与端口。"
+        "testInvalidInput": "当前设置无法测试，请先填好服务器地址与端口。",
+        "baiduLoginRequired": "请先在应用内完成百度网盘登录，再保存这条连接。"
       },
       "localPath": {
         "hint": "可选。填写后，打开该连接会自动显示左右双屏：左侧是本地目录，右侧是远端目录。"
@@ -687,7 +688,7 @@
         "outcome": {
           "verified": "连接成功，服务器接受了当前设置。",
           "auth_rejected": "连上了，但服务器拒绝了该用户名或密码。",
-          "missing_credential": "连上了，但没有提交密码，认证结果未经验证。",
+          "missing_credential": "没有可用于验证的凭据，本次未做身份确认。",
           "wrong_protocol": "对端有回应，但它不是所选协议的服务。",
           "unreachable": "无法连接到服务器，请检查地址、端口与代理设置。",
           "protocol_error": "连上了，但交互没有按预期完成。"
@@ -707,7 +708,6 @@
         "empty": "还没有配置任何远程连接。",
         "split": "双屏",
         "editConnection": "编辑该连接",
-        "homeTitle": "网盘 与 远程连接",
         "homeEmpty": "还没有配置任何网盘或远程连接。"
       },
       "trustedHosts": {
@@ -721,8 +721,6 @@
         "kindX509": "X.509 证书"
       },
       "baidu": {
-        "hint": "在浏览器里登录 pan.baidu.com 后，复制整段 Cookie 粘贴到这里（必须包含 BDUSS）。凭据经 Windows DPAPI 加密，只保存在本机。",
-        "cookiePlaceholder": "把整段 Cookie 粘贴到这里，例如 BDUSS=xxx; STOKEN=yyy",
         "status": {
           "loading": "正在读取授权状态…",
           "missing": "尚未登录",
@@ -733,30 +731,19 @@
         "action": {
           "deleteSession": "删除已保存的会话"
         },
-        "help": {
-          "toggle": "如何获取 Cookie",
-          "openLogin": "打开百度网盘登录页",
-          "step1": "用浏览器打开 pan.baidu.com 并登录你的百度账号。",
-          "step2": "按 F12 打开开发者工具，切到「网络 / Network」面板。",
-          "step3": "刷新页面，点任意一条请求，在请求标头（Request Headers）的 Cookie 那一行里找到 BDUSS。",
-          "step4": "复制 BDUSS 的值；如果还有 STOKEN，一并复制可以保留上传加速。",
-          "step5": "把复制到的内容粘贴到上面的输入框：整串 Cookie、BDUSS=xxx; STOKEN=yyy，或只粘 BDUSS 的值都可以。",
-          "noteRequired": "BDUSS 必填，名称区分大小写（小写 bduss 不会被接受）；STOKEN 可选。",
-          "noteExpiry": "Cookie 到期后本应用无法自动续期，只能重新登录再复制一次。",
-          "notePrivacy": "Cookie 等同于你的登录密码。它只以 Windows DPAPI 密文保存在本机，不会上传，也不会写进日志。"
-        },
         "embedded": {
           "title": "在应用内登录",
           "start": "用内嵌窗口登录",
           "cancel": "停止等待",
-          "hint": "在应用内打开登录窗口。登录完成后这张表单会自动填好——你只需给连接起个名字并保存。",
+          "hint": "在应用内打开登录窗口。登录成功后窗口会自动关闭，Cookie 随即取到——你只需保存这条连接。",
           "status": {
             "waiting": "正等你完成登录…",
-            "ready": "已登录。给这个连接起个名字并保存——会话会在保存时写入。",
+            "ready": "已登录。保存这条连接即可——会话会在保存时写入。",
             "closed": "登录还没完成，登录窗口就被关掉了。",
             "timeout": "登录等待超时了，请重试。",
-            "error": "读不到登录态，请改用 Cookie 输入框。"
-          }
+            "error": "读不到登录态，请重试。"
+          },
+          "saved": "百度网盘登录成功：窗口已自动关闭，Cookie 已取到，保存这条连接即可使用。"
         }
       }
     },

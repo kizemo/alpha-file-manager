@@ -714,7 +714,8 @@
         "remoteConnectionsStorageNotReady": "The connection list has not finished loading. Please try again in a moment.",
         "unknown": "Failed to save the connection.",
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
-        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port."
+        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
+        "baiduLoginRequired": "Նախ հավելվածում մուտք գործեք Baidu Pan, ապա պահպանեք այս միացումը."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -744,7 +745,6 @@
         "empty": "No connections yet.",
         "split": "Split",
         "editConnection": "Edit this connection",
-        "homeTitle": "Կայան սեփական դիսկներ և Հեռակառուց կապեր",
         "homeEmpty": "Դեռ ոչ մի ամպային սկավառակ կամ հեռակառուց կապ կարգավորված չէ։"
       },
       "trustedHosts": {
@@ -758,8 +758,6 @@
         "kindX509": "X.509 certificate"
       },
       "baidu": {
-        "hint": "Մտնեք pan.baidu.com-ը դիտարկիչում մուտք գործեք, ապա ամբողջ Cookie վերնագինը պատճենեք այստեղ (պետք է պարունակում BDUSS)։ Նուտմերը կոդավորվում են Windows DPAPI-ով և չեն դուրս գալիս այս համակարգից։",
-        "cookiePlaceholder": "Տեղադրեք ամբողջ Cookie-ն այստեղ, օր.՝ BDUSS=xxx; STOKEN=yyy",
         "status": {
           "loading": "Վերահաստատման վիճակը կարդում է…",
           "missing": "Մուտք չկա",
@@ -769,18 +767,6 @@
         },
         "action": {
           "deleteSession": "Պահպանված սեսիան ջնջել"
-        },
-        "help": {
-          "toggle": "How to get the Cookie",
-          "openLogin": "Open the Baidu Netdisk sign-in page",
-          "step1": "Open pan.baidu.com in your browser and sign in to your Baidu account.",
-          "step2": "Press F12 to open the developer tools and switch to the Network panel.",
-          "step3": "Reload the page, click any request, and find BDUSS in the Cookie line under Request Headers.",
-          "step4": "Copy the BDUSS value. If STOKEN is listed too, copy it as well to keep upload acceleration.",
-          "step5": "Paste it into the field above: the full Cookie string, BDUSS=xxx; STOKEN=yyy, or just the bare BDUSS value all work.",
-          "noteRequired": "BDUSS is required and its name is case sensitive (lowercase bduss is not accepted). STOKEN is optional.",
-          "noteExpiry": "Once the Cookie expires, this app cannot renew it; sign in again and copy a fresh one.",
-          "notePrivacy": "A Cookie is as sensitive as your password. It is stored only as Windows DPAPI-encrypted data on this PC, never uploaded and never written to logs."
         },
         "embedded": {
           "title": "Sign in inside the app",
@@ -793,7 +779,8 @@
             "closed": "The sign-in window was closed before signing in finished.",
             "timeout": "Signing in took too long. Try again.",
             "error": "Could not read the session. Use the Cookie field instead."
-          }
+          },
+          "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
         }
       }
     },

@@ -13,7 +13,7 @@ import normalizePath, {
   isWslPath,
 } from '@/utils/normalize-path';
 import { isProtectedSystemPath } from '@/utils/is-protected-system-path';
-import { getRemoteParentPath, isRemotePath } from '@/utils/remote-paths';
+import { getRemoteParentPath, isRemotePath, isRemoteRootPath, REMOTE_SCHEME } from '@/utils/remote-paths';
 import { readRemoteDirectory, statRemoteEntry } from '@/utils/remote-directory';
 import {
   isUnderUnixSystemMount,
@@ -143,6 +143,46 @@ function getRemoteLocationEntries(): DirEntry[] {
 }
 
 /**
+ * 远程空间根（`sfm://remote`）的目录内容 = **已建立的连接列表**。
+ *
+ * 用户 2026-11-09 反馈 6：地址栏从「位置」点「远程」直接报错
+ * 「无法打开此文件夹：不是一条合法的远程路径：sfm://remote」。
+ * 根因是后端 `remote_read_dir` 的入参校验只接受 `sfm://remote/<连接id>/...`，
+ * 根上没有任何连接可解析（`parseRemotePath` 对它返回 `null`）。
+ *
+ * 这里在前端把根**分流**成一个虚拟列表，不动后端协议语义：
+ * `sfm://remote` 从来不是某台服务器上的目录，它本来就是「连接清单」这一层，
+ * 和「位置」页同属应用自己维护的虚拟空间。
+ *
+ * 条目直接复用 `getRemoteLocationEntries()`，因此与「位置」页、主页、设置页
+ * 走的是同一个注册表与同一套 `location_group` 归类口径（网盘 / 远程）。
+ * `remoteEntries` 同样做成默认参数，理由与下面 `buildLocationsDirectoryFromDrives` 一致。
+ */
+export function buildRemoteRootDirectory(
+  remoteEntries: DirEntry[] = getRemoteLocationEntries(),
+): DirContents {
+  const directoryCount = remoteEntries.length;
+
+  return {
+    path: REMOTE_SCHEME,
+    entries: remoteEntries,
+    total_count: directoryCount,
+    dir_count: directoryCount,
+    file_count: 0,
+    opened_directory_times: {
+      modified_time: 0,
+      accessed_time: 0,
+      created_time: 0,
+    },
+  };
+}
+
+/** 远程空间根的条目形态，供 `resolveDirEntry` 与面包屑使用（名字由显示层给）。 */
+export function createRemoteRootDirEntry(): DirEntry {
+  return createVirtualDirectoryEntry(REMOTE_SCHEME, '');
+}
+
+/**
  * `remoteEntries` 做成**默认参数**，是为了让所有调用方口径一致。
  *
  * 位置页的条目由三处生成：`readLocationsDirectory`（真正读目录）、
@@ -268,6 +308,13 @@ export async function resolveDirectoryContents(
   // `options` 刻意**不传**：它控制的是本地盘的快捷方式目标、硬链接计数与条目数统计，
   // 远程 provider 一个都给不出。把本地语义的开关塞给远程命令，
   // 只会让后端多出一堆「收到但必须忽略」的字段。
+  // FORK-MODIFICATION 2026-11-09 反馈 6：`sfm://remote` 是「所有远程连接」的根。
+  // 后端 remote_read_dir 把它当非法远程路径直接报错（parse_remote_path 要求带连接 id），
+  // 所以必须在发出 IPC 之前分流，否则位置页点「远程」/地址栏进 `sfm://remote` 都是一条红字。
+  if (isRemoteRootPath(path)) {
+    return buildRemoteRootDirectory();
+  }
+
   if (isRemotePath(path)) {
     return readRemoteDirectory(path);
   }
@@ -288,6 +335,13 @@ export async function resolveDirEntry(
 
   if (isWslHostVirtualPath(path)) {
     return createWslHostDirEntry();
+  }
+
+  // FORK-MODIFICATION 2026-11-09 反馈 6：远程根本身也要能被 stat 到，
+  // 否则 `resolveDirEntry('sfm://remote')` 落到本地 `get_dir_entry_with_timeout`，
+  // Rust 拿它去 `fs::metadata` 必然失败（返回 null），面包屑与标签页会当成坏路径。
+  if (isRemoteRootPath(path)) {
+    return createRemoteRootDirEntry();
   }
 
   // 远程路径没有「本地 stat 超时」这回事 —— 超时是本地盘慢目录的缓解手段，
@@ -320,6 +374,13 @@ export function getNavigableParentPath(path: string, platform: string | null): s
   }
 
   if (isWslHostVirtualPath(normalizedPath)) {
+    return LOCATIONS_VIRTUAL_PATH;
+  }
+
+  // FORK-MODIFICATION 2026-11-09 反馈 6：远程根 `sfm://remote` 的上一层是「位置」，
+  // 与 `//wsl.localhost` 同构。不特判时 parse_remote_path 认不出根（它要求带连接 id），
+  // 父级返回 null —— 表现为「向上」按钮失灵、面包屑里没有「位置」这一段。
+  if (isRemoteRootPath(normalizedPath)) {
     return LOCATIONS_VIRTUAL_PATH;
   }
 

@@ -677,7 +677,8 @@
         "remoteConnectionsStorageNotReady": "The connection list has not finished loading. Please try again in a moment.",
         "unknown": "Failed to save the connection.",
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
-        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port."
+        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
+        "baiduLoginRequired": "先にアプリ内で Baidu Pan にログインしてから、この接続を保存してください。"
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -707,7 +708,6 @@
         "empty": "No connections yet.",
         "split": "Split",
         "editConnection": "Edit this connection",
-        "homeTitle": "クラウドディスク と リモート接続",
         "homeEmpty": "クラウドディスクもリモート接続もまだ設定されていません。"
       },
       "trustedHosts": {
@@ -721,8 +721,6 @@
         "kindX509": "X.509 certificate"
       },
       "baidu": {
-        "hint": "ブラウザで pan.baidu.com にログインし、Cookie ヘッダー全体をここに貼り付けてください（BDUSS を含む必要があります）。資格情報は Windows DPAPI で暗号化され、この端末の外には出ません。",
-        "cookiePlaceholder": "Cookie 全体をそのまま貼り付けてください（例: BDUSS=xxx; STOKEN=yyy）",
         "status": {
           "loading": "認可状態を確認しています…",
           "missing": "未ログイン",
@@ -732,18 +730,6 @@
         },
         "action": {
           "deleteSession": "保存したセッションを削除"
-        },
-        "help": {
-          "toggle": "Cookie の取得方法",
-          "openLogin": "Baidu Netdisk のログインページを開く",
-          "step1": "ブラウザーで pan.baidu.com を開き、Baidu アカウントにログインします。",
-          "step2": "F12 で開発者ツールを開き、「ネットワーク / Network」パネルに切り替えます。",
-          "step3": "ページを再読み込みし、いずれかのリクエストをクリックして、リクエストヘッダーの Cookie 行から BDUSS を見つけます。",
-          "step4": "BDUSS の値をコピーします。STOKEN もあれば一緒にコピーすると、アップロードの高速化が保てます。",
-          "step5": "上の入力欄に貼り付けてください。Cookie 全体でも、BDUSS=xxx; STOKEN=yyy でも、BDUSS の値だけでも構いません。",
-          "noteRequired": "BDUSS は必須で、名前の大文字小文字が区別されます（小文字の bduss は受け付けられません）。STOKEN は任意です。",
-          "noteExpiry": "Cookie の有効期限が切れると、このアプリでは更新できません。再度ログインしてコピーし直してください。",
-          "notePrivacy": "Cookie はパスワードと同じく機微な情報です。Windows DPAPI で暗号化された状態でのみこの PC に保存され、送信したりログに記録したりすることはありません。"
         },
         "embedded": {
           "title": "Sign in inside the app",
@@ -756,7 +742,8 @@
             "closed": "The sign-in window was closed before signing in finished.",
             "timeout": "Signing in took too long. Try again.",
             "error": "Could not read the session. Use the Cookie field instead."
-          }
+          },
+          "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
         }
       }
     },

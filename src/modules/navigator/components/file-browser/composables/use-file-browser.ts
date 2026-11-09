@@ -105,6 +105,9 @@ interface DataSource {
   handlePathSubmit: () => Promise<void>;
   openFile: (path: string) => Promise<void>;
   silentRefresh: () => void;
+  // FORK-MODIFICATION 2026-11-09（用户反馈：删除成功后目录不实时更新）：
+  // 可选 —— 只有导航模式有本地目录列表可以就地剔除，外部模式不提供。
+  removeEntriesLocally?: (paths: string[]) => void;
   // FORK-MODIFICATION 2026-10-18：主机公钥信任流（阶段 2 决策 3）。
   // 非 null 时 file-browser.vue 弹窗等用户决定。
   hostKeyPrompt: Ref<HostKeyTrustPrompt | null>;
@@ -215,6 +218,7 @@ function setupNavigationDataSource(
     handlePathSubmit: navigation.handlePathSubmit,
     openFile: navigation.openFile,
     silentRefresh: navigation.silentRefresh,
+    removeEntriesLocally: navigation.removeEntriesLocally,
     filterQuery: filter.filterQuery,
     isFilterOpen: filter.isFilterOpen,
     shouldFocusFilterInput: filter.shouldFocusFilterInput,
@@ -359,6 +363,8 @@ export function useFileBrowser(options: UseFileBrowserOptions) {
     },
     dataSource.silentRefresh,
     options.layout,
+    // FORK-MODIFICATION 2026-11-09：删除成功后先从本地列表剔除，再静默刷新校准。
+    paths => dataSource.removeEntriesLocally?.(paths),
   );
 
   const virtualLayout = useFileBrowserVirtualLayout({

@@ -350,6 +350,13 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
         if (claimed.claimed) {
           credentialKey = id;
         }
+        else if (!credentialKey) {
+          // 会话槽位是空的，而且这条连接本来也没有凭据 —— 保存下去会得到一条
+          // 「看起来加成功了、实际连不上」的网盘连接，界面上没有任何提示。
+          // 2026-11-09 用户实测就是这么丢掉一次扫码登录的。
+          // 抛 i18n key，由表单按既有约定渲染成中文提示。
+          throw new Error('baiduLoginRequired');
+        }
       }
     }
     else if (hasNewPassword) {
@@ -488,6 +495,19 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
       // 编辑既有连接且密码框留空：空串的语义是「不碰已存的密码」，
       // 所以要把存过的那条取出来用，否则测的其实是「空密码」。
       password = (await loadCredentialForTest(form.id)) ?? undefined;
+    }
+
+    // FORK-MODIFICATION 2026-11-09：百度网盘的会话是按**连接 id** 存进保险库的。
+    // 未保存的表单没有 id，就没有可读的会话 —— 后端只会回一句「还没有登录凭据」，
+    // 而用户刚刚扫码成功过，读起来像「登录白做了」。这里直接说清楚缺的那一步。
+    // （手工粘贴了 cookie 的情况不拦：`password` 有值就照常发出去测。）
+    if (isBaidu && password === undefined && !form.id) {
+      return {
+        outcome: 'missing_credential',
+        passwordChecked: false,
+        tlsVerified: false,
+        message: '这条百度网盘连接还没有保存，请先点「保存」，再点「测试连接」。',
+      };
     }
 
     return invoke<RemoteConnectionTestReport>('remote_test_connection', {

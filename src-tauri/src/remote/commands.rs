@@ -408,6 +408,15 @@ pub async fn remote_read_dir(
     let app_data_dir = app_data_dir(&app)?;
     let user_data_dir = user_data_dir(&app)?;
 
+    // 2026-11-09 批次 F.9 可观测性锚点：删除远程条目后「列表是否立即刷新」要能二分
+    // 「前端守卫早退」与「后端返回旧列表」，后端必须留下读列的进出痕迹。
+    log::info!(
+        "[remote-diag] read_dir begin conn={} path={}",
+        connection_id,
+        remote_path
+    );
+    let read_started = std::time::Instant::now();
+
     let resolved = resolve_connection_blocking(
         user_data_dir.clone(),
         app_data_dir.clone(),
@@ -416,7 +425,31 @@ pub async fn remote_read_dir(
     .await?;
 
     let entries =
-        list_with_protocol(&resolved, &user_data_dir, &app_data_dir, &remote_path).await?;
+        match list_with_protocol(&resolved, &user_data_dir, &app_data_dir, &remote_path).await {
+            Ok(entries) => entries,
+            Err(err) => {
+                // 失败路径也要有 done —— 否则日志里只剩一个孤零零的 begin，
+                // 看不出「请求发出去了但服务端拒绝」还是「请求根本没发出」。
+                log::info!(
+                    "[remote-diag] read_dir done conn={} path={} ok=false elapsed={:?} err={}",
+                    connection_id,
+                    remote_path,
+                    read_started.elapsed(),
+                    err
+                );
+                return Err(err);
+            }
+        };
+
+    let entry_names: Vec<String> = entries.iter().map(|entry| entry.name.clone()).collect();
+    log::info!(
+        "[remote-diag] read_dir done conn={} path={} entries={} names={:?} elapsed={:?}",
+        connection_id,
+        remote_path,
+        entries.len(),
+        entry_names,
+        read_started.elapsed()
+    );
 
     // 回显**规范化之后**的路径：用户手输 `pub//docs` 之后，
     // 地址栏要显示它实际去到的地方。
@@ -823,9 +856,30 @@ pub async fn remote_remove_path(
     let provider =
         provider_with_protocol(resolved.connection.protocol, &user_data_dir, &app_data_dir).await;
 
-    provider
+    // 2026-11-09 批次 F.9 可观测性锚点：删除动作的成败与耗时必须留在日志里，
+    // 否则「列表没立即刷新」无法区分「删除失败」与「删除成功但回读拿到旧列表」。
+    log::info!(
+        "[remote-diag] remove begin conn={} path={} is_dir={}",
+        connection_id,
+        remote_path,
+        is_dir
+    );
+    let remove_started = std::time::Instant::now();
+
+    let result = provider
         .remove_path(&connection_id, &remote_path, is_dir)
-        .await
+        .await;
+
+    log::info!(
+        "[remote-diag] remove done conn={} path={} ok={} elapsed={:?} err={:?}",
+        connection_id,
+        remote_path,
+        result.is_ok(),
+        remove_started.elapsed(),
+        result.as_ref().err().map(|err| err.to_string())
+    );
+
+    result
 }
 
 /// 在远程目录里**新建一个目录**。
@@ -864,7 +918,27 @@ pub async fn remote_make_dir(
     // 拼回完整路径再交给 provider：provider 拿到的一律是规范化过的完整路径。
     let target = super::path::join_remote_parent_and_name(&parent, &name);
 
-    provider.make_dir(&connection_id, &target).await
+    // 2026-11-09 批次 F.9 可观测性锚点：远程新建目录失败时**没有**任何痕迹，
+    // 表现为「按钮变灰 + 无提示」，必须留下 begin/done。
+    log::info!(
+        "[remote-diag] make_dir begin conn={} target={}",
+        connection_id,
+        target
+    );
+    let make_started = std::time::Instant::now();
+
+    let result = provider.make_dir(&connection_id, &target).await;
+
+    log::info!(
+        "[remote-diag] make_dir done conn={} target={} ok={} elapsed={:?} err={:?}",
+        connection_id,
+        target,
+        result.is_ok(),
+        make_started.elapsed(),
+        result.as_ref().err().map(|err| err.to_string())
+    );
+
+    result
 }
 
 /// 把一个远程条目**在原目录内**改名。

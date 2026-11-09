@@ -304,7 +304,10 @@ describe('virtual-locations', () => {
       expect(getNavigableParentPath('sfm://remote/conn-a/pub/docs', 'windows')).toBe('sfm://remote/conn-a/pub');
       expect(getNavigableParentPath('sfm://remote/conn-a/pub', 'windows')).toBe('sfm://remote/conn-a');
       expect(getNavigableParentPath('sfm://remote/conn-a', 'windows')).toBe('sfm://remote');
-      expect(getNavigableParentPath('sfm://remote', 'windows')).toBeNull();
+      // FORK-MODIFICATION 2026-11-09 反馈 6：改动前这里是 null（「无处可上」）。
+      // 远程根现在与 `//wsl.localhost` 同构 —— 上一层是「位置」，
+      // 不然进入 sfm://remote 之后面包屑里没有「位置」、向上按钮失灵。
+      expect(getNavigableParentPath('sfm://remote', 'windows')).toBe(LOCATIONS_VIRTUAL_PATH);
     });
 
     it('refuses to navigate up from an invalid remote path', () => {
@@ -549,6 +552,92 @@ describe('virtual-locations', () => {
 
         expect(contents.entries).toHaveLength(1);
         expect(contents.entries[0]?.location_group).toBe('drives');
+      });
+    });
+
+    // FORK-MODIFICATION 2026-11-09 反馈 6：进入 `sfm://remote`（位置 ⇒ 远程、地址栏分隔符段、
+    // 直接键入该路径）改动前报「不是一条合法的远程路径：sfm://remote」——
+    // 后端 parse_remote_path 要求路径里带连接 id，根路径永远过不了这个校验。
+    // 修法是前端在发出 IPC 之前把根分流出来，用本地注册表渲染「所有远程连接」。
+    describe('远程根 sfm://remote', () => {
+      const baiduConn: RemoteConnection = {
+        id: 'conn-baidu',
+        name: '百度网盘',
+        protocol: 'baidu_pan',
+        host: 'pan.baidu.com',
+        port: 443,
+        username: '',
+        initialPath: '/',
+        proxy: { kind: 'direct' },
+      };
+      const ftpConn: RemoteConnection = {
+        id: 'conn-ftp',
+        name: '速豹堂',
+        protocol: 'ftp',
+        host: 'ftp.example.com',
+        port: 21,
+        username: 'demo',
+        initialPath: '/',
+        proxy: { kind: 'direct' },
+      };
+
+      beforeEach(() => {
+        invokeMock.mockReset();
+        setRemoteLocationRefs([baiduConn, ftpConn]);
+      });
+
+      afterEach(() => {
+        // 注册表是模块级状态，不清掉会污染后面所有用例。
+        setRemoteLocationRefs([]);
+      });
+
+      it('列内容来自本地注册表，一条 IPC 都不发', async () => {
+        const contents = await resolveDirectoryContents('sfm://remote');
+
+        expect(invokeMock).not.toHaveBeenCalled();
+        expect(contents.path).toBe('sfm://remote');
+        expect(contents.entries.map(entry => entry.path)).toEqual([
+          'sfm://remote/conn-baidu',
+          'sfm://remote/conn-ftp',
+        ]);
+      });
+
+      it('条目显示连接名并按协议分区，尾斜杠形态同样认作根', async () => {
+        const contents = await resolveDirectoryContents('sfm://remote/');
+
+        expect(contents.entries.map(entry => entry.name)).toEqual(['百度网盘', '速豹堂']);
+        expect(contents.entries.map(entry => entry.location_group)).toEqual(['netdisk', 'remote']);
+        expect(contents.entries.every(entry => entry.is_dir)).toBe(true);
+      });
+
+      it('根的父级是「位置」，且自身能 stat 成目录而不落到本地 get_dir_entry', async () => {
+        expect(getNavigableParentPath('sfm://remote', 'windows')).toBe(LOCATIONS_VIRTUAL_PATH);
+
+        const entry = await resolveDirEntry('sfm://remote');
+
+        expect(entry?.path).toBe('sfm://remote');
+        expect(entry?.is_dir).toBe(true);
+        expect(invokeMock).not.toHaveBeenCalled();
+      });
+
+      it('没有配置任何远程连接时根返回空列表，而不是报错', async () => {
+        setRemoteLocationRefs([]);
+
+        const contents = await resolveDirectoryContents('sfm://remote');
+
+        expect(contents.entries).toEqual([]);
+        expect(contents.path).toBe('sfm://remote');
+      });
+
+      it('带连接 id 的路径照旧下发 remote_read_dir（阳性对照，证明分流没有吃掉正常分支）', async () => {
+        invokeMock.mockResolvedValue({
+          path: 'sfm://remote/conn-ftp',
+          entries: [],
+        });
+
+        await resolveDirectoryContents('sfm://remote/conn-ftp');
+
+        expect(invokeMock).toHaveBeenCalledWith('remote_read_dir', { path: 'sfm://remote/conn-ftp' });
       });
     });
 

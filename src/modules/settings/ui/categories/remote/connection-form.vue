@@ -14,9 +14,8 @@ import {
 import { useI18n } from 'vue-i18n';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
-import { openUrl } from '@tauri-apps/plugin-opener';
 import { Input } from '@/components/ui/input';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { toast } from '@/components/ui/toaster';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -80,35 +79,6 @@ const PROXY_KINDS: RemoteProxyConfig['kind'][] = ['direct', 'socks5', 'http_conn
 const BAIDU_PAN_HOST = 'pan.baidu.com';
 
 /**
- * 手工粘贴 Cookie 的**降级路径**（2026-11-08）。
- *
- * 百度没有给第三方应用的 OAuth，凭据只能从已登录的会话里取。
- * 首选路径是内嵌登录窗（见 `handleStartBaiduLogin`）—— 由 Rust 侧直接
- * 读 WebView2 的 cookie，用户不用碰 F12。
- *
- * 保留这一段，是因为内嵌登录有它够不到的场合：WebView2 异常、
- * 企业网络挡了第三方登录流程，或者用户本来就在自己浏览器里登录着、
- * 只想把现成的 Cookie 粘过来。
- * 步骤口径与后端解析规则严格对齐（`src-tauri/src/remote/baidu_auth.rs`）：
- * `BDUSS` 必需且**大小写敏感**，`STOKEN` 可选（只影响上传加速），
- * 裸值与整串 Cookie 两种粘法都接受 —— 说明里必须只写做得到、且被代码允许的动作。
- */
-const BAIDU_PAN_URL = 'https://pan.baidu.com/';
-
-/**
- * 「如何获取 Cookie」帮助块默认**展开**（2026-11-08）。
- *
- * 之前默认收起是为了不让这张已经很长的表单更长；现在网盘表单只剩四五个字段，
- * 而「Cookie 从哪儿抄」是这一步**唯一**的新知识 —— 藏起来等于让用户
- * 开着浏览器自己去搜教程。
- */
-const cookieHelpOpen = ref(true);
-
-function openBaiduLoginPage() {
-  openUrl(BAIDU_PAN_URL);
-}
-
-/**
  * 内嵌登录（2026-11-08）。
  *
  * 登录窗由 Rust 侧创建（`src-tauri/src/baidu_login.rs`），cookie 也在
@@ -168,9 +138,29 @@ onMounted(async () => {
   try {
     const unlisten = await listen<BaiduLoginEventPayload>('afm://baidu-login', (event) => {
       const payload = event.payload;
+      const previousState = baiduLoginState.value;
 
       baiduLoginState.value = payload.status;
       baiduLoginSummary.value = payload.summary ?? payload.message ?? '';
+
+      // `ready` 是内嵌登录唯一可用的成功信号：窗口一旦认领到 Cookie 就会自己关掉，
+      // 而 Rust 侧的 settle() 会把 Destroyed 分支吃掉，不会再发 `closed`。
+      // 所以成功反馈必须挂在 ready 的**第一次**到达上，重复推送不重播。
+      if (payload.status === 'ready' && previousState !== 'ready') {
+        toast({
+          title: t('settings.remote.baidu.embedded.saved'),
+          description: payload.summary || undefined,
+        });
+      }
+      else if (payload.status !== previousState) {
+        // closed / timeout / error：登录窗被关掉、等待超时、或读不到会话。
+        // 这三种以前只在表单里换一行浅色小字 —— 用户当时多半正看着登录窗，
+        // 根本没注意到，于是整轮登录「没有任何反馈」。改成可见的 toast。
+        toast({
+          title: t(`settings.remote.baidu.embedded.status.${payload.status}`),
+          description: payload.summary || payload.message || undefined,
+        });
+      }
     });
 
     if (baiduLoginDisposed) {
@@ -570,37 +560,9 @@ function onProtocolChange(value: unknown) {
     </div>
 
     <!--
-      网盘的凭据是一整段 Cookie：用多行文本框，用户粘完能一眼看完有没有粘全。
-      密码框在网盘这一栏不成立 —— 那不是口令，是一串会话凭据。
-    -->
-    <div
-      v-if="isNetdisk"
-      class="remote-connection-form__row"
-    >
-      <Label for="remote-cookie">{{ t('settings.remote.field.cookie') }}</Label>
-      <textarea
-        id="remote-cookie"
-        v-model="password"
-        class="remote-connection-form__cookie"
-        rows="4"
-        autocomplete="off"
-        spellcheck="false"
-        data-test="field-cookie"
-        data-baidu="cookie"
-        :placeholder="t('settings.remote.baidu.cookiePlaceholder')"
-      />
-      <p
-        class="remote-connection-form__hint"
-        data-test="hint-cookie"
-      >
-        {{ t('settings.remote.baidu.hint') }}
-      </p>
-    </div>
-
-    <!--
-      内嵌登录（2026-11-08）：在上面那个 Cookie 文本框之上再给一条「不用手工复制」的路。
-      登录窗由 Rust 侧开，登录完成后把会话直接写进待认领槽位，
-      这里只负责把「进行到哪一步」显示出来 —— Cookie 明文永远不进前端。
+      内嵌登录（2026-11-08）：百度网盘的凭据是一整段 Cookie，手工抓取既难又危险，
+      所以这里只留一条路 —— 应用内登录，登录成功后由 Rust 侧把会话写进待认领槽位，
+      保存连接时再落盘。Cookie 明文永远不进前端，表单里也不再摆手工输入框。
     -->
     <div
       v-if="isNetdisk"
@@ -619,7 +581,7 @@ function onProtocolChange(value: unknown) {
           {{ t('settings.remote.baidu.embedded.start') }}
         </Button>
         <Button
-          v-if="baiduLoginState === 'waiting'"
+          v-if="baiduLoginState !== 'idle' && baiduLoginState !== 'ready'"
           type="button"
           variant="ghost"
           data-test="baidu-embedded-cancel"
@@ -671,53 +633,6 @@ function onProtocolChange(value: unknown) {
       >
         {{ t('settings.remote.password.savedHint') }}
       </p>
-    </div>
-
-    <!--
-      获取 Cookie 的步骤说明（2026-11-08）：只跟着百度协议出现。
-      默认收起 —— 这张表单已经够长，第一次填的人要的是「怎么弄」，
-      回来换 Cookie 的人不想再读一遍步骤。
-    -->
-    <div
-      v-if="isNetdisk"
-      class="remote-connection-form__cookie-help"
-      data-test="baidu-cookie-help"
-    >
-      <Collapsible v-model:open="cookieHelpOpen">
-        <CollapsibleTrigger as-child>
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            data-test="baidu-cookie-help-toggle"
-          >
-            {{ t('settings.remote.baidu.help.toggle') }}
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent class="remote-connection-form__cookie-help-body">
-          <Button
-            type="button"
-            variant="link"
-            size="xs"
-            data-test="baidu-open-login"
-            @click="openBaiduLoginPage"
-          >
-            {{ t('settings.remote.baidu.help.openLogin') }}
-          </Button>
-          <ol class="remote-connection-form__cookie-help-steps">
-            <li>{{ t('settings.remote.baidu.help.step1') }}</li>
-            <li>{{ t('settings.remote.baidu.help.step2') }}</li>
-            <li>{{ t('settings.remote.baidu.help.step3') }}</li>
-            <li>{{ t('settings.remote.baidu.help.step4') }}</li>
-            <li>{{ t('settings.remote.baidu.help.step5') }}</li>
-          </ol>
-          <ul class="remote-connection-form__cookie-help-notes">
-            <li>{{ t('settings.remote.baidu.help.noteRequired') }}</li>
-            <li>{{ t('settings.remote.baidu.help.noteExpiry') }}</li>
-            <li>{{ t('settings.remote.baidu.help.notePrivacy') }}</li>
-          </ul>
-        </CollapsibleContent>
-      </Collapsible>
     </div>
 
     <!-- 百度网盘的授权卡：只显示状态，不显示凭据。
@@ -904,6 +819,18 @@ function onProtocolChange(value: unknown) {
     >
       <span class="remote-connection-form__probe-message">
         {{ t(`settings.remote.test.outcome.${probeReport.outcome}`) }}
+      </span>
+      <!-- 后端的 `message` 是「给用户看的一句话」，比按 outcome 查的通用文案
+           具体得多。**只用于展示，不参与任何逻辑判断。**
+           2026-11-09 用户反馈：百度网盘扫码登录成功，点「测试连接」却被告知
+           「服务器拒绝了该用户名或密码」—— 当时后端的具体诊断（「还没有登录凭据」）
+           被这里丢掉，只剩一句与事实相反的通用文案。 -->
+      <span
+        v-if="probeReport.message"
+        class="remote-connection-form__probe-detail"
+        data-test="test-detail"
+      >
+        {{ probeReport.message }}
       </span>
       <!-- 没核验密码就不能让「通过」裸奔。 -->
       <span

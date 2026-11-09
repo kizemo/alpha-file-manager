@@ -16,13 +16,19 @@ use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// 凭据文件名。落在应用自己的 app-data 目录里，与 `mcp-access.json` 平级。
 pub const REMOTE_CREDENTIALS_FILE: &str = "remote-credentials.json";
 
 /// 存档格式版本。读到不认识的版本按「没有凭据」处理 ——
 /// 宁可让用户重输一次密码，也不要拿一份自己读不懂的存档去猜。
+///
+/// ⚠️ 「按没有凭据处理」只适用于**读**；**写**之前必须先把那份读不懂的文件备份下来，
+/// 否则下一次保存就会把库里其他凭据静默清空。见 [`vault_for_write`]。
 const VAULT_VERSION: u32 = 1;
 
 /// `remote-credentials.json` 的落盘形状。
@@ -49,27 +55,69 @@ pub fn credentials_path_in(app_data_dir: &Path) -> PathBuf {
     app_data_dir.join(REMOTE_CREDENTIALS_FILE)
 }
 
-/// 读存档。**文件缺失、解析失败、版本不认识，三者都按「没有凭据」处理** ——
-/// 与 `mcp/auth.rs` 的既有策略一致：宁可退回干净状态，也不要拿半截文件推导状态。
-fn read_vault(app_data_dir: &Path) -> CredentialVault {
-    let path = credentials_path_in(app_data_dir);
-    let Ok(raw) = std::fs::read_to_string(&path) else {
-        return CredentialVault::empty();
+/// 读一次存档可能遇到的**三种情形**。
+///
+/// 把「文件不存在」和「文件在但读不出来」分开，就是这次加固的全部内容。
+/// 从前两者一律返回空库，于是紧接着的那次 `save_credential` 会拿着空库写回 ——
+/// 结果是**库里其他全部凭据被静默删掉，且原文件已被覆盖、无从找回**
+/// （真机上已经因此丢过三条远程连接的密文）。
+enum VaultRead {
+    /// 文件不存在 —— 真的一个凭据都没存过，正常的干净状态。
+    Absent,
+    /// 读到了认得的版本。
+    Loaded(CredentialVault),
+    /// 文件在，但读不出来：字节读不进去 / 不是 UTF-8 / 解析失败 / 版本不认识。
+    /// **这不等于「没有凭据」**，写回之前必须先把原文件留成证据。
+    Unreadable { reason: String },
+}
+
+/// 只看磁盘，不写任何东西。
+fn inspect_vault(path: &Path) -> VaultRead {
+    let raw = match std::fs::read(path) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return VaultRead::Absent,
+        Err(error) => {
+            return VaultRead::Unreadable {
+                reason: format!("读取失败: {error}"),
+            }
+        }
+        Ok(raw) => raw,
     };
 
-    match serde_json::from_str::<CredentialVault>(&raw) {
-        Ok(vault) if vault.version == VAULT_VERSION => vault,
-        Ok(vault) => {
-            log::warn!(
-                "Ignoring credential vault {} because it uses version {} instead of {VAULT_VERSION}",
-                path.display(),
+    // 用 read + from_utf8 而不是 read_to_string：后者把「不存在」和「不是 UTF-8」
+    // 混成同一个错误，而这两者的处置完全不同。
+    let Ok(text) = String::from_utf8(raw) else {
+        return VaultRead::Unreadable {
+            reason: "文件不是合法的 UTF-8 文本".to_string(),
+        };
+    };
+
+    match serde_json::from_str::<CredentialVault>(&text) {
+        Ok(vault) if vault.version == VAULT_VERSION => VaultRead::Loaded(vault),
+        Ok(vault) => VaultRead::Unreadable {
+            reason: format!(
+                "格式版本是 {}，本版本只认 {VAULT_VERSION}",
                 vault.version
-            );
-            CredentialVault::empty()
-        }
-        Err(error) => {
+            ),
+        },
+        Err(error) => VaultRead::Unreadable {
+            reason: format!("无法解析: {error}"),
+        },
+    }
+}
+
+/// 只读路径（[`load_credential`]）用的存档读取：**文件缺失、解析失败、版本不认识，
+/// 三者都交出空库** —— 与 `mcp/auth.rs` 的既有策略一致，宁可退回干净状态，
+/// 也不要拿半截文件推导状态。读路径不改磁盘，所以坏文件就地留着。
+///
+/// 要写回请走 [`vault_for_write`]，它先把坏文件备份下来。
+fn read_vault(app_data_dir: &Path) -> CredentialVault {
+    let path = credentials_path_in(app_data_dir);
+    match inspect_vault(&path) {
+        VaultRead::Loaded(vault) => vault,
+        VaultRead::Absent => CredentialVault::empty(),
+        VaultRead::Unreadable { reason } => {
             log::warn!(
-                "Treating unreadable credential vault {} as empty: {error}",
+                "Treating unreadable credential vault {} as empty: {reason}",
                 path.display()
             );
             CredentialVault::empty()
@@ -77,6 +125,179 @@ fn read_vault(app_data_dir: &Path) -> CredentialVault {
     }
 }
 
+/// 写回路径用的存档读取。文件存在却读不出来时，**先把原文件按字节备份**再交出空库；
+/// 备份落不下来就报错中止本次写入 —— 宁可让用户这次存不上密码，
+/// 也绝不再制造一次「整库被清空且无备份」。
+fn vault_for_write(app_data_dir: &Path) -> Result<CredentialVault, RemoteError> {
+    let path = credentials_path_in(app_data_dir);
+    match inspect_vault(&path) {
+        VaultRead::Loaded(vault) => Ok(vault),
+        VaultRead::Absent => Ok(CredentialVault::empty()),
+        VaultRead::Unreadable { reason } => {
+            archive_unreadable_vault(app_data_dir, &reason)?;
+            Ok(CredentialVault::empty())
+        }
+    }
+}
+
+/// 进程内递增序号，与毫秒时间戳、进程号一起构成文件名的唯一后缀。
+static UNIQUENESS_SEQ: AtomicU64 = AtomicU64::new(0);
+
+/// 唯一后缀 `<毫秒>-<进程号>-<序号>`：序号防本进程内撞车，
+/// 进程号防跨进程撞车（保存密码与删除凭据可能同时在跑），
+/// 毫秒让文件名按时间可读、可按名字排出先后。
+fn uniqueness_stamp() -> String {
+    let millis = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    let sequence = UNIQUENESS_SEQ.fetch_add(1, Ordering::Relaxed);
+    format!("{millis}-{}-{sequence}", std::process::id())
+}
+
+/// 在 `vault_path` 旁边挑一个尚未占用的文件名。
+/// `name_for` 负责把唯一后缀拼进文件名。
+fn unused_path_beside(vault_path: &Path, name_for: impl Fn(String) -> String) -> PathBuf {
+    let dir = vault_path.parent().unwrap_or(Path::new("."));
+    for _ in 0..1_000 {
+        let candidate = dir.join(name_for(uniqueness_stamp()));
+        if !candidate.exists() {
+            return candidate;
+        }
+    }
+    // 走到这里说明同名被占了 1000 次，属于异常环境；交回最后一个候选，
+    // 由 `create_new` 把它变成明确错误，而不是悄悄覆盖别人的文件。
+    dir.join(name_for(uniqueness_stamp()))
+}
+
+/// 原子写的临时文件名：`remote-credentials.json.tmp-<唯一后缀>`。
+fn temp_path_for(vault_path: &Path) -> PathBuf {
+    let file_name = vault_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(REMOTE_CREDENTIALS_FILE);
+    unused_path_beside(vault_path, |stamp| format!("{file_name}.tmp-{stamp}"))
+}
+
+/// 坏文件的备份名：`remote-credentials.corrupt-<唯一后缀>.json.bak`。
+/// 带 `corrupt` 与 `.bak` 两头标记，一眼能看出是「读不出来的凭据库」而不是现役存档。
+fn corrupt_backup_path_for(vault_path: &Path) -> PathBuf {
+    let stem = vault_path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or(REMOTE_CREDENTIALS_FILE);
+    unused_path_beside(vault_path, |stamp| {
+        format!("{stem}.corrupt-{stamp}.json.bak")
+    })
+}
+
+/// 是否是本模块产出的坏文件备份。
+fn is_corrupt_backup_name(name: &str) -> bool {
+    let stem = REMOTE_CREDENTIALS_FILE
+        .split_once('.')
+        .map(|(stem, _)| stem)
+        .unwrap_or(REMOTE_CREDENTIALS_FILE);
+    name.starts_with(&format!("{stem}.corrupt-")) && name.ends_with(".json.bak")
+}
+
+/// 把读不出来的凭据库**按字节**复制到同目录的备份文件里。
+///
+/// 不解析、不抢救、不删原文件：这份文件里全是 DPAPI 密文，只有本机当前用户解得开，
+/// 我们能做的只有把字节留住，给用户留一条「重装/换机之前捞回来」的路。
+///
+/// 判重：内容逐字节相同的备份已经存在就不再新建 —— 反复失败的写回不会把目录堆成垃圾。
+/// 代价是同一目录里两份**不同**的坏存档会各留一份备份，这是想要的行为，不是浪费。
+fn archive_unreadable_vault(app_data_dir: &Path, reason: &str) -> Result<PathBuf, RemoteError> {
+    let path = credentials_path_in(app_data_dir);
+    let raw = std::fs::read(&path).map_err(|error| {
+        RemoteError::unknown(format!(
+            "远程凭据文件读不出来（{reason}），且备份也失败了：{error}。 \
+             为免丢东西，本次保存已中止；请先手动把 {} 改名，再重新保存密码。",
+            path.display()
+        ))
+    })?;
+
+    for existing in list_corrupt_backups(app_data_dir) {
+        let same_bytes = std::fs::read(&existing).map(|bytes| bytes == raw).unwrap_or(false);
+        if same_bytes {
+            log::warn!(
+                "Credential vault {} is still unreadable and already archived to {}; not duplicating the backup",
+                path.display(),
+                existing.display()
+            );
+            return Ok(existing);
+        }
+    }
+
+    let backup = corrupt_backup_path_for(&path);
+    write_bytes_durable(&backup, &raw, "远程凭据备份").map_err(|error| {
+        let _ = std::fs::remove_file(&backup);
+        error
+    })?;
+
+    // 备份里同样是密文，DACL 收不留；失败只记警告，与现役存档一个口径。
+    crate::mcp::auth::restrict_to_current_user(&backup, "remote credential backup");
+
+    // 证据没落全就覆盖原件，等于什么都没加固。先核实字节数再继续。
+    let written = std::fs::metadata(&backup)
+        .map_err(|error| {
+            RemoteError::unknown(format!("无法确认远程凭据备份是否写完: {error}"))
+        })?
+        .len();
+    if written != raw.len() as u64 {
+        return Err(RemoteError::unknown(format!(
+            "远程凭据备份只落下 {written}/{} 字节，本次保存已中止",
+            raw.len()
+        )));
+    }
+
+    log::error!(
+        "Credential vault {} is unreadable ({reason}); the original bytes were archived to {} before it is replaced",
+        path.display(),
+        backup.display()
+    );
+    Ok(backup)
+}
+
+/// 列出现有的坏文件备份。目录读不了就当没有 —— 调用方接下来会自己新建。
+fn list_corrupt_backups(app_data_dir: &Path) -> Vec<PathBuf> {
+    let Ok(read_dir) = std::fs::read_dir(app_data_dir) else {
+        return Vec::new();
+    };
+
+    read_dir
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(is_corrupt_backup_name)
+        })
+        .collect()
+}
+
+/// 建文件、写满、`sync_all` 落盘。**用 `create_new`**：唯一名如果已被占用，
+/// 报错比覆盖别人的文件诚实。
+fn write_bytes_durable(path: &Path, bytes: &[u8], label: &str) -> Result<(), RemoteError> {
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .map_err(|error| RemoteError::unknown(format!("创建{label}文件失败: {error}")))?;
+
+    file.write_all(bytes)
+        .and_then(|_| file.sync_all())
+        .map_err(|error| RemoteError::unknown(format!("写入{label}文件失败: {error}")))?;
+
+    Ok(())
+}
+
+/// 落盘：**同目录写临时文件 → 落盘 → rename 覆盖目标**。
+///
+/// 原来直接 `std::fs::write` 覆盖现役文件：进程中途被杀或磁盘满就留下半截 JSON，
+/// 而半截 JSON 会让下一次保存读出一座空库 —— 截断这个诱因本身，加上
+/// 「读不出来就当没有」这个放大器，一起构成了整库被清空的成因。
+/// 改名是目录项级操作，读者只会看到「旧的完整文件」或「新的完整文件」，不会看到中间态。
 fn write_vault(app_data_dir: &Path, vault: &CredentialVault) -> Result<(), RemoteError> {
     std::fs::create_dir_all(app_data_dir)
         .map_err(|error| RemoteError::unknown(format!("创建远程凭据目录失败: {error}")))?;
@@ -85,11 +306,24 @@ fn write_vault(app_data_dir: &Path, vault: &CredentialVault) -> Result<(), Remot
         .map_err(|error| RemoteError::unknown(format!("序列化远程凭据失败: {error}")))?;
 
     let path = credentials_path_in(app_data_dir);
-    std::fs::write(&path, payload)
-        .map_err(|error| RemoteError::unknown(format!("写入远程凭据文件失败: {error}")))?;
+    let temp = temp_path_for(&path);
+
+    write_bytes_durable(&temp, payload.as_bytes(), "远程凭据临时文件").map_err(|error| {
+        let _ = std::fs::remove_file(&temp);
+        error
+    })?;
 
     // DPAPI 已经把同机其他账号挡住了，收 DACL 是再加一层。
+    // 临时文件也要收：进程在 rename 之前崩掉，留在盘上的就是一份带密文的临时文件。
     // 这一步失败只记警告 —— 收紧权限是加固，不该因为它把「保存密码」整个挡掉。
+    crate::mcp::auth::restrict_to_current_user(&temp, "remote credential");
+
+    std::fs::rename(&temp, &path).map_err(|error| {
+        // rename 失败必须清掉临时文件，否则目录里会攒出一堆带密文的孤儿。
+        let _ = std::fs::remove_file(&temp);
+        RemoteError::unknown(format!("提交远程凭据文件失败: {error}"))
+    })?;
+
     crate::mcp::auth::restrict_to_current_user(&path, "remote credential");
     Ok(())
 }
@@ -246,11 +480,14 @@ pub fn load_credential(app_data_dir: &Path, key: &str) -> Result<Option<String>,
 }
 
 /// 加密并保存一个密码。同键再次调用会**替换**旧值。
+///
+/// 走 [`vault_for_write`]：现有的存档如果读不出来，先把原文件按字节备份，
+/// 这次写入才允许进行。
 pub fn save_credential(app_data_dir: &Path, key: &str, secret: &str) -> Result<(), RemoteError> {
     validate_key(key)?;
 
     let ciphertext = protect(secret.as_bytes())?;
-    let mut vault = read_vault(app_data_dir);
+    let mut vault = vault_for_write(app_data_dir)?;
     vault
         .entries
         .insert(key.to_string(), BASE64_STANDARD.encode(&ciphertext));
@@ -260,6 +497,12 @@ pub fn save_credential(app_data_dir: &Path, key: &str, secret: &str) -> Result<(
 
 /// 删掉一个已保存的密码。键不存在是**成功的空操作**，不是错误 ——
 /// 删除动作的调用方不该因为「本来就没有」而中断。
+///
+/// 这里刻意走只读的 [`read_vault`] 而不是 [`vault_for_write`]，不是漏改：
+/// 存档读不出来时 `read_vault` 交出空库，于是键必然不存在、直接 `Ok(())` 返回、**根本不写盘** ——
+/// 坏文件原样留在原地，没有任何东西被覆盖，也就不需要备份。
+/// 反过来若改成 `vault_for_write`，删一个不存在的键反而会产出备份并把空库写回去，
+/// 把「删不掉」变成「顺手清空」，正是这次加固要消灭的行为。
 pub fn delete_credential(app_data_dir: &Path, key: &str) -> Result<(), RemoteError> {
     validate_key(key)?;
 
@@ -615,8 +858,9 @@ mod tests {
         assert!(load_credential(dir.path(), "cred-1").is_err());
     }
 
-    /// 整个文件是半截 JSON —— 与 `mcp/auth.rs` 的既有策略一致：
+    /// 整个文件是半截 JSON —— **只读路径**与 `mcp/auth.rs` 的既有策略一致：
     /// 宁可退回「没有凭据」，也不要拿半截文件推导出状态。
+    /// 写回路径的处置完全不同，见 `saving_onto_a_corrupt_vault_backs_the_bad_file_up_before_overwriting_it`。
     #[test]
     fn a_truncated_json_file_is_treated_as_an_empty_vault() {
         let dir = temp_dir();
@@ -639,6 +883,245 @@ mod tests {
         .expect("write");
 
         assert_eq!(load_credential(dir.path(), "cred-1").expect("load"), None);
+    }
+
+    // ---- 读不出来不再等于没有（2026-11-09 加固）-------------------------------
+
+    /// 目录里的文件名，按名字排好序，方便断言「除了现役存档不该再有别的文件」。
+    fn file_names(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .expect("read dir")
+            .filter_map(|entry| entry.ok())
+            .filter_map(|entry| entry.path().file_name().and_then(|n| n.to_str()).map(str::to_string))
+            .collect();
+        names.sort();
+        names
+    }
+
+    /// 三态判据的直接对照：不存在 / 正常 / 读不出来，一个都不许混。
+    /// 这一条是下面所有备份用例的地基 —— 分不开这三种，备份就无从谈起。
+    #[test]
+    fn the_three_vault_states_are_told_apart() {
+        let dir = temp_dir();
+        let path = credentials_path_in(dir.path());
+
+        assert!(matches!(inspect_vault(&path), VaultRead::Absent));
+
+        save_credential(dir.path(), "cred-1", "hunter2").expect("save");
+        assert!(matches!(inspect_vault(&path), VaultRead::Loaded(_)));
+
+        std::fs::write(&path, r#"{"version":1,"entries":"#).expect("truncate");
+        assert!(matches!(inspect_vault(&path), VaultRead::Unreadable { .. }));
+    }
+
+    /// 真机事故的回归用例：库里本来有凭据，文件被写成半截 JSON，
+    /// 紧接着的一次保存会拿着空库写回，把其余密文一并抹掉。
+    /// 现在覆盖之前必须先在旁边留下一份逐字节的原件。
+    #[test]
+    fn saving_onto_a_corrupt_vault_backs_the_bad_file_up_before_overwriting_it() {
+        let dir = temp_dir();
+        let path = credentials_path_in(dir.path());
+        let garbage = r#"{"version":1,"entries":{"cred-1":"QUJD"#;
+        std::fs::write(&path, garbage).expect("write");
+
+        save_credential(dir.path(), "cred-2", "hunter2").expect("save");
+
+        let backups = list_corrupt_backups(dir.path());
+        assert_eq!(backups.len(), 1, "坏文件应当留下一份备份");
+        assert_eq!(
+            std::fs::read(&backups[0]).expect("read backup"),
+            garbage.as_bytes(),
+            "备份必须与原件逐字节相同"
+        );
+
+        // 现役存档已被本次写入的新库替换，里面只有这次存的这一条。
+        assert_eq!(
+            load_credential(dir.path(), "cred-2").expect("load").as_deref(),
+            Some("hunter2")
+        );
+        assert_eq!(load_credential(dir.path(), "cred-1").expect("load"), None);
+    }
+
+    /// 备份的口径必须说清楚：留住的是**读失败当场磁盘上的那些字节**。
+    /// 原件若已被截断成半截，备份能留住的就是那半截 —— 它防的是「被覆盖」，
+    /// 不防「已经发生的截断」；防截断靠的是原子写本身（见 `write_vault`）。
+    #[test]
+    fn the_backup_keeps_exactly_the_bytes_that_were_on_disk_when_the_read_failed() {
+        let dir = temp_dir();
+        let path = credentials_path_in(dir.path());
+        save_credential(dir.path(), "cred-1", "one").expect("save 1");
+        save_credential(dir.path(), "cred-2", "two").expect("save 2");
+
+        // 复现事故当场：进程在写的中途被杀，磁盘上留下半截 JSON。
+        let intact = std::fs::read(&path).expect("read intact");
+        let truncated = &intact[..intact.len() / 2];
+        std::fs::write(&path, truncated).expect("truncate");
+
+        save_credential(dir.path(), "cred-3", "three").expect("save 3");
+
+        let backups = list_corrupt_backups(dir.path());
+        assert_eq!(backups.len(), 1);
+        assert_eq!(
+            std::fs::read(&backups[0]).expect("read backup"),
+            truncated,
+            "备份必须逐字节等于当场那份读不出来的文件"
+        );
+    }
+
+    /// 备份的全部价值在于**事后还解得开**。这一条钉的是真机丢掉的那三条：
+    /// 一座「字节完好、但这个版本读不出来」的存档被覆盖之前整份留档，
+    /// 里面的 DPAPI 密文照样能解回当年的密码原文。
+    #[test]
+    fn the_backup_of_a_vault_this_build_cannot_read_still_yields_every_secret() {
+        let dir = temp_dir();
+        let path = credentials_path_in(dir.path());
+        save_credential(dir.path(), "cred-1", "第一把钥匙").expect("save 1");
+        save_credential(dir.path(), "cred-2", "second-key").expect("save 2");
+
+        // 只把版本号换成不认识的值，条目与密文一律原样保留。
+        let mut foreign = read_vault(dir.path());
+        assert_eq!(foreign.entries.len(), 2, "两条凭据都应当还在库里");
+        foreign.version = 9999;
+        std::fs::write(&path, serde_json::to_vec_pretty(&foreign).expect("serialize"))
+            .expect("write foreign");
+
+        save_credential(dir.path(), "cred-3", "third-key").expect("save 3");
+
+        let backups = list_corrupt_backups(dir.path());
+        assert_eq!(backups.len(), 1);
+        let archived: CredentialVault =
+            serde_json::from_slice(&std::fs::read(&backups[0]).expect("read backup"))
+                .expect("备份必须还是完整的一份存档");
+        assert_eq!(archived.version, 9999, "备份不许改写原件的任何字节");
+
+        for (key, expected) in [("cred-1", "第一把钥匙"), ("cred-2", "second-key")] {
+            let encoded = archived
+                .entries
+                .get(key)
+                .unwrap_or_else(|| panic!("{key} 应当在备份里"));
+            let ciphertext = BASE64_STANDARD.decode(encoded).expect("备份里的密文应当是 base64");
+            let plaintext = unprotect(&ciphertext).expect("unprotect");
+            assert_eq!(String::from_utf8(plaintext).expect("utf8"), expected);
+        }
+
+        // 现役存档已被换成只含本次这一条的新库，且自身可正常读回。
+        assert_eq!(
+            load_credential(dir.path(), "cred-3").expect("load").as_deref(),
+            Some("third-key")
+        );
+    }
+
+    /// 「版本不认识」和「半截 JSON」是同一种危险：读不出来不等于没有。
+    #[test]
+    fn saving_onto_an_unknown_vault_version_leaves_a_backup() {
+        let dir = temp_dir();
+        let path = credentials_path_in(dir.path());
+        let future = r#"{"version":9999,"entries":{"cred-1":"QUJD"}}"#;
+        std::fs::write(&path, future).expect("write");
+
+        save_credential(dir.path(), "cred-2", "hunter2").expect("save");
+
+        let backups = list_corrupt_backups(dir.path());
+        assert_eq!(backups.len(), 1);
+        assert_eq!(std::fs::read(&backups[0]).expect("read backup"), future.as_bytes());
+    }
+
+    /// 「不是 UTF-8」正是原来 `read_to_string` 与「文件不存在」撞成同一个错误的那一种：
+    /// 二进制垃圾也必须按字节留住，而不是当成干净状态直接盖掉。
+    #[test]
+    fn a_vault_that_is_not_even_utf8_is_backed_up_by_bytes() {
+        let dir = temp_dir();
+        let path = credentials_path_in(dir.path());
+        let not_text: Vec<u8> = vec![0xFF, 0xFE, 0x00, 0x80, 0x81];
+        std::fs::write(&path, &not_text).expect("write");
+
+        save_credential(dir.path(), "cred-1", "hunter2").expect("save");
+
+        let backups = list_corrupt_backups(dir.path());
+        assert_eq!(backups.len(), 1);
+        assert_eq!(std::fs::read(&backups[0]).expect("read backup"), not_text);
+    }
+
+    /// 「文件本来就不存在」是干净的初始状态，不是坏文件 —— 不该给它造备份。
+    #[test]
+    fn saving_the_first_credential_creates_no_backup() {
+        let dir = temp_dir();
+        save_credential(dir.path(), "cred-1", "hunter2").expect("save");
+
+        assert!(list_corrupt_backups(dir.path()).is_empty());
+        assert_eq!(file_names(dir.path()), vec![REMOTE_CREDENTIALS_FILE.to_string()]);
+    }
+
+    /// 备份只在写回之前发生。查密码是只读的，读一万次也不许在目录里留下任何东西 ——
+    /// 否则每次启动都可能攒一堆垃圾文件。
+    #[test]
+    fn a_read_only_lookup_never_creates_a_backup() {
+        let dir = temp_dir();
+        let garbage = r#"{"version":1,"entries":{"cred-1":"QUJD"#;
+        std::fs::write(credentials_path_in(dir.path()), garbage).expect("write");
+
+        for _ in 0..3 {
+            assert_eq!(load_credential(dir.path(), "cred-1").expect("load"), None);
+        }
+
+        assert!(list_corrupt_backups(dir.path()).is_empty());
+        assert_eq!(file_names(dir.path()), vec![REMOTE_CREDENTIALS_FILE.to_string()]);
+    }
+
+    /// 原子写不留垃圾：改名成功之后目录里只该有现役存档，
+    /// 不许留下 `.tmp-` 的孤儿（那上面带的是密文）。
+    #[test]
+    fn the_atomic_write_leaves_no_temp_file_behind() {
+        let dir = temp_dir();
+        save_credential(dir.path(), "cred-1", "one").expect("save 1");
+        save_credential(dir.path(), "cred-2", "two").expect("save 2");
+        delete_credential(dir.path(), "cred-1").expect("delete");
+
+        let leftovers: Vec<String> = file_names(dir.path())
+            .into_iter()
+            .filter(|name| name.contains(".tmp-"))
+            .collect();
+        assert!(leftovers.is_empty(), "原子写留下了临时文件: {leftovers:?}");
+        assert_eq!(file_names(dir.path()), vec![REMOTE_CREDENTIALS_FILE.to_string()]);
+    }
+
+    /// 反复失败的写回不该把目录堆成垃圾：同一份坏字节只留一份备份。
+    #[test]
+    fn backing_up_the_same_bad_file_twice_creates_only_one_backup() {
+        let dir = temp_dir();
+        let path = credentials_path_in(dir.path());
+        let garbage = r#"{"version":1,"entries":{"cred-1":"QUJD"#;
+
+        std::fs::write(&path, garbage).expect("write");
+        save_credential(dir.path(), "cred-2", "one").expect("save 1");
+        std::fs::write(&path, garbage).expect("write again");
+        save_credential(dir.path(), "cred-3", "two").expect("save 2");
+
+        assert_eq!(list_corrupt_backups(dir.path()).len(), 1);
+    }
+
+    /// 判重的边界：内容不同就必须各留一份。
+    /// 反面是「只留第一份」，那样第二次事故的原件照样会被盖掉。
+    #[test]
+    fn a_differently_broken_vault_gets_its_own_backup() {
+        let dir = temp_dir();
+        let path = credentials_path_in(dir.path());
+        let first = r#"{"version":1,"entries":{"cred-1":"QUJD"#;
+        let second = r#"{"version":1,"entries":{"cred-9":"XYZ"#;
+
+        std::fs::write(&path, first).expect("write");
+        save_credential(dir.path(), "cred-2", "one").expect("save 1");
+        std::fs::write(&path, second).expect("write again");
+        save_credential(dir.path(), "cred-3", "two").expect("save 2");
+
+        let backups = list_corrupt_backups(dir.path());
+        assert_eq!(backups.len(), 2, "两份不同的坏存档应当各留一份备份");
+        let bytes: Vec<Vec<u8>> = backups
+            .iter()
+            .map(|path| std::fs::read(path).expect("read backup"))
+            .collect();
+        assert!(bytes.iter().any(|b| b == first.as_bytes()));
+        assert!(bytes.iter().any(|b| b == second.as_bytes()));
     }
 
     /// 把存档里某个 entry 的 base64 原文取出来，供篡改测试替换。

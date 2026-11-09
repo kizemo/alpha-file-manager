@@ -714,7 +714,8 @@
         "remoteConnectionsStorageNotReady": "The connection list has not finished loading. Please try again in a moment.",
         "unknown": "Failed to save the connection.",
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
-        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port."
+        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
+        "baiduLoginRequired": "पहले ऐप के भीतर Baidu Pan में साइन इन करें, फिर यह कनेक्शन सहेजें।"
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -744,7 +745,6 @@
         "empty": "No connections yet.",
         "split": "Split",
         "editConnection": "Edit this connection",
-        "homeTitle": "क्लाउड स्टोरेज औ रिमोट कनेक्शन",
         "homeEmpty": "अभी तक कोई क्लाउड स्टोरेज या रिमोट कनेक्शन कॉन्फ़िगर नहीं किया गया है।"
       },
       "trustedHosts": {
@@ -758,8 +758,6 @@
         "kindX509": "X.509 certificate"
       },
       "baidu": {
-        "hint": "ब्राउज़र में pan.baidu.com पर लॉग इन करें, फिर पूरा Cookie हेडर यहाँ पेस्ट करें (इसमें BDUSS होना चाहिए)। क्रेडेंशियल Windows DPAPI से एन्क्रिप्ट होते हैं और इस कंप्यूटर से बाहर नहीं जाते।",
-        "cookiePlaceholder": "पूरी Cookie यहाँ चिपकाएँ, जैसे BDUSS=xxx; STOKEN=yyy",
         "status": {
           "loading": "प्राधिकरण स्थिति पढ़ी जा रही है…",
           "missing": "लॉग इन नहीं है",
@@ -769,18 +767,6 @@
         },
         "action": {
           "deleteSession": "सहेजा गया सत्र हटाएँ"
-        },
-        "help": {
-          "toggle": "Cookie कैसे प्राप्त करें",
-          "openLogin": "बायडू नेटडिस्क लॉगिन पृष्ठ खोलें",
-          "step1": "ब्राउज़र में pan.baidu.com खोलें और अपने बायडू खाते में साइन इन करें।",
-          "step2": "डेवलपर टूल्स खोलने के लिए F12 दबाएँ और नेटवर्क पैनल पर जाएँ।",
-          "step3": "पृष्ठ रीलोड करें, किसी भी अनुरोध पर क्लिक करें और Request Headers की Cookie पंक्ति में BDUSS खोजें।",
-          "step4": "BDUSS का मान कॉपी करें; यदि STOKEN भी है तो उसे भी कॉपी करें, इससे अपलोड की गति बनी रहेगी।",
-          "step5": "उसे ऊपर वाले फ़ील्ड में पेस्ट करें — पूरा Cookie, BDUSS=xxx; STOKEN=yyy या केवल BDUSS का मान, तीनों स्वीकार हैं।",
-          "noteRequired": "BDUSS अनिवार्य है और उसके नाम में अक्षरों का आकार मायने रखता है (छोटे अक्षरों का bduss स्वीकार नहीं होगा)। STOKEN वैकल्पिक है।",
-          "noteExpiry": "Cookie की समय-सीमा समाप्त होने पर यह ऐप उसे नवीनीकृत नहीं कर सकता; फिर से साइन इन कर नया Cookie कॉपी करें।",
-          "notePrivacy": "Cookie आपके पासवर्ड के बराबर संवेदनशील है। यह केवल इस कंप्यूटर पर Windows DPAPI से एन्क्रिप्ट होकर सहेजा जाता है, कभी अपलोड नहीं होता और लॉग में नहीं लिखा जाता।"
         },
         "embedded": {
           "title": "Sign in inside the app",
@@ -793,7 +779,8 @@
             "closed": "The sign-in window was closed before signing in finished.",
             "timeout": "Signing in took too long. Try again.",
             "error": "Could not read the session. Use the Cookie field instead."
-          }
+          },
+          "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
         }
       }
     },

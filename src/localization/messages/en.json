@@ -714,7 +714,8 @@
         "remoteConnectionsStorageNotReady": "The connection list has not finished loading. Please try again in a moment.",
         "unknown": "Failed to save the connection.",
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
-        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port."
+        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
+        "baiduLoginRequired": "Sign in to Baidu Pan inside the app, then save this connection."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -744,7 +745,6 @@
         "empty": "No connections yet.",
         "split": "Split",
         "editConnection": "Edit this connection",
-        "homeTitle": "Netdisks & Remote connections",
         "homeEmpty": "No netdisks or remote connections configured yet."
       },
       "trustedHosts": {
@@ -758,19 +758,18 @@
         "kindX509": "X.509 certificate"
       },
       "baidu": {
-        "hint": "Sign in to pan.baidu.com in your browser, then paste the whole Cookie header here (it must contain BDUSS). The credential is encrypted with Windows DPAPI and never leaves this machine.",
-        "cookiePlaceholder": "Paste the whole Cookie here, for example BDUSS=xxx; STOKEN=yyy",
         "embedded": {
           "title": "Sign in inside the app",
           "start": "Sign in with the built-in window",
           "cancel": "Stop waiting",
-          "hint": "Opens a sign-in window inside the app. Once you are signed in, this form fills itself in — you only need to give the connection a name and save.",
+          "hint": "Opens a sign-in window inside the app. Once you are signed in, the window closes on its own and the cookie is captured — you only need to save this connection.",
+          "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it.",
           "status": {
             "waiting": "Waiting for you to finish signing in…",
-            "ready": "Signed in. Give this connection a name and save — the session is stored when you save.",
+            "ready": "Signed in. Save this connection — the session is stored when you save.",
             "closed": "The sign-in window was closed before signing in finished.",
             "timeout": "Signing in took too long. Try again.",
-            "error": "Could not read the session. Use the Cookie field instead."
+            "error": "Could not read the session. Try again."
           }
         },
         "status": {
@@ -782,18 +781,6 @@
         },
         "action": {
           "deleteSession": "Delete saved session"
-        },
-        "help": {
-          "toggle": "How to get the Cookie",
-          "openLogin": "Open the Baidu Netdisk sign-in page",
-          "step1": "Open pan.baidu.com in your browser and sign in to your Baidu account.",
-          "step2": "Press F12 to open the developer tools and switch to the Network panel.",
-          "step3": "Reload the page, click any request, and find BDUSS in the Cookie line under Request Headers.",
-          "step4": "Copy the BDUSS value. If STOKEN is listed too, copy it as well to keep upload acceleration.",
-          "step5": "Paste it into the field above: the full Cookie string, BDUSS=xxx; STOKEN=yyy, or just the bare BDUSS value all work.",
-          "noteRequired": "BDUSS is required and its name is case sensitive (lowercase bduss is not accepted). STOKEN is optional.",
-          "noteExpiry": "Once the Cookie expires, this app cannot renew it; sign in again and copy a fresh one.",
-          "notePrivacy": "A Cookie is as sensitive as your password. It is stored only as Windows DPAPI-encrypted data on this PC, never uploaded and never written to logs."
         }
       }
     },

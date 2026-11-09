@@ -170,15 +170,23 @@ export function useFileBrowserDialogs(options: {
     options.cancelRename();
   }
 
-  async function handleNewItemConfirm(name: string) {
-    const success = await options.createNewItem(
-      name,
-      newItemDialogState.value.type,
-      newItemDialogState.value.targetPaths,
-    );
+  async function handleNewItemConfirm(name: string, done: (ok: boolean) => void) {
+    try {
+      const success = await options.createNewItem(
+        name,
+        newItemDialogState.value.type,
+        newItemDialogState.value.targetPaths,
+      );
 
-    if (success) {
-      closeNewItemDialog();
+      if (success) {
+        closeNewItemDialog();
+      }
+
+      done(success);
+    }
+    catch (error) {
+      console.error('[new-item] create failed', error);
+      done(false);
     }
   }
 

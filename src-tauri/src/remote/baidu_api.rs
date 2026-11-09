@@ -981,8 +981,28 @@ pub async fn download_file(
 // 形态一致 ≠ 服务端一定认。判据是 T9 真机清单第 9/10/11 条
 // （新建出现在网页端、改名同步、删除进回收站）。**不要把本节当成已证结论。**
 
-/// 网页端首页：写操作要用的 `bdstoken` 从这里取。
+/// 网页端**旧**首页。
+///
+/// **写操作不再从这里取 `bdstoken`**（原因见 [`BAIDU_BDSTOKEN_ENDPOINT`]），
+/// 目前它只剩内嵌登录流程当「是否已登录」的探针地址。
 pub const BAIDU_PAN_HOME_URL: &str = "https://pan.baidu.com/disk/home";
+
+/// 写操作要用的 `bdstoken` 的真正来源：JSON 接口 `api/gettemplatevariable`。
+///
+/// 2026-11-09 真机实测（证据 `.superpowers/sdd/acc-20261109/baidu-token-source.txt`）：
+///
+/// 1. `GET /disk/home` 即使带着形态正确的 cookie 也**恒定 302**，Location 指向
+///    `/disk/main?from=homeFlow` —— 也就是**不是登录页**，旧首页已下线；
+/// 2. 跟到 `/disk/main` 拿到的是 SPA 外壳，里面 `"bdstoken":""` 是**空串**，
+///    `uk:0`、`username:""`，而且 `yundata` / `yunData` / `initContext` /
+///    `baiduInfo` / `hasLogin` 的命中数**全为 0**。
+///
+/// ⇒ 「抓首页 HTML 再正则取 token」这条路整体作废。更糟的是本模块的 client 刻意用
+/// `redirect::Policy::none()`，那个 302 会被 [`failure_from_http_status`] 归成
+/// [`BaiduFailure::Auth`]，于是**会话明明有效也会报「百度网盘会话已失效」**，
+/// 而 [`should_refresh_token`] 又认为 Auth 值得重试，同一条死路走两遍。
+/// 这就是用户看到的删除报错的成因。
+pub const BAIDU_BDSTOKEN_ENDPOINT: &str = "https://pan.baidu.com/api/gettemplatevariable";
 
 /// 写操作请求的 `Referer`。
 ///
@@ -1006,6 +1026,41 @@ pub fn create_dir_url(bdstoken: &str, path: &str) -> String {
         encode_query_component(path),
         BAIDU_PAN_APP_ID
     )
+}
+
+/// 新建目录的**表单请求体**。
+///
+/// 2026-11-09 真机 A/B（证据 `.superpowers/sdd/accept-3134/baidu-create-ab.log`）：
+/// `POST /api/create` 只把参数放在 query、body 传空串时服务端恒回 `{"errno":2,"path":""}`；
+/// 同样的参数改成表单 body 则 `errno:0` 并真的建出目录。
+/// ⇒ body 必须带 `path` / `isdir=1` / `block_list=[]`，query 里的同名参数只是兼容冗余。
+pub fn create_dir_form_body(path: &str) -> String {
+    encode_form_body(&[
+        ("path", path),
+        ("isdir", "1"),
+        ("block_list", "[]"),
+    ])
+}
+
+#[cfg(test)]
+mod create_dir_form_body_tests {
+    use super::create_dir_form_body;
+
+    #[test]
+    fn form_body_carries_path_isdir_and_block_list() {
+        let body = create_dir_form_body("/0000temp/zz-accept-3134");
+        assert_eq!(
+            body,
+            "path=%2F0000temp%2Fzz-accept-3134&isdir=1&block_list=%5B%5D"
+        );
+    }
+
+    #[test]
+    fn form_body_escapes_special_characters() {
+        let body = create_dir_form_body("/a b&c=d");
+        assert!(body.contains("path=%2Fa%20b%26c%3Dd"));
+        assert!(!body.contains("path=/a b&c=d"));
+    }
 }
 
 /// 改名 / 删除：`POST /api/filemanager`。
@@ -1093,6 +1148,99 @@ fn take_bdstoken_value(text: &str) -> Option<String> {
     }
 
     Some(token.to_string())
+}
+
+/// `bdstoken` 接口的完整 URL。
+///
+/// 参数形态照社区实现（bypy / python-baidupcs）：`fields` 是一个 JSON 数组字符串，
+/// 整值做一次百分号编码。我们只要 `bdstoken` 一项 —— 多要字段不增加信息，
+/// 反而把 `token`/`auth` 这类无关值带进日志风险里。
+pub fn bdstoken_url() -> String {
+    format!(
+        "{BAIDU_BDSTOKEN_ENDPOINT}?clienttype=0&app_id={BAIDU_PAN_APP_ID}&web=1&fields={}",
+        encode_query_component(r#"["bdstoken"]"#)
+    )
+}
+
+/// `gettemplatevariable` 响应里的 `result` 对象。
+#[derive(Debug, Clone, Deserialize)]
+struct BaiduTokenResult {
+    #[serde(default)]
+    bdstoken: Option<String>,
+}
+
+/// `gettemplatevariable` 响应外壳。
+///
+/// 实测形状（`.superpowers/sdd/acc-20261109/baidu-token-source.txt` C 段）：
+///
+/// ```text
+/// 未登录: {"errno":-6,"request_id":…}
+/// 已登录: {"errno":0,"result":{"bdstoken":"<hex32>", …},"request_id":…}
+/// ```
+#[derive(Debug, Clone, Deserialize)]
+struct BaiduTokenEnvelope {
+    #[serde(default)]
+    errno: Option<i64>,
+    #[serde(default)]
+    errmsg: Option<String>,
+    #[serde(default)]
+    error_code: Option<i64>,
+    #[serde(default)]
+    error_msg: Option<String>,
+    #[serde(default)]
+    result: Option<BaiduTokenResult>,
+}
+
+/// 解析 `gettemplatevariable` 的 JSON 响应，取出 `bdstoken`。
+///
+/// 三条判定，全部有实测依据：
+///
+/// 1. `errno` / `error_code` 非 0 ⇒ 走 [`classify_write_failure`]，与会话/参数错误
+///    同口径（`-6` 归 Auth ⇒ 触发批次 B 的内嵌重新登录）；
+/// 2. `result.bdstoken` 缺失、空串、`"null"`、`"undefined"` ⇒ [`BaiduFailure::Protocol`]。
+///    `/disk/main` 页面里 `"bdstoken":""` 就是这个形状（D 段实测），
+///    把它当「会话失效」报会误导用户；
+/// 3. 响应不是合法 JSON ⇒ [`BaiduFailure::Malformed`]（接口改版的第一信号）。
+pub fn parse_bdstoken_response(body: &str) -> Result<String, BaiduWriteError> {
+    let envelope: BaiduTokenEnvelope =
+        serde_json::from_str(body).map_err(|_| BaiduWriteError {
+            failure: BaiduFailure::Malformed,
+            server_message: None,
+        })?;
+
+    if let Some(code) = envelope.error_code {
+        if code != 0 {
+            let message = envelope.error_msg.clone();
+            return Err(BaiduWriteError {
+                failure: classify_write_failure(code, message.as_deref()),
+                server_message: message,
+            });
+        }
+    }
+
+    let errno = envelope.errno.unwrap_or(0);
+    if errno != 0 {
+        let message = envelope.errmsg.clone();
+        return Err(BaiduWriteError {
+            failure: classify_write_failure(errno, message.as_deref()),
+            server_message: message,
+        });
+    }
+
+    let raw = envelope
+        .result
+        .and_then(|result| result.bdstoken)
+        .unwrap_or_default();
+    let token = raw.trim();
+
+    if token.is_empty() || token == "null" || token == "undefined" {
+        return Err(BaiduWriteError {
+            failure: BaiduFailure::Protocol,
+            server_message: Some("百度网盘没有下发 bdstoken。".to_string()),
+        });
+    }
+
+    Ok(token.to_string())
 }
 
 /// 拼一个 `application/x-www-form-urlencoded` 的请求体。
@@ -1304,15 +1452,54 @@ pub async fn post_form(
 }
 
 /// 取写操作要用的 `bdstoken`。
+///
+/// 来源是 [`BAIDU_BDSTOKEN_ENDPOINT`]（JSON 接口），**不再是 `/disk/home` 的 HTML**。
+/// 原因（2026-11-09 实测，见常量文档）：旧首页恒定 302，本模块 client 的
+/// `Policy::none()` 把 3xx 归成 [`BaiduFailure::Auth`]，导致会话明明有效也报
+/// 「百度网盘会话已失效，请重新授权」——即用户报的删除 bug 的成因 D1。
 pub async fn fetch_bdstoken(
     client: &reqwest::Client,
     session: &BaiduSession,
 ) -> Result<String, RemoteError> {
-    let page = get_text(client, BAIDU_PAN_HOME_URL, session).await?;
+    let cookie = session
+        .cookie_header()
+        .ok_or_else(|| RemoteError::auth("百度网盘会话凭据缺失或格式非法，请重新授权。"))?;
 
-    parse_bdstoken(&page).ok_or_else(|| {
-        RemoteError::protocol("百度网盘没有下发 bdstoken，写操作暂时用不了，请重新登录网盘后重试。")
-    })
+    let response = client
+        .get(bdstoken_url())
+        .header(reqwest::header::COOKIE, cookie)
+        .send()
+        .await
+        .map_err(|error| {
+            let kind = classify_transport(transport_shape_of(&error));
+            RemoteError::new(kind, format!("访问百度网盘失败：{error}"))
+        })?;
+
+    let status = response.status();
+
+    // 护栏：token 接口按约定只会回 JSON。**收到 3xx 一律报 Protocol，不归 Auth** ——
+    // 「幻影会话失效」（会话有效却报已失效）就是这么来的，不许它借道复活。
+    if status.is_redirection() {
+        return Err(RemoteError::protocol(format!(
+            "百度网盘 bdstoken 接口返回了重定向（HTTP {}），接口形态可能已变更。",
+            status.as_u16()
+        )));
+    }
+
+    if !status.is_success() {
+        return Err(to_remote_error(&failure_from_http_status(status.as_u16())));
+    }
+
+    let bytes = response.bytes().await.map_err(|error| {
+        let kind = classify_transport(transport_shape_of(&error));
+        RemoteError::new(kind, format!("读取百度网盘响应失败：{error}"))
+    })?;
+
+    let body = String::from_utf8(bytes.to_vec()).map_err(|error| {
+        RemoteError::encoding(format!("百度网盘响应不是合法的 UTF-8 文本：{error}"))
+    })?;
+
+    parse_bdstoken_response(&body).map_err(|error| error.to_remote_error())
 }
 
 // ===========================================================================
@@ -1383,6 +1570,73 @@ mod write_tests {
     #[test]
     fn an_empty_bdstoken_is_rejected() {
         assert_eq!(parse_bdstoken(r#"{"bdstoken":""}"#), None);
+    }
+
+    // ------------------------------------------------------------------
+    // bdstoken：JSON 接口来源（2026-11-09 D1 修复）
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn the_bdstoken_url_points_at_the_json_endpoint_not_the_home_page() {
+        let url = bdstoken_url();
+
+        assert!(url.starts_with("https://pan.baidu.com/api/gettemplatevariable?"));
+        assert!(url.contains(&format!("app_id={BAIDU_PAN_APP_ID}")));
+        assert!(url.contains("fields=%5B%22bdstoken%22%5D"));
+        assert!(!url.contains("disk/home"));
+        assert!(!url.contains("disk/main"));
+    }
+
+    #[test]
+    fn the_bdstoken_is_read_from_the_json_envelope() {
+        let body = r#"{"errno":0,"request_id":123,"result":{"bdstoken":"742aa0d6886423a5503bbc67afdb2a7d","token":"","uk":"123456"}}"#;
+
+        assert_eq!(
+            parse_bdstoken_response(body).as_deref(),
+            Ok("742aa0d6886423a5503bbc67afdb2a7d")
+        );
+    }
+
+    #[test]
+    fn a_negative_errno_in_the_token_envelope_keeps_the_auth_classification() {
+        // 实测：无效会话打 gettemplatevariable 回 {"errno":-6,…}（D 段 C 项）。
+        // -6 必须继续归 Auth，才能触发批次 B 的内嵌重新登录。
+        let error = parse_bdstoken_response(r#"{"errno":-6,"request_id":1}"#).unwrap_err();
+
+        assert_eq!(error.failure, BaiduFailure::Auth);
+    }
+
+    #[test]
+    fn an_empty_bdstoken_in_the_json_envelope_is_a_protocol_failure() {
+        // /disk/main 的真实形状：errno=0 而 bdstoken 为空串。
+        // 归 Protocol 而非 Auth —— 「会话已失效」在此是误导。
+        let error =
+            parse_bdstoken_response(r#"{"errno":0,"result":{"bdstoken":"","uk":"0"}}"#).unwrap_err();
+
+        assert_eq!(error.failure, BaiduFailure::Protocol);
+    }
+
+    #[test]
+    fn a_literal_null_bdstoken_in_the_json_envelope_is_rejected() {
+        let error = parse_bdstoken_response(r#"{"errno":0,"result":{"bdstoken":"null"}}"#)
+            .unwrap_err();
+
+        assert_eq!(error.failure, BaiduFailure::Protocol);
+    }
+
+    #[test]
+    fn a_missing_result_object_in_the_json_envelope_is_rejected() {
+        let error = parse_bdstoken_response(r#"{"errno":0,"request_id":7}"#).unwrap_err();
+
+        assert_eq!(error.failure, BaiduFailure::Protocol);
+    }
+
+    #[test]
+    fn a_non_json_token_response_is_malformed() {
+        // 接口改版（比如被换成 HTML）的第一信号就是这里。
+        let error = parse_bdstoken_response("<html><body>gateway</body></html>").unwrap_err();
+
+        assert_eq!(error.failure, BaiduFailure::Malformed);
     }
 
     // ------------------------------------------------------------------
