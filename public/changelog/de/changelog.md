@@ -1,5 +1,14 @@
 # Änderungsprotokoll
 
+## [3.13.5] - November 2026
+
+**Summary:** The focus-sync helper no longer starts on its own at logon - it now belongs to Alpha File Manager and lives exactly as long as the app does. An upgrade also stops the old logon task for good, even when the old helper is running at that moment.
+
+### What changed
+
+- **Fixed** **The focus-sync helper no longer keeps running after Alpha is closed** - The helper used to be started by a logon task and stayed resident, holding its port and watching windows even while Alpha was not open. Alpha now starts it and stops it again, so the helper is alive exactly while the app is.
+- **Fixed** **An upgrade no longer leaves the old logon task behind** - The task was removed only after the new helper had been deployed, so a failed deployment left it registered and it could bring the old helper back a minute later. The task is now removed before the helper files are touched, and the installer waits for the old process to exit before replacing its files.
+
 ## [3.13.4] - November 2026
 
 **Summary:** Signing in to Baidu Netdisk now happens inside the app, and four defects found while verifying the previous build are fixed: a stale session could be taken for a fresh sign-in, *Test connection* claimed a password had been refused when nothing had been checked, a deleted file only left the listing after pressing *Refresh*, and creating a folder on Baidu Netdisk was rejected by the server because the request carried no form body.
