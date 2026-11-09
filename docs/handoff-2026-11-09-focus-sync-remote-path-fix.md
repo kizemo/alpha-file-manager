@@ -123,6 +123,27 @@
 第三条是最硬的证据：路径**确实被写进了外部程序的对话框**并回读确认，
 说明修复没有把正常功能一起打死。
 
+## 4.1 补修（2026-11-09 21:09）：`/health` 的 `afm_visit_latched` 对齐闸门口径
+
+原实现只判断「交接记录是否存在」，**不判 TTL** ⇒ 侧车运行 23 分钟后仍报
+`afm_visit_latched=true`，而实际闸门早已因超时拒绝写回 ⇒ 验收时会被
+误读成「授权还活着」，从而得出错误的判断。
+
+修正：
+
+- 新增 `AppState::afm_handoff_is_fresh()`＝「记录存在 **且** 未超 TTL」；
+- `health_snapshot().afm_visit_latched` 改用它（与 `afm_handoff_allows`
+  的 TTL 判定同一口径）；
+- 补判别性单测 `health_snapshot_reports_stale_handoff_as_not_latched`
+  （把记录时间戳回拨 10 分钟后必须报 `false`）。
+
+结果：`cargo test --lib` = **107 passed / 0 failed**（原 106 + 新增 1），
+`cargo build --release` 成功，部署后 `/health` 的 `afm_visit_latched`
+已如期变为 `false`。
+
+> 可复用教训：**可观测字段必须与实际闸门同一口径**，否则「显示有授权」
+> 与「实际放行」长期背离，验收会被自己的观测数据误导。
+
 ## 5. 未验证 / 待用户操作
 
 1. **真机复现**（必须由用户操作）：

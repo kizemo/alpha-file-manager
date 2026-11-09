@@ -277,6 +277,18 @@ impl AppState {
         *self.afm_handoff.lock().unwrap_or_else(|e| e.into_inner())
     }
 
+    /// v0.5.19 — 当前是否持有**有效**的交接授权（记录存在且未超 TTL）。
+    ///
+    /// 与 `afm_handoff_allows` 的 TTL 判定同一口径：`/health` 报
+    /// `afm_visit_latched=true` 时，闸门才不会因为超时而拒绝写回。
+    /// 否则「记录还在但早过期」会被误读成「授权还活着」。
+    pub fn afm_handoff_is_fresh(&self) -> bool {
+        let Some(handoff) = self.afm_handoff() else {
+            return false;
+        };
+        now_unix_millis().saturating_sub(handoff.ts_ms) <= Self::afm_handoff_ttl_ms()
+    }
+
     /// v0.5.19 — 闸门：这次弹窗写回能不能放行？
     ///
     /// 三条同时成立才放行：
@@ -549,7 +561,7 @@ impl AppState {
             first_push_received: self.first_push_received.load(Ordering::SeqCst),
             // v0.5.19: 交接授权的状态可直接观测，「被闸门挡住」与「没接闸门」
             // 不再同名。
-            afm_visit_latched: self.afm_handoff().is_some(),
+            afm_visit_latched: self.afm_handoff_is_fresh(),
         }
     }
 }
@@ -736,6 +748,22 @@ mod afm_gate_tests {
         state.set_afm_handoff(4242);
         assert!(state.health_snapshot().afm_visit_latched);
         state.clear_afm_handoff();
+        assert!(!state.health_snapshot().afm_visit_latched);
+    }
+
+    #[test]
+    fn health_snapshot_reports_stale_handoff_as_not_latched() {
+        // 真机 2026-11-09：「记录还在」不等于「授权还活着」。
+        // /health 必须与闸门同一口径，否则验收会拿过期授权当活授权。
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.set_afm_handoff(4242);
+        {
+            let mut guard = state.afm_handoff.lock().unwrap_or_else(|e| e.into_inner());
+            *guard = Some(AfmHandoff {
+                pid: 4242,
+                ts_ms: now_unix_millis().saturating_sub(10 * 60 * 1000),
+            });
+        }
         assert!(!state.health_snapshot().afm_visit_latched);
     }
 
