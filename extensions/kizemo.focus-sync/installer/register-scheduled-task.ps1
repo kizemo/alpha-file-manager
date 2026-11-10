@@ -1,20 +1,46 @@
 # register-scheduled-task.ps1
 #
+# ============================================================================
+# DEPRECATED / NO LONGER EXECUTED (v0.5.9, 2026-11-10)
+#
+# This script is kept ONLY as the source of truth for the legacy task
+# parameters (RestartCount 3 / RestartInterval 1min, see the file body).
+# Neither the AFM main installer nor the standalone extension installer
+# calls it any more:
+#
+#   - the main installer (src-tauri/installer/hooks.nsh) stopped registering
+#     the task in 3.13.5 and now only removes it;
+#   - the standalone installer (installer.nsi) likewise stopped registering
+#     it in 0.5.9 and now only removes it.
+#
+# Reason: the sidecar is now a CHILD PROCESS of the Alpha File Manager main
+# process (spawned on startup, killed on exit, command line is
+# "--port 37421" without "--service"). A logon-scheduled task that keeps a
+# "--service" sidecar alive is detached from that lifecycle and fights the
+# main process for port 37421.
+#
+# Do NOT re-enable this script. Use remove-legacy-focus-task.ps1 instead.
+#
+# The body below is preserved verbatim for reference.
+# ============================================================================
+#
 # v0.3.0 (focus-sync Scheduled Task migration)
 # Creates a per-user Windows Scheduled Task that runs focus-sync-sidecar.exe
-# at user logon. The task is the lifecycle owner of the sidecar - Sigma FM
+# at user logon. The task is the lifecycle owner of the sidecar - Alpha File Manager
 # no longer spawns/kills it, so 7 classes of reload triggers (locale watcher,
-# binary edit, install/update, Sigma FM restart, etc.) cannot kill the sidecar.
+# binary edit, install/update, app restart, etc.) cannot kill the sidecar.
 #
 # Called by:
-#   - Sigma FM bundled installer (Installer A) POSTINSTALL stage 9 via
-#     sigma-file-manager/src-tauri/installer/hooks.nsh
-#   - Standalone installer (Installer B) install section
+#   - the AFM bundled installer (Installer A) POSTINSTALL stage 9 via
+#     sigma-file-manager/src-tauri/installer/hooks.nsh   [NO LONGER]
+#   - Standalone installer (Installer B) install section   [NO LONGER]
 #
 # Idempotent: re-running on an already-installed user is safe (skips create,
 # restarts task).
 #
 # Designed for PowerShell 5.1 (Windows 11 default).
+#
+# Pure ASCII on purpose: PowerShell 5.1 reads a BOM-less .ps1 as ANSI.
 
 # NOTE: v0.3.0 hotfix - removed [CmdletBinding()] because NSIS nsExec::ExecToLog
 # invocation (via cmd.exe) was triggering "AmbiguousParameterSet" errors when
