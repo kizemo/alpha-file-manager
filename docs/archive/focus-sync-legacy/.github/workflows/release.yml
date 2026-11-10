@@ -1,0 +1,111 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v0.2.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build + publish GitHub Release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        run: |
+          rustup default stable
+          rustup target add x86_64-pc-windows-msvc
+
+      - name: Build sidecar binary
+        working-directory: sidecar
+        # NOTE: --locked removed temporarily to regen Cargo.lock after adding axum dep.
+        # After this run commits a fresh Cargo.lock, re-add --locked.
+        run: cargo build --release
+
+      - name: Zip sidecar binary
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Compress-Archive -Path sidecar\target\release\focus-sync-sidecar.exe -DestinationPath dist\focus-sync-sidecar-windows-x64.zip
+          Get-FileHash -Algorithm SHA256 dist\focus-sync-sidecar-windows-x64.zip | Tee-Object -Variable hash | Format-List
+          $hash.Hash | Out-File -Encoding ASCII dist\focus-sync-sidecar-windows-x64.zip.sha256
+
+      - name: Determine version
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $tag = "${{ github.event.inputs.version }}"
+          } else {
+            $tag = "${{ github.ref_name }}"
+          }
+          echo "TAG=$tag" >> $env:GITHUB_OUTPUT
+          $version = $tag -replace '^v', ''
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Tag: $tag, Version: $version"
+
+      - name: Update manifest integrity
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.VERSION }}"
+          $sha = (Get-Content dist\focus-sync-sidecar-windows-x64.zip.sha256).Trim()
+          Write-Host "Updating manifest with sha256:$sha for version $version"
+          $manifest = Get-Content "extension\package.json" -Raw | ConvertFrom-Json
+          $asset = $manifest.binaries[0].assets[0]
+          $asset.integrity = "sha256:$sha"
+          $asset.downloadUrl = $asset.downloadUrl -replace 'v[0-9]+\.[0-9]+\.[0-9]+', "v$version"
+          $manifest.version = $version
+          # Wipe location script entries we don't want in published package.json.
+          $manifest.PSObject.Properties.Remove('scripts')
+          $manifest.PSObject.Properties.Remove('devDependencies')
+          $manifest | ConvertTo-Json -Depth 10 | Set-Content "dist\package.json"
+          Get-Content dist\package.json
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "v${{ steps.version.outputs.VERSION }}"
+          tag_name: ${{ steps.version.outputs.TAG }}
+          generate_release_notes: true
+          files: |
+            dist/focus-sync-sidecar-windows-x64.zip
+            dist/focus-sync-sidecar-windows-x64.zip.sha256
+            dist/package.json
+          body: |
+            ## Focus Sync v${{ steps.version.outputs.VERSION }}
+
+            Sigma FM extension + Windows UI Automation sidecar binary.
+
+            The extension (`kizemo.focus-sync`) orchestrates; the sidecar
+            (`focus-sync-sidecar.exe`) handles native UI Automation that JS
+            cannot do in a sandboxed webview. See
+            [docs/spec.md](https://github.com/kizemo/focus-sync/blob/main/docs/spec.md)
+            for the full architecture.
+
+            ### Install
+
+            1. Open Sigma File Manager (>= v2.2.0)
+            2. Extensions → Add from URL: paste `https://github.com/kizemo/focus-sync/releases/latest/download/package.json`
+            3. Sigma auto-downloads `focus-sync-sidecar.exe` and verifies SHA256
+            4. Restart Sigma — toolbar shows "Focus Sync" dropdown
+
+            ### Verify
+
+            - Toolbar → Focus Sync → "Sync Now" — pushes current Sigma folder to all open file dialogs
+            - Try opening "Save As" in Word / Chrome / VS Code, then Alt-Tab to Sigma and navigate
+            - Alt-Tab back to the dialog — it should jump to the new folder
+
+            ### Source
+
+            - `extension/` — Sigma FM extension (TypeScript)
+            - `sidecar/` — Windows UI Automation sidecar (Rust, MIT/Apache-2.0)

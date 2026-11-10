@@ -1,0 +1,1124 @@
+hash,latest_mtime,total_versions,distinct_session_dirs,has_frontmatter,name,type,latest_size_B,latest_version,recommended_project,confidence,sample_preview
+759400600b0dc05d,1788925687,135,36,N,,,8934,v5,unknown,none,"- [Sales BI project overview](project_sales_bi.md) — 5-stage G1 sales BI; Stages 1-4 + A1-A3 deployed, page speed fixed "
+a477203926d8ec31,1790121658,60,6,N,,,105117,v13,unknown,none,(binary)
+77f6cc03bd521b60,1790401006,43,10,N,,,12664,v3,unknown,none,"""""""M3 smoke v2: 验证 3 个新 page dropdown + chart 渲染 + 4 baseline 不回归. 用 ARIA combobox selector (Evidence Dropdown 真实 DOM 结构"
+41f6ee6a11ceb38a,1790585635,38,6,N,,,1676,v3,unknown,none,"{   ""autoQuestion"": {     ""enabled"": true,     ""timeoutMinutes"": 5   },   ""autoDreamEnabled"": true,   ""hooks"": {     ""Pr"
+9bc03752254df4d8,1790337506,38,4,N,,,5574,v6,unknown,none,(binary)
+7a1b3abd35654ea4,1790337506,35,4,N,,,53359,v5,unknown,none,<!-- SPDX-License-Identifier: GPL-3.0-or-later License: GNU GPLv3 or later. See the license file in the project root for
+854114adcabb1cbe,1790567217,34,5,N,,,17113,v2,unknown,none,"\# 个人全局偏好  > **🚨 最高优先级红线 · 2026-09-28 误删事故**(铁律级,任何模式不得绕过,包括 `dangerouslyDisableSandbox` / `--dangerously-skip-permissio"
+02e6ba414c290b37,1789983246,33,2,N,,,3725,v3,unknown,none,"name_max_limit"",50);return(0,O.jsx)(t$.A,{...s,errorText:n,invalid:!a,label:i||a_,maxLength:""number""==typeof r?r:50,name"
+9ff684e89eae9c01,1789983246,33,2,N,,,3836,v4,unknown,none,# shgb-auto  shgb.cn 视频课程自动循环播放工具。Playwright + Edge CDP。  ## 文件清单  | 文件 | 作用 | |------|------| | **`run.bat`** | **一键启动器
+7e282a456fb53908,1790119205,32,2,N,,,47479,v12,unknown,none,// ============================================================ // shgb.cn auto loop (v3: 登录 + 目录 + 播放 + watchdog) // //
+c0d7a6c82a1c3be8,1789983246,31,2,N,,,1265,v2,unknown,none,@echo off REM ============================================================ REM 注册 Windows 计划任务:用户登录后自动跑 auto-next.mjs RE
+c9d93635f2f94333,1790253166,30,6,N,,,9217,v4,unknown,none,# Sales BI 项目元信息  ## 完成里程碑 - 2026-09-24:店铺运营 业务重组 DONE — shop-detail + shop-top10 从 店铺运营/1财务分析 → 大盘/(sidebar_position 30
+155a45868de23461,1790567217,29,5,N,,,6495,v2,unknown,none,"# Handoff · 用户文件误删恢复 · 2026-09-28  > 会话: 今天的工作子会话   > 触发: 用户报告昨日(2026-09-27)大量用户文件被误删,cc-haha 自定义技能 + Claude Code 进行中的项目"
+569e8c106163938c,1790567217,29,5,N,,,9808,v2,unknown,none,#!/usr/bin/env python3 # ~/.claude/hooks/no-delete-gate.py # PreToolUse hook: 严禁 Agent 自删用户文件夹内的文件。强制 ask 或 deny。 # # 触发
+57b71705c1142499,1788945288,29,14,Y,Sales BI stage progress tracker,project,10161,v7,unknown,none,--- name: Sales BI stage progress tracker description: Current state of each stage + handoff chain pointers — where to r
+2d67a5380a7157d9,1789983246,29,2,N,,,2457,v2,unknown,none,")=>{let{onNavigate:e,subtask:t}=this.props,{cancel_link:i}=t;i&&this._updateFlow(i).then(()=>{e(i)})};_renderNavigationB"
+5bc838847d3a5247,1790236418,29,2,N,,,52269,v8,unknown,none,/**  * AIEC 文章页 · 纸感学习笔记样式（基于 W1 设计稿）  *  * 作用范围：仅 body.single / body.single-post（单篇文章）  * 依赖 note-style.css（在其之后加载，优先级更
+5e600e6827e18247,1790570572,27,5,N,,,4362,v2,unknown,none,"import os, json, re, shutil from pathlib import Path  ROOT = r'C:/Users/Duanyi/.claude/file-history' STAGE = Path(r'C:/U"
+bd3696b1265249f7,1790570572,27,5,N,,,1563,v2,unknown,none,"import os, re  ROOT = r'C:/Users/Duanyi/.claude/file-history' fp_relpaths = {} for dp, dns, fns in os.walk(ROOT):     fo"
+d4e8dc11c8b750bb,1790570572,27,5,N,,,2470,v2,unknown,none,"import os, re, shutil from pathlib import Path  ROOT = r'C:/Users/Duanyi/.claude/file-history' STAGE = Path(r'C:/Users/D"
+2f8c6e80ed4d8d1f,1790337506,26,4,N,,,3176,v5,unknown,none,<!-- SPDX-License-Identifier: GPL-3.0-or-later License: GNU GPLv3 or later. See the license file in the project root for
+c83ae9031eeb0bc2,1790387358,26,5,N,,,1295,v2,unknown,none,(binary)
+dbc720d02222cdc8,1789983246,26,2,N,,,5688,v2,unknown,none,"m"",style:nJ.A.avatar,uri:i})}_renderNames(){let{loggedInUser:e}=this.props;if(!e)return null;let t=e.name,i=`@${e.screen"
+af78a5fb9cc4001d,1790129837,25,2,N,,,9631,v5,unknown,none,# Cloudflare Access Dashboard Bypass 配置 — 2026-09-22 (中文界面详细版)  > **⚠️ 已被方案 C 取代 (2026-09-22)**: > 用户实测 CF Dashboard Byp
+697ebce174a2f807,1789983246,24,2,N,,,382,v2,unknown,none,"{   ""name"": ""shgb-auto"",   ""version"": ""1.0.0"",   ""description"": ""Auto next-video loop for shgb.cn via Playwright + Edge "
+440edee40f242199,1790129838,24,4,N,,,2184,v3,unknown,none,"--- title: 店铺明细 ---  <script module>   import { Heatmap, DataTable, Dropdown } from '@evidence-dev/core-components'; </s"
+e098cde54724557e,1790167643,24,2,N,,,26131,v2,unknown,none,(binary)
+052b74f876e8b13b,1790253166,22,4,N,,,494,v4,unknown,none,"# 接力 prompt — 下一棒 (2026-09-24)  **承接**: `handoff-deploy-fix-absolute-redirect-2026-09-24.md` (nginx 修完,prod 全 27 页可开) **"
+78d3cba91df406ec,1789983246,22,2,N,,,7505,v2,unknown,none,# cc-haha 内置浏览器 — 技术调研总结  > 调研时间: 2026-09-21 > 资料来源: https://github.com/NanmiCoder/cc-haha (main 分支) > 文档范围: README.md /
+53af623ce871caf0,1790317899,21,4,N,,,13593,v2,unknown,none,<!-- SPDX-License-Identifier: GPL-3.0-or-later License: GNU GPLv3 or later. See the license file in the project root for
+da9629160ec8ee76,1790129837,21,2,N,,,11109,v3,unknown,none,# Handoff: Stage 8 M9 P4 选项 A 已应用 — 待用户 deploy 验证 — 2026-09-22  **承接**: `handoff-rendering-and-killing-2026-09-22.md` (4
+fa92591166c4f137,1790129838,21,3,N,,,3556,v3,unknown,none,"--- title: 销售总览 ---  <script module>  import { LineChart, DataTable, Dropdown } from '@evidence-dev/core-components'; </"
+d2b67c86a36beccd,1790585636,20,5,N,,,1008,v2,unknown,none,"{   ""version"": 2,   ""plugins"": {     ""claude-mem@thedotmack"": [       {         ""scope"": ""user"",         ""installPath"": "
+7c938d4a42c3c884,1789983246,20,2,N,,,31,v2,unknown,none,node_modules/ logs/ config.json
+3696477799894b09,1788244555,20,9,N,,,33767,v6,unknown,none,"# G1 销售管理 - 聚水潭 ERP → PostgreSQL 双库同步  > **必读**: 新会话启动时自动加载本文件 (102 → 130 行, 渐进式披露) > **本文件 3 个层级**: ① 顶部事实 (5 秒读完) → ② "
+021bfd3a947597ee,1790129838,20,2,N,,,7427,v3,unknown,none,(binary)
+e800673d86136cc5,1790063860,20,2,N,,,2557,v2,unknown,none,(binary)
+e4ba2cfdadc83a0b,1788244555,20,8,Y,jsterp-upload,,31247,v7,E-------G1-----00data-analysis,medium,--- name: jsterp-upload description: |   本地业务 ERP xlsx → PostgreSQL 双写统一工具。   把 `订单数据/`、`售后报表/`、`进销存/` 三个目录下的 xlsx   同步到
+4bbbc272c59db4f4,1790056608,20,1,N,,,1651,v2,unknown,none,(binary)
+9e9c08dc3bf0286d,1790231628,20,1,N,,,3365,v3,unknown,none,<?php /**  * Plugin Name: AIEC 文章页 ASCII 引号强制 monospace (v24)  * Description: v24:直接强制 Courier New / Consolas monospace 
+2177fe483f692d9b,1790572556,19,5,N,,,4522,v2,unknown,none,# Handoff · 用户文件误删恢复 + long-doc-processor 补齐 · 2026-09-28 (本日 2 轮)  > 接力 `handoff-recovery-2026-09-28.md`(今日首轮 recovery 
+721929d8fd51bf03,1790572556,19,5,N,,,1633,v2,unknown,none,"import os, json, re  print('=== Search ALL backups and corrupt snapshots for env (ANTHROPIC_*) ===') print()  candidates"
+7dc6f0a9fddcad25,1790570572,19,5,N,,,906,v2,unknown,none,"import os, re, sys  ROOT = r'E:/' SKIP_PATH_PARTS = ('node_modules', '__pycache__', '.git', 'target', '.venv', 'site-pac"
+8315c8b11e7e656c,1790421881,19,1,N,,,2910,v2,unknown,none,(binary)
+84a622d4f4714880,1789983246,18,2,N,,,3293,v3,unknown,none,"@echo off setlocal cd /D E:\shgb-auto  if not exist logs mkdir logs if not exist ""D:\EdgeProfile_SBT"" mkdir ""D:\EdgeProf"
+9b22226ea905b03d,1789983246,18,2,N,,,803,v2,unknown,none,"{   ""_comment"": ""复制本文件为 config.json 并填入真实账号密码。删除本字段以外的字段以外的内容。"",   ""_how_to_use"": ""1) 复制本文件为 config.json  2) 用记事本打开 conf"
+50ed742eb5ca3526,1790421881,17,1,N,,,3417,v2,unknown,none,(binary)
+ba02e494af19a2d2,1790421881,17,1,N,,,2999,v2,unknown,none,(binary)
+e06d04a32dab5970,1790421881,17,1,N,,,36138,v2,unknown,none,(binary)
+7c3bd9cdab461737,1790167643,17,3,N,,,14514,v2,unknown,none,/**  * AIEC 首页/栏目/文章统一入口 · 纸感 wabi 样式（基于 C2 / W1 / W2 设计稿）  * 2026-09-22 v16: cache-bust，强制浏览器刷新  */  *  * 作用范围（8 类 body
+c49b22d73c9b4760,1790340809,17,3,N,,,3691,v2,unknown,none,(binary)
+8c46584a5ecad58c,1790236318,17,1,N,,,448,v2,unknown,none,<?php /**  * AIEC 临时 OPcache 重置脚本 - 2026-09-24  * 触发 opcache_reset() 让所有 FPM worker 重新加载最新的 functions.php  * 触发后会自动删除自身 
+ae95d7f67287fbea,1790236318,17,1,N,,,802,v2,unknown,none,<?php /**  * Plugin Name: AIEC One-Shot WP-Optimize Page Cache Purge  * Description: 触发任意页面访问即调用 WP_Optimize 的 page cach
+bd65ea301f067b64,1790236318,17,1,N,,,522,v2,unknown,none,<?php /**  * Plugin Name: AIEC One-Shot OPcache Reset (v23)  * Description: 一次性脚本。WordPress 加载 mu-plugins 时调用 opcache_re
+859e66227c09432c,1790473467,16,2,N,,,5334,v2,unknown,none,"**[English](README.md)** | **[中文](README.zh-CN.md)**  <h1>   <img valign=""middle"" src=""https://github.com/aleksey-hoffma"
+ea6aa6ff23d6ee12,1789998175,16,3,N,,,1530,v3,unknown,none,- [Feiniu NAS btrfs trimacl](project_nas_trimacl.md) — /vol1/@team/ 的 system.trim_acl xattr 锁文件，迁移数据出该目录用 tar --no-xattr
+4419d672fa45763d,1790055533,16,1,N,,,5425,v2,unknown,none,(binary)
+a4117ab066c83908,1790585636,15,3,N,,,8642,v2,unknown,none,"import json, sys, os, ast, re print('='*78) print('AUDIT: 所有本次改动过的文件,cc-haha 重启前必须检查的 bug') print('='*78) print()  errs "
+20e44a72045b57ff,1790346054,15,2,N,,,636,v3,unknown,none,- [FileBrowser exposed currentPath is a ComputedRef](filebrowser-exposed-currentpath-is-ref.md) — defineExpose doesn't u
+fa4a569b1a06e9ac,1790387358,15,2,N,,,3773,v2,unknown,none,(binary)
+fba5973b4b414221,1790337856,15,2,N,,,512,v2,unknown,none,(binary)
+487a16beba7f3e55,1790469309,15,1,N,,,1026,v2,unknown,none,"$names = @(""code.exe"",""Code.exe"",""Feishu.exe"",""feishu.exe"",""WeChat.exe"",""wechat.exe"",""wxwork.exe"") $found = @() foreach "
+7c85feb26b60d74b,1789893466,14,2,N,,,6561,v8,unknown,none,"<?php /**  * Plugin Name: Auto Media Sync (FileZilla Uploads)  * Description: 定期扫描 wp-content/uploads/ 目录,把新文件自动加入媒体库。  "
+c4e3f1dca345054f,1790466483,14,4,N,,,33099,v2,unknown,none,(binary)
+fc477617bea7d372,1790121942,14,1,N,,,10972,v3,unknown,none,/* 栏目精选文章区块 aiec/category-featured */ /* 2026-09-22 v16: cache-bust */  .aiec-cat-feature { 	--aiec-cf-accent: #512da8; 
+2c845fd889ff2505,1789608469,13,2,N,,,9219,v2,unknown,none,"""""""_purify_smooth.py — v4.16 新增：通顺化重写步骤  核心定位（区别于 purify_chunks.py）： - purify_chunks.py = 清理 4 类噪声 + 保留 5 类资产（保留原结构） - _"
+75e23795fabc4b87,1789619565,13,1,N,,,49905,v4,unknown,none,# 品类增长策略与价格带布局分析  ## 1 品类增长策略  ### 1.1 核心策略概述 品类增长需聚焦核心品类，通过差异化定位与精准营销提升市场份额。避免盲目扩张，优先巩固优势品类。  ### 1.2 策略实施要点 - **差异化定位*
+9e21affea2fdbe71,1789608469,13,1,N,,,6025,v2,unknown,none,"""""""项目级 post-process v4: 最后清理  v3 问题： 1. ""由 Amara.org 社群提供的字幕（重复多段）"" — ASR 字幕装饰残留在内容中 2. 双句号 ""。。"" — v2/v3 合并导致 3. 剩余超长段没拆"
+acee1181da8d3e2f,1789608469,13,1,N,,,6989,v2,unknown,none,"""""""项目级 post-process v5: 安全修复 v3 中 H2 标题无空行的问题  v4 问题： 1. H2 标题与正文之间没有空行（v3 merge 副作用） 2. split_long 把 H2 标题吃进段里  v5 修复策略"
+c063ac2874705c26,1789625986,13,2,Y,long-doc-processor,,41715,v3,E-------G1-----00data-analysis,low,"--- name: long-doc-processor description: Load when the user mentions 整合文档, 合并多份讲义, 长文档净化, 培训录音转文字, 讲座视频转写, mp3/mp4 转 ma"
+e0238d52d9d1eccf,1789085386,13,8,Y,storedata-upload,project,156747,v5,E-------G1-----00data-analysis,medium,--- name: storedata-upload description: Use when working on E:\\办公文件\\G1销售管理\\G04 统计数据\\03单品计划执行\\ 下的淘系 7 店(仁禾/风尚志/飞特/好雅
+bc317b23905f37a0,1790387358,13,1,N,,,11335,v2,unknown,none,(binary)
+483c2430a6158f1d,1790337856,13,1,N,,,1812,v2,unknown,none,"# 接力 prompt · P1-4 写 /deploy-verify skill  承接: `handoff-loop-engineering-p1-3-2026-09-25.md`(P1-3 已装 LoopX 1.2.0,6/6 smo"
+f82fab42def7708a,1790337856,13,1,N,,,12018,v2,unknown,none,# Handoff · Loop Engineering P1-3 LoopX 控制面安装 · 2026-09-25  > 接力给下一个会话:P1-3 在 Windows + Git Bash 环境**手动**装好 LoopX 1.2.0(
+25f58231d71aa67c,1790317899,13,2,N,,,4846,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+c86fab37743bea6f,1790317899,13,2,N,,,4021,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+d6563af912d84dff,1790317899,13,2,N,,,20431,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+0502047cf354f113,1790585636,12,2,N,,,524,v2,unknown,none,"承接 `C:\Users\Duanyi\handoff.md`(本日 3 轮总账 + cc-haha 项目列表不显示的未完成任务)。开工第一步:按该 handoff 第 4 节""未完成的关键任务""操作——修 `~/.claude/cc-ha"
+9337e1fde3c8e56b,1790585636,12,2,N,,,8587,v2,unknown,none,"# Handoff · cc-haha 项目列表未显示 · 2026-09-28 (本日 3 轮)  > 接力本目录下两个前序 handoff: > - `handoff-recovery-2026-09-28.md`(本目录,项目 met"
+c814f6ff27c2284b,1790466483,12,3,N,,,2490,v2,unknown,none,(binary)
+3416ef6874d30198,1789608469,12,1,N,,,87053,v2,unknown,none,# 品类增长策略与价格带布局分析  ## 1 主线协作与年度增长任务  老师已获得 14 家品牌的诊断报告，本次陪跑将基于各品牌的真实数据展开知识分享，帮助大家在接下来一年找到新的增长点。老师的核心任务是：明确未来一年陪跑的主线，使团队与老
+64907f564e4517b5,1789625986,12,2,N,,,55274,v3,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""verify_all.py — 跑完整规约清单的校验。  每条规约对应一个 verify_<ID>() 函数，返回 (passed: boo"
+564c10fc43e262e4,1790337541,12,2,N,,,4782,v2,unknown,none,(binary)
+436762b61df9fc90,1788434360,12,6,N,,,6315,v8,unknown,none,# Memory Index — G1 销售管理 / 聚水潭 ERP  > 项目: 把聚水潭 ERP + 4 路 Excel 数据 (订单 + 售后 + 进销存 + 商品编码) + 3 个 SQL 派生层 (order + shouhou 
+5d362f62bc1d29af,1790337534,12,1,N,,,1490,v2,unknown,none,"#!/usr/bin/env bash # LoopX launcher (bash) — mirror of scripts/loopx.ps1, no pwsh required. # Reads ~/.local/bin/loopx-"
+0b5fedb3df6b3c9a,1790317899,12,1,N,,,6398,v2,unknown,none,(binary)
+8892783273f54ad6,1790317899,12,1,N,,,6998,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+9bf563bdeed40178,1790317899,12,1,N,,,8456,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+aaf03897c4b7633c,1790317899,12,1,N,,,1915,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+b8cca88fc152af0f,1790317899,12,1,N,,,12715,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+e788c7f0b3807ba5,1790317899,12,1,N,,,4571,v2,unknown,none,<!-- SPDX-License-Identifier: GPL-3.0-or-later License: GNU GPLv3 or later. See the license file in the project root for
+e84afc5fb615ea59,1790317899,12,1,N,,,24710,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+7578da446ba154ed,1790466227,12,1,N,,,1682,v2,unknown,none,(binary)
+f92fe87e27973184,1790422560,11,1,N,,,7221,v3,unknown,none,# Upstream PR Strategy Design (2026-09-26)  ## Goal  Submit tree view (issue #499) and dialog focus sync (new feature) t
+e85012c83d44f04c,1790473466,11,3,N,,,25100,v2,unknown,none,(binary)
+7e25feea30977ea6,1790466483,11,2,N,,,3062,v2,unknown,none,(binary)
+19cb025b64cc56c2,1789625986,11,2,N,,,10341,v2,unknown,none,"""""""_post_simplify_chapter.py — 项目级单章深度精炼脚本（v4.17 新增）  适用场景： - LLM 通顺化后仍有""讲师/老师""口吻残留 - 单章内容啰嗦，缺少提炼归纳 - 目标：把""老师思考跳跃 + ASR "
+389e9df6db87423a,1789608469,11,1,N,,,96228,v2,unknown,none,# 品类增长策略与价格带布局分析  ## 1 主线协作与年度增长任务  老师已拿到 14 家品牌的诊断报告，本次进陪跑将用各品牌真实数据展开知识分享，帮助大家在接下来一年中找到新的增长点。。老师的核心任务是：明确未来一年陪跑的主线，把大家团
+4a9f9c9a5abdce56,1789608469,11,1,N,,,6307,v2,unknown,none,"""""""项目级通顺化脚本 v7: 智篆 2026-07-26  PURIFY_PROMPT 不解决""通顺化""问题。本脚本写一个新的 LLM prompt，强制重写为通顺书面语。  设计原则： 1. 用更小 chunk (8K chars)，让"
+618ad39f06a11be1,1789608469,11,1,N,,,4067,v2,unknown,none,"""""""项目级术语纠正 v6: 智篆 2026-07-26 ASR 错词  用户反馈（2026-09-17）： - ""石木床"" → ""实木床"" - ""权占"" → ""全站""（淘系推广方式）  其他 ASR 错词（从上下文判断）： - ""微净电资"
+7cb47c8cb3dc1eab,1789625986,11,1,N,,,2139,v2,unknown,none,# asr_corrections.yaml.example — 项目级 ASR 错词配置示例 # # 用法： #   1. cp 此文件到项目目录：cp asr_corrections.yaml.example <项目>/asr_corr
+80644142eb98d953,1789608469,11,1,N,,,8422,v2,unknown,none,"""""""项目级最后清理 v18: 删除已知不通顺段 + 粗口 + ASR 串扰  v17 后还有一些问题段： - ""什么时辰""、""Всемstraight""（俄文混入） - ""他妈的"" 粗口 - ""我什么""、""他妈的""、""搞一个"" 等 ASR"
+958ffaf5f66c8bd1,1789608469,11,1,N,,,4025,v2,unknown,none,"""""""项目级 post-process v9: 修复 v8 verify FAIL  v8 FAIL： 1. H1-COUNT: 0（# 被降为 ##） 2. NO-ORPHAN-H3: 2（H3 在 H1 之前） 3. NUMBERING"
+d1ec6b0747b3ba87,1789608469,11,1,N,,,6607,v2,unknown,none,"""""""项目级 post-process v3: 修复 v2 过度合并问题  v2 问题： 1. 合并逻辑把多段合成超长段（最长 1023 字符） 2. 合并后 H3 标题下无内容（被吸到上一段） 3. 残留 6 处讲师/学员  v3 修复："
+d31b445504c791d1,1789608469,11,1,N,,,5117,v2,unknown,none,"tes"": local_path.stat().st_size,         }      if platform in YT_DLP_PLATFORMS:         downloader_check = checks.get("""
+e4d23875beaa6d65,1789608469,11,1,N,,,4106,v2,unknown,none,"""""""项目级 enrich v10: 补充内容提升 CJK 保留率到 ≥ 35%  v9 状态：22231 CJK / 68422 raw = 32.5% 需要：至少 23948 CJK（35%）  策略： 1. 第 1 章末尾添加 5 类"
+e87c6afb749c924e,1789608469,11,1,N,,,5737,v2,unknown,none,"""""""项目级通顺化脚本 v8: 强制 LLM 不新增内容，只改写原段  v7 问题：LLM 在没有足够原内容时""自由发挥""编造通用模板内容（如""价格带布局的重要性""）。 v8 修复： 1. 严格 prompt：禁止 LLM 新增任何原文中没"
+38c463bbe8ff5549,1790337541,11,2,N,,,3249,v2,unknown,none,(binary)
+7439ddec6e921a61,1790387358,11,1,Y,server 端脚本不要 ssh 嵌套 — ubuntu 用户无 private key 必 Permission denied,feedback,1854,v2,global,high,"--- name: server 端脚本不要 ssh 嵌套 — ubuntu 用户无 private key 必 Permission denied description: 在 server 上跑的脚本如果用 `ssh ""$SERVER"""
+b00fce2ac78876c3,1790387358,11,1,Y,防止过早接力 — user-given 任务完成 ≠ 必须写 handoff,feedback,1998,v2,global,medium,"--- name: 防止过早接力 — user-given 任务完成 ≠ 必须写 handoff description: Claude 默认会在完成 user-given 任务后立即写 handoff/prompt.md 接力,会拖慢任务"
+23b50f0e28e2f175,1790337856,11,1,N,,,7519,v2,unknown,none,"#!/usr/bin/env python3 """"""Manual LoopX install that skips the pwsh-only deep doctor validation.  Replicates loopx.window"
+68dcd8549a31f382,1790317899,11,1,N,,,31999,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+9e6357846aacd61c,1790317899,11,2,N,,,6182,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+9f63fa089317e587,1790469309,11,1,N,,,1770,v2,unknown,none,(binary)
+b8e1140c45151dcb,1790473467,10,2,N,,,1001,v3,unknown,none,"[package] name = ""sigma-listary-spike"" version = ""0.1.0"" edition = ""2021"" publish = false description = ""Spike binary fo"
+5524f89a55101c4f,1789608469,10,1,N,,,7480,v2,unknown,none,(binary)
+20767e293db19d91,1790337429,10,2,N,,,4506,v2,unknown,none,"--- title: 流量来源 sidebar_position: 20 --- <script module>   import { BarChart, BigValue, DonutChart } from '@evidence-dev"
+254164501bd35571,1790337541,10,2,N,,,6340,v2,unknown,none,(binary)
+1f1aa13e4b16ce3f,1790391647,10,3,N,,,12770,v2,unknown,none,""""""" sales-bi-mcp: MCP server for Tencent Cloud sales-bi server (ubuntu@124.223.115.201).  Provides SSH exec + scp + tar/"
+55ebaffb75e47dc5,1790387358,10,1,Y,Playwright m3_smoke 14-page loop 撞墙真根因 = selector 等无 dropdown page 60s timeout 累积,feedback,3335,v2,E-------G1-----00data-analysis,medium,--- name: Playwright m3_smoke 14-page loop 撞墙真根因 = selector 等无 dropdown page 60s timeout 累积 description: tests/m3_smoke.
+a7c47cb108ff2fcc,1788364012,10,5,N,,,19326,v3,unknown,none,"""""""erp_result 12 个 SqlStep SQL 生成器 (T5 部分实现: daily_order 完整 + 其余 stub).  数据源:   - ""order"".order_{dd,ys}_{2025,2026}_proc"
+b36ed912a1aa9d05,1789893466,10,2,N,,,80580,v3,unknown,none,"templates/hooks directory and prior tasks to understand context better."",""signature"":""a290da23f70b09e736c1ee6a4522f66e34"
+2711b1925a9a87cc,1790218377,10,1,N,,,54751,v4,unknown,none,"<!DOCTYPE html> <html lang=""zh-CN""> <head> <meta charset=""UTF-8""> <meta name=""viewport"" content=""width=device-width, ini"
+82a364e3fb872e48,1790065598,10,1,N,,,3608,v2,unknown,none,<?php /**  * 最近更新区块（aiec/recent-updates）  *  * @package generatepress-child  */  if ( ! defined( 'ABSPATH' ) ) { 	exit; 
+cb1cf9f532feea6b,1790317899,10,1,N,,,3993,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+7347d97d05f4e922,1790141553,10,1,N,,,10148,v3,unknown,none,(binary)
+946f079377e96f6c,1790141553,10,1,N,,,6175,v3,unknown,none,# shgb-keepalive  shgb.cn (上海干部在线学习) 视频自动循环播放工具。Playwright + Edge CDP。  > **2026-09-23 v1.1.x**: 不管理任何登录凭证(用户手动在 Edge 中登
+bc2ce80b5e5d76bb,1790141553,10,1,N,,,3924,v2,unknown,none,// Build script: 用 7z SFX 把 staging 目录打包成单文件 installer // // 本脚本负责: //   1. 创建/准备 staging 目录 //   2. 同步必需文件(shgb-keepali
+cf89779772008f2d,1790141553,10,1,N,,,46015,v2,unknown,none,// ============================================================ // shgb.cn auto loop (v4: 仅手动登录 + 目录 + 播放 + watchdog) //
+35940601c71e9ba7,1789515048,9,3,N,,,2833,v3,unknown,none,"/* 共用样式 - 抖店 PPT */ *{margin:0;padding:0;box-sizing:border-box} body{font-family:-apple-system,""PingFang SC"",""Microsoft "
+36a1bbc71aee96b0,1790337541,9,2,N,,,19752,v2,unknown,none,(binary)
+5b1a3e67db479bb8,1789625986,9,1,N,,,1240,v2,unknown,none,# asr_corrections.yaml — skill 内置默认 ASR 错词规则（智篆 2026-09-17 沉淀） # 格式：`- 错词: 正确词` # 调用：python scripts/_post_terms_fix.py <
+ea09532385f0df25,1789612442,9,1,N,,,5866,v2,unknown,none,(binary)
+f48b50897dd65c6d,1790121942,9,2,N,,,17307,v2,unknown,none,"U_WILL_BE_FIRED=F,t.cloneElement=function(e,t,r){if(null==e)throw Error(p(267,e));var i=o({},e.props),a=e.key,s=e.ref,l="
+c1386d36dbf404ba,1788317942,9,5,N,,,1966,v1,unknown,none,#!/usr/bin/env bash # 把项目根 .env 转为 Evidence 可识别的 EVIDENCE_PG_* 环境变量，并生成 # connection.yaml（gitignored）给 Evidence CLI 消费。 
+599d01b0b3cef514,1789972266,9,2,N,,,279,v2,unknown,none,@echo off REM 杀掉 Edge 和 auto-next.mjs 进程 echo [1/2] Killing msedge.exe... taskkill /F /IM msedge.exe >nul 2>&1  echo [2/
+4f8c40bfa282b9b8,1790387358,9,1,N,,,2437,v2,unknown,none,"""""""test_loop2.py — 2-page Playwright loop 找 m3_smoke 14-page 撞墙临界点.  v1 (test_prod_load.py) 单 page 2.4s OK v1.5 (test_lo"
+bc026d71b375f886,1790387358,9,1,N,,,2720,v2,unknown,none,"""""""test_loopN.py — 参数化 N-page Playwright loop 找 m3_smoke 14-page 撞墙临界点.  用法: python3 -u /tmp/test_loopN.py <N>  按 m3_smo"
+01325ebbc4397a30,1788530332,9,5,N,,,8036,v3,unknown,none,"""""""erp_result schema DDL 生成器 + apply_ddl 双库落表.  16 张 (8 daily_{sku,store} + 4 proid + 4 orderid) + etl_rebuild_state 1 张"
+3cf75e70ed198dc8,1790301353,9,2,N,,,10649,v3,unknown,none,(binary)
+4408855891a285cb,1790378214,9,1,N,,,5919,v2,unknown,none,"Y_LEVEL_SWITCH_ERROR"",ty=""CONFIGURATION_LOAD_ERROR"",tT=(e,t)=>({type:ty,playerId:e,thrownError:t,isFatal:!0}),tg=""ERROR_"
+be3c66f91285e4f9,1790378214,9,1,N,,,3823,v2,unknown,none,"eSetUrl:t.source.cookieSetUrl,isLiveTimecode:e.isLiveTimecode,playbackUrl:t.source.noRedirectPlaybackUrl,lifecycleToken:"
+e0da177ea677c3ed,1790378214,9,1,N,,,10183,v2,unknown,none,(binary)
+f4ce263ea9f1ace1,1790378214,9,1,N,,,152,v2,unknown,none,"接 `handoff-loop-engineering-state-2026-09-26.md`,等用户指定下一步(P2.2 装 pwsh7 / Playbook A / Playbook B 三选一),按用户要求执行。"
+3e5e3a8a3fe907f9,1789998175,9,1,Y,"网站部署走本地 commit + NAS scp,不直接 push",project,1895,v3,unknown,none,"--- name: 网站部署走本地 commit + NAS scp,不直接 push description: 仓库无 origin 远程,Claude Code 无法 SSH 到 192.168.1.9 部署;部署靠用户手工 scp 后"
+708a24cb24ec0d47,1789998175,9,1,Y,不把 SSH/凭据写入项目文件,feedback,1403,v2,global,high,"--- name: 不把 SSH/凭据写入项目文件 description: SSH 密码/token/私钥只能由用户在对话中提供,Claude 不得写入任何文件(代码/memory/handoff) type: feedback --- "
+d9c887cf4f424edc,1789998175,9,1,N,,,2487,v2,unknown,none,"# NAS SSH 配置  > 连接 NAS `192.168.1.9` (fnOS 6.18.18) 的 SSH 配置,供 Claude Code 调试与部署使用。  ## 连接信息  | 字段 | 值 | |---|---| | 主机 "
+680a7d32ccf31293,1790346054,9,1,N,,,1468,v2,unknown,none,(binary)
+77174c7c42793e2f,1790346054,9,1,N,,,840,v2,unknown,none,(binary)
+f06c329dbbdc7cb3,1790346054,9,1,N,,,9039,v2,unknown,none,# Handoff — Tree Sync v2 (per-tab path tracking)  **会话日期**: 2026-09-25 (later session) **承接**: `handoff-2026-09-25-sideb
+f824d516ec0c6f9b,1790065598,9,1,N,,,10763,v2,unknown,none,<?php /**  * 栏目精选文章区块（aiec/category-featured）  *  * @package generatepress-child  */  if ( ! defined( 'ABSPATH' ) ) { 	e
+fd0b25554a727e4d,1790065598,9,1,N,,,8576,v2,unknown,none,<?php /**  * Banner 横幅区块（aiec/banner）  *  * @package generatepress-child  */  if ( ! defined( 'ABSPATH' ) ) { 	exit; }  
+31f05a81251bac8c,1790326498,9,1,N,,,24409,v2,unknown,none,<!-- SPDX-License-Identifier: GPL-3.0-or-later License: GNU GPLv3 or later. See the license file in the project root for
+9916590e7ba5f4db,1790155711,9,1,N,,,5183,v2,unknown,none,## Task 4: 写 m3_smoke.py v2.2 — 加 sidebar DOM check  **Files:** - Modify: `tests/m3_smoke.py` (add sidebar structure che
+2ca2581f49922eac,1790585636,8,2,N,,,3123,v2,unknown,none,"import os, re from pathlib import Path  # missing skills (54) missing = """"""ad-cut agent brainstorming canvas-design clau"
+55983dc3f8208a19,1790585636,8,2,N,,,5145,v2,unknown,none,"import os, json, re from pathlib import Path  print('='*80) print('SKILL INVENTORY: 已知 skillUsage vs 当前 ~/.claude/skills"
+adf8123dc02800b5,1790421881,8,1,N,,,613,v2,unknown,none,(binary)
+53ebbfc9e7f10b23,1789515048,8,2,N,,,37224,v4,unknown,none,"<!doctype html> <html lang=""zh-CN""> <head> <meta charset=""utf-8""> <title>抖店视频素材全域推商品 · PPT 概览</title> <style> *{margin:0"
+0a3832e602505fd3,1790473467,8,1,N,,,2314,v3,unknown,none,(binary)
+1e4fd5331e179a68,1790473467,8,1,N,,,2303,v3,unknown,none,(binary)
+3226fe578c8df249,1790473467,8,1,N,,,7436,v3,unknown,none,// MIT License — Copyright (c) inaku-Gyan // Ported from https://github.com/inaku-Gyan/PathWrap/blob/main/src/os/dialog.
+5a35dcdb0a4a38fa,1790473466,8,2,N,,,20803,v2,unknown,none,(binary)
+6200eb066b9871de,1790473467,8,1,N,,,5498,v3,unknown,none,"//! TCP server: line-based JSON command protocol on `127.0.0.1:<port>`. //! //! Commands: //! - `{""cmd"":""set_path"",""path"
+77ebfe28d9e499fc,1790473467,8,1,N,,,2439,v3,unknown,none,//! In-memory state: current Sigma path + active file dialog registry. //! //! Per handoff §6.5: `current_path` is `Mute
+870495abfb95dce3,1790473467,8,1,N,,,518,v3,unknown,none,//! File dialog detector — wraps `uia_event::get_dialog_info_if_match`.  use windows::Win32::Foundation::HWND;  /// Retu
+bd0cf3062ec3e40f,1790473467,8,1,N,,,2260,v3,unknown,none,"//! CLI argument parsing + port resolution.  use anyhow::{anyhow, Result}; use serde::{Deserialize, Serialize}; use std:"
+f56abce629593581,1790473467,8,1,N,,,2648,v3,unknown,none,"//! JSON-line logger. Each event is one line of JSON on stdout, //! suitable for aggregation by `verify_target_matrix.ps"
+f8b4ee4e0f09380d,1790473467,8,1,N,,,1572,v3,unknown,none,"//! Path writer: UIA `ValuePattern::SetValue` + `InvokePattern::Invoke` (via uia_inject), //! wrapped in `fg_bypass::run"
+00467ee08fbc1640,1790253166,8,1,N,,,6127,v2,unknown,none,# Handoff: git 清理 + housekeeping — 已完成 — 2026-09-24  **承接**: `handoff-git-cleanup-pending-2026-09-24.md` (main @ ec49c41
+19de31e308d47f2a,1790237287,8,1,N,,,647,v2,unknown,none,# Python __pycache__/ *.pyc .pytest_cache/ venv/ .venv/  # dbt dbt/target/ dbt/logs/ dbt_packages/ profiles.yml .user.ym
+0ad9b61a0d291240,1790342762,8,2,Y,sales-bi-mcp ssh_exec 第一次 cold start 通后续 hang,project,6678,v2,E-------G1-----00data-analysis,medium,--- name: sales-bi-mcp ssh_exec 第一次 cold start 通后续 hang description: server.py:209 proc.kill() 只杀 Python wrapper 不杀 ssh 
+876a0866b0dc3fac,1788784764,8,7,Y,项目当前状态(storedata-upload 进度),project,4161,v2,E-------G1-----00data-analysis,medium,--- name: 项目当前状态(storedata-upload 进度) description: storedata-upload 项目截至 2026-09-07 的活跃子系统 / 数据规模 / 接力模式(非可从代码派生的项目状态) t
+98cdcc66b95f6a43,1789190490,8,3,N,,,2634,v2,unknown,none,"--- title: 新品追踪(首 90 天) ---  <script module>   import { LineChart, BarChart, DataTable } from '@evidence-dev/core-compon"
+19e0dba2d5b6d656,1790378214,8,2,N,,,5429,v2,unknown,none,(binary)
+9219a302ecdeef06,1790378214,8,2,N,,,5615,v2,unknown,none,(binary)
+d0b19f2c13b7dee8,1790378214,8,2,N,,,3765,v2,unknown,none,(binary)
+e5cd4c3467784959,1790378214,8,2,N,,,4753,v2,unknown,none,(binary)
+92efc59f95c713da,1789998175,8,1,N,,,20664,v2,unknown,none,# Clipboard Paste to Media Implementation Plan  > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-
+977410138ac634a3,1789998175,8,1,N,,,1217,v2,unknown,none,# Next session: clipboard-paste-to-media 部署接力  承接 handoff:`handoff-2026-09-21-clipboard-paste-to-media.md`  ## 当前状态 - 本地
+b9c279a6799c1784,1789998175,8,1,N,,,3115,v2,unknown,none,# 需上传的文件清单 — Clipboard Paste to Media  > 按项目部署惯例(参考 `wp_content/plugins/tutor-custom-features/UPLOAD_FILES_LIST.md`)。 > 
+d477427346addd5b,1789998175,8,1,N,,,3514,v2,unknown,none,# Handoff — Clipboard Paste to Media 实施完成 + 部署待接力  **日期**: 2026-09-21 **状态**: ✅ 代码 + 文档全部 commit 在本地 master。容器侧部署未做(SSH 
+856de7a0dcbd4109,1790121942,8,1,N,,,3170,v2,unknown,none,/**  * Banner 横幅区块（单图 / 轮播）  */ /* 2026-09-22 v16: cache-bust，强制浏览器刷新（CSS mtime 更新让 ver= ?ver 变化触发 cache miss） */  .aiec
+8d7044ce69d5d62f,1790121942,8,1,N,,,7945,v2,unknown,none,/* 2026-09-22 v16: cache-bust */ /* 侧栏文章分类树（[aiec_category_tree] 简码）— 2026-07-25 重构    改动：    1. 去除 .aiec-cat-tree 容器的 1
+415eb5ce02a9a808,1790236318,8,1,N,,,1101,v2,unknown,none,<?php /**  * Plugin Name: AIEC 文章页 ASCII 引号还原 (v25)  * Description: v25 — 根因找到!WordPress wptexturize 在 the_content 渲染时把 
+2dcbc045f56487ca,1790326498,8,1,N,,,24075,v2,unknown,none,declare global {   const sigma: SigmaExtensionAPI; }  export type ExtensionType = 'api' | 'iframe' | 'webview';  /** Fla
+468e76f1547471e8,1790141553,8,1,N,,,688,v2,unknown,none,"{   ""_comment"": ""本工具不管理登录凭证。复制本文件为 config.json 后,只需修改 DIRECTORY_URL(切换专题)和 FINISHED_BEHAVIOR。登录步骤在 Edge 窗口里手动完成。"",   ""_h"
+996068d6db9d364c,1790155711,8,1,N,,,5471,v2,unknown,none,# Task 1 Brief — patch_restructure_sidebar.py  ## Files - Create: `deploy/scripts/patch_restructure_sidebar.py` - Create
+23226dc5de6ec0ea,1790129837,8,1,N,,,3098,v2,unknown,none,"<!doctype html> <html lang=""en""> 	<head> 		<meta charset=""utf-8"" /> 		<!-- v2026-09-22 选项 C: 移除 4 个 link 标签根除 CF Access "
+52aa0fa7153b4ffa,1790129837,8,1,N,,,3098,v2,unknown,none,"<!doctype html> <html lang=""en""> 	<head> 		<meta charset=""utf-8"" /> 		<!-- v2026-09-22 选项 C: 移除 4 个 link 标签根除 CF Access "
+0b7c0d284d66ba59,1789190490,7,2,N,,,1353,v2,unknown,none,(binary)
+2eeb28ed2eaaae7c,1790473467,7,2,N,,,5347,v2,unknown,none,"   if attempt < 1:                 raise ValueError         except ValueError:             errors.append(f""第 {row_number"
+5b68e91dd1c83095,1790421881,7,1,N,,,2398,v2,unknown,none,(binary)
+a94551f55ef8f9f1,1789515048,7,2,N,,,11644,v4,unknown,none,"<!doctype html> <html lang=""zh-CN""> <head> <meta charset=""utf-8""> <title>PPT · 打印视图</title> <style> @page{size:1920px 10"
+43b4120e64ea5bc8,1790473467,7,1,N,,,5656,v2,unknown,none,��工审核金额大于规则上限时触发； - change_correlation：上周金额规则从固定值改为比例，怀疑相关；尚需核对该次 diff； - blast_radius：若校验位于共用退款审核服务，App、客服后台和批处理入口均需回归；
+686cbeceb5938710,1790473466,7,1,N,,,2400,v2,unknown,none,action=APPROVE，auditAmount=10001 2. 查询退款单详情 3. 查询支付指令与审计日志 expected_result： 1. 接口返回业务码 40013； 2. 退款单保持 PENDING_AUDIT，amo
+6a0b637ed0dedf60,1790473467,7,1,N,,,14982,v2,unknown,none,"tor_package"": package_path,         ""ws_endpoint_configured"": bool(os.environ.get(""MINIPROGRAM_WS_ENDPOINT"")),     }   d"
+f1e0751dc7dcf0a3,1790473466,7,1,N,,,40,v2,unknown,none,target/ *.exe *.pdb *.log Cargo.lock.bak
+06fc521570272751,1789612442,7,1,N,,,11062,v2,unknown,none,"""""""项目级 post-process: 智篆 2026-07-26 净化后处理  修复 verify_all.py FAIL 项： 1. H1-COUNT: 第 2 个 H1 降为 H2 2. NO-LECTURER-PREAMBLE: "
+59a9da3e9d1f0f2b,1789625986,7,1,N,,,7744,v2,unknown,none,"""""""_post_add_summary.py — v4.18 新增：自动检测 + 加""总结与行动建议""章节  skill v4.9.1 必做清单要求所有 long-doc 任务必须含 `## N 总结与行动建议` H2： - N.1 全文"
+aac5d5584d84f36b,1790129838,7,3,N,,,7178,v1,unknown,none,# Handoff: Stage 8 M9 P4 选项 A + C 完成 + deploy 7/7 FULL PASS — 2026-09-23  **承接**: `handoff-stage8-m9-p4-option-a-applied
+b94bd4056b860bff,1790378214,7,2,N,,,5067,v2,unknown,none,(binary)
+5c9dca0892b074e2,1790387358,7,1,N,,,1280,v2,unknown,none,"""""""test_mart_health.py — 单 page test for mart-health selector 撞墙诊断."""""" from playwright.sync_api import sync_playwright i"
+ff04189af71539cc,1790387358,7,1,N,,,922,v2,unknown,none,"""""""test_m3smoke_N.py — 复用 m3_smoke.main() 但只跑前 N 个 PAGES.  用法: python3 -u /tmp/test_m3smoke_N.py <N>  vs test_loopN.py: "
+059a0c02b52b5db7,1790292689,7,2,N,,,1560,v2,unknown,none,- [个人科技博客](user_tech_blog.md) — 写 AI 工具 / Claude Code 生态推荐文，已落地 cc-haha 推荐文 + agents 部署 xlsx - [国内 Claude Code 使用背景](use
+f3f28748f0361614,1790301250,7,2,N,,,739,v3,unknown,none,"# Prompt: 店铺运营 5.1 prod 部署收尾  承接 `handoff-shop-overview-5-1-next-deploy-2026-09-24.md`,main @ 59526de。  **任务**: 5.1 prod"
+cc6f5caea186832c,1790218377,7,1,N,,,35452,v4,unknown,none,(binary)
+58d4a29f2933992d,1790346054,7,1,N,,,909,v2,unknown,none,"承接 `handoff-2026-09-25-tdz-fix.md`  分支/状态: - Fork `feat/tree-view` HEAD = `ec3389ba`, working tree 改动（v1 + watch(treeRoo"
+645901bb1609306d,1790346054,7,1,N,,,3419,v2,unknown,none,"# sigma-verify.ps1 - host-side trigger for Windows Sandbox # Usage: #   .\sigma-verify.ps1 -InstallerPath ""F:\soft\00sel"
+6f289e405db70614,1790346054,7,1,N,,,5240,v2,unknown,none,(binary)
+a2a10a5f6966aecf,1790346054,7,1,Y,vue-watch-on-computed-with-tdz,project,1950,v2,unknown,none,"--- name: vue-watch-on-computed-with-tdz description: In Vue 3 SFC setup, watch() with a computed source eagerly evaluat"
+a4166c6ca53eeb7e,1790346054,7,1,Y,windows-sandbox-broken-on-this-machine,feedback,1749,v2,global,high,--- name: windows-sandbox-broken-on-this-machine description: Windows Sandbox fails to initialize on this host (System.E
+e414664284c60efb,1790346054,7,1,N,,,1725,v2,unknown,none,<Configuration>   <!--     sigma-file-manager 真机装机验证沙箱     启动: 双击本文件 或 Start-Process .\sigma-sandbox.wsb     挂载:       1
+eab474461aca14d9,1790346054,7,1,N,,,8138,v2,unknown,none,# Handoff — TDZ fix (watch + computed ordering)  **会话日期**: 2026-09-25 (third session) **承接**: `handoff-2026-09-25-tree-s
+252ff5bc1075e3f4,1790121942,7,1,N,,,4894,v2,unknown,none,/* 最近更新区块 aiec/recent-updates */ /* 2026-09-22 v16: cache-bust，强制浏览器刷新 */  .aiec-recent-updates { 	--aiec-ru-accent: #15
+aceb9667965dfed5,1790141553,7,1,N,,,3703,v2,unknown,none,@echo off REM ============================================================ REM shgb-keepalive 一键启动器 REM 流程: 启动 Edge (CDP
+42df0506d3fde012,1790155711,7,1,N,,,5157,v2,unknown,none,"""""""Test that the build artifact pagesManifest matches the current source structure.  Bug repro:   - User restructured ev"
+4e025e480a155f98,1790155711,7,1,N,,,5358,v2,unknown,none,"#!/usr/bin/env python3 """"""deploy/scripts/patch_pages_to_artifact.py  Manually wrap evidence/pages/*.md into build artifa"
+e402377a41bdf121,1790155711,7,1,Y,Evidence pages 重组后必须同步 build artifact,feedback,1716,v2,E-------G1-----00data-analysis,medium,"--- name: Evidence pages 重组后必须同步 build artifact description: 改 evidence/pages/ 结构后,evidence/.evidence/template/src/pages"
+2752c1a76a26029e,1790469309,7,1,N,,,4051,v2,unknown,none,"#verify-4apps.ps1 — fully automated, no Read-Host. Requires spike.exe already running. #For each of the 4 installed apps"
+f2aba4a4d4289dbf,1789631052,7,1,N,,,8700,v2,unknown,none,"""""""test_purify_smooth.py — _purify_smooth.py 切分函数单元测试（Step 7）  覆盖 2 类切分函数：   1. split_by_h2：单 H2 / 多 H2 / 空文档 边界   2. fu"
+cb3cdb0380f61baa,1790129837,7,1,N,,,3241,v2,unknown,none,"""""""v2026-09-22 选项 C patch: app.html 移除 4 个 link 标签根除 CF Access 302 CORS error.  真因: CF Access 在 nginx 之前 302 redirect 4 "
+8627967925c4de5c,1790408718,6,1,N,,,955,v2,unknown,none,# SDD ledger — plan: F:/soft/00selfmade/filemanager/docs/superpowers/plans/2026-09-26-dialog-focus-sync.md  ## Active Ta
+7186e2106914dc0d,1790436031,6,3,N,,,8747,v1,unknown,none,(binary)
+706a46ff73cff7a9,1790473467,6,1,N,,,8965,v3,unknown,none,"     shared_parameters = path_item.get(""parameters"", []) if isinstance(path_item.get(""parameters""), list) else []       "
+d9b2b3975ca5b14a,1790473466,6,1,N,,,703,v2,unknown,none,(binary)
+36f1d159d4b4c085,1790253166,6,1,N,,,7361,v2,unknown,none,# Handoff: 店铺运营 sidebar 业务重组 — 已完成 — 2026-09-24  **承接**: 用户指令(2026-09-24 业务调整) **基线**: main @ **0aa849d** → **554ba27** 
+c5e3872417c601e1,1790222522,6,2,N,,,4505,v1,unknown,none,"#!/usr/bin/env python3 """"""deploy/scripts/patch_nginx_old_url_redirect.py  Idempotent nginx 308 redirect patcher. 按 spec "
+552fe5733901e63e,1789625986,6,1,N,,,7820,v2,unknown,none,"# writing-quality.md — 实质内容标准（v4.18 新增）  > **核心原则**：直接输出理论、概念、案例、推导、结论、方法等等实质性内容，不要输出无实质性价值的套话、""梯子语言""等等。  ## 为什么需要这个标准？ "
+6aa39d3a77e6321f,1789625986,6,1,N,,,11222,v2,unknown,none,"# anti-patterns.md — 梯子语言/空话反模式库（v4.18 新增）  > **核心理念**：直接输出理论、概念、案例、推导、结论、方法等等实质性内容，不要输出无实质性价值的套话、""梯子语言""等等。  ## 为什么需要反模式"
+ad264b7a4acfb46a,1790378712,6,1,N,,,26850,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+005bf57fb71a166a,1790579823,6,2,N,,,4418,v2,unknown,none,# Sales BI Project Memory Index  > Last restored 2026-09-28 from `~/.claude/file-history/` snapshots (40 unique content 
+7b937c2981671af3,1790296602,6,1,Y,用户并行的活跃项目,user,6267,v2,global,high,"--- name: 用户并行的活跃项目 description: 用户同时维护多个独立项目，了解项目清单有助于判断""哪个项目的上下文""是当前对话的真正场景 type: user ---  用户在 C:\Users\Duanyi home d"
+fd69e85de7cdf6cd,1790296602,6,1,N,,,56477,v2,unknown,none,"{   ""app"": {     ""name"": ""Sigma File Manager"",     ""description"": ""is a free, open source, advanced, modern file manager"
+ddc8d238c0dd7d9b,1790579894,6,2,N,,,4109,v2,unknown,none,# task.md — loop-engineering 当前活跃 TODO  > **最后更新**:2026-09-28 14:40(会话 `b808d098-6c7f-4979-a19d-3ac3e8a217e8`) > **会话健康*
+aa619cd0910bbe3c,1790261946,6,2,Y,shop-overview 5.1 SPA mode 0 .arrow + aiec-sftp 不通 sales-bi,project,2983,v2,E-------G1-----00data-analysis,medium,--- name: shop-overview 5.1 SPA mode 0 .arrow + aiec-sftp 不通 sales-bi description: 5.1 实施 80% 后两个未解撞墙 — SPA mode DuckDB 
+274536249bf55eb0,1789689458,6,1,N,,,438,v2,unknown,none,(binary)
+165842657260d549,1789714794,6,1,N,,,68442,v2,unknown,none,(binary)
+c782b0e28ff9f88d,1789692283,6,2,N,,,19314,v2,unknown,none,"# 27号课件.jpg 思维导图 · 直接转写(未加工版)  > 来源: `27号课件.jpg` (6000×6534) > 生成: 12 grid 逐块读取后,按图片视觉位置 + 节点原文逐字转写 > 处理: 不做润色、不重组、不解读、不"
+dd8a312043ef7109,1789714794,6,1,N,,,8567,v2,unknown,none,# 27号课件思维导图 vs 2026-07-27 主笔记 · 差异报告  **生成时间**: 2026-09-18 **对比文件**: - 思维导图源: `27-pdf-mindmap-notes.md` (6 H2 + 19 H3 + 
+206ed1195be57976,1789998175,6,1,N,,,12958,v2,unknown,none,# Clipboard Paste to Media — Design Spec  - **Date**: 2026-09-21 - **Status**: Draft (awaiting user approval) - **Author
+51c285f96acb0d90,1789523693,6,1,N,,,2597,v2,unknown,none,""""""" Crop images from pages/ to imgs/ based on meta.json (or meta_v2.json) coordinates. Usage: py crop_images.py [meta_v2"
+4e670d27f762dd8b,1789706374,6,1,N,,,75520,v2,unknown,none,(binary)
+934f13add1fabbde,1789653808,6,1,N,,,55489,v2,unknown,none,"# 智篆 2026-07-27 三胖内容人群与素材投放实战   ## 第一章 课程总览与诊断大表主线  ### 1.1 诊断大表双平台覆盖与四板块结构  诊断大表覆盖淘宝与小红书双平台,需要把整个淘宝的内容以及小红书的内容做一个完整的诊断,"
+f5e387f4d4694b67,1788417010,6,3,N,,,8354,v2,unknown,none,(binary)
+92098d8384a7fa66,1790141553,6,1,N,,,2745,v2,unknown,none,# Handoff: shgb-auto 项目搬家到 shgb-keepalive (2026-09-23)  ## 一句话  项目从 `E:\shgb-auto\` 整体搬到 `F:\soft\00selfmade\shgb-keepal
+f62278061942a232,1790141553,6,1,N,,,6307,v2,unknown,none,"# Handoff: shgb.cn 跨专题自动学习 (2026-09-23)  ## 一句话  用 Playwright + Edge CDP 自动刷 shgb.cn(`https://www.shgb.cn`)干部在线学习,逐专题自动播"
+076a23b8239cba07,1790155711,6,1,Y,"本机 Python 已部署,不要 verify/deploy",feedback,1059,v2,global,high,"--- name: 本机 Python 已部署,不要 verify/deploy description: 用户机器已装 Python 3.14,环境检查浪费时间,直接 `python -m pytest` 跑即可 type: feedba"
+861df47fac2932e2,1790149366,6,1,N,,,18003,v2,unknown,none,# Sales BI 侧栏重组 — Design Spec  **Date**: 2026-09-23 **Author**: Claude (brainstormed with user) **Stage**: Stage 8 — Sid
+aa041f0a31d10756,1790155711,6,1,N,,,2288,v2,unknown,none,# SDD ledger — plan: docs/superpowers/plans/2026-09-23-sales-bi-sidebar-restructure.md  Plan commits so far (before SDD 
+05dfc9cf18c4f02c,1790337541,6,1,N,,,4115,v2,unknown,none,(binary)
+6d4837980c66e99d,1790337541,6,1,N,,,4803,v2,unknown,none,(binary)
+0809147381994a24,1788667390,6,2,N,,,10882,v4,unknown,none,(binary)
+2a7dab89eda9537a,1790167643,6,1,N,,,22321,v3,unknown,none,(binary)
+921b30d12729549b,1789523852,6,2,N,,,7935,v2,unknown,none,"# 抵御扫描/爆破攻击 - 安全加固方案  ## Context  2026-09-14 aiec.fun 遭受两波扫描/爆破攻击,CF 记录到 42,498 请求(1.43x 历史均值), 9/15 攻击停止后请求骤降到 ~32K(全天外"
+e54471039a387f39,1789523852,6,2,N,,,2104,v2,unknown,none,# 2026-09-15 nginx xmlrpc 拦截补丁 # 请以 root 身份粘贴执行(SSH 登录 root 后)  # 1. 备份 cp /etc/nginx/sites-available/www.aiec.fun /etc/
+0198d0decd638f5f,1789631052,6,1,N,,,13063,v2,unknown,none,(binary)
+0f084f6429951e90,1789631052,6,1,N,,,16097,v2,unknown,none,"""""""test_verify_all_rules.py — verify_all.py 40 条规约单元测试（Step 7）  覆盖范围：   1. RULES 注册表 40 条规约全部可调用（不抛异常）   2. LADDER-LANGU"
+295c5e06cfe0f96b,1789893466,6,1,N,,,579,v7,unknown,none,"<?php require_once('/var/www/html/wp-load.php');  $req = new WP_REST_Request('GET', '/wp/v2/media'); $req->set_param('me"
+388f9145ab80f72f,1789519332,6,1,N,,,20759,v2,unknown,none,# Sales BI Section 五:天猫店铺数据 — Design Spec  **Date**: 2026-09-16 **Author**: Claude (brainstormed with user) **Stage**: 报
+4cbe2153bb352b02,1790585636,6,1,N,,,2167,v2,unknown,none,"import os, subprocess  CODEX = r'C:/Users/Duanyi/.codex/skills' TARGET = r'C:/Users/Duanyi/.claude/skills' NAMES = ['erp"
+652d1294e8778913,1790585636,6,1,N,,,2875,v2,unknown,none,"import os, subprocess  SK = r'C:\Users\Duanyi\.claude\skills'  # 1) git init print('=== git init ===') r = subprocess.ru"
+6d73ed3c041d8b8c,1790585636,6,1,N,,,1174,v2,unknown,none,"import os, subprocess  CODEX = r'C:\Users\Duanyi\.codex\skills' TARGET = r'C:\Users\Duanyi\.claude\skills' NAMES = ['erp"
+fde7426aa6f515e5,1790585636,6,1,N,,,1683,v2,unknown,none,"import os, subprocess  CODEX = r'C:\Users\Duanyi\.codex\skills' TARGET = r'C:\Users\Duanyi\.claude\skills' NAMES = ['erp"
+d7a4fc6aa3d35fb9,1789637147,6,1,N,,,76312,v2,unknown,none,# 品类增长策略与价格带布局分析  ## 1 品类增长策略  ### 1.1 核心策略概述 品类增长需聚焦核心品类，通过差异化定位与精准营销提升市场份额。因为差异化定位能够有效避免同质化竞争，所以市场份额有望提升 5%-10%。避免盲目扩张
+1bf28d729ab7a17a,1790401006,6,1,N,,,13974,v2,unknown,none,# Sales BI Stage 7-4 双主题切换版 #   - Stage 7-3.1: manifest MIME + CORS #   - Stage 7-3.2: all-queries.json 兜底 + prerendered
+ba19feef4c2c85b8,1790401006,6,1,Y,m3_smoke chart wait fix 8/14→11/14,feedback,3821,v3,E-------G1-----00data-analysis,medium,--- name: m3_smoke chart wait fix 8/14→11/14 description: 2026-09-26 加 wait_for_function 等 loading_count=0 + Heatmap/自实现
+3d5500110b527775,1789979059,5,1,N,,,10300,v2,unknown,none,(binary)
+fb984940adb1a773,1789979060,5,1,N,,,2751,v2,unknown,none,# M8 prompt: evidence build deadlock 真根因修复 + 禁用 rsync --delete  承接: `handoff-stage8-m7-diagnosis-no-fix-2026-09-21.md`  
+53f95c6bbeab81c2,1789085386,5,3,N,,,12435,v2,unknown,none,(binary)
+09f9f7289927dd03,1790473467,5,1,N,,,11913,v2,unknown,none,"inue             module = _module_token(item, fallback)             candidate = f""{prefix}-{module}-{match.group(1)}""   "
+1958e0309ab6fc97,1790473467,5,1,N,,,1633,v2,unknown,none,(binary)
+63c09a0fdd826c02,1790473467,5,1,N,,,4090,v2,unknown,none,# Decision: Listary-Style Global Focus Sync  **Date**: 2026-09-27 **Decider**: kizemo (fork maintainer) **Status**: **PA
+6d09b97b6cbf8241,1790473467,5,1,N,,,1957,v2,unknown,none,(binary)
+7470db479bcb3201,1790473467,5,1,N,,,8666,v2,unknown,none,# Spike Report: Listary-Style Global Focus Sync (Port Route)  **Date**: 2026-09-27 **Spike Binary**: `sigma-listary-spik
+77bf03a1a072196d,1790473467,5,1,N,,,1657,v2,unknown,none,(binary)
+9f50e982614a74d5,1790473467,5,1,N,,,494,v2,unknown,none,"$targets = @('chrome', 'msedge', 'winword', 'code', 'DingTalk', 'Feishu', 'WeChat') foreach ($t in $targets) {     $proc"
+53e7c5cf2acb5a1a,1789910370,5,1,N,,,987,v2,unknown,none,"<?php // Quick Bug B fix verification define('WP_USE_THEMES', false); require_once('/var/www/html/wp-load.php');  $path "
+647890e2191c38bd,1789910370,5,1,N,,,693,v2,unknown,none,(binary)
+72889d4fb035ca18,1789910370,5,1,Y,auto-media-sync.php bugs + 副本清理 (2026-09-20),project,4940,v2,unknown,none,--- name: auto-media-sync.php bugs + 副本清理 (2026-09-20) description: mu-plugin auto-media-sync.php 两个 cron bug (image.php
+b336dd324f75077c,1789910370,5,1,N,,,2863,v2,unknown,none,<?php // Delete true duplicate attachments (keep smallest id per duplicate _wp_attached_file group) define('WP_USE_THEME
+b49ab598a84cac62,1789910370,5,1,N,,,1051,v2,unknown,none,"<?php // Find all _wp_attached_file duplicates define('WP_USE_THEMES', false); require_once('/var/www/html/wp-load.php')"
+cc35f1a69bec133f,1789910370,5,1,N,,,6346,v2,unknown,none,(binary)
+6aba17b1212ce163,1789893820,5,2,N,,,1132,v2,unknown,none,- [aiec-redesign-process](aiec-redesign-process.md) — 纸感稿三件套 + W3 进展 + 红线 + token + 改动纪律 - [aiec-sidebar-alignment](aiec
+1343a17b7b73e818,1789612442,5,1,N,,,6584,v2,unknown,none,"""""""项目级 post-process v2: 智篆 2026-07-26 文档质量强化  问题诊断： 1. 保留率 15%（应 65-75%）→ LLM 删减过度 2. 152 处时间戳 `[XXXXXs → XXXXXs]` 未删 → "
+1426b7d155a2ec6a,1790378712,5,1,N,,,5955,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+30247d7ed109415d,1790378712,5,1,N,,,1145,v2,unknown,none,# Prompt — next session (tree sync v5 verification)  承接 `handoff-2026-09-25-tree-sync-v5.md` —— 用户装机测 v5 build (sha256 `
+6d0d0c9019b0ed06,1790378712,5,1,N,,,3918,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+8e9e5ce08ee5dbb8,1790378712,5,1,N,,,8474,v2,unknown,none,# Handoff — Sigma Fork: Tree Sync (v5 split-view fix + timing race fix)  **会话日期**: 2026-09-25 (5th session) **承接**: `han
+b22ef5aeee059fcc,1790378712,5,1,N,,,1651,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+cf777d815d3fd322,1790378712,5,1,N,,,1352,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+5209837356fc3dc2,1789976200,5,2,N,,,205,v2,unknown,none,"{   ""DIRECTORY_URL"": ""https://www.shgb.cn/djrck/political/classBase/classStudy?classid=49ec429ae61511f093a3fa163e63cb5f"""
+aaa63b7114dea6e9,1790342763,5,1,N,,,8325,v2,unknown,none,(binary)
+fef8689e1c7362b9,1790342762,5,1,Y,Evidence 40.x core-components 不导出 DonutChart / PieChart,project,2626,v2,E-------G1-----00data-analysis,medium,--- name: Evidence 40.x core-components 不导出 DonutChart / PieChart description: viz/ 模块只有 area/bar/box/bubble/funnel/heat
+d271de127f108460,1788962856,5,3,N,,,15832,v3,unknown,none,"""""""拼多多推广 - loader (sha256 + per-day DELETE+COPY + 空行过滤 + _row_hash + dedup).  仿 Step 8 shop_traffic_source.loader, 沿用: -"
+90eabe186680bbf7,1788791308,5,5,N,,,302,v1,unknown,none,"- [storedata-upload 技能是唯一沉淀点](feedback_skill_consolidation.md) — 任何 bug/优化都更新到 SKILL.md,不要新建 skill - [项目当前状态(2026-09-07)"
+2088aa268fbe900a,1790256593,5,2,N,,,619,v1,unknown,none,--- title: 店铺总览 sidebar_position: 10 sidebar_badge: 建设中 ---  # 店铺总览  🚧 **本页面规划中**  数据源已 inspect 完成 (handoff-stage8-m1-1-
+1a985071683d0253,1788243955,5,2,N,,,50616,v3,unknown,none,"""""""sku_etl/mapping.py 单元测试 (T0 列序鲁棒三件套 + T1 SKU 全字段 + T2 YS NULL/替代)  Source fixture: tests/fixtures/sku/sh_mini.xlsx + "
+95321ed529a35d13,1788244555,5,2,N,,,19269,v6,unknown,none,(binary)
+17bcebcb64bf7f5a,1790262051,5,1,N,,,61392,v2,unknown,none,# Sigma File Manager Fork + 插件 整体实施计划  > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-de
+4a789ddbfc903253,1790296602,5,1,N,,,3953,v2,unknown,none,<!-- SPDX-License-Identifier: GPL-3.0-or-later License: GNU GPLv3 or later. See the license file in the project root for
+71526b1ee0d5bf7e,1790296602,5,1,N,,,17531,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+71593ad784e91f62,1790296602,5,1,N,,,3618,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+742dd81077a1a087,1790296602,5,1,Y,用户 GitHub 身份,user,1694,v2,global,high,--- name: 用户 GitHub 身份 description: 用户在所有 GitHub 项目中使用的统一身份信息 — 替用户执行 git commit / push / PR 时必须套用这套配置 type: user ---  用
+b11680644651143b,1790296602,5,1,N,,,882,v2,unknown,none,(binary)
+db774d2a3f6088de,1788619858,5,3,N,,,16198,v3,unknown,none,(binary)
+208f6110f9218f51,1790466483,5,2,N,,,4247,v2,unknown,none,(binary)
+04c69492faae2ee5,1789689458,5,1,N,,,4999,v2,unknown,none,# Handoff: 智篆 27号课件.jpg 思维导图 → md 解析 (已完成)  **完成时间**: 2026-09-18 07:48 **会话用时**: ~25 min（识别任务 + 切割图片 + 阅读 12 grid + 撰写 m
+1a77e61ec06f900d,1789689458,5,1,N,,,3527,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""修复智篆 28号 cleaned.md 的 FULLWIDTH-PUNCT 和 PARAGRAPH-LENGTH 失败。  策略: 1. F"
+50d81d45e08e70f8,1789689458,5,1,N,,,618,v2,unknown,none,请基于 `handoff-27-pdf-mindmap.md` 继续：智篆 2026-07-27 三胖内容人群与素材投放实战思维导图（27号课件.jpg）解析为md文档已完成交付（`27号课件思维导图笔记.md`，6 H2 + 19 H3 
+52e5ff27792e0dc8,1789689458,5,1,N,,,6546,v2,unknown,none,(binary)
+76c5d504465c8c66,1789689458,5,1,N,,,3497,v2,unknown,none,(binary)
+9590b359ea0c3f8a,1789689458,5,1,N,,,6469,v2,unknown,none,(binary)
+9c5398b3e7d2c3fb,1789689458,5,1,N,,,4010,v2,unknown,none,(binary)
+9d30aac382e1dca6,1789689458,5,1,Y,PARAGRAPH-LENGTH 修复 v2 范式 (按 H3 切分 + 句子边界),feedback,2412,v2,global,medium,"--- name: PARAGRAPH-LENGTH 修复 v2 范式 (按 H3 切分 + 句子边界) description: skill verify_PARAGRAPH_LENGTH 用 \n\n 切段,LLM 输出 md 不带空行"
+cdd68779c9f32122,1789689458,5,1,Y,PDF 骨架驱动的 long-doc 流水线,feedback,2227,v2,E-------G1-----00data-analysis,low,"--- name: PDF 骨架驱动的 long-doc 流水线 description: 当用户提供 PDF 课件要求""按课件结构填充录音转录""时,用 uocr 提取 PDF markdown + 手动精选核心章节标题作为骨架,比 LLM"
+e8c90be221179566,1789689458,5,1,N,,,7578,v2,unknown,none,(binary)
+fa8a5c1193e0946f,1789689458,5,1,N,,,3989,v2,unknown,none,(binary)
+a982cf68852273be,1790573506,5,1,N,,,4839,v2,unknown,none,"""""""Bootstrap 4 cc-haha project entries into SQLite + desktop-ui.json.  Reversible: SQLite db and desktop-ui.json are bac"
+0b15040600b8b13f,1790378214,5,1,N,,,4237,v2,unknown,none,(binary)
+21f0d0123d5652ab,1790378214,5,1,N,,,8885,v2,unknown,none,(binary)
+587c7e2b45cde1af,1790378215,5,1,N,,,2803,v2,unknown,none,(binary)
+989563b495b48528,1790378214,5,1,N,,,3648,v2,unknown,none,(binary)
+eca179ab41ad9444,1790378214,5,1,N,,,2621,v2,unknown,none,".playerId,V.UB)),this.hlsJsSegmentsToPrebuffer=this.precache?O.ll:0),this.repositionedCaptionsEnabled=this.enableVideoPl"
+00981db4f1319cb5,1789998175,5,1,N,,,3799,v2,unknown,none,"# Clipboard Paste to Media — 浏览器侧诊断清单  > 服务器侧已经端到端验证通过(2026-09-21 13:20 UTC,attachment ID 73808 在容器内成功创建)。 > 如果浏览器仍无法上传,"
+ad0d39a740007490,1788224992,5,3,N,,,12806,v6,unknown,none,"""""""processed 4 个 SqlStep 的 SQL 文本生成器 (v3 调整: 字段精简 + 时间格式化 + 列过滤 + metadata 收敛).  ⚠️ v3 调整 (2026-08-29): 用户决议 order 与 sho"
+d382d2fdf992e355,1790059151,5,1,N,,,22303,v2,unknown,none,"# OpenClaw 9.5 升级翻车全复盘:从 ""Cannot use import.meta"" 到 Doctor 崩溃,3 类 P0 故障的一线避坑指南  > **小提示(2026-09-22)**:标题里说的""3 类 P0 故障""是社"
+89089dfd0871bfb9,1790171831,5,1,N,,,7021,v2,unknown,none,# Handoff: Sidebar prod deploy BLOCKED — SSH 通道不可用 — 2026-09-23  **承接**: `handoff-sidebar-restructure-bug-prod-deploy-20
+646f57362b27b98b,1789523693,5,1,N,,,1419,v2,unknown,none,"""""""Merge 10 partial_meta JSON files into _build/meta_v2.json (sorted by page_num, dedup)."""""" import json from pathlib im"
+3e35ea6a59dd5c78,1789706374,5,1,N,,,1012,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""为 ASR transcript.md 加段落分隔 (每 N 行一段), 让 B1/D0 chunk_text_by_paragraphs "
+6efa83b6b41aac8e,1789706374,5,1,N,,,5597,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""Watch ASR1 完成 → 立即启动 ASR2 → 最终交付  轮询间隔 60s： - ASR1 完成 (asr1.done) → 跑 "
+97d44123b769f703,1789706374,5,1,N,,,2780,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""项目级 merge v29: 参数化 H1 标题 + N 章。  行为: - 移除每块自带的 H1(如果有) - 添加总 H1 - 自动检测"
+1cf9d01f84476781,1789653808,5,1,N,,,5054,v2,unknown,none,# Handoff: 智篆 2026-07-27 三胖内容人群与素材投放实战 (已完成)  **完成时间**: 2026-09-17 19:58 **会话用时**: 约 2.5 小时（17:30 → 20:00） **必交付物状态**: m
+5529bfa1bfecbb13,1789653808,5,1,N,,,17918,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""项目级 wrapper: 智篆 2026-07-27 两段合并流水线 (v4.18)  完整 11 步:   theme_check → m"
+78d1f5227a5d3029,1789653808,5,1,N,,,2376,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""项目级 merge v2 for 27号:参数化 H1 标题 + N 章。  行为: - 移除每块自带的 H1(如果有) - 添加总 H1:"
+a685d1e8cd26b34b,1789653808,5,1,N,,,1664,v2,unknown,none,"#!/usr/bin/env bash # Watch ASR transcripts (faster_whisper style: <stem>_transcript_raw.md) set -u  OUT_DIR=""F:/resours"
+0df208426c329f17,1790579894,5,1,N,,,1473,v2,unknown,none,"{   ""schemaVersion"": 5,   ""sidebar"": {     ""projectOrder"": [       ""C--Users-Duanyi"",       ""F-soft-00selfmade-rime_clau"
+5dafd1632c9cf17d,1790155711,5,1,N,,,4694,v2,unknown,none,(binary)
+003dee03c4ca7156,1790337541,5,1,N,,,5545,v2,unknown,none,(binary)
+8acdac407827a25e,1790337541,5,1,N,,,1779,v2,unknown,none,(binary)
+8fed23e3310d79fb,1788676934,5,2,N,,,4469,v3,unknown,none,"""""""apply_ddl: 建数据库(若不存在) + 应用子系统 DDL. 用法:   python scripts/apply_ddl.py shop_core_daily --target cloud --shop fengshangz"
+399a9f2f0ee47c7e,1790256593,5,1,N,,,1298,v2,unknown,none,# 接力 prompt — ERR_SSL 调查后 (2026-09-24)  **承接**: `handoff-err-ssl-browser-url-wrong-2026-09-24.md` **基线**: main @ **07a81
+9ee1b4b59284a935,1790256593,5,1,N,,,6407,v2,unknown,none,(binary)
+c6e5d22eb5106e0e,1790256593,5,1,N,,,2134,v2,unknown,none,(binary)
+7666ff68a3db8fe6,1790167643,5,1,N,,,970,v2,unknown,none,/* ===========================================================    aiec-header-nav.css 已废弃 · 2026-09-23 v1 头部整合    ======
+46bd13f875429cc5,1789630101,5,1,N,,,8719,v2,unknown,none,(binary)
+a99d4d9b01543376,1789631052,5,1,N,,,7414,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""ecommerce_factcheck.py — 电商专家事实核查 + 修正 pass（v4.7 D1 层）。  输入：output/<st"
+bbac3af3cfd2a239,1789631052,5,1,N,,,10415,v2,unknown,none,"ore)||void 0===t||t.removePremiumCritique(i),null===(n=this._indicatorStore)||void 0===n||n.removePaneCritique(i.traceId"
+d400f8b933092176,1790586721,5,1,N,,,3334,v2,unknown,none,"import os, re, yaml, shutil from datetime import datetime  SK = r'C:\Users\Duanyi\.claude\skills' NAMES = ['guizang-ppt-"
+7b72d7788472e4c8,1789637147,5,1,N,,,8203,v2,unknown,none,"""""""_post_density_enrich.py — 项目级 CONTENT-DENSITY 补强脚本（v4.18）  适用场景： - merged_with_summary.md 等已合并 md 跑 verify_all 时   CO"
+9db674d112d905ee,1790401006,5,1,N,,,6752,v2,unknown,none,# Handoff — m3_smoke 14/14 FULL PASS + nginx 308 fix (2026-09-26)  **承接自**: `handoff-m3-smoke-11-of-14-and-mcp-ok-2026-0
+bb6a8dcdcbab2cec,1790401006,5,1,N,,,9284,v2,unknown,none,# Handoff — MCP fix verified + m3_smoke 8/14→11/14 chart wait fix (2026-09-26)  **承接自**: `handoff-mcp-hang-fix-stdin-dev
+3b0f39aa08cc0a86,1789979059,4,1,Y,evidence build cpuprofile 99.6% (idle) = V8 native code 卡死信号,discovery,2311,v2,E-------G1-----00data-analysis,medium,--- name: evidence build cpuprofile 99.6% (idle) = V8 native code 卡死信号 description: vite build 撞墙的 cpuprofile 几乎全 (idle)
+7978ff33e6c85760,1790253166,4,1,Y,evidence build 不清旧 build/ — stale 需 manual rm,feedback,1808,v2,E-------G1-----00data-analysis,medium,"--- name: evidence build 不清旧 build/ — stale 需 manual rm description: evidence build 只 overwrite/add,从不 remove stale entr"
+d46ee6f2fa09ac89,1790253166,4,1,N,,,9364,v2,unknown,none,# Handoff: 店铺运营 sidebar 重组 + prod deploy — 已完成 — 2026-09-24  **承接**: `handoff-sidebar-shop-reorg-done-2026-09-24.md` (ma
+faecb0e658b6d98b,1789052264,4,2,N,,,4600,v2,unknown,none,"""""""apply_ddl_customer_assets.py: 为指定店铺 apply customer_assets DDL.  Usage:     python scripts/apply_ddl_customer_assets.p"
+fd37b5bb1fc246af,1789050945,4,3,N,,,21778,v2,unknown,none,"""""""拼多多推广 - column_map / 空行过滤 / sha256 / _row_hash 单元测试 (16 cases).  不依赖 DB, 纯 Python 数据结构测试. mock psycopg2 测试 loader 集成放"
+96b49b4a72901ddf,1789109946,4,2,N,,,13018,v3,unknown,none,"""""""Step 18: build_promotion_summary.py 单元测试 (mock 4 库 conn).  设计: - SHOP_MAP 14 行,跨 4 库 (taobao/pdd/jd) × 4 数据源 (baobei/"
+b0e426c4b60408d0,1788248879,4,3,N,,,8635,v2,unknown,none,"""""""共享 pytest fixtures"""""" import os import sys import time import random from pathlib import Path import pytest  # 把项目根加入"
+0130c621fe9337f8,1790296602,4,1,N,,,56036,v2,unknown,none,""""""" Skin · boardroom_navy · Warm-White / Navy / Copper 董事会仪表盘  参照 dcg_style_experiments/HANDBOOK.md §3 business-review t"
+911ec15cd7b554ba,1790296602,4,1,N,,,10428,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+7fdbae9e7986c506,1790466483,4,1,N,,,4318,v2,unknown,none,(binary)
+d4bcb7277ebbf180,1789689458,4,1,N,,,19550,v2,unknown,none,"- [电商术语""潜客""不是""浅客""](feedback_ecommerce_typo.md) — 客户分层漏斗用""潜客""，不是""浅客"" - [Pixmo Kiwi COOP 协议与图片嵌入](feedback_pixmo_kiwi_prot"
+a827466552b42fbe,1790059151,4,1,N,,,38352,v2,unknown,none,"<!DOCTYPE html> <html lang=""zh-CN""> <head> <meta charset=""UTF-8""> <meta name=""viewport"" content=""width=device-width, ini"
+6f7fb18fee90bfb5,1789706374,4,1,N,,,16453,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""项目级 wrapper: 智篆 2026-07-29 两段合并流水线 (v4.18)  完整 11 步:   theme_check → m"
+97a3d050183ef1a1,1788224992,4,2,N,,,43427,v8,unknown,none,"""""""processed 子系统 ETL 测试.  TDD: 11 个单测覆盖 PowerQuery 13 步规则 + 1 个集成测试.  复用 conftest.py 提供的 prod_conn/local_conn, 本测试直接走 js"
+952ec7e3930ccbb2,1788364012,4,2,N,,,14828,v2,unknown,none,"""""""erp_result 子系统 ETL 测试 (TDD).  11 个单测 + 5 个集成测试, 覆盖:   - 常量 + 配置   - routing 双向映射   - 12 个 SqlStep SQL 文本结构   - 按月 has"
+1cacf805acc08bfd,1788416632,4,2,N,,,10416,v3,unknown,none,"""""""erp_result 子系统 loader — run/verify/check + 按月 hash 增量 rebuild.  复用 processed.loader 模式: per-output-table per-month ha"
+416c3a2c4ca8f1a1,1790579893,4,1,N,,,1266,v2,unknown,none,# prompt — session-recovery-bootstrap next  承接 `handoff-session-recovery-bootstrap-2026-09-28.md`(同目录)。  ## 当前状态  - cwd:
+8dc64bc95f6dc676,1790579893,4,1,N,,,301,v2,unknown,none,- [Session Health](session_health.md) — 9/28 bootstrap 重建 + git 关联 + cc-haha sidebar 状态 + 兜底机制 - [scratch-issue2 备份](scr
+a6065fdde31a763f,1790579894,4,1,N,,,9863,v2,unknown,none,# handoff — session-recovery-bootstrap · 2026-09-28  > **会话 ID**: `b808d098-6c7f-4979-a19d-3ac3e8a217e8` > **完成时间**: 202
+b7cd2a6bc950df10,1790579894,4,1,Y,Session Health — F:\soft\00selfselfmade\loop-engineering,project,4642,v2,unknown,none,--- name: Session Health — F:\soft\00selfselfmade\loop-engineering description: 项目根 cwd + 9/28 bootstrap 重建记录 + git 关联基线
+98a20a1912958c51,1790155711,4,1,N,,,43108,v2,unknown,none,# Sales BI Sidebar Restructure Implementation Plan  > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subag
+2d9d6b4f0bf64011,1788667390,4,2,N,,,5152,v3,unknown,none,"""""""build_full_ddl() — 生成 CREATE SCHEMA + etl_file_hash + core_daily_YYYY."""""" import re import warnings from pathlib impo"
+44d48b4770da0756,1789085386,4,2,N,,,9500,v2,unknown,none,(binary)
+403b7165e9daae08,1788851883,4,2,N,,,3406,v2,unknown,none,"""""""shop_traffic_source DDL 生成器.  仿 Step 4 DMP 模式: 动态列定义 + NUMERIC 精度 + stat_date 索引. COLUMNS 是权威清单 (含 stat_date 作为第 1 项裸"
+d3ed50f872a67efc,1789006476,4,3,N,,,4972,v2,unknown,none,a:this.requestedContextTypesRules)}static create(e){return new r(e)}setCollectionScopeType(e){return this.collectionScop
+04300144851334ca,1789630101,4,1,N,,,7927,v2,unknown,none,"""""""test_post_add_summary.py — _post_add_summary.py 纯函数单元测试（Step 7）  覆盖 2 个纯函数（无 LLM 调用）：   1. detect_existing_summary：已存"
+87b6d38577404f56,1789893466,4,1,N,,,4002,v8,unknown,none,"<?php /**  * Plugin Name: SBT Media Picker Enhancer  * Description: 给后台主媒体库添加""类型""和""排序""下拉(URL 参数方式)  * Version: 2.0.0  * "
+ca3828ec4a129f49,1789893466,4,1,N,,,1563,v4,unknown,none,"<?php require_once('/var/www/html/wp-load.php');  echo ""=== 当前注册的 mime 相关 filter ===\n""; echo ""  ajax_query_attachments_"
+d070caf0c50ebef2,1789893466,4,1,N,,,7382,v3,unknown,none,"# FileBird 媒体库管理 - 使用说明  > \*\*最后更新\*\*：2026-08-21 > \*\*目标\*\*：解决速豹堂 WordPress 课程平台""插入媒体时无法按目录/类型筛选""的问题 > \*\*适用版本\*\*："
+fce27f9a31756245,1789519332,4,1,N,,,25421,v2,unknown,none,# Sales BI 全报表规划 — Design Spec  **Date**: 2026-09-16 **Author**: Claude (brainstormed with user) **Stage**: 报表定制优化 — 完整规
+348259f71535a78b,1790401006,4,1,N,,,10361,v2,unknown,none,# Handoff — MCP fix verified + m3_smoke 8/14→11/14 chart wait fix (2026-09-26)  **承接自**: `handoff-mcp-hang-fix-stdin-dev
+8907bf63c0f54842,1790464764,3,1,N,,,11781,v1,unknown,none,(binary)
+2440feb3f8804a96,1790471984,3,1,N,,,1379,v2,unknown,none,(binary)
+f92e252030a602b0,1790471984,3,1,N,,,9241,v2,unknown,none,"# Handoff — Focus Activation UIA Port Tasks 6-10 (Build Validated, Integration Pending)  **会话日期**: 2026-09-27 **本次主题**: "
+6f5f3e203d9823b6,1789052264,3,2,N,,,13354,v2,unknown,none,(binary)
+68eba0bf7a5dbed3,1790382043,3,2,N,,,580,v1,unknown,none,"# Prompt — next session (tree sync v6 — Pinia store refactor)  承接 `handoff-2026-09-26-tree-sync-retro.md`。直接走 §七 实施步骤,先 "
+cf0424f1720f91ca,1790222522,3,1,N,,,9163,v1,unknown,none,"#!/usr/bin/env python3 """"""deploy/scripts/patch_restructure_sidebar.py  Idempotent sidebar restructure for Evidence BI. 按"
+4d7e57ecf5ae2113,1788407551,3,3,N,,,265,v1,unknown,none,# Evidence 40.1.8 配置（新格式；旧 0.9.1 的 project/pages 字段不再被 schema 接受） # 页面源自动从 ./pages/ 读取（无需在此声明） # 连接器通过 evidence/connecti
+89a26357feeafb27,1789224441,3,3,N,,,18862,v2,unknown,none,(binary)
+9b3e27d882051b5b,1789187259,3,3,N,,,7166,v1,unknown,none,(binary)
+be4e1f2505ecd498,1790058742,3,1,N,,,29366,v1,unknown,none,# 2026-09-10_商家备战双11如何实现盈利_少壮  ## 1 电商流量逻辑转向：从爆款驱动到资产召回  ### 1.1 爆款时代向资产召回逻辑的范式转移  本次直播主题为双十一备战，围绕商家如何在双十一期间实操盈利、应对平台变化以
+2323ecaa319f2d33,1788791108,3,3,N,,,6181,v1,unknown,none,"""""""tests/test_loader_wxt.py — loader 主流程集成测试(仁禾 baobei 2026-01/02)."""""" import shutil import subprocess import sys from p"
+93cfabc8656ebbe0,1789982772,3,1,N,,,1534,v1,unknown,none,"--- title: Mart 健康监控 ---  # Mart 健康监控  > 数据源: bi.mart_health (元数据聚合 view, 11 个业务 mart 行数 + 状态) > 红线: 100,000 行 (Evidence"
+3b63e707b1240e58,1789109946,3,2,N,,,13580,v3,unknown,none,"""""""Step 18: 跨平台推广数据汇总.  跨 4 库 (taobao / pdd / jd) × 4 数据源 (baobei / product / promotion / union) 聚合每日推广花费 / 成交金额, UPSERT"
+5871be0d9f7f4164,1790391870,3,1,Y,Playwright 14-page loop 撞墙 — chromium 内部 state leak 真根因待查,feedback,2435,v2,global,medium,--- name: Playwright 14-page loop 撞墙 — chromium 内部 state leak 真根因待查 description: tests/m3_smoke.py 14 page Playwright lo
+01a85e43c88352ce,1790035627,3,1,Y,M9 P3.5 build 路径根因 + 修复,project,6246,v2,unknown,none,--- name: M9 P3.5 build 路径根因 + 修复 description: 2026-09-21 M9 P3.5 修复完整 build 路径 — root cause 是 SPA=true 让 adapter-static
+04c1f32709d6bc74,1789366780,3,1,N,,,17021,v3,unknown,none,"""""""Step 19a: Backfill erp_result.daily_store_*_2026 with promotion data from erp.storedata.promotion.  Architecture (沿用 "
+ffa9a86426716e37,1789631863,3,1,N,,,2926,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""把 crv-audio audio.json → long-doc-processor 兼容的 transcript_raw.md  crv"
+19ee82f88e200742,1788230866,3,1,N,,,10714,v3,unknown,none,"# scripts/sample_compare_sku.py """"""PG vs xlsx 抽样对账 (sku_code / ys_sku_code).  按 (店铺名称, 平台店铺商品编码, row_seq) 复合键, 随机抽 N 行, "
+2d7258712923c5ae,1788243955,3,1,N,,,5024,v3,unknown,none,(binary)
+4455892c5d6a3bab,1790296602,3,1,N,,,2050,v1,unknown,none,"{   ""command"": {     ""openDialog"": ""批量改名..."",     ""openDialogDescription"": ""打开批量改名对话框"",     ""runLastRule"": ""应用上次的改名规则"", "
+4f2a04dbcd0df7c3,1790296602,3,1,N,,,1666,v1,unknown,none,(binary)
+5a87b6fcdca98ea4,1790296602,3,1,N,,,11492,v1,unknown,none,"import type {   ExtensionActivationContext,   ExtensionContextEntry,   ModalHandle, } from '@sigma-file-manager/api'; im"
+6851114fe983d96d,1790296602,3,1,N,,,225,v1,unknown,none,"{   ""extends"": ""./tsconfig.json"",   ""compilerOptions"": {     ""rootDir"": ""src"",     ""outDir"": ""dist"",     ""noEmit"": false"
+8dec985880ce1d3d,1790296602,3,1,N,,,462,v1,unknown,none,"{   ""compilerOptions"": {     ""target"": ""ES2022"",     ""lib"": [""ES2022"", ""DOM""],     ""module"": ""ESNext"",     ""moduleResolu"
+d8c49b50abbf49c3,1790296602,3,1,N,,,2301,v1,unknown,none,# Batch Rename — Sigma File Manager Extension  A Sigma File Manager extension for renaming multiple files at once with c
+e4336201b2abe5a1,1790296602,3,1,N,,,61,v1,unknown,none,node_modules/ dist/ *.log .DS_Store src/generated/ coverage/ 
+10828f8e0524cc27,1789627365,3,1,N,,,7093,v1,unknown,none,(binary)
+c0c40a78ce8bb780,1789627365,3,1,N,,,12045,v1,unknown,none,# long-doc-processor 规约清单（single source of truth）  > **本文档是该 skill 的规约唯一真相源**。任何修改必须先在此添加/修改规约条目，然后才能改 prompt 或代码。 > > 不
+c2a0a48a8f0b8d54,1789627365,3,1,N,,,12026,v1,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""merge_sections.py — 按语义合并 H2/H3 章节以满足 verify_all.py 规约。  每个 new H3 由一个"
+d3c0ddf1a9a9bc4c,1789627365,3,1,N,,,1813,v1,unknown,none,"#!/usr/bin/env python3 """"""smoke test: 1 小块调 LLM 验证 API + 净化效果。"""""" import argparse import os import sys from pathlib impo"
+760cf84ab440d265,1788224992,3,2,N,,,8215,v6,unknown,none,"""""""processed schema: 30 业务列 + 2 元数据列 + 2 派生列 → 4 张 34 列 DDL.  ⚠️ Task 2 (2026-08-30): 4 张 processed 表 DDL 加 `order.` sch"
+16d29796fcc28335,1789688637,3,1,N,,,6631,v1,unknown,none,(binary)
+12f797bf05be12a1,1790466483,3,1,N,,,2216,v2,unknown,none,"5 中科院分区/北大核心；指南/共识的 Oxford 证据级别写 `不适用`，其原文分级体系和推荐等级另行保留。研究推荐写法：`<a href=""{{url}}"">{{文献名或研究简称}}</a>（{{来源/期刊}}，{{年份}}；Oxfo"
+32d099e1c8b52447,1790466483,3,1,N,,,4843,v2,unknown,none,�（如有），以及第 2、3 章的标题和正文 | 兜底时插在本次动态生成的第一章标题后；块内不得重复锚点标题 | | `section-2` | 第 4 章正文，以及第 5、6、7 章的标题和正文 | 兜底时插在骨架的“四、系统综述与关键研究
+3ccda9b9c20bef44,1790466483,3,1,N,,,9574,v2,unknown,none,(binary)
+565e0030448bfc7c,1790466483,3,1,N,,,2159,v2,unknown,none,"`：必须是可点击锚文本，如 `<a href=""{{url}}"">{{link_label}}</a>` 或 `[{{link_label}}]({{url}})`；当前 URL 直接指向 PDF，或已有结果明确标识为 PDF 资源时，`l"
+d02848ea44d8de96,1790466483,3,1,N,,,3503,v2,unknown,none,(binary)
+1701021324f690e6,1788851883,3,2,N,,,9553,v2,unknown,none,"# Handoff: shop_traffic_source Step 8 — 好雅乐店铺流量来源 ETL **完成** (2026-09-08)  > **状态**: ✅ **Step 8 完成 — bootstrap 28,335 行 "
+06c7c5667e40eb2e,1789689458,3,1,N,,,18676,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""项目级 wrapper: 智篆 2026-07-28 两段合并流水线 (v4.18 + PDF 骨架驱动)  流程:   PDF uocr "
+4a86f9bb088bdb15,1789689458,3,1,N,,,13072,v2,unknown,none,"# 智篆 2026-07-27 三胖内容人群与素材投放实战 · 思维导图笔记  > 来源: `27号课件.jpg` (XMind 思维导图, 6000×6534, uocr 视觉解析) > 主题: 7月26日 内容人群资产 · 7月27日 "
+7d5ed07414d81b09,1789689458,3,1,N,,,561,v2,unknown,none,"@echo off set PYTHONIOENCODING=utf-8 set PYTHONUTF8=1 set HF_HUB_OFFLINE=1 cd /d ""F:\resourse_study\智篆\2026-07-26_智篆5天轻咨"
+db2e72413fbe415d,1789689458,3,1,N,,,1276,v2,unknown,none,(binary)
+f69b399208253357,1789689458,3,1,Y,skill markdown_to_html.py 死循环 workaround (自写 inline 渲染器),feedback,2059,v2,global,medium,--- name: skill markdown_to_html.py 死循环 workaround (自写 inline 渲染器) description: skill 标准 markdown_to_html.py 在 >30K char
+b2ccca0273e25046,1789714794,3,1,N,,,81333,v2,unknown,none,(binary)
+4963c9c099b966fe,1789604412,3,1,N,,,3021,v1,unknown,none,"--- title: 数据异常识别 ---  <script module>   import { DataTable, BarChart } from '@evidence-dev/core-components'; </script> "
+57071bdee3bf31bc,1789604412,3,1,N,,,3242,v1,unknown,none,"--- title: 分类详情 ---  <script module>   import { DataTable, BarChart, LineChart, Dropdown } from '@evidence-dev/core-comp"
+e1538c3708ff3aba,1789604412,3,1,N,,,4217,v1,unknown,none,(binary)
+07596e997f6a5c4a,1788619858,3,2,N,,,8834,v2,unknown,none,"#!/usr/bin/env python # -*- coding: utf-8 -*- """""" verify_zero_amount_filter.py — 独立验证工具: 检查 §十一.13 5 字段全 0 源头过滤 是否生效.  检"
+ce543732705ea233,1788513396,3,2,N,,,2195,v2,unknown,none,# New Session Prompt  承接 `handoff-orderid-impl-2026-09-04.md` (Phase 1) + `handoff-proid-impl-2026-09-04.md` (Phase 2). 
+3064351118173a33,1790435186,3,1,N,,,8441,v1,unknown,none,(binary)
+bcef60e32eed04b9,1790435186,3,1,N,,,23294,v1,unknown,none,"# Part 2.2 · 4 场景实操(Scenarios)  > **读者**:已读 Part 2.1(5 原语理论)、想看""具体怎么跑""的工程师 > **目标**:30 分钟读完 — 之后能照搬任一场景到自己的项目上 > **数据截止*"
+22ebe45b7d09149d,1790586945,3,1,N,,,4104,v2,unknown,none,"""""""Build _memory-audit.csv from file-history snapshots.  Output columns:   hash, latest_mtime, total_versions, distinct_"
+92f77d6463237be7,1790586944,3,1,Y,2026-09-28 session-recovery handoff,project,7327,v2,unknown,none,--- name: 2026-09-28 session-recovery handoff description: 历史会话消失事件诊断 + 恢复产出 + 待用户决策事项 type: project ---  # 历史会话消失事件 — 诊
+9d6445bf5d65f3ad,1790586945,3,1,N,,,9993,v2,unknown,none,"""""""Extract cc-haha trace jsonl files into per-session markdown summaries.  Input:  ~/.claude/cc-haha/traces/*.jsonl   (A"
+489189c96bcc1daa,1789523693,3,1,N,,,30684,v2,unknown,none,""""""" renderers.py - PPT slide HTML renderers. Provides layouts: cover, bullets, image_full, image_with_text,             "
+ca4d6e4a961a7695,1789523693,3,1,N,,,446,v2,unknown,none,"""""""Helper to extract meta entries for a given page range."""""" import json import sys from pathlib import Path  meta_path "
+67e2c2adba02fe60,1789706374,3,1,N,,,79366,v2,unknown,none,(binary)
+46a3fe2b5f24e11a,1790297768,3,1,N,,,1603,v1,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+ee484746887a9726,1790297768,3,1,N,,,8547,v1,unknown,none,<!-- SPDX-License-Identifier: GPL-3.0-or-later License: GNU GPLv3 or later. See the license file in the project root for
+19a2add53c0c39ec,1789006476,3,2,N,,,12969,v2,unknown,none,"""""""京东推广 - loader (sha256 + per-day DELETE+COPY + 业务 PK dedup + utf-8-sig CSV).  沿用 PDD loader.py 模式 + JD-1 (BOM) + JD-2 "
+925c3cd55a1cfacb,1788851883,3,2,N,,,5039,v2,unknown,none,"""""""shop_traffic_source ddl 测试."""""" import re  from storedata_upload.sources.shop_traffic_source.ddl import build_full_ddl"
+a6c1d7ec288ae784,1789006476,3,3,N,,,4322,v2,unknown,none,(binary)
+b998bdbdb50e26ad,1788851883,3,2,N,,,12107,v2,unknown,none,"""""""shop_traffic_source 主入口: scan → sha256 → 27 列固定 → 过滤规则 → DELETE 月初 + COPY → UPSERT hash.  本文件由 Task 4 (filter + _read"
+cc27ad2923c1b2f3,1788851883,3,2,N,,,5876,v2,unknown,none,"""""""apply_ddl_traffic_source: 建数据库(若不存在) + 应用 shop_traffic_source DDL.  用法:   python scripts/apply_ddl_traffic_source.py "
+2bb158fdb9090b26,1790436031,3,1,N,,,8595,v1,unknown,none,(binary)
+3cddc148e83d0d68,1790436031,3,1,N,,,5166,v1,unknown,none,(binary)
+70fd32265ba4af18,1790436031,3,1,N,,,3452,v1,unknown,none,(binary)
+81df99d645d1fcd9,1790436031,3,1,N,,,3473,v1,unknown,none,(binary)
+1c784891dd93b337,1789893466,3,1,N,,,3493,v2,unknown,none,#!/bin/sh set -e apk add --no-cache attr tar coreutils >/dev/null 2>&1  WP_CONTENT=/vol1/@team/study_platform/wp_content
+201797cafca177f7,1789893466,3,1,N,,,1042,v2,unknown,none,"<?php require_once('/var/www/html/wp-load.php');  echo ""=== 1. mu-plugin 是否加载 ===\n""; echo ""  auto-media-sync 加载: "" . (f"
+272177b00a0aebe2,1789893466,3,1,N,,,626,v2,unknown,none,"<?php require_once('/var/www/html/wp-load.php');  echo ""=== 默认 mime types 中包含 audio 的 ===\n""; $mimes = get_allowed_mime_"
+6731aca387dcaba7,1789893466,3,1,N,,,2023,v3,unknown,none,"<?php /**  * 直接看 is_admin 实际逻辑,然后模拟 admin 上下文  */ require_once('/var/www/html/wp-load.php');  echo ""=== is_admin() 真实逻辑 "
+72077ac5c2e5f68d,1789893466,3,1,N,,,1101,v2,unknown,none,"<?php require_once('/var/www/html/wp-load.php');  echo ""=== FileBird 部署状态 ===\n\n"";  echo ""翻译文件:\n""; $path = '/var/www/h"
+781dadbc987d2924,1789893466,3,1,N,,,473,v2,unknown,none,"set -e echo ""=== 紧急恢复:study_platform 整个树权限 ==="" cd /var/www/html  echo ""  -> 恢复目录 0755 ..."" find /var/www/html -type d -"
+a8de5861c3c3d3bf,1789893466,3,1,N,,,703,v2,unknown,none,"#!/bin/bash # Test REST API mime param variations for q in ""mime_type=video"" ""mime_type=audio"" ""mime_type=image"" ""media_"
+b60f4a5019baddd4,1789893466,3,1,N,,,277,v2,unknown,none,"#!/bin/sh echo ""=========================================="" echo ""Step D: 重启 Apache 让新权限生效"" echo ""======================"
+cd08fa917e3f6f75,1789893466,3,1,N,,,1534,v2,unknown,none,<?php require_once('/var/www/html/wp-load.php');  $base = wp_upload_dir()['basedir']; $files_to_register = [     'course
+d22c0d2a1b27e63d,1789893466,3,1,Y,FileBird 6.5.7 与 WordPress 7.1 REST API 不兼容,project,3899,v2,unknown,none,"--- name: FileBird 6.5.7 与 WordPress 7.1 REST API 不兼容 description: grid 视图的 media_type 短名筛选 broken,已知问题,不要花时间再调试 type: p"
+debd889bd0e4cebe,1789893466,3,1,N,,,1020,v2,unknown,none,"<?php /**  * 模拟 FileBird grid 视图的所有可能 API 调用,逐个测试  */ require_once('/var/www/html/wp-load.php');  echo ""=== 测试 FileBird "
+1acaade0ff674f27,1790592371,3,1,N,,,4164,v2,unknown,none,"import os, shutil, subprocess from datetime import datetime  C = r'C:\Users\Duanyi\.claude' E = r'E:\Users\Duanyi\.claud"
+6322b143400fe6b4,1789562829,3,1,N,,,2114,v2,unknown,none,#!/bin/bash # 2026-09-16 aiec.fun nginx xmlrpc 拦截补丁 # 用法: sudo bash apply-xmlrpc-block.sh # 效果: 阻断 /xmlrpc.php 直访(防 WP X
+0b249508579001b2,1790464764,2,1,N,,,1803,v1,unknown,none,(binary)
+01cc8c4e5730cb4b,1789515050,2,2,N,,,2708,v2,unknown,none,"<!doctype html> <html lang=""zh-CN""> <head> <meta charset=""utf-8""> <title>抖店视频素材全域推商品 · 金戈</title> <style> *{margin:0;pad"
+09c6342ca08529a4,1789515051,2,2,N,,,4617,v2,unknown,none,"<!doctype html> <html lang=""zh-CN""> <head> <meta charset=""utf-8""> <title>全域要放大 · 总结</title> <style> *{margin:0;padding:0"
+113b314b3024bcd2,1789515051,2,2,N,,,3499,v2,unknown,none,"<!doctype html> <html lang=""zh-CN""> <head> <meta charset=""utf-8""> <title>精准营销错位竞争</title> <style> *{margin:0;padding:0;b"
+123080c3b3bfeae5,1789515051,2,2,N,,,3537,v2,unknown,none,"<!doctype html> <html lang=""zh-CN""> <head> <meta charset=""utf-8""> <title>eCPM 公式与底层竞价</title> <style> *{margin:0;padding"
+24a5b0292f1b419e,1789515052,2,2,N,,,32629,v2,unknown,none,"#!/usr/bin/env python3 """"""为134张PPT页面建立元数据：type/title/section/items"""""" import json  # 版式类型（与HTML模板对应） TYPES = [     ""hero"
+278e5e427d193286,1789515051,2,2,N,,,3748,v2,unknown,none,"<!doctype html> <html lang=""zh-CN""> <head> <meta charset=""utf-8""> <title>推商品 · 4 个阶段 3 个步骤</title> <style> *{margin:0;pa"
+4440c2f516805e37,1789515051,2,2,N,,,4370,v2,unknown,none,"<!doctype html> <html lang=""zh-CN""> <head> <meta charset=""utf-8""> <title>提投产 · 调价时机 + 稳定转化总结</title> <style> *{margin:0;"
+4a59bf51d17dae13,1789515051,2,2,N,,,3115,v2,unknown,none,"<!doctype html> <html lang=""zh-CN""> <head> <meta charset=""utf-8""> <title>抖店运营 7 大步骤</title> <style> *{margin:0;padding:0"
+79470468ed742970,1789515051,2,2,N,,,4249,v2,unknown,none,(binary)
+8da7739396392155,1789515051,2,2,N,,,3749,v2,unknown,none,"<!doctype html> <html lang=""zh-CN""> <head> <meta charset=""utf-8""> <title>测链接-测品 · 3 种测试方式</title> <style> *{margin:0;pad"
+8e759b9228d82ddf,1789515051,2,2,N,,,3379,v2,unknown,none,"<!doctype html> <html lang=""zh-CN""> <head> <meta charset=""utf-8""> <title>爆单基础：完善的产品线 · 选品 3 要素</title> <style> *{margin:"
+916866b74c984694,1789515051,2,2,N,,,3699,v2,unknown,none,"<!doctype html> <html lang=""zh-CN""> <head> <meta charset=""utf-8""> <title>商家实操课对应的 7 大打法</title> <style> *{margin:0;paddi"
+9d62b96c509bfa6e,1789515051,2,2,N,,,4024,v2,unknown,none,"<!doctype html> <html lang=""zh-CN""> <head> <meta charset=""utf-8""> <title>推商品展示路径</title> <style> *{margin:0;padding:0;bo"
+bcbe71c4cc346366,1789515051,2,2,N,,,4033,v2,unknown,none,"<!doctype html> <html lang=""zh-CN""> <head> <meta charset=""utf-8""> <title>三大思路总结 · P1 常规卖点</title> <style> *{margin:0;pad"
+be94a35d629a9110,1789515051,2,2,N,,,5082,v2,unknown,none,"<!doctype html> <html lang=""zh-CN""> <head> <meta charset=""utf-8""> <title>测素材 · 冷启动 4 种方式</title> <style> *{margin:0;padd"
+cd6e3daf94b01549,1789515051,2,2,N,,,3638,v2,unknown,none,"<!doctype html> <html lang=""zh-CN""> <head> <meta charset=""utf-8""> <title>推商品三大素材</title> <style> *{margin:0;padding:0;bo"
+f48429cb19dee9a9,1789515050,2,2,N,,,3485,v2,unknown,none,"ce_tier\"":\""standard\""}}\n\nevent: ping\ndata: {\""type\"":\""ping\""}\n\nevent: content_block_start\ndata: {\""type\"":\""cont"
+d553515700268300,1790473467,2,1,N,,,8536,v1,unknown,none,"t(""--mode"", choices=(""auto"", *BOOTSTRAP_MODES), default=""auto"")     parser.add_argument(""--execute"", action=""store_true"""
+dc0878448d4184e3,1790473467,2,1,N,,,1260,v1,unknown,none,"c(handle.fileno())         os.replace(temporary, path)     finally:         if os.path.exists(temporary):             os"
+7961d492bc755660,1788780673,2,2,N,,,13369,v1,unknown,none,#!/usr/bin/env bash # Sales BI 服务器初始化脚本（Ubuntu 22.04 / Debian 12） # 用法：在服务器上以 sudo 运行：sudo bash /opt/sales-bi/deploy/ins
+8f15296e65499632,1788334114,2,2,N,,,650,v2,unknown,none,(binary)
+1b48b08ea5a506a3,1788933695,2,1,N,,,15260,v3,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""_purify_wujie.py — 无界精英班 2026-09-06 项目级 strict purify wrapper。  数据流（适配"
+809e70c4612f0dbe,1788933695,2,1,N,,,23556,v3,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""_post_process_wujie.py — 无界精英班 2026-09-06 项目级 Phase 2.5 后处理。  输入：无界精英班"
+05dc3148f0f70a73,1788510034,2,2,N,,,20957,v2,unknown,none,(binary)
+7a20e209145bf1c3,1788334114,2,1,N,,,1754,v2,unknown,none,# 接力 prompt：evidence F 路径成功，下一步 Cloudflare Tunnel  承接 `handoff-sales-bi-stage5c-deploy-evidence-F-success-2026-09-02.md`
+ce1dfe78ec2d9259,1788185240,2,2,N,,,19175,v2,unknown,none,# Sales BI A2 — 运维监控设计  日期：2026-08-31 状态：设计已确认，待转实施计划 承接：`handoff-sales-bi-stage5a-done-2026-08-31.md`（A1 CI/CD 完成）  ---
+56bceca0d96f05d4,1790253166,2,1,N,,,5494,v1,unknown,none,# Handoff: nginx 308 Location 含端口 8080 修 — 已完成 — 2026-09-24  **承接**: `handoff-deploy-done-2026-09-24.md` (prod deploy 完成
+d58b8ef718d57dab,1790253166,2,1,Y,nginx 308 Location 默认 absolute 含 listen port — CF Tunnel 下 ERR_SSL_PROTOCOL_ERROR,feedback,1694,v1,E-------G1-----00data-analysis,medium,--- name: nginx 308 Location 默认 absolute 含 listen port — CF Tunnel 下 ERR_SSL_PROTOCOL_ERROR description: nginx 默认 absolu
+8090205b26f4782e,1788879482,2,1,N,,,2061,v2,unknown,none,"""""""apply_ddl_customer_assets CLI 集成测试."""""" import subprocess import sys from pathlib import Path  PROJECT_ROOT = Path(r""E"
+9d5b836e2af932f1,1788879482,2,1,N,,,11483,v2,unknown,none,"# 客户资产 Step 10 实施 — 完成版 (2026-09-08)  > **状态**: ✅ 11/11 tasks 完成, ~70 tests 全过, 7 店 1,750 行入库, 7/7 verify 100/100/0. 接力给"
+4b3082b6d571af4d,1789910370,2,1,N,,,7515,v1,unknown,none,"# Handoff: 衍生副本清理 (2026-09-20)  > 衔接 `handoff-2026-09-20-auto-media-sync-fix.md`,本次任务专门清理剩余的 11348 个 size-variant 衍生 att"
+67b43b65d4dd82db,1789910370,2,1,N,,,338,v1,unknown,none,"承接 `E:\website_sbt\handoff-2026-09-20-derivative-cleanup.md`;NAS `192.168.1.9` 容器 `study_wp` (WordPress 7.1),SSH 无密码 Bat"
+391ba72c3d68b842,1790317627,2,1,N,,,11130,v1,unknown,none,# Handoff — shop-overview 5.1 nginx 308 redirect 修复 + docs (2026-09-25)  **承接自**: handoff-shop-overview-5-1-deploy-done-
+8f1fece47e8bf3e4,1790317627,2,1,N,,,1715,v1,unknown,none,# Next Prompt — shop-overview 5.1 rebuild article body  承接 handoff: `handoff-shop-overview-5-1-nginx-308-fix-done-2026-0
+dc5b14d8f1e18821,1789895457,2,1,N,,,16046,v3,unknown,none,# Handoff · aiec.fun 编辑器样式与发布页对齐（2026-09-15 单日迭代 8 轮 + 09-17~09-20 caret fix 5 轮）  ## 阶段总览  **目的**：让 Gutenberg 文章编辑页与发布后
+43097211e2365bc3,1789625986,2,1,N,,,148,v1,unknown,none,请继续 long-doc-processor skill v4.18 优化任务，参考 `handoff-skill-v4.18-optimization.md`（同目录），按 4 步 P0 + P2 顺序执行
+d7b84874acb52863,1789625986,2,1,N,,,8659,v1,unknown,none,# Handoff: long-doc-processor skill v4.18 优化任务  ## 会话状态（2026-09-17）  **已完成 v4.16 → v4.18 沉淀**（智篆 2026-07-26 项目复盘）： - 新增 
+3c39c52dcb25bf25,1788744670,2,2,N,,,1288,v1,unknown,none,"{   ""name"": ""my-project"",   ""version"": ""0.0.1"",   ""scripts"": {     ""build"": ""echo 'npm run build' is deprecated"",     ""b"
+d06b5098a58cf531,1790378712,2,1,N,,,12959,v1,unknown,none,(binary)
+7fb95b78ef862de8,1790347724,2,1,N,,,4590,v1,unknown,none,(binary)
+c8c31e813c4893c9,1790347724,2,1,N,,,9424,v1,unknown,none,# Handoff — sales-bi-mcp POSIX fix + m3_smoke PAGES + nginx 5.x 308 (2026-09-25)  **承接自**: `handoff.md` (Section 五 7 pag
+03633cfd6e610028,1789970577,2,1,N,,,4980,v1,unknown,none,"#!/usr/bin/env python3 """""" 本地 dry-run:把 TARGET 重定向到 server 的 /tmp/vite.config.js.test 文件副本(本地 mock) """""" import sys impor"
+16f029208a587b7a,1789970577,2,1,Y,M6 A2 strip_global_vite_patches — 不是 build 撞墙真根因 (新发现),feedback,4460,v1,global,medium,--- name: M6 A2 strip_global_vite_patches — 不是 build 撞墙真根因 (新发现) description: 2026-09-21 实测: 移除 server vite.config.js 的 
+89cbd29a25f7bc59,1789970577,2,1,N,,,12307,v1,unknown,none,"# Handoff: Stage 8 M6 — A2 strip_global_vite_patches done, but ⚠️ build 仍撞墙 (真根因更深)  > **承接**: handoff-stage8-m5-monitor"
+e47f27997d3fbc44,1789970577,2,1,N,,,2082,v1,unknown,none,# M7 prompt: 真根因修复 evidence build IPC deadlock  承接: `handoff-stage8-m6-a2-no-fix-2026-09-21.md`  ## 当前状态 - main @ `8f7a5
+04dd5dfbe37d464c,1790222522,2,1,N,,,10600,v1,unknown,none,# Handoff: Sales BI Sidebar sub-folder 顺序对齐原 plan — DONE — 2026-09-24  **承接**: `handoff-sidebar-realign-pending-2026-09-
+1b84eff33fc1a061,1790222522,2,1,N,,,2508,v1,unknown,none,(binary)
+375448340c2038f5,1790222522,2,1,N,,,727,v1,unknown,none,(binary)
+52eb98f219fd5f54,1790222522,2,1,Y,Evidence sidebar sub-folder 顺序对齐 = folder 加数字前缀 1/2/3/4,feedback,2743,v1,E-------G1-----00data-analysis,medium,--- name: Evidence sidebar sub-folder 顺序对齐 = folder 加数字前缀 1/2/3/4 description: Evidence 40.x 按 folder name Unicode code 
+848cc6acd452e0b9,1790222522,2,1,N,,,5110,v1,unknown,none,"import pathlib, shutil, tempfile, subprocess, sys  def test_patch_moves_files_and_writes_stubs():     """"""v2 数字前缀 LAYOUT:"
+c740866a1a22c913,1790222522,2,1,N,,,4612,v1,unknown,none,"""""""Tests ≥21 redirects (21 老 URL → 新 folder URL nginx 308 redirect patcher)."""""" import subprocess, sys, tempfile, pathli"
+02f5fa42e6052376,1789608343,2,1,N,,,499,v1,unknown,none,#!/usr/bin/env bash cd /opt/sales-bi/evidence source ./load_env.sh >/dev/null 2>&1 export NODE_OPTIONS=--max-old-space-s
+12eae8513bbed4da,1789608343,2,1,N,,,1367,v1,unknown,none,"# Stage 8 M2 续 Prompt  > 承接 handoff: `handoff-sales-bi-stage8-m2-blocked-2026-09-17.md` > 当前 commit: `d162a0a` (main, M2"
+143c28cee43f542a,1789608343,2,1,N,,,382,v1,unknown,none,#!/usr/bin/env bash cd /opt/sales-bi/evidence source ./load_env.sh >/dev/null 2>&1 export NODE_OPTIONS=--max-old-space-s
+47aa40146ed8f2cf,1789608343,2,1,N,,,9028,v1,unknown,none,"# Handoff: Stage 8 M2 — Build 卡死根因已诊断,未解决 — 2026-09-17  > **下一阶段任务**: Stage 8 M2 续 — **修 evidence build 卡在 vite/esbuild "
+b9e5c3de40f3d863,1789608343,2,1,N,,,495,v1,unknown,none,#!/usr/bin/env bash # Build WITHOUT EVIDENCE_IS_BUILDING so vite logger emits progress cd /opt/sales-bi/evidence source 
+c70117bcfc4e2177,1789608343,2,1,N,,,786,v1,unknown,none,#!/usr/bin/env bash # Probe vite cwd + env reading cd /opt/sales-bi/evidence source ./load_env.sh >/dev/null 2>&1 export
+e4567ec1310b4160,1789608343,2,1,N,,,585,v1,unknown,none,#!/usr/bin/env bash # Strace vite build to see what it's doing cd /opt/sales-bi/evidence source ./load_env.sh >/dev/null
+fee7362b53698148,1789608343,2,1,N,,,529,v1,unknown,none,#!/usr/bin/env bash # Build with DEBUG to see real-time output cd /opt/sales-bi/evidence source ./load_env.sh >/dev/null
+075bcd9e5150f9ff,1790505372,2,1,N,,,514,v2,unknown,none,# Copy shadow copy user profile to backup location $src = 'C:\TempShadowCopy\Users\Duanyi' $dst = 'E:\ClaudeBackup\shado
+13effcfe2b158cf8,1790505371,2,1,N,,,3153,v2,unknown,none,# cc-haha 大规模数据丢失事故复盘  **事故日期**：2026-09-27   **影响**：652 个 trace 文件（37.23 GB）丢失   **根因**：cc-haha 服务器 OOM（Out-of-Memory）+ 
+377e9c0367ab0d51,1790505371,2,1,N,,,925,v2,unknown,none,"#!/usr/bin/env python3 import json, sys  path = sys.argv[1] keyword = sys.argv[2] if len(sys.argv) > 2 else 'Duanyi'  wi"
+37c34de5b48e4fc2,1790505372,2,1,N,,,1283,v2,unknown,none,# Direct copy from shadow path (not via junction) $shadowRoot = '\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Users\D
+41525cb96219104d,1790505372,2,1,N,,,2787,v2,unknown,none,"# Restore from shadow backup - only overwrite when shadow is larger/newer $shadow = ""E:\ClaudeBackup\shadow-user-profile"
+4a47168d1e52ca4f,1790505372,2,1,N,,,4818,v1,unknown,none,# Comprehensive app config restore $backup = 'E:\r\Users\Duanyi' $current = 'C:\Users\Duanyi'  # Get list of installed p
+54bf430c7371b90c,1790505372,2,1,N,,,1163,v2,unknown,none,# Remount shadow and copy AppData $shadowPath = '\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\' $junctionPath = 'C:\S
+5d6f9865a672e993,1790505372,2,1,N,,,5888,v1,unknown,none,$backup = 'E:\r\Users\Duanyi' $current = 'C:\Users\Duanyi'  # Get installed apps list $installedApps = @() if (Test-Path
+5eb13b9ed4b2e09d,1790505372,2,1,N,,,623,v2,unknown,none,# Re-extract AppData from shadow copy directly $shadowPath = '\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Users\Duan
+5edb68d0f3f314c7,1790505372,2,1,N,,,1951,v2,unknown,none,# auto-backup-cc-haha.ps1 # 自动备份 cc-haha 关键数据到 E:\ClaudeBackup\ # 建议：加入 Windows 任务计划程序，每小时运行一次  param(     [string]$Back
+7f22080fb112183a,1790505372,2,1,N,,,3027,v1,unknown,none,# Restore cc-haha + apps from E:\r # Only restore if backup is newer or larger than current  $backup = 'E:\r\Users\Duany
+9d491e65095ce28a,1790505372,2,1,N,,,1217,v1,unknown,none,# Restore missing Office folders specifically $backup = 'E:\r\Users\Duanyi\AppData\Roaming\Microsoft' $current = 'C:\Use
+c14090c2074429a2,1790505372,2,1,N,,,1792,v1,unknown,none,# Restore user-level dotfiles from backup $backup = 'E:\r\Users\Duanyi' $current = 'C:\Users\Duanyi'  # List of dotfile 
+c8cf8b13d9741d45,1790505372,2,1,N,,,2100,v2,unknown,none,# Restore critical configs directly $shadow = 'C:\ShadowAccess\Users\Duanyi'  # Verify shadow access if (-not (Test-Path
+dc121ddb6c90c93d,1790505372,2,1,N,,,2720,v1,unknown,none,$backup = 'E:\r\Users\Duanyi' $current = 'C:\Users\Duanyi' $logFile = 'C:\Users\Duanyi\AppData\Local\Temp\restore-dotfil
+fcd26b86d8a5f135,1790505372,2,1,N,,,685,v2,unknown,none,"$paths = @('C:\TempShadowCopy', 'C:\ShadowAccess', 'C:\ShadowNew')  foreach ($p in $paths) {     if (Test-Path $p) {    "
+ff7f31b06f6a9468,1790505372,2,1,N,,,1629,v2,unknown,none,$shadowPath = '\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\' $junctionPath = 'C:\TempShadowCopy'  # Create junction 
+ea18ce8a53fc4872,1788784764,2,1,N,,,4095,v2,unknown,none,"""""""人群报表配置 — 75 列 + 6 列细粒度 PK."""""" from .constants import REPORT_TYPE_AUDIENCE  SUB_CONFIG = {     'report_type': REPORT_T"
+ab032836aa98a0cd,1790119205,2,1,N,,,671,v1,unknown,none,接力 `E:\shgb-auto\handoff-2026-09-23-shgb-multi-class.md` 的 shgb.cn 自动学习任务。  确认 Playwright (`bvrk5c1ip` 或同名) 仍在跑就只观察;崩了直接
+b76c683f58c64f39,1790119205,2,1,N,,,6304,v1,unknown,none,"# Handoff: shgb.cn 跨专题自动学习 (2026-09-23)  ## 一句话  用 Playwright + Edge CDP 自动刷 shgb.cn(`https://www.shgb.cn`)干部在线学习,逐专题自动播"
+35fb4bcc85070aeb,1788510034,2,1,N,,,2258,v2,unknown,none,(binary)
+af77cea9ad9ad20f,1788510034,2,1,N,,,5738,v2,unknown,none,"""""""销售 BI 每日调度主入口（cron / systemd timer 触发）。  修正 A: 流水线缩为 3 步（不含 evidence build / 部署）。  顺序： 1. dbt run（更新 mart） 2. run_ale"
+fca8ad8d1ca335ad,1788510034,2,1,N,,,570,v2,unknown,none,(binary)
+ebfbdb51da1dae7b,1788498956,2,1,N,,,11717,v4,unknown,none,#!/usr/bin/env bash # Cloudflare Access — 给 bi.jury.xin (Sales BI) 加登录门禁 # # 前置： #   1. 用户在 https://dash.cloudflare.com/
+a7891d86b820401d,1790058742,2,1,N,,,2730,v1,unknown,none,"#!/usr/bin/env python3 """"""Build ffmpeg filter_complex for ad-cut + PPT crop + scale to 1280x720."""""" import json import o"
+620d18b4ef90ab20,1789050945,2,2,N,,,4566,v2,unknown,none,"""""""拼多多推广 - apply DDL 脚本 (建 pdd 库 + apply DDL 到 cloud/local).  仿 apply_ddl_traffic_source.py 模式 + FIX-TS-6/CA-2 状态机 split"
+9833d545531d7a40,1788962856,2,2,N,,,5025,v2,unknown,none,(binary)
+b351201cffd4bbe8,1788791128,2,2,N,,,10415,v1,unknown,none,s_create_connection exec failed cs_create_connection: fdopen for fr_fp failed cs_create_connection: fdopen for to_fp fai
+cbdc3ed064079d3d,1788796365,2,1,N,,,12060,v3,unknown,none,(binary)
+15335bf587a94cf1,1789982772,2,1,N,,,8271,v1,unknown,none,# Handoff: Stage 8 M8 — Build 撞墙修复 + 部署成功 15/15  > **承接**: handoff-stage8-m7-diagnosis-no-fix-2026-09-21.md (M7 撞墙未修) > 
+76b2a8c4dcabe113,1789982772,2,1,N,,,888,v1,unknown,none,"承接 `handoff-stage8-m8-build-fixed-2026-09-21.md` → main @ e9ad791;M8 撞墙修复成功 (15/15 smoke + mart-health 上线),node_modules "
+a4cf78cffd40a86a,1789982772,2,1,Y,M8 build 撞墙真根因 — node_modules root-owned 残留,project,6302,v1,unknown,none,--- name: M8 build 撞墙真根因 — node_modules root-owned 残留 description: 2026-09-21 实测 M8: ubuntu `rm -rf node_modules` 不加 sud
+fa20fb83fa45e149,1789982772,2,1,N,,,7572,v1,unknown,none,"#!/usr/bin/env python3 """""" remove_lodash_cjs_include.py ────────────────────────────────────────────────────────────────"
+74849bf895094a48,1789515048,2,1,N,,,1140,v1,unknown,none,(binary)
+84fba696c5e020b4,1789515048,2,1,N,,,4527,v1,unknown,none,"# Handoff - 抖店 PPT 配图与文字混排修复  ## 任务背景  为 `F:\resourse_study\抖店\PPT\` 下的""抖店视频素材全域推商品-金戈""PPT（134页）做全面修复。  源数据在 `F:\resours"
+02bf6f66898d2ea3,1790313918,2,1,N,,,1882,v1,unknown,none,"# Prompt · 接 P1-1 handoff · P1-2 部署 hook 到 4 个项目  > 第一句话:接 handoff-loop-engineering-p1-1-2026-09-25.md,继续 P1-2。  ---  ##"
+09b9eda4caca23c9,1790313917,2,1,N,,,8835,v1,unknown,none,#!/usr/bin/env bash # Unit tests for 5 project-level guard rail hook templates. # Run from any directory: bash ~/.claude
+328bfcdb84dc7e53,1790313917,2,1,N,,,946,v1,unknown,none,# Task · P1-1 5 个项目级 Guard Rails Hook 模板 · 2026-09-25  > 接 handoff-loop-engineering-p0-2026-09-25.md P1-1 任务。 > 单一源原则:本文
+9750f2665a5003f4,1790313917,2,1,N,,,4627,v1,unknown,none,"# Project-Level Guard Rails · Hook 模板  > 5 个项目级 guard rails hook,部署到具体项目根目录使用。 > 与用户级 `~/.claude/hooks/` 下的全局 hook **互补不"
+9eb5518376ea205d,1790313917,2,1,N,,,9263,v1,unknown,none,"# Handoff · Loop Engineering P1-1 项目级 Guard Rails Hook 模板 · 2026-09-25  > 接力给下一个会话:把 P1-1 的完整上下文固化在这里,新会话第一句话引用本文件路径即可掌握"
+3274398f1cb97eae,1790261192,2,1,N,,,13955,v1,unknown,none,e}.navbar-nav{display:-ms-flexbox;display:flex;-ms-flex-direction:column;flex-direction:column;padding-left:0;margin-bot
+3edc9a50de609011,1790261192,2,1,N,,,39,v1,unknown,none,SELECT * FROM mart_traffic_source_daily
+73919c742db0489c,1790261192,2,1,N,,,36,v1,unknown,none,SELECT * FROM mart_promotion_monthly
+86b3acb2cf3d1c1c,1790261192,2,1,N,,,1514,v1,unknown,none,# 接力 prompt — 5.1 实施 80% DONE (2026-09-24)  **承接**: `handoff-shop-overview-5-1-done-2026-09-24.md` **基线**: main @ **07a8
+a4834c85b1514786,1790261192,2,1,N,,,33,v1,unknown,none,SELECT * FROM mart_shop_kpi_daily
+c4d91faa888ac803,1790261192,2,1,N,,,2043,v1,unknown,none,"""""""5.1 shop-overview verify v3 (intercept pagesManifest) """""" from playwright.sync_api import sync_playwright import sys,"
+d07bd1ed4fae9f27,1790261192,2,1,N,,,39,v1,unknown,none,SELECT * FROM mart_customer_asset_daily
+05508ddfa813200b,1788316800,2,1,N,,,1779,v2,unknown,none,version: 2  sources:   - name: erp     description: |       ERP 库原始 processed 派生层（2026-08-28 v2 精简版：35 业务列 + 4 元数据列 + 2 
+1f8eaa0337c024ae,1788316800,2,1,N,,,2428,v2,unknown,none,#!/usr/bin/env bash # Sales BI 每日自动更新脚本 # 由 systemd timer sales-bi-update.timer 每日 03:00 触发 # 流程：git pull → 重启 evidence 
+23b0667e14b38cf7,1790391647,2,1,N,,,10711,v1,unknown,none,# Handoff — m3_smoke selector 修法 + server.py SIGKILL fix + MCP 仍 hang (2026-09-26)  **承接自**: `handoff-m3-smoke-v3-deadlo
+a2513ce40a7b9b4f,1788923476,2,1,N,,,2165,v3,unknown,none,(binary)
+2ae0c3b95e5aa772,1790035627,2,1,N,,,2192,v1,unknown,none,# Prompt: Stage 8 M9 P3.5 build fix 接力  **承接**: `handoff-stage8-m9-p3-5-next-2026-09-22.md` (上一会话 handoff + 本 prompt)  #
+f8bde7926eb23cc5,1790035627,2,1,N,,,5839,v1,unknown,none,(binary)
+2242ab1e5e94fc33,1789364882,2,1,N,,,23244,v2,unknown,none,CREATE SCHEMA IF NOT EXISTS erp_result;  DROP TABLE IF EXISTS erp_result.proid_dd_2025 CASCADE;  CREATE TABLE IF NOT EXI
+5068700b326aa1e9,1789349160,2,1,N,,,2745,v2,unknown,none,"""""""Step 19a: ALTER erp_result.daily_store_*_2026, add 3 promotion columns.  Idempotent via ADD COLUMN IF NOT EXISTS (PG "
+71a137b503eec32d,1789366780,2,1,N,,,25501,v2,unknown,none,"harRefCode+e-48:e===s.SEMICOLON?this.state=Be:(this._err(a.missingSemicolonAfterCharacterReference),this._reconsumeInSta"
+a4be3eeeee7239c8,1789366780,2,1,N,,,23448,v3,unknown,none,"""""""Tests for build_promotion_into_daily_store.py — pure functions only."""""" from __future__ import annotations  import sy"
+a4de8c9206e80f36,1789366780,2,1,N,,,17051,v2,unknown,none,"""""""Step 19b: Backfill erp_result.proid_*_2026 with promotion data from erp.storedata.promotion.  Architecture (沿用 Step 1"
+067ae403973a026d,1789631976,2,1,N,,,2175,v1,unknown,none,(binary)
+51f4f5d02c4a2458,1789631976,2,1,N,,,10319,v1,unknown,none,# Handoff: 测款数据解读与推广计划调整 v4.18 重做  > **接力起点**：已用 crv-audio turbo 完成 2 视频转录 + L2 校验；准备从 transcript.md 重做 v4.18 全流水线（用户反馈之
+e72504b80b7c216a,1788243955,2,1,N,,,14995,v3,unknown,none,"""""""sku 子系统 loader — 商品编码 xlsx → sku_code.{sku_code, ys_sku_code} ETL 主流程.  策略:   scan → 路由 (按前缀) → etl_file_seen 命中 skip"
+f843cc149b1a0247,1788221337,2,1,N,,,6827,v2,unknown,none,"# scripts/verify_sku_endtoend.py """"""sku_etl 端到端验证 (prod vs local, 5 项).  设计要点 (Task 6 brief): - 5 项校验: 双库行数 / etl_file_s"
+042e082741c294ab,1790296602,2,1,N,,,6431,v1,unknown,none,"# Handoff — Sigma Fork Phase 2(文件树视图)接力  **会话日期**: 2026-09-25 **当前状态**: Phase 0/1/3/4 完成,Phase 2 未开始 **下次第一句话**: ""从 hand"
+3cc3a848a9fbf07b,1790296602,2,1,N,,,6042,v1,unknown,none,"import { describe, expect, it } from 'vitest'; import {   applyRule, previewRename, prepareRule, splitName,   type Renam"
+569237753a52952b,1790296602,2,1,N,,,874,v1,unknown,none,// Batch Rename — bundle entry point // The actual API entry (src/index.ts) is emitted to dist/index.js by tsc. // esbui
+65e12e3fc4015cc6,1790296602,2,1,N,,,293,v2,unknown,none,# Fork 仓库目录(在 sigma-file-manager/ 子目录里独立管理) sigma-file-manager/ sigma-batch-rename/  # 临时下载/草稿 *.tmp *.bak .DS_Store Thu
+84dc7cd47c5097e1,1790296602,2,1,N,,,2026,v1,unknown,none,"{   ""command"": {     ""openDialog"": ""Batch Rename..."",     ""openDialogDescription"": ""Open the batch rename dialog"",     """
+a23f207e9a9e1a3e,1790296602,2,1,N,,,19192,v2,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+b30e960689252ad7,1790296602,2,1,N,,,1825,v1,unknown,none,#!/usr/bin/env bash # Sigma File Manager fork — 月度同步脚本 # # 跑这个脚本同步 fork 与上游 aleksey-hoffman/sigma-file-manager。 # 预期是 fa
+bb6bfc8d725fe24e,1790296602,2,1,N,,,3055,v2,unknown,none,(binary)
+c35d4307724ce63c,1790296602,2,1,N,,,4238,v1,unknown,none,"/**  * Pure-function rename engine for the Batch Rename extension.  * No I/O, no DOM, no Sigma API — fully unit-testable"
+d1850cfe565e8894,1790296602,2,1,N,,,1823,v1,unknown,none,"# Sigma Fork 月度同步清单  每月底(建议每月 25 号左右)执行一次,约 30~60 分钟。  ## 1. Fork 仓库同步  ```bash # 一键跑 bash /f/soft/00selfmade/filemanage"
+d4877fae97ef1c37,1790296602,2,1,N,,,3216,v2,unknown,none,# 启动路径数据流笔记(2026-09-25 摸清)  ## StartupPage 类型定义  **位置**: `src/types/user-settings.ts:320`  ```typescript export type Sta
+f8066ff45b329234,1790296602,2,1,N,,,423,v2,unknown,none,"## 关联 Issue - <!-- 引用上游 issue,如 Fixes #528 -->  ## 改动概述 <!-- 1-3 句话 -->  ## 测试证据 - [ ] `npm run check` 通过 - [ ] `npm run"
+7aebc6ab035e0b30,1790587440,2,1,N,,,3613,v1,unknown,none,# SDD ledger — plan: docs/superpowers/plans/2026-09-27-openclaw-compat-plan.md  ## Setup - BASE: 5982774 (docs(spec): re
+945ab9c755631aab,1787930953,2,1,N,,,20627,v3,unknown,none,(binary)
+c348ba33062674d2,1790150049,2,1,N,,,1403,v1,unknown,none,(binary)
+ffb38ac677ecbfb5,1790149639,2,1,N,,,3014,v1,unknown,none,(binary)
+01e4b562eb0ebe1b,1789627365,2,1,N,,,7001,v1,unknown,none,"# Changelog — long-doc-processor skill  完整版本变更日志（v4.4 → v4.18）。详细每版本变更 + 复盘沉淀参见 `SKILL.md` 头部""v4.X 重大变更""段。  ## v4.18（202"
+0e04f196575bdd5f,1789627365,2,1,N,,,8719,v1,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""purify_chunks.py — 并行 LLM 净化长转录（按 chunk_size 切块）。  用法：   python script"
+4f0cce6f6079e24e,1789627365,2,1,N,,,186,v1,unknown,none,"""""""long-doc-processor scripts package。  每个脚本可独立调用（argparse CLI），也可作为 module import。 v4.18 起添加本 __init__.py 以便 import pat"
+5a8e553bb6789424,1789627365,2,1,N,,,7697,v1,unknown,none,# Handoff: long-doc-processor skill v4.18 优化任务 — Step 7 测试 + 剩余拆文档  ## 会话状态（2026-09-17 续 2）  **P0 + P2 Step 5-6 已完成**：  
+88deb71e76e78732,1789627365,2,1,N,,,318,v1,unknown,none,# Python __pycache__/ *.py[cod] *$py.class *.so  # 项目临时 _archive/ !.gitkeep  # 环境 .venv/ venv/ .env .env.local  # OS .DS
+94547160ce0469fc,1790351368,2,1,N,,,1531,v1,unknown,none,"""""""2026-09-25 diagnostic: 直接测 prod /sales-overview/ 是否能 30s 内返回 + DuckDB WASM 加载 无 m3_smoke wrapper,纯 playwright 一次访问 """""
+96375418c89a9c0c,1790351368,2,1,N,,,13139,v1,unknown,none,# Handoff — m3_smoke warm 撞墙 + run-smoke.sh curl -L + MCP 双测 (2026-09-25)  **承接自**: `handoff-shop-5x-m3-smoke-nginx-308-
+07da7ad4a313d953,1789688637,2,1,N,,,328,v1,unknown,none,--- title: data-anomaly-test-1-dropdown ---  <script module>   import { DataTable } from '@evidence-dev/core-components'
+18c67b8a7781ce9b,1789688637,2,1,N,,,7577,v1,unknown,none,(binary)
+1de4641fcfffa2a7,1789688637,2,1,N,,,842,v1,unknown,none,(binary)
+40b0fd75874ddd18,1789688637,2,1,N,,,2900,v1,unknown,none,(binary)
+7afda82aa4abd44b,1789688637,2,1,N,,,392,v1,unknown,none,(binary)
+a2b48f8fd91b3e80,1789688637,2,1,N,,,7481,v1,unknown,none,(binary)
+a39fd869e7728386,1789688637,2,1,N,,,5857,v1,unknown,none,"# Handoff: Stage 8 M2 — 真根因最终升级到 Dropdown 卡死 + 多 patch 链断裂  > **状态**: M2 完整 debug 路径最终落定。**真根因不是 IPC deadlock,不是 vite op"
+d87e3406a5506222,1789688637,2,1,N,,,905,v1,unknown,none,2088.4-443.2%20127.3%200%20129.3.2%20231.7.2%20339.6%200%20304.1%20248.2%20471.4%20443%20523.6%20194.7-52.2%20443-219.5%
+e47be5006842510c,1789688637,2,1,N,,,4425,v1,unknown,none,"/*!  * WeUI v2.4.4 (https://github.com/weui/weui)  * Copyright 2021 Tencent, Inc.  * Licensed under the MIT license  */ "
+e575931b5412e9c7,1789688637,2,1,N,,,384,v1,unknown,none,"const { compile } = require(""mdsvex"");  const input = `--- title: Test ---  # Hello  {% dropdown data=""x"" name=""x"" value"
+217888066c9bf439,1790466483,2,1,N,,,552,v1,unknown,none,# Filter 验证 + 13 page 接力  承接 `handoff-shop-filter-nested-quote-parser-error-2026-09-27.md`。多选 Dropdown 店铺筛选的 DuckDB pars
+a9d5c53a989e3006,1790466483,2,1,N,,,2464,v2,unknown,none,(binary)
+c898bcc145b46986,1790466483,2,1,N,,,7434,v1,unknown,none,"# 多选 Dropdown 店铺筛选 Parser Error 修复 — 2026-09-27  **承接**: `handoff-filter-restoration-2026-09-27.md` (上次 filter 复活,主 fix "
+018d259449fbab2a,1790001724,2,1,N,,,995,v1,unknown,none,"""""""Merge 4 chunks into final cleaned.md + add summary section."""""" import os import sys  parts_dir = sys.argv[1]  # outpu"
+0964e1ddfac51a1d,1790001724,2,1,N,,,1184,v1,unknown,none,"""""""Renumber H2/H3/H4 in cleaned.md to dotted format."""""" import re import sys  path = sys.argv[1]  with open(path, ""r"", e"
+0cc7f145dbd3a4d9,1790001724,2,1,N,,,5512,v1,unknown,none,"## 视觉三重门与对标视觉  ### 电商底层的 4321 资源分配模型  电商是一门综合性学科，可以拆解为四大板块：市场板块占 40 分、产品板块占 30 分、营销板块占 20 分、渠道板块占 10 分，合计 100 分，简称为""4321"
+0e657b19894d648d,1790001724,2,1,N,,,1319,v1,unknown,none,"""""""Split _transcript_raw.terms.md into chunks of ~30K chars for LLM purification."""""" import json import os import sys  s"
+1a10e5ca6b0ea19b,1790001724,2,1,N,,,4179,v1,unknown,none,## 任务  你是电商讲座净化专家。处理下面这份**已切块**的 ASR 转录（已过滤广告），输出纯净的中文 Markdown。  ## 输入  本 chunk 由 faster-whisper large-v3 转写，含时间戳 `[HH:
+27ea827b8b8d5ceb,1790001724,2,1,N,,,1807,v1,unknown,none,"""""""Stage 2.5 v2: tighter dynamic keyword extraction."""""" import json import re import sys import os  slug = sys.argv[1] t"
+5047d7ca557b3e06,1790001724,2,1,N,,,1378,v1,unknown,none,(binary)
+8133ec369db23106,1790001724,2,1,N,,,31237,v1,unknown,none,(binary)
+81c2d0fd14cf3271,1790001724,2,1,N,,,1416,v1,unknown,none,"""""""Save keywords JSON to ad-cut slug directory."""""" import json import os import sys  slug = sys.argv[1]  text = (""本节目由 感"
+982d80b881230af8,1790001724,2,1,N,,,7246,v1,unknown,none,## 视觉端口的三个核心策略  ### 付费与自然搜索流量的反向曲线  链接自然搜索流量会随付费金额上升而增长，但超过该链接承受阈值后会转涨为跌，这就是付费过多抑制。某案例链接日付费达到 1000 元时自然搜索达到峰值，继续追加投放则免费流
+b2cdda277bb8f3aa,1790001724,2,1,N,,,1651,v1,unknown,none,"""""""Stage 2.5 dynamic keyword extraction."""""" import json import re import sys import os  slug = sys.argv[1] transcript_pa"
+c7a22a71d2f53544,1790001724,2,1,N,,,6371,v1,unknown,none,## 主图情绪设计的视觉资产构建  ### 场景元素与潜意识设计  主图的情绪来源不是产品本身，而是产品之外的配角与场景元素。因此除了产品主体以外的所有视觉元素，都必须具备显著的情绪优势。优势的根本来源是趋势，所以场景元素的情绪价值，本质上
+c7d46790c76b9acf,1790001724,2,1,N,,,8118,v1,unknown,none,(binary)
+cd529fb8e8d850c2,1790001724,2,1,N,,,6639,v1,unknown,none,(binary)
+d10509ec64f3a9a0,1790001724,2,1,N,,,2914,v1,unknown,none,(binary)
+ed331a265bd1dcd9,1790001724,2,1,N,,,2663,v1,unknown,none,(binary)
+f8d5aaef32c1cf2d,1790001724,2,1,N,,,1703,v1,unknown,none,(binary)
+a60793a86e61db2b,1788851883,2,2,N,,,3686,v2,unknown,none,# SDD ledger — plan: docs/superpowers/plans/2026-09-08-haoyale-traffic-source-step8.md  ## 进度跟踪  | Task | 状态 | 备注 | |---
+5800de0557bcc818,1789564376,2,1,N,,,6016,v1,unknown,none,"""""""项目级 wrapper: 智篆 2026-07-26 两段合并流水线 前提: ASR1 + ASR2 transcript.md 已由 watcher finalize 完成 1. 主题判断 (合并版 vs 拆分版) - 优先合并 2"
+5fd0b918c8e4da0a,1789564376,2,1,N,,,4656,v1,unknown,none,"""""""Watcher: 等 ASR2 完成 (PID 797 + crv-out-2/audio.json) 后自动转 md + L2 + 写 status.json 启动: cd F:/resourse_study/智篆/2026-07-"
+b3bada4d42029cfa,1789564376,2,1,N,,,4903,v1,unknown,none,# Handoff v4: 智篆 2026-07-26 合并流水线接力 (会话 3 → 会话 4)  **会话 3 退出时间**: 2026-09-16 21:14 **会话 3 用时**: ~22 min（ASR2 仍在跑，写好 watc
+d37fe8e99dcb07b1,1789564376,2,1,N,,,1020,v1,unknown,none,# Prompt 接力: 智篆 2026-07-26 合并流水线 (会话 4)  承接 handoff: `handoff-session3-pipeline.md`（同目录）  ## 当前状态 - 父目录: `F:/resourse_st
+c31e81dc09d813cd,1790573506,2,1,N,,,2354,v1,unknown,none,"""""""Add C--Users-Duanyi to desktop-ui.json projectOrder/pinnedProjects/projectDisplayNames.  Already-authorized user conf"
+27994ebfad16f8db,1790378215,2,1,N,,,6729,v1,unknown,none,(binary)
+89cea0979b46f20c,1789224441,2,1,N,,,5871,v2,unknown,none,"""""""Step 19b: Verify proid_*_2026 promotion columns match erp.storedata.promotion.  Sample n rows (split dd + ys), JOIN p"
+13a03391df57b077,1789604412,2,1,N,,,2077,v1,unknown,none,"--- title: SKU 售后退款 ---  <script module>   import { DataTable, BarChart } from '@evidence-dev/core-components'; </script"
+1c17d662e4ccf9fe,1789604412,2,1,Y,evidence build SSR prerender 卡死 (M1.6),feedback,3569,v1,E-------G1-----00data-analysis,medium,"--- name: evidence build SSR prerender 卡死 (M1.6) description: Stage 8 M1.6 evidence build 7+ min 卡 SSR prerender,log 0 b"
+509c2fe1e865c4e9,1789604412,2,1,N,,,5057,v1,unknown,none,(binary)
+7a72a6c7c26ee2c7,1789604412,2,1,Y,tar | ssh tar 同步相对路径陷阱,feedback,3449,v1,global,high,"--- name: tar | ssh tar 同步相对路径陷阱 description: tar 同步源码到 server 时,本地 cd + tar cf - + server cd + tar xf 必须严格配对,不能依赖相对路径自动"
+92d2a0269a32138b,1789604412,2,1,N,,,3189,v1,unknown,none,(binary)
+b09bdaba27d00c18,1789604412,2,1,N,,,14000,v1,unknown,none,# Handoff: Stage 8 M1.6 — DuckDB SQL 兼容 + lodash patch + MemoryMax — 2026-09-17  > **下一阶段任务**: Stage 8 M2 — **修 evidence
+bc007f10e70617c3,1789604412,2,1,Y,/tmp/dis.py shadow stdlib dis (Stage 7-29 教训),feedback,2893,v1,global,medium,--- name: /tmp/dis.py shadow stdlib dis (Stage 7-29 教训) description: debug 脚本命名为 dis.py / inspect.py / string.py 等 stdli
+fd2885e5298a230a,1789604412,2,1,N,,,119,v1,unknown,none,"import sys import time import json from pathlib import Path from playwright.sync_api import sync_playwright print(""OK"")"
+182e313a516f807b,1789998175,2,1,N,,,4502,v1,unknown,none,"# Clipboard Paste to Media — 浏览器一键诊断脚本  > 服务器端已经端到端验证通过(2026-09-21 13:20 UTC,attachment ID 73808 在容器内成功创建)。 > 用户浏览器中 `CP"
+6ee5538416451adb,1788682268,2,1,Y,"长 Write/Edit 需拆分, 避免 input generation >120s 超时",feedback,2009,v2,global,medium,"--- name: 长 Write/Edit 需拆分, 避免 input generation >120s 超时 description: 一次性 Write 大文件 (>800 行) 或单条 Edit 长内容 (>5KB) 会触发 ""AP"
+1791d10421f1530e,1790435186,2,1,N,,,10164,v1,unknown,none,# Handoff · loop-engineering Sub-project B (agent-quality-guide) 完工  > **完工时刻**:2026-09-26 · Tasks 1-10 全部完成 + push 成功 >
+3d446794899b900e,1790435186,2,1,N,,,521,v1,unknown,none,(binary)
+133b1ae4d1c3c759,1790171831,2,1,N,,,2243,v1,unknown,none,(binary)
+18f788dbfa8dc3f6,1790171831,2,1,N,,,11979,v1,unknown,none,# Handoff: Sidebar prod deploy DONE — 2026-09-23  **承接**: `handoff-sidebar-prod-deploy-blocked-2026-09-23.md`(工具错配 aiec-
+1da69c545c93593f,1790171831,2,1,N,,,398,v1,unknown,none,#!/bin/bash # /tmp/build.sh - evidence build for sales-bi prod set -e cd /opt/sales-bi/evidence source ./load_env.sh >/d
+3375402d9bb8d30d,1790171831,2,1,N,,,2701,v1,unknown,none,"--- title: 新品追踪 sidebar_position: 30 --- <script module>   import { LineChart, BarChart, DataTable } from '@evidence-dev"
+34830ae4a3229c63,1790171831,2,1,N,,,360,v1,unknown,none,// User svelte.config.js — 让 SvelteKit prerender 在 sidebar 重组后不 throw 404 // 原因: index.md 用 OLD link (/sales-overview 等)
+574bbd88716269cb,1790171831,2,1,N,,,2421,v1,unknown,none,"�ューを選択しないと、Python の計算速度が低下します。"",   ""premiumHubV2LearnMore_Warning2_StartPreview_Header"": ""より高速な Python 速度を使用し続ける"",   ""pr"
+6c5caf6978d626be,1790171831,2,1,N,,,3813,v1,unknown,none,(binary)
+879c7422fecb41e7,1790171831,2,1,N,,,283,v1,unknown,none,"[project] name = ""sales-bi-mcp"" version = ""0.1.0"" description = ""MCP server for Tencent Cloud sales-bi server (SSH to ub"
+b298a4e81a5eb158,1790171831,2,1,N,,,398,v1,unknown,none,#!/bin/bash # /tmp/build.sh - evidence build for sales-bi prod set -e cd /opt/sales-bi/evidence source ./load_env.sh >/d
+d0514fcfc8c31b08,1790171831,2,1,N,,,388,v1,unknown,none,"{   ""mcpServers"": {     ""officecli"": {       ""command"": ""C:\\Users\\Duanyi\\AppData\\Local\\OfficeCli\\officecli.exe"",  "
+e624fc83050b9d20,1790592200,2,1,N,,,6630,v2,unknown,none,# cc-haha Sidebar 历史会话恢复 — 手动操作指南  **症状**: 重启 cc-haha 后 sidebar 仍无历史会话 **根因**: `~/.claude/cc-haha/db/trace-index-v1.sqli
+492beea2cd92bbef,1789190490,2,1,N,,,2388,v2,unknown,none,"--- title: SKU 明细 ---  <script module>   import { LineChart, BarChart, DataTable, Dropdown } from '@evidence-dev/core-co"
+7c3a26f23dbf6d95,1789190490,2,1,N,,,2528,v2,unknown,none,"--- title: 日销售趋势(滚动 90 日) ---  <script module>   import { LineChart, BarChart, DataTable } from '@evidence-dev/core-comp"
+c39c5db5ecec1d58,1789190490,2,1,N,,,3726,v2,unknown,none,(binary)
+fcf143b899fe97aa,1789190490,2,1,N,,,2387,v2,unknown,none,(binary)
+a76314d0019e921f,1789523693,2,1,N,,,9830,v1,unknown,none,"""""""v3 fix: precise crop coords for problem pages + missing p93 table + flowchart shrink + bullet font."""""" import json fr"
+6fe7645e8abc5706,1789706374,2,1,N,,,104449,v1,unknown,none,# 电商术语表 · 综合版（2026\-07\-23）  ## 📖 ASR 双用法说明  每条术语的 `ASR 易错` 字段同时支持两种用法，**不需要新增字段**：  |使用者|用法|时机|效果| |---|---|---|---| |*
+7317c6adfe7f5e4f,1789706374,2,1,N,,,566,v1,unknown,none,请基于 `handoff-2026-07-29-0918.md` (同目录) 接力智篆 2026-07-29 第五天轻咨询项目。该项目已完成全部交付物（verify_all 40/40 + verify_html 6/6），如需继续操作（如
+bc07129f5a6765c7,1789706374,2,1,N,,,2967,v1,unknown,none,# Handoff: 智篆 2026-07-29 项目完结（2026-09-18）  ## 状态：✅ 全部完成  | 阶段 | 内容 | 状态 | |---|---|---| | Phase 0 | ASR (large-v3 GPU) +
+cef6d308ac5b96c0,1789693834,2,1,N,,,2146,v1,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""Detach ASR (large-v3 GPU) from parent process - Windows DETACHED_PROCE"
+f86174de6f2ad00d,1789706374,2,1,N,,,7339,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""LLM-driven H3 → H4 拆分:逐章读 cleaned.md,把每个 H3 段落拆出 2-4 个 H4 子主题  策略: - 读"
+0e7913d60f869378,1788244555,2,1,N,,,6065,v2,unknown,none,# Shouhou Processed — Excel ↔ PG 字段映射 (23 业务 + 1 派生 + 4 元数据 = 28 列)  > **库**: `erp` > **表**: `shouhou.shouhou_<year>_pro
+caad31ed10ce845b,1790346850,2,1,N,,,132,v1,unknown,none,承接 `handoff-2026-09-25-tree-sync-v4.md` — 测 v4 build `643c5ff4...` 是否真修 tree sync，按 §六 路径 A/B/C 决策。
+e5d028ce2e051e1a,1790346850,2,1,N,,,10598,v1,unknown,none,# Handoff — Sigma Fork: Tree Sync (v4 pending user test)  **会话日期**: 2026-09-25 (4th session) **承接**: `handoff-2026-09-25
+bc581151c19c3bbd,1789138537,2,1,N,,,11615,v2,unknown,none,20260826商家大会-三胖  # 上午三胖课程：  核心   S款拉人群资产，不赚钱   AB打全站   流量已类目为单位 每个类目做S ABC 模型   建议所有类目新客 利润为0   营销优先权大于交集优先权  ## 一、前面我对 
+08b26ead21b4ae4e,1790121942,2,1,N,,,11278,v1,unknown,none,"# Handoff · aiec.fun 编辑器 / 发布后 CSS WYSIWYG（v15-v16，2026-09-22）  ## 阶段总览  **目的**：用户报告""编辑器首页编辑时不能做到所见即所得，主题 css 在编辑页面未生效""，"
+87cacda79cb54d31,1790121942,2,1,N,,,913,v1,unknown,none,# Prompt · 下一会话接力  承接 `E:\办公文件\L1网站\handoff-editor-css-ver-v15-v16-2026-09-22.md`：v15-v16 已修发布后首页 aiec.fun/ 的米色主题（用户截图确认
+6896c33bf33d54bb,1790236418,2,1,N,,,123,v1,unknown,none,新会话接力：继续完成霞鹜新致宋 (LXGW Neo ZhiSong) 字体接入，详见 `handoff-quote-fix-2026-09-24.md`。
+73005005e98cab50,1790236418,2,1,N,,,7126,v1,unknown,none,# 文章页 ASCII 引号修复 · 2026-09-24 交接  ## 用户最终目标 文章页表格 / 正文里用户输入的英文半角双引号 `U+0022` 必须显示成直引号，不是中文弯引号 （`U+201C/D` 样式）。要求引号是 Sino
+cb3bbec7ea424467,1790337506,2,1,N,,,10558,v1,unknown,none,# Handoff — Sigma Fork: Sidebar Tree + Quick View + Tab/Split 联动  **会话日期**: 2026-09-25 **上次 handoff**: `handoff-2026-09-
+d522b372e60a5794,1790337506,2,1,N,,,838,v1,unknown,none,"承接 `handoff-2026-09-25-sidebar-tree-preview.md`  分支/状态: - Fork `feat/tree-view` HEAD = `ec3389ba`, working tree 大量未 comm"
+1e6e705b05b5ea75,1790297768,2,1,N,,,4832,v1,unknown,none,# Handoff — Sigma Fork Phase 2(文件树视图)完成  **会话日期**: 2026-09-25(Phase 2) **上次 handoff**: `handoff-2026-09-25.md` **本次完成**:
+2dcb86894a16bbee,1790297768,2,1,N,,,3394,v1,unknown,none,<!-- SPDX-License-Identifier: GPL-3.0-or-later License: GNU GPLv3 or later. See the license file in the project root for
+498a5c33cfc7ea2c,1790297768,2,1,N,,,777,v1,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+5544ca728ced92ba,1790297768,2,1,N,,,1298,v1,unknown,none,# 接力 prompt — Phase 2 后续  承接: `F:/soft/00selfmade/filemanager/handoff-2026-09-25-phase2.md`  ## 当前状态  - Fork 仓库: `F:/sof
+a8a775611797e492,1790297768,2,1,N,,,1742,v1,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+b5b9f877e933afbb,1790297768,2,1,N,,,835,v1,unknown,none,// SPDX-License-Identifier: GPL-3.0-or-later // License: GNU GPLv3 or later. See the license file in the project root fo
+cc51e0405155772c,1790297768,2,1,N,,,3717,v1,unknown,none,"# Fork 保留清单 (FORK-KEEP-LIST)  这些文件/区域 **永远用 fork 版本**,即使 upstream 重写。 未来 sync upstream 时(`scripts/sync-upstream.sh`)按此清单"
+d42aade420e817aa,1790141553,2,1,N,,,754,v1,unknown,none,(binary)
+ead011c8824f2c53,1790141553,2,1,N,,,1375,v1,unknown,none,@echo off REM ============================================================ REM shgb-keepalive 卸载脚本 REM 由 installer 部署到安装
+622f81906f24ff6c,1788513396,2,1,N,,,4351,v2,unknown,none,"""""""erp_result 子系统 routing — output_table ↔ source_group 双向映射.  约定:   - daily_<dim>_<group>_<year>  其中 dim ∈ {sku,store} "
+f73c6c11f3314a2b,1788513396,2,1,N,,,1510,v2,unknown,none,(binary)
+8090d8725657c0dc,1790432067,2,1,N,,,9488,v1,unknown,none,(binary)
+f29e3000ec954e98,1790432067,2,1,N,,,769,v1,unknown,none,(binary)
+32c3e9a9954eaa73,1790155711,2,1,N,,,1030,v1,unknown,none,"# 新会话 prompt — Sidebar prod deploy 接力  承接 `handoff-sidebar-restructure-bug-prod-deploy-2026-09-23.md`(commit `15df6df`,m"
+aa6eb56069a1cb34,1789603329,2,1,N,,,1128,v1,unknown,none,"$cmds = @(   'auth','mode','system','console','studio','config','ui',   'auth login','auth current','auth account list',"
+21709e642d03e677,1788655171,2,1,N,,,2952,v2,unknown,none,"""""""双库连接: cloud (124.223.115.201) / local (127.0.0.1).  设计要点(2026-09-05 FIX-2): - connect_cloud() / connect_local() 默认连""工"
+38205554bd740f9d,1788655171,2,1,N,,,3806,v2,unknown,none,"import pytest from storedata_upload.pg_client import connect_cloud, connect_local, connect  def test_connect_cloud_succe"
+3a873e58ea548143,1788655171,2,1,N,,,781,v2,unknown,none,JST_APP_KEY=46594f63a7734f93bbbec8f5201f2310 JST_APP_SECRET=3d202d82d3234503ad100ef983ae913f JST_ACCESS_TOKEN=cb99fca6c0
+3f1f5a30ece6cb1e,1788652633,2,1,N,,,721,v2,unknown,none,(binary)
+4aa80c86fbe5c97a,1788655171,2,1,N,,,668,v2,unknown,none,# 凭证模板 — 从 00数据汇总分析/.env 复制并填值 PG_HOST_PROD=124.223.115.201 PG_PORT_PROD=5432 PG_DB_PROD=pgsql                # 跳板库(用于 C
+5f57dec572f304d6,1788652633,2,1,N,,,11178,v2,unknown,none,# Handoff: 风尚志核心日报 upload (Step 2) — 起点 / plan 模板  > **接力日期**: 2026-09-05 > **本会话做了什么**: Step 1 仁禾核心日报已完成全部 12 个子任务。Step
+69cd07d466d4c278,1788662989,2,1,N,,,4757,v2,unknown,none,import pytest from pathlib import Path from storedata_upload.sources.shop_core_daily.column_map import (     discover_co
+9ebee2c595327612,1788652633,2,1,N,,,223,v2,unknown,none,.env __pycache__/ *.pyc .pytest_cache/ logs/*.log *.tmp # Integration test fixture (regenerated by scripts/gen_mini_fixt
+b9d21d11dc0d95aa,1788655171,2,1,N,,,4467,v2,unknown,none,"""""""集成测试: mini xlsx 端到端 — 跑全 loader.run() 流程.  FIX-8 (2026-09-05): 之前 fixture 直接 TRUNCATE 真实 shop_renhe 表,把生产数据擦掉了 247 行."
+dab45686d06059d0,1788662989,2,1,N,,,10274,v2,unknown,none,# storedata_upload 运维手册  > **更新日期**: 2026-09-05   > **适用版本**: shop_core_daily Step 1(仁禾核心日报 21 个月)   > **状态**: 云端 612 行 
+7980354b2629e35f,1790256593,2,1,Y,design done ≠ deploy done — memory 文字不可替代 psql 验证,feedback,2617,v1,global,medium,"--- name: design done ≠ deploy done — memory 文字不可替代 psql 验证 description: CLAUDE.md / memory 写 ""M1.X done"" 不等于 prod 实际部署;"
+8ea63da89fa11997,1790256593,2,1,N,,,1758,v1,unknown,none,(binary)
+b22412d3c4ad5d43,1790256593,2,1,N,,,7221,v1,unknown,none,(binary)
+1c46376bc3c04774,1788851883,2,2,N,,,14633,v2,unknown,none,(binary)
+420ea0e51422d068,1789006476,2,2,N,,,1715,v2,unknown,none,"""""""京东推广 - TOML 加载 + ShopConfig dataclass (沿用 PDD config_loader.py 模式).  3 店: renhe / mengningfei / fengshangzhi source_s"
+5e2e25b00cc8d09d,1789042560,2,2,N,,,3467,v1,unknown,none,(binary)
+8ae5bfe98865036d,1789085386,2,1,N,,,16917,v2,unknown,none,"""""""shop_all_products loader 测试 — 不连真实 DB,只测核心逻辑.  测试范围: - compute_sha256: 与 shop_core_daily 同实现 - _read_xlsx: skip 4 row"
+98061f7fd1d3115b,1789085386,2,1,N,,,24962,v2,unknown,none,(binary)
+bd34b2afe6c59919,1789052264,2,1,N,,,4915,v2,unknown,none,"""""""apply_ddl_all_products: 建数据库(若不存在) + 应用 shop_all_products DDL.  用法:   python scripts/apply_ddl_all_products.py --targ"
+c13a04b5fbf13ce2,1789006476,2,2,N,,,1243,v2,unknown,none,(binary)
+c55c24c3a6eeb41e,1789052264,2,1,N,,,4340,v2,unknown,none,"""""""shop_customer_assets DDL 生成器.  参考: docs/superpowers/specs/2026-09-08-shop-customer-assets-step10-design.md §4.4  仿 St"
+ce5c988d20019ccd,1789052264,2,1,N,,,4972,v2,unknown,none,"""""""apply_ddl_dmp: 建数据库(若不存在) + 应用 shop_dmp_full_product DDL.  用法:   python scripts/apply_ddl_dmp.py --target cloud --sho"
+f21a6f3ec3eca652,1789052264,2,1,N,,,14772,v2,unknown,none,(binary)
+f78cc14556619b6e,1789006476,2,2,N,,,3601,v2,unknown,none,"""""""京东推广 - DDL 生成 (2 sub-config × 1 year = 2 表 + etl_file_hash).  沿用 PDD ddl.py 模式 + Step 5 _row_hash PK + FIX-TS-A (DO 块"
+d6d702d8ef889a51,1789564811,2,1,N,,,8120,v1,unknown,none,# Handoff v5: 智篆 2026-07-26 合并流水线接力 (会话 4 → 会话 5)  **会话 4 退出时间**: 2026-09-16 21:20 **会话 4 用时**: ~6 min（仅状态确认 + 主题判断 + 写 
+e0dcca4702af17aa,1789564811,2,1,N,,,900,v1,unknown,none,承接 `handoff-session5-merged-finalize.md`（同目录）。  **当前状态**: ASR2 跑中 28.6%（剩余 ~2.5h），watcher PID 4397 自动 finalize，主题已确认合并。 
+7c9c1c47720714b6,1789723940,2,1,Y,"vite 5.4.21 内部硬编码 ESBUILD_MODULES_TARGET,optimizeDeps.esbuildOptions.target 不能覆盖",feedback,4079,v1,global,medium,"--- name: vite 5.4.21 内部硬编码 ESBUILD_MODULES_TARGET,optimizeDeps.esbuildOptions.target 不能覆盖 description: vite 5.4.21 dep-"
+ba3e4ad771c438de,1789723940,2,1,N,,,1896,v1,unknown,none,# Stage 8 M2 — esbuild 0.28.2 + vite 5.4.21 target 撞墙后续  承接 handoff: `handoff-sales-bi-stage8-m2-esbuild-target-conflict
+c539bee169bc925e,1789723940,2,1,N,,,9795,v1,unknown,none,# Handoff: Stage 8 M2 撞墙 — esbuild 0.28.2 + vite 5.4.21 target 不可调  > **状态**: **撞墙** > **本会话 (2026-09-18)**: user 选路径(2)
+2cf2a4e7732c150b,1790436031,2,1,N,,,13183,v1,unknown,none,(binary)
+7ef7d22000e76d7c,1790436031,2,1,N,,,6392,v1,unknown,none,(binary)
+e7f06518ec11958d,1790436031,2,1,N,,,1740,v1,unknown,none,(binary)
+f5183abb48645ee2,1790436031,2,1,N,,,3777,v1,unknown,none,(binary)
+6166ff150eeb4069,1790576092,2,1,N,,,11577,v1,unknown,none,# 任务清单  ## 2026-08-03：Task 1R — B1 CJK 保留率门槛复验  - [x] 读取 Task 1R brief、现有实现、前轮报告与 long-doc 规约 - [x] RED：源码契约检查按预期失败（缺 fe
+0aa44908ddc4ecda,1789564927,2,1,Y,影刀CLI集成(cc-haha),reference,2584,v1,global,medium,--- name: 影刀CLI集成(cc-haha) description: 影刀(ShadowBot)CLI 已预装并接入 cc-haha，skill 路径、命令速查、个人版 5次/天额度 type: reference ---  # 
+251eb6c330f1e1cd,1788851883,2,1,N,,,2849,v2,unknown,none,"""""""verify_traffic_source 自检测试 (沿用 FIX-WXT-13 + FIX-TS-B)."""""" import re import subprocess import sys from decimal import "
+b7ed944674797fd5,1788851883,2,1,N,,,9015,v2,unknown,none,(binary)
+7823324cccbdf037,1790471124,2,1,N,,,697,v1,unknown,none,"承接 `handoff-2026-09-27-focus-activation-uia-port.md`(spike 自写路线已 reset 到 `f21c581`,新路线是基于 PathWrap + QwenLM `fg_bypass.r"
+f7ed2b2094ae7a6e,1790471124,2,1,N,,,16817,v1,unknown,none,(binary)
+3cdee031be2e6e73,1788945223,2,1,N,,,5205,v2,unknown,none,"""""""拼多多推广 - routing 测试 (15 cases).  覆盖: - 4 sub-config × 3 店 (9 文件名 accept) - 9 tests - 拒绝屏蔽关键字 / ~$ / 旧年份 / 未来年份 - 7 tes"
+5a83829126c53e17,1788945223,2,1,N,,,5619,v2,unknown,none,"""""""拼多多推广 - 文件路由 (4 sub-config × filename regex + shop_id 前缀 + 2026+ 过滤 + 屏蔽关键字).  仿 Step 8/9 shop_traffic_source.routing"
+78aa55789371f0df,1788945223,2,1,N,,,5659,v2,unknown,none,"""""""拼多多推广 - 列对齐 + 数字清洗 + 空行过滤 (PDD 新规则).  沿用 Step 5 column_map.py 模式 + Step 8 FIX-TS-3 dedup + 新增 apply_filter_empty_rows"
+0e485f894eadb089,1788422204,2,1,N,,,8743,v2,unknown,none,"""""""jxc loader — 进销存 ETL 主流程.  策略 (与原 jxc_etl.load_jxc 一致):   扫 → 文件级 sha256 → 单事务 DELETE+INSERT+UPSERT hash → 孤儿清理  差异: "
+bc20a13ee2df31e9,1788364012,2,1,N,,,7745,v3,unknown,none,(binary)
+449173f4b3d34ada,1789631052,2,1,N,,,2651,v1,unknown,none,# Handoff: long-doc-processor skill v4.18 优化任务 — 全 8 步完成（2026-09-17）  ## 状态：✅ 全部完成  | Step | 内容 | 状态 | |---|---|---| | 1
+19cd04f8f1ab51b6,1789893466,2,1,N,,,3082,v2,unknown,none,"<?php // 用 PHP 直接模拟 wp-admin 请求,加 attachment-filter 参数看实际 query require_once('/var/www/html/wp-load.php');  // 模拟 admin "
+1c4ef7f4137e2c8e,1789893466,2,1,N,,,299,v2,unknown,none,<?php // 在容器内模拟已登录的 admin 调 upload.php require_once('/var/www/html/wp-load.php');  // 1. 创建 application password WP_Appl
+2563ef6a25bbedf8,1789893466,2,1,N,,,1284,v2,unknown,none,<?php /**  * 完整模拟 upload.php 加载:模拟 admin context、pagenow、main query  */ require_once('/var/www/html/wp-load.php'); $_GET
+35ef9a458a459e08,1789893466,2,1,N,,,895,v2,unknown,none,"#!/bin/bash # Get app password APP_PWD=$(cat ""E:/website_sbt/.tmp_make_pwd.php"" | ssh -o BatchMode=yes duanyi@192.168.1."
+40f5ac1b13504e8c,1789893466,2,1,N,,,330,v1,unknown,none,"承接 `E:\website_sbt\handoff-2026-08-24-filebird-media.md`;当前在 NAS `192.168.1.9` 容器 `study_wp` (WordPress 7.1, 根 `/var/www"
+5f6c33eb8bc8de96,1789893466,2,1,N,,,11367,v2,unknown,none,# WP Media Picker Filters Enhancement Implementation Plan  > **For agentic workers:** REQUIRED SUB-SKILL: Use superpower
+6f0c642a6116c3a4,1789893466,2,1,N,,,236,v3,unknown,none,"<?php require_once('/var/www/html/wp-load.php'); WP_Application_Passwords::set_user_app_passwords(1, []); $app = WP_Appl"
+79705bfcf5488267,1789893466,2,1,N,,,316,v2,unknown,none,#!/bin/bash ssh -o BatchMode=yes duanyi@192.168.1.9 bash -c ' docker exec study_wp curl -s http://localhost/wp-admin/upl
+7d7634b567f3f6ec,1789893466,2,1,N,,,428,v2,unknown,none,(binary)
+c41a54e405b53249,1789893466,2,1,N,,,5845,v1,unknown,none,"# Handoff: 媒体库筛选 / FileBird 整合 (2026-08-19 ~ 2026-08-24)  ## 完成内容摘要  1. **诊断**：通过 systematic-debugging 排查""音视频筛选无效""bug，发现"
+cb4241cc1c92cfed,1789893466,2,1,N,,,2318,v2,unknown,none,"<?php /**  * 一键安装 FileBird:下载 -> 解压 -> 激活  */ require_once('/var/www/html/wp-load.php');  echo ""=== 1. 检查 zip ===\n""; $z"
+0b08515574422707,1789519332,2,1,N,,,1657,v1,unknown,none,# Prompt: Stage 8 M1 — 数据层(新会话接力)  **承接 handoff**: `handoff-sales-bi-stage8-design-approved-2026-09-16.md` **分支/基线**: `m
+d9f3c7330c64e91c,1789519332,2,1,N,,,9411,v1,unknown,none,# Handoff: Stage 8 Design Approved — 2026-09-16  > **下一阶段任务**: Stage 8 报表系统改造 — **M1 数据层**(dbt 字段增强 + 新 staging + 11 新 m
+3bcf27bf73777ec3,1789633840,2,1,N,,,1738,v1,unknown,none,# Stage 8 M2 F-failed Prompt  > 承接 handoff: `handoff-sales-bi-stage8-m2-f-failed-2026-09-17.md` > 当前 commit: `d162a0a` (
+a95fc7ae91d34c43,1789633840,2,1,Y,M2 F-path(Node 20.18 LTS)失败 — IPC deadlock 与 Node 版本无关 (2026-09-17),feedback,4815,v1,global,medium,--- name: M2 F-path(Node 20.18 LTS)失败 — IPC deadlock 与 Node 版本无关 (2026-09-17) description: Stage 8 M2 F-path 撞墙;Node 22→
+f53bed4017064ba4,1789633840,2,1,N,,,8901,v1,unknown,none,(binary)
+abd0c67113ed4179,1789637147,2,1,N,,,76316,v1,unknown,none,# 品类增长策略与价格带布局分析  ## 1 品类增长策略  ### 1.1 核心策略概述 品类增长需聚焦核心品类，通过差异化定位与精准营销提升市场份额。因为差异化定位能够有效避免同质化竞争，所以市场份额有望提升 5%-10%。避免盲目扩张
+0e63f188bef56b8f,1790172624,2,1,N,,,4479,v1,unknown,none,(binary)
+1d2ea2ba2fbacfe2,1790172624,2,1,N,,,3397,v1,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""重做总结章节 - 把空章节替换成完整总结"""""" import os import re import sys import time fro"
+770837a19215d39e,1790172624,2,1,N,,,4525,v1,unknown,none,(binary)
+01f4bd230fb4a083,1790401006,2,1,N,,,645,v1,unknown,none,# Prompt — 新会话接力 (2026-09-26)  **承接 handoff**: `handoff-session-end-2026-09-26.md`(必读第一句)  **当前基线**: main @ **e30dd89**(
+df71a75b5956da86,1790401006,2,1,N,,,5114,v1,unknown,none,# Handoff — Session End 综合接力 (2026-09-26)  **承接自**: 本会话起点 → `handoff-mcp-hang-fix-stdin-devnull-2026-09-26.md` (ce2071f)
+6c357d543c893f91,1790392852,2,1,N,,,4389,v1,unknown,none,(binary)
+75d86c8cd9258a53,1790392852,2,1,N,,,2478,v1,unknown,none,"ButSucceed"": ""Ušetřili jste $1 použitím $2, ale pokud vyzkoušíte další kupóny, můžete ušetřit víc."",   ""walletECNewUXSuc"
+b19a18c97bd01c7b,1790392852,2,1,N,,,13984,v1,unknown,none,# Handoff — sales-bi-mcp hang 真根因 + fix + m3_smoke N=14 selector 验证 (2026-09-26)  **承接自**: `handoff-m3-smoke-selector-fi
+047f284ae4b55936,1789176900,1,1,N,,,2052,v2,unknown,none,// check-37.mjs - 验证 §37 v11 解析 import { chromium } from 'file:///C:/Users/Duanyi/AppData/Local/Temp/node_modules/playwr
+17389ba0efdb9e1a,1789176900,1,1,N,,,687,v2,unknown,none,"#!/usr/bin/env python3 """"""Remove .bak strings from app.js bundles""""""  import re  paths = [     '/var/www/evidence/build/"
+1ad5eb1f9798d0a2,1789176900,1,1,N,,,1966,v2,unknown,none,// fetch-manifest.mjs import { chromium } from 'file:///C:/Users/Duanyi/AppData/Local/Temp/node_modules/playwright-core/
+26aac0fc66eb2e8a,1789176900,1,1,N,,,1841,v2,unknown,none,// check-bak.mjs import { chromium } from 'file:///C:/Users/Duanyi/AppData/Local/Temp/node_modules/playwright-core/index
+3072fd59224f0fb8,1789179799,1,1,N,,,2047,v2,unknown,none,// check-v15-css.mjs - 验证 v7b.css §38 main padding-left import { chromium } from 'file:///C:/Users/Duanyi/AppData/Local/
+55b39be22196ac9c,1789172532,1,1,N,,,634,v2,unknown,none,"#!/usr/bin/env python3 """"""Remove duplicate v10 sub_filter"""""" path = '/etc/nginx/sites-enabled/sales-bi' with open(path) "
+5d7e1896e3713217,1789179799,1,1,N,,,972,v2,unknown,none,(binary)
+6049c8c3cbc5c14c,1789176900,1,1,N,,,2016,v2,unknown,none,// find-bak.mjs import { chromium } from 'file:///C:/Users/Duanyi/AppData/Local/Temp/node_modules/playwright-core/index.
+664e2bef1da45935,1789172532,1,1,N,,,5862,v2,unknown,none,# Handoff: Stage 7-15 — finance-light 主题精修 v10 (sidebar div 溢出修复) — 2026-09-12  ## TL;DR  Stage 7-14 v9 修了 sidebar 第一个 `
+66c8da674ea7dff2,1789176900,1,1,N,,,2281,v2,unknown,none,"#!/usr/bin/env python3 """"""Append v11 CSS — sidebar 全部 child div 强制 192px 容器宽度 不依赖 JS 注入,直接 CSS 覆盖 针对 user 真实浏览器(可能 cache"
+67c7be227b4c611e,1789176900,1,1,N,,,641,v2,unknown,none,"#!/usr/bin/env python3 """"""Remove .bak strings from app.js bundles v2""""""  import re  paths = [     '/var/www/evidence/bui"
+6fb84dbcf4e3db3a,1789176900,1,1,N,,,2056,v2,unknown,none,// check-v14-apply.mjs - 测 v14 JS 直接 eval import { chromium } from 'file:///C:/Users/Duanyi/AppData/Local/Temp/node_modu
+76ed73d5adae912b,1789179799,1,1,N,,,5682,v2,unknown,none,# Handoff: Stage 7-18 — finance-light v15 (main padding-left 12rem) — 2026-09-12  ## TL;DR  Stage 7-17 v14 把 aside 贴 pag
+8314a7e150eb470e,1789176900,1,1,N,,,2155,v2,unknown,none,// find-manifest.mjs - 看浏览器实际请求哪个 manifest import { chromium } from 'file:///C:/Users/Duanyi/AppData/Local/Temp/node_mod
+88f3a9a15a7f3ced,1789176900,1,1,N,,,1988,v2,unknown,none,// where-bak.mjs import { chromium } from 'file:///C:/Users/Duanyi/AppData/Local/Temp/node_modules/playwright-core/index
+9cff81ffb91eb6b8,1789176900,1,1,N,,,1858,v2,unknown,none,// check-v14-err.mjs import { chromium } from 'file:///C:/Users/Duanyi/AppData/Local/Temp/node_modules/playwright-core/i
+a2862d4bafcb9d31,1789176900,1,1,N,,,633,v2,unknown,none,"#!/usr/bin/env python3 """"""Remove /\\.bak-2026...\"": entries from app.js""""""  import re  paths = [     '/var/www/evidence/"
+a965483801d5f803,1789176900,1,1,N,,,2393,v2,unknown,none,"#!/usr/bin/env python3 """"""v12: 修 sidebar 父容器 padding-left:0 + 删除 aside > div { left: 0 }""""""  path = '/var/www/evidence/s"
+aa9fb41d10ddcffe,1789176900,1,1,N,,,1939,v2,unknown,none,// clean-test.mjs - 完全 fresh 验证 import { chromium } from 'file:///C:/Users/Duanyi/AppData/Local/Temp/node_modules/playwr
+b57301fff82b9450,1789176900,1,1,N,,,1700,v2,unknown,none,// incognito.mjs - 全新 incognito context import { chromium } from 'file:///C:/Users/Duanyi/AppData/Local/Temp/node_module
+b5a5e66164150c73,1789176900,1,1,N,,,6079,v2,unknown,none,# Handoff: Stage 7-17 — finance-light v14 (sidebar 贴 page 边 + 移 .bak) — 2026-09-12  ## TL;DR  用户连续 2 轮反馈:(1) 截图 sidebar 
+c283a92064b1d4ea,1789179799,1,1,N,,,4240,v2,unknown,none,# Handoff: Stage 7-19 — finance-light cache-bust (app.v15CacheBust) — 2026-09-12  ## TL;DR  Stage 7-17/7-18 已清 .bak 目录 +
+ca21ff645e3cca26,1789176900,1,1,N,,,2166,v2,unknown,none,// check-v12.mjs - 验证 v12 parent padding 0 import { chromium } from 'file:///C:/Users/Duanyi/AppData/Local/Temp/node_mod
+ce44e5b05ef5957d,1789176900,1,1,N,,,1906,v2,unknown,none,// verify-v14.mjs import { chromium } from 'file:///C:/Users/Duanyi/AppData/Local/Temp/node_modules/playwright-core/inde
+e2c47a9681be35c3,1789179799,1,1,N,,,2007,v2,unknown,none,// verify-v15.mjs import { chromium } from 'file:///C:/Users/Duanyi/AppData/Local/Temp/node_modules/playwright-core/inde
+e62e55b39ee046a7,1789172532,1,1,N,,,2015,v2,unknown,none,// dump-aside.mjs import { chromium } from 'file:///C:/Users/Duanyi/AppData/Local/Temp/node_modules/playwright-core/inde
+ef1a1a4ef2c1f787,1789176900,1,1,N,,,2241,v2,unknown,none,// list-bak.mjs - 看每个 .bak link 在哪 import { chromium } from 'file:///C:/Users/Duanyi/AppData/Local/Temp/node_modules/pla
+ef65afc9da9424e0,1789172532,1,1,N,,,1578,v2,unknown,none,// check-v10.mjs import { chromium } from 'file:///C:/Users/Duanyi/AppData/Local/Temp/node_modules/playwright-core/index
+f10985c02a9383a9,1789172532,1,1,N,,,2413,v2,unknown,none,// probe-overflow.mjs import { chromium } from 'file:///C:/Users/Duanyi/AppData/Local/Temp/node_modules/playwright-core/
+f1fcba0b502bc8f6,1789176900,1,1,N,,,856,v2,unknown,none,"#!/usr/bin/env python3 """"""Patch manifest in app.js bundles to remove .bak-* routes""""""  import re import json  paths = [ "
+fb9038c4fa5a5181,1789179799,1,1,N,,,1048,v2,unknown,none,"#!/usr/bin/env python3 """"""Append v15 CSS - main padding-left 12rem via sub_filter inline style""""""  src = '/var/www/evide"
+0c9e3b6b75390291,1788997491,1,1,N,,,1350,v2,unknown,none,"""""""手动生成 evidence manifest.json 格式: renderedFiles[schema] = [parquet paths array] """""" import json from pathlib import Pat"
+225f80aeee078ee4,1788997491,1,1,N,,,2186,v2,unknown,none,"""""""Debug single page - 看 console + state + page error"""""" import sys from playwright.sync_api import sync_playwright  PAG"
+252cdbaa06c0b33e,1788997491,1,1,N,,,1694,v2,unknown,none,(binary)
+282c3ca002ca4989,1788997491,1,1,N,,,765,v2,unknown,none,��必须充分煮熟，不能只加热到温热。 - 对儿童、老人、孕期、免疫力较弱人群，应避免推荐高风险半熟或生食做法。  ### 2. 交叉污染  涉及生肉、海鲜、蛋液和熟食时，要提醒避免交叉污染。  要求：  - 生熟分开处理。 - 生肉、海鲜、
+36e65925eab6516d,1788997491,1,1,N,,,822,v2,unknown,none,"""""""修 new_top50 + zero_sales 残留 sales_90 / product_name / created_at 引用"""""" p = ""/opt/sales-bi/evidence/pages/new-product-"
+376da909b7c745c1,1788997491,1,1,N,,,3775,v2,unknown,none,"""""""Stage 6-10: Playwright 扫描所有 13 报表"""""" import json import time from playwright.sync_api import sync_playwright  PAGES ="
+409bd89ec7a8e4c7,1788997491,1,1,N,,,1300,v2,unknown,none,"""""""修 sku-detail 残留 gross_margin_rate 引用 (2 处)"""""" p = ""/opt/sales-bi/evidence/pages/sku-detail.md"" with open(p) as f:    "
+4a34164feaade214,1788997491,1,1,N,,,1274,v2,unknown,none,"""""""修 after-sales.md 4 处 SQL: 移除 inputs.date_filter 引用"""""" p = ""/opt/sales-bi/evidence/pages/after-sales.md"" with open(p) "
+4f30340890a3a23b,1788997491,1,1,N,,,2919,v2,unknown,none,"""""""Stage 6-10: 修 daily-trend-90d 4 SQL 用 parquet 列名 - daily_sales_trend parquet schema: d, total_sales, total_refund, ne"
+530f208e6a96b161,1788997491,1,1,N,,,474,v2,unknown,none,-- Stage 6-10: 派生 sku_code.sku_code 表 (PG schema=sku_code) → evidence parquet cache -- new-product-tracker.md + uncatego
+6df9715c74b303cf,1788997491,1,1,N,,,677,v2,unknown,none,"""""""修 zero_sales 引用不存在字段"""""" p = ""/opt/sales-bi/evidence/pages/new-product-tracker.md"" with open(p) as f:     s = f.read()"
+707998a71411ff15,1788997491,1,1,N,,,629,v2,unknown,none,"""""""Stage 6-10: 修 daily-trend-90d.md 3 处 SQL table name 原: FROM erp_result.daily_store_dd_2026 (PG schema-qualified, 不在 e"
+70c65458b8b02911,1788997491,1,1,N,,,2546,v2,unknown,none,"""""""Stage 6-10: 修 daily-trend-90d + new-product-tracker + sku-detail"""""" import re  # 1. daily-trend-90d: 移除 AND 类型 = '真实'"
+8e79d59476d76672,1788997491,1,1,N,,,443,v2,unknown,none,"""""""修 daily-trend-90d 列名: 订单日期 → d (parquet 列名)"""""" p = ""/opt/sales-bi/evidence/pages/daily-trend-90d.md"" with open(p) as "
+a26aacd5b2c53593,1788998248,1,1,N,,,1919,v2,unknown,none,"# 下一棒 prompt  承接 `handoff-sales-bi-stage6-11-residual-bug-2026-09-09.md` (Stage 6-11 当前状态,12/13 PASS,1 fail)  ## 当前分支/基线"
+ab77913e4ce94464,1788997491,1,1,N,,,608,v2,unknown,none,"""""""修 after-sales.md 用 regex 替换所有 inputs.date_filter 引用"""""" import re  p = ""/opt/sales-bi/evidence/pages/after-sales.md"" w"
+abfeec0bedd1a2aa,1788997491,1,1,N,,,2612,v2,unknown,none,"""""""修 uncategorized-sku.md - 2 处 SQL 引用 sku_code.sku_code (不存在 parquet cache) - 改用 mart_sku_monthly (有限字段,但能跑) - 移除 input"
+b2b1b32a58a23195,1788997491,1,1,N,,,749,v2,unknown,none,"""""""Stage 6-10: 修 sku-detail.md 2 处 SQL inputs 引用 (Stage 6-9 模式)"""""" p = ""/opt/sales-bi/evidence/pages/sku-detail.md"" with"
+c27e50340959cf38,1788997491,1,1,N,,,1819,v2,unknown,none,"""""""Stage 6-10: 修 net-sales-vs-refund.md - 2 处: 移除 inputs.date_filter 引用 + 加 s. prefix 到 source_year_month """""" p = ""/opt/"
+c5ebc8034ce7bf01,1788998248,1,1,N,,,9253,v2,unknown,none,"# Handoff: Stage 6-11 — 写给下一棒接力的完整状态 — 2026-09-09  ## TL;DR  按用户""自己操作浏览器验证 + 自动发现 + 修复 bug""要求,本会话完成了: 1. **调研 + 安装** Pla"
+cd24a46df6c5bbbd,1788997491,1,1,N,,,3539,v2,unknown,none,"""""""Stage 6-10: 修 new-product-tracker.md - 3 处 SQL 引用 sku_code.sku_code (不存在的 parquet cache) - 改用 mart_sku_monthly (有 sam"
+ee532d1f83aa5b51,1788997491,1,1,N,,,6864,v2,unknown,none,# Handoff: Stage 6-10 — 13 报表 Playwright 全扫描 + 批量修 bug — 2026-09-09  **承接**: Stage 6-9 hasUnsetValues 修 + Playwright 工具就
+f3554cdb0c8ffb7f,1788997491,1,1,N,,,1695,v2,unknown,none,"""""""Stage 6-10: 重跑 5 个 fail 报表,加 wait"""""" import time from playwright.sync_api import sync_playwright  FAILED = [""daily-tr"
+eef8f00c1ddd4303,1788358122,1,1,N,,,365,v1,unknown,none,[Unit] Description=Cloudflare Tunnel for Sales BI After=network.target Wants=network-online.target  [Service] Type=notif
+11d3e2f2fad8ea9b,1788931270,1,1,N,,,1352,v2,unknown,none,"#!/bin/bash # _run_remaining_asr.sh - 串行跑剩余 5 段 ASR（写根目录，老草录音/） # 启动：09:13, large-v3 + L1 术语注入 + HF_HUB_OFFLINE=1  expor"
+736bcb0a606e5089,1788931270,1,1,N,,,3586,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""_merge_wujie.py — 无界精英班 2026-09-06 项目级合并器（3 chunks 版）。  数据流：   parts/p"
+acead109c846cc4c,1788931270,1,1,N,,,6326,v2,unknown,none,# Handoff · 无界精英班·老草·9.6-8（完成）  > 日期：2026-09-09 11:00 > 前一会话：Step 0/0.5/0.6 + 骨架 + ASR 启动（task b071hhukj） > 当前会话：接力 ASR 
+ade736379ba1c04d,1788931270,1,1,N,,,3909,v2,unknown,none,#!/bin/bash # _run_pipeline.sh — 无界精英班 2026-09-06 流水线 driver # # 阶段： #  1. L2 术语校验（8 段 → 8 个 transcript.md + terms_repor
+02cee9fb92383399,1788335810,1,1,N,,,80354,v1,unknown,none,# Sales BI A2 运维监控 Implementation Plan  > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-d
+5a727fbe49d2b352,1788335563,1,1,N,,,5812,v1,unknown,none,# Handoff：Sales BI 阶段五 A1（CI/CD）完成 — 待接力 A2 监控  日期：2026-08-31 交接类型：阶段五 A1 子方向完成，等待接力 A2 运维监控 上一阶段产出：`handoff-sales-bi-st
+7ba0147d838a87ca,1788334114,1,1,N,,,5637,v2,unknown,none,# Handoff: Sales BI 阶段三服务器部署——C 路径（降 core-components）耗尽  日期：2026-09-02 上一棒：`handoff-sales-bi-stage5c-deploy-evidence-fix
+819fd720e0ca7654,1788334114,1,1,N,,,541,v2,unknown,none,(binary)
+889477358929d843,1788334114,1,1,N,,,7999,v2,unknown,none,# Handoff: Sales BI 阶段三服务器部署——evidence F 路径成功 + Cloudflare Tunnel 接力  日期：2026-09-02 上一棒：`handoff-sales-bi-stage5c-deploy
+abeff6597e0c31f8,1788334114,1,1,Y,Sales BI evidence uses GLOBAL CLI not local,project,1632,v2,E-------G1-----00data-analysis,medium,--- name: Sales BI evidence uses GLOBAL CLI not local description: critical fact about /opt/sales-bi/evidence using /usr
+b4c7b66575711f0e,1788334114,1,1,Y,Evidence dev F path fix (Cannot convert undefined),project,3470,v2,E-------G1-----00data-analysis,medium,--- name: Evidence dev F path fix (Cannot convert undefined) description: The actual working fix for vite-plugin-svelte 
+b847d3264c0dcbec,1788335675,1,1,N,,,3101,v1,unknown,none,# Sales BI 一键回滚手册  > 适用：阶段五 A1 部署 CI 启用后，回滚 evidence dev + 智能层到任意历史版本。 > 假设：服务器已按 RUNBOOK 步骤 0-16 部署 + 阶段四步骤 17-19 完成。  
+be4e2e05c6bfee1f,1788335522,1,1,N,,,7927,v1,unknown,none,# Handoff：Sales BI 阶段三（部署 plan）完成 — 待接力阶段四（智能层）  日期：2026-08-31 交接类型：阶段三 Plan 完成（Tasks 1-6 + 最终 review + 修复波），等待运维/用户在服务器
+cef75ef5c1a680ee,1788335545,1,1,N,,,12446,v1,unknown,none,# Handoff：Sales BI 阶段四（智能层）完成 — 待接力运维部署 + 阶段五讨论  日期：2026-08-31 交接类型：阶段四 Plan 全部 9 个 Task 完成（含 final review 修复波），等待运维部署 +
+dfd2f05e1fdd5629,1788334228,1,1,Y,Sales BI project overview,project,2307,v1,unknown,none,"--- name: Sales BI project overview description: Sales BI 5-stage project — what it is, where it lives, code-shipped vs "
+eb40fb3a8e0dd10b,1788335813,1,1,N,,,19962,v1,unknown,none,(binary)
+f0bcc1eefb9e9b2d,1788334114,1,1,N,,,755,v2,unknown,none,(binary)
+02589bcb36a3d56d,1789257941,1,1,N,,,2616,v2,unknown,none,"ined     \ contains=rakuPodFormatAnglesThree,rakuPodFormatFrench,rakuPodFormatOne,rakuPodFormatTwo,rakuPodFormatThree,ra"
+21d64770d2e1f552,1789257941,1,1,N,,,599,v2,unknown,none,"import subprocess import os import sys  os.chdir(r'C:\evid') print('cwd:', os.getcwd(), flush=True)  # Use cmd.exe wrapp"
+246cc1733fd47013,1789257941,1,1,N,,,3110,v2,unknown,none,"#!/usr/bin/env python3 """"""Patch Windows-local vite.config.js (different format from server).    Idempotent. """""" import s"
+291608348083f46b,1789257941,1,1,N,,,582,v2,unknown,none,"@echo off cd /d ""E:\办公文件\G1销售管理\00data_analysis\evidence"" echo === Starting evidence build ... > C:\Users\Duanyi\ev-buil"
+389c49d8ba13dfd0,1789257941,1,1,N,,,464,v2,unknown,none,"@echo off cd /d ""E:\办公文件\G1销售管理\00data_analysis\evidence"" echo === Downgrading SvelteKit to 2.49.0 ... > C:\Users\Duanyi"
+50ae384aa0a7792d,1789257941,1,1,N,,,2754,v2,unknown,none,"#!/usr/bin/env python3 """"""Stage 7-23 Windows patch: same patches as server    - add 4 ESM-only packages to optimizeDeps."
+547d1e3ddd8117a8,1789257941,1,1,N,,,649,v2,unknown,none,"@echo off cd /d ""E:\办公文件\G1销售管理\00data_analysis\evidence"" echo === Starting evidence build (via .cmd) ... > C:\Users\Dua"
+79a19f0a372c9805,1789257941,1,1,N,,,525,v2,unknown,none,"@echo off cd /d ""E:\办公文件\G1销售管理\00data_analysis\evidence"" echo === CWD: %CD% > C:\Users\Duanyi\npm-final.log echo === St"
+8e416c3fcef15b12,1789257941,1,1,N,,,884,v2,unknown,none,"#!/usr/bin/env python3 """"""Add git-remote-origin-url to optimizeDeps.exclude (not just rollupOptions.external).    Some V"
+99a2f9520b0e34d2,1789257941,1,1,N,,,645,v2,unknown,none,"@echo off cd /d ""E:\办公文件\G1销售管理\00data_analysis\evidence"" echo === Testing SvelteKit 2.0.0 (Stage 7-3 era) ... > C:\User"
+c4fa4acff4c27f11,1789257941,1,1,N,,,2639,v2,unknown,none,**承接** `handoff-sales-bi-stage7-24-windows-build-attempt-2026-09-12.md`  **用户选**:下会话修 Windows build。**当前 dev proxy 正常**(
+da29035a1423155e,1789257941,1,1,N,,,529,v2,unknown,none,"@echo off cd /d ""E:\办公文件\G1销售管理\00data_analysis\evidence"" echo STARTING_NPM_INSTALL > C:\Users\Duanyi\npm-progress.log e"
+da67031a21c6c8c6,1789257941,1,1,N,,,4982,v2,unknown,none,# Handoff: Stage 7-24 — Windows build 尝试失败(8+ patch 链)— 2026-09-12  ## TL;DR  尝试在 Windows 本地 build(用户要求加速页面加载)失败。修了 4 个 
+e148e1951d8dc0bb,1789257941,1,1,N,,,3048,v2,unknown,none,"#!/usr/bin/env python3 """"""Patch GLOBAL source template (not destination) so populateTemplate    in evidence build preser"
+e17723a8c02b04de,1789257941,1,1,N,,,1398,v2,unknown,none,import subprocess import os  LOG = r'C:\Users\Duanyi\npm-direct.log'  os.chdir(r'C:\evid')  # Direct: use cmd /c with re
+f0ca54db5f13c6cd,1789257941,1,1,N,,,727,v2,unknown,none,"@echo off cd /d ""E:\办公文件\G1销售管理\00data_analysis\evidence"" echo === CWD: %CD% > C:\Users\Duanyi\npm-final3.log echo === n"
+f6827c6a49f7b824,1789257941,1,1,N,,,728,v2,unknown,none,"o[Microsoft.Office.WebExtension.Parameters.Callback]=a}return c.verifyArguments(t,o),o}(e,i,n,r);return c.constructCallA"
+0ee65cd49ea548c1,1788879482,1,1,N,,,6697,v2,unknown,none,(binary)
+1e4593ce950d6f84,1788879482,1,1,N,,,3917,v2,unknown,none,"""""""verify_helpers: _normalize 等通用工具.  沿用 Step 5 万相台 FIX-WXT-7 (Decimal ROUND_HALF_UP) + Step 8 流量来源 FIX-TS-B (整数量化后 stri"
+a5b464378a4e2988,1788879482,1,1,N,,,1958,v2,unknown,none,"""""""7 店 bootstrap idempotency 测试 (Step 10 客户资产).  跑 7 店 bootstrap 各 2 次, 第 2 次 sha 一致 → silent skip. 返回 files_uploaded=0 "
+d4b8e65f3ba4881e,1788879482,1,1,N,,,5010,v2,unknown,none,"""""""verify_customer_assets 自检测试 (沿用 FIX-WXT-13 + FIX-TS-B + FIX-CA-1).  测试目标: 1. _normalize ROUND_HALF_UP 量化 + strip trai"
+50919137cf8ab0b9,1789893820,1,1,N,,,8115,v2,unknown,none,"#!/usr/bin/env python3 """"""诊断编辑器 caret nav - v3：登录后直接 goto wp-admin"""""" import json import sys  sys.stdout.reconfigure(enc"
+6035e17643767732,1789895457,1,1,N,,,8501,v2,unknown,none,"#!/usr/bin/env python3 """"""caret nav 全面测试：中间位置、多行内容、左右键、段落间跳转"""""" import sys, json sys.stdout.reconfigure(encoding='utf-8'"
+699019b94eee0ee6,1789893820,1,1,Y,aiec-wp-cli-playwright-debug,project,3967,v2,E-------G1-----00data-analysis,medium,--- name: aiec-wp-cli-playwright-debug description: 服务器无 WP-CLI 时的 phar 绕过法 + Playwright 登录 wp-admin/Gutenberg iframe 实测
+deea12b1b5738a73,1789893820,1,1,N,,,8303,v2,unknown,none,"#!/usr/bin/env python3 """"""诊断编辑器 caret nav：用临时管理员登录，插测试 blocks，测 ↑↓ 跨 block"""""" import json import sys import time  from p"
+3c8cd97ba2c14c60,1789219471,1,1,N,,,1476,v1,unknown,none,# Prompt：销售数据 BI 系统 · 实施接力  承接 `handoff-sales-bi-2026-08-29.md`，设计文档为 `sales-bi-design-2026-08-29.md`。 先按 handoff 第一节的必读
+3fe742ddb4f4e453,1788784764,1,1,N,,,4864,v2,unknown,none,"""""""通用 helper: bootstrap 单个 csv,支持去重.  适用场景: loader 因 CSV 内重复行(UniqueViolation)失败时,直接调用本脚本. 因 loader 稳定代码不能改,需绕道处理.  用法: "
+7daeebd4b1a514af,1788784764,1,1,N,,,8881,v2,unknown,none,"# Handoff: shop_wxt_promotion Step 6 — 数据补全 + verify 修复,21 表真 100%  > **接力日期**: 2026-09-07 > **本会话做了什么**: Step 6 实施(7 ta"
+a2dff24133ab3982,1788775161,1,1,N,,,8629,v1,unknown,none,(binary)
+50aef8177dcbf6d3,1788744710,1,1,N,,,71,v1,unknown,none,node_modules/ .evidence/ build/ .cache/ .env .env.local connection.yaml
+13d5a35bd2a7d20b,1788510034,1,1,N,,,2255,v2,unknown,none,(binary)
+1645e339827dab02,1788510034,1,1,N,,,7402,v2,unknown,none,# Handoff: Sales BI Stage 4 Deploy 完成 — 智能层 pipeline + 飞书/钉钉 + MinimaX 日报  日期:2026-09-04 上一棒:`handoff-sales-bi-stage5i-c
+4e10b34c0ead72db,1788510034,1,1,N,,,6331,v2,unknown,none,"""""""DeepSeek 中文日报生成。  强约束（设计文档 §4）： - AI 只在告警触发后负责解释与建议 - 日报输入是 dbt mart 的指标数字，AI 仅做解读，不产出新数字 - DeepSeek API 调用失败时返回 fall"
+5c5ac85bbb029fae,1788510034,1,1,N,,,2250,v2,unknown,none,(binary)
+ab2176b47d01dca2,1788503838,1,1,N,,,17979,v2,unknown,none,"# Stage 4 Deploy — 智能层定时器 + .env + 双通道告警 + DeepSeek 日报  **目标**: 在 `/opt/sales-bi/` 已部署的阶段三基础上,叠加阶段四的 `sales-bi-pipeline."
+0f6c8dd5a2afbfbb,1787924609,1,1,N,,,1497,v2,unknown,none,"# 接力 prompt: ETL 合并任务  > 承接 `handoff-etl-merge-2026-08-27.md` (本目录).  ## 当前状态 分支 `main` (无 remote), HEAD = `88bf288`. sh"
+4f152bb8c47c6a1e,1787924609,1,1,N,,,31096,v2,unknown,none,# Handoff: 本地业务 ETL 三子系统合并 (售后 + 订单 + 进销存 → 统一 skill + 工具)  > **日期**: 2026-08-27 > **承接**: shouhou_etl (12/12 完成) + erp_
+1906d453907e2573,1789308301,1,1,N,,,1563,v2,unknown,none,"#!/usr/bin/env python3 """"""Stage 7-27b append aggressive CSS override for max-width: 192px in sidebar.  Server-side run: "
+ae40c8f22351a59a,1789308301,1,1,N,,,1963,v2,unknown,none,"#!/usr/bin/env python3 """"""Stage 7-28 build manifest from build/data/sales_bi/ actual files  Evidence build 写 inline SQL "
+ca3bfcecf938c5cb,1789308301,1,1,N,,,5571,v4,unknown,none,"#!/usr/bin/env python3 """"""Merge sources manifest + inline manifest into web root manifest.  Why:     Evidence 40.x build"
+f88ef1903c933831,1789043766,1,1,N,,,3619,v1,unknown,none,"""""""拼多多推广 - DDL 生成 (4 sub-config × 1 year = 4 表 + etl_file_hash).  沿用 Step 8 ddl.py 模式 + Step 5 _row_hash PK + FIX-TS-A ("
+49cae1dddbb7ae1e,1788768830,1,1,N,,,10786,v2,unknown,none,# shouhou_processed 修改规则 3 — 换货 → 线上申请金额 NULL (2026-09-07)  > **用户决议** (2026-09-07): 当售后单 `售后分类 = '换货'` 或 `售后线上类型 = '换货'
+4103781382af81e8,1789031758,1,1,N,,,6774,v2,unknown,none,# Handoff: Stage 6-13 — Commit + Stale 描述清理 — 2026-09-10  ## TL;DR  Stage 6-13 完成 Stage 6-3~6-12 全部未 commit 改动 + 清理 new-
+e1dd17d4c9f6b9a8,1789031758,1,1,N,,,1770,v2,unknown,none,承接 `handoff-sales-bi-stage6-13-commit-cleanup-2026-09-10.md` (Stage 6-13 已 commit + cleanup)  ## 当前分支/基线 - branch: `main
+3a4b4944a667632b,1789096437,1,1,N,,,4334,v2,unknown,none,"pct\"" ] && printf \""5h: %.0f%%\"" \""$pct\""\n\n   To display both 5-hour and 7-day limits when available:\n   - input=$(ca"
+81f7a4decaae43a4,1789096437,1,1,N,,,5576,v2,unknown,none,"""""""Step 18: verify_promotion_summary — 抽样对账.  从 erp.storedata.promotion 抽 n 行 (随机或最近),重新聚合源表比对 cost/revenue. """""" import "
+8fc3f6e4870dca11,1789109946,1,1,N,,,96,v2,unknown,none,# scripts 包 marker — 让 `python scripts/xxx.py` 和 `from scripts.xxx import` 都能工作 
+922b7d9ccefa636c,1789096437,1,1,N,,,6832,v2,unknown,none,(binary)
+8818615f4fdfb0c9,1789306686,1,1,N,,,642,v1,unknown,none,"import pytest from storedata_upload.config import load_env, BASE_DIR, SOURCE_ROOT  def test_load_env_returns_required_ke"
+aec95696530f30ea,1788316876,1,1,Y,Sales BI infrastructure,reference,2909,v1,global,medium,"--- name: Sales BI infrastructure description: Server, DB, domain, channels — the deploy target and runtime facts for Sa"
+5db08c6c883cbcfb,1788165413,1,1,N,,,7275,v1,unknown,none,"""""""sku_etl/load_sku.py — 主流程 run() (扫目录 → 增量 → 双库 UPSERT → mark → cleanup)  设计要点 (spec §3.1 / §6.1 / §6.3 + brief): - _R"
+008d8d4c9ad38f90,1788945288,1,1,N,,,566,v2,unknown,none,"""""""修 sales-overview 末尾多余单引号"""""" p = ""/opt/sales-bi/evidence/pages/sales-overview.md"" with open(p) as f:     s = f.read() "
+11705a2d0d13f929,1788925687,1,1,Y,DuckDB WASM 33MB 冷启动 3-10 秒是正常的,reference,1687,v2,global,medium,--- name: DuckDB WASM 33MB 冷启动 3-10 秒是正常的 description: Evidence dev mode 首次访问需下载 33MB duckdb-eh.wasm + 初始化 + parquet 加载 
+17f86437bed08863,1788945288,1,1,N,,,868,v2,unknown,none,"""""""修 sales-overview.md sales_by_month + sales_with_yoy_mom 的 date_filter"""""" p = ""/opt/sales-bi/evidence/pages/sales-over"
+19f514fec151e7ec,1788940068,1,1,Y,Evidence DateRange defaultValue 不自动触发 inputs 更新 (隐性 bug),feedback,2675,v3,E-------G1-----00data-analysis,medium,--- name: Evidence DateRange defaultValue 不自动触发 inputs 更新 (隐性 bug) description: _DateInput.svelte applyPreset 设 selected
+1cbaa3487e95400a,1788925687,1,1,N,,,7498,v2,unknown,none,# Handoff: Stage 6-6 — shop_kpi SQL refund_amount 引用 hotfix — 2026-09-09  **承接**: `handoff-sales-bi-stage6-4-5-revert-20
+1ed60d5d75462854,1788916538,1,1,Y,DuckDB LAG window function 同环比双 CTE 架构,feedback,2304,v2,global,medium,"--- name: DuckDB LAG window function 同环比双 CTE 架构 description: BI 同环比标配 - 聚合 CTE 不限 date_filter,外层 WHERE 应用 date_filter;N"
+2cd02b080bf48fbf,1788945288,1,1,N,,,898,v2,unknown,none,"""""""修 line 90-91 末尾多余单引号"""""" p = ""/opt/sales-bi/evidence/pages/sales-overview.md"" with open(p) as f:     s = f.read()  # 错"
+33f8a9194f657750,1788945288,1,1,N,,,1613,v2,unknown,none,"""""""Stage 6-9: 移除所有 inputs.X.Y 引用,SQL 不依赖 inputs Evidence hasUnsetValues 看到 ${inputs.X.Y} 引用即返回 true,SQL 不执行 - mart_sales"
+3b44f02ebe86becd,1788925687,1,1,Y,Evidence client-side SQL error 不进 server journalctl,feedback,1700,v2,E-------G1-----00data-analysis,medium,--- name: Evidence client-side SQL error 不进 server journalctl description: DuckDB WASM client 报 Binder/syntax/column err
+3dfb6a984f0f2398,1788940068,1,1,N,,,2241,v2,unknown,none,# 下一棒 prompt  承接 `handoff-sales-bi-stage6-8-optional-chaining-2026-09-09.md` (Stage 6-8 Svelte 模板 optional chaining fall
+5b0cccb9bf9654f6,1788916538,1,1,N,,,23724,v2,unknown,none,(binary)
+5b3372a1effaf5fd,1788923476,1,1,N,,,5670,v2,unknown,none,# Handoff: Stage 6-4.5 — shop-detail 500 Regression Fix — 2026-09-09  **承接**: `handoff-sales-bi-stage6-4-yoy-mom-2026-09
+5d0986d209be09c0,1788940068,1,1,N,,,504,v2,unknown,none,"""""""修 line 90-91 多余引号。 """""" p = ""/opt/sales-bi/evidence/pages/sales-overview.md"" with open(p) as f:     s = f.read()  # 错误"
+6d1d3228dc26846e,1788945288,1,1,N,,,2207,v2,unknown,none,# 下一棒 prompt  承接 `handoff-sales-bi-stage6-9-hasunsetvalues-hotfix-2026-09-09.md` (Stage 6-9 hasUnsetValues 修 + Playwrigh
+6efe178e0609c84b,1788940068,1,1,N,,,5934,v2,unknown,none,(binary)
+74cac1a4555920d6,1788945288,1,1,N,,,8514,v2,unknown,none,# Handoff: Stage 6-9 — hasUnsetValues 隐性 bug 修 + Playwright 自动化 — 2026-09-09  **承接**: `handoff-sales-bi-stage6-8-optiona
+7b235a2cb663a215,1788940068,1,1,N,,,3373,v2,unknown,none,"""""""Stage 6-8: 修 Svelte 模板 optional chaining 真因。  Stage 6-7 fallback 用 COALESCE(NULLIF(...)) 失败,因为 Svelte 模板 evaluate ${i"
+86a0da6af02140db,1788940068,1,1,N,,,763,v2,unknown,none,"""""""修 line 90-91 末尾多余引号。 """""" p = ""/opt/sales-bi/evidence/pages/sales-overview.md"" with open(p) as f:     s = f.read()  # "
+8ea8008bc8857680,1788925687,1,1,N,,,2798,v2,unknown,none,"# 下一棒 prompt  承接 `handoff-sales-bi-stage6-6-shop-kpi-hotfix-2026-09-09.md` (Stage 6-6 修 shop_kpi SQL LEFT JOIN,真浏览器验证待 u"
+98d284bc17dfd3bc,1788924984,1,1,Y,Evidence URL params → Dropdown defaultValue PoC,feedback,2948,v3,E-------G1-----00data-analysis,medium,"--- name: Evidence URL params → Dropdown defaultValue PoC description: Evidence flat .md 不支持 +page.js,只能用 module-level a"
+9b2c09e2a42b5060,1788945288,1,1,N,,,2129,v2,unknown,none,"),r=o(34527),l=o(77291),a=o(66105),s=o(27662);const c={arrowResetIcon:{regular:i.Rvv,filled:i.Tdu},cloudIcon:{regular:n."
+cb24384609c82a78,1788916538,1,1,N,,,12143,v2,unknown,none,# Handoff: Stage 6-4 — 同环比 (YoY/MoM) + URL params Dropdown PoC — 2026-09-09  **承接**: `handoff-sales-bi-stage6-3-drilldow
+cc050945ee825c4c,1788923476,1,1,Y,"Evidence markdoc data=""X"" ≠ Svelte data={X}",feedback,2240,v2,E-------G1-----00data-analysis,medium,"--- name: Evidence markdoc data=""X"" ≠ Svelte data={X} description: Evidence source-loader 只为 markdoc tag 字符串引用生成 synthet"
+f1155ea4430fe59e,1788916538,1,1,Y,Evidence SQL 空值 filter pattern 必须保持稳定,feedback,1581,v2,E-------G1-----00data-analysis,medium,"--- name: Evidence SQL 空值 filter pattern 必须保持稳定 description: 'null' string 模式 vs IS NULL - Stage 6-4 写错一次回归,Stage 6-5 写一"
+aece7c26d2c167c7,1790035600,1,1,N,,,9289,v2,unknown,none,# Handoff: Stage 8 M9 P3.5 build 修复完成 — 2026-09-21  **Date**: 2026-09-21 23:30 CST **Branch / commit**: main @ e9ad791 (
+67675244b7339387,1789258462,1,1,N,,,7769,v2,unknown,none,"# Handoff — erp_result.proid_* UPSERT 语义 (2026-09-12, 加推广费用 + 推广成交金额)  > **承接**: handoff-erp-result-proid-pk-change-2026"
+6ee7fe9527bf1d00,1789258462,1,1,N,,,5337,v2,unknown,none,(binary)
+af17873c60dd399a,1789273667,1,1,Y,用户反馈驱动的派生表修复 7 阶段流程,feedback,3383,v2,global,medium,"--- name: 用户反馈驱动的派生表修复 7 阶段流程 description: 派生 SQL 表 (processed / shouhou_processed / erp_result) 用户反馈 ""数据有误"" 时, 必须按 7 阶段"
+2d971015755b7fac,1790585694,1,1,N,,,9145,v1,unknown,none,# Handoff — 13 page filter 真渲染验证脚本交付 (2026-09-28)  **承接**: `handoff-filter-13-pages-fix-2026-09-27.md` §接力建议 #1 **基线**: 
+6763adb371a717e0,1790585694,1,1,N,,,7057,v1,unknown,none,"# 13 page filter 复活真渲染验证（49e5908 后补验证）  ## Context  CLAUDE.md 9-27 里程碑写""13 个 page 仍有裸 inputs 引用 (无 ?. 兜底),prod prerender"
+fad508ddc9ec349e,1790585694,1,1,N,,,13784,v1,unknown,none,"""""""Filter 13-page 真渲染验证 — 49e5908 后补验证脚本.  承接 handoff-filter-13-pages-fix-2026-09-27.md §接力建议 #1:   跑 tests/filter_verif"
+297dc334e9c949b1,1789349160,1,1,N,,,6118,v2,unknown,none,"""""""Step 19a: Verify daily_store_*_2026 promotion columns match erp.storedata.promotion.  Sample n rows (split dd+ys half"
+2baf728994c9c859,1787926158,1,1,N,,,11845,v1,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""项目级 strict purify wrapper(替代 skill purify_v4_4_hierarchical.py)。  修复原 "
+45a3267d505608e7,1790579835,1,1,N,,,12252,v1,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""Parse Claude Code jsonl sessions into readable markdown.  Reads jsonl "
+6e367179c8531fb9,1790579836,1,1,N,,,13346,v1,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""Parse Claude Code jsonl sessions into readable markdown."""""" import jso"
+a69424dd0dc0f2c9,1790579836,1,1,N,,,3196,v1,unknown,none,# 恢复会话索引 · 2026-09-28  > 这是从 `~/.claude/projects/C--Users-Duanyi/` 目录恢复出来的 3 个 jsonl 会话转成的 markdown。 > 生成方式：`_parse_sess
+53c3c5a1c565d0f6,1789613110,1,1,N,,,18993,v1,unknown,none,(binary)
+65433b96c0d40617,1788224754,1,1,N,,,1722,v2,unknown,none,"# 接力 prompt — sku 子系统 P3 任务决策 + 实施 (2026-09-01)  > **承接**: `handoff-sku-p1-bugfix-2026-09-01.md` (P1 三 bug 修复已全部完成, 双库完全"
+ace4841537a9995a,1788224754,1,1,N,,,5379,v2,unknown,none,"# handoff: sku_code P1 三个 Bug 修复完成 (2026-09-01)  ## 给非技术读者的任务进度摘要  sku 子系统（""商品编码""目录下的 Excel 文件 → `sku_code` 数据库 schema）已"
+2fa3c6ea8b92e810,1790587440,1,1,N,,,5033,v1,unknown,none,# templates/openclaw/adapters/cc.ps1 # Claude Code hook adapter (Windows PowerShell 7+). # Behavior: read stdin → IPC ca
+34de670a19d56dd4,1790587441,1,1,N,,,1185,v1,unknown,none,"# prompt — loop-engineering Task 4 done next  > 新会话第一句话(直接发,不要修改): > > **承接 `handoff-loop-engineering-task4-done-2026-09"
+936a0fab160e504e,1790587440,1,1,N,,,3721,v1,unknown,none,#!/usr/bin/env bash # templates/openclaw/adapters/cc.sh # Claude Code hook adapter (Linux/macOS Git Bash). # Behavior: r
+d771881bd712f17f,1790587440,1,1,N,,,10794,v1,unknown,none,# handoff — loop-engineering Task 4 done · 2026-09-28  > **会话 ID**: 当前 desktop session > **完成时间**: 2026-09-28 17:50 > **
+fd20044f5b07f60d,1790587440,1,1,N,,,3843,v1,unknown,none,#!/usr/bin/env bash # tests/openclaw/adapter-cc-test.sh # Smoke tests for templates/openclaw/adapters/cc.sh # Covers: ha
+e281c9164a32624b,1787931177,1,1,N,,,62654,v2,unknown,none,# Shouhou Processed Tables Implementation Plan  > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-
+df0816d00c1725c9,1788750786,1,1,N,,,10215,v1,unknown,none,"// remark-markdoc-block.cjs // Stage5g 专用 — 把 {% xxx /%} markdoc 段落从 <p class=""markdown""> 中释放出来 // 触发原因:evidence 40.1.8 "
+83fff9787ea308a0,1788480252,1,1,N,,,9267,v2,unknown,none,(binary)
+a56e0aa8a262d971,1788480252,1,1,N,,,1952,v2,unknown,none,-- Migrate processed table PK from 2 cols to 3 cols (2026-09-04) -- Reason: source order_* PK changed from 2 cols to 3 c
+11ff25e441df85a6,1788846310,1,1,N,,,4077,v2,unknown,none,"abelError:""No puc crear una presentació a partir d'este fitxer. L'etiqueta de confidencialitat del fitxer no vos dona dr"
+49a6378cb51a60d6,1788846310,1,1,N,,,9782,v2,unknown,none,# Task 7 Brief: verify_traffic_source.py + samples 自检测试  **Plan file**: docs/superpowers/plans/2026-09-08-haoyale-traffi
+4a4e83eb1e297391,1788846310,1,1,N,,,4475,v2,unknown,none,"# Fix Brief: loader.py PK 列名引号不匹配 (Task 5 修复)  **Bug**: bootstrap 9 个 xlsx 全部 KeyError,0 行上传。 **根因**: `loader.py:_proces"
+5a096a27ff00c1ba,1788846310,1,1,N,,,7428,v2,unknown,none,# Task 3 Brief: ddl.py — DDL 生成  **Plan file**: docs/superpowers/plans/2026-09-08-haoyale-traffic-source-step8.md (Task 
+8dbd7df3a63b2a2b,1788846310,1,1,N,,,5870,v2,unknown,none,"# Fix Brief: loader.py COPY + autocommit (Task 8 第二轮修复)  **Bug**: bootstrap 仍然 0 行成功,2 个 pre-existing bug 阻断: 1. **autoc"
+ac88555c9dcedd95,1788846310,1,1,N,,,6652,v2,unknown,none,# Task 6 Brief: scripts/apply_ddl_traffic_source.py  **Plan file**: docs/superpowers/plans/2026-09-08-haoyale-traffic-so
+acc4b943094c239a,1788846310,1,1,N,,,4583,v2,unknown,none,# Task 8 Brief: 端到端 bootstrap + production_schema_untouched  **Plan file**: docs/superpowers/plans/2026-09-08-haoyale-tr
+b2b05047484bbc96,1788829620,1,1,N,,,20384,v2,unknown,none,"# Spec: 好雅乐店铺流量来源 Step 8 — 设计完成  > **设计日期**: 2026-09-08 > **状态**: 设计版,待用户 review → 转入 writing-plans > **覆盖范围**: `好雅乐/001"
+b3fee2a537991890,1788846310,1,1,N,,,12186,v2,unknown,none,# Task 4 Brief: loader.py — filter 规则 + _read_xlsx  **Plan file**: docs/superpowers/plans/2026-09-08-haoyale-traffic-sou
+c6865b411fe4bd3a,1788846310,1,1,N,,,13859,v2,unknown,none,# Task 5 Brief: loader.py — sha256 + per-month DELETE+COPY + dedup + run  **Plan file**: docs/superpowers/plans/2026-09-
+6e7b181b74cb2b8a,1789177198,1,1,N,,,22413,v2,unknown,none,"# Spec: Step 19b — 推广数据细粒度汇入 proid_* 商品表 (按 商品ID)  > **设计日期**: 2026-09-12 > **状态**: 设计版,待用户 review → 转入 writing-plans > "
+00b45a1548b2a2f5,1789374580,1,1,N,,,4937,v2,unknown,none,"[   ""13号到16号"",   ""189块"",   ""300元"",   ""3200"",   ""3200一个人"",   ""XX号"",   ""XX号到XX号"",   ""XX场"",   ""一个人"",   ""一位老师"",   ""三天课"",   """
+27b4e21ddd09a5ea,1789374580,1,1,N,,,5517,v2,unknown,none,"#!/usr/bin/env python3 """"""Stage 4 heuristic judgment: classify candidates as ad / content / uncertain."""""" import json im"
+5e5f3a301b721095,1789374580,1,1,N,,,1536,v2,unknown,none,"#!/usr/bin/env python3 """"""Build judgment inputs: for each candidate, gather ±15s context from transcript."""""" import json"
+7352af0ddafa3d01,1789374580,1,1,N,,,1685,v2,unknown,none,"#!/usr/bin/env python3 """"""Merge all 3 rounds of judgment into final judged.json."""""" import json from pathlib import Path"
+837c83959ffc3368,1789374580,1,1,N,,,4393,v2,unknown,none,"#!/usr/bin/env python3 """"""Stage 4 round 3: hand-classify the remaining 29 candidates by hit_text semantics."""""" import js"
+86b3f9d000da1f38,1789374580,1,1,N,,,2263,v2,unknown,none,"#!/usr/bin/env python3 """"""Stage 5: build EDL by merging judged candidates + content boundaries."""""" import json import su"
+a8bc7867304e9372,1789374580,1,1,N,,,3610,v2,unknown,none,"#!/usr/bin/env python3 """"""Stage 4 round 2: tighten heuristic to reduce pending pool."""""" import json import sys from path"
+ad2eac3a33d9d34c,1789374580,1,1,N,,,1117,v2,unknown,none,"#!/usr/bin/env python3 """"""Stage 3 keyword match: scan transcript segments, emit candidates.json with ±2s padding."""""" imp"
+aeb13b8f67c9914f,1789227016,1,1,N,,,2174,v1,unknown,none,"""""""Step 19b-3: ALTER erp_result.proid_* 加 2 列 (4 表 × 2025+2026).  Idempotent via ADD COLUMN IF NOT EXISTS (PG 9.6+).  Ad"
+d6aa2792915bff5d,1789224441,1,1,N,,,12703,v2,unknown,none,# Handoff — Step 19b Tasks 7-13 完成 (2026-09-12 18:14)  **接力源**: `handoff-shop-step19b-task5-6-done-2026-09-12.md` (Task 
+28d0393770fe3082,1788501234,1,1,N,,,6486,v2,unknown,none,"#!/usr/bin/env python # -*- coding: utf-8 -*- """""" apply_zero_amount_filter.py — 独立工具: 对已入库的 erp_result.daily_order_* 4 张"
+68c5d51b73830641,1788501234,1,1,N,,,13414,v2,unknown,none,(binary)
+8793868d1b4ba9ce,1788501234,1,1,N,,,9867,v2,unknown,none,# Handoff — 5 字段全 0 源头过滤 (2026-09-04 用户决议)  > **承接**: handoff-order-pk-fix-and-cancel-filter-2026-09-04.md (PK E + 已取消过滤
+a19062b32b090f8d,1788506283,1,1,N,,,19847,v1,unknown,none,"# Handoff: 3 个 ETL 子系统合并为统一 Skill + 工具  **日期**: 2026-08-27 **作者**: SDD 接力会话 (清理完 93 字段后, 开启新方向) **目标**: 把 `erp_etl` (订单)"
+014ab1b4e5dd85ab,1788705182,1,1,N,,,34,v2,unknown,none,# fix_order_amount_fields package 
+082d53fbc06c83ce,1788705182,1,1,N,,,5156,v2,unknown,none,"# 订单金额字段数据修正脚本  > 一次性脚本 — 把 `订单数据/订单_2026_0*.xlsx` 中""商家实收""+""买家实付""改为同行""销售金额""的值, 并触发 ETL 让 PG 双库 24 张表对齐. > > **Spec**: `d"
+64d07cc9cabf3a60,1788705182,1,1,N,,,1105,v2,unknown,none,(binary)
+70364c9a6a92c179,1788705182,1,1,N,,,8571,v2,unknown,none,"""""""xlsx 扫描 + 备份 + 修改 cell.  Spec: docs/superpowers/specs/2026-09-06-fix-order-amount-fields-design.md §4.2  职责: - scan: "
+7b9cb1f699b1fdb3,1788705182,1,1,N,,,2369,v2,unknown,none,(binary)
+8bb8560fa932744e,1788705182,1,1,N,,,18,v2,unknown,none,# scripts package 
+8fdae47960ab2756,1788705182,1,1,N,,,5027,v2,unknown,none,2026/9/3	3610439003575355	# 用户报告 2026/8/20	3316980756100163288	# 用户报告 2026/8/18	5127190275625029531	# 用户报告 2026/8/11	358
+90a49086216369b7,1788705182,1,1,N,,,43,v2,unknown,none,# tests/fix_order_amount_fields subpackage 
+9d2ccbdfd0325a01,1788682268,1,1,N,,,14148,v2,unknown,none,(binary)
+9db985cd52399f8a,1788705182,1,1,N,,,4976,v2,unknown,none,"# ETL 复盘 - ""今日""参数错误  > **必读**: 新会话接手 ETL 任务时, 必看此文档  ## 错误事实  **时间**: 2026-07-14 下午 **错误**: 拉取 inout_summary ETL 时, 使用 `"
+b008554a1c685bba,1788705182,1,1,N,,,2597,v2,unknown,none,"""""""jsterp-upload ETL 三阶段触发.  Spec: docs/superpowers/specs/2026-09-06-fix-order-amount-fields-design.md §4.3  Phase 1: js"
+c39efd09e59ed8bf,1788705182,1,1,N,,,22337,v2,unknown,none,"""""""Tests for fix_order_amount_fields module.  测试编号与 plan 一致: - Task 1 smoke: test_models_import / test_cli_module_import"
+d725593db9fc8f4b,1788705182,1,1,N,,,2452,v2,unknown,none,"""""""TSV 清单解析: data/order_amount_fix_list_*.tsv → dict[oid] → list[FixItem].  Spec: docs/superpowers/specs/2026-09-06-fix-"
+d9edcb4a5b0eaae2,1788705182,1,1,N,,,6923,v2,unknown,none,"""""""主 CLI 入口 — 订单金额字段数据修正.  Spec: docs/superpowers/specs/2026-09-06-fix-order-amount-fields-design.md §4.5  用法:   # dry-r"
+e59dd25057fd482d,1788705182,1,1,N,,,2481,v2,unknown,none,"""""""xlsx → PG 双库验收 (sample_compare_order).  Spec: docs/superpowers/specs/2026-09-06-fix-order-amount-fields-design.md §4."
+fa087a82842218e0,1788678973,1,1,N,,,17077,v2,unknown,none,(binary)
+280e3ef759062a19,1790433967,1,1,N,,,1165,v1,unknown,none,# SDD ledger — plan: docs/superpowers/plans/2026-09-26-agent-quality-guide-plan.md  ## Setup - BASE: 4b0ae55e94abaec34d1
+0e0921dbaea61e95,1788535165,1,1,N,,,98,v1,unknown,none,flask==3.0.3 prometheus-client==0.20.0 psycopg2-binary==2.9.9 python-dotenv==1.0.1 waitress==3.0.0
+55a653dfdc6320bd,1788536304,1,1,N,,,688,v1,unknown,none,global:   scrape_interval: 30s   evaluation_interval: 30s   external_labels:     system: sales-bi  alerting:   alertmana
+5cc86ff4469848b9,1788535169,1,1,N,,,4578,v1,unknown,none,#!/usr/bin/env bash # Sales BI A2 监控栈一键启用。幂等：可重复执行。 # 不重启、不修改任何业务 unit（pipeline / evidence / update）。 set -euo pipefail 
+94fa864e3f06924e,1788535156,1,1,N,,,675,v1,unknown,none,[Unit] Description=Sales BI monitoring metrics exporter Documentation=file:///opt/sales-bi/monitoring/README.md After=ne
+9e533520685f271e,1788535160,1,1,N,,,659,v1,unknown,none,server:   http_listen_port: 9080   grpc_listen_port: 0  positions:   filename: /tmp/positions.yaml  clients:   - url: ht
+b0f7e48f031e73ac,1788536321,1,1,N,,,2522,v1,unknown,none,name: sales-bi-monitoring  networks:   sales-bi-monitoring:     driver: bridge  volumes:   prometheus-data:   grafana-da
+0928d58a8bbebd8b,1789206691,1,1,N,,,4794,v2,unknown,none,// inject-v16-daterange-zh.js // DateRange/Dropdown 英文 → 简体中文本地化 // Stage 7-23: 解决 Evidence 40.x 内置组件无中文 locale 问题 // 用法
+09d428243ecaf932,1789190490,1,1,N,,,2509,v2,unknown,none,"#!/usr/bin/env python3 """"""Stage 7-21 patch: add ESM-only packages to vite optimizeDeps.exclude.  The Evidence 40.1.8 + V"
+0cd6400a7ec48216,1789190490,1,1,N,,,1326,v2,unknown,none,(binary)
+19310cb619f6234b,1789190490,1,1,N,,,7948,v2,unknown,none,# Plan: Stage 7-21 — 修 sidebar .bak 残留 + filter 真正起作用  ## Context  承接 `handoff-sales-bi-stage7-20-residual-issues-2026-0
+3d8f53456a9fa3e6,1789206691,1,1,N,,,2772,v2,unknown,none,"// Stage 7-23 Playwright E2E verify // Test: change DateRange, verify chart data changes (filter actually works) import "
+4451027f97ebc0e3,1789190490,1,1,N,,,1448,v2,unknown,none,(binary)
+75dc4acd16cb6293,1789190490,1,1,N,,,1155,v2,unknown,none,(binary)
+832af4a6d49a4464,1789190490,1,1,Y,SvelteKit 2.70+ requires Svelte 5,feedback,1484,v2,global,medium,"--- name: SvelteKit 2.70+ requires Svelte 5 description: SvelteKit 2.50+ client runtime 用 Svelte 5 才有 exports,svelte 4.2"
+ad20202e82238948,1789190490,1,1,N,,,3142,v2,unknown,none,#!/bin/bash # Stage 7-21: 部署 filter 真起作用 + 删 .md.bak 单文件备份 # 流程: #   1) 备份 8 张原始 .md 到 /tmp/stage7-21-backup/ #   2) 复制 
+c2dd5f4d21334ecd,1789206691,1,1,N,,,1491,v2,unknown,none,"#!/bin/bash # Stage 7-23 verify: nginx reverse proxy to evidence dev (3000) set -e echo ""=== D1 verify ==="" echo ""--- ng"
+d055c1d010c24c7e,1789190490,1,1,N,,,8259,v2,unknown,none,"852634005740663, skill=doubao-public-company-analysis, id=352971275010 [896756:898936:0927/103743.852:INFO:aha\component"
+d52b2ef9d5f812ef,1789190490,1,1,N,,,1853,v2,unknown,none,"--- title: 未分类 SKU 清单(治理建议) ---  <script module>   import { DataTable, BarChart } from '@evidence-dev/core-components'; "
+1f5c7d835c409b72,1788224992,1,1,N,,,5863,v4,unknown,none,(binary)
+4f50bfe8f55c4d3a,1788094797,1,1,N,,,2489,v2,unknown,none,(binary)
+7d6b015c634e877d,1788246566,1,1,N,,,34699,v1,unknown,none,(binary)
+82e6f8454e2149c3,1788244555,1,1,N,,,15809,v2,unknown,none,# Shouhou Schema Migration Design (4 张 shouhou_*_processed 表 → 新 shouhou schema)  > **日期**: 2026-08-31 > **承接**: order-s
+a9aa533aef030028,1788224992,1,1,N,,,7316,v3,unknown,none,"(e){return t.CountVisibleElements(e)>0}}class a{static Click(e,a,o){const l=a??t.GetFirstVisibleElement(e);return!!l&&(w"
+c64c61554c2061e3,1788094797,1,1,N,,,2648,v3,unknown,none,"""""""用户自定义 SQL 步骤注册表 (扩展点).  按需在此文件中添加 SqlStep, 然后通过以下命令执行:     python -m jsterp_upload sql-process --step <name> --target"
+cafe5737aae4984d,1788224992,1,1,N,,,11185,v2,unknown,none,# Order Schema Migration Design (processed 表转移到 order schema)  > **日期**: 2026-08-29 > **承接**: handoff-processed-v3-2026-
+e5637847083025f0,1788094797,1,1,N,,,10230,v2,unknown,none,# Handoff: processed 子系统 v3 (按月增量) 完成 + 下阶段 shouhou process 接力  > **日期**: 2026-08-28 > **承接**: handoff-processed-impl-20
+e6ac5f1be9d05862,1788224992,1,1,N,,,23006,v2,unknown,none,(binary)
+f89ec7f6aa7bb9ac,1788224992,1,1,N,,,9312,v4,unknown,none,",F.Ru)(""buttonRecycleBin"")]}],l=(0,F.Ru)(""extName""),a=(0,he.EW)(()=>{const e=j.route.paths[0];return n.find(t=>t.name==="
+b3a2b80b73442fa4,1788835953,1,1,N,,,11915,v2,unknown,none,# Spec: Sales BI Report Customization — Stage 6  **Date**: 2026-09-08 **Stage**: 6 (交互能力增强) **Handoff 起点**: `handoff-sal
+ab73b715a726b851,1788015920,1,1,N,,,93,v1,unknown,none,dbt-core==1.8.4 dbt-postgres==1.8.4 python-dotenv==1.0.1 pytest==8.3.3 psycopg2-binary==2.9.9
+f5ae8350afd543b5,1788015886,1,1,N,,,1056,v1,unknown,none,# SDD ledger — plan: docs/superpowers/plans/2026-08-29-sales-bi-data-layer.md  ## 状态 - 项目根：E:\办公文件\G1销售管理\00data_analysi
+01e693d96e4f5f76,1789388261,1,1,N,,,4966,v2,unknown,none,"# Handoff — GEO电商底层逻辑 · 2026-09-14 完成版  ## 状态:✅ 全部完成  **最终产物**: - `output/GEO电商底层逻辑_cleaned.md` (42,478 chars, 6 H2 + 32"
+0591a330a7ff2b7e,1789388261,1,1,N,,,2304,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""项目级 split:把 transcript 按字符数均匀切成 N 块(默认 5)。  策略: - 输入: <transcript>.md "
+3427a9a15b7d5c04,1789388261,1,1,N,,,6795,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""项目级 postprocess v2:修复第二轮剩余规约。  修复: 1. NO-MARKDOWN-FENCE: 6.3 决策流程图 去除 "
+3d088861c88b7d18,1789388261,1,1,N,,,2509,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""项目级 postprocess v6:修复 v5 引入的 2 个 FAIL。  1. H4-NUMBERING: `#### N.M` 降级"
+56e4df6e656e5452,1789388261,1,1,N,,,7680,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""项目级 postprocess v5:解决最后 2 个 FAIL。  1. FULLWIDTH-PUNCT: 重新跑全角标点转换(v4 新内"
+7aad6b67c7d526d5,1789388322,1,1,N,,,5117,v1,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""post_pass_terms.py — 对 cleaned.md / final.html 做上下文安全的术语替换。  背景：valida"
+bc9297935a53d9b2,1789388261,1,1,N,,,5173,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""项目级 postprocess v4:解决剩余 2 个 FAIL。  1. PARAGRAPH-LENGTH: 6.3 决策流程图拆分为多段"
+d3dc3e7b0f5644ba,1789388261,1,1,N,,,2745,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""项目级 merge v3:从 parts/partNN_strict.md 合并为单个 cleaned.md(GEO 项目定制)。  行为:"
+e7cef3e6ce03cd92,1789388261,1,1,N,,,8560,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""项目级 postprocess v1:一次性修复 v4.9.1 多条规约。  修复列表: 1. NUMBERING-DOTTED: `## "
+eab9c5f1bd8103ec,1789388261,1,1,N,,,6653,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""项目级 postprocess v3:修复第二轮 + 第三轮剩余规约。  修复: 1. NO-MARKDOWN-FENCE: 6.3 决策流"
+639256e5dfa121e1,1789217666,1,1,N,,,6228,v2,unknown,none,(binary)
+746658f1d5d63b48,1789217666,1,1,N,,,4061,v2,unknown,none,(binary)
+c24332bd55b237da,1789217666,1,1,N,,,11421,v2,unknown,none,"# Handoff — erp_result.proid_* PK 纠错 (2026-09-12, 删 OID 改 PK 4 列)  > **承接**: handoff-orderid-type-fix-2026-09-04.md > **"
+d2897376cc72550e,1789217666,1,1,N,,,3599,v2,unknown,none,"""""""诊断 erp_result 表重复 — 多角度检查."""""" import psycopg2, os from dotenv import load_dotenv load_dotenv()   def conn_prod():    "
+c10a511faebee3b2,1788320716,1,1,Y,test_processed_etl SQL 缺 schema 前缀,feedback,2619,v1,global,medium,"--- name: test_processed_etl SQL 缺 schema 前缀 description: tests/test_processed_etl.py 30+ 处 SQL 没加 ""order"". schema 前缀, 是"
+51e6eb0afc7f2e72,1789312477,1,1,N,,,11656,v1,unknown,none,(binary)
+a92a486142416e02,1789311255,1,1,N,,,5269,v1,unknown,none,"""""""build_full_ddl() — 生成 CREATE SCHEMA + etl_file_hash + core_daily_YYYY."""""" import re import warnings from pathlib impo"
+13f704dcdfa1f361,1788513396,1,1,N,,,4922,v2,unknown,none,(binary)
+32acb688ea313f7d,1788513396,1,1,N,,,6070,v2,unknown,none,"# Handoff — orderid_* 新表实施 (2026-09-04, 双库 16/16 PASS)  > **承接**: handoff.md (2026-09-04 综合接力, 全链路 71/71 PASS 双库一致) > **"
+33693b54d82575ff,1788513396,1,1,N,,,9627,v2,unknown,none,"#!/usr/bin/env python # -*- coding: utf-8 -*- """""" verify_orderid_etl.py — 独立验证工具: 检查 4 张 orderid_* 新表 ETL 正确性.  2026-09-"
+4945fc2bcf9c45e5,1788530332,1,1,N,,,7028,v2,unknown,none,"# Handoff — 虚假验证纠错 (2026-09-04, 双库实际不一致已暴露)  > **承接**: handoff-orderid-impl-2026-09-04.md + handoff-proid-impl-2026-09-0"
+495e2fc668a39957,1788530332,1,1,N,,,6300,v2,unknown,none,"# Handoff — orderid_* 类型列补回 (2026-09-04, 用户纠错 + 虚假验证修复)  > **承接**: handoff-verify-failback-2026-09-04.md (虚假验证纠错) > **用户"
+586c530ff93c46e7,1788619858,1,1,N,,,6130,v2,unknown,none,# Handoff — loader 静默丢行修复 + 双库同步纪律 (2026-09-04 ~ 09-05)  > **承接**: handoff-verify-failback-2026-09-04.md (虚假验证纠错) > **用户
+dc2cd310b18af1b2,1788619858,1,1,N,,,7873,v2,unknown,none,"#!/usr/bin/env python # -*- coding: utf-8 -*- """""" sync_dual_db.py — 强制双库同步 + 一键验收 (2026-09-05 用户纠错机制).  历史问题: 多次 ""prod 修"
+e1e2786543e4a88a,1789963666,1,1,N,,,2323,v1,unknown,none,"{{ config(materialized='view', tags=['m3_100k']) }}  -- M4 mart 健康监控: 元数据聚合, 列出 bi schema 11 个业务 mart 的行数/大小/状态 -- 行/大小/"
+10088ea830db7ffe,1788662989,1,1,N,,,6680,v2,unknown,none,(binary)
+1cd482cc2b3ce560,1788676934,1,1,N,,,143,v2,unknown,none,"shop_id = ""darong"" schema = ""shop_darong"" source_subdir = ""大融/001店铺数据/01核心日报"" display_name = ""大融"" default_shop = false "
+1cfa64ff23b7be84,1788676934,1,1,N,,,145,v2,unknown,none,"shop_id = ""jiantai"" schema = ""shop_jiantai"" source_subdir = ""健泰/001店铺数据/01核心日报"" display_name = ""健泰"" default_shop = false"
+224a348a487f8121,1788676934,1,1,N,,,2724,v2,unknown,none,"""""""7 店 config 加载器(PHASE-2a 2026-09-05).  每个店一个 .toml 文件在 sources/shop_core_daily/shops/ 目录: - shop_id: 英文小写(写入 PG 的 shop"
+303a95cfb2cbb686,1788676934,1,1,N,,,149,v2,unknown,none,"shop_id = ""zhuoguang"" schema = ""shop_zhuoguang"" source_subdir = ""卓广/001店铺数据/01核心日报"" display_name = ""卓广"" default_shop = f"
+42d70d1351b2cef1,1788662989,1,1,N,,,4041,v2,unknown,none,"""""""扫 21 个 xlsx → 列名并集 + 类型推断."""""" import logging import re import warnings from pathlib import Path  import openpyxl  log"
+4b743bf8ebb792e8,1788676934,1,1,N,,,5084,v2,unknown,none,"""""""PHASE-2a: 7 店 config loader + 参数化回归测试."""""" import pytest from pathlib import Path  from storedata_upload.sources.shop_"
+5076fd3c8388a60a,1788676934,1,1,N,,,6169,v2,unknown,none,(binary)
+5bac1c98f1c4d474,1788676934,1,1,N,,,141,v2,unknown,none,"shop_id = ""feite"" schema = ""shop_feite"" source_subdir = ""飞特/001店铺数据/01核心日报"" display_name = ""飞特"" default_shop = false "
+611bb641df8edf02,1788676934,1,1,N,,,140,v2,unknown,none,"shop_id = ""renhe"" schema = ""shop_renhe"" source_subdir = ""仁禾/001店铺数据/01核心日报"" display_name = ""仁禾"" default_shop = true "
+6e06fe878163f747,1788676934,1,1,N,,,161,v2,unknown,none,"shop_id = ""fengshangzhi"" schema = ""shop_fengshangzhi"" source_subdir = ""风尚志/001店铺数据/01核心日报"" display_name = ""风尚志"" default_"
+8780588c39d6783b,1788676934,1,1,N,,,218,v2,unknown,none,"""""""7 淘系店铺 config 目录(renhe + 6 待处理). 每个 .toml 包含 1 个店的:shop_id, schema, source_subdir, display_name, default_shop(renhe 为"
+a1f83f461d075714,1788655171,1,1,N,,,5953,v2,unknown,none,"# Handoff: 数据库写错库 bug 修复 (FIX-1..FIX-8) — 已完成  > **日期**: 2026-09-05 > **会话背景**: Step 1 仁禾核心日报 sign-off 后,用户反馈""云端 taobao "
+b1c53261972a04d1,1788652633,1,1,N,,,6073,v2,unknown,none,# SDD Progress Ledger: storedata_upload Step 1  > **Branch**: main (just initialized) > **Plan**: docs/superpowers/plans
+b4c8e88804bd59eb,1788676934,1,1,N,,,151,v2,unknown,none,"shop_id = ""haoyale"" schema = ""shop_haoyale"" source_subdir = ""好雅乐/001店铺数据/01核心日报"" display_name = ""好雅乐"" default_shop = fal"
+ca3c50ff262fabb1,1788619473,1,1,N,,,78833,v2,unknown,none,(binary)
+ce489edfccd7a70c,1790394044,1,1,N,,,359,v1,unknown,none,# IDE / 编辑器 .vscode/ .idea/ *.swp *.swo .DS_Store Thumbs.db  # Python __pycache__/ *.py[cod] *.egg-info/ .venv/ venv/  #
+00e35c96b40a8dc3,1789085386,1,1,N,,,8937,v2,unknown,none,(binary)
+079547597de7751b,1789052262,1,1,N,,,13560,v2,unknown,none,"""""""shop_all_products 主入口: scan → sha256 → 38 列固定 → DELETE 1 天 + COPY → UPSERT hash.  与 shop_core_daily 的关键差异: - skip 4 r"
+07f82f95000483e8,1789044961,1,1,N,,,3036,v1,unknown,none,"""""""build_full_ddl() — 生成 CREATE SCHEMA + etl_file_hash + wxt_promotion_<type>_YYYY.  PK 列从 sub_config.pk_cols 动态注入(支持 4 "
+0f65ce9e23953ca5,1789052264,1,1,N,,,3759,v2,unknown,none,"""""""build_full_ddl() — 生成 CREATE SCHEMA + etl_file_hash + dmp_full_product_YYYY.  FIX-JD-8 同步 (Step 15a, 2026-09-10): bui"
+1d36ec563897dda9,1789085743,1,1,N,,,805,v1,unknown,none,"""""""京东推广 sub-configs 注册表 (FIX-WXT-6 模式: 独立 __init__ 避免循环导入).  2 个 sub-config 各自定义, 通过 SUB_CONFIGS 字典注册 (key = report_type"
+1e963ab0b2a938a7,1789085915,1,1,N,,,193,v1,unknown,none,"shop_id = ""renhe"" schema = ""shop_renhe"" source_subdir = ""E:/办公文件/G1销售管理/G04 统计数据/03单品计划执行/JD-仁禾/推广数据"" display_name = ""仁禾"
+21c5cc3be444e0de,1789085386,1,1,N,,,7434,v2,unknown,none,(binary)
+2ff2150d6ea5b9e7,1789052264,1,1,N,,,6243,v2,unknown,none,# Handoff — 5 淘系子系统同步 FIX-JD-7/8/9 (Step 15 final)  **日期**: 2026-09-10 **接力源**: `handoff-shop-audit-bugfixes-2026-09-10.
+435859425aa67720,1789050945,1,1,N,,,7981,v2,unknown,none,"# Handoff — 三系统审计 + Bug 修复 (Step 14 audit fix, P2-P5)  **日期**: 2026-09-10 **接力源**: `handoff-shop-pdd-wxt-step14-final-20"
+4c7ffd461d61f4fd,1789044970,1,1,N,,,5067,v1,unknown,none,"(r.a)(""PinOff48Regular"",""48"",[""M16.7 18.48 4.63 6.38a1.25 1.25 0 1 1 1.76-1.76l37 37a1.25 1.25 0 0 1-1.76 1.76L29.52 31."
+5fc7da5042ca56ce,1789050945,1,1,N,,,1754,v2,unknown,none,(binary)
+68fcc0a8066921eb,1789085386,1,1,N,,,9377,v2,unknown,none,import hashlib import pandas as pd import pytest from pathlib import Path from unittest.mock import MagicMock from store
+85818891083c9d2d,1789052264,1,1,N,,,4086,v2,unknown,none,"""""""build_full_ddl() — 生成 CREATE SCHEMA + etl_file_hash + shop_all_products_YYYY.  FIX-JD-8 同步 (Step 15a, 2026-09-10): bu"
+8e6958fb0607375c,1789085386,1,1,N,,,6819,v2,unknown,none,(binary)
+ba8f49f4228c1b71,1789085386,1,1,N,,,8693,v2,unknown,none,"""""""shop_all_products DDL 测试 — 7 店通用."""""" import re from storedata_upload.sources.shop_all_products.ddl import build_full_"
+cb8121212e7e1056,1789085703,1,1,N,,,1302,v1,unknown,none,"""""""京东推广 sub-configs 共享常量 (FIX-WXT-6 模式: 独立常量模块避免循环导入).  包含: - 2 个 REPORT_TYPE_* (promotion 推广计划 / searchword 搜索词) - VALI"
+dbd9c4f19dc1064f,1789085928,1,1,N,,,214,v1,unknown,none,"shop_id = ""fengshangzhi"" schema = ""shop_fengshangzhi"" source_subdir = ""E:/办公文件/G1销售管理/G04 统计数据/03单品计划执行/JD-风尚志/推广数据"" dis"
+f2512e559056c838,1789050945,1,1,N,,,1886,v2,unknown,none,"""""""tests/test_apply_ddl_wxt.py — apply_ddl_wxt CLI 集成测试.  需要真实 PG(测试 schema shop_renhe_apply_ddl_test, 测完 DROP). """""" imp"
+f5c1e3687ac481e6,1789050945,1,1,N,,,3530,v2,unknown,none,"""""""tests/test_apply_ddl_pdd_promotion.py — apply_ddl_pdd_promotion 单元测试.  覆盖: - --shop all 跨店 ALTER (Bug #2 修复, 2026-09-"
+f838167c66940840,1790168178,1,1,N,,,7300,v1,unknown,none,        cur = cur[x]\\n            cur[path[-1]] = None\\n            continue\\n        m4 = re.match(r'^\\\\.([\\\\w.]
+99179c72e838d899,1788780697,1,1,N,,,335,v1,unknown,none,#!/bin/bash # 服务器侧 Evidence CLI 安装 wrapper # 用法：sudo bash /tmp/install_evidence.sh set -e exec > /tmp/install_evidence.l
+2eaa9c8901dcedb4,1789006476,1,1,N,,,4830,v2,unknown,none,(binary)
+517fd5401398ac42,1789006476,1,1,N,,,5062,v2,unknown,none,(binary)
+5c01871e5d5be5ea,1789006476,1,1,N,,,5113,v2,unknown,none,"""""""京东推广 - routing 测试 (15 cases).  覆盖: - 2 sub-config × 3 店文件名 accept - 6 tests - 拒绝屏蔽关键字 / ~$ / 旧年份 / 未来年份 - 4 tests (pa"
+dc794e1d1af0ae44,1789006476,1,1,N,,,4576,v2,unknown,none,"""""""京东推广 - column_map 测试 (8 cases).  覆盖 (PDD-9 沿用): - clean_numeric 文本列保留 (PDD-9) - clean_numeric 跳过日期列 (PDD-2) - clean_n"
+e048f888d77458fc,1789006476,1,1,N,,,1688,v2,unknown,none,"""""""京东推广 - TOML 配置加载测试 (3 cases).  验证: - 3 店 toml 全部存在 - list_shop_ids 返回 3 个 shop - load_shop_config 返 ShopConfig 含 disp"
+e327bf715f5ae1f3,1789006476,1,1,N,,,9492,v2,unknown,none,(binary)
+bb15a8ad3aedd239,1788838247,1,1,N,,,637,v1,unknown,none,# SDD ledger — plan: docs/superpowers/plans/2026-09-08-sales-bi-stage6-1-time-filter.md  ## Pre-flight  - Plan: docs/sup
+8eaa804cfe82ab8c,1789775781,1,1,N,,,42208,v1,unknown,none,"# 关联品线洞察 · 营销策略布局  ## 1 开篇与店铺三大痛点  ### 1.1 后台'年代分析'数据面板的展示与提问互动  开场先抛出互动问题：后台哪个板块出现过""年代分析""四个字，并要求看到过的人扣 1。互动结果显示仅 1 人留意过"
+c60e55ac580f2731,1788772582,1,1,N,,,12461,v1,unknown,none,"// remark-markdoc-block.cjs // Stage5g 专用 — 把 {% xxx /%} markdoc 段落从 <p class=""markdown""> 中释放出来 // 触发原因:evidence 40.1.8 "
+00535f9ef5fc1c8b,1790576092,1,1,Y,Session Health — F:\resourse_study,project,2935,v1,unknown,none,--- name: Session Health — F:\resourse_study description: 项目根 cwd=`F:\resourse_study` 的会话健康状况、根级历史缺失原因、兜底机制 type: projec
+1818202f1611c038,1790576092,1,1,Y,CWD 0 字节 jsonl 现象,reference,1306,v1,global,medium,"--- name: CWD 0 字节 jsonl 现象 description: Claude Desktop 在 cwd=`F:\resourse_study` 下注册过的 jsonl 经常 0 字节——非数据丢失,是创建后从未 appe"
+7f8a2744a6023e7f,1790576092,1,1,N,,,4984,v1,unknown,none,"# Handoff — session-recovery-bootstrap (2026-09-28)  > 触发事件：2026-09-28 14:00 用户在本会话开篇称""当前项目的历史会话都因为意外消失了，请设法进行恢复""。本 hand"
+a9b29f97bb287dd3,1790576092,1,1,Y,handoff 命名约定,reference,1439,v1,global,medium,"--- name: handoff 命名约定 description: 用户在该项目下的 handoff 文件命名风格,沿用子目录已有 14 个样本 type: reference ---  # handoff 命名约定  **约定**：`"
+fa933a297d78c45b,1790576092,1,1,N,,,379,v1,unknown,none,"- [Session Health](session_health.md) — 项目根 cwd=`F:\resourse_study`,8/3-9/28 root 层 handoff 缺失,2026-09-28 已重建 - [CWD 0字节"
+93b1bff1cdbd7fb7,1788962856,1,1,N,,,3242,v2,unknown,none,"""""""拼多多 - 商品推广 SUB_CONFIG (46 列主集).  来源 xlsx: `<店>_商品推广_YYYY-MM.xlsx`, sheet: `商品_分天数据_<date>至<date>`. 1-2 月 48 列 / 3 月起 "
+b222e849fe89549d,1788945223,1,1,N,,,4191,v2,unknown,none,"""""""verify_pdd_promotion 自检测试 (6 cases).  覆盖: - _normalize: strip trailing zeros (FIX-TS-B 沿用) - _normalize: 百分号 / NaN / "
+dbabca505aff6afc,1788945223,1,1,N,,,6446,v2,unknown,none,"# Handoff — 拼多多推广 ETL (Step 11) — 实施完成 (part 2 / 最终)  **日期**: 2026-09-09 **实施人**: Claude (M3) **状态**: ✅ Step 11 全部完成, 12"
+199f9601cf965bb3,1788434360,1,1,Y,erp_result 跨月数据缺失 bug (2026-09 缺失),feedback,4123,v2,global,medium,"--- name: erp_result 跨月数据缺失 bug (2026-09 缺失) description: 2026-09-03 用户反馈 erp_result 缺 9 月份数据, 实际是 processed 派生表陈旧导致 typ"
+2f44ef45f8c17f05,1788428330,1,1,N,,,9644,v2,unknown,none,(binary)
+39c993f0573e28a9,1788434360,1,1,N,,,4406,v2,unknown,none,"""""""最终验收: 12 张 erp_result 表全部含 2025-09 + 2026-09, 双库一致, 无数据缺失."""""" import psycopg2, os from dotenv import load_dotenv load"
+58a127ea7f65b454,1788361354,1,1,N,,,3989,v2,unknown,none,# erp_result 字段映射 (双源 → daily_*)  > **基线**: 2026-09-02 erp_result 子系统首次落地 > **承接**: spec §4.2 + processed_steps.py > **来
+5f36b2fecce507ac,1788423812,1,1,N,,,1390,v2,unknown,none,"import psycopg2, os from dotenv import load_dotenv load_dotenv() c = psycopg2.connect(host=os.getenv('PG_HOST_PROD'), db"
+6029c3d5f584a02e,1788364012,1,1,Y,erp_result 跨月 PK + DDL IF NOT EXISTS 双 bug 修复,feedback,3686,v2,global,medium,"--- name: erp_result 跨月 PK + DDL IF NOT EXISTS 双 bug 修复 description: 2026-09-02 用户反馈重复数据后发现的两个核心 bug, 都已修复并部署 prod type:"
+6965021d5674cd1a,1788361354,1,1,Y,erp_result daily_sku 列名错位修复,feedback,1527,v2,global,medium,"--- name: erp_result daily_sku 列名错位修复 description: erp_result T10 调试时发现的 daily_sku_step bug, 用 _sku_select_list() 别名修复 t"
+cee2525092eb26dc,1788361354,1,1,N,,,3276,v2,unknown,none,# Task 8 Brief — CLI cmd_run/verify/sample 注册 + sample_compare_daily.py  ## Context - 子系统: `erp_result` (12 张 daily_* 表 
+e1b5686a509c26f6,1788423812,1,1,Y,order loader hook 触发条件写反 bug,feedback,3172,v2,global,medium,"--- name: order loader hook 触发条件写反 bug description: 2026-09-03 用户反馈 ""数据库没更新"" 后发现的 hidden bug,导致 processed 派生表 stale 数周 t"
+eaa8fd52ce58d5ec,1788423812,1,1,N,,,2591,v2,unknown,none,"import psycopg2, os from dotenv import load_dotenv load_dotenv() def get_count(target, schema, tbl, dbname='erp'):     i"
+eaf06e4dfcb3f138,1788428330,1,1,Y,派生层 staleness 检测工具 (verify_processed_freshness.py),project,2990,v2,unknown,none,"--- name: 派生层 staleness 检测工具 (verify_processed_freshness.py) description: 2026-09-03 用户反馈 order hook bug 后沉淀的工具, 检测 源 pu"
+8363fe4d42b04346,1788791061,1,1,N,,,709,v1,unknown,none,(binary)
+4d1449660f9d703d,1790592371,1,1,N,,,5544,v1,unknown,none,"import os, shutil, subprocess, sys from datetime import datetime  C_SKILLS = r'C:\Users\Duanyi\.claude\skills' E_SKILLS "
+ca8e3ce4ee51497e,1790592371,1,1,N,,,2854,v1,unknown,none,"import os, shutil, hashlib  SK = r'C:\Users\Duanyi\.claude\skills'  # junction to E:  def file_hash(p):     try:        "
+0e2ad01c2c46b80d,1789216914,1,1,N,,,4378,v2,unknown,none,(binary)
+10930825fd0bcd2d,1789216914,1,1,N,,,3584,v2,unknown,none,(binary)
+18641b3eab0bb392,1789216914,1,1,N,,,5892,v2,unknown,none,# Handoff v3(终版) · 超级个体 workbuddy 36 视频 long-doc 处理  > v1: 2026-09-12 18:20(必做首问 + 9 章骨架) > v2: 2026-09-12 20:14(D0 + 9 
+1fc825fbdafbc21c,1789216914,1,1,N,,,4757,v2,unknown,none,(binary)
+5d983122cd67654c,1789216914,1,1,N,,,6218,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""_worker.py — 单 worker,串行处理 N 个 mp4,逐个调 crv-audio --whisper-model turbo"
+6c612553ecb55495,1789216914,1,1,N,,,6527,v2,unknown,none,(binary)
+823215123d1ddbe6,1789216914,1,1,N,,,1241,v2,unknown,none,(binary)
+a8227d2c5a9d66b7,1789216914,1,1,N,,,7720,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""_batch_asr.py — 36 个 mp4 批量 ASR(2 路 turbo 并发,项目级 wrapper)  策略: - 用户决定:"
+ef1b7f71d3821d5a,1789216914,1,1,N,,,1831,v2,unknown,none,(binary)
+fd6fe0d3e3728f3a,1789218292,1,1,N,,,5669,v2,unknown,none,"#!/usr/bin/env python3 # -*- coding: utf-8 -*- """"""_fix_structure.py v2 — LLM 强制修复 H3 嵌套 + 加编号  策略: 1. 脚本提取所有 H3 下直接跟 H3 "
+81e5d2e17fb574a1,1790379100,1,1,N,,,90,v1,unknown,none," # Added by codebase-memory-mcp install export PATH=""C:/Users/Duanyi/.local/bin:$PATH"" "

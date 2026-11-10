@@ -1765,16 +1765,16 @@ mod tests {
     #[test]
     fn folder_readback_matches_target_paths() {
         assert!(folder_readback_matches(
-            Some(r"F:\soft\00selfmade\filemanager"),
-            r"F:\soft\00selfmade\filemanager"
+            Some(r"F:\soft\00selfmade\filemanager\sigma-file-manager"),
+            r"F:\soft\00selfmade\filemanager\sigma-file-manager"
         ));
         assert!(folder_readback_matches(
-            Some(r"F:\soft\00selfmade\filemanager\"),
-            r"F:\soft\00selfmade\filemanager"
+            Some(r"F:\soft\00selfmade\filemanager\sigma-file-manager\"),
+            r"F:\soft\00selfmade\filemanager\sigma-file-manager"
         ));
         assert!(folder_readback_matches(
-            Some("f:/soft/00selfmade/filemanager"),
-            r"F:\soft\00selfmade\filemanager"
+            Some("f:/soft/00selfmade/filemanager/sigma-file-manager"),
+            r"F:\soft\00selfmade\filemanager\sigma-file-manager"
         ));
     }
 
@@ -1785,11 +1785,11 @@ mod tests {
     fn folder_readback_rejects_other_paths() {
         assert!(!folder_readback_matches(
             Some(r"C:\Users\Duanyi\Downloads"),
-            r"F:\soft\00selfmade\filemanager"
+            r"F:\soft\00selfmade\filemanager\sigma-file-manager"
         ));
         assert!(!folder_readback_matches(
             None,
-            r"F:\soft\00selfmade\filemanager"
+            r"F:\soft\00selfmade\filemanager\sigma-file-manager"
         ));
     }
 

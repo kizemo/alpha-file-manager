@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>盘符叠加方案对照 · 第四轮（用户选定 10%）</title>
+<!--
+  这份文件是 Alpha File Manager 侧栏盘符样式的**视觉对照 + 量化页**。
+
+  用途有两个：
+    1. 视觉：在无法直接截到应用窗口时（WebView2 焦点被抢），仍能精确看效果。
+    2. 量化：用 getBoundingClientRect 实测每档的重叠比例，不靠估算。
+
+  本轮（第四轮）用户从对照图里选定了 translate(-50%, 10%) 这一档。
+  页面里 0% 保留作对照，用于说明「为什么不是更深的重叠」。
+-->
+<style>
+  body.light { --background-2: 220 13% 93%;  --muted-foreground: 220 8.9% 46.1%; }
+  body.dark  { --background-2: 225 10% 16%; --muted-foreground: 0 0% 62%; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { display:flex; gap:40px; padding:24px; font-family: system-ui, sans-serif; }
+  body.light { background: hsl(220 13% 93%); }
+  body.dark  { background: hsl(225 10% 16%); }
+
+  .col { display:flex; flex-direction:column; gap:18px; }
+  .coltitle { font-size:13px; font-weight:700; }
+  .cap { font-size:11px; color: hsl(var(--muted-foreground)); margin-bottom:6px; }
+  .cell { background: hsl(var(--background-2)); padding:10px 8px; display:flex; gap:8px; border-radius:6px; align-items:flex-end; }
+
+  /* ——— 与 nav-sidebar.vue 中保持一致 ——— */
+  .drive {
+    position: relative;
+    display: flex;
+    width: 24px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+  }
+  .stack { position: relative; display: flex; width:100%; height:100%; align-items:center; justify-content:center; }
+  .icon { width:16px; height:16px; fill:none; stroke-width:2; stroke: hsl(var(--muted-foreground)); }
+  .label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    color: hsl(var(--muted-foreground));
+    white-space: nowrap;
+    pointer-events: none;
+    letter-spacing: 0;
+    -webkit-text-stroke: 2px hsl(var(--background-2));
+    paint-order: stroke fill;
+  }
+  .t0   { transform: translate(-50%, 0); }
+  .t10  { transform: translate(-50%, 10%); }
+  .t18  { transform: translate(-50%, 18%); }
+  .t25  { transform: translate(-50%, 25%); }
+  .t32  { transform: translate(-50%, 32%); }
+  .t40  { transform: translate(-50%, 40%); }
+  .mark { outline: 1px dashed hsl(var(--muted-foreground)); outline-offset: 3px; border-radius: 4px; }
+</style>
+</head>
+<body class="light">
+  <div class="col">
+    <div class="coltitle">重叠比例阶梯（12px 字 / 16px 图标）</div>
+    <div>
+      <div class="cap">0% — 对照，最深</div>
+      <div class="cell">
+        <div class="drive"><div class="stack">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M22 12H2M5.45 5.11L1 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-4.45-6.89A2 2 0 0 0 14.76 6H9.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/></svg>
+          <span class="label t0">C</span>
+        </div></div>
+      </div>
+    </div>
+    <div>
+      <div class="cap">10% — ★ 已采纳</div>
+      <div class="cell mark">
+        <div class="drive"><div class="stack">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M22 12H2M5.45 5.11L1 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-4.45-6.89A2 2 0 0 0 14.76 6H9.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/></svg>
+          <span class="label t10">C</span>
+        </div></div>
+        <div class="drive"><div class="stack">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M22 12H2M5.45 5.11L1 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-4.45-6.89A2 2 0 0 0 14.76 6H9.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/></svg>
+          <span class="label t10">D</span>
+        </div></div>
+        <div class="drive"><div class="stack">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M22 12H2M5.45 5.11L1 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-4.45-6.89A2 2 0 0 0 14.76 6H9.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/></svg>
+          <span class="label t10">E</span>
+        </div></div>
+      </div>
+    </div>
+    <div>
+      <div class="cap">18%</div>
+      <div class="cell">
+        <div class="drive"><div class="stack">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M22 12H2M5.45 5.11L1 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-4.45-6.89A2 2 0 0 0 14.76 6H9.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/></svg>
+          <span class="label t18">C</span>
+        </div></div>
+      </div>
+    </div>
+    <div>
+      <div class="cap">25%</div>
+      <div class="cell">
+        <div class="drive"><div class="stack">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M22 12H2M5.45 5.11L1 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-4.45-6.89A2 2 0 0 0 14.76 6H9.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/></svg>
+          <span class="label t25">C</span>
+        </div></div>
+      </div>
+    </div>
+    <div>
+      <div class="cap">32%</div>
+      <div class="cell">
+        <div class="drive"><div class="stack">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M22 12H2M5.45 5.11L1 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-4.45-6.89A2 2 0 0 0 14.76 6H9.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/></svg>
+          <span class="label t32">C</span>
+        </div></div>
+      </div>
+    </div>
+    <div>
+      <div class="cap">40% — 最浅，脱离图标</div>
+      <div class="cell">
+        <div class="drive"><div class="stack">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M22 12H2M5.45 5.11L1 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-4.45-6.89A2 2 0 0 0 14.76 6H9.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/></svg>
+          <span class="label t40">C</span>
+        </div></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

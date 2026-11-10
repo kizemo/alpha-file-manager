@@ -1,0 +1,58 @@
+# Fork 仓库目录(在 sigma-file-manager/ 子目录里独立管理)
+sigma-file-manager/
+sigma-batch-rename/
+
+# 整合包一律不进主仓 —— 它们由 fork(alpha-file-manager)仓产出。
+# 主仓只保留 Focus Sync 插件本体与它的独立安装包。
+# 计划 P1(2026-10-09)。整合包可由 fork 完整重建,已由 P0.5 验证。
+release/Sigma-File-Manager-*.exe
+release/Sigma File Manager_*.exe
+# 计划 P4 改名后整合包的新名字。安全网必须在改名那一刻仍然有效,
+# 否则规则会在最需要它的时刻静默过期。
+release/Alpha-File-Manager-*.exe
+release/Alpha File Manager_*.exe
+release/installer/
+
+# 临时下载/草稿
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+
+# 各种本地缓存
+*.log
+.cache/
+.idea/
+.vscode/
+# 本仓是文档/配置仓,不该有 node_modules。误跑一次 npx 就会在根目录落一个
+# (2026-10-25 踩到:npx --prefix 跑 eslint 时在 CWD 留了 node_modules/.vite)。
+node_modules/
+
+# 本地笔记草稿(只追踪 docs/ 下的正式文档)
+drafts/
+*.draft.md
+scripts/__pycache__/
+.other/
+*.pyc
+
+# --- 本地回滚资产(2026-10-14) ---
+# .pkg-backups/ 是打安装包前对 AppData 与安装目录做的整份快照(54.7 MB),
+# 加上验收截图与探测二进制。它是「这台机器上的后悔药」,不是仓库内容。
+.pkg-backups/
+
+# kill-app-tree.ps1 的权威副本在 sigma-file-manager/src-tauri/installer/ 里,
+# 根目录这份是当时试验时的临时拷贝。
+/kill-app-tree.ps1
+
+# 「下一步做什么」的一次性草稿。历史 handoff/prompt 的 .md 版本留档,纯 .txt 不留。
+prompt-*.txt
+
+# _acceptance/ 同理 —— 里面有 58 MB 的 exe 备份与一次性探针脚本。
+# 但其中的 *.md 是真正的根因分析报告,必须入库,所以不能整目录忽略。
+#
+# 三条规则缺一不可。只写 `_acceptance/**` + `!_acceptance/**/*.md` 会静默失效:
+# git 不会下降进被排除的目录,于是子目录里的 .md 永远看不见。
+# 中间那条 `!_acceptance/**/` 先把目录本身重新纳入,git 才有资格下降到文件层。
+_acceptance/**
+!_acceptance/**/
+!_acceptance/**/*.md

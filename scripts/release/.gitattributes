@@ -1,0 +1,3 @@
+# Windows 批处理要求 CRLF：仓库根的 `.gitattributes` 是 `* text=auto eol=lf`，
+# 若不在这里覆盖，检出后 `goto` 标签与多行块的偏移会错位，脚本会执行到别处的片段。
+*.cmd text eol=crlf

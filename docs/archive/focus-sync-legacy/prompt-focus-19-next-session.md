@@ -1,0 +1,1 @@
+读 handoff-2026-10-02-focus-19-edge-winui-save-as-failure.md 全文,然后读 docs/superpowers/plans/2026-10-02-focus-19-edge-winui-save-as-deep-analysis.md 按 Option B 短期方案(删除 "写 FULL PATH 到 filename 框" fallback + 加 dialog type 检测 + 通知用户)开始 focus-19 Task 1,完成后 build focus-19-setup.exe 到 release/,不要 commit git(等用户授权)

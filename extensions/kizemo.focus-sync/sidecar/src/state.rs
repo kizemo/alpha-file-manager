@@ -626,7 +626,7 @@ mod v516_write_back_tests {
     use super::DialogInfo;
 
     const HWND: u32 = 5_001;
-    const AFM_PATH: &str = "F:\\soft\\00selfmade\\filemanager";
+    const AFM_PATH: &str = "F:\\soft\\00selfmade\\filemanager\\sigma-file-manager";
 
     fn state_with_push() -> AppState {
         let s = AppState::new(AFM_PATH.into(), 1);

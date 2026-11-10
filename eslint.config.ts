@@ -18,7 +18,11 @@ export default defineConfigWithVueTs(
   // `extensions/**/src/generated-*.js` 是扩展构建脚本生成的 i18n 兜底表
   // （见 `extensions/kizemo.git/build.mjs`），跟 `dist/` 一样是产物而非手写源码，
   // 不该进仓库门禁。其余 `extensions/**/src/*.js` 是手写源码，必须过 lint。
-  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**', '**/e2e-webdriver/**', 'src-tauri/**', '_acceptance/**', '.superpowers/**', 'graphify-out/**', 'extensions/**/src/generated-*.js']),
+  //
+  // `scripts/archive-focus-sync/**` 是 2026-11-10 换根时从外层仓归档进来的
+  // focus-sync 时代一次性探针（`scan-sandbox.cjs` 等），不再维护、也不属于产品代码。
+  // 不忽略它会让门禁基线凭空多出 2 个错误（`no-require-imports`、`max-statements-per-line`）。
+  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**', '**/e2e-webdriver/**', 'src-tauri/**', '_acceptance/**', '.superpowers/**', 'graphify-out/**', 'extensions/**/src/generated-*.js', 'scripts/archive-focus-sync/**']),
   pluginVue.configs['flat/strongly-recommended'],
   vueTsConfigs.recommended,
   pluginStylistic.configs.customize({
