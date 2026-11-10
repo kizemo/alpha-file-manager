@@ -303,6 +303,7 @@ onBeforeUnmount(() => {
    下面那条 `.window-toolbar-action-layer :deep(*)` 同样是 (0,2,0) 且写在后面，
    只写 `.window-toolbar-spacer` 会被它盖掉 —— 这一块就**不是**拖拽区了，
    于是「双击顶栏切换最大化」没反应（原生拖拽区才认双击）。 */
+
 .window-toolbar-action-layer > .window-toolbar-spacer {
   z-index: 4;
   -webkit-app-region: drag;

@@ -541,8 +541,8 @@ function getHistoryEntryProps(item: HistoryItem) {
 .quick-access-panel__separator {
   height: 1px;
   flex-shrink: 0;
-  margin-block: 4px;
   background-color: hsl(var(--border) / 50%);
+  margin-block: 4px;
 }
 
 /* FORK-MODIFICATION: 需求 N3⑤ —— 跳仪表盘页签的标题右侧按钮 */
@@ -617,6 +617,7 @@ function getHistoryEntryProps(item: HistoryItem) {
 
    收藏按分类、标记按 tag 是同一个概念，所以两处共用这组类，
    避免面板里出现两套层级语言。 */
+
 .quick-access-panel__subgroup {
   margin-top: 10px;
 }
@@ -628,9 +629,9 @@ function getHistoryEntryProps(item: HistoryItem) {
 }
 
 .quick-access-panel__subgroup-items {
+  border-inline-start: 1px solid hsl(var(--foreground) / 12%);
   margin-inline-start: 10px;
   padding-inline-start: 8px;
-  border-inline-start: 1px solid hsl(var(--foreground) / 12%);
 }
 
 /* FORK-MODIFICATION: 反馈 5（2026-10-15）建立、反馈 1（2026-10-15）换形——
@@ -643,6 +644,7 @@ function getHistoryEntryProps(item: HistoryItem) {
    是同一个组件，同一屏里分类与目录长得一模一样。现在换成 FolderTreeIcon，
    侧边栏收藏区于是有三种可区分的图标：
      分类 = FolderTreeIcon（层级分组）、目录 = FolderIcon、文件 = 按扩展名的文件图标。 */
+
 .quick-access-panel__category-icon {
   flex-shrink: 0;
   color: hsl(var(--primary));

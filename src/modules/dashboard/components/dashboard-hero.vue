@@ -86,6 +86,7 @@ const heroStyle = {
   border-radius: var(--radius);
   background-color: hsl(var(--card));
   inset: 0;
+
   /* FORK-MODIFICATION：封面图**向下不淡出**。
      upstream 的 hero 底部有一层 `linear-gradient(180deg, #000 40%, transparent)`，
      背景图往下淡出接内容区 —— 那更像「一层氛围」而不是「一张封面」。
@@ -104,8 +105,10 @@ const heroStyle = {
   background-size: cover;
   content: "";
   inset: 0;
+
   /* 靠左淡出：左边留给标题和副标题，右边整片封面图铺满。 */
   mask-image: linear-gradient(90deg, transparent 4%, #000000 46%);
+
   /* FORK-MODIFICATION：浅色主题下把背景图压淡。
      upstream 那张紫蓝曲面在浅底上太重，右半边像「贴了半张图」。
      0.5 之后它变成一块柔和的色块，和浅色界面协调。 */
@@ -117,6 +120,7 @@ const heroStyle = {
    `.dark` 由 `use-theme.ts` 加在 documentElement 上。
    FORK-MODIFICATION 2026-10-30（意见 7）：新背景图是暖纸浅色，
    暗色主题下直接铺会过亮，压暗并降饱和后再用。 */
+
 .dark .dashboard-hero__backdrop::before {
   filter: brightness(0.55) saturate(0.8);
   opacity: 0.9;
@@ -127,6 +131,7 @@ const heroStyle = {
    标题、副标题和落在图上的页签全部糊掉。
    这里用 `hsl(var(--background))` 叠一层横向渐变纱 ——
    浅色主题下是白纱，深色主题下自动变暗纱，两个主题都保证文字可读。 */
+
 .dashboard-hero__backdrop::after {
   position: absolute;
   background: linear-gradient(

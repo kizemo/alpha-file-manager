@@ -488,6 +488,7 @@ function preventPopoverClose(event: Event) {
    - .home-banner 不再设 height / overflow:hidden —— 图片自身定高,actions 顺排。
    - .home-banner__media-container 保留 height(图片显示区)。
    - .home-banner__actions 去掉 absolute,改为 flex 行 + 上间距。 */
+
 .home-banner {
   position: relative;
   width: 100%;
@@ -495,6 +496,8 @@ function preventPopoverClose(event: Event) {
 }
 
 .home-banner__media-container {
+  overflow: hidden;
+
   /* 图片显示区高度:比上一轮略高一点,给下方标题行留出空间后仍然保持紧凑。 */
   width: 100%;
   height: 24vh;
@@ -503,11 +506,11 @@ function preventPopoverClose(event: Event) {
   padding: 6px;
   padding-left: 0;
   border-radius: var(--radius-sm);
-  overflow: hidden;
 }
 
 /* FORK-MODIFICATION: 验收反馈 2026-10-13 — 主题图可点击换图,给指针光标 +
    hover 时轻微提亮,让"这张图能点"这件事一眼可见。 */
+
 .home-banner__media-container--clickable {
   cursor: pointer;
   transition: filter 0.2s ease;
@@ -535,18 +538,20 @@ function preventPopoverClose(event: Event) {
 /* FORK-MODIFICATION: 验收反馈 2026-10-13 — 从"绝对定位压在图上"改为"图片下方的正常流
    标题行":去掉 position:absolute / z-index / bottom / left,改为 flex 行 + 上间距。
    这样标题"主页"和两个按钮都在图下方，不再和主题图重叠看不清。 */
+
 .home-banner__actions {
   position: relative;
   z-index: 3;
   display: flex;
   align-items: center;
   margin-top: 14px;
-  padding-inline-start: 6px;
   gap: 10px;
+  padding-inline-start: 6px;
 }
 
 .home-banner__title {
   color: hsl(var(--foreground));
+
   /* FORK-MODIFICATION: 验收反馈 2026-10-13 — 32px 标题移到图片下方的正常流里,
      不再压在图上,所以不需要 text-shadow 兜底对比度(渐变与阴影在 10-12 两轮已删)。 */
   font-size: 28px;

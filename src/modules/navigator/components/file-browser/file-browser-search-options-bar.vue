@@ -160,15 +160,15 @@ const matchCountText = computed(() => t('fileBrowser.searchOptions.matchCount', 
   flex-shrink: 0;
   align-items: flex-end;
   justify-content: space-between;
-  border-bottom: 1px solid hsl(var(--border));
   padding: 6px var(--file-browser-search-options-gutter, 16px) 8px;
+  border-bottom: 1px solid hsl(var(--border));
   gap: 16px;
 }
 
 .file-browser-search-options__blocks {
   display: flex;
-  align-items: flex-end;
   flex-wrap: wrap;
+  align-items: flex-end;
   gap: 8px 28px;
 }
 
@@ -189,9 +189,9 @@ const matchCountText = computed(() => t('fileBrowser.searchOptions.matchCount', 
 
 .file-browser-search-options__toggles {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px 16px;
-  flex-wrap: wrap;
 }
 
 .file-browser-search-options__toggle {
@@ -201,8 +201,8 @@ const matchCountText = computed(() => t('fileBrowser.searchOptions.matchCount', 
 }
 
 .file-browser-search-options__label {
-  font-size: calc(12px + var(--font-size-offset, 0px));
   cursor: pointer;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   white-space: nowrap;
 }
 
@@ -211,8 +211,8 @@ const matchCountText = computed(() => t('fileBrowser.searchOptions.matchCount', 
 }
 
 .file-browser-search-options__count {
-  margin: 0;
   padding-bottom: 2px;
+  margin: 0;
   color: hsl(var(--muted-foreground));
   font-size: calc(12px + var(--font-size-offset, 0px));
   white-space: nowrap;

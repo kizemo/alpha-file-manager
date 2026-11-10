@@ -188,8 +188,8 @@ function handleViewportScroll(event: Event) {
 
 /* FORK-MODIFICATION: tree view layout (issue #499) */
 .file-browser__content--tree :deep(.file-browser__tree-view) {
-  flex: 1;
   min-height: 0;
+  flex: 1;
 }
 
 .file-browser__content--grid :deep(.file-browser__entries-container),

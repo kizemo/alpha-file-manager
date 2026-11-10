@@ -628,12 +628,12 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: 4px;
   padding: 0 6px;
   border-radius: 999px;
-  font-size: calc(11px + var(--font-size-offset, 0px));
+  background: hsl(var(--primary) / 12%);
   color: hsl(var(--primary));
-  background: hsl(var(--primary) / 0.12);
+  font-size: calc(11px + var(--font-size-offset, 0px));
+  gap: 4px;
 }
 
 .file-browser-status-bar__selected-count {

@@ -180,12 +180,12 @@ function onTerminateHolders() {
 
 .file-lock-dialog__holders {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
   max-height: 12rem;
+  flex-direction: column;
+  padding: 0;
+  margin: 0;
+  gap: 0.25rem;
+  list-style: none;
   overflow-y: auto;
 }
 
@@ -193,11 +193,11 @@ function onTerminateHolders() {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.75rem;
   padding: 0.25rem 0.5rem;
   border-radius: var(--radius-sm);
   background-color: hsl(var(--muted));
   font-size: 0.875rem;
+  gap: 0.75rem;
 }
 
 .file-lock-dialog__holder-name {
@@ -205,10 +205,10 @@ function onTerminateHolders() {
 }
 
 .file-lock-dialog__holder-pid {
+  flex-shrink: 0;
   color: hsl(var(--muted-foreground));
   font-family: var(--font-mono);
   font-size: 0.8125em;
-  flex-shrink: 0;
 }
 
 .file-lock-dialog :deep(.file-lock-dialog__footer) {

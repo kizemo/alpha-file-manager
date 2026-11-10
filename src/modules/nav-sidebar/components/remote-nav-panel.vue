@@ -174,12 +174,12 @@ onMounted(async () => {
 .remote-nav-panel__row {
   display: flex;
   align-items: center;
+  padding: 6px 8px;
   border-radius: var(--radius-sm);
   background-color: transparent;
-  padding: 6px 8px;
   color: hsl(var(--foreground));
-  gap: 8px;
   cursor: pointer;
+  gap: 8px;
   text-align: left;
 }
 
@@ -193,11 +193,12 @@ onMounted(async () => {
  * 分区之间用一条细线隔开，而不是只靠一个小标题 —— 标题小到 0.7rem，
  * 两块列表贴在一起时眼睛分不清哪条列表归哪个分区。
  */
+
 .remote-nav-panel__section {
   display: flex;
   flex-direction: column;
-  gap: 2px;
   padding-top: 4px;
+  gap: 2px;
 }
 
 .remote-nav-panel__section + .remote-nav-panel__section {
@@ -209,8 +210,8 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
   padding: 4px 8px;
+  gap: 8px;
 }
 
 /*
@@ -220,16 +221,17 @@ onMounted(async () => {
  * 已经被证明太隐蔽（用户反馈「找不到添加入口」），这里是面板内的第二道
  * 入口，宁可显眼一点也不藏着。
  */
+
 .remote-nav-panel__section-add {
   display: flex;
   align-items: center;
+  padding: 2px 4px;
   border-radius: var(--radius-sm);
   background-color: transparent;
-  padding: 2px 4px;
   color: hsl(var(--primary));
+  cursor: pointer;
   font-size: 0.7rem;
   gap: 3px;
-  cursor: pointer;
 }
 
 .remote-nav-panel__section-add:hover {
@@ -241,6 +243,7 @@ onMounted(async () => {
  * 两者并列而不是嵌套：button 里再放 button 是无效 HTML，
  * 而且外层的 click 会一起触发 —— 点设置等于把连接也打开了。
 */
+
 .remote-nav-panel__entry {
   display: flex;
   align-items: center;
@@ -249,8 +252,8 @@ onMounted(async () => {
 }
 
 .remote-nav-panel__row--open {
-  flex: 1;
   min-width: 0;
+  flex: 1;
 }
 
 .remote-nav-panel__entry:hover {
@@ -263,12 +266,12 @@ onMounted(async () => {
 
 .remote-nav-panel__edit {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  padding: 6px;
   border-radius: var(--radius-sm);
   background-color: transparent;
-  padding: 6px;
   color: hsl(var(--muted-foreground));
   cursor: pointer;
 }
@@ -285,9 +288,9 @@ onMounted(async () => {
 }
 
 .remote-nav-panel__tag {
+  padding: 0 6px;
   border-radius: 999px;
   margin-left: auto;
-  padding: 0 6px;
   background-color: hsl(var(--muted));
   color: hsl(var(--muted-foreground));
   font-size: 0.65rem;
@@ -300,8 +303,8 @@ onMounted(async () => {
 }
 
 .remote-nav-panel__empty {
-  margin: 0;
   padding: 2px 8px 6px;
+  margin: 0;
   color: hsl(var(--muted-foreground));
   font-size: 0.8rem;
 }
