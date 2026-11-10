@@ -844,7 +844,9 @@
     "localShortcutsAppScope": "Scorciatoie locali (sistema)",
     "unknownMainKey": "Tasto sconosciuto",
     "globalShortcutRegisterFailed": "Impossibile registrare questa scorciatoia globale. Potrebbe essere già usata da Windows o da un'altra app. Prova un'altra combinazione (ad esempio Win+Maiusc+… o Ctrl+Alt+…).",
-    "shortcutRecorderGlobalCaptureHint": "Se premendo i tasti non compare nulla, il tuo sistema o un altro programma potrebbe intercettarli prima che questa finestra li riceva. Prova un'altra combinazione."
+    "shortcutRecorderGlobalCaptureHint": "Se premendo i tasti non compare nulla, il tuo sistema o un altro programma potrebbe intercettarli prima che questa finestra li riceva. Prova un'altra combinazione.",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "Mostra la finestra dell'app",

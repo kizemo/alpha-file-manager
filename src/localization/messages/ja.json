@@ -844,7 +844,9 @@
     "localShortcutsAppScope": "ローカル ショートカット (アプリ スコープ)",
     "unknownMainKey": "不明なキー",
     "globalShortcutRegisterFailed": "このグローバルショートカットを登録できませんでした。Windows や他のアプリが使用中の可能性があります。別の組み合わせ（例: Win+Shift+… や Ctrl+Alt+…）をお試しください。",
-    "shortcutRecorderGlobalCaptureHint": "キーを押しても何も表示されない場合、お使いのシステムや他のプログラムがこのウィンドウより先にキーを取っている可能性があります。別の組み合わせをお試しください。"
+    "shortcutRecorderGlobalCaptureHint": "キーを押しても何も表示されない場合、お使いのシステムや他のプログラムがこのウィンドウより先にキーを取っている可能性があります。別の組み合わせをお試しください。",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "アプリ ウィンドウをフォーカスする",

@@ -837,7 +837,9 @@
     "localShortcutsAppScope": "میانبرهای محلی (حوزه برنامه)",
     "unknownMainKey": "کلید ناشناخته",
     "globalShortcutRegisterFailed": "ثبت این میانبر سراسری ممکن نشد. ممکن است ویندوز یا برنامهٔ دیگری از آن استفاده کند. ترکیب دیگری امتحان کنید (مثلاً Win+Shift+… یا Ctrl+Alt+…).",
-    "shortcutRecorderGlobalCaptureHint": "اگر با فشار کلید چیزی دیده نمی‌شود، سیستم شما یا برنامهٔ دیگری ممکن است قبل از این پنجره کلیدها را بگیرد. ترکیب دیگری امتحان کنید."
+    "shortcutRecorderGlobalCaptureHint": "اگر با فشار کلید چیزی دیده نمی‌شود، سیستم شما یا برنامهٔ دیگری ممکن است قبل از این پنجره کلیدها را بگیرد. ترکیب دیگری امتحان کنید.",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "نمایش پنجره برنامه",

@@ -1,5 +1,13 @@
 # Änderungsprotokoll
 
+## [3.13.7] - November 2026
+
+**Zusammenfassung:** Die App meldet jetzt, ob eine Tastenkombination bereits von Windows oder von einem anderen Programm belegt ist – damit ist ein Befehl, der scheinbar grundlos nicht ausgeführt wird, kein Rätsel mehr.
+
+### What changed
+
+**Hinzugefügt: Tastenkombinationen, die ein anderes Programm bereits belegt, werden jetzt gekennzeichnet.** Eine Kombination wie `Ctrl+Shift+P` kann systemweit von einem anderen Programm registriert sein, bevor Alpha File Manager sie überhaupt sieht. Der Tastendruck wird dann vom Betriebssystem verschluckt, der Befehl läuft einfach nicht, und auf dem Bildschirm steht kein Wort darüber. Die Shortcut-Liste unter *Einstellungen* prüft nun jede Belegung gegen das Betriebssystem und markiert die bereits vergebenen; der Shortcut-Editor zeigt dieselbe Warnung beim Aufzeichnen einer neuen Kombination. Die Standardbelegungen bleiben unverändert, und eine Warnung verhindert das Speichern nie – sie teilt mit, dass die Taste nur wirkt, solange das andere Programm nicht läuft.
+
 ## [3.13.6] - November 2026
 
 **Summary:** The address bar no longer goes blank without a word, and an extension the app would refuse can no longer reach you inside a package.

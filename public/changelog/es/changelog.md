@@ -1,5 +1,13 @@
 # Registro de cambios
 
+## [3.13.7] - November 2026
+
+**Resumen:** La aplicación ahora te avisa cuando una combinación de teclas ya está en manos de Windows o de otro programa, así que un comando que no se ejecutaba sin motivo visible deja de ser un misterio.
+
+### What changed
+
+**Añadido: ahora se marcan las combinaciones de teclas que otro programa ya ocupa.** Una combinación como `Ctrl+Shift+P` puede quedar registrada a nivel de sistema por otro programa antes de que Alpha File Manager la llegue a ver. Entonces el sistema operativo se traga la pulsación, el comando no llega a ejecutarse y en pantalla no aparece nada que lo explique. La lista de atajos de *Configuración* ahora comprueba cada asignación contra el sistema operativo y marca las que ya están ocupadas; el editor de atajos muestra la misma advertencia mientras grabas una combinación nueva. Las asignaciones por defecto no cambian y una advertencia nunca bloquea el guardado: te indica que esa tecla solo funcionará mientras el otro programa no esté en marcha.
+
 ## [3.13.6] - November 2026
 
 **Summary:** The address bar no longer goes blank without a word, and an extension the app would refuse can no longer reach you inside a package.

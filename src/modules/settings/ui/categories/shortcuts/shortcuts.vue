@@ -171,6 +171,68 @@ const captureDisplayLabel = ref('');
 const lastCaptureKeyboardEvent = ref<KeyboardEvent | null>(null);
 const pressedPhysicalCodes = new Set<string>();
 const globalRegisterFailed = ref(false);
+const systemShortcutConflict = ref(false);
+const systemShortcutConflicts = ref<Set<string>>(new Set());
+let systemConflictProbeToken = 0;
+let hasProbedSystemShortcuts = false;
+
+function getShortcutDefinitionKey(definition: ShortcutDefinition): string {
+  return `${definition.id}-${definition.bindingSlot ?? 0}`;
+}
+
+function isShortcutSystemTaken(definition: ShortcutDefinition): boolean {
+  return systemShortcutConflicts.value.has(getShortcutDefinitionKey(definition));
+}
+
+async function refreshSystemShortcutConflict(keys: ShortcutKeys | null) {
+  const token = ++systemConflictProbeToken;
+
+  if (!keys) {
+    systemShortcutConflict.value = false;
+    return;
+  }
+
+  const result = await globalShortcutsStore.probeShortcutAvailability(keys);
+
+  if (token !== systemConflictProbeToken) {
+    return;
+  }
+
+  systemShortcutConflict.value = result === 'occupied';
+}
+
+async function probeVisibleShortcutsSystemConflicts() {
+  if (hasProbedSystemShortcuts) return;
+
+  hasProbedSystemShortcuts = true;
+
+  const conflicts = new Set<string>();
+  let probeCount = 0;
+  let occupiedCount = 0;
+
+  for (const definition of visibleLocalShortcuts.value) {
+    if (definition.isReadOnly) continue;
+
+    const state = await globalShortcutsStore.probeShortcutAvailability(
+      shortcutsStore.getShortcutBindingKeys(definition),
+    );
+
+    probeCount += 1;
+
+    if (state === 'occupied') {
+      occupiedCount += 1;
+      conflicts.add(getShortcutDefinitionKey(definition));
+    }
+  }
+
+  // Every probed combination reporting a conflict is implausible and means the
+  // probe itself is unavailable, so stay silent instead of raising a false alarm.
+  if (probeCount >= 3 && occupiedCount === probeCount) {
+    conflicts.clear();
+  }
+
+  systemShortcutConflicts.value = conflicts;
+}
 
 let recordCaptureKeyDown: ((event: KeyboardEvent) => void) | null = null;
 let recordCaptureKeyUp: ((event: KeyboardEvent) => void) | null = null;
@@ -418,12 +480,18 @@ watch(recordedKeys, (keys) => {
   }
 
   updateCaptureDisplayLabel();
+  void refreshSystemShortcutConflict(keys);
 });
 
 watch(isDialogOpen, (open) => {
   if (!open) {
     globalRegisterFailed.value = false;
+    systemShortcutConflict.value = false;
   }
+});
+
+nextTick(() => {
+  void probeVisibleShortcutsSystemConflicts();
 });
 
 onUnmounted(() => {
@@ -1493,6 +1561,19 @@ const hasVisibleLocalShortcuts = computed(() => visibleLocalShortcuts.value.leng
                     >
                       {{ unassignedShortcutLabel }}
                     </span>
+                    <Tooltip v-if="isShortcutSystemTaken(definition)">
+                      <TooltipTrigger as-child>
+                        <AlertTriangleIcon
+                          :size="12"
+                          class="shortcuts-table__system-conflict"
+                        />
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <span class="shortcuts-table__system-conflict-label">
+                          {{ t('shortcutsUI.shortcutTakenBySystem') }}
+                        </span>
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
 
                   <div class="shortcuts-table__cell shortcuts-table__cell--when">
@@ -1770,6 +1851,17 @@ const hasVisibleLocalShortcuts = computed(() => visibleLocalShortcuts.value.leng
                 <span>{{ t('shortcutsUI.globalShortcutRegisterFailed') }}</span>
               </div>
 
+              <div
+                v-if="systemShortcutConflict"
+                class="shortcut-editor__conflict"
+              >
+                <AlertTriangleIcon :size="14" />
+                <span>
+                  {{ t('shortcutsUI.shortcutTakenBySystem') }}:
+                  {{ t('shortcutsUI.shortcutSystemConflictHint') }}
+                </span>
+              </div>
+
               <p
                 v-if="isEditingGlobalShortcut && isRecording"
                 class="shortcut-editor__global-capture-hint"
@@ -1989,6 +2081,16 @@ const hasVisibleLocalShortcuts = computed(() => visibleLocalShortcuts.value.leng
   background-color: hsl(var(--muted));
   color: hsl(var(--foreground));
   font-family: monospace;
+  font-size: 0.75rem;
+}
+
+.shortcuts-table__system-conflict {
+  flex-shrink: 0;
+  margin-left: 0.25rem;
+  color: hsl(var(--destructive));
+}
+
+.shortcuts-table__system-conflict-label {
   font-size: 0.75rem;
 }
 

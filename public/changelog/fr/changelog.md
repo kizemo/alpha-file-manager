@@ -1,5 +1,13 @@
 # Journal des modifications
 
+## [3.13.7] - November 2026
+
+**Résumé :** l'application vous signale désormais lorsqu'un raccourci clavier est déjà détenu par Windows ou par un autre programme - une commande qui ne se déclenchait plus sans raison n'est plus un mystère.
+
+### What changed
+
+**Ajouté : les raccourcis clavier déjà détenus par un autre programme sont désormais signalés.** Une combinaison comme `Ctrl+Shift+P` peut être enregistrée au niveau du système par un autre programme avant même qu'Alpha File Manager ne la voie. La frappe est alors avalée par le système d'exploitation, la commande ne s'exécute tout simplement pas, et rien à l'écran n'explique pourquoi. La liste des raccourcis dans *Paramètres* compare désormais chaque affectation au système d'exploitation et signale celles qui sont déjà prises ; l'éditeur de raccourcis affiche le même avertissement pendant que vous enregistrez une nouvelle combinaison. Les affectations par défaut restent inchangées et un avertissement n'empêche jamais l'enregistrement - il indique que la touche ne fonctionnera que tant que l'autre programme ne tournera pas.
+
 ## [3.13.6] - November 2026
 
 **Summary:** The address bar no longer goes blank without a word, and an extension the app would refuse can no longer reach you inside a package.

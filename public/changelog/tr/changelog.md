@@ -1,5 +1,13 @@
 # Değişiklik Günlüğü
 
+## [3.13.7] - November 2026
+
+**Özet:** Uygulama artık bir kısayol tuşunun Windows veya başka bir program tarafından zaten kullanılıp kullanılmadığını bildiriyor - nedeni belirsizce çalışmayan bir komut artık bir muamma olmaktan çıkıyor.
+
+### What changed
+
+**Eklendi: Başka bir programın hâlihazırda sahip olduğu kısayollar artık işaretleniyor.** `Ctrl+Shift+P` gibi bir bileşim, Alpha File Manager henüz fark etmeden önce başka bir program tarafından sistem düzeyinde kaydedilmiş olabilir. Bu durumda tuşa basma işletim sistemi tarafından yutulur, komut hiç çalışmaz ve ekranda nedenini açıklayan hiçbir şey görünmez. *Ayarlar* içindeki kısayol listesi artık her atamayı işletim sistemiyle karşılaştırıp zaten kullanılanları işaretliyor; yeni bir bileşim kaydederken kısayol düzenleyicisi de aynı uyarıyı gösteriyor. Varsayılan atamalar değişmiyor ve bir uyarı hiçbir zaman kaydı engellemiyor - yalnızca o tuşun, diğer program çalışmadığı sürece işe yarayacağını söylüyor.
+
 ## [3.13.6] - November 2026
 
 **Summary:** The address bar no longer goes blank without a word, and an extension the app would refuse can no longer reach you inside a package.

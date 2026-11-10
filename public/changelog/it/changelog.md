@@ -1,5 +1,13 @@
 # Registro delle modifiche
 
+## [3.13.7] - November 2026
+
+**Riepilogo:** l'app ora segnala quando una scorciatoia di tastiera è già di proprietà di Windows o di un altro programma - così un comando che non partiva senza motivo non è più un mistero.
+
+### What changed
+
+**Aggiunto: le scorciatoie già di proprietà di un altro programma vengono ora segnalate.** Una combinazione come `Ctrl+Shift+P` può essere registrata a livello di sistema da un altro programma prima che Alpha File Manager la veda. La pressione viene allora inghiottita dal sistema operativo, il comando semplicemente non viene eseguito e sullo schermo non compare nulla che lo spieghi. L'elenco delle scorciatoie in *Impostazioni* ora confronta ogni associazione con il sistema operativo e segnala quelle già occupate; l'editor delle scorciatoie mostra lo stesso avviso mentre registri una nuova combinazione. Le associazioni predefinite restano invariate e un avviso non blocca mai il salvataggio - ti dice che quel tasto funzionerà solo finché l'altro programma non è in esecuzione.
+
 ## [3.13.6] - November 2026
 
 **Summary:** The address bar no longer goes blank without a word, and an extension the app would refuse can no longer reach you inside a package.

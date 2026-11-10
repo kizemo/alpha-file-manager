@@ -1446,6 +1446,10 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
     return formatShortcutKeys(resolveShortcutBindingKeys(definition));
   }
 
+  function getShortcutBindingKeys(definition: ShortcutDefinition): ShortcutKeys {
+    return resolveShortcutBindingKeys(definition);
+  }
+
   function isShortcutBindingCustomized(definition: ShortcutDefinition): boolean {
     const bindingSlot = definition.bindingSlot ?? 0;
     const lookup = resolveShortcutBindingEntry(definition.id);
@@ -2128,6 +2132,7 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
     getShortcutActionId,
     resolveShortcutBindingKeys,
     getShortcutBindingLabel,
+    getShortcutBindingKeys,
     getShortcutBindingSource,
     getShortcutBindingFormat,
     isShortcutBindingCustomized,

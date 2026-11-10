@@ -844,7 +844,9 @@
     "localShortcutsAppScope": "Phím tắt cục bộ (phạm vi ứng dụng)",
     "unknownMainKey": "Phím không xác định",
     "globalShortcutRegisterFailed": "Không thể đăng ký phím tắt toàn cục này. Có thể Windows hoặc ứng dụng khác đang dùng. Hãy thử tổ hợp khác (ví dụ Win+Shift+… hoặc Ctrl+Alt+…).",
-    "shortcutRecorderGlobalCaptureHint": "Nếu nhấn phím mà không thấy gì, hệ thống của bạn hoặc chương trình khác có thể đã chặn phím trước khi cửa sổ này nhận được. Hãy thử tổ hợp khác."
+    "shortcutRecorderGlobalCaptureHint": "Nếu nhấn phím mà không thấy gì, hệ thống của bạn hoặc chương trình khác có thể đã chặn phím trước khi cửa sổ này nhận được. Hãy thử tổ hợp khác.",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "Hiển thị cửa sổ ứng dụng",

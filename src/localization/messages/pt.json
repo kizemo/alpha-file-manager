@@ -844,7 +844,9 @@
     "localShortcutsAppScope": "Atalhos locais (escopo do aplicativo)",
     "unknownMainKey": "Tecla desconhecida",
     "globalShortcutRegisterFailed": "Não foi possível registrar este atalho global. Ele pode já estar em uso pelo Windows ou por outro aplicativo. Tente outra combinação (por exemplo Win+Shift+… ou Ctrl+Alt+…).",
-    "shortcutRecorderGlobalCaptureHint": "Se nada aparecer ao pressionar as teclas, o seu sistema ou outro programa pode estar interceptando-as antes desta janela recebê-las. Tente outra combinação."
+    "shortcutRecorderGlobalCaptureHint": "Se nada aparecer ao pressionar as teclas, o seu sistema ou outro programa pode estar interceptando-as antes desta janela recebê-las. Tente outra combinação.",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "Focar a janela do aplicativo",

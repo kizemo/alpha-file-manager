@@ -1,5 +1,13 @@
 # Nhật ký thay đổi
 
+## [3.13.7] - November 2026
+
+**Tóm tắt:** Ứng dụng giờ cho biết khi nào một tổ hợp phím đã bị Windows hoặc chương trình khác chiếm mất - nên một lệnh im lặng không chạy không còn là điều bí ẩn nữa.
+
+### What changed
+
+**Đã thêm: Những tổ hợp phím đã bị chương trình khác chiếm mất giờ được đánh dấu.** Một tổ hợp như `Ctrl+Shift+P` có thể đã được một chương trình khác đăng ký ở mức hệ thống trước khi Alpha File Manager kịp nhìn thấy. Khi đó hệ điều hành nuốt mất lần nhấn phím, lệnh đơn giản là không chạy, và trên màn hình không có gì giải thích lý do. Danh sách phím tắt trong *Cài đặt* giờ đối chiếu từng ánh xạ với hệ điều hành và đánh dấu những tổ hợp đã bị chiếm; trình chỉnh sửa phím tắt cũng hiện cùng cảnh báo đó khi bạn ghi lại một tổ hợp mới. Các ánh xạ mặc định không đổi và cảnh báo không bao giờ chặn việc lưu - nó chỉ cho biết phím đó chỉ hoạt động khi chương trình kia không chạy.
+
 ## [3.13.6] - November 2026
 
 **Summary:** The address bar no longer goes blank without a word, and an extension the app would refuse can no longer reach you inside a package.

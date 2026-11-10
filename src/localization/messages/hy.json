@@ -881,7 +881,9 @@
     "localShortcutsAppScope": "Լոկալ կարճուղիներ (ծրագրում)",
     "unknownMainKey": "Անհայտ ստեղն",
     "globalShortcutRegisterFailed": "Այս գլոբալ կարճուղին հնարավոր չէ գրանցել։ Հնարավոր է՝ այն արդեն օգտագործվում է Windows-ի կամ այլ ծրագրի կողմից։ Փորձեք այլ համադրություն (օրինակ՝ Win+Shift+… կամ Ctrl+Alt+…):",
-    "shortcutRecorderGlobalCaptureHint": "Եթե ստեղները չեն հայտնվում դրանք սեղմելիս, հնարավոր է, որ ձեր համակարգը կամ մեկ այլ ծրագիր մշակում է դրանք, նախքան այս պատուհանը դրանք ստանա։ Փորձեք մեկ այլ համադրություն։"
+    "shortcutRecorderGlobalCaptureHint": "Եթե ստեղները չեն հայտնվում դրանք սեղմելիս, հնարավոր է, որ ձեր համակարգը կամ մեկ այլ ծրագիր մշակում է դրանք, նախքան այս պատուհանը դրանք ստանա։ Փորձեք մեկ այլ համադրություն։",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "Ցուցադրել ծրագրի պատուհանը",

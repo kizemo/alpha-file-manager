@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.13.7] - November 2026
+
+**Summary:** The app now tells you when a keyboard shortcut is already owned by Windows or by another program - so a command that silently never fired is no longer a mystery.
+
+### What changed
+
+**Added** **Keyboard shortcuts that another program already owns are now flagged** - A shortcut such as `Ctrl+Shift+P` can be claimed system-wide by another program before Alpha File Manager ever sees it. The key press is then swallowed by the operating system, the command simply never runs, and nothing on screen says why. The shortcut list in *Settings* now checks every binding against the operating system and marks the ones that are already taken; the shortcut editor shows the same warning while you record a new combination. The default bindings are unchanged, and a warning never blocks saving - it tells you that the key will only work while the other program is not running.
+
 ## [3.13.6] - November 2026
 
 **Summary:** The address bar no longer goes blank without a word, and an extension the app would refuse can no longer reach you inside a package.
