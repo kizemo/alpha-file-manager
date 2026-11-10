@@ -228,6 +228,9 @@ pub fn start_monitor(
     // v0.5.15 — AFM 前台上升沿跟踪。初值 false 是有意的：侧车一般由 AFM 拉起，
     // 此刻 AFM 正前台，第一个 tick 就上弦，于是「启动后的首次同步」照旧成立。
     let mut was_afm_foreground = false;
+    // v0.5.20 — 下降沿那一次采样没读到接手应用的 pid 时置位，下一 tick 重采样。
+    // 只有「pid 丢了」这一条路径会置位 ⇒ 授权被消费后不会重新上弦。
+    let mut handoff_retry_pending = false;
 
     loop {
         let loop_started = Instant::now();
@@ -254,11 +257,33 @@ pub fn start_monitor(
         if afm_now != was_afm_foreground {
             if afm_now {
                 state.clear_afm_handoff();
+                handoff_retry_pending = false;
                 debug!("[afm-gate] AFM back in foreground; previous handoff cleared");
             } else {
                 let pid = foreground_window_pid();
+                if pid == 0 {
+                    // v0.5.20 —— 这一瞬间没读到接手应用的 pid
+                    // （GetForegroundWindow 返回了空窗口）。交接授权的可核对性
+                    // 全部建立在 pid 上，pid 未知的交接过不了闸门（fail-closed），
+                    // 所以这里**不记录**，改为下一 tick 重采样。
+                    // 不重采样的话，一次丢采样会毒化整个会话：此后的同步全被
+                    // 挡住，直到用户再回一次 AFM 再切走。
+                    handoff_retry_pending = true;
+                    debug!("[afm-gate] handoff sample lost the receiving pid; will retry");
+                } else {
+                    state.set_afm_handoff(pid);
+                    handoff_retry_pending = false;
+                    debug!("[afm-gate] handoff recorded: pid={}", pid);
+                }
+            }
+        } else if handoff_retry_pending && !afm_now {
+            // v0.5.20 —— 还在非 AFM 前台、且交接尚未记录 ⇒ 重采样前台 pid。
+            // 这条分支只在「pid 丢了」时激活 ⇒ 授权被消费后不会重新上弦。
+            let pid = foreground_window_pid();
+            if pid != 0 {
                 state.set_afm_handoff(pid);
-                debug!("[afm-gate] handoff recorded: pid={}", pid);
+                handoff_retry_pending = false;
+                debug!("[afm-gate] handoff recorded on retry: pid={}", pid);
             }
         }
         was_afm_foreground = afm_now;

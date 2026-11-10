@@ -64,7 +64,10 @@ $jsonPath      = Join-Path $userDataDir 'user-extensions.json'
 # authoritative. The hardcoded '0.5.5' that used to live in this file had
 # drifted behind package.json (0.5.9) for several releases; deriving it from
 # the deployed manifest makes that class of drift impossible.
-$extensionVersion = '0.5.9'
+# NO hardcoded fallback: a literal here is exactly the drift the comment above
+# warns about (it said '0.5.5' while package.json said 0.5.9). Fall back to the
+# copy shipped next to this script instead, which installer.nsi always stages.
+$extensionVersion = ''
 $deployedPackageJson = Join-Path $appDataDir 'extensions\kizemo.focus-sync\package.json'
 if (Test-Path $deployedPackageJson) {
     try {
@@ -73,6 +76,25 @@ if (Test-Path $deployedPackageJson) {
     } catch {
         Write-Host "==> WARNING: could not read version from $deployedPackageJson : $_"
     }
+}
+# Second source: the package.json shipped beside this script. Covers a first
+# install where Stage 3 has not staged the deployed copy yet.
+if (-not $extensionVersion) {
+    $shippedPackageJson = Join-Path $PSScriptRoot '..\package.json'
+    if (Test-Path $shippedPackageJson) {
+        try {
+            $pkg = [System.IO.File]::ReadAllText($shippedPackageJson, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+            if ($pkg.version) { $extensionVersion = [string]$pkg.version }
+        } catch {
+            Write-Host "==> WARNING: could not read version from $shippedPackageJson : $_"
+        }
+    }
+}
+# No version anywhere => refuse to write a manifest with an empty version.
+# Fail loudly instead of registering an extension loaders cannot upgrade.
+if (-not $extensionVersion) {
+    Write-Host "==> FATAL: no extension version found (deployed=$deployedPackageJson, shipped=$PSScriptRoot\..\package.json)"
+    exit 1
 }
 Write-Host "==> Extension version: $extensionVersion"
 

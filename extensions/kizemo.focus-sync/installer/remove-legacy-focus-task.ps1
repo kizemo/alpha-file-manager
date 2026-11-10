@@ -79,6 +79,20 @@ Write-Log ('schtasks /Change /DISABLE exit=' + $LASTEXITCODE + ' out=' + (Get-As
 $out = schtasks /End /TN $taskName 2>&1
 Write-Log ('schtasks /End exit=' + $LASTEXITCODE + ' out=' + (Get-AsciiText $out))
 
+# /End is asynchronous: it returns before the task's process has actually
+# exited. Deleting the task right away can fail with "task is currently
+# running", and the sidecar keeps holding its exe open - which is exactly what
+# makes the installer's later overwrite fail. Wait (bounded) for the process
+# to go away before deleting.
+$endDeadline = (Get-Date).AddSeconds(10)
+while ((Get-Date) -lt $endDeadline) {
+    $live = @(Get-Process focus-sync-sidecar -ErrorAction SilentlyContinue)
+    if ($live.Count -eq 0) { break }
+    Start-Sleep -Milliseconds 200
+}
+$stillLive = @(Get-Process focus-sync-sidecar -ErrorAction SilentlyContinue)
+Write-Log ('after /End: focus-sync-sidecar still running=' + $stillLive.Count)
+
 # --- Step 3: delete the task ---
 $out = schtasks /Delete /TN $taskName /F 2>&1
 Write-Log ('schtasks /Delete /F exit=' + $LASTEXITCODE + ' out=' + (Get-AsciiText $out))
@@ -102,6 +116,10 @@ Write-Log 'RESULT=LEGACY_TASK_GONE'
 $patterns = @(
     '*\Alpha File Manager\tools\focus-sync-sidecar.exe',
     '*\Sigma File Manager\tools\focus-sync-sidecar.exe',
+    # Canonical deployment: <data_dir>\extensions\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe
+    # NOTE the extra directory level - this is the path AFM actually spawns
+    # (focus_sync_sidecar::resolve_sidecar_path prefers it over tools\).
+    '*\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe',
     '*\kizemo.focus-sync\bin\focus-sync-sidecar.exe'
 )
 $killed = 0
