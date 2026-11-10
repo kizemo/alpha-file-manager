@@ -1,12 +1,12 @@
 # 夸克网盘（Quark Netdisk）接入 AFM「远程位置」——调研结论与实施计划
 
 - 文档时间：2026-11-11
-- 文档性质：**只读调研结论 + 实施计划**。本轮**不含任何功能代码**，仓库除本文件外未做任何改动。
+- 文档性质：**只读调研结论 + 实施计划**。本轮**不含任何功能代码**，仓库除本文件与 `docs/review-2026-11-11-quark-pan.md`（评审报告）外未做任何改动。
 - 前置文档：`docs/plan-2026-11-08-baidu-netdisk-phase1.md`（百度阶段 1 计划，本文的模板）
 - 调研对象：
   - 仓库侧：既有百度网盘实现（只读）
   - 客户端侧：本机安装的夸克网盘 PC 客户端 `D:\Program Files\Quark\`（**只读**，未启动、未登录、未安装任何东西）
-- 预估工作量：**8 人天**（v1 只读 + 登录 + 浏览）
+- 预估工作量：**11.5–12.5 人天**（v1 只读 + 登录 + 浏览）。原估 8.0 人天**偏乐观 40–55%**；复核值与依据见 §5.2。若 T0 判定走退路，再 **+1.5–2.0 人天**（合计 13.0–14.5）。
 
 ---
 
@@ -34,7 +34,7 @@ Alpha File Manager 目前只支持 `ftp` / `ftps_explicit` / `ftps_implicit` / `
 | 写操作（建目录 / 改名 / 删除） | v1.1 可选 | endpoint 已实证存在（见 §3.2），但需额外处理 `24005` / `23008` 冲突码与 `31001` 会话失效分流 |
 | `set_permissions` / `get_permissions` | 永不 | 夸克没有 POSIX 权限位，必须返回 `Unsupported` / `Ok(None)` |
 | 分享 / 转存 / 离线下载 / 分类 | 永不 | 与文件浏览无关 |
-| 流式下载（`read_file_stream`） | 永不做 | 要改 `RemoteProvider` trait，波及 4 个既有 provider |
+| 流式下载 | 永不做 | `RemoteProvider` trait **刻意不提供流接口**（`provider.rs:55` 注释：不做 `read_to` / `write_from` 之类的流接口），要做就得改 trait，并波及全仓库 **5** 个 `impl RemoteProvider for` 实现 |
 | 多账号同时在线 | 不做 | 多账号 = 建多条连接，cookie 各存各的 |
 
 ### 1.3 与百度网盘的关系
@@ -80,7 +80,7 @@ Alpha File Manager 目前只支持 `ftp` / `ftps_explicit` / `ftps_implicit` / `
 | `src-tauri/src/remote/connection.rs` | `46-54` | `as_str()` 匹配，`Self::BaiduPan => "baidu_pan"`（`:52`） | 加 `Self::QuarkPan => "quark_pan"` |
 | `src-tauri/src/remote/connection.rs` | `57-60` | `struct RemoteConnection`（`#[serde(rename_all = "camelCase")]`） | **不改**（不新增字段） |
 | `src-tauri/src/remote/mod.rs` | `20-39` | `mod` 声明块（`baidu_api` / `baidu_auth` / `baidu_provider` 在 `:20-22`） | 加 `mod quark_api;` / `mod quark_auth;` / `mod quark_provider;` |
-| `src-tauri/src/remote/mod.rs` | `41-68` | 三段 `pub use baidu_*` | 加两段 `pub use quark_*` |
+| `src-tauri/src/remote/mod.rs` | `41-68` | **四段** `pub use baidu_*`（`:41` / `:53` / `:58` / `:65`） | 加两段 `pub use quark_*` |
 | `src-tauri/src/remote/mod.rs` | `8-14` | `cargo test --lib` 红线注释 | 夸克三个新文件顶部照抄同一段说明 |
 | `src-tauri/src/remote/registry.rs` | `119-127` | `BaiduPan` 分支：**不走**通用 password 路径（`password: None`） | 加 `QuarkPan` 同款分支 |
 | `src-tauri/src/remote/error.rs` | `17-46` | `RemoteErrorKind` 共 **11** 个 | **不改** |
@@ -110,7 +110,7 @@ Alpha File Manager 目前只支持 `ftp` / `ftps_explicit` / `ftps_implicit` / `
 | `562` | `enum BaiduFailure`（协议无关的语义分类） | `enum QuarkFailure` |
 | `589` | `classify_baidu_failure()`（**穷尽**映射表） | `classify_quark_failure()`（**穷尽**） |
 | `617` | `failure_from_errno()`（逐条标注证据强度） | `failure_from_code()`（夸克是 `code` 不是 `errno`） |
-| `644` | `failure_from_http_status()` | 同款 |
+| `647` | `failure_from_http_status()` | 同款 |
 
 `src-tauri/src/remote/baidu_auth.rs`（155 处命中）关键锚点：
 
@@ -122,6 +122,7 @@ Alpha File Manager 目前只支持 `ftp` / `ftps_explicit` / `ftps_implicit` / `
 | `122-167` | `scan_cookies()` | 大小写敏感、同名取第一个、只投影必要字段 |
 | — | `encode_session` / `decode_session` / `is_baidu_session_blob` / `load_baidu_session` / `save_baidu_session` / `delete_baidu_session` | 会话 blob 的编解码与存取 |
 | — | `describe_state` / `baidu_auth_status` / `is_expired` / `remaining_seconds` | 授权状态查询（前端授权卡的数据源） |
+| `436` | `session_to_cookie_header()`（会话 → `Cookie` 请求头字符串） | 夸克同款 —— `commands.rs:282` 正在用它，**不能漏** |
 
 #### 2.2.3 后端 · provider 层（模板：`baidu_provider.rs`，2306 行）
 
@@ -131,9 +132,9 @@ Alpha File Manager 目前只支持 `ftp` / `ftps_explicit` / `ftps_implicit` / `
 | `60` | `BAIDU_FILE_TIMEOUT = 900s` | `QUARK_FILE_TIMEOUT` |
 | `67` | `BAIDU_MAX_LIST_PAGES = 200` | `QUARK_MAX_LIST_PAGES` |
 | `73` | `BAIDU_MAX_DOWNLOAD_BYTES = 500 MiB` | `QUARK_MAX_DOWNLOAD_BYTES`（夸克下载 URL 30 分钟过期，阈值要更保守） |
-| `75` | `trait BaiduApi`（**抽 trait 是为了零网络单测**） | `trait QuarkApi` |
+| `77` | `trait BaiduApi`（**抽 trait 是为了零网络单测**） | `trait QuarkApi` |
 | `124` | `struct UnavailableBaiduApi`（占位实现，把初始化错误推迟到第一次真用网络） | `UnavailableQuarkApi` |
-| `178` | `trait BaiduSessionStore`（**抽 trait 是为了零 DPAPI 单测**） | `trait QuarkSessionStore` |
+| `179` | `trait BaiduSessionStore`（**抽 trait 是为了零 DPAPI 单测**） | `trait QuarkSessionStore` |
 | `200` | `struct HttpBaiduApi` | `HttpQuarkApi` |
 | `369` | `struct DpapiBaiduSessionStore` | `DpapiQuarkSessionStore` |
 | `410` | `struct BaiduRemoteProvider`（**不走** `registry::resolve_connection`，那条路会把密文当密码读） | `QuarkRemoteProvider` |
@@ -176,10 +177,10 @@ Alpha File Manager 目前只支持 `ftp` / `ftps_explicit` / `ftps_implicit` / `
 | `170` | `remote_baidu_auth_status` | 加 `remote_quark_auth_status` |
 | `206` | `remote_baidu_delete_session` | 加 `remote_quark_delete_session` |
 | `270-285` | 「测试连接」从存档还原会话作 credential | 加夸克分支 |
-| `358` / `379` / `586` | `provider_with_protocol` 的三个 `BaiduPan` 分支 | 各加一个 `QuarkPan` 分支（**穷尽匹配，编译器会强制你改全**） |
+| `358` / `379` / `586` | 三个 `BaiduPan` 分支（**分属三个不同函数**；`provider_with_protocol` 函数体在 `:573`） | 各加一个 `QuarkPan` 分支（**穷尽匹配，编译器会强制你改全**） |
 | `991-1004` | 命令注册表**反向自检**清单（含 7 个 baidu 命令） | 加夸克命令，否则自检失败 |
 
-`src-tauri/src/baidu_login.rs`（996 行）关键锚点：
+`src-tauri/src/baidu_login.rs`（1092 行）关键锚点：
 
 | 行号 | 符号 | 说明 |
 |---|---|---|
@@ -197,7 +198,7 @@ Alpha File Manager 目前只支持 `ftp` / `ftps_explicit` / `ftps_implicit` / `
 | `108-137` | `PendingSession` / `PendingSlot` / `take_pending` / `store_pending` | **pending-session slot + claim-on-save** 两段式 |
 | `347` / `430` / `448` / `485` | `remote_baidu_login_start` / `_pending` / `_claim` / `_cancel` | 夸克同款四个命令 |
 | `536` | `PROBE_LIVE_URL` | 夸克的验活 URL |
-| `773-956` | `poll_loop`（轮询 cookie → 判定 Ready → 关窗 → 验活） | 同款 |
+| `773`（起点已核）/ `956`（**区间终点未核验**） | `poll_loop`（轮询 cookie → 判定 Ready → 关窗 → 验活） | 同款 |
 
 `src-tauri/src/lib.rs`：
 
@@ -252,20 +253,33 @@ Alpha File Manager 目前只支持 `ftp` / `ftps_explicit` / `ftps_implicit` / `
 
 #### 2.2.7 前端 · UI
 
-`src/modules/settings/ui/categories/remote/connection-form.vue`（927 行）：
+`src/modules/settings/ui/categories/remote/connection-form.vue`（1032 行）：
 
 > ⚠️ **不存在** `baidu-connection-form.vue`。目录下只有同名 **`.test.ts`**，百度分支**在 `connection-form.vue` 内部**。夸克照抄这个位置，不要去找一个不存在的文件。
 
 | 行号 | 内容 | 夸克要做什么 |
 |---|---|---|
-| `26` | 协议选项来源 | 加「夸克网盘」选项 |
+| `63-69` | `PROTOCOLS = ["ftp", "ftps_explicit", "ftps_implicit", "sftp"]` —— **刻意不含网盘协议**（`:66-67` 注释：「把它塞进这个下拉等于给用户一条『选了却填不了对应字段』的死路」） | **不改** —— 网盘协议**不进**这个下拉，改用 provider 选择器（见 §4.4） |
+| `69` | 协议选项的实际位置（`:26` 只是一行 `import`，不是选项来源） | 不改（协议下拉只留远程连接协议） |
+| `230-232` | 网盘协议**硬编码**：`props.variant === "netdisk" ? "baidu_pan" : ...` | 改成按 provider 分流：百度 → `baidu_pan`，夸克 → `quark_pan` |
 | `79` | `BAIDU_PAN_HOST = 'pan.baidu.com'` 常量 | 加夸克常量 |
 | `89-134` | `baiduLoginState` ref / `handleStartBaiduLogin`（`:95`）/ `handleCancelBaiduLogin`（`:114`） | 加夸克等价物 |
 | `139` | 监听 `afm://baidu-login` 事件 | 加 `afm://quark-login` |
-| `220-255` | 协议分支时隐藏 host / port / 密码框 | 加夸克分支 |
+| `216-245` | 网盘分支隐藏 host / port / 密码框（协议恒为 `baidu_pan`） | 加夸克分支（协议恒为 `quark_pan`） |
 | `376-413` | 授权状态卡（显示昵称 / 失效重授权） | 加夸克版本 |
 
-`src/modules/settings/ui/categories/remote/sections.ts:8-20`：用 `isBaiduPanProtocol` 把连接分流到 `'netdisk'` 分区 → 改成统一判定。
+`src/modules/settings/ui/categories/remote/sections.ts:8-20`：用 `isBaiduPanProtocol` 把连接分流到 `'netdisk'` 分区 → 改成统一判定 `isNetdiskProtocol`。
+
+`src/modules/settings/ui/categories/remote/connections-section.vue`（**网盘 / 远程分区的真正决策点**，原方案漏列）：
+
+| 行号 | 内容 | 夸克要做什么 |
+|---|---|---|
+| `32` | 注释：「判定口径只有一个 —— `isBaiduPanProtocol`。以后接入阿里云盘之类的网盘，只要把判定扩进去，这一页的分区自动跟上」 | 判定扩成 `isNetdiskProtocol` |
+| `43-44` | 用 `isBaiduPanProtocol` 把连接分成「网盘 / 远程」两个分区 | 改成 `isNetdiskProtocol` |
+| `87` | `activeVariant`（表单形态跟标签走） | 网盘分支要能携带 provider（百度 / 夸克） |
+| `93-97` | 回落逻辑：「带着 `baidu_pan` 切到远程连接标签，表单会选出一个下拉里根本不存在的值」 | 同样要挡住 `quark_pan` |
+
+`src/modules/settings/ui/categories/remote/index.vue`：父级分类，靠分区结果决定「信任的主机」是否显示 → 同口径改判定。
 
 `src/modules/nav-sidebar/components/remote-nav-panel.vue`：
 
@@ -276,30 +290,33 @@ Alpha File Manager 目前只支持 `ftp` / `ftps_explicit` / `ftps_implicit` / `
 | `63-64` | 新建请求预置协议 `'baidu_pan'` | 加夸克预置 |
 | `72` | 「远程」分区取反 | 改成统一判定 |
 
-`src/modules/tab-bar/utils/remote-tab-labels.ts`：标签渲染（1 处命中，按协议取名）。
+`src/modules/tab-bar/utils/remote-tab-labels.ts`：**不需要改**。全文 60 行，**不含** `baidu` / `protocol` / `netdisk` 字样，只吃 `connectionName` ⇒ 与协议无关。
 
-`src/modules/home/components/remote-entries-section.vue`：首页远程入口（4 处命中）。
+`src/modules/home/components/remote-entries-section.vue`：首页远程入口（4 处命中）—— **命中数未核验**。
 
-`src/modules/tab-bar/tab/tab.vue`、`src/modules/nav-sidebar/nav-sidebar.vue`：各 1-2 处命中，协议名展示。
+`src/modules/tab-bar/tab/tab.vue`、`src/modules/nav-sidebar/nav-sidebar.vue`：各 1-2 处命中，协议名展示 —— **命中数未核验**。
+
+> ⚠️ 上面这三处的命中数与「是否需要改」**本轮未核验**（评审 N13）。它们**不在** §4.4 的改动清单里；若实施时发现需要改，§4.4 清单要同步补齐。
 
 #### 2.2.8 i18n
 
-`src/localization/messages/*.json` —— 共 **17** 个语言包（**中文 locale code 是 `ch`，不是 `zh`**）。每个文件 **4 处** baidu 命中：
+`src/localization/messages/*.json` —— 共 **17** 个语言包（**中文 locale code 是 `ch`，不是 `zh`**）。百度的实际落点是「**1 个嵌套对象 + 2 个平铺键**」：
 
-| 位置 | 内容 |
-|---|---|
-| `protocols.baidu_pan` | `ch.json:655` → `"百度网盘"` |
-| `baiduLoginRequired` | `ch.json:681` |
-| `baidu`（对象） | `ch.json:723` |
-| `baidu.saved` | `ch.json:746` |
+| 位置 | 形态 | 内容 |
+|---|---|---|
+| `protocols.baidu_pan` | **平铺键** | `ch.json:655` → `"百度网盘"` |
+| `baiduLoginRequired` | **平铺键** | `ch.json:681` |
+| `baidu`（**嵌套对象**） | **对象**：叶子串分布在 `ch.json:723-748`，约 **15 个键** | `ch.json:723`（对象起点）、`ch.json:746`（`baidu.saved`）等；含 `stoken_expired` / `stoken_expiring_soon` 等**百度专属措辞** |
 
-夸克需要在 **17 个**语言包各加同样 4 处。同步命令：`npm run sync-i18n`。
+夸克需要在 **17 个**语言包各加「**1 个约 15 键的嵌套对象** + **2 个平铺键**」（`protocols.quark_pan` / `quarkLoginRequired` / `quark` 对象）⇒ 17 × 约 15 ≈ **250+ 条**新串，含 16 种非中文语言的人工翻译。同步命令：`npm run sync-i18n`。
+
+> ⚠️ **夸克没有 STOKEN**：百度的「失效 / 临期」文案是 `stoken_expired` / `stoken_expiring_soon`，语义绑死在 STOKEN 上。夸克的对应文案要**重新起草语义**（如「距上次验活时间」），**不是**把 stoken 换成 pus 抄一遍。
 
 #### 2.2.9 测试与探针
 
-| 文件 | 命中数 | 夸克要做什么 |
+| 文件 | 命中数（**行命中**口径） | 夸克要做什么 |
 |---|---:|---|
-| `src-tauri/src/remote/connection_test.rs` | 14 | 协议解析测试加夸克 |
+| `src-tauri/src/remote/connection_test.rs` | 14（行命中）/ **24 个 test 函数** | 协议解析测试加夸克 |
 | `src-tauri/src/remote/baidu_api.rs` 内联 `mod tests` | 314 | 新建 `quark_api.rs` 的等价单测 |
 | `src-tauri/src/remote/baidu_provider.rs` 内联 `mod tests` | 162 | 新建 `quark_provider.rs` 的等价单测 |
 | `src-tauri/src/remote/baidu_auth.rs` 内联 `mod tests` | 155 | 新建 `quark_auth.rs` 的等价单测 |
@@ -314,6 +331,8 @@ Alpha File Manager 目前只支持 `ftp` / `ftps_explicit` / `ftps_implicit` / `
 | `src/utils/__tests__/reveal-containing-directory.test.ts` | 6 | 加夸克断言 |
 | `src/modules/home/components/remote-entries-section.test.ts` | 1 | 加夸克断言 |
 | `src-tauri/src/dir_reader/read.rs` | 2 | 确认无需改（协议无关） |
+
+> **口径说明**：本表的「命中数」是**行命中**口径（`baidu-touchpoints.txt` 的行数），**不是** test 函数数。Rust 三个模板的 **test 函数数**实测为 api **98** / auth **49** / provider **59**（合计 206），`connection_test.rs` 实含 **24** 个 test 函数。§6.1 的单测门槛按 **test 函数数**口径设（评审 N5）。
 
 #### 2.2.10 完整命中清单（96 个文件 / 2189 行命中）
 
@@ -442,7 +461,7 @@ GET https://drive-pc.quark.cn/1/clouddrive/file/sort
 
 响应：`.data`，即 `{ list: [...], metadata: {...} }`（`index.js:5339978` 处确认 `t?.data?.list.length` 与 `metadata: t.metadata`）。
 
-**另一处同款列表调用**（`index.js:5339978`）：
+**另一处同款响应形状（`{list, metadata}`）的调用**（`index.js:5339978`）—— 其 endpoint 实为 `/1/clouddrive/share/sharepage/detail`（分享页详情），**不是**根目录列表：
 
 ```
 params: { pwd_id, stoken, pdir_fid: "0", force: 0, _page: 1, _size: 1,
@@ -460,6 +479,7 @@ headers: { "Content-Type": "application/json" }
 | 实例级 `params` | `pr: ucparams.pr`, `fr: ucparams.fr`, `sys: process.platform`, `ve: getQuarkPCVersion()`, `uc_param_str: "dsdnfrpfbivesscpgimibtbmnijblauputogpintnwktprchmt"` |
 | `timeout` | `1e4`（10 秒） |
 | `withCredentials` | `true` |
+| **request 拦截器** | **该实例确有**：`e.params = { uc_param_str: UC_PARAMS_STR, device_model: getDeviceNameSync(), ...e.params, ...getUcParams(), ve }` ⇒ `file/sort` **也**带 `device_model`（来自 `getDeviceNameSync()`，即本机主机名）与 `ut`（来自 `window.QUARK_WSGUID`，模块 `514962`） |
 
 **`fileRequest`**（`index.js:6047616`，`t.fileRequest =`）—— axios 实例：
 
@@ -481,21 +501,29 @@ headers: { "Content-Type": "application/json" }
 | `getUcParams()` | `window.QUARK_WSGUID` → `ut`；`window.QUARK_VERSION` → `ve` | 模块 `514962` |
 | `getQuarkPCVersion()` | 从 UA 匹配 `QuarkPC/(\d+\.\d+\.\d+\.\d+)`；`appVersion` 从 UA 匹配 `quark-cloud-drive/([\d.]+)` | 模块 `407716` |
 
-> **⭐ 关键实证：没有 `sign` / `x-*` / `sec-*` 签名参数。** 本地客户端就是 `withCredentials` + 固定 query 参数 + Cookie，**不需要自造签名**。这是夸克相对百度最大的实施优势。
+> **⭐ 关键实证：`file/sort` 路径上没有 `sign` / `x-*` / `sec-*` 签名参数。** 本地客户端就是 `withCredentials` + 固定 query 参数 + Cookie，**不需要自造签名**。这是夸克相对百度最大的实施优势。
+>
+> ⚠️ 表述边界：`index.js` @6031405 处**确有** `X-U-Content-Encoding: wg` + body 加密，但**不在 `file/sort` 路径上**。引用本条结论时**必须**带上「`file/sort` 路径上」这个限定。
 
 #### 3.2.4 错误码表（模块 `887411` `ERROR_TIPS`，`index.js:6047616` 处重复一份）
 
 | 码 | 含义 | 码 | 含义 |
 |---|---|---|---|
-| `14001`-`14010` | 网络 / 数据异常 | `23010` | 上传失败 |
-| `14012` | 文件名非法 | `24005` | 文件状态已更新 / 隐私空间锁定 |
-| `14013` | 文件不存在 | `25004` | 总大小超限 |
+| `14001`-`14010` | 网络 / 数据异常 | `23010` | 上传失败，请稍后重试 |
+| `14012` | 文件名非法 | `24005` | **文件/文件夹状态已更新，请返回重试** |
+| `14013` | 文件不存在 | `25004` | 文件总大小超限 |
 | `14014` | 违规 | `25005` | 解析失败 |
 | `21001` | 云端已不存在 | **`31001`** | **「请重新登录」← 会话失效信号** |
 | `22001` | 含违规信息 | `32003` | 空间不足 |
-| `23001` | 上传失败 | `32004` | 文件大小超限 |
-| `23005` | 下载失败 | `32005` | 离线下载次数超限 |
-| `23008` | 重命名同名冲突 | `43004` | 本地时间差异大 |
+| `23001` | 上传失败，请稍后重试 | `32004` | 文件大小超限 |
+| `23005` | 下载失败，请稍后重试 | `32005` | 离线下载次数超限 |
+| `23008` | 重命名失败，存在同名文件 | `43004` | 本地时间差异较大 |
+| `23018` | 文件不支持下载 | `25008` | 文件已失效 |
+| `38001` | 文件不支持下载 | — | — |
+
+> **收录范围**：A 层的 `ERROR_TIPS` 在 `index.js` 里有**两份副本**（模块 `887411` @6041787，另一份 @6030862）。上表按**两份副本的并集**收录 —— 第二份多出 `23018` / `25008` / `38001` 三个码（原表漏记）。`24005` 的 A 层原文是「**文件/文件夹状态已更新，请返回重试**」，**不含**「隐私空间锁定」字样。
+>
+> **会话失效码**：`31001` 与 **`31004`** 同等对待 —— 客户端的响应处理是 `if ([31001, 31004].includes(r.code) && ...user.logout())` ⇒ **`31004` 也是会话失效码**，会触发登出。
 
 #### 3.2.5 下载语义
 
@@ -675,52 +703,70 @@ export type RemoteProtocol =
 | `src-tauri/src/remote/quark_auth.rs` | 新增 | ≈350 行 | 会话编解码 / 状态 / DPAPI 存取，**零 `tauri::` 路径** |
 | `src-tauri/src/remote/quark_provider.rs` | 新增 | ≈700 行 | `impl RemoteProvider for QuarkRemoteProvider` |
 | `src-tauri/src/quark_login.rs` | 新增 | ≈700 行 | 内嵌 WebView2 登录窗，**独立 `std::thread` 建窗** |
-| `src-tauri/src/quark_probe.rs` | 新增（可选） | ≈300 行 | 真机探针，`AFM_QUARK_PROBE=1` 才生效 |
-| `src-tauri/src/remote/mod.rs` | 改 | +8 行 | 三个 `mod` + 两段 `pub use` |
+| `src-tauri/src/remote/mod.rs` | 改 | +8 行 | 夸克侧 3 个 `mod` + 2 段 `pub use`（**参照系**：百度侧是 **4 段** `pub use`，不是 3 段） |
 | `src-tauri/src/remote/connection.rs` | 改 | +3 行 | 变体、`as_str`、`default_port` |
 | `src-tauri/src/remote/registry.rs` | 改 | +4 行 | `QuarkPan` 不走 password 路径 |
 | `src-tauri/src/remote/commands.rs` | 改 | +60 行 | 3 个会话命令 + 4 个 login 命令 + `provider_with_protocol` 三处分支 + 命令注册自检清单 |
 | `src-tauri/src/lib.rs` | 改 | +8 行 | `mod quark_login;` + `generate_handler!` 注册 7 个命令 |
 
+> **`quark_probe.rs` 不在本清单里**：它是 **T0 之后**才评估的可选项 —— 仅在主路线成立、且确有常驻探针需求时才决定要不要新增。一个 env-gated 常驻探针对最终用户没有价值；而 T0 阶段就往产品代码树塞模块，一旦 T0 结论是「走退路」，这段代码要么白写、要么成为长期负担。T0 一律用**外部只读探针**（`curl` / `Invoke-WebRequest`），见 §5 阶段 0。
+
 ### 4.4 前端文件清单
+
+**集成模型：网盘 provider 选择器**（本轮拍板的实现方向；理由见下方「为什么选 provider 选择器」）。
 
 | 文件 | 动作 | 要点 |
 |---|---|---|
 | `src/types/remote.ts` | 改 | 协议联合类型 + `isQuarkPanProtocol` + `isNetdiskProtocol` + 3 份夸克载荷镜像类型 |
-| `src/modules/settings/ui/categories/remote/connection-form.vue` | 改 | 协议下拉加项；夸克分支**隐藏** host/port/密码框，改显示授权卡 |
+| `src/modules/settings/ui/categories/remote/connections-section.vue` | 改 | **网盘分区的 provider 选择器**（「添加」时二选一：百度网盘 / 夸克网盘）；分区判定改用 `isNetdiskProtocol`；`remoteInitialProtocol` 的回落要同时挡住 `quark_pan` |
+| `src/modules/settings/ui/categories/remote/index.vue` | 改 | 父级分类靠分区结果决定「信任的主机」是否显示 → 同口径改判定 |
+| `src/modules/settings/ui/categories/remote/connection-form.vue` | 改 | **网盘分支按 provider 分流**（百度走现有 `baidu_pan` 分支，夸克走 `quark_pan` 分支）；夸克分支**隐藏** host/port/密码框，改显示授权卡。**协议下拉不动**（`:63-69` 刻意不含网盘协议） |
 | `src/stores/storage/remote-connections.ts` | 改 | 固定 host/port、保存分派、测试连接、授权状态、登录 start/cancel |
-| `src/modules/settings/ui/categories/remote/sections.ts` | 改 | 改用 `isNetdiskProtocol` |
-| `src/modules/nav-sidebar/components/remote-nav-panel.vue` | 改 | 「网盘」/「远程」分区过滤改用统一判定；新建预置协议 |
+| `src/modules/settings/ui/categories/remote/sections.ts` | 改 | `isBaiduPanProtocol()` → `isNetdiskProtocol()` |
+| `src/modules/nav-sidebar/components/remote-nav-panel.vue` | 改 | 「网盘」/「远程」分区过滤改用统一判定；`sections` 里网盘分区原先单一的 `protocol: "baidu_pan"` 字段改为**可容纳多 provider 的结构**；新建预置协议 |
 | `src/utils/virtual-locations.ts` | 改 | `location_group` 改用统一判定 |
 | `src/utils/remote-location-refs.ts` | 改 | 同口径 |
-| `src/localization/messages/*.json`（**17 个**） | 改 | 各加 4 处（`protocols.quark_pan` / `quarkLoginRequired` / `quark` 对象 / `quark.saved`）；中文 locale 是 `ch` |
+| `src/localization/messages/*.json`（**17 个**） | 改 | 各加 **1 个约 15 键的嵌套对象** + **2 个平铺键**（`protocols.quark_pan` / `quarkLoginRequired` / `quark` 对象）；中文 locale 是 `ch` |
 | `src/modules/settings/ui/categories/remote/quark-connection-form.test.ts` | 新增 | 夸克表单测试（对应百度的 `baidu-connection-form.test.ts`） |
 | `src/stores/storage/__tests__/remote-connections-quark.test.ts` | 新增 | 夸克存储测试 |
 | `src/types/__tests__/remote-protocol-quark.test.ts` | 新增 | 协议判定测试 |
+
+#### 为什么选 provider 选择器，而不是协议下拉
+
+1. **协议下拉里没有网盘协议，而且这是刻意的**：`connection-form.vue:63-69` 的注释原文写着「**不含百度网盘**：网盘有自己的标签页与专属的录入项，把它塞进这个下拉等于给用户一条『选了却填不了对应字段』的死路」，`PROTOCOLS` 只有 `ftp` / `ftps_explicit` / `ftps_implicit` / `sftp`。夸克网盘同样没有 host / port / 密码可填 ⇒ 塞进去就正是那条死路。
+2. **网盘协议是硬编码的，不由表单决定**：`connection-form.vue:230-232` 的 `props.variant === "netdisk" ? "baidu_pan" : ...` 说明「选哪个网盘协议」这件事发生在**上游分区层**，不在表单里。
+3. **网盘分区本来就是为多网盘协议预留的扩展位**：`connections-section.vue:32` 的原话是「判定口径只有一个 —— `isBaiduPanProtocol`。以后接入阿里云盘之类的网盘，只要把判定扩进去，这一页的分区自动跟上」⇒ 「选哪个网盘」天然属于分区层的职责，做成 provider 选择器与仓库既有结构一致。
+
+⇒ 改动面收敛在五个文件内：`connections-section.vue` + `remote/index.vue` + `sections.ts` + `remote-nav-panel.vue` + `connection-form.vue`。
+
+#### 4.4.1 已否决的方案：把网盘协议加进「协议下拉」
+
+> **已否决**（评审 B1）。原方案写的是「协议下拉加项 → 下拉选夸克网盘」，**不得**按此实现：仓库里 `PROTOCOLS` **刻意不含**网盘协议（`connection-form.vue:66-67` 的注释明确反对），网盘协议由 `connection-form.vue:230-232` 的 `variant === "netdisk"` **硬编码**。照原方案实施会做出一个「选了却填不了对应字段」的死路。本轮改用上面的 **provider 选择器**。
 
 **不需要改**（明确写出来，防下一轮白跑）：
 
 - `src-tauri/src/remote/{provider.rs, path.rs, dir_adapter.rs, credentials.rs, error.rs, transfer.rs}` —— 协议无关
 - `src-tauri/capabilities/default.json` —— 登录窗由 Rust 侧建，所需 capability 已具备
 - `src-tauri/src/remote/connection_test.rs` 的结构 —— 夸克不握手，不复用 `ProbeOutcome`
+- `src/modules/tab-bar/utils/remote-tab-labels.ts` —— 全文 60 行，**不含** `baidu` / `protocol` / `netdisk` 字样，只吃 `connectionName` ⇒ **协议无关，不需要改**
 - `src-shared/remote-connection.sample.json` —— 字段没变
 - `user-remote-connections.json` 的顶层键与读/写白名单 —— 字段没变
 
 ### 4.5 认证链路时序
 
 ```
-[设置页] 协议下拉选「夸克网盘」→ 点「添加」
+[设置页] 网盘分区选 provider「夸克网盘」→ 点「添加」
    ↓
 [前端] invoke remote_quark_login_start
    ↓
 [Rust] std::thread::spawn → 在独立线程建 WebviewWindow("afm-quark-login")
    │  ├─ 保险一：建窗后清 jar 里的旧 __pus（清不掉就换独立 data-dir）
    │  ├─ 记录基线 cookie 指纹
-   │  └─ 加载 https://pan.quark.cn/
+   │  └─ 加载 <登录起始页>（**以 U3 的 T0 结论为准**；候选：`https://pan.quark.cn/`、配置块里的 `scanLoginPage = https://su.quark.cn/4_eMHBJ`）
    ↓
 [用户] 在内嵌窗口扫码 / 手机号+密码登录
    ↓
-[窗口] 导航到 https://pan.quark.cn/ 之后，cookie jar 出现 __pus
+[窗口] 导航到登录页之后，cookie jar 出现 __pus
    │  └─ 保险二：Ready 条件 = 当前 cookie 指纹 ≠ 基线 cookie 指纹
    ↓
 [Rust] 读 cookie → 关窗 → 保险三：对服务端验活（GET /1/clouddrive/file/sort?pdir_fid=0&_size=1）
@@ -761,8 +807,13 @@ GET https://drive-pc.quark.cn/1/clouddrive/file/sort
     &_fetch_total=1&_fetch_sub_dirs=0
     &_sort=file_name:asc,updated_at:desc
     &pr=ucpro&fr=win&sys=win32&ve={UA 版本}&uc_param_str={固定串}
+    &device_model={本机主机名}&ut={QUARK_WSGUID}
 Cookie: <.quark.cn 域整罐>
 ```
+
+> **`device_model` 与 `ut` 不能省**（评审 M1）：真实客户端的 `driveRequest` **确有** request 拦截器，注入 `device_model`（来自 `getDeviceNameSync()`，即**本机主机名**）与 `ut`（来自 `window.QUARK_WSGUID`）。若按旧规范少这两个参数去 T0 实测，**被拒会被误读成「路线不成立」**。
+>
+> ⚠️ `device_model` 会把**本机主机名**带出 ⇒ 属敏感项，落盘与日志策略见 §6.4。
 
 **响应**（形态已实证）：
 
@@ -812,13 +863,17 @@ GET https://drive-pc.quark.cn/1/clouddrive/file/download?fid={fid}
 | 夸克 `code` / 现象 | 语义 | `RemoteErrorKind` | 依据 |
 |---|---|---|---|
 | `31001` | 请重新登录 | **`Auth`** | A 层错误码表 |
+| `31004` | 会话失效（与 `31001` 同等，触发登出） | **`Auth`** | A 层响应处理 `if ([31001, 31004].includes(r.code) && ...user.logout())` |
 | HTTP 401 / 403 | 鉴权失败 | `Auth` | 通用 |
 | HTTP 3xx（跳登录页） | 会话失效 | `Auth` | 通用 |
 | `14013` / `21001` | 文件不存在 / 云端已不存在 | `NotFound` | A 层 |
 | `14014` / `22001` | 违规 / 含违规信息 | `Permission` | A 层 |
 | `14012` | 文件名非法 | `Protocol` | A 层 |
 | `23008` | 重命名同名冲突 | `Protocol` | A 层（同百度的「已存在」归 Protocol） |
-| `24005` | 文件状态已更新 | `Protocol` | A 层 |
+| `24005` | **文件/文件夹状态已更新，请返回重试** | `Protocol` | A 层原文（**不含**「隐私空间锁定」） |
+| `23018` | 文件不支持下载 | `Unsupported` | A 层第二份副本 |
+| `25008` | 文件已失效 | `NotFound` | A 层第二份副本 |
+| `38001` | 文件不支持下载 | `Unsupported` | A 层第二份副本 |
 | `43004` | 本地时间差异大 | `Protocol` | A 层 |
 | `25004` / `32004` / `32003` / `32005` | 体积/空间/次数超限 | `Unsupported` | A 层 |
 | `14001`-`14010` | 网络 / 数据异常 | `Unreachable` | A 层 |
@@ -828,12 +883,14 @@ GET https://drive-pc.quark.cn/1/clouddrive/file/download?fid={fid}
 | 连接超时 / DNS 失败 | 网络不可达 | `Unreachable` | 通用 |
 
 > **映射表必须穷尽**：漏一个变体就会让某类失败退化成「笼统错误」。照抄 `baidu_api.rs:589` 的 `classify_baidu_failure` 写法，每条都标注证据强度。
+>
+> **`Unknown` 兜底必须携带原始 code 便于排障**：落到 `Unknown` 的那条错误信息里要带上夸克原始 `code` —— 否则用户只看到「未知错误」，开发侧也无从定位是哪个码。
 
 ### 4.8 风险表
 
 | # | 风险 | 概率 | 影响 | 缓解 |
 |---|---|---|---|---|
-| **R1** | **服务端拒绝非浏览器来源的 Cookie 请求**（缺 `device_model` / `ut` / `QUARK_WSGUID`） | **中高** | **整条路线作废** | **T0 必须先做**：用真机登录拿到的 cookie 直接打 `file/sort`，逐个补齐 `device_model` / `ut` / `ve` 看哪个必需。**若全部必需**：退化为「登录窗内执行 `fetch` 并把 JSON 结果回传 Rust」（即在 WebView2 里跑请求，Rust 只做解析与落盘）——这条退路仍可用，因为 `file/sort` 是公开的 GET 接口 |
+| **R1** | **服务端拒绝非浏览器来源的 Cookie 请求**（缺 `device_model` / `ut` / `QUARK_WSGUID`） | **低～中** | **整条路线作废** | **T0 必须先做**：用真机登录拿到的 cookie 直接打 `file/sort`，逐个补齐 `device_model` / `ut` / `ve` 看哪个必需。**若全部必需**：退化为「登录窗内执行 `fetch` 并把 JSON 结果回传 Rust」（即在 WebView2 里跑请求，Rust 只做解析与落盘）——这条退路仍可用，因为 `file/sort` 是公开的 GET 接口。**概率已下调为「低～中」**（原估偏高）：B 层 `https://docs.hunhepan.com/reman/pantools.html` 的工具是**原生 Windows（Go）程序**用**单个 cookie 直连**，构成「非浏览器来源也能工作」的可工作反例 |
 | R2 | 风控 / 验证码 / 频率限制 | 中 | 频繁 401 或验证码页 | 退路同上；错误映射里单列「协议已变更 / 风控」文案 |
 | R3 | `fr=win` 与 `fr=pc` 都不被接受 | 低中 | 列表请求全失败 | T0 做 A/B 对照，取被接受的那个；两个都失败则按 R1 退路处理 |
 | R4 | `_size` 服务端静默截断 | 中 | **目录漏条目且不报错** | 照抄百度 `clamp_page_limit`：**必须夹** `_size`；并用 `_fetch_total` 交叉校验总数 |
@@ -849,6 +906,7 @@ GET https://drive-pc.quark.cn/1/clouddrive/file/download?fid={fid}
 | R14 | 下载限速 | 高 | 体验差 | **不做任何绕过**；UI 显示真实速率与已下载量 |
 | R15 | 大文件内存峰值 | 中 | 吃满内存 | `QUARK_MAX_DOWNLOAD_BYTES` 人为闸，超限返回 `Unsupported` |
 | R16 | 误以为有 `refresh_token` | 低 | 走弯路 | A 层已否定；§7-U2 留作待验，但 v1 不实现 |
+| **R17** | **用户出口 IP 被风控 / 拦截** | 中 | **高** | **T0 记录实测出口 IP 与响应特征**；命中则整体走退路（§7.1）。UI 要给**明确文案**（如「当前网络环境无法访问夸克网盘，请更换网络后重试」），**不能**笼统报「登录失败」。依据：B 层原文「2024/07/24 晚起，貌似国外服务器访问夸克 API 时会被拦截」⇒ 存在与请求来源无关、**只与出口 IP 有关**的独立失败模式 |
 
 ---
 
@@ -858,27 +916,76 @@ GET https://drive-pc.quark.cn/1/clouddrive/file/download?fid={fid}
 
 ### 阶段 0（T0）——认证可行性实测（**头号风险，必须先做**）
 
-**做什么**：写一个**只读**探针（`src-tauri/src/quark_probe.rs`，`AFM_QUARK_PROBE=1` 才生效；或用 `curl`），用真实登录拿到的 cookie 直接打 `file/sort`。
+**工具形态（评审 M3）**：**只允许外部只读探针** —— `curl` / `Invoke-WebRequest` 之类，**不碰产品代码树**。**不写** `src-tauri/src/quark_probe.rs`：T0 阶段往产品树塞模块，一旦结论是「走退路」这段代码就白写；而一个 env-gated 常驻探针对最终用户没有价值。该文件已从 §4.3 的新增清单移除，只在 **T4 之后**、且主路线成立确有需要时才评估。
 
-**必须回答的问题**：
+**凭据来源（评审 B2 —— 写死的可复现路径）**：
 
-| 问题 | 关联 | 判定 |
+**已建好的自动化链路**（本轮已落地并实测跑通，全部在 `.superpowers/sdd/quark/`）：
+
+| 文件 | 作用 |
+|---|---|
+| `t0-run.ps1` | 一键编排：起 Edge（CDP）→ 等登录 → 抓 cookie → 取 `ut` → 跑探针 → 写记录 |
+| `t0-edge.ps1` | 用**一次性 profile** 起带 `--remote-debugging-port` 的 Edge |
+| `t0-cookie.cjs` | 经 CDP 取 `.quark.cn` **整罐** cookie；找不到 `quark.cn` 页面即中止（**绝不读无关应用的 cookie**） |
+| `t0-meta.cjs` | 从已登录页面直取 `ut`（`window.QUARK_WSGUID`）与 UA ⇒ **不靠猜** |
+| `t0-probe.cjs` | 按 8 问发只读请求 + 三态判据；**只输出 cookie 名称与长度，绝不输出值** |
+| `t0-kill-edge.ps1` | 只杀一次性 profile 的 Edge，不碰用户日常窗口 |
+
+执行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .superpowers/sdd/quark/t0-run.ps1 -Port 9333 -WaitMinutes 12
+```
+
+> ⚠️ **端口必须先查占用**：本机 9222 已被另一个应用占用，CDP 会连到**别人的浏览器**并读到**无关应用的 cookie**。`t0-run.ps1` 会自动换端口，两个 CDP 脚本也会在找不到 `quark.cn` 页面时直接中止。
+>
+> ⚠️ **等待条件必须是登录态 cookie**：匿名访问 `pan.quark.cn` 也会下发 12 个 `.quark.cn` cookie（含 `ctoken` / `isQuark` 等），此时打 `file/sort` 只会得到 `HTTP 401 + code=31001`。**只有出现 `__pus` 才算登录**，否则「游客 cookie 的 401」会被误读成「路线不成立」。
+
+**手工兜底**（自动化不可用时）：
+
+1. 用 **Edge** 登录 `https://pan.quark.cn/`。
+2. DevTools → Network → 任一 `drive-pc.quark.cn` 请求 → 复制**整条 `Cookie` 请求头**。
+3. 存入 `.superpowers/sdd/quark/t0-cookie.txt`（**不入 git**，阶段末销毁）。
+
+采集要求：
+
+- 采集**整罐** `.quark.cn` cookie（U11 待验 ⇒ **先采整罐、再在 T0 内分组裁剪**，不要一上来就只挑 `__pus`）；
+- 记录**采集时刻**（用于判断过期）；
+- 全程**只读** —— 不做任何写操作、不分享、不删除。
+
+**必须回答的问题（8 问）**：
+
+| # | 问题 | 关联 | 判定口径 |
+|---|---|---|---|
+| 1 | 非浏览器来源的 Cookie 直连是否被接受？ | U4 / R1 | 三态：主路线成立 / 必须走退路 / 证据不足 |
+| 2 | 缺 `device_model` / `ut` / `ve` / `uc_param_str` 分别会不会被拒？ | U4 / U6 | 得出必需参数清单；**必须在已按 §4.6 补齐全部 query 参数的前提下测** |
+| 3 | `fr=win` 与 `fr=pc` 哪个被接受？ | U5 / R3 | 记录被接受的值（两个都失败 ⇒ 先查 R17 的 IP 维度，不直接判路线不成立） |
+| 4 | `__pus` 单个是否够？还是要整罐？ | U1 / U11 | 记录必需 cookie 清单 |
+| 5 | `size` 与 `updated_at` 的单位 | U8 / R5 | 用已知大小文件核对 |
+| 6 | `_size` 的服务端上限 | U9 / R4 | 请求 `_size=1000` 看返回条数 |
+| 7 | 是否有风控 / 验证码；**出口 IP 是否被拦** | U7 / R2 / **R17** | 记录现象 + 实测出口 IP + 响应特征 |
+| 8 | 账号昵称接口 `GET /pan.quark.cn/account/info` 是否可用 | U12 / B 层 | 记录响应（端点已证实存在，昵称字段形状待验） |
+
+**闸门：三态判定（评审 B3 —— 量化判据）**：
+
+| 结果 | 判据 | 动作 |
 |---|---|---|
-| 非浏览器来源的 Cookie 直连是否被接受？ | U4 / R1 | 接受 → 主路线成立；拒绝 → 走退路 |
-| 缺 `device_model` / `ut` / `ve` / `uc_param_str` 分别会不会被拒？ | U4 / U6 | 得出必需参数清单 |
-| `fr=win` 与 `fr=pc` 哪个被接受？ | U5 / R3 | 记录被接受的值 |
-| `__pus` 单个是否够？还是要整罐？ | U1 / U8 | 记录必需 cookie 清单 |
-| `size` 与 `updated_at` 的单位 | U8 / R5 | 用已知大小文件核对 |
-| `_size` 的服务端上限 | U9 / R4 | 请求 `_size=1000` 看返回条数 |
-| 是否有风控 / 验证码 | U7 / R2 | 记录现象 |
-| 账号昵称接口 `GET /pan.quark.cn/account/info` 是否可用 | B 层 | 记录响应 |
+| **主路线成立** | HTTP 200 **且** `code == 0` **且** `data.list` 与 `metadata` 自洽（条数 ≤ `_size`，`metadata.total` ≥ list 条数）**且** 连续 **3 次**请求都成功 **且** 用列表里任一子目录 `pdir_fid` 再列举一次也成功 | 进入 T1 |
+| **必须走退路** | 带**合法且完整** cookie、**且已按 §4.6 补齐全部 query 参数**后，仍返回 HTTP **401/403** **或** `code == 31001 / 31004` | 转 §7.1 退路，并同时给出退路方案的**最小可运行**证据 |
+| **证据不足** | 5xx / 超时 / 429 / 弹验证码 / cookie 采集不全 / 参数未补齐 | **不得**判「路线不成立」—— 先补齐再测；本态**必须**写进记录 |
 
 **验收判据**：
-- 一份实测记录（上述 8 问逐条给结论 + 原始响应片段），落到 `.superpowers/sdd/quark/t0-probe-findings.md`
-- 明确写明**主路线成立**或**必须走退路**（二选一，不许模糊）
-- 若走退路：同时给出退路方案的**最小可运行**证据
 
-**闸门**：`cargo test --lib` 仍通过（探针模块不得引入 `tauri::` 到被测链路）。
+- 一份实测记录（上述 8 问逐条给结论 + 原始响应片段），落到 `.superpowers/sdd/quark/t0-record.md`
+- 记录里明确写下**三态之一**（主路线成立 / 必须走退路 / 证据不足），并写明**出口 IP**、**采集时刻**、是否弹验证码
+- 若判「必须走退路」：同时给出退路方案的**最小可运行**证据
+- 阶段末**销毁** `.superpowers/sdd/quark/t0-cookie.txt`，并在记录里写明已销毁
+
+**闸门**（**不再**用 `cargo test --lib` —— 那会把 T0 变成「必须先能编译」的任务，拖慢头号风险验证）：
+
+- §5 阶段 0 的 **8 问逐条有结论**
+- **三态之一**已写下
+- **临时凭据文件已销毁**
 
 > **约束**：T0 允许**用用户自己的夸克账号**做登录与只读列举，**不得**做任何写操作、不得分享、不得删除。凭据只落 `.superpowers/sdd/quark/` 下的临时文件并在阶段结束时销毁。
 
@@ -897,7 +1004,7 @@ GET https://drive-pc.quark.cn/1/clouddrive/file/download?fid={fid}
 - `struct QuarkSession` + 手写 `Debug`（只打印长度）
 
 **验收判据**：
-- `cargo test --lib` 新增 ≥ 45 条，**零 `tauri::`**、**零网络**
+- `cargo test --lib` 新增 **api ≥ 60 个 test 函数**，**零 `tauri::`**、**零网络**
 - 关键反例（缺一条就算没做完）：
   - `code != 0` ⇒ 走失败分类，**不得**解析出空列表冒充成功
   - `code == 31001` ⇒ `Auth`
@@ -922,10 +1029,11 @@ npm run check
 - `scan_cookies()`（大小写敏感、同名取第一个、只投影必要字段）
 - `load_quark_session()` / `save_quark_session()` / `delete_quark_session()`（走 `credentials.rs` 的 DPAPI 链路，键 = 连接 id）
 - `quark_auth_status()` / `describe_state()` / `is_expired()` / `remaining_seconds()`
+- `session_to_cookie_header()`（会话 → `Cookie` 请求头字符串；模板在 `baidu_auth.rs:436`，`commands.rs:282` 正在用它，**不能漏**）
 - `QUARK_STOKEN_EXPIRY_WARN_SECONDS` → 改为「距上次验活时间」的等价语义（夸克无 STOKEN）
 
 **验收判据**：
-- `cargo test --lib` 新增 ≥ 20 条
+- `cargo test --lib` 新增 **auth ≥ 25 个 test 函数**
 - 关键反例：
   - 密文里**不含**明文 cookie（扫全文断言）
   - `Debug` 输出**不含** cookie 明文（只含长度）
@@ -949,7 +1057,7 @@ npm run check
 - `write_file` / `write_file_with_progress` / `set_permissions` / `make_dir` / `remove_path` / `rename_path` ⇒ **明确 `RemoteError::unsupported`**
 
 **验收判据**：
-- `cargo test --lib` 新增 ≥ 25 条
+- `cargo test --lib` 新增 **provider ≥ 40 个 test 函数**
 - 关键反例（缺一条就算没做完）：
   - `write_file` 必须返回 `Unsupported`，**不能返回 `Ok(())`**
   - `set_permissions` 必须返回 `Unsupported`，**不能返回 `Ok(())`**
@@ -970,8 +1078,8 @@ npm run check
 **做什么**（照抄 `baidu_login.rs`）：
 
 - `LOGIN_WINDOW_LABEL = "afm-quark-login"`
-- `LOGIN_START_URL = "https://pan.quark.cn/"`（T0 若证伪则替换）
-- `LOGIN_COOKIE_URL = "https://pan.quark.cn/"`（cookie 锚点）
+- `LOGIN_START_URL` = **以 U3 的 T0 结论为准**（候选：`https://pan.quark.cn/`、配置块里的 `scanLoginPage = https://su.quark.cn/4_eMHBJ`）—— **不写死**
+- `LOGIN_COOKIE_URL` = 同上（cookie 锚点）
 - `LOGIN_EVENT = "afm://quark-login"`
 - 每轮登录**独立 webview data-dir**（`quark-login-profile/session-<stamp_ms>`）
 - **在独立 `std::thread` 里建窗**（D4，红线）
@@ -1024,7 +1132,7 @@ npm run check
 **做什么**：
 
 - `src/types/remote.ts`：协议类型 + `isQuarkPanProtocol` + `isNetdiskProtocol` + 3 份载荷镜像类型
-- `connection-form.vue`：协议下拉加「夸克网盘」；夸克分支隐藏 host/port/密码框，显示授权卡（登录按钮 / 状态 / 昵称 / 重授权 / 取消）
+- `connection-form.vue`：**网盘分支按 provider 分流**（百度走现有 `baidu_pan` 分支，夸克走 `quark_pan` 分支）；夸克分支隐藏 host/port/密码框，显示授权卡（登录按钮 / 状态 / 昵称 / 重授权 / 取消）。**协议下拉不动**
 - `remote-connections.ts`：固定 host/port、保存分派、测试连接、授权状态、登录 start/cancel、`quarkLoginRequired`
 - `sections.ts` / `virtual-locations.ts` / `remote-location-refs.ts` / `remote-nav-panel.vue`：**全部改用 `isNetdiskProtocol`**（消除并行判定口径）
 - `remote-nav-panel.vue`：新建请求可预置 `'quark_pan'`
@@ -1032,11 +1140,11 @@ npm run check
 **验收判据**：
 - `npm run test:unit:run` 新增 ≥ 15 条
 - 关键反例：
-  - 选夸克协议时 host/port/密码框**不可见**
+  - 在网盘分区选 provider「夸克网盘」后，host/port/密码框**不可见**
   - 未授权时保存连接 ⇒ 报「需要登录夸克网盘」分类文案
   - `isNetdiskProtocol('baidu_pan')` 与 `isNetdiskProtocol('quark_pan')` 均为 `true`，`isNetdiskProtocol('sftp')` 为 `false`
   - 侧边栏「网盘」分区**同时**出现百度与夸克连接；「远程」分区**不含**它们
-- 真机（打包产物）截图：协议下拉有「夸克网盘」；选它后表单切成授权卡
+- 真机（打包产物）截图：网盘分区的 provider 选择器里有「百度网盘 / 夸克网盘」；选夸克后表单切成授权卡
 
 **闸门**：
 ```
@@ -1048,13 +1156,13 @@ npm run tauri:build
 
 **做什么**：
 
-- **17 个**语言包各加 4 处（`protocols.quark_pan` / `quarkLoginRequired` / `quark` 对象 / `quark.saved`）；中文值走 `ch.json`
+- **17 个**语言包各加 **1 个约 15 键的嵌套对象** + **2 个平铺键**（`protocols.quark_pan` / `quarkLoginRequired` / `quark` 对象）；中文值走 `ch.json`。夸克**没有 STOKEN**，「失效 / 临期」文案要**重新起草语义**，不是把 stoken 换成 pus 抄一遍
 - 跑 `npm run sync-i18n` 同步
 - 改完验 `\uFFFD` 为空（编码没坏）
 - `CHANGELOG.md` 按仓库既有格式补一条（`npm run check` 里的 `verify-changelog` 会验）
 
 **验收判据**：
-- 17 个语言包**全部**含 4 处夸克键，**无遗漏**
+- 17 个语言包**全部**含夸克的「1 个约 15 键嵌套对象 + 2 个平铺键」，**无遗漏**
 - `npm run sync-i18n` 后无 diff
 - `npm run check` 全绿（含 `verify-changelog`）
 
@@ -1086,20 +1194,26 @@ T0 ──► T1 ──► T2 ──► T3 ──► T4 ──► T5 ──► T6
 
 T1 与 T2 可并行（不同文件、无依赖）。T6 与 T7 可并行（不同文件）。
 
-### 5.2 工时预估
+### 5.2 工时预估（评审 M5 复核值）
 
-| 阶段 | 人天 |
-|---|---:|
-| T0 实测 | 1.0 |
-| T1 API 层 | 1.5 |
-| T2 会话层 | 0.5 |
-| T3 provider | 1.0 |
-| T4 登录窗 | 1.0 |
-| T5 命令接线 | 0.5 |
-| T6 前端 | 1.0 |
-| T7 i18n | 0.5 |
-| T8 真机 | 1.0 |
-| **合计** | **8.0** |
+| 阶段 | 原估（人天） | **复核（人天）** | 差异依据 |
+|---|---:|---:|---|
+| T0 实测 | 1.0 | **1.0–1.5** | 要补 cookie 获取路径（B2）、三态判据（B3）、参数补全（M1）、IP 维度记录（M2 / R17） |
+| T1 API 层 | 1.5 | **2.0–2.5** | 模板 `baidu_api.rs` 生产 1044 行 + 98 个 test fn；错误码映射还要再补 4 个码（M7） |
+| T2 会话层 | 0.5 | **1.0–1.5** | 模板 `baidu_auth.rs` 生产 488 行 + 49 个 test fn；还漏了 `session_to_cookie_header` 这类必备的会话 → cookie 头转换 |
+| T3 provider | 1.0 | **1.5–2.0** | 模板 `baidu_provider.rs` 生产 790 行 + 59 个 test fn；且需处理夸克特有的分页 / `_fetch_total` 交叉校验（R4） |
+| T4 登录窗 | 1.0 | **1.0–1.5** | 模板 `baidu_login.rs` 957 生产行；夸克入口 URL 本身是 U3 未定项，可能要返工 |
+| T5 命令接线 | 0.5 | **0.5–1.0** | `commands.rs` 现有 1065 行，要加 3 + 4 命令 + 3 处分支 + 注册自检；原估 `+60` 行属乐观 |
+| T6 前端 | 1.0 | **2.0–2.5** | 因 B1 要改的不止一个文件：`connections-section.vue` + `remote/index.vue` + `sections.ts` + `remote-nav-panel.vue` 的 `sections` 结构 + 表单分支 + provider 选择器 |
+| T7 i18n | 0.5 | **1.0–1.5** | 17 语言 × 约 15 键 ≈ 250+ 条串，含 16 种非中文语言的人工翻译（M4） |
+| T8 真机 | 1.0 | **1.0–1.5** | `tauri build` + 装机 + 多账号 / 多网盘分区 / 失效重授权等场景 |
+| **合计** | **8.0** | **11.5–12.5** | 原 8.0 人天**偏乐观 40–55%** |
+
+**若 T0 判定走退路（§7.1）**：再加 **1.5–2.0 人天**（退路是「在 WebView2 里跑 fetch、把 JSON 回传 Rust」，需要新的数据通道与前端脚本），合计 **13.0–14.5 人天**。
+
+> **模板体量实测**（工时复核依据）：`baidu_api.rs` 2424 行 / 生产 1044 / test fn **98**；`baidu_auth.rs` 1013 行 / 生产 488 / test fn **49**；`baidu_provider.rs` 2306 行 / 生产 790 / test fn **59**；`baidu_login.rs` 1092 行 / 生产 957 / test fn 11。
+>
+> §4.3 给夸克新文件的规模是**纯生产**口径，**没把测试体量算进去** —— 按模板「测试 : 生产 ≈ 1 : 1」，T1–T3 的「零网络单测」根本写不完。
 
 ---
 
@@ -1107,7 +1221,7 @@ T1 与 T2 可并行（不同文件、无依赖）。T6 与 T7 可并行（不同
 
 ### 6.1 单测
 
-- `cargo test --lib` 新增 **≥ 90 条**（T1 ≥45 + T2 ≥20 + T3 ≥25），且**不出现** `STATUS_ENTRYPOINT_NOT_FOUND`
+- `cargo test --lib` 新增 **≥ 125 个 test 函数**（**api ≥ 60 + auth ≥ 25 + provider ≥ 40**，按 **test 函数数**口径，不是行命中；模板实测 api **98** / auth **49** / provider **59**，合计 206），且**不出现** `STATUS_ENTRYPOINT_NOT_FOUND`
 - `npm run test:unit:run` 新增 **≥ 15 条**
 - 关键反例（**必须有，缺一条就算没做完**）：
   - `.` / `..` 段必须被 `normalize_remote_path` 拒 → `RemoteErrorKind::Protocol`
@@ -1122,17 +1236,19 @@ T1 与 T2 可并行（不同文件、无依赖）。T6 与 T7 可并行（不同
 
 ```
 cargo test --lib
-npm run check        # = ts + lint:check + test:unit:run + verify-changelog
+npm run check        # = ts + lint:check + test:unit:run + verify-changelog + verify:sandbox
 npm run tauri:build
 ```
+
+- `npm run check` 的 `scripts.check` 实为 `run-p ts lint:check test:unit:run verify-changelog verify:sandbox` ⇒ **`verify:sandbox` 也在门禁里**，别漏（评审 N6）
 
 - `eslint .` 的基线数字随提交变，别拿旧数字对；要对照就先量 HEAD 真实基线
 - `npm run tauri:build` 成功，产物落到 `release/`
 
 ### 6.3 真机（**必须打包产物，`tauri dev` 的界面验收一律作废**）
 
-1. 设置 → 远程 → 新建连接 → 协议下拉出现「夸克网盘」
-2. 选它 → host/port/密码框**消失**，出现「添加夸克网盘」授权按钮
+1. 设置 → 远程 → **网盘**分区 → 点「添加」→ **provider 选择器出现「百度网盘 / 夸克网盘」二选一**
+2. 选「夸克网盘」→ host/port/密码框**消失**，出现「添加夸克网盘」授权按钮
 3. 点添加 → 内嵌窗口**正常显示**（不是白板）→ 扫码 / 手机号密码登录 → 关窗后卡片显示账号昵称
 4. 二次点「添加」⇒ 弹窗正常，**不**误判为已登录
 5. 保存 → **侧边栏「网盘」分区出现该连接**（用户需求的原话落点）
@@ -1148,10 +1264,12 @@ npm run tauri:build
 
 ### 6.4 数据安全（验收前必做）
 
-- `remote-credentials.json` 是**新增风险点**：授权会真的写进用户的密文档。验收前备份整个 `user-data/` 目录
+- `remote-credentials.json` 是**既有文件**（`credentials.rs:25` `REMOTE_CREDENTIALS_FILE = "remote-credentials.json"`，现存的是 FTP 类凭据），本轮**新增承载**一类**账号级 cookie** 的凭据 —— 属新增风险点：授权会真的写进用户的密文档。验收前备份整个 `user-data/` 目录
 - 恢复顺序**必须先杀进程再 restore**（AGENTS.md：应用退出时会把内存状态写回，先 restore 会被覆盖）
 - `dash-accept-data.cjs backup` 的语义是「备份不存在才建」，**跑完必须看它打印的字节数**
 - 验收后确认 `user-remote-connections.json` 里**没有**任何 cookie 明文（只有 `credential_key`）
+- 验收后确认 `remote-credentials.json` 里**没有**夸克 cookie 明文（只有 DPAPI 密文）
+- 请求参数（含 `device_model` 带出的**本机主机名**）**不落盘、不进日志**（评审 M1 / N8）
 
 ### 6.5 与既有铁律的对照
 
@@ -1180,7 +1298,7 @@ npm run tauri:build
 | U1 | 会话 cookie 名是不是 `__pus`、是否单 cookie 就够 | 登录窗判定 + 凭据格式 | R8 | T0 | 仅 B 层 |
 | U8 | `size` 的单位（字节 / KB）、`updated_at` 的单位（秒 / 毫秒） | 显示与排序 | R5 | T0 | 无 |
 | U9 | `_size` 的服务端上限 | 分页正确性 | R4 | T0 | 无（客户端用 100） |
-| U3 | 夸克登录页的精确 URL（`pan.quark.cn` 首页 / `su.quark.cn` 扫码页 / `coral3.quark.cn`） | 登录窗能否登进去 | — | T0 | 三选一未定 |
+| U3 | 夸克登录页的精确 URL（`pan.quark.cn` 首页 / `su.quark.cn` 扫码页（配置块里的 `scanLoginPage = https://su.quark.cn/4_eMHBJ`）/ `coral3.quark.cn`） | 登录窗能否登进去 | — | T0 | 三选一未定（§4.5 **不写死**，以 T0 结论为准） |
 | U2 | 夸克服务端是否存在 `refresh_token`（本地客户端**不用** ≠ 服务端**没有**） | v1 不实现，仅记录 | R16 | T0 | 本地无命中 |
 | U7 | 是否有风控 / 验证码 / 频率限制 | 稳定性 | R2 | T0 + T8 | 有相关配置，无触发条件 |
 | U10 | 下载是否需要额外 header（`Referer` / `Origin` / `Range`） | 下载是否 403 | R7 | T0 / T8 | 客户端只显式注入了 Cookie |
@@ -1196,6 +1314,8 @@ npm run tauri:build
 | 1 | **在 WebView2 内执行 `fetch`**，Rust 只做解析与落盘 | +1.5 人天 | `file/sort` 是公开 GET 接口，页面内 fetch 天然带全部 cookie 与浏览器指纹。**这条路径几乎必然可行**，因为它就是夸克网页端自己在做的事 |
 | 2 | 让用户手动粘贴 `__pus`（设置页给输入框） | +0.5 人天 | 与百度「粘贴 BDUSS」的降级思路同构 |
 | 3 | 只做下载直链（`download_url`）不做目录列举 | 功能残缺 | 只在用户明确要求时考虑 |
+
+> **工作量口径**：若 T0 判「必须走退路」，整体再加 **1.5–2.0 人天**（按上表**方案 1** 估算；方案 2 是它的替代路径，**不是**叠加）。合计见 §5.2。
 
 ### 7.2 明确**没有**答案的问题（不猜）
 
@@ -1235,6 +1355,14 @@ npm run tauri:build
 | `.superpowers/sdd/quark/out-httpclient.txt` | HTTP 客户端构造 |
 | `.superpowers/sdd/quark/out-drivepc.txt` | `drive-pc.quark.cn` 相关 |
 | `.superpowers/sdd/quark/out-regions.txt` | 区域/节点配置 |
+| `.superpowers/sdd/quark/t0-run.ps1` | **T0 一键编排**：起 Edge（CDP）→ 等登录 → 抓 cookie → 取 `ut` → 跑探针 → 写记录 |
+| `.superpowers/sdd/quark/t0-edge.ps1` | 用**一次性 profile** 起带 `--remote-debugging-port` 的 Edge |
+| `.superpowers/sdd/quark/t0-cookie.cjs` | 经 CDP 取 `.quark.cn` **整罐** cookie；找不到 `quark.cn` 页面即中止（**绝不读无关应用的 cookie**） |
+| `.superpowers/sdd/quark/t0-meta.cjs` | 从已登录页面直取 `ut`（`window.QUARK_WSGUID`）与 UA ⇒ **不靠猜** |
+| `.superpowers/sdd/quark/t0-probe.cjs` | 8 问只读请求 + 三态判据；**只输出 cookie 名称与长度，绝不输出值** |
+| `.superpowers/sdd/quark/t0-kill-edge.ps1` | 只杀一次性 profile 的 Edge，不碰用户日常窗口 |
+| `.superpowers/sdd/quark/t0-record.md` | **T0 实测记录**（8 问逐条 + 原始响应片段 + 三态结论） |
+| `.superpowers/sdd/quark/t0-cookie.txt` | **临时凭据**（不入 git，阶段末销毁） |
 
 ### 8.2 仓库侧证据（只读引用）
 
@@ -1262,5 +1390,54 @@ npm run tauri:build
 ### 8.4 本轮的工作边界声明
 
 - 本轮**只读**了 `D:\Program Files\Quark\`，**未启动**夸克客户端、**未安装**任何东西、**未登录**任何账号。
-- 本轮**未修改**仓库中除 `docs/plan-2026-11-11-quark-pan.md` 以外的任何文件；`.superpowers/sdd/quark/` 下为新建的中间产物。
-- 仓库工作区在本轮介入前就有一批 `M` 状态的已修改文件（`CHANGELOG.md`、`package.json`、`src/localization/messages/*.json`、`src-tauri/Cargo.toml` / `Cargo.lock` 等），**不是本轮造成的**。
+- 本轮**未修改**仓库中除 `docs/plan-2026-11-11-quark-pan.md` 与 `docs/review-2026-11-11-quark-pan.md`（评审报告）以外的任何文件；`.superpowers/sdd/quark/` 下为新建的中间产物。
+- 本轮介入时仓库工作区是**干净的**：P5b 发版那批改动（`CHANGELOG.md`、`package.json`、`src/localization/messages/*.json`、`src-tauri/Cargo.toml` / `Cargo.lock` 等）已在 P5b 的三条 commit（`d1236562` / `8e5c01b9` / `5e10ff46`）里入库，**不再是未提交状态**。
+
+---
+
+## 9. 评审与修订记录
+
+- **评审报告**：`docs/review-2026-11-11-quark-pan.md`（原始位置 `.superpowers/sdd/quark/plan-review-2026-11-11.md`，本轮已提升为正式文档）。
+- **评审结论**：**需修改后放行** —— 方案的调研质量与 §2.2 的仓库锚点经复核基本全部成立，但有 **3 个 Blocker**（执行层的前置条件缺失或与现状冲突）必须先改。
+- **本轮修订**：已按评审报告**逐条执行**，下列编号与评审编号一一对应。
+
+| 评审编号 | 问题摘要 | 改在方案哪一节 |
+|---|---|---|
+| **B1** | UI 集成模型与仓库现状矛盾（被否决的旧写法见 §4.4.1） | §4.4（改用**网盘 provider 选择器**，含「为什么选 provider 选择器」与 §4.4.1「已否决的方案」）、§2.2.7、§5 阶段 6、§6.3 |
+| **B2** | T0 没有规定 cookie 获取路径 | §5 阶段 0「凭据来源」：Edge DevTools 取整条 `Cookie` 头 → `.superpowers/sdd/quark/t0-cookie.txt`（不入 git、阶段末销毁） |
+| **B3** | T0 没有量化通过判据 | §5 阶段 0「闸门：三态判定」（主路线成立 / 必须走退路 / 证据不足）+ 8 问判定口径对齐 |
+| **M1** | §4.6 漏 `device_model` / `ut` | §4.6 请求形态 + 注、§3.2.3 `driveRequest` 拦截器行 |
+| **M2** | R1 概率高估、漏出口 IP 风险 | §4.8（R1 改「低～中」；新增 **R17**） |
+| **M3** | T0 工具形态与闸门方式 | §4.3（`quark_probe.rs` 移出新增清单 + 移后说明）、§5 阶段 0（只用外部只读探针；闸门改为「8 问 + 三态 + 凭据已销毁」） |
+| **M4** | i18n 工作量被低估 | §2.2.8、§4.4 i18n 行、§5 阶段 7、§5.2 T7 |
+| **M5** | 工期与产物规模不匹配 | §5.2（**11.5–12.5 人天**）、文档头部「预估工作量」 |
+| **M6** | 多处行号 / 文件清单与仓库现状不符 | §2.2.1 / §2.2.2 / §2.2.3 / §2.2.4 / §2.2.7 / §2.2.9（逐条订正；`remote-tab-labels.ts` 改为「不需要改」） |
+| **M7** | §4.7 错误映射表不穷尽 | §4.7（补 `31004` / `23018` / `25008` / `38001`，改回 `24005` 原文，脚注注明 `Unknown` 兜底须带原始 code）、§3.2.4 |
+| **M8** | 「流式下载」是假想符号、trait 变更的波及面数量不准 | §1.2「不做」表（改为 trait **刻意不提供流接口** + 全仓库 **5** 个 impl） |
+| **N1** | `failure_from_http_status` 行号 | §2.2.2（`:647`） |
+| **N2** | `pub use` 段数与参照系 | §2.2.1（**4 段**）、§4.3（参照系写错） |
+| **N3** | `connection-form.vue` 行数与选项行号 | §2.2.7（**1032 行** / 选项在 `:69`） |
+| **N4** | `poll_loop` 区间终点未核验 | §2.2.4（终点标注**未核验**） |
+| **N5** | 单测门槛口径 | §2.2.9 口径说明、§5 阶段 1 / 2 / 3、§6.1（按 test 函数数 ≥125） |
+| **N6** | 门禁漏 `verify:sandbox` | §6.2 |
+| **N7** | `remote-credentials.json` 是既有文件 | §6.4（改为「既有文件新增承载」）+ 验收清单补一条 |
+| **N8** | 请求参数不落盘 / 不进日志 | §6.4（补 `device_model` 带出的本机主机名） |
+| **N9** | 登录起始页写死 | §4.5、§5 阶段 4、§7 U3（**以 T0 结论为准**；`scanLoginPage = https://su.quark.cn/4_eMHBJ` 记为候选） |
+| **N10** | 「同款列表调用」实为分享页详情 | §3.2.2（改为「同款响应形状」） |
+| **N11** | 「没有签名参数」表述过宽 | §3.2.3 结尾（限定在 `file/sort` 路径上） |
+| **N12** | §4.4 前端清单漏文件 | §4.4（补 `connections-section.vue` 与 `remote/index.vue`） |
+| **N13** | §2.2.7 命中数未核验 | §2.2.7（标注「未核验」） |
+| **N14** | §3.2.4 错误码收录范围不足 | §3.2.4（并入第二份副本的 3 个码） |
+
+### 9.1 剩余未决项
+
+| 项 | 状态 |
+|---|---|
+| **U4**（服务端是否接受非浏览器来源的 Cookie 请求） | **必须由 T0 拍板**，且**不得**因缺 `device_model` / `ut` 就判否。它决定整条路线是否成立 |
+| **U3**（登录页精确 URL） | 可在 **T0 一并定**（低成本，抓包即可） |
+| U1 / U2 / U5 / U6 / U7 / U8 / U9 / U10 / U11 / U12 / U13 | **延后到实现期**：全部由 T0 的实测记录与 T4–T8 的真机验收回答；方案已给默认值与判定口径 |
+| **U14**（是否有根目录以外的并列入口） | 延后到 T8；v1 **不伪装成目录**（与百度一致） |
+
+### 9.2 一句话状态
+
+> **T0 仍是头号闸门，修订完成不等于路线成立。** 本轮只是把方案改到「可以按图施工」的状态 —— B1 / B2 / B3 修掉之后，**能否走通仍要看 T0 的三态结论**；若 T0 判「必须走退路」，范围、工期与形态都要重排（§7.1）。
