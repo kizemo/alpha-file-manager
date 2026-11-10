@@ -106,8 +106,14 @@ Write-Host "==> Extension version: $extensionVersion"
 # rejects the extension and loader.ts throws BEFORE `new Worker()`: the
 # extension silently never loads - no UI error, no notification, sidecar 0
 # requests. Rules are read LIVE from sandbox.ts, so this gate never goes stale.
-$sandboxScanner  = Join-Path $PSScriptRoot '..\..\scripts\scan-sandbox-dynamic.cjs'
-$sandboxTs       = Join-Path $PSScriptRoot '..\..\sigma-file-manager\src\modules\extensions\runtime\sandbox.ts'
+# Repo-relative paths: this script lives in
+# <repo>\extensions\kizemo.focus-sync\installer, so the repo root is three
+# levels up. These literals broke silently during the 2026-11-10 root
+# unification - they resolved to a non-existent path, so the gate below was
+# SKIPPED instead of running (a packaged install has no repo, which is the
+# only legitimate skip).
+$sandboxScanner  = Join-Path $PSScriptRoot '..\..\..\scripts\scan-sandbox-dynamic.cjs'
+$sandboxTs       = Join-Path $PSScriptRoot '..\..\..\src\modules\extensions\runtime\sandbox.ts'
 $deployedIndexJs = Join-Path $appDataDir 'extensions\kizemo.focus-sync\dist\index.js'
 if ((Test-Path $sandboxScanner) -and (Test-Path $deployedIndexJs) -and (Test-Path $sandboxTs)) {
     Write-Host "==> Validating extension against Alpha File Manager sandbox (dynamic)"
