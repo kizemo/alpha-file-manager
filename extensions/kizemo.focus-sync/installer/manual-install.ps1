@@ -19,7 +19,11 @@
 $ErrorActionPreference = 'Stop'
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$srcDir    = Join-Path $ScriptDir '..\extension'
+# The plugin source was merged into this repo, so the extension
+# source IS the extension folder itself: package.json / dist / locales / bin
+# all live directly under kizemo.focus-sync\ (the old '..\extension'
+# sub-folder no longer exists, so every copy below silently found nothing).
+$srcDir    = Join-Path $ScriptDir '..'
 $appDataDir = Join-Path $env:APPDATA 'com.sigma-file-manager.app'
 $extDir    = Join-Path $appDataDir 'extensions\kizemo.focus-sync'
 $binDir    = Join-Path $extDir 'bin\focus-sync-sidecar'
@@ -27,7 +31,10 @@ $registerScript = Join-Path $ScriptDir 'register.ps1'
 
 # ---- 1. Detect running Sigma FM ----
 Write-Host "==> Step 1: Checking if Sigma FM is running..."
-$procs = Get-Process -Name sigma-file-manager -ErrorAction SilentlyContinue
+# The app process is alpha-file-manager.exe (brand: Alpha File Manager).
+# This used to probe 'sigma-file-manager', so the "app is running -> abort"
+# guard never fired and the script kept going while the app was live.
+$procs = Get-Process -Name alpha-file-manager -ErrorAction SilentlyContinue
 if ($procs) {
     Write-Error "Sigma FM is currently running (PIDs: $($procs.Id -join ', ')). Please right-click the taskbar icon and Quit, then re-run this script."
     exit 1
@@ -47,11 +54,15 @@ Write-Host "    Destination: $extDir"
 # so the extension silently never loads - no UI error, no notification, and
 # the sidecar receives 0 requests. Rules are read LIVE from sandbox.ts.
 $srcIndexJs     = Join-Path $srcDir 'dist\index.js'
-$sandboxScanner = Join-Path $ScriptDir '..\..\scripts\scan-sandbox-dynamic.cjs'
-$sandboxTs      = Join-Path $ScriptDir '..\..\sigma-file-manager\src\modules\extensions\runtime\sandbox.ts'
+$sandboxScanner = Join-Path $ScriptDir '..\..\..\scripts\scan-sandbox-dynamic.cjs'
+$sandboxTs      = Join-Path $ScriptDir '..\..\..\src\modules\extensions\runtime\sandbox.ts'
 Write-Host "==> Validating extension against Sigma FM sandbox (dynamic)"
 if (-not (Test-Path $sandboxScanner)) {
     Write-Error "Sandbox scanner not found at $sandboxScanner"
+    exit 1
+}
+if (-not (Test-Path $sandboxTs)) {
+    Write-Error "Sandbox rules not found at $sandboxTs"
     exit 1
 }
 # Pass sandbox.ts explicitly: the scanner's default is CWD-relative, so
@@ -116,17 +127,17 @@ Write-Host "==> Step 4: Re-launching Sigma File Manager..."
 
 # Try registry paths first (Tauri fork + legacy makensis)
 $binaries = @()
-$regPaths = @(
-    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Sigma File Manager_is1",
-    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Sigma File Manager_is1",
-    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\com.sigma-file-manager.app_is1",
-    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\com.sigma-file-manager.app_is1"
+    $regPaths = @(
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Alpha File Manager",
+    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Alpha File Manager",
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Alpha File Manager_is1",
+    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Alpha File Manager_is1"
 )
 foreach ($rp in $regPaths) {
     if (Test-Path $rp) {
         $props = Get-ItemProperty $rp -ErrorAction SilentlyContinue
         if ($props.InstallLocation) {
-            foreach ($name in @('sigma-file-manager.exe', 'Sigma File Manager.exe')) {
+            foreach ($name in @('alpha-file-manager.exe', 'Alpha File Manager.exe')) {
                 $bin = Join-Path $props.InstallLocation $name
                 if (Test-Path $bin) { $binaries += $bin }
             }
@@ -135,12 +146,10 @@ foreach ($rp in $regPaths) {
 }
 # Fallback paths
 $fallbacks = @(
-    "D:\Program Files\Sigma File Manager\sigma-file-manager.exe",
-    "D:\Program Files\Sigma File Manager\Sigma File Manager.exe",
-    "C:\Program Files\Sigma File Manager\sigma-file-manager.exe",
-    "C:\Program Files\Sigma File Manager\Sigma File Manager.exe",
-    "C:\Program Files\Sigma File Manager\Sigma File Manager\Sigma File Manager.exe",
-    "D:\Program Files\Sigma File Manager\Sigma File Manager\Sigma File Manager.exe"
+    "D:\Program Files\Alpha File Manager\alpha-file-manager.exe",
+    "D:\Program Files\Alpha File Manager\Alpha File Manager.exe",
+    "C:\Program Files\Alpha File Manager\alpha-file-manager.exe",
+    "C:\Program Files\Alpha File Manager\Alpha File Manager.exe"
 )
 foreach ($f in $fallbacks) {
     if (Test-Path $f) { $binaries += $f }
@@ -162,6 +171,6 @@ if (-not $launched) {
 }
 
 Write-Host ""
-Write-Host "==> Done. Sigma File Manager should now have Focus Sync in the Installed tab."
-Write-Host "    If not, click Sigma FM menu -> Ctrl+Shift+X -> Installed tab -> Focus Sync -> Toggle on."
+Write-Host "==> Done. Alpha File Manager should now have Focus Sync in the Installed tab."
+Write-Host "    If not, click the Alpha File Manager menu -> Ctrl+Shift+X -> Installed tab -> Focus Sync -> Toggle on."
 exit 0
