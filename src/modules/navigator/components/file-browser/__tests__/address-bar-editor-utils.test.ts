@@ -200,6 +200,33 @@ describe('address bar editor utils', () => {
     expect(state.groups[0].items).toHaveLength(0);
   });
 
+  it('treats a readDir payload without entries as a failed listing instead of throwing', async () => {
+    // readDir 的结果来自 IPC 边界，后端异常路径可能给出没有 entries 字段的载荷。
+    // 旧行为是在 .filter() 上抛 TypeError，并且因为调用链是 fire-and-forget，
+    // 异常会变成 unhandled rejection（不报错码、不中断流程、也看不出是哪一步坏了）。
+    const malformedPayload = { path: '/workspace' } as unknown as DirContents;
+    const readDir = vi.fn().mockResolvedValue(malformedPayload);
+
+    const state = await resolveAddressBarSuggestions({
+      query: '/workspace/photos',
+      mode: 'path',
+      currentPath: '/workspace',
+      directoryGroupLabel: 'Directory entries',
+      exactGroupLabel: 'Exact match',
+      resultsGroupLabel: 'Results',
+      entryModeGroups: [],
+      lastDirectoryEntries: [],
+      lookup: {
+        readDir,
+        getDirEntry: vi.fn(),
+      },
+      createSearchMatcher: searchMatcher,
+    });
+
+    expect(state.kind).toBe('search');
+    expect(state.groups[0].items).toHaveLength(0);
+  });
+
   it('returns directory entries when the path ends with a directory separator', async () => {
     const childEntries = [
       entry('/workspace/src'),

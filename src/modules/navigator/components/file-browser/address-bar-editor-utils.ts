@@ -566,6 +566,22 @@ export async function resolveAddressBarSuggestions(
   return resolveSearchSuggestions(options, normalizedQuery);
 }
 
+/**
+ * readDir 的结果来自 IPC 边界，运行时未必符合 DirContents 的静态类型：
+ * 后端异常路径可能给出没有 entries 字段的载荷。这类载荷一旦被当成数组用，
+ * 会在 .filter() 上抛 TypeError；调用方是 fire-and-forget 的异步链，
+ * 抛出的异常会变成 unhandled rejection（不报错码、不中断流程）。
+ *
+ * 载荷不合法时按“读取失败”处理，让上层走既有的回退分支，而不是崩溃。
+ */
+function requireDirEntries(contents: DirContents | undefined | null): DirEntry[] {
+  if (!contents || !Array.isArray(contents.entries)) {
+    throw new Error('readDir returned a payload without an entries array');
+  }
+
+  return contents.entries;
+}
+
 function addressBarEntryPathDedupeKey(path: string): string {
   return canonicalizePath(path);
 }
@@ -575,6 +591,10 @@ function deduplicateDirEntriesByPath(entries: DirEntry[]): DirEntry[] {
   const uniqueEntries: DirEntry[] = [];
 
   for (const candidate of entries) {
+    if (!candidate || typeof candidate.path !== 'string') {
+      continue;
+    }
+
     const dedupeKey = addressBarEntryPathDedupeKey(candidate.path);
 
     if (seenKeys.has(dedupeKey)) {
@@ -593,15 +613,19 @@ async function resolveSearchSuggestions(
   normalizedQuery: string,
 ): Promise<AddressBarSuggestionState> {
   let searchEntries = options.mode === 'entry'
-    ? flattenAddressBarSuggestionGroups(options.entryModeGroups).map(suggestion => suggestion.entry)
-    : options.lastDirectoryEntries;
+    ? (Array.isArray(options.entryModeGroups)
+        ? flattenAddressBarSuggestionGroups(options.entryModeGroups)
+            .map(suggestion => suggestion.entry)
+            .filter((entry): entry is DirEntry => Boolean(entry))
+        : [])
+    : (Array.isArray(options.lastDirectoryEntries) ? options.lastDirectoryEntries : []);
   let searchQuery = normalizedQuery;
   const parentPath = getParentPath(normalizedQuery);
 
   if (parentPath && parentPath !== normalizedQuery) {
     try {
       const parentContents = await options.lookup.readDir(parentPath);
-      searchEntries = parentContents.entries;
+      searchEntries = requireDirEntries(parentContents);
       searchQuery = getPathDisplayName(normalizedQuery);
     }
     catch {
@@ -611,7 +635,7 @@ async function resolveSearchSuggestions(
       ) {
         try {
           const currentContents = await options.lookup.readDir(options.currentPath);
-          searchEntries = currentContents.entries;
+          searchEntries = requireDirEntries(currentContents);
         }
         catch {
           searchEntries = [];
