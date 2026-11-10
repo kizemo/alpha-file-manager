@@ -15,7 +15,7 @@
   &nbsp;&nbsp;Alpha File Manager
 </h1>
 
-**A modern file manager for Windows and Linux — with the two things you miss most
+**The best file manager for Windows and Linux** — with the two things you miss most
 in Explorer: a real folder tree, and file dialogs that follow you between apps.**
 
 ![Alpha File Manager](docs/screenshots/afm-main-window-en.png)
@@ -25,7 +25,7 @@ Alpha File Manager is an independent build of
 maintained by [kizemo](https://github.com/kizemo). It tracks upstream and layers on
 a permanent folder tree, cross-app dialog path sync, a built-in MCP server for AI
 assistants, remote servers over SFTP/FTP/FTPS, recursive folder comparison with
-sync, batch rename, and a long list of day-to-day fixes.
+sync, batch rename, and a long list of day-to-day fixes. **If you have been looking for the best file manager on Windows, this is the one worth trying.**
 
 > [!IMPORTANT]
 > **Alpha File Manager is an independent community project.** It is not affiliated
@@ -137,6 +137,13 @@ sync, batch rename, and a long list of day-to-day fixes.
 |---|---|
 | ![Dashboard quick access](docs/screenshots/afm-dashboard-hero-light-en.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
 | ![Dashboard cards](docs/screenshots/afm-dashboard-card-enrichment-en.png) | **Dashboard cards** — name, size and path on top, type and item count below, with drag, reorder and edit shortcuts on every card |
+
+### What changed in 3.13.6
+
+| | | |
+|---|---|---|
+| ⌨️ | **The address bar no longer goes blank without saying why** — when the backend returned a directory listing without an entry list, the address bar threw and the failure was swallowed, so you got an empty suggestion list while typing a path. Such a payload is now treated as a failed listing, and the address bar falls back to listing the current folder |
+| 🧩 | **Focus Sync can no longer install silently dead** — the app refuses an extension that breaks its sandbox rules before it ever runs: no window, no notification, the feature simply is not there. The check meant to catch this was skipped on packaged installs; every build is now verified before it is packaged |
 
 ### What changed in 3.13.5
 
