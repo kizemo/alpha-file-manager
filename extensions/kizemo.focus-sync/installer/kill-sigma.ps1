@@ -1,32 +1,38 @@
 # ============================================================================
-# kill-sigma.ps1 — Gracefully kill Sigma File Manager, fall back to force
+# kill-sigma.ps1 - Gracefully kill Alpha File Manager, fall back to force
 # ============================================================================
-# Called by installer.nsi Stage 1 when Sigma FM is running.
+# Called by installer.nsi Stage 1 when AFM is running.
 #
-# Why: Sigma FM holds an in-memory copy of user-extensions.json and silently
+# Why: AFM holds an in-memory copy of user-extensions.json and silently
 # overwrites the on-disk file on next save. We must kill it before install
 # so register.ps1's write survives.
 #
+# Process names: the app was renamed from sigma-file-manager to
+# alpha-file-manager. Both are matched so the script keeps working on
+# installs that still carry the legacy binary name.
+#
 # Flow:
-#   1. Send WM_CLOSE to all sigma-file-manager processes with a main window
-#      (graceful — apps can prompt user before close if dirty).
+#   1. Send WM_CLOSE to all matching processes with a main window
+#      (graceful - apps can prompt user before close if dirty).
 #   2. Wait up to 10s for graceful exit.
 #   3. Force-kill (Stop-Process -Force) anything still alive.
 #
 # Exit codes:
 #   0 = no process was running, or all processes exited cleanly
 #   1 = force-kill failed (extremely rare)
+#
+# Pure ASCII on purpose: PowerShell 5.1 reads a BOM-less .ps1 as ANSI.
 # ============================================================================
 
 $ErrorActionPreference = 'Continue'
 
-$procs = Get-Process -Name sigma-file-manager -ErrorAction SilentlyContinue
+$procs = Get-Process -Name alpha-file-manager,sigma-file-manager -ErrorAction SilentlyContinue
 if (-not $procs) {
-    Write-Host "==> No Sigma FM process running."
+    Write-Host "==> No Alpha File Manager process running."
     exit 0
 }
 
-Write-Host "==> Found $($procs.Count) Sigma FM process(es). Sending WM_CLOSE..."
+Write-Host "==> Found $($procs.Count) Alpha File Manager process(es). Sending WM_CLOSE..."
 
 # Step 1: graceful close
 foreach ($p in $procs) {
@@ -48,24 +54,24 @@ $elapsed = 0
 while ($elapsed -lt $timeout) {
     Start-Sleep -Seconds 1
     $elapsed++
-    $still = Get-Process -Name sigma-file-manager -ErrorAction SilentlyContinue
+    $still = Get-Process -Name alpha-file-manager,sigma-file-manager -ErrorAction SilentlyContinue
     if (-not $still) {
-        Write-Host "==> Sigma FM exited gracefully after ${elapsed}s."
+        Write-Host "==> Alpha File Manager exited gracefully after ${elapsed}s."
         exit 0
     }
 }
 
 # Step 3: force kill
-Write-Host "==> Sigma FM did not exit within ${timeout}s; force-killing."
+Write-Host "==> Alpha File Manager did not exit within ${timeout}s; force-killing."
 $still | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
 
 # Final check
-$final = Get-Process -Name sigma-file-manager -ErrorAction SilentlyContinue
+$final = Get-Process -Name alpha-file-manager,sigma-file-manager -ErrorAction SilentlyContinue
 if ($final) {
-    Write-Host "==> ERROR: Could not kill Sigma FM. PIDs: $($final.Id)"
+    Write-Host "==> ERROR: Could not kill Alpha File Manager. PIDs: $($final.Id)"
     exit 1
 }
 
-Write-Host "==> Sigma FM force-killed."
+Write-Host "==> Alpha File Manager force-killed."
 exit 0
