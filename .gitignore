@@ -39,17 +39,19 @@ extensions/kizemo.focus-sync/*.exe
 # makensis bundles the sidecar from beside installer.nsi, so a copy lands here.
 extensions/kizemo.focus-sync/installer/*.exe
 # The build publishes its installers here (see scripts/publish-bundle-to-release.mjs),
-# so `release/` is a build output and stays untracked.
-release/
+# so the ROOT `release/` is a build output and stays untracked. Anchored with a
+# leading slash on purpose: the unanchored form also matched `scripts/release/`,
+# which holds hand-maintained release helpers that must stay tracked.
+/release/
 # Explicit backstop for the built installers. Tauri names them after
 # productName, which CONTAINS SPACES: "Alpha File Manager_2.2.0_x64-setup.exe".
-# The bare `release/` rule above covers it, but a rule that silently stops
+# The `/release/` rule above covers it, but a rule that silently stops
 # matching the moment productName changes is exactly the safety net that fails
 # when you need it most - so name the real shape explicitly. The legacy Sigma
 # spelling is kept while Sigma->Alpha upgrades are still supported.
-release/Alpha File Manager_*.exe
-release/Sigma File Manager_*.exe
-release/Alpha-File-Manager-*.exe
+/release/Alpha File Manager_*.exe
+/release/Sigma File Manager_*.exe
+/release/Alpha-File-Manager-*.exe
 
 *.tsbuildinfo
 
@@ -62,8 +64,8 @@ flatpak/output/
 # `_acceptance/` holds throwaway probe binaries, NSIS probe projects and
 # one-off PowerShell/JS harnesses used to drive real-machine acceptance runs.
 # It reached 263 MB of mostly-disposable .exe probes. The durable write-ups
-# are NOT here: the root-cause and version-node audit reports live in the
-# outer documentation repo under F:\soft\00selfmade\filemanager\_acceptance\.
+# are NOT here: the root-cause and version-node audit reports live under
+# docs/archive/root-cause/.
 /_acceptance/
 
 # Intermediates of the abandoned FileWrite-based kill-script embedding.

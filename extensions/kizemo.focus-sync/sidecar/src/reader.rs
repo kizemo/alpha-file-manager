@@ -270,8 +270,8 @@ mod tests {
     #[test]
     fn address_label_in_chinese_shell_yields_the_path() {
         assert_eq!(
-            parse_address_label(r"地址: F:\soft\00selfmade\filemanager\_acceptance"),
-            Some(r"F:\soft\00selfmade\filemanager\_acceptance".to_string())
+            parse_address_label(r"地址: F:\soft\00selfmade\filemanager\sigma-file-manager\src"),
+            Some(r"F:\soft\00selfmade\filemanager\sigma-file-manager\src".to_string())
         );
     }
 

@@ -2,7 +2,7 @@
 # to see if spike's monitor detects it.
 
 # Step 1: Start spike in background.
-$spikeProc = Start-Process -FilePath "F:\soft\00selfmade\filemanager\sigma-listary-spike\target\release\spike.exe" `
+$spikeProc = Start-Process -FilePath (Join-Path $PSScriptRoot "..\target\release\spike.exe") `
     -ArgumentList "--port", "37423", "--initial-path", "C:\Users\Public" `
     -RedirectStandardOutput "C:\Users\Duanyi\AppData\Local\Temp\spike-manual-test.log" `
     -RedirectStandardError "C:\Users\Duanyi\AppData\Local\Temp\spike-manual-test.log.err" `
