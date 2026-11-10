@@ -15,7 +15,7 @@
   &nbsp;&nbsp;Alpha File Manager
 </h1>
 
-**一款面向 Windows 与 Linux 的现代文件管理器 —— 补上资源管理器最缺的两件事：
+**最好用的资源管理器** —— 面向 Windows 与 Linux，补上 Windows 资源管理器最缺的两件事：
 一棵真正的目录树，以及会跟着你跨应用走的文件对话框。**
 
 ![Alpha File Manager](docs/screenshots/afm-main-window-zh.png)
@@ -23,7 +23,7 @@
 Alpha File Manager 是 [Sigma File Manager](https://github.com/aleksey-hoffman/sigma-file-manager)
 的独立衍生版本，由 [kizemo](https://github.com/kizemo) 维护。它跟随上游同步，并在其上叠加了
 常驻目录树、跨应用的文件对话框路径同步、给 AI 助手用的内置 MCP 服务、
-SFTP/FTP/FTPS 远程服务器、目录递归比较与同步、批量改名，以及一长串日常使用中的细节修复。
+SFTP/FTP/FTPS 远程服务器、目录递归比较与同步、批量改名，以及一长串日常使用中的细节修复。 **如果你一直在找一个更好用的 Windows 资源管理器，Alpha File Manager 就是它。**
 
 > [!IMPORTANT]
 > **Alpha File Manager 是独立的社区项目**，与 Sigma File Manager 项目无隶属关系，
@@ -128,6 +128,13 @@ SFTP/FTP/FTPS 远程服务器、目录递归比较与同步、批量改名，以
 |---|---|
 | ![仪表板快速访问](docs/screenshots/afm-dashboard-hero-light-zh.png) | **快速访问** —— 收藏按分类分组，带缩略图、大小与「X 小时前」 |
 | ![仪表板卡片](docs/screenshots/afm-dashboard-card-enrichment-zh.png) | **仪表板卡片** —— 上层是名称、大小与路径，下层是类型与条目数，每张卡片自带拖动、排序与编辑快捷操作 |
+
+### 3.13.6 改了什么
+
+| | | |
+|---|---|---|
+| ⌨️ | **地址栏补全不再无声变空** —— 后端偶尔会返回一份缺了条目列表的目录结果，地址栏直接对它调用 `.filter()` 就抛了错，而这条调用链是「发出去就不管」的，异常被吞掉：没有错误码、没有提示，用户只看到输入路径时建议列表一片空白。现在这种结果被当成「读取失败」，地址栏退回「列出当前目录」，建议照常给 |
+| 🧩 | **Focus Sync 不会再「装了却毫无反应」** —— 应用会拒绝违反自身沙箱规则的扩展，而且是在扩展运行之前就拒绝：没有窗口、没有通知，功能等于不存在。原本用来拦这一下的检查在打包安装时被跳过了；现在每个打包产物在发布前都会被校验一遍 |
 
 ### 3.13.5 改了什么
 

@@ -1,5 +1,14 @@
 # Değişiklik Günlüğü
 
+## [3.13.6] - November 2026
+
+**Summary:** The address bar no longer goes blank without a word, and an extension the app would refuse can no longer reach you inside a package.
+
+### What changed
+
+- **Fixed** **The address bar no longer goes blank without saying why** - When the backend returned a directory listing without an entry list, the address bar called `.filter()` on it and threw. That call chain is fire-and-forget, so the failure was swallowed: no error code, no message, just an empty suggestion list while you type a path. Such a payload is now treated as a failed listing, and the address bar falls back to listing the current folder, so suggestions keep coming.
+- **Fixed** **Focus Sync can no longer install silently dead** - The app refuses an extension that breaks its sandbox rules, and it refuses it before the extension ever runs: no window, no notification, the feature simply is not there. The check meant to catch this was skipped, because it looked for its scanner inside the source tree - a packaged install does not have one. The check now runs where the code actually is, and every build is verified before it is packaged, so an extension the app would refuse never reaches a user.
+
 ## [3.13.5] - November 2026
 
 **Summary:** The focus-sync helper no longer starts on its own at logon - it now belongs to Alpha File Manager and lives exactly as long as the app does. An upgrade also stops the old logon task for good, even when the old helper is running at that moment.
