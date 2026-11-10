@@ -33,6 +33,8 @@ mod ftps_provider;
 mod known_hosts;
 mod path;
 mod provider;
+mod quark_api;
+mod quark_auth;
 mod registry;
 mod sftp_provider;
 mod transfer;
@@ -105,6 +107,46 @@ pub use path::{
     reject_path_control_characters, split_remote_parent_and_name, RemotePath, REMOTE_SCHEME,
 };
 pub use provider::{RemoteEntry, RemoteProvider};
+// 夸克会话层。裸名（`encode_session` / `decode_session` / `scan_cookies` / `describe_state` /
+// `is_expired` / `remaining_seconds` / `scan_error` / `parse_cookie_header`）已被上面的
+// `baidu_auth` 段占用，直接 `pub use` 会撞 E0252 ⇒ 统一加 `quark_` 前缀别名导出。
+// 夸克 API 纯函数层。与百度侧同名的裸名（`clamp_page_limit` / `next_page` /
+// `parse_list_response` / `sanitize_cookie_value` / `to_remote_entry` / `to_remote_entries` /
+// `to_remote_error` / `classify_transport` / `encode_query_component` /
+// `failure_from_http_status`）一律加 `quark_` 前缀别名导出，避免 E0252。
+pub use quark_api::{
+    classify_quark_failure, classify_transport as quark_classify_transport,
+    clamp_page_limit as quark_clamp_page_limit,
+    encode_query_component as quark_encode_query_component, failure_from_code,
+    failure_from_http_status as quark_failure_from_http_status, next_page as quark_next_page,
+    parse_account_info_response, parse_download_response, parse_list_payload,
+    parse_list_response as quark_parse_list_response, quark_account_info_url,
+    quark_client_version_from_user_agent, quark_download_is_expired, quark_download_url,
+    quark_entry_is_directory, quark_entry_name, quark_error_kind_coverage, quark_list_dir_url,
+    quark_millis_to_unix_millis, quark_seconds_to_unix_millis, quark_size_to_bytes,
+    quark_timestamp_to_unix_millis, sanitize_cookie_jar,
+    sanitize_cookie_value as quark_sanitize_cookie_value,
+    to_remote_entries as quark_to_remote_entries, to_remote_entry as quark_to_remote_entry,
+    to_remote_error as quark_to_remote_error, QuarkDownloadLink, QuarkErrorKindCoverage,
+    QuarkFailure, QuarkFileEntry, QuarkListPage, QuarkListPayload, QuarkSession, QuarkSizeUnit,
+    QuarkTimeUnit, QuarkTransportShape, QuarkUserInfo, QUARK_CLIENT_ID, QUARK_CLIENT_VERSION,
+    QUARK_CONNECT_TIMEOUT, QUARK_DEFAULT_SIZE_UNIT, QUARK_DEFAULT_TIME_UNIT,
+    QUARK_DIRECTORY_TIMEOUT, QUARK_DOWNLOAD_REFRESH_WINDOW_SECONDS, QUARK_DRIVE_BASE_URL,
+    QUARK_FILE_TIMEOUT, QUARK_FILE_TYPE_DIRECTORY, QUARK_FR, QUARK_LIST_PAGE_SIZE,
+    QUARK_LIST_SORT, QUARK_MAX_DOWNLOAD_BYTES, QUARK_OPERATION_TIMEOUT, QUARK_PAN_HOST, QUARK_PR,
+    QUARK_SESSION_COOKIE_PUS, QUARK_SYS, QUARK_UC_PARAM_STR, QUARK_USER_AGENT,
+};
+pub use quark_auth::{
+    decode_session as quark_decode_session, delete_quark_session,
+    describe_state as quark_describe_state, encode_session as quark_encode_session,
+    is_expired as quark_is_expired, is_quark_session_blob, load_quark_session,
+    parse_cookie_header as quark_parse_cookie_header, quark_auth_status,
+    remaining_seconds as quark_remaining_seconds, sanitize_quark_cookie_value,
+    save_quark_session, scan_cookies as quark_scan_cookies, scan_error as quark_scan_error,
+    trust_deadline_unix, QuarkAuthSession, QuarkAuthStatus, QuarkCookieOutcome,
+    QuarkCookieRecord, QuarkCookieScan, QuarkSessionState, QUARK_COOKIE_PUS,
+    QUARK_LAST_ALIVE_WARN_SECONDS, QUARK_SESSION_TRUST_SECONDS, QUARK_SESSION_VERSION,
+};
 pub use registry::{
     connections_path_in, find_connection, load_connections, resolve_connection, ConnectionsFile,
     ResolvedConnection, REMOTE_CONNECTIONS_FILE,
