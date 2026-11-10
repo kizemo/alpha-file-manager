@@ -81,8 +81,17 @@ vi.mock('@/stores/runtime/platform', () => ({
   }),
 }));
 
+// FORK-MODIFICATION 2026-11-10：补全 store 契约。
+// 地址栏 quick-search 匹配器（createFileBrowserQuickSearchMatcher → getFileBrowserEntryResolvedSizeBytes）
+// 会调用 `dirSizesStore.getSize()`；此前 mock 返回空对象，异步建议链里抛
+// `TypeError: dirSizesStore.getSize is not a function`，最终变成 unhandled rejection。
 vi.mock('@/stores/runtime/dir-sizes', () => ({
-  useDirSizesStore: () => ({}),
+  useDirSizesStore: () => ({
+    getSize: () => undefined,
+    getSizeValue: () => null,
+    getStatus: () => undefined,
+    isLoading: () => false,
+  }),
 }));
 
 vi.mock('@/stores/runtime/shortcuts', () => ({
