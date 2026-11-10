@@ -47,6 +47,8 @@ sync, batch rename, and a long list of day-to-day fixes.
   search files and read your favourites over a standard interface.
 - 🔐 **Real remote servers** — SFTP, FTP and FTPS with pinned host keys and
   certificates, plus upload, download, delete and permission editing.
+- ☁️ **Netdisks are remote connections too** — sign in to Baidu Netdisk inside
+  the app and browse it like any server; Aliyun Drive and Google Drive are next.
 - 🧠 **Batch rename that does not lose work** — find-and-replace, case conversion,
   templates and numbering, with a live preview, conflicts blocked instead of
   silently overwriting, and undo.
@@ -91,6 +93,15 @@ sync, batch rename, and a long list of day-to-day fixes.
 | 🔐 | **Permissions from a list** — pick the mode instead of typing the octal |
 | 🌐 | **Map a network drive** — pick the share and the drive letter, like Explorer does |
 
+### Working on netdisks
+
+| | |
+|---|---|
+| ☁️ | **Baidu Netdisk signs in inside the app** — one click opens the real login page, scanning the QR code is enough, and the session is picked up into the credential store — no cookie copying by hand |
+| 📂 | **A netdisk browsed like a remote connection** — listing, creating a folder, renaming, deleting and downloading all reach the drive itself, not a shadow of a local folder |
+| ⚙️ | **Netdisks and remote servers are kept apart** — the settings page splits them into two tabs, *Netdisks* and *Remote connections*, so each connection sits where it belongs |
+| ➕ | **More mainstream netdisks are on the way** — Aliyun Drive, Google Drive and the rest are planned, and they will plug into the very same remote-connection machinery |
+
 ### Automation and AI assistants
 
 | | |
@@ -126,6 +137,14 @@ sync, batch rename, and a long list of day-to-day fixes.
 |---|---|
 | ![Dashboard quick access](docs/screenshots/afm-dashboard-hero-light-en.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
 | ![Dashboard cards](docs/screenshots/afm-dashboard-card-enrichment-en.png) | **Dashboard cards** — name, size and path on top, type and item count below, with drag, reorder and edit shortcuts on every card |
+
+### What changed in 3.13.5
+
+| | | |
+|---|---|---|
+| 🔌 | **The Focus Sync helper no longer starts on its own** — it used to be launched by a Windows logon task and stayed resident, holding its port and watching dialogs even while Alpha File Manager was closed. It is now started by the app and stopped with it, so the helper lives exactly as long as the app does |
+| 🧹 | **An upgrade removes the old logon task for good** — the task used to be deleted only after the new helper had been deployed, so a failed deployment left it registered and it could bring the old helper back a minute later. It is now removed before any helper file is touched, and the installer waits for the old process to exit before replacing its files |
+| 📦 | **The standalone extension installer follows the same rule** — installing the Focus Sync extension on its own no longer registers the retired logon task; it clears it instead, and ends any leftover helper process before the new binary is deployed |
 
 ### What changed in 3.13.4
 
@@ -209,6 +228,7 @@ they compare.
 | ⚡ | **File dialogs in other apps** | ✅ **Focus Sync** — every dialog opens in the folder you are browsing | ➖ | ❌ |
 | 🤖 | **Driven by an AI assistant** | ✅ built-in MCP server, one-click setup for six assistants | ❌ | ❌ |
 | 🔐 | **Remote servers** | ✅ SFTP · FTP · FTPS, host keys and certificates pinned | ❌ | ➖ SMB / WebDAV / OneDrive, and no SFTP at all |
+| ☁️ | **Netdisks (cloud drives)** | ✅ **Baidu Netdisk** — sign in inside the app and browse it like any remote connection; **Aliyun Drive, Google Drive and other mainstream netdisks are on the way** | ❌ | ➖ OneDrive only |
 | 📤 | **Working on remote files** | ✅ upload, download, delete, set permissions | ❌ | ➖ shares only |
 | ↔️ | **Two panes, used together** | ✅ **swap them with one button**, and a **synchronized browsing** toggle right beside it — enter a folder and the other pane follows, going up a level takes it along too | ➖ **no pane swap**; linked browsing exists but is a buried option in the navigator menu | ➖ tabs, not panes |
 | 🔍 | **Comparing two folders** | ✅ recursively, with the criteria serious tools use — and an explicit "direction undecided" state instead of guessing which side is newer | ➖ | ➖ compares by size and date only, and the choice is buried |
@@ -224,6 +244,13 @@ they compare.
 | 🎨 | **Background effects can blend** | ✅ the full set of Photoshop layer modes, with your own fill colour | ➖ | ❌ |
 
 ✅ has it · ➖ not part of that project · ❌ cannot
+
+> **Netdisks are a growing surface, and we will keep working on them.** What
+> works today is Baidu Netdisk — sign in inside the app, browse it like a
+> remote connection, and listing, folder creation and downloads all reach the
+> drive itself. Aliyun Drive, Google Drive and the other mainstream netdisks
+> will be plugged into the very same machinery: one connection in the sidebar,
+> and the tree, the listings and the transfers follow it.
 
 > **If you want the file manager that is part of Windows** — with the shell
 > extensions, the codecs, the network shares, the EFS encryption and the "it
