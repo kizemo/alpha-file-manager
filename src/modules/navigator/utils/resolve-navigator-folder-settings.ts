@@ -33,9 +33,18 @@ export function getNavigatorFolderLayoutName(
 export function toNavigatorFolderLayoutType(
   layoutName: NavigatorFolderLayoutName,
 ): NavigatorLayout['type'] {
-  if (layoutName === 'grid') return { title: 'gridLayout', name: 'grid' };
-  if (layoutName === 'tree') return { title: 'treeLayout', name: 'tree' };
-  return { title: 'listLayout', name: 'list' };
+  if (layoutName === 'grid') return {
+    title: 'gridLayout',
+    name: 'grid',
+  };
+  if (layoutName === 'tree') return {
+    title: 'treeLayout',
+    name: 'tree',
+  };
+  return {
+    title: 'listLayout',
+    name: 'list',
+  };
 }
 
 function isListSortDirection(value: unknown): value is ListSortDirection {

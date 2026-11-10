@@ -35,7 +35,8 @@ function gitTry(args) {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     });
-  } catch {
+  }
+  catch {
     return null;
   }
 }
@@ -56,7 +57,8 @@ for (const sha of shas) {
   let patch = '';
   try {
     patch = git(['show', '--format=', '--unified=0', sha]);
-  } catch {
+  }
+  catch {
     patch = '';
   }
 
@@ -89,8 +91,8 @@ for (const sha of shas) {
       total += addedLines.length;
       continue;
     }
-    const afmLines = new Set(afmContent.split('\n').map((l) => l.trim()));
-    const fileHit = addedLines.filter((l) => afmLines.has(l)).length;
+    const afmLines = new Set(afmContent.split('\n').map(l => l.trim()));
+    const fileHit = addedLines.filter(l => afmLines.has(l)).length;
     fileStats.push({ file, total: addedLines.length, hit: fileHit, missing: false });
     total += addedLines.length;
     hit += fileHit;
@@ -113,10 +115,11 @@ for (const r of results) {
   console.log(`${r.sha}  ${r.date}  ${String(r.pct).padStart(3)}%  ${bar}  ${r.subject.slice(0, 70)}`);
 }
 
-const low = results.filter((r) => r.pct < threshold);
+const low = results.filter(r => r.pct < threshold);
 if (!low.length) {
   console.log(`\n没有命中率低于 ${threshold}% 的 commit。`);
-} else {
+}
+else {
   console.log(`\n=== 命中率低于 ${threshold}% 的 commit 的文件级明细 ===`);
   for (const r of low) {
     console.log(`\n--- ${r.sha} ${r.subject}  (${r.pct}%)`);

@@ -56,7 +56,8 @@ while ((m = entryRe.exec(scope)) !== null) {
   const literal = m[1];
   try {
     patterns.push(new RegExp(literal.slice(1, literal.lastIndexOf('/')), literal.slice(literal.lastIndexOf('/') + 1)));
-  } catch (e) {
+  }
+  catch (e) {
     console.error(`[WARN] 无法编译 pattern ${literal}: ${e.message}`);
   }
 }
@@ -72,7 +73,7 @@ if (patterns.length === 0) {
 const code = fs.readFileSync(targetFile, 'utf8');
 const lines = code.split(/\r?\n/);
 const lineOf = idx => code.slice(0, idx).split(/\r?\n/).length;
-const isComment = l => {
+const isComment = (l) => {
   const t = l.trim();
   return t.startsWith('*') || t.startsWith('//') || t.startsWith('/*');
 };

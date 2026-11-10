@@ -37,6 +37,15 @@ export default defineConfigWithVueTs(
     },
   },
   {
+    // `scripts/*.cjs` 是 CommonJS 形态的门禁脚本（focus-sync 安装链的
+    // `extensions/kizemo.focus-sync/installer/*.ps1` 硬编码了它们的 `.cjs` 路径，
+    // 改扩展名或转 ESM 会破坏安装链且没有功能收益），故在此豁免 require 规则。
+    files: ['**/*.cjs'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+  {
     files: ['**/*.{ts,mts,tsx,vue}'],
     plugins: {
       'check-file': checkFile,

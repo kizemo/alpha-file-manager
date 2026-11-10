@@ -37,15 +37,41 @@ describe('FileTreeNode', () => {
 describe('FileTreeFlatRow', () => {
   it('flattens a node tree into a list view', () => {
     const root: FileTreeNode = {
-      path: 'C:/work', name: 'work', isDirectory: true,
-      isExpanded: true, isLoaded: true, depth: 0,
+      path: 'C:/work',
+      name: 'work',
+      isDirectory: true,
+      isExpanded: true,
+      isLoaded: true,
+      depth: 0,
       children: [
-        { path: 'C:/work/a.md', name: 'a.md', isDirectory: false, isExpanded: false, isLoaded: true, depth: 1, children: null },
+        {
+          path: 'C:/work/a.md',
+          name: 'a.md',
+          isDirectory: false,
+          isExpanded: false,
+          isLoaded: true,
+          depth: 1,
+          children: null,
+        },
       ],
     };
     const rows: FileTreeFlatRow[] = [
-      { path: root.path, name: root.name, depth: 0, isDirectory: true, hasChildren: true, isExpanded: true },
-      { path: root.children![0].path, name: root.children![0].name, depth: 1, isDirectory: false, hasChildren: false, isExpanded: false },
+      {
+        path: root.path,
+        name: root.name,
+        depth: 0,
+        isDirectory: true,
+        hasChildren: true,
+        isExpanded: true,
+      },
+      {
+        path: root.children![0].path,
+        name: root.children![0].name,
+        depth: 1,
+        isDirectory: false,
+        hasChildren: false,
+        isExpanded: false,
+      },
     ];
     expect(rows).toHaveLength(2);
   });

@@ -45,6 +45,10 @@ import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 
+// 加载失败标记：放在脚本常量里渲染，模板里不出现裸文本
+// （@intlify/vue-i18n/no-raw-text 会对模板裸文本报错）。
+const LOAD_ERROR_MARK = '!';
+
 const props = withDefaults(defineProps<{
   /** Root directory paths (typically the drives from `useDrives()`).
    *  Ancestors of the selected path that are *not* in this list are still
@@ -108,8 +112,14 @@ function buildFakeEntry(target: TreeMenuTarget): DirEntry {
   } as unknown as DirEntry;
 }
 
-function openContextMenu(row: { path: string; isDirectory: boolean }) {
-  contextMenuTarget.value = { path: row.path, isDirectory: row.isDirectory };
+function openContextMenu(row: {
+  path: string;
+  isDirectory: boolean;
+}) {
+  contextMenuTarget.value = {
+    path: row.path,
+    isDirectory: row.isDirectory,
+  };
 }
 
 function closeContextMenu() {
@@ -119,6 +129,7 @@ function closeContextMenu() {
 async function handleContextAction(name: string) {
   const target = contextMenuTarget.value;
   closeContextMenu();
+
   if (!target) {
     return;
   }
@@ -130,6 +141,7 @@ async function handleContextAction(name: string) {
       // copy / cut 由 FileTreeContextMenu 内部已经调 clipboardStore.setClipboard
       // 后 emit 上来,这里不再重复处理(避免剪贴板状态被覆盖)。
       break;
+
     case 'paste': {
       if (clipboardStore.pasteItems && target.isDirectory) {
         try {
@@ -139,13 +151,16 @@ async function handleContextAction(name: string) {
           console.error('paste failed:', err);
         }
       }
+
       break;
     }
+
     case 'rename': {
       renameTarget.value = buildFakeEntry(target);
       renameDialogOpen.value = true;
       break;
     }
+
     case 'open-containing-directory': {
       if (!target.isDirectory) {
         try {
@@ -159,8 +174,10 @@ async function handleContextAction(name: string) {
           });
         }
       }
+
       break;
     }
+
     case 'properties': {
       if (target.isDirectory) {
         // 对目录构造最小 DirEntry（openNativeProperties 接受数组）
@@ -173,8 +190,10 @@ async function handleContextAction(name: string) {
           console.error('openNativeProperties failed:', err);
         });
       }
+
       break;
     }
+
     default:
       // 其他 action 由父级扩展；本轮范围 C 不覆盖
       break;
@@ -393,7 +412,10 @@ function onChevronClick(row: { path: string }) {
   folderTreeStore.toggleExpanded(row.path);
 }
 
-function onRowClick(row: { path: string; isDirectory: boolean }) {
+function onRowClick(row: {
+  path: string;
+  isDirectory: boolean;
+}) {
   emit('activate', row.path);
   // Don't manually toggle expand on name click — the store's
   // setSelectedPath already auto-expands ancestors when the parent
@@ -414,7 +436,10 @@ function isRowLoadError(path: string): boolean {
   return folderTreeStore.hasLoadError(path);
 }
 
-function getRowIcon(row: { path: string; isDirectory: boolean }): typeof FolderIcon {
+function getRowIcon(row: {
+  path: string;
+  isDirectory: boolean;
+}): typeof FolderIcon {
   if (!row.isDirectory) return FileIcon;
   // v6.4: drive roots use the hard-drive icon to distinguish them from
   // regular folders.
@@ -441,7 +466,10 @@ function getRowIcon(row: { path: string; isDirectory: boolean }): typeof FolderI
         所以这里往里再套一层：trigger 的直接子元素是 `.file-tree-view`，
         真正带 ref 的是它里面的 `.file-tree-view__scroll`。
       -->
-      <div class="file-tree-view" data-e2e-root="file-tree-view">
+      <div
+        class="file-tree-view"
+        data-e2e-root="file-tree-view"
+      >
         <div
           ref="treeViewport"
           class="file-tree-view__scroll"
@@ -471,17 +499,23 @@ function getRowIcon(row: { path: string; isDirectory: boolean }): typeof FolderI
               class="file-tree-row__chevron"
               @click.stop="onChevronClick(row)"
             />
-            <span v-else class="file-tree-row__spacer" />
+            <span
+              v-else
+              class="file-tree-row__spacer"
+            />
             <component
               :is="getRowIcon(row)"
               :size="14"
             />
-            <span class="file-tree-row__name" :title="row.name">{{ row.name }}</span>
+            <span
+              class="file-tree-row__name"
+              :title="row.name"
+            >{{ row.name }}</span>
             <span
               v-if="isRowLoadError(row.path)"
               class="file-tree-row__error-marker"
               title="Failed to load children"
-            >!</span>
+            >{{ LOAD_ERROR_MARK }}</span>
           </div>
         </div>
       </div>

@@ -2,7 +2,9 @@
 // License: GNU GPLv3 or later. See the license file in the project root for more information.
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import {
+  describe, expect, it, vi, beforeEach,
+} from 'vitest';
 import { mount } from '@vue/test-utils';
 import FileBrowserListEntryThumbnail from '../file-browser-list-entry-thumbnail.vue';
 import type { DirEntry } from '@/types/dir-entry';
@@ -45,20 +47,29 @@ vi.mock('../file-browser-entry-icon.vue', () => ({
   },
 }));
 
-let intersectionCallback: ((entries: Array<{ isIntersecting: boolean; target: Element }>) => void) | null = null;
+let intersectionCallback: ((entries: Array<{
+  isIntersecting: boolean;
+  target: Element;
+}>) => void) | null = null;
 const observedTargets: Element[] = [];
 let disconnected = false;
 
 class FakeIntersectionObserver {
-  constructor(callback: (entries: Array<{ isIntersecting: boolean; target: Element }>) => void) {
+  constructor(callback: (entries: Array<{
+    isIntersecting: boolean;
+    target: Element;
+  }>) => void) {
     intersectionCallback = callback;
   }
+
   observe(target: Element) {
     observedTargets.push(target);
   }
+
   disconnect() {
     disconnected = true;
   }
+
   unobserve() {}
 }
 
@@ -73,7 +84,10 @@ function createEntry(overrides: Partial<DirEntry> & Pick<DirEntry, 'path'>): Dir
 
 function enterViewport() {
   intersectionCallback?.(
-    observedTargets.map(target => ({ isIntersecting: true, target })) as never,
+    observedTargets.map(target => ({
+      isIntersecting: true,
+      target,
+    })) as never,
   );
 }
 
@@ -92,7 +106,12 @@ beforeEach(() => {
 describe('file-browser-list-entry-thumbnail', () => {
   it('renders the plain icon and creates no observer for a non-media entry', () => {
     const wrapper = mount(FileBrowserListEntryThumbnail, {
-      props: { entry: createEntry({ path: 'C:/notes.txt', ext: 'txt' }) },
+      props: {
+        entry: createEntry({
+          path: 'C:/notes.txt',
+          ext: 'txt',
+        }),
+      },
       global: { stubs: { Teleport: true } },
     });
 
@@ -104,7 +123,10 @@ describe('file-browser-list-entry-thumbnail', () => {
   });
 
   it('requests an image thumbnail only after the row enters the load range', async () => {
-    const entry = createEntry({ path: 'C:/photo.jpg', ext: 'jpg' });
+    const entry = createEntry({
+      path: 'C:/photo.jpg',
+      ext: 'jpg',
+    });
     const wrapper = mount(FileBrowserListEntryThumbnail, {
       props: { entry },
       global: { stubs: { Teleport: true } },
@@ -130,7 +152,10 @@ describe('file-browser-list-entry-thumbnail', () => {
       mockThumbnailSize = size;
       // 没有 src 就不会渲染 <img>，width/height 属性无从断言。
       getImageThumbnail.mockReturnValue('asset://thumb.jpg');
-      const entry = createEntry({ path: `C:/photo-${size}.jpg`, ext: 'jpg' });
+      const entry = createEntry({
+        path: `C:/photo-${size}.jpg`,
+        ext: 'jpg',
+      });
       const wrapper = mount(FileBrowserListEntryThumbnail, {
         props: { entry },
         global: { stubs: { Teleport: true } },
@@ -149,7 +174,12 @@ describe('file-browser-list-entry-thumbnail', () => {
   it('swaps to the thumbnail image once the source resolves', async () => {
     getImageThumbnail.mockReturnValue('asset://thumb.jpg');
     const wrapper = mount(FileBrowserListEntryThumbnail, {
-      props: { entry: createEntry({ path: 'C:/photo.jpg', ext: 'jpg' }) },
+      props: {
+        entry: createEntry({
+          path: 'C:/photo.jpg',
+          ext: 'jpg',
+        }),
+      },
       global: { stubs: { Teleport: true } },
     });
 
@@ -164,7 +194,12 @@ describe('file-browser-list-entry-thumbnail', () => {
   it('falls back to the icon when the thumbnail never resolves', async () => {
     getImageThumbnail.mockReturnValue(undefined);
     const wrapper = mount(FileBrowserListEntryThumbnail, {
-      props: { entry: createEntry({ path: 'C:/broken.jpg', ext: 'jpg' }) },
+      props: {
+        entry: createEntry({
+          path: 'C:/broken.jpg',
+          ext: 'jpg',
+        }),
+      },
       global: { stubs: { Teleport: true } },
     });
 
@@ -176,7 +211,10 @@ describe('file-browser-list-entry-thumbnail', () => {
   });
 
   it('requests a video thumbnail for video entries', async () => {
-    const entry = createEntry({ path: 'C:/clip.mp4', ext: 'mp4' });
+    const entry = createEntry({
+      path: 'C:/clip.mp4',
+      ext: 'mp4',
+    });
     getVideoThumbnail.mockReturnValue('asset://video.jpg');
     const wrapper = mount(FileBrowserListEntryThumbnail, {
       props: { entry },
@@ -191,7 +229,10 @@ describe('file-browser-list-entry-thumbnail', () => {
   });
 
   it('cancels the request and disconnects the observer on unmount', async () => {
-    const entry = createEntry({ path: 'C:/photo.jpg', ext: 'jpg' });
+    const entry = createEntry({
+      path: 'C:/photo.jpg',
+      ext: 'jpg',
+    });
     const wrapper = mount(FileBrowserListEntryThumbnail, {
       props: { entry },
       global: { stubs: { Teleport: true } },

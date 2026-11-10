@@ -11,7 +11,9 @@
 // 34px 的齿轮里找,极易漏);同时锁住「点按钮不会误开弹窗」这条不变量 ——
 // 本轮把按钮从图内移到图下,是最容易破坏它的地方。
 
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import {
+  describe, expect, it, vi, beforeEach,
+} from 'vitest';
 import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
@@ -21,7 +23,12 @@ vi.mock('vue-i18n', () => ({
 }));
 
 vi.mock('@/localization', () => ({
-  i18n: { global: { locale: { value: 'ch' }, t: (k: string) => k } },
+  i18n: {
+    global: {
+      locale: { value: 'ch' },
+      t: (k: string) => k,
+    },
+  },
   messages: {},
 }));
 
@@ -33,7 +40,15 @@ vi.mock('@/stores/runtime/drop-overlay', () => ({
 // 只保留本测试关心的形状:currentItem / getMediaUrl / selectMedia 等。
 vi.mock('@/modules/home/composables/use-background-media', () => ({
   useBackgroundMedia: () => ({
-    currentItem: { value: { kind: 'builtin', data: { fileName: 'a.jpg', type: 'image' } } },
+    currentItem: {
+      value: {
+        kind: 'builtin',
+        data: {
+          fileName: 'a.jpg',
+          type: 'image',
+        },
+      },
+    },
     getPositionKey: vi.fn(),
     getMediaUrl: () => 'asset://exile.jpg',
     getPreviewUrl: () => 'asset://exile.jpg',
@@ -56,10 +71,12 @@ vi.mock('@/components/ui/background-manager/background-manager-dialog.vue', () =
 // UI 原子组件在测试里用 stub 替代,避免把 reka-ui 的 Portal 行为拉进来。
 // 注意:不要设 inheritAttrs:false —— 组件上写的 class(如 home-banner__action-button)
 // 必须透传到 stub 根元素上,否则按 class 选不到按钮。
-const passThrough = (name: string) => ({
-  name,
-  template: '<div><slot /></div>',
-});
+function passThrough(name: string) {
+  return {
+    name,
+    template: '<div><slot /></div>',
+  };
+}
 
 async function mountBanner() {
   const { default: HomeBanner } = await import('../home-banner.vue');
@@ -142,6 +159,7 @@ describe('home-banner — click the theme image to open the background manager',
     for (const button of actionButtons) {
       await button.trigger('click');
     }
+
     await nextTick();
 
     expect(wrapper.find('[data-test="background-manager"]').exists()).toBe(false);

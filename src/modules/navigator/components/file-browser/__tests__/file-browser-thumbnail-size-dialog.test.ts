@@ -16,7 +16,10 @@ vi.mock('vue-i18n', () => ({
 
 vi.mock('@/localization', () => ({
   i18n: {
-    global: { locale: { value: 'en' }, t: (k: string) => k },
+    global: {
+      locale: { value: 'en' },
+      t: (k: string) => k,
+    },
   },
   messages: {},
 }));
@@ -27,7 +30,10 @@ vi.mock('@/stores/storage/user-settings', () => ({
   }),
 }));
 
-function mountDialog(props: { open?: boolean; modelValue?: 'small' | 'medium' | 'large' | 'xlarge' } = {}) {
+function mountDialog(props: {
+  open?: boolean;
+  modelValue?: 'small' | 'medium' | 'large' | 'xlarge';
+} = {}) {
   return mount(FileBrowserThumbnailSizeDialog, {
     props: {
       open: props.open ?? true,

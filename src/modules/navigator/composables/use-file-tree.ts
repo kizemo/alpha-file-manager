@@ -28,7 +28,6 @@ import {
   watch,
   type ComputedRef,
   type MaybeRefOrGetter,
-  type Ref,
 } from 'vue';
 import type { DirEntry } from '@/types/dir-entry';
 // FORK-MODIFICATION 2026-10-19：祖先回溯要认得 `sfm://remote/<id>` 这个根。
@@ -141,7 +140,7 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
   // new drive). Loaded children that are still reachable are preserved.
   watch(
     () => toValue(options.rootPaths),
-    (next) => rebuildRoots(next),
+    next => rebuildRoots(next),
     { flush: 'post' },
   );
 
@@ -186,7 +185,11 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
         void ensureLoaded(p);
       }
     },
-    { deep: true, flush: 'post', immediate: true },
+    {
+      deep: true,
+      flush: 'post',
+      immediate: true,
+    },
   );
 
   function addRoot(path: string): boolean {
@@ -213,13 +216,16 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
     function walk(items: FileTreeNode[]): FileTreeNode | null {
       for (const n of items) {
         if (n.path === path) return n;
+
         if (n.children) {
           const found = walk(n.children);
           if (found) return found;
         }
       }
+
       return null;
     }
+
     return walk(list);
   }
 
@@ -378,6 +384,7 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
       if (isAboveAnyRoot(path)) return;
 
       let node = findNode(nodes.value, path);
+
       if (!node) {
         // 沿父链往上找，直到找到一个**已经在树里**的祖先。
         //
@@ -398,6 +405,7 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
           const parent = parentDirectoryOfPath(cur);
           if (parent === null || parent === cur) break;
           const parentNode = findNode(nodes.value, parent);
+
           if (parentNode) {
             anchor = parentNode;
             break;
@@ -432,6 +440,7 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
 
       let didLoad = false;
       options.onLoadStart?.(path);
+
       try {
         await loadChildren(node);
         didLoad = true;
@@ -443,6 +452,7 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
       finally {
         // Always mark as "attempted" — successful load or surfaced error.
         loadedSet.value = new Set(loadedSet.value).add(path);
+
         // Ensure rows re-render even if load failed (so the user sees the row
         // without children rather than a permanent loading indicator).
         if (!didLoad) {
@@ -511,6 +521,7 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
   async function loadChildrenOfNode(node: FileTreeNode): Promise<void> {
     if (node.isLoaded || !node.isDirectory) return;
     options.onLoadStart?.(node.path);
+
     try {
       await loadChildren(node);
       options.onLoadEnd?.(node.path);
@@ -595,6 +606,7 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
   const rows = computed<FileTreeFlatRow[]>(() => {
     const expanded = toValue(options.expandedPaths);
     const out: FileTreeFlatRow[] = [];
+
     function walk(list: FileTreeNode[]) {
       for (const n of list) {
         const isExpanded = expanded.has(n.path);
@@ -609,6 +621,7 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
         if (isExpanded && n.children) walk(n.children);
       }
     }
+
     walk(nodes.value);
     return out;
   });
@@ -638,6 +651,7 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
       if (previousRoots.has(p)) {
         // Preserve existing loaded root subtree.
         const idx = findNodeIndex(nodes.value, p);
+
         if (idx >= 0) {
           next.push(nodes.value[idx]);
           continue;
@@ -772,7 +786,7 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
 }
 
 function buildRoots(paths: string[], labels?: Record<string, string>): FileTreeNode[] {
-  return paths.map((p) => ({
+  return paths.map(p => ({
     path: p,
     name: deriveRootName(p, labels),
     isDirectory: true,

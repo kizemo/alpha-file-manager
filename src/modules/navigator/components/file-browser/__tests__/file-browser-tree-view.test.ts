@@ -12,7 +12,9 @@
 // `storeToRefs`, useFileTree's watch on `expandedPaths` lazy-loads. No
 // template ref, no parent→child imperative call.
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  beforeEach, describe, expect, it, vi,
+} from 'vitest';
 import {
   flushPromises,
   mount,
@@ -66,10 +68,16 @@ vi.mock('@/composables/use-dir-entry-actions', () => ({
     openEntriesInNewTabs: vi.fn(),
     createNewItem: vi.fn().mockResolvedValue(true),
     pasteItems: vi.fn(),
-    conflictDialogState: { isOpen: false, conflicts: [] },
+    conflictDialogState: {
+      isOpen: false,
+      conflicts: [],
+    },
     handleConflictResolution: vi.fn(),
     handleConflictCancel: vi.fn(),
-    topLevelNameConflictDialogState: { isOpen: false, conflicts: [] },
+    topLevelNameConflictDialogState: {
+      isOpen: false,
+      conflicts: [],
+    },
     handleTopLevelNameConflictRename: vi.fn(),
     handleTopLevelNameConflictMerge: vi.fn(),
     handleTopLevelNameConflictCancel: vi.fn(),

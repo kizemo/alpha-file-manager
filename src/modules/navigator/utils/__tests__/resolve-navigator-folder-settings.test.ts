@@ -335,7 +335,10 @@ describe('resolve navigator folder settings', () => {
   it('returns tree layout when global navigator is set to tree', () => {
     const navigator = createNavigator({
       layout: {
-        type: { title: 'treeLayout', name: 'tree' },
+        type: {
+          title: 'treeLayout',
+          name: 'tree',
+        },
         dirItemOptions: {
           title: { height: 32 },
           directory: { height: 48 },
@@ -353,7 +356,10 @@ describe('resolve navigator folder settings', () => {
     const folderSettings = createFolderSettings({ layout: 'tree' });
     const navigator = createNavigator({
       layout: {
-        type: { title: 'listLayout', name: 'list' },
+        type: {
+          title: 'listLayout',
+          name: 'list',
+        },
         dirItemOptions: {
           title: { height: 32 },
           directory: { height: 48 },
@@ -373,7 +379,10 @@ describe('resolve navigator folder settings', () => {
   it('falls back to the global tree layout when folder setting is missing', () => {
     const navigator = createNavigator({
       layout: {
-        type: { title: 'treeLayout', name: 'tree' },
+        type: {
+          title: 'treeLayout',
+          name: 'tree',
+        },
         dirItemOptions: {
           title: { height: 32 },
           directory: { height: 48 },
