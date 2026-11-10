@@ -1,5 +1,13 @@
 # Dnevnik sprememb
 
+## [3.13.7] - November 2026
+
+**Povzetek:** aplikacija zdaj sporoča, če je bližnjica na tipkovnici že zasedena s strani Windowsa ali drugega programa – ukaz, ki se nikoli ni izvršil, ni več skrivnost.
+
+### What changed
+
+**Dodano: bližnjice, ki so jih že zasedli drugi programi, so zdaj označene.** Kombinacija kot `Ctrl+Shift+P` je lahko na ravni sistema registrirana s strani drugega programa, še preden jo Alpha File Manager opazi. Tedaj operacijski sistem pritisek požre, ukaz se preprosto ne izvede, na zaslonu pa ni nobene besede o razlogu. Seznam bližnjic v *Nastavitvah* zdaj primerja vsako dodelitev z operacijskim sistemom in označi tiste, ki so že zasedene; urejevalnik bližnjic prikazuje isto opozorilo med snemanjem nove kombinacije. Privzete dodelitve ostanejo nespremenjene, opozorilo pa nikoli ne blokira shranjevanja – le pove, da tipka deluje, dokler drugi program teče.
+
 ## [3.13.6] - November 2026
 
 **Summary:** The address bar no longer goes blank without a word, and an extension the app would refuse can no longer reach you inside a package.

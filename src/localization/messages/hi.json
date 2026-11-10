@@ -881,7 +881,9 @@
     "localShortcutsAppScope": "स्थानीय शॉर्टकट (ऐप स्कोप)",
     "unknownMainKey": "अज्ञात कुंजी",
     "globalShortcutRegisterFailed": "यह वैश्विक शॉर्टकट पंजीकृत नहीं किया जा सका. इसका उपयोग पहले से ही विंडोज़ या किसी अन्य ऐप द्वारा किया जा सकता है। एक भिन्न संयोजन आज़माएँ (उदाहरण के लिए Win+Shift+… या Ctrl+Alt+…)।",
-    "shortcutRecorderGlobalCaptureHint": "यदि कुंजी दबाने पर वे दिखाई नहीं देती हैं, तो हो सकता है कि आपका सिस्टम या कोई अन्य प्रोग्राम इस विंडो द्वारा उन्हें प्राप्त करने से पहले ही उन्हें संभाल रहा हो। किसी अन्य संयोजन का प्रयास करें."
+    "shortcutRecorderGlobalCaptureHint": "यदि कुंजी दबाने पर वे दिखाई नहीं देती हैं, तो हो सकता है कि आपका सिस्टम या कोई अन्य प्रोग्राम इस विंडो द्वारा उन्हें प्राप्त करने से पहले ही उन्हें संभाल रहा हो। किसी अन्य संयोजन का प्रयास करें.",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "ऐप विंडो पर फोकस करें",

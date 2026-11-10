@@ -881,7 +881,9 @@
     "localShortcutsAppScope": "Local shortcuts (app scope)",
     "unknownMainKey": "Unknown key",
     "globalShortcutRegisterFailed": "This global shortcut could not be registered. It may already be used by Windows or another app. Try a different combination (for example Win+Shift+… or Ctrl+Alt+…).",
-    "shortcutRecorderGlobalCaptureHint": "If keys do not appear when you press them, your system or another program may be handling them before this window receives them. Try another combination."
+    "shortcutRecorderGlobalCaptureHint": "If keys do not appear when you press them, your system or another program may be handling them before this window receives them. Try another combination.",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "Focus the app window",

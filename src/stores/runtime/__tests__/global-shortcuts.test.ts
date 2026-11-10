@@ -369,4 +369,84 @@ describe('globalShortcuts store', () => {
       expect.any(Function),
     );
   });
+
+  it('reports an unclaimed combination as free and releases the probe registration', async () => {
+    getCurrentWebviewWindowMock.mockReturnValue({ label: 'main' });
+    registerMock.mockResolvedValue(undefined);
+    unregisterMock.mockResolvedValue(undefined);
+
+    const globalShortcutsStore = useGlobalShortcutsStore();
+    await globalShortcutsStore.init();
+    registerMock.mockClear();
+    unregisterMock.mockClear();
+
+    const probe = await globalShortcutsStore.probeShortcutAvailability({
+      ctrl: true,
+      shift: true,
+      key: 'k',
+    });
+
+    expect(probe).toBe('free');
+    expect(registerMock).toHaveBeenCalledWith('Control+Shift+K', expect.any(Function));
+    expect(unregisterMock).toHaveBeenCalledWith('Control+Shift+K');
+  });
+
+  it('reports a combination the system already owns as occupied', async () => {
+    getCurrentWebviewWindowMock.mockReturnValue({ label: 'main' });
+    registerMock.mockResolvedValue(undefined);
+    unregisterMock.mockResolvedValue(undefined);
+
+    const globalShortcutsStore = useGlobalShortcutsStore();
+    await globalShortcutsStore.init();
+    registerMock.mockClear();
+    unregisterMock.mockClear();
+    registerMock.mockRejectedValue(new Error('hotkey already registered'));
+
+    const probe = await globalShortcutsStore.probeShortcutAvailability({
+      ctrl: true,
+      shift: true,
+      key: 'k',
+    });
+
+    expect(probe).toBe('occupied');
+    expect(unregisterMock).not.toHaveBeenCalled();
+  });
+
+  it('reports a combination this app already owns as app-owned without probing again', async () => {
+    getCurrentWebviewWindowMock.mockReturnValue({ label: 'main' });
+    registerMock.mockResolvedValue(undefined);
+    unregisterMock.mockResolvedValue(undefined);
+
+    const globalShortcutsStore = useGlobalShortcutsStore();
+    await globalShortcutsStore.init();
+    registerMock.mockClear();
+    unregisterMock.mockClear();
+
+    const probe = await globalShortcutsStore.probeShortcutAvailability({
+      meta: true,
+      shift: true,
+      key: 'e',
+    });
+
+    expect(probe).toBe('app-owned');
+    expect(registerMock).not.toHaveBeenCalled();
+    expect(unregisterMock).not.toHaveBeenCalled();
+  });
+
+  it('reports a bare key as free without touching the plugin', async () => {
+    getCurrentWebviewWindowMock.mockReturnValue({ label: 'main' });
+    registerMock.mockResolvedValue(undefined);
+    unregisterMock.mockResolvedValue(undefined);
+
+    const globalShortcutsStore = useGlobalShortcutsStore();
+    await globalShortcutsStore.init();
+    registerMock.mockClear();
+    unregisterMock.mockClear();
+
+    const probe = await globalShortcutsStore.probeShortcutAvailability({ key: 'k' });
+
+    expect(probe).toBe('free');
+    expect(registerMock).not.toHaveBeenCalled();
+    expect(unregisterMock).not.toHaveBeenCalled();
+  });
 });

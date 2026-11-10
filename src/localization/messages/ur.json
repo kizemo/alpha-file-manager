@@ -881,7 +881,9 @@
     "localShortcutsAppScope": "مقامی شارٹ کٹس (ایپ سطح)",
     "unknownMainKey": "نامعلوم کلید",
     "globalShortcutRegisterFailed": "یہ عالمی شارٹ کٹ رجسٹر نہیں ہو سکی۔ شاید Windows یا کسی اور ایپ نے لے رکھی ہے۔ دوسرا مجموعہ آزمائیں (جیسے Win+Shift+… یا Ctrl+Alt+…)۔",
-    "shortcutRecorderGlobalCaptureHint": "کلیدیں نظر نہ آئیں تو سسٹم یا کوئی اور پروگرام انہیں پہلے پکڑ رہا ہو۔ دوسرا مجموعہ آزمائیں۔"
+    "shortcutRecorderGlobalCaptureHint": "کلیدیں نظر نہ آئیں تو سسٹم یا کوئی اور پروگرام انہیں پہلے پکڑ رہا ہو۔ دوسرا مجموعہ آزمائیں۔",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "ایپ ونڈو پر فوکس کریں",

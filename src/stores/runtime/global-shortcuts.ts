@@ -97,6 +97,16 @@ function normalizeShortcutString(shortcut: string): string {
   return shortcutKeysToTauriFormat(keys);
 }
 
+/**
+ * Result of probing whether a key combination can be received by this app.
+ *
+ * - `free`: nothing else claims the combination at the operating-system level.
+ * - `app-owned`: already registered by this app, so it is not a conflict.
+ * - `occupied`: the operating system or another program owns the combination,
+ *   which means this app never receives the keystroke.
+ */
+export type ShortcutAvailabilityProbe = 'free' | 'app-owned' | 'occupied';
+
 export const useGlobalShortcutsStore = defineStore('globalShortcuts', () => {
   const userSettingsStore = useUserSettingsStore();
   const extensionsStore = useExtensionsStore();
@@ -268,6 +278,48 @@ export const useGlobalShortcutsStore = defineStore('globalShortcuts', () => {
       console.error(`Failed to register global shortcut "${shortcutString}" for "${getShortcutOwnerLabel(owner)}":`, error);
       return false;
     }
+  }
+
+  /**
+   * Checks whether the operating system lets this app receive the given keys.
+   *
+   * The check registers the combination through the global shortcut plugin and
+   * releases it immediately. A registration refusal means that Windows or
+   * another program already owns the combination, so the keydown never reaches
+   * the webview and the app-scoped binding silently stops working.
+   */
+  async function probeShortcutAvailability(keys: ShortcutKeys): Promise<ShortcutAvailabilityProbe> {
+    const hasModifier = Boolean(keys.ctrl || keys.alt || keys.meta || keys.shift);
+
+    if (!keys.key || !hasModifier) {
+      return 'free';
+    }
+
+    const shortcutString = shortcutKeysToTauriFormat(keys);
+
+    if (!shortcutString) {
+      return 'free';
+    }
+
+    if (registeredShortcutOwners.has(shortcutString)) {
+      return 'app-owned';
+    }
+
+    try {
+      await register(shortcutString, () => {});
+    }
+    catch {
+      return 'occupied';
+    }
+
+    try {
+      await unregister(shortcutString);
+    }
+    catch (error) {
+      console.error(`Failed to release probed global shortcut "${shortcutString}":`, error);
+    }
+
+    return 'free';
   }
 
   async function registerShortcut(globalShortcutId: GlobalShortcutId): Promise<boolean> {
@@ -641,6 +693,7 @@ export const useGlobalShortcutsStore = defineStore('globalShortcuts', () => {
     getShortcutString,
     getShortcutLabel,
     getShortcutKeys,
+    probeShortcutAvailability,
     isCustomized,
     getSource,
     extensionDefinitions,

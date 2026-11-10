@@ -881,7 +881,9 @@
     "localShortcutsAppScope": "Lokalne bližnjice (obseg aplikacije)",
     "unknownMainKey": "Neznana tipka",
     "globalShortcutRegisterFailed": "Tega globalnega bližnjice ni bilo mogoče registrirati. Morda ga že uporabljata Windows ali druga aplikacija. Poskusite drugo kombinacijo (npr. Win+Shift+… ali Ctrl+Alt+…).",
-    "shortcutRecorderGlobalCaptureHint": "Če se ob pritisku tipk nič ne prikaže, jih morda vaš sistem ali drug program prestreže, preden jih to okno prejme. Poskusite drugo kombinacijo."
+    "shortcutRecorderGlobalCaptureHint": "Če se ob pritisku tipk nič ne prikaže, jih morda vaš sistem ali drug program prestreže, preden jih to okno prejme. Poskusite drugo kombinacijo.",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "Prikaži okno aplikacije",

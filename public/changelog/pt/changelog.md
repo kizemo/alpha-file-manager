@@ -1,5 +1,13 @@
 # Registro de alterações
 
+## [3.13.7] - November 2026
+
+**Resumo:** o aplicativo agora avisa quando um atalho de teclado já pertence ao Windows ou a outro programa - assim, um comando que nunca executava sem explicação deixa de ser um mistério.
+
+### What changed
+
+**Adicionado: atalhos de teclado já ocupados por outro programa agora são sinalizados.** Uma combinação como `Ctrl+Shift+P` pode ter sido registrada em nível de sistema por outro programa antes mesmo de o Alpha File Manager vê-la. A tecla é então engolida pelo sistema operacional, o comando simplesmente não executa e nada na tela explica o motivo. A lista de atalhos em *Configurações* agora compara cada atribuição com o sistema operacional e marca as que já estão ocupadas; o editor de atalhos exibe o mesmo aviso enquanto você grava uma nova combinação. As atribuições padrão não mudam e um aviso nunca impede a gravação - ele informa que a tecla só funciona enquanto o outro programa não estiver em execução.
+
 ## [3.13.6] - November 2026
 
 **Summary:** The address bar no longer goes blank without a word, and an extension the app would refuse can no longer reach you inside a package.

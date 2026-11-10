@@ -881,7 +881,9 @@
     "localShortcutsAppScope": "קיצורים מקומיים (היקף יישום)",
     "unknownMainKey": "מקש לא ידוע",
     "globalShortcutRegisterFailed": "לא ניתן היה לרשום קיצור גלובלי זה. ייתכן שהוא כבר בשימוש על-ידי Windows או יישום אחר. נסה צירוף אחר (לדוגמה Win+Shift+… או Ctrl+Alt+…).",
-    "shortcutRecorderGlobalCaptureHint": "אם המקשים אינם מופיעים בעת הקשתם, ייתכן שהמערכת או תוכנית אחרת מטפלת בהם לפני שהחלון הזה מקבל אותם. נסה צירוף אחר."
+    "shortcutRecorderGlobalCaptureHint": "אם המקשים אינם מופיעים בעת הקשתם, ייתכן שהמערכת או תוכנית אחרת מטפלת בהם לפני שהחלון הזה מקבל אותם. נסה צירוף אחר.",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "מקד את חלון היישום",

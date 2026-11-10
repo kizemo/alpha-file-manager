@@ -881,7 +881,9 @@
     "localShortcutsAppScope": "Локальные шорткаты (в приложении)",
     "unknownMainKey": "Неизвестная клавиша",
     "globalShortcutRegisterFailed": "Не удалось зарегистрировать этот глобальный шорткат. Возможно, он уже занят Windows или другим приложением. Попробуйте другую комбинацию (например Win+Shift+… или Ctrl+Alt+…).",
-    "shortcutRecorderGlobalCaptureHint": "Если при нажатии клавиши ничего не появляется, их может перехватывать ваша система или другая программа до того, как окно их получит. Попробуйте другую комбинацию."
+    "shortcutRecorderGlobalCaptureHint": "Если при нажатии клавиши ничего не появляется, их может перехватывать ваша система или другая программа до того, как окно их получит. Попробуйте другую комбинацию.",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "Показать окно приложения",
