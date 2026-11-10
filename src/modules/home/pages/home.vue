@@ -102,6 +102,7 @@ usePageDropZone({
 .home-page__header {
   display: flex;
   flex-direction: column;
+
   /* FORK-MODIFICATION: 验收反馈 2026-10-13 — 标题与下方内容间距加大。 */
   margin-bottom: 16px;
   gap: 8px;
@@ -109,6 +110,7 @@ usePageDropZone({
 
 .home-page__title {
   color: hsl(var(--foreground));
+
   /* FORK-MODIFICATION: 验收反馈 2026-10-13 — 字号从 2rem(32px) 加大到 2.5rem(40px),
      与 banner 内的"主页"标题统一(都是 32px,这里略大),让 banner 关闭态时仍然醒目。 */
   font-size: 2.5rem;

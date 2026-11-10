@@ -247,32 +247,33 @@ function handleRemoveRecentClick(event: MouseEvent) {
 
 /* 树形导线：一根贯穿整行的竖线 + 一条伸向图标的短横线。
    整个列表共用同一条竖线，因此读起来是一棵以「目标目录」为根的树。 */
+
 .address-bar-editor-suggestion-row__guide {
   position: relative;
   display: block;
   width: 12px;
-  align-self: stretch;
   flex-shrink: 0;
+  align-self: stretch;
 }
 
 .address-bar-editor-suggestion-row__guide::before {
   position: absolute;
   top: 0;
   bottom: 0;
-  inset-inline-start: 5px;
   width: 1px;
   background-color: hsl(var(--border));
   content: '';
+  inset-inline-start: 5px;
 }
 
 .address-bar-editor-suggestion-row__guide::after {
   position: absolute;
   top: 50%;
-  inset-inline-start: 5px;
   width: 7px;
   height: 1px;
   background-color: hsl(var(--border));
   content: '';
+  inset-inline-start: 5px;
 }
 
 /* 本分组最后一行：竖线只画上半段，与短横线接成「└」，收住这棵树。 */

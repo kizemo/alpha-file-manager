@@ -101,6 +101,7 @@ const { t } = useI18n();
 /* FORK-MODIFICATION 2026-10-31（r14 需求 7）：浅色主题显示浅底版图标，深色主题显示深底版。
    默认（无 .dark）= 浅底版；`.dark` 由 use-theme.ts 的 applyBaseTheme 写到 <html> 上，
    暖纸暗色主题的 baseTheme 就是 'dark'，所以同样落在这条分支里。 */
+
 .settings-header__logo--dark {
   display: none;
 }

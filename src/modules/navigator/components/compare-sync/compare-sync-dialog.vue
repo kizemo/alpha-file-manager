@@ -1015,14 +1015,13 @@ onBeforeUnmount(() => {
 .compare-sync-dialog__steps {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   margin-top: 0.5rem;
+  gap: 0.5rem;
 }
 
 .compare-sync-dialog__step {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
   padding: 0.25rem 0.625rem;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -1030,6 +1029,7 @@ onBeforeUnmount(() => {
   color: hsl(var(--muted-foreground));
   cursor: pointer;
   font-size: 0.8125rem;
+  gap: 0.375rem;
 }
 
 .compare-sync-dialog__step:disabled {
@@ -1071,8 +1071,8 @@ onBeforeUnmount(() => {
 
 .compare-sync-dialog__paths {
   display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
+  grid-template-columns: 1fr 1fr;
 }
 
 .compare-sync-dialog__field {
@@ -1106,23 +1106,23 @@ onBeforeUnmount(() => {
 .compare-sync-dialog__criteria {
   display: flex;
   flex-direction: column;
-  gap: 0.625rem;
   padding-top: 0.75rem;
+  gap: 0.625rem;
 }
 
 .compare-sync-dialog__toggle-row {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
   font-size: 0.875rem;
+  gap: 1rem;
 }
 
 .compare-sync-dialog__exclude {
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
   padding-top: 0.75rem;
+  gap: 0.375rem;
 }
 
 .compare-sync-dialog__textarea {
@@ -1141,9 +1141,9 @@ onBeforeUnmount(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
   color: hsl(var(--muted-foreground));
   font-size: 0.8125rem;
+  gap: 0.75rem;
 }
 
 .compare-sync-dialog__stat--warn {
@@ -1185,10 +1185,10 @@ onBeforeUnmount(() => {
 .compare-sync-dialog__row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   padding: 0.25rem 0.5rem;
   border-bottom: 1px solid hsl(var(--border) / 40%);
   font-size: 0.8125rem;
+  gap: 0.5rem;
 }
 
 .compare-sync-dialog__row-icon {
@@ -1231,15 +1231,15 @@ onBeforeUnmount(() => {
 .compare-sync-dialog__badge--only_left,
 .compare-sync-dialog__badge--only_right,
 .compare-sync-dialog__badge--create_dir {
-  background-color: hsl(38 92% 50% / 18%);
-  color: hsl(38 92% 35%);
+  background-color: hsl(38deg 92% 50% / 18%);
+  color: hsl(38deg 92% 35%);
 }
 
 .compare-sync-dialog__badge--newer,
 .compare-sync-dialog__badge--older,
 .compare-sync-dialog__badge--transfer_file {
-  background-color: hsl(142 71% 45% / 18%);
-  color: hsl(142 71% 28%);
+  background-color: hsl(142deg 71% 45% / 18%);
+  color: hsl(142deg 71% 28%);
 }
 
 .compare-sync-dialog__badge--size_diff,
@@ -1247,8 +1247,8 @@ onBeforeUnmount(() => {
 .compare-sync-dialog__badge--kind_diff,
 .compare-sync-dialog__badge--indeterminate,
 .compare-sync-dialog__badge--skip {
-  background-color: hsl(0 84% 60% / 18%);
-  color: hsl(0 84% 45%);
+  background-color: hsl(0deg 84% 60% / 18%);
+  color: hsl(0deg 84% 45%);
 }
 
 .compare-sync-dialog__empty {
@@ -1269,11 +1269,17 @@ onBeforeUnmount(() => {
   gap: 0.25rem;
 }
 
+/* 原先这里有两条同名的 .compare-sync-dialog__progress-bar 规则（1272 与 1364），
+   触发 stylelint 的 no-duplicate-selectors。按 CSS 层叠，后一条覆盖前一条的
+   height 与 background-color，因此这里合并成一条，并保留最终生效的取值：
+   overflow/height/border-radius/background/transition 全部按后一条为准。 */
+
 .compare-sync-dialog__progress-bar {
   overflow: hidden;
-  height: 0.375rem;
+  height: 100%;
   border-radius: 999px;
-  background-color: hsl(var(--muted));
+  background: hsl(var(--primary));
+  transition: width 160ms ease-out;
 }
 
 .compare-sync-dialog__progress-fill {
@@ -1291,28 +1297,28 @@ onBeforeUnmount(() => {
 .compare-sync-dialog__report {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
   color: hsl(var(--muted-foreground));
   font-size: 0.8125rem;
+  gap: 0.75rem;
 }
 
 .compare-sync-dialog__failures {
   display: flex;
   max-height: 8rem;
   flex-direction: column;
-  gap: 0.25rem;
-  overflow-y: auto;
-  margin: 0;
   padding: 0;
+  margin: 0;
+  gap: 0.25rem;
   list-style: none;
+  overflow-y: auto;
 }
 
 .compare-sync-dialog__failures li {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
   color: hsl(var(--destructive));
   font-size: 0.75rem;
+  gap: 0.375rem;
 }
 
 .compare-sync-dialog__failures em {
@@ -1326,27 +1332,27 @@ onBeforeUnmount(() => {
 .compare-sync-dialog__error {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
   color: hsl(var(--destructive));
   font-size: 0.8125rem;
+  gap: 0.375rem;
 }
 
 .compare-sync-dialog__compare-progress {
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid hsl(var(--border) / 60%);
   border-radius: 0.5rem;
   background: hsl(var(--muted) / 40%);
+  gap: 0.375rem;
 }
 
 .compare-sync-dialog__compare-progress-head {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
   font-size: 0.8125rem;
   font-weight: 500;
+  gap: 0.375rem;
 }
 
 .compare-sync-dialog__compare-progress-detail {
@@ -1355,27 +1361,20 @@ onBeforeUnmount(() => {
 }
 
 .compare-sync-dialog__progress-track {
-  height: 4px;
   overflow: hidden;
+  height: 4px;
   border-radius: 999px;
   background: hsl(var(--border) / 70%);
-}
-
-.compare-sync-dialog__progress-bar {
-  height: 100%;
-  border-radius: 999px;
-  background: hsl(var(--primary));
-  transition: width 160ms ease-out;
 }
 
 .compare-sync-dialog__rows-note {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
   padding: 0.5rem 0.25rem 0;
   color: hsl(var(--muted-foreground));
   font-size: 0.75rem;
+  gap: 0.5rem;
 }
 
 .compare-sync-dialog__footer {

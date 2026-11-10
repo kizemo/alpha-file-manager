@@ -114,8 +114,8 @@ function selectOption(size: ThumbnailSizeOption) {
 .file-browser-thumbnail-size-dialog__options {
   display: flex;
   flex-direction: column;
-  gap: 6px;
   margin: 12px 0;
+  gap: 6px;
 }
 
 .file-browser-thumbnail-size-dialog__option {

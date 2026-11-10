@@ -2220,6 +2220,7 @@ onUnmounted(() => {
  * 空状态等所有 as-child 用法，回归面远大于本问题；正确的做法是在树的
  * scoped 规则里局部覆盖它。
  */
+
 .navigator-page__tree-and-panes :deep(.navigator-page__folder-tree-panel) {
   flex-direction: column;
 }

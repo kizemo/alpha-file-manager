@@ -226,24 +226,24 @@ const isEmpty = computed(() => !isLoading.value && !loadError.value && hosts.val
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
   padding: 0.625rem 0.75rem;
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius);
+  gap: 0.75rem;
 }
 
 .remote-trusted-hosts__entry-main {
   display: flex;
+  min-width: 0;
   flex-direction: column;
   gap: 0.25rem;
-  min-width: 0;
 }
 
 .remote-trusted-hosts__entry-title {
   display: flex;
   align-items: baseline;
-  gap: 0.5rem;
   font-weight: 500;
+  gap: 0.5rem;
 }
 
 .remote-trusted-hosts__kind {
@@ -259,9 +259,9 @@ const isEmpty = computed(() => !isLoading.value && !loadError.value && hosts.val
 .remote-trusted-hosts__entry-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
   color: hsl(var(--muted-foreground));
   font-size: 0.8125rem;
+  gap: 0.5rem;
 }
 
 .remote-trusted-hosts__fingerprint {

@@ -512,6 +512,7 @@ onMounted(async () => {
  * 用 :deep() 限定影响面：`item.vue` 被另外 45 个设置项共用，
  * 比如「设为默认文件管理器」就依赖横排（标题在左、开关在右），不能一起改。
  */
+
 .mcp-server :deep(.settings-view-item__main) {
   flex-direction: column;
   align-items: stretch;
@@ -519,8 +520,8 @@ onMounted(async () => {
 }
 
 .mcp-server :deep(.settings-view-item__content) {
-  flex: 1;
   min-width: 0;
+  flex: 1;
 }
 
 .mcp__row {
@@ -534,44 +535,44 @@ onMounted(async () => {
 }
 
 .mcp__status {
-  font-size: 0.75rem;
   padding: 0.125rem 0.5rem;
   border-radius: 999px;
+  font-size: 0.75rem;
 }
 
 .mcp__status--on {
+  background: hsl(var(--success) / 12%);
   color: hsl(var(--success));
-  background: hsl(var(--success) / 0.12);
 }
 
 .mcp__status--off {
+  background: hsl(var(--muted) / 50%);
   color: hsl(var(--muted-foreground));
-  background: hsl(var(--muted) / 0.5);
 }
 
 .mcp__mode-description {
   margin-top: 0.375rem;
-  font-size: 0.75rem;
   color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
 }
 
 .mcp__detail {
-  margin-top: 0.5rem;
   display: flex;
   flex-direction: column;
+  margin-top: 0.5rem;
   gap: 0.25rem;
 }
 
 .mcp__detail-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   font-size: 0.75rem;
+  gap: 0.5rem;
 }
 
 .mcp__detail-label {
-  color: hsl(var(--muted-foreground));
   min-width: 6rem;
+  color: hsl(var(--muted-foreground));
 }
 
 .mcp__detail-value {
@@ -584,43 +585,43 @@ onMounted(async () => {
 }
 
 .mcp__actions {
-  margin-top: 0.75rem;
   display: flex;
+  margin-top: 0.75rem;
   gap: 0.5rem;
 }
 
 .mcp__hint {
-  margin-top: 0.5rem;
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.6875rem;
+  margin-top: 0.5rem;
   color: hsl(var(--muted-foreground));
+  font-size: 0.6875rem;
+  gap: 0.25rem;
 }
 
 .mcp__audit {
-  margin-top: 0.75rem;
-  border-top: 1px solid hsl(var(--border));
-  padding-top: 0.5rem;
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
   max-height: 11rem;
+  flex-direction: column;
+  padding-top: 0.5rem;
+  border-top: 1px solid hsl(var(--border));
+  margin-top: 0.75rem;
+  gap: 0.25rem;
   overflow-y: auto;
 }
 
 .mcp__intro {
   margin: 0;
+  color: hsl(var(--muted-foreground));
   font-size: 0.875rem;
   line-height: 1.4;
-  color: hsl(var(--muted-foreground));
 }
 
 .mcp__deploy {
-  border-top: 1px solid hsl(var(--border));
-  padding-top: 0.75rem;
   display: flex;
   flex-direction: column;
+  padding-top: 0.75rem;
+  border-top: 1px solid hsl(var(--border));
   gap: 0.5rem;
 }
 
@@ -628,20 +629,20 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
   font-size: 0.75rem;
   font-weight: 600;
+  gap: 0.5rem;
 }
 
 .mcp__deploy-banner {
   display: flex;
   align-items: flex-start;
-  gap: 0.5rem;
   padding: 0.5rem;
-  border: 1px solid hsl(var(--warning) / 0.5);
-  background: hsl(var(--warning) / 0.1);
+  border: 1px solid hsl(var(--warning) / 50%);
   border-radius: calc(var(--radius) - 2px);
+  background: hsl(var(--warning) / 10%);
   font-size: 0.6875rem;
+  gap: 0.5rem;
 }
 
 .mcp__deploy-banner-icon {
@@ -651,9 +652,9 @@ onMounted(async () => {
 }
 
 .mcp__deploy-banner-body {
-  flex: 1;
-  min-width: 0;
   display: flex;
+  min-width: 0;
+  flex: 1;
   flex-direction: column;
   gap: 0.25rem;
 }
@@ -665,21 +666,21 @@ onMounted(async () => {
 
 .mcp__deploy-banner-text {
   margin: 0;
-  line-height: 1.4;
   color: hsl(var(--muted-foreground));
+  line-height: 1.4;
 }
 
 .mcp__deploy-banner-path {
+  color: hsl(var(--muted-foreground));
   font-family: ui-monospace, monospace;
   overflow-wrap: anywhere;
-  color: hsl(var(--muted-foreground));
 }
 
 .mcp__deploy-hint {
   margin: 0;
+  color: hsl(var(--muted-foreground));
   font-size: 0.6875rem;
   line-height: 1.4;
-  color: hsl(var(--muted-foreground));
 }
 
 .mcp__deploy-list {
@@ -692,11 +693,11 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
   padding: 0.375rem 0.5rem;
   border: 1px solid hsl(var(--border));
   border-radius: calc(var(--radius) - 2px);
   font-size: 0.75rem;
+  gap: 1rem;
 }
 
 .mcp__deploy-row--off {
@@ -705,10 +706,10 @@ onMounted(async () => {
 
 .mcp__deploy-info {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
   min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .mcp__deploy-name {
@@ -717,63 +718,63 @@ onMounted(async () => {
 }
 
 .mcp__deploy-state {
-  font-size: 0.6875rem;
   padding: 0.0625rem 0.375rem;
   border-radius: 999px;
+  font-size: 0.6875rem;
   white-space: nowrap;
 }
 
 .mcp__deploy-state--on {
+  background: hsl(var(--success) / 12%);
   color: hsl(var(--success));
-  background: hsl(var(--success) / 0.12);
 }
 
 .mcp__deploy-state--off {
+  background: hsl(var(--muted) / 50%);
   color: hsl(var(--muted-foreground));
-  background: hsl(var(--muted) / 0.5);
 }
 
 .mcp__deploy-path {
+  min-width: 0;
+  color: hsl(var(--muted-foreground));
   font-family: ui-monospace, monospace;
   font-size: 0.6875rem;
-  color: hsl(var(--muted-foreground));
   overflow-wrap: anywhere;
-  min-width: 0;
 }
 
 .mcp__deploy-actions {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 0.25rem;
-  flex-shrink: 0;
 }
 
 .mcp__deploy-done {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.6875rem;
   color: hsl(var(--success));
+  font-size: 0.6875rem;
+  gap: 0.25rem;
   white-space: nowrap;
 }
 
 .mcp__deploy-empty {
   margin: 0;
-  font-size: 0.75rem;
   color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
 }
 
 .mcp__audit-header {
+  color: hsl(var(--muted-foreground));
   font-size: 0.6875rem;
   font-weight: 600;
-  color: hsl(var(--muted-foreground));
 }
 
 .mcp__audit-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   font-size: 0.6875rem;
+  gap: 0.5rem;
 }
 
 .mcp__audit-time {
@@ -782,14 +783,14 @@ onMounted(async () => {
 }
 
 .mcp__audit-tool {
-  font-family: ui-monospace, monospace;
   min-width: 8rem;
+  font-family: ui-monospace, monospace;
 }
 
 .mcp__audit-summary {
-  color: hsl(var(--muted-foreground));
-  flex: 1;
   overflow: hidden;
+  flex: 1;
+  color: hsl(var(--muted-foreground));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -804,12 +805,12 @@ onMounted(async () => {
 }
 
 .mcp__error {
-  margin-top: 0.5rem;
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.75rem;
+  margin-top: 0.5rem;
   color: hsl(var(--destructive));
+  font-size: 0.75rem;
+  gap: 0.25rem;
 }
 
 .mcp__spinner {

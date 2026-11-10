@@ -760,6 +760,7 @@ function handleCreateLink(linkKind: LinkCreationKind) {
 
 /* FORK-MODIFICATION 2026-10-20：删除下拉。宽度要容得下
    「从驱动器中删除」+ 快捷键提示两列，否则文字会被挤到换行。 */
+
 .file-browser-actions-menu__delete-dropdown {
   min-width: 220px;
 }

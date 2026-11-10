@@ -876,16 +876,17 @@ function onProtocolChange(value: unknown) {
   刻意不给「认证被拒」单独的红 —— 那不是程序故障，是用户要改密码，
   用报错色会让人以为应用出了问题。
 */
+
 .remote-connection-form__probe {
   display: flex;
   flex-direction: column;
-  margin: 0;
-  gap: 0.25rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius);
+  margin: 0;
   color: hsl(var(--foreground));
   font-size: 0.875rem;
+  gap: 0.25rem;
 }
 
 .remote-connection-form__probe--verified {
@@ -928,6 +929,7 @@ function onProtocolChange(value: unknown) {
   看全没看全。样式跟着 `Input` 组件走（同样的边框、圆角、字号），
   免得两个控件摆在一起像两个不同世界。
 */
+
 .remote-connection-form__cookie {
   width: 100%;
   padding: 0.5rem 0.75rem;
@@ -951,6 +953,7 @@ function onProtocolChange(value: unknown) {
   收起时只剩一行触发按钮；展开后的正文比输入框矮一档、字号小一号 ——
   它是说明，不该比要填的字段更显眼。
 */
+
 .remote-connection-form__cookie-help {
   display: flex;
   flex-direction: column;
@@ -959,19 +962,19 @@ function onProtocolChange(value: unknown) {
 .remote-connection-form__cookie-help-body {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
   padding: 0.625rem 0.75rem;
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius);
+  margin-top: 0.5rem;
   color: hsl(var(--muted-foreground));
   font-size: 0.75rem;
+  gap: 0.5rem;
   line-height: 1.5;
 }
 
 .remote-connection-form__cookie-help-login {
-  align-self: flex-start;
   height: auto;
+  align-self: flex-start;
   padding: 0;
   font-size: 0.75rem;
 }
@@ -980,29 +983,30 @@ function onProtocolChange(value: unknown) {
 .remote-connection-form__cookie-help-notes {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  margin: 0;
   padding-left: 1.125rem;
+  margin: 0;
+  gap: 0.25rem;
 }
 
 /*
   百度网盘的授权卡。刻意做得比旁边的输入框矮一档 ——
   它是**状态**，不是可以编辑的东西。
 */
+
 .remote-connection-form__baidu {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius);
+  gap: 0.5rem;
 }
 
 .remote-connection-form__baidu-head {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   font-size: 0.875rem;
+  gap: 0.5rem;
 }
 
 .remote-connection-form__baidu-dot {

@@ -147,14 +147,14 @@ function handleBlur() {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  margin: 0;
   padding: 0 2px;
+  border: 1px solid currentcolor;
+  border-radius: 3px;
+  margin: 0;
+  background-color: transparent;
+  color: inherit;
   font: inherit;
   line-height: inherit;
-  color: inherit;
-  background-color: transparent;
-  border: 1px solid currentColor;
-  border-radius: 3px;
 }
 
 .file-browser-inline-rename-input--invalid {

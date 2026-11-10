@@ -372,17 +372,17 @@ async function handleSubmit() {
 .remote-permissions-dialog__description {
   display: flex;
   flex-direction: column;
-  gap: 6px;
   padding: 10px 12px;
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius-sm);
+  gap: 6px;
 }
 
 .remote-permissions-dialog__description-row {
   display: flex;
   align-items: center;
-  gap: 8px;
   font-size: 13px;
+  gap: 8px;
 }
 
 .remote-permissions-dialog__description-label {
@@ -397,7 +397,7 @@ async function handleSubmit() {
 .remote-permissions-dialog__recursive {
   display: flex;
   align-items: center;
-  gap: 8px;
   font-size: 13px;
+  gap: 8px;
 }
 </style>

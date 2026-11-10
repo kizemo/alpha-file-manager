@@ -587,19 +587,20 @@ function getRowIcon(row: {
  * 它不是 trigger 的直接子元素，ref 活得好好的；
  * 而且它不挂 `display: contents`，`overflow-y: auto` 一定生效。
  */
+
 .file-tree-view {
   display: flex;
-  flex-direction: column;
-  flex: 1;
   min-height: 0;
+  flex: 1;
+  flex-direction: column;
   font-size: calc(13px + var(--font-size-offset, 0px));
 }
 
 .file-tree-view__scroll {
   display: flex;
-  flex-direction: column;
-  flex: 1;
   min-height: 0;
+  flex: 1;
+  flex-direction: column;
   overflow-y: auto;
 
   /* FORK-MODIFICATION 2026-10-30：滚动条配色随主题走。
@@ -622,13 +623,14 @@ function getRowIcon(row: {
 
 .file-tree-row {
   display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px 2px 0;
-  cursor: pointer;
-  user-select: none;
+
   /* 行不能被压扁，否则容器不够高时是挤扁而不是溢出滚动 */
   flex-shrink: 0;
+  align-items: center;
+  padding: 2px 8px 2px 0;
+  cursor: pointer;
+  gap: 4px;
+  user-select: none;
 }
 
 .file-tree-row:hover {
@@ -662,12 +664,13 @@ function getRowIcon(row: {
  * own pointer cursor + hover background so the user can discover that
  * clicking it expands/collapses without navigating (the row body click
  * still navigates per the v6.2 contract). */
+
 .file-tree-row__chevron {
   display: inline-flex;
-  cursor: pointer;
-  border-radius: 3px;
-  padding: 1px;
   flex-shrink: 0;
+  padding: 1px;
+  border-radius: 3px;
+  cursor: pointer;
 }
 
 .file-tree-row__chevron:hover {
@@ -675,16 +678,17 @@ function getRowIcon(row: {
 }
 
 .file-tree-row__name {
+  overflow: hidden;
+  min-width: 0;
+  flex: 1;
+
   /* Keep one line per tree depth level so siblings align; long names clip
    * with ellipsis. The full path/name is also exposed via the `title`
    * attribute on the row + name span so hovering shows the whole thing in
    * a native tooltip — see handoff-2026-09-26-tree-sync-v6-2.md. */
   overflow-wrap: anywhere;
-  white-space: nowrap;
-  overflow: hidden;
   text-overflow: ellipsis;
-  min-width: 0;
-  flex: 1;
+  white-space: nowrap;
 }
 
 .file-tree-row__error-marker {

@@ -557,9 +557,10 @@ async function openRemoteCreate(protocol: RemoteProtocol) {
  * 这个按钮没有盘符字标，图标居中即可，所以只多一个内缩，
  * 让它和上面那一列盘符在视觉上对齐。
  */
+
 .nav-sidebar-drive--add {
-  margin-top: 2px;
   border: 1px dashed hsl(var(--border));
+  margin-top: 2px;
   color: hsl(var(--muted-foreground));
 }
 
