@@ -29,7 +29,7 @@ const {
 
 // vue-i18n 的 createI18n 必须保留：@/localization 在模块加载期就会调用它，
 // 少了它会让图片编辑链路在 import 阶段就炸掉（invoke 根本不会被调用）。
-vi.mock('vue-i18n', async (importOriginal) => ({
+vi.mock('vue-i18n', async importOriginal => ({
   ...(await importOriginal<typeof import('vue-i18n')>()),
   useI18n: () => ({ t: (key: string) => key }),
 }));

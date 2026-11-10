@@ -5,7 +5,9 @@
 // FORK-MODIFICATION: test for use-file-tree (tree view, v6 reactive shared state).
 // Tracking issue: aleksey-hoffman/sigma-file-manager#499
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import {
+  describe, it, expect, beforeEach, vi,
+} from 'vitest';
 import { nextTick, ref } from 'vue';
 import { useFileTree } from '@/modules/navigator/composables/use-file-tree';
 
@@ -20,7 +22,10 @@ describe('useFileTree', () => {
 
   it('initializes a tree rooted at the given paths', () => {
     const expanded = ref<Set<string>>(new Set());
-    const tree = makeTree({ rootPaths: ['C:/work'], expandedPaths: expanded });
+    const tree = makeTree({
+      rootPaths: ['C:/work'],
+      expandedPaths: expanded,
+    });
     expect(tree.rows.value).toHaveLength(1);
     expect(tree.rows.value[0].path).toBe('C:/work');
     expect(tree.rows.value[0].isExpanded).toBe(false);
@@ -48,8 +53,20 @@ describe('useFileTree', () => {
   it('loads children lazily on first expand (via side-effect watch)', async () => {
     const expanded = ref<Set<string>>(new Set());
     const readDir = vi.fn().mockResolvedValue([
-      { path: 'C:/work/a.md', name: 'a.md', is_dir: false, size: 0, modifiedAt: 0 },
-      { path: 'C:/work/sub', name: 'sub', is_dir: true, size: 0, modifiedAt: 0 },
+      {
+        path: 'C:/work/a.md',
+        name: 'a.md',
+        is_dir: false,
+        size: 0,
+        modifiedAt: 0,
+      },
+      {
+        path: 'C:/work/sub',
+        name: 'sub',
+        is_dir: true,
+        size: 0,
+        modifiedAt: 0,
+      },
     ]);
     const tree = makeTree({
       rootPaths: ['C:/work'],
@@ -265,9 +282,19 @@ describe('useFileTree', () => {
     const ROOT = `sfm://remote/${CONN}/vol1/@team/study_platform/wp_root`;
     const expanded = ref<Set<string>>(new Set());
     const readDir = vi.fn().mockResolvedValue([
-      { path: `${ROOT}/wp-admin`, name: 'wp-admin', is_dir: true, size: 0, modified_time: 0 },
+      {
+        path: `${ROOT}/wp-admin`,
+        name: 'wp-admin',
+        is_dir: true,
+        size: 0,
+        modified_time: 0,
+      },
     ]);
-    const tree = makeTree({ rootPaths: [ROOT], expandedPaths: expanded, deps: { readDir } });
+    const tree = makeTree({
+      rootPaths: [ROOT],
+      expandedPaths: expanded,
+      deps: { readDir },
+    });
 
     await tree.ensureAncestorsLoaded([
       `sfm://remote/${CONN}`,
@@ -337,7 +364,7 @@ describe('useFileTree', () => {
   it('collapsing then re-expanding does not re-read (children stay loaded)', async () => {
     const expanded = ref<Set<string>>(new Set(['C:/work']));
     const readDir = vi.fn().mockResolvedValue([]);
-    const tree = makeTree({
+    makeTree({
       rootPaths: ['C:/work'],
       expandedPaths: expanded,
       deps: { readDir },
@@ -376,11 +403,21 @@ describe('useFileTree', () => {
     const expanded = ref<Set<string>>(new Set(['C:/work']));
     const readDir = vi.fn().mockImplementation(async (p: string) => {
       if (p === 'C:/work') return [
-        { path: 'C:/work/sub', name: 'sub', is_dir: true, size: 0, modifiedAt: 0 },
+        {
+          path: 'C:/work/sub',
+          name: 'sub',
+          is_dir: true,
+          size: 0,
+          modifiedAt: 0,
+        },
       ];
       return [];
     });
-    const tree = makeTree({ rootPaths, expandedPaths: expanded, deps: { readDir } });
+    const tree = makeTree({
+      rootPaths,
+      expandedPaths: expanded,
+      deps: { readDir },
+    });
 
     await nextTick();
     await nextTick();

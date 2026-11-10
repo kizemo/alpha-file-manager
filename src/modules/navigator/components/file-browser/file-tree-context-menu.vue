@@ -101,11 +101,17 @@ function emitAction(name: string) {
 
 <template>
   <ContextMenuContent>
-    <ContextMenuItem data-test="ctx-tree-copy" @select="handleCopy">
+    <ContextMenuItem
+      data-test="ctx-tree-copy"
+      @select="handleCopy"
+    >
       <CopyIcon :size="14" />
       <span>{{ t('fileBrowser.actions.copy') }}</span>
     </ContextMenuItem>
-    <ContextMenuItem data-test="ctx-tree-cut" @select="handleCut">
+    <ContextMenuItem
+      data-test="ctx-tree-cut"
+      @select="handleCut"
+    >
       <ScissorsIcon :size="14" />
       <span>{{ t('fileBrowser.actions.cut') }}</span>
     </ContextMenuItem>
@@ -118,7 +124,10 @@ function emitAction(name: string) {
       <span>{{ t('fileBrowser.actions.paste') }}</span>
     </ContextMenuItem>
     <ContextMenuSeparator v-if="canPaste" />
-    <ContextMenuItem data-test="ctx-tree-rename" @select="emitAction('rename')">
+    <ContextMenuItem
+      data-test="ctx-tree-rename"
+      @select="emitAction('rename')"
+    >
       <PencilIcon :size="14" />
       <span>{{ t('fileBrowser.actions.rename') }}</span>
     </ContextMenuItem>
@@ -130,7 +139,10 @@ function emitAction(name: string) {
       <FolderOpenIcon :size="14" />
       <span>{{ t('fileBrowser.actions.openContainingDirectory') }}</span>
     </ContextMenuItem>
-    <ContextMenuItem data-test="ctx-tree-properties" @select="emitAction('properties')">
+    <ContextMenuItem
+      data-test="ctx-tree-properties"
+      @select="emitAction('properties')"
+    >
       <InfoIcon :size="14" />
       <span>{{ t('fileBrowser.actions.properties') }}</span>
     </ContextMenuItem>

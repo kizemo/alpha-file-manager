@@ -15,7 +15,10 @@ vi.mock('vue-i18n', () => ({
 
 vi.mock('@/localization', () => ({
   i18n: {
-    global: { locale: { value: 'en' }, t: (k: string) => k },
+    global: {
+      locale: { value: 'en' },
+      t: (k: string) => k,
+    },
   },
   messages: {},
 }));
@@ -72,7 +75,10 @@ describe('file-tree-context-menu', () => {
   it('renders 5 items for a file: copy / cut / rename / open-containing-directory / properties', () => {
     hasItemsMock.mockReturnValue(false);
     canPasteToMock.mockReturnValue(false);
-    const wrapper = mountContextMenu(createTarget({ path: 'C:/file.txt', isDirectory: false }));
+    const wrapper = mountContextMenu(createTarget({
+      path: 'C:/file.txt',
+      isDirectory: false,
+    }));
     const items = wrapper.findAllComponents(StubItem);
     expect(items.length).toBe(5);
   });
@@ -80,7 +86,10 @@ describe('file-tree-context-menu', () => {
   it('renders 4 items for a directory without clipboard items (no paste)', () => {
     hasItemsMock.mockReturnValue(false);
     canPasteToMock.mockReturnValue(false);
-    const wrapper = mountContextMenu(createTarget({ path: 'C:/dir', isDirectory: true }));
+    const wrapper = mountContextMenu(createTarget({
+      path: 'C:/dir',
+      isDirectory: true,
+    }));
     const items = wrapper.findAllComponents(StubItem);
     expect(items.length).toBe(4);
   });
@@ -88,7 +97,10 @@ describe('file-tree-context-menu', () => {
   it('renders 5 items for a directory when clipboard has items (copy / cut / paste / rename / properties)', () => {
     hasItemsMock.mockReturnValue(true);
     canPasteToMock.mockReturnValue(true);
-    const wrapper = mountContextMenu(createTarget({ path: 'C:/dir', isDirectory: true }));
+    const wrapper = mountContextMenu(createTarget({
+      path: 'C:/dir',
+      isDirectory: true,
+    }));
     const items = wrapper.findAllComponents(StubItem);
     expect(items.length).toBe(5);
   });
@@ -98,7 +110,10 @@ describe('file-tree-context-menu', () => {
     hasItemsMock.mockReturnValue(false);
     canPasteToMock.mockReturnValue(false);
     setClipboardMock.mockClear();
-    const wrapper = mountContextMenu(createTarget({ path: 'C:/a.txt', isDirectory: false }));
+    const wrapper = mountContextMenu(createTarget({
+      path: 'C:/a.txt',
+      isDirectory: false,
+    }));
     await wrapper.find('[data-test="ctx-tree-copy"]').trigger('click');
     // 2026-10-13 修复:第三参是 options { syncToSystemClipboard?: boolean },不是来源标识字符串。
     // 两参断言在真的传了三参时会失败,因此这条同时守住"不多传参数"——
@@ -120,11 +135,17 @@ describe('file-tree-context-menu', () => {
     hasItemsMock.mockReturnValue(false);
     canPasteToMock.mockReturnValue(false);
     setClipboardMock.mockClear();
-    const wrapper = mountContextMenu(createTarget({ path: 'C:/a.txt', isDirectory: false }));
+    const wrapper = mountContextMenu(createTarget({
+      path: 'C:/a.txt',
+      isDirectory: false,
+    }));
     await wrapper.find('[data-test="ctx-tree-cut"]').trigger('click');
     expect(setClipboardMock).toHaveBeenCalledWith(
       'move',
-      [expect.objectContaining({ path: 'C:/a.txt', is_file: true })],
+      [expect.objectContaining({
+        path: 'C:/a.txt',
+        is_file: true,
+      })],
     );
   });
 });

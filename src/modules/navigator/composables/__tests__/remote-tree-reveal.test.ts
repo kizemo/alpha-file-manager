@@ -112,7 +112,9 @@ async function waitForLoaded(
 
     await nextTick();
     await Promise.resolve();
-    await new Promise<void>(resolve => { setTimeout(resolve, 0); });
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
   }
 
   throw new Error(`等待 ${path} 加载落地超时`);

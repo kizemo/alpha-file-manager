@@ -381,8 +381,16 @@ describe('sortFileBrowserEntries — locations drive letter order', () => {
   it('does not apply letter order when entries are not drives', () => {
     // 判别性反例:没有 drive_metadata 的普通目录必须仍按显示名排。
     const entries = [
-      { name: 'zzz', path: '/zzz', is_dir: true } as unknown as DirEntry,
-      { name: 'aaa', path: '/aaa', is_dir: true } as unknown as DirEntry,
+      {
+        name: 'zzz',
+        path: '/zzz',
+        is_dir: true,
+      } as unknown as DirEntry,
+      {
+        name: 'aaa',
+        path: '/aaa',
+        is_dir: true,
+      } as unknown as DirEntry,
     ];
 
     const sorted = sortFileBrowserEntries(entries, 'name', 'asc', true);

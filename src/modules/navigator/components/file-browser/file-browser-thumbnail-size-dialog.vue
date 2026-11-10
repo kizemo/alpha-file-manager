@@ -30,11 +30,30 @@ const modelValue = defineModel<ThumbnailSizeOption>('modelValue', { required: tr
 const { t } = useI18n();
 const userSettingsStore = useUserSettingsStore();
 
-const options: Array<{ value: ThumbnailSizeOption; descriptionKey: string }> = [
-  { value: 'small', descriptionKey: 'settings.general.fileView.thumbnailSizeSmall' },
-  { value: 'medium', descriptionKey: 'settings.general.fileView.thumbnailSizeMedium' },
-  { value: 'large', descriptionKey: 'settings.general.fileView.thumbnailSizeLarge' },
-  { value: 'xlarge', descriptionKey: 'settings.general.fileView.thumbnailSizeXLarge' },
+// 选中档位的对勾标记：放在脚本常量里渲染，模板里不出现裸文本
+// （@intlify/vue-i18n/no-raw-text 会对模板裸文本报错）。
+const CHECK_MARK = '✓';
+
+const options: Array<{
+  value: ThumbnailSizeOption;
+  descriptionKey: string;
+}> = [
+  {
+    value: 'small',
+    descriptionKey: 'settings.general.fileView.thumbnailSizeSmall',
+  },
+  {
+    value: 'medium',
+    descriptionKey: 'settings.general.fileView.thumbnailSizeMedium',
+  },
+  {
+    value: 'large',
+    descriptionKey: 'settings.general.fileView.thumbnailSizeLarge',
+  },
+  {
+    value: 'xlarge',
+    descriptionKey: 'settings.general.fileView.thumbnailSizeXLarge',
+  },
 ];
 
 function selectOption(size: ThumbnailSizeOption) {
@@ -75,7 +94,7 @@ function selectOption(size: ThumbnailSizeOption) {
             v-if="modelValue === option.value"
             class="file-browser-thumbnail-size-dialog__option-mark"
             aria-hidden="true"
-          >✓</span>
+          >{{ CHECK_MARK }}</span>
         </button>
       </div>
 

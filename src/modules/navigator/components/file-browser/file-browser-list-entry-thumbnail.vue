@@ -116,7 +116,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <span ref="containerRef" class="file-browser-list-entry-thumbnail" :style="{ width: `${effectiveSize}px`, height: `${effectiveSize}px` }">
+  <span
+    ref="containerRef"
+    class="file-browser-list-entry-thumbnail"
+    :style="{ width: `${effectiveSize}px`, height: `${effectiveSize}px` }"
+  >
     <img
       v-if="thumbnailSrc"
       class="file-browser-list-entry-thumbnail__image"

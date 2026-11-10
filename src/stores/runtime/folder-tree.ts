@@ -39,6 +39,7 @@ export function computeAncestorPaths(path: string): string[] {
 
   const ancestors: string[] = [];
   let current = trimmed;
+
   while (true) {
     const parent = parentDirectoryPath(current);
     if (parent === null || parent === current) break;
@@ -49,6 +50,7 @@ export function computeAncestorPaths(path: string): string[] {
     if (/^[A-Z]:\/$/i.test(parent)) break;
     current = parent;
   }
+
   return ancestors;
 }
 
@@ -124,10 +126,12 @@ export const useFolderTreeStore = defineStore('folderTree', () => {
    */
   function setSelectedPath(path: string | null): void {
     selectedPath.value = path;
+
     if (!path) {
       expandedPaths.value = new Set();
       return;
     }
+
     const ancestors = computeAncestorPaths(path);
     const next = new Set<string>(ancestors);
     next.add(path);
@@ -136,12 +140,14 @@ export const useFolderTreeStore = defineStore('folderTree', () => {
 
   function toggleExpanded(path: string): void {
     const next = new Set(expandedPaths.value);
+
     if (next.has(path)) {
       next.delete(path);
     }
     else {
       next.add(path);
     }
+
     expandedPaths.value = next;
   }
 
