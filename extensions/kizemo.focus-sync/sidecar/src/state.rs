@@ -258,7 +258,16 @@ impl AppState {
     /// v0.5.19 — 记录「用户从 AFM 切走」：接手的应用 pid + 发生时刻。
     ///
     /// 由 uia_event.rs 的 monitor 在 **AFM -> 非 AFM** 的下降沿调用。
+    ///
+    /// v0.5.20 — `pid == 0`（没读到接手应用的进程 id）**不产生授权**。
+    /// 理由：授权的可核对性完全建立在 pid 上；一条 pid 未知的交接记录
+    /// 没有任何东西可以核对，闸门只能对它「无法核对 ⇒ 放行」，于是它会
+    /// 变成一把 TTL 内谁都能用的万能钥匙 —— 正是本闸门要堵的洞。
+    /// 取不到 pid 时正确做法是**不记录**，由调用方（monitor）下一 tick 重试。
     pub fn set_afm_handoff(&self, pid: u32) {
+        if pid == 0 {
+            return;
+        }
         let mut guard = self.afm_handoff.lock().unwrap_or_else(|e| e.into_inner());
         *guard = Some(AfmHandoff {
             pid,
@@ -295,7 +304,19 @@ impl AppState {
     ///   1. 发生过 AFM -> X 的交接；
     ///   2. 交接距今不超过 TTL（默认 120 秒）；
     ///   3. 弹窗所属进程 == 接手 AFM 的那个应用。
-    ///      认不出 pid 时（0）只查前两条，不做应用级限制。
+    ///
+    /// v0.5.20 — **pid 未知 ⇒ 不放行**（fail-closed）。
+    ///
+    /// 旧实现是「`handoff.pid == 0 || dialog_pid == 0` ⇒ 放行」：只要 pid
+    /// 取不到，就退化成「TTL 内放行任何弹窗」。这等于把闸门第 3 条整个
+    /// 关掉，只剩一个时间窗 —— 一条陈旧授权在 TTL 内就能写回真实路径，
+    /// 正是本闸门要堵的洞（2026-11-09 真机事故的同类形态）。
+    ///
+    /// 现在两个 pid 任何一个读不到都拒绝：
+    ///   * `dialog_pid == 0`：弹窗窗口已失效 / 取不到属主，写进去也必然失败；
+    ///   * `handoff.pid == 0`：交接时没读到接手应用，无法核对「是不是直接
+    ///     从 AFM 切过来的那个应用」。
+    /// 两条都是「无法证明 ⇒ 不写」，而不是「无法证明 ⇒ 都写」。
     ///
     /// 逃生阀 `FOCUS_SYNC_AFM_GATE=0|false|off` 命中时恒真（回到 v0.5.14）。
     pub fn afm_handoff_allows(&self, dialog_pid: u32) -> bool {
@@ -308,8 +329,9 @@ impl AppState {
         if now_unix_millis().saturating_sub(handoff.ts_ms) > Self::afm_handoff_ttl_ms() {
             return false;
         }
+        // v0.5.20 — pid 未知 ⇒ 不放行（不能只靠 TTL 放行）。
         if handoff.pid == 0 || dialog_pid == 0 {
-            return true;
+            return false;
         }
         handoff.pid == dialog_pid
     }
@@ -777,6 +799,77 @@ mod afm_gate_tests {
         state.set_afm_handoff(1234);
         assert!(state.should_opened_write_back("C:\\tmp", "E:\\obsidian")
             && state.afm_handoff_allows(1234));
+    }
+
+    // ---- v0.5.20：pid 未知 ⇒ 不放行（fail-closed） ----
+    //
+    // 缺陷（旧实现）：`handoff.pid == 0 || dialog_pid == 0` ⇒ 直接放行。
+    // 后果：只要 pid 取不到，闸门第 3 条「弹窗属于接手 AFM 的那个应用」就
+    // 整个失效，退化成「TTL 内放行任何弹窗」——陈旧授权在 TTL 内即可写回
+    // 真实路径，正是这个闸门要堵的洞。
+
+    #[test]
+    fn unknown_dialog_pid_does_not_authorize_the_sync() {
+        // 弹窗窗口取不到属主进程（hwnd 已失效 / 读不到 pid）⇒ 不放行。
+        // TTL 仍然新鲜也不足以放行。
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.set_afm_handoff(4242);
+        assert!(
+            !state.afm_handoff_allows(0),
+            "读不到弹窗所属进程时必须拒绝：不能只靠 TTL 放行"
+        );
+    }
+
+    #[test]
+    fn unknown_handoff_pid_does_not_authorize_the_sync() {
+        // 交接时没读到接手应用的 pid ⇒ 没有可核对的授权 ⇒ 不放行。
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.set_afm_handoff(0);
+        assert!(
+            !state.afm_handoff_allows(4242),
+            "交接 pid 未知时必须拒绝：不能因为「有交接记录」就放行"
+        );
+    }
+
+    #[test]
+    fn a_handoff_without_a_known_pid_is_never_recorded() {
+        // set_afm_handoff(0) 不产生授权记录 —— 一条 pid 未知的记录没有任何
+        // 可核对的东西，只会变成 TTL 内的万能钥匙。
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.set_afm_handoff(0);
+        assert!(
+            state.afm_handoff().is_none(),
+            "pid 未知的交接不得被记录下来"
+        );
+        assert!(!state.afm_handoff_allows(4242));
+        assert!(!state.health_snapshot().afm_visit_latched);
+    }
+
+    #[test]
+    fn a_consumed_handoff_cannot_be_reused() {
+        // 「消费即失效」：写成功后调用方会下弦（clear_afm_handoff），
+        // 同一个授权不得再放行下一次写回。
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.set_afm_handoff(4242);
+        assert!(state.afm_handoff_allows(4242), "首次使用应当放行");
+        state.clear_afm_handoff(); // 消费
+        assert!(
+            !state.afm_handoff_allows(4242),
+            "授权被消费一次后必须失效，不能复用"
+        );
+        assert!(!state.health_snapshot().afm_visit_latched);
+    }
+
+    #[test]
+    fn tightening_the_pid_rule_does_not_break_the_normal_flow() {
+        // 收紧后仍必须放行正常流程：pid 已知且相等 + TTL 未过。
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.set_afm_handoff(4242);
+        assert!(
+            state.afm_handoff_allows(4242),
+            "正常流程（同一应用、TTL 内）必须照旧放行"
+        );
+        assert!(state.afm_handoff_is_fresh());
     }
 }
 

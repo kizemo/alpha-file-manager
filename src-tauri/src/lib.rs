@@ -38,6 +38,7 @@ mod orphan_webview;
 // `pub` 是为了让 `examples/mcp-spike.rs` 能起同一个模块 —— Phase 0 的 spike
 // 与应用内跑的是同一份端点代码，不是另写一份。
 mod focus_sync_sidecar;
+mod focus_sync_supervisor;
 pub mod mcp;
 mod open_with;
 mod process_runner;

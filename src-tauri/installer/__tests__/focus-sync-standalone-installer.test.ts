@@ -118,13 +118,18 @@ describe('Focus Sync 独立安装器：不再注册 legacy 计划任务', () => 
   });
 
   it('结束侧车进程发生在部署侧车二进制之前', () => {
-    const stopAt = indexOf(NSI, 'stop-sidecar-processes.ps1"');
+    // 必须定位「执行」那一行，不能匹配 `File "stop-sidecar-processes.ps1"`。
+    // 后者是 Stage 0 把脚本拷进 $INSTDIR\bin 的拷贝行，永远排在部署之前，
+    // 用它做判据会让「先杀掉再覆盖」这条顺序断言恒为绿（3.13.5 复核发现）。
+    const stopInvoke = NSI.match(
+      /powershell[^\r\n]*-File\s+"\$INSTDIR\\bin\\stop-sidecar-processes\.ps1"/
+    );
     const deployAt = indexOf(NSI, 'File "..\\bin\\focus-sync-sidecar.exe"');
 
-    expect(stopAt).toBeGreaterThan(-1);
+    expect(stopInvoke, 'installer.nsi 里找不到 stop-sidecar-processes.ps1 的 -File 执行行').not.toBeNull();
     expect(deployAt).toBeGreaterThan(-1);
     // 运行中的映像会锁住自己的 exe，不先结束它，覆盖二进制会失败。
-    expect(stopAt).toBeLessThan(deployAt);
+    expect(stopInvoke!.index).toBeLessThan(deployAt);
   });
 
   it('installer.nsi 的进程检测覆盖改名后的 alpha-file-manager', () => {
@@ -151,7 +156,10 @@ describe('Focus Sync 独立安装器：版本号只有一个来源', () => {
   });
 
   it('register.ps1 不再硬编码版本号，改为读已部署的 package.json', () => {
-    expect(REGISTER_PS1).not.toMatch(/version\s*=\s*'0\.\d+\.\d+'/);
+    // 大小写不敏感：register.ps1 里的变量叫 $extensionVersion，
+    // 旧正则 /version\s*=\s*'0\.\d+\.\d+'/ 匹配不到 `Version = '0.5.9'`
+    // ⇒ 硬编码版本号在门禁里完全隐形（3.13.5 复核实测 match=null）。
+    expect(REGISTER_PS1).not.toMatch(/version\s*=\s*'0\.\d+\.\d+'/i);
     expect(REGISTER_PS1).toContain('package.json');
     expect(REGISTER_PS1).toContain('$extensionVersion');
   });
