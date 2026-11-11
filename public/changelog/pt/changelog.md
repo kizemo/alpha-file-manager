@@ -3,11 +3,16 @@
 
 ## [3.14.0] - November 2026
 
-**Resumo:** Agora você pode conectar o Quark Netdisk junto com o Baidu Netdisk - escolha o provedor ao adicionar uma conexão de disco de rede, entre uma vez na janela embutida e navegue, baixe e copie como no Baidu Netdisk.
+**Resumo:** Agora você pode conectar o Quark Netdisk junto com o Baidu Netdisk - adicione-o pela aba de disco de rede em *Configurações* em *Remoto*, entre uma vez na janela embutida e navegue, baixe e copie como no Baidu Netdisk.
 
 ### What changed
 
-**Adicionado: o Quark Netdisk pode ser adicionado como segundo provedor de disco de rede.** Ao adicionar uma conexão de disco de rede em *Configurações* em *Remoto*, agora aparece um seletor de provedor com *Baidu Netdisk* e *Quark Netdisk*. Escolhendo o Quark, os campos de host, porta e senha desaparecem e aparece um único botão *Adicionar Quark Netdisk*; a janela de login abre dentro do aplicativo e, ao concluir o login, o cartão mostra o nome da sua conta. A conexão salva se comporta como qualquer outra conexão remota: listar a pasta raiz, entrar em subpastas, baixar um arquivo para o computador, copiar um arquivo remoto para uma pasta local e reencontrá-lo depois de reiniciar. Uma conexão do Quark e uma do Baidu podem coexistir sem se atrapalhar e, quando a sessão salva expira, o aplicativo avisa que é preciso entrar de novo em vez de falhar em silêncio.
+**Adicionado: o Quark Netdisk pode ser adicionado como segundo provedor de disco de rede.** Na aba *Disco de rede* de *Configurações* em *Remoto*, a seção *Adicionar disco de rede* oferece *Baidu Netdisk* e *Quark Netdisk*. Escolha um deles e a janela de login abre na hora dentro do aplicativo. Depois que o login termina, uma caixa de diálogo pede o nome da conexão, a pasta local e o diretório inicial, avisa que você entrou e, ao salvar, a conexão é adicionada. A conexão salva se comporta como qualquer outra conexão remota: listar a pasta raiz, entrar em subpastas, baixar um arquivo para o computador, copiar um arquivo remoto para uma pasta local e reencontrá-lo depois de reiniciar. Uma conexão do Quark e uma do Baidu podem coexistir sem se atrapalhar e, quando a sessão salva expira, o aplicativo avisa que é preciso entrar de novo em vez de falhar em silêncio.
+
+**Alterado: a página de configurações remotas agora começa pelas abas.** A introdução que ficava acima das abas *Disco de rede* e *Conexões remotas* foi movida para dentro das próprias abas: a aba de disco de rede explica o que é uma conexão de disco de rede e a aba de conexões remotas explica os outros tipos de conexão.
+
+**Corrigido: voltar a copiar um arquivo de uma pasta de disco de rede.** Ao clicar com o botão direito em um arquivo de uma pasta de disco de rede, *Copiar* aparece de novo e, ao colar em uma pasta local, o arquivo vai para lá em vez de nada acontecer.
+
 ## [3.13.7] - November 2026
 
 **Resumo:** o aplicativo agora avisa quando um atalho de teclado já pertence ao Windows ou a outro programa - assim, um comando que nunca executava sem explicação deixa de ser um mistério.

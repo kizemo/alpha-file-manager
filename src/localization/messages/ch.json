@@ -619,7 +619,6 @@
     "remote": {
       "connections": {
         "title": "远程连接",
-        "description": "在这里保存网盘、FTP、FTPS 与 SFTP 连接。凭据经 Windows DPAPI 加密，不会离开本机。",
         "empty": "还没有任何连接。"
       },
       "action": {
@@ -702,7 +701,9 @@
         "openSettings": "远程连接设置",
         "connect": "连接",
         "netdisk": "网盘",
+        "netdiskDescription": "在内嵌窗口里登录百度网盘或夸克网盘。凭据经 Windows DPAPI 加密，不会离开本机。",
         "remoteSection": "远程连接",
+        "remoteDescription": "在这里保存 FTP、FTPS 与 SFTP 连接。凭据经 Windows DPAPI 加密，不会离开本机。",
         "addNetdisk": "添加网盘",
         "addRemote": "添加远程连接",
         "emptyNetdisk": "还没有网盘连接。",
@@ -777,7 +778,8 @@
       "netdisk": {
         "provider": "网盘类型",
         "baidu": "百度网盘",
-        "quark": "夸克网盘"
+        "quark": "夸克网盘",
+        "signedIn": "已登入"
       }
     },
     "about": {

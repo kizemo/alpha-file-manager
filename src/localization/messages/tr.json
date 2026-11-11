@@ -619,7 +619,6 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Bulut diski, FTP, FTPS ve SFTP bağlantılarını burada kaydedin. Kimlik bilgileri Windows DPAPI ile şifrelenir ve bu bilgisayardan çıkmaz.",
         "empty": "No connections yet."
       },
       "action": {
@@ -702,7 +701,9 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "Bulut diskleri",
+        "netdiskDescription": "Gömülü pencerede Baidu Netdisk veya Quark Drive hesabınıza giriş yapın. Kimlik bilgileri Windows DPAPI ile şifrelenir ve bu bilgisayardan hiç çıkmaz.",
         "remoteSection": "Uzak bağlantılar",
+        "remoteDescription": "FTP, FTPS ve SFTP bağlantılarını burada kaydedin. Kimlik bilgileri Windows DPAPI ile şifrelenir ve bu bilgisayardan hiç çıkmaz.",
         "addNetdisk": "Bulut diski ekle",
         "addRemote": "Uzak bağlantı ekle",
         "emptyNetdisk": "Henüz bulut diski bağlantısı yok.",
@@ -777,7 +778,8 @@
       "netdisk": {
         "provider": "Bulut sürücüsü",
         "baidu": "Baidu Drive",
-        "quark": "Quark Drive"
+        "quark": "Quark Drive",
+        "signedIn": "Oturum açıldı"
       }
     },
     "about": {

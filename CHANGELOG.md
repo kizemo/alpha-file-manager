@@ -2,11 +2,15 @@
 
 ## [3.14.0] - November 2026
 
-**Summary:** Quark Netdisk can now be connected next to Baidu Netdisk - pick the provider when you add a netdisk connection, sign in once in the window that opens inside the app, and browse, download and copy files there just like you already do with Baidu Netdisk.
+**Summary:** Quark Netdisk can now be connected next to Baidu Netdisk - add it from the netdisk tab in *Settings* under *Remote*, sign in once in the window that opens inside the app, and browse, download and copy files there just like you already do with Baidu Netdisk.
 
 ### What changed
 
-**Added** **Quark Netdisk can be added as a second netdisk provider** - When you add a netdisk connection in *Settings* under *Remote*, a provider selector now offers *Baidu Netdisk* or *Quark Netdisk*. Picking Quark hides the host, port and password fields and shows a single *Add Quark Netdisk* button instead; the sign-in window opens inside the app, and once you finish logging in the card shows your Quark account name. The saved connection then behaves like any other remote connection: list the root directory, walk into nested folders, download a file to your computer, copy a remote file into a local folder, and find it still there after a restart. A Quark connection and a Baidu connection can be kept at the same time without either one getting in the way, and when the saved session has expired the app says that you need to sign in again instead of failing quietly.
+**Added** **Quark Netdisk can be added as a second netdisk provider** - In the *Netdisk* tab of *Settings* under *Remote*, the *Add netdisk* section offers *Baidu Netdisk* and *Quark Netdisk*. Pick the one you want and the sign-in window opens inside the app right away. Once you finish logging in, a dialog asks for the connection name, the local folder and the initial directory, tells you that you are signed in, and saving adds the connection. The saved connection then behaves like any other remote connection: list the root directory, walk into nested folders, download a file to your computer, copy a remote file into a local folder, and find it still there after a restart. A Quark connection and a Baidu connection can be kept at the same time without either one getting in the way, and when the saved session has expired the app says that you need to sign in again instead of failing quietly.
+
+**Changed** **The remote settings page now starts with the tabs** - The introduction that used to sit above the *Netdisk* and *Remote connection* tabs has moved into the tabs themselves: the netdisk tab explains what a netdisk connection is, the remote connection tab explains what the other connection types are.
+
+**Fixed** **Copying a file out of a netdisk folder works again** - Right-clicking a file in a netdisk folder offers *Copy*, and pasting it into a local folder puts the file there instead of doing nothing.
 
 ## [3.13.7] - November 2026
 

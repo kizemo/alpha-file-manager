@@ -3,11 +3,16 @@
 
 ## [3.14.0] - November 2026
 
-**Özet:** Artık Baidu Netdisk’in yanına Quark Netdisk de ekleyebilirsiniz - bir ağ diski bağlantısı eklerken sağlayıcıyı seçin, uygulama içindeki pencerede bir kez oturum açın, sonra Baidu Netdisk ile aynı şekilde gezinin, indirin ve kopyalayın.
+**Özet:** Artık Baidu Netdisk’in yanına Quark Netdisk de ekleyebilirsiniz - *Ayarlar* içindeki *Uzak* bölümünün ağ diski sekmesinden ekleyin, uygulama içindeki pencerede bir kez oturum açın, sonra Baidu Netdisk ile aynı şekilde gezinin, indirin ve kopyalayın.
 
 ### What changed
 
-**Eklendi: Quark Netdisk ikinci bir ağ diski sağlayıcısı olarak eklenebiliyor.** *Ayarlar* içindeki *Uzak* bölümünde bir ağ diski bağlantısı eklerken artık *Baidu Netdisk* ve *Quark Netdisk* arasında bir sağlayıcı seçici çıkıyor. Quark seçildiğinde sunucu, bağlantı noktası ve parola alanları kayboluyor, yerine tek bir *Quark Netdisk ekle* düğmesi kalıyor; oturum açma penceresi uygulama içinde açılıyor ve giriş tamamlandığında kart, hesap adını gösteriyor. Kaydedilen bağlantı diğer uzak bağlantılar gibi davranıyor: kök klasörü listeliyor, alt klasörlere giriyor, bir dosyayı bilgisayarına indiriyor, uzak bir dosyayı yerel bir klasöre kopyalıyor ve yeniden başlattıktan sonra da orada buluyor. Bir Quark bağlantısı ile bir Baidu bağlantısı aynı anda var olabilir ve birbirini engellemez; kayıtlı oturumun süresi dolarsa uygulama sessizce başarısız olmak yerine yeniden oturum açmanız gerektiğini söylüyor.
+**Eklendi: Quark Netdisk ikinci bir ağ diski sağlayıcısı olarak eklenebiliyor.** *Ayarlar* içindeki *Uzak* bölümünün *Ağ diski* sekmesinde, *Ağ diski ekle* bölümü *Baidu Netdisk* ve *Quark Netdisk* seçeneklerini sunar. Hangisini seçerseniz seçin, oturum açma penceresi uygulama içinde hemen açılır. Giriş tamamlandığında bağlantı adını, yerel klasörü ve başlangıç dizinini soran bir pencere açılır, oturum açtığınızı belirtir ve kaydettiğinizde bağlantı eklenir. Kaydedilen bağlantı diğer uzak bağlantılar gibi davranıyor: kök klasörü listeliyor, alt klasörlere giriyor, bir dosyayı bilgisayarına indiriyor, uzak bir dosyayı yerel bir klasöre kopyalıyor ve yeniden başlattıktan sonra da orada buluyor. Bir Quark bağlantısı ile bir Baidu bağlantısı aynı anda var olabilir ve birbirini engellemez; kayıtlı oturumun süresi dolarsa uygulama sessizce başarısız olmak yerine yeniden oturum açmanız gerektiğini söylüyor.
+
+**Değişti: Uzak ayarlar sayfası artık sekmelerle başlıyor.** Daha önce *Ağ diski* ve *Uzak bağlantılar* sekmelerinin üzerinde duran tanıtım metni, artık sekmelerin kendi içine taşındı: ağ diski sekmesi bir ağ diski bağlantısının ne olduğunu, uzak bağlantılar sekmesi ise diğer bağlantı türlerini anlatıyor.
+
+**Düzeltildi: Ağ diski klasöründeki dosyalar yeniden kopyalanabiliyor.** Ağ diski klasöründeki bir dosyaya sağ tıklandığında *Kopyala* yeniden görünüyor ve yerel bir klasöre yapıştırıldığında dosya gerçekten oraya yerleşiyor, hiçbir şey olmaktan kalmıyor.
+
 ## [3.13.7] - November 2026
 
 **Özet:** Uygulama artık bir kısayol tuşunun Windows veya başka bir program tarafından zaten kullanılıp kullanılmadığını bildiriyor - nedeni belirsizce çalışmayan bir komut artık bir muamma olmaktan çıkıyor.

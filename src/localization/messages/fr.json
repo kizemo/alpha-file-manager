@@ -619,7 +619,6 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Enregistrez ici les connexions de disques cloud, FTP, FTPS et SFTP. Les identifiants sont chiffrés avec Windows DPAPI et ne quittent jamais cet ordinateur.",
         "empty": "No connections yet."
       },
       "action": {
@@ -702,7 +701,9 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "Disques cloud",
+        "netdiskDescription": "Connectez-vous à Baidu Netdisk ou Quark Drive dans la fenêtre intégrée. Les identifiants sont chiffrés par Windows DPAPI et ne quittent jamais cette machine.",
         "remoteSection": "Connexions distantes",
+        "remoteDescription": "Enregistrez ici vos connexions FTP, FTPS et SFTP. Les identifiants sont chiffrés par Windows DPAPI et ne quittent jamais cette machine.",
         "addNetdisk": "Ajouter un disque cloud",
         "addRemote": "Ajouter une connexion distante",
         "emptyNetdisk": "Aucun disque cloud pour le moment.",
@@ -777,7 +778,8 @@
       "netdisk": {
         "provider": "Disque cloud",
         "baidu": "Baidu Drive",
-        "quark": "Quark Drive"
+        "quark": "Quark Drive",
+        "signedIn": "Connecté"
       }
     },
     "about": {

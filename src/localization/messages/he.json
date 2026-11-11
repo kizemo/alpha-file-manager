@@ -656,7 +656,6 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "שמור כאן חיבורים לכונני ענן, FTP, FTPS ו-SFTP. הפרטים מוצפנים באמצעות Windows DPAPI ואינם עוזבים את המחשב.",
         "empty": "No connections yet."
       },
       "action": {
@@ -739,7 +738,9 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "כונני ענן",
+        "netdiskDescription": "התחברו ל-Baidu Netdisk או ל-Quark Drive בחלון המוטמע. הפרטים מוצפנים באמצעות Windows DPAPI ואינם עוזבים את המחשב הזה.",
         "remoteSection": "חיבורים מרוחקים",
+        "remoteDescription": "שמרו כאן חיבורי FTP, FTPS ו-SFTP. הפרטים מוצפנים באמצעות Windows DPAPI ואינם עוזבים את המחשב הזה.",
         "addNetdisk": "הוספת כונן ענן",
         "addRemote": "הוספת חיבור מרוחק",
         "emptyNetdisk": "אין עדיין כונני ענן.",
@@ -814,7 +815,8 @@
       "netdisk": {
         "provider": "כונן ענן",
         "baidu": "Baidu Drive",
-        "quark": "Quark Drive"
+        "quark": "Quark Drive",
+        "signedIn": "מחובר"
       }
     },
     "about": {

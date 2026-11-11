@@ -3,11 +3,16 @@
 
 ## [3.14.0] - November 2026
 
-**Resumen:** Ahora puedes conectar Quark Netdisk junto a Baidu Netdisk: elige el proveedor al añadir una conexión de disco de red, inicia sesión una vez en la ventana integrada y explora, descarga y copia igual que con Baidu Netdisk.
+**Resumen:** Ahora puedes conectar Quark Netdisk junto a Baidu Netdisk: añádelo desde la pestaña de disco de red en *Configuración* bajo *Remoto*, inicia sesión una vez en la ventana integrada y explora, descarga y copia igual que con Baidu Netdisk.
 
 ### What changed
 
-**Añadido: Quark Netdisk se puede añadir como segundo proveedor de disco de red.** Al añadir una conexión de disco de red en *Configuración* bajo *Remoto*, ahora aparece un selector de proveedor con *Baidu Netdisk* y *Quark Netdisk*. Si eliges Quark, los campos de host, puerto y contraseña desaparecen y aparece un único botón *Añadir Quark Netdisk*; la ventana de inicio de sesión se abre dentro de la aplicación y, al terminar de iniciar sesión, la tarjeta muestra el nombre de tu cuenta. La conexión guardada se comporta como cualquier otra conexión remota: listar el directorio raíz, entrar en subcarpetas, descargar un archivo al ordenador, copiar un archivo remoto a una carpeta local y encontrarlo ahí después de reiniciar. Una conexión de Quark y una de Baidu pueden coexistir sin interferir, y cuando la sesión guardada caduca la aplicación indica que hay que volver a iniciar sesión en lugar de fallar en silencio.
+**Añadido: Quark Netdisk se puede añadir como segundo proveedor de disco de red.** En la pestaña *Disco de red* de *Configuración* bajo *Remoto*, la sección *Añadir disco de red* ofrece *Baidu Netdisk* y *Quark Netdisk*. Elige uno y la ventana de inicio de sesión se abre de inmediato dentro de la aplicación. Al terminar de iniciar sesión, un diálogo pide el nombre de la conexión, la carpeta local y el directorio inicial, indica que has iniciado sesión y al guardar se añade la conexión. La conexión guardada se comporta como cualquier otra conexión remota: listar el directorio raíz, entrar en subcarpetas, descargar un archivo al ordenador, copiar un archivo remoto a una carpeta local y encontrarlo ahí después de reiniciar. Una conexión de Quark y una de Baidu pueden coexistir sin interferir, y cuando la sesión guardada caduca la aplicación indica que hay que volver a iniciar sesión en lugar de fallar en silencio.
+
+**Cambiado: La página de ajustes remotos ahora empieza por las pestañas.** La introducción que estaba encima de las pestañas *Disco de red* y *Conexiones remotas* se ha movido a las propias pestañas: la pestaña de disco de red explica qué es una conexión de disco de red y la de conexiones remotas explica qué son los demás tipos de conexión.
+
+**Corregido: Volvió a ser posible copiar un archivo de una carpeta de disco de red.** Al hacer clic derecho en un archivo de una carpeta de disco de red aparece *Copiar*, y al pegarlo en una carpeta local el archivo se guarda allí en lugar de no hacer nada.
+
 ## [3.13.7] - November 2026
 
 **Resumen:** La aplicación ahora te avisa cuando una combinación de teclas ya está en manos de Windows o de otro programa, así que un comando que no se ejecutaba sin motivo visible deja de ser un misterio.

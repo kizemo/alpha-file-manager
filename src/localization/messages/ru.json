@@ -656,7 +656,6 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Здесь сохраняются подключения к облачным дискам, FTP, FTPS и SFTP. Учётные данные шифруются средствами Windows DPAPI и не покидают этот компьютер.",
         "empty": "No connections yet."
       },
       "action": {
@@ -739,7 +738,9 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "Облачные диски",
+        "netdiskDescription": "Войдите в Baidu Netdisk или Quark Drive во встроенном окне. Учётные данные шифруются средствами Windows DPAPI и не покидают этот компьютер.",
         "remoteSection": "Удалённые подключения",
+        "remoteDescription": "Сохраняйте здесь FTP-, FTPS- и SFTP-соединения. Учётные данные шифруются средствами Windows DPAPI и не покидают этот компьютер.",
         "addNetdisk": "Добавить облачный диск",
         "addRemote": "Добавить удалённое подключение",
         "emptyNetdisk": "Облачных дисков пока нет.",
@@ -814,7 +815,8 @@
       "netdisk": {
         "provider": "Облачный диск",
         "baidu": "Baidu Drive",
-        "quark": "Quark Drive"
+        "quark": "Quark Drive",
+        "signedIn": "Выполнен вход"
       }
     },
     "about": {

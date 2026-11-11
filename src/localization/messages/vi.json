@@ -619,7 +619,6 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Lưu các kết nối đĩa đám mây, FTP, FTPS và SFTP tại đây. Thông tin đăng nhập được mã hóa bằng Windows DPAPI và không bao giờ rời khỏi máy tính này.",
         "empty": "No connections yet."
       },
       "action": {
@@ -702,7 +701,9 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "Đĩa đám mây",
+        "netdiskDescription": "Đăng nhập Baidu Netdisk hoặc Quark Drive trong cửa sổ nhúng. Thông tin đăng nhập được mã hóa bằng Windows DPAPI và không bao giờ rời khỏi máy này.",
         "remoteSection": "Kết nối từ xa",
+        "remoteDescription": "Lưu các kết nối FTP, FTPS và SFTP tại đây. Thông tin đăng nhập được mã hóa bằng Windows DPAPI và không bao giờ rời khỏi máy này.",
         "addNetdisk": "Thêm đĩa đám mây",
         "addRemote": "Thêm kết nối từ xa",
         "emptyNetdisk": "Chưa có kết nối đĩa đám mây nào.",
@@ -777,7 +778,8 @@
       "netdisk": {
         "provider": "Dịch vụ đám mây",
         "baidu": "Baidu Drive",
-        "quark": "Quark Drive"
+        "quark": "Quark Drive",
+        "signedIn": "Đã đăng nhập"
       }
     },
     "about": {
