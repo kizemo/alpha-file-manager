@@ -619,7 +619,6 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Hier lassen sich Verbindungen zu Netzlaufwerken, FTP, FTPS und SFTP speichern. Zugangsdaten werden mit Windows DPAPI verschlüsselt und verlassen diesen Rechner nie.",
         "empty": "No connections yet."
       },
       "action": {
@@ -702,7 +701,9 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "Netzlaufwerke",
+        "netdiskDescription": "Melden Sie sich im eingebetteten Fenster bei Baidu Netdisk oder Quark Drive an. Zugangsdaten werden mit Windows DPAPI verschlüsselt und verlassen diesen Rechner nie.",
         "remoteSection": "Remote-Verbindungen",
+        "remoteDescription": "Speichern Sie hier FTP-, FTPS- und SFTP-Verbindungen. Zugangsdaten werden mit Windows DPAPI verschlüsselt und verlassen diesen Rechner nie.",
         "addNetdisk": "Netzlaufwerk hinzufügen",
         "addRemote": "Remote-Verbindung hinzufügen",
         "emptyNetdisk": "Noch keine Netzlaufwerk-Verbindungen.",
@@ -777,7 +778,8 @@
       "netdisk": {
         "provider": "Cloud-Speicher",
         "baidu": "Baidu Drive",
-        "quark": "Quark Drive"
+        "quark": "Quark Drive",
+        "signedIn": "Angemeldet"
       }
     },
     "about": {

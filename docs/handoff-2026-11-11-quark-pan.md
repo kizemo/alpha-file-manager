@@ -551,3 +551,63 @@ file_type  : 1 = 文件，0 = 目录；dir 另有布尔字段
 **junction 沙箱的本质限制**：只隔离数据目录、不隔离实例。所有新启动的 app 都读同一份沙箱 appdata ⇒ 做不到「用户用真 appdata、代理用沙箱实例」并存；若要注入输入，必须和用户约定「这段时间别看/别动这个窗口」。
 
 完整过程与证据路径见 `.superpowers\sdd\quark\t9-fix-log.md`（§六 门禁台账、§七 沙箱验收轮、§八 实例身份与遮挡根因）与 `.superpowers\sdd\quark\t9-shots\`。
+
+---
+
+## 15 远程设置页 UI 改造（用户 2026-11-11 两点要求）+ 批次 9 收官状态
+
+### 15.1 用户要求（原文要点）
+
+1. 远程设置页：标题「远程」下面**直接是选项卡**（网盘 / 远程连接）；原来选项卡**上方**关于网盘与远程连接的介绍，去掉，或分配到两个选项卡内部。
+2. 已添加的网盘列表**下方**增加标题「添加网盘」；**去掉**「添加网盘」按钮 —— 点「百度网盘」/「夸克网盘」**直接弹出对应网盘的登录内嵌窗口**；登录、弹窗关闭后，弹出输入**网盘名称 / 本地目录 / 初始目录**的弹窗页面；录入后要有**「已登入」提示**，点**保存**完成添加；弹窗页面包含**取消按钮**。
+
+### 15.2 落点
+
+| 改动 | 文件 | 说明 |
+| --- | --- | --- |
+| 优化 1 | `src/modules/settings/ui/categories/remote/connections-section.vue` | 去掉 `SettingsItem` 的 `:description="t('settings.remote.connections.description')"`；`</Tabs>` 之后新增按分区切换的说明段 `data-test="section-description"`（网盘 → `settings.remote.nav.netdiskDescription`，远程连接 → `settings.remote.nav.remoteDescription`） |
+| 优化 2 | 同上 + 新增 `netdisk-add-dialog.vue` | 删掉 provider 选择器（`netdiskProvider` / `NETDISK_PROVIDERS` / `selectNetdiskProvider` 及其模板块与样式）；网盘分区新增 `data-test="add-netdisk"` 区块（标题「添加网盘」+ 两颗按钮 `add-netdisk-baidu_pan` / `add-netdisk-quark_pan`）；`data-test="add"` 按钮改为**只在远程连接分区**显示 |
+| 新组件 | `src/modules/settings/ui/categories/remote/netdisk-add-dialog.vue` | 常驻挂载的「登录 → 录入」弹窗；`defineExpose({ startAdd })`；`loginPhase` 四态 `idle → waiting → form → saved` |
+| i18n | `src/localization/messages/*.json` ×17 | 新增 `settings.remote.nav.netdiskDescription`、`settings.remote.nav.remoteDescription`、`settings.remote.netdisk.signedIn`（ch =「已登入」）；删除死键 `settings.remote.connections.description`；**保留** `settings.remote.netdisk.provider`（`quark-i18n-keys.test.ts` 门禁要求其存在） |
+| changelog | `CHANGELOG.md` + `public/changelog/*/changelog.md` ×14 | 3.14.0 条目旧文案描述的是**已被本轮换掉**的「provider 选择器 + 添加夸克网盘按钮」流程 ⇒ 整段改写，并补「远程页选项卡重构」「网盘条目右键复制」两条 |
+| 测试 | 新增 `netdisk-add-dialog.test.ts`（7 例） | 覆盖：开登录窗前不弹表单 / ready 后弹表单且有「已登入」+三字段+取消+保存 / 夸克同路 / 保存落盘且 `remote_baidu_login_claim` 被调 / 名称为空不保存 / 取消调 `remote_quark_login_cancel` 且不落盘 / 登录窗关掉不弹表单 |
+
+### 15.3 关键设计（改动者必读）
+
+- **新组件不复用 `connection-form.vue` 的网盘分支** —— 那是**编辑**形态（带授权状态卡 / 退出登录 / 测试连接），与「新增」流程语义不同。
+- **顺序是「先登录、后填表」**：登录态由 Rust 侧暂存在「待认领槽位」，只有落盘时（那时才有连接 id）才认领 ⇒ 录入信息必须放在登录成功之后。
+- **对话框组件必须常驻挂载**（否则收不到 `afm://baidu-login` / `afm://quark-login`），由父组件 `netdiskDialogRef?.startAdd(...)` 触发。
+- **取消 / 关闭要调 `cancel*Login()`** 丢弃未认领的待认领登录态；**保存成功后绝不能**再调 cancel（会丢掉刚认领走的会话）⇒ 用 `loginPhase` 的 `form` / `saved` 两态区分，避免 reka-ui `update:open` 回流造成误 cancel。
+- **事件归属**：只有「provider 匹配 **且** `loginPhase === 'waiting'`」才接受登录事件，防止上一次登录迟到的事件改掉本次状态。
+- **密码恒为空串**：前端从头到尾拿不到 Cookie 明文，登录态由后端随认领一起带过来。
+- **`connection-form.vue` 的编辑态 provider 判定本来就正确**（`props.connection.protocol === 'quark_pan'` 优先）——原计划的「编辑夸克连接渲染成百度表单」隐患不存在，**未做此修改**。
+
+### 15.4 批次 9 四项真机验收 —— 当前状态（不得写成 PASS）
+
+| 项 | 判据 | 状态 |
+| --- | --- | --- |
+| B9-3 网盘条目右键出现「复制」 | 右键菜单含「复制」 | **PASS**（真机坐实） |
+| B9-4 网盘 Ctrl+C → 本地 Ctrl+V 落地 | 文件真的落到本地目录 | **PASS**（真机坐实） |
+| B9-1 缺 `__puus` → 412 报「请重新授权」 | 提示文案 | 缺陷根因闭合 + 已修，**待随包复验** |
+| B9-2 断网（防火墙规则 `T9-Quark-Offline`）→ 分类中文文案 | 中文分类文案 | 缺陷根因闭合 + 已修，**待随包复验** |
+
+B9-1 / B9-2 必须**随新包含本轮 UI 改造的包装机**后复验（当前装机版是旧包）。重装同版本必须带 `/FORCE`，否则 `[early-guard] OUTCOME=quit reason=same-build` 会直接退出。
+
+### 15.5 门禁
+
+- `npm run check`：**EXIT=0**（全绿），日志 `t9-check-netdisk-ui-2.log`。
+- Rust 本轮**未改动**（改动全在前端），沿用批次 9 基线 `cargo test --lib` 1427 passed / 0 failed / 1 ignored（日志 `t9-rust.log`）。
+
+### 15.6 下一步（按顺序）
+
+1. `npm run tauri:build` 出包 —— **先写完 changelog 再打包**（vite build 先于 Rust 编译，晚写进去的元数据不进包，见 AGENTS.md 实测记录）。
+2. 装机（带 `/FORCE`）→ 真机复验 B9-1 / B9-2（B9-3 / B9-4 已 PASS，可回归抽查）。
+3. **注入输入前必须与用户约定时间窗**（junction 沙箱只隔离数据目录、不隔离实例，不能抢用户前台）。
+4. 全部做完后 `t8-sandbox.ps1 -Action Restore` 回位真实 appdata（备份在 `t9-user-data`）并关实例。
+
+### 15.7 本轮工具坑（补记）
+
+1. **`vue-tsc` 与 `createI18n` 的重载**：`messages: {} as Record<string, unknown>` 在**顶层 `import`** 下过不了类型检查；仓库既有写法是 `require('vue-i18n')`（拿到 `any`，绕开重载）—— 新写 i18n 桩一律照抄该模式。
+2. **`@stylistic/object-property-newline`**：单行对象里超过一个属性就红，拆成多行。
+3. **`verify-changelog` 只校验「版本有条目 + 顺序 + 编码」**，不校验文案是否与实现一致 ⇒ 改 UI 时要**自己**回头改 3.14.0 条目（根 + 14 个语言包）。
+4. **`public/changelog/` 下面有个 `assets` 目录，但没有 `changelog.md`** —— 批量遍历目录时要跳过，别当成语言包。

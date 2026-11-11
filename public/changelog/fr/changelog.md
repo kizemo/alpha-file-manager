@@ -3,11 +3,16 @@
 
 ## [3.14.0] - November 2026
 
-**Résumé :** Quark Netdisk peut maintenant être connecté à côté de Baidu Netdisk : choisissez le fournisseur en ajoutant une connexion de disque réseau, connectez-vous une fois dans la fenêtre intégrée, puis parcourez, téléchargez et copiez exactement comme avec Baidu Netdisk.
+**Résumé :** Quark Netdisk peut maintenant être connecté à côté de Baidu Netdisk : ajoutez-le depuis l’onglet des disques réseau dans *Paramètres* sous *Distant*, connectez-vous une fois dans la fenêtre intégrée, puis parcourez, téléchargez et copiez exactement comme avec Baidu Netdisk.
 
 ### What changed
 
-**Ajouté : Quark Netdisk peut être ajouté comme second fournisseur de disque réseau.** En ajoutant une connexion de disque réseau dans *Paramètres* sous *Distant*, un sélecteur de fournisseur offre maintenant *Baidu Netdisk* et *Quark Netdisk*. Si vous choisissez Quark, les champs hôte, port et mot de passe disparaissent et un seul bouton *Ajouter Quark Netdisk* apparaît ; la fenêtre de connexion s’ouvre à l’intérieur de l’application et, une fois la connexion réussie, la carte affiche le nom de votre compte. La connexion enregistrée se comporte comme toute autre connexion distante : lister le dossier racine, entrer dans des sous-dossiers, télécharger un fichier sur votre ordinateur, copier un fichier distant dans un dossier local et le retrouver après un redémarrage. Une connexion Quark et une connexion Baidu peuvent coexister sans se gêner, et lorsque la session enregistrée a expiré, l’application indique qu’il faut se reconnecter au lieu d’échouer en silence.
+**Ajouté : Quark Netdisk peut être ajouté comme second fournisseur de disque réseau.** Dans l’onglet *Disques réseau* de *Paramètres* sous *Distant*, la section *Ajouter un disque réseau* propose *Baidu Netdisk* et *Quark Netdisk*. Choisissez l’un d’eux et la fenêtre de connexion s’ouvre immédiatement à l’intérieur de l’application. Une fois la connexion réussie, une boîte de dialogue demande le nom de la connexion, le dossier local et le répertoire de départ, indique que vous êtes connecté, et l’enregistrement ajoute la connexion. La connexion enregistrée se comporte comme toute autre connexion distante : lister le dossier racine, entrer dans des sous-dossiers, télécharger un fichier sur votre ordinateur, copier un fichier distant dans un dossier local et le retrouver après un redémarrage. Une connexion Quark et une connexion Baidu peuvent coexister sans se gêner, et lorsque la session enregistrée a expiré, l’application indique qu’il faut se reconnecter au lieu d’échouer en silence.
+
+**Modifié : la page des réglages distants commence désormais par les onglets.** L’introduction qui se trouvait au-dessus des onglets *Disques réseau* et *Connexions distantes* a été déplacée dans les onglets eux-mêmes : l’onglet des disques réseau explique ce qu’est une connexion de disque réseau et l’onglet des connexions distantes explique les autres types de connexion.
+
+**Corrigé : la copie d’un fichier depuis un dossier de disque réseau fonctionne de nouveau.** Un clic droit sur un fichier d’un dossier de disque réseau propose à nouveau *Copier*, et le collage dans un dossier local y dépose le fichier au lieu de ne rien faire.
+
 ## [3.13.7] - November 2026
 
 **Résumé :** l'application vous signale désormais lorsqu'un raccourci clavier est déjà détenu par Windows ou par un autre programme - une commande qui ne se déclenchait plus sans raison n'est plus un mystère.

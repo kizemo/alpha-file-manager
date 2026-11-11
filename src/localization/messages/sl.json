@@ -656,7 +656,6 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Tukaj shranjujete povezave do omrežnih diskov, FTP, FTPS in SFTP. Poverilnice so šifrirane z Windows DPAPI in nikoli ne zapustijo tega računalnika.",
         "empty": "No connections yet."
       },
       "action": {
@@ -739,7 +738,9 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "Omrežni diski",
+        "netdiskDescription": "Prijavite se v Baidu Netdisk ali Quark Drive v vgrajenem oknu. Poverilnice so šifrirane z Windows DPAPI in nikoli ne zapustijo tega računalnika.",
         "remoteSection": "Oddaljene povezave",
+        "remoteDescription": "Tukaj shranjujte povezave FTP, FTPS in SFTP. Poverilnice so šifrirane z Windows DPAPI in nikoli ne zapustijo tega računalnika.",
         "addNetdisk": "Dodaj omrežni disk",
         "addRemote": "Dodaj oddaljeno povezavo",
         "emptyNetdisk": "Še ni omrežnih diskov.",
@@ -814,7 +815,8 @@
       "netdisk": {
         "provider": "Oblačni disk",
         "baidu": "Baidu Drive",
-        "quark": "Quark Drive"
+        "quark": "Quark Drive",
+        "signedIn": "Prijavljen"
       }
     },
     "about": {

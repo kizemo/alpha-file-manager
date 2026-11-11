@@ -619,7 +619,6 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "クラウドディスク、FTP、FTPS、SFTP の接続をここで保存します。資格情報は Windows DPAPI で暗号化され、このコンピューターから出ることはありません。",
         "empty": "No connections yet."
       },
       "action": {
@@ -702,7 +701,9 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "クラウドディスク",
+        "netdiskDescription": "埋め込みウィンドウで Baidu Netdisk または Quark Drive にサインインします。資格情報は Windows DPAPI で暗号化され、この端末の外には出ません。",
         "remoteSection": "リモート接続",
+        "remoteDescription": "FTP、FTPS、SFTP の接続をここで保存します。資格情報は Windows DPAPI で暗号化され、この端末の外には出ません。",
         "addNetdisk": "クラウドディスクを追加",
         "addRemote": "リモート接続を追加",
         "emptyNetdisk": "クラウドディスクの接続はまだありません。",
@@ -777,7 +778,8 @@
       "netdisk": {
         "provider": "クラウドドライブ",
         "baidu": "Baidu ドライブ",
-        "quark": "クアークドライブ"
+        "quark": "クアークドライブ",
+        "signedIn": "サインイン済み"
       }
     },
     "about": {

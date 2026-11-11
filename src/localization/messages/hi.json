@@ -656,7 +656,6 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "क्लाउड स्टोरेज, FTP, FTPS और SFTP कनेक्शन यहाँ सहेजें। क्रेडेंशियल Windows DPAPI से एन्क्रिप्ट होते हैं और इस कंप्यूटर से बाहर नहीं जाते।",
         "empty": "No connections yet."
       },
       "action": {
@@ -739,7 +738,9 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "क्लाउड स्टोरेज",
+        "netdiskDescription": "ऐप में एम्बेडेड विंडो में बाइडू नेटडिस्क या क्वार्क ड्राइव में साइन इन करें। क्रेडेंशियल Windows DPAPI से एन्क्रिप्ट होते हैं और कभी इस मशीन से बाहर नहीं जाते।",
         "remoteSection": "रिमोट कनेक्शन",
+        "remoteDescription": "यहाँ FTP, FTPS और SFTP कनेक्शन सहेजें। क्रेडेंशियल Windows DPAPI से एन्क्रिप्ट होते हैं और कभी इस मशीन से बाहर नहीं जाते।",
         "addNetdisk": "क्लाउड स्टोरेज जोड़ें",
         "addRemote": "रिमोट कनेक्शन जोड़ें",
         "emptyNetdisk": "अभी तक कोई क्लाउड स्टोरेज कनेक्शन नहीं है।",
@@ -814,7 +815,8 @@
       "netdisk": {
         "provider": "क्लाउड ड्राइव",
         "baidu": "Baidu Drive",
-        "quark": "Quark Drive"
+        "quark": "Quark Drive",
+        "signedIn": "साइन इन हो गया"
       }
     },
     "about": {

@@ -11,7 +11,7 @@
 // 而 `status` 的取值来自后端 —— 少一个 `stale`，界面就会把 key 原文
 // 直接显示给用户。
 //
-// 所以这里把夸克的 21 个键**逐一列出来**，对 17 个语言包逐个核对：
+// 所以这里把夸克的 24 个键**逐一列出来**，对 17 个语言包逐个核对：
 // 必须存在、必须是非空字符串、并且中英文都要有（英文是基准语言，
 // 它的值同时是其它语言的兜底）。
 
@@ -49,6 +49,10 @@ const QUARK_LEAF_KEYS = [
   'settings.remote.netdisk.provider',
   'settings.remote.netdisk.baidu',
   'settings.remote.netdisk.quark',
+  // 2026-11-11「添加网盘」流程改造新增的三条文案。
+  'settings.remote.netdisk.signedIn',
+  'settings.remote.nav.netdiskDescription',
+  'settings.remote.nav.remoteDescription',
 ];
 
 type JsonObject = { [key: string]: unknown };
@@ -86,7 +90,7 @@ describe('夸克网盘的语言包覆盖', () => {
     expect(locales).toContain('ch');
   });
 
-  it.each(locales)('%s 语言的 21 个夸克键都在且非空', (locale) => {
+  it.each(locales)('%s 语言的 24 个夸克键都在且非空', (locale) => {
     const messages = readLocale(locale);
     const problems: string[] = [];
 

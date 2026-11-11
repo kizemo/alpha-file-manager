@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ServerIcon, PlusIcon, TrashIcon } from '@lucide/vue';
 import ConnectionForm from './connection-form.vue';
+import NetdiskAddDialog from './netdisk-add-dialog.vue';
 import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
 import { isNetdiskProtocol } from '@/types/remote';
 import type { RemoteConnection, RemoteProtocol } from '@/types/remote';
@@ -22,6 +23,15 @@ const store = useRemoteConnectionsStore();
 
 const editing = ref<RemoteConnection | null>(null);
 const isCreating = ref(false);
+
+/**
+ * 「添加网盘」对话框（用户 2026-11-11）。
+ *
+ * **常驻挂载** —— 内嵌登录窗是 Rust 侧的独立窗口，它把登录进度推到
+ * `afm://baidu-login` / `afm://quark-login` 频道；组件得一直在那儿听着，
+ * 否则「登录成功」那一刻没人接，录入弹窗就永远不出现。
+ */
+const netdiskDialogRef = ref<InstanceType<typeof NetdiskAddDialog> | null>(null);
 
 /**
  * 顶部两个标签（用户 2026-11-08）。
@@ -39,34 +49,6 @@ const emit = defineEmits<{ 'section-change': [section: RemoteSection] }>();
 
 /** 新建远程连接时预置的协议。网盘表单不认这个（形态已经定死）。 */
 const createProtocol = ref<RemoteProtocol>('ftp');
-
-/**
- * 网盘分区的 **provider 选择器**（2026-11-11 夸克网盘）。
- *
- * 网盘协议**不在**表单的协议下拉里 —— `connection-form.vue` 的 `PROTOCOLS`
- * 刻意不含网盘协议（塞进去就是一条「选了却填不了对应字段」的死路），
- * 所以「选哪个网盘」天然属于分区层的职责：这里二选一，选中后预置给表单。
- *
- * **默认百度** —— 与夸克接入之前的既有行为逐字一致。
- */
-const netdiskProvider = ref<'baidu_pan' | 'quark_pan'>('baidu_pan');
-
-/** provider 选择器的两个选项。 */
-const NETDISK_PROVIDERS = [
-  {
-    protocol: 'baidu_pan' as const,
-    labelKey: 'settings.remote.netdisk.baidu',
-  },
-  {
-    protocol: 'quark_pan' as const,
-    labelKey: 'settings.remote.netdisk.quark',
-  },
-];
-
-function selectNetdiskProvider(next: 'baidu_pan' | 'quark_pan'): void {
-  netdiskProvider.value = next;
-  createProtocol.value = next;
-}
 
 const netdiskConnections = computed(() => store.connections.filter(connection => isNetdiskProtocol(connection.protocol)));
 const remoteConnections = computed(() => store.connections.filter(connection => !isNetdiskProtocol(connection.protocol)));
@@ -188,17 +170,19 @@ function applyPendingCreate(): void {
     return;
   }
 
-  createProtocol.value = requested;
-
-  // 导航栏「添加网盘」可以预置具体 provider（百度 / 夸克）——
-  // 请求带的是网盘协议时，provider 选择器要跟着它走，
-  // 否则表单会按上一个 provider 渲染。
-  if (isNetdiskProtocol(requested)) {
-    netdiskProvider.value = requested === 'quark_pan' ? 'quark_pan' : 'baidu_pan';
-  }
-
   activeSection.value = sectionOfProtocol(requested);
   editing.value = null;
+
+  // 网盘走「登录 → 录入」的新流程（用户 2026-11-11）：
+  // 直接开出对应 provider 的内嵌登录窗，登录成功后再弹录入表单。
+  // 这里**不**开内联表单 —— 网盘表单带授权状态卡，与新增流程的形态冲突。
+  if (isNetdiskProtocol(requested)) {
+    isCreating.value = false;
+    netdiskDialogRef.value?.startAdd(requested === 'quark_pan' ? 'quark_pan' : 'baidu_pan');
+    return;
+  }
+
+  createProtocol.value = requested;
   isCreating.value = true;
 }
 
@@ -284,7 +268,6 @@ function describeProxy(connection: RemoteConnection): string {
   <SettingsItem
     class="remote-connections"
     :title="t('settings.remote.connections.title')"
-    :description="t('settings.remote.connections.description')"
     :icon="ServerIcon"
   >
     <!--
@@ -315,6 +298,22 @@ function describeProxy(connection: RemoteConnection): string {
         </TabsTrigger>
       </TabsList>
     </Tabs>
+
+    <!--
+      分区介绍（用户 2026-11-11）。
+
+      原来这段介绍挂在 `SettingsItem` 的 `description` 上，摆在**选项卡上方**；
+      现在标题下面直接就是选项卡，介绍下沉到每个选项卡内部 ——
+      讲的是当前这个分区的事，就该待在当前这个分区里。
+    -->
+    <p
+      class="remote-connections__section-description"
+      data-test="section-description"
+    >
+      {{ activeSection === 'netdisk'
+        ? t('settings.remote.nav.netdiskDescription')
+        : t('settings.remote.nav.remoteDescription') }}
+    </p>
 
     <p
       v-if="activeConnections.length === 0 && !isCreating"
@@ -392,44 +391,51 @@ function describeProxy(connection: RemoteConnection): string {
     </ul>
 
     <!--
-      网盘分区的 provider 选择器（2026-11-11 夸克网盘）。
+      「添加网盘」（用户 2026-11-11）。
 
-      网盘协议不在表单的协议下拉里，所以「选哪个网盘」在这一层解决。
-      选中后表单按该 provider 渲染：百度 → 现有 `baidu_pan` 分支，
-      夸克 → `quark_pan` 分支（隐藏主机 / 端口 / 密码框，改显授权卡）。
+      原来这里是「provider 选择器 + 一颗『添加网盘』按钮」两段式；
+      现在合成一块：标题下面直接摆两颗按钮，点哪颗就开哪家的内嵌登录窗，
+      登录成功后再由 `NetdiskAddDialog` 弹出录入表单。
     -->
     <div
       v-if="activeSection === 'netdisk'"
-      class="remote-connections__providers"
-      data-test="netdisk-provider"
+      class="remote-connections__add-netdisk"
+      data-test="add-netdisk"
     >
-      <span class="remote-connections__providers-label">
-        {{ t('settings.remote.netdisk.provider') }}
-      </span>
-      <div class="remote-connections__providers-options">
+      <h4 class="remote-connections__add-netdisk-title">
+        {{ t('settings.remote.nav.addNetdisk') }}
+      </h4>
+      <div class="remote-connections__add-netdisk-options">
         <Button
-          v-for="option in NETDISK_PROVIDERS"
-          :key="option.protocol"
-          type="button"
           variant="outline"
-          size="sm"
-          :data-test="`netdisk-provider-${option.protocol}`"
-          :aria-pressed="netdiskProvider === option.protocol"
-          @click="selectNetdiskProvider(option.protocol)"
+          data-test="add-netdisk-baidu_pan"
+          @click="netdiskDialogRef?.startAdd('baidu_pan')"
         >
-          {{ t(option.labelKey) }}
+          {{ t('settings.remote.netdisk.baidu') }}
+        </Button>
+        <Button
+          variant="outline"
+          data-test="add-netdisk-quark_pan"
+          @click="netdiskDialogRef?.startAdd('quark_pan')"
+        >
+          {{ t('settings.remote.netdisk.quark') }}
         </Button>
       </div>
     </div>
 
+    <!--
+      远程连接分区的「添加」按钮。
+
+      网盘分区不再有这颗按钮 —— 它的入口就是上面那块「添加网盘」。
+    -->
     <Button
-      v-if="!isCreating && editing === null"
+      v-if="activeSection === 'remote' && !isCreating && editing === null"
       variant="outline"
       data-test="add"
       @click="startCreate"
     >
       <PlusIcon :size="16" />
-      {{ activeSection === 'netdisk' ? t('settings.remote.nav.addNetdisk') : t('settings.remote.nav.addRemote') }}
+      {{ t('settings.remote.nav.addRemote') }}
     </Button>
 
     <!--
@@ -441,11 +447,10 @@ function describeProxy(connection: RemoteConnection): string {
     -->
     <ConnectionForm
       v-if="isCreating"
-      :key="`create-${activeSection}-${netdiskProvider}`"
+      :key="`create-${activeSection}`"
       :connection="null"
       :variant="activeVariant"
       :initial-protocol="remoteInitialProtocol"
-      :netdisk-protocol="netdiskProvider"
       @cancel="closeForm"
       @saved="closeForm"
     />
@@ -463,6 +468,12 @@ function describeProxy(connection: RemoteConnection): string {
       @cancel="closeForm"
       @saved="closeForm"
     />
+
+    <!--
+      「添加网盘」对话框**常驻挂载**：它要接内嵌登录窗推来的登录进度，
+      挂在条件里就会在需要的时候消失。触发入口是上面那块「添加网盘」。
+    -->
+    <NetdiskAddDialog ref="netdiskDialogRef" />
   </SettingsItem>
 </template>
 
@@ -515,24 +526,39 @@ function describeProxy(connection: RemoteConnection): string {
 }
 
 /*
-  网盘分区的 provider 选择器（2026-11-11 夸克网盘）。
+  分区介绍（2026-11-11）。
 
-  摆成「一行标签 + 两颗按钮」而不是下拉框：下拉框要展开才看得到有两个网盘，
-  而这一栏本来就是「二选一」，平铺出来一眼可选。
+  跟着当前选项卡走 —— 介绍的是这个分区的事，就摆在这个分区里。
 */
 
-.remote-connections__providers {
+.remote-connections__section-description {
+  margin: 0 0 0.75rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.875rem;
+}
+
+/*
+  「添加网盘」区块（2026-11-11）。
+
+  标题 + 两颗按钮平铺：这一栏本来就是「二选一」，平铺出来一眼可选，
+  不必先展开下拉框才知道有几家网盘。
+*/
+
+.remote-connections__add-netdisk {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  margin-top: 0.75rem;
   gap: 0.5rem;
 }
 
-.remote-connections__providers-label {
-  color: hsl(var(--muted-foreground));
-  font-size: 0.8rem;
+.remote-connections__add-netdisk-title {
+  margin: 0;
+  color: hsl(var(--foreground));
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
-.remote-connections__providers-options {
+.remote-connections__add-netdisk-options {
   display: flex;
   gap: 0.5rem;
 }

@@ -172,7 +172,11 @@ describe('远程设置分类', () => {
     await flushPromises();
 
     expect(wrapper.find('[data-test="empty"]').exists()).toBe(true);
-    expect(wrapper.find('[data-test="add"]').exists()).toBe(true);
+    // 网盘分区不再有「添加」按钮（用户 2026-11-11）：入口改成「添加网盘」区块。
+    expect(wrapper.find('[data-test="add"]').exists()).toBe(false);
+    expect(wrapper.find('[data-test="add-netdisk"]').exists()).toBe(true);
+    expect(wrapper.find('[data-test="add-netdisk-baidu_pan"]').exists()).toBe(true);
+    expect(wrapper.find('[data-test="add-netdisk-quark_pan"]').exists()).toBe(true);
   });
 
   it('已保存的连接出现在列表里，并标出「已保存密码」', async () => {
@@ -574,7 +578,7 @@ describe('远程设置分类', () => {
       expect(second.find('[data-test="field-name"]').exists()).toBe(false);
     });
 
-    it('导航栏发来的新建请求会打开新建表单，并按请求预选协议', async () => {
+    it('导航栏发来的网盘新建请求走「添加网盘」新流程，不开内联表单', async () => {
       storageContents.set('connections', connections);
       const store = useRemoteConnectionsStore();
       // 悬停面板里点「添加网盘」：请求里带着协议。
@@ -583,9 +587,12 @@ describe('远程设置分类', () => {
       const wrapper = mountedCategory();
       await flushPromises();
 
-      expect(wrapper.find('[data-test="field-name"]').exists()).toBe(true);
-      // 百度网盘没有「服务器地址 / 端口」可填，表单被隐藏即说明协议真的预选成功了。
+      // 新流程（用户 2026-11-11）：直接开内嵌登录窗，登录成功后再弹录入表单。
+      // **不开**原来那张内联表单 —— 那张表单是「编辑 / 远程连接」用的形态。
+      expect(wrapper.find('[data-test="field-name"]').exists()).toBe(false);
       expect(wrapper.find('[data-test="field-host"]').exists()).toBe(false);
+      // 登录窗确实被请求开了。
+      expect(invokeMock).toHaveBeenCalledWith('remote_baidu_login_start');
     });
 
     it('不带协议的新建请求退回 FTP，服务器地址栏照常出现', async () => {
@@ -633,24 +640,26 @@ describe('远程设置分类', () => {
     it('默认落在网盘页：没有服务器地址栏，也没有 Cookie 输入框', async () => {
       const wrapper = mountedCategory();
       await flushPromises();
-      await wrapper.find('[data-test="add"]').trigger('click');
-      await flushPromises();
 
       expect(wrapper.find('[data-test="field-cookie"]').exists()).toBe(false);
       expect(wrapper.find('[data-test="field-host"]').exists()).toBe(false);
-      expect(wrapper.find('[data-test="baidu-embedded-start"]').exists()).toBe(true);
+      // 网盘分区不再有内联表单（用户 2026-11-11）：入口是「添加网盘」区块。
+      expect(wrapper.find('[data-test="field-name"]').exists()).toBe(false);
+      expect(wrapper.find('[data-test="add-netdisk-baidu_pan"]').exists()).toBe(true);
     });
 
     it('切到「远程连接」标签，服务器地址栏出现、Cookie 栏消失', async () => {
       const wrapper = mountedCategory();
-      await flushPromises();
-      await wrapper.find('[data-test="add"]').trigger('click');
       await flushPromises();
 
       // ⚠️ 必须用 mousedown 而不是 click：reka-ui 的页签是在 `mousedown.left`
       // 上切换的（真实浏览器里 mousedown 本来就先于 click 到达），
       // 只派发 click 不会切页签。
       await switchSection(wrapper, 'remote');
+
+      // 「添加」按钮现在只挂在远程连接分区（用户 2026-11-11）。
+      await wrapper.find('[data-test="add"]').trigger('click');
+      await flushPromises();
 
       expect(wrapper.find('[data-test="field-host"]').exists()).toBe(true);
       expect(wrapper.find('[data-test="field-cookie"]').exists()).toBe(false);
@@ -665,6 +674,9 @@ describe('远程设置分类', () => {
 
       expect(wrapper.find('[data-test="field-cookie"]').exists()).toBe(false);
       expect(wrapper.find('[data-test="field-host"]').exists()).toBe(false);
+      // 落地的是网盘分区：入口是「添加网盘」区块，远程连接那颗「添加」按钮不在。
+      expect(wrapper.find('[data-test="add-netdisk"]').exists()).toBe(true);
+      expect(wrapper.find('[data-test="add"]').exists()).toBe(false);
     });
 
     it('导航栏请求指向 FTP 时，落地的就是远程连接页', async () => {
@@ -676,6 +688,44 @@ describe('远程设置分类', () => {
 
       expect(wrapper.find('[data-test="field-host"]').exists()).toBe(true);
       expect(wrapper.find('[data-test="field-cookie"]').exists()).toBe(false);
+    });
+  });
+
+  // 用户 2026-11-11：两处 UI 改造。
+  describe('分区介绍与添加网盘', () => {
+    it('标题下面直接是选项卡，介绍下沉到当前分区内部', async () => {
+      const wrapper = mountedCategory();
+      await flushPromises();
+
+      // 顶部不再是 SettingsItem 的 description，而是分区内部的一段介绍。
+      expect(wrapper.find('[data-test="section-description"]').exists()).toBe(true);
+      expect(wrapper.find('[data-test="section-description"]').text())
+        .toBe('settings.remote.nav.netdiskDescription');
+
+      await switchSection(wrapper, 'remote');
+
+      expect(wrapper.find('[data-test="section-description"]').text())
+        .toBe('settings.remote.nav.remoteDescription');
+    });
+
+    it('点「百度网盘」直接开百度的内嵌登录窗', async () => {
+      const wrapper = mountedCategory();
+      await flushPromises();
+
+      await wrapper.find('[data-test="add-netdisk-baidu_pan"]').trigger('click');
+      await flushPromises();
+
+      expect(invokeMock).toHaveBeenCalledWith('remote_baidu_login_start');
+    });
+
+    it('点「夸克网盘」直接开夸克的内嵌登录窗', async () => {
+      const wrapper = mountedCategory();
+      await flushPromises();
+
+      await wrapper.find('[data-test="add-netdisk-quark_pan"]').trigger('click');
+      await flushPromises();
+
+      expect(invokeMock).toHaveBeenCalledWith('remote_quark_login_start');
     });
   });
 

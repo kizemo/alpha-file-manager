@@ -656,7 +656,6 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Save netdisk, FTP, FTPS and SFTP connections here. Credentials are encrypted with Windows DPAPI and never leave this machine.",
         "empty": "No connections yet."
       },
       "action": {
@@ -739,7 +738,9 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "Netdisks",
+        "netdiskDescription": "Sign in to Baidu Netdisk or Quark Drive inside the app. Credentials are encrypted with Windows DPAPI and never leave this machine.",
         "remoteSection": "Remote connections",
+        "remoteDescription": "Save FTP, FTPS and SFTP connections here. Credentials are encrypted with Windows DPAPI and never leave this machine.",
         "addNetdisk": "Add netdisk",
         "addRemote": "Add remote connection",
         "emptyNetdisk": "No netdisk connections yet.",
@@ -814,7 +815,8 @@
       "netdisk": {
         "provider": "Cloud drive",
         "baidu": "Baidu Drive",
-        "quark": "Quark Drive"
+        "quark": "Quark Drive",
+        "signedIn": "Signed in"
       }
     },
     "about": {

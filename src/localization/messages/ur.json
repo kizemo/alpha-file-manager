@@ -656,7 +656,6 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "کلاؤڈ ڈسک، FTP، FTPS اور SFTP کنکشنز یہاں محفوظ کریں۔ اسناد Windows DPAPI سے انکرپٹ ہوتی ہیں اور اس کمپیوٹر سے باہر نہیں جاتیں۔",
         "empty": "No connections yet."
       },
       "action": {
@@ -739,7 +738,9 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "کلاؤڈ ڈسکس",
+        "netdiskDescription": "ایمبیڈڈ ونڈو میں Baidu Netdisk یا Quark Drive میں سائن ان کریں۔ اسناد Windows DPAPI کے ذریعے انکرپٹ ہوتے ہیں اور کبھی اس مشین سے باہر نہیں جاتے۔",
         "remoteSection": "ریموٹ کنکشنز",
+        "remoteDescription": "یہاں FTP، FTPS اور SFTP کنکشنز محفوظ کریں۔ اسناد Windows DPAPI کے ذریعے انکرپٹ ہوتے ہیں اور کبھی اس مشین سے باہر نہیں جاتے۔",
         "addNetdisk": "کلاؤڈ ڈسک شامل کریں",
         "addRemote": "ریموٹ کنکشن شامل کریں",
         "emptyNetdisk": "ابھی کوئی کلاؤڈ ڈسک کنکشن نہیں ہے۔",
@@ -814,7 +815,8 @@
       "netdisk": {
         "provider": "کلاؤڈ ڈرائیو",
         "baidu": "Baidu Drive",
-        "quark": "Quark Drive"
+        "quark": "Quark Drive",
+        "signedIn": "سائن اِن ہو گیا"
       }
     },
     "about": {

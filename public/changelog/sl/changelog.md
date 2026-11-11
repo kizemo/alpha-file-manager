@@ -3,11 +3,16 @@
 
 ## [3.14.0] - November 2026
 
-**Povzetek:** Zdaj lahko poleg Baidu Netdisk priključite tudi Quark Netdisk - pri dodajanju povezave mrežnega diska izberete ponudnika, se enkrat prijavite v oknu znotraj aplikacije ter brskate, prenašate in kopirate povsem enako kot pri Baidu Netdisk.
+**Povzetek:** Zdaj lahko poleg Baidu Netdisk priključite tudi Quark Netdisk - dodajte ga na zavihku mrežnega diska v *Nastavitvah* pod *Oddaljeni dostop*, se enkrat prijavite v oknu znotraj aplikacije ter brskate, prenašate in kopirate povsem enako kot pri Baidu Netdisk.
 
 ### What changed
 
-**Dodano: Quark Netdisk je mogoče dodati kot drugega ponudnika mrežnega diska.** Ko v *Nastavitvah* pod *Oddaljeni dostop* dodate povezavo mrežnega diska, se zdaj prikaže izbirnik ponudnikov z *Baidu Netdisk* in *Quark Netdisk*. Če izberete Quark, polja za gostitelja, vrata in geslo izginejo, namesto njih pa ostane en gumb *Dodaj Quark Netdisk*; okno za prijavo se odpre znotraj aplikacije, po prijavi pa kartica prikaže ime vašega računa. Shranjena povezava se obnaša kot katera koli druga oddaljena povezava: prikaže korensko mapo, se pomika v podmape, prenese datoteko na računalnik, kopira oddaljeno datoteko v lokalno mapo in jo po ponovnem zagonu najde tam. Povezava Quark in povezava Baidu lahko obstajata hkrati, ne da bi se motili, in ko shranjena seja poteče, aplikacija pove, da se je treba znova prijaviti, namesto da tiho odpove.
+**Dodano: Quark Netdisk je mogoče dodati kot drugega ponudnika mrežnega diska.** Na zavihku *Mrežni disk* v *Nastavitvah* pod *Oddaljeni dostop* razdelek *Dodaj mrežni disk* ponuja *Baidu Netdisk* in *Quark Netdisk*. Izberete enega od njiju in okno za prijavo se odpre takoj znotraj aplikacije. Po prijavi se odpre pogovorno okno, ki vpraša ime povezave, lokalno mapo in začetni imenik, pove, da ste prijavljeni, in s shranjevanjem povezavo doda. Shranjena povezava se obnaša kot katera koli druga oddaljena povezava: prikaže korensko mapo, se pomika v podmape, prenese datoteko na računalnik, kopira oddaljeno datoteko v lokalno mapo in jo po ponovnem zagonu najde tam. Povezava Quark in povezava Baidu lahko obstajata hkrati, ne da bi se motili, in ko shranjena seja poteče, aplikacija pove, da se je treba znova prijaviti, namesto da tiho odpove.
+
+**Spremenjeno: stran z oddaljenimi nastavitvami se zdaj začne z zavihki.** Uvod, ki je bil prej nad zavihkoma *Mrežni disk* in *Oddaljene povezave*, se je preselil v zavihka sama: zavihek mrežnega diska pojasni, kaj je povezava z mrežnim diskom, zavihek oddaljenih povezav pa pojasni preostale vrste povezav.
+
+**Popravljeno: kopiranje datoteke iz mape mrežnega diska je spet deluje.** Z desnim klikom na datoteko v mapi mrežnega diska se znova ponudi *Kopiraj*, pri lepljenju v lokalno mapo pa se datoteka res tam namesti, namesto da se ne zgodi nič.
+
 ## [3.13.7] - November 2026
 
 **Povzetek:** aplikacija zdaj sporoča, če je bližnjica na tipkovnici že zasedena s strani Windowsa ali drugega programa – ukaz, ki se nikoli ni izvršil, ni več skrivnost.

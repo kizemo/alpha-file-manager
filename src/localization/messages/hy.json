@@ -656,7 +656,6 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "Այստեղ պահվում են կայան սեփական դիսկների, FTP, FTPS և SFTP կապերը։ Հատկությունները կոդավորվում են Windows DPAPI-ով և չեն լեում այս համակարգից։",
         "empty": "No connections yet."
       },
       "action": {
@@ -739,7 +738,9 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "Կայան սեփական դիսկներ",
+        "netdiskDescription": "Մտեք հեռվորդված պատուհանում Baidu Netdisk կամ Quark Drive-ին։ Տվյալները գաղտնագրվում են Windows DPAPI-ով և երբեք չեն լքում այս սարքը։",
         "remoteSection": "Հեռակառուց կապեր",
+        "remoteDescription": "Պահեցրու այստեղ FTP, FTPS և SFTP կապերը։ Տվյալները գաղտնագրվում են Windows DPAPI-ով և երբեք չեն լքում այս սարքը։",
         "addNetdisk": "Ավելացնել կայան սեփական դիսկ",
         "addRemote": "Ավելացնել հեռակառուց կապ",
         "emptyNetdisk": "Կայան սեփական դիսկներ դեռ չկան։",
@@ -814,7 +815,8 @@
       "netdisk": {
         "provider": "Ամպային սկիզբ",
         "baidu": "Baidu Drive",
-        "quark": "Quark Drive"
+        "quark": "Quark Drive",
+        "signedIn": "Մուտք է կատարված"
       }
     },
     "about": {

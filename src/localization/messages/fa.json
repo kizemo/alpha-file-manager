@@ -612,7 +612,6 @@
     "remote": {
       "connections": {
         "title": "Remote connections",
-        "description": "اتصال‌های دیسک ابری، FTP، FTPS و SFTP را اینجا ذخیره کنید. اطلاعات محرمانه با Windows DPAPI رمزگذاری می‌شود و هرگز از این رایانه خارج نمی‌شود.",
         "empty": "No connections yet."
       },
       "action": {
@@ -695,7 +694,9 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "دیسک‌های ابری",
+        "netdiskDescription": "در پنجرهٔ جاسازی‌شده وارد Baidu Netdisk یا Quark Drive شوید. اطلاعات ورود با Windows DPAPI رمزگذاری می‌شود و هرگز از این رایانه خارج نمی‌شود.",
         "remoteSection": "اتصال‌های راه دور",
+        "remoteDescription": "اتصال‌های FTP، FTPS و SFTP را اینجا ذخیره کنید. اطلاعات ورود با Windows DPAPI رمزگذاری می‌شود و هرگز از این رایانه خارج نمی‌شود.",
         "addNetdisk": "افزودن دیسک ابری",
         "addRemote": "افزودن اتصال راه دور",
         "emptyNetdisk": "هنوز هیچ دیسک ابری‌ای اضافه نشده است.",
@@ -770,7 +771,8 @@
       "netdisk": {
         "provider": "درایو ابری",
         "baidu": "Baidu Drive",
-        "quark": "Quark Drive"
+        "quark": "Quark Drive",
+        "signedIn": "وارد شده"
       }
     },
     "about": {
