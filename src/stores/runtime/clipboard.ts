@@ -16,6 +16,8 @@ import {
 import { getPathLeafName } from '@/utils/normalize-path';
 import { isVirtualLocationPath } from '@/utils/virtual-locations';
 import { isTransientClipboardAccessError } from '@/utils/system-clipboard-errors';
+// FORK-MODIFICATION 2026-11-11 (batch 9, R1/R2): 系统剪贴板只承载本地路径。
+import { shouldSyncPathsToSystemClipboard } from '@/utils/clipboard-routing';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import {
   hasSameFileClipboardContent,
@@ -300,6 +302,18 @@ export const useClipboardStore = defineStore('clipboard', () => {
     }
 
     const paths = clipboardItems.value.map(item => item.path);
+
+    // FORK-MODIFICATION 2026-11-11 (batch 9, R1/R2): 远程条目不得写进系统文件剪贴板。
+    // 根因（真机 2026-11-11 13:35 复现）：`quark://…` 被当成「本地文件路径」交给
+    // Windows 剪贴板，于是 ① 系统剪贴板从此一直带着一个本机不存在的路径，
+    // ② `pasteItems` 读到「系统剪贴板非空」就 entirely 忽略应用内剪贴板 ——
+    // 网盘里 Ctrl+C、再在本地窗格 Ctrl+V 永远没有反应（用户报的第 2 条缺陷）。
+    // 远程内容的下载落地由 `handleRemotePaste → downloadItemsFromRemote` 负责，
+    // 走的是应用内剪贴板，压根不需要系统剪贴板参与。
+    if (!shouldSyncPathsToSystemClipboard(paths)) {
+      return;
+    }
+
     const operation = clipboardType.value === 'move' ? 'move' : 'copy';
 
     await trackSystemClipboardMutation((async () => {

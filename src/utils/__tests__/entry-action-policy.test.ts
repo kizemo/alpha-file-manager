@@ -99,12 +99,31 @@ describe('entry-action-policy', () => {
       const entries = [createEntry('sfm://remote/conn-a/pub')];
 
       expect(isActionBlockedByEntryPolicy('delete', entries, 'windows')).toBe(true);
-      expect(isActionBlockedByEntryPolicy('copy', entries, 'windows')).toBe(true);
       expect(isActionBlockedByEntryPolicy('paste', entries, 'windows')).toBe(true);
       expect(isActionBlockedByEntryPolicy('properties', entries, 'windows')).toBe(true);
       // 导航类必须放行，否则远程路径根本点不进去
       expect(isActionBlockedByEntryPolicy('open-in-new-tab', entries, 'windows')).toBe(false);
       expect(isActionBlockedByEntryPolicy('toggle-favorite', entries, 'windows')).toBe(false);
+    });
+
+    /**
+     * FORK-MODIFICATION 2026-11-11（T9 真机复测）：网盘里**复制**必须放行。
+     *
+     * 用户报的缺陷：新扫码登录夸克后，网盘条目右键没有「复制」项，Ctrl+C 也毫无反应。
+     * 根因之一就在这份门禁里 —— `'copy'` 被当成阶段 0 未实现而屏蔽，
+     * 于是「网盘里复制 → 本地窗格粘贴（= 下载到本地）」这条主路径整个不存在。
+     *
+     * 只放行 `'copy'`，`'cut'` 与「网盘目录内的粘贴」继续屏蔽，边界要写清：
+     * - `cut` 的语义是**远程移动**，后端没有接线，放出去就是个假按钮；
+     * - 远程目录内的 `paste` 会往网盘里写文件，属于另一条未实现链路；
+     * - `copy` 落地由 `handleRemotePaste → downloadItemsFromRemote` 完成，是真功能。
+     */
+    it('lets remote copy through but keeps cut and paste blocked', () => {
+      const entries = [createEntry('sfm://remote/conn-a/pub')];
+
+      expect(isActionBlockedByEntryPolicy('copy', entries, 'windows')).toBe(false);
+      expect(isActionBlockedByEntryPolicy('cut', entries, 'windows')).toBe(true);
+      expect(isActionBlockedByEntryPolicy('paste', entries, 'windows')).toBe(true);
     });
 
     /**

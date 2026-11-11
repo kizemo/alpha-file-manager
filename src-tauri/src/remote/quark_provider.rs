@@ -308,9 +308,74 @@ fn transport_shape_of(error: &reqwest::Error) -> QuarkTransportShape {
 }
 
 /// 把一次传输层失败翻译成本项目的错误。
+///
+/// FORK-MODIFICATION 2026-11-11 (batch 9, R8): 用户可见文案**按分类给**，不再把
+/// `reqwest::Error` 的原始 Display 拼进 message。真机 2026-11-11 12:30 断网实测，
+/// 横幅逐字打印 `访问夸克网盘失败：error sending request for url
+/// (https://drive-pc.quark.cn/1/clouddrive/file/sort?...)` —— 既不可行动，又把内部
+/// API 路径原样抛给用户。原始串降级进日志（排查用），横幅只说「该做什么」。
 fn transport_error(context: &str, error: &reqwest::Error) -> RemoteError {
-    let kind = classify_transport(transport_shape_of(error));
-    RemoteError::new(kind, format!("{context}：{error}"))
+    let shape = transport_shape_of(error);
+    let kind = classify_transport(shape);
+    log::warn!(
+        "Quark transport failure[{context}] kind={kind:?} raw={error}"
+    );
+    RemoteError::new(kind, transport_message_for(kind))
+}
+
+/// 分类文案：每条都落到「用户下一步动作」，不含英文原始错误。
+///
+/// 分类集合与 `classify_transport` 的实际返回值对齐（本项目 `RemoteErrorKind`
+/// 没有 Timeout / Redirect 变体：超时并入 `Unreachable`，连接中断是 `Disconnected`）。
+fn transport_message_for(kind: RemoteErrorKind) -> &'static str {
+    match kind {
+        RemoteErrorKind::Unreachable => {
+            "无法连接夸克网盘：网络不可用、DNS 解析失败或服务器超时，请检查网络连接后重试。"
+        }
+        RemoteErrorKind::Disconnected => {
+            "与夸克网盘的连接中断：请检查网络后重试。"
+        }
+        RemoteErrorKind::Protocol => {
+            "夸克网盘返回了无法识别的响应：请稍后重试，若持续失败请重新授权。"
+        }
+        _ => "访问夸克网盘失败：网络或网盘服务暂时不可用，请稍后重试。",
+    }
+}
+
+#[cfg(test)]
+mod transport_message_tests {
+    use super::*;
+
+    #[test]
+    fn unreachable_says_what_the_user_should_check() {
+        let text = transport_message_for(RemoteErrorKind::Unreachable);
+        assert!(text.contains("无法连接"), "文案没说要检查连接：{text}");
+        assert!(text.contains("网络"), "文案没提网络：{text}");
+    }
+
+    #[test]
+    fn no_category_message_leaks_the_reqwest_display_or_the_url() {
+        // 第 11 条 FAIL 的判据：横幅里不许出现 reqwest 原始串与内部 API 路径。
+        for kind in [
+            RemoteErrorKind::Unreachable,
+            RemoteErrorKind::Disconnected,
+            RemoteErrorKind::Protocol,
+            RemoteErrorKind::Unknown,
+        ] {
+            let text = transport_message_for(kind);
+            for forbidden in [
+                "error sending request",
+                "drive-pc.quark.cn",
+                "clouddrive",
+                "url (",
+            ] {
+                assert!(
+                    !text.contains(forbidden),
+                    "{kind:?} 的文案泄漏了原始传输细节：{text}"
+                );
+            }
+        }
+    }
 }
 
 /// 发一个 GET 并把响应体读成 UTF-8 文本。

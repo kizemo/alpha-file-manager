@@ -102,10 +102,15 @@ const VERIFY_BUDGET: Duration = Duration::from_secs(8);
 ///
 /// 顺序有意义：**同名取第一条**（见 `dedupe_cookie_records`），所以把登录页
 /// 所在的 `pan.quark.cn` 排在最前面。
-const COOKIE_URLS: [&str; 3] = [
+const COOKIE_URLS: [&str; 5] = [
     "https://pan.quark.cn/",
     "https://www.quark.cn/",
     "https://passport.quark.cn/",
+    // 2026-11-11：把**下载域**也加进来兜底。真机读 cookie 罐证实 `__pus` / `__puus`
+    // 都挂在父域 `.quark.cn` 上，上面几个 URL 本来就能看见它们；列上具体子域
+    // 只是防一手「夸克哪天改成按 host 发 cookie」——多读一个 URL 是空操作，无副作用。
+    "https://drive.quark.cn/",
+    "https://drive-pc.quark.cn/",
 ];
 
 /// 诊断日志的环境变量；不给就用应用数据目录下的默认文件名。
@@ -364,6 +369,8 @@ pub fn remote_quark_login_start(app: AppHandle) -> Result<QuarkLoginStartPayload
     log_line(&app, "login_start requested");
 
     if let Some(existing) = app.get_webview_window(LOGIN_WINDOW_LABEL) {
+        // 重新唤起时同样要顶到最前，否则用户看不见被压住的二维码。
+        let _ = existing.set_always_on_top(true);
         let _ = existing.set_focus();
         // 窗口还在，但上一轮的轮询线程可能已经收工了 ——
         // 重新点一次必须能重新开始等，否则永远等不到登录态。
@@ -398,7 +405,11 @@ fn spawn_window_builder(app: AppHandle) {
         let mut builder =
             WebviewWindowBuilder::new(&app, LOGIN_WINDOW_LABEL, WebviewUrl::External(url))
                 .title("夸克网盘登录")
-                .inner_size(1100.0, 820.0);
+                .inner_size(1100.0, 820.0)
+                // 必须浮在主窗口之上：主窗最大化时若把登录窗压在下面，
+                // WebView2 在完全遮挡下不渲染页面，用户根本看不到二维码，
+                // 登录必然拖到超时（2026-11-11 T8 真机实拍实测到的缺陷）。
+                .always_on_top(true);
         if let Some(profile) = prepare_login_profile(&app) {
             builder = builder.data_directory(profile);
         }
@@ -417,6 +428,8 @@ fn spawn_window_builder(app: AppHandle) {
             }
         };
         log_line(&app, "login window built");
+        // build() 不保证抢到前台，显式聚焦一次，配合 always_on_top 才能真正可见。
+        let _ = window.set_focus();
 
         let watcher = app.clone();
         window.on_window_event(move |event| {
@@ -734,6 +747,12 @@ fn poll_loop(app: AppHandle, window: tauri::WebviewWindow, generation: u64) {
     let mut not_ready_logged: Option<&'static str> = None;
     let mut read_failures: u32 = 0;
 
+    // 「`__pus` 第一次出现」的时刻 —— 用来给 `__puus` 一段**有限**的落地宽限。
+    // `None` 表示还没见过 `__pus`；见过之后每轮拿 `elapsed()` 和宽限比。
+    let mut first_ready_at: Option<Instant> = None;
+    // 等待日志只记一次，否则每 2 秒一条，日志会被淹没（同 `not_ready_logged` 的考量）。
+    let mut settle_logged = false;
+
     loop {
         std::thread::sleep(POLL);
 
@@ -803,6 +822,33 @@ fn poll_loop(app: AppHandle, window: tauri::WebviewWindow, generation: u64) {
                 let Some(session) = scan.session else {
                     continue;
                 };
+
+                // `__puus` 落定等待（2026-11-11 真机缺陷）。
+                //
+                // 实测：`__pus` 先出现、`__puus` 晚约 1 秒。旧代码一看见 `__pus`
+                // 就验活 + 存盘 ⇒ **每次新登录存下来的会话都缺 `__puus`**，
+                // 于是「下载到本地」被 CDN 以 HTTP 412 拒绝。
+                //
+                // 在存盘之前给它一段有限宽限（`should_wait_for_puus`），
+                // 到点仍缺就照旧存盘 —— 浏览不受影响，下载会拿到
+                // 「会话已失效，请重新授权」（`412 => Auth`），不会死等。
+                if !session.has_download_credentials() {
+                    let ready_for = first_ready_at.get_or_insert_with(Instant::now).elapsed();
+                    if crate::remote::should_wait_for_puus(&session, ready_for) {
+                        if !settle_logged {
+                            settle_logged = true;
+                            log_line(
+                                &app,
+                                "settle: __pus 已就绪但 __puus 未到，继续等它落地（下载需要）",
+                            );
+                        }
+                        continue;
+                    }
+                    log_line(
+                        &app,
+                        "settle 宽限到点：仍缺 __puus，先存盘（下载到本地可能要求重新授权）",
+                    );
+                }
 
                 // 验活探针：**只记日志，不否决**。
                 // 它真正的用途是给 T0 的 U4 一个真实答案 ——
@@ -940,5 +986,83 @@ mod tests {
         // 同名取第一条 ⇒ 登录页所在的域必须排在最前面。
         assert_eq!(COOKIE_URLS[0], "https://pan.quark.cn/");
         assert!(COOKIE_URLS.len() >= 2);
+    }
+}
+
+#[cfg(test)]
+mod window_frontmost_tests {
+    // 缺陷 A 的回归锁（2026-11-11 T8 真机实拍）：登录窗必须置顶、建好后显式聚焦，
+    // 复用分支还要重新置顶 —— 否则被最大化的主窗压住时 WebView2 不渲染页面，
+    // 用户看不到二维码，登录只能拖到超时。builder 的标志位拿不到运行时对象，
+    // 只能锁源码写法（同 default-file-manager-common 里锁 enum 臂的做法）。
+    const SRC: &str = include_str!("quark_login.rs");
+
+    #[test]
+    fn login_window_is_built_always_on_top_and_focused() {
+        assert!(
+            SRC.contains(".always_on_top(true)"),
+            "登录窗 builder 缺 always_on_top，会被主窗口压住"
+        );
+        assert!(
+            SRC.contains("set_always_on_top(true)"),
+            "复用已存在登录窗的分支缺重新置顶"
+        );
+        assert!(
+            SRC.contains("window.set_focus()"),
+            "新建登录窗后缺显式聚焦，build 不保证抢到前台"
+        );
+    }
+}
+
+#[cfg(test)]
+mod poll_settle_tests {
+    // 缺陷：存会话时 `__puus` 还没落地 ⇒ 下载直链被 CDN 拒（HTTP 412）。
+    //
+    // 真机取证（2026-11-11）：`.quark.cn` 上 `__pus`（elen=183）先出现，
+    // `__puus`（elen=311）晚约 1 秒；poller 一看见 `__pus` 就验活 + 存盘，
+    // 于是**每次新登录存下来的会话都缺 `__puus`**，下载到本地必失败。
+    //
+    // poll loop 依赖 WebviewWindow，拿不到运行时对象 ⇒ 只能锁源码写法
+    // （与上面 `window_frontmost_tests` 同一惯例），保证接线不会被改没。
+    const SRC: &str = include_str!("quark_login.rs");
+
+    #[test]
+    fn the_poll_loop_waits_for_puus_before_storing_the_session() {
+        assert!(
+            SRC.contains("should_wait_for_puus("),
+            "poll loop 没有等 `__puus` 落定就存会话 ⇒ 下载必 412"
+        );
+        assert!(
+            SRC.contains("has_download_credentials()"),
+            "宽限到点后的告警分支没有检查完整凭据"
+        );
+        // 顺序有意义：等待判断必须发生在「存盘」之前，否则等于没等。
+        // 比较范围收窄到 `poll_loop` 内部 —— 文件更早处（登录窗口那条路径）
+        // 也有一句同名存盘调用，按全文件首次出现比会误判成「存盘在前」。
+        let poll_start = SRC
+            .find("fn poll_loop(")
+            .expect("找不到 poll_loop 的起点");
+        let wait_at = poll_start
+            + SRC[poll_start..]
+                .find("should_wait_for_puus(")
+                .expect("接线被删，找不到等待点");
+        let store_at = poll_start
+            + SRC[poll_start..]
+                .find("store_pending(PendingSession { state });")
+                .expect("poll 循环里找不到存盘点");
+        assert!(
+            wait_at < store_at,
+            "等待 `__puus` 的分支写在了存盘之后（wait={wait_at} store={store_at}）"
+        );
+    }
+
+    #[test]
+    fn the_download_hosts_are_read_for_cookies() {
+        // 兜底：`__puus` 可能只挂在下载域上（真机实测它挂在 `.quark.cn`，
+        // 父域 cookie 本就互见，多读一个 URL 无害且防回归）。
+        assert!(
+            SRC.contains("\"https://drive.quark.cn/\""),
+            "COOKIE_URLS 没有覆盖下载域 drive.quark.cn"
+        );
     }
 }

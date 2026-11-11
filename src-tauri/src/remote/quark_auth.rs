@@ -65,7 +65,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
 use std::path::Path;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// 落盘存档的版本号。读到的版本不认识 ⇒ 按「没有凭据」处理 ——
 /// 宁可让用户重新登录一次，也不要拿一份自己读不懂的存档去猜。
@@ -79,6 +79,25 @@ pub const QUARK_SESSION_VERSION: u32 = 1;
 /// 证据强度：只有开源项目侧说法（方案 §7-U1，B 层），本地 renderer 从不按名字取
 /// cookie。真机结论以 T0 为准；在此之前，`__pus` 是**唯一已知**的必需 cookie 名。
 pub const QUARK_COOKIE_PUS: &str = "__pus";
+
+/// 下载凭据 cookie 名：与 `__pus` 同域（`.quark.cn`），但**它是下载链的门槛**。
+///
+/// 真机取证（2026-11-11，读应用自己的 WebView2 cookie 罐）：
+/// `__pus`（elen=183）与 `__puus`（elen=311）**都挂在 `.quark.cn`**，
+/// `__puus` 比 `__pus` **晚约 1 秒**落地。只带 `__pus` 的会话能列目录，
+/// 但下载直链会被 CDN 以 HTTP 412 拒绝 ⇒ 用户看到的就是
+/// 「下载到本地失败（参数或协议层错误）」。
+///
+/// 证据强度：真机 cookie 罐 + 412 实测（A 层）。这条常量就是把那个观测写进代码。
+pub const QUARK_COOKIE_PUUS: &str = "__puus";
+
+/// `__pus` 出现后，再等 `__puus` 落地的**宽限时长**（秒）。
+///
+/// 必须是**有限宽限**而不是硬门槛：夸克不一定给每个账号都发 `__puus`，
+/// 把它当必需项会让登录流程死等到超时（`GIVE_UP` 900s），比现在这个 bug 更糟。
+/// 到点照样存盘，只是往日志里记一条警告；缺 `__puus` 的后果由
+/// `failure_from_http_status(412) => Auth` 兜住 —— 用户会看到「请重新授权」。
+pub const QUARK_PUUS_SETTLE_SECONDS: u64 = 20;
 
 /// 一次验活成功后，这份会话被**信任**多久（秒）。
 ///
@@ -288,14 +307,46 @@ impl QuarkAuthSession {
         !self.pus.trim().is_empty()
     }
 
+    /// `__puus` 的原值，没有就返回 `None`。
+    ///
+    /// 它和其余 cookie 一起存在 `cookies` 里（`scan_cookies` 只把 `__pus` 单拆出来），
+    /// 所以这里只是按名字取回；**不要**拿去打日志。
+    pub fn puus(&self) -> Option<&str> {
+        self.cookies.get(QUARK_COOKIE_PUUS).map(String::as_str)
+    }
+
+    /// 是否**齐了下载用的凭据**（`__pus` + `__puus`）。
+    ///
+    /// 列目录只需要 `__pus`；下载直链需要 `__puus`。登录流程拿这个判断
+    /// 「现在存盘会不会存出一个下载不了的会话」。
+    pub fn has_download_credentials(&self) -> bool {
+        self.has_credentials() && self.puus().is_some()
+    }
+
     /// 给日志用的**脱敏**描述：只有名字与长度，没有内容。
     pub fn describe(&self) -> String {
         let mut parts = vec![format!("{QUARK_COOKIE_PUS}(len={})", self.pus.len())];
+        if let Some(puus) = self.puus() {
+            parts.push(format!("{QUARK_COOKIE_PUUS}(len={})", puus.len()));
+        }
         if !self.cookies.is_empty() {
             parts.push(format!("extras={}", self.cookies.len()));
         }
         parts.join(" + ")
     }
+}
+
+/// 登录流程是否应该**再等一会儿**看 `__puus` 会不会落地。
+///
+/// 两个条件缺一不可：
+/// - 凭据不齐（缺 `__puus`）；
+/// - `__pus` 出现的时间还没超过 [`QUARK_PUUS_SETTLE_SECONDS`] 的宽限。
+///
+/// 齐了 ⇒ `false`，立刻存盘；宽限到点还缺 ⇒ 也返回 `false`，
+/// 让登录**结束**而不是死等 —— 缺 `__puus` 的会话仍然可以浏览，
+/// 下载会拿到 `[auth] 会话已失效，请重新授权`（`412 => Auth`）。
+pub fn should_wait_for_puus(session: &QuarkAuthSession, ready_for: Duration) -> bool {
+    !session.has_download_credentials() && ready_for.as_secs() < QUARK_PUUS_SETTLE_SECONDS
 }
 
 /// 手写的 `Debug`：**只打印长度，绝不打印明文**。
@@ -632,6 +683,72 @@ mod tests {
         let mut cookies = BTreeMap::new();
         cookies.insert("ctoken".to_string(), EXTRA.to_string());
         QuarkAuthSession::new(PUS, cookies)
+    }
+
+    const PUUS: &str = "the-puus-value-0123456789";
+
+    /// `__pus` + `__puus` 的会话 —— 也就是**能下载**的完整凭据。
+    fn session_with_puus() -> QuarkAuthSession {
+        let mut cookies = BTreeMap::new();
+        cookies.insert(QUARK_COOKIE_PUUS.to_string(), PUUS.to_string());
+        QuarkAuthSession::new(PUS, cookies)
+    }
+
+    // ---- `__puus`：下载链的必需 cookie ---------------------------------------
+    //
+    // 真机缺陷（2026-11-11 用户复测）：新扫码登录后「下载到本地」报
+    // `[protocol] 夸克网盘接口拒绝了这次请求（参数或协议层错误）`。
+    // 从应用自己的 WebView2 cookie 罐里读实：`__pus`（elen=183）与 `__puus`
+    // （elen=311）**同在 `.quark.cn`**，但 `__puus` 比 `__pus` 晚约 1 秒落地。
+    // poller 一看见 `__pus` 就验活 + 存盘 ⇒ 存下来的会话**天生缺 `__puus`**，
+    // 下载直链被 CDN 以 HTTP 412 拒绝。
+    //
+    // 旧版把「会话里有没有 `__puus`」当成隐性问题，日志里只留下
+    // `__pus(len=120) + extras=16` 这种看不出来的描述。这几条测试把判据固定下来。
+
+    #[test]
+    fn pus_is_reported_and_puus_is_read_from_the_extras() {
+        assert_eq!(session_with_puus().puus(), Some(PUUS));
+        assert_eq!(plain_session().puus(), None);
+        assert_eq!(session_with_extra().puus(), None);
+    }
+
+    #[test]
+    fn download_credentials_need_both_pus_and_puus() {
+        assert!(session_with_puus().has_download_credentials());
+        assert!(!plain_session().has_download_credentials());
+        assert!(!session_with_extra().has_download_credentials());
+    }
+
+    #[test]
+    fn describe_reports_puus_by_length_only() {
+        let described = session_with_puus().describe();
+        assert!(described.contains("__puus(len="));
+        // 安全铁律：日志里只有长度，绝不出现明文。
+        assert!(!described.contains(PUUS));
+    }
+
+    #[test]
+    fn settle_wait_is_granted_only_inside_the_grace_window() {
+        let no_puus = plain_session();
+        assert!(should_wait_for_puus(
+            &no_puus,
+            std::time::Duration::from_secs(0)
+        ));
+        assert!(should_wait_for_puus(
+            &no_puus,
+            std::time::Duration::from_secs(QUARK_PUUS_SETTLE_SECONDS - 1)
+        ));
+        // 宽限到点：到点就存盘，不能无限等（有些账号可能根本不发 `__puus`）。
+        assert!(!should_wait_for_puus(
+            &no_puus,
+            std::time::Duration::from_secs(QUARK_PUUS_SETTLE_SECONDS)
+        ));
+        // 齐了就不再等。
+        assert!(!should_wait_for_puus(
+            &session_with_puus(),
+            std::time::Duration::from_secs(0)
+        ));
     }
 
     // ---- 扫 cookie 清单 -----------------------------------------------------

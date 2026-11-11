@@ -98,7 +98,18 @@ export async function statRemoteEntry(path: string): Promise<DirEntry | null> {
  */
 export function describeRemoteError(caught: unknown): string {
   if (isRemoteErrorPayload(caught)) {
-    return caught.message;
+    const message = caught.message?.trim() ?? '';
+    const fallback = remoteErrorKindFallback(caught.kind);
+
+    // FORK-MODIFICATION 2026-11-11 (batch 9, R8/T3): 后端已按分类给中文文案，
+    // 这里补一道兜底 —— 万一 `message` 仍是 reqwest 原始串（真机实测逐字
+    // 「访问夸克网盘失败：error sending request for url (https://drive-pc.quark.cn/…)」），
+    // 横幅不许把 URL 和内部 API 路径当「错误说明」抛给用户。
+    if (!message || (fallback && looksLikeRawTransportError(message))) {
+      return fallback || message;
+    }
+
+    return message;
   }
 
   if (caught instanceof Error) {
@@ -106,6 +117,34 @@ export function describeRemoteError(caught: unknown): string {
   }
 
   return String(caught);
+}
+
+/** 原始传输层错误的指纹：这些串对用户不可行动，不该出现在横幅里。 */
+function looksLikeRawTransportError(message: string): boolean {
+  return (
+    message.includes('error sending request for url')
+    || message.includes('error decoding response body')
+    || message.includes('operation timed out')
+    || message.includes('too many redirects')
+  );
+}
+
+/** 按错误分类给「下一步动作」文案；未列出的分类返回空串（沿用后端文案）。 */
+function remoteErrorKindFallback(kind: string | undefined): string {
+  // 分类集合与后端 `classify_transport` 对齐：本项目没有 timeout / redirect 分类，
+  // 超时并入 `unreachable`，连接中断是 `disconnected`。
+  switch (kind) {
+    case 'unreachable':
+      return '无法连接夸克网盘：网络不可用、DNS 解析失败或服务器超时，请检查网络连接后重试。';
+    case 'disconnected':
+      return '与夸克网盘的连接中断：请检查网络后重试。';
+    case 'protocol':
+      return '夸克网盘返回了无法识别的响应：请稍后重试，若持续失败请重新授权。';
+    case 'auth':
+      return '夸克网盘会话已失效，请重新授权。';
+    default:
+      return '';
+  }
 }
 
 // ---------------------------------------------------------------------------
