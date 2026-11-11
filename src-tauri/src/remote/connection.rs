@@ -30,6 +30,12 @@ pub enum RemoteProtocol {
     /// （`BDUSS` + `STOKEN`），没有「密码」可填。连接表里仍然要存 host / port，
     /// 是为了让远程路径与侧边栏的呈现方式跟其它协议一致。
     BaiduPan,
+    /// 夸克网盘：走 `pan.quark.cn` / `drive-pc.quark.cn` 的 HTTPS 接口。
+    ///
+    /// 与 [`Self::BaiduPan`] 同构：登录态是整份 cookie（`__pus`），
+    /// 同样没有「密码」可填。连接表里仍然要存 host / port，
+    /// 是为了让远程路径与侧边栏的呈现方式跟其它协议一致。
+    QuarkPan,
 }
 
 impl RemoteProtocol {
@@ -40,6 +46,7 @@ impl RemoteProtocol {
             Self::FtpsImplicit => 990,
             Self::Sftp => 22,
             Self::BaiduPan => 443,
+            Self::QuarkPan => 443,
         }
     }
 
@@ -50,6 +57,7 @@ impl RemoteProtocol {
             Self::FtpsImplicit => "ftps_implicit",
             Self::Sftp => "sftp",
             Self::BaiduPan => "baidu_pan",
+            Self::QuarkPan => "quark_pan",
         }
     }
 }
@@ -243,6 +251,8 @@ mod tests {
         assert_eq!(RemoteProtocol::Sftp.default_port(), 22);
         // 百度网盘走 HTTPS。
         assert_eq!(RemoteProtocol::BaiduPan.default_port(), 443);
+        // 夸克网盘也走 HTTPS。
+        assert_eq!(RemoteProtocol::QuarkPan.default_port(), 443);
     }
 
     /// 协议名会写进 `user-remote-connections.json` 与前端类型，
@@ -253,6 +263,15 @@ mod tests {
 
         let json = serde_json::to_string(&RemoteProtocol::BaiduPan).expect("serialize");
         assert_eq!(json, "\"baidu_pan\"");
+    }
+
+    /// 夸克网盘的名字同样锁死。改名会让已经存好的夸克连接全部读不出来。
+    #[test]
+    fn the_quark_pan_protocol_has_its_own_stable_name() {
+        assert_eq!(RemoteProtocol::QuarkPan.as_str(), "quark_pan");
+
+        let json = serde_json::to_string(&RemoteProtocol::QuarkPan).expect("serialize");
+        assert_eq!(json, "\"quark_pan\"");
     }
 
     #[test]

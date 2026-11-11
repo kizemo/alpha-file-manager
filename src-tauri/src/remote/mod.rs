@@ -35,6 +35,7 @@ mod path;
 mod provider;
 mod quark_api;
 mod quark_auth;
+mod quark_provider;
 mod registry;
 mod sftp_provider;
 mod transfer;
@@ -121,7 +122,8 @@ pub use quark_api::{
     failure_from_http_status as quark_failure_from_http_status, next_page as quark_next_page,
     parse_account_info_response, parse_download_response, parse_list_payload,
     parse_list_response as quark_parse_list_response, quark_account_info_url,
-    quark_client_version_from_user_agent, quark_download_is_expired, quark_download_url,
+    quark_client_version_from_user_agent, quark_download_is_expired,
+    quark_download_request_body, quark_download_url,
     quark_entry_is_directory, quark_entry_name, quark_error_kind_coverage, quark_list_dir_url,
     quark_millis_to_unix_millis, quark_seconds_to_unix_millis, quark_size_to_bytes,
     quark_timestamp_to_unix_millis, sanitize_cookie_jar,
@@ -143,9 +145,15 @@ pub use quark_auth::{
     parse_cookie_header as quark_parse_cookie_header, quark_auth_status,
     remaining_seconds as quark_remaining_seconds, sanitize_quark_cookie_value,
     save_quark_session, scan_cookies as quark_scan_cookies, scan_error as quark_scan_error,
-    trust_deadline_unix, QuarkAuthSession, QuarkAuthStatus, QuarkCookieOutcome,
-    QuarkCookieRecord, QuarkCookieScan, QuarkSessionState, QUARK_COOKIE_PUS,
-    QUARK_LAST_ALIVE_WARN_SECONDS, QUARK_SESSION_TRUST_SECONDS, QUARK_SESSION_VERSION,
+    session_to_cookie_header as quark_session_to_cookie_header, trust_deadline_unix,
+    QuarkAuthSession, QuarkAuthStatus, QuarkCookieOutcome, QuarkCookieRecord, QuarkCookieScan,
+    QuarkSessionState, QUARK_COOKIE_PUS, QUARK_LAST_ALIVE_WARN_SECONDS,
+    QUARK_SESSION_TRUST_SECONDS, QUARK_SESSION_VERSION,
+};
+pub use quark_provider::{
+    default_device_model as quark_default_device_model, default_ut as quark_default_ut,
+    DpapiQuarkSessionStore, HttpQuarkApi, QuarkApi, QuarkRemoteProvider, QuarkSessionStore,
+    UnavailableQuarkApi, QUARK_MAX_LIST_PAGES, QUARK_ROOT_FID,
 };
 pub use registry::{
     connections_path_in, find_connection, load_connections, resolve_connection, ConnectionsFile,

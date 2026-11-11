@@ -120,7 +120,12 @@ pub fn resolve_connection(
     // （`BDUSS` + `STOKEN`），由 provider 自己按 `credential_key` 读。
     // 走通用路径的话，这段 JSON 会被当成「密码」塞进 `ResolvedConnection.password`
     // —— 白白让登录态在内存里多待一份，还可能被误发给别的协议。
-    if connection.protocol == RemoteProtocol::BaiduPan {
+    //
+    // 夸克网盘同构：DPAPI 密文里装的是整份夸克会话（`__pus` + 其余 cookie）。
+    if matches!(
+        connection.protocol,
+        RemoteProtocol::BaiduPan | RemoteProtocol::QuarkPan
+    ) {
         return Ok(ResolvedConnection {
             connection,
             password: None,
@@ -419,5 +424,43 @@ mod tests {
 
         assert_eq!(resolved.password, None);
         assert_eq!(resolved.connection.protocol, RemoteProtocol::BaiduPan);
+    }
+
+    /// 夸克网盘与百度同构：DPAPI 密文里装的是整份会话（`__pus` + 其余 cookie），
+    /// 不是「一句口令」。
+    ///
+    /// 走通用路径的话，这份会话会以「密码」的身份流进普通口令路径 ——
+    /// 也让「没有口令密文」的夸克连接被误判成「口令没填」。
+    #[test]
+    fn a_quark_connection_resolves_without_a_password() {
+        let dir = TempDir::new().expect("temp dir");
+        let user_data = dir.path().join("user-data");
+        std::fs::create_dir_all(&user_data).expect("mkdir");
+        write_connections(
+            &user_data,
+            &serde_json::to_string(&ConnectionsFile {
+                connections: vec![RemoteConnection {
+                    id: "conn-quark".to_string(),
+                    name: "夸克网盘".to_string(),
+                    protocol: RemoteProtocol::QuarkPan,
+                    host: "pan.quark.cn".to_string(),
+                    port: 443,
+                    username: "测试用户".to_string(),
+                    initial_path: "/".to_string(),
+                    local_path: None,
+                    proxy: ProxyConfig::Direct,
+                    credential_key: Some("conn-quark".to_string()),
+                }],
+            })
+            .expect("serialize"),
+        );
+
+        // 注意：这里刻意**没有**写任何密文。
+        // 夸克连接不该因为「没有口令密文」而报错 —— 它的凭据在别处。
+        let resolved =
+            resolve_connection(&user_data, dir.path(), "conn-quark").expect("must resolve");
+
+        assert_eq!(resolved.password, None);
+        assert_eq!(resolved.connection.protocol, RemoteProtocol::QuarkPan);
     }
 }

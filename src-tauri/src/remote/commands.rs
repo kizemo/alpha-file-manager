@@ -29,6 +29,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 
@@ -46,6 +47,7 @@ use super::ftps_provider::FtpsRemoteProvider;
 use super::known_hosts::{self, KnownHostEntry, TrustKind};
 use super::path::{normalize_remote_path, parse_remote_path};
 use super::provider::{RemoteEntry, RemoteProvider};
+use super::quark_auth;
 use super::registry::{self, ResolvedConnection};
 use super::sftp_provider::SftpRemoteProvider;
 use super::transfer::{self, RemoteChmodReport, RemoteTransferReport, TransferProgressSink};
@@ -218,6 +220,118 @@ pub async fn remote_baidu_delete_session(
     })?
 }
 
+/// 夸克网盘会话状态（给设置页看的可序列化形状）。
+///
+/// **只报状态，不报凭据** —— 摘要里只有 cookie 的名字与长度。
+///
+/// ⚠️ 夸克**没有** STOKEN，所以这里的语义不是「token 快过期了」，
+/// 而是「距上次验活已经过去多久」（见 `quark_auth::quark_auth_status`）：
+/// `stale` = 建议重新登录，`stale_soon` = 信任窗口快到头了。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuarkAuthStatusPayload {
+    /// `missing` / `ready` / `stale` / `stale_soon`
+    pub status: String,
+    /// 信任窗口还剩多少秒。`None` = 不知道上次验活时间。
+    pub remaining_seconds: Option<u64>,
+    /// 脱敏描述，给日志与界面用。
+    pub summary: String,
+}
+
+/// 当前 Unix 秒（秒级）。
+///
+/// `quark_auth` 里的那个是私有的，而这里只需要一个「现在几点」。
+fn unix_now_seconds() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0)
+}
+
+/// 保存夸克网盘的登录凭据（整段 cookie）。
+///
+/// **凭据不回传给前端**：只写不读回。格式非法的 cookie 在落盘前就被拒 ——
+/// 存档里只该有真正能用的凭据。
+#[tauri::command]
+pub async fn remote_quark_save_session(
+    app: tauri::AppHandle,
+    connection_id: String,
+    cookie: String,
+) -> Result<(), RemoteError> {
+    let app_data_dir = app_data_dir(&app)?;
+
+    // 先解析再落盘：缺 `__pus` / 值非法都在这里被拒。
+    let records = quark_auth::parse_cookie_header(&cookie);
+    let scan = quark_auth::scan_cookies(&records);
+    if let Some(error) = quark_auth::scan_error(&scan) {
+        return Err(error);
+    }
+    let session = scan.session.ok_or_else(|| {
+        RemoteError::auth("夸克网盘登录凭据（__pus）缺失，请重新登录获取")
+    })?;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        quark_auth::save_quark_session(&app_data_dir, &connection_id, &session, None)
+    })
+    .await
+    .map_err(|join_error| {
+        RemoteError::unknown(format!("保存夸克网盘会话的后台任务失败: {join_error}"))
+    })?
+}
+
+/// 夸克网盘会话的当前状态，给设置页看。
+#[tauri::command]
+pub async fn remote_quark_auth_status(
+    app: tauri::AppHandle,
+    connection_id: String,
+) -> Result<QuarkAuthStatusPayload, RemoteError> {
+    let app_data_dir = app_data_dir(&app)?;
+
+    let state = tauri::async_runtime::spawn_blocking(move || {
+        quark_auth::load_quark_session(&app_data_dir, &connection_id)
+    })
+    .await
+    .map_err(|join_error| {
+        RemoteError::unknown(format!("读取夸克网盘会话的后台任务失败: {join_error}"))
+    })??;
+
+    let now = unix_now_seconds();
+    let status = quark_auth::quark_auth_status(state.as_ref(), now);
+    let remaining_seconds = state
+        .as_ref()
+        .and_then(|state| quark_auth::remaining_seconds(state.last_alive_unix, now));
+
+    let status_name = match status {
+        quark_auth::QuarkAuthStatus::Missing => "missing",
+        quark_auth::QuarkAuthStatus::Ready => "ready",
+        quark_auth::QuarkAuthStatus::Stale { .. } => "stale",
+        quark_auth::QuarkAuthStatus::StaleSoon { .. } => "stale_soon",
+    };
+
+    Ok(QuarkAuthStatusPayload {
+        status: status_name.to_string(),
+        remaining_seconds,
+        summary: quark_auth::describe_state(state.as_ref()),
+    })
+}
+
+/// 删掉已保存的夸克网盘会话。键不存在是成功的空操作。
+#[tauri::command]
+pub async fn remote_quark_delete_session(
+    app: tauri::AppHandle,
+    connection_id: String,
+) -> Result<(), RemoteError> {
+    let app_data_dir = app_data_dir(&app)?;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        quark_auth::delete_quark_session(&app_data_dir, &connection_id)
+    })
+    .await
+    .map_err(|join_error| {
+        RemoteError::unknown(format!("删除夸克网盘会话的后台任务失败: {join_error}"))
+    })?
+}
+
 /// 「测试连接」的请求体。
 ///
 /// **刻意用扁平结构而不是 `RemoteConnection`**：测试的是**表单里还没保存的东西**，
@@ -240,7 +354,7 @@ pub struct RemoteTestConnectionRequest {
     pub proxy: Option<ProxyConfig>,
     /// 已保存会话的键（= 连接 id）。
     ///
-    /// **只有百度网盘用得上**：它的凭据是一整段 Cookie 而不是口令，
+    /// **只有网盘协议用得上**（百度 / 夸克）：它们的凭据是一整段 Cookie 而不是口令，
     /// 所以「密码框留空」的语义是「用已存的那份会话去测」，
     /// 不是「没有凭据」。FTP / SFTP 忽略这个字段。
     #[serde(default)]
@@ -280,6 +394,27 @@ pub async fn remote_test_connection(
                     .ok()
                     .flatten()
                     .map(|state| baidu_auth::session_to_cookie_header(&state.session))
+            })
+            .await
+            .ok()
+            .flatten();
+        }
+    }
+
+    // 夸克网盘：与百度同构 —— cookie 框留空 = 「用已保存的那份会话去测」，
+    // **不是**「没有凭据」。少了这一步，编辑一条已经登录的夸克连接时点
+    // 「测试连接」必然回一句「还没有登录凭据」—— 而用户明明已经存过会话了。
+    if request.protocol == RemoteProtocol::QuarkPan
+        && password.as_deref().map(str::trim).unwrap_or("").is_empty()
+    {
+        if let Some(key) = request.credential_key.clone() {
+            let app_data_dir = app_data_dir(&app)?;
+
+            password = tauri::async_runtime::spawn_blocking(move || {
+                quark_auth::load_quark_session(&app_data_dir, &key)
+                    .ok()
+                    .flatten()
+                    .map(|state| quark_auth::session_to_cookie_header(&state.session))
             })
             .await
             .ok()
@@ -360,6 +495,10 @@ async fn list_with_protocol(
                 .read_dir(&resolved.connection.id, remote_path)
                 .await
         }
+        // 夸克网盘：与百度同构 —— provider 自己读会话。
+        RemoteProtocol::QuarkPan => quark_provider(user_data_dir, app_data_dir)
+            .read_dir(&resolved.connection.id, remote_path)
+            .await,
     }
 }
 
@@ -380,6 +519,36 @@ async fn stat_with_protocol(
             BaiduRemoteProvider::new(user_data_dir, app_data_dir)?
                 .stat(&resolved.connection.id, remote_path)
                 .await
+        }
+        // 夸克网盘：`stat` 是「列父目录再按名字找」——
+        // `RemoteProvider` trait 上**没有** `stat` 方法（只有 9 个读写方法），
+        // 百度走的是 `BaiduRemoteProvider` 的**固有方法**，夸克侧没有元数据接口，
+        // 所以这里只能这样拼；语义与明文 FTP 那条完全一致。
+        RemoteProtocol::QuarkPan => {
+            let provider = quark_provider(user_data_dir, app_data_dir);
+            let normalized = super::path::normalize_remote_path(remote_path).ok_or_else(|| {
+                RemoteError::protocol(format!("远端路径不合法：{remote_path}"))
+            })?;
+            let name = normalized
+                .rsplit('/')
+                .next()
+                .filter(|segment| !segment.is_empty())
+                .ok_or_else(|| {
+                    RemoteError::protocol(format!("远端路径不是一个条目：{normalized}"))
+                })?
+                .to_string();
+            let parent = match normalized.rfind('/') {
+                Some(0) | None => "/".to_string(),
+                Some(index) => normalized[..index].to_string(),
+            };
+            let siblings = provider.read_dir(&resolved.connection.id, &parent).await?;
+            // 比**末段**而不是比后缀 —— 后缀匹配会把 `a.txt` 误认成 `xa.txt`。
+            siblings
+                .into_iter()
+                .find(|entry| entry.name == name)
+                .ok_or_else(|| {
+                    RemoteError::not_found(format!("远端没有这个条目：{normalized}"))
+                })
         }
         // 明文 FTP 与 FTPS 的 `stat` 都是「列父目录再按名字找」，
         // 协议部分完全一样 —— 所以这里直接复用同一个 provider。
@@ -587,7 +756,20 @@ pub(crate) async fn provider_with_protocol(
             user_data_dir,
             app_data_dir,
         )),
+        // 夸克网盘：与百度同构。走同一个 shim，T3 落地后只改 shim 的函数体。
+        RemoteProtocol::QuarkPan => quark_provider(user_data_dir, app_data_dir),
     }
+}
+
+/// 夸克网盘的 provider 入口。
+///
+/// 三个调用点（`list_with_protocol` / `stat_with_protocol` / `provider_with_protocol`）
+/// 都走这一个函数 —— provider 的构造方式只在一处定义；
+/// 将来换成别的实现（例如「在 WebView2 里 fetch」那条退路）也只改这一行。
+fn quark_provider(user_data_dir: &Path, app_data_dir: &Path) -> Box<dyn RemoteProvider> {
+    Box::new(
+        super::quark_provider::QuarkRemoteProvider::new_deferred(user_data_dir, app_data_dir),
+    )
 }
 
 /// 上传：**一批**本地路径 → 远端目录（`sfm://remote/<id>/<path>`）。
@@ -994,6 +1176,9 @@ mod tests {
         "remote_baidu_save_session",
         "remote_baidu_auth_status",
         "remote_baidu_delete_session",
+        "remote_quark_save_session",
+        "remote_quark_auth_status",
+        "remote_quark_delete_session",
         // 内嵌登录（2026-11-09）：这四条在 `baidu_login` 模块里实现，
         // 但注册项写的是 `baidu_login::remote_baidu_login_*`，
         // 取最后一段后同样以 `remote_` 开头 —— 所以也得登记在这儿，
@@ -1002,14 +1187,20 @@ mod tests {
         "remote_baidu_login_pending",
         "remote_baidu_login_claim",
         "remote_baidu_login_cancel",
+        // 夸克侧同理：实现在 `quark_login` 模块，注册项写的是
+        // `quark_login::remote_quark_login_*`。
+        "remote_quark_login_start",
+        "remote_quark_login_pending",
+        "remote_quark_login_claim",
+        "remote_quark_login_cancel",
         "remote_test_connection",
         "remote_read_dir",
         "remote_stat_dir_entry",
         "remote_list_known_hosts",
         "remote_trust_host",
         "remote_forget_host",
-        "remote_upload_path",
-        "remote_download_path",
+        "remote_upload_paths",
+        "remote_download_paths",
         "remote_chmod",
         "remote_get_permissions",
         "remote_remove_path",
