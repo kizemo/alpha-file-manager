@@ -652,7 +652,8 @@
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
-        "baidu_pan": "Baidu Netdisk"
+        "baidu_pan": "Baidu Netdisk",
+        "quark_pan": "Quark Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -678,7 +679,8 @@
         "unknown": "Failed to save the connection.",
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
-        "baiduLoginRequired": "Hãy đăng nhập Baidu Pan trong ứng dụng trước, rồi lưu kết nối này."
+        "baiduLoginRequired": "Hãy đăng nhập Baidu Pan trong ứng dụng trước, rồi lưu kết nối này.",
+        "quarkLoginRequired": "Hãy đăng nhập vào Quark Drive trong ứng dụng trước khi lưu kết nối này."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -745,6 +747,37 @@
           },
           "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
         }
+      },
+      "quark": {
+        "status": {
+          "loading": "Đang đọc trạng thái ủy quyền…",
+          "missing": "Chưa đăng nhập",
+          "ready": "Đã ủy quyền",
+          "stale": "Phiên đã hết hạn; vui lòng đăng nhập lại",
+          "stale_soon": "Phiên sắp hết hạn"
+        },
+        "action": {
+          "deleteSession": "Xóa phiên đã lưu"
+        },
+        "embedded": {
+          "title": "Đăng nhập trong ứng dụng",
+          "start": "Đăng nhập bằng cửa sổ nhúng",
+          "cancel": "Ngừng chờ đợi",
+          "hint": "Một cửa sổ đăng nhập sẽ mở trong ứng dụng. Nó tự đóng ngay khi bạn đăng nhập xong và phiên được lấy về luôn — bạn chỉ cần lưu kết nối này.",
+          "status": {
+            "waiting": "Đang chờ bạn đăng nhập…",
+            "ready": "Đã đăng nhập. Hãy lưu kết nối này — phiên sẽ được ghi khi bạn lưu.",
+            "closed": "Cửa sổ đăng nhập đã bị đóng trước khi bạn đăng nhập xong.",
+            "timeout": "Đã hết thời gian chờ đăng nhập. Vui lòng thử lại.",
+            "error": "Không đọc được trạng thái đăng nhập. Vui lòng thử lại."
+          },
+          "saved": "Đã đăng nhập vào Quark Drive: cửa sổ đã tự đóng và phiên đã được lấy về. Hãy lưu kết nối này để sử dụng."
+        }
+      },
+      "netdisk": {
+        "provider": "Dịch vụ đám mây",
+        "baidu": "Baidu Drive",
+        "quark": "Quark Drive"
       }
     },
     "about": {

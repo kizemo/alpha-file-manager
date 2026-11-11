@@ -103,7 +103,13 @@ let pushLoginStatus: ((status: string, summary?: string) => void) | null = null;
 
 function stubLoginEventSource() {
   pushLoginStatus = null;
-  listenMock.mockImplementation(async (_event: string, handler: (payload: unknown) => void) => {
+  listenMock.mockImplementation(async (event: string, handler: (payload: unknown) => void) => {
+    // 这张表单现在订阅**两个**事件（百度 + 夸克）。只抓「最后注册的那个」
+    // 会在夸克监听器后注册时抓错对象 —— 必须按事件名分别记。
+    if (event !== 'afm://baidu-login') {
+      return () => undefined;
+    }
+
     pushLoginStatus = (status: string, summary?: string) => {
       handler({
         payload: {

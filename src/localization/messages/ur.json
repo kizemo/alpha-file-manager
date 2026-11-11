@@ -689,7 +689,8 @@
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
-        "baidu_pan": "بائیڈو نیٹ ڈسک"
+        "baidu_pan": "بائیڈو نیٹ ڈسک",
+        "quark_pan": "Quark Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -715,7 +716,8 @@
         "unknown": "Failed to save the connection.",
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
-        "baiduLoginRequired": "پہلے ایپ کے اندر Baidu Pan میں سائن ان کریں، پھر یہ کنکشن محفوظ کریں۔"
+        "baiduLoginRequired": "پہلے ایپ کے اندر Baidu Pan میں سائن ان کریں، پھر یہ کنکشن محفوظ کریں۔",
+        "quarkLoginRequired": "اس کنکشن کو محفوظ کرنے سے پہلے ایپ میں Quark Drive میں سائن اِن کریں۔"
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -782,6 +784,37 @@
           },
           "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
         }
+      },
+      "quark": {
+        "status": {
+          "loading": "اجازت کی حیثیت پڑھی جا رہی ہے…",
+          "missing": "سائن اِن نہیں کیا گیا",
+          "ready": "مجاز",
+          "stale": "سیشن کی میعاد ختم ہو گئی؛ دوبارہ سائن اِن کریں",
+          "stale_soon": "سیشن کی میعاد جلد ختم ہو جائے گی"
+        },
+        "action": {
+          "deleteSession": "محفوظ کردہ سیشن حذف کریں"
+        },
+        "embedded": {
+          "title": "ایپ میں سائن اِن کریں",
+          "start": "ایمبیڈڈ ونڈو سے سائن اِن کریں",
+          "cancel": "انتظار بند کریں",
+          "hint": "ایپ میں سائن اِن ونڈو کھلتا ہے۔ سائن اِن مکمل ہونے پر یہ خودکار بند ہو جاتا ہے اور سیشن فوراً حاصل ہو جاتا ہے — آپ کو بس یہ کنکشن محفوظ کرنا ہے۔",
+          "status": {
+            "waiting": "آپ کے سائن اِن کرنے کا انتظار ہے…",
+            "ready": "سائن اِن ہو گیا۔ یہ کنکشن محفوظ کریں — سیشن محفوظ کرتے وقت لکھا جائے گا۔",
+            "closed": "سائن اِن مکمل ہونے سے پہلے ہی ونڈو بند کر دی گئی۔",
+            "timeout": "سائن اِن کا انتظار ختم ہو گیا۔ دوبارہ کوشش کریں۔",
+            "error": "سائن اِن کی حیثیت نہیں پڑھی جا سکی۔ دوبارہ کوشش کریں۔"
+          },
+          "saved": "Quark Drive میں سائن اِن کامیاب: ونڈو خودکار بند ہو گئی اور سیشن حاصل ہو گیا؛ استعمال کے لیے یہ کنکشن محفوظ کریں۔"
+        }
+      },
+      "netdisk": {
+        "provider": "کلاؤڈ ڈرائیو",
+        "baidu": "Baidu Drive",
+        "quark": "Quark Drive"
       }
     },
     "about": {

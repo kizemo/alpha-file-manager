@@ -652,7 +652,8 @@
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
-        "baidu_pan": "Baidu Netdisk"
+        "baidu_pan": "Baidu Netdisk",
+        "quark_pan": "Quark Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -678,7 +679,8 @@
         "unknown": "Failed to save the connection.",
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
-        "baiduLoginRequired": "Inicia sesión en Baidu Pan dentro de la aplicación y luego guarda esta conexión."
+        "baiduLoginRequired": "Inicia sesión en Baidu Pan dentro de la aplicación y luego guarda esta conexión.",
+        "quarkLoginRequired": "Inicia sesión en Quark Drive dentro de la aplicación antes de guardar esta conexión."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -745,6 +747,37 @@
           },
           "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
         }
+      },
+      "quark": {
+        "status": {
+          "loading": "Leyendo el estado de autorización…",
+          "missing": "Sesión no iniciada",
+          "ready": "Autorizado",
+          "stale": "La sesión ha caducado; vuelve a iniciar sesión",
+          "stale_soon": "La sesión está a punto de caducar"
+        },
+        "action": {
+          "deleteSession": "Eliminar la sesión guardada"
+        },
+        "embedded": {
+          "title": "Iniciar sesión dentro de la aplicación",
+          "start": "Iniciar sesión con la ventana integrada",
+          "cancel": "Dejar de esperar",
+          "hint": "Se abre una ventana de inicio de sesión dentro de la aplicación. Se cierra automáticamente cuando inicias sesión y la sesión se recoge de inmediato: solo tienes que guardar esta conexión.",
+          "status": {
+            "waiting": "Esperando a que inicies sesión…",
+            "ready": "Sesión iniciada. Guarda esta conexión: la sesión se escribirá al guardar.",
+            "closed": "La ventana de inicio de sesión se cerró antes de que terminaras.",
+            "timeout": "Se agotó el tiempo de espera del inicio de sesión. Inténtalo de nuevo.",
+            "error": "No se pudo leer el estado de inicio de sesión. Inténtalo de nuevo."
+          },
+          "saved": "Sesión iniciada en Quark Drive: la ventana se cerró automáticamente y la sesión se recogió. Guarda esta conexión para usarla."
+        }
+      },
+      "netdisk": {
+        "provider": "Disco en la nube",
+        "baidu": "Baidu Drive",
+        "quark": "Quark Drive"
       }
     },
     "about": {

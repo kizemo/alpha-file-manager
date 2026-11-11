@@ -18,13 +18,22 @@ import { ref, watch } from 'vue';
 import type {
   BaiduAuthStatusPayload,
   BaiduLoginClaimPayload,
+  QuarkAuthStatusPayload,
+  QuarkLoginClaimPayload,
+  QuarkLoginPendingPayload,
+  QuarkLoginStartPayload,
   RemoteConnection,
   RemoteConnectionForm,
   RemoteConnectionTestReport,
   RemoteProxyConfig,
   RemoteProtocol,
 } from '@/types/remote';
-import { createRemoteConnectionId, isBaiduPanProtocol } from '@/types/remote';
+import {
+  createRemoteConnectionId,
+  isBaiduPanProtocol,
+  isNetdiskProtocol,
+  isQuarkPanProtocol,
+} from '@/types/remote';
 import { normalizeRemotePath } from '@/utils/remote-paths';
 import { setRemoteLocationRefs } from '@/utils/remote-location-refs';
 import { useUserPathsStore } from './user-paths';
@@ -47,6 +56,47 @@ const CONNECTIONS_KEY = 'connections';
  */
 const BAIDU_PAN_HOST = 'pan.baidu.com';
 const BAIDU_PAN_PORT = 443;
+
+/**
+ * 夸克网盘的固定主机与端口。
+ *
+ * 与百度侧同构：用户填什么 host 都会被后端忽略，但连接表里那个字段必填
+ * （Rust 侧 `RemoteConnection::validate` 要求非空），
+ * 所以前端统一写死，别让用户去填一个填了也没用的输入框。
+ *
+ * ⚠️ 主机名取 `pan.quark.cn`（与后端 `quark_api::QUARK_PAN_HOST` 一致）；
+ * 真正跑列表 / 下载请求的是 `drive-pc.quark.cn` —— 那是后端自己的事。
+ */
+const QUARK_PAN_HOST = 'pan.quark.cn';
+const QUARK_PAN_PORT = 443;
+
+/**
+ * 网盘协议的固定主机。返回 `null` = 该协议不是网盘，host 由用户填。
+ */
+function fixedNetdiskHost(protocol: RemoteProtocol): string | null {
+  if (isBaiduPanProtocol(protocol)) {
+    return BAIDU_PAN_HOST;
+  }
+
+  if (isQuarkPanProtocol(protocol)) {
+    return QUARK_PAN_HOST;
+  }
+
+  return null;
+}
+
+/** 网盘协议的固定端口。返回 `null` = 该协议不是网盘，port 由用户填。 */
+function fixedNetdiskPort(protocol: RemoteProtocol): number | null {
+  if (isBaiduPanProtocol(protocol)) {
+    return BAIDU_PAN_PORT;
+  }
+
+  if (isQuarkPanProtocol(protocol)) {
+    return QUARK_PAN_PORT;
+  }
+
+  return null;
+}
 
 export const useRemoteConnectionsStore = defineStore('remoteConnections', () => {
   const userPathsStore = useUserPathsStore();
@@ -168,7 +218,7 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
 
     // 百度网盘没有「服务器地址」与「端口」的概念 —— 主机恒为 pan.baidu.com，
     // 凭据是一整段 Cookie。拿 FTP 那套规则去卡它，用户根本填不出一个能保存的表单。
-    if (!isBaiduPanProtocol(form.protocol)) {
+    if (!isNetdiskProtocol(form.protocol)) {
       if (form.host.trim().length === 0) {
         return 'hostRequired';
       }
@@ -320,7 +370,55 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     // 第一步：密文先行。
     let credentialKey = existing?.credentialKey;
 
-    if (isBaiduPanProtocol(form.protocol)) {
+    if (isQuarkPanProtocol(form.protocol)) {
+      // 夸克网盘的凭据同样不是口令，是一整段会话 Cookie（核心是 `__pus`）。
+      // 走**独立**的 command：后端要解析出 `__pus` 并拒绝格式不合法的 cookie，
+      // 塞进通用的 `remote_save_credential` 等于把没解析过的垃圾也存成「已登录」。
+      if (hasNewPassword) {
+        await invoke('remote_quark_save_session', {
+          connectionId: id,
+          cookie: form.password,
+        });
+        credentialKey = id;
+      }
+      else if (form.clearPassword) {
+        await invoke('remote_quark_delete_session', {
+          connectionId: id,
+        });
+        credentialKey = undefined;
+      }
+      else {
+        // 内嵌登录：登录态先暂存在后端的「待认领槽位」里（它比连接本身先产生）。
+        // 认领必须放在这里：只有走到这一步才会有 id 可以落盘。
+        // 槽位为空时后端返回 claimed:false，是一次空操作，不会覆盖已存会话。
+        //
+        // ⚠️ 认领**失败**（登录窗尚未接线 / 读不到槽位）要归一化成
+        // 「没有可认领的登录态」：直接抛出的话，界面上拿到的是后端序列化后的
+        // 错误对象，`error instanceof Error` 为 false ⇒ 落进 'unknown'，
+        // 用户只会看到一句「保存连接失败。」，而不知道下一步该做什么。
+        let claimed: QuarkLoginClaimPayload | null = null;
+
+        try {
+          claimed = await invoke<QuarkLoginClaimPayload>('remote_quark_login_claim', {
+            connectionId: id,
+          });
+        }
+        catch (error) {
+          console.warn('Quark login claim failed:', error);
+        }
+
+        if (claimed?.claimed) {
+          credentialKey = id;
+        }
+        else if (!credentialKey) {
+          // 会话槽位是空的，而且这条连接本来也没有凭据 —— 保存下去会得到一条
+          // 「看起来加成功了、实际连不上」的网盘连接，界面上没有任何提示。
+          // 抛 i18n key，由表单按既有约定渲染成中文提示。
+          throw new Error('quarkLoginRequired');
+        }
+      }
+    }
+    else if (isBaiduPanProtocol(form.protocol)) {
       // 百度网盘的凭据不是口令，是一整段会话 Cookie（BDUSS + STOKEN）。
       // 走**独立**的 command：后端要解析出这两个值，并拒绝格式不合法的 cookie。
       // 塞进通用的 `remote_save_credential` 等于把没解析过的垃圾也存成「已登录」，
@@ -379,12 +477,8 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
       protocol: form.protocol,
       // 百度网盘不认自定义主机 —— 恒为 pan.baidu.com:443。
       // 写成别的值会让「远程位置」里那条连接连到别处去。
-      host: isBaiduPanProtocol(form.protocol)
-        ? BAIDU_PAN_HOST
-        : form.host.trim(),
-      port: isBaiduPanProtocol(form.protocol)
-        ? BAIDU_PAN_PORT
-        : form.port,
+      host: fixedNetdiskHost(form.protocol) ?? form.host.trim(),
+      port: fixedNetdiskPort(form.protocol) ?? form.port,
       username: form.username,
       initialPath: normalizedPath,
       // 空串 / 纯空白 → 字段整个不写出去，保持与「不摆双屏」同义。
@@ -486,12 +580,14 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     form: RemoteConnectionForm,
   ): Promise<RemoteConnectionTestReport> {
     const isBaidu = isBaiduPanProtocol(form.protocol);
-    let password = form.password.length > 0 && !form.clearPassword ? form.password : undefined;
-
-    // 百度网盘**不走** `loadCredentialForTest`：那边取回来的是存档里的会话
+    const isQuark = isQuarkPanProtocol(form.protocol);
+    // 网盘两种都**不走** `loadCredentialForTest`：那边取回来的是存档里的会话
     // JSON（不是原始 cookie），当成 cookie 发过去必然解析失败。
     // 这里留空即可 —— 后端会按 `credentialKey` 自己去读存档里的会话。
-    if (password === undefined && form.id && !form.clearPassword && !isBaidu) {
+    const isNetdisk = isBaidu || isQuark;
+    let password = form.password.length > 0 && !form.clearPassword ? form.password : undefined;
+
+    if (password === undefined && form.id && !form.clearPassword && !isNetdisk) {
       // 编辑既有连接且密码框留空：空串的语义是「不碰已存的密码」，
       // 所以要把存过的那条取出来用，否则测的其实是「空密码」。
       password = (await loadCredentialForTest(form.id)) ?? undefined;
@@ -501,22 +597,24 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     // 未保存的表单没有 id，就没有可读的会话 —— 后端只会回一句「还没有登录凭据」，
     // 而用户刚刚扫码成功过，读起来像「登录白做了」。这里直接说清楚缺的那一步。
     // （手工粘贴了 cookie 的情况不拦：`password` 有值就照常发出去测。）
-    if (isBaidu && password === undefined && !form.id) {
+    if (isNetdisk && password === undefined && !form.id) {
       return {
         outcome: 'missing_credential',
         passwordChecked: false,
         tlsVerified: false,
-        message: '这条百度网盘连接还没有保存，请先点「保存」，再点「测试连接」。',
+        message: isQuark
+          ? '这条夸克网盘连接还没有保存，请先点「保存」，再点「测试连接」。'
+          : '这条百度网盘连接还没有保存，请先点「保存」，再点「测试连接」。',
       };
     }
 
     return invoke<RemoteConnectionTestReport>('remote_test_connection', {
       request: {
         protocol: form.protocol,
-        // 百度网盘用存档里的会话去测；其余协议不需要这个字段。
-        credentialKey: isBaidu ? form.id : undefined,
-        host: isBaidu ? BAIDU_PAN_HOST : form.host.trim(),
-        port: isBaidu ? BAIDU_PAN_PORT : form.port,
+        // 网盘用存档里的会话去测；其余协议不需要这个字段。
+        credentialKey: isNetdisk ? form.id : undefined,
+        host: fixedNetdiskHost(form.protocol) ?? form.host.trim(),
+        port: fixedNetdiskPort(form.protocol) ?? form.port,
         username: form.username,
         password,
         proxy: form.proxy,
@@ -564,6 +662,48 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     await invoke('remote_baidu_login_cancel');
   }
 
+  /**
+   * 夸克网盘会话的当前状态，给设置页的授权卡用。
+   *
+   * **只返回状态，不返回凭据** —— 与后端一致：摘要里只有 cookie 的名字与长度，
+   * 没有任何明文片段。
+   */
+  async function getQuarkAuthStatus(
+    connectionId: string,
+  ): Promise<QuarkAuthStatusPayload> {
+    return invoke<QuarkAuthStatusPayload>('remote_quark_auth_status', {
+      connectionId,
+    });
+  }
+
+  /** 删掉已保存的夸克网盘会话（退出登录）。键不存在是成功的空操作。 */
+  async function deleteQuarkSession(connectionId: string): Promise<void> {
+    await invoke('remote_quark_delete_session', {
+      connectionId,
+    });
+  }
+
+  /**
+   * 打开**内嵌**夸克网盘登录窗口。
+   *
+   * 窗口由 Rust 侧建（`src-tauri/src/quark_login.rs`），前端只发起动作：
+   * 登录页跑在应用自己的 WebView2 里，cookie 直接落在应用的 cookie 罐，
+   * 后端才读得到 `HttpOnly` 的 `__pus`。
+   */
+  async function startQuarkLogin(): Promise<QuarkLoginStartPayload> {
+    return invoke<QuarkLoginStartPayload>('remote_quark_login_start');
+  }
+
+  /** 放弃内嵌登录：关窗口并丢弃已读到但没人认领的会话。 */
+  async function cancelQuarkLogin(): Promise<void> {
+    await invoke('remote_quark_login_cancel');
+  }
+
+  /** 有没有待认领的夸克登录态（前端打开表单时用来兜底）。 */
+  async function getQuarkLoginPending(): Promise<QuarkLoginPendingPayload> {
+    return invoke<QuarkLoginPendingPayload>('remote_quark_login_pending');
+  }
+
   return {
     storage,
     connections,
@@ -585,6 +725,11 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     deleteBaiduSession,
     startBaiduLogin,
     cancelBaiduLogin,
+    getQuarkAuthStatus,
+    deleteQuarkSession,
+    startQuarkLogin,
+    cancelQuarkLogin,
+    getQuarkLoginPending,
     requestRemoteEdit,
     consumeRemoteEdit,
     requestRemoteCreate,

@@ -31,7 +31,7 @@ import { computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PlusIcon, ServerIcon, SettingsIcon } from '@lucide/vue';
 import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
-import { hasRemoteLocalPath, isBaiduPanProtocol } from '@/types/remote';
+import { hasRemoteLocalPath, isNetdiskProtocol } from '@/types/remote';
 import type { RemoteConnection, RemoteProtocol } from '@/types/remote';
 
 const emit = defineEmits<{
@@ -61,7 +61,19 @@ const sections = computed(() => [
     addLabel: t('settings.remote.nav.addNetdisk'),
     emptyLabel: t('settings.remote.nav.emptyNetdisk'),
     protocol: 'baidu_pan' as RemoteProtocol,
-    connections: connections.value.filter(connection => isBaiduPanProtocol(connection.protocol)),
+    /**
+     * 该分区**除默认 provider 之外**还能预置的 provider。
+     *
+     * 网盘协议不在表单的协议下拉里，所以「添加夸克网盘」只能从这一层发起点进去 ——
+     * 否则用户点「添加网盘」永远只会得到百度的表单。
+     */
+    extraProviders: [
+      {
+        protocol: 'quark_pan' as RemoteProtocol,
+        label: t('settings.remote.netdisk.quark'),
+      },
+    ],
+    connections: connections.value.filter(connection => isNetdiskProtocol(connection.protocol)),
   },
   {
     key: 'remote',
@@ -69,7 +81,8 @@ const sections = computed(() => [
     addLabel: t('settings.remote.nav.addRemote'),
     emptyLabel: t('settings.remote.nav.emptyRemote'),
     protocol: 'ftp' as RemoteProtocol,
-    connections: connections.value.filter(connection => !isBaiduPanProtocol(connection.protocol)),
+    extraProviders: [],
+    connections: connections.value.filter(connection => !isNetdiskProtocol(connection.protocol)),
   },
 ]);
 
@@ -105,15 +118,28 @@ onMounted(async () => {
     >
       <div class="remote-nav-panel__section-head">
         <span class="remote-nav-panel__label">{{ section.label }}</span>
-        <button
-          type="button"
-          class="remote-nav-panel__section-add"
-          :data-test="`remote-nav-add-${section.key}`"
-          @click="emit('add', section.protocol)"
-        >
-          <PlusIcon :size="12" />
-          <span>{{ section.addLabel }}</span>
-        </button>
+        <div class="remote-nav-panel__section-actions">
+          <button
+            type="button"
+            class="remote-nav-panel__section-add"
+            :data-test="`remote-nav-add-${section.key}`"
+            @click="emit('add', section.protocol)"
+          >
+            <PlusIcon :size="12" />
+            <span>{{ section.addLabel }}</span>
+          </button>
+          <button
+            v-for="provider in section.extraProviders"
+            :key="provider.protocol"
+            type="button"
+            class="remote-nav-panel__section-add"
+            :data-test="`remote-nav-add-${provider.protocol}`"
+            @click="emit('add', provider.protocol)"
+          >
+            <PlusIcon :size="12" />
+            <span>{{ provider.label }}</span>
+          </button>
+        </div>
       </div>
 
       <p
@@ -236,6 +262,19 @@ onMounted(async () => {
 
 .remote-nav-panel__section-add:hover {
   background-color: hsl(var(--foreground) / 8%);
+}
+
+/*
+ * 分区标题右侧那一排按钮（默认 provider + 额外 provider）的容器。
+ *
+ * 容器化而不是给两颗按钮各自加 margin：provider 数量会随网盘种类继续增加，
+ * 之后加一颗按钮不需要再回来改边距。
+ */
+
+.remote-nav-panel__section-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /*

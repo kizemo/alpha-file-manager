@@ -9,7 +9,7 @@ import { buildRemoteConnectionPath } from '@/utils/remote-paths';
  * 「位置」页里的一条远程条目。
  *
  * `protocol` 一并留着：「位置」页要按「网盘 / 远程连接」分区（用户 2026-11-08 需求 1），
- * 归类口径与设置页、主页完全一致 —— `isBaiduPanProtocol`。
+ * 归类口径与设置页、主页完全一致 —— `isNetdiskProtocol`。
  */
 export interface RemoteLocationRef {
   path: string;

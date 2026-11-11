@@ -28,7 +28,7 @@ import {
 } from '@/utils/virtual-path-constants';
 import { createDriveEntryMetadata } from '@/utils/drive-icon';
 import { getRemoteLocationRefs } from '@/utils/remote-location-refs';
-import { isBaiduPanProtocol } from '@/types/remote';
+import { isNetdiskProtocol } from '@/types/remote';
 
 export {
   isVirtualDirectoryPath,
@@ -134,9 +134,9 @@ function getRemoteLocationEntries(): DirEntry[] {
   return getRemoteLocationRefs().map((ref) => {
     const entry = createVirtualDirectoryEntry(ref.path, ref.name);
 
-    // 归类口径与设置页、主页**完全一致**：只有 `isBaiduPanProtocol` 一个判定。
+    // 归类口径与设置页、主页**完全一致**：只有 `isNetdiskProtocol` 一个判定。
     // 以后接阿里云盘只要扩这个函数，「位置」页自动跟上。
-    entry.location_group = isBaiduPanProtocol(ref.protocol) ? 'netdisk' : 'remote';
+    entry.location_group = isNetdiskProtocol(ref.protocol) ? 'netdisk' : 'remote';
 
     return entry;
   });

@@ -12,7 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ServerIcon, PlusIcon, TrashIcon } from '@lucide/vue';
 import ConnectionForm from './connection-form.vue';
 import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
-import { isBaiduPanProtocol } from '@/types/remote';
+import { isNetdiskProtocol } from '@/types/remote';
 import type { RemoteConnection, RemoteProtocol } from '@/types/remote';
 import { sectionOfConnection, sectionOfProtocol } from './sections';
 import type { RemoteSection } from './sections';
@@ -40,8 +40,36 @@ const emit = defineEmits<{ 'section-change': [section: RemoteSection] }>();
 /** 新建远程连接时预置的协议。网盘表单不认这个（形态已经定死）。 */
 const createProtocol = ref<RemoteProtocol>('ftp');
 
-const netdiskConnections = computed(() => store.connections.filter(connection => isBaiduPanProtocol(connection.protocol)));
-const remoteConnections = computed(() => store.connections.filter(connection => !isBaiduPanProtocol(connection.protocol)));
+/**
+ * 网盘分区的 **provider 选择器**（2026-11-11 夸克网盘）。
+ *
+ * 网盘协议**不在**表单的协议下拉里 —— `connection-form.vue` 的 `PROTOCOLS`
+ * 刻意不含网盘协议（塞进去就是一条「选了却填不了对应字段」的死路），
+ * 所以「选哪个网盘」天然属于分区层的职责：这里二选一，选中后预置给表单。
+ *
+ * **默认百度** —— 与夸克接入之前的既有行为逐字一致。
+ */
+const netdiskProvider = ref<'baidu_pan' | 'quark_pan'>('baidu_pan');
+
+/** provider 选择器的两个选项。 */
+const NETDISK_PROVIDERS = [
+  {
+    protocol: 'baidu_pan' as const,
+    labelKey: 'settings.remote.netdisk.baidu',
+  },
+  {
+    protocol: 'quark_pan' as const,
+    labelKey: 'settings.remote.netdisk.quark',
+  },
+];
+
+function selectNetdiskProvider(next: 'baidu_pan' | 'quark_pan'): void {
+  netdiskProvider.value = next;
+  createProtocol.value = next;
+}
+
+const netdiskConnections = computed(() => store.connections.filter(connection => isNetdiskProtocol(connection.protocol)));
+const remoteConnections = computed(() => store.connections.filter(connection => !isNetdiskProtocol(connection.protocol)));
 
 /**
  * 用户手动选过的分区。
@@ -94,7 +122,7 @@ const activeVariant = computed<'netdisk' | 'remote'>(() => activeSection.value);
  * 这里把它挡回默认协议。
  */
 const remoteInitialProtocol = computed<RemoteProtocol>(() => (
-  isBaiduPanProtocol(createProtocol.value) ? 'ftp' : createProtocol.value
+  isNetdiskProtocol(createProtocol.value) ? 'ftp' : createProtocol.value
 ));
 
 /**
@@ -161,6 +189,14 @@ function applyPendingCreate(): void {
   }
 
   createProtocol.value = requested;
+
+  // 导航栏「添加网盘」可以预置具体 provider（百度 / 夸克）——
+  // 请求带的是网盘协议时，provider 选择器要跟着它走，
+  // 否则表单会按上一个 provider 渲染。
+  if (isNetdiskProtocol(requested)) {
+    netdiskProvider.value = requested === 'quark_pan' ? 'quark_pan' : 'baidu_pan';
+  }
+
   activeSection.value = sectionOfProtocol(requested);
   editing.value = null;
   isCreating.value = true;
@@ -355,6 +391,37 @@ function describeProxy(connection: RemoteConnection): string {
       </li>
     </ul>
 
+    <!--
+      网盘分区的 provider 选择器（2026-11-11 夸克网盘）。
+
+      网盘协议不在表单的协议下拉里，所以「选哪个网盘」在这一层解决。
+      选中后表单按该 provider 渲染：百度 → 现有 `baidu_pan` 分支，
+      夸克 → `quark_pan` 分支（隐藏主机 / 端口 / 密码框，改显授权卡）。
+    -->
+    <div
+      v-if="activeSection === 'netdisk'"
+      class="remote-connections__providers"
+      data-test="netdisk-provider"
+    >
+      <span class="remote-connections__providers-label">
+        {{ t('settings.remote.netdisk.provider') }}
+      </span>
+      <div class="remote-connections__providers-options">
+        <Button
+          v-for="option in NETDISK_PROVIDERS"
+          :key="option.protocol"
+          type="button"
+          variant="outline"
+          size="sm"
+          :data-test="`netdisk-provider-${option.protocol}`"
+          :aria-pressed="netdiskProvider === option.protocol"
+          @click="selectNetdiskProvider(option.protocol)"
+        >
+          {{ t(option.labelKey) }}
+        </Button>
+      </div>
+    </div>
+
     <Button
       v-if="!isCreating && editing === null"
       variant="outline"
@@ -374,10 +441,11 @@ function describeProxy(connection: RemoteConnection): string {
     -->
     <ConnectionForm
       v-if="isCreating"
-      :key="`create-${activeSection}`"
+      :key="`create-${activeSection}-${netdiskProvider}`"
       :connection="null"
       :variant="activeVariant"
       :initial-protocol="remoteInitialProtocol"
+      :netdisk-protocol="netdiskProvider"
       @cancel="closeForm"
       @saved="closeForm"
     />
@@ -444,6 +512,29 @@ function describeProxy(connection: RemoteConnection): string {
   display: flex;
   width: 100%;
   max-width: 100%;
+}
+
+/*
+  网盘分区的 provider 选择器（2026-11-11 夸克网盘）。
+
+  摆成「一行标签 + 两颗按钮」而不是下拉框：下拉框要展开才看得到有两个网盘，
+  而这一栏本来就是「二选一」，平铺出来一眼可选。
+*/
+
+.remote-connections__providers {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.remote-connections__providers-label {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.8rem;
+}
+
+.remote-connections__providers-options {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .remote-connections__list {

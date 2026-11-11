@@ -11,8 +11,8 @@
 // - `RemoteProxyConfig` ← `ProxyConfig`（`#[serde(tag = "kind", rename_all = "snake_case")]`）
 // - `RemoteConnection` ← `RemoteConnection`（camelCase）
 
-/** 与后端 `RemoteProtocol` 的五个变体一一对应。 */
-export type RemoteProtocol = 'ftp' | 'ftps_explicit' | 'ftps_implicit' | 'sftp' | 'baidu_pan';
+/** 与后端 `RemoteProtocol` 的六个变体一一对应。 */
+export type RemoteProtocol = 'ftp' | 'ftps_explicit' | 'ftps_implicit' | 'sftp' | 'baidu_pan' | 'quark_pan';
 
 /**
  * 代理出口。
@@ -157,6 +157,9 @@ export function getRemoteProtocolDefaultPort(protocol: RemoteProtocol): number {
     case 'baidu_pan':
       // 百度网盘走 HTTPS。
       return 443;
+    case 'quark_pan':
+      // 夸克网盘同样走 HTTPS。
+      return 443;
     default:
       return 21;
   }
@@ -172,6 +175,27 @@ export function getRemoteProtocolDefaultPort(protocol: RemoteProtocol): number {
  */
 export function isBaiduPanProtocol(protocol: RemoteProtocol): boolean {
   return protocol === 'baidu_pan';
+}
+
+/**
+ * 是不是夸克网盘协议。
+ *
+ * 与百度网盘同构：没有「自选服务器」可言 —— 主机恒为 `pan.quark.cn`，
+ * 凭据也不是口令而是一整段 Cookie（核心是 `__pus`）。
+ */
+export function isQuarkPanProtocol(protocol: RemoteProtocol): boolean {
+  return protocol === 'quark_pan';
+}
+
+/**
+ * 是不是**网盘**协议（百度 / 夸克都算）。
+ *
+ * 分区判定（「网盘」标签 vs「远程连接」标签）必须用这个口径，
+ * 而不是 `isBaiduPanProtocol` —— 后者只认百度，
+ * 夸克连接会被误分到「远程连接」标签下。
+ */
+export function isNetdiskProtocol(protocol: RemoteProtocol): boolean {
+  return isBaiduPanProtocol(protocol) || isQuarkPanProtocol(protocol);
 }
 
 /**
@@ -303,6 +327,65 @@ export interface BaiduLoginEventPayload {
   status: 'ready' | 'closed' | 'timeout' | 'error';
   /** STOKEN 是否也拿到了（只影响上传加速，不是登录成功的前提）。 */
   hasStoken: boolean;
+  /** 只有 cookie 的名字与长度，不含任何明文片段。 */
+  summary: string | null;
+  /** 面向用户的短说明，可直接展示。 */
+  message: string | null;
+}
+
+/**
+ * 夸克网盘会话的授权状态。与后端 `QuarkAuthStatusPayload` 逐条镜像。
+ *
+ * `status` 是**分类**，不是文案 —— 前端按它分支，文案另走 i18n。
+ * `summary` 是后端 `describe_state` 出来的脱敏一句话，可直接展示，
+ * 但**不能**拿它做逻辑判断（会随版本改措辞）。
+ */
+export type QuarkAuthStatusKind = 'missing' | 'ready' | 'stale' | 'stale_soon';
+
+export interface QuarkAuthStatusPayload {
+  status: QuarkAuthStatusKind;
+  /** 信任窗口还剩多少秒。`undefined` = 不知道上次验活时间。 */
+  remainingSeconds?: number;
+  /** 脱敏状态说明。 */
+  summary: string;
+}
+
+/** 夸克登录窗是否已打开。与后端 `QuarkLoginStartPayload` 镜像。 */
+export interface QuarkLoginStartPayload {
+  opened: boolean;
+}
+
+/** 有没有待认领的夸克登录态。与后端 `QuarkLoginPendingPayload` 镜像。 */
+export interface QuarkLoginPendingPayload {
+  pending: boolean;
+  /** 脱敏描述（只有 cookie 的名字与长度，没有内容）。 */
+  summary: string;
+}
+
+/**
+ * 夸克内嵌登录的「认领」结果。与后端 `QuarkLoginClaimPayload` 镜像。
+ *
+ * `claimed === false` **不是错误**：用户没走内嵌登录就直接点保存时，
+ * 后端没有待认领的会话，认领是一次空操作。
+ */
+export interface QuarkLoginClaimPayload {
+  claimed: boolean;
+  /** 脱敏描述。 */
+  summary: string;
+}
+
+/**
+ * 夸克内嵌登录的进度事件。与后端
+ * `src-tauri/src/quark_login.rs::QuarkLoginEvent` 镜像，由
+ * `afm://quark-login` 频道推送。
+ *
+ * - `ready`：已经读回可用的登录态（`__pus` 已到手），**此时还没落盘** ——
+ *   落盘发生在「保存」时（那时才有连接 id），所以界面文案要说清「填名字再保存」。
+ * - `closed`：用户自己关掉了登录窗且当时还没读到登录态。
+ * - `timeout` / `error`：放弃等待。
+ */
+export interface QuarkLoginEventPayload {
+  status: 'ready' | 'closed' | 'timeout' | 'error';
   /** 只有 cookie 的名字与长度，不含任何明文片段。 */
   summary: string | null;
   /** 面向用户的短说明，可直接展示。 */

@@ -652,7 +652,8 @@
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
-        "baidu_pan": "Baidu ネットディスク"
+        "baidu_pan": "Baidu ネットディスク",
+        "quark_pan": "クアークドライブ"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -678,7 +679,8 @@
         "unknown": "Failed to save the connection.",
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
-        "baiduLoginRequired": "先にアプリ内で Baidu Pan にログインしてから、この接続を保存してください。"
+        "baiduLoginRequired": "先にアプリ内で Baidu Pan にログインしてから、この接続を保存してください。",
+        "quarkLoginRequired": "この接続を保存する前に、アプリ内でクアークドライブにログインしてください。"
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -745,6 +747,37 @@
           },
           "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
         }
+      },
+      "quark": {
+        "status": {
+          "loading": "認証状態を確認しています…",
+          "missing": "未ログイン",
+          "ready": "認証済み",
+          "stale": "セッションの有効期限が切れました。再度ログインしてください",
+          "stale_soon": "セッションの有効期限が近づいています"
+        },
+        "action": {
+          "deleteSession": "保存済みのセッションを削除"
+        },
+        "embedded": {
+          "title": "アプリ内でログイン",
+          "start": "埋め込みウィンドウでログイン",
+          "cancel": "待機を停止",
+          "hint": "アプリ内にログインウィンドウが開きます。ログインが完了すると自動的に閉じ、セッションもすぐ取得されます。この接続を保存するだけです。",
+          "status": {
+            "waiting": "ログインをお待ちしています…",
+            "ready": "ログインしました。この接続を保存してください。セッションは保存時に書き込まれます。",
+            "closed": "ログインが完了する前にウィンドウが閉じられました。",
+            "timeout": "ログインの待機がタイムアウトしました。もう一度お試しください。",
+            "error": "ログイン状態を読み取れませんでした。もう一度お試しください。"
+          },
+          "saved": "クアークドライブにログインしました。ウィンドウは自動的に閉じ、セッションも取得済みです。この接続を保存すると利用できます。"
+        }
+      },
+      "netdisk": {
+        "provider": "クラウドドライブ",
+        "baidu": "Baidu ドライブ",
+        "quark": "クアークドライブ"
       }
     },
     "about": {

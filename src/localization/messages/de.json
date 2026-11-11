@@ -652,7 +652,8 @@
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
-        "baidu_pan": "Baidu Netdisk"
+        "baidu_pan": "Baidu Netdisk",
+        "quark_pan": "Quark Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -678,7 +679,8 @@
         "unknown": "Failed to save the connection.",
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
-        "baiduLoginRequired": "Melden Sie sich zuerst in der App bei Baidu Pan an und speichern Sie dann diese Verbindung."
+        "baiduLoginRequired": "Melden Sie sich zuerst in der App bei Baidu Pan an und speichern Sie dann diese Verbindung.",
+        "quarkLoginRequired": "Melde dich vor dem Speichern dieser Verbindung in der App bei Quark Drive an."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -745,6 +747,37 @@
           },
           "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
         }
+      },
+      "quark": {
+        "status": {
+          "loading": "Autorisierungsstatus wird gelesen…",
+          "missing": "Nicht angemeldet",
+          "ready": "Autorisiert",
+          "stale": "Die Sitzung ist abgelaufen; bitte erneut anmelden",
+          "stale_soon": "Die Sitzung läuft bald ab"
+        },
+        "action": {
+          "deleteSession": "Gespeicherte Sitzung löschen"
+        },
+        "embedded": {
+          "title": "In der App anmelden",
+          "start": "Im eingebetteten Fenster anmelden",
+          "cancel": "Warten abbrechen",
+          "hint": "In der App öffnet sich ein Anmeldefenster. Es schließt sich automatisch, sobald du angemeldet bist, und die Sitzung wird sofort übernommen – du musst diese Verbindung nur noch speichern.",
+          "status": {
+            "waiting": "Warten auf deine Anmeldung…",
+            "ready": "Angemeldet. Speichere diese Verbindung – die Sitzung wird beim Speichern geschrieben.",
+            "closed": "Das Anmeldefenster wurde geschlossen, bevor du mit der Anmeldung fertig warst.",
+            "timeout": "Zeitüberschreitung beim Warten auf die Anmeldung. Bitte erneut versuchen.",
+            "error": "Der Anmeldestatus konnte nicht gelesen werden. Bitte erneut versuchen."
+          },
+          "saved": "Bei Quark Drive angemeldet: Das Fenster wurde automatisch geschlossen und die Sitzung übernommen. Speichere diese Verbindung, um sie zu nutzen."
+        }
+      },
+      "netdisk": {
+        "provider": "Cloud-Speicher",
+        "baidu": "Baidu Drive",
+        "quark": "Quark Drive"
       }
     },
     "about": {
