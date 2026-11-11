@@ -822,3 +822,65 @@ NEG_EXIT=5
 **没有做的事**：本轮**没有**真跑一次 `/S /FORCE` 安装（`bundle\nsis\` 下的 setup.exe 当前不存在，重建整包代价高且与本条无关）。
 `/FORCE` 有效性来自 §16.4 的既有实证；新脚本的**安装分支**因此只做到「静态审查 + 判据阳/阴性对照」，
 判据本身已被两条对照打穿，安装分支待下次有整包时首次跑通即可。
+
+## 18 批次 11：3.14.0 发版（2026-11-12 00:50 起）
+
+### 18.1 本轮做了什么
+
+| 项 | 结果 |
+| --- | --- |
+| 打包 | `npm run tauri:build` → `BUILD_EXIT=0`；新包 `Alpha File Manager_3.14.0_x64-setup.exe` = 45451606 B / sha256 `0d0462097376833d3e9a812ce9d5a4be4d1d268fb45a3da4d1d9b3f47185a3e6` |
+| 版本 | `package.json` / `Cargo.toml` 已是 3.14.0（上一轮已 bump），本轮 `prepare --bump none` **原地发版**，没有顶到 3.15.0 |
+| 站点 | `prepare` 写 `E:\办公文件\L1网站\alpha-file-manager\version.json`：3.13.5 已归档进 `history[]`（共 20 条），`version=3.14.0`，`sha256` 与本地包一致；安装包副本 `Alpha_File_Manager_3.14.0_x64-setup.exe` 已落到站点源目录 |
+| GitHub | commit `a5d34147` → `origin/main`（本地领先 16 条已全部推送）；tag `v3.14.0`（annotated）落在 `a5d34147`；release `v3.14.0` 已建（draft=false / prerelease=false），资产 `Alpha_File_Manager_3.14.0_x64-setup.exe` 45451606 B，正文取自 `_release-notes-v3.14.0.md` |
+| README | 中英文都新增「为什么比用 alist 挂载到资源管理器更省事」对照表 + 3.14.0 变更小节；CHANGELOG 补「登录态不完整就不会被存下来」 |
+
+### 18.2 本轮踩到的坑（别再踩）
+
+1. **`cargo` 不在 PATH ⇒ `npm run tauri:build` 直接失败**：
+   `failed to run 'cargo metadata' ... program not found`。
+   解法：把工具链 bin 加进 PATH —— `C:\Users\Duanyi\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin`。
+2. **别用 `stable` 工具链**：本机 `stable` 是 **rustc 1.97.1**，编译 `phf_shared 0.13.1` 报
+   `E0463 can't find crate` / `Sized not in scope`（67 errors）⇒ 构建失败。
+   **1.90.0 才是发版脚本 `AFM_TOOLCHAIN_BIN` 的默认值，也是能编过的那一档。**
+3. **同版本重名安装包不会被覆盖**：`publish-bundle-to-release.mjs` 的规则是「目标存在但内容不同 ⇒ 改写到
+   `release/local-builds/`」。所以 3.14.0 新包落在 `release/local-builds/`，`release/` 顶层那份是 11-11 的旧构建。
+   `release-publish.mjs` 的 `latestInstaller()` 按 **mtime** 在两个目录里一起挑 ⇒ 新包 mtime 最新会被选中；
+   但**别自己去改顶层那份**（它可能是已发布资产的副本）。
+4. **`prepare` 默认会顶版本号**：`--bump` 默认 `patch` ⇒ 3.14.0 会变成 3.14.1。
+   原地发版必须显式 `--bump none`（`bumpVersion` 支持 `none`）。
+5. **上传脚本是全量**：`_upload_alpha_files.py` 不做「远端已存在就跳过」，每次传 42 个文件 ≈ 1.09 GB
+   （含全部历史版本安装包），本轮实测约 1 MB/s ⇒ **要 15–20 分钟**，必须丢后台跑。
+
+### 18.3 发版后核对（AGENTS §2.7 三条）
+
+| 判据 | 结果 |
+| --- | --- |
+| tag 目标提交的 `package.json` 版本 == 发布版本 | ✅ `a5d34147` → `3.14.0` |
+| tag 目标包含本次功能提交 | ✅ `merge-base --is-ancestor 17563ae0 v3.14.0` = True |
+| tag 内能 grep 到本次新增标识符 | ✅ `v3.14.0:src-tauri/src/quark_login.rs` 含 `__puus` 落定等待与 `settle:` 日志 |
+
+### 18.4 站点上传与公网核验
+
+| 步骤 | 结果 |
+| --- | --- |
+| 全量上传 | `node scripts/release-publish.mjs upload` → SFTP `47.120.26.175:22`，远端 `/var/www/wordpress/alpha-file-manager`；本地预检 42 文件 / 1093.64 MB；`index.html` / `.htaccess` / `version.json` / `download.php` 先传完，`Alpha_File_Manager_3.14.0_x64-setup.exe`（ASCII 序第 20 个 .exe）上传 OK |
+| 公网版本清单 | `https://www.aiec.fun/alpha-file-manager/version.json` → 200，`version=3.14.0`，`sha256=0d046209…5a3e6`，`history[]` 共 20 条 |
+| 公网安装包（字节级） | 从公网 URL 整包下载 → 45451606 B，sha256 `0d0462097376833d3e9a812ce9d5a4be4d1d268fb45a3da4d1d9b3f47185a3e6` ⇒ **与本地包逐字节一致** |
+| 站点首页 | `index.html` 用 `version.json?_=' + Date.now()` 动态取版本，无硬编码版本号 ⇒ 无需改，也不受版本号硬编码带来的错配 |
+
+**新增工具坑（本轮踩到）**：PowerShell 里 `Invoke-WebRequest -Method Head` 拿到的
+`$r.Headers['Content-Length']` 在大文件上是 **`String[]`**（不是 `String`），
+直接 `[int64]$h.Headers['Content-Length']` 会抛
+「无法将类型 System.String[] 转换为类型 System.Int64」⇒ 等待脚本会把它当成「仍未上线」而空转。
+正确写法取 `$r.Headers['Content-Length'][0]`，或**以整包下载后的字节数为准**（本轮用的就是后者，更硬）。
+
+### 18.5 本轮**没有**做的事（如实登记）
+
+1. **winget 清单没更新**：仓库内 `docs/winget/manifests` 最新只到 **3.12.1**，3.13.x 从未入库。
+   该流程走上游 `winget-pkgs` PR，需要人工评审，且受「上一版 PR 合并后才能提下一版」限制。
+   本轮用户指令未要求 ⇒ 未动。
+2. **没有替用户强制重装 3.14.0**：3.14.0 的功能已在**同代码**的装机版上完成真机验收（批次 9–10）；
+   本轮新包与已验收包字节不同（构建时点 / 工具链产物差异），重装会打断用户正在运行的实例 ⇒ 不强制。
+3. **历史版本安装包的站点上传仍在收尾**（3.2.4 及更早的一批）：与 3.14.0 无关，不影响本轮结论。
+
