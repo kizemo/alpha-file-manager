@@ -42,6 +42,7 @@ mod focus_sync_supervisor;
 pub mod mcp;
 mod open_with;
 mod process_runner;
+mod quark_login;
 pub mod remote;
 pub mod startup_probe;
 mod startup_storage_bootstrap;
@@ -381,6 +382,13 @@ pub fn run() {
             baidu_login::remote_baidu_login_pending,
             baidu_login::remote_baidu_login_claim,
             baidu_login::remote_baidu_login_cancel,
+            remote::remote_quark_save_session,
+            remote::remote_quark_auth_status,
+            remote::remote_quark_delete_session,
+            quark_login::remote_quark_login_start,
+            quark_login::remote_quark_login_pending,
+            quark_login::remote_quark_login_claim,
+            quark_login::remote_quark_login_cancel,
             remote::remote_test_connection,
             remote::remote_read_dir,
             remote::remote_stat_dir_entry,

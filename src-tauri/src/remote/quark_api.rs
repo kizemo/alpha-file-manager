@@ -28,8 +28,11 @@
 //   - §3.2.2 列表调用：`GET https://drive-pc.quark.cn/1/clouddrive/file/sort`
 //     → `{"code":0,"data":{"list":[...],"metadata":{...}}}`
 //   - §3.2.4 错误码表（模块 887411 `ERROR_TIPS`，另有一份副本多 3 个码）
-//   - §3.2.5 下载语义：`GET /1/clouddrive/file/download?fid={fid}`
-//     → 带 `auth_key` / `Expires` 的直链
+//   - §3.2.5 下载语义：**`POST /1/clouddrive/file/download`**（body `{"fids":[fid]}`）
+//     → 带 `auth_key` 的直链。
+//     ⚠️ §3.2.5 / §4.6 写的是 `GET .../download?fid={fid}`，**实测 GET 一律
+//     HTTP 405**；基础参数必须放 query、`fid` 必须走请求体。证据见
+//     `.superpowers/sdd/quark/t0-download-post.md`。
 //   - §3.2.6 条目字段：`fid` / `pdir_fid` / `name` / `file_name` / `size` /
 //     `format_type` / `file_type` / `download_url` / `thumbnail` / `updated_at` …
 //   - §4.6 API 层契约、§4.7 错误映射表（穷尽）
@@ -76,9 +79,12 @@ pub const QUARK_PR: &str = "ucpro";
 /// 客户端来源标识。Windows 客户端固定为 `win`（`ucparams.fr`：
 /// `darwin ? "mac" : "win"`，模块 780721）。
 ///
-/// ⚠️ 开源脚本用 `pc`，两边都被广泛使用；§7-U5 要求 T0 做 A/B 对照。
-/// 本轮按**真实客户端**取 `win`。
-pub const QUARK_FR: &str = "win";
+/// ⚠️ **T0 已实测（2026-11-11）**：`fr=pc` → HTTP 200 / `code=0` / `list=5`；
+/// `fr=pc` → HTTP 401 / `code=31001`（`require login [guest]`）。
+///
+/// 也就是说 `fr` 是**成功与失败的分水岭** —— 同一罐 cookie、同一批其它参数，
+/// 只改 `fr` 就从 200 变 401。之前「按真实客户端取 `win`」的取法是错的。
+pub const QUARK_FR: &str = "pc";
 
 /// 操作系统标识（客户端取 `process.platform`，Windows 上是 `win32`）。
 pub const QUARK_SYS: &str = "win32";
@@ -410,7 +416,7 @@ pub fn encode_query_component(raw: &str) -> String {
 /// GET https://drive-pc.quark.cn/1/clouddrive/file/sort
 ///     ?pdir_fid=0&_page=1&_size=100&_fetch_total=1&_fetch_sub_dirs=0
 ///     &_sort=file_name:asc,updated_at:desc
-///     &pr=ucpro&fr=win&sys=win32&ve={UA 版本}&uc_param_str={固定串}
+///     &pr=ucpro&fr=pc&sys=win32&ve={UA 版本}&uc_param_str={固定串}
 ///     &client_id=533
 ///     &device_model={本机主机名}&ut={QUARK_WSGUID}
 /// ```
@@ -472,18 +478,46 @@ pub fn quark_account_info_url() -> String {
     format!("https://{QUARK_PAN_HOST}/account/info?fr=pc&platform=pc")
 }
 
-/// 取下载直链：`/1/clouddrive/file/download?fid={fid}`。
+/// 取下载直链接口的 URL：`POST /1/clouddrive/file/download?<基础参数>`。
 ///
-/// 返回体里带 `auth_key` / `Expires` 的 `download_url`；直链本身要**显式带
-/// Cookie 头**去下载（客户端就是这么干的，§3.2.5）。
+/// ⚠️ **T0 已实测**（`.superpowers/sdd/quark/t0-download-post.md`）：
 ///
-/// ⚠️ **未实证**：§4.6 只给了这条路径的形态。直链是否也需要 `pr` / `fr` 等
-/// 基础参数、T0 补测后在本函数里补齐即可 —— 传输层还没写，现在改成本最低。
-pub fn quark_download_url(fid: &str) -> String {
+/// - 这个端点**只收 POST**。`GET .../download?fid={fid}` 三个变体**一律
+///   HTTP 405**（方案 §3.2.5 / §4.6 写的 GET 是错的）。
+/// - **基础参数必须放在 query**：缺了就 **HTTP 401**（实测 6 个 POST 变体里
+///   只有「query 带基础参数 + body 带 `{"fids":[fid]}`」这一个 200/code=0）。
+/// - **`fid` 走请求体**，不在 query 里 —— body 形状是 `{"fids":[fid]}`（数组）。
+///
+/// 返回体里带 `auth_key` 的 `download_url`；直链本身要**显式带 Cookie 头**去
+/// 下载（客户端就是这么干的，§3.2.5）。
+///
+/// `device_model` 是基础参数之一（实测带上可用）。这里**不**带 `ut` —— 实测
+/// 成功的那个变体就没有它，不引入没验证过的参数。
+pub fn quark_download_url(device_model: &str) -> String {
     format!(
-        "{QUARK_DRIVE_BASE_URL}/1/clouddrive/file/download?fid={}",
-        encode_query_component(fid)
+        "{QUARK_DRIVE_BASE_URL}/1/clouddrive/file/download\
+         ?pr={pr}\
+         &fr={fr}\
+         &sys={sys}\
+         &ve={ve}\
+         &uc_param_str={uc}\
+         &client_id={client_id}\
+         &device_model={device_model}",
+        pr = QUARK_PR,
+        fr = QUARK_FR,
+        sys = QUARK_SYS,
+        ve = QUARK_CLIENT_VERSION,
+        uc = QUARK_UC_PARAM_STR,
+        client_id = QUARK_CLIENT_ID,
+        device_model = encode_query_component(device_model),
     )
+}
+
+/// 下载直链接口的**请求体**：`{"fids":["<fid>"]}`。
+///
+/// ⚠️ `fids` 是**数组**（不是标量）—— 实测 `{"fid": fid}` 那种形状返回 401。
+pub fn quark_download_request_body(fid: &str) -> String {
+    serde_json::json!({ "fids": [fid] }).to_string()
 }
 
 /// 从 `User-Agent` 里抠出客户端版本号（`QuarkPC/x.y.z.w`）。
@@ -600,7 +634,11 @@ pub struct QuarkFileEntry {
     #[serde(default, deserialize_with = "deserialize_lenient_i64")]
     pub file_type: i64,
     /// 文件格式类型。
-    #[serde(default, deserialize_with = "deserialize_lenient_i64")]
+    ///
+    /// ⚠️ **T0 已实测**：真实响应里它是 **MIME 字符串**（`image/jpeg`），
+    /// 不是数字。数字形态（方案 §4.6）也收；解不出数字就落 `0` ——
+    /// 这个字段不参与目录/文件判定，**不能**因为它读不出来就让整页列表失败。
+    #[serde(default, deserialize_with = "deserialize_lenient_i64_lossy")]
     pub format_type: i64,
     /// 服务器修改时间。⚠️ **秒还是毫秒未定**（§7-U8）。
     #[serde(default, deserialize_with = "deserialize_lenient_u64")]
@@ -615,7 +653,10 @@ pub struct QuarkFileEntry {
     #[serde(default)]
     pub share_fid_token: Option<String>,
     /// 命名空间。
-    #[serde(default)]
+    ///
+    /// ⚠️ **T0 已实测**：真实响应里它是**数字**（`0`），方案里抄的是路径字符串。
+    /// 两种都收 ⇒ 用容错反序列化，数字转成十进制字符串。
+    #[serde(default, deserialize_with = "deserialize_lenient_string")]
     pub name_space: Option<String>,
 }
 
@@ -679,7 +720,8 @@ pub fn parse_list_response(body: &str) -> Result<Vec<QuarkFileEntry>, QuarkFailu
 
 /// 解析列表响应，并带回 `metadata` 里的总数。
 ///
-/// 形态：`{"code":0,"data":{"list":[...],"metadata":{...}}}`。
+/// 形态（T0 实测）：`{"code":0,"status":200,"data":{"list":[...]},"metadata":{...}}`
+/// —— `metadata` 在**顶层**。
 pub fn parse_list_payload(body: &str) -> Result<QuarkListPayload, QuarkFailure> {
     let root: serde_json::Value =
         serde_json::from_str(body).map_err(|_| QuarkFailure::Malformed)?;
@@ -692,9 +734,14 @@ pub fn parse_list_payload(body: &str) -> Result<QuarkListPayload, QuarkFailure> 
     let entries: Vec<QuarkFileEntry> =
         serde_json::from_value(list.clone()).map_err(|_| QuarkFailure::Malformed)?;
 
+    // ⚠️ **T0 已实测**：`metadata` 在**顶层**（与 `code` / `status` 同级），
+    // 不在 `data` 里面。方案里抄的 `data.metadata` 形态取不到 ⇒ 顶层优先，
+    // 再退回 `data.metadata` 兼容旧形态。
+    let metadata = root.get("metadata").or_else(|| data.get("metadata"));
+
     Ok(QuarkListPayload {
         entries,
-        total: metadata_total(data.get("metadata")),
+        total: metadata_total(metadata),
     })
 }
 
@@ -717,9 +764,12 @@ pub fn parse_account_info_response(body: &str) -> Result<QuarkUserInfo, QuarkFai
 
 /// 解析下载直链响应。
 ///
-/// ⚠️ **未实证**：§4.6 只说「返回带 `auth_key` / `Expires` 的
-/// `download_url`」。本实现容许 `data` 是对象或对象数组，取第一个带
-/// `download_url` 的。
+/// ⚠️ **T0 已实测**（`.superpowers/sdd/quark/t0-download-post.md`）：真实响应是
+/// `{"code":0,"data":[{ …,"download_url":"https://dl-pc-sz.drive.quark.cn/…"}]}` ——
+/// `data` 是**数组**，`download_url` 里**已经内嵌** `auth_key`（顶层**没有**独立的
+/// `auth_key` 字段），也没有顶层 `expires`。
+///
+/// 本实现容许 `data` 是对象或对象数组，取第一个带 `download_url` 的。
 pub fn parse_download_response(body: &str) -> Result<QuarkDownloadLink, QuarkFailure> {
     let root: serde_json::Value =
         serde_json::from_str(body).map_err(|_| QuarkFailure::Malformed)?;
@@ -868,6 +918,41 @@ where
             "夸克返回的数值字段类型不对",
         )),
     }
+}
+
+/// 容错地反序列化一个字符串（接受字符串与数字；数字转成十进制字符串）。
+///
+/// 夸克同一个字段在不同端点上的形态会变（`name_space` 在列表响应里是数字）。
+/// 这类字段**不能**因为形态不对就让整页列表失败。
+fn deserialize_lenient_string<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = serde_json::Value::deserialize(deserializer)?;
+
+    Ok(match value {
+        serde_json::Value::String(text) => Some(text),
+        serde_json::Value::Number(number) => Some(number.to_string()),
+        _ => None,
+    })
+}
+
+/// 容错地反序列化一个 `i64`；字符串解不出数字时落 `0` 而不是报错。
+///
+/// 只给**不参与业务判定**的字段用（如 `format_type`）。`file_type` 这种
+/// 决定目录/文件形态的字段仍然用严格的 [`deserialize_lenient_i64`] ——
+/// 解不出来就该报错，而不是悄悄变成 `0`（`0` 是目录）。
+fn deserialize_lenient_i64_lossy<'de, D>(deserializer: D) -> Result<i64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = serde_json::Value::deserialize(deserializer)?;
+
+    Ok(match &value {
+        serde_json::Value::Number(number) => number.as_i64().unwrap_or(0),
+        serde_json::Value::String(text) => text.trim().parse::<i64>().unwrap_or(0),
+        _ => 0,
+    })
 }
 
 // ===========================================================================
@@ -1215,7 +1300,7 @@ mod tests {
         assert_eq!(QUARK_DRIVE_BASE_URL, "https://drive-pc.quark.cn");
         assert_eq!(QUARK_CLIENT_ID, "533");
         assert_eq!(QUARK_PR, "ucpro");
-        assert_eq!(QUARK_FR, "win");
+        assert_eq!(QUARK_FR, "pc");
         assert_eq!(QUARK_SYS, "win32");
         assert_eq!(QUARK_SESSION_COOKIE_PUS, "__pus");
     }
@@ -1258,7 +1343,7 @@ mod tests {
              &_fetch_sub_dirs=0\
              &_sort=file_name:asc,updated_at:desc\
              &pr=ucpro\
-             &fr=win\
+             &fr=pc\
              &sys=win32\
              &ve=1.0.0.0\
              &uc_param_str=dsdnfrpfbivesscpgimibtbmnijblauputogpintnwktprchmt\
@@ -1331,20 +1416,48 @@ mod tests {
     }
 
     #[test]
-    fn the_download_url_encodes_the_fid() {
-        let url = quark_download_url("1002");
+    fn the_download_url_carries_the_base_parameters() {
+        let url = quark_download_url("DESKTOP-TEST");
 
-        assert_eq!(
-            url,
-            "https://drive-pc.quark.cn/1/clouddrive/file/download?fid=1002"
+        assert!(
+            url.starts_with("https://drive-pc.quark.cn/1/clouddrive/file/download?"),
+            "{url}"
         );
+        assert!(url.contains("pr=ucpro"), "{url}");
+        assert!(url.contains("fr=pc"), "{url}");
+        assert!(url.contains("sys=win32"), "{url}");
+        assert!(url.contains("ve=1.0.0.0"), "{url}");
+        assert!(url.contains("client_id=533"), "{url}");
+        assert!(url.contains("uc_param_str="), "{url}");
+        assert!(url.contains("device_model=DESKTOP-TEST"), "{url}");
     }
 
     #[test]
-    fn the_download_url_encodes_an_unusual_fid() {
+    fn the_download_url_never_carries_the_fid() {
+        // ⚠️ 实测：`fid` 走**请求体**，放在 query 里反而 401。
+        let url = quark_download_url("DESKTOP-TEST");
+
+        assert!(!url.contains("fid="), "{url}");
+    }
+
+    #[test]
+    fn the_download_url_encodes_the_device_model() {
         let url = quark_download_url("a b/c");
 
-        assert!(url.contains("fid=a%20b%2Fc"), "{url}");
+        assert!(url.contains("device_model=a%20b%2Fc"), "{url}");
+    }
+
+    #[test]
+    fn the_download_request_body_carries_the_fid_in_an_array() {
+        assert_eq!(quark_download_request_body("1002"), r#"{"fids":["1002"]}"#);
+    }
+
+    #[test]
+    fn the_download_request_body_escapes_a_quoted_fid() {
+        assert_eq!(
+            quark_download_request_body("a\"b"),
+            r#"{"fids":["a\"b"]}"#
+        );
     }
 
     #[test]
@@ -1599,6 +1712,37 @@ mod tests {
         let payload = parse_list_payload(OBSERVED_LIST_BODY).expect("parse");
 
         assert_eq!(payload.total, Some(2));
+    }
+
+    /// T0 真实响应（2026-11-11 实测）的精简形态：字段名与类型都照真实响应。
+    ///
+    /// 三处与方案抄来的形态不同，而且每一处都会让「照抄方案写的解析器」直接
+    /// 报 `Malformed`：
+    /// ① `metadata` 在**顶层**，不在 `data` 里；
+    /// ② `name_space` 是**数字**，不是路径字符串；
+    /// ③ `format_type` 是 **MIME 字符串**，不是数字。
+    const REAL_LIST_BODY: &str = r#"{"status":200,"code":0,"message":"","timestamp":1743523103209,"data":{"last_view_list":[],"recent_file_list":[],"list":[{"fid":"f1","file_name":"a.jpg","pdir_fid":"0","category":3,"file_type":1,"size":1024,"format_type":"image/jpeg","status":1,"thumbnail":"","name_space":0,"dir":false,"updated_at":1743523103209,"created_at":1743523103209}]},"metadata":{"_size":100,"req_id":"r","_page":1,"_count":1,"_total":1}}"#;
+
+    #[test]
+    fn a_real_shaped_list_response_parses() {
+        let entries = parse_list_response(REAL_LIST_BODY).expect("parse");
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].fid, "f1");
+        assert_eq!(entries[0].file_name, "a.jpg");
+        assert_eq!(entries[0].file_type, 1);
+        assert_eq!(entries[0].size, 1024);
+        // MIME 字符串解不出数字 ⇒ 落 0，但**不许**让整页失败。
+        assert_eq!(entries[0].format_type, 0);
+        // 数字形态的 name_space ⇒ 转成字符串形态。
+        assert_eq!(entries[0].name_space.as_deref(), Some("0"));
+    }
+
+    #[test]
+    fn a_real_shaped_list_response_reports_the_top_level_total() {
+        let payload = parse_list_payload(REAL_LIST_BODY).expect("parse");
+
+        assert_eq!(payload.total, Some(1));
     }
 
     #[test]

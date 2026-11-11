@@ -34,6 +34,8 @@ use super::baidu_api::{build_client, fetch_user_info};
 use super::baidu_auth::parse_manual_cookie_input;
 use super::connection::RemoteProtocol;
 use super::error::{RemoteError, RemoteErrorKind};
+use super::quark_api;
+use super::quark_auth;
 use super::transport::{self, ProxyConfig, Socks5CommandKind, TransportStream};
 
 /// 整个探测的上限。用户点一次按钮不该等更久。
@@ -247,6 +249,8 @@ async fn probe_inner(
         RemoteProtocol::Sftp => probe_sftp(target, host, command).await,
         // 百度网盘不走 TCP：它是一套 HTTPS 接口，凭据是整段 cookie。
         RemoteProtocol::BaiduPan => probe_baidu(target).await,
+        // 夸克网盘同理：HTTPS 接口，凭据是整段 cookie（`__pus`）。
+        RemoteProtocol::QuarkPan => probe_quark(target).await,
         RemoteProtocol::Ftp => {
             let stream = transport::connect(&target.proxy, host, target.port, command).await?;
             ftp_login(stream, target).await
@@ -318,6 +322,104 @@ async fn probe_baidu(target: &ProbeTarget) -> Result<ConnectionTestReport, Remot
             format!("百度网盘连接正常，账号：{}", info.baidu_name),
         )),
         Err(error) => Ok(report_from_error(error)),
+    }
+}
+
+/// 夸克网盘的「测试连接」：拿 cookie（`__pus`）打一次账号信息接口。
+///
+/// 凭据是**整段 cookie**而不是口令，所以从 [`ProbeTarget::password`] 取：
+/// 设置页在夸克协议下，那个输入框装的就是 cookie；「从存档还原会话」那条路
+/// （`commands.rs` 的 `remote_test_connection`）交过来的也是同一段文本。
+///
+/// 没有 cookie 时报「还没授权」而不是「连接失败」：两者的处置完全不同。
+async fn probe_quark(target: &ProbeTarget) -> Result<ConnectionTestReport, RemoteError> {
+    let Some(raw) = target.password.as_deref() else {
+        // ⚠️ 这里**不能**报 `AuthRejected` —— 与百度同一条理由：
+        // 「没拿到凭据」与「服务器拒了这组凭据」是两件事。前者压根没发请求，
+        // 说成后者会让用户以为扫码登录白做了。
+        return Ok(ConnectionTestReport::new(
+            ProbeOutcome::MissingCredential,
+            "这条夸克网盘连接还没有登录凭据，请先完成扫码登录。",
+        ));
+    };
+
+    // 设置页 / 存档给过来的是一整段 cookie；这里只需要认得出 `__pus`。
+    let records = quark_auth::parse_cookie_header(raw);
+    let scan = quark_auth::scan_cookies(&records);
+    let Some(session) = scan.session else {
+        return Ok(report_from_error(
+            quark_auth::scan_error(&scan)
+                .unwrap_or_else(|| RemoteError::auth("夸克网盘登录凭据（__pus）格式非法，请重新登录获取")),
+        ));
+    };
+
+    let client = reqwest::Client::builder()
+        .user_agent(quark_api::QUARK_USER_AGENT)
+        .timeout(quark_api::QUARK_OPERATION_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|error| RemoteError::unknown(format!("夸克网盘 HTTP 客户端初始化失败：{error}")))?;
+
+    let response = client
+        .get(quark_api::quark_account_info_url())
+        .header(
+            reqwest::header::COOKIE,
+            quark_auth::session_to_cookie_header(&session),
+        )
+        .send()
+        .await
+        .map_err(|error| {
+            let kind = quark_api::classify_transport(quark_transport_shape(&error));
+            RemoteError::new(kind, format!("访问夸克网盘失败：{error}"))
+        })?;
+
+    let status = response.status();
+    if !status.is_success() {
+        return Err(quark_api::to_remote_error(&quark_api::failure_from_http_status(
+            status.as_u16(),
+        )));
+    }
+
+    // 响应体**不是**用 `reqwest` 的 `text()` 读的：那个方法被 `charset` feature
+    // 门控，而本 crate 的 `reqwest` 是 `default-features = false` ⇒ 用了就编不过。
+    let body = response.bytes().await.map_err(|error| {
+        let kind = quark_api::classify_transport(quark_transport_shape(&error));
+        RemoteError::new(kind, format!("读取夸克网盘响应失败：{error}"))
+    })?;
+    let body = String::from_utf8(body.to_vec())
+        .map_err(|error| RemoteError::encoding(format!("夸克网盘响应不是合法的 UTF-8 文本：{error}")))?;
+
+    match quark_api::parse_account_info_response(&body) {
+        Ok(info) => {
+            // 昵称取不到时**不报错**（字段形状仍待验），降级成「昵称未知」。
+            let nickname = if info.nickname.trim().is_empty() {
+                "昵称未知".to_string()
+            } else {
+                info.nickname.clone()
+            };
+            Ok(ConnectionTestReport::new(
+                ProbeOutcome::Verified,
+                format!("夸克网盘连接正常，账号：{nickname}"),
+            ))
+        }
+        Err(failure) => Ok(report_from_error(quark_api::to_remote_error(&failure))),
+    }
+}
+
+/// 把 `reqwest` 的传输层失败折成夸克侧的形态（纯数据，便于离线判定）。
+fn quark_transport_shape(error: &reqwest::Error) -> quark_api::QuarkTransportShape {
+    quark_api::QuarkTransportShape {
+        connect: error.is_connect(),
+        timeout: error.is_timeout(),
+        body: error.is_body() || error.is_decode(),
+        // `reqwest::Error` 没有单独的「构造/发送失败」判定器，
+        // 因此用「不属于上面几类」来兜底；HTTP 状态类错误不算传输失败
+        // （状态码走 `failure_from_http_status` 那条路）。
+        request: !(error.is_connect()
+            || error.is_timeout()
+            || error.is_body()
+            || error.is_decode()
+            || error.is_status()),
     }
 }
 
