@@ -400,3 +400,154 @@ file_type  : 1 = 文件，0 = 目录；dir 另有布尔字段
 - 本机 cargo 门禁必须走 `.superpowers/sdd/quark/t9-cargo-red.cmd`：它 `call vcvars64.bat`
   并把 `1.90.0-x86_64-pc-windows-msvc` 前置进 PATH —— 裸 `cargo` 会 `EXIT=9009`（找不到 linker）。
 
+### 13.5 新包装机与真机验收结论（2026-11-11 14:36–14:55，**未判定**）
+
+**已坐实**
+- 新包 `Alpha File Manager_3.14.0_x64-setup.exe`（45449580 B，sha256 前缀 `1d1bd5b0`）
+  于 **14:36:20 安装成功**：`%TEMP%\alpha-file-manager-install.log` 有成对 PREINSTALL/POSTINSTALL，
+  `detectedVersion=3.14.0`；14:36:53 应用自启，OTA 检查 `update_available=false`
+  ⇒ **排除「装完又被 OTA 回滚」**。此后重跑安装报 `INSTALL_EXIT=2` 是项目自带防呆
+  `[early-guard] OUTCOME=quit reason=same-build`，**不是包坏了**；重装同一个包必须带 `/FORCE`。
+- 装机版**能跑、远程目录读取正常**：双栏左侧列出 `夸克精选壁纸 / 壁纸_1.jpg … 壁纸_11.jpg`；
+  选中 `壁纸_2.jpg` 后详情面板显示 `sfm://remote/6c09782cafe4ce4b06225e0c4196d8a/夸克精选壁纸/壁纸_2.jpg`、
+  477.7 KB，状态栏「已选择 1 个项目 - 477.7 KB (1 个文件)」⇒ 现有会话可用。
+- 抓帧证据：`t8-shots/t9-03-explorer.png`、`t9-03-crop.png`、`t8-shots/t9-04-ctx.png`、
+  `t8-shots/t9-05-paste-menu.png`、`t9-05-menu.png`、`t8-shots/t9-06-rmenu{1,2}.png`、`t9-06-crop1.png`。
+
+**四条判据的判定结果**
+| 判据 | 结果 | 依据 |
+| --- | --- | --- |
+| ① 网盘条目右键出现「复制」 | **未判定** | 对 `壁纸_2.jpg` 右键 3 次（落点坐实为选中该条目），PrintWindow 帧内**均无菜单**；同一方法在**本地窗格**右键 (2416,1812) 抓到了带「粘贴」的菜单（`t9-05-menu.png`）⇒ 判据本身能看见窗格内菜单，但**远程条目菜单未出现在帧内**，无法区分「菜单没弹」与「菜单是独立顶层窗不被主窗 PrintWindow 覆盖」 |
+| ② 网盘 Ctrl+C → 本地 Ctrl+V 触发下载落地 | **未判定** | 已发 `ctrl+c` 并在本地栏调出右键菜单，但未执行粘贴 —— 本地栏停在 `G:` 根，粘贴会往用户真实盘写文件（已记为约束：须先切 scratch 目录） |
+| ③ 缺 `__puus` 的会话下载显示「会话已失效，请重新授权」 | **未判定** | 需要一次**真正缺凭据**的下载。14:36:44–14:37:44 那次登录（`quark-login.log`）落的是 `login state ready: __pus(len=120) + extras=16`、**没有** `__puus(len=` 段 ⇒ 存盘会话仍缺 `__puus`；但该 poller 起点早于 14:36:53 的自启，**无法确认是新二进制所为** |
+| ④ 断网横幅为分类中文文案 | 单测已覆盖 | 真机未做（需断网 + 防火墙规则，见 §12.6 已清理） |
+
+**★ 关键坑（下一轮必读，别重复踩）**
+1. **不要用整份 exe 的 ASCII 字符串扫描判「装机版有没有修复」** —— `waiting for quark __puus to settle`、
+   `__puus(len=`、`stale quark session discarded` 在 target 与装机副本里**都搜不到**（release 二进制不保留这类
+   format 片段），该判据**无判别力**，既不能证真也不能证伪。
+2. 装机 exe（82747904 B / 14:31:44）与 `target/release` 同名产物（82747904 B / 14:32:21）**同尺寸不同 sha**
+   （装机 `27B9B22E469C1673…` vs target `8FA23BA1334A80FB…`）；PE `TimeDateStamp` 两边都是 `0x00100000`
+   （确定性构建）⇒ **两个判据都不能用来区分来历**。判「跑的是哪份代码」只能靠**运行时日志行格式**。
+3. `describe()` **只在有 `__puus` 时**才打印 `__puus(len=…)` ⇒ 日志里「没有这一段」= 当时会话缺 `__puus`，
+   **不代表**跑的是旧版；要证新旧得看新增的 settle 等待日志行（`should_wait_for_puus` 为真时才打）。
+4. 应用主日志 `…\logs\Alpha File Manager.log` 在 14:40 之后**没有任何与复制/粘贴/下载相关的条目**
+   ⇒ 复制类动作目前**没有可判定的日志出口**；下一轮要么给 `copy`/`paste` 补 warn 级日志，
+   要么改用 UIA 枚举菜单项（`t8-ui.ps1 -Action windows` + 对菜单 hwnd 单独抓帧）作为判据。
+5. `t8-crop.ps1` 默认 `Scale=3` 会把裁片放大到读图不可辨认，**显式传 `-Scale 1`**；
+   给 `-Out` 传相对名会让 png 落到 pwsh 的 CWD 而不是 `t8-shots/`（`t9-01/02-*.png` 因此丢失）。
+
+**下一轮的最小收尾动作（按序）**
+1. 用户侧：`设置 → 远程 → 夸克网盘 → 重新授权` 并手机扫码；盯 `quark-login.log` 是否出现
+   `__puus(len=…)` 段与 settle 等待行；出现后再做一次「下载到本地」⇒ 这才是判据 ②③ 的真判据。
+2. agent 侧：用 UIA（非 PrintWindow）枚举远程条目右键菜单项，坐实 ①；把粘贴落点先切到 scratch 目录再做 ②。
+3. 结论回写本节（把「未判定」改成 PASS/FAIL），并按用户偏好决定是否再打包。
+
+
+### 13.6 批次 9 收官轮（2026-11-11 16:10–16:50）：①③ 坐实，④ PASS，①② 修复落地
+
+用户重新扫码授权后提出四条判据。本轮结论：**③ PASS、④ PASS**（真机坐实），
+**① 确认为产品级缺口并已修复**（真机复验随最终包进行），**② 根因闭合并已修复**。
+
+#### 13.6.1 四条判据的判定
+
+| 判据 | 结果 | 依据 |
+| --- | --- | --- |
+| ① 网盘条目右键出现「复制」 | **缺陷确认（已修，待随包复验）** | 修前：CDP 枚举右键菜单 DOM，quick-actions 内 3 个 icon button 中 2 个 `label` 为**空串**（无文字/无 aria-label/无 title），正文项只有「Shell 扩展 / 在终端中打开 / 压缩 / 打开文件所在目录 / 复制路径到剪贴板 / 删除 / 添加到收藏 / 标签」——**没有「复制」**。证据 `t9-shots/cdp-puus-menu2-01.log` |
+| ② Ctrl+C → 本地 Ctrl+V 落地 | **根因闭合（已修，待随包复验）** | 见 §13.6.2；修复后行为 = 与右键「下载到本地」同义 |
+| ③ 缺 `__puus` 时显示「请重新授权」 | **PASS** | 剥离 `__puus` 后触发下载，toast 逐字「下载没有完全成功 G:/pic\壁纸_1.jpg：[auth] 夸克网盘会话已失效，请重新授权。」，传输结果面板同文案。证据 `t9-shots/cdp-puus-download-05.log` |
+| ④ 断网横幅为分类中文文案 | **PASS** | 断网横幅逐字「**无法打开此文件夹** / **无法连接夸克网盘：网络不可用、DNS 解析失败或服务器超时，请检查网络连接后重试。**」；`JUDGE_no_raw_reqwest=true`、`JUDGE_no_internal_url=true`、`JUDGE_has_classified_cn=true`。证据 `t9-shots/cdp-offline-banner-03.log` + `cdp-offline-banner-03.png` |
+
+**④ 的取法（补前两轮的关键坑）**：前两轮失败的原因是**没真正发起远程请求**
+——目录树在活动窗格为本地格时不暴露远程根节点，点远程行只改选中态。
+本轮改用**远程窗格的面包屑**（远程 pane 的根节点「夸克网盘」）触发导航，
+那才会走 `remote_read_dir`；断网由**按 exe 路径生效的防火墙出站阻断规则**制造
+（`T9-Quark-Out-Block`），测完在 `finally` 里删除并二次验证「No rules match」。
+执行器：`.superpowers/sdd/quark/t9-offline-banner.ps1`（保证规则一定被回收）+
+`t9-cdp-offline-trigger.js`（150 秒轮询，抓 `[data-e2e-root="file-browser-access-error"]`）。
+
+**④ 的产出链**（后端 → 前端 → 界面，三段都改动过）：
+`quark_provider.rs::transport_error` 按 `classify_transport` 的 kind 给中文文案
+（`transport_message_for`，原始 reqwest 串只进 `log::warn!`）
+→ `remote_read_dir` 的 `Err` 载荷是 `{ kind, message }`
+→ 导航层 `use-file-browser-navigation.ts:984` 调 `describeRemoteError(caughtError)`
+→ `file-browser-error.vue` 把文案作为 `EmptyState` 的 description 渲染。
+
+#### 13.6.2 ② 的真实根因（推翻早前「剪贴板被清空」的结论）
+
+早前 `t9-ii-rootcause.md` §二 推断「系统剪贴板为空 ⇒ 应用内远程剪贴板被 `discardClipboard()` 清空」。
+**本轮实测推翻**：`readSystemClipboardFiles()` 在系统剪贴板**完全为空**时返回 `null`
+⇒ `checkExternalClipboardConsumption` / `syncFromSystemClipboard` 的空路径分支都**提前 return**，
+**根本走不到** `discardClipboard()` / `clearClipboard()`。
+
+真实根因是**两条「优先级遮蔽」**（不是「丢失」）：
+1. `pasteItems` 第一步读系统剪贴板，**只要非空就整个忽略应用内剪贴板**
+   ⇒ 用户在资源管理器复制过任何文件后，粘贴的是系统剪贴板里的本地文件，不是远程条目；
+2. `syncFromSystemClipboard` 在 operation 判定**之前**用系统剪贴板内容覆盖内部剪贴板。
+
+而用户看到的「暂不支持在两个远程之间复制」另有出处：
+`handlePasteShortcut` → `getPasteTargetPath` → **活动窗格** `getActiveCurrentPath`。
+用户在远程窗格复制后**没有点过本地窗格** ⇒ 活动窗格仍是远程
+⇒ `handleRemotePaste` 命中 remote→remote 分支（`remote-transfer-service.ts:392-402`）弹该提示。
+⇒ 「本地 Ctrl+V」实际粘贴到了**活动的远程窗格**，而不是本地格。
+
+#### 13.6.3 本轮修复（R12–R16，均已过门禁）
+
+| # | 改动 | 文件 |
+|---|---|---|
+| R12 | 远程条目右键**补「复制」正文项**（带文字锚点，可被 UIA/CDP 枚举）；quick-actions 复制图标补 `title`/`aria-label` | `src/modules/navigator/components/file-browser/file-browser-actions-menu.vue` |
+| R13 | `pasteItems`：**内部剪贴板装远程条目时优先**于系统剪贴板（把零引用的 `clipboardHoldsRemoteItems` 接上线） | `.../file-browser/composables/use-file-browser-selection.ts` |
+| R14 | 剪贴板保活：系统剪贴板为空时**不得**清掉内部远程条目；系统剪贴板残留本地文件**不得**覆盖内部远程条目 | `src/stores/runtime/clipboard.ts` |
+| R15 | 提示文案可执行化：`remoteToRemoteNotSupported` 改为「请先点击本地文件夹窗格，再按 Ctrl+V 粘贴下载；也可以右键网盘文件选择「下载到本地」」；`pasteToRemoteFailed` 标题「复制到远程失败」→「复制失败」 | `src/localization/messages/*.json` ×16 |
+| R16 | **粘贴目标路由**：剪贴板装远程条目且活动窗格也是远程时，粘贴目标自动改为对面**本地**格（`useRemoteTransferTargets().localPanePath`）⇒ 与右键「下载到本地」同义，用户不必先点对面那一格 | `src/modules/navigator/pages/navigator.vue` |
+
+**R12 的设计取舍**：组件 `FileBrowserActionsMenu` 被 3 处复用（条目右键 / 窗格右键 / 状态栏「菜单」下拉 ×2），
+所以新增的正文项在状态栏下拉里也会出现 —— 这与该组件既有做法一致（「删除」同样有图标 + 正文项两处）。
+
+**R16 的落点**：`getPasteTargetPath()` 改为 `return getRemoteDownloadPasteTarget(currentPath) ?? currentPath;`
+⇒ 只有「剪贴板是远程条目 **且** 活动窗格也是远程」时才改写目标，
+本地→本地的常规粘贴路径**逐字不变**。
+
+#### 13.6.4 门禁
+
+- `npm run check`：**EXIT=0**，307 files / **3214 tests passed**（日志 `t9-check-r12r16.log`）。
+  覆盖 `vue-tsc --noEmit`、`eslint --max-warnings 0`、`stylelint --max-warnings 0`、
+  `verify-changelog`（57 条目 / 3.14.0 覆盖）、`verify:sandbox` 全 PASS。
+- Rust 本轮**未改动**（R12–R16 全在前端），沿用批次 9 基线
+  `cargo test --lib` 1427 passed / 0 failed / 1 ignored（日志 `t9-rust.log`）。
+
+#### 13.6.5 本轮工具坑（补记）
+
+1. **判「剪贴板被清空」这类否定性结论前，先证明判据本身能看见目标** ——
+   「系统剪贴板为空 ⇒ 内部被清空」是**读代码推断**，被真机直接推翻；
+   真实遮蔽是「系统剪贴板非空时优先级更高」。
+2. **要在真机上制造远程请求，找「会发请求的控件」而不是「看起来像远程的东西」** ——
+   目录树里的远程行**只改选中态**；远程窗格的面包屑**才导航**。
+3. **防火墙规则必须写在 `.ps1` 的 `finally` 里**：内联命令失败/超时会留下阻断规则，
+   让用户后续所有网络操作莫名失败。
+4. **WebView2 的 CDP 端口不必写进 `tauri.conf.json`**：
+   `additionalBrowserArgs` 是**产物级**改动（会进最终包），
+   调试期用环境变量 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 更干净。
+5. **本机 `cargo` 不在 PATH**：`tauri build` 直接跑会报
+   `failed to run 'cargo metadata' ... program not found`。
+   必须先 `call vcvars64.bat` 并把 `C:\Users\Duanyi\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin` 前置进 PATH
+   （同 `t9-cargo-red.cmd` 的做法）。注意本机 VS 装在
+   `C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools`（**18**，不是 2022），
+   `t9-cargo-red.cmd` 里写的 2022 路径需按实际调整。
+
+---
+
+## 14.11 批次 9 真机验收（沙箱轮）状态 —— **已被 §13.6 取代**
+
+真机安装身份已坐实（逐 64KB 块比对，仅 1 块 3 字节差异 = 预期打包标记 `__TAURI_BUNDLE_TYPE_VAR_NSS__`/`_UNK__`）；门禁全绿（Rust `cargo test --lib` 1427 passed / 0 failed / 1 ignored；`npm run check` EXIT=0，307 files / 3214 tests；定向前端 3 files 29 passed；`vue-tsc --noEmit` 与 `eslint --fix` EXIT=0）。代码在 `dddd8dbd`，未 push（本地领先 5 条）。
+
+**已取得的真机证据（唯一一项）**：沙箱实例 `quark-login.log` 出现新登录态
+`login state ready: __pus(len=120) + __puus(len=248) + extras=20`（旧缺陷形态为无 `__puus` 的 `__pus(len=120) + extras=16`）⇒ **R3 登录侧修复真机生效**。
+
+**四项验收（B9-1 412→「请重新授权」/ B9-2 断网分类文案 / B9-3 网盘条目右键出现「复制」/ B9-4 网盘 Ctrl+C→本地 Ctrl+V 落地）状态一律「未判定」**，既不记「已修」也不记「回归」。
+
+**关键坑（务必读）**：`CopyFromScreen` 截被遮挡窗口会拍到**别的窗口**（本轮误把 MCode 的窗口当成 Alpha 的画面，据此得出「WebView2 无独立窗口」等一连串错判）。必须用 `PrintWindow(hwnd,hdc,2)`，工装 `.superpowers\sdd\quark\t9-sbx.ps1` 已实现并跑通（`-Action show|shot|render|click|rclick|key -X -Y -ShotOut -SettleMs -DwellMs`；坐标是顶层窗 client 像素，工装内部换算到 RENDER 子窗）。
+
+**junction 沙箱的本质限制**：只隔离数据目录、不隔离实例。所有新启动的 app 都读同一份沙箱 appdata ⇒ 做不到「用户用真 appdata、代理用沙箱实例」并存；若要注入输入，必须和用户约定「这段时间别看/别动这个窗口」。
+
+完整过程与证据路径见 `.superpowers\sdd\quark\t9-fix-log.md`（§六 门禁台账、§七 沙箱验收轮、§八 实例身份与遮挡根因）与 `.superpowers\sdd\quark\t9-shots\`。

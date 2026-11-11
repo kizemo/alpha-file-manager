@@ -1,5 +1,13 @@
 # Änderungsprotokoll
 
+
+## [3.14.0] - November 2026
+
+**Zusammenfassung:** Das Quark-Cloud kann jetzt neben dem Baidu-Cloud verbunden werden - beim Hinzufügen einer Netzlaufwerk-Verbindung wählen Sie den Anbieter, melden sich einmal im eingeblendeten Fenster an und browsen, laden herunter und kopieren wie beim Baidu-Cloud.
+
+### What changed
+
+**Hinzugefügt: Das Quark-Cloud lässt sich als zweiter Netzlaufwerk-Anbieter hinzufügen.** Beim Hinzufügen einer Netzlaufwerk-Verbindung unter *Einstellungen* im Bereich *Remote* gibt es jetzt eine Anbieter-Auswahl zwischen *Baidu-Cloud* und *Quark-Cloud*. Wählen Sie Quark, verschwinden die Felder für Host, Port und Passwort und stattdessen erscheint eine einzige Schaltfläche *Quark-Cloud hinzufügen*; das Anmeldefenster öffnet sich in der App, und nach der Anmeldung zeigt die Karte Ihren Kontonamen. Die gespeicherte Verbindung verhält sich danach wie jede andere Remote-Verbindung: das Wurzelverzeichnis auflisten, in Unterordner wechseln, eine Datei auf den Rechner herunterladen, eine entfernte Datei in einen lokalen Ordner kopieren und sie nach einem Neustart weiterhin vorfinden. Eine Quark- und eine Baidu-Verbindung können gleichzeitig bestehen, ohne sich in die Quere zu kommen, und ist die gespeicherte Sitzung abgelaufen, meldet die App, dass Sie sich neu anmelden müssen, statt stillschweigend zu scheitern.
 ## [3.13.7] - November 2026
 
 **Zusammenfassung:** Die App meldet jetzt, ob eine Tastenkombination bereits von Windows oder von einem anderen Programm belegt ist – damit ist ein Befehl, der scheinbar grundlos nicht ausgeführt wird, kein Rätsel mehr.

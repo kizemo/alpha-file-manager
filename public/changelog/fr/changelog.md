@@ -1,5 +1,13 @@
 # Journal des modifications
 
+
+## [3.14.0] - November 2026
+
+**Résumé :** Quark Netdisk peut maintenant être connecté à côté de Baidu Netdisk : choisissez le fournisseur en ajoutant une connexion de disque réseau, connectez-vous une fois dans la fenêtre intégrée, puis parcourez, téléchargez et copiez exactement comme avec Baidu Netdisk.
+
+### What changed
+
+**Ajouté : Quark Netdisk peut être ajouté comme second fournisseur de disque réseau.** En ajoutant une connexion de disque réseau dans *Paramètres* sous *Distant*, un sélecteur de fournisseur offre maintenant *Baidu Netdisk* et *Quark Netdisk*. Si vous choisissez Quark, les champs hôte, port et mot de passe disparaissent et un seul bouton *Ajouter Quark Netdisk* apparaît ; la fenêtre de connexion s’ouvre à l’intérieur de l’application et, une fois la connexion réussie, la carte affiche le nom de votre compte. La connexion enregistrée se comporte comme toute autre connexion distante : lister le dossier racine, entrer dans des sous-dossiers, télécharger un fichier sur votre ordinateur, copier un fichier distant dans un dossier local et le retrouver après un redémarrage. Une connexion Quark et une connexion Baidu peuvent coexister sans se gêner, et lorsque la session enregistrée a expiré, l’application indique qu’il faut se reconnecter au lieu d’échouer en silence.
 ## [3.13.7] - November 2026
 
 **Résumé :** l'application vous signale désormais lorsqu'un raccourci clavier est déjà détenu par Windows ou par un autre programme - une commande qui ne se déclenchait plus sans raison n'est plus un mystère.

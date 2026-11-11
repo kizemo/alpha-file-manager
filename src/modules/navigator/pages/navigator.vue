@@ -67,11 +67,13 @@ import { arePathsEquivalent, getParentPath } from '@/utils/file-operation-paths'
 import { resolveDirEntry } from '@/utils/virtual-locations';
 // FORK-MODIFICATION 2026-10-19：跨族对应关系表只记跨族，同族要判出来。
 import { isRemotePath, parseRemotePath } from '@/utils/remote-paths';
+// FORK-MODIFICATION 2026-11-11（T9 批次 9，判据 ②）：粘贴目标路由要判「剪贴板里是不是远程条目」。
+import { clipboardHoldsRemoteItems } from '@/utils/clipboard-routing';
 // FORK-MODIFICATION 2026-10-19：目录树切远程时要按连接定根、用连接名当标签。
 import { resolveTreeActivePath, resolveTreeRoots, shouldDriveTreeSelection, type TreeConnectionInfo } from '@/modules/navigator/utils/remote-tree-roots';
 // FORK-MODIFICATION: 本地 ↔ 远程传输。导航器是**唯一**知道两格分别在哪儿的地方，
 // 所以传输目标（对面那一格）的登记也放在这里写。
-import { setRemoteTransferTargets } from '@/modules/remote/utils/remote-transfer-targets';
+import { setRemoteTransferTargets, useRemoteTransferTargets } from '@/modules/remote/utils/remote-transfer-targets';
 import { useRemotePermissionsDialogState } from '@/modules/remote/utils/remote-permissions-dialog-state';
 import RemotePermissionsDialog from '@/modules/remote/components/remote-permissions-dialog.vue';
 import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
@@ -1097,6 +1099,34 @@ function getActiveCurrentPath(): string | undefined {
   return getTabGroupFallbackPath();
 }
 
+/**
+ * FORK-MODIFICATION 2026-11-11（T9 批次 9，判据 ②）：
+ * 「剪贴板里是远程条目 + 活动窗格也在远程」时，粘贴目标改成**对面那一格的本地目录**。
+ *
+ * 为什么：用户在网盘里 Ctrl+C 之后直接按 Ctrl+V 时，活动窗格往往还是那一格远程。
+ * 旧逻辑把粘贴目标解析成远程路径 ⇒ `handleRemotePaste` 命中「两个远程之间复制」分支 ⇒
+ * 用户看到「暂不支持在两个远程之间复制」。可用户真正想要的就是「下载到本地」。
+ *
+ * 这条规则与右键菜单里的「下载到本地」**完全同义**（目标都是对面那一格的本地目录），
+ * 只是把「先点一下对面那一格」这一步省掉了。
+ *
+ * 两侧都是远程时（没有本地格）⇒ 返回 `undefined`，仍然按「远程 → 远程」处理，
+ * 由 `handleRemotePaste` 给出可执行提示（见 `remote.transfer.remoteToRemoteNotSupported`）。
+ */
+function getRemoteDownloadPasteTarget(currentPath: string | undefined): string | undefined {
+  if (!currentPath || !isRemotePath(currentPath)) {
+    return undefined;
+  }
+
+  if (!clipboardStore.hasFileItems || !clipboardHoldsRemoteItems(clipboardStore.clipboardItems)) {
+    return undefined;
+  }
+
+  const { localPanePath } = useRemoteTransferTargets();
+
+  return localPanePath.value ?? undefined;
+}
+
 function getPasteTargetPath(): string | undefined {
   const currentPath = getActiveCurrentPath();
   const actionContext = getNavigatorActionContext(currentPath);
@@ -1105,7 +1135,7 @@ function getPasteTargetPath(): string | undefined {
     return actionContext.actionDirectoryPath ?? undefined;
   }
 
-  return currentPath;
+  return getRemoteDownloadPasteTarget(currentPath) ?? currentPath;
 }
 
 async function handleGlobalSearchOpenEntry(entry: DirEntry) {

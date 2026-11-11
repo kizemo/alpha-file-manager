@@ -263,11 +263,20 @@ function handleCreateLink(linkKind: LinkCreationKind) {
       v-if="isMenuActionVisible('copy')"
     >
       <TooltipTrigger as-child>
+        <!--
+          FORK-MODIFICATION 2026-11-11（T9 批次 9）：复制图标补可访问名。
+
+          缺陷 ①（真机坐实）：这个图标按钮**没有**文字、没有 aria-label、没有 title，
+          于是自动化枚举拿到的 `Name` 是空串、用户也认不出它是「复制」。
+          `title` 让原生提示与枚举都能报出动作名，`aria-label` 补无障碍名。
+        -->
         <Button
           variant="ghost"
           size="xs"
           :disabled="isMenuActionDisabled('copy')"
           :aria-disabled="isMenuActionDisabled('copy')"
+          :title="t('fileBrowser.actions.copy')"
+          :aria-label="t('fileBrowser.actions.copy')"
           @click="handleCopyClick"
         >
           <CopyIcon :size="16" />
@@ -435,6 +444,30 @@ function handleCreateLink(linkKind: LinkCreationKind) {
     </Button>
   </div>
   <component :is="menuSeparatorComponent" />
+  <!--
+    FORK-MODIFICATION 2026-11-11（T9 批次 9）：远程条目右键补「复制」**正文项**。
+
+    缺陷 ①（真机坐实）：网盘条目右键菜单里**没有**「复制」这一项 ——
+    只有顶部图标条里一个没有文字、没有 aria-label 的 `lucide-copy` 图标。
+    没有可访问名的图标按钮在自动化枚举里 `Name` 是空串、在用户眼里也只是一个
+    「长得像复制的方块」⇒ 用户报「右键没有复制」。
+
+    这里补一个**带文字**的正文项：「复制」在菜单里可读、可点，
+    也能被 UIA / CDP 枚举到 —— 判据 ① 从此有一个确定的文字锚点。
+  -->
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('copy')"
+    :disabled="isMenuActionDisabled('copy')"
+    :aria-disabled="isMenuActionDisabled('copy')"
+    @select="emitAction('copy')"
+  >
+    <CopyIcon :size="16" />
+    <span>{{ t('fileBrowser.actions.copy') }}</span>
+    <ContextMenuShortcut v-if="shortcutsStore.getShortcutLabel('copy')">
+      {{ shortcutsStore.getShortcutLabel('copy') }}
+    </ContextMenuShortcut>
+  </component>
   <FileBrowserOpenWithSubmenu
     v-if="isMenuActionVisible('open-with')"
     :selected-entries="selectedEntries"

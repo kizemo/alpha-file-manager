@@ -1,5 +1,13 @@
 # Nhật ký thay đổi
 
+
+## [3.14.0] - November 2026
+
+**Tóm tắt:** Giờ bạn có thể kết nối Quark Netdisk bên cạnh Baidu Netdisk - chọn nhà cung cấp khi thêm kết nối đĩa mạng, đăng nhập một lần trong cửa sổ bên trong ứng dụng, rồi duyệt, tải về và sao chép y hệt Baidu Netdisk.
+
+### What changed
+
+**Đã thêm: Quark Netdisk có thể được thêm như nhà cung cấp đĩa mạng thứ hai.** Khi thêm một kết nối đĩa mạng trong *Cài đặt* dưới mục *Từ xa*, giờ hiện ra một bộ chọn nhà cung cấp với *Baidu Netdisk* và *Quark Netdisk*. Chọn Quark thì các ô máy chủ, cổng và mật khẩu biến mất, thay vào đó chỉ còn một nút *Thêm Quark Netdisk*; cửa sổ đăng nhập mở ngay trong ứng dụng và sau khi đăng nhập xong thẻ sẽ hiện tên tài khoản của bạn. Kết nối đã lưu hành xử y như mọi kết nối từ xa khác: liệt kê thư mục gốc, đi vào các thư mục con, tải một tệp về máy tính, sao chép một tệp từ xa sang thư mục cục bộ và vẫn thấy nó sau khi khởi động lại. Một kết nối Quark và một kết nối Baidu có thể cùng tồn tại mà không ảnh hưởng lẫn nhau, và khi phiên đã lưu hết hạn, ứng dụng sẽ báo rằng bạn cần đăng nhập lại thay vì im lặng thất bại.
 ## [3.13.7] - November 2026
 
 **Tóm tắt:** Ứng dụng giờ cho biết khi nào một tổ hợp phím đã bị Windows hoặc chương trình khác chiếm mất - nên một lệnh im lặng không chạy không còn là điều bí ẩn nữa.

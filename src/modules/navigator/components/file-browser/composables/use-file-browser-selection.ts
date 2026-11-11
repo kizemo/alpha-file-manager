@@ -42,6 +42,10 @@ import { deleteRemoteEntries } from '@/modules/remote/utils/remote-delete';
 // FORK-MODIFICATION 2026-10-20：远程写操作（新建目录 / 重命名）。
 import { createRemoteDirectory, hasRemoteTarget, renameRemoteEntry } from '@/modules/remote/utils/remote-write';
 import { isRemotePath } from '@/utils/remote-paths';
+// FORK-MODIFICATION 2026-11-11（T9 批次 9，判据 ②）：应用内剪贴板装着**远程条目**时，
+// 粘贴一律以它为准 —— 系统剪贴板里的旧本地文件不得抢走粘贴结果。
+// 这个判定函数早就写好了（`clipboard-routing.ts`），但此前全仓零生产引用（未接线）。
+import { clipboardHoldsRemoteItems } from '@/utils/clipboard-routing';
 import { usePlatformStore } from '@/stores/runtime/platform';
 import { isContextMenuActionVisible } from '@/modules/navigator/components/file-browser/utils/context-menu-action-visibility';
 import { formatBytes } from '@/modules/navigator/components/file-browser/utils';
@@ -600,6 +604,32 @@ export function useFileBrowserSelection(
 
     if (isVirtualLocationPath(targetPath)) {
       return false;
+    }
+
+    // FORK-MODIFICATION 2026-11-11（T9 批次 9，判据 ②）：
+    // 应用内剪贴板装着**远程条目**时，一律以它为准，**不**让系统剪贴板抢走粘贴结果。
+    //
+    // 根因：远程条目按设计不写系统剪贴板，但系统剪贴板里往往还留着用户**上一次**
+    // 复制的本地文件。旧逻辑「系统剪贴板非空 ⇒ 用它」于是把远程条目整个遮蔽 ——
+    // 用户在网盘里 Ctrl+C、在本地格 Ctrl+V，粘出来的却是上一次的本地文件。
+    const internalHoldsRemoteItems = clipboardStore.hasFileItems
+      && clipboardHoldsRemoteItems(clipboardStore.clipboardItems);
+
+    if (internalHoldsRemoteItems) {
+      const sourcePaths = clipboardStore.clipboardItems.map(item => item.path);
+      const operation = clipboardStore.isCopyOperation ? 'copy' : 'move';
+      const pasted = await handleExternalDrop(
+        sourcePaths,
+        targetPath,
+        operation,
+        clipboardStore.clipboardItems,
+      );
+
+      if (pasted) {
+        clipboardStore.discardClipboard();
+      }
+
+      return pasted;
     }
 
     const systemClipboard = await clipboardStore.readSystemClipboardFiles();
