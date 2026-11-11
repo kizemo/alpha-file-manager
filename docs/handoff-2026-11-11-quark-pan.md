@@ -867,6 +867,7 @@ NEG_EXIT=5
 | 全量上传 | `node scripts/release-publish.mjs upload` → SFTP `47.120.26.175:22`，远端 `/var/www/wordpress/alpha-file-manager`；本地预检 42 文件 / 1093.64 MB；`index.html` / `.htaccess` / `version.json` / `download.php` 先传完，`Alpha_File_Manager_3.14.0_x64-setup.exe`（ASCII 序第 20 个 .exe）上传 OK |
 | 公网版本清单 | `https://www.aiec.fun/alpha-file-manager/version.json` → 200，`version=3.14.0`，`sha256=0d046209…5a3e6`，`history[]` 共 20 条 |
 | 公网安装包（字节级） | 从公网 URL 整包下载 → 45451606 B，sha256 `0d0462097376833d3e9a812ce9d5a4be4d1d268fb45a3da4d1d9b3f47185a3e6` ⇒ **与本地包逐字节一致** |
+| 脚本自带 verify() | `UPLOAD_EXIT=0`；服务器端 42 个文件 md5+size **全部一致**；公网回读「版本号 / 大小 / sha256」三项均一致，**源站与边缘都已生效**（`CF-Cache-Status=MISS` ⇒ 无需 purge） |
 | 站点首页 | `index.html` 用 `version.json?_=' + Date.now()` 动态取版本，无硬编码版本号 ⇒ 无需改，也不受版本号硬编码带来的错配 |
 
 **新增工具坑（本轮踩到）**：PowerShell 里 `Invoke-WebRequest -Method Head` 拿到的
