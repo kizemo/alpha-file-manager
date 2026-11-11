@@ -198,7 +198,7 @@ file_type  : 1 = 文件，0 = 目录；dir 另有布尔字段
 | R3 | 提交 | **已提交 3 条（未 push）**：`99c73632` Rust / `02897006` 前端+i18n / `ee0a23ea` 交接卡；版本 bump + changelog 作第 4 条。push 与 GitHub Release 仍未授权 |
 | R4 | T7 译文质量 | 17 份为自撰人工翻译，**未做母语复核** |
 | R5 | `Ctrl+Shift+P` 本机不可达 | `Win32Error=1409`（OS 级 `RegisterHotKey` 占用）—— 冲突徽标真机复验须换机器，**不得伪造 PASS** |
-| R6 | `p5b-install.ps1` 哈希判据仍是错的 | 应改为「大小一致 + VersionInfo=3.13.7」（与夸克无关，但别忘了） |
+| R6 | `p5b-install.ps1` 哈希判据仍是错的 | **已修（2026-11-11）**：判据换成「大小一致 + 打包标记归一化后逐 64KB 块比对 + VersionInfo 交叉校验」，裸 sha256 降级为信息打印；`$Version` 改从 `package.json` 推导；安装参数加 `/FORCE`；新增 `-VerifyOnly`。阳/阴性对照均通过，见 §17.9 |
 | R7 | 子代理 Token Plan 上限 | 已撞过一次 ⇒ 继续自己做主线，别盲目开大 worker |
 
 ---
@@ -756,4 +756,69 @@ B9-4 的落地文件在 `.superpowers/sdd/quark/t9-shots/paste-target/`（探针
 
 1. **push 需用户授权**；`CHANGELOG.md` 与 14 个语言包已含 3.14.0 条目。
 2. 若要 UI 层最终确认：在**用户空闲窗口**内用装机版做一次「下载到本地」，落点指向 scratch 目录。
-3. 仍未处理且与夸克无关：R4（17 语言包母语复核）、R5（`Ctrl+Shift+P` 热键冲突）、R6（`p5b-install.ps1` 哈希判据）。
+3. 仍未处理且与夸克无关：R4（17 语言包母语复核）、R5（`Ctrl+Shift+P` 热键冲突）。R6 已于 2026-11-11 修完，见 §17.9。
+
+### 17.9 R6 收口：`p5b-install.ps1` 判定判据重做（2026-11-11 晚）
+
+**为什么原来的判据一定假红**：脚本拿装机副本的 `Get-FileHash` 去比 `src-tauri\target\release\alpha-file-manager.exe`，
+但这两个文件**设计上就不是同一份字节**——打包器会把 Tauri 的 bundle-type 标记改写成
+`__TAURI_BUNDLE_TYPE_VAR_NSS__`（装机副本）vs `__TAURI_BUNDLE_TYPE_VAR_UNK__`（裸构建产物）。
+两个标记**等长**，所以文件大小相同（82767360 B）、PE `TimeDateStamp` 恒为 `0x00100000`，
+只有逐字节比对才分得出来 ⇒ 一次**完全健康**的安装也会被判 `INSTALLED_BUT_HASH_MISMATCH` / exit 5。
+
+**改成了什么**（`.superpowers/sdd/p5b-install.ps1`，已重写，ASCII 0 非 ASCII 字节、`ParseFile` 0 错误）：
+
+| 项 | 改前 | 改后 |
+| --- | --- | --- |
+| `$Version` 默认值 | 硬编码 `3.13.7`（早已过期） | 从 `package.json` 的 `version` 推导（`tauri.conf.json` 的 version 就是 `../package.json`），实测解析出 `3.14.0` |
+| 安装参数 | `/S` | `/S /FORCE`（同版本重装必须带，否则项目自带防呆 `[early-guard] reason=same-build` 直接 `EXIT=2`） |
+| 主判据 | 裸 sha256 相等 | ① 大小相等 ② **打包标记归一化后逐 64 KiB 块比对，块数必须全等** ③ `VersionInfo.FileVersion`/`ProductVersion` == 目标版本 |
+| 裸 sha256 | 判定依据 | 降级为信息打印（`RAW_SHA_MATCH=False` 是**正常**，输出里已带这句提示） |
+| 不装机自检 | 无 | 新增 `-VerifyOnly`，可配合 `-InstallDir` 指向任意目录做阳/阴性对照 |
+| 判词 | `INSTALLED` / `STALE_NOT_REPLACED` / `INSTALLED_BUT_HASH_MISMATCH` | `INSTALLED`(0) / `EXE_AFTER missing`(3) / `STALE_NOT_REPLACED`(4) / `SIZE_MISMATCH`、`NORM_LENGTH_MISMATCH`、`CONTENT_MISMATCH`(5) / `VERSIONINFO_MISMATCH`(6) |
+
+`STALE_NOT_REPLACED` 的触发条件也收紧了：只有**内容不一致且 mtime 没有前进**才判它，
+避免 `/FORCE` 重装时 NSIS 发现载荷已一致而跳过写入被误判成「没装」。
+
+**阳性对照**（真实装机副本 vs `target\release`，`-VerifyOnly`）：
+
+```
+TARGET_VERSION=3.14.0
+EXE_AFTER=82767360 @ 2026-11-11 21:19:06
+BUILD_EXE=82767360 @ 2026-11-11 21:19:49
+EXE_SHA256=B7F6828BF414552F42C4664E00A9C5E74848CD612D50B5D1EF8307ACB60852D7
+BUILD_EXE_SHA256=80D6D4FA870B4B1038CFAB35A28E7D642790B6BCB8637CB04197CEDE3B60BDDC
+RAW_SHA_MATCH=False (informational: ...)
+NORM_SHA_MATCH=True
+BLOCK_SIZE=65536 BLOCK_COUNT=1263
+DIFF_BLOCK_COUNT=0
+EXE_FILE_VERSION=3.14.0 / EXE_PRODUCT_VERSION=3.14.0
+CONTENT_OK=True VERSIONINFO_OK=True
+VERDICT=INSTALLED
+```
+
+`NORM_SHA_MATCH=True` 是这轮的**硬结论**：装机副本与裸构建产物**唯一**的差异就是那处打包标记，
+除此之外逐字节相同——这也反过来解释了 §16.4 记录的「同尺寸、不同 sha」。
+
+**阴性对照**（把装机副本复制到 `.superpowers/sdd/p5b-neg\`，在偏移 `0x2777700` 翻转一个字节
+`0x5C -> 0xA3`，再 `-VerifyOnly -InstallDir` 指过去）：
+
+```
+DIFF_BLOCK_COUNT=1
+DIFF_BLOCK=631 OFFSET=0x2770000
+CONTENT_OK=False VERSIONINFO_OK=True
+VERDICT=CONTENT_MISMATCH
+NEG_EXIT=5
+```
+
+翻转点落在 631 号块（`631 * 0x10000 = 0x2770000`）内 ⇒ 判据**定位准确、不是恒真**。
+对照副本 82 MB 用完即删（`NEG_DIR_GONE=True`），未留盘。
+
+**已知边界（如实登记，不要宣传成「逐字节全等」）**：归一化按正则
+`__TAURI_BUNDLE_TYPE_VAR_[A-Z0-9]+__` 整段替换，所以**改动被限制在这 3 个字母以内**的差异会被吃掉
+（例如 `NSS` → `NSA` 仍判 `INSTALLED`）。这是有意取舍——那是打包器自己的标记位，
+不是产品载荷；真要防这一层，得让打包器输出确定性标记，属于上游问题，本轮不追。
+
+**没有做的事**：本轮**没有**真跑一次 `/S /FORCE` 安装（`bundle\nsis\` 下的 setup.exe 当前不存在，重建整包代价高且与本条无关）。
+`/FORCE` 有效性来自 §16.4 的既有实证；新脚本的**安装分支**因此只做到「静态审查 + 判据阳/阴性对照」，
+判据本身已被两条对照打穿，安装分支待下次有整包时首次跑通即可。

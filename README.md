@@ -47,8 +47,9 @@ sync, batch rename, and a long list of day-to-day fixes. **If you have been look
   search files and read your favourites over a standard interface.
 - 🔐 **Real remote servers** — SFTP, FTP and FTPS with pinned host keys and
   certificates, plus upload, download, delete and permission editing.
-- ☁️ **Netdisks are remote connections too** — sign in to Baidu Netdisk inside
-  the app and browse it like any server; Aliyun Drive and Google Drive are next.
+- ☁️ **Netdisks are remote connections too** — add Baidu Netdisk or Quark Netdisk
+  in a few steps, sign in inside the app, and browse it like any server; Aliyun
+  Drive and Google Drive are next.
 - 🧠 **Batch rename that does not lose work** — find-and-replace, case conversion,
   templates and numbering, with a live preview, conflicts blocked instead of
   silently overwriting, and undo.
@@ -98,9 +99,30 @@ sync, batch rename, and a long list of day-to-day fixes. **If you have been look
 | | |
 |---|---|
 | ☁️ | **Baidu Netdisk signs in inside the app** — one click opens the real login page, scanning the QR code is enough, and the session is picked up into the credential store — no cookie copying by hand |
+| 🔗 | **Quark Netdisk works the same way** — pick it in the very same *Add netdisk* list, scan the QR code in the window that opens inside the app, and the session is stored for you |
+| ➕ | **Adding a netdisk takes three steps** — *Settings* → *Remote* → *Netdisks* → pick the provider → scan the QR code → give the connection a name. No token to copy, no config file to hand-edit, no service to start |
 | 📂 | **A netdisk browsed like a remote connection** — listing, creating a folder, renaming, deleting and downloading all reach the drive itself, not a shadow of a local folder |
 | ⚙️ | **Netdisks and remote servers are kept apart** — the settings page splits them into two tabs, *Netdisks* and *Remote connections*, so each connection sits where it belongs |
 | ➕ | **More mainstream netdisks are on the way** — Aliyun Drive, Google Drive and the rest are planned, and they will plug into the very same remote-connection machinery |
+
+#### Why this is simpler than mounting the drive with alist
+
+Mounting a netdisk into Windows Explorer — with alist, rclone or a WebDAV
+bridge — means running a second program just to look at your files. That
+program needs its own container or service, its own database, a token or a
+refresh key pasted into its own config, and a manual restart whenever it
+falls over. Explorer then reaches the drive through a WebDAV client, which
+brings its own limits along with it.
+
+Adding a netdisk here has none of that:
+
+| | Mounting with alist / a WebDAV bridge | Adding it in Alpha File Manager |
+|---|---|---|
+| 🧩 | **Extra software to install and keep running** — a server process, a container, a service that can fall over on its own | **Nothing extra** — the netdisk provider is built into the app |
+| 🔑 | **The credentials live in the bridge** — tokens and refresh keys pasted into another program's config | **The credentials stay in the app** — the session arrives by scanning a QR code and is kept in the app's own encrypted credential store |
+| 🪟 | **A drive letter or a WebDAV client is required** — and the limits of that client are part of the deal | **No mapping at all** — the netdisk is a pane in the app, with the tree, the listings and the transfers |
+| 🛡️ | **A bridge that is down means a broken drive** — the drive disappears until the service is back | **Nothing sits between you and the drive** — the app talks to the provider's own API, so there is no third-party hop that can be down, slow or rate-limited |
+| 🔁 | **Two things to keep up to date** — the bridge needs a new driver whenever the provider changes its API | **One thing to keep up to date** — the app itself, through its own update channel |
 
 ### Automation and AI assistants
 
@@ -137,6 +159,15 @@ sync, batch rename, and a long list of day-to-day fixes. **If you have been look
 |---|---|
 | ![Dashboard quick access](docs/screenshots/afm-dashboard-hero-light-en.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
 | ![Dashboard cards](docs/screenshots/afm-dashboard-card-enrichment-en.png) | **Dashboard cards** — name, size and path on top, type and item count below, with drag, reorder and edit shortcuts on every card |
+
+### What changed in 3.14.0
+
+| | | |
+|---|---|---|
+| ☁️ | **Quark Netdisk can be added next to Baidu Netdisk** — in *Settings* → *Remote* → *Netdisks*, the *Add netdisk* section now offers both providers; the sign-in window opens inside the app, the session is stored for you, and the connection you save behaves like any other remote connection |
+| 🔐 | **A netdisk session is saved only when it is complete** — the download link needs one more cookie than the login page hands out first; the app waits for it before saving, so a session that would fail on the very first download is never stored in the first place |
+| 📋 | **Copying a file out of a netdisk folder works again** — right-clicking a file offers *Copy*, and pasting it into a local folder puts the file there instead of doing nothing |
+| 📑 | **The remote settings page now starts with the tabs** — the introduction that used to sit above the *Netdisks* and *Remote connections* tabs has moved into the tabs themselves |
 
 ### What changed in 3.13.6
 
@@ -235,7 +266,7 @@ they compare.
 | ⚡ | **File dialogs in other apps** | ✅ **Focus Sync** — every dialog opens in the folder you are browsing | ➖ | ❌ |
 | 🤖 | **Driven by an AI assistant** | ✅ built-in MCP server, one-click setup for six assistants | ❌ | ❌ |
 | 🔐 | **Remote servers** | ✅ SFTP · FTP · FTPS, host keys and certificates pinned | ❌ | ➖ SMB / WebDAV / OneDrive, and no SFTP at all |
-| ☁️ | **Netdisks (cloud drives)** | ✅ **Baidu Netdisk** — sign in inside the app and browse it like any remote connection; **Aliyun Drive, Google Drive and other mainstream netdisks are on the way** | ❌ | ➖ OneDrive only |
+| ☁️ | **Netdisks (cloud drives)** | ✅ **Baidu Netdisk and Quark Netdisk** — add them in the app, sign in inside the app, and browse them like any remote connection; **Aliyun Drive, Google Drive and other mainstream netdisks are on the way** | ❌ | ➖ OneDrive only |
 | 📤 | **Working on remote files** | ✅ upload, download, delete, set permissions | ❌ | ➖ shares only |
 | ↔️ | **Two panes, used together** | ✅ **swap them with one button**, and a **synchronized browsing** toggle right beside it — enter a folder and the other pane follows, going up a level takes it along too | ➖ **no pane swap**; linked browsing exists but is a buried option in the navigator menu | ➖ tabs, not panes |
 | 🔍 | **Comparing two folders** | ✅ recursively, with the criteria serious tools use — and an explicit "direction undecided" state instead of guessing which side is newer | ➖ | ➖ compares by size and date only, and the choice is buried |
@@ -253,11 +284,12 @@ they compare.
 ✅ has it · ➖ not part of that project · ❌ cannot
 
 > **Netdisks are a growing surface, and we will keep working on them.** What
-> works today is Baidu Netdisk — sign in inside the app, browse it like a
-> remote connection, and listing, folder creation and downloads all reach the
-> drive itself. Aliyun Drive, Google Drive and the other mainstream netdisks
-> will be plugged into the very same machinery: one connection in the sidebar,
-> and the tree, the listings and the transfers follow it.
+> works today is Baidu Netdisk and Quark Netdisk — add one in the app, sign in
+> inside it, and browse it like a remote connection; listing, folder creation
+> and downloads all reach the drive itself. Aliyun Drive, Google Drive and the
+> other mainstream netdisks will be plugged into the very same machinery: one
+> connection in the sidebar, and the tree, the listings and the transfers
+> follow it.
 
 > **If you want the file manager that is part of Windows** — with the shell
 > extensions, the codecs, the network shares, the EFS encryption and the "it
