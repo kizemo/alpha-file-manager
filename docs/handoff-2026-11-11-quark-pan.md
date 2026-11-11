@@ -617,3 +617,61 @@ fix-log ① = 用户 **B9-3**、fix-log ② = 用户 **B9-4**、fix-log ③ = �
 2. **`@stylistic/object-property-newline`**：单行对象里超过一个属性就红，拆成多行。
 3. **`verify-changelog` 只校验「版本有条目 + 顺序 + 编码」**，不校验文案是否与实现一致 ⇒ 改 UI 时要**自己**回头改 3.14.0 条目（根 + 14 个语言包）。
 4. **`public/changelog/` 下面有个 `assets` 目录，但没有 `changelog.md`** —— 批量遍历目录时要跳过，别当成语言包。
+
+---
+
+## 16 批次 9 收官：四项真机验收全部 PASS（2026-11-11 20:40–21:30）
+
+### 16.1 四项判据最终结论（**用户编号**）
+
+| 项 | 判据 | 结论 | 证据 |
+| --- | --- | --- | --- |
+| **B9-1** | 缺 `__puus` → 412 报「请重新授权」 | **PASS** | `t9-shots/cdp-puus-download-05.log` |
+| **B9-2** | 断网（防火墙出站阻断）→ 分类中文文案 | **PASS** | `t9-shots/cdp-offline-banner-03.log` + `.png`（`JUDGE_no_raw_reqwest=true` / `JUDGE_no_internal_url=true` / `JUDGE_has_classified_cn=true`） |
+| **B9-3** | 网盘条目右键出现「复制」 | **PASS** | `t9-shots/cdp-b9-final2-03.log`、`t9-shots/cdp-b9-final2-10.log`：`COPY_ITEMS=[{"text":"复制 Ctrl+C","disabled":false}]`、`JUDGE_b9_3_copy_in_remote_menu=true`、`JUDGE_b9_3_copy_enabled=true` |
+| **B9-4** | 网盘 Ctrl+C → 本地目录 Ctrl+V 落地 | **PASS** | `t9-shots/cdp-b9-4-01.log`：`CLIP_STATE_AFTER_CTRL_C=[{"t":"夸克网盘使用指南.jpg","selected":"true","inClipboard":"true","clipType":"copy"}]` → `LANDED_FILES=["夸克网盘使用指南.jpg"]`、`LANDED_SIZE = 1048183`、文件头 `FF-D8-FF-E0`（真 JPEG）、toast「已下载 1 个文件到本地目录。」 |
+
+B9-4 的落地文件在 `.superpowers/sdd/quark/t9-shots/paste-target/`（探针内置安全阀：`PASTE_GUARD_OK=true`，只在本地格指向该目录时才允许粘贴）。
+
+### 16.2 B9-4 卡了两轮，根因是**两层**，别只记住一层
+
+**第一层（产品缺陷，已修 R12–R16）**：远程条目右键「复制」缺失 + 剪贴板装远程条目时被清空 + 粘贴不路由到对面本地格。这层由 fix-log §9.3 闭合，本轮随新包含 R12–R16 的包装机后复验通过。
+
+**第二层（本轮才定位，属环境/凭据问题，不是代码缺陷）**：
+
+1. **凭据罐的键是 `credential_key`，不一定等于连接 id**。`remote-credentials.json` 结构 = `{ version, entries: { <credential_key> : base64(DPAPI 密文) } }`；`load_credential` 按 key 查表，查不到就 `Ok(None)` ⇒ `src-tauri/src/remote/quark_provider.rs:741-744` 报「**夸克网盘还没有授权，请先在设置里完成授权。**」（不是「会话已失效」）。
+   本例实证：夸克远程连接 `sfm://remote/8c097b82cafe4ce4b06225e0c4196d04` 的 `credentialKey` 仍是老 key `8c097b82…`，而今天走「添加网盘」登录流程后 app 把新会话存到了**另一个 key** `a2a9b03…` 下 ⇒ 连接查不到会话，夸克卡片/远程格都打不开。
+2. **`__puus` 是下载直链的门槛 cookie**（`quark_auth.rs:92`）：列目录只要 `__pus`，下载要 `__puus`；缺 `__puus` ⇒ CDN 返回 412 ⇒ 应用侧报 `[auth] 夸克网盘会话已失效，请重新授权。`。本例中被 B9-1 造过期摘掉 `__puus` 的那份 2893 B 凭据正是 B9-4 失败的原因。
+
+**本轮做法（沙箱内、只读密文、不碰真实 appdata）**：用 `t9-vault-alias.mjs` 把**带 `__puus` 的会话密文整段复制**一份，挂到连接真正使用的 `credential_key` 下（不解密、不打印明文，只打印键名/长度/哈希）。之后远程格恢复列目录、下载落地成功。
+
+⚠️ **这属于验收环境修正，不是产品修复**：真实产品里「登录后新会话存到新 credential key、旧连接不自动继承」是既有设计（老连接要么重新授权、要么用新添加的网盘条目）。
+
+### 16.3 本轮工具坑（新增，务必带走）
+
+1. **`.mjs` 文件首行不能以 `#` 开头**：JS 里 `#` 只在 class 体内合法，文件首行 `# 注释` 直接 `SyntaxError`（只有 `#!` shebang 才行）。本轮连踩两次，改成 `//` 即可。
+2. **别假设「连接 id == 凭据条目键」**：先 dump 两边的 key 再动手（`t9-conn-map.mjs`：连接定义 + 凭据条目键对照）。
+3. **CDP 单击远程目录行会丢选中态**：v2 探针点根目录第一行（那是**目录**）⇒ `SELECTED=[]` ⇒ Ctrl+C 空转。做「复制」必须点**文件行**（`cls` 含 `--file`）。
+4. **粘贴后要轮询落地**：下载有网络往返，3 秒后的目录快照看不到文件；本轮用 5 秒 × 24 次轮询。
+5. **`t9-user-data` 不是凭据罐备份**：沙箱凭据罐在 `t8-sandbox/appdata/remote-credentials.json`；`t8-sandbox.ps1 -Action Restore` 回位的是 junction 背后被挪走的真实目录（`t8-sandbox/real-appdata-parked`），不依赖 `t9-user-data`。
+6. **凭据检查器要能换目录**：`t9-vault-inspect.ps1 -Sandbox <dir>` 可指向任意目录（本轮用它同时查沙箱、备份、parked 真实目录三份）。
+7. **改凭据前先杀实例**：app 关停时会把内存里的会话回写盖掉你刚放好的文件。
+8. **远程路径右键菜单会报 `Failed to load shell context menu: Path not found: sfm://remote/…`**（Shell 扩展不适用于虚拟路径），不影响「复制」项判定。
+
+### 16.4 收尾动作（本轮已执行，顺序照抄）
+
+1. 取证完成后**关实例** → `t8-sandbox.ps1 -Action Restore` ⇒ 输出 `junction removed` / `real app data restored` / `RESTORED_FILES=1329`，再 `-Action Status` ⇒ **`STATE=real`**、`REAL_ENTRIES=16`、`APP_PROCS=0`。
+2. **revert 临时 CDP 参数**：`git -C <repo> checkout -- src-tauri/tauri.conf.json`（临时加的 `additionalBrowserArgs: --remote-debugging-port=45777`）⇒ 复核 `CDP_ARG_STILL_PRESENT=False`，工作区 `git status --porcelain` 为空。
+3. **重出最终包**：`t9-build-final.cmd`（VS 18 vcvars64 + `npm run tauri:build`）—— 装机最终版**开不了 CDP**（`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 被 wry 覆盖），所以真机取证只能另出「验证版」，收尾必须重出并断言产物不含 CDP 端口。
+   本轮实测结果：
+   - 构建日志 `t9-shots/../t9-build-final.log` 尾部 **`==== EXIT=0 ====`**。
+   - `src-tauri\target\release\alpha-file-manager.exe` = 82,767,360 B / 21:19:49 / SHA256 `80D6D4FA870B4B1038CFAB35A28E7D642790B6BCB8637CB04197CEDE3B60BDDC`。
+   - `src-tauri\target\release\bundle\nsis\Alpha File Manager_3.14.0_x64-setup.exe` = 45,460,038 B / 21:19:47 / SHA256 `90CB5E15EDD525F82112369DE4CA6AF7E3B746A2572FB76871AD8C6426F0824D`。
+   - 核验脚本 `t9-verify-final.ps1`（日志 `t9-shots/verify-final-01.log`）：裸 exe / 安装包 / 装机 exe 三份产物 `CDP_PORT_STR=False` 且 `CDP_NUM_STR=False`；`CONFIG_HAS_CDP_ARG=False`；`APP_PROCS=0`。
+   - 装机 `setup.exe /S /FORCE`：安装日志 `%TEMP%\alpha-file-manager-install.log` 的 PREINSTALL 21:20:37 / POSTINSTALL 21:20:52，`installerSha256=90cb5e15…`；装机 exe `D:\Program Files\Alpha File Manager\alpha-file-manager.exe` = 82,767,360 B / 21:19:06 / SHA256 `B7F6828BF414552F42C4664E00A9C5E74848CD612D50B5D1EF8307ACB60852D7`（与 `target\release` 那份差 bundle-type 标记，属设计内，详见 topic `alpha-file-manager`）。
+
+### 16.5 遗留风险（**下一棒必读**）
+
+1. **真实 appdata 里的夸克会话是「缺 `__puus` 的老罐」**（`remote-credentials.json` 2893 B / `HAS_PUUS=False` / 13:17）——这是 B9-1 造过期时落下的。**用户在真实应用里「下载到本地」仍会 412**。恢复路径只有一条：**用户本人重新走一次夸克登录**（远程设置页 → 添加网盘 → 夸克网盘 → 扫码），让 app 存一份带 `__puus` 的会话；本轮没有替用户做这一步（需要扫码，本轮也未做）。
+2. 老连接 `8c097b82…` 不会因为新登录而自动获得会话；用新添加的网盘条目即可，或在老连接上重新授权。
+3. 本轮沙箱里做的「凭据条目别名」**只发生在沙箱**，真实 appdata 未被写入任何别名（回位后真实罐仍是 2893 B 那份）。
