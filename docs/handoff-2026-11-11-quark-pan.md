@@ -675,3 +675,85 @@ B9-4 的落地文件在 `.superpowers/sdd/quark/t9-shots/paste-target/`（探针
 1. **真实 appdata 里的夸克会话是「缺 `__puus` 的老罐」**（`remote-credentials.json` 2893 B / `HAS_PUUS=False` / 13:17）——这是 B9-1 造过期时落下的。**用户在真实应用里「下载到本地」仍会 412**。恢复路径只有一条：**用户本人重新走一次夸克登录**（远程设置页 → 添加网盘 → 夸克网盘 → 扫码），让 app 存一份带 `__puus` 的会话；本轮没有替用户做这一步（需要扫码，本轮也未做）。
 2. 老连接 `8c097b82…` 不会因为新登录而自动获得会话；用新添加的网盘条目即可，或在老连接上重新授权。
 3. 本轮沙箱里做的「凭据条目别名」**只发生在沙箱**，真实 appdata 未被写入任何别名（回位后真实罐仍是 2893 B 那份）。
+
+---
+
+## 17 批次 10：真实 appdata 下载能力闭环 + 「412 出现在 CDN 而非下载接口」的根因修正（2026-11-11 22:06–22:30）
+
+### 17.1 开工时的实况（22:06–22:08 读盘，非推断）
+
+- **用户已于 22:07 在正式安装版上重新扫码授权** —— §16.5 遗留风险 1 的唯一解法已被执行。
+- 真实 appdata **已回位**：`%APPDATA%\com.sigma-file-manager.app` 是真实目录（`LinkType` 空、junction 已撤），
+  `t8-sandbox\real-appdata-parked` 不存在 ⇒ §16.4 的 restore 确实完成。
+- 真实凭据罐 `remote-credentials.json` = **3981 B / HAS_PUUS=True / PUS_LEN=120 /
+  PLAIN_SHA16=`51168ab9dd137d9f` / last_alive_unix=1794406053**（对比 §16.5 记的 2893 B / HAS_PUUS=False）。
+- 真实连接清单 **5 条**：3×SFTP（速豹堂 / aiec.fun / jury.xin）+ 百度网盘 `0f0696ba…` + 夸克网盘 `d2ab9ed3…`；
+  **夸克条目的 `credentialKey == id`**（§16.2 的「连接 id ≠ 凭据条目键」问题在真实数据里已不存在）。
+- 运行中的进程 = **正式安装版** `D:\Program Files\Alpha File Manager\alpha-file-manager.exe`
+  （82767360 B / 21:19:06 / SHA256 `B7F6828B…`，与 §16.4 记录逐字一致），启动于 22:06:46。
+
+### 17.2 R5 / R6 在**正式安装版**上真机生效（逐字日志）
+
+`%APPDATA%\com.sigma-file-manager.app\quark-login.log`：
+
+```
+[1794406051.222] settle: __pus 已就绪但 __puus 未到，继续等它落地（下载需要）
+[1794406053.584] login state ready: __pus(len=120) + __puus(len=248) + extras=20 + 距上次验活0秒
+[1794406063.705] claim: saved to connection d2ab9ed3151246d19f6fcc1c1d60e872
+```
+
+旧形态是 `login state ready: __pus(len=120) + extras=16`（**无 `__puus`**）⇒
+**存盘时机修复（R6 宽限等待 + R5 一等公民）在装机版上确认生效**，不再是只有沙箱/单测证据。
+
+### 17.3 「下载到本地」的真实凭据闭环（协议层实测）
+
+新工装 `.superpowers/sdd/quark/t10-real-download-check.ps1`（**只读**：DPAPI 解密真实罐 → 调夸克接口 →
+只打印非敏感字段：cookie 名单/长度、HTTP 状态、code、CDN host、query **参数名**；**不打印** cookie 值、
+`pus` 值、`auth_key` 值），日志 `t10-real-download-check.log`。
+
+| 变体（同一份当前会话） | 下载接口 | CDN 回源（`Range: bytes=0-1023`） |
+| --- | --- | --- |
+| 完整罐（**有** `__puus`） | **200 / code=0**，返回 `download_url`（host `dl-pc-sz.drive.quark.cn`） | **206 / 1024 B / octet-stream** |
+| 完整罐**去掉** `__puus` | 200 / code=0 | **412** |
+| 只留 `__pus`（历史失败形态） | 200 / code=0 | **412** |
+
+⇒ **真实 appdata 里的会话现在能真正取到并回源直链** ⇒ 正式应用里「下载到本地」不再会 412。
+
+### 17.4 根因修正（推翻 §13.1 / t9-fix-log §一.1 的一部分措辞）
+
+- **`__puus` 的门槛在「CDN 回源」这一跳，不在「下载接口」这一跳**：三种变体调下载接口**一律 200/code=0**。
+- ⇒ §13.1 与 `t9-fix-log.md` §一.1 里「下载接口返回 `{"status":412,"code":14002,"message":"preAu failed"}`」
+  的表述**不准确**：用今天的当前会话实测，接口恒 200，**412 出现在 CDN**。
+- 两件事可以同时成立：11-11 13:17 那份老罐（`__pus` + 16 个 extras，且多已轮换）调接口时确实收到过 412
+  `preAu failed`；**那份老罐已不存在，无法复验** ⇒ 该条记为「历史观察，不再复验」，不再当根因引用。
+- **产品代码本来就是对的**：`quark_provider.rs::download_file`（L499-509）对 CDN 非 2xx 一律走
+  `failure_from_http_status`，R4 的 `412 => Auth` ⇒ CDN 412 显示「[auth] 夸克网盘会话已失效，请重新授权。」，
+  与 B9-1 真机文案逐字一致。**本轮无需改产品代码。**
+
+### 17.5 §16.5 遗留风险的当前状态
+
+| # | 风险 | 状态 |
+| --- | --- | --- |
+| 1 | 真实 appdata 缺 `__puus` ⇒ 正式应用下载 412 | **已闭环**：协议层实测 CDN 206（§17.3）；同一链路的 UI 层已在沙箱 B9-4 PASS（落地文件头 `FF-D8-FF-E0`） |
+| 2 | 老连接不继承新会话 | **已消解**：真实清单只剩新连接 `d2ab9ed3…`，其 `credentialKey == id`；`8c097b82…` / `a2a9b03…` 已不在真实清单 |
+| 3 | 沙箱别名写进真实 appdata | **未发生**：真实清单 5 条 + 凭据罐 2 条，与 §16.4 restore 结果一致；本轮全程只读，无任何写入 |
+
+### 17.6 本轮**没有**做的事（边界声明）
+
+- **没有做真机 UI 注入下载**：应用正在被使用，注入会抢用户前台（上一轮已定此纪律）；
+  协议层（§17.3）+ 沙箱 UI 层（B9-4）已覆盖同一条链路。
+- **没有 push**（本地领先 `origin/main` 14 条）、**没有** GitHub Release、**没有**发版。
+- **没有改产品代码**：本轮是取证与记账；§17.4 的修正是**文档层**的根因订正。
+
+### 17.7 本轮新增工装
+
+| 文件 | 用途 |
+| --- | --- |
+| `.superpowers/sdd/quark/t10-real-download-check.ps1` | 真实 appdata 下载能力只读体检（含两个反向对照变体） |
+| `.superpowers/sdd/quark/t10-real-download-check.log` | 上者输出 |
+
+### 17.8 下一棒清单
+
+1. **push 需用户授权**；`CHANGELOG.md` 与 14 个语言包已含 3.14.0 条目。
+2. 若要 UI 层最终确认：在**用户空闲窗口**内用装机版做一次「下载到本地」，落点指向 scratch 目录。
+3. 仍未处理且与夸克无关：R4（17 语言包母语复核）、R5（`Ctrl+Shift+P` 热键冲突）、R6（`p5b-install.ps1` 哈希判据）。
