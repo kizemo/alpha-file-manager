@@ -720,6 +720,26 @@ AFM 确实不抢前台（聊天窗口还在前面），但**文件拖不进聊�
 - **`release/README.md` 这类「本地镜像」文档会长期腐化**：它曾还是 Sigma File Manager 时代的旧文
   （讲 `v2.2.0-focus.1`、仓库地址指向旧的 `kizemo/sigma-file-manager`）⇒ 改品牌 / 改仓库时要一并核对。
 
+### 2.10 夸克网盘（批次 9–10）的四个硬事实
+
+真源台账：`docs/handoff-2026-11-11-quark-pan.md`（§16–§17）；逐轮记账 `.superpowers/sdd/quark/t9-fix-log.md`。
+**下面四条都是实测结论，引用时直接用，不要再自己推一遍**：
+
+- **下载的 412 出现在「CDN 回源」那一跳，不在「下载接口」那一跳**（2026-11-11 22:2x 实测）：
+  同一份当前会话的三个变体（完整罐 / 去掉 `__puus` / 只留 `__pus`）调
+  `POST /1/clouddrive/file/download` **一律 200/code=0 并返回 `download_url`**；
+  拿该 URL 再带 Cookie 打 `dl-pc-sz.drive.quark.cn` 才分出 **206（有 `__puus`） vs 412（无 `__puus`）**。
+  ⇒ `__puus` 是**直链回源门槛 cookie**；`quark_provider.rs::download_file` 把 CDN 非 2xx 走
+  `failure_from_http_status`，`412 => Auth` ⇒ 用户看到「[auth] 夸克网盘会话已失效，请重新授权。」
+- **存盘时机比「域覆盖」更关键**：登录时 `__puus` 比 `__pus` 晚约 1 秒落地 ⇒ 早期版本存下的会话永远缺 `__puus`
+  ⇒ 下载必 412。修复是「存盘前有限宽限等待」（`QUARK_PUUS_SETTLE_SECONDS`），**不是**加 cookie 域名。
+- **判「装机版有没有修复」别扫 exe 里的 ASCII 字符串**：release 二进制搜不到 `__puus(len=` 这类 format 片段
+  （无判别力）；PE `TimeDateStamp` 恒为 `0x00100000`（确定性构建），装机副本与 `target/release` **同尺寸不同 sha**。
+  ⇒ 只认「运行时新增日志行」或「只有新版才有的行为差异」。
+- **别假设「连接 id == 凭据条目键」**：`remote-credentials.json` 的键是 `credential_key`，查不到就当「没授权」。
+  改凭据前**先杀实例**，否则应用退出时会把内存里的会话回写盖掉你刚放好的文件。
+  只读体检工具：`.superpowers/sdd/quark/t10-real-download-check.ps1`（不打印 cookie 值 / `pus` / `auth_key`）。
+
 ## 3. 代码导航：graphify 知识图谱
 本仓库已建好本地 AST 知识图谱（2026-10-21 部署）：**零 LLM、零 API 成本、纯本地**，产物在 `graphify-out/`（已加进 `.gitignore`，不进版本库）。
 
