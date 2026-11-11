@@ -12,6 +12,8 @@
 
 **Fixed** **Copying a file out of a netdisk folder works again** - Right-clicking a file in a netdisk folder offers *Copy*, and pasting it into a local folder puts the file there instead of doing nothing.
 
+**Fixed** **A netdisk session is saved only when it is complete** - The download link needs one more cookie than the login page hands out first, and it arrives a moment later. The app now waits for it before saving, so a session that would have failed on the very first download is never stored in the first place.
+
 ## [3.13.7] - November 2026
 
 **Summary:** The app now tells you when a keyboard shortcut is already owned by Windows or by another program - so a command that silently never fired is no longer a mystery.
