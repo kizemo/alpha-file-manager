@@ -652,7 +652,8 @@
         "ftps_explicit": "FTPS（显式）",
         "ftps_implicit": "FTPS（隐式）",
         "sftp": "SFTP",
-        "baidu_pan": "百度网盘"
+        "baidu_pan": "百度网盘",
+        "quark_pan": "夸克网盘"
       },
       "proxy": {
         "direct": "直连",
@@ -678,7 +679,8 @@
         "unknown": "保存连接失败。",
         "localPathHasWhitespace": "本地目录不能包含空格。",
         "testInvalidInput": "当前设置无法测试，请先填好服务器地址与端口。",
-        "baiduLoginRequired": "请先在应用内完成百度网盘登录，再保存这条连接。"
+        "baiduLoginRequired": "请先在应用内完成百度网盘登录，再保存这条连接。",
+        "quarkLoginRequired": "请先在应用内完成夸克网盘登录，再保存这条连接。"
       },
       "localPath": {
         "hint": "可选。填写后，打开该连接会自动显示左右双屏：左侧是本地目录，右侧是远端目录。"
@@ -745,6 +747,37 @@
           },
           "saved": "百度网盘登录成功：窗口已自动关闭，Cookie 已取到，保存这条连接即可使用。"
         }
+      },
+      "quark": {
+        "status": {
+          "loading": "正在读取授权状态…",
+          "missing": "尚未登录",
+          "ready": "已授权",
+          "stale": "会话已过期，需要重新登录",
+          "stale_soon": "会话即将过期"
+        },
+        "action": {
+          "deleteSession": "删除已保存的会话"
+        },
+        "embedded": {
+          "title": "在应用内登录",
+          "start": "用内嵌窗口登录",
+          "cancel": "停止等待",
+          "hint": "在应用内打开登录窗口。登录成功后窗口会自动关闭，会话随即取到——你只需保存这条连接。",
+          "status": {
+            "waiting": "正等你完成登录…",
+            "ready": "已登录。保存这条连接即可——会话会在保存时写入。",
+            "closed": "登录还没完成，登录窗口就被关掉了。",
+            "timeout": "登录等待超时了，请重试。",
+            "error": "读不到登录态，请重试。"
+          },
+          "saved": "夸克网盘登录成功：窗口已自动关闭，会话已取到，保存这条连接即可使用。"
+        }
+      },
+      "netdisk": {
+        "provider": "网盘类型",
+        "baidu": "百度网盘",
+        "quark": "夸克网盘"
       }
     },
     "about": {

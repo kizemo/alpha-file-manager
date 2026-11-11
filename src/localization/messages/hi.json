@@ -689,7 +689,8 @@
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
-        "baidu_pan": "बाइडू नेटडिस्क"
+        "baidu_pan": "बाइडू नेटडिस्क",
+        "quark_pan": "Quark Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -715,7 +716,8 @@
         "unknown": "Failed to save the connection.",
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
-        "baiduLoginRequired": "पहले ऐप के भीतर Baidu Pan में साइन इन करें, फिर यह कनेक्शन सहेजें।"
+        "baiduLoginRequired": "पहले ऐप के भीतर Baidu Pan में साइन इन करें, फिर यह कनेक्शन सहेजें।",
+        "quarkLoginRequired": "इस कनेक्शन को सहेजने से पहले ऐप में Quark Drive में साइन इन करें।"
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -782,6 +784,37 @@
           },
           "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
         }
+      },
+      "quark": {
+        "status": {
+          "loading": "प्राधिकरण की स्थिति पढ़ी जा रही है…",
+          "missing": "साइन इन नहीं किया गया",
+          "ready": "प्राधिकृत",
+          "stale": "सत्र समाप्त हो गया; कृपया फिर से साइन इन करें",
+          "stale_soon": "सत्र जल्द ही समाप्त हो जाएगा"
+        },
+        "action": {
+          "deleteSession": "सहेजा गया सत्र हटाएँ"
+        },
+        "embedded": {
+          "title": "ऐप में साइन इन करें",
+          "start": "एम्बेडेड विंडो से साइन इन करें",
+          "cancel": "प्रतीक्षा रोकें",
+          "hint": "ऐप में एक साइन इन विंडो खुलती है। साइन इन पूरा होते ही यह अपने आप बंद हो जाती है और सत्र तुरंत मिल जाता है — आपको बस यह कनेक्शन सहेजना है।",
+          "status": {
+            "waiting": "आपके साइन इन करने की प्रतीक्षा हो रही है…",
+            "ready": "साइन इन हो गया। यह कनेक्शन सहेजें — सत्र सहेजते समय लिखा जाएगा।",
+            "closed": "साइन इन पूरा होने से पहले ही विंडो बंद कर दी गई।",
+            "timeout": "साइन इन की प्रतीक्षा समय-सीमा समाप्त हो गई। कृपया फिर से प्रयास करें।",
+            "error": "साइन इन की स्थिति पढ़ी नहीं जा सकी। कृपया फिर से प्रयास करें।"
+          },
+          "saved": "Quark Drive में साइन इन सफल: विंडो अपने आप बंद हो गई और सत्र मिल गया। उपयोग के लिए यह कनेक्शन सहेजें।"
+        }
+      },
+      "netdisk": {
+        "provider": "क्लाउड ड्राइव",
+        "baidu": "Baidu Drive",
+        "quark": "Quark Drive"
       }
     },
     "about": {

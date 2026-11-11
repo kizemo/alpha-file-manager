@@ -12,7 +12,7 @@ import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
 import { useWorkspacesStore } from '@/stores/storage/workspaces';
 import { openRemoteConnection } from '@/modules/remote/utils/open-remote-connection';
 import { openSettingsTab } from '@/modules/settings/utils/open-settings';
-import { isBaiduPanProtocol } from '@/types/remote';
+import { isNetdiskProtocol } from '@/types/remote';
 import type { RemoteConnection } from '@/types/remote';
 
 const { t } = useI18n();
@@ -28,15 +28,15 @@ const workspacesStore = useWorkspacesStore();
  * 显示名称，点击在导航页视图中打开对应的网盘和服务器」。
  *
  * 所以这里现在**按连接列条目**，每条显示连接自己的名字，点击就是连它。
- * 分区判定仍然只有 `isBaiduPanProtocol` 一个口径（与设置页、导航栏悬停面板一致），
+ * 分区判定仍然只有 `isNetdiskProtocol` 一个口径（与设置页、导航栏悬停面板一致），
  * 以后接入阿里云盘之类的网盘只要扩这个判定，这一页自动跟上。
  */
 const netdiskConnections = computed(() => (
-  remoteConnectionsStore.connections.filter(connection => isBaiduPanProtocol(connection.protocol))
+  remoteConnectionsStore.connections.filter(connection => isNetdiskProtocol(connection.protocol))
 ));
 
 const remoteConnections = computed(() => (
-  remoteConnectionsStore.connections.filter(connection => !isBaiduPanProtocol(connection.protocol))
+  remoteConnectionsStore.connections.filter(connection => !isNetdiskProtocol(connection.protocol))
 ));
 
 /** 一条连接都没有时只给提示与一个设置入口，不摆两个空分组。 */

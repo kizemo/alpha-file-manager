@@ -652,7 +652,8 @@
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
-        "baidu_pan": "Baidu Netdisk"
+        "baidu_pan": "Baidu Netdisk",
+        "quark_pan": "Quark Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -678,7 +679,8 @@
         "unknown": "Failed to save the connection.",
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
-        "baiduLoginRequired": "Önce uygulama içinde Baidu Pan'a giriş yapın, sonra bu bağlantıyı kaydedin."
+        "baiduLoginRequired": "Önce uygulama içinde Baidu Pan'a giriş yapın, sonra bu bağlantıyı kaydedin.",
+        "quarkLoginRequired": "Bu bağlantıyı kaydetmeden önce uygulama içinde Quark Drive’a giriş yapın."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -745,6 +747,37 @@
           },
           "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
         }
+      },
+      "quark": {
+        "status": {
+          "loading": "Yetkilendirme durumu okunuyor…",
+          "missing": "Giriş yapılmadı",
+          "ready": "Yetkili",
+          "stale": "Oturumun süresi doldu; yeniden giriş yapın",
+          "stale_soon": "Oturumun süresi dolmak üzere"
+        },
+        "action": {
+          "deleteSession": "Kaydedilmiş oturumu sil"
+        },
+        "embedded": {
+          "title": "Uygulama içinde giriş yap",
+          "start": "Gömülü pencerede giriş yap",
+          "cancel": "Beklemeyi durdur",
+          "hint": "Uygulama içinde bir giriş penceresi açılır. Giriş tamamlandığında otomatik kapanır ve oturum hemen alınır — tek yapmanız gereken bu bağlantıyı kaydetmek.",
+          "status": {
+            "waiting": "Giriş yapmanız bekleniyor…",
+            "ready": "Giriş yapıldı. Bu bağlantıyı kaydedin — oturum kaydetme sırasında yazılacak.",
+            "closed": "Giriş tamamlanmadan giriş penceresi kapatıldı.",
+            "timeout": "Giriş bekleme zaman aşımına uğradı. Lütfen yeniden deneyin.",
+            "error": "Giriş durumu okunamadı. Lütfen yeniden deneyin."
+          },
+          "saved": "Quark Drive’a giriş yapıldı: pencere otomatik kapandı, oturum alındı. Bu bağlantıyı kaydederek kullanabilirsiniz."
+        }
+      },
+      "netdisk": {
+        "provider": "Bulut sürücüsü",
+        "baidu": "Baidu Drive",
+        "quark": "Quark Drive"
       }
     },
     "about": {

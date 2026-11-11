@@ -652,7 +652,8 @@
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
-        "baidu_pan": "Baidu Netdisk"
+        "baidu_pan": "Baidu Netdisk",
+        "quark_pan": "Quark Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -678,7 +679,8 @@
         "unknown": "Failed to save the connection.",
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
-        "baiduLoginRequired": "Accedi a Baidu Pan nell'app, poi salva questa connessione."
+        "baiduLoginRequired": "Accedi a Baidu Pan nell'app, poi salva questa connessione.",
+        "quarkLoginRequired": "Accedi a Quark Drive dall’app prima di salvare questa connessione."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -745,6 +747,37 @@
           },
           "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
         }
+      },
+      "quark": {
+        "status": {
+          "loading": "Lettura dello stato di autorizzazione…",
+          "missing": "Accesso non effettuato",
+          "ready": "Autorizzato",
+          "stale": "La sessione è scaduta; accedi di nuovo",
+          "stale_soon": "La sessione sta per scadere"
+        },
+        "action": {
+          "deleteSession": "Elimina la sessione salvata"
+        },
+        "embedded": {
+          "title": "Accedi dall’app",
+          "start": "Accedi con la finestra incorporata",
+          "cancel": "Interrompi l’attesa",
+          "hint": "Nell’app si apre una finestra di accesso. Si chiude automaticamente al termine dell’accesso e la sessione viene raccolta subito: devi solo salvare questa connessione.",
+          "status": {
+            "waiting": "In attesa che tu acceda…",
+            "ready": "Accesso effettuato. Salva questa connessione: la sessione verrà scritta al salvataggio.",
+            "closed": "La finestra di accesso è stata chiusa prima che tu completassi l’accesso.",
+            "timeout": "Tempo di attesa dell’accesso scaduto. Riprova.",
+            "error": "Impossibile leggere lo stato di accesso. Riprova."
+          },
+          "saved": "Accesso a Quark Drive riuscito: la finestra si è chiusa automaticamente e la sessione è stata raccolta. Salva questa connessione per usarla."
+        }
+      },
+      "netdisk": {
+        "provider": "Disco cloud",
+        "baidu": "Baidu Drive",
+        "quark": "Quark Drive"
       }
     },
     "about": {

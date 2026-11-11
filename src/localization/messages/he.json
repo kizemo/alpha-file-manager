@@ -689,7 +689,8 @@
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
-        "baidu_pan": "Baidu Netdisk"
+        "baidu_pan": "Baidu Netdisk",
+        "quark_pan": "Quark Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -715,7 +716,8 @@
         "unknown": "Failed to save the connection.",
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
-        "baiduLoginRequired": "יש להתחבר ל-Baidu Pan בתוך היישום ואז לשמור את החיבור הזה."
+        "baiduLoginRequired": "יש להתחבר ל-Baidu Pan בתוך היישום ואז לשמור את החיבור הזה.",
+        "quarkLoginRequired": "התחבר ל־Quark Drive בתוך היישום לפני שמירת החיבור הזה."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -782,6 +784,37 @@
           },
           "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
         }
+      },
+      "quark": {
+        "status": {
+          "loading": "קורא את מצב ההרשאה…",
+          "missing": "לא מחובר",
+          "ready": "מורשה",
+          "stale": "תוקף ההפעלה פג; יש להתחבר מחדש",
+          "stale_soon": "תוקף ההפעלה עומד לפוג"
+        },
+        "action": {
+          "deleteSession": "מחק הפעלה שמורה"
+        },
+        "embedded": {
+          "title": "התחברות בתוך היישום",
+          "start": "התחברות בחלון מוטמע",
+          "cancel": "הפסק להמתין",
+          "hint": "בתוך היישום נפתח חלון התחברות. הוא נסגר אוטומטית עם השלמת ההתחברות וההפעלה נאספת מיד — נותר רק לשמור את החיבור.",
+          "status": {
+            "waiting": "ממתין להתחברות…",
+            "ready": "התחברת. שמור את החיבור — ההפעלה תיכתב בעת השמירה.",
+            "closed": "חלון ההתחברות נסגר לפני שסיימת.",
+            "timeout": "תם הזמן הקצוב להתחברות. נסה שוב.",
+            "error": "לא ניתן לקרוא את מצב ההתחברות. נסה שוב."
+          },
+          "saved": "התחברות ל־Quark Drive הצליחה: החלון נסגר אוטומטית וההפעלה נאספה — שמור את החיבור כדי להשתמש בו."
+        }
+      },
+      "netdisk": {
+        "provider": "כונן ענן",
+        "baidu": "Baidu Drive",
+        "quark": "Quark Drive"
       }
     },
     "about": {

@@ -689,7 +689,8 @@
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
-        "baidu_pan": "Baidu Netdisk"
+        "baidu_pan": "Baidu Netdisk",
+        "quark_pan": "Quark Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -715,7 +716,8 @@
         "unknown": "Failed to save the connection.",
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
-        "baiduLoginRequired": "Najprej se v aplikaciji prijavite v Baidu Pan, nato shranite to povezavo."
+        "baiduLoginRequired": "Najprej se v aplikaciji prijavite v Baidu Pan, nato shranite to povezavo.",
+        "quarkLoginRequired": "Pred shranjevanjem te povezave se prijavite v Quark Drive v aplikaciji."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -782,6 +784,37 @@
           },
           "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
         }
+      },
+      "quark": {
+        "status": {
+          "loading": "Branje stanja avtorizacije…",
+          "missing": "Ni prijavljeni",
+          "ready": "Avtorizirano",
+          "stale": "Sedenja je potekla; prijavite se znova",
+          "stale_soon": "Sedenja bo kmalu potekla"
+        },
+        "action": {
+          "deleteSession": "Izbriši shranjeno sejenje"
+        },
+        "embedded": {
+          "title": "Prijava v aplikaciji",
+          "start": "Prijava v vgrajenem oknu",
+          "cancel": "Prenehaj čakati",
+          "hint": "V aplikaciji se odpri okno za prijavo. Ko se prijavite, se samodejno zapre, seja pa je takoj prevzeta – shraniti morate le še to povezavo.",
+          "status": {
+            "waiting": "Čakamo, da se prijavite…",
+            "ready": "Prijavljeni. Shranite to povezavo – seja bo zapisana ob shranjevanju.",
+            "closed": "Okno za prijavo je bilo zaprto, preden ste končali s prijavo.",
+            "timeout": "Čas za pričakovanje prijave je potekel. Poskusite znova.",
+            "error": "Stanja prijave ni bilo mogoče prebrati. Poskusite znova."
+          },
+          "saved": "Prijava v Quark Drive je uspela: okno se je samodejno zaprlo in seja je bila prevzeta. Shranite to povezavo za uporabo."
+        }
+      },
+      "netdisk": {
+        "provider": "Oblačni disk",
+        "baidu": "Baidu Drive",
+        "quark": "Quark Drive"
       }
     },
     "about": {

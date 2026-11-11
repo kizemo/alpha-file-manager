@@ -689,7 +689,8 @@
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
-        "baidu_pan": "Baidu Netdisk"
+        "baidu_pan": "Baidu Netdisk",
+        "quark_pan": "Quark Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -715,7 +716,8 @@
         "unknown": "Failed to save the connection.",
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
-        "baiduLoginRequired": "Sign in to Baidu Pan inside the app, then save this connection."
+        "baiduLoginRequired": "Sign in to Baidu Pan inside the app, then save this connection.",
+        "quarkLoginRequired": "Sign in to Quark Drive inside the app before saving this connection."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -782,6 +784,37 @@
         "action": {
           "deleteSession": "Delete saved session"
         }
+      },
+      "quark": {
+        "status": {
+          "loading": "Reading authorization status…",
+          "missing": "Not signed in",
+          "ready": "Authorized",
+          "stale": "The session has expired; please sign in again",
+          "stale_soon": "The session is about to expire"
+        },
+        "action": {
+          "deleteSession": "Delete the saved session"
+        },
+        "embedded": {
+          "title": "Sign in inside the app",
+          "start": "Sign in with the embedded window",
+          "cancel": "Stop waiting",
+          "hint": "A sign-in window opens inside the app. It closes automatically once you are signed in, and the session is picked up right away — all you have to do is save this connection.",
+          "status": {
+            "waiting": "Waiting for you to sign in…",
+            "ready": "Signed in. Save this connection — the session will be written when you save.",
+            "closed": "The sign-in window was closed before you finished signing in.",
+            "timeout": "Timed out while waiting for sign-in. Please try again.",
+            "error": "Could not read the sign-in state. Please try again."
+          },
+          "saved": "Signed in to Quark Drive: the window closed automatically and the session was picked up. Save this connection to use it."
+        }
+      },
+      "netdisk": {
+        "provider": "Cloud drive",
+        "baidu": "Baidu Drive",
+        "quark": "Quark Drive"
       }
     },
     "about": {

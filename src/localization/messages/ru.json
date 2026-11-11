@@ -689,7 +689,8 @@
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
-        "baidu_pan": "Baidu Netdisk"
+        "baidu_pan": "Baidu Netdisk",
+        "quark_pan": "Quark Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -715,7 +716,8 @@
         "unknown": "Failed to save the connection.",
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
-        "baiduLoginRequired": "Сначала войдите в Baidu Pan в приложении, затем сохраните это подключение."
+        "baiduLoginRequired": "Сначала войдите в Baidu Pan в приложении, затем сохраните это подключение.",
+        "quarkLoginRequired": "Войдите в Quark Drive в приложении, прежде чем сохранить это подключение."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -782,6 +784,37 @@
           },
           "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
         }
+      },
+      "quark": {
+        "status": {
+          "loading": "Чтение состояния авторизации…",
+          "missing": "Вход не выполнен",
+          "ready": "Авторизован",
+          "stale": "Сессия истекла, войдите снова",
+          "stale_soon": "Сессия скоро истечёт"
+        },
+        "action": {
+          "deleteSession": "Удалить сохранённую сессию"
+        },
+        "embedded": {
+          "title": "Войти внутри приложения",
+          "start": "Войти во встроенном окне",
+          "cancel": "Прекратить ожидание",
+          "hint": "В приложении откроется окно входа. Оно закроется автоматически после входа, а сессия будет получена сразу — останется только сохранить это подключение.",
+          "status": {
+            "waiting": "Ожидаем входа…",
+            "ready": "Вход выполнен. Сохраните подключение — сессия будет записана при сохранении.",
+            "closed": "Окно входа закрылось до завершения.",
+            "timeout": "Истекло время ожидания входа. Попробуйте снова.",
+            "error": "Не удалось прочитать состояние входа. Попробуйте снова."
+          },
+          "saved": "Вход в Quark Drive выполнен: окно закрылось автоматически, сессия получена. Сохраните подключение, чтобы использовать его."
+        }
+      },
+      "netdisk": {
+        "provider": "Облачный диск",
+        "baidu": "Baidu Drive",
+        "quark": "Quark Drive"
       }
     },
     "about": {

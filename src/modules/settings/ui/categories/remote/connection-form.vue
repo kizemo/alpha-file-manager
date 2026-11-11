@@ -23,10 +23,10 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
-import { getRemoteProtocolDefaultPort, isBaiduPanProtocol } from '@/types/remote';
+import { getRemoteProtocolDefaultPort, isBaiduPanProtocol, isNetdiskProtocol, isQuarkPanProtocol } from '@/types/remote';
 import normalizePath from '@/utils/normalize-path';
 import type {
-  BaiduAuthStatusPayload, BaiduLoginEventPayload, RemoteConnection, RemoteConnectionForm, RemoteConnectionTestReport, RemoteProtocol, RemoteProxyConfig,
+  BaiduAuthStatusPayload, BaiduLoginEventPayload, QuarkAuthStatusPayload, QuarkLoginEventPayload, RemoteConnection, RemoteConnectionForm, RemoteConnectionTestReport, RemoteProtocol, RemoteProxyConfig,
 } from '@/types/remote';
 
 type Props = {
@@ -48,6 +48,15 @@ type Props = {
    *   与拆标签页之前的行为一致。
    */
   variant?: 'auto' | 'netdisk' | 'remote';
+  /**
+   * 网盘分区选中的 **provider**（2026-11-11 夸克网盘）。
+   *
+   * 网盘协议不在协议下拉里（`PROTOCOLS` 刻意不含网盘协议），
+   * 所以「选哪个网盘」由上游分区层决定，再通过这个 prop 传进来。
+   *
+   * **不传时默认百度** —— 既有调用点的行为逐字不变。
+   */
+  netdiskProtocol?: 'baidu_pan' | 'quark_pan';
 };
 
 const props = defineProps<Props>();
@@ -77,6 +86,13 @@ const PROXY_KINDS: RemoteProxyConfig['kind'][] = ['direct', 'socks5', 'http_conn
  * 所以界面上干脆不显示主机输入框，固定写死这个值。
  */
 const BAIDU_PAN_HOST = 'pan.baidu.com';
+
+/**
+ * 夸克网盘的固定主机。
+ *
+ * 与百度侧同构：界面上不显示主机输入框，固定写死这个值。
+ */
+const QUARK_PAN_HOST = 'pan.quark.cn';
 
 /**
  * 内嵌登录（2026-11-08）。
@@ -121,6 +137,50 @@ async function handleCancelBaiduLogin() {
   finally {
     baiduLoginState.value = 'idle';
     baiduLoginSummary.value = '';
+  }
+}
+
+/**
+ * 夸克网盘的内嵌登录（2026-11-11）。
+ *
+ * 与百度侧同构：登录窗由 Rust 侧建，登录态也只在 Rust 侧暂存 ——
+ * 前端从头到尾拿不到明文，只拿得到状态与摘要。
+ */
+type QuarkLoginViewState = 'idle' | 'waiting' | 'ready' | 'closed' | 'timeout' | 'error';
+
+const quarkLoginState = ref<QuarkLoginViewState>('idle');
+const quarkLoginSummary = ref('');
+const isStartingQuarkLogin = ref(false);
+
+async function handleStartQuarkLogin() {
+  if (isStartingQuarkLogin.value) return;
+
+  isStartingQuarkLogin.value = true;
+  quarkLoginSummary.value = '';
+  quarkLoginState.value = 'waiting';
+
+  try {
+    await store.startQuarkLogin();
+  }
+  catch (error) {
+    console.error('Failed to open embedded quark login:', error);
+    quarkLoginState.value = 'error';
+  }
+  finally {
+    isStartingQuarkLogin.value = false;
+  }
+}
+
+async function handleCancelQuarkLogin() {
+  try {
+    await store.cancelQuarkLogin();
+  }
+  catch (error) {
+    console.error('Failed to cancel embedded quark login:', error);
+  }
+  finally {
+    quarkLoginState.value = 'idle';
+    quarkLoginSummary.value = '';
   }
 }
 
@@ -175,10 +235,61 @@ onMounted(async () => {
   }
 });
 
+/**
+ * 夸克侧同构：订阅 `afm://quark-login`。
+ *
+ * 与百度**分开注册、分开清理** —— 两个事件名不同，混在一个监听器里
+ * 就分不清「这条状态是谁发的」。
+ */
+let unlistenQuarkLogin: UnlistenFn | null = null;
+let quarkLoginDisposed = false;
+
+onMounted(async () => {
+  try {
+    const unlisten = await listen<QuarkLoginEventPayload>('afm://quark-login', (event) => {
+      const payload = event.payload;
+      const previousState = quarkLoginState.value;
+
+      quarkLoginState.value = payload.status;
+      quarkLoginSummary.value = payload.summary ?? payload.message ?? '';
+
+      // `ready` 是内嵌登录唯一可用的成功信号：窗口一旦认领到 Cookie 就会自己关掉，
+      // Rust 侧的 settle() 会把 Destroyed 分支吃掉，不会再发 `closed`。
+      // 所以成功反馈必须挂在 ready 的**第一次**到达上，重复推送不重播。
+      if (payload.status === 'ready' && previousState !== 'ready') {
+        toast({
+          title: t('settings.remote.quark.embedded.saved'),
+          description: payload.summary || undefined,
+        });
+      }
+      else if (payload.status !== previousState) {
+        // closed / timeout / error：登录窗被关掉、等待超时、或读不到会话。
+        toast({
+          title: t(`settings.remote.quark.embedded.status.${payload.status}`),
+          description: payload.summary || payload.message || undefined,
+        });
+      }
+    });
+
+    if (quarkLoginDisposed) {
+      unlisten();
+      return;
+    }
+
+    unlistenQuarkLogin = unlisten;
+  }
+  catch (error) {
+    console.error('Failed to listen for embedded quark login events:', error);
+  }
+});
+
 onUnmounted(() => {
   baiduLoginDisposed = true;
   unlistenBaiduLogin?.();
   unlistenBaiduLogin = null;
+  quarkLoginDisposed = true;
+  unlistenQuarkLogin?.();
+  unlistenQuarkLogin = null;
 });
 
 const name = ref('');
@@ -217,7 +328,21 @@ const isNetdisk = computed(() => {
     return false;
   }
 
-  return isBaiduPanProtocol(props.connection?.protocol ?? props.initialProtocol ?? 'ftp');
+  return isNetdiskProtocol(props.connection?.protocol ?? props.initialProtocol ?? 'ftp');
+});
+
+/**
+ * 这张网盘表单是**夸克**还是**百度**。
+ *
+ * 编辑既有连接时以连接自身的协议为准；新建时看上游分区层选的 provider
+ * （`netdiskProtocol` prop，不传则默认百度 —— 与既有行为一致）。
+ */
+const isQuarkNetdisk = computed(() => {
+  if (props.connection) {
+    return props.connection.protocol === 'quark_pan';
+  }
+
+  return props.variant === 'netdisk' && props.netdiskProtocol === 'quark_pan';
 });
 
 watch(
@@ -227,20 +352,27 @@ watch(
     // 的 else 分支里 TS 不会把 `connection` 收窄成非空。
     const existingProxy = connection?.proxy;
     const isDirect = !existingProxy || existingProxy.kind === 'direct';
-    // 网盘表单的协议恒为 `baidu_pan`：形态已经定了，协议没有第二个选择。
-    const nextProtocol = props.variant === 'netdisk'
-      ? 'baidu_pan'
-      : (connection?.protocol ?? props.initialProtocol ?? 'ftp');
+    // 网盘表单的协议由上游分区层选的 provider 决定（默认百度）。
+    // ⚠️ **编辑既有连接时以连接自身的协议为准** —— 上游传进来的 provider
+    // 只是「新建时预置什么」，不该把一条已有的夸克连接改写成百度。
+    const nextProtocol = connection?.protocol
+      ?? (props.variant === 'netdisk'
+        ? (props.netdiskProtocol ?? 'baidu_pan')
+        : (props.initialProtocol ?? 'ftp'));
 
     name.value = connection?.name ?? '';
     protocol.value = nextProtocol;
     host.value = connection?.host ?? '';
     port.value = connection?.port ?? getRemoteProtocolDefaultPort(nextProtocol);
 
-    // 百度网盘不认自定义主机 —— 主机与端口恒定。
+    // 网盘不认自定义主机 —— 主机与端口恒定。
     // 老记录里若被写成了别的值，这里纠正回来。
     if (isBaiduPanProtocol(nextProtocol)) {
       host.value = BAIDU_PAN_HOST;
+      port.value = getRemoteProtocolDefaultPort(nextProtocol);
+    }
+    else if (isQuarkPanProtocol(nextProtocol)) {
+      host.value = QUARK_PAN_HOST;
       port.value = getRemoteProtocolDefaultPort(nextProtocol);
     }
 
@@ -297,6 +429,8 @@ function reset() {
   // 否则下一条连接会带着上一条的「已登录」假象。
   baiduLoginState.value = 'idle';
   baiduLoginSummary.value = '';
+  quarkLoginState.value = 'idle';
+  quarkLoginSummary.value = '';
 }
 
 /** 选一个本地目录。留空即可不摆双屏，所以这里不做任何默认填充。 */
@@ -417,10 +551,55 @@ async function handleDeleteBaiduSession() {
   }
 }
 
+/**
+ * 夸克网盘的授权状态卡。与百度侧同构：只显示状态，不显示凭据。
+ */
+const quarkStatus = ref<QuarkAuthStatusPayload | null>(null);
+const isLoadingQuarkStatus = ref(false);
+
+/** 只有「已保存的夸克连接」才有状态可查 —— 新建中（还没 id）没有存档。 */
+const quarkConnectionId = computed(() => (
+  isQuarkNetdisk.value ? props.connection?.id : undefined
+));
+
+async function refreshQuarkStatus() {
+  if (!quarkConnectionId.value) {
+    quarkStatus.value = null;
+    return;
+  }
+
+  isLoadingQuarkStatus.value = true;
+
+  try {
+    quarkStatus.value = await store.getQuarkAuthStatus(quarkConnectionId.value);
+  }
+  catch (error) {
+    console.error('Failed to load quark auth status:', error);
+    quarkStatus.value = null;
+  }
+  finally {
+    isLoadingQuarkStatus.value = false;
+  }
+}
+
+/** 删掉已保存的夸克会话（退出登录）。删完状态卡立刻回到「未登录」。 */
+async function handleDeleteQuarkSession() {
+  if (!quarkConnectionId.value) return;
+
+  try {
+    await store.deleteQuarkSession(quarkConnectionId.value);
+    quarkStatus.value = null;
+  }
+  catch (error) {
+    console.error('Failed to delete quark session:', error);
+  }
+}
+
 watch(
   () => [props.connection?.id, protocol.value],
   () => {
     void refreshBaiduStatus();
+    void refreshQuarkStatus();
   },
   { immediate: true },
 );
@@ -565,7 +744,7 @@ function onProtocolChange(value: unknown) {
       保存连接时再落盘。Cookie 明文永远不进前端，表单里也不再摆手工输入框。
     -->
     <div
-      v-if="isNetdisk"
+      v-if="isNetdisk && !isQuarkNetdisk"
       class="remote-connection-form__row"
       data-test="baidu-embedded"
     >
@@ -612,6 +791,62 @@ function onProtocolChange(value: unknown) {
         data-test="baidu-embedded-summary"
       >
         {{ baiduLoginSummary }}
+      </p>
+    </div>
+
+    <!--
+      夸克网盘的内嵌登录（2026-11-11）：与百度侧同构 ——
+      凭据是一整段会话 Cookie，表单里不摆手工输入框，
+      只给「用内嵌窗口登录」这一条路。
+    -->
+    <div
+      v-else-if="isQuarkNetdisk"
+      class="remote-connection-form__row"
+      data-test="quark-embedded"
+    >
+      <Label>{{ t('settings.remote.quark.embedded.title') }}</Label>
+      <div class="remote-connection-form__inline">
+        <Button
+          type="button"
+          variant="outline"
+          data-test="quark-embedded-start"
+          :disabled="isStartingQuarkLogin"
+          @click="handleStartQuarkLogin"
+        >
+          {{ t('settings.remote.quark.embedded.start') }}
+        </Button>
+        <Button
+          v-if="quarkLoginState !== 'idle' && quarkLoginState !== 'ready'"
+          type="button"
+          variant="ghost"
+          data-test="quark-embedded-cancel"
+          @click="handleCancelQuarkLogin"
+        >
+          {{ t('settings.remote.quark.embedded.cancel') }}
+        </Button>
+      </div>
+      <p
+        class="remote-connection-form__hint"
+        data-test="quark-embedded-hint"
+      >
+        {{ t('settings.remote.quark.embedded.hint') }}
+      </p>
+      <p
+        v-if="quarkLoginState !== 'idle'"
+        class="remote-connection-form__hint"
+        :data-status="quarkLoginState"
+        data-test="quark-embedded-status"
+      >
+        {{ quarkLoginState === 'waiting'
+          ? t('settings.remote.quark.embedded.status.waiting')
+          : t(`settings.remote.quark.embedded.status.${quarkLoginState}`) }}
+      </p>
+      <p
+        v-if="quarkLoginSummary"
+        class="remote-connection-form__hint"
+        data-test="quark-embedded-summary"
+      >
+        {{ quarkLoginSummary }}
       </p>
     </div>
 
@@ -668,6 +903,41 @@ function onProtocolChange(value: unknown) {
         @click="handleDeleteBaiduSession"
       >
         {{ t('settings.remote.baidu.action.deleteSession') }}
+      </Button>
+    </div>
+
+    <!-- 夸克网盘的授权卡：只显示状态，不显示凭据。 -->
+    <div
+      v-if="quarkConnectionId"
+      class="remote-connection-form__baidu"
+      data-test="quark-status"
+    >
+      <div class="remote-connection-form__baidu-head">
+        <span
+          class="remote-connection-form__baidu-dot"
+          :data-status="quarkStatus?.status ?? 'missing'"
+          data-test="quark-status-dot"
+        />
+        <span data-test="quark-status-text">
+          {{ quarkStatus
+            ? t(`settings.remote.quark.status.${quarkStatus.status}`)
+            : t('settings.remote.quark.status.loading') }}
+        </span>
+      </div>
+      <p
+        v-if="quarkStatus?.summary"
+        class="remote-connection-form__hint"
+        data-test="quark-status-summary"
+      >
+        {{ quarkStatus.summary }}
+      </p>
+      <Button
+        type="button"
+        variant="outline"
+        data-test="quark-delete-session"
+        @click="handleDeleteQuarkSession"
+      >
+        {{ t('settings.remote.quark.action.deleteSession') }}
       </Button>
     </div>
 
@@ -849,6 +1119,7 @@ function onProtocolChange(value: unknown) {
           && probeReport.tlsVerified === false
           && protocol !== 'sftp'
           && protocol !== 'baidu_pan'
+          && protocol !== 'quark_pan'
           && probeReport.message"
         class="remote-connection-form__probe-note"
       >
@@ -1021,7 +1292,9 @@ function onProtocolChange(value: unknown) {
 }
 
 .remote-connection-form__baidu-dot[data-status='stoken_expired'],
-.remote-connection-form__baidu-dot[data-status='stoken_expiring_soon'] {
+.remote-connection-form__baidu-dot[data-status='stoken_expiring_soon'],
+.remote-connection-form__baidu-dot[data-status='stale'],
+.remote-connection-form__baidu-dot[data-status='stale_soon'] {
   background: hsl(var(--destructive));
 }
 

@@ -645,7 +645,8 @@
         "ftps_explicit": "FTPS (explicit)",
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
-        "baidu_pan": "بائیدو نت‌دیسک"
+        "baidu_pan": "بائیدو نت‌دیسک",
+        "quark_pan": "Quark Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -671,7 +672,8 @@
         "unknown": "Failed to save the connection.",
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
-        "baiduLoginRequired": "ابتدا در برنامه وارد Baidu Pan شوید، سپس این اتصال را ذخیره کنید."
+        "baiduLoginRequired": "ابتدا در برنامه وارد Baidu Pan شوید، سپس این اتصال را ذخیره کنید.",
+        "quarkLoginRequired": "پیش از ذخیرهٔ این اتصال، درون برنامه وارد Quark Drive شوید."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -738,6 +740,37 @@
           },
           "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
         }
+      },
+      "quark": {
+        "status": {
+          "loading": "در حال خواندن وضعیت مجوز…",
+          "missing": "وارد نشده‌اید",
+          "ready": "مجاز",
+          "stale": "نشست منقضی شده است؛ دوباره وارد شوید",
+          "stale_soon": "نشست به‌زودی منقضی می‌شود"
+        },
+        "action": {
+          "deleteSession": "حذف نشست ذخیره‌شده"
+        },
+        "embedded": {
+          "title": "ورود درون برنامه",
+          "start": "ورود با پنجرهٔ جاسازی‌شده",
+          "cancel": "توقف انتظار",
+          "hint": "درون برنامه پنجرهٔ ورود باز می‌شود. پس از ورود، به‌طور خودکار بسته می‌شود و نشست بی‌درنگ دریافت می‌شود — کافی است این اتصال را ذخیره کنید.",
+          "status": {
+            "waiting": "در انتظار ورود شما…",
+            "ready": "وارد شدید. این اتصال را ذخیره کنید — نشست هنگام ذخیره نوشته می‌شود.",
+            "closed": "پنجرهٔ ورود پیش از پایان ورود بسته شد.",
+            "timeout": "زمان انتظار برای ورود تمام شد. دوباره تلاش کنید.",
+            "error": "وضعیت ورود خوانده نشد. دوباره تلاش کنید."
+          },
+          "saved": "ورود به Quark Drive موفق بود: پنجره به‌طور خودکار بسته شد و نشست دریافت شد. برای استفاده، این اتصال را ذخیره کنید."
+        }
+      },
+      "netdisk": {
+        "provider": "درایو ابری",
+        "baidu": "Baidu Drive",
+        "quark": "Quark Drive"
       }
     },
     "about": {
