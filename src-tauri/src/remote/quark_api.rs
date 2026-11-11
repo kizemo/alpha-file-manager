@@ -1141,6 +1141,12 @@ pub fn failure_from_http_status(status: u16) -> QuarkFailure {
         404 => QuarkFailure::NotFound,
         408 | 429 => QuarkFailure::Unreachable,
         500..=599 => QuarkFailure::Unreachable,
+        // FORK-MODIFICATION 2026-11-11 (batch 9, R4): 412 Precondition Failed 不是协议错误。
+        // 夸克对**签名/票据过期**回 412（真机 2026-11-11 13:52「下载到本地」实测回执
+        // `{"status":412,"code":14002,"message":"preAu failed"}`），落到下面的兜底
+        // `_ => Protocol` 就显示成 `[protocol] 夸克网盘接口拒绝了这次请求（参数或协议层错误）`
+        // —— 用户据此去改参数、改应用，永远修不好。按 Auth 分类，文案直接给出处置动作。
+        412 => QuarkFailure::Auth,
         _ => QuarkFailure::Protocol,
     }
 }
@@ -1954,6 +1960,31 @@ mod tests {
         assert_eq!(
             classify_quark_failure(&failure_from_http_status(403)),
             RemoteErrorKind::Auth
+        );
+    }
+
+    /// 真机缺陷（2026-11-11 T9）：「下载到本地」报
+    /// `[protocol] 夸克网盘接口拒绝了这次请求（参数或协议层错误）`。
+    ///
+    /// 那份会话是登录时存下来的，里面只有 `__pus`、没有 `__puus`（下载接口要求
+    /// 这两个 cookie 成对出现），CDN 于是回 **412 Precondition Failed**。
+    /// 旧映射把 412 落进 `_ => Protocol`：分类错了（不是参数问题），文案也没有
+    /// 任何处置动作 —— 用户看得到「协议层错误」，却不知道该重新登录。
+    ///
+    /// 412 在夸克这边的语义是「请求未满足下载前置条件」，与 401/403 同类：
+    /// **凭据问题 ⇒ 归 `Auth` ⇒ 提示重新授权**。
+    #[test]
+    fn http_412_precondition_failure_is_an_auth_failure() {
+        assert_eq!(
+            classify_quark_failure(&failure_from_http_status(412)),
+            RemoteErrorKind::Auth
+        );
+        let error = to_remote_error(&failure_from_http_status(412));
+        assert_eq!(error.kind, RemoteErrorKind::Auth);
+        assert!(
+            error.message.contains("重新授权"),
+            "message must tell the user what to do, was: {}",
+            error.message
         );
     }
 

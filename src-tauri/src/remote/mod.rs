@@ -147,7 +147,8 @@ pub use quark_auth::{
     save_quark_session, scan_cookies as quark_scan_cookies, scan_error as quark_scan_error,
     session_to_cookie_header as quark_session_to_cookie_header, trust_deadline_unix,
     QuarkAuthSession, QuarkAuthStatus, QuarkCookieOutcome, QuarkCookieRecord, QuarkCookieScan,
-    QuarkSessionState, QUARK_COOKIE_PUS, QUARK_LAST_ALIVE_WARN_SECONDS,
+    QuarkSessionState, should_wait_for_puus, QUARK_COOKIE_PUS, QUARK_COOKIE_PUUS,
+    QUARK_LAST_ALIVE_WARN_SECONDS, QUARK_PUUS_SETTLE_SECONDS,
     QUARK_SESSION_TRUST_SECONDS, QUARK_SESSION_VERSION,
 };
 pub use quark_provider::{

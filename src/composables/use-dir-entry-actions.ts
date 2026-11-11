@@ -21,6 +21,8 @@ import { useDeleteJobsStore } from '@/stores/runtime/delete-jobs';
 import { useFolderTreeStore } from '@/stores/runtime/folder-tree';
 import { createRemoteDirectory, hasRemoteTarget, renameRemoteEntry } from '@/modules/remote/utils/remote-write';
 import { isRemotePath } from '@/utils/remote-paths';
+// FORK-MODIFICATION 2026-11-11 (batch 9, R2): 判「系统剪贴板里是不是我们自己的远程 URI」。
+import { clipboardPathsHoldRemote } from '@/utils/clipboard-routing';
 import { useQuickViewStore } from '@/stores/runtime/quick-view';
 import { toast, ToastStatic } from '@/components/ui/toaster';
 import { useLanShare } from '@/composables/use-lan-share';
@@ -122,7 +124,21 @@ export function useDirEntryActions() {
   async function pasteItems(destinationPath: string): Promise<boolean> {
     const systemClipboard = await clipboardStore.readSystemClipboardFiles();
 
-    if (!systemClipboard?.paths.length) {
+    // FORK-MODIFICATION 2026-11-11 (batch 9, R2): 系统剪贴板里若只有我们自己的
+    // `sfm://remote/…` URI（本机根本不存在的「路径」），它不许遮蔽应用内剪贴板。
+    // 真机 2026-11-11 13:35：网盘内 Ctrl+C 把远程 URI 写进了系统剪贴板，
+    // 本函数从此只看系统剪贴板、永不进入应用内分支 ⇒ 本地窗格 Ctrl+V 毫无反应
+    // （用户报的「复制粘贴无效」）。这类残留按「空」处理：远程内容一律走
+    // 应用内剪贴板 + `handleRemotePaste`（内部再分流到下载）。
+    const systemClipboardPaths = systemClipboard?.paths ?? [];
+    const systemClipboardIsRemoteResidue
+      = clipboardPathsHoldRemote(systemClipboardPaths);
+
+    if (!systemClipboard || !systemClipboardPaths.length || systemClipboardIsRemoteResidue) {
+      if (systemClipboardIsRemoteResidue) {
+        console.warn('[paste] 系统剪贴板里是网盘 URI 残留，改按应用内剪贴板处理');
+      }
+
       if (clipboardStore.hasFileItems) {
         // FORK-MODIFICATION 2026-10-26：粘到远程面板走远程通道。
         //

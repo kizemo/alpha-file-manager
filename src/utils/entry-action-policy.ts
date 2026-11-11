@@ -70,10 +70,20 @@ const SYSTEM_MOUNT_ROOT_BLOCKED_ACTIONS = new Set<ContextMenuAction>([
  *   **永久非目标** —— SFTP 没有 `CREATE`，FTP 的 `STOR` 需要先有本地文件。
  *   所以这一条**不是「暂时没做」，是「永远不做」**。
  *   `create-directory` **不在**这个集合里：阶段 3 已实现远程新建目录。
+ * FORK-MODIFICATION 2026-11-11（T9 真机复测）：**`copy` 移出**这个集合。
+ *
+ * 用户反馈「重新扫码登录夸克后，网盘条目右键没有复制项、Ctrl+C 无效」。
+ * 门禁把 `copy` 当阶段 0 未实现而屏蔽 ⇒ 「网盘里复制 → 本地窗格粘贴（= 下载到本地）」
+ * 这条最自然的跨面板路径整个不存在。复制的落地链路是真实存在的
+ * （`copyItems` → 应用内剪贴板 → `handleRemotePaste` → `downloadItemsFromRemote`），
+ * 所以这里放行。
+ *
+ * 边界：只放 `'copy'`。`'cut'` 的语义是**远程移动**（后端未接线）、
+ * 远程目录内的 `'paste'` 会往网盘写文件（同样未接线）⇒ 两条继续屏蔽，
+ * 放出去就是用户点得到却没反应的假按钮。
  */
 const REMOTE_PHASE0_BLOCKED_ACTIONS = new Set<ContextMenuAction>([
   'batch-rename',
-  'copy',
   'cut',
   'link',
   'paste',
@@ -132,6 +142,20 @@ export function isActionBlockedByEntryPolicy(
 ): boolean {
   if (options?.disableDestructiveActions && SYSTEM_MOUNT_ROOT_BLOCKED_ACTIONS.has(action)) {
     return true;
+  }
+
+  // FORK-MODIFICATION 2026-11-11（T9）：远程 `copy` 的放行**仅限整批都是远程**。
+  //
+  // 本轮把 `'copy'` 从 `REMOTE_PHASE0_BLOCKED_ACTIONS` 移出后，本地 + 远程混选
+  // 会顺手得到「复制」—— 而混选的落地链路说不清（本地走 CF_HDROP、
+  // 远程走 `downloadItemsFromRemote`），且 `syncToSystemClipboard` 只认真实路径。
+  // 与该文件既有的「混选取最严格策略」（规格 §5）保守语义保持一致 ⇒ 混选继续屏蔽。
+  if (action === 'copy') {
+    const policies = entries.map(entry => getEntryActionPolicy(entry.path, platform));
+
+    if (policies.includes('remote') && !policies.every(policy => policy === 'remote')) {
+      return true;
+    }
   }
 
   for (const entry of entries) {
