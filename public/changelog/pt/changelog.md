@@ -1,5 +1,13 @@
 # Registro de alterações
 
+
+## [3.14.0] - November 2026
+
+**Resumo:** Agora você pode conectar o Quark Netdisk junto com o Baidu Netdisk - escolha o provedor ao adicionar uma conexão de disco de rede, entre uma vez na janela embutida e navegue, baixe e copie como no Baidu Netdisk.
+
+### What changed
+
+**Adicionado: o Quark Netdisk pode ser adicionado como segundo provedor de disco de rede.** Ao adicionar uma conexão de disco de rede em *Configurações* em *Remoto*, agora aparece um seletor de provedor com *Baidu Netdisk* e *Quark Netdisk*. Escolhendo o Quark, os campos de host, porta e senha desaparecem e aparece um único botão *Adicionar Quark Netdisk*; a janela de login abre dentro do aplicativo e, ao concluir o login, o cartão mostra o nome da sua conta. A conexão salva se comporta como qualquer outra conexão remota: listar a pasta raiz, entrar em subpastas, baixar um arquivo para o computador, copiar um arquivo remoto para uma pasta local e reencontrá-lo depois de reiniciar. Uma conexão do Quark e uma do Baidu podem coexistir sem se atrapalhar e, quando a sessão salva expira, o aplicativo avisa que é preciso entrar de novo em vez de falhar em silêncio.
 ## [3.13.7] - November 2026
 
 **Resumo:** o aplicativo agora avisa quando um atalho de teclado já pertence ao Windows ou a outro programa - assim, um comando que nunca executava sem explicação deixa de ser um mistério.

@@ -17,7 +17,7 @@ import { getPathLeafName } from '@/utils/normalize-path';
 import { isVirtualLocationPath } from '@/utils/virtual-locations';
 import { isTransientClipboardAccessError } from '@/utils/system-clipboard-errors';
 // FORK-MODIFICATION 2026-11-11 (batch 9, R1/R2): 系统剪贴板只承载本地路径。
-import { shouldSyncPathsToSystemClipboard } from '@/utils/clipboard-routing';
+import { shouldSyncPathsToSystemClipboard, clipboardHoldsRemoteItems } from '@/utils/clipboard-routing';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import {
   hasSameFileClipboardContent,
@@ -473,6 +473,15 @@ export const useClipboardStore = defineStore('clipboard', () => {
         return true;
       }
 
+      // FORK-MODIFICATION 2026-11-11（T9 批次 9，判据 ②）：
+      // 应用内剪贴板装的是**远程条目**时，「系统剪贴板为空」**不是**「外部粘贴把内容吃掉了」。
+      // 远程条目按设计从来不写系统剪贴板（`shouldSyncPathsToSystemClipboard`），
+      // 所以系统剪贴板为空是**常态**；旧逻辑在这里 `discardClipboard()` 把远程条目清掉，
+      // 用户刚 Ctrl+C 再 Ctrl+V 就只剩「剪贴板中没有项目」。
+      if (clipboardHoldsRemoteItems(clipboardItems.value)) {
+        return false;
+      }
+
       discardClipboard();
       return true;
     }
@@ -501,7 +510,22 @@ export const useClipboardStore = defineStore('clipboard', () => {
         return;
       }
 
+      // FORK-MODIFICATION 2026-11-11（T9 批次 9，判据 ②）：同 `checkExternalClipboardConsumption` ——
+      // 远程条目从一开始就没进过系统剪贴板，「系统剪贴板为空」不能拿来清掉它。
+      if (clipboardHoldsRemoteItems(clipboardItems.value)) {
+        return;
+      }
+
       clearClipboard();
+      return;
+    }
+
+    // FORK-MODIFICATION 2026-11-11（T9 批次 9，判据 ②）：
+    // 应用内剪贴板装的是**远程条目**时，不许被系统剪贴板里的残留本地文件覆盖 ——
+    // 远程条目根本没进过系统剪贴板，覆盖它等于把用户刚复制的东西弄丢。
+    // （旧逻辑：系统剪贴板非空 ⇒ 直接把 `clipboardItems` 换成它，
+    //   用户在网盘里 Ctrl+C 之后，系统剪贴板里那次**旧的**本地复制会顶掉它。）
+    if (clipboardHoldsRemoteItems(clipboardItems.value)) {
       return;
     }
 

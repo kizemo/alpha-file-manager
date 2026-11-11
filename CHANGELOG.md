@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.14.0] - November 2026
+
+**Summary:** Quark Netdisk can now be connected next to Baidu Netdisk - pick the provider when you add a netdisk connection, sign in once in the window that opens inside the app, and browse, download and copy files there just like you already do with Baidu Netdisk.
+
+### What changed
+
+**Added** **Quark Netdisk can be added as a second netdisk provider** - When you add a netdisk connection in *Settings* under *Remote*, a provider selector now offers *Baidu Netdisk* or *Quark Netdisk*. Picking Quark hides the host, port and password fields and shows a single *Add Quark Netdisk* button instead; the sign-in window opens inside the app, and once you finish logging in the card shows your Quark account name. The saved connection then behaves like any other remote connection: list the root directory, walk into nested folders, download a file to your computer, copy a remote file into a local folder, and find it still there after a restart. A Quark connection and a Baidu connection can be kept at the same time without either one getting in the way, and when the saved session has expired the app says that you need to sign in again instead of failing quietly.
+
 ## [3.13.7] - November 2026
 
 **Summary:** The app now tells you when a keyboard shortcut is already owned by Windows or by another program - so a command that silently never fired is no longer a mystery.

@@ -1,5 +1,13 @@
 # Dnevnik sprememb
 
+
+## [3.14.0] - November 2026
+
+**Povzetek:** Zdaj lahko poleg Baidu Netdisk priključite tudi Quark Netdisk - pri dodajanju povezave mrežnega diska izberete ponudnika, se enkrat prijavite v oknu znotraj aplikacije ter brskate, prenašate in kopirate povsem enako kot pri Baidu Netdisk.
+
+### What changed
+
+**Dodano: Quark Netdisk je mogoče dodati kot drugega ponudnika mrežnega diska.** Ko v *Nastavitvah* pod *Oddaljeni dostop* dodate povezavo mrežnega diska, se zdaj prikaže izbirnik ponudnikov z *Baidu Netdisk* in *Quark Netdisk*. Če izberete Quark, polja za gostitelja, vrata in geslo izginejo, namesto njih pa ostane en gumb *Dodaj Quark Netdisk*; okno za prijavo se odpre znotraj aplikacije, po prijavi pa kartica prikaže ime vašega računa. Shranjena povezava se obnaša kot katera koli druga oddaljena povezava: prikaže korensko mapo, se pomika v podmape, prenese datoteko na računalnik, kopira oddaljeno datoteko v lokalno mapo in jo po ponovnem zagonu najde tam. Povezava Quark in povezava Baidu lahko obstajata hkrati, ne da bi se motili, in ko shranjena seja poteče, aplikacija pove, da se je treba znova prijaviti, namesto da tiho odpove.
 ## [3.13.7] - November 2026
 
 **Povzetek:** aplikacija zdaj sporoča, če je bližnjica na tipkovnici že zasedena s strani Windowsa ali drugega programa – ukaz, ki se nikoli ni izvršil, ni več skrivnost.
