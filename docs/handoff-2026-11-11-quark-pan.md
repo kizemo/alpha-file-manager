@@ -929,8 +929,14 @@ NEG_EXIT=5
 
 - 判据只做到「HTTP 200 + 字节数一致」，**未做整包 sha 比对**（全量 1.09 GB 不下载）；
   3.14.0 的字节级一致性由 §18.4 的整包下载证据覆盖。
-- 线上 `version.json` 的 `history[]` **仍有两条 3.12.0 重复条目**：脚本层已修（防复发），
-  **线上文件尚未清理**（对外可见变更，等授权后重传）。
+- **线上重复条目已按用户授权清掉**：本地 `version.json` 去掉重复的 3.12.0 条目
+  （`history[]` 20 → **19 条**，版本序列 `3.13.5 … 3.12.0, 3.11.0 … 3.6.0`，**无任何重复**），
+  用上传脚本的 `--only version.json` 单传到 `/var/www/wordpress/alpha-file-manager/version.json`。
+  - 本地回写带**格式守卫**：重新序列化后必须与原文件逐字节一致才允许写入，否则中止（避免改坏缩进/尾换行）。
+  - 上传脚本自带校验：服务器端 **md5 + size 均一致**（45774 B / md5 `bd3859b4d5c6e7fcf10d84129870a777`）。
+  - 公网回读（带 cache-busting `?_=<时间戳>`）：HTTP 200、`CF-Cache-Status: DYNAMIC`、
+    **公网 sha256 = 本地 sha256 = `912d8004ab17a2669c6fc18930c81db1f4ab240c87866ec3152dc8415240db2d`**、
+    `version=3.14.0`、`history_len=19`、`dup_3.12.0=1`、无其它重复。
 
 ### 19.4 门禁
 
@@ -943,7 +949,8 @@ NEG_EXIT=5
 ### 19.5 本轮**没有**做的事（如实登记）
 
 1. **没提 winget PR**：对外发布动作，等用户授权；且 `#467381` 仍 `OPEN`，先提大概率被拒。
-2. **没清线上 `version.json` 的 3.12.0 重复条目**：脚本已修，线上重传属对外可见变更，等授权。
+2. **没跑全量 `release:upload`**：本轮线上只需要 `version.json` 一个文件，全量 42 文件
+   （1.09 GB / 15–20 分钟）没必要跑；而且线上目录与本地源目录不是字节镜像（见 §19.6 第 5 条）。
 3. **没跑 `winget validate` / 沙箱试装**：本机没装 winget CLI，只能交给上游流水线。
 4. **安装包仍无代码签名**：上游评审可能提出签名要求，届时再处理。
 
@@ -955,4 +962,11 @@ NEG_EXIT=5
 3. **本机 bash 硬策略**：`Push-Location` / `cd` 之后若再有写操作（含写临时文件）会被拦
    （`write/delete targets cannot be verified safely after a command working directory change`）。
    取 eslint 报告时改用 **Node 的 ESLint API**（`new ESLint({cwd})` + `lintFiles()`），不切目录、不落临时文件。
+4. **上传脚本新增 `--only` 单文件开关**：站点源目录的 `_upload_alpha_files.py` 原来只有「全量」与
+   `--files-only` 两种粒度，改一个 `version.json` 就要重传 1.09 GB；本轮加了 `--only <文件名>`（可重复），
+   单传一个文件只要几秒（脚本自带远端 md5+size 校验）。
+5. **线上站点目录与本地源目录不是字节镜像**：线上 `index.html` 的 `<head>` 被 WordPress 注入了
+   `<link rel="EditURI" … jetpack-rpc?rsd>`（多 105 字节，正文逐行一致）⇒ **公网与本地 sha 必然不等，
+   别把这当成上传失败**；公网 `download.php` 会 301 再跳到安装包本体（`fetch` 跟随后看到 45 MB 的 exe）。
+   ⇒ 要比「线上那份到底是不是我这份」时，别比 Cloudflare 出来的字节，比**行级差异**才有意义。
 
