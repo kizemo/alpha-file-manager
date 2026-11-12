@@ -885,3 +885,74 @@ NEG_EXIT=5
    本轮新包与已验收包字节不同（构建时点 / 工具链产物差异），重装会打断用户正在运行的实例 ⇒ 不强制。
 3. **历史版本安装包的站点上传仍在收尾**（3.2.4 及更早的一批）：与 3.14.0 无关，不影响本轮结论。
 
+## 19. 批次 12：3.14.0 发版后收尾（winget 分发 + 站点数据卫生）
+
+> 范围：夸克接入本身已随 3.14.0 发布完毕。本批次只做**发版后**的真实缺口 —— winget 分发通道与站点数据卫生，
+> **不回头重做** T0–T8 与批次 9–11。
+
+### 19.1 winget 上游实况（现场查证，非推断）
+
+| 判据 | 结果 |
+| --- | --- |
+| `gh pr list --author kizemo --state all` | `#460744`（3.5.1）**我们自己于 2026-11-01 关闭**（留言「Superseded by the 3.9.0 submission」），`mergedAt = null` |
+| 实际在审的 PR | **`#467381`（3.9.1）至今 `OPEN`** ⇒ **当前唯一阻塞点是 #467381**，不是 #460744 |
+| 上游入库目录 | `manifests/k/kizemo/AlphaFileManager` → **404**，该包从未合并入库 |
+| 排队规则 | 同一个包 ID 同时只允许一个 PR ⇒ 3.14.0 的 PR 只能在 #467381 合并后提（或被要求先关旧 PR） |
+
+⇒ **订正**：`docs/winget/README.md` 与 `AGENTS.md` §2.4 里「等 3.5.1 合并」的旧结论**已过期**，本轮按现场 `gh` 结果改写。
+
+### 19.2 本轮落盘的改动
+
+| 文件 | 改动 |
+| --- | --- |
+| `docs/winget/manifests/k/kizemo/AlphaFileManager/3.14.0/`（4 个新文件） | 3.14.0 的完整 winget 清单（version / installer / locale.en-US / locale.zh-CN） |
+| `docs/winget/check-manifest.mjs` | 找本地安装包由「只看 `release/<file>`」改为**在 `release/` 与 `release/local-builds/` 两个候选里按 sha256 命中**；都不命中时列出各候选真实 sha 供诊断 |
+| `scripts/release-history.mjs`（新） | 抽出纯函数 `dropHistoryEntriesForVersion(history, version)` |
+| `scripts/release-publish.mjs` | 归档旧版本前先按 version 去掉 `history[]` 里已存在的同版本条目并打印去重条数；改调 `release-history.mjs` |
+| `scripts/__tests__/release-history.test.mjs`（新） | 去重规则 5 条单测（重复条目 / 无重复 / history 缺失 / version 缺失 / null 元素） |
+| `docs/winget/README.md` | 台账按现场 `gh` 结果改写 + 补 3.14.0 清单章节 |
+
+**清单要点**：`InstallerUrl` 指向**已发布资产**（GitHub `v3.14.0` 的 `Alpha_File_Manager_3.14.0_x64-setup.exe`）；
+`InstallerSha256 = 0D0462097376833D3E9A812CE9D5A4BE4D1D268FB45A3DA4D1D9B3F47185A3E6`（45451606 B，与已发布资产逐字节一致）；
+`ReleaseDate: 2026-11-11`（**UTC 发布日**；按 UTC+8 写 11-12 会被上游判「未来日期」）。
+`Publisher: kizemo` / `ProductCode` 与 `tauri.conf.json` 一致，无需改动。
+
+⚠️ **清单必须指向已发布资产，不能指向 `release/` 顶层那份**：本地同版本有两份不同字节的安装包
+（`release/` 顶层 45487379 B / `7CECAE66…FAEF3`，`release/local-builds/` 45451606 B / `0D046209…5A3E6`），
+**判「发布资产」只认 sha256**。
+
+### 19.3 站点历史安装包公网核对（关闭 §18.5-3）
+
+站点源目录 `E:\办公文件\L1网站\alpha-file-manager` 的 **38 个 `.exe` 全部 HTTP 200**，
+且响应 `content-length` 与本地字节数**逐个一致**（`TOTAL_BAD=0`）
+⇒ **§18.5-3「历史安装包站点上传收尾」已闭环**。
+
+- 判据只做到「HTTP 200 + 字节数一致」，**未做整包 sha 比对**（全量 1.09 GB 不下载）；
+  3.14.0 的字节级一致性由 §18.4 的整包下载证据覆盖。
+- 线上 `version.json` 的 `history[]` **仍有两条 3.12.0 重复条目**：脚本层已修（防复发），
+  **线上文件尚未清理**（对外可见变更，等授权后重传）。
+
+### 19.4 门禁
+
+| 门禁 | 结果 |
+| --- | --- |
+| `npm run check:winget` | **EXIT=0** —— 4 文件齐备 / UTF-8 无 BOM / LF / YAML 可解析 / sha 命中 `release\local-builds\...`（45451606 bytes）/ InstallerUrl 指向本版本 release 资产 |
+| `npm run test:unit:run -- scripts/__tests__/release-history.test.mjs` | **1 文件 / 5 用例全绿** |
+| `npm run check`（ts + lint + 全量单测 + verify-changelog + verify-sandbox） | **EXIT=0** —— **309 个测试文件 / 3229 条用例全过** |
+
+### 19.5 本轮**没有**做的事（如实登记）
+
+1. **没提 winget PR**：对外发布动作，等用户授权；且 `#467381` 仍 `OPEN`，先提大概率被拒。
+2. **没清线上 `version.json` 的 3.12.0 重复条目**：脚本已修，线上重传属对外可见变更，等授权。
+3. **没跑 `winget validate` / 沙箱试装**：本机没装 winget CLI，只能交给上游流水线。
+4. **安装包仍无代码签名**：上游评审可能提出签名要求，届时再处理。
+
+### 19.6 本轮新踩的工具坑
+
+1. **本仓 eslint 风格：单参箭头函数不加括号**（`@stylistic/arrow-parens`，写 `x => ...` 而不是 `(x) => ...`）。
+   新写的 `.mjs` 一律照此写，否则 `lint:eslint:check` 直接红（本轮第一版就被这 6 处卡住）。
+2. **门禁红 = 本轮引入，不是基线问题**：`eslint .` 全仓只报出我自己新写的 6 处，其余部分干净。
+3. **本机 bash 硬策略**：`Push-Location` / `cd` 之后若再有写操作（含写临时文件）会被拦
+   （`write/delete targets cannot be verified safely after a command working directory change`）。
+   取 eslint 报告时改用 **Node 的 ESLint API**（`new ESLint({cwd})` + `lintFiles()`），不切目录、不落临时文件。
+

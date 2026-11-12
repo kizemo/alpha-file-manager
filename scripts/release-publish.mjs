@@ -43,6 +43,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { dropHistoryEntriesForVersion } from './release-history.mjs';
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const SITE_DIR = process.env.AFM_SITE_DIR ?? 'E:\\办公文件\\L1网站\\alpha-file-manager';
@@ -271,6 +273,14 @@ function prepare(flags) {
   if (manifest.version && manifest.version !== newVersion) {
     const previousUrl = manifest.platforms?.[PLATFORM_KEY]?.url;
     manifest.history ??= [];
+    // 同一版本只应留一条历史。重发一个已经在历史里的旧版本时，先去掉同版本条目，
+    // 否则站点版本历史里会出现两条一模一样的记录（3.12.0 就这么重过一条）。
+    const { history: dedupedHistory, removed } = dropHistoryEntriesForVersion(manifest.history, manifest.version);
+
+    if (removed > 0) {
+      manifest.history = dedupedHistory;
+      console.log(`[release] history[] 里已存在的 ${manifest.version} 旧条目已去掉 ${removed} 条`);
+    }
     manifest.history.unshift({
       version: manifest.version,
       notes: manifest.notes ?? '',

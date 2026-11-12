@@ -389,19 +389,31 @@ if (texts.installer) {
     fail(`installer: InstallerSha256 is not 64 upper-case hex chars (${fields.InstallerSha256})`);
   }
 
-  const localExe = path.join(REPO, 'release', `Alpha File Manager_${version}_x64-setup.exe`);
+  // 同一个版本号的安装包可能同时躺在 `release/` 与 `release/local-builds/` 里，
+  // 而两份的字节并不相同 —— `publish-bundle-to-release.mjs` 的规则是「目标已存在
+  // 但内容不同 ⇒ 改写到 release/local-builds/」。
+  // 清单里的 sha256 指的是**已发布资产**的那一份，所以这里按 sha 找命中者，
+  // 而不是假定某条路径下的那份一定是对的。
+  const installerCandidates = [
+    path.join(REPO, 'release', `Alpha File Manager_${version}_x64-setup.exe`),
+    path.join(REPO, 'release', 'local-builds', `Alpha File Manager_${version}_x64-setup.exe`),
+  ];
+  const shaOf = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex').toUpperCase();
+  const present = installerCandidates.filter(file => fs.existsSync(file));
 
-  if (!fs.existsSync(localExe)) {
-    fail(`local installer not found: ${localExe}`);
+  if (present.length === 0) {
+    fail(`local installer not found: ${installerCandidates.join(' or ')}`);
   }
   else {
-    const real = crypto.createHash('sha256').update(fs.readFileSync(localExe)).digest('hex').toUpperCase();
+    const matched = present.filter(file => shaOf(file) === sha);
 
-    if (real !== sha) {
-      fail(`installer: InstallerSha256 ${sha} != local installer ${real}`);
+    if (matched.length > 0) {
+      ok(`installer: InstallerSha256 matches ${path.relative(REPO, matched[0])} (${fs.statSync(matched[0]).size} bytes)`);
     }
     else {
-      ok(`installer: InstallerSha256 matches the local installer (${fs.statSync(localExe).size} bytes)`);
+      const seen = present.map(file => `${path.relative(REPO, file)}=${shaOf(file)}`);
+
+      fail(`installer: InstallerSha256 ${sha} matches none of the local builds (${seen.join(', ')})`);
     }
   }
 
