@@ -988,3 +988,17 @@ Windows 会弹「找不到」错误框，而那个错误框又会被当成新对
 
 ⇒ 另：`node --check` 对含 `export` 的 `.js` 可以**直接跑**（Node 会自动按 ESM 解析），
 不必先复制成 `.mjs` —— 为复制文件被安全策略拦两次是白折腾。
+
+### A8 站点上传：改一个文件用 `--only`，别为了 version.json 重传 1.09 GB（2026-11-12 实测）
+
+- `_upload_alpha_files.py`（站点源目录 `E:\办公文件\L1网站\alpha-file-manager`）原先只有两种粒度：
+  **全量**（42 文件 / 1.09 GB / 15–20 分钟）与 `--files-only`（页面 + version.json）。
+  本轮给它加了 **`--only <文件名>`**（可重复），只改 `version.json` 时单传一个文件只要几秒。
+  ⚠️ **全量上传不要随手跑**：线上目录与本地源目录**不是字节镜像** ——
+  线上 `index.html` 的 `<head>` 被 WordPress 注入了 `<link rel="EditURI" … jetpack-rpc?rsd>`，
+  所以公网与本地 sha **必然不等**，别把这当成上传失败；
+  公网 `download.php` 会 301 + 再跳到安装包本体（`fetch` 跟随后看到的是 45 MB 的 exe，不是脚本）。
+- **改线上 `version.json` 的安全流程**：本地改 → 带**格式守卫**回写
+  （重新序列化后必须与原文件逐字节一致才允许写入，否则中止）→ `--only version.json` 上传
+  （脚本自带远端 md5+size 校验）→ **带 cache-busting 的公网回读**（`?_=<时间戳>`），
+  比对公网 sha256 与本地 sha256。
