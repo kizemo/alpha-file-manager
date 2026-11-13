@@ -20,7 +20,9 @@ const props = defineProps<Props>();
 const { t } = useI18n();
 
 const formattedTitle = computed(() => {
-  const titleText = props.title ?? '';
+  // Defensive: a non string title must not take down the whole toast tree
+  // (that would leave an empty card on screen with no text at all).
+  const titleText = typeof props.title === 'string' ? props.title : '';
   const separatorIndex = titleText.indexOf('|');
 
   if (separatorIndex === -1) {
