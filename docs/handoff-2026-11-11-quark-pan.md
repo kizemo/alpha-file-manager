@@ -194,7 +194,7 @@ file_type  : 1 = 文件，0 = 目录；dir 另有布尔字段
 |---|---|---|
 | R1 | T8 真机 14 条 | **已完成**：12 PASS / 2 FAIL（第 9、第 11 条）；逐条结论见 §12 |
 | R2 | T0 凭据销毁 | **已销毁**：`t0-cookie.txt`（含 `__pus` 明文）已删除；清理脚本 `t8-cleanup.ps1`；全库明文扫描仅命中一处源码变量名 |
-| R8 | **真实应用里的下载仍会失败** | 登录时抓到的 cookie 罐**缺 `__puus`** ⇒ 直链回源 403/412。沙箱内补齐后第 8 条 PASS，但**真实 vault（2893 B）未补** ⇒ 用户在正式应用里下载仍失败，需重登或修 `quark_auth.rs` 的 cookie 抓取。见 §12.4 |
+| R8 | ~~**真实应用里的下载仍会失败**~~ | **已闭环**（2026-11-13 回写）：§12.4 记的「登录时抓到的 cookie 罐缺 `__puus`」这条根因**已被 §13.1 / §17.4 推翻** —— `__puus` 是 **CDN 回源**那一跳的门槛 cookie，下载接口本身三种变体一律返 200/code=0。真正的修复在登录侧**等 `__puus` 落定**（R3/R5），装机版日志已见 `__pus(len=120) + __puus(len=248) + extras=20`（§17.2）；协议层 CDN 206 实测见 §17.3，UI 层落地 PASS 见 §16.2。**不再需要用户重登** |
 | R3 | 提交 | **已提交 3 条（未 push）**：`99c73632` Rust / `02897006` 前端+i18n / `ee0a23ea` 交接卡；版本 bump + changelog 作第 4 条。push 与 GitHub Release 仍未授权 |
 | R4 | T7 译文质量 | 17 份为自撰人工翻译，**未做母语复核** |
 | R5 | `Ctrl+Shift+P` 本机不可达 | `Win32Error=1409`（OS 级 `RegisterHotKey` 占用）—— 冲突徽标真机复验须换机器，**不得伪造 PASS** |
@@ -249,12 +249,17 @@ file_type  : 1 = 文件，0 = 目录；dir 另有布尔字段
 - **复验判据（下一棒必做）**：主窗**保持最大化**点登录 → 全屏截图里登录窗内容直接可见；
   扫码成功后日志出现「拿到会话并验活通过」，保存后侧边栏网盘分区出现夸克。
 
-### 11.3 缺陷 B（中，未修，待归因）：超时提示重复叠加
+### 11.3 缺陷 B（中，**已修**，2026-11-13）：超时提示重复叠加
 
 `t8-shots/16-after-timeout.png` 同时出现两条一模一样的「登录等待超时了，请重试。」。
 提示来自 `afm://quark-login` 事件监听（`connection-form.vue` L249），
 可疑方向：同一表单被实例化两次 ⇒ 两个监听各投一次 toast；或事件被重复投递。
 **未做归因前不盲改** —— 下一棒先复现（置顶修复后若不再超时，就人为点「停止等待」制造超时）。
+
+> **归因与修复见 §20**。原来猜的两个方向**都不对**：Rust 侧**只发一次**；
+> 真正的原因是**两个组件同时监听同一个全局频道**（常驻挂载的 `NetdiskAddDialog`
+> ＋ 条件挂载的 `ConnectionForm`），两边用**同一个 i18n key** 各弹了一次 toast。
+> 修法是给 `ConnectionForm` 补上与 `NetdiskAddDialog` **对称**的守卫。
 
 ### 11.4 工具坑（本轮实测）
 
@@ -952,6 +957,11 @@ NEG_EXIT=5
 2. **没跑全量 `release:upload`**：本轮线上只需要 `version.json` 一个文件，全量 42 文件
    （1.09 GB / 15–20 分钟）没必要跑；而且线上目录与本地源目录不是字节镜像（见 §19.6 第 5 条）。
 3. **没跑 `winget validate` / 沙箱试装**：本机没装 winget CLI，只能交给上游流水线。
+   ⚠️ **2026-11-13 订正：这条已过期** —— 本机 `winget.exe` 现在可用
+   （`C:\Users\Duanyi\AppData\Local\Microsoft\WindowsApps\winget.exe`，v1.29.380），
+   `winget validate --manifest docs/winget/manifests/k/kizemo/AlphaFileManager/3.14.0`
+   实测输出 `Manifest validation succeeded.`（exit 0）；**沙箱试装仍未做**。
+   AGENTS.md §2.4 的同款过期记录已一并订正。
 4. **安装包仍无代码签名**：上游评审可能提出签名要求，届时再处理。
 
 ### 19.6 本轮新踩的工具坑
@@ -969,4 +979,224 @@ NEG_EXIT=5
    `<link rel="EditURI" … jetpack-rpc?rsd>`（多 105 字节，正文逐行一致）⇒ **公网与本地 sha 必然不等，
    别把这当成上传失败**；公网 `download.php` 会 301 再跳到安装包本体（`fetch` 跟随后看到 45 MB 的 exe）。
    ⇒ 要比「线上那份到底是不是我这份」时，别比 Cloudflare 出来的字节，比**行级差异**才有意义。
+
+---
+
+## 20. 批次 13：§11.3 缺陷 B 归因与修复 + 台账订正（2026-11-13）
+
+### 20.1 根因：不是「重复投递」，是**两个组件同时监听同一个全局频道**
+
+**Rust 侧排除**：`src-tauri/src/quark_login.rs` 的超时分支只 `emit_event(..., "timeout", ...)` **一次**；
+而且 `settle()` 排在 `emit_event` **之前** ⇒ 随后 `close_login_window` 触发的
+`WindowEvent::Destroyed` 会被 `SETTLED.swap(false)` 吃掉，**不会再补一条 `closed`**。
+⇒ §11.3 猜的「事件被重复投递」方向不成立。
+
+**真正的重复在前端**：`afm://quark-login` / `afm://baidu-login` 是**全局**频道，
+设置页同一棵树上同时挂着两个监听者：
+
+| 组件 | 挂载条件 | 原行为 |
+| --- | --- | --- |
+| `netdisk-add-dialog.vue`（新增网盘流程） | **常驻挂载**（`connections-section.vue:476`） | 有守卫：只认 `loginPhase === 'waiting'` |
+| `connection-form.vue`（编辑/新建连接表单） | `v-if="isCreating"` / `v-else-if="editing"` | **无守卫**：对任意事件都更新状态并弹 toast |
+
+两边的 toast 标题用的是**同一个 i18n key** ——
+`netdisk-add-dialog.vue` 的 `i18nPrefix('quark_pan') === 'quark'`，
+所以两侧取到的都是 `settings.remote.quark.embedded.status.timeout`
+⇒ 同一句提示**逐字出现两遍**，与 §11.3 截图（两条一模一样的「登录等待超时了，请重试。」）逐字对上。
+
+⚠️ `ConnectionForm` 的监听器**不看 variant**：当前渲染的是 FTP/SFTP 表单时，它照样听得见夸克事件。
+
+### 20.2 复现路径（任一即可）
+
+1. 设置页 → 「添加远程连接」（`isCreating = true`，`ConnectionForm` 挂载）→ 切到「网盘」分类
+   → 点「添加网盘 → 夸克网盘」→ 不扫码、等超时 ⇒ **两条**超时提示。
+2. 正在「编辑」一条已存在的夸克连接（`editing` 有值）→ 点「添加网盘 → 夸克网盘」→ 等超时 ⇒ 同上。
+
+### 20.3 修复
+
+`src/modules/settings/ui/categories/remote/connection-form.vue`：给两个监听器补上与
+`NetdiskAddDialog` **对称**的守卫 —— 只有「本表单自己发起的那一轮」才消费事件。
+
+- 新增 `baiduLoginActive` / `quarkLoginActive` 两个 ref；
+- `handleStart*Login` 置 `true`；`handleCancel*Login`、启动失败、**任一终态事件**置 `false`；
+- 监听器开头 `if (!*LoginActive.value) return;` ⇒ 别的组件发起的登录事件**一个字都不吭声**；
+- 切换连接时（`resetLoginStates`）一并复位。
+
+百度侧是**同形问题**（同样的双监听 ＋ 同一个 i18n key），一并修掉。
+
+⚠️ **后端从不推 `waiting`** —— 事件状态只有 `ready` / `closed` / `timeout` / `error`，
+`waiting` 只是前端自己设的显示态。判终态**不能**写成 `payload.status !== 'waiting'`：
+① `vue-tsc` 直接报 TS2367（字面量联合与 `'waiting'` 无交集）；
+② 就算把类型放宽，语义也是**反的** —— `waiting` 是**非终态**（这一轮还在飞），
+收到它不该结束这一轮。
+正确写法是**白名单**：`TERMINAL_LOGIN_STATUSES = ['ready','closed','timeout','error']`
+＋ `isTerminalLoginStatus(status: string)`（入参取 `string`，绕开字面量联合的类型收窄）。
+
+⚠️ **这一条是踩出来的，不是推理出来的**：第一版修复为了让 TS 过，把「清守卫标记」
+写成**无条件清** ⇒ `waiting` 事件把标记提前清掉 ⇒ 后到的 `closed` 被守卫吞掉，
+百度用例「还没取到凭据时不放成功反馈」变红（`toastedTitles` 是空数组），
+第二版改成「只有终态才清」才绿。完整经过见 §20.5。
+
+### 20.4 测试与判别性验证
+
+| 用例 | 作用 |
+| --- | --- |
+| `quark-connection-form.test.ts`「取到凭据时给出『可以保存了』的反馈」 | 改为**先点「用内嵌窗口登录」**再推事件 —— 走真实流程 |
+| `quark-connection-form.test.ts`「别的组件发起的登录事件不在这里弹提示」 | **新增**，回归 §11.3 缺陷 B |
+| `baidu-connection-form.test.ts` 同名两条 | 同上；并补断言「守卫不吞掉本表单自己那轮的失败提示」 |
+| `netdisk-login-duplicate-toast.test.ts`（**新增文件**） | **集成复现**：把 `ConnectionForm` 与 `NetdiskAddDialog` **同时挂载**，往 `afm://quark-login` **广播**一条 `timeout` ⇒ 断言**只弹一条**（两个方向各一条用例） |
+
+**判别性验证（实测，非推理）**：把 `connection-form.vue` 单独 `git stash` 回退到修复前、
+**保留**新测试，跑 `quark-connection-form.test.ts` ⇒ 新用例**红**，报错内容正是
+`title: 'settings.remote.quark.embedded.status.timeout'` 被弹了 1 次
+⇒ 新用例确实能复现原缺陷，不是恒绿。回退后 `git stash pop` 干净回位（POP_EXIT=0）。
+
+⚠️ 原有的两条「ready」用例**没有先发起登录就直接推事件**，断言「表单必弹 toast」——
+那条断言**正是缺陷本身**（表单对不属于它的登录事件也响应），所以改成先点开始按钮。
+**这不是把测试改松，是把它改真。**
+
+**为什么还要补一个集成用例**：单测各自只挂一个组件，证得了「它自己不该响时不响」，
+**证不了「两个一起挂时不重复」** —— 而缺陷恰恰只在两者同挂时出现。
+所以 `netdisk-login-duplicate-toast.test.ts` 把两个组件挂在**同一棵树**里，
+并按真实语义**广播**事件（一频道多监听者，而不是一频道一 handler）。
+
+**集成用例的判别性验证（实测）**：`git stash push -- connection-form.vue` 回退修复、
+保留新集成用例 ⇒「弹窗发起的那一轮超时，只弹一条提示」**变红**：
+`AssertionError: expected [ …(2) ] to deeply equal [ Array(1) ]`
+⇒ **修复前同一场景确实弹了 2 条一模一样的提示**，与 §11.3 真机截图逐字对上；
+同一个 stash 下「表单发起的那一轮」仍是绿的（弹窗自己的守卫本来就挡住了）⇒ 判据有方向性。
+`git stash pop` 干净回位（POP_EXIT=0）。
+
+### 20.5 门禁（本轮实测）
+
+**最终全量门禁**（`npm run check` = `ts` + `lint:check` + `test:unit:run` + `verify-changelog` + `verify:sandbox`）：
+
+| 项 | 结果 |
+| --- | --- |
+| `ts`（`vue-tsc --build`） | 通过（TS_EXIT=0） |
+| eslint / stylelint | 通过（0 warning） |
+| vitest | **310 文件 / 3233 用例全绿** |
+| `verify-changelog` | 通过（CHANGELOG 57 条，本轮未改） |
+| `verify:sandbox` | PASS（全部扩展入口通过） |
+| 合计 | **CHECK3_EXIT=0** |
+
+> **本批次的入口卡（新文件）**：`docs/handoff-2026-11-13-quark-pan-batch13.md`
+> （背景 / 改动清单 / 已验证·推断·未验证矩阵 / 沙箱复验步骤 / 本轮工具坑 / 待授权动作）。
+
+⚠️ **门禁一共跑了五轮**（第 4 轮是**新增集成用例之后**才跑的，前三轮的数字**不含**那个文件）：
+
+| 轮次 | 触发时机 | 结果 | 说明 |
+| --- | --- | --- | --- |
+| 1 | 修复后首轮 | **失败**：2 处 TS2367 | `payload.status !== 'waiting'` —— 后端状态只有 `ready/closed/timeout/error`，`waiting` 只是前端显示态，字面量联合无交集 |
+| 2 | 改成「无条件清标记」后 | **失败**：1 条用例红 | `waiting` 把守卫提前清掉 ⇒ 后到的 `closed` 被吞 ⇒ `baidu-connection-form.test.ts`「还没取到凭据时不放成功反馈」红（`expected [] to include …`） |
+| 3 | 改成**终态白名单**后 | **通过**（CHECK_EXIT=0） | 当时**尚未**加入新集成文件 ⇒ 数字是 309 文件 / 3231 用例 |
+| 4 | 加入 `netdisk-login-duplicate-toast.test.ts` 后 | **失败**：eslint 1 error | 新文件第 160 行 `return { wrapper, dialogRef };` 违反 `@stylistic/object-property-newline`（本仓风格：对象字面量多于一个属性要换行）⇒ **vitest 全绿但门禁红** |
+| 5 | 改成多行返回后 | **通过**（CHECK3_EXIT=0） | 310 文件 / 3233 用例；日志 `C:\Users\Duanyi\AppData\Local\Temp\batch13-check3.log` |
+
+⚠️ **教训二（补记）**：`vitest` 绿 **≠** 门禁绿 —— 样式类问题只有 `eslint` 抓得到。
+**提交前一定要跑全量 `npm run check`，不能只跑 `test:unit:run`。**
+
+**中间踩的坑：TS 修复一度把语义写反**（这一段必须留着）：
+
+1. 第一轮全量门禁：**3231 用例全绿**，唯一失败是 `ts` 报 **2 处 TS2367**
+   （`payload.status !== 'waiting'`：后端事件状态只有 `ready` / `closed` / `timeout` / `error`，
+   `waiting` 只是前端显示态，字面量联合与 `'waiting'` 无交集）。
+2. 当时的修法是「**无条件**清守卫标记」⇒ 类型过了，语义反了：
+   `waiting` 也把这一轮标记成结束 ⇒ 后到的 `closed` 被守卫吞掉。
+3. 于是第二轮门禁里 `baidu-connection-form.test.ts`「还没取到凭据时不放成功反馈」变红：
+   `AssertionError: expected [] to include 'settings.remote.baidu.embedded.status…'`
+   （`toastedTitles` 是**空数组**）⇒ 守卫把「本表单自己那轮的失败提示」也一起吞了。
+4. 正确修法：**白名单判终态** —— `TERMINAL_LOGIN_STATUSES = ['ready','closed','timeout','error']`
+   ＋ `isTerminalLoginStatus(status: string)`。`waiting` 不清标记，
+   `closed` / `timeout` / `error` 才清。
+5. 第三轮：定向 2 文件 / 16 用例全绿 + 全量门禁 **CHECK_EXIT=0**。
+
+⚠️ **教训**：`vue-tsc` 报「类型无交集」时，**别用放宽条件去迁就编译器** ——
+那种条件往往把语义一起写反了。先问「这个状态在协议里到底意味着什么」，
+再用白名单把语义写死。（这次是**测试**抓住的：守卫的净效果必须是
+「挡掉别人的事件，但绝不挡掉自己那轮的失败提示」。）
+
+### 20.6 本轮顺带订正的过期台账
+
+1. **§9 的 R8 行**仍写「真实应用里的下载仍会失败」—— **已过期**：§17.5 早已记「已闭环」
+   （协议层 CDN 206 ＋ 沙箱 B9-4 PASS），§9 漏回写。已订正。
+2. **§19.5-3 与 AGENTS.md §2.4** 都记「本机没装 winget CLI」—— **已过期**：
+   本机 `winget.exe` 可用（`C:\Users\Duanyi\AppData\Local\Microsoft\WindowsApps\winget.exe`，v1.29.380），
+   `winget validate --manifest docs/winget/manifests/k/kizemo/AlphaFileManager/3.14.0`
+   实测输出 `Manifest validation succeeded.`（exit 0）。两处均已订正。
+
+### 20.7 本轮**没有**做的事（如实登记）
+
+1. **没提交 winget PR**：对外发布动作，等用户授权；`#467381` 仍卡在 moderator 审核（CLA 已绿）。
+2. **没 push**：本轮改动只在本地。
+3. **没做真机 UI 复验**：缺陷 B 的复现要等「登录等待超时」那一步（`GIVE_UP` 窗口），
+   本轮用**单测 ＋ 回退对照**做证伪性验证代替；装机复验需要用户空闲窗口 ＋ 扫码登录态。
+   ⚠️ 本轮又查清了「为什么没法用 CDP 快跑一遍」以及**正确的复验路径**，见 §20.8。
+4. **没做 upstream 移植**：审计已跑（AFM 领先 436 / upstream 领先 36，merge-base `fed49cee`），
+   未落地项多为产品级决策（导航面板树视图、仪表盘重设计），不属本批次范围。
+
+### 20.8 真机验收：做到哪一步、卡在哪、下一步怎么走（2026-11-13）
+
+**已经做到的**：
+
+1. **打包产物已产出**：`npm run tauri:build` 全流程通过（`BUILD_EXIT=0`）——
+   `src-tauri\target\release\alpha-file-manager.exe` ＋ NSIS 安装包
+   `src-tauri\target\release\bundle\nsis\Alpha File Manager_3.14.0_x64-setup.exe`。
+   ⚠️ 打包**必须**带 MSVC 环境与固定的 rust 工具链（`cargo` 不在默认 PATH 里，
+   直接 `npm run tauri:build` 会报
+   `failed to run 'cargo metadata' ... program not found`）⇒ 走
+   `.superpowers\sdd\quark\batch13-build.cmd`（纯 ASCII，参照同目录 `cargo-test-lib.cmd`）。
+2. **修复前的 3.14.0 二进制已留档**：`%TEMP%\afm-batch13-baseline\alpha-file-manager.exe`
+   （sha256 `D2EC859DE6DD0DD8CDFFE165D5C294378BCB7F46A626B1401AA0C068D2CC29D9`），
+   可直接做 A/B 对照。
+
+**没做到的，以及为什么（两条路都试过，别再重试）**：
+
+① **CDP 驱动不了 release 构建**：
+
+- `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=…` **无效** ——
+  wry/Tauri **显式**传了 `AdditionalBrowserArguments`
+  （WebView2 命令行里可见 `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`），
+  **应用自己给了参数时 WebView2 忽略环境变量**；
+- WebView2 的用户级策略 `HKCU\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments`
+  同样**无效**（同一原因）。⚠️ 本轮试过之后已把该值**置空**（键还在、值为空串）——
+  没用删除命令（本地安全策略拦永久删除）。
+- ⇒ 要开 CDP 只能改 Rust：`WebviewWindowBuilder::additional_browser_args()`
+  （Tauri 2.11.5 有这个 API；**配置里没有** `additionalBrowserArgs` 字段），
+  且主窗要改成 `create: false` 再用代码建 ⇒ 属于**探针版**改动，会污染发布件。
+
+② **真机验收必须跑在沙箱里**（AGENTS §2.8 硬约束：启动 AFM 做验收不许在用户桌面上抢焦点）：
+
+- 沙箱 = `CreateDesktop` ＋ `CreateProcess(lpDesktop=…)`；注入端留在用户桌面，
+  枚举沙箱窗口要用 **`EnumDesktopWindows`**（不切桌面时 `EnumWindows` 枚举不到）；
+- 可用模板：`.superpowers\sdd\sandbox-c1-accept.ps1`、
+  `.superpowers\sdd\p3-ui-regress-sandbox.ps1`（最近的 UI 回归脚本，2026-11-10）；
+- 沙箱内**没有键盘输入**（`SendInput` 只能投到输入桌面）⇒ 只能做鼠标等价断言：
+  PostMessage 鼠标到 **`Chrome_RenderWidgetHostHWND`** ＋ UIA ＋ `PrintWindow` 截图；
+- ⚠️ 沙箱验收前**必须先结束正在运行的 `alpha-file-manager`**
+  （单实例插件会把启动转交给旧实例，症状是「日志说启动了但沙箱里没窗口」）。
+
+**下一步（留给真机那一轮，按这个顺序做）**：
+
+1. 复制 `p3-ui-regress-sandbox.ps1` 改成夸克版：沙箱启动**修复后**的 exe →
+   设置 → 远程 → 「添加远程连接」（让 `ConnectionForm` 挂上）→ 网盘页 →
+   「添加网盘 → 夸克网盘」（**弹窗发起**的那一轮）→ 登录窗起来后**直接关掉它**
+   （Rust 侧 `WindowEvent::Destroyed` ⇒ 推 `closed` ⇒ **不用等 900 秒超时**）→
+   抓主窗 UIA 树，统计「登录等待超时」这条文案出现**几次**；
+2. 同一脚本换成 `%TEMP%\afm-batch13-baseline\alpha-file-manager.exe`（修复前）⇒ 应当出现 **2 次**；
+3. 两组都跑完，才算「装机复验 PASS」。**判据必须是计数，不是「看起来只有一条」。**
+   ⇒ 计数探针已备好（**只读**，不注入输入、不抢焦点、**绝不从脚本启动 app**）：
+   `.superpowers\sdd\quark\t13-count-toast.ps1` ＋ `t13-toast-patterns.json`；
+   **必须用 Windows PowerShell 5.1 跑**（`powershell.exe -NoProfile -ExecutionPolicy Bypass -File ...`，
+   pwsh 7 里 `UIAutomationClient` 解析不了），直接输出 `COUNT timeout = N`。
+   ⚠️ 探针**只做过 explorer 阳性对照**（`WINDOWS=2 / ELEMENTS=39`，能读到真实中文文案 ⇒ 遍历可用）；
+   「WebView2 里的 toast 是否以 UIA 元素暴露」**尚未验证** ⇒ 读到 0 命中时先跑阳性对照再下结论。
+
+⚠️ 顺手记三个数（省得下一轮再翻代码）：`GIVE_UP = 900 秒`（`quark_login.rs:88`，
+想等超时复现要等 15 分钟，**关窗划算得多**）、`COOKIE_READ_BUDGET = 12 秒`、`VERIFY_BUDGET = 8 秒`。
+
+**本轮动过的系统设置（如实登记）**：
+
+- 试过 WebView2 的用户级策略 `AdditionalBrowserArguments` ⇒ 无效，已**置空**（未删键）；
+- 其余无：没装 winget 包、没改全局 git 代理、没加防火墙规则、没动别的注册表项。
 

@@ -186,7 +186,11 @@ describe('百度网盘的连接表单', () => {
   // 内嵌窗口取到凭据后会自动关闭，之后不会再有任何动静。
   // 如果这一刻不给反馈，用户只能猜「到底成没成」——这正是 2026-11-09 用户反馈的第 1 条。
   it('取到凭据时给出「可以保存了」的反馈，且同一状态只播一次', async () => {
-    mountForm(baiduConnection);
+    const wrapper = mountForm(baiduConnection);
+    await flushPromises();
+
+    // 先真的发起一轮登录 —— 事件只对「自己发起的那一轮」有反应（§11.3 缺陷 B）。
+    await wrapper.find('[data-test="baidu-embedded-start"]').trigger('click');
     await flushPromises();
 
     pushLoginStatus?.('ready', '已取到 BDUSS 与 STOKEN');
@@ -204,7 +208,10 @@ describe('百度网盘的连接表单', () => {
   });
 
   it('还没取到凭据时不放成功反馈', async () => {
-    mountForm(baiduConnection);
+    const wrapper = mountForm(baiduConnection);
+    await flushPromises();
+
+    await wrapper.find('[data-test="baidu-embedded-start"]').trigger('click');
     await flushPromises();
 
     pushLoginStatus?.('waiting');
@@ -215,6 +222,20 @@ describe('百度网盘的连接表单', () => {
     // 这条用例守的是「没取到凭据就别报成功」，所以只禁 saved 那一条，不是禁全部 toast。
     const toastedTitles = toastMock.mock.calls.map(call => call[0]?.title);
     expect(toastedTitles).not.toContain('settings.remote.baidu.embedded.saved');
+    // 失败反馈本身仍然要在 —— 守卫只挡「不属于本表单」的登录事件。
+    expect(toastedTitles).toContain('settings.remote.baidu.embedded.status.closed');
+  });
+
+  // 与夸克侧同形：常驻挂载的 `NetdiskAddDialog` 和本表单听得见同一条
+  // `afm://baidu-login`。两边都弹 ⇒ 同一条提示出现两遍（§11.3 缺陷 B）。
+  it('别的组件发起的登录事件不在这里弹提示', async () => {
+    mountForm(baiduConnection);
+    await flushPromises();
+
+    pushLoginStatus?.('timeout');
+    await flushPromises();
+
+    expect(toastMock).not.toHaveBeenCalled();
   });
 
   it('显示授权状态卡，并提供删除会话的入口', async () => {

@@ -387,11 +387,16 @@
   （本仓 identifier `com.sigma-file-manager.app` ⇒ 默认 `sigma-file-manager`），
   所以想写 `kizemo` 必须**显式**设 `bundle.publisher`；
   一改就**必须重新打包 + 重新发版**（哈希变、ARP 发布者变），再提交清单。
-- **本机没有 `winget` 命令行**：App Installer 装了（1.29.379.0），但 `winget.exe` 的
-  别名没注册，且从 `C:\Program Files\WindowsApps\...` 直接执行报 **Access is denied**
-  ⇒ 本地 `winget validate` / `winget install --manifest` 跑不了，只能交给上游流水线。
-  **安装包也没有代码签名**（`Get-AuthenticodeSignature` ⇒ `NotSigned`），
-  上游评审通常会要求签名 ⇒ 需要发布者自备证书。
+- ~~**本机没有 `winget` 命令行**~~（2026-11-13 订正：**这条已过期**）：`winget.exe` 现在可用 ——
+  `C:\Users\Duanyi\AppData\Local\Microsoft\WindowsApps\winget.exe`，版本 **v1.29.380**。
+  ⇒ 本地 `winget validate --manifest <清单目录>` **跑得了**
+  （3.14.0 清单实测输出 `Manifest validation succeeded.`，exit 0），
+  不必再把校验全交给上游流水线。
+  ⚠️ 从 `C:\Program Files\WindowsApps\...` 直接执行仍报 **Access is denied**，
+  要走 `WindowsApps` 别名目录下的那个 `winget.exe`。
+  **安装包仍然没有代码签名**（`Get-AuthenticodeSignature` ⇒ `NotSigned`）；
+  但 winget 现行政策（`Policies.md` / `Authoring.md`）**未把「安装包必须签名」列为硬性要求**，
+  上游评审仍**可能**追加签名要求 ⇒ 需要发布者自备证书。
 - **winget 的 CLA 是在 PR 里回一行命令，不是在网页上签**（2026-10-24 实测通过）：
   机器人 `microsoft-github-policy-service` 会在 PR 里留言，要求回复
   `@microsoft-github-policy-service agree`（公司形式：`agree company="<公司名>"`）。
