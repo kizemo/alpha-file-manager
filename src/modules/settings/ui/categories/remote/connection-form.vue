@@ -104,9 +104,36 @@ const QUARK_PAN_HOST = 'pan.quark.cn';
  */
 type BaiduLoginViewState = 'idle' | 'waiting' | BaiduLoginEventPayload['status'];
 
+/**
+ * 一轮内嵌登录的**终态**。
+ *
+ * Rust 侧只会推 `ready` / `closed` / `timeout` / `error`；
+ * `waiting` 是表单自己的显示态（点下「登录」时立刻置上），
+ * 收到它并不代表这一轮结束 —— 所以「这一轮还在飞」的标记只能在终态上清。
+ */
+const TERMINAL_LOGIN_STATUSES = ['ready', 'closed', 'timeout', 'error'] as const;
+
+function isTerminalLoginStatus(status: string): boolean {
+  return (TERMINAL_LOGIN_STATUSES as readonly string[]).includes(status);
+}
+
 const baiduLoginState = ref<BaiduLoginViewState>('idle');
 const baiduLoginSummary = ref('');
 const isStartingBaiduLogin = ref(false);
+
+/**
+ * 本表单自己发起的那一轮内嵌登录，是否还在飞。
+ *
+ * `afm://baidu-login` / `afm://quark-login` 是**全局**频道：新建网盘流程的
+ * `NetdiskAddDialog`（常驻挂载）与本表单会同时挂在设置页的同一棵树上，
+ * 两个都听得见同一条事件。两边都无脑响应 ⇒ 同一条提示弹两遍 ——
+ * 2026-11-11 真机实拍见过两条一模一样的「登录等待超时了，请重试。」
+ * （handoff §11.3 缺陷 B）。
+ *
+ * 所以：**只有自己发起的那一轮才消费事件**。`NetdiskAddDialog` 侧早就有
+ * 同款守卫（`loginPhase !== 'waiting'`），这里补上对称的那一半。
+ */
+const baiduLoginActive = ref(false);
 
 async function handleStartBaiduLogin() {
   if (isStartingBaiduLogin.value) return;
@@ -114,6 +141,7 @@ async function handleStartBaiduLogin() {
   isStartingBaiduLogin.value = true;
   baiduLoginSummary.value = '';
   baiduLoginState.value = 'waiting';
+  baiduLoginActive.value = true;
 
   try {
     await store.startBaiduLogin();
@@ -121,6 +149,7 @@ async function handleStartBaiduLogin() {
   catch (error) {
     console.error('Failed to open embedded baidu login:', error);
     baiduLoginState.value = 'error';
+    baiduLoginActive.value = false;
   }
   finally {
     isStartingBaiduLogin.value = false;
@@ -137,6 +166,8 @@ async function handleCancelBaiduLogin() {
   finally {
     baiduLoginState.value = 'idle';
     baiduLoginSummary.value = '';
+    // 用户主动叫停 ⇒ 这一轮不算本表单在等，迟到的 `closed` 事件别再弹提示。
+    baiduLoginActive.value = false;
   }
 }
 
@@ -152,12 +183,16 @@ const quarkLoginState = ref<QuarkLoginViewState>('idle');
 const quarkLoginSummary = ref('');
 const isStartingQuarkLogin = ref(false);
 
+/** 与 `baiduLoginActive` 同义，见那边的说明。 */
+const quarkLoginActive = ref(false);
+
 async function handleStartQuarkLogin() {
   if (isStartingQuarkLogin.value) return;
 
   isStartingQuarkLogin.value = true;
   quarkLoginSummary.value = '';
   quarkLoginState.value = 'waiting';
+  quarkLoginActive.value = true;
 
   try {
     await store.startQuarkLogin();
@@ -165,6 +200,7 @@ async function handleStartQuarkLogin() {
   catch (error) {
     console.error('Failed to open embedded quark login:', error);
     quarkLoginState.value = 'error';
+    quarkLoginActive.value = false;
   }
   finally {
     isStartingQuarkLogin.value = false;
@@ -181,6 +217,7 @@ async function handleCancelQuarkLogin() {
   finally {
     quarkLoginState.value = 'idle';
     quarkLoginSummary.value = '';
+    quarkLoginActive.value = false;
   }
 }
 
@@ -198,6 +235,13 @@ onMounted(async () => {
   try {
     const unlisten = await listen<BaiduLoginEventPayload>('afm://baidu-login', (event) => {
       const payload = event.payload;
+
+      // 只认本表单发起的那一轮 —— 频道是全局的（见 `baiduLoginActive` 的说明）。
+      // 别的组件发起的登录事件到了这儿也当没看见，否则同一条提示会弹两遍。
+      if (!baiduLoginActive.value) {
+        return;
+      }
+
       const previousState = baiduLoginState.value;
 
       baiduLoginState.value = payload.status;
@@ -220,6 +264,12 @@ onMounted(async () => {
           title: t(`settings.remote.baidu.embedded.status.${payload.status}`),
           description: payload.summary || payload.message || undefined,
         });
+      }
+
+      // 只有**终态**才结束这一轮：`waiting` 是表单自己的显示态，
+      // 收到它说明这一轮还在飞，后到的 `closed` / `timeout` 仍要照常弹提示。
+      if (isTerminalLoginStatus(payload.status)) {
+        baiduLoginActive.value = false;
       }
     });
 
@@ -248,6 +298,14 @@ onMounted(async () => {
   try {
     const unlisten = await listen<QuarkLoginEventPayload>('afm://quark-login', (event) => {
       const payload = event.payload;
+
+      // 只认本表单发起的那一轮 —— 频道是全局的（见 `quarkLoginActive` 的说明）。
+      // 别的组件发起的登录事件到了这儿也当没看见，否则同一条提示会弹两遍
+      // （2026-11-11 真机实拍，handoff §11.3 缺陷 B）。
+      if (!quarkLoginActive.value) {
+        return;
+      }
+
       const previousState = quarkLoginState.value;
 
       quarkLoginState.value = payload.status;
@@ -268,6 +326,12 @@ onMounted(async () => {
           title: t(`settings.remote.quark.embedded.status.${payload.status}`),
           description: payload.summary || payload.message || undefined,
         });
+      }
+
+      // 只有**终态**才结束这一轮：`waiting` 是表单自己的显示态，
+      // 收到它说明这一轮还在飞，后到的 `closed` / `timeout` 仍要照常弹提示。
+      if (isTerminalLoginStatus(payload.status)) {
+        quarkLoginActive.value = false;
       }
     });
 
@@ -429,8 +493,10 @@ function reset() {
   // 否则下一条连接会带着上一条的「已登录」假象。
   baiduLoginState.value = 'idle';
   baiduLoginSummary.value = '';
+  baiduLoginActive.value = false;
   quarkLoginState.value = 'idle';
   quarkLoginSummary.value = '';
+  quarkLoginActive.value = false;
 }
 
 /** 选一个本地目录。留空即可不摆双屏，所以这里不做任何默认填充。 */

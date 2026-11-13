@@ -157,7 +157,11 @@ describe('夸克网盘的连接表单', () => {
   });
 
   it('取到凭据时给出「可以保存了」的反馈，且同一状态只播一次', async () => {
-    mountForm(quarkConnection);
+    const wrapper = mountForm(quarkConnection);
+    await flushPromises();
+
+    // 先真的发起一轮登录 —— 事件只对「自己发起的那一轮」有反应（§11.3 缺陷 B）。
+    await wrapper.find('[data-test="quark-embedded-start"]').trigger('click');
     await flushPromises();
 
     pushLoginStatus('afm://quark-login', 'ready', '已取到 __pus');
@@ -172,6 +176,20 @@ describe('夸克网盘的连接表单', () => {
     pushLoginStatus('afm://quark-login', 'ready');
     await flushPromises();
     expect(toastMock).toHaveBeenCalledTimes(1);
+  });
+
+  // 2026-11-11 真机实拍（handoff §11.3 缺陷 B）：新增网盘走的是常驻挂载的
+  // `NetdiskAddDialog`，它和本表单听得见同一条 `afm://quark-login`。
+  // 两边都弹 ⇒ 同一条「登录等待超时了，请重试。」出现两遍。
+  // 守的是「不是自己发起的那一轮，一个字都不吭声」。
+  it('别的组件发起的登录事件不在这里弹提示', async () => {
+    mountForm(quarkConnection);
+    await flushPromises();
+
+    pushLoginStatus('afm://quark-login', 'timeout');
+    await flushPromises();
+
+    expect(toastMock).not.toHaveBeenCalled();
   });
 
   it('百度频道的事件不会污染夸克的反馈', async () => {
