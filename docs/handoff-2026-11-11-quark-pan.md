@@ -1200,3 +1200,145 @@ NEG_EXIT=5
 - 试过 WebView2 的用户级策略 `AdditionalBrowserArguments` ⇒ 无效，已**置空**（未删键）；
 - 其余无：没装 winget 包、没改全局 git 代理、没加防火墙规则、没动别的注册表项。
 
+### 20.9 批次 14：缺陷 B 真机 UI A/B 复验完成 ＋ 顺带修掉一个「toast 空壳」独立缺陷（2026-11-14）
+
+§20.8 留下的唯一遗留项（真机 UI A/B 计数复验）**已在批次 14 完成**。本节是它的结论，
+前面 §20.1–§20.8 的内容保持原样不改（台账是追加式）。
+
+#### 20.9.1 复验方法（AGENTS §2.8 约束下的沙箱验收）
+
+- **沙箱**：`CreateDesktop("AFM-T14-<tag>-<rand>")` ＋ `CreateProcess(lpDesktop=…)`
+  启动打包产物；注入端留在用户桌面，**不切桌面、不抢前台、不发 SendInput**。
+- **交互**：UIA 模式点击（`ScrollIntoView` ＋ `Invoke/Selection`）为主，坐标 `PostMessage`
+  到 `Chrome_RenderWidgetHostHWND` 为辅；登录窗起来后用 `WM_CLOSE` 关掉它
+  ⇒ Rust 侧 `WindowEvent::Destroyed` ⇒ 推 `closed`（省掉 900 秒超时）。
+- **计数口径**：**UIA `ListItem` 实例数**（`Notifications alt+T` → `List` → `ListItem`），
+  像素差分作交叉验证。
+  ⚠️ **不能用 toast 文案计数**：本轮实测两版产物的 toast 都是**空卡片**（原因见 §20.9.4），
+  文案口径必然为 0，会得出「修复无效 / 基线也没弹」的假结论。
+- **窗口尺寸固定 1280×900**：webview 渲染面在 y≈1018 以下是黑区，
+  1800 高时按钮落到窗口外、1400 高时「添加远程连接」落在渲染区外。
+
+#### 20.9.2 A/B 结论：**基线弹 2 次 / 修复后弹 1 次**（PASS）
+
+计数单位 = burst 帧 0 里比「弹 toast 之前的基线帧」多出来的 `ListItem` 个数。
+弹前基准帧（step-10 / step-12）与 burst 末帧（frame 39）两轮完全一致 ⇒ 起点无残留。
+
+| 轮次 | 二进制 | burst 帧 0 多出的 UIA 节点 | 判定 |
+| --- | --- | --- | --- |
+| 基线 `t14base2` | `%TEMP%\afm-batch13-baseline\alpha-file-manager.exe`（2026-11-12 01:01，sha256 `D2EC859D…29D9`） | **2 个 `ListItem`**：`700,742,534x50` ＋ `700,804,534x50`（垂直堆叠） | 基线弹 **2** 次 |
+| 修复后 `t14fix2` | `src-tauri\target\release\alpha-file-manager.exe`（批次 13 打包） | **1 个 `ListItem`**：`700,804,534x50` | 修复后弹 **1** 次 |
+| 修复后 `t14fix3` | 同上，但**含 §20.9.4 空 toast 修复**（2026-11-14 01:38 重新打包） | **1 个 `ListItem`**：`700,737,534x117`，`name=[登录还没完成，登录窗口就被关掉了。登录窗口已关闭。]` | 修复后弹 **1** 次（且文字可见） |
+
+**v3 轮（2026-11-14 01:38 重新打包的产物，含空 toast 修复）额外证明了「文字真的渲染出来」**：
+
+- `COUNT_closed=1` —— **文案口径终于能命中**（`t14fix2` / `t14base2` 两轮都是 0，
+  因为那两版的卡片是空壳）⇒ §20.9.4 的根因与修复互为印证；
+- 40 帧里**只有帧 0–3 命中 1 次**，其余 36 帧全为 0 ⇒ 恰好弹一次、不叠加；
+- UIA 树帧 0 多出：
+  `ListItem name=[登录还没完成，登录窗口就被关掉了。登录窗口已关闭。] rect=700,737,534x117`
+  ＋ `Text name=[登录窗口已关闭。] rect=725,800,168x27`（description 行）
+  ⇒ 卡片高度从 50px 变 117px（标题 + 副标题两行）。
+- 证据路径：`.superpowers\sdd\quark\t14-shots\t14fix3-run.log`、
+  `t14fix3-burst-13-NN-uia.json`、`t14fix3-burst-13-NN.png`、`t14fix3-state.json`。
+
+- 节点总数：基线 140（帧 0–4）→ 138（帧 5 起）；修复后 139（帧 0–3）→ 138（帧 4 起）。
+- **结论**：缺陷 B（`connection-form.vue` 与 `netdisk-add-dialog.vue` 同听全局频道
+  `afm://quark-login`）的修复在**真机打包产物**上成立 —— 叠加的第二条 toast 消失了。
+- 证据路径：
+  - `.superpowers\sdd\quark\t14-shots\t14base2-run.log` / `t14fix2-run.log`（逐步骤 + 每帧计数）
+  - `.superpowers\sdd\quark\t14-shots\t14base2-burst-13-NN-uia.json` / `t14fix2-burst-13-NN-uia.json`（逐帧 UIA 树）
+  - `.superpowers\sdd\quark\t14-uia-ab.txt`（A/B 差分输出）
+  - `.superpowers\sdd\quark\t14-shots\t14base2-state.json` / `t14fix2-state.json`
+- 探针脚本：`.superpowers\sdd\quark\t14-quark-toast-sandbox.ps1`（13 步链路，纯 ASCII）、
+  差分脚本 `.superpowers\sdd\quark\t14-uia-diff.cjs`、计划 `.superpowers\sdd\quark\t14-plan2.json`
+  （`burst=40, interval=150`，即 6 秒窗口）。
+
+#### 20.9.3 与 §11.3 原始证据的差异（如实登记，不含糊带过）
+
+§11.3（2026-11-11）的截图里「登录等待超时了，请重试。」是**可见文字**；
+本轮实测两版的 toast **卡片里没有任何文字**（详见 §20.9.4）。
+两者不矛盾：§11.3 的截图走的是**当时的调用点/当时的 toaster 行为**，
+而 §20.9.4 查明「文字消失」的根因是**包装器与调用点形态不匹配**，
+该不匹配由 2026-11-11 的「添加网盘登录即录流程」引入 ⇒ §11.3 截图拍到文字、
+本轮拍到空壳，两者是**代码演进的不同时间点**，不是判据打架。
+§20.9.4 修完后，文字会重新出现。
+
+#### 20.9.4 顺带修掉的独立缺陷：toast 是「空壳」（标题/副标题都渲染不出来）
+
+**现象**：toast 卡片 534×50 出现在右下角，但**卡内无任何文字**。
+像素硬证据：卡片区 103 种颜色，**最暗通道仅 176**，卡片底色 (243,238,229)，
+无任何 <150 的深色像素 ⇒ 卡片里没有文字。
+
+**根因链**：
+
+1. `src/components/ui/toaster/app-toast.ts` 的包装器签名是
+   `toast(message: string, data?: ExternalToast)`，把**第一个实参当字符串 title** 传下去；
+2. 但全仓 `src/` 下 **7 处 `toast(` 调用全部是对象形态** `{ title, description }`
+   （`connection-form.vue:254,263,318,325`、`netdisk-add-dialog.vue:133,162,171`），
+   `title` 的值是 i18n 翻译后的文案；
+3. ⇒ `componentProps.data.title` 变成**对象** ⇒ `toast-header.vue` 的
+   `props.title.indexOf('|')` 对对象调用字符串方法 ⇒ **抛错** ⇒
+   整棵 `ToastHeader` 渲染成注释节点 ⇒ 卡片只剩背景/边框，**没有文字**。
+
+**修法（包装器规范化入参，而不是改 7 处调用点）**：
+
+- `app-toast.ts` 新增 `normalizeInput()`：同时接受 `toast('标题', { description })`
+  与 `toast({ title, description })` 两种形态，统一产出 `{ title: string, description: string }`；
+  对象形态里除 `title/description` 外的其余键（duration 等）透传给 sonner。
+  ⇒ 包装器契约保持向后兼容，两种写法都不会再把对象塞进 `title`。
+- `toast-header.vue` 加防御：`typeof props.title === 'string' ? props.title : ''`
+  ⇒ 就算将来有人绕过包装器传了非字符串，也只是标题为空，**不会再整棵树崩掉**。
+
+**回归锁**：`src/components/ui/toaster/app-toast.test.ts`（新建）挂**真的** `Toaster` ＋
+**真的** `toast()`（不走 mock），断言两种形态都能渲染出标题文字。
+⚠️ 旧的 `netdisk-login-duplicate-toast.test.ts` 把 `@/components/ui/toaster` **整个 mock 掉**，
+所以它从来没能发现「生产渲染路径是空卡片」这件事。
+
+**与缺陷 B 的 A/B 无关**：git 溯源显示 `app-toast.ts` 最后一次改动是 `db684e30`（2026-04-05），
+对象形态调用由 `41120bc1`（2026-11-11）引入 ⇒ **基线二进制与修复后二进制的 toaster 代码完全一致**，
+§20.9.2 的 A/B 计数不被这个缺陷污染。
+
+#### 20.9.6 空 toast 修复的真机复验 ＋ 本轮收尾状态（2026-11-14）
+
+- **重新打包**：`cmd /c .superpowers\sdd\quark\batch13-build.cmd` ⇒ `BUILD_EXIT=0`
+  （cargo `Finished release profile in 3m 47s`），
+  新产物 `src-tauri\target\release\alpha-file-manager.exe`（2026-11-14 01:38:17）
+  ＋ `bundle\nsis\Alpha File Manager_3.14.0_x64-setup.exe`（43.35 MiB，01:38:50）。
+- **真机复验（`t14fix3` 轮）**：见 §20.9.2 的 v3 行 ⇒ **1 个** toast 实例，
+  标题与副标题都渲染出来了。
+- **像素层交叉验证**（`t14-dark.ps1`，统计卡片区 R/G/B 三通道均 <150 的深色像素）：
+  - 新产物 `t14fix3`：帧 1–3 `dark=775`（**文字笔画**），帧 0 与帧 4 之后 `dark=0`（卡片已退场）；
+  - 旧产物 `t14fix2`：全程 `dark=0` ⇒ **空卡片，无任何文字**。
+  ⇒ 修复前后在像素层同样可区分，与 UIA 层的 `ListItem` 计数口径互相独立。
+- **回归锁**：`src/components/ui/toaster/app-toast.test.ts` **2/2 通过**
+  （挂真的 `Toaster` ＋ 真的 `toast()`，不走 mock）。
+- **真实用户设置已恢复**：`node .superpowers\sdd\quark\t14-seed.cjs restore` ⇒
+  `restored bytes=6326`（= 备份字节数）；恢复前已结束 `alpha-file-manager`。
+  恢复后的真实值 `lastRoute={"fullPageId":"","name":"navigator"}`
+  （seed 期间被改成了 `settings`，现已复原）。
+- **本轮未做**（仍属对外动作，需用户授权）：`git push`、winget PR、GitHub Release、upstream 移植。
+
+#### 20.9.5 本轮工具坑（省得下一轮再踩）
+
+1. **`Add-Type` 的 C# 段在 pwsh 7 下编译不过、在 Windows PowerShell 5.1 下才过**：
+   pwsh 7 的 `Add-Type -ReferencedAssemblies 'System.Drawing'` 是**替换**默认引用集，
+   于是 `System.Drawing.Color` 找不到（CS1069，需要 `System.Drawing.Primitives`）；
+   PS 5.1 是追加 ⇒ 能编译。⇒ **这类 UIA/C# 探针脚本一律用 `powershell.exe` 跑**。
+2. **脚本被强杀时看不到任何输出**：`Say` 用 `Write-Host` ＋ 自写 `run.log`，
+   若死在 `Add-Type` 之前 ⇒ `run.log` 根本不会被创建 ⇒ 「零输出 + 退出码 -1」。
+   解法：套一层 **wrapper**（`try { & script.ps1 } catch { 写错误到标记文件 }`），
+   一次就能拿到真正的异常，而不是猜。
+3. **打包必须走 `.superpowers\sdd\quark\batch13-build.cmd`**：
+   本机 `cargo` **不在默认 PATH**（`~/.cargo\bin` 根本不存在），
+   实际在 `C:\Users\Duanyi\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin`，
+   且需要 vcvars64 的 MSVC 环境 ⇒ 直接 `npm run tauri:build` 必然报
+   `failed to run 'cargo metadata' ... program not found`。
+4. **恢复真实用户设置**：release 构建下 `SFM_E2E_DATA_DIR` 无效，只能
+   「备份真实文件 → 灌夹具 → 验收 → 恢复」；
+   备份在 `.superpowers\sdd\quark\t14-backup\user-settings.json`，
+   恢复用 `node .superpowers\sdd\quark\t14-seed.cjs restore`，恢复后核对字节数。
+5. 沙箱轮**必须串行**：单实例插件会把新启动转交给旧实例；
+   开跑前先结束 `alpha-file-manager` 并清掉 `msedgewebview2.exe`
+   （命令行含 `com.sigma-file-manager.app`）的孤儿，否则下次启动 exit 101。
+
