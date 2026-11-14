@@ -1342,3 +1342,131 @@ NEG_EXIT=5
    开跑前先结束 `alpha-file-manager` 并清掉 `msedgewebview2.exe`
    （命令行含 `com.sigma-file-manager.app`）的孤儿，否则下次启动 exit 101。
 
+#### 20.10 批次 15：百度侧同形缺陷复验 ＋ `timeout` 终态 ＋ 装机复验（2026-11-14）
+
+##### 20.10.0 本轮范围、口径与硬约束
+
+- **上游入口卡**：`docs/handoff-2026-11-14-quark-pan-batch14.md`（批次 14 交接卡）。
+  批次 14 遗留下来的三项，本轮全部做掉：
+  ① **百度侧**同形缺陷（`connection-form.vue` 与 `netdisk-add-dialog.vue` 同听全局频道 `afm://baidu-login`）的沙箱真机 A/B；
+  ② **`timeout` 终态**（Rust `GIVE_UP = 900` 秒）的真机验证；
+  ③ **装机复验**（NSIS 静默安装 → 跑装机产物 → 验 toast「一条带字」）。
+- **计数口径不变**：数 UIA `ListItem` 实例数；**不能用 toast 文案计数**（修复前卡片是空壳，文案口径恒 0，会得出假结论）；像素差分作交叉验证。
+- **硬约束照旧**（AGENTS §2.8 / §2.10）：所有轮次跑在 `CreateDesktop` 隔离沙箱桌面、窗口固定 1280×900；
+  注入端不切桌面、不 `SetForegroundWindow`、不发 `SendInput`；沙箱内只做鼠标等价断言（PostMessage 鼠标 ＋ UIA ＋ `PrintWindow`）；
+  枚举沙箱窗口用 `EnumDesktopWindows`；真机结论只认 `npm run tauri:build` 的打包产物（`tauri dev` 全程没用过）。
+- **本轮没有改动任何 `src/` 或 `src-tauri/` 源码** —— 只有验收脚本（`.superpowers/sdd/`，gitignore 内）与文档。
+- **对外动作一律没做**：`git push`、winget PR、GitHub Release、upstream 移植。
+
+##### 20.10.1 百度侧同形缺陷 A/B：基线弹 2 次 / 修复后弹 1 次（PASS）
+
+| 轮次 | 二进制 | burst 帧 0 相对帧 39 多出的 UIA 节点 | 判定 |
+| --- | --- | --- | --- |
+| 基线 `t15baidu-base` | 批次 13 留档基线（工作区 `t15-baseline\alpha-file-manager.exe`，82,767,360 B，2026-11-12 01:01:57，sha256 `D2EC859D…29D9`） | **2 个 `ListItem`**：`700,804,534x50` ＋ `700,742,534x50`，`name` 为空（空壳卡片） | 基线弹 **2** 次 |
+| 修复后 `t15baidu-fix` | `src-tauri\target\release\alpha-file-manager.exe`（82,756,096 B，2026-11-14 01:38:52，v3.14.0，含 toast 空壳修复） | **1 个 `ListItem`**：`name=[登录还没完成，登录窗口就被关掉了。登录窗口已关闭。] rect=700,737,534x117` ＋ `Text name=[登录窗口已关闭。] rect=725,800,168x27` | 修复后弹 **1** 次，**文字可见** |
+
+- **链路（13 步）**：`远程连接` tab → `添加远程连接` → `网盘` tab → `百度网盘` → 等登录窗（标题 **「百度网盘登录」**，说明百度侧真的把登录窗拉起来了）
+  → `dump-windows` → `WM_CLOSE` 关窗 → burst 40 帧 × 150 ms。
+- **节点数**：基线帧 0–3 = 143、帧 4–39 = 141；修复后帧 0 = 141（`COUNT_closed=1`）、帧 1–39 = 138。
+  两轮的 step-10 / step-12 基准帧都是 **138 节点** ⇒ 起点无残留。
+- **差分命令**：`node .superpowers/sdd/quark/t14-uia-diff.cjs .superpowers/sdd/quark/t15-shots <tag> 13 0 39`。
+- **与夸克侧同构**：百度/夸克共用同一套 i18n 文案（`closed` / `timeout` / `error` 三条 status 文案逐字相同，只有品牌名不同）
+  ⇒ 计数 needle 无需区分两侧；`baidu_login.rs` 的登录窗标题 = 「百度网盘登录」。
+- **结论**：缺陷 B 的修复对**百度侧**同样成立 —— 批次 14 只验了夸克侧，这是本轮补上的。
+
+##### 20.10.2 装机复验（NSIS 静默安装 → 跑装机产物）
+
+- **静默安装**：`Alpha File Manager_3.14.0_x64-setup.exe`（45,452,538 B）以 `/S /FORCE` 安装 ⇒ `INSTALL_EXIT=0`；
+  守卫日志 `2026-11-14 07:29:32 [early-guard] OUTCOME=proceed reason=forced`
+  （同版本同构建必须带 `/FORCE`，否则守卫静默 `Quit reason=same-build`）。
+- ⚠️ **实际安装目录是 `D:\Program Files\Alpha File Manager`，不是 `C:\Program Files\…`**：
+  注册表 `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Alpha File Manager` 的 `InstallLocation` 指向 D 盘
+  （历史安装落在 D 盘，NSIS 升级沿用旧 `InstallLocation`）；`C:\Program Files\Alpha File Manager` 目录**存在但为空**（无 exe）
+  ⇒ 台账/脚本里写死 C 盘路径，会把「装好了」误判成「没装上」。
+- **装机 exe**：82,756,096 B，mtime 2026-11-14 01:38:16，`FileVersion 3.14.0`；构建产物同尺寸、mtime 01:38:52。
+- **判据不能用裸 sha256**：装机 `C55BF795…891F3` vs 构建 `DFCCCDD1…6AC41` 不等 ——
+  NSIS 会在二进制里打 29 B 的 bundle 标记（`__TAURI_BUNDLE_TYPE_VAR_NSS__` vs `__TAURI_BUNDLE_TYPE_VAR_UNK__`，
+  **等长 ⇒ 尺寸不变但 sha 变**）。用**归一化 sha256**（正则把 `__TAURI_BUNDLE_TYPE_VAR_[A-Z0-9]+__` 抹成同一个等长串）后两者**完全相等**：
+  `FA0F7D4C75CF6850F08ED389013CBCA5E727D2D580161BB919004E5BE3848A23` ⇒ **装机产物 == 本次构建**。
+- **沙箱轮跑的是装机副本的字节级副本**：
+  `.superpowers\sdd\quark\t15-installed\alpha-file-manager.exe`，sha256 `C55BF795…891F3`，与 `D:\Program Files\…` 里的装机文件逐字节相同
+  （原因见 20.10.4 工具坑 ⑤）。**台账如实登记**：不是直接就地启动 `D:\Program Files` 里的那份。
+- 证据：`.superpowers\sdd\quark\t15-shots\t15installed-console.log`、`t15installed-run.log`、
+  `t15installed-burst-13-NN-uia.json` / `-NN.png`、`t15installed-state.json`。
+- **判定：PASS —— 装机产物弹的是「一条带字」的 toast。**
+  UIA 差分（burst 帧 0 vs 帧 39）：帧 0 = 141 节点、帧 39 = 138 节点，差集 = **1 个 `ListItem`**
+  （`name=[登录还没完成，登录窗口就被关掉了。登录窗口已关闭。] rect=700,737,534x117`）
+  ＋ `Text name=[登录窗口已关闭。] rect=725,800,168x27`
+  ⇒ 卡片高度 **117px**（标题 + 副标题两行），**不是** 50px 的空壳 ⇒ 与批次 14 修复前的「空卡片」形态明显可区分。
+  基准帧 step-10 / step-12 均为 **138 节点** ⇒ 起点无残留。
+  差分输出 `.superpowers\sdd\quark\t15-uia-ab-installed.txt`；轮次日志 `t15installed-console.log`（`WRAP_OK`）。
+
+##### 20.10.3 `timeout` 终态（等满 900 秒）—— **PASS**
+
+- **轮次**：`t15installed-timeout`（跑**装机副本**；计划 `t15-plan-timeout.json` = 前 13 步同链路 ＋ `wait 875s` ＋ `poll-toast sec=180 interval=250`）。
+- **链路**：远程连接 tab → 添加远程连接 → 网盘 tab → **百度网盘** → 登录窗升起（标题「百度网盘登录」，1672×1106）
+  → `dump-windows` → **不关登录窗**、静等 875 秒 → 以 250 ms 间隔轮询 180 秒。
+  ⚠️ 这一轮**绝不能**用 `close-login` 步骤：它会先发 `WM_CLOSE`，抢先触发 `closed` 终态，测的就不是 timeout 了 ——
+  所以另加了 `poll-toast` 步骤（只轮询、不碰登录窗）。
+- **实测结果**（地面真相取自逐轮 UIA dump，**不是**探针的计数，见 20.10.4 工具坑 ⑦）：
+  - 轮询 **23–29** 轮：节点数 **141**（基线 138 ＋ 3）、`ListItem` **3 个**（基线 2 个 ＋ **1 个 toast**），
+    差出来的那个就是终态卡片：
+    - `ListItem name=[登录等待超时了，请重试。登录等待超时，请重试。] rect=700,737,534x117`
+    - `Text    name=[登录等待超时，请重试。] rect=725,800,231x27`
+    ⇒ **标题 = i18n 文案「登录等待超时了，请重试。」，副标题 = Rust 侧 summary「登录等待超时，请重试。」**，
+    卡片 **117px**（两行带字）⇒ **timeout 终态真实到达，且 toast 带字**。
+  - 轮询 **30–403** 轮：节点数回到 **138**、`ListItem` 回到 **2** ⇒ toast 自动退场后**没有第二条 toast**。
+  - **基线那 2 个 `ListItem` 是远程连接列表里的两条已存连接**
+    （`百度网盘***…pan.baidu.com:443`、`夸克网盘***…pan.quark.cn:443`），**不是 toast**
+    ⇒ 计数口径仍是「基线 ＋ 1」。
+- **同时验证了缺陷 B 修复在 `timeout` 路径上的关键性质**：Rust 发完 `timeout` 就会 `close_login_window` 关掉登录窗，
+  若 `settle()` 没吞掉随后的 `Destroyed`，就会**再弹一条 `closed` toast** ⇒ 实测**只有一条** ⇒ `settle()` 生效。
+- **时间**：toast 出现在轮询窗口开始后约 10 秒 ⇒ 从点击「百度网盘」算约 **890 秒**（探针日志无时间戳，精度到十几秒），
+  与 `GIVE_UP = 900s`（Rust 侧从登录流程启动起算 ＋ 2 秒轮询节拍）相符。
+- 证据：`.superpowers\sdd\quark\t15-shots\t15installed-timeout-run.log`、`t15installed-timeout-poll-14-23-uia.json` … `-29-uia.json`、
+  `t15installed-timeout-poll-14-23.png`（toast 在场的那一帧）、`t15installed-timeout-state.json`；
+  扫描输出 `.superpowers\sdd\quark\t15-poll-scan.txt`（扫描脚本 `t15-poll-scan.cjs`）。
+- ⚠️ **`ready` 终态仍未验证**：需要真人扫码。本轮扫描里 `ready` 针脚会命中一句**静态提示**
+  「在应用内打开登录窗口。登录成功后窗口会自动关闭，Cookie 随即取到——你只需保存这条连接。」
+  （`581,728 565x52`，每一轮都在），**那是设置面板的说明文字、不是 toast**，不得据此声称 `ready` 已验证。
+
+##### 20.10.4 本轮工具坑（省得下一轮再踩）
+
+1. **`Tee-Object` 与探针自写的同名 `run.log` 互相锁文件 ⇒ 轮次被中途打断**：
+   探针自己写 `$ShotDir\<tag>-run.log`；再叠一层 `*>&1 | Tee-Object -FilePath <同名>` ⇒ 探针开日志时撞上 Tee 的句柄，
+   `FileStream` 抛 `The process cannot access the file … because it is being used by another process`
+   ⇒ **两轮都被打断作废**（装机轮只到 step-11、timeout 轮只到 step-03）。
+   ⇒ 探针轮次**不要**用 Tee 抢同名文件；要用控制台留痕就写**不同名**（`-console.log`）。
+2. **被强杀的探针会留下 `powershell.exe` 残留，并一直占着 `run.log` 句柄** ⇒ 下一轮开日志即 sharing violation
+   （现象是「脚本在第一步就炸」，不是探针逻辑错）。⇒ 每轮开跑前清三样：
+   `powershell.exe`（命令行含 `t15-wrap` / `t14-quark-toast`）、`alpha-file-manager`、
+   `msedgewebview2.exe`（命令行含 `alpha-file-manager` / `com.sigma-file-manager`）。
+3. **单实例插件会把新启动转交给旧实例** ⇒ 残留实例存在时，探针里的 UIA 树是 **0 节点**
+   （症状：`shot ok=False` 连着出现 ＋ `NOT FOUND in uia ( nodes)` ＋ 窗口尺寸读成 0）。
+   它看起来像「界面没渲染」，实际是**拿不到自己的窗口**。⇒ 见到这组症状先查残留实例，别去改探针。
+4. **本机安全策略会杀 `New-Item -ItemType Directory`**（连同整条命令）⇒ 目录一律用写文件工具预建（写一个 `.keep`）。
+5. **工作区外的 exe 路径不能直接作为探针启动路径** ⇒ 装机副本先拷进工作区再跑，台账登记「跑的是字节级副本」；
+   同时**命令行里带 `%TEMP%` 下的 exe 路径**启动子进程 ⇒ **整个进程树被秒杀**
+   （exit -1、零输出，连 wrapper 首行标记都写不出来）⇒ 任何 exe 都先拷进工作区。
+6. **探针日志句柄加共享/降级兜底**（本轮已改 `t14-quark-toast-sandbox.ps1`）：
+   `New-Object System.IO.StreamWriter($path,$false,$enc)` 以独占语义开文件，遇到残留句柄直接抛；
+   改成 `FileStream(…, FileShare.ReadWrite)`，并在被占用时自动降级到 `<tag>-run-HHmmss.log`。
+   ⇒ **既有步骤语义零改动**，批次 14 的复现性不受影响。
+7. **本轮新增的 `poll-toast` 步骤里有个表达式优先级 bug ⇒ 它的 `COUNT_*` 全是废数**：
+   写成 `if ([string]$n.name.Contains($needle))` 时，强制转换套在**整个布尔表达式**上
+   ⇒ 布尔被转成字符串 `"False"` / `"True"` ⇒ `if ("False")` 恒为真
+   ⇒ **四个 `COUNT_*` 同时恒等于「有名字的节点数」**（实测 67），且每轮都误判命中、狂写截图。
+   ⇒ **判词一律取自逐轮 UIA dump 的节点名 + rect**（本轮用 `t15-poll-scan.cjs` 扫 dump 得到）；
+   本轮已把该行改成 `if (([string]$n.name).Contains([string]$needle))`（与 burst 段写法一致），下一轮起 `COUNT_*` 可用。
+   ⚠️ 同形通病：**任何 `[string]$x.Method(...)` 都会把布尔转成字符串**，PowerShell 里判布尔别这么写。
+
+##### 20.10.5 本轮收尾状态
+
+- **仓库门禁**：`npm run check` ⇒ `CHECK_EXIT=0`，**311 个测试文件 / 3238 个用例全绿**
+  （本轮无 `src/` 改动；跑门禁是为了确认提交树本身干净）。
+- **真实用户设置已恢复**：`node .superpowers\sdd\quark\t14-seed.cjs restore` ⇒ `restored bytes=6326`（= 备份字节数），
+  恢复前已结束 `alpha-file-manager`；恢复后真实值 `lastRoute={"fullPageId":"","name":"navigator"}`、6326 B。
+- **git**：本轮只改了 `docs/handoff-2026-11-11-quark-pan.md`（§20.10）并新增 `docs/handoff-2026-11-15-quark-pan-batch15.md`；
+  `.superpowers/sdd/` 下的脚本与证据都在 gitignore 内，不进版本库。**已 commit、未 push**。
+- **本轮未做**（仍属对外动作，需用户授权）：`git push`、winget PR、GitHub Release、upstream 移植。
+
