@@ -527,9 +527,19 @@ async fn main() -> Result<()> {
                             // 跳过的原因, 报成 sentinel 会把取证方向带偏。
                             log_event(&Event::SpikeError {
                                 kind: "opened_write_back_skip_no_afm_visit".into(),
+                                // v0.5.21 — 把闸门的三个 pid 写进消息：被拒时
+                                // 一眼能分清「没记到交接」/「记到的 pid 对不上」/
+                                // 「记到的就是 AFM 自己」（假下降沿）。
                                 message: format!(
-                                    "dialog path='{}' current='{}' (no AFM visit); skipping",
-                                    initial_path, current
+                                    "dialog path='{}' current='{}' dialog_pid={} handoff_pid={} afm_pid={} (no AFM visit); skipping",
+                                    initial_path,
+                                    current,
+                                    dialog_pid,
+                                    state
+                                        .afm_handoff()
+                                        .map(|h| h.pid)
+                                        .unwrap_or(0),
+                                    state.afm_pid()
                                 ),
                                 ts: now_iso8601(),
                             });

@@ -24,7 +24,10 @@
 //! - [`get_dialog_info_if_match`] — file-dialog check (used by `detector.rs`)
 //! - [`get_dialog_info_by_hwnd`] — get info for a specific HWND (used by state lookup)
 
+use crate::events::Event;
+use crate::logger::{log_event, now_iso8601};
 use std::mem::size_of;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -207,6 +210,9 @@ pub fn start_monitor(
     const IDLE_POLL_INTERVAL_MS: u64 = 30;
     const TRACKING_POLL_INTERVAL_MS: u64 = 8;
     const LOST_CONFIRM_TICKS: u8 = 3;
+    // v0.5.21 — 枚举顶层窗口学习 AFM pid 的间隔（AFM 主窗口不在前台时的
+    // 唯一学习途径）。500ms 一次足够：EnumWindows 很便宜。
+    const AFM_ENUM_INTERVAL: Duration = Duration::from_millis(500);
     let wakeup_rx = start_event_wakeup_hook();
 
     let mut last_hwnd: isize = INVALID_HWND;
@@ -231,6 +237,8 @@ pub fn start_monitor(
     // v0.5.20 — 下降沿那一次采样没读到接手应用的 pid 时置位，下一 tick 重采样。
     // 只有「pid 丢了」这一条路径会置位 ⇒ 授权被消费后不会重新上弦。
     let mut handoff_retry_pending = false;
+    // v0.5.21 — AFM 进程身份：周期性枚举顶层窗口补学 pid。
+    let mut last_afm_enum_at: Option<Instant> = None;
 
     loop {
         let loop_started = Instant::now();
@@ -253,14 +261,46 @@ pub fn start_monitor(
         //     「接手的应用 pid」和时刻，这就是「直接从 AFM 切换」的起点；
         //   * 非 AFM -> AFM 的上升沿 = 用户回到 AFM ⇒ 作废上一次交接
         //     （陈旧授权不许复活）。
-        let afm_now = foreground_is_afm();
+        // v0.5.21 — AFM 身份：先学 pid，再判「是不是在前台」。
+        //
+        // ① 前台窗口命中 class+title ⇒ 立刻学到 AFM 的 pid；
+        // ② 每 500ms 枚举一次顶层窗口补学（AFM 主窗口不在前台时的唯一途径）；
+        // ③ 判据 = 窗口特征命中 **或** 前台窗口属于 AFM 那个进程。
+        //
+        // 旧实现只做 ③ 的前半截（窗口特征），于是 AFM 的辅助窗口
+        // （`com.sigma-file-manager.app-sic`）在前台时产生**假下降沿**。
+        let fg_hwnd = unsafe { GetForegroundWindow() };
+        let fg_pid = foreground_window_pid();
+        let fg_class_title = if fg_hwnd.is_invalid() {
+            false
+        } else {
+            is_afm_window(fg_hwnd)
+        };
+        state.learn_afm_pid(fg_class_title, fg_pid);
+        if last_afm_enum_at
+            .map(|t| t.elapsed() >= AFM_ENUM_INTERVAL)
+            .unwrap_or(true)
+        {
+            last_afm_enum_at = Some(Instant::now());
+            let found = find_afm_pid_by_enum();
+            if found != 0 {
+                state.learn_afm_pid(true, found);
+                debug!("[afm-gate] learned AFM pid={} by window enumeration", found);
+            }
+        }
+        let afm_now = foreground_is_afm_by(state.afm_pid(), fg_class_title, fg_pid);
         if afm_now != was_afm_foreground {
             if afm_now {
                 state.clear_afm_handoff();
                 handoff_retry_pending = false;
                 debug!("[afm-gate] AFM back in foreground; previous handoff cleared");
+                log_event(&Event::SpikeError {
+                    kind: "afm_gate_cleared".into(),
+                    message: format!("AFM back in foreground (afm_pid={})", state.afm_pid()),
+                    ts: now_iso8601(),
+                });
             } else {
-                let pid = foreground_window_pid();
+                let pid = fg_pid;
                 if pid == 0 {
                     // v0.5.20 —— 这一瞬间没读到接手应用的 pid
                     // （GetForegroundWindow 返回了空窗口）。交接授权的可核对性
@@ -270,16 +310,34 @@ pub fn start_monitor(
                     // 挡住，直到用户再回一次 AFM 再切走。
                     handoff_retry_pending = true;
                     debug!("[afm-gate] handoff sample lost the receiving pid; will retry");
+                    log_event(&Event::SpikeError {
+                        kind: "afm_gate_retry".into(),
+                        message: format!(
+                            "handoff sample lost the receiving pid; will retry (afm_pid={})",
+                            state.afm_pid()
+                        ),
+                        ts: now_iso8601(),
+                    });
                 } else {
                     state.set_afm_handoff(pid);
                     handoff_retry_pending = false;
                     debug!("[afm-gate] handoff recorded: pid={}", pid);
+                    log_event(&Event::SpikeError {
+                        kind: "afm_gate_armed".into(),
+                        message: format!(
+                            "handoff recorded: pid={} afm_pid={} fg_class_title={}",
+                            pid,
+                            state.afm_pid(),
+                            fg_class_title
+                        ),
+                        ts: now_iso8601(),
+                    });
                 }
             }
         } else if handoff_retry_pending && !afm_now {
             // v0.5.20 —— 还在非 AFM 前台、且交接尚未记录 ⇒ 重采样前台 pid。
             // 这条分支只在「pid 丢了」时激活 ⇒ 授权被消费后不会重新上弦。
-            let pid = foreground_window_pid();
+            let pid = fg_pid;
             if pid != 0 {
                 state.set_afm_handoff(pid);
                 handoff_retry_pending = false;
@@ -574,6 +632,62 @@ pub fn is_afm_window(hwnd: HWND) -> bool {
         && get_window_text(hwnd).starts_with("Alpha File Manager")
 }
 
+/// v0.5.21 — 「当前前台窗口是不是 AFM」？
+///
+/// 判据从「窗口特征」升级为「进程身份」：
+///   * `class_title_match` —— 原判据（类名 `Tauri Window` + 标题前缀），
+///     命中即算 AFM；
+///   * `known_afm_pid != 0 && hwnd_pid == known_afm_pid` —— 前台窗口属于
+///     AFM 那个进程（主窗口 / 辅助窗口 / 托盘窗都算）。
+///
+/// 为什么必须加第二条：装机版 AFM 进程持有**可见**的辅助窗口
+/// （类名 `com.sigma-file-manager.app-sic` / `-siw`），它**不**满足类名 +
+/// 标题判据，但它持有前台时用户确实「在 AFM」。旧判据在这种窗口上恒为 false
+/// ⇒ 闸门产生假下降沿 ⇒ 交接记录把 AFM 自己的 pid 写进授权 ⇒ 真实对话框的
+/// pid 永远匹配不上（真机 2026-11-17：`handoff recorded: pid=72772`，而
+/// 72772 就是 AFM 的 pid）。
+///
+/// 纯函数 ⇒ 可在没有真实前台窗口的情况下单测。
+pub fn foreground_is_afm_by(known_afm_pid: u32, class_title_match: bool, hwnd_pid: u32) -> bool {
+    if class_title_match {
+        return true;
+    }
+    known_afm_pid != 0 && hwnd_pid == known_afm_pid
+}
+
+/// v0.5.21 — 枚举顶层窗口学习 AFM pid 时用的共享槽（只有 monitor 线程写）。
+static FOUND_AFM_PID: AtomicU32 = AtomicU32::new(0);
+
+/// v0.5.21 — 枚举所有顶层窗口，找出属于 AFM 的进程 id（0 = 没找到）。
+///
+/// 为什么必须枚举：AFM 的主窗口**不一定**在前台（用户可能在别的应用里），
+/// 而「前台窗口命中 class+title」只在 AFM 恰好在前台时才发生 —— 侧车启动时
+/// 用户很可能正盯着别的窗口 ⇒ 只靠前台学习永远学不到 pid ⇒ 闸门一直认不出
+/// AFM ⇒ 写回被全线拒绝。
+///
+/// `EnumWindows` 会列出**不可见**的顶层窗口，所以隐藏的主窗口也能找到。
+pub fn find_afm_pid_by_enum() -> u32 {
+    FOUND_AFM_PID.store(0, Ordering::SeqCst);
+
+    unsafe extern "system" fn enum_proc(hwnd: HWND, _lparam: LPARAM) -> BOOL {
+        if is_afm_window(hwnd) {
+            let mut pid: u32 = 0;
+            windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId(
+                hwnd,
+                Some(&mut pid as *mut u32),
+            );
+            if pid != 0 {
+                FOUND_AFM_PID.store(pid, Ordering::SeqCst);
+                return BOOL(0); // FALSE = 停止枚举
+            }
+        }
+        BOOL(1)
+    }
+
+    let _ = unsafe { EnumWindows(Some(enum_proc), LPARAM(0)) };
+    FOUND_AFM_PID.load(Ordering::SeqCst)
+}
+
 /// v0.5.19 — 当前前台窗口所属的**进程 id**（0 = 取不到）。
 ///
 /// 交接闸门要靠它回答「用户从 AFM 切给了哪个应用」。用进程而不是窗口：
@@ -607,17 +721,6 @@ pub fn window_pid_isize(hwnd: isize) -> u32 {
             Some(&mut pid as *mut u32),
         );
         pid
-    }
-}
-
-/// v0.5.15 — monitor 每 tick 用：当前前台窗口是否为 AFM（闸门的上弦信号）。
-fn foreground_is_afm() -> bool {
-    unsafe {
-        let hwnd = GetForegroundWindow();
-        if hwnd.is_invalid() {
-            return false;
-        }
-        is_afm_window(hwnd)
     }
 }
 
@@ -699,6 +802,45 @@ fn dedup_opened(last_hwnd: isize, info: &DialogInfo) -> (bool, isize) {
         (true, info.hwnd)
     } else {
         (false, last_hwnd)
+    }
+}
+
+/// v0.5.21 — 判别性测试：AFM 的「进程身份」判据。
+///
+/// 真机根因（2026-11-17）：旧判据只认「类名 == `Tauri Window` 且标题以
+/// `Alpha File Manager` 开头」。装机版 AFM 进程另持有可见的辅助窗口
+/// （`com.sigma-file-manager.app-sic`）⇒ 它在前台时闸门误判「离开 AFM」
+/// ⇒ 假下降沿 ⇒ 交接记录把 AFM 自己的 pid（72772）写进授权 ⇒ 真实对话框的
+/// pid 永远匹配不上 ⇒ 写回全线被拒（当天 656 次 `skip_no_afm_visit`）。
+#[cfg(test)]
+mod v521_afm_identity_tests {
+    use super::foreground_is_afm_by;
+
+    #[test]
+    fn the_afm_helper_window_still_counts_as_afm() {
+        // 前台是 AFM 的辅助窗口（特征不匹配），但它属于 AFM 那个进程。
+        assert!(
+            foreground_is_afm_by(72772, false, 72772),
+            "同一进程的任何窗口在前台都算「用户在 AFM」"
+        );
+    }
+
+    #[test]
+    fn another_process_never_counts_as_afm() {
+        assert!(!foreground_is_afm_by(72772, false, 24696));
+        assert!(!foreground_is_afm_by(72772, false, 0));
+    }
+
+    #[test]
+    fn an_unknown_afm_pid_cannot_be_guessed() {
+        // 还没学到 AFM pid（0）时，不得凭 pid 猜。
+        assert!(!foreground_is_afm_by(0, false, 72772));
+    }
+
+    #[test]
+    fn the_class_and_title_match_still_wins() {
+        assert!(foreground_is_afm_by(0, true, 24696));
+        assert!(foreground_is_afm_by(72772, true, 24696));
     }
 }
 
