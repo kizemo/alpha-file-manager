@@ -336,7 +336,14 @@ fn handle_set_path(
     state.set_current_path(path.clone());
     log_event(&Event::SpikeError {
         kind: "path_update".into(),
-        message: format!("current_path={}", path),
+        // v0.5.21 — 报**实际存进去**的路径。虚拟路径（`sfm://locations` 等）
+        // 会被 `set_current_path` 的形状守卫挡成空串，日志若还报原值就会把
+        // 「路径已污染」这件事藏起来。
+        message: format!(
+            "current_path={} (pushed='{}')",
+            state.get_current_path(),
+            path
+        ),
         ts: now_iso8601(),
     });
 

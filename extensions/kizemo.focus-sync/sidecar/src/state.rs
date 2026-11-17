@@ -12,7 +12,7 @@
 //! - `session_id: u32`                   — set once at startup (ProcessIdToSessionId)
 
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU32, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
@@ -134,6 +134,24 @@ pub struct AppState {
     // 逃生阀不变：`FOCUS_SYNC_AFM_GATE=0|false|off` 时闸门恒开（回到 v0.5.14
     // 行为），便于真机 A/B 对照。
     pub afm_handoff: Mutex<Option<AfmHandoff>>,
+
+    // ---- v0.5.21: AFM 进程身份（修「假下降沿」）----
+    //
+    // 真机根因（2026-11-17）：`is_afm_window` 只认「类名 == `Tauri Window`
+    // 且标题以 `Alpha File Manager` 开头」。装机版 AFM 进程另外持有**可见**
+    // 的辅助窗口（类名 `com.sigma-file-manager.app-sic` / `-siw`），它不满足
+    // 那个判据；它持有前台时用户其实就在 AFM，但 `foreground_is_afm()` 恒为
+    // false ⇒ 闸门产生**假下降沿** ⇒ 交接记录把 AFM 自己的 pid 写进授权
+    // （真机日志 `spike.log.2026-11-17` 12:15:00 那条
+    // `handoff recorded: pid=72772`，72772 正是 AFM 的 pid）⇒ 之后所有真实
+    // 对话框的 pid 都匹配不上 ⇒ 656 次 `opened_write_back_skip_no_afm_visit`，
+    // 当天只写回成功 1 次。
+    //
+    // 修法：识别「AFM 在前台」从「窗口特征」升级为「进程身份」——只要前台
+    // 窗口属于 AFM 那个进程（主窗口 / 辅助窗口 / 托盘窗），都算「用户在 AFM」。
+    //
+    // 0 = 还没学到（侧车刚起来、还没枚举到 AFM 窗口）。
+    pub afm_pid: AtomicU32,
 }
 
 /// v0.5.7 G-2 — RAII guard so a write-back cannot be left stuck "in
@@ -198,6 +216,33 @@ pub fn paths_equal(a: &str, b: &str) -> bool {
 ///      一个不存在的目录，换来的一定是对方的报错框。
 ///
 /// UNC 只查形状不查存在性：网络盘可能离线，探测会阻塞在 IO 上。
+/// v0.5.21 — 这个路径**形状**上是不是一个本地路径？
+///
+/// 与 [`is_writable_local_path`] 的区别：这里**不查存在性**，只查形状。
+///
+/// 用途：`current_path` 的「存入」侧守卫。扩展把 AFM 的虚拟位置剥掉 scheme
+/// 之后推来的是 `\locations`、`\remote\<id>\0000temp` —— 根相对路径，既不
+/// 是盘符路径也不是 UNC。原样存入 `current_path` 的后果：
+///   * 写回侧虽有 `is_writable_local_path` 拦着（不会写进别人的对话框），
+///     但 `current_path` 已被污染，`/health` 报出来的路径是假的；
+///   * 去重键 `paths_equal(initial, current)` 全部失配 ⇒ 重复写回。
+///
+/// 存在性**故意不查**：`current_path` 只是「AFM 此刻指向哪里」的记录，写入侧
+/// 已经用 [`is_writable_local_path`] 做过存在性把关。查存在性会把「目录临时
+/// 不可用」升级成「路径丢失」，那是过度反应。
+pub fn is_local_path_shape(p: &str) -> bool {
+    let s = p.trim();
+    if s.is_empty() {
+        return false;
+    }
+    let b = s.as_bytes();
+    // 盘符路径 `X:\...` / `X:/...`（至少 3 字节；裸盘符 `C:` 不算）
+    let is_drive = b.len() >= 3 && b[1] == b':' && (b[2] == b'\\' || b[2] == b'/');
+    // UNC `\\server\share`
+    let is_unc = s.starts_with("\\\\");
+    is_drive || is_unc
+}
+
 pub fn is_writable_local_path(p: &str) -> bool {
     let s = p.trim();
     if s.is_empty() {
@@ -252,6 +297,8 @@ impl AppState {
             sync_in_progress: AtomicBool::new(false),
             // v0.5.19: 还没发生过 AFM -> X 的交接，闸门初始关闭。
             afm_handoff: Mutex::new(None),
+            // v0.5.21: AFM 进程身份还没学到（monitor 会用 EnumWindows 学）。
+            afm_pid: AtomicU32::new(0),
         }
     }
 
@@ -279,6 +326,25 @@ impl AppState {
     pub fn clear_afm_handoff(&self) {
         let mut guard = self.afm_handoff.lock().unwrap_or_else(|e| e.into_inner());
         *guard = None;
+    }
+
+    /// v0.5.21 — 记住 AFM 的进程 id。
+    ///
+    /// 只有「窗口特征命中」（类名 `Tauri Window` + 标题前缀）时才更新 ——
+    /// 这是唯一能把一个窗口**认成** AFM 的证据；其余时候保持原值。
+    /// 前台命中即学；AFM 不在前台时由 `uia_event::find_afm_pid_by_enum()`
+    /// 枚举顶层窗口补学。
+    pub fn learn_afm_pid(&self, class_title_match: bool, hwnd_pid: u32) -> u32 {
+        if class_title_match && hwnd_pid != 0 {
+            self.afm_pid.store(hwnd_pid, Ordering::Relaxed);
+            return hwnd_pid;
+        }
+        self.afm_pid.load(Ordering::Relaxed)
+    }
+
+    /// v0.5.21 — 当前已知的 AFM 进程 id（0 = 还没学到）。
+    pub fn afm_pid(&self) -> u32 {
+        self.afm_pid.load(Ordering::Relaxed)
     }
 
     /// v0.5.19 — 当前持有的交接授权（None = 没有）。
@@ -331,6 +397,20 @@ impl AppState {
         }
         // v0.5.20 — pid 未知 ⇒ 不放行（不能只靠 TTL 放行）。
         if handoff.pid == 0 || dialog_pid == 0 {
+            return false;
+        }
+        // v0.5.21 — 交接 pid == AFM 自己的进程 ⇒ 这条交接来自**假下降沿**
+        // （用户根本没离开 AFM）⇒ 不放行。
+        //
+        // 真机证据（2026-11-17）：AFM 的辅助窗口（类名
+        // `com.sigma-file-manager.app-sic`）持有前台时旧判据认不出 AFM，于是
+        // 记下 `handoff recorded: pid=72772` —— 72772 就是 AFM 的 pid ——
+        // 之后所有真实对话框的 pid 都对不上 ⇒ 写回全线被拒。
+        //
+        // 这是**兜底**：v0.5.21 的进程身份判据已从源头消掉假下降沿；这一条
+        // 保证「万一又记错」也不会把 AFM 自己当成「接手应用」。
+        let afm_pid = self.afm_pid.load(Ordering::Relaxed);
+        if afm_pid != 0 && handoff.pid == afm_pid {
             return false;
         }
         handoff.pid == dialog_pid
@@ -413,7 +493,19 @@ impl AppState {
         set.remove(&hwnd);
     }
 
+    /// v0.5.21 — 存入「AFM 此刻指向的路径」。
+    ///
+    /// **形状守卫**：不是本地路径形状（`\locations`、`sfm://...`、空串……）
+    /// 一律**存空串**，不污染 `current_path`。
+    ///
+    /// 为什么存空而不是原样存：
+    ///   * 空串 ⇒ `should_write_back_when_path_unknown` 直接返回 false
+    ///     （current 为空 ⇒ 没有可写的目标）⇒ 虚拟位置期间**不写任何路径**；
+    ///   * 空串 ⇒ `is_writable_local_path("")` 为 false ⇒ 写回侧落在
+    ///     `skip_non_local_path` 分支 ⇒ 日志里的原因也准。
+    /// 扩展下一次推合法路径时 `path_unchanged` 不成立 ⇒ 正常恢复。
     pub fn set_current_path(&self, p: String) {
+        let p = if is_local_path_shape(&p) { p } else { String::new() };
         let mut guard = self.current_path.lock().unwrap_or_else(|e| e.into_inner());
         *guard = p;
         // Track that we received a ping — used by /health.
@@ -879,6 +971,102 @@ mod afm_gate_tests {
 /// `sfm://remote/<id>/0000temp` 剥成伪路径 `\remote\<id>\0000temp`，
 /// 侧车把它写进另一个程序的「打开」对话框 ⇒ Windows 弹「找不到」错误框
 /// ⇒ 错误框又被当成新对话框 ⇒ 每 1~2 秒重试 ⇒ 关闭后仍反复报错。
+/// v0.5.21 — 判别性测试：AFM 进程身份 + 交接闸门 + 路径形状守卫。
+///
+/// 根因（真机 2026-11-17，`spike.log.2026-11-17` + JSON 事件流 `spike.log`）：
+/// 闸门的「下降沿」用「类名 == `Tauri Window` 且标题以 `Alpha File Manager`
+/// 开头」识别 AFM，而装机版 AFM 进程另持有可见的辅助窗口
+/// （`com.sigma-file-manager.app-sic`）⇒ 假下降沿 ⇒ 交接记录把 AFM 自己的
+/// pid（72772）写进授权 ⇒ 真实对话框的 pid 永远匹配不上 ⇒ 全部写回被
+/// `opened_write_back_skip_no_afm_visit` 拒绝（当天 656 次，0 次成功）。
+#[cfg(test)]
+mod v521_afm_identity_tests {
+    use super::{is_local_path_shape, AppState};
+
+    // ---- 闸门：交接 pid 不得是 AFM 自己的进程 ----
+
+    #[test]
+    fn handoff_recorded_on_the_afm_process_is_not_an_authorization() {
+        // 真机那一条就是 `handoff recorded: pid=72772`（AFM 自己）。
+        // 这条授权必须被拒：用户根本没离开 AFM。
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.learn_afm_pid(true, 72772);
+        state.set_afm_handoff(72772);
+        assert!(
+            !state.afm_handoff_allows(72772),
+            "交接 pid == AFM 自己的 pid 时必须拒绝（假下降沿）"
+        );
+    }
+
+    #[test]
+    fn a_real_handoff_to_another_app_is_still_allowed() {
+        // 收紧不得误伤正常流程：AFM -> 别的应用 -> 该应用的对话框。
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.learn_afm_pid(true, 72772);
+        state.set_afm_handoff(4242);
+        assert!(
+            state.afm_handoff_allows(4242),
+            "正常流程（切到别的应用、该应用的对话框）必须照旧放行"
+        );
+    }
+
+    #[test]
+    fn a_dialog_from_an_unrelated_app_is_still_rejected() {
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.learn_afm_pid(true, 72772);
+        state.set_afm_handoff(4242);
+        assert!(
+            !state.afm_handoff_allows(9999),
+            "没有从 AFM 切过去的那个应用，一律拒绝"
+        );
+    }
+
+    // ---- AFM 进程身份的学习 ----
+
+    #[test]
+    fn afm_pid_is_learned_only_from_a_class_title_match() {
+        let state = AppState::new("E:\\Models".into(), 1);
+        assert_eq!(state.learn_afm_pid(true, 72772), 72772);
+        assert_eq!(state.afm_pid(), 72772);
+        // 没有特征命中 ⇒ 不更新（不能被任意窗口的 pid 污染）
+        assert_eq!(state.learn_afm_pid(false, 999), 72772);
+        assert_eq!(state.afm_pid(), 72772);
+    }
+
+    // ---- current_path 的形状守卫 ----
+
+    #[test]
+    fn virtual_paths_never_reach_current_path() {
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.set_current_path("sfm://locations".into());
+        assert_eq!(state.get_current_path(), "", "虚拟路径不得进入 current_path");
+        state.set_current_path("\\locations".into());
+        assert_eq!(state.get_current_path(), "");
+        state.set_current_path("\\remote\\abc\\0000temp".into());
+        assert_eq!(state.get_current_path(), "");
+    }
+
+    #[test]
+    fn real_local_paths_are_still_stored() {
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.set_current_path("D:\\new".into());
+        assert_eq!(state.get_current_path(), "D:\\new");
+        state.set_current_path("\\\\server\\share".into());
+        assert_eq!(state.get_current_path(), "\\\\server\\share");
+    }
+
+    #[test]
+    fn local_path_shape_accepts_only_drive_and_unc() {
+        assert!(is_local_path_shape("D:\\new"));
+        assert!(is_local_path_shape("D:/new"));
+        assert!(is_local_path_shape("\\\\server\\share"));
+        assert!(!is_local_path_shape("C:"));
+        assert!(!is_local_path_shape("\\locations"));
+        assert!(!is_local_path_shape("sfm://locations"));
+        assert!(!is_local_path_shape(""));
+    }
+}
+
 #[cfg(test)]
 mod v519_path_validity_tests {
     use super::is_writable_local_path;
