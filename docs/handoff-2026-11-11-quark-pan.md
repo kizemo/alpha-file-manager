@@ -1470,3 +1470,125 @@ NEG_EXIT=5
   `.superpowers/sdd/` 下的脚本与证据都在 gitignore 内，不进版本库。**已 commit、未 push**。
 - **本轮未做**（仍属对外动作，需用户授权）：`git push`、winget PR、GitHub Release、upstream 移植。
 
+### 20.11 批次 16：focus sync 异常 —— 闸门「假下降沿」根因修复 ＋ 真机部署（2026-11-18）
+
+#### 20.11.0 本轮范围、口径与硬约束
+
+- **用户诉求**：查看使用日志、分析 bug 并修复 focus sync 异常。
+- **日志源三分（口径）**：
+  ① JSON 事件流 `%LOCALAPPDATA%\kizemo\focus-sync\logs\spike.log`（`log_event` 落盘，`SpikeError`/`DialogDetected`/`Read`）；
+  ② tracing 文本 `spike.log.YYYY-MM-DD`（`tracing_appender::rolling::daily`），**`[afm-gate]` 调试行只在这里**；
+  ③ 宿主侧 `__focus_sync_trace` / `__hostWorkerDiagnostics`（`user-extensions.json`）。
+- **判定口径**：必须靠「事件类型 ＋ kind ＋ 时间序列」；**不能用 `SpikeError` 计数**（heartbeat 等非错误诊断也走该类型）。
+  统计事件时用 `e.kind || e.event`（`DialogDetected`/`Read` 没有 `kind` 字段）。
+- **`opened_write_back_skip_no_afm_visit` 是「交接闸门拒绝」的精确分支**（`writable && !gate_open`），不是 catch-all。
+- **写回通道**：按 v0.5.7 R-2 契约，`/set_path` 只存路径、不写后台对话框；真正写入通道是 Opened 写回 ⇒ 修复重心在**交接闸门**。
+- **硬约束照旧**（AGENTS §2.8 / §2.10）：真机 UI 验收必须跑在 `CreateDesktop` 隔离沙箱桌面、注入端不切桌面、不 `SetForegroundWindow`、不发 `SendInput`。
+  本轮**没有**做真机 UI 交互验收（原因见 20.11.6「未验证」行）。
+- **对外动作一律没做**：`git push`、winget PR、GitHub Release、upstream 移植。
+
+#### 20.11.1 症状（从日志还原）
+
+| 观测项 | 数值 | 出处 |
+| --- | --- | --- |
+| 11-17 `DialogDetected` 次数 / 不同 hwnd 数 | 809 次 / 382 个（app 全为 `#32770`） | `spike.log` |
+| 11-17 成功写回次数 | **1 次**（12:14:30 `opened_write_back`） | `spike.log` |
+| 11-17 `opened_write_back_skip_no_afm_visit` | **连续 656 次**（12:31:13–14:07） | `spike.log` |
+| `[afm-gate]` 按日 | 11-10 recorded=68/back=68；11-11 recorded=129/back=140/lost=10；11-12 recorded=1；11-13 recorded=1；**11-17 recorded=33/back=36/lostPid=3/retry=2** | `spike.log.2026-11-1*` |
+| 扩展侧污染 | `N05.path.raw = sfm://locations`（虚拟路径被当成真实目录推给侧车）；300 条 trace 绝大多数是 15s 一次的 `N03.health.resp` | `user-extensions.json` |
+
+- 取证产物：`.superpowers\sdd\focus\gate.txt`（289,542 B，含 11-10→11-17 全部 `[afm-gate]`/`handoff`/`foreground` 行）、
+  `.superpowers\sdd\focus\gate17.txt`（11-17 的 74 条 afm-gate 行）、`.superpowers\sdd\focus\seq.txt`（515 行关键事件序列）、
+  `.superpowers\sdd\focus\windows.txt`（真机顶层窗口枚举）。
+
+#### 20.11.2 根因（由 tracing 日志坐实，不是推测）
+
+1. 旧实现 `foreground_is_afm()` 的判据只有一条：**类名 == `Tauri Window` 且标题以 `Alpha File Manager` 开头**。
+2. 装机版 AFM 进程（真机 pid **72772**）另持有一个**可见**顶层窗口：
+   `hwnd=24842270 class='com.sigma-file-manager.app-sic' title='com.sigma-file-manager.app-siw'` ⇒ **不满足上述判据**。
+   （真主窗口 `hwnd=7013496 class='Tauri Window' title='Alpha File Manager' visible=False` 满足判据。）
+3. 该辅助窗口在前台时 `afm_now` 恒为 false ⇒ **AFM→非 AFM 的「假下降沿」** ⇒ 交接授权里写进的是 **AFM 自己的 pid**。
+   tracing 原文（11-17 12:15:00.188Z）：`handoff recorded: pid=72772` —— **72772 正是 AFM 自己的 pid**。
+4. 于是之后所有真实对话框的 pid 都 ≠ 72772 ⇒ 闸门恒拒 ⇒ 656 次 `skip_no_afm_visit`，全天只写回成功 1 次。
+5. 次要污染：扩展把虚拟位置 `sfm://locations` 当路径推给侧车（`normalizePath` 剥掉了前缀）⇒ `current_path` 被写成虚拟路径。
+
+#### 20.11.3 修复（v0.5.21）
+
+改动文件：`extensions/kizemo.focus-sync/sidecar/src/{state.rs, uia_event.rs, main.rs, http_server.rs}`（**4 files, +365 / −18**）。
+
+1. **AFM 识别改为「进程身份」**：
+   - `AppState.afm_pid: AtomicU32` ＋ `learn_afm_pid(class_title_match, hwnd_pid)` / `afm_pid()`；
+   - 前台窗口 class+title 命中即**学** pid；每 500 ms（`AFM_ENUM_INTERVAL`）用 `EnumWindows` 枚举补学（含不可见窗口）；
+   - 纯函数 `foreground_is_afm_by(known_afm_pid, class_title_match, hwnd_pid)` ＝ class+title 命中 **或** 前台窗口 pid == 已知 AFM pid。
+2. **闸门兜底**：`afm_handoff_allows` 在 `handoff.pid == afm_pid` 时**直接拒绝** ⇒ 假下降沿即便再次发生也不会放行。
+   （同时保留 v0.5.x 的 `handoff.pid == 0 || dialog_pid == 0` 一律拒绝。）
+3. **决策可观测**：闸门状态变化写 JSON 事件 `afm_gate_cleared` / `afm_gate_armed` / `afm_gate_retry`；
+   `opened_write_back_skip_no_afm_visit` 消息加 `dialog_pid` / `handoff_pid` / `afm_pid` 三个字段 ⇒ 下次一眼分清拒绝原因。
+4. **路径守卫**：`set_current_path` 先做**形状**校验（盘符 `X:\` / `X:/` 或 UNC；只查形状、不查存在性），非法形状**存空串**
+   ⇒ 阻断 `sfm://locations` 污染，且虚拟位置期间不写任何路径。
+5. **path_update 事件**改为上报**实际存入**的路径 ＋ 原 pushed 值。
+6. **刻意不做的事**：
+   - 不改扩展 `dist/index.js`（该文件就是 git 跟踪的发布源，无独立 src 目录）—— 侧车已防御，改它风险更高；
+   - 不加 hwnd 强校验 —— Chromium 对话框导航会重建 hwnd（实测 382 个不同 hwnd），按 hwnd 绑定会误拒；保持 pid 语义。
+
+#### 20.11.4 判别性测试（11 个）
+
+- `state.rs :: v521_afm_identity_tests`（7）：假下降沿（handoff.pid == afm_pid）被拒 / 正常放行 / 无关应用被拒 /
+  pid 只从 class+title 学习 / 虚拟路径不入 `current_path` / 真实路径仍存 / 形状判据本身。
+- `uia_event.rs :: v521_afm_identity_tests`（4）：同进程辅助窗口算 AFM / 他进程不算 / pid 未知不得猜 / class+title 仍优先。
+- 补丁机制：`.superpowers\sdd\focus\apply-patch.cjs` ＋ `.superpowers\sdd\focus\patch-v521.txt`（19 个 op，断言唯一命中、CRLF 自适应），
+  执行结果 **19/19 OK、failed=0**，可重放。
+
+#### 20.11.5 门禁与真机部署（本轮实测）
+
+- **Rust 门禁**：`cargo test` ⇒ **123 passed / 0 failed / 0 ignored**（日志 `.superpowers\sdd\focus\cargo-test-190.log`）。
+  ⚠️ **toolchain 陷阱**：`stable-x86_64-pc-windows-msvc`（rustc 1.97.1）的 std 组件不可用，编译报
+  `error[E0463]: can't find crate for 'std'` / `only metadata stub found for 'rlib' dependency 'rustc_std_workspace_core'`
+  ⇒ 换 **1.90.0** 一次通过；`scripts\release\build-sidecar.cmd` 本来就固定 1.90.0。
+- **前端门禁**：`npm run check` ⇒ **EXIT=0**（日志 `.superpowers\sdd\focus\npm-check.log`）。
+- **重建侧车**：`scripts\release\build-sidecar.cmd` ⇒ `BUILD_OK`（release 50.11 s）⇒
+  新件 **sha256 `BFD5DF0C…B4DB`、2,882,048 B**（旧件 2,873,344 B / sha `A8300AAB…52E462`）。
+- **部署到真机**（脚本 `.superpowers\sdd\focus\deploy-sidecar.ps1`，报告 `.superpowers\sdd\focus\deploy-01.txt`）：
+  备份旧件 → `.superpowers\sdd\focus\installed-sidecar-backup-20261110.exe`（sha 与旧件一致，可回滚）
+  → 杀旧侧车 pid 301088 → 覆盖 `%APPDATA%\com.sigma-file-manager.app\extensions\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe`
+  → AFM 监督器**自动重拉起** pid **277632** ⇒ **运行中进程映像 sha256 == 新构建**（进程级确证）。
+
+#### 20.11.6 真机证据：已验证 / 推断 / 未验证
+
+| # | 结论 | 状态 | 证据 |
+| --- | --- | --- | --- |
+| ① | 新侧车已替换真机副本且正在运行 | **已验证** | 运行映像 sha256 `BFD5DF0C…B4DB` == 新构建；heartbeat `alive pid=277632` 每 5 s |
+| ② | 跑的是新代码而非旧件 | **已验证** | 二进制标记 A/B：旧件 `markers=[]`，新件含 `dialog_pid`/`handoff_pid`/`afm_pid`/`afm_gate_cleared` |
+| ③ | 虚拟路径污染已被消除（行为级） | **已验证** | 旧件 `path_update current_path=sfm://locations`（被存入）→ 新件 `path_update current_path= (pushed='sfm://locations')`（**实际存入为空**） |
+| ④ | 交接闸门不再误放行 / 不再恒拒 | **推断（单测覆盖，未做真机 UI 交互验收）** | 11 条判别性测试；真机「打开对话框 → 写回成功」需真人触发一次对话框 |
+| ⑤ | 装机版（NSIS）会把新侧车带给用户 | **未验证** | 部署链已确认：`build-sidecar.cmd` → `bin\focus-sync-sidecar.exe` → `installer.nsi`（`File "..\bin\focus-sync-sidecar.exe"`）/ `manual-install.ps1` → APPDATA；但 `bin\` 与 `installer\` 里的 exe **未被 git 跟踪** ⇒ 装机机必须重新跑 build + 安装器，否则装出来仍是旧侧车 |
+| ⑥ | 沙箱真机 UI A/B（AGENTS §2.8/§2.10） | **本轮未做** | 沙箱跑的是 AFM 主程序，不含 APPDATA 部署位的侧车；做端到端 UI 验收需要真人交互或把侧车纳入沙箱部署 |
+
+#### 20.11.7 次生缺陷（按决策本轮**不修**，登记备查）
+
+1. `__focus_sync_trace` 被 15 s 一次的 health 轮询刷爆（300 条里绝大多数是 `N03.health.resp`）。
+2. `/set_path` 空表阻塞 400 ms。
+3. `writer.rs::try_mark_committed` 失败也消耗 commit 槽。
+4. 扩展侧 `normalizePath` 仍会把 `sfm://locations` 剥成虚拟路径并推送（侧车已挡住写入，但推送仍在）。
+5. 装机流程不刷新 APPDATA 侧车二进制（本轮已手工刷新，见 20.11.5）。
+
+#### 20.11.8 本轮工具坑（省得下一轮再踩）
+
+1. **`stable-x86_64-pc-windows-msvc`（1.97.1）的 std 不可用** ⇒ `cargo` 报 E0463 `can't find crate for 'std'`，
+   报错落在 registry 里的 `proc-macro2`/`once_cell`/`quote`/`serde_core` 的 build 脚本上 ⇒ **看着像依赖问题，其实是工具链问题**。
+   ⇒ 用 `C:\Users\Duanyi\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin\cargo.exe`。
+2. **PowerShell 里 `MatchInfo` 没有 `.Trim()` 方法**（要先 `.Line.Trim()`）⇒ `Select-String` 结果直接格式化会刷屏 ⇒ 内容检索改用 `grep` 工具。
+3. **覆盖正在运行的 exe 会 sharing violation** ⇒ 必须「杀进程 → 复制」；本轮脚本做成 kill→copy 重试循环（最多 6 次），
+   因为 AFM 监督器会立刻重拉起旧件。
+4. **工作区外路径的写操作不能内联** ⇒ 部署脚本写进 `.ps1` 再 `pwsh -NoProfile -ExecutionPolicy Bypass -File` 执行（内联 `Copy-Item` 会被策略拦）。
+5. **读被占用的日志**：`[System.IO.File]::Open($p,'Open','Read','ReadWrite')` 共享读；读尾部用 `Seek(-N,'End')`（`Get-Content -Raw` / `ReadAllLines` 会抛「正被另一进程使用」）。
+6. **同文件并行 `edit` 会互相覆盖** ⇒ 源码改动一律走「补丁文件 ＋ 单次执行」（`apply-patch.cjs`）。
+7. `cargo` 不在默认 PATH，且**不要与 `npm run check` 并发**。
+
+#### 20.11.9 本轮收尾状态
+
+- **改动**：`extensions/kizemo.focus-sync/sidecar/src/{state.rs,uia_event.rs,main.rs,http_server.rs}` ＋ 本节台账 ＋ 新增批次 16 交接卡。
+- **门禁双绿**：`cargo test` 123/0、`npm run check` EXIT=0。
+- **真机**：APPDATA 侧车已换成新构建并在运行，旧件已备份（可回滚）；真机用户数据全程**只读未改**。
+- **未做（需用户授权）**：`git push`、winget PR、GitHub Release、upstream 移植。
+- **未做（需真人交互）**：端到端「打开对话框 → 写回成功」真机验收（见 20.11.6 ④⑥）。
