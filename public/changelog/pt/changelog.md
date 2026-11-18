@@ -1,6 +1,20 @@
 # Registro de alterações
 
 
+## [3.14.1] - November 2026
+
+**Resumo:** O Focus Sync pode de novo colocar a pasta que você está vendo nas caixas de diálogo «Abrir» e «Guardar como» de outros programas, e o arquivo de instalação agora traz o assistente que pertence a esta versão em vez de um antigo.
+
+### What changed
+
+**Corrigido: o Focus Sync volta a preencher as caixas de diálogo de abertura e gravação de outros programas.** A verificação que decidia se uma pasta podia ser entregue a outro programa tinha ficado restritiva demais, então qualquer tentativa era recusada e a pasta que você estava vendo nunca chegava à caixa de diálogo. As pastas que existem mesmo no disco passam de novo, e a pasta é entregue assim que você entra nela, de modo que a próxima caixa de diálogo de abertura ou gravação já começa no lugar certo.
+
+**Corrigido: o Focus Sync não enche mais o registro com a mesma linha sem parar.** O assistente respondia à sua própria verificação de integridade escrevendo uma nova linha no registro toda vez que era consultado, o que fazia o registro crescer por si só e empurrava para fora de vista as mensagens que importam. A verificação de integridade agora fica em silêncio, e apenas os eventos reais são registrados.
+
+**Corrigido: o arquivo de instalação traz agora o assistente atual em vez de um antigo.** O instalador continuava distribuindo o assistente de uma compilação anterior, de modo que instalá-lo devolvia o comportamento anterior à máquina. O arquivo de instalação contém agora o assistente que pertence a esta versão, e o instalador substitui por ele a cópia que está na sua pasta de dados do usuário.
+
+**Corrigido: o Focus Sync mantém seus diagnósticos legíveis e para de entregar pastas que não estão no disco.** A verificação de integridade rodava a cada quinze segundos e empurrava o registro para o lado, de modo que as entradas de que você precisava saíam do campo de visão. A verificação de integridade não participa mais dos diagnósticos, e as pastas que só existem em um lugar virtual - uma conexão de disco de rede, por exemplo - não são mais entregues ao assistente como se fossem pastas normais.
+
 ## [3.14.0] - November 2026
 
 **Resumo:** Agora você pode conectar o Quark Netdisk junto com o Baidu Netdisk - adicione-o pela aba de disco de rede em *Configurações* em *Remoto*, entre uma vez na janela embutida e navegue, baixe e copie como no Baidu Netdisk.

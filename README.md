@@ -160,6 +160,15 @@ Adding a netdisk here has none of that:
 | ![Dashboard quick access](docs/screenshots/afm-dashboard-hero-light-en.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
 | ![Dashboard cards](docs/screenshots/afm-dashboard-card-enrichment-en.png) | **Dashboard cards** — name, size and path on top, type and item count below, with drag, reorder and edit shortcuts on every card |
 
+### What changed in 3.14.1
+
+| | | |
+|---|---|---|
+| 🪄 | **Focus Sync fills the open and save dialogs of other programs again** — the check that decides whether a folder may be handed over had become too strict, so every attempt was turned down and the folder you are looking at never reached the dialog; real folders on disk are let through again, and the folder is handed over as soon as you enter it |
+| 📝 | **Focus Sync no longer fills the log with the same line over and over** — the helper wrote a new log line every time its own health check asked, which made the log grow by itself and pushed the messages that matter out of sight; the health check now stays quiet and only real events are written down |
+| 📦 | **The setup file now carries the current helper instead of an old one** — the installer still shipped the helper from an earlier build, so installing it put the previous behavior back on the machine; the setup file now contains the helper that belongs to this release |
+| 🧭 | **Focus Sync keeps its diagnostics readable and stops handing over folders that are not on disk** — the health check ran every fifteen seconds and pushed the log aside, so the entries you needed were pushed out of view; the health check no longer takes part in the diagnostics, and folders that only exist in a virtual place, such as a netdisk connection, are no longer handed to the helper as if they were ordinary folders |
+
 ### What changed in 3.14.0
 
 | | | |

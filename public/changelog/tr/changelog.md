@@ -1,6 +1,20 @@
 # Değişiklik Günlüğü
 
 
+## [3.14.1] - November 2026
+
+**Özet:** Focus Sync, izlediğiniz klasörü diğer programların «Aç» ve «Farklı Kaydet» iletişim kutularına yeniden yerleştirebiliyor ve kurulum dosyası artık eskisini değil, bu sürüme ait yardımcıyı içeriyor.
+
+### What changed
+
+**Düzeltildi: Focus Sync diğer programların açma ve kaydetme iletişim kutularını yeniden dolduruyor.** Bir klasörün başka bir programa devredilip devredilemeyeceğine karar veren kontrol fazla katı hale gelmişti, bu yüzden her deneme reddediliyor ve izlediğiniz klasör hiçbir zaman iletişim kutusuna ulaşamıyor. Diskte gerçekten bulunan klasörler yeniden geçiyor ve klasör siz içine girdiğiniz anda devrediliyor, böylece sonraki açma veya kaydetme iletişim kutusu zaten doğru yerden başlıyor.
+
+**Düzeltildi: Focus Sync artık günlüğü aynı satırla doldurup durmuyor.** Yardımcı, kendine sağlık kontrolü sorulduğunda her seferinde günlüğe yeni bir satır yazarak yanıt veriyordu; bu da günlüğü kendi kendine büyütüyor ve önemli mesajları görüş alanından çıkarıyordu. Sağlık kontrolü artık sessiz kalıyor ve yalnızca gerçek olaylar kaydediliyor.
+
+**Düzeltildi: kurulum dosyası artık eski yardımcı yerine güncel yardımcıyı içeriyor.** Kurulum programı hâlâ daha önceki bir derlemeden gelen yardımcıyı dağıtıyordu, bu yüzden onu kurmak makineye önceki davranışı geri getiriyordu. Kurulum dosyası artık bu sürüme ait yardımcıyı içeriyor ve kurulum programı kullanıcı verileri klasörünüzdeki kopyayı onunla değiştiriyor.
+
+**Düzeltildi: Focus Sync tanılamalarını okunur tutuyor ve diskte olmayan klasörleri devretmeyi bırakıyor.** Sağlık kontrolü on beş saniyede bir çalışıyor ve günlüğü yana itiyordu, böylece ihtiyaç duyduğunuz kayıtlar görüş alanından çıkıyordu. Sağlık kontrolü artık tanılamalara katılmıyor ve yalnızca sanal bir yerde var olan klasörler — örneğin bir ağ diski bağlantısı — normal klasörlermiş gibi yardımcıya devredilmiyor.
+
 ## [3.14.0] - November 2026
 
 **Özet:** Artık Baidu Netdisk’in yanına Quark Netdisk de ekleyebilirsiniz - *Ayarlar* içindeki *Uzak* bölümünün ağ diski sekmesinden ekleyin, uygulama içindeki pencerede bir kez oturum açın, sonra Baidu Netdisk ile aynı şekilde gezinin, indirin ve kopyalayın.

@@ -134,6 +134,27 @@ function trace(node, detail) {
     } catch (e) { /* never let diagnostics break the product */ }
 }
 
+/**
+ * v0.6.1 — 记录一个「同一节点只保留最新一条」的条目。
+ *
+ * WHY: 诊断环是有界的（TRACE_MAX = 300），而 health 轮询每 15 s 一次。
+ * 每轮都 append 一条 `N03.health.resp`，300 条 ≈ 75 分钟就写满整环，
+ * 于是**真正要用的推路径节点**（N05/N06/N07/N08…）在没人来得及读之前
+ * 就被健康噪音挤掉了 —— 「观察行为本身毁掉了证据」。
+ *
+ * 这里不是「不记录」，而是「记录最新的一条」：环里最多留 1 个该节点，
+ * 既是**当前**的活性证明（永远不过期），又只占 1 个槽位。
+ *
+ * 只给「高频 + 低信息量」的节点用。错误、决策类节点继续用 trace()，
+ * 它们的历史要保留。
+ */
+function traceReplace(node, detail) {
+    try {
+        traceBuf = traceBuf.filter((e) => e.node !== node);
+    } catch (e) { /* never let diagnostics break the product */ }
+    trace(node, detail);
+}
+
 /** Report whether sigma.storage is usable at all — N02 depends on it. */
 async function traceProbeStorage() {
     let ok = false;
@@ -258,17 +279,92 @@ function schedulePush(path) {
     }, 100);
 }
 
+/**
+ * v0.6.2 — 告诉侧车「AFM 现在**不在任何本地目录**」（清空侧车记住的路径）。
+ *
+ * 为什么需要这个信号（扩展 v0.6.1 改动的直接后果）：
+ * 扩展从 v0.6.1 起**不再把虚拟路径推给侧车**（推了也写不进去 —— 侧车的形状
+ * 闸门只会挡下它，还白费一次 HTTP 往返）。副作用是侧车**收不到任何信号**
+ * ⇒ `current_path` 一直留着上一次的本地路径 L1 ⇒ 用户在网盘/虚拟位置打开
+ * 「另存为」时，L1 被写进别人的对话框（旧行为是「什么都不写」）。
+ *
+ * 所以「跳过推送」必须升级成「主动清空」：
+ *   POST /set_path  body = {"path": ""}  →  侧车清空 current_path 并回 200。
+ * 回到本地目录时照旧推真实路径 ⇒ 侧车恢复正常同步。
+ *
+ * 幂等：重复清空没有副作用（侧车只是把 current_path 置空）。
+ */
+async function sendClearToSidecar() {
+    try {
+        const body = JSON.stringify({ path: '', auto_confirm: autoConfirm });
+        const r = await sigma.http.request({
+            url: `${SIDECAR_HTTP}/set_path`,
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: body,
+        });
+        trace('N07.push.clear', { status: r.status });
+        console.log('[focus-sync] CLEAR sent, status=' + r.status);
+        traceFlushNow();
+        return { ok: r.status === 200, status: r.status };
+    } catch (e) {
+        trace('N09.push.clear.err', { msg: String(e).slice(0, 160) });
+        console.warn('[focus-sync] clear failed:', String(e).slice(0, 200));
+        traceFlushNow();
+        return { ok: false, status: 0 };
+    }
+}
+
+/**
+ * Push the current folder to the sidecar.
+ *
+ * v0.6.2 — 返回一个**结果对象**，让调用方能说真话：
+ *   { ok, status, reason, wrote }
+ *   reason: 'synced' | 'no-dialog' | 'cleared' | 'clear-failed' | 'disabled'
+ *           | 'status' | 'error'
+ * 旧实现没有返回值 ⇒ 调用方（Sync Now 工具栏）无论成败都弹「Synced: <path>」，
+ * 而侧车 404 恰恰意味着「一个字节都没写」。
+ */
 async function pushNow(path) {
     // v0.5.8 (P1): first line, before the `enabled` check, so an entry is
     // recorded even when the push is deliberately skipped.
     trace('N19.push.enter', { fp: traceFingerprint(path), enabled: enabled });
     if (!enabled) {
         trace('N07.push.skip', { why: 'disabled', fp: traceFingerprint(path) });
-        return;
+        return { ok: false, status: 0, reason: 'disabled', wrote: false };
     }
     const normalized = normalizePath(path);
     trace('N06.push.normalized', { rawFp: traceFingerprint(path), normFp: traceFingerprint(normalized) });
     console.log('[focus-sync] PUSH raw=' + JSON.stringify(path) + ' normalized=' + JSON.stringify(normalized));
+
+    // v0.6.1 — 虚拟路径**绝不**推给侧车。
+    //
+    // WHY: `sfm://remote/<id>/<dir>`、`sfm://locations` 是 AFM 的虚拟位置，
+    // 不是 Windows 目录。侧车只能把**真实存在的本地目录**写进「另存为」
+    // 弹窗（它自己的 `is_writable_local_path` 形状守卫会挡掉其余一切），
+    // 所以推虚拟路径只可能换来一次被拒绝的写入 + 一条
+    // `set_path_skip_non_local_path` 日志 + 环里的噪音，永远不可能成功；
+    // 还会让侧车把 `current_path` 存成空串，等于用一次无意义的 HTTP
+    // 往返去污染侧车状态。
+    //
+    // v0.5.19 已经修好了「形状被剥坏」（normalizePath 原样保留虚拟路径），
+    // 但**推送本身**还在发生 —— 这一段把那次无意义的往返彻底去掉。
+    // 真实 Windows 路径（盘符 / UNC）不受影响，照旧推送。
+    //
+    // v0.6.2 — 但「不推」不等于「不管侧车」：侧车会一直留着上一次的本地路径
+    // L1 ⇒ 用户在虚拟位置打开「另存为」时，L1 被写进对话框。所以这里**主动
+    // 清空**侧车的记忆路径（见 sendClearToSidecar 的注释）。
+    if (!isLocalDirShape(normalized)) {
+        trace('N07.push.skip', { why: 'non-local-path', fp: traceFingerprint(normalized) });
+        console.log('[focus-sync] PUSH skipped: not a local Windows directory path (clearing helper memory)');
+        const cleared = await sendClearToSidecar();
+        return {
+            ok: cleared.ok,
+            status: cleared.status,
+            reason: cleared.ok ? 'cleared' : 'clear-failed',
+            wrote: false,
+        };
+    }
 
     try {
         // v0.3.0: NO retry with backoff. Previous v0.2.0 retries were a
@@ -287,11 +383,25 @@ async function pushNow(path) {
         trace('N08.push.resp', { status: r.status });
         console.log('[focus-sync] PUSH response status=' + r.status);
         traceFlushNow();
+        if (r.status === 200) {
+            // 200 = 「路径已送达侧车」。**不等于**已经写进某个对话框：
+            // 侧车对不在前台的弹窗只登记不写（v0.5.7 R-2 契约），
+            // 写回发生在用户把那个弹窗切到前台时。
+            return { ok: true, status: 200, reason: 'synced', wrote: false };
+        }
+        if (r.status === 404) {
+            // v0.5.24 侧车新语义：404 = 「这一刻没有可写的对话框」——
+            // 路径记住了，但**一个字节都没写**。不能当成成功。
+            trace('N08.push.no_dialog', { status: r.status });
+            return { ok: false, status: 404, reason: 'no-dialog', wrote: false };
+        }
+        return { ok: false, status: r.status, reason: 'status', wrote: false };
     } catch (e) {
         trace('N09.push.err', { msg: String(e).slice(0, 160) });
         console.warn('[focus-sync] push failed:', String(e).slice(0, 200));
         // Notification handled by health check; don't double-notify here.
         traceFlushNow();
+        return { ok: false, status: 0, reason: 'error', wrote: false };
     }
 }
 
@@ -375,8 +485,21 @@ async function checkHealth() {
         // when the sidecar reports it has never received a path. Self-healing,
         // no extra endpoint, no user action needed.
         if (parsed && parsed.first_push_received === false && lastKnownPath) {
-            trace('N15.repush.after_restart', { path: lastKnownPath });
-            schedulePush(lastKnownPath);
+            // v0.6.1 — 补推只对**真实本地目录**做。
+            // 虚拟路径侧车写不进去（pushNow 直接跳过，不发请求），于是补推
+            // 永远推不成 ⇒ 侧车的 first_push_received 一直是 false ⇒ 这段
+            // 每 15 s 触发一次 ⇒ 诊断环被补推节点刷爆（与 N03 刷屏同款后果）。
+            // 跳过时只留**最近一条**（traceReplace），不逐轮累积。
+            if (!isLocalDirShape(lastKnownPath)) {
+                traceReplace('N15.repush.skip', { why: 'non-local-path', fp: traceFingerprint(lastKnownPath) });
+            } else {
+                // v0.6.2 — 覆盖式：这条节点在侧车重启后**每 15 s 最多命中一次**
+                // （first_push_received 一直为 false ⇒ 每轮都命中），用 trace()
+                // 会把诊断环刷爆、挤掉真正要用的推路径节点（N15.repush.skip
+                // 已经是覆盖式，这里对齐）。
+                traceReplace('N15.repush.after_restart', { path: lastKnownPath });
+                schedulePush(lastKnownPath);
+            }
         }
 
         if (parsed && typeof parsed.unsupported_dialog_count === 'number') {
@@ -489,7 +612,13 @@ async function pingSidecarWithBody() {
         // bytes. The full fingerprint is still captured whenever parsing fails,
         // which is the only time its content is diagnostically load-bearing —
         // see N12 below.
-        trace('N03.health.resp', {
+        //
+        // v0.6.1: 这一条改成 traceReplace —— 环里最多留 1 个 N03.health.resp。
+        // 之前是每 15 s append 一条，300 条的环 75 分钟就写满，整环都是
+        // 健康噪音，推路径节点在被读到之前就被挤掉了。保留「最新一条」
+        // 既不丢活性证明，也不再刷屏。异常路径（N04.health.err /
+        // N04.health.consecutive）仍然逐条记录，错误取证不受影响。
+        traceReplace('N03.health.resp', {
             status: r.status,
             keys: Object.keys(r).join(','),
             bodyType: typeTag(r.body),
@@ -595,10 +724,67 @@ async function syncNow() {
         return;
     }
     trace('N17.syncNow.push', { fp: traceFingerprint(path) });
-    await pushNow(path);
+    // v0.6.1 — 虚拟位置同步不了，别报「已同步」。
+    // 判定与 pushNow 用同一个 normalizePath + isLocalDirShape，避免两边
+    // 结论不一致（这里说跳过了、那边却推了）。
+    //
+    // v0.6.2 — 而且要**主动清空**侧车的记忆路径：只跳过推送的话，侧车会一直
+    // 留着上一次的本地路径 L1 ⇒ 用户在虚拟位置打开「另存为」时 L1 被写进去。
+    const normalized = normalizePath(path);
+    if (!isLocalDirShape(normalized)) {
+        trace('N17.syncNow.skip', { why: 'non-local-path', fp: traceFingerprint(normalized) });
+        const cleared = await sendClearToSidecar();
+        try {
+            sigma.ui.showNotification({
+                title: 'Focus Sync',
+                description: 'Current location is not a local folder (' + path + ') — '
+                    + (cleared.ok
+                        ? 'the helper was told to forget the previous path; nothing to sync.'
+                        : 'the helper could not be reached; it may still remember the previous path.'),
+                type: 'warning',
+            });
+        } catch (e) {}
+        return;
+    }
+    const result = await pushNow(path);
+    // v0.6.2 — toast 必须**诚实**。
+    //
+    // 旧实现无论成败都弹「Synced: <path>」的绿色提示，而：
+    //   * 侧车 404 = 「这一刻没有可写的对话框」⇒ **一个字节都没写**；
+    //   * 传输失败 = 根本没送达；
+    //   * 200 = 路径已送达侧车，但**不等于**已经写进对话框（侧车对不在前台的
+    //     弹窗只登记不写，写回发生在用户把弹窗切到前台时）。
+    // 这些都要说清楚，否则用户以为「已经填好了」却发现路径没动。
     try {
-        sigma.ui.showNotification({ title: 'Focus Sync', description: 'Synced: ' + path, type: 'success' });
+        if (result.ok && result.reason === 'synced') {
+            sigma.ui.showNotification({
+                title: 'Focus Sync',
+                description: 'Path sent to the helper: ' + path
+                    + ' — it is filled into a Save As dialog when that dialog comes to the front.',
+                type: 'success',
+            });
+        } else if (result.reason === 'no-dialog') {
+            sigma.ui.showNotification({
+                title: 'Focus Sync',
+                description: 'The helper had no open Save As dialog — the path was remembered, '
+                    + 'but nothing was written yet.',
+                type: 'warning',
+            });
+        } else if (result.reason === 'disabled') {
+            sigma.ui.showNotification({
+                title: 'Focus Sync',
+                description: 'Focus Sync is disabled — nothing was synced.',
+                type: 'warning',
+            });
+        } else {
+            sigma.ui.showNotification({
+                title: 'Focus Sync',
+                description: 'Could not reach the Focus Sync helper — nothing was synced.',
+                type: 'error',
+            });
+        }
     } catch (e) {}
+    trace('N17.syncNow.result', { reason: result.reason, status: result.status });
 }
 
 /**
@@ -703,8 +889,8 @@ async function resetEdgeTip() {
 const activate = async () => {
     // v0.3.5 (Mavis N2): stamp boot start so the 30s grace period gate works.
     bootStartedAt = Date.now();
-    trace('N01.activate.start', { ver: 'v0.5.5', traceSession: TRACE_SESSION });
-    console.log('[focus-sync] v0.5.5 activate START (H1 SendInput abort if !foreground + H2 UIA SetValue fallback + L1 .no_proxy() + find_ifiledialog_edit 1001/1148 + should_commit=true (unused per Rule 47) + verify + path tolerance)');
+    trace('N01.activate.start', { ver: 'v0.6.2', traceSession: TRACE_SESSION });
+    console.log('[focus-sync] v0.6.2 activate START (H1 SendInput abort if !foreground + H2 UIA SetValue fallback + L1 .no_proxy() + find_ifiledialog_edit 1001/1148 + should_commit=true (unused per Rule 47) + verify + path tolerance + v0.6.2 clear-signal for non-local locations)');
     void traceProbeStorage();
     try { await sigma.i18n.mergeFromPath('locales'); } catch (e) {}
     // v0.3.5 (N7): unified loadBool for storage reads. Was 2 inline try/catch

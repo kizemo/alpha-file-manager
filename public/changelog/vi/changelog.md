@@ -1,6 +1,20 @@
 # Nhật ký thay đổi
 
 
+## [3.14.1] - November 2026
+
+**Tóm tắt:** Focus Sync có thể đưa lại thư mục bạn đang xem vào hộp thoại «Mở» và «Lưu thành» của các chương trình khác, và tệp cài đặt nay mang theo trợ giúp thuộc về bản phát hành này thay vì bản cũ.
+
+### What changed
+
+**Đã sửa: Focus Sync lại điền vào hộp thoại mở và lưu của các chương trình khác.** Kiểm tra quyết định một thư mục có thể được giao cho chương trình khác hay không đã trở nên quá nghiêm ngặt, nên mọi lần thử đều bị từ chối và thư mục bạn đang xem không bao giờ tới được hộp thoại. Những thư mục thực sự tồn tại trên ổ đĩa lại được cho qua, và thư mục được giao ngay khi bạn bước vào nó, nên hộp thoại mở hoặc lưu kế tiếp đã bắt đầu đúng chỗ.
+
+**Đã sửa: Focus Sync không còn lấp đầy nhật ký bằng cùng một dòng.** Trợ giúp trả lời cuộc kiểm tra sức khỏe của chính nó bằng cách mỗi lần bị hỏi đều ghi thêm một dòng mới vào nhật ký, khiến nhật ký tự phình ra và đẩy những thông điệp quan trọng ra khỏi tầm mắt. Giờ cuộc kiểm tra sức khỏe im lặng, và chỉ những sự kiện thực sự mới được ghi lại.
+
+**Đã sửa: tệp cài đặt nay mang theo trợ giúp hiện hành thay vì bản cũ.** Trình cài đặt vẫn phát hành trợ giúp từ một bản dựng cũ hơn, nên việc cài đặt lại đưa hành vi cũ trở lại máy. Tệp cài đặt nay chứa trợ giúp thuộc về bản phát hành này, và trình cài đặt thay bản sao trong thư mục dữ liệu người dùng của bạn bằng nó.
+
+**Đã sửa: Focus Sync giữ cho thông tin chẩn đoán dễ đọc và ngừng giao những thư mục không có trên ổ đĩa.** Cuộc kiểm tra sức khỏe chạy mỗi mười lăm giây và đẩy nhật ký sang bên, nên những mục bạn cần bị đẩy ra khỏi tầm nhìn. Cuộc kiểm tra sức khỏe nay không còn tham gia vào việc chẩn đoán, và những thư mục chỉ tồn tại ở một nơi ảo — ví dụ là một kết nối đĩa mạng — không còn được giao cho trợ giúp như thể chúng là thư mục bình thường.
+
 ## [3.14.0] - November 2026
 
 **Tóm tắt:** Giờ bạn có thể kết nối Quark Netdisk bên cạnh Baidu Netdisk - thêm từ thẻ đĩa mạng trong *Cài đặt* dưới mục *Từ xa*, đăng nhập một lần trong cửa sổ bên trong ứng dụng, rồi duyệt, tải về và sao chép y hệt Baidu Netdisk.

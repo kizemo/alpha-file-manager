@@ -3,6 +3,7 @@
 //! Endpoints (per extension `release/extension/dist/index.js` contract):
 //! - `POST /set_path` body `{"path":"D:\\downloads"}` → 200 `{"ok":true}`
 //!                                                or 400 `{"ok":false,"error":"..."}`
+//!                                                or 404 `{"ok":false,"error":"no_active_dialog"}`
 //! - `POST /quit`                            → 200 `{"ok":true}` then `std::process::exit(0)`
 //! - `GET  /get_status`                      → 200 `{"ok":true,"current_path":"...","active_dialogs":N}`
 //! - `GET  /health`                          → 200 health snapshot (v0.3.0 Scheduled Task mode)
@@ -130,7 +131,7 @@ use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
 //
 // 环境变量逃生阀：FOCUS_SYNC_AFM_GATE=0 让闸门恒开（回到旧行为，便于 A/B）。
 // FOCUS_SYNC_AFM_HANDOFF_TTL_MS 调整交接时效（默认 120000ms）。
-const SPIKE_VERSION: &str = "0.6.0";
+const SPIKE_VERSION: &str = "0.6.1";
 
 #[derive(Debug, Deserialize)]
 struct SetPathBody {
@@ -272,6 +273,49 @@ pub fn run_server(state: Arc<AppState>, port: u16, mode: &'static str) -> Result
 
 // ---- handlers ----
 
+/// v0.5.23 — 「弹窗登记表」追上刚打开的弹窗的**等待预算**。
+///
+/// 旧值：8 × 50 ms = 400 ms。新值：60 ms（3 × 20 ms）。
+///
+/// 缩短的理由：HTTP worker 是**单线程**的（扩展 15s 一次的 /health 轮询
+/// 与 /set_path 共用同一个线程），一个空表推送堵 400ms 就足以让健康轮询
+/// 迟到。登记竞态本身很窄（monitor 每 ~8ms 轮询一次，登记在下一两个 tick
+/// 内落地），而且「弹窗刚打开」那条路径由 Opened 写回通道兜底 ⇒ 缩短预算
+/// 不会让正常同步丢写。
+pub const DIALOG_WAIT_BUDGET_MS: u64 = 60;
+/// 单次轮询间隔。
+pub const DIALOG_WAIT_POLL_MS: u64 = 20;
+
+/// 等弹窗登记竞态。返回 (弹窗快照, 实际重试次数)。
+///
+/// 登记表**一开始就有弹窗**时立刻返回（正常路径零等待，行为不变）。
+fn wait_for_active_dialogs(state: &AppState) -> (Vec<DialogInfo>, u32) {
+    let mut dialogs = state.active_dialogs();
+    let mut retry_iter = 0u32;
+    let mut waited_ms = 0u64;
+    while dialogs.is_empty() && waited_ms < DIALOG_WAIT_BUDGET_MS {
+        std::thread::sleep(std::time::Duration::from_millis(DIALOG_WAIT_POLL_MS));
+        waited_ms += DIALOG_WAIT_POLL_MS;
+        dialogs = state.active_dialogs();
+        retry_iter += 1;
+    }
+    (dialogs, retry_iter)
+}
+
+/// v0.5.23 — 空表时的响应：**不是**「路径已写入」的成功形状。
+///
+/// 404 ＝「这一路没有可写的目标」，与 200 `{"ok":true}`（「路径已写入」）
+/// 严格区分开。扩展只读状态码做日志，拿到 404 不会误以为写成功。
+fn no_active_dialog_response() -> (u16, ResponseBody) {
+    (
+        404,
+        ResponseBody::Ok {
+            ok: false,
+            error: Some("no_active_dialog".into()),
+        },
+    )
+}
+
 fn handle_set_path(
     mut request: tiny_http::Request,
     state: Arc<AppState>,
@@ -294,12 +338,29 @@ fn handle_set_path(
     let path = parsed_body.path;
     let auto_confirm = parsed_body.auto_confirm;
 
+    // v0.5.24 — **空路径 = 显式清空信号**（不再是「非法输入」）。
+    //
+    // 扩展在「AFM 不在本地目录」（虚拟位置 / 网盘远程目录）时会发这个信号，
+    // 理由见 `AppState::clear_current_path` 的注释：扩展 v0.6.1 起不再推送
+    // 虚拟路径 ⇒ 侧车收不到任何信号 ⇒ `current_path` 留着陈旧的本地路径 L1
+    // ⇒ 用户在虚拟位置打开「另存为」时，L1 被写进对话框（旧行为是「什么都不
+    // 写」）。
+    //
+    // 旧行为（400 `path is empty`）把「清空」与「参数非法」混为一谈，让扩展
+    // 永远无法表达「我现在没有本地目录」。
     if path.is_empty() {
-        let resp = ResponseBody::Ok {
-            ok: false,
-            error: Some("path is empty".into()),
-        };
-        return respond_json(request, 400, &resp);
+        let previous = state.get_current_path();
+        state.clear_current_path();
+        log_event(&Event::SpikeError {
+            kind: "set_path_cleared".into(),
+            message: format!(
+                "current_path cleared (was='{}'); AFM is not in a local directory",
+                previous
+            ),
+            ts: now_iso8601(),
+        });
+        let resp = ResponseBody::Ok { ok: true, error: None };
+        return respond_json(request, 200, &resp);
     }
 
     // D6 [MEDIUM] (Mavis 第 13 轮): PUSH dedup — if the extension pushes the
@@ -356,13 +417,13 @@ fn handle_set_path(
     // extension's follow-up /get_status confirms the dialog is now registered
     // (so it's not gone — just not yet visible to /set_path). Retry briefly so
     // the write attempt isn't silently dropped on the early PUSHes.
-    let mut dialogs: Vec<DialogInfo> = state.active_dialogs();
-    let mut retry_iter = 0u32;
-    while dialogs.is_empty() && retry_iter < 8 {
-        std::thread::sleep(std::time::Duration::from_millis(50));
-        dialogs = state.active_dialogs();
-        retry_iter += 1;
-    }
+    //
+    // v0.5.23 — 等待预算从 8 × 50ms = 400ms 压到 DIALOG_WAIT_BUDGET_MS。
+    // 旧预算的问题：登记表为空时，一次**没有任何目标可写**的推送也要把
+    // 唯一的 HTTP worker（扩展 15s 一次的 /health 轮询与之共用一个线程）
+    // 堵满 400ms；而最后还回一个 `{"ok":true}` —— 看上去「写成功了」，
+    // 其实一个字节都没写。
+    let (dialogs, retry_iter) = wait_for_active_dialogs(&state);
     if retry_iter > 0 {
         log_event(&Event::SpikeError {
             kind: "set_path_dialogs_retry".into(),
@@ -375,6 +436,23 @@ fn handle_set_path(
         message: format!("dialogs_count={}", dialogs.len()),
         ts: now_iso8601(),
     });
+
+    // v0.5.23 — 空表 = 明确失败，不能再回「路径已写入」的成功形状。
+    //
+    // 路径已经存进 `current_path` 了（弹窗随后打开时由 Opened 写回通道
+    // 接手），但**这一次请求没有写入任何对话框** ⇒ 成功形状是假的。
+    if dialogs.is_empty() {
+        log_event(&Event::SpikeError {
+            kind: "set_path_no_dialog".into(),
+            message: format!(
+                "no active dialog after waiting {}ms; path stored, nothing written",
+                DIALOG_WAIT_BUDGET_MS
+            ),
+            ts: now_iso8601(),
+        });
+        let (status, resp) = no_active_dialog_response();
+        return respond_json(request, status, &resp);
+    }
     for d in dialogs {
         // v0.5.8 dead-HWND pruning — THIS is the gap that made the earlier
         // `dialog_gone` fix ineffective.
@@ -794,6 +872,180 @@ mod tests {
         assert!(
             json.contains("\"unsupported_dialog_count\":7"),
             "expected field in JSON, got: {json}"
+        );
+    }
+
+    // ----------------------------------------------------------------------
+    // v0.5.23 — 空表时的 /set_path 不得再堵住 HTTP worker
+    // ----------------------------------------------------------------------
+
+    /// 借一个空闲端口（绑定后立刻释放，避免撞上真机上在跑的侧车）。
+    fn reserve_local_port() -> u16 {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind 127.0.0.1:0");
+        let port = listener.local_addr().expect("local_addr").port();
+        drop(listener);
+        port
+    }
+
+    /// 等 HTTP 服务器起来（最多 ~2s）。
+    fn wait_for_server(port: u16) -> bool {
+        for _ in 0..200 {
+            if std::net::TcpStream::connect(("127.0.0.1", port)).is_ok() {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        false
+    }
+
+    /// 极简 HTTP/1.1 客户端：POST 一个 JSON body，返回 (状态码, body)。
+    fn http_post_set_path(port: u16, path: &str) -> (u16, String) {
+        use std::io::{Read, Write};
+        let mut stream =
+            std::net::TcpStream::connect(("127.0.0.1", port)).expect("connect to sidecar");
+        stream
+            .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+            .expect("set read timeout");
+        let body = format!("{{\"path\":\"{}\"}}", path.replace('\\', "\\\\"));
+        let req = format!(
+            "POST /set_path HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n\
+             Content-Length: {}\r\nConnection: close\r\n\r\n{}",
+            body.len(),
+            body
+        );
+        stream.write_all(req.as_bytes()).expect("write request");
+        let mut raw = String::new();
+        stream.read_to_string(&mut raw).expect("read response");
+        let (head, body) = raw.split_once("\r\n\r\n").expect("no header/body split");
+        let status = head
+            .lines()
+            .next()
+            .and_then(|l| l.split_whitespace().nth(1))
+            .and_then(|c| c.parse::<u16>().ok())
+            .expect("no status code in response");
+        (status, body.to_string())
+    }
+
+    /// v0.5.23 — 空表时的 /set_path 必须**立刻**返回，且不得返回
+    /// 「路径已写入」的成功形状。
+    ///
+    /// 旧行为：登记表为空时最多轮询 8 × 50 ms = 400 ms，把唯一的 HTTP
+    /// worker（扩展的 /health 轮询共用）堵住；最后还回一个 `{"ok":true}`
+    /// —— 看上去「写成功了」，其实一个字节都没写。
+    #[test]
+    fn set_path_with_no_dialog_table_answers_promptly_and_not_with_success() {
+        let state = Arc::new(AppState::new("C:\\".into(), 1));
+
+        // 端口被别的进程抢走的概率很低，但不为 0 —— 换一个端口重试。
+        let mut port = 0u16;
+        for _ in 0..3 {
+            let candidate = reserve_local_port();
+            let server_state = Arc::clone(&state);
+            std::thread::spawn(move || {
+                let _ = run_server(server_state, candidate, "test");
+            });
+            if wait_for_server(candidate) {
+                port = candidate;
+                break;
+            }
+        }
+        assert_ne!(port, 0, "sidecar HTTP server did not come up");
+
+        let start = std::time::Instant::now();
+        let (status, body) = http_post_set_path(port, "C:\\Windows");
+        let elapsed = start.elapsed();
+
+        assert!(
+            elapsed < std::time::Duration::from_millis(150),
+            "空表时 /set_path 不得再阻塞 ~400ms, 实测 {elapsed:?}"
+        );
+        assert_eq!(
+            status, 404,
+            "空表必须是一个明确的非成功状态, body={body}"
+        );
+        assert!(
+            !body.contains("\"ok\":true"),
+            "空表不得返回「路径已写入」的成功形状, body={body}"
+        );
+        assert!(
+            body.contains("no_active_dialog"),
+            "错误原因必须可读, body={body}"
+        );
+    }
+
+    /// v0.5.23 — 登记表**有**弹窗时必须零等待：正常路径（弹窗开着，扩展
+    /// 靠这次推送把路径写进去）不能被这次修复拖慢。
+    #[test]
+    fn wait_for_active_dialogs_returns_immediately_when_a_dialog_is_registered() {
+        let state = AppState::new("C:\\".into(), 1);
+        state.register_dialog(DialogInfo {
+            hwnd: 12_345,
+            app: "#32770".into(),
+            last_known_path: "C:\\".into(),
+            write_strategy: None,
+        });
+        let start = std::time::Instant::now();
+        let (dialogs, retries) = wait_for_active_dialogs(&state);
+        let elapsed = start.elapsed();
+        assert_eq!(dialogs.len(), 1, "登记的弹窗必须立刻可见");
+        assert_eq!(retries, 0, "有弹窗时不得重试");
+        assert!(
+            elapsed < std::time::Duration::from_millis(20),
+            "有弹窗时不得等待, 实测 {elapsed:?}"
+        );
+    }
+
+    /// v0.5.23 — 等待预算必须**远小于**旧的 400ms（否则 HTTP worker 仍会被
+    /// 空表推送堵住）。
+    #[test]
+    fn dialog_wait_budget_is_far_below_the_old_400ms() {
+        assert!(
+            DIALOG_WAIT_BUDGET_MS < 150,
+            "等待预算必须小到不会堵住 HTTP worker, got {DIALOG_WAIT_BUDGET_MS}ms"
+        );
+        assert!(DIALOG_WAIT_POLL_MS <= DIALOG_WAIT_BUDGET_MS);
+    }
+
+    /// v0.5.24 — 空路径 = **显式清空信号**，必须回 200 `ok:true`，并真的清掉
+    /// 侧车记住的路径。
+    ///
+    /// R1 回归的判别点：扩展 v0.6.1 起不再推送虚拟路径 ⇒ 侧车收不到任何信号 ⇒
+    /// `current_path` 留着陈旧的本地路径 L1 ⇒ 用户在虚拟位置打开「另存为」时
+    /// L1 被写进对话框。旧行为是 400 `path is empty`，扩展永远无法表达
+    /// 「我现在没有本地目录」。
+    #[test]
+    fn set_path_with_empty_path_clears_the_remembered_path() {
+        let state = Arc::new(AppState::new("C:\\".into(), 1));
+        state.set_current_path("D:\\stale".into());
+        assert_eq!(state.get_current_path(), "D:\\stale");
+
+        let mut port = 0u16;
+        for _ in 0..3 {
+            let candidate = reserve_local_port();
+            let server_state = Arc::clone(&state);
+            std::thread::spawn(move || {
+                let _ = run_server(server_state, candidate, "test");
+            });
+            if wait_for_server(candidate) {
+                port = candidate;
+                break;
+            }
+        }
+        assert_ne!(port, 0, "sidecar HTTP server did not come up");
+
+        let (status, body) = http_post_set_path(port, "");
+        assert_eq!(
+            status, 200,
+            "空路径必须被接受为清空信号，而不是 400 非法输入, body={body}"
+        );
+        assert!(
+            body.contains("\"ok\":true"),
+            "清空成功必须回 ok:true, body={body}"
+        );
+        assert_eq!(
+            state.get_current_path(),
+            "",
+            "空路径必须清掉侧车记住的路径（否则陈旧本地路径会被写进对话框）"
         );
     }
 }

@@ -1,6 +1,20 @@
 # Registro de cambios
 
 
+## [3.14.1] - November 2026
+
+**Resumen:** Focus Sync vuelve a poder llevar la carpeta que estás viendo a los diálogos «Abrir» y «Guardar como» de otros programas, y el archivo de instalación ya lleva el asistente que corresponde a esta versión en lugar de uno antiguo.
+
+### What changed
+
+**Corregido: Focus Sync vuelve a llenar los diálogos de apertura y guardado de otros programas.** La comprobación que decide si una carpeta puede entregarse a otro programa se había vuelto demasiado estricta, así que se rechazaba cualquier intento y la carpeta que estabas viendo nunca llegaba al diálogo. Las carpetas que existen de verdad en el disco vuelven a pasar el filtro, y la carpeta se entrega en cuanto entras en ella, de modo que el siguiente diálogo de apertura o guardado ya empieza en el sitio correcto.
+
+**Corregido: Focus Sync ya no llena el registro con la misma línea una y otra vez.** El asistente respondía a su propia comprobación de salud escribiendo una línea nueva en el registro cada vez que le preguntaban, lo que hacía que el registro creciera solo y empujara fuera de la vista los mensajes que importan. La comprobación de salud ahora guarda silencio y solo se anotan los sucesos reales.
+
+**Corregido: el archivo de instalación lleva ahora el asistente actual en lugar de uno antiguo.** El instalador seguía incluyendo el asistente de una compilación anterior, así que instalarlo devolvía el comportamiento previo al equipo. El archivo de instalación contiene ahora el asistente que corresponde a esta versión, y el instalador lo sustituye por la copia que hay en tu carpeta de datos de usuario.
+
+**Corregido: Focus Sync mantiene sus diagnósticos legibles y deja de entregar carpetas que no están en el disco.** La comprobación de salud se ejecutaba cada quince segundos y apartaba el registro, así que las entradas que necesitabas quedaban fuera de la vista. La comprobación de salud ya no forma parte de los diagnósticos, y las carpetas que solo existen en un sitio virtual - una conexión de disco de red, por ejemplo - ya no se entregan al asistente como si fueran carpetas normales.
+
 ## [3.14.0] - November 2026
 
 **Resumen:** Ahora puedes conectar Quark Netdisk junto a Baidu Netdisk: añádelo desde la pestaña de disco de red en *Configuración* bajo *Remoto*, inicia sesión una vez en la ventana integrada y explora, descarga y copia igual que con Baidu Netdisk.
