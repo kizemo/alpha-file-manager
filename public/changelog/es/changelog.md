@@ -15,6 +15,8 @@
 
 **Corregido: Focus Sync mantiene sus diagnósticos legibles y deja de entregar carpetas que no están en el disco.** La comprobación de salud se ejecutaba cada quince segundos y apartaba el registro, así que las entradas que necesitabas quedaban fuera de la vista. La comprobación de salud ya no forma parte de los diagnósticos, y las carpetas que solo existen en un sitio virtual - una conexión de disco de red, por ejemplo - ya no se entregan al asistente como si fueran carpetas normales.
 
+**Corregido: La misma carpeta ya no se pone dos veces en un diálogo.** El asistente podía establecer la carpeta del diálogo dos veces: una cuando la aplicación le indicaba qué carpeta estabas viendo, y otra cuando el diálogo se abría por sí solo. Ahora la carpeta se establece una sola vez. Si cambias de carpeta o mueves el diálogo a mano, se sigue sincronizando como antes.
+
 ## [3.14.0] - November 2026
 
 **Resumen:** Ahora puedes conectar Quark Netdisk junto a Baidu Netdisk: añádelo desde la pestaña de disco de red en *Configuración* bajo *Remoto*, inicia sesión una vez en la ventana integrada y explora, descarga y copia igual que con Baidu Netdisk.

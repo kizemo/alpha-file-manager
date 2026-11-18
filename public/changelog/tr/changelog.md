@@ -15,6 +15,8 @@
 
 **Düzeltildi: Focus Sync tanılamalarını okunur tutuyor ve diskte olmayan klasörleri devretmeyi bırakıyor.** Sağlık kontrolü on beş saniyede bir çalışıyor ve günlüğü yana itiyordu, böylece ihtiyaç duyduğunuz kayıtlar görüş alanından çıkıyordu. Sağlık kontrolü artık tanılamalara katılmıyor ve yalnızca sanal bir yerde var olan klasörler — örneğin bir ağ diski bağlantısı — normal klasörlermiş gibi yardımcıya devredilmiyor.
 
+**Düzeltildi: Aynı klasör artık bir iletişim kutusuna iki kez yerleştirilmiyor.** Yardımcı, iletişim kutusunun klasörünü iki kez ayarlayabiliyordu: bir kez uygulama size hangi klasörü izlediğinizi söylediğinde, bir kez de iletişim kutusu kendi kendine açıldığında. Artık klasör yalnızca bir kez ayarlanıyor. Başka bir klasöre geçtiğinizde ya da iletişim kutusunu kendiniz taşıdığınızda, eşitleme eskisi gibi çalışmaya devam ediyor.
+
 ## [3.14.0] - November 2026
 
 **Özet:** Artık Baidu Netdisk’in yanına Quark Netdisk de ekleyebilirsiniz - *Ayarlar* içindeki *Uzak* bölümünün ağ diski sekmesinden ekleyin, uygulama içindeki pencerede bir kez oturum açın, sonra Baidu Netdisk ile aynı şekilde gezinin, indirin ve kopyalayın.

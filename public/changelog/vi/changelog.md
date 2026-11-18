@@ -15,6 +15,8 @@
 
 **Đã sửa: Focus Sync giữ cho thông tin chẩn đoán dễ đọc và ngừng giao những thư mục không có trên ổ đĩa.** Cuộc kiểm tra sức khỏe chạy mỗi mười lăm giây và đẩy nhật ký sang bên, nên những mục bạn cần bị đẩy ra khỏi tầm nhìn. Cuộc kiểm tra sức khỏe nay không còn tham gia vào việc chẩn đoán, và những thư mục chỉ tồn tại ở một nơi ảo — ví dụ là một kết nối đĩa mạng — không còn được giao cho trợ giúp như thể chúng là thư mục bình thường.
 
+**Đã sửa: Cùng một thư mục không còn được đưa vào hộp thoại hai lần nữa.** Trợ giúp có thể đặt thư mục của hộp thoại hai lần: một lần khi ứng dụng báo cho nó biết bạn đang xem thư mục nào, và một lần nữa khi chính hộp thoại mở ra. Giờ thư mục chỉ được đặt một lần. Nếu bạn chuyển sang thư mục khác, hoặc tự chuyển hộp thoại sang chỗ khác, việc đồng bộ vẫn diễn ra như trước.
+
 ## [3.14.0] - November 2026
 
 **Tóm tắt:** Giờ bạn có thể kết nối Quark Netdisk bên cạnh Baidu Netdisk - thêm từ thẻ đĩa mạng trong *Cài đặt* dưới mục *Từ xa*, đăng nhập một lần trong cửa sổ bên trong ứng dụng, rồi duyệt, tải về và sao chép y hệt Baidu Netdisk.

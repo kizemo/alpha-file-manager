@@ -398,6 +398,18 @@ async fn main() -> Result<()> {
                         // 老口径（读得到就比路径、读不到就比 registry 的键）之外，
                         // 补上「这个对话框是不是已经写进过同一个目标」这一条 ⇒
                         // `/set_path` 的即时写 与本处的写回不会把同一个路径写两遍。
+                        // v0.6.4 - write gate: lock the SAME gate as the HTTP
+                        // /set_path immediate write path.
+                        //
+                        // The dedup key (the write record) is only persisted
+                        // AFTER a successful write, so two overlapping writers
+                        // both pass their own dedup check => the same path is
+                        // written twice (real machine 2026-11-18, batch 20).
+                        // Deciding AFTER taking the gate means the second
+                        // writer sees the record left by the first one and
+                        // skips.
+                        let write_gate = state.write_gate(hwnd_u32);
+                        let _write_guard = write_gate.lock().unwrap_or_else(|e| e.into_inner());
                         let writable = state.should_write_back(hwnd_u32, &initial_path, &current);
                         // v0.5.15 — 叠加 AFM 访问闩：只有使用者把窗口切到 AFM、
                         // 再切回弹窗，才把 current_path 写进弹窗。两个条件互相

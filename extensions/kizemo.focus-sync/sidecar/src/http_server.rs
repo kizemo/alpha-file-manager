@@ -526,6 +526,17 @@ fn handle_set_path(
         //     是追加语义 ⇒ 路径累加 / 地址栏跳动）；
         //   * 写记录（`write_records`）是 `/set_path` 即时写留下的唯一痕迹，
         //     旧实现完全看不到它。
+        // v0.6.4 - write gate: lock the SAME gate as the
+        // DialogEvent::Opened write-back path.
+        //
+        // The dedup key (the write record) is only persisted AFTER a
+        // successful write, so two overlapping writers both pass their own
+        // dedup check before either one records anything => the same path is
+        // written twice (real machine 2026-11-18, batch 20).
+        // Re-running the dedup check AFTER taking the gate means the second
+        // writer sees the record left by the first one and skips.
+        let write_gate = state.write_gate(d.hwnd);
+        let _write_guard = write_gate.lock().unwrap_or_else(|e| e.into_inner());
         if state.dialog_holds_path(d.hwnd, &path) {
             log_event(&Event::SpikeError {
                 kind: "set_path_already_synced".into(),

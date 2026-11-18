@@ -15,6 +15,8 @@
 
 **Corretto: Focus Sync mantiene leggibili i suoi diagnostici e smette di passare cartelle che non sono su disco.** Il controllo di salute veniva eseguito ogni quindici secondi e spingeva il registro da parte, così le voci di cui avevi bisogno finivano fuori vista. Ora il controllo di salute non fa più parte dei diagnostici, e le cartelle che esistono solo in un luogo virtuale - una connessione a disco di rete, per esempio - non vengono più passate all'helper come se fossero cartelle ordinarie.
 
+**Corretto: La stessa cartella non viene più inserita due volte in una finestra di dialogo.** L'helper poteva impostare la cartella della finestra di dialogo due volte: una volta quando l'applicazione gli comunicava quale cartella stavi visualizzando, e un'altra volta quando la finestra di dialogo si apriva da sola. Ora la cartella viene impostata una sola volta. Se passi a un'altra cartella o sposti a mano la finestra di dialogo, la sincronizzazione avviene come prima.
+
 ## [3.14.0] - November 2026
 
 **Riepilogo:** Ora puoi collegare Quark Netdisk accanto a Baidu Netdisk: aggiungilo dalla scheda dei dischi di rete in *Impostazioni* sotto *Remoto*, accedi una volta nella finestra integrata ed esplora, scarica e copia esattamente come con Baidu Netdisk.

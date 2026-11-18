@@ -15,6 +15,8 @@
 
 **Corrigido: o Focus Sync mantém seus diagnósticos legíveis e para de entregar pastas que não estão no disco.** A verificação de integridade rodava a cada quinze segundos e empurrava o registro para o lado, de modo que as entradas de que você precisava saíam do campo de visão. A verificação de integridade não participa mais dos diagnósticos, e as pastas que só existem em um lugar virtual - uma conexão de disco de rede, por exemplo - não são mais entregues ao assistente como se fossem pastas normais.
 
+**Corrigido: A mesma pasta não é mais colocada duas vezes numa caixa de diálogo.** O assistente podia definir a pasta da caixa de diálogo duas vezes: uma quando o aplicativo dizia qual pasta você estava vendo, e outra quando a caixa de diálogo abria por si só. Agora a pasta é definida uma única vez. Se você muda para outra pasta ou move a caixa de diálogo com a mão, a sincronização continua como antes.
+
 ## [3.14.0] - November 2026
 
 **Resumo:** Agora você pode conectar o Quark Netdisk junto com o Baidu Netdisk - adicione-o pela aba de disco de rede em *Configurações* em *Remoto*, entre uma vez na janela embutida e navegue, baixe e copie como no Baidu Netdisk.

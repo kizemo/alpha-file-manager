@@ -13,7 +13,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU32, AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone)]
@@ -50,6 +50,22 @@ pub struct AppState {
     //   * write_records[hwnd]      = 「我们最后一次**成功**写进这个对话框的路径」。
     // 写失败**不得**留下记录（v0.5.12 不变量：写失败必须保持可重试）。
     pub write_records: Mutex<HashMap<u32, WriteRecord>>,
+
+    // ---- v0.6.4: per-dialog write gate (serializes the two write paths).
+    //
+    // v0.6.3 unified the dedup key for both write paths, but the write record
+    // is only persisted AFTER a successful write. Two overlapping writes (the
+    // HTTP /set_path immediate write vs. the DialogEvent::Opened write-back)
+    // therefore both pass the dedup check before either one has recorded
+    // anything => the same path gets written twice.
+    //
+    // Real machine (batch 20, 2026-11-18): one dialog open produced two Write
+    // events for the same target.
+    //
+    // Fix: both paths lock the SAME per-hwnd gate and re-run their dedup
+    // check AFTER acquiring it, so the second writer sees the record left by
+    // the first one and skips.
+    pub write_gates: Mutex<HashMap<u32, Arc<Mutex<()>>>>,
 
     // Health tracking (v0.3.0)
     pub startup_time: Instant,
@@ -420,6 +436,7 @@ impl AppState {
             current_path: Mutex::new(initial_path),
             registry: Mutex::new(HashMap::new()),
             write_records: Mutex::new(HashMap::new()),
+            write_gates: Mutex::new(HashMap::new()),
             startup_time: Instant::now(),
             last_ping_received_ts: AtomicU64::new(0),
             last_dialog_event_ts: AtomicU64::new(0),
@@ -855,6 +872,24 @@ impl AppState {
                 observed_dir,
             },
         );
+    }
+
+    /// v0.6.4 - the write gate of one dialog (per-hwnd mutex).
+    ///
+    /// Both write paths (the HTTP `/set_path` immediate write and the
+    /// `DialogEvent::Opened` write-back) must lock the SAME gate and re-run
+    /// their dedup check AFTER taking it: the dedup key is only persisted
+    /// after a successful write, so without the gate two overlapping writers
+    /// both pass the check and the same path is written twice (real machine
+    /// 2026-11-18, batch 20).
+    ///
+    /// The same hwnd always maps to the same gate (shared `Arc`).
+    pub fn write_gate(&self, hwnd: u32) -> Arc<Mutex<()>> {
+        let mut gates = self.write_gates.lock().unwrap_or_else(|e| e.into_inner());
+        gates
+            .entry(hwnd)
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone()
     }
 
     /// v0.6.3 — 取某个对话框最后一次成功写入的记录。
@@ -1811,4 +1846,73 @@ mod tests {
         }
         assert_eq!(state.health_snapshot().unsupported_dialog_count, 100);
     }
+
+    // ---- v0.6.4 write gate tests ------------------------------------------
+
+    #[test]
+    fn the_same_dialog_gets_the_same_write_gate() {
+        let s = AppState::new("E:/Models".into(), 1);
+        let g1 = s.write_gate(1234);
+        let g2 = s.write_gate(1234);
+        assert!(
+            std::sync::Arc::ptr_eq(&g1, &g2),
+            "the same hwnd must map to the same write gate"
+        );
+        let other = s.write_gate(4321);
+        assert!(
+            !std::sync::Arc::ptr_eq(&g1, &other),
+            "different dialogs must not share a write gate"
+        );
+    }
+
+    #[test]
+    fn the_write_gate_makes_the_second_writer_wait() {
+        use std::sync::mpsc;
+        use std::thread;
+        use std::time::Duration;
+
+        let s = AppState::new("E:/Models".into(), 1);
+        let g1 = s.write_gate(7777);
+        let g2 = s.write_gate(7777);
+        let (tx, rx) = mpsc::channel();
+        let h1 = thread::spawn(move || {
+            let _guard = g1.lock().unwrap_or_else(|e| e.into_inner());
+            tx.send("locked").unwrap();
+            thread::sleep(Duration::from_millis(250));
+        });
+        rx.recv().unwrap();
+        let h2 = thread::spawn(move || {
+            let _guard = g2.lock().unwrap_or_else(|e| e.into_inner());
+        });
+        thread::sleep(Duration::from_millis(80));
+        assert!(
+            !h2.is_finished(),
+            "the second writer must wait for the first writer to release the gate"
+        );
+        h1.join().unwrap();
+        h2.join().unwrap();
+    }
+
+    #[test]
+    fn the_dedup_check_inside_the_gate_sees_the_first_writers_record() {
+        let s = AppState::new("E:/Models".into(), 1);
+        const HWND: u32 = 8888;
+        let gate = s.write_gate(HWND);
+        {
+            let _guard = gate.lock().unwrap_or_else(|e| e.into_inner());
+            assert!(
+                !s.dialog_holds_path(HWND, "E:/Models"),
+                "nothing has been written yet"
+            );
+            s.record_write(HWND, "E:/Models", None);
+        }
+        {
+            let _guard = gate.lock().unwrap_or_else(|e| e.into_inner());
+            assert!(
+                s.dialog_holds_path(HWND, "e:/models"),
+                "the dedup check re-run inside the gate must see the record left by the first writer"
+            );
+        }
+    }
+
 }
