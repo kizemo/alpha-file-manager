@@ -14,6 +14,8 @@
 
 **Fixed** **Focus Sync keeps its diagnostics readable and stops handing over folders that are not on disk** - The health check ran every fifteen seconds and pushed the log aside, so the entries you needed were pushed out of view. The health check no longer takes part in the diagnostics, and folders that only exist in a virtual place - a netdisk connection, for example - are no longer handed to the helper as if they were ordinary folders. While you stay in such a place the helper also forgets the last real folder, so it can no longer put that folder into another program's dialog, and the confirmation now tells you what actually happened.
 
+**Fixed** **The same folder is no longer put into a dialog twice** - The helper could set the dialog's folder twice: once when the app told it which folder you are looking at, and once more when the dialog itself opened. The folder is now set once. Changing to another folder, or moving the dialog by hand yourself, still syncs it as before.
+
 ## [3.14.0] - November 2026
 
 **Summary:** Quark Netdisk can now be connected next to Baidu Netdisk - add it from the netdisk tab in *Settings* under *Remote*, sign in once in the window that opens inside the app, and browse, download and copy files there just like you already do with Baidu Netdisk.

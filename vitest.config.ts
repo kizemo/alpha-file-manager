@@ -20,6 +20,11 @@ export default mergeConfig(
       // 默认 5 秒阈值下即便不改任何代码也会假红（基线同样复现）。
       // 假红比没有门禁更糟：它会诱导下一个人去"修"一个不存在的缺陷。
       testTimeout: 30000,
+      // FORK-MODIFICATION: hook 阈值同样要按「全量并发跑」这个现实来定。
+      // 默认的 10 秒下，`binary-health-check.test.ts` 的 beforeEach（里面要
+      // 动态 import 扩展 store）在并发负载下会超时假红 —— 2026-11-18 连续三轮
+      // 红三种红法，单文件复跑只要 2.06 秒就全绿。阈值与 testTimeout 对齐。
+      hookTimeout: 30000,
     },
   }),
 );
