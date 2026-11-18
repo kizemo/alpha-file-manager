@@ -15,6 +15,8 @@
 
 **Popravljeno: Focus Sync ohranja svojo diagnostiko berljivo in ne predaja več map, ki niso na disku.** Preverjanje stanja se je izvajalo vsak petnajst sekund in potisnilo dnevnik na stran, zato so vnosi, ki ste jih potrebovali, izginili iz pogleda. Preverjanje stanja se zdaj ne sodeluje več pri diagnostiki, mape, ki obstajajo samo na navideznem mestu — na primer povezava do mrežnega diska — pa se ne predajo več pomožniku kot navadne mape.
 
+**Popravljeno: Ista mapa se več ne vpiše v pogovorno okno dvakrat.** Pomožnik je lahko mapo v pogovornem oknu nastavil dvakrat: enkrat, ko je aplikacija povedala, katero mapo gledate, in še enkrat, ko se je pogovorno okno odprlo samo. Zdaj je mapa nastavljena samo enkrat. Če preklopite na drugo mapo ali pogovorno okno sami premaknete, se sinhronizacija še vedno izvaja kot prej.
+
 ## [3.14.0] - November 2026
 
 **Povzetek:** Zdaj lahko poleg Baidu Netdisk priključite tudi Quark Netdisk - dodajte ga na zavihku mrežnega diska v *Nastavitvah* pod *Oddaljeni dostop*, se enkrat prijavite v oknu znotraj aplikacije ter brskate, prenašate in kopirate povsem enako kot pri Baidu Netdisk.

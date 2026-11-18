@@ -15,6 +15,8 @@
 
 **Behoben: Focus Sync hält seine Diagnosedaten lesbar und übergibt keine Ordner mehr, die nicht auf der Festplatte liegen.** Die Zustandsprüfung lief alle fünfzehn Sekunden und schob das Protokoll beiseite, sodass die Einträge, die Sie brauchten, aus dem Blick gerieten. Die Zustandsprüfung nimmt jetzt nicht mehr an den Diagnosedaten teil, und Ordner, die es nur an einem virtuellen Ort gibt - etwa eine Verbindung zu einem Netzlaufwerk -, werden dem Helfer nicht mehr wie gewöhnliche Ordner übergeben.
 
+**Behoben: Derselbe Ordner wird nicht mehr zweimal in einen Dialog gesetzt.** Der Helfer konnte den Ordner des Dialogs zweimal setzen: einmal, wenn die Anwendung Ihnen mitteilte, welchen Ordner Sie gerade ansehen, und noch einmal, wenn sich der Dialog selbst geöffnet hat. Jetzt wird der Ordner nur noch einmal gesetzt. Wenn Sie zu einem anderen Ordner wechseln oder den Dialog selbst verschieben, wird er weiterhin wie bisher synchronisiert.
+
 ## [3.14.0] - November 2026
 
 **Zusammenfassung:** Das Quark-Cloud kann jetzt neben dem Baidu-Cloud verbunden werden - im Reiter *Netzlaufwerk* unter *Einstellungen* → *Remote* hinzufügen, einmal im eingeblendeten Fenster anmelden und browsen, laden herunter und kopieren wie beim Baidu-Cloud.
