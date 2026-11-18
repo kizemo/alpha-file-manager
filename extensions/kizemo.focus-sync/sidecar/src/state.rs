@@ -24,10 +24,32 @@ pub struct DialogInfo {
     pub write_strategy: Option<String>,
 }
 
+/// v0.6.3 — 「我们最后一次成功写进某个对话框的路径」＋「写入瞬间对话框所在的目录」。
+///
+/// `path` = 写入成功的目标路径。
+/// `observed_dir` = 写入前读到的对话框当前目录（读不到就是 None）。它是
+///            「写入之后对话框有没有被挪走」的基线：Chromium 类对话框的
+///            SetValue 并不移动对话框，读回来的目录在写入前后一致 ⇒ 靠它
+///            区分「我们的写入没让对话框移动」与「用户手动换了个目录」。
+#[derive(Debug, Clone)]
+pub struct WriteRecord {
+    pub path: String,
+    pub observed_dir: Option<String>,
+}
+
 #[derive(Debug)]
 pub struct AppState {
     pub current_path: Mutex<String>,
     pub registry: Mutex<HashMap<u32, DialogInfo>>,
+
+    // ---- v0.6.3: 每个对话框「我们实际写进去过什么」。
+    //
+    // 与 `registry` 的 `last_known_path` 是两件事：
+    //   * registry.last_known_path = 「我们认为对话框现在显示什么」（可能是读
+    //     回来的目录，也可能是写失败时保留的旧值）；
+    //   * write_records[hwnd]      = 「我们最后一次**成功**写进这个对话框的路径」。
+    // 写失败**不得**留下记录（v0.5.12 不变量：写失败必须保持可重试）。
+    pub write_records: Mutex<HashMap<u32, WriteRecord>>,
 
     // Health tracking (v0.3.0)
     pub startup_time: Instant,
@@ -397,6 +419,7 @@ impl AppState {
         Self {
             current_path: Mutex::new(initial_path),
             registry: Mutex::new(HashMap::new()),
+            write_records: Mutex::new(HashMap::new()),
             startup_time: Instant::now(),
             last_ping_received_ts: AtomicU64::new(0),
             last_dialog_event_ts: AtomicU64::new(0),
@@ -804,10 +827,96 @@ impl AppState {
         if !self.has_first_push_received() || current_path.trim().is_empty() {
             return false;
         }
+        // v0.6.3 — 同一个对话框、同一个目标路径只写一次（v0.5.13 防闪烁不变量）。
+        //
+        // 写记录是这一支的权威去重键：`/set_path` 即时写成功后由
+        // `writer::write_path` 统一留下记录；旧实现只看 registry 的键，而
+        // `/set_path` 从不更新它 ⇒ 同一个目标路径会被写两遍。
+        if self.already_written(hwnd, current_path, None) {
+            return false;
+        }
         match self.last_written_path(hwnd) {
             Some(last) if !last.trim().is_empty() => !paths_equal(&last, current_path),
             _ => true,
         }
+    }
+
+    /// v0.6.3 — 记录一次**成功**的写入。
+    ///
+    /// 只有真正写进对话框才允许调用（`writer::write_path` 在成功分支统一调用）。
+    /// 写失败绝不能留下记录：那会把 v0.5.7 G-1 的 resync 通道永久关掉
+    /// （真机 2026-10-14 07:22：写失败后 52 秒零重试）。
+    pub fn record_write(&self, hwnd: u32, path: &str, observed_dir: Option<String>) {
+        let mut recs = self.write_records.lock().unwrap_or_else(|e| e.into_inner());
+        recs.insert(
+            hwnd,
+            WriteRecord {
+                path: path.to_string(),
+                observed_dir,
+            },
+        );
+    }
+
+    /// v0.6.3 — 取某个对话框最后一次成功写入的记录。
+    pub fn write_record(&self, hwnd: u32) -> Option<WriteRecord> {
+        let recs = self.write_records.lock().unwrap_or_else(|e| e.into_inner());
+        recs.get(&hwnd).cloned()
+    }
+
+    /// v0.6.3 — 这个对话框是否已经持有 `path`（归一化比较）。
+    ///
+    /// 归一化是关键：`/set_path` 收到的路径可能来自扩展的 `normalizePath`
+    /// （正斜杠），而写记录里是 AFM 推送的反斜杠形式；旧实现用**逐字节相等**
+    /// 比较，同一个目录会被判成两个路径 ⇒ 同一个目标写两遍。
+    pub fn dialog_holds_path(&self, hwnd: u32, path: &str) -> bool {
+        if path.trim().is_empty() {
+            return false;
+        }
+        if let Some(rec) = self.write_record(hwnd) {
+            if paths_equal(&rec.path, path) {
+                return true;
+            }
+        }
+        self.last_written_path(hwnd)
+            .as_deref()
+            .map(|last| paths_equal(last, path))
+            .unwrap_or(false)
+    }
+
+    /// v0.6.3 — 这个对话框是否**已经写进过** `current_path`，且此后没有被挪走。
+    ///
+    /// `observed_now` = 这一次读到的对话框当前目录（读不到就是 None）。
+    /// 写记录里的 `observed_dir` 是写入瞬间的基线：两者相等 ⇒ 对话框没动过
+    /// ⇒ 它仍然是我们写进去的那个路径 ⇒ 不重复写。
+    pub fn already_written(&self, hwnd: u32, current_path: &str, observed_now: Option<&str>) -> bool {
+        let Some(rec) = self.write_record(hwnd) else {
+            return false;
+        };
+        if !paths_equal(&rec.path, current_path) {
+            return false;
+        }
+        match (rec.observed_dir.as_deref(), observed_now) {
+            (Some(written_at), Some(now)) => paths_equal(written_at, now),
+            // 读不到基线或读不到当前目录 ⇒ 无法证明对话框被挪走 ⇒ 按「没挪走」处理。
+            _ => true,
+        }
+    }
+
+    /// v0.6.3 — 写回决策的唯一入口（`DialogEvent::Opened` 用）。
+    ///
+    /// 条件互相独立，缺一个就不写：
+    ///   1. 这个对话框没有已经写过同一个目标（v0.6.3 双写去重）；
+    ///   2. 路径确实和弹窗当前状态不同（`should_opened_write_back` 的老口径）；
+    ///   3. 已经收到过扩展的第一次推送（哨兵）。
+    pub fn should_write_back(&self, hwnd: u32, initial_path: &str, current_path: &str) -> bool {
+        if !self.has_first_push_received() {
+            return false;
+        }
+        if initial_path.trim().is_empty() {
+            return self.should_write_back_when_path_unknown(hwnd, current_path);
+        }
+        self.should_opened_write_back(initial_path, current_path)
+            && !self.already_written(hwnd, current_path, Some(initial_path))
     }
 
     /// v0.5.15 — 逃生阀：`FOCUS_SYNC_AFM_GATE` 显式关闭 AFM 访问闩。
@@ -1036,6 +1145,110 @@ mod v516_write_back_tests {
             state.should_opened_write_back("F:/other", "F:\\dir"),
             "不同目录必须触发写回"
         );
+    }
+}
+
+/// v0.6.3 —— 双写去重的判别性测试。
+///
+/// 背景：侧车内部有**两条**真正写对话框的路径 ——
+///   1. `POST /set_path` 的即时写（`http_server.rs`）；
+///   2. `DialogEvent::Opened` 的写回（`main.rs`）。
+///
+/// 旧实现两条路的去重口径不同（前者逐字节相等、后者归一化相等），而且
+/// `/set_path` 写完**不留下任何记录** ⇒ 同一个对话框、同一个目标路径会被写
+/// 两遍（Chromium ComboBox 的 `SetValue` 是追加语义 ⇒ 路径累加 / 地址栏跳动）。
+#[cfg(test)]
+mod v063_double_write_tests {
+    use super::{paths_equal, AppState};
+
+    const HWND: u32 = 0xA11CE;
+
+    /// 一个「已经收到扩展第一次推送」的侧车状态（否则哨兵会挡住一切）。
+    fn state() -> AppState {
+        let s = AppState::new("E:\\Models".into(), 1);
+        s.mark_first_push_received();
+        s
+    }
+
+    #[test]
+    fn a_second_write_of_the_same_target_is_refused() {
+        let s = state();
+        s.record_write(HWND, "E:\\Models", Some("C:\\tmp".into()));
+        assert!(
+            !s.should_write_back(HWND, "C:\\tmp", "E:\\Models"),
+            "同一个对话框、同一个目标路径不得写第二遍"
+        );
+    }
+
+    #[test]
+    fn a_different_target_is_still_written() {
+        let s = state();
+        s.record_write(HWND, "E:\\Models", Some("C:\\tmp".into()));
+        assert!(
+            s.should_write_back(HWND, "C:\\tmp", "E:\\obsidian"),
+            "AFM 换了目标路径 ⇒ 必须再写一次"
+        );
+    }
+
+    #[test]
+    fn a_dialog_the_user_moved_is_written_again() {
+        let s = state();
+        s.record_write(HWND, "E:\\Models", Some("C:\\tmp".into()));
+        assert!(
+            s.should_write_back(HWND, "D:\\elsewhere", "E:\\Models"),
+            "用户把对话框挪到了别的目录 ⇒ 必须再写一次"
+        );
+    }
+
+    #[test]
+    fn the_set_path_dedup_is_normalized() {
+        let s = state();
+        s.record_write(HWND, "E:/Models", None);
+        assert!(
+            s.dialog_holds_path(HWND, "e:\\models"),
+            "斜杠方向/大小写不同不得被当成新目标（否则同一个路径写两遍）"
+        );
+        assert!(
+            !s.dialog_holds_path(HWND, "E:\\obsidian"),
+            "不同目录不得被当成同一目标"
+        );
+    }
+
+    #[test]
+    fn the_unreadable_branch_dedups_against_the_write_record() {
+        let s = state();
+        s.record_write(HWND, "E:\\Models", None);
+        assert!(
+            !s.should_write_back_when_path_unknown(HWND, "E:\\Models"),
+            "读不到对话框目录时也必须认「已经写过了」"
+        );
+        assert!(
+            s.should_write_back_when_path_unknown(HWND, "E:\\obsidian"),
+            "目标变了 ⇒ 仍然要写"
+        );
+    }
+
+    #[test]
+    fn a_failed_write_leaves_no_record() {
+        // 没有记录 ⇒ 去重键为空 ⇒ 允许写（写失败必须保持可重试，v0.5.12 不变量）。
+        let s = state();
+        assert!(s.write_record(HWND).is_none());
+        assert!(s.should_write_back(HWND, "C:\\tmp", "E:\\Models"));
+    }
+
+    #[test]
+    fn the_sentinel_still_blocks_before_the_first_push() {
+        let s = AppState::new("E:\\Models".into(), 1);
+        s.record_write(HWND, "E:\\Models", Some("C:\\tmp".into()));
+        assert!(
+            !s.should_write_back(HWND, "C:\\tmp", "E:\\Models"),
+            "还没收到第一次推送时不得写入"
+        );
+    }
+
+    #[test]
+    fn paths_equal_is_the_shared_normalizer() {
+        assert!(paths_equal("E:/Models", "e:\\models"));
     }
 }
 

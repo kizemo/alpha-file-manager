@@ -129,11 +129,19 @@ describe('home-banner — click the theme image to open the background manager',
     });
   });
 
+  // FORK-MODIFICATION: 这个文件的 jsdom 环境搭建在并发负载下要 ~18 秒，
+  // 挂载 home-banner（要拉 reka-ui / pinia / vue-i18n 一整条链）再叠上去，
+  // 全量并发跑时会撞上 vitest 默认的 30 秒 testTimeout 假红
+  // （2026-11-18 实测：串行复跑 24.74 秒全绿，并发跑 30 秒超时）。
+  // 这不是回归，是负载敏感的既有成本 —— 给这三条用例单独放宽阈值，
+  // 别的文件不受影响，门禁的严格性保持原样。
+  const HEAVY_MOUNT_TIMEOUT = 60000;
+
   it('renders the clickable media container', async () => {
     const wrapper = await mountBanner();
     expect(wrapper.find('.home-banner__media-container--clickable').exists()).toBe(true);
     wrapper.unmount();
-  });
+  }, HEAVY_MOUNT_TIMEOUT);
 
   it('opens the background manager dialog on click (was not reachable before)', async () => {
     const wrapper = await mountBanner();
@@ -146,7 +154,7 @@ describe('home-banner — click the theme image to open the background manager',
 
     expect(wrapper.find('[data-test="background-manager"]').exists()).toBe(true);
     wrapper.unmount();
-  });
+  }, HEAVY_MOUNT_TIMEOUT);
 
   it('keeps the action buttons from opening the background manager', async () => {
     const wrapper = await mountBanner();
@@ -164,5 +172,5 @@ describe('home-banner — click the theme image to open the background manager',
 
     expect(wrapper.find('[data-test="background-manager"]').exists()).toBe(false);
     wrapper.unmount();
-  });
+  }, HEAVY_MOUNT_TIMEOUT);
 });

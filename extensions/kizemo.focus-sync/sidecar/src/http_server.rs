@@ -510,7 +510,7 @@ fn handle_set_path(
             });
             continue;
         }
-        // v0.5.7 DEDUP-1: skip a dialog that already holds this EXACT path.
+        // v0.5.7 DEDUP-1: skip a dialog that already holds this path.
         //
         // Observed 2026-10-08 14:02: the Opened write-back injected once, then
         // ~2.3s later /set_path injected the SAME path into the SAME dialog
@@ -518,7 +518,15 @@ fn handle_set_path(
         // existing `path_unchanged` dedup only compares against
         // `state.current_path` - not against "what we already wrote HERE".
         // The user saw the address bar cleared and refilled twice.
-        if state.last_written_path(d.hwnd).as_deref() == Some(path.as_str()) {
+        //
+        // v0.6.3 — 去重口径与 `DialogEvent::Opened` 写回统一成**归一化比较**
+        // （`F:/dir` 与 `F:\dir` 是同一个目录），并把写记录纳入判断：
+        //   * 旧实现是逐字节相等 ⇒ 扩展推的正斜杠形式与写记录里的反斜杠形式
+        //     被判成两个路径 ⇒ 同一个目标写两遍（Chromium ComboBox 的 SetValue
+        //     是追加语义 ⇒ 路径累加 / 地址栏跳动）；
+        //   * 写记录（`write_records`）是 `/set_path` 即时写留下的唯一痕迹，
+        //     旧实现完全看不到它。
+        if state.dialog_holds_path(d.hwnd, &path) {
             log_event(&Event::SpikeError {
                 kind: "set_path_already_synced".into(),
                 message: format!(

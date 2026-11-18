@@ -187,6 +187,18 @@ pub fn write_path(state: &crate::state::AppState, hwnd_isize: isize, target: &st
         }
     }
 
+    // v0.6.3 — 写成功 ⇒ 留下「我们写进去了什么」的记录。
+    //
+    // 这里是**唯一**的记录点：`/set_path` 的即时写与 `DialogEvent::Opened` 的
+    // 写回都经过 `write_path`，因此「同一个对话框、同一个目标路径只写一次」
+    // 这条不变量对两条路同时成立（旧实现里 `/set_path` 写完不留任何痕迹，
+    // Opened 写回无从知道同一个路径已经写过 ⇒ 双写）。
+    //
+    // 写失败**不记录**（v0.5.12 不变量：写失败必须保持可重试）。
+    if write_succeeded(&outcome) {
+        state.record_write(hwnd_u32, target, None);
+    }
+
     // v0.5.23 — 写失败必须把 commit 槽还回去。
     //
     // `try_mark_committed` 是**先占槽、后写入**（见上面：写入要 ~300ms，
@@ -370,6 +382,25 @@ mod tests {
             ),
             "a dialog whose write was refused must stay eligible for resync so \
              the pre-existing 1200ms cooldown can drive the retry"
+        );
+    }
+
+    /// v0.6.3 — 写失败**不得**留下「已写入」记录。
+    ///
+    /// 记录是 v0.6.3 双写去重的去重键；一旦把失败的写入也记进去，这个对话框
+    /// 就永远不会被再写一次（v0.5.12 不变量：写失败必须保持可重试）。
+    #[test]
+    fn a_failed_write_leaves_no_write_record() {
+        let state = AppState::new("C:\\".into(), 1);
+        const HWND: u32 = 42_424;
+        let outcome = write_path(&state, HWND as isize, "C:\\downloads", false);
+        assert!(
+            matches!(outcome, WriteOutcome::Failed(_)),
+            "没有真实对话框时写入必须失败（否则本用例没有判别力）"
+        );
+        assert!(
+            state.write_record(HWND).is_none(),
+            "写失败不得留下「已写入」记录"
         );
     }
 

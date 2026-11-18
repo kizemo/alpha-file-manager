@@ -394,11 +394,11 @@ async fn main() -> Result<()> {
                         // 同一弹窗同一目标路径只写一次（v0.5.13 防闪烁不变量不变），
                         // AFM 路径变化时再写。
                         let read_ok = !initial_path.trim().is_empty();
-                        let writable = if read_ok {
-                            state.should_opened_write_back(&initial_path, &current)
-                        } else {
-                            state.should_write_back_when_path_unknown(hwnd_u32, &current)
-                        };
+                        // v0.6.3 — 写回决策收口到 `state.should_write_back`：
+                        // 老口径（读得到就比路径、读不到就比 registry 的键）之外，
+                        // 补上「这个对话框是不是已经写进过同一个目标」这一条 ⇒
+                        // `/set_path` 的即时写 与本处的写回不会把同一个路径写两遍。
+                        let writable = state.should_write_back(hwnd_u32, &initial_path, &current);
                         // v0.5.15 — 叠加 AFM 访问闩：只有使用者把窗口切到 AFM、
                         // 再切回弹窗，才把 current_path 写进弹窗。两个条件互相
                         // 独立，缺一个就不写；写成功后由下面清闩（一次访问只
@@ -499,6 +499,15 @@ async fn main() -> Result<()> {
                                 // 2026-10-07 22:08 — resync every 1.2s forever,
                                 // address bar accumulating `E:\` each time.)
                                 wrote_back = true;
+                                // v0.6.3 — 记录「我们真的写进去了」：目标路径 ＋
+                                // 写入瞬间对话框所在的目录（基线）。后续写回靠它
+                                // 判断「这个对话框是不是已经被我们写过同一个目标」，
+                                // 从而不再把同一个路径写第二遍。
+                                state.record_write(
+                                    hwnd_u32,
+                                    &current,
+                                    if read_ok { Some(initial_path.clone()) } else { None },
+                                );
                                 // v0.5.19: 这次同步兑现了 -- 消耗掉本次交接授权,
                                 // 下一个弹窗要同步就必须再从 AFM 切一次。
                                 // 写失败时**不下弦**: `if !wrote_back` 仍按
