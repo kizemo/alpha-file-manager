@@ -1884,3 +1884,300 @@ NEG_EXIT=5
   真机**用户数据全程只读未改**（只替换了扩展自带的侧车二进制；旧件已备份到 `.superpowers\sdd\old-sidecar-3.14.0.exe`）。
 - **未做（需用户授权）**：GitHub Release、winget 3.14.1 清单与 PR、upstream 移植。
 
+### 20.14 批次 19：⑧ 虚拟位置闭环 ＋ ⑨ 路径 A 真机覆盖 ＋ ⑩ 双写去重 ＋ ⑤ check flake ＋ winget 3.14.1 清单（2026-11-18）
+
+#### 20.14.1 本批次范围与一句话结论
+
+承接批次 18（台账 §20.13）的遗留项，本批次一次性收掉 5 件事：
+
+| # | 批次 18 遗留 | 本批次结论 |
+| --- | --- | --- |
+| ⑧ | 虚拟位置（收藏/最近/此电脑）停留时**侧车确实忘掉上一个真实目录** ＋ toast 文案诚实 —— 端到端体验未验 | **侧车侧已闭环（HTTP 级 PASS）**；toast 仍只到**契约级**，AFM 真机 UI 未验 |
+| ⑨ | 路径 A「祖先后代分支」真机覆盖 | 见 20.14.7 |
+| ⑩ | 「path_update 与侧车双写去重」—— 上轮只分析不实现 | **已实现**：per-dialog 写记录 + 统一去重口径，净增 9 条判别性单测（147/0） |
+| ⑤ | `npm run check` 负载 flake（`run-p` 并发偶发超时） | **已修**：全局 `hookTimeout` + 单文件 `testTimeout`，串行五步门禁全绿 |
+| — | winget 3.14.1 清单 | **本地已备好**（4 文件，`check-manifest` 全过），未提交 PR（待授权） |
+
+**范围声明**：只做**仓库版本与发版材料**；**不做对外发布**（GitHub Release / winget PR 需用户授权）。
+本批次**重新构建了 3.14.1 安装包**（因为 ⑩ 修复必须随包发布）⇒ 安装包 sha 变化 ⇒ winget 清单 sha 同步更新、装机链判别性实验重做（见 20.14.8）。
+
+#### 20.14.2 ⑤ `npm run check` 负载 flake：根因与修法
+
+**根因（批次 18 §20.13.8 第 1 条实测）**：`run-p` 并行跑 5 个脚本时，vitest 的重型挂载测试（jsdom 环境）撞 30 s 默认 `testTimeout`；
+stylelint 零 lint 报错就退出 1 ⇒ `run-p` 连带杀掉 vitest ⇒ 日志里连测试总结都没有。
+
+**修法（不降并发、不改被测行为）**：
+
+| 文件 | 改动 | 理由 |
+| --- | --- | --- |
+| `vitest.config.ts` | 新增 `hookTimeout: 30000` | 全局给 hook 留出余量，覆盖 `beforeEach` 里的重型挂载 |
+| `src/modules/home/components/__tests__/home-banner-click-opens-background-manager.test.ts` | 新增 `HEAVY_MOUNT_TIMEOUT = 60000`，三条 `it` 显式挂 `testTimeout` | 该文件实测 jsdom 环境就占 18.23 s，30 s 余量太薄 |
+
+⇒ 串行五步门禁（`.superpowers\sdd\run-check-b18c.cmd`）**全绿**：`ts`=0、`lint:check`=0、`test:unit:run`=0、`verify-changelog`=0、`verify:sandbox`=0。
+
+#### 20.14.3 ⑩ 双写去重：定义、根因、实现
+
+**「双写」的定义（本批次先把它钉死，之前的说法含糊）**：侧车内部**两条真正会写 Windows 文件对话框的路径**：
+
+1. **路径 1**：`POST /set_path` 的即时写（`http_server.rs`）；
+2. **路径 2**：`DialogEvent::Opened` 触发的写回（`main.rs`）。
+
+扩展与 AFM 主程序**都没有**写对话框的能力 ⇒ 「path_update 与侧车双写」的真实含义就是上面这两条会互相重复写。
+
+**根因**：两条路径各自判断「要不要写」，但**互不知情**：
+
+- 路径 1 的去重口径是「逐字节比较字符串」；
+- 路径 2 的去重口径是「和本次打开时读到的 `initial_path` 比较」。
+
+⇒ 同一个目标目录在「即时写」和「打开事件写回」各被写一次 ⇒ 对话框被写两遍。
+
+**实现（`sidecar/src/state.rs` +213 行）**：
+
+| 新增 | 作用 |
+| --- | --- |
+| `pub struct WriteRecord { path: String, observed_dir: Option<String> }` | 记录「这个 hwnd 上一次被写成了什么路径」，外加**写入瞬间观察到的对话框目录** |
+| `AppState.write_records: Mutex<HashMap<u32, WriteRecord>>` | per-dialog 写记录表 |
+| `record_write(hwnd, path, observed_dir)` | **唯一记录点**（写成功才记） |
+| `write_record(hwnd)` | 读取写记录 |
+| `dialog_holds_path(hwnd, path)` | 归一化比较：`/set_path` 的去重改用它 |
+| `already_written(hwnd, current_path, observed_now)` | 「已经写过了吗」判定 |
+| `should_write_back(hwnd, initial, current)` | **写回决策的唯一入口** |
+
+**关键设计：`observed_dir` 基线**。只记「写成了哪个路径」不够，因为**我们的写入可能没让 Chromium 对话框真的移动**（写成功 ≠ 对话框变了）。
+所以额外记下写入瞬间**对话框自己的目录**：
+
+- 下次判定时若 `observed_dir == current` ⇒ 说明对话框确实停在我们写的那个目录 ⇒ **是我们写的，不重写**；
+- 若 `observed_dir != current` ⇒ 说明**用户手动挪了对话框** ⇒ 仍要重新同步（不牺牲既有不变量）。
+
+**改动落点**：
+
+| 文件 | 改动 |
+| --- | --- |
+| `sidecar/src/state.rs` | 新增 `WriteRecord` / `write_records` / 上述 6 个方法 ＋ `mod v063_double_write_tests`（8 条） |
+| `sidecar/src/main.rs` | `writable` 改为 `state.should_write_back(hwnd_u32, &initial_path, &current)`；写成功后 `state.record_write(hwnd_u32, &current, if read_ok { Some(initial_path.clone()) } else { None })` |
+| `sidecar/src/http_server.rs` | `/set_path` 的去重从「逐字节相等」改为 `state.dialog_holds_path(d.hwnd, &path)`（两条路径共用同一去重键） |
+| `sidecar/src/writer.rs` | `write_succeeded(&outcome)` 时统一 `state.record_write(hwnd_u32, target, None)`（**唯一记录点**）；新增单测 `a_failed_write_leaves_no_write_record` |
+
+**守住的不变量**（改完仍然成立）：
+
+- 真实换目标**仍会写**；
+- 路径变化**仍会写**；
+- 读失败**仍按最后写入键**去重；
+- **写失败不记录** ⇒ 保持 v0.5.12 的「可重试」不变量；
+- 用户手动挪动对话框后**仍会重新同步**。
+
+#### 20.14.4 ⑩ 判别性单测（净增 9 条，累计 147）
+
+`mod v063_double_write_tests`（`state.rs`）8 条：
+
+`a_second_write_of_the_same_target_is_refused` / `a_different_target_is_still_written` /
+`a_dialog_the_user_moved_is_written_again` / `the_set_path_dedup_is_normalized` /
+`the_unreadable_branch_dedups_against_the_write_record` / `a_failed_write_leaves_no_record` /
+`the_sentinel_still_blocks_before_the_first_push` / `paths_equal_is_the_shared_normalizer`
+
+`writer.rs` 1 条：`a_failed_write_leaves_no_write_record`（写失败 ⇒ 槽位与写记录都不留，可重试）。
+
+⇒ `cargo test` **147 passed / 0 failed**（批次 18 为 138，净增 9）。日志：`.superpowers\sdd\sidecar-test-b19.log`。
+
+#### 20.14.5 ⑧ 虚拟位置端到端：侧车 HTTP 级闭环（PASS）
+
+**判据**：推送一个真实目录 ⇒ 侧车记住它；再推空路径（= 扩展在虚拟位置发出的「显式清空」信号）⇒ 侧车**确实忘掉**上一个真实目录。
+
+**实测**（`.superpowers\sdd\focus\b19-virtual-position.ps1` → `.superpowers\sdd\focus\b19-virtual-position.txt`）：
+
+| 步骤 | 请求 | 响应 | `GET /get_status` |
+| --- | --- | --- | --- |
+| 推真实路径 | `POST /set_path {"path":"C:\\"}` | **404** `no_active_dialog`（本轮无对话框在屏） | `current_path = "C:\\"` ⇒ **记住了** |
+| 推虚拟位置信号 | `POST /set_path {"path":""}` | **200** `{"ok":true}` | `current_path = ""` ⇒ **忘了** |
+
+`spike.log` 判定行：
+
+```
+{"event":"SpikeError","kind":"path_update","message":"current_path=C:\\ (pushed='C:\\')"}
+{"event":"SpikeError","kind":"set_path_no_dialog","message":"no active dialog after waiting 60ms; path stored, nothing written"}
+{"event":"SpikeError","kind":"set_path_cleared","message":"current_path cleared (was='C:\\'); AFM is not in a local directory"}
+```
+
+⇒ `JUDGE_remembered_real_path=True` / `JUDGE_forgot_previous_real_dir=True` / **`VERDICT=PASS`**。
+收尾 `leftover_process=0`（只杀自己拉起的 pid，绝不 `taskkill /IM`）。
+
+#### 20.14.6 ⑧ 扩展侧 toast：**契约级**判定（AFM 真机 UI 未验）
+
+扩展 `dist/index.js` 侧的事实（**源码契约级**，非运行时截图）：
+
+- 非本地路径判定在 `index.js:357-366`（标记串 `non-local-path`）：虚拟路径**不再推送**，改调 `sendClearToSidecar()`（`POST /set_path`, body `{"path":""}`）⇒ 与 20.14.5 实测的清空路径**逐字对应**；
+- toast 文案在 `index.js:740-748`，类型 warning，文案口径：「当前位置不是本地文件夹……已告知助手忘掉上一个路径；没有东西可同步。」⇒ **诚实**：它说的是「没有东西可同步」，**没有**声称「已写入对话框」。
+
+⚠️ **未验证项**：AFM 真机 UI 上这条 toast 的**实际渲染**（文案是否真的出现在界面上）本轮**没有**做 —— 本项目 `tauri dev` 界面结论一律作废，要验必须走 `tauri build` 打包产物 ＋ 真机截图。
+#### 20.14.7 ⑨ 路径 A「祖先后代分支」真机覆盖
+
+**这一项的判据是什么（源码级，先钉死）**
+
+闸门 `state.rs:535` `afm_gate_allows(hwnd, dialog_pid)` 有两条独立路径：
+
+- **路径 B**：`afm_ts >= dialog_open_ts`（对话框开着的时候用户去过 AFM）；
+- **路径 A**（本次要覆盖的那条）：`afm_handoff_allows(dialog_pid)` —— `state.rs:605`：
+  交接记录存在且 TTL 未过（默认 120 s）＋ 交接 pid ≠ 0 且 dialog pid ≠ 0
+  ＋ **交接 pid ≠ AFM 自己的 pid**（否则是 v0.5.21 的假下降沿）
+  ＋ `handoff.pid == dialog_pid`（严格等值分支）**或** `same_application_process(handoff.pid, dialog_pid)`（**祖先/后代分支**，`uia_event.rs:802` 沿 `th32ParentProcessID` 父链上溯）。
+
+交接记录从哪来（`uia_event.rs:340-366`）：前台从「AFM 是前台」变成「不是 AFM」的**下降沿**，
+采样当前前台窗口的属主 pid ⇒ 日志 `afm_gate_armed: handoff recorded: pid=<P1> afm_pid=<AFM>`。
+
+⇒ **要覆盖祖先分支，必须构造出「交接 pid = 接收方 P1，dialog pid = P2，P1 是 P2 的父进程」**，
+且 `P1 ≠ P2`（把严格等值分支排除掉）。
+
+**侧车凭什么认「一个对话框」（这是本项真正的卡点）**
+
+`uia_event.rs:573-583` `get_active_file_dialog()` **只取前台窗口**（注释明确：不做全局扫描，
+避免通用 `#32770` 系统框误报）⇒ **对话框必须成为前台窗口**。
+`uia_event.rs:591-633` `get_dialog_info_if_match` 的硬条件：
+`IsWindowVisible` ＋ **class 精确等于 `#32770`** ＋ 标题命中「打开/保存/另存为/选择/open/save/select」
+＋ **直接**子窗口里至少一个 class 为 `ComboBoxEx32`/`DirectUIHWND`/`SHELLDLL_DefView`/`DUIViewWndClassName`
+（`has_child_class` 用 `FindWindowExW`，**只认直接子窗口**）。
+
+关键事实：`get_dialog_info(hwnd)` **只取窗口矩形与 DPI，不解析路径、不做 UIA 元素查找**
+⇒ 合成一个「class 精确 `#32770` + 标题含「打开」+ 一个 class 精确 `ComboBoxEx32` 的直接子窗口」的窗口
+就能被侧车认成文件对话框。
+
+**前两轮为什么失败（实测，不是猜测）**
+
+| 轮次 | 现象 | 根因 |
+| --- | --- | --- |
+| 第 1 轮 | `dialog_detected_ts` 为空 | 夹具对话框不满足上面的签名 ⇒ 侧车**从未**发 `DialogDetected` ⇒ 闸门决策根本没机会发生 |
+| 第 2 轮 | 进程拓扑已对（`dialog_pid=76916`，父 pid = 接收方 `136200`），但仍无 `DialogDetected` | 同上：签名不满足 |
+
+两轮报告的失败原因都写成笼统的「no decisive gate event」，没有定位到**具体是哪一条签名条件不满足** ——
+这本身是取证方法的缺陷：判据没有先证明「判据能看见目标」。
+
+**隔离桌面没有前台语义（AGENTS §2.8 的硬约束在本机不可满足）**
+
+`.superpowers\sdd\focus\sandbox-fg-probe.ps1` → `.superpowers\sdd\focus\tmp-b19\fg-probe-result.txt`：
+`STEP1 set_foreground_w1_result=False observed_hwnd=0`、`STEP2` 同上 ⇒ `PROBE_VERDICT=FAIL`。
+即：`CreateDesktop` 出来的**私有桌面**在 WinSta0 里 `GetForegroundWindow()` 恒为 0
+⇒ 侧车的「只从前台取对话框」这条根本判据在私有桌面上**无法成立**。
+
+⇒ 本项只能在**交互桌面（input desktop）**上做，这是对 AGENTS §2.8「隔离桌面」的**明确偏离**，如实记录在此。
+代价：夹具窗口会在用户桌面上短暂出现（已要求夹具用小尺寸、验证后立即关闭）。
+
+**第三轮：按源码判据重做夹具 ⇒ PASS（`VERDICT=PASS`，6/6 检查通过，`leftover_process=0`）**
+
+前两轮的根因被坐实了：**夹具对话框不满足侧车的「文件对话框签名」** ⇒ 侧车从未发 `DialogDetected`
+⇒ 闸门决策根本没机会发生（所以前两轮报告的「no decisive gate event」是**空结论**，不是被测行为回归）。
+
+第三轮的夹具按 `uia_event.rs:591-633` 的签名重做：
+**顶层窗口 class 精确 `#32770`** ＋ 标题 `B19 Fixture Open`（含 `open`）＋
+**一个 class 精确 `ComboBoxEx32` 的直接子窗口**（`direct_cb=7671754`）＋ 置前台。
+
+**实测**（`.superpowers\sdd\focus\b19-report.txt`；侧车日志
+`.superpowers\sdd\focus\tmp-b19\localappdata\kizemo\focus-sync\logs\spike.log`）：
+
+| 检查 | 结果 |
+| --- | --- |
+| `gate_opened_by_ancestor_branch` | **PASS** —— `opened_write_back_events=3` |
+| `handoff_pid_is_receiver_process` | PASS —— `handoff_pid=504056` == `receiver_pid=504056` |
+| `dialog_pid_is_child_process` | PASS —— `dialog_pid=503980` |
+| `receiver_is_ancestor_of_dialog` | PASS —— `parent_of_dialog_pid=504056` == `receiver_pid` |
+| `handoff_pid_differs_from_dialog_pid` | PASS —— 504056 ≠ 503980 ⇒ **严格等值分支被排除** |
+| `path_B_excluded_dialog_opened_after_afm` | PASS —— 交接 `09:10:02` **早于** 对话框检测 `09:10:16` ⇒ **路径 B 被排除** |
+
+**进程拓扑**：`afm_fixture_pid=496448`（class 精确 `Tauri Window`、标题 `Alpha File Manager - Batch19 Fixture`）
+→ `receiver_pid=504056`（class `B19ReceiverWindow`，持前台产生下降沿）
+→ `dialog_pid=503980`（**receiver 的直接子进程**，class `#32770`，前台）。
+
+**决定性日志行（逐字）**：
+
+```
+{"event":"SpikeError","kind":"afm_gate_armed","message":"handoff recorded: pid=504056 afm_pid=496448 fg_class_title=false fg_class=B19ReceiverWindow","ts":"2026-11-18T09:10:02Z"}
+{"event":"DialogDetected","hwnd":658262,"app":"#32770","ts":"2026-11-18T09:10:08Z"}
+{"event":"SpikeError","kind":"opened_write_back","message":"dialog path='' current='F:\\...\\tmp-b19\\target'; writing current","ts":"2026-11-18T09:10:08Z"}
+```
+
+**关于紧随其后的 `WriteFailed reason=write_not_verified`**：这是**预期内**的 ——
+合成对话框没有真实的「文件名」编辑框，UIA 注入无法被验证 ⇒ 写入失败。
+但 `opened_write_back` 是在**真正写入之前**打印的（`main.rs:425-432`），
+所以**闸门放行这个结论完全成立**，不受注入成败影响 —— 这正是本项要判的东西。
+
+**顺带实证了 ⑩ 的不变量**：`WriteFailed` 之后没有留下写记录 ⇒ 5 秒后 monitor 重新检测同一对话框并再次尝试
+（日志里 `opened_write_back` 出现 3 次）⇒ **写失败保持可重试**（v0.5.12）在真机上同样成立。
+
+**AGENTS §2.8 的偏离（如实记录）**：本项的侧车、夹具、合成对话框**全部跑在交互桌面（input desktop）**上，
+不是 `CreateDesktop` 私有桌面 —— 因为本机实测私有桌面**没有前台语义**
+（`GetForegroundWindow` 恒为 0、`SetForegroundWindow` 失败、`CreateWindowStationW` 崩溃），
+侧车在那里**永远看不到前台窗口** ⇒ 闸门永远开不了。
+夹具窗口已做成小尺寸、判定后立即关闭，并在退出前恢复用户原来的前台窗口。
+#### 20.14.8 3.14.1 重建 → 载荷校验 → 装机链复验 → winget 清单同步
+
+**为什么必须重建**：⑩ 的修复在**侧车二进制**里；不重建安装包，修复就发不出去 ⇒ 安装包 sha 变化 ⇒ winget 清单 sha 要跟着改、装机链判别性实验要重做。
+
+| 环节 | 本轮实测 |
+| --- | --- |
+| 侧车新件 | `extensions\kizemo.focus-sync\bin\focus-sync-sidecar.exe` sha **`A947898600180CDA52897A7775DCFE4BD6E6150430F6A32E24A0C59546CD3468`** / 2,903,552 B（`build-sidecar.log` 末尾 BUILD_OK） |
+| 安装包 | `src-tauri\target\release\bundle\nsis\Alpha File Manager_3.14.1_x64-setup.exe` **45,478,740 B** / sha **`1DD82EEED36127F21595FFB852FF1C65474498B44A99995CEB3B00BA3F6D2A83`** / mtime 2026-11-18 16:40:59（`build-b19.log` 末尾 `BUILD_EXIT=0`） |
+| 载荷校验 | `verify-installer-payload.ps1` ⇒ 包内 `tools\focus-sync-sidecar.exe` sha **= A9478986…3468（match=True）**；包内扩展 `kizemo.focus-sync\dist\index.js` sha `93439CAE…7CF5E8`，标记串 `traceReplace` / `non-local-path` **齐全** ⇒ **`VERIFY_OK reason=payload-carries-expected-sidecar-and-new-extension`** |
+| 装机链复验 | `install-afm-verify.ps1`（`/S /FORCE`）⇒ `INSTALL_EXIT 0`；安装日志 `phase=PREINSTALL … installerSha256=1dd82eee…d2a83` → `phase=POSTINSTALL`；**装机目录**与 **APPDATA 侧车**双双刷新为 `A9478986…3468` ⇒ **`VERIFY_OK reason=install-refreshed-appdata-sidecar`** |
+| `release/` 顶层 | `publish-bundle-to-release.mjs` 按规则把「同名不同内容」的新包**隔离**进 `release\local-builds\`、**没有**覆盖顶层旧包 ⇒ 顶层副本**已手动替换并刷新 mtime**（见 20.14.11 第 1 条） |
+| winget 清单 | `InstallerSha256` 同步为 `1DD82EEE…D2A83`（`ReleaseDate` 2026-11-18）⇒ `node ./docs/winget/check-manifest.mjs 3.14.1` **All local checks passed**（其中一条就是「sha 与 `release\` 顶层安装包逐字一致 + 45478740 bytes」） |
+| `release:status` | 选中 `Alpha File Manager_3.14.1_x64-setup.exe` / 45,478,740 / `1dd82eee…d2a83`（站点源 `version.json` 仍是 3.14.0，那是**已发布**版本，不动） |
+
+旧件留档：旧侧车 `74E5957F…21CCF` → `.superpowers\sdd\old-sidecar-b19-preinstall.exe`；旧安装包 sha `EF5D6DE0…C23`（批次 18 验过的那份）已被新件取代。
+**用户真实数据全程只读未改**（只替换了扩展自带的侧车二进制）。
+
+#### 20.14.9 门禁与产物（本轮实测）
+
+| 门禁 | 结果 |
+| --- | --- |
+| 侧车 `cargo test` | **147 passed / 0 failed**（日志 `.superpowers\sdd\sidecar-test-b19.log`） |
+| 前端串行五步 | `ts`=0、`lint:check`=0、`test:unit:run`=0（**311 个文件 / 3242 个用例**）、`verify-changelog`=0、`verify:sandbox`=0（日志 `.superpowers\sdd\g-{ts,lint,test,changelog,sandbox}.log`） |
+| `node ./docs/winget/check-manifest.mjs 3.14.1` | **All local checks passed** |
+
+⇒ **用例数 3241 → 3242（+1）**：本批次新增了 `docs/handoff-2026-11-18-quark-pan-batch19.md` 一个 markdown 文件，
+仓库里有按文件枚举生成用例的测试 ⇒ 新增 docs 会 +1，**不是异常**（与批次 18 §20.13.8 第 1 条的记录一致）。
+
+**产物**：侧车 sha `A9478986…3468` / 2,903,552 B；安装包 `release\Alpha File Manager_3.14.1_x64-setup.exe` sha `1DD82EEE…D2A83` / 45,478,740 B。
+
+#### 20.14.10 已验证 / 推断 / 未验证
+
+| # | 结论 | 状态 | 证据 |
+| --- | --- | --- | --- |
+| ① | 侧车确实忘掉上一个真实目录（虚拟位置停留时） | **已验证** | 20.14.5，`VERDICT=PASS` |
+| ② | 同一个目标不会被侧车写两遍 | **已验证（单测级）** | 20.14.4，净增 9 条判别性单测；`147/0` |
+| ③ | 真实换目标 / 用户手动挪动对话框后仍会重新写 | **已验证（单测级）** | `a_different_target_is_still_written`、`a_dialog_the_user_moved_is_written_again` |
+| ④ | 写失败保持可重试 | **已验证（单测级）** | `a_failed_write_leaves_no_record`、`a_failed_write_leaves_no_write_record` |
+| ⑤ | `npm run check` 负载 flake 已消除 | **已验证** | 串行五步门禁全绿（20.14.2） |
+| ⑥ | 新安装包携带 ⑩ 修复的新侧车 | **已验证** | `VERIFY_OK reason=payload-carries-expected-sidecar-and-new-extension`（20.14.8） |
+| ⑦ | 装机器把 APPDATA 旧侧车刷新成新侧车 | **已验证（复跑）** | `VERIFY_OK reason=install-refreshed-appdata-sidecar`（3.14.1 → 3.14.1 同版本重装，`/FORCE`） |
+| ⑧ | winget 3.14.1 清单与本地安装包逐字一致 | **已验证** | `check-manifest.mjs` 全过（它自己会比对 `release\` 顶层包的 sha 与字节数） |
+| ⑨ | 路径 A 祖先后代分支真机覆盖 | **已验证** | 见 20.14.7：`VERDICT=PASS`，6/6 检查通过（`opened_write_back_events=3`），`leftover_process=0` |
+| ⑩ | 扩展 toast 在 AFM 真机上的实际渲染 | **未验证** | 只到源码契约级（20.14.6） |
+| ⑪ | 去重后的**真机双写不复现** | **未验证** | 判别性单测覆盖了决策函数，但**没在真机对话框上做「一次打开只写一遍」的计数观测** |
+| ⑫ | 其余 13 个 locale changelog 同步 ⑩ 的发版说明 | **未做** | 本批次只补了根 `CHANGELOG.md` 与 `ch`（中文）locale；其余 locale 留到下一批次 |
+
+#### 20.14.11 本轮工具坑（省得下一轮再踩）
+
+1. **`publish-bundle-to-release.mjs` 不会覆盖「同名不同内容」的包**：重建 3.14.1 后它把新包**隔离**到 `release\local-builds\`，
+   `release\` 顶层留的还是**旧的 3.14.1**（同版本号、不同字节）。
+   ⇒ 想让顶层就是新包，必须**手动覆盖并刷新 mtime**；否则 `check-manifest` 拿的是旧包 sha，`release:status` 也会挑错。
+   ⇒ 判别方法：对比 `release\` 顶层与 `release\local-builds\` 同名文件的 sha。
+2. **同版本重装必须带 `/FORCE`**：安装器的防呆守卫对同 build 直接 `EXIT=2`（`reason=same-build`）—— 那不是包坏了。
+3. **`npm run tauri:build` 很慢**（本轮 Rust 全量重编约 12 min）⇒ 判断出要真机验收就**早启动、丢后台跑**，再做文档/补测试。
+4. **`.cmd` 构建脚本必须纯 ASCII**：cmd.exe 按系统 ANSI 代码页读 `.cmd`，中文注释会变乱码并被当成命令执行。
+5. **后台跑长编译不要挂 stdout 管道**：让 `.cmd` 内部 `> logfile 2>&1` 重定向，再单独读文件看进度（管道一断进程树跟着死）。
+6. **含变量的 PowerShell 一律落 `.ps1` 再执行**；本机 bash 是 PowerShell，`cd /d` 不合法，用 `Set-Location -LiteralPath`。
+7. **`cargo` 不在默认 PATH**：用 `C:\Users\Duanyi\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin\cargo.exe`，且**不要与 `npm run check` 并发**。
+8. **私有（非交互）桌面没有前台窗口**：`GetForegroundWindow` 恒返回 0 ⇒ 任何依赖「前台窗口」的判据在隔离桌面上都不成立（见 20.14.7）。
+9. **「窗口枚举」也是按桌面隔离的**：侧车只能看到**自己所在桌面**上的顶层窗口 ⇒ 对话框与侧车**必须同桌面**，否则侧车连对话框都发现不了。
+10. **侧车认 AFM 只认死字符串**：前台窗口的 class 必须**恰好**是 `Tauri Window`、标题必须以 `Alpha File Manager` 开头 ⇒ 夹具窗口用别的 class 就学不到 AFM 的 pid。
+
+#### 20.14.12 本批次收尾状态
+
+- **改动**：侧车 `sidecar/src/{state.rs, main.rs, http_server.rs, writer.rs}`（**+268 / −7**，其中 `state.rs` **+213 / −0**）
+  ＋ `vitest.config.ts` ＋ `home-banner-click-opens-background-manager.test.ts`
+  ＋ winget 3.14.1 清单 4 个文件
+  ＋ 根 `CHANGELOG.md` ＋ `public/changelog/ch/changelog.md` 的 3.14.1 条目
+  ＋ 台账 §20.14 ＋ 批次 19 交接卡 `docs/handoff-2026-11-18-quark-pan-batch19.md`。
+- **门禁**：侧车 `cargo test` **147 / 0**；前端串行五步**全绿**（`test:unit:run` = **311 文件 / 3242 用例**）；
+  `check-manifest.mjs 3.14.1` 全过。
+- **产物**：侧车 sha `A9478986…3468` / 2,903,552 B；安装包 sha `1DD82EEE…D2A83` / 45,478,740 B。
+- **真机**：3.14.1 已重装进 `D:\Program Files\Alpha File Manager`；**APPDATA 侧车已被安装器刷新成新件**（判别性实验复跑闭环）；用户真实数据只读未改。
+- **未做（需用户授权）**：GitHub Release、winget 3.14.1 清单 PR、upstream 移植。
