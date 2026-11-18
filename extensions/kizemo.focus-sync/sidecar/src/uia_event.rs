@@ -33,7 +33,11 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use tokio::sync::Notify;
 use tracing::{debug, trace};
-use windows::Win32::Foundation::{HWND, LPARAM, RECT};
+use windows::Win32::Foundation::{HANDLE, HWND, LPARAM, RECT};
+use windows::Win32::System::Diagnostics::ToolHelp::{
+    CREATE_TOOLHELP_SNAPSHOT_FLAGS, CreateToolhelp32Snapshot, Process32FirstW, Process32NextW,
+    PROCESSENTRY32W,
+};
 use windows::Win32::Graphics::Dwm::{DWMWA_EXTENDED_FRAME_BOUNDS, DwmGetWindowAttribute};
 use windows::Win32::UI::Accessibility::{HWINEVENTHOOK, SetWinEventHook, UnhookWinEvent};
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
@@ -277,18 +281,65 @@ pub fn start_monitor(
             is_afm_window(fg_hwnd)
         };
         state.learn_afm_pid(fg_class_title, fg_pid);
-        if last_afm_enum_at
+        let enum_due = last_afm_enum_at
             .map(|t| t.elapsed() >= AFM_ENUM_INTERVAL)
-            .unwrap_or(true)
-        {
+            .unwrap_or(true);
+        if enum_due {
             last_afm_enum_at = Some(Instant::now());
             let found = find_afm_pid_by_enum();
             if found != 0 {
+                // v0.5.22 — **只在 pid 变化时**打印。旧实现每 500ms 打一行，
+                // 真机 2026-11-18 一天刷出 15,951 行 / 1.5 MB tracing 日志
+                // （agent 自己引入的回归）。
+                let prev_afm_pid = state.afm_pid();
                 state.learn_afm_pid(true, found);
-                debug!("[afm-gate] learned AFM pid={} by window enumeration", found);
+                if state.afm_pid() != prev_afm_pid {
+                    debug!("[afm-gate] learned AFM pid={} by window enumeration", found);
+                }
             }
         }
         let afm_now = foreground_is_afm_by(state.afm_pid(), fg_class_title, fg_pid);
+        // v0.5.22 — 记录「用户最近一次在 AFM 前台」的时刻。
+        // 闸门路径 B（「对话框开着的时候用户去过 AFM」）靠它判定。
+        if afm_now {
+            state.set_last_afm_foreground_ts(crate::state::now_unix_millis());
+        }
+        // v0.5.22 — 采样「接收方应用」。
+        //
+        // 三条规则（按优先级）：
+        //   1. 前台窗口**就是**那个文件对话框 ⇒ 接收方 = 对话框的属主进程
+        //      （经典 AFM → 对话框 直接切换，身份最准）；
+        //   2. 前台窗口是 shell 表面（任务栏 / 桌面）⇒ **不算接收方**，重采样
+        //      （真机 2026-11-18：用户点任务栏切回对话框 ⇒ 采样落在
+        //      `explorer.exe`(13080) 上，把 shell 记成了接收方 ⇒ 合法写回
+        //      全线被拒：`dialog_pid=619924 handoff_pid=13080`）；
+        //   3. 其余情况 ⇒ 接收方 = 前台窗口的属主进程。
+        let fg_class = if fg_hwnd.is_invalid() {
+            String::new()
+        } else {
+            get_class_name(fg_hwnd)
+        };
+        let fg_hwnd_u32 = if fg_hwnd.is_invalid() {
+            0
+        } else {
+            fg_hwnd.0 as usize as u32
+        };
+        let fg_is_dialog = current_dialog
+            .as_ref()
+            .map(|d| d.hwnd as u32 == fg_hwnd_u32)
+            .unwrap_or(false);
+        let sampled_receiver: Option<u32> = if fg_is_dialog {
+            current_dialog
+                .as_ref()
+                .map(|d| window_pid_isize(d.hwnd as isize))
+                .filter(|p| *p != 0)
+        } else if is_shell_surface_class(&fg_class) {
+            None
+        } else if fg_pid != 0 {
+            Some(fg_pid)
+        } else {
+            None
+        };
         if afm_now != was_afm_foreground {
             if afm_now {
                 state.clear_afm_handoff();
@@ -299,49 +350,72 @@ pub fn start_monitor(
                     message: format!("AFM back in foreground (afm_pid={})", state.afm_pid()),
                     ts: now_iso8601(),
                 });
+            } else if let Some(pid) = sampled_receiver {
+                state.set_afm_handoff(pid);
+                handoff_retry_pending = false;
+                debug!("[afm-gate] handoff recorded: pid={}", pid);
+                log_event(&Event::SpikeError {
+                    kind: "afm_gate_armed".into(),
+                    message: format!(
+                        "handoff recorded: pid={} afm_pid={} fg_class_title={} fg_class={}",
+                        pid,
+                        state.afm_pid(),
+                        fg_class_title,
+                        fg_class
+                    ),
+                    ts: now_iso8601(),
+                });
             } else {
-                let pid = fg_pid;
-                if pid == 0 {
-                    // v0.5.20 —— 这一瞬间没读到接手应用的 pid
-                    // （GetForegroundWindow 返回了空窗口）。交接授权的可核对性
-                    // 全部建立在 pid 上，pid 未知的交接过不了闸门（fail-closed），
-                    // 所以这里**不记录**，改为下一 tick 重采样。
-                    // 不重采样的话，一次丢采样会毒化整个会话：此后的同步全被
-                    // 挡住，直到用户再回一次 AFM 再切走。
-                    handoff_retry_pending = true;
-                    debug!("[afm-gate] handoff sample lost the receiving pid; will retry");
-                    log_event(&Event::SpikeError {
-                        kind: "afm_gate_retry".into(),
-                        message: format!(
-                            "handoff sample lost the receiving pid; will retry (afm_pid={})",
-                            state.afm_pid()
-                        ),
-                        ts: now_iso8601(),
-                    });
-                } else {
-                    state.set_afm_handoff(pid);
-                    handoff_retry_pending = false;
-                    debug!("[afm-gate] handoff recorded: pid={}", pid);
-                    log_event(&Event::SpikeError {
-                        kind: "afm_gate_armed".into(),
-                        message: format!(
-                            "handoff recorded: pid={} afm_pid={} fg_class_title={}",
-                            pid,
-                            state.afm_pid(),
-                            fg_class_title
-                        ),
-                        ts: now_iso8601(),
-                    });
-                }
+                // v0.5.20/v0.5.22 —— 这一瞬间没读到「接收方应用」：前台窗口
+                // 为空（pid 读不到），或前台只是任务栏/桌面（shell 表面）。
+                // 交接授权的可核对性全部建立在 pid 上 ⇒ **不记录**，下一 tick
+                // 重采样。不重采样的话，一次坏采样会毒化整个会话：此后的
+                // 同步全被挡住，直到用户再回一次 AFM 再切走。
+                handoff_retry_pending = true;
+                debug!("[afm-gate] handoff sample has no receiving app yet; will retry");
+                log_event(&Event::SpikeError {
+                    kind: "afm_gate_retry".into(),
+                    message: format!(
+                        "handoff sample has no receiving app yet; will retry (afm_pid={} fg_class={})",
+                        state.afm_pid(),
+                        fg_class
+                    ),
+                    ts: now_iso8601(),
+                });
             }
         } else if handoff_retry_pending && !afm_now {
-            // v0.5.20 —— 还在非 AFM 前台、且交接尚未记录 ⇒ 重采样前台 pid。
-            // 这条分支只在「pid 丢了」时激活 ⇒ 授权被消费后不会重新上弦。
-            let pid = fg_pid;
-            if pid != 0 {
+            // v0.5.20/v0.5.22 —— 还在非 AFM 前台、且交接尚未记录 ⇒ 重采样接收方。
+            // 这条分支只在「没读到接收方」时激活 ⇒ 授权被消费后不会重新上弦。
+            if let Some(pid) = sampled_receiver {
                 state.set_afm_handoff(pid);
                 handoff_retry_pending = false;
                 debug!("[afm-gate] handoff recorded on retry: pid={}", pid);
+                log_event(&Event::SpikeError {
+                    kind: "afm_gate_armed".into(),
+                    message: format!(
+                        "handoff recorded on retry: pid={} afm_pid={} fg_class_title={} fg_class={}",
+                        pid,
+                        state.afm_pid(),
+                        fg_class_title,
+                        fg_class
+                    ),
+                    ts: now_iso8601(),
+                });
+            }
+        }
+        // v0.5.22 — 「用户仍停留在接收方应用里」⇒ 给交接链续期。
+        //
+        // 真机 2026-11-18 的真实流程：23:58 从 AFM 切进 UGREEN NAS →
+        // 02:17 该应用弹出文件对话框；中间用户一直待在那个应用里，但交接
+        // 记录停在 23:58 ⇒ 120 秒 TTL 早过期 ⇒ 合法写回被拒。
+        // 续期只延长「同一条 AFM → X 链」，且**不复活已过期的链**
+        // （用户去了别的应用待够久，那条链仍然会死）。
+        if let Some(handoff) = state.afm_handoff() {
+            let in_receiver = fg_pid != 0
+                && (fg_pid == handoff.pid
+                    || (enum_due && same_application_process(fg_pid, handoff.pid)));
+            if in_receiver {
+                state.refresh_afm_handoff();
             }
         }
         was_afm_foreground = afm_now;
@@ -627,6 +701,143 @@ fn get_window_text(hwnd: HWND) -> String {
 /// 依据：`src-tauri/tauri.conf.json` 的三个窗口 title；全仓 grep
 /// `document.title` 无命中（前端不改标题），`decorations: false` 不影响
 /// OS 窗口标题 ⇒ 标题静态可用。
+// ---- v0.5.22：接收方识别 + 「同一个应用」判据 ----
+
+/// v0.5.22 — 「这个前台窗口只是 shell 表面（任务栏 / 桌面），不是某个应用」
+/// 吗？
+///
+/// 为什么必须判：真机 2026-11-18，用户从 AFM 切回文件对话框时是先点**任务栏**
+/// 切换窗口的 ⇒ 那一瞬间的前台窗口是任务栏（属主 = `explorer.exe`
+/// pid=13080）⇒ 交接把 **shell** 记成了「接收方应用」⇒ 之后所有真实对话框
+/// 的属主 pid 都对不上 ⇒ 合法写回全线被拒（`dialog_pid=619924
+/// handoff_pid=13080`）。
+///
+/// 注意：**不能**按进程判（explorer 同时拥有「我的电脑」这类真窗口），
+/// 必须按**窗口类名**判。
+///
+/// 纯函数 ⇒ 可单测。
+pub fn is_shell_surface_class(class: &str) -> bool {
+    matches!(
+        class,
+        "Shell_TrayWnd" | "Shell_SecondaryTrayWnd" | "Progman" | "WorkerW"
+    )
+}
+
+/// v0.5.22 — 纯函数版「两个进程是不是同一个应用」。
+///
+/// `parent_of` 给出某个 pid 的父进程（查不到 ⇒ None）。同应用 = 相同，
+/// 或其中一个是另一个的祖先/后代（helper 进程）。
+pub fn same_application_in<F>(a: u32, b: u32, parent_of: F) -> bool
+where
+    F: Fn(u32) -> Option<u32>,
+{
+    if a == 0 || b == 0 {
+        return false;
+    }
+    if a == b {
+        return true;
+    }
+    let is_ancestor = |ancestor: u32, mut node: u32| -> bool {
+        // 最多向上走 16 层（进程树深度足够），并防自环。
+        for _ in 0..16 {
+            if node == 0 {
+                return false;
+            }
+            if node == ancestor {
+                return true;
+            }
+            match parent_of(node) {
+                Some(p) if p != node => node = p,
+                _ => return false,
+            }
+        }
+        false
+    };
+    is_ancestor(a, b) || is_ancestor(b, a)
+}
+
+/// v0.5.22 — 进程 id → 父进程 id（查不到 ⇒ None）。
+///
+/// 用 ToolHelp 快照枚举进程表（`CreateToolhelp32Snapshot`）。
+pub fn parent_pid_of(pid: u32) -> Option<u32> {
+    if pid == 0 {
+        return None;
+    }
+    unsafe {
+        let snapshot = CreateToolhelp32Snapshot(CREATE_TOOLHELP_SNAPSHOT_FLAGS(0x2), 0).ok()?;
+        let _guard = SnapshotGuard(snapshot);
+        let mut entry = PROCESSENTRY32W {
+            dwSize: size_of::<PROCESSENTRY32W>() as u32,
+            ..Default::default()
+        };
+        if Process32FirstW(snapshot, &mut entry).is_err() {
+            return None;
+        }
+        loop {
+            if entry.th32ProcessID == pid {
+                return Some(entry.th32ParentProcessID);
+            }
+            if Process32NextW(snapshot, &mut entry).is_err() {
+                return None;
+            }
+        }
+    }
+}
+
+/// v0.5.22 — 进程快照句柄的 RAII 关闭。
+struct SnapshotGuard(HANDLE);
+
+impl Drop for SnapshotGuard {
+    fn drop(&mut self) {
+        unsafe {
+            windows::Win32::Foundation::CloseHandle(self.0).ok();
+        }
+    }
+}
+
+/// v0.5.22 — 「这两个 pid 属于同一个应用吗？」（真实进程表）。
+///
+/// 用于闸门放宽：接收方应用派生的 helper 进程承载对话框时，属主 pid 与
+/// 接收方 pid 不同，但它们是同一个应用。
+pub fn same_application_process(a: u32, b: u32) -> bool {
+    if a == 0 || b == 0 {
+        return false;
+    }
+    if a == b {
+        return true;
+    }
+    same_application_in(a, b, parent_pid_of)
+}
+
+#[cfg(test)]
+mod v522_shell_and_identity_tests {
+    use super::{is_shell_surface_class, same_application_in};
+
+    #[test]
+    fn the_taskbar_and_desktop_are_not_receiving_apps() {
+        assert!(is_shell_surface_class("Shell_TrayWnd"));
+        assert!(is_shell_surface_class("Shell_SecondaryTrayWnd"));
+        assert!(is_shell_surface_class("Progman"));
+        assert!(is_shell_surface_class("WorkerW"));
+        // 真窗口 / 对话框 / AFM 主窗口都**不是** shell 表面。
+        assert!(!is_shell_surface_class("CabinetWClass"));
+        assert!(!is_shell_surface_class("#32770"));
+        assert!(!is_shell_surface_class("Tauri Window"));
+    }
+
+    #[test]
+    fn a_descendant_process_is_the_same_application() {
+        let parents: std::collections::HashMap<u32, u32> =
+            [(619_924u32, 152_04u32), (152_04u32, 100u32)].into_iter().collect();
+        let lookup = |pid: u32| parents.get(&pid).copied();
+        assert!(same_application_in(15204, 619_924, lookup));
+        assert!(same_application_in(619_924, 15204, lookup));
+        assert!(same_application_in(15204, 15204, lookup));
+        assert!(!same_application_in(15204, 4242, lookup));
+        assert!(!same_application_in(0, 4242, lookup));
+    }
+}
+
 pub fn is_afm_window(hwnd: HWND) -> bool {
     get_class_name(hwnd) == "Tauri Window"
         && get_window_text(hwnd).starts_with("Alpha File Manager")
