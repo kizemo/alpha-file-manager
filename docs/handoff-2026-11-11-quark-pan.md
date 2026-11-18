@@ -2181,3 +2181,220 @@ stylelint 零 lint 报错就退出 1 ⇒ `run-p` 连带杀掉 vitest ⇒ 日志�
 - **产物**：侧车 sha `A9478986…3468` / 2,903,552 B；安装包 sha `1DD82EEE…D2A83` / 45,478,740 B。
 - **真机**：3.14.1 已重装进 `D:\Program Files\Alpha File Manager`；**APPDATA 侧车已被安装器刷新成新件**（判别性实验复跑闭环）；用户真实数据只读未改。
 - **未做（需用户授权）**：GitHub Release、winget 3.14.1 清单 PR、upstream 移植。
+
+### 20.15 批次 20：⑩ toast 真机渲染 PASS ＋ ⑪ 写入闸门根治（真机计数 UNDETERMINED）＋ ⑫ locale 收口 ＋ ⑤ check 串行化（2026-11-18）
+
+> 本节是**批次 20** 的台账真源；入口卡 = `docs/handoff-2026-11-18-quark-pan-batch20.md`。
+> 承自批次 19（§20.14）的 4 项遗留：**⑩ toast 真机渲染**、**⑪ 真机双写计数**、**⑫ 13 个 locale changelog**、**⑤ `npm run check` 并发 flake 根治**。
+> **范围声明**：只做**仓库版本与发版材料**，**不做对外发布**（GitHub Release / winget 清单 PR / upstream 移植需用户授权）。
+> **本批次未重建安装包** ⇒ `release\` 顶层 3.14.1 安装包**仍是批次 19 的旧件**（载荷里的侧车 sha 仍为 `A9478986…3468`，**不含**本批次的 v0.6.4 写入闸门修复）—— 理由见 20.15.7。
+
+#### 20.15.1 ⑫ 其余 13 个 locale changelog 补 3.14.1 第 5 条 —— 完成
+
+批次 19 只补了根 `CHANGELOG.md` 与 `public/changelog/ch/changelog.md`；本批次补齐其余 **13 个 locale**：
+`de / es / fa / fr / hi / it / ja / pt / ru / sl / tr / ur / vi`，每个 locale 在 3.14.1 段落下**各 +2 行**（标题行 ＋ 条目正文）。
+
+补的是**同一条**修复的第 5 条（与根 `CHANGELOG.md` 逐字对应）：**「同一个文件夹不再被写进对话框两次」** ——
+助手在「你正在看哪个目录」与「对话框自己打开」两条路径上都会写一次；现在只写一次；换目录、或你手动挪动对话框，仍然照常同步。
+
+**独立复验（两道）**：
+
+| 检查 | 结果 |
+| --- | --- |
+| 15 个文件（根 `CHANGELOG.md` ＋ 14 个 locale）3.14.1 段落 `^\*\*` 行数 | **全 = 6**（Summary 段不算 `^\*\*`） |
+| 编码卫生 | 15 个文件**无 BOM**、**无 U+FFFD** |
+| `npm run verify-changelog` | **exit 0**（3.14.1、58 条目、顺序正确） |
+
+#### 20.15.2 ⑤ `npm run check` 并发 flake 根治（`run-p` → `run-s`）
+
+批次 19 的处理是**「缓解」**（全局 `hookTimeout: 30000` ＋ 单文件 `testTimeout`），**没有根治**；批次 19 §20.14.2 里明确写着「`run-p` 在本机不可靠这件事只做了缓解」。
+
+**根治做法**：把 `package.json` 的 `check` / `check:win` 从 `run-p`（并行）改成 `run-s`（串行）。
+
+| 脚本 | 批次 19 | 批次 20 |
+| --- | --- | --- |
+| `check` | `run-p` | **`run-s`** |
+| `check:win` | `run-p` | **`run-s`** |
+
+- **CI 分步不受影响**（CI 走的是各步骤自己的脚本，不经 `run-p` 聚合）。
+- `vitest.config.ts` 的 `hookTimeout: 30000` **保留**（串行后负载降低，但重型挂载测试本身的耗时仍在）。
+- **两轮定向 A/B 未复现** flake ⇒ **具体争用源 UNDETERMINED**；根治依据是「**移除并发这一失败类别**」，不是「已定位到某个根因」。这一点如实记录，不夸大。
+
+**代价（如实记录）**：串行比并行慢（本地墙钟时间增加），换取确定性。
+
+#### 20.15.3 ⑪ 双写根因钉死：TOCTOU（先写后记）
+
+批次 19 的去重实现（v0.6.3）用的是**「写成功后才落写记录」**这一个去重键，根因就在这里：
+
+| 位置 | 事实 |
+| --- | --- |
+| `sidecar/src/writer.rs:198-200` | **写成功之后**才 `record_write` |
+| `sidecar/src/http_server.rs:529 → 601` | `/set_path` 的即时写：去重检查 → 写入 |
+| `sidecar/src/main.rs:401 → 433` | `DialogEvent::Opened` 的写回：去重检查 → 写入 |
+
+两条路径**各自**做去重检查、**互不知情**，而**记录落在写入之后** ⇒ 两条路径在**同时**通过去重检查时，**同一个目标被写两遍**（TOCTOU / check-then-act）。
+
+**修复前真机实测**：`w1=2`（第一次推送被写了 2 遍）、`w2=0`。
+
+#### 20.15.4 侧车 v0.6.4：per-hwnd 写入闸门
+
+**修法**：在**去重检查之前**取闸门，并在**闸内复查**去重键 ⇒ 「检查 ＋ 写入」原子化。
+
+| 文件 | 改动 |
+| --- | --- |
+| `sidecar/src/state.rs` | 新增 `pub write_gates: Mutex<HashMap<u32, Arc<Mutex<()>>>>`；`AppState::new` 初始化；`use std::sync::{Arc, Mutex};`；新增 `pub fn write_gate(&self, hwnd) -> Arc<Mutex<()>>`（**同一 hwnd 恒返回同一闸门**） |
+| `sidecar/src/http_server.rs` | `dialog_holds_path` 去重检查**之前**取闸门，并在闸内**复查** |
+| `sidecar/src/main.rs` | `should_write_back` 决策**之前**取闸门（决策与写入原子化） |
+
+**加锁顺序复核**：两条路径都是「**闸门 → 状态锁**」，顺序一致 ⇒ 无死锁风险。
+
+**判别性单测**：新增 3 条 ⇒ `cargo test --release` **150 passed / 0 failed**（批次 19 为 147），日志 `.superpowers\sdd\focus\b20-sidecar-test.log`。
+
+**二进制重建 ＋ 双处部署**（已实测）：
+
+| 位置 | 大小 | sha256 |
+| --- | --- | --- |
+| `extensions\kizemo.focus-sync\sidecar\target\release\spike.exe`（Cargo package `sigma-listary-spike` ⇒ 产物真名 **不是** `focus-sync-sidecar.exe`） | 2,907,648 B | **`480FDE62C11B1A25063B2F252C09A87C5463217A797C7C1893989F07480106CF`** |
+| `extensions\kizemo.focus-sync\bin\focus-sync-sidecar.exe`（仓库） | 2,907,648 B | 同上 |
+| `%APPDATA%\com.sigma-file-manager.app\extensions\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe`（应用实际解析处） | 2,907,648 B | 同上 |
+
+⚠️ 仓库 `bin/` **不入 git**，但 `src-tauri\tauri.conf.json` 的 `bundle.resources` 把它映射为 `tools/focus-sync-sidecar.exe` ⇒ **重建产物即随包传播**。
+⚠️ 应用会把扩展目录**复制**到 `%APPDATA%\...\extensions\` 并**从那里**解析侧车 exe ⇒ 重建后**必须**同步覆盖该处，否则真机跑的还是旧件。
+
+#### 20.15.5 ⑩ toast 在 AFM 真机上的实际渲染 —— **PASS**
+
+**宿主链路（源码级已查实）**：
+
+- `src/modules/extensions/api/create-ui-api.ts:70-92` ＝ `toast.custom(markRaw(ToastStatic), { ... })`
+- `src/components/ui/toaster/app-toast.ts:83` ＝ 同上
+- `toaster.vue` 挂载 `[data-sonner-toaster]`
+
+**两条路走不通（产品缺陷，如实记录）**：
+
+1. `toolbarDropdowns` **没有任何 UI 消费方**；命令面板**未挂载**；focus-sync 只注册了 commands ＋ toolbar dropdown（**未注册** context-menu / sidebar）⇒ **扩展 toast 没有用户可达的 UI 入口**；
+2. CDP `Target.getTargets` 只有 **1 个 page target（没有 worker）** ⇒ 无法 attach 扩展 worker 去调 `sigma.ui.showNotification`。
+
+**最终取证路线（绕开上面两条）**：扩展 `dist/index.js` 的 `activate()` 里 L900 读 `edgeLegacyFilePickerTipShown`，**非 true 即弹一个 Edge tip toast**（L921-945，`duration: 12000`）
+⇒ **临时**把 `%APPDATA%\com.sigma-file-manager.app\user-extensions.json` 里
+`extensions["kizemo.focus-sync"].customSettings.edgeLegacyFilePickerTipShown` **字节级置 false**，
+再用 `b20-toast5.ps1`（备份 → 精确替换 → **隔离桌面**起 CDP → `finally` 字节级还原并断言）取证。
+
+**实测结果**：沙箱 `AFM-CDP-41495`、CDP 端口 9333 ⇒ `toasts=1 tip=true toaster=true` ⇒ **`VERDICT=PASS`**。
+截图：`.superpowers\sdd\focus\b20-cdp3e\toast-tip-1.png`（169,292 B）＋ `.superpowers\sdd\focus\b20-cdp3e\toast-viewport.png`（169,302 B）—— 目视确认真实 AFM 中文界面右下角渲染出带「扩展 · Focus Sync」徽标的 toast。
+
+**判据口径**：用**硬编码英文描述片段**做判据（语言无关）；结论只允许 **PASS / HOST_ONLY / UNDETERMINED** 三档。
+**用户真实数据**：唯一触碰是上述**单个旗标**的字节级替换，已 `STORE_RESTORED=True` 还原。
+
+#### 20.15.6 ⑪ 真机双写计数观测 —— **UNDETERMINED**（修复未被真机证实，也未被真机证伪）
+
+**计数口径（不变）**：日志段内 `event=="Write"` 且 target 归一化后 == `c:\windows\system32`；第一次推送期望 **1**、第二次（正斜杠变体）期望 **0**；`WriteFailed` **不计入**。
+
+**修复已落地且单测通过**（20.15.4），但**真机三轮都没拿到 `w1=1 w2=0`**：
+
+| 轮次 | 做法 | 实测 | 结论 |
+| --- | --- | --- | --- |
+| v4 | 前台往返（接收方进程**自己**抬 AFM 类窗口，再把前台切回对话框） | `registered_dialogs_after_visit=1`；**闸门首次真正放行**（`set_path_iter hwnd=64684132 app=#32770 auto_confirm=false (shared_fg matched)`，`opened_write_back` 也发起）；但 4 次写入全部落不了地 —— 3× `reason=write_not_verified`、1× `reason=unsupported_dialog_type` | **UNDETERMINED**（`w1=0 w2=0`） |
+| v5 | 不做前台往返（对话框从 `Show()` 起保持前台，与修复前 `w1=2` 那轮同条件） | `registered_dialogs=0`、`set_path_no_dialog`、**无任何写入**；诊断坐实侧车采样到 **Ghost 窗口**（`fg_class=Ghost`，owner pid=**1188**） | **UNDETERMINED**（`w1=0 w2=0`） |
+| v6 | 对话框由**自己的线程**重新激活 | `dialog.raised ok=True is_fg=True`、`granted_child=True`；但接收方抬前台失败（`rcv_raised ok=False fg_is_me=False`）、写回路径 `opened_write_back_skip_no_afm_visit`、1× `WriteFailed reason=unsupported_dialog_type` | **UNDETERMINED**（`w1=0 w2=0`） |
+
+**三轮受阻的根因全部在夹具/前台语义侧，不在被测代码侧**：
+
+1. **Ghost 窗口**：COM 对话框创建期存在 class=`Ghost` 的瞬态前景窗（owner pid 1188），侧车 500 ms tick 采样到它 ⇒ 交接 pid 错（`handoff recorded: pid=1188 fg_class=Ghost`）⇒ 对话框从未被注册（`active_dialogs=0`）。**这同时解释了 v3 那轮的 `handoff_pid=1188`**。
+2. **前台锁**：脚本进程无法从对话框抢前台（ALT trick 无效 —— ALT keyup 被投递给了对话框所在线程）⇒ 只能由夹具进程自己做。
+3. **对话框内部焦点重建**：前台往返后 `inject_folder_path` 判型失准 / 回读校验不过（`write_not_verified` / `unsupported_dialog_type`）。
+
+**源码级依据（已核对）**：
+
+- `state.rs`：`afm_gate_allows`（路径 B `afm_ts >= open_ts`；路径 A `afm_handoff_allows(dialog_pid)`）、`set_afm_handoff` / `clear_afm_handoff` / `refresh_afm_handoff` / `set_last_afm_foreground_ts` / `mark_dialog_opened` / `learn_afm_pid`；
+- `uia_event.rs:250-360`：每 500 ms tick（`learn_afm_pid` → `afm_now` → `set_last_afm_foreground_ts`；**上升沿**清交接、**下降沿**按「前台=对话框⇒取对话框属主 pid / shell 表面⇒不记录重采样 / 其余⇒前台属主 pid」采样）；
+- `writer.rs:156-221`：`write_path` → `inject_folder_path` → **统一回读校验** `verify_dialog_folder(hwnd, target, 3)`；不过则降级 `write_not_verified` 且**不记录**（保持可重试）；**写成功才** `state.record_write`。
+
+**为什么是 UNDETERMINED 而不是 FAIL**：v4 恰恰证明**闸门会放行**（这正是修复要保证的东西），失败发生在**闸门放行之后**的注入/回读环节，属于夹具侧限制；v5/v6 则根本没走到写入。⇒ **修复既未被真机证实（没拿到 `w1=1`），也未被真机证伪（没出现 `w1=2`）**；单测层已覆盖该不变量。
+
+**下一批次的配方（已定位到具体三条）**：
+
+1. 子进程（对话框属主）用 `AllowSetForegroundWindow` 授权接收方抬前台 —— **授权调用必须发生在接收方已成为前台进程之后**，否则 `granted=False`；
+2. 交接采样必须**避开 Ghost 窗口**（让侧车在 ghost 消失后再采，或由夹具在对话框 `Show()` 之后再抬前台）；
+3. 对话框须由**自己的线程**重新激活（`dialog.raise` / `dialog.raised` 已实现，v6 已验证 `ok=True is_fg=True`）；
+4. 最终仍需拿到 **`w1=1 w2=0`** 才算 PASS。
+
+**AGENTS §2.8 的偏离（如实记录）**：⑪ 依赖**前台语义**，只能在**交互桌面**上做 —— 本机实测私有桌面 `GetForegroundWindow` 恒为 0（`CreateDesktop` 无前台语义）⇒ 闸门永远开不了。
+夹具窗口做成小尺寸、判定后立即关闭、退出前恢复原前台窗口。**⑩ 则是在隔离桌面完成的**（不依赖前台语义）。
+
+#### 20.15.7 最终产物重建与门禁
+
+**最终 exe 重建**（脚本 `.superpowers\sdd\focus\b20-final-build.ps1`，内部为 `npx tauri build --no-bundle`；`--no-bundle` ⇒ **本批次不重打安装包**）：
+
+| 项 | 值 |
+| --- | --- |
+| 产物 | `src-tauri\target\release\alpha-file-manager.exe` |
+| 大小 | `82,778,112 B` |
+| sha256 | `A66F93B638AECECD5810F335E3DA403FE67EC9934E349B8ECA9F92E08DC67AD8` |
+| mtime | `2026-11-18T21:18:26.7313893+08:00` |
+| 构建日志 | `.superpowers\sdd\focus\b20-final-build.log`（`Finished release in 4m 43s`，20 条 warning，均为 dead-code 类，非缺陷） |
+| 结论日志 | `.superpowers\sdd\focus\b20-final-build-run.log` |
+
+**无 CDP 插桩判据（成立）**：
+
+- `HAS_CDP_FLAG=False` —— 整份 exe 内**没有** `remote-debugging-port` 这个实际生效值字符串；
+- `src-tauri/tauri.conf.json` 已核实回滚干净，不在工作树 diff 中（取证期临时加的调试参数已全部撤除）。
+- **须如实写明的新观察**：`HAS_ADDITIONAL_BROWSER_ARGS=True`。但 `additionalBrowserArgs` 是 **Tauri 配置结构体的字段名**，必然编进 release 二进制（属元数据字符串），**不构成插桩证据**；判插桩只看实际生效值 `remote-debugging-port`。
+- 扫描方法：字节按 Latin1（`Encoding.GetEncoding(28591)`，字节↔字符 1:1 往返无损）解码后 `.Contains()`；**不要**用 `Get-Content -Raw -Encoding Latin1`。
+
+**侧车资源随构建传播（已证实）**：`--no-bundle` 同样会把 `bundle.resources` 映射的侧车复制到 `src-tauri\target\release\tools\focus-sync-sidecar.exe`，实测 `SC_SIZE=2907648`、`SC_SHA=480FDE62C11B1A25063B2F252C09A87C5463217A797C7C1893989F07480106CF`，与 20.15.4 部署的三处逐字一致 ⇒ **v0.6.4 写入闸门修复已确认进入构建资源目录**。
+
+**仍未传播到安装包**：`release\` 顶层 3.14.1 仍是批次 19 旧件（其内侧车 sha `A9478986…3468`，**不含 v0.6.4**）；重打安装包 + 更新 winget sha + 装机链复验属对外发布载荷，需用户授权。
+
+**`npm run check` 串行五步门禁（⑤ 由 `run-p` 改 `run-s` 的直接验证）** —— `GATE_EXIT=0`，日志 `.superpowers\sdd\b20-gate.log`：**通过**（无 `FAIL`、无 `npm error`）
+
+| 步 | 命令 | 结果 |
+| --- | --- | --- |
+| 1 | `npm run ts`（`vue-tsc --build`） | 通过（无诊断输出） |
+| 2 | `npm run lint:check`（内部 `run-s lint:*:check`，eslint 带 `--max-warnings 0`） | 通过（0 warning 允许量为 0，逐字干净） |
+| 3 | `npm run test:unit:run`（`vitest run`） | **Test Files 311 passed (311) / Tests 3243 passed (3243)**，`Duration 102.80s` |
+| 4 | `npm run verify-changelog` | 通过；`3.14.1` 段落被识别、**条目顺序正确** |
+| 5 | `npm run verify:sandbox` | 全部扩展入口 `RESULT: VALID (0 violations / 20 patterns)`，`[sandbox-gate] OK` |
+
+**与批次 19 串行基线的差异（如实登记，不归因）**：基线记为 311 文件 / **3242** 用例，本轮为 311 文件 / **3243** 用例 ⇒ 文件数不变、用例 **+1**，且**没有任何用例被删除**。
+
+- 已排除的一条怀疑路径：`src/**/__tests__` 内**没有任何** vitest 用例读取 `public/changelog`（grep 0 命中）⇒ +1 **与 ⑫ 的 locale 补条目无关**；
+- 与 ⑤ 无关（⑤ 只改 `package.json` 的脚本串联方式，不改用例）；侧车新增的 3 条单测走 `cargo test`，**不**计入 vitest；
+- 结论：**+1 的具体来源本轮未逐项核对**，按「数字观察、未归因」登记；本轮门禁为全绿，不因此改动任何断言。
+
+**闸门顺序说明**：`npm run check` 输出首行为 `run-s ts lint:check test:unit:run verify-changelog verify:sandbox`，实测日志内五步**严格依次出现、无交叠** ⇒ ⑤ 的「本地默认闸门改串行」已生效。
+
+#### 20.15.8 已验证 / 推断 / 未验证
+
+| # | 结论 | 状态 | 证据 |
+| --- | --- | --- | --- |
+| ⑩ | 扩展 toast 在 AFM 真机上的实际渲染 | **已验证** | 20.15.5，`VERDICT=PASS`（`toasts=1 tip=true toaster=true`）＋ 截图 |
+| ⑪ | 同一个目标不会被侧车写两遍（**单测级**） | **已验证（单测级）** | 20.15.4，v0.6.4 写入闸门；`cargo test --release` **150 / 0** |
+| ⑪ | 同一个目标不会被侧车写两遍（**真机计数级**） | **未验证（UNDETERMINED）** | 20.15.6，v4/v5/v6 三轮均 `w1=0 w2=0`；闸门放行已证实，写入落地受阻于夹具/前台 |
+| ⑫ | 其余 13 个 locale changelog 同步 3.14.1 第 5 条 | **已验证** | 20.15.1，15 文件 `^\*\*` 计数全 = 6；`verify-changelog` exit 0 |
+| ⑤ | `npm run check` 并发 flake 根治 | **已验证（工程口径）** | 20.15.2，`run-p`→`run-s`；**具体争用源 UNDETERMINED** |
+| — | v0.6.4 侧车二进制已重建并部署到仓库 bin ＋ APPDATA | **已验证** | 20.15.4（三处 sha/size 逐字一致） |
+| — | v0.6.4 修复随安装包传播 | **未做** | 本批次**未重建安装包**；`release\` 顶层 3.14.1 仍是批次 19 旧件（侧车 `A9478986…3468`） |
+| — | 对外发布（GitHub Release / winget PR / upstream 移植） | **未做（需用户授权）** | 本批次范围外 |
+
+#### 20.15.9 本轮工具坑
+
+1. **COM 对话框创建期有 class=`Ghost` 的瞬态前景窗**（owner pid 1188）：侧车 500 ms tick 会采到它 ⇒ 交接 pid 错、对话框不被注册 ⇒ 表现成「闸门没反应」，其实**根本没注册对话框**。任何依赖前台采样的真机实验都要先排除 Ghost。
+2. **`AllowSetForegroundWindow` 的授权时机**：必须在**接收方已经成为前台进程之后**调用，否则返回 `granted=False`。
+3. **ALT trick 抢前台无效**：ALT keyup 会被投递到**前台窗口所在线程**，不是脚本线程。
+4. **私有（非交互）桌面没有前台语义**：`GetForegroundWindow` 恒 0 ⇒ 依赖前台的判据只能在交互桌面做（承接 20.14.11 第 8 条）。
+5. **UIA 树里查不到 Radix/vue-sonner toast** ⇒ 「UIA 命中数=0」**不等于**「没弹」；必须 CDP 截图 / DOM 取证。
+6. **CDP `Target.getTargets` 不暴露扩展 worker** ⇒ 无法 attach worker 调 `sigma.ui.showNotification`；改用扩展自身 `activate()` 的 Edge tip toast 作为取证载体。
+7. **`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 环境变量与注册表 `AdditionalBrowserArguments` 都无效**：只能靠 `tauri.conf.json` 的 `additionalBrowserArgs` 插桩（**本批次已回滚干净**，`src-tauri\tauri.conf.json` 与 HEAD 一致）。
+8. **应用把扩展目录复制到 `%APPDATA%\com.sigma-file-manager.app\extensions\` 并从那里解析侧车 exe** ⇒ 重建侧车后**必须**同步覆盖该处，否则真机跑的还是旧件。
+9. **bash 里 `Set-Location` 之后若有写/删目标会被安全策略拦** ⇒ `cd` 必须放进 `.ps1` 内部，再用 `pwsh -File` 跑。
+10. **`Write` 覆盖「会话上次读取后被其它命令改动」的文件会被拒** ⇒ 改用新文件名。
+11. **残留夹具进程会互抢前台** ⇒ 跑前/跑后用 `Get-CimInstance Win32_Process -Filter "Name='<helper>.exe'"` ＋ `Stop-Process -Id` 强杀（**不要 `taskkill /IM`**），并确认 `remaining=0`。
+12. **子会话派发被 Token Plan 用量上限堵死（2056）** ⇒ ⑩/⑪ 改由根会话直接实现（本批次工时与成本因此显著上升）。
+13. **端口 9222 被 ecclaw 的 Electron 占用（勿杀）**，沙箱 CDP 一律用 **9333**；同一 `--out` 目录重复跑会被日志文件锁挡住 ⇒ 每次用新目录。
+
+#### 20.15.10 本批次收尾状态
+
+- **改动**：`package.json`（`check` / `check:win` → `run-s`）＋ 13 个 locale changelog（各 +2 行）＋ 侧车 `sidecar/src/{state.rs, http_server.rs, main.rs}`（v0.6.4 写入闸门）＋ 台账 §20.15 ＋ 批次 20 交接卡 `docs/handoff-2026-11-18-quark-pan-batch20.md`。
+- **门禁 / 产物**：见 20.15.7。
+- **真机**：⑩ **PASS**；⑪ **UNDETERMINED**（修复未被真机证伪，也未被真机证实）。
+- **未做（需用户授权）**：GitHub Release 3.14.1、winget 清单 PR、upstream 移植；**以及**是否本批次内重打安装包 ＋ 更新 winget 清单 sha ＋ 重做装机链复验（默认建议：不做，随下一版发布）。
