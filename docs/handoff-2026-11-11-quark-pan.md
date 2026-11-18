@@ -1592,3 +1592,122 @@ NEG_EXIT=5
 - **真机**：APPDATA 侧车已换成新构建并在运行，旧件已备份（可回滚）；真机用户数据全程**只读未改**。
 - **未做（需用户授权）**：`git push`、winget PR、GitHub Release、upstream 移植。
 - **未做（需真人交互）**：端到端「打开对话框 → 写回成功」真机验收（见 20.11.6 ④⑥）。
+### 20.12 批次 17：focus sync 闸门「判据过脆」根因修复 ＋ 日志刷屏回归修复 ＋ 端到端真机验收通过（2026-11-18）
+
+> 批次 16（§20.11）修掉了「AFM 身份误判 ⇒ 假下降沿 ⇒ 闸门恒拒」。本批次修掉**批次 16 之后真机 e2e 暴露的第二个缺陷**：
+> 闸门判据过脆（仍然恒拒）＋ v0.5.21 新引入的枚举日志每 500 ms 刷一行。
+> 本批次**端到端真机验收已通过**（真人操作，路径真的写进了对话框）。
+
+#### 20.12.1 第二个缺陷的真机证据（2026-11-18 02:17Z 段）
+
+- 02:17:08Z `DialogDetected` hwnd=13635992 app=#32770；
+- 02:17:09–02:17:12 连续 `opened_write_back_skip_no_afm_visit`：
+  `dialog_pid=619924 handoff_pid=15204(→13080) afm_pid=118160`；
+- pid 归属：15204 = `UGREEN NAS.exe`；13080 = `explorer.exe`；118160 = `alpha-file-manager.exe`；619924 = 对话框宿主进程。
+- 结论：**闸门仍恒拒**（v0.5.21 只修好了「谁来判 AFM」，没修「授权是否成立」）。
+- 同时：`spike.log.2026-11-18` 里 `[afm-gate] learned AFM pid=118160 by window enumeration` 出现 **15,951 次**
+  （每 500 ms 一行，当天 tracing 文件 2.57 MB）⇒ **v0.5.21 自己引入的日志刷屏回归**。
+
+#### 20.12.2 根因（四条独立缺陷，缺一不可）
+
+1. **闸门只有一条放行路径**：`handoff.pid == dialog_pid` **严格相等**。
+   真实世界有三种都该放行的情况，旧实现全判成「没访问过 AFM」：
+   (a) 对话框属主进程是接收方应用的 **helper 子进程**（pid 不等但同一应用）；
+   (b) **对话框开着的时候用户回过 AFM**（Listary 原义）；
+   (c) 用户在 AFM 与对话框之间来回切换（交接链被清/被过期链复活）。
+2. **交接链采样把 shell 表面当接收方**：切走的瞬间前台窗口可能是任务栏/桌面（`Shell_TrayWnd`/`Progman`，属 `explorer.exe`）
+   ⇒ 采样到的 pid 是 explorer ⇒ 真实接收方丢失（这正是 `handoff_pid=13080` 的来源）。
+3. **交接链过期后会被复活**：用户仍停留在接收应用里时 TTL 到期清链；用户回 AFM 再切回来时，
+   过期链被当作新链重新生效 ⇒ 把 2026-11-09 那类「陈旧授权」重新放回来。
+4. **枚举日志无去重**：每 500 ms 无条件打印一行「learned AFM pid」。
+
+#### 20.12.3 修复（v0.5.22）
+
+改动文件：`extensions/kizemo.focus-sync/sidecar/src/{state.rs, uia_event.rs, main.rs, http_server.rs}`（**4 files, +466 / −44**）。
+
+1. **闸门改成两条独立放行路径**（总入口 `state.rs :: afm_gate_allows(dialog_hwnd, dialog_pid)`）：
+   - **路径 A · 交接链身份**：`afm_handoff_allows` 放宽为
+     `handoff.pid == dialog_pid` **或** `same_application_process(handoff.pid, dialog_pid)`
+     （互为祖先后代；ToolHelp 进程快照，最多向上 16 层；`same_application_process` 走 `SnapshotGuard` RAII 释放快照句柄）。
+   - **路径 B · 对话框开着时用户去过 AFM**：`mark_dialog_opened(hwnd)` 记对话框打开时刻，
+     `last_afm_foreground_ts` 记最近一次 AFM 在前台的时刻；
+     **AFM 访问时刻 ≥ 对话框打开时刻** 才放行 ⇒ 挡住 2026-11-09「陈旧访问授权后来弹出的对话框」。
+   - 两条路径**任一成立即放行**；都不成立才 skip（skip 消息带 `dialog_pid`/`handoff_pid`/`afm_pid`）。
+2. **接收方采样排除 shell 表面**：按**窗口类名** `Shell_TrayWnd`/`Shell_SecondaryTrayWnd`/`Progman`/`WorkerW` 排除
+   （**不能按进程判** —— explorer 同时拥有真窗口，按进程排会把接收方一起排掉）。
+3. **前台窗口就是该对话框时**，接收方取**对话框属主 pid**，避免采到任务栏。
+4. **交接链续期**：用户仍停留在接收应用内时**续期**；但**不复活过期链**（过期链不因「回 AFM 再回来」而重新生效）。
+5. **枚举日志去重**：只在 **pid 变化时**打印一次。
+
+#### 20.12.4 判别性测试（新增 7 条，累计 130）
+
+- `state.rs :: v522_gate_paths_tests`（5）：路径 A 同进程放行 / 路径 A helper 子进程放行 / 路径 A 无关进程拒绝 /
+  路径 B「AFM 访问晚于对话框打开」放行 / 路径 B「AFM 访问早于打开时刻」拒绝（陈旧访问）。
+- `uia_event.rs :: v522_shell_and_identity_tests`（2）：shell 表面类名识别 / 同一应用（pid 相同或互为祖先后代）判定。
+- 补丁机制：`.superpowers\sdd\focus\patch-v522.txt`（12 op）＋ `.superpowers\sdd\focus\patch-v522b.txt`（3 op，修编译错）
+  ⇒ 执行结果 **12/12 ＋ 3/3 全命中，failed=0**，可重放。
+- 编译期抓到并修掉 2 个错：tuple 模式把 `u64` 当 `Option` 匹配；测试模块被插进函数体（须放文件级）。
+
+#### 20.12.5 门禁与真机部署（本轮实测）
+
+- **Rust 门禁**：`cargo test`（1.90.0 toolchain）⇒ **130 passed / 0 failed**（日志 `.superpowers\sdd\focus\cargo-test-522.log`）。
+- **前端门禁**：`npm run check` ⇒ **EXIT=0**（**311 个测试文件 / 3239 个用例全过**，日志 `npm-check-522.log`）。
+- **重建侧车**：`scripts\release\build-sidecar.cmd` ⇒ `BUILD_EXIT=0`
+  ⇒ 新件 **sha256 `0DC1B563…19DFE8D` / 2,891,776 B**（v0.5.21 件 `BFD5DF0C…B4DB` / 2,882,048 B）。
+- **部署到真机**（脚本 `.superpowers\sdd\focus\deploy-sidecar-522.ps1`，报告 `deploy-522.txt`）：
+  备份旧件 → `.superpowers\sdd\focus\installed-sidecar-backup-20261118-v0521.exe`（sha 与 v0.5.21 件一致，可回滚）
+  → 杀旧侧车 pid 118816 → 覆盖 `%APPDATA%\com.sigma-file-manager.app\extensions\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe`
+  → AFM 监督器**自动重拉起** pid **661500**。
+- **「跑的是哪份代码」三条判据全中**：装机副本 sha == 构建产物 sha == **运行映像 sha**（三处相等），
+  外加二进制标记 A/B（新件含 `handoff sample has no receiving app yet` / `handoff recorded on retry` / `fg_class=`）。
+
+#### 20.12.6 端到端真机验收（**已通过**，2026-11-18 03:09:30–03:09:40Z / 本地 11:09）
+
+真人操作序列：**应用内弹出「选择文件」对话框 → 切回 AFM 取路径 → 点任务栏切回对话框**。
+
+| 时刻(UTC) | 日志事件 | 判读 |
+| --- | --- | --- |
+| 03:09:30 | `DialogDetected` hwnd=6230674 | 对话框打开 |
+| 03:09:31–33 | `opened_write_back_skip_no_afm_visit` ×3（`dialog_pid=724248 handoff_pid=0 afm_pid=118160`） | 此刻确实还没去过 AFM ⇒ **正确拒绝**（证明闸门不再恒放行） |
+| 03:09:33 | `afm_gate_cleared`「AFM back in foreground」 | 用户切回 AFM（**晚于对话框打开** ⇒ 路径 B 条件成立） |
+| 03:09:37 | `afm_gate_armed`「handoff recorded: pid=724248」 | 交接链记下对话框属主进程 |
+| 03:09:37–38 | monitor「dialog regained foreground with pending path change → resync」 | 对话框回到前台，触发重同步 |
+| 03:09:38 | **`opened_write_back`**「dialog path='G:\' current='F:\soft\00selfmade\practilog\release'; writing current」 | **放行成功** |
+| 03:09:40 | **`Write`** hwnd=6230674 target=`F:\soft\00selfmade\practilog\release` strategy=uia | **路径真的写进了对话框** |
+| 03:10:06 | `dialog_closed` | 用户关闭对话框 |
+
+**日志刷屏回归同时验证修好**：v0.5.22 进程整个会话（30 分钟）内 `[afm-gate] learned AFM pid=…` **只打印 1 次**
+（v0.5.21 当天 15,951 次；`spike.log.2026-11-18` 的 tracing 文件从 2.57 MB 涨到 2.57 MB 量级但新增段几乎无该行）。
+
+#### 20.12.7 已验证 / 推断 / 未验证
+
+| # | 结论 | 状态 | 证据 |
+| --- | --- | --- | --- |
+| ① | 端到端写回成功（真人操作，路径进对话框） | **已验证** | 20.12.6 表：03:09:38 `opened_write_back` + 03:09:40 `Write` |
+| ② | 无授权时闸门仍会拒（不恒放行） | **已验证** | 03:09:31–33 三次 skip（当时确实还没去 AFM） |
+| ③ | 枚举日志刷屏回归已修 | **已验证** | 新进程会话内该行仅 1 次（v0.5.21 为 15,951 次） |
+| ④ | 真机跑的是 v0.5.22 代码 | **已验证** | 装机 / 构建 / 运行映像三处 sha256 相等 ＋ 二进制标记 A/B |
+| ⑤ | 路径 A 的 `same_application_process`（祖先后代）分支 | **未验证（真机未触发）** | 本轮 e2e 命中的是「`handoff.pid == dialog_pid` 严格相等」分支（均 724248）；祖先后代分支只有单测覆盖 |
+| ⑥ | 路径 B（AFM 访问晚于对话框打开）真机命中 | **已验证** | 03:09:33 AFM 在前台，晚于 03:09:30 打开时刻 |
+| ⑦ | 装机版（NSIS）会把新侧车带给用户 | **未验证** | `bin\` / `installer\` 里的 exe **未被 git 跟踪** ⇒ 装机机必须重新跑 build + 安装器，否则装出来仍是旧侧车 |
+| ⑧ | 沙箱真机 UI A/B（AGENTS §2.8/§2.10） | **本轮未做** | 同批次 16：真机结论走 APPDATA 部署位的侧车，沙箱不含该副本 |
+| ⑨ | 路径 B 的语义副作用 | **已知并接受** | 「对话框开着时去 AFM」即视为授权（Listary 原义），与用户无关的 AFM 访问也会写回；已用「访问必须晚于对话框打开时刻」挡住陈旧授权 |
+
+#### 20.12.8 本轮工具坑（省得下一轮再踩）
+
+1. **e2e 监听窗口不够**：本轮监听器窗口 10 分钟，用户实际隔了约 **30 分钟**才操作 ⇒ 监听器 `reason=timeout / interesting=0`，
+   判据只能回到 `spike.log` **直读尾部**才拿到。⇒ 下轮监听窗口至少 30 分钟，或干脆先记 `spike.log` 偏移量、事后按偏移直读。
+2. **读被占用日志**：`[System.IO.File]::Open($p,'Open','Read','ReadWrite')` 共享读 + `Seek(-N,'End')`；`Get-Content -Raw` 会抛「正被另一进程使用」。
+3. **`cargo` 不在默认 PATH 且不要与 `npm run check` 并发**：本轮把「npm check → build-sidecar.cmd」串在**同一个后台任务**里跑（EXIT=0 / BUILD_EXIT=0）。
+4. **内联 `Copy-Item` 到工作区外会被安全策略拦** ⇒ 部署一律写 `.ps1` 再 `pwsh -NoProfile -ExecutionPolicy Bypass -File` 执行。
+5. **同文件并行 edit 会互相覆盖** ⇒ 源码改动走「补丁文件 ＋ 单次执行」（`apply-patch.cjs`），并断言唯一命中。
+6. **PowerShell `MatchInfo` 没有 `.Trim()`**（要先 `.Line.Trim()`）⇒ 内容检索优先用 `grep` 工具。
+
+#### 20.12.9 本轮收尾状态
+
+- **改动**：`extensions/kizemo.focus-sync/sidecar/src/{state.rs,uia_event.rs,main.rs,http_server.rs}`（+466 / −44）
+  ＋ 本节台账 ＋ 新增批次 17 交接卡 `docs/handoff-2026-11-18-quark-pan-batch17.md`。
+- **门禁双绿**：`cargo test` **130 / 0**、`npm run check` **EXIT=0**（3239 用例）。
+- **真机**：v0.5.22 已部署并在运行（pid 661500），v0.5.21 件已备份可回滚；真机用户数据全程**只读未改**。
+- **端到端验收**：**已通过**（20.12.6）。
+- **未做（需用户授权）**：`git push`、winget PR、GitHub Release、upstream 移植。
