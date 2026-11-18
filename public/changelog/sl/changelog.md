@@ -1,6 +1,20 @@
 # Dnevnik sprememb
 
 
+## [3.14.1] - November 2026
+
+**Povzetek:** Focus Sync lahko znova postavi mapo, ki jo gledate, v pogovorna okna »Odpri« in »Shrani kot« drugih programov, namestitvena datoteka pa zdaj vsebuje pomožnika, ki pripada tej izdaji, namesto starega.
+
+### What changed
+
+**Popravljeno: Focus Sync znova izpolnjuje pogovorna okna za odpiranje in shranjevanje v drugih programih.** Preverjanje, ki je odločalo, ali je mogoče mapo predati drugemu programu, je postalo preveč strogo, zato je bil vsak poskus zavrnjen in mapa, ki ste jo gledali, nikoli ni dosegla pogovornega okna. Mape, ki res obstajajo na disku, so znova dovoljene, mapa pa se predane takoj, ko vstopite vanjo, zato se naslednje pogovorno okno za odpiranje ali shranjevanje začne že na pravem mestu.
+
+**Popravljeno: Focus Sync več ne polni dnevnika z isto vrstico neprestano.** Pomožnik je na svoje lastno preverjanje stanja odgovarjal tako, da je vsakič, ko so ga vprašali, v dnevnik zapisal novo vrstico, zato je dnevnik sam rasel in potisnil pomembna sporočila iz pogleda. Preverjanje stanja je zdaj tiho, zapisujejo se le resnični dogodki.
+
+**Popravljeno: namestitvena datoteka vsebuje zdaj veljavnega pomožnika namesto starega.** Namestitveni program je še vedno priložil pomožnika iz starejše gradnje, zato je namestitev na računalnik vrnila prejšnje vedenje. Namestitvena datoteka zdaj vsebuje pomožnika, ki pripada tej izdaji, namestitveni program pa z njim nadomesti kopijo v vaši mapi uporabniških podatkov.
+
+**Popravljeno: Focus Sync ohranja svojo diagnostiko berljivo in ne predaja več map, ki niso na disku.** Preverjanje stanja se je izvajalo vsak petnajst sekund in potisnilo dnevnik na stran, zato so vnosi, ki ste jih potrebovali, izginili iz pogleda. Preverjanje stanja se zdaj ne sodeluje več pri diagnostiki, mape, ki obstajajo samo na navideznem mestu — na primer povezava do mrežnega diska — pa se ne predajo več pomožniku kot navadne mape.
+
 ## [3.14.0] - November 2026
 
 **Povzetek:** Zdaj lahko poleg Baidu Netdisk priključite tudi Quark Netdisk - dodajte ga na zavihku mrežnega diska v *Nastavitvah* pod *Oddaljeni dostop*, se enkrat prijavite v oknu znotraj aplikacije ter brskate, prenašate in kopirate povsem enako kot pri Baidu Netdisk.

@@ -1,6 +1,20 @@
 # Registro delle modifiche
 
 
+## [3.14.1] - November 2026
+
+**Riepilogo:** Focus Sync può di nuovo portare la cartella che stai visualizzando nelle finestre di dialogo «Apri» e «Salva come» di altri programmi, e il file di installazione ora contiene l'helper che appartiene a questa release invece di uno vecchio.
+
+### What changed
+
+**Corretto: Focus Sync riempie di nuovo le finestre di apertura e salvataggio degli altri programmi.** Il controllo che decide se una cartella può essere passata a un altro programma era diventato troppo severo, così ogni tentativo veniva respinto e la cartella che stavi visualizzando non raggiungeva mai la finestra. Le cartelle che esistono davvero sul disco passano di nuovo, e la cartella viene passata non appena vi entri, così la prossima finestra di apertura o salvataggio parte già dal posto giusto.
+
+**Corretto: Focus Sync non riempie più il registro con la stessa riga all'infinito.** L'helper rispondeva al proprio controllo di salute scrivendo una nuova riga nel registro ogni volta che veniva interrogato, il che faceva crescere il registro da solo e spingeva fuori vista i messaggi che contano. Ora il controllo di salute resta in silenzio e vengono registrati solo gli eventi reali.
+
+**Corretto: il file di installazione ora contiene l'helper attuale invece di uno vecchio.** L'installer continuava a distribuire l'helper di una build precedente, così installarlo riportava sulla macchina il comportamento precedente. Il file di installazione ora contiene l'helper che appartiene a questa release, e l'installer sostituisce con esso la copia presente nella cartella dei dati utente.
+
+**Corretto: Focus Sync mantiene leggibili i suoi diagnostici e smette di passare cartelle che non sono su disco.** Il controllo di salute veniva eseguito ogni quindici secondi e spingeva il registro da parte, così le voci di cui avevi bisogno finivano fuori vista. Ora il controllo di salute non fa più parte dei diagnostici, e le cartelle che esistono solo in un luogo virtuale - una connessione a disco di rete, per esempio - non vengono più passate all'helper come se fossero cartelle ordinarie.
+
 ## [3.14.0] - November 2026
 
 **Riepilogo:** Ora puoi collegare Quark Netdisk accanto a Baidu Netdisk: aggiungilo dalla scheda dei dischi di rete in *Impostazioni* sotto *Remoto*, accedi una volta nella finestra integrata ed esplora, scarica e copia esattamente come con Baidu Netdisk.

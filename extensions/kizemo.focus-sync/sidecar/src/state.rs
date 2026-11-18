@@ -696,6 +696,24 @@ impl AppState {
         set.remove(&hwnd);
     }
 
+    /// v0.5.23 — 归还「这一次尝试」占用的 commit 槽。
+    ///
+    /// `try_mark_committed` 是**先占槽、后写入**（写入要花 ~300ms，占着槽
+    /// 才能挡住第二个推送再占一次）。但如果这次写入**失败**，这个单次
+    /// 防双击槽就被白白烧掉了：同一个 hwnd 之后再也不会拿到
+    /// `should_commit == true` ⇒ Auto-Confirm 永远不再触发 —— 闩变成了
+    /// 永久闩。失败时必须把槽还回去。
+    ///
+    /// 与 [`clear_committed`] 的区别：`clear_committed` 的语义是「这个
+    /// 对话框关了」（DialogEvent::Closed）⇒ 下一个对话框可以提交；
+    /// `unmark_committed` 的语义是「**这次**提交失败了」⇒ 同一次对话框
+    /// 还可以再提交一次。两者对集合的作用相同（remove），但调用时机与
+    /// 含义不同，分开命名才不会把「失败重试」和「弹窗关闭」混成一谈。
+    pub fn unmark_committed(&self, hwnd: u32) {
+        let mut set = self.committed_hwnds.lock().unwrap_or_else(|e| e.into_inner());
+        set.remove(&hwnd);
+    }
+
     /// v0.5.21 — 存入「AFM 此刻指向的路径」。
     ///
     /// **形状守卫**：不是本地路径形状（`\locations`、`sfm://...`、空串……）
@@ -722,6 +740,28 @@ impl AppState {
         // callers skip the explicit mark_first_push_received() call.
         // Idempotent: store(true) on an already-true flag is a no-op.
         self.first_push_received.store(true, Ordering::SeqCst);
+    }
+
+    /// v0.5.24 — **显式清空**「AFM 此刻指向的路径」。
+    ///
+    /// 语义：AFM 此刻**不在任何本地目录**（虚拟位置 / 网盘远程目录）。
+    /// 扩展会显式发这个信号（`POST /set_path`，`path` 为空串）。
+    ///
+    /// 为什么必须显式清（扩展 v0.6.1 改动的直接后果）：
+    /// 扩展从 v0.6.1 起**不再把虚拟路径推给侧车**（推了也写不进去 —— 侧车的
+    /// 形状闸门只会挡下它，还白费一次 HTTP 往返）。副作用是侧车**收不到任何
+    /// 信号** ⇒ `current_path` 一直留着上一次的本地路径 L1 ⇒ 用户在网盘/虚拟
+    /// 位置打开「另存为」时，L1 被写进别人的对话框（旧行为是「什么都不写」）。
+    ///
+    /// 与 [`set_current_path`] 的区别：
+    ///   * `set_current_path` 会顺带 `first_push_received = true`（防哨兵）；
+    ///   * `clear_current_path` **不动** `first_push_received` —— 「扩展曾经推过
+    ///     路径」是历史事实，不该被一次清空抹掉；真正决定「能不能写」的是
+    ///     `current_path` 的形状闸门（空串 ⇒ `is_writable_local_path` 为 false
+    ///     ⇒ Opened 写回落到 `opened_write_back_skip_non_local_path` 分支）。
+    pub fn clear_current_path(&self) {
+        let mut guard = self.current_path.lock().unwrap_or_else(|e| e.into_inner());
+        *guard = String::new();
     }
 
     /// v0.5.5: idempotent mark of first push. Called from http_server
@@ -1401,6 +1441,45 @@ mod tests {
         assert_eq!(state.get_current_path(), "D:\\new");
     }
 
+    /// v0.5.24 — 清空语义：只清 `current_path`，**不动** `first_push_received`。
+    ///
+    /// 为什么不动 flag：「扩展曾经推过路径」是历史事实；一次清空把它抹掉会让
+    /// 侧车重启后的补推判据（`first_push_received == false`）被误触发。
+    #[test]
+    fn clear_current_path_empties_path_but_keeps_first_push_flag() {
+        let state = AppState::new("C:\\".into(), 1);
+        state.set_current_path("D:\\stale".into());
+        assert!(state.has_first_push_received());
+        state.clear_current_path();
+        assert_eq!(state.get_current_path(), "");
+        assert!(
+            state.has_first_push_received(),
+            "清空不是一次「推送」，历史事实不该被抹掉"
+        );
+    }
+
+    /// v0.5.24 — 清空之后，形状闸门必须让写回通道**拒绝**写入。
+    ///
+    /// 这条是 R1 回归的判别点：清空前 `current_path` = 陈旧的本地路径 L1 ⇒
+    /// `is_writable_local_path(L1)` 为 true ⇒ L1 会被写进别人的「另存为」。
+    ///
+    /// 注意：`is_writable_local_path` 要求目录**真实存在**
+    /// （`Path::is_dir()`），所以这里用盘符根 `C:\`，不能用编造的 `D:\stale`。
+    #[test]
+    fn cleared_current_path_is_not_writable() {
+        let state = AppState::new("C:\\".into(), 1);
+        state.set_current_path("C:\\".into());
+        assert!(
+            crate::state::is_writable_local_path(&state.get_current_path()),
+            "前提：盘符根是真实存在、可写的本地目录"
+        );
+        state.clear_current_path();
+        assert!(
+            !crate::state::is_writable_local_path(&state.get_current_path()),
+            "清空后必须写不进任何对话框"
+        );
+    }
+
     #[test]
     fn health_snapshot_initial() {
         let state = AppState::new("C:\\".into(), 2);
@@ -1477,6 +1556,25 @@ mod tests {
         assert!(!state.try_mark_committed(12345));
         state.clear_committed(12345);
         assert!(state.try_mark_committed(12345)); // reset -> can commit again
+    }
+
+    /// v0.5.23 — 失败的提交必须把槽还回来。
+    ///
+    /// `try_mark_committed` 是先占槽、后写入；写入失败后槽若留着，这个
+    /// 对话框就再也不能提交了（focus-18 的单次防双击闩变成永久闩 ⇒
+    /// Auto-Confirm 永久失效）。`unmark_committed` 就是失败路径上的归还
+    /// 动作：归还之后，同一个 hwnd 的下一次提交仍然被允许。
+    #[test]
+    fn unmark_committed_releases_the_slot_so_a_later_commit_is_allowed() {
+        let state = AppState::new("C:\\".into(), 1);
+        assert!(state.try_mark_committed(12345));
+        assert!(!state.try_mark_committed(12345));
+        // 这次提交失败了 ⇒ 把槽还回去。
+        state.unmark_committed(12345);
+        assert!(
+            state.try_mark_committed(12345),
+            "失败的提交不得烧掉槽：同一个 hwnd 必须还能再提交一次"
+        );
     }
 
     // focus-19 (2026-10-02): unsupported_dialog_count is monotonic and

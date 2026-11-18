@@ -127,7 +127,7 @@ pub fn write_path(state: &crate::state::AppState, hwnd_isize: isize, target: &st
             crate::uia_inject::inject_folder_path(state, hwnd_u32, target, should_commit)
         });
 
-    let outcome = match dialog_outcome {
+    let mut outcome = match dialog_outcome {
         crate::uia_inject::DialogOutcome::ComSetFolder => WriteOutcome::UiaSetValue,
         crate::uia_inject::DialogOutcome::AddressBarWritten => WriteOutcome::UiaSetValue,
         crate::uia_inject::DialogOutcome::Unsupported => {
@@ -183,9 +183,28 @@ pub fn write_path(state: &crate::state::AppState, hwnd_isize: isize, target: &st
                 "v0.5.17: write-back was NOT confirmed — the dialog's current \
                  directory is not '{target}'; keeping the dialog retryable"
             );
-            return WriteOutcome::Failed("write_not_verified".into());
+            outcome = WriteOutcome::Failed("write_not_verified".into());
         }
     }
+
+    // v0.5.23 — 写失败必须把 commit 槽还回去。
+    //
+    // `try_mark_committed` 是**先占槽、后写入**（见上面：写入要 ~300ms，
+    // 占着槽才能挡住第二个推送再占一次）。但写入失败时（弹窗没了 / 类型
+    // 不支持 / 回读校验不通过），这个单次防双击槽如果留着，同一个对话框
+    // 就再也不会拿到 `should_commit == true` ⇒ Auto-Confirm 永久失效 ——
+    // 一次失败把整个对话框的提交资格烧掉了。
+    //
+    // 只有**本次真的占到了槽**（should_commit == true）才归还：否则会抹掉
+    // 上一次成功提交留下的记录，让同一个对话框有机会提交两次。
+    if !write_succeeded(&outcome) && should_commit {
+        state.unmark_committed(hwnd_u32);
+        tracing::info!(
+            "v0.5.23 write_path: write failed ({outcome:?}) => released the commit \
+             slot of hwnd={hwnd_u32} so a later attempt may commit again"
+        );
+    }
+
     outcome
 }
 
@@ -219,6 +238,36 @@ mod tests {
         assert!(
             state.committed_hwnds.lock().unwrap().is_empty(),
             "hwnd=0 must not consume a commit slot regardless of auto_confirm"
+        );
+    }
+
+    /// v0.5.23 — 失败的写入必须把 commit 槽还回去。
+    ///
+    /// 旧行为：`try_mark_committed` **先占槽、后写入**；写入失败后槽仍然
+    /// 留着 ⇒ 同一个对话框再也不会拿到 `should_commit == true` ⇒
+    /// Auto-Confirm 永久失效（focus-18 的单次防双击闩变成了永久闩）。
+    /// 一次失败不该烧掉整个对话框的提交资格。
+    #[test]
+    fn failed_write_releases_the_commit_slot_for_the_same_hwnd() {
+        let state = AppState::new("C:\\".into(), 1);
+        // 扩展已盖章 ⇒ 过了 v0.5.8 的 stale-path 闸门，写入会真的往下走。
+        state.mark_extension_ping();
+        // 不是一个窗口句柄 ⇒ 注入必然失败（dialog_gone）。
+        const HWND: u32 = 0x7fff_fffe;
+
+        let outcome = write_path(&state, HWND as isize, "C:\\downloads", true);
+        assert!(
+            matches!(&outcome, WriteOutcome::Failed(_)),
+            "precondition: 写入一个不存在的窗口必然失败, got {outcome:?}"
+        );
+        assert!(
+            !state.committed_hwnds.lock().unwrap().contains(&HWND),
+            "失败的写入不得留下 commit 槽"
+        );
+        // 槽还回来了 ⇒ 同一个 hwnd 的下一次提交仍然被允许。
+        assert!(
+            state.try_mark_committed(HWND),
+            "失败之后同一个 hwnd 必须还能再次 commit"
         );
     }
 

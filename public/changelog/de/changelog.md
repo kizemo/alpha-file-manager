@@ -1,6 +1,20 @@
 # Änderungsprotokoll
 
 
+## [3.14.1] - November 2026
+
+**Zusammenfassung:** Focus Sync kann den Ordner, den Sie gerade ansehen, wieder in die Dialoge zum Öffnen und Speichern anderer Programme setzen, und die Setup-Datei enthält jetzt den Helfer, der zu dieser Version gehört, statt eines älteren.
+
+### What changed
+
+**Behoben: Focus Sync füllt die Dialoge zum Öffnen und Speichern anderer Programme wieder.** Die Prüfung, die entscheidet, ob ein Ordner an ein anderes Programm übergeben werden darf, war zu streng geworden: jeder Versuch wurde abgelehnt, und der Ordner, den Sie ansehen, erreichte den Dialog nie. Ordner, die wirklich auf der Festplatte liegen, werden wieder durchgelassen, und der Ordner wird übergeben, sobald Sie ihn betreten - das nächste Dialogfenster zum Öffnen oder Speichern startet also schon an der richtigen Stelle.
+
+**Behoben: Focus Sync füllt das Protokoll nicht mehr immer wieder mit derselben Zeile.** Der Helfer beantwortete seine eigene Zustandsprüfung, indem er jedes Mal, wenn er gefragt wurde, eine neue Zeile ins Protokoll schrieb; dadurch wuchs das Protokoll von selbst und schob die wichtigen Meldungen aus dem Blick. Die Zustandsprüfung bleibt jetzt still, und nur echte Ereignisse werden protokolliert.
+
+**Behoben: Die Setup-Datei enthält jetzt den aktuellen Helfer statt eines alten.** Der Installer lieferte weiterhin den Helfer eines früheren Builds, sodass die Installation das frühere Verhalten wieder auf den Rechner brachte. Die Setup-Datei enthält jetzt den Helfer, der zu dieser Version gehört, und der Installer ersetzt damit die Kopie in Ihrem Benutzerdatenordner.
+
+**Behoben: Focus Sync hält seine Diagnosedaten lesbar und übergibt keine Ordner mehr, die nicht auf der Festplatte liegen.** Die Zustandsprüfung lief alle fünfzehn Sekunden und schob das Protokoll beiseite, sodass die Einträge, die Sie brauchten, aus dem Blick gerieten. Die Zustandsprüfung nimmt jetzt nicht mehr an den Diagnosedaten teil, und Ordner, die es nur an einem virtuellen Ort gibt - etwa eine Verbindung zu einem Netzlaufwerk -, werden dem Helfer nicht mehr wie gewöhnliche Ordner übergeben.
+
 ## [3.14.0] - November 2026
 
 **Zusammenfassung:** Das Quark-Cloud kann jetzt neben dem Baidu-Cloud verbunden werden - im Reiter *Netzlaufwerk* unter *Einstellungen* → *Remote* hinzufügen, einmal im eingeblendeten Fenster anmelden und browsen, laden herunter und kopieren wie beim Baidu-Cloud.

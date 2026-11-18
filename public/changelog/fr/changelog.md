@@ -1,6 +1,20 @@
 # Journal des modifications
 
 
+## [3.14.1] - November 2026
+
+**Résumé :** Focus Sync peut de nouveau placer le dossier que vous consultez dans les boîtes de dialogue « Ouvrir » et « Enregistrer sous » des autres programmes, et le fichier d'installation embarque désormais l'assistant qui correspond à cette version au lieu d'un ancien.
+
+### What changed
+
+**Corrigé : Focus Sync remplit de nouveau les boîtes de dialogue d'ouverture et d'enregistrement des autres programmes.** La vérification qui décide si un dossier peut être transmis à un autre programme était devenue trop stricte : toute tentative était refusée et le dossier que vous consultiez n'atteignait jamais la boîte de dialogue. Les dossiers qui existent réellement sur le disque passent à nouveau, et le dossier est transmis dès que vous y entrez, si bien que la prochaine boîte de dialogue d'ouverture ou d'enregistrement démarre déjà au bon endroit.
+
+**Corrigé : Focus Sync ne remplit plus le journal avec la même ligne sans fin.** L'assistant répondait à son propre contrôle de santé en écrivant une nouvelle ligne dans le journal chaque fois qu'on le sollicitait, ce qui faisait grossir le journal tout seul et repoussait hors de vue les messages qui comptent. Le contrôle de santé reste désormais silencieux, et seuls les événements réels sont consignés.
+
+**Corrigé : le fichier d'installation embarque maintenant l'assistant actuel au lieu d'un ancien.** L'installateur fournissait encore l'assistant d'une compilation antérieure, si bien que l'installation remettait sur la machine le comportement précédent. Le fichier d'installation contient désormais l'assistant qui correspond à cette version, et l'installateur remplace la copie présente dans votre dossier de données utilisateur.
+
+**Corrigé : Focus Sync garde ses diagnostics lisibles et cesse de transmettre des dossiers qui ne sont pas sur le disque.** Le contrôle de santé s'exécutait toutes les quinze secondes et repoussait le journal sur le côté, si bien que les entrées dont vous aviez besoin sortaient du champ de vision. Le contrôle de santé ne participe plus aux diagnostics, et les dossiers qui n'existent que dans un endroit virtuel - une connexion de disque réseau, par exemple - ne sont plus transmis à l'assistant comme s'il s'agissait de dossiers ordinaires.
+
 ## [3.14.0] - November 2026
 
 **Résumé :** Quark Netdisk peut maintenant être connecté à côté de Baidu Netdisk : ajoutez-le depuis l’onglet des disques réseau dans *Paramètres* sous *Distant*, connectez-vous une fois dans la fenêtre intégrée, puis parcourez, téléchargez et copiez exactement comme avec Baidu Netdisk.
