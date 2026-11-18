@@ -420,7 +420,8 @@ fn handle_set_path(
             continue;
         }
         let dialog_pid = crate::uia_event::window_pid_isize(d.hwnd as isize);
-        if !state.afm_handoff_allows(dialog_pid) {
+        // v0.5.22 — 与 Opened 写回走同一个闸门（两条独立放行路径）。
+        if !state.afm_gate_allows(d.hwnd as u32, dialog_pid) {
             log_event(&Event::SpikeError {
                 kind: "set_path_skip_no_handoff".into(),
                 message: format!(

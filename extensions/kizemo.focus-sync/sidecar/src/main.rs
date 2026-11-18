@@ -306,6 +306,11 @@ async fn main() -> Result<()> {
                 match dialog_event {
                     uia_event::DialogEvent::Opened(info) => {
                         let hwnd_u32 = info.hwnd as u32;
+                        // v0.5.22 — 记录这个对话框**首次被观察到**的时刻。
+                        // 闸门路径 B（「对话框开着的时候用户去过 AFM」）靠它判定：
+                        // AFM 的访问时刻必须**晚于**对话框打开时刻，否则就是
+                        // 「陈旧访问授权后来弹出的对话框」（真机 2026-11-09 事故）。
+                        state.mark_dialog_opened(hwnd_u32);
                         let class = classify_app(info.hwnd);
                         log_event(&Event::DialogDetected {
                             hwnd: hwnd_u32,
@@ -405,7 +410,9 @@ async fn main() -> Result<()> {
                         // 的访问照样能授权后来弹出的对话框（真机 2026-11-09：
                         // 11:09 停在百度网盘，11:31 在 practilog 被写进伪路径）。
                         let dialog_pid = spike::uia_event::window_pid_isize(hwnd_u32 as isize);
-                        let gate_open = state.afm_handoff_allows(dialog_pid);
+                        // v0.5.22 — 闸门扩成两条独立路径（A 交接链身份 /
+                        // B 对话框开着时用户去过 AFM），见 `afm_gate_allows`。
+                        let gate_open = state.afm_gate_allows(hwnd_u32, dialog_pid);
                         // v0.5.19 — 路径合法性：只有**真实存在的本地目录**才允许
                         // 写进别人的对话框。AFM 停在百度网盘远程目录时推来的是
                         // 虚拟路径，写进去只会换来对方的「找不到该文件」错误框，

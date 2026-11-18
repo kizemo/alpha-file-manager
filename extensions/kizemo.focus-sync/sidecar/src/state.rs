@@ -152,6 +152,25 @@ pub struct AppState {
     //
     // 0 = 还没学到（侧车刚起来、还没枚举到 AFM 窗口）。
     pub afm_pid: AtomicU32,
+
+    // ---- v0.5.22: 闸门路径 B 的时间戳 + 交接链续期所需的状态 ----
+    //
+    // v0.5.21 把闸门完全建立在「pid 相等」上，真机 2026-11-18 证伪：
+    //   * 接收方 = `UGREEN NAS.exe`(15204)，文件对话框属主 = 619924
+    //     （该应用派生的对话框宿主进程）⇒ 精确 pid 相等误拒合法写回；
+    //   * 用户切回对话框时先点**任务栏** ⇒ 采样落在 `explorer.exe`(13080)
+    //     ⇒ 把 shell 记成了「接收方应用」；
+    //   * 用户在接收应用里停留两小时 ⇒ 120 秒 TTL 早过期。
+    //
+    // v0.5.22 用两条**独立**的放行路径覆盖这两种真实流程（见 `afm_gate_allows`）：
+    //   A. 交接链身份：对话框属主 == 从 AFM 切进来的那个应用（含 helper 子进程）；
+    //   B. 「对话框开着的时候用户去过 AFM」——Listary 原义：
+    //      去 AFM 拿路径 → 切回对话框 → 路径自动填上。
+    //
+    /// v0.5.22 — 用户最近一次在 AFM 前台的时刻（Unix 毫秒，0 = 从没有）。
+    pub last_afm_foreground_ts: AtomicU64,
+    /// v0.5.22 — 每个对话框**首次被观察到**的时刻（Unix 毫秒）。
+    pub dialog_opened_ts: Mutex<HashMap<u32, u64>>,
 }
 
 /// v0.5.7 G-2 — RAII guard so a write-back cannot be left stuck "in
@@ -279,6 +298,100 @@ pub fn now_unix_millis() -> u64 {
         .unwrap_or(0)
 }
 
+// ---- v0.5.22 判别性测试 ----
+//
+// 覆盖真机 2026-11-18 暴露的三类误拒：
+//   ① 对话框属主是接收应用派生的 helper 进程（pid 不等但同一应用）；
+//   ② 「对话框开着时用户去过 AFM」（路径 B）应放行；
+//   ③ 陈旧的 AFM 访问不得授权后来才弹出的对话框（2026-11-09 事故形态）。
+#[cfg(test)]
+mod v522_gate_paths_tests {
+    use super::{now_unix_millis, AppState};
+
+    #[test]
+    fn a_helper_child_of_the_receiving_app_counts_as_the_same_application() {
+        // 真机形态：接收方 15204（UGREEN NAS.exe），弹窗属主 619924（它的
+        // 对话框宿主子进程）。
+        let parents: std::collections::HashMap<u32, u32> =
+            [(619_924u32, 152_04u32)].into_iter().collect();
+        assert!(
+            crate::uia_event::same_application_in(15204, 619_924, |pid| {
+                parents.get(&pid).copied()
+            }),
+            "接收应用的 helper 子进程必须算同一个应用"
+        );
+        assert!(
+            !crate::uia_event::same_application_in(15204, 0x7fff_fffe, |pid| {
+                parents.get(&pid).copied()
+            }),
+            "毫无关系的进程不得被当成同一个应用"
+        );
+    }
+
+    #[test]
+    fn a_visit_to_afm_while_the_dialog_was_open_authorizes_the_sync() {
+        // 路径 B：Listary 原义 —— 去 AFM 拿路径 → 切回对话框。
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.mark_dialog_opened(777);
+        state.set_last_afm_foreground_ts(now_unix_millis());
+        assert!(
+            state.afm_gate_allows(777, 9999),
+            "对话框开着的时候用户去过 AFM ⇒ 必须放行"
+        );
+    }
+
+    #[test]
+    fn a_stale_visit_does_not_authorize_a_later_dialog() {
+        // 真机 2026-11-09 事故形态：22 分钟前的 AFM 访问不得授权后来弹出的
+        // 对话框（这里没有任何交接链 ⇒ 两条路径都不成立）。
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.mark_dialog_opened(777);
+        state.set_last_afm_foreground_ts(now_unix_millis().saturating_sub(600_000));
+        assert!(
+            !state.afm_gate_allows(777, 9999),
+            "陈旧的 AFM 访问不得授权后来弹出的对话框"
+        );
+    }
+
+    #[test]
+    fn the_gate_still_refuses_a_dialog_of_an_unrelated_app() {
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.learn_afm_pid(true, 72772);
+        state.set_afm_handoff(4242);
+        assert!(
+            state.afm_handoff_allows(4242),
+            "接收方自己的对话框必须放行"
+        );
+        assert!(
+            !state.afm_handoff_allows(0x7fff_fffe),
+            "无关应用的对话框必须拒绝"
+        );
+    }
+
+    #[test]
+    fn refresh_keeps_a_live_chain_alive_but_never_revives_a_dead_one() {
+        let state = AppState::new("E:\\Models".into(), 1);
+        state.set_afm_handoff(4242);
+        state.refresh_afm_handoff();
+        assert!(state.afm_handoff_is_fresh());
+        assert!(state.afm_handoff_allows(4242));
+
+        {
+            let mut guard = state.afm_handoff.lock().unwrap_or_else(|e| e.into_inner());
+            *guard = Some(super::AfmHandoff {
+                pid: 4242,
+                ts_ms: now_unix_millis().saturating_sub(10 * 60 * 1000),
+            });
+        }
+        state.refresh_afm_handoff();
+        assert!(
+            !state.afm_handoff_is_fresh(),
+            "过期的交接链不得被续期复活"
+        );
+        assert!(!state.afm_handoff_allows(4242));
+    }
+}
+
 impl AppState {
     pub fn new(initial_path: String, session_id: u32) -> Self {
         Self {
@@ -299,6 +412,9 @@ impl AppState {
             afm_handoff: Mutex::new(None),
             // v0.5.21: AFM 进程身份还没学到（monitor 会用 EnumWindows 学）。
             afm_pid: AtomicU32::new(0),
+            // v0.5.22: 闸门路径 B 与交接链续期所需的时间戳。
+            last_afm_foreground_ts: AtomicU64::new(0),
+            dialog_opened_ts: Mutex::new(HashMap::new()),
         }
     }
 
@@ -326,6 +442,84 @@ impl AppState {
     pub fn clear_afm_handoff(&self) {
         let mut guard = self.afm_handoff.lock().unwrap_or_else(|e| e.into_inner());
         *guard = None;
+    }
+
+    /// v0.5.22 — 「用户仍停留在接收方应用里」⇒ 给交接链续期。
+    ///
+    /// 为什么需要续期：真机 2026-11-18 的真实流程是
+    /// 「23:58 从 AFM 切进 UGREEN NAS → 02:17 该应用弹出文件对话框」。
+    /// 中间两小时用户**一直待在那个应用里**，但交接记录停在 23:58 ⇒
+    /// 120 秒 TTL 早过期 ⇒ 合法写回被拒。
+    ///
+    /// 续期不是放宽闸门：它只延长「同一条 AFM → X 链」的有效期，且
+    /// **不会复活已过期的链**（续期前必须仍是新鲜的）⇒
+    /// 「用户去了别的应用待够久」这条链仍然会死。
+    pub fn refresh_afm_handoff(&self) {
+        let mut guard = self.afm_handoff.lock().unwrap_or_else(|e| e.into_inner());
+        let Some(handoff) = guard.as_mut() else {
+            return;
+        };
+        let now = now_unix_millis();
+        if now.saturating_sub(handoff.ts_ms) > Self::afm_handoff_ttl_ms() {
+            // 已经过期的链不许复活。
+            return;
+        }
+        handoff.ts_ms = now;
+    }
+
+    /// v0.5.22 — 记录「用户最近一次在 AFM 前台」的时刻。
+    pub fn set_last_afm_foreground_ts(&self, ts_ms: u64) {
+        self.last_afm_foreground_ts.store(ts_ms, Ordering::Relaxed);
+    }
+
+    /// v0.5.22 — 「用户最近一次在 AFM 前台」的时刻（0 = 从没有）。
+    pub fn last_afm_foreground_ts(&self) -> u64 {
+        self.last_afm_foreground_ts.load(Ordering::Relaxed)
+    }
+
+    /// v0.5.22 — 记录对话框**首次被观察到**的时刻（返回 true = 首次）。
+    ///
+    /// 「首次」很关键：monitor 对同一个对话框会反复发 `Opened`（resync 通道），
+    /// 打开时刻必须固定在**第一次**看到它的时候，否则「用户去 AFM 的时刻
+    /// 是否晚于对话框打开时刻」这条判据会随 resync 漂移。
+    pub fn mark_dialog_opened(&self, hwnd: u32) -> bool {
+        if hwnd == 0 {
+            return false;
+        }
+        let mut guard = self.dialog_opened_ts.lock().unwrap_or_else(|e| e.into_inner());
+        let existed = guard.contains_key(&hwnd);
+        guard.entry(hwnd).or_insert_with(now_unix_millis);
+        !existed
+    }
+
+    /// v0.5.22 — 对话框首次被观察到的时刻（None = 没记录过）。
+    pub fn dialog_opened_ts(&self, hwnd: u32) -> Option<u64> {
+        let guard = self.dialog_opened_ts.lock().unwrap_or_else(|e| e.into_inner());
+        guard.get(&hwnd).copied()
+    }
+
+    /// v0.5.22 — 闸门总入口：**两条独立**的放行路径。
+    ///
+    /// 路径 B（Listary 原义）：**对话框开着的时候用户去过 AFM** ⇒ 放行。
+    ///   「用户去 AFM 拿了个路径 → 切回对话框 → 路径自动填上」是本功能的核心
+    ///   场景，它不依赖任何 pid 身份 ⇒ 天然不受 helper 进程 / 任务栏采样影响。
+    ///   边界（真机 2026-11-09 事故）：AFM 的访问时刻必须**晚于**对话框的
+    ///   打开时刻 —— 否则「22 分钟前访问过 AFM」就能授权后来弹出的对话框。
+    ///
+    /// 路径 A（交接链身份）：从 AFM 切进来的那个应用（允许 helper 子进程）
+    ///   的对话框 ⇒ 放行。真机 2026-11-18：接收方 `UGREEN NAS.exe`(15204)
+    ///   派生出的对话框宿主进程(619924)必须被认成同一个应用。
+    pub fn afm_gate_allows(&self, dialog_hwnd: u32, dialog_pid: u32) -> bool {
+        if !Self::afm_gate_enabled() {
+            return true;
+        }
+        let afm_ts = self.last_afm_foreground_ts();
+        if let Some(open_ts) = self.dialog_opened_ts(dialog_hwnd) {
+            if afm_ts > 0 && afm_ts >= open_ts {
+                return true;
+            }
+        }
+        self.afm_handoff_allows(dialog_pid)
     }
 
     /// v0.5.21 — 记住 AFM 的进程 id。
@@ -413,7 +607,16 @@ impl AppState {
         if afm_pid != 0 && handoff.pid == afm_pid {
             return false;
         }
+        // v0.5.22 — 「同一个应用」判据放宽到进程亲缘关系。
+        //
+        // 真机 2026-11-18：接收方 = `UGREEN NAS.exe`(pid=15204)，而文件对话框
+        // 的属主进程 = 619924 —— 那是该应用派生出来的**对话框宿主进程**。
+        // 精确 pid 相等会把这次**合法**写回误拒（`dialog_pid=619924
+        // handoff_pid=15204`）。
+        //
+        // 判据：两者相同，或其中一个是另一个的祖先/后代进程 ⇒ 同一个应用。
         handoff.pid == dialog_pid
+            || crate::uia_event::same_application_process(handoff.pid, dialog_pid)
     }
 
     /// v0.5.19 — 交接授权的有效期（毫秒）。
