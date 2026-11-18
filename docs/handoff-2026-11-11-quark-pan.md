@@ -1711,3 +1711,176 @@ NEG_EXIT=5
 - **真机**：v0.5.22 已部署并在运行（pid 661500），v0.5.21 件已备份可回滚；真机用户数据全程**只读未改**。
 - **端到端验收**：**已通过**（20.12.6）。
 - **未做（需用户授权）**：`git push`、winget PR、GitHub Release、upstream 移植。
+
+---
+
+### 20.13 批次 18：focus sync 空路径契约（R1）＋ §20.11.7 四个次生缺陷修复 ＋ 版本 3.14.1 ＋ 装机链判别性实验（2026-11-18）
+
+> 批次 17（§20.12）把「闸门恒拒」和「日志刷屏」修掉并完成端到端真机验收。本批次处理**批次 17 留下的 5 项遗留**：
+> ① push 未做（**本批次已完成并核验**）；② 装机链未验证（未验证项⑦）；③ 路径 A 祖先后代分支真机未覆盖（**仍登记未验证，本轮不安排**）；
+> ④ §20.11.7 登记的 4 个次生缺陷；⑤ 版本号与全套发版材料。
+
+#### 20.13.1 R1 根因与定稿路线
+
+**现象**：扩展停在**虚拟位置**（收藏/最近/「此电脑」这类非真实目录）时仍会把虚拟路径推给侧车；
+侧车 `/set_path` 对**空路径**走 400 `path is empty` 错误分支，并且会**同步阻塞约 400 ms**（等对话框探测预算）；
+扩展却按旧契约把这次 400 当成 `ok:true` ⇒ 「路径已送达」是**假阳性**。
+
+**关键安全事实**（决定了「清空」而不是「推占位路径」）：侧车写回闸门要求 `is_writable_local_path(&current)`；
+`current` 为空 ⇒ `path_ok = false` ⇒ 落 `opened_write_back_skip_non_local_path` 分支，**一个字节都不写**（`main.rs:420` 附近）。
+⇒ 空路径不会造成误写，清理它没有数据风险。
+
+**定稿路线（明确不用「推虚拟路径」回退）**：**空路径 = 显式清空侧车记忆路径**。
+
+1. 侧车新增 `AppState::clear_current_path()`：**只清 `current_path`，不动 `first_push_received`**
+   （「扩展曾推过路径」是历史事实；清掉会让侧车重启补推判据被误触发）。
+2. `/set_path` 空路径：**不再走 400 错误分支、不再等 400 ms 对话框探测** ⇒ 立即记 `set_path_cleared` 事件并回 **200 `{"ok":true}`**。
+   这个 200 是**与扩展的显式握手**，语义是「侧车已忘掉上一个真实目录」，不是「已写进对话框」。
+3. 扩展新增 `sendClearToSidecar()`（POST `/set_path`，body `{"path":""}`）；`pushNow()` 遇非本地路径时**主动清空**侧车记忆路径，
+   并返回结果对象 `{ok, status, reason, wrote}`，让调用方能区分「送达」与「写入」。
+4. toast 诚实化：200 ⇒「Path sent to the helper…」；404 ⇒「no open Save As dialog … nothing was written yet」；
+   disabled / error 各自提示。依据仍是上面那条：**侧车 200 ≠ 已写进对话框**（对非前台弹窗只登记不写）。
+
+#### 20.13.2 §20.11.7 登记的 4 个次生缺陷：本批次的修法
+
+| # | 缺陷 | 位置 | 修法 |
+| --- | --- | --- | --- |
+| A | commit 槽泄漏：写失败后单次防双击槽不归还 ⇒ 一次失败永久烧掉该对话框的提交资格 | `sidecar/src/writer.rs` | v0.5.23：`try_mark_committed` 是**先占槽后写入**（写入约 300 ms，占着槽才挡得住第二个推送）；写入失败时**仅当本次确实占到了槽**才 `unmark_committed` 归还（否则会抹掉上一次成功提交，让同一对话框能提交两次） |
+| B | `/set_path` 空路径 400 ms 阻塞 + 假 `ok:true` | `sidecar/src/http_server.rs` | 空路径改走「显式清空」分支：立即 200 + `set_path_cleared` 事件；扩展侧同步改成如实措辞（见 20.13.1 第 4 点） |
+| C | `__focus_sync_trace` 被 health 轮询刷爆 | `extensions/kizemo.focus-sync/dist/index.js` | trace 采样改成**有界替换**（`traceReplace`）；`N15.repush.after_restart` 改用 `traceReplace`，health 轮询不再新增 trace 行 |
+| D | 虚拟路径仍推送 | `extensions/kizemo.focus-sync/dist/index.js` | 非本地路径不再推虚拟路径，改为发**清空信号**（`sendClearToSidecar`），并留标记串 `non-local-path` 供装机载荷校验 |
+
+**顺带**：`http_server.rs` 的 `SPIKE_VERSION` 由 `0.6.0` bump 到 **`0.6.1`**（`/health` 版本可用于判别跑的是哪份二进制）；
+扩展版本串 `v0.5.5` → `v0.6.2`（activate 日志与 `N01.activate.start.ver`）。
+
+#### 20.13.3 判别性单测（新增 3 条，累计 138）
+
+- `state.rs :: clear_current_path_empties_path_but_keeps_first_push_flag` —— 清空后 `current_path` 空、`first_push_received` 仍在。
+- `state.rs :: cleared_current_path_is_not_writable` —— 清空后 `is_writable_local_path` 为 false ⇒ 写回闸门必然走 skip 分支。
+- `http_server.rs :: set_path_with_empty_path_clears_the_remembered_path` —— 空路径 `/set_path` 返回 200 且记忆路径被清。
+
+**第一次跑 137 passed / 1 failed**：我自写测试的前提写错了 —— `is_writable_local_path` 要求目录**真实存在**
+（`Path::is_dir()`），编造的 `D:\stale` 不存在 ⇒ 断言失败。改用盘符根 `C:\` 后复跑 **138 passed / 0 failed**（基线 135，+3）。
+日志 `.superpowers\sdd\sidecar-test-r1.log`，脚本 `.superpowers\sdd\run-sidecar-test-r1.ps1`（用 `cmd /c "... > log 2>&1"` 保证 UTF-8）。
+
+#### 20.13.4 门禁与侧车产物（本轮实测）
+
+- **Rust 门禁**：`cargo test`（1.90.0 toolchain）⇒ **138 passed / 0 failed**。
+- **侧车重建**：`scripts\release\build-sidecar.cmd` ⇒ `BUILD_OK`（自写日志 `.superpowers\sdd\build-sidecar.log`，旧日志备份为 `build-sidecar-b17.log`）
+  ⇒ 新件 **sha256 `74E5957F5328BF1AFE679F075E16C73691307AB5F6435B2C6BC537FAE7721CCF` / 2,895,360 B**（旧件 `552C85C4…735FD8` 作废）。
+- **扩展自检**：`node scripts/scan-sandbox-dynamic.cjs` ⇒ `RESULT: VALID (0 violations / 20 patterns)`（focus-sync 与 kizemo.git 两个入口）；
+  `node scripts/verify-extension-sandbox-gate.mjs` ⇒ PASS/OK；`node --check dist/index.js` ⇒ SYNTAX_OK。
+  标记串 `traceReplace` / `non-local-path` 仍在（装机载荷校验依赖）。
+- **前端全量门禁 `npm run check`**：**并发跑法（`run-p`）在本机连红 3 轮，根因不是本轮改动**（详见 20.13.8 第 1 条）。
+  把**同一批 5 个脚本**改成**串行**跑（`.superpowers\sdd\run-check-b18c.cmd`），**复跑一轮五步全绿**：
+  `ts` = **0**、`lint:check` = **0**、`test:unit:run` = **0**（**311 个测试文件 / 3241 个用例全过**）、
+  `verify-changelog` = **0**、`verify:sandbox` = **0**。
+  ⇒ 并发跑法的红项属仓库既有的**负载敏感 flake**，单文件复跑全绿、串行复跑全绿（见 20.13.8 第 1 条）。
+
+#### 20.13.5 版本 3.14.1 与发版材料
+
+- **版本 bump**：`package.json` ＋ 3 个 `Cargo.toml`（`src-tauri/Cargo.toml`、`default-file-manager-common/Cargo.toml`、`default-file-manager-launcher/Cargo.toml`）；
+  `node ./scripts/sync-version.js` ⇒ `Synced 3 Cargo manifests to 3.14.1`。
+- **发版材料**：根 `CHANGELOG.md` 3.14.1 条目（4 条 Fixed）＋ **14 个 locale changelog** ＋ `README.md`（`### What changed in 3.14.1`）
+  ＋ `README.zh-CN.md`（`### 3.14.1 改了什么`）＋ `_notes-3.14.1.md`。
+- **locale 校验**（两个互相独立的脚本都过）：`node .superpowers\sdd\check-locales-3141.mjs` ⇒ 14 行 PASS + `LOCALES_OK`；
+  `node .superpowers\sdd\verify-locale-changelog.mjs` ⇒ 14/14 PASS（每文件 +14 行、0 删除）。
+- **口径说明**：根 `CHANGELOG.md` 与 `_notes-3.14.1.md` 补了 R1 的细则（「停在虚拟位置时助手会忘掉上一个真实目录、提示如实说明」），
+  **14 个 locale 未同步这一句**（原措辞仍准确，只是少一句细节）⇒ 避免为一句细节重跑 14 语言校验。
+- **未做（需用户授权）**：GitHub Release、winget 3.14.1 清单与 PR。`docs/winget/manifests/k/kizemo/AlphaFileManager/3.14.0/` 已存在，
+  3.14.1 清单未准备；AGENTS 记录 `#467381`(3.9.1) 仍 OPEN，**同包 ID 不能并行提 PR**。
+
+#### 20.13.6 装机链判别性实验（未验证项⑦）——**本批次的核心实验**
+
+**问题**：批次 17 判定「装机版（NSIS）会把新侧车带给用户」为**未验证**（`bin\` / `installer\` 里的 exe 未被 git 跟踪 ⇒
+装机机必须重新 build + 安装，否则装出来仍是旧侧车）。
+
+**实验设计（判据必须能区分「装出来是新件」与「本来就是新件」）**：
+
+| 阶段 | 判据 |
+| --- | --- |
+| 装机前 | `%APPDATA%\com.sigma-file-manager.app\extensions\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe` = **旧件 `A8300AAB240F468A8E27BDCA0DD0E8079DAD642F60B53BA5C8ADD3C47D52E462`**（3.14.0 装机件，2,873,344 B） |
+| 装机后 | 同一路径 = **新件 `74E5957F…21CCF`**，且装机目录 `D:\Program Files\Alpha File Manager\tools\focus-sync-sidecar.exe` 同步为新件 |
+
+- **只判「安装后 APPDATA sha == 期望值」属假阳性** —— 两边本来就都应该是新件；必须再加「安装前确实是旧件」这个前置，
+  才能证明**是安装器把旧件刷新成了新件**，而不是「本来就有」。
+- 前置脚本 `.superpowers\sdd\prepare-old-sidecar.ps1`：若装机目录 `tools` 侧车 sha **不是** `A8300AAB…E462` ⇒ 直接 exit 2（前提不成立，别硬跑）。
+- 执行脚本 `.superpowers\sdd\install-afm-verify.ps1 -Setup <3.14.1 setup> -ExpectedSidecarSha256 74E5957F…21CCF`，内部 `/S /FORCE` 静默安装。
+- **安装器静默模式不会自动拉起 AFM** ⇒ 装机验证没有抢焦点风险，**文件级 sha 判定即足够**，不需要真机 UI 取证。
+
+**实验结果（本轮实测，2026-11-18 15:14–15:15）**：
+
+| 阶段 | 观察值 |
+| --- | --- |
+| 装机前 · 装机目录 `tools\focus-sync-sidecar.exe` | `A8300AAB240F468A8E27BDCA0DD0E8079DAD642F60B53BA5C8ADD3C47D52E462`（3.14.0 旧件） |
+| 装机前 · APPDATA 侧车 | `A8300AAB…E462`（由 `prepare-old-sidecar.ps1` 从批次 17 件 `0DC1B563…E8D` **回退**成旧件） |
+| 安装 | `INSTALL_EXIT 0`（`/S /FORCE`）；安装日志 `phase=PREINSTALL installerVersion=3.14.1 detectedVersion=3.14.0 installerSha256=ef5d6de0…c23` → `phase=POSTINSTALL` |
+| 装机后 · 装机目录 | `74E5957F5328BF1AFE679F075E16C73691307AB5F6435B2C6BC537FAE7721CCF`（新件） |
+| 装机后 · APPDATA 侧车 | `74E5957F…21CCF`（新件）⇒ **安装器把旧件刷新成了新件** |
+
+⇒ **`VERIFY_OK reason=install-refreshed-appdata-sidecar`**：批次 17 的**未验证项⑦关闭**。
+
+**同轮还证明了载荷正确性**（`verify-installer-payload.ps1`，解包目录 `.superpowers\sdd\payload-20261118-151156\`）：
+安装包 sha256 `EF5D6DE0EAAF3E6EB43F206F014728F1BF907ABADD6996CF8CD6E69807AC0C23`（45,478,832 B）；
+包内 `tools\focus-sync-sidecar.exe` sha = `74E5957F…21CCF`（match=True）；
+包内扩展 `kizemo.focus-sync\dist\index.js` sha = `93439CAE4CD6B86E427C7CDA387E9F9BC84D3B53475E33A78FAA6A0B6C7CF5E8`，
+标记串 `traceReplace` / `non-local-path` **齐全**（markers_ok=True）⇒ 侧车与扩展**两侧都是新件**，不会「新二进制 + 旧扩展」。
+
+#### 20.13.7 已验证 / 推断 / 未验证
+
+| # | 结论 | 状态 | 证据 |
+| --- | --- | --- | --- |
+| ① | 空路径 `/set_path` 现在是「显式清空 + 200」，不再 400、不再阻塞 | **已验证** | 20.13.3 新增单测 ＋ `138 passed / 0 failed` |
+| ② | `clear_current_path` 不动 `first_push_received` | **已验证** | 同上（`clear_current_path_empties_path_but_keeps_first_push_flag`） |
+| ③ | 清空后写回闸门必然 skip，不会误写 | **已验证** | `cleared_current_path_is_not_writable` ＋ `main.rs:420` 的 `path_ok` 分支 |
+| ④ | commit 槽写失败归还（缺陷 A） | **已验证** | `writer.rs` 新增单测 `failed_write_releases_the_commit_slot_for_the_same_hwnd` |
+| ⑤ | 扩展侧改动语法/沙箱自检通过 | **已验证** | `node --check` SYNTAX_OK；`scan-sandbox-dynamic.cjs` 0 violations；sandbox gate PASS |
+| ⑥ | 侧车新二进制可产出且 sha 稳定 | **已验证** | `build-sidecar.log` 末尾 BUILD_OK；sha `74E5957F…21CCF` |
+| ⑦ | 装机器会把旧侧车刷新成新侧车（未验证项⑦） | **已验证（20.13.6）** | 装机前 APPDATA = 旧件 `A8300AAB…E462` → 安装后 = 新件 `74E5957F…21CCF`，装机目录同步；`VERIFY_OK reason=install-refreshed-appdata-sidecar` |
+| ⑧ | 虚拟位置停留时的**端到端真机体验**（toast 文案、侧车确实忘掉旧目录） | **未验证（本轮未做真机 UI）** | 本轮只做文件级与单测级判定 |
+| ⑨ | 路径 A 祖先后代分支真机覆盖 | **未验证（沿用批次 17 结论）** | 只有单测覆盖，本轮不安排触发时序 |
+| ⑩ | 「path_update 与 side车双写去重」 | **本轮只分析不实现** | 记入遗留，不在 3.14.1 范围 |
+| ⑪ | `should_commit` / `auto_confirm` 在当前代码路径**不门控任何行为** | **已知（缺陷 A 收益不可观测）** | `should_commit` 被忽略、`commit_save_button` 是死代码 ⇒ 修复无害，但用户可见收益测不出来 |
+
+#### 20.13.8 本轮工具坑（省得下一轮再踩）
+
+1. **`npm run check` 的并发跑法（`run-p`）在本机不可靠 —— 三轮红三种红法，全是并发资源争用**：
+
+   | 轮次 | 跑法 | 红项 | 单文件复跑 |
+   | --- | --- | --- | --- |
+   | ① | `run-p`（5 脚本并行） | `binary-health-check.test.ts` **hook 10 s 超时**（3239 passed / 1 failed） | **2 passed / 2.06 s** |
+   | ② | `run-p` | **stylelint 零 lint 报错就退出 1** ⇒ run-p 连带杀掉 vitest ⇒ 日志里**连测试总结都没有** | stylelint **单跑全绿**（无输出） |
+   | ③ | **串行** | `home-banner-click-opens-background-manager.test.ts` **test 30 s 超时**（3240 passed / 1 failed） | **3 passed / 24.74 s**（其中 **jsdom 环境就占 18.23 s** ⇒ 并发下必撞 30 s `testTimeout`） |
+   | ④ | **串行复跑** | **无红项：311 个测试文件 / 3241 个用例全过（TEST_EXIT=0）** | — |
+
+   ⇒ **判据**：偶发红项**先单文件复跑**；**连续命中不同文件**即可判定为仓库既有的负载敏感 flake，不是本轮回归。
+   ⇒ **注意用例总数也会漂移**（3240 → 3241）：`仓库里的 markdown 表格` 之类测试按文件枚举生成用例，新增文档会 +1
+   ⇒ **新增 `docs/*.md` 后用例数会变**，别把数字变化当成异常。
+   ⇒ **建议（未做，留给下一批）**：给这两个测试文件显式 `hookTimeout` / `testTimeout`，或让 `test:unit:run` 降并发。
+   ⇒ **本机事实**：stylelint 单跑绿 ⇒ 若只在 `run-p` 里红，先怀疑并发，而不是改 CSS。
+2. **`cd` 之后写文件会被安全策略拦**：`Set-Location` + 写目标 ⇒ `Local hard safety policy blocked bash…`
+   ⇒ 跨目录写操作一律写 `.cmd` / `.ps1` 再执行。
+3. **bash 里 `$` 会被先展开**：内联 `powershell -Command "$p=…; $c=Get-Content …"` 会被 bash 吃成空串 ⇒ ParserError。
+   ⇒ 含变量的 PowerShell 一律落 `.ps1` 文件再跑；内联只用无变量命令。
+4. **本机 bash 是 PowerShell**：`cd /d "F:\…"` 不是合法 PowerShell ⇒ 报「找不到接受自变量…的位置参数」；用
+   `Set-Location -LiteralPath 'F:\…'`。
+5. **`cargo` 不在默认 PATH**，`stable` 1.97.1 的 std 不可用（E0463）⇒ 必须用
+   `C:\Users\Duanyi\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin\cargo.exe`；且**不要与 `npm run check` 并发**。
+6. **同文件并行 edit 会互相覆盖** ⇒ 源码改动单文件串行（本轮 `index.js` 的 4 次 edit 全部串行）。
+
+#### 20.13.9 本批次收尾状态
+
+- **改动**：侧车 `sidecar/src/{state.rs, http_server.rs, writer.rs}` ＋ 扩展 `dist/index.js`（**+612 / −27**）
+  ＋ 版本号 `package.json` / 3 个 `Cargo.toml`
+  ＋ 发版材料（根 `CHANGELOG.md`、**14 个 locale changelog**、`README.md`、`README.zh-CN.md`、`_notes-3.14.1.md`）
+  ＋ 台账 §20.13 ＋ 批次 18 交接卡 `docs/handoff-2026-11-18-quark-pan-batch18.md`。
+- **门禁**：`cargo test` **138 / 0**；
+  前端 5 脚本**串行全绿**：`ts`=0、`lint:check`=0、`test:unit:run`=0（**311 文件 / 3241 用例**）、`verify-changelog`=0、`verify:sandbox`=0
+  （并发 `run-p` 跑法在本机会偶发超时 flake，见 20.13.8 第 1 条）。
+- **产物**：侧车 **sha `74E5957F…21CCF` / 2,895,360 B**；
+  安装包 **`release\Alpha File Manager_3.14.1_x64-setup.exe` / sha `EF5D6DE0…C23` / 45,478,832 B**。
+- **真机**：3.14.1 已装进 `D:\Program Files\Alpha File Manager`；
+  **APPDATA 侧车已被安装器从旧件刷新成新件**（判别性实验闭环）；
+  真机**用户数据全程只读未改**（只替换了扩展自带的侧车二进制；旧件已备份到 `.superpowers\sdd\old-sidecar-3.14.0.exe`）。
+- **未做（需用户授权）**：GitHub Release、winget 3.14.1 清单与 PR、upstream 移植。
+
