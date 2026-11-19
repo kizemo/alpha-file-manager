@@ -689,7 +689,8 @@
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
         "baidu_pan": "Baidu Netdisk",
-        "quark_pan": "Quark Drive"
+        "quark_pan": "Quark Drive",
+        "aliyun_pan": "Aliyun Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -716,7 +717,8 @@
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
         "baiduLoginRequired": "Նախ հավելվածում մուտք գործեք Baidu Pan, ապա պահպանեք այս միացումը.",
-        "quarkLoginRequired": "Նախքան պահել այս կապը, մուտք գործեք Quark Drive-ում հավելվածի ներսում։"
+        "quarkLoginRequired": "Նախքան պահել այս կապը, մուտք գործեք Quark Drive-ում հավելվածի ներսում։",
+        "aliyunLoginRequired": "Նախքան պահել այս կապը, մուտք գործեք Aliyun Drive-ում հավելվածի ներսում։"
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -738,7 +740,7 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "Կայան սեփական դիսկներ",
-        "netdiskDescription": "Մտեք հեռվորդված պատուհանում Baidu Netdisk կամ Quark Drive-ին։ Տվյալները գաղտնագրվում են Windows DPAPI-ով և երբեք չեն լքում այս սարքը։",
+        "netdiskDescription": "Մտեք հեռվորդված պատուհանում Baidu Netdisk, Quark Drive կամ Aliyun Drive-ին։ Տվյալները գաղտնագրվում են Windows DPAPI-ով և երբեք չեն լքում այս սարքը։",
         "remoteSection": "Հեռակառուց կապեր",
         "remoteDescription": "Պահեցրու այստեղ FTP, FTPS և SFTP կապերը։ Տվյալները գաղտնագրվում են Windows DPAPI-ով և երբեք չեն լքում այս սարքը։",
         "addNetdisk": "Ավելացնել կայան սեփական դիսկ",
@@ -812,10 +814,45 @@
           "saved": "Մուտքը Quark Drive-ում հաջողվեց․ պատուհանն ինքն փակվեց, նստայինը ստացվեց՝ պահեք այս կապը սպառման համար։"
         }
       },
+      "aliyun": {
+        "status": {
+          "loading": "Ընթացքի կարգը կարդվում է…",
+          "missing": "Մուտք չի կատարվել",
+          "ready": "Ավտորիզացված",
+          "stale": "Նստայինը ժամանակը սպաստել է. նորից մուտք գործեք",
+          "stale_soon": "Նստայինը մոտ է սպառվելու"
+        },
+        "action": {
+          "deleteSession": "Ջնջել պահված նստայինը"
+        },
+        "embedded": {
+          "title": "Մուտք հավելվածի ներսում",
+          "start": "Մուտք ներդցված պատուհանով",
+          "cancel": "Չսպասել",
+          "hint": "Հավելվածի ներսում բացվում է մուտքի պատուհանը։ Մուտքն ավարտվելուն իրենից այն փակվում է, իսկ նստայինը ստացվում է անմիջապես՝ այդ դեպքում միայն պահել է պետք այս կապը։",
+          "status": {
+            "waiting": "Սպասում ենք ձեր մուտքին…",
+            "ready": "Մուտքը կատարված է։ Պահեք այս կապը՝ նստայինը կգրավվի պահելիս։",
+            "closed": "Մուտքի պատուհանը փակվել է մուտքն ավարտելու համար։",
+            "timeout": "Մուտքի սպասման ժամանակը սպասացավ։ Փորձեք նորից։",
+            "error": "Մուտքի վիճակը հաստատել չհաջողվեց։ Փորձեք նորից։"
+          },
+          "saved": "Մուտքը Aliyun Drive-ում հաջողվեց․ պատուհանն ինքն փակվեց, նստայինը ստացվեց՝ պահեք այս կապը սպառման համար։"
+        },
+        "field": {
+          "clientId": "Հաճախորդի ID (Client ID)",
+          "clientSecret": "Հաճախորդի գաղտնիք",
+          "redirectUri": "Վերահայտման URI",
+          "clientSecretHint": "Առընտրական։ Մնացեք դատարկ՝ օգտագործելու PKCE հանրային հաճախորդի ռեժիմը, որտեղ նստայինը չի կարող ինքնաշխունենալ։",
+          "redirectUriHint": "Պիտի համապատասխանել Aliyun Drive-ի բաց հարթակի կառավարման էջում գրանցված վերահայտման URI-ին։ Լռենարկայինը http://127.0.0.1:47832/callback է։",
+          "modeHint": "Հաճախորդի գաղտնիքը լցնելով նստայինն ինքնաշխունվում է։ PKCE ռեժիմում մուտքը վավել է 30 օր և չի կարող ինքնաշխունվել։"
+        }
+      },
       "netdisk": {
         "provider": "Ամպային սկիզբ",
         "baidu": "Baidu Drive",
         "quark": "Quark Drive",
+        "aliyun": "Aliyun Drive",
         "signedIn": "Մուտք է կատարված"
       }
     },

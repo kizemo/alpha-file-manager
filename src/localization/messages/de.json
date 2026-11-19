@@ -652,7 +652,8 @@
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
         "baidu_pan": "Baidu Netdisk",
-        "quark_pan": "Quark Drive"
+        "quark_pan": "Quark Drive",
+        "aliyun_pan": "Aliyun Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -679,7 +680,8 @@
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
         "baiduLoginRequired": "Melden Sie sich zuerst in der App bei Baidu Pan an und speichern Sie dann diese Verbindung.",
-        "quarkLoginRequired": "Melde dich vor dem Speichern dieser Verbindung in der App bei Quark Drive an."
+        "quarkLoginRequired": "Melde dich vor dem Speichern dieser Verbindung in der App bei Quark Drive an.",
+        "aliyunLoginRequired": "Melde dich vor dem Speichern dieser Verbindung in der App bei Aliyun Drive an."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -701,7 +703,7 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "Netzlaufwerke",
-        "netdiskDescription": "Melden Sie sich im eingebetteten Fenster bei Baidu Netdisk oder Quark Drive an. Zugangsdaten werden mit Windows DPAPI verschlüsselt und verlassen diesen Rechner nie.",
+        "netdiskDescription": "Melden Sie sich im eingebetteten Fenster bei Baidu Netdisk, Quark Drive oder Aliyun Drive an. Zugangsdaten werden mit Windows DPAPI verschlüsselt und verlassen diesen Rechner nie.",
         "remoteSection": "Remote-Verbindungen",
         "remoteDescription": "Speichern Sie hier FTP-, FTPS- und SFTP-Verbindungen. Zugangsdaten werden mit Windows DPAPI verschlüsselt und verlassen diesen Rechner nie.",
         "addNetdisk": "Netzlaufwerk hinzufügen",
@@ -775,10 +777,45 @@
           "saved": "Bei Quark Drive angemeldet: Das Fenster wurde automatisch geschlossen und die Sitzung übernommen. Speichere diese Verbindung, um sie zu nutzen."
         }
       },
+      "aliyun": {
+        "status": {
+          "loading": "Autorisierungsstatus wird gelesen…",
+          "missing": "Nicht angemeldet",
+          "ready": "Autorisiert",
+          "stale": "Die Sitzung ist abgelaufen; bitte erneut anmelden",
+          "stale_soon": "Die Sitzung läuft bald ab"
+        },
+        "action": {
+          "deleteSession": "Gespeicherte Sitzung löschen"
+        },
+        "embedded": {
+          "title": "In der App anmelden",
+          "start": "Im eingebetteten Fenster anmelden",
+          "cancel": "Warten abbrechen",
+          "hint": "In der App öffnet sich ein Anmeldefenster. Es schließt sich automatisch, sobald du angemeldet bist, und die Sitzung wird sofort übernommen – du musst diese Verbindung nur noch speichern.",
+          "status": {
+            "waiting": "Warten auf deine Anmeldung…",
+            "ready": "Angemeldet. Speichere diese Verbindung – die Sitzung wird beim Speichern geschrieben.",
+            "closed": "Das Anmeldefenster wurde geschlossen, bevor du mit der Anmeldung fertig warst.",
+            "timeout": "Zeitüberschreitung beim Warten auf die Anmeldung. Bitte erneut versuchen.",
+            "error": "Der Anmeldestatus konnte nicht gelesen werden. Bitte erneut versuchen."
+          },
+          "saved": "Bei Aliyun Drive angemeldet: Das Fenster wurde automatisch geschlossen und die Sitzung übernommen. Speichere diese Verbindung, um sie zu nutzen."
+        },
+        "field": {
+          "clientId": "Client-ID",
+          "clientSecret": "Client-Secret",
+          "redirectUri": "Weiterleitungs-URI",
+          "clientSecretHint": "Optional. Leer lassen, um den öffentlichen PKCE-Clientmodus zu verwenden; dort lässt sich die Anmeldung nicht automatisch erneuern.",
+          "redirectUriHint": "Muss mit der in der Aliyun-Drive-Konsole registrierten Weiterleitungs-URI übereinstimmen. Standard ist http://127.0.0.1:47832/callback.",
+          "modeHint": "Mit Client-Secret wird die Sitzung automatisch erneuert. Im PKCE-Modus bleibt die Anmeldung 30 Tage gültig und lässt sich nicht erneuern."
+        }
+      },
       "netdisk": {
         "provider": "Cloud-Speicher",
         "baidu": "Baidu Drive",
         "quark": "Quark Drive",
+        "aliyun": "Aliyun Drive",
         "signedIn": "Angemeldet"
       }
     },

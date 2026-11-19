@@ -689,7 +689,8 @@
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
         "baidu_pan": "Baidu Netdisk",
-        "quark_pan": "Quark Drive"
+        "quark_pan": "Quark Drive",
+        "aliyun_pan": "Aliyun Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -716,7 +717,8 @@
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
         "baiduLoginRequired": "Сначала войдите в Baidu Pan в приложении, затем сохраните это подключение.",
-        "quarkLoginRequired": "Войдите в Quark Drive в приложении, прежде чем сохранить это подключение."
+        "quarkLoginRequired": "Войдите в Quark Drive в приложении, прежде чем сохранить это подключение.",
+        "aliyunLoginRequired": "Войдите в Aliyun Drive в приложении, прежде чем сохранить это подключение."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -738,7 +740,7 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "Облачные диски",
-        "netdiskDescription": "Войдите в Baidu Netdisk или Quark Drive во встроенном окне. Учётные данные шифруются средствами Windows DPAPI и не покидают этот компьютер.",
+        "netdiskDescription": "Войдите в Baidu Netdisk, Quark Drive или Aliyun Drive во встроенном окне. Учётные данные шифруются средствами Windows DPAPI и не покидают этот компьютер.",
         "remoteSection": "Удалённые подключения",
         "remoteDescription": "Сохраняйте здесь FTP-, FTPS- и SFTP-соединения. Учётные данные шифруются средствами Windows DPAPI и не покидают этот компьютер.",
         "addNetdisk": "Добавить облачный диск",
@@ -812,10 +814,45 @@
           "saved": "Вход в Quark Drive выполнен: окно закрылось автоматически, сессия получена. Сохраните подключение, чтобы использовать его."
         }
       },
+      "aliyun": {
+        "status": {
+          "loading": "Чтение состояния авторизации…",
+          "missing": "Вход не выполнен",
+          "ready": "Авторизован",
+          "stale": "Сессия истекла, войдите снова",
+          "stale_soon": "Сессия скоро истечёт"
+        },
+        "action": {
+          "deleteSession": "Удалить сохранённую сессию"
+        },
+        "embedded": {
+          "title": "Войти внутри приложения",
+          "start": "Войти во встроенном окне",
+          "cancel": "Прекратить ожидание",
+          "hint": "В приложении откроется окно входа. Оно закроется автоматически после входа, а сессия будет получена сразу — останется только сохранить это подключение.",
+          "status": {
+            "waiting": "Ожидаем входа…",
+            "ready": "Вход выполнен. Сохраните подключение — сессия будет записана при сохранении.",
+            "closed": "Окно входа закрылось до завершения.",
+            "timeout": "Истекло время ожидания входа. Попробуйте снова.",
+            "error": "Не удалось прочитать состояние входа. Попробуйте снова."
+          },
+          "saved": "Вход в Aliyun Drive выполнен: окно закрылось автоматически, сессия получена. Сохраните подключение, чтобы использовать его."
+        },
+        "field": {
+          "clientId": "Идентификатор клиента (Client ID)",
+          "clientSecret": "Секрет клиента",
+          "redirectUri": "URI перенаправления",
+          "clientSecretHint": "Необязательно. Оставьте пустым для режима публичного клиента PKCE — тогда сессию нельзя продлить автоматически.",
+          "redirectUriHint": "Должен совпадать с URI перенаправления, зарегистрированным в консоли открытой платформы Aliyun Drive. По умолчанию — http://127.0.0.1:47832/callback.",
+          "modeHint": "С секретом клиента сессия продлевается автоматически. В режиме PKCE вход действует 30 дней и не продлевается."
+        }
+      },
       "netdisk": {
         "provider": "Облачный диск",
         "baidu": "Baidu Drive",
         "quark": "Quark Drive",
+        "aliyun": "Aliyun Drive",
         "signedIn": "Выполнен вход"
       }
     },

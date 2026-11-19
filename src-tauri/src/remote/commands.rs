@@ -37,6 +37,8 @@ use crate::dir_reader::{DirContents, DirEntry};
 
 use super::baidu_auth::{self, BaiduAuthStatus};
 use super::baidu_provider::BaiduRemoteProvider;
+use super::aliyun_auth;
+use super::aliyun_provider::AliyunRemoteProvider;
 use super::connection::RemoteProtocol;
 use super::connection_test::{self, ConnectionTestReport, ProbeTarget};
 use super::credentials;
@@ -422,6 +424,26 @@ pub async fn remote_test_connection(
         }
     }
 
+    // 阿里云盘：与百度/夸克同构 —— 密码框留空 = 「用已保存的那份会话去测」。
+    // 这里交过去的是**访问凭证**本身（`probe_aliyun` 把它当 Bearer token 用）。
+    if request.protocol == RemoteProtocol::AliyunPan
+        && password.as_deref().map(str::trim).unwrap_or("").is_empty()
+    {
+        if let Some(key) = request.credential_key.clone() {
+            let app_data_dir = app_data_dir(&app)?;
+
+            password = tauri::async_runtime::spawn_blocking(move || {
+                aliyun_auth::load_aliyun_session(&app_data_dir, &key)
+                    .ok()
+                    .flatten()
+                    .map(|session| session.access_token)
+            })
+            .await
+            .ok()
+            .flatten();
+        }
+    }
+
     let target = ProbeTarget {
         protocol: request.protocol,
         host: request.host,
@@ -499,6 +521,12 @@ async fn list_with_protocol(
         RemoteProtocol::QuarkPan => quark_provider(user_data_dir, app_data_dir)
             .read_dir(&resolved.connection.id, remote_path)
             .await,
+        // 阿里云盘：同样自己读会话（OAuth 会话存在 DPAPI 密文里）。
+        RemoteProtocol::AliyunPan => {
+            AliyunRemoteProvider::new(user_data_dir, app_data_dir)?
+                .read_dir(&resolved.connection.id, remote_path)
+                .await
+        }
     }
 }
 
@@ -543,6 +571,34 @@ async fn stat_with_protocol(
             };
             let siblings = provider.read_dir(&resolved.connection.id, &parent).await?;
             // 比**末段**而不是比后缀 —— 后缀匹配会把 `a.txt` 误认成 `xa.txt`。
+            siblings
+                .into_iter()
+                .find(|entry| entry.name == name)
+                .ok_or_else(|| {
+                    RemoteError::not_found(format!("远端没有这个条目：{normalized}"))
+                })
+        }
+        // 阿里云盘：`stat` 与夸克同构 —— `RemoteProvider` trait 上**没有**
+        // `stat` 方法，阿里云盘的条目也只有 `file_id` 没有路径，
+        // 所以只能「列父目录再按名字找」。
+        RemoteProtocol::AliyunPan => {
+            let provider = AliyunRemoteProvider::new(user_data_dir, app_data_dir)?;
+            let normalized = super::path::normalize_remote_path(remote_path).ok_or_else(|| {
+                RemoteError::protocol(format!("远端路径不合法：{remote_path}"))
+            })?;
+            let name = normalized
+                .rsplit('/')
+                .next()
+                .filter(|segment| !segment.is_empty())
+                .ok_or_else(|| {
+                    RemoteError::protocol(format!("远端路径不是一个条目：{normalized}"))
+                })?
+                .to_string();
+            let parent = match normalized.rfind('/') {
+                Some(0) | None => "/".to_string(),
+                Some(index) => normalized[..index].to_string(),
+            };
+            let siblings = provider.read_dir(&resolved.connection.id, &parent).await?;
             siblings
                 .into_iter()
                 .find(|entry| entry.name == name)
@@ -758,6 +814,11 @@ pub(crate) async fn provider_with_protocol(
         )),
         // 夸克网盘：与百度同构。走同一个 shim，T3 落地后只改 shim 的函数体。
         RemoteProtocol::QuarkPan => quark_provider(user_data_dir, app_data_dir),
+        // 阿里云盘：与百度/夸克同构 —— 构造失败推迟到第一次调用。
+        RemoteProtocol::AliyunPan => Box::new(AliyunRemoteProvider::new_deferred(
+            user_data_dir,
+            app_data_dir,
+        )),
     }
 }
 
@@ -1193,6 +1254,14 @@ mod tests {
         "remote_quark_login_pending",
         "remote_quark_login_claim",
         "remote_quark_login_cancel",
+        // 阿里云盘侧同理：实现在 `aliyun_login` 模块，注册项写的是
+        // `aliyun_login::remote_aliyun_*`。
+        "remote_aliyun_login_start",
+        "remote_aliyun_login_pending",
+        "remote_aliyun_login_claim",
+        "remote_aliyun_login_cancel",
+        "remote_aliyun_auth_status",
+        "remote_aliyun_delete_session",
         "remote_test_connection",
         "remote_read_dir",
         "remote_stat_dir_entry",

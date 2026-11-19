@@ -8,8 +8,8 @@
 // 两份口径各写一遍的话，以后把 `isNetdiskProtocol` 扩到别的网盘协议时，
 // 只改一处就会出现「连接在网盘标签下，信任的主机却在远程连接标签下」这种错位。
 //
-// 判定口径固定在 `isNetdiskProtocol`（认 `baidu_pan` 与 `quark_pan`）。
-// 以后接入阿里云盘之类的网盘，把判定扩进去，上下游分区自动跟上。
+// 判定口径固定在 `isNetdiskProtocol`（认 `baidu_pan`、`quark_pan` 与 `aliyun_pan`）。
+// 以后再接新的网盘协议，把判定扩进去，上下游分区自动跟上。
 
 import { isNetdiskProtocol } from '@/types/remote';
 import type { RemoteConnection, RemoteProtocol } from '@/types/remote';

@@ -645,7 +645,8 @@
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
         "baidu_pan": "بائیدو نت‌دیسک",
-        "quark_pan": "Quark Drive"
+        "quark_pan": "Quark Drive",
+        "aliyun_pan": "Aliyun Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -672,7 +673,8 @@
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
         "baiduLoginRequired": "ابتدا در برنامه وارد Baidu Pan شوید، سپس این اتصال را ذخیره کنید.",
-        "quarkLoginRequired": "پیش از ذخیرهٔ این اتصال، درون برنامه وارد Quark Drive شوید."
+        "quarkLoginRequired": "پیش از ذخیرهٔ این اتصال، درون برنامه وارد Quark Drive شوید.",
+        "aliyunLoginRequired": "پیش از ذخیرهٔ این اتصال، درون برنامه وارد Aliyun Drive شوید."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -694,7 +696,7 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "دیسک‌های ابری",
-        "netdiskDescription": "در پنجرهٔ جاسازی‌شده وارد Baidu Netdisk یا Quark Drive شوید. اطلاعات ورود با Windows DPAPI رمزگذاری می‌شود و هرگز از این رایانه خارج نمی‌شود.",
+        "netdiskDescription": "در پنجرهٔ جاسازی‌شده وارد Baidu Netdisk، Quark Drive یا Aliyun Drive شوید. اطلاعات ورود با Windows DPAPI رمزگذاری می‌شود و هرگز از این رایانه خارج نمی‌شود.",
         "remoteSection": "اتصال‌های راه دور",
         "remoteDescription": "اتصال‌های FTP، FTPS و SFTP را اینجا ذخیره کنید. اطلاعات ورود با Windows DPAPI رمزگذاری می‌شود و هرگز از این رایانه خارج نمی‌شود.",
         "addNetdisk": "افزودن دیسک ابری",
@@ -768,10 +770,45 @@
           "saved": "ورود به Quark Drive موفق بود: پنجره به‌طور خودکار بسته شد و نشست دریافت شد. برای استفاده، این اتصال را ذخیره کنید."
         }
       },
+      "aliyun": {
+        "status": {
+          "loading": "در حال خواندن وضعیت مجوز…",
+          "missing": "وارد نشده‌اید",
+          "ready": "مجاز",
+          "stale": "نشست منقضی شده است؛ دوباره وارد شوید",
+          "stale_soon": "نشست به‌زودی منقضی می‌شود"
+        },
+        "action": {
+          "deleteSession": "حذف نشست ذخیره‌شده"
+        },
+        "embedded": {
+          "title": "ورود درون برنامه",
+          "start": "ورود با پنجرهٔ جاسازی‌شده",
+          "cancel": "توقف انتظار",
+          "hint": "درون برنامه پنجرهٔ ورود باز می‌شود. پس از ورود، به‌طور خودکار بسته می‌شود و نشست بی‌درنگ دریافت می‌شود — کافی است این اتصال را ذخیره کنید.",
+          "status": {
+            "waiting": "در انتظار ورود شما…",
+            "ready": "وارد شدید. این اتصال را ذخیره کنید — نشست هنگام ذخیره نوشته می‌شود.",
+            "closed": "پنجرهٔ ورود پیش از پایان ورود بسته شد.",
+            "timeout": "زمان انتظار برای ورود تمام شد. دوباره تلاش کنید.",
+            "error": "وضعیت ورود خوانده نشد. دوباره تلاش کنید."
+          },
+          "saved": "ورود به Aliyun Drive موفق بود: پنجره به‌طور خودکار بسته شد و نشست دریافت شد. برای استفاده، این اتصال را ذخیره کنید."
+        },
+        "field": {
+          "clientId": "شناسهٔ کاربرد (Client ID)",
+          "clientSecret": "راز کاربرد",
+          "redirectUri": "نشانی بازگشت (Redirect URI)",
+          "clientSecretHint": "اختیاری. برای استفاده از حالت عمومی PKCE این را خالی بگذارید؛ در آن حالت نشست به‌طور خودکار تمدید نمی‌شود.",
+          "redirectUriHint": "باید با نشانی بازگشتی که در کنسول سکوی باز Aliyun Drive ثبت شده یکسان باشد. مقدار پیش‌فرض http://127.0.0.1:47832/callback است.",
+          "modeHint": "با راز کاربرد، نشست به‌طور خودکار تمدید می‌شود. در حالت PKCE ورود ۳۰ روز معتبر است و تمدید نمی‌شود."
+        }
+      },
       "netdisk": {
         "provider": "درایو ابری",
         "baidu": "Baidu Drive",
         "quark": "Quark Drive",
+        "aliyun": "Aliyun Drive",
         "signedIn": "وارد شده"
       }
     },

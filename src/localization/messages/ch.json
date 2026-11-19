@@ -652,7 +652,8 @@
         "ftps_implicit": "FTPS（隐式）",
         "sftp": "SFTP",
         "baidu_pan": "百度网盘",
-        "quark_pan": "夸克网盘"
+        "quark_pan": "夸克网盘",
+        "aliyun_pan": "阿里云盘"
       },
       "proxy": {
         "direct": "直连",
@@ -679,7 +680,8 @@
         "localPathHasWhitespace": "本地目录不能包含空格。",
         "testInvalidInput": "当前设置无法测试，请先填好服务器地址与端口。",
         "baiduLoginRequired": "请先在应用内完成百度网盘登录，再保存这条连接。",
-        "quarkLoginRequired": "请先在应用内完成夸克网盘登录，再保存这条连接。"
+        "quarkLoginRequired": "请先在应用内完成夸克网盘登录，再保存这条连接。",
+        "aliyunLoginRequired": "请先在应用内完成阿里云盘登录，再保存这条连接。"
       },
       "localPath": {
         "hint": "可选。填写后，打开该连接会自动显示左右双屏：左侧是本地目录，右侧是远端目录。"
@@ -701,7 +703,7 @@
         "openSettings": "远程连接设置",
         "connect": "连接",
         "netdisk": "网盘",
-        "netdiskDescription": "在内嵌窗口里登录百度网盘或夸克网盘。凭据经 Windows DPAPI 加密，不会离开本机。",
+        "netdiskDescription": "在内嵌窗口里登录百度网盘、夸克网盘或阿里云盘。凭据经 Windows DPAPI 加密，不会离开本机。",
         "remoteSection": "远程连接",
         "remoteDescription": "在这里保存 FTP、FTPS 与 SFTP 连接。凭据经 Windows DPAPI 加密，不会离开本机。",
         "addNetdisk": "添加网盘",
@@ -775,10 +777,45 @@
           "saved": "夸克网盘登录成功：窗口已自动关闭，会话已取到，保存这条连接即可使用。"
         }
       },
+      "aliyun": {
+        "status": {
+          "loading": "正在读取授权状态…",
+          "missing": "尚未登录",
+          "ready": "已授权",
+          "stale": "会话已过期，需要重新登录",
+          "stale_soon": "会话即将过期"
+        },
+        "action": {
+          "deleteSession": "删除已保存的会话"
+        },
+        "embedded": {
+          "title": "在应用内登录",
+          "start": "用内嵌窗口登录",
+          "cancel": "停止等待",
+          "hint": "在应用内打开登录窗口。登录成功后窗口会自动关闭，会话随即取到——你只需保存这条连接。",
+          "status": {
+            "waiting": "正等你完成登录…",
+            "ready": "已登录。保存这条连接即可——会话会在保存时写入。",
+            "closed": "登录还没完成，登录窗口就被关掉了。",
+            "timeout": "登录等待超时了，请重试。",
+            "error": "读不到登录态，请重试。"
+          },
+          "saved": "阿里云盘登录成功：窗口已自动关闭，会话已取到，保存这条连接即可使用。"
+        },
+        "field": {
+          "clientId": "客户端 ID",
+          "clientSecret": "客户端密钥",
+          "redirectUri": "回调地址",
+          "clientSecretHint": "选填。留空表示使用 PKCE 公开客户端模式，此时登录凭证无法自动续期。",
+          "redirectUriHint": "必须与阿里云盘开放平台控制台登记的回调地址完全一致，默认是 http://127.0.0.1:47832/callback。",
+          "modeHint": "填写客户端密钥后会话可自动续期；PKCE 模式下登录有效期 30 天，且无法自动续期。"
+        }
+      },
       "netdisk": {
         "provider": "网盘类型",
         "baidu": "百度网盘",
         "quark": "夸克网盘",
+        "aliyun": "阿里云盘",
         "signedIn": "已登入"
       }
     },

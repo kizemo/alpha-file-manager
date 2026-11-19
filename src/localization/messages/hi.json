@@ -689,7 +689,8 @@
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
         "baidu_pan": "बाइडू नेटडिस्क",
-        "quark_pan": "Quark Drive"
+        "quark_pan": "Quark Drive",
+        "aliyun_pan": "Aliyun Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -716,7 +717,8 @@
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
         "baiduLoginRequired": "पहले ऐप के भीतर Baidu Pan में साइन इन करें, फिर यह कनेक्शन सहेजें।",
-        "quarkLoginRequired": "इस कनेक्शन को सहेजने से पहले ऐप में Quark Drive में साइन इन करें।"
+        "quarkLoginRequired": "इस कनेक्शन को सहेजने से पहले ऐप में Quark Drive में साइन इन करें।",
+        "aliyunLoginRequired": "इस कनेक्शन को सहेजने से पहले ऐप में Aliyun Drive में साइन इन करें।"
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -738,7 +740,7 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "क्लाउड स्टोरेज",
-        "netdiskDescription": "ऐप में एम्बेडेड विंडो में बाइडू नेटडिस्क या क्वार्क ड्राइव में साइन इन करें। क्रेडेंशियल Windows DPAPI से एन्क्रिप्ट होते हैं और कभी इस मशीन से बाहर नहीं जाते।",
+        "netdiskDescription": "ऐप में एम्बेडेड विंडो में बाइडू नेटडिस्क, क्वार्क ड्राइव या अलीक्लाउन ड्राइव में साइन इन करें। क्रेडेंशियल Windows DPAPI से एन्क्रिप्ट होते हैं और कभी इस मशीन से बाहर नहीं जाते।",
         "remoteSection": "रिमोट कनेक्शन",
         "remoteDescription": "यहाँ FTP, FTPS और SFTP कनेक्शन सहेजें। क्रेडेंशियल Windows DPAPI से एन्क्रिप्ट होते हैं और कभी इस मशीन से बाहर नहीं जाते।",
         "addNetdisk": "क्लाउड स्टोरेज जोड़ें",
@@ -812,10 +814,45 @@
           "saved": "Quark Drive में साइन इन सफल: विंडो अपने आप बंद हो गई और सत्र मिल गया। उपयोग के लिए यह कनेक्शन सहेजें।"
         }
       },
+      "aliyun": {
+        "status": {
+          "loading": "प्राधिकरण की स्थिति पढ़ी जा रही है…",
+          "missing": "साइन इन नहीं किया गया",
+          "ready": "प्राधिकृत",
+          "stale": "सत्र समाप्त हो गया; कृपया फिर से साइन इन करें",
+          "stale_soon": "सत्र जल्द ही समाप्त हो जाएगा"
+        },
+        "action": {
+          "deleteSession": "सहेजा गया सत्र हटाएँ"
+        },
+        "embedded": {
+          "title": "ऐप में साइन इन करें",
+          "start": "एम्बेडेड विंडो से साइन इन करें",
+          "cancel": "प्रतीक्षा रोकें",
+          "hint": "ऐप में एक साइन इन विंडो खुलती है। साइन इन पूरा होते ही यह अपने आप बंद हो जाती है और सत्र तुरंत मिल जाता है — आपको बस यह कनेक्शन सहेजना है।",
+          "status": {
+            "waiting": "आपके साइन इन करने की प्रतीक्षा हो रही है…",
+            "ready": "साइन इन हो गया। यह कनेक्शन सहेजें — सत्र सहेजते समय लिखा जाएगा।",
+            "closed": "साइन इन पूरा होने से पहले ही विंडो बंद कर दी गई।",
+            "timeout": "साइन इन की प्रतीक्षा समय-सीमा समाप्त हो गई। कृपया फिर से प्रयास करें।",
+            "error": "साइन इन की स्थिति पढ़ी नहीं जा सकी। कृपया फिर से प्रयास करें।"
+          },
+          "saved": "Aliyun Drive में साइन इन सफल: विंडो अपने आप बंद हो गई और सत्र मिल गया। उपयोग के लिए यह कनेक्शन सहेजें।"
+        },
+        "field": {
+          "clientId": "क्लाइंट आईडी (Client ID)",
+          "clientSecret": "क्लाइंट सीक्रेट",
+          "redirectUri": "रीडायरेक्ट URI",
+          "clientSecretHint": "वैकल्पिक। PKCE सार्वजनिक क्लाइंट मोड का उपयोग करने के लिए खाली छोड़ें — इसमें सत्र को स्वतः नवीनीकृत नहीं किया जा सकता।",
+          "redirectUriHint": "यह Aliyun Drive ओपन प्लेटफ़ॉर्म कंसोल में पंजीकृत रीडायरेक्ट URI से मेल खाना चाहिए। डिफ़ॉल्ट http://127.0.0.1:47832/callback है।",
+          "modeHint": "क्लाइंट सीक्रेट भरने पर सत्र स्वतः नवीनीकृत होता है। PKCE मोड में साइन इन 30 दिनों तक मान्य रहता है और स्वतः नवीनीकृत नहीं हो सकता।"
+        }
+      },
       "netdisk": {
         "provider": "क्लाउड ड्राइव",
         "baidu": "Baidu Drive",
         "quark": "Quark Drive",
+        "aliyun": "Aliyun Drive",
         "signedIn": "साइन इन हो गया"
       }
     },

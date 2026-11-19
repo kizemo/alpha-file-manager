@@ -652,7 +652,8 @@
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
         "baidu_pan": "Baidu ネットディスク",
-        "quark_pan": "クアークドライブ"
+        "quark_pan": "クアークドライブ",
+        "aliyun_pan": "阿里雲ドライブ"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -679,7 +680,8 @@
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
         "baiduLoginRequired": "先にアプリ内で Baidu Pan にログインしてから、この接続を保存してください。",
-        "quarkLoginRequired": "この接続を保存する前に、アプリ内でクアークドライブにログインしてください。"
+        "quarkLoginRequired": "この接続を保存する前に、アプリ内でクアークドライブにログインしてください。",
+        "aliyunLoginRequired": "この接続を保存する前に、アプリ内で阿里雲ドライブにログインしてください。"
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -701,7 +703,7 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "クラウドディスク",
-        "netdiskDescription": "埋め込みウィンドウで Baidu Netdisk または Quark Drive にサインインします。資格情報は Windows DPAPI で暗号化され、この端末の外には出ません。",
+        "netdiskDescription": "埋め込みウィンドウで Baidu Netdisk、Quark Drive または Aliyun Drive にサインインします。資格情報は Windows DPAPI で暗号化され、この端末の外には出ません。",
         "remoteSection": "リモート接続",
         "remoteDescription": "FTP、FTPS、SFTP の接続をここで保存します。資格情報は Windows DPAPI で暗号化され、この端末の外には出ません。",
         "addNetdisk": "クラウドディスクを追加",
@@ -775,10 +777,45 @@
           "saved": "クアークドライブにログインしました。ウィンドウは自動的に閉じ、セッションも取得済みです。この接続を保存すると利用できます。"
         }
       },
+      "aliyun": {
+        "status": {
+          "loading": "認証状態を確認しています…",
+          "missing": "未ログイン",
+          "ready": "認証済み",
+          "stale": "セッションの有効期限が切れました。再度ログインしてください",
+          "stale_soon": "セッションの有効期限が近づいています"
+        },
+        "action": {
+          "deleteSession": "保存済みのセッションを削除"
+        },
+        "embedded": {
+          "title": "アプリ内でログイン",
+          "start": "埋め込みウィンドウでログイン",
+          "cancel": "待機を停止",
+          "hint": "アプリ内にログインウィンドウが開きます。ログインが完了すると自動的に閉じ、セッションもすぐ取得されます。この接続を保存するだけです。",
+          "status": {
+            "waiting": "ログインをお待ちしています…",
+            "ready": "ログインしました。この接続を保存してください。セッションは保存時に書き込まれます。",
+            "closed": "ログインが完了する前にウィンドウが閉じられました。",
+            "timeout": "ログインの待機がタイムアウトしました。もう一度お試しください。",
+            "error": "ログイン状態を読み取れませんでした。もう一度お試しください。"
+          },
+          "saved": "阿里雲ドライブにログインしました。ウィンドウは自動的に閉じ、セッションも取得済みです。この接続を保存すると利用できます。"
+        },
+        "field": {
+          "clientId": "クライアント ID",
+          "clientSecret": "クライアントシークレット",
+          "redirectUri": "リダイレクト URI",
+          "clientSecretHint": "任意項目です。空欄にすると PKCE 公開クライアントモードになり、ログインの有効期限を自動で延長できません。",
+          "redirectUriHint": "阿里雲ドライブのオープンプラットフォーム控制台に登録したリダイレクト URI と完全一致する必要があります。既定値は http://127.0.0.1:47832/callback です。",
+          "modeHint": "クライアントシークレットを設定するとセッションは自動更新されます。PKCE モードではログインは 30 日間有効で、自動更新できません。"
+        }
+      },
       "netdisk": {
         "provider": "クラウドドライブ",
         "baidu": "Baidu ドライブ",
         "quark": "クアークドライブ",
+        "aliyun": "阿里雲ドライブ",
         "signedIn": "サインイン済み"
       }
     },

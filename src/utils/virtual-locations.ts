@@ -138,7 +138,7 @@ function getRemoteLocationEntries(): DirEntry[] {
     const entry = createVirtualDirectoryEntry(ref.path, ref.name);
 
     // 归类口径与设置页、主页**完全一致**：只有 `isNetdiskProtocol` 一个判定。
-    // 以后接阿里云盘只要扩这个函数，「位置」页自动跟上。
+    // 它认全三家网盘（百度 / 夸克 / 阿里云盘），接第四家时只要扩那一个函数。
     entry.location_group = isNetdiskProtocol(ref.protocol) ? 'netdisk' : 'remote';
 
     return entry;

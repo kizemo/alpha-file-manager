@@ -652,7 +652,8 @@
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
         "baidu_pan": "Baidu Netdisk",
-        "quark_pan": "Quark Drive"
+        "quark_pan": "Quark Drive",
+        "aliyun_pan": "Aliyun Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -679,7 +680,8 @@
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
         "baiduLoginRequired": "Inicia sesión en Baidu Pan dentro de la aplicación y luego guarda esta conexión.",
-        "quarkLoginRequired": "Inicia sesión en Quark Drive dentro de la aplicación antes de guardar esta conexión."
+        "quarkLoginRequired": "Inicia sesión en Quark Drive dentro de la aplicación antes de guardar esta conexión.",
+        "aliyunLoginRequired": "Inicia sesión en Aliyun Drive dentro de la aplicación antes de guardar esta conexión."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -701,7 +703,7 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "Discos en la nube",
-        "netdiskDescription": "Inicia sesión en Baidu Netdisk o Quark Drive desde la ventana incrustada. Las credenciales se cifran con Windows DPAPI y nunca salen de este equipo.",
+        "netdiskDescription": "Inicia sesión en Baidu Netdisk, Quark Drive o Aliyun Drive desde la ventana incrustada. Las credenciales se cifran con Windows DPAPI y nunca salen de este equipo.",
         "remoteSection": "Conexiones remotas",
         "remoteDescription": "Guarda aquí las conexiones FTP, FTPS y SFTP. Las credenciales se cifran con Windows DPAPI y nunca salen de este equipo.",
         "addNetdisk": "Añadir disco en la nube",
@@ -775,10 +777,45 @@
           "saved": "Sesión iniciada en Quark Drive: la ventana se cerró automáticamente y la sesión se recogió. Guarda esta conexión para usarla."
         }
       },
+      "aliyun": {
+        "status": {
+          "loading": "Leyendo el estado de autorización…",
+          "missing": "Sesión no iniciada",
+          "ready": "Autorizado",
+          "stale": "La sesión ha caducado; vuelve a iniciar sesión",
+          "stale_soon": "La sesión está a punto de caducar"
+        },
+        "action": {
+          "deleteSession": "Eliminar la sesión guardada"
+        },
+        "embedded": {
+          "title": "Iniciar sesión dentro de la aplicación",
+          "start": "Iniciar sesión con la ventana integrada",
+          "cancel": "Dejar de esperar",
+          "hint": "Se abre una ventana de inicio de sesión dentro de la aplicación. Se cierra automáticamente cuando inicias sesión y la sesión se recoge de inmediato: solo tienes que guardar esta conexión.",
+          "status": {
+            "waiting": "Esperando a que inicies sesión…",
+            "ready": "Sesión iniciada. Guarda esta conexión: la sesión se escribirá al guardar.",
+            "closed": "La ventana de inicio de sesión se cerró antes de que terminaras.",
+            "timeout": "Se agotó el tiempo de espera del inicio de sesión. Inténtalo de nuevo.",
+            "error": "No se pudo leer el estado de inicio de sesión. Inténtalo de nuevo."
+          },
+          "saved": "Sesión iniciada en Aliyun Drive: la ventana se cerró automáticamente y la sesión se recogió. Guarda esta conexión para usarla."
+        },
+        "field": {
+          "clientId": "ID de cliente",
+          "clientSecret": "Secreto de cliente",
+          "redirectUri": "URI de redirección",
+          "clientSecretHint": "Opcional. Déjalo en blanco para usar el modo de cliente público PKCE, en el que la sesión no se puede renovar automáticamente.",
+          "redirectUriHint": "Debe coincidir con la URI de redirección registrada en la consola de la plataforma abierta de Aliyun Drive. El valor predeterminado es http://127.0.0.1:47832/callback.",
+          "modeHint": "Con el secreto de cliente la sesión se renueva automáticamente. En modo PKCE la sesión dura 30 días y no se puede renovar."
+        }
+      },
       "netdisk": {
         "provider": "Disco en la nube",
         "baidu": "Baidu Drive",
         "quark": "Quark Drive",
+        "aliyun": "Aliyun Drive",
         "signedIn": "Sesión iniciada"
       }
     },
