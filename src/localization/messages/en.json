@@ -1432,7 +1432,12 @@
       "results": "Results",
       "options": "Options"
     },
-    "swapPanes": "Swap panes"
+    "swapPanes": "Swap panes",
+    "devices": "Devices",
+    "device": "Device",
+    "deviceOpenFailed": "Could not open this device",
+    "deviceOpenFailedDescription": "The device may have been disconnected. Open it in System Explorer instead.",
+    "openInSystemExplorer": "Open in System Explorer"
   },
   "openWith": {
     "loadingPrograms": "Loading programs...",

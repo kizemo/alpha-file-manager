@@ -1427,7 +1427,12 @@
       "results": "Zadetki",
       "options": "Možnosti"
     },
-    "swapPanes": "Swap panes"
+    "swapPanes": "Swap panes",
+    "devices": "Naprave",
+    "device": "Naprava",
+    "deviceOpenFailed": "Te naprave ni bilo mogoče odpreti",
+    "deviceOpenFailedDescription": "Naprava je bila morda odklopljena. Odprite jo v sistemskem Raziskovalcu.",
+    "openInSystemExplorer": "Odpri v sistemskem Raziskovalcu"
   },
   "openWith": {
     "loadingPrograms": "Nalagam programe...",

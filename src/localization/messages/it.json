@@ -1389,7 +1389,12 @@
       "results": "Risultati",
       "options": "Opzioni"
     },
-    "swapPanes": "Swap panes"
+    "swapPanes": "Swap panes",
+    "devices": "Dispositivi",
+    "device": "Dispositivo",
+    "deviceOpenFailed": "Impossibile aprire il dispositivo",
+    "deviceOpenFailedDescription": "Il dispositivo potrebbe essere stato disconnesso. Aprilo in Esplora file di sistema.",
+    "openInSystemExplorer": "Apri in Esplora file di sistema"
   },
   "openWith": {
     "loadingPrograms": "Caricamento programmi...",

@@ -8,6 +8,7 @@ import normalizePath, {
   getParentDirectory,
   isWindowsDriveRootPath,
 } from '@/utils/normalize-path';
+import { isShellPath } from '@/utils/shell-paths';
 import { LOCATIONS_VIRTUAL_PATH } from '@/utils/virtual-locations';
 
 // FORK-MODIFICATION (2026-11-03)：默认资源管理器改造 L3 —— 启动参数里的「选中」请求。
@@ -65,6 +66,20 @@ function trimLaunchPathQuotes(path: string): string {
 
 function normalizeLaunchPathCandidate(path: string): string {
   const withoutQuotes = trimLaunchPathQuotes(path);
+
+  // FORK-MODIFICATION 2026-11-19（批次 23）：shell 命名空间路径**原样保留**。
+  //
+  // 手机（MTP）传给 AFM 的真实形态就是这种路径：
+  //
+  //     ::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\?\usb#vid_22d9&pid_2765#...
+  //
+  // 它不是文件系统路径：`\` 是 shell 语义，没有可切分的层级。
+  // 规范化（`\`→`/`、剥尾斜杠）会把它改坏，后端认不出来 ⇒
+  // 候选被丢掉 ⇒ 兜底落到「位置」页 —— 那正是用户报的故障。
+  if (isShellPath(withoutQuotes)) {
+    return withoutQuotes;
+  }
+
   const normalizedPath = normalizePath(withoutQuotes);
 
   if (isWindowsDriveRootPath(normalizedPath)) {
@@ -187,11 +202,27 @@ export function getLaunchDirectoryCandidates(context: LaunchContext): string[] {
     candidates.push(candidatePath);
   }
 
+  // FORK-MODIFICATION 2026-11-19（批次 23）：兜底只在**确实没有任何候选**时兜。
+  //
+  // shell 路径候选在上面已经收集好了 —— 它本身就是候选，不会被这条兜底顶掉。
+  // 改动前 shell 路径被 `normalizeLaunchPathCandidate` 改坏（`\`→`/`），
+  // 于是这里判成「没有候选」，把用户丢到「位置」页。
   if (candidates.length === 0 && context.hadAbsorbedShellPaths) {
     candidates.push(LOCATIONS_VIRTUAL_PATH);
   }
 
   return candidates;
+}
+
+/**
+ * 启动参数里的 **shell 路径**候选（手机 / MTP 设备）。
+ *
+ * 调用方用它判断「设备有没有真的打开」：候选在，但一个都没解析出来 ⇒
+ * 设备打不开（已拔出 / 枚举报错），这时必须给用户明确提示，
+ * 而不是静默停在「位置」页。
+ */
+export function getLaunchShellPathCandidates(context: LaunchContext): string[] {
+  return getLaunchDirectoryCandidates(context).filter(isShellPath);
 }
 
 export function hasLaunchDirectoryCandidates(context: LaunchContext | undefined): boolean {
@@ -217,6 +248,11 @@ export async function resolvePathLaunchTarget(
     return null;
   }
 
+  // FORK-MODIFICATION 2026-11-19（批次 23）：shell 路径原样保留。
+  //
+  // `normalizePath` 对 `::{GUID}\?\usb#...` 不做任何处理，所以这一行
+  // 不会把设备路径改坏。后端已支持对 shell 路径做 `get_dir_entry`，
+  // 这里**没有**「只有普通文件路径才解析」的分支 —— 设备与普通目录一视同仁。
   const resolvedPath = normalizePath(dirEntry.path);
 
   if (dirEntry.is_dir) {

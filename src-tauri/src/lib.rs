@@ -117,10 +117,17 @@ fn is_sfm_absorbed_shell_path(path: &str) -> bool {
 }
 
 #[cfg(windows)]
+#[allow(dead_code)]
 fn open_in_native_explorer(path: &str) {
     // FORK-MODIFICATION (2026-11-01)：**只加日志，不改语义**。
     // 以前 `let _ = ...spawn()` 把错误整个吞掉，失败时日志里一行都没有，
     // 事后根本没法判断是哪个 path 出的问题。
+    //
+    // FORK-MODIFICATION (2026-11-19)：**当前没有调用点**。
+    // 以前唯一的调用点是 `delegate_shell_namespace_paths`（启动参数里的 shell
+    // namespace 路径自动踢给原生资源管理器），那条委派已经取消 ——
+    // 手机 / 设备节点只有 AFM 自己能读，踢给 explorer.exe 等于「点了没反应」。
+    // 函数本体保留：将来要手动「在系统资源管理器中打开」时直接用。
     match std::process::Command::new("explorer.exe").arg(path).spawn() {
         Ok(_) => log::info!("[reveal] open_in_native_explorer spawned: path={path}"),
         Err(error) => {
@@ -133,7 +140,14 @@ fn open_in_native_explorer(path: &str) {
 struct ShellFilterResult {
     filtered_args: Vec<String>,
     had_absorbed_paths: bool,
+    /// 自动委派给 `explorer.exe` 的路径。
+    ///
+    /// FORK-MODIFICATION 2026-11-19：**恒为空**。自动委派已取消
+    /// （AFM 是默认文件管理器，不能把用户点开的设备踢回原生资源管理器）。
+    /// 字段保留是为了「万一将来要恢复显式委派」时不用改调用方。
     delegated_paths: Vec<String>,
+    /// 保留在 `filtered_args` 里、准备交给前端打开的 shell namespace 路径。
+    kept_shell_paths: Vec<String>,
 }
 
 #[cfg(windows)]
@@ -147,7 +161,8 @@ impl ShellFilterResult {
 fn filter_shell_namespace_args(args: Vec<String>) -> ShellFilterResult {
     let mut filtered = Vec::with_capacity(args.len());
     let mut had_absorbed_paths = false;
-    let mut delegated_paths = Vec::new();
+    let delegated_paths = Vec::new();
+    let mut kept_shell_paths = Vec::new();
 
     for (index, arg) in args.into_iter().enumerate() {
         if index == 0 {
@@ -157,10 +172,23 @@ fn filter_shell_namespace_args(args: Vec<String>) -> ShellFilterResult {
 
         if is_shell_namespace_path(&arg) {
             if is_sfm_absorbed_shell_path(&arg) {
+                // 「此电脑」这类精确串：仍然只置标志、**不进** filtered_args
+                // （双击「此电脑」→ 位置页的老行为不变）。
                 had_absorbed_paths = true;
-            } else {
-                delegated_paths.push(arg);
+                continue;
             }
+
+            // FORK-MODIFICATION 2026-11-19：其它 shell namespace 路径
+            // （手机 / 设备节点，形态是 `::{20D04FE0-...}\\?\usb#vid_...`）
+            // **保留**在 filtered_args 里，交给前端打开。
+            //
+            // 以前这里是「从 filtered_args 删掉 + 自动委派 explorer.exe」，
+            // 结果是：AFM 收不到路径（前端没东西可打开），路径又被踢给原生
+            // 资源管理器 —— 与「AFM 是默认文件管理器」互相踢皮球。
+            let path = arg;
+            log::info!("[launch] shell namespace path kept: path={path}");
+            kept_shell_paths.push(path.clone());
+            filtered.push(path);
             continue;
         }
 
@@ -171,13 +199,7 @@ fn filter_shell_namespace_args(args: Vec<String>) -> ShellFilterResult {
         filtered_args: filtered,
         had_absorbed_paths,
         delegated_paths,
-    }
-}
-
-#[cfg(windows)]
-fn delegate_shell_namespace_paths(paths: &[String]) {
-    for path in paths {
-        open_in_native_explorer(path);
+        kept_shell_paths,
     }
 }
 
@@ -259,9 +281,18 @@ fn handle_second_instance(app: &tauri::AppHandle, argv: Vec<String>, cwd: String
     #[cfg(windows)]
     {
         let filter_result = filter_shell_namespace_args(argv);
-        delegate_shell_namespace_paths(&filter_result.delegated_paths);
-        let has_filesystem_paths = filter_result.filtered_args.len() > 1;
-        let should_focus = has_filesystem_paths
+        // FORK-MODIFICATION 2026-11-19：**不再自动委派 explorer.exe**。
+        // shell namespace 路径（手机 / 设备节点）现在留在 filtered_args 里由
+        // AFM 自己读；踢给原生资源管理器等于「点了没反应」。
+        //
+        // has_openable_paths 的口径跟着改了：以前只看「有没有文件系统路径」，
+        // 现在「保留下来的 shell namespace 路径」也算可打开 —— 否则第二个实例
+        // 带着手机路径启动时，前端什么也收不到。
+        let has_openable_paths =
+            filter_result.filtered_args.len() > 1 || !filter_result.kept_shell_paths.is_empty();
+        // 最后一项 `!had_delegated_paths()` 现在恒为 true（自动委派已取消），
+        // 保留是为了维持旧行为：「第二个实例总是把主窗口拉到前台」。
+        let should_focus = has_openable_paths
             || filter_result.had_absorbed_paths
             || !filter_result.had_delegated_paths();
 
@@ -269,7 +300,7 @@ fn handle_second_instance(app: &tauri::AppHandle, argv: Vec<String>, cwd: String
             system_tray::focus_main_window(app);
         }
 
-        if has_filesystem_paths {
+        if has_openable_paths {
             let had_delegated_shell_paths = filter_result.had_delegated_paths();
             let launch_context = build_launch_context(
                 filter_result.filtered_args,
@@ -422,6 +453,7 @@ pub fn run() {
             dir_reader::resolve_reveal_entry_target,
             dir_reader::resolve_windows_directory_shortcut,
             dir_reader::get_system_drives,
+            dir_reader::get_shell_devices,
             dir_reader::get_parent_dir,
             dir_reader::path_exists,
             dir_reader::path_is_regular_file,
@@ -700,8 +732,9 @@ fn setup_handler(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
 
     #[cfg(windows)]
     let should_hide_main_window_on_startup = {
-        let filter_result = filter_shell_namespace_args(raw_args.clone());
-        delegate_shell_namespace_paths(&filter_result.delegated_paths);
+        // FORK-MODIFICATION 2026-11-19：自动委派 explorer.exe 已取消，
+        // 「只带被委派路径启动 → 隐藏主窗口」这个场景不再存在 ——
+        // shell namespace 路径现在由 AFM 自己打开，窗口该显示就显示。
         url_drop::setup(app.handle());
         // T1/U1 探针：仅在 AFM_BAIDU_PROBE=1 时生效，否则立即返回、零副作用。
         // 见 src-tauri/src/baidu_probe.rs 顶部说明（含 cargo test --lib 红线）。
@@ -710,11 +743,7 @@ fn setup_handler(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
         // 跑「开登录窗 → 等登录态 → 认领落盘」的真实命令链路。
         baidu_probe::install_selftest(app.handle());
 
-        let launched_only_with_delegated_paths = !filter_result.had_absorbed_paths
-            && filter_result.had_delegated_paths()
-            && filter_result.filtered_args.len() <= 1;
-
-        launched_from_autostart(&raw_args) || launched_only_with_delegated_paths
+        launched_from_autostart(&raw_args)
     };
 
     #[cfg(not(windows))]
@@ -776,12 +805,55 @@ fn setup_handler(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
 mod tests {
     use super::filter_shell_namespace_args;
 
+    /// 手机（MTP）节点在 Windows 启动参数里的真实形态。
+    /// 必须是原样字符串：既不能规范化（`\` → `/`），也不能按 `/` 切分。
+    const PHONE_SHELL_PATH: &str = r#"::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\?\usb#vid_22d9&pid_2765&mi_00#6&337f5e7c&1&0000#{6ac27878-a6fa-4155-ba85-f98f491d4f33}\SID-{10001,,1001925963776}"#;
+
+    /// FORK-MODIFICATION 2026-11-19：设备节点路径**保留**在 filtered_args 里。
+    ///
+    /// 以前这里是「删掉 + 委派 explorer.exe」，AFM 自己反而收不到路径。
     #[test]
-    fn delegated_shell_namespace_paths_are_removed_from_launch_args() {
+    fn kept_shell_namespace_path_stays_in_launch_args() {
         let result = filter_shell_namespace_args(vec![
             "sigma-file-manager.exe".to_string(),
-            "shell:downloads".to_string(),
+            PHONE_SHELL_PATH.to_string(),
+        ]);
+
+        assert_eq!(
+            result.filtered_args,
+            vec![
+                "sigma-file-manager.exe".to_string(),
+                PHONE_SHELL_PATH.to_string()
+            ]
+        );
+        assert_eq!(result.kept_shell_paths, vec![PHONE_SHELL_PATH.to_string()]);
+        assert!(!result.had_absorbed_paths);
+    }
+
+    /// FORK-MODIFICATION 2026-11-19：「此电脑」精确串的老行为不变 ——
+    /// 只置 absorbed 标志，不进 filtered_args。
+    #[test]
+    fn absorbed_computer_folder_path_is_not_kept() {
+        let result = filter_shell_namespace_args(vec![
+            "sigma-file-manager.exe".to_string(),
+            "::{20D04FE0-3AEA-1069-A2D8-08002B30309D}".to_string(),
+        ]);
+
+        assert_eq!(
+            result.filtered_args,
+            vec!["sigma-file-manager.exe".to_string()]
+        );
+        assert!(result.kept_shell_paths.is_empty());
+        assert!(result.had_absorbed_paths);
+    }
+
+    /// 普通文件系统路径不受影响。
+    #[test]
+    fn ordinary_filesystem_paths_are_untouched() {
+        let result = filter_shell_namespace_args(vec![
+            "sigma-file-manager.exe".to_string(),
             "C:\\Users\\aleks\\Documents".to_string(),
+            "D:\\media".to_string(),
         ]);
 
         assert_eq!(
@@ -789,26 +861,22 @@ mod tests {
             vec![
                 "sigma-file-manager.exe".to_string(),
                 "C:\\Users\\aleks\\Documents".to_string(),
+                "D:\\media".to_string(),
             ]
         );
-        assert_eq!(result.delegated_paths, vec!["shell:downloads".to_string()]);
+        assert!(result.kept_shell_paths.is_empty());
         assert!(!result.had_absorbed_paths);
-        assert!(result.had_delegated_paths());
     }
 
+    /// 自动委派已取消：保留下来的 shell 路径**不**进 delegated_paths。
     #[test]
-    fn absorbed_shell_namespace_paths_are_tracked_without_delegation() {
+    fn kept_shell_namespace_path_is_not_delegated() {
         let result = filter_shell_namespace_args(vec![
             "sigma-file-manager.exe".to_string(),
-            "shell:MyComputerFolder".to_string(),
+            PHONE_SHELL_PATH.to_string(),
         ]);
 
-        assert_eq!(
-            result.filtered_args,
-            vec!["sigma-file-manager.exe".to_string()]
-        );
         assert!(result.delegated_paths.is_empty());
-        assert!(result.had_absorbed_paths);
         assert!(!result.had_delegated_paths());
     }
 }

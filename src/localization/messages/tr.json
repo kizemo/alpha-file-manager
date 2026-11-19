@@ -1389,7 +1389,12 @@
       "results": "Sonuçlar",
       "options": "Seçenekler"
     },
-    "swapPanes": "Swap panes"
+    "swapPanes": "Swap panes",
+    "devices": "Cihazlar",
+    "device": "Cihaz",
+    "deviceOpenFailed": "Bu cihaz açılamadı",
+    "deviceOpenFailedDescription": "Cihazın bağlantısı kesilmiş olabilir. Bunun yerine sistem gezgininde açın.",
+    "openInSystemExplorer": "Sistem gezgininde aç"
   },
   "openWith": {
     "loadingPrograms": "Programlar yükleniyor...",

@@ -1389,7 +1389,12 @@
       "results": "Résultats",
       "options": "Options"
     },
-    "swapPanes": "Swap panes"
+    "swapPanes": "Swap panes",
+    "devices": "Appareils",
+    "device": "Appareil",
+    "deviceOpenFailed": "Impossible d'ouvrir cet appareil",
+    "deviceOpenFailedDescription": "L'appareil a peut-être été déconnecté. Ouvrez-le plutôt dans l'explorateur du système.",
+    "openInSystemExplorer": "Ouvrir dans l'explorateur du système"
   },
   "openWith": {
     "loadingPrograms": "Chargement des programmes...",

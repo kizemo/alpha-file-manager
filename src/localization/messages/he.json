@@ -1427,7 +1427,12 @@
       "results": "תוצאות",
       "options": "אפשרויות"
     },
-    "swapPanes": "Swap panes"
+    "swapPanes": "Swap panes",
+    "devices": "מכשירים",
+    "device": "מכשיר",
+    "deviceOpenFailed": "לא ניתן לפתוח את המכשיר",
+    "deviceOpenFailedDescription": "ייתכן שהמכשיר נותק. אפשר לפתוח אותו במנהל הקבצים של מערכת.",
+    "openInSystemExplorer": "פתיחה במנהל הקבצים של מערכת"
   },
   "openWith": {
     "loadingPrograms": "טוען תוכניות...",

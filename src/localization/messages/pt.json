@@ -1388,7 +1388,12 @@
       "results": "Resultados",
       "options": "Opções"
     },
-    "swapPanes": "Swap panes"
+    "swapPanes": "Swap panes",
+    "devices": "Dispositivos",
+    "device": "Dispositivo",
+    "deviceOpenFailed": "Não foi possível abrir este dispositivo",
+    "deviceOpenFailedDescription": "O dispositivo pode ter sido desconectado. Abra-o no Explorador de Arquivos do sistema.",
+    "openInSystemExplorer": "Abrir no Explorador de Arquivos do sistema"
   },
   "openWith": {
     "loadingPrograms": "Carregando programas...",

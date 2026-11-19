@@ -10,7 +10,7 @@ use super::path_helpers;
 use super::read::{self, DirItemCountOptions, ReadDirOptions};
 use super::types::{
     DirContents, DirEntryItemCount, DirEntryLinkMetadata, DriveInfo, MountableDevice,
-    NetworkShareParams,
+    NetworkShareParams, ShellDeviceInfo,
 };
 
 #[tauri::command]
@@ -142,6 +142,18 @@ pub async fn get_system_drives() -> Result<Vec<DriveInfo>, String> {
     tauri::async_runtime::spawn_blocking(drives::get_system_drives)
         .await
         .map_err(|join_error| format!("Failed to enumerate system drives: {join_error}"))?
+}
+
+// FORK-MODIFICATION 2026-11-19：枚举「此电脑」下的**设备**节点（手机 / U 盘 / 读卡器…）。
+//
+// 这类节点不是 Win32 卷 ⇒ `get_system_drives`（基于 `sysinfo::Disks`）永远看不到它们，
+// 位置页也就永远不显示。shell 枚举要进 COM（还要初始化 COM 公寓），
+// 慢的时候能到几十毫秒，所以跟 `get_system_drives` 一样走 `spawn_blocking`。
+#[tauri::command]
+pub async fn get_shell_devices() -> Result<Vec<ShellDeviceInfo>, String> {
+    tauri::async_runtime::spawn_blocking(super::shell_namespace::get_shell_devices)
+        .await
+        .map_err(|join_error| format!("Failed to enumerate shell devices: {join_error}"))?
 }
 
 #[tauri::command]

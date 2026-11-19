@@ -25,8 +25,10 @@ import {
   isVirtualDirectoryPath,
   isVirtualLocationPath,
   isWslHostVirtualPath,
+  readLocationsDirectory,
   resolveDirEntry,
   resolveDirectoryContents,
+  shellDeviceInfoToDirEntry,
   shouldPrependLocationsCrumb,
   virtualLocationPathExists,
 } from '@/utils/virtual-locations';
@@ -45,6 +47,23 @@ const { invokeMock } = vi.hoisted(() => {
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: invokeMock,
 }));
+
+// FORK-MODIFICATION 2026-11-19（批次 23）：设备清单来自共享缓存（`shell-devices.ts`）。
+//
+// 这里换成桩：位置页的「读目录 / 盘符变化重建 / 签名比较」三处必须同源，
+// 而单测要能分别控制「显示出来的」与「重建出来的」是不是同一份。
+const { fetchShellDevicesMock, getCachedShellDevicesMock } = vi.hoisted(() => ({
+  fetchShellDevicesMock: vi.fn(),
+  getCachedShellDevicesMock: vi.fn(),
+}));
+
+vi.mock('@/utils/shell-devices', () => ({
+  fetchShellDevices: fetchShellDevicesMock,
+  getCachedShellDevices: getCachedShellDevicesMock,
+}));
+
+getCachedShellDevicesMock.mockReturnValue([]);
+fetchShellDevicesMock.mockResolvedValue([]);
 
 describe('virtual-locations', () => {
   it('detects the locations virtual path', () => {
@@ -650,6 +669,109 @@ describe('virtual-locations', () => {
       invokeMock.mockResolvedValue([]);
       await resolveDirectoryContents(WSL_HOST_VIRTUAL_PATH);
       expect(invokeMock).toHaveBeenCalledWith('get_system_drives');
+    });
+  });
+
+  // FORK-MODIFICATION 2026-11-19（批次 23）：设备（手机 / MTP）在「位置」页。
+  //
+  // 根因是架构级的：「位置」页的盘符 100% 来自 `get_system_drives`（Win32 卷枚举），
+  // 而手机在 Windows 里**不是卷**，它是 shell 命名空间里的一个对象 ⇒ 永远进不了位置页。
+  // 所以这里要单独接一条 shell 通道，并把设备放在盘符之后、远程之前。
+  describe('shell 设备（手机 / MTP）', () => {
+    const deviceShellPath = '::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\?\\usb#vid_22d9&pid_2765';
+    const deviceInfo = {
+      name: 'Galaxy S22',
+      shellPath: deviceShellPath,
+      isFolder: true,
+    };
+    const drivePayload: DriveInfo = {
+      name: 'Local Disk (C:)',
+      path: 'C:/',
+      mount_point: 'C:\\',
+      file_system: 'NTFS',
+      drive_type: 'SSD',
+      total_space: 1000,
+      available_space: 500,
+      used_space: 500,
+      percent_used: 50,
+      is_removable: false,
+      is_read_only: false,
+      is_mounted: true,
+      device_path: '\\\\.\\C:',
+    };
+
+    beforeEach(() => {
+      invokeMock.mockReset();
+      getCachedShellDevicesMock.mockReset().mockReturnValue([]);
+      fetchShellDevicesMock.mockReset().mockResolvedValue([]);
+    });
+
+    afterEach(() => {
+      getCachedShellDevicesMock.mockReset().mockReturnValue([]);
+      fetchShellDevicesMock.mockReset().mockResolvedValue([]);
+    });
+
+    it('位置页列出设备条目，path 原样保留后端的 shellPath', () => {
+      const contents = buildLocationsDirectoryFromDrives(
+        [drivePayload],
+        undefined,
+        [shellDeviceInfoToDirEntry(deviceInfo)],
+      );
+
+      const deviceEntry = contents.entries.find(entry => entry.location_group === 'devices');
+
+      // 原样保留：规范化会把这个标识符改坏，后端就认不出来了。
+      expect(deviceEntry?.path).toBe(deviceShellPath);
+      expect(deviceEntry?.name).toBe('Galaxy S22');
+      expect(deviceEntry?.is_dir).toBe(true);
+    });
+
+    it('设备排在盘符之后、远程之前', () => {
+      const contents = buildLocationsDirectoryFromDrives(
+        [drivePayload],
+        undefined,
+        [shellDeviceInfoToDirEntry(deviceInfo)],
+      );
+
+      expect(contents.entries.map(entry => entry.path)).toEqual(['C:/', deviceShellPath]);
+      expect(contents.entries.map(entry => entry.location_group)).toEqual(['drives', 'devices']);
+    });
+
+    it('readLocationsDirectory 并发拉盘符与设备', async () => {
+      invokeMock.mockImplementation(async (command: string) => {
+        if (command === 'get_system_drives') {
+          return [drivePayload];
+        }
+
+        return null;
+      });
+      fetchShellDevicesMock.mockResolvedValue([deviceInfo]);
+
+      const contents = await readLocationsDirectory();
+
+      expect(invokeMock).toHaveBeenCalledWith('get_system_drives');
+      expect(fetchShellDevicesMock).toHaveBeenCalledTimes(1);
+      expect(contents.entries.map(entry => entry.path)).toEqual(['C:/', deviceShellPath]);
+      expect(contents.entries[1]?.location_group).toBe('devices');
+    });
+
+    it('设备打不开（枚举失败）时位置页只剩盘符，不整个页面报错', async () => {
+      invokeMock.mockImplementation(async (command: string) => {
+        if (command === 'get_system_drives') {
+          return [drivePayload];
+        }
+
+        return null;
+      });
+      fetchShellDevicesMock.mockRejectedValue(new Error('设备枚举失败'));
+
+      const contents = await readLocationsDirectory();
+
+      expect(contents.entries.map(entry => entry.path)).toEqual(['C:/']);
+    });
+
+    it('设备路径的上一层是「位置」页', () => {
+      expect(getNavigableParentPath(deviceShellPath, 'windows')).toBe(LOCATIONS_VIRTUAL_PATH);
     });
   });
 });

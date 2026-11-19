@@ -21,6 +21,7 @@ import {
   parseRemotePath,
   REMOTE_SCHEME,
 } from '@/utils/remote-paths';
+import { getShellPathDisplayName, isShellPath } from '@/utils/shell-paths';
 
 export type AddressBarPart = {
   path: string;
@@ -49,6 +50,63 @@ const NO_REMOTE_CONTEXT: RemoteBreadcrumbContext = {
   rootLabel: REMOTE_SCHEME,
   connectionNames: {},
 };
+
+/**
+ * shell 设备面包屑需要的额外上下文（批次 23）。
+ *
+ * 同 `RemoteBreadcrumbContext` 的理由：这里是一个纯函数，不读 store。
+ * 设备名由调用方（地址栏）从设备清单里查好传进来。
+ */
+export interface ShellBreadcrumbContext {
+  /** shell 路径 → 设备显示名。查不到时退回 `fallbackLabel`。 */
+  deviceNames: Record<string, string>;
+  /** 查不到设备名时的兜底短标签（i18n）。绝不显示 `::{...}` 整串。 */
+  fallbackLabel: string;
+}
+
+const NO_SHELL_CONTEXT: ShellBreadcrumbContext = {
+  deviceNames: {},
+  fallbackLabel: 'Device',
+};
+
+/**
+ * FORK-MODIFICATION 2026-11-19（批次 23）：shell 设备面包屑。
+ *
+ * 手机（MTP）的路径是 `::{20D04FE0-...}\?\usb#...` —— 一个不透明标识符。
+ * 通用分支会把它切成一堆看不懂的段（还会把 `::{` 当成盘符），
+ * 所以这里**整条**当作一级处理：
+ *
+ *   位置 > Galaxy S22
+ *
+ * 设备名来自设备清单（`shellDeviceNames`）；查不到时只显示一个短标签，
+ * **绝不**把 `::{...}` 整串糊在界面上。
+ */
+function buildShellAddressBarParts(
+  path: string,
+  locationsLabel: string,
+  context: ShellBreadcrumbContext,
+): AddressBarPart[] {
+  const deviceName = context.deviceNames[path]
+    ?? getShellPathDisplayName(path, context.fallbackLabel);
+
+  return [
+    {
+      path: LOCATIONS_VIRTUAL_PATH,
+      name: locationsLabel,
+      isLast: false,
+      disableDropTarget: true,
+      displayRootIcon: true,
+      useLocationsDropdown: true,
+    },
+    {
+      path,
+      name: deviceName,
+      isLast: true,
+      // shell 路径不是文件系统目录，拖放目标没有意义。
+      disableDropTarget: true,
+    },
+  ];
+}
 
 /**
  * FORK-MODIFICATION 2026-10-18：远程面包屑（阶段 2 需求 1）。
@@ -143,9 +201,18 @@ export function buildAddressBarParts(
   platform: string | null,
   locationsLabel: string,
   remoteContext: RemoteBreadcrumbContext = NO_REMOTE_CONTEXT,
+  shellContext: ShellBreadcrumbContext = NO_SHELL_CONTEXT,
 ): AddressBarPart[] {
   if (!currentPath) {
     return [];
+  }
+
+  // FORK-MODIFICATION 2026-11-19（批次 23）：shell 命名空间路径（手机 / MTP）。
+  //
+  // 必须排在 `canonicalizePath` 之前：规范化会把 `::{GUID}\?\usb#...`
+  // 改成一个后端认不出来的路径，面包屑随之变成一堆看不懂的段。
+  if (isShellPath(currentPath)) {
+    return buildShellAddressBarParts(currentPath, locationsLabel, shellContext);
   }
 
   // 必须排在 `canonicalizePath` 之前：canonicalizePath 会把尾斜杠剥掉，

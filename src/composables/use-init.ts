@@ -4,6 +4,8 @@
 
 import { nextTick, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
+import { markRaw } from 'vue';
 import { useUserPathsStore } from '@/stores/storage/user-paths';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import { useUserStatsStore } from '@/stores/storage/user-stats';
@@ -42,11 +44,15 @@ import {
 } from '@/utils/auxiliary-windows';
 import {
   getLaunchSelectRequest,
+  getLaunchShellPathCandidates,
   hasLaunchDirectoryCandidates,
   resolveLaunchTargetsFromArgs,
   resolveSelectLaunchTarget,
   type LaunchContext,
 } from '@/utils/launch-directories';
+import { isShellPath } from '@/utils/shell-paths';
+import { openInSystemExplorer } from '@/utils/open-in-system-explorer';
+import { toast, ToastStatic } from '@/components/ui/toaster';
 import { applyUiZoomStep } from '@/utils/ui-zoom';
 import { installBackgroundActivationFallback } from '@/utils/drag-no-activate';
 import { useClipboardFocusSync } from '@/composables/use-clipboard-focus-sync';
@@ -67,6 +73,7 @@ const STARTUP_DIR_ENTRY_TIMEOUT_MS = 2000;
 
 export function useInit() {
   const router = useRouter();
+  const { t } = useI18n();
   const userSettingsStore = useUserSettingsStore();
   const userStatsStore = useUserStatsStore();
   const workspacesStore = useWorkspacesStore();
@@ -201,6 +208,31 @@ export function useInit() {
     removeAppSplash();
   }
 
+  /**
+   * FORK-MODIFICATION 2026-11-19（批次 23）：设备（手机 / MTP）打不开时的**可见提示**。
+   *
+   * 故障链：设备拔出 / MTP 尚未就绪 ⇒ `get_dir_entry` 拿不到条目 ⇒ 没有任何启动目标
+   * ⇒ 用户停在启动页，看起来像「双击手机完全没反应」。
+   *
+   * 这里必须明确告诉他「这个设备打不开」，并给出唯一的出路：交给系统资源管理器
+   * （Windows 对 `::{GUID}` 这类 shell 命名空间路径是原生支持的）。
+   */
+  function showShellDeviceOpenFailed(shellPath: string) {
+    toast.custom(markRaw(ToastStatic), {
+      componentProps: {
+        data: {
+          title: t('fileBrowser.deviceOpenFailed'),
+          description: t('fileBrowser.deviceOpenFailedDescription'),
+          actionText: t('fileBrowser.openInSystemExplorer'),
+          onAction: () => {
+            void openInSystemExplorer(shellPath);
+          },
+        },
+      },
+      duration: 8000,
+    });
+  }
+
   async function openDirectoriesFromLaunchArgs(launchContext: LaunchContext): Promise<boolean> {
     function getDirEntry(path: string) {
       return workspacesStore.getDirEntry({
@@ -222,6 +254,19 @@ export function useInit() {
       ? [...launchTargets, selectTarget]
       : launchTargets;
 
+    // FORK-MODIFICATION 2026-11-19（批次 23）：设备候选逐个确认。
+    //
+    // 候选在、却拿不到条目 ⇒ 设备打不开（已拔出 / MTP 未就绪）。
+    // 这里**独立于** `resolveLaunchTargetsFromArgs` 判定：那个函数只把成功的目标
+    // 交出来，失败信息会被丢掉，于是「双击手机没反应」变成了静默失败。
+    for (const shellCandidate of getLaunchShellPathCandidates(launchContext)) {
+      const shellEntry = await getDirEntry(shellCandidate);
+
+      if (!shellEntry) {
+        showShellDeviceOpenFailed(shellCandidate);
+      }
+    }
+
     if (allLaunchTargets.length === 0) {
       return false;
     }
@@ -229,7 +274,19 @@ export function useInit() {
     await router.push({ name: 'navigator' });
 
     for (const launchTarget of allLaunchTargets) {
-      await workspacesStore.openOrFocusTabGroup(launchTarget.directoryPath);
+      try {
+        await workspacesStore.openOrFocusTabGroup(launchTarget.directoryPath);
+      }
+      catch (openError: unknown) {
+        // 非设备路径维持原样（抛出去，由上层记日志）；设备路径只提示，不中断其它目标。
+        if (!isShellPath(launchTarget.directoryPath)) {
+          throw openError;
+        }
+
+        console.error('Failed to open the shell device directory:', openError);
+        showShellDeviceOpenFailed(launchTarget.directoryPath);
+        continue;
+      }
 
       if (launchTarget.focusPath) {
         workspacesStore.setPendingLaunchReveal(

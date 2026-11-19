@@ -189,4 +189,57 @@ describe('buildAddressBarParts', () => {
       ]);
     });
   });
+
+  // FORK-MODIFICATION 2026-11-19（批次 23）：shell 设备面包屑。
+  //
+  // 手机（MTP）的路径是 `::{20D04FE0-...}\?\usb#...` —— 一个不透明标识符。
+  // 通用分支会把它切成一堆看不懂的段（还会把 `::{` 当成盘符），
+  // 所以整条路径只当一级，显示「位置 > 设备名」。
+  describe('shell 设备面包屑', () => {
+    const devicePath = '::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\?\\usb#vid_22d9&pid_2765';
+
+    it('产出「位置 > 设备名」两级面包屑', () => {
+      const parts = buildAddressBarParts(devicePath, 'windows', 'Locations', undefined, {
+        deviceNames: { [devicePath]: 'Galaxy S22' },
+        fallbackLabel: 'Device',
+      });
+
+      expect(parts.map(part => ({
+        path: part.path,
+        name: part.name,
+      }))).toEqual([
+        {
+          path: LOCATIONS_VIRTUAL_PATH,
+          name: 'Locations',
+        },
+        {
+          path: devicePath,
+          name: 'Galaxy S22',
+        },
+      ]);
+      // shell 路径不是文件系统目录，拖放目标没有意义。
+      expect(parts.every(part => part.disableDropTarget)).toBe(true);
+    });
+
+    it('查不到设备名时用短标签，绝不把 ::{...} 整串糊在界面上', () => {
+      const parts = buildAddressBarParts(devicePath, 'windows', 'Locations', undefined, {
+        deviceNames: {},
+        fallbackLabel: 'Device',
+      });
+
+      expect(parts).toHaveLength(2);
+      expect(parts[1]?.name).toBe('Device');
+      expect(parts[1]?.name).not.toContain('::{');
+    });
+
+    it('本地路径不受 shell 分支影响（阳性对照）', () => {
+      const parts = buildAddressBarParts('C:/Users', 'windows', 'Locations');
+
+      expect(parts.map(part => part.path)).toEqual([
+        'sfm://locations',
+        'C:/',
+        'C:/Users',
+      ]);
+    });
+  });
 });

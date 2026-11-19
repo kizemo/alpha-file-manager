@@ -1393,7 +1393,12 @@
       "results": "结果",
       "options": "选项"
     },
-    "swapPanes": "左右互换"
+    "swapPanes": "左右互换",
+    "devices": "设备",
+    "device": "设备",
+    "deviceOpenFailed": "无法打开该设备",
+    "deviceOpenFailedDescription": "设备可能已断开连接。可以改用系统资源管理器打开。",
+    "openInSystemExplorer": "在系统资源管理器中打开"
   },
   "openWith": {
     "loadingPrograms": "正在加载程序...",

@@ -14,14 +14,19 @@ mod path_volume;
 mod read;
 #[cfg(windows)]
 mod reveal;
+mod shell_namespace;
 mod types;
 
 #[allow(unused_imports)]
 pub use types::{
     DirContents, DirEntry, DriveInfo, MountableDevice, NetworkShareParams, OpenedDirectoryTimes,
+    ShellDeviceInfo,
 };
 
 pub use commands::*;
+
+/// FORK-MODIFICATION 2026-11-19：shell namespace 路径判定（`system_icons.rs` 要用）。
+pub(crate) use shell_namespace::is_shell_namespace_path;
 
 // ---------------------------------------------------------------------------
 // 阻塞内核的对外入口
