@@ -2398,3 +2398,191 @@ stylelint 零 lint 报错就退出 1 ⇒ `run-p` 连带杀掉 vitest ⇒ 日志�
 - **门禁 / 产物**：见 20.15.7。
 - **真机**：⑩ **PASS**；⑪ **UNDETERMINED**（修复未被真机证伪，也未被真机证实）。
 - **未做（需用户授权）**：GitHub Release 3.14.1、winget 清单 PR、upstream 移植；**以及**是否本批次内重打安装包 ＋ 更新 winget 清单 sha ＋ 重做装机链复验（默认建议：不做，随下一版发布）。
+
+### 20.16 批次 21 —— ⑬ 发版链闭合：原地重建 3.14.1 + 清单 sha + 装机链复验（2026-11-18）
+
+入口卡：`docs/handoff-2026-11-18-quark-pan-batch21.md`（**结论一览 §〇、两处更正 §一、构建配方 §二 必读**）。本轮只做 ⑬，未做对外发布。
+
+#### 20.16.1 决策：推翻批次 20 的「默认不重打包」
+
+`3.14.1` 已占发版号，而包体与 winget 清单里**没有**批次 20 的 v0.6.4 写入闸门修复 ⇒ 用户装到的版本与代码声称的能力不一致，属**账面缺陷**而非「没做完」⇒ **原地重建 3.14.1，不换版本号**。
+
+#### 20.16.2 两处事实更正（旧记载作废）
+
+1. **`release/` 根的 3.14.1 包是批次 19 产物**：实测 `45,478,740 B / sha 1DD82EEED36127F21595FFB852FF1C65474498B44A99995CEB3B00BA3F6D2A83`（mtime 2026-11-18 16:43:01），**不是**批次 20 卡写的 `82,772,736 B / 554D0564…`。
+2. **「AppData 装机侧车仍是旧版 `A9478986…` ⇒ 装机版不含修复」不成立**：本轮装前备份实测 sha **已是 `480FDE62…` = v0.6.4**（AppData 仅一份侧车，mtime `2026-11-18 20:47:58`）。⇒ 「装机版不含修复」在**侧车层**早已消失，缺陷只在**安装包 + 清单账面层**。**下一轮不要再去修这个已消失的问题。**
+   顺带记下清单真源路径：`docs\winget\manifests\k\kizemo\AlphaFileManager\3.14.1\kizemo.AlphaFileManager.installer.yaml`，键名 `InstallerSha256`（批次 20 卡写的 `docs/winget/com.sigma-file-manager.installer.yaml` / `Sha256` 都不存在）。
+
+#### 20.16.3 构建环境（本轮证伪 + 复原）
+
+- **可用配方 = 逐字照抄 b19/b20**：先 `call vcvars64.bat`，再 `set "PATH=C:\Users\Duanyi\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin;%PATH%"`，然后 `call npm run tauri:build`。脚本 `.superpowers\sdd\b21-final.cmd`，日志 `b21-final.log`（`BUILD_EXIT=0`，`Finished release profile in 5m 59s`，`Finished 1 bundle (43.38 MiB)`；尾部仅 `dead_code` 警告）。
+- **`stable-x86_64-pc-windows-msvc`（rustc 1.97.1）证伪**：在 `log v0.4.34` 爆 **251 个 `E0463 can't find crate for std`**；批次 21 中途的 `b21-run-build.ps1` 作废。`.rustup\bin` 为空、`.cargo\bin` 只有 `cargo-tauri.exe`、仓库无 `rust-toolchain*` / 无 `.cargo\config.toml` ⇒ 不 prepend 就没有 cargo，而正确的是 **1.90.0**。
+- 新坑：**多行 `pwsh -Command '<整段脚本>'` 本机偶发静默空输出 + exit 1** ⇒ 取不齐判据就落成 `.ps1` 用 `-File` 跑，别反复试引号。
+- 新坑：**装机根在 `D:\Program Files\Alpha File Manager`**（`C:\Program Files\Alpha File Manager` 也在，但没有 app exe）。猜 C 盘 4 个候选 ⇒ `INSTALLED_EXE_NOT_FOUND`。可靠取法两条：安装器日志 `detectedLocation=`、卸载注册表 `InstallLocation`（已固化进 `.superpowers\sdd\b21-installed-path.ps1`）。
+
+#### 20.16.4 结果与判据
+
+| 判据 | 结果 |
+|---|---|
+| 新包 | `Alpha File Manager_3.14.1_x64-setup.exe` **45,489,382 B** / sha **`5F07F5B914DFEF9FBF22E040BC3C2B67D13167B3EBA633B6A20C5BCB47F88E58`** |
+| 载荷 = v0.6.4 | `verify-installer-payload.ps1` 两轮 `VERIFY_OK reason=payload-carries-expected-sidecar-and-new-extension`（侧车 `480FDE62…` match=True；扩展 manifest/dist 在位、`dist/index.js` markers_ok=True） |
+| winget | `InstallerSha256` 改为 `5F07F5B9…`；`npm run check:winget` ⇒ **`WINGET_CHECK_EXIT=0`**（8 条全绿）。**⚠️ 只校验本地 `release/`，不证明 GitHub Release v3.14.1 资产已是新包** |
+| 装机链 | `/S /FORCE` ⇒ `INSTALL_EXIT=0`；`install-afm-verify.ps1` ⇒ `VERIFY_OK reason=install-refreshed-appdata-sidecar`；AppData 侧车 `480FDE62…`；`SIDECAR_PROCS=0` |
+| 装机 exe 身份 | `D:\Program Files\Alpha File Manager\alpha-file-manager.exe` 82,764,288 B / mtime `22:35:54` / fv=pv 3.14.1 / sha `F03E02E7…`；bundle-type 标记归一化后 `80651557…` **= 裸构建产物归一化值** ⇒ `VERDICT_INSTALLED_IS_NEW_PAYLOAD=True`（`RAW_EQUAL=False` 只反映 `__TAURI_BUNDLE_TYPE_VAR_NSS__` vs `…_UNK__` 那 29 字节，与 §2.10 及既有记忆一致） |
+| 未判定 | **运行中进程 = 新载荷**：有 1 个 AFM 进程自 `14:07:51` 起未退（PID 924772），跑的是装前镜像。盘上 exe 与 AppData 侧车均已更新，但界面要**重启应用**才吃到新 exe。本轮未杀用户进程（越权风险）⇒ 记未判定 |
+
+发版脚本防呆：`publish-bundle-to-release.mjs` 拒绝覆盖 `release/` 根同名文件，自动改写入 `release\local-builds\` ⇒ 每次重打包都要**显式 `Copy` 覆盖根目录**（设计，不是 bug）。
+
+#### 20.16.5 ⑪ 状态（沿用批次 20，本轮无进展）
+
+跨全部 `dup` 日志 grep `VERDICT=|w1=|w2=` 的唯一落地写入是 `b20-dup-count3-run.log:21` `[20:30:05] VERDICT=FAIL w1=2 w2=0` = **修复前 v0.6.3 基线**；v4/v5/v6 全轮 `w1=0 w2=0` 属夹具/送达问题，**不得**当修复后证据 ⇒ ⑪ 仍 `UNDETERMINED`，需 v0.6.4 上取到 `w1=1 w2=0`。唯一未试的最优路径 = `b20-dup-count4.ps1`（子进程 `AllowSetForegroundWindow` → 接收方自抬 AFM 类窗口 ≈1.6 s → 交回对话框 → push），属前台语义取证、只能交互桌面（§2.8 偏离须记录）。
+
+#### 20.16.6 批次 21 收尾状态
+
+- **入库改动**：`docs\winget\manifests\k\kizemo\AlphaFileManager\3.14.1\kizemo.AlphaFileManager.installer.yaml`（`InstallerSha256`）＋ 本台账 §20.16 ＋ 批次 21 入口卡。
+- **未做（需用户授权）**：GitHub Release v3.14.1 资产替换（新 sha `5F07F5B9…`）、winget manifest PR（前置：3.9.1 PR #467381 仍 OPEN）、upstream 移植。
+- **下一批次（22）硬阻塞只有 ⑪**。
+
+---
+
+### 20.17 批次 22 —— ⑪ 第七轮取证：送达已坐实、判据文件选对，仍差「弹窗活到 push 那一刻」（2026-11-19 00:06）
+
+#### 20.17.1 实验环境（本轮实测坐实）
+
+| 项 | 事实 | 判别意义 |
+|---|---|---|
+| 侧车 | `Get-NetTCPConnection -LocalPort 37421 -State Listen` → pid 1015332（23:04:58 起）→ 路径 `%LOCALAPPDATA%\...\extensions\kizemo.focus-sync\...`，sha8 `480FDE62` = 仓库 v0.6.4 裸产物 = 装机侧车 | 被测对象就是 v0.6.4，无需重启、无需新 spawn |
+| `/health` 版本串 | `http_server.rs:134` `const SPIKE_VERSION: &str = "0.6.1"` 从未 bump | **版本字符串判据无判别力**（§2.10 再添一条），一律以 sha8 为准 |
+| AFM | 用户 23:04:56 重启 → pid 1012796 `D:\Program Files\Alpha File Manager\alpha-file-manager.exe` | 「运行中 = 新载荷」坐实；§20.16 表里那行未判定可关闭 |
+| spike JSON 事件流 | **唯一位置** `C:\Users\Duanyi\AppData\Local\kizemo\focus-sync\logs\spike.log`（logger.rs `log_dir()` 硬编码，`--state-dir` / env 不移动它）；带日期的 `spike.log.2026-11-18` 是 tracing 纯文本 | 对 JSON 计数**零判别力**，计数只能读主文件 |
+
+#### 20.17.2 count7 判词 = UNDETERMINED（`w1=0 w2=0`，送达成功、写入条件未达成）
+
+产物（**实际落盘路径**，脚本内部把 result 固定写到 `focus\` 根，不是 `-Out` 目录）：
+- `F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\focus\b20-dup-result4.json`
+- `...\focus\b20-dup5\console.log`（判词行 `[00:06:47] VERDICT=UNDETERMINED w1=0 w2=0`）
+- 旧 result 备份 `...\focus\b20-dup-result4.pre-count7.bak.json`
+
+spike 切片（offset 8,826,277 → 8,827,373，逐字全文）：
+```
+16:06:30 path_update   current_path=C:\Windows\System32 (pushed='C:\Windows\System32')
+16:06:30 set_path_dialogs  dialogs_count=1
+16:06:39 path_update   current_path=C:/Windows/System32 (pushed='C:/Windows/System32')
+16:06:39 set_path_dialogs_retry  retried 3x; final dialogs_count=0
+16:06:39 set_path_dialogs  dialogs_count=0
+16:06:39 set_path_no_dialog  no active dialog after waiting 60ms; path stored, nothing written
+```
+读法（逐条对照 `http_server.rs:412-626`）：
+1. **两次 push 都送达活侧车** —— `path_update` 各一条；push2 的 HTTP 404 是 v0.5.23 起 `no_active_dialog_response()` 的**设计形状**（「路径已存、一个字没写」）⇒ 404 ≠ 没送达。
+2. push1 时刻登记表有 1 个对话框，但**没有任何后续决策日志**（无 `set_path_skip_no_handoff` / `set_path_already_synced` / `set_path_deferred_not_foreground` / `set_path_iter` / `Write` / `WriteFailed`）。源码里「做了事但不写 JSON」的唯一分支 = **dead-HWND 剪枝**（`http_server.rs:470-477`，`dialog_window_exists=false` → 只发 `tracing::info`）⇒ **push 那一刻对话框窗已死、被静默剪掉**。
+3. 根因 = 夹具时序（不是产品回归）：`rcv.dialogback ok=False fg=69970 fg_is_dlg=False`（前台交回对话框失败）之后，脚本仍 `Start-Sleep -Seconds 5` 再等 0.5 s 才 push（`b20-dup-count4.ps1:369/377`）⇒ 5.5 s 足够对话框死亡 / 被剪枝。v4/v6 轮的 `WriteFailed write_not_verified` 同属根因 ③「前台往返后焦点重建失败」家族，本轮只是它的**晚期形态（弹窗直接没了）**。
+4. 结论：`w1=1 w2=0` 这条真机计数判据**至今从未在有效取证条件下触发过**（push1 从未写出，v0.6.4 去重闸门从未被行使）。⑪ 仍 UNDETERMINED。
+
+#### 20.17.3 两处旧记载作废（台账 §20.16.5 与批次 20 卡中的推断）
+
+- **更正 C**：送达哨兵**不是** `set_path_received` —— 该字符串在侧车源码全目录 grep **0 命中**。此前各轮「spike slice 里没有 `set_path_received` ⇒ push 没送达」的推断**不成立**。真送达证据 = spike JSON 的 `path_update` / `set_path_dialogs*` / `Write` / `WriteFailed` 事件。
+- **更正 D**：v4/v6 报 `w1=0` 的直接原因是**计数文件选错** —— 脚本 `ALPHA_FFM_SPIKE_LOG` 未设时回退读 `$Out\spike.log`（空文件）。本轮已显式指向 LOCALAPPDATA 真事件流，slice 与 `segment1Raw/segment2Raw` 一致，判词读的是真流。⇒「侧车没收到 push」这个旧根因判断作废；「装机版不含修复」也不成立（侧车 sha8 = v0.6.4），**不要再回去修这两个已消失的问题**。
+
+#### 20.17.4 下一轮（count8）修复设计 —— 先读码，再动手（本轮未实施）
+
+判别条件已坐实：**push 那一刻必须 `对话框存在 && 对话框是前台 && 闸门已授`**。三件改动：
+1. `b20-dialog-helper2.cs` 子进程 `FgWorker`：`dialog.raised` 写入前**轮询确认** `GetForegroundWindow()==d` 才算成功（现在是 `ForceForeground` 单次尝试的结果，`ok=False` 时焦点已永久停在用户窗口 69970）；顺带在失去前台后有限次数内重试。
+2. `b20-dup-count4.ps1`：`dialogback ok=False` 时**不得**继续 5.5 s 流程 —— 立即重触发交回、有界重试；只有 `dialogback ok=True` 才 push，否则本轮直接判 UNDETERMINED（省时省证据污染）。
+3. 取证防呆：push1 前脚本自己 `GetForegroundWindow()` 必须 == dialog_hwnd，否则不 push。
+- ⚠️ 副作用提醒：子进程 `FgWorker` 每 100 ms 无条件 `ForceForeground(dialog)`（helper2.cs `for (int i=0;i<900;i++)` 那段）⇒ 它会和接收方抢前台、也会把焦点从用户窗口抢回来。改动时**不要顺手删掉这个循环**，它是 push2 时对话框仍在前台（从而走到 `already_synced` 分支）的支柱；只收紧「交回成功的判定」。
+- 若三条都满足仍 `writes=0` ⇒ 才回到产品侧（v0.6.4 闸门 / Opened 写回交互）排查。
+- 历史对照：**v3 `w1=2 w2=0` 是 v0.6.3 修复前基线**（同目标写两遍的缺陷本体），不是回归证据。
+- 判据口径不变：段内 `event=="Write"` 且 target 归一化 == `c:\windows\system32`；push1 期望 1、push2 期望 0；`WriteFailed` 不计入；必须按 offset 切片。
+
+#### 20.17.5 本轮工具坑（全路径版，防「产物找不到」）
+
+1. `-Out b20-dup5` 时**判词三件套不在 `b20-dup5\`**：result JSON 写进脚本 `$FocusDir`（`focus\` 根），`run.log` 同样；`b20-dup5\` 只有 `console.log`。先读 `focus\b20-dup-result4.json`，别按 `-Out` 猜。
+2. `Select-String -LiteralPath (Get-ChildItem …).FullName`：目录里 0 命中时数组为空 ⇒「无法将自变量绑定到参数 'LiteralPath'，因为它为 null」⇒ 先判空或改 `-Path`。
+3. `focus\` 里夹具源码是 **`.cs`**（`b20-dialog-helper.cs` / `b20-dialog-helper2.cs`，配套同名 `.exe`），不是 `.rs`。
+4. 一次 bash 调用里连发多条 `Write-Output` + `Select-String`，被 hook 上下文挤掉后整段输出可能丢失 ⇒ 关键查询单独发、或压成一条表达式串。
+
+#### 20.17.6 批次 22 收尾状态
+
+- **入库改动**：本台账 §20.17 ＋ 批次 22 入口卡 `docs/handoff-2026-11-18-quark-pan-batch22.md`。**无产品代码改动、无版本号变更**（count8 只动测试夹具与脚本）。
+- **⑪**：仍 `UNDETERMINED`，最优路径 = §20.17.4 三条改动 + count8。
+- **需用户授权（对外，两轮问句均未获答复，不得自行执行）**：GitHub Release v3.14.1 资产替换（新包 sha `5F07F5B9…`）、winget manifest PR（前置：3.9.1 PR #467381 仍 OPEN）、提交并推送批次 21/22 文档。
+- **旧 AFM 进程 924772**：处置问题已随 23:04 用户重启（pid 1012796 = 新载荷）而失效；双实例并存期间 visit 可能抬到旧实例窗口 —— 两实例闸门逻辑等价（3.14.1 与 3.14.0 的 AFM exe 唯一差异是打包侧车），判词仍有效。
+
+### 20.18 ⑪ 真机计数级收口 —— count11 = PASS（w1=1, w2=0）
+
+#### 20.18.1 判词
+
+| 项 | 值 |
+| --- | --- |
+| 判词 | **PASS**（`VERDICT=PASS w1=1 w2=0`，控制台退出码 0） |
+| push1 | `C:\Windows\System32` ⇒ **写入 1 次**（`event=="Write"`，`target=="C:\Windows\System32"`） |
+| push2 | `C:/Windows/System32`（同一目录，仅斜杠写法不同）⇒ **写入 0 次** |
+| 前置断言 | `precondition_push1 match=True`（push 时刻前台 == 对话框 hwnd 528972） |
+| 残留进程 | 0（`leftover_process=0`） |
+
+证据落盘：
+- `…\.superpowers\sdd\focus\b20-dup-result-c11.json`（判词 + `segment1Raw` / `segment2Raw` 原始事件）
+- `…\.superpowers\sdd\focus\b20-dup11\console.log`（末行 `[09:21:18] VERDICT=PASS w1=1 w2=0`）
+- `…\.superpowers\sdd\focus\count11-tracing-utc0120-0122.txt`（侧车 tracing 切片，53 行）
+
+#### 20.18.2 侧车事件流（判词口径逐条对照）
+
+push1 段（UTC 01:20:55 → 01:21:09）：
+```
+01:20:55 opened_write_back                dialog path='C:\Windows' current='C:/Windows/System32'; writing current
+01:21:00 WriteFailed target=C:/Windows/System32 reason=write_not_verified
+01:21:00 set_path_iter                    hwnd=528972 app=#32770 auto_confirm=false (shared_fg matched)
+01:21:02 Write target=C:\Windows\System32 strategy=uia      <- 本段唯一一次成功写入
+01:21:02 opened_write_back_skip_sentinel  (sentinel); skipping until first push received
+```
+push2 段（UTC 01:21:10 → 01:21:14）：
+```
+01:21:10 path_update                      current_path=C:/Windows/System32 (pushed='C:/Windows/System32')
+01:21:10 set_path_dialogs                 dialogs_count=1
+01:21:10 set_path_skip_no_handoff         hwnd=528972 path='C:/Windows/System32' (no direct AFM -> dialog handoff); skipping
+```
+读法：
+1. push1 的**第一次**注入以 `write_not_verified` 收场（对话框当时不在前台，注入没能让 Chromium 对话框真的换目录）⇒ 侧车按 v0.5.17 释放提交槽，允许后续再写。
+2. 对话框回到前台后，侧车打出 `dialog regained foreground with pending path change (… last_written='C:\Windows') -> resync` ⇒ 触发重写 ⇒ **01:21:02 写入成功**（`w1=1`）。这正是真实用户「切到 AFM 再切回对话框」的动作序列。
+3. push2 命中闸门 `set_path_skip_no_handoff` ⇒ 一个字没写（`w2=0`）。
+4. ⚠️ **机制如实登记**：本轮「只写一遍」由**两道机制叠加**达成 —— push1 段内的 sentinel（`opened_write_back_skip_sentinel`）与 push2 段的闸门拒绝（`set_path_skip_no_handoff`）。**本轮未观测到 DEDUP-1 的 `set_path_already_synced`**（那是「同一 hwnd 上已写过该路径」的 per-hwnd 去重分支）。判词口径只要求 `w2=0`，不要求命中哪一条 ⇒ ⑪ 的**结论**成立且是真机实测；但「第二次被拦」的具体分支是闸门而非 per-hwnd 去重表。若要把 DEDUP-1 单独坐实，需要在**对话框仍持有授权**的窗口内连续推两次同一路径。
+
+#### 20.18.3 逐轮根因链（count7 → count11）
+
+| 轮次 | 判词 | 根因 | 关键证据 |
+| --- | --- | --- | --- |
+| count7 | UNDETERMINED | 弹窗在 push 那一刻已死 ⇒ 侧车走 dead-HWND 静默剪枝 | §20.17.2 |
+| count8 | UNDETERMINED | 接收进程 `GetWindowThreadProcessId` 声明成单参数 ⇒ 非托管侧写野指针 ⇒ `AccessViolationException` | Windows 事件日志 id 1026 |
+| count9 | UNDETERMINED | 接收进程抢不到前台（前台锁）⇒ 闸门路径 A/B 均未武装 | `rcv_raised ok=False fg_is_me=False` |
+| count10 | UNDETERMINED | 子进程 FgWorker 线程**卡死**：`ForceForeground` 的 `AttachThreadInput` 与 COM 模态对话框互锁 | `dialog.hwnd` 停在 09:13:58 不再更新，而进程仍存活 |
+| **count11** | **PASS** | 去掉 `AttachThreadInput` + 加心跳 ⇒ FgWorker 存活 ⇒ 交接成立 | `rcv_raised got_up=True` / `rcv_dialogback ok=True` |
+
+#### 20.18.4 本轮夹具改动（**测试夹具与脚本，非产品代码**）
+
+`.superpowers\sdd\focus\b20-dialog-helper2.cs`：
+1. 新增 `SimpleForeground(IntPtr)`：只用 `SetForegroundWindow`，**不做 `AttachThreadInput`**（死锁源）。FgWorker 内三处 `ForceForeground(d)` 全部替换。
+2. `upWatch` 分支改用 `SimpleForeground(rcvHwnd)` —— 子进程是前台进程，可以把前台让给接收进程的 AFM 类窗口。
+3. 新增**心跳** `dialog.beat`（每轮无条件写）：用于区分「线程卡死」与「找不到对话框」两种 0 产出。
+4. FgWorker 循环 `900 → 1800` 轮（90 s → 180 s）：**保留**该循环（§20.17.4 的约束：它是 push2 时刻弹窗仍在前台的支柱），只延长不删。
+5. 修一处语法错误：`uint me = (uint)Process.GetCurrentProcess().Id);` 多出的右括号（`csc` CS1002/CS1525 在编译期拦下，未进实验）。
+
+`.superpowers\sdd\focus\b20-dup-count4.ps1` / `b23-count9-run.ps1`：`$StateDir` / `$ResultPath` 换到 `c11`（新目录 + 新 result，防 provenance 污染）。
+
+#### 20.18.5 本轮坐实的两条通用规律
+
+1. **闸门路径 B 的物理前提**：接收窗口必须是侧车认得的 AFM 类窗口（类名 `Tauri Window` + 标题以 `Alpha File Manager` 开头，见 `sidecar/src/uia_event.rs:841`），且必须在**对话框打开之后**再当一次前台（`afm_ts >= open_ts`）⇒ 只满足「对话框开着」不够。夹具的接收窗口本来就是这个伪装（`CreateTopLevel("Tauri Window", "Alpha File Manager - Batch20 Fixture", …)`），此前 4 轮真正缺的是**时序**。
+2. **`AttachThreadInput` 与 COM 模态对话框互锁**：任何「跨进程激活一个模态对话框」的实现，只要用了 `AttachThreadInput` + 同步等前台，就会在模态循环里死锁 —— 表现为**目标进程仍存活、但工作线程停止写任何文件**。判别姿势：看目标工作线程的心跳/状态文件是否还在推进，而不是看进程是否存活。
+
+#### 20.18.6 发布面现状更正（与旧记载不同，必须更新）
+
+- `gh api repos/kizemo/alpha-file-manager/releases`：**最新 release 是 `v3.14.0`**（2026-11-11），**`v3.14.1` 从未发布过**；tags 列表同样止于 `v3.14.0` ⇒ §20.17.6 写的「GitHub Release v3.14.1 资产替换」**没有可替换的对象**。
+- `docs/winget/manifests/k/kizemo/AlphaFileManager/3.14.1/` 目录存在，但 `InstallerUrl` 指向 `releases/download/v3.14.1/…` ⇒ **404**。该 manifest 改动（sha `1DD82EEE…` → `5F07F5B9…`）**本轮不提交**：真值必须与实际发布的资产绑定，在 release 发布之前提交只会造出一个「看起来更新了、实则仍 404」的 manifest。新 sha `5F07F5B9…` 记在本节，发布时直接取用。
+- 版本面核对：`package.json` = `src-tauri/Cargo.toml` = `3.14.1`；`tauri.conf.json` 的 version 指向 `../package.json`；`CHANGELOG.md` + 14 个 locale 包（`public/changelog/<lang>/changelog.md`）**均已有 3.14.1 条目**，其中「The same folder is no longer put into a dialog twice / 同一个文件夹不再被写两遍」正是本轮 ⑪ 验证的那一条 ⇒ **本轮无产品代码改动 ⇒ 不 bump 版本号、不新增 CHANGELOG 条目**（避免造一个内容与 3.14.1 完全相同的假版本）。
+
+#### 20.18.7 下一阶段起点
+
+- 批次 22 收口完成，⑪ = PASS（真机计数级）。
+- 下一阶段（批次 23）＝ **阿里云盘 + OneDrive**，计划见 `docs/plan-2026-11-19-aliyun-onedrive.md`（九节：结论一览 / 目标与范围 / 现状盘点 / 关键设计决策 / Phase 0–4 / 最小改动清单 / 风险登记 / 门禁 / 待验证问题 Q1–Q6）。
+- 动手前先修 `src/utils/remote-directory.ts:137-147` 硬编码「夸克网盘」的串台文案（接第三个 provider 前必须参数化）。
+- **仍需用户授权（对外）**：发布 `v3.14.1` release 资产（用 sha `5F07F5B9…` 的包）、提 winget manifest PR（前置 3.9.1 PR #467381 仍 OPEN）。
+

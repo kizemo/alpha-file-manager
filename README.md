@@ -49,7 +49,7 @@ sync, batch rename, and a long list of day-to-day fixes. **If you have been look
   certificates, plus upload, download, delete and permission editing.
 - ☁️ **Netdisks are remote connections too** — add Baidu Netdisk or Quark Netdisk
   in a few steps, sign in inside the app, and browse it like any server; Aliyun
-  Drive and Google Drive are next.
+  Drive is next, and OneDrive follows it.
 - 🧠 **Batch rename that does not lose work** — find-and-replace, case conversion,
   templates and numbering, with a live preview, conflicts blocked instead of
   silently overwriting, and undo.
@@ -103,7 +103,7 @@ sync, batch rename, and a long list of day-to-day fixes. **If you have been look
 | ➕ | **Adding a netdisk takes three steps** — *Settings* → *Remote* → *Netdisks* → pick the provider → scan the QR code → give the connection a name. No token to copy, no config file to hand-edit, no service to start |
 | 📂 | **A netdisk browsed like a remote connection** — listing, creating a folder, renaming, deleting and downloading all reach the drive itself, not a shadow of a local folder |
 | ⚙️ | **Netdisks and remote servers are kept apart** — the settings page splits them into two tabs, *Netdisks* and *Remote connections*, so each connection sits where it belongs |
-| ➕ | **More mainstream netdisks are on the way** — Aliyun Drive, Google Drive and the rest are planned, and they will plug into the very same remote-connection machinery |
+| ➕ | **More mainstream netdisks are on the way** — Aliyun Drive is next and OneDrive follows it, both plugged into the very same remote-connection machinery |
 
 #### Why this is simpler than mounting the drive with alist
 
