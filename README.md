@@ -103,7 +103,7 @@ sync, batch rename, and a long list of day-to-day fixes. **If you have been look
 | ➕ | **Adding a netdisk takes three steps** — *Settings* → *Remote* → *Netdisks* → pick the provider → scan the QR code → give the connection a name. No token to copy, no config file to hand-edit, no service to start |
 | 📂 | **A netdisk browsed like a remote connection** — listing, creating a folder, renaming, deleting and downloading all reach the drive itself, not a shadow of a local folder |
 | ⚙️ | **Netdisks and remote servers are kept apart** — the settings page splits them into two tabs, *Netdisks* and *Remote connections*, so each connection sits where it belongs |
-| ➕ | **More mainstream netdisks are on the way** — Aliyun Drive is next and OneDrive follows it, both plugged into the very same remote-connection machinery |
+| ➕ | **More mainstream netdisks are on the way** — Aliyun Drive is next and OneDrive follows it, both plugged into the very same remote-connection machinery. The first version of each browses and downloads; writing to them comes later |
 
 #### Why this is simpler than mounting the drive with alist
 
