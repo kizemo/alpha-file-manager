@@ -2674,4 +2674,65 @@ path=::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\?\usb#vid_22d9&pid_2765&mi_00#6&3
 - 回到主线：阿里云盘 + OneDrive（`docs/plan-2026-11-19-aliyun-onedrive.md`），动手前先修 `src/utils/remote-directory.ts:137-147` 硬编码「夸克网盘」的串台文案。
 - **仍需用户授权（对外）**：发布 release 资产、提 winget manifest PR。
 
+---
+
+### 20.20 批次 24 收口：目录树显示 shell 设备 + 地址栏面包屑逐级下钻（2026-11-19）
+
+用户 14:19 回报批次 23 的两个新缺陷 —— ① 左侧目录树里看不到手机；② 进入手机盘后地址栏
+只能显示到「设备」一级，不能逐级下钻。**两条都已修复并装机真机判定 PASS。**
+完整证据见 `.superpowers/sdd/b24-final-gate-report.md`（判词全部由根会话回读证据文件当场自证）。
+
+#### 20.20.1 根因与修法
+
+| # | 缺陷 | 根因 | 修法 |
+|---|---|---|---|
+| A | 地址栏只显示到「设备」 | 面包屑用 `split(/[\\/,]/)` 切 shell path，`SID-{10001,,1001925963776}` 内的 `,,` 被切碎、GUID 段被当成一段；设备名还硬编码成「设备」 | 后端新增 `resolve_shell_path_chain(path) -> Vec<ShellPathCrumb>`，沿 PIDL 逐层 `GetParent()` 取**真实显示名**；前端 `utils/shell-path-chain.ts` 按 path 缓存（上限 64、失败不写缓存） |
+| B | 目录树看不到手机 | `pathDepth()` 与 `computeAncestorPaths()` 都按 `/` 切分，shell 路径 `\` 分隔被算成 depth 0 ⇒ 设备根既挤进第一层、也进不了 `treeRootPaths` 的祖先链 | `remote-tree-roots.ts` 加设备根；`folder-tree.ts` 加 `isShellPath` 护栏 + `computeShellAncestorPaths`；`use-file-tree.ts` 五处切分改 `split(/[\\/]+/)` |
+| D1 | 树里设备名显示成「设备」而非「一加 Ace 3」 | 同 A | 与 A **同一条祖先链一并消失**，未做额外改动 |
+
+launcher 线（双击手机进 AFM）8 条 argv 用例全过 ⇒ **launcher 层无缺陷**，`::{…}` 本就逐字节原样透传，产品代码未动。
+
+#### 20.20.2 四条门禁（`.superpowers/sdd/b24-final-a{1,2,3,4}.log`，退出码均 0）
+
+| 门禁 | 数字 |
+|---|---|
+| A1 `cargo test --lib` | **1436 passed / 0 failed / 1 ignored**（与批次 23 基线持平 ⇒ 根会话 `lib.rs:811` 常量订正复验坐实） |
+| A2 launcher | **14 passed / 0 failed** |
+| A3 `npm run check` | **315 files / 3336 tests / RESULT: VALID**（批次 23 基线 313/3303） |
+| A4 `npm run verify:sandbox` | **RESULT: VALID（0 violations / 20 patterns）** |
+
+#### 20.20.3 真机判据（3.15.0 重新打包 45,602,503 B / 装机 15:42–15:43）
+
+- **D-0 来历坐实**：归一化 `__TAURI_BUNDLE_TYPE_VAR_{NSS,UNK}__` 后逐 64 KiB 块比对，差异块归一化后相等
+  ⇒ `NORMALIZED_EQUAL=True`；装机 exe 大小 82,767,360 → **82,791,424**、mtime 12:26 → 15:42。
+  **装机路径更正：`D:\Program Files\Alpha File Manager\`（无空格），旧记录作废。**
+- **D-1 目录树 = PASS**：手机根与 fnNAS 的 `depth=4 / chevronX=92`，与 `C:/D:/E:/F:/G:` **完全同层**；
+  子节点 `depth=5 / chevronX=116`、孙节点 `depth=6 / chevronX=140`（每级 +24px）⇒ 是嵌套不是并列第二根。
+- **D-2 面包屑 = PASS**：进入手机盘 `DCIM\Camera` 得 `CRUMB_COUNT=6`，真实层级
+  「位置 → 一加 Ace 3 → 内部共享存储空间 → DCIM → Camera」；另一实例三级层「… → .7934039a」。
+- **D-3 点中间层 = PASS**：点「一加 Ace 3」段（按几何中心点击）后面包屑与列表都切到该层。
+  首轮坐标取自退化 `GetClickablePoint()` 落在元素外 ⇒ 那是**探针缺陷不是产品缺陷**。
+- **分隔符口径风险排除**（§20.19.9 点名的最高风险遗留项）：树行 `title` 被 UIA 映射成 HelpText，
+  直接读到真机 path 原文 —— shell 子节点 `backslash` 逐级 +1、`slash=0` ⇒ `normalize_path` 未污染 shell 路径；
+  本地盘行反而 `slash=1`（`C:/`）。两套口径各自正确。
+
+#### 20.20.4 未判定项与遗留（下一批要做）
+
+| # | 项 | 状态 |
+|---|---|---|
+| D-4 | 设备热插拔旧名残留 | **未判定**（无可安全弹出的设备通路）。代码侧已坐实缺口：`clearShellPathChainCache()` 只有定义 + 测试调用，**产品代码零调用点** |
+| L1 | 左侧导航树仍走 `getShellPathDisplayName()`（`use-file-tree.ts:859`），未接祖先链 | 遗留 |
+| L2 | 面包屑 5~6 段横向溢出观感未肉眼确认 | 遗留 |
+| L3 | U 盘双击经注册层进 AFM 未验证（`Classes\Drive` 未注册，属系统行为改动，需先问用户） | 遗留 |
+| L4 | 15:53:19 装机版进程消失，与首轮退化坐标点击时刻重合、重启后一切正常 | **未归因观察，不作回归** |
+
+#### 20.20.5 本轮新增的工具坑（可复用）
+
+- **树缩进判据不能用行元素左边缘 X**（行内图标/chevron 才随层级动）⇒ 取行内 chevron 的 X，实测每级 +24px。
+- **`title="row.path"` → UIA HelpText** 是本项目读「真机 path 原文」的现成通道，比截图 OCR 可靠。
+- **面包屑/小控件点击必须按几何中心**，`GetClickablePoint()` 会退化成左上角而落空。
+- **子会话自述「现在写交付报告」≠ 文件已落盘** ⇒ 判词一律自己回读证据文件；本轮 `.md` 确实缺失，报告由根会话重建。
+- **PowerShell 的 `Select-String -Path 'src\**\*.ts'` 不做递归** ⇒ 全库符号搜索用 `grep` 工具。
+- **裸 sha 会因 bundle-type 标记假红**：判装机与构建产物是否同源，用归一化 + 分块比对，裸 sha256 不进判词。
+
 

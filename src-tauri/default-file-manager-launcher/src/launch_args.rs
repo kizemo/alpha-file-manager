@@ -207,4 +207,153 @@ mod tests {
             vec!["/selected".to_string(), "C:\\x".to_string()]
         );
     }
+
+    // ── 手机 / 设备节点：shell 命名空间解析路径必须逐字透传 ──────────────────
+    //
+    // FORK-MODIFICATION (2026-11-19)：批次 23 之后，Windows 资源管理器双击 MTP 手机时，
+    // 会把「shell 命名空间解析路径」作为 argv 交给注册进 shell 的本启动器。
+    // 下面三条常量是**真机取证的权威原文**（逐字符），不是随手编的样例：
+    //   - `\\\?\` = 父节点分隔符 `\` 加上设备命名空间前缀 `\\?\`，不是笔误，
+    //     不能折叠成一个 `\`，也不能当成 UNC 前缀改写；
+    //   - `#`、`&`、`,`、`:` 都是这条路径自身的字符，不是命令行元字符，不能转义；
+    //   - 整串 82 ~ 156 字符（带存储目录名的能到 180），任何截断都会让主程序收不到设备。
+    //
+    // 两层实现的分工：本启动器**只**改写 `/select`，其余 argv 原样 clone 进
+    // `passthrough`（见 `parse_launch_arguments` 的 else 分支）；「shell 路径要保留、
+    // 不删不改」由主程序 `filter_shell_namespace_args`（src-tauri/src/lib.rs:161）负责，
+    // 那侧已有对应用例。历史上的严重缺陷正是这两层中有一层把 `::{…}` 参数删掉，
+    // 用户看到的现象是「双击手机只跳到位置界面」。这里把启动器这一层钉死。
+
+    /// 手机（MTP）设备根节点：真机原文，129 字符。
+    const MTP_SHELL_PATH: &str = r#"::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\\?\usb#vid_22d9&pid_2765&mi_00#6&337f5e7c&1&0000#{6ac27878-a6fa-4155-ba85-f98f491d4f33}"#;
+
+    /// 同一台手机的存储节点（带 `SID-{…}` 片段）：真机原文，156 字符。
+    const MTP_SHELL_PATH_WITH_SID: &str = r#"::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\\?\usb#vid_22d9&pid_2765&mi_00#6&337f5e7c&1&0000#{6ac27878-a6fa-4155-ba85-f98f491d4f33}\SID-{10001,,1001925963776}"#;
+
+    /// 按 WPD uuid 解析的设备节点：真机原文，82 字符。
+    const DEVICE_SHELL_PATH_BY_UUID: &str =
+        r#"::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\uuid:4d696e69-444c-164e-9d41-7085c27f4afe"#;
+
+    /// 手机设备根节点必须整串原样出现在透传参数里。
+    #[test]
+    fn keeps_mtp_device_shell_namespace_path_verbatim() {
+        let parsed = parse_launch_arguments(&arguments(&[MTP_SHELL_PATH]));
+
+        assert_eq!(parsed.select_path, None);
+        assert_eq!(parsed.passthrough, vec![MTP_SHELL_PATH.to_string()]);
+    }
+
+    /// 带 `SID-{…}` 的手机存储节点同样原样透传（`,` 与 `#` 都不该触发任何特殊处理）。
+    #[test]
+    fn keeps_mtp_storage_shell_namespace_path_verbatim() {
+        let parsed = parse_launch_arguments(&arguments(&[MTP_SHELL_PATH_WITH_SID]));
+
+        assert_eq!(parsed.select_path, None);
+        assert_eq!(parsed.passthrough, vec![MTP_SHELL_PATH_WITH_SID.to_string()]);
+    }
+
+    /// `uuid:` 形态的设备节点（含冒号）不能被当成「带 scheme 的开关」丢弃。
+    #[test]
+    fn keeps_device_shell_namespace_path_by_uuid_verbatim() {
+        let parsed = parse_launch_arguments(&arguments(&[DEVICE_SHELL_PATH_BY_UUID]));
+
+        assert_eq!(parsed.select_path, None);
+        assert_eq!(
+            parsed.passthrough,
+            vec![DEVICE_SHELL_PATH_BY_UUID.to_string()]
+        );
+    }
+
+    /// 注册表 `Folder\shell\open\command` 里 `%1` 外面常包一层引号。
+    ///
+    /// 真机上命令行解析会把那层引号吃掉，所以上面三条用的就是裸串形态；
+    /// 这条用例钉的是另一半契约：**即使引号留到了 argv 里**，
+    /// 引号内的路径也必须逐字未动 —— 用现成的 `trim_argument_quotes` 剥掉引号后
+    /// 必须与真机原文完全相等（既没被转义，也没被截断）。
+    #[test]
+    fn keeps_quoted_shell_namespace_path_intact() {
+        let quoted = format!("\"{MTP_SHELL_PATH_WITH_SID}\"");
+        let parsed = parse_launch_arguments(&arguments(&[quoted.as_str()]));
+
+        assert_eq!(parsed.select_path, None);
+        assert_eq!(parsed.passthrough, vec![quoted]);
+        assert_eq!(
+            trim_argument_quotes(parsed.passthrough.first().expect("quoted path dropped")),
+            MTP_SHELL_PATH_WITH_SID
+        );
+    }
+
+    /// 带空格的 shell 路径（按真机形态构造：设备节点下那层 `Internal shared storage`）。
+    ///
+    /// 命令行解析后它仍是**一个** argv 元素：不能按空格切开，也不能因为带空格
+    /// 就补转义或加引号；带引号形态剥掉引号后必须逐字相同。
+    #[test]
+    fn keeps_shell_namespace_path_with_spaces_intact() {
+        let path_with_space = format!(r#"{MTP_SHELL_PATH_WITH_SID}\Internal shared storage"#);
+        let quoted = format!("\"{path_with_space}\"");
+
+        let plain = parse_launch_arguments(&arguments(&[path_with_space.as_str()]));
+        assert_eq!(plain.select_path, None);
+        assert_eq!(plain.passthrough, vec![path_with_space.clone()]);
+
+        let wrapped = parse_launch_arguments(&arguments(&[quoted.as_str()]));
+        assert_eq!(wrapped.select_path, None);
+        assert_eq!(wrapped.passthrough, vec![quoted]);
+        assert_eq!(
+            trim_argument_quotes(wrapped.passthrough.first().expect("quoted path dropped")),
+            path_with_space
+        );
+    }
+
+    /// 回归护栏：启动器**不得**因为参数长得像 shell 命名空间路径（`::{`、`shell:`、
+    /// 内含 `#` / `&` / `,` / `:`）就丢弃或改写它 —— 历史上正是「看着不像正常路径就删掉」
+    /// 导致双击手机只跳到位置界面。对照普通路径 `D:\tmp`：行为必须一致，
+    /// 条数、顺序、内容三者都不许变。
+    #[test]
+    fn never_drops_arguments_because_of_shell_namespace_markers() {
+        let ordinary_path = "D:\\tmp";
+        let parsed = parse_launch_arguments(&arguments(&[
+            "::{",
+            MTP_SHELL_PATH,
+            DEVICE_SHELL_PATH_BY_UUID,
+            "shell:::{20D04FE0-3AEA-1069-A2D8-08002B30309D}",
+            ordinary_path,
+        ]));
+
+        assert_eq!(parsed.select_path, None);
+        assert_eq!(
+            parsed.passthrough,
+            vec![
+                "::{".to_string(),
+                MTP_SHELL_PATH.to_string(),
+                DEVICE_SHELL_PATH_BY_UUID.to_string(),
+                "shell:::{20D04FE0-3AEA-1069-A2D8-08002B30309D}".to_string(),
+                ordinary_path.to_string(),
+            ]
+        );
+    }
+
+    /// 混合场景：手机路径与普通文件夹路径同时进来时，两条都原样保留、顺序不变。
+    #[test]
+    fn keeps_shell_namespace_path_beside_ordinary_folder_path() {
+        let parsed = parse_launch_arguments(&arguments(&[MTP_SHELL_PATH_WITH_SID, "D:\\tmp"]));
+
+        assert_eq!(parsed.select_path, None);
+        assert_eq!(
+            parsed.passthrough,
+            vec![MTP_SHELL_PATH_WITH_SID.to_string(), "D:\\tmp".to_string()]
+        );
+    }
+
+    /// select 改写是唯一允许动 argv 的分支：即便目标就是手机路径，
+    /// 也必须只加 `--sigma-select=` 前缀、路径部分逐字不变。
+    #[test]
+    fn keeps_shell_namespace_path_intact_when_rewritten_as_select_argument() {
+        let inline_select = format!("/select,{MTP_SHELL_PATH}");
+        let expected = format!("--sigma-select={MTP_SHELL_PATH}");
+        let parsed = parse_launch_arguments(&arguments(&[inline_select.as_str()]));
+
+        assert_eq!(parsed.select_path.as_deref(), Some(MTP_SHELL_PATH));
+        assert_eq!(parsed.passthrough, vec![expected]);
+    }
 }

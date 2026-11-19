@@ -430,7 +430,9 @@ fn shell_namespace_icon_data_url(shell_path: &str, size: u16) -> Option<String> 
         );
 
         ReleaseDC(None, device_context);
-        windows::Win32::Graphics::Gdi::DeleteObject(HGDIOBJ::from(bitmap));
+        // DeleteObject 返回 #[must_use] 的 Result：位图删除失败不影响已经拷贝出来的像素数据，
+        // 但必须显式吞掉返回值，否则触发 unused_must_use 告警。
+        let _ = windows::Win32::Graphics::Gdi::DeleteObject(HGDIOBJ::from(bitmap));
 
         if copied_lines <= 0 {
             CoUninitialize();

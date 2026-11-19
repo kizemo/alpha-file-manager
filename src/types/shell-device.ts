@@ -15,3 +15,15 @@ export type ShellDeviceInfo = {
   shellPath: string;
   isFolder: boolean;
 };
+
+/**
+ * shell 路径的**一层**祖先链（批次 24）。
+ *
+ * 后端 `resolve_shell_path_chain` 的返回结构，数组顺序是「外 → 内」：
+ * 第 0 项是最外层设备根（例如「一加 Ace 3」），最后一项的 `path` 逐字等于请求的那条路径。
+ * 层级只由后端决定，前端不再自己按 `\` 切分 shell 路径。
+ */
+export type ShellPathCrumb = {
+  path: string;
+  name: string;
+};

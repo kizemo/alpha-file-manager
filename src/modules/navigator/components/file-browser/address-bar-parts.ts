@@ -22,6 +22,7 @@ import {
   REMOTE_SCHEME,
 } from '@/utils/remote-paths';
 import { getShellPathDisplayName, isShellPath } from '@/utils/shell-paths';
+import type { ShellPathCrumb } from '@/types/shell-device';
 
 export type AddressBarPart = {
   path: string;
@@ -62,23 +63,43 @@ export interface ShellBreadcrumbContext {
   deviceNames: Record<string, string>;
   /** 查不到设备名时的兜底短标签（i18n）。绝不显示 `::{...}` 整串。 */
   fallbackLabel: string;
+  /**
+   * 后端 `resolve_shell_path_chain` 的祖先链（外 → 内，末项 `path` 逐字等于当前路径）。
+   *
+   * 可选：链是异步拿到的，没拿到（加载中 / 命令报错 / 老调用方）时用两段式降级形态，
+   * 用户看到的不会比批次 23 更差。
+   */
+  pathChain?: ShellPathCrumb[];
 }
 
 const NO_SHELL_CONTEXT: ShellBreadcrumbContext = {
   deviceNames: {},
   fallbackLabel: 'Device',
+  pathChain: [],
 };
 
 /**
  * FORK-MODIFICATION 2026-11-19（批次 23）：shell 设备面包屑。
+ * FORK-MODIFICATION 2026-11-19（批次 24）：层级改由后端祖先链决定。
  *
  * 手机（MTP）的路径是 `::{20D04FE0-...}\?\usb#...` —— 一个不透明标识符。
- * 通用分支会把它切成一堆看不懂的段（还会把 `::{` 当成盘符），
- * 所以这里**整条**当作一级处理：
+ * 通用分支会把它切成一堆看不懂的段（还会把 `::{` 当成盘符），所以批次 23 把整条当一级：
  *
  *   位置 > Galaxy S22
  *
- * 设备名来自设备清单（`shellDeviceNames`）；查不到时只显示一个短标签，
+ * 但一台手机在 shell 里其实不止一层：设备根下面是「内部共享存储空间」这类存储容器，
+ * 再往下才是文件夹。批次 23 把整条压成一级，用户只能看到设备名，点不回上一层
+ * （缺陷 D1：中间那层曾被前端字符串切分降级成笼统的「设备」）。
+ *
+ * 现在层级只认后端给的 `pathChain`（`resolve_shell_path_chain`，外 → 内）：
+ *
+ *   位置 > 一加 Ace 3 > 内部共享存储空间 > .7934039a
+ *
+ * 每级的 `path` 用链项自己的 `path` —— 前端一个字符都不改，
+ * 因为 shell 路径里的 `\` 不是目录分隔符，段内还会带 `,` `{` `}` `#`。
+ *
+ * 链没到位（异步加载里、命令报错、路径已换）时退回批次 23 的两段式；
+ * 设备名来自设备清单（`shellDeviceNames`），查不到只显示一个短标签，
  * **绝不**把 `::{...}` 整串糊在界面上。
  */
 function buildShellAddressBarParts(
@@ -86,18 +107,40 @@ function buildShellAddressBarParts(
   locationsLabel: string,
   context: ShellBreadcrumbContext,
 ): AddressBarPart[] {
+  const locationsPart: AddressBarPart = {
+    path: LOCATIONS_VIRTUAL_PATH,
+    name: locationsLabel,
+    isLast: false,
+    disableDropTarget: true,
+    displayRootIcon: true,
+    useLocationsDropdown: true,
+  };
+
+  const chain = context.pathChain ?? [];
+  const lastCrumb = chain.length > 0 ? chain[chain.length - 1] : undefined;
+
+  // 链必须是「通向当前路径」的：末项逐字等于入参才可用。
+  // 这条同时兜住了陈旧链（用户已经走掉了，后端还在回上一条路径的链）。
+  if (lastCrumb !== undefined && lastCrumb.path === path) {
+    return [
+      locationsPart,
+      ...chain.map((crumb, index): AddressBarPart => ({
+        path: crumb.path,
+        // 链项的显示名为空是后端边界情况（shell 没给出解析名），退回短标签，
+        // 而不是把整条面包屑丢掉。
+        name: crumb.name !== '' ? crumb.name : context.fallbackLabel,
+        isLast: index === chain.length - 1,
+        // shell 路径不是文件系统目录，拖放目标没有意义。
+        disableDropTarget: true,
+      })),
+    ];
+  }
+
   const deviceName = context.deviceNames[path]
     ?? getShellPathDisplayName(path, context.fallbackLabel);
 
   return [
-    {
-      path: LOCATIONS_VIRTUAL_PATH,
-      name: locationsLabel,
-      isLast: false,
-      disableDropTarget: true,
-      displayRootIcon: true,
-      useLocationsDropdown: true,
-    },
+    locationsPart,
     {
       path,
       name: deviceName,

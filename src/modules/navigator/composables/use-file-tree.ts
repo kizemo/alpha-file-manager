@@ -36,6 +36,10 @@ import {
   isRemoteConnectionRootPath,
   isRemotePath,
 } from '@/utils/remote-paths';
+// FORK-MODIFICATION 2026-11-19（批次 24）：shell 设备根（手机 / 读卡器）。
+// 路径整体是不透明标识符，父链用前缀截断，显示名兜底口径与「位置」页一致。
+import { getShellParentPath, getShellPathDisplayName, isShellPath } from '@/utils/shell-paths';
+import { SHELL_DEVICE_FALLBACK_LABEL } from '../utils/remote-tree-roots';
 import { resolveDirectoryContents } from '@/utils/virtual-locations';
 import type { FileTreeNode, FileTreeFlatRow } from '../types/file-tree';
 
@@ -302,6 +306,17 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
       return isRemoteConnectionRootPath(path) ? null : getRemoteParentPath(path);
     }
 
+    // FORK-MODIFICATION 2026-11-19（批次 24）：shell 设备路径只能前缀截断。
+    //
+    // 下面的字符串切分对 `::{GUID}\?\usb#vid_22d9&pid_2765&mi_00\SDcard`
+    // 得到的是 `...`（找不到 `/` ⇒ null）这种假答案：祖先回溯走空，
+    // `ensureLoaded` 找不到节点就 `addRoot` —— 设备子目录被立成并列的第二个根，
+    // 与 v6.3 / 2026-10-19 修过两次的远程缺陷同形状。
+    // `getShellParentPath` 在设备根返回 null ⇒ 设备根就是根，链到这里自然停。
+    if (isShellPath(path)) {
+      return getShellParentPath(path);
+    }
+
     const lastSlash = path.lastIndexOf('/');
     if (lastSlash === -1) return null;
     if (lastSlash === 0) return '/';
@@ -333,7 +348,14 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
       return false;
     }
 
-    return nodes.value.some(node => node.path !== path && node.path.startsWith(`${prefix}/`));
+    // shell 设备路径的分隔符是 `\`：只拼 `prefix + '/'` 的话这条守卫对
+    // 设备根恒假，裸 GUID（`::{...}`）之类的上层祖先会被立成并列的根。
+    const prefixes = isShellPath(path)
+      ? [`${prefix}/`, `${prefix}\\`]
+      : [`${prefix}/`];
+
+    return nodes.value.some(node => node.path !== path
+      && prefixes.some(p => node.path.startsWith(p)));
   }
 
   /**
@@ -738,12 +760,23 @@ export function useFileTree(options: UseFileTreeOptions): UseFileTreeApi {
    * 直接拼成 `C://` 的话 `C:/Users` 永远匹配不上。
    */
   function isUnderAnyOf(path: string, roots: Set<string>): boolean {
+    const shellPath = isShellPath(path);
+
     for (const root of roots) {
       const prefix = root.replace(/[\\/]+$/, '');
 
       if (!prefix) continue;
 
       if (path === root || path.startsWith(`${prefix}/`)) {
+        return true;
+      }
+
+      // FORK-MODIFICATION 2026-11-19（批次 24）：设备根是 `\` 形态的 shell 路径。
+      //
+      // 只认 `/` 的话「设备根被移出」时它下面已展开层的 `loadedSet` 记账清不掉：
+      // 节点没了、`loadedSet` 还留着 ⇒ 再切回来时 `ensureLoaded` 开头直接 return，
+      // 设备那一行显示成展开、下面一个子节点都没有（2026-10-19 真机同形状缺陷）。
+      if (shellPath && isShellPath(root) && path.startsWith(`${prefix}\\`)) {
         return true;
       }
     }
@@ -806,7 +839,7 @@ function buildRoots(paths: string[], labels?: Record<string, string>): FileTreeN
  * 用长度排会把 `.../wp-content` 排到 `.../wp-content/themes` 前面去。
  */
 function pathDepth(path: string): number {
-  return path.split('/').filter(Boolean).length;
+  return path.split(/[\\/]+/).filter(Boolean).length;
 }
 
 /** v6.4: derive a display name for a root path. Order:
@@ -816,6 +849,16 @@ function pathDepth(path: string): number {
  *     doesn't produce an empty name). */
 function deriveRootName(path: string, labels?: Record<string, string>): string {
   if (labels && labels[path]) return labels[path];
+
+  // FORK-MODIFICATION 2026-11-19（批次 24）：shell 设备根没有 basename 可言。
+  //
+  // 按分隔符拆段会得到 `usb#vid_22d9&pid_2765&mi_00` 这种设备实例 ID 碎片
+  // （批次 24 的判别性红灯之一）。兜底口径与「位置」页一致：
+  // `shell:Name` 用 Name，其余用 SHELL_DEVICE_FALLBACK_LABEL。
+  if (isShellPath(path)) {
+    return getShellPathDisplayName(path, SHELL_DEVICE_FALLBACK_LABEL);
+  }
+
   const parts = path.split(/[\\/]+/).filter(Boolean);
   if (parts.length > 0) return parts[parts.length - 1];
   return path;

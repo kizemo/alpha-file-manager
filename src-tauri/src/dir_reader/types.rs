@@ -108,6 +108,24 @@ pub struct ShellDeviceInfo {
     pub is_folder: bool,
 }
 
+/// FORK-MODIFICATION 2026-11-19（批次 24）：shell 路径的**面包屑一级**。
+///
+/// shell 设备（手机 / MTP）的解析路径是不透明字符串：段名 ≠ 显示名
+/// （`...\SID-{10001,,1001925963776}` 的显示名是「内部共享存储空间」），
+/// 而且直接双击手机启动时前端只拿得到末级那一条路径 ⇒ 前端自己拆不出祖先链，
+/// 只能由后端沿 `IShellItem::GetParent()` 往上走再返回。
+///
+/// 序列化沿用 `ShellDeviceInfo` 的 `camelCase`（两个字段都是单词，
+/// 因此实际 JSON 键名固定为 `path` / `name`）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShellPathCrumb {
+    /// `SIGDN_DESKTOPABSOLUTEPARSING` 原样字符串，可再次喂给 `resolve_shell_item`。
+    pub path: String,
+    /// `SIGDN_NORMALDISPLAY`；取不到时退回同级的 `path`，**绝不为空串**。
+    pub name: String,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MountableDevice {
     pub name: String,

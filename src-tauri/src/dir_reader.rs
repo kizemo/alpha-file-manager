@@ -20,7 +20,7 @@ mod types;
 #[allow(unused_imports)]
 pub use types::{
     DirContents, DirEntry, DriveInfo, MountableDevice, NetworkShareParams, OpenedDirectoryTimes,
-    ShellDeviceInfo,
+    ShellDeviceInfo, ShellPathCrumb,
 };
 
 pub use commands::*;

@@ -29,6 +29,8 @@ import { useQuickViewStore } from '@/stores/runtime/quick-view';
 import { useShortcutsStore, getSelectedTextForCopy } from '@/stores/runtime/shortcuts';
 // FORK-MODIFICATION 2026-11-06：快捷键复制目录路径也要走原生分隔符。
 import { useNativePath } from '@/composables/use-native-path';
+// FORK-MODIFICATION 2026-11-19（批次 24）：目录树根显示 shell 设备（手机 / 读卡器）。
+import { useShellDevices } from '@/composables/use-shell-devices';
 import { toast, ToastStatic } from '@/components/ui/toaster';
 import {
   getVirtualLocationActionContext,
@@ -519,6 +521,22 @@ const showFolderTree = ref(
 );
 const { drives } = useDrives();
 
+// FORK-MODIFICATION 2026-11-19（批次 24）：手机（MTP）/ 无盘符读卡器在 Windows 里
+// 不是卷，是 shell 命名空间里的对象 —— 「位置」页早就把它们列出来了，
+// 目录树的根里却只有盘符。用户原话：「在位置中，已经可以显示手机，但在目录树无法显示手机」。
+//
+// 这一层只做「喂数据」：合成顺序、去重、标签兜底全在纯函数 `resolveTreeRoots` 里，
+// 那边可单测。设备枚举失败时清单是空的（`@/utils/shell-devices` 会清空缓存），
+// 树根退回纯盘符列表，与改动前逐字节一致 —— 不影响盘符根的渲染（要求 ②）。
+const { shellDevices } = useShellDevices();
+
+const treeDeviceRoots = computed(() => shellDevices.value
+  .filter(device => !!device.shellPath?.trim())
+  .map(device => ({
+    path: device.shellPath,
+    label: device.name?.trim(),
+  })));
+
 const treeDriveLabels = computed<Record<string, string>>(() => {
   const out: Record<string, string> = {};
 
@@ -566,6 +584,8 @@ const treeRoots = computed(() => resolveTreeRoots({
   drivePaths: drives.value.map(d => d.path),
   driveLabels: treeDriveLabels.value,
   connectionsById: treeConnections.value,
+  // 焦点在远程时这条会被纯函数忽略（远程分支优先，要求 ①）。
+  deviceRoots: treeDeviceRoots.value,
 }));
 
 const treeRootPaths = computed(() => treeRoots.value.rootPaths);

@@ -18,6 +18,8 @@ import {
   normalizeRemotePath,
   parseRemotePath,
 } from '@/utils/remote-paths';
+// FORK-MODIFICATION 2026-11-19（批次 24）：设备根缺标签时的兜底口径。
+import { getShellPathDisplayName } from '@/utils/shell-paths';
 
 /** 树根判定需要的连接信息。只取两样，其余一概不碰。 */
 export interface TreeConnectionInfo {
@@ -49,11 +51,77 @@ export interface TreeRootsInput {
   driveLabels: Readonly<Record<string, string>>;
   /** 连接 id → 连接名 / 初始目录。 */
   connectionsById: Readonly<Record<string, TreeConnectionInfo>>;
+  /**
+   * Windows shell 命名空间设备根（批次 24：MTP 手机、无盘符读卡器、fnNAS 之类）。
+   *
+   * **可选**：不传、或传空数组时，结果与这条改动之前**逐字节相同**。
+   * 这一条是要求 ② 的落点 —— 设备枚举失败时调用方给空清单即可静默降级，
+   * 盘符根的渲染完全不受影响。
+   */
+  deviceRoots?: readonly TreeDeviceRoot[];
 }
 
 export interface TreeRootsResult {
   rootPaths: string[];
   rootLabels: Record<string, string>;
+}
+
+/**
+ * 一个可以当树根的 shell 命名空间设备。
+ *
+ * `path` 是**不透明标识符**，形如 `::{20D04FE0-...}\?\usb#vid_22d9&pid_2765&mi_00`：
+ * 里面的 `\` 不是目录分隔符、`?` 是 shell 解析名的分隔标记。
+ * 本模块只会把它**原样**接进 `rootPaths` 当节点 key ——
+ * 归一、切段、替换分隔符任意一种都会让后端认不出来，设备直接从树上消失。
+ *
+ * `label` 通常是 Rust 侧给的设备显示名（`ShellDeviceInfo.name`）。
+ */
+export interface TreeDeviceRoot {
+  path: string;
+  label?: string;
+}
+
+/**
+ * 设备名拿不到时的兜底标签。
+ *
+ * 口径与「位置」页保持一致（`virtual-locations.ts` 的 `shellDeviceInfoToDirEntry`
+ * 用的是同一个字面量）：同一个设备在两处显示成两个名字，用户会以为是两台机器。
+ */
+export const SHELL_DEVICE_FALLBACK_LABEL = 'Device';
+
+/**
+ * 本地树根 = 盘符 + shell 设备（批次 24）。
+ *
+ * 用户 2026-11-19 报的缺陷原话：「在位置中，已经可以显示手机，但在目录树无法显示手机」。
+ * 「位置」页早就把设备列出来了（`getShellDeviceEntries`），目录树的根里却只有盘符。
+ *
+ * 三条约束：
+ *   1. 顺序是「盘符在前、设备在后」，且盘符那部分**一个字节都不动** ——
+ *      既有行为与既有的「焦点在本地时：行为一个字没变」用例组全靠它；
+ *   2. shell 路径原样作 key：内容不 trim、分隔符不归一、不按段拆；
+ *   3. 空白条目丢弃，重复路径只留**第一次**出现的那个
+ *      （盘符已占用的路径不会被设备覆盖标签，同一台手机被枚举两遍也只有一行）。
+ */
+function resolveLocalTreeRoots(input: TreeRootsInput): TreeRootsResult {
+  const rootPaths = [...input.drivePaths];
+  const rootLabels = { ...input.driveLabels };
+  const seen = new Set(rootPaths);
+
+  for (const device of input.deviceRoots ?? []) {
+    if (!device?.path?.trim() || seen.has(device.path)) {
+      continue;
+    }
+
+    seen.add(device.path);
+    rootPaths.push(device.path);
+    rootLabels[device.path] = device.label?.trim()
+      || getShellPathDisplayName(device.path, SHELL_DEVICE_FALLBACK_LABEL);
+  }
+
+  return {
+    rootPaths,
+    rootLabels,
+  };
 }
 
 /**
@@ -143,11 +211,10 @@ export function resolveTreeRoots(input: TreeRootsInput): TreeRootsResult {
     ? resolveRemoteTreeRoot(remoteConnectionId, input.connectionsById[remoteConnectionId]?.initialPath)
     : null;
 
+  // 焦点不在远程 → 本地树根 =「盘符 + shell 设备」（批次 24）。
+  // 设备清单为空 / 没传时，结果与这条改动之前逐字节相同（要求 ①②）。
   if (!remoteConnectionId || !remoteRoot) {
-    return {
-      rootPaths: [...input.drivePaths],
-      rootLabels: { ...input.driveLabels },
-    };
+    return resolveLocalTreeRoots(input);
   }
 
   const connectionName = input.connectionsById[remoteConnectionId]?.name?.trim();
