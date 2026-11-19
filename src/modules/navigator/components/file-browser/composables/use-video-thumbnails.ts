@@ -12,6 +12,16 @@ const VIDEO_THUMBNAIL_SIZE = {
   height: 271,
 };
 
+/**
+ * shell namespace 路径（手机 MTP/WPD 等）的判据，必须与 Rust 侧
+ * `dir_reader::shell_namespace::is_shell_namespace_path` 同源：`::{...}` 或 `shell:` 前缀。
+ */
+export function isShellNamespacePath(path: string): boolean {
+  const trimmed = path?.trim() ?? '';
+
+  return trimmed.startsWith('::{') || trimmed.toLowerCase().startsWith('shell:');
+}
+
 export interface VideoThumbnailSize {
   width: number;
   height: number;
@@ -195,6 +205,17 @@ export function useVideoThumbnails() {
     const processingKey = getProcessingVideoThumbnailKey(request.thumbnailKey, request.generation);
 
     try {
+      // 手机里的视频不是文件系统路径：<video> 的 asset URI 打不开它，
+      // 只会白占一个并发队列位再留下一格空转圈 ⇒ 直接标记失败。
+      // 真机取证：手机视频在 SIIGBF_THUMBNAILONLY 下一律回 0x8004B200
+      // （没有缩略图提供程序），所以后端这条通道暂时也给不出封面，
+      // 宁可显示文件图标，也不拿通用图标冒充每视频一份的「真帧封面」。
+      if (isShellNamespacePath(request.entry.path)) {
+        failedThumbnails.add(request.thumbnailKey);
+
+        return;
+      }
+
       let cachedThumbnail: string | undefined;
 
       try {

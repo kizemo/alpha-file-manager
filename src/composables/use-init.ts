@@ -61,6 +61,7 @@ import { removeAppSplash } from '@/utils/app-splash';
 import { logInitTrace, traceInitStep } from '@/utils/init-trace';
 import { warmPathComparisonVolumeCache } from '@/utils/path-comparison-volume-cache';
 import { openNavigatorPath, preloadNavigatorRoute } from '@/utils/open-navigator-directory';
+import { refreshDrives } from '@/modules/home/composables/use-drives';
 import {
   persistLastRoute,
   resolveStartupRouteLocation,
@@ -68,6 +69,29 @@ import {
 } from '@/utils/last-route';
 
 const APP_LAUNCH_ARGS_EVENT = 'app-launch-args';
+
+// FORK-MODIFICATION 2026-11-19（批次 25 缺陷 B25-2）：U 盘安全弹出。
+// 后端 message-only 窗口把 WM_DEVICECHANGE 转成这个事件广播出来，
+// 事件名必须与 src-tauri/src/device_events.rs 的 VOLUME_EVENT 一字不差。
+const VOLUME_CHANGE_EVENT = 'volume-change';
+
+// 这三个 kind 表示系统正在/即将拿掉这块卷，必须关掉该盘上的标签页。
+// 刻意包含 query-remove：后端此时已经放掉句柄，标签页若继续开着，
+// 下一次目录读取会重新打开该盘句柄，弹出又会拿到 ERROR_REMOVE_VETOED(23)。
+const VOLUME_REMOVAL_EVENT_KINDS = new Set([
+  'query-remove',
+  'remove-pending',
+  'remove-complete',
+]);
+
+// 与后端 device_events::VolumeEventPayload（serde camelCase）一一对应。
+type VolumeChangePayload = {
+  kind: string;
+  driveLetter?: string | null;
+  releasedDirWatches?: number;
+  releasedIndexRoots?: number;
+};
+
 const STARTUP_BACKGROUND_REFRESH_TIMEOUT_MS = 1500;
 const STARTUP_DIR_ENTRY_TIMEOUT_MS = 2000;
 
@@ -95,6 +119,7 @@ export function useInit() {
   const { initAutoCheck } = useAppUpdater();
   useClipboardFocusSync();
   let appLaunchArgsUnlisten: UnlistenFn | null = null;
+  let volumeChangeUnlisten: UnlistenFn | null = null;
   let auxiliaryWindowLifecycleUnlisten: UnlistenFn | null = null;
   const backgroundTasks = new Set<Promise<void>>();
 
@@ -350,6 +375,53 @@ export function useInit() {
     appLaunchArgsUnlisten = null;
   }
 
+  async function handleVolumeChangeEvent(payload: VolumeChangePayload | undefined) {
+    if (!payload) {
+      return;
+    }
+
+    if (payload.kind === 'arrival') {
+      void refreshDrives();
+
+      return;
+    }
+
+    if (!VOLUME_REMOVAL_EVENT_KINDS.has(payload.kind)) {
+      return;
+    }
+
+    const driveLetter = payload.driveLetter;
+
+    if (!driveLetter) {
+      return;
+    }
+
+    // 句柄广播与未知类型不带盘符，到这里就已经放行完毕，前端无事可做。
+    try {
+      await workspacesStore.closeTabsOnDrive(driveLetter);
+      void refreshDrives();
+    }
+    catch (error) {
+      console.error('Failed to close tabs on removed drive:', error);
+    }
+  }
+
+  async function registerVolumeChangeListener() {
+    if (volumeChangeUnlisten || !isMainWebviewWindow()) {
+      return;
+    }
+
+    volumeChangeUnlisten = await listen<VolumeChangePayload>(
+      VOLUME_CHANGE_EVENT,
+      event => void handleVolumeChangeEvent(event.payload),
+    );
+  }
+
+  function unregisterVolumeChangeListener() {
+    volumeChangeUnlisten?.();
+    volumeChangeUnlisten = null;
+  }
+
   function runInBackground(task: () => Promise<void>, errorMessage: string) {
     const backgroundTask: Promise<void> = new Promise<void>((resolve) => {
       setTimeout(() => {
@@ -598,6 +670,7 @@ export function useInit() {
     if (isMainWebviewWindow()) {
       registerShortcutHandlers();
       void registerAppLaunchArgsListener();
+      void registerVolumeChangeListener();
 
       // FORK-MODIFICATION 2026-10-21：「长按拖出时不抢前台」的前端兜底。
       //
@@ -613,6 +686,7 @@ export function useInit() {
     if (isMainWebviewWindow()) {
       unregisterShortcutHandlers();
       unregisterAppLaunchArgsListener();
+      unregisterVolumeChangeListener();
     }
 
     appWindowStore.disposeMainWindowStateListeners();

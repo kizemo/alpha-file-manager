@@ -26,7 +26,7 @@ pub use types::{
 pub use commands::*;
 
 /// FORK-MODIFICATION 2026-11-19：shell namespace 路径判定（`system_icons.rs` 要用）。
-pub(crate) use shell_namespace::is_shell_namespace_path;
+pub(crate) use shell_namespace::{is_shell_namespace_path, shell_item_thumbnail_rgba};
 
 // ---------------------------------------------------------------------------
 // 阻塞内核的对外入口

@@ -59,8 +59,24 @@ function canGenerateImageThumbnail(entry: DirEntry): boolean {
   return extension ? !UNSUPPORTED_IMAGE_THUMBNAIL_EXTENSIONS.has(extension) : false;
 }
 
+/**
+ * shell namespace 路径（手机 MTP/WPD 等）的判据，必须与 Rust 侧
+ * `dir_reader::shell_namespace::is_shell_namespace_path` 同源：`::{...}` 或 `shell:` 前缀。
+ */
+export function isShellNamespacePath(path: string): boolean {
+  const trimmed = path?.trim() ?? '';
+
+  return trimmed.startsWith('::{') || trimmed.toLowerCase().startsWith('shell:');
+}
+
 function canGenerateImageThumbnailPlaceholder(entry: DirEntry): boolean {
   const extension = entry.ext?.toLowerCase();
+
+  // 前端读不到 shell 条目的原图字节（convertFileSrc 的 asset URI 只服务文件系统），
+  // 拿它做占位图必然失败 ⇒ 交给后端的 shell 缩略图通道出图。
+  if (isShellNamespacePath(entry.path)) {
+    return false;
+  }
 
   if (!extension || entry.size > MAX_IMAGE_PLACEHOLDER_SOURCE_FILE_SIZE_BYTES) {
     return false;

@@ -2735,4 +2735,146 @@ launcher 线（双击手机进 AFM）8 条 argv 用例全过 ⇒ **launcher 层�
 - **PowerShell 的 `Select-String -Path 'src\**\*.ts'` 不做递归** ⇒ 全库符号搜索用 `grep` 工具。
 - **裸 sha 会因 bundle-type 标记假红**：判装机与构建产物是否同源，用归一化 + 分块比对，裸 sha256 不进判词。
 
+---
+
+### 20.21 批次 25（插队）—— 手机缩略图/文件大小（25A）+ U 盘无法安全弹出（25B）：根因坐实（2026-11-19）
+
+批次 24 已提交为 `7ad71f68`。方案落盘 `docs/plan-2026-11-19-batch25-thumb-usb.md`。
+25B 全部证据在 `.superpowers/sdd/b25-usb-*`（20 个文件，原被 worker 写到仓库**外**的
+`F:\soft\00selfmade\filemanager\.superpowers\sdd\`，已由根会话归位进仓库）。
+
+#### 20.21.1 B25-2 U 盘弹出：根因**实测坐实**，且与用户/我最初的假设都不同
+
+| 结论 | 证据 |
+| --- | --- |
+| AFM 对 `H:\` 持有且仅持有 **1 个常驻卷根句柄**（`hv=6832`，三次采样 14s 间隔恒等 ⇒ 不是轮询瞬时句柄） | `b25-usb-step0-handles2.txt:15,16` `VERDICT: AFM-OCCUPYING` + `b25-usb-step0-persistence.txt:1-3` |
+| AFM 对 **`C:\ D:\ E:\ F:\ G:\ H:\` 每个被索引盘根各持 1 个**，与 `status.json` 的 `indexed_drive_roots` 逐项对应 ⇒ **归因唯一：全局搜索索引递归 watch** | `b25-usb-step1-attribution.txt:10,15,17`；代码 `global_search/index_watcher.rs:124-131` |
+| `dir_watcher` / 缩略图 / dir_size 全部**无 H: 句柄** ⇒ 排除 | 同上（H: 只有那一条句柄） |
+| **用户从未在 AFM 里打开过 H:** ⇒ 缺陷不是「标签页占目录」，是**索引器无条件常驻**，任何新插入的可移动设备都会被静默扣留 | 现场核实 |
+| `stop_watcher` 唯一调用点在 `scan.rs:158`（扫描取消）⇒ 运行期**没有任何按卷释放路径**；取消索引/关窗/退出全不释放 | 静态 + 日志 |
+| 托盘弹出被 Windows 真否决：`CM_Request_Device_EjectW` 返回 **23 = `CR_REMOVE_VETOED`**（SDK `cfgmgr32.h:4720` = `0x17`；早期按文档猜的「32=vetoed」是**错的**） | `b25-usb-step4-eject.txt:25`、`b25-usb-step6-eject3.txt:6,7` |
+| 抓到用户看到的**原生否决对话框原文**（类 `#32770`，标题 `Microsoft Windows`，按钮 **取消 / 重试 / 继续**） | `b25-usb-step5-eject2.txt:18,24,27-30`、`b25-usb-step6-eject3.txt:9-16` |
+
+**现场未受污染**：AFM pid 79340 全程未关停、`H:` 未掉盘、H: 内**零写入**（红线执行到位）。
+弹出确认框**只发 `WM_CLOSE`（取消）**，未点「继续」强拆。
+
+**修复方向（已下发实施，`bg_b570e7c8`）**：层 1 = 可移动盘不进索引常驻根集合（`scan.rs:895-903`
+一类 roots 构造处过滤，含 `DriveChange` 重平衡路径，跳过时打 `tracing::info!` 作装机判据）；
+层 2 = 新增 `src-tauri/src/device_events.rs`（message-only 窗口 + `DBT_DEVTYP_VOLUME` **加 `DBT_DEVTYP_HANDLE`**，
+QUERYREMOVE/REMOVEPENDING 时按 `dbcv_unitMask` 展开多盘符 → 释放 `dir_watcher`/索引 watcher 句柄 →
+不否决地放行 → `emit` 给前端关标签并跳「位置」）。
+
+#### 20.21.2 B25-1 手机缩略图/大小：25A 首轮取证（进行中）
+
+- 探针编译失败暴露一个坑：本项目 `shell_namespace.rs:65-68` 的常量是 **`PKEY_SIZE`（全大写）**，
+  windows crate 里叫 `PKEY_Size` ⇒ 照抄 SDK 名必挂（`b25-thumb-probe.txt:3`）。
+- shell 枚举 oracle 实测（`b25-thumb-size-oracle.txt`）：`一加 Ace 3` 设备根与 fnNAS 根各返回
+  `count=1`，唯一子项是 `FILE ext= name=Items size=0 path=`（**path 为空**）；`Win (C:)` 正常报
+  `DIR path=E:\ path=C:\`。⇒ 待判定：产品侧 `DirEntry.path` 对 shell 子项是否真为空；
+  若真为空，则**缩略图与文件大小两个症状是同一根因**（两者都以 path 为入口）。
+  反证：批次 24 真机 UIA 能逐级下钻到 `SID-{10001,,1001925963776}` ⇒ 倾向于「oracle 只读了
+  `ParsingPath` 一类单一属性、未回落到 pidl 拼接」，**必须用真机 UIA 原文定论，不许靠 oracle 自证**。
+
+  > ⚠ **本条两处推测已于 §20.21.4 被实测否证，勿再引用**：① 设备根 `count=1 / name=Items`
+  > 是**取证脚本自身的 bug**（`b25-size-oracle.ps1:76` 写 `$folder.Items` 漏了调用括号，
+  > 拿到的是集合对象而非子项），**产品侧不存在「Items 假条目」缺陷**；
+  > ② 「缩略图与大小同一根因」**不成立** —— 实测是**两条互不相干的独立根因**（见 §20.21.4.1）。
+- 设备根 `Items` 是**容器的规范名**（等价于「这个文件夹里的全部条目」），不是真实显示名；
+  把它显示出来属于缺陷，登记待修。
+
+#### 20.21.3 本轮新增的工具坑（可复用）
+
+- **判返回码必须核对 SDK 头**：`cfgmgr32.h:4720 CR_REMOVE_VETOED = 0x17`（23）；
+  26 是 `CR_BUFFER_SMALL`（本轮踩过一次，导致前两轮结论方向错）。
+- **PowerShell 字符串插值 `"$Drive:$"` 被当成作用域限定符** ⇒ 一律写 `${Drive}:`；
+  该 bug 会让盘符判据恒为 False 且「看着像 PASS」（`HasHDrive` 全 false 而 `DRIVES` 明明有 H:\）。
+- **`-f` 格式化与 `$( )` 混用**同样会让盘符检测恒为 False：`("X={0}" -f ($l -match [regex]$D))` 取到空串。
+- **`[ordered]@{}` 不能这样用**，`[ordered]` 是 TypeAccelerator 不是 conversion 目标；改用
+  `[System.Collections.Specialized.OrderedDictionary]` + `.Add()`。
+- **`Add-Type -TypeDefinition` 不支持 `-UsingNamespace`**（只有 `-MemberDefinition` 支持）。
+- **`ForEach-Object { ... }` 块里插裸 `''`**（空字符串表达式）会触发「缺少右大括号」ParserError。
+- **`Start-Job` 起了立刻 `Remove-Job` 是死代码** ⇒ 超时兜底从未生效；且本机权限门会把 `Remove-Job`
+  误判为文件删除命令（`sensitive: true`），双重失效。
+- **P/Invoke 不写 `CharSet=CharSet.Unicode`** ⇒ 中文窗口标题取回来是乱码单字，判据只能退化成「有无模态窗」。
+- **未提权也能取到别的进程的句柄名**：AFM 全部 1366 个句柄项都可见、`OpenProcess(PROCESS_DUP_HANDLE)` 成功；
+  此前 `NOT_FOUND` 的成因是名字解析，不是权限。
+
+#### 20.21.4 批次 25 收口（2026-11-19 晚：两条缺陷最终定案 + 真机验收）
+
+**B25-1 手机（MTP）图片与视频：两条互不相干的独立根因，均已修**（实现线 `bg_85eb18f5`）
+
+1. **文件大小恒 0**：`shell_namespace.rs` 自造 fmtid `9B174B33-40FF-11D2-A27E-00C04FC30871` 的 `PKEY_SIZE`，
+   `GetProperty` 返回 `S_OK + VT_NULL`（该键在 Windows 里属「名称/序列号」族、根本不是 size）
+   → `PropVariantToUInt64(VT_NULL)` 静默转 0。修法 = `PSGetPropertyKeyFromName("System.Size")` 取权威键
+   （实测 `{B725F130-47EF-101A-A5F1-02608C9EEBAC}, pid 12`），取不到则退回原值 ⇒ 最坏与改前等价。
+   **判别性对照**：本地 `kernel32.dll` 旧键 `0` / 新键 `862016`；手机 3 张图片 `0 → 2285028 / 2262564 / 57434`；
+   手机 3 条视频 `0 → 476981428 / 710463875 / 2192733`；手机卷目录 `0 → 1001925963776`。
+   ⚠️ **这条不止手机** —— 所有 shell 命名空间条目（含 fnNAS 那台设备）此前都显示 0 B。
+2. **图片缩略图必然失败**：`generate_image_thumbnail_file` 头一句 `fs::metadata`，而 `::{...}` 不是文件系统路径
+   ⇒ 与格式解码器完全无关，100% 不通。修法 = 新增 `shell_item_thumbnail_rgba()`：
+   `IShellItemImageFactory.GetImage(SIIGBF_THUMBNAILONLY)` → `GetObjectW` → 32bpp 负高度 top-down DIB
+   → `GetDibits` → BGRX→RGBA → `DeleteObject`（不新增 crate）；按 `is_shell_namespace_path` 分流，
+   复用同一缓存键与 `THUMBNAIL_DECODE_GATE`（不新增并发面），**出错一律返回 Err、绝不写空图占位**；
+   前端两个 composable 对 shell 路径关掉占位图、跳过 `<video>` 自解码。
+   真机手机图片 64/128/256 **三档全部成功** ⇒ 该设备确实通过 shell provider 暴露真缩略图。
+
+**视频缩略图判「暂不立项」**（`b25-video-thumb-findings.md`，`bg_9204b560`）：
+先否证「`THUMBNAILONLY` 失败 ⇒ 设备不提供」这一前提 —— 本机文件系统 mp4 同样 `0x8004B200`，
+而 jpg 用 `flags=8` 返回 `S_OK` ⇒ 失败与设备无关，是该 flag 对视频态本就不通。
+改试其他 flags 拿到的恒是 `128×128 lum_mean=192.5 hash=6D63057C320FA6C0` = **通用视频图标**（与 `ICONONLY(4)` 逐字节相同）；
+`IThumbnailCache` 通路实测在 OS 层就断。**禁止**把「非真画面」结果写进每视频一份的缩略图缓存。
+**未判定**：手机在线时的 A/B/C 三态 —— 硬前置 = 手机在线。
+
+**B25-2 层 1 真机验收 = PASS，用户主诉已解决**（`b25e-verification-report.md` / `b25e-evidence-extract.txt`）
+
+- **闸门双判据同时成立**：① 日志逐字 `[global-search] skipping removable drive root from index watcher: H:/`；
+  ② `pid=66488` 的**全部其它卷根句柄在位**（`C:\ 5040 | D:\ 3748 | E:\ 3968 | F:\ 3988 | G:\ 3116`）而 `H:\` 为 **0**，
+  同次探针自校验对照 `CONTROL_HANDLE_RESOLVED=YES SELF hv=2180 H:\` 证明解析器可用 ⇒ **不是假绿**。
+  改前同一把尺：`pid=79340 disk_handles_named=79 of_which_on_H=1 | hv=6832 H:\`，与 `status.json.indexed_drive_roots` 含 `H:/` 严格对应。
+- **真弹出**：AFM 全程存活下第二次 shell 弹出 `DoIt()` 后 `NEW_WINDOW_COUNT=0` 且 `PRESENT_AFTER_SHELL_VERB dir=False`；
+  第一次曾被别的进程否决（`REQ_EJECT RET=23 CR_REMOVE_VETOED`）⇒ **否决方未判定**，不得写「AFM 是唯一占用者」。
+- **扫描确实真跑了**（排除混淆因素）：`mode=Full outcome=Completed elapsed=354661ms indexed=2082294`，
+  `scan round timings` 逐根 G/F/D/E/C 齐全且**无 H:/ 行**；`indexed_drive_roots` 从含 `H:/` 变不含。
+- 附带发现（**未修**）：摘掉 `H:/` 后索引器失去增量能力，`blocker=DriveRootsChanged` 连续 8 次后**强制全量重扫 354 秒**。
+
+**B25-2 层 2：真机缺陷 → 根因 → 修法 → 装机生效**（`b25d-probe-report.md`，`bg_3a7f9dcf`）
+
+- 装机暴露：`RegisterDeviceNotificationW` 对 volume filter 返回 **`0x8007000D` ERROR_INVALID_DATA**，模块降级 ⇒ 层 2 形同未订阅（单测覆盖不到）。
+- 决定性注册矩阵（Rust 独立 crate `.superpowers\sdd\b25probe\`，同版本 `windows 0.58`；
+  **不用 PowerShell 手写 P/Invoke** —— 那条路的 `RegisterClassExW lastError=87` 是手工 marshal 的假信号）：
+  **一切含 `DBT_DEVTYP_VOLUME(2)` 的 filter 全红**（消息窗 / 隐藏顶层窗 / 重叠窗 × 三种 cbSize × 含或不含 `DBTF_MEDIA`
+  × 逐字节抄头文件 × devicetype 0/1/2/3/4/9/16 → 一律 `0x8007000D`）；
+  唯二可注册 = **`devicetype=5 DEVICEINTERFACE`** 与 `7 NET`；`6 HANDLE` → `0x8007042A`（缺 Name）；NULL filter → `0x80070057`（自证 API 已加载）。
+  ⇒ 唯一变量是 **volume 这一 devicetype 本身被拒**，窗口形态与其余字段双双否证。
+- 修法（`device_events.rs` 736 → 860 行）：filter 换 `DBT_DEVTYP_DEVICEINTERFACE` + **`GUID_DEVINTERFACE_VOLUME`**；
+  窗口改隐藏**顶层**窗（`WS_EX_TOOLWINDOW` + `WS_POPUP` + `HWND(null)`，从不 `ShowWindow`）；
+  新增枚举变体 `DeviceInterface{kind}` 与 devicetype=5 解读分支（**只 `log::debug!`，不释放句柄不发事件**，避免与既有 DeviceChanged 双触发），
+  同时保留 Volume(2)/Handle(6) 分支，全部分支 `veto: false`；**注册失败非致命化**（去掉 `return`）。
+  原计划要钉的「`dbcv_flags==DBT_LOCAL` / `dbcv_unitmask!=0`」两条断言**作废**（钉的是注册不死的死路径），
+  改钉**「filter devicetype 永不得为 2」**这一回归不变量；模块内单测 11 → 13（原 11 条一条未动）。
+- 重打包复装（新包 `53944d10f01ff4aa…296e8` 45,618,008 B；安装器 PREINSTALL/POSTINSTALL 双行 `installerSha256` 与本地包逐字一致，
+  `detectedVersion=3.15.0 sameVersionReinstall=yes`，`kill-app-tree killed=9 failed=0`）后，
+  新实例 `pid=79960`（20:31:06 UTC）日志**命中成功锚点**
+  `[device-events] volume device-interface notifications registered` + `listening for volume-change broadcasts on Windows`，
+  `registration failed` / `relying on` / `0x8007` / `veto` **零命中** ⇒ **`0x8007000D` 在新包上已消失（装机实测）**。
+  ⚠️ 日志锚点行号已迁移：旧 `device_events.rs:514` **作废**，改用 **`:569` / `:577`**。
+- **仍未判定**（硬前置 = 用户物理重插 U 盘）：① 层 2 事件**送达性**（`DBT_DEVICEINTERFACE` 广播必须真实卷挂载/移除才产生，
+  `subst` 已证明不是卷广播源，C/D/E/F/G 是用户实盘不得做插拔实验）；② 插入侧是否再触发 354 秒全量重扫；
+  ③ 混合分屏组只关一格的真实表现；④ 层 2 版是否仍现 `CR_REMOVE_VETOED(23)`。
+
+**门禁（root 复跑原始日志）**：`cargo test --lib` **1463 passed / 0 failed / 1 ignored / 6.81s**（层 1 后 1461 → 层 2 后 1463）；
+`cargo clippy --all-targets` **91 warnings**（改前基线 93，未升，`device_events` 命中 0）；
+`npm test` **317 files / 3364 tests** 全绿；`npx eslint src` **0 problems**；`verify:sandbox` 四条 **VALID (0 violations / 20 patterns)**；
+`node scripts/verify-changelog.mjs` **OK**（版本 3.15.0 / 59 条目）。
+
+**产品取舍（已写进 CHANGELOG 中英文条目）**：U 盘内文件变动**不再被即时搜索索引覆盖**，换取「AFM 永不扣住任何可移动盘」。
+
+**本轮新增工具坑（补充 §20.21.3）**：
+① 同一条命令里先 `cd` 再往**相对路径**写文件 ⇒ 被本机权限门整条拒绝；写文件一律用绝对字面路径。
+② 给变量赋值时误加 `[np]` 之类类型前缀是**解析期**错误，整条脚本（含前面的装机动作）**一行都不执行**；
+   第二次误保留成 `[np]$np=` 时脚本已跑完、只是变量没赋值 ⇒ 用 `@(Get-Process -Name 'alpha-file-manager')` 复核真实 pid。
+③ `Add-Content -Encoding UTF8` 追加含中文的 markdown 台账可行；禁的是 `Get-Content -Raw` 读含中文**源文件**。
+④ `Where-Object` 零命中返回 `$null`，喂 `[IO.File]::WriteAllLines` 报 `Value cannot be null (Parameter 'contents')` ⇒ 一律 `@(...)` 包裹。
+⑤ 判「装机版是不是新的」不要碰 sha/尺寸/PE 时间戳/整份 exe 字符串（四类假判据），只认 ① 无条件新增日志行 ② 行为差异。
+
 

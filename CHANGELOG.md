@@ -2,7 +2,7 @@
 
 ## [3.15.0] - November 2026
 
-**Summary:** A phone or a USB drive you plug into the computer now shows up in *Locations*, and opening one of them from the Windows file explorer brings you into the device instead of leaving you on an empty page.
+**Summary:** A phone or a USB drive you plug into the computer now shows up in *Locations*, and opening one of them from the Windows file explorer brings you into the device instead of leaving you on an empty page. Pictures on a phone now preview properly and report a real file size, and a USB drive can be safely removed with the app still running.
 
 ### What changed
 
@@ -13,6 +13,12 @@
 **Added** **A device can be handed back to the Windows file explorer** - If a device cannot be opened inside the app, the message that says so now offers to open it in the Windows file explorer instead, so you are never left stuck.
 
 **Fixed** **A device that cannot be read no longer empties the whole *Locations* page** - The drives and the connected devices are now fetched side by side, so a device that fails to answer no longer keeps the drives from showing up as well.
+
+**Fixed** **A file on a phone now shows its real size instead of 0 B** - The size was looked up under a property key that the Windows shell does not recognise, and an unrecognised key comes back as *no value*, which was then turned into zero. The authoritative shell size key is used now, so a photo or a video stored on a connected phone reports the size Windows itself reports. Anything else opened through the Windows shell is fixed by the same change, network shares shown as devices included.
+
+**Fixed** **Pictures on a phone get a real thumbnail** - Thumbnails were produced by reading the file from disk, and a device is not a disk path, so not one picture stored on a phone could ever preview. The app now asks the Windows shell for the picture directly and converts what it gets, so photos on a connected phone show the same way photos in a local folder do. When the shell has nothing to offer for an item the app says so instead of caching an empty placeholder, so the next visit gets another chance instead of being stuck on a blank tile.
+
+**Fixed** **A USB drive can be safely removed while Alpha File Manager is running** - The background search index held an open handle on every drive it watched, including drives you had never opened in the app, and Windows refused to eject the drive because something was still using it. Removable drives are no longer held by the index, and when Windows asks to remove a device the app lets go of it and closes any tab that was showing that drive, so *Safely Remove Hardware* succeeds. The trade-off is stated plainly: files inside a removable drive are no longer covered by the instant search index, while the drive itself stays fully browsable and is scanned again when you reconnect it or its letter changes.
 
 ## [3.14.1] - November 2026
 

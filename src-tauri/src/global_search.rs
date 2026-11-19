@@ -18,6 +18,12 @@ pub use types::*;
 
 pub use commands::*;
 
+// FORK-MODIFICATION 2026-11-19（B25-2）：`device_events` 需要在 WM_DEVICECHANGE
+// 里释放索引 watcher 持有的卷根句柄。`index_watcher` 模块本身是 `global_search`
+// 的私有子模块（它刻意不引用 tauri，见模块头注释），所以只把这一个入口转发出去。
+pub(crate) use index_watcher::release_root_watch;
+pub(crate) use index_watcher::release_all_root_watches;
+
 // ---------------------------------------------------------------------------
 // 阻塞内核的对外入口
 //
