@@ -21,6 +21,78 @@ describe('computeAncestorPaths', () => {
     expect(computeAncestorPaths('C:\\')).toEqual([]);
   });
 
+  // FORK-MODIFICATION 2026-11-19（批次 24）：shell 命名空间路径（手机 / 读卡器）。
+  //
+  // 用户 2026-11-19：「在位置中，已经可以显示手机，但在目录树无法显示手机」。
+  // 设备进树之后，选中路径可能是 `::{GUID}\?\usb#vid_22d9&pid_2765&mi_00\SDcard\DCIM`。
+  // 这条链必须由 `getShellParentPath`（前缀截断）算：
+  //   · 先 `\`→`/` 再按 `/` 切段，会把不透明标识符拆成树里根本没有的假祖先；
+  //   · `?` 与裸 GUID 都不是一层目录，拆出来没人能匹配上，
+  //     `ensureLoaded` 找不到节点就 addRoot，设备子目录会被立成并列的第二个根。
+  describe('shell 设备路径：不透明标识符，按段拆就是错的', () => {
+    const DEVICE = '::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\?\\usb#vid_22d9&pid_2765&mi_00';
+    const DEVICE_CHILD = `${DEVICE}\\SDcard`;
+
+    it('设备根自己就是根：parentDirectoryPath 返回 null', () => {
+      expect(parentDirectoryPath(DEVICE)).toBeNull();
+    });
+
+    it('裸 GUID（「此电脑」）没有更上一级', () => {
+      expect(parentDirectoryPath('::{20D04FE0-3AEA-1069-A2D8-08002B30309D}')).toBeNull();
+    });
+
+    it('设备根的直接子目录：父级 = 设备根，逐字符原样', () => {
+      expect(parentDirectoryPath(`${DEVICE}\\SDcard`)).toBe(DEVICE);
+    });
+
+    it('祖先链只到设备根为止，且一路保留 \\ 与 ?（不做任何归一）', () => {
+      expect(computeAncestorPaths(`${DEVICE}\\SDcard\\DCIM`))
+        .toEqual([DEVICE, `${DEVICE}\\SDcard`]);
+    });
+
+    it('链里不出现 ?、裸 GUID、`::{GUID}\\?` 这类垃圾祖先', () => {
+      const ancestors = computeAncestorPaths(`${DEVICE}\\SDcard\\DCIM\\Camera`);
+
+      expect(ancestors).toEqual([
+        DEVICE,
+        `${DEVICE}\\SDcard`,
+        `${DEVICE}\\SDcard\\DCIM`,
+      ]);
+      expect(ancestors).not.toContain('::{20D04FE0-3AEA-1069-A2D8-08002B30309D}');
+      expect(ancestors.some(p => p.includes('/'))).toBe(false);
+    });
+
+    it('setSelectedPath(设备深层目录) 展开的是设备根那条链', () => {
+      setActivePinia(createPinia());
+      const store = useFolderTreeStore();
+
+      store.setSelectedPath(`${DEVICE}\\SDcard`);
+
+      expect(store.expandedPaths.has(DEVICE)).toBe(true);
+      expect(store.expandedPaths.has(`${DEVICE}\\SDcard`)).toBe(true);
+    });
+
+    it('markTreeStale 不把 shell key 的分隔符改写掉', () => {
+      setActivePinia(createPinia());
+      const store = useFolderTreeStore();
+
+      // 树里的节点 key 就是 Rust 给的原始 shell 路径，
+      // 一旦 `\`→`/`，失效标记就没人认领 —— 设备目录里新建/删除后树不刷新。
+      store.markTreeStale([DEVICE_CHILD]);
+
+      expect(store.staleTreePaths.has(DEVICE_CHILD)).toBe(true);
+    });
+
+    it('markTreeStale 设备根已失效时，不再重复排设备下的层', () => {
+      setActivePinia(createPinia());
+      const store = useFolderTreeStore();
+
+      store.markTreeStale([DEVICE_CHILD, DEVICE]);
+
+      expect([...store.staleTreePaths]).toEqual([DEVICE]);
+    });
+  });
+
   it('expands POSIX absolute path', () => {
     expect(computeAncestorPaths('/usr/local/bin'))
       .toEqual(['/usr', '/usr/local']);

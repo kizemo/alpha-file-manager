@@ -18,6 +18,9 @@ import {
   isRemoteConnectionRootPath,
   isRemotePath,
 } from '@/utils/remote-paths';
+// FORK-MODIFICATION 2026-11-19（批次 24）：shell 设备路径是不透明标识符，
+// 祖先链与父级都必须走前缀截断，不能先 `\`→`/` 再按 `/` 切段。
+import { getShellParentPath, isShellPath } from '@/utils/shell-paths';
 
 /**
  * Pure helper: return all ancestor directories of `path`, root-most first,
@@ -32,8 +35,32 @@ import {
  *   '/'                   → []
  *   ''                    → []
  */
+/**
+ * shell 命名空间路径的祖先链（批次 24：手机 / 读卡器设备根）。
+ *
+ * 只能做前缀截断：这类路径整体是不透明标识符，`\` 不是分隔符、`?` 是 shell
+ * 解析名的分隔标记。按 `/` 切段（或先归一分隔符再切）会得到树里根本不存在的
+ * 假祖先，`useFileTree.ensureLoaded` 找不到节点就 addRoot，设备子目录被立成
+ * 并列的第二个根。`getShellParentPath` 在设备根处返回 null，链自然停在设备根。
+ */
+function computeShellAncestorPaths(path: string): string[] {
+  const ancestors: string[] = [];
+  let current = path;
+
+  while (true) {
+    const parent = getShellParentPath(current);
+    if (parent === null || parent === current) break;
+    ancestors.unshift(parent);
+    current = parent;
+  }
+
+  return ancestors;
+}
+
 export function computeAncestorPaths(path: string): string[] {
   if (!path) return [];
+  // 护栏必须在 `\`→`/` 归一**之前**：归一一次，shell 路径就废了。
+  if (isShellPath(path)) return computeShellAncestorPaths(path);
   const trimmed = path.replace(/\\/g, '/').replace(/\/+$/, '');
   if (!trimmed) return [];
 
@@ -70,6 +97,16 @@ export function parentDirectoryPath(path: string): string | null {
   // 「根出现了但永远展不开」（用户 2026-10-19 实测）。
   if (isRemotePath(path)) {
     return isRemoteConnectionRootPath(path) ? null : getRemoteParentPath(path);
+  }
+
+  // FORK-MODIFICATION 2026-11-19（批次 24）：shell 设备路径只做前缀截断。
+  //
+  // 下面那段 `lastIndexOf('/')` 对 `::{GUID}\?\usb#vid_...` 恒返回 -1 → null，
+  // 于是设备根被当成「没有父级」，而设备下任意一层的父级也算不出来 ——
+  // 祖先链断掉，选中设备目录时设备根既不高亮也不展开。
+  // `getShellParentPath` 在设备根处返回 null：设备根就是根，与盘符同构。
+  if (isShellPath(path)) {
+    return getShellParentPath(path);
   }
 
   const lastSlash = path.lastIndexOf('/');
@@ -193,13 +230,31 @@ export const useFolderTreeStore = defineStore('folderTree', () => {
     // on the next flush, so a later call must not discard an earlier one.
     const merged = new Set<string>(staleTreePaths.value);
 
+    // 「严格位于 ancestor 之下」。
+    //
+    // FORK-MODIFICATION 2026-11-19（批次 24）：shell 命名空间路径的分隔符是 `\`，
+    // 只拼 `/` 的话「设备根 vs 设备下的层」互相认不出来，
+    // 失效清单会同时留下设备根和设备子目录 —— 多一次白花的重读。
+    // shell 侧只做前缀截断比较，且**不改写任何分隔符**。
+    function isStrictlyUnder(p: string, q: string): boolean {
+      if (isShellPath(p) || isShellPath(q)) {
+        return !!q && p.startsWith(`${q.replace(/[\\/]+$/, '')}\\`);
+      }
+
+      return p.startsWith(`${q.replace(/\/+$/, '')}/`);
+    }
+
     for (const p of paths) {
       // DirEntry.path is already '/'-normalized by the Rust layer
       // (src-tauri/src/utils.rs::normalize_path); normalize anyway so a
       // hand-built or stale path still matches a tree node. Note the stored
       // key is NOT trimmed — only rejected when blank — because a real path
       // must be reproduced exactly to match a tree node.
-      const key = p ? p.replace(/\\/g, '/') : '';
+      //
+      // ⚠️ 但 shell 命名空间路径**不能**归一：`\`→`/` 之后这条 key 后端认不出来，
+      // 树里的节点 key 却还是原样那条 ⇒ 失效标记没人认领，
+      // 设备目录里新建/删除之后树永远不刷新（批次 24）。
+      const key = p ? (isShellPath(p) ? p : p.replace(/\\/g, '/')) : '';
       if (key.trim()) merged.add(key);
     }
 
@@ -207,7 +262,7 @@ export const useFolderTreeStore = defineStore('folderTree', () => {
     // clears and re-reads everything beneath it, so keeping a descendant would
     // just cost a second, redundant disk read.
     const shallowest = [...merged].filter(
-      p => ![...merged].some(q => q !== p && p.startsWith(`${q.replace(/\/+$/, '')}/`)),
+      p => ![...merged].some(q => q !== p && isStrictlyUnder(p, q)),
     );
     staleTreePaths.value = new Set(shallowest);
     staleTreeRevision.value += 1;

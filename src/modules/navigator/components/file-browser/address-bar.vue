@@ -52,6 +52,7 @@ import { useDrives } from '@/modules/home/composables/use-drives';
 import { useOpenCopiedPath } from './composables/use-open-copied-path';
 import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
 import { useShellDevices } from '@/composables/use-shell-devices';
+import { useShellPathChain } from '@/composables/use-shell-path-chain';
 import { buildAddressBarParts } from './address-bar-parts';
 
 const props = defineProps<{
@@ -72,6 +73,9 @@ const { drives } = useDrives();
 // FORK-MODIFICATION 2026-11-19（批次 23）：设备（手机 / MTP）也属于「位置」，
 // 地址栏下拉与「位置」页同源，所以两处都要有。
 const { shellDevices } = useShellDevices();
+// FORK-MODIFICATION 2026-11-19（批次 24）：shell 路径的祖先链由后端
+// `resolve_shell_path_chain` 给出，显示名与层级一律信后端，前端绝不拆字符串。
+const { shellPathChain } = useShellPathChain(() => props.currentPath);
 const shellDeviceEntries = computed(() => shellDevices.value.map(shellDeviceInfoToDirEntry));
 const locationsDirectoryItems = computed(() => {
   // 下拉要显示**连接名**而不是 32 位 ID（用户 2026-11-09 反馈 5）：
@@ -130,6 +134,7 @@ const addressParts = computed(() => buildAddressBarParts(
   {
     deviceNames: shellDeviceNames.value,
     fallbackLabel: t('fileBrowser.device'),
+    pathChain: shellPathChain.value,
   },
 ));
 

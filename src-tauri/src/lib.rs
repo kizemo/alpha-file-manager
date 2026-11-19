@@ -454,6 +454,7 @@ pub fn run() {
             dir_reader::resolve_windows_directory_shortcut,
             dir_reader::get_system_drives,
             dir_reader::get_shell_devices,
+            dir_reader::resolve_shell_path_chain,
             dir_reader::get_parent_dir,
             dir_reader::path_exists,
             dir_reader::path_is_regular_file,
@@ -807,7 +808,7 @@ mod tests {
 
     /// 手机（MTP）节点在 Windows 启动参数里的真实形态。
     /// 必须是原样字符串：既不能规范化（`\` → `/`），也不能按 `/` 切分。
-    const PHONE_SHELL_PATH: &str = r#"::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\?\usb#vid_22d9&pid_2765&mi_00#6&337f5e7c&1&0000#{6ac27878-a6fa-4155-ba85-f98f491d4f33}\SID-{10001,,1001925963776}"#;
+    const PHONE_SHELL_PATH: &str = r#"::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\\?\usb#vid_22d9&pid_2765&mi_00#6&337f5e7c&1&0000#{6ac27878-a6fa-4155-ba85-f98f491d4f33}\SID-{10001,,1001925963776}"#;
 
     /// FORK-MODIFICATION 2026-11-19：设备节点路径**保留**在 filtered_args 里。
     ///

@@ -15,6 +15,109 @@ function makeTree(opts: Parameters<typeof useFileTree>[0]) {
   return useFileTree(opts);
 }
 
+// FORK-MODIFICATION 2026-11-19（批次 24）：Windows shell 设备（手机 / 读卡器）作为顶层根。
+//
+// 用户 2026-11-19 报：「在位置中，已经可以显示手机，但在目录树无法显示手机」。
+// 设备根是一条 shell 命名空间路径，形如
+// `::{20D04FE0-...}\?\usb#vid_22d9&pid_2765&mi_00` —— 整体是不透明标识符，
+// 里面的 `\` **不是**路径分隔符、`?` 是 shell 解析名的分隔标记。
+// 树这边必须做到：整条原样当 key，父链用 `getShellParentPath` 做前缀截断。
+// 一旦按 `/` 切段（或先把 `\` 换成 `/` 再切），算出来的祖先在树里不存在，
+// `ensureLoaded` 找不到节点就 `addRoot` —— 设备子目录变成并列的第二个根，
+// 正是本项目 v6.3 / 2026-10-19 修过两次的同形状缺陷。
+const DEVICE = '::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\?\\usb#vid_22d9&pid_2765&mi_00';
+const DEVICE_CHILD = `${DEVICE}\\SDcard`;
+const DEVICE_GRANDCHILD = `${DEVICE_CHILD}\\DCIM`;
+
+function deviceEntry(path: string, name: string) {
+  return {
+    path,
+    name,
+    is_dir: true,
+    size: 0,
+    modifiedAt: 0,
+  };
+}
+
+describe('shell 设备根：不透明路径原样作节点 key', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('设备根自带标签时用设备显示名', () => {
+    const tree = makeTree({
+      rootPaths: ['C:/', DEVICE],
+      rootLabels: {
+        'C:/': 'Win (C:)',
+        [DEVICE]: 'Pixel 7',
+      },
+      expandedPaths: ref<Set<string>>(new Set()),
+    });
+
+    expect(tree.rows.value.map(r => r.name)).toEqual(['Win (C:)', 'Pixel 7']);
+  });
+
+  it('设备根没有标签时兜底成可读名字，而不是 usb#vid… 这种碎片', () => {
+    const tree = makeTree({
+      rootPaths: [DEVICE],
+      expandedPaths: ref<Set<string>>(new Set()),
+    });
+
+    expect(tree.rows.value[0].name).toBe('Device');
+  });
+
+  it('进设备子目录时不得冒出并列的第二个根，父链必须走设备根', async () => {
+    const readDir = vi.fn().mockImplementation(async (path: string) => {
+      if (path === DEVICE) return [deviceEntry(DEVICE_CHILD, 'SDcard')];
+      if (path === DEVICE_CHILD) return [deviceEntry(DEVICE_GRANDCHILD, 'DCIM')];
+
+      return [];
+    });
+    const tree = makeTree({
+      rootPaths: ['C:/', DEVICE],
+      rootLabels: { [DEVICE]: 'Pixel 7' },
+      expandedPaths: ref<Set<string>>(new Set([DEVICE, DEVICE_CHILD])),
+      deps: { readDir },
+    });
+
+    await tree.ensureLoaded(DEVICE_CHILD);
+
+    // depth 0 只有盘符与设备根 —— 设备子目录是设备根的**子节点**。
+    expect(tree.rows.value.filter(r => r.depth === 0).map(r => r.path)).toEqual(['C:/', DEVICE]);
+    // 读设备根传下去的路径逐字符原样：一个 `\` 都不能被换成 `/`。
+    expect(readDir).toHaveBeenCalledWith(DEVICE);
+    expect(readDir.mock.calls.map(c => c[0]).some(p => p.includes(DEVICE))).toBe(true);
+  });
+
+  it('设备根被移出时，设备下已展开层的记账必须一起清掉（shell 前缀不只认 /）', async () => {
+    const readDir = vi.fn().mockImplementation(async (path: string) => {
+      if (path === DEVICE) return [deviceEntry(DEVICE_CHILD, 'SDcard')];
+      if (path === DEVICE_CHILD) return [deviceEntry(DEVICE_GRANDCHILD, 'DCIM')];
+
+      return [];
+    });
+    const rootPaths = ref<string[]>(['C:/', DEVICE]);
+    const tree = makeTree({
+      rootPaths,
+      rootLabels: { [DEVICE]: 'Pixel 7' },
+      expandedPaths: ref<Set<string>>(new Set([DEVICE, DEVICE_CHILD])),
+      deps: { readDir },
+    });
+
+    await tree.ensureLoaded(DEVICE_CHILD);
+
+    expect(tree.loadedPaths.value.has(DEVICE_CHILD)).toBe(true);
+
+    rootPaths.value = ['C:/'];
+    await nextTick();
+
+    // 节点没了、记账却留着 ⇒ 再切回来时 `ensureLoaded` 开头直接 return，
+    // 设备那一行显示成展开、下面一个子节点都没有（2026-10-19 真机同形状缺陷）。
+    expect(tree.loadedPaths.value.has(DEVICE_CHILD)).toBe(false);
+    expect(tree.loadedPaths.value.has(DEVICE)).toBe(false);
+  });
+});
+
 describe('useFileTree', () => {
   beforeEach(() => {
     vi.restoreAllMocks();

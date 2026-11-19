@@ -195,13 +195,19 @@ describe('buildAddressBarParts', () => {
   // 手机（MTP）的路径是 `::{20D04FE0-...}\?\usb#...` —— 一个不透明标识符。
   // 通用分支会把它切成一堆看不懂的段（还会把 `::{` 当成盘符），
   // 所以整条路径只当一级，显示「位置 > 设备名」。
-  describe('shell 设备面包屑', () => {
+  //
+  // FORK-MODIFICATION 2026-11-19（批次 24）：多级层级改由后端祖先链
+  // （`resolve_shell_path_chain`）提供，见下面「shell 祖先链多级面包屑」。
+  // 本 describe 锁的是**还没拿到链**（加载中 / 命令报错 / 非 shell 路径）时的
+  // 降级形态 —— 必须仍然等于批次 23 的两段式，用户看到的东西不能比改动前更差。
+  describe('shell 设备面包屑（未拿到祖先链时的降级形态）', () => {
     const devicePath = '::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\?\\usb#vid_22d9&pid_2765';
 
-    it('产出「位置 > 设备名」两级面包屑', () => {
+    it('没有链时产出「位置 > 设备名」两级面包屑', () => {
       const parts = buildAddressBarParts(devicePath, 'windows', 'Locations', undefined, {
         deviceNames: { [devicePath]: 'Galaxy S22' },
         fallbackLabel: 'Device',
+        pathChain: [],
       });
 
       expect(parts.map(part => ({
@@ -240,6 +246,139 @@ describe('buildAddressBarParts', () => {
         'C:/',
         'C:/Users',
       ]);
+    });
+  });
+
+  // FORK-MODIFICATION 2026-11-19（批次 24）：多级层级由后端 `resolve_shell_path_chain`
+  // 的祖先链提供，前端**不再**自己切分 shell 路径。
+  //
+  // 夹具是一加 Ace 3 的真机路径（三层：设备根 → 存储容器 → 文件夹）。
+  // 长度 129 / 156 / 195 / 82 是实测字节数，写错一个反斜杠就会对不上，
+  // 所以这里把长度也当断言钉住 —— 它同时证明这些字符串没有被任何「规范化」动过。
+  describe('shell 祖先链多级面包屑', () => {
+    const phoneRoot = '::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\\\\\?\\usb#vid_22d9&pid_2765&mi_00#6&337f5e7c&1&0000#{6ac27878-a6fa-4155-ba85-f98f491d4f33}';
+    const storageCrumb = `${phoneRoot}\\SID-{10001,,1001925963776}`;
+    const folderCrumb = `${storageCrumb}\\{66A9CB84-2262-AF6E-0000-000000000000}`;
+    const fnasRoot = '::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\uuid:4d696e69-444c-164e-9d41-7085c27f4afe';
+
+    const phoneChain = [
+      {
+        path: phoneRoot,
+        name: '一加 Ace 3',
+      },
+      {
+        path: storageCrumb,
+        name: '内部共享存储空间',
+      },
+      {
+        path: folderCrumb,
+        name: '.7934039a',
+      },
+    ];
+
+    it('夹具就是真机字节长度（反斜杠没被转义吃掉）', () => {
+      expect(phoneRoot).toHaveLength(129);
+      expect(storageCrumb).toHaveLength(156);
+      expect(folderCrumb).toHaveLength(195);
+      expect(fnasRoot).toHaveLength(82);
+    });
+
+    it('三层链产出「位置 > 设备 > 存储 > 文件夹」四段，每级 path 用链项自己的 path', () => {
+      const parts = buildAddressBarParts(folderCrumb, 'windows', 'Locations', undefined, {
+        deviceNames: {},
+        fallbackLabel: 'Device',
+        pathChain: phoneChain,
+      });
+
+      expect(parts.map(part => part.path)).toEqual([
+        LOCATIONS_VIRTUAL_PATH,
+        phoneRoot,
+        storageCrumb,
+        folderCrumb,
+      ]);
+      expect(parts.map(part => part.name)).toEqual([
+        'Locations',
+        '一加 Ace 3',
+        '内部共享存储空间',
+        '.7934039a',
+      ]);
+      expect(parts).toHaveLength(4);
+      expect(parts.every(part => part.disableDropTarget)).toBe(true);
+      expect(parts[0]?.useLocationsDropdown).toBe(true);
+      expect(parts[0]?.displayRootIcon).toBe(true);
+      expect(parts.slice(1).every(part => !part.displayRootIcon && !part.useLocationsDropdown)).toBe(true);
+      expect(parts.slice(0, 3).every(part => part.isLast === false)).toBe(true);
+      expect(parts[3]?.isLast).toBe(true);
+    });
+
+    // 缺陷 D1：设备根下一级的存储容器（「内部共享存储空间」）曾被前端降级成一个笼统的
+    // 「设备」标签。链一旦可用，每一级的名字都必须来自链，不能出现兜底标签。
+    it('存储容器显示自己的名字，不再被降级成兜底标签', () => {
+      const parts = buildAddressBarParts(storageCrumb, 'windows', 'Locations', undefined, {
+        deviceNames: {},
+        fallbackLabel: 'Device',
+        pathChain: phoneChain.slice(0, 2),
+      });
+
+      expect(parts.map(part => part.name)).toEqual([
+        'Locations',
+        '一加 Ace 3',
+        '内部共享存储空间',
+      ]);
+      expect(parts.some(part => part.name === 'Device')).toBe(false);
+      expect(parts[2]?.path).toBe(storageCrumb);
+    });
+
+    it('链项名字为空时该级退回兜底标签，整条面包屑不崩', () => {
+      const parts = buildAddressBarParts(storageCrumb, 'windows', 'Locations', undefined, {
+        deviceNames: {},
+        fallbackLabel: 'Device',
+        pathChain: [
+          {
+            path: phoneRoot,
+            name: '一加 Ace 3',
+          },
+          {
+            path: storageCrumb,
+            name: '',
+          },
+        ],
+      });
+
+      expect(parts.map(part => part.name)).toEqual([
+        'Locations',
+        '一加 Ace 3',
+        'Device',
+      ]);
+    });
+
+    it('链与当前路径对不上（陈旧链）时退回两段式降级形态', () => {
+      const parts = buildAddressBarParts(storageCrumb, 'windows', 'Locations', undefined, {
+        deviceNames: {},
+        fallbackLabel: 'Device',
+        pathChain: phoneChain,
+      });
+
+      expect(parts).toHaveLength(2);
+      expect(parts[1]?.path).toBe(storageCrumb);
+      expect(parts[1]?.name).toBe('Device');
+    });
+
+    it('设备根只有一层时链与降级形态同为两段，但名字来自链', () => {
+      const parts = buildAddressBarParts(fnasRoot, 'windows', 'Locations', undefined, {
+        deviceNames: {},
+        fallbackLabel: 'Device',
+        pathChain: [{
+          path: fnasRoot,
+          name: 'fnNAS',
+        }],
+      });
+
+      expect(parts.map(part => part.name)).toEqual([
+        'Locations',
+        'fnNAS',
+      ]);
+      expect(parts[1]?.path).toBe(fnasRoot);
     });
   });
 });

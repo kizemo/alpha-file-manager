@@ -10,7 +10,7 @@ use super::path_helpers;
 use super::read::{self, DirItemCountOptions, ReadDirOptions};
 use super::types::{
     DirContents, DirEntryItemCount, DirEntryLinkMetadata, DriveInfo, MountableDevice,
-    NetworkShareParams, ShellDeviceInfo,
+    NetworkShareParams, ShellDeviceInfo, ShellPathCrumb,
 };
 
 #[tauri::command]
@@ -154,6 +154,19 @@ pub async fn get_shell_devices() -> Result<Vec<ShellDeviceInfo>, String> {
     tauri::async_runtime::spawn_blocking(super::shell_namespace::get_shell_devices)
         .await
         .map_err(|join_error| format!("Failed to enumerate shell devices: {join_error}"))?
+}
+
+// FORK-MODIFICATION 2026-11-19：把一条 shell 路径拆成祖先链，给面包屑做「逐级可点击」。
+//
+// 前端拿到的 shell 路径是一整串（`::{…}\SID-{…}`），靠自己切不出层级 ⇒
+// 必须由后端顺着 `IShellItem::GetParent()` 往上问。同样要进 COM，走 `spawn_blocking`。
+#[tauri::command]
+pub async fn resolve_shell_path_chain(path: String) -> Result<Vec<ShellPathCrumb>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        super::shell_namespace::resolve_shell_path_chain(&path)
+    })
+    .await
+    .map_err(|join_error| format!("Failed to resolve shell path chain: {join_error}"))?
 }
 
 #[tauri::command]
