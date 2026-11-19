@@ -1,6 +1,20 @@
 # Dnevnik sprememb
 
 
+## [3.15.0] - November 2026
+
+**Povzetek:** Telefon ali USB-pogon, ki ga priklopite v računalnik, se zdaj prikaže v razdelku *Lokacije*, odprtje v raziskovalniku Windows pa vas popelje v napravo namesto na prazno stran.
+
+### What changed
+
+**Popravljeno: priklopljen telefon ali USB-pogon se zdaj prikaže v razdelku *Lokacije*.** *Lokacije* je prej prikazoval samo pogone, ki jih Windows sporoči kot navadne diskovne zvezke. Telefon, priklopljen prek MTP, ni tak zvezek, zato se nikoli ni pojavil, USB-pogon pa je lahko izpadel, dokler Windows še ni sporočil njegove velikosti. Seznam naprav je zdaj sestavljen prek Windowsove lupine, zato se priklopljen telefon prikaže pod svojim imenom, pogoni brez sporočene velikosti pa niso več zavrženi. Priklopljeni telefoni in USB-pogoni se prikazujejo v svojem razdelku *Naprave*.
+
+**Popravljeno: odprtje telefona v raziskovalniku Windows zdaj res odpre telefon.** Ko je Alpha File Manager nastavljen kot privzeti upravljalnik datotek, je dvoklik na telefon v Windows pot podal raziskovalniku Windows, aplikacija pa je ta pot že prej zavržila, zato je ostala samo stran *Lokacije*. Zdaj je pot ohranjena in odprta znotraj aplikacije, po mapah v telefonu pa lahko hodite kot po katerikoli drugi mapi.
+
+**Dodano: napravo lahko vrnete raziskovalniku Windows.** Če se naprave znotraj aplikacije ne da odpreti, sporočilo, ki to pove, zdaj ponudi odpiranje v raziskovalniku Windows, tako da nikoli ne ostanete brez izhoda.
+
+**Popravljeno: naprava, ki je ni mogoče prebrati, ne izprazni več celotne strani *Lokacije*.** Pogoni in priklopljene naprave se zdaj pridobivajo drug ob drugem, zato naprava, ki ne odgovori, ne zadrži več niti pojavljanja pogonov.
+
 ## [3.14.1] - November 2026
 
 **Povzetek:** Focus Sync lahko znova postavi mapo, ki jo gledate, v pogovorna okna »Odpri« in »Shrani kot« drugih programov, namestitvena datoteka pa zdaj vsebuje pomožnika, ki pripada tej izdaji, namesto starega.

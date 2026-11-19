@@ -1,6 +1,20 @@
 # Registro de alterações
 
 
+## [3.15.0] - November 2026
+
+**Resumo:** Um celular ou um pendrive que você liga no computador agora aparece em *Locais*, e abrir um deles pelo explorador de arquivos do Windows leva você para dentro do aparelho em vez de te deixar numa página vazia.
+
+### What changed
+
+**Corrigido: um celular ou um pendrive conectado agora aparece em *Locais*.** *Locais* listava antes só as unidades que o Windows informa como volumes de disco comuns. Um celular conectado por MTP não é um volume desses, então ele nunca aparecia, e um pendrive também podia ficar de fora enquanto o Windows ainda não tinha informado o tamanho dele. Agora a lista de dispositivos é montada pelo próprio shell do Windows, então um celular conectado aparece com o próprio nome, e unidades que não informam tamanho não são mais descartadas. Celulares e pendrives conectados ficam reunidos na seção *Dispositivos*.
+
+**Corrigido: abrir um celular pelo explorador de arquivos do Windows agora abre o celular.** Quando o Alpha File Manager é definido como o gerenciador de arquivos padrão, dar dois cliques em um celular no Windows entregava o caminho ao explorador do Windows, e o aplicativo já tinha jogado esse caminho fora, então sobrava apenas a página *Locais*. Agora o caminho é guardado e aberto dentro do aplicativo, e as pastas dentro do celular podem ser percorridas como qualquer outra pasta.
+
+**Adicionado: um dispositivo pode ser devolvido ao explorador de arquivos do Windows.** Se um dispositivo não pode ser aberto dentro do aplicativo, a mensagem que avisa isso agora oferece abrir o aparelho no explorador de arquivos do Windows, então você nunca fica parado na mão.
+
+**Corrigido: um dispositivo que não pode ser lido não esvazia mais a página *Locais* inteira.** As unidades e os dispositivos conectados agora são buscados lado a lado, então um dispositivo que não responde não impede mais que as unidades apareçam.
+
 ## [3.14.1] - November 2026
 
 **Resumo:** O Focus Sync pode de novo colocar a pasta que você está vendo nas caixas de diálogo «Abrir» e «Guardar como» de outros programas, e o arquivo de instalação agora traz o assistente que pertence a esta versão em vez de um antigo.

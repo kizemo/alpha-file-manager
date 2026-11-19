@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.15.0] - November 2026
+
+**Summary:** A phone or a USB drive you plug into the computer now shows up in *Locations*, and opening one of them from the Windows file explorer brings you into the device instead of leaving you on an empty page.
+
+### What changed
+
+**Fixed** **A connected phone or USB drive now shows up in *Locations*** - *Locations* used to list only the drives that Windows reports as ordinary disk volumes. A phone connected over MTP is not such a volume, so it never appeared at all, and a USB drive could be dropped as well while Windows had not reported its size yet. The device list is now gathered through the Windows shell itself, so a connected phone appears under its own name, and drives that report no size are no longer thrown away. Connected phones and USB drives are shown in their own *Devices* section.
+
+**Fixed** **Opening a phone from the Windows file explorer now opens the phone** - When Alpha File Manager is set as the default file manager, double-clicking a phone in Windows handed the path over to the Windows explorer, and the app had already thrown that path away, so it fell back to the *Locations* page. The path is now kept and opened inside the app, and the folders inside the phone can be walked through like any other folder.
+
+**Added** **A device can be handed back to the Windows file explorer** - If a device cannot be opened inside the app, the message that says so now offers to open it in the Windows file explorer instead, so you are never left stuck.
+
+**Fixed** **A device that cannot be read no longer empties the whole *Locations* page** - The drives and the connected devices are now fetched side by side, so a device that fails to answer no longer keeps the drives from showing up as well.
+
 ## [3.14.1] - November 2026
 
 **Summary:** Focus Sync can put the folder you are looking at into the "Open file" and "Save as" dialogs of other programs again, and the setup file now carries the helper that belongs to this release instead of an older one.

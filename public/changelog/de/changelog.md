@@ -1,6 +1,20 @@
 # Änderungsprotokoll
 
 
+## [3.15.0] - November 2026
+
+**Zusammenfassung:** Wenn Sie ein Handy oder einen USB-Stick an den Rechner anschließen, erscheint es jetzt unter *Standorte*, und wenn Sie eines davon aus dem Windows-Explorer öffnen, landen Sie im Gerät selbst, statt auf einer leeren Seite zu bleiben.
+
+### What changed
+
+**Behoben: Ein angeschlossenes Handy oder ein USB-Stick erscheint jetzt unter *Standorte*.** *Standorte* listete bisher nur die Laufwerke auf, die Windows als gewöhnliche Datenträger meldet. Ein per MTP angeschlossenes Handy ist kein solcher Datenträger, es tauchte also nie auf, und ein USB-Stick konnte ebenso durchfallen, solange Windows seine Größe noch nicht gemeldet hatte. Die Liste der Geräte wird jetzt über die Windows-Shell selbst zusammengestellt, sodass ein angeschlossenes Handy mit seinem eigenen Namen erscheint und Laufwerke ohne gemeldete Größe nicht mehr aussortiert werden. Angeschlossene Handys und USB-Sticks stehen in einem eigenen Bereich *Geräte*.
+
+**Behoben: Ein Handy aus dem Windows-Explorer öffnet jetzt wirklich das Handy.** Wenn Alpha File Manager als Standard-Dateimanager eingestellt ist, wurde beim Doppelklick auf ein Handy in Windows der Pfad an den Windows-Explorer zurückgegeben, obwohl die App diesen Pfad schon verworfen hatte - so blieb nur die Seite *Standorte* übrig. Der Pfad bleibt jetzt erhalten und wird in der App geöffnet, sodass Sie durch die Ordner auf dem Handy gehen können wie durch jeden anderen Ordner.
+
+**Hinzugefügt: Ein Gerät lässt sich an den Windows-Explorer zurückgeben.** Wenn sich ein Gerät in der App nicht öffnen lässt, bietet der Hinweis jetzt an, es stattdessen im Windows-Explorer zu öffnen, so bleiben Sie nicht hängen.
+
+**Behoben: Ein Gerät, das nicht lesbar ist, leert nicht mehr die ganze Seite *Standorte*.** Die Laufwerke und die angeschlossenen Geräte werden jetzt nebeneinander abgerufen, damit ein Gerät, das nicht antwortet, nicht auch noch die Laufwerke verschwinden lässt.
+
 ## [3.14.1] - November 2026
 
 **Zusammenfassung:** Focus Sync kann den Ordner, den Sie gerade ansehen, wieder in die Dialoge zum Öffnen und Speichern anderer Programme setzen, und die Setup-Datei enthält jetzt den Helfer, der zu dieser Version gehört, statt eines älteren.

@@ -1,6 +1,20 @@
 # Nhật ký thay đổi
 
 
+## [3.15.0] - November 2026
+
+**Tóm tắt:** Một chiếc điện thoại hay ổ USB bạn cắm vào máy tính giờ đã hiện trong *Địa điểm*, và mở một thiết bị từ File Explorer của Windows sẽ đưa bạn vào bên trong thiết bị thay vì bỏ bạn ở một trang trống.
+
+### What changed
+
+**Đã sửa: một chiếc điện thoại hoặc ổ USB đã cắm vào giờ hiện trong *Địa điểm*.** Trước đây *Địa điểm* chỉ liệt kê những ổ đĩa mà Windows báo là các ổ đĩa thông thường. Một chiếc điện thoại cắm qua MTP không phải là ổ đĩa như vậy, nên nó chưa từng xuất hiện, và ổ USB cũng có thể bị bỏ sót khi Windows chưa báo kích thước của nó. Giờ danh sách thiết bị được lấy trực tiếp từ lớp vỏ Windows, nên một chiếc điện thoại đã cắm sẽ hiện ra dưới chính tên của nó, và những ổ đĩa không báo kích thước không còn bị vứt bỏ. Điện thoại và ổ USB đã cắm được hiển thị trong mục *Thiết bị* riêng.
+
+**Đã sửa: mở một chiếc điện thoại từ File Explorer của Windows giờ thực sự mở chiếc điện thoại đó.** Khi Alpha File Manager được đặt làm trình quản lý tệp mặc định, việc bấm đúp vào một chiếc điện thoại trong Windows sẽ chuyển đường dẫn cho File Explorer của Windows, trong khi ứng dụng đã vứt bỏ đường dẫn đó từ trước, nên bạn chỉ còn lại trang *Địa điểm*. Giờ đường dẫn được giữ lại và mở ngay trong ứng dụng, và các thư mục bên trong chiếc điện thoại có thể được duyệt như bất kỳ thư mục nào khác.
+
+**Đã thêm: một thiết bị có thể được trả lại cho File Explorer của Windows.** Nếu một thiết bị không mở được trong ứng dụng, thông báo nói rõ điều đó giờ đề nghị mở nó bằng File Explorer của Windows, nên bạn không bao giờ bị bỏ lửng ở đó.
+
+**Đã sửa: một thiết bị không đọc được không còn làm trống cả trang *Địa điểm*.** Các ổ đĩa và các thiết bị đã cắm giờ được lấy song song, nên một thiết bị không phản hồi không còn khiến các ổ đĩa cũng không hiện ra.
+
 ## [3.14.1] - November 2026
 
 **Tóm tắt:** Focus Sync có thể đưa lại thư mục bạn đang xem vào hộp thoại «Mở» và «Lưu thành» của các chương trình khác, và tệp cài đặt nay mang theo trợ giúp thuộc về bản phát hành này thay vì bản cũ.

@@ -1,6 +1,20 @@
 # Değişiklik Günlüğü
 
 
+## [3.15.0] - November 2026
+
+**Özet:** Bilgisayara taktığınız bir telefon ya da USB bellek artık *Yerler* içinde görünüyor; Windows gezgininden birini açtığınızda da boş bir sayfada kalmak yerine cihazın içine giriyorsunuz.
+
+### What changed
+
+**Düzeltildi: takılan telefon ya da USB bellek artık *Yerler* içinde görünüyor.** *Yerler* daha önce yalnızca Windows'ın olağan disk birimi olarak bildirdiği sürücüleri listeliyordu. MTP üzerinden bağlanan telefon böyle bir birim değildir, bu yüzden hiç görünmüyordu; Windows henüz boyutunu bildirmediği sürece bir USB bellek de düşebiliyordu. Artık aygıt listesi doğrudan Windows kabuğundan toplanıyor, böylece takılan telefon kendi adıyla listeleniyor ve boyut bildirmeyen sürücüler artık atılmıyor. Bağlı telefonlar ve USB bellekler kendi *Aygıtlar* bölümünde gösteriliyor.
+
+**Düzeltildi: Windows gezgininden bir telefonu açmak artık telefonu açıyor.** Alpha File Manager varsayılan dosya yöneticisi olarak ayarlandığında, Windows'ta bir telefona çift tıklamak yolu Windows gezginine veriyordu; uygulama da o yolu çoktan atmış olduğu için geriye yalnızca *Yerler* sayfası kalıyordu. Artık yol korunuyor ve uygulama içinde açılıyor; telefonun içindeki klasörler de herhangi bir klasör gibi gezilebiliyor.
+
+**Eklendi: bir aygıt yeniden Windows gezginine verilebiliyor.** Bir aygıt uygulama içinde açılamıyorsa, bunu söyleyen mesaj artık onu Windows gezgininde açma seçeneğini sunuyor; yani hiçbir yerde takılıp kalmıyorsunuz.
+
+**Düzeltildi: okunamayan bir aygıt artık *Yerler* sayfasının tamamını boşaltmıyor.** Sürücüler ve bağlı aygıtlar artık yan yana alınıyor, böylece yanıt vermeyen bir aygıt sürücülerin de görünmesini engellemiyor.
+
 ## [3.14.1] - November 2026
 
 **Özet:** Focus Sync, izlediğiniz klasörü diğer programların «Aç» ve «Farklı Kaydet» iletişim kutularına yeniden yerleştirebiliyor ve kurulum dosyası artık eskisini değil, bu sürüme ait yardımcıyı içeriyor.
