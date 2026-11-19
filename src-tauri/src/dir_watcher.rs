@@ -608,6 +608,132 @@ pub async fn unwatch_directory(path: String) -> Result<(), String> {
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// B25-2：按卷释放句柄
+//
+// 文件浏览器只要开着 U 盘里的某个目录，这里就会对该目录持一个 notify watch，
+// 而 watch 的底层是卷根句柄 —— 于是「安全弹出」被否决（`CR_REMOVE_VETOED = 23`）。
+// 弹出流程（WM_DEVICEQUERYREMOVE / REMOVEPENDING）必须先把这些句柄放掉，
+// 所以这里提供一条按卷清理的入口，由 `device_events` 调用。
+// ---------------------------------------------------------------------------
+
+/// 从已登记（归一化）的监听路径里挑出属于某个卷的那些。
+///
+/// 纯函数：只做字符串匹配，不碰任何全局状态，便于单测。
+fn volume_watch_targets(keys: &[String], volume_root: &str) -> Vec<String> {
+    let normalized_root = normalize_path(volume_root);
+
+    keys.iter()
+        .filter(|key| is_same_or_descendant(key, &normalized_root))
+        .cloned()
+        .collect()
+}
+
+/// 释放某个卷（如 `H:/`）上的全部 dir_watcher 句柄，返回释放的条数。
+///
+/// `unwatch()` 必须用登记时存的**原始路径**（与 `unwatch_directory` 同一约定），
+/// 归一化路径只用来做键匹配。
+pub(crate) fn release_volume_watches(volume_root: &str) -> usize {
+    let removed: Vec<(String, PathBuf)> = {
+        let mut watchers = match ACTIVE_WATCHERS.lock() {
+            Ok(watchers) => watchers,
+            Err(error) => {
+                log::warn!("[dir-watcher] failed to lock active watchers: {error}");
+                return 0;
+            }
+        };
+
+        let targets = volume_watch_targets(&watchers.keys().cloned().collect::<Vec<_>>(), volume_root);
+        targets
+            .into_iter()
+            .filter_map(|key| watchers.remove_entry(&key))
+            .collect()
+    };
+
+    if removed.is_empty() {
+        return 0;
+    }
+
+    let shared = SHARED_WATCHER
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+
+    for (key, raw_path) in &removed {
+        if let Some(instance) = shared.as_ref() {
+            let mut watcher = instance
+                .watcher
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+
+            if let Err(error) = watcher.unwatch(raw_path) {
+                log::warn!(
+                    "[dir-watcher] failed to release volume handle {}: {error}",
+                    raw_path.display()
+                );
+            }
+        }
+
+        // info 级：这条是装机验收「弹出时确实放掉了句柄」的现场证据。
+        log::info!("[dir-watcher] released dir-watcher handle for {key}");
+    }
+
+    removed.len()
+}
+
+/// FORK-MODIFICATION 2026-11-19（B25-2）：退出前放掉**全部** dir_watcher 句柄。
+///
+/// 按卷释放走 `release_volume_watches`（`device_events` 在收到
+/// `WM_DEVICECHANGE` 时调用）。这条是退出兜底：主窗口「关闭」只是 `hide()`
+/// （托盘常驻），真正退出走 `RunEvent::Exit`，进程若还持着卷内目录的句柄，
+/// 用户点「安全弹出」就会拿到 `CR_REMOVE_VETOED (23)`。
+///
+/// 返回释放的条数。与 `release_volume_watches` 同一约定：`unwatch()`
+/// 用登记时存的原始路径。
+pub(crate) fn release_all_watches() -> usize {
+    let removed: Vec<(String, PathBuf)> = {
+        let mut watchers = match ACTIVE_WATCHERS.lock() {
+            Ok(watchers) => watchers,
+            Err(error) => {
+                log::warn!("[dir-watcher] failed to lock active watchers: {error}");
+                return 0;
+            }
+        };
+
+        std::mem::take(&mut *watchers).into_iter().collect()
+    };
+
+    if removed.is_empty() {
+        return 0;
+    }
+
+    let shared = SHARED_WATCHER
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+
+    for (_key, raw_path) in &removed {
+        if let Some(instance) = shared.as_ref() {
+            let mut watcher = instance
+                .watcher
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+
+            if let Err(error) = watcher.unwatch(raw_path) {
+                log::warn!(
+                    "[dir-watcher] failed to release handle {}: {error}",
+                    raw_path.display()
+                );
+            }
+        }
+    }
+
+    log::info!(
+        "[dir-watcher] released {} directory watch(es) on shutdown",
+        removed.len()
+    );
+
+    removed.len()
+}
+
 #[tauri::command]
 pub fn get_watched_directories() -> Result<Vec<String>, String> {
     let watchers = ACTIVE_WATCHERS.lock().map_err(|error| error.to_string())?;
@@ -625,13 +751,73 @@ pub fn get_watched_directories() -> Result<Vec<String>, String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        resolve_watched_path, DebounceTracker, EventQueue, WatcherEmit, EVENT_DEBOUNCE_MS,
+        resolve_watched_path, volume_watch_targets, DebounceTracker, EventQueue, WatcherEmit,
+        EVENT_DEBOUNCE_MS,
     };
     use std::path::PathBuf;
     use std::time::{Duration, Instant};
 
     fn watched_paths() -> Vec<String> {
         vec!["C:/data".to_string(), "C:/data/inner".to_string()]
+    }
+
+    // --- B25-2：按卷挑出要释放的监听路径 ---------------------------------
+    //
+    // `volume_watch_targets` 是纯函数（只吃已归一化的键），所以这里能直接
+    // 断言「弹出 H: 时只放掉 H: 上的句柄，C: 的一条都不动」——
+    // 这正是 U 盘能被安全弹出的前提。
+
+    #[test]
+    fn volume_targets_select_only_paths_on_that_volume() {
+        let keys = vec![
+            "C:/data".to_string(),
+            "H:/photos".to_string(),
+            "H:/photos/2026".to_string(),
+            "D:/".to_string(),
+        ];
+
+        assert_eq!(
+            volume_watch_targets(&keys, "H:/"),
+            vec!["H:/photos".to_string(), "H:/photos/2026".to_string()]
+        );
+    }
+
+    #[test]
+    fn volume_targets_include_the_volume_root_itself() {
+        let keys = vec!["H:/".to_string(), "H:/only".to_string()];
+
+        assert_eq!(
+            volume_watch_targets(&keys, "H:/"),
+            vec!["H:/".to_string(), "H:/only".to_string()]
+        );
+    }
+
+    #[test]
+    fn volume_targets_are_empty_when_nothing_is_watched_on_that_volume() {
+        let keys = watched_paths();
+
+        assert!(volume_watch_targets(&keys, "H:/").is_empty());
+        assert!(volume_watch_targets(&[], "H:/").is_empty());
+    }
+
+    #[test]
+    fn volume_targets_do_not_match_a_longer_drive_letter_prefix() {
+        // `H:/x` 不该被 `HH:/` 之类的串误伤；反过来 `H:/x` 也不属于 `C:/`。
+        let keys = vec!["H:/x".to_string()];
+
+        assert!(volume_watch_targets(&keys, "C:/").is_empty());
+    }
+
+    /// Windows 上盘符大小写不敏感：`h:/` 与 `H:/` 是同一个卷。
+    #[cfg(windows)]
+    #[test]
+    fn volume_targets_match_drive_letter_case_insensitively() {
+        let keys = vec!["H:/photos".to_string()];
+
+        assert_eq!(
+            volume_watch_targets(&keys, "h:/"),
+            vec!["H:/photos".to_string()]
+        );
     }
 
     #[test]

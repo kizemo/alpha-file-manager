@@ -892,7 +892,7 @@ pub async fn global_search_start_scan(
     };
 
     // 只保留真实存在的盘根 —— watcher 与路由判定都基于它。
-    let valid_drive_roots: Vec<String> = settings
+    let existing_drive_roots: Vec<String> = settings
         .drive_roots
         .iter()
         .filter(|root| {
@@ -901,6 +901,19 @@ pub async fn global_search_start_scan(
         })
         .cloned()
         .collect();
+
+    // FORK-MODIFICATION 2026-11-19（B25-2）：可移动盘（U 盘 / 读卡器）不进索引根集合。
+    //
+    // 递归 watch 盘根会**常驻**持卷根句柄，Windows 的安全弹出因此被否决
+    // （`CR_REMOVE_VETOED = 23`）。闸门必须落在**根集合构造处**而不是只落在
+    // `ensure_watcher` 的入参上：路由判定要求
+    // `same_drive_roots(watcher.roots, requested_roots)`（见 `decide_scan_route`）
+    // 且增量判定要求 `same_drive_roots(indexed, requested)`，
+    // 两套根集合会插着 U 盘时每轮退化成全量重扫（实测一轮 638 秒）。
+    //
+    // 代价（明确记录）：可移动盘整体不再进入全局搜索索引，
+    // 也就是「U 盘内容搜不到」，换取「U 盘随时能安全弹出」。
+    let valid_drive_roots = index_watcher::watchable_drive_roots(&existing_drive_roots);
 
     if valid_drive_roots.is_empty() {
         if let Ok(mut state) = GLOBAL_SEARCH_STATE.write() {

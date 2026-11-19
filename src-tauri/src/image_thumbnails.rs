@@ -741,6 +741,18 @@ fn generate_image_thumbnail_file(
     size: u64,
     max_dimension: u32,
 ) -> Result<String, String> {
+    // 手机（MTP/WPD）里的图片不是文件系统路径：下面的 `fs::metadata` 对它必然失败
+    // ⇒ 先分流到 shell 缩略图通道，缓存链路两边共用。
+    if crate::dir_reader::is_shell_namespace_path(&path) {
+        return generate_shell_image_thumbnail_file(
+            cache_dir,
+            path,
+            modified_time,
+            size,
+            max_dimension,
+        );
+    }
+
     let source_path = Path::new(&path);
     let source_metadata = fs::metadata(source_path)
         .map_err(|error| format!("Failed to read image metadata: {error}"))?;
@@ -798,6 +810,82 @@ fn generate_image_thumbnail_file(
         let _decode_slot = THUMBNAIL_DECODE_GATE.acquire();
         decode_image_thumbnail_source(source_path)?
     };
+    let thumbnail = image.resize(max_dimension, max_dimension, IMAGE_THUMBNAIL_RESIZE_FILTER);
+    let temporary_path = temporary_thumbnail_path(&thumbnail_path);
+
+    if let Err(error) = write_image_thumbnail(&thumbnail, &temporary_path) {
+        let _ = fs::remove_file(&temporary_path);
+        return Err(error);
+    }
+
+    {
+        let _cache_file_lock = IMAGE_THUMBNAIL_CACHE_FILE_LOCK
+            .lock()
+            .map_err(|error| format!("Failed to lock thumbnail cache files: {error}"))?;
+
+        if thumbnail_path.exists() {
+            let _ = fs::remove_file(&temporary_path);
+            return Ok(thumbnail_path.to_string_lossy().to_string());
+        }
+
+        if let Err(error) = fs::rename(&temporary_path, &thumbnail_path) {
+            let _ = fs::remove_file(&temporary_path);
+            return Err(format!("Failed to finalize image thumbnail: {error}"));
+        }
+
+        record_generated_thumbnail()?;
+    }
+
+    Ok(thumbnail_path.to_string_lossy().to_string())
+}
+
+/// shell namespace（手机 MTP/WPD）图片的缩略图：由 shell 出图，缓存链路照旧。
+///
+/// 缓存键与文件系统分支同源（`path|modified_time|size|max_dimension`），
+/// 所以两个分支的复用规则一致。重插手机后设备路径里的 `\?\usb#...` 段会变 ⇒
+/// 缓存失配、重新生成，这是可接受的代价（不然后端就没法定位是哪台设备的哪个文件）。
+///
+/// 出错一律返回 Err 让上层看到，绝不写一个空图占位：空图会被缓存复用，
+/// 变成「永远转圈 / 永远灰块」的第二种 bug。
+fn generate_shell_image_thumbnail_file(
+    cache_dir: PathBuf,
+    path: String,
+    modified_time: u64,
+    size: u64,
+    max_dimension: u32,
+) -> Result<String, String> {
+    fs::create_dir_all(&cache_dir)
+        .map_err(|error| format!("Failed to create thumbnail cache directory: {error}"))?;
+
+    let thumbnail_path =
+        thumbnail_cache_path(&cache_dir, &path, modified_time, size, max_dimension);
+
+    {
+        let _cache_file_lock = IMAGE_THUMBNAIL_CACHE_FILE_LOCK
+            .lock()
+            .map_err(|error| format!("Failed to lock thumbnail cache files: {error}"))?;
+
+        if should_enforce_thumbnail_cache_limits()? {
+            enforce_thumbnail_cache_limits(&cache_dir)?;
+        }
+
+        if thumbnail_path.exists() {
+            return Ok(thumbnail_path.to_string_lossy().to_string());
+        }
+    }
+
+    // MTP 取图又慢又占内存，和解码大图共用同一并发闸门，避免整屏同时拉图。
+    let (width, height, rgba) = {
+        let _decode_slot = THUMBNAIL_DECODE_GATE.acquire();
+        crate::dir_reader::shell_item_thumbnail_rgba(&path, max_dimension)?
+    };
+
+    validate_image_thumbnail_source(size, width, height)?;
+
+    let image = image::DynamicImage::ImageRgba8(
+        image::RgbaImage::from_raw(width, height, rgba)
+            .ok_or_else(|| "Shell 缩略图像素长度与尺寸不匹配".to_string())?,
+    );
     let thumbnail = image.resize(max_dimension, max_dimension, IMAGE_THUMBNAIL_RESIZE_FILTER);
     let temporary_path = temporary_thumbnail_path(&thumbnail_path);
 
@@ -1500,5 +1588,42 @@ mod tests {
             settings_file.exists(),
             "缓存目录不存在时清理不应删除任何东西"
         );
+    }
+
+    /// 判别测试（批次 25）：shell namespace 路径**不得**走文件系统分支。
+    ///
+    /// 改前必红：`generate_image_thumbnail_file` 一上来就 `fs::metadata`，
+    /// 对 `::{...}` 得到的错误串是 `Failed to read image metadata`；
+    /// 改后必绿：先按 shell 路径分流，错误来自 shell 通道，绝不再含那句文件系统错误。
+    ///
+    /// 故意用一条**不存在的设备条目**：不依赖手机是否插着，CI 里稳定可跑。
+    #[test]
+    fn shell_namespace_image_thumbnail_does_not_take_filesystem_branch() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let shell_path =
+            "::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\{b25-not-a-real-device-item}".to_string();
+
+        let result = generate_image_thumbnail_file(cache_dir.path().to_path_buf(), shell_path, 0, 1024, 128);
+
+        let error = match result {
+            Ok(path) => panic!("不存在的 shell 条目必须失败，不能返回可用路径: {path}"),
+            Err(error) => error,
+        };
+
+        assert!(
+            !error.contains("Failed to read image metadata"),
+            "shell 路径走了文件系统分支（fs::metadata），应改走 shell 缩略图通道: {error}"
+        );
+    }
+
+    /// 分流判据不得误伤真实文件系统路径：U 盘、本地盘、NAS 的 UNC 全部留在原分支。
+    #[test]
+    fn ordinary_and_unc_paths_are_not_shell_namespace_paths() {
+        assert!(!crate::dir_reader::is_shell_namespace_path("H:\\a.jpg"));
+        assert!(!crate::dir_reader::is_shell_namespace_path("C:\\x\\y.png"));
+        assert!(!crate::dir_reader::is_shell_namespace_path("\\\\nas\\share\\a.jpg"));
+        assert!(crate::dir_reader::is_shell_namespace_path(
+            "::{20D04FE0-3AEA-1069-A2D8-08002B30309D}"
+        ));
     }
 }

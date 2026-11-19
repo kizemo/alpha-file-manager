@@ -284,6 +284,159 @@ fn stop_locked(guard: &mut Option<WatcherState>) {
     }
 }
 
+// FORK-MODIFICATION 2026-11-19（B25-2）：可移动盘不进索引根集合。
+//
+// 上面那个 `watch(root, Recursive)` 会对每个盘根**常驻**持一个卷根句柄。
+// 只要句柄还在，Windows 的安全弹出就返回 `CR_REMOVE_VETOED (23)`：
+// 用户点「弹出」被拒，只能硬拔 —— 拔了可能损坏 U 盘上的文件系统。
+// 递归 watch 的覆盖面是整个卷，代价又远高于「搜不到 U 盘文件」，
+// 所以这里在**根集合的构造处**就把可移动盘摘掉（摘在源头，
+// watcher 与扫描列表才不会出现两套根集合，见 `scan.rs` 的路由判定）。
+//
+// 判定用注入形态：真实探针走 `GetDriveTypeW`，单测走表。
+
+/// 盘根集合按「是否可移动盘」分成 (保留, 跳过)。
+///
+/// 纯函数：`is_removable` 由调用方注入，便于用表断言固定盘 / 网络盘不受影响。
+pub(crate) fn partition_removable_drive_roots(
+    roots: &[String],
+    is_removable: &dyn Fn(&str) -> bool,
+) -> (Vec<String>, Vec<String>) {
+    let mut kept: Vec<String> = Vec::with_capacity(roots.len());
+    let mut skipped: Vec<String> = Vec::new();
+
+    for root in roots {
+        if is_removable(root) {
+            skipped.push(root.clone());
+        }
+        else {
+            kept.push(root.clone());
+        }
+    }
+
+    (kept, skipped)
+}
+
+/// 这个盘根是不是可移动盘（U 盘 / 读卡器）。非 Windows 恒为 `false`。
+pub(crate) fn drive_root_is_removable(root: &str) -> bool {
+    #[cfg(windows)]
+    {
+        windows_drive_root_is_removable(root)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = root;
+        false
+    }
+}
+
+#[cfg(windows)]
+fn windows_drive_root_is_removable(root: &str) -> bool {
+    use windows::core::PCWSTR;
+    use windows::Win32::Storage::FileSystem::GetDriveTypeW;
+
+    /// `WINBASE.h`：`DRIVE_REMOVABLE`。
+    const DRIVE_REMOVABLE: u32 = 2;
+
+    let letter = match root.chars().next() {
+        Some(letter) => letter,
+        None => return false,
+    };
+    if !letter.is_ascii_alphabetic() {
+        return false;
+    }
+
+    let root_wide: Vec<u16> = format!("{}:\\", letter.to_ascii_uppercase())
+        .encode_utf16()
+        .chain(std::iter::once(0))
+        .collect();
+
+    // `GetDriveTypeW` 只看盘符，路径不存在 / 无权限时返回 `DRIVE_NO_ROOT_DIR (1)`，
+    // 不会失败报错；这里不需要区分「不是可移动盘」和「盘根本不在」。
+    unsafe { GetDriveTypeW(PCWSTR::from_raw(root_wide.as_ptr())) == DRIVE_REMOVABLE }
+}
+
+/// 把可移动盘从索引根集合里摘掉，并对每个被摘的盘根**无条件**打一条 info 日志。
+///
+/// 这条日志是装机验收「跑的确实是新代码」的唯一判据，所以：
+/// * 级别是 `info`（`tauri-plugin-log` 以 `LevelFilter::Info` 落盘，不需要开 debug）；
+/// * 不受任何调试开关 / 采样控制；
+/// * 内容含盘符，能一眼对上被摘的那块 U 盘。
+pub(crate) fn watchable_drive_roots(roots: &[String]) -> Vec<String> {
+    let (kept, skipped) = partition_removable_drive_roots(roots, &drive_root_is_removable);
+
+    for root in &skipped {
+        log::info!(
+            "[global-search] skipping removable drive root from index watcher: {root}"
+        );
+    }
+
+    kept
+}
+
+/// 释放某个盘根上的常驻 watch（U 盘被拔出 / 正在被弹出时调用）。
+///
+/// 返回释放掉的根数。同时置 `overflowed`：从这一刻起事件覆盖不全，
+/// 下一轮只能退回全量重扫 —— 与「宁可慢，不能错」一致。
+pub(crate) fn release_root_watch(root: &str) -> usize {
+    let normalized = normalize_index_path(root);
+
+    let mut guard = match WATCHER_STATE.lock() {
+        Ok(guard) => guard,
+        Err(_) => return 0,
+    };
+
+    let Some(state) = guard.as_mut() else {
+        return 0;
+    };
+
+    let Some(position) = state
+        .roots
+        .iter()
+        .position(|watched| normalize_index_path(watched) == normalized)
+    else {
+        return 0;
+    };
+
+    let removed = state.roots.remove(position);
+
+    if let Some(watcher) = state.watcher.as_mut() {
+        if let Err(error) = watcher.unwatch(Path::new(&removed)) {
+            log::warn!("[global-search] failed to unwatch {removed}: {error}");
+        }
+    }
+
+    WATCHER_OVERFLOWED.store(true, Ordering::SeqCst);
+    log::info!("[global-search] released index watcher handle for volume {removed}");
+
+    1
+}
+
+/// FORK-MODIFICATION 2026-11-19（B25-2）：退出前一次性放掉所有盘根的 watch。
+///
+/// 按卷释放走 `release_root_watch`（`device_events` 收到 `WM_DEVICECHANGE`
+/// 时调用）；这里是最后一道兜底 —— 主窗口「关闭」其实只是 `hide()`
+/// （托盘常驻），真正退出走的是 `RunEvent::Exit`，进程若还持着卷根句柄，
+/// 用户就会看到「无法停止设备」。
+///
+/// 返回放掉的根个数（0 表示本来就没在跑）。
+pub(crate) fn release_all_root_watches() -> usize {
+    let mut guard = match WATCHER_STATE.lock() {
+        Ok(guard) => guard,
+        Err(_) => return 0,
+    };
+
+    let released = guard.as_ref().map_or(0, |state| state.roots.len());
+
+    stop_locked(&mut guard);
+
+    if released > 0 {
+        log::info!("[global-search] released {released} index root watch(es) on shutdown");
+    }
+
+    released
+}
+
 /// 把 `notify` 的事件翻译成这里用的文件系统事件。
 fn translate_event(event: &Event) -> Vec<FsEvent> {
     let mut translated = Vec::new();
@@ -376,6 +529,95 @@ fn event_is_excluded(event: &FsEvent, excluded_prefixes: &[String]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // --- B25-2 层 1：可移动盘必须在 roots 构造处被剔除 ---------------------
+
+    /// 注入「哪个盘符是可移动盘」的表，不碰真实 `GetDriveTypeW`。
+    ///
+    /// 表里的盘符和被问的 root 都先转大写 —— 真实 `GetDriveTypeW` 只认盘符
+    /// 不认大小写，替身必须保持同样的语义，否则「大小写不敏感」这件事根本测不到。
+    fn table(removable: &[char]) -> impl Fn(&str) -> bool + '_ {
+        let removable: Vec<char> = removable
+            .iter()
+            .map(|letter| letter.to_ascii_uppercase())
+            .collect();
+
+        move |root: &str| match root.chars().next() {
+            Some(letter) if letter.is_ascii_alphabetic() => {
+                removable.contains(&letter.to_ascii_uppercase())
+            }
+            _ => false,
+        }
+    }
+
+    #[test]
+    fn partition_drops_removable_and_keeps_fixed_and_network_roots() {
+        let roots: Vec<String> = [
+            "C:/".to_string(),
+            "H:/".to_string(),
+            "D:/".to_string(),
+            "\\\\nas\\share".to_string(),
+            "Z:/".to_string(),
+        ]
+        .to_vec();
+
+        // H: 是 U 盘；Z: 是映射的网络盘 —— 都不该被当成固定盘误删，
+        // 但只有 H:（可移动）会被摘掉。
+        let (kept, skipped) = partition_removable_drive_roots(&roots, &table(&['H']));
+
+        assert_eq!(skipped, vec!["H:/".to_string()]);
+        assert_eq!(
+            kept,
+            vec![
+                "C:/".to_string(),
+                "D:/".to_string(),
+                "\\\\nas\\share".to_string(),
+                "Z:/".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn partition_keeps_everything_when_no_drive_is_removable() {
+        let roots: Vec<String> = ["C:/", "D:/", "E:/", "F:/", "G:/", "I:/"]
+            .iter()
+            .map(|root| root.to_string())
+            .collect();
+
+        let (kept, skipped) = partition_removable_drive_roots(&roots, &table(&[]));
+
+        assert!(skipped.is_empty());
+        assert_eq!(kept, roots);
+    }
+
+    #[test]
+    fn partition_matches_letter_case_insensitively() {
+        let roots: Vec<String> = vec!["h:/".to_string(), "H:/".to_string()];
+
+        let (kept, skipped) = partition_removable_drive_roots(&roots, &table(&['h']));
+
+        assert!(kept.is_empty());
+        assert_eq!(skipped.len(), 2);
+
+        // 替身之外，真探针自己也必须大小写不敏感。这里只断言「两种写法结果一致」，
+        // 不断言一致到 true 还是 false —— 那取决于跑测试这台机器上 H: 到底是什么盘。
+        assert_eq!(drive_root_is_removable("h:/"), drive_root_is_removable("H:/"));
+    }
+
+    #[test]
+    fn removable_probe_rejects_paths_without_a_drive_letter() {
+        // 非 Windows 恒 false；Windows 上这些前缀也拿不到盘符，必须走 false 而不是 panic。
+        assert!(!drive_root_is_removable(""));
+        assert!(!drive_root_is_removable("/mnt/usb"));
+        assert!(!drive_root_is_removable("\\\\nas\\share"));
+    }
+
+    #[test]
+    fn release_root_watch_ignores_roots_that_are_not_watched() {
+        // `Q:/` 不是任何测试会去 watch 的根 —— 无论别的测试有没有并发建 watcher，
+        // 这里都必须返回 0（并且不能碰 overflowed 标记）。
+        assert_eq!(release_root_watch("Q:/"), 0);
+    }
     use notify::event::EventAttributes;
     use std::path::PathBuf;
 

@@ -16,6 +16,7 @@ import { useUserPathsStore } from '@/stores/storage/user-paths';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import { UI_CONSTANTS } from '@/constants';
 import normalizePath, { canonicalizePath, getPathDisplayName } from '@/utils/normalize-path';
+import { collectVolumeCloseTargets } from '@/utils/volume-removal';
 import {
   isVirtualLocationPath,
   resolveDirEntry,
@@ -553,6 +554,65 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
       tabGroup.splice(tabIndex, 1);
       setCurrentTabIndex(0);
     }
+  }
+
+  /**
+   * FORK-MODIFICATION: 批次 25 缺陷 B25-2（2026-11-19）——U 盘弹出时关掉该盘的标签页。
+   *
+   * 后端放掉句柄只是一半：标签页还开着的话，导航轮询和目录读取会立刻重新打开
+   * 该盘句柄，Windows 又会弹出失败（`ERROR_REMOVE_VETOED`）。所以前端收到
+   * `volume-change` 必须把落在这块盘上的页全部关掉。
+   *
+   * 名单来自 `collectVolumeCloseTargets`，按 **id** 而不是索引给出，原因是
+   * 关整组会让后面所有组索引整体前移；因此这里每个目标都重新定位一次。
+   */
+  async function closeTabsOnDrive(driveLetter: string) {
+    const workspace = currentWorkspace.value;
+
+    if (!workspace?.tabGroups) {
+      return {
+        closedGroups: 0,
+        closedTabs: 0,
+      };
+    }
+
+    const { groupIds, tabIds } = collectVolumeCloseTargets(workspace.tabGroups, driveLetter);
+    let closedGroups = 0;
+    let closedTabs = 0;
+
+    for (const groupId of groupIds) {
+      const tabGroup = workspace.tabGroups.find(group => group?.[0]?.id === groupId);
+
+      if (!tabGroup) {
+        continue;
+      }
+
+      await closeTabGroup(tabGroup);
+      closedGroups++;
+    }
+
+    for (const tabId of tabIds) {
+      const tabGroupIndex = workspace.tabGroups.findIndex(group =>
+        group?.some(tab => tab.id === tabId));
+
+      if (tabGroupIndex === -1) {
+        continue;
+      }
+
+      const tabIndex = workspace.tabGroups[tabGroupIndex].findIndex(tab => tab.id === tabId);
+
+      if (tabIndex === -1) {
+        continue;
+      }
+
+      closeTab(workspace, tabGroupIndex, tabIndex);
+      closedTabs++;
+    }
+
+    return {
+      closedGroups,
+      closedTabs,
+    };
   }
 
   async function addNewTabGroup(path?: string) {
@@ -1137,6 +1197,7 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
     closeAllTabGroups,
     closeOtherTabGroups,
     closeAllDuplicatePathTabs,
+    closeTabsOnDrive,
     hasDuplicatePathTabs,
     setCurrentTabIndex,
     setTabs,

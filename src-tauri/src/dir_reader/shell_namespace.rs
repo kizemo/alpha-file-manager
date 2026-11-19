@@ -39,17 +39,25 @@ mod platform {
         DirContents, DirEntry, OpenedDirectoryTimes, ShellDeviceInfo, ShellPathCrumb,
     };
     use std::ffi::c_void;
-    use windows::core::{GUID, PCWSTR, Interface};
-    use windows::Win32::Foundation::{FILETIME, HANDLE};
+    use std::sync::OnceLock;
+    use windows::core::{GUID, HSTRING, PCWSTR, Interface};
+    use windows::Win32::Foundation::{FILETIME, HANDLE, HWND, SIZE};
+    use windows::Win32::Graphics::Gdi::{
+        BITMAP, BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, DeleteObject, GetDIBits, GetDC,
+        GetObjectW, HBITMAP, HGDIOBJ, ReleaseDC,
+    };
     use windows::Win32::System::Com::StructuredStorage::PropVariantToUInt64;
     use windows::Win32::System::Com::{CoInitialize, CoTaskMemFree, CoUninitialize, IBindCtx};
     use windows::Win32::System::SystemServices::{SFGAO_FLAGS, SFGAO_FOLDER};
     use windows::Win32::UI::Shell::Common::ITEMIDLIST;
-    use windows::Win32::UI::Shell::PropertiesSystem::PROPERTYKEY;
+    use windows::Win32::UI::Shell::PropertiesSystem::{
+        PROPERTYKEY, PSGetPropertyKeyFromName,
+    };
     use windows::Win32::UI::Shell::{
-        IEnumShellItems, IShellItem, IShellItem2, KF_FLAG_DEFAULT, SIGDN,
-        SIGDN_DESKTOPABSOLUTEPARSING, SIGDN_FILESYSPATH, SIGDN_NORMALDISPLAY, BHID_EnumItems,
-        FOLDERID_ComputerFolder, SHCreateItemFromIDList, SHGetKnownFolderItem, SHParseDisplayName,
+        IEnumShellItems, IShellItem, IShellItem2, IShellItemImageFactory, KF_FLAG_DEFAULT,
+        SIGDN, SIGDN_DESKTOPABSOLUTEPARSING, SIGDN_FILESYSPATH, SIGDN_NORMALDISPLAY,
+        SIIGBF_THUMBNAILONLY, BHID_EnumItems, FOLDERID_ComputerFolder, SHCreateItemFromIDList,
+        SHGetKnownFolderItem, SHParseDisplayName,
     };
 
     /// 「此电脑」的**解析名**（CLSID_MyComputer）。
@@ -61,11 +69,53 @@ mod platform {
     pub(super) const COMPUTER_FOLDER_PARSING_NAME: &str =
         "::{20D04FE0-3AEA-1069-A2D8-08002B30309D}";
 
-    /// `System.Size` 属性键（取文件大小）。
-    const PKEY_SIZE: PROPERTYKEY = PROPERTYKEY {
-        fmtid: GUID::from_u128(0x9b174b33_40ff_11d2_a27e_00c04fc30871),
+    /// `System.Size` 的**兜底**属性键（取文件大小）。
+    ///
+    /// 批次 25 根因：原先这个 fmtid 被手写成
+    /// `{9B174B33-40FF-11D2-A27E-00C04FC30871}` —— 那是「名称/序列号」一族的
+    /// fmtid，**不是** `System.Size` 的。`IShellItem2::GetProperty` 对不认识的键
+    /// 不报错，而是回 `S_OK` + 空值，`PropVariantToUInt64` 再把「读不到」静默转成 0
+    /// ⇒ 手机（MTP/WPD）里所有文件的大小都显示 `0 B`。
+    /// 真机取证见 `.superpowers\sdd\b25-thumb-probe.txt`：同一个条目用
+    /// `{B725F130-47EF-101A-A5F1-02608C9EEBAC}` pid 12（`System.Size` 真正的
+    /// fmtid，与下面 `PKEY_DATE_MODIFIED` 同族）读到 2285028 / 476981428 /
+    /// 862016 等真实字节数，而用写错的键一律读到 0。
+    ///
+    /// 因此正式修复**不再以手写 GUID 为准**：优先让 propsys 自己解析
+    /// `"System.Size"`（见 `system_size_key`），只有解析失败才退回这个常量。
+    const PKEY_SIZE_FALLBACK: PROPERTYKEY = PROPERTYKEY {
+        fmtid: GUID::from_u128(0xb725f130_47ef_101a_a5f1_02608c9eebac),
         pid: 12,
     };
+
+    /// 解析出的 `System.Size` 属性键（进程内解析一次即可，propsys 给的是稳定常量）。
+    static SYSTEM_SIZE_KEY: OnceLock<PROPERTYKEY> = OnceLock::new();
+
+    /// 取 `System.Size` 的属性键：优先用 propsys 解析 `"System.Size"`。
+    ///
+    /// 让系统自己给出键，就不再有人有机会把 GUID 抄错。
+    fn system_size_key() -> PROPERTYKEY {
+        if let Some(key) = SYSTEM_SIZE_KEY.get() {
+            return *key;
+        }
+
+        let mut key = PKEY_SIZE_FALLBACK;
+        let name = HSTRING::from("System.Size");
+        let mut resolved = PROPERTYKEY {
+            fmtid: GUID::default(),
+            pid: 0,
+        };
+
+        match unsafe { PSGetPropertyKeyFromName(&name, &mut resolved) } {
+            Ok(()) => key = resolved,
+            Err(error) => {
+                log::warn!("[shell] 解析 System.Size 属性键失败，使用兜底键: {error}");
+            }
+        }
+
+        let _ = SYSTEM_SIZE_KEY.set(key);
+        key
+    }
 
     /// `System.DateModified` 属性键（取修改时间）。
     const PKEY_DATE_MODIFIED: PROPERTYKEY = PROPERTYKEY {
@@ -388,16 +438,36 @@ mod platform {
         attributes.0 & SFGAO_FOLDER.0 != 0
     }
 
+    /// 读 shell 条目的文件大小（字节）。
+    ///
+    /// 「读不到」和「0 字节」是两件事：以前一律静默返回 0，界面上就成了
+    /// 「这个文件是空的」，用户完全看不出错。现在失败会写日志，
+    /// 0 只在该条目确实没有大小属性时出现。
     fn item_size(item: &IShellItem) -> u64 {
         let Ok(item_with_properties) = item.cast::<IShellItem2>() else {
+            log::debug!("[shell] 条目不支持 IShellItem2，大小按未知处理");
             return 0;
         };
 
-        let Ok(property) = (unsafe { item_with_properties.GetProperty(&PKEY_SIZE) }) else {
+        let key = system_size_key();
+
+        let Ok(property) = (unsafe { item_with_properties.GetProperty(&key) }) else {
+            log::debug!("[shell] 条目没有 System.Size 属性（目录或未索引），大小按未知处理");
             return 0;
         };
 
-        unsafe { PropVariantToUInt64(&property).unwrap_or(0) }
+        if property.is_empty() {
+            log::debug!("[shell] System.Size 返回空值，大小按未知处理");
+            return 0;
+        }
+
+        match unsafe { PropVariantToUInt64(&property) } {
+            Ok(value) => value,
+            Err(error) => {
+                log::warn!("[shell] System.Size 转成整数失败: {error}");
+                0
+            }
+        }
     }
 
     fn item_modified_time(item: &IShellItem) -> u64 {
@@ -508,6 +578,108 @@ mod platform {
     }
 
     /// 读一个 shell 节点的子项。
+    /// 从 shell 条目取缩略图并转成 RGBA 像素（批次 25：手机里的图片要能出图）。
+    ///
+    /// 手机（MTP/WPD）条目**不是文件系统路径** ⇒ `fs::metadata` 和 `image` 解码对它
+    /// 必然失败，唯一能出图的通道是 shell 自己的 `IShellItemImageFactory::GetImage`。
+    ///
+    /// 真机取证见 `.superpowers\sdd\b25-thumb-probe.txt`：手机**图片**在
+    /// `SIIGBF_THUMBNAILONLY` 下 64/128/256 三档全部成功；手机**视频**同一 flag 下
+    /// 一律回 `0x8004B200`（没有缩略图提供程序），去掉该 flag 虽然能拿到位图，
+    /// 但那很可能只是通用图标 ⇒ 宁可不出图，也不用假封面污染「每视频一份」的缓存。
+    pub(super) fn shell_item_thumbnail_rgba(
+        shell_path: &str,
+        max_dimension: u32,
+    ) -> Result<(u32, u32, Vec<u8>), String> {
+        let item = resolve_shell_item(shell_path)?;
+        let factory = item
+            .cast::<IShellItemImageFactory>()
+            .map_err(|error| format!("Shell 条目没有缩略图接口: {error}"))?;
+
+        let side = i32::try_from(max_dimension.max(16))
+            .map_err(|error| format!("缩略图尺寸超限: {error}"))?;
+
+        let bitmap = unsafe { factory.GetImage(SIZE { cx: side, cy: side }, SIIGBF_THUMBNAILONLY) }
+            .map_err(|error| format!("Shell 缩略图生成失败: {:08X}", error.code().0 as u32))?;
+
+        let pixels = bitmap_to_rgba(bitmap);
+
+        // GetImage 交回来的是 GDI 位图句柄，用完必须删，否则 GDI 对象泄漏。
+        unsafe {
+            let _ = DeleteObject(HGDIOBJ(bitmap.0));
+        }
+
+        pixels
+    }
+
+    /// `HBITMAP` →（宽, 高, RGBA8 像素）。
+    ///
+    /// 用 `GetDIBits` 以 32bpp、`biHeight` 取负（自上而下）一次取出整幅位图，
+    /// 再把 GDI 的 BGRX 翻成 `image` 要的 RGBA。GDI 一律把 alpha 填 0，
+    /// 照原样用会把缩略图洗成全透明 ⇒ 强制补成 255。
+    fn bitmap_to_rgba(bitmap: HBITMAP) -> Result<(u32, u32, Vec<u8>), String> {
+        let mut info = BITMAP::default();
+        let info_read = unsafe {
+            GetObjectW(
+                HGDIOBJ(bitmap.0),
+                i32::try_from(std::mem::size_of::<BITMAP>())
+                    .map_err(|error| format!("位图信息长度异常: {error}"))?,
+                Some(&mut info as *mut BITMAP as *mut c_void),
+            )
+        };
+        if info_read == 0 {
+            return Err("读取 Shell 缩略图位图信息失败".to_string());
+        }
+
+        let width = u32::try_from(info.bmWidth).map_err(|_| "位图宽度异常".to_string())?;
+        let height = u32::try_from(info.bmHeight).map_err(|_| "位图高度异常".to_string())?;
+        if width == 0 || height == 0 {
+            return Err("Shell 缩略图位图为空".to_string());
+        }
+
+        let mut bmi = BITMAPINFO {
+            bmiHeader: BITMAPINFOHEADER {
+                biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                biWidth: width as i32,
+                biHeight: -(height as i32),
+                biPlanes: 1,
+                biBitCount: 32,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let mut pixels = vec![0u8; (width * height * 4) as usize];
+        let hdc = unsafe { GetDC(HWND::default()) };
+        let scanlines = unsafe {
+            GetDIBits(
+                hdc,
+                bitmap,
+                0,
+                height,
+                Some(pixels.as_mut_ptr() as *mut c_void),
+                &mut bmi,
+                DIB_RGB_COLORS,
+            )
+        };
+        unsafe {
+            let _ = ReleaseDC(HWND::default(), hdc);
+        }
+        if scanlines == 0 {
+            return Err("取出 Shell 缩略图像素失败".to_string());
+        }
+
+        for pixel in pixels.chunks_exact_mut(4) {
+            pixel.swap(0, 2);
+
+            if pixel[3] == 0 {
+                pixel[3] = 255;
+            }
+        }
+
+        Ok((width, height, pixels))
+    }
+
     pub(super) fn read_shell_dir(shell_path: &str) -> Result<DirContents, String> {
         let _com = ComGuard::new()?;
 
@@ -699,6 +871,27 @@ pub fn stat_shell_entry(shell_path: &str) -> Result<DirEntry, String> {
     #[cfg(not(windows))]
     {
         let _ = shell_path;
+        Err("shell namespace 路径只支持 Windows".to_string())
+    }
+}
+
+/// 取 shell namespace 条目（手机里的图片/视频）的缩略图 RGBA 像素。
+///
+/// 手机条目不是文件系统路径，`image` crate 解不了 ⇒ 必须由 shell 出图，
+/// 判据与调用方见 `image_thumbnails::generate_image_thumbnail_file`。
+/// 非 Windows 平台没有 shell namespace ⇒ 明确失败，绝不静默返回空图。
+pub fn shell_item_thumbnail_rgba(
+    shell_path: &str,
+    max_dimension: u32,
+) -> Result<(u32, u32, Vec<u8>), String> {
+    #[cfg(windows)]
+    {
+        platform::shell_item_thumbnail_rgba(shell_path, max_dimension)
+    }
+
+    #[cfg(not(windows))]
+    {
+        let _ = (shell_path, max_dimension);
         Err("shell namespace 路径只支持 Windows".to_string())
     }
 }
@@ -1015,5 +1208,79 @@ mod tests {
                 crumb.path
             );
         }
+    }
+
+    /// 判别测试（批次 25）：shell 命名空间读出来的文件大小必须等于真实字节数。
+    ///
+    /// 需求本身是「手机（MTP/WPD）里的图片/视频大小不能显示成 `0 B`」。
+    /// 这条判据不需要接手机：`read_shell_dir` / `stat_shell_entry` 对普通文件系统
+    /// 路径同样可用，走的是**同一条 `item_size()`**。历史上属性键的 fmtid 写错，
+    /// `GetProperty` 对这个未知键回 `S_OK` + `VT_EMPTY`，`PropVariantToUInt64`
+    /// 把「读不到」静默转成 0 ⇒ 所有 shell 条目大小恒为 0 ⇒ 本测试改前必红。
+    #[test]
+    fn shell_namespace_reads_real_file_size() {
+        let dir = tempfile::tempdir().expect("临时目录");
+        let expected_size: u64 = 123_456;
+        let sample = dir.path().join("b25-size-sample.bin");
+        std::fs::write(&sample, vec![7u8; expected_size as usize]).expect("写入样本文件");
+
+        let dir_path = dir.path().to_string_lossy().to_string();
+        let contents = read_shell_dir(&dir_path).expect("shell 命名空间应能枚举普通目录");
+        let entry = contents
+            .entries
+            .iter()
+            .find(|item| item.name == "b25-size-sample.bin")
+            .expect("目录里应能找到样本文件");
+        assert_eq!(
+            entry.size, expected_size,
+            "read_shell_dir 读出的 size 必须等于真实字节数"
+        );
+
+        let sample_path = sample.to_string_lossy().to_string();
+        let statted = super::stat_shell_entry(&sample_path).expect("stat_shell_entry 应能读取普通文件");
+        assert_eq!(
+            statted.size, expected_size,
+            "stat_shell_entry 读出的 size 必须等于真实字节数"
+        );
+    }
+
+    /// 真值来源（批次 25）：`System.Size` 的权威属性键必须由 propsys 自己解析，
+    /// 而不是手写 GUID。
+    ///
+    /// 这条是**判据锚点**而非判别测试：它用 `PSGetPropertyKeyFromName("System.Size")`
+    /// 拿到系统认可的键，再断言该键能读出真实字节数。产品代码必须与它同源。
+    #[test]
+    fn propsys_resolved_system_size_key_reads_real_file_size() {
+        use windows::core::{GUID, HSTRING, Interface};
+        use windows::Win32::System::Com::StructuredStorage::PropVariantToUInt64;
+        use windows::Win32::UI::Shell::IShellItem2;
+        use windows::Win32::UI::Shell::PropertiesSystem::{
+            PSGetPropertyKeyFromName, PROPERTYKEY,
+        };
+
+        let dir = tempfile::tempdir().expect("临时目录");
+        let expected_size: u64 = 4_224;
+        let sample = dir.path().join("b25-key-sample.bin");
+        std::fs::write(&sample, vec![0u8; expected_size as usize]).expect("写入样本文件");
+
+        let path = sample.to_string_lossy().to_string();
+        let item = resolve_shell_item(&path).expect("shell 应能解析普通文件路径");
+        let item_with_properties: IShellItem2 = item.cast().expect("shell 条目应支持 IShellItem2");
+
+        let mut key = PROPERTYKEY {
+            fmtid: GUID::default(),
+            pid: 0,
+        };
+        let name = HSTRING::from("System.Size");
+        unsafe { PSGetPropertyKeyFromName(&name, &mut key) }
+            .expect("propsys 应能解析 System.Size 属性键");
+
+        let variant = unsafe { item_with_properties.GetProperty(&key) }
+            .expect("propsys 解析出的 System.Size 键必须能读到属性");
+        let value = unsafe { PropVariantToUInt64(&variant) }.expect("System.Size 应能转成 u64");
+        assert_eq!(
+            value, expected_size,
+            "propsys 解析出的 System.Size 键必须读出真实字节数（产品代码必须与这条同源）"
+        );
     }
 }

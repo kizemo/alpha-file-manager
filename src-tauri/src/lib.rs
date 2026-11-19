@@ -18,6 +18,7 @@ mod copy_move_job;
 mod default_file_manager;
 mod delete_job;
 mod delete_tree;
+mod device_events;
 mod dir_reader;
 mod dir_size;
 mod dir_watcher;
@@ -620,6 +621,9 @@ pub fn run() {
             }
             if let tauri::WindowEvent::Destroyed = event {
                 if window.label() == "main" {
+                    // FORK-MODIFICATION 2026-11-19（B25-2）：主窗口真正销毁时
+                    // 把文件系统 watch 放掉，别让卷根句柄跟着进程活到最后一刻。
+                    release_all_filesystem_watches("window destroyed");
                     tokio::spawn(async { lan_share::stop_lan_share().await.ok() });
                 }
             }
@@ -647,9 +651,30 @@ pub fn run() {
         // Focus Sync 侧车跟着应用退出。只在真正的 Exit 上杀：ExitRequested
         // 可能被托盘逻辑取消，此时不应该把侧车拆掉。
         if matches!(event, tauri::RunEvent::Exit) {
+            // FORK-MODIFICATION 2026-11-19（B25-2）：退出兜底释放。
+            // 点关闭按钮只是 `hide()`（托盘常驻），句柄全都还在，
+            // 所以正常路径靠 WM_DEVICECHANGE 按卷释放；这里是最后一道。
+            release_all_filesystem_watches("app exit");
             focus_sync_sidecar::stop(app_handle);
         }
     });
+}
+
+/// FORK-MODIFICATION 2026-11-19（B25-2）：把所有文件系统 watch 一次放掉。
+///
+/// 为什么要有这一条：Windows 上只要进程还持有卷内任意目录的句柄，
+/// 「安全弹出」就会被 `CR_REMOVE_VETOED (23)` 挡掉，用户只能硬拔 ——
+/// 拔了可能损坏 U 盘上的文件系统。正常路径由 `device_events` 在收到
+/// `WM_DEVICECHANGE` 时按卷释放，这里是关窗/退出的兜底。
+///
+/// 幂等：两个 release 都返回「实际放掉的数量」，重复调用第二次得到 0。
+fn release_all_filesystem_watches(reason: &'static str) {
+    let released_dirs = dir_watcher::release_all_watches();
+    let released_roots = global_search::release_all_root_watches();
+
+    log::info!(
+        "[shutdown] released filesystem watches ({reason}): {released_dirs} dir watcher handle(s), {released_roots} index root(s)"
+    );
 }
 
 fn setup_handler(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
@@ -700,6 +725,27 @@ fn setup_handler(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
     // Focus Sync 侧车：随应用启动，随应用退出（见 focus_sync_sidecar 模块注释）。
     // 找不到二进制属于正常（用户没装该扩展），只记日志。
     focus_sync_sidecar::start(app.handle());
+
+    // FORK-MODIFICATION 2026-11-19（B25-2）：接上 `WM_DEVICECHANGE`。
+    //
+    // U 盘弹不出来（`CR_REMOVE_VETOED = 23`）的直接原因是本进程持着卷根句柄：
+    // 全局搜索索引对每个盘根 `watch(root, Recursive)`，文件浏览器对当前目录
+    // 也有 notify watch。device_events 收到移除广播时先把这些句柄放掉再放行。
+    //
+    // 发送器在这里以闭包注入，`device_events.rs` 内部刻意不出现 `tauri::*`：
+    // 测试二进制一旦单态化 `AppHandle` 就会拖进 tao 的窗口链，而它缺
+    // comctl32 v6 manifest，`cargo test --lib` 会在加载阶段直接 0xC0000139
+    // （同一个坑见 `dir_reader.rs` 与 `mcp/mod.rs` 顶部的记录）。
+    {
+        let handle = app.handle().clone();
+        device_events::init(move |payloads| {
+            for payload in payloads {
+                if let Err(error) = handle.emit(device_events::VOLUME_EVENT, &payload) {
+                    log::warn!("[device-events] failed to emit volume event: {error}");
+                }
+            }
+        });
+    }
     startup_storage_bootstrap::migrate_legacy_user_storage_filenames(app.handle());
     // FORK-MODIFICATION 2026-10-20：移植上游 8908e214。
     //
