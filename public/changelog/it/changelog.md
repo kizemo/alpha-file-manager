@@ -1,6 +1,20 @@
 # Registro delle modifiche
 
 
+## [3.15.0] - November 2026
+
+**Riepilogo:** Se colleghi un telefono o un'unità USB al computer, ora compare in *Località*, e aprirlo dall'Esplora File di Windows ti porta dentro il dispositivo invece di lasciarti su una pagina vuota.
+
+### What changed
+
+**Corretto: Un telefono collegato o un'unità USB ora compare in *Località*.** *Località* finora elencava solo le unità che Windows segnala come normali volumi di disco. Un telefono collegato via MTP non è un volume del genere, quindi non è mai comparso, e anche un'unità USB poteva essere scartata finché Windows non ne aveva comunicato la dimensione. Ora l'elenco dei dispositivi viene raccolto tramite la shell di Windows stessa, così un telefono collegato compare con il proprio nome e le unità che non comunicano dimensioni non vengono più scartate. I telefoni collegati e le unità USB sono raccolti in una sezione *Dispositivi* a parte.
+
+**Corretto: Aprire un telefono dall'Esplora File di Windows apre davvero il telefono.** Quando Alpha File Manager è impostato come gestore di file predefinito, il doppio clic su un telefono dentro Windows passava il percorso all'Esplora File di Windows, e l'app aveva già buttato quel percorso, così finivi sulla pagina *Località*. Ora il percorso viene conservato e aperto dentro l'app, e le cartelle dentro il telefono si percorrono come qualunque altra cartella.
+
+**Aggiunto: Un dispositivo può essere restituito all'Esplora File di Windows.** Se un dispositivo non si riesce ad aprire dentro l'app, il messaggio che lo segnala ora propone di aprirlo nell'Esplora File di Windows, così non resti mai bloccato.
+
+**Corretto: Un dispositivo che non si riesce a leggere non svuota più l'intera pagina *Località*.** Le unità e i dispositivi collegati vengono ora recuperati uno accanto all'altro, così un dispositivo che non risponde non fa più sparire anche le unità.
+
 ## [3.14.1] - November 2026
 
 **Riepilogo:** Focus Sync può di nuovo portare la cartella che stai visualizzando nelle finestre di dialogo «Apri» e «Salva come» di altri programmi, e il file di installazione ora contiene l'helper che appartiene a questa release invece di uno vecchio.

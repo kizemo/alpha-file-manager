@@ -2586,3 +2586,92 @@ push2 段（UTC 01:21:10 → 01:21:14）：
 - 动手前先修 `src/utils/remote-directory.ts:137-147` 硬编码「夸克网盘」的串台文案（接第三个 provider 前必须参数化）。
 - **仍需用户授权（对外）**：发布 `v3.14.1` release 资产（用 sha `5F07F5B9…` 的包）、提 winget manifest PR（前置 3.9.1 PR #467381 仍 OPEN）。
 
+### 20.19 批次 23（插队）—— 「位置」显示手机/U 盘 ＋ 双击手机能在 AFM 内打开：根因坐实 → 双端落地 → 门禁全绿（2026-11-19）
+
+#### 20.19.1 为什么插队
+
+用户明确要求：在开发阿里云盘/OneDrive **之前**，先修两个严重 bug —— ①插入手机或 U 盘后「位置」里显示不出来；②AFM 被设为默认资源管理器后，在系统资源管理器里双击手机盘符，跳到 AFM 却只落到「位置」界面、打不开设备。阿里云盘/OneDrive 计划（`docs/plan-2026-11-19-aliyun-onedrive.md`）不因本批次改变，落地顺序仍是先阿里云盘（第一版只读）、OneDrive 需先做 WebView2 OAuth 截获可行性验证（P0-2）。
+
+方案文档：`docs/plan-2026-11-19-shell-devices-locations.md`（R1–R7 后端 / F1–F4 前端 / 门禁 / 真机判据 J1–J4 / 风险 R1–R5）。
+
+#### 20.19.2 两条根因（坐实，非推断）
+
+**根因 1：位置页只枚举 Win32 卷，MTP 手机根本不在结果里。**
+链路 `src/utils/virtual-locations.ts:250-253`（`readLocationsDirectory`）→ `src-tauri/src/dir_reader/commands.rs:140-145`（`get_system_drives`）→ `src-tauri/src/dir_reader/drives.rs:19-50`（`sysinfo::Disks`，Windows 走 `FindFirstVolumeW` → `GetVolumePathNamesForVolumeNameW` → `GetDriveTypeW`）。**MTP 手机不是 Win32 卷**，`sysinfo::Disks` 不会报它 ⇒ 架构级缺口，不是过滤条件写错。另有三道过滤会丢 U 盘：容量为 0 的丢弃、无挂载点的丢弃、只留 FIXED/REMOVABLE。
+
+**根因 2：shell 命名空间路径被启动链路丢弃。**
+`src-tauri/src/lib.rs:146-175`（`filter_shell_namespace_args`）把 `::{` / `shell:` 参数**从 `filtered_args` 里删除** → 非 absorbed 的走 `delegate_shell_namespace_paths` → `explorer.exe`；而前端 `src/utils/launch-directories.ts:190-192` 在没有候选时硬造 `LOCATIONS_VIRTUAL_PATH`，于是用户看到的就是「跳到位置界面」——AFM 已把 shell 路径丢了，再去要目录当然要空。
+
+用户机器真机日志（`C:\Users\Duanyi\AppData\Local\com.sigma-file-manager.app\logs\Alpha File Manager.log`）：
+
+```
+[reveal] open_in_native_explorer spawned:
+path=::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\?\usb#vid_22d9&pid_2765&mi_00#6&337f5e7c&1&0000#{6ac27878-a6fa-4155-ba85-f98f491d4f33}\SID-{10001,,1001925963776}
+```
+
+`vid_22d9` = MTP 手机。
+
+#### 20.19.3 后端落地（T1–T4，10 个文件全在 `src-tauri/`）
+
+| 文件 | 改动 |
+| --- | --- |
+| `Cargo.toml` | windows crate 加 2 个 feature：`Win32_UI_Shell_PropertiesSystem`、`Win32_Devices_PortableDevices`（**不新增 crate**） |
+| `dir_reader/types.rs` | 新增公开类型 `ShellDeviceInfo { name, shell_path, is_folder }`，`#[serde(rename_all = "camelCase")]` |
+| `dir_reader/shell_namespace.rs` | **新建**（约 700 行）：`is_shell_namespace_path` / `get_shell_devices` / `read_shell_dir` / `stat_shell_entry`；COM 公寓守卫、`SHParseDisplayName` 解析 + 两条退路、`IShellItem` 枚举子项、`IPortableDevice` QI 判据 |
+| `dir_reader.rs` | 注册 `mod shell_namespace;`，导出 `ShellDeviceInfo` 与 `pub(crate) is_shell_namespace_path` |
+| `dir_reader/commands.rs` | 新增 `#[tauri::command] get_shell_devices`（走 `spawn_blocking`） |
+| `dir_reader/read.rs` | `read_dir` / `get_dir_entry` 最前面加 shell 分支；timeout 变体经同两函数自动覆盖 |
+| `dir_reader/drives.rs` | 容量为 0 的**可移动盘不再丢弃**（固定盘口径不变）；新增 `sysinfo_paths` 集合区分「压根没报过」与「报了但被过滤」 |
+| `dir_reader/drives_platform.rs` | 新增 `append_windows_logical_drives`：`GetLogicalDrives` + `GetDriveTypeW` 兜底（FIXED/REMOVABLE，容量读不到留 0），只补 sysinfo 未报过的盘 |
+| `system_icons.rs` | shell 路径改走 shell 图标工厂（`SHCreateItemFromParsingName` → `IShellItemImageFactory::GetImage` → `GetDIBits` → PNG）；`is_shell_icon_candidate_path` 不再拒绝 shell 路径 |
+| `lib.rs` | T4：删除 `delegate_shell_namespace_paths`、取消自动委派 `explorer.exe`（`open_in_native_explorer` 保留 + `#[allow(dead_code)]`）；非 absorbed 的 shell 路径保留进 `filtered_args` 并打 `log::info!("[launch] shell namespace path kept: path={path}")`；`handle_second_instance` 可打开路径判定改为 `filtered_args.len() > 1 \|\| !kept_shell_paths.is_empty()`；注册 `get_shell_devices`；末尾测试模块重写为 4 项 |
+
+#### 20.19.4 前端落地（F1–F4，只改 `src/**`）
+
+新建 `src/types/shell-device.ts`、`src/utils/shell-paths.ts`、`src/utils/shell-devices.ts`、`src/utils/open-in-system-explorer.ts`、`src/composables/use-shell-devices.ts`；
+改 `virtual-locations.ts`（位置页新增 `devices` 分区，盘符与设备 `Promise.all` 并发拉取）、`normalize-path.ts`（`::{` / `shell:` 当不透明路径，不切段、不规范化）、`launch-directories.ts`（启动参数优先 shell 路径，兜底只在候选为空时生效）、`use-init.ts`（shell 候选单独 `getDirEntry` 验证，失败弹**可见** toast 并给「在系统资源管理器中打开」动作，不再静默停在位置页）、`types/dir-entry.ts`（`LocationGroup` 加 `'devices'`）、地址栏两级面包屑（`位置 > 设备名`）、网格/列表视图设备分区标题与手机图标、17 个 i18n 语言包各加 5 个 key。
+
+前端 worker 在收尾过程中修掉 3 个真实缺陷：①`shell-paths.ts` 裸节点正则两个冒号落在第一分支内部（实际匹配 `:{GUID}`，真实路径 `::{GUID}` 永不命中）；②尾部剥离顺序错误（先剥 `\` 再剥 `?` 会留下 `::{GUID}\`）；③`virtual-locations.ts` 设备拉取缺调用方兜底。
+
+#### 20.19.5 门禁结果（均为真实输出）
+
+- `cd src-tauri; cargo test --lib -- --nocapture` ⇒ **`1433 passed; 0 failed; 1 ignored`**
+- `npm run check`（`ts` + `lint:check` + `test:unit:run` + `verify-changelog` + `verify:sandbox`）⇒ **退出码 0**，`Test Files 313 passed (313)` / `Tests 3298 passed (3298)`，`RESULT: VALID (0 violations / 20 patterns)`
+
+#### 20.19.6 ⭐ 重大实证：本机确实连着手机，且 MTP 分支已被实证
+
+**此前「本机无手机、无可移动盘」的判断是错的** —— `Get-Volume` / `sysinfo::Disks` 看不到 MTP 设备，只有 Shell COM 枚举「此电脑」才看得到。Rust 侧 `--nocapture` 真实输出：
+
+```
+[shell-namespace] 设备候选: name=fnNAS path=::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\uuid:4d696e69-444c-164e-9d41-7085c27f4afe 目录=可读，4 个条目
+[shell-namespace] 设备候选: name=一加 Ace 3 path=::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\\?\usb#vid_22d9&pid_2765&mi_00#6&337f5e7c&1&0000#{6ac27878-a6fa-4155-ba85-f98f491d4f33} 目录=可读，1 个条目
+```
+
+⇒ 手机「一加 Ace 3」的 MTP 目录**真的能读出来**，解析名与用户日志里的启动参数前缀完全一致。这是本批次最硬的一条证据。
+
+#### 20.19.7 已知限制与遗留（务必如实带给用户）
+
+1. **U 盘 / 可移动盘兜底未实证**：本机没有可移动盘。兜底代码在 `drives_platform.rs::append_windows_logical_drives`，需插 U 盘复测。
+2. **「设备」判据会误报**：兜底判据是「无文件系统路径 + 文件夹」，实测把 NAS（`fnNAS`）也列成了设备。判据在 `shell_namespace.rs::collect_shell_devices`（`is_portable_device_item` 的 QI 判据 + 兜底判据）。**待收紧。**
+3. **`SHParseDisplayName` 不是万能的**：实测 fnNAS 的 `uuid:` 节点解析直接报 `0x80070057`。已加两条退路（逐级缩短解析名再匹配子项 / 从「此电脑」按前缀逐级下钻），代码在 `shell_namespace.rs::resolve_shell_item`；手机上带 `\SID-{...}` 的两级路径走的就是第二条退路。
+4. `LaunchContext.had_delegated_shell_paths` 现**恒为 false**（字段按约束未删，语义变为「不再委派」）；`ShellFilterResult.delegated_paths` 保留但恒空。
+5. `open_in_native_explorer` 已无调用点（保留函数体 + `#[allow(dead_code)]`）。
+6. shell 图标（`GetDIBits` → PNG）只验证了编译与分流逻辑，**未在真机 UI 上目视确认**。
+7. **注册层本批次不动**：`Classes\Drive` / `Classes\Directory` 未注册（`default_file_manager.rs:372-378` 只注册 `Folder\shell\open\command`、`Folder\shell\explore\command`、桌面 CLSID `opennewwindow`）⇒ 真实 U 盘盘符双击是否进 AFM 仍未验证；改注册动系统行为且牵动 `ROOT_REGISTRY_KEYS` 定长数组与快照/回滚逻辑 ⇒ 列为遗留项。
+8. **本批次未装机**：§20.19.5 的门禁全是代码级；UI 上「位置」是否出现手机、双击是否进 AFM、U 盘是否出现、图标效果 —— 均为 UNDETERMINED。
+
+#### 20.19.8 版本面
+
+版本 `3.14.1` → **`3.15.0`**（`package.json` = `src-tauri/Cargo.toml` = `default-file-manager-common/Cargo.toml` = `default-file-manager-launcher/Cargo.toml`，已由 `npm run sync-version` 同步；`tauri.conf.json` 的 version 指向 `../package.json`）。
+`CHANGELOG.md` 新增 `## [3.15.0] - November 2026` 条目（4 条：修复/修复/新增/修复），`public/changelog/` 14 个 locale 包同步补齐。
+`README.md` / `README.zh-CN.md` 同步：功能表新增「手机与 U 盘」一行，并新增「3.15.0 改了什么」小节。
+
+#### 20.19.9 下一阶段起点
+
+- 批次 23 代码已落地、门禁全绿；**剩余：装机真机验收**（打包产物走 `npm run tauri:build`，末尾只复制到 `release/`，不上传）。
+- 装机后请用户在本机（有手机）实测：①AFM 内「位置」页是否出现「一加 Ace 3」并能点进去浏览；②在 Windows 资源管理器里双击手机盘符，是否在 AFM 内打开而不是落到位置页；③插 U 盘是否出现。
+- 收紧「设备」判据（把 `fnNAS` 之类误报挡掉）。
+- 回到主线：阿里云盘 + OneDrive（`docs/plan-2026-11-19-aliyun-onedrive.md`），动手前先修 `src/utils/remote-directory.ts:137-147` 硬编码「夸克网盘」的串台文案。
+- **仍需用户授权（对外）**：发布 release 资产、提 winget manifest PR。
+
+

@@ -1,6 +1,20 @@
 # Journal des modifications
 
 
+## [3.15.0] - November 2026
+
+**Résumé :** Un téléphone ou une clé USB que vous branchez sur l'ordinateur apparaît maintenant dans *Emplacements*, et l'ouvrir depuis l'Explorateur de fichiers Windows vous conduit dans l'appareil au lieu de vous laisser sur une page vide.
+
+### What changed
+
+**Corrigé : Un téléphone branché ou une clé USB apparaît maintenant dans *Emplacements*.** *Emplacements* ne listait jusque-là que les lecteurs que Windows signale comme des volumes de disque ordinaires. Un téléphone branché en MTP n'est pas un de ces volumes, il n'apparaissait donc jamais, et une clé USB pouvait elle aussi être écartée tant que Windows n'avait pas encore indiqué sa taille. La liste des appareils est désormais recueillie à travers le shell de Windows lui-même, si bien qu'un téléphone branché apparaît sous son propre nom et que les lecteurs qui n'annoncent aucune taille ne sont plus écartés. Les téléphones branchés et les clés USB sont regroupés dans une section *Appareils* à part.
+
+**Corrigé : Ouvrir un téléphone depuis l'Explorateur de fichiers Windows ouvre maintenant le téléphone.** Quand Alpha File Manager est défini comme gestionnaire de fichiers par défaut, un double-clic sur un téléphone dans Windows confiait le chemin à l'Explorateur Windows, et l'application avait déjà jeté ce chemin, si bien qu'on retombait sur la page *Emplacements*. Le chemin est désormais conservé et ouvert dans l'application, et les dossiers à l'intérieur du téléphone se parcourent comme n'importe quel dossier.
+
+**Ajouté : Un appareil peut être renvoyé à l'Explorateur de fichiers Windows.** Si un appareil ne peut pas être ouvert dans l'application, le message qui le signale propose désormais de l'ouvrir dans l'Explorateur de fichiers Windows, vous n'êtes donc jamais bloqué.
+
+**Corrigé : Un appareil illisible ne vide plus toute la page *Emplacements*.** Les lecteurs et les appareils branchés sont désormais récupérés côte à côte, si bien qu'un appareil qui ne répond pas n'empêche plus les lecteurs de s'afficher.
+
 ## [3.14.1] - November 2026
 
 **Résumé :** Focus Sync peut de nouveau placer le dossier que vous consultez dans les boîtes de dialogue « Ouvrir » et « Enregistrer sous » des autres programmes, et le fichier d'installation embarque désormais l'assistant qui correspond à cette version au lieu d'un ancien.

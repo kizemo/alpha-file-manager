@@ -66,6 +66,7 @@ sync, batch rename, and a long list of day-to-day fixes. **If you have been look
 | | |
 |---|---|
 | 🗂️ | **Permanent folder tree** — follows the active pane, becomes the remote tree, remembers its own expansion state |
+| 📱 | **Phones and USB drives** — plug one in and it shows up under *Locations* with its own name; open it and browse it right here, without switching to another program |
 | 🗂️ | **Tabs and split view** — swap the two panes with one button, and a synchronized-browsing toggle right beside it |
 | 🔎 | **Smart global search** — full-drive search with typo tolerance, and directory search that genuinely recurses |
 | 🏷️ | **Tags** — organise files and folders, with a grouped, editable dashboard |
@@ -159,6 +160,15 @@ Adding a netdisk here has none of that:
 |---|---|
 | ![Dashboard quick access](docs/screenshots/afm-dashboard-hero-light-en.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
 | ![Dashboard cards](docs/screenshots/afm-dashboard-card-enrichment-en.png) | **Dashboard cards** — name, size and path on top, type and item count below, with drag, reorder and edit shortcuts on every card |
+
+### What changed in 3.15.0
+
+| | | |
+|---|---|---|
+| 📱 | **A connected phone or USB drive now shows up in *Locations*** — *Locations* used to list only the drives Windows reports as ordinary disk volumes, and a phone connected over MTP is not such a volume, so it never appeared at all; a USB drive could be dropped as well while Windows had not reported its size yet. The device list is now gathered through the Windows shell itself, so a phone appears under its own name and drives that report no size are no longer thrown away |
+| 🐛 | **Opening a phone from the Windows file explorer now opens the phone** — with Alpha File Manager set as the default file manager, double-clicking a phone handed the path over to the Windows explorer while the app had already thrown it away, leaving you on the *Locations* page; the path is now kept and opened inside the app, and the folders inside the phone can be walked through like any other folder |
+| 🔁 | **A device can be handed back to the Windows file explorer** — when a device cannot be opened inside the app, the message now offers to open it in the Windows file explorer instead, so you are never left stuck |
+| 🧩 | **A device that cannot be read no longer empties the whole *Locations* page** — the drives and the connected devices are now fetched side by side, so one device that fails to answer no longer keeps the drives from showing up as well |
 
 ### What changed in 3.14.1
 

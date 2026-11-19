@@ -1,6 +1,20 @@
 # Registro de cambios
 
 
+## [3.15.0] - November 2026
+
+**Resumen:** Si conectas un teléfono o una memoria USB al ordenador, ahora aparece en *Ubicaciones*, y abrir uno de ellos desde el explorador de archivos de Windows te mete en el dispositivo en lugar de dejarte en una página vacía.
+
+### What changed
+
+**Corregido: Un teléfono conectado o una memoria USB ahora aparecen en *Ubicaciones*.** *Ubicaciones* solo listaba hasta ahora las unidades que Windows informa como volúmenes de disco normales. Un teléfono conectado por MTP no es uno de esos volúmenes, así que nunca aparecía, y una memoria USB también podía quedarse fuera mientras Windows todavía no había informado de su tamaño. Ahora la lista de dispositivos se recoge a través del propio shell de Windows, de modo que un teléfono conectado aparece con su propio nombre y las unidades que no informan de tamaño ya no se descartan. Los teléfonos conectados y las memorias USB se muestran en su propia sección *Dispositivos*.
+
+**Corregido: Abrir un teléfono desde el explorador de archivos de Windows ahora abre el teléfono.** Cuando Alpha File Manager está configurado como gestor de archivos predeterminado, al hacer doble clic en un teléfono dentro de Windows la ruta se le pasaba al explorador de Windows, y la aplicación ya había tirado esa ruta, así que acababas en la página *Ubicaciones*. Ahora la ruta se conserva y se abre dentro de la aplicación, y las carpetas del teléfono se pueden recorrer como cualquier otra carpeta.
+
+**Añadido: Un dispositivo se puede devolver al explorador de archivos de Windows.** Si un dispositivo no se puede abrir dentro de la aplicación, el aviso que lo dice ofrece ahora abrirlo en el explorador de archivos de Windows, así que nunca te quedas atascado.
+
+**Corregido: Un dispositivo que no se puede leer ya no vacía toda la página *Ubicaciones*.** Ahora las unidades y los dispositivos conectados se obtienen uno al lado del otro, así que un dispositivo que no responde ya no hace que tampoco aparezcan las unidades.
+
 ## [3.14.1] - November 2026
 
 **Resumen:** Focus Sync vuelve a poder llevar la carpeta que estás viendo a los diálogos «Abrir» y «Guardar como» de otros programas, y el archivo de instalación ya lleva el asistente que corresponde a esta versión en lugar de uno antiguo.
