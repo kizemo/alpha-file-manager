@@ -129,19 +129,36 @@ function looksLikeRawTransportError(message: string): boolean {
   );
 }
 
-/** 按错误分类给「下一步动作」文案；未列出的分类返回空串（沿用后端文案）。 */
+/**
+ * 按错误分类给「下一步动作」文案；未列出的分类返回空串（沿用后端文案）。
+ *
+ * ## 为什么这里**不能**出现任何具体网盘的名字
+ *
+ * 这一层是**兜底的兜底**：它只在后端已经把错误分类好、但 `message` 仍然是
+ * reqwest 原始串（或者干脆是空）的时候才生效 —— 那种情况下后端并没能给出
+ * 带网盘名的中文文案。
+ *
+ * 所以这里的措辞**必须对所有协议都成立**：写死「夸克网盘」会让百度网盘与
+ * 阿里云盘的连接失败也报「无法连接夸克网盘」，等于对着用户撒谎。
+ * 而这里又**不能**去解析 `message` 里那个「访问XX网盘失败：」前缀来反推名字
+ * —— 拿文案当协议是本项目明令禁止的做法（见 `@/types/remote` 里
+ * `RemoteProbeOutcome` 的注释：「前端只能按这个分支渲染，绝不去解析 `message`」）。
+ *
+ * 具体网盘名由**后端**在正常路径上给出（「访问夸克网盘失败：…」），
+ * 这一层只负责「不撒谎」。
+ */
 function remoteErrorKindFallback(kind: string | undefined): string {
   // 分类集合与后端 `classify_transport` 对齐：本项目没有 timeout / redirect 分类，
   // 超时并入 `unreachable`，连接中断是 `disconnected`。
   switch (kind) {
     case 'unreachable':
-      return '无法连接夸克网盘：网络不可用、DNS 解析失败或服务器超时，请检查网络连接后重试。';
+      return '无法连接远程服务：网络不可用、DNS 解析失败或服务器超时，请检查网络连接后重试。';
     case 'disconnected':
-      return '与夸克网盘的连接中断：请检查网络后重试。';
+      return '与远程服务的连接中断：请检查网络后重试。';
     case 'protocol':
-      return '夸克网盘返回了无法识别的响应：请稍后重试，若持续失败请重新授权。';
+      return '远程服务返回了无法识别的响应：请稍后重试，若持续失败请重新授权。';
     case 'auth':
-      return '夸克网盘会话已失效，请重新授权。';
+      return '远程服务会话已失效，请重新授权。';
     default:
       return '';
   }

@@ -21,7 +21,7 @@ describe('describeRemoteError 的分类文案兜底（第 11 条）', () => {
         '访问夸克网盘失败：error sending request for url (https://drive-pc.quark.cn/1/clouddrive/file/sort?pfid=0&name=)',
     });
 
-    expect(text).toContain('无法连接夸克网盘');
+    expect(text).toContain('无法连接远程服务');
     expect(text).toContain('网络');
     expect(text).not.toContain('error sending request');
     expect(text).not.toContain('drive-pc.quark.cn');
@@ -56,7 +56,7 @@ describe('describeRemoteError 的分类文案兜底（第 11 条）', () => {
       message: '访问夸克网盘失败：operation timed out',
     });
 
-    expect(text).toContain('无法连接夸克网盘');
+    expect(text).toContain('无法连接远程服务');
     expect(text).not.toContain('operation timed out');
   });
 
@@ -84,7 +84,7 @@ describe('describeRemoteError 的分类文案兜底（第 11 条）', () => {
         kind: 'unreachable',
         message: '   ',
       }),
-    ).toContain('无法连接夸克网盘');
+    ).toContain('无法连接远程服务');
   });
 
   it('本地错误与未知分类原样处理（不许把本地链路也改写）', () => {
@@ -96,5 +96,29 @@ describe('describeRemoteError 的分类文案兜底（第 11 条）', () => {
         message: '网盘里找不到这个条目',
       }),
     ).toBe('网盘里找不到这个条目');
+  });
+
+  /**
+   * FORK-MODIFICATION 2026-11-19（批次 26）：
+   * 分类兜底文案**不允许出现任何具体网盘的名字**。
+   *
+   * 它是「兜底的兜底」—— 只在后端没能给出带网盘名的中文文案时才生效。
+   * 写死「夸克网盘」会让百度网盘 / 阿里云盘的连接失败也报「无法连接夸克网盘」，
+   * 等于对着用户撒谎。加新网盘时，这条测试会立刻把硬编码顶出来。
+   */
+  it('分类兜底文案不含任何具体网盘名（加新网盘时这条会拦住硬编码）', () => {
+    const kinds = ['unreachable', 'disconnected', 'protocol', 'auth'] as const;
+    const forbidden = ['夸克', '百度', '阿里云盘', 'OneDrive'];
+
+    for (const kind of kinds) {
+      const text = describeRemoteError({
+        kind,
+        message: 'error sending request for url (https://example.invalid/x)',
+      });
+
+      for (const name of forbidden) {
+        expect(text).not.toContain(name);
+      }
+    }
   });
 });
