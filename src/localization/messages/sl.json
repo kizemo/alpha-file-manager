@@ -689,7 +689,8 @@
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
         "baidu_pan": "Baidu Netdisk",
-        "quark_pan": "Quark Drive"
+        "quark_pan": "Quark Drive",
+        "aliyun_pan": "Aliyun Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -716,7 +717,8 @@
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
         "baiduLoginRequired": "Najprej se v aplikaciji prijavite v Baidu Pan, nato shranite to povezavo.",
-        "quarkLoginRequired": "Pred shranjevanjem te povezave se prijavite v Quark Drive v aplikaciji."
+        "quarkLoginRequired": "Pred shranjevanjem te povezave se prijavite v Quark Drive v aplikaciji.",
+        "aliyunLoginRequired": "Pred shranjevanjem te povezave se prijavite v Aliyun Drive v aplikaciji."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -738,7 +740,7 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "Omrežni diski",
-        "netdiskDescription": "Prijavite se v Baidu Netdisk ali Quark Drive v vgrajenem oknu. Poverilnice so šifrirane z Windows DPAPI in nikoli ne zapustijo tega računalnika.",
+        "netdiskDescription": "Prijavite se v Baidu Netdisk, Quark Drive ali Aliyun Drive v vgrajenem oknu. Poverilnice so šifrirane z Windows DPAPI in nikoli ne zapustijo tega računalnika.",
         "remoteSection": "Oddaljene povezave",
         "remoteDescription": "Tukaj shranjujte povezave FTP, FTPS in SFTP. Poverilnice so šifrirane z Windows DPAPI in nikoli ne zapustijo tega računalnika.",
         "addNetdisk": "Dodaj omrežni disk",
@@ -812,10 +814,45 @@
           "saved": "Prijava v Quark Drive je uspela: okno se je samodejno zaprlo in seja je bila prevzeta. Shranite to povezavo za uporabo."
         }
       },
+      "aliyun": {
+        "status": {
+          "loading": "Branje stanja avtorizacije…",
+          "missing": "Ni prijavljeni",
+          "ready": "Avtorizirano",
+          "stale": "Sedenja je potekla; prijavite se znova",
+          "stale_soon": "Sedenja bo kmalu potekla"
+        },
+        "action": {
+          "deleteSession": "Izbriši shranjeno sejenje"
+        },
+        "embedded": {
+          "title": "Prijava v aplikaciji",
+          "start": "Prijava v vgrajenem oknu",
+          "cancel": "Prenehaj čakati",
+          "hint": "V aplikaciji se odpri okno za prijavo. Ko se prijavite, se samodejno zapre, seja pa je takoj prevzeta – shraniti morate le še to povezavo.",
+          "status": {
+            "waiting": "Čakamo, da se prijavite…",
+            "ready": "Prijavljeni. Shranite to povezavo – seja bo zapisana ob shranjevanju.",
+            "closed": "Okno za prijavo je bilo zaprto, preden ste končali s prijavo.",
+            "timeout": "Čas za pričakovanje prijave je potekel. Poskusite znova.",
+            "error": "Stanja prijave ni bilo mogoče prebrati. Poskusite znova."
+          },
+          "saved": "Prijava v Aliyun Drive je uspela: okno se je samodejno zaprlo in seja je bila prevzeta. Shranite to povezavo za uporabo."
+        },
+        "field": {
+          "clientId": "ID odjemalca",
+          "clientSecret": "Skrivnost odjemalca",
+          "redirectUri": "URI preusmeritve",
+          "clientSecretHint": "Neobvezno. Pustite prazno za način javnega odjemalca PKCE, kjer se seja ne more samodejno podaljšati.",
+          "redirectUriHint": "Mora se ujemati z URI preusmeritve, ki je registriran v konzoli odprte platforme Aliyun Drive. Privzeta vrednost je http://127.0.0.1:47832/callback.",
+          "modeHint": "S skrivnostjo odjemalca se seja samodejno podaljša. V načinu PKCE prijava velja 30 dni in se ne more podaljšati."
+        }
+      },
       "netdisk": {
         "provider": "Oblačni disk",
         "baidu": "Baidu Drive",
         "quark": "Quark Drive",
+        "aliyun": "Aliyun Drive",
         "signedIn": "Prijavljen"
       }
     },

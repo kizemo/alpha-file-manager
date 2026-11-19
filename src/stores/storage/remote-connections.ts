@@ -16,6 +16,10 @@ import { LazyStore } from '@tauri-apps/plugin-store';
 import { invoke } from '@tauri-apps/api/core';
 import { ref, watch } from 'vue';
 import type {
+  AliyunAuthStatusPayload,
+  AliyunLoginClaimPayload,
+  AliyunLoginPendingPayload,
+  AliyunLoginStartPayload,
   BaiduAuthStatusPayload,
   BaiduLoginClaimPayload,
   QuarkAuthStatusPayload,
@@ -30,6 +34,7 @@ import type {
 } from '@/types/remote';
 import {
   createRemoteConnectionId,
+  isAliyunPanProtocol,
   isBaiduPanProtocol,
   isNetdiskProtocol,
   isQuarkPanProtocol,
@@ -71,9 +76,21 @@ const QUARK_PAN_HOST = 'pan.quark.cn';
 const QUARK_PAN_PORT = 443;
 
 /**
- * 网盘协议的固定主机。返回 `null` = 该协议不是网盘，host 由用户填。
+ * 阿里云盘的固定主机与端口。
+ *
+ * 与百度 / 夸克同构：用户填什么 host 都会被后端忽略，但连接表里那个字段必填，
+ * 所以前端统一写死 —— 开放平台只提供 `openapi.alipan.com` 这一个 HTTPS 端点。
  */
-function fixedNetdiskHost(protocol: RemoteProtocol): string | null {
+const ALIYUN_PAN_HOST = 'openapi.alipan.com';
+const ALIYUN_PAN_PORT = 443;
+
+/**
+ * 网盘协议的固定主机。返回 `null` = 该协议不是网盘，host 由用户填。
+ *
+ * **导出**是因为设置页的表单与「添加网盘」弹窗也要写同一个值 ——
+ * 三个地方各写一份，改协议名时必漏一处。
+ */
+export function fixedNetdiskHost(protocol: RemoteProtocol): string | null {
   if (isBaiduPanProtocol(protocol)) {
     return BAIDU_PAN_HOST;
   }
@@ -82,11 +99,15 @@ function fixedNetdiskHost(protocol: RemoteProtocol): string | null {
     return QUARK_PAN_HOST;
   }
 
+  if (isAliyunPanProtocol(protocol)) {
+    return ALIYUN_PAN_HOST;
+  }
+
   return null;
 }
 
 /** 网盘协议的固定端口。返回 `null` = 该协议不是网盘，port 由用户填。 */
-function fixedNetdiskPort(protocol: RemoteProtocol): number | null {
+export function fixedNetdiskPort(protocol: RemoteProtocol): number | null {
   if (isBaiduPanProtocol(protocol)) {
     return BAIDU_PAN_PORT;
   }
@@ -95,8 +116,24 @@ function fixedNetdiskPort(protocol: RemoteProtocol): number | null {
     return QUARK_PAN_PORT;
   }
 
+  if (isAliyunPanProtocol(protocol)) {
+    return ALIYUN_PAN_PORT;
+  }
+
   return null;
 }
+
+/**
+ * 网盘协议的界面名称（简体中文）。
+ *
+ * 只给**非要拼一句中文**的地方用 —— 比如「测试连接」那条兜底提示。
+ * 其余地方一律走 i18n 键，别在这里扩。
+ */
+const NETDISK_PROTOCOL_LABELS: Record<string, string> = {
+  baidu_pan: '百度网盘',
+  quark_pan: '夸克网盘',
+  aliyun_pan: '阿里云盘',
+};
 
 export const useRemoteConnectionsStore = defineStore('remoteConnections', () => {
   const userPathsStore = useUserPathsStore();
@@ -457,6 +494,47 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
         }
       }
     }
+    else if (isAliyunPanProtocol(form.protocol)) {
+      // 阿里云盘**没有**「手工粘贴凭据」这条路 ——
+      // 后端没有 `remote_aliyun_save_session` 这个命令。
+      // 凭据是 OAuth 换来的会话：登录时暂存在后端的「待认领槽位」里，
+      // 保存时（那时才有连接 id）认领并写进 DPAPI 密文。
+      if (form.clearPassword) {
+        // 勾了「移除已保存的密码」= 退出登录。删掉会话，连接还在。
+        await invoke('remote_aliyun_delete_session', {
+          connectionId: id,
+        });
+        credentialKey = undefined;
+      }
+      else {
+        // 槽位为空时后端返回 claimed:false，是一次空操作，不会覆盖已存会话。
+        //
+        // ⚠️ 认领**失败**（登录窗尚未接线 / 读不到槽位）要归一化成
+        // 「没有可认领的登录态」：直接抛出的话，界面上拿到的是后端序列化后的
+        // 错误对象，`error instanceof Error` 为 false ⇒ 落进 'unknown'，
+        // 用户只会看到一句「保存连接失败。」，而不知道下一步该做什么。
+        let claimed: AliyunLoginClaimPayload | null = null;
+
+        try {
+          claimed = await invoke<AliyunLoginClaimPayload>('remote_aliyun_login_claim', {
+            connectionId: id,
+          });
+        }
+        catch (error) {
+          console.warn('Aliyun login claim failed:', error);
+        }
+
+        if (claimed?.claimed) {
+          credentialKey = id;
+        }
+        else if (!credentialKey) {
+          // 会话槽位是空的，而且这条连接本来也没有凭据 —— 保存下去会得到一条
+          // 「看起来加成功了、实际连不上」的网盘连接，界面上没有任何提示。
+          // 抛 i18n key，由表单按既有约定渲染成中文提示。
+          throw new Error('aliyunLoginRequired');
+        }
+      }
+    }
     else if (hasNewPassword) {
       await invoke('remote_save_credential', {
         key: id,
@@ -579,12 +657,12 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
   async function testConnection(
     form: RemoteConnectionForm,
   ): Promise<RemoteConnectionTestReport> {
-    const isBaidu = isBaiduPanProtocol(form.protocol);
-    const isQuark = isQuarkPanProtocol(form.protocol);
-    // 网盘两种都**不走** `loadCredentialForTest`：那边取回来的是存档里的会话
+    // 网盘三种都**不走** `loadCredentialForTest`：那边取回来的是存档里的会话
     // JSON（不是原始 cookie），当成 cookie 发过去必然解析失败。
     // 这里留空即可 —— 后端会按 `credentialKey` 自己去读存档里的会话。
-    const isNetdisk = isBaidu || isQuark;
+    //
+    // 判定用 `isNetdiskProtocol`（认全三家网盘），不再写「百度或夸克」的二元式。
+    const isNetdisk = isNetdiskProtocol(form.protocol);
     let password = form.password.length > 0 && !form.clearPassword ? form.password : undefined;
 
     if (password === undefined && form.id && !form.clearPassword && !isNetdisk) {
@@ -598,13 +676,14 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     // 而用户刚刚扫码成功过，读起来像「登录白做了」。这里直接说清楚缺的那一步。
     // （手工粘贴了 cookie 的情况不拦：`password` 有值就照常发出去测。）
     if (isNetdisk && password === undefined && !form.id) {
+      // 网盘名按协议取，不写死在三元式里 —— 接第三家网盘时这里不用再改。
+      const label = NETDISK_PROTOCOL_LABELS[form.protocol] ?? '网盘';
+
       return {
         outcome: 'missing_credential',
         passwordChecked: false,
         tlsVerified: false,
-        message: isQuark
-          ? '这条夸克网盘连接还没有保存，请先点「保存」，再点「测试连接」。'
-          : '这条百度网盘连接还没有保存，请先点「保存」，再点「测试连接」。',
+        message: `这条${label}连接还没有保存，请先点「保存」，再点「测试连接」。`,
       };
     }
 
@@ -704,6 +783,60 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     return invoke<QuarkLoginPendingPayload>('remote_quark_login_pending');
   }
 
+  /**
+   * 阿里云盘会话的当前状态，给设置页的授权卡用。
+   *
+   * **只返回状态，不返回凭据** —— 与后端一致：摘要里没有任何 token 片段。
+   */
+  async function getAliyunAuthStatus(
+    connectionId: string,
+  ): Promise<AliyunAuthStatusPayload> {
+    return invoke<AliyunAuthStatusPayload>('remote_aliyun_auth_status', {
+      connectionId,
+    });
+  }
+
+  /** 删掉已保存的阿里云盘会话（退出登录）。键不存在是成功的空操作。 */
+  async function deleteAliyunSession(connectionId: string): Promise<void> {
+    await invoke('remote_aliyun_delete_session', {
+      connectionId,
+    });
+  }
+
+  /**
+   * 打开**内嵌**阿里云盘授权窗口。
+   *
+   * 授权页跑在应用自己的 WebView2 里（Rust 侧 `src-tauri/src/aliyun_login.rs`）：
+   * OAuth 的授权码是一次性的，只能在**能接住回调**的窗口里拿到，
+   * 走系统浏览器会把授权码带不回来。
+   *
+   * 三个参数是**登录期参数**，不落进连接表（`RemoteConnection` 的形状被双边测试锁死）：
+   * - `clientId`：开放平台应用 ID，必填；
+   * - `clientSecret`：留空 = PKCE 公开客户端模式；
+   * - `redirectUri`：留空 = 用后端默认值。
+   */
+  async function startAliyunLogin(
+    clientId: string,
+    clientSecret: string,
+    redirectUri: string,
+  ): Promise<AliyunLoginStartPayload> {
+    return invoke<AliyunLoginStartPayload>('remote_aliyun_login_start', {
+      clientId,
+      clientSecret,
+      redirectUri,
+    });
+  }
+
+  /** 放弃内嵌登录：关窗口并丢弃已换到但没人认领的会话。 */
+  async function cancelAliyunLogin(): Promise<void> {
+    await invoke('remote_aliyun_login_cancel');
+  }
+
+  /** 有没有待认领的阿里云盘登录态（前端打开表单时用来兜底）。 */
+  async function getAliyunLoginPending(): Promise<AliyunLoginPendingPayload> {
+    return invoke<AliyunLoginPendingPayload>('remote_aliyun_login_pending');
+  }
+
   return {
     storage,
     connections,
@@ -730,6 +863,11 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     startQuarkLogin,
     cancelQuarkLogin,
     getQuarkLoginPending,
+    getAliyunAuthStatus,
+    deleteAliyunSession,
+    startAliyunLogin,
+    cancelAliyunLogin,
+    getAliyunLoginPending,
     requestRemoteEdit,
     consumeRemoteEdit,
     requestRemoteCreate,

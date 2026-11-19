@@ -652,7 +652,8 @@
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
         "baidu_pan": "Baidu Netdisk",
-        "quark_pan": "Quark Drive"
+        "quark_pan": "Quark Drive",
+        "aliyun_pan": "Aliyun Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -679,7 +680,8 @@
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
         "baiduLoginRequired": "Önce uygulama içinde Baidu Pan'a giriş yapın, sonra bu bağlantıyı kaydedin.",
-        "quarkLoginRequired": "Bu bağlantıyı kaydetmeden önce uygulama içinde Quark Drive’a giriş yapın."
+        "quarkLoginRequired": "Bu bağlantıyı kaydetmeden önce uygulama içinde Quark Drive’a giriş yapın.",
+        "aliyunLoginRequired": "Bu bağlantıyı kaydetmeden önce uygulama içinde Aliyun Drive’a giriş yapın."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -701,7 +703,7 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "Bulut diskleri",
-        "netdiskDescription": "Gömülü pencerede Baidu Netdisk veya Quark Drive hesabınıza giriş yapın. Kimlik bilgileri Windows DPAPI ile şifrelenir ve bu bilgisayardan hiç çıkmaz.",
+        "netdiskDescription": "Gömülü pencerede Baidu Netdisk, Quark Drive veya Aliyun Drive hesabınıza giriş yapın. Kimlik bilgileri Windows DPAPI ile şifrelenir ve bu bilgisayardan hiç çıkmaz.",
         "remoteSection": "Uzak bağlantılar",
         "remoteDescription": "FTP, FTPS ve SFTP bağlantılarını burada kaydedin. Kimlik bilgileri Windows DPAPI ile şifrelenir ve bu bilgisayardan hiç çıkmaz.",
         "addNetdisk": "Bulut diski ekle",
@@ -775,10 +777,45 @@
           "saved": "Quark Drive’a giriş yapıldı: pencere otomatik kapandı, oturum alındı. Bu bağlantıyı kaydederek kullanabilirsiniz."
         }
       },
+      "aliyun": {
+        "status": {
+          "loading": "Yetkilendirme durumu okunuyor…",
+          "missing": "Giriş yapılmadı",
+          "ready": "Yetkili",
+          "stale": "Oturumun süresi doldu; yeniden giriş yapın",
+          "stale_soon": "Oturumun süresi dolmak üzere"
+        },
+        "action": {
+          "deleteSession": "Kaydedilmiş oturumu sil"
+        },
+        "embedded": {
+          "title": "Uygulama içinde giriş yap",
+          "start": "Gömülü pencerede giriş yap",
+          "cancel": "Beklemeyi durdur",
+          "hint": "Uygulama içinde bir giriş penceresi açılır. Giriş tamamlandığında otomatik kapanır ve oturum hemen alınır — tek yapmanız gereken bu bağlantıyı kaydetmek.",
+          "status": {
+            "waiting": "Giriş yapmanız bekleniyor…",
+            "ready": "Giriş yapıldı. Bu bağlantıyı kaydedin — oturum kaydetme sırasında yazılacak.",
+            "closed": "Giriş tamamlanmadan giriş penceresi kapatıldı.",
+            "timeout": "Giriş bekleme zaman aşımına uğradı. Lütfen yeniden deneyin.",
+            "error": "Giriş durumu okunamadı. Lütfen yeniden deneyin."
+          },
+          "saved": "Aliyun Drive’a giriş yapıldı: pencere otomatik kapandı, oturum alındı. Bu bağlantıyı kaydederek kullanabilirsiniz."
+        },
+        "field": {
+          "clientId": "İstemci kimliği (Client ID)",
+          "clientSecret": "İstemci sırrı",
+          "redirectUri": "Yönlendirme URI’si",
+          "clientSecretHint": "İsteğe bağlı. PKCE genel istemci modunu kullanmak için boş bırakın; bu modda oturum otomatik olarak yenilenemez.",
+          "redirectUriHint": "Aliyun Drive açık platform konsolunda kayıtlı yönlendirme URI’siyle aynı olmalıdır. Varsayılan değer http://127.0.0.1:47832/callback adresidir.",
+          "modeHint": "İstemci sırrı girildiğinde oturum otomatik yenilenir. PKCE modunda oturum 30 gün geçerlidir ve otomatik yenilenemez."
+        }
+      },
       "netdisk": {
         "provider": "Bulut sürücüsü",
         "baidu": "Baidu Drive",
         "quark": "Quark Drive",
+        "aliyun": "Aliyun Drive",
         "signedIn": "Oturum açıldı"
       }
     },

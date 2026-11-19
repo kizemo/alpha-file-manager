@@ -14,7 +14,7 @@ import ConnectionForm from './connection-form.vue';
 import NetdiskAddDialog from './netdisk-add-dialog.vue';
 import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
 import { isNetdiskProtocol } from '@/types/remote';
-import type { RemoteConnection, RemoteProtocol } from '@/types/remote';
+import type { NetdiskProtocol, RemoteConnection, RemoteProtocol } from '@/types/remote';
 import { sectionOfConnection, sectionOfProtocol } from './sections';
 import type { RemoteSection } from './sections';
 
@@ -49,6 +49,14 @@ const emit = defineEmits<{ 'section-change': [section: RemoteSection] }>();
 
 /** 新建远程连接时预置的协议。网盘表单不认这个（形态已经定死）。 */
 const createProtocol = ref<RemoteProtocol>('ftp');
+
+/**
+ * 新建**网盘**时预置的 provider（2026-11-19 批次 26）。
+ *
+ * 百度 / 夸克走「登录 → 录入」的快捷弹窗，不经过这张表单；
+ * 阿里云盘必须走表单 —— OAuth 的 `client_id` 没有别的地方可填。
+ */
+const createNetdiskProtocol = ref<NetdiskProtocol>('baidu_pan');
 
 const netdiskConnections = computed(() => store.connections.filter(connection => isNetdiskProtocol(connection.protocol)));
 const remoteConnections = computed(() => store.connections.filter(connection => !isNetdiskProtocol(connection.protocol)));
@@ -178,7 +186,17 @@ function applyPendingCreate(): void {
   // 这里**不**开内联表单 —— 网盘表单带授权状态卡，与新增流程的形态冲突。
   if (isNetdiskProtocol(requested)) {
     isCreating.value = false;
-    netdiskDialogRef.value?.startAdd(requested === 'quark_pan' ? 'quark_pan' : 'baidu_pan');
+
+    // 阿里云盘是例外（2026-11-19 批次 26）：它要填 OAuth 的 `client_id`，
+    // 那个字段只存在于连接表单里 —— 快捷弹窗里没地方填，
+    // 所以这里改成开表单，让用户自己填应用信息再点登录。
+    if (requested === 'aliyun_pan') {
+      createNetdiskProtocol.value = 'aliyun_pan';
+      isCreating.value = true;
+      return;
+    }
+
+    netdiskDialogRef.value?.startAdd(requested);
     return;
   }
 
@@ -220,6 +238,19 @@ watch(() => store.pendingSection, applyPendingSection);
 
 function startCreate() {
   editing.value = null;
+  isCreating.value = true;
+}
+
+/**
+ * 「添加阿里云盘」（2026-11-19 批次 26）：开连接表单，让用户填 OAuth 应用信息。
+ *
+ * **不能直接开授权窗** —— 没有 `client_id` 开不了授权页，
+ * 而 `client_id` 只有这张表单里能填。
+ */
+function startAddAliyunNetdisk() {
+  editing.value = null;
+  createNetdiskProtocol.value = 'aliyun_pan';
+  activeSection.value = 'netdisk';
   isCreating.value = true;
 }
 
@@ -420,6 +451,17 @@ function describeProxy(connection: RemoteConnection): string {
         >
           {{ t('settings.remote.netdisk.quark') }}
         </Button>
+        <!--
+          阿里云盘（2026-11-19 批次 26）：**不开授权窗**，改成开连接表单 ——
+          OAuth 的 `client_id` 只有表单里能填，没有它授权页开不起来。
+        -->
+        <Button
+          variant="outline"
+          data-test="add-netdisk-aliyun_pan"
+          @click="startAddAliyunNetdisk"
+        >
+          {{ t('settings.remote.netdisk.aliyun') }}
+        </Button>
       </div>
     </div>
 
@@ -444,13 +486,16 @@ function describeProxy(connection: RemoteConnection): string {
       `:key` 让换标签时表单按新形态**重建** —— 表单内部是用 `variant` 决定
       形态的（`isNetdisk`），不重建的话上一张表单的判断会留在原地，
       出现「在网盘标签里看到远程连接的表单」这种错位。
+      key 里还带着 provider：换网盘（百度 ↔ 阿里云盘）时同样要重建，
+      否则表单里那个协议还停在上一家。
     -->
     <ConnectionForm
       v-if="isCreating"
-      :key="`create-${activeSection}`"
+      :key="`create-${activeSection}-${createNetdiskProtocol}`"
       :connection="null"
       :variant="activeVariant"
       :initial-protocol="remoteInitialProtocol"
+      :netdisk-protocol="createNetdiskProtocol"
       @cancel="closeForm"
       @saved="closeForm"
     />

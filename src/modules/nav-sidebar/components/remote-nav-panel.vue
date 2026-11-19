@@ -72,6 +72,12 @@ const sections = computed(() => [
         protocol: 'quark_pan' as RemoteProtocol,
         label: t('settings.remote.netdisk.quark'),
       },
+      {
+        // 阿里云盘（2026-11-19 批次 26）：点它落到设置页的连接表单，
+        // 让用户填 OAuth 的 client_id —— 授权窗由表单里那颗按钮开。
+        protocol: 'aliyun_pan' as RemoteProtocol,
+        label: t('settings.remote.netdisk.aliyun'),
+      },
     ],
     connections: connections.value.filter(connection => isNetdiskProtocol(connection.protocol)),
   },

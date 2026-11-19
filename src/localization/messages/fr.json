@@ -652,7 +652,8 @@
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
         "baidu_pan": "Baidu Netdisk",
-        "quark_pan": "Quark Drive"
+        "quark_pan": "Quark Drive",
+        "aliyun_pan": "Aliyun Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -679,7 +680,8 @@
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
         "baiduLoginRequired": "Connectez-vous d'abord à Baidu Pan dans l'application, puis enregistrez cette connexion.",
-        "quarkLoginRequired": "Connectez-vous à Quark Drive dans l’application avant d’enregistrer cette connexion."
+        "quarkLoginRequired": "Connectez-vous à Quark Drive dans l’application avant d’enregistrer cette connexion.",
+        "aliyunLoginRequired": "Connectez-vous à Aliyun Drive dans l’application avant d’enregistrer cette connexion."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -701,7 +703,7 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "Disques cloud",
-        "netdiskDescription": "Connectez-vous à Baidu Netdisk ou Quark Drive dans la fenêtre intégrée. Les identifiants sont chiffrés par Windows DPAPI et ne quittent jamais cette machine.",
+        "netdiskDescription": "Connectez-vous à Baidu Netdisk, Quark Drive ou Aliyun Drive dans la fenêtre intégrée. Les identifiants sont chiffrés par Windows DPAPI et ne quittent jamais cette machine.",
         "remoteSection": "Connexions distantes",
         "remoteDescription": "Enregistrez ici vos connexions FTP, FTPS et SFTP. Les identifiants sont chiffrés par Windows DPAPI et ne quittent jamais cette machine.",
         "addNetdisk": "Ajouter un disque cloud",
@@ -775,10 +777,45 @@
           "saved": "Connexion à Quark Drive réussie : la fenêtre s’est fermée automatiquement et la session a été récupérée. Enregistrez cette connexion pour l’utiliser."
         }
       },
+      "aliyun": {
+        "status": {
+          "loading": "Lecture du statut d’autorisation…",
+          "missing": "Non connecté",
+          "ready": "Autorisé",
+          "stale": "La session a expiré, veuillez vous reconnecter",
+          "stale_soon": "La session va bientôt expirer"
+        },
+        "action": {
+          "deleteSession": "Supprimer la session enregistrée"
+        },
+        "embedded": {
+          "title": "Se connecter dans l’application",
+          "start": "Se connecter via la fenêtre intégrée",
+          "cancel": "Arrêter l’attente",
+          "hint": "Une fenêtre de connexion s’ouvre dans l’application. Elle se ferme automatiquement une fois la connexion réussie et la session est récupérée aussitôt : il ne reste qu’à enregistrer cette connexion.",
+          "status": {
+            "waiting": "En attente de votre connexion…",
+            "ready": "Connecté. Enregistrez cette connexion : la session sera écrite à l’enregistrement.",
+            "closed": "La fenêtre de connexion a été fermée avant la fin de la procédure.",
+            "timeout": "Délai d’attente de connexion dépassé. Veuillez réessayer.",
+            "error": "Impossible de lire l’état de connexion. Veuillez réessayer."
+          },
+          "saved": "Connexion à Aliyun Drive réussie : la fenêtre s’est fermée automatiquement et la session a été récupérée. Enregistrez cette connexion pour l’utiliser."
+        },
+        "field": {
+          "clientId": "ID client",
+          "clientSecret": "Secret client",
+          "redirectUri": "URI de redirection",
+          "clientSecretHint": "Facultatif. Laissez vide pour utiliser le mode client public PKCE, où la connexion ne peut pas être renouvelée automatiquement.",
+          "redirectUriHint": "Doit correspondre à l’URI de redirection enregistrée dans la console de la plateforme ouverte Aliyun Drive. La valeur par défaut est http://127.0.0.1:47832/callback.",
+          "modeHint": "Avec le secret client, la session est renouvelée automatiquement. En mode PKCE, la connexion est valable 30 jours et ne peut pas être renouvelée."
+        }
+      },
       "netdisk": {
         "provider": "Disque cloud",
         "baidu": "Baidu Drive",
         "quark": "Quark Drive",
+        "aliyun": "Aliyun Drive",
         "signedIn": "Connecté"
       }
     },

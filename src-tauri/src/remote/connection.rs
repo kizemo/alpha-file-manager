@@ -36,6 +36,13 @@ pub enum RemoteProtocol {
     /// 同样没有「密码」可填。连接表里仍然要存 host / port，
     /// 是为了让远程路径与侧边栏的呈现方式跟其它协议一致。
     QuarkPan,
+    /// 阿里云盘：走 `openapi.alipan.com` 的 HTTPS 开放平台接口。
+    ///
+    /// 与前两家同构但又不同构：登录态**不是 cookie**，而是一份 OAuth 会话
+    /// （`access_token` + `refresh_token`）。同样没有「密码」可填。
+    /// 连接表里仍然要存 host / port，是为了让远程路径与侧边栏的呈现方式
+    /// 跟其它协议一致。
+    AliyunPan,
 }
 
 impl RemoteProtocol {
@@ -47,6 +54,7 @@ impl RemoteProtocol {
             Self::Sftp => 22,
             Self::BaiduPan => 443,
             Self::QuarkPan => 443,
+            Self::AliyunPan => 443,
         }
     }
 
@@ -58,6 +66,7 @@ impl RemoteProtocol {
             Self::Sftp => "sftp",
             Self::BaiduPan => "baidu_pan",
             Self::QuarkPan => "quark_pan",
+            Self::AliyunPan => "aliyun_pan",
         }
     }
 }
@@ -253,6 +262,8 @@ mod tests {
         assert_eq!(RemoteProtocol::BaiduPan.default_port(), 443);
         // 夸克网盘也走 HTTPS。
         assert_eq!(RemoteProtocol::QuarkPan.default_port(), 443);
+        // 阿里云盘也走 HTTPS。
+        assert_eq!(RemoteProtocol::AliyunPan.default_port(), 443);
     }
 
     /// 协议名会写进 `user-remote-connections.json` 与前端类型，
@@ -272,6 +283,15 @@ mod tests {
 
         let json = serde_json::to_string(&RemoteProtocol::QuarkPan).expect("serialize");
         assert_eq!(json, "\"quark_pan\"");
+    }
+
+    /// 阿里云盘的名字同样锁死。改名会让已经存好的阿里云盘连接全部读不出来。
+    #[test]
+    fn the_aliyun_pan_protocol_has_its_own_stable_name() {
+        assert_eq!(RemoteProtocol::AliyunPan.as_str(), "aliyun_pan");
+
+        let json = serde_json::to_string(&RemoteProtocol::AliyunPan).expect("serialize");
+        assert_eq!(json, "\"aliyun_pan\"");
     }
 
     #[test]

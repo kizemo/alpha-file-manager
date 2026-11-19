@@ -122,9 +122,12 @@ pub fn resolve_connection(
     // —— 白白让登录态在内存里多待一份，还可能被误发给别的协议。
     //
     // 夸克网盘同构：DPAPI 密文里装的是整份夸克会话（`__pus` + 其余 cookie）。
+    //
+    // 阿里云盘也同构：DPAPI 密文里装的是一整份 OAuth 会话
+    // （`access_token` + `refresh_token` + 应用配置）。
     if matches!(
         connection.protocol,
-        RemoteProtocol::BaiduPan | RemoteProtocol::QuarkPan
+        RemoteProtocol::BaiduPan | RemoteProtocol::QuarkPan | RemoteProtocol::AliyunPan
     ) {
         return Ok(ResolvedConnection {
             connection,
@@ -462,5 +465,43 @@ mod tests {
 
         assert_eq!(resolved.password, None);
         assert_eq!(resolved.connection.protocol, RemoteProtocol::QuarkPan);
+    }
+
+    /// 阿里云盘与前两家同构：DPAPI 密文里装的是整份 OAuth 会话
+    /// （`access_token` + `refresh_token`），不是「一句口令」。
+    ///
+    /// 走通用路径的话，这份会话会以「密码」的身份流进普通口令路径 ——
+    /// 也让「没有密文」的阿里云盘连接被误判成「口令没填」。
+    #[test]
+    fn an_aliyun_connection_resolves_without_a_password() {
+        let dir = TempDir::new().expect("temp dir");
+        let user_data = dir.path().join("user-data");
+        std::fs::create_dir_all(&user_data).expect("mkdir");
+        write_connections(
+            &user_data,
+            &serde_json::to_string(&ConnectionsFile {
+                connections: vec![RemoteConnection {
+                    id: "conn-aliyun".to_string(),
+                    name: "阿里云盘".to_string(),
+                    protocol: RemoteProtocol::AliyunPan,
+                    host: "openapi.alipan.com".to_string(),
+                    port: 443,
+                    username: "测试用户".to_string(),
+                    initial_path: "/".to_string(),
+                    local_path: None,
+                    proxy: ProxyConfig::Direct,
+                    credential_key: Some("conn-aliyun".to_string()),
+                }],
+            })
+            .expect("serialize"),
+        );
+
+        // 注意：这里刻意**没有**写任何密文。
+        // 阿里云盘连接不该因为「没有口令密文」而报错 —— 它的凭据在别处。
+        let resolved =
+            resolve_connection(&user_data, dir.path(), "conn-aliyun").expect("must resolve");
+
+        assert_eq!(resolved.password, None);
+        assert_eq!(resolved.connection.protocol, RemoteProtocol::AliyunPan);
     }
 }

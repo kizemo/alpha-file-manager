@@ -4,6 +4,7 @@
 
 // FORK-MODIFICATION 2026-10-20：移植上游 8908e214。
 // e2e 隔离数据目录的唯一解析点（见 `app_dirs.rs` 顶部的说明）。
+mod aliyun_login;
 mod app_dirs;
 mod app_updater;
 mod archive;
@@ -421,6 +422,12 @@ pub fn run() {
             quark_login::remote_quark_login_pending,
             quark_login::remote_quark_login_claim,
             quark_login::remote_quark_login_cancel,
+            aliyun_login::remote_aliyun_login_start,
+            aliyun_login::remote_aliyun_login_pending,
+            aliyun_login::remote_aliyun_login_claim,
+            aliyun_login::remote_aliyun_login_cancel,
+            aliyun_login::remote_aliyun_auth_status,
+            aliyun_login::remote_aliyun_delete_session,
             remote::remote_test_connection,
             remote::remote_read_dir,
             remote::remote_stat_dir_entry,

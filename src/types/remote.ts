@@ -11,8 +11,26 @@
 // - `RemoteProxyConfig` ← `ProxyConfig`（`#[serde(tag = "kind", rename_all = "snake_case")]`）
 // - `RemoteConnection` ← `RemoteConnection`（camelCase）
 
-/** 与后端 `RemoteProtocol` 的六个变体一一对应。 */
-export type RemoteProtocol = 'ftp' | 'ftps_explicit' | 'ftps_implicit' | 'sftp' | 'baidu_pan' | 'quark_pan';
+/** 与后端 `RemoteProtocol` 的七个变体一一对应。 */
+export type RemoteProtocol
+  = | 'ftp'
+    | 'ftps_explicit'
+    | 'ftps_implicit'
+    | 'sftp'
+    | 'baidu_pan'
+    | 'quark_pan'
+    | 'aliyun_pan';
+
+/**
+ * 网盘协议清单（百度 / 夸克 / 阿里云盘）。
+ *
+ * **「网盘」是一个类，不是一个协议** —— 分区判定、图标、主机写死、保存分派
+ * 全都按这张清单走。每接一家网盘只改这一处，别在别处写 `protocol === 'xxx_pan'`。
+ */
+export const NETDISK_PROTOCOLS = ['baidu_pan', 'quark_pan', 'aliyun_pan'] as const;
+
+/** 网盘协议。`RemoteProtocol` 里属于网盘的那几个变体。 */
+export type NetdiskProtocol = (typeof NETDISK_PROTOCOLS)[number];
 
 /**
  * 代理出口。
@@ -160,6 +178,9 @@ export function getRemoteProtocolDefaultPort(protocol: RemoteProtocol): number {
     case 'quark_pan':
       // 夸克网盘同样走 HTTPS。
       return 443;
+    case 'aliyun_pan':
+      // 阿里云盘开放平台只提供 HTTPS 端点。
+      return 443;
     default:
       return 21;
   }
@@ -188,14 +209,28 @@ export function isQuarkPanProtocol(protocol: RemoteProtocol): boolean {
 }
 
 /**
- * 是不是**网盘**协议（百度 / 夸克都算）。
+ * 是不是阿里云盘协议。
+ *
+ * 与百度 / 夸克同构：没有「自选服务器」可言 —— 主机恒为 `openapi.alipan.com`；
+ * 凭据也不是口令，而是一整套 OAuth 会话（access_token / refresh_token），
+ * 由后端加密落盘，前端只拿得到状态与摘要。
+ */
+export function isAliyunPanProtocol(protocol: RemoteProtocol): boolean {
+  return protocol === 'aliyun_pan';
+}
+
+/**
+ * 是不是**网盘**协议（百度 / 夸克 / 阿里云盘都算）。
  *
  * 分区判定（「网盘」标签 vs「远程连接」标签）必须用这个口径，
  * 而不是 `isBaiduPanProtocol` —— 后者只认百度，
- * 夸克连接会被误分到「远程连接」标签下。
+ * 其余网盘连接会被误分到「远程连接」标签下。
+ *
+ * 同时是**类型守卫**：调用点据此把 `RemoteProtocol` 收窄成 `NetdiskProtocol`，
+ * 省掉「三元式选 provider」那种写法（接第三家网盘时最容易漏掉的那类分支）。
  */
-export function isNetdiskProtocol(protocol: RemoteProtocol): boolean {
-  return isBaiduPanProtocol(protocol) || isQuarkPanProtocol(protocol);
+export function isNetdiskProtocol(protocol: RemoteProtocol): protocol is NetdiskProtocol {
+  return (NETDISK_PROTOCOLS as readonly RemoteProtocol[]).includes(protocol);
 }
 
 /**
@@ -387,6 +422,87 @@ export interface QuarkLoginClaimPayload {
 export interface QuarkLoginEventPayload {
   status: 'ready' | 'closed' | 'timeout' | 'error';
   /** 只有 cookie 的名字与长度，不含任何明文片段。 */
+  summary: string | null;
+  /** 面向用户的短说明，可直接展示。 */
+  message: string | null;
+}
+
+/**
+ * 阿里云盘会话的授权状态。与后端 `AliyunAuthStatusPayload` 逐条镜像。
+ *
+ * `status` 是**分类**，不是文案 —— 前端按它分支，文案另走 i18n。
+ * `summary` 是后端 `describe_state` 出来的脱敏一句话，可直接展示，
+ * 但**不能**拿它做逻辑判断（会随版本改措辞）。
+ *
+ * ⚠️ **没有 `loading`**：后端只认「还没存 / 有效 / 过期 / 即将过期」四种。
+ * 「正在读取」是**前端本地状态**（等后端回答时自己显示），
+ * 别把它当成后端的返回值去等。
+ */
+export type AliyunAuthStatusKind
+  = | 'missing'
+    | 'ready'
+    | 'stale'
+    | 'stale_soon';
+
+export interface AliyunAuthStatusPayload {
+  status: AliyunAuthStatusKind;
+  /** 访问凭证还剩多少秒。`undefined` = 不知道。 */
+  remainingSeconds?: number;
+  /** 脱敏状态说明。 */
+  summary: string;
+  /** 开放平台应用 ID。**不是密钥** —— 可以展示。 */
+  clientId?: string;
+  /** 有没有配应用密钥。`false` = PKCE 公开客户端模式。 */
+  hasClientSecret?: boolean;
+  /** 已授权的 scope。 */
+  scope?: string;
+  /** 访问凭证的到期时刻（Unix 秒）。 */
+  expiresAt?: number;
+  /** 空间 ID。 */
+  driveId?: string;
+  /** 用户昵称。 */
+  nickName?: string;
+}
+
+/** 阿里云盘登录窗是否已打开。与后端 `AliyunLoginStartPayload` 镜像。 */
+export interface AliyunLoginStartPayload {
+  opened: boolean;
+}
+
+/** 有没有待认领的阿里云盘登录态。与后端 `AliyunLoginPendingPayload` 镜像。 */
+export interface AliyunLoginPendingPayload {
+  pending: boolean;
+  /** 脱敏描述（不含任何 token 片段）。 */
+  summary: string;
+}
+
+/**
+ * 阿里云盘内嵌登录的「认领」结果。与后端 `AliyunLoginClaimPayload` 镜像。
+ *
+ * `claimed === false` **不是错误**：用户没走内嵌登录就直接点保存时，
+ * 后端没有待认领的会话，认领是一次空操作。
+ */
+export interface AliyunLoginClaimPayload {
+  claimed: boolean;
+  /** 脱敏描述。 */
+  summary: string;
+}
+
+/**
+ * 阿里云盘内嵌登录的进度事件。与后端
+ * `src-tauri/src/aliyun_login.rs::AliyunLoginEvent` 镜像，由
+ * `afm://aliyun-login` 频道推送。
+ *
+ * - `ready`：已经换到可用的访问凭证，**此时还没落盘** —— 落盘发生在
+ *   「保存」时（那时才有连接 id），所以界面文案要说清「填名字再保存」。
+ * - `closed`：用户自己关掉了登录窗且当时还没拿到凭证。
+ * - `timeout` / `error`：放弃等待。
+ *
+ * ⚠️ 载荷里**没有** token / code 明文（后端规矩照抄夸克）。
+ */
+export interface AliyunLoginEventPayload {
+  status: 'ready' | 'closed' | 'timeout' | 'error';
+  /** 脱敏描述，不含任何明文片段。 */
   summary: string | null;
   /** 面向用户的短说明，可直接展示。 */
   message: string | null;

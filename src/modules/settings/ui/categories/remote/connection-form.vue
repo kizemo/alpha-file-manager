@@ -22,11 +22,25 @@ import {
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
-import { getRemoteProtocolDefaultPort, isBaiduPanProtocol, isNetdiskProtocol, isQuarkPanProtocol } from '@/types/remote';
+import { useRemoteConnectionsStore, fixedNetdiskHost, fixedNetdiskPort } from '@/stores/storage/remote-connections';
+import {
+  getRemoteProtocolDefaultPort,
+  isNetdiskProtocol,
+} from '@/types/remote';
 import normalizePath from '@/utils/normalize-path';
 import type {
-  BaiduAuthStatusPayload, BaiduLoginEventPayload, QuarkAuthStatusPayload, QuarkLoginEventPayload, RemoteConnection, RemoteConnectionForm, RemoteConnectionTestReport, RemoteProtocol, RemoteProxyConfig,
+  AliyunAuthStatusPayload,
+  AliyunLoginEventPayload,
+  BaiduAuthStatusPayload,
+  BaiduLoginEventPayload,
+  NetdiskProtocol,
+  QuarkAuthStatusPayload,
+  QuarkLoginEventPayload,
+  RemoteConnection,
+  RemoteConnectionForm,
+  RemoteConnectionTestReport,
+  RemoteProtocol,
+  RemoteProxyConfig,
 } from '@/types/remote';
 
 type Props = {
@@ -49,14 +63,14 @@ type Props = {
    */
   variant?: 'auto' | 'netdisk' | 'remote';
   /**
-   * 网盘分区选中的 **provider**（2026-11-11 夸克网盘）。
+   * 网盘分区选中的 **provider**（2026-11-11 夸克网盘，2026-11-19 阿里云盘）。
    *
    * 网盘协议不在协议下拉里（`PROTOCOLS` 刻意不含网盘协议），
    * 所以「选哪个网盘」由上游分区层决定，再通过这个 prop 传进来。
    *
    * **不传时默认百度** —— 既有调用点的行为逐字不变。
    */
-  netdiskProtocol?: 'baidu_pan' | 'quark_pan';
+  netdiskProtocol?: NetdiskProtocol;
 };
 
 const props = defineProps<Props>();
@@ -79,20 +93,13 @@ const PROTOCOLS: RemoteProtocol[] = ['ftp', 'ftps_explicit', 'ftps_implicit', 's
 const PROXY_KINDS: RemoteProxyConfig['kind'][] = ['direct', 'socks5', 'http_connect'];
 
 /**
- * 百度网盘的固定主机。
+ * 网盘的固定主机与端口由 store 统一给出（`fixedNetdiskHost` / `fixedNetdiskPort`）。
  *
- * 百度网盘没有「自选服务器」这回事，用户填什么 host 都会被后端忽略，
+ * 百度 / 夸克 / 阿里云盘都没有「自选服务器」这回事，用户填什么 host 都会被后端忽略，
  * 而连接表里那个字段是必填的（Rust 侧 `RemoteConnection::validate` 要求非空）。
- * 所以界面上干脆不显示主机输入框，固定写死这个值。
+ * 所以界面上干脆不显示主机输入框，固定写死这些值 —— 三家只留一份定义，
+ * 接第四家网盘时不用再回来改这个文件。
  */
-const BAIDU_PAN_HOST = 'pan.baidu.com';
-
-/**
- * 夸克网盘的固定主机。
- *
- * 与百度侧同构：界面上不显示主机输入框，固定写死这个值。
- */
-const QUARK_PAN_HOST = 'pan.quark.cn';
 
 /**
  * 内嵌登录（2026-11-08）。
@@ -222,6 +229,74 @@ async function handleCancelQuarkLogin() {
 }
 
 /**
+ * 阿里云盘的内嵌登录（2026-11-19，批次 26）。
+ *
+ * 与百度 / 夸克**不同构**的地方只有一处，但那一处是本质区别：
+ * 阿里云盘走的是官方 OpenAPI 的 **OAuth 授权**，授权页要带
+ * `client_id` / `client_secret` / `redirect_uri` —— 前两个拿不到就开不了授权窗。
+ *
+ * 所以这里多三个输入框。它们是**登录期参数**：填完点「登录」，后端拿去换 token，
+ * 成功后连同会话一起存进 DPAPI 密文。**不进连接表** ——
+ * `RemoteConnection` 的字段名被双边测试锁死（`src-shared/remote-connection.sample.json`）。
+ */
+type AliyunLoginViewState = 'idle' | 'waiting' | 'ready' | 'closed' | 'timeout' | 'error';
+
+const aliyunLoginState = ref<AliyunLoginViewState>('idle');
+const aliyunLoginSummary = ref('');
+const isStartingAliyunLogin = ref(false);
+
+/** 与 `baiduLoginActive` / `quarkLoginActive` 同义，见那边的说明。 */
+const aliyunLoginActive = ref(false);
+
+/** 登录期参数：应用 ID（必填）、应用密钥（留空 = PKCE 公开客户端模式）、回调地址（留空 = 后端默认值）。 */
+const aliyunClientId = ref('');
+const aliyunClientSecret = ref('');
+const aliyunRedirectUri = ref('');
+
+async function handleStartAliyunLogin() {
+  if (isStartingAliyunLogin.value) return;
+
+  // 应用 ID 是必填的：没有它授权页开不起来。
+  // 不发起比发起一个注定失败的窗口好 —— 后端只会回一句看不懂的错。
+  if (!aliyunClientId.value.trim()) return;
+
+  isStartingAliyunLogin.value = true;
+  aliyunLoginSummary.value = '';
+  aliyunLoginState.value = 'waiting';
+  aliyunLoginActive.value = true;
+
+  try {
+    await store.startAliyunLogin(
+      aliyunClientId.value.trim(),
+      aliyunClientSecret.value.trim(),
+      aliyunRedirectUri.value.trim(),
+    );
+  }
+  catch (error) {
+    console.error('Failed to open embedded aliyun login:', error);
+    aliyunLoginState.value = 'error';
+    aliyunLoginActive.value = false;
+  }
+  finally {
+    isStartingAliyunLogin.value = false;
+  }
+}
+
+async function handleCancelAliyunLogin() {
+  try {
+    await store.cancelAliyunLogin();
+  }
+  catch (error) {
+    console.error('Failed to cancel embedded aliyun login:', error);
+  }
+  finally {
+    aliyunLoginState.value = 'idle';
+    aliyunLoginSummary.value = '';
+    aliyunLoginActive.value = false;
+  }
+}
+
+/**
  * 订阅登录进度。
  *
  * ⚠️ `listen` 是**异步注册**的，组件可能在它返回之前就卸载了 ——
@@ -347,6 +422,63 @@ onMounted(async () => {
   }
 });
 
+/**
+ * 阿里云盘侧同构：订阅 `afm://aliyun-login`。
+ *
+ * 与前两个频道**分开注册、分开清理** —— 事件名不同，混在一个监听器里
+ * 就分不清「这条状态是谁发的」。
+ */
+let unlistenAliyunLogin: UnlistenFn | null = null;
+let aliyunLoginDisposed = false;
+
+onMounted(async () => {
+  try {
+    const unlisten = await listen<AliyunLoginEventPayload>('afm://aliyun-login', (event) => {
+      const payload = event.payload;
+
+      // 只认本表单发起的那一轮 —— 频道是全局的（见 `aliyunLoginActive` 的说明）。
+      if (!aliyunLoginActive.value) {
+        return;
+      }
+
+      const previousState = aliyunLoginState.value;
+
+      aliyunLoginState.value = payload.status;
+      aliyunLoginSummary.value = payload.summary ?? payload.message ?? '';
+
+      // `ready` 是内嵌登录唯一可用的成功信号：授权窗一旦换到 token 就会自己关掉，
+      // Rust 侧的 settle() 会把 Destroyed 分支吃掉，不会再发 `closed`。
+      if (payload.status === 'ready' && previousState !== 'ready') {
+        toast({
+          title: t('settings.remote.aliyun.embedded.saved'),
+          description: payload.summary || undefined,
+        });
+      }
+      else if (payload.status !== previousState) {
+        toast({
+          title: t(`settings.remote.aliyun.embedded.status.${payload.status}`),
+          description: payload.summary || payload.message || undefined,
+        });
+      }
+
+      // 只有**终态**才结束这一轮：`waiting` 是表单自己的显示态。
+      if (isTerminalLoginStatus(payload.status)) {
+        aliyunLoginActive.value = false;
+      }
+    });
+
+    if (aliyunLoginDisposed) {
+      unlisten();
+      return;
+    }
+
+    unlistenAliyunLogin = unlisten;
+  }
+  catch (error) {
+    console.error('Failed to listen for embedded aliyun login events:', error);
+  }
+});
+
 onUnmounted(() => {
   baiduLoginDisposed = true;
   unlistenBaiduLogin?.();
@@ -354,6 +486,9 @@ onUnmounted(() => {
   quarkLoginDisposed = true;
   unlistenQuarkLogin?.();
   unlistenQuarkLogin = null;
+  aliyunLoginDisposed = true;
+  unlistenAliyunLogin?.();
+  unlistenAliyunLogin = null;
 });
 
 const name = ref('');
@@ -396,18 +531,44 @@ const isNetdisk = computed(() => {
 });
 
 /**
- * 这张网盘表单是**夸克**还是**百度**。
+ * 这张表单是**哪家网盘**（2026-11-19 批次 26）。
  *
- * 编辑既有连接时以连接自身的协议为准；新建时看上游分区层选的 provider
- * （`netdiskProtocol` prop，不传则默认百度 —— 与既有行为一致）。
+ * 判定只有这一处：先看编辑中的连接自身的协议（连接说了算），
+ * 没有连接才看上游分区层选的 provider（`netdiskProtocol` prop）。
+ *
+ * **为什么不再写成「百度还是夸克」的二元判定**：接第三家网盘时，
+ * 二元判定必然漏掉新的一家 —— 而漏掉的表现是「加了阿里云盘，却显示百度表单」。
+ * 所以这里先解析出 provider，再由三个布尔量分流。
  */
-const isQuarkNetdisk = computed(() => {
+const netdiskProvider = computed<NetdiskProtocol | null>(() => {
   if (props.connection) {
-    return props.connection.protocol === 'quark_pan';
+    // 编辑既有连接：以连接自身的协议为准。
+    return isNetdiskProtocol(props.connection.protocol) ? props.connection.protocol : null;
   }
 
-  return props.variant === 'netdisk' && props.netdiskProtocol === 'quark_pan';
+  if (props.variant === 'netdisk') {
+    // 新建网盘：上游选了哪家就是哪家（不传则默认百度 —— 与既有行为一致）。
+    return props.netdiskProtocol ?? 'baidu_pan';
+  }
+
+  if (props.variant === 'remote') {
+    return null;
+  }
+
+  // `auto` 形态：跟着 `initialProtocol` 推断。
+  const initial = props.initialProtocol ?? 'ftp';
+
+  return isNetdiskProtocol(initial) ? initial : null;
 });
+
+/** 百度网盘。 */
+const isBaiduNetdisk = computed(() => netdiskProvider.value === 'baidu_pan');
+
+/** 夸克网盘。 */
+const isQuarkNetdisk = computed(() => netdiskProvider.value === 'quark_pan');
+
+/** 阿里云盘（2026-11-19 批次 26）。 */
+const isAliyunNetdisk = computed(() => netdiskProvider.value === 'aliyun_pan');
 
 watch(
   () => props.connection,
@@ -429,15 +590,15 @@ watch(
     host.value = connection?.host ?? '';
     port.value = connection?.port ?? getRemoteProtocolDefaultPort(nextProtocol);
 
-    // 网盘不认自定义主机 —— 主机与端口恒定。
+    // 网盘不认自定义主机 —— 主机与端口恒定（百度 / 夸克 / 阿里云盘各一份定义，
+    // 全在 store 的 `fixedNetdiskHost` / `fixedNetdiskPort` 里，别再各写一份）。
     // 老记录里若被写成了别的值，这里纠正回来。
-    if (isBaiduPanProtocol(nextProtocol)) {
-      host.value = BAIDU_PAN_HOST;
-      port.value = getRemoteProtocolDefaultPort(nextProtocol);
-    }
-    else if (isQuarkPanProtocol(nextProtocol)) {
-      host.value = QUARK_PAN_HOST;
-      port.value = getRemoteProtocolDefaultPort(nextProtocol);
+    const fixedHost = fixedNetdiskHost(nextProtocol);
+    const fixedPort = fixedNetdiskPort(nextProtocol);
+
+    if (fixedHost !== null && fixedPort !== null) {
+      host.value = fixedHost;
+      port.value = fixedPort;
     }
 
     username.value = connection?.username ?? '';
@@ -497,6 +658,13 @@ function reset() {
   quarkLoginState.value = 'idle';
   quarkLoginSummary.value = '';
   quarkLoginActive.value = false;
+  aliyunLoginState.value = 'idle';
+  aliyunLoginSummary.value = '';
+  aliyunLoginActive.value = false;
+  // 登录期参数也归零 —— 它们既不落盘，也不该带到下一条连接上。
+  aliyunClientId.value = '';
+  aliyunClientSecret.value = '';
+  aliyunRedirectUri.value = '';
 }
 
 /** 选一个本地目录。留空即可不摆双屏，所以这里不做任何默认填充。 */
@@ -581,8 +749,16 @@ async function handleTestConnection() {
 const baiduStatus = ref<BaiduAuthStatusPayload | null>(null);
 const isLoadingBaiduStatus = ref(false);
 
-/** 只有「已保存的百度连接」才有状态可查 —— 新建中（还没 id）没有存档。 */
-const baiduConnectionId = computed(() => (isNetdisk.value ? props.connection?.id : undefined));
+/**
+ * 只有「已保存的百度连接」才有状态可查 —— 新建中（还没 id）没有存档。
+ *
+ * ⚠️ 判定用 `isBaiduNetdisk` 而不是 `isNetdisk`：三家网盘各有各的状态卡，
+ * 用「是不是网盘」会把夸克 / 阿里云盘的连接也算成百度连接，
+ * 于是界面同时摆出两张不属于它的授权卡。
+ */
+const baiduConnectionId = computed(() => (
+  isBaiduNetdisk.value ? props.connection?.id : undefined
+));
 
 async function refreshBaiduStatus() {
   if (!baiduConnectionId.value) {
@@ -661,11 +837,69 @@ async function handleDeleteQuarkSession() {
   }
 }
 
+/**
+ * 阿里云盘的授权状态卡（2026-11-19 批次 26）。
+ *
+ * 与百度 / 夸克侧同构：只显示状态，不显示凭据 ——
+ * `client_secret` 永远不进前端；`clientId` 可以展示（它不是密钥）。
+ */
+const aliyunStatus = ref<AliyunAuthStatusPayload | null>(null);
+const isLoadingAliyunStatus = ref(false);
+
+/** 只有「已保存的阿里云盘连接」才有状态可查 —— 新建中（还没 id）没有存档。 */
+const aliyunConnectionId = computed(() => (
+  isAliyunNetdisk.value ? props.connection?.id : undefined
+));
+
+async function refreshAliyunStatus() {
+  if (!aliyunConnectionId.value) {
+    aliyunStatus.value = null;
+    return;
+  }
+
+  isLoadingAliyunStatus.value = true;
+
+  try {
+    aliyunStatus.value = await store.getAliyunAuthStatus(aliyunConnectionId.value);
+  }
+  catch (error) {
+    console.error('Failed to load aliyun auth status:', error);
+    aliyunStatus.value = null;
+  }
+  finally {
+    isLoadingAliyunStatus.value = false;
+  }
+}
+
+/** 删掉已保存的阿里云盘会话（退出登录）。删完状态卡立刻回到「未登录」。 */
+async function handleDeleteAliyunSession() {
+  if (!aliyunConnectionId.value) return;
+
+  try {
+    await store.deleteAliyunSession(aliyunConnectionId.value);
+    aliyunStatus.value = null;
+  }
+  catch (error) {
+    console.error('Failed to delete aliyun session:', error);
+  }
+}
+
+/**
+ * 编辑既有阿里云盘连接时，应用 ID 由后端的状态卡带回来 ——
+ * 用户不必再抄一遍开放平台控制台里的那个 ID。
+ */
+watch(aliyunStatus, (status) => {
+  if (status?.clientId && !aliyunClientId.value) {
+    aliyunClientId.value = status.clientId;
+  }
+});
+
 watch(
   () => [props.connection?.id, protocol.value],
   () => {
     void refreshBaiduStatus();
     void refreshQuarkStatus();
+    void refreshAliyunStatus();
   },
   { immediate: true },
 );
@@ -708,11 +942,14 @@ function onProtocolChange(value: unknown) {
     port.value = getRemoteProtocolDefaultPort(next);
   }
 
-  // 百度网盘的主机与端口是固定值：用户没得选，
+  // 网盘的主机与端口是固定值：用户没得选，
   // 也不该被上一个协议的默认值带偏。
-  if (isBaiduPanProtocol(next)) {
-    host.value = BAIDU_PAN_HOST;
-    port.value = getRemoteProtocolDefaultPort(next);
+  const fixedHost = fixedNetdiskHost(next);
+  const fixedPort = fixedNetdiskPort(next);
+
+  if (fixedHost !== null && fixedPort !== null) {
+    host.value = fixedHost;
+    port.value = fixedPort;
   }
 }
 </script>
@@ -810,7 +1047,7 @@ function onProtocolChange(value: unknown) {
       保存连接时再落盘。Cookie 明文永远不进前端，表单里也不再摆手工输入框。
     -->
     <div
-      v-if="isNetdisk && !isQuarkNetdisk"
+      v-if="isNetdisk && isBaiduNetdisk"
       class="remote-connection-form__row"
       data-test="baidu-embedded"
     >
@@ -916,6 +1153,115 @@ function onProtocolChange(value: unknown) {
       </p>
     </div>
 
+    <!--
+      阿里云盘的内嵌登录（2026-11-19 批次 26）：与百度 / 夸克**不同构** ——
+      走的是开放平台的 OAuth 授权，授权页要带应用 ID / 密钥 / 回调地址，
+      拿不到就开不了授权窗。所以这里比别家多三个输入框。
+
+      它们是**登录期参数**：填完点「登录」，后端拿去换 token，
+      成功后连同会话一起存进 DPAPI 密文 —— **不进连接表**
+      （`RemoteConnection` 的字段名被双边测试锁死）。
+    -->
+    <div
+      v-else-if="isAliyunNetdisk"
+      class="remote-connection-form__row"
+      data-test="aliyun-embedded"
+    >
+      <Label>{{ t('settings.remote.aliyun.embedded.title') }}</Label>
+
+      <div class="remote-connection-form__row">
+        <Label for="aliyun-client-id">{{ t('settings.remote.aliyun.field.clientId') }}</Label>
+        <Input
+          id="aliyun-client-id"
+          v-model="aliyunClientId"
+          required
+          data-test="aliyun-client-id"
+        />
+      </div>
+
+      <div class="remote-connection-form__row">
+        <Label for="aliyun-client-secret">{{ t('settings.remote.aliyun.field.clientSecret') }}</Label>
+        <Input
+          id="aliyun-client-secret"
+          v-model="aliyunClientSecret"
+          type="password"
+          autocomplete="off"
+          data-test="aliyun-client-secret"
+        />
+        <p
+          class="remote-connection-form__hint"
+          data-test="aliyun-client-secret-hint"
+        >
+          {{ t('settings.remote.aliyun.field.clientSecretHint') }}
+        </p>
+      </div>
+
+      <div class="remote-connection-form__row">
+        <Label for="aliyun-redirect-uri">{{ t('settings.remote.aliyun.field.redirectUri') }}</Label>
+        <Input
+          id="aliyun-redirect-uri"
+          v-model="aliyunRedirectUri"
+          data-test="aliyun-redirect-uri"
+        />
+        <p
+          class="remote-connection-form__hint"
+          data-test="aliyun-redirect-uri-hint"
+        >
+          {{ t('settings.remote.aliyun.field.redirectUriHint') }}
+        </p>
+      </div>
+
+      <div class="remote-connection-form__inline">
+        <Button
+          type="button"
+          variant="outline"
+          data-test="aliyun-embedded-start"
+          :disabled="isStartingAliyunLogin || !aliyunClientId.trim()"
+          @click="handleStartAliyunLogin"
+        >
+          {{ t('settings.remote.aliyun.embedded.start') }}
+        </Button>
+        <Button
+          v-if="aliyunLoginState !== 'idle' && aliyunLoginState !== 'ready'"
+          type="button"
+          variant="ghost"
+          data-test="aliyun-embedded-cancel"
+          @click="handleCancelAliyunLogin"
+        >
+          {{ t('settings.remote.aliyun.embedded.cancel') }}
+        </Button>
+      </div>
+      <p
+        class="remote-connection-form__hint"
+        data-test="aliyun-embedded-hint"
+      >
+        {{ t('settings.remote.aliyun.embedded.hint') }}
+      </p>
+      <p
+        v-if="aliyunLoginState !== 'idle'"
+        class="remote-connection-form__hint"
+        :data-status="aliyunLoginState"
+        data-test="aliyun-embedded-status"
+      >
+        {{ aliyunLoginState === 'waiting'
+          ? t('settings.remote.aliyun.embedded.status.waiting')
+          : t(`settings.remote.aliyun.embedded.status.${aliyunLoginState}`) }}
+      </p>
+      <p
+        v-if="aliyunLoginSummary"
+        class="remote-connection-form__hint"
+        data-test="aliyun-embedded-summary"
+      >
+        {{ aliyunLoginSummary }}
+      </p>
+      <p
+        class="remote-connection-form__hint"
+        data-test="aliyun-mode-hint"
+      >
+        {{ t('settings.remote.aliyun.field.modeHint') }}
+      </p>
+    </div>
+
     <div
       v-else
       class="remote-connection-form__row"
@@ -1004,6 +1350,48 @@ function onProtocolChange(value: unknown) {
         @click="handleDeleteQuarkSession"
       >
         {{ t('settings.remote.quark.action.deleteSession') }}
+      </Button>
+    </div>
+
+    <!-- 阿里云盘的授权卡：只显示状态，不显示凭据。 -->
+    <div
+      v-if="aliyunConnectionId"
+      class="remote-connection-form__baidu"
+      data-test="aliyun-status"
+    >
+      <div class="remote-connection-form__baidu-head">
+        <span
+          class="remote-connection-form__baidu-dot"
+          :data-status="isLoadingAliyunStatus ? 'loading' : (aliyunStatus?.status ?? 'missing')"
+          data-test="aliyun-status-dot"
+        />
+        <span data-test="aliyun-status-text">
+          {{ aliyunStatus
+            ? t(`settings.remote.aliyun.status.${aliyunStatus.status}`)
+            : t('settings.remote.aliyun.status.loading') }}
+        </span>
+      </div>
+      <p
+        v-if="aliyunStatus?.clientId"
+        class="remote-connection-form__hint"
+        data-test="aliyun-status-client-id"
+      >
+        {{ aliyunStatus.clientId }}
+      </p>
+      <p
+        v-if="aliyunStatus?.summary"
+        class="remote-connection-form__hint"
+        data-test="aliyun-status-summary"
+      >
+        {{ aliyunStatus.summary }}
+      </p>
+      <Button
+        type="button"
+        variant="outline"
+        data-test="aliyun-delete-session"
+        @click="handleDeleteAliyunSession"
+      >
+        {{ t('settings.remote.aliyun.action.deleteSession') }}
       </Button>
     </div>
 
@@ -1178,14 +1566,13 @@ function onProtocolChange(value: unknown) {
       </span>
       <!-- ⚠️ 只在 FTPS 上显示。SFTP 没有 TLS，跳过的是**主机密钥校验**，
            挂一条「TLS 证书未经验证」纯属张冠李戴。
-           百度网盘走的是应用自己封的 HTTPS 通道，
+           三家网盘走的是应用自己封的 HTTPS 通道，
            同样不该在这里挂「TLS 证书未经验证」。 -->
       <span
         v-if="probeReport.outcome === 'verified'
           && probeReport.tlsVerified === false
           && protocol !== 'sftp'
-          && protocol !== 'baidu_pan'
-          && protocol !== 'quark_pan'
+          && !isNetdiskProtocol(protocol)
           && probeReport.message"
         class="remote-connection-form__probe-note"
       >

@@ -689,7 +689,8 @@
         "ftps_implicit": "FTPS (implicit)",
         "sftp": "SFTP",
         "baidu_pan": "Baidu Netdisk",
-        "quark_pan": "Quark Drive"
+        "quark_pan": "Quark Drive",
+        "aliyun_pan": "Aliyun Drive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -716,7 +717,8 @@
         "localPathHasWhitespace": "Local folder cannot contain spaces.",
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
         "baiduLoginRequired": "יש להתחבר ל-Baidu Pan בתוך היישום ואז לשמור את החיבור הזה.",
-        "quarkLoginRequired": "התחבר ל־Quark Drive בתוך היישום לפני שמירת החיבור הזה."
+        "quarkLoginRequired": "התחבר ל־Quark Drive בתוך היישום לפני שמירת החיבור הזה.",
+        "aliyunLoginRequired": "התחבר ל־Aliyun Drive בתוך היישום לפני שמירת החיבור הזה."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -738,7 +740,7 @@
         "openSettings": "Remote settings",
         "connect": "Connect",
         "netdisk": "כונני ענן",
-        "netdiskDescription": "התחברו ל-Baidu Netdisk או ל-Quark Drive בחלון המוטמע. הפרטים מוצפנים באמצעות Windows DPAPI ואינם עוזבים את המחשב הזה.",
+        "netdiskDescription": "התחברו ל-Baidu Netdisk, ל-Quark Drive או ל-Aliyun Drive בחלון המוטמע. הפרטים מוצפנים באמצעות Windows DPAPI ואינם עוזבים את המחשב הזה.",
         "remoteSection": "חיבורים מרוחקים",
         "remoteDescription": "שמרו כאן חיבורי FTP, FTPS ו-SFTP. הפרטים מוצפנים באמצעות Windows DPAPI ואינם עוזבים את המחשב הזה.",
         "addNetdisk": "הוספת כונן ענן",
@@ -812,10 +814,45 @@
           "saved": "התחברות ל־Quark Drive הצליחה: החלון נסגר אוטומטית וההפעלה נאספה — שמור את החיבור כדי להשתמש בו."
         }
       },
+      "aliyun": {
+        "status": {
+          "loading": "קורא את מצב ההרשאה…",
+          "missing": "לא מחובר",
+          "ready": "מורשה",
+          "stale": "תוקף ההפעלה פג; יש להתחבר מחדש",
+          "stale_soon": "תוקף ההפעלה עומד לפוג"
+        },
+        "action": {
+          "deleteSession": "מחק הפעלה שמורה"
+        },
+        "embedded": {
+          "title": "התחברות בתוך היישום",
+          "start": "התחברות בחלון מוטמע",
+          "cancel": "הפסק להמתין",
+          "hint": "בתוך היישום נפתח חלון התחברות. הוא נסגר אוטומטית עם השלמת ההתחברות וההפעלה נאספת מיד — נותר רק לשמור את החיבור.",
+          "status": {
+            "waiting": "ממתין להתחברות…",
+            "ready": "התחברת. שמור את החיבור — ההפעלה תיכתב בעת השמירה.",
+            "closed": "חלון ההתחברות נסגר לפני שסיימת.",
+            "timeout": "תם הזמן הקצוב להתחברות. נסה שוב.",
+            "error": "לא ניתן לקרוא את מצב ההתחברות. נסה שוב."
+          },
+          "saved": "התחברות ל־Aliyun Drive הצליחה: החלון נסגר אוטומטית וההפעלה נאספה — שמור את החיבור כדי להשתמש בו."
+        },
+        "field": {
+          "clientId": "מזהה לקוח (Client ID)",
+          "clientSecret": "סוד לקוח",
+          "redirectUri": "URI של הפניה מחדש",
+          "clientSecretHint": "רשות. השאירו ריק כדי להשתמש במצב לקוח ציבורי PKCE, שבו לא ניתן לחדש את ההפעלה אוטומטית.",
+          "redirectUriHint": "חייב להתאים ל-URI של ההפניה מחדש שנרשם בקונסולת פלטפורמת הפתוח של Aliyun Drive. ברירת המחדל הוא http://127.0.0.1:47832/callback.",
+          "modeHint": "עם סוד לקוח ההפעלה מתחדשת אוטומטית. במצב PKCE ההתחברות תקפה למשך 30 יום ולא ניתן לחדש אותה."
+        }
+      },
       "netdisk": {
         "provider": "כונן ענן",
         "baidu": "Baidu Drive",
         "quark": "Quark Drive",
+        "aliyun": "Aliyun Drive",
         "signedIn": "מחובר"
       }
     },

@@ -7,12 +7,12 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
-import { CloudIcon, ServerIcon } from '@lucide/vue';
+import { CloudDownloadIcon, CloudIcon, ServerIcon } from '@lucide/vue';
 import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
 import { useWorkspacesStore } from '@/stores/storage/workspaces';
 import { openRemoteConnection } from '@/modules/remote/utils/open-remote-connection';
 import { openSettingsTab } from '@/modules/settings/utils/open-settings';
-import { isNetdiskProtocol } from '@/types/remote';
+import { isAliyunPanProtocol, isNetdiskProtocol } from '@/types/remote';
 import type { RemoteConnection } from '@/types/remote';
 
 const { t } = useI18n();
@@ -41,6 +41,16 @@ const remoteConnections = computed(() => (
 
 /** 一条连接都没有时只给提示与一个设置入口，不摆两个空分组。 */
 const hasConnections = computed(() => remoteConnectionsStore.connections.length > 0);
+
+/**
+ * 网盘条目的图标。
+ *
+ * 阿里云盘用自己的图标（2026-11-19 批次 26）—— 三家都用同一个云图标的话，
+ * 用户在一排条目里分不出哪条是阿里云盘。
+ */
+function netdiskIcon(connection: RemoteConnection) {
+  return isAliyunPanProtocol(connection.protocol) ? CloudDownloadIcon : CloudIcon;
+}
 
 /**
  * 连一个连接：切到导航器页，开一组标签页（左本地右远端）。
@@ -108,7 +118,8 @@ async function openRemoteSettings(): Promise<void> {
             :data-test="`netdisk-${connection.id}`"
             @click="handleOpen(connection)"
           >
-            <CloudIcon
+            <component
+              :is="netdiskIcon(connection)"
               :size="20"
               class="remote-entries-section__icon"
             />

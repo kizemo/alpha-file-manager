@@ -30,6 +30,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
+use super::aliyun_api;
 use super::baidu_api::{build_client, fetch_user_info};
 use super::baidu_auth::parse_manual_cookie_input;
 use super::connection::RemoteProtocol;
@@ -251,6 +252,8 @@ async fn probe_inner(
         RemoteProtocol::BaiduPan => probe_baidu(target).await,
         // 夸克网盘同理：HTTPS 接口，凭据是整段 cookie（`__pus`）。
         RemoteProtocol::QuarkPan => probe_quark(target).await,
+        // 阿里云盘同理：HTTPS 接口，凭据是一份 OAuth 会话（access_token）。
+        RemoteProtocol::AliyunPan => probe_aliyun(target).await,
         RemoteProtocol::Ftp => {
             let stream = transport::connect(&target.proxy, host, target.port, command).await?;
             ftp_login(stream, target).await
@@ -404,6 +407,83 @@ async fn probe_quark(target: &ProbeTarget) -> Result<ConnectionTestReport, Remot
         }
         Err(failure) => Ok(report_from_error(quark_api::to_remote_error(&failure))),
     }
+}
+
+/// 阿里云盘的「测试连接」：拿访问凭证打一次用户信息接口。
+///
+/// 凭据是**一份 OAuth 会话**而不是口令，所以从 [`ProbeTarget::password`] 取：
+/// 设置页在阿里云盘协议下，那个输入框装的就是访问凭证；
+/// 「从存档还原会话」那条路（`commands.rs` 的 `remote_test_connection`）
+/// 交过来的也是同一段文本。
+///
+/// 没有凭证时报「还没授权」而不是「连接失败」：两者的处置完全不同。
+async fn probe_aliyun(target: &ProbeTarget) -> Result<ConnectionTestReport, RemoteError> {
+    let Some(raw) = target.password.as_deref().map(str::trim) else {
+        // ⚠️ 这里**不能**报 `AuthRejected` —— 与百度/夸克同一条理由：
+        // 「没拿到凭据」与「服务器拒了这组凭据」是两件事。前者压根没发请求，
+        // 说成后者会让用户以为扫码登录白做了。
+        return Ok(ConnectionTestReport::new(
+            ProbeOutcome::MissingCredential,
+            "这条阿里云盘连接还没有登录凭据，请先完成授权。",
+        ));
+    };
+
+    if raw.is_empty() {
+        return Ok(ConnectionTestReport::new(
+            ProbeOutcome::MissingCredential,
+            "这条阿里云盘连接还没有登录凭据，请先完成授权。",
+        ));
+    }
+
+    let client = reqwest::Client::builder()
+        .user_agent(super::aliyun_provider::ALIYUN_USER_AGENT)
+        .timeout(super::aliyun_provider::ALIYUN_OPERATION_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|error| {
+            RemoteError::unknown(format!("阿里云盘 HTTP 客户端初始化失败：{error}"))
+        })?;
+
+    let response = client
+        .post(aliyun_api::ALIYUN_USER_INFO_URL)
+        .header(
+            reqwest::header::AUTHORIZATION,
+            format!("Bearer {raw}"),
+        )
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .body("{}")
+        .send()
+        .await
+        .map_err(|_error| {
+            RemoteError::unreachable(
+                "无法连接阿里云盘：网络不可用、DNS 解析失败或服务器超时，请检查网络连接后重试。",
+            )
+        })?;
+
+    let status = response.status();
+    let bytes = response.bytes().await.map_err(|_error| {
+        RemoteError::disconnected("与阿里云盘的连接中断：请检查网络后重试。")
+    })?;
+    let body = String::from_utf8(bytes.to_vec())
+        .map_err(|_| RemoteError::encoding("阿里云盘响应不是合法的 UTF-8 文本。"))?;
+
+    if !status.is_success() {
+        return Err(aliyun_api::aliyun_map_failure(status.as_u16(), &body));
+    }
+
+    let info = aliyun_api::aliyun_parse_user_info(&body);
+    // 昵称取不到时**不报错**（字段形状仍待验），降级成「昵称未知」。
+    let nickname = info
+        .nick_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("昵称未知");
+
+    Ok(ConnectionTestReport::new(
+        ProbeOutcome::Verified,
+        format!("阿里云盘连接正常，账号：{nickname}"),
+    ))
 }
 
 /// 把 `reqwest` 的传输层失败折成夸克侧的形态（纯数据，便于离线判定）。

@@ -17,6 +17,9 @@
 // 那正是这条红线的正中间。command 在阶段 1 才接入。
 // ---------------------------------------------------------------------------
 
+mod aliyun_api;
+mod aliyun_auth;
+mod aliyun_provider;
 mod baidu_api;
 mod baidu_auth;
 mod baidu_provider;
@@ -41,6 +44,45 @@ mod sftp_provider;
 mod transfer;
 mod transport;
 
+// 阿里云盘纯函数层。与百度/夸克侧同名的裸名（`parse_list_payload` /
+// `next_marker` / `to_remote_entries` / `to_remote_entry` / `clamp_limit` …）
+// 一律带 `aliyun_` 前缀，避免 E0252。
+pub use aliyun_api::{
+    aliyun_authorization_code_form, aliyun_authorize_url, aliyun_clamp_limit,
+    aliyun_download_url_request_body, aliyun_entry_from_value, aliyun_entry_is_directory,
+    aliyun_entry_name, aliyun_extract_code, aliyun_failure_kind, aliyun_fetch_all_list_pages,
+    aliyun_fetch_list_page, aliyun_form_body, aliyun_get_request_body,
+    aliyun_iso8601_to_unix_millis, aliyun_list_entry_limit_error, aliyun_list_page_limit_error,
+    aliyun_list_request_body, aliyun_map_failure, aliyun_next_marker, aliyun_parse_download_url,
+    aliyun_parse_failure, aliyun_parse_entry_body, aliyun_parse_list_payload,
+    aliyun_parse_token_payload, aliyun_parse_user_info, aliyun_refresh_token_form,
+    aliyun_state_matches,
+    aliyun_to_remote_entries, aliyun_to_remote_entry, AliyunFailure, AliyunFileEntry,
+    AliyunListPage, AliyunListPayload, AliyunTokenPayload, AliyunUserInfo,
+    ALIYUN_ACCESS_TOKEN_URL, ALIYUN_ALREADY_EXIST_ERROR_CODES, ALIYUN_API_BASE_URL,
+    ALIYUN_AUTH_ERROR_CODES, ALIYUN_AUTHORIZE_URL, ALIYUN_DEFAULT_REDIRECT_URI,
+    ALIYUN_DEFAULT_SCOPE, ALIYUN_DOWNLOAD_URL_API, ALIYUN_ENTRY_TYPE_FILE,
+    ALIYUN_ENTRY_TYPE_FOLDER, ALIYUN_LIST_LIMIT_DEFAULT, ALIYUN_LIST_LIMIT_MAX,
+    ALIYUN_LIST_LIMIT_MIN, ALIYUN_LIST_ORDER_BY, ALIYUN_LIST_ORDER_DIRECTION,
+    ALIYUN_LIST_STATUS, ALIYUN_LIST_URL, ALIYUN_MAX_LIST_ENTRIES, ALIYUN_MAX_LIST_PAGES,
+    ALIYUN_NOT_FOUND_ERROR_CODES, ALIYUN_PAN_HOST, ALIYUN_ROOT_FILE_ID, ALIYUN_USER_INFO_URL,
+};
+// 阿里云盘会话层。裸名（`encode_session` / `decode_session` / `is_expired` /
+// `remaining_seconds`）已被 `baidu_auth` / `quark_auth` 段占用 ⇒ 一律加 `aliyun_` 前缀。
+pub use aliyun_auth::{
+    aliyun_auth_status, aliyun_code_challenge, aliyun_decode_session, aliyun_describe_session,
+    aliyun_encode_session, aliyun_generate_code_verifier, aliyun_generate_state,
+    aliyun_is_expired, aliyun_is_expiring_soon, aliyun_now_unix, aliyun_remaining_seconds,
+    aliyun_status_name, delete_aliyun_session, is_aliyun_session_blob, load_aliyun_session,
+    save_aliyun_session, AliyunAuthSession, AliyunAuthStatus, ALIYUN_CODE_VERIFIER_MAX_LEN,
+    ALIYUN_CODE_VERIFIER_MIN_LEN, ALIYUN_EXPIRY_WARN_SECONDS, ALIYUN_SESSION_VERSION,
+};
+pub use aliyun_provider::{
+    aliyun_session_from_token_payload, AliyunApi, AliyunRemoteProvider, AliyunSessionStore,
+    DpapiAliyunSessionStore, HttpAliyunApi, UnavailableAliyunApi, ALIYUN_CONNECT_TIMEOUT,
+    ALIYUN_DIRECTORY_TIMEOUT, ALIYUN_FILE_TIMEOUT, ALIYUN_MAX_DOWNLOAD_BYTES,
+    ALIYUN_OPERATION_TIMEOUT, ALIYUN_USER_AGENT,
+};
 pub use baidu_api::{
     baidu_error_kind_coverage, baidu_seconds_to_unix_millis, build_client, build_download_client,
     clamp_page_limit, classify_baidu_failure, classify_transport, dlink_url, download_file,
