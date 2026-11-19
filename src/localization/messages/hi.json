@@ -1427,7 +1427,12 @@
       "results": "परिणाम",
       "options": "विकल्प"
     },
-    "swapPanes": "Swap panes"
+    "swapPanes": "Swap panes",
+    "devices": "डिवाइस",
+    "device": "डिवाइस",
+    "deviceOpenFailed": "यह डिवाइस नहीं खोला जा सका",
+    "deviceOpenFailedDescription": "संभव है कि डिवाइस का कनेक्ट टूट गया हो। इसे सिस्टम एक्सप्लोरर में खोलें।",
+    "openInSystemExplorer": "सिस्टम एक्सप्लोरर में खोलें"
   },
   "openWith": {
     "loadingPrograms": "प्रोग्राम लोड हो रहे हैं...",

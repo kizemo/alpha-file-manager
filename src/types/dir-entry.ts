@@ -37,13 +37,14 @@ export type ExtendedVirtualEntry = {
  *
  * 只有 `sfm://locations` 这个虚拟目录里的条目会带这个标记：
  * - `drives`：盘符 / 分区
+ * - `devices`：shell 设备（手机 / MTP 便携设备，批次 23）—— 它们不是卷
  * - `netdisk`：网盘连接（当前是百度网盘）
  * - `remote`：远程服务器连接（FTP / FTPS / SFTP）
  *
  * 其它目录的条目一律**不带**这个标记。判据是「条目有没有带标记」，
  * 不是「路径长得像不像」—— 后者会让任何普通目录都被误判成位置页。
  */
-export type LocationGroup = 'drives' | 'netdisk' | 'remote';
+export type LocationGroup = 'drives' | 'devices' | 'netdisk' | 'remote';
 
 export type DirEntry = {
   name: string;

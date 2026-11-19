@@ -1427,7 +1427,12 @@
       "results": "Результаты",
       "options": "Параметры"
     },
-    "swapPanes": "Swap panes"
+    "swapPanes": "Swap panes",
+    "devices": "Устройства",
+    "device": "Устройство",
+    "deviceOpenFailed": "Не удалось открыть это устройство",
+    "deviceOpenFailedDescription": "Возможно, устройство отключено. Откройте его в проводнике системы.",
+    "openInSystemExplorer": "Открыть в проводнике системы"
   },
   "openWith": {
     "loadingPrograms": "Загрузка программ...",

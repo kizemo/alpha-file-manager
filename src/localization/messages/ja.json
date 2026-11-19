@@ -1389,7 +1389,12 @@
       "results": "結果",
       "options": "オプション"
     },
-    "swapPanes": "Swap panes"
+    "swapPanes": "Swap panes",
+    "devices": "デバイス",
+    "device": "デバイス",
+    "deviceOpenFailed": "このデバイスを開けませんでした",
+    "deviceOpenFailedDescription": "デバイスが接続されていない可能性があります。代わりにシステムエクスプローラーで開いてください。",
+    "openInSystemExplorer": "システムエクスプローラーで開く"
   },
   "openWith": {
     "loadingPrograms": "プログラムを読み込み中...",

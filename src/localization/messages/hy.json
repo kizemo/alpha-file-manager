@@ -1427,7 +1427,12 @@
       "results": "արդյունքներ",
       "options": "տարբերակներ"
     },
-    "swapPanes": "Swap panes"
+    "swapPanes": "Swap panes",
+    "devices": "Սարքավորություններ",
+    "device": "Սարք",
+    "deviceOpenFailed": "Սարքավորությունը բացել չի հաջողվել",
+    "deviceOpenFailedDescription": "Սարքավորությունը կարող է հետանվել լինել։ Բացեք այն համակարգի ֆայլային դիտարկիչում։",
+    "openInSystemExplorer": "Բացել համակարգի ֆայլային դիտարկիչում"
   },
   "openWith": {
     "loadingPrograms": "Ծրագրերը բեռնվում են...",

@@ -889,6 +889,13 @@ pub fn resolve_windows_directory_shortcut(path: String) -> Result<Option<String>
 }
 
 pub fn get_dir_entry(path: String) -> Result<DirEntry, String> {
+    // FORK-MODIFICATION 2026-11-19：shell namespace 路径（`::{...}` / `shell:...`）
+    // 走 shell 管线 —— 这类路径在 Win32 文件 API 里根本不存在，
+    // `fs::metadata` 一定失败，硬走文件系统分支只会报「路径不存在」。
+    if super::shell_namespace::is_shell_namespace_path(&path) {
+        return super::shell_namespace::stat_shell_entry(&path);
+    }
+
     let entry_path = Path::new(&path);
 
     match entry_path.try_exists() {
@@ -975,6 +982,13 @@ pub async fn get_dir_entry_with_timeout(path: String, timeout_ms: u64) -> Result
 }
 
 pub fn read_dir(path: String, options: Option<ReadDirOptions>) -> Result<DirContents, String> {
+    // FORK-MODIFICATION 2026-11-19：shell namespace 路径（`::{...}` / `shell:...`）
+    // 走 shell 管线（`SHParseDisplayName` → `IShellItem` → 枚举子项）。
+    // 手机（MTP）这类设备没有盘符，路径只能长这样 ⇒ 文件系统分支读不了它。
+    if super::shell_namespace::is_shell_namespace_path(&path) {
+        return super::shell_namespace::read_shell_dir(&path);
+    }
+
     let directory = Path::new(&path);
     let read_entry_options = ReadEntryOptions::from(options);
 

@@ -21,6 +21,7 @@ export const GRID_VIEW_PADDING_X = 0;
 //
 // FORK-MODIFICATION（2026-11-08，用户需求 1）：新增三个键给「位置」页用 ——
 // `drives`（分区）、`netdisk`（网盘）、`remote`（远程连接）。
+// FORK-MODIFICATION（2026-11-19，批次 23）：再加 `devices`（shell 设备：手机 / MTP）。
 // 它们的条目全是目录，变体仍是 `dir`；变的是**分区标题**，不是卡片长相。
 export type FileBrowserSectionKey
   = | 'dirs'
@@ -28,6 +29,7 @@ export type FileBrowserSectionKey
     | 'videos'
     | 'others'
     | 'drives'
+    | 'devices'
     | 'netdisk'
     | 'remote';
 export type FileBrowserSectionVariant = 'dir' | 'image' | 'video' | 'other';
@@ -110,9 +112,12 @@ const GRID_SECTION_STICKY_INDEXES: Record<FileBrowserGridSectionKey, number> = {
   videos: 12,
   others: 13,
   // FORK-MODIFICATION（2026-11-08）：「位置」页的三个分区，层级沿用同一套递增值。
+  // FORK-MODIFICATION（2026-11-19，批次 23）：新增「设备」分区，
+  // 顺序与位置页一致（盘符 → 设备 → 网络磁盘 → 远程连接），层级顺延。
   drives: 14,
-  netdisk: 15,
-  remote: 16,
+  devices: 15,
+  netdisk: 16,
+  remote: 17,
 };
 
 const ROW_KIND_LIST_ENTRY = 0;
@@ -284,6 +289,12 @@ function createSectionBuilders(
         key: 'drives',
         variant: 'dir',
         entries: locationGroups.drives,
+        entryHeight: metrics.gridDirEntryHeight,
+      },
+      {
+        key: 'devices',
+        variant: 'dir',
+        entries: locationGroups.devices,
         entryHeight: metrics.gridDirEntryHeight,
       },
       {

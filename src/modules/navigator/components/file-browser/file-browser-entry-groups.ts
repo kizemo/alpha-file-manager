@@ -59,6 +59,7 @@ export function groupFileBrowserEntries(entries: readonly DirEntry[]): GroupedEn
 
 export interface FileBrowserLocationGroups {
   drives: DirEntry[];
+  devices: DirEntry[];
   netdisk: DirEntry[];
   remote: DirEntry[];
 }
@@ -68,7 +69,7 @@ export function hasLocationGroupEntries(entries: readonly DirEntry[]): boolean {
 }
 
 /**
- * 按「分区 / 网盘 / 远程连接」分组。
+ * 按「分区 / 设备 / 网盘 / 远程连接」分组。
  *
  * 没带标记的条目一律归到 `drives` —— 它们只可能出现在「位置」页里，
  * 而「位置」页的默认分组就是分区组，不会凭空多出一个「未分组」区。
@@ -76,12 +77,16 @@ export function hasLocationGroupEntries(entries: readonly DirEntry[]): boolean {
 export function groupFileBrowserLocationEntries(entries: readonly DirEntry[]): FileBrowserLocationGroups {
   const groups: FileBrowserLocationGroups = {
     drives: [],
+    devices: [],
     netdisk: [],
     remote: [],
   };
 
   for (const entry of entries) {
-    if (entry.location_group === 'netdisk') {
+    if (entry.location_group === 'devices') {
+      groups.devices.push(entry);
+    }
+    else if (entry.location_group === 'netdisk') {
       groups.netdisk.push(entry);
     }
     else if (entry.location_group === 'remote') {
@@ -98,12 +103,13 @@ export function groupFileBrowserLocationEntries(entries: readonly DirEntry[]): F
 // FORK-MODIFICATION: 目录 / 图片 / 视频 / 其它文件的先后顺序由这一个函数说了算。
 // 网格视图委托它，列表视图也用它，于是两边的分组顺序永远一致。
 export function getFileBrowserSectionEntryOrder(entries: readonly DirEntry[]): DirEntry[] {
-  // 「位置」页走自己的分组口径（分区 → 网盘 → 远程连接）。
+  // 「位置」页走自己的分组口径（分区 → 设备 → 网盘 → 远程连接）。
   if (hasLocationGroupEntries(entries)) {
     const locationGroups = groupFileBrowserLocationEntries(entries);
 
     return [
       ...locationGroups.drives,
+      ...locationGroups.devices,
       ...locationGroups.netdisk,
       ...locationGroups.remote,
     ];

@@ -1382,7 +1382,12 @@
       "results": "نتایج",
       "options": "گزینه‌ها"
     },
-    "swapPanes": "Swap panes"
+    "swapPanes": "Swap panes",
+    "devices": "دستگاه‌ها",
+    "device": "دستگاه",
+    "deviceOpenFailed": "این دستگاه باز نشد",
+    "deviceOpenFailedDescription": "ممکن است دستگاه قطع شده باشد. به‌جای آن، دستگاه را در فایل‌مندوی سیستم باز کنید.",
+    "openInSystemExplorer": "باز کردن در فایل‌مندوی سیستم"
   },
   "openWith": {
     "loadingPrograms": "در حال بارگذاری برنامه‌ها...",

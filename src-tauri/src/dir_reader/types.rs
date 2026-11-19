@@ -92,6 +92,22 @@ pub struct DriveInfo {
     pub device_path: String,
 }
 
+/// FORK-MODIFICATION 2026-11-19：「此电脑」下的**设备**节点（手机 / U 盘 / 读卡器…）。
+///
+/// 这类节点不是 Win32 卷 ⇒ `get_system_drives`（基于 `sysinfo::Disks`）永远看不到它们。
+/// `shell_path` 是 Windows 的 `SIGDN_DESKTOPABSOLUTEPARSING` 原样字符串
+/// （以 `::{` 或 `shell:` 开头），前端必须当**不透明路径**处理
+/// （不规范化、不按 `/` 切分）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShellDeviceInfo {
+    /// 显示名（例如 "iPhone"）。
+    pub name: String,
+    /// `SIGDN_DESKTOPABSOLUTEPARSING`，可被 `SHParseDisplayName` 重新解析。
+    pub shell_path: String,
+    pub is_folder: bool,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MountableDevice {
     pub name: String,

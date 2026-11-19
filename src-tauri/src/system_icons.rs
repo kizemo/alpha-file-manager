@@ -135,14 +135,10 @@ fn is_shell_icon_candidate_path(path: &str) -> bool {
         return false;
     }
 
-    #[cfg(windows)]
-    {
-        let lower = trimmed.to_ascii_lowercase();
-        if trimmed.starts_with("::{") || lower.starts_with("shell:") {
-            return false;
-        }
-    }
-
+    // FORK-MODIFICATION 2026-11-19：**这里不再拒绝 shell namespace 路径**。
+    // shell 路径（`::{...}` / `shell:...`）改走 `shell_namespace_icon_data_url`
+    // （`SHCreateItemFromParsingName` → `IShellItemImageFactory::GetImage`），
+    // 由 `get_system_icon_blocking` 在最前面分流；这里只管「文件系统路径能不能查图标」。
     true
 }
 
@@ -317,6 +313,12 @@ fn resolve_shell_icon_path(
     is_dir: bool,
     extension: &Option<String>,
 ) -> Option<PathBuf> {
+    // shell namespace 路径不是文件系统路径，这套「按文件系统路径找图标」的逻辑吃不了它
+    // —— 它已经在 `get_system_icon_blocking` 里被分流到 shell 图标工厂。
+    if crate::dir_reader::is_shell_namespace_path(path) {
+        return None;
+    }
+
     if !is_shell_icon_candidate_path(path) {
         return None;
     }
@@ -345,6 +347,113 @@ fn resolve_shell_icon_path(
     }
 
     absolute_existing_path(&icon_probe_path(extension).ok()?)
+}
+
+/// FORK-MODIFICATION 2026-11-19：shell namespace 路径（`::{...}` / `shell:...`）的图标。
+///
+/// 设备（手机 / U 盘）在位置页是空白图标很难受，但这些路径**不是文件系统路径**，
+/// `file_icon_provider` 吃不了 ⇒ 走 shell 自己的图标工厂：
+/// `SHCreateItemFromParsingName` → `IShellItemImageFactory::GetImage`（拿 HBITMAP）
+/// → `GetDIBits`（取 BGRA 像素）→ 转 RGBA → 编码 PNG。
+#[cfg(windows)]
+fn shell_namespace_icon_data_url(shell_path: &str, size: u16) -> Option<String> {
+    use windows::core::HSTRING;
+    use windows::Win32::Foundation::SIZE;
+    use windows::Win32::Graphics::Gdi::{
+        GetDIBits, GetDC, ReleaseDC, BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, HGDIOBJ,
+    };
+    use windows::Win32::System::Com::{CoInitialize, CoUninitialize, IBindCtx};
+    use windows::Win32::UI::Shell::{
+        IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_BIGGERSIZEOK, SIIGBF_ICONONLY,
+        SIIGBF_RESIZETOFIT,
+    };
+
+    let icon_size = i32::from(size).max(16);
+
+    unsafe {
+        // COM 必须贯穿整个取图流程：提前 CoUninitialize 的话 GetImage 拿不到位图。
+        if CoInitialize(None).is_err() {
+            return None;
+        }
+
+        let image_factory = match SHCreateItemFromParsingName::<_, _, IShellItemImageFactory>(
+            &HSTRING::from(shell_path),
+            None::<&IBindCtx>,
+        ) {
+            Ok(factory) => factory,
+            Err(_) => {
+                CoUninitialize();
+                return None;
+            }
+        };
+
+        let bitmap = match image_factory.GetImage(
+            SIZE {
+                cx: icon_size,
+                cy: icon_size,
+            },
+            SIIGBF_ICONONLY | SIIGBF_BIGGERSIZEOK | SIIGBF_RESIZETOFIT,
+        ) {
+            Ok(bitmap) => bitmap,
+            Err(_) => {
+                CoUninitialize();
+                return None;
+            }
+        };
+
+        let mut bitmap_info = BITMAPINFO {
+            bmiHeader: BITMAPINFOHEADER {
+                biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                biWidth: icon_size,
+                // 负高度 = 自上而下，省一次翻转。
+                biHeight: -icon_size,
+                biPlanes: 1,
+                biBitCount: 32,
+                biCompression: 0,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let pixel_count = (icon_size * icon_size * 4) as usize;
+        let mut bgra_pixels = vec![0u8; pixel_count];
+
+        let device_context = GetDC(None);
+        let copied_lines = GetDIBits(
+            device_context,
+            bitmap,
+            0,
+            icon_size as u32,
+            Some(bgra_pixels.as_mut_ptr().cast()),
+            &mut bitmap_info,
+            DIB_RGB_COLORS,
+        );
+
+        ReleaseDC(None, device_context);
+        windows::Win32::Graphics::Gdi::DeleteObject(HGDIOBJ::from(bitmap));
+
+        if copied_lines <= 0 {
+            CoUninitialize();
+            return None;
+        }
+
+        // BGRA → RGBA
+        let mut rgba_pixels = bgra_pixels;
+
+        for pixel in rgba_pixels.chunks_exact_mut(4) {
+            pixel.swap(0, 2);
+        }
+
+        let data_url =
+            encode_icon_to_png_data_url(icon_size as u32, icon_size as u32, rgba_pixels).ok();
+        CoUninitialize();
+        data_url
+    }
+}
+
+#[cfg(not(windows))]
+fn shell_namespace_icon_data_url(_shell_path: &str, _size: u16) -> Option<String> {
+    None
 }
 
 fn encode_icon_to_png_data_url(width: u32, height: u32, pixels: Vec<u8>) -> Result<String, String> {
@@ -442,6 +551,30 @@ pub(crate) fn get_system_icon_blocking(
     size: Option<u16>,
 ) -> Result<Option<String>, String> {
     let icon_size = size.unwrap_or(32).clamp(8, 256);
+
+    // FORK-MODIFICATION 2026-11-19：shell namespace 路径（`::{...}` / `shell:...`）
+    // 走 shell 图标工厂 —— 设备（手机 / U 盘）在位置页不该是空白图标。
+    // 单独用一套 cache key：这类路径没有扩展名，共用 `ext:` 那一族 key 会串图。
+    if crate::dir_reader::is_shell_namespace_path(&path) {
+        let cache_key = format!("shellns:{}:{icon_size}", path.to_lowercase());
+
+        if let Ok(mut cache) = ICON_DATA_URL_CACHE.lock() {
+            if let Some(cached_value) = cache.get(&cache_key) {
+                return Ok(Some(cached_value.to_string()));
+            }
+        }
+
+        let data_url = shell_namespace_icon_data_url(&path, icon_size);
+
+        if let Some(data_url) = data_url.clone() {
+            if let Ok(mut cache) = ICON_DATA_URL_CACHE.lock() {
+                cache.put(cache_key, data_url);
+            }
+        }
+
+        return Ok(data_url);
+    }
+
     let cache_key = file_icon_cache_key(&path, is_dir, &extension, icon_size);
 
     if let Ok(mut cache) = ICON_DATA_URL_CACHE.lock() {

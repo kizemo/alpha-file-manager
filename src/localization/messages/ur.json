@@ -1427,7 +1427,12 @@
       "results": "نتائج",
       "options": "اختیارات"
     },
-    "swapPanes": "Swap panes"
+    "swapPanes": "Swap panes",
+    "devices": "ڈیوائسز",
+    "device": "ڈیوائس",
+    "deviceOpenFailed": "اس ڈیوائس کو کھولا نہیں جا سکا",
+    "deviceOpenFailedDescription": "ممکن ہے ڈیوائس کا تعلق منقطع ہو گیا ہو۔ اسے سسٹم فائل ایکسپلورر میں کھولیں۔",
+    "openInSystemExplorer": "سسٹم فائل ایکسپلورر میں کھولیں"
   },
   "openWith": {
     "loadingPrograms": "پروگرامز لوڈ ہو رہے ہیں…",

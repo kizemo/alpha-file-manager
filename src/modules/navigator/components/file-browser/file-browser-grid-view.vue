@@ -13,6 +13,8 @@ import {
   HardDriveIcon,
   CloudIcon,
   ServerIcon,
+  // FORK-MODIFICATION（2026-11-19，批次 23）：设备分区（手机 / MTP）。
+  SmartphoneIcon,
 } from '@lucide/vue';
 import { useI18n } from 'vue-i18n';
 import { computed } from 'vue';
@@ -54,6 +56,9 @@ function getSectionLabel(sectionKey: FileBrowserGridSectionKey): string {
     // FORK-MODIFICATION（2026-11-08，用户需求 1）：「位置」页的分区标题。
     case 'drives':
       return t('fileBrowser.partitions');
+    // FORK-MODIFICATION（2026-11-19，批次 23）：设备（手机 / MTP）分区。
+    case 'devices':
+      return t('fileBrowser.devices');
     case 'netdisk':
       return t('settings.remote.nav.netdisk');
     case 'remote':
@@ -69,6 +74,9 @@ const SECTION_ICONS = {
   videos: FileVideoIcon,
   others: FileIcon,
   drives: HardDriveIcon,
+  // FORK-MODIFICATION（2026-11-19，批次 23）：设备用手机图标 ——
+  // 「位置」页里的设备主要就是手机（MTP）与便携设备。
+  devices: SmartphoneIcon,
   netdisk: CloudIcon,
   remote: ServerIcon,
 } as const;

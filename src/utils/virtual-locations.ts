@@ -5,6 +5,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { DirContents, DirEntry, ReadDirOptions } from '@/types/dir-entry';
 import type { DriveInfo } from '@/types/drive-info';
+import type { ShellDeviceInfo } from '@/types/shell-device';
 import normalizePath, {
   canonicalizePath,
   getParentPath,
@@ -12,6 +13,8 @@ import normalizePath, {
   isUncShareRootPath,
   isWslPath,
 } from '@/utils/normalize-path';
+import { getCachedShellDevices, fetchShellDevices } from '@/utils/shell-devices';
+import { getShellParentPath, getShellPathDisplayName, isShellPath } from '@/utils/shell-paths';
 import { isProtectedSystemPath } from '@/utils/is-protected-system-path';
 import { getRemoteParentPath, isRemotePath, isRemoteRootPath, REMOTE_SCHEME } from '@/utils/remote-paths';
 import { readRemoteDirectory, statRemoteEntry } from '@/utils/remote-directory';
@@ -183,17 +186,55 @@ export function createRemoteRootDirEntry(): DirEntry {
 }
 
 /**
- * `remoteEntries` 做成**默认参数**，是为了让所有调用方口径一致。
+ * shell 设备条目（手机 / MTP 便携设备）。
+ *
+ * 盘符来自 Win32 卷枚举，**看不到手机** —— 手机在 Windows 里是 shell 命名空间里的
+ * 一个对象，不是卷。所以「位置」页要单独拉一份设备清单。
+ *
+ * `path` 用后端给的 `shellPath`：**不透明路径，原样保留**。
+ * 规范化它就等于毁掉它（见 `@/utils/shell-paths` 的说明）。
+ */
+export function shellDeviceInfoToDirEntry(device: ShellDeviceInfo): DirEntry {
+  const shellPath = device.shellPath;
+  const displayName = device.name.trim() || getShellPathDisplayName(shellPath, 'Device');
+
+  return {
+    name: displayName,
+    path: shellPath,
+    is_file: false,
+    is_dir: true,
+    is_hidden: false,
+    is_symlink: false,
+    size: 0,
+    item_count: null,
+    created_time: 0,
+    modified_time: 0,
+    accessed_time: 0,
+    ext: null,
+    mime: null,
+    // 「位置」页的新分区：设备与盘符不是一回事（盘符是卷，设备是 shell 对象）。
+    location_group: 'devices',
+  };
+}
+
+/** 已知的 shell 设备条目（读自共享缓存）。 */
+function getShellDeviceEntries(): DirEntry[] {
+  return getCachedShellDevices().map(shellDeviceInfoToDirEntry);
+}
+
+/**
+ * `remoteEntries` / `deviceEntries` 做成**默认参数**，是为了让所有调用方口径一致。
  *
  * 位置页的条目由三处生成：`readLocationsDirectory`（真正读目录）、
  * `buildVirtualDirectoryFromDrives`（盘符变化时重建）、
  * `getLocationsDriveListDisplaySignature`（与当前目录比较判是否刷新）。
- * 只要有一处不带远程条目，`use-file-browser-navigation.ts` 里的签名比较就永远不相等，
- * 盘符每变化一次都会多触发一次 `silentRefresh`。默认参数把这条路堵死。
+ * 只要有一处不带远程条目或设备条目，`use-file-browser-navigation.ts` 里的签名比较
+ * 就永远不相等，盘符每变化一次都会多触发一次 `silentRefresh`。默认参数把这条路堵死。
  */
 export function buildLocationsDirectoryFromDrives(
   drives: DriveInfo[],
   remoteEntries: DirEntry[] = getRemoteLocationEntries(),
+  deviceEntries: DirEntry[] = getShellDeviceEntries(),
 ): DirContents {
   const entries = [
     ...drives.map((drive) => {
@@ -204,6 +245,7 @@ export function buildLocationsDirectoryFromDrives(
 
       return entry;
     }),
+    ...deviceEntries,
     ...remoteEntries,
   ];
   const directoryCount = entries.length;
@@ -248,8 +290,22 @@ export function getLocationsEntriesDisplaySignature(entries: DirEntry[]): string
 }
 
 export async function readLocationsDirectory(): Promise<DirContents> {
-  const drives = await invoke<DriveInfo[]>('get_system_drives');
-  return buildLocationsDirectoryFromDrives(drives);
+  // FORK-MODIFICATION 2026-11-19（批次 23）：盘符与设备**并发**拉取。
+  //
+  // 盘符是 Win32 卷，设备是 shell 命名空间对象 —— 两边合起来才是完整的「位置」。
+  // 设备清单失败时 `fetchShellDevices` 自己兜住（清空缓存并返回空数组），
+  // 这里再兜一层，保证「位置」页永远只受盘符影响 —— 后端还没实现 `get_shell_devices`
+  // 或设备枚举报错时，页面照常显示盘符，而不是整个打不开。
+  const [drives, devices] = await Promise.all([
+    invoke<DriveInfo[]>('get_system_drives'),
+    fetchShellDevices().catch(() => []),
+  ]);
+
+  return buildLocationsDirectoryFromDrives(
+    drives,
+    undefined,
+    devices.map(shellDeviceInfoToDirEntry),
+  );
 }
 
 export function buildWslHostDirectoryFromDrives(drives: DriveInfo[]): DirContents {
@@ -371,6 +427,16 @@ export function getNavigableParentPath(path: string, platform: string | null): s
 
   if (isVirtualLocationPath(normalizedPath)) {
     return null;
+  }
+
+  // FORK-MODIFICATION 2026-11-19（批次 23）：shell 设备（手机 / MTP）的上一层
+  // 是「位置」—— 与 `//wsl.localhost`、远程根同构。
+  // 设备根本身没有更上一级（`getShellParentPath` 返回 null），
+  // 但从设备**里面**往上走时应该回到「位置」页，而不是卡住。
+  if (isShellPath(normalizedPath)) {
+    const shellParentPath = getShellParentPath(normalizedPath);
+
+    return shellParentPath ?? LOCATIONS_VIRTUAL_PATH;
   }
 
   if (isWslHostVirtualPath(normalizedPath)) {

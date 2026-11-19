@@ -1389,7 +1389,12 @@
       "results": "Kết quả",
       "options": "Tùy chọn"
     },
-    "swapPanes": "Swap panes"
+    "swapPanes": "Swap panes",
+    "devices": "Thiết bị",
+    "device": "Thiết bị",
+    "deviceOpenFailed": "Không thể mở thiết bị này",
+    "deviceOpenFailedDescription": "Thiết bị có thể đã bị ngắt kết nối. Hãy mở bằng File Explorer của hệ thống.",
+    "openInSystemExplorer": "Mở trong File Explorer của hệ thống"
   },
   "openWith": {
     "loadingPrograms": "Đang tải chương trình...",

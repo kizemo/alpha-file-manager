@@ -1389,7 +1389,12 @@
       "results": "Ergebnisse",
       "options": "Optionen"
     },
-    "swapPanes": "Swap panes"
+    "swapPanes": "Swap panes",
+    "devices": "Geräte",
+    "device": "Gerät",
+    "deviceOpenFailed": "Dieses Gerät konnte nicht geöffnet werden",
+    "deviceOpenFailedDescription": "Das Gerät wurde möglicherweise getrennt. Öffnen Sie es stattdessen im System-Explorer.",
+    "openInSystemExplorer": "Im System-Explorer öffnen"
   },
   "openWith": {
     "loadingPrograms": "Programme werden geladen...",

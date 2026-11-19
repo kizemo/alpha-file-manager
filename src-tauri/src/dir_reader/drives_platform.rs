@@ -280,6 +280,169 @@ pub(super) fn append_windows_network_drives(
     }
 }
 
+// ---------------------------------------------------------------------------
+// Windows: drive-letter fallback (GetLogicalDrives)
+// ---------------------------------------------------------------------------
+
+#[cfg(windows)]
+fn decode_drive_wide_buffer(buffer: &[u16]) -> String {
+    let length = buffer
+        .iter()
+        .position(|&character| character == 0)
+        .unwrap_or(buffer.len());
+
+    String::from_utf16_lossy(&buffer[..length])
+}
+
+/// FORK-MODIFICATION 2026-11-19：盘符兜底枚举。
+///
+/// `sysinfo::Disks` 走 Win32 卷枚举（`FindFirstVolumeW`），有些盘它会漏 ——
+/// 典型的是刚插上、还没被 `sysinfo` 刷新的可移动盘。这里用 `GetLogicalDrives`
+/// 兜一遍：**只有 sysinfo 压根没报过的盘**才补进来，所以固定盘 / 网络盘的
+/// 现有口径完全不变（网络盘仍然由 `append_windows_network_drives` 负责）。
+///
+/// 容量读不到就留 0（可移动盘尤其常见），条目照样出现。
+#[cfg(windows)]
+pub(super) fn append_windows_logical_drives(
+    drives: &mut Vec<DriveInfo>,
+    seen_paths: &mut std::collections::HashSet<String>,
+    sysinfo_paths: &std::collections::HashSet<String>,
+) {
+    use windows::core::PCWSTR;
+    use windows::Win32::Foundation::MAX_PATH;
+    use windows::Win32::Storage::FileSystem::{
+        GetDiskFreeSpaceExW, GetDriveTypeW, GetLogicalDrives, GetVolumeInformationW,
+    };
+
+    const DRIVE_REMOVABLE: u32 = 2;
+    const DRIVE_FIXED: u32 = 3;
+    const FILE_READ_ONLY_VOLUME: u32 = 0x00080000;
+
+    let logical_drives = unsafe { GetLogicalDrives() };
+
+    if logical_drives == 0 {
+        return;
+    }
+
+    for letter_offset in 0u8..26 {
+        if logical_drives & (1u32 << letter_offset) == 0 {
+            continue;
+        }
+
+        let letter = b'A' + letter_offset;
+        let root_path_str = format!("{}:\\", letter as char);
+        let path = normalize_path(&root_path_str);
+
+        // sysinfo 已经报过的盘不走兜底（口径不变）。
+        if sysinfo_paths.contains(&path) || seen_paths.contains(&path) {
+            continue;
+        }
+
+        let root_wide: Vec<u16> = root_path_str
+            .encode_utf16()
+            .chain(std::iter::once(0))
+            .collect();
+        let root_pcwstr = PCWSTR::from_raw(root_wide.as_ptr());
+
+        let drive_type = unsafe { GetDriveTypeW(root_pcwstr) };
+
+        match drive_type {
+            DRIVE_FIXED | DRIVE_REMOVABLE => {}
+            // 网络盘归 `append_windows_network_drives`；光驱 / 未知类型不进位置页。
+            _ => continue,
+        }
+
+        let mut total_size: u64 = 0;
+        let mut free_space: u64 = 0;
+
+        let got_size = unsafe {
+            GetDiskFreeSpaceExW(
+                root_pcwstr,
+                None,
+                Some(&mut total_size),
+                Some(&mut free_space),
+            )
+            .is_ok()
+        };
+
+        if !got_size {
+            total_size = 0;
+            free_space = 0;
+        }
+
+        let mut name_buf = [0u16; MAX_PATH as usize + 1];
+        let mut fs_buf = [0u16; 32];
+        let mut flags = 0u32;
+
+        let got_info = unsafe {
+            GetVolumeInformationW(
+                root_pcwstr,
+                Some(&mut name_buf),
+                None,
+                None,
+                Some(&mut flags),
+                Some(&mut fs_buf),
+            )
+            .is_ok()
+        };
+
+        let volume_name = if got_info {
+            decode_drive_wide_buffer(&name_buf)
+        } else {
+            String::new()
+        };
+
+        let file_system = if got_info {
+            decode_drive_wide_buffer(&fs_buf)
+        } else {
+            String::new()
+        };
+
+        let is_removable = drive_type == DRIVE_REMOVABLE;
+
+        let display_name = if volume_name.is_empty() {
+            if is_removable {
+                format!("Removable Disk ({}:)", letter as char)
+            } else {
+                format!("Local Disk ({}:)", letter as char)
+            }
+        } else {
+            format!("{} ({}:)", volume_name, letter as char)
+        };
+
+        let used_space = total_size.saturating_sub(free_space);
+        let percent_used = if total_size > 0 {
+            ((used_space as f64 / total_size as f64) * 100.0).round()
+        } else {
+            0.0
+        };
+
+        let is_read_only = (flags & FILE_READ_ONLY_VOLUME) != 0;
+
+        seen_paths.insert(path.clone());
+
+        drives.push(DriveInfo {
+            name: display_name,
+            path: path.clone(),
+            mount_point: root_path_str.clone(),
+            file_system,
+            drive_type: if is_removable {
+                "Removable".to_string()
+            } else {
+                "Unknown".to_string()
+            },
+            total_space: total_size,
+            available_space: free_space,
+            used_space,
+            percent_used,
+            is_removable,
+            is_read_only,
+            is_mounted: true,
+            device_path: root_path_str,
+        });
+    }
+}
+
 #[cfg(windows)]
 pub(super) fn decode_windows_command_output(output: &[u8]) -> String {
     if output.len() >= 2 && output.len().is_multiple_of(2) {

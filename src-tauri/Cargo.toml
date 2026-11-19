@@ -159,6 +159,11 @@ windows = { version = "0.58", features = [
     "Win32_System_SystemServices",
     "Win32_UI_Shell",
     "Win32_UI_Shell_Common",
+    # FORK-MODIFICATION 2026-11-19：shell namespace（`::{...}` / `shell:`）读取管线。
+    # `IShellItem2::GetProperty` / `GetFileTime`（取大小与修改时间）挂在这个 feature 上。
+    "Win32_UI_Shell_PropertiesSystem",
+    # WPD（手机 / 便携设备）判据：`IShellItem::QueryInterface(IPortableDevice)`。
+    "Win32_Devices_PortableDevices",
     "Win32_System_Environment",
     "Win32_Foundation",
     "Win32_System_Ole",

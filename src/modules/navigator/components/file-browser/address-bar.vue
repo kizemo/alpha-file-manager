@@ -46,10 +46,12 @@ import { getPathDisplayName, toNativePathSeparators } from '@/utils/normalize-pa
 import {
   buildLocationsDirectoryFromDrives,
   resolveDirectoryContents,
+  shellDeviceInfoToDirEntry,
 } from '@/utils/virtual-locations';
 import { useDrives } from '@/modules/home/composables/use-drives';
 import { useOpenCopiedPath } from './composables/use-open-copied-path';
 import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
+import { useShellDevices } from '@/composables/use-shell-devices';
 import { buildAddressBarParts } from './address-bar-parts';
 
 const props = defineProps<{
@@ -67,11 +69,19 @@ const shortcutsStore = useShortcutsStore();
 const platformStore = usePlatformStore();
 const remoteConnectionsStore = useRemoteConnectionsStore();
 const { drives } = useDrives();
+// FORK-MODIFICATION 2026-11-19（批次 23）：设备（手机 / MTP）也属于「位置」，
+// 地址栏下拉与「位置」页同源，所以两处都要有。
+const { shellDevices } = useShellDevices();
+const shellDeviceEntries = computed(() => shellDevices.value.map(shellDeviceInfoToDirEntry));
 const locationsDirectoryItems = computed(() => {
   // 下拉要显示**连接名**而不是 32 位 ID（用户 2026-11-09 反馈 5）：
   // 远程条目在地址栏里是 `sfm://remote/<uuid>`，`getPathDisplayName()` 只能回显末段 ID。
   // `entry.name` 与「位置」页同源（remote-location-refs 里就是用户起的连接名）。
-  return buildLocationsDirectoryFromDrives(drives.value).entries.map(entry => ({
+  return buildLocationsDirectoryFromDrives(
+    drives.value,
+    undefined,
+    shellDeviceEntries.value,
+  ).entries.map(entry => ({
     path: entry.path,
     name: entry.name,
   }));
@@ -101,6 +111,14 @@ const remoteConnectionNames = computed(() => {
   );
 });
 
+// FORK-MODIFICATION 2026-11-19（批次 23）：shell 路径 → 设备名。
+// 面包屑要显示「Galaxy S22」而不是 `::{20D04FE0-...}`。
+const shellDeviceNames = computed(() => {
+  return Object.fromEntries(
+    shellDevices.value.map(device => [device.shellPath, device.name]),
+  );
+});
+
 const addressParts = computed(() => buildAddressBarParts(
   props.currentPath,
   platformStore.currentPlatform,
@@ -108,6 +126,10 @@ const addressParts = computed(() => buildAddressBarParts(
   {
     rootLabel: t('settingsTabs.remote'),
     connectionNames: remoteConnectionNames.value,
+  },
+  {
+    deviceNames: shellDeviceNames.value,
+    fallbackLabel: t('fileBrowser.device'),
   },
 ));
 

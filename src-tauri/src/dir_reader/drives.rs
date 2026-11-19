@@ -10,7 +10,9 @@ use super::drives_platform::{
     append_macos_network_volumes, mount_point_last_component, should_skip_macos_mount,
 };
 #[cfg(windows)]
-use super::drives_platform::{append_windows_network_drives, append_windows_wsl_drives};
+use super::drives_platform::{
+    append_windows_logical_drives, append_windows_network_drives, append_windows_wsl_drives,
+};
 #[cfg(target_os = "linux")]
 use super::drives_platform::{mount_point_last_component, should_skip_linux_mount};
 use super::types::DriveInfo;
@@ -20,10 +22,18 @@ pub fn get_system_drives() -> Result<Vec<DriveInfo>, String> {
     let disks = Disks::new_with_refreshed_list();
     let mut drives: Vec<DriveInfo> = Vec::new();
     let mut seen_paths: HashSet<String> = HashSet::new();
+    // FORK-MODIFICATION 2026-11-19：sysinfo **实际枚举到**的挂载点。
+    //
+    // 用来区分「sysinfo 压根没报这个盘」与「sysinfo 报了但我们把它过滤掉了」：
+    // 前者才允许走 `GetLogicalDrives` 兜底补进来，后者（固定盘容量读不到）
+    // 必须维持原样，否则会改掉固定盘的现有口径。
+    let mut sysinfo_paths: HashSet<String> = HashSet::new();
 
     for disk in disks.iter() {
         let mount_point = disk.mount_point().to_string_lossy().to_string();
         let path = normalize_path(&mount_point);
+
+        sysinfo_paths.insert(path.clone());
 
         let total_space = disk.total_space();
         let available_space = disk.available_space();
@@ -44,8 +54,11 @@ pub fn get_system_drives() -> Result<Vec<DriveInfo>, String> {
             continue;
         }
 
+        // FORK-MODIFICATION 2026-11-19：容量读不到（0）的**可移动盘**不能丢 ——
+        // U 盘 / 读卡器刚插上时容量偶尔读不到，丢了用户就看不到这个盘了。
+        // 固定盘的口径不变（仍然丢弃）；可移动盘保留条目，占用显示 0。
         #[cfg(windows)]
-        if total_space == 0 {
+        if total_space == 0 && !disk.is_removable() {
             continue;
         }
 
@@ -139,6 +152,12 @@ pub fn get_system_drives() -> Result<Vec<DriveInfo>, String> {
 
     #[cfg(windows)]
     append_windows_wsl_drives(&mut drives, &mut seen_paths);
+
+    // FORK-MODIFICATION 2026-11-19：盘符兜底 —— `GetLogicalDrives` 报告存在、
+    // 但 sysinfo 压根没报过的盘（含 `DRIVE_REMOVABLE` 的 U 盘 / 读卡器）。
+    // 手机（MTP）没有盘符，这条兜底也救不了它 —— 手机走 shell namespace 管线。
+    #[cfg(windows)]
+    append_windows_logical_drives(&mut drives, &mut seen_paths, &sysinfo_paths);
 
     drives.sort_by(|first, second| first.path.cmp(&second.path));
 
