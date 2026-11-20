@@ -13,7 +13,15 @@ fn main() {
 
     emit_icon_rerun_guards();
 
-    tauri_build::build();
+    // Tauri 2.12 起：只要应用定义了 app 级 ACL manifest，**所有**自定义命令
+    // （含本地来源）都会走 ACL 判定。`permissions/app-commands.toml` 就是本应用的
+    // app manifest —— 不注册它，内嵌阿里云盘登录窗（远程源
+    // `https://passport.alipan.com`）的 `remote_aliyun_login_observed`
+    // 会在 Rust 侧被直接 reject，注入的 hook 永远回传不到凭据。
+    tauri_build::try_build(
+        tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new()),
+    )
+    .expect("failed to run tauri-build");
 }
 
 /// Re-runs this build script when the bundled application icons change.

@@ -471,7 +471,8 @@ async fn probe_aliyun(target: &ProbeTarget) -> Result<ConnectionTestReport, Remo
         return Err(aliyun_api::aliyun_map_failure(status.as_u16(), &body));
     }
 
-    let info = aliyun_api::aliyun_parse_user_info(&body);
+    // `/v2/user/get` 是批次 28 坐实过的探活端点（顺便把昵称带回来）。
+    let info = super::aliyun_qr::aliyun_parse_user_profile(&body)?;
     // 昵称取不到时**不报错**（字段形状仍待验），降级成「昵称未知」。
     let nickname = info
         .nick_name

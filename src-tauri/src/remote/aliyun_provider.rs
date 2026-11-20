@@ -39,14 +39,14 @@ use async_trait::async_trait;
 use futures_util::StreamExt;
 
 use super::aliyun_api::{
-    aliyun_authorization_code_form, aliyun_get_request_body, aliyun_list_entry_limit_error,
-    aliyun_list_page_limit_error, aliyun_map_failure, aliyun_next_marker,
-    aliyun_parse_download_url, aliyun_parse_entry_body, aliyun_parse_list_payload,
-    aliyun_parse_token_payload, aliyun_parse_user_info, aliyun_refresh_token_form,
+    aliyun_access_token_url, aliyun_authorization_code_body, aliyun_download_url_api,
+    aliyun_get_url, aliyun_list_entry_limit_error, aliyun_list_page_limit_error,
+    aliyun_list_url, aliyun_map_failure, aliyun_next_marker, aliyun_parse_download_url,
+    aliyun_parse_entry_body, aliyun_parse_list_payload, aliyun_parse_token_payload,
+    aliyun_refresh_token_body, aliyun_refresh_token_url, aliyun_resolve_drive_id,
     aliyun_to_remote_entries, AliyunFileEntry, AliyunListPayload, AliyunTokenPayload,
-    AliyunUserInfo, ALIYUN_ACCESS_TOKEN_URL, ALIYUN_DEFAULT_REDIRECT_URI, ALIYUN_DOWNLOAD_URL_API,
-    ALIYUN_GET_URL, ALIYUN_LIST_LIMIT_DEFAULT, ALIYUN_LIST_ORDER_BY, ALIYUN_LIST_ORDER_DIRECTION,
-    ALIYUN_LIST_STATUS, ALIYUN_LIST_URL, ALIYUN_ROOT_FILE_ID, ALIYUN_USER_INFO_URL,
+    ALIYUN_LIST_LIMIT_DEFAULT, ALIYUN_LIST_ORDER_BY, ALIYUN_LIST_ORDER_DIRECTION,
+    ALIYUN_ROOT_FILE_ID,
 };
 use super::aliyun_auth::{
     aliyun_is_expired, aliyun_now_unix, load_aliyun_session, save_aliyun_session, AliyunAuthSession,
@@ -131,9 +131,6 @@ pub trait AliyunApi: Send + Sync {
         max_bytes: u64,
     ) -> Result<Vec<u8>, RemoteError>;
 
-    /// 取用户信息（备用取 `drive_id`）。
-    async fn user_info(&self, session: &AliyunAuthSession) -> Result<AliyunUserInfo, RemoteError>;
-
     /// 用刷新凭证换一份新会话。
     ///
     /// 成功时返回的会话**必须**带新的 `refresh_token`（刷新凭证单次有效）。
@@ -195,10 +192,6 @@ impl AliyunApi for UnavailableAliyunApi {
         _url: &str,
         _max_bytes: u64,
     ) -> Result<Vec<u8>, RemoteError> {
-        Err(self.error.clone())
-    }
-
-    async fn user_info(&self, _session: &AliyunAuthSession) -> Result<AliyunUserInfo, RemoteError> {
         Err(self.error.clone())
     }
 
@@ -370,21 +363,22 @@ async fn post_json_text(
     Ok(text)
 }
 
-/// 发一个 POST（表单请求体）并把响应体读成 UTF-8 文本。
+/// 发一个 POST（JSON 请求体，**不带** `Authorization`）并把响应体读成 UTF-8 文本。
 ///
-/// 换 token / 刷新 token 用的是 `application/x-www-form-urlencoded`（契约 §1.2）。
-async fn post_form_text(
+/// 换 token / 刷新 token 走这条路：鉴权靠请求体里的 `code` / `refresh_token`，
+/// **不带** `Authorization`、不带 cookie。
+///
+/// `x-requested-with: XMLHttpRequest` 是 bundle 原文带的，照抄。
+async fn post_json_text_unauthenticated(
     client: &reqwest::Client,
     url: &str,
-    form: &str,
+    body: &str,
 ) -> Result<String, RemoteError> {
     let response = client
         .post(url)
-        .header(
-            reqwest::header::CONTENT_TYPE,
-            "application/x-www-form-urlencoded",
-        )
-        .body(form.to_string())
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .header("x-requested-with", "XMLHttpRequest")
+        .body(body.to_string())
         .send()
         .await
         .map_err(|error| transport_error("访问阿里云盘失败", &error))?;
@@ -399,9 +393,11 @@ async fn post_form_text(
         .map_err(|_| RemoteError::encoding("阿里云盘返回的内容编码无法解析。"))?;
 
     if !status.is_success() {
+        // 只记状态码与错误码，**不记响应原文** —— 原文由服务端控制，
+        // 里面可能夹着不该进日志的东西。
         let failure = super::aliyun_api::aliyun_parse_failure(&text);
         log::warn!(
-            "Aliyun token failure status={} code={:?}",
+            "Aliyun token failure url={url} status={} code={:?}",
             status.as_u16(),
             failure.code
         );
@@ -411,27 +407,38 @@ async fn post_form_text(
     Ok(text)
 }
 
-/// 下载一个直链指向的内容，最多接受 `max_bytes` 字节。
+/// 下载直链回源时**必带**的请求头。
 ///
-/// **刻意不带 `Authorization`、不带 cookie** —— 直链自身即授权（契约 §1.5）。
+/// 坐实（`.superpowers/sdd/b28-api-probe.md`）：
+/// - 只带 `Authorization` ⇒ HTTP 400 `AuthorizationArgumentError`；
+/// - 带上 `Referer: https://www.alipan.com/` ⇒ 200；
+/// - 再加 `Range: bytes=0-1023` ⇒ 206（精确 1024 字节）。
 ///
-/// **边下边判**：超过上限立刻停，而不是先把它整份收进内存再发现超了。
-async fn download_file(
-    client: &reqwest::Client,
-    url: &str,
-    max_bytes: u64,
-) -> Result<Vec<u8>, RemoteError> {
-    let response = client
-        .get(url)
-        .send()
-        .await
-        .map_err(|error| transport_error("下载阿里云盘文件失败", &error))?;
+/// ⇒ **不再逐个候选头组合试探**：批次 28 坐实了 `Referer` 才是关键那个头，
+/// 加 `Authorization` **替代不了**它。
+///
+/// 返回 `Vec<(String, String)>` 而不是 reqwest 的类型 ⇒ 这层保持纯函数、可单测。
+pub fn aliyun_download_header_pairs(session: &AliyunAuthSession) -> Vec<(String, String)> {
+    let mut headers: Vec<(String, String)> = Vec::new();
 
-    let status = response.status();
-    if !status.is_success() {
-        return Err(aliyun_map_failure(status.as_u16(), ""));
+    headers.push((
+        "Referer".to_string(),
+        super::aliyun_api::ALIYUN_DOWNLOAD_REFERER.to_string(),
+    ));
+    headers.push(("User-Agent".to_string(), ALIYUN_USER_AGENT.to_string()));
+
+    if let Some(authorization) = session.authorization_header_value() {
+        headers.push(("Authorization".to_string(), authorization));
     }
 
+    headers
+}
+
+/// 把响应体收进内存，边收边判上限。
+async fn collect_body(
+    response: reqwest::Response,
+    max_bytes: u64,
+) -> Result<Vec<u8>, RemoteError> {
     let mut collected: Vec<u8> = Vec::new();
     let mut stream = response.bytes_stream();
 
@@ -451,6 +458,44 @@ async fn download_file(
     Ok(collected)
 }
 
+/// 下载一个直链指向的内容，最多接受 `max_bytes` 字节。
+///
+/// **必带 `Referer`**（见 [`aliyun_download_header_pairs`]）：少了它服务端回
+/// 400 `AuthorizationArgumentError`。被拒 ⇒ 明确报错，带上状态码
+/// （**不含**响应原文）。
+async fn download_file(
+    client: &reqwest::Client,
+    session: &AliyunAuthSession,
+    url: &str,
+    max_bytes: u64,
+) -> Result<Vec<u8>, RemoteError> {
+    let mut request = client.get(url);
+    for (name, value) in aliyun_download_header_pairs(session) {
+        request = request.header(name, value);
+    }
+
+    let response = request
+        .send()
+        .await
+        .map_err(|error| transport_error("下载阿里云盘文件失败", &error))?;
+
+    let status = response.status();
+    if status.is_success() {
+        return collect_body(response, max_bytes).await;
+    }
+
+    log::warn!("Aliyun download rejected status={}", status.as_u16());
+
+    match status.as_u16() {
+        401 | 403 => Err(RemoteError::auth(
+            "阿里云盘拒绝了这次下载，请重新授权后再试。",
+        )),
+        status => Err(RemoteError::protocol(format!(
+            "阿里云盘的下载直链被拒绝了（HTTP {status}），请重新授权后再试。"
+        ))),
+    }
+}
+
 /// 走真实 HTTP 的实现。
 pub struct HttpAliyunApi {
     client: reqwest::Client,
@@ -466,27 +511,19 @@ impl HttpAliyunApi {
         })
     }
 
-    /// 用授权码换一份 token。
+    /// 用授权码换一份 token（**web 分支**：JSON 体，免密钥）。
     ///
-    /// `client_secret` 为 `None` ⇒ PKCE 公开客户端模式。
-    /// `code_verifier` 为 `None` ⇒ 不走 PKCE。
+    /// 请求体只有 `{client_id, code}` —— bundle 原文如此，**没有** `client_secret`。
     pub async fn exchange_code(
         &self,
         client_id: &str,
-        client_secret: Option<&str>,
-        redirect_uri: &str,
         code: &str,
-        code_verifier: Option<&str>,
     ) -> Result<AliyunTokenPayload, RemoteError> {
-        let form = aliyun_authorization_code_form(
-            client_id,
-            client_secret,
-            redirect_uri,
-            code,
-            code_verifier,
-        );
-        let body = post_form_text(&self.client, ALIYUN_ACCESS_TOKEN_URL, &form).await?;
-        aliyun_parse_token_payload(&body)
+        let body = aliyun_authorization_code_body(client_id, code);
+        let text =
+            post_json_text_unauthenticated(&self.client, aliyun_access_token_url(), &body.to_string())
+                .await?;
+        aliyun_parse_token_payload(&text)
     }
 }
 
@@ -506,11 +543,15 @@ impl AliyunApi for HttpAliyunApi {
             marker,
             ALIYUN_LIST_ORDER_BY,
             ALIYUN_LIST_ORDER_DIRECTION,
-            ALIYUN_LIST_STATUS,
         );
 
-        let text =
-            post_json_text(&self.client, ALIYUN_LIST_URL, &body.to_string(), session).await?;
+        let text = post_json_text(
+            &self.client,
+            &aliyun_list_url(),
+            &body.to_string(),
+            session,
+        )
+        .await?;
 
         aliyun_parse_list_payload(&text)
     }
@@ -521,8 +562,14 @@ impl AliyunApi for HttpAliyunApi {
         drive_id: &str,
         file_id: &str,
     ) -> Result<AliyunFileEntry, RemoteError> {
-        let body = aliyun_get_request_body(drive_id, file_id);
-        let text = post_json_text(&self.client, ALIYUN_GET_URL, &body.to_string(), session).await?;
+        let body = super::aliyun_api::aliyun_get_request_body(drive_id, file_id);
+        let text = post_json_text(
+            &self.client,
+            aliyun_get_url(),
+            &body.to_string(),
+            session,
+        )
+        .await?;
 
         aliyun_parse_entry_body(&text)
     }
@@ -536,7 +583,7 @@ impl AliyunApi for HttpAliyunApi {
         let body = super::aliyun_api::aliyun_download_url_request_body(drive_id, file_id);
         let text = post_json_text(
             &self.client,
-            ALIYUN_DOWNLOAD_URL_API,
+            aliyun_download_url_api(),
             &body.to_string(),
             session,
         )
@@ -547,16 +594,11 @@ impl AliyunApi for HttpAliyunApi {
 
     async fn download(
         &self,
-        _session: &AliyunAuthSession,
+        session: &AliyunAuthSession,
         url: &str,
         max_bytes: u64,
     ) -> Result<Vec<u8>, RemoteError> {
-        download_file(&self.download_client, url, max_bytes).await
-    }
-
-    async fn user_info(&self, session: &AliyunAuthSession) -> Result<AliyunUserInfo, RemoteError> {
-        let text = post_json_text(&self.client, ALIYUN_USER_INFO_URL, "{}", session).await?;
-        Ok(aliyun_parse_user_info(&text))
+        download_file(&self.download_client, session, url, max_bytes).await
     }
 
     async fn refresh_session(
@@ -574,33 +616,24 @@ impl AliyunApi for HttpAliyunApi {
             ));
         };
 
-        let redirect_uri = session
-            .redirect_uri
-            .as_deref()
-            .map(str::trim)
-            .filter(|uri| !uri.is_empty())
-            .map(str::to_string)
-            .unwrap_or_else(|| ALIYUN_DEFAULT_REDIRECT_URI.to_string());
-
-        let form = aliyun_refresh_token_form(
-            &session.client_id,
-            session.client_secret.as_deref(),
-            &redirect_uri,
-            refresh_token,
-        );
-
-        let body = post_form_text(&self.client, ALIYUN_ACCESS_TOKEN_URL, &form).await?;
-        let payload = aliyun_parse_token_payload(&body)?;
+        let body = aliyun_refresh_token_body(&session.client_id, refresh_token);
+        let text = post_json_text_unauthenticated(
+            &self.client,
+            aliyun_refresh_token_url(),
+            &body.to_string(),
+        )
+        .await?;
+        let payload = aliyun_parse_token_payload(&text)?;
 
         Ok(aliyun_session_from_token_payload(
             &payload,
             &session.client_id,
-            session.client_secret.clone(),
-            Some(redirect_uri),
+            session.redirect_uri.clone(),
             session.scope.clone(),
             aliyun_now_unix(),
             session.drive_id.clone(),
             session.refresh_token.clone(),
+            session.nick_name.clone(),
         ))
     }
 }
@@ -611,18 +644,18 @@ impl AliyunApi for HttpAliyunApi {
 ///   （契约 §1.2），本函数不写死任何有效期。
 /// - 响应里没带 `refresh_token` ⇒ **沿用旧的那一份**（有些模式不返回新的）。
 ///   服务端说它已经失效时，下一次续期会明确失败 ⇒ 用户重新授权，不会静默错。
-/// - 响应里没带 `drive_id` ⇒ 沿用旧的那一份；两处都没有才会在
-///   `resolve_drive_id` 里报「未能取到 drive_id，请重新授权」。
+/// - 响应里没带 `drive_id` ⇒ 沿用旧的那一份。
+/// - **web 分支没有客户端密钥** ⇒ 这份会话里**没有** `client_secret`。
 #[allow(clippy::too_many_arguments)]
 pub fn aliyun_session_from_token_payload(
     payload: &AliyunTokenPayload,
     client_id: &str,
-    client_secret: Option<String>,
     redirect_uri: Option<String>,
     scope: Option<String>,
     now_unix: i64,
     fallback_drive_id: Option<String>,
     fallback_refresh_token: Option<String>,
+    fallback_nick_name: Option<String>,
 ) -> AliyunAuthSession {
     AliyunAuthSession {
         access_token: payload.access_token.clone(),
@@ -633,7 +666,6 @@ pub fn aliyun_session_from_token_payload(
             .map(|seconds| now_unix + seconds),
         drive_id: payload.drive_id.clone().or(fallback_drive_id),
         client_id: client_id.to_string(),
-        client_secret,
         redirect_uri,
         scope,
         token_type: payload
@@ -642,6 +674,8 @@ pub fn aliyun_session_from_token_payload(
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
             .unwrap_or_else(|| "Bearer".to_string()),
+        nick_name: payload.nick_name.clone().or(fallback_nick_name),
+        device_id: None,
     }
 }
 
@@ -901,38 +935,17 @@ impl AliyunRemoteProvider {
         }
     }
 
-    /// 取当前登录账号的空间 id。
+    /// 取当前登录账号应当使用的 `drive_id`。
     ///
-    /// 顺序（契约 §1.4）：token 响应里的 `drive_id` → 没有则
-    /// `POST /oauth/users/info` → 仍没有 ⇒ 报「未能取到 drive_id，请重新授权」。
-    async fn resolve_drive_id(
-        &self,
-        session: &mut AliyunAuthSession,
-    ) -> Result<String, RemoteError> {
-        if let Some(drive_id) = session
-            .drive_id
-            .as_deref()
-            .map(str::trim)
-            .filter(|drive_id| !drive_id.is_empty())
-        {
-            return Ok(drive_id.to_string());
-        }
-
-        let info = self.api.user_info(session).await?;
-
-        let Some(drive_id) = info
-            .drive_id
-            .as_deref()
-            .map(str::trim)
-            .filter(|drive_id| !drive_id.is_empty())
-            .map(str::to_string)
-        else {
-            return Err(RemoteError::auth("未能取到 drive_id，请重新授权。"));
-        };
-
-        session.drive_id = Some(drive_id.clone());
-
-        Ok(drive_id)
+    /// 顺序：环境变量 `ALIYUN_DRIVE_ID` → 会话里的 `drive_id`
+    /// （登录时从 `/v2/user/get` 的 `default_drive_id` 取到并存进会话）。
+    ///
+    /// **取不到就明确报错** —— 批次 28 推翻了批次 27 的「默认主盘常量」：
+    /// `954264082` 是 resource 盘、`25998870` 是保险箱（403），
+    /// 拿它们顶上只会列出错的目录。
+    fn resolve_drive_id(&self, session: &AliyunAuthSession) -> Result<String, RemoteError> {
+        aliyun_resolve_drive_id(session.drive_id.as_deref())
+            .ok_or_else(|| RemoteError::auth("阿里云盘的主盘信息还没拿到，请重新扫码登录一次。"))
     }
 
     /// 把一条**远端路径**解析成阿里云盘的目录 `file_id`。
@@ -1044,10 +1057,11 @@ impl AliyunRemoteProvider {
     }
 
     /// 取当前登录账号的昵称（只用于展示「已授权：<昵称>」）。
+    ///
+    /// **不联网** —— 昵称在换 token 时就拿到了，存在会话里。
     pub async fn account_nickname(&self, connection_id: &str) -> Result<String, RemoteError> {
         let (_, session, _) = self.prepare(connection_id, "/").await?;
-        let info = self.api.user_info(&session).await?;
-        Ok(info.nick_name.unwrap_or_default())
+        Ok(session.nick_name.unwrap_or_default())
     }
 
     /// 所有「改内容」的操作的统一出口：一律明确报「不支持」。
@@ -1076,7 +1090,7 @@ impl RemoteProvider for AliyunRemoteProvider {
         let (key, mut session, normalized) = self.prepare(connection_id, remote_path).await?;
 
         let work = async {
-            let drive_id = self.resolve_drive_id(&mut session).await?;
+            let drive_id = self.resolve_drive_id(&session)?;
             let parent_file_id = self
                 .resolve_dir_file_id(&key, &mut session, &drive_id, &normalized)
                 .await?;
@@ -1103,7 +1117,7 @@ impl RemoteProvider for AliyunRemoteProvider {
         let (parent, name) = split_remote_parent_and_name(&normalized)?;
 
         let work = async {
-            let drive_id = self.resolve_drive_id(&mut session).await?;
+            let drive_id = self.resolve_drive_id(&session)?;
             let parent_file_id = self
                 .resolve_dir_file_id(&key, &mut session, &drive_id, &parent)
                 .await?;
@@ -1294,7 +1308,7 @@ mod tests {
         refresh_calls: AtomicUsize,
         links: Mutex<HashMap<String, String>>,
         downloads: Mutex<HashMap<String, Vec<u8>>>,
-        user_info: Mutex<AliyunUserInfo>,
+        list_drive_ids: Mutex<Vec<String>>,
         /// 记住被请求过的 (父目录, 游标)，便于断言「按游标续拉了」。
         list_calls: Mutex<Vec<(String, Option<String>)>>,
     }
@@ -1326,6 +1340,11 @@ mod tests {
         fn list_calls(&self) -> Vec<(String, Option<String>)> {
             self.list_calls.lock().expect("list calls lock").clone()
         }
+
+        /// 列目录时用过的 `drive_id`（按顺序）。用来断言「主盘取自登录时存下的值」。
+        fn list_drive_ids(&self) -> Vec<String> {
+            self.list_drive_ids.lock().expect("list drive ids lock").clone()
+        }
     }
 
     #[async_trait]
@@ -1341,6 +1360,10 @@ mod tests {
                 .lock()
                 .expect("list calls lock")
                 .push((parent_file_id.to_string(), marker.map(str::to_string)));
+            self.list_drive_ids
+                .lock()
+                .expect("list drive ids lock")
+                .push(drive_id.to_string());
 
             if let Some(error) = self.list_error.lock().expect("list error lock").clone() {
                 return Err(error);
@@ -1354,10 +1377,9 @@ mod tests {
 
             let pages = self.pages.lock().expect("pages lock");
             for (page_parent, page_marker, entries, next_marker) in pages.iter() {
-                if page_parent == parent_file_id
-                    && page_marker.as_deref() == marker
-                    && drive_id == "drive-1"
-                {
+                // **不**按 `drive_id` 过滤：批次 28 起 `drive_id` 有多个合法来源
+                // （环境变量 / 会话），具体传了哪个由 `list_drive_ids()` 断言。
+                if page_parent == parent_file_id && page_marker.as_deref() == marker {
                     return Ok(AliyunListPayload {
                         items: entries.clone(),
                         next_marker: next_marker.clone(),
@@ -1415,12 +1437,6 @@ mod tests {
             Ok(bytes)
         }
 
-        async fn user_info(
-            &self,
-            _session: &AliyunAuthSession,
-        ) -> Result<AliyunUserInfo, RemoteError> {
-            Ok(self.user_info.lock().expect("user info lock").clone())
-        }
 
         async fn refresh_session(
             &self,
@@ -1494,10 +1510,11 @@ mod tests {
             refresh_expires_at_unix: Some(aliyun_now_unix() + 86_400),
             drive_id: Some("drive-1".to_string()),
             client_id: "client-abc".to_string(),
-            client_secret: Some("secret-xyz".to_string()),
-            redirect_uri: Some(ALIYUN_DEFAULT_REDIRECT_URI.to_string()),
+            redirect_uri: Some(crate::remote::ALIYUN_DEFAULT_REDIRECT_URI.to_string()),
             scope: Some("user:base file:all:read".to_string()),
             token_type: "Bearer".to_string(),
+            nick_name: Some("测试用户".to_string()),
+            device_id: None,
         }
     }
 
@@ -1974,15 +1991,12 @@ mod tests {
     // ------------------------------------------------------------------
 
     #[tokio::test]
-    async fn a_missing_drive_id_is_fetched_from_the_user_info_endpoint() {
+    async fn the_drive_id_saved_at_login_time_is_the_one_used_for_listing() {
+        // 登录时从 `/v2/user/get` 取到的主盘 id 存进了会话 ⇒ 列目录就用它。
         let fixture = fixture("drive-id");
         let mut session = session_with(FRESH_TOKEN, Some("refresh-token"));
-        session.drive_id = None;
+        session.drive_id = Some("drive-from-login".to_string());
         fixture.sessions.insert(CREDENTIAL_KEY, session);
-        *fixture.api.user_info.lock().expect("user info lock") = AliyunUserInfo {
-            drive_id: Some("drive-1".to_string()),
-            nick_name: Some("测试用户".to_string()),
-        };
         fixture.api.set_page(
             ALIYUN_ROOT_FILE_ID,
             None,
@@ -1994,6 +2008,10 @@ mod tests {
         let entries = provider.read_dir(CONNECTION_ID, "/").await.expect("列目录");
 
         assert_eq!(entries.len(), 1);
+        assert_eq!(
+            fixture.api.list_drive_ids(),
+            vec!["drive-from-login".to_string()]
+        );
     }
 
     #[tokio::test]
@@ -2010,5 +2028,91 @@ mod tests {
             .expect_err("必须失败");
 
         assert_eq!(error.kind, RemoteErrorKind::Auth);
+    }
+
+    // ------------------------------------------------------------------
+    // 传输层：gzip 协商
+    // ------------------------------------------------------------------
+
+    /// 阿里云盘服务端只理「声明了 gzip」的请求。
+    ///
+    /// 实测（2026-11-20，证据 `.superpowers/sdd/b29-diag-05.txt`）：同一个
+    /// curl，只差一个头 ——
+    ///
+    /// - 不带 `Accept-Encoding` ⇒ 服务端（istio-envoy）只回响应头、承诺
+    ///   `Content-Length`，然后把响应体挂住 20 秒再掐断连接
+    ///   （curl exit 18 / 0 字节；reqwest 报 `error decoding response body`）；
+    /// - 带 `Accept-Encoding: gzip` ⇒ 0.19 秒 / 2580 字节，正常返回。
+    ///
+    /// reqwest 的 `gzip` 是**编译期** feature（`Cargo.toml` 里
+    /// `features = ["rustls", "stream", "gzip"]`）：不开它，请求就不会带
+    /// `Accept-Encoding` 头 ⇒ 正好命中上面那个 20 秒挂起。
+    ///
+    /// 这条测试起一个**只会说 gzip** 的本地服务，把「客户端必须能协商并
+    /// 解压 gzip」这条契约钉死：feature 关掉时拿到的是原始压缩字节，
+    /// 断言立刻变红。
+    #[tokio::test]
+    async fn the_http_client_negotiates_gzip_with_aliyun() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind");
+        let addr = listener.local_addr().expect("addr");
+
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.expect("accept");
+
+            // 读到请求头结束。
+            let mut head = Vec::new();
+            let mut chunk = [0u8; 1024];
+            while !head.windows(4).any(|window| window == b"\r\n\r\n") {
+                let read = tokio::io::AsyncReadExt::read(&mut socket, &mut chunk)
+                    .await
+                    .expect("read request");
+                if read == 0 {
+                    break;
+                }
+                head.extend_from_slice(&chunk[..read]);
+            }
+
+            // 只说 gzip。
+            let mut encoder =
+                flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+            std::io::Write::write_all(&mut encoder, b"{\"items\":[]}")
+                .expect("gzip payload");
+            let compressed = encoder.finish().expect("finish gzip");
+
+            let mut response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Encoding: gzip\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                compressed.len()
+            )
+            .into_bytes();
+            response.extend_from_slice(&compressed);
+            tokio::io::AsyncWriteExt::write_all(&mut socket, &response)
+                .await
+                .expect("write response");
+            tokio::io::AsyncWriteExt::flush(&mut socket).await.ok();
+
+            String::from_utf8_lossy(&head).to_string()
+        });
+
+        let client = build_client().expect("建 HTTP 客户端");
+        let response = client
+            .post(format!("http://{addr}/adrive/v3/file/list"))
+            .body("{}")
+            .send()
+            .await
+            .expect("请求必须成功");
+        let bytes = response.bytes().await.expect("读响应体");
+        let request_head = server.await.expect("服务端任务");
+
+        assert!(
+            request_head.to_ascii_lowercase().contains("accept-encoding"),
+            "请求必须声明 Accept-Encoding，否则阿里云盘服务端会挂住响应体：\n{request_head}"
+        );
+        assert_eq!(
+            String::from_utf8(bytes.to_vec()).expect("响应体必须是 UTF-8 明文"),
+            "{\"items\":[]}",
+            "gzip 响应体必须被自动解压，否则拿到的是原始压缩字节"
+        );
     }
 }

@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "aliyun-login",
+  "description": "Allows the embedded Aliyun Drive login webview (remote origin https://passport.alipan.com) to report the observed QR login state back to the application.",
+  "windows": [
+    "afm-aliyun-login"
+  ],
+  "local": false,
+  "remote": {
+    "urls": [
+      "https://passport.alipan.com/*"
+    ]
+  },
+  "permissions": [
+    "allow-remote-aliyun-login-observed"
+  ]
+}

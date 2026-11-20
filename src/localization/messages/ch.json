@@ -789,26 +789,28 @@
           "deleteSession": "删除已保存的会话"
         },
         "embedded": {
-          "title": "在应用内登录",
-          "start": "用内嵌窗口登录",
+          "title": "扫码登录",
+          "start": "显示二维码",
+          "refresh": "刷新二维码",
           "cancel": "停止等待",
-          "hint": "在应用内打开登录窗口。登录成功后窗口会自动关闭，会话随即取到——你只需保存这条连接。",
+          "hint": "这里会显示登录二维码，用手机上的阿里云盘 App 扫一下即可；会话会自动取到，你只需保存这条连接。扫不了码的话，可以在下面粘贴 access token。",
           "status": {
-            "waiting": "正等你完成登录…",
+            "waiting": "正等你扫码…",
+            "scanned": "手机已扫到二维码——请在手机上点「确认登录」，确认后这里会自动变成「已登录」。",
             "ready": "已登录。保存这条连接即可——会话会在保存时写入。",
-            "closed": "登录还没完成，登录窗口就被关掉了。",
-            "timeout": "登录等待超时了，请重试。",
+            "closed": "扫码在完成前被取消了。",
+            "timeout": "二维码已过期，请重新生成。",
             "error": "读不到登录态，请重试。"
           },
-          "saved": "阿里云盘登录成功：窗口已自动关闭，会话已取到，保存这条连接即可使用。"
+          "saved": "阿里云盘登录成功。保存这条连接即可使用。",
+          "windowStart": "打开登录窗口",
+          "windowCancel": "关闭窗口",
+          "windowHint": "窗口里由阿里云盘官方页面出码并确认，凭据直接交给程序，不经过本表单。",
+          "qrFallback": "备用：手动二维码登录"
         },
         "field": {
-          "clientId": "客户端 ID",
-          "clientSecret": "客户端密钥",
-          "redirectUri": "回调地址",
-          "clientSecretHint": "选填。留空表示使用 PKCE 公开客户端模式，此时登录凭证无法自动续期。",
-          "redirectUriHint": "必须与阿里云盘开放平台控制台登记的回调地址完全一致，默认是 http://127.0.0.1:47832/callback。",
-          "modeHint": "填写客户端密钥后会话可自动续期；PKCE 模式下登录有效期 30 天，且无法自动续期。"
+          "pasteToken": "access token（访问令牌）",
+          "pasteTokenHint": "粘贴你已有的 access token。保存前会先向阿里云盘校验，token 明文不会离开本机。"
         }
       },
       "netdisk": {

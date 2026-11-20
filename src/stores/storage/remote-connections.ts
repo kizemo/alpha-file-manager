@@ -20,6 +20,8 @@ import type {
   AliyunLoginClaimPayload,
   AliyunLoginPendingPayload,
   AliyunLoginStartPayload,
+  AliyunQrPollPayload,
+  AliyunQrStartPayload,
   BaiduAuthStatusPayload,
   BaiduLoginClaimPayload,
   QuarkAuthStatusPayload,
@@ -81,7 +83,7 @@ const QUARK_PAN_PORT = 443;
  * 与百度 / 夸克同构：用户填什么 host 都会被后端忽略，但连接表里那个字段必填，
  * 所以前端统一写死 —— 开放平台只提供 `openapi.alipan.com` 这一个 HTTPS 端点。
  */
-const ALIYUN_PAN_HOST = 'openapi.alipan.com';
+const ALIYUN_PAN_HOST = 'api.aliyundrive.com';
 const ALIYUN_PAN_PORT = 443;
 
 /**
@@ -495,10 +497,11 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
       }
     }
     else if (isAliyunPanProtocol(form.protocol)) {
-      // 阿里云盘**没有**「手工粘贴凭据」这条路 ——
-      // 后端没有 `remote_aliyun_save_session` 这个命令。
-      // 凭据是 OAuth 换来的会话：登录时暂存在后端的「待认领槽位」里，
+      // 阿里云盘的凭据是一整段会话（access_token），不是口令：
+      // 扫码或「粘贴 access_token」都把会话先暂存在后端的「待认领槽位」里，
       // 保存时（那时才有连接 id）认领并写进 DPAPI 密文。
+      // 「粘贴 access_token」兜底走 `remote_aliyun_save_session`，
+      // 它在后端探活通过后也写进同一个槽位 ⇒ 这里只管认领。
       if (form.clearPassword) {
         // 勾了「移除已保存的密码」= 退出登录。删掉会话，连接还在。
         await invoke('remote_aliyun_delete_session', {
@@ -804,26 +807,36 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
   }
 
   /**
-   * 打开**内嵌**阿里云盘授权窗口。
+   * 取一张阿里云盘登录二维码。
    *
-   * 授权页跑在应用自己的 WebView2 里（Rust 侧 `src-tauri/src/aliyun_login.rs`）：
-   * OAuth 的授权码是一次性的，只能在**能接住回调**的窗口里拿到，
-   * 走系统浏览器会把授权码带不回来。
-   *
-   * 三个参数是**登录期参数**，不落进连接表（`RemoteConnection` 的形状被双边测试锁死）：
-   * - `clientId`：开放平台应用 ID，必填；
-   * - `clientSecret`：留空 = PKCE 公开客户端模式；
-   * - `redirectUri`：留空 = 用后端默认值。
+   * 扫码登录（批次 29）：后端只给二维码内容与轮询票据，**不碰任何凭据**。
+   * 二维码内容由前端用 `qrcode` 库渲染成图片。
    */
-  async function startAliyunLogin(
-    clientId: string,
-    clientSecret: string,
-    redirectUri: string,
-  ): Promise<AliyunLoginStartPayload> {
-    return invoke<AliyunLoginStartPayload>('remote_aliyun_login_start', {
-      clientId,
-      clientSecret,
-      redirectUri,
+  async function startAliyunQr(): Promise<AliyunQrStartPayload> {
+    return invoke<AliyunQrStartPayload>('remote_aliyun_qr_start');
+  }
+
+  /** 轮询扫码状态。终态由后端用 `finalStatus` 标出，前端据此停表。 */
+  async function pollAliyunQr(ck: string, t: number | null): Promise<AliyunQrPollPayload> {
+    return invoke<AliyunQrPollPayload>('remote_aliyun_qr_poll', {
+      ck,
+      t,
+    });
+  }
+
+  /**
+   * 「粘贴 access_token」兜底。
+   *
+   * `connectionId` 为空串时（新连接还没有 id）后端把会话存进待认领槽位，
+   * 保存这条连接时再认领落盘。
+   */
+  async function saveAliyunSession(
+    connectionId: string,
+    accessToken: string,
+  ): Promise<AliyunAuthStatusPayload> {
+    return invoke<AliyunAuthStatusPayload>('remote_aliyun_save_session', {
+      connectionId,
+      accessToken,
     });
   }
 
@@ -835,6 +848,23 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
   /** 有没有待认领的阿里云盘登录态（前端打开表单时用来兜底）。 */
   async function getAliyunLoginPending(): Promise<AliyunLoginPendingPayload> {
     return invoke<AliyunLoginPendingPayload>('remote_aliyun_login_pending');
+  }
+
+  /**
+   * 打开阿里云盘官方登录页（批次 29，与百度网盘 / 夸克同构的内嵌浏览器登录）。
+   *
+   * 页面自己驱动 generate.do / query.do；注入进去的钩子把 query.do 响应里的
+   * bizExt 直接交回 Rust，凭据落进**待认领槽位**，保存这条连接时由
+   * remote_aliyun_login_claim 认领 —— 前端全程不经手 token。
+   * 事件 payload 只有脱敏摘要。
+   */
+  async function openAliyunLogin(): Promise<AliyunLoginStartPayload> {
+    return invoke<AliyunLoginStartPayload>('remote_aliyun_login_start');
+  }
+
+  /** 主动关掉内嵌登录窗：放弃本轮流程，但不动已落到待认领槽位的会话。 */
+  async function closeAliyunLogin(): Promise<void> {
+    await invoke('remote_aliyun_login_close');
   }
 
   return {
@@ -865,9 +895,13 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     getQuarkLoginPending,
     getAliyunAuthStatus,
     deleteAliyunSession,
-    startAliyunLogin,
+    startAliyunQr,
+    pollAliyunQr,
+    saveAliyunSession,
     cancelAliyunLogin,
     getAliyunLoginPending,
+    openAliyunLogin,
+    closeAliyunLogin,
     requestRemoteEdit,
     consumeRemoteEdit,
     requestRemoteCreate,

@@ -798,17 +798,19 @@
             "ready": "Sessão iniciada. Guarda esta ligação — a sessão será escrita ao guardar.",
             "closed": "A janela de início de sessão foi fechada antes de terminares.",
             "timeout": "O tempo de espera da início de sessão esgotou. Tenta novamente.",
-            "error": "Não foi possível ler o estado da sessão. Tenta novamente."
+            "error": "Não foi possível ler o estado da sessão. Tenta novamente.",
+            "scanned": "Lido, confirme no telemóvel"
           },
-          "saved": "Sessão iniciada no Aliyun Drive: a janela fechou-se automaticamente e a sessão foi recolhida. Guarda esta ligação para a usar."
+          "saved": "Sessão iniciada no Aliyun Drive: a janela fechou-se automaticamente e a sessão foi recolhida. Guarda esta ligação para a usar.",
+          "refresh": "Atualizar código QR",
+          "windowStart": "Abrir janela de login",
+          "windowCancel": "Fechar janela",
+          "windowHint": "A página oficial do Aliyun Drive mostra o QR code e confirma dentro da janela; as credenciais vão direto para o app.",
+          "qrFallback": "Alternativa: login manual por QR code"
         },
         "field": {
-          "clientId": "ID do cliente",
-          "clientSecret": "Segredo do cliente",
-          "redirectUri": "URI de redirecionamento",
-          "clientSecretHint": "Opcional. Deixe em branco para usar o modo de cliente público PKCE, em que a sessão não pode ser renovada automaticamente.",
-          "redirectUriHint": "Tem de corresponder ao URI de redirecionamento registado na consola da plataforma aberta do Aliyun Drive. O predefinido é http://127.0.0.1:47832/callback.",
-          "modeHint": "Com o segredo do cliente a sessão é renovada automaticamente. No modo PKCE a sessão é válida durante 30 dias e não pode ser renovada."
+          "pasteToken": "Token de acesso",
+          "pasteTokenHint": "Cole um token que você já tenha. Ele é verificado no Aliyun Drive antes de ser salvo, e o token nunca sai deste computador em texto claro."
         }
       },
       "netdisk": {

@@ -13,7 +13,7 @@
 //     `missing | ready | stale | stale_soon`。「正在读取」是前端的本地状态，
 //     不是后端的返回值；把它塞进后端分类里，后端就会多出一个前端永远等不到的分支。
 //
-// 另加一条：**主机与端口是固定值**（`openapi.alipan.com:443`），
+// 另加一条：**主机与端口是固定值**（`api.aliyundrive.com:443`），
 // 用户填什么都不参与请求。
 
 import { describe, expect, it } from 'vitest';
@@ -47,27 +47,6 @@ function extractUnionMembers(source: string, typeName: string): string[] {
   }
 
   return [...match[1].matchAll(/'([a-z_]+)'/g)].map(entry => entry[1]);
-}
-
-/** 从接口里抽出某个字段的字符串字面量联合。 */
-function extractFieldUnionMembers(
-  source: string,
-  interfaceName: string,
-  fieldName: string,
-): string[] {
-  const block = new RegExp(`export interface ${interfaceName}\\s*\\{([\\s\\S]*?)\\n\\}`).exec(source);
-
-  if (!block) {
-    return [];
-  }
-
-  const field = new RegExp(`${fieldName}:\\s*((?:'[^']+'\\s*\\|\\s*)*'[^']+');`).exec(block[1]);
-
-  if (!field) {
-    return [];
-  }
-
-  return [...field[1].matchAll(/'([a-z_]+)'/g)].map(entry => entry[1]);
 }
 
 const typesSource = readFileSync(TYPES_TS, 'utf8');
@@ -129,12 +108,18 @@ describe('阿里云盘协议的前端镜像', () => {
     ]);
   });
 
-  it('登录进度事件只有四种状态', () => {
-    expect(extractFieldUnionMembers(typesSource, 'AliyunLoginEventPayload', 'status')).toEqual([
-      'ready',
-      'closed',
-      'timeout',
+  it('扫码状态有六种，后端多吐一种前端就会多等一个永远不会来的分支', () => {
+    expect(extractUnionMembers(typesSource, 'AliyunQrStatusKind')).toEqual([
+      'new',
+      'scanned',
+      'confirmed',
+      'expired',
+      'canceled',
       'error',
     ]);
+  });
+
+  it('扫码登录不再有事件频道 —— 进度由前端轮询拿', () => {
+    expect(typesSource).not.toContain('AliyunLoginEventPayload');
   });
 });

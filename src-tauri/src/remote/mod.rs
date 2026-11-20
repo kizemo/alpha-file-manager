@@ -18,6 +18,7 @@
 // ---------------------------------------------------------------------------
 
 mod aliyun_api;
+mod aliyun_qr;
 mod aliyun_auth;
 mod aliyun_provider;
 mod baidu_api;
@@ -48,24 +49,39 @@ mod transport;
 // `next_marker` / `to_remote_entries` / `to_remote_entry` / `clamp_limit` …）
 // 一律带 `aliyun_` 前缀，避免 E0252。
 pub use aliyun_api::{
-    aliyun_authorization_code_form, aliyun_authorize_url, aliyun_clamp_limit,
+    aliyun_access_token_url, aliyun_authorization_code_body, aliyun_authorize_url,
+    aliyun_clamp_limit, aliyun_drive_info_request_body, aliyun_download_url_api,
     aliyun_download_url_request_body, aliyun_entry_from_value, aliyun_entry_is_directory,
     aliyun_entry_name, aliyun_extract_code, aliyun_failure_kind, aliyun_fetch_all_list_pages,
-    aliyun_fetch_list_page, aliyun_form_body, aliyun_get_request_body,
+    aliyun_fetch_list_page, aliyun_form_body, aliyun_get_request_body, aliyun_get_url,
     aliyun_iso8601_to_unix_millis, aliyun_list_entry_limit_error, aliyun_list_page_limit_error,
-    aliyun_list_request_body, aliyun_map_failure, aliyun_next_marker, aliyun_parse_download_url,
-    aliyun_parse_failure, aliyun_parse_entry_body, aliyun_parse_list_payload,
-    aliyun_parse_token_payload, aliyun_parse_user_info, aliyun_refresh_token_form,
-    aliyun_state_matches,
-    aliyun_to_remote_entries, aliyun_to_remote_entry, AliyunFailure, AliyunFileEntry,
-    AliyunListPage, AliyunListPayload, AliyunTokenPayload, AliyunUserInfo,
+    aliyun_list_request_body, aliyun_list_url, aliyun_map_failure, aliyun_next_marker,
+    aliyun_parse_download_url, aliyun_parse_entry_body, aliyun_parse_failure,
+    aliyun_parse_list_payload, aliyun_parse_token_payload, aliyun_refresh_token_body,
+    aliyun_refresh_token_url, aliyun_resolve_drive_id, aliyun_state_matches,
+    aliyun_to_remote_entries, aliyun_to_remote_entry, aliyun_user_info_request_body,
+    AliyunFailure, AliyunFileEntry, AliyunListPage, AliyunListPayload, AliyunTokenPayload,
     ALIYUN_ACCESS_TOKEN_URL, ALIYUN_ALREADY_EXIST_ERROR_CODES, ALIYUN_API_BASE_URL,
     ALIYUN_AUTH_ERROR_CODES, ALIYUN_AUTHORIZE_URL, ALIYUN_DEFAULT_REDIRECT_URI,
-    ALIYUN_DEFAULT_SCOPE, ALIYUN_DOWNLOAD_URL_API, ALIYUN_ENTRY_TYPE_FILE,
-    ALIYUN_ENTRY_TYPE_FOLDER, ALIYUN_LIST_LIMIT_DEFAULT, ALIYUN_LIST_LIMIT_MAX,
-    ALIYUN_LIST_LIMIT_MIN, ALIYUN_LIST_ORDER_BY, ALIYUN_LIST_ORDER_DIRECTION,
-    ALIYUN_LIST_STATUS, ALIYUN_LIST_URL, ALIYUN_MAX_LIST_ENTRIES, ALIYUN_MAX_LIST_PAGES,
-    ALIYUN_NOT_FOUND_ERROR_CODES, ALIYUN_PAN_HOST, ALIYUN_ROOT_FILE_ID, ALIYUN_USER_INFO_URL,
+    ALIYUN_DEFAULT_SCOPE, ALIYUN_DOWNLOAD_REFERER, ALIYUN_DOWNLOAD_URL_API,
+    ALIYUN_DRIVE_INFO_URL, ALIYUN_ENTRY_TYPE_FILE, ALIYUN_ENTRY_TYPE_FOLDER, ALIYUN_GET_URL,
+    ALIYUN_LIST_JSONMASK_FIELDS, ALIYUN_LIST_LIMIT_DEFAULT, ALIYUN_LIST_LIMIT_MAX,
+    ALIYUN_LIST_LIMIT_MIN, ALIYUN_LIST_ORDER_BY, ALIYUN_LIST_ORDER_DIRECTION, ALIYUN_LIST_URL,
+    ALIYUN_LIST_URL_EXPIRE_SEC, ALIYUN_MAX_LIST_ENTRIES, ALIYUN_MAX_LIST_PAGES,
+    ALIYUN_NOT_FOUND_ERROR_CODES, ALIYUN_PAN_HOST, ALIYUN_PDS_ACCESS_TOKEN_URL,
+    ALIYUN_PDS_API_BASE_URL, ALIYUN_PDS_AUTHORIZE_URL, ALIYUN_PDS_DOWNLOAD_URL_API,
+    ALIYUN_PDS_GET_URL, ALIYUN_PDS_LIST_URL, ALIYUN_QR_GENERATE_URL, ALIYUN_QR_QUERY_URL,
+    ALIYUN_ROOT_FILE_ID, ALIYUN_USE_PDS_OPEN_API, ALIYUN_USER_INFO_URL, ALIYUN_WEB_CLIENT_ID,
+};
+// 阿里云盘「扫码登录」纯函数层（批次 29）。这一层的类型都带
+// `AliyunQr` / `AliyunUser` / `AliyunDrive` 前缀，与上面区分开。
+pub use aliyun_qr::{
+    aliyun_credentials_expired, aliyun_decode_biz_ext, aliyun_expire_time_to_unix,
+    aliyun_parse_drive_info, aliyun_parse_qr_poll, aliyun_parse_qr_ticket,
+    aliyun_parse_user_profile, aliyun_qr_generate_query, aliyun_qr_query_form,
+    aliyun_qr_query_query, contains_secret, short_sha16, AliyunDriveInfo,
+    AliyunQrClientContext, AliyunQrCredentials, AliyunQrErrorKind, AliyunQrPoll,
+    AliyunQrStatus, AliyunQrTicket, AliyunUserProfile,
 };
 // 阿里云盘会话层。裸名（`encode_session` / `decode_session` / `is_expired` /
 // `remaining_seconds`）已被 `baidu_auth` / `quark_auth` 段占用 ⇒ 一律加 `aliyun_` 前缀。

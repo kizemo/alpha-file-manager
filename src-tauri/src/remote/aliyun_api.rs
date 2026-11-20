@@ -45,39 +45,160 @@ use crate::remote::sftp_provider::is_hidden_remote_name;
 // 端点与常量（契约 §1.1 / §1.3）
 // ===========================================================================
 
-/// 阿里云盘开放平台的基址。
-pub const ALIYUN_API_BASE_URL: &str = "https://openapi.alipan.com";
+// ---------------------------------------------------------------------------
+// 端点分支：web 分支（免密钥，**本轮默认**）与 PDS OpenAPI 分支（要密钥）
+// ---------------------------------------------------------------------------
+//
+// 证据：`.superpowers/sdd/b27-probe.md`（U1–U5 判定）、`b28-bundle-grep.md`
+// （bundle 源码里的 `preferPDSOpenApi` 开关）。
+//
+// - **web 分支**：`api.aliyundrive.com`。网页端自带公开 `client_id`，换 token
+//   **不需要** `client_secret`；请求鉴权只有一条 `Authorization: Bearer <token>`。
+// - **PDS OpenAPI 分支**：`openapi.alipan.com`。要自备应用与 `client_secret`，
+//   端点前缀（`/adrive/v1.0/openFile/…`）与版本都不同。
+//
+// ⇒ 两套常量成组放在一起，靠 [`ALIYUN_USE_PDS_OPEN_API`] 一个开关切换，
+// 结构保留、默认走 web 分支。
 
-/// 网盘连接的 host 恒为这个值（契约 §2.1）。
-pub const ALIYUN_PAN_HOST: &str = "openapi.alipan.com";
+/// 端点分支：`true` = PDS OpenAPI 分支（需要 `client_secret`），
+/// `false` = web 分支（免密钥，**本轮默认**）。
+pub const ALIYUN_USE_PDS_OPEN_API: bool = false;
 
-/// 授权页。
-pub const ALIYUN_AUTHORIZE_URL: &str = "https://openapi.alipan.com/oauth/authorize";
+/// 阿里云盘 **web 分支**的基址（免密钥）。
+pub const ALIYUN_API_BASE_URL: &str = "https://api.aliyundrive.com";
 
-/// 换 token / 刷新 token。`Content-Type: application/x-www-form-urlencoded`。
-pub const ALIYUN_ACCESS_TOKEN_URL: &str = "https://openapi.alipan.com/oauth/access_token";
+/// 网盘连接的 host 恒为这个值。
+pub const ALIYUN_PAN_HOST: &str = "api.aliyundrive.com";
 
-/// 列目录。
-pub const ALIYUN_LIST_URL: &str = "https://openapi.alipan.com/adrive/v1.0/openFile/list";
+/// web 分支的授权页。
+pub const ALIYUN_AUTHORIZE_URL: &str = "https://auth.alipan.com/v2/oauth/authorize";
 
-/// 取条目元数据。
-pub const ALIYUN_GET_URL: &str = "https://openapi.alipan.com/adrive/v1.0/openFile/get";
+/// web 分支换 token：`POST {sv_endpoint}/token/get`。
+///
+/// 请求体是 **JSON**（bundle 原文：`post(sv_endpoint+"/token/get", {client_id, code})`），
+/// 字段只有 `client_id` + `code`，**没有 `client_secret`**。
+pub const ALIYUN_ACCESS_TOKEN_URL: &str = "https://api.aliyundrive.com/token/get";
 
-/// 取下载直链。
+/// web 分支刷新 token。
+///
+/// ⚠️ **未坐实**：web 分支的刷新端点没有实测过（批次 27 未关闭项 5）。
+/// 刷新失败时明确报「请重新授权」，不影响只读主流程。
+pub const ALIYUN_REFRESH_TOKEN_URL: &str = "https://api.aliyundrive.com/token/refresh";
+
+/// web 分支列目录。
+pub const ALIYUN_LIST_URL: &str = "https://api.aliyundrive.com/adrive/v3/file/list";
+
+/// web 分支取条目元数据。
+pub const ALIYUN_GET_URL: &str = "https://api.aliyundrive.com/adrive/v2/file/get";
+
+/// web 分支取下载直链（**v2**）。
+///
+/// 坐实（`b28-api-probe.md`）：`POST /adrive/v2/file/get_download_url`，
+/// body `{drive_id, file_id}` ⇒ 响应含 `url` / `expiration` / `size` / `crc64_hash`。
 pub const ALIYUN_DOWNLOAD_URL_API: &str =
+    "https://api.aliyundrive.com/adrive/v2/file/get_download_url";
+
+/// 取当前用户信息（**坐实**）：`POST /v2/user/get`，body `{}`。
+///
+/// 响应里有 `default_drive_id`（**主盘**）/ `default_sbox_drive_id`（保险箱，
+/// 403 `ForbiddenDriveLocked`）/ `user_id` / `nick_name` / `role` / `status`。
+pub const ALIYUN_USER_INFO_URL: &str = "https://api.aliyundrive.com/v2/user/get";
+
+/// 取网盘信息（**坐实**）：`POST /v2/drive/get`，body `{drive_id}`。
+pub const ALIYUN_DRIVE_INFO_URL: &str = "https://api.aliyundrive.com/v2/drive/get";
+
+/// 扫码登录：取二维码（**坐实**）。
+pub const ALIYUN_QR_GENERATE_URL: &str = "https://passport.alipan.com/newlogin/qrcode/generate.do";
+
+/// 扫码登录：轮询状态（**坐实**）。
+pub const ALIYUN_QR_QUERY_URL: &str = "https://passport.alipan.com/newlogin/qrcode/query.do";
+
+/// 下载直链回源时**必须**带的 `Referer`。
+///
+/// 坐实（`b28-api-probe.md`）：少了它 ⇒ HTTP 400 `AuthorizationArgumentError`；
+/// 带上它再加 `Range: bytes=0-1023` ⇒ HTTP 206（精确 1024 字节）。
+/// 加 `Authorization` **替代不了**它。
+pub const ALIYUN_DOWNLOAD_REFERER: &str = "https://www.alipan.com/";
+
+// ---- PDS OpenAPI 分支（保留结构，本轮默认不走） ---------------------------
+
+/// PDS OpenAPI 分支的基址。
+pub const ALIYUN_PDS_API_BASE_URL: &str = "https://openapi.alipan.com";
+
+/// PDS 分支的授权页。
+pub const ALIYUN_PDS_AUTHORIZE_URL: &str = "https://openapi.alipan.com/oauth/authorize";
+
+/// PDS 分支的换 token 端点。
+pub const ALIYUN_PDS_ACCESS_TOKEN_URL: &str = "https://openapi.alipan.com/oauth/access_token";
+
+/// PDS 分支的列目录端点。
+pub const ALIYUN_PDS_LIST_URL: &str = "https://openapi.alipan.com/adrive/v1.0/openFile/list";
+
+/// PDS 分支的取元数据端点。
+pub const ALIYUN_PDS_GET_URL: &str = "https://openapi.alipan.com/adrive/v1.0/openFile/get";
+
+/// PDS 分支的取下载直链端点。
+pub const ALIYUN_PDS_DOWNLOAD_URL_API: &str =
     "https://openapi.alipan.com/adrive/v1.0/openFile/getDownloadUrl";
 
-/// 用户信息（备用取 `drive_id`）。
-pub const ALIYUN_USER_INFO_URL: &str = "https://openapi.alipan.com/oauth/users/info";
+/// 网页端自带的**公开** `client_id`（web 分支用它换 token，免密钥）。
+pub const ALIYUN_WEB_CLIENT_ID: &str = "25dzX3vbYqktVxyX";
 
-/// 默认回调地址（契约 §2.4）。
-pub const ALIYUN_DEFAULT_REDIRECT_URI: &str = "http://127.0.0.1:47832/callback";
+/// **没有**「默认主盘」常量。
+///
+/// 批次 28 真机探针（`.superpowers/sdd/b28-api-probe.md`）推翻了批次 27 的结论：
+/// - `954264082` 是 **resource 盘**（根目录只有 2 项），**不是**主盘；
+/// - `25998870` 是**保险箱**（`default_sbox_drive_id`），列目录回 403
+///   `ForbiddenDriveLocked`；
+/// - 真正的主盘是 `POST /v2/user/get` 返回的 `default_drive_id`（根目录 13 项）。
+///
+/// ⇒ 主盘 id **只**在登录时从 `/v2/user/get` 取，存进会话的 `drive_id`；
+/// 取不到就明确报错，**绝不**拿一个常量顶上（那会列出错的目录还不自知）。
+///
+/// 覆盖默认 `drive_id` 的环境变量名。
+pub const ALIYUN_DRIVE_ID_ENV: &str = "ALIYUN_DRIVE_ID";
 
-/// 只读所需的最小 scope 集（契约 §1.1）。
-pub const ALIYUN_DEFAULT_SCOPE: &str = "user:base file:all:read";
+/// 默认回调地址（web 分支固定为网页端的回调）。
+pub const ALIYUN_DEFAULT_REDIRECT_URI: &str = "https://www.alipan.com/sign/callback";
 
-/// 根目录的 `parent_file_id` 恒为这个字符串（契约 §1.3）。
+/// 只读所需的 scope 集。**web 分支的 scope 未实测 ⇒ 留空（不传这个参数）。**
+pub const ALIYUN_DEFAULT_SCOPE: &str = "";
+
+/// 根目录的 `parent_file_id` 恒为这个字符串。
 pub const ALIYUN_ROOT_FILE_ID: &str = "root";
+
+/// 列目录响应里要回哪些字段（`jsonmask`）。
+///
+/// 逐字来自 bundle 源码（`b28-bundle-grep.md` 命中 `streams_info` 那一段）。
+/// 少一个字段就少一份元数据；多一个服务端可能不认 ⇒ **照抄，不增不减**。
+pub const ALIYUN_LIST_JSONMASK_FIELDS: &[&str] = &[
+    "name",
+    "file_id",
+    "drive_id",
+    "type",
+    "size",
+    "created_at",
+    "updated_at",
+    "category",
+    "file_extension",
+    "parent_file_id",
+    "mime_type",
+    "starred",
+    "thumbnail",
+    "url",
+    "streams_info",
+    "content_hash",
+    "user_tags",
+    "user_meta",
+    "trashed",
+    "video_media_metadata",
+    "video_preview_metadata",
+    "sync_meta",
+    "sync_device_flag",
+    "sync_flag",
+    "punish_flag",
+    "from_share_id",
+];
 
 /// 单次列目录最多翻多少页（裁定第 5 条：硬上限）。
 ///
@@ -88,6 +209,19 @@ pub const ALIYUN_ROOT_FILE_ID: &str = "root";
 /// **触顶 ⇒ 报错，绝不静默截断。** 静默截断等于告诉用户「这就是全部」，
 /// 而实际上目录里还有条目 —— 用户会以为文件丢了。
 pub const ALIYUN_MAX_LIST_PAGES: u32 = 100;
+
+/// 下载直链响应里可能出现的字段，**按 bundle 的提升顺序**排列。
+///
+/// 原文：`WY("/file/get_download_url", e, {encryptedFields:["encrypt_url","encrypt_cdn_url"]})`
+/// ⇒ 优先拿明文的 `url`，拿不到再退到加密的 `encrypt_url` / `encrypt_cdn_url`。
+/// 中间插了 `streams_url`（分片流直链）。
+pub const ALIYUN_DOWNLOAD_URL_FIELDS: &[&str] = &[
+    "url",
+    "encrypt_url",
+    "streams_url",
+    "cdn_url",
+    "encrypt_cdn_url",
+];
 
 /// 单次列目录最多收多少个条目（裁定第 5 条：硬上限）。
 ///
@@ -101,17 +235,17 @@ pub const ALIYUN_LIST_LIMIT_MIN: u32 = 1;
 /// `limit` 的上界。**超范围服务端会静默截断 ⇒ 漏条目且不报错**（契约 §1.3）。
 pub const ALIYUN_LIST_LIMIT_MAX: u32 = 100;
 
-/// 默认每页条数。
-pub const ALIYUN_LIST_LIMIT_DEFAULT: u32 = 100;
+/// 默认每页条数。取坐实请求里的值（`b28-final-raw.md` §2）。
+pub const ALIYUN_LIST_LIMIT_DEFAULT: u32 = 20;
 
-/// 默认排序字段。
-pub const ALIYUN_LIST_ORDER_BY: &str = "name";
+/// 默认排序字段。坐实请求用的是 `updated_at`。
+pub const ALIYUN_LIST_ORDER_BY: &str = "updated_at";
 
-/// 默认排序方向。
-pub const ALIYUN_LIST_ORDER_DIRECTION: &str = "ASC";
+/// 默认排序方向。坐实请求用的是 `DESC`。
+pub const ALIYUN_LIST_ORDER_DIRECTION: &str = "DESC";
 
-/// 默认状态过滤：只返回 `available`。
-pub const ALIYUN_LIST_STATUS: &str = "available";
+/// 列表里 `url` 字段的过期秒数（坐实请求：14400）。
+pub const ALIYUN_LIST_URL_EXPIRE_SEC: i64 = 14_400;
 
 /// 条目类型：文件。
 pub const ALIYUN_ENTRY_TYPE_FILE: &str = "file";
@@ -164,10 +298,13 @@ pub struct AliyunTokenPayload {
     pub refresh_token_expires_in: Option<i64>,
     /// 凭证类型，通常是 `Bearer`。
     pub token_type: Option<String>,
-    /// 空间 ID。可能不返回 ⇒ 走 `/oauth/users/info` 兜底。
+    /// 空间 ID。**不是主盘 id** ⇒ 不拿它当 `drive_id` 用（见
+    /// [`aliyun_resolve_drive_id`]）。
     pub drive_id: Option<String>,
     /// 用户 ID。
     pub uid: Option<String>,
+    /// 账号昵称。字段名可能是 `user_name` 或 `nick_name` ⇒ 两个都读。
+    pub nick_name: Option<String>,
 }
 
 /// 列表里的一个条目（契约 §1.3 的 `items[]`）。
@@ -213,15 +350,6 @@ pub struct AliyunListPage {
     pub items: Vec<AliyunFileEntry>,
     /// 下一页的游标。非空 ⇒ 还有下一页。
     pub next_marker: Option<String>,
-}
-
-/// 用户信息（`/oauth/users/info`）。字段名未实测 ⇒ 全部容错（契约 §1.4）。
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct AliyunUserInfo {
-    /// 空间 ID。
-    pub drive_id: Option<String>,
-    /// 昵称。
-    pub nick_name: Option<String>,
 }
 
 // ===========================================================================
@@ -406,60 +534,110 @@ pub fn aliyun_form_body(pairs: &[(&str, &str)]) -> String {
         .join("&")
 }
 
-/// 用授权码换 token 的请求体（契约 §1.2）。
-///
-/// `client_secret` 为 `None` ⇒ PKCE 公开客户端模式，**不带** `client_secret`。
-/// `code_verifier` 为 `None` ⇒ 不走 PKCE（`code_challenge_method=plain` 或服务端不要求）。
-pub fn aliyun_authorization_code_form(
-    client_id: &str,
-    client_secret: Option<&str>,
-    redirect_uri: &str,
-    code: &str,
-    code_verifier: Option<&str>,
-) -> String {
-    let mut pairs: Vec<(&str, &str)> = vec![
-        ("grant_type", "authorization_code"),
-        ("code", code),
-        ("client_id", client_id),
-        ("redirect_uri", redirect_uri),
-    ];
+// ---------------------------------------------------------------------------
+// 端点选择（web 分支 / PDS OpenAPI 分支）
+// ---------------------------------------------------------------------------
+//
+// 两套端点成组存在，靠 [`ALIYUN_USE_PDS_OPEN_API`] 一个开关切换。web 分支是
+// 本轮默认；PDS 分支的常量**保留**，以便随时切回去 —— 但默认不走到它。
 
-    if let Some(secret) = client_secret {
-        pairs.push(("client_secret", secret));
+/// 换 token 的端点。
+pub fn aliyun_access_token_url() -> &'static str {
+    if ALIYUN_USE_PDS_OPEN_API {
+        ALIYUN_PDS_ACCESS_TOKEN_URL
+    } else {
+        ALIYUN_ACCESS_TOKEN_URL
     }
-    if let Some(verifier) = code_verifier {
-        pairs.push(("code_verifier", verifier));
-    }
-
-    aliyun_form_body(&pairs)
 }
 
-/// 用刷新凭证换新 token 的请求体（契约 §1.2）。
-///
-/// 刷新时 `refresh_token` 是**单次有效**的（契约 §1.2）⇒ 响应里的新值必须替换旧的。
-pub fn aliyun_refresh_token_form(
-    client_id: &str,
-    client_secret: Option<&str>,
-    redirect_uri: &str,
-    refresh_token: &str,
-) -> String {
-    let mut pairs: Vec<(&str, &str)> = vec![
-        ("grant_type", "refresh_token"),
-        ("refresh_token", refresh_token),
-        ("client_id", client_id),
-        ("redirect_uri", redirect_uri),
-    ];
+/// 刷新 token 的端点。
+pub fn aliyun_refresh_token_url() -> &'static str {
+    if ALIYUN_USE_PDS_OPEN_API {
+        ALIYUN_PDS_ACCESS_TOKEN_URL
+    } else {
+        ALIYUN_REFRESH_TOKEN_URL
+    }
+}
 
-    if let Some(secret) = client_secret {
-        pairs.push(("client_secret", secret));
+/// 取下载直链的端点。
+pub fn aliyun_download_url_api() -> &'static str {
+    if ALIYUN_USE_PDS_OPEN_API {
+        ALIYUN_PDS_DOWNLOAD_URL_API
+    } else {
+        ALIYUN_DOWNLOAD_URL_API
+    }
+}
+
+/// 取条目元数据的端点。
+pub fn aliyun_get_url() -> &'static str {
+    if ALIYUN_USE_PDS_OPEN_API {
+        ALIYUN_PDS_GET_URL
+    } else {
+        ALIYUN_GET_URL
+    }
+}
+
+/// 列目录的端点。
+///
+/// **web 分支要带 `jsonmask`**：它决定了服务端回哪些字段。
+/// 少了 `jsonmask` 服务端可能只回最小集 ⇒ 列表里就没有大小、修改时间了。
+/// 字段清单逐字来自 bundle（见 [`ALIYUN_LIST_JSONMASK_FIELDS`]），
+/// **不增不减** —— 多一个服务端可能不认。
+pub fn aliyun_list_url() -> String {
+    if ALIYUN_USE_PDS_OPEN_API {
+        return ALIYUN_PDS_LIST_URL.to_string();
     }
 
-    aliyun_form_body(&pairs)
+    let fields = ALIYUN_LIST_JSONMASK_FIELDS.join(",");
+    format!("{ALIYUN_LIST_URL}?jsonmask=next_marker,items({fields})")
+}
+
+// ---------------------------------------------------------------------------
+// 请求体构造
+// ---------------------------------------------------------------------------
+
+/// 用授权码换 token 的请求体（**web 分支**）。
+///
+/// **JSON**，字段只有 `client_id` + `code` —— bundle 原文如此：
+/// `post(sv_endpoint+"/token/get", {client_id, code})`。
+///
+/// **没有 `client_secret`**（web 分支免密钥），也**没有** `code_verifier`
+/// ⇒ 授权页那边就不能带 `code_challenge`（带了却拿不出来换 token）。
+pub fn aliyun_authorization_code_body(client_id: &str, code: &str) -> Value {
+    serde_json::json!({
+        "client_id": client_id,
+        "code": code,
+    })
+}
+
+/// 用刷新凭证换新 token 的请求体（**web 分支**）。
+///
+/// ⚠️ 刷新端点**未实测**（批次 27 未关闭项 5）⇒ 刷新失败时明确报
+/// 「请重新授权」，不影响只读主流程。
+pub fn aliyun_refresh_token_body(client_id: &str, refresh_token: &str) -> Value {
+    serde_json::json!({
+        "client_id": client_id,
+        "refresh_token": refresh_token,
+    })
 }
 
 /// 列目录的请求体。
 ///
+/// 字段坐实请求（`b28-final-raw.md` §2 + b29 真机复测）：
+/// `drive_id` / `parent_file_id` / `limit` / `url_expire_sec` /
+/// 三个 `*_process` / `fields` / `order_by` / `order_direction`。
+///
 /// `marker` 为 `None` 或空串 ⇒ **不放**这个字段（第一页没有游标）。
+///
+/// ⚠️ **不放 `all` 字段**。真机实测（`b29-body-probe2.log`）：带 `all=false`
+/// 时服务端只回 **13** 项、根目录少了「手机备份」这一项；不带 `all` 时回
+/// **14** 项。少掉的那一项是**静默丢失**，必须去掉这个字段。
+///
+/// ⚠️ 三个 `*_process` 字段必须是**字符串**（`"image/resize,w_256/format,avif"`
+/// 这种「指令串」），**不能**写成 `{"type":..,"size":..}` 对象 —— 那是
+/// 另一个云盘接口的形态。实测写成对象时服务端回
+/// **HTTP 400 `InvalidRequestJSONFormat`**（b29 真机复现：对象形态 400，
+/// 字符串形态 200，证据 `b29-body-probe.log`）。
 pub fn aliyun_list_request_body(
     drive_id: &str,
     parent_file_id: &str,
@@ -467,7 +645,6 @@ pub fn aliyun_list_request_body(
     marker: Option<&str>,
     order_by: &str,
     order_direction: &str,
-    status: &str,
 ) -> Value {
     let mut body = serde_json::Map::new();
     body.insert("drive_id".to_string(), Value::String(drive_id.to_string()));
@@ -479,12 +656,30 @@ pub fn aliyun_list_request_body(
         "limit".to_string(),
         Value::Number(aliyun_clamp_limit(limit).into()),
     );
+    body.insert(
+        "url_expire_sec".to_string(),
+        Value::Number(ALIYUN_LIST_URL_EXPIRE_SEC.into()),
+    );
+    body.insert(
+        "image_thumbnail_process".to_string(),
+        Value::String("image/resize,w_256/format,avif".to_string()),
+    );
+    body.insert(
+        "image_url_process".to_string(),
+        Value::String("image/resize,w_1920/format,avif".to_string()),
+    );
+    body.insert(
+        "video_thumbnail_process".to_string(),
+        Value::String(
+            "video/snapshot,t_120000,f_jpg,m_lfit,w_256,ar_auto,m_fast".to_string(),
+        ),
+    );
+    body.insert("fields".to_string(), Value::String("*".to_string()));
     body.insert("order_by".to_string(), Value::String(order_by.to_string()));
     body.insert(
         "order_direction".to_string(),
         Value::String(order_direction.to_string()),
     );
-    body.insert("status".to_string(), Value::String(status.to_string()));
 
     if let Some(marker) = marker {
         let marker = marker.trim();
@@ -512,30 +707,63 @@ pub fn aliyun_download_url_request_body(drive_id: &str, file_id: &str) -> Value 
     })
 }
 
+/// 取当前用户信息的请求体。**实测是空对象**。
+pub fn aliyun_user_info_request_body() -> Value {
+    serde_json::json!({})
+}
+
+/// 取网盘信息的请求体。
+pub fn aliyun_drive_info_request_body(drive_id: &str) -> Value {
+    serde_json::json!({
+        "drive_id": drive_id,
+    })
+}
+
 /// 拼授权页地址。
 ///
-/// `code_challenge_method` 传 `S256`（PKCE）或 `plain`。
-/// `drive` 为 `None` ⇒ 不放这个参数。
+/// `scope` 为空串 ⇒ **不放**这个参数（web 分支的 scope 未实测，宁可不发）。
+/// `code_challenge` 为 `None` ⇒ 不带 PKCE 参数。
+///
+/// ⚠️ **web 分支的授权页参数未坐实**（`.superpowers/sdd` 里没有 `oauth/authorize`
+/// 的原文证据）⇒ 这里按 bundle 推断拼装，参数名以 `b28-code-plan.md` 为准。
+/// 唯一**结构性**的约束是：带了 `code_challenge` 就必须在换 token 时带
+/// `code_verifier`，而 web 分支的 `token/get` 只收 `{client_id, code}`
+/// ⇒ **web 分支不传 challenge**。
 pub fn aliyun_authorize_url(
     client_id: &str,
     redirect_uri: &str,
     scope: &str,
     state: &str,
-    code_challenge: &str,
-    code_challenge_method: &str,
+    code_challenge: Option<&str>,
+    code_challenge_method: Option<&str>,
     drive: Option<&str>,
 ) -> String {
     let mut pairs: Vec<(&str, &str)> = vec![
         ("client_id", client_id),
         ("redirect_uri", redirect_uri),
-        ("scope", scope),
         ("response_type", "code"),
         ("state", state),
-        ("code_challenge", code_challenge),
-        ("code_challenge_method", code_challenge_method),
         ("auto_login", "true"),
         ("style", "folder"),
     ];
+
+    let scope = scope.trim();
+    if !scope.is_empty() {
+        pairs.push(("scope", scope));
+    }
+
+    if let Some(challenge) = code_challenge {
+        let challenge = challenge.trim();
+        if !challenge.is_empty() {
+            pairs.push(("code_challenge", challenge));
+            if let Some(method) = code_challenge_method {
+                let method = method.trim();
+                if !method.is_empty() {
+                    pairs.push(("code_challenge_method", method));
+                }
+            }
+        }
+    }
 
     if let Some(drive) = drive {
         let drive = drive.trim();
@@ -544,7 +772,13 @@ pub fn aliyun_authorize_url(
         }
     }
 
-    format!("{ALIYUN_AUTHORIZE_URL}?{}", aliyun_form_body(&pairs))
+    let base = if ALIYUN_USE_PDS_OPEN_API {
+        ALIYUN_PDS_AUTHORIZE_URL
+    } else {
+        ALIYUN_AUTHORIZE_URL
+    };
+
+    format!("{base}?{}", aliyun_form_body(&pairs))
 }
 
 /// 从回调 URL 里抠出 `code` 与 `state`。
@@ -747,28 +981,17 @@ pub fn aliyun_parse_token_payload(body: &str) -> Result<AliyunTokenPayload, Remo
         token_type: lenient_str(&value, "token_type"),
         drive_id: lenient_str(&value, "drive_id").filter(|value| !value.trim().is_empty()),
         uid: lenient_str(&value, "uid"),
+        nick_name: lenient_str(&value, "user_name")
+            .or_else(|| lenient_str(&value, "nick_name"))
+            .filter(|value| !value.trim().is_empty()),
     })
-}
-
-/// 解析用户信息。字段名未实测 ⇒ 全部容错（契约 §1.4）。
-pub fn aliyun_parse_user_info(body: &str) -> AliyunUserInfo {
-    let Ok(value) = serde_json::from_str::<Value>(body) else {
-        return AliyunUserInfo::default();
-    };
-
-    if !value.is_object() {
-        return AliyunUserInfo::default();
-    }
-
-    AliyunUserInfo {
-        drive_id: lenient_str(&value, "drive_id").filter(|value| !value.trim().is_empty()),
-        nick_name: lenient_str(&value, "nick_name").filter(|value| !value.trim().is_empty()),
-    }
 }
 
 /// 解析下载直链。
 ///
-/// 字段名未实测 ⇒ 依次读 `download_url` / `url`（契约 §1.5）。
+/// **按 bundle 的提升顺序**依次读 [`ALIYUN_DOWNLOAD_URL_FIELDS`] 里的字段，
+/// 第一个非空的就是它。`streams_url` 有时是个对象（`{"size": "<url>"}`）
+/// ⇒ 对象形态再往里取一层 `url`。
 pub fn aliyun_parse_download_url(body: &str) -> Result<String, RemoteError> {
     let value: Value = serde_json::from_str(body)
         .map_err(|_| RemoteError::protocol("阿里云盘没有返回下载直链。"))?;
@@ -777,14 +1000,59 @@ pub fn aliyun_parse_download_url(body: &str) -> Result<String, RemoteError> {
         return Err(RemoteError::protocol("阿里云盘没有返回下载直链。"));
     }
 
-    let url = lenient_str(&value, "download_url")
-        .filter(|value| !value.trim().is_empty())
-        .or_else(|| lenient_str(&value, "url").filter(|value| !value.trim().is_empty()))
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| RemoteError::protocol("阿里云盘没有返回下载直链。"))?;
+    for field in ALIYUN_DOWNLOAD_URL_FIELDS {
+        let Some(candidate) = value.get(*field) else {
+            continue;
+        };
 
-    Ok(url)
+        let url = match candidate {
+            Value::String(text) => Some(text.clone()),
+            Value::Object(_) => lenient_str(candidate, "url").or_else(|| {
+                // `streams_url` 的**对象**形态实测未坐实（契约 §B 只坐实了顶层
+                // `url`）⇒ `{"size": "<url>"}` 与 `{"size": {"url": "<url>"}}`
+                // 两种都认，取不到就继续往下找下一个字段。
+                match candidate.get("size") {
+                    Some(Value::String(text)) => Some(text.clone()),
+                    Some(inner) if inner.is_object() => lenient_str(inner, "url"),
+                    _ => None,
+                }
+            }),
+            _ => None,
+        };
+
+        if let Some(url) = url {
+            let url = url.trim();
+            if !url.is_empty() {
+                return Ok(url.to_string());
+            }
+        }
+    }
+
+    Err(RemoteError::protocol("阿里云盘没有返回下载直链。"))
+}
+
+/// 解析当前登录账号应当使用的 `drive_id`。
+///
+/// 优先级（从高到低）：
+/// 1. 环境变量 [`ALIYUN_DRIVE_ID_ENV`] —— 运维/调试用的显式覆盖；
+/// 2. 会话里显式存下来的 `drive_id`（登录时从 `/v2/user/get` 的
+///    `default_drive_id` 取到并存进会话）。
+///
+/// **没有第三档** —— 批次 28 推翻了批次 27 的「默认主盘常量」：
+/// `954264082` 是 resource 盘、`25998870` 是保险箱（403）。
+/// 取不到 ⇒ `None` ⇒ 上层明确报错，让用户重新授权，**不猜**。
+pub fn aliyun_resolve_drive_id(explicit: Option<&str>) -> Option<String> {
+    if let Ok(value) = std::env::var(ALIYUN_DRIVE_ID_ENV) {
+        let value = value.trim();
+        if !value.is_empty() {
+            return Some(value.to_string());
+        }
+    }
+
+    explicit
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
 }
 
 /// 解析 `openFile/get` 的响应（取条目元数据）。
@@ -1075,13 +1343,34 @@ mod tests {
             None,
             ALIYUN_LIST_ORDER_BY,
             ALIYUN_LIST_ORDER_DIRECTION,
-            ALIYUN_LIST_STATUS,
         );
 
         assert_eq!(body["limit"], serde_json::json!(100));
         assert_eq!(body["drive_id"], serde_json::json!("drive-1"));
         assert_eq!(body["parent_file_id"], serde_json::json!("root"));
         assert!(body.get("marker").is_none());
+
+        // 坐实请求里的那几个字段，一个都不能少。
+        assert_eq!(body["url_expire_sec"], serde_json::json!(14400));
+        assert_eq!(body["fields"], serde_json::json!("*"));
+        // 三个 `*_process` 必须是**字符串**（图片/视频处理指令串）。
+        // 写成 `{"type":..,"size":..}` 对象 ⇒ 服务端回 HTTP 400 InvalidRequestJSONFormat。
+        assert_eq!(
+            body["image_thumbnail_process"],
+            serde_json::json!("image/resize,w_256/format,avif")
+        );
+        assert_eq!(
+            body["image_url_process"],
+            serde_json::json!("image/resize,w_1920/format,avif")
+        );
+        assert_eq!(
+            body["video_thumbnail_process"],
+            serde_json::json!("video/snapshot,t_120000,f_jpg,m_lfit,w_256,ar_auto,m_fast")
+        );
+        // ⚠️ 请求体里**不能**带 `all`。真机实测（`b29-body-probe2.log`）：
+        // 带 `all=false` 时服务端只回 13 项、根目录少了「手机备份」；
+        // 不带 `all` 才回全 14 项。少的那项是静默丢失。
+        assert!(body.get("all").is_none());
 
         let with_marker = aliyun_list_request_body(
             "drive-1",
@@ -1090,10 +1379,32 @@ mod tests {
             Some("m2"),
             ALIYUN_LIST_ORDER_BY,
             ALIYUN_LIST_ORDER_DIRECTION,
-            ALIYUN_LIST_STATUS,
         );
         assert_eq!(with_marker["limit"], serde_json::json!(20));
         assert_eq!(with_marker["marker"], serde_json::json!("m2"));
+    }
+
+    #[test]
+    fn the_list_url_carries_the_json_mask_of_the_bundled_fields() {
+        let url = aliyun_list_url();
+
+        assert!(url.starts_with(ALIYUN_LIST_URL));
+        assert!(url.contains("jsonmask=next_marker,items("));
+        assert!(url.contains("file_id"));
+        assert!(url.contains("updated_at"));
+        assert!(url.contains("from_share_id"));
+    }
+
+    #[test]
+    fn the_entry_metadata_endpoint_is_the_v2_one_that_exists() {
+        // `/adrive/v3/file/get` **不存在**：服务端回 404
+        // `{"code":"NotFound","message":"uri(/v3/file/get) not exist"}`；
+        // 真机实测 `/adrive/v2/file/get` 回 200（证据 `b29-list-probe4.log`）。
+        assert_eq!(
+            ALIYUN_GET_URL,
+            "https://api.aliyundrive.com/adrive/v2/file/get"
+        );
+        assert!(aliyun_get_url().ends_with("/file/get"));
     }
 
     // ---- 条目类型 -----------------------------------------------------------
@@ -1219,38 +1530,24 @@ mod tests {
     }
 
     #[test]
-    fn the_authorization_code_form_carries_the_pkce_fields() {
-        let form = aliyun_authorization_code_form(
-            "client-1",
-            None,
-            ALIYUN_DEFAULT_REDIRECT_URI,
-            "the-code",
-            Some("the-verifier"),
-        );
+    fn the_authorization_code_body_is_json_without_a_client_secret() {
+        let body = aliyun_authorization_code_body("client-1", "the-code");
 
-        assert!(form.contains("grant_type=authorization_code"));
-        assert!(form.contains("client_id=client-1"));
-        assert!(form.contains("code_verifier=the-verifier"));
-        assert!(!form.contains("client_secret"));
-
-        let with_secret = aliyun_authorization_code_form(
-            "client-1",
-            Some("the-secret"),
-            ALIYUN_DEFAULT_REDIRECT_URI,
-            "the-code",
-            None,
-        );
-        assert!(with_secret.contains("client_secret=the-secret"));
-        assert!(!with_secret.contains("code_verifier"));
+        assert_eq!(body["client_id"], serde_json::json!("client-1"));
+        assert_eq!(body["code"], serde_json::json!("the-code"));
+        // web 分支免密钥：请求体里**不许**出现 client_secret / code_verifier。
+        assert!(body.get("client_secret").is_none());
+        assert!(body.get("code_verifier").is_none());
+        assert!(body.get("grant_type").is_none());
     }
 
     #[test]
-    fn the_refresh_form_uses_the_refresh_grant() {
-        let form =
-            aliyun_refresh_token_form("client-1", None, ALIYUN_DEFAULT_REDIRECT_URI, "the-refresh");
+    fn the_refresh_body_carries_the_refresh_token() {
+        let body = aliyun_refresh_token_body("client-1", "the-refresh");
 
-        assert!(form.contains("grant_type=refresh_token"));
-        assert!(form.contains("refresh_token=the-refresh"));
+        assert_eq!(body["client_id"], serde_json::json!("client-1"));
+        assert_eq!(body["refresh_token"], serde_json::json!("the-refresh"));
+        assert!(body.get("client_secret").is_none());
     }
 
     // ---- 授权页 -------------------------------------------------------------
@@ -1260,10 +1557,10 @@ mod tests {
         let url = aliyun_authorize_url(
             "client-1",
             ALIYUN_DEFAULT_REDIRECT_URI,
-            ALIYUN_DEFAULT_SCOPE,
+            "user:base file:all:read",
             "state-1",
-            "challenge-1",
-            "S256",
+            Some("challenge-1"),
+            Some("S256"),
             None,
         );
 
@@ -1274,7 +1571,28 @@ mod tests {
         assert!(url.contains("code_challenge=challenge-1"));
         assert!(url.contains("code_challenge_method=S256"));
         assert!(url.contains("scope=user%3Abase%20file%3Aall%3Aread"));
-        assert!(url.contains("redirect_uri=http%3A%2F%2F127.0.0.1%3A47832%2Fcallback"));
+        assert!(url.contains("redirect_uri=https%3A%2F%2Fwww.alipan.com%2Fsign%2Fcallback"));
+    }
+
+    #[test]
+    fn the_web_branch_authorize_url_carries_no_pkce_and_no_scope() {
+        // web 分支的 `token/get` 只收 `{client_id, code}` ⇒ 授权页**不能**带
+        // `code_challenge`（带了拿 `code_verifier` 换不到 token）。
+        let url = aliyun_authorize_url(
+            ALIYUN_WEB_CLIENT_ID,
+            ALIYUN_DEFAULT_REDIRECT_URI,
+            ALIYUN_DEFAULT_SCOPE,
+            "state-1",
+            None,
+            None,
+            None,
+        );
+
+        assert!(url.starts_with(ALIYUN_AUTHORIZE_URL));
+        assert!(url.contains("client_id=25dzX3vbYqktVxyX"));
+        assert!(url.contains("state=state-1"));
+        assert!(!url.contains("code_challenge"));
+        assert!(!url.contains("scope="));
     }
 
     #[test]
@@ -1296,23 +1614,47 @@ mod tests {
         assert!(!aliyun_state_matches("s1", Some("")));
     }
 
-    // ---- 直链与用户信息 -----------------------------------------------------
+    // ---- 直链 ----------------------------------------------------------------
 
     #[test]
-    fn the_download_url_is_read_from_either_field_name() {
+    fn the_download_url_follows_the_bundled_field_order() {
         assert_eq!(
-            aliyun_parse_download_url(r#"{"download_url":"https://x/1"}"#).expect("解析"),
+            aliyun_parse_download_url(r#"{"url":"https://x/1"}"#).expect("解析"),
             "https://x/1"
         );
+        // `url` 优先于 `encrypt_url`。
         assert_eq!(
-            aliyun_parse_download_url(r#"{"url":"https://x/2"}"#).expect("解析"),
+            aliyun_parse_download_url(r#"{"url":"https://x/2","encrypt_url":"https://x/enc"}"#)
+                .expect("解析"),
             "https://x/2"
         );
+        // `url` 空 ⇒ 退到 `encrypt_url`。
         assert_eq!(
-            aliyun_parse_download_url(r#"{"download_url":"","url":"https://x/3"}"#).expect("解析"),
+            aliyun_parse_download_url(r#"{"url":"","encrypt_url":"https://x/3"}"#).expect("解析"),
             "https://x/3"
         );
+        // `streams_url` 是对象时，往里取一层 `url`。
+        assert_eq!(
+            aliyun_parse_download_url(r#"{"streams_url":{"size":"https://x/4"}}"#).expect("解析"),
+            "https://x/4"
+        );
         assert!(aliyun_parse_download_url(r#"{}"#).is_err());
+    }
+
+    #[test]
+    fn the_drive_id_comes_from_the_environment_or_the_session() {
+        // 显式值优先。
+        assert_eq!(
+            aliyun_resolve_drive_id(Some("drive-x")),
+            Some("drive-x".to_string())
+        );
+        // 空串当作没有。
+        assert_eq!(aliyun_resolve_drive_id(Some("   ")), None);
+        // 批次 28：**没有**默认主盘常量 ⇒ 取不到就是 `None`
+        // （`954264082` 是 resource 盘、`25998870` 是保险箱）。
+        if std::env::var(ALIYUN_DRIVE_ID_ENV).is_err() {
+            assert_eq!(aliyun_resolve_drive_id(None), None);
+        }
     }
 
     #[test]
@@ -1330,17 +1672,6 @@ mod tests {
         assert_eq!(wrapped.file_id, "f-2");
 
         assert!(aliyun_parse_entry_body("garbage").is_err());
-    }
-
-    #[test]
-    fn the_user_info_is_read_leniently() {
-        let info = aliyun_parse_user_info(r#"{"drive_id":"d-1","nick_name":"小明"}"#);
-
-        assert_eq!(info.drive_id.as_deref(), Some("d-1"));
-        assert_eq!(info.nick_name.as_deref(), Some("小明"));
-
-        let empty = aliyun_parse_user_info("garbage");
-        assert_eq!(empty, AliyunUserInfo::default());
     }
 
     // ---- RemoteEntry --------------------------------------------------------

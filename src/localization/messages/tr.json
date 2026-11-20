@@ -798,17 +798,19 @@
             "ready": "Giriş yapıldı. Bu bağlantıyı kaydedin — oturum kaydetme sırasında yazılacak.",
             "closed": "Giriş tamamlanmadan giriş penceresi kapatıldı.",
             "timeout": "Giriş bekleme zaman aşımına uğradı. Lütfen yeniden deneyin.",
-            "error": "Giriş durumu okunamadı. Lütfen yeniden deneyin."
+            "error": "Giriş durumu okunamadı. Lütfen yeniden deneyin.",
+            "scanned": "Tarandı, lütfen telefonda onaylayın"
           },
-          "saved": "Aliyun Drive’a giriş yapıldı: pencere otomatik kapandı, oturum alındı. Bu bağlantıyı kaydederek kullanabilirsiniz."
+          "saved": "Aliyun Drive’a giriş yapıldı: pencere otomatik kapandı, oturum alındı. Bu bağlantıyı kaydederek kullanabilirsiniz.",
+          "refresh": "QR kodunu yenile",
+          "windowStart": "Giriş penceresini aç",
+          "windowCancel": "Pencereyi kapat",
+          "windowHint": "Resmî Aliyun Drive sayfası pencerede QR kodu gösterir ve onaylar; kimlik bilgileri doğrudan uygulamaya gider.",
+          "qrFallback": "Yedek: elle QR kod girişi"
         },
         "field": {
-          "clientId": "İstemci kimliği (Client ID)",
-          "clientSecret": "İstemci sırrı",
-          "redirectUri": "Yönlendirme URI’si",
-          "clientSecretHint": "İsteğe bağlı. PKCE genel istemci modunu kullanmak için boş bırakın; bu modda oturum otomatik olarak yenilenemez.",
-          "redirectUriHint": "Aliyun Drive açık platform konsolunda kayıtlı yönlendirme URI’siyle aynı olmalıdır. Varsayılan değer http://127.0.0.1:47832/callback adresidir.",
-          "modeHint": "İstemci sırrı girildiğinde oturum otomatik yenilenir. PKCE modunda oturum 30 gün geçerlidir ve otomatik yenilenemez."
+          "pasteToken": "Erişim belirteci",
+          "pasteTokenHint": "Zaten sahip olduğunuz belirteci yapıştırın. Kaydedilmeden önce Aliyun Drive karşısında doğrulanır; belirteç bu bilgisayardan hiçbir zaman açık metin olarak çıkmaz."
         }
       },
       "netdisk": {

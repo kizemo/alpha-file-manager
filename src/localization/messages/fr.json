@@ -798,17 +798,19 @@
             "ready": "Connecté. Enregistrez cette connexion : la session sera écrite à l’enregistrement.",
             "closed": "La fenêtre de connexion a été fermée avant la fin de la procédure.",
             "timeout": "Délai d’attente de connexion dépassé. Veuillez réessayer.",
-            "error": "Impossible de lire l’état de connexion. Veuillez réessayer."
+            "error": "Impossible de lire l’état de connexion. Veuillez réessayer.",
+            "scanned": "Scanné, confirmez sur le mobile"
           },
-          "saved": "Connexion à Aliyun Drive réussie : la fenêtre s’est fermée automatiquement et la session a été récupérée. Enregistrez cette connexion pour l’utiliser."
+          "saved": "Connexion à Aliyun Drive réussie : la fenêtre s’est fermée automatiquement et la session a été récupérée. Enregistrez cette connexion pour l’utiliser.",
+          "refresh": "Actualiser le code QR",
+          "windowStart": "Ouvrir la fenêtre de connexion",
+          "windowCancel": "Fermer la fenêtre",
+          "windowHint": "La page officielle Aliyun Drive affiche le QR code et gère la confirmation dans la fenêtre ; les identifiants vont directement à l'application.",
+          "qrFallback": "Alternative : connexion par QR code manuel"
         },
         "field": {
-          "clientId": "ID client",
-          "clientSecret": "Secret client",
-          "redirectUri": "URI de redirection",
-          "clientSecretHint": "Facultatif. Laissez vide pour utiliser le mode client public PKCE, où la connexion ne peut pas être renouvelée automatiquement.",
-          "redirectUriHint": "Doit correspondre à l’URI de redirection enregistrée dans la console de la plateforme ouverte Aliyun Drive. La valeur par défaut est http://127.0.0.1:47832/callback.",
-          "modeHint": "Avec le secret client, la session est renouvelée automatiquement. En mode PKCE, la connexion est valable 30 jours et ne peut pas être renouvelée."
+          "pasteToken": "Jeton d'accès",
+          "pasteTokenHint": "Collez un jeton dont vous disposez déjà. Il est vérifié auprès d'Aliyun Drive avant d'être enregistré, et le jeton ne quitte jamais cette machine en clair."
         }
       },
       "netdisk": {

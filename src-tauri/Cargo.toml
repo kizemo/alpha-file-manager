@@ -56,7 +56,12 @@ notify = "8"
 tauri-plugin-drag = "~2.1"
 tauri-plugin-window-state = "~2.4"
 tauri-plugin-single-instance = "~2.4"
-reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream"] }
+# "gzip"：阿里云盘开放平台的前置网关（istio-envoy）对**不声明 Accept-Encoding: gzip**
+# 的请求，只回响应头、承诺 Content-Length，然后把响应体挂住 20 秒再掐断连接 ——
+# 实测同一条 curl：identity = 20.1s / 0 字节 / exit 18，带 gzip = 0.19s / 2580 字节。
+# reqwest 的 gzip feature 是编译期的：不开它，请求根本不会带 Accept-Encoding 头，
+# reqwest 也会报 "error decoding response body"。别删这个 feature。
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream", "gzip"] }
 httpdate = "1.0"
 futures-util = "0.3"
 zip = "8.6"

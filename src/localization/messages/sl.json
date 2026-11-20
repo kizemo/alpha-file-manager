@@ -835,17 +835,19 @@
             "ready": "Prijavljeni. Shranite to povezavo – seja bo zapisana ob shranjevanju.",
             "closed": "Okno za prijavo je bilo zaprto, preden ste končali s prijavo.",
             "timeout": "Čas za pričakovanje prijave je potekel. Poskusite znova.",
-            "error": "Stanja prijave ni bilo mogoče prebrati. Poskusite znova."
+            "error": "Stanja prijave ni bilo mogoče prebrati. Poskusite znova.",
+            "scanned": "Prebrano, potrdite v telefonu"
           },
-          "saved": "Prijava v Aliyun Drive je uspela: okno se je samodejno zaprlo in seja je bila prevzeta. Shranite to povezavo za uporabo."
+          "saved": "Prijava v Aliyun Drive je uspela: okno se je samodejno zaprlo in seja je bila prevzeta. Shranite to povezavo za uporabo.",
+          "refresh": "Osveži QR-kodo",
+          "windowStart": "Odpri okno za prijavo",
+          "windowCancel": "Zapri okno",
+          "windowHint": "Uradna stran Aliyun Drive v oknu prikaže QR kodo in potrditev; poverilice grejo neposredno v aplikacijo.",
+          "qrFallback": "Rezerva: ročna prijava z QR kodo"
         },
         "field": {
-          "clientId": "ID odjemalca",
-          "clientSecret": "Skrivnost odjemalca",
-          "redirectUri": "URI preusmeritve",
-          "clientSecretHint": "Neobvezno. Pustite prazno za način javnega odjemalca PKCE, kjer se seja ne more samodejno podaljšati.",
-          "redirectUriHint": "Mora se ujemati z URI preusmeritve, ki je registriran v konzoli odprte platforme Aliyun Drive. Privzeta vrednost je http://127.0.0.1:47832/callback.",
-          "modeHint": "S skrivnostjo odjemalca se seja samodejno podaljša. V načinu PKCE prijava velja 30 dni in se ne more podaljšati."
+          "pasteToken": "Dostopni žeton",
+          "pasteTokenHint": "Prilepite žeton, ki ga že imate. Pred shranjevanjem je preverjen pri Aliyun Drive, žeton pa nikoli ne zapusti tega računalnika v jasni obliki."
         }
       },
       "netdisk": {

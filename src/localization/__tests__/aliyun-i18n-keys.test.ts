@@ -14,7 +14,8 @@
 //   ② 有人往语言包里塞了 `aliyun*` 的键却**没登记进契约清单**，
 //      key 对齐门禁只看集合是否一致，看不出「多出来的键是不是有人忘了登记」。
 //
-// 所以这里把阿里云盘的 25 个键**逐一列出来**（来源：`.superpowers/sdd/b26-aliyun-contract.md` §4.5），
+// 所以这里把阿里云盘的 27 个键**逐一列出来**（来源：`.superpowers/sdd/b26-aliyun-contract.md` §4.5
+// 加上批次 29 内嵌登录窗的实现记录 `.superpowers/sdd/b29-webview-impl.md`），
 // 对 17 个语言包逐个核对：必须存在、必须是非空字符串、
 // 并且**语言包里出现的 aliyun 键集合与本清单完全相等**（不多不少）。
 
@@ -36,7 +37,8 @@ const messagesDirectory = path.join(
  *   1. 现有 quark 键集逐键替换（quark → aliyun、quark_pan → aliyun_pan、
  *      quarkLoginRequired → aliyunLoginRequired、settings.remote.netdisk.quark →
  *      settings.remote.netdisk.aliyun）—— 19 个。
- *   2. 阿里云盘专属的表单字段文案 —— 6 个（settings.remote.aliyun.field.*）。
+ *   2. 阿里云盘**自己**的界面文案 —— 8 个（`field.*` 2 个 + 二维码面板补强 2 个
+ *      + 内嵌登录窗 4 个）。合计 27 个。
  */
 const ALIYUN_LEAF_KEYS = [
   'settings.remote.protocol.aliyun_pan',
@@ -58,23 +60,34 @@ const ALIYUN_LEAF_KEYS = [
   'settings.remote.aliyun.embedded.status.error',
   'settings.remote.aliyun.embedded.saved',
   'settings.remote.netdisk.aliyun',
-  // 2026-11-19 阿里云盘专属字段文案。
-  'settings.remote.aliyun.field.clientId',
-  'settings.remote.aliyun.field.clientSecret',
-  'settings.remote.aliyun.field.redirectUri',
-  'settings.remote.aliyun.field.clientSecretHint',
-  'settings.remote.aliyun.field.redirectUriHint',
-  'settings.remote.aliyun.field.modeHint',
+  // 2026-11-20 阿里云盘专属字段文案（扫码登录的「粘贴 access_token」兜底）。
+  'settings.remote.aliyun.field.pasteToken',
+  'settings.remote.aliyun.field.pasteTokenHint',
+  // 2026-11-20 二维码面板补的两键：手动刷新 + 「手机已扫码」中间态。
+  'settings.remote.aliyun.embedded.refresh',
+  'settings.remote.aliyun.embedded.status.scanned',
+  // 2026-11-20 内嵌 webview 登录窗（主路径）的四键；二维码面板降级为备用。
+  'settings.remote.aliyun.embedded.windowStart',
+  'settings.remote.aliyun.embedded.windowCancel',
+  'settings.remote.aliyun.embedded.windowHint',
+  'settings.remote.aliyun.embedded.qrFallback',
 ];
 
-/** 阿里云盘专属的表单字段文案（6 个，不属于 quark 键集的替换产物）。 */
+/**
+ * 阿里云盘**自己**的键（没有 quark 来源键，不属于逐键替换的产物）。
+ *
+ * 前两对是粘贴 token 兜底；`refresh` / `status.scanned` 来自二维码面板的补强；
+ * 最后四个来自内嵌登录窗 —— 夸克那边没有对应的界面，所以只能自己登记。
+ */
 const ALIYUN_ONLY_LEAF_KEYS = [
-  'settings.remote.aliyun.field.clientId',
-  'settings.remote.aliyun.field.clientSecret',
-  'settings.remote.aliyun.field.redirectUri',
-  'settings.remote.aliyun.field.clientSecretHint',
-  'settings.remote.aliyun.field.redirectUriHint',
-  'settings.remote.aliyun.field.modeHint',
+  'settings.remote.aliyun.field.pasteToken',
+  'settings.remote.aliyun.field.pasteTokenHint',
+  'settings.remote.aliyun.embedded.refresh',
+  'settings.remote.aliyun.embedded.status.scanned',
+  'settings.remote.aliyun.embedded.windowStart',
+  'settings.remote.aliyun.embedded.windowCancel',
+  'settings.remote.aliyun.embedded.windowHint',
+  'settings.remote.aliyun.embedded.qrFallback',
 ];
 
 /**
@@ -89,15 +102,9 @@ const BRAND_KEYS = new Set([
 /**
  * 允许与英文**一字不差**的键。
  *
- * `Client ID` / `Client secret` 在意大利语和越南语的技术语境里就是照用英文，
- * 不算「没翻译」。
+ * 扫码登录那两个键在 17 个语言包里都**逐字翻译过** ⇒ 这里没有例外项。
  */
-const ALLOWED_IDENTICAL_TO_ENGLISH = new Set([
-  'it:settings.remote.aliyun.field.clientId',
-  'it:settings.remote.aliyun.field.clientSecret',
-  'vi:settings.remote.aliyun.field.clientId',
-  'vi:settings.remote.aliyun.field.clientSecret',
-]);
+const ALLOWED_IDENTICAL_TO_ENGLISH = new Set<string>();
 
 type JsonObject = { [key: string]: unknown };
 
@@ -180,7 +187,7 @@ describe('阿里云盘的语言包覆盖', () => {
     expect(new Set(ALIYUN_LEAF_KEYS).size).toBe(ALIYUN_LEAF_KEYS.length);
   });
 
-  it('登记清单 == quark 键集逐键替换 + 6 个专属键（漏了就红）', () => {
+  it('登记清单 == quark 键集逐键替换 + 8 个专属键（漏了就红）', () => {
     const english = readLocale('en');
     const quarkPaths = collectLeafPaths(english).filter(keyPath => keyPath.includes('quark'));
     const derived = [
@@ -203,7 +210,7 @@ describe('阿里云盘的语言包覆盖', () => {
     ).toEqual([]);
   });
 
-  it.each(locales)('%s 语言的 25 个阿里云键都在且非空', (locale) => {
+  it.each(locales)('%s 语言的 27 个阿里云键都在且非空', (locale) => {
     const messages = readLocale(locale);
     const problems: string[] = [];
 
