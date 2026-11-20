@@ -1,6 +1,17 @@
 # Registro de alterações
 
 
+## [3.16.0] - November 2026
+
+**Resumo:** O Aliyun Drive já pode ser conectado de dentro do aplicativo: uma janela de login abre dentro do aplicativo, você escaneia o código QR com o celular e a unidade passa a ser um painel que dá para explorar e ler. Esta primeira versão é somente de leitura de propósito: ela lista pastas e lê arquivos, e nunca escreve na sua unidade.
+
+### What changed
+
+**Adicionado: O Aliyun Drive pode ser adicionado como terceiro provedor de disco em nuvem.** Na aba *Netdisks* de *Remote* dentro das configurações, *Add netdisk* agora oferece *Aliyun Drive* ao lado de *Baidu Netdisk* e *Quark Netdisk*. Uma janela de login abre dentro do aplicativo, escanear o código QR com o celular basta, e a sessão fica guardada no cofre de credenciais criptografado do próprio aplicativo: não há token para copiar na mão. Depois de salva, a conexão se comporta como qualquer outra conexão remota: a unidade é listada com seus nomes reais de arquivo, e um arquivo pode ser lido para dentro de uma pasta local.
+**Adicionado: A primeira versão do Aliyun Drive explora e lê, e não escreve nada.** O provedor oferece listar uma pasta e ler um arquivo. Envio, exclusão, renomeação, movimentação e compartilhamento não são oferecidos de forma alguma, então o aplicativo não consegue alterar nada na sua unidade por acidente. A unidade do cofre é reconhecida, mas não é destrancada.
+**Corrigido: O Aliyun Drive não fica mais vinte segundos pendurado e depois avisa que a conexão caiu.** O gateway na frente do Aliyun Drive só envia o corpo de uma resposta quando o pedido pede conteúdo comprimido com gzip. Sem esse cabeçalho de pedido ele respondia apenas com os cabeçalhos, segurava o corpo por cerca de vinte segundos e depois cortava a conexão, o que chegava até você como *a conexão com o Aliyun Drive foi interrompida*. O cliente HTTP agora negocia gzip como deve, então listar uma pasta leva milissegundos em vez de estourar o tempo limite.
+**Corrigido: Uma falha remota agora é contada com palavras que combinam com a unidade em que aconteceu.** A mensagem reserva exibida quando um disco em nuvem não pode ser alcançado citava um provedor fixo. Agora ela cita o provedor que realmente falhou, então um problema do Aliyun Drive não fala mais de outra unidade.
+**Corrigido: Um celular conectado aparece na árvore de pastas, e o trilha de navegação leva até ele.** O caminho de um celular no espaço de nomes do shell do Windows não pode ser dividido pelo front-end: ele contém separadores que não são separadores de diretório, e por isso os níveis dentro do celular eram achatados em uma entrada vaga *Dispositivo*. Agora a hierarquia é pega do próprio shell, um nível por vez: a árvore mostra as raízes de dispositivo que nem têm letra de unidade, e a barra de endereço desce pelos nomes reais de cada nível.
 ## [3.15.0] - November 2026
 
 **Resumo:** Um celular ou um pendrive que você liga no computador agora aparece em *Locais*, e abrir um deles pelo explorador de arquivos do Windows leva você para dentro do aparelho em vez de te deixar numa página vazia.

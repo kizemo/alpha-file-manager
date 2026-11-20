@@ -47,9 +47,9 @@ sync, batch rename, and a long list of day-to-day fixes. **If you have been look
   search files and read your favourites over a standard interface.
 - 🔐 **Real remote servers** — SFTP, FTP and FTPS with pinned host keys and
   certificates, plus upload, download, delete and permission editing.
-- ☁️ **Netdisks are remote connections too** — add Baidu Netdisk or Quark Netdisk
-  in a few steps, sign in inside the app, and browse it like any server; Aliyun
-  Drive is next, and OneDrive follows it.
+- ☁️ **Netdisks are remote connections too** — add Baidu Netdisk, Quark Netdisk
+  or Aliyun Drive in a few steps, sign in inside the app, and browse it like any
+  server; OneDrive follows them.
 - 🧠 **Batch rename that does not lose work** — find-and-replace, case conversion,
   templates and numbering, with a live preview, conflicts blocked instead of
   silently overwriting, and undo.
@@ -101,10 +101,11 @@ sync, batch rename, and a long list of day-to-day fixes. **If you have been look
 |---|---|
 | ☁️ | **Baidu Netdisk signs in inside the app** — one click opens the real login page, scanning the QR code is enough, and the session is picked up into the credential store — no cookie copying by hand |
 | 🔗 | **Quark Netdisk works the same way** — pick it in the very same *Add netdisk* list, scan the QR code in the window that opens inside the app, and the session is stored for you |
+| 🔗 | **Aliyun Drive joins them** — pick it in the same *Add netdisk* list, scan the QR code in the window that opens inside the app, and the session is stored for you as well; the first version browses and reads the drive, and writes nothing |
 | ➕ | **Adding a netdisk takes three steps** — *Settings* → *Remote* → *Netdisks* → pick the provider → scan the QR code → give the connection a name. No token to copy, no config file to hand-edit, no service to start |
 | 📂 | **A netdisk browsed like a remote connection** — listing, creating a folder, renaming, deleting and downloading all reach the drive itself, not a shadow of a local folder |
 | ⚙️ | **Netdisks and remote servers are kept apart** — the settings page splits them into two tabs, *Netdisks* and *Remote connections*, so each connection sits where it belongs |
-| ➕ | **More mainstream netdisks are on the way** — Aliyun Drive is next and OneDrive follows it, both plugged into the very same remote-connection machinery. The first version of each browses and downloads; writing to them comes later |
+| ➕ | **More mainstream netdisks are on the way** — OneDrive is next, plugged into the very same remote-connection machinery. The first version of each browses and downloads; writing to them comes later |
 
 #### Why this is simpler than mounting the drive with alist
 
@@ -160,6 +161,16 @@ Adding a netdisk here has none of that:
 |---|---|
 | ![Dashboard quick access](docs/screenshots/afm-dashboard-hero-light-en.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
 | ![Dashboard cards](docs/screenshots/afm-dashboard-card-enrichment-en.png) | **Dashboard cards** — name, size and path on top, type and item count below, with drag, reorder and edit shortcuts on every card |
+
+### What changed in 3.16.0
+
+| | | |
+|---|---|---|
+| ☁️ | **Aliyun Drive can be added as a third netdisk provider** — in *Settings* → *Remote* → *Netdisks*, *Add netdisk* now offers *Aliyun Drive* next to *Baidu Netdisk* and *Quark Netdisk*. A sign-in window opens inside the app, scanning the QR code with your phone is enough, and the session is stored in the app's own encrypted credential store — no token to copy by hand. Once it is saved, the drive is listed with its real file names and a file can be read into a local folder |
+| 🔐 | **The first version of Aliyun Drive browses and reads, and writes nothing** — listing a folder and reading a file are what the provider offers. Uploading, deleting, renaming, moving and sharing are not offered at all, so the app cannot change anything on your drive by accident; the vault drive is recognised but not unlocked |
+| 🐛 | **Aliyun Drive no longer hangs for twenty seconds and then reports a broken connection** — the gateway in front of Aliyun Drive only sends the body of a response when the request asks for gzip-compressed content. Without that request header it replied with the headers alone, held the body back for about twenty seconds and then cut the connection, which reached you as *the connection to Aliyun Drive was interrupted*. The HTTP client now negotiates gzip the way it is supposed to, so listing a folder takes milliseconds instead of a timeout |
+| 💬 | **A remote failure is now reported in words that fit the drive it happened on** — the fallback message shown when a netdisk cannot be reached used to name one fixed provider. It now names the provider that actually failed, so an Aliyun Drive problem no longer talks about another drive |
+| 📱 | **A connected phone shows up in the folder tree, and its breadcrumb leads the way into it** — the path of a phone in the Windows shell namespace cannot be split by the front end, because it contains separators that are not directory separators, so the levels inside the phone were flattened into one vague *Device* entry. The hierarchy is now taken from the shell itself, one level at a time: the tree shows the device roots that have no drive letter at all, and the address bar leads down through the real names of each level |
 
 ### What changed in 3.15.0
 
@@ -285,7 +296,7 @@ they compare.
 | ⚡ | **File dialogs in other apps** | ✅ **Focus Sync** — every dialog opens in the folder you are browsing | ➖ | ❌ |
 | 🤖 | **Driven by an AI assistant** | ✅ built-in MCP server, one-click setup for six assistants | ❌ | ❌ |
 | 🔐 | **Remote servers** | ✅ SFTP · FTP · FTPS, host keys and certificates pinned | ❌ | ➖ SMB / WebDAV / OneDrive, and no SFTP at all |
-| ☁️ | **Netdisks (cloud drives)** | ✅ **Baidu Netdisk and Quark Netdisk** — add them in the app, sign in inside the app, and browse them like any remote connection; **Aliyun Drive, Google Drive and other mainstream netdisks are on the way** | ❌ | ➖ OneDrive only |
+| ☁️ | **Netdisks (cloud drives)** | ✅ **Baidu Netdisk, Quark Netdisk and Aliyun Drive** — add them in the app, sign in inside the app, and browse them like any remote connection; **Google Drive and other mainstream netdisks are on the way** | ❌ | ➖ OneDrive only |
 | 📤 | **Working on remote files** | ✅ upload, download, delete, set permissions | ❌ | ➖ shares only |
 | ↔️ | **Two panes, used together** | ✅ **swap them with one button**, and a **synchronized browsing** toggle right beside it — enter a folder and the other pane follows, going up a level takes it along too | ➖ **no pane swap**; linked browsing exists but is a buried option in the navigator menu | ➖ tabs, not panes |
 | 🔍 | **Comparing two folders** | ✅ recursively, with the criteria serious tools use — and an explicit "direction undecided" state instead of guessing which side is newer | ➖ | ➖ compares by size and date only, and the choice is buried |
@@ -303,12 +314,12 @@ they compare.
 ✅ has it · ➖ not part of that project · ❌ cannot
 
 > **Netdisks are a growing surface, and we will keep working on them.** What
-> works today is Baidu Netdisk and Quark Netdisk — add one in the app, sign in
-> inside it, and browse it like a remote connection; listing, folder creation
-> and downloads all reach the drive itself. Aliyun Drive, Google Drive and the
-> other mainstream netdisks will be plugged into the very same machinery: one
-> connection in the sidebar, and the tree, the listings and the transfers
-> follow it.
+> works today is Baidu Netdisk, Quark Netdisk and Aliyun Drive — add one in the
+> app, sign in inside it, and browse it like a remote connection; listings and
+> downloads all reach the drive itself. Aliyun Drive's first version browses and
+> reads and writes nothing. Google Drive and the other mainstream netdisks will
+> be plugged into the very same machinery: one connection in the sidebar, and
+> the tree, the listings and the transfers follow it.
 
 > **If you want the file manager that is part of Windows** — with the shell
 > extensions, the codecs, the network shares, the EFS encryption and the "it

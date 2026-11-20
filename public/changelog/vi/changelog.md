@@ -1,6 +1,17 @@
 # Nhật ký thay đổi
 
 
+## [3.16.0] - November 2026
+
+**Tóm tắt:** Aliyun Drive giờ đã có thể kết nối ngay trong ứng dụng: một cửa sổ đăng nhập mở ra bên trong ứng dụng, bạn quét mã QR bằng điện thoại, và ổ đĩa trở thành một bảng mà bạn có thể duyệt và đọc. Bản đầu tiên này cố ý chỉ đọc: nó liệt kê thư mục và đọc tệp, và không bao giờ ghi vào ổ của bạn.
+
+### What changed
+
+**Đã thêm: Aliyun Drive có thể được thêm làm nhà cung cấp đĩa đám mây thứ ba.** Trong tab *Netdisks* của *Remote* trong phần cài đặt, *Add netdisk* giờ đã có *Aliyun Drive* bên cạnh *Baidu Netdisk* và *Quark Netdisk*. Một cửa sổ đăng nhập mở ra bên trong ứng dụng, chỉ cần quét mã QR bằng điện thoại, và phiên làm việc được lưu vào kho thông tin đăng nhập mã hóa của chính ứng dụng: không có token nào phải chép tay. Sau khi lưu, kết nối này hành xử giống hệt mọi kết nối từ xa khác: ổ đĩa được liệt kê với tên tệp thật, và một tệp có thể được đọc vào một thư mục cục bộ.
+**Đã thêm: Bản đầu tiên của Aliyun Drive chỉ duyệt và đọc, không ghi gì.** Nhà cung cấp đưa ra việc liệt kê một thư mục và đọc một tệp. Tải lên, xóa, đổi tên, di chuyển và chia sẻ hoàn toàn không được cung cấp, nên ứng dụng không thể vô tình thay đổi bất cứ thứ gì trên ổ của bạn. ổ kho vựng được nhận diện nhưng không được mở khóa.
+**Đã sửa: Aliyun Drive không còn treo hai mươi giây rồi báo là kết nối đã đứt.** Cổng kết nối trước Aliyun Drive chỉ gửi phần thân của câu trả lời khi câu yêu cầu nội dung nén gzip. Không có tiêu đề yêu cầu đó, nó chỉ trả về tiêu đề, giữ phần thân lại khoảng hai mươi giây rồi cắt kết nối, và bạn thấy điều đó dưới dạng *kết nối với Aliyun Drive đã bị gián đoạn*. Bây giờ máy khách HTTP thương lượng gzip đúng cách, nên liệt kê một thư mục chỉ mất vài mili giây thay vì hết thời gian chờ.
+**Đã sửa: Lỗi kết nối từ xa giờ được thông báo bằng đúng lời lẽ của ổ đĩa đó.** Thông báo dự phòng hiện ra khi không tới được một ổ đám mây trước đây luôn nói tên một nhà cung cấp cố định. Giờ nó nói tên nhà cung cấp thực sự thất bại, nên một sự cố của Aliyun Drive không còn nhắc tới ổ đĩa khác.
+**Đã sửa: Điện thoại đã cắm xuất hiện trong cây thư mục, và đường dẫn điều hướng dẫn vào bên trong nó.** Đường dẫn của một chiếc điện thoại trong không gian tên của Windows shell không thể được chia nhỏ ở tầng giao diện: nó chứa các dấu phân cách không phải dấu phân cách thư mục, nên các cấp bên trong điện thoại bị gộp thành một mục chung chung *Thiết bị*. Nay thứ bậc được lấy từ chính shell, từng cấp một: cây hiện ra cả những gốc thiết bị không có chữ cái ổ đĩa, và thanh địa chỉ đi xuống qua những tên thật của từng cấp.
 ## [3.15.0] - November 2026
 
 **Tóm tắt:** Một chiếc điện thoại hay ổ USB bạn cắm vào máy tính giờ đã hiện trong *Địa điểm*, và mở một thiết bị từ File Explorer của Windows sẽ đưa bạn vào bên trong thiết bị thay vì bỏ bạn ở một trang trống.

@@ -1,6 +1,17 @@
 # Registro de cambios
 
 
+## [3.16.0] - November 2026
+
+**Resumen:** Aliyun Drive ya se puede conectar desde dentro de la aplicación: se abre una ventana de inicio de sesión dentro de la aplicación, escaneas el código QR con el teléfono y la unidad se convierte en un panel que puedes explorar y leer. Esta primera versión es solo de lectura a propósito: lista carpetas y lee archivos, y nunca escribe en tu unidad.
+
+### What changed
+
+**Añadido: Aliyun Drive se puede añadir como tercer proveedor de disco en la nube.** En la pestaña *Netdisks* de *Remote* dentro de los ajustes, *Add netdisk* ofrece ahora *Aliyun Drive* junto a *Baidu Netdisk* y *Quark Netdisk*. Se abre una ventana de inicio de sesión dentro de la aplicación, escanear el código QR con el teléfono basta, y la sesión se guarda en el almacén cifrado de credenciales de la propia aplicación: no hay ningún token que copiar a mano. Una vez guardada, la conexión se comporta como cualquier otra conexión remota: la unidad se lista con sus nombres de archivo reales y un archivo se puede leer dentro de una carpeta local.
+**Añadido: La primera versión de Aliyun Drive explora y lee, y no escribe nada.** El proveedor ofrece listar una carpeta y leer un archivo. Subir, borrar, renombrar, mover y compartir no se ofrecen en absoluto, así que la aplicación no puede modificar nada en tu unidad por accidente. La unidad de la bóveda se reconoce, pero no se desbloquea.
+**Corregido: Aliyun Drive ya no se queda veinte segundos colgado y luego avisa de que la conexión se ha roto.** La pasarela delante de Aliyun Drive solo envía el cuerpo de una respuesta cuando la petición pide contenido comprimido con gzip. Sin esa cabecera de petición respondía solo con las cabeceras, retenía el cuerpo unos veinte segundos y luego cortaba la conexión, y a ti te llegaba como *la conexión con Aliyun Drive se ha interrumpido*. El cliente HTTP negocia ahora gzip como debe, así que listar una carpeta tarda milisegundos en lugar de agotar el tiempo de espera.
+**Corregido: Un fallo de una conexión remota se cuenta ahora con palabras que encajan con la unidad donde ocurrió.** El mensaje de reserva que se muestra cuando no se puede alcanzar un disco en la nube nombraba siempre a un proveedor fijo. Ahora nombra al proveedor que falló de verdad, así que un problema de Aliyun Drive ya no habla de otra unidad.
+**Corregido: Un teléfono conectado aparece en el árbol de carpetas, y su ruta de migas lleva hasta él.** La ruta de un teléfono en el espacio de nombres de la shell de Windows no se puede dividir en el front-end: contiene separadores que no son separadores de directorio, así que los niveles dentro del teléfono se aplastaban en una vaga entrada *Dispositivo*. Ahora la jerarquía se toma de la shell misma, nivel a nivel: el árbol muestra las raíces de dispositivo que no tienen letra de unidad, y la barra de direcciones desciende por los nombres reales de cada nivel.
 ## [3.15.0] - November 2026
 
 **Resumen:** Si conectas un teléfono o una memoria USB al ordenador, ahora aparece en *Ubicaciones*, y abrir uno de ellos desde el explorador de archivos de Windows te mete en el dispositivo en lugar de dejarte en una página vacía.

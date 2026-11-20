@@ -1,6 +1,17 @@
 # Registro delle modifiche
 
 
+## [3.16.0] - November 2026
+
+**Riepilogo:** Ora Aliyun Drive si può collegare dall'interno dell'app: si apre una finestra di accesso dentro l'app, scansioni il codice QR con il telefono e l'unità diventa un riquadro che puoi esplorare e leggere. Questa prima versione è di sola lettura apposta: elenca le cartelle e legge i file, e non scrive mai nulla sul tuo disco.
+
+### What changed
+
+**Aggiunto: Aliyun Drive si può aggiungere come terzo provider di disco online.** Nella scheda *Netdisks* di *Remote* nelle impostazioni, *Add netdisk* offre ora *Aliyun Drive* accanto a *Baidu Netdisk* e *Quark Netdisk*. Si apre una finestra di accesso dentro l'app, basta scansionare il codice QR con il telefono e la sessione viene conservata nell'archivio di credenziali cifrato dell'app stessa: nessun token da copiare a mano. Una volta salvata, la connessione si comporta come qualsiasi altra connessione remota: l'unità viene elencata con i suoi veri nomi di file e un file si può leggere in una cartella locale.
+**Aggiunto: La prima versione di Aliyun Drive esplora e legge, e non scrive nulla.** Il provider offre l'elenco di una cartella e la lettura di un file. Caricamento, eliminazione, rinomina, spostamento e condivisione non sono offerti affatto, così l'app non può modificare nulla per sbaglio sul tuo disco. L'unità della cassaforte viene riconosciuta ma non sbloccata.
+**Corretto: Aliyun Drive non si blocca più per venti secondi e poi segnala una connessione interrotta.** Il gateway davanti ad Aliyun Drive invia il corpo di una risposta solo quando la richiesta chiede contenuto compresso con gzip. In assenza di quell'intestazione rispondeva solo con le intestazioni, tratteneva il corpo per una ventina di secondi e poi tagliava la connessione, e questo arrivava a te come *la connessione ad Aliyun Drive è stata interrotta*. Ora il client HTTP negozia gzip come deve, quindi elencare una cartella richiede millisecondi invece di un timeout.
+**Corretto: Un errore remoto ora viene descritto con parole che si adattano all'unità su cui è successo.** Il messaggio di riserva mostrato quando un disco online non è raggiungibile nominava un provider fisso. Ora nomina il provider che è realmente fallito, così un problema di Aliyun Drive non parla più di un'altra unità.
+**Corretto: Un telefono collegato compare nell'albero delle cartelle, e il suo percorso di navigazione porta dentro.** Il percorso di un telefono nello spazio dei nomi della shell di Windows non può essere spezzato dal front-end: contiene separatori che non sono separatori di directory, perciò i livelli dentro il telefono venivano compattati in una vaga voce *Dispositivo*. Ora la gerarchia viene presa dalla shell stessa, un livello alla volta: l'albero mostra le radici di dispositivo che non hanno nemmeno una lettera di unità, e la barra degli indirizzi scende attraverso i veri nomi di ogni livello.
 ## [3.15.0] - November 2026
 
 **Riepilogo:** Se colleghi un telefono o un'unità USB al computer, ora compare in *Località*, e aprirlo dall'Esplora File di Windows ti porta dentro il dispositivo invece di lasciarti su una pagina vuota.

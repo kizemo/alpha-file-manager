@@ -1,6 +1,17 @@
 # Değişiklik Günlüğü
 
 
+## [3.16.0] - November 2026
+
+**Özet:** Aliyun Drive artık uygulamanın içinden bağlanabiliyor: uygulama içinde bir oturum açma penceresi açılıyor, telefonunla QR kodu okutuyorsun ve sürücü; gezebileceğin ve okuyabileceğin bir bölme oluyor. Bu ilk sürüm bilerek yalnızca okuma amaçlı: klasörleri listeler ve dosyaları okur, sürücüne hiçbir şey yazmaz.
+
+### What changed
+
+**Eklendi: Aliyun Drive üçüncü ağ diski sağlayıcısı olarak eklenebiliyor.** *Ayarlar* içindeki *Remote* sekmesinin *Netdisks* sekmesinde, *Add netdisk* artık *Baidu Netdisk* ve *Quark Netdisk* yanında *Aliyun Drive* seçeneğini de sunuyor. Uygulama içinde bir oturum açma penceresi açılıyor, telefonunla QR kodu okutmak yeterli oluyor ve oturum uygulamanın kendi şifreli kimlik bilgisi deposuna kaydediliyor: elle kopyalanacak bir jeton yok. Kaydedildikten sonra bağlantı diğer her uzak bağlantı gibi davranıyor: sürücü gerçek dosya adlarıyla listeleniyor ve bir dosya yerel bir klasöre okunabiliyor.
+**Eklendi: Aliyun Drive'in ilk sürümü gezinir ve okur, hiçbir şey yazmaz.** Sağlayıcı bir klasörü listelemeyi ve bir dosyayı okumayı sunuyor. Yükleme, silme, yeniden adlandırma, taşıma ve paylaşma hiç sunulmuyor; bu yüzden uygulama sürücünde yanlışlıkla bir şey değiştiremiyor. Kasa sürücüsü tanınıyor ama açılmıyor.
+**Düzeltildi: Aliyun Drive artık yirmi saniye takılıp kalmıyor ve sonra bağlantının koptuğunu bildirmiyor.** Aliyun Drive'in önündeki geçit, istek gzip ile sıkıştırılmış içerik istediğinde yanıtın gövdesini gönderiyor. Bu istek başlığı olmadan yalnızca başlıkları yanıtlıyor, gövdeyi yaklaşık yirmi saniye tutuyor ve sonra bağlantıyı kesiyordu; bu da sana *Aliyun Drive bağlantısı kesildi* olarak ulaşıyordu. HTTP istemcisi artık gzip'i doğru şekilde görüşüyor, böylece bir klasörü listelemek zaman aşımı yerine milisaniyeler sürüyor.
+**Düzeltildi: Bir uzak bağlantı hatası artık olayın olduğu sürücüye uygun kelimelerle anlatılıyor.** Bir ağ diski erişilemediğinde gösterilen yedek mesaj hep aynı sabit sağlayıcının adını söylüyordu. Artık gerçekte başarısız olan sağlayıcının adını söylüyor; böylece bir Aliyun Drive sorunu başka bir sürücüden bahsetmiyor.
+**Düzeltildi: Bağlı telefon klasör ağacında görünüyor ve gezinti yolu onun içine götürüyor.** Windows kabuğu ad alanındaki bir telefonun yolunu ön uç bölüntüleyemez: içinde dizin ayırıcısı olmayan ayırıcılar bulunur, bu yüzden telefonun içindeki katmanlar belirsiz bir *Cihaz* girdisine düzleştiriliyordu. Katmanlama artık kabuktan tek tek alınıyor: ağaç, sürücü harfi olmayan cihaz köklerini de gösteriyor ve adres çubuğu her katmanın gerçek adlarıyla aşağı iniyor.
 ## [3.15.0] - November 2026
 
 **Özet:** Bilgisayara taktığınız bir telefon ya da USB bellek artık *Yerler* içinde görünüyor; Windows gezgininden birini açtığınızda da boş bir sayfada kalmak yerine cihazın içine giriyorsunuz.
