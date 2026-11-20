@@ -789,19 +789,19 @@
           "deleteSession": "Supprimer la session enregistrée"
         },
         "embedded": {
-          "title": "Se connecter dans l’application",
-          "start": "Se connecter via la fenêtre intégrée",
+          "title": "Se connecter en scannant le code QR",
+          "start": "Afficher le code QR",
           "cancel": "Arrêter l’attente",
-          "hint": "Une fenêtre de connexion s’ouvre dans l’application. Elle se ferme automatiquement une fois la connexion réussie et la session est récupérée aussitôt : il ne reste qu’à enregistrer cette connexion.",
+          "hint": "Un code QR de connexion s’affiche ici. Scannez-le avec l’application Aliyun Drive sur votre téléphone — la session est récupérée automatiquement ; il ne reste qu’à enregistrer cette connexion. Si vous ne pouvez pas scanner, collez un jeton d’accès ci-dessous.",
           "status": {
-            "waiting": "En attente de votre connexion…",
+            "waiting": "En attente de votre scan…",
             "ready": "Connecté. Enregistrez cette connexion : la session sera écrite à l’enregistrement.",
-            "closed": "La fenêtre de connexion a été fermée avant la fin de la procédure.",
-            "timeout": "Délai d’attente de connexion dépassé. Veuillez réessayer.",
+            "closed": "La connexion a été annulée avant d’être terminée.",
+            "timeout": "Le code QR a expiré. Veuillez réessayer.",
             "error": "Impossible de lire l’état de connexion. Veuillez réessayer.",
             "scanned": "Scanné, confirmez sur le mobile"
           },
-          "saved": "Connexion à Aliyun Drive réussie : la fenêtre s’est fermée automatiquement et la session a été récupérée. Enregistrez cette connexion pour l’utiliser.",
+          "saved": "Connexion à Aliyun Drive réussie. Enregistrez cette connexion pour l’utiliser.",
           "refresh": "Actualiser le code QR",
           "windowStart": "Ouvrir la fenêtre de connexion",
           "windowCancel": "Fermer la fenêtre",

@@ -789,19 +789,19 @@
           "deleteSession": "Eliminar a sessão guardada"
         },
         "embedded": {
-          "title": "Iniciar sessão dentro do aplicativo",
-          "start": "Iniciar sessão com a janela incorporada",
+          "title": "Iniciar sessão com leitura do código QR",
+          "start": "Mostrar o código QR",
           "cancel": "Parar de esperar",
-          "hint": "É aberta uma janela de início de sessão dentro do aplicativo. Fecha-se automaticamente assim que a sessão for iniciada e a mesma é recolhida de imediato — basta guardar esta ligação.",
+          "hint": "Aqui aparece um código QR de início de sessão. Usa a app do Aliyun Drive no telemóvel para o ler — a sessão é obtida automaticamente, por isso basta guardar esta ligação. Se não conseguires ler, cola abaixo um token de acesso.",
           "status": {
-            "waiting": "À espera que inicies sessão…",
+            "waiting": "À espera que leias o código…",
             "ready": "Sessão iniciada. Guarda esta ligação — a sessão será escrita ao guardar.",
-            "closed": "A janela de início de sessão foi fechada antes de terminares.",
-            "timeout": "O tempo de espera da início de sessão esgotou. Tenta novamente.",
+            "closed": "O início de sessão foi cancelado antes de terminares.",
+            "timeout": "O código QR expirou. Tenta novamente.",
             "error": "Não foi possível ler o estado da sessão. Tenta novamente.",
             "scanned": "Lido, confirme no telemóvel"
           },
-          "saved": "Sessão iniciada no Aliyun Drive: a janela fechou-se automaticamente e a sessão foi recolhida. Guarda esta ligação para a usar.",
+          "saved": "Sessão iniciada no Aliyun Drive. Guarda esta ligação para a usar.",
           "refresh": "Atualizar código QR",
           "windowStart": "Abrir janela de login",
           "windowCancel": "Fechar janela",
