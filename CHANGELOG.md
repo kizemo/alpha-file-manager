@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.16.0] - November 2026
+
+**Summary:** Aliyun Drive can now be connected from inside the app - a sign-in window opens within the app, you scan the QR code with your phone, and the drive becomes a pane you can browse and read from. This first version is read-only on purpose: it lists folders and reads files, and it never writes to your drive.
+
+### What changed
+
+**Added** **Aliyun Drive can be added as a third netdisk provider** - In the *Netdisk* tab of *Settings* under *Remote*, *Add netdisk* now offers *Aliyun Drive* next to *Baidu Netdisk* and *Quark Netdisk*. A sign-in window opens inside the app, scanning the QR code with your phone is enough, and the session is stored in the app's own encrypted credential store - there is no token to copy by hand. Once it is saved, the connection behaves like any other remote connection: the drive is listed with its real file names, and a file can be read into a local folder.
+**Added** **The first version of Aliyun Drive browses and reads, and writes nothing** - The provider offers listing a folder and reading a file. Uploading, deleting, renaming, moving and sharing are not offered at all, so the app cannot change anything on your drive by accident. The vault drive is recognised but not unlocked.
+**Fixed** **Aliyun Drive no longer hangs for twenty seconds and then reports a broken connection** - The gateway in front of Aliyun Drive only sends the body of a response when the request asks for gzip-compressed content. Without that request header it replied with the headers alone, held the body back for about twenty seconds and then cut the connection, which reached you as *the connection to Aliyun Drive was interrupted*. The HTTP client now negotiates gzip the way it is supposed to, so listing a folder takes milliseconds instead of a timeout.
+**Fixed** **A remote failure is now reported in words that fit the drive it happened on** - The fallback message shown when a netdisk cannot be reached used to name one fixed provider. It now names the provider that actually failed, so an Aliyun Drive problem no longer talks about another drive.
+**Fixed** **A connected phone shows up in the folder tree, and its breadcrumb leads the way into it** - The path of a phone in the Windows shell namespace cannot be split by the front end - it contains separators that are not directory separators - so the levels inside the phone were flattened into one vague *Device* entry. The hierarchy is now taken from the shell itself, one level at a time, which means the tree shows the device roots that have no drive letter at all, and the address bar leads down through the real names of each level instead of a generic label.
 ## [3.15.0] - November 2026
 
 **Summary:** A phone or a USB drive you plug into the computer now shows up in *Locations*, and opening one of them from the Windows file explorer brings you into the device instead of leaving you on an empty page. Pictures on a phone now preview properly and report a real file size, and a USB drive can be safely removed with the app still running.

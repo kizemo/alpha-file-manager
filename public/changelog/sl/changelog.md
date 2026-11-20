@@ -1,6 +1,17 @@
 # Dnevnik sprememb
 
 
+## [3.16.0] - November 2026
+
+**Povzetek:** Aliyun Drive se je zdaj lahko povezal neposredno v aplikaciji: odpre se okno za prijavo znotraj aplikacije, s telefonom skenirate kodo QR, pogon pa postane podokno, ki ga lahko brskate in berete. Ta prva različica je namenoma samo za branje: izpiše mape in bere datoteke, na vaš pogon pa nikoli ne piše.
+
+### What changed
+
+**Dodano: Aliyun Drive je lahko dodan kot tretji ponudnik mrežnega diska.** Na zavihku *Netdisks* v razdelku *Remote* v nastavitvah ponudba *Add netdisk* zdaj poleg *Baidu Netdisk* in *Quark Netdisk* ponuja tudi *Aliyun Drive*. Okno za prijavo se odpre znotraj aplikacije, dovolj je skenirati kodo QR s telefonom, seja pa se shrani v šifrirano skladišče poverilnic same aplikacije: ni žetona, ki bi ga morali ročno kopirati. Ko je shranjena, se povezava obnaša kot katerakoli druga oddaljena povezava: pogon je naveden s pravimi imeni datotek, datoteko pa lahko preberete v lokalno mapo.
+**Dodano: Prva različica Aliyun Drive brska in bere, in ne piše ničesar.** Ponudnik ponuja izpis mape in branje datoteke. Nalaganje, brisanje, preimenovanje, premikanje in deljenje sploh niso ponujeni, zato aplikacija ne more nehoteje spremeniti ničesar na vašem pogonu. Pomnilniška omarica je prepoznana, a ni odklenjena.
+**Popravljeno: Aliyun Drive se ne veša več dvajset sekund in nato ne sporoči prekinjene povezave.** Prehod pred Aliyun Drive pošlje telo odgovora le, kadar zahteva vsebino, stisnjeno z gzip. Brez tega glave zahteve je odgovoril le z glavami, telo zadržal približno dvajset sekund in nato odsekal povezavo, kar ste videli kot *povezava z Aliyun Drive je bila prekinjena*. HTTP odjemalec se zdaj pogaja gzip tako, kot bi moral, zato izpis mape traja milisekunde namesto časovne omejitve.
+**Popravljeno: Napaka oddaljene povezave je zdaj opisana z besedami, ki ustrezajo pogonu, na katerem se je zgodila.** Nadomestno sporočilo, ki se je prikazalo, ko mrežni disk ni dosegljiv, je imenovalo enega samega ponudnika. Zdaj imenuje ponudnika, ki je res odpovedal, zato težava z Aliyun Drive ne govori več o drugem pogonu.
+**Popravljeno: Priklopljen telefon se pojavi v drevesu map, njegova pot pa vas pripelje vanj.** Pot telefona v imenskem prostoru lupine Windows se v vmesniku ne more razdeliti: vsebuje ločila, ki niso ločila map, zato so bile ravni znotraj telefona stisnjene v eno mehko možnost *Naprava*. Hierarhija je zdaj pridobljena od same lupine, raven za ravnijo: drevo prikaže tudi korene naprav brez črke pogona, naslovna vrstica pa se spusti skozi prava imena vsake ravni.
 ## [3.15.0] - November 2026
 
 **Povzetek:** Telefon ali USB-pogon, ki ga priklopite v računalnik, se zdaj prikaže v razdelku *Lokacije*, odprtje v raziskovalniku Windows pa vas popelje v napravo namesto na prazno stran.

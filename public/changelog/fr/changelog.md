@@ -1,6 +1,17 @@
 # Journal des modifications
 
 
+## [3.16.0] - November 2026
+
+**Résumé :** Aliyun Drive peut désormais être connecté depuis l'application même : une fenêtre de connexion s'ouvre dans l'application, vous scannez le code QR avec votre téléphone, et le disque devient un volet que vous pouvez parcourir et lire. Cette première version est volontairement en lecture seule : elle liste les dossiers et lit les fichiers, et elle n'écrit jamais sur votre disque.
+
+### What changed
+
+**Ajouté : Aliyun Drive peut être ajouté comme troisième fournisseur de disque en ligne.** Dans l'onglet *Netdisks* de *Remote* dans les paramètres, *Add netdisk* propose maintenant *Aliyun Drive* à côté de *Baidu Netdisk* et *Quark Netdisk*. Une fenêtre de connexion s'ouvre dans l'application, scanner le code QR avec votre téléphone suffit, et la session est conservée dans le coffre chiffré de l'application : aucun jeton à copier à la main. Une fois enregistrée, la connexion se comporte comme toute autre connexion distante : le disque est listé avec ses vrais noms de fichiers, et un fichier peut être lu dans un dossier local.
+**Ajouté : La première version d'Aliyun Drive parcourt et lit, et n'écrit rien.** Le fournisseur propose de lister un dossier et de lire un fichier. L'envoi, la suppression, le renommage, le déplacement et le partage ne sont pas proposés du tout, l'application ne peut donc rien modifier par accident sur votre disque. Le coffre-fort est reconnu mais pas déverrouillé.
+**Corrigé : Aliyun Drive ne reste plus bloqué vingt secondes avant d'annoncer une connexion interrompue.** La passerelle devant Aliyun Drive n'envoie le corps d'une réponse que si la requête demande un contenu compressé en gzip. Sans cet en-tête de requête, elle répondait avec les seuls en-têtes, retenait le corps pendant une vingtaine de secondes puis coupait la connexion, ce qui vous arrivait comme *la connexion à Aliyun Drive a été interrompue*. Le client HTTP négocie maintenant gzip comme il se doit, lister un dossier prend des millisecondes au lieu d'expirer.
+**Corrigé : Une panne distante est désormais signalée avec des mots qui correspondent au disque concerné.** Le message de repli affiché quand un disque en ligne est injoignable nommait un fournisseur fixe. Il nomme maintenant le fournisseur qui a réellement échoué, si bien qu'un problème d'Aliyun Drive ne parle plus d'un autre disque.
+**Corrigé : Un téléphone branché apparaît dans l'arborescence, et son fil d'Ariane permet d'y entrer.** Le chemin d'un téléphone dans l'espace de noms de la shell Windows ne peut pas être découpé par l'interface : il contient des séparateurs qui ne sont pas des séparateurs de dossiers, si bien que les niveaux à l'intérieur du téléphone étaient aplatis en une entrée vague *Appareil*. La hiérarchie est maintenant prise auprès de la shell elle-même, niveau par niveau : l'arborescence montre les racines d'appareils qui n'ont même pas de lettre de lecteur, et la barre d'adresse descend à travers les vrais noms de chaque niveau.
 ## [3.15.0] - November 2026
 
 **Résumé :** Un téléphone ou une clé USB que vous branchez sur l'ordinateur apparaît maintenant dans *Emplacements*, et l'ouvrir depuis l'Explorateur de fichiers Windows vous conduit dans l'appareil au lieu de vous laisser sur une page vide.

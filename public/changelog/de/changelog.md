@@ -1,6 +1,17 @@
 # Änderungsprotokoll
 
 
+## [3.16.0] - November 2026
+
+**Zusammenfassung:** Aliyun Drive lässt sich jetzt direkt in der App verbinden - ein Anmeldefenster öffnet sich in der App, Sie scannen den QR-Code mit dem Telefon, und das Laufwerk wird zu einer Spalte, die Sie durchsuchen und lesen können. Diese erste Version ist bewusst nur lesend: Sie listet Ordner auf und liest Dateien, und sie schreibt niemals auf Ihr Laufwerk.
+
+### What changed
+
+**Hinzugefügt: Aliyun Drive kann als dritter Netdisk-Anbieter hinzugefügt werden.** Im Tab *Netdisks* unter *Remote* in den *Einstellungen* bietet *Netdisk hinzufügen* jetzt *Aliyun Drive* neben *Baidu Netdisk* und *Quark Netdisk* an. Ein Anmeldefenster öffnet sich in der App, ein Scan des QR-Codes genügt, und die Sitzung landet im verschlüsselten Anmeldeinformationsspeicher der App - es gibt kein Token, das man von Hand kopieren müsste. Ist die Verbindung gespeichert, verhält sie sich wie jede andere Remote-Verbindung: Das Laufwerk wird mit seinen echten Dateinamen aufgeführt, und eine Datei lässt sich in einen lokalen Ordner lesen.
+**Hinzugefügt: Die erste Version von Aliyun Drive durchsucht und liest, und schreibt nichts.** Der Anbieter bietet das Auflisten eines Ordners und das Lesen einer Datei. Hochladen, Löschen, Umbenennen, Verschieben und Teilen werden gar nicht erst angeboten, sodass die App nichts auf Ihrem Laufwerk verändern kann. Das Tresor-Laufwerk wird erkannt, aber nicht entsperrt.
+**Behoben: Aliyun Drive hängt nicht mehr zwanzig Sekunden und meldet dann eine abgebrochene Verbindung.** Das Gateway vor Aliyun Drive sendet den Inhalt einer Antwort nur, wenn die Anfrage um gzip-komprimierte Inhalte bittet. Ohne diesen Anfrage-Header kam nur der Antwortkopf zurück, der Inhalt wurde etwa zwanzig Sekunden zurückgehalten und die Verbindung dann abgeschnitten - bei Ihnen kam das als *die Verbindung zu Aliyun Drive wurde unterbrochen* an. Der HTTP-Client vereinbart jetzt gzip so, wie es sollte, das Auflisten eines Ordners dauert damit Millisekunden statt eines Timeouts.
+**Behoben: Ein Fehler bei einer Remote-Verbindung wird jetzt in Worten gemeldet, die zum Laufwerk passen.** Die Ersatzmeldung, die erscheint, wenn ein Netdisk nicht erreichbar ist, nannte bisher einen fest verdrahteten Anbieter. Jetzt nennt sie den Anbieter, bei dem es tatsächlich fehlgeschlagen ist, sodass ein Problem mit Aliyun Drive nicht mehr von einem anderen Laufwerk handelt.
+**Behoben: Ein angeschlossenes Handy erscheint im Ordnerbaum, und seine Brotkrümelführung führt hinein.** Der Pfad eines Handys im Windows-Shell-Namensraum lässt sich vom Frontend nicht zerlegen - er enthält Trennzeichen, die keine Verzeichnistrennzeichen sind - deshalb wurden die Ebenen innerhalb des Handys zu einem vagen Eintrag *Gerät* zusammengefasst. Die Hierarchie wird jetzt Ebene für Ebene aus der Shell selbst geholt: Der Baum zeigt damit auch Gerätewurzeln ohne Laufwerksbuchstaben, und die Adressleiste führt durch die echten Namen jeder Ebene statt durch eine allgemeine Bezeichnung.
 ## [3.15.0] - November 2026
 
 **Zusammenfassung:** Wenn Sie ein Handy oder einen USB-Stick an den Rechner anschließen, erscheint es jetzt unter *Standorte*, und wenn Sie eines davon aus dem Windows-Explorer öffnen, landen Sie im Gerät selbst, statt auf einer leeren Seite zu bleiben.
