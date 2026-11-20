@@ -789,19 +789,19 @@
           "deleteSession": "Eliminar la sesión guardada"
         },
         "embedded": {
-          "title": "Iniciar sesión dentro de la aplicación",
-          "start": "Iniciar sesión con la ventana integrada",
+          "title": "Iniciar sesión escaneando el código QR",
+          "start": "Mostrar el código QR",
           "cancel": "Dejar de esperar",
-          "hint": "Se abre una ventana de inicio de sesión dentro de la aplicación. Se cierra automáticamente cuando inicias sesión y la sesión se recoge de inmediato: solo tienes que guardar esta conexión.",
+          "hint": "Aquí aparece un código QR para iniciar sesión. Escanéalo con la app de Aliyun Drive en tu móvil: la sesión se obtiene automáticamente, así que solo tienes que guardar esta conexión. Si no puedes escanearlo, pega abajo un token de acceso.",
           "status": {
-            "waiting": "Esperando a que inicies sesión…",
+            "waiting": "Esperando a que escanees el código…",
             "ready": "Sesión iniciada. Guarda esta conexión: la sesión se escribirá al guardar.",
-            "closed": "La ventana de inicio de sesión se cerró antes de que terminaras.",
-            "timeout": "Se agotó el tiempo de espera del inicio de sesión. Inténtalo de nuevo.",
+            "closed": "El inicio de sesión se canceló antes de que terminaras.",
+            "timeout": "El código QR ha caducado. Inténtalo de nuevo.",
             "error": "No se pudo leer el estado de inicio de sesión. Inténtalo de nuevo.",
             "scanned": "Escaneado, confirma en el móvil"
           },
-          "saved": "Sesión iniciada en Aliyun Drive: la ventana se cerró automáticamente y la sesión se recogió. Guarda esta conexión para usarla.",
+          "saved": "Sesión iniciada en Aliyun Drive. Guarda esta conexión para usarla.",
           "refresh": "Actualizar código QR",
           "windowStart": "Abrir ventana de inicio",
           "windowCancel": "Cerrar ventana",

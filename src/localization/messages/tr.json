@@ -789,19 +789,19 @@
           "deleteSession": "Kaydedilmiş oturumu sil"
         },
         "embedded": {
-          "title": "Uygulama içinde giriş yap",
-          "start": "Gömülü pencerede giriş yap",
+          "title": "QR kodunu tarayarak giriş yap",
+          "start": "QR kodunu göster",
           "cancel": "Beklemeyi durdur",
-          "hint": "Uygulama içinde bir giriş penceresi açılır. Giriş tamamlandığında otomatik kapanır ve oturum hemen alınır — tek yapmanız gereken bu bağlantıyı kaydetmek.",
+          "hint": "Burada giriş için bir QR kodu görünür. Telefonunuzdaki Aliyun Drive uygulamasıyla tarayın — oturum otomatik olarak alınır, tek yapmanız gereken bu bağlantıyı kaydetmek. Tarayamıyorsanız aşağıya bir erişim belirteci yapıştırın.",
           "status": {
-            "waiting": "Giriş yapmanız bekleniyor…",
+            "waiting": "Kodu taramanız bekleniyor…",
             "ready": "Giriş yapıldı. Bu bağlantıyı kaydedin — oturum kaydetme sırasında yazılacak.",
-            "closed": "Giriş tamamlanmadan giriş penceresi kapatıldı.",
-            "timeout": "Giriş bekleme zaman aşımına uğradı. Lütfen yeniden deneyin.",
+            "closed": "Giriş tamamlanmadan iptal edildi.",
+            "timeout": "QR kodunun süresi doldu. Lütfen yeniden deneyin.",
             "error": "Giriş durumu okunamadı. Lütfen yeniden deneyin.",
             "scanned": "Tarandı, lütfen telefonda onaylayın"
           },
-          "saved": "Aliyun Drive’a giriş yapıldı: pencere otomatik kapandı, oturum alındı. Bu bağlantıyı kaydederek kullanabilirsiniz.",
+          "saved": "Aliyun Drive’a giriş yapıldı. Kullanmak için bu bağlantıyı kaydedin.",
           "refresh": "QR kodunu yenile",
           "windowStart": "Giriş penceresini aç",
           "windowCancel": "Pencereyi kapat",

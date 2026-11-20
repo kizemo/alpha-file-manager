@@ -789,19 +789,19 @@
           "deleteSession": "Xóa phiên đã lưu"
         },
         "embedded": {
-          "title": "Đăng nhập trong ứng dụng",
-          "start": "Đăng nhập bằng cửa sổ nhúng",
+          "title": "Đăng nhập bằng cách quét mã QR",
+          "start": "Hiển thị mã QR",
           "cancel": "Ngừng chờ đợi",
-          "hint": "Một cửa sổ đăng nhập sẽ mở trong ứng dụng. Nó tự đóng ngay khi bạn đăng nhập xong và phiên được lấy về luôn — bạn chỉ cần lưu kết nối này.",
+          "hint": "Mã QR đăng nhập sẽ xuất hiện ở đây. Hãy dùng ứng dụng Aliyun Drive trên điện thoại để quét — phiên được lấy về tự động, bạn chỉ cần lưu kết nối này. Nếu không quét được, hãy dán token truy cập bên dưới.",
           "status": {
-            "waiting": "Đang chờ bạn đăng nhập…",
+            "waiting": "Đang chờ bạn quét mã…",
             "ready": "Đã đăng nhập. Hãy lưu kết nối này — phiên sẽ được ghi khi bạn lưu.",
-            "closed": "Cửa sổ đăng nhập đã bị đóng trước khi bạn đăng nhập xong.",
-            "timeout": "Đã hết thời gian chờ đăng nhập. Vui lòng thử lại.",
+            "closed": "Đăng nhập đã bị hủy trước khi bạn hoàn tất.",
+            "timeout": "Mã QR đã hết hạn. Vui lòng thử lại.",
             "error": "Không đọc được trạng thái đăng nhập. Vui lòng thử lại.",
             "scanned": "Đã quét, vui lòng xác nhận trên điện thoại"
           },
-          "saved": "Đã đăng nhập vào Aliyun Drive: cửa sổ đã tự đóng và phiên đã được lấy về. Hãy lưu kết nối này để sử dụng.",
+          "saved": "Đã đăng nhập vào Aliyun Drive. Hãy lưu kết nối này để sử dụng.",
           "refresh": "Làm mới mã QR",
           "windowStart": "Mở cửa sổ đăng nhập",
           "windowCancel": "Đóng cửa sổ",

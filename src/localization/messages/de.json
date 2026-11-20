@@ -789,19 +789,19 @@
           "deleteSession": "Gespeicherte Sitzung löschen"
         },
         "embedded": {
-          "title": "In der App anmelden",
-          "start": "Im eingebetteten Fenster anmelden",
+          "title": "Per QR-Code anmelden",
+          "start": "QR-Code anzeigen",
           "cancel": "Warten abbrechen",
-          "hint": "In der App öffnet sich ein Anmeldefenster. Es schließt sich automatisch, sobald du angemeldet bist, und die Sitzung wird sofort übernommen – du musst diese Verbindung nur noch speichern.",
+          "hint": "Hier erscheint ein QR-Code zur Anmeldung. Scanne ihn mit der Aliyun-Drive-App auf deinem Smartphone – die Sitzung wird automatisch übernommen, du musst diese Verbindung nur noch speichern. Wenn du nicht scannen kannst, füge unten ein Zugriffstoken ein.",
           "status": {
-            "waiting": "Warten auf deine Anmeldung…",
+            "waiting": "Warten auf deinen Scan…",
             "ready": "Angemeldet. Speichere diese Verbindung – die Sitzung wird beim Speichern geschrieben.",
-            "closed": "Das Anmeldefenster wurde geschlossen, bevor du mit der Anmeldung fertig warst.",
-            "timeout": "Zeitüberschreitung beim Warten auf die Anmeldung. Bitte erneut versuchen.",
+            "closed": "Die Anmeldung wurde abgebrochen, bevor du fertig warst.",
+            "timeout": "Der QR-Code ist abgelaufen. Bitte erneut versuchen.",
             "error": "Der Anmeldestatus konnte nicht gelesen werden. Bitte erneut versuchen.",
             "scanned": "Gescannt, bitte auf dem Smartphone bestätigen"
           },
-          "saved": "Bei Aliyun Drive angemeldet: Das Fenster wurde automatisch geschlossen und die Sitzung übernommen. Speichere diese Verbindung, um sie zu nutzen.",
+          "saved": "Bei Aliyun Drive angemeldet. Speichere diese Verbindung, um sie zu nutzen.",
           "refresh": "QR-Code aktualisieren",
           "windowStart": "Login-Fenster öffnen",
           "windowCancel": "Fenster schließen",

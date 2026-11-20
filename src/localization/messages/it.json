@@ -789,19 +789,19 @@
           "deleteSession": "Elimina la sessione salvata"
         },
         "embedded": {
-          "title": "Accedi dall’app",
-          "start": "Accedi con la finestra incorporata",
+          "title": "Accedi scansionando il codice QR",
+          "start": "Mostra il codice QR",
           "cancel": "Interrompi l’attesa",
-          "hint": "Nell’app si apre una finestra di accesso. Si chiude automaticamente al termine dell’accesso e la sessione viene raccolta subito: devi solo salvare questa connessione.",
+          "hint": "Qui appare un codice QR di accesso. Scansionalo con l’app Aliyun Drive sul telefono: la sessione viene recuperata automaticamente, devi solo salvare questa connessione. Se non riesci a scansionarlo, incolla qui sotto un token di accesso.",
           "status": {
-            "waiting": "In attesa che tu acceda…",
+            "waiting": "In attesa della scansione…",
             "ready": "Accesso effettuato. Salva questa connessione: la sessione verrà scritta al salvataggio.",
-            "closed": "La finestra di accesso è stata chiusa prima che tu completassi l’accesso.",
-            "timeout": "Tempo di attesa dell’accesso scaduto. Riprova.",
+            "closed": "Accesso annullato prima del completamento.",
+            "timeout": "Il codice QR è scaduto. Riprova.",
             "error": "Impossibile leggere lo stato di accesso. Riprova.",
             "scanned": "Scansionato, conferma sul telefono"
           },
-          "saved": "Accesso a Aliyun Drive riuscito: la finestra si è chiusa automaticamente e la sessione è stata raccolta. Salva questa connessione per usarla.",
+          "saved": "Accesso a Aliyun Drive riuscito. Salva questa connessione per usarla.",
           "refresh": "Aggiorna codice QR",
           "windowStart": "Apri finestra di accesso",
           "windowCancel": "Chiudi finestra",

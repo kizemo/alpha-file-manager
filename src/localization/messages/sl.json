@@ -826,19 +826,19 @@
           "deleteSession": "Izbriši shranjeno sejenje"
         },
         "embedded": {
-          "title": "Prijava v aplikaciji",
-          "start": "Prijava v vgrajenem oknu",
+          "title": "Prijava s QR-kodo",
+          "start": "Prikaži QR-kodo",
           "cancel": "Prenehaj čakati",
-          "hint": "V aplikaciji se odpri okno za prijavo. Ko se prijavite, se samodejno zapre, seja pa je takoj prevzeta – shraniti morate le še to povezavo.",
+          "hint": "Tukaj se pojavi QR-koda za prijavo. Skenirajte jo z aplikacijo Aliyun Drive v telefonu – seja je samodejno prevzeta, shraniti morate le še to povezavo. Če ne morete skenirati, spodaj prilepite dostopni žeton.",
           "status": {
-            "waiting": "Čakamo, da se prijavite…",
+            "waiting": "Čakamo, da skenirate kodo…",
             "ready": "Prijavljeni. Shranite to povezavo – seja bo zapisana ob shranjevanju.",
-            "closed": "Okno za prijavo je bilo zaprto, preden ste končali s prijavo.",
-            "timeout": "Čas za pričakovanje prijave je potekel. Poskusite znova.",
+            "closed": "Prijava je bila preklicana, preden ste končali.",
+            "timeout": "QR-koda je potekla. Poskusite znova.",
             "error": "Stanja prijave ni bilo mogoče prebrati. Poskusite znova.",
             "scanned": "Prebrano, potrdite v telefonu"
           },
-          "saved": "Prijava v Aliyun Drive je uspela: okno se je samodejno zaprlo in seja je bila prevzeta. Shranite to povezavo za uporabo.",
+          "saved": "Prijava v Aliyun Drive je uspela. Shranite to povezavo za uporabo.",
           "refresh": "Osveži QR-kodo",
           "windowStart": "Odpri okno za prijavo",
           "windowCancel": "Zapri okno",
