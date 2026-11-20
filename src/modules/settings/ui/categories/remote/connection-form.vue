@@ -1444,12 +1444,25 @@ function onProtocolChange(value: unknown) {
           </Button>
         </div>
 
+        <!--
+          2026-11-20 批次 30：`alt` 必须是**非空**的。
+
+          `alt=""` 会把图标成「装饰性」，Chromium 直接把它从无障碍树里剔除
+          ⇒ UIA 元素树里根本没有二维码节点，真机探针永远看不到它
+          （2026-11-20 实测：dump 出来 152 个节点、80 个有名节点，零个二维码）。
+          给了可访问名之后，UIA 能直接命中 `<img>`，尺寸判据就能从
+          「反推 QR 模块占比」升级成「直接读 BoundingRectangle」。
+
+          这里复用现有的 `embedded.title`，**不新增 i18n key** ——
+          新增 key 要同步 17 个语言包（`src\localization\messages\*.json`），
+          而 `aliyun-i18n-keys.test.ts` 会卡住语言包之间的键不一致。
+        -->
         <img
           v-if="aliyunQrImage"
           class="remote-connection-form__qr"
           data-test="aliyun-qr-image"
           :src="aliyunQrImage"
-          alt=""
+          :alt="t('settings.remote.aliyun.embedded.title')"
         >
 
         <p

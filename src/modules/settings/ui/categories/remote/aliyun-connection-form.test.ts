@@ -230,6 +230,22 @@ describe('阿里云盘的连接表单', () => {
       .toBe('data:image/png;base64,AAAA');
   });
 
+  it('二维码图片带非空 alt —— 否则它被剔出无障碍树，UIA 探针永远看不到它', async () => {
+    const wrapper = mountForm({ connection: aliyunConnection });
+    await flushPromises();
+
+    await wrapper.find('[data-test="aliyun-embedded-start"]').trigger('click');
+    await flushPromises();
+
+    const alt = wrapper.find('[data-test="aliyun-qr-image"]').attributes('alt');
+
+    // 2026-11-20 批次 30 实测：`alt=""` ⇒ 装饰性图片 ⇒ Chromium 把它从无障碍树
+    // 里剔除 ⇒ 元素树 dump 里零个二维码节点（真机探针只能靠像素墨迹定位）。
+    expect(alt).toBeTruthy();
+    expect(alt?.trim()).not.toBe('');
+    expect(alt).toBe('settings.remote.aliyun.embedded.title');
+  });
+
   it('轮询走后端的命令，并带上二维码票据', async () => {
     const wrapper = mountForm({ connection: aliyunConnection });
     await flushPromises();
