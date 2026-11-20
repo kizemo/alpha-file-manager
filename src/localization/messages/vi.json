@@ -798,17 +798,19 @@
             "ready": "Đã đăng nhập. Hãy lưu kết nối này — phiên sẽ được ghi khi bạn lưu.",
             "closed": "Cửa sổ đăng nhập đã bị đóng trước khi bạn đăng nhập xong.",
             "timeout": "Đã hết thời gian chờ đăng nhập. Vui lòng thử lại.",
-            "error": "Không đọc được trạng thái đăng nhập. Vui lòng thử lại."
+            "error": "Không đọc được trạng thái đăng nhập. Vui lòng thử lại.",
+            "scanned": "Đã quét, vui lòng xác nhận trên điện thoại"
           },
-          "saved": "Đã đăng nhập vào Aliyun Drive: cửa sổ đã tự đóng và phiên đã được lấy về. Hãy lưu kết nối này để sử dụng."
+          "saved": "Đã đăng nhập vào Aliyun Drive: cửa sổ đã tự đóng và phiên đã được lấy về. Hãy lưu kết nối này để sử dụng.",
+          "refresh": "Làm mới mã QR",
+          "windowStart": "Mở cửa sổ đăng nhập",
+          "windowCancel": "Đóng cửa sổ",
+          "windowHint": "Trang chính thức của Aliyun Drive hiển thị mã QR và xác nhận trong cửa sổ; thông tin đăng nhập được gửi thẳng tới ứng dụng.",
+          "qrFallback": "Dự phòng: đăng nhập bằng mã QR thủ công"
         },
         "field": {
-          "clientId": "Client ID",
-          "clientSecret": "Client secret",
-          "redirectUri": "URI chuyển hướng",
-          "clientSecretHint": "Không bắt buộc. Để trống để dùng chế độ client công khai PKCE — khi đó phiên không thể tự động gia hạn.",
-          "redirectUriHint": "Phải khớp với URI chuyển hướng đã đăng ký trong trang quản trị của nền tảng mở Aliyun Drive. Mặc định là http://127.0.0.1:47832/callback.",
-          "modeHint": "Khi có client secret, phiên sẽ được gia hạn tự động. Ở chế độ PKCE, đăng nhập có hiệu lực 30 ngày và không thể gia hạn."
+          "pasteToken": "Token truy cập",
+          "pasteTokenHint": "Dán một mã truy cập mà bạn đã có. Mã này được kiểm tra với Aliyun Drive trước khi lưu, và không bao giờ rời khỏi máy này ở dạng văn bản thuần."
         }
       },
       "netdisk": {

@@ -14,6 +14,7 @@ import {
 import { useI18n } from 'vue-i18n';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
+import QRCode from 'qrcode';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/toaster';
 import {
@@ -30,7 +31,7 @@ import {
 import normalizePath from '@/utils/normalize-path';
 import type {
   AliyunAuthStatusPayload,
-  AliyunLoginEventPayload,
+  AliyunQrStatusKind,
   BaiduAuthStatusPayload,
   BaiduLoginEventPayload,
   NetdiskProtocol,
@@ -229,53 +230,143 @@ async function handleCancelQuarkLogin() {
 }
 
 /**
- * 阿里云盘的内嵌登录（2026-11-19，批次 26）。
+ * 阿里云盘的扫码登录（2026-11-20，批次 29）。
  *
- * 与百度 / 夸克**不同构**的地方只有一处，但那一处是本质区别：
- * 阿里云盘走的是官方 OpenAPI 的 **OAuth 授权**，授权页要带
- * `client_id` / `client_secret` / `redirect_uri` —— 前两个拿不到就开不了授权窗。
+ * 与百度 / 夸克**不同构**：阿里云盘不走开放平台的 OAuth 授权窗，
+ * 而是让用户用手机上的阿里云盘 App 扫一张二维码
+ * （证据：`.superpowers/sdd/b28-api-probe.md`）。
  *
- * 所以这里多三个输入框。它们是**登录期参数**：填完点「登录」，后端拿去换 token，
- * 成功后连同会话一起存进 DPAPI 密文。**不进连接表** ——
- * `RemoteConnection` 的字段名被双边测试锁死（`src-shared/remote-connection.sample.json`）。
+ * 因此这里没有「应用 ID / 密钥 / 回调地址」三个输入框 ——
+ * 开放平台那套 OAuth 实测**不可用**（`POST /token/get` 给的 token 不能当 Bearer 用）。
+ *
+ * 扫码走**前端轮询**：后端只给二维码内容与轮询票据，凭据始终留在后端，
+ * 拿到会话后先落进「待认领槽位」，保存这条连接时才认领写进 DPAPI 密文。
  */
-type AliyunLoginViewState = 'idle' | 'waiting' | 'ready' | 'closed' | 'timeout' | 'error';
+type AliyunLoginViewState
+  = | 'idle'
+    | 'waiting'
+    | 'scanned'
+    | 'ready'
+    | 'closed'
+    | 'timeout'
+    | 'error';
 
 const aliyunLoginState = ref<AliyunLoginViewState>('idle');
 const aliyunLoginSummary = ref('');
 const isStartingAliyunLogin = ref(false);
 
-/** 与 `baiduLoginActive` / `quarkLoginActive` 同义，见那边的说明。 */
-const aliyunLoginActive = ref(false);
+/** 二维码图片（data URL）。空串 = 还没生成。 */
+const aliyunQrImage = ref('');
 
-/** 登录期参数：应用 ID（必填）、应用密钥（留空 = PKCE 公开客户端模式）、回调地址（留空 = 后端默认值）。 */
-const aliyunClientId = ref('');
-const aliyunClientSecret = ref('');
-const aliyunRedirectUri = ref('');
+/** 「粘贴 access_token」兜底。 */
+const aliyunPasteToken = ref('');
+const isSavingAliyunToken = ref(false);
+
+/** 轮询定时器。 */
+let aliyunQrTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** 后端扫码状态 → 表单显示态。 */
+function mapAliyunQrStatus(status: AliyunQrStatusKind): AliyunLoginViewState {
+  switch (status) {
+    case 'new':
+      return 'waiting';
+    // 「手机已扫、待确认」单独成态 —— 之前并进 waiting，文案停在「正等你扫码…」，
+    // 用户扫码后界面完全没变化，看着像没扫上（2026-11-20 实测）。
+    case 'scanned':
+      return 'scanned';
+    case 'confirmed':
+      return 'ready';
+    case 'expired':
+      return 'timeout';
+    case 'canceled':
+      return 'closed';
+    default:
+      return 'error';
+  }
+}
+
+function stopAliyunQrPolling() {
+  if (aliyunQrTimer !== null) {
+    clearTimeout(aliyunQrTimer);
+    aliyunQrTimer = null;
+  }
+}
+
+/** 轮询一次；非终态就再排 2 秒后继续。参数名不叫 `t`，避免遮蔽 i18n 的 `t()`。 */
+async function pollAliyunQrOnce(ck: string, qrT: number | null) {
+  try {
+    const payload = await store.pollAliyunQr(ck, qrT);
+
+    aliyunLoginSummary.value = payload.message ?? '';
+
+    if (payload.status === 'confirmed') {
+      aliyunLoginState.value = 'ready';
+      stopAliyunQrPolling();
+
+      toast({
+        title: t('settings.remote.aliyun.embedded.saved'),
+        description: payload.message || undefined,
+      });
+
+      return;
+    }
+
+    aliyunLoginState.value = mapAliyunQrStatus(payload.status);
+
+    if (payload.finalStatus) {
+      stopAliyunQrPolling();
+      return;
+    }
+
+    aliyunQrTimer = setTimeout(() => {
+      void pollAliyunQrOnce(ck, qrT);
+    }, 2000);
+  }
+  catch (error) {
+    console.error('Failed to poll aliyun qr status:', error);
+    aliyunLoginState.value = 'error';
+    stopAliyunQrPolling();
+  }
+}
+
+/**
+ * 换一张新二维码。
+ *
+ * 2026-11-20 实测：二维码会话是一次性的（服务端按票据索引，旧会话过期后
+ * 轮询只会拿到 `expired`），而界面上**没有**任何重新取码的入口 ——
+ * 用户只能关掉表单重开。重开会把这一轮「显示二维码」再跑一遍。
+ *
+ * 这里把「重新取码」做成一个显式按钮：先停掉旧定时器，再取新码。
+ */
+async function handleRefreshAliyunQr() {
+  if (isStartingAliyunLogin.value) return;
+
+  stopAliyunQrPolling();
+  await handleStartAliyunLogin();
+}
 
 async function handleStartAliyunLogin() {
   if (isStartingAliyunLogin.value) return;
 
-  // 应用 ID 是必填的：没有它授权页开不起来。
-  // 不发起比发起一个注定失败的窗口好 —— 后端只会回一句看不懂的错。
-  if (!aliyunClientId.value.trim()) return;
+  // 重新取码前先把上一轮的定时器停掉 —— 否则旧会话的定时器会和新会话
+  // 并发轮询，把界面推进 error 状态（2026-11-20 实测：一次点「显示二维码」
+  // 会同时留下两条轮询链，console 里连着两条 poll 报错）。
+  stopAliyunQrPolling();
 
   isStartingAliyunLogin.value = true;
   aliyunLoginSummary.value = '';
   aliyunLoginState.value = 'waiting';
-  aliyunLoginActive.value = true;
 
   try {
-    await store.startAliyunLogin(
-      aliyunClientId.value.trim(),
-      aliyunClientSecret.value.trim(),
-      aliyunRedirectUri.value.trim(),
-    );
+    const ticket = await store.startAliyunQr();
+
+    aliyunQrImage.value = await QRCode.toDataURL(ticket.codeContent);
+
+    await pollAliyunQrOnce(ticket.ck, ticket.t ?? null);
   }
   catch (error) {
-    console.error('Failed to open embedded aliyun login:', error);
+    console.error('Failed to start aliyun qr login:', error);
     aliyunLoginState.value = 'error';
-    aliyunLoginActive.value = false;
   }
   finally {
     isStartingAliyunLogin.value = false;
@@ -283,16 +374,174 @@ async function handleStartAliyunLogin() {
 }
 
 async function handleCancelAliyunLogin() {
+  stopAliyunQrPolling();
+  // 内嵌登录窗如果还开着，一并关掉，否则会一直悬在那儿。
+  await handleCloseAliyunLogin();
+
   try {
     await store.cancelAliyunLogin();
   }
   catch (error) {
-    console.error('Failed to cancel embedded aliyun login:', error);
+    console.error('Failed to cancel aliyun login:', error);
   }
   finally {
     aliyunLoginState.value = 'idle';
     aliyunLoginSummary.value = '';
-    aliyunLoginActive.value = false;
+    aliyunQrImage.value = '';
+  }
+}
+
+// ── 内嵌真实登录页（批次 29）─────────────────────────────────────────────
+// 与百度 / 夸克一致：官方登录页自己出码、自己轮询 query.do。我们不解析页面、
+// 不经手凭据 —— Rust 侧的注入钩子拿到 bizExt 后直接存进待认领槽位，
+// 前端只订阅状态事件，用于告诉用户「扫上了没、卡在哪一步」。
+
+interface AliyunLoginEventPayload {
+  kind: 'opening' | 'page_status' | 'ready' | 'error' | 'cancelled' | 'closed' | 'give_up';
+  at?: number;
+  reused?: boolean;
+  status?: string;
+  summary?: string;
+  message?: string;
+}
+
+/** 事件可能在 onUnmounted 之后才抵达，用这个标记兜住「注册晚到」。 */
+let aliyunLoginDisposed = false;
+let unlistenAliyunLogin: UnlistenFn | null = null;
+
+const isOpeningAliyunLoginWindow = ref(false);
+/** 后端给的人话错误（已脱敏），空串 = 没有。 */
+const aliyunLoginWindowHint = ref('');
+
+/** 页面 qrCodeStatus → 表单显示态。 */
+function mapAliyunPageStatus(status: string): AliyunLoginViewState {
+  switch (status) {
+    case 'new':
+      return 'waiting';
+    // 已扫码 / 已点确认都停在 scanned：凭据还没回到后端之前，
+    // 绝不能先显示「登录成功」。
+    case 'scanned':
+    case 'confirmed':
+      return 'scanned';
+    case 'expired':
+    case 'illegal':
+      return 'timeout';
+    case 'qrcode_cancel':
+      return 'closed';
+    default:
+      return 'error';
+  }
+}
+
+async function handleOpenAliyunLogin() {
+  if (isOpeningAliyunLoginWindow.value) return;
+
+  isOpeningAliyunLoginWindow.value = true;
+  aliyunLoginWindowHint.value = '';
+  aliyunLoginSummary.value = '';
+  aliyunLoginState.value = 'waiting';
+
+  try {
+    await store.openAliyunLogin();
+  }
+  catch (error) {
+    console.error('Failed to open embedded aliyun login window:', error);
+    aliyunLoginState.value = 'error';
+  }
+  finally {
+    isOpeningAliyunLoginWindow.value = false;
+  }
+}
+
+async function handleCloseAliyunLogin() {
+  if (typeof store.closeAliyunLogin !== 'function') return;
+
+  try {
+    await store.closeAliyunLogin();
+  }
+  catch (error) {
+    console.error('Failed to close embedded aliyun login window:', error);
+  }
+  finally {
+    if (aliyunLoginState.value !== 'ready') {
+      aliyunLoginState.value = 'idle';
+    }
+  }
+}
+
+onMounted(async () => {
+  try {
+    const unlisten = await listen<AliyunLoginEventPayload>('afm://aliyun-login', (event) => {
+      if (aliyunLoginDisposed) return;
+
+      const payload = event.payload;
+
+      switch (payload.kind) {
+        case 'opening':
+          aliyunLoginState.value = 'waiting';
+          break;
+        case 'page_status':
+          aliyunLoginState.value = mapAliyunPageStatus(String(payload.status ?? ''));
+          break;
+        case 'ready':
+          // 后端已经解出凭据、探活通过、存进待认领槽位 ⇒ 这时才说「可以保存了」。
+          aliyunLoginState.value = 'ready';
+          aliyunLoginSummary.value = typeof payload.summary === 'string' ? payload.summary : '';
+          toast({ title: t('settings.remote.aliyun.embedded.saved') });
+          break;
+        case 'error':
+          aliyunLoginState.value = 'error';
+          aliyunLoginWindowHint.value = typeof payload.message === 'string' ? payload.message : '';
+          break;
+        case 'give_up':
+          if (aliyunLoginState.value !== 'ready') aliyunLoginState.value = 'timeout';
+          break;
+        case 'cancelled':
+        case 'closed':
+          if (aliyunLoginState.value !== 'ready') aliyunLoginState.value = 'closed';
+          break;
+      }
+    });
+
+    if (aliyunLoginDisposed) {
+      unlisten();
+      return;
+    }
+
+    unlistenAliyunLogin = unlisten;
+  }
+  catch (error) {
+    console.error('Failed to listen for embedded aliyun login events:', error);
+  }
+});
+
+/**
+ * 「粘贴 access_token」兜底。
+ *
+ * 新连接还没有 id ⇒ 传空串，后端把会话存进待认领槽位，保存连接时再认领。
+ */
+async function handleSaveAliyunToken() {
+  const token = aliyunPasteToken.value.trim();
+
+  if (!token) return;
+
+  isSavingAliyunToken.value = true;
+
+  try {
+    await store.saveAliyunSession(props.connection?.id ?? '', token);
+    aliyunPasteToken.value = '';
+    aliyunLoginState.value = 'ready';
+
+    toast({
+      title: t('settings.remote.aliyun.embedded.saved'),
+    });
+  }
+  catch (error) {
+    console.error('Failed to save aliyun session:', error);
+    aliyunLoginState.value = 'error';
+  }
+  finally {
+    isSavingAliyunToken.value = false;
   }
 }
 
@@ -422,63 +671,6 @@ onMounted(async () => {
   }
 });
 
-/**
- * 阿里云盘侧同构：订阅 `afm://aliyun-login`。
- *
- * 与前两个频道**分开注册、分开清理** —— 事件名不同，混在一个监听器里
- * 就分不清「这条状态是谁发的」。
- */
-let unlistenAliyunLogin: UnlistenFn | null = null;
-let aliyunLoginDisposed = false;
-
-onMounted(async () => {
-  try {
-    const unlisten = await listen<AliyunLoginEventPayload>('afm://aliyun-login', (event) => {
-      const payload = event.payload;
-
-      // 只认本表单发起的那一轮 —— 频道是全局的（见 `aliyunLoginActive` 的说明）。
-      if (!aliyunLoginActive.value) {
-        return;
-      }
-
-      const previousState = aliyunLoginState.value;
-
-      aliyunLoginState.value = payload.status;
-      aliyunLoginSummary.value = payload.summary ?? payload.message ?? '';
-
-      // `ready` 是内嵌登录唯一可用的成功信号：授权窗一旦换到 token 就会自己关掉，
-      // Rust 侧的 settle() 会把 Destroyed 分支吃掉，不会再发 `closed`。
-      if (payload.status === 'ready' && previousState !== 'ready') {
-        toast({
-          title: t('settings.remote.aliyun.embedded.saved'),
-          description: payload.summary || undefined,
-        });
-      }
-      else if (payload.status !== previousState) {
-        toast({
-          title: t(`settings.remote.aliyun.embedded.status.${payload.status}`),
-          description: payload.summary || payload.message || undefined,
-        });
-      }
-
-      // 只有**终态**才结束这一轮：`waiting` 是表单自己的显示态。
-      if (isTerminalLoginStatus(payload.status)) {
-        aliyunLoginActive.value = false;
-      }
-    });
-
-    if (aliyunLoginDisposed) {
-      unlisten();
-      return;
-    }
-
-    unlistenAliyunLogin = unlisten;
-  }
-  catch (error) {
-    console.error('Failed to listen for embedded aliyun login events:', error);
-  }
-});
-
 onUnmounted(() => {
   baiduLoginDisposed = true;
   unlistenBaiduLogin?.();
@@ -489,6 +681,14 @@ onUnmounted(() => {
   aliyunLoginDisposed = true;
   unlistenAliyunLogin?.();
   unlistenAliyunLogin = null;
+  stopAliyunQrPolling();
+
+  // 切走 provider / 关掉表单 = 放弃这轮登录：登录窗留在屏幕上没有意义，
+  // 而且下次再点会被后端 reused 聚焦到一个过期的页面上。
+  if ((aliyunLoginState.value === 'waiting' || aliyunLoginState.value === 'scanned')
+    && typeof store.closeAliyunLogin === 'function') {
+    void store.closeAliyunLogin().catch(() => {});
+  }
 });
 
 const name = ref('');
@@ -660,11 +860,8 @@ function reset() {
   quarkLoginActive.value = false;
   aliyunLoginState.value = 'idle';
   aliyunLoginSummary.value = '';
-  aliyunLoginActive.value = false;
-  // 登录期参数也归零 —— 它们既不落盘，也不该带到下一条连接上。
-  aliyunClientId.value = '';
-  aliyunClientSecret.value = '';
-  aliyunRedirectUri.value = '';
+  aliyunQrImage.value = '';
+  aliyunPasteToken.value = '';
 }
 
 /** 选一个本地目录。留空即可不摆双屏，所以这里不做任何默认填充。 */
@@ -885,12 +1082,13 @@ async function handleDeleteAliyunSession() {
 }
 
 /**
- * 编辑既有阿里云盘连接时，应用 ID 由后端的状态卡带回来 ——
- * 用户不必再抄一遍开放平台控制台里的那个 ID。
+ * 编辑既有阿里云盘连接时，账号昵称由后端的状态卡带回来。
+ *
+ * 扫码登录没有「应用 ID」可回填 —— 那一栏已经删掉了。
  */
 watch(aliyunStatus, (status) => {
-  if (status?.clientId && !aliyunClientId.value) {
-    aliyunClientId.value = status.clientId;
+  if (status?.nickName && !aliyunLoginSummary.value) {
+    aliyunLoginSummary.value = status.nickName;
   }
 });
 
@@ -1169,97 +1367,138 @@ function onProtocolChange(value: unknown) {
     >
       <Label>{{ t('settings.remote.aliyun.embedded.title') }}</Label>
 
-      <div class="remote-connection-form__row">
-        <Label for="aliyun-client-id">{{ t('settings.remote.aliyun.field.clientId') }}</Label>
-        <Input
-          id="aliyun-client-id"
-          v-model="aliyunClientId"
-          required
-          data-test="aliyun-client-id"
-        />
-      </div>
-
-      <div class="remote-connection-form__row">
-        <Label for="aliyun-client-secret">{{ t('settings.remote.aliyun.field.clientSecret') }}</Label>
-        <Input
-          id="aliyun-client-secret"
-          v-model="aliyunClientSecret"
-          type="password"
-          autocomplete="off"
-          data-test="aliyun-client-secret"
-        />
-        <p
-          class="remote-connection-form__hint"
-          data-test="aliyun-client-secret-hint"
-        >
-          {{ t('settings.remote.aliyun.field.clientSecretHint') }}
-        </p>
-      </div>
-
-      <div class="remote-connection-form__row">
-        <Label for="aliyun-redirect-uri">{{ t('settings.remote.aliyun.field.redirectUri') }}</Label>
-        <Input
-          id="aliyun-redirect-uri"
-          v-model="aliyunRedirectUri"
-          data-test="aliyun-redirect-uri"
-        />
-        <p
-          class="remote-connection-form__hint"
-          data-test="aliyun-redirect-uri-hint"
-        >
-          {{ t('settings.remote.aliyun.field.redirectUriHint') }}
-        </p>
-      </div>
-
       <div class="remote-connection-form__inline">
         <Button
           type="button"
-          variant="outline"
-          data-test="aliyun-embedded-start"
-          :disabled="isStartingAliyunLogin || !aliyunClientId.trim()"
-          @click="handleStartAliyunLogin"
+          data-test="aliyun-window-start"
+          :disabled="isOpeningAliyunLoginWindow"
+          @click="handleOpenAliyunLogin"
         >
-          {{ t('settings.remote.aliyun.embedded.start') }}
+          {{ t('settings.remote.aliyun.embedded.windowStart') }}
         </Button>
         <Button
           v-if="aliyunLoginState !== 'idle' && aliyunLoginState !== 'ready'"
           type="button"
           variant="ghost"
-          data-test="aliyun-embedded-cancel"
-          @click="handleCancelAliyunLogin"
+          data-test="aliyun-window-close"
+          @click="handleCloseAliyunLogin"
         >
-          {{ t('settings.remote.aliyun.embedded.cancel') }}
+          {{ t('settings.remote.aliyun.embedded.windowCancel') }}
         </Button>
       </div>
+
       <p
         class="remote-connection-form__hint"
-        data-test="aliyun-embedded-hint"
+        data-test="aliyun-window-hint"
       >
-        {{ t('settings.remote.aliyun.embedded.hint') }}
+        {{ t('settings.remote.aliyun.embedded.windowHint') }}
       </p>
       <p
         v-if="aliyunLoginState !== 'idle'"
         class="remote-connection-form__hint"
         :data-status="aliyunLoginState"
-        data-test="aliyun-embedded-status"
+        data-test="aliyun-window-status"
       >
-        {{ aliyunLoginState === 'waiting'
-          ? t('settings.remote.aliyun.embedded.status.waiting')
-          : t(`settings.remote.aliyun.embedded.status.${aliyunLoginState}`) }}
+        {{ t(`settings.remote.aliyun.embedded.status.${aliyunLoginState}`) }}
       </p>
       <p
-        v-if="aliyunLoginSummary"
+        v-if="aliyunLoginWindowHint"
         class="remote-connection-form__hint"
-        data-test="aliyun-embedded-summary"
+        data-test="aliyun-window-error"
       >
-        {{ aliyunLoginSummary }}
+        {{ aliyunLoginWindowHint }}
       </p>
-      <p
-        class="remote-connection-form__hint"
-        data-test="aliyun-mode-hint"
-      >
-        {{ t('settings.remote.aliyun.field.modeHint') }}
-      </p>
+
+      <details class="remote-connection-form__fallback">
+        <summary data-test="aliyun-qr-fallback">
+          {{ t('settings.remote.aliyun.embedded.qrFallback') }}
+        </summary>
+
+        <div class="remote-connection-form__inline">
+          <Button
+            type="button"
+            variant="outline"
+            data-test="aliyun-embedded-start"
+            :disabled="isStartingAliyunLogin"
+            @click="handleStartAliyunLogin"
+          >
+            {{ t('settings.remote.aliyun.embedded.start') }}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            data-test="aliyun-embedded-refresh"
+            :disabled="isStartingAliyunLogin"
+            @click="handleRefreshAliyunQr"
+          >
+            {{ t('settings.remote.aliyun.embedded.refresh') }}
+          </Button>
+          <Button
+            v-if="aliyunLoginState !== 'idle' && aliyunLoginState !== 'ready'"
+            type="button"
+            variant="ghost"
+            data-test="aliyun-embedded-cancel"
+            @click="handleCancelAliyunLogin"
+          >
+            {{ t('settings.remote.aliyun.embedded.cancel') }}
+          </Button>
+        </div>
+
+        <img
+          v-if="aliyunQrImage"
+          class="remote-connection-form__qr"
+          data-test="aliyun-qr-image"
+          :src="aliyunQrImage"
+          alt=""
+        >
+
+        <p
+          class="remote-connection-form__hint"
+          data-test="aliyun-embedded-hint"
+        >
+          {{ t('settings.remote.aliyun.embedded.hint') }}
+        </p>
+        <p
+          v-if="aliyunLoginState !== 'idle'"
+          class="remote-connection-form__hint"
+          :data-status="aliyunLoginState"
+          data-test="aliyun-embedded-status"
+        >
+          {{ t(`settings.remote.aliyun.embedded.status.${aliyunLoginState}`) }}
+        </p>
+        <p
+          v-if="aliyunLoginSummary"
+          class="remote-connection-form__hint"
+          data-test="aliyun-embedded-summary"
+        >
+          {{ aliyunLoginSummary }}
+        </p>
+      </details>
+
+      <div class="remote-connection-form__row">
+        <Label for="aliyun-paste-token">{{ t('settings.remote.aliyun.field.pasteToken') }}</Label>
+        <Input
+          id="aliyun-paste-token"
+          v-model="aliyunPasteToken"
+          autocomplete="off"
+          data-test="aliyun-paste-token"
+        />
+        <p
+          class="remote-connection-form__hint"
+          data-test="aliyun-paste-token-hint"
+        >
+          {{ t('settings.remote.aliyun.field.pasteTokenHint') }}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          data-test="aliyun-save-token"
+          :disabled="isSavingAliyunToken || !aliyunPasteToken.trim()"
+          @click="handleSaveAliyunToken"
+        >
+          {{ t('settings.remote.action.save') }}
+        </Button>
+      </div>
     </div>
 
     <div
@@ -1372,11 +1611,11 @@ function onProtocolChange(value: unknown) {
         </span>
       </div>
       <p
-        v-if="aliyunStatus?.clientId"
+        v-if="aliyunStatus?.nickName"
         class="remote-connection-form__hint"
-        data-test="aliyun-status-client-id"
+        data-test="aliyun-status-nick-name"
       >
-        {{ aliyunStatus.clientId }}
+        {{ aliyunStatus.nickName }}
       </p>
       <p
         v-if="aliyunStatus?.summary"
@@ -1583,6 +1822,24 @@ function onProtocolChange(value: unknown) {
 </template>
 
 <style scoped>
+/*
+ * 二维码的尺寸上限。
+ *
+ * 2026-11-20 实测：`remote-connection-form__qr` 在全仓里**没有任何样式定义**
+ * ⇒ `<img>` 按内容（212×212 的 data URL）撑开，实测渲染成 809×809 CSS px，
+ * 一次扫码就占掉大半屏高。这里显式钉死尺寸上限。
+ */
+
+.remote-connection-form__qr {
+  display: block;
+  width: 180px;
+  max-width: 180px;
+  height: 180px;
+  max-height: 180px;
+  margin: 0 auto;
+  object-fit: contain;
+}
+
 .remote-connection-form {
   display: flex;
   flex-direction: column;

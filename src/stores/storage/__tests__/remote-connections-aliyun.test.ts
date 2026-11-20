@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// License: GNU GPLv3 or later. See the license file in the project root for more information.
+// GNU General Public License v3 or later. See the license file in the project root for more information.
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
 // 阿里云盘连接的**保存路径**护栏。
 //
 // 与夸克那份同构，但阿里云盘这条路径有本质区别：
 //
-//   1. **没有「手工粘贴凭据」这条路** —— 后端压根没有
-//      `remote_aliyun_save_session` 这个命令。凭据是 OAuth 换来的会话，
+//   1. **凭据不是口令** —— 阿里云盘的凭据是一整段会话（access_token），
 //      走通用的 `remote_save_credential` 等于把空口令存成「已登录」。
-//   2. **保存时走的是「认领」** —— 登录时会话先暂存在后端的待认领槽位里，
-//      点保存时（那时才有连接 id）才认领并写进 DPAPI 密文。
+//   2. **保存时走的是「认领」** —— 扫码或「粘贴 access_token」都会话先暂存在
+//      后端的待认领槽位里，点保存时（那时才有连接 id）才认领并写进 DPAPI 密文。
 //   3. **认领不到就必须报「请先登录」** —— 不能把一条
 //      「看起来加成功了、实际连不上」的连接写进列表。
 //
@@ -73,7 +72,7 @@ function aliyunForm(overrides: Partial<RemoteConnectionForm> = {}): RemoteConnec
     proxy: {
       kind: 'direct',
     },
-    // 阿里云盘没有手工凭据入口，正常走内嵌登录 ⇒ 这里默认是空的。
+    // 阿里云盘没有手工凭据入口，正常走扫码登录 ⇒ 这里默认是空的。
     password: '',
     clearPassword: false,
     ...overrides,
@@ -89,7 +88,7 @@ describe('阿里云盘连接的保存', () => {
         return {};
       }
 
-      // 默认「登录窗已经换到会话」—— 大多数用例验的是**保存路径怎么写**。
+      // 默认「扫码已经换到会话」—— 大多数用例验的是**保存路径怎么写**。
       if (command === 'remote_aliyun_login_claim') {
         return {
           claimed: true,
@@ -108,7 +107,7 @@ describe('阿里云盘连接的保存', () => {
     await store.init();
   });
 
-  it('凭据走内嵌登录的认领，不走通用的口令命令', async () => {
+  it('凭据走扫码会话的认领，不走通用的口令命令', async () => {
     const store = useRemoteConnectionsStore();
 
     await store.saveConnection(aliyunForm());
@@ -117,7 +116,6 @@ describe('阿里云盘连接的保存', () => {
 
     expect(calls).toContain('remote_aliyun_login_claim');
     expect(calls).not.toContain('remote_save_credential');
-    expect(calls).not.toContain('remote_aliyun_save_session');
   });
 
   it('认领命令拿到的是连接 id', async () => {
@@ -136,7 +134,7 @@ describe('阿里云盘连接的保存', () => {
 
     const saved = await store.saveConnection(aliyunForm());
 
-    expect(saved.host).toBe('openapi.alipan.com');
+    expect(saved.host).toBe('api.aliyundrive.com');
     expect(saved.port).toBe(443);
   });
 
@@ -240,7 +238,7 @@ describe('阿里云盘连接的保存', () => {
         return {
           status: 'ready',
           summary: '阿里云盘会话已就绪',
-          clientId: 'cid-123',
+          nickName: '测试用户',
         };
       }
 
@@ -251,7 +249,7 @@ describe('阿里云盘连接的保存', () => {
     const status = await store.getAliyunAuthStatus('conn-aliyun');
 
     expect(status.status).toBe('ready');
-    expect(status.clientId).toBe('cid-123');
+    expect(status.nickName).toBe('测试用户');
 
     const call = invokeMock.mock.calls.find(entry => entry[0] === 'remote_aliyun_auth_status');
     expect(call?.[1]).toMatchObject({ connectionId: 'conn-aliyun' });
@@ -268,18 +266,52 @@ describe('阿里云盘连接的保存', () => {
     expect(call?.[1]).toMatchObject({ connectionId: 'conn-aliyun' });
   });
 
-  it('发起登录时把三个登录期参数一起交出去', async () => {
+  it('取二维码走后端专门的命令', async () => {
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'remote_aliyun_qr_start') {
+        return {
+          codeContent: 'the-code-content',
+          ck: 'the-ck',
+          t: 1700000000000,
+        };
+      }
+
+      return undefined;
+    });
+
+    const store = useRemoteConnectionsStore();
+    const ticket = await store.startAliyunQr();
+
+    expect(ticket.codeContent).toBe('the-code-content');
+    expect(ticket.ck).toBe('the-ck');
+    expect(ticket.t).toBe(1700000000000);
+  });
+
+  it('轮询扫码走后端专门的命令，并带上票据', async () => {
     const store = useRemoteConnectionsStore();
 
-    await store.startAliyunLogin('cid-123', 'secret-abc', 'http://127.0.0.1:47832/callback');
+    await store.pollAliyunQr('the-ck', 1700000000000);
 
-    const call = invokeMock.mock.calls.find(entry => entry[0] === 'remote_aliyun_login_start');
+    const call = invokeMock.mock.calls.find(entry => entry[0] === 'remote_aliyun_qr_poll');
 
     expect(call).toBeDefined();
     expect(call?.[1]).toMatchObject({
-      clientId: 'cid-123',
-      clientSecret: 'secret-abc',
-      redirectUri: 'http://127.0.0.1:47832/callback',
+      ck: 'the-ck',
+      t: 1700000000000,
+    });
+  });
+
+  it('粘贴 access_token 走后端专门的存会话命令', async () => {
+    const store = useRemoteConnectionsStore();
+
+    await store.saveAliyunSession('conn-aliyun', 'the-token');
+
+    const call = invokeMock.mock.calls.find(entry => entry[0] === 'remote_aliyun_save_session');
+
+    expect(call).toBeDefined();
+    expect(call?.[1]).toMatchObject({
+      connectionId: 'conn-aliyun',
+      accessToken: 'the-token',
     });
   });
 
@@ -313,7 +345,7 @@ describe('阿里云盘连接的保存', () => {
       request: {
         protocol: 'aliyun_pan',
         credentialKey: 'conn-aliyun',
-        host: 'openapi.alipan.com',
+        host: 'api.aliyundrive.com',
         port: 443,
       },
     });

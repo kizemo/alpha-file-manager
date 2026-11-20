@@ -798,17 +798,19 @@
             "ready": "Sesión iniciada. Guarda esta conexión: la sesión se escribirá al guardar.",
             "closed": "La ventana de inicio de sesión se cerró antes de que terminaras.",
             "timeout": "Se agotó el tiempo de espera del inicio de sesión. Inténtalo de nuevo.",
-            "error": "No se pudo leer el estado de inicio de sesión. Inténtalo de nuevo."
+            "error": "No se pudo leer el estado de inicio de sesión. Inténtalo de nuevo.",
+            "scanned": "Escaneado, confirma en el móvil"
           },
-          "saved": "Sesión iniciada en Aliyun Drive: la ventana se cerró automáticamente y la sesión se recogió. Guarda esta conexión para usarla."
+          "saved": "Sesión iniciada en Aliyun Drive: la ventana se cerró automáticamente y la sesión se recogió. Guarda esta conexión para usarla.",
+          "refresh": "Actualizar código QR",
+          "windowStart": "Abrir ventana de inicio",
+          "windowCancel": "Cerrar ventana",
+          "windowHint": "La página oficial de Aliyun Drive muestra el código QR y confirma dentro de la ventana; las credenciales van directas a la app.",
+          "qrFallback": "Alternativa: inicio con código QR manual"
         },
         "field": {
-          "clientId": "ID de cliente",
-          "clientSecret": "Secreto de cliente",
-          "redirectUri": "URI de redirección",
-          "clientSecretHint": "Opcional. Déjalo en blanco para usar el modo de cliente público PKCE, en el que la sesión no se puede renovar automáticamente.",
-          "redirectUriHint": "Debe coincidir con la URI de redirección registrada en la consola de la plataforma abierta de Aliyun Drive. El valor predeterminado es http://127.0.0.1:47832/callback.",
-          "modeHint": "Con el secreto de cliente la sesión se renueva automáticamente. En modo PKCE la sesión dura 30 días y no se puede renovar."
+          "pasteToken": "Token de acceso",
+          "pasteTokenHint": "Pega un token que ya tengas. Se comprueba con Aliyun Drive antes de guardarlo, y el token nunca sale de este equipo en texto plano."
         }
       },
       "netdisk": {

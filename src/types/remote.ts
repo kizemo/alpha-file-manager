@@ -464,9 +464,36 @@ export interface AliyunAuthStatusPayload {
   nickName?: string;
 }
 
-/** 阿里云盘登录窗是否已打开。与后端 `AliyunLoginStartPayload` 镜像。 */
-export interface AliyunLoginStartPayload {
-  opened: boolean;
+/**
+ * 阿里云盘扫码登录的状态。与后端 `AliyunQrPollPayload` 的 `status` 镜像。
+ *
+ * `new` / `scanned` 是中间态（前端继续轮询），其余四个是终态。
+ */
+export type AliyunQrStatusKind
+  = | 'new'
+    | 'scanned'
+    | 'confirmed'
+    | 'expired'
+    | 'canceled'
+    | 'error';
+
+/** 二维码票据。与后端 `AliyunQrStartPayload` 镜像。 */
+export interface AliyunQrStartPayload {
+  /** 二维码内容（前端用 `qrcode` 库渲染成图片）。 */
+  codeContent: string;
+  /** 轮询用的会话标识。 */
+  ck: string;
+  /** 轮询用的时间戳。 */
+  t?: number | null;
+}
+
+/** 扫码轮询的结果。与后端 `AliyunQrPollPayload` 镜像。 */
+export interface AliyunQrPollPayload {
+  status: AliyunQrStatusKind;
+  /** 面向用户的短说明（**不含任何凭据**）。 */
+  message?: string | null;
+  /** 是不是终态（前端据此停止轮询）。 */
+  finalStatus: boolean;
 }
 
 /** 有没有待认领的阿里云盘登录态。与后端 `AliyunLoginPendingPayload` 镜像。 */
@@ -489,21 +516,10 @@ export interface AliyunLoginClaimPayload {
 }
 
 /**
- * 阿里云盘内嵌登录的进度事件。与后端
- * `src-tauri/src/aliyun_login.rs::AliyunLoginEvent` 镜像，由
- * `afm://aliyun-login` 频道推送。
- *
- * - `ready`：已经换到可用的访问凭证，**此时还没落盘** —— 落盘发生在
- *   「保存」时（那时才有连接 id），所以界面文案要说清「填名字再保存」。
- * - `closed`：用户自己关掉了登录窗且当时还没拿到凭证。
- * - `timeout` / `error`：放弃等待。
- *
- * ⚠️ 载荷里**没有** token / code 明文（后端规矩照抄夸克）。
+ * 内嵌真实登录页的启动回执（批次 29，与后端 start 命令返回值镜像）。
+ * reused = 登录窗已经开着，后端只做了聚焦。
  */
-export interface AliyunLoginEventPayload {
-  status: 'ready' | 'closed' | 'timeout' | 'error';
-  /** 脱敏描述，不含任何明文片段。 */
-  summary: string | null;
-  /** 面向用户的短说明，可直接展示。 */
-  message: string | null;
+export interface AliyunLoginStartPayload {
+  started: boolean;
+  reused: boolean;
 }

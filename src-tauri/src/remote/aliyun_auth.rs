@@ -45,7 +45,10 @@ use crate::remote::error::RemoteError;
 
 /// 落盘存档的版本号。读到的版本不认识 ⇒ 按「没有凭据」处理 ——
 /// 宁可让用户重新授权一次，也不要拿一份自己读不懂的存档去猜。
-pub const ALIYUN_SESSION_VERSION: u32 = 1;
+///
+/// **版本 2 = web 分支**（免密钥）。版本 1 是 PDS OpenAPI 分支的存档
+/// （带 `client_secret`）⇒ 版本对不上 ⇒ 按「请重新授权」处理。
+pub const ALIYUN_SESSION_VERSION: u32 = 3;
 
 /// 「即将过期」的窗口（秒）。
 ///
@@ -70,33 +73,46 @@ pub struct AliyunAuthSession {
     pub expires_at_unix: Option<i64>,
     /// refresh_token 的过期时刻（Unix 秒）。
     pub refresh_expires_at_unix: Option<i64>,
-    /// 空间 id。列表接口的 `drive_id` 就是它。
+    /// 空间 id。**不是主盘 id** —— 主盘 id 的取值见
+    /// [`crate::remote::aliyun_api::aliyun_resolve_drive_id`]。
     pub drive_id: Option<String>,
-    /// 开放平台应用 ID。换 token / 刷新时都要带。
+    /// 开放平台应用 ID（web 分支用它换 token，免密钥）。
     pub client_id: String,
-    /// 开放平台应用密钥。`None` = PKCE 公开客户端模式。
-    pub client_secret: Option<String>,
-    /// 授权时用的回调地址。刷新时必须**原样**带回。
+    /// 授权时用的回调地址。
     pub redirect_uri: Option<String>,
     /// 授权时申请的 scope。
     pub scope: Option<String>,
     /// `Bearer`。服务端没给时按 `Bearer` 处理。
     pub token_type: String,
+    /// 账号昵称（只用于界面展示）。来自换 token 的响应。
+    pub nick_name: Option<String>,
+    /// 设备 id。**只**作为下载直链的候选请求头之一尝试，默认不发。
+    ///
+    /// web 分支的下载直链在只带 `Authorization` 时会回 400（见
+    /// `b28-final-raw.md` §3）⇒ 逐个候选头组合探测。这个值留空就少试一种组合。
+    pub device_id: Option<String>,
 }
 
 impl AliyunAuthSession {
     /// 该不该带 `Authorization` 头。空 token 一律不带。
+    ///
+    /// **web 分支恒为 `Bearer`**（坐实：只发 `Authorization: Bearer <token>`），
+    /// 不带 cookie、不带 `x-signature`、不带 `x-device-id`。
     pub fn authorization_header_value(&self) -> Option<String> {
         let token = self.access_token.trim();
         if token.is_empty() {
             return None;
         }
 
-        let scheme = self.token_type.trim();
-        if scheme.is_empty() {
-            Some(format!("Bearer {token}"))
+        if super::aliyun_api::ALIYUN_USE_PDS_OPEN_API {
+            let scheme = self.token_type.trim();
+            if scheme.is_empty() {
+                Some(format!("Bearer {token}"))
+            } else {
+                Some(format!("{scheme} {token}"))
+            }
         } else {
-            Some(format!("{scheme} {token}"))
+            Some(format!("Bearer {token}"))
         }
     }
 
@@ -127,11 +143,11 @@ impl AliyunAuthSession {
         if let Some(drive_id) = self.drive_id.as_deref() {
             parts.push(format!("drive={drive_id}"));
         }
-        if self.client_secret.is_some() {
-            parts.push("secret=有".to_string());
-        } else {
-            parts.push("secret=无".to_string());
+        if let Some(nick_name) = self.nick_name.as_deref() {
+            parts.push(format!("nick={nick_name}"));
         }
+        // web 分支没有客户端密钥 ⇒ 这一项恒为「无」，保留是为了让日志的形状稳定。
+        parts.push("secret=无".to_string());
         parts.join(" + ")
     }
 }
@@ -376,10 +392,11 @@ mod tests {
             refresh_expires_at_unix: expires_at.map(|value| value + 86_400),
             drive_id: Some("drive-123".to_string()),
             client_id: "client-abc".to_string(),
-            client_secret: Some("secret-xyz".to_string()),
-            redirect_uri: Some("http://127.0.0.1:47832/callback".to_string()),
-            scope: Some("user:base file:all:read".to_string()),
+            redirect_uri: Some("https://www.alipan.com/sign/callback".to_string()),
+            scope: None,
             token_type: "Bearer".to_string(),
+            nick_name: Some("小明".to_string()),
+            device_id: None,
         }
     }
 
@@ -506,7 +523,6 @@ mod tests {
 
         assert!(!text.contains("the-access-token-value-0123456789"));
         assert!(!text.contains("the-refresh-token-value-0123456789"));
-        assert!(!text.contains("secret-xyz"));
         assert!(text.contains("access_token(len="));
     }
 
@@ -516,7 +532,6 @@ mod tests {
 
         assert!(!text.contains("the-access-token-value-0123456789"));
         assert!(!text.contains("the-refresh-token-value-0123456789"));
-        assert!(!text.contains("secret-xyz"));
     }
 
     // ---- 编码 / 解码 -------------------------------------------------------
@@ -557,8 +572,15 @@ mod tests {
     // ---- 授权头 -------------------------------------------------------------
 
     #[test]
-    fn the_authorization_header_uses_the_recorded_token_type() {
+    fn the_authorization_header_is_bearer_for_the_web_branch() {
         let mut value = session(None);
+        assert_eq!(
+            value.authorization_header_value().as_deref(),
+            Some("Bearer the-access-token-value-0123456789")
+        );
+
+        // web 分支恒为 Bearer：服务端给的 `token_type` 不作数。
+        value.token_type = "MAC".to_string();
         assert_eq!(
             value.authorization_header_value().as_deref(),
             Some("Bearer the-access-token-value-0123456789")
@@ -572,6 +594,21 @@ mod tests {
 
         value.access_token = String::new();
         assert_eq!(value.authorization_header_value(), None);
+    }
+
+    #[test]
+    fn an_archive_from_the_old_pds_branch_is_rejected() {
+        // 版本 1 的存档带 `client_secret`，web 分支不再认识它 ⇒ 按「请重新授权」处理。
+        let raw = r#"{"version":1,"session":{"access_token":"a","refresh_token":null,"expires_at_unix":null,"refresh_expires_at_unix":null,"drive_id":"d","client_id":"c","client_secret":"s","redirect_uri":null,"scope":null,"token_type":"Bearer"}}"#;
+
+        let error = aliyun_decode_session(raw).expect_err("旧存档必须被拒");
+
+        assert_eq!(error.kind, RemoteErrorKind::Auth);
+        assert!(
+            error.message.contains("重新授权"),
+            "文案要告诉用户去重新授权：{}",
+            error.message
+        );
     }
 
     #[test]

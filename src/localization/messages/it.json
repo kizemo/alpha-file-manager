@@ -798,17 +798,19 @@
             "ready": "Accesso effettuato. Salva questa connessione: la sessione verrà scritta al salvataggio.",
             "closed": "La finestra di accesso è stata chiusa prima che tu completassi l’accesso.",
             "timeout": "Tempo di attesa dell’accesso scaduto. Riprova.",
-            "error": "Impossibile leggere lo stato di accesso. Riprova."
+            "error": "Impossibile leggere lo stato di accesso. Riprova.",
+            "scanned": "Scansionato, conferma sul telefono"
           },
-          "saved": "Accesso a Aliyun Drive riuscito: la finestra si è chiusa automaticamente e la sessione è stata raccolta. Salva questa connessione per usarla."
+          "saved": "Accesso a Aliyun Drive riuscito: la finestra si è chiusa automaticamente e la sessione è stata raccolta. Salva questa connessione per usarla.",
+          "refresh": "Aggiorna codice QR",
+          "windowStart": "Apri finestra di accesso",
+          "windowCancel": "Chiudi finestra",
+          "windowHint": "La pagina ufficiale Aliyun Drive mostra il QR code e gestisce la conferma nella finestra; le credenziali vanno direttamente all app.",
+          "qrFallback": "Alternativa: accesso con QR code manuale"
         },
         "field": {
-          "clientId": "Client ID",
-          "clientSecret": "Client secret",
-          "redirectUri": "URI di reindirizzamento",
-          "clientSecretHint": "Facoltativo. Lascia vuoto per usare la modalità client pubblico PKCE, in cui la sessione non può essere rinnovata automaticamente.",
-          "redirectUriHint": "Deve corrispondere all’URI di reindirizzamento registrato nella console della piattaforma aperta Aliyun Drive. Il valore predefinito è http://127.0.0.1:47832/callback.",
-          "modeHint": "Con il client secret la sessione viene rinnovata automaticamente. In modalità PKCE l’accesso è valido per 30 giorni e non può essere rinnovato."
+          "pasteToken": "Token di accesso",
+          "pasteTokenHint": "Incolla un token che possiedi già. Viene verificato con Aliyun Drive prima di essere salvato, e il token non lascia mai questo computer in chiaro."
         }
       },
       "netdisk": {

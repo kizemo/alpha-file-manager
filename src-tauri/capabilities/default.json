@@ -8,6 +8,7 @@
     "print-view"
   ],
   "permissions": [
+    "default",
     "core:default",
     "core:window:allow-close",
     "core:window:allow-destroy",

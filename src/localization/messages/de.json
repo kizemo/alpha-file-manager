@@ -798,17 +798,19 @@
             "ready": "Angemeldet. Speichere diese Verbindung – die Sitzung wird beim Speichern geschrieben.",
             "closed": "Das Anmeldefenster wurde geschlossen, bevor du mit der Anmeldung fertig warst.",
             "timeout": "Zeitüberschreitung beim Warten auf die Anmeldung. Bitte erneut versuchen.",
-            "error": "Der Anmeldestatus konnte nicht gelesen werden. Bitte erneut versuchen."
+            "error": "Der Anmeldestatus konnte nicht gelesen werden. Bitte erneut versuchen.",
+            "scanned": "Gescannt, bitte auf dem Smartphone bestätigen"
           },
-          "saved": "Bei Aliyun Drive angemeldet: Das Fenster wurde automatisch geschlossen und die Sitzung übernommen. Speichere diese Verbindung, um sie zu nutzen."
+          "saved": "Bei Aliyun Drive angemeldet: Das Fenster wurde automatisch geschlossen und die Sitzung übernommen. Speichere diese Verbindung, um sie zu nutzen.",
+          "refresh": "QR-Code aktualisieren",
+          "windowStart": "Login-Fenster öffnen",
+          "windowCancel": "Fenster schließen",
+          "windowHint": "Die offizielle Aliyun-Drive-Seite zeigt den QR-Code an und bestätigt im Fenster; Zugangsdaten gehen direkt an die App.",
+          "qrFallback": "Ausweichoption: manueller QR-Login"
         },
         "field": {
-          "clientId": "Client-ID",
-          "clientSecret": "Client-Secret",
-          "redirectUri": "Weiterleitungs-URI",
-          "clientSecretHint": "Optional. Leer lassen, um den öffentlichen PKCE-Clientmodus zu verwenden; dort lässt sich die Anmeldung nicht automatisch erneuern.",
-          "redirectUriHint": "Muss mit der in der Aliyun-Drive-Konsole registrierten Weiterleitungs-URI übereinstimmen. Standard ist http://127.0.0.1:47832/callback.",
-          "modeHint": "Mit Client-Secret wird die Sitzung automatisch erneuert. Im PKCE-Modus bleibt die Anmeldung 30 Tage gültig und lässt sich nicht erneuern."
+          "pasteToken": "Zugriffstoken",
+          "pasteTokenHint": "Füge ein vorhandenes Token ein. Es wird vor dem Speichern gegen Aliyun Drive geprüft, und das Token verlässt diesen Rechner nie im Klartext."
         }
       },
       "netdisk": {

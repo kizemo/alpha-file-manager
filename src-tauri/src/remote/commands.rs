@@ -1256,7 +1256,13 @@ mod tests {
         "remote_quark_login_cancel",
         // 阿里云盘侧同理：实现在 `aliyun_login` 模块，注册项写的是
         // `aliyun_login::remote_aliyun_*`。
+        "remote_aliyun_qr_start",
+        "remote_aliyun_qr_poll",
+        // Batch 29: embedded real login page (webview) commands.
         "remote_aliyun_login_start",
+        "remote_aliyun_login_observed",
+        "remote_aliyun_login_close",
+        "remote_aliyun_save_session",
         "remote_aliyun_login_pending",
         "remote_aliyun_login_claim",
         "remote_aliyun_login_cancel",
@@ -1320,6 +1326,61 @@ mod tests {
             registered.len(),
             REMOTE_COMMANDS.len(),
             "invoke_handler 里的 remote_* 条目与命令列表对不上：{registered:?}"
+        );
+    }
+
+    /// app 级 ACL manifest（`permissions/app-commands.toml`）必须**完整覆盖**
+    /// `generate_handler!` 注册的全部命令。
+    ///
+    /// Tauri 2.12 起，只要应用定义了 app manifest，所有自定义命令都会走 ACL 判定 ——
+    /// 漏掉一条，那条命令在运行时会被静默拒绝：编译得过、单测全过，只有真正 invoke
+    /// 的时候才报 "command not allowed"。新增 `#[tauri::command]` 忘了同步本文件，
+    /// 就是这种「验收跑到一半才发现命令调不通」的坑。
+    #[test]
+    fn app_acl_commands_cover_generate_handler() {
+        use std::collections::BTreeSet;
+
+        /// 只认「像路径的注册项」：`模块::命令,` / `命令,`。
+        /// 注释行、`.invoke_handler(tauri::generate_handler![` 这类都带别的字符，自动被排除。
+        fn is_command_entry(line: &str) -> bool {
+            let candidate = line.trim_end_matches(',');
+            !candidate.is_empty()
+                && candidate
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == ':')
+        }
+
+        let block = invoke_handler_block();
+        let registered: BTreeSet<String> = block
+            .lines()
+            .map(str::trim)
+            .filter(|line| line.ends_with(',') && is_command_entry(line))
+            .map(|line| {
+                let candidate = line.trim_end_matches(',');
+                candidate
+                    .rsplit("::")
+                    .next()
+                    .expect("注册项非空")
+                    .to_string()
+            })
+            .collect();
+
+        let acl = include_str!("../../permissions/app-commands.toml");
+        let allowed: BTreeSet<String> = acl
+            .lines()
+            .skip_while(|line| !line.trim_start().starts_with("commands.allow"))
+            .skip(1)
+            .take_while(|line| line.trim() != "]")
+            .filter_map(|line| {
+                let name = line.trim().trim_end_matches(',').trim_matches('"');
+                (!name.is_empty()).then(|| name.to_string())
+            })
+            .collect();
+
+        assert_eq!(
+            registered, allowed,
+            "permissions/app-commands.toml 与 lib.rs 的 generate_handler! 不一致 —— \
+             新增命令忘了同步 ACL 授权，那条命令运行时会被静默拒绝"
         );
     }
 }
