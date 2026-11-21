@@ -2877,4 +2877,44 @@ QUERYREMOVE/REMOVEPENDING 时按 `dbcv_unitMask` 展开多盘符 → 释放 `dir
 ④ `Where-Object` 零命中返回 `$null`，喂 `[IO.File]::WriteAllLines` 报 `Value cannot be null (Parameter 'contents')` ⇒ 一律 `@(...)` 包裹。
 ⑤ 判「装机版是不是新的」不要碰 sha/尺寸/PE 时间戳/整份 exe 字符串（四类假判据），只认 ① 无条件新增日志行 ② 行为差异。
 
+### 20.22 §20.21.4 三条硬前置项已用真实插拔闭合（2026-11-21 批次 33）
+
+完整取证报告：**`docs/handoff-2026-11-21-batch33-usb-verification.md`**。
+三条判据全部定案，其中**第 2、3 条修正 §20.21.4 的原有假设**。
+
+1. **层 2 送达性 = PASS（本台账首次真机命中）。** 拔出瞬间主日志同时落下
+   `[dir-watcher] released dir-watcher handle for H:/` 与
+   `[device-events] RemoveComplete on H:/: released 1 dir watch(es), 0 index root(s)`。
+   ⇒ `device_events.rs:219` 的 INFO 行首次在 release 上命中；计数为 **1**
+   （= 拔插前窗格停在 `H:\` 造成的活跃 watch，是刻意造出来的非零样本），
+   证明隐藏顶层窗口确实收到 `DBT_DEVICEREMOVECOMPLETE` 并走到 `handle_broadcast`
+   的 Volume 分支、真句柄已释放。证据：`.superpowers/sdd/b33-log-delta.txt`。
+2. **插入侧未触发 `blocker=DriveRootsChanged` ⇒ §20.21.4 第 2 条的预测成立。**
+   整段插拔增量日志内 0 命中。原因即该条自注的「取决于实现」分支：可移动卷不在
+   `indexed_drive_roots`（实测 `["E:/","F:/"]`）⇒ requested 集合不变 ⇒ 不重扫、无残留代价。
+   **该条从「未判定」转「已判定：不会触发」。**
+   ⚠️ 口径限制：插入（Arrival）在 release 下**没有任何日志锚点**
+   （`device_events.rs:97-102` 的 `is_removal_event()` 只含三个移除事件，`:234` 的 else 分支
+   只发前端 payload 不打日志），故插入侧只能证「没引发重扫」，**不能证送达**；
+   `DBT_DEVICEINTERFACE` 分支同理（`:272` 是 `log::debug!`，release 级为 Info，不可观测）。
+3. **`CR_REMOVE_VETOED(23)` 两轮复现，但「AFM 占用导致否决」被证伪。**
+   同一块盘做对照弹出：AFM 窗格停在 `H:\`（持 1 个卷句柄）→ `RET=23 ANSWER=''`；
+   AFM 句柄数 **0** → 同样 `RET=23 ANSWER=''`，两轮弹前盘上均无打开文件。
+   ⇒ 否决与 AFM 无关；`ANSWER=''` 说明 Windows 未点名占用者。
+4. **用户随后手工「安全删除硬件」一次成功弹出**（并在测试后重新插入）。
+   ⇒ **`23` 是探针所用 API 的产物，不是用户可见缺陷**：`CM_Request_Device_EjectW`
+   直接请求 PnP 移除设备节点，不做卷锁/卸载，任何句柄（含探针自己开卷查询、Explorer）
+   都会 veto；Shell 的「安全删除硬件」路径会先锁卷/卸载，因此能成功。
+   ⚠️ 残余未判定：用户手工弹出时**未控制 AFM 的状态**（窗格是否停在 `H:\` 未记录）。
+   已由第 3 条的 A/B 对照（句柄 0 与句柄 1 同结果）间接覆盖，但严格意义的
+   「AFM 持活跃 watch 时 Shell 路径仍成功」没有直接样本 ⇒ 登记**未判定**，不写 PASS。
+   **后续如需再验 `23`，不要再用 `CM_Request_Device_EjectW` 当用户路径的判据。**
+5. **AFM 对 `H:` 的句柄行为量化**（A/B/A 三态可逆）：启动 `disk_handles_named=60 of_which_on_H=0`
+   → argv 打开 `H:\` 后 `59 / 1` → argv 切到 `E:\` 后 `57 / 0`。
+   ⇒ 「有窗格正在显示该盘」持 1 个目录句柄，离开即释放，**无泄漏**；
+   归因探针阳性对照成立（`control_handle_opened_on_H_root=True`，自身 pid 命中 1）。
+   证据：`.superpowers/sdd/b33-handles-0{1,2,3}-*.txt`。
+6. 本轮另记：`evidence.md` §九.3「`device_events.rs:219` 与 `lib.rs:550` 不在同一测试二进制，
+   只能靠日志观测」继续成立；本轮是其**首次拿到真机日志证据**，不是新增测试。
+
 
