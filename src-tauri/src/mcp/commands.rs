@@ -7,7 +7,6 @@
 //! `set_mode` 里解析、落盘、启停服务，前端拿不到任何能绕过门控的句柄。
 
 use serde::Serialize;
-use tauri::Manager;
 
 use super::audit::{read_entries_in, AuditEntry};
 use super::auth;

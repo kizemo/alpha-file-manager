@@ -98,7 +98,6 @@ fn collect_local_tree_legacy(
     criteria: &CompareCriteria,
 ) -> Result<super::compare::FlatTree, String> {
     use sha2::{Digest, Sha256};
-    use std::collections::BTreeMap;
 
     use super::compare::FlatTree;
     use super::criteria::ExcludeMatcher;

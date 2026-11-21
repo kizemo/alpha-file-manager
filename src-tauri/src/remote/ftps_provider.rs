@@ -1142,8 +1142,6 @@ mod tests {
         config: &Arc<rustls::ServerConfig>,
         pending: &[u8],
     ) -> Option<rustls::ServerConnection> {
-        use std::io::Read;
-
         let mut connection = rustls::ServerConnection::new(Arc::clone(config)).ok()?;
 
         if !pending.is_empty() {

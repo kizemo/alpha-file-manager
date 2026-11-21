@@ -1121,7 +1121,19 @@ export function useFileBrowserNavigation(
       await readDir(currentTab.path);
 
       if (error.value) {
-        await navigateToDefaultDirectory();
+        // FORK-MODIFICATION 2026-11-21（批次 35）：远程路径读失败时**不**兜底跳默认目录。
+        //
+        // 兜底会再调一次 `readDir`，而 `readDir` 开头无条件 `error.value = null`
+        // （同文件 :916）—— 刚写进去的错误被自己抹掉，面包屑同时落到默认目录。
+        // 用户看到的就是「点了远程连接没反应」：既没有内容，也没有错误横幅。
+        //
+        // 远程路径必须把错误**留在原地**：`FileBrowserError` 横幅渲染的就是
+        // `error.value`，它一被清掉，远程读失败就彻底没有任何可见反馈。
+        //
+        // 本地路径保持原行为：本地目录打不开时兜底回默认目录仍是既有期望。
+        if (!isRemotePath(currentTab.path)) {
+          await navigateToDefaultDirectory();
+        }
       }
       else {
         schedulePendingDirectoryRecordIfCurrent(currentTab.path);
