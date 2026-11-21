@@ -1789,7 +1789,6 @@ pub(super) fn write_remote_thumbnail_bytes(
     let staged = stage_and_scale_remote_thumbnail(
         &temporary_source_path,
         bytes,
-        &cache_dir,
         thumbnail_path.clone(),
         max_dimension,
     );
@@ -1804,7 +1803,6 @@ pub(super) fn write_remote_thumbnail_bytes(
 fn stage_and_scale_remote_thumbnail(
     temporary_source_path: &Path,
     bytes: Vec<u8>,
-    cache_dir: &Path,
     thumbnail_path: PathBuf,
     max_dimension: u32,
 ) -> Result<String, String> {

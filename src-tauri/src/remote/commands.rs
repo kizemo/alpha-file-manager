@@ -29,7 +29,6 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 
