@@ -631,6 +631,8 @@ fn read_entry(path: &Path, options: ReadEntryOptions) -> Option<DirEntry> {
         link_target,
         link_status,
         hard_link_count,
+        entry_id: None,
+        thumbnail_url: None,
     })
 }
 

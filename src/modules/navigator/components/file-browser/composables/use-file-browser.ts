@@ -532,6 +532,7 @@ export function useFileBrowser(options: UseFileBrowserOptions) {
     layout: options.layout,
     selectEntryByPath: selection.selectEntryByPath,
     selectRange: selection.selectRange,
+    selectEntryByKey: selection.selectEntryByKey,
     scrollToPath: virtualLayout.scrollToPath,
     getEntryElement: virtualLayout.getEntryElement,
     getGridNavigationEntry: virtualLayout.getGridNavigationEntry,

@@ -5,6 +5,8 @@
 import { shallowRef, triggerRef } from 'vue';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import type { DirEntry } from '@/types/dir-entry';
+import { isRemotePath } from '@/utils/remote-paths';
+import { getFileBrowserEntryKey } from '@/modules/navigator/components/file-browser/utils/file-browser-entry-key';
 
 const IMAGE_THUMBNAIL_MAX_DIMENSION = 384;
 const IMAGE_THUMBNAIL_PLACEHOLDER_SIZE = 20;
@@ -50,7 +52,19 @@ export function normalizeImageThumbnailMaxDimension(maxDimension?: number): numb
 }
 
 function getImageThumbnailKey(entry: DirEntry, maxDimension: number): string {
-  return `${entry.path}|${entry.modified_time}|${entry.size}|${maxDimension}`;
+  return `${getFileBrowserEntryKey(entry)}|${entry.modified_time}|${entry.size}|${maxDimension}`;
+}
+
+/**
+ * 远程网盘条目自带的缩略图直链（服务端签名 URL）。
+ *
+ * 有直链就不进本地缩略图管线：远程条目的 `path` 不是文件系统路径，
+ * 走 `generate_image_thumbnail` 必然失败，界面上只能拿到图标。
+ */
+function getRemoteThumbnailUrl(entry: DirEntry): string | undefined {
+  const thumbnailUrl = entry.thumbnail_url;
+
+  return thumbnailUrl && thumbnailUrl.length > 0 ? thumbnailUrl : undefined;
 }
 
 function canGenerateImageThumbnail(entry: DirEntry): boolean {
@@ -70,6 +84,12 @@ export function isShellNamespacePath(path: string): boolean {
 }
 
 function canGenerateImageThumbnailPlaceholder(entry: DirEntry): boolean {
+  // 远程网盘条目的原图字节读不到（`sfm://remote/...` 不是文件系统路径），
+  // 拿它做占位图必然失败 ⇒ 远程条目的占位图一律不做。
+  if (isRemotePath(entry.path)) {
+    return false;
+  }
+
   const extension = entry.ext?.toLowerCase();
 
   // 前端读不到 shell 条目的原图字节（convertFileSrc 的 asset URI 只服务文件系统），
@@ -341,6 +361,12 @@ export function useImageThumbnails() {
   }
 
   function getImageThumbnail(entry: DirEntry, maxDimension?: number): string | undefined {
+    const remoteThumbnailUrl = getRemoteThumbnailUrl(entry);
+
+    if (remoteThumbnailUrl) {
+      return remoteThumbnailUrl;
+    }
+
     if (!canGenerateImageThumbnail(entry)) {
       return undefined;
     }
@@ -393,6 +419,10 @@ export function useImageThumbnails() {
   }
 
   function shouldShowImageThumbnailFallback(entry: DirEntry, maxDimension?: number): boolean {
+    if (getRemoteThumbnailUrl(entry)) {
+      return false;
+    }
+
     if (!canGenerateImageThumbnail(entry)) {
       return true;
     }

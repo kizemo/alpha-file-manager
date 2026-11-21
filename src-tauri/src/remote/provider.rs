@@ -22,6 +22,16 @@ pub struct RemoteEntry {
     pub modified_time: u64,
     pub is_hidden: bool,
     pub is_symlink: bool,
+    /// 服务端给的稳定条目 ID（远程网盘用），本地条目恒为 `None`。
+    ///
+    /// 远程条目的 `path` 只由「父目录路径 + 条目名」组成，而同一个目录里**允许同名条目**
+    /// （阿里云盘真机实测：照片备份目录下约 90 组同名 jpg）⇒ 两个不同条目的 `path` 相同。
+    /// 选中判定必须改用这个 ID，否则点一个会同时高亮两个。
+    pub entry_id: Option<String>,
+    /// 服务端给的缩略图直链（远程网盘用），本地条目恒为 `None`。
+    ///
+    /// 这是**签名 URL**：能直接给 `<img src>`，但不得写进日志或用户可见文案。
+    pub thumbnail_url: Option<String>,
 }
 
 /// 分块写的大小。256 KiB —— 足够小，进度条动得起来；
@@ -333,6 +343,8 @@ mod tests {
             modified_time: 1_700_000_000_000,
             is_hidden: false,
             is_symlink: false,
+            entry_id: None,
+            thumbnail_url: None,
         };
         let json = serde_json::to_value(&entry).expect("serialize");
 

@@ -64,6 +64,19 @@ export type DirEntry = {
   link_type?: DirEntryLinkType | null;
   link_target?: string | null;
   link_status?: DirEntryLinkStatus | null;
+  /**
+   * 服务端给的稳定条目 ID（远程网盘用）。本地条目没有这个字段。
+   *
+   * 远程条目的 `path` 由「父路径 + 文件名」拼成，同一目录里可以存在同名条目，
+   * 于是两个不同条目的 `path` 可能逐字相同 —— 选中判定必须改用这个 ID。
+   */
+  entry_id?: string | null;
+  /**
+   * 服务端给的缩略图直链（远程网盘用）。本地条目没有这个字段。
+   *
+   * 这是签名 URL，能直接给 `<img src>`，但不得写进日志或用户可见文案。
+   */
+  thumbnail_url?: string | null;
   hard_link_count?: number | null;
   /**
    * 「位置」页分区标记。只有 `sfm://locations` 里的条目会带，详见 `LocationGroup`。

@@ -401,6 +401,8 @@ impl SftpRemoteProvider {
                             size: attributes.len(),
                             // 少了这个 ×1000，「按修改时间排序」会变成随机顺序，而且不报错。
                             modified_time: sftp_seconds_to_unix_millis(attributes.mtime),
+                            entry_id: None,
+                            thumbnail_url: None,
                         });
                     }
 
@@ -441,6 +443,8 @@ impl SftpRemoteProvider {
                     is_symlink: matches!(attributes.file_type(), FileType::Symlink),
                     size: attributes.len(),
                     modified_time: sftp_seconds_to_unix_millis(attributes.mtime),
+                    entry_id: None,
+                    thumbnail_url: None,
                 }),
                 Err(error) => Err(map_sftp_error(error)),
             }

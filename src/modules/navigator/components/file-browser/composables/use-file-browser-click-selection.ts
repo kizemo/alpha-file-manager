@@ -6,6 +6,7 @@ import { ref, type Ref } from 'vue';
 import type { DirEntry } from '@/types/dir-entry';
 import { UI_CONSTANTS } from '@/constants';
 import normalizePath from '@/utils/normalize-path';
+import { getFileBrowserEntryKey } from '@/modules/navigator/components/file-browser/utils/file-browser-entry-key';
 import { clearDocumentTextSelection } from '@/utils/document-selection';
 
 export type PendingDoubleClick = {
@@ -104,7 +105,11 @@ export function useFileBrowserClickSelection(options: {
       return;
     }
 
-    if (!areEntryPathsEqual(mouseDownState.value.item?.path ?? '', entry.path)) {
+    const mouseDownItem = mouseDownState.value.item;
+
+    // 同目录同名条目（远程网盘常见）的 `path` 逐字相同 ⇒ 必须按唯一键配对，
+    // 否则「在 A 行按下、在 B 行松开」会被当成同一个条目。
+    if (!mouseDownItem || getFileBrowserEntryKey(mouseDownItem) !== getFileBrowserEntryKey(entry)) {
       return;
     }
 

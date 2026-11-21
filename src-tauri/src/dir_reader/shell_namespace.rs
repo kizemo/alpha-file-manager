@@ -524,6 +524,8 @@ mod platform {
             link_target: None,
             link_status: None,
             hard_link_count: None,
+            entry_id: None,
+            thumbnail_url: None,
         })
     }
 

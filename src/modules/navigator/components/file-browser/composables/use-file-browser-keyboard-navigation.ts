@@ -4,6 +4,7 @@
 
 import { nextTick, type Ref } from 'vue';
 import type { DirEntry } from '@/types/dir-entry';
+import { getFileBrowserEntryKey } from '@/modules/navigator/components/file-browser/utils/file-browser-entry-key';
 import { getFileBrowserVisualEntryOrder } from '../file-browser-entry-groups';
 
 const ROW_TOLERANCE_PX = 30;
@@ -21,6 +22,11 @@ export function useFileBrowserKeyboardNavigation(options: {
    */
   onNavigationTargetApplied?: (entry: DirEntry) => void;
   selectEntryByPath: (path: string) => boolean;
+  /**
+   * 按「条目唯一键」选中条目。远程网盘同目录同名条目的 `path` 逐字相同，
+   * 只按 path 选会永远命中第一个同名条目 ⇒ 有这个入口时优先用它。
+   */
+  selectEntryByKey?: (key: string) => boolean;
   selectRange: (fromEntry: DirEntry, toEntry: DirEntry, additive?: boolean) => void;
   scrollToPath?: (path: string, align?: ScrollLogicalPosition) => Promise<boolean>;
   getEntryElement?: (path: string) => HTMLElement | null;
@@ -49,6 +55,29 @@ export function useFileBrowserKeyboardNavigation(options: {
     if (!container) return null;
 
     return container.querySelector<HTMLElement>(`[data-entry-path="${CSS.escape(path)}"]`);
+  }
+
+  /**
+   * 取某个条目的 DOM 行。
+   *
+   * 优先按 `data-entry-key` 找：远程网盘同目录同名条目的 `path` 逐字相同，
+   * 只按 `data-entry-path` 找会永远命中第一个同名条目。
+   */
+  function getEntryElementForEntry(entry: DirEntry): HTMLElement | null {
+    const container = options.entriesContainerRef.value;
+
+    if (container) {
+      const key = getFileBrowserEntryKey(entry);
+      const elementByKey = container.querySelector<HTMLElement>(
+        `[data-entry-key="${CSS.escape(key)}"]`,
+      );
+
+      if (elementByKey) {
+        return elementByKey;
+      }
+    }
+
+    return getEntryElement(entry.path);
   }
 
   function getFocusedEntry(): DirEntry | null {
@@ -80,13 +109,20 @@ export function useFileBrowserKeyboardNavigation(options: {
       options.selectRange(anchor, entry);
     }
     else {
-      options.selectEntryByPath(entry.path);
+      const entryKey = getFileBrowserEntryKey(entry);
+
+      if (options.selectEntryByKey) {
+        options.selectEntryByKey(entryKey);
+      }
+      else {
+        options.selectEntryByPath(entry.path);
+      }
     }
 
     await options.scrollToPath?.(entry.path);
     await nextTick();
 
-    const element = getEntryElement(entry.path);
+    const element = getEntryElementForEntry(entry);
 
     if (element) {
       element.focus({ preventScroll: true });
@@ -109,7 +145,9 @@ export function useFileBrowserKeyboardNavigation(options: {
       targetIndex = direction === 'next' ? 0 : entries.length - 1;
     }
     else {
-      const currentIndex = entries.findIndex(entry => entry.path === focusedEntry.path);
+      const currentIndex = entries.findIndex(
+        entry => getFileBrowserEntryKey(entry) === getFileBrowserEntryKey(focusedEntry),
+      );
 
       if (currentIndex === -1) {
         targetIndex = direction === 'next' ? 0 : entries.length - 1;
@@ -146,7 +184,7 @@ export function useFileBrowserKeyboardNavigation(options: {
       return;
     }
 
-    const currentElement = getEntryElement(focusedEntry.path);
+    const currentElement = getEntryElementForEntry(focusedEntry);
 
     if (!currentElement) return;
 

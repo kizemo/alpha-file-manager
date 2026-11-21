@@ -13,11 +13,10 @@
 // 以 `STATUS_ENTRYPOINT_NOT_FOUND` (0xC0000139) 崩掉 —— 一个测试都跑不了，
 // 且报错与本模块毫无关系。
 //
-// 能力边界：**能列目录、能读文件**；**其余一律不支持**。
-// 上传（`write_file` / `write_file_with_progress`）、新建目录、改权限
-// （`set_permissions` / `get_permissions`）、删除、重命名全部返回
-// `RemoteErrorKind::Unsupported`，绝不返回 `Ok(())` —— 静默成功会让用户以为
-// 文件已经传上去了，而它根本没有。
+// 能力边界：**能列目录、能读文件**；**写操作已落地**（批次 31）——上传
+// （`write_file` / `write_file_with_progress`）、新建目录、删除、重命名都真的
+// 落到服务端。**只有改权限（`set_permissions` / `get_permissions`）仍是
+// `RemoteErrorKind::Unsupported`** —— 阿里云盘没有 POSIX 权限位，无从设置。
 //
 // 为什么网络访问要包一层 trait：`AliyunApi` 与 `AliyunSessionStore` 两个抽象
 // 让本文件可以**零网络**单测 —— 假实现不需要真的连 `openapi.alipan.com`，
@@ -27,7 +26,8 @@
 // 的能力。所以「远端路径 → 目录 file_id」只能从根（`file_id = "root"`）一级
 // 一级往下走。详见 `AliyunRemoteProvider::resolve_dir_file_id`。
 //
-// ⚠️ **写类操作一条都不许返回 `Ok(())`**（契约 §〇）。
+// ⚠️ **写类操作失败时一条都不许返回 `Ok(())`**（契约 §〇）—— 静默成功会让
+// 用户以为文件已经传上去了，而它根本没有。
 // ---------------------------------------------------------------------------
 
 use std::future::Future;
@@ -39,14 +39,19 @@ use async_trait::async_trait;
 use futures_util::StreamExt;
 
 use super::aliyun_api::{
-    aliyun_access_token_url, aliyun_authorization_code_body, aliyun_download_url_api,
-    aliyun_get_url, aliyun_list_entry_limit_error, aliyun_list_page_limit_error,
-    aliyun_list_url, aliyun_map_failure, aliyun_next_marker, aliyun_parse_download_url,
-    aliyun_parse_entry_body, aliyun_parse_list_payload, aliyun_parse_token_payload,
-    aliyun_refresh_token_body, aliyun_refresh_token_url, aliyun_resolve_drive_id,
-    aliyun_to_remote_entries, AliyunFileEntry, AliyunListPayload, AliyunTokenPayload,
-    ALIYUN_LIST_LIMIT_DEFAULT, ALIYUN_LIST_ORDER_BY, ALIYUN_LIST_ORDER_DIRECTION,
-    ALIYUN_ROOT_FILE_ID,
+    aliyun_access_token_url, aliyun_authorization_code_body, aliyun_complete_upload_body,
+    aliyun_create_file_body, aliyun_create_folder_body, aliyun_delete_body, aliyun_download_url_api,
+    aliyun_entry_type_name, aliyun_failure_is_already_exist, aliyun_get_url,
+    aliyun_list_entry_limit_error, aliyun_list_page_limit_error, aliyun_list_url, aliyun_map_failure,
+    aliyun_map_write_failure, aliyun_move_body, aliyun_next_marker, aliyun_parse_create_payload,
+    aliyun_parse_download_url, aliyun_parse_entry_body, aliyun_parse_list_payload,
+    aliyun_parse_token_payload, aliyun_part_ranges, aliyun_refresh_token_body,
+    aliyun_refresh_token_url, aliyun_rename_body, aliyun_resolve_drive_id,
+    aliyun_to_remote_entries, AliyunCreateResult, AliyunFileEntry, AliyunListPayload,
+    AliyunPartRange, AliyunTokenPayload, AliyunUploadPart, ALIYUN_COMPLETE_URL, ALIYUN_CREATE_URL,
+    ALIYUN_DELETE_URL, ALIYUN_LIST_LIMIT_DEFAULT, ALIYUN_LIST_ORDER_BY,
+    ALIYUN_LIST_ORDER_DIRECTION, ALIYUN_MOVE_URL, ALIYUN_ROOT_FILE_ID, ALIYUN_UPDATE_URL,
+    ALIYUN_UPLOAD_CHUNK_BYTES,
 };
 use super::aliyun_auth::{
     aliyun_is_expired, aliyun_now_unix, load_aliyun_session, save_aliyun_session, AliyunAuthSession,
@@ -54,8 +59,8 @@ use super::aliyun_auth::{
 use super::connection::RemoteConnection;
 use super::error::{RemoteError, RemoteErrorKind};
 use super::path::{
-    normalize_remote_path, reject_path_control_characters, split_remote_parent_and_name,
-    validate_remote_entry_name,
+    join_remote_parent_and_name, normalize_remote_path, reject_path_control_characters,
+    split_remote_parent_and_name, validate_remote_entry_name,
 };
 use super::provider::{RemoteEntry, RemoteProvider};
 use super::registry;
@@ -138,6 +143,85 @@ pub trait AliyunApi: Send + Sync {
         &self,
         session: &AliyunAuthSession,
     ) -> Result<AliyunAuthSession, RemoteError>;
+
+    // ------------------------------------------------------------------
+    // 写操作（批次 31）
+    // ------------------------------------------------------------------
+    //
+    // 写操作**不做「授权失效 ⇒ 刷新后重试」**：重放一次「新建文件」可能
+    // 在网盘里留下两个同名条目。失败就**停下来把控制权交回用户**
+    // （契约 §6.2），由用户自己决定要不要重试。
+    //
+    // 取会话时的**主动**过期刷新仍然保留 —— 那是发请求之前就发现过期，
+    // 不是重放一个已经执行过的写操作。
+
+    /// 新建目录。返回 `Ok(true)` 表示「这个目录**已经存在**」（按成功处理）。
+    async fn create_folder(
+        &self,
+        session: &AliyunAuthSession,
+        drive_id: &str,
+        parent_file_id: &str,
+        name: &str,
+    ) -> Result<bool, RemoteError>;
+
+    /// 新建文件，返回上传会话（`file_id` + 分片直链 + `upload_id`/`revision_id`）。
+    async fn create_file(
+        &self,
+        session: &AliyunAuthSession,
+        drive_id: &str,
+        parent_file_id: &str,
+        name: &str,
+    ) -> Result<AliyunCreateResult, RemoteError>;
+
+    /// 把 `content` 按 `ranges` 切块，`PUT` 到各片自己的直链上。
+    ///
+    /// `on_progress` 收到的是**累计已发送字节数**（与
+    /// `RemoteProvider::write_file_with_progress` 同一套语义）。
+    async fn upload_parts(
+        &self,
+        session: &AliyunAuthSession,
+        ranges: &[AliyunPartRange],
+        content: Arc<Vec<u8>>,
+        on_progress: &(dyn Fn(u64) + Send + Sync),
+    ) -> Result<(), RemoteError>;
+
+    /// 上传收尾（`file/complete`）。
+    async fn complete_upload(
+        &self,
+        session: &AliyunAuthSession,
+        drive_id: &str,
+        file_id: &str,
+        upload_id: &str,
+        revision_id: &str,
+    ) -> Result<(), RemoteError>;
+
+    /// 重命名（`file/update`，字段是 `name`）。
+    async fn rename_entry(
+        &self,
+        session: &AliyunAuthSession,
+        drive_id: &str,
+        file_id: &str,
+        name: &str,
+    ) -> Result<(), RemoteError>;
+
+    /// 删除（`file/delete`）。`entry_type` 是 `"file"` 或 `"folder"` ——
+    /// **服务端要求带上**。
+    async fn delete_entry(
+        &self,
+        session: &AliyunAuthSession,
+        drive_id: &str,
+        file_id: &str,
+        entry_type: &str,
+    ) -> Result<(), RemoteError>;
+
+    /// 移动到另一个父目录（`file/move`）。
+    async fn move_entry(
+        &self,
+        session: &AliyunAuthSession,
+        drive_id: &str,
+        file_id: &str,
+        to_parent_file_id: &str,
+    ) -> Result<(), RemoteError>;
 }
 
 /// HTTP 客户端建不起来时的占位实现。
@@ -199,6 +283,77 @@ impl AliyunApi for UnavailableAliyunApi {
         &self,
         _session: &AliyunAuthSession,
     ) -> Result<AliyunAuthSession, RemoteError> {
+        Err(self.error.clone())
+    }
+
+    async fn create_folder(
+        &self,
+        _session: &AliyunAuthSession,
+        _drive_id: &str,
+        _parent_file_id: &str,
+        _name: &str,
+    ) -> Result<bool, RemoteError> {
+        Err(self.error.clone())
+    }
+
+    async fn create_file(
+        &self,
+        _session: &AliyunAuthSession,
+        _drive_id: &str,
+        _parent_file_id: &str,
+        _name: &str,
+    ) -> Result<AliyunCreateResult, RemoteError> {
+        Err(self.error.clone())
+    }
+
+    async fn upload_parts(
+        &self,
+        _session: &AliyunAuthSession,
+        _ranges: &[AliyunPartRange],
+        _content: Arc<Vec<u8>>,
+        _on_progress: &(dyn Fn(u64) + Send + Sync),
+    ) -> Result<(), RemoteError> {
+        Err(self.error.clone())
+    }
+
+    async fn complete_upload(
+        &self,
+        _session: &AliyunAuthSession,
+        _drive_id: &str,
+        _file_id: &str,
+        _upload_id: &str,
+        _revision_id: &str,
+    ) -> Result<(), RemoteError> {
+        Err(self.error.clone())
+    }
+
+    async fn rename_entry(
+        &self,
+        _session: &AliyunAuthSession,
+        _drive_id: &str,
+        _file_id: &str,
+        _name: &str,
+    ) -> Result<(), RemoteError> {
+        Err(self.error.clone())
+    }
+
+    async fn delete_entry(
+        &self,
+        _session: &AliyunAuthSession,
+        _drive_id: &str,
+        _file_id: &str,
+        _entry_type: &str,
+    ) -> Result<(), RemoteError> {
+        Err(self.error.clone())
+    }
+
+    async fn move_entry(
+        &self,
+        _session: &AliyunAuthSession,
+        _drive_id: &str,
+        _file_id: &str,
+        _to_parent_file_id: &str,
+    ) -> Result<(), RemoteError> {
         Err(self.error.clone())
     }
 }
@@ -281,6 +436,24 @@ fn build_download_client() -> Result<reqwest::Client, RemoteError> {
         .map_err(|error| RemoteError::unknown(format!("阿里云盘下载客户端初始化失败：{error}")))
 }
 
+/// 上传用的 HTTP 客户端。
+///
+/// 与 [`build_client`] 的区别只有一条，但这条是**硬约束**：
+/// **不带任何默认头**（不设 `Content-Type`、不设 `Accept`）。
+///
+/// OSS 的预签名直链把 `Content-Type` 算进签名 —— 多带一个
+/// `Content-Type: application/oct-stream` 就是 403 `SignatureDoesNotMatch`
+/// （实测）。所以这个客户端**刻意**什么都不设。
+fn build_upload_client() -> Result<reqwest::Client, RemoteError> {
+    reqwest::Client::builder()
+        .user_agent(ALIYUN_USER_AGENT)
+        .timeout(ALIYUN_FILE_TIMEOUT)
+        .connect_timeout(ALIYUN_CONNECT_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|error| RemoteError::unknown(format!("阿里云盘上传客户端初始化失败：{error}")))
+}
+
 /// 把传输层失败分类成 [`RemoteErrorKind`]。
 fn classify_transport(error: &reqwest::Error) -> RemoteErrorKind {
     if error.is_timeout() || error.is_connect() {
@@ -315,17 +488,16 @@ fn transport_error(context: &str, error: &reqwest::Error) -> RemoteError {
     RemoteError::new(kind, transport_message_for(kind))
 }
 
-/// 发一个 POST（JSON 请求体）并把响应体读成 UTF-8 文本。
+/// 发一个带鉴权头的 JSON POST，返回**原始的**状态码与响应体。
 ///
-/// 响应体**不是**用 `reqwest` 的 `text()` 读的：那个方法被 `charset` feature
-/// 门控，而本 crate 的 `reqwest` 是 `default-features = false`，没开这个 feature
-/// ⇒ 用了就编不过。这里用 `bytes()` + `String::from_utf8`。
-async fn post_json_text(
+/// 状态码与响应体都交回调用方 —— 写操作要靠它区分「已经存在」
+/// （按成功处理）与「真失败」。
+async fn send_authorized_json(
     client: &reqwest::Client,
     url: &str,
     body: &str,
     session: &AliyunAuthSession,
-) -> Result<String, RemoteError> {
+) -> Result<(u16, String), RemoteError> {
     let authorization = session
         .authorization_header_value()
         .ok_or_else(|| RemoteError::auth("阿里云盘会话凭据缺失，请重新授权。"))?;
@@ -348,16 +520,59 @@ async fn post_json_text(
     let text = String::from_utf8(bytes.to_vec())
         .map_err(|_| RemoteError::encoding("阿里云盘返回的内容编码无法解析。"))?;
 
-    if !status.is_success() {
+    Ok((status.as_u16(), text))
+}
+
+/// 发一个 POST（JSON 请求体）并把响应体读成 UTF-8 文本。
+///
+/// 响应体**不是**用 `reqwest` 的 `text()` 读的：那个方法被 `charset` feature
+/// 门控，而本 crate 的 `reqwest` 是 `default-features = false`，没开这个 feature
+/// ⇒ 用了就编不过。这里用 `bytes()` + `String::from_utf8`。
+async fn post_json_text(
+    client: &reqwest::Client,
+    url: &str,
+    body: &str,
+    session: &AliyunAuthSession,
+) -> Result<String, RemoteError> {
+    let (status, text) = send_authorized_json(client, url, body, session).await?;
+
+    if !(200..=299).contains(&status) {
         // 只记状态码与错误码，**不记响应原文** —— 原文由服务端控制，
         // 里面可能夹着不该进日志的东西。
         let failure = super::aliyun_api::aliyun_parse_failure(&text);
         log::warn!(
-            "Aliyun API failure url={url} status={} code={:?}",
-            status.as_u16(),
+            "Aliyun API failure url={url} status={status} code={:?}",
             failure.code
         );
-        return Err(aliyun_map_failure(status.as_u16(), &text));
+        return Err(aliyun_map_failure(status, &text));
+    }
+
+    Ok(text)
+}
+
+/// 发一个**写操作**的 POST（JSON 请求体），失败时用写操作专属的文案。
+///
+/// 与 [`post_json_text`] 只有两处不同：
+///
+/// 1. 文案里带上**是哪个操作**失败了 —— 用户看到的是「新建目录时…」，
+///    而不是笼统的「响应内容无法识别」。
+/// 2. 服务端原文**仍然不进**用户可见文案（契约 §6.1 锚点 9）。
+async fn post_write_json_text(
+    client: &reqwest::Client,
+    url: &str,
+    body: &str,
+    session: &AliyunAuthSession,
+    operation: &'static str,
+) -> Result<String, RemoteError> {
+    let (status, text) = send_authorized_json(client, url, body, session).await?;
+
+    if !(200..=299).contains(&status) {
+        let failure = super::aliyun_api::aliyun_parse_failure(&text);
+        log::warn!(
+            "Aliyun write failure op={operation} url={url} status={status} code={:?}",
+            failure.code
+        );
+        return Err(aliyun_map_write_failure(operation, status, &text));
     }
 
     Ok(text)
@@ -496,10 +711,114 @@ async fn download_file(
     }
 }
 
+/// 上传用的分块流。
+///
+/// 每次产出一块**拷贝**（块很小，内存峰值只多一块），并把这一块的长度
+/// 报进进度通道。
+///
+/// 之所以要拷贝：reqwest 的流式 body 要求 `Stream` 是 `'static`，而文件
+/// 内容是**借来**的。拷贝总量 = 文件大小，但**峰值内存只多一块**
+/// （`ALIYUN_UPLOAD_CHUNK_BYTES`），不会翻倍。
+fn aliyun_upload_chunk_stream(
+    content: Arc<Vec<u8>>,
+    range: AliyunPartRange,
+    progress: tokio::sync::mpsc::UnboundedSender<u64>,
+) -> impl futures_util::Stream<Item = Result<Vec<u8>, std::io::Error>> + Send + 'static {
+    let chunk_size = ALIYUN_UPLOAD_CHUNK_BYTES;
+    let state = (content, range.start, range.end, progress);
+
+    futures_util::stream::unfold(
+        state,
+        move |(content, cursor, end, progress)| async move {
+            if cursor >= end {
+                return None;
+            }
+
+            let take = std::cmp::min(chunk_size as u64, end - cursor) as usize;
+            let start = cursor as usize;
+            let chunk = content[start..start + take].to_vec();
+
+            let _ = progress.send(take as u64);
+
+            Some((Ok(chunk), (content, cursor + take as u64, end, progress)))
+        },
+    )
+}
+
+/// 把进度通道里的增量转成 `on_progress` 回调。
+///
+/// 通道关闭（= 流已经结束）就**返回**，不去等一个不会再来的增量。
+async fn report_upload_progress(
+    mut progress_rx: tokio::sync::mpsc::UnboundedReceiver<u64>,
+    on_progress: &(dyn Fn(u64) + Send + Sync),
+    written: &mut u64,
+) {
+    while let Some(delta) = progress_rx.recv().await {
+        *written = written.saturating_add(delta);
+        on_progress(*written);
+    }
+}
+
+/// 上传一个分片，并在传输过程中**如实**上报已发送字节数。
+///
+/// 进度是「已经交给 socket 的字节数」，不是「服务端已收下的字节数」——
+/// 这是所有 HTTP 客户端的常态，但它**绝不撒谎**：回调里给的值永远是真正
+/// 已经写出去的字节数。
+async fn upload_one_part(
+    client: &reqwest::Client,
+    upload_url: &str,
+    content: Arc<Vec<u8>>,
+    range: AliyunPartRange,
+    on_progress: &(dyn Fn(u64) + Send + Sync),
+    written: &mut u64,
+) -> Result<(), RemoteError> {
+    let length = range.end.saturating_sub(range.start);
+
+    let (progress_tx, progress_rx) = tokio::sync::mpsc::unbounded_channel::<u64>();
+    let stream = aliyun_upload_chunk_stream(content, range, progress_tx);
+    let body = reqwest::Body::wrap_stream(stream);
+
+    let request = client
+        .put(upload_url)
+        // OSS 的签名不含 `Content-Length`，但它**要求**请求有确定的正文长度
+        // （`Transfer-Encoding: chunked` 会被拒）⇒ 这里手工写死长度。
+        // hyper 会尊重调用方自己设的 `Content-Length`（`hyper` 的
+        // `proto/h1/role.rs`：用户设的头优先于 body 自己的长度），
+        // 所以线上看到的既不是 chunked 也不是没有长度。
+        .header(reqwest::header::CONTENT_LENGTH, length)
+        // ⚠️ **刻意不设 Content-Type**：OSS 的签名把它算进去了，
+        // 多一个 `application/oct-stream` 就是 403 `SignatureDoesNotMatch`。
+        .body(body);
+
+    // 上传与进度汇报**并行**跑：进度通道一断就说明流已经结束。
+    //
+    // 用 `join` 而不是 `tokio::select!` —— 后者要 `tokio` 的 `macros`
+    // feature，而本 crate 的 `tokio` 依赖里**没开**（只开了
+    // `rt` / `sync` / `io-util` / `net` / `time`），生产构建里用不了。
+    let send = request.send();
+    let report = report_upload_progress(progress_rx, on_progress, written);
+    let (response, ()) = futures_util::future::join(send, report).await;
+
+    let response = response.map_err(|error| transport_error("上传到阿里云盘失败", &error))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        log::warn!("Aliyun upload rejected status={}", status.as_u16());
+        return Err(RemoteError::protocol(format!(
+            "阿里云盘的上传被拒绝了（HTTP {}），请重试。",
+            status.as_u16()
+        )));
+    }
+
+    Ok(())
+}
+
 /// 走真实 HTTP 的实现。
 pub struct HttpAliyunApi {
     client: reqwest::Client,
     download_client: reqwest::Client,
+    /// 上传用的客户端：**不带默认头**（见 [`build_upload_client`]）。
+    upload_client: reqwest::Client,
 }
 
 impl HttpAliyunApi {
@@ -508,6 +827,7 @@ impl HttpAliyunApi {
         Ok(Self {
             client: build_client()?,
             download_client: build_download_client()?,
+            upload_client: build_upload_client()?,
         })
     }
 
@@ -635,6 +955,160 @@ impl AliyunApi for HttpAliyunApi {
             session.refresh_token.clone(),
             session.nick_name.clone(),
         ))
+    }
+
+    async fn create_folder(
+        &self,
+        session: &AliyunAuthSession,
+        drive_id: &str,
+        parent_file_id: &str,
+        name: &str,
+    ) -> Result<bool, RemoteError> {
+        let body = aliyun_create_folder_body(drive_id, parent_file_id, name);
+        let (status, text) =
+            send_authorized_json(&self.client, ALIYUN_CREATE_URL, &body.to_string(), session)
+                .await?;
+
+        if (200..=299).contains(&status) {
+            return Ok(false);
+        }
+
+        // 「已经存在」按成功处理（`make_dir` 的契约：已存在视为成功）。
+        if aliyun_failure_is_already_exist(&text) {
+            return Ok(true);
+        }
+
+        Err(aliyun_map_write_failure("新建目录", status, &text))
+    }
+
+    async fn create_file(
+        &self,
+        session: &AliyunAuthSession,
+        drive_id: &str,
+        parent_file_id: &str,
+        name: &str,
+    ) -> Result<AliyunCreateResult, RemoteError> {
+        let body = aliyun_create_file_body(drive_id, parent_file_id, name);
+        let text = post_write_json_text(
+            &self.client,
+            ALIYUN_CREATE_URL,
+            &body.to_string(),
+            session,
+            "新建文件",
+        )
+        .await?;
+
+        aliyun_parse_create_payload(&text)
+    }
+
+    async fn upload_parts(
+        &self,
+        _session: &AliyunAuthSession,
+        ranges: &[AliyunPartRange],
+        content: Arc<Vec<u8>>,
+        on_progress: &(dyn Fn(u64) + Send + Sync),
+    ) -> Result<(), RemoteError> {
+        // ⚠️ **刻意不带 `Authorization`**：OSS 的预签名直链**自己就是授权**
+        // （签名在 URL 的 query 里）。再塞一个 `Authorization` 头，OSS 会改
+        // 按 header 里的签名去校验 ⇒ 403。
+        let mut written: u64 = 0;
+
+        for range in ranges {
+            if range.upload_url.trim().is_empty() {
+                return Err(RemoteError::protocol(
+                    "阿里云盘没有给出这一片的上传地址，无法上传这个文件。",
+                ));
+            }
+
+            upload_one_part(
+                &self.upload_client,
+                &range.upload_url,
+                Arc::clone(&content),
+                range.clone(),
+                on_progress,
+                &mut written,
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    async fn complete_upload(
+        &self,
+        session: &AliyunAuthSession,
+        drive_id: &str,
+        file_id: &str,
+        upload_id: &str,
+        revision_id: &str,
+    ) -> Result<(), RemoteError> {
+        let body = aliyun_complete_upload_body(drive_id, file_id, upload_id, revision_id);
+        post_write_json_text(
+            &self.client,
+            ALIYUN_COMPLETE_URL,
+            &body.to_string(),
+            session,
+            "完成上传",
+        )
+        .await?;
+        Ok(())
+    }
+
+    async fn rename_entry(
+        &self,
+        session: &AliyunAuthSession,
+        drive_id: &str,
+        file_id: &str,
+        name: &str,
+    ) -> Result<(), RemoteError> {
+        let body = aliyun_rename_body(drive_id, file_id, name);
+        post_write_json_text(
+            &self.client,
+            ALIYUN_UPDATE_URL,
+            &body.to_string(),
+            session,
+            "重命名",
+        )
+        .await?;
+        Ok(())
+    }
+
+    async fn delete_entry(
+        &self,
+        session: &AliyunAuthSession,
+        drive_id: &str,
+        file_id: &str,
+        entry_type: &str,
+    ) -> Result<(), RemoteError> {
+        let body = aliyun_delete_body(drive_id, file_id, entry_type);
+        post_write_json_text(
+            &self.client,
+            ALIYUN_DELETE_URL,
+            &body.to_string(),
+            session,
+            "删除",
+        )
+        .await?;
+        Ok(())
+    }
+
+    async fn move_entry(
+        &self,
+        session: &AliyunAuthSession,
+        drive_id: &str,
+        file_id: &str,
+        to_parent_file_id: &str,
+    ) -> Result<(), RemoteError> {
+        let body = aliyun_move_body(drive_id, file_id, to_parent_file_id);
+        post_write_json_text(
+            &self.client,
+            ALIYUN_MOVE_URL,
+            &body.to_string(),
+            session,
+            "移动",
+        )
+        .await?;
+        Ok(())
     }
 }
 
@@ -1064,19 +1538,67 @@ impl AliyunRemoteProvider {
         Ok(session.nick_name.unwrap_or_default())
     }
 
-    /// 所有「改内容」的操作的统一出口：一律明确报「不支持」。
+    /// 把一个条目**移动**到另一个目录下（`file/move`）。
     ///
-    /// **绝不返回 `Ok(())`。** 上传（把本地文件传上云盘）不在只读阶段的范围里，
-    /// 静默成功会让用户以为文件已经传上去了，而它根本没有。
-    fn reject_write(
+    /// `to_path` 是**目标目录**，条目名字**不变** —— 这是「移动」而不是「改名」
+    /// （改名走 [`RemoteProvider::rename_path`]，它只能在原目录内改名）。
+    ///
+    /// 返回移动之后条目所在的**完整远端路径**。
+    ///
+    /// ⚠️ [`RemoteProvider`] 这个 trait 里**没有** move 方法（加它会牵连
+    /// 百度/夸克/SFTP/FTP/FTPS/假实现六个 provider）⇒ 这里只作为
+    /// `AliyunRemoteProvider` 的**公开方法**提供，命令层尚未接线。
+    pub async fn move_path(
         &self,
         connection_id: &str,
-        remote_path: &str,
-        message: &str,
-    ) -> Result<(), RemoteError> {
-        self.prepare_path(connection_id, remote_path)?;
+        from_path: &str,
+        to_path: &str,
+    ) -> Result<String, RemoteError> {
+        let (key, mut session, from_normalized) = self.prepare(connection_id, from_path).await?;
 
-        Err(RemoteError::unsupported(message))
+        // 目标只当**目录**用：名字由源条目决定，移动不该顺手改名字。
+        reject_path_control_characters(to_path)?;
+        let Some(to_normalized) = normalize_remote_path(to_path) else {
+            return Err(RemoteError::protocol(
+                "目标路径含有不合法的段，请检查后重试。",
+            ));
+        };
+
+        let (from_parent, name) = split_remote_parent_and_name(&from_normalized)?;
+        validate_remote_entry_name(&name)?;
+
+        let work = async {
+            let drive_id = self.resolve_drive_id(&session)?;
+            let from_parent_file_id = self
+                .resolve_dir_file_id(&key, &mut session, &drive_id, &from_parent)
+                .await?;
+            let to_parent_file_id = self
+                .resolve_dir_file_id(&key, &mut session, &drive_id, &to_normalized)
+                .await?;
+
+            let Some(entry) = self
+                .find_entry(&key, &mut session, &drive_id, &from_parent_file_id, &name)
+                .await?
+            else {
+                return Err(RemoteError::not_found(format!(
+                    "阿里云盘里没有这个条目：{name}"
+                )));
+            };
+
+            if entry.file_id.trim().is_empty() {
+                return Err(RemoteError::unsupported(
+                    "阿里云盘没有给出这个条目的服务端 id，无法移动。",
+                ));
+            }
+
+            self.api
+                .move_entry(&session, &drive_id, &entry.file_id, &to_parent_file_id)
+                .await?;
+
+            Ok::<String, RemoteError>(join_remote_parent_and_name(&to_normalized, &name))
+        };
+
+        with_timeout(self.directory_timeout, "移动阿里云盘条目", work).await
     }
 }
 
@@ -1172,40 +1694,96 @@ impl RemoteProvider for AliyunRemoteProvider {
         &self,
         connection_id: &str,
         remote_path: &str,
-        _content: Vec<u8>,
+        content: Vec<u8>,
     ) -> Result<(), RemoteError> {
-        self.reject_write(
-            connection_id,
-            remote_path,
-            "阿里云盘的上传（把本地文件传上去）在只读阶段还不支持。",
-        )
+        self.write_file_with_progress(connection_id, remote_path, content, &|_| {})
+            .await
     }
 
     async fn write_file_with_progress(
         &self,
         connection_id: &str,
         remote_path: &str,
-        _content: Vec<u8>,
-        _on_progress: &(dyn Fn(u64) + Send + Sync),
+        content: Vec<u8>,
+        on_progress: &(dyn Fn(u64) + Send + Sync),
     ) -> Result<(), RemoteError> {
-        // 一个字节都没写 ⇒ **绝不能**触发任何进度回调。
-        self.reject_write(
-            connection_id,
-            remote_path,
-            "阿里云盘的上传（把本地文件传上去）在只读阶段还不支持。",
-        )
+        let (key, mut session, normalized) = self.prepare(connection_id, remote_path).await?;
+
+        // 名字要单独校验：名字里带 `/` 会让一次「上传」变成「传到别处去」。
+        let (parent, name) = split_remote_parent_and_name(&normalized)?;
+        validate_remote_entry_name(&name)?;
+
+        let work = async {
+            let drive_id = self.resolve_drive_id(&session)?;
+            let parent_file_id = self
+                .resolve_dir_file_id(&key, &mut session, &drive_id, &parent)
+                .await?;
+
+            // 第一阶段：建条目，拿上传直链。
+            let created = self
+                .api
+                .create_file(&session, &drive_id, &parent_file_id, &name)
+                .await?;
+
+            let total_len = content.len() as u64;
+            let ranges = aliyun_part_ranges(total_len, &created.parts)?;
+
+            // 第二阶段：把内容 `PUT` 到直链上（进度如实上报）。
+            if total_len > 0 {
+                self.api
+                    .upload_parts(&session, &ranges, Arc::new(content), on_progress)
+                    .await?;
+            }
+
+            // 第三阶段：收尾。缺 `upload_id` / `revision_id` 就没法收尾。
+            let (Some(upload_id), Some(revision_id)) = (
+                created.upload_id.as_deref(),
+                created.revision_id.as_deref(),
+            ) else {
+                return Err(RemoteError::protocol(
+                    "阿里云盘没有给出上传会话信息，无法完成这次上传。",
+                ));
+            };
+
+            self.api
+                .complete_upload(
+                    &session,
+                    &drive_id,
+                    &created.file_id,
+                    upload_id,
+                    revision_id,
+                )
+                .await?;
+
+            Ok(())
+        };
+
+        with_timeout(self.file_timeout, "上传文件到阿里云盘", work).await
     }
 
     async fn make_dir(&self, connection_id: &str, remote_path: &str) -> Result<(), RemoteError> {
-        let (_, normalized) = self.prepare_path(connection_id, remote_path)?;
+        let (key, mut session, normalized) = self.prepare(connection_id, remote_path).await?;
 
         // 名字要单独校验：名字里带 `/` 会让一次「新建目录」变成「建到别处去」。
-        let (_parent, name) = split_remote_parent_and_name(&normalized)?;
+        let (parent, name) = split_remote_parent_and_name(&normalized)?;
         validate_remote_entry_name(&name)?;
 
-        Err(RemoteError::unsupported(
-            "阿里云盘的新建目录在只读阶段还不支持。",
-        ))
+        let work = async {
+            let drive_id = self.resolve_drive_id(&session)?;
+            let parent_file_id = self
+                .resolve_dir_file_id(&key, &mut session, &drive_id, &parent)
+                .await?;
+
+            // 返回 `true` = 目录**已经存在** —— 按成功处理（`make_dir` 的契约）。
+            let _already_existed = self
+                .api
+                .create_folder(&session, &drive_id, &parent_file_id, &name)
+                .await?;
+
+            Ok(())
+        };
+
+        with_timeout(self.directory_timeout, "在阿里云盘新建目录", work).await
     }
 
     async fn set_permissions(
@@ -1214,6 +1792,9 @@ impl RemoteProvider for AliyunRemoteProvider {
         remote_path: &str,
         _mode: u32,
     ) -> Result<(), RemoteError> {
+        // 阿里云盘**没有 POSIX 权限位**这一套能力（没有 owner/group/other
+        // 的 rwx 三元组），服务端也没有对应的接口 ⇒ 无从设置。
+        // 这里**不联网** —— 走一遍网络只为回答「不支持」是白花的代价。
         self.prepare_path(connection_id, remote_path)?;
 
         Err(RemoteError::unsupported(
@@ -1226,8 +1807,7 @@ impl RemoteProvider for AliyunRemoteProvider {
         connection_id: &str,
         remote_path: &str,
     ) -> Result<Option<u32>, RemoteError> {
-        // 契约 §〇：改权限（含**查**权限）在只读阶段一律不支持。
-        // 这里**不联网** —— 走一遍网络只为回答「不支持」是白花的代价。
+        // 同 [`Self::set_permissions`]：阿里云盘没有权限位可查。
         self.prepare_path(connection_id, remote_path)?;
 
         Err(RemoteError::unsupported(
@@ -1239,18 +1819,54 @@ impl RemoteProvider for AliyunRemoteProvider {
         &self,
         connection_id: &str,
         remote_path: &str,
-        _is_dir: bool,
+        is_dir: bool,
     ) -> Result<(), RemoteError> {
-        let (_, normalized) = self.prepare_path(connection_id, remote_path)?;
+        let (key, mut session, normalized) = self.prepare(connection_id, remote_path).await?;
 
         // 根目录没有条目名，删它就是删整个网盘 —— 这条要在开网络之前挡掉。
         if normalized == "/" {
             return Err(RemoteError::protocol("不能删除阿里云盘的根目录。"));
         }
 
-        Err(RemoteError::unsupported(
-            "阿里云盘的删除在只读阶段还不支持。",
-        ))
+        let (parent, name) = split_remote_parent_and_name(&normalized)?;
+
+        let work = async {
+            let drive_id = self.resolve_drive_id(&session)?;
+            let parent_file_id = self
+                .resolve_dir_file_id(&key, &mut session, &drive_id, &parent)
+                .await?;
+
+            let Some(entry) = self
+                .find_entry(&key, &mut session, &drive_id, &parent_file_id, &name)
+                .await?
+            else {
+                return Err(RemoteError::not_found(format!(
+                    "阿里云盘里没有这个条目：{name}"
+                )));
+            };
+
+            if entry.file_id.trim().is_empty() {
+                return Err(RemoteError::unsupported(
+                    "阿里云盘没有给出这个条目的服务端 id，无法删除。",
+                ));
+            }
+
+            // `type` 必填 —— 服务端要知道删的是文件还是目录。
+            // 优先用服务端给的**真实类型**；它缺失时才用调用方传下来的判断。
+            let entry_type = if entry.entry_type.trim().is_empty() {
+                aliyun_entry_type_name(is_dir)
+            } else {
+                entry.entry_type.as_str()
+            };
+
+            self.api
+                .delete_entry(&session, &drive_id, &entry.file_id, entry_type)
+                .await?;
+
+            Ok(())
+        };
+
+        with_timeout(self.directory_timeout, "删除阿里云盘条目", work).await
     }
 
     async fn rename_path(
@@ -1262,11 +1878,38 @@ impl RemoteProvider for AliyunRemoteProvider {
         // 新名字先校验：**改名只能是改名，不能顺手变成移动**。
         validate_remote_entry_name(new_name)?;
 
-        self.prepare_path(connection_id, from_path)?;
+        let (key, mut session, normalized) = self.prepare(connection_id, from_path).await?;
+        let (parent, name) = split_remote_parent_and_name(&normalized)?;
 
-        Err(RemoteError::unsupported(
-            "阿里云盘的重命名在只读阶段还不支持。",
-        ))
+        let work = async {
+            let drive_id = self.resolve_drive_id(&session)?;
+            let parent_file_id = self
+                .resolve_dir_file_id(&key, &mut session, &drive_id, &parent)
+                .await?;
+
+            let Some(entry) = self
+                .find_entry(&key, &mut session, &drive_id, &parent_file_id, &name)
+                .await?
+            else {
+                return Err(RemoteError::not_found(format!(
+                    "阿里云盘里没有这个条目：{name}"
+                )));
+            };
+
+            if entry.file_id.trim().is_empty() {
+                return Err(RemoteError::unsupported(
+                    "阿里云盘没有给出这个条目的服务端 id，无法重命名。",
+                ));
+            }
+
+            self.api
+                .rename_entry(&session, &drive_id, &entry.file_id, new_name)
+                .await?;
+
+            Ok(())
+        };
+
+        with_timeout(self.directory_timeout, "重命名阿里云盘条目", work).await
     }
 }
 
@@ -1311,6 +1954,26 @@ mod tests {
         list_drive_ids: Mutex<Vec<String>>,
         /// 记住被请求过的 (父目录, 游标)，便于断言「按游标续拉了」。
         list_calls: Mutex<Vec<(String, Option<String>)>>,
+        /// 写操作记录：新建目录 (drive_id, parent_file_id, name)。
+        created_folders: Mutex<Vec<(String, String, String)>>,
+        /// 写操作记录：新建文件 (drive_id, parent_file_id, name)。
+        created_files: Mutex<Vec<(String, String, String)>>,
+        /// 写操作记录：上传的分片 (part_number, 字节数)。
+        uploaded: Mutex<Vec<(u32, u64)>>,
+        /// 写操作记录：上传收尾 (file_id, upload_id, revision_id)。
+        completed: Mutex<Vec<(String, String, String)>>,
+        /// 写操作记录：重命名 (file_id, 新名字)。
+        renamed: Mutex<Vec<(String, String)>>,
+        /// 写操作记录：删除 (file_id, type)。
+        deleted: Mutex<Vec<(String, String)>>,
+        /// 写操作记录：移动 (file_id, 目标父目录 id)。
+        moved: Mutex<Vec<(String, String)>>,
+        /// 让写操作失败（验「失败即停，不重放」）。
+        write_error: Mutex<Option<RemoteError>>,
+        /// 只让**上传**失败（前面几步照常走完）。
+        upload_error: Mutex<Option<RemoteError>>,
+        /// `create_folder` 返回「这个目录已经存在」。
+        folder_already_exists: Mutex<bool>,
     }
 
     impl FakeApi {
@@ -1344,6 +2007,44 @@ mod tests {
         /// 列目录时用过的 `drive_id`（按顺序）。用来断言「主盘取自登录时存下的值」。
         fn list_drive_ids(&self) -> Vec<String> {
             self.list_drive_ids.lock().expect("list drive ids lock").clone()
+        }
+
+        /// 新建目录的调用记录。
+        fn created_folders(&self) -> Vec<(String, String, String)> {
+            self.created_folders
+                .lock()
+                .expect("created folders lock")
+                .clone()
+        }
+
+        /// 新建文件的调用记录。
+        fn created_files(&self) -> Vec<(String, String, String)> {
+            self.created_files.lock().expect("created files lock").clone()
+        }
+
+        /// 上传分片的调用记录。
+        fn uploaded(&self) -> Vec<(u32, u64)> {
+            self.uploaded.lock().expect("uploaded lock").clone()
+        }
+
+        /// 上传收尾的调用记录。
+        fn completed(&self) -> Vec<(String, String, String)> {
+            self.completed.lock().expect("completed lock").clone()
+        }
+
+        /// 重命名的调用记录。
+        fn renamed(&self) -> Vec<(String, String)> {
+            self.renamed.lock().expect("renamed lock").clone()
+        }
+
+        /// 删除的调用记录。
+        fn deleted(&self) -> Vec<(String, String)> {
+            self.deleted.lock().expect("deleted lock").clone()
+        }
+
+        /// 移动的调用记录。
+        fn moved(&self) -> Vec<(String, String)> {
+            self.moved.lock().expect("moved lock").clone()
         }
     }
 
@@ -1437,6 +2138,155 @@ mod tests {
             Ok(bytes)
         }
 
+
+        async fn create_folder(
+            &self,
+            _session: &AliyunAuthSession,
+            drive_id: &str,
+            parent_file_id: &str,
+            name: &str,
+        ) -> Result<bool, RemoteError> {
+            if let Some(error) = self.write_error.lock().expect("write error lock").clone() {
+                return Err(error);
+            }
+
+            self.created_folders
+                .lock()
+                .expect("created folders lock")
+                .push((
+                    drive_id.to_string(),
+                    parent_file_id.to_string(),
+                    name.to_string(),
+                ));
+
+            Ok(*self
+                .folder_already_exists
+                .lock()
+                .expect("folder already exists lock"))
+        }
+
+        async fn create_file(
+            &self,
+            _session: &AliyunAuthSession,
+            drive_id: &str,
+            parent_file_id: &str,
+            name: &str,
+        ) -> Result<AliyunCreateResult, RemoteError> {
+            if let Some(error) = self.write_error.lock().expect("write error lock").clone() {
+                return Err(error);
+            }
+
+            self.created_files
+                .lock()
+                .expect("created files lock")
+                .push((
+                    drive_id.to_string(),
+                    parent_file_id.to_string(),
+                    name.to_string(),
+                ));
+
+            Ok(AliyunCreateResult {
+                file_id: "f-new".to_string(),
+                upload_id: Some("upload-1".to_string()),
+                revision_id: Some("revision-1".to_string()),
+                parts: vec![AliyunUploadPart {
+                    part_number: 1,
+                    upload_url: "https://upload.invalid/part-1".to_string(),
+                    // 单片路径不需要 `size`（见 `aliyun_part_ranges`）。
+                    size: None,
+                }],
+            })
+        }
+
+        async fn upload_parts(
+            &self,
+            _session: &AliyunAuthSession,
+            ranges: &[AliyunPartRange],
+            content: Arc<Vec<u8>>,
+            on_progress: &(dyn Fn(u64) + Send + Sync),
+        ) -> Result<(), RemoteError> {
+            if let Some(error) = self.upload_error.lock().expect("upload error lock").clone() {
+                return Err(error);
+            }
+
+            let mut written = 0u64;
+            for range in ranges {
+                let start = range.start as usize;
+                let end = range.end as usize;
+                let chunk = content[start..end].to_vec();
+                written += chunk.len() as u64;
+
+                self.uploaded
+                    .lock()
+                    .expect("uploaded lock")
+                    .push((range.part_number, chunk.len() as u64));
+
+                on_progress(written);
+            }
+
+            Ok(())
+        }
+
+        async fn complete_upload(
+            &self,
+            _session: &AliyunAuthSession,
+            _drive_id: &str,
+            file_id: &str,
+            upload_id: &str,
+            revision_id: &str,
+        ) -> Result<(), RemoteError> {
+            self.completed
+                .lock()
+                .expect("completed lock")
+                .push((
+                    file_id.to_string(),
+                    upload_id.to_string(),
+                    revision_id.to_string(),
+                ));
+            Ok(())
+        }
+
+        async fn rename_entry(
+            &self,
+            _session: &AliyunAuthSession,
+            _drive_id: &str,
+            file_id: &str,
+            name: &str,
+        ) -> Result<(), RemoteError> {
+            self.renamed
+                .lock()
+                .expect("renamed lock")
+                .push((file_id.to_string(), name.to_string()));
+            Ok(())
+        }
+
+        async fn delete_entry(
+            &self,
+            _session: &AliyunAuthSession,
+            _drive_id: &str,
+            file_id: &str,
+            entry_type: &str,
+        ) -> Result<(), RemoteError> {
+            self.deleted
+                .lock()
+                .expect("deleted lock")
+                .push((file_id.to_string(), entry_type.to_string()));
+            Ok(())
+        }
+
+        async fn move_entry(
+            &self,
+            _session: &AliyunAuthSession,
+            _drive_id: &str,
+            file_id: &str,
+            to_parent_file_id: &str,
+        ) -> Result<(), RemoteError> {
+            self.moved
+                .lock()
+                .expect("moved lock")
+                .push((file_id.to_string(), to_parent_file_id.to_string()));
+            Ok(())
+        }
 
         async fn refresh_session(
             &self,
@@ -1601,88 +2451,194 @@ mod tests {
     }
 
     // ------------------------------------------------------------------
-    // 写类操作：一律不支持（契约 §〇 / §6.1 锚点 12）
+    // 写类操作：真的写（契约 §〇 / §6.1 锚点 12）
     // ------------------------------------------------------------------
 
-    #[tokio::test]
-    async fn every_write_operation_reports_that_it_is_unsupported() {
-        let fixture = fixture("write-ops");
-        let provider = provider(&fixture);
-
-        let upload = provider
-            .write_file(CONNECTION_ID, "/a.txt", b"hello".to_vec())
-            .await;
-        assert_eq!(
-            upload.expect_err("上传必须失败").kind,
-            RemoteErrorKind::Unsupported
-        );
-
-        let upload_with_progress = provider
-            .write_file_with_progress(CONNECTION_ID, "/a.txt", b"hello".to_vec(), &|_| {})
-            .await;
-        assert_eq!(
-            upload_with_progress.expect_err("带进度上传必须失败").kind,
-            RemoteErrorKind::Unsupported
-        );
-
-        let make_dir = provider.make_dir(CONNECTION_ID, "/新建").await;
-        assert_eq!(
-            make_dir.expect_err("新建目录必须失败").kind,
-            RemoteErrorKind::Unsupported
-        );
-
-        let set_permissions = provider
-            .set_permissions(CONNECTION_ID, "/a.txt", 0o644)
-            .await;
-        assert_eq!(
-            set_permissions.expect_err("改权限必须失败").kind,
-            RemoteErrorKind::Unsupported
-        );
-
-        let get_permissions = provider.get_permissions(CONNECTION_ID, "/a.txt").await;
-        assert_eq!(
-            get_permissions.expect_err("查权限必须失败").kind,
-            RemoteErrorKind::Unsupported
-        );
-
-        let remove = provider.remove_path(CONNECTION_ID, "/a.txt", false).await;
-        assert_eq!(
-            remove.expect_err("删除必须失败").kind,
-            RemoteErrorKind::Unsupported
-        );
-
-        let rename = provider.rename_path(CONNECTION_ID, "/a.txt", "b.txt").await;
-        assert_eq!(
-            rename.expect_err("重命名必须失败").kind,
-            RemoteErrorKind::Unsupported
+    /// 在根目录里放一个 `a.txt`，供删除/重命名/移动这些用例用。
+    fn seed_root_file(fixture: &Fixture) {
+        fixture.api.set_page(
+            ALIYUN_ROOT_FILE_ID,
+            None,
+            vec![plain_file("f-1", "a.txt", 5)],
+            None,
         );
     }
 
     #[tokio::test]
-    async fn a_write_operation_never_reports_success() {
-        let fixture = fixture("write-never-ok");
+    async fn every_write_operation_now_reaches_the_server() {
+        let fixture = fixture("write-ops");
+        seed_root_file(&fixture);
         let provider = provider(&fixture);
 
-        assert!(provider
+        provider
             .write_file(CONNECTION_ID, "/a.txt", b"hello".to_vec())
             .await
-            .is_err());
-        assert!(provider.make_dir(CONNECTION_ID, "/新建").await.is_err());
-        assert!(provider
+            .expect("上传必须成功");
+        provider
+            .make_dir(CONNECTION_ID, "/新建")
+            .await
+            .expect("新建目录必须成功");
+        provider
             .remove_path(CONNECTION_ID, "/a.txt", false)
             .await
-            .is_err());
-        assert!(provider
+            .expect("删除必须成功");
+        provider
             .rename_path(CONNECTION_ID, "/a.txt", "b.txt")
             .await
-            .is_err());
+            .expect("重命名必须成功");
+
+        let files = fixture.api.created_files();
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].1, ALIYUN_ROOT_FILE_ID, "文件要建在父目录里");
+        assert_eq!(files[0].2, "a.txt");
+
+        let folders = fixture.api.created_folders();
+        assert_eq!(folders.len(), 1);
+        assert_eq!(folders[0].1, ALIYUN_ROOT_FILE_ID, "目录要建在父目录里");
+        assert_eq!(folders[0].2, "新建");
+
+        assert_eq!(fixture.api.uploaded(), vec![(1u32, 5u64)], "5 个字节一片");
+        assert_eq!(fixture.api.completed().len(), 1, "上传完必须收尾");
+        assert_eq!(
+            fixture.api.deleted(),
+            vec![("f-1".to_string(), "file".to_string())]
+        );
+        assert_eq!(
+            fixture.api.renamed(),
+            vec![("f-1".to_string(), "b.txt".to_string())]
+        );
     }
 
     #[tokio::test]
-    async fn a_failed_upload_never_triggers_a_progress_callback() {
+    async fn the_permission_operations_stay_unsupported() {
+        let fixture = fixture("permissions");
+        let provider = provider(&fixture);
+
+        // 阿里云盘没有 POSIX 权限位 ⇒ 这两个操作仍然是「不支持」。
+        assert_eq!(
+            provider
+                .set_permissions(CONNECTION_ID, "/a.txt", 0o644)
+                .await
+                .expect_err("改权限必须失败")
+                .kind,
+            RemoteErrorKind::Unsupported
+        );
+        assert_eq!(
+            provider
+                .get_permissions(CONNECTION_ID, "/a.txt")
+                .await
+                .expect_err("查权限必须失败")
+                .kind,
+            RemoteErrorKind::Unsupported
+        );
+    }
+
+    #[tokio::test]
+    async fn the_root_directory_cannot_be_deleted() {
+        let fixture = fixture("root-delete");
+        let provider = provider(&fixture);
+
+        let error = provider
+            .remove_path(CONNECTION_ID, "/", false)
+            .await
+            .expect_err("根目录不能删");
+
+        assert_eq!(error.kind, RemoteErrorKind::Protocol);
+        assert!(
+            fixture.api.deleted().is_empty(),
+            "一个删除请求都不该发出去"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_delete_carries_the_real_entry_type() {
+        let fixture = fixture("delete-type");
+        fixture.api.set_page(
+            ALIYUN_ROOT_FILE_ID,
+            None,
+            vec![dir_entry("d-1", "资料")],
+            None,
+        );
+        let provider = provider(&fixture);
+
+        // 调用方说它是文件（`false`），服务端说它是目录 ⇒ **以服务端为准**：
+        // 服务端删错类型会把目录当文件删掉。
+        provider
+            .remove_path(CONNECTION_ID, "/资料", false)
+            .await
+            .expect("删除目录必须成功");
+
+        assert_eq!(
+            fixture.api.deleted(),
+            vec![("d-1".to_string(), "folder".to_string())]
+        );
+    }
+
+    #[tokio::test]
+    async fn the_rename_uses_the_entry_id() {
+        let fixture = fixture("rename-id");
+        seed_root_file(&fixture);
+        let provider = provider(&fixture);
+
+        provider
+            .rename_path(CONNECTION_ID, "/a.txt", "b.txt")
+            .await
+            .expect("重命名必须成功");
+
+        assert_eq!(
+            fixture.api.renamed(),
+            vec![("f-1".to_string(), "b.txt".to_string())]
+        );
+    }
+
+    #[tokio::test]
+    async fn the_move_call_carries_the_target_parent_id() {
+        let fixture = fixture("move");
+        fixture.api.set_page(
+            ALIYUN_ROOT_FILE_ID,
+            None,
+            vec![plain_file("f-1", "a.txt", 5), dir_entry("d-1", "资料")],
+            None,
+        );
+        let provider = provider(&fixture);
+
+        let new_path = provider
+            .move_path(CONNECTION_ID, "/a.txt", "/资料")
+            .await
+            .expect("移动必须成功");
+
+        assert_eq!(new_path, "/资料/a.txt");
+        assert_eq!(
+            fixture.api.moved(),
+            vec![("f-1".to_string(), "d-1".to_string())]
+        );
+    }
+
+    #[tokio::test]
+    async fn the_upload_reports_the_real_byte_count() {
         use std::sync::atomic::AtomicU64;
 
-        let fixture = fixture("write-progress");
+        let fixture = fixture("upload-progress");
+        let provider = provider(&fixture);
+        let counter = AtomicU64::new(0);
+
+        provider
+            .write_file_with_progress(CONNECTION_ID, "/a.txt", b"hello".to_vec(), &|value| {
+                counter.fetch_add(value, Ordering::SeqCst);
+            })
+            .await
+            .expect("上传必须成功");
+
+        assert_eq!(counter.load(Ordering::SeqCst), 5, "进度必须是真实字节数");
+    }
+
+    #[tokio::test]
+    async fn a_failed_upload_never_reports_success() {
+        use std::sync::atomic::AtomicU64;
+
+        let fixture = fixture("upload-failure");
+        *fixture.api.upload_error.lock().expect("upload error lock") =
+            Some(RemoteError::protocol("模拟上传失败。"));
         let provider = provider(&fixture);
         let counter = AtomicU64::new(0);
 
@@ -1692,12 +2648,110 @@ mod tests {
             })
             .await;
 
-        assert!(result.is_err());
-        assert_eq!(
-            counter.load(Ordering::SeqCst),
-            0,
-            "一个字节都没写，不该有进度回调"
+        assert!(result.is_err(), "上传失败必须报错，不能当成功");
+        assert_eq!(counter.load(Ordering::SeqCst), 0, "失败的上传不谎报进度");
+        assert!(
+            fixture.api.completed().is_empty(),
+            "上传失败就不能收尾"
         );
+    }
+
+    #[tokio::test]
+    async fn the_upload_request_has_a_content_length_and_no_content_type() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::TcpListener;
+
+        /// 读满一个 HTTP 请求（头部 + `Content-Length` 指定的正文）。
+        async fn read_request(socket: &mut tokio::net::TcpStream) -> Vec<u8> {
+            let mut buf: Vec<u8> = Vec::new();
+            let mut tmp = [0u8; 1024];
+
+            loop {
+                let head_end = buf
+                    .windows(4)
+                    .position(|window| window == b"\r\n\r\n".as_slice())
+                    .map(|position| position + 4);
+
+                if let Some(head_end) = head_end {
+                    let head = String::from_utf8_lossy(&buf[..head_end]).to_ascii_lowercase();
+                    let length = head
+                        .lines()
+                        .find_map(|line| {
+                            line.strip_prefix("content-length:")
+                                .and_then(|value| value.trim().parse::<usize>().ok())
+                        })
+                        .unwrap_or(0);
+
+                    if buf.len() >= head_end + length {
+                        return buf;
+                    }
+                }
+
+                let read = socket.read(&mut tmp).await.expect("read request");
+                if read == 0 {
+                    return buf;
+                }
+                buf.extend_from_slice(&tmp[..read]);
+            }
+        }
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let addr = listener.local_addr().expect("local addr");
+
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.expect("accept");
+            let request = read_request(&mut socket).await;
+            socket
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
+                .await
+                .expect("write response");
+            request
+        });
+
+        let content = b"hello".to_vec();
+        let api = HttpAliyunApi::new().expect("http api");
+        let range = AliyunPartRange {
+            part_number: 1,
+            upload_url: format!("http://{addr}/part-1"),
+            start: 0,
+            end: content.len() as u64,
+        };
+
+        api.upload_parts(
+            &session_with(FRESH_TOKEN, None),
+            &[range],
+            Arc::new(content.clone()),
+            &|_| {},
+        )
+        .await
+        .expect("上传必须成功");
+
+        let request = server.await.expect("server task");
+        let head_end = request
+            .windows(4)
+            .position(|window| window == b"\r\n\r\n".as_slice())
+            .expect("请求头应当完整")
+            + 4;
+        let head = String::from_utf8_lossy(&request[..head_end]).to_ascii_lowercase();
+
+        assert!(head.starts_with("put "), "上传必须是 PUT：{head}");
+        assert!(
+            head.contains("content-length: 5"),
+            "必须带 Content-Length（chunked 会被 OSS 拒）：{head}"
+        );
+        assert!(
+            !head.contains("content-type:"),
+            "上传请求绝不能带 Content-Type（会破坏 OSS 签名）：{head}"
+        );
+        assert!(
+            !head.contains("transfer-encoding: chunked"),
+            "上传请求不能是 chunked：{head}"
+        );
+        assert!(
+            !head.contains("authorization:"),
+            "OSS 预签名直链自带授权，不能再加 Authorization：{head}"
+        );
+        assert_eq!(&request[head_end..], &content[..], "正文必须原样送达");
     }
 
     // ------------------------------------------------------------------

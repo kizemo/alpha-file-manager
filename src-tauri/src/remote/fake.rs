@@ -77,6 +77,8 @@ impl FakeRemoteProvider {
             size,
             modified_time: 1_700_000_000_000,
             is_hidden: false,
+            entry_id: None,
+            thumbnail_url: None,
             is_symlink: false,
         };
 
@@ -175,6 +177,8 @@ impl FakeRemoteProvider {
             size: 0,
             modified_time: 1_700_000_000_000,
             is_hidden: false,
+            entry_id: None,
+            thumbnail_url: None,
             is_symlink: false,
         });
     }
