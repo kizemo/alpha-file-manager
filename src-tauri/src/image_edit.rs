@@ -21,9 +21,7 @@ use std::path::{Path, PathBuf};
 
 use image::Frame;
 use image::codecs::gif::{GifDecoder, GifEncoder};
-use image::{
-    AnimationDecoder, DynamicImage, ImageFormat, ImageReader, Rgb, RgbImage, Rgba, RgbaImage,
-};
+use image::{AnimationDecoder, DynamicImage, ImageFormat, ImageReader, RgbImage, Rgba, RgbaImage};
 use jpeg_encoder::{ColorType as JpegColorType, Encoder as JpegEncoderFast, SamplingFactor};
 use serde::Serialize;
 

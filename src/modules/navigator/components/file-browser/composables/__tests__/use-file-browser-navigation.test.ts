@@ -384,6 +384,42 @@ describe('useFileBrowserNavigation directory data', () => {
     consoleErrorSpy.mockRestore();
   });
 
+  // 用户 2026-11-21 反馈：点远程连接「没反应」—— 既没有内容，也没有任何错误横幅。
+  //
+  // 根因不在渲染：`init()` 读远程失败后兜底跳默认目录，而兜底里的第二次 `readDir`
+  // 在开头无条件把 `error.value` 清成 null，把刚写进去的错误自己抹掉了。
+  // 这里守住「远程读失败 = 错误留在原地可见」，且本地路径的兜底行为不变。
+  it('keeps the remote read failure visible instead of silently falling back to the default directory', async () => {
+    const remotePath = 'sfm://remote/conn-a/pub';
+
+    invokeMock.mockImplementation((command: string) => {
+      if (command === 'remote_read_dir') {
+        return Promise.reject({
+          kind: 'unreachable',
+          message: '远端服务暂时不可用',
+        });
+      }
+
+      return Promise.resolve(null);
+    });
+
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { navigation } = createNavigationHarness(createTab('tab-a', remotePath));
+    await flushPromises();
+
+    expect(navigation().error.value).toBe('远端服务暂时不可用');
+    expect(invokeMock).toHaveBeenCalledWith('remote_read_dir', expect.objectContaining({
+      path: remotePath,
+    }));
+
+    // 兜底导航会走 `path_exists` + 本地 `read_dir`；远程读失败时这两者都不该发生。
+    expect(invokeMock).not.toHaveBeenCalledWith('path_exists', expect.anything());
+    expect(invokeMock).not.toHaveBeenCalledWith('read_dir', expect.anything());
+
+    consoleErrorSpy.mockRestore();
+  });
+
   // 用户 2026-11-09 反馈：删除成功后目录不变，必须手点「刷新」才看到消失。
   // 这里守的是「已确认删除的路径立刻从列表消失」，同时不误伤同名之外的其他条目。
   it('drops the confirmed deletions from the listing without waiting for a re-read', async () => {

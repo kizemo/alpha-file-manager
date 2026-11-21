@@ -1161,7 +1161,7 @@ mod tests {
         log: StubLog,
     ) -> u16 {
         use std::io::{BufRead, BufReader, Write};
-        use std::net::{TcpListener, TcpStream};
+        use std::net::TcpListener;
 
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind control");
         let port = listener.local_addr().expect("addr").port();
