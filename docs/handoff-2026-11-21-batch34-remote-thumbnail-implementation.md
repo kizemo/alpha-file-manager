@@ -215,7 +215,7 @@ VERDICT=PASS
 
 **缓存零新增（这是 A 修复生效的直接证据）**：run13 期间 `NEW_DURING_RUN13=0`、`COUNT=47` 不变、`NEWEST=20:32:01` ⇒ 8/8 出图全部命中上一轮生成的缓存；既解释了 `t00` 即稳定（`stillChanging=False`），也说明**缓存键已随 `maxDimension` 量化收敛**（不再因 `useDevicePixelPreviewSize` 抖动产生新键）。
 
-**run13 遗留（工装限制，不是产品缺陷）**：`STEP view.grid -> FAIL :: toggle=False` 仍出现（`Get-GridCardCount` 时序缺陷未修，本轮为省调用预算刻意跳过），但**已被同一轮内证据证伪** —— `j2.click` 打出 `source=grid-thumbnail`，且 J1 采样矩形与 run12 的四列坐标一致 ⇒ 实际就处在网格视图。**判读这一行必须同时看 `source=grid-thumbnail`，不能单看 `view.grid`。**
+**run13 遗留（工装限制，不是产品缺陷）—— 已于 run14 闭合**：run13 的 `STEP view.grid -> FAIL :: toggle=False` 来自 `Get-GridCardCount` 时序缺陷（判据时卡片尚未布局完必返回 0）；当时只能靠同轮 `j2.click` 的 `source=grid-thumbnail` 反证实际处在网格视图。**run14 已在工装侧修好该时序（等卡片出现或超时再判），实测 `STEP view.grid -> OK :: toggle=True`**，该假 FAIL 不再出现，详见 §11。判读纪律仍保留：`view.grid` 与 `j2.click` 的 `source=` 必须一起看。
 
 ## 7. 已验证 / 推断 / 未验证（别混）
 
@@ -230,11 +230,12 @@ VERDICT=PASS
 ## 8. 下阶段建议（按优先级）
 
 1. ~~若 §6 验收未拿到 `J1=PASS ∧ J2=PASS`~~ —— **本轮已拿到（run13，见 §6.5）**。若将来复跑又出现 `UNDETERMINED`：先判读是**产品缺陷**还是**取证失败**（区分「没触发」与「没修好」：先在通网/健康态让同一判据命中一次），再动代码；**别急着下调阈值**。
-2. **修 `Switch-ToGrid` 时序缺陷**（`Get-GridCardCount` 在卡片尚未布局时返回 0 就判「toggle not found」）⇒ 改为「等卡片出现或超时」再判，否则 `report.view` 永远可能误记 `list`、`STEP view.grid` 永远可能假 FAIL。**判读时以 `j2.click` 的 `source=grid-thumbnail` 为准**（见 §6.5 末段）。
+2. ~~**修 `Switch-ToGrid` 时序缺陷**~~ —— **本轮已完成**。改为「等卡片出现或超时」再判，run14 实测 `STEP view.grid -> OK :: toggle=True`（见 §11）。判读时仍建议同时看 `j2.click` 的 `source=`（run13 记的是 `grid-thumbnail`、run14 记的是 `grid-card`，两者都证明在网格视图，措辞差异来自点在卡片本体还是缩略图区域）。
 2. ~~把新包发布进 `release/`~~ —— **本轮已完成**（`PUBLISH_EXIT=0`，新包在 `release\local-builds\`，逐文件 sha256 与 bundle 原件一致，见 §6）；剩余动作 = 用那份**装机取证**（判据见 §7 未验证 ④）。
-3. 把 §5 的门禁判据缺陷回写进 `gates-build-02.ps1`（抖动放行改成「多跑或换 `TMP`」）。
-4. 清理 `image_thumbnails.rs:1807` 冗余形参（顺手在同批把既存 `unused import` 一起清了）。
-5. 本批次改动 commit（含新增 `remote/thumbnails.rs` 与前端测试）。
+3. ~~把 §5 的门禁判据缺陷回写进 `gates-build-02.ps1`（抖动放行改成「多跑或换 `TMP`」）~~ —— **本轮已完成**（`FLAKY_ATTEMPT_RESULTS=[0]` / `FLAKE_RELEASE_BASIS=alone_run_1`，首跑即绿未启用换 `TMP` 兜底）。
+4. ~~清理 `image_thumbnails.rs:1807` 冗余形参~~ —— **本轮已完成**（只删调用点实参与签名形参，`cache_dir` 在函数体内仍用于 `create_dir_all` / `thumbnail_path` / `enforce_thumbnail_cache_limits`；同批删掉本轮判定为真 unused 的 `async_trait`）。**既存 5 条 `unused import` 本轮刻意未清**，理由与清单见 §11.3。
+5. 本批次改动 commit —— **主体已提交 `b1a40f86`**；本轮清理改动**另起一笔**（只含 `image_thumbnails.rs`、`remote/commands.rs` 两个文件 3 行删除）。
+6. **（新增）** 既存 5 条 `unused import` 独立清理：与远程缩略图无关、不影响任何判词，但会持续污染门禁输出。清单见 §11.3，注意 `ftps_provider.rs:1145` 有同形重复行、`image_edit.rs:25` 的 `Rgb` 在多行 import 内 —— 必须逐字定位，**不许凭推测删 import**（本轮已踩过：把 `RemoteErrorKind` 当 unused 删掉导致 `E0433` 两处、整轮 RED）。
 
 ## 9. 本轮工具坑（复用清单）
 
@@ -256,6 +257,45 @@ VERDICT=PASS
 - `.../b32/b32-accept-remote-ui.ps1`（本轮加就绪轮询）、`.../b32/accept-01.txt`（竞态失败证据）、`.../b32/accept-02.txt`（重跑）
 - `.../b32/b32-accept-remote-ui.json`（机读结论）、`.../b32/b32-region-metrics.ps1`（像素复算）、`.../b32/j1-j2-verdict.txt`、`.../b32/b32-accept-remote-ui-*.png`
 - `.../b32/cargo-check-remote-thumb-0{1,2}.txt`
-- **装机与复验（§6.5）**：`.../b32/b34-install-03.log`（`INSTALL_IDENTITY_OK`）、`.../b32/b34-accept-run11.log`、`.../b32/b34-accept-run12.log`、`.../b32/b34-accept-run13.log`（**`VERDICT=PASS` 真源**）、`.../b32/b32-accept-remote-ui.json`（run13 覆盖后的机读结论）、`.../b32/b34-cache-before-run12.txt`、`.../b32/b34-logoffset-run11.txt`、`.../b32/b34-auth-probe.txt`
+- **装机与复验（§6.5）**：`.../b32/b34-install-03.log`（`INSTALL_IDENTITY_OK`）、`.../b32/b34-accept-run11.log`、`.../b32/b34-accept-run12.log`、`.../b32/b34-accept-run13.log`（run13 `VERDICT=PASS` 真源）、`.../b32/b34-accept-run14.log`（**run14 收尾轮真源：`J1=PASS / J2=PASS / VERDICT=PASS`，`view.grid -> OK`，err 日志 0 B**）、`.../b32/b32-accept-remote-ui.json`（run13 覆盖后的机读结论）、`.../b32/b34-cache-before-run12.txt`、`.../b32/b34-logoffset-run11.txt`、`.../b32/b34-auth-probe.txt`
 - **收口与构建**：`.../b32/b34-grid-thumbnail-fix-summary.md`、`.../b32/b34-gate-frontend2.log`（`EXIT=0` 那轮）、`.../b32/b34-tauri-build.log`
-- 复验工装本体：`.../b32/b32-accept-remote-ui.ps1`（101,302 B，本轮 5 处判据修复；改完必跑 `Parser::ParseFile`）
+- 复验工装本体：`.../b32/b32-accept-remote-ui.ps1`（102,037 B，含 `Switch-ToGrid` 就绪轮询修复；改完必跑 `Parser::ParseFile`）
+- **批次 34 收尾轮（§11）**：`.../b32/gates-build-03.txt`（168,181 B，`GATES_OK=True`）、`.../b32/gates-build-03-red-E0433.txt`（RED 备份）、`.../b32/build-only-04.ps1/.txt`（253,994 B，`EXIT_build=0`）、`.../b32/b34-install-04.log`（`INSTALL_IDENTITY_OK`）、`.../b32/b34-accept-run14.log` + `.err.log`（6,523 B / 0 B）、`.../b32/b32-accept-remote-ui.json`（run14 覆盖后的机读结论，无 `status: FAIL`）
+
+## 11. 批次 34 收尾记录（2026-11-21 21:00–21:20）
+
+### 11.1 收尾四项实测判词
+
+1. **门禁 GREEN** —— `gates-build-02.ps1` 重跑（20:56:16 → 21:01:57），日志 `.../b32/gates-build-03.txt`（168,181 B）：`GATES_OK=True`、`VERDICT_cargo=GREEN`、`EXIT_thumb=0`、`EXIT_cargo_test=0`、`EXIT_ts=0`、`EXIT_lint=0`、`EXIT_unit=0`、`FAILED_TESTS=[]`、`UNEXPECTED_TESTS=[]`、`GUARD_BASIS=worktree_plus_range:origin/main...HEAD`、`GUARD_TOUCHED_COUNT=0`、`FLAKY_ATTEMPT_RESULTS=[0]`、`FLAKE_RELEASE_BASIS=alone_run_1`（首跑即绿，未启用换 `TMP` 兜底）。
+2. **打包 OK** —— `build-only-04.ps1`，日志 `.../b32/build-only-04.txt`（253,994 B）：`EXIT_build=0`、`BUILD_DONE=2026-11-21T21:09:55`；裸产物 `target\release\alpha-file-manager.exe` = 85,027,840 B / `sha16=62B5DDA606269B1A`；NSIS `bundle\nsis\Alpha File Manager_3.16.0_x64-setup.exe` = 45,938,661 B / `sha16=62D978A967A27A82`。
+3. **装机 IDENTITY_OK** —— `b34-install.ps1 -Pkg <上面的 3.16.0 安装包>`（21:11:23→21:12:02），日志 `.../b32/b34-install-04.log`：`INSTALL_EXIT=0`、`SIZE_MATCH=True`、`NORMSHA_MATCH=True`、`VERDICT=INSTALL_IDENTITY_OK`；装机副本 85,027,840 B / `normsha16=f7e3609c77a37204` / `ver=3.16.0`；early-guard `OUTCOME=proceed reason=forced`；ILOG `installerSha256=62d978a9…0922` 与本次构建一致。`INSTALLED_MTIME_MOVED=False` 仅信息打印、不进判词。
+4. **验收 run14 PASS** —— `.../b32/b34-accept-run14.log`（6,523 B，err **0 B**）：`STEP view.grid -> OK :: toggle=True`、`STEP j2.click -> OK :: entry=-340582353.jpg source=grid-card entry1Changed=True entry2Changed=False`、`STEP j2.evaluate -> OK :: verdict=PASS count=1`；判词 `J1=PASS`（8/8 采样缩略图区域比该通用图标更"富"）、`J2=PASS`、`VERDICT=PASS`；`SANDBOX_CLEANED=true`。机读结论 `b32-accept-remote-ui.json` 内**无任何 `status: FAIL`**。
+
+> run14 首跑失败是**工装调用错**（§11.2），不是产品缺陷；修正调用后一次通过。失败轮 `CACHE_BEFORE=56` / `NEWEST_BEFORE=11/21/2026 20:55:50` 未产生新缓存，符合预期。
+
+**结论**：`view.grid` 假 FAIL 已消除（`toggle=True`）；「远程缩略图在网格视图确实出图」在**含本轮清理的新装机版 3.16.0** 上再次独立成立（run13 + run14 两次）。
+
+### 11.2 本轮新踩的工具坑（并入 §9 同类清单）
+
+- **`Start-Process -ArgumentList` 传数组 + 含空格的路径会散架**：`@('-NoProfile','-File',"<脚本>",'-ExePath',$exe)` 被按空格拼接且**不给含空格的值加引号** ⇒ `D:\Program Files\Alpha File Manager\alpha-file-manager.exe` 被拆成 4 段，`File` 落到位置参数 `TimeoutSec`，报「无法将值 "File" 转换为类型 "System.Int32"」。正确写法＝单字符串自带引号：`$arg='-NoProfile -File "{0}" -ExePath "{1}"' -f <脚本>, $exe`。
+- **识别特征**：子进程 **stdout 日志 0 B** + err 只有参数绑定错 ⇒ 先怀疑调用形态，不要怀疑被测产品。
+- **`Set-Location`/`cd` + 相对写路径**（含 `Copy-Item` 相对路径）会被本机硬安全策略拒绝（`write/delete targets cannot be verified safely after a command working directory change`）⇒ 只用 `Push-Location` + **绝对**路径。
+
+### 11.3 既存 5 条 `unused import`（本轮刻意未清，独立清理项）
+
+| 文件:行 | 待清 import | 备注 |
+| --- | --- | --- |
+| `src-tauri/src/compare/bench.rs:101` | `use std::collections::BTreeMap;` | 4 空格缩进 |
+| `src-tauri/src/image_edit.rs:25` | `Rgb` | 位于**多行 import** 内，不能整行删 |
+| `src-tauri/src/mcp/commands.rs:10` | `use tauri::Manager;` | — |
+| `src-tauri/src/remote/ftp_provider.rs:1164` | `use std::net::{TcpListener, TcpStream};` | 8 空格缩进 |
+| `src-tauri/src/remote/ftps_provider.rs:1145` | `use std::io::Read;` | **`:1114` 有同形重复行**，不可整串替换 |
+
+均为既有代码、与远程缩略图无关、不影响任何判词。本轮不清是为了避免重演 `E0433` 整轮 RED（把**被使用的** `RemoteErrorKind` 当 unused 删掉）。**判据只认编译器 `warning: unused import` 行，不许凭推测删。**
+
+### 11.4 本轮提交范围
+
+- `src-tauri/src/image_thumbnails.rs`：删掉 `write_remote_thumbnail_bytes` 调用点的冗余 `cache_dir` 实参与签名形参（函数体内 `cache_dir` 的三处使用保留：`create_dir_all` / `thumbnail_path` / `enforce_thumbnail_cache_limits`）。
+- `src-tauri/src/remote/commands.rs`：删掉真 unused 的 `async_trait`。
+- 合计 `2 files changed, 3 deletions(-)`，纯删除、零行为变化，由门禁 GREEN + run14 PASS 覆盖。
+- `.superpowers/sdd/` 被 `sdd/.gitignore:1:*` 整体忽略 ⇒ 门禁/打包/验收/装机四处工装改动**进不了 git**，只作为本地证据存在（路径见 §10），本笔提交不含任何工装。
