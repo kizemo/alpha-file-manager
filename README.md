@@ -72,7 +72,7 @@ sync, batch rename, and a long list of day-to-day fixes. **If you have been look
 | 🏷️ | **Tags** — organise files and folders, with a grouped, editable dashboard |
 | ⭐ | **Favourites by category** — adding one asks which category it belongs to; categories are editable |
 | 🎚️ | **Item filter** — narrow a large folder by name, size, date, type and more |
-| 🖼️ | **Thumbnails** — four sizes, generated lazily only for what is on screen |
+| 🖼️ | **Thumbnails** — four sizes, generated lazily only for what is on screen; pictures on a netdisk use the thumbnail the drive itself hands out |
 | 📐 | **Per-folder layout** — list or grid, chosen per location rather than globally |
 | 🔓 | **Unlock a file that is in use** — the right-click menu lists the programs holding it, by name and process id; *Delete anyway* removes it even when Windows says no |
 
@@ -101,7 +101,7 @@ sync, batch rename, and a long list of day-to-day fixes. **If you have been look
 |---|---|
 | ☁️ | **Baidu Netdisk signs in inside the app** — one click opens the real login page, scanning the QR code is enough, and the session is picked up into the credential store — no cookie copying by hand |
 | 🔗 | **Quark Netdisk works the same way** — pick it in the very same *Add netdisk* list, scan the QR code in the window that opens inside the app, and the session is stored for you |
-| 🔗 | **Aliyun Drive joins them** — pick it in the same *Add netdisk* list, scan the QR code in the window that opens inside the app, and the session is stored for you as well; the first version browses and reads the drive, and writes nothing |
+| 🔗 | **Aliyun Drive joins them** — pick it in the same *Add netdisk* list, scan the QR code in the window that opens inside the app, and the session is stored for you as well; it creates folders, uploads files, deletes them and renames them on the drive — moving and sharing are not offered yet |
 | ➕ | **Adding a netdisk takes three steps** — *Settings* → *Remote* → *Netdisks* → pick the provider → scan the QR code → give the connection a name. No token to copy, no config file to hand-edit, no service to start |
 | 📂 | **A netdisk browsed like a remote connection** — listing, creating a folder, renaming, deleting and downloading all reach the drive itself, not a shadow of a local folder |
 | ⚙️ | **Netdisks and remote servers are kept apart** — the settings page splits them into two tabs, *Netdisks* and *Remote connections*, so each connection sits where it belongs |
@@ -167,8 +167,10 @@ Adding a netdisk here has none of that:
 | | | |
 |---|---|---|
 | ☁️ | **Aliyun Drive can be added as a third netdisk provider** — in *Settings* → *Remote* → *Netdisks*, *Add netdisk* now offers *Aliyun Drive* next to *Baidu Netdisk* and *Quark Netdisk*. A sign-in window opens inside the app, scanning the QR code with your phone is enough, and the session is stored in the app's own encrypted credential store — no token to copy by hand. Once it is saved, the drive is listed with its real file names and a file can be read into a local folder |
-| 🔐 | **The first version of Aliyun Drive browses and reads, and writes nothing** — listing a folder and reading a file are what the provider offers. Uploading, deleting, renaming, moving and sharing are not offered at all, so the app cannot change anything on your drive by accident; the vault drive is recognised but not unlocked |
+| 🔐 | **Aliyun Drive writes to your drive as well** — on top of listing a folder and reading a file, the provider now creates folders, uploads files, deletes them and renames them. Moving a file to another folder and sharing are still not offered; the vault drive is recognised but not unlocked |
 | 🐛 | **Aliyun Drive no longer hangs for twenty seconds and then reports a broken connection** — the gateway in front of Aliyun Drive only sends the body of a response when the request asks for gzip-compressed content. Without that request header it replied with the headers alone, held the body back for about twenty seconds and then cut the connection, which reached you as *the connection to Aliyun Drive was interrupted*. The HTTP client now negotiates gzip the way it is supposed to, so listing a folder takes milliseconds instead of a timeout |
+| 🖼️ | **Pictures on a netdisk now show a thumbnail** — thumbnails used to be produced by reading the picture off the disk, and a file on a netdisk has no disk path, so not one picture in a netdisk could ever preview. The picture address the drive itself hands out is now used directly, so images in a netdisk show the same way images in a local folder do. Aliyun Drive offers one today; Baidu Netdisk and Quark Netdisk do not hand out a picture address yet and keep their plain file icon |
+| 👆 | **Clicking one file in a netdisk no longer selects two files** — a netdisk folder may hold several files with the same name, but all of them were given the same path, because a path is built from the parent folder plus the file name. The app compared that path when it decided what was selected, so clicking one of them lit up both. Every remote entry now carries an identity of its own, taken from the drive, and the selection compares that identity — so exactly the file you clicked is the one that gets selected. Renaming, deleting or copying several files of a netdisk folder at once still works on the file name, so two files that share a name are not told apart by those actions yet |
 | 💬 | **A remote failure is now reported in words that fit the drive it happened on** — the fallback message shown when a netdisk cannot be reached used to name one fixed provider. It now names the provider that actually failed, so an Aliyun Drive problem no longer talks about another drive |
 | 📱 | **A connected phone shows up in the folder tree, and its breadcrumb leads the way into it** — the path of a phone in the Windows shell namespace cannot be split by the front end, because it contains separators that are not directory separators, so the levels inside the phone were flattened into one vague *Device* entry. The hierarchy is now taken from the shell itself, one level at a time: the tree shows the device roots that have no drive letter at all, and the address bar leads down through the real names of each level |
 
@@ -315,11 +317,12 @@ they compare.
 
 > **Netdisks are a growing surface, and we will keep working on them.** What
 > works today is Baidu Netdisk, Quark Netdisk and Aliyun Drive — add one in the
-> app, sign in inside it, and browse it like a remote connection; listings and
-> downloads all reach the drive itself. Aliyun Drive's first version browses and
-> reads and writes nothing. Google Drive and the other mainstream netdisks will
-> be plugged into the very same machinery: one connection in the sidebar, and
-> the tree, the listings and the transfers follow it.
+> app, sign in inside it, and browse it like a remote connection; listings,
+> uploads and downloads all reach the drive itself, and Aliyun Drive also
+> creates folders, deletes files and renames them. Google Drive and the other
+> mainstream netdisks will be plugged into the very same machinery: one
+> connection in the sidebar, and the tree, the listings and the transfers
+> follow it.
 
 > **If you want the file manager that is part of Windows** — with the shell
 > extensions, the codecs, the network shares, the EFS encryption and the "it
