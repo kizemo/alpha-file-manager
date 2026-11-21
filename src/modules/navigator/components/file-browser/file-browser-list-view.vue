@@ -34,6 +34,7 @@ import FileBrowserListEntryThumbnail from './file-browser-list-entry-thumbnail.v
 import FileBrowserInlineRenameInput from './file-browser-inline-rename-input.vue';
 import { useRelativeDateDisplayClock } from '@/composables/use-relative-date-display';
 import { useFileBrowserContext } from './composables/use-file-browser-context';
+import { getFileBrowserEntryKey } from './utils/file-browser-entry-key';
 import { useFileBrowserTags } from './composables/use-file-browser-tags';
 import { getDriveEntryVolumeSizeBytes, getDriveEntryAvailableSpaceBytes } from '@/utils/drive-icon';
 import {
@@ -608,6 +609,7 @@ const visibleRows = computed<FileBrowserListDisplayItem[]>(() => {
             }"
             :style="row.entryStyle"
             :data-entry-path="row.entry.path"
+            :data-entry-key="getFileBrowserEntryKey(row.entry)"
             :data-selected="row.isSelected || undefined"
             :data-in-clipboard="row.isInClipboard || undefined"
             :data-clipboard-type="row.clipboardType"

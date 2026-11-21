@@ -30,6 +30,7 @@ import {
   isDestinationInsideAnySourceDirectory,
 } from '@/utils/file-operation-paths';
 import { useFileBrowserClickSelection } from '@/modules/navigator/components/file-browser/composables/use-file-browser-click-selection';
+import { getFileBrowserEntryKey } from '@/modules/navigator/components/file-browser/utils/file-browser-entry-key';
 import { blurFocusedDirEntry } from '@/modules/navigator/utils/blur-focused-dir-entry';
 import { createIndexedFileName, safeFileNameFromUrl } from '@/utils/remote-file';
 import { basenameFromPath } from '@/utils/source-display-name';
@@ -262,7 +263,9 @@ export function useFileBrowserSelection(
   }
 
   function isEntrySelected(entry: DirEntry): boolean {
-    return selectedEntries.value.some(selectedEntry => selectedEntry.path === entry.path);
+    return selectedEntries.value.some(
+      selectedEntry => getFileBrowserEntryKey(selectedEntry) === getFileBrowserEntryKey(entry),
+    );
   }
 
   function getOrderedEntries(): DirEntry[] {
@@ -298,17 +301,17 @@ export function useFileBrowserSelection(
 
   function removeFromSelection(entry: DirEntry) {
     selectedEntries.value = selectedEntries.value.filter(
-      selectedEntry => selectedEntry.path !== entry.path,
+      selectedEntry => getFileBrowserEntryKey(selectedEntry) !== getFileBrowserEntryKey(entry),
     );
 
-    if (lastSelectedEntry.value?.path === entry.path) {
+    if (lastSelectedEntry.value && getFileBrowserEntryKey(lastSelectedEntry.value) === getFileBrowserEntryKey(entry)) {
       const lastEntry = selectedEntries.value.length > 0
         ? selectedEntries.value[selectedEntries.value.length - 1]
         : null;
       lastSelectedEntry.value = lastEntry;
     }
 
-    if (focusedEntry.value?.path === entry.path) {
+    if (focusedEntry.value && getFileBrowserEntryKey(focusedEntry.value) === getFileBrowserEntryKey(entry)) {
       focusedEntry.value = lastSelectedEntry.value;
     }
 
@@ -340,6 +343,25 @@ export function useFileBrowserSelection(
     const normalizedPath = normalizePath(path);
     const targetEntry = entriesRef.value.find(
       entry => normalizePath(entry.path) === normalizedPath,
+    );
+
+    if (!targetEntry) {
+      return false;
+    }
+
+    replaceSelection(targetEntry);
+    return true;
+  }
+
+  /**
+   * 按「条目唯一键」选中一个条目。
+   *
+   * 远程网盘的 `path` 只由「父路径 + 文件名」拼成，同一目录里**允许同名条目** ⇒
+   * 两个不同条目的 `path` 逐字相同。只按 path 找条目，永远命中第一个同名条目。
+   */
+  function selectEntryByKey(key: string): boolean {
+    const targetEntry = entriesRef.value.find(
+      entry => getFileBrowserEntryKey(entry) === key,
     );
 
     if (!targetEntry) {
@@ -1820,6 +1842,7 @@ export function useFileBrowserSelection(
     selectAll,
     selectRange,
     selectEntryByPath,
+    selectEntryByKey,
     removeFromSelection,
     copyItems,
     cutItems,

@@ -41,6 +41,17 @@ pub struct DirEntry {
     pub link_target: Option<String>,
     pub link_status: Option<DirEntryLinkStatus>,
     pub hard_link_count: Option<u64>,
+    /// 服务端给的稳定条目 ID（远程网盘用），本地条目恒为 `None`。
+    ///
+    /// 远程条目的 `path` 由「父目录路径 + 条目名」拼成，而同一个目录里**允许存在同名条目**
+    /// ——阿里云盘真机实测（2026-11-21）在「手机备份/照片备份」下找到约 90 组同名文件。
+    /// 两个不同条目的 `path` 因此逐字相同，选中判定若按 `path` 比较，
+    /// 点一个条目就会同时高亮两个（用户 2026-11-21 报的 bug）。
+    pub entry_id: Option<String>,
+    /// 服务端给的缩略图直链（远程网盘用），本地条目恒为 `None`。
+    ///
+    /// 这是**签名 URL**：可以直接给 `<img src>` 用，但**不得**写进日志或用户可见文案。
+    pub thumbnail_url: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -738,6 +738,8 @@ impl FtpRemoteProvider {
                 is_symlink: record.is_symlink,
                 size: record.size,
                 modified_time: record.modified_time,
+                entry_id: None,
+                thumbnail_url: None,
             });
         }
 

@@ -537,6 +537,8 @@ pub fn to_remote_entry(connection_id: &str, entry: &BaiduFileEntry) -> Option<Re
         is_dir: entry.isdir == 1,
         size: entry.size,
         modified_time: baidu_seconds_to_unix_millis(modified_seconds),
+        entry_id: None,
+        thumbnail_url: None,
         name,
         path,
     })

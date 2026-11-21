@@ -268,6 +268,57 @@ pub const ALIYUN_NOT_FOUND_ERROR_CODES: &[&str] = &["NotFound.File", "NotFound"]
 /// 「已存在」类的错误码（出现在 HTTP 400 的响应体里）。
 pub const ALIYUN_ALREADY_EXIST_ERROR_CODES: &[&str] = &["AlreadyExist.File", "AlreadyExist"];
 
+// ---------------------------------------------------------------------------
+// 写操作端点（web 分支）
+// ---------------------------------------------------------------------------
+//
+// 下面五个端点是**实测可用**的形状（批次 31）：
+//
+// | 用途 | 方法 | 路径 | 请求体字段 |
+// |---|---|---|---|
+// | 新建目录 / 新建文件 | POST | `/adrive/v2/file/create` | `drive_id` `parent_file_id` `type` `name` |
+// | 上传收尾 | POST | `/adrive/v2/file/complete` | `drive_id` `file_id` `upload_id` `revision_id` |
+// | 重命名 | POST | `/adrive/v2/file/update` | `drive_id` `file_id` `name` |
+// | 删除 | POST | `/adrive/v2/file/delete` | `drive_id` `file_id` `type` |
+// | 移动 | POST | `/adrive/v2/file/move` | `drive_id` `file_id` `to_parent_file_id` |
+//
+// ⚠️ **实测 404、不要再试的路径**：
+// `/adrive/v1.0/file/createFolder`、`/adrive/v2/file/createFolder`、
+// `/adrive/v1.0|v2|v3/file/rename`、`/adrive/v2/file/upload`、
+// `/adrive/v2/file/createFile`、`/adrive/v2/file/precreate`、
+// `/adrive/v2/file/get_upload_url`、`/v2/file/createFile`。
+//
+// ⚠️ **三条反直觉的规则**（都是实测踩出来的，不是照抄文档）：
+//
+// 1. **重命名的字段叫 `name`，不叫 `file_name`** —— 用 `file_name` 服务端回 200
+//    但**改名不生效**。
+// 2. **删除必须带 `type`**（`"file"` / `"folder"`）—— 少了它服务端不知道删什么。
+// 3. **新建文件的请求体必须极简** —— 多带 `size` / `content_hash` /
+//    `check_name_mode` 会直接 400。
+//
+// 上传内容本身**不走**这些端点：它是 `PUT` 到 `create` 响应里
+// `part_info_list[].upload_url` 给的 OSS 预签名直链。
+
+/// 新建目录 / 新建文件。
+pub const ALIYUN_CREATE_URL: &str = "https://api.aliyundrive.com/adrive/v2/file/create";
+
+/// 上传收尾。
+pub const ALIYUN_COMPLETE_URL: &str = "https://api.aliyundrive.com/adrive/v2/file/complete";
+
+/// 重命名（字段是 `name`）。
+pub const ALIYUN_UPDATE_URL: &str = "https://api.aliyundrive.com/adrive/v2/file/update";
+
+/// 删除（`type` 字段必填）。
+pub const ALIYUN_DELETE_URL: &str = "https://api.aliyundrive.com/adrive/v2/file/delete";
+
+/// 移动到另一个父目录。
+pub const ALIYUN_MOVE_URL: &str = "https://api.aliyundrive.com/adrive/v2/file/move";
+
+/// 上传时一块一块切多大（字节）。
+///
+/// 只影响**内存峰值**与进度回调的粒度，不影响服务端看到的请求形状。
+pub const ALIYUN_UPLOAD_CHUNK_BYTES: usize = 256 * 1024;
+
 // ===========================================================================
 // 响应结构
 // ===========================================================================
@@ -283,6 +334,47 @@ pub struct AliyunFailure {
     pub message: Option<String>,
     /// 请求编号，方便用户反馈时定位。
     pub request_id: Option<String>,
+}
+
+/// 一个上传分片的信息（来自 `create` 响应里的 `part_info_list`）。
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct AliyunUploadPart {
+    /// 分片序号（从 1 开始）。
+    pub part_number: u32,
+    /// OSS 预签名直链。上传内容就是 `PUT` 到这个地址。
+    pub upload_url: String,
+    /// 服务端给的这一片的长度。**可能缺** —— 缺了就不能按大小切。
+    pub size: Option<u64>,
+}
+
+/// `create` 响应的解析结果。
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct AliyunCreateResult {
+    /// 新建条目的服务端 id。
+    pub file_id: String,
+    /// 上传会话 id。收尾（complete）时必须带上。
+    pub upload_id: Option<String>,
+    /// 版本 id。收尾（complete）时必须带上。
+    pub revision_id: Option<String>,
+    /// 上传分片列表。
+    pub parts: Vec<AliyunUploadPart>,
+}
+
+/// 一个分片在文件里的字节区间（左闭右开）+ 它自己的直链。
+///
+/// 直链放在这里而不是另传一个列表，是为了让「分片序号 → 区间 → 直链」
+/// **始终是同一个顺序**（按 `part_number` 排好）—— 上传时按下标取就一定
+/// 不会把 A 片的内容传到 B 片的地址上。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AliyunPartRange {
+    /// 对应的 `part_number`。
+    pub part_number: u32,
+    /// 这一片要 `PUT` 到的地址。
+    pub upload_url: String,
+    /// 起始字节偏移。
+    pub start: u64,
+    /// 结束字节偏移（**不含**）。
+    pub end: u64,
 }
 
 /// 换 token 的响应体（契约 §1.2）。
@@ -330,6 +422,8 @@ pub struct AliyunFileEntry {
     pub drive_id: Option<String>,
     /// 是否收藏。
     pub starred: Option<bool>,
+    /// 缩略图直链。请求体带了 `image_thumbnail_process` 时服务端才回这个字段。
+    pub thumbnail: Option<String>,
     /// 条目状态。
     pub status: Option<String>,
 }
@@ -411,6 +505,7 @@ pub fn aliyun_entry_from_value(value: &Value) -> AliyunFileEntry {
         drive_id: lenient_str(value, "drive_id"),
         starred: lenient_bool(value, "starred"),
         status: lenient_str(value, "status"),
+        thumbnail: lenient_str(value, "thumbnail"),
     }
 }
 
@@ -499,6 +594,59 @@ pub fn aliyun_map_failure(status: u16, body: &str) -> RemoteError {
     let failure = aliyun_parse_failure(body);
     let kind = aliyun_failure_kind(status, failure.code.as_deref());
     RemoteError::new(kind, aliyun_failure_message(kind, status))
+}
+
+/// 用户可见的**写操作**错误文案。
+///
+/// **只含中性信息**：不含服务端原文、不含错误码、不含任何凭证片段
+/// —— 与 [`aliyun_failure_message`] 同一套纪律（契约 §6.1 锚点 9）。
+fn aliyun_write_failure_message(operation: &str, kind: RemoteErrorKind, status: u16) -> String {
+    let prefix = format!("阿里云盘在{operation}时返回了 HTTP {status}");
+    match kind {
+        RemoteErrorKind::Auth => format!("{prefix}，拒绝了这次请求，请重新授权。"),
+        RemoteErrorKind::NotFound => format!("{prefix}，没有找到对应的条目。"),
+        RemoteErrorKind::Permission => format!("{prefix}，没有权限完成这个操作。"),
+        RemoteErrorKind::Unreachable => format!("{prefix}，服务暂时不可达，请稍后再试。"),
+        _ => format!("{prefix}，请求未被接受。"),
+    }
+}
+
+/// 把一次失败的**写操作**响应映射成 [`RemoteError`]。
+///
+/// 与 [`aliyun_map_failure`] 的区别只有两处：
+///
+/// 1. 文案里带上**是哪个操作**失败了 —— 用户看到的是「新建目录时…」，
+///    而不是笼统的「响应内容无法识别」。
+/// 2. 「已经存在」单独说一句 —— 笼统的「请求未被接受」用户看不懂，
+///    也猜不出下一步该干什么。
+///
+/// `body` 里的服务端原文**仍然只进日志**，不进用户可见文案。
+pub fn aliyun_map_write_failure(operation: &str, status: u16, body: &str) -> RemoteError {
+    let failure = aliyun_parse_failure(body);
+    let kind = aliyun_failure_kind(status, failure.code.as_deref());
+
+    if failure
+        .code
+        .as_deref()
+        .map(|code| ALIYUN_ALREADY_EXIST_ERROR_CODES.contains(&code))
+        .unwrap_or(false)
+    {
+        return RemoteError::new(kind, "阿里云盘里已经有一个同名的条目了。");
+    }
+
+    RemoteError::new(kind, aliyun_write_failure_message(operation, kind, status))
+}
+
+/// 这次失败是不是「已经存在」。
+///
+/// 用于「新建目录」：**目录已经在 ⇒ 视为成功**（`make_dir` 的契约）。
+pub fn aliyun_failure_is_already_exist(body: &str) -> bool {
+    let failure = aliyun_parse_failure(body);
+    failure
+        .code
+        .as_deref()
+        .map(|code| ALIYUN_ALREADY_EXIST_ERROR_CODES.contains(&code))
+        .unwrap_or(false)
 }
 
 // ===========================================================================
@@ -662,7 +810,7 @@ pub fn aliyun_list_request_body(
     );
     body.insert(
         "image_thumbnail_process".to_string(),
-        Value::String("image/resize,w_256/format,avif".to_string()),
+        Value::String("image/resize,w_256/format,jpeg".to_string()),
     );
     body.insert(
         "image_url_process".to_string(),
@@ -717,6 +865,229 @@ pub fn aliyun_drive_info_request_body(drive_id: &str) -> Value {
     serde_json::json!({
         "drive_id": drive_id,
     })
+}
+
+// ---------------------------------------------------------------------------
+// 写操作的请求体构造
+// ---------------------------------------------------------------------------
+//
+// 形状全部来自实测（见本文件的「写操作端点」表）。
+
+/// 新建目录的请求体。
+pub fn aliyun_create_folder_body(drive_id: &str, parent_file_id: &str, name: &str) -> Value {
+    serde_json::json!({
+        "drive_id": drive_id,
+        "parent_file_id": parent_file_id,
+        "type": ALIYUN_ENTRY_TYPE_FOLDER,
+        "name": name,
+    })
+}
+
+/// 新建文件的请求体。
+///
+/// ⚠️ **必须极简**：只带 `drive_id` / `parent_file_id` / `name` / `type`。
+/// 多带 `size` / `content_hash` / `check_name_mode` 服务端会回 400。
+pub fn aliyun_create_file_body(drive_id: &str, parent_file_id: &str, name: &str) -> Value {
+    serde_json::json!({
+        "drive_id": drive_id,
+        "parent_file_id": parent_file_id,
+        "name": name,
+        "type": ALIYUN_ENTRY_TYPE_FILE,
+    })
+}
+
+/// 上传收尾的请求体。
+pub fn aliyun_complete_upload_body(
+    drive_id: &str,
+    file_id: &str,
+    upload_id: &str,
+    revision_id: &str,
+) -> Value {
+    serde_json::json!({
+        "drive_id": drive_id,
+        "file_id": file_id,
+        "upload_id": upload_id,
+        "revision_id": revision_id,
+    })
+}
+
+/// 重命名的请求体。
+///
+/// ⚠️ 字段名是 **`name`** —— 用 `file_name` 服务端回 200 但**改名不生效**。
+pub fn aliyun_rename_body(drive_id: &str, file_id: &str, name: &str) -> Value {
+    serde_json::json!({
+        "drive_id": drive_id,
+        "file_id": file_id,
+        "name": name,
+    })
+}
+
+/// 删除的请求体。
+///
+/// ⚠️ **`type` 必填** —— 少了它服务端不知道删的是文件还是目录。
+pub fn aliyun_delete_body(drive_id: &str, file_id: &str, entry_type: &str) -> Value {
+    serde_json::json!({
+        "drive_id": drive_id,
+        "file_id": file_id,
+        "type": entry_type,
+    })
+}
+
+/// 移动的请求体。
+pub fn aliyun_move_body(drive_id: &str, file_id: &str, to_parent_file_id: &str) -> Value {
+    serde_json::json!({
+        "drive_id": drive_id,
+        "file_id": file_id,
+        "to_parent_file_id": to_parent_file_id,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// 写操作的响应解析
+// ---------------------------------------------------------------------------
+
+/// 解析 `create` 的响应。
+///
+/// 取 `file_id` / `upload_id` / `revision_id` / `part_info_list`。
+/// `file_id` 读不出来 ⇒ 报错（没有 id 后续一步都做不了）。
+pub fn aliyun_parse_create_payload(body: &str) -> Result<AliyunCreateResult, RemoteError> {
+    let Ok(value) = serde_json::from_str::<Value>(body) else {
+        return Err(RemoteError::protocol("阿里云盘返回的内容无法解析。"));
+    };
+    if !value.is_object() {
+        return Err(RemoteError::protocol("阿里云盘返回的内容无法解析。"));
+    }
+
+    let file_id = lenient_str(&value, "file_id").unwrap_or_default();
+    if file_id.trim().is_empty() {
+        return Err(RemoteError::protocol("阿里云盘没有给出新建条目的 id。"));
+    }
+
+    let mut parts = Vec::new();
+    if let Some(list) = value.get("part_info_list").and_then(Value::as_array) {
+        for item in list {
+            let Some(upload_url) = lenient_str(item, "upload_url") else {
+                continue;
+            };
+            if upload_url.trim().is_empty() {
+                continue;
+            }
+            parts.push(AliyunUploadPart {
+                part_number: lenient_u64(item, "part_number").unwrap_or(0) as u32,
+                upload_url,
+                size: lenient_u64(item, "size"),
+            });
+        }
+    }
+
+    // `upload_id` / `revision_id` 在实测里出现在**分片对象里**
+    // （`part_info_list[0].upload_id`）。有的服务端版本把它们放在**顶层** ——
+    // 两处都读，顶层优先；都没有才算缺。
+    let first_part = value
+        .get("part_info_list")
+        .and_then(Value::as_array)
+        .and_then(|list| list.first());
+
+    let upload_id = lenient_str(&value, "upload_id")
+        .or_else(|| first_part.and_then(|item| lenient_str(item, "upload_id")));
+    let revision_id = lenient_str(&value, "revision_id")
+        .or_else(|| first_part.and_then(|item| lenient_str(item, "revision_id")));
+
+    Ok(AliyunCreateResult {
+        file_id,
+        upload_id,
+        revision_id,
+        parts,
+    })
+}
+
+/// 解析写操作的回执。
+///
+/// 服务端可能回空体（`204`），也可能回一个 JSON 对象 —— 两种都算成功。
+/// 返回值是回执里的条目名字（**如果有**），调用方只拿它做日志。
+pub fn aliyun_parse_write_ack(body: &str) -> Result<Option<String>, RemoteError> {
+    if body.trim().is_empty() {
+        return Ok(None);
+    }
+
+    let Ok(value) = serde_json::from_str::<Value>(body) else {
+        return Err(RemoteError::protocol("阿里云盘返回的内容无法解析。"));
+    };
+    if !value.is_object() {
+        return Err(RemoteError::protocol("阿里云盘返回的内容无法解析。"));
+    }
+
+    Ok(lenient_str(&value, "file_name").or_else(|| lenient_str(&value, "name")))
+}
+
+/// 条目类型名（写操作的 `type` 字段取值）。
+pub fn aliyun_entry_type_name(is_directory: bool) -> &'static str {
+    if is_directory {
+        ALIYUN_ENTRY_TYPE_FOLDER
+    } else {
+        ALIYUN_ENTRY_TYPE_FILE
+    }
+}
+
+/// 把「文件长度 + 服务端给的分片表」换算成「每一片的字节区间」。
+///
+/// - **只有一片** ⇒ 整个文件就是这一片（实测 `create` 只返回一片）。
+/// - **多片** ⇒ 只有在**每一片都带 `size` 且总和等于文件长度**时才切。
+///   切不出来就**明确报错**，绝不猜 —— 猜错等于把文件写坏。
+///
+/// 返回的区间**按 `part_number` 排好序**，每一片自带它的直链。
+pub fn aliyun_part_ranges(
+    total_len: u64,
+    parts: &[AliyunUploadPart],
+) -> Result<Vec<AliyunPartRange>, RemoteError> {
+    if parts.is_empty() {
+        return Err(RemoteError::protocol(
+            "阿里云盘没有给出上传分片信息，无法上传这个文件。",
+        ));
+    }
+
+    if parts.len() == 1 {
+        return Ok(vec![AliyunPartRange {
+            part_number: parts[0].part_number,
+            upload_url: parts[0].upload_url.clone(),
+            start: 0,
+            end: total_len,
+        }]);
+    }
+
+    let mut ordered: Vec<&AliyunUploadPart> = parts.iter().collect();
+    ordered.sort_by_key(|part| part.part_number);
+
+    let mut total: u64 = 0;
+    for part in &ordered {
+        let Some(size) = part.size else {
+            return Err(RemoteError::protocol(
+                "阿里云盘没有给出分片大小，无法确定这个文件怎么分片上传。",
+            ));
+        };
+        total = total.saturating_add(size);
+    }
+
+    if total != total_len {
+        return Err(RemoteError::protocol(
+            "阿里云盘给出的分片大小与文件长度不一致，无法确定这个文件怎么分片上传。",
+        ));
+    }
+
+    let mut ranges = Vec::with_capacity(ordered.len());
+    let mut cursor: u64 = 0;
+    for part in ordered {
+        let size = part.size.unwrap_or(0);
+        ranges.push(AliyunPartRange {
+            part_number: part.part_number,
+            upload_url: part.upload_url.clone(),
+            start: cursor,
+            end: cursor + size,
+        });
+        cursor += size;
+    }
+
+    Ok(ranges)
 }
 
 /// 拼授权页地址。
@@ -1197,6 +1568,15 @@ pub fn aliyun_iso8601_to_unix_millis(text: &str) -> Option<u64> {
 // 条目 → RemoteEntry
 // ===========================================================================
 
+/// 阿里云盘条目 ID 的**命名空间化**形式。
+///
+/// 前端拿它当「同目录同名条目」的唯一键：同一个目录里允许存在同名文件，
+/// 而 `path` 只由父路径 + 文件名拼成 ⇒ 两个不同条目的 `path` 完全一样。
+/// 带上 provider 前缀是为了不和别的 provider 的 ID 撞车。
+pub fn aliyun_entry_id(file_id: &str) -> String {
+    format!("aliyun:{file_id}")
+}
+
 /// 把一个阿里云盘条目转成 [`RemoteEntry`]。
 ///
 /// `path` 是**完整**的 `sfm://remote/<连接 id>/...`（契约 §6.1 锚点 13）。
@@ -1222,6 +1602,8 @@ pub fn aliyun_to_remote_entry(
             .unwrap_or(0),
         is_hidden: hidden,
         is_symlink: false,
+        entry_id: Some(aliyun_entry_id(&entry.file_id)),
+        thumbnail_url: entry.thumbnail.clone(),
     }
 }
 
@@ -1250,6 +1632,69 @@ mod tests {
             updated_at: Some("2024-01-02T03:04:05Z".to_string()),
             ..AliyunFileEntry::default()
         }
+    }
+
+    // ---- 条目唯一键与缩略图直链（批次 32） ---------------------------------
+
+    #[test]
+    fn two_entries_with_the_same_name_get_different_entry_ids() {
+        // 同一个目录里**允许同名条目** —— 阿里云盘真机实测（2026-11-21）：
+        // 「手机备份/照片备份」下有约 90 组同名 jpg。
+        // `path` 只由「父路径 + 文件名」拼成 ⇒ 两个条目的 path 逐字相同，
+        // 选中判定必须改用 entry_id，否则点一个会同时高亮两个。
+        let mut first = entry("file");
+        first.file_id = "file-a".to_string();
+        first.name = "IMG_0001.jpg".to_string();
+
+        let mut second = entry("file");
+        second.file_id = "file-b".to_string();
+        second.name = "IMG_0001.jpg".to_string();
+
+        let first_entry = aliyun_to_remote_entry(&first, "conn-a", "photos");
+        let second_entry = aliyun_to_remote_entry(&second, "conn-a", "photos");
+
+        assert_eq!(first_entry.path, second_entry.path);
+        assert_eq!(first_entry.entry_id.as_deref(), Some("aliyun:file-a"));
+        assert_eq!(second_entry.entry_id.as_deref(), Some("aliyun:file-b"));
+        assert_ne!(first_entry.entry_id, second_entry.entry_id);
+    }
+
+    #[test]
+    fn the_thumbnail_url_is_passed_through_to_the_remote_entry() {
+        let mut image = entry("file");
+        image.name = "photo.jpg".to_string();
+        image.thumbnail = Some("https://example.invalid/thumb.jpg?sign=abc".to_string());
+
+        let converted = aliyun_to_remote_entry(&image, "conn-a", "photos");
+
+        assert_eq!(
+            converted.thumbnail_url.as_deref(),
+            Some("https://example.invalid/thumb.jpg?sign=abc")
+        );
+    }
+
+    #[test]
+    fn an_entry_without_a_thumbnail_reports_no_thumbnail_url() {
+        let converted = aliyun_to_remote_entry(&entry("file"), "conn-a", "photos");
+
+        assert_eq!(converted.thumbnail_url, None);
+    }
+
+    #[test]
+    fn the_thumbnail_field_is_read_from_the_server_payload() {
+        let payload = serde_json::json!({
+            "file_id": "file-a",
+            "name": "photo.jpg",
+            "type": "file",
+            "thumbnail": "https://example.invalid/thumb.jpg?sign=abc"
+        });
+
+        let parsed = aliyun_entry_from_value(&payload);
+
+        assert_eq!(
+            parsed.thumbnail.as_deref(),
+            Some("https://example.invalid/thumb.jpg?sign=abc")
+        );
     }
 
     // ---- 分页 ---------------------------------------------------------------
@@ -1357,7 +1802,7 @@ mod tests {
         // 写成 `{"type":..,"size":..}` 对象 ⇒ 服务端回 HTTP 400 InvalidRequestJSONFormat。
         assert_eq!(
             body["image_thumbnail_process"],
-            serde_json::json!("image/resize,w_256/format,avif")
+            serde_json::json!("image/resize,w_256/format,jpeg")
         );
         assert_eq!(
             body["image_url_process"],
@@ -1712,6 +2157,239 @@ mod tests {
 // ===========================================================================
 
 #[cfg(test)]
+// ===========================================================================
+// 写操作的纯函数测试（批次 31）
+// ===========================================================================
+
+#[cfg(test)]
+mod write_tests {
+    use super::*;
+
+    // ------------------------------------------------------------------
+    // 请求体形状
+    // ------------------------------------------------------------------
+
+    /// 新建文件的请求体**必须极简** —— 多一个字段服务端就回 400。
+    #[test]
+    fn the_create_file_body_carries_exactly_four_fields() {
+        let body = aliyun_create_file_body("drive-1", "parent-1", "a.txt");
+
+        assert_eq!(body["drive_id"], "drive-1");
+        assert_eq!(body["parent_file_id"], "parent-1");
+        assert_eq!(body["name"], "a.txt");
+        assert_eq!(body["type"], ALIYUN_ENTRY_TYPE_FILE);
+
+        let object = body.as_object().expect("请求体必须是对象");
+        assert_eq!(object.len(), 4, "多带字段服务端会回 400：{body}");
+        assert!(object.get("size").is_none());
+        assert!(object.get("content_hash").is_none());
+        assert!(object.get("check_name_mode").is_none());
+    }
+
+    #[test]
+    fn the_create_folder_body_declares_the_folder_type() {
+        let body = aliyun_create_folder_body("drive-1", "parent-1", "新建");
+
+        assert_eq!(body["type"], ALIYUN_ENTRY_TYPE_FOLDER);
+        assert_eq!(body["name"], "新建");
+        assert_eq!(body["drive_id"], "drive-1");
+        assert_eq!(body["parent_file_id"], "parent-1");
+        assert_eq!(body.as_object().expect("对象").len(), 4);
+    }
+
+    /// 重命名的字段叫 `name` —— 叫 `file_name` 服务端会回 200 但**不生效**。
+    #[test]
+    fn the_rename_body_uses_name_and_not_file_name() {
+        let body = aliyun_rename_body("drive-1", "file-1", "b.txt");
+
+        assert_eq!(body["name"], "b.txt");
+        assert!(body.get("file_name").is_none());
+        assert_eq!(body["file_id"], "file-1");
+        assert_eq!(body["drive_id"], "drive-1");
+    }
+
+    /// 删除必须带 `type`。
+    #[test]
+    fn the_delete_body_carries_the_entry_type() {
+        let body = aliyun_delete_body("drive-1", "file-1", ALIYUN_ENTRY_TYPE_FILE);
+
+        assert_eq!(body["type"], ALIYUN_ENTRY_TYPE_FILE);
+        assert_eq!(body["file_id"], "file-1");
+        assert_eq!(body["drive_id"], "drive-1");
+        assert_eq!(body.as_object().expect("对象").len(), 3);
+    }
+
+    #[test]
+    fn the_complete_and_move_bodies_carry_their_session_fields() {
+        let complete = aliyun_complete_upload_body("drive-1", "file-1", "upload-1", "revision-1");
+        assert_eq!(complete["upload_id"], "upload-1");
+        assert_eq!(complete["revision_id"], "revision-1");
+        assert_eq!(complete["file_id"], "file-1");
+
+        let moved = aliyun_move_body("drive-1", "file-1", "target-1");
+        assert_eq!(moved["to_parent_file_id"], "target-1");
+        assert_eq!(moved["file_id"], "file-1");
+        assert_eq!(moved.as_object().expect("对象").len(), 3);
+    }
+
+    // ------------------------------------------------------------------
+    // 响应解析
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn the_create_payload_yields_the_upload_session_and_the_parts() {
+        let body = r#"{
+            "file_id": "file-1",
+            "upload_id": "upload-1",
+            "revision_id": "revision-1",
+            "part_info_list": [
+                {"part_number": 1, "upload_url": "https://oss.example/p1", "size": 10}
+            ]
+        }"#;
+
+        let parsed = aliyun_parse_create_payload(body).expect("解析 create 响应");
+
+        assert_eq!(parsed.file_id, "file-1");
+        assert_eq!(parsed.upload_id.as_deref(), Some("upload-1"));
+        assert_eq!(parsed.revision_id.as_deref(), Some("revision-1"));
+        assert_eq!(parsed.parts.len(), 1);
+        assert_eq!(parsed.parts[0].part_number, 1);
+        assert_eq!(parsed.parts[0].upload_url, "https://oss.example/p1");
+        assert_eq!(parsed.parts[0].size, Some(10));
+    }
+
+    #[test]
+    fn a_create_payload_without_a_file_id_is_refused() {
+        let error = aliyun_parse_create_payload(r#"{"upload_id":"upload-1"}"#)
+            .expect_err("没有 file_id 不能往下走");
+
+        assert_eq!(error.kind, RemoteErrorKind::Protocol);
+    }
+
+    #[test]
+    fn a_write_ack_accepts_an_empty_body_and_reads_the_name() {
+        assert_eq!(aliyun_parse_write_ack("").expect("空体也算成功"), None);
+        assert_eq!(
+            aliyun_parse_write_ack(r#"{"file_name":"b.txt"}"#).expect("读名字"),
+            Some("b.txt".to_string())
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // 分片区间
+    // ------------------------------------------------------------------
+
+    fn part(number: u32, size: Option<u64>) -> AliyunUploadPart {
+        AliyunUploadPart {
+            part_number: number,
+            upload_url: format!("https://oss.example/p{number}"),
+            size,
+        }
+    }
+
+    /// 实测只有一片 ⇒ 整个文件就是这一片。
+    #[test]
+    fn a_single_part_covers_the_whole_file() {
+        let ranges = aliyun_part_ranges(11, &[part(1, None)]).expect("切分");
+
+        assert_eq!(ranges.len(), 1);
+        assert_eq!(ranges[0].start, 0);
+        assert_eq!(ranges[0].end, 11);
+        assert_eq!(ranges[0].upload_url, "https://oss.example/p1");
+    }
+
+    #[test]
+    fn several_parts_are_cut_by_the_sizes_the_server_gave() {
+        let ranges = aliyun_part_ranges(9, &[part(2, Some(4)), part(1, Some(5))]).expect("切分");
+
+        assert_eq!(ranges.len(), 2);
+        assert_eq!(ranges[0].part_number, 1);
+        assert_eq!((ranges[0].start, ranges[0].end), (0, 5));
+        assert_eq!(ranges[1].part_number, 2);
+        assert_eq!((ranges[1].start, ranges[1].end), (5, 9));
+        assert_eq!(ranges[1].upload_url, "https://oss.example/p2");
+    }
+
+    /// 切不出来就**明确报错**，绝不猜 —— 猜错等于把文件写坏。
+    #[test]
+    fn several_parts_without_sizes_are_refused_instead_of_guessed() {
+        let error =
+            aliyun_part_ranges(9, &[part(1, None), part(2, None)]).expect_err("没有大小就不能切");
+
+        assert_eq!(error.kind, RemoteErrorKind::Protocol);
+    }
+
+    #[test]
+    fn several_parts_whose_sizes_do_not_add_up_are_refused() {
+        let error = aliyun_part_ranges(9, &[part(1, Some(4)), part(2, Some(4))])
+            .expect_err("对不上就不能切");
+
+        assert_eq!(error.kind, RemoteErrorKind::Protocol);
+    }
+
+    #[test]
+    fn no_parts_at_all_is_refused() {
+        let error = aliyun_part_ranges(9, &[]).expect_err("没有分片信息就不能传");
+
+        assert_eq!(error.kind, RemoteErrorKind::Protocol);
+    }
+
+    // ------------------------------------------------------------------
+    // 错误映射与文案纪律
+    // ------------------------------------------------------------------
+
+    /// 文案里**不许**出现服务端原文、错误码、token。
+    #[test]
+    fn a_write_failure_never_leaks_the_server_payload() {
+        let body = r#"{"code":"Forbidden.AccessDenied","message":"token=abc123 refresh_token=zzz"}"#;
+
+        let error = aliyun_map_write_failure("上传文件", 403, body);
+
+        assert_eq!(error.kind, RemoteErrorKind::Auth);
+        assert!(
+            !error.message.contains("abc123"),
+            "泄漏了 token：{}",
+            error.message
+        );
+        assert!(
+            !error.message.contains("zzz"),
+            "泄漏了 refresh_token：{}",
+            error.message
+        );
+        assert!(
+            !error.message.contains("Forbidden"),
+            "泄漏了错误码：{}",
+            error.message
+        );
+        assert!(
+            error.message.contains("上传文件"),
+            "文案要说清是哪个操作：{}",
+            error.message
+        );
+    }
+
+    #[test]
+    fn an_already_exist_failure_gets_a_readable_sentence() {
+        let body = r#"{"code":"AlreadyExist.File","message":"whatever"}"#;
+
+        let error = aliyun_map_write_failure("新建文件", 400, body);
+
+        assert!(
+            error.message.contains("已经"),
+            "文案没说要怎么办：{}",
+            error.message
+        );
+        assert!(aliyun_failure_is_already_exist(body));
+        assert!(!aliyun_failure_is_already_exist(r#"{"code":"Other"}"#));
+    }
+
+    #[test]
+    fn the_entry_type_name_follows_the_is_directory_flag() {
+        assert_eq!(aliyun_entry_type_name(true), ALIYUN_ENTRY_TYPE_FOLDER);
+        assert_eq!(aliyun_entry_type_name(false), ALIYUN_ENTRY_TYPE_FILE);
+    }
+}
+
 mod paging_tests {
     use super::{
         aliyun_fetch_all_list_pages, aliyun_fetch_list_page, RemoteError, RemoteErrorKind,

@@ -20,6 +20,7 @@ import FileBrowserEntryIcon from './file-browser-entry-icon.vue';
 // FORK-MODIFICATION 2026-10-27：就地重命名的输入框。
 import FileBrowserInlineRenameInput from './file-browser-inline-rename-input.vue';
 import { useFileBrowserContext } from './composables/use-file-browser-context';
+import { getFileBrowserEntryKey } from './utils/file-browser-entry-key';
 import { usePlatformStore } from '@/stores/runtime/platform';
 import { resolveImageDisplaySrc } from '@/modules/navigator/utils/resolve-image-display-src';
 import { useDevicePixelPreviewSize } from '@/modules/navigator/composables/use-device-pixel-preview-size';
@@ -354,6 +355,7 @@ watch(imagePreviewPlaceholderSrc, () => {
       },
     ]"
     :data-entry-path="props.entry.path"
+    :data-entry-key="getFileBrowserEntryKey(props.entry)"
     :data-selected="ctx.isEntrySelected(props.entry) || undefined"
     :data-in-clipboard="clipboardPathsMap.has(props.entry.path) || undefined"
     :data-clipboard-type="clipboardPathsMap.get(props.entry.path) || undefined"

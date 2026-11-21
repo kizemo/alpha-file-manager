@@ -61,6 +61,8 @@ pub fn to_dir_entry(entry: &RemoteEntry) -> DirEntry {
         link_target: None,
         link_status: None,
         hard_link_count: None,
+        entry_id: entry.entry_id.clone(),
+        thumbnail_url: entry.thumbnail_url.clone(),
     }
 }
 
@@ -102,7 +104,34 @@ mod tests {
             modified_time: 1_700_000_000_000,
             is_hidden: name.starts_with('.'),
             is_symlink: false,
+            entry_id: None,
+            thumbnail_url: None,
         }
+    }
+
+    #[test]
+    fn the_entry_id_and_thumbnail_url_are_passed_through_to_the_local_entry() {
+        // 批次 32：前端靠 `entry_id` 区分「同目录同名条目」，靠 `thumbnail_url`
+        // 直接给 `<img src>` 用。两个都不能在适配层丢掉。
+        let mut remote = entry("photo.jpg", false);
+        remote.entry_id = Some("aliyun:file-a".to_string());
+        remote.thumbnail_url = Some("https://example.invalid/thumb.jpg".to_string());
+
+        let converted = to_dir_entry(&remote);
+
+        assert_eq!(converted.entry_id.as_deref(), Some("aliyun:file-a"));
+        assert_eq!(
+            converted.thumbnail_url.as_deref(),
+            Some("https://example.invalid/thumb.jpg")
+        );
+    }
+
+    #[test]
+    fn an_entry_without_an_id_or_thumbnail_reports_none_for_both() {
+        let converted = to_dir_entry(&entry("readme.txt", false));
+
+        assert_eq!(converted.entry_id, None);
+        assert_eq!(converted.thumbnail_url, None);
     }
 
     #[test]

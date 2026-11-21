@@ -2150,6 +2150,8 @@ mod tests {
             modified_time: 0,
             is_hidden: false,
             is_symlink,
+            entry_id: None,
+            thumbnail_url: None,
         };
 
         let mut directories: BTreeMap<String, Vec<RemoteEntry>> = BTreeMap::new();

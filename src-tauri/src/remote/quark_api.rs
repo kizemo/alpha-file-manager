@@ -1017,6 +1017,8 @@ pub fn to_remote_entry(
         is_dir: quark_entry_is_directory(entry),
         size: quark_size_to_bytes(entry.size, QUARK_DEFAULT_SIZE_UNIT),
         modified_time: quark_timestamp_to_unix_millis(entry.updated_at, QUARK_DEFAULT_TIME_UNIT),
+        entry_id: None,
+        thumbnail_url: None,
         name,
         path,
     })
