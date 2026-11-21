@@ -42,6 +42,7 @@ mod quark_auth;
 mod quark_provider;
 mod registry;
 mod sftp_provider;
+mod thumbnails;
 mod transfer;
 mod transport;
 
@@ -138,6 +139,9 @@ pub use commands::*;
 // `provider_with_protocol` 是 `pub(crate)`，glob 具名再导出**不会**带上它
 // （glob 只搬 `pub` 的项），所以这里单独放一行给 `compare` 模块用。
 pub(crate) use commands::provider_with_protocol;
+// 同上，**必须是 glob**：`generate_handler!` 要按名字找 `remote_generate_thumbnail`
+// 连同它生成的 `__cmd__remote_generate_thumbnail`，具名再导出只搬函数本身 ⇒ E0433。
+pub use thumbnails::*;
 pub use connection_test::{parse_ftp_reply_code, ConnectionTestReport, ProbeOutcome, ProbeTarget};
 pub use credentials::{
     credentials_path_in, delete_credential, load_credential, save_credential,

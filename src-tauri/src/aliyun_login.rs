@@ -54,7 +54,7 @@ use crate::remote::{
     aliyun_user_info_request_body, delete_aliyun_session, load_aliyun_session,
     save_aliyun_session, AliyunAuthSession, AliyunQrClientContext, AliyunQrCredentials,
     AliyunQrStatus, AliyunUserProfile, RemoteError, ALIYUN_QR_GENERATE_URL,
-    ALIYUN_QR_QUERY_URL, ALIYUN_USER_AGENT, ALIYUN_USER_INFO_URL,
+    ALIYUN_QR_QUERY_URL, ALIYUN_USER_AGENT, ALIYUN_USER_INFO_URL, ALIYUN_WEB_CLIENT_ID,
 };
 
 /// 单次请求的超时。
@@ -341,7 +341,9 @@ fn session_from_credentials(
             .default_drive_id
             .clone()
             .or_else(|| credentials.default_drive_id.clone()),
-        client_id: String::new(),
+        // 扫码拿到的 token 属于网页端 ⇒ 续期也只能用网页端公开 id。
+        // 批次 34 前这里存的是空串，导致 access_token 过期后永远续不上。
+        client_id: ALIYUN_WEB_CLIENT_ID.to_string(),
         redirect_uri: None,
         scope: None,
         token_type: "Bearer".to_string(),

@@ -446,6 +446,7 @@ pub fn run() {
             remote::remote_remove_path,
             remote::remote_make_dir,
             remote::remote_rename_path,
+            remote::remote_generate_thumbnail,
             compare::commands::compare_directories,
             compare::commands::preview_compare_sync,
             compare::commands::start_compare_sync_job,

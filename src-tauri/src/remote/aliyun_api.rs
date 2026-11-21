@@ -760,13 +760,75 @@ pub fn aliyun_authorization_code_body(client_id: &str, code: &str) -> Value {
 
 /// 用刷新凭证换新 token 的请求体（**web 分支**）。
 ///
-/// ⚠️ 刷新端点**未实测**（批次 27 未关闭项 5）⇒ 刷新失败时明确报
-/// 「请重新授权」，不影响只读主流程。
+/// ⚠️ 批次 34 真机实测订正：`client_id` **不是**「随手补一个公开 id 就行」。
+/// 服务端先认 `refresh_token`、再校验 `client_id`；真实 token 配错 client 会回
+/// `400 InvalidParameter.ClientId`。续期必须按候选链逐个试，
+/// 见 [`aliyun_refresh_client_id_candidates`]。
 pub fn aliyun_refresh_token_body(client_id: &str, refresh_token: &str) -> Value {
-    serde_json::json!({
-        "client_id": client_id,
-        "refresh_token": refresh_token,
-    })
+    aliyun_refresh_token_body_with_client_id(Some(client_id), refresh_token)
+}
+
+/// 同上，但允许**完全不带** `client_id`。
+///
+/// 端点矩阵实测（批次 34，假 token 非破坏探测）：完全不带 `client_id` 时
+/// 服务端只报 `InvalidParameter.RefreshToken`，**不报** client 相关错误
+/// ⇒ `client_id` 在参数层面是**可选**的。这是候选链的最后一级：当握手方的
+/// client 与签发方不一致时，退回「不带 client」是唯一不消耗凭证的续期通路。
+pub fn aliyun_refresh_token_body_with_client_id(
+    client_id: Option<&str>,
+    refresh_token: &str,
+) -> Value {
+    let mut body = serde_json::Map::new();
+    if let Some(client_id) = client_id.map(str::trim).filter(|id| !id.is_empty()) {
+        body.insert(
+            "client_id".to_string(),
+            Value::String(client_id.to_string()),
+        );
+    }
+    body.insert(
+        "refresh_token".to_string(),
+        Value::String(refresh_token.to_string()),
+    );
+    Value::Object(body)
+}
+
+/// 续期请求的 `client_id` 候选链（按尝试顺序，已去重，**末级是 `None`**）。
+///
+/// 顺序：会话里存的值 → 网页端公开 id → 不带 `client_id`。
+///
+/// 为什么需要链：服务端**先认 `refresh_token`、再校验 `client_id`**
+/// （批次 34 矩阵：假 token 配任何 client_id 都只回
+/// `InvalidParameter.RefreshToken`）⇒ 用假 token 探不出正确 client，
+/// 而用真 token 做一次性探测会消耗凭证。链式降级不需要事先知道答案。
+pub fn aliyun_refresh_client_id_candidates(stored: &str) -> Vec<Option<String>> {
+    let mut candidates: Vec<Option<String>> = Vec::new();
+
+    let stored = stored.trim();
+    if !stored.is_empty() {
+        candidates.push(Some(stored.to_string()));
+    }
+
+    let web = ALIYUN_WEB_CLIENT_ID.trim();
+    if !web.is_empty() && candidates.iter().all(|candidate| candidate.as_deref() != Some(web)) {
+        candidates.push(Some(web.to_string()));
+    }
+
+    candidates.push(None);
+    candidates
+}
+
+/// 该响应体是否是「`client_id` 与签发方不一致」这一类拒绝。
+///
+/// **只认** `InvalidParameter.ClientId` 这个码。不要把 `InvalidParameter.*`
+/// 整体当成同一件事：`InvalidParameter.RefreshToken` 表示凭证本身已死，
+/// 换 client 重试没有意义。
+pub fn aliyun_failure_rejects_client_id(body: &str) -> bool {
+    aliyun_parse_failure(body)
+        .code
+        .as_deref()
+        .map(str::trim)
+        .map(|code| code == "InvalidParameter.ClientId")
+        .unwrap_or(false)
 }
 
 /// 列目录的请求体。
@@ -1993,6 +2055,66 @@ mod tests {
         assert_eq!(body["client_id"], serde_json::json!("client-1"));
         assert_eq!(body["refresh_token"], serde_json::json!("the-refresh"));
         assert!(body.get("client_secret").is_none());
+    }
+
+    #[test]
+    fn the_refresh_body_can_omit_the_client_id_entirely() {
+        let body = aliyun_refresh_token_body_with_client_id(None, "the-refresh");
+
+        assert!(body.get("client_id").is_none());
+        assert_eq!(body["refresh_token"], serde_json::json!("the-refresh"));
+    }
+
+    #[test]
+    fn a_blank_client_id_is_never_emitted() {
+        let body = aliyun_refresh_token_body_with_client_id(Some("   "), "the-refresh");
+
+        assert!(body.get("client_id").is_none());
+        assert_eq!(body["refresh_token"], serde_json::json!("the-refresh"));
+    }
+
+    #[test]
+    fn refresh_client_id_candidates_end_with_no_client_at_all() {
+        let candidates = aliyun_refresh_client_id_candidates("  ");
+
+        assert_eq!(
+            candidates,
+            vec![Some(ALIYUN_WEB_CLIENT_ID.to_string()), None]
+        );
+    }
+
+    #[test]
+    fn refresh_client_id_candidates_never_repeat_the_web_client_id() {
+        let candidates = aliyun_refresh_client_id_candidates(ALIYUN_WEB_CLIENT_ID);
+
+        assert_eq!(
+            candidates,
+            vec![Some(ALIYUN_WEB_CLIENT_ID.to_string()), None]
+        );
+    }
+
+    #[test]
+    fn refresh_client_id_candidates_try_the_stored_id_first() {
+        let candidates = aliyun_refresh_client_id_candidates("stored-client");
+
+        assert_eq!(
+            candidates,
+            vec![
+                Some("stored-client".to_string()),
+                Some(ALIYUN_WEB_CLIENT_ID.to_string()),
+                None
+            ]
+        );
+    }
+
+    #[test]
+    fn only_the_client_id_rejection_is_worth_retrying() {
+        let rejected = r#"{"code":"InvalidParameter.ClientId"}"#;
+        let dead_token = r#"{"code":"InvalidParameter.RefreshToken"}"#;
+
+        assert!(aliyun_failure_rejects_client_id(rejected));
+        assert!(!aliyun_failure_rejects_client_id(dead_token));
+        assert!(!aliyun_failure_rejects_client_id("not json"));
     }
 
     // ---- 授权页 -------------------------------------------------------------

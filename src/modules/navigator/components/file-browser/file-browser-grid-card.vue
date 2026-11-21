@@ -24,6 +24,7 @@ import { getFileBrowserEntryKey } from './utils/file-browser-entry-key';
 import { usePlatformStore } from '@/stores/runtime/platform';
 import { resolveImageDisplaySrc } from '@/modules/navigator/utils/resolve-image-display-src';
 import { useDevicePixelPreviewSize } from '@/modules/navigator/composables/use-device-pixel-preview-size';
+import { quantizeImageThumbnailMaxDimension } from './composables/use-image-thumbnails';
 import { getImageSrc } from './utils';
 import { getDriveEntryVolumeSizeBytes, getDriveEntryAvailableSpaceBytes } from '@/utils/drive-icon';
 import { getDriveFillLevel, getUsedSpacePercent } from '@/modules/navigator/utils/drive-usage';
@@ -72,7 +73,14 @@ const clipboardPathsMap = computed(() => {
 
   return map;
 });
-const imageThumbnailMaxDimension = computed(() => Math.max(previewSize.value.width, previewSize.value.height));
+// FORK-MODIFICATION 2026-11-21（批次 34 缺陷 A）：必须量化后再当缓存键用。
+// `previewSize` 是布局实测值（`clientWidth * devicePixelRatio`），会被滚动条出现/消失与
+// 亚像素抖动改写；它进缩略图缓存键 ⇒ 抖动即换 key，同一张图反复重下，而主图样式是
+// `--final { opacity: 0 }` + `--final-loaded { opacity: 1 }`，键一变 `--final-loaded` 就失效
+// ⇒ 网格视图的图片停在透明态（列表视图用固定 48px 单一键，所以不受影响）。
+const imageThumbnailMaxDimension = computed(() => quantizeImageThumbnailMaxDimension(
+  Math.max(previewSize.value.width, previewSize.value.height),
+));
 const imagePreviewSrc = computed(() => {
   if (props.variant !== 'image' || !isPreviewInLoadRange.value) {
     return undefined;
