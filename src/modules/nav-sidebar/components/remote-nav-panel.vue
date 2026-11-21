@@ -13,8 +13,12 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
   网盘与远程连接**分区**而不是混在一张列表里：两者的录入方式完全不同
   （网盘要 Cookie，FTP 要主机端口），后续还要加阿里云盘等更多网盘，
-  混排会让「网盘」越来越难认出来。每个分区自带一颗添加按钮，
-  点它直接落到设置页的对应标签页（网盘 / 远程连接）。
+  混排会让「网盘」越来越难认出来。
+
+  **只有「远程连接」分区保留添加按钮**（用户 2026-11-21）：网盘分区原先
+  在标题右侧并排挂着「+添加网盘 / +夸克网盘 / +阿里云盘」三颗按钮，用户
+  要求把这一整行去掉。添加网盘的入口没丢 —— 设置页的「远程」分类里有一
+  整块「添加网盘」面板，三个 provider 都在那里。
 
   连接列表**直接读 store**，不在这里缓存一份：
   面板可能在设置页改完连接后还开着（悬停面板本来就常驻），
@@ -35,7 +39,7 @@ import { hasRemoteLocalPath, isNetdiskProtocol } from '@/types/remote';
 import type { RemoteConnection, RemoteProtocol } from '@/types/remote';
 
 const emit = defineEmits<{
-  /** 新建请求，附带要预置的协议（网盘分区给 `baidu_pan`）。 */
+  /** 新建请求，附带要预置的协议（远程连接分区给 `ftp`）。 */
   add: [protocol: RemoteProtocol];
   openSettings: [];
   open: [connection: RemoteConnection];
@@ -58,27 +62,17 @@ const sections = computed(() => [
   {
     key: 'netdisk',
     label: t('settings.remote.nav.netdisk'),
-    addLabel: t('settings.remote.nav.addNetdisk'),
+    /**
+     * 网盘分区的标题行**不再有添加按钮**（用户 2026-11-21）。
+     *
+     * 原来这里并排挂着「+添加网盘 / +夸克网盘 / +阿里云盘」三颗按钮，
+     * 用户要求整行去掉 —— 悬停面板只负责「打开已有的连接」，
+     * 新建连接归设置页的「远程」分类管。
+     */
+    addLabel: '',
     emptyLabel: t('settings.remote.nav.emptyNetdisk'),
     protocol: 'baidu_pan' as RemoteProtocol,
-    /**
-     * 该分区**除默认 provider 之外**还能预置的 provider。
-     *
-     * 网盘协议不在表单的协议下拉里，所以「添加夸克网盘」只能从这一层发起点进去 ——
-     * 否则用户点「添加网盘」永远只会得到百度的表单。
-     */
-    extraProviders: [
-      {
-        protocol: 'quark_pan' as RemoteProtocol,
-        label: t('settings.remote.netdisk.quark'),
-      },
-      {
-        // 阿里云盘（2026-11-19 批次 26）：点它落到设置页的连接表单，
-        // 让用户填 OAuth 的 client_id —— 授权窗由表单里那颗按钮开。
-        protocol: 'aliyun_pan' as RemoteProtocol,
-        label: t('settings.remote.netdisk.aliyun'),
-      },
-    ],
+    showActions: false,
     connections: connections.value.filter(connection => isNetdiskProtocol(connection.protocol)),
   },
   {
@@ -87,7 +81,7 @@ const sections = computed(() => [
     addLabel: t('settings.remote.nav.addRemote'),
     emptyLabel: t('settings.remote.nav.emptyRemote'),
     protocol: 'ftp' as RemoteProtocol,
-    extraProviders: [],
+    showActions: true,
     connections: connections.value.filter(connection => !isNetdiskProtocol(connection.protocol)),
   },
 ]);
@@ -124,7 +118,10 @@ onMounted(async () => {
     >
       <div class="remote-nav-panel__section-head">
         <span class="remote-nav-panel__label">{{ section.label }}</span>
-        <div class="remote-nav-panel__section-actions">
+        <div
+          v-if="section.showActions"
+          class="remote-nav-panel__section-actions"
+        >
           <button
             type="button"
             class="remote-nav-panel__section-add"
@@ -133,17 +130,6 @@ onMounted(async () => {
           >
             <PlusIcon :size="12" />
             <span>{{ section.addLabel }}</span>
-          </button>
-          <button
-            v-for="provider in section.extraProviders"
-            :key="provider.protocol"
-            type="button"
-            class="remote-nav-panel__section-add"
-            :data-test="`remote-nav-add-${provider.protocol}`"
-            @click="emit('add', provider.protocol)"
-          >
-            <PlusIcon :size="12" />
-            <span>{{ provider.label }}</span>
           </button>
         </div>
       </div>
@@ -252,6 +238,8 @@ onMounted(async () => {
  * 刻意做成「文字 + 图标」的小按钮而不是纯图标：图标轨上的纯图标按钮
  * 已经被证明太隐蔽（用户反馈「找不到添加入口」），这里是面板内的第二道
  * 入口，宁可显眼一点也不藏着。
+ *
+ * 只有「远程连接」分区用它 —— 网盘分区的这一行已被用户要求去掉。
  */
 
 .remote-nav-panel__section-add {
