@@ -6,7 +6,7 @@
 
 ## 0. 一句话现状
 
-**远程缩略图线已收成可交付状态**：批次 34 遗留的最后一个真实产品缺陷「远程读取失败 → 点了没反应」已修复并真机坐实（同一探针在旧 3.16.0 上 FAIL、在新 3.16.1 上 PASS）；5 条既存 `unused import` 清干净；版本从 3.16.0 升到 **3.16.1**，根 `CHANGELOG.md` + 14 个本地化更新日志订正了被证伪的「直链缩略图」说法；四道门禁全绿；3.16.1 已打包、已装机。J1/J2 回归在 3.16.1 上 **run1 实测 PASS 且阈值逐字节未改**；其后三轮因**上游阿里云盘返回 HTTP 400** 记 UNDETERMINED（已坐实非本轮回归，且那几次的真实故障反过来又验证了「错误可见」）。**发布（推 tag / 上传站点）本轮未执行，留用户拍板。**
+**远程缩略图线已收成可交付状态**：批次 34 遗留的最后一个真实产品缺陷「远程读取失败 → 点了没反应」已修复并真机坐实（同一探针在旧 3.16.0 上 FAIL、在新 3.16.1 上 PASS）；5 条既存 `unused import` 清干净；版本从 3.16.0 升到 **3.16.1**，根 `CHANGELOG.md` + 14 个本地化更新日志订正了被证伪的「直链缩略图」说法；四道门禁全绿；3.16.1 已打包、已装机。J1/J2 回归在 3.16.1 上 **run1 实测 PASS 且阈值逐字节未改**；其后四轮因**上游阿里云盘返回 HTTP 400** 记 UNDETERMINED（已坐实非本轮回归，且那几次的真实故障反过来又验证了「错误可见」）。**发布（推 tag / 上传站点）本轮未执行，留用户拍板。**
 
 ## 1. 背景（不重复调研，只给结论）
 
@@ -134,32 +134,35 @@ J2_UNCHANGED_RATIO  = 0.01    J2_UNCHANGED_MEANABS = 1.0
 
 ### 6.1 验收结论
 
-**J1/J2 不降阈值回归 = PASS（run1 实测有效）**；随后两轮因**上游阿里云盘 HTTP 400** 记 UNDETERMINED（不是构建回归，理由见下）。三轮都跑在**同一份 3.16.1 二进制**上 —— 三次 `preflight.exe` 均为 `version=3.16.1 bytes=85031424 sha256_16=391134BF073F0D5C`。
+**J1/J2 不降阈值回归 = PASS（run1 实测有效）**；随后**三轮**（run2/run3/run4）因**上游阿里云盘 HTTP 400** 记 UNDETERMINED（不是构建回归，理由见下）。四轮都跑在**同一份 3.16.1 二进制**上 —— 四次 `preflight.exe` 均为 `version=3.16.1 bytes=85031424 sha256_16=391134BF073F0D5C`。
 
 | 运行 | 时间 | 结论 | 依据 |
 | --- | --- | --- | --- |
 | **run1** | 21:53–21:56 | **PASS** | J1：`qualifying=8 placeholder=0 total=8`（对照项是 mp4 通用图标 `hue=1 / unique=43 / nonBg=0.0503`，8 ≥ 阈值 3）；J2：`entry1Changed=True entry2Changed=False`、`count=1`（点一个只选中一个） |
 | run2 | 22:02–22:04 | **UNDETERMINED** | `NAV_ROOT_TIMEOUT` / `FATAL could not reach the remote root`，J1/J2 均 `not evaluated`。**启动截图逐字显示「无法打开此文件夹 / 阿里云盘返回了 HTTP 400，响应内容无法识别。」** |
 | run3 | 22:06–22:07 | **UNDETERMINED** | 同 run2，同一张截图、同一个报错 |
+| **run4**（22:19–22:21 复测） | 22:19–22:21 | **UNDETERMINED** | 同 run2/run3：`NAV_ROOT_TIMEOUT` → `FATAL could not reach the remote root`，`errors=[VIEW_NOT_BROWSER_AFTER_RAIL_SWEEP, NAV_ROOT_TIMEOUT, FATAL …]`，J1/J2 均 `not evaluated`。**启动截图（`b32-accept-remote-ui-01-boot.png`）逐字仍是「无法打开此文件夹 / 阿里云盘返回了 HTTP 400，响应内容无法识别。」**，右栏连接 `阿里云盘` 路径 `sfm://remote/689681a8458d40979383d1ed8efbd948` 正常，面板 `0 个项目` + 错误横幅可见 |
 
-**阈值逐字节未改**：两轮报告的 `thresholds` 对象完全相同（脚本比对结果 `True`）——`J1_hueMin=5`、`J1_hueRatio=2`、`J1_nonBgDelta=0.15`、`J1_uniqueRatio=3`、`J1_minSamples=3`、`J1_placeholderNonBg=0.2`、`J2_changedRatio=0.05`、`J2_changedMeanAbs=3`、`J2_unchangedRatio=0.01`、`J2_unchangedMeanAbs=1`。
+**阈值逐字节未改**：run1 与 run2 报告的 `thresholds` 对象完全相同（脚本比对结果 `True`）；run4 报告的 `thresholds` 与之逐字节一致 —— `J1_hueMin=5`、`J1_hueRatio=2`、`J1_nonBgDelta=0.15`、`J1_uniqueRatio=3`、`J1_minSamples=3`、`J1_uniformStdLum=6`、`J1_uniformNonBg=0.05`、`J1_placeholderNonBg=0.2`、`J2_changedRatio=0.05`、`J2_changedMeanAbs=3`、`J2_unchangedRatio=0.01`、`J2_unchangedMeanAbs=1`。
 
-**run2/run3 不是构建回归**，三条理由：
+**run2/run3/run4 不是构建回归**，三条理由：
 
-1. 同一份二进制在 2 分钟前的 run1 刚刚 PASS；
-2. 失败原因是**上游返回 HTTP 400**，报错文案与截图都在现场文件里，不在我方代码路径上；
+1. 同一份二进制在 run1 刚刚 PASS；run4 的 `preflight.exe` 报出的 `sha256_16=391134BF073F0D5C` 与 run1 **逐字相同**，跑的是同一个安装包；
+2. 失败原因是**上游返回 HTTP 400**，报错文案与截图都在现场文件里，不在我方代码路径上（run4 截图再次逐字复现同一句报错）；
 3. 本轮改动只有「错误发生之后怎么办」，**不可能制造 HTTP 400**（网络代码一行未动；5 条 `unused import` 是纯删除；版本号只改字符串）。
 
-**附带收获**：run2/run3 这两次**真实上游故障**，反过来又证明修复在真实故障下生效 —— 错误留在原地可见（标题「无法打开此文件夹」＋原因「阿里云盘返回了 HTTP 400…」），而不是像 3.16.0 那样静默跳回「位置」零提示。
+**附带收获**：run2/run3/run4 这三次**真实上游故障**，反过来又证明修复在真实故障下生效 —— 错误留在原地可见（标题「无法打开此文件夹」＋原因「阿里云盘返回了 HTTP 400…」），而不是像 3.16.0 那样静默跳回「位置」零提示。
 
 **上游活性复核（22:10，`.superpowers\sdd\b35\live-A\`）**：**通网**状态下只跑阶段 A ⇒ `PHASE_A=UNDETERMINED`，理由「remote content did not appear; **an error banner was visible although the network was open**」，远程条目数 0。⇒ **上游此刻仍坏着**，本轮末尾无法再做一次干净的 J1/J2。
 
+**run4 复测（22:19–22:21，交付收口前）**：再次跑完整 J1/J2 脚本 ⇒ 仍 `NAV_ROOT_TIMEOUT`（`nav.remote_root` FAIL，`VIEW_NOT_BROWSER_AFTER_RAIL_SWEEP` 先行出现但脚本按既定回退继续），J1/J2 `not evaluated`，`VERDICT=UNDETERMINED`。**同一二进制、同一阈值、同一失败点、同一句上游 400 报错** ⇒ 上游自 20:55 起一直没恢复，**不是**本轮回归。
+
 **排除本机/本轮因素的两条旁证**：
 
-- **防火墙已彻底清理**：按 `ApplicationFilter.Program` 精确查该 exe 路径，只剩 2 条**入站 Allow**（安装器自带的旧规则），**没有任何出站 Block**；b35 探针自己也报 `stillPresentAfterRun=false`。
-- **远程缩略图缓存写入停在 20:55:50**（56 个文件，最新 mtime 20:55:50）——run1 的 J1 是**复用缓存里已有的图**；21:00 之后上游就不再供图，与 run2/run3 的失败窗口吻合。
+- **防火墙已彻底清理**：按 `ApplicationFilter.Program` 精确查该 exe 路径，只剩 2 条**入站 Allow**（安装器自带的旧规则），**没有任何出站 Block**；b35 探针自己也报 `stillPresentAfterRun=false`。run4 之后复查仍是这一条（同名规则只有那 2 条入站 Allow；出站 Block 名单里只有 Xbox / codex_sandbox / recuva 等无关项）。
+- **远程缩略图缓存写入停在 20:55:50**（56 个文件，最新 mtime 20:55:50）——run1 的 J1 是**复用缓存里已有的图**；21:00 之后上游就不再供图，与 run2/run3/run4 的失败窗口吻合。run4 时点（22:21）复查仍是 **56 个文件 / 最新 mtime 20:55:50**，即上游三个多小时没再供过一张新图。
 
-**已知非致命瞬时项**：`VIEW_NOT_BROWSER_AFTER_RAIL_SWEEP`（t≈28–30 s 时侧栏还没渲染完，`RAIL_CANDIDATES count=0`），脚本随后回退到已打开的浏览视图（`VIEW_ALREADY_BROWSER`）继续；**run1 也出现过**，不影响 J1/J2 判定。
+**已知非致命瞬时项**：`VIEW_NOT_BROWSER_AFTER_RAIL_SWEEP`（t≈28–30 s 时侧栏还没渲染完，`RAIL_CANDIDATES count=0`），脚本随后回退到已打开的浏览视图（`VIEW_ALREADY_BROWSER`）继续；**run1 与 run4 都出现过**，不影响 J1/J2 判定。
 
 ## 7. 已验证 / 推断 / 未验证（别混）
 
@@ -188,7 +191,7 @@ J2_UNCHANGED_RATIO  = 0.01    J2_UNCHANGED_MEANABS = 1.0
 
 1. **用户拍板发布**（本轮刻意不做，属对外动作）：推 `v3.16.1` tag + push + 上传安装包到站点 `version.json`。仓库自带发布脚本：`npm run release:status` / `release:prepare` / `release:upload` / `release:verify` / `release:github`。**注意 `main` 当前比 `origin/main` 领先 4 个提交**（批次 33、34、35 都还没 push），推 tag 前应先把分支推上去。
 2. **用户拍板清理**：陈旧 `v3.16.0` 标签（指向未发布的 `0f55acf2`）是否 `git tag -f` 改指或删除；`release/` 顶层那份 3.16.0 旧包是否移入 `local-builds/`。
-3. **上游恢复后补一次干净的 J1/J2**（不阻塞本轮交付）：run1 已是有效 PASS，但 run2/run3/live-A 三次都因阿里云盘 HTTP 400 未判定。等阿里云盘恢复（若是登录态失效，在应用里重新扫码登录一次）后，用同一条命令重跑 `.superpowers\sdd\b32\b32-accept-remote-ui.ps1` 取一份 `errors` 为空的报告即可。
+3. **上游恢复后补一次干净的 J1/J2**（不阻塞本轮交付）：run1 已是有效 PASS，但 run2/run3/run4/live-A **四次**都因阿里云盘 HTTP 400 未判定（run4 是 22:19–22:21 的复测）。等阿里云盘恢复（若是登录态失效，在应用里重新扫码登录一次）后，用同一条命令重跑 `.superpowers\sdd\b32\b32-accept-remote-ui.ps1` 取一份 `errors` 为空的报告即可。
 4. 若要继续「远程缩略图」线：把 `thumbnail_bytes` 能力从阿里云盘扩展到百度/夸克（trait 层已有默认实现可覆写，成本主要在各家 API 的取图接口）。
 5. 可选：把「远程读取失败必须可见」这条判据并入常驻回归脚本（它自带阴性对照，比人眼看截图可靠）。
 
@@ -237,6 +240,7 @@ J2_UNCHANGED_RATIO  = 0.01    J2_UNCHANGED_MEANABS = 1.0
 - run1（**有效 PASS**）：`.superpowers\sdd\b35\j1j2-3161\b32-accept-remote-ui.json`、`b35-accept-remote-ui-01-boot.png` … `-12-j2-context-menu.png`、`.superpowers\sdd\b35\b35-j1j2.stdout.log`
 - run2（UNDETERMINED，上游 400）：`.superpowers\sdd\b35\j1j2-3161-run2\b32-accept-remote-ui.json`、`b32-accept-remote-ui-01-boot.png`（**含 400 报错横幅**）、`.superpowers\sdd\b35\b35-j1j2-run2.stdout.log`
 - run3（UNDETERMINED，上游 400）：`.superpowers\sdd\b35\j1j2-3161-run3\b32-accept-remote-ui.json`、`b32-accept-remote-ui-01-boot.png`、`.superpowers\sdd\b35\b35-j1j2-run3.stdout.log`
+- run4（UNDETERMINED，上游 400，收口前复测）：`.superpowers\sdd\b35\j1j2-3161-run4\b32-accept-remote-ui.json`、`b32-accept-remote-ui-01-boot.png`（**含 400 报错横幅**）、`.superpowers\sdd\b35\b35-j1j2-run4.stdout.log`
 
 **上一轮沿用**
 
@@ -246,7 +250,7 @@ J2_UNCHANGED_RATIO  = 0.01    J2_UNCHANGED_MEANABS = 1.0
 - `.superpowers\sdd\b32\b34-accept-run13.log`、`b34-accept-run14.log`
 - `docs\handoff-2026-11-21-batch34-remote-thumbnail-implementation.md`
 
-## 11. 批次 35 收尾记录（2026-11-21 21:30–22:0x）
+## 11. 批次 35 收尾记录（2026-11-21 21:30–22:21，含 run4 收口复测）
 
 ### 11.1 收尾判词（本轮实测）
 
@@ -257,7 +261,7 @@ J2_UNCHANGED_RATIO  = 0.01    J2_UNCHANGED_MEANABS = 1.0
 | 打包 | 3.16.1 exe 85,031,424 B + NSIS 45,941,645 B，EXIT_build=0 |
 | 装机 | `VERDICT=INSTALL_IDENTITY_OK`，装机副本 ver=3.16.1 |
 | 验收 A | 旧 3.16.0 FAIL → 新 3.16.1 **PASS**（横幅可见，阴性对照 0 命中） |
-| 验收 B | **run1 PASS**（J1 `qualifying=8/8`、J2 `count=1`，阈值逐字节未改）；run2/run3/live-A **UNDETERMINED** —— 根因坐实为**上游阿里云盘 HTTP 400**，非本轮回归 |
+| 验收 B | **run1 PASS**（J1 `qualifying=8/8`、J2 `count=1`，阈值逐字节未改）；run2/run3/run4/live-A **UNDETERMINED** —— 根因坐实为**上游阿里云盘 HTTP 400**（run4 截图再次逐字复现），非本轮回归 |
 | 发布 | **未执行**（留用户拍板） |
 
 ### 11.2 本轮新踩的工具坑
