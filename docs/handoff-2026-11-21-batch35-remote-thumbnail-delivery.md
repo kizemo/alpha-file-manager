@@ -6,7 +6,7 @@
 
 ## 0. 一句话现状
 
-**远程缩略图线已收成可交付状态**：批次 34 遗留的最后一个真实产品缺陷「远程读取失败 → 点了没反应」已修复并真机坐实（同一探针在旧 3.16.0 上 FAIL、在新 3.16.1 上 PASS）；5 条既存 `unused import` 清干净；版本从 3.16.0 升到 **3.16.1**，根 `CHANGELOG.md` + 14 个本地化更新日志订正了被证伪的「直链缩略图」说法；四道门禁全绿；3.16.1 已打包、已装机。J1/J2 回归在 3.16.1 上 **run1 实测 PASS 且阈值逐字节未改**；其后四轮因**上游阿里云盘返回 HTTP 400** 记 UNDETERMINED（已坐实非本轮回归，且那几次的真实故障反过来又验证了「错误可见」）。**发布（推 tag / 上传站点）本轮未执行，留用户拍板。**
+**远程缩略图线已收成可交付状态**：批次 34 遗留的最后一个真实产品缺陷「远程读取失败 → 点了没反应」已修复并真机坐实（同一探针在旧 3.16.0 上 FAIL、在新 3.16.1 上 PASS）；5 条既存 `unused import` 清干净；版本从 3.16.0 升到 **3.16.1**，根 `CHANGELOG.md` + 14 个本地化更新日志订正了被证伪的「直链缩略图」说法；四道门禁全绿；3.16.1 已打包、已装机。J1/J2 回归在 3.16.1 上 **run1 实测 PASS 且阈值逐字节未改**；其后四轮因**上游阿里云盘返回 HTTP 400** 记 UNDETERMINED（已坐实非本轮回归，且那几次的真实故障反过来又验证了「错误可见」）。**发布（推分支 / 推 tag / 上传站点 / 建 GitHub Release）已于同日 22:32–22:40 按用户拍板执行完毕**；两处陈旧资产（从未发布的 `v3.16.0` 标签、`release\` 顶层的 3.16.0 旧包）一并清理，详见 §12。
 
 ## 1. 背景（不重复调研，只给结论）
 
@@ -262,7 +262,7 @@ J2_UNCHANGED_RATIO  = 0.01    J2_UNCHANGED_MEANABS = 1.0
 | 装机 | `VERDICT=INSTALL_IDENTITY_OK`，装机副本 ver=3.16.1 |
 | 验收 A | 旧 3.16.0 FAIL → 新 3.16.1 **PASS**（横幅可见，阴性对照 0 命中） |
 | 验收 B | **run1 PASS**（J1 `qualifying=8/8`、J2 `count=1`，阈值逐字节未改）；run2/run3/run4/live-A **UNDETERMINED** —— 根因坐实为**上游阿里云盘 HTTP 400**（run4 截图再次逐字复现），非本轮回归 |
-| 发布 | **未执行**（留用户拍板） |
+| 发布 | **已执行**（同日 22:32–22:40 按用户拍板：推分支 + tag + 站点 + GitHub Release，并清理两处陈旧资产）—— 详见 §12 |
 
 ### 11.2 本轮新踩的工具坑
 
@@ -290,3 +290,87 @@ J2_UNCHANGED_RATIO  = 0.01    J2_UNCHANGED_MEANABS = 1.0
 ```
 
 **不含** `.superpowers/` 下的探针、日志、截图（已被 gitignore），**不含** `release/` 下的安装包。
+
+## 12. 3.16.1 发布记录（2026-11-21 22:32–22:40，用户拍板后执行）
+
+> 完整执行日志：`.superpowers\sdd\b36\publish-log.md`（4,054 B）
+> 中文用户面向发布说明：`.superpowers\sdd\b36\release-notes-v3.16.1.zh.md`（5,571 B）
+
+### 12.1 拍板范围
+
+用户问卷拍板：**① 全部发布**（推分支 + 推 tag + 上传站点 + 建 GitHub Release）；**② 都清理**（删 `v3.16.0` 标签 + 旧包移入 `local-builds/`）。两项均已执行完毕。
+
+### 12.2 陈旧资产清理
+
+| 项 | 处置 | 复核 |
+| --- | --- | --- |
+| 本地标签 `v3.16.0`（指向未发布的 `0f55acf2`） | `git tag -d v3.16.0` | 删除前 `git ls-remote --tags origin` 只有 `v3.14.0` ⇒ **该标签从未 push**，远端无需处理 |
+| `release\Alpha File Manager_3.16.0_x64-setup.exe`（45,849,872 B） | 移入 `release\local-builds\`，改名 `...build-20261121-112222.exe` | `local-builds/` 已有一份同名 3.16.0（45,938,661 B），改名避免覆盖；两份都是从未发布过的 3.16.0 构建 |
+| 站点源 `Alpha_File_Manager_3.16.0_x64-setup.exe`（45,847,038 B） | 改名 `...setup.unpublished`（**去掉 `.exe` 后缀**） | `_upload_alpha_files.py` 全量上传会收走目录里所有 `.exe`，不改名就会把含「直链缩略图」旧方案的包推到公网 |
+
+清理后 `release/` 顶层最新 = 3.16.1（mtime 21:49:20）⇒ `latestInstaller()`（按 **mtime** 取最新，不是版本号）仍选中 3.16.1 ✓。
+
+### 12.3 发布顺序（固定，不可调换）
+
+```
+commit → push origin main → git tag -a v3.16.1 → git push origin v3.16.1
+       → prepare(--bump none --skip-build) → 先传安装包 → 再传清单 → verify → GitHub Release
+```
+
+| 步骤 | 实测结果 |
+| --- | --- |
+| `git push origin main` | `46390569..c8427ccf`（批次 33/34/35 五个提交全部上去了） |
+| `git tag -a v3.16.1` + `push origin v3.16.1` | 远端 `v3.16.1^{}` = `c8427ccfcb5e267341f7afe49250d513072f929d` |
+| `prepare --bump none --skip-build --notes-file …` | 版本 3.16.1 → 3.16.1；安装包 45,941,645 B；sha256 `6ff25301dfecdcda0e4f968a9b183221f90996d8392e33c225b9c53e4c4593ab`；已复制到站点源目录（sha 一致） |
+| `_upload_alpha_files.py --only Alpha_File_Manager_3.16.1_x64-setup.exe` | 43.81 MB，服务器端 **md5 + size 双一致**（md5=`89230f26bde62c53550b53c65ada74af`） |
+| `_upload_alpha_files.py --files-only` | index.html / .htaccess / version.json / download.php，4 个文件 md5 + size 均一致 |
+| `release-publish.mjs verify` | 「版本号 / 大小 / sha256 三项均一致（源站与边缘都已生效）」，EXIT=0 |
+| `release-publish.mjs github` | EXIT=0，新建 release |
+
+**为什么先包后清单**：清单（`version.json`）会指向安装包；先传清单会让边缘节点在包还没到位时把用户指向 404。
+
+### 12.4 线上最终回读（带 cache-busting）
+
+| 项 | 实测值 |
+| --- | --- |
+| `https://www.aiec.fun/alpha-file-manager/version.json` | `version=3.16.1`、`pub_date=2026-11-21T14:32:34Z`、`sha256=6ff25301…` |
+| `history` | `history_count=20`、`history[0]=3.14.0`、**`3.16.0 in history? False`** |
+| 安装包直链 HEAD | `200`、`len=45,941,645`、`CF-Cache-Status=HIT` |
+| 下载页 | `https://www.aiec.fun/alpha-file-manager/` |
+
+### 12.5 GitHub Release
+
+`https://github.com/kizemo/alpha-file-manager/releases/tag/v3.16.1` — `isDraft=false`、`isPrerelease=false`、`publishedAt=2026-11-21T14:40:15Z`；资产 `Alpha_File_Manager_3.16.1_x64-setup.exe`（45,941,645 B，`digest sha256:6ff25301…`）。
+
+> `gh release create` 要求**远端已有该 tag**，否则会指向远端默认分支 HEAD —— 所以 push tag 必须排在建 release 之前。
+
+### 12.6 站点清单的两个坑（发布期实测）
+
+1. **站点源清单已被某次未上传的 `prepare` 写成 3.16.0**（线上真实版本是 3.14.0）。直接 prepare 3.16.1 会把**从未发布的 3.16.0**（含已证伪的「直链缩略图」说法）归档进公开 `history[]` ⇒ 先把站点源清单**重置为线上真实状态**（3.14.0，history[0]=3.13.5），再 prepare ⇒ 最终 `history[0]=3.14.0`，**3.16.0 不进历史**（线上实测查无此条目）。备份：`E:\办公文件\L1网站\alpha-file-manager\version.json.bak-20261121-223229`。
+2. **`prepare` 默认 `--bump patch` 会再升一版**（3.16.1 → 3.16.2）⇒ 必须 `--bump none --skip-build`（版本已是 3.16.1、产物已打好）。
+
+### 12.7 发布期新增的工具坑（并入 §9 同类清单）
+
+| # | 坑 | 正确姿势 |
+| --- | --- | --- |
+| 1 | `release-publish.mjs` 的 `latestInstaller()` 按 **mtime** 取最新，不是版本号 | 清理旧包后必须复核 `release/` 顶层最新 mtime 仍是目标版本 |
+| 2 | 站点源 `version.json` 会被**未上传的 prepare** 留成幻影版本 | 发布前把站点源清单重置为线上真实状态 |
+| 3 | `_upload_alpha_files.py` 全量模式会收走目录里**所有 `.exe`** | 只传本次该传的：先 `--only <安装包>`，再 `--files-only` 传清单；未发布包改掉 `.exe` 后缀 |
+| 4 | `npm run release:upload` 是全量上传 | 本次不走它（会重传 40 个历史包 + 连带推送未发布的 3.16.0） |
+| 5 | `prepare` 默认会 bump 版本 | 用 `--bump none --skip-build` |
+
+### 12.8 证据路径
+
+- 发布执行日志：`.superpowers\sdd\b36\publish-log.md`
+- 中文发布说明：`.superpowers\sdd\b36\release-notes-v3.16.1.zh.md`
+- 带构建信息的版本说明：`E:\办公文件\L1网站\alpha-file-manager\_release-notes-v3.16.1.md`（5,780 B）
+- 站点源清单备份：`E:\办公文件\L1网站\alpha-file-manager\version.json.bak-20261121-223229`
+- 站点源目录：`E:\办公文件\L1网站\alpha-file-manager\`
+- 发布产物：`release\Alpha File Manager_3.16.1_x64-setup.exe`（45,941,645 B，sha256 `6ff25301…`）
+
+### 12.9 发布后状态
+
+- 本地 `main` 与 `origin/main` 同步（发布后 HEAD = `c8427ccf`），远端已有 `v3.16.1` 标签。
+- 工作树干净；无残留出站防火墙规则；无应用进程在跑。
+- 唯一未闭合项仍是 §7 里的 J1/J2：上游阿里云盘 HTTP 400 恢复后补一次 `errors` 为空的干净报告（run1 已有效 PASS，不阻塞交付）。
+
