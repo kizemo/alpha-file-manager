@@ -45,8 +45,9 @@ use super::aliyun_api::{
     aliyun_list_entry_limit_error, aliyun_list_page_limit_error, aliyun_list_url, aliyun_map_failure,
     aliyun_map_write_failure, aliyun_move_body, aliyun_next_marker, aliyun_parse_create_payload,
     aliyun_parse_download_url, aliyun_parse_entry_body, aliyun_parse_list_payload,
-    aliyun_parse_token_payload, aliyun_part_ranges, aliyun_refresh_token_body,
-    aliyun_refresh_token_url, aliyun_rename_body, aliyun_resolve_drive_id,
+    aliyun_parse_token_payload, aliyun_part_ranges, aliyun_refresh_client_id_candidates,
+    aliyun_refresh_token_body_with_client_id, aliyun_refresh_token_url, aliyun_rename_body,
+    aliyun_resolve_drive_id,
     aliyun_to_remote_entries, AliyunCreateResult, AliyunFileEntry, AliyunListPayload,
     AliyunPartRange, AliyunTokenPayload, AliyunUploadPart, ALIYUN_COMPLETE_URL, ALIYUN_CREATE_URL,
     ALIYUN_DELETE_URL, ALIYUN_LIST_LIMIT_DEFAULT, ALIYUN_LIST_ORDER_BY,
@@ -589,6 +590,33 @@ async fn post_json_text_unauthenticated(
     url: &str,
     body: &str,
 ) -> Result<String, RemoteError> {
+    let (status, text) = post_json_text_unauthenticated_raw(client, url, body).await?;
+
+    if !(200..=299).contains(&status) {
+        // 只记状态码与错误码，**不记响应原文** —— 原文由服务端控制，
+        // 里面可能夹着不该进日志的东西。
+        let failure = super::aliyun_api::aliyun_parse_failure(&text);
+        log::warn!(
+            "Aliyun token failure url={url} status={status} code={:?}",
+            failure.code
+        );
+        return Err(aliyun_map_failure(status, &text));
+    }
+
+    Ok(text)
+}
+
+/// 发同样的 POST，但把 `(HTTP 状态码, 响应体文本)` **原样**交回：
+/// 不映射成错误、不打日志。
+///
+/// 为什么需要这一层：续期候选链要按服务端错误码决定「换下一级 client_id」
+/// 还是「直接失败」，而 [`aliyun_map_failure`] 会把错误码吃掉（只剩
+/// 「返回了 HTTP 400」）⇒ 必须拿到未加工的状态码与响应体。
+async fn post_json_text_unauthenticated_raw(
+    client: &reqwest::Client,
+    url: &str,
+    body: &str,
+) -> Result<(u16, String), RemoteError> {
     let response = client
         .post(url)
         .header(reqwest::header::CONTENT_TYPE, "application/json")
@@ -598,7 +626,7 @@ async fn post_json_text_unauthenticated(
         .await
         .map_err(|error| transport_error("访问阿里云盘失败", &error))?;
 
-    let status = response.status();
+    let status = response.status().as_u16();
     let bytes = response
         .bytes()
         .await
@@ -607,19 +635,7 @@ async fn post_json_text_unauthenticated(
     let text = String::from_utf8(bytes.to_vec())
         .map_err(|_| RemoteError::encoding("阿里云盘返回的内容编码无法解析。"))?;
 
-    if !status.is_success() {
-        // 只记状态码与错误码，**不记响应原文** —— 原文由服务端控制，
-        // 里面可能夹着不该进日志的东西。
-        let failure = super::aliyun_api::aliyun_parse_failure(&text);
-        log::warn!(
-            "Aliyun token failure url={url} status={} code={:?}",
-            status.as_u16(),
-            failure.code
-        );
-        return Err(aliyun_map_failure(status.as_u16(), &text));
-    }
-
-    Ok(text)
+    Ok((status, text))
 }
 
 /// 下载直链回源时**必带**的请求头。
@@ -936,25 +952,61 @@ impl AliyunApi for HttpAliyunApi {
             ));
         };
 
-        let body = aliyun_refresh_token_body(&session.client_id, refresh_token);
-        let text = post_json_text_unauthenticated(
-            &self.client,
-            aliyun_refresh_token_url(),
-            &body.to_string(),
-        )
-        .await?;
-        let payload = aliyun_parse_token_payload(&text)?;
+        // 批次 34 真机实测订正：只把空串补成网页端公开 id **不够**。
+        // 服务端先认 `refresh_token` 再校验 `client_id` ⇒ 传错 client 会回
+        // 400 `InvalidParameter.ClientId`（假 token 矩阵：假 token 配任何
+        // client_id 都只回 `InvalidParameter.RefreshToken`，说明这条校验
+        // 只在真 token 上触发）。所以按候选链逐级降级，只有 ClientId 这一种
+        // 失败才继续往下试；别的失败一律立刻停（别把凭证问题当 client 问题）。
+        let candidates = aliyun_refresh_client_id_candidates(&session.client_id);
+        let stored_client_id = aliyun_refresh_client_id(&session.client_id);
+        let mut last_error: Option<RemoteError> = None;
 
-        Ok(aliyun_session_from_token_payload(
-            &payload,
-            &session.client_id,
-            session.redirect_uri.clone(),
-            session.scope.clone(),
-            aliyun_now_unix(),
-            session.drive_id.clone(),
-            session.refresh_token.clone(),
-            session.nick_name.clone(),
-        ))
+        for (index, candidate) in candidates.iter().enumerate() {
+            let body =
+                aliyun_refresh_token_body_with_client_id(candidate.as_deref(), refresh_token);
+            let (status, text) = post_json_text_unauthenticated_raw(
+                &self.client,
+                aliyun_refresh_token_url(),
+                &body.to_string(),
+            )
+            .await?;
+
+            // 无条件打一行：存档是加密的，外部读不到 `client_id` 实际取值，
+            // 这行日志是唯一能坐实「到底在拿哪个 client 换 token」的证据。
+            log::warn!(
+                "Aliyun refresh attempt index={index} client_id={:?} status={status} code={:?}",
+                candidate.as_deref(),
+                super::aliyun_api::aliyun_parse_failure(&text).code
+            );
+
+            if (200..=299).contains(&status) {
+                let payload = aliyun_parse_token_payload(&text)?;
+
+                return Ok(aliyun_session_from_token_payload(
+                    &payload,
+                    stored_client_id,
+                    session.redirect_uri.clone(),
+                    session.scope.clone(),
+                    aliyun_now_unix(),
+                    session.drive_id.clone(),
+                    session.refresh_token.clone(),
+                    session.nick_name.clone(),
+                ));
+            }
+
+            let retry_without_this_client_id =
+                status == 400 && super::aliyun_api::aliyun_failure_rejects_client_id(&text);
+            last_error = Some(aliyun_map_failure(status, &text));
+
+            if !retry_without_this_client_id {
+                break;
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| {
+            RemoteError::auth("阿里云盘登录已过期，且没有可用的续期 client，请重新授权。")
+        }))
     }
 
     async fn create_folder(
@@ -1109,6 +1161,21 @@ impl AliyunApi for HttpAliyunApi {
         )
         .await?;
         Ok(())
+    }
+}
+
+/// 续期请求用的 `client_id`。
+///
+/// 会话里存了就用存的；**空值回退到网页端公开 id**。批次 34 真机实测：
+/// 批次 29 的扫码登录把 `client_id` 写成了空串，access_token 一过期，
+/// `POST /token/refresh` 收到的请求体就是 `{"client_id":""}`，服务端回
+/// `400 InvalidParameter.ClientId` ⇒ 会话永远不能自续，用户每次都得重扫。
+fn aliyun_refresh_client_id(stored: &str) -> &str {
+    let stored = stored.trim();
+    if stored.is_empty() {
+        super::aliyun_api::ALIYUN_WEB_CLIENT_ID
+    } else {
+        stored
     }
 }
 
@@ -1688,6 +1755,99 @@ impl RemoteProvider for AliyunRemoteProvider {
         };
 
         with_timeout(self.file_timeout, "读取阿里云盘文件", work).await
+    }
+
+    // 走的是 `read_file` 同一条解析链（`prepare` → 定位目录 → 找条目 → 取详情 →
+    // 下载），三处差别都是刻意的：
+    //   1. 条目不存在 / 是目录 / `file_id` 为空 ⇒ `Ok(None)`，不像 `read_file`
+    //      那样冒 `Err`——「这张图没有缩略图」是合法结果，不该污染错误日志。
+    //   2. 候选直链按「越小越省」排：列表接口已经带回的 256px 缩略图 →
+    //      详情接口的缩略图 → 原图直链。前两条取不到才退原图，全取不到就 `None`。
+    //   3. 下载上限用调用方给的 `max_bytes`，不是 `ALIYUN_MAX_DOWNLOAD_BYTES`
+    //      （512 MB）——缩略图不该把整部电影拉进内存。
+    // 签名 URL 只在本函数里存在，失败只记一句不含 URL 的 debug 日志。
+    async fn thumbnail_bytes(
+        &self,
+        connection_id: &str,
+        remote_path: &str,
+        max_bytes: u64,
+    ) -> Result<Option<Vec<u8>>, RemoteError> {
+        let (key, mut session, normalized) = self.prepare(connection_id, remote_path).await?;
+        let (parent, name) = split_remote_parent_and_name(&normalized)?;
+
+        let work = async {
+            let drive_id = self.resolve_drive_id(&session)?;
+            let parent_file_id = self
+                .resolve_dir_file_id(&key, &mut session, &drive_id, &parent)
+                .await?;
+
+            let Some(entry) = self
+                .find_entry(&key, &mut session, &drive_id, &parent_file_id, &name)
+                .await?
+            else {
+                return Ok::<Option<Vec<u8>>, RemoteError>(None);
+            };
+
+            if super::aliyun_api::aliyun_entry_is_directory(&entry) {
+                return Ok::<Option<Vec<u8>>, RemoteError>(None);
+            }
+            if entry.file_id.trim().is_empty() {
+                return Ok::<Option<Vec<u8>>, RemoteError>(None);
+            }
+
+            // 候选直链，按「越小越省」排。列表里那份是服务端已经缩好的 256px jpeg，
+            // 最省流量；原图直链只在前两条都不成时才当兜底用。
+            let mut candidates: Vec<String> = Vec::with_capacity(3);
+            if let Some(thumbnail) = entry.thumbnail.as_deref() {
+                if !thumbnail.trim().is_empty() {
+                    candidates.push(thumbnail.to_string());
+                }
+            }
+
+            // 详情接口失败（条目刚被删、权限变了）就当没有缩略图，降级而不冒错。
+            match self
+                .api_file_info(&key, &mut session, &drive_id, &entry.file_id)
+                .await
+            {
+                Ok(meta) => {
+                    if let Some(thumbnail) = meta.thumbnail.as_deref() {
+                        if !thumbnail.trim().is_empty() {
+                            candidates.push(thumbnail.to_string());
+                        }
+                    }
+                    let file_id = if meta.file_id.trim().is_empty() {
+                        entry.file_id.clone()
+                    } else {
+                        meta.file_id.clone()
+                    };
+                    if let Ok(url) = self
+                        .api_download_url(&key, &mut session, &drive_id, &file_id)
+                        .await
+                    {
+                        candidates.push(url);
+                    }
+                }
+                Err(error) => {
+                    log::debug!("[remote-diag] aliyun thumbnail stat unavailable: {error}");
+                }
+            }
+
+            for url in candidates {
+                // 缩略图直链是短期签名，过期与被限流都是常态：一条不通就试下一条。
+                match self.api.download(&session, &url, max_bytes).await {
+                    Ok(bytes) if !bytes.is_empty() => {
+                        return Ok::<Option<Vec<u8>>, RemoteError>(Some(bytes));
+                    }
+                    Ok(_) => {}
+                    Err(error) => {
+                        log::debug!("[remote-diag] aliyun thumbnail candidate rejected: {error}");
+                    }
+                }
+            }
+            Ok::<Option<Vec<u8>>, RemoteError>(None)
+        };
+
+        with_timeout(self.file_timeout, "取阿里云盘缩略图", work).await
     }
 
     async fn write_file(
@@ -2372,6 +2532,19 @@ mod tests {
         let mut session = session_with(STALE_TOKEN, Some("old-refresh-token"));
         session.expires_at_unix = Some(aliyun_now_unix() - 10);
         session
+    }
+
+    #[test]
+    fn refresh_client_id_falls_back_to_web_client_id() {
+        let web_id = crate::remote::ALIYUN_WEB_CLIENT_ID;
+        let resolve = crate::remote::aliyun_provider::aliyun_refresh_client_id;
+
+        // 批次 29 的旧会话 `/ 粘贴 token` 会话：空串必须回退，否则续期 400。
+        assert_eq!(resolve(""), web_id);
+        assert_eq!(resolve("   "), web_id);
+        // 存了值就原样用（不覆写用户/未来版本的取值）。
+        assert_eq!(resolve("client-abc"), "client-abc");
+        assert_eq!(resolve(" client-abc "), "client-abc");
     }
 
     fn dir_entry(file_id: &str, name: &str) -> AliyunFileEntry {

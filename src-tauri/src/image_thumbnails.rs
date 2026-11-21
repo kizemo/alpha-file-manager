@@ -20,6 +20,14 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 const IMAGE_THUMBNAIL_CACHE_DIR: &str = "image-thumbnails";
+/// 远程（网盘）缩略图的缓存目录名。
+///
+/// **刻意与本地 [`IMAGE_THUMBNAIL_CACHE_DIR`] 分成两个目录**：排查「这张图是本地
+/// 解出来的还是云端代理回来的」时，目录名是唯一的现场线索——缓存键本身不进日志
+/// （远程键里含连接号，日志里不能出现）。代价是统计与清理必须各算两个目录，
+/// 已在 [`thumbnail_cache_stats_in_app_data_dir`] 与
+/// [`clear_thumbnail_cache_in_app_data_dir`] 里成对处理，漏一边会让磁盘只涨不清。
+const REMOTE_IMAGE_THUMBNAIL_CACHE_DIR: &str = "remote-image-thumbnails";
 const THUMBNAIL_MAX_DIMENSION: u32 = 384;
 /// 缩略图缓存的条目数上限。
 ///
@@ -218,6 +226,14 @@ fn thumbnail_cache_dir_in(app_data_dir: &Path) -> PathBuf {
     app_data_dir.join(IMAGE_THUMBNAIL_CACHE_DIR)
 }
 
+/// 远程（网盘）缩略图缓存目录名的**唯一**拼接点。
+///
+/// 规则与上面那条完全一样，理由也一样：生成、统计、清理必须共用一个拼接点。
+/// 远程目录与本地目录**分开**，见 [`REMOTE_IMAGE_THUMBNAIL_CACHE_DIR`]。
+fn remote_thumbnail_cache_dir_in(app_data_dir: &Path) -> PathBuf {
+    app_data_dir.join(REMOTE_IMAGE_THUMBNAIL_CACHE_DIR)
+}
+
 fn thumbnail_cache_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(thumbnail_cache_dir_in(
         &crate::app_dirs::app_data_dir(app)
@@ -240,12 +256,22 @@ fn thumbnail_cache_stats_in_app_data_dir(
     app_data_dir: &Path,
 ) -> Result<ThumbnailCacheStats, String> {
     let cache_dir = thumbnail_cache_dir_in(app_data_dir);
+    let remote_dir = remote_thumbnail_cache_dir_in(app_data_dir);
 
-    if !cache_dir.exists() {
-        return Ok(ThumbnailCacheStats::default());
+    // 两个目录各自判存在：目录不存在对总量的贡献是 0，
+    // 因此「只统计 cache 子目录、不把 app_data_dir 里的其他文件算进来」
+    // 这条既有判据不受影响（见 `thumbnail_cache_stats_in_app_data_dir_counts_only_cache_subdirectory`）。
+    let mut total = ThumbnailCacheStats::default();
+    for dir in [cache_dir.as_path(), remote_dir.as_path()] {
+        if !dir.exists() {
+            continue;
+        }
+        let stats = thumbnail_cache_stats(dir)?;
+        total.item_count += stats.item_count;
+        total.size_bytes += stats.size_bytes;
     }
 
-    thumbnail_cache_stats(&cache_dir)
+    Ok(total)
 }
 
 /// 解析缩略图缓存目录并清理。
@@ -261,8 +287,11 @@ fn thumbnail_cache_stats_in_app_data_dir(
 /// 换来的是清理路径不必去碰维护状态的内部字段。
 fn clear_thumbnail_cache_in_app_data_dir(app_data_dir: &Path) -> Result<(), String> {
     let cache_dir = thumbnail_cache_dir_in(app_data_dir);
+    let remote_dir = remote_thumbnail_cache_dir_in(app_data_dir);
 
-    if !cache_dir.exists() {
+    // 本地与远程两个缓存目录都要清。只清一个的话，设置页上「清理缩略图缓存」
+    // 之后远程那份还在涨磁盘，而界面已经告诉用户清完了。
+    if !cache_dir.exists() && !remote_dir.exists() {
         return Ok(());
     }
 
@@ -270,7 +299,14 @@ fn clear_thumbnail_cache_in_app_data_dir(app_data_dir: &Path) -> Result<(), Stri
         .lock()
         .map_err(|error| format!("Failed to lock thumbnail cache files: {error}"))?;
 
-    clear_thumbnail_cache_dir(&cache_dir)
+    for dir in [cache_dir.as_path(), remote_dir.as_path()] {
+        if !dir.exists() {
+            continue;
+        }
+        clear_thumbnail_cache_dir(dir)?;
+    }
+
+    Ok(())
 }
 
 fn path_is_same_or_descendant(path: &Path, parent: &Path) -> bool {
@@ -1625,5 +1661,417 @@ mod tests {
         assert!(crate::dir_reader::is_shell_namespace_path(
             "::{20D04FE0-3AEA-1069-A2D8-08002B30309D}"
         ));
+    }
+}
+
+// ============================================================================
+// 远程（网盘）缩略图
+// ----------------------------------------------------------------------------
+// 与上面本地管线的关系：**解码、尺寸/字节限额、解码并发闸门、缓存淘汰、原子落盘
+// 全部复用同一批函数**，这一段只新增两件事——「缓存键怎么算」和「像素从哪来」。
+// 像素由 `remote::thumbnails` 经 `RemoteProvider::thumbnail_bytes` 代取后交进来；
+// 本模块不认识任何网盘协议，也不碰任何签名 URL。
+// ============================================================================
+
+/// 远程缩略图缓存目录的 AppHandle 版本，形状对齐 [`thumbnail_cache_dir`]。
+///
+/// 和它一样**刻意不 `create_dir_all`**：这条只把路径算出来，目录要等真的落盘时
+/// 才建（见 [`write_remote_thumbnail_bytes`]）。
+pub(super) fn remote_thumbnail_cache_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(remote_thumbnail_cache_dir_in(
+        &crate::app_dirs::app_data_dir(app)
+            .map_err(|error| format!("Failed to resolve app data directory: {error}"))?,
+    ))
+}
+
+/// 远程缩略图缓存键。
+///
+/// 与 [`thumbnail_cache_key`] 的差别只有两处，都是远程侧的客观限制：
+/// - 额外吃一个 `connection_id`，并加 `remote` 前缀：同一个远程路径字面量可能属于
+///   两个不同连接（换过一次授权、或两台主机上放着同名文件），而 `aliyun://…` 这类
+///   前缀本身不足以区分连接号相同的两条配置；前缀同时保证远程键与本地键
+///   不可能撞车。
+/// - **不含 `size`**：网盘列表回上来的是给人看的字符串（`1.2 MB`），不是可靠的
+///   字节数，拿它进键会让缓存永远命中不上。云端文件被覆盖后靠 `modified_time`
+///   换键，代价是网盘不更新 mtime 时旧缩略图会多留一会儿——那是显示问题，
+///   不是正确性问题。
+pub(super) fn remote_thumbnail_cache_key(
+    connection_id: &str,
+    remote_path: &str,
+    modified_time: u64,
+    max_dimension: u32,
+) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(b"remote");
+    hasher.update([0]);
+    hasher.update(connection_id.as_bytes());
+    hasher.update([0]);
+    hasher.update(remote_path.as_bytes());
+    hasher.update([0]);
+    hasher.update(modified_time.to_le_bytes());
+    hasher.update(max_dimension.to_le_bytes());
+
+    hash_to_hex(&hasher.finalize())
+}
+
+/// 远程缩略图的落盘路径：`app_data_dir()/remote-image-thumbnails/<key>.png`。
+///
+/// 与 [`thumbnail_cache_path`] 同一条理由单独抽出来：生成、清理、以及「这张图
+/// 到底在不在缓存里」的排查都必须算出同一个路径。
+pub(super) fn remote_thumbnail_cache_path(app_data_dir: &Path, cache_key: &str) -> PathBuf {
+    remote_thumbnail_cache_dir_in(app_data_dir).join(format!("{cache_key}.png"))
+}
+
+/// 远程像素的临时源文件路径。
+///
+/// **保留原扩展名是必须的**：[`decode_image_thumbnail_source`] 用 [`is_gif_path`]
+/// （按扩展名判断）决定走不走「GIF 只取首帧」那条分支，丢了扩展名 GIF 会被当
+/// 普通图解码。扩展名只允许 ASCII 字母数字且不超过 8 字符——远程文件名来自云端，
+/// 不能拿它当可信输入去拼路径。
+fn temporary_remote_source_path(cache_key: &str, remote_path: &str) -> PathBuf {
+    let extension = Path::new(remote_path)
+        .extension()
+        .and_then(|value| value.to_str())
+        .filter(|value| {
+            !value.is_empty() && value.len() <= 8 && value.chars().all(|ch| ch.is_ascii_alphanumeric())
+        })
+        .map(|value| format!(".{value}"))
+        .unwrap_or_default();
+
+    let temporary_id = TEMPORARY_THUMBNAIL_COUNTER.fetch_add(1, Ordering::Relaxed);
+
+    std::env::temp_dir().join(format!(
+        "alphafm-remote-thumb-{cache_key}-{temporary_id}{extension}"
+    ))
+}
+
+/// 把云端代取回来的像素缩成缩略图并落盘，返回可以直接交给 `convertFileSrc` 的路径。
+///
+/// 骨架与 `generate_image_thumbnail_file` 逐行对应（建目录 → 限额检查 →
+/// 已存在直接返回 → 读尺寸校验 → 解码 → 等比缩 → 写临时 → 原子改名 → 记账），
+/// 差别只有「源不在文件系统上」带来的四点：
+/// 1. 不做 `fs::metadata` / canonicalize，也不做「源必须是文件」的检查——没有源文件；
+/// 2. 不做 [`should_use_original_image_thumbnail`]：那是给本地「原图本来就不比目标
+///    尺寸大」省一次重编码用的，而远程首选直链本来就是服务端缩好的 256px，
+///    再省一次编码的收益远不如让两条管线保持一致划算；
+/// 3. 解码走**临时源文件 + [`decode_image_thumbnail_source`]**，而不是在这里重写
+///    一遍 GIF 首帧与解码限额分支：那条路径已经被本地用例覆盖过，复制一份
+///    等于把同一份安全边界维护两遍（改限额时最容易漏的就是这种副本）；
+/// 4. 临时源文件**在任何返回路径上都被删掉**（内层结果先接住再清理）。
+///    不然每次看缩略图都会在系统临时目录里留一份原图像素，越看越多。
+pub(super) fn write_remote_thumbnail_bytes(
+    cache_dir: PathBuf,
+    remote_path: &str,
+    cache_key: String,
+    bytes: Vec<u8>,
+    max_dimension: u32,
+) -> Result<String, String> {
+    fs::create_dir_all(&cache_dir)
+        .map_err(|error| format!("Failed to create thumbnail cache directory: {error}"))?;
+
+    let thumbnail_path = cache_dir.join(format!("{cache_key}.png"));
+
+    {
+        let _cache_file_lock = IMAGE_THUMBNAIL_CACHE_FILE_LOCK
+            .lock()
+            .map_err(|error| format!("Failed to lock thumbnail cache files: {error}"))?;
+
+        if should_enforce_thumbnail_cache_limits()? {
+            enforce_thumbnail_cache_limits(&cache_dir)?;
+        }
+
+        if thumbnail_path.exists() {
+            return Ok(thumbnail_path.to_string_lossy().to_string());
+        }
+    }
+
+    let temporary_source_path = temporary_remote_source_path(&cache_key, remote_path);
+    let staged = stage_and_scale_remote_thumbnail(
+        &temporary_source_path,
+        bytes,
+        &cache_dir,
+        thumbnail_path.clone(),
+        max_dimension,
+    );
+    let _ = fs::remove_file(&temporary_source_path);
+
+    staged
+}
+
+/// [`write_remote_thumbnail_bytes`] 的内层：把远程像素落成临时源文件、按本地同一套
+/// 校验与解码缩好、原子改名进缓存。单独成函数只为了让**调用方有机会无条件清理**
+/// 临时源文件（见上面第 4 点）。
+fn stage_and_scale_remote_thumbnail(
+    temporary_source_path: &Path,
+    bytes: Vec<u8>,
+    cache_dir: &Path,
+    thumbnail_path: PathBuf,
+    max_dimension: u32,
+) -> Result<String, String> {
+    let source_size = bytes.len() as u64;
+
+    fs::write(temporary_source_path, &bytes)
+        .map_err(|error| format!("Failed to stage remote thumbnail source: {error}"))?;
+
+    // 先只读文件头拿尺寸再决定要不要解码，顺序与本地管线一致：
+    // 超限的图必须在分配之前被挡掉，而不是先分配 64 MiB 再失败。
+    // `image_dimensions` 本来就返回 `Result<(u32, u32), String>`，错误文本已经是给用户的英文串，直接 `?`。
+    let dimensions = image_dimensions(temporary_source_path)?;
+    validate_image_thumbnail_source(source_size, dimensions.0, dimensions.1)?;
+
+    let image = {
+        // 解码槽是**同步**信号量（刻意用 `std::sync` 而非 tokio，见 THUMBNAIL_DECODE_GATE 定义处），
+        // `acquire()` 直接给槽、不返回 Result；槽在作用域结束时靠 Drop 归还。
+        let _decode_slot = THUMBNAIL_DECODE_GATE.acquire();
+        decode_image_thumbnail_source(temporary_source_path)?
+    };
+
+    let thumbnail = image.resize(max_dimension, max_dimension, IMAGE_THUMBNAIL_RESIZE_FILTER);
+
+    let temporary_path = temporary_thumbnail_path(&thumbnail_path);
+    if let Err(error) = write_image_thumbnail(&thumbnail, &temporary_path) {
+        let _ = fs::remove_file(&temporary_path);
+        return Err(error);
+    }
+
+    {
+        let _cache_file_lock = IMAGE_THUMBNAIL_CACHE_FILE_LOCK
+            .lock()
+            .map_err(|error| format!("Failed to lock thumbnail cache files: {error}"))?;
+
+        // 到这一步可能已经有另一个并发请求把同一张图落好了：留着临时文件没用，
+        // 直接认那份已存在的，别把 rename 撞成错误。
+        if thumbnail_path.exists() {
+            let _ = fs::remove_file(&temporary_path);
+            return Ok(thumbnail_path.to_string_lossy().to_string());
+        }
+
+        if let Err(error) = fs::rename(&temporary_path, &thumbnail_path) {
+            let _ = fs::remove_file(&temporary_path);
+            return Err(format!("Failed to finalize image thumbnail: {error}"));
+        }
+
+        record_generated_thumbnail()?;
+    }
+
+    Ok(thumbnail_path.to_string_lossy().to_string())
+}
+
+#[cfg(test)]
+mod remote_thumbnail_tests {
+    use super::*;
+
+    fn png_bytes(width: u32, height: u32) -> Vec<u8> {
+        let buffer = image::RgbImage::from_pixel(width, height, image::Rgb([12, 180, 60]));
+        let image = image::DynamicImage::ImageRgb8(buffer);
+        let mut cursor = std::io::Cursor::new(Vec::new());
+        image
+            .write_to(&mut cursor, image::ImageFormat::Png)
+            .expect("测试用的 PNG 必须能编码出来");
+        cursor.into_inner()
+    }
+
+    fn write_remote(app_data_dir: &Path, bytes: Vec<u8>) -> Result<String, String> {
+        write_remote_thumbnail_bytes(
+            remote_thumbnail_cache_dir_in(app_data_dir),
+            "aliyun://7/照片/a.png",
+            remote_thumbnail_cache_key("7", "/照片/a.png", 1_700_000_000, 384),
+            bytes,
+            384,
+        )
+    }
+
+    /// §16.12 #2 的远程版：生成、统计、清理必须共用同一个拼接点。
+    /// 这条不是形式主义——远程目录是分开的第二个目录，只改一处就会让
+    /// 「设置页显示 0 字节 / 清理完还在」而单测全绿。
+    #[test]
+    fn remote_thumbnail_cache_path_is_shared_by_generate_stats_and_clear() {
+        let app_data_dir = tempfile::tempdir().unwrap();
+        let app_data_path = app_data_dir.path();
+
+        let generated = write_remote(app_data_path, png_bytes(400, 300)).unwrap();
+        let generated_path = Path::new(&generated);
+
+        let key = remote_thumbnail_cache_key("7", "/照片/a.png", 1_700_000_000, 384);
+        assert_eq!(
+            generated_path,
+            remote_thumbnail_cache_path(app_data_path, &key).as_path(),
+            "落盘路径与 remote_thumbnail_cache_path 算出来的路径不一致"
+        );
+        assert!(generated_path.starts_with(remote_thumbnail_cache_dir_in(app_data_path)));
+
+        let stats = thumbnail_cache_stats_in_app_data_dir(app_data_path).unwrap();
+        assert_eq!(
+            stats.item_count, 1,
+            "统计没有把远程缩略图目录算进来：清理界面会谎报已释放的空间"
+        );
+
+        clear_thumbnail_cache_in_app_data_dir(app_data_path).unwrap();
+        assert!(
+            !generated_path.exists(),
+            "清理没有触及远程缩略图目录：磁盘只涨不清"
+        );
+    }
+
+    /// 「清理缩略图缓存」这个按钮的真实契约，两半都必须钉住：
+    /// ① **两个**缓存目录都要被清空 —— 设置页只有一个按钮、一句「已清理」，
+    ///    漏掉远程那份就是谎报（见 `clear_thumbnail_cache_in_app_data_dir` 的注释）；
+    /// ② 清理范围**不得越出**这两个目录 —— 同级的 settings.json 必须原样留着。
+    ///
+    /// 注意：这里刻意**不**断言「清远程时本地图要活下来」。那是反的——
+    /// 清成本地+远程成对是有意设计，把它写成不变量会锁死一个正确的产品行为。
+    #[test]
+    fn clearing_cache_empties_both_thumbnail_dirs_and_touches_nothing_else() {
+        let app_data_dir = tempfile::tempdir().unwrap();
+        let app_data_path = app_data_dir.path();
+        fs::write(app_data_path.join("settings.json"), b"{}").unwrap();
+        let local_cache_dir = thumbnail_cache_dir_in(app_data_path);
+        fs::create_dir_all(&local_cache_dir).unwrap();
+        fs::write(local_cache_dir.join("local.png"), b"local").unwrap();
+
+        let remote = write_remote(app_data_path, png_bytes(64, 48)).unwrap();
+
+        clear_thumbnail_cache_in_app_data_dir(app_data_path).unwrap();
+
+        assert!(
+            !Path::new(&remote).exists(),
+            "清理没触及远程缩略图目录：磁盘只涨不清"
+        );
+        assert!(
+            !local_cache_dir.join("local.png").exists(),
+            "清理没触及本地缩略图目录：设置页报「已清理」却还有残留"
+        );
+        assert!(
+            app_data_path.join("settings.json").exists(),
+            "清理越界：app_data_dir 里的用户设置被删了"
+        );
+    }
+
+    #[test]
+    fn remote_thumbnail_cache_key_isolates_connection_path_mtime_and_dimension() {
+        let base = remote_thumbnail_cache_key("7", "/照片/a.jpg", 1_700_000_000, 384);
+        assert_eq!(
+            base,
+            remote_thumbnail_cache_key("7", "/照片/a.jpg", 1_700_000_000, 384),
+            "同样的输入必须命中同一份缓存"
+        );
+        assert_ne!(base, remote_thumbnail_cache_key("8", "/照片/a.jpg", 1_700_000_000, 384));
+        assert_ne!(base, remote_thumbnail_cache_key("7", "/照片/b.jpg", 1_700_000_000, 384));
+        assert_ne!(base, remote_thumbnail_cache_key("7", "/照片/a.jpg", 1_700_000_001, 384));
+        assert_ne!(base, remote_thumbnail_cache_key("7", "/照片/a.jpg", 1_700_000_000, 256));
+
+        // 远程键刻意不含 size，所以这条只证明「本地键与远程键不会撞车」。
+        assert_ne!(base, thumbnail_cache_key("/照片/a.jpg", 1_700_000_000, 0, 384));
+    }
+
+    /// 缓存命中：目标文件已存在时直接返回，不重新解码、更不覆盖。
+    #[test]
+    fn existing_remote_thumbnail_is_returned_without_being_rewritten() {
+        let app_data_dir = tempfile::tempdir().unwrap();
+        let app_data_path = app_data_dir.path();
+        let key = remote_thumbnail_cache_key("7", "/照片/a.png", 1_700_000_000, 384);
+        let cache_path = remote_thumbnail_cache_path(app_data_path, &key);
+        fs::create_dir_all(cache_path.parent().unwrap()).unwrap();
+        fs::write(&cache_path, b"already cached").unwrap();
+
+        let returned = write_remote(app_data_path, png_bytes(400, 300)).unwrap();
+
+        assert_eq!(Path::new(&returned), cache_path.as_path());
+        assert_eq!(
+            fs::read(&cache_path).unwrap(),
+            b"already cached",
+            "命中缓存时把已有缩略图覆盖了"
+        );
+    }
+
+    /// 解码失败必须降级成 `Err`（调用方转成没有缩略图），
+    /// 并且**不得留下半截缓存文件**。
+    #[test]
+    fn undecodable_remote_bytes_leave_no_cached_thumbnail() {
+        let app_data_dir = tempfile::tempdir().unwrap();
+        let app_data_path = app_data_dir.path();
+
+        let result = write_remote(app_data_path, b"this is not an image".to_vec());
+
+        assert!(result.is_err(), "坏像素必须失败，不能返回一个可用路径");
+        assert_eq!(
+            thumbnail_cache_stats_in_app_data_dir(app_data_path)
+                .unwrap()
+                .item_count,
+            0,
+            "失败的远程缩略图在缓存目录里留了残file：{:?}",
+            result.err()
+        );
+    }
+
+    /// 临时源文件在任何返回路径上都要被删掉：否则每看一张远程图，
+    /// 系统临时目录里就多一份原图像素。
+    #[test]
+    fn remote_thumbnail_staging_leaves_no_temporary_source_file() {
+        let app_data_dir = tempfile::tempdir().unwrap();
+        // 同模块还有几条测试共用同一个固定远端路径，缓存键因此是**确定性**的。
+        // 直接复用会让并发执行的同模块测试在系统临时目录里互相看见对方的临时
+        // 文件而假失败（2026-11-21 实测：全量跑红一次，单跑 3/3 绿）。
+        // 拿 tempdir 的随机目录名做路径尾巴，这条测试就独占自己的缓存键。
+        let tag = app_data_dir
+            .path()
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        let remote_path = format!("/照片/a-{tag}.png");
+        let key = remote_thumbnail_cache_key("7", &remote_path, 1_700_000_000, 384);
+
+        // 临时源文件名形如 alphafm-remote-thumb-<cache_key>-<序号><扩展名>，
+        // 缓存键是这轮独一份的，用它筛比猜序号可靠。
+        for bytes in [png_bytes(320, 240), b"not an image".to_vec()] {
+            let _ = write_remote_thumbnail_bytes(
+                remote_thumbnail_cache_dir_in(app_data_dir.path()),
+                &format!("aliyun://7{remote_path}"),
+                key.clone(),
+                bytes,
+                384,
+            );
+        }
+
+        let leftovers: Vec<String> = fs::read_dir(std::env::temp_dir())
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .filter_map(|entry| entry.file_name().to_str().map(|value| value.to_string()))
+            .filter(|name| name.contains(&key))
+            .collect();
+
+        assert!(
+            leftovers.is_empty(),
+            "远程像素的临时源文件没被清理: {leftovers:?}"
+        );
+    }
+
+    /// 扩展名只用于选解码分支，不能把云端来的字符串原样拼进临时文件名。
+    #[test]
+    fn remote_source_extension_is_sanitized() {
+        let key = "deadbeef";
+        assert!(
+            temporary_remote_source_path(key, "/照片/a.GIF")
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .ends_with(".GIF"),
+            "正常扩展名要保留，否则 GIF 首帧分支认不出 GIF"
+        );
+        for hostile in [
+            "/照片/a.jp%2Fg",
+            "/照片/a.jp g",
+            "/照片/a.verylongext",
+            "/照片/noext",
+        ] {
+            let name = temporary_remote_source_path(key, hostile)
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .to_string();
+            assert!(!name.contains('%') && !name.contains(' '), "{hostile} -> {name}");
+            assert!(name.starts_with("alphafm-remote-thumb-deadbeef-"));
+        }
     }
 }

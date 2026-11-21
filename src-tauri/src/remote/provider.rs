@@ -190,6 +190,35 @@ pub trait RemoteProvider: Send + Sync {
         from_path: &str,
         new_name: &str,
     ) -> Result<(), RemoteError>;
+
+    /// 取远端条目的缩略图像素；拿不到时返回 `Ok(None)`。
+    ///
+    /// **为什么需要它**：网盘给的缩略图直链带短期签名，且要求请求带浏览器
+    /// `Referer`，前端的 `<img>` 两样都拿不到（实测判定见
+    /// `docs/handoff-2026-11-21-batch32-remote-thumbnail-verdict.md` §3），
+    /// 所以远程缩略图必须由 Rust 侧代取，再按本地图片同一套管线缩好交给前端。
+    ///
+    /// **为什么这里刻意给了默认实现**：与 `write_file_with_progress` /
+    /// `remove_path` / `rename_path` / `set_permissions` 不同——那四个忘了写会被
+    /// 当成「操作成功」，是数据事故；而「这个协议没有缩略图」是合法且常见的结果，
+    /// 调用方会把 `None` 降级成占位图，新增协议不会因为漏实现而做错事。
+    /// 同样返回 `Ok(None)` 表示「没有」的先例见 [`RemoteProvider::get_permissions`]。
+    ///
+    /// **实现纪律**：
+    /// - 签名 URL 不得离开实现所在模块，且**绝不进日志与用户可见文案**；
+    /// - 任何形式的失败（鉴权过期、限流、直链已失效、下载失败、条目是目录）
+    ///   都返回 `Ok(None)`，不得 panic，也不得把上游错误文案往外抛；
+    /// - `max_bytes` 由调用方给定，实现方不得放宽成整个文件的大小上限——
+    ///   缩略图不该把整部电影拉进内存。
+    async fn thumbnail_bytes(
+        &self,
+        connection_id: &str,
+        remote_path: &str,
+        max_bytes: u64,
+    ) -> Result<Option<Vec<u8>>, RemoteError> {
+        let _ = (connection_id, remote_path, max_bytes);
+        Ok(None)
+    }
 }
 
 #[cfg(test)]

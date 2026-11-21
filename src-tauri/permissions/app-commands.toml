@@ -181,6 +181,7 @@ commands.allow = [
   "remote_delete_credential",
   "remote_download_paths",
   "remote_forget_host",
+  "remote_generate_thumbnail",
   "remote_get_permissions",
   "remote_list_known_hosts",
   "remote_load_credential",

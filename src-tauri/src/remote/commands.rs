@@ -1281,6 +1281,7 @@ mod tests {
         "remote_remove_path",
         "remote_make_dir",
         "remote_rename_path",
+        "remote_generate_thumbnail",
     ];
 
     /// 抽出 `lib.rs` 里 `generate_handler![ ... ]` 的那一段。
