@@ -189,28 +189,37 @@ describe('导航栏远程悬停面板', () => {
     expect(store.consumeRemoteEdit()).toBeNull();
   });
 
-  it('两个分区各有一颗添加按钮，点它们分别请求网盘与远程连接', async () => {
+  it('网盘分区不再有添加按钮，远程连接分区保留一颗', async () => {
     const wrapper = mountedPanel();
     await flushPromises();
 
-    const netdiskAdd = wrapper.find('[data-test="remote-nav-add-netdisk"]');
+    // 用户 2026-11-21：网盘分区标题右侧那一行「+添加网盘 / +夸克网盘 /
+    // +阿里云盘」整行去掉 —— 悬停面板只负责打开已有连接。
+    expect(wrapper.find('[data-test="remote-nav-add-netdisk"]').exists()).toBe(false);
+    expect(wrapper.find('[data-test="remote-nav-add-quark_pan"]').exists()).toBe(false);
+    expect(wrapper.find('[data-test="remote-nav-add-aliyun_pan"]').exists()).toBe(false);
+
     const remoteAdd = wrapper.find('[data-test="remote-nav-add-remote"]');
-
-    expect(netdiskAdd.exists()).toBe(true);
     expect(remoteAdd.exists()).toBe(true);
-
-    await netdiskAdd.trigger('click');
-    await flushPromises();
-
-    // 请求里必须带上协议：设置页那边靠它决定落到哪个标签页。
-    expect(wrapper.emitted('add')?.[0]?.[0]).toBe('baidu_pan');
 
     await remoteAdd.trigger('click');
     await flushPromises();
 
-    expect(wrapper.emitted('add')?.[1]?.[0]).toBe('ftp');
+    // 请求里必须带上协议：设置页那边靠它决定落到哪个标签页。
+    expect(wrapper.emitted('add')?.[0]?.[0]).toBe('ftp');
     // 新建与「去设置页」是两件事，点了新建不该顺手把设置页也打开。
     expect(wrapper.emitted('openSettings')).toBeUndefined();
+  });
+
+  it('网盘分区标题行仍然在，只是右边空了', async () => {
+    const wrapper = mountedPanel();
+    await flushPromises();
+
+    const netdisk = wrapper.find('[data-test="remote-nav-section-netdisk"]');
+    expect(netdisk.exists()).toBe(true);
+    // 分区本身不能一起删掉 —— 它下面是网盘连接列表。
+    expect(netdisk.find('[data-test="remote-nav-section-actions"]').exists()).toBe(false);
+    expect(netdisk.find('.remote-nav-panel__section-add').exists()).toBe(false);
   });
 
   it('新建请求进 store，携带协议、被消费一次后清空', async () => {
