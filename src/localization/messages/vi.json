@@ -165,7 +165,10 @@
       "indexed": "Được lập chỉ mục {time}",
       "nothingFound": "Không tìm thấy gì"
     },
-    "showSearchSettings": "Hiển thị cài đặt tìm kiếm"
+    "showSearchSettings": "Hiển thị cài đặt tìm kiếm",
+    "remoteIndexing": "Đang lập chỉ mục ổ đĩa đám mây",
+    "remoteIndexDone": "Đã cập nhật chỉ mục đám mây",
+    "remoteIndexFailed": "Lập chỉ mục đám mây thất bại"
   },
   "home": {
     "mediaBannerOptions": "Tùy chọn biểu ngữ phương tiện",
@@ -232,7 +235,8 @@
       "deleteTagConfirmTitle": "Xóa thẻ này?",
       "deleteTagConfirmDescription": "Thẻ sẽ bị xóa và gỡ khỏi mọi mục.",
       "removeTagConfirmTitle": "Xóa thẻ này khỏi mục?",
-      "removeTagConfirmDescription": "Mục sẽ không còn mang thẻ này."
+      "removeTagConfirmDescription": "Mục sẽ không còn mang thẻ này.",
+      "renameFavorite": "Sửa tên hiển thị"
     },
     "newFavoriteDialog": {
       "title": "Add to favorites",
@@ -240,7 +244,9 @@
       "pathPlaceholder": "Paste a full path",
       "pathNotFound": "Path does not exist",
       "pathAlreadyFavorite": "Already in favorites",
-      "confirm": "Add"
+      "confirm": "Add",
+      "displayNameLabel": "Tên hiển thị",
+      "displayNamePlaceholder": "Để trống để dùng tên gốc"
     },
     "nameDialog": {
       "nameLabel": "Name",
@@ -519,7 +525,12 @@
       "ignoredPathsHelpDownloads": "Bỏ qua tiền tố đường dẫn đó.",
       "ignoredPathsHelpTestFolder": "Bỏ qua các thư mục tên test và nội dung của chúng ở mọi nơi.",
       "ignoredPathsHelpExtensionMask": "Bỏ qua các tệp có phần mở rộng .log ở mọi nơi.",
-      "ignoredPathsHelpNestedExtensionMask": "Bỏ qua các tệp có phần mở rộng .tmp trong bất kỳ thư mục nào."
+      "ignoredPathsHelpNestedExtensionMask": "Bỏ qua các tệp có phần mở rộng .tmp trong bất kỳ thư mục nào.",
+      "remoteIndexTitle": "Tìm kiếm đám mây",
+      "remoteIndexDescription": "Các tệp của kết nối đã thêm vào tìm kiếm toàn cục sẽ xuất hiện trong kết quả tìm kiếm.",
+      "rebuildRemoteIndex": "Dựng lại chỉ mục đám mây",
+      "rebuildRemoteIndexDescription": "Lấy lại các tệp của kết nối đã đánh dấu rồi ghi vào chỉ mục; việc này dùng hết hạn mức API của ổ đĩa mạng.",
+      "noRemoteInSearch": "Chưa thêm ổ đĩa mạng nào vào tìm kiếm toàn cục"
     },
     "drives": {
       "driveDetection": "Phát hiện ổ đĩa",
@@ -644,7 +655,9 @@
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
         "localPath": "Local folder",
-        "cookie": "Cookie"
+        "cookie": "Cookie",
+        "includeInSearch": "Thêm vào tìm kiếm toàn cục",
+        "includeInSearchHint": "Khi đánh dấu, các tệp của kết nối này sẽ được thêm vào chỉ mục tìm kiếm toàn cục (hãy dựng lại chỉ mục đám mây thủ công)."
       },
       "protocol": {
         "ftp": "FTP",
@@ -1420,7 +1433,9 @@
       "newCategoryLabel": "Or create a new category",
       "newCategoryPlaceholder": "Type a name for the new category",
       "confirm": "Add to favorites",
-      "multipleEntries": "and {n} more items"
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "Tên hiển thị",
+      "displayNamePlaceholder": "Để trống để dùng tên gốc"
     },
     "searchOptions": {
       "title": "Tùy chọn tìm kiếm",

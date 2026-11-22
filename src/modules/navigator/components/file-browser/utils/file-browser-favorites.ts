@@ -40,7 +40,12 @@ export interface FavoriteCategorySelectionDeps {
   /** 新建分类，返回新分类对象；重名或非法名时返回 null。 */
   createFavoriteCategory: (name: string) => { id: string } | null;
   /** 写入收藏。categoryId 为 null 表示「未分类」。 */
-  addToFavorites: (path: string, isFile: boolean, categoryId: string | null) => void;
+  addToFavorites: (
+    path: string,
+    isFile: boolean,
+    categoryId: string | null,
+    alias?: string,
+  ) => void;
 }
 
 export interface FavoriteCategorySelectionResult {
@@ -63,14 +68,20 @@ export interface FavoriteCategorySelectionResult {
  *    这一批条目是用户明确点了「收藏」的，卡住不写比写进未分类更糟 ——
  *    用户会觉得「收藏功能坏了」，而实际上只是分类名重复了。
  * 3. **逐条跳过已收藏**。重复写入同一条路径会让收藏列表出现重复项。
+ *
+ * `alias` 是收藏条目的**显示名**（批次 37），只影响界面显示，不改路径。
+ * 它只在**本次只加一个条目**时生效：一次给多个不同的文件套同一个名字没有意义，
+ * 所以对话框在多选时根本不显示这个输入框，这里再兜一道底。
  */
 export function resolveFavoriteCategorySelection(
   entries: DirEntry[],
   selectedCategoryId: string | null,
   newCategoryName: string | null,
   deps: FavoriteCategorySelectionDeps,
+  alias: string | null = null,
 ): FavoriteCategorySelectionResult {
   const trimmedName = newCategoryName?.trim() ?? '';
+  const trimmedAlias = alias?.trim() ?? '';
   let categoryId = selectedCategoryId;
   let createdCategory = false;
 
@@ -94,7 +105,15 @@ export function resolveFavoriteCategorySelection(
       continue;
     }
 
-    deps.addToFavorites(entry.path, !entry.is_dir, categoryId);
+    // 别名只在单条添加时带上；没有别名时**不传**第四个参数，
+    // 免得给没有别名的条目凭空写下一个 undefined。
+    if (trimmedAlias && entries.length === 1) {
+      deps.addToFavorites(entry.path, !entry.is_dir, categoryId, trimmedAlias);
+    }
+    else {
+      deps.addToFavorites(entry.path, !entry.is_dir, categoryId);
+    }
+
     addedCount += 1;
   }
 

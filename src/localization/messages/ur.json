@@ -202,7 +202,10 @@
       "indexed": "انڈیکس {time}",
       "nothingFound": "کچھ نہیں ملا"
     },
-    "showSearchSettings": "تلاش کی ترتیبات دکھائیں"
+    "showSearchSettings": "تلاش کی ترتیبات دکھائیں",
+    "remoteIndexing": "کلاؤڈ ڈرائیوز کو انڈیکس کیا جا رہا ہے",
+    "remoteIndexDone": "کلاؤڈ اشاریہ اپ ڈیٹ ہو گیا",
+    "remoteIndexFailed": "کلاؤڈ اشاریہ بند نہیں ہو سکا"
   },
   "home": {
     "mediaBannerOptions": "میڈیا بینر اختیارات",
@@ -269,7 +272,8 @@
       "deleteTagConfirmTitle": "یہ ٹیگ حذف کریں؟",
       "deleteTagConfirmDescription": "ٹیگ حذف ہو جائے گا اور تمام آئٹم سے ہٹا دیا جائے گا۔",
       "removeTagConfirmTitle": "اس آئٹم سے یہ ٹیگ ہٹائیں؟",
-      "removeTagConfirmDescription": "آئٹم پر اب یہ ٹیگ نہیں ہوگا۔"
+      "removeTagConfirmDescription": "آئٹم پر اب یہ ٹیگ نہیں ہوگا۔",
+      "renameFavorite": "دکھایا جانے والا نام تبدیل کریں"
     },
     "newFavoriteDialog": {
       "title": "Add to favorites",
@@ -277,7 +281,9 @@
       "pathPlaceholder": "Paste a full path",
       "pathNotFound": "Path does not exist",
       "pathAlreadyFavorite": "Already in favorites",
-      "confirm": "Add"
+      "confirm": "Add",
+      "displayNameLabel": "دکھایا جانے والا نام",
+      "displayNamePlaceholder": "اصل نام استعمال کرنے کے لیے خالی چھوڑیں"
     },
     "nameDialog": {
       "nameLabel": "Name",
@@ -556,7 +562,12 @@
       "ignoredPathsHelpDownloads": "اس راستے کے سابقے کو چھوڑتا ہے۔",
       "ignoredPathsHelpTestFolder": "ہر جگہ test نام والے فولڈرز اور ان کے مواد کو چھوڑتا ہے۔",
       "ignoredPathsHelpExtensionMask": "ہر جگہ .log ایکسٹینشن والی فائلز چھوڑتا ہے۔",
-      "ignoredPathsHelpNestedExtensionMask": "کسی بھی فولڈر میں .tmp ایکسٹینشن والی فائلز چھوڑتا ہے۔"
+      "ignoredPathsHelpNestedExtensionMask": "کسی بھی فولڈر میں .tmp ایکسٹینشن والی فائلز چھوڑتا ہے۔",
+      "remoteIndexTitle": "کلاؤڈ تلاش",
+      "remoteIndexDescription": "عالمی تلاش میں شامل کیے گئے کنکشنز کی فائلیں تلاش کے نتائج میں نظر آتی ہیں۔",
+      "rebuildRemoteIndex": "کلاؤڈ اشاریہ دوبارہ بنائیں",
+      "rebuildRemoteIndexDescription": "نشان زدہ کنکشنز کی فائلیں دوبارہ حاصل کر کے اشاریے میں لکھتا ہے؛ اس سے نیٹ ڈسک API کوٹا ختم ہوتا ہے۔",
+      "noRemoteInSearch": "ابھی تک عالمی تلاش میں کوئی نیٹ ڈسک شامل نہیں کیا گیا"
     },
     "drives": {
       "driveDetection": "ڈرائیو پہچان",
@@ -681,7 +692,9 @@
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
         "localPath": "Local folder",
-        "cookie": "Cookie"
+        "cookie": "Cookie",
+        "includeInSearch": "گلوبل تلاش میں شامل کریں",
+        "includeInSearchHint": "چیک کرنے پر اس کنکشن کی فائلیں عالمی تلاش کے اشاریے میں شامل ہو جاتی ہیں (کلاؤڈ اشاریہ دستی طور پر دوبارہ بنائیں)۔"
       },
       "protocol": {
         "ftp": "FTP",
@@ -1458,7 +1471,9 @@
       "newCategoryLabel": "Or create a new category",
       "newCategoryPlaceholder": "Type a name for the new category",
       "confirm": "Add to favorites",
-      "multipleEntries": "and {n} more items"
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "دکھایا جانے والا نام",
+      "displayNamePlaceholder": "اصل نام استعمال کرنے کے لیے خالی چھوڑیں"
     },
     "searchOptions": {
       "title": "تلاش کے اختیارات",

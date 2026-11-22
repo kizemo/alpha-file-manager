@@ -1,6 +1,16 @@
 # Nhật ký thay đổi
 
 
+## [3.17.0] - November 2026
+
+**Tóm tắt:** Giờ các tệp trên ổ đám mây của bạn có thể được tìm thấy bằng tìm kiếm toàn cục của ứng dụng - bạn tự quyết định cho từng kết nối rằng có tham gia hay không, nên không có gì tự ra mạng sau lưng bạn. Ổ đám mây bạn thêm vào giờ đã có sẵn tên của nó, và một mục yêu thích có thể mang tên riêng trong menu, mà không hề đụng tới tệp hay thư mục thật đứng sau nó.
+
+### What changed
+
+**Đã thêm: Tệp trên ổ đám mây giờ đã tìm thấy được bằng tìm kiếm toàn cục** Trước đây tìm kiếm toàn cục chỉ duyệt qua ổ đĩa cục bộ của bạn, nên một tệp trên Baidu Netdisk, Quark Netdisk hay Aliyun Drive chưa bao giờ là ứng viên. Khi thêm một ổ đám mây, giờ bạn có thể chọn *Bao gồm trong tìm kiếm toàn cục*, và các tệp của ổ đó sẽ được lập chỉ mục rồi xuất hiện trong kết quả tìm kiếm bên cạnh các tệp cục bộ của bạn. Quyết định được đưa ra cho từng kết nối, và ô đánh dấu bắt đầu ở trạng thái không chọn: đưa một ổ vào chỉ mục nghĩa là ra mạng và dùng hết hạn mức API của ổ đó, và ứng dụng không nên tự quyết điều đó thay bạn. Chỉ mục chỉ được dựng lại khi bạn yêu cầu - *Cài đặt* -> *Tìm kiếm toàn cục* -> *Dựng lại chỉ mục đám mây* -, nên ứng dụng không bao giờ tự dò một ổ đám mây theo lịch của riêng mình. Nếu một ổ không đọc được vào lúc đó, ứng dụng sẽ báo ra và các kết nối còn lại vẫn được lập chỉ mục như thường.
+**Đã thêm: Ổ đám mây bạn thêm vào giờ đã có sẵn tên của nó** Khi thêm ổ đám mây, trường tên trước đây để trống, nên mỗi ổ đều phải tự đặt tên bằng tay. Giờ tên của nhà cung cấp được điền sẵn cho bạn - *Baidu Netdisk*, *Quark Netdisk* hay *Aliyun Drive* -, và bạn vẫn có thể đổi nếu muốn gọi ổ đó bằng tên khác. Việc đổi tên một kết nối đã có không thay đổi: cái tên bạn đã đặt vẫn được giữ nguyên.
+**Đã thêm: Một mục yêu thích có thể mang tên riêng** Các mục yêu thích trước đây hiện theo tên của tệp hoặc thư mục đứng sau nó, và đó không phải lúc nào cũng là tên bạn muốn thấy trong menu. Giờ bạn có thể đặt cho một mục yêu thích một tên hiển thị riêng, khi thêm nó hoặc sau này qua *Sửa tên hiển thị* trên menu của thẻ. Chỉ có tên trong menu thay đổi: tệp và thư mục đứng sau vẫn giữ tên thật, và mục yêu thích vẫn mở đúng chỗ cũ.
+
 ## [3.16.1] - November 2026
 
 **Tóm tắt:** Aliyun Drive giờ đã có thể kết nối ngay trong ứng dụng: một cửa sổ đăng nhập mở ra bên trong ứng dụng, bạn quét mã QR bằng điện thoại, và ổ đĩa trở thành một bảng mà bạn có thể duyệt và đọc. Nó không còn chỉ đọc nữa: bạn có thể tạo thư mục, tải tệp lên, xóa và đổi tên ngay trên ổ đĩa, y hệt với những ổ đám mây khác của bạn. Ảnh trên ổ đĩa giờ hiện hình thu nhỏ, cả ở chế độ xem hình thu nhỏ lẫn ở chế độ xem danh sách, và bấm vào một tệp chỉ chọn đúng tệp đó, kể cả khi thư mục có nhiều tệp trùng tên, còn ổ đĩa không đọc được thì giờ nói rõ điều đó thay vì im lặng không làm gì cả.

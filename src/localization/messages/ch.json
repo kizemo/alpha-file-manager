@@ -165,7 +165,10 @@
       "indexed": "索引于 {time}",
       "nothingFound": "什么都没找到"
     },
-    "showSearchSettings": "显示搜索设置"
+    "showSearchSettings": "显示搜索设置",
+    "remoteIndexing": "正在索引云盘",
+    "remoteIndexDone": "云盘索引已更新",
+    "remoteIndexFailed": "云盘索引失败"
   },
   "home": {
     "mediaBannerOptions": "媒体横幅选项",
@@ -232,7 +235,8 @@
       "deleteTagConfirmTitle": "要删除这个标记吗？",
       "deleteTagConfirmDescription": "该标记将被删除，并从所有条目上移除。",
       "removeTagConfirmTitle": "要移除这个标记吗？",
-      "removeTagConfirmDescription": "该条目将不再带有这个标记。"
+      "removeTagConfirmDescription": "该条目将不再带有这个标记。",
+      "renameFavorite": "编辑显示名称"
     },
     "newFavoriteDialog": {
       "title": "添加到收藏",
@@ -240,7 +244,9 @@
       "pathPlaceholder": "粘贴完整路径",
       "pathNotFound": "路径不存在",
       "pathAlreadyFavorite": "已在收藏中",
-      "confirm": "添加"
+      "confirm": "添加",
+      "displayNameLabel": "显示名称",
+      "displayNamePlaceholder": "留空则使用原始名称"
     },
     "nameDialog": {
       "nameLabel": "名称",
@@ -519,7 +525,12 @@
       "ignoredPathsHelpDownloads": "跳过该路径前缀。",
       "ignoredPathsHelpTestFolder": "跳过任意位置名为 test 的文件夹及其内容。",
       "ignoredPathsHelpExtensionMask": "跳过任意位置扩展名为 .log 的文件。",
-      "ignoredPathsHelpNestedExtensionMask": "跳过任意文件夹中扩展名为 .tmp 的文件。"
+      "ignoredPathsHelpNestedExtensionMask": "跳过任意文件夹中扩展名为 .tmp 的文件。",
+      "remoteIndexTitle": "云盘检索",
+      "remoteIndexDescription": "已加入全局检索的网盘，其文件会出现在搜索结果中",
+      "rebuildRemoteIndex": "重建云盘索引",
+      "rebuildRemoteIndexDescription": "重新抓取已勾选网盘的文件并写入索引，会消耗网盘 API 配额",
+      "noRemoteInSearch": "暂无已加入检索的网盘"
     },
     "drives": {
       "driveDetection": "驱动检测",
@@ -644,7 +655,9 @@
         "proxyUsername": "代理用户名",
         "proxyPassword": "代理密码",
         "localPath": "本地目录",
-        "cookie": "Cookie"
+        "cookie": "Cookie",
+        "includeInSearch": "加入全局检索",
+        "includeInSearchHint": "勾选后，该连接的文件会进入全局检索索引（需手动重建云盘索引）"
       },
       "protocol": {
         "ftp": "FTP（明文）",
@@ -1424,7 +1437,9 @@
       "newCategoryLabel": "或新建分类",
       "newCategoryPlaceholder": "输入新分类名称",
       "confirm": "添加到收藏",
-      "multipleEntries": "以及另外 {n} 个项目"
+      "multipleEntries": "以及另外 {n} 个项目",
+      "displayNameLabel": "显示名称",
+      "displayNamePlaceholder": "留空则使用原始名称"
     },
     "searchOptions": {
       "title": "搜索选项",

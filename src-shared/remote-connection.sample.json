@@ -4,6 +4,7 @@
       "credentialKey": "e2b24ab525544dc7adeb5cedb192179b",
       "host": "192.168.1.9",
       "id": "e2b24ab525544dc7adeb5cedb192179b",
+      "includeInGlobalSearch": false,
       "initialPath": "/",
       "localPath": "E:/website_sbt",
       "name": "速豹堂",
@@ -18,6 +19,7 @@
       "credentialKey": "keep-me",
       "host": "192.168.1.9",
       "id": "keep-me",
+      "includeInGlobalSearch": false,
       "initialPath": "/pub",
       "name": "发布目录",
       "port": 21,
@@ -32,6 +34,7 @@
     {
       "host": "ftp.example.com",
       "id": "no-secret",
+      "includeInGlobalSearch": false,
       "initialPath": "/",
       "name": "匿名 FTP",
       "port": 21,

@@ -52,10 +52,12 @@ function createDeps(options: {
   const deps: FavoriteCategorySelectionDeps = {
     isFavorite: path => favorites.has(path),
     createFavoriteCategory: vi.fn(() => options.createdCategory ?? null),
-    addToFavorites: vi.fn((path: string, isFile: boolean, categoryId: string | null) => {
+    addToFavorites: vi.fn((path: string, isFile: boolean, categoryId: string | null, alias?: string) => {
       expect(typeof isFile).toBe('boolean');
       // 未分类必须是显式的 null，写成 undefined 会让 store 那边存下一个 undefined 键。
       expect(categoryId === null || typeof categoryId === 'string').toBe(true);
+      // 别名要么不给，要么给一个非空字符串。
+      expect(alias === undefined || (typeof alias === 'string' && alias.length > 0)).toBe(true);
       favorites.add(path);
     }),
   };
@@ -212,5 +214,70 @@ describe('resolveFavoriteCategorySelection', () => {
     const result = resolveFavoriteCategorySelection([], null, null, deps);
     expect(deps.addToFavorites).not.toHaveBeenCalled();
     expect(result.addedCount).toBe(0);
+  });
+});
+
+// FORK-MODIFICATION: 批次 37 —— 收藏显示名（别名）顺着「添加到收藏」这条
+// 流程一路传到写入收藏那一步。关键约束：一次给多个不同的文件套同一个
+// 显示名没有意义，所以多选时**不能**带上别名。
+describe('resolveFavoriteCategorySelection with an alias (batch 37)', () => {
+  it('把别名传给写入收藏那一步', () => {
+    const { deps } = createDeps();
+
+    resolveFavoriteCategorySelection([createEntry()], 'cat-old', null, deps, '我的报表');
+
+    expect(deps.addToFavorites).toHaveBeenCalledWith(
+      'C:/docs/report.pdf',
+      true,
+      'cat-old',
+      '我的报表',
+    );
+  });
+
+  it('别名去掉首尾空白', () => {
+    const { deps } = createDeps();
+
+    resolveFavoriteCategorySelection([createEntry()], null, null, deps, '  我的报表  ');
+
+    expect(deps.addToFavorites).toHaveBeenCalledWith(
+      'C:/docs/report.pdf',
+      true,
+      null,
+      '我的报表',
+    );
+  });
+
+  // 判别性用例：多选时把同一个别名套到几个不同的文件上，界面上会出现
+  // 三个一模一样的名字，用户根本分不清谁是谁。
+  it('never applies one alias to several entries', () => {
+    const { deps } = createDeps();
+    const entries = [
+      createEntry({ path: 'C:/a' }),
+      createEntry({ path: 'C:/b' }),
+    ];
+
+    resolveFavoriteCategorySelection(entries, 'cat-old', null, deps, '我的报表');
+
+    expect(deps.addToFavorites).toHaveBeenCalledTimes(2);
+
+    for (const call of vi.mocked(deps.addToFavorites).mock.calls) {
+      expect(call[3]).toBeUndefined();
+    }
+  });
+
+  it('别名是空白时不传第四个参数', () => {
+    const { deps } = createDeps();
+
+    resolveFavoriteCategorySelection([createEntry()], null, null, deps, '   ');
+
+    expect(deps.addToFavorites).toHaveBeenCalledWith('C:/docs/report.pdf', true, null);
+  });
+
+  it('没填别名时保持原来的调用形状（不传第四个参数）', () => {
+    const { deps } = createDeps();
+
+    resolveFavoriteCategorySelection([createEntry()], 'cat-old', null, deps);
+
+    expect(deps.addToFavorites).toHaveBeenCalledWith('C:/docs/report.pdf', true, 'cat-old');
   });
 });

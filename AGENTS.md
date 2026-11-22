@@ -745,6 +745,23 @@ AFM 确实不抢前台（聊天窗口还在前面），但**文件拖不进聊�
   改凭据前**先杀实例**，否则应用退出时会把内存里的会话回写盖掉你刚放好的文件。
   只读体检工具：`.superpowers/sdd/quark/t10-real-download-check.ps1`（不打印 cookie 值 / `pus` / `auth_key`）。
 
+### 2.11 沙箱真机验收的五个新硬事实（2026-11-22 批次 37 实测）
+
+复用模板：`.superpowers/sdd/b37/b37-accept.ps1`（算子清单见 `docs/handoff-2026-11-22-batch37-cloud-search-favorite-alias.md` §10.3）。
+
+- **`PrintWindow` 截到的沙箱帧可能是全白，不能当证据**：WebView2 的 DXGI 表面不经 `PrintWindow` 合成
+  （批次 37 的 pass4d 两张 PNG 字节数完全相同、sha256 一致、整幅全白）⇒ 截图只能算「跑到了这一步」的旁证，
+  **结论一律以 UIA dump 为准**（`accept*/uia-dump-*.txt` 里是真实无障碍名）。
+  这条**修正** §2.8「`PrintWindow` 在沙箱桌面照样能出图」的说法：窗口框出得来，**内容区可能是空白**。
+- **断言只扫 `ControlType.Text` 会假红**：收藏卡/列表项的标题会并进**父级 Button 的 `Name`**
+  （实测 `AFM别名验收 — F:/... 文件夹 刚刚 …`），`Text` 节点里根本没有 ⇒ 需要「全控件 `Name` 通配扫描」算子
+  （`assertNamePresent`）。**断言红了先分清「功能没生效」还是「断言挂错控件」**，后者改判据，不是改产品。
+- **别硬编码屏幕坐标**：同一轮验收里窗口宽度实测从 3840 变成 2560，硬编码点全偏 ⇒ 一律从 UIA 树动态定位
+  （按列 `x<90` 筛图标 + 按 `y` 排序取第 N 个 / 页签行之下取最靠上的无名 Button），点击前先断言元素存在。
+- **webview 窗口先于 Vue 挂载**：启动瞬间 UIA 树是空的，脚本会误判「侧栏没渲染」⇒ 先等 Button 数 ≥ 阈值再开跑（`waitReady`）。
+- **appdata 备份目录会被 WebView2 缓存锁住**：`Remove-Item -Recurse` 报 "being used by another process" 并打断脚本
+  （exit 非 0）⇒ 每轮按时间戳新建备份目录 + 复制前先停进程 + `Copy-Item -ErrorAction SilentlyContinue`。
+
 ## 3. 代码导航：graphify 知识图谱
 本仓库已建好本地 AST 知识图谱（2026-10-21 部署）：**零 LLM、零 API 成本、纯本地**，产物在 `graphify-out/`（已加进 `.gitignore`，不进版本库）。
 

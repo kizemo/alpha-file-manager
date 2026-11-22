@@ -14,7 +14,7 @@
 import { defineStore } from 'pinia';
 import { LazyStore } from '@tauri-apps/plugin-store';
 import { invoke } from '@tauri-apps/api/core';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type {
   AliyunAuthStatusPayload,
   AliyunLoginClaimPayload,
@@ -126,6 +126,26 @@ export function fixedNetdiskPort(protocol: RemoteProtocol): number | null {
 }
 
 /**
+ * 把一条落盘记录归一化成前端的形状（批次 37）。
+ *
+ * **`includeInGlobalSearch` 是后加的字段**：老记录里根本没有这个键。
+ * 缺省必须读成 `false`（不加入全局检索），而不是 `undefined` ——
+ * `undefined` 在模板里虽然也是 falsy，但存回盘上就还是「没有这个键」，
+ * 归一化必须是**真的归一**。
+ *
+ * 导出是为了能单独测它：这条规则一旦漂了，老用户的网盘会莫名其妙地
+ * 被塞进全局检索（要走网络、吃配额）。
+ */
+export function normalizeConnectionRecord(record: unknown): RemoteConnection {
+  const source = (record ?? {}) as Partial<RemoteConnection>;
+
+  return {
+    ...(source as RemoteConnection),
+    includeInGlobalSearch: source.includeInGlobalSearch === true,
+  };
+}
+
+/**
  * 网盘协议的界面名称（简体中文）。
  *
  * 只给**非要拼一句中文**的地方用 —— 比如「测试连接」那条兜底提示。
@@ -142,6 +162,16 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
 
   const storage = ref<LazyStore | null>(null);
   const connections = ref<RemoteConnection[]>([]);
+
+  /**
+   * 勾选了「加入全局检索」的那些连接（批次 37）。
+   *
+   * 建云盘索引时传的就是它们的 id —— **必须是当前全部已勾选的**：
+   * 后端按传进来的集合整体重建云盘索引，漏掉一条就等于把那条的条目抹掉。
+   */
+  const globalSearchConnections = computed(() => (
+    connections.value.filter(connection => connection.includeInGlobalSearch === true)
+  ));
 
   /**
    * 把连接列表同步给「位置」页的注册表（用户 2026-11-08 需求 3）。
@@ -302,7 +332,12 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
   function applyRecord(record: Record<string, unknown>): void {
     const stored = record[CONNECTIONS_KEY];
 
-    connections.value = Array.isArray(stored) ? (stored as RemoteConnection[]) : [];
+    if (!Array.isArray(stored)) {
+      connections.value = [];
+      return;
+    }
+
+    connections.value = stored.map(item => normalizeConnectionRecord(item));
   }
 
   async function loadStorageData(): Promise<void> {
@@ -570,6 +605,9 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
       ...(credentialKey
         ? { credentialKey }
         : {}),
+      // 「加入全局检索」跟着连接一起存。**缺省不加入** ——
+      // 给云盘建索引要走网络、吃网盘 API 配额，默认打开等于替用户做决定。
+      includeInGlobalSearch: form.includeInGlobalSearch === true,
     };
 
     // 第二步：storage。走到这里密文已经在盘上。
@@ -870,6 +908,7 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
   return {
     storage,
     connections,
+    globalSearchConnections,
     isInitialized,
     pendingEditId,
     pendingCreate,

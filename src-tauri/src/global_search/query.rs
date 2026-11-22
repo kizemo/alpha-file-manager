@@ -14,7 +14,8 @@ use tantivy::Term;
 use walkdir::WalkDir;
 
 use super::ignore::{builtin_ignored_paths, get_drive_root, normalize_case, IgnoredPathMatcher};
-use super::index::{index_dir, open_or_create_index};
+use super::index::{index_dir, open_or_create_index, remote_index_dir};
+use super::remote_index::open_remote_reader;
 use super::scoring::{calculate_similarity_score, get_min_score_for_query_length};
 use super::state::{
     is_reader_idle, mark_query_activity, now_millis, GlobalSearchIndexFields, GLOBAL_SEARCH_STATE,
@@ -237,6 +238,18 @@ pub(super) fn global_search_query_blocking(
     let finalized = finalize_results(results, options.limit);
     let finalize_ms = finalize_started.elapsed().as_millis();
 
+    // FORK-MODIFICATION 2026-11-22（批次 37）：合并云盘（远程连接）结果。
+    //
+    // 云盘索引是**独立**的一份 tantivy 索引（理由见 `remote_index.rs` 的模块头注释），
+    // 这里用**同一个查询、同一个选项**去查它，再与本地结果合并。
+    //
+    // 没有云盘索引时（`None`）**原样返回本地结果** —— 行为与加这个功能之前
+    // 逐字一致：不报错、结果集不变、条数不变。
+    let merged = match search_remote_index(&base_dir, &query, &options) {
+        None => finalized,
+        Some(remote_results) => merge_search_results(finalized, remote_results, options.limit),
+    };
+
     log::info!(
         "[global-search] query timings: total={}ms index_open={}ms collect={}ms materialize={}ms finalize={}ms candidates={} results={} index_docs={}",
         query_started.elapsed().as_millis(),
@@ -245,11 +258,90 @@ pub(super) fn global_search_query_blocking(
         materialize_ms,
         finalize_ms,
         candidates.len(),
-        finalized.len(),
+        merged.len(),
         searcher.num_docs()
     );
 
-    Ok(finalized)
+    Ok(merged)
+}
+
+/// 查询云盘索引。
+///
+/// **返回 `None` 表示「没有云盘索引」** —— 调用方据此保持改动前的行为
+/// （不报错、不改结果集）。索引存在但一条都没匹配上时返回 `Some(空 vec)`，
+/// 两者必须分得清。
+///
+/// 过滤口径与本地查询**完全一致**（同一个 `build_query` + 同一个
+/// `materialize_candidates`）：相似度门槛、精确匹配、文件/目录类型都按同一套规则。
+fn search_remote_index(
+    base_dir: &Path,
+    query: &str,
+    options: &GlobalSearchQueryOptions,
+) -> Option<Vec<GlobalSearchResultEntry>> {
+    let index_path = remote_index_dir(base_dir);
+    let (reader, fields) = open_remote_reader(&index_path)?;
+
+    let searcher = reader.searcher();
+    let normalized_query = normalize_case(query);
+    let candidate_limit = remote_candidate_limit_for(options);
+
+    let candidates =
+        match collect_candidate_addresses(&searcher, &fields, query, options, candidate_limit) {
+            Ok(candidates) => candidates,
+            Err(error) => {
+                log::warn!("[global-search] 云盘索引查询失败：{}", error);
+                return Some(Vec::new());
+            }
+        };
+
+    let (results, _materialized_count) =
+        materialize_candidates(&searcher, &fields, options, &normalized_query, &candidates);
+
+    Some(results)
+}
+
+/// 合并本地结果与云盘结果。
+///
+/// 规则（顺序即优先级）：
+///
+/// 1. **按 path 去重**：同一个 path 出现两次时保留**分数高**的一条；
+///    分数相同保留本地那条（本地先入队）。
+/// 2. **按 score 降序**排全局序。`sort_by` 是稳定排序 ⇒ 分数相同时
+///    本地条目排在云盘条目前面 —— 本地结果优先，是这个产品一贯的取向。
+/// 3. **总量截断到 `limit`**：`limit` 就是「结果条数上限」这个旋钮本身
+///    （见 `candidate_limit_for` 的注释），合并后仍然只给用户这么多条。
+pub(super) fn merge_search_results(
+    local: Vec<GlobalSearchResultEntry>,
+    remote: Vec<GlobalSearchResultEntry>,
+    limit: usize,
+) -> Vec<GlobalSearchResultEntry> {
+    let mut merged: Vec<GlobalSearchResultEntry> = Vec::with_capacity(local.len() + remote.len());
+    let mut position_by_path: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::with_capacity(local.len() + remote.len());
+
+    for entry in local.into_iter().chain(remote.into_iter()) {
+        match position_by_path.get(&entry.path) {
+            Some(position) => {
+                if entry.score > merged[*position].score {
+                    merged[*position] = entry;
+                }
+            }
+            None => {
+                position_by_path.insert(entry.path.clone(), merged.len());
+                merged.push(entry);
+            }
+        }
+    }
+
+    merged.sort_by(|entry_a, entry_b| {
+        entry_b
+            .score
+            .partial_cmp(&entry_a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    merged.truncate(limit);
+
+    merged
 }
 
 /// 单次查询允许物化的文档条数上限。
@@ -271,6 +363,15 @@ fn candidate_limit_for(options: &GlobalSearchQueryOptions, drive_count: usize) -
     per_drive
         .saturating_mul(drives)
         .min(MAX_SEARCH_CANDIDATE_MATERIALIZATION)
+}
+
+/// 云盘侧的候选预算。
+///
+/// **独立于本地**：本地的候选预算按「盘符数 × limit」算（见 `candidate_limit_for`），
+/// 云盘没有盘符概念，给它自己的 `limit` 就够 —— 两个预算互不影响，
+/// 本地的候选条数不会因为多了一份云盘索引而变大。
+fn remote_candidate_limit_for(options: &GlobalSearchQueryOptions) -> usize {
+    options.limit.max(1).min(MAX_SEARCH_CANDIDATE_MATERIALIZATION)
 }
 
 /// 单次查询允许物化的文档条数绝对上限。
@@ -1369,5 +1470,124 @@ mod tests {
             results[0].score,
             results[1].score
         );
+    }
+
+    // ---- 云盘（远程连接）结果合并（批次 37） ---------------------------------
+
+    fn remote_entry(path: &str, name: &str, score: f32) -> GlobalSearchResultEntry {
+        GlobalSearchResultEntry {
+            name: name.to_string(),
+            ext: None,
+            path: path.to_string(),
+            size: 0,
+            item_count: None,
+            modified_time: 0,
+            accessed_time: 0,
+            created_time: 0,
+            mime: None,
+            is_file: true,
+            is_dir: false,
+            is_symlink: false,
+            is_hidden: false,
+            score,
+        }
+    }
+
+    fn cloud_options(limit: usize) -> GlobalSearchQueryOptions {
+        GlobalSearchQueryOptions {
+            limit,
+            include_files: true,
+            include_directories: true,
+            exact_match: false,
+            typo_tolerance: true,
+            min_score_threshold: Some(0.0),
+        }
+    }
+
+    /// 合并的三条规则：按 path 去重、按 score 降序、总量受 limit 约束。
+    #[test]
+    fn merging_dedupes_by_path_and_orders_by_score() {
+        let local = vec![
+            remote_entry("C:/local/a.txt", "a.txt", 0.4),
+            remote_entry("C:/local/b.txt", "b.txt", 0.9),
+        ];
+        let remote = vec![
+            remote_entry("sfm://remote/conn-a/c.txt", "c.txt", 0.7),
+            // 同一条目在两边都出现 ⇒ 只保留一条
+            remote_entry("C:/local/a.txt", "a.txt", 0.1),
+        ];
+
+        let merged = merge_search_results(local, remote, 10);
+
+        assert_eq!(merged.len(), 3, "同一个 path 必须只留一条");
+        assert_eq!(merged[0].path, "C:/local/b.txt");
+        assert_eq!(merged[1].path, "sfm://remote/conn-a/c.txt");
+        assert_eq!(merged[2].path, "C:/local/a.txt");
+    }
+
+    /// 同一条目在两边都出现、且**分数相同**时，保留本地那条
+    /// （本地先入队 + 严格大于才替换）。
+    #[test]
+    fn merging_keeps_the_local_entry_when_the_scores_tie() {
+        let local = vec![remote_entry("C:/local/a.txt", "本地名字.txt", 0.5)];
+        let remote = vec![remote_entry("C:/local/a.txt", "云盘名字.txt", 0.5)];
+
+        let merged = merge_search_results(local, remote, 10);
+
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].name, "本地名字.txt");
+    }
+
+    /// 合并后的总量仍然受 `limit` 约束。
+    #[test]
+    fn merging_respects_the_limit() {
+        let local = vec![
+            remote_entry("C:/local/a.txt", "a.txt", 0.9),
+            remote_entry("C:/local/b.txt", "b.txt", 0.8),
+        ];
+        let remote = vec![remote_entry("sfm://remote/conn-a/c.txt", "c.txt", 0.7)];
+
+        let merged = merge_search_results(local, remote, 2);
+
+        assert_eq!(merged.len(), 2);
+        assert_eq!(merged[0].path, "C:/local/a.txt");
+        assert_eq!(merged[1].path, "C:/local/b.txt");
+    }
+
+    /// **没有云盘索引时行为与改动前完全一致** —— 返回 `None`，
+    /// 调用方据此原样返回本地结果（不报错、不改结果集）。
+    #[test]
+    fn a_missing_remote_index_yields_no_results_at_all() {
+        let temp = tempfile::TempDir::new().expect("temp dir");
+
+        assert!(search_remote_index(temp.path(), "readme", &cloud_options(10)).is_none());
+    }
+
+    /// 云盘索引的写入 → 查询往返。
+    #[test]
+    fn the_remote_index_round_trips_through_a_write_and_a_query() {
+        let temp = tempfile::TempDir::new().expect("temp dir");
+        let base_dir = temp.path().to_path_buf();
+
+        let written = super::super::remote_index::write_remote_index(
+            &remote_index_dir(&base_dir),
+            &[super::super::remote_index::RemoteIndexDoc {
+                path: "sfm://remote/conn-a/readme.txt".to_string(),
+                name: "readme.txt".to_string(),
+                is_dir: false,
+                size: 12,
+                modified_time: 0,
+            }],
+        )
+        .expect("write");
+
+        assert_eq!(written, 1);
+
+        let results = search_remote_index(&base_dir, "readme", &cloud_options(10))
+            .expect("云盘索引必须存在");
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].path, "sfm://remote/conn-a/readme.txt");
+        assert_eq!(results[0].name, "readme.txt");
     }
 }

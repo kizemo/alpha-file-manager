@@ -51,6 +51,14 @@ pub(super) fn index_dir(base_dir: &Path) -> PathBuf {
     global_search_dir(base_dir).join("index")
 }
 
+/// 云盘索引目录。与本地索引**分开**放在 app-data 根下。
+///
+/// 单独一个目录的理由见 `global_search/remote_index.rs` 的模块头注释：
+/// 把云盘混进本地索引会让增量判定（`same_drive_roots`）每轮都不成立。
+pub(super) fn remote_index_dir(base_dir: &Path) -> PathBuf {
+    base_dir.join("remote-index")
+}
+
 fn global_search_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("global-search")
 }

@@ -50,7 +50,7 @@ import {
   type DashboardSizedItem,
 } from '@/modules/dashboard/composables/use-dashboard-item-sizes';
 import { formatDashboardRelativeTime } from '@/utils/dashboard-relative-time';
-import { getPathDisplayName } from '@/utils/normalize-path';
+import { resolveFavoriteDisplayName } from '@/utils/favorite-display-name';
 // FORK-MODIFICATION 2026-10-31：拖放落点判定（指针落在目标框的哪一半）。
 import { getDropPlacement, getElementRect } from '@/modules/dashboard/utils/drop-placement';
 import type { DropPlacement } from '@/stores/storage/utils/favorites-order';
@@ -229,6 +229,10 @@ const newTagDialogOpen = ref(false);
 // 复用同一个 name-dialog 做「重命名分类」：标题与初值不同，交互完全一样。
 const renameCategoryDialogOpen = ref(false);
 const categoryBeingRenamed = ref<FavoriteCategory | null>(null);
+// FORK-MODIFICATION: 批次 37 —— 收藏显示名（别名）的编辑入口。
+// 同样复用 name-dialog：清空输入框 = 清掉别名 = 回到原始名称。
+const favoriteAliasDialogOpen = ref(false);
+const favoriteAliasTarget = ref<FavoriteItem | null>(null);
 
 // FORK-MODIFICATION 2026-10-23：色板改为引用 `@/utils/tag-colors` 里的唯一一份。
 const TAG_COLOR_PALETTE = TAG_COLORS;
@@ -666,8 +670,10 @@ async function handleFavoriteDrop(event: DragEvent, item: FavoriteItem) {
   await userStatsStore.reorderFavorites(draggedPath, item.path, placement);
 }
 
+// FORK-MODIFICATION: 批次 37 —— 可见名与 a11y 标签必须一致：
+// 有别名就用别名，没有才回退原始名称。
 function getFavoriteDisplayName(item: FavoriteItem): string {
-  return getPathDisplayName(item.path, t) || item.path;
+  return resolveFavoriteDisplayName(item.path, item.alias, t);
 }
 
 function getFavoriteMoveUpLabel(item: FavoriteItem): string {
@@ -678,8 +684,14 @@ function getFavoriteMoveDownLabel(item: FavoriteItem): string {
   return t('dashboard.actions.moveDownWithName', { name: getFavoriteDisplayName(item) });
 }
 
-async function handleCreateFavorite(path: string, isFile: boolean, categoryId: string | null) {
-  await userStatsStore.addToFavorites(path, isFile, categoryId);
+// FORK-MODIFICATION: 批次 37 —— alias 是收藏条目的**显示名**，只影响显示。
+async function handleCreateFavorite(
+  path: string,
+  isFile: boolean,
+  categoryId: string | null,
+  alias: string | null,
+) {
+  await userStatsStore.addToFavorites(path, isFile, categoryId, alias ?? '');
 }
 
 function openNewCategoryDialog() {
@@ -712,6 +724,24 @@ async function handleRenameCategory(name: string) {
 
   await userStatsStore.renameFavoriteCategory(category.id, name);
   categoryBeingRenamed.value = null;
+}
+
+// FORK-MODIFICATION: 批次 37 —— 编辑收藏条目的显示名（别名）。
+// 只改显示名：path 与真实文件名都不动，收藏打开的仍然是原来那个路径。
+function openFavoriteAliasDialog(item: FavoriteItem) {
+  favoriteAliasTarget.value = item;
+  favoriteAliasDialogOpen.value = true;
+}
+
+async function handleSaveFavoriteAlias(name: string) {
+  const target = favoriteAliasTarget.value;
+
+  if (!target) {
+    return;
+  }
+
+  await userStatsStore.setFavoriteAlias(target.path, name);
+  favoriteAliasTarget.value = null;
 }
 
 // 删分类**不删收藏** —— 它们回到「未分类」。可逆，且不静默丢用户数据。
@@ -951,6 +981,7 @@ function requestRemoveTaggedItem(item: TaggedItem, sectionTagId: string) {
                       :path="item.path"
                       :is-file="isFavoriteFile(item)"
                       :size-label="getSizeLabel(item.path)"
+                      :alias="item.alias ?? ''"
                       @click="openFavoriteItem(item)"
                     >
                       <!-- FORK-MODIFICATION: 2026-10-31 —— 条目级排序（拖拽手柄 + 上移 / 下移）。 -->
@@ -971,12 +1002,14 @@ function requestRemoveTaggedItem(item: TaggedItem, sectionTagId: string) {
                         :can-move-up="canMoveWithinGroup(section.items, item.path, -1)"
                         :can-move-down="canMoveWithinGroup(section.items, item.path, 1)"
                         show-category-picker
+                        show-rename-favorite
                         :categories="favoriteCategories"
                         :current-category-id="item.categoryId"
                         :remove-label="t('dashboard.actions.removeFavorite')"
                         @move-up="handleMoveFavorite(item.path, -1)"
                         @move-down="handleMoveFavorite(item.path, 1)"
                         @move-to-category="categoryId => handleMoveFavoriteToCategory(item.path, categoryId)"
+                        @rename-favorite="openFavoriteAliasDialog(item)"
                         @remove="requestRemoveFavorite(item.path, $event)"
                       />
                       <!-- FORK-MODIFICATION 2026-10-23：类型 + 「添加于 X 前」 -->
@@ -1213,6 +1246,19 @@ function requestRemoveTaggedItem(item: TaggedItem, sectionTagId: string) {
       :initial-name="categoryBeingRenamed?.name ?? ''"
       :duplicate-of="categoryNameConflict"
       @confirm="handleRenameCategory"
+    />
+
+    <!-- FORK-MODIFICATION: 批次 37 —— 编辑收藏显示名（别名）。
+         允许提交空名：清空 = 回到原始名称。 -->
+    <DashboardNameDialog
+      v-model:open="favoriteAliasDialogOpen"
+      :title="t('dashboard.actions.renameFavorite')"
+      :initial-name="favoriteAliasTarget?.alias ?? ''"
+      :name-label="t('dashboard.newFavoriteDialog.displayNameLabel')"
+      :name-placeholder="t('dashboard.newFavoriteDialog.displayNamePlaceholder')"
+      :confirm-label="t('save')"
+      allow-empty-name
+      @confirm="handleSaveFavoriteAlias"
     />
 
     <!-- FORK-MODIFICATION 2026-10-23：破坏性操作的确认框。 -->

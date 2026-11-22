@@ -1364,6 +1364,7 @@ mod tests {
                 local_path: None,
                 proxy: super::transport::ProxyConfig::Direct,
                 credential_key: None,
+                include_in_global_search: false,
             },
             password: Some("pw".to_string()),
         }

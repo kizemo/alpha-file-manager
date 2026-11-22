@@ -202,7 +202,10 @@
       "indexed": "Ինդեքսավորված {time}",
       "nothingFound": "Ոչինչ չի գտնվել"
     },
-    "showSearchSettings": "Ցուցադրել որոնման կարգավորումները"
+    "showSearchSettings": "Ցուցադրել որոնման կարգավորումները",
+    "remoteIndexing": "Ամպամային սակավերի ինդեքսավորում",
+    "remoteIndexDone": "Ամպամային ինդեքսը թարմացվեց",
+    "remoteIndexFailed": "Ամպամային ինդեքսը ձախողացավ"
   },
   "home": {
     "mediaBannerOptions": "Ֆոնի փոփոխում",
@@ -269,7 +272,8 @@
       "deleteTagConfirmTitle": "Ջեռնանշանը ջնջե՞լ:",
       "deleteTagConfirmDescription": "Ջեռնանշանը կջնջվի և կհանվի բոլոր տեղանշաններից։",
       "removeTagConfirmTitle": "Հեռացնե՞լ ջեռնանշանը տեղանշանից։",
-      "removeTagConfirmDescription": "Տեղանշանը այլևս չի կրում այս ջեռնանշանը։"
+      "removeTagConfirmDescription": "Տեղանշանը այլևս չի կրում այս ջեռնանշանը։",
+      "renameFavorite": "Խմբագրել ցուցադրվող անունը"
     },
     "newFavoriteDialog": {
       "title": "Add to favorites",
@@ -277,7 +281,9 @@
       "pathPlaceholder": "Paste a full path",
       "pathNotFound": "Path does not exist",
       "pathAlreadyFavorite": "Already in favorites",
-      "confirm": "Add"
+      "confirm": "Add",
+      "displayNameLabel": "Ցուցադրվող անուն",
+      "displayNamePlaceholder": "Թողեք դատարկ՝ բնագիր անունը կիրառելու համար"
     },
     "nameDialog": {
       "nameLabel": "Name",
@@ -556,7 +562,12 @@
       "ignoredPathsHelpDownloads": "Բաց է թողնում այդ ուղու նախածանցը։",
       "ignoredPathsHelpTestFolder": "Բաց է թողնում test անունով պանակները և դրանց պարունակությունը ցանկացած տեղում։",
       "ignoredPathsHelpExtensionMask": "Բաց է թողնում .log ընդլայնմամբ ֆայլերը ցանկացած տեղում։",
-      "ignoredPathsHelpNestedExtensionMask": "Բաց է թողնում ֆայլերը .tmp ընդլայնումով ցանկացած պանակում։"
+      "ignoredPathsHelpNestedExtensionMask": "Բաց է թողնում ֆայլերը .tmp ընդլայնումով ցանկացած պանակում։",
+      "remoteIndexTitle": "Ամպամային որոնում",
+      "remoteIndexDescription": "Գլոբալ որոնման մեջ ընդունված կապերի ֆայլերը հայտնվում են որոնման արդյունքներում։",
+      "rebuildRemoteIndex": "Վերակառուցել ամպամային ինդեքսը",
+      "rebuildRemoteIndexDescription": "Նշված կապերի ֆայլերը կրկին ստանում է և գրում ինդեքսում; սա սպահում է ցանցային սկավծի API քվոտան։",
+      "noRemoteInSearch": "Դեռ ոչ մի ցանցային սկավծ չի ընդունվել գլոբալ որոնման մեջ"
     },
     "drives": {
       "driveDetection": "Սկավառակի հայտնաբերում",
@@ -681,7 +692,9 @@
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
         "localPath": "Local folder",
-        "cookie": "Cookie"
+        "cookie": "Cookie",
+        "includeInSearch": "Ընդունել գլոբալ որոնման մեջ",
+        "includeInSearchHint": "Նշումը վերադարձնում է այս կապի ֆայլերը գլոբալ որոնման ինդեքսում (վերակառուցե՛ ամպամային ինդեքսը ձեռքով)։"
       },
       "protocol": {
         "ftp": "FTP",
@@ -1458,7 +1471,9 @@
       "newCategoryLabel": "Or create a new category",
       "newCategoryPlaceholder": "Type a name for the new category",
       "confirm": "Add to favorites",
-      "multipleEntries": "and {n} more items"
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "Ցուցադրվող անուն",
+      "displayNamePlaceholder": "Թողեք դատարկ՝ բնագիր անունը կիրառելու համար"
     },
     "searchOptions": {
       "title": "Որոնման տարբերակներ",

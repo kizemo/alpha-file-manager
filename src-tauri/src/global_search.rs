@@ -8,6 +8,7 @@ mod index;
 mod incremental;
 mod index_watcher;
 mod query;
+mod remote_index;
 mod scan;
 mod scoring;
 mod state;

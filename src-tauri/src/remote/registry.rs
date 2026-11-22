@@ -191,6 +191,7 @@ mod tests {
             local_path: None,
             proxy: ProxyConfig::Direct,
             credential_key: None,
+            include_in_global_search: false,
         }
     }
 
@@ -415,6 +416,7 @@ mod tests {
                     local_path: None,
                     proxy: ProxyConfig::Direct,
                     credential_key: Some("conn-baidu".to_string()),
+                    include_in_global_search: false,
                 }],
             })
             .expect("serialize"),
@@ -453,6 +455,7 @@ mod tests {
                     local_path: None,
                     proxy: ProxyConfig::Direct,
                     credential_key: Some("conn-quark".to_string()),
+                    include_in_global_search: false,
                 }],
             })
             .expect("serialize"),
@@ -491,6 +494,7 @@ mod tests {
                     local_path: None,
                     proxy: ProxyConfig::Direct,
                     credential_key: Some("conn-aliyun".to_string()),
+                    include_in_global_search: false,
                 }],
             })
             .expect("serialize"),

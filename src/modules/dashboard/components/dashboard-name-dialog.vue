@@ -29,10 +29,23 @@ const props = withDefaults(defineProps<{
   initialColor?: string;
   /** 外部判定重名时把冲突的名字传进来，组件据此显示错误并禁止提交。 */
   duplicateOf?: string | null;
+  // FORK-MODIFICATION: 批次 37 —— 复用本组件编辑「收藏显示名（别名）」。
+  // 别名允许清空（清空 = 回到原始名称），所以这里要能提交空名。
+  allowEmptyName?: boolean;
+  /** 覆盖默认的「名称」标签文案（别名场景要写「显示名称」）。 */
+  nameLabel?: string;
+  /** 覆盖默认的输入框占位文案。 */
+  namePlaceholder?: string;
+  /** 覆盖默认的确认按钮文案。 */
+  confirmLabel?: string;
 }>(), {
   initialName: '',
   initialColor: '',
   duplicateOf: null,
+  allowEmptyName: false,
+  nameLabel: '',
+  namePlaceholder: '',
+  confirmLabel: '',
 });
 
 const emit = defineEmits<{
@@ -69,7 +82,7 @@ watch(
 function handleSubmit() {
   const trimmed = nameDraft.value.trim();
 
-  if (!trimmed || props.duplicateOf) {
+  if ((!props.allowEmptyName && !trimmed) || props.duplicateOf) {
     return;
   }
 
@@ -92,13 +105,13 @@ function handleSubmit() {
         <label
           class="dashboard-name-dialog__label"
           for="dashboard-name-input"
-        >{{ t('dashboard.nameDialog.nameLabel') }}</label>
+        >{{ nameLabel || t('dashboard.nameDialog.nameLabel') }}</label>
 
         <Input
           id="dashboard-name-input"
           ref="inputRef"
           v-model="nameDraft"
-          :placeholder="t('dashboard.nameDialog.namePlaceholder')"
+          :placeholder="namePlaceholder || t('dashboard.nameDialog.namePlaceholder')"
           :aria-invalid="Boolean(duplicateOf)"
           @keydown.enter.prevent="handleSubmit"
         />
@@ -124,10 +137,10 @@ function handleSubmit() {
 
       <DialogFooter>
         <Button
-          :disabled="!nameDraft.trim() || Boolean(duplicateOf)"
+          :disabled="(!allowEmptyName && !nameDraft.trim()) || Boolean(duplicateOf)"
           @click="handleSubmit"
         >
-          {{ t('dashboard.nameDialog.confirm') }}
+          {{ confirmLabel || t('dashboard.nameDialog.confirm') }}
         </Button>
       </DialogFooter>
     </DialogContent>

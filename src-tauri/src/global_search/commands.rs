@@ -71,6 +71,52 @@ pub async fn global_search_query_paths(
     super::query::global_search_query_paths(paths, query, options).await
 }
 
+/// 按给定的连接 id **从零重建**云盘（远程连接）索引，返回写入的条目总数。
+///
+/// 语义（与前端约定的契约）：
+///
+/// - **先删后建** ⇒ 取消勾选的连接不会在索引里留下残条目；
+/// - **按连接隔离失败**：一个云盘 400 / 超时 / 鉴权过期只记日志，
+///   其它连接照常建索引，最后仍然返回 `Ok(条目数)`；
+/// - `connection_ids` 为空 ⇒ 清空云盘索引并返回 `0`。
+#[tauri::command]
+pub async fn global_search_index_remote_connections(
+    app: tauri::AppHandle,
+    connection_ids: Vec<String>,
+) -> Result<u64, String> {
+    let base_dir =
+        crate::app_dirs::app_data_dir(&app).map_err(|error: tauri::Error| error.to_string())?;
+
+    // 与 `remote/commands.rs` 的 `user_data_dir` **同源**：
+    // `appDataDir + userStorageFiles.userDataDirName`。
+    // 两处必须一致 —— 算错的表现是「Rust 说没有这条连接」，而界面上明明有。
+    let user_data_dir = base_dir.join(
+        &crate::user_storage_files_config::user_storage_files_config().user_data_dir_name,
+    );
+
+    let index_path = super::index::remote_index_dir(&base_dir);
+
+    if connection_ids.is_empty() {
+        super::remote_index::clear_remote_index(&index_path)?;
+        return Ok(0);
+    }
+
+    // 遍历要走网络 ⇒ 在 async 上下文里直接 `.await` provider 调用。
+    // **不要**在 `spawn_blocking` 里再套一层 tokio runtime
+    // （`Runtime::block_on` 在运行时内部会 panic：
+    // "Cannot start a runtime from within a runtime"）。
+    let docs =
+        super::remote_index::collect_remote_entries(&user_data_dir, &base_dir, &connection_ids)
+            .await;
+
+    // 写盘（tantivy）挪到工作线程，别占着 async 运行时的工作线程。
+    tauri::async_runtime::spawn_blocking(move || {
+        super::remote_index::write_remote_index(&index_path, &docs)
+    })
+    .await
+    .map_err(|join_error| format!("Remote search index task failed: {join_error}"))?
+}
+
 // FORK-MODIFICATION: 需求反馈 3 —— 目录内搜索递归化。
 // 与 global_search_query_paths 分开而不是复用：后者对每个路径只读一层，
 // 且被全局搜索的「优先路径」流程依赖，改它的语义会波及那条链路。

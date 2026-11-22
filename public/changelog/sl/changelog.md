@@ -1,6 +1,16 @@
 # Dnevnik sprememb
 
 
+## [3.17.0] - November 2026
+
+**Povzetek:** Datoteke na omrežnih diskih lahko zdaj poiščete z globalnim iskanjem aplikacije - za vsako povezavo sami odločite, ali sodeluje, zato nič ne odide v omrežje za vašimi hrbti. Omrežni disk, ki ga dodate, ima že vneseno svoje ime, priljubljen pa lahko v meniju dobi lastno ime, ne da bi bilo kaj spremenjeno pri resnični mapi ali datoteki za njim.
+
+### What changed
+
+**Dodano: Datoteke na omrežnih diskih so zdaj najdene z globalnim iskanjem** Globalno iskanje je prej preiskovalo samo vaše lokalne diske, zato datoteka na Baidu Netdisku, Quark Netdisku ali Aliyun Drive nikoli ni bila kandidat. Ko dodate omrežni disk, lahko zdaj označite *Vključi v globalno iskanje*, datoteke tega diska se indeksirajo in v rezultatih prikažejo skupaj z vašimi lokalnimi datotekami. Odločitev je za vsako povezavo posebej, potrditveno polje pa je na začetku prazno: vključitev diska v indeks pomeni odhod v omrežje in porabo API kvote tega diska, take odločitve aplikacija ne sme sprejemati namesto vas. Indeks se pregradi samo, ko to zahtevate - *Nastavitve* -> *Globalno iskanje* -> *Pregradi oblakov indeks* -, zato aplikacija nikoli sama ne prelazi omrežnih diskov. Če diska v tistem trenutku ni mogoče prebrati, je to sporočeno, preostale povezave pa so indeksirane kot običajno.
+**Dodano: Omrežni disk, ki ga dodate, ima zdaj svoje ime** Ko ste dodali omrežni disk, je polje za ime ostalo prazno, zato je vsak disk moral biti poimenovan ročno. Zdaj se ime ponudnika vpiše za vas - *Baidu Netdisk*, *Quark Netdisk* ali *Aliyun Drive* -, lahko pa ga spremenite, če želite disk poimenovati drugače. Preimenovanje že obstoječe povezave ostane nedotaknjeno: ime, ki ste ga dali, se ohrani.
+**Dodano: Priljubljen lahko dobi lastno ime** Priljubljeni so bili prikazani z imenom datoteke ali mape za njimi, kar ni vedno ime, ki ga želite videti v meniju. Zdaj lahko priljubljenu dodelite lastno prikazno ime, tako ob dodajanju kot pozneje prek *Uredi prikazno ime* v meniju kartice. Spremeni se samo ime v meniju: datoteka in mapa za njim ohranita svoji pravi imeni, priljubljen pa odpira isto mesto kot prej.
+
 ## [3.16.1] - November 2026
 
 **Povzetek:** Aliyun Drive se je zdaj lahko povezal neposredno v aplikaciji: odpre se okno za prijavo znotraj aplikacije, s telefonom skenirate kodo QR, pogon pa postane podokno, ki ga lahko brskate in berete. Ni več samo za branje: na pogonu lahko ustvarite mape, naložite datoteke, jih izbrišete in preimenujete, prav tako kot pri drugih mrežnih diskih. Slike na pogonu zdaj prikažejo miniature v načinu miniatur kot tudi v načinu seznama, klikanje na datoteko pa izbere samo to datoteko, tudi če mapa vsebuje več datotek z istim imenom, pogon, ki ga ni mogoče prebrati, pa zdaj to pove, namesto da tiho ne stori ničesar.

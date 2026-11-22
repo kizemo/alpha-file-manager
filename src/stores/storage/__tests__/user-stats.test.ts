@@ -735,3 +735,134 @@ describe('favorites and favorite categories reordering (2026-10-31)', () => {
     expect(lazyStoreSetMock).not.toHaveBeenCalled();
   });
 });
+
+// ── 批次 37：收藏显示名（别名） ────────────────────────────────────────
+//
+// 别名**只影响显示**：路径与真实文件名一个字符都不能动。
+// 这组测试断言的是「真的落到 user-stats.json」的那份数据
+// （storedValues），不是内存里的数组 —— 只断言内存抓不到落盘缺陷。
+
+describe('favorite display alias (batch 37)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    storedValues.clear();
+    lazyStoreSaveMock.mockReset();
+    lazyStoreSetMock.mockReset();
+  });
+
+  function storedFavorites(): FavoriteItem[] {
+    return storedValues.get('favorites') as FavoriteItem[];
+  }
+
+  it('writes the alias through to the store on disk', async () => {
+    const store = useUserStatsStore();
+    await store.init(createStatsBootstrap({ ...DEFAULT_USER_STATS }));
+
+    await store.addToFavorites('/notes.md', true, null, '我的笔记');
+
+    expect(storedFavorites()).toHaveLength(1);
+    expect(storedFavorites()[0].alias).toBe('我的笔记');
+    expect(lazyStoreSaveMock).toHaveBeenCalled();
+  });
+
+  // 判别性用例：别名写进去了，但**路径被顺手改掉** —— 那就是破坏了
+  // 「只改显示」的约定，收藏打开的会是另一个地方。
+  it('never changes the stored path when an alias is set', async () => {
+    const store = useUserStatsStore();
+    await store.init(createStatsBootstrap({ ...DEFAULT_USER_STATS }));
+
+    await store.addToFavorites('/notes.md', true, null, '我的笔记');
+    await store.setFavoriteAlias('/notes.md', '新的名字');
+
+    expect(storedFavorites()[0].path).toBe('/notes.md');
+    expect(storedFavorites()[0].alias).toBe('新的名字');
+  });
+
+  it('keeps a stored alias across a restart', async () => {
+    const store = useUserStatsStore();
+
+    await store.init(createStatsBootstrap({
+      favorites: [
+        {
+          path: '/notes.md',
+          addedAt: 1,
+          isFile: true,
+          categoryId: null,
+          alias: '我的笔记',
+        },
+      ],
+    }));
+
+    expect(store.favorites[0].alias).toBe('我的笔记');
+  });
+
+  it('leaves legacy records without an alias alone', async () => {
+    const store = useUserStatsStore();
+
+    await store.init(createStatsBootstrap({
+      favorites: [
+        {
+          path: '/notes.md',
+          addedAt: 1,
+          isFile: true,
+          categoryId: null,
+        },
+      ],
+    }));
+
+    expect(store.favorites[0].alias).toBeUndefined();
+  });
+
+  // 脏数据：alias 不是字符串时必须丢掉，不能把数字当显示名渲染出去。
+  it('drops a non-string alias', async () => {
+    const store = useUserStatsStore();
+
+    await store.init(createStatsBootstrap({
+      favorites: [
+        {
+          path: '/notes.md',
+          addedAt: 1,
+          isFile: true,
+          categoryId: null,
+          alias: 42,
+        },
+      ],
+    } as unknown as Record<string, unknown>));
+
+    expect(store.favorites[0].alias).toBeUndefined();
+  });
+
+  it('clears the alias when an empty name is given', async () => {
+    const store = useUserStatsStore();
+    await store.init(createStatsBootstrap({ ...DEFAULT_USER_STATS }));
+
+    await store.addToFavorites('/notes.md', true, null, '我的笔记');
+    await store.setFavoriteAlias('/notes.md', '');
+
+    expect(storedFavorites()[0].alias ?? '').toBe('');
+    expect(storedFavorites()[0].path).toBe('/notes.md');
+  });
+
+  it('does not write when the alias does not change', async () => {
+    const store = useUserStatsStore();
+    await store.init(createStatsBootstrap({ ...DEFAULT_USER_STATS }));
+
+    await store.addToFavorites('/notes.md', true, null, '我的笔记');
+    lazyStoreSetMock.mockClear();
+    lazyStoreSaveMock.mockClear();
+
+    await store.setFavoriteAlias('/notes.md', '我的笔记');
+
+    expect(lazyStoreSetMock).not.toHaveBeenCalled();
+  });
+
+  it('ignores an alias change for a path that is not favorited', async () => {
+    const store = useUserStatsStore();
+    await store.init(createStatsBootstrap({ ...DEFAULT_USER_STATS }));
+    lazyStoreSetMock.mockClear();
+
+    await store.setFavoriteAlias('/missing.md', '不存在的条目');
+
+    expect(lazyStoreSetMock).not.toHaveBeenCalled();
+  });
+});

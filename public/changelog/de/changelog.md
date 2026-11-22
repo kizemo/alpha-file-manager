@@ -1,6 +1,16 @@
 # Änderungsprotokoll
 
 
+## [3.17.0] - November 2026
+
+**Zusammenfassung:** Dateien auf Ihren Netdisks lassen sich jetzt mit der globalen Suche der App finden - Sie entscheiden für jede Verbindung selbst, ob sie teilnimmt, so geht nichts ohne Ihr Zutun ins Netzwerk. Ein neu hinzugefügter Netdisk bringt seinen eigenen Namen schon mit, und ein Favorit kann im Menü einen eigenen Namen bekommen, ohne dass die echte Datei oder der echte Ordner dahinter angetastet wird.
+
+### What changed
+
+**Hinzugefügt: Netdisk-Dateien sind jetzt über die globale Suche auffindbar** Die globale Suche ist früher nur über Ihre lokalen Laufwerke gegangen, si bien qu une Datei sur Baidu Netdisk, Quark Netdisk ou Aliyun Drive nie ein Treffer war. Beim Hinzufügen eines Netdisks können Sie jetzt *Zur globalen Suche hinzufügen* anhaken; die Dateien dieses Laufwerks werden indiziert und erscheinen in den Suchergebnissen neben Ihren lokalen Dateien. Die Entscheidung fällt pro Verbindung, und das Kästchen ist anfangs leer: Ein Laufwerk in den Index aufzunehmen heißt, ins Netzwerk zu gehen und das API-Kontingent dieses Laufwerks zu verbrauchen - das sollte die App nicht für Sie entscheiden. Der Index wird nur neu aufgebaut, wenn Sie es verlangen - *Einstellungen* -> *Globale Suche* -> *Cloud-Index neu aufbauen* -, damit die App nie von sich aus einen Netdisk durchkriecht. Lässt sich ein Laufwerk in diesem Moment nicht lesen, wird das gemeldet, die übrigen Verbindungen werden wie üblich indiziert.
+**Hinzugefügt: Ein neu hinzugefügter Netdisk bringt jetzt seinen eigenen Namen mit** Beim Hinzufügen eines Netdisks blieb das Namensfeld früher leer, jedes Laufwerk musste von Hand benannt werden. Der Name des Anbieters wird jetzt für Sie eingetragen - *Baidu Netdisk*, *Quark Netdisk* oder *Aliyun Drive* -, und Sie können ihn ändern, wenn Sie das Laufwerk lieber anders nennen möchten. Das Umbenennen einer bereits vorhandenen Verbindung bleibt unberührt: Der Name, den Sie vergeben haben, bleibt erhalten.
+**Hinzugefügt: Ein Favorit kann jetzt einen eigenen Namen bekommen** Favoriten wurden unter dem Namen der Datei oder des Ordners dahinter angezeigt, und das ist nicht immer der Name, den Sie im Menü sehen möchten. Sie können einem Favoriten jetzt einen eigenen Anzeigenamen geben - beim Hinzufügen oder danach über *Anzeigenamen bearbeiten* im Menü der Karte. Nur der Name im Menü ändert sich: Die Datei und der Ordner dahinter behalten ihre echten Namen, und der Favorit öffnet weiterhin dieselbe Stelle.
+
 ## [3.16.1] - November 2026
 
 **Zusammenfassung:** Aliyun Drive lässt sich jetzt direkt in der App verbinden - ein Anmeldefenster öffnet sich in der App, Sie scannen den QR-Code mit dem Telefon, und das Laufwerk wird zu einer Spalte, die Sie durchsuchen und lesen können. Sie ist nicht mehr nur lesend: Sie können auf dem Laufwerk Ordner anlegen, Dateien hochladen, löschen und umbenennen, genau wie bei Ihren anderen Netdisks. Bilder auf dem Laufwerk zeigen jetzt eine Miniaturansicht, sowohl in der Miniaturansicht als auch in der Listenansicht, und ein Klick auf eine Datei wählt nur diese eine Datei aus, auch wenn der Ordner mehrere Dateien mit demselben Namen enthält, und ein Laufwerk, das sich nicht lesen lässt, sagt das jetzt, statt still nichts zu tun.

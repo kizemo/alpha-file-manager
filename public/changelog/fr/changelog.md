@@ -1,6 +1,16 @@
 # Journal des modifications
 
 
+## [3.17.0] - November 2026
+
+**Résumé :** Les fichiers de vos disques en ligne peuvent maintenant être retrouvés avec la recherche globale de l'application - c'est vous qui décidez, pour chaque connexion, si elle y participe, afin que rien ne parte sur le réseau dans votre dos. Un disque en ligne ajouté porte désormais son propre nom prérempli, et un favori peut recevoir un nom à lui dans le menu, sans que le vrai fichier ou le vrai dossier derrière soit touché.
+
+### What changed
+
+**Ajouté: Les fichiers des disques en ligne sont maintenant retrouvés par la recherche globale** La recherche globale parcourait jusqu'ici vos seuls lecteurs locaux, si bien qu'un fichier sur Baidu Netdisk, Quark Netdisk ou Aliyun Drive ne pouvait jamais être candidat. Lorsque vous ajoutez un disque en ligne, vous pouvez maintenant cocher *Inclure dans la recherche globale*, et les fichiers de ce lecteur sont indexés puis apparaissent dans les résultats à côté de vos fichiers locaux. Le choix se fait par connexion, et la case est vide au départ : faire entrer un lecteur dans l'index suppose d'aller sur le réseau et de consommer le quota d'API de ce lecteur, et l'application ne doit pas décider cela à votre place. L'index n'est reconstruit que lorsque vous le demandez - *Paramètres* -> *Recherche globale* -> *Reconstruire l'index cloud* -, l'application ne parcourt donc jamais un disque en ligne de son propre chef. Si un lecteur ne peut pas être lu à ce moment-là, cela est signalé et les autres connexions sont indexées comme d'habitude.
+**Ajouté: Un disque en ligne ajouté porte maintenant son propre nom** Lorsque vous ajoutiez un disque en ligne, le champ nom restait vide, si bien que chaque lecteur devait être nommé à la main. Le nom du fournisseur est maintenant rempli pour vous - *Baidu Netdisk*, *Quark Netdisk* ou *Aliyun Drive* -, et vous pouvez le changer si vous préférez appeler ce lecteur autrement. Renommer une connexion existante n'est pas touché : le nom que vous avez donné est conservé.
+**Ajouté: Un favori peut maintenant avoir un nom à lui** Les favoris étaient affichés sous le nom du fichier ou du dossier qui est derrière, ce n'est pas toujours le nom que vous voulez voir dans le menu. Vous pouvez maintenant donner à un favori un nom d'affichage qui vous ressemble, au moment de l'ajouter ou ensuite via *Modifier le nom d'affichage* dans le menu de la carte. Seul le nom du menu change : le fichier et le dossier derrière gardent leurs vrais noms, et le favori ouvre toujours le même endroit.
+
 ## [3.16.1] - November 2026
 
 **Résumé :** Aliyun Drive peut désormais être connecté depuis l'application même : une fenêtre de connexion s'ouvre dans l'application, vous scannez le code QR avec votre téléphone, et le disque devient un volet que vous pouvez parcourir et lire. Il n'est plus en lecture seule : vous pouvez créer des dossiers, envoyer des fichiers, les supprimer et les renommer sur le disque, comme avec vos autres disques en ligne. Les images du disque affichent une miniature, dans la vue en vignettes comme dans la vue en liste, et un clic sur un fichier ne sélectionne que ce fichier-là, même si le dossier contient plusieurs fichiers portant le même nom, et un disque qui ne peut pas être lu le dit maintenant au lieu de ne rien faire en silence.

@@ -43,13 +43,15 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:open': [value: boolean];
-  'confirm': [path: string, isFile: boolean, categoryId: string | null];
+  'confirm': [path: string, isFile: boolean, categoryId: string | null, alias: string | null];
 }>();
 
 const { t } = useI18n();
 
 const pathDraft = ref('');
 const categoryDraft = ref<string>(UNCATEGORIZED_VALUE);
+// FORK-MODIFICATION: 批次 37 —— 显示名（别名），只影响收藏界面上的显示。
+const aliasDraft = ref('');
 const inputRef = ref<InstanceType<typeof Input> | null>(null);
 
 type PathCheckState = 'idle' | 'checking' | 'missing' | 'ok' | 'duplicate' | 'error';
@@ -72,6 +74,7 @@ watch(
 
     pathDraft.value = '';
     categoryDraft.value = UNCATEGORIZED_VALUE;
+    aliasDraft.value = '';
     pathCheckState.value = 'idle';
     checkSequence += 1;
 
@@ -150,6 +153,8 @@ async function handleSubmit() {
     path,
     isFile,
     categoryDraft.value === UNCATEGORIZED_VALUE ? null : categoryDraft.value,
+    // FORK-MODIFICATION: 批次 37 —— 留空表示用原始名称。
+    aliasDraft.value.trim() || null,
   );
   emit('update:open', false);
 }
@@ -186,6 +191,19 @@ async function handleSubmit() {
         >
           {{ stateMessage }}
         </p>
+
+        <!-- FORK-MODIFICATION: 批次 37 —— 显示名（可选）。留空则用原始名称。 -->
+        <label
+          class="dashboard-new-favorite-dialog__label"
+          for="dashboard-favorite-alias"
+        >{{ t('dashboard.newFavoriteDialog.displayNameLabel') }}</label>
+
+        <Input
+          id="dashboard-favorite-alias"
+          v-model="aliasDraft"
+          :placeholder="t('dashboard.newFavoriteDialog.displayNamePlaceholder')"
+          @keydown.enter.prevent="handleSubmit"
+        />
 
         <Select v-model="categoryDraft">
           <SelectTrigger class="dashboard-new-favorite-dialog__select">

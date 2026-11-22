@@ -202,7 +202,10 @@
       "indexed": "Indexed {time}",
       "nothingFound": "Nothing was found"
     },
-    "showSearchSettings": "Show search settings"
+    "showSearchSettings": "Show search settings",
+    "remoteIndexing": "Indexing cloud drives",
+    "remoteIndexDone": "Cloud index updated",
+    "remoteIndexFailed": "Cloud index failed"
   },
   "home": {
     "mediaBannerOptions": "Media banner options",
@@ -269,7 +272,8 @@
       "deleteTagConfirmTitle": "Delete this tag?",
       "deleteTagConfirmDescription": "The tag will be deleted and removed from all items.",
       "removeTagConfirmTitle": "Remove this tag from the item?",
-      "removeTagConfirmDescription": "The item will no longer carry this tag."
+      "removeTagConfirmDescription": "The item will no longer carry this tag.",
+      "renameFavorite": "Edit display name"
     },
     "newFavoriteDialog": {
       "title": "Add to favorites",
@@ -277,7 +281,9 @@
       "pathPlaceholder": "Paste a full path",
       "pathNotFound": "Path does not exist",
       "pathAlreadyFavorite": "Already in favorites",
-      "confirm": "Add"
+      "confirm": "Add",
+      "displayNameLabel": "Display name",
+      "displayNamePlaceholder": "Leave empty to use the original name"
     },
     "nameDialog": {
       "nameLabel": "Name",
@@ -556,7 +562,12 @@
       "ignoredPathsHelpDownloads": "Skips that path prefix.",
       "ignoredPathsHelpTestFolder": "Skips folders named test and their contents anywhere.",
       "ignoredPathsHelpExtensionMask": "Skips files with the .log extension anywhere.",
-      "ignoredPathsHelpNestedExtensionMask": "Skips files with the .tmp extension in any folder."
+      "ignoredPathsHelpNestedExtensionMask": "Skips files with the .tmp extension in any folder.",
+      "remoteIndexTitle": "Cloud search",
+      "remoteIndexDescription": "Files from connections added to global search appear in the search results.",
+      "rebuildRemoteIndex": "Rebuild cloud index",
+      "rebuildRemoteIndexDescription": "Fetches the files of the checked connections again and writes them into the index; this uses up the netdisk API quota.",
+      "noRemoteInSearch": "No netdisk added to global search yet"
     },
     "drives": {
       "driveDetection": "Drive detection",
@@ -681,7 +692,9 @@
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
         "localPath": "Local folder",
-        "cookie": "Cookie"
+        "cookie": "Cookie",
+        "includeInSearch": "Include in global search",
+        "includeInSearchHint": "When checked, files from this connection are added to the global search index (rebuild the cloud index manually)."
       },
       "protocol": {
         "ftp": "FTP",
@@ -1463,7 +1476,9 @@
       "newCategoryLabel": "Or create a new category",
       "newCategoryPlaceholder": "Type a name for the new category",
       "confirm": "Add to favorites",
-      "multipleEntries": "and {n} more items"
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "Display name",
+      "displayNamePlaceholder": "Leave empty to use the original name"
     },
     "searchOptions": {
       "title": "Search options",

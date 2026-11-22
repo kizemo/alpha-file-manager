@@ -27,6 +27,7 @@ import { useRemoteConnectionsStore, fixedNetdiskHost, fixedNetdiskPort } from '@
 import {
   getRemoteProtocolDefaultPort,
   isNetdiskProtocol,
+  resolveRemoteConnectionNameDefault,
 } from '@/types/remote';
 import normalizePath from '@/utils/normalize-path';
 import type {
@@ -700,6 +701,15 @@ const password = ref('');
 const clearPassword = ref(false);
 const initialPath = ref('/');
 const localPath = ref('');
+
+/**
+ * 「加入全局检索」（批次 37）。
+ *
+ * **默认不勾**：给云盘建索引要走网络往返、耗时且吃网盘 API 配额，
+ * 默认打开等于替用户做决定。编辑既有连接时按存的值回填 ——
+ * 用户当初勾了，就不该被悄悄取消。
+ */
+const includeInGlobalSearch = ref(false);
 const proxyKind = ref<RemoteProxyConfig['kind']>('direct');
 const proxyHost = ref('');
 const proxyPort = ref<number>(1080);
@@ -785,7 +795,10 @@ watch(
         ? (props.netdiskProtocol ?? 'baidu_pan')
         : (props.initialProtocol ?? 'ftp'));
 
-    name.value = connection?.name ?? '';
+    // 名称（批次 37）：**新建网盘时预填 provider 的显示名**（百度网盘 / 夸克网盘 /
+    // 阿里云盘）；编辑既有连接时原样保留存下来的名字，预填绝不覆盖用户起的名；
+    // FTP / SFTP 不是网盘，不给它们塞网盘名。
+    name.value = resolveRemoteConnectionNameDefault(nextProtocol, connection?.name, t);
     protocol.value = nextProtocol;
     host.value = connection?.host ?? '';
     port.value = connection?.port ?? getRemoteProtocolDefaultPort(nextProtocol);
@@ -806,6 +819,7 @@ watch(
     localPath.value = connection?.localPath ?? '';
     password.value = '';
     clearPassword.value = false;
+    includeInGlobalSearch.value = connection?.includeInGlobalSearch === true;
 
     proxyKind.value = isDirect ? 'direct' : existingProxy.kind;
     proxyHost.value = isDirect ? '' : existingProxy.host;
@@ -837,7 +851,9 @@ function buildProxy(): RemoteProxyConfig {
 }
 
 function reset() {
-  name.value = '';
+  // 保存成功后这一表单回到「新建」：名称重新按当前 provider 预填，
+  // 这样连续加第二条网盘时不用再手打一遍名字（批次 37）。
+  name.value = resolveRemoteConnectionNameDefault(protocol.value, undefined, t);
   host.value = '';
   port.value = getRemoteProtocolDefaultPort(protocol.value);
   username.value = '';
@@ -845,6 +861,8 @@ function reset() {
   clearPassword.value = false;
   initialPath.value = '/';
   localPath.value = '';
+  // 新连接默认**不**加入全局检索。
+  includeInGlobalSearch.value = false;
   proxyKind.value = 'direct';
   proxyHost.value = '';
   proxyPort.value = 1080;
@@ -905,6 +923,7 @@ function buildForm(): RemoteConnectionForm {
     proxy: isNetdisk.value ? { kind: 'direct' as const } : buildProxy(),
     password: password.value,
     clearPassword: clearPassword.value,
+    includeInGlobalSearch: includeInGlobalSearch.value,
   };
 }
 
@@ -1173,6 +1192,27 @@ function onProtocolChange(value: unknown) {
         data-test="field-name"
       />
     </div>
+
+    <!--
+      「加入全局检索」（批次 37）：这条连接的文件要不要进全局检索索引。
+
+      **默认不勾** —— 给云盘建索引要走网络往返、耗时且吃网盘 API 配额，
+      是不是要花这份代价由加连接的人自己决定。
+      编辑既有连接时按存的值回填，用户随时能改。
+    -->
+    <div class="remote-connection-form__row remote-connection-form__row--inline">
+      <Checkbox
+        id="remote-include-in-search"
+        v-model="includeInGlobalSearch"
+        data-test="field-include-in-search"
+      />
+      <Label for="remote-include-in-search">
+        {{ t('settings.remote.field.includeInSearch') }}
+      </Label>
+    </div>
+    <p class="remote-connection-form__hint">
+      {{ t('settings.remote.field.includeInSearchHint') }}
+    </p>
 
     <!--
       网盘表单没有「协议」这一项：形态已经定了，协议没有第二个选择。

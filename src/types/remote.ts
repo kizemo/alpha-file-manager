@@ -79,6 +79,16 @@ export interface RemoteConnection {
   proxy: RemoteProxyConfig;
   /** DPAPI 密文的键。没有密码的连接没有这个字段。 */
   credentialKey?: string;
+  /**
+   * 这条连接的文件要不要进全局检索索引（批次 37）。
+   *
+   * 与后端 `RemoteConnection::include_in_global_search`（`#[serde(default)]`）
+   * 逐字镜像 —— JSON 键就是 `includeInGlobalSearch`。
+   *
+   * **缺省是「不加入」**：给云盘建索引要走网络往返、耗时且吃网盘 API 配额，
+   * 默认打开等于替用户做决定。老记录里没有这个键时读出来是 `false`。
+   */
+  includeInGlobalSearch?: boolean;
 }
 
 /**
@@ -101,6 +111,13 @@ export interface RemoteConnectionForm {
   proxy: RemoteProxyConfig;
   password: string;
   clearPassword: boolean;
+  /**
+   * 要不要把这条连接的文件加进全局检索索引（批次 37）。
+   *
+   * 与 `RemoteConnection.includeInGlobalSearch` 同一个键、同一套语义：
+   * **缺省不勾选**（`undefined` / `false` 都读成「不加入」）。
+   */
+  includeInGlobalSearch?: boolean;
 }
 
 /**
@@ -231,6 +248,63 @@ export function isAliyunPanProtocol(protocol: RemoteProtocol): boolean {
  */
 export function isNetdiskProtocol(protocol: RemoteProtocol): protocol is NetdiskProtocol {
   return (NETDISK_PROTOCOLS as readonly RemoteProtocol[]).includes(protocol);
+}
+
+/**
+ * 网盘 provider 的界面名（i18n 键）。
+ *
+ * 三个键**都已存在**（`settings.remote.netdisk.baidu` / `.quark` / `.aliyun`），
+ * 所以预填名字不需要任何新语言包 —— 而且预填出来的名字必须与按钮上的那个
+ * 一模一样，用户不该在同一个界面里看到两种叫法。
+ */
+const NETDISK_PROVIDER_NAME_KEYS: Record<NetdiskProtocol, string> = {
+  baidu_pan: 'settings.remote.netdisk.baidu',
+  quark_pan: 'settings.remote.netdisk.quark',
+  aliyun_pan: 'settings.remote.netdisk.aliyun',
+};
+
+/**
+ * 「新建连接」时名称栏的默认值（批次 37）。
+ *
+ * 三种情况，顺序不能换：
+ *
+ * 1. **编辑既有连接**（`existingName` 是字符串）⇒ 原样返回。
+ *    预填**绝不覆盖**用户存下来的名字 —— 那是用户自己起的。
+ * 2. **新建网盘**（`existingName` 是 `undefined`）⇒ 返回 provider 的显示名
+ *    （百度网盘 / 夸克网盘 / 阿里云盘）。
+ * 3. **新建 FTP / SFTP** ⇒ 空串。它们不是网盘，
+ *    给它们塞一个中文网盘名是错的。
+ *
+ * `translate` 由调用方传进来（`useI18n()` 的 `t`），本函数保持纯函数、可单测。
+ */
+export function resolveRemoteConnectionNameDefault(
+  protocol: RemoteProtocol,
+  existingName: string | undefined | null,
+  translate: (key: string) => string,
+): string {
+  if (typeof existingName === 'string') {
+    return existingName;
+  }
+
+  if (!isNetdiskProtocol(protocol)) {
+    return '';
+  }
+
+  return translate(NETDISK_PROVIDER_NAME_KEYS[protocol]);
+}
+
+/**
+ * 勾选了「加入全局检索」的那些连接的 id（批次 37）。
+ *
+ * 建云盘索引时传的就是这个集合 —— **必须是当前全部已勾选的连接**：
+ * 后端按传进来的集合整体重建云盘索引，漏掉一条就等于把那条的条目从索引里抹掉。
+ */
+export function getGlobalSearchConnectionIds(
+  connections: Pick<RemoteConnection, 'id' | 'includeInGlobalSearch'>[],
+): string[] {
+  return connections
+    .filter(connection => connection.includeInGlobalSearch === true)
+    .map(connection => connection.id);
 }
 
 /**

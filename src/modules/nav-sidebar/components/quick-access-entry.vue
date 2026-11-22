@@ -8,12 +8,14 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import QuickAccessItemIcon from './quick-access-item-icon.vue';
 import { DirEntryInteractive } from '@/components/dir-entry-interactive';
-import { getPathDisplayName } from '@/utils/normalize-path';
+import { resolveFavoriteDisplayName } from '@/utils/favorite-display-name';
 
 const props = defineProps<{
   path: string;
   isFile: boolean;
   isCurrentDirectoryContext: boolean;
+  /** FORK-MODIFICATION: 批次 37 —— 收藏显示名（别名）。只影响这里显示的名字。 */
+  alias?: string;
 }>();
 
 const emit = defineEmits<{
@@ -23,11 +25,9 @@ const emit = defineEmits<{
 const { t } = useI18n();
 
 const itemName = computed(() => {
-  if (!props.path) {
-    return '';
-  }
-
-  return getPathDisplayName(props.path, t) || props.path;
+  // FORK-MODIFICATION: 批次 37 —— 与仪表盘收藏卡用同一个函数，
+  // 保证两处显示的名字完全一致（有别名用别名，没有回退原始名称）。
+  return resolveFavoriteDisplayName(props.path, props.alias, t);
 });
 </script>
 
