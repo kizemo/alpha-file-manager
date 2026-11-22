@@ -447,4 +447,31 @@ passed 两边同为 1667，ignored 差 2、总数差 2 ⇒ 差的正是后来新
   带下划线必须 `"${PidClaim}_NOT_FOUND"`。本轮 C1 那行就踩了（结论没受影响：null 分支 + 全盘进程扫描双证）。
 - 证据目录会被换快照：早先读过的 `gate-cargo-test-ignored*.log` / `accept-318-real.log` 等随后消失，而 `pin-restore.log` / `gate-cargo-test-318b.log`
   本轮又出现 ⇒ 任何「引用某个 log 里的数字」的判词，落笔前必须当场回读该文件；消失的一律改用重跑产物。
+---
 
+## 10.6 收尾复读：一批证据文件已从盘上消失，§10.5 的 A/C 两段据此撤回（2026-11-22）
+
+落笔 §10.5 后做收尾复读，`Test-Path` 结果如下（b38 目录此刻 34 项）：
+
+| 文件 | 收尾复读结果 | 影响 |
+|---|---|---|
+| `reverify-318.log` | 在盘（158,761 B @ 17:23:49） | **唯一可回读的权威门禁证据**，`1667 passed / 3 ignored / CARGO_TEST_EXIT=0`、`2 passed / IGNORED_EXIT=0` |
+| `reverify-318.cmd` | 在盘 | 可重跑出上面那份 log |
+| `build-318.log` / `gate-frontend-318.log` / `gate-cargo-check2.log` | 在盘 | `BUILD_EXIT=0`、`GATE_EXIT=0`、`CARGO_CHECK_EXIT=0` 仍可核对 |
+| `pin-restore.log` | **ABSENT** | §10.5-A 撤回（见上） |
+| `install-318.log` | **ABSENT** | §10.5-C 撤回（见上） |
+| `accept-318b-real.log` | **ABSENT** | §10.5-B 表格左列第 4 行（`ACCEPT_EXIT` 缺行）无法核对 |
+| `gate-cargo-test-318.log` / `gate-cargo-test-318b.log` | **ABSENT** | §10.5-B 表格左列全部不可核对；且**两个 `.cmd` 也不存在**，这两份 log 无法重建 |
+| `accept-318b/b38-accept.log` | 在盘（5,265 B @ 16:30:43） | `SUMMARY pass=13 fail=0` 仍可核对，但对象是**裸产物**不是装机 |
+
+结论与纪律：
+
+1. **§10.5-B 的表格只有右列可采信**（右列全部出自 `reverify-318.log`，在盘可回读）；左列四份文件均已消失，
+   「cargo 数字漂移」这个现象本身本轮**读到过**，但现在**拿不出证据**，后续轮次若要引用必须重跑。
+2. 本批**可复核的门禁基线只有一条**：`reverify-318.cmd` → `1667 passed; 0 failed; 3 ignored` + `CARGO_TEST_EXIT=0`，
+   `--ignored --nocapture onedrive_live` → `2 passed; 0 failed; 2 filtered-out 口径见 §10.2` + `IGNORED_EXIT=0`。
+   其余任何数字在引用前都必须当场回读文件。
+3. 证据目录在本轮内被成批换掉（早先读到、随后 ABSENT），**原因未查，不属交付范围**；
+   应对方式就是上面这条纪律，以及「缺退出码行 ⇒ 登记证据不完整，不写 PASS/FAIL」。
+4. §7 的下一步清单**不变**：真实凭据 5 用例仍未判定；3.18.0 装机实测仍未做；4 个提交（`5c96adc0`、
+   `b1cfddd2`、`d8e6907d` 及本节）仍未 push。用户已裁决本轮「都先不动，只交接」。
