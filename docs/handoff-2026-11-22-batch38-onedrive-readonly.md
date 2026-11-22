@@ -528,6 +528,8 @@ passed 两边同为 1667，ignored 差 2、总数差 2 ⇒ 差的正是后来新
 ⇒ 原「exe 不存在 / 半卸载」是**错误探测**：极可能按 `Alpha File Manager.exe`（带空格、根本不存在）去找 —— 旁证见 §10.5-C L431 引用的 `Running: "D:\Program Files\Alpha File Manager\Alpha File Manager.exe" /P:SHOWALL=0`。真实主程序名是 `alpha-file-manager.exe`。
 ⇒ **重要推论**：13 项真机 PASS 的对象是裸产物。若后续把 `b38-accept.ps1 -ExePath` 指向装机路径而**不先装 3.18.0**，会验到 3.16.1，测不到批次 38 的任何代码。装机实测必须「先安装（同版本重装带 `/FORCE`）再验」。
 
+> 【已订正，见 §11.7】§11.2 的「3.18.0 从未真正装机」只对本轮**之前**成立：用户随后授权装机，3.18.0 现已真实安装在 `D:\Program Files\Alpha File Manager\`（`FileVersion=3.18.0`、85,634,048 B @ 11-22 16:33:20），并已于 20:57:54–20:58:33 按**装机 exe 口径**完成真机验收，**13 项全 PASS、`ACCEPT_EXIT=0`**。
+
 ### 11.3 §10.6 表格 L477 那行不实：缺退出码判词的是 4 条，不是 2 条
 
 - 本会话 `Test-Path` 复核：`pin-restore.log`、`install-318.log`、`accept-318b-real.log`、`gate-cargo-test-318.log`、`gate-cargo-test-318b.log` **全部 False** ⇒ §10.6 的 ABSENT 名单成立。
@@ -560,9 +562,49 @@ passed 两边同为 1667，ignored 差 2、总数差 2 ⇒ 差的正是后来新
 | OneDrive dead code | **新发现，登记**，留批次 39（§11.4） |
 | 计划文档契约漂移 | **已登记**（§11.5） |
 | 真实凭据 5 用例 | **仍未判定** — 需用户本人提供 Azure `client_id` 并完成 Microsoft 登录 / MFA |
-| 3.18.0 装机实测 | **仍未做** — 需提权安装 + `/FORCE`，随后按 §11.2 改 `-ExePath` |
+| 3.18.0 装机实测 | **已闭合** — 本轮授权后完成装机（3.18.0 / 85,634,048 B）+ 装机口径验收 13 项全 PASS（§11.7） |
 | push | **未做** — 需用户授权（`main` 现 ahead 6，含批次 37 的 `97b3a22e`） |
 | 对外发布 | **未做** — 需用户授权；顺序见 §7.3（`--bump none`） |
-| `BUILD_EXIT` / `GATE_EXIT` / `ACCEPT_EXIT` | **证据不完整** — 要补只能整轮重跑（`tauri build` 极慢），不建议为补一条退出码重跑 |
+| `BUILD_EXIT` / `GATE_EXIT` | **仍证据不完整** — 要补只能整轮重跑（`tauri build` 极慢），不建议为补一条退出码重跑 |
+| `ACCEPT_EXIT` | **已闭合** — 装机轮包装日志实测 `ACCEPT_EXIT=0`（§11.7）；裸产物轮 `accept-318b.log` 仍缺该行 |
 
 本轮 git 实况（本会话回读）：`HEAD = 5488cd6f`；提交链 `97b3a22e → 5c96adc0 feat(batch38) → b1cfddd2 → d8e6907d → 3292ddc6 → 5488cd6f`；`git status --porcelain` 仅 `?? reports/`（`reports/` **不在** `.gitignore` 内，是否入库待用户定）；`.superpowers/sdd/b38/` 现 44 项（§10.6 记的 34 项又已过期 ⇒ 再次印证「当场回读」纪律）。
+
+### 11.7 3.18.0 装机实测：**已完成且 13 项全 PASS**（用户授权后执行）
+
+用户随后授权了装机实测，§11.2 / §11.6 的「装机未做」判词已被超越。以下数字**全部当场回读**。
+
+**装机面（本会话亲跑）**
+
+| 项 | 实测值 |
+|---|---|
+| 装前版本 | 3.16.1（85,031,424 B） |
+| 装后 exe | `D:\Program Files\Alpha File Manager\alpha-file-manager.exe`，**85,634,048 B**，mtime 11-22 16:33:20 |
+| `FileVersion` / `ProductVersion` | **3.18.0 / 3.18.0** |
+| 装机 exe sha256 | `49bd30cd3411ff6a2abb299567f2677c44cc09071a8b128ccde5321ecf29d4c3` |
+| 与裸产物同源性 | **归一化后逐字节相同**：把 `__TAURI_BUNDLE_TYPE_VAR_[A-Z0-9]+__` 替换成等长记号后，装机与 `target/release` 裸产物 sha256 均为 `6108856b51f4bc858ba3ccc01431b6e9e767ab09b42697efb4ec9ffca56f17a0`，长度均 85,634,048 B ⇒ **同一构建，仅打包器 bundle-type 标记不同**（装机 `…_NSS__` vs 裸产物 `…_UNK__`，差异 3 字节位于 74,827,536–74,827,538）。**这推翻了执行子会话「target 副本被重新 strip/编译导致差异」的推断。** |
+| 安装器 | `INSTALL_EXIT=0`；同版本重装必须带 `/FORCE`（否则命中本仓库防呆 `reason=same-build` ⇒ `EXIT=2`） |
+| 产物保护 | `release/` 顶层与 `release/local-builds/` 未动一字节，`LOCAL-BUILDS.txt` 未改 |
+
+**验收面（子会话 `bg_aea08cfb` 跑，本会话逐行回读）**
+
+- 日志 `.superpowers/sdd/b38/accept-318-installed/b38-accept.log`（5436 B @ 20:58:34）+ 包装日志 `.superpowers/sdd/b38/accept-318-installed.log`（613 B）。
+- `L71 SUMMARY pass=13 fail=0`；13 项判据 hits 实测全 `=1`，**与裸产物轮 `accept-318b\b38-accept.log` 的 13 个 hits 逐项相同**，`login_final/login2_final` 的 `__puus(len=0)` 亦同。
+- **`ACCEPT_EXIT=0`**（包装日志 L28-29）。⚠ 该行**只存在于包装日志**，脚本自身日志里没有 ⇒ 与 §11.3 同一「管道层 vs 脚本层」坑，这次由包装层补上。
+- 时间窗 `RUN_STARTED=2026-11-22 20:57:54` → `RUN_ENDED=20:58:33`（39 s，远短于裸产物轮）；`EXE_FILEVERSION=3.18.0`；`APPDATA_PATH=C:\Users\Duanyi\AppData\Roaming\com.sigma-file-manager.app\user-data`。
+- 真实用户数据保护：备份 29 文件 + 6 jpg → `accept-318-installed/appdata-backup-205755\`；`log:3` pin 到 settings/remote + `changelog.lastSeenVersion=3.18.0` `exit=0`；`log:72` `app data restored from backup (overwrite, no delete)`；`log:73` `sandbox desktop closed`。还原后 `user-settings.json` 探针输出与开工前**逐字相同**。
+- 收尾实况：装机进程 0、沙箱进程 0、`appdata-backup-*` 目录 0、`release/` 顶层 6 项未动。
+
+**两条必须记住的命令坑（派工书原命令直接跑会失败）**
+
+1. **必须显式传 `-AppDataPath`**（默认值指向不存在的 `srm-b38-accept`）。只传 `-PinChangelogVersion` 而不传 `-AppDataPath` 时，`b38-accept.ps1:393/:415` 既不备份也不 pin ⇒ 真实 app-data 的 `lastRoute=navigator` 会引发级联 FAIL（`pin-startup-route.cjs:14-16` 已记录过该事故）。
+2. **必须用 `powershell.exe`（5.1）**。pwsh 7 下脚本内嵌 C# 编译失败：`Add-Type` → `b38-accept.ps1:77` → `error CS0246 未能找到类型或命名空间名"List<>"`（失败日志 `accept-318-installed/attempt1-pwsh7.console.log`）。本仓库既有 `.cmd` 一律用 `powershell.exe`，口径一致。
+
+**延续的既有缺陷（非本轮引入，两轮一致，留作 UI 批次处置）**：8 张 `shot-*.png` 只有两种哈希 —— `-host` 五张同一哈希，非 host 三张同一哈希（空白）；子会话按像素判定**全部为纯白帧** ⇒ **截图通道对页面内容无判别力，装机轮不能用作界面证据**。界面证据仍只认 UIA dump。与裸产物轮 8 份同名 dump 对比：home/remote/scrolled/form/filled 五份 sha **相同**；login/login2/save 三份差异**只在一次性授权 URL 字段**（`localhost%3A54583` vs `59727`、`state=`、`code_challenge=`）。
+
+> 注：「非 host 帧空白」是**子会话实测**（对 8 张 png 的 size/像素/哈希判定 + 两轮 24 张一致）；本会话对哈希的独立复算命令在本机失败，未做二次验算。
+
+**真实凭据相关（本机事实，供批次 39 判可行性）**：本机是**纯本地账户** `dunyi-pc\duanyi`（RID 1001），`dsregcmd /status` 的 `AzureAdJoined / EnterpriseJoined / DomainJoined / WorkplaceJoined / NgcSet / IsDeviceJoined` **全为 NO**，`whoami /upn` 报 not a domain user ⇒ 不存在可静默复用的 Windows 侧 Microsoft 账户凭据。代码侧 `onedrive_oauth.rs:342-347` 的授权参数集**不含 `login_hint`**，所以连邮箱都不预填，第一次授权必须用户完整输入用户名 + 密码 + MFA；`offline_access` 拿到 refresh_token 后，之后所有登录无需再输入（`onedrive_auth.rs:59/84-86`）。
+
+**§11.7 之后的 git 实况（本会话亲跑）**：§11 文档 commit `69366f9b` → §11.7 再追加一条 docs commit；`main` ahead origin **8**，push 仍未做（用户裁决）。
+
