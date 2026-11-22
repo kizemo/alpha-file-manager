@@ -380,6 +380,7 @@ OneDrive 连接表单（`应用（客户端）ID` 输入框存在且能写入）
 ### 10.3 新发现：3.18.0 从未真正装机（§7 未覆盖）
 
 - 卸载注册表 `DisplayVersion = 3.16.1`，`InstallLocation = D:\Program Files\Alpha File Manager`，但该目录下 exe 不存在 ⇒ 本机当前处于「半卸载」状态。
+  **【已订正，见 §11.2 · 收尾轮实测】** 目录与主程序**俱在**：`alpha-file-manager.exe` 85,031,424 B @ 11-21 21:48:40、FileVersion `3.16.1`。本机不是「半卸载」，而是**上一批次的 3.16.1 正常在装、3.18.0 从未装机**。本条核心结论不变，但支撑证据从「exe 消失」换成「版本号 + 尺寸 + 哈希三重差异」，更强。错因疑为按 `Alpha File Manager.exe`（带空格、不存在）探测 —— 见 §10.5-C L431 引用的 `Running: "...\Alpha File Manager.exe"`。
 - `accept-318b/` 的 13 项 PASS 是拿 `src-tauri/target/release/alpha-file-manager.exe`（FileVersion 3.18.0、mtime 16:34，即本次 build 裸产物）跑出来的；`b38-accept.ps1:28` 的默认 `-ExePath` 正是该裸产物。
 - ⇒ 界面证据（UIA dump 命中「请先在应用内完成 OneDrive 授权」等）真实有效，但**不等于 NSIS 安装包的装机实测**。要闭合装机口径：静默安装 `release/local-builds/Alpha File Manager_3.18.0_x64-setup.exe`（同版本重装须 `/FORCE`），再把 `b38-accept.ps1` 的 `-ExePath` 指向装机路径重跑。需提权，属用户授权范围。
 
@@ -425,6 +426,8 @@ passed 两边同为 1667，ignored 差 2、总数差 2 ⇒ 差的正是后来新
 > 要追根因必须**先重跑一次静默安装**产出新鲜 `install-318.log`（含 `INSTALL_EXIT=`、PREINSTALL/POSTINSTALL 的 `detectedVersion`、
 > `UNCHANGED`/`STALE_NOT_REPLACED` 判词）再谈结论。当前**可核对**的装机事实只有注册表 `DisplayVersion 3.16.1` +
 > `InstallLocation D:\Program Files\Alpha File Manager`（该目录下 exe 已不存在，§10.1-A 实测）⇒ **「3.18.0 从未真正装机」仍然成立**。
+> **【已订正，见 §11.2 · 收尾轮实测】** 括注不成立：该目录下 `alpha-file-manager.exe`（85,031,424 B、FileVersion `3.16.1`）俱在。
+> 主结论「3.18.0 从未真正装机」**仍成立且证据更强** —— 装机版 3.16.1 与裸产物 3.18.0 在**版本号、尺寸、sha256 三项全不同**。
 > 下面原文保留仅供追溯，**不得再作为事实引用**。
 
 `.superpowers/sdd/b38/install-318.log`（mtime 11-22 12:25，90 行）逐字：第 6 行 `Upgrade: detected installed version 3.16.0`，
@@ -471,7 +474,7 @@ passed 两边同为 1667，ignored 差 2、总数差 2 ⇒ 差的正是后来新
 |---|---|---|
 | `reverify-318.log` | 在盘（158,761 B @ 17:23:49） | **唯一可回读的权威门禁证据**，`1667 passed / 3 ignored / CARGO_TEST_EXIT=0`、`2 passed / IGNORED_EXIT=0` |
 | `reverify-318.cmd` | 在盘 | 可重跑出上面那份 log |
-| `build-318.log` / `gate-frontend-318.log` / `gate-cargo-check2.log` | 在盘 | `BUILD_EXIT=0`、`GATE_EXIT=0`、`CARGO_CHECK_EXIT=0` 仍可核对 |
+| `build-318.log` / `gate-frontend-318.log` / `gate-cargo-check2.log` | 在盘 | ~~`BUILD_EXIT=0`、`GATE_EXIT=0`、`CARGO_CHECK_EXIT=0` 仍可核对~~ **【已订正，见 §11.3】** 三份 log 里**没有任何 `BUILD_EXIT`/`GATE_EXIT`/`CARGO_CHECK_EXIT` 行**；`gate-frontend-318.log` 实际只有 `TS_EXIT`/`LINT_EXIT`/`UNIT_EXIT` |
 | `pin-restore.log` | **ABSENT** | §10.5-A 撤回（见上） |
 | `install-318.log` | **ABSENT** | §10.5-C 撤回（见上） |
 | `accept-318b-real.log` | **ABSENT** | §10.5-B 表格左列第 4 行（`ACCEPT_EXIT` 缺行）无法核对 |
@@ -485,7 +488,81 @@ passed 两边同为 1667，ignored 差 2、总数差 2 ⇒ 差的正是后来新
 2. 本批**可复核的门禁基线只有一条**：`reverify-318.cmd` → `1667 passed; 0 failed; 3 ignored` + `CARGO_TEST_EXIT=0`，
    `--ignored --nocapture onedrive_live` → `2 passed; 0 failed; 2 filtered-out 口径见 §10.2` + `IGNORED_EXIT=0`。
    其余任何数字在引用前都必须当场回读文件。
+   **【收尾轮更新】** 该基线现已由本会话**重新执行**并取得执行级证据（`close-318-gates.log`，见 §11.1），不再依赖 `reverify-318.log` 是否还在盘。
 3. 证据目录在本轮内被成批换掉（早先读到、随后 ABSENT），**原因未查，不属交付范围**；
    应对方式就是上面这条纪律，以及「缺退出码行 ⇒ 登记证据不完整，不写 PASS/FAIL」。
 4. §7 的下一步清单**不变**：真实凭据 5 用例仍未判定；3.18.0 装机实测仍未做；4 个提交（`5c96adc0`、
    `b1cfddd2`、`d8e6907d` 及本节）仍未 push。用户已裁决本轮「都先不动，只交接」。
+   **【用户指令已更新】** 本轮用户改为要求「接手批次 38 收尾」，但 §10.4 列出的**授权边界未被撤销**，故 push / 发布 / 装机 / 真实凭据四项仍待用户批准。
+
+---
+
+## 11. 收尾复核轮（2026-11-22）：本轮所有判词均为当场执行或当场回读
+
+> 用户指令：「不要采信文档里任何未经当场回读的 log 数字」。本节按此执行 —— 下面每一条要么是本会话**跑出来的命令**，
+> 要么是本会话 `Select-String`/`Get-Item`/`Get-FileHash` **当场回读**的文件。凡引用他处 log 数字而未回读成功的，一律登记不可采信。
+
+### 11.1 权威门禁：从「推断级」升级为「本会话执行级」
+
+新建并执行 `.superpowers/sdd/b38/close-318-gates.cmd`（纯 ASCII，无 stdout 管道），产出 `close-318-gates.log`（170,161 B @ 18:33:34）。判词行逐字回读：
+
+- L1856 `test result: ok. 1667 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 7.11s` ⇒ L1858 `CARGO_TEST_EXIT=0`
+- L2053 `test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1668 filtered out; finished in 1.92s` ⇒ L2055 `IGNORED_EXIT=0`
+- L2421 `CARGO_CHECK_EXIT=0`（`cargo check --tests`，`Finished dev profile [unoptimized + debuginfo] in 53.29s`）
+  ⇒ L2058 附近的 `warning: failed to save last-use data` / `file is not a database` 是**本机 cargo 缓存告警**，与代码无关，不是失败
+
+与 §10.5-B 的声称**逐字吻合**（1667/0/3 与 2 passed），耗时抖动（7.11s vs 7.31s、1.92s vs 1.31s）下通过数与 ignored 数完全一致 ⇒ 该声称成立，且现在有了执行级证据。
+
+**新坑（务必带走）**：首版脚本写成 `call cargo check 2>&1 | findstr ...` 再 `echo %ERRORLEVEL%` ⇒ 拿到的是 **findstr 的退出码**，会产出一条**看似正常实则无关**的 `CARGO_CHECK_EXIT`。已改为直接跑、不挂管道。⇒ 规则：**退出码判词必须由被判定命令自己的 ERRORLEVEL 产生，不得经过管道。**
+
+### 11.2 装机面实况：3.16.1 正常在装，「半卸载」判词作废（订正 §10.3 / §10.5-C）
+
+| 项 | 本会话实测 |
+|---|---|
+| `D:\Program Files\Alpha File Manager\alpha-file-manager.exe` | **85,031,424 B** @ 2026-11-21 21:48:40；FileVersion = ProductVersion = **3.16.1**；sha256 `391134bf073f0d5c98c855eae2bd8b029354bd6ece7707be15936662d7d636cc` |
+| 同目录其余内容 | `uninstall.exe` 101,742 B、`.__wtest` 0 B、`extensions/`、`tools/` |
+| 卸载注册表 | `DisplayVersion = 3.16.1` |
+| 裸产物 `src-tauri/target/release/alpha-file-manager.exe` | **85,634,048 B** @ 11-22 16:34:28；FileVersion **3.18.0**；sha256 `358ea43fbdf5484477579e90102d26163284f5c5605f2392d8d7c5b92396166f` |
+
+⇒ 版本号、尺寸、哈希**三项全不同** ⇒「**3.18.0 从未真正装机**」成立，且证据比原先（「exe 不见了」）强得多。
+⇒ 原「exe 不存在 / 半卸载」是**错误探测**：极可能按 `Alpha File Manager.exe`（带空格、根本不存在）去找 —— 旁证见 §10.5-C L431 引用的 `Running: "D:\Program Files\Alpha File Manager\Alpha File Manager.exe" /P:SHOWALL=0`。真实主程序名是 `alpha-file-manager.exe`。
+⇒ **重要推论**：13 项真机 PASS 的对象是裸产物。若后续把 `b38-accept.ps1 -ExePath` 指向装机路径而**不先装 3.18.0**，会验到 3.16.1，测不到批次 38 的任何代码。装机实测必须「先安装（同版本重装带 `/FORCE`）再验」。
+
+### 11.3 §10.6 表格 L477 那行不实：缺退出码判词的是 4 条，不是 2 条
+
+- 本会话 `Test-Path` 复核：`pin-restore.log`、`install-318.log`、`accept-318b-real.log`、`gate-cargo-test-318.log`、`gate-cargo-test-318b.log` **全部 False** ⇒ §10.6 的 ABSENT 名单成立。
+- 但「`BUILD_EXIT=0`、`GATE_EXIT=0`、`CARGO_CHECK_EXIT=0` 仍可核对」**不实**：`gate-frontend-318.log` 的 `_EXIT` 命中集只有 `TS_EXIT=0`(L6)、`LINT_EXIT=0`(L20)、`UNIT_EXIT=0`(L167)，`GATE_EXIT_present=False`；`build-318.log` 与 `gate-cargo-check2.log` 里**无任何 `_EXIT` 行**；`accept-318b/b38-accept.log` 里**无 `ACCEPT_EXIT`**。
+  ⇒ 缺汇总退出码的从 2 条扩大到 **4 条**（`BUILD_EXIT`、`GATE_EXIT`、`ACCEPT_EXIT`、`CARGO_CHECK_EXIT`），其中 `CARGO_CHECK_EXIT` 已由 §11.1 补齐为执行级。
+- 实质判词仍在盘可回读（本会话读取）：前端 `TS_EXIT=0` / `LINT_EXIT=0` / L162 `Test Files 329 passed (329)` / L163 `Tests 3549 passed (3549)`；构建 `build-318.log` L1985 `✓ built in 10.38s`、L2303 `Finished release profile [optimized] in 5m 02s`。⇒ 「没有汇总退出码」≠「门禁失败」。
+- 包侧自洽（本会话实测）：`release/local-builds/Alpha File Manager_3.18.0_x64-setup.exe` = 46,103,864 B @ 16:34:27，sha256 `b3be132c4999582891643af62ca2383bfab61bb20dfbcad370a481d2ae858fe4`，与 `release/LOCAL-BUILDS.txt` 登记行（`NO_OFFICIAL_ASSET`）**逐字一致**。
+
+### 11.4 新发现：3 处未接线的 OneDrive dead code（登记，不在收尾期动）
+
+`close-318-gates.log` L109-L166 的编译告警（本会话回读）：`ONEDRIVE_EXPIRY_WARN_SECONDS`（`onedrive_auth.rs:41`）、`ONEDRIVE_TENANT`（`:45`）、`onedrive_is_expiring_soon`（`:163`）never used；另有 `with_timeouts`（`onedrive_provider.rs:603`）never used。
+
+- 三个模块是 `pub(crate)`（`remote/mod.rs:42-44`）⇒ 无调用者即**真死代码**，且 `#[cfg(test)]` 也未覆盖。
+- 对照 aliyun 侧确实接线：`aliyun_auth.rs:232` 调用 `aliyun_is_expiring_soon`，并经 `remote/mod.rs:99` 再导出 ⇒ 这是「OneDrive 侧漏接」而非「设计上不接」。
+- **不影响已交付行为**：过期判定走 `onedrive_is_expired`（`onedrive_auth.rs:106`，被 `:168` 的 `onedrive_auth_status_payload` 使用，测试 `:616-638` 覆盖）。缺的只是「提前 `ONEDRIVE_EXPIRY_WARN_SECONDS`（300 s）即将过期提醒」这一层。
+- ⇒ **不是明显 bug，是未接线的可选功能层**。收尾期不动：任何改动都会让已通过的 13 项真机验收与 `release/local-builds/` 那个 sha 的包和源码不再对应。建议批次 39 一并处置（接上并补测试，或删除）。
+
+### 11.5 计划文档存在契约漂移（防下一轮「照计划文档修回」）
+
+`docs/plan-2026-11-22-batch38-onedrive-support.md` §5.1/§5.2/§5.3 仍写 `Onedrive` / `'onedrive'`；权威契约是 `.superpowers/sdd/b38/impl-brief.md` 的 `RemoteProtocol::OnedrivePan` / serde tag `"onedrive_pan"` / TS `'onedrive_pan'` / 中文名 `OneDrive`（代码即此）。**以 impl-brief 与代码为准，不得按计划文档回改。**
+计划 §5.3 坑 2 依然有效且高危：`registry.rs:128-136` 的**第二处**白名单若漏改，DPAPI 里那段会话 JSON 会被当 `password` 塞进 `ResolvedConnection.password`，**不报错但泄漏**。
+
+### 11.6 本轮闭合情况
+
+| §7 / §10.4 未闭合项 | 本轮状态 |
+|---|---|
+| 权威门禁的可复核性 | **已闭合**（执行级，§11.1） |
+| 装机面实况 | **已闭合**（订正 2 处文档错误，§11.2） |
+| ABSENT 名单 / 退出码缺行 | **已闭合**（缺行 2→4，其中 1 条补齐，§11.3） |
+| OneDrive dead code | **新发现，登记**，留批次 39（§11.4） |
+| 计划文档契约漂移 | **已登记**（§11.5） |
+| 真实凭据 5 用例 | **仍未判定** — 需用户本人提供 Azure `client_id` 并完成 Microsoft 登录 / MFA |
+| 3.18.0 装机实测 | **仍未做** — 需提权安装 + `/FORCE`，随后按 §11.2 改 `-ExePath` |
+| push | **未做** — 需用户授权（`main` 现 ahead 6，含批次 37 的 `97b3a22e`） |
+| 对外发布 | **未做** — 需用户授权；顺序见 §7.3（`--bump none`） |
+| `BUILD_EXIT` / `GATE_EXIT` / `ACCEPT_EXIT` | **证据不完整** — 要补只能整轮重跑（`tauri build` 极慢），不建议为补一条退出码重跑 |
+
+本轮 git 实况（本会话回读）：`HEAD = 5488cd6f`；提交链 `97b3a22e → 5c96adc0 feat(batch38) → b1cfddd2 → d8e6907d → 3292ddc6 → 5488cd6f`；`git status --porcelain` 仅 `?? reports/`（`reports/` **不在** `.gitignore` 内，是否入库待用户定）；`.superpowers/sdd/b38/` 现 44 项（§10.6 记的 34 项又已过期 ⇒ 再次印证「当场回读」纪律）。
