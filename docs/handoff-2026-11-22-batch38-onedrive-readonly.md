@@ -386,3 +386,65 @@ OneDrive 连接表单（`应用（客户端）ID` 输入框存在且能写入）
 ### 10.4 仍待用户输入或授权（没有一项可由 Agent 单方推进）
 
 ① 真实 Azure `client_id` + 可登录的 OneDrive 账号（装置 `accept-real-credentials.ps1` + `REAL-CREDENTIAL-ACCEPT.md` 已就绪，Microsoft 登录与 MFA 必须本人）；② push `5c96adc0`；③ 对外发布；④ 3.18.0 装机实测（需提权）；⑤ 批次 39（OneDrive B 级读写）与 `LOCAL-BUILDS.txt` 登记漂移（实际 17 个文件 vs 仅登记 3 条）。
+
+### 10.5 交接后第二轮取证：退出码补齐、ignored 口径差异解释、4 条进程事实全部落空（2026-11-22 22:20–22:50，本轮实测）
+
+**A. §10.4 里缺的两条退出码，已在盘上找到；另两条仍缺**
+
+- `.superpowers/sdd/b38/pin-restore.log` → `PIN_RESTORE_EXIT=0`（第 55 行，验收夹具还原成功）。
+- `.superpowers/sdd/b38/gate-cargo-test-318b.log` → `CARGO_TEST_EXIT=0`（第 2014 行），lib 行（第 2012 行）`1667 passed; 0 failed; 1 ignored`。
+- **仍未闭合**：`ACCEPT_EXIT`（`accept-318b-console.log` 与 `accept-318b/b38-accept.log` 内均无该判词）与 `BUILD_EXIT`（`build-318.log` 内无）
+  ⇒ 继续按「证据不完整」登记，**不得**据此写 PASS/FAIL。
+
+**B. 「1 ignored」与「3 ignored」不矛盾：是测试集在长，不是门禁口径漂**
+
+| 产物 | 命令 | passed | ignored | 合计 |
+| --- | --- | --- | --- | --- |
+| `gate-cargo-test-318b.log`（较早快照） | cargo test --lib | 1667 | 1 | 1668 |
+| `reverify-318.log`（本轮权威重跑） | cargo test --lib | 1667 | 3 | 1670 |
+
+passed 两边同为 1667，ignored 差 2、总数差 2 ⇒ 差的正是后来新增的两个 `onedrive_live` 实网负向用例（b 门禁跑时它们还不存在）。
+本轮权威重跑逐字：`test result: ok. 1667 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 7.31s` + `CARGO_TEST_EXIT=0`；
+`cargo test --lib -- --ignored --nocapture onedrive_live` 逐字：`test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1668 filtered out; finished in 1.31s` + `IGNORED_EXIT=0`。
+3 个 ignored 的名字（log 内逐字命中）：`image_edit::tests::probe_external_sample`、
+`remote::onedrive_provider::tests::onedrive_live_graph_rejects_invalid_token_as_auth_error`、
+`remote::onedrive_provider::tests::onedrive_live_provider_read_dir_with_fake_session_fails_as_auth_error`（后两条注释「需要访问 graph.microsoft.com（实网负向用例）」）。
+**口径提醒**：`gate-cargo-test-318.log` 那类总数 3336 的行来自 `cargo test`（全 target），与 `--lib` 的 1670 不是一回事，别混用。
+
+**C. 12:25 那次「3.16.0 → 3.18.0」装机日志其实自相矛盾（§10.3 加重，根因本轮不下结论）**
+
+`.superpowers/sdd/b38/install-318.log`（mtime 11-22 12:25，90 行）逐字：第 6 行 `Upgrade: detected installed version 3.16.0`，
+第 71 行 `Running: "D:\Program Files\Alpha File Manager\Alpha File Manager.exe" /P:SHOWALL=0`，第 107 行
+`PREINSTALL: D:\Program Files\Alpha File Manager\alpha-file-manager.exe present, will overwrite`，
+第 154–156 行 `INSTALL_EXIT=0` / `POSTINSTALL: detectedVersion=3.16.1` / `UNCHANGED: ... alpha-file-manager.exe still present`。
+⇒ 「退出码 0」+「版本没前进」+「文件没被覆盖」三件事同时成立，注册表停在 3.16.1，而 `InstallLocation` 现在连 `Alpha File Manager.exe` 都不存在。
+**结论收紧**：这份 log **不能**当装机成功证据；§10.3 的「装机面未闭合」维持原判。根因追查（防呆早退 / 写错目录 / 事后被卸载）不属交付范围，留用户决定是否单开一轮。
+
+**D. 用户交来的 4 条「运行中进程」事实：本轮实测全部不属实（是「不属实」，不是「未判定」）**
+
+探针 `.superpowers/sdd/b38/verify-process-claims.ps1`（纯 ASCII，参数化 `-PidClaim` / `-Port`）→ 日志 `verify-process-claims.log`；
+4 行结论落盘 `reports/task56-process-verify.txt`（**未纳入 git 跟踪**，`reports/` 不在 .gitignore 内，故本轮 `git status` 会多出这一个未跟踪文件）。
+
+1. 「`alpha.exe` 以 PID 284840 运行且带 `--remote-debugging-port=9222`」 ⇒ **不属实**：Win32_Process ProcessId=284840 返回 null；
+   全盘进程名无一匹配 `alpha`，在场的 12 个 `msedgewebview2.exe` 全属别的应用且均未带该 flag。
+   **结构性纠正（比结论更值钱）**：Tauri/WebView2 的调试 flag 落在子进程 `msedgewebview2.exe` 的命令行上，**不在应用主 exe 上**，
+   9222 的 owning PID 也是 webview 子进程 ⇒ 用「主进程 exe + 主进程命令行」去断言这条，姿势本身就不对。
+2. 「9222 被 PID 284840 占用」 ⇒ **不属实**：`Get-NetTCPConnection -LocalPort 9222 -State Listen` 返回 0 条监听，没有任何 PID 占 9222。
+3. 「CDP `/json/list` 可达并显示 `alpha-file-manager` 页面」 ⇒ **不属实**：`http://127.0.0.1:9222/json/list` 连接被目标主动拒绝。
+4. 「UIA 树里有名为 `Alpha File Manager` 的 pane」 ⇒ **不属实**：桌面根 12 个顶层窗、0 个该名；按 NameProperty 全后代搜索 0 命中。
+   `LogonUI` 不在场、非锁屏 ⇒ 排除「锁屏让取证失真」这条误判方向（记忆里那个坑本轮不适用），真实原因就是**应用根本没在跑**。
+
+**要把 2/3/4 变成可判**：先把应用带 CDP 启起来 —— 设 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 为
+`--remote-debugging-port=9222 --remote-allow-origins=*`，再启动装机 exe（当前不存在）或裸产物
+`src-tauri/target/release/alpha-file-manager.exe`（FileVersion 3.18.0），然后重跑 `verify-process-claims.ps1`。
+本轮按用户「都先不动，只交接」未启动、未安装、未 push。
+
+**E. 本轮新增工具坑（照用，别重踩）**
+
+- 本机硬策略拒「先 `cd` 再写文件」的 bash 调用，**纯 ASCII 的 `Set-Content` 同样被拒**；绕法 = 文件一律走 `write` / `edit` 工具落盘，
+  bash 只做执行与只读回读。本轮实测有效。
+- PS 双引号串里写 `"C1_PID_$PidClaim_NOT_FOUND"` 会被解析成变量 `$PidClaim_NOT_FOUND` ⇒ 输出空值、判据标签失真。
+  带下划线必须 `"${PidClaim}_NOT_FOUND"`。本轮 C1 那行就踩了（结论没受影响：null 分支 + 全盘进程扫描双证）。
+- 证据目录会被换快照：早先读过的 `gate-cargo-test-ignored*.log` / `accept-318-real.log` 等随后消失，而 `pin-restore.log` / `gate-cargo-test-318b.log`
+  本轮又出现 ⇒ 任何「引用某个 log 里的数字」的判词，落笔前必须当场回读该文件；消失的一律改用重跑产物。
+
