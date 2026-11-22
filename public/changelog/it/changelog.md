@@ -1,6 +1,19 @@
 # Registro delle modifiche
 
 
+## [3.18.0] - November 2026
+
+**Riepilogo:** OneDrive ora si collega come quarto provider di dischi cloud: nelle *Impostazioni* compare sotto il titolo *Aggiungi disco cloud*, accanto a *Baidu Drive*, *Quark Drive* e *Aliyun Drive*. L'accesso avviene nel browser di sistema con il tuo account Microsoft, non c'è nessun token da copiare a mano, e la sessione finisce nell'archivio cifrato delle credenziali dell'app. Questa versione è in sola lettura: puoi sfogliare le cartelle, leggere e scaricare i file e aggiungere la connessione alla ricerca globale, ma non puoi ancora caricare file, creare cartelle, rinominare o cancellare.
+
+### What changed
+
+**Aggiunto: OneDrive è il quarto disco cloud** Nelle *Impostazioni*, sotto il titolo *Aggiungi disco cloud*, ci sono ora quattro pulsanti: *Baidu Drive*, *Quark Drive*, *Aliyun Drive* e *OneDrive*. Scegliendo *OneDrive* si apre il modulo di connessione, che ti chiede l'ID client della tua stessa app Azure, quella che hai registrato in Microsoft Entra per OneDrive. L'app non porta con sé nessun client_id: devi scriverlo tu.
+**Aggiunto: OneDrive si autentica nel tuo browser** Avviando l'accesso si apre la pagina di accesso Microsoft nel browser predefinito di sistema, e lì entri con il tuo account Microsoft. Il risultato lo riceve l'app su un indirizzo di loopback locale di questa macchina - *http://localhost* con una porta casuale -, quindi non c'è nessun token né codice da copiare a mano, né nulla da incollare nel modulo. L'accesso usa PKCE, a Microsoft vengono richiesti solo i permessi di lettura dei file e l'accesso offline (*Files.Read* e *offline_access*), e in nessun momento si usa un client secret.
+**Aggiunto: La sessione di OneDrive resta nell'archivio cifrato delle credenziali dell'app** Finita l'autorizzazione, la sessione viene scritta nell'archivio delle credenziali dell'app e cifrata con Windows DPAPI, così da restare su questa macchina. Il token non viene mai restituito all'interfaccia: il modulo ti dice solo se l'autorizzazione c'è e quando scade la sessione.
+**Aggiunto: La connessione OneDrive si può provare prima** Il pulsante di prova della connessione chiede a OneDrive se quell'account risponde. Se non risponde, lo vedi qui, invece di scoprirlo aprendo una cartella.
+**Aggiunto: I file di OneDrive si trovano anche con la ricerca globale** Come per gli altri dischi cloud, puoi includere la connessione OneDrive con *Includi nella ricerca globale*; i file di quell'unità vengono indicizzati e compaiono nei risultati accanto ai tuoi file locali. L'indice viene ricostruito solo quando lo chiedi - *Impostazioni* -> *Ricerca globale* -> *Ricostruisci indice cloud* -.
+**Aggiunto: Che cosa OneDrive sa fare in questa versione e che cosa no** Elencare cartelle, leggere un file e scaricarlo in una cartella locale, questo si fa. Caricare file, creare cartelle, rinominare e cancellare, in questa versione non ci sono; e le immagini su OneDrive non hanno ancora una miniatura, mostrano ancora l'icona normale del file.
+
 ## [3.17.0] - November 2026
 
 **Riepilogo:** Ora i file sui tuoi dischi cloud si trovano con la ricerca globale dell'app - decidi tu, connessione per connessione, se partecipa, così nulla va in rete alle tue spalle. Un disco cloud che aggiungi si presenta già con il proprio nome, e un preferito può avere in menu un nome tutto suo, senza toccare il file o la cartella reali che ci stanno dietro.

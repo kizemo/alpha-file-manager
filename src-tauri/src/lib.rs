@@ -42,6 +42,10 @@ mod orphan_webview;
 mod focus_sync_sidecar;
 mod focus_sync_supervisor;
 pub mod mcp;
+// OneDrive（批次 38）：7 条命令都在这个顶层模块里 —— 它需要 `AppHandle`
+// （app-data 目录是读写 DPAPI 密文的唯一入口），而 `remote/` 目录是**无 tauri**的
+// 内核层，碰了 `tauri::` 会让 `cargo test --lib` 的测试二进制在加载阶段崩掉。
+mod onedrive_oauth;
 mod open_with;
 mod process_runner;
 mod quark_login;
@@ -433,6 +437,15 @@ pub fn run() {
             aliyun_login::remote_aliyun_login_cancel,
             aliyun_login::remote_aliyun_auth_status,
             aliyun_login::remote_aliyun_delete_session,
+            // OneDrive（批次 38）：实现在顶层 `onedrive_oauth` 模块
+            // （它需要 `AppHandle`，而 `remote/` 目录禁 tauri）。
+            onedrive_oauth::remote_onedrive_login_start,
+            onedrive_oauth::remote_onedrive_login_pending,
+            onedrive_oauth::remote_onedrive_login_claim,
+            onedrive_oauth::remote_onedrive_login_cancel,
+            onedrive_oauth::remote_onedrive_auth_status,
+            onedrive_oauth::remote_onedrive_save_session,
+            onedrive_oauth::remote_onedrive_delete_session,
             remote::remote_test_connection,
             remote::remote_read_dir,
             remote::remote_stat_dir_entry,

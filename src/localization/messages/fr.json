@@ -666,7 +666,8 @@
         "sftp": "SFTP",
         "baidu_pan": "Baidu Netdisk",
         "quark_pan": "Quark Drive",
-        "aliyun_pan": "Aliyun Drive"
+        "aliyun_pan": "Aliyun Drive",
+        "onedrive_pan": "OneDrive"
       },
       "proxy": {
         "direct": "Direct connection",
@@ -694,7 +695,8 @@
         "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
         "baiduLoginRequired": "Connectez-vous d'abord à Baidu Pan dans l'application, puis enregistrez cette connexion.",
         "quarkLoginRequired": "Connectez-vous à Quark Drive dans l’application avant d’enregistrer cette connexion.",
-        "aliyunLoginRequired": "Connectez-vous à Aliyun Drive dans l’application avant d’enregistrer cette connexion."
+        "aliyunLoginRequired": "Connectez-vous à Aliyun Drive dans l’application avant d’enregistrer cette connexion.",
+        "onedriveLoginRequired": "Sign in to OneDrive inside the app before saving this connection."
       },
       "localPath": {
         "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
@@ -831,7 +833,34 @@
         "baidu": "Baidu Drive",
         "quark": "Quark Drive",
         "aliyun": "Aliyun Drive",
-        "signedIn": "Connecté"
+        "signedIn": "Connecté",
+        "onedrive": "OneDrive"
+      },
+      "onedrive": {
+        "field": {
+          "clientId": "Application (client) ID",
+          "clientIdHint": "The client id of the Microsoft Entra application you registered for OneDrive. It is stored with the session on this machine and is never sent through this form.",
+          "authUrl": "Authorization URL",
+          "authUrlHint": "If the browser did not open by itself, copy this URL and finish signing in there."
+        },
+        "action": {
+          "start": "Start sign-in",
+          "cancel": "Stop waiting",
+          "deleteSession": "Delete the saved session"
+        },
+        "state": {
+          "pending": "Waiting for you to finish signing in in the browser…",
+          "completed": "Signed in. Save this connection — the session will be written when you save.",
+          "failed": "The sign-in did not complete. Please try again."
+        },
+        "auth": {
+          "authorized": "Authorized",
+          "missing": "Not signed in",
+          "loading": "Reading authorization status…"
+        },
+        "hint": {
+          "clientIdRequired": "Fill in the application (client) ID first."
+        }
       }
     },
     "about": {

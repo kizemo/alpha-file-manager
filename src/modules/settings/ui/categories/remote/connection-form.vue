@@ -14,6 +14,7 @@ import {
 import { useI18n } from 'vue-i18n';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import QRCode from 'qrcode';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/toaster';
@@ -36,6 +37,7 @@ import type {
   BaiduAuthStatusPayload,
   BaiduLoginEventPayload,
   NetdiskProtocol,
+  OnedriveAuthStatusPayload,
   QuarkAuthStatusPayload,
   QuarkLoginEventPayload,
   RemoteConnection,
@@ -683,6 +685,9 @@ onUnmounted(() => {
   unlistenAliyunLogin?.();
   unlistenAliyunLogin = null;
   stopAliyunQrPolling();
+  // OneDrive 的轮询也要收：组件没了还留着定时器的话，
+  // 它会继续 invoke 一个已经没人看的授权流程。
+  stopOnedrivePolling();
 
   // 切走 provider / 关掉表单 = 放弃这轮登录：登录窗留在屏幕上没有意义，
   // 而且下次再点会被后端 reused 聚焦到一个过期的页面上。
@@ -779,6 +784,9 @@ const isQuarkNetdisk = computed(() => netdiskProvider.value === 'quark_pan');
 
 /** 阿里云盘（2026-11-19 批次 26）。 */
 const isAliyunNetdisk = computed(() => netdiskProvider.value === 'aliyun_pan');
+
+/** OneDrive（批次 38，只读 A 级）。 */
+const isOnedriveNetdisk = computed(() => netdiskProvider.value === 'onedrive_pan');
 
 watch(
   () => props.connection,
@@ -880,6 +888,12 @@ function reset() {
   aliyunLoginSummary.value = '';
   aliyunQrImage.value = '';
   aliyunPasteToken.value = '';
+  // OneDrive 的昵称与授权页地址同理归零；`client_id` 也不留 ——
+  // 它不进连接表，留着只会让下一条连接以为已经填过。
+  onedriveLoginState.value = 'idle';
+  onedriveLoginError.value = '';
+  onedriveAuthUrl.value = '';
+  onedriveClientId.value = '';
 }
 
 /** 选一个本地目录。留空即可不摆双屏，所以这里不做任何默认填充。 */
@@ -1111,12 +1125,182 @@ watch(aliyunStatus, (status) => {
   }
 });
 
+// ── OneDrive（批次 38）─────────────────────────────────────────────────
+// 与阿里云盘**不同构**：OneDrive 走 Microsoft 的 OAuth 授权码流程 ——
+// 后端只起一个环回监听，给出授权页 URL 与 redirect URI，然后等浏览器被打回来。
+// 所以这里没有二维码、也不开内嵌窗口，授权页交给系统默认浏览器。
+//
+// `client_id` 由用户自填：它只作为 `login_start` 的入参，
+// **不进连接表**（后端把它存进会话 blob，`RemoteConnection` 里没有这个字段）。
+
+type OnedriveLoginViewState = 'idle' | 'pending' | 'completed' | 'failed';
+
+const onedriveClientId = ref('');
+const onedriveLoginState = ref<OnedriveLoginViewState>('idle');
+const onedriveLoginError = ref('');
+/** 授权页地址：系统浏览器没打开时，给用户一条能手动访问的兜底。 */
+const onedriveAuthUrl = ref('');
+const isStartingOnedriveLogin = ref(false);
+
+/** 轮询定时器。`null` = 没在轮询。 */
+let onedrivePollTimer: ReturnType<typeof setTimeout> | null = null;
+
+function stopOnedrivePolling() {
+  if (onedrivePollTimer !== null) {
+    clearTimeout(onedrivePollTimer);
+    onedrivePollTimer = null;
+  }
+}
+
+/**
+ * 轮询一次授权进度；只有 `pending` 才续排。
+ *
+ * `completed` / `failed` / `idle` 都是终态（或未开始），再排下去只会让回调
+ * 无限自走 —— 与阿里云盘扫码那条链的收口方式一致。
+ */
+async function pollOnedriveLoginOnce(): Promise<void> {
+  try {
+    const pending = await store.getOnedriveLoginPending();
+
+    onedriveLoginState.value = pending.state;
+    onedriveLoginError.value = pending.state === 'failed' ? (pending.error ?? '') : '';
+
+    if (pending.state !== 'pending') {
+      stopOnedrivePolling();
+
+      // 授权成功：状态卡立刻刷新，用户不必等到保存才看到「已授权」。
+      if (pending.authorized) {
+        void refreshOnedriveStatus();
+      }
+
+      return;
+    }
+
+    onedrivePollTimer = setTimeout(() => {
+      void pollOnedriveLoginOnce();
+    }, 2000);
+  }
+  catch (error) {
+    console.error('Failed to poll onedrive login status:', error);
+    onedriveLoginState.value = 'failed';
+    stopOnedrivePolling();
+  }
+}
+
+async function handleStartOnedriveLogin() {
+  if (isStartingOnedriveLogin.value) return;
+
+  const clientId = onedriveClientId.value.trim();
+
+  if (!clientId) {
+    onedriveLoginState.value = 'failed';
+    onedriveLoginError.value = t('settings.remote.onedrive.hint.clientIdRequired');
+    return;
+  }
+
+  // 重开授权前先停掉上一轮的定时器，避免两条轮询链并发。
+  stopOnedrivePolling();
+
+  isStartingOnedriveLogin.value = true;
+  onedriveLoginState.value = 'pending';
+  onedriveLoginError.value = '';
+
+  try {
+    // `openBrowser: false` —— 浏览器由下面这行打开，后端只负责起环回监听。
+    // 两边都开的话用户会看到两个授权页。
+    const started = await store.startOnedriveLogin(clientId, false);
+
+    onedriveAuthUrl.value = started.authUrl;
+
+    try {
+      await openUrl(started.authUrl);
+    }
+    catch (openError) {
+      // 打不开系统浏览器不算授权失败：地址已经显示在界面上，用户可手动访问。
+      console.error('Failed to open onedrive auth url:', openError);
+    }
+
+    await pollOnedriveLoginOnce();
+  }
+  catch (error) {
+    console.error('Failed to start onedrive login:', error);
+    onedriveLoginState.value = 'failed';
+    onedriveLoginError.value = error instanceof Error ? error.message : '';
+  }
+  finally {
+    isStartingOnedriveLogin.value = false;
+  }
+}
+
+async function handleCancelOnedriveLogin() {
+  stopOnedrivePolling();
+
+  try {
+    await store.cancelOnedriveLogin();
+  }
+  catch (error) {
+    console.error('Failed to cancel onedrive login:', error);
+  }
+  finally {
+    onedriveLoginState.value = 'idle';
+    onedriveLoginError.value = '';
+    onedriveAuthUrl.value = '';
+  }
+}
+
+/**
+ * OneDrive 的授权状态卡（批次 38）。
+ *
+ * 与前三家**不同**：后端只回答三件事（授权与否 / 何时过期 / 哪个账号），
+ * 没有 `status` 分类可读，所以这里不用「状态码 → 文案键」那套映射。
+ */
+const onedriveStatus = ref<OnedriveAuthStatusPayload | null>(null);
+const isLoadingOnedriveStatus = ref(false);
+
+const onedriveConnectionId = computed(() => (
+  isOnedriveNetdisk.value ? props.connection?.id : undefined
+));
+
+async function refreshOnedriveStatus() {
+  if (!onedriveConnectionId.value) {
+    onedriveStatus.value = null;
+    return;
+  }
+
+  isLoadingOnedriveStatus.value = true;
+
+  try {
+    onedriveStatus.value = await store.getOnedriveAuthStatus(onedriveConnectionId.value);
+  }
+  catch (error) {
+    console.error('Failed to load onedrive auth status:', error);
+    onedriveStatus.value = null;
+  }
+  finally {
+    isLoadingOnedriveStatus.value = false;
+  }
+}
+
+/** 断开授权：删掉会话，连接本身留着（与百度 / 夸克 / 阿里云盘一致）。 */
+async function handleDeleteOnedriveSession() {
+  if (!onedriveConnectionId.value) return;
+
+  try {
+    await store.deleteOnedriveSession(onedriveConnectionId.value);
+    onedriveStatus.value = null;
+  }
+  catch (error) {
+    console.error('Failed to delete onedrive session:', error);
+  }
+}
+
 watch(
   () => [props.connection?.id, protocol.value],
   () => {
     void refreshBaiduStatus();
     void refreshQuarkStatus();
     void refreshAliyunStatus();
+    void refreshOnedriveStatus();
   },
   { immediate: true },
 );
@@ -1554,6 +1738,87 @@ function onProtocolChange(value: unknown) {
       </div>
     </div>
 
+    <!--
+      OneDrive（批次 38，只读 A 级）：Microsoft OAuth 授权码流程。
+
+      与阿里云盘**不同构** —— 没有二维码、也不开内嵌窗口：
+      后端给出授权页 URL 与环回 redirect URI，浏览器由系统默认浏览器打开，
+      用户授权后 Microsoft 会把浏览器打回那个环回地址，会话由后端接走并入槽。
+      `client_id` 是**登录期参数**：只作为 `login_start` 的入参，不进连接表。
+    -->
+    <div
+      v-else-if="isOnedriveNetdisk"
+      class="remote-connection-form__row"
+      data-test="onedrive-embedded"
+    >
+      <Label for="onedrive-client-id">{{ t('settings.remote.onedrive.field.clientId') }}</Label>
+      <Input
+        id="onedrive-client-id"
+        v-model="onedriveClientId"
+        autocomplete="off"
+        data-test="onedrive-client-id"
+      />
+      <p
+        class="remote-connection-form__hint"
+        data-test="onedrive-client-id-hint"
+      >
+        {{ t('settings.remote.onedrive.field.clientIdHint') }}
+      </p>
+
+      <div class="remote-connection-form__inline">
+        <Button
+          type="button"
+          data-test="onedrive-login-start"
+          :disabled="isStartingOnedriveLogin || !onedriveClientId.trim()"
+          @click="handleStartOnedriveLogin"
+        >
+          {{ t('settings.remote.onedrive.action.start') }}
+        </Button>
+        <Button
+          v-if="onedriveLoginState === 'pending'"
+          type="button"
+          variant="ghost"
+          data-test="onedrive-login-cancel"
+          @click="handleCancelOnedriveLogin"
+        >
+          {{ t('settings.remote.onedrive.action.cancel') }}
+        </Button>
+      </div>
+
+      <p
+        v-if="onedriveLoginState !== 'idle'"
+        class="remote-connection-form__hint"
+        :data-status="onedriveLoginState"
+        data-test="onedrive-login-status"
+      >
+        {{ t(`settings.remote.onedrive.state.${onedriveLoginState}`) }}
+      </p>
+      <p
+        v-if="onedriveLoginError"
+        class="remote-connection-form__hint"
+        data-test="onedrive-login-error"
+      >
+        {{ onedriveLoginError }}
+      </p>
+
+      <div
+        v-if="onedriveAuthUrl"
+        class="remote-connection-form__row"
+        data-test="onedrive-auth-url"
+      >
+        <Label for="onedrive-auth-url">{{ t('settings.remote.onedrive.field.authUrl') }}</Label>
+        <Input
+          id="onedrive-auth-url"
+          :model-value="onedriveAuthUrl"
+          readonly
+          data-test="onedrive-auth-url-input"
+        />
+        <p class="remote-connection-form__hint">
+          {{ t('settings.remote.onedrive.field.authUrlHint') }}
+        </p>
+      </div>
+    </div>
+
     <div
       v-else
       class="remote-connection-form__row"
@@ -1684,6 +1949,42 @@ function onProtocolChange(value: unknown) {
         @click="handleDeleteAliyunSession"
       >
         {{ t('settings.remote.aliyun.action.deleteSession') }}
+      </Button>
+    </div>
+
+    <!-- OneDrive 的授权卡（批次 38）：只显示状态与账号，不显示任何 token。 -->
+    <div
+      v-if="onedriveConnectionId"
+      class="remote-connection-form__baidu"
+      data-test="onedrive-status"
+    >
+      <div class="remote-connection-form__baidu-head">
+        <span
+          class="remote-connection-form__baidu-dot"
+          :data-status="isLoadingOnedriveStatus ? 'loading' : (onedriveStatus?.authorized ? 'ready' : 'missing')"
+          data-test="onedrive-status-dot"
+        />
+        <span data-test="onedrive-status-text">
+          {{ onedriveStatus
+            ? t(`settings.remote.onedrive.auth.${onedriveStatus.authorized ? 'authorized' : 'missing'}`)
+            : t('settings.remote.onedrive.auth.loading') }}
+        </span>
+      </div>
+      <p
+        v-if="onedriveStatus?.account"
+        class="remote-connection-form__hint"
+        data-test="onedrive-status-account"
+      >
+        {{ onedriveStatus.account }}
+      </p>
+      <Button
+        v-if="onedriveStatus?.authorized"
+        type="button"
+        variant="outline"
+        data-test="onedrive-delete-session"
+        @click="handleDeleteOnedriveSession"
+      >
+        {{ t('settings.remote.onedrive.action.deleteSession') }}
       </Button>
     </div>
 

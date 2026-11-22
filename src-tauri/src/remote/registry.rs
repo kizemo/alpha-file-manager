@@ -127,7 +127,10 @@ pub fn resolve_connection(
     // （`access_token` + `refresh_token` + 应用配置）。
     if matches!(
         connection.protocol,
-        RemoteProtocol::BaiduPan | RemoteProtocol::QuarkPan | RemoteProtocol::AliyunPan
+        RemoteProtocol::BaiduPan
+            | RemoteProtocol::QuarkPan
+            | RemoteProtocol::AliyunPan
+            | RemoteProtocol::OnedrivePan
     ) {
         return Ok(ResolvedConnection {
             connection,

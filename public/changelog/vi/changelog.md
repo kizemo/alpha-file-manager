@@ -1,6 +1,19 @@
 # Nhật ký thay đổi
 
 
+## [3.18.0] - November 2026
+
+**Tóm tắt:** OneDrive giờ đã là nhà cung cấp ổ đám mây thứ tư: trong *Cài đặt*, dưới mục *Thêm đĩa đám mây*, nó đứng cạnh *Baidu Drive*, *Quark Drive* và *Aliyun Drive*. Bạn đăng nhập ngay trong trình duyệt của hệ thống bằng tài khoản Microsoft, không phải chép tay bất kỳ token nào, và phiên đăng nhập nằm trong kho thông tin đăng nhập đã mã hóa của chính ứng dụng. Bản này chỉ đọc: bạn có thể xem các thư mục, đọc và tải tệp xuống, cũng như đưa kết nối vào tìm kiếm toàn cục - còn tải tệp lên, tạo thư mục mới, đổi tên và xóa thì chưa có.
+
+### What changed
+
+**Đã thêm: OneDrive là nhà cung cấp ổ đám mây thứ tư** Trong *Cài đặt*, dưới mục *Thêm đĩa đám mây*, giờ có bốn nút: *Baidu Drive*, *Quark Drive*, *Aliyun Drive* và *OneDrive*. Chọn *OneDrive* sẽ mở biểu mẫu kết nối, và biểu mẫu đó hỏi bạn client id của ứng dụng Azure của chính bạn - ứng dụng bạn đã đăng ký trong Microsoft Entra cho OneDrive. Ứng dụng không có sẵn client_id nào, bạn phải tự điền vào.
+**Đã thêm: OneDrive đăng nhập trong trình duyệt của chính bạn** Bấm nút bắt đầu đăng nhập, trang đăng nhập của Microsoft sẽ mở ra trong trình duyệt mặc định của hệ thống, và ở đó bạn đăng nhập bằng tài khoản Microsoft của mình. Kết quả được ứng dụng nhận ở một địa chỉ loopback cục bộ trên chính máy này - *http://localhost* kèm một cổng ngẫu nhiên -, nên không có token hay mã nào phải chép tay, cũng không có gì phải dán vào biểu mẫu. Việc đăng nhập dùng PKCE, ứng dụng chỉ xin Microsoft quyền đọc tệp và đăng nhập ngoại tuyến (*Files.Read* và *offline_access*), và xuyên suốt không dùng client secret.
+**Đã thêm: Phiên đăng nhập của OneDrive nằm trong kho thông tin đăng nhập đã mã hóa của ứng dụng** Sau khi ủy quyền xong, phiên được ghi vào kho thông tin đăng nhập của ứng dụng và mã hóa bằng Windows DPAPI, nên nó nằm lại trên máy này. Bản thân token không được trả về giao diện: biểu mẫu chỉ cho bạn biết đã ủy quyền hay chưa và phiên hết hạn lúc nào.
+**Đã thêm: Kết nối OneDrive có thể thử trước** Nút thử kết nối trong biểu mẫu sẽ hỏi OneDrive xem tài khoản đó có kết nối được không. Nếu không, bạn biết ngay tại đây, thay vì phải mở một thư mục rồi mới phát hiện.
+**Đã thêm: Tệp trên OneDrive cũng được tìm kiếm toàn cục tìm thấy** Như với các ổ đám mây khác, bạn có thể đánh dấu kết nối OneDrive bằng *Thêm vào tìm kiếm toàn cục*; các tệp của ổ đó sẽ được lập chỉ mục và xuất hiện trong kết quả tìm kiếm bên cạnh các tệp cục bộ của bạn. Chỉ mục vẫn chỉ được dựng lại khi bạn yêu cầu - *Cài đặt* -> *Tìm kiếm toàn cầu* -> *Dựng lại chỉ mục đám mây* -.
+**Đã thêm: Ở bản này OneDrive làm được gì và không làm được gì** Liệt kê thư mục, đọc tệp và tải tệp về một thư mục cục bộ thì được. Tải tệp lên, tạo thư mục mới, đổi tên và xóa thì bản này chưa có; và ảnh trong OneDrive hiện vẫn chưa có ảnh thu nhỏ, vẫn hiện biểu tượng tệp thường.
+
 ## [3.17.0] - November 2026
 
 **Tóm tắt:** Giờ các tệp trên ổ đám mây của bạn có thể được tìm thấy bằng tìm kiếm toàn cục của ứng dụng - bạn tự quyết định cho từng kết nối rằng có tham gia hay không, nên không có gì tự ra mạng sau lưng bạn. Ổ đám mây bạn thêm vào giờ đã có sẵn tên của nó, và một mục yêu thích có thể mang tên riêng trong menu, mà không hề đụng tới tệp hay thư mục thật đứng sau nó.

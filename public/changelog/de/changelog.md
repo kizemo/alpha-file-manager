@@ -1,6 +1,19 @@
 # Änderungsprotokoll
 
 
+## [3.18.0] - November 2026
+
+**Zusammenfassung:** OneDrive ist jetzt der vierte Netdisk-Anbieter: In den *Einstellungen* steht es unter der Überschrift *Netzlaufwerk hinzufügen* direkt neben *Baidu Drive*, *Quark Drive* und *Aliyun Drive*. Sie melden sich mit Ihrem Microsoft-Konto in Ihrem eigenen Systembrowser an, ein Token müssen Sie nicht von Hand kopieren, und die Sitzung landet im verschlüsselten Anmeldeinformationsspeicher der App. Diese Version ist nur lesend: Verzeichnisse durchsuchen, Dateien lesen und herunterladen sowie die Verbindung in die globale Suche aufnehmen geht - hochladen, Ordner anlegen, umbenennen und löschen gibt es noch nicht.
+
+### What changed
+
+**Hinzugefügt: OneDrive ist jetzt der vierte Netdisk** In den *Einstellungen* stehen unter der Überschrift *Netzlaufwerk hinzufügen* jetzt vier Schaltflächen: *Baidu Drive*, *Quark Drive*, *Aliyun Drive* und *OneDrive*. Wählen Sie *OneDrive*, öffnet sich das Verbindungsformular, und dort tragen Sie die Client-ID Ihrer eigenen Azure-Anwendung ein, also die Microsoft-Entra-Anwendung, die Sie für OneDrive registriert haben. Die App bringt kein client_id mit, die Client-ID müssen Sie selbst eintragen.
+**Hinzugefügt: OneDrive meldet Sie in Ihrem eigenen Browser an** Starten Sie die Anmeldung, öffnet sich die Microsoft-Anmeldeseite im Standardbrowser Ihres Systems, und dort melden Sie sich mit Ihrem Microsoft-Konto an. Das Ergebnis nimmt die App über eine Rückschleifadresse auf diesem Rechner entgegen - *http://localhost* mit einem zufälligen Port -, deshalb gibt es kein Token und keinen Code von Hand zu kopieren und nichts in das Formular zu kleben. Die Anmeldung läuft mit PKCE, bei Microsoft werden nur die lesenden Dateirechte und die Offline-Anmeldung angefragt (*Files.Read* und *offline_access*), und ein Client-Secret kommt nirgends vor.
+**Hinzugefügt: Die OneDrive-Sitzung landet im verschlüsselten Anmeldeinformationsspeicher der App** Ist die Anmeldung durch, wird die Sitzung in den Anmeldeinformationsspeicher der App geschrieben und mit Windows DPAPI verschlüsselt, so dass sie auf diesem Rechner bleibt. Das Token selbst wird nicht an die Oberfläche zurückgegeben: das Formular zeigt Ihnen nur an, ob autorisiert ist und wann die Sitzung abläuft.
+**Hinzugefügt: Die OneDrive-Verbindung lässt sich vorher testen** Die Schaltfläche zum Testen der Verbindung fragt OneDrive einmal selbst, ob das Konto ankommt. Geht es nicht, erfahren Sie das hier, statt erst beim Öffnen eines Verzeichnisses.
+**Hinzugefügt: Dateien von OneDrive werden von der globalen Suche gefunden** Wie bei Ihren anderen Netdisks können Sie eine OneDrive-Verbindung mit *In die globale Suche aufnehmen* in die Suche holen; die Dateien dieses Laufwerks werden indiziert und erscheinen in den Suchergebnissen neben Ihren lokalen Dateien. Der Index wird weiterhin nur auf Ihren Befehl hin neu aufgebaut - *Einstellungen* -> *Globale Suche* -> *Cloud-Index neu aufbauen* -.
+**Hinzugefügt: Was OneDrive in dieser Version kann und was nicht** Verzeichnisse auflisten, Dateien lesen und in einen lokalen Ordner herunterladen - das geht. Dateien hochzuladen, Ordner anzulegen, umbenennen und zu löschen, gibt es in dieser Version nicht, und Bilder aus OneDrive haben noch keine Miniaturansicht: Sie zeigen weiterhin das normale Dateisymbol.
+
 ## [3.17.0] - November 2026
 
 **Zusammenfassung:** Dateien auf Ihren Netdisks lassen sich jetzt mit der globalen Suche der App finden - Sie entscheiden für jede Verbindung selbst, ob sie teilnimmt, so geht nichts ohne Ihr Zutun ins Netzwerk. Ein neu hinzugefügter Netdisk bringt seinen eigenen Namen schon mit, und ein Favorit kann im Menü einen eigenen Namen bekommen, ohne dass die echte Datei oder der echte Ordner dahinter angetastet wird.

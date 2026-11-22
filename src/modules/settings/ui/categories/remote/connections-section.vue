@@ -301,8 +301,9 @@ function applyPendingCreate(): void {
     // 阿里云盘是例外（2026-11-19 批次 26）：它要填 OAuth 的 `client_id`，
     // 那个字段只存在于连接表单里 —— 快捷弹窗里没地方填，
     // 所以这里改成开表单，让用户自己填应用信息再点登录。
-    if (requested === 'aliyun_pan') {
-      createNetdiskProtocol.value = 'aliyun_pan';
+    // OneDrive（批次 38）同理：`client_id` 也由用户自填，没有它开不了授权页。
+    if (requested === 'aliyun_pan' || requested === 'onedrive_pan') {
+      createNetdiskProtocol.value = requested;
       isCreating.value = true;
       return;
     }
@@ -366,6 +367,20 @@ function startCreate() {
 function startAddAliyunNetdisk() {
   editing.value = null;
   createNetdiskProtocol.value = 'aliyun_pan';
+  activeSection.value = 'netdisk';
+  isCreating.value = true;
+}
+
+/**
+ * 「添加 OneDrive」（批次 38）。
+ *
+ * 与阿里云盘同一条路径：开连接表单，让用户填自己的 OAuth `client_id`
+ * 再点「开始授权」。**不走** `NetdiskAddDialog` —— 那个弹窗是「先开内嵌登录窗
+ * 抓 cookie」的形态，OneDrive 走的是系统浏览器 + 环回 redirect 的授权码流程。
+ */
+function startAddOnedriveNetdisk() {
+  editing.value = null;
+  createNetdiskProtocol.value = 'onedrive_pan';
   activeSection.value = 'netdisk';
   isCreating.value = true;
 }
@@ -577,6 +592,17 @@ function describeProxy(connection: RemoteConnection): string {
           @click="startAddAliyunNetdisk"
         >
           {{ t('settings.remote.netdisk.aliyun') }}
+        </Button>
+        <!--
+          OneDrive（批次 38）：与阿里云盘同一条路径 —— 开表单填 `client_id`，
+          再点「开始授权」把 Microsoft 授权页交给系统浏览器。
+        -->
+        <Button
+          variant="outline"
+          data-test="add-netdisk-onedrive_pan"
+          @click="startAddOnedriveNetdisk"
+        >
+          {{ t('settings.remote.netdisk.onedrive') }}
         </Button>
       </div>
     </div>

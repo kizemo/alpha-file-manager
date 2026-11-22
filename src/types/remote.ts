@@ -11,7 +11,7 @@
 // - `RemoteProxyConfig` ← `ProxyConfig`（`#[serde(tag = "kind", rename_all = "snake_case")]`）
 // - `RemoteConnection` ← `RemoteConnection`（camelCase）
 
-/** 与后端 `RemoteProtocol` 的七个变体一一对应。 */
+/** 与后端 `RemoteProtocol` 的八个变体一一对应。 */
 export type RemoteProtocol
   = | 'ftp'
     | 'ftps_explicit'
@@ -19,15 +19,16 @@ export type RemoteProtocol
     | 'sftp'
     | 'baidu_pan'
     | 'quark_pan'
-    | 'aliyun_pan';
+    | 'aliyun_pan'
+    | 'onedrive_pan';
 
 /**
- * 网盘协议清单（百度 / 夸克 / 阿里云盘）。
+ * 网盘协议清单（百度 / 夸克 / 阿里云盘 / OneDrive）。
  *
  * **「网盘」是一个类，不是一个协议** —— 分区判定、图标、主机写死、保存分派
  * 全都按这张清单走。每接一家网盘只改这一处，别在别处写 `protocol === 'xxx_pan'`。
  */
-export const NETDISK_PROTOCOLS = ['baidu_pan', 'quark_pan', 'aliyun_pan'] as const;
+export const NETDISK_PROTOCOLS = ['baidu_pan', 'quark_pan', 'aliyun_pan', 'onedrive_pan'] as const;
 
 /** 网盘协议。`RemoteProtocol` 里属于网盘的那几个变体。 */
 export type NetdiskProtocol = (typeof NETDISK_PROTOCOLS)[number];
@@ -198,6 +199,9 @@ export function getRemoteProtocolDefaultPort(protocol: RemoteProtocol): number {
     case 'aliyun_pan':
       // 阿里云盘开放平台只提供 HTTPS 端点。
       return 443;
+    case 'onedrive_pan':
+      // OneDrive 走 Microsoft Graph，同样只有 HTTPS。
+      return 443;
     default:
       return 21;
   }
@@ -237,6 +241,17 @@ export function isAliyunPanProtocol(protocol: RemoteProtocol): boolean {
 }
 
 /**
+ * 是不是 OneDrive 协议（批次 38，只读 A 级）。
+ *
+ * 与前三家同构：没有「自选服务器」可言 —— 主机恒为 `graph.microsoft.com`；
+ * 凭据是一整套 Microsoft OAuth 会话，由后端加密落盘，
+ * `client_id` 也由用户自填、只存进会话 blob，前端不写进连接表。
+ */
+export function isOnedrivePanProtocol(protocol: RemoteProtocol): boolean {
+  return protocol === 'onedrive_pan';
+}
+
+/**
  * 是不是**网盘**协议（百度 / 夸克 / 阿里云盘都算）。
  *
  * 分区判定（「网盘」标签 vs「远程连接」标签）必须用这个口径，
@@ -261,6 +276,7 @@ const NETDISK_PROVIDER_NAME_KEYS: Record<NetdiskProtocol, string> = {
   baidu_pan: 'settings.remote.netdisk.baidu',
   quark_pan: 'settings.remote.netdisk.quark',
   aliyun_pan: 'settings.remote.netdisk.aliyun',
+  onedrive_pan: 'settings.remote.netdisk.onedrive',
 };
 
 /**
@@ -596,4 +612,43 @@ export interface AliyunLoginClaimPayload {
 export interface AliyunLoginStartPayload {
   started: boolean;
   reused: boolean;
+}
+
+/**
+ * OneDrive 登录授权的启动回执（批次 38）。
+ *
+ * `authUrl` 由前端交给系统浏览器打开（Microsoft 的授权页有自己的登录态与多因素认证，
+ * 不适合塞进应用内嵌窗口）；`redirectUri` 是后端起的**环回地址**，
+ * 用户授权后 Microsoft 会把浏览器打回这里，授权码由后端接走。
+ */
+export interface OnedriveLoginStartPayload {
+  authUrl: string;
+  redirectUri: string;
+}
+
+/**
+ * OneDrive 登录的进度（批次 38）。
+ *
+ * `state` 是**阶段**而不是文案：`pending` 时前端继续轮询，其余三个都不用再轮。
+ * `error` 只在 `failed` 时有值，且是后端写的**可展示**文案（不含任何凭据）。
+ */
+export interface OnedriveLoginPendingPayload {
+  state: 'idle' | 'pending' | 'completed' | 'failed';
+  error?: string | null;
+  authorized: boolean;
+}
+
+/**
+ * OneDrive 授权状态（批次 38）。
+ *
+ * ⚠️ 与阿里云的 `AliyunAuthStatusPayload` **不是同一个形状** ——
+ * OneDrive 侧只有「有没有授权 / 什么时候过期 / 哪个账号」三件事，
+ * 后端没有 `status` 分类字段，别照阿里云那套去读。
+ */
+export interface OnedriveAuthStatusPayload {
+  authorized: boolean;
+  /** 访问凭证到期时刻（Unix 秒）。`null` / 缺省 = 不知道。 */
+  expiresAt?: number | null;
+  /** 已授权账号（脱敏显示名）。 */
+  account?: string | null;
 }

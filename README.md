@@ -49,7 +49,7 @@ sync, batch rename, and a long list of day-to-day fixes. **If you have been look
   certificates, plus upload, download, delete and permission editing.
 - ☁️ **Netdisks are remote connections too** — add Baidu Netdisk, Quark Netdisk
   or Aliyun Drive in a few steps, sign in inside the app, and browse it like any
-  server; OneDrive follows them.
+  server; OneDrive joins the same list and signs you in through your browser.
 - 🧠 **Batch rename that does not lose work** — find-and-replace, case conversion,
   templates and numbering, with a live preview, conflicts blocked instead of
   silently overwriting, and undo.
@@ -105,7 +105,7 @@ sync, batch rename, and a long list of day-to-day fixes. **If you have been look
 | ➕ | **Adding a netdisk takes three steps** — *Settings* → *Remote* → *Netdisks* → pick the provider → scan the QR code → give the connection a name. No token to copy, no config file to hand-edit, no service to start |
 | 📂 | **A netdisk browsed like a remote connection** — listing, creating a folder, renaming, deleting and downloading all reach the drive itself, not a shadow of a local folder |
 | ⚙️ | **Netdisks and remote servers are kept apart** — the settings page splits them into two tabs, *Netdisks* and *Remote connections*, so each connection sits where it belongs |
-| ➕ | **More mainstream netdisks are on the way** — OneDrive is next, plugged into the very same remote-connection machinery. The first version of each browses and downloads; writing to them comes later |
+| 🔗 | **OneDrive is in the list now** — pick it in the very same *Add netdisk* list next to the other three, sign in with your Microsoft account in the browser that opens, and the session is kept in the app's own encrypted credential store. This version browses and downloads, and the drive can take part in the global search; writing to it comes later |
 
 #### Why this is simpler than mounting the drive with alist
 
@@ -161,6 +161,17 @@ Adding a netdisk here has none of that:
 |---|---|
 | ![Dashboard quick access](docs/screenshots/afm-dashboard-hero-light-en.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
 | ![Dashboard cards](docs/screenshots/afm-dashboard-card-enrichment-en.png) | **Dashboard cards** — name, size and path on top, type and item count below, with drag, reorder and edit shortcuts on every card |
+
+### What changed in 3.18.0
+
+| | | |
+|---|---|---|
+| ☁️ | **OneDrive can be added as a fourth netdisk provider** — in *Settings* → *Remote* → *Netdisks*, *Add netdisk* now offers *OneDrive* next to *Baidu Netdisk*, *Quark Netdisk* and *Aliyun Drive*. The one field you bring along is the application (client) ID of the application you registered in Microsoft Entra for OneDrive — the app has no client ID of its own |
+| 🔑 | **Signing in to OneDrive happens in your own browser** — *Start sign-in* opens the Microsoft login page in your default browser, you sign in there with your Microsoft account, and the app picks the result up over a loopback address on this machine (http://localhost with a random port). No token is copied by hand; the sign-in uses PKCE, asks for read-only file access and offline sign-in (Files.Read and offline_access), and uses no client secret |
+| 🔐 | **The OneDrive session is kept in the app's own encrypted credential store** — it is written into the credential store of the app, encrypted with Windows DPAPI, so it stays on this machine. The token itself is never handed back to the interface |
+| 🩺 | **A OneDrive connection can be checked with *Test connection*** — the button asks OneDrive whether the account can be reached at all, so you find that out before you open a folder |
+| 🧭 | **Files on OneDrive can be found with global search** — like any other netdisk, a OneDrive connection can be ticked *Include in global search*, and the files of that drive are then indexed and show up in the search results next to your local files. The index is rebuilt only when you ask for it |
+| 🔒 | **OneDrive is read-only in this release** — you can list folders, read a file and download it into a local folder. Uploading a file, creating a folder, renaming and deleting are not part of this version, and pictures on OneDrive have no thumbnail yet |
 
 ### What changed in 3.16.0
 
@@ -298,7 +309,7 @@ they compare.
 | ⚡ | **File dialogs in other apps** | ✅ **Focus Sync** — every dialog opens in the folder you are browsing | ➖ | ❌ |
 | 🤖 | **Driven by an AI assistant** | ✅ built-in MCP server, one-click setup for six assistants | ❌ | ❌ |
 | 🔐 | **Remote servers** | ✅ SFTP · FTP · FTPS, host keys and certificates pinned | ❌ | ➖ SMB / WebDAV / OneDrive, and no SFTP at all |
-| ☁️ | **Netdisks (cloud drives)** | ✅ **Baidu Netdisk, Quark Netdisk and Aliyun Drive** — add them in the app, sign in inside the app, and browse them like any remote connection; **Google Drive and other mainstream netdisks are on the way** | ❌ | ➖ OneDrive only |
+| ☁️ | **Netdisks (cloud drives)** | ✅ **Baidu Netdisk, Quark Netdisk, Aliyun Drive and OneDrive** — add them in the app, sign in (inside the app, or in your browser for OneDrive), and browse them like any remote connection; **Google Drive and other mainstream netdisks are on the way** | ❌ | ➖ OneDrive only |
 | 📤 | **Working on remote files** | ✅ upload, download, delete, set permissions | ❌ | ➖ shares only |
 | ↔️ | **Two panes, used together** | ✅ **swap them with one button**, and a **synchronized browsing** toggle right beside it — enter a folder and the other pane follows, going up a level takes it along too | ➖ **no pane swap**; linked browsing exists but is a buried option in the navigator menu | ➖ tabs, not panes |
 | 🔍 | **Comparing two folders** | ✅ recursively, with the criteria serious tools use — and an explicit "direction undecided" state instead of guessing which side is newer | ➖ | ➖ compares by size and date only, and the choice is buried |

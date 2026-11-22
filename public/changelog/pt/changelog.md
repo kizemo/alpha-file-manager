@@ -1,6 +1,19 @@
 # Registro de alterações
 
 
+## [3.18.0] - November 2026
+
+**Resumo:** O OneDrive já pode ser ligado como quarto disco em nuvem: nas *Configuração*, ele aparece sob o título *Adicionar disco na nuvem*, ao lado de *Baidu Drive*, *Quark Drive* e *Aliyun Drive*. A sessão é iniciada no navegador do sistema com a sua conta Microsoft, não há nenhum token para copiar à mão, e a sessão fica no armazenamento cifrado de credenciais da própria aplicação. Esta versão é só de leitura: você pode percorrer pastas, ler e baixar arquivos e incluir a conexão na pesquisa global, mas ainda não pode enviar arquivos, criar pastas, renomear nem apagar.
+
+### What changed
+
+**Adicionado: OneDrive já é o quarto disco em nuvem** Nas *Configuração*, sob o título *Adicionar disco na nuvem*, há agora quatro botões: *Baidu Drive*, *Quark Drive*, *Aliyun Drive* e *OneDrive*. Ao escolher *OneDrive*, o formulário de conexão se abre e pede o client id da sua própria aplicação do Azure, aquela que você registrou no Microsoft Entra para o OneDrive. A aplicação não traz nenhum client_id: esse id é você quem escreve.
+**Adicionado: OneDrive faz o login no seu próprio navegador** Ao iniciar o login, a página de login da Microsoft abre no navegador padrão do sistema, e é lá que você entra com a sua conta Microsoft. O resultado é recebido pelo aplicativo em um endereço de loopback local desta máquina - *http://localhost* com uma porta aleatória -, então não há token nem código para copiar à mão, nem nada para colar no formulário. O login usa PKCE, e à Microsoft só são pedidos permissão de leitura de arquivos e login offline (*Files.Read* e *offline_access*); nenhum client secret é usado em momento algum.
+**Adicionado: A sessão do OneDrive fica no armazenamento cifrado de credenciais da aplicação** Terminada a autorização, a sessão é gravada no armazenamento de credenciais da aplicação, cifrada com Windows DPAPI, e fica nesta máquina. O token em si não é devolvido para a interface: o formulário só diz se está autorizado e quando a sessão expira.
+**Adicionado: A conexão do OneDrive pode ser testada antes** O botão de testar a conexão pergunta ao OneDrive se essa conta chega. Se não chegar, você descobre aqui, em vez de descobrir ao abrir uma pasta.
+**Adicionado: Os arquivos do OneDrive também são encontrados pela pesquisa global** Como nos seus outros discos em nuvem, você pode marcar *Incluir na pesquisa global* na conexão do OneDrive; os arquivos desse disco são indexados e aparecem nos resultados ao lado dos seus arquivos locais. O índice só é reconstruído quando você pede - *Configuração* -> *Pesquisa Global* -> *Reconstruir índice da nuvem* -.
+**Adicionado: O que o OneDrive faz e o que não faz nesta versão** Listar pastas, ler um arquivo e baixá-lo para uma pasta local, isso funciona. Enviar arquivos, criar pastas, renomear e apagar não existem nesta versão; e as imagens do OneDrive ainda não têm miniatura, continuam mostrando o ícone normal de arquivo.
+
 ## [3.17.0] - November 2026
 
 **Resumo:** Agora os arquivos dos seus discos em nuvem podem ser encontrados com a busca global do aplicativo - você decide, conexão por conexão, se ela participa, então nada sai para a rede sem você perceber. Um disco em nuvem que você adiciona já vem com o próprio nome preenchido, e um favorito pode receber um nome só dele no menu, sem mexer no arquivo ou na pasta reais que estão por trás.

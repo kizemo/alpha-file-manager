@@ -87,7 +87,8 @@ describe('阿里云盘协议的前端镜像', () => {
 
   it('网盘协议清单里确实有阿里云盘', () => {
     expect(NETDISK_PROTOCOLS).toContain('aliyun_pan');
-    expect([...NETDISK_PROTOCOLS]).toEqual(['baidu_pan', 'quark_pan', 'aliyun_pan']);
+    // 批次 38 起网盘协议清单是四家：OneDrive 也走网盘这条链路。
+    expect([...NETDISK_PROTOCOLS]).toEqual(['baidu_pan', 'quark_pan', 'aliyun_pan', 'onedrive_pan']);
   });
 
   it('三家网盘互不串味', () => {

@@ -1,6 +1,19 @@
 # Dnevnik sprememb
 
 
+## [3.18.0] - November 2026
+
+**Povzetek:** OneDrive se je zdaj mogoče povezati kot četrti omrežni disk: v razdelku *Nastavitve* stoji pod naslovom *Dodaj omrežni disk* tik ob *Baidu Drive*, *Quark Drive* in *Aliyun Drive*. Prijava poteka v privzetem brskalniku sistema z vašim Microsoftovim računom, nobenega žetona ni treba ročno kopirati, seja pa ostane v šifriranem skladišču poverilnic aplikacije. Ta različica je samo za branje: mape lahko prebrskate, datoteke preberete in prenesete, povezavo pa lahko vključite v globalno iskanje - nalaganja, ustvarjanja map, preimenovanja in brisanja še ni.
+
+### What changed
+
+**Dodano: OneDrive je četrti omrežni disk** V razdelku *Nastavitve* pod naslovom *Dodaj omrežni disk* so zdaj štirje gumbi: *Baidu Drive*, *Quark Drive*, *Aliyun Drive* in *OneDrive*. Ko izberete *OneDrive*, se odpre obrazec za povezavo, kjer vnesete client id svoje lastne aplikacije Azure, torej tiste, ki ste jo v Microsoft Entra registrirali za OneDrive. Aplikacija ne prinaša nobenega client_id, tega morate vpisati sami.
+**Dodano: OneDrive vas prijavi v vašem lastnem brskalniku** Ko zaženete prijavo, se Microsoftova prijavna stran odpre v privzetem brskalniku sistema, kjer se prijavite z Microsoftovim računom. Rezultat aplikacija sprejme na lokalni povratni naslov te računalnice - *http://localhost* z naključnim vratoma -, zato žetona ali kode ni treba ročno kopirati in v obrazec ni treba ničesar lepiti. Prijava poteka po PKCE, pri Microsoftu se zahtevata samo pravica za branje datotek in prijava brez povezave (*Files.Read* in *offline_access*), skrivnost odjemalca pa se nikoli ne uporabi.
+**Dodano: seja OneDrive ostane v šifriranem skladišču poverilnic aplikacije** Ko je dovoljenje končano, se seja zapiše v skladišče poverilnic aplikacije in šifrirana z Windows DPAPI, tako da ostane na tej računalnici. Sam žeton se ne vrne v vmesnik: obrazec pove le, ali je dovoljenje pridobljeno in kdaj seja poteče.
+**Dodano: povezavo OneDrive je mogoče preizkusiti vnaprej** Gumb za preizkus povezave v obrazcu vpraša kar OneDrive, ali ta račun pride do sebe. Če ne pride, to izveste tukaj, ne šele ob odpiranju mape.
+**Dodano: datoteke na OneDrive najde tudi globalno iskanje** Tako kot pri drugih omrežnih diskih lahko povezavo OneDrive v globalno iskanje vključite z možnostjo *Vključi v globalno iskanje*; datoteke tega diska se indeksirajo in v rezultatih prikažejo skupaj z vašimi lokalnimi datotekami. Indeks se pregradi samo, ko to zahtevate - *Nastavitve* -> *Globalno iskanje* -> *Znova zgradi oblakni indeks* -.
+**Dodano: kaj OneDrive v tej različici zmore in kaj ne** Našteti mape, prebrati datoteko in jo prenesti v lokalno mapo - to gre. Nalaganje datotek, ustvarjanje map, preimenovanje in brisanje v tej različici ni; slik na OneDrive še nimajo miniature, še vedno prikazujejo običajno ikono datoteke.
+
 ## [3.17.0] - November 2026
 
 **Povzetek:** Datoteke na omrežnih diskih lahko zdaj poiščete z globalnim iskanjem aplikacije - za vsako povezavo sami odločite, ali sodeluje, zato nič ne odide v omrežje za vašimi hrbti. Omrežni disk, ki ga dodate, ima že vneseno svoje ime, priljubljen pa lahko v meniju dobi lastno ime, ne da bi bilo kaj spremenjeno pri resnični mapi ali datoteki za njim.

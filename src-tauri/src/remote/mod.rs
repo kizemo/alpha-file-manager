@@ -35,6 +35,13 @@ mod ftp_parsing;
 mod ftp_provider;
 mod ftps_provider;
 mod known_hosts;
+// OneDrive（批次 38）。这三个模块必须对 crate 根可达 ——
+// 顶层 `src-tauri/src/onedrive_oauth.rs` 走 `crate::remote::onedrive_api::…`
+// 这类**直连模块路径**，不经过本文件的 `pub use` 再导出；
+// 而 `mod xxx;`（私有）只对 `remote` 及其后代可见，crate 根够不着。
+pub(crate) mod onedrive_api;
+pub(crate) mod onedrive_auth;
+pub(crate) mod onedrive_provider;
 mod path;
 mod provider;
 mod quark_api;

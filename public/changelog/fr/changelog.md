@@ -1,6 +1,19 @@
 # Journal des modifications
 
 
+## [3.18.0] - November 2026
+
+**Résumé :** OneDrive peut maintenant être connecté comme quatrième disque en ligne : dans les *Paramètres*, il apparaît sous le titre *Ajouter un disque cloud*, à côté de *Baidu Drive*, *Quark Drive* et *Aliyun Drive*. La connexion se fait dans le navigateur du système avec votre compte Microsoft, il n'y a aucun jeton à copier à la main, et la session est conservée dans le magasin chiffré d'identifiants de l'application. Cette version est en lecture seule : vous pouvez parcourir les dossiers, lire et télécharger des fichiers et ajouter la connexion à la recherche globale, mais pas encore téléverser de fichiers, créer des dossiers, renommer ni supprimer.
+
+### What changed
+
+**Ajouté: OneDrive devient le quatrième disque en ligne** Dans les *Paramètres*, sous le titre *Ajouter un disque cloud*, il y a maintenant quatre boutons : *Baidu Drive*, *Quark Drive*, *Aliyun Drive* et *OneDrive*. En choisissant *OneDrive*, le formulaire de connexion s'ouvre et il vous demande l'identifiant client de votre propre application Azure, celle que vous avez enregistrée dans Microsoft Entra pour OneDrive. L'application ne fournit aucun client_id par défaut : c'est vous qui le saisissez.
+**Ajouté: OneDrive se connecte dans votre propre navigateur** Lorsque vous lancez la connexion, la page de connexion Microsoft s'ouvre dans le navigateur par défaut du système, et vous vous connectez avec votre compte Microsoft. Le résultat est reçu par l'application sur une adresse de bouclage locale de cette machine - *http://localhost* avec un port aléatoire -, si bien qu'il n'y a ni jeton ni code à copier à la main, ni rien à coller dans le formulaire. La connexion utilise PKCE, Microsoft ne reçoit que les droits de lecture des fichiers et l'accès hors ligne (*Files.Read* et *offline_access*), et aucun secret client n'est utilisé à aucun moment.
+**Ajouté: La session OneDrive reste dans le magasin chiffré d'identifiants de l'application** Une fois l'autorisation terminée, la session est écrite dans le magasin d'identifiants de l'application, chiffrée avec Windows DPAPI, et elle reste sur cette machine. Le jeton lui-même n'est jamais renvoyé à l'interface : le formulaire se contente de vous dire si l'autorisation est là et quand la session expire.
+**Ajouté: La connexion OneDrive peut être testée avant d'en faire usage** Le bouton de test de la connexion demande à OneDrive si ce compte répond. S'il ne répond pas, vous le savez ici, au lieu de le découvrir à l'ouverture d'un dossier.
+**Ajouté: Les fichiers d'OneDrive sont retrouvés par la recherche globale** Comme pour vos autres disques en ligne, vous pouvez cocher *Inclure dans la recherche globale* sur la connexion OneDrive ; les fichiers de ce lecteur sont indexés puis apparaissent dans les résultats à côté de vos fichiers locaux. L'index n'est reconstruit que lorsque vous le demandez - *Paramètres* -> *Recherche globale* -> *Reconstruire l'index cloud* -.
+**Ajouté: Ce qu'OneDrive sait faire dans cette version, et ce qu'il ne sait pas faire** Lister des dossiers, lire un fichier et le télécharger dans un dossier local, cela fonctionne. Téléverser un fichier, créer un dossier, renommer et supprimer ne sont pas là dans cette version, et les images d'OneDrive n'ont pas encore de miniature : elles gardent l'icône habituelle du fichier.
+
 ## [3.17.0] - November 2026
 
 **Résumé :** Les fichiers de vos disques en ligne peuvent maintenant être retrouvés avec la recherche globale de l'application - c'est vous qui décidez, pour chaque connexion, si elle y participe, afin que rien ne parte sur le réseau dans votre dos. Un disque en ligne ajouté porte désormais son propre nom prérempli, et un favori peut recevoir un nom à lui dans le menu, sans que le vrai fichier ou le vrai dossier derrière soit touché.

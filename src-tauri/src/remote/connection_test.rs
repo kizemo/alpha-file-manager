@@ -254,6 +254,11 @@ async fn probe_inner(
         RemoteProtocol::QuarkPan => probe_quark(target).await,
         // 阿里云盘同理：HTTPS 接口，凭据是一份 OAuth 会话（access_token）。
         RemoteProtocol::AliyunPan => probe_aliyun(target).await,
+        // OneDrive：凭据是**一份 OAuth 会话**而不是口令，存放在 DPAPI 密文里；
+        // 探针自己去取。本机没有会话时给 `MissingCredential`，
+        // **不能**给 `AuthRejected` —— 那会让设置页说「口令错了」，
+        // 而真实原因是「还没授权」。
+        RemoteProtocol::OnedrivePan => super::onedrive_provider::probe_onedrive(target).await,
         RemoteProtocol::Ftp => {
             let stream = transport::connect(&target.proxy, host, target.port, command).await?;
             ftp_login(stream, target).await
