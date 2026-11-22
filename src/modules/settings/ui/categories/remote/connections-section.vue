@@ -6,9 +6,11 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { invoke } from '@tauri-apps/api/core';
 import { SettingsItem } from '@/modules/settings';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from '@/components/ui/toaster';
 import { ServerIcon, PlusIcon, TrashIcon } from '@lucide/vue';
 import ConnectionForm from './connection-form.vue';
 import NetdiskAddDialog from './netdisk-add-dialog.vue';
@@ -60,6 +62,115 @@ const createNetdiskProtocol = ref<NetdiskProtocol>('baidu_pan');
 
 const netdiskConnections = computed(() => store.connections.filter(connection => isNetdiskProtocol(connection.protocol)));
 const remoteConnections = computed(() => store.connections.filter(connection => !isNetdiskProtocol(connection.protocol)));
+
+/**
+ * 当前勾选了「加入全局检索」的连接 id（批次 37）。
+ *
+ * **建索引时必须传当前全部已勾选的连接** —— 后端按传进来的集合整体重建云盘索引，
+ * 漏掉一条就等于把那条的条目从索引里抹掉。
+ */
+const globalSearchConnectionIds = computed(() => store.globalSearchConnections.map(connection => connection.id));
+
+/** 上一次已知的勾选集合（排序后拼成的串）。用来判「集合变了没有」。 */
+let knownGlobalSearchIdsKey = '';
+
+/**
+ * 初始读盘**不算**「集合变了」。
+ *
+ * 刚打开设置页就去重建云盘索引是白耗网盘 API 配额 ——
+ * 只有用户真的改了勾选状态才需要重建。
+ */
+let canTriggerRemoteIndex = false;
+
+function globalSearchIdsKey(ids: string[]): string {
+  return [...ids].sort().join('|');
+}
+
+/**
+ * 是否已有重建在跑。
+ *
+ * 后端的重建是「按传入集合**整体**重建」：重建会先把索引目录删掉再重新写。
+ * 两个重建并发跑时，后一个会把前一个刚建好的目录删掉 —— 两者互相踩，
+ * 最后留在盘上的可能是半个索引（tantivy 的 commit 是原子的，但目录删除不是）。
+ */
+let remoteIndexRebuildRunning = false;
+
+/**
+ * 重建期间发生的**最新**勾选集合。
+ *
+ * 跑的过程中又有勾选变化时记在这里，跑完用最新集合补跑一次 ——
+ * 补跑用的是最新集合，不是当时那个旧的。
+ */
+let pendingRemoteIndexIds: string[] | null = null;
+
+/**
+ * 把排队中的重建跑干净（一次真正的重建 + 必要时用最新集合补跑）。
+ *
+ * 用递归而不是 `while` + `await`：项目 ESLint 开着严格规则，循环里 await
+ * 容易踩 `no-await-in-loop`。递归每次只走一层，深度最多 2
+ * （一次重建 + 一次收尾），不会无限递归。
+ */
+async function drainRemoteIndexRebuild(): Promise<void> {
+  const ids = pendingRemoteIndexIds;
+  pendingRemoteIndexIds = null;
+
+  if (ids === null) {
+    remoteIndexRebuildRunning = false;
+    return;
+  }
+
+  try {
+    await invoke<number>('global_search_index_remote_connections', {
+      connectionIds: ids,
+    });
+  }
+  catch (error) {
+    console.error('Failed to rebuild remote global search index:', error);
+    toast({
+      title: t('globalSearch.remoteIndexFailed'),
+    });
+  }
+
+  // 重建期间又有勾选变化 ⇒ 用最新集合再跑一次。
+  await drainRemoteIndexRebuild();
+}
+
+/**
+ * 重建云盘索引（批次 37）。
+ *
+ * **串行**：同一时刻只跑一个重建（理由见上面的 `remoteIndexRebuildRunning`）。
+ *
+ * **失败绝不影响保存**：连接已经落盘了，索引重建失败只是「这次没抓到」，
+ * 用户还能到全局检索设置页手动重来。所以这里只弹一条提示，不往上抛。
+ */
+function rebuildRemoteIndex(connectionIds: string[]): void {
+  pendingRemoteIndexIds = connectionIds;
+
+  if (remoteIndexRebuildRunning) {
+    return;
+  }
+
+  remoteIndexRebuildRunning = true;
+  void drainRemoteIndexRebuild();
+}
+
+watch(globalSearchConnectionIds, (ids) => {
+  const key = globalSearchIdsKey(ids);
+
+  if (!canTriggerRemoteIndex) {
+    knownGlobalSearchIdsKey = key;
+    return;
+  }
+
+  if (key === knownGlobalSearchIdsKey) {
+    return;
+  }
+
+  knownGlobalSearchIdsKey = key;
+
+  // 不 await：保存界面不能被索引重建卡住。
+  void rebuildRemoteIndex(ids);
+});
 
 /**
  * 用户手动选过的分区。
@@ -230,6 +341,11 @@ onMounted(async () => {
   applyPendingEdit();
   applyPendingCreate();
   applyPendingSection();
+
+  // 读盘完成后再开闸：初始的那批连接不算「勾选集合变了」，
+  // 否则每次进设置页都会白重建一次云盘索引。
+  knownGlobalSearchIdsKey = globalSearchIdsKey(globalSearchConnectionIds.value);
+  canTriggerRemoteIndex = true;
 });
 
 watch(() => store.pendingEditId, applyPendingEdit);

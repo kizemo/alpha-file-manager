@@ -1,6 +1,16 @@
 # Registro delle modifiche
 
 
+## [3.17.0] - November 2026
+
+**Riepilogo:** Ora i file sui tuoi dischi cloud si trovano con la ricerca globale dell'app - decidi tu, connessione per connessione, se partecipa, così nulla va in rete alle tue spalle. Un disco cloud che aggiungi si presenta già con il proprio nome, e un preferito può avere in menu un nome tutto suo, senza toccare il file o la cartella reali che ci stanno dietro.
+
+### What changed
+
+**Aggiunto: I file sui dischi cloud si trovano ora con la ricerca globale** La ricerca globale passava in precedenza solo sui tuoi dischi locali, quindi un file su Baidu Netdisk, Quark Netdisk o Aliyun Drive non era mai candidato. Quando aggiungi un disco cloud puoi ora spuntare *Includi nella ricerca globale*, e i file di quell'unità vengono indicizzati e compaiono nei risultati accanto ai tuoi file locali. La scelta si fa per connessione e la casella parte vuota: mettere un'unità nell'indice significa uscire in rete e consumare la quota API di quell'unità, e non è una decisione che l'app deve prendere al posto tuo. L'indice viene ricostruito solo quando lo chiedi - *Impostazioni* -> *Ricerca globale* -> *Ricostruisci indice cloud* -, così l'app non percorre mai un disco cloud di sua spontanea volontà. Se un'unità non è leggibile in quel momento, viene segnalato e le altre connessioni vengono indicizzate come al solito.
+**Aggiunto: Un disco cloud che aggiungi si presenta ora con il proprio nome** Quando si aggiungeva un disco cloud, il campo del nome restava vuoto, così ogni unità andava battezzata a mano. Ora il nome del fornitore viene compilato per te - *Baidu Netdisk*, *Quark Netdisk* o *Aliyun Drive* -, e puoi cambiarlo se preferisci chiamare quell'unità in un altro modo. Rinominare una connessione già esistente resta invariato: il nome che le hai dato viene conservato.
+**Aggiunto: Un preferito può ora avere un nome tutto suo** I preferiti venivano mostrati con il nome del file o della cartella dietro di loro, e non è sempre il nome che vorresti vedere nel menu. Ora puoi dare a un preferito un nome visualizzato a tua scelta, al momento di aggiungerlo o in seguito con *Modifica nome visualizzato* nel menu della scheda. Cambia solo il nome nel menu: il file e la cartella dietro mantengono i loro nomi reali, e il preferito apre sempre lo stesso posto.
+
 ## [3.16.1] - November 2026
 
 **Riepilogo:** Ora Aliyun Drive si può collegare dall'interno dell'app: si apre una finestra di accesso dentro l'app, scansioni il codice QR con il telefono e l'unità diventa un riquadro che puoi esplorare e leggere. Non è più in sola lettura: puoi creare cartelle, caricare file, cancellarli e rinominarli direttamente sull'unità, proprio come con gli altri dischi online. Le immagini sull'unità mostrano una miniatura, sia nella vista a miniature sia nella vista a elenco, e facendo clic su un file viene selezionato solo quel file, anche se la cartella contiene più file con lo stesso nome, e un'unità che non può essere letta ora lo dice invece di non fare nulla in silenzio.

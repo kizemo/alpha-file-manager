@@ -1254,6 +1254,7 @@ mod tests {
                 local_path: None,
                 proxy: ProxyConfig::Direct,
                 credential_key: None,
+                include_in_global_search: false,
             },
             password: password.map(str::to_string),
         }

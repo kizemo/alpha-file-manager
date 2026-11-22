@@ -1,6 +1,16 @@
 # Registro de alterações
 
 
+## [3.17.0] - November 2026
+
+**Resumo:** Agora os arquivos dos seus discos em nuvem podem ser encontrados com a busca global do aplicativo - você decide, conexão por conexão, se ela participa, então nada sai para a rede sem você perceber. Um disco em nuvem que você adiciona já vem com o próprio nome preenchido, e um favorito pode receber um nome só dele no menu, sem mexer no arquivo ou na pasta reais que estão por trás.
+
+### What changed
+
+**Adicionado: Os arquivos de discos em nuvem já são encontrados pela busca global** A busca global percorria antes apenas suas unidades locais, então um arquivo no Baidu Netdisk, Quark Netdisk ou Aliyun Drive nunca era candidato. Ao adicionar um disco em nuvem, você agora pode marcar *Incluir na busca global*, e os arquivos desse disco são indexados e aparecem nos resultados ao lado dos seus arquivos locais. A decisão é por conexão, e a caixa começa desmarcada: colocar uma unidade no índice significa sair para a rede e consumir a cota de API daquela unidade, e essa decisão a aplicação não deve tomar por você. O índice só é reconstruído quando você pede - *Configurações* -> *Busca global* -> *Reconstruir índice da nuvem* -, assim o aplicativo nunca percorre um disco em nuvem por conta própria. Se uma unidade não puder ser lida naquele momento, isso é relatado e as demais conexões são indexadas como sempre.
+**Adicionado: Um disco em nuvem que você adiciona já começa com o próprio nome** Ao adicionar um disco em nuvem, o campo de nome costumava ficar vazio, então cada unidade precisava ser nomeada à mão. Agora o nome do provedor é preenchido para você - *Baidu Netdisk*, *Quark Netdisk* ou *Aliyun Drive* -, e você pode alterá-lo se preferir chamar a unidade de outro jeito. Renomear uma conexão que já existe não é afetado: o nome que você deu é mantido.
+**Adicionado: Um favorito pode ter um nome só dele** Os favoritos eram mostrados com o nome do arquivo ou da pasta atrás deles, e nem sempre é o nome que você quer ver no menu. Agora você pode dar a um favorito um nome de exibição próprio, ao adicioná-lo ou depois por *Editar nome de exibição* no menu do cartão. Só o nome no menu muda: o arquivo e a pasta atrás mantêm seus nomes reais, e o favorito continua abrindo o mesmo lugar.
+
 ## [3.16.1] - November 2026
 
 **Resumo:** O Aliyun Drive já pode ser conectado de dentro do aplicativo: uma janela de login abre dentro do aplicativo, você escaneia o código QR com o celular e a unidade passa a ser um painel que dá para explorar e ler. Ela não é mais somente de leitura: você pode criar pastas, enviar arquivos, excluí-los e renomeá-los na unidade, do mesmo jeito que faz com seus outros discos em nuvem. As imagens da unidade mostram uma miniatura, tanto na visualização em miniatura quanto na visualização em lista, e clicar em um arquivo seleciona apenas aquele arquivo, mesmo quando a pasta tem vários arquivos com o mesmo nome, e uma unidade que não pode ser lida agora avisa isso em vez de ficar quieta sem fazer nada.

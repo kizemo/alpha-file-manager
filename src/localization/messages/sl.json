@@ -202,7 +202,10 @@
       "indexed": "Indeksirano {time}",
       "nothingFound": "Nič ni bilo najdeno"
     },
-    "showSearchSettings": "Pokaži nastavitve iskanja"
+    "showSearchSettings": "Pokaži nastavitve iskanja",
+    "remoteIndexing": "Indeksiranje oblakovnih diskov",
+    "remoteIndexDone": "Oblakni indeks je posodobljen",
+    "remoteIndexFailed": "Indeksiranje oblaka ni uspelo"
   },
   "home": {
     "mediaBannerOptions": "Možnosti medijskega pasice",
@@ -269,7 +272,8 @@
       "deleteTagConfirmTitle": "Izbrišati to oznako?",
       "deleteTagConfirmDescription": "Oznaka bo izbrisana in odstranjena iz vseh predmetov.",
       "removeTagConfirmTitle": "Odstrani to oznako s predmeta?",
-      "removeTagConfirmDescription": "Predmet ne bo več imel te oznake."
+      "removeTagConfirmDescription": "Predmet ne bo več imel te oznake.",
+      "renameFavorite": "Uredi prikazno ime"
     },
     "newFavoriteDialog": {
       "title": "Add to favorites",
@@ -277,7 +281,9 @@
       "pathPlaceholder": "Paste a full path",
       "pathNotFound": "Path does not exist",
       "pathAlreadyFavorite": "Already in favorites",
-      "confirm": "Add"
+      "confirm": "Add",
+      "displayNameLabel": "Prikazno ime",
+      "displayNamePlaceholder": "Pustite prazno za uporabo prvotnega imena"
     },
     "nameDialog": {
       "nameLabel": "Name",
@@ -556,7 +562,12 @@
       "ignoredPathsHelpDownloads": "Preskoči to predpono poti.",
       "ignoredPathsHelpTestFolder": "Preskoči mape z imenom test in njihovo vsebino kjer koli.",
       "ignoredPathsHelpExtensionMask": "Preskoči datoteke s končnico .log kjer koli.",
-      "ignoredPathsHelpNestedExtensionMask": "Preskoči datoteke s končnico .tmp v kateri koli mapi."
+      "ignoredPathsHelpNestedExtensionMask": "Preskoči datoteke s končnico .tmp v kateri koli mapi.",
+      "remoteIndexTitle": "Iskanje v oblaku",
+      "remoteIndexDescription": "Datoteke povezav, dodanih v globalno iskanje, se prikažejo v rezultatih.",
+      "rebuildRemoteIndex": "Znova zgradi oblakni indeks",
+      "rebuildRemoteIndexDescription": "Ponovno prinese datoteke označenih povezav in jih zapiše v indeks; porabi se kvota API omrežnega diska.",
+      "noRemoteInSearch": "V globalno iskanje še ni dodan nobena omrežna disk"
     },
     "drives": {
       "driveDetection": "Zaznavanje pogonov",
@@ -681,7 +692,9 @@
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
         "localPath": "Local folder",
-        "cookie": "Cookie"
+        "cookie": "Cookie",
+        "includeInSearch": "Vključi v globalno iskanje",
+        "includeInSearchHint": "Če označite, bodo datoteke te povezave vključene v indeks globalnega iskanja (oblakni indeks znova zgradite ročno)."
       },
       "protocol": {
         "ftp": "FTP",
@@ -1458,7 +1471,9 @@
       "newCategoryLabel": "Or create a new category",
       "newCategoryPlaceholder": "Type a name for the new category",
       "confirm": "Add to favorites",
-      "multipleEntries": "and {n} more items"
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "Prikazno ime",
+      "displayNamePlaceholder": "Pustite prazno za uporabo prvotnega imena"
     },
     "searchOptions": {
       "title": "Možnosti iskanja",

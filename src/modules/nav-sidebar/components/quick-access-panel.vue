@@ -202,6 +202,9 @@ function getFavoriteEntryProps(item: FavoriteItem) {
     path: item.path,
     isFile,
     isCurrentDirectoryContext: isCurrentDirectoryItem(item.path, isFile),
+    // FORK-MODIFICATION: 批次 37 —— 把显示名（别名）一起传下去，
+    // 侧边栏与仪表盘收藏卡显示同一个名字。
+    alias: item.alias ?? '',
   };
 }
 

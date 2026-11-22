@@ -165,7 +165,10 @@
       "indexed": "{time}にインデックス作成",
       "nothingFound": "何も見つかりませんでした"
     },
-    "showSearchSettings": "検索設定を表示"
+    "showSearchSettings": "検索設定を表示",
+    "remoteIndexing": "クラウドドライブをインデックス中",
+    "remoteIndexDone": "クラウド索引を更新しました",
+    "remoteIndexFailed": "クラウドのインデックス作成に失敗しました"
   },
   "home": {
     "mediaBannerOptions": "メディアバナーオプション",
@@ -232,7 +235,8 @@
       "deleteTagConfirmTitle": "このタグを削除しますか？",
       "deleteTagConfirmDescription": "タグは削除され、すべての項目から取り除かれます。",
       "removeTagConfirmTitle": "この項目からタグを削除しますか？",
-      "removeTagConfirmDescription": "項目はこのタグを持たなくなります。"
+      "removeTagConfirmDescription": "項目はこのタグを持たなくなります。",
+      "renameFavorite": "表示名を編集"
     },
     "newFavoriteDialog": {
       "title": "Add to favorites",
@@ -240,7 +244,9 @@
       "pathPlaceholder": "Paste a full path",
       "pathNotFound": "Path does not exist",
       "pathAlreadyFavorite": "Already in favorites",
-      "confirm": "Add"
+      "confirm": "Add",
+      "displayNameLabel": "表示名",
+      "displayNamePlaceholder": "空欄のときは元の名前を使用します"
     },
     "nameDialog": {
       "nameLabel": "Name",
@@ -519,7 +525,12 @@
       "ignoredPathsHelpDownloads": "そのパス接頭辞をスキップします。",
       "ignoredPathsHelpTestFolder": "任意の場所にある test という名前のフォルダーとその内容をスキップします。",
       "ignoredPathsHelpExtensionMask": "任意の場所にある .log 拡張子のファイルをスキップします。",
-      "ignoredPathsHelpNestedExtensionMask": "任意のフォルダー内にある .tmp 拡張子のファイルをスキップします。"
+      "ignoredPathsHelpNestedExtensionMask": "任意のフォルダー内にある .tmp 拡張子のファイルをスキップします。",
+      "remoteIndexTitle": "クラウド検索",
+      "remoteIndexDescription": "グローバル検索に追加した接続のファイルが検索結果に表示されます。",
+      "rebuildRemoteIndex": "クラウド索引を再構築",
+      "rebuildRemoteIndexDescription": "チェックした接続のファイルを再取得してインデックスに書き込みます。ネットディスクの API 割当量を使用します。",
+      "noRemoteInSearch": "グローバル検索に追加されたネットディスクはありません"
     },
     "drives": {
       "driveDetection": "ドライブ検出",
@@ -644,7 +655,9 @@
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
         "localPath": "Local folder",
-        "cookie": "Cookie"
+        "cookie": "Cookie",
+        "includeInSearch": "グローバル検索に含める",
+        "includeInSearchHint": "チェックすると、この接続のファイルがグローバル検索のインデックスに入ります（クラウド索引は手動で再構築してください）。"
       },
       "protocol": {
         "ftp": "FTP",
@@ -1420,7 +1433,9 @@
       "newCategoryLabel": "Or create a new category",
       "newCategoryPlaceholder": "Type a name for the new category",
       "confirm": "Add to favorites",
-      "multipleEntries": "and {n} more items"
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "表示名",
+      "displayNamePlaceholder": "空欄のときは元の名前を使用します"
     },
     "searchOptions": {
       "title": "検索オプション",

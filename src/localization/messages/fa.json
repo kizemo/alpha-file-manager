@@ -158,7 +158,10 @@
       "indexed": "شاخص‌گذاری شده {time}",
       "nothingFound": "هیچ چیزی پیدا نشد"
     },
-    "showSearchSettings": "نمایش تنظیمات جستجو"
+    "showSearchSettings": "نمایش تنظیمات جستجو",
+    "remoteIndexing": "نمایه‌سازی دیسک‌های ابری",
+    "remoteIndexDone": "نمایهٔ ابری به‌روزرسانی شد",
+    "remoteIndexFailed": "نمایه‌سازی ابری ناموفق بود"
   },
   "home": {
     "mediaBannerOptions": "گزینه های بنر رسانه",
@@ -225,7 +228,8 @@
       "deleteTagConfirmTitle": "این برچسب حذف شود؟",
       "deleteTagConfirmDescription": "این برچسب حذف شده و از همه موارد برداشته می‌شود.",
       "removeTagConfirmTitle": "این برچسب از مورد حذف شود؟",
-      "removeTagConfirmDescription": "این مورد دیگر این برچسب را نخواهد داشت."
+      "removeTagConfirmDescription": "این مورد دیگر این برچسب را نخواهد داشت.",
+      "renameFavorite": "ویرایش نام نمایشی"
     },
     "newFavoriteDialog": {
       "title": "Add to favorites",
@@ -233,7 +237,9 @@
       "pathPlaceholder": "Paste a full path",
       "pathNotFound": "Path does not exist",
       "pathAlreadyFavorite": "Already in favorites",
-      "confirm": "Add"
+      "confirm": "Add",
+      "displayNameLabel": "نام نمایشی",
+      "displayNamePlaceholder": "خالی بگذارید تا نام اصلی استفاده شود"
     },
     "nameDialog": {
       "nameLabel": "Name",
@@ -512,7 +518,12 @@
       "ignoredPathsHelpDownloads": "این پیشوند مسیر را رد می‌کند.",
       "ignoredPathsHelpTestFolder": "پوشه‌هایی با نام test و محتوای آن‌ها را در هرجا رد می‌کند.",
       "ignoredPathsHelpExtensionMask": "فایل‌های دارای پسوند .log را در هرجا رد می‌کند.",
-      "ignoredPathsHelpNestedExtensionMask": "فایل‌های دارای پسوند .tmp را در هر پوشه‌ای رد می‌کند."
+      "ignoredPathsHelpNestedExtensionMask": "فایل‌های دارای پسوند .tmp را در هر پوشه‌ای رد می‌کند.",
+      "remoteIndexTitle": "جستجوی ابری",
+      "remoteIndexDescription": "فایل‌های اتصال‌هایی که به جستجوی سراسری افزوده شده‌اند در نتایج جستجو ظاهر می‌شوند.",
+      "rebuildRemoteIndex": "بازسازی نمایهٔ ابری",
+      "rebuildRemoteIndexDescription": "فایل‌های اتصال‌های علامت‌خورده را دوباره می‌گیرد و در نمایه می‌نویسد؛ این کار سهمیهٔ API دیسک شبکه‌ای را مصرف می‌کند.",
+      "noRemoteInSearch": "هنوز دیسکی به جستجوی سراسری افزوده نشده است"
     },
     "drives": {
       "driveDetection": "تشخیص درایو",
@@ -637,7 +648,9 @@
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
         "localPath": "Local folder",
-        "cookie": "Cookie"
+        "cookie": "Cookie",
+        "includeInSearch": "افزودن به جستجوی سراسری",
+        "includeInSearchHint": "با فعال کردن، فایل‌های این اتصال به نمایهٔ جستجوی سراسری افزوده می‌شوند (نمایهٔ ابری را دستی بازسازی کنید)."
       },
       "protocol": {
         "ftp": "FTP",
@@ -1413,7 +1426,9 @@
       "newCategoryLabel": "Or create a new category",
       "newCategoryPlaceholder": "Type a name for the new category",
       "confirm": "Add to favorites",
-      "multipleEntries": "and {n} more items"
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "نام نمایشی",
+      "displayNamePlaceholder": "خالی بگذارید تا نام اصلی استفاده شود"
     },
     "searchOptions": {
       "title": "گزینه‌های جستجو",

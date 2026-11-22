@@ -257,6 +257,8 @@ describe('添加网盘弹窗', () => {
     });
     await flushPromises();
 
+    // 名称现在会预填 provider 名，这里显式清空，验证「名称为空仍然不保存」。
+    await wrapper.find('[data-test="field-name"]').setValue('');
     await wrapper.find('[data-test="save"]').trigger('click');
     await flushPromises();
 

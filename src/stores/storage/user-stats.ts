@@ -245,14 +245,22 @@ export const useUserStatsStore = defineStore('userStats', () => {
         continue;
       }
 
-      normalized.push({
+      const normalizedItem: FavoriteItem = {
         path: record.path,
         addedAt: typeof record.addedAt === 'number' ? record.addedAt : 0,
         isFile: typeof record.isFile === 'boolean'
           ? record.isFile
           : inferLegacyFavoriteIsFile(record.path),
         categoryId: typeof record.categoryId === 'string' ? record.categoryId : null,
-      });
+      };
+
+      // FORK-MODIFICATION: 批次 37 —— 老记录没有 alias 键；脏值（非字符串）也丢掉。
+      // 键本身**不补**：缺省即「没有别名」，显示名回退到原始名称，老数据的形状不变。
+      if (typeof record.alias === 'string') {
+        normalizedItem.alias = record.alias.trim();
+      }
+
+      normalized.push(normalizedItem);
     }
 
     return normalized;
@@ -297,7 +305,13 @@ export const useUserStatsStore = defineStore('userStats', () => {
     return normalized;
   }
 
-  async function addToFavorites(path: string, isFile = false, categoryId: string | null = null) {
+  // FORK-MODIFICATION: 批次 37 —— 第 4 个参数是**显示名**（别名），只影响显示。
+  async function addToFavorites(
+    path: string,
+    isFile = false,
+    categoryId: string | null = null,
+    alias = '',
+  ) {
     if (isFavorite(path)) return;
 
     const newFavorite: FavoriteItem = {
@@ -307,7 +321,41 @@ export const useUserStatsStore = defineStore('userStats', () => {
       categoryId,
     };
 
+    // 别名为空就不写这个键：没有别名的条目不该凭空多出一个空字段。
+    const trimmedAlias = alias.trim();
+
+    if (trimmedAlias) {
+      newFavorite.alias = trimmedAlias;
+    }
+
     userStats.value.favorites.push(newFavorite);
+    await saveStats();
+  }
+
+  /**
+   * 设置收藏条目的**显示名**（别名）。
+   *
+   * 只改界面上显示的名字，**不碰** path，也不碰真实文件名 / 目录名 ——
+   * 收藏打开的仍然是原来那个路径。
+   *
+   * 传空串 = 清掉别名，界面回到原始名称。清空是常用操作（改错了要还原），
+   * 所以这里必须接受空值，不能像分类改名那样把空名当非法输入拒掉。
+   * 走的是 `saveStats()` 里现成的 `favorites` 整份写盘，不新增存储键。
+   */
+  async function setFavoriteAlias(path: string, alias: string) {
+    const favorite = userStats.value.favorites.find(item => item.path === path);
+
+    if (!favorite) {
+      return;
+    }
+
+    const trimmed = alias.trim();
+
+    if ((favorite.alias ?? '') === trimmed) {
+      return;
+    }
+
+    favorite.alias = trimmed;
     await saveStats();
   }
 
@@ -962,6 +1010,8 @@ export const useUserStatsStore = defineStore('userStats', () => {
     runDeferredMaintenance,
     isFavorite,
     addToFavorites,
+    // FORK-MODIFICATION: 批次 37 —— 收藏条目的显示名（别名）。
+    setFavoriteAlias,
     removeFromFavorites,
     toggleFavorite,
     // FORK-MODIFICATION: 反馈 4 —— 收藏分类与收藏的编辑能力。

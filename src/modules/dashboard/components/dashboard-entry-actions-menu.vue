@@ -14,7 +14,13 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import { ArrowDownIcon, ArrowUpIcon, EllipsisVerticalIcon, XIcon } from '@lucide/vue';
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  EllipsisVerticalIcon,
+  PencilIcon,
+  XIcon,
+} from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -43,16 +49,21 @@ withDefaults(defineProps<{
   categories?: FavoriteCategory[];
   currentCategoryId?: string | null;
   removeLabel: string;
+  /** FORK-MODIFICATION: 批次 37 —— 只有收藏卡片有「编辑显示名」。 */
+  showRenameFavorite?: boolean;
 }>(), {
   showCategoryPicker: false,
   categories: () => [],
   currentCategoryId: null,
+  showRenameFavorite: false,
 });
 
 const emit = defineEmits<{
   'move-up': [];
   'move-down': [];
   'move-to-category': [categoryId: string | null];
+  /** FORK-MODIFICATION: 批次 37 —— 编辑收藏条目的显示名（别名）。 */
+  'rename-favorite': [];
   'remove': [];
 }>();
 
@@ -131,6 +142,15 @@ function normalizeCategoryValue(value: unknown): string | null {
       </template>
 
       <DropdownMenuSeparator />
+
+      <!-- FORK-MODIFICATION: 批次 37 —— 编辑显示名（别名）。只改显示，不改原名。 -->
+      <DropdownMenuItem
+        v-if="showRenameFavorite"
+        @click="emit('rename-favorite')"
+      >
+        <PencilIcon :size="14" />
+        <span>{{ t('dashboard.actions.renameFavorite') }}</span>
+      </DropdownMenuItem>
 
       <DropdownMenuItem
         class="dashboard-entry-actions__remove"

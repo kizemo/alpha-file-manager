@@ -15,7 +15,7 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 import { computed, ref, useSlots } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { FolderIcon, FileIcon, HardDriveIcon } from '@lucide/vue';
-import { getPathDisplayName } from '@/utils/normalize-path';
+import { resolveFavoriteDisplayName } from '@/utils/favorite-display-name';
 import { isVirtualLocationPath } from '@/utils/virtual-locations';
 import { useDashboardEntryPreview } from '@/modules/dashboard/composables/use-dashboard-entry-preview';
 
@@ -23,8 +23,11 @@ const props = withDefaults(defineProps<{
   path: string;
   isFile?: boolean;
   sizeLabel?: string;
+  /** FORK-MODIFICATION: 批次 37 —— 收藏显示名（别名）。只影响这里显示的名字。 */
+  alias?: string;
 }>(), {
   sizeLabel: '',
+  alias: '',
 });
 
 const emit = defineEmits<{
@@ -38,8 +41,8 @@ const rootRef = ref<HTMLElement | null>(null);
 const hasFooter = computed(() => !!slots.footer);
 
 const itemName = computed(() => {
-  if (!props.path) return '';
-  return getPathDisplayName(props.path, t) || props.path;
+  // FORK-MODIFICATION: 批次 37 —— 有别名就用别名，没有就回退到原始名称。
+  return resolveFavoriteDisplayName(props.path, props.alias, t);
 });
 
 const itemDirectory = computed(() => {

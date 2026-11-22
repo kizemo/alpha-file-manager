@@ -202,7 +202,10 @@
       "indexed": "अनुक्रमित {time}",
       "nothingFound": "कुछ न मिला"
     },
-    "showSearchSettings": "खोज सेटिंग दिखाएं"
+    "showSearchSettings": "खोज सेटिंग दिखाएं",
+    "remoteIndexing": "क्लाउड ड्राइव इंडेक्स हो रहा है",
+    "remoteIndexDone": "क्लाउड सूचकांश अद्यतन किया गया",
+    "remoteIndexFailed": "क्लाउड सूचकांश विफल रहा"
   },
   "home": {
     "mediaBannerOptions": "मीडिया बैनर विकल्प",
@@ -269,7 +272,8 @@
       "deleteTagConfirmTitle": "यह टैग हटाएँ?",
       "deleteTagConfirmDescription": "टैग हटा दिया जाएगा और सभी आइटम से हटा दिया जाएगा।",
       "removeTagConfirmTitle": "आइटम से यह टैग हटाएँ?",
-      "removeTagConfirmDescription": "आइटम पर अब यह टैग नहीं होगा।"
+      "removeTagConfirmDescription": "आइटम पर अब यह टैग नहीं होगा।",
+      "renameFavorite": "प्रदर्शित नाम संपादित करें"
     },
     "newFavoriteDialog": {
       "title": "Add to favorites",
@@ -277,7 +281,9 @@
       "pathPlaceholder": "Paste a full path",
       "pathNotFound": "Path does not exist",
       "pathAlreadyFavorite": "Already in favorites",
-      "confirm": "Add"
+      "confirm": "Add",
+      "displayNameLabel": "प्रदर्शित नाम",
+      "displayNamePlaceholder": "मूल नाम का उपयोग करने के लिए खाली छोड़ें"
     },
     "nameDialog": {
       "nameLabel": "Name",
@@ -556,7 +562,12 @@
       "ignoredPathsHelpDownloads": "उस पथ उपसर्ग को छोड़ता है।",
       "ignoredPathsHelpTestFolder": "कहीं भी test नाम वाले फ़ोल्डर और उनकी सामग्री छोड़ता है।",
       "ignoredPathsHelpExtensionMask": "कहीं भी .log एक्सटेंशन वाली फ़ाइलें छोड़ता है।",
-      "ignoredPathsHelpNestedExtensionMask": "किसी भी फ़ोल्डर में .tmp एक्सटेंशन वाली फ़ाइलें छोड़ता है।"
+      "ignoredPathsHelpNestedExtensionMask": "किसी भी फ़ोल्डर में .tmp एक्सटेंशन वाली फ़ाइलें छोड़ता है।",
+      "remoteIndexTitle": "क्लाउड खोज",
+      "remoteIndexDescription": "वैश्विक खोज में शामिल किए गए कनेक्शन की फ़ाइलें खोज परिणामों में दिखती हैं।",
+      "rebuildRemoteIndex": "क्लाउड सूचकांश पुनर्निर्मित करें",
+      "rebuildRemoteIndexDescription": "चिह्नित कनेक्शन की फ़ाइलों को फिर से लाता है और सूचकांश में लिखता है; इससे नेटडिस्क API कोटा खर्च होता है।",
+      "noRemoteInSearch": "अभी तक वैश्विक खोज में कोई नेटडिस्क नहीं जोड़ा गया"
     },
     "drives": {
       "driveDetection": "ड्राइव का पता लगाना",
@@ -681,7 +692,9 @@
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
         "localPath": "Local folder",
-        "cookie": "Cookie"
+        "cookie": "Cookie",
+        "includeInSearch": "वैश्विक खोज में शामिल करें",
+        "includeInSearchHint": "चेक करने पर इस कनेक्शन की फ़ाइलें वैश्विक खोज सूचकांश में शामिल हो जाती हैं (क्लाउड सूचकांश मैन्युअल रूप से फिर से बनाएँ)।"
       },
       "protocol": {
         "ftp": "FTP",
@@ -1458,7 +1471,9 @@
       "newCategoryLabel": "Or create a new category",
       "newCategoryPlaceholder": "Type a name for the new category",
       "confirm": "Add to favorites",
-      "multipleEntries": "and {n} more items"
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "प्रदर्शित नाम",
+      "displayNamePlaceholder": "मूल नाम का उपयोग करने के लिए खाली छोड़ें"
     },
     "searchOptions": {
       "title": "खोज विकल्प",

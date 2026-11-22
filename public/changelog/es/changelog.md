@@ -1,6 +1,16 @@
 # Registro de cambios
 
 
+## [3.17.0] - November 2026
+
+**Resumen:** Ahora los archivos de tus discos en la nube se pueden encontrar con la búsqueda global de la aplicación: decides tú, conexión por conexión, si participa, así que nada sale a la red a tus espaldas. Al añadir un disco en la nube, su nombre ya viene rellenado, y un favorito puede tener un nombre propio en el menú, sin tocar el archivo o la carpeta reales que hay detrás.
+
+### What changed
+
+**Añadido: Los archivos de los discos en la nube ya se encuentran con la búsqueda global** La búsqueda global recorría antes solo tus unidades locales, así que un archivo de Baidu Netdisk, Quark Netdisk o Aliyun Drive nunca era candidato. Al añadir un disco en la nube puedes marcar ahora *Incluir en la búsqueda global*, y los archivos de esa unidad se indexan y aparecen en los resultados junto a tus archivos locales. La decisión se toma por conexión y la casilla empieza sin marcar: meter una unidad en el índice significa salir a la red y consumir la cuota de API de esa unidad, y la aplicación no debe tomar esa decisión por ti. El índice solo se reconstruye cuando lo pides: *Ajustes* -> *Búsqueda global* -> *Reconstruir el índice de la nube*, de modo que la aplicación nunca recorre un disco en la nube por su cuenta. Si una unidad no se puede leer en ese momento, se informa y las demás conexiones se indexan como siempre.
+**Añadido: Un disco en la nube que añades ya empieza con su propio nombre** Al añadir un disco en la nube, el campo de nombre solía quedar vacío, así que cada unidad había que nombrarla a mano. Ahora el nombre del proveedor se rellena por ti - *Baidu Netdisk*, *Quark Netdisk* o *Aliyun Drive* -, y puedes cambiarlo si prefieres llamarla de otro modo. Renombrar una conexión que ya existe no se toca: se conserva el nombre que le diste.
+**Añadido: Un favorito puede tener un nombre propio** Los favoritos se mostraban con el nombre del archivo o la carpeta que hay detrás, y no siempre es el nombre que quieres ver en el menú. Ahora puedes darle a un favorito un nombre para mostrar, al añadirlo o después con *Editar nombre para mostrar* en el menú de la tarjeta. Solo cambia el nombre del menú: el archivo y la carpeta de detrás mantienen sus nombres reales, y el favorito sigue abriendo el mismo sitio.
+
 ## [3.16.1] - November 2026
 
 **Resumen:** Aliyun Drive ya se puede conectar desde dentro de la aplicación: se abre una ventana de inicio de sesión dentro de la aplicación, escaneas el código QR con el teléfono y la unidad se convierte en un panel que puedes explorar y leer. Ya no es solo de lectura: puedes crear carpetas, subir archivos, borrarlos y renombrarlos en la unidad, igual que con tus demás discos en la nube. Las imágenes de la unidad muestran una miniatura, tanto en la vista de miniaturas como en la vista de lista, y al hacer clic en un archivo se selecciona solo ese archivo, aunque la carpeta contenga varios archivos con el mismo nombre, y una unidad que no se puede leer ahora lo dice en lugar de no hacer nada en silencio.

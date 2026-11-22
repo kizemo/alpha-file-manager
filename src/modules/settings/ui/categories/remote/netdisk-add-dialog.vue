@@ -30,9 +30,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/components/ui/toaster';
 import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
-import { getRemoteProtocolDefaultPort } from '@/types/remote';
+import { getRemoteProtocolDefaultPort, resolveRemoteConnectionNameDefault } from '@/types/remote';
 import type {
   BaiduLoginEventPayload,
   QuarkLoginEventPayload,
@@ -69,6 +70,14 @@ const errorCode = ref<string | null>(null);
 const name = ref('');
 const localPath = ref('');
 const initialPath = ref('/');
+
+/**
+ * 「加入全局检索」（批次 37）。
+ *
+ * **默认不勾**：给云盘建索引要走网络往返、耗时且吃网盘 API 配额，
+ * 默认打开等于替用户做决定。勾不勾由加连接的人自己决定。
+ */
+const includeInGlobalSearch = ref(false);
 
 /** provider → i18n 前缀。百度与夸克的文案键结构一样，只是前缀不同。 */
 function i18nPrefix(target: NetdiskProtocol): 'baidu' | 'quark' {
@@ -115,9 +124,12 @@ async function startAdd(next: NetdiskProtocol): Promise<void> {
   errorCode.value = null;
   protocol.value = next;
   loginPhase.value = 'waiting';
-  name.value = '';
+  // 预填 provider 的显示名（百度网盘 / 夸克网盘）——
+  // 用户可以直接改，但空着让人自己想「这该叫什么」没必要。
+  name.value = resolveRemoteConnectionNameDefault(next, undefined, t);
   localPath.value = '';
   initialPath.value = '/';
+  includeInGlobalSearch.value = false;
 
   try {
     if (next === 'baidu_pan') {
@@ -204,6 +216,7 @@ async function handleCancel(): Promise<void> {
   name.value = '';
   localPath.value = '';
   initialPath.value = '/';
+  includeInGlobalSearch.value = false;
 
   await cancelLogin(target);
 }
@@ -255,6 +268,7 @@ async function handleSave(): Promise<void> {
     proxy: { kind: 'direct' },
     password: '',
     clearPassword: false,
+    includeInGlobalSearch: includeInGlobalSearch.value,
   };
 
   try {
@@ -403,6 +417,28 @@ defineExpose({ startAdd });
         />
       </div>
 
+      <!--
+        「加入全局检索」（批次 37）：这一条连接的文件要不要进全局检索索引。
+
+        **默认不勾** —— 建索引要走网络往返、吃网盘 API 配额，
+        是不是要花这份代价由加连接的人自己决定。
+      -->
+      <div class="netdisk-add-dialog__row">
+        <div class="netdisk-add-dialog__checkbox-row">
+          <Checkbox
+            id="netdisk-add-include-in-search"
+            v-model="includeInGlobalSearch"
+            data-test="field-include-in-search"
+          />
+          <Label for="netdisk-add-include-in-search">
+            {{ t('settings.remote.field.includeInSearch') }}
+          </Label>
+        </div>
+        <p class="netdisk-add-dialog__hint">
+          {{ t('settings.remote.field.includeInSearchHint') }}
+        </p>
+      </div>
+
       <DialogFooter>
         <Button
           variant="outline"
@@ -474,6 +510,14 @@ defineExpose({ startAdd });
 .netdisk-add-dialog__row-inline > :first-child {
   min-width: 0;
   flex: 1;
+}
+
+/* 「加入全局检索」那行：勾选框与标签并排，下面跟一句说明。 */
+.netdisk-add-dialog__checkbox-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .netdisk-add-dialog__hint {

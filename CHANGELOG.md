@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.17.0] - November 2026
+
+**Summary:** Files on your netdisks can now be found with the app's global search - you decide for each connection whether it takes part, so nothing reaches out to the network behind your back. A netdisk you add now comes up with its own name already filled in, and a favorite can be given a name of its own in the menu, without touching the real file or folder behind it.
+
+### What changed
+
+**Added** **Netdisk files can now be found with global search** - *Global search* used to walk your local drives only, so a file on Baidu Netdisk, Quark Netdisk or Aliyun Drive was never a candidate. When you add a netdisk you can now tick *Include in global search*, and the files of that drive are indexed and then show up in the search results next to your local files. The choice is made per connection, and the box starts out unticked: putting a drive into the index means going out to the network and using up that drive's API quota, and that is not a decision the app should make for you. The index is only rebuilt when you ask for it - *Settings* -> *Global search* -> *Rebuild cloud index* - so the app never crawls a netdisk on its own schedule. If one drive cannot be read at that moment, it is reported and the other connections are indexed as usual.
+
+**Added** **A netdisk you add now starts with its own name** - Adding a netdisk used to leave the name field empty, so every drive had to be named by hand. The name of the provider is now filled in for you - *Baidu Netdisk*, *Quark Netdisk* or *Aliyun Drive* - and you can still change it if you would rather call the drive something else. Renaming a connection that already exists is untouched: the name you gave it is kept.
+
+**Added** **A favorite can be given a name of its own** - Favorites were shown under the name of the file or folder behind them, which is not always the name you would like to see in the menu. You can now give a favorite a display name of your own, either when you add it or afterwards through *Edit display name* on the card's menu. Only the name in the menu changes: the file and the folder behind it keep their real names, and the favorite still opens the same place.
+
 ## [3.16.1] - November 2026
 
 **Summary:** Aliyun Drive can now be connected from inside the app - a sign-in window opens within the app, you scan the QR code with your phone, and the drive becomes a pane you can browse and read from. It is no longer read-only: you can create folders, upload files, delete them and rename them on the drive, just like with your other netdisks. Pictures on the drive show a thumbnail in the thumbnail view as well as in the list view, clicking a file selects that one file only, even when the folder holds several files with the same name, and a drive that cannot be read now tells you so instead of quietly doing nothing.

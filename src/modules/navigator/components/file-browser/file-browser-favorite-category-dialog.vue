@@ -46,14 +46,16 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:open': [value: boolean];
-  /** 确认。newCategoryName 非空时优先于 categoryId。 */
-  'confirm': [categoryId: string | null, newCategoryName: string | null];
+  /** 确认。newCategoryName 非空时优先于 categoryId；alias 为空表示不改显示名。 */
+  'confirm': [categoryId: string | null, newCategoryName: string | null, alias: string | null];
 }>();
 
 const { t } = useI18n();
 
 const categoryDraft = ref<string>(UNCATEGORIZED_VALUE);
 const newCategoryDraft = ref('');
+// FORK-MODIFICATION: 批次 37 —— 显示名（别名）。只影响收藏界面上的显示。
+const aliasDraft = ref('');
 
 // 每次打开都要复位：上一次留下的分类会把这次的条目悄悄归到错的地方。
 watch(
@@ -65,11 +67,18 @@ watch(
 
     categoryDraft.value = UNCATEGORIZED_VALUE;
     newCategoryDraft.value = '';
+    aliasDraft.value = '';
   },
   { immediate: true },
 );
 
 const trimmedNewCategory = computed(() => newCategoryDraft.value.trim());
+
+// FORK-MODIFICATION: 批次 37 —— 一次给多个不同的文件套同一个显示名没有意义，
+// 所以多选时**不显示**这个输入框（也就没有别名可传）。
+const showAliasInput = computed(() => props.entryNames.length === 1);
+
+const trimmedAlias = computed(() => aliasDraft.value.trim());
 
 const targetLabel = computed(() => {
   const names = props.entryNames.filter(Boolean);
@@ -91,6 +100,7 @@ function handleConfirm() {
     'confirm',
     categoryDraft.value === UNCATEGORIZED_VALUE ? null : categoryDraft.value,
     trimmedNewCategory.value || null,
+    showAliasInput.value ? (trimmedAlias.value || null) : null,
   );
   emit('update:open', false);
 }
@@ -149,6 +159,21 @@ function handleConfirm() {
           :placeholder="t('fileBrowser.favoriteCategoryDialog.newCategoryPlaceholder')"
           @keydown.enter.prevent="handleConfirm"
         />
+
+        <!-- FORK-MODIFICATION: 批次 37 —— 显示名（可选）。多选时不显示。 -->
+        <template v-if="showAliasInput">
+          <label
+            class="file-browser-favorite-category-dialog__label"
+            for="afm-favorite-alias"
+          >{{ t('fileBrowser.favoriteCategoryDialog.displayNameLabel') }}</label>
+
+          <Input
+            id="afm-favorite-alias"
+            v-model="aliasDraft"
+            :placeholder="t('fileBrowser.favoriteCategoryDialog.displayNamePlaceholder')"
+            @keydown.enter.prevent="handleConfirm"
+          />
+        </template>
       </div>
 
       <DialogFooter>

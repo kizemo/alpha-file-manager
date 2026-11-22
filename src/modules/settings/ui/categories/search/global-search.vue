@@ -7,13 +7,15 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
+import { invoke } from '@tauri-apps/api/core';
 import {
-  BanIcon, CheckIcon, CircleAlertIcon, ClockIcon, DatabaseIcon, FolderTreeIcon, HardDriveIcon,
+  BanIcon, CheckIcon, CircleAlertIcon, ClockIcon, CloudIcon, DatabaseIcon, FolderTreeIcon, HardDriveIcon,
   CircleHelpIcon, ListIcon, LoaderCircleIcon, RefreshCcwIcon, RotateCcwIcon, UsbIcon, XIcon, ZapIcon,
 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { toast } from '@/components/ui/toaster';
 import {
   NumberField,
   NumberFieldContent,
@@ -24,6 +26,7 @@ import {
 import { FacetedFilter } from '@/components/ui/faceted-filter';
 import { SettingsItem } from '@/modules/settings';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
+import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
 import { useGlobalSearchStore } from '@/stores/runtime/global-search';
 import { useDrives } from '@/modules/home/composables/use-drives';
 import { formatBytes } from '@/modules/navigator/components/file-browser/utils';
@@ -34,6 +37,7 @@ import { canonicalizePath } from '@/utils/normalize-path';
 const { t } = useI18n();
 const userSettingsStore = useUserSettingsStore();
 const globalSearchStore = useGlobalSearchStore();
+const remoteConnectionsStore = useRemoteConnectionsStore();
 const { indexedItemCount } = storeToRefs(globalSearchStore);
 const { drives } = useDrives();
 
@@ -322,9 +326,66 @@ async function cancelScan() {
   await globalSearchStore.cancelScan();
 }
 
+// ---------------------------------------------------------------------------
+// 云盘检索（批次 37）
+//
+// 云盘的条目**不进本地索引**，走自己的索引（后端按连接集合整体重建）。
+// 这里的职责只有两件：把已勾选的连接列出来，以及给一颗重建按钮。
+// ---------------------------------------------------------------------------
+
+/** 勾选了「加入全局检索」的那些连接。 */
+const indexedRemoteConnections = computed(() => remoteConnectionsStore.globalSearchConnections);
+
+/** 正在重建云盘索引吗。 */
+const isRebuildingRemoteIndex = ref(false);
+
+/** 上一次重建写进去的条目数。`null` = 本次会话还没重建过。 */
+const remoteIndexedItemCount = ref<number | null>(null);
+
+/**
+ * 重建云盘索引。
+ *
+ * **传的是当前全部已勾选的连接**：后端按传进来的集合整体重建云盘索引，
+ * 漏掉一条就等于把那条的条目从索引里抹掉。
+ *
+ * ⚠️ 所以每一行那颗「重建」按钮走的也是同一个集合 —— 逐条重建在
+ * 「整体重建」的语义下会把其它连接的条目一起抹掉。
+ */
+async function rebuildRemoteIndex(): Promise<void> {
+  if (isRebuildingRemoteIndex.value) {
+    return;
+  }
+
+  const connectionIds = indexedRemoteConnections.value.map(connection => connection.id);
+
+  if (connectionIds.length === 0) {
+    return;
+  }
+
+  isRebuildingRemoteIndex.value = true;
+
+  try {
+    const indexedCount = await invoke<number>('global_search_index_remote_connections', { connectionIds });
+    remoteIndexedItemCount.value = indexedCount;
+    toast({
+      title: t('globalSearch.remoteIndexDone'),
+    });
+  }
+  catch (error) {
+    console.error('Failed to rebuild remote global search index:', error);
+    toast({
+      title: t('globalSearch.remoteIndexFailed'),
+    });
+  }
+  finally {
+    isRebuildingRemoteIndex.value = false;
+  }
+}
+
 onMounted(async () => {
   await globalSearchStore.refreshStatus();
   globalSearchStore.startStatusPolling();
+  await remoteConnectionsStore.init();
   displayTickIntervalId = setInterval(() => {
     displayTick.value++;
   }, 30000);
@@ -551,6 +612,83 @@ onUnmounted(() => {
               />
             </div>
           </button>
+        </div>
+      </template>
+    </SettingsItem>
+
+    <!--
+      云盘检索（批次 37）：云盘的条目**不进本地索引**，走自己的索引。
+      这一块只做两件事：把已勾选的连接列出来，以及给一颗重建按钮。
+    -->
+    <SettingsItem
+      :title="t('settings.globalSearch.remoteIndexTitle')"
+      :description="t('settings.globalSearch.remoteIndexDescription')"
+      :icon="CloudIcon"
+    >
+      <template #nested>
+        <div class="global-search-settings__remote-index">
+          <p
+            v-if="indexedRemoteConnections.length === 0"
+            class="global-search-settings__remote-index-empty"
+            data-test="remote-index-empty"
+          >
+            {{ t('settings.globalSearch.noRemoteInSearch') }}
+          </p>
+
+          <div class="global-search-settings__remote-index-actions">
+            <Button
+              v-if="indexedRemoteConnections.length > 0"
+              variant="outline"
+              size="sm"
+              :disabled="isRebuildingRemoteIndex"
+              data-test="rebuild-remote-index-all"
+              @click="rebuildRemoteIndex"
+            >
+              <RefreshCcwIcon :size="14" />
+              <span>{{ isRebuildingRemoteIndex
+                ? t('globalSearch.remoteIndexing')
+                : t('settings.globalSearch.rebuildRemoteIndex') }}</span>
+            </Button>
+          </div>
+
+          <ul
+            v-if="indexedRemoteConnections.length > 0"
+            class="global-search-settings__remote-index-list"
+            data-test="remote-index-list"
+          >
+            <li
+              v-for="connection in indexedRemoteConnections"
+              :key="connection.id"
+              class="global-search-settings__remote-index-item"
+              :data-test="`remote-index-item-${connection.id}`"
+            >
+              <span class="global-search-settings__remote-index-name">{{ connection.name }}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                :disabled="isRebuildingRemoteIndex"
+                data-test="rebuild-remote-index-item"
+                @click="rebuildRemoteIndex"
+              >
+                <RefreshCcwIcon :size="14" />
+                <span>{{ isRebuildingRemoteIndex
+                  ? t('globalSearch.remoteIndexing')
+                  : t('settings.globalSearch.rebuildRemoteIndex') }}</span>
+              </Button>
+            </li>
+          </ul>
+
+          <p
+            v-if="remoteIndexedItemCount !== null"
+            class="global-search-settings__remote-index-count"
+            data-test="remote-index-count"
+          >
+            {{ remoteIndexedItemCount.toLocaleString() }} {{ t('globalSearch.indexedItems') }}
+          </p>
+
+          <p class="global-search-settings__remote-index-hint">
+            {{ t('settings.globalSearch.rebuildRemoteIndexDescription') }}
+          </p>
         </div>
       </template>
     </SettingsItem>
@@ -1270,6 +1408,64 @@ onUnmounted(() => {
 
 .global-search-settings__drive-checkbox-icon {
   color: hsl(var(--primary));
+}
+
+.global-search-settings__remote-index {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.global-search-settings__remote-index-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.global-search-settings__remote-index-list {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  padding: 0;
+  margin: 0;
+  gap: 6px;
+  list-style: none;
+}
+
+.global-search-settings__remote-index-item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-sm);
+  gap: 12px;
+}
+
+.global-search-settings__remote-index-name {
+  overflow: hidden;
+  min-width: 0;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.global-search-settings__remote-index-count {
+  margin: 0;
+  color: hsl(var(--foreground));
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.global-search-settings__remote-index-hint,
+.global-search-settings__remote-index-empty {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
 }
 
 .global-search-settings__ignored-paths-header-controls {

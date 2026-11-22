@@ -165,7 +165,10 @@
       "indexed": "Indexiert {time}",
       "nothingFound": "Es wurde nichts gefunden"
     },
-    "showSearchSettings": "Sucheinstellungen anzeigen"
+    "showSearchSettings": "Sucheinstellungen anzeigen",
+    "remoteIndexing": "Cloud-Index wird aufgebaut",
+    "remoteIndexDone": "Cloud-Index wurde aktualisiert",
+    "remoteIndexFailed": "Cloud-Index fehlgeschlagen"
   },
   "home": {
     "mediaBannerOptions": "Optionen für Medienbanner",
@@ -232,7 +235,8 @@
       "deleteTagConfirmTitle": "Dieses Tag löschen?",
       "deleteTagConfirmDescription": "Das Tag wird gelöscht und von allen Einträgen entfernt.",
       "removeTagConfirmTitle": "Dieses Tag vom Eintrag entfernen?",
-      "removeTagConfirmDescription": "Der Eintrag trägt dieses Tag dann nicht mehr."
+      "removeTagConfirmDescription": "Der Eintrag trägt dieses Tag dann nicht mehr.",
+      "renameFavorite": "Anzeigename bearbeiten"
     },
     "newFavoriteDialog": {
       "title": "Add to favorites",
@@ -240,7 +244,9 @@
       "pathPlaceholder": "Paste a full path",
       "pathNotFound": "Path does not exist",
       "pathAlreadyFavorite": "Already in favorites",
-      "confirm": "Add"
+      "confirm": "Add",
+      "displayNameLabel": "Anzeigename",
+      "displayNamePlaceholder": "Leer lassen, um den ursprünglichen Namen zu verwenden"
     },
     "nameDialog": {
       "nameLabel": "Name",
@@ -519,7 +525,12 @@
       "ignoredPathsHelpDownloads": "Überspringt diesen Pfadpräfix.",
       "ignoredPathsHelpTestFolder": "Überspringt Ordner mit dem Namen test und ihre Inhalte überall.",
       "ignoredPathsHelpExtensionMask": "Überspringt Dateien mit der Erweiterung .log überall.",
-      "ignoredPathsHelpNestedExtensionMask": "Überspringt Dateien mit der Erweiterung .tmp in jedem Ordner."
+      "ignoredPathsHelpNestedExtensionMask": "Überspringt Dateien mit der Erweiterung .tmp in jedem Ordner.",
+      "remoteIndexTitle": "Cloud-Suche",
+      "remoteIndexDescription": "Dateien von Verbindungen, die zur globalen Suche hinzugefügt wurden, erscheinen in den Suchergebnissen.",
+      "rebuildRemoteIndex": "Cloud-Index neu aufbauen",
+      "rebuildRemoteIndexDescription": "Dateien der ausgewählten Verbindungen erneut abrufen und in den Index schreiben; das verbraucht das API-Kontingent des Netdisks.",
+      "noRemoteInSearch": "Noch keine Verbindung zur globalen Suche hinzugefügt"
     },
     "drives": {
       "driveDetection": "Laufwerkserkennung",
@@ -644,7 +655,9 @@
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
         "localPath": "Local folder",
-        "cookie": "Cookie"
+        "cookie": "Cookie",
+        "includeInSearch": "In die globale Suche aufnehmen",
+        "includeInSearchHint": "Wenn aktiviert, werden die Dateien dieser Verbindung in den globalen Suchindex aufgenommen (Cloud-Index manuell neu aufbauen)."
       },
       "protocol": {
         "ftp": "FTP",
@@ -1420,7 +1433,9 @@
       "newCategoryLabel": "Or create a new category",
       "newCategoryPlaceholder": "Type a name for the new category",
       "confirm": "Add to favorites",
-      "multipleEntries": "and {n} more items"
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "Anzeigename",
+      "displayNamePlaceholder": "Leer lassen, um den ursprünglichen Namen zu verwenden"
     },
     "searchOptions": {
       "title": "Suchoptionen",

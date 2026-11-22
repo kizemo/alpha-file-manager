@@ -165,7 +165,10 @@
       "indexed": "{time} dizine eklendi",
       "nothingFound": "Hiçbir şey bulunamadı"
     },
-    "showSearchSettings": "Arama ayarlarını göster"
+    "showSearchSettings": "Arama ayarlarını göster",
+    "remoteIndexing": "Bulut diskleri dizine ekleniyor",
+    "remoteIndexDone": "Bulut dizini güncellendi",
+    "remoteIndexFailed": "Bulut dizini oluşturulamadı"
   },
   "home": {
     "mediaBannerOptions": "Medya banner seçenekleri",
@@ -232,7 +235,8 @@
       "deleteTagConfirmTitle": "Bu etiket silinsin mi?",
       "deleteTagConfirmDescription": "Etiket silinecek ve tüm öğelerden kaldırılacak.",
       "removeTagConfirmTitle": "Bu etiket öğeden kaldırılsın mı?",
-      "removeTagConfirmDescription": "Öğe artık bu etiketi taşımayacak."
+      "removeTagConfirmDescription": "Öğe artık bu etiketi taşımayacak.",
+      "renameFavorite": "Görünen adı düzenle"
     },
     "newFavoriteDialog": {
       "title": "Add to favorites",
@@ -240,7 +244,9 @@
       "pathPlaceholder": "Paste a full path",
       "pathNotFound": "Path does not exist",
       "pathAlreadyFavorite": "Already in favorites",
-      "confirm": "Add"
+      "confirm": "Add",
+      "displayNameLabel": "Görünen ad",
+      "displayNamePlaceholder": "Özgün adı kullanmak için boş bırakın"
     },
     "nameDialog": {
       "nameLabel": "Name",
@@ -519,7 +525,12 @@
       "ignoredPathsHelpDownloads": "Bu yol önekini atlar.",
       "ignoredPathsHelpTestFolder": "Adı test olan klasörleri ve içeriklerini her yerde atlar.",
       "ignoredPathsHelpExtensionMask": ".log uzantılı dosyaları her yerde atlar.",
-      "ignoredPathsHelpNestedExtensionMask": "Herhangi bir klasördeki .tmp uzantılı dosyaları atlar."
+      "ignoredPathsHelpNestedExtensionMask": "Herhangi bir klasördeki .tmp uzantılı dosyaları atlar.",
+      "remoteIndexTitle": "Bulut araması",
+      "remoteIndexDescription": "Genel aramaya eklenen bağlantıların dosyaları arama sonuçlarında görünür.",
+      "rebuildRemoteIndex": "Bulut dizinini yeniden oluştur",
+      "rebuildRemoteIndexDescription": "İşaretli bağlantıların dosyalarını yeniden getirip dizine yazar; ağ diskinin API kotasını harcar.",
+      "noRemoteInSearch": "Genel aramaya henüz ağ diski eklenmedi"
     },
     "drives": {
       "driveDetection": "Sürücü algılama",
@@ -644,7 +655,9 @@
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
         "localPath": "Local folder",
-        "cookie": "Cookie"
+        "cookie": "Cookie",
+        "includeInSearch": "Genel aramaya dahil et",
+        "includeInSearchHint": "İşaretlenirse bu bağlantının dosyaları genel arama dizinine eklenir (bulut dizinini elle yeniden oluşturun)."
       },
       "protocol": {
         "ftp": "FTP",
@@ -1420,7 +1433,9 @@
       "newCategoryLabel": "Or create a new category",
       "newCategoryPlaceholder": "Type a name for the new category",
       "confirm": "Add to favorites",
-      "multipleEntries": "and {n} more items"
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "Görünen ad",
+      "displayNamePlaceholder": "Özgün adı kullanmak için boş bırakın"
     },
     "searchOptions": {
       "title": "Arama seçenekleri",

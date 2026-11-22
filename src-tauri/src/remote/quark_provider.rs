@@ -1367,6 +1367,7 @@ mod tests {
                 local_path: None,
                 proxy: ProxyConfig::Direct,
                 credential_key: credential_key.map(str::to_string),
+                include_in_global_search: false,
             }],
         };
         std::fs::write(

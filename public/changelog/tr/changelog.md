@@ -1,6 +1,16 @@
 # Değişiklik Günlüğü
 
 
+## [3.17.0] - November 2026
+
+**Özet:** Ağ disklerinizdeki dosyalar artık uygulamanın genel aramasıyla bulunabiliyor - her bağlantı için aramaya katılıp katılmayacağına siz karar veriyorsunuz, böylece siz farkında olmadan hiçbir şey ağa çıkmıyor. Eklediğiniz ağ diski artık kendi adıyla geliyor, bir sık kullanılan da menüde kendine özel bir ad alabiliyor; arkasındaki gerçek dosya ya da klasöre dokunulmuyor.
+
+### What changed
+
+**Eklendi: Ağ diski dosyaları artık genel aramayla bulunuyor** Genel arama daha önce yalnızca yerel sürücülerinizi geziyordu, bu yüzden Baidu Netdisk, Quark Netdisk ya da Aliyun Drive üzerindeki bir dosya hiçbir zaman aday olamıyordu. Ağ diski eklerken artık *Genel aramaya dahil et* onay kutusunu işaretleyebilirsiniz; o sürücünün dosyaları dizine eklenir ve yerel dosyalarınızla birlikte arama sonuçlarında görünür. Karar bağlantı bazında verilir ve onay kutusu başta işaretli değildir: bir sürücüyü dizine almak ağa çıkmak ve o sürücünün API kotasını harcamak demektir, bu kararı uygulama sizin yerinize vermemelidir. Dizin yalnızca siz istediğinizde yeniden kurulur - *Ayarlar* -> *Genel arama* -> *Bulut dizinini yeniden kur* - böylece uygulama hiçbir zaman kendi kendine bir ağ diskini taramaz. O anda okunamayan bir sürücü varsa bu bildirilir ve diğer bağlantılar olağan şekilde dizine eklenir.
+**Eklendi: Eklediğiniz ağ diski artık kendi adıyla geliyor** Ağ diski eklerken ad alanı daha önce boş kalıyordu, bu yüzden her sürücüyü elle adlandırmak gerekiyordu. Artık sağlayıcının adı sizin yerinize dolduruluyor - *Baidu Netdisk*, *Quark Netdisk* ya da *Aliyun Drive* - ve sürücüye farklı bir ad vermek isterseniz değiştirebilirsiniz. Var olan bir bağlantıyı yeniden adlandırma değişmedi: verdiğiniz ad korunur.
+**Eklendi: Bir sık kullanılan kendi adını alabiliyor** Sık kullanılanlar, arkalarındaki dosyanın ya da klasörün adıyla gösteriliyordu ve bu her zaman menüde görmek istediğiniz ad olmuyordu. Artık bir sık kullanılana kendi görünen adını verebilirsiniz, ister eklerken ister sonra kart menüsündeki *Görünen adı düzenle* ile. Değişen yalnızca menüdeki addır: arkadaki dosya ve klasör gerçek adlarını korur ve sık kullanılan aynı yeri açar.
+
 ## [3.16.1] - November 2026
 
 **Özet:** Aliyun Drive artık uygulamanın içinden bağlanabiliyor: uygulama içinde bir oturum açma penceresi açılıyor, telefonunla QR kodu okutuyorsun ve sürücü; gezebileceğin ve okuyabileceğin bir bölme oluyor. Artık yalnızca okuma değil: sürücüde klasör oluşturabilir, dosya yükleyebilir, silebilir ve yeniden adlandırabilirsin - diğer ağ disklerinde olduğu gibi. Sürücüdeki resimler artık hem küçük resim görünümünde hem de liste görünümünde küçük resim gösteriyor ve bir dosyaya tıklamak yalnızca o dosyayı seçiyor, klasörde aynı adda birkaç dosya olsa bile, ve okunamayan bir sürücü artık bunu açıkça söylüyor, sessizce hiçbir şey yapmıyor.

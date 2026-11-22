@@ -165,7 +165,10 @@
       "indexed": "Indicizzato {time}",
       "nothingFound": "Non è stato trovato nulla"
     },
-    "showSearchSettings": "Mostra impostazioni di ricerca"
+    "showSearchSettings": "Mostra impostazioni di ricerca",
+    "remoteIndexing": "Indicizzazione dei dischi cloud",
+    "remoteIndexDone": "Indice cloud aggiornato",
+    "remoteIndexFailed": "Indicizzazione cloud non riuscita"
   },
   "home": {
     "mediaBannerOptions": "Opzioni del banner multimediale",
@@ -232,7 +235,8 @@
       "deleteTagConfirmTitle": "Eliminare questo tag?",
       "deleteTagConfirmDescription": "Il tag verrà eliminato e rimosso da tutti gli elementi.",
       "removeTagConfirmTitle": "Rimuovere questo tag dall’elemento?",
-      "removeTagConfirmDescription": "L’elemento non porterà più questo tag."
+      "removeTagConfirmDescription": "L’elemento non porterà più questo tag.",
+      "renameFavorite": "Modifica nome visualizzato"
     },
     "newFavoriteDialog": {
       "title": "Add to favorites",
@@ -240,7 +244,9 @@
       "pathPlaceholder": "Paste a full path",
       "pathNotFound": "Path does not exist",
       "pathAlreadyFavorite": "Already in favorites",
-      "confirm": "Add"
+      "confirm": "Add",
+      "displayNameLabel": "Nome visualizzato",
+      "displayNamePlaceholder": "Lascia vuoto per usare il nome originale"
     },
     "nameDialog": {
       "nameLabel": "Name",
@@ -519,7 +525,12 @@
       "ignoredPathsHelpDownloads": "Ignora quel prefisso di percorso.",
       "ignoredPathsHelpTestFolder": "Ignora le cartelle chiamate test e i loro contenuti ovunque.",
       "ignoredPathsHelpExtensionMask": "Ignora i file con estensione .log ovunque.",
-      "ignoredPathsHelpNestedExtensionMask": "Ignora i file con estensione .tmp in qualsiasi cartella."
+      "ignoredPathsHelpNestedExtensionMask": "Ignora i file con estensione .tmp in qualsiasi cartella.",
+      "remoteIndexTitle": "Ricerca cloud",
+      "remoteIndexDescription": "I file delle connessioni aggiunte alla ricerca globale compaiono nei risultati.",
+      "rebuildRemoteIndex": "Ricostruisci indice cloud",
+      "rebuildRemoteIndexDescription": "Ricarica i file delle connessioni selezionate e li scrive nell'indice; consuma la quota API del disco di rete.",
+      "noRemoteInSearch": "Nessun disco di rete aggiunto alla ricerca globale"
     },
     "drives": {
       "driveDetection": "Rilevamento unità",
@@ -644,7 +655,9 @@
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
         "localPath": "Local folder",
-        "cookie": "Cookie"
+        "cookie": "Cookie",
+        "includeInSearch": "Includi nella ricerca globale",
+        "includeInSearchHint": "Se selezionato, i file di questa connessione vengono aggiunti all'indice della ricerca globale (ricostruisci manualmente l'indice cloud)."
       },
       "protocol": {
         "ftp": "FTP",
@@ -1420,7 +1433,9 @@
       "newCategoryLabel": "Or create a new category",
       "newCategoryPlaceholder": "Type a name for the new category",
       "confirm": "Add to favorites",
-      "multipleEntries": "and {n} more items"
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "Nome visualizzato",
+      "displayNamePlaceholder": "Lascia vuoto per usare il nome originale"
     },
     "searchOptions": {
       "title": "Opzioni di ricerca",

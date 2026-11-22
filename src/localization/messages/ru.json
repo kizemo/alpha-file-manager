@@ -202,7 +202,10 @@
       "indexed": "Индексировано {time}",
       "nothingFound": "Ничего не найдено"
     },
-    "showSearchSettings": "Показать настройки поиска"
+    "showSearchSettings": "Показать настройки поиска",
+    "remoteIndexing": "Индексация облачных дисков",
+    "remoteIndexDone": "Облачный индекс обновлён",
+    "remoteIndexFailed": "Не удалось индексировать облако"
   },
   "home": {
     "mediaBannerOptions": "Параметры медиабаннера",
@@ -269,7 +272,8 @@
       "deleteTagConfirmTitle": "Удалить этот тег?",
       "deleteTagConfirmDescription": "Тег будет удалён и снят со всех элементов.",
       "removeTagConfirmTitle": "Убрать этот тег с элемента?",
-      "removeTagConfirmDescription": "Элемент больше не будет иметь этот тег."
+      "removeTagConfirmDescription": "Элемент больше не будет иметь этот тег.",
+      "renameFavorite": "Изменить отображаемое имя"
     },
     "newFavoriteDialog": {
       "title": "Add to favorites",
@@ -277,7 +281,9 @@
       "pathPlaceholder": "Paste a full path",
       "pathNotFound": "Path does not exist",
       "pathAlreadyFavorite": "Already in favorites",
-      "confirm": "Add"
+      "confirm": "Add",
+      "displayNameLabel": "Отображаемое имя",
+      "displayNamePlaceholder": "Оставьте пустым, чтобы использовать исходное имя"
     },
     "nameDialog": {
       "nameLabel": "Name",
@@ -556,7 +562,12 @@
       "ignoredPathsHelpDownloads": "Пропускает этот префикс пути.",
       "ignoredPathsHelpTestFolder": "Пропускает папки с именем test и их содержимое в любом месте.",
       "ignoredPathsHelpExtensionMask": "Пропускает файлы с расширением .log в любом месте.",
-      "ignoredPathsHelpNestedExtensionMask": "Пропускает файлы с расширением .tmp в любой папке."
+      "ignoredPathsHelpNestedExtensionMask": "Пропускает файлы с расширением .tmp в любой папке.",
+      "remoteIndexTitle": "Облачный поиск",
+      "remoteIndexDescription": "Файлы подключений, добавленных в глобальный поиск, появляются в результатах.",
+      "rebuildRemoteIndex": "Пересобрать облачный индекс",
+      "rebuildRemoteIndexDescription": "Повторно получает файлы отмеченных подключений и записывает их в индекс; это расходует квоту API сетевого диска.",
+      "noRemoteInSearch": "В глобальный поиск ещё не добавлен ни один сетевой диск"
     },
     "drives": {
       "driveDetection": "Обнаружение диска",
@@ -681,7 +692,9 @@
         "proxyUsername": "Proxy username",
         "proxyPassword": "Proxy password",
         "localPath": "Local folder",
-        "cookie": "Cookie"
+        "cookie": "Cookie",
+        "includeInSearch": "Включить в глобальный поиск",
+        "includeInSearchHint": "Если включено, файлы этого подключения попадут в индекс глобального поиска (пересоберите облачный индекс вручную)."
       },
       "protocol": {
         "ftp": "FTP",
@@ -1458,7 +1471,9 @@
       "newCategoryLabel": "Or create a new category",
       "newCategoryPlaceholder": "Type a name for the new category",
       "confirm": "Add to favorites",
-      "multipleEntries": "and {n} more items"
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "Отображаемое имя",
+      "displayNamePlaceholder": "Оставьте пустым, чтобы использовать исходное имя"
     },
     "searchOptions": {
       "title": "Параметры поиска",

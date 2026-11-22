@@ -38,6 +38,12 @@ export interface FavoriteItem {
   isFile: boolean;
   /** `null` = 未分类。分类被删除时其下收藏回到 `null`，不连带删除。 */
   categoryId: string | null;
+  // FORK-MODIFICATION: 批次 37（2026-11-22）—— 收藏条目的**显示名**（别名）。
+  //
+  // 只影响收藏界面上的显示（仪表盘收藏卡 / 侧边栏快速访问），**绝不**改原始
+  // 文件名、目录名，也不改 path：path 仍然是打开这个条目用的真实路径。
+  // 空串或缺省 ⇒ 用原始名称（getPathDisplayName），与加这个字段之前完全一致。
+  alias?: string;
 }
 
 export interface HistoryItem {

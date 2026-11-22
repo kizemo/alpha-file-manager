@@ -105,6 +105,7 @@ commands.allow = [
   "global_search_cancel_scan",
   "global_search_get_status",
   "global_search_index_paths",
+  "global_search_index_remote_connections",
   "global_search_init",
   "global_search_query",
   "global_search_query_paths",

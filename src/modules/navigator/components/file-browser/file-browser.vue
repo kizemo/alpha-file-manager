@@ -240,6 +240,7 @@ const { conflictDialogState, progressDialogState } = useRemoteTransferDialogStat
 async function handleFavoriteCategoryConfirm(
   categoryId: string | null,
   newCategoryName: string | null,
+  alias: string | null,
 ) {
   const entries = fb.favoriteCategoryDialogState.value.entries;
 
@@ -259,10 +260,16 @@ async function handleFavoriteCategoryConfirm(
       isFavorite: path => userStatsStore.isFavorite(path),
       // 分类已经建好了，所以这里回传现成的 id，不再建一次。
       createFavoriteCategory: () => created,
-      addToFavorites: async (path, isFile, resolvedCategoryId) => {
-        await userStatsStore.addToFavorites(path, isFile, resolvedCategoryId);
+      addToFavorites: async (path, isFile, resolvedCategoryId, resolvedAlias) => {
+        await userStatsStore.addToFavorites(
+          path,
+          isFile,
+          resolvedCategoryId,
+          resolvedAlias ?? '',
+        );
       },
     },
+    alias,
   );
 }
 

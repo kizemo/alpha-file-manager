@@ -97,6 +97,17 @@ pub struct RemoteConnection {
     /// DPAPI 密文的键。没有密码的连接是 `None`。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub credential_key: Option<String>,
+    /// 这条连接的文件要不要进入**全局检索**（云盘索引）。
+    ///
+    /// 默认 `false`（不勾选）：建索引要走网络，耗时与接口配额都不可忽略，
+    /// 默认打开等于替用户做决定。
+    ///
+    /// **老连接文件里根本没有这个键** —— `#[serde(default)]` 让它读成 `false`，
+    /// 于是「升级前存下的连接」不会因为新增字段而一夜之间全进了检索。
+    /// 反过来，序列化时**不**加 `skip_serializing_if`：这个键必须落盘，
+    /// 否则前端存回来的勾选状态在 Rust 侧永远读不到。
+    #[serde(default)]
+    pub include_in_global_search: bool,
 }
 
 impl RemoteConnection {
@@ -182,6 +193,7 @@ impl NewRemoteConnection {
             local_path: self.local_path.clone(),
             proxy: self.proxy.clone(),
             credential_key: None,
+            include_in_global_search: false,
         };
 
         draft.validate()
@@ -249,6 +261,7 @@ mod tests {
             local_path: None,
             proxy: ProxyConfig::Direct,
             credential_key: Some("cred-1".to_string()),
+            include_in_global_search: false,
         }
     }
 
@@ -490,6 +503,67 @@ mod tests {
                 "{local_path:?} 应当被当作「不摆双屏」放行"
             );
         }
+    }
+
+    // ---- 「加入全局检索」开关（批次 37） -----------------------------------
+
+    /// 老连接文件里没有 `includeInGlobalSearch` 这个键 —— 必须读成 `false`。
+    ///
+    /// 这是本字段存在的全部理由：新增字段绝不能把「升级前存下的连接」
+    /// 判成损坏，更不能顺手让它们全进了云盘检索（建索引要走网络）。
+    #[test]
+    fn connections_saved_before_the_search_flag_existed_still_load() {
+        let json = r#"{
+            "id":"conn-1",
+            "name":"old",
+            "protocol":"ftp",
+            "host":"ftp.example.com",
+            "port":21,
+            "username":"anonymous",
+            "initialPath":"/pub",
+            "proxy":{"kind":"direct"},
+            "credentialKey":"cred-1"
+        }"#;
+
+        let parsed: RemoteConnection = serde_json::from_str(json).expect("deserialize");
+
+        assert!(
+            !parsed.include_in_global_search,
+            "缺少这个键的老连接必须读成「不参与全局检索」"
+        );
+        assert_eq!(parsed.validate(), Ok(()));
+    }
+
+    /// 勾选状态必须**双向**都保得住：写出去是 `includeInGlobalSearch`，
+    /// 读回来还是 `true`。键名写错（比如写成 `include_in_global_search`）时，
+    /// 前端存回来的勾选就会在 Rust 侧永远读成 `false` —— 这条测试当场抓。
+    #[test]
+    fn the_search_flag_round_trips_through_json() {
+        let mut connection = valid();
+        connection.include_in_global_search = true;
+
+        let json = serde_json::to_string(&connection).expect("serialize");
+        assert!(
+            json.contains("\"includeInGlobalSearch\":true"),
+            "序列化结果必须带驼峰键：{json}"
+        );
+
+        let parsed: RemoteConnection = serde_json::from_str(&json).expect("deserialize");
+        assert!(parsed.include_in_global_search);
+    }
+
+    /// 没勾选时也必须把这个键**写出去**（值是 `false`）。
+    ///
+    /// 这里刻意不加 `skip_serializing_if` —— 前端的连接表要靠这个键的显式存在
+    /// 区分「用户没勾」与「这是老数据」。
+    #[test]
+    fn the_search_flag_is_always_serialized_even_when_it_is_false() {
+        let json = serde_json::to_string(&valid()).expect("serialize");
+
+        assert!(
+            json.contains("\"includeInGlobalSearch\":false"),
+            "未勾选也必须显式写盘：{json}"
+        );
     }
 
     #[test]
