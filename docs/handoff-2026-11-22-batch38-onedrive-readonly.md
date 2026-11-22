@@ -357,3 +357,32 @@ OneDrive 连接表单（`应用（客户端）ID` 输入框存在且能写入）
 - worker 自述不可信，根会话须自查（批次 37 曾出现 worker 中途改断言文件造成 vitest 竞态假红）。
 - 后台任务结束会向 idle 的属主父会话投递消息并自动再开一轮 agent 循环；
   本轮结束前**不得留未终态后台任务**。
+
+## 10. 交接后独立复核（下一会话实测，2026-11-22）
+
+不采信 worker / 交接自述，全部亲跑。结论：§7 第 2 项（提交）核实为真；两项证据缺口已用新鲜实跑闭合；新发现一个装机缺口。
+
+### 10.1 核实为真
+
+- HEAD = `5c96adc0`，57 个文件，`git status --porcelain` 为空，未 push（`main...origin/main [ahead 2]`，批次 37 同样未推）。
+- 契约字面量：`src-tauri/src` 命中 `OnedrivePan|onedrive_pan` 13 处 / 5 文件；`src` 命中 `onedrive_pan` 字符串 8 处 / 4 文件；作废旧名 `RemoteProtocol::Onedrive` 与字面量 `onedrive`（独立引号形式）零命中。
+- 版本四处一致 3.18.0；`node scripts/verify-changelog.mjs` 亲跑 → 62 条目、顺序正确、EXIT=0；安装包 46,103,864 B 在 `release/local-builds/`，`LOCAL-BUILDS.txt` 登记 sha256 `b3be132c…858fe4` + 判定 `NO_OFFICIAL_ASSET`，`release/` 顶层无 3.18.0（归位口径一致）。
+- 双 README 的 4 处「OneDrive 在路上」预告已改为「已支持 / 本版只读」；commit 文件清单内无 `.log` / `.pyc` / `release/` 杂质。
+
+### 10.2 证据缺口与处置（关键教训）
+
+1. 交接声称 `1667 passed / 0 failed / 3 ignored`，但盘上 `gate-cargo-test.log` 只报 `1 ignored` ⇒ 该 log 属过期快照。原因：`.superpowers/sdd` 被 `.superpowers/sdd/.gitignore` 忽略，b38 目录在本轮复核期间被整体换成另一份快照 —— `install-318.log` / `pin-restore.log` / `gate-cargo-test-ignored.log` / `gate-cargo-test-ignored-2nd.log` / `accept-318-real.log` / `accept-318b-real.log` 全部从盘上消失。**gitignored 证据目录不是持久证据存储，落盘即可能被换掉。**
+2. 「2 个 `#[ignore]` 实网负向用例已跑过」当时无任何落盘产物。
+   ⇒ 处置：本轮重跑，新鲜证据 `.superpowers/sdd/b38/reverify-318.log`（复现脚本 `reverify-318.cmd`，同目录）：
+   `CARGO_TEST_EXIT=0` + `test result: ok. 1667 passed; 0 failed; 3 ignored`；`IGNORED_EXIT=0` + `test result: ok. 2 passed; 0 failed; 0 ignored; 1668 filtered out`（`onedrive_live_graph_rejects_invalid_token_as_auth_error`、`onedrive_live_provider_read_dir_with_fake_session_fails_as_auth_error`）。缺口 1、2 已闭合。
+3. `ACCEPT_EXIT` / `BUILD_EXIT` 判词仍不在任何 log 内（只有 `[b38] SUMMARY pass=13 fail=0` 与 `Finished release profile [optimized] in 5m 02s`）⇒ 登记为证据不完整，不是失败。
+
+### 10.3 新发现：3.18.0 从未真正装机（§7 未覆盖）
+
+- 卸载注册表 `DisplayVersion = 3.16.1`，`InstallLocation = D:\Program Files\Alpha File Manager`，但该目录下 exe 不存在 ⇒ 本机当前处于「半卸载」状态。
+- `accept-318b/` 的 13 项 PASS 是拿 `src-tauri/target/release/alpha-file-manager.exe`（FileVersion 3.18.0、mtime 16:34，即本次 build 裸产物）跑出来的；`b38-accept.ps1:28` 的默认 `-ExePath` 正是该裸产物。
+- ⇒ 界面证据（UIA dump 命中「请先在应用内完成 OneDrive 授权」等）真实有效，但**不等于 NSIS 安装包的装机实测**。要闭合装机口径：静默安装 `release/local-builds/Alpha File Manager_3.18.0_x64-setup.exe`（同版本重装须 `/FORCE`），再把 `b38-accept.ps1` 的 `-ExePath` 指向装机路径重跑。需提权，属用户授权范围。
+
+### 10.4 仍待用户输入或授权（没有一项可由 Agent 单方推进）
+
+① 真实 Azure `client_id` + 可登录的 OneDrive 账号（装置 `accept-real-credentials.ps1` + `REAL-CREDENTIAL-ACCEPT.md` 已就绪，Microsoft 登录与 MFA 必须本人）；② push `5c96adc0`；③ 对外发布；④ 3.18.0 装机实测（需提权）；⑤ 批次 39（OneDrive B 级读写）与 `LOCAL-BUILDS.txt` 登记漂移（实际 17 个文件 vs 仅登记 3 条）。
