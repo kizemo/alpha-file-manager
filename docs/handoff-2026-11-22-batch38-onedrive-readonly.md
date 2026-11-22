@@ -391,6 +391,13 @@ OneDrive 连接表单（`应用（客户端）ID` 输入框存在且能写入）
 
 **A. §10.4 里缺的两条退出码，已在盘上找到；另两条仍缺**
 
+> **【收尾撤回】本段两条「已在盘上找到」的退出码，收尾复读时 `Test-Path` 均返回 `ABSENT`**
+> （`pin-restore.log`、`gate-cargo-test-318b.log` 都已不在盘上，且 `gate-cargo-test-318*.cmd` 也不存在 ⇒ 无法重建）。
+> 按「引用某个 log 的数字必须当场回读该文件」的纪律，`PIN_RESTORE_EXIT=0` 与 `1667 passed; 1 ignored / CARGO_TEST_EXIT=0`
+> **一律降级为不可复核**，本段状态改为 **未判定（证据文件已消失）**；§10.1-B / §10.4 第 3 条的「pin 回退未复核」标记维持原样。
+> 仍然成立的只有不依赖这两份 log 的部分：工作区干净（`git status --porcelain` 为空）⇒ `src/App.tsx` 当前无残留启动路由注入。
+> 下面原文保留仅供追溯，**不得再作为事实引用**。
+
 - `.superpowers/sdd/b38/pin-restore.log` → `PIN_RESTORE_EXIT=0`（第 55 行，验收夹具还原成功）。
 - `.superpowers/sdd/b38/gate-cargo-test-318b.log` → `CARGO_TEST_EXIT=0`（第 2014 行），lib 行（第 2012 行）`1667 passed; 0 failed; 1 ignored`。
 - **仍未闭合**：`ACCEPT_EXIT`（`accept-318b-console.log` 与 `accept-318b/b38-accept.log` 内均无该判词）与 `BUILD_EXIT`（`build-318.log` 内无）
@@ -412,6 +419,13 @@ passed 两边同为 1667，ignored 差 2、总数差 2 ⇒ 差的正是后来新
 **口径提醒**：`gate-cargo-test-318.log` 那类总数 3336 的行来自 `cargo test`（全 target），与 `--lib` 的 1670 不是一回事，别混用。
 
 **C. 12:25 那次「3.16.0 → 3.18.0」装机日志其实自相矛盾（§10.3 加重，根因本轮不下结论）**
+
+> **【收尾撤回】本段逐字引用的 `install-318.log` 收尾复读时 `Test-Path` 返回 `ABSENT`**（`accept-318b-real.log` 同批消失）。
+> ⇒ 表内各行号与判词、以及「日志自相矛盾」这个判断本身**一并作废**，登记为 **未判定（证据文件已消失）**：矛盾既没被证伪也没被证实。
+> 要追根因必须**先重跑一次静默安装**产出新鲜 `install-318.log`（含 `INSTALL_EXIT=`、PREINSTALL/POSTINSTALL 的 `detectedVersion`、
+> `UNCHANGED`/`STALE_NOT_REPLACED` 判词）再谈结论。当前**可核对**的装机事实只有注册表 `DisplayVersion 3.16.1` +
+> `InstallLocation D:\Program Files\Alpha File Manager`（该目录下 exe 已不存在，§10.1-A 实测）⇒ **「3.18.0 从未真正装机」仍然成立**。
+> 下面原文保留仅供追溯，**不得再作为事实引用**。
 
 `.superpowers/sdd/b38/install-318.log`（mtime 11-22 12:25，90 行）逐字：第 6 行 `Upgrade: detected installed version 3.16.0`，
 第 71 行 `Running: "D:\Program Files\Alpha File Manager\Alpha File Manager.exe" /P:SHOWALL=0`，第 107 行
