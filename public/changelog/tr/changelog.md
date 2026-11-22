@@ -1,6 +1,19 @@
 # Değişiklik Günlüğü
 
 
+## [3.18.0] - November 2026
+
+**Özet:** OneDrive artık dördüncü bulut diski olarak bağlanabiliyor: *Ayarlar* içinde *Bulut diski ekle* başlığının altında *Baidu Drive*, *Quark Drive* ve *Aliyun Drive* ile yan yana duruyor. Oturum sisteminizin varsayılan tarayıcısında kendi Microsoft hesabınızla açılıyor, elle token kopyalamanız gerekmiyor ve oturum uygulamanın kendi şifreli kimlik bilgileri deposunda kalıyor. Bu sürüm salt okunur: klasörleri gezebiliyor, dosyaları okuyup indirebiliyor ve bağlantıyı küresel aramaya ekleyebiliyorsunuz - yükleme, klasör oluşturma, yeniden adlandırma ve silme bu sürümde yok.
+
+### What changed
+
+**Eklendi: OneDrive artık dördüncü bulut diski** *Ayarlar* içinde *Bulut diski ekle* başlığının altında artık dört düğme var: *Baidu Drive*, *Quark Drive*, *Aliyun Drive* ve *OneDrive*. *OneDrive* seçildiğinde bağlantı formu açılıyor ve formda kendi Azure uygulamanızın client id'sini yazmanız gerekiyor - OneDrive için Microsoft Entra'da kaydettiğiniz uygulamanın kimliği. Uygulamanın hazır bir client_id'i yok, onu siz yazıyorsunuz.
+**Eklendi: OneDrive girişi kendi tarayıcınızda yapılıyor** Oturumu başlattığınızda Microsoft'un giriş sayfası sisteminizin varsayılan tarayıcısında açılıyor ve orada kendi Microsoft hesabınızla giriş yapıyorsunuz. Sonucu uygulama bu makinenin yerel geri dönüş adresinden alıyor - *http://localhost* ve rastgele bir port ile -, dolayısıyla elle token ya da kod kopyalamanız, forma bir şey yapıştırmanız gerekmiyor. Giriş PKCE ile yapılıyor, Microsoft'dan yalnızca dosyaları okuma izni ve çevrimdışı giriş isteniyor (*Files.Read* ve *offline_access*), ve hiçbir aşamada client secret kullanılmıyor.
+**Eklendi: OneDrive oturumu uygulamanın kendi şifreli kimlik bilgileri deposunda kalıyor** Yetkilendirme tamamlandığında oturum uygulamanın kimlik bilgileri deposuna yazılıyor ve Windows DPAPI ile şifreleniyor, böylece bu makinede kalıyor. Token'ın kendisi arayüze geri döndürülmüyor: form yalnızca yetkilendirilip edilmediğini ve oturumun ne zaman biteceğini söylüyor.
+**Eklendi: OneDrive bağlantısı önceden test edilebilir** Formdaki bağlantı testi düğmesi OneDrive'a kendisine bu hesabın ulaşıp ulaşmadığını soruyor. Ulaşmıyorsa bunu burada öğreniyorsunuz, sonra bir klasör açtığınızda değil.
+**Eklendi: OneDrive dosyaları da küresel aramayla bulunuyor** Diğer bulut disklerinizde olduğu gibi OneDrive bağlantısını *Genel aramaya dahil et* seçeneğiyle küresel aramaya alabilirsiniz; o sürücünün dosyaları dizine eklenir ve yerel dosyalarınızla birlikte arama sonuçlarında görünür. Dizin yalnızca siz istediğinizde yeniden kurulur - *Ayarlar* -> *Küresel arama* -> *Bulut dizinini yeniden oluştur* -.
+**Eklendi: bu sürümde OneDrive neleri yapabiliyor, neleri yapamıyor** Klasörleri listelemek, dosya okumak ve onu yerel bir klasöre indirmek - bunlar var. Dosya yüklemek, klasör oluşturmak, yeniden adlandırmak ve silmek bu sürümde yok; OneDrive'daki resimlerin de henüz küçük resimleri yok, hâlâ sıradan dosya simgesi gösteriyorlar.
+
 ## [3.17.0] - November 2026
 
 **Özet:** Ağ disklerinizdeki dosyalar artık uygulamanın genel aramasıyla bulunabiliyor - her bağlantı için aramaya katılıp katılmayacağına siz karar veriyorsunuz, böylece siz farkında olmadan hiçbir şey ağa çıkmıyor. Eklediğiniz ağ diski artık kendi adıyla geliyor, bir sık kullanılan da menüde kendine özel bir ad alabiliyor; arkasındaki gerçek dosya ya da klasöre dokunulmuyor.

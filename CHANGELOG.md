@@ -1,5 +1,23 @@
 # Changelog
 
+## [3.18.0] - November 2026
+
+**Summary:** OneDrive can now be connected as a fourth netdisk. You pick it in the same *Add netdisk* list as Baidu Netdisk, Quark Netdisk and Aliyun Drive, sign in with your Microsoft account in the browser that opens, and the session is kept in the app's own encrypted credential store - there is no token to copy by hand. This first version is read-only: you can browse folders, download a file and let the drive take part in the global search, while uploading, creating folders, renaming and deleting are not part of it yet.
+
+### What changed
+
+**Added** **OneDrive joins the netdisk list as a fourth provider** - In the *Netdisk* tab of *Settings* under *Remote*, *Add netdisk* now offers *OneDrive* next to *Baidu Netdisk*, *Quark Netdisk* and *Aliyun Drive*. Picking it opens the connection form, where the one field you have to fill in yourself is the application (client) ID of the application you registered in Microsoft Entra for OneDrive - the app carries no client ID of its own.
+
+**Added** **Signing in to OneDrive happens in your own browser** - *Start sign-in* opens the Microsoft login page in your default browser and you sign in there with your Microsoft account. The app receives the result over a loopback address on this machine (http://localhost with a random port), so there is nothing to copy: no token, no code, nothing to paste into the form. The sign-in uses PKCE, asks Microsoft for read-only file access and offline sign-in (Files.Read and offline_access), and uses no client secret at all.
+
+**Added** **The OneDrive session is kept in the app's own encrypted credential store** - After the sign-in the session is written into the credential store of the app, encrypted with Windows DPAPI, so it stays on this machine. The token itself is never handed back to the interface - the form only tells you whether you are authorized and when the session runs out.
+
+**Added** **A OneDrive connection can be checked with *Test connection*** - The connection form has a *Test connection* button, which asks OneDrive whether the account can be reached at all. If it cannot, you find that out here instead of after opening a folder.
+
+**Added** **Files on OneDrive can be found with global search** - Like any other netdisk, a OneDrive connection can be ticked *Include in global search*, and the files of that drive are then indexed and show up in the search results next to your local files. The index is rebuilt only when you ask for it - *Settings* -> *Global search* -> *Rebuild cloud index*.
+
+**Added** **What a OneDrive connection can do today** - You can list folders, read a file and download it into a local folder. Uploading a file, creating a folder, renaming and deleting are not part of this version, and pictures on OneDrive have no thumbnail yet, so they keep the plain file icon.
+
 ## [3.17.0] - November 2026
 
 **Summary:** Files on your netdisks can now be found with the app's global search - you decide for each connection whether it takes part, so nothing reaches out to the network behind your back. A netdisk you add now comes up with its own name already filled in, and a favorite can be given a name of its own in the menu, without touching the real file or folder behind it.

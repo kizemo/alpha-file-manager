@@ -666,7 +666,8 @@
         "sftp": "SFTP",
         "baidu_pan": "百度网盘",
         "quark_pan": "夸克网盘",
-        "aliyun_pan": "阿里云盘"
+        "aliyun_pan": "阿里云盘",
+        "onedrive_pan": "OneDrive"
       },
       "proxy": {
         "direct": "直连",
@@ -694,7 +695,8 @@
         "testInvalidInput": "当前设置无法测试，请先填好服务器地址与端口。",
         "baiduLoginRequired": "请先在应用内完成百度网盘登录，再保存这条连接。",
         "quarkLoginRequired": "请先在应用内完成夸克网盘登录，再保存这条连接。",
-        "aliyunLoginRequired": "请先在应用内完成阿里云盘登录，再保存这条连接。"
+        "aliyunLoginRequired": "请先在应用内完成阿里云盘登录，再保存这条连接。",
+        "onedriveLoginRequired": "请先在应用内完成 OneDrive 授权，再保存此连接。"
       },
       "localPath": {
         "hint": "可选。填写后，打开该连接会自动显示左右双屏：左侧是本地目录，右侧是远端目录。"
@@ -831,7 +833,34 @@
         "baidu": "百度网盘",
         "quark": "夸克网盘",
         "aliyun": "阿里云盘",
-        "signedIn": "已登入"
+        "signedIn": "已登入",
+        "onedrive": "OneDrive"
+      },
+      "onedrive": {
+        "field": {
+          "clientId": "应用（客户端）ID",
+          "clientIdHint": "你在 Microsoft Entra 里为 OneDrive 注册的应用客户端 ID。它随授权会话一起存在本机，不经过这个表单。",
+          "authUrl": "授权页地址",
+          "authUrlHint": "浏览器没有自动打开时，复制这个地址到浏览器里完成授权。"
+        },
+        "action": {
+          "start": "开始授权",
+          "cancel": "取消等待",
+          "deleteSession": "删除已保存的会话"
+        },
+        "state": {
+          "pending": "正在等待你在浏览器里完成授权……",
+          "completed": "已授权。保存此连接时会把会话写入。",
+          "failed": "授权没有完成，请重试。"
+        },
+        "auth": {
+          "authorized": "已授权",
+          "missing": "未授权",
+          "loading": "正在读取授权状态……"
+        },
+        "hint": {
+          "clientIdRequired": "请先填写应用（客户端）ID。"
+        }
       }
     },
     "about": {

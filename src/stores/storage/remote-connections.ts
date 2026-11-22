@@ -28,6 +28,9 @@ import type {
   QuarkLoginClaimPayload,
   QuarkLoginPendingPayload,
   QuarkLoginStartPayload,
+  OnedriveAuthStatusPayload,
+  OnedriveLoginPendingPayload,
+  OnedriveLoginStartPayload,
   RemoteConnection,
   RemoteConnectionForm,
   RemoteConnectionTestReport,
@@ -39,6 +42,7 @@ import {
   isAliyunPanProtocol,
   isBaiduPanProtocol,
   isNetdiskProtocol,
+  isOnedrivePanProtocol,
   isQuarkPanProtocol,
 } from '@/types/remote';
 import { normalizeRemotePath } from '@/utils/remote-paths';
@@ -87,6 +91,16 @@ const ALIYUN_PAN_HOST = 'api.aliyundrive.com';
 const ALIYUN_PAN_PORT = 443;
 
 /**
+ * OneDrive 的固定主机与端口（批次 38）。
+ *
+ * 与前三家同构：连接表里 host 必填（Rust 侧 `RemoteConnection::validate` 要求非空），
+ * 但它对 OneDrive **没有语义** —— 后端一律走 Microsoft Graph，忽略这里的值。
+ * 写 `graph.microsoft.com` 只是让人一眼看出这条连接指向哪里。
+ */
+const ONEDRIVE_PAN_HOST = 'graph.microsoft.com';
+const ONEDRIVE_PAN_PORT = 443;
+
+/**
  * 网盘协议的固定主机。返回 `null` = 该协议不是网盘，host 由用户填。
  *
  * **导出**是因为设置页的表单与「添加网盘」弹窗也要写同一个值 ——
@@ -105,6 +119,10 @@ export function fixedNetdiskHost(protocol: RemoteProtocol): string | null {
     return ALIYUN_PAN_HOST;
   }
 
+  if (isOnedrivePanProtocol(protocol)) {
+    return ONEDRIVE_PAN_HOST;
+  }
+
   return null;
 }
 
@@ -120,6 +138,10 @@ export function fixedNetdiskPort(protocol: RemoteProtocol): number | null {
 
   if (isAliyunPanProtocol(protocol)) {
     return ALIYUN_PAN_PORT;
+  }
+
+  if (isOnedrivePanProtocol(protocol)) {
+    return ONEDRIVE_PAN_PORT;
   }
 
   return null;
@@ -155,6 +177,7 @@ const NETDISK_PROTOCOL_LABELS: Record<string, string> = {
   baidu_pan: '百度网盘',
   quark_pan: '夸克网盘',
   aliyun_pan: '阿里云盘',
+  onedrive_pan: 'OneDrive',
 };
 
 export const useRemoteConnectionsStore = defineStore('remoteConnections', () => {
@@ -573,6 +596,42 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
         }
       }
     }
+    else if (isOnedrivePanProtocol(form.protocol)) {
+      // OneDrive（批次 38）的凭据是一整套 Microsoft OAuth 会话
+      // （access_token / refresh_token），同样不是口令：用户在系统浏览器里授权后，
+      // 后端把换到的会话暂存在「待认领槽位」，保存这条连接时（那时才有 id）认领打盘。
+      // ⚠️ 认领返回的是 `OnedriveAuthStatusPayload`（判定字段是 `authorized`），
+      // 与前三家的 `claimed` 形状不同，别照抄。
+      if (form.clearPassword) {
+        // 勾了「移除已保存的密码」= 退出登录。删掉会话，连接还在。
+        await invoke('remote_onedrive_delete_session', {
+          connectionId: id,
+        });
+        credentialKey = undefined;
+      }
+      else {
+        let claimed: OnedriveAuthStatusPayload | null = null;
+
+        try {
+          claimed = await invoke<OnedriveAuthStatusPayload>('remote_onedrive_login_claim', {
+            connectionId: id,
+          });
+        }
+        catch (error) {
+          console.warn('OneDrive login claim failed:', error);
+        }
+
+        if (claimed?.authorized) {
+          credentialKey = id;
+        }
+        else if (!credentialKey) {
+          // 槽位为空且这条连接本来也没有凭据 —— 保存下去会得到一条
+          // 「看起来加成功了、实际连不上」的连接，界面上没有任何提示。
+          // 抛 i18n key，由表单按既有约定渲染成中文提示。
+          throw new Error('onedriveLoginRequired');
+        }
+      }
+    }
     else if (hasNewPassword) {
       await invoke('remote_save_credential', {
         key: id,
@@ -905,6 +964,54 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     await invoke('remote_aliyun_login_close');
   }
 
+  /**
+   * OneDrive 的授权状态，给设置页的授权卡用（批次 38）。
+   *
+   * **只返回状态与账号摘要，不返回任何 token 片段** —— 与后端一致。
+   */
+  async function getOnedriveAuthStatus(
+    connectionId: string,
+  ): Promise<OnedriveAuthStatusPayload> {
+    return invoke<OnedriveAuthStatusPayload>('remote_onedrive_auth_status', {
+      connectionId,
+    });
+  }
+
+  /** 删掉已保存的 OneDrive 会话（退出登录）。键不存在是成功的空操作。 */
+  async function deleteOnedriveSession(connectionId: string): Promise<void> {
+    await invoke('remote_onedrive_delete_session', {
+      connectionId,
+    });
+  }
+
+  /**
+   * 启动 OneDrive 授权（批次 38）。
+   *
+   * 与前三家**不同**：OneDrive 走 Microsoft 的 OAuth 授权码流程，
+   * 不是内嵌窗口抓 cookie —— 后端只给一个授权 URL 与一个环回 redirect URI，
+   * 浏览器由调用方（表单）用系统浏览器打开。
+   * `clientId` 由用户自填：不传 `openBrowser` 时后端自己开浏览器。
+   */
+  async function startOnedriveLogin(
+    clientId: string,
+    openBrowser?: boolean,
+  ): Promise<OnedriveLoginStartPayload> {
+    return invoke<OnedriveLoginStartPayload>('remote_onedrive_login_start', {
+      clientId,
+      openBrowser,
+    });
+  }
+
+  /** 有没有待认领的 OneDrive 登录态 / 授权进行到哪一步。 */
+  async function getOnedriveLoginPending(): Promise<OnedriveLoginPendingPayload> {
+    return invoke<OnedriveLoginPendingPayload>('remote_onedrive_login_pending');
+  }
+
+  /** 放弃本轮授权：后端关掉环回监听。已落盘的会话不受影响。 */
+  async function cancelOnedriveLogin(): Promise<void> {
+    await invoke('remote_onedrive_login_cancel');
+  }
+
   return {
     storage,
     connections,
@@ -941,6 +1048,11 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     getAliyunLoginPending,
     openAliyunLogin,
     closeAliyunLogin,
+    getOnedriveAuthStatus,
+    deleteOnedriveSession,
+    startOnedriveLogin,
+    getOnedriveLoginPending,
+    cancelOnedriveLogin,
     requestRemoteEdit,
     consumeRemoteEdit,
     requestRemoteCreate,

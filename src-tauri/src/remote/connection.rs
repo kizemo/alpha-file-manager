@@ -43,6 +43,13 @@ pub enum RemoteProtocol {
     /// 连接表里仍然要存 host / port，是为了让远程路径与侧边栏的呈现方式
     /// 跟其它协议一致。
     AliyunPan,
+    /// OneDrive：走 Microsoft Graph（`graph.microsoft.com`）的 HTTPS 接口。
+    ///
+    /// 与阿里云盘同构但又不同构：登录态同样是一份 OAuth 会话
+    /// （`access_token` + `refresh_token`），但会话里还带着
+    /// **应用（客户端）ID** —— 公开客户端没有 client secret，
+    /// 刷新令牌时必须靠它。没有「密码」可填。
+    OnedrivePan,
 }
 
 impl RemoteProtocol {
@@ -55,6 +62,8 @@ impl RemoteProtocol {
             Self::BaiduPan => 443,
             Self::QuarkPan => 443,
             Self::AliyunPan => 443,
+            // Microsoft Graph 走 HTTPS。
+            Self::OnedrivePan => 443,
         }
     }
 
@@ -67,6 +76,7 @@ impl RemoteProtocol {
             Self::BaiduPan => "baidu_pan",
             Self::QuarkPan => "quark_pan",
             Self::AliyunPan => "aliyun_pan",
+            Self::OnedrivePan => "onedrive_pan",
         }
     }
 }
@@ -277,6 +287,8 @@ mod tests {
         assert_eq!(RemoteProtocol::QuarkPan.default_port(), 443);
         // 阿里云盘也走 HTTPS。
         assert_eq!(RemoteProtocol::AliyunPan.default_port(), 443);
+        // OneDrive 走 Microsoft Graph，同样是 HTTPS。
+        assert_eq!(RemoteProtocol::OnedrivePan.default_port(), 443);
     }
 
     /// 协议名会写进 `user-remote-connections.json` 与前端类型，

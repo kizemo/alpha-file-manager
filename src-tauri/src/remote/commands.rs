@@ -106,6 +106,23 @@ pub async fn remote_load_credential(
 ) -> Result<Option<String>, RemoteError> {
     let app_data_dir = app_data_dir(&app)?;
 
+    // OneDrive 的存档是一整份 OAuth 会话（`access_token` + `refresh_token`），
+    // **绝不**能原样回传给前端 —— 这个命令会把 DPAPI 密文解密后直接返回。
+    // 这里按连接表判定：只要这个 key 挂在一条 OneDrive 连接上，就不给回传。
+    //
+    // 这条守卫不能只靠 `is_onedrive_session_blob`：那份存档一旦版本号不是 1，
+    // 形状判定就会失配，于是「不认识」被当成「不是会话」，反而把令牌放出去。
+    let ud_dir = user_data_dir(&app)?;
+    if let Ok(connections) = registry::load_connections(&ud_dir) {
+        let belongs_to_onedrive = connections.iter().any(|connection| {
+            connection.protocol == RemoteProtocol::OnedrivePan
+                && connection.credential_key.as_deref() == Some(key.as_str())
+        });
+        if belongs_to_onedrive {
+            return Ok(None);
+        }
+    }
+
     tauri::async_runtime::spawn_blocking(move || credentials::load_credential(&app_data_dir, &key))
         .await
         .map_err(|join_error| {
@@ -526,6 +543,15 @@ async fn list_with_protocol(
                 .read_dir(&resolved.connection.id, remote_path)
                 .await
         }
+        // OneDrive：与阿里云盘同构 —— 会话在 DPAPI 密文里，provider 自己读。
+        RemoteProtocol::OnedrivePan => {
+            super::onedrive_provider::OnedriveRemoteProvider::new_deferred(
+                user_data_dir,
+                app_data_dir,
+            )
+            .read_dir(&resolved.connection.id, remote_path)
+            .await
+        }
     }
 }
 
@@ -553,6 +579,38 @@ async fn stat_with_protocol(
         // 所以这里只能这样拼；语义与明文 FTP 那条完全一致。
         RemoteProtocol::QuarkPan => {
             let provider = quark_provider(user_data_dir, app_data_dir);
+            let normalized = super::path::normalize_remote_path(remote_path).ok_or_else(|| {
+                RemoteError::protocol(format!("远端路径不合法：{remote_path}"))
+            })?;
+            let name = normalized
+                .rsplit('/')
+                .next()
+                .filter(|segment| !segment.is_empty())
+                .ok_or_else(|| {
+                    RemoteError::protocol(format!("远端路径不是一个条目：{normalized}"))
+                })?
+                .to_string();
+            let parent = match normalized.rfind('/') {
+                Some(0) | None => "/".to_string(),
+                Some(index) => normalized[..index].to_string(),
+            };
+            let siblings = provider.read_dir(&resolved.connection.id, &parent).await?;
+            // 比**末段**而不是比后缀 —— 后缀匹配会把 `a.txt` 误认成 `xa.txt`。
+            siblings
+                .into_iter()
+                .find(|entry| entry.name == name)
+                .ok_or_else(|| {
+                    RemoteError::not_found(format!("远端没有这个条目：{normalized}"))
+                })
+        }
+        // OneDrive：`stat` 与夸克/阿里云同构 —— `RemoteProvider` trait 上
+        // **没有** `stat` 方法，Graph 的条目也只有 `id` 没有可拼的路径，
+        // 所以只能「列父目录再按名字找」。
+        RemoteProtocol::OnedrivePan => {
+            let provider = super::onedrive_provider::OnedriveRemoteProvider::new_deferred(
+                user_data_dir,
+                app_data_dir,
+            );
             let normalized = super::path::normalize_remote_path(remote_path).ok_or_else(|| {
                 RemoteError::protocol(format!("远端路径不合法：{remote_path}"))
             })?;
@@ -818,6 +876,13 @@ pub(crate) async fn provider_with_protocol(
             user_data_dir,
             app_data_dir,
         )),
+        // OneDrive：与上面三家同构 —— 构造失败推迟到第一次调用。
+        RemoteProtocol::OnedrivePan => Box::new(
+            super::onedrive_provider::OnedriveRemoteProvider::new_deferred(
+                user_data_dir,
+                app_data_dir,
+            ),
+        ),
     }
 }
 
@@ -1267,6 +1332,16 @@ mod tests {
         "remote_aliyun_login_cancel",
         "remote_aliyun_auth_status",
         "remote_aliyun_delete_session",
+        // OneDrive（批次 38）：实现在顶层 `onedrive_oauth` 模块，
+        // 注册项写的是 `onedrive_oauth::remote_onedrive_*` —— 与
+        // `aliyun_login::remote_aliyun_*` 同构，所以也得登记在这儿。
+        "remote_onedrive_login_start",
+        "remote_onedrive_login_pending",
+        "remote_onedrive_login_claim",
+        "remote_onedrive_login_cancel",
+        "remote_onedrive_auth_status",
+        "remote_onedrive_save_session",
+        "remote_onedrive_delete_session",
         "remote_test_connection",
         "remote_read_dir",
         "remote_stat_dir_entry",
