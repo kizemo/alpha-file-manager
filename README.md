@@ -105,7 +105,7 @@ sync, batch rename, and a long list of day-to-day fixes. **If you have been look
 | ➕ | **Adding a netdisk takes three steps** — *Settings* → *Remote* → *Netdisks* → pick the provider → scan the QR code → give the connection a name. No token to copy, no config file to hand-edit, no service to start |
 | 📂 | **A netdisk browsed like a remote connection** — listing, creating a folder, renaming, deleting and downloading all reach the drive itself, not a shadow of a local folder |
 | ⚙️ | **Netdisks and remote servers are kept apart** — the settings page splits them into two tabs, *Netdisks* and *Remote connections*, so each connection sits where it belongs |
-| 🔗 | **OneDrive is in the list now** — pick it in the very same *Add netdisk* list next to the other three, sign in with your Microsoft account in the browser that opens, and the session is kept in the app's own encrypted credential store. This version browses and downloads, and the drive can take part in the global search; writing to it comes later |
+| 🔗 | **OneDrive is in the list now** — pick it in the very same *Add netdisk* list next to the other three, sign in with your Microsoft account in the browser that opens, and the session is kept in the app's own encrypted credential store. This version browses and downloads, and the drive can take part in the global search; since 3.20.0 it writes as well - upload a file, create a folder, rename and delete on the drive itself |
 
 #### Why this is simpler than mounting the drive with alist
 
@@ -162,16 +162,25 @@ Adding a netdisk here has none of that:
 | ![Dashboard quick access](docs/screenshots/afm-dashboard-hero-light-en.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
 | ![Dashboard cards](docs/screenshots/afm-dashboard-card-enrichment-en.png) | **Dashboard cards** — name, size and path on top, type and item count below, with drag, reorder and edit shortcuts on every card |
 
+### What changed in 3.20.0
+
+| | | |
+|---|---|---|
+| ✍️ | **OneDrive can write to your drive now** — the connection that was read-only in 3.18.0 writes as well: upload a file, create a folder, rename an item and delete it on the drive itself. Deleting puts the item into the drive's recycle bin, and a new folder never silently replaces an existing one of the same name - the app refuses the name instead |
+| 📦 | **Large files can be uploaded** — up to 250 MB in one request, bigger files in 5 MB pieces, with the progress shown while it runs |
+| 🩺 | **Test connection now sees the sign-in you already did** — it used to answer that the connection had no credentials while the form right above it showed the connection as authorized. The saved session is used now, an access token that ran out is renewed by itself, and a missing credential is only reported when there really is no session for that connection |
+| 🔑 | **The sign-in asks Microsoft for read *and* write access now** — Files.ReadWrite and offline_access instead of Files.Read and offline_access. A session signed in earlier keeps working for reading, downloading and indexing; to write, sign in once more, because Microsoft grants the wider permission when you authorize |
+
 ### What changed in 3.18.0
 
 | | | |
 |---|---|---|
 | ☁️ | **OneDrive can be added as a fourth netdisk provider** — in *Settings* → *Remote* → *Netdisks*, *Add netdisk* now offers *OneDrive* next to *Baidu Netdisk*, *Quark Netdisk* and *Aliyun Drive*. The one field you bring along is the application (client) ID of the application you registered in Microsoft Entra for OneDrive — the app has no client ID of its own |
-| 🔑 | **Signing in to OneDrive happens in your own browser** — *Start sign-in* opens the Microsoft login page in your default browser, you sign in there with your Microsoft account, and the app picks the result up over a loopback address on this machine (http://localhost with a random port). No token is copied by hand; the sign-in uses PKCE, asks for read-only file access and offline sign-in (Files.Read and offline_access), and uses no client secret |
+| 🔑 | **Signing in to OneDrive happens in your own browser** — *Start sign-in* opens the Microsoft login page in your default browser, you sign in there with your Microsoft account, and the app picks the result up over a loopback address on this machine (http://localhost with a random port). No token is copied by hand; the sign-in uses PKCE, asked for read-only file access and offline sign-in (Files.Read and offline_access) in this version - since 3.20.0 it asks for read and write access - and uses no client secret |
 | 🔐 | **The OneDrive session is kept in the app's own encrypted credential store** — it is written into the credential store of the app, encrypted with Windows DPAPI, so it stays on this machine. The token itself is never handed back to the interface |
 | 🩺 | **A OneDrive connection can be checked with *Test connection*** — the button asks OneDrive whether the account can be reached at all, so you find that out before you open a folder |
 | 🧭 | **Files on OneDrive can be found with global search** — like any other netdisk, a OneDrive connection can be ticked *Include in global search*, and the files of that drive are then indexed and show up in the search results next to your local files. The index is rebuilt only when you ask for it |
-| 🔒 | **OneDrive is read-only in this release** — you can list folders, read a file and download it into a local folder. Uploading a file, creating a folder, renaming and deleting are not part of this version, and pictures on OneDrive have no thumbnail yet |
+| ✍️ | **OneDrive can write to your drive since 3.20.0** — on top of listing folders, reading a file and downloading it, you can upload a file, create a folder, rename an item and delete it on the drive; deleting puts the item into the drive's recycle bin. The sign-in now asks Microsoft for read *and write* access, so a session signed in earlier has to be renewed once. Pictures on OneDrive still have no thumbnail |
 
 ### What changed in 3.16.0
 

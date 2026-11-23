@@ -1,6 +1,18 @@
 # Journal des modifications
 
 
+## [3.20.0] - November 2026
+
+**Résumé :** OneDrive n’est plus en lecture seule. La connexion ajoutée en 3.18.0 écrit désormais sur le disque : envoyer un fichier, créer un dossier, renommer et supprimer, comme les autres disques réseau. La connexion demande maintenant un accès en lecture et en écriture, et *Tester la connexion* reconnaît enfin la session avec laquelle vous vous êtes déjà connecté.
+
+### What changed
+
+**Ajouté: OneDrive peut maintenant écrire sur le disque** L’envoi d’un fichier, la création d’un dossier, le renommage et la suppression agissent réellement sur le disque ; ce qui est supprimé va à la corbeille et n’est pas effacé définitivement. Un nouveau dossier ne remplace jamais un dossier du même nom : l’application refuse ce nom.
+**Ajouté: Les gros fichiers peuvent aussi être envoyés** Jusqu’à 250 Mo en une fois ; au-delà, par blocs de 5 Mo, avec la quantité déjà envoyée affichée.
+**Ajouté: *Tester la connexion* utilise la session existante** Il annonçait l’absence d’identifiants alors même que le formulaire indiquait *autorisé*. La session enregistrée est désormais utilisée, un jeton expiré est renouvelé automatiquement, et l’absence d’identifiants n’est signalée que s’il n’y a vraiment aucune session.
+**Ajouté: Les anciennes sessions continuent de fonctionner** Les sessions créées avant cette version se renouvellent, lisent, téléchargent et indexent comme avant. Pour écrire, il faut se reconnecter une fois : Microsoft n’accorde l’accès élargi qu’au moment de l’autorisation.
+**Corrigé : La colonne *Espace disponible* de la liste des *Emplacements* est maintenant alignée sur les autres colonnes.** Le texte de cette colonne se collait en haut de sa case, alors que les autres colonnes l’affichaient au milieu : les lignes avaient donc une hauteur irrégulière. La colonne centre maintenant son texte verticalement comme les autres.
+
 ## [3.18.0] - November 2026
 
 **Résumé :** OneDrive peut maintenant être connecté comme quatrième disque en ligne : dans les *Paramètres*, il apparaît sous le titre *Ajouter un disque cloud*, à côté de *Baidu Drive*, *Quark Drive* et *Aliyun Drive*. La connexion se fait dans le navigateur du système avec votre compte Microsoft, il n'y a aucun jeton à copier à la main, et la session est conservée dans le magasin chiffré d'identifiants de l'application. Cette version est en lecture seule : vous pouvez parcourir les dossiers, lire et télécharger des fichiers et ajouter la connexion à la recherche globale, mais pas encore téléverser de fichiers, créer des dossiers, renommer ni supprimer.

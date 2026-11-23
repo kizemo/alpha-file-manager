@@ -1,6 +1,18 @@
 # Registro delle modifiche
 
 
+## [3.20.0] - November 2026
+
+**Riepilogo:** OneDrive non è più in sola lettura. La connessione aggiunta in 3.18.0 ora scrive anche sul disco: caricare un file, creare una cartella, rinominare ed eliminare, come gli altri dischi di rete. L’accesso richiede ora permessi di lettura e scrittura, e *Prova connessione* riconosce finalmente la sessione con cui hai già effettuato l’accesso.
+
+### What changed
+
+**Aggiunto: OneDrive ora scrive sul disco** Caricare file, creare cartelle, rinominare ed eliminare agiscono davvero sul disco; l’eliminato finisce nel cestino e non viene cancellato definitivamente. Una cartella nuova non sostituisce mai una cartella omonima: l’app rifiuta quel nome.
+**Aggiunto: Anche i file grandi si possono caricare** Fino a 250 MB in una richiesta; oltre, a blocchi da 5 MB, con l’avanzamento mostrato.
+**Aggiunto: *Prova connessione* usa la sessione che hai già** Prima dichiarava l’assenza di credenziali anche mentre il modulo indicava *autorizzato*. Ora usa la sessione salvata, rinnova da solo il token scaduto e segnala credenziali mancanti solo se la sessione non esiste davvero.
+**Aggiunto: Le sessioni precedenti continuano a funzionare** Le sessioni create prima di questa versione si rinnovano, leggono, scaricano e vengono indicizzate come prima. Per scrivere devi accedere di nuovo una volta, perché Microsoft concede l’autorizzazione più ampia solo al momento dell’autorizzazione.
+**Corretto: La colonna *Spazio disponibile* dell’elenco delle *Località* ora è in linea con le altre colonne.** Il testo di quella colonna restava in alto nella sua cella, mentre le altre colonne lo mostravano al centro, e così le righe risultavano irregolari. Ora la colonna centra il suo testo verticalmente come le altre.
+
 ## [3.18.0] - November 2026
 
 **Riepilogo:** OneDrive ora si collega come quarto provider di dischi cloud: nelle *Impostazioni* compare sotto il titolo *Aggiungi disco cloud*, accanto a *Baidu Drive*, *Quark Drive* e *Aliyun Drive*. L'accesso avviene nel browser di sistema con il tuo account Microsoft, non c'è nessun token da copiare a mano, e la sessione finisce nell'archivio cifrato delle credenziali dell'app. Questa versione è in sola lettura: puoi sfogliare le cartelle, leggere e scaricare i file e aggiungere la connessione alla ricerca globale, ma non puoi ancora caricare file, creare cartelle, rinominare o cancellare.

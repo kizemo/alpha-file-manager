@@ -55,8 +55,32 @@ pub const ONEDRIVE_TOKEN_URL: &str = "https://login.microsoftonline.com/common/o
 ///
 /// **必须显式带 `offline_access`** —— 少了它微软不会发 refresh token，
 /// 用户每小时都要重新登录一次，而报错信息只会说「没有 refresh_token」。
-/// `Files.Read` 是只读批次的全部权限，不申请任何写权限。
-pub const ONEDRIVE_SCOPE: &str = "Files.Read offline_access";
+/// `Files.ReadWrite` 是**委托权限**，覆盖用户自己盘上的读写（上传/新建/改名/删除）。
+///
+/// **不要**用 `Files.ReadWrite.All` —— 那是「用户能访问的所有文件」，含别人分享的，
+/// 权限面大得多，个人盘用不上；`Files.ReadWrite` 已是完整读写的最小面。
+///
+/// ⚠️ **scope 只能在「授权」时定。** 刷新（`grant_type=refresh_token`）时
+/// **不要**再带 `scope` 参数：不带就沿用当初授权的范围；带了与当初不同的范围，
+/// 微软回 `invalid_scope`（AADSTS70011），把用户**已经登录好的会话**直接废掉。
+/// 这条对「升级前用旧 scope 登录过」的用户尤其要紧 —— 升级之后他们不重新登录也必须还能用。
+pub const ONEDRIVE_SCOPE: &str = "Files.ReadWrite offline_access";
+
+/// 刷新会话的请求体（`application/x-www-form-urlencoded`）。
+///
+/// ⚠️ **刻意不含 `scope`**：刷新时**不传**就沿用当初授权的范围；
+/// 传一个与当初不同的范围，微软回 `invalid_scope`（AADSTS70011），
+/// 把用户**已经登录好的会话**直接废掉 —— 升级 scope（`Files.Read` → `Files.ReadWrite`）
+/// 之后，升级前登录过的用户一次都续不了期，只能被逼着重新登录。
+///
+/// 这条不能只写在注释里：它必须有一个**会失败的测试**盯着。
+pub fn onedrive_refresh_request_body(client_id: &str, refresh_token: &str) -> String {
+    onedrive_form_body(&[
+        ("client_id", client_id),
+        ("grant_type", "refresh_token"),
+        ("refresh_token", refresh_token),
+    ])
+}
 
 /// PKCE `code_verifier` 的长度下限（RFC 7636 §4.1）。
 pub const ONEDRIVE_CODE_VERIFIER_MIN_LEN: usize = 43;

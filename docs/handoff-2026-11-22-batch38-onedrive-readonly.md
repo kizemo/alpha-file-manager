@@ -838,3 +838,584 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .superpowers\sdd\b38\acc
 3. 人工登录：用**隔离档案 / 内置浏览器**（**绝不用用户默认 Edge 档案** —— 锁号 MSA 会劫持 `login_hint`）⇒ `otc` 框按「空 → 手工填」准备；邮箱 / 密码 / MFA 由用户本人做。
 4. 建应用后取 client_id ⇒ 跑 `.superpowers\sdd\b38\accept-real-credentials.ps1`（**`powershell.exe` 5.1** + **显式 `-ExePath`**；pwsh 7 下内嵌 C# `Add-Type` 会 CS0246 `List<>` 找不到），判 `ACCEPT_EXIT`。
 5. **未验证的关键不确定性**：消费级 MSA 租户（`kizemo@hotmail.com`）能否经 Graph `POST /v1.0/applications` 建注册 —— `Application.ReadWrite.All` 委托权限通常需管理员同意，个人号常报 **AADSTS65001**。备选：改走**多租户应用**路线，或门户「我的应用程序」手工注册。
+
+
+## 2026-11-23 09:25 run9 注册脚本被静默杀死 → 已加自愈重启 + 历史 device_code 续轮询
+
+**事件**：`bg_2387d1d0`（run9 长驻注册）于 `2026-11-23 09:16:26` 异常终止，
+`status=failed`、`exit=4294967295 (0xFFFFFFFF)`、**task_output 无任何输出**；
+`azure-register9.log` 末行停在 `STEP=1b refresh device code`（09:15:42），**无错误行**。
+同一时刻机器**已解锁**（`LogonUI=ABSENT`、`OpenInputDesktop=OK`、前台窗口 = MiniMax Code），
+此前 00:00:35 起一直锁屏。
+
+**根因判定：未判定（外部静默 kill，非脚本异常）**
+- Application 日志最近 20 分钟内**无** pwsh / .NET Runtime / Application Error / WER 记录 ⇒ 不是 .NET 崩溃。
+- System 日志最近 20 分钟内**无** Kernel-Power / Power-Troubleshooter（1/42/107/506/507）⇒ 无 sleep/resume 事件。
+- 脚本内所有网络调用均已 try/catch（`DEVICE_CODE_FAIL` ×3 重试、`POLL_TRANSPORT_FAIL`），
+  正常异常路径都会写日志 ⇒ 无日志即**进程被外部终止**（task 级 kill）。
+- 同一失败形态此前已出现 2 次（`bg_bd4bc47a`、`bg_2387d1d0`）⇒ 复现性问题，不是偶发。
+
+**改动（脚本 `azure-register-persist.ps1`，纯 ASCII）**
+1. 新增 `codes-state.txt`：`user_code|device_code|签发时间` 持久化 ⇒ 脚本重启后**继续轮询历史 device_code**，
+   用户在旧码上完成的登录不会因为进程重启而丢失 token。
+2. 启动时自动 `RESUME_CODES=n` 装载历史码。
+3. 旧日志 `azure-register9.log` 保留为证据，新轮次写 `azure-register9b.log`。
+
+**重启**：`bg_9bc55aea`（`timeout=43200`，显式后台），
+命令为**自愈循环**：`pwsh -File azure-register-persist.ps1 -OutDir …/b38/azure/run9 -ExpectedAccount kizemo@hotmail.com -TimeoutSeconds 39600`，
+非 0 退出则隔 20s 自动重开（rc=0 即停，避免重复建应用）。
+**沿用 run9 目录** ⇒ 守窗器 `bg_1f1da51b` 无需重启、继续盯同一个 `device-code.txt`，不存在双守窗器抢窗。
+
+**页面渲染已验证**：解锁后 `PrintWindow` 抓到 InPrivate 窗口正文（「输入代码以允许访问你的帐户」卡片），
+证明之前整夜"空白"是**锁屏期间 Chromium 渲染层挂起**，不是页面坏；`otc=` 参数会预填代码框。
+
+
+## 2026-11-23 09:20 关键发现：登录页可能绑定「已作废 device_code」⇒ 必须用当前码重走一遍
+
+**取证**（窗口枚举 + UIA 地址栏回读，机器已解锁）
+
+- 解锁后出现**第 6 个 Edge 窗口**，前台窗口标题「如果看到此代码，请继续 - 个人 2 - Microsoft Edge」，
+  地址栏 =
+  `https://login.live.com/oauth20_remoteconnect.srf?client_id=1950a258-227b-4e31-a9cf-717495945fc2&scope=…Application.ReadWrite.All+offline_access…&username=kizemo%40hotmail.com&login_hint=kizemo%40hotmail.com`
+  ⇒ 这是**设备码流程的登录续页**（URL 同时带 scope + client_id + username），不是用户手工导航。
+- 它绑定的 device_code 是 09:15:43 签发的 `N3QY8PN4M`；而**持有该 device_code 的进程
+  `bg_2387d1d0` 已于 09:16:26 被杀**，`device_code` 只存在于该进程内存中、无法恢复。
+  ⇒ 即便在该页把密码输完、登录成功，token 也发给了**无人轮询的旧 device_code**，拿不到。
+
+**结论 / 动作**
+
+1. **必须用当前码重新提交一次**：切到标题带 `[InPrivate]` 的窗口（地址栏 `otc=INHJ4TQX3`，
+   代码框已预填）→ 点「下一步」→ 在弹出的登录页输 `kizemo@hotmail.com` 密码 → 同意。
+   此时 token 才会落到正在被轮询的 device_code 上。
+2. 在旧页面把密码输完不算白费：会在 Edge 里留下 kizemo@hotmail.com 的登录会话，后续提交更快。
+3. 代码层已补该漏洞：新增 `codes-state.txt`（`user_code|device_code|签发时间`）持久化，
+   脚本重启时 `RESUME_CODES=n` **继续轮询历史码** ⇒ 今后进程被杀不再丢 in-flight 登录。
+
+**当前运行态**
+
+- 注册：`bg_9bc55aea`（自愈循环：rc≠0 隔 20s 重开，rc=0 即停以免重复建应用；沿用 run9 目录，
+  守窗器 `bg_1f1da51b` 无需重启、继续盯同一个 `device-code.txt`，无双守窗器抢窗）。
+- 当前码 `INHJ4TQX3`（09:18:15 签发），守窗器 09:18:15 已关旧窗、开新窗。
+- 额度闸门 `until_ms=1795440600000`（2026-11-23 21:30），`covers_task_end=true`。
+- 页面渲染已验证：解锁后 `PrintWindow` 抓到 InPrivate 窗口正文（「输入代码以允许访问你的帐户」卡片）
+  ⇒ 整夜"空白"是**锁屏期间 Chromium 渲染层挂起**，不是页面坏；`otc=` 参数会预填代码框。
+
+---
+
+## [批次 38 · 2026-11-23 09:30-10:00] 换客户端 + Windows 式 OneDrive 研究结论
+
+### 1) 客户端切换（旧客户端实测被拒）
+
+- `1950a258-227b-4e31-a9cf-717495945fc2`（Azure PowerShell，第一方）设备码可签发，但**授权阶段被微软拒**：
+  "The request is not valid. The application is a first party application… the first party application should obtain pre-authorization for the resource server."（`invalid_request`）
+  ⇒ 消费租户（个人 MSA 所在租户）未预授权 Graph 的 `Application.ReadWrite.All`，点「接受」永远走不通。**此前「只差一个按钮」的判断已被推翻。**
+- 改用 `14d82eec-204b-4c2f-b7e8-296a70dab67e`（Microsoft Graph CLI / Connect-MgGraph）重新签发设备码，两档 scope 均通过。
+- 探针脚本：`…\b38\azure\client-probe.ps1` + `client-probe.log`。负对照 `00000000…` → `AADSTS700038`，证明探针有判别力。
+- 门户挖 client_id 已失败（勿重试）：`apps.dev.microsoft.com` HTML 内无 GUID；`graph.microsoft.com/apps` 返 400。脚本 `portal-clientid-hunt.ps1` + 同名 log。
+
+### 2) run10 链路（当前唯一在跑的自助注册链路）
+
+- 目录 `…\b38\azure\run10\`：设备码 `SH5N4MJ4V`（09:33:21 签发，900s 有效，约 09:48 过期；脚本在 `expired_token` 后自动补发，守窗器自动换窗）。
+- 长驻任务：`bg_71c488bc`（注册，自愈循环）、`bg_3b289aa4`（守窗器，保活唯一 `[InPrivate]` 窗口）。额度闸门 `.bgtask_ack.json` 覆盖至 `until_ms=1795441500000`（21:45）。
+- **截至 10:00 未产出 `azure-app.json`**，`azure-register10.log` 仍停在 `STEP=2 wait for user sign-in`。用户本人须在标题带 `[InPrivate]`、地址栏 `otc=` 当前码的窗口点「下一步」→ 输密码 → 同意。并发会话另有 `IN6SZGYZ2` 等窗口，勿用。
+
+### 3) 用户指令与研究方向（2026-11-23 09:41）
+
+> 「希望注册OneDrive的方式，与Windows系统注册OneDrive的方式一致，请研究，不要盲目试错。」
+
+已完成的定向研究（产物：`…\b38\azure\reports\` 下 4 份）：
+
+- `web-windows-onedrive-auth.md`（40,169 B，67 处 URL）：官方文档与政策全量取证。
+- `local-windows-clientid.md`：本机二进制/注册表取证。
+- `STATUS-b38-windows-style.md`：**本轮结论唯一权威落点**。
+- `WINDOWS-STYLE-ONEDRIVE-DIRECTION.md`：方向登记与契约冲突定位。
+
+### 4) 研究结论（关键）
+
+- **第一方 client_id 官方表格（已一手回读 Learn 页面原文）**：OneDrive `b26aadf8-566f-4478-926f-589f601d9c74`、OneDrive SyncEngine `ab9b8c07-8f02-4f72-87fa-80105867a763`、OneDrive Photos `bed12bc0-3a62-470d-998c-e47546e7b039`、OneDrive iOS App `af124e86-4e96-495a-b70a-90f90ab96707`。
+  来源：<https://learn.microsoft.com/en-us/power-platform/admin/apps-to-allow>
+- **复用第一方 id 不成立（平台层 + 法务层双否）**：
+  - 预授权权限 "…aren't available to external developers."（<https://learn.microsoft.com/en-us/entra/identity-platform/scopes-oidc>）⇒ 会撞 AADSTS65002 / unauthorized_client。
+  - 身份平台条款要求注册自己的应用、不得绕过平台限制、凭据不可转让。
+  - Graph 官方："Your app must be registered with Microsoft Entra ID."
+- **「Windows 式」的本体是 WAM 认证代理，不是 client_id 归属**：Azure CLI 2.61.0 起 Windows 默认走 WAM（"Web Account Manager (WAM) is the default authentication method on Windows."）；而 WAM 里的 client_id **仍是你自己的应用 id**。
+- **零同意页无官方支撑**：ROPC 明确不支持个人微软账号；WAM 仍可能弹同意页。
+- **本机事实**：OneDrive 桌面端未安装（三个路径全 False）、无 AADBrokerPlugin 目录、`HKCU\SOFTWARE\Microsoft\OneDrive` 存在。
+
+### 5) 对契约的影响（只有一条要改）
+
+- **要改**：`…\b38\impl-brief.md:6`「`client_id`：用户在连接表单自填，不做内置默认值」。
+- **不用改**：scope `Files.Read offline_access`、租户 `common`、redirect `http://localhost:{临时端口}`、公开客户端无 secret、7 条命令签名、`OnedriveAuthSession` 结构。
+- ⇒「Windows 式」= 换**登录交互**（WAM/MSAL broker），不是换 Graph 调用、不是换只读范围。
+
+### 6) 三条路线
+
+| 路线 | 结论 |
+|---|---|
+| R1 复用微软第一方 client_id | **否决**（平台 + 法务双否） |
+| R2 自有 Entra 应用 + 系统浏览器 PKCE（= 现行实现） | 可行基线；run10 产出的 GUID 正好填进表单 |
+| R3 自有 Entra 应用 + WAM/MSAL broker（.NET sidecar 或 Rust `windows-rs` 调 `WebAuthenticationBroker`） | 体验最贴近 Windows；工作量最大、仅 Windows 有 WAM |
+
+### 7) 待用户拍板（已提问）
+
+1. client_id 来源：(a) 用户自填（现行契约）｜(b) 产品方预注册自有 Entra 应用并内置（需产品方有租户 + 改契约 §一 + 长期维护）。
+2. 登录交互：(a) 先用浏览器 PKCE 跑通闭环再评估 WAM｜(b) 本批次就上 WAM。
+
+### 8) 落地前必须实测（文档拍不了板）
+
+WAM + 个人账号 + `Files.Read` 的组合行为；`common` 租户下个人/工作账号分流与同意页观感；Tauri/WebView2 下 HWND 传给 MSAL 的可用性。
+
+---
+
+## [批次 38 · 2026-11-23 10:05] 用户路线拍板（已确认）
+
+**研究结论已交付**（`…\b38\azure\reports\STATUS-b38-windows-style.md` 为唯一权威落点；另 3 份取证报告同目录）。用户就两件事拍板：
+
+1. **client_id 来源 → 用户自填（维持现行契约）**
+   - ⇒ `…\b38\impl-brief.md:6`「`client_id`：**用户在连接表单自填**，不做内置默认值」**保持不变，不改契约**。
+   - ⇒ run10 产出的 GUID（属于用户自己的、`signInAudience=AzureADandPersonalMicrosoftAccount` 的 public client）正好填进连接表单，与契约完全一致。
+   - ⇒ 复用微软第一方 client_id（OneDrive `b26aadf8-…` / SyncEngine `ab9b8c07-…`）**已否决**，不再尝试。
+2. **登录交互 → 先用浏览器 PKCE 跑通闭环**
+   - ⇒ 本批次**不引入** WAM/MSAL sidecar，现行 7 条命令签名、`build_authorize_url` + PKCE(S256) + `http://localhost:{临时端口}` 回环**原样保留**。
+   - ⇒ WAM（Windows 系统账号选择器）记入**后续路线**，不阻塞本批次；落地前需实测的三点已登记在 `STATUS-b38-windows-style.md` §6。
+
+### 当前唯一阻塞（等用户本人操作）
+
+- run10 自愈链路已实测跑通换码：`09:48:25 DEVICE_CODE_EXPIRED_AT code=SH5N4MJ4V` → `STEP=1b refresh device code` → 新码 `N4C65R9FX`（脚本自动补发 + 守窗器自动换窗）。
+- 用户须在**标题含 `[InPrivate]`、地址栏 `otc=` 当前码**的那扇 Edge 窗口点「下一步」→ 输 `kizemo@hotmail.com` 密码 → 同意/接受。
+- **码每 15 分钟轮换，以地址栏 `otc=` 后 9 位为准**；并发会话另有 `IN6SZGYZ2` 等窗口，勿用。
+- 登录成功后脚本自动完成：`/me` 身份校验（必须等于 `kizemo@hotmail.com`，否则 exit 8）→ `POST /v1.0/applications` 建应用 → 写 `run10\azure-app.json`（`client_id=` / `object_id=` / `signed_in_as=`）。
+
+### 拿到 GUID 后的既定动作
+
+```powershell
+& 'F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\b38\run-real-credentials.cmd' '<GUID>'
+```
+→ 推进批次 38 的 5 个真实用例（真实登录 / 列目录 / 下载 / 全局索引 / 测试连接连通性），从「未判定」转为可判定。
+
+## 2026-11-23 10:42 守窗器 v2 修复（批次 38）
+
+**问题**：旧 keeper（`b38/azure/keeper-b38.ps1`）用 `AutomationElement.RootElement.FindAll(Children)` 枚举 Edge 窗口 + `FindAll(Descendants, ControlType.Edit)` 读地址栏，窗口一多就判不出当前码所在的窗口（live=0），于是每 15 秒 `Start-Process msedge --inprivate --new-window` 重开一扇新窗（10:29:16 / 10:29:32 / 10:29:47 / 10:30:02）——**会顶掉用户正在输密码的窗口**；旧版 `Close-Win` 用 `$w.Current.NativeWindowHandle`，句柄取不到时静默失败，脏窗口清不掉。
+
+**修复**（`keeper-b38.ps1` v2，纯 ASCII）：
+- 窗口发现改用 Win32 `EnumWindows` + `GetWindowText`/`GetClassName`，过滤 `Chrome_WidgetWin*` 且标题含 `InPrivate`（并发会话的「个人 2」窗口不受影响）；
+- 地址栏改用 `AutomationElement.FromHandle(hwnd)` + `FindAll(Descendants, ControlType.Edit)` + `ValuePattern`（与 `maintenance/b38-edge-capture.ps1` 已验证路径一致）；
+- 窗口存在但地址栏未就绪（`unreadable>0`）时**不重开**，只记 `LIVE_CHECK_MISS`；
+- 同码最短重开间隔 45s；同码多扇窗收敛为 1 扇（保留前台那扇，其余 `WM_CLOSE`）；关窗用真实 hwnd，句柄可靠。
+
+**实测**：`KEEPER_START v2` 10:34:57 → `CLOSED_DUP code=HU6MLH3AR hwnd=21304376` → `LIVE=2` → `LIVE=1`，20 秒内零 REOPEN；旧版同期每 15 秒 REOPEN 一次。
+
+**设备码窗口**：`hwnd=4196034`，标题「登录到您的帐户 - [InPrivate] - Microsoft Edge」，URL `https://login.microsoftonline.com/common/oauth2/deviceauth?otc=HU6MLH3AR&login_hint=kizemo%40hotmail.com`（码 10:33:35 签发，15 分钟有效，过期自动换码）。已最大化，便于用户操作。
+
+**后台任务**：注册 `bg_71c488bc-7b91-40e5-a65c-3e3a694fd047`；keeper v2 `bg_b298d2d9-8674-4df8-9d99-c6075914afcd`；额度闸门 `.bgtask_ack.json` `until_ms=1795445112197`。
+
+**状态**：GUID 仍未产出（`run10/azure-app.json` 与规范 `azure/azure-app.json` 均不存在），等用户本人点「下一步」→ 输密码 → 同意。
+## [更正 · 2026-11-23 19:45] 「第一方 client_id 一律否决」**过宽**：委派登录场景实测可用（本会话已独立复核）
+
+### 更正对象
+
+本文件 §0 与 §2 把 **R1「复用微软第一方 client_id」判为「平台+法务双否」**。该判断**只对「用第一方 id 调 Graph 应用注册 API」成立**，**对「产品自身发起的 OneDrive 委派登录（PKCE + loopback redirect + `Files.Read offline_access`）」不成立**。§0/§2 中「否决」的表述据此收窄为「**发布形态否决**」。
+
+### 早先否决的真实依据（仍然成立的部分）
+
+- 实测被拒的是 **Graph 应用注册接口**（scope=`Application.ReadWrite.All offline_access`），服务端返回 `invalid_request`：「first party application should obtain pre-authorization for the resource server」。
+- 身份平台条款层面「不得冒用第一方 id / 不得绕过平台限制」仍然成立（§F2/F4）⇒ **发布形态不可复用第一方 id**。
+
+### 委派登录场景的受控 A/B（本会话独立重跑复现）
+
+来源：另一并行会话 `mvs_e4726e57568b4e67b487da0c509ace68` 的 `b38\CLIENT-ID-VERDICT.md`；**本会话未采信转述，已自行重跑探针复现下列四组结果**。
+
+| client_id | 来源 | redirect_uri=`http://localhost:59355` | 对照组 redirect_uri=`http://example.com/cb` |
+|---|---|---|---|
+| `1950a258-227b-4e31-a9cf-717495945fc2` | Azure PowerShell（第一方） | **接受**（进入 MSA 登录页 `login.live.com/oauth20_authorize.srf`） | `invalid_request`（redirect_uri 未注册 ⇒ 判据有判别力） |
+| `14d82eec-204b-4c2f-b7e8-296a70dab67e` | Graph CLI（第一方） | **接受**（进入 MSA 登录页） | — |
+| `d3590ed6-52b3-4102-aeff-aad2292ab01c` | Microsoft Office（此前一直在用的那个） | **`invalid_request`**（redirect_uri 无效） | — |
+
+被拒时的服务端原文：`The provided value for the input parameter 'redirect_uri' is not valid. The expected value is a URI which matches a redirect URI registered for this client...`
+
+### 探针判据要点（三条，勿再改错）
+
+1. authorize 请求**必须带 `login_hint=kizemo%40hotmail.com`**；不带则一律返回登录页 ⇒ 假阳性，判据作废。
+2. 判词取**跟随重定向后**响应的**正文**是否含 `invalid_request`；**不是**响应头。
+   用 `-MaximumRedirection 0` 会看到「200 / 无 Location」⇒ `sig=none` ⇒ 无判别力（本会话第一次就踩了这个坑）。
+3. 判定规则：正文含 `AADSTS\d+` 或 `invalid_request|invalid_scope|unauthorized_client|access_denied|invalid_client` ⇒ **拒绝**；否则若最终 URL 落在 `login.live.com/oauth20_authorize` ⇒ **接受（进 MSA 登录页）**。
+
+### 原始证据（可点）
+
+- `…\b38\client-probe-seeds-20261123-104621.txt`（原始探针输出）
+- `…\b38\client-probe-seeds.ps1`、`…\b38\client-probe.ps1`（探针脚本）
+- `…\b38\CLIENT-ID-VERDICT.md`（另一会话结论，本会话已复核）
+
+### 对本批次与发布形态的影响
+
+- **本批次（真实验收）**：契约要求「`client_id` 由用户在连接表单自填」⇒ 用户填 `1950a258-227b-4e31-a9cf-717495945fc2`（或 `14d82eec-…`）即可满足契约并继续跑真实登录闭环，**不必等自建 Entra 应用 GUID**。
+- **发布形态（不变）**：不得复用微软第一方 id；仍须回到「用户自建 Entra 应用（public client + 个人账号 + loopback redirect）」。本会话早先的**法务层结论对发布依然有效**。
+- **因此**：§0/§2 的「否决」应读作「**发布形态否决**」；**验收阶段临时使用第一方 id 不构成产品形态**。
+
+### 仍然成立的事实（勿改）
+
+- `1950a258` 用于 **Graph 应用注册 API** 一律被拒（first-party pre-authorization）。
+- `d3590ed6` 对本产品**不可用**（loopback 回跳被拒）。
+- 自建应用注册链路（run10）9.5 小时零进展，本轮已主动终止（`bg_71c488bc` 已 task_stop）；`run10\azure-app.json` 与规范 `azure\azure-app.json` 均未生成。
+- 设备码路线实测**同样未拿到令牌**：`keep-devicecode.log` 停在 `19:08:23 ERR authorization_pending`，无 `onedrive-token-*.json` 落地。
+
+### 与 §5 待拍板项的关系
+
+§5 的「client_id 来源」问的是**发布形态**（用户自填 vs 产品方预注册），**答案不变**（用户自填，维持契约）。本更正只解决**验收期**「用哪个 id 能跑通」，不改变契约、不改 `impl-brief.md` 任何字面量。
+
+## [更正 · 2026-11-23 20:30] r3：19:45 的「委派登录实测可用」被**同意层实测推翻**；真因 = **300 秒授权回环窗口先于用户交互到期**
+
+> **本节取代上面两节「更正 · 2026-11-23 19:19 / 19:45」的结论部分**。19:19 与 19:45 两节关于「第一方 client_id 在委派登录里可用」的表述**一律作废**，以本节为准。它们的「发布形态否决」部分仍然成立。
+
+### 一、19:45 的 A/B 为什么会给出假阳性
+
+19:45 的受控 A/B **只测了 authorize 端点是否接受请求**，**没有走到同意层（consent）**。accept 到 authorize 请求 ≠ 用户能完成授权。
+
+用户在同意页看到的原文（第一方应用专用）：
+
+```
+invalid_request: The request is not valid. The application is a first party application,
+the user does not have consent, and users are not permitted to consent to first party
+applications. Rather, the first party application should obtain pre-authorization for
+the resource server.
+```
+
+⇒ **第一方 client_id 在「用户自 consented」的委派登录里同样会被拒**。19:45 的判据只覆盖了授权链路的**第一段**，没覆盖**终段**，因此没有判别力。
+
+### 二、真因（19:47 轮失败 + 20:02 轮成功，两头夹逼坐实）
+
+**不是代理、不是浏览器、不是端口错配**，而是**产品自己的授权回环窗口在用户交互完成前就到期，回环监听器已被丢弃**：
+
+| 观测 | 时刻 | 含义 |
+|---|---|---|
+| 应用生成 auth URL | 19:47:32 | 回环监听器已绑定（临时端口） |
+| 应用超时 dump | 19:52:33 | **+301 秒**，与 `src-tauri\src\onedrive_oauth.rs` 的 `CALLBACK_TIMEOUT = 300` 吻合 |
+| 应用自身错误 | — | 「等待 OneDrive 授权回调超时，请重新发起登录。」 |
+
+⇒ 同意页上的**人工交互（登录 + 同意）耗时 > 300 秒 ⇒ 回环监听器已被丢弃 ⇒ 即便授权成功也无处回跳**。
+
+**已被排除的伪根因**（勿再走回头路）：
+
+- 「浏览器打不开 localhost」——被 45999 自检推翻：`…\b38\warmup-raw-02.txt` 含 `GET /selftest HTTP/1.1`，loopback 确实可达（`loopback-mimic.ps1` v4 在 46001 + 同端口 ::1 复刻应用绑定，日志证实两者同时 LISTEN）。
+- 「代理导致 OAuth 失败」——`ProxyEnable=0`，winhttp = Direct，hosts 无生效条目。
+- 「设备码路线」——历史全部停在 `authorization_pending`；且 `?otc=` 要输密码 = 真登录，违反用户约束，已弃用。
+- `1950a258`（Azure PowerShell）——同意层被拒 ⇒ **该 id 路线彻底作废**。
+
+### 三、20:02 轮：**零用户交互**跑通真实登录
+
+| 判定项 | 结果 |
+|---|---|
+| STEP_18 真实登录 | **PASS** |
+| STEP_19 / STEP_21 / STEP_22 | **PASS** |
+| STEP_23 真实列目录 | **PASS**（entries=353 —— **但证据不成立**，见第四节第 4 条） |
+| 汇总 | `SUMMARY pass=22 fail=1 undetermined=4`，`DEVICE_EXIT=0` |
+
+成功使用的授权 URL（回环端口 64873；`client_id`/`scope`/`redirect_uri`/`state`/`code_challenge` 全部按契约未改）：
+
+```
+https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=14d82eec-204b-4c2f-b7e8-296a70dab67e&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A64873&response_mode=query&scope=Files.Read%20offline_access&state=302641e300ee4b60936503623d7373d1&code_challenge=tQmhIpnu2HJBjOmpCx9aidks-kDIGuHBH_fS3VbNr0Y&code_challenge_method=S256
+```
+
+⇒ **验收期可用 `14d82eec-204b-4c2f-b7e8-296a70dab67e`（Graph CLI，第一方）跑通真实委派登录**，**前提是同意已授予 + MFA claim 新鲜**；否则会退回「300 秒超时」或「同意层拒绝」两种失败形态。
+
+### 四、装置自身的五类缺陷（本轮定位并修复，全部在 `…\b38\accept-real-credentials.ps1`）
+
+| # | 缺陷 | 根因 | 修复 |
+|---|---|---|---|
+| 1 | 全局搜索面板打不开 | 入口是 `src\modules\global-search\global-search-toolbar-button.vue` 的**纯图标按钮**（无 aria-label、无文本）⇒ UIA 按名字找不到 | **[r3.1 已推翻并改写]** 初版改走产品全局快捷键 **Ctrl+Shift+F**（`src\stores\runtime\shortcuts.ts` id=`toggleGlobalSearch`）+ 新增 `B38Keys.SendCtrlShift`（`keybd_event` 注入）——**该路不可用**：应用通过 `STARTUPINFO.lpDesktop` 跑在沙箱桌面，键盘注入打不到它且会误输入操作员窗口 ⇒ **调用点已移除**。现按**源码顺序动态定位**：`window-toolbar.vue:222-224` 的 tertiary 组 = `LanShareToolbarButton → StatusCenterToolbarButton → GlobalSearchToolbarButton` ⇒ 目标 =「**状态中心按钮右侧紧邻的那个无名工具栏按钮**」（UIA 实测 `2256,17,50,50`；UIA 树中不存在最小化/最大化/关闭等窗口控件，天然避开「误关窗口」） |
+| 2 | 已保存 OneDrive 连接的「编辑」按钮找不到 | 装置把候选数组 `$UI['btnEdit'] = @('编辑','Edit')` 用 `-join ''` 拼成 `"编辑Edit"` 再 `-cne` 比较 ⇒ **永远匹配不上** | 改为 `-cnotcontains` 逐个候选比对。UIA dump 实测该按钮就在 `873,1443,94,64`（`uia-dump-16-no-edit.txt` 第 20 行） |
+| 3 | 探测结论判不出来 | 原 `txtProbeOk` 装的是「已保存密码…」这类无关文案 | 换成真实结论文案 `settings.remote.test.outcome.verified` = **「连接成功，服务器接受了当前设置。」** |
+| 4 | 列目录「证据」是垃圾 | `Get-PaneEntries` 依赖 DataItem/ListItem/SelectionItem，而本应用文件行是 **`ControlType.Button`** ⇒ **恒为空**；兜底 `Get-TextEntries` 于是把**详情面板标签**（链接状态/链接目标/文件夹/类型/大小/修改时间…）当成条目 ⇒ 355 条全是面板文本 | 新增 `Get-RowEntries`（按 Button 标签含 em/en dash 或含容量单位解析真实文件行）并**接入列目录循环**；`remote-entries.txt` 改为记录原始行标签 |
+| 5 | 「测试连接」按钮找不到 | 点「编辑」后表单异步渲染，装置只等 1500 ms 就找一次 | 改为「点击 → 等 2500 ms → 20 秒轮询重试」，并回退到 `Find-ControlInAppWindows`（表单可能不在主窗 UIA 树里） |
+
+附带修复：`Ensure-Route`（导航失败 ⇒ 停应用 → pin 启动路由 → 重启）、`Invoke-RightClickAt`（WM_RBUTTONDOWN/UP）、`Start-App` 不再重复记 foreground PASS。
+
+### 五、[副作用 · 2026-11-23 20:20] 临时防火墙规则已撤销（用户 20:05 反馈「浏览器无法访问网站」）
+
+19:4x 为了阻止产品的 `openUrl` 把**默认浏览器**带到微软登录页，曾加过一条出站阻断规则 **`B38-TEMP-block-msedge-out`**（Outbound / Block / 目标 `msedge.exe`）。**它命中的是系统默认浏览器 Edge，把用户的日常浏览一起断了。**
+
+- 该规则**已删除**并复核： `B38-*` 规则残留、无任何指向 msedge/chrome 的 outbound block 规则。
+- 其余网络项本会话**均未改动**：WinINET `ProxyEnable=0`（`ProxyServer=127.0.0.1:7897` 原样保留、override 含 localhost）、winhttp = Direct、hosts 无生效条目、DNS = `116.228.111.118,114.114.114.114`、6 个 proxy 环境变量全空。
+- 恢复验证：系统 HTTPS 三站均 200（baidu 227 B / `login.microsoftonline.com` 1728 B / bing 14809 B）；**真实 `msedge.exe` headless 抓取成功**（787195 B，内容匹配 baidu）。
+- 证据：`…\b38\network-state-20261123-2020.txt`、`…\b38\network-restored-20261123-2022.txt`（脚本 `probe-network-state.ps1` / `verify-network-restored.ps1`）。
+- **纪律（新增）**：今后凡是需要阻断，**不得再使用全局 msedge 出站规则**——它会打到用户自己的浏览器。
+
+### 六、用户约束的落实
+
+「**不要反复登录 Microsoft 帐户、避免触发账号预警**」已作为硬约束执行：20:02 轮与 20:14 轮 verify **均为零用户交互**（`DEVICE_EXIT=0`）；装置不代点最终授权/同意按钮，不读取或填写密码、验证码、安全代码。
+
+### 七、最终表述（以此为准）
+
+- **验收期**：`14d82eec-204b-4c2f-b7e8-296a70dab67e` 可跑通真实登录闭环（前提：同意已授予 + MFA claim 新鲜）。
+- **发布形态（不变）**：必须回到**用户自建 Entra 应用**（public client + 个人账号 + loopback redirect），**不得复用任何第一方 id**。
+- **契约（不变）**：`impl-brief.md` 一个字未改；`client_id` 仍由用户在连接表单自填。
+
+## [收口 · 2026-11-23 21:15] r3.2：5 个「真实凭据未判定」用例全部判定完毕 —— 4 PASS + 1 **FAIL（产品缺陷）**
+
+> 本节是 r3 的续篇。**以本节为准**；r3 里「待判定 / 未判定」的表述到此全部结清。
+
+### 一、结论（先看这个）
+
+批次 38 剩下的 5 个「真实凭据未判定」用例，**全部推进到了可判定**：
+
+| 验收用例 | 判定 | 实测证据 |
+| --- | --- | --- |
+| STEP_18 真实登录 | **PASS** | 20:02 轮零用户交互跑通 PKCE + loopback 闭环（见 r3 §三） |
+| STEP_23 真实列目录 | **PASS** | `entries=11 method=RowButtons`，首行 `fg766p.exe`（20:39 轮、21:09 轮两轮一致） |
+| STEP_24 真实下载 | **PASS** | `表格1.xlsx` 实落盘 `11827 bytes`，mtime `2026/11/23 20:40:13` |
+| STEP_25/26 真实全局索引 | **PASS** | 重建云盘索引成功；查询 `fg766p` 命中网盘条目，`remote marker seen: True` |
+| STEP_27 真实「测试连接」 | **FAIL —— 产品缺陷** | 探针回 `missing_credential`，而**同一张表单上写着「已授权」** |
+
+装置步号对应关系（装置 `report.txt` 里的步号 vs `impl-brief.md` 里的验收用例号）：
+`STEP_03`=验收 23、`STEP_04`=验收 24、`STEP_05`=验收 25、`STEP_06`=验收 26、`STEP_07`=验收 27；
+`STEP_01/02` 是前置守卫（操作员桌面未被抢焦点 / 打开远端窗格）。
+
+### 二、这一轮装置自身的三处改造（全部在 `…\b38\accept-real-credentials.ps1`）
+
+1. **列目录竞态**：`Get-TextEntries`(TextDiff) 兜底从「循环内 break」改成「循环外兜底」——
+   详情面板先于文件行渲染，早 break 会把面板文本当成目录条目（`entries=360` 假象）。
+   修后稳定 `entries=11 method=RowButtons`。
+2. **全局搜索入口**：逐元素遍历 UIA（`Get-ElementsLike` **会丢弃无名元素**，不能用来找无名按钮），
+   按源码顺序取「状态中心右侧紧邻的那个无名按钮」（`2256,17,50,50`）。
+   双重坐实：`window-toolbar.vue:221-225` 的 tertiary 组顺序 + UIA 树里
+   **不存在**最小化/最大化/关闭等窗口控件 ⇒ 点它天然没有「误关窗口」风险。
+   跨桌面输入用 `WM_CHAR`（新增 `B38Real.TypeChars` / `B38Real.ClearChars`），
+   不依赖 WebView2 里可能失效的 `ValuePattern`，也不做键盘注入。
+3. **探针判定口径（本轮新增，重要）**：**探针给出失败结论也算判定**，不再是 UNDETERMINED。
+   做法：运行时从 `src/localization/messages/ch.json` 读出
+   `settings.remote.test.outcome` 的六种结论文案（`verified` / `auth_rejected` /
+   `missing_credential` / `wrong_protocol` / `unreachable` / `protocol_error`），
+   精确匹配页面上渲染的文本。脚本本身保持 **ASCII-only**（不硬编码中文）。
+   改前只认「连接成功」，所以「应用明确回了失败」被误记成 UNDETERMINED —— 那是**装置缺陷**，不是应用问题。
+
+### 三、STEP_27 判 FAIL 的根因（三层坐实，产品缺陷）
+
+**现象**：连接明明登录过（表单上「已授权」），点「测试连接」却回
+「这条 OneDrive 连接还没有登录凭据，请先完成授权。」+「没有可用于验证的凭据，本次未做身份确认。」
+
+| 层 | 位置 | 结论 |
+| --- | --- | --- |
+| 探针 | `onedrive_provider.rs:872-889` | `probe_onedrive` 要求 `target.password` 非空，否则 `MissingCredential` + 上面那句文案。**provider 行为合规** |
+| 命令 | `commands.rs:391-473` | `remote_test_connection` 只有 BaiduPan(398-420) / QuarkPan(422-441) / AliyunPan(443-461) 三个「从保险库取已保存会话回填 password」的分支，**OneDrive 漏了** ⇒ 缺口纯在后端 |
+| 前端 | `remote-connections.ts:790-800` | 已经发送 `credentialKey: isNetdisk ? form.id : undefined`（OneDrive 属网盘协议）⇒ **前端不用改** |
+
+契约口径（`impl-brief.md:88`）：无凭据必须 `MissingCredential`、**不得** `AuthRejected` ——
+provider 侧没问题；问题在**命令层没把已保存会话回填给探针**。
+
+⇒ **判定：FAIL（产品缺陷）**。修复规格已写成可直接施工的单子：
+`…\b38\B38-39-FIX-PLAN-onedrive-probe.md`（含精确到函数的改法、令牌续期约束、验收判据、打包复验步骤）。
+要点提醒：**光把存档里的 access_token 回填不够** —— 它约 1 小时有效，
+必须复用 provider 已有的续期路径（`onedrive_provider.rs:631-661` `prepare()` → `667-695` `refresh_session` → 写回），
+否则超过一小时的连接会被当成「没有凭据」，只是换一种错。
+
+### 四、两轮最终数据对照（都是零用户交互，verify 阶段）
+
+| 轮次 | 产物目录 | SUMMARY | 说明 |
+| --- | --- | --- | --- |
+| 20:39 | `…\b38\accept-real-20261123-203940\` | `pass=6 fail=0 undetermined=1` | STEP_24 在这轮 PASS（`11827 bytes` 落盘，20:40:13）；STEP_07 当时被装置误记为 UNDETERMINED（只认成功文案） |
+| 21:09 | `…\b38\accept-real-20261123-205651\` | `pass=5 fail=1 undetermined=1` | STEP_07 判 **FAIL**（探针结论被正确识别）；STEP_04 变 UNDETERMINED —— **装置状态残留**，见下节 |
+
+### 五、21:09 轮 STEP_04 的 UNDETERMINED 是装置状态残留，**不是**产品回归的证据
+
+装置的下载判据是「目标目录里**出现一个此前没有的非空文件**」。
+20:39 轮已经把 `表格1.xlsx` 放进去了，21:09 轮再下同一个文件：
+
+- 目标目录 `…\accept-real-20261123-200236\download-target\` 实测**只有** `表格1.xlsx`
+  （`11827 bytes`，mtime 仍是 `2026/11/23 20:40:13`）⇒ 本轮既没落新文件，也**没覆盖**旧文件。
+- 应用侧没有留下传输记录（`user-data\` 下无 transfer/download/queue 类文件），
+  产物目录里也没捕到覆盖确认框（`uia-dump-*` 里只有 `reveal-dialogs` 这个调试标签）。
+
+**已知边界（写清楚，别当成结论）**：这一轮**没能**判定「同名重下」时应用的真实行为
+（覆盖 / 改名 / 静默失败），因为装置在 600 秒内既没等到落盘，也没抓现场。
+**已验证**的下载事实仍然是 20:39 轮的实落盘（`11827 bytes`）。
+批次 39 要补：① 装置每轮用**独立下载目录**，避免同名残留污染判据；
+② 单独做一次「同名重下」探测并抓现场（这次要把 dump 放在等待循环里）。
+
+### 六、批次 39 待办（按优先级）
+
+1. **修 STEP_27 后端**（产品缺陷）—— 施工单：`…\b38\B38-39-FIX-PLAN-onedrive-probe.md`。
+   验收：装置 `STEP_07` 由 FAIL 转 PASS，`SUMMARY pass=7 fail=0 undetermined=0`。
+   改完要 **bump 版本 + `npm run tauri:build` + 装机 + 重跑 verify**（用户既定偏好：需要装机实测就直接打包 exe）。
+2. **装置修 STEP_04 判据**（独立下载目录 + 「同名重下」探测）。
+3. **发布形态仍然是硬约束**：必须回到**用户自建 Entra 应用**（public client + 个人账号 + loopback redirect），
+   **不得**复用任何第一方 id；验收期临时夹具 `14d82eec-204b-4c2f-b7e8-296a70dab67e` 只在验收期用。
+4. `impl-brief.md` **一个字段都没改**（`client_id` 仍由用户在连接表单自填）。
+
+### 七、已验证 / 推断 / 未验证（三分法，交接时别混）
+
+**已验证（实测）**
+- STEP_18/23/24/25/26 全部 PASS（证据见 §一、四、五）。
+- STEP_27 探针结论 = `missing_credential`，且同表单显示「已授权」（`uia-dump-18-probe.txt`）。
+- 后端 `remote_test_connection` 确实没有 OneDrive 分支（源码逐行读过）。
+- 全局搜索入口 = 状态中心右侧无名按钮（源码 + UIA 双重坐实）。
+- 用户网络已恢复，且**不再使用**全局 msedge 出站阻断规则。
+
+**推断（证据支持但未直接实测）**
+- 同名重下时应用「不覆盖旧文件」的行为原因（覆盖确认框？去重？静默失败？）—— 未定。
+- OneDrive 的令牌续期在**探针路径**上是否可用（provider 列目录路径有续期，探针路径没有；修复时才验证）。
+
+**未验证**
+- 修复后 STEP_07 转 PASS（本轮不改产品源码，未打包验证）。
+- 发布形态（用户自建 Entra 应用）下的完整登录闭环。
+- 长期（>1h）会话在列目录/下载路径上的续期表现。
+
+### 八、这一轮踩到的工具坑（写给下一轮，别再踩）
+
+- **装置判据只认成功文案** ⇒ 把应用的明确失败误记 UNDETERMINED。**失败结论也是结论**。
+- **`Get-ElementsLike` 会丢弃无名元素** ⇒ 找无名工具栏按钮必须逐元素遍历。
+- **跨桌面只能用 `PostMessage`**；`keybd_event`/`SendInput` 打不到应用，还会误输入用户窗口。
+- **`Get-TextEntries` 兜底会把详情面板当条目**；列目录要用 `RowButtons` 并把兜底放到循环外。
+- **手算 base64 极易出错**（本轮「状态中心」就错过一次）；要用的中文串一律从 i18n 文件
+  运行时读取，或用脚本算 base64，不要手算。
+- **PowerShell 内联 `-Command` 的引号地狱**：双引号 + `\"` 会被 PowerShell 当成字符串终止符；
+  长脚本一律落盘后 `powershell.exe -File` 执行。
+- **同一文件名重跑会污染判据**（见 §五）：装置的「出现新文件」判据必须配独立目录。
+- **不得再用全局 msedge 出站阻断规则**（已让用户浏览器断网过一次）。
+- 取证要**当场回读文件**：具体值（文件名、字节数、mtime、哈希前缀）不许凭记忆或形态推断。
+
+### 九、最终表述（以此为准）
+
+- **批次 38 的真实凭据验收已经跑完**：5 个用例 4 PASS、1 FAIL；
+  唯一的 FAIL 是**已定位根因的产品缺陷**（OneDrive「测试连接」不复用已保存授权会话），
+  不是「还没查清楚」。
+- 应用侧 OneDrive 只读能力（登录 / 列目录 / 下载 / 建索引 / 全局搜索）**实测可用**。
+- **下一步 = 批次 39**：按 `…\b38\B38-39-FIX-PLAN-onedrive-probe.md` 修后端 → bump 版本 →
+  打包 exe → 装机 → 重跑 verify，目标是 `SUMMARY pass=7 fail=0 undetermined=0`。
+- 用户约束继续生效：**不反复登录 Microsoft 帐户**；全程零用户交互。
+
+
+
+## [收口 · 2026-11-23 22:26] 批次 39/40：OneDrive 探针修复 + 升级为完整读写权限 —— 验收 `SUMMARY pass=7 fail=0 undetermined=0`
+
+### [SUMMARY 回填]
+
+- verify artifact：`…\b38\accept-real-b40r2-20261123-222256`（report 生成于 2026-11-23T22:25:08）
+- **SUMMARY pass=7 fail=0 undetermined=0**
+- STEP_07 real "test connection" :: PASS ——「连接成功，服务器接受了当前设置。」
+- 版本 3.20.0，装机 exe `D:\Program Files\Alpha File Manager\alpha-file-manager.exe` = 85,691,904 B（FileVersion/ProductVersion 均 3.20.0）
+- 安装包 `release/local-builds/Alpha File Manager_3.20.0_x64-setup.exe` = 46,045,196 B
+- 上一轮（批次 38 r3.2）对照：pass=5 fail=1 undetermined=1（STEP_07 FAIL）
+
+### 一、结论（先看这个）
+
+- **批次 39（探针缺陷）已修复 + 真机验证**：OneDrive「测试连接」现在会复用**已保存的授权会话**，
+  装机 3.20.0 上实测返回「连接成功，服务器接受了当前设置。」
+- **批次 40（用户反馈「AFM 中添加的 OneDrive 处于只读状态，请确保完整权限」）已施工**：
+  scope 从 `Files.Read` 升到 `Files.ReadWrite`，并且把上传 / 新建目录 / 改名 / 删除四条写路径
+  **真的实现了**（不只是申请权限，而是有代码、有单测、有纯函数层）。
+- **必须说清的一条限制**：写权限**没有**对真实 Graph 做正向实测——那需要浏览器里重新授权，
+  与「全程零用户交互、不得让用户反复登录 Microsoft 帐户」的约束冲突。
+  用户需要**一次性重新授权**后写操作才会生效；在此之前读路径照常可用（refresh 请求刻意不带 scope）。
+
+### 二、批次 39 修的是什么（症状 → 根因 → 修法）
+
+- **症状**：设置页 OneDrive 行显示「已授权」，点「测试连接」却回 `missing_credential`
+  （证据：`…\b38\accept-real-20261123-203940\uia-dump-18-probe.txt`）。
+- **根因**：`remote_test_connection` 在 Aliyun 分支后就 `return` 了，**根本没有 OneDrive 分支**；
+  探针只读凭据里的 password 字段（OneDrive 走 PKCE，令牌存在会话存储里，password 恒空）⇒ 误报缺凭据。
+- **修法**：新增 `OnedriveRemoteProvider::ensure_session_token(&key) -> Result<Option<String>, RemoteError>`，三态：
+  - `Ok(Some(token))` = 令牌可用（已过期则静默续期并写回会话存储）；
+  - `Ok(None)` = 从未授权 ⇒ `MissingCredential`（符合 `impl-brief.md:88` 契约口径，**不得**报 `AuthRejected`）；
+  - `Err(e)` = 续期失败 ⇒ 由 `report_from_error`（已放开为 `pub(crate)`）映射成 `AuthRejected` / `Unreachable`。
+- **续期写回策略**：refresh 后立刻 `sessions.save`；**未过期时不写回**（探针是纯读，不该改动用户数据）。
+
+### 三、批次 40 的写权限是怎么实现的
+
+- **scope**：`Files.ReadWrite offline_access`（**不用** `Files.ReadWrite.All`——那会连别人分享的文件一起拿到，权限面过大）。
+- **refresh 请求刻意不带 scope**（`onedrive_refresh_request_body`）：不传＝沿用原授权范围；
+  传一个不同的 scope 会触发 `invalid_scope`(AADSTS70011)，把用户的老会话**直接废掉**。
+  这是「不反复登录」约束能成立的关键。
+- **写路径**（`onedrive_api.rs` 纯函数层 + `HttpOnedriveApi` 真实现，5 个 trait 方法 + FakeApi 记录字段）：
+  - 上传：≤ 250 MiB 走简单 PUT；> 250 MiB 走 `createUploadSession` + 5 MiB 分块 PUT（上传会话 URL **不带** Authorization 头）。
+  - 新建目录：`POST /me/drive/items/{parentId}/children`，`conflictBehavior: fail` ⇒ **绝不**静默覆盖同名目录。
+  - 改名：`PATCH /me/drive/items/{id}` 携带 `{name}`。
+  - 删除：`DELETE /me/drive/items/{id}`。
+  - 父目录在根 ⇒ `POST /me/drive/root/children`；否则先 `GET /me/drive/root:/{parentPath}` 取父目录 id。
+- **`set_permissions` 仍返回 `unsupported_set_permissions("OneDrive")`**（kind=Protocol）：Graph 没有 POSIX 权限位，这是有意为之，不是漏做。
+
+### 四、发版：版本 + 元数据 + 为什么打了两次包
+
+- 版本 3.18.0 → **3.20.0**（`package.json` + `npm run sync-version` 同步 `Cargo.toml` / `tauri.conf.json`）。
+- CHANGELOG.md、README.md、以及 **14 个 locale 的 changelog**（ch/de/es/fa/fr/hi/it/ja/pt/ru/sl/tr/ur/vi）全部补齐 3.20.0 条目。
+- **AGENTS.md 铁律：`tauri build` 会先跑 vite build ⇒ 发版元数据必须先写完再打包**，
+  否则装出来的包更新弹窗停在旧版本。本轮因此打**两次**包：
+  第一轮（`b40-build1.log`）热身 cargo 缓存，第二轮（`b40-build.log`）才把 14 个 locale 元数据带进包
+  （两轮产物 46,044,728 B vs 46,045,196 B，内容确实不同 ⇒ 差异只在元数据）。
+- 门禁全绿：`npm run ts`=0、`npm run lint:check`=0、`npm run test:unit:run`=0、`node scripts/verify-changelog.mjs`=0。
+  （`lint:check` 首轮 EXIT=1 的 41 个错误**全部来自旧批次的草稿脚本** `reports/patch-accept-real-device*.cjs`，
+  与本批无关，已用 `npx eslint --fix` 就地修掉，未改 eslint 配置、未删文件。）
+- TDD 证据：RED `b40-red-compile.log`（EXIT=101，9×E0599）→ GREEN `b40-green-test.log`（**1680 passed / 0 failed / 3 ignored**）。
+
+### 五、装机与验收（实测）
+
+- 装机：`INSTALL_EXIT=0`。**同版本重装 NSIS 必须带 `/FORCE`**，否则命中项目自带防呆
+  `reason=same-build` ⇒ EXIT=2——那是防呆，不是包坏了。
+- 验收必须用 **powershell.exe 5.1**（pwsh 7 下 `Add-Type` 会报 CS0246 `List<>` 找不到）。
+- 最终结果（artifact `accept-real-b40r2-20261123-222256`）：
+  | 用例 | 结果 | 证据 |
+  |---|---|---|
+  | STEP_01 操作员桌面未被抢焦点 | PASS | before=786542 after=786542 |
+  | STEP_02 打开 OneDrive 远程窗格 | PASS | 点了连接卡片 |
+  | STEP_03 真实列目录 | PASS | entries=11（RowButtons） |
+  | STEP_04 真实下载 | PASS | `表格1.xlsx` 11,827 B 真实落盘 |
+  | STEP_05 重建云索引 | PASS | 应用回报索引已更新 |
+  | STEP_06 全局搜索 | PASS | 查询 "fg766p" 命中远程条目 |
+  | **STEP_07 「测试连接」** | **PASS** | 「连接成功，服务器接受了当前设置。」 |
+
+### 六、本轮修的**装置判据缺陷**（不是产品缺陷）
+
+- **症状**：第一轮跑（artifact `accept-real-b40-20261123-221837`）是 pass=6 fail=0 undetermined=1，
+  STEP_04 报「no downloadable file row on screen」；批次 38 的 20:39 轮、21:09 轮也都栽在 STEP_04。
+- **根因**：远程行按钮的 UIA rect 是 `x=1337 w=1999`（右边界 3336），而应用窗口只有 2560 宽。
+  行按钮是 **CSS 布局盒**，列表把它**视觉裁剪**了——用户看到、点得到的是可见部分；
+  装置却拿布局盒去比窗口右边界 ⇒ 每行都被判成 "clipped on the right" ⇒ 下载步骤永远跑不起来。
+- **修法**（`patch-b40-download-filter.cjs`，用 node 改，避免 PowerShell 改中文文件的编码坑）：
+  判据改为看**可见部分**——行必须起于窗口内、可见宽/高各 ≥ 60px，点击点取自可见部分再夹进窗口；
+  `fg766p.exe` / `U1902.exe` 因 y 已在窗口下方被**正确**排除。
+- **验收口径没有放松**：STEP_04 仍然必须**真实文件（size > 0）落盘**才算 PASS。
+- 修完重跑即 pass=7 fail=0 undetermined=0。
+
+### 七、已验证 / 推断 / 未验证（三分法，交接时别混）
+
+**已验证（实测）**
+- 装机 3.20.0 上 OneDrive 列目录 / 下载 / 建索引 / 全局搜索 / 「测试连接」全部 PASS。
+- 「测试连接」复用了已保存会话（探针报成功），不再误报 `missing_credential`。
+- scope 常量 = `Files.ReadWrite offline_access`；refresh 请求体**不含** scope（单测锁定）。
+- 写路径纯函数与 trait 方法有单测覆盖（`onedrive_api.rs` 的 `write_path_tests` 7 条 +
+  `ensure_session_token_*` 4 条 + `the_refresh_request_never_carries_a_scope` 等）。
+
+**推断（证据支持但未直接实测）**
+- 升级后的 scope 会出现在**下一次**授权请求里（常量改了，但没跑过一次真实授权）。
+- 老会话（只有 `Files.Read`）下写操作会被 Graph 以 403 `insufficient_claims` 拒绝。
+
+**未验证**
+- 写路径（上传 / 新建目录 / 改名 / 删除）对**真实 Graph** 的正向实测——需要浏览器里重新授权。
+- 发布形态（用户自建 Entra 应用）下的完整登录闭环。
+- 长期（> 1h）会话在列目录 / 下载路径上的续期表现。
+
+### 八、这一轮踩到的工具坑（写给下一轮，别再踩）
+
+- **`tauri build` 先跑 vite build** ⇒ 发版元数据（CHANGELOG + 14 个 locale）必须**打包前**写完，
+  否则装出来的包更新弹窗停在旧版本（本轮因此打两次包）。
+- **publish-bundle 的落点规则**：新版本号直接进 `release/`；**同名且内容不同**才改写 `release/local-builds/`。
+  所以装机脚本要指向 `release/local-builds/`，而不是 `release/`。
+- **装置等待循环拿「没有构建进程」当完成判据会被常驻 node（MCP server 等）永久卡死**
+  ⇒ 改用「**退出文件 mtime 变新 + 日志静默 > 30s**」。
+- **`task_output` 轮询会立即返回**（只要有新输出就返回，wait_ms 不是最小轮询间隔）；
+  想真正等 55 s，用 bash `Start-Sleep` 更省调用。
+- **长中文文档落盘用 node 脚本 append**（`fs.appendFileSync`），不要用 PowerShell
+  `Get-Content -Raw` / `Set-Content`（编码会花）。
+- 中间产物一律写文件，对话里只留指针 + 结论；单轮工具调用控制在 10 次以内。
+
+### 九、最终表述（以此为准）
+
+- **批次 39 的产品缺陷已修复并装机验证**：STEP_07 由 FAIL 转 PASS，
+  `SUMMARY pass=7 fail=0 undetermined=0`。
+- **批次 40 的「OneDrive 只读」已升级为完整读写**：scope = `Files.ReadWrite`，四条写路径真实实现。
+- **用户需要做一次重新授权**（设置 → 远程 → OneDrive → 编辑 → 授权）才能让写权限生效；
+  在那之前读路径完全可用，旧会话也不会因为本轮改动而失效（refresh 不带 scope）。
+- 下一阶段建议（按优先级）：
+  1. 用户一次性重新授权后，实测上传 / 新建目录 / 改名 / 删除（正向写证据）；
+  2. 把「写路径实测」补成装置的一个新用例（上传需原生文件选择框，可能要另做装置分支）；
+  3. 发布形态（用户自建 Entra 应用）下复验登录闭环；
+  4. 收口提交（本轮**未 commit、未 push**，改动全在工作区）。

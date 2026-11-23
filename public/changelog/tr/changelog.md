@@ -1,6 +1,18 @@
 # Değişiklik Günlüğü
 
 
+## [3.20.0] - November 2026
+
+**Özet:** OneDrive artık yalnızca okunabilir değil. 3.18.0 ile eklenen bağlantı artık sürücüye de yazabiliyor: dosya yükleme, klasör oluşturma, yeniden adlandırma ve silme - diğer ağ sürücüleriyle aynı biçimde. Oturum açma artık hem okuma hem yazma izni istiyor ve *Bağlantıyı sına* düğmesi daha önce açtığınız oturumu artık tanıyor.
+
+### What changed
+
+**Eklendi: OneDrive artık sürücüye yazabiliyor** Dosya yükleme, klasör oluşturma, yeniden adlandırma ve silme işlemleri sürücüye gerçekten yansıyor; silinen öğe sürücünün çöp kutusuna gider, kalıcı olarak kaybolmaz. Yeni bir klasör aynı adlı klasörün yerini asla almaz - ad çakışırsa uygulama bu adı kabul etmez.
+**Eklendi: Büyük dosyalar da yüklenebiliyor** 250 MB’a kadar tek istekte, daha büyükleri 5 MB’lık parçalar hâlinde, ne kadar yüklendiği gösterilerek.
+**Eklendi: *Bağlantıyı sına* artık var olan oturumu kullanıyor** Önceden form *yetkili* gösterirken bile kimlik bilgisi eksik diyordu. Artık kayıtlı oturumu kullanıyor, süresi dolan jetonu kendisi yeniliyor ve oturum gerçekten yoksa kimlik bilgisi eksik diyor.
+**Eklendi: Eski oturumlar çalışmaya devam ediyor** Bu sürümden önce oluşturulan oturumlar yenilenmeye, okumaya, indirmeye ve dizinlenmeye devam ediyor. Yazmak için bir kez daha oturum açmanız gerekiyor, çünkü Microsoft genişletilmiş izni yalnızca yetkilendirme sırasında veriyor.
+**Düzeltildi: *Yerler* listesindeki *Kullanılabilir alan* sütunu artık diğer sütunlarla hizalı.** Bu sütundaki metin önce hücresinin üstüne yapışıktı, diğer sütunlar ise metni ortada gösteriyordu; bu yüzden satırlar düzensiz görünüyordu. Artık bu sütun da metnini diğer sütunlar gibi dikey olarak ortalıyor.
+
 ## [3.18.0] - November 2026
 
 **Özet:** OneDrive artık dördüncü bulut diski olarak bağlanabiliyor: *Ayarlar* içinde *Bulut diski ekle* başlığının altında *Baidu Drive*, *Quark Drive* ve *Aliyun Drive* ile yan yana duruyor. Oturum sisteminizin varsayılan tarayıcısında kendi Microsoft hesabınızla açılıyor, elle token kopyalamanız gerekmiyor ve oturum uygulamanın kendi şifreli kimlik bilgileri deposunda kalıyor. Bu sürüm salt okunur: klasörleri gezebiliyor, dosyaları okuyup indirebiliyor ve bağlantıyı küresel aramaya ekleyebiliyorsunuz - yükleme, klasör oluşturma, yeniden adlandırma ve silme bu sürümde yok.

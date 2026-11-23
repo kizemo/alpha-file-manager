@@ -1,6 +1,18 @@
 # Änderungsprotokoll
 
 
+## [3.20.0] - November 2026
+
+**Zusammenfassung:** OneDrive ist nicht mehr nur lesend. Die in 3.18.0 hinzugefügte Verbindung kann jetzt auch auf das Laufwerk schreiben - Datei hochladen, Ordner anlegen, umbenennen, löschen, wie bei den anderen Netzlaufwerken. Die Anmeldung fragt nun Lese- und Schreibzugriff an, und *Testen der Verbindung* erkennt endlich die Sitzung, mit der Sie sich bereits angemeldet haben.
+
+### What changed
+
+**Hinzugefügt: OneDrive kann jetzt auf das Laufwerk schreiben** Datei hochladen, Ordner anlegen, umbenennen und löschen wirken sich wirklich auf das Laufwerk aus; Gelöschtes landet im Papierkorb und wird nicht endgültig entfernt. Ein neuer Ordner ersetzt nie einen gleichnamigen - bei gleichem Namen verweigert die App den Namen.
+**Hinzugefügt: Auch große Dateien lassen sich hochladen** Bis 250 MB in einem Durchgang, größere Dateien in Blöcken von 5 MB, mit Anzeige des Fortschritts.
+**Hinzugefügt: *Testen der Verbindung* nutzt jetzt Ihre vorhandene Anmeldung** Früher hieß es trotz der Anzeige *autorisiert*, es fehle ein Anmeldenachweis. Jetzt wird die gespeicherte Sitzung verwendet, ein abgelaufenes Token wird selbst erneuert, und nur ohne Anmeldung wird ein fehlender Nachweis gemeldet.
+**Hinzugefügt: Ältere Sitzungen funktionieren weiter** Sitzungen von vor dieser Version lassen sich weiterhin erneuern, lesen, herunterladen und indizieren. Zum Schreiben ist eine erneute Anmeldung nötig, weil Microsoft den erweiterten Zugriff erst beim Autorisieren gewährt.
+**Behoben: Die Spalte *Freier Speicher* in der Liste unter *Standorte* ist jetzt bündig mit den übrigen Spalten.** Der Text in dieser Spalte stand vorher oben in seiner Zelle, während die anderen Spalten ihn mittig zeigten, sodass die Zeilen uneinheitlich wirkten. Die Spalte richtet ihren Text jetzt vertikal mittig aus wie die anderen.
+
 ## [3.18.0] - November 2026
 
 **Zusammenfassung:** OneDrive ist jetzt der vierte Netdisk-Anbieter: In den *Einstellungen* steht es unter der Überschrift *Netzlaufwerk hinzufügen* direkt neben *Baidu Drive*, *Quark Drive* und *Aliyun Drive*. Sie melden sich mit Ihrem Microsoft-Konto in Ihrem eigenen Systembrowser an, ein Token müssen Sie nicht von Hand kopieren, und die Sitzung landet im verschlüsselten Anmeldeinformationsspeicher der App. Diese Version ist nur lesend: Verzeichnisse durchsuchen, Dateien lesen und herunterladen sowie die Verbindung in die globale Suche aufnehmen geht - hochladen, Ordner anlegen, umbenennen und löschen gibt es noch nicht.

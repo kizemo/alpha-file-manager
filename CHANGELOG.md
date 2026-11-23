@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.20.0] - November 2026
+
+**Summary:** OneDrive is no longer read-only. The connection you added in 3.18.0 can now write to your drive as well - upload a file, create a folder, rename an item and delete it, just like with the other netdisks. The sign-in now asks Microsoft for read *and write* access, and *Test connection* finally recognises the session you already signed in with instead of reporting that there are no credentials.
+
+### What changed
+
+**Added** **OneDrive can write to your drive now** - Uploading a file, creating a folder, renaming an item and deleting it now reach the drive itself; deleting puts the item into the drive's recycle bin, not permanently. A folder is never created on top of an existing one of the same name - the app refuses the name instead of quietly replacing anything. Moving an item to another folder and sharing are still not offered, the same as with the other netdisks.
+
+**Added** **Large files can be uploaded** - A file of up to 250 MB is sent in one request. Anything bigger is uploaded in 5 MB pieces, and the app tells you how much has been transferred so far.
+
+**Added** **Test connection now uses the sign-in you already did** - *Test connection* used to answer "this OneDrive connection has no credentials" even while the form right above it showed the connection as authorized. The test now takes the saved session, refreshes it by itself when the access token has run out, and reports a missing credential only when there really is no session for that connection.
+
+**Added** **A session signed in earlier keeps working** - Sessions from before this release still refresh, and reading, downloading and indexing files still work. They cannot write yet, because the wider permission has to be granted by Microsoft when you authorize - so sign in once more after the update if you want to write to the drive.
+
+**Fixed** **The *Available space* column in the *Locations* list now lines up with the other columns** - The text in that column used to sit at the top of its cell, while the other columns showed theirs in the middle, so the rows of the *Locations* list looked uneven. The column now centres its text vertically like the others, and a row reads as one line.
+
 ## [3.18.0] - November 2026
 
 **Summary:** OneDrive can now be connected as a fourth netdisk. You pick it in the same *Add netdisk* list as Baidu Netdisk, Quark Netdisk and Aliyun Drive, sign in with your Microsoft account in the browser that opens, and the session is kept in the app's own encrypted credential store - there is no token to copy by hand. This first version is read-only: you can browse folders, download a file and let the drive take part in the global search, while uploading, creating folders, renaming and deleting are not part of it yet.

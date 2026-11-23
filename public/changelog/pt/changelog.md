@@ -1,6 +1,18 @@
 # Registro de alterações
 
 
+## [3.20.0] - November 2026
+
+**Resumo:** O OneDrive já não é apenas de leitura. A ligação adicionada na 3.18.0 também passa a escrever na unidade: enviar um ficheiro, criar uma pasta, renomear e eliminar, tal como nas outras unidades de rede. O início de sessão passa a pedir acesso de leitura e escrita, e *Testar ligação* finalmente reconhece a sessão com que já iniciou sessão.
+
+### What changed
+
+**Adicionado: O OneDrive já escreve na unidade** Enviar ficheiros, criar pastas, renomear e eliminar passam a valer mesmo na unidade; o que é eliminado vai para o lixo e não desaparece de forma permanente. Uma pasta nova nunca substitui uma pasta com o mesmo nome - nesse caso a aplicação recusa o nome.
+**Adicionado: Os ficheiros grandes também podem ser enviados** Até 250 MB num só pedido; acima disso, em blocos de 5 MB, com a quantidade já enviada a ser mostrada.
+**Adicionado: *Testar ligação* usa a sessão que já tem** Antes dizia que faltavam credenciais mesmo com o formulário a indicar *autorizado*. Agora usa a sessão guardada, renova sozinho o token expirado e só reporta credenciais em falta quando não há mesmo sessão.
+**Adicionado: As sessões anteriores continuam a funcionar** As sessões criadas antes desta versão continuam a renovar-se, a ler, a descarregar e a ser indexadas. Para escrever é preciso iniciar sessão mais uma vez, porque a Microsoft só concede o acesso alargado no momento da autorização.
+**Corrigido: A coluna *Espaço disponível* da lista de *Locais* está agora alinhada com as outras.** O texto dessa coluna ficava colado ao topo da sua célula, enquanto as outras colunas o mostravam ao centro, e as linhas ficavam irregulares. Agora a coluna centra o texto na vertical, como as outras.
+
 ## [3.18.0] - November 2026
 
 **Resumo:** O OneDrive já pode ser ligado como quarto disco em nuvem: nas *Configuração*, ele aparece sob o título *Adicionar disco na nuvem*, ao lado de *Baidu Drive*, *Quark Drive* e *Aliyun Drive*. A sessão é iniciada no navegador do sistema com a sua conta Microsoft, não há nenhum token para copiar à mão, e a sessão fica no armazenamento cifrado de credenciais da própria aplicação. Esta versão é só de leitura: você pode percorrer pastas, ler e baixar arquivos e incluir a conexão na pesquisa global, mas ainda não pode enviar arquivos, criar pastas, renomear nem apagar.
