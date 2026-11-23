@@ -1419,3 +1419,220 @@ provider 侧没问题；问题在**命令层没把已保存会话回填给探针
   2. 把「写路径实测」补成装置的一个新用例（上传需原生文件选择框，可能要另做装置分支）；
   3. 发布形态（用户自建 Entra 应用）下复验登录闭环；
   4. 收口提交（本轮**未 commit、未 push**，改动全在工作区）。
+
+## [收口 · 2026-11-24 00:50] 批次 41：写路径验收装置交付 + 发布形态链路侦察 + 可用空间列居中修复 + 3.20.0 重打包装机
+
+### 一、结论（先看这个）
+
+1. **附带 bug 已修完并进包**：「位置页（Locations）「可用空间」列单元格内文字垂直居中」。
+   根因：这一列在全仓 `src/**` 下**没有任何 CSS 规则**（既没有 `display:flex` + `align-items:center`，
+   也没有共享的字号/颜色/省略号分组），于是它是行容器 grid 里唯一被拉伸后文字贴顶的普通 span 子项；
+   其余列各自已有居中规则。修法：把 `__entry-availableSpace` 补进居中分组与共享排版分组。commit `7f8f599f`。
+2. **3.20.0 已重新打包并装机**（含上述修复）：安装包 `release/local-builds/Alpha File Manager_3.20.0_x64-setup.exe`，
+   46,061,676 B，sha256 `777577f968893b7635892c540d64df24edc41bb01ca650e9e401b01a75e8c6c2`；
+   `setup.exe /S /FORCE` 静默安装 EXIT=0 / 26.2 s；安装器日志 PREINSTALL(00:27:10) + POSTINSTALL(00:27:23)
+   都记录了同一个 installerSha256。
+3. **写路径验收装置已交付，但真实写测试仍未执行**——不是装置的问题，是 **scope** 的问题（见 §三）：
+   已保存的 OneDrive 会话只有 `Files.Read`，本地**无法**自行升级。
+4. **发布形态（用户自建 Entra 应用）在产品侧已经就绪**：产品代码里**零硬编码 client_id**，
+   且「Application (client) ID」自填入口已一路贯通到 AAD 令牌请求体。缺的只有**自建应用的 GUID**
+   （本机无 `az` CLI，历史 run10 零进展）。
+5. **门禁全绿**：`ts` / `lint:check` / `test:unit:run` / `verify-changelog` 全 0；
+   `verify-publish-quarantine` 7 项全 PASS。
+6. **已提交并已推送**：`affe26ae`（feat: OneDrive 写路径 + 3.20.0 发版元数据）、
+   `7f8f599f`（fix: 可用空间列居中 + 回归测试），直连路线推送成功 `0526669f..7f8f599f main -> main`。
+7. **像素级渲染核验 = 未判定**（根因：本机锁屏），详见 §七。
+
+### 二、按上一轮 §9 的四条优先级逐条对齐
+
+| 上一轮优先级 | 本轮状态 | 落点 |
+|---|---|---|
+| ① 用户重新授权后实测上传/建目录/改名/删除 | **未执行（等用户授权）**；装置已就位 | §三 / §四 |
+| ② 把「写路径实测」补成装置的新用例 | **已完成**（W1–W5 五步，-AllowWrite 写闸门） | §四 |
+| ③ 发布形态（自建 Entra）复验登录闭环 | **产品侧已就绪，可验证子集已坐实**；真 GUID 缺失 | §五 |
+| ④ 收口提交 | **已完成并已推送**（两个 commit） | §九 |
+
+### 三、scope 取证：为什么写路径必须由用户重新授权（决定性证据链）
+
+报告：`.superpowers/sdd/b41/scope-probe-report.md`（17,352 B，只读取证，全程未改用户数据）。
+
+- 凭据库：`%APPDATA%\com.sigma-file-manager.app\remote-credentials.json`（8,781 B，mtime 2026-11-23 22:13:59）。
+  会话 blob `version=1`，`client_id=14d82eec-204b-4c2f-b7e8-296a70dab67e`（第一方 Graph PowerShell(Preview)，
+  **仅验收期夹具**，发布形态不得复用）、`access_token` 长 1420、`refresh_token` 长 417、
+  `expires_at=1795446838`（2026-11-23 23:13:58 +08:00，探测时已过期约 1h03m）。
+- **`scp` 读不到**：该第一方 client 拿到的是不透明二进制令牌（base64 解码 1064 字节非文本，
+  无 `eyJ` / `scp` 命中）⇒ 本地物理上无法解 claim。
+- **但请求的 scope 可以逐字锁定**：授权期请求的是 `Files.Read offline_access`
+  （sha16 `9ef9a159237100be`，len 25），对照新 scope `Files.ReadWrite offline_access`
+  （sha16 `4eb4b575e2136e6f`，len 30）。会话落盘 22:13:59 **早于** 3.20.0 exe 就位的 22:16:38
+  ⇒ 签发者是旧的只读 build。委托授权「授予 ⊆ 请求」⇒ **老会话不含写权限**。
+- **刷新救不了**：`src-tauri/src/remote/onedrive_auth.rs:69-83` 的刷新请求体刻意**不带 scope** ⇒ 刷新仍旧范围。
+- ⇒ **写路径正向实测必须让用户在 3.20.0 下做一次性重新授权**（新 build 请求 `Files.ReadWrite`）。
+  ⚠️ 产品 `onedrive_oauth.rs` 的 `CALLBACK_TIMEOUT = 300` 秒 ⇒ 同意必须在授权 URL 发出后 **5 分钟内**完成，
+  否则回环超时。
+- **刻意没做的事**：没有拿用户的 refresh_token 去 AAD 做「带新 scope 的刷新探针」——传不同 scope 会触发
+  `invalid_scope`(AADSTS70011) 并可能废掉用户老会话，与「不要反复登录」的硬约束冲突。
+
+### 四、写路径验收装置（W1–W5）已交付
+
+交付物（全部在 `.superpowers/sdd/b41/`，该目录被 gitignore）：
+
+| 文件 | 字节 | 说明 |
+|---|---|---|
+| `accept-real-write.ps1` | 90,303 | 装置本体：`-AllowWrite` 写闸门 / `-Discovery` 只读 / 默认 NO-OP；W1–W5 + 每步证据落盘 |
+| `accept-real-write.md` | 17,360 | 逐步 UI 路径 + 源码依据 + 判据 + 兜底 + **未判定项清单**（§6.2，8 条待真机证实的假设） |
+| `check-ps-syntax.ps1` | 1,109 | b38 同款语法检查器（b41 自包含副本） |
+| `check-static-selfcheck.ps1` | 7,221 | 全量静态自检（只读，不启动应用） |
+
+验证（原样）：`powershell.exe 5.1` 解析 PASS ×3；静态自检 7 项全 OK
+（ASCII / LF / 无 BOM、$UI 键 20/20、base64 40 条全可解、无未定义命令、$script 变量 19 个）；
+NO-OP 端到端 `SUMMARY pass=0 fail=0 undetermined=5`，EXIT=0。
+
+**真实写测试本轮未执行**（会对用户真实 OneDrive 产生增删改）。拿到写权限后由根会话统一跑：
+
+```powershell
+cd F:\soft\00selfmade\filemanager\sigma-file-manager
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\.superpowers\sdd\b41\accept-real-write.ps1 -AllowWrite
+```
+
+装置侧的三处改造（本轮）：
+
+1. 补齐 `$UI['dlgChangelog']`（原引用 `dlgChangelogFallback` 会取到 `$null`）。
+2. **锁屏判据换成权威信号**：改用输入桌面名 `Default` / `Winlogon`（`B41Real::InputDesktopName()`），
+   不再用「LogonUI 进程在不在」；NO-OP 模式不守此闸门（它根本不启动应用）。
+3. 删掉悬空参数 `-RemoteSubPath`（只有声明、零实现），探针目录直接建在连接根目录。
+
+⚠️ 探针项命名 `afm-b41-probe-<timestamp>`，跑完**必须清理并留清理证据**。
+
+### 五、发布形态（用户自建 Entra 应用）链路侦察
+
+报告：`.superpowers/sdd/b41/publish-form-recon.md`（30,848 B）。
+
+- **产品代码里零硬编码 OneDrive client_id**：第一方 GUID 全仓只出现在
+  `docs/handoff-2026-11-22-batch38-onedrive-readonly.md`，产品源码零出现
+  ⇒ 「发布形态不得复用任何第一方 id」在**代码层已经满足**。
+- **「用户自填 client_id」的入口已存在且贯通**：
+  `connection-form.vue:1754-1760`（Application (client) ID 输入框）→ `:1193,1211`
+  → `remote-connections.ts:995-1003` → `onedrive_oauth.rs:498-521` → 令牌体 `:341-348`。
+  **不进连接表**，只进会话 blob（`onedrive_auth.rs:104`）。
+  ⇒ **发布形态在产品侧不需要任何改动**，缺的只是真 GUID。
+- 已坐实的可验证子集：授权 URL 模板（`onedrive_auth.rs:248-264`）、
+  回环 `http://localhost:{动态端口}`（`onedrive_oauth.rs:185-187,191-198`）、
+  `CALLBACK_TIMEOUT=300`（`:60`）、scope `Files.ReadWrite offline_access`（`onedrive_auth.rs:67`）、
+  落盘链 明文 JSON → DPAPI → base64 → `remote-credentials.json`（`credentials.rs:25,343,489`）。
+- **探针结果与预期不符（重要）**：实测 HTTP **400** / `invalid_grant` / **AADSTS9002313**，
+  **不是**预期的 `invalid_client` / AADSTS700016——令牌端点先校验 grant（伪造 code 非法）就短路了，
+  **没走到 client_id 校验** ⇒ 该探针不能证明伪造 client_id 会被判 700016；
+  要验这一点需另发一次**授权端点**的只读探针。
+- **顺带坐实一个真实缺陷（本轮新发现，建议下一批次首项修）**：
+  **AAD 错误码对用户不可见**——令牌 4xx 响应体被整段丢弃（`onedrive_oauth.rs:372-378`、
+  `onedrive_provider.rs:665-670`），授权回调的 `error_description` 也被丢（`onedrive_oauth.rs:261-263`）；
+  OneDrive 走**内联**提示不走 toast（`connection-form.vue:1796-1802`）。
+  ⇒ 登录失败时用户拿不到「为什么失败」，发布形态的登录闭环**没法定位失败原因**。
+- **剩余缺口只有一类**：自建 Entra 应用 GUID（本机无 `az` CLI，run10 历史零进展，`azure-app.json` 未产出）。
+
+### 六、可用空间列垂直居中：根因 → 修法 → 三层证据
+
+- **根因**：`file-browser-list-view-column-cell.vue` 动态拼出 `file-browser-list-view__entry-availableSpace`，
+  而全仓 `src/**` 对它**零 CSS 规则**；行容器 `.file-browser-list-view__entry` 是 grid，子项被拉伸到整行高度，
+  文字贴顶。其它列各有 `display:flex` + `align-items:center`。
+- **修法**：`src/modules/navigator/components/file-browser/file-browser-list-view.vue`
+  把 `__entry-availableSpace` 补进**居中分组**（`display:flex` + `align-items:center`）与**共享排版分组**
+  （颜色 / 字号 / 省略号），净增 8 行。刻意**不加** `flex: 1`（size/links/linkStatus 有）⇒ 保持最小改动。
+- **逐列核对（编译产物 ground truth）**：
+  | 列 | 居中机制 |
+  |---|---|
+  | `__entry-name` | 独立规则 `align-items:center;gap:10px;display:flex` |
+  | `__entry-size` | 独立规则 `align-items:center;gap:6px;display:flex` |
+  | `__entry-links` / `__entry-linkStatus` | 共享规则 `align-items:center;display:flex` |
+  | `__entry-kind` / `items` / `availableSpace` / `modified` / `created` / `tags` | 共享规则 `align-items:center;display:flex` |
+  | 表头 `__header-cell` / `__header-item` | `align-items:center`（原本就有，无需改） |
+- **三层证据**：
+  1. **源码级**——新增回归测试
+     `src/modules/navigator/components/file-browser/__tests__/file-browser-list-view-column-alignment.test.ts`
+     （203 B 行级、4 条源码文本级断言；判别性已验证：临时撤掉该规则即红并点名该列）。
+     用源码文本级断言而非 mount/DOM 断言，因为 vitest 默认 `css:false` 不注入 SFC 样式，
+     jsdom 的 `getComputedStyle` 拿不到 scoped 层叠结果，写渲染断言只会假绿。
+  2. **编译产物级**——`.superpowers/sdd/b41/check-compiled-alignment.mjs`（真实 dist **RESULT=PASS**：
+     10 列全部 `display:flex`+`align-items:center`、availableSpace 已进排版分组、表头已居中、阴性对照通过；
+     **篡改对照 RESULT=FAIL** ⇒ 判据有牙）。
+  3. **像素级——未判定**（见 §七）。
+
+### 七、已验证 / 推断 / 未验证（三分法，交接时别混）
+
+**已验证（本轮实测）**
+
+- 门禁 4 项全 0（`.superpowers/sdd/b41/b41-gates.log`）；`verify-publish-quarantine` 7 项全 PASS。
+- 新包构建 EXIT=0（日志 `.superpowers/sdd/b41/b41-build.log`，256,884 B）；`/S /FORCE` 安装 EXIT=0 / 26.2 s。
+- 装机 exe 与 target 产物**同字节数 85,691,904、sha256 不同**（sha16 装机 `17DAC177C71C51D2` /
+  target `8B67F2B4D3F0720D`）——**已知现象**（strip 时机差异），**不能**用它区分来历。
+- 编译产物 CSS 里 `__entry-availableSpace` 与 `align-items:center;display:flex` 同规则（+ 排版分组）。
+- scope 证据链（请求 scope 逐字 + 时间序 + 刷新不带 scope），见 §三。
+- 发布形态：产品侧零硬编码 client_id + 自填入口贯通到令牌体。
+- 探针 HTTP 400 / `invalid_grant` / `AADSTS9002313`（原文在报告 §7）。
+- 两个 commit 已推送：`0526669f..7f8f599f main -> main`（直连路线，EXIT=0）。
+
+**推断（证据支持但未端到端跑通）**
+
+- 老会话「不含写权限」——由「委托授权 ⊆ 请求 scope」+ 请求 scope 逐字 + 时间序推出，**未**端到端
+  拿一个写动作去撞 403 复核。
+- 新 build 在用户重新授权后即可写——依据是 scope 已升 `Files.ReadWrite` 且写路径代码已实现（批次 40）。
+- 装机副本含本次修复——依据是「装机链的构建产物 = 编译后的 dist」+ 编译产物级判定 PASS；
+  **未能**在装机 exe 内直接检索到 CSS 文本（见 §八）。
+
+**未判定（不要写成 PASS/FAIL）**
+
+- **位置页像素级对齐核验**：本机锁屏。`LogonUI` 自 2026-11-23 22:37:26 在跑、`GetForegroundWindow()=0`、
+  `OpenInputDesktop` err 5；应用进程能起、主窗 2208×1200 在、`PrintWindow` 返回成功，
+  但抓回来是**纯色深灰**（WebView2 表面未合成）⇒ 画面不可信。
+  复现配方：解锁后跑 `.superpowers/sdd/b41/capture-app.ps1`（5.1，自带 Default 桌面守卫）。
+  另一条路：`e2e-webdriver/` 用 **tauri-driver + EdgeDriver 驱动真应用**，能读真实 DOM 的 computed style，
+  但需要 `--debug` 构建产物 + 驱动环境，本轮未走。
+- **写路径真实 Graph 正向实测**（上传/建目录/改名/删除）——等 scope 就绪。
+- **发布形态真 GUID 下的登录闭环**——等 GUID。
+- 装置 §6.2 的 8 条假设（行标签形态/大小解析、6 个菜单可访问名、AutomationId 稳定性、分屏是否出现、
+  删除确认按钮可访问名、上传落点、Radix 悬停展开、名字唯一性）——需真机跑完后逐条核对。
+
+### 八、这一轮踩到的工具坑（写给下一轮，别再踩）
+
+- **`GetCurrentThreadId` 在 kernel32.dll，不在 user32.dll**。b38 的 `capture-screen.ps1` 也有这个潜伏 bug：
+  桌面名读成空 ⇒ 误判「非 Default 桌面」而拒拍。修法：kernel32 + user32 分开声明。
+- **装机 exe 里检索不到前端 CSS 文本**（`availableSpace` 命中 0、`navigator-*.css` 文件名命中 1）
+  ⇒ Tauri 把前端资源**压缩内嵌** ⇒ **对 exe 做 ASCII 字符串搜索对「装的是新包」无判别力**
+  （第 9 批已踩过一次，本轮再次坐实：不要再用这条路证明「跑的是新二进制」）。
+- **`tauri build` 前置 cargo 必须在 PATH**：本机 cargo 不在 PATH，直接 `npm run tauri:build` 会
+  `failed to run 'cargo metadata' ... program not found` EXIT=1。正确姿势（参照 `.superpowers/sdd/b38/b40-build.cmd`）：
+  `PATH` 前置 `C:\Users\Duanyi\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin` + `C:\Users\Duanyi\.cargo\bin`
+  （`.cargo\bin` 内只有 cargo-tauri/rustup/tauri，**没有 cargo.exe**），并设 `RUSTUP_TOOLCHAIN=1.90.0`。
+- **`publish-bundle-to-release.mjs` 的落点规则**：「目标不存在 ⇒ 落 `release/` 顶层；
+  同名且内容不同 ⇒ 改写 `release/local-builds/` 并告警，**不覆盖**原文件」。
+  3.20.0 这次因顶层目标不存在而落在顶层；`local-builds/` 里那份是批次 40 的旧包（陈旧副本），
+  本轮已按 **3.18.0 先例**（顶层与 local-builds 同字节 + LOCAL-BUILDS.txt 登记）用新包覆盖，
+  并在 `release/LOCAL-BUILDS.txt` 追加 `NO_OFFICIAL_ASSET` 行。
+- **PowerShell 里删文件被本地安全策略拦**（`Remove-Item` 不允许，无回收站）⇒ 需要「造副本做对照」的实验，
+  直接写进 gitignore 的 `.superpowers/sdd/**` 下，别做删除。
+- **`e2e-webdriver/` 不是「浏览器跑网页」**：它是 tauri-driver + EdgeDriver **驱动真应用**，
+  需要 `src-tauri/target/debug/alpha-file-manager.exe`（`--debug --no-bundle`）+ `tauri-driver.exe` + edgedriver。
+- **抓屏判据要自己先证明判据看得见目标**：锁屏时窗口在、PrintWindow 成功、**非白占比 0.99 看着像「有内容」**，
+  其实是一张纯色深灰的空帧。⇒ 非白占比不能单独当「画面有效」的判据。
+- `task_output` 的 `wait_ms` 不是最小轮询间隔；想真等用 bash `Start-Sleep` 更省调用。
+- 长中文文档落盘用 node 脚本 `fs.appendFileSync`（保留 `\r\n` 行尾），不要用 PowerShell
+  `Get-Content -Raw` / `Set-Content`（编码会花）。
+
+### 九、最终表述（以此为准）
+
+- **批次 39/40 的 OneDrive 读写升级**：代码、发版元数据、装置、验收全绿，已提交 `affe26ae`。
+- **批次 41 的附带 bug**：可用空间列垂直居中已修，已进 3.20.0 新包并装机，提交 `7f8f599f`；
+  证据到**编译产物级**，**像素级未判定**（锁屏）。
+- **写路径真实 Graph 正向实测**：装置已就位，**只差用户一次性重新授权**（5 分钟内点同意）。
+- **发布形态登录闭环**：产品侧**无需改动**，只差自建 Entra GUID。
+- 两个 commit **已推送**到 `origin/main`。
+- **下一阶段建议（按优先级）**：
+  1. 用户在装好的 3.20.0 下重新授权一次（设置 → 远程 → OneDrive → 编辑 → 授权），
+     然后根会话跑 `accept-real-write.ps1 -AllowWrite` 拿上传/建目录/改名/删除的**正向写证据**，
+     跑完清理探针目录并留清理证据；
+  2. 用户自建一个 Entra 应用（public client，`signInAudience=AzureADandPersonalMicrosoftAccount`，
+     redirect `http://localhost`），把 GUID 填进连接表单 → 复验登录闭环；
+  3. **（建议首项）把 AAD 的 `error_description` 透传到前端**（§五 的缺陷）——
+     否则发布形态的登录失败无法定位，闭环「验得了失败原因」这一半；
+  4. 解锁屏幕后补位置页像素级核验（或改走 tauri-driver + EdgeDriver 读 computed style）。
