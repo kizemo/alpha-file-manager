@@ -1,6 +1,18 @@
 # Nhật ký thay đổi
 
 
+## [3.20.0] - November 2026
+
+**Tóm tắt:** OneDrive không còn chỉ để đọc. Kết nối thêm trong 3.18.0 giờ cũng ghi được vào ổ đĩa: tải tệp lên, tạo thư mục, đổi tên và xoá, y hệt các ổ mạng khác. Đăng nhập giờ xin quyền vừa đọc vừa ghi, và *Kiểm tra kết nối* cuối cùng cũng nhận ra phiên đăng nhập bạn đã có.
+
+### What changed
+
+**Đã thêm: OneDrive giờ ghi được vào ổ đĩa** Tải tệp lên, tạo thư mục, đổi tên và xoá đều có hiệu lực thật trên ổ đĩa; mục bị xoá rơi vào thùng rác của ổ đĩa chứ không mất vĩnh viễn. Một thư mục mới không bao giờ ghi đè một thư mục trùng tên - trùng tên thì ứng dụng từ chối cái tên đó.
+**Đã thêm: Tệp lớn cũng tải lên được** Tới 250 MB trong một yêu cầu; lớn hơn thì chia thành các khối 5 MB, kèm hiển thị đã tải được bao nhiêu.
+**Đã thêm: *Kiểm tra kết nối* dùng đúng phiên bạn đã đăng nhập** Trước đây nó nói thiếu thông tin đăng nhập dù biểu mẫu đã hiện *đã cấp quyền*. Nay nó dùng phiên đã lưu, tự làm mới token hết hạn, và chỉ báo thiếu thông tin đăng nhập khi thật sự không có phiên nào.
+**Đã thêm: Các phiên cũ vẫn dùng được** Các phiên tạo trước bản này vẫn được làm mới, đọc, tải xuống và lập chỉ mục như trước. Muốn ghi thì cần đăng nhập lại một lần, vì Microsoft chỉ cấp quyền rộng hơn đúng lúc bạn cấp quyền.
+**Đã sửa: Cột *Dung lượng trống* trong danh sách *Địa điểm* nay đã thẳng hàng với các cột khác.** Trước đây chữ trong cột này dính sát vào mép trên của ô, trong khi các cột khác đặt chữ ở giữa, nên các dòng trông lệch nhau. Nay cột này cũng canh giữa theo chiều dọc giống các cột khác.
+
 ## [3.18.0] - November 2026
 
 **Tóm tắt:** OneDrive giờ đã là nhà cung cấp ổ đám mây thứ tư: trong *Cài đặt*, dưới mục *Thêm đĩa đám mây*, nó đứng cạnh *Baidu Drive*, *Quark Drive* và *Aliyun Drive*. Bạn đăng nhập ngay trong trình duyệt của hệ thống bằng tài khoản Microsoft, không phải chép tay bất kỳ token nào, và phiên đăng nhập nằm trong kho thông tin đăng nhập đã mã hóa của chính ứng dụng. Bản này chỉ đọc: bạn có thể xem các thư mục, đọc và tải tệp xuống, cũng như đưa kết nối vào tìm kiếm toàn cục - còn tải tệp lên, tạo thư mục mới, đổi tên và xóa thì chưa có.

@@ -2,7 +2,7 @@
 // License: GNU GPLv3 or later. See the license file in the project root for more information.
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
-//! OneDrive（Microsoft Graph）**只读** provider。
+//! OneDrive（Microsoft Graph）**读写** provider。
 //!
 //! 红线（与 `remote/mod.rs:8-14` 同一条）：本文件被 `cargo test --lib` 的测试
 //! 二进制链接，**不得出现 `tauri::` 的任何路径**。一旦碰到，Tauri 全局运行时
@@ -14,11 +14,20 @@
 //! `access_token` / `refresh_token` 明文只在本模块、`remote::onedrive_auth` 与
 //! 顶层 `onedrive_oauth` 之间流转，**不出现在命令返回值、事件 payload 与日志里**。
 //!
-//! ## 只读
+//! ## 读写
 //!
-//! 批次 38 是「只读接入」：写、删、改名、建目录一律返回 `Unsupported`。
-//! 理由与 `RemoteProvider` trait 上一致 —— 宁可让编译器逼实现方表态，
-//! 也不要把「忘了写」变成「用户点了没反应」。
+//! 批次 38 是「只读接入」；批次 40 按用户反馈把它升级为**完整读写**：
+//! 上传、新建目录、改名、删除都真的落到 Microsoft Graph 上。
+//!
+//! **唯一还明说不支持的是「改权限」** —— Graph 没有 POSIX 权限位，
+//! 假装支持比明说不支持更糟。
+//!
+//! 写路径的三条安全边界：
+//!
+//! - 新建目录用 `@microsoft.graph.conflictBehavior: "fail"` ——
+//!   同名目录**绝不**被静默覆盖（用户以为新建了一个，其实是换掉了原来那个）；
+//! - 改名只带**新名字**，不带路径（Graph 的 PATCH 只认 name）；
+//! - 删除与改名都先把路径解析成条目 id 再打，根目录一律拒绝。
 
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -30,16 +39,21 @@ use async_trait::async_trait;
 use super::connection_test::{ConnectionTestReport, ProbeOutcome, ProbeTarget};
 use super::error::{RemoteError, RemoteErrorKind};
 use super::onedrive_api::{
-    onedrive_build_children_url, onedrive_build_content_url, onedrive_collect_children_pages,
+    onedrive_build_children_by_id_url, onedrive_build_children_url, onedrive_build_content_url,
+    onedrive_build_create_folder_body, onedrive_build_item_by_id_url, onedrive_build_item_url,
+    onedrive_build_rename_body, onedrive_build_root_children_url,
+    onedrive_build_upload_session_url, onedrive_build_upload_url, onedrive_collect_children_pages,
     onedrive_graph_item_to_remote_entry, onedrive_map_graph_error, onedrive_parse_children_page,
-    onedrive_parse_drive_info, OnedriveByteRange, OnedriveChildrenPage, OnedriveDriveInfo,
+    onedrive_parse_drive_info, onedrive_parse_item, onedrive_parse_upload_session,
+    onedrive_split_parent_and_name, OnedriveByteRange, OnedriveChildrenPage, OnedriveDriveInfo,
     OnedriveGraphItem, ONEDRIVE_GRAPH_DRIVE_URL, ONEDRIVE_MAX_DOWNLOAD_BYTES,
-    ONEDRIVE_USER_AGENT,
+    ONEDRIVE_MAX_SIMPLE_UPLOAD_BYTES, ONEDRIVE_UPLOAD_CHUNK_BYTES, ONEDRIVE_USER_AGENT,
 };
 use super::onedrive_auth::{
-    delete_onedrive_session, load_onedrive_session, onedrive_apply_refresh, onedrive_form_body,
-    onedrive_is_expired, onedrive_now_unix, onedrive_parse_token_response, save_onedrive_session,
-    OnedriveAuthSession, ONEDRIVE_SCOPE, ONEDRIVE_TOKEN_URL,
+    delete_onedrive_session, load_onedrive_session, onedrive_apply_refresh,
+    onedrive_is_expired, onedrive_now_unix, onedrive_parse_token_response,
+    onedrive_refresh_request_body, save_onedrive_session, OnedriveAuthSession,
+    ONEDRIVE_TOKEN_URL,
 };
 use super::path::{normalize_remote_path, reject_path_control_characters};
 use super::provider::{RemoteEntry, RemoteProvider};
@@ -108,6 +122,50 @@ pub trait OnedriveApi: Send + Sync {
         &self,
         session: &OnedriveAuthSession,
     ) -> Result<OnedriveDriveInfo, RemoteError>;
+
+    // ---- 写路径（批次 40）--------------------------------------------------
+
+    /// 按路径取单个条目（拿它的 id）。
+    ///
+    /// Graph 的「改名」「删除」只认条目 id，不认路径 ⇒ 先查一次。
+    async fn item_by_path(
+        &self,
+        session: &OnedriveAuthSession,
+        remote_path: &str,
+    ) -> Result<OnedriveGraphItem, RemoteError>;
+
+    /// 上传文件内容（覆盖语义）。
+    ///
+    /// on_progress 收的是**累计字节数**。
+    async fn upload_content(
+        &self,
+        session: &OnedriveAuthSession,
+        remote_path: &str,
+        content: &[u8],
+        on_progress: &(dyn Fn(u64) + Send + Sync),
+    ) -> Result<(), RemoteError>;
+
+    /// 新建目录。传**完整目标路径**（父目录必须已存在）。
+    async fn create_folder(
+        &self,
+        session: &OnedriveAuthSession,
+        remote_path: &str,
+    ) -> Result<(), RemoteError>;
+
+    /// 改名。new_name 只是**名字**，不含路径。
+    async fn rename_item(
+        &self,
+        session: &OnedriveAuthSession,
+        remote_path: &str,
+        new_name: &str,
+    ) -> Result<(), RemoteError>;
+
+    /// 删除（文件或空目录）。
+    async fn delete_item(
+        &self,
+        session: &OnedriveAuthSession,
+        remote_path: &str,
+    ) -> Result<(), RemoteError>;
 }
 
 /// 「Graph 客户端建不起来」时的替身：每次调用都报同一个错。
@@ -162,6 +220,49 @@ impl OnedriveApi for UnavailableOnedriveApi {
         &self,
         _session: &OnedriveAuthSession,
     ) -> Result<OnedriveDriveInfo, RemoteError> {
+        Err(self.error.clone())
+    }
+
+    async fn item_by_path(
+        &self,
+        _session: &OnedriveAuthSession,
+        _remote_path: &str,
+    ) -> Result<OnedriveGraphItem, RemoteError> {
+        Err(self.error.clone())
+    }
+
+    async fn upload_content(
+        &self,
+        _session: &OnedriveAuthSession,
+        _remote_path: &str,
+        _content: &[u8],
+        _on_progress: &(dyn Fn(u64) + Send + Sync),
+    ) -> Result<(), RemoteError> {
+        Err(self.error.clone())
+    }
+
+    async fn create_folder(
+        &self,
+        _session: &OnedriveAuthSession,
+        _remote_path: &str,
+    ) -> Result<(), RemoteError> {
+        Err(self.error.clone())
+    }
+
+    async fn rename_item(
+        &self,
+        _session: &OnedriveAuthSession,
+        _remote_path: &str,
+        _new_name: &str,
+    ) -> Result<(), RemoteError> {
+        Err(self.error.clone())
+    }
+
+    async fn delete_item(
+        &self,
+        _session: &OnedriveAuthSession,
+        _remote_path: &str,
+    ) -> Result<(), RemoteError> {
         Err(self.error.clone())
     }
 }
@@ -299,6 +400,101 @@ impl HttpOnedriveApi {
         }
 
         Ok(body)
+    }
+
+    /// 发一个带 Bearer 的请求（POST / PUT / PATCH / DELETE），
+    /// 把失败翻译成本项目的错误。
+    ///
+    /// body 为 None 时不发请求体。
+    async fn graph_send(
+        &self,
+        method: reqwest::Method,
+        url: &str,
+        token: &str,
+        content_type: Option<&str>,
+        body: Option<Vec<u8>>,
+    ) -> Result<String, RemoteError> {
+        let mut request = self
+            .client
+            .request(method, url)
+            .header(
+                reqwest::header::AUTHORIZATION,
+                format!("Bearer {}", token.trim()),
+            );
+
+        if let Some(content_type) = content_type {
+            request = request.header(reqwest::header::CONTENT_TYPE, content_type);
+        }
+
+        if let Some(body) = body {
+            request = request.body(body);
+        }
+
+        let response = request.send().await.map_err(|error| {
+            RemoteError::unreachable(format!(
+                "无法连接 OneDrive：网络不可用、DNS 解析失败或微软服务暂时不可用，请稍后重试。（{error}）"
+            ))
+        })?;
+
+        let status = response.status();
+        let retry_after = retry_after_header(&response);
+        let text = read_body(response).await?;
+
+        if !status.is_success() {
+            return Err(onedrive_map_graph_error(
+                status.as_u16(),
+                &text,
+                retry_after.as_deref(),
+            ));
+        }
+
+        Ok(text)
+    }
+
+    /// 上传会话的分块 PUT。**不带 Authorization** ——
+    /// 上传会话 URL 自身即授权，带上 Bearer 反而可能被拒。
+    async fn upload_chunk(
+        &self,
+        upload_url: &str,
+        chunk: &[u8],
+        offset: u64,
+        total: u64,
+    ) -> Result<(), RemoteError> {
+        let response = self
+            .client
+            .put(upload_url)
+            .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
+            .header(
+                reqwest::header::CONTENT_RANGE,
+                format!(
+                    "bytes {}-{}/{}",
+                    offset,
+                    offset + chunk.len() as u64 - 1,
+                    total
+                ),
+            )
+            .body(chunk.to_vec())
+            .send()
+            .await
+            .map_err(|error| {
+                RemoteError::unreachable(format!(
+                    "无法连接 OneDrive：上传分块时网络中断，请稍后重试。（{error}）"
+                ))
+            })?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let retry_after = retry_after_header(&response);
+            let text = read_body(response).await?;
+
+            return Err(onedrive_map_graph_error(
+                status.as_u16(),
+                &text,
+                retry_after.as_deref(),
+            ));
+        }
+
+        Ok(())
     }
 }
 
@@ -440,12 +636,12 @@ impl OnedriveApi for HttpOnedriveApi {
         }
 
         // **没有 client_secret**：这是公共客户端（PKCE）流程。
-        let body = onedrive_form_body(&[
-            ("client_id", client_id),
-            ("grant_type", "refresh_token"),
-            ("refresh_token", session.refresh_token.trim()),
-            ("scope", ONEDRIVE_SCOPE),
-        ]);
+        //
+        // ⚠️ **刻意不带 `scope`**：刷新时**不传**就沿用当初授权的范围；
+        // 传一个与当初不同的范围，微软回 `invalid_scope`（AADSTS70011），
+        // 把用户**已经登录好的会话**直接废掉 —— 升级 scope（Files.Read → Files.ReadWrite）
+        // 之后，升级前登录过的用户一次都续不了期，只能被逼着重新登录。
+        let body = onedrive_refresh_request_body(client_id, session.refresh_token.trim());
 
         let response = self
             .client
@@ -495,6 +691,168 @@ impl OnedriveApi for HttpOnedriveApi {
 
         onedrive_parse_drive_info(&body)
     }
+
+    async fn item_by_path(
+        &self,
+        session: &OnedriveAuthSession,
+        remote_path: &str,
+    ) -> Result<OnedriveGraphItem, RemoteError> {
+        let url = onedrive_build_item_url(remote_path);
+        let body = self.graph_get(&url, &session.access_token).await?;
+
+        onedrive_parse_item(&body)
+    }
+
+    async fn upload_content(
+        &self,
+        session: &OnedriveAuthSession,
+        remote_path: &str,
+        content: &[u8],
+        on_progress: &(dyn Fn(u64) + Send + Sync),
+    ) -> Result<(), RemoteError> {
+        let token = session.access_token.trim();
+
+        // 小文件：一次 PUT 完事（Graph 的简单上传上限 250 MiB）。
+        if content.len() <= ONEDRIVE_MAX_SIMPLE_UPLOAD_BYTES {
+            let url = onedrive_build_upload_url(remote_path);
+
+            self.graph_send(
+                reqwest::Method::PUT,
+                &url,
+                token,
+                Some("application/octet-stream"),
+                Some(content.to_vec()),
+            )
+            .await?;
+
+            on_progress(content.len() as u64);
+
+            return Ok(());
+        }
+
+        // 大文件：先开上传会话，再分块 PUT（5 MiB = 16 x 320 KiB，Graph 要求）。
+        let session_url = onedrive_build_upload_session_url(remote_path);
+        let body = self
+            .graph_send(
+                reqwest::Method::POST,
+                &session_url,
+                token,
+                Some("application/json"),
+                Some(b"{}".to_vec()),
+            )
+            .await?;
+        let upload_url = onedrive_parse_upload_session(&body)?;
+
+        let total = content.len() as u64;
+        let mut sent = 0u64;
+
+        while sent < total {
+            let end = (sent + ONEDRIVE_UPLOAD_CHUNK_BYTES as u64).min(total);
+            let chunk = &content[sent as usize..end as usize];
+
+            self.upload_chunk(&upload_url, chunk, sent, total).await?;
+
+            sent = end;
+            on_progress(sent);
+        }
+
+        Ok(())
+    }
+
+    async fn create_folder(
+        &self,
+        session: &OnedriveAuthSession,
+        remote_path: &str,
+    ) -> Result<(), RemoteError> {
+        let Some((parent, name)) = onedrive_split_parent_and_name(remote_path) else {
+            return Err(RemoteError::protocol(
+                "新建目录需要一个具体的目录名，不能是根目录。",
+            ));
+        };
+
+        let token = session.access_token.trim();
+
+        // Graph 的「创建子项」只认**父目录 id**。父目录在根时走 root/children，
+        // 否则先查一次父目录的 id。
+        let url = if parent == "/" {
+            onedrive_build_root_children_url()
+        } else {
+            let parent_item = self.item_by_path(session, &parent).await?;
+            let parent_id = parent_item.id.trim();
+
+            if parent_id.is_empty() {
+                return Err(RemoteError::protocol(
+                    "OneDrive 没有给出父目录的 id，无法在这个目录里新建子项。",
+                ));
+            }
+
+            onedrive_build_children_by_id_url(parent_id)
+        };
+
+        self.graph_send(
+            reqwest::Method::POST,
+            &url,
+            token,
+            Some("application/json"),
+            Some(onedrive_build_create_folder_body(&name).into_bytes()),
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    async fn rename_item(
+        &self,
+        session: &OnedriveAuthSession,
+        remote_path: &str,
+        new_name: &str,
+    ) -> Result<(), RemoteError> {
+        let item = self.item_by_path(session, remote_path).await?;
+        let item_id = item.id.trim();
+
+        if item_id.is_empty() {
+            return Err(RemoteError::protocol(
+                "OneDrive 没有给出这个条目的 id，无法重命名。",
+            ));
+        }
+
+        self.graph_send(
+            reqwest::Method::PATCH,
+            &onedrive_build_item_by_id_url(item_id),
+            session.access_token.trim(),
+            Some("application/json"),
+            Some(onedrive_build_rename_body(new_name).into_bytes()),
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    async fn delete_item(
+        &self,
+        session: &OnedriveAuthSession,
+        remote_path: &str,
+    ) -> Result<(), RemoteError> {
+        let item = self.item_by_path(session, remote_path).await?;
+        let item_id = item.id.trim();
+
+        if item_id.is_empty() {
+            return Err(RemoteError::protocol(
+                "OneDrive 没有给出这个条目的 id，无法删除。",
+            ));
+        }
+
+        self.graph_send(
+            reqwest::Method::DELETE,
+            &onedrive_build_item_by_id_url(item_id),
+            session.access_token.trim(),
+            None,
+            None,
+        )
+        .await?;
+
+        Ok(())
+    }
 }
 
 /// 拿一个 access token 探一次 `/me/drive`，顺带取回账号显示名与盘 id。
@@ -541,6 +899,9 @@ pub struct OnedriveRemoteProvider {
     directory_timeout: Duration,
     file_timeout: Duration,
 }
+
+/// 不报告进度的空回调（上传进度是可选的）。
+fn no_progress(_bytes: u64) {}
 
 /// 带时限的包装。超时 ⇒ `Unreachable`（网络不可达那一类，不是协议错）。
 async fn with_timeout<T>(
@@ -723,6 +1084,49 @@ impl OnedriveRemoteProvider {
         })
         .await
     }
+
+    /// 取一份**可用的** access token（批次 39：测试连接复用已保存的授权会话）。
+    ///
+    /// 三态，缺一不可：
+    ///
+    /// - `Ok(None)` —— 存档里**根本没有**会话（从未授权）。
+    ///   调用方据此报 `MissingCredential`（「请先完成授权」），
+    ///   **不得**报 `AuthRejected`（那是「服务器拒了这组凭据」，两回事）。
+    /// - `Ok(Some(token))` —— 有可用令牌。
+    /// - `Err(error)` —— 续期失败。调用方据此报 `AuthRejected` / `Unreachable`，
+    ///   **不能**退化成「没有凭据」—— 那会把用户引向错误的动作。
+    ///
+    /// 写回规则：**只在真的刷新过之后**才写回存档。
+    /// 没过期时一次都不写 —— 探针是纯读操作，不该改变下次测试的输入。
+    pub(crate) async fn ensure_session_token(
+        &self,
+        key: &str,
+    ) -> Result<Option<String>, RemoteError> {
+        let trimmed_key = key.trim();
+
+        if trimmed_key.is_empty() {
+            return Ok(None);
+        }
+
+        let Some(session) = self.sessions.load(trimmed_key)? else {
+            return Ok(None);
+        };
+
+        let session = if onedrive_is_expired(session.expires_at, onedrive_now_unix()) {
+            // 续期失败 ⇒ 报错（RemoteErrorKind::Auth ⇒ 探针回 AuthRejected）。
+            self.refresh_session(trimmed_key, &session).await?
+        } else {
+            session
+        };
+
+        if !session.has_access_token() {
+            return Err(RemoteError::auth(
+                "OneDrive 的会话存档里没有访问令牌，请重新登录。",
+            ));
+        }
+
+        Ok(Some(session.access_token.clone()))
+    }
 }
 
 #[async_trait]
@@ -780,35 +1184,55 @@ impl RemoteProvider for OnedriveRemoteProvider {
         with_timeout(self.file_timeout, "读取 OneDrive 文件", work).await
     }
 
-    // ---- 只读：一律 Unsupported -------------------------------------------
+    // ---- 写路径（批次 40：OneDrive 从只读升级为读写）-------------------------
 
     async fn write_file(
         &self,
-        _connection_id: &str,
-        _remote_path: &str,
-        _content: Vec<u8>,
+        connection_id: &str,
+        remote_path: &str,
+        content: Vec<u8>,
     ) -> Result<(), RemoteError> {
-        Err(RemoteError::unsupported(
-            "OneDrive 目前是只读接入，不支持上传文件。",
-        ))
+        self.write_file_with_progress(connection_id, remote_path, content, &no_progress)
+            .await
     }
 
     async fn write_file_with_progress(
         &self,
-        _connection_id: &str,
-        _remote_path: &str,
-        _content: Vec<u8>,
-        _on_progress: &(dyn Fn(u64) + Send + Sync),
+        connection_id: &str,
+        remote_path: &str,
+        content: Vec<u8>,
+        on_progress: &(dyn Fn(u64) + Send + Sync),
     ) -> Result<(), RemoteError> {
-        Err(RemoteError::unsupported(
-            "OneDrive 目前是只读接入，不支持上传文件。",
-        ))
+        let (_key, session, normalized) = self.prepare(connection_id, remote_path).await?;
+
+        if normalized == "/" {
+            return Err(RemoteError::protocol(
+                "远端空间根不是一个文件，不能往上面写。",
+            ));
+        }
+
+        let work = async {
+            self.api
+                .upload_content(&session, &normalized, &content, on_progress)
+                .await
+        };
+
+        with_timeout(self.file_timeout, "上传 OneDrive 文件", work).await
     }
 
-    async fn make_dir(&self, _connection_id: &str, _remote_path: &str) -> Result<(), RemoteError> {
-        Err(RemoteError::unsupported(
-            "OneDrive 目前是只读接入，不支持新建目录。",
-        ))
+    async fn make_dir(&self, connection_id: &str, remote_path: &str) -> Result<(), RemoteError> {
+        let (_key, session, normalized) = self.prepare(connection_id, remote_path).await?;
+
+        // 根目录已经存在 ⇒ 视为成功（trait 约定：已存在即成功）。
+        if normalized == "/" {
+            return Ok(());
+        }
+
+        let work = async {
+            self.api.create_folder(&session, &normalized).await
+        };
+
+        with_timeout(self.directory_timeout, "新建 OneDrive 目录", work).await
     }
 
     async fn set_permissions(
@@ -833,24 +1257,52 @@ impl RemoteProvider for OnedriveRemoteProvider {
 
     async fn remove_path(
         &self,
-        _connection_id: &str,
-        _remote_path: &str,
+        connection_id: &str,
+        remote_path: &str,
         _is_dir: bool,
     ) -> Result<(), RemoteError> {
-        Err(RemoteError::unsupported(
-            "OneDrive 目前是只读接入，不支持删除文件或目录。",
-        ))
+        let (_key, session, normalized) = self.prepare(connection_id, remote_path).await?;
+
+        if normalized == "/" {
+            return Err(RemoteError::protocol("不能删除远端空间的根目录。"));
+        }
+
+        let work = async {
+            self.api.delete_item(&session, &normalized).await
+        };
+
+        with_timeout(self.directory_timeout, "删除 OneDrive 文件或目录", work).await
     }
 
     async fn rename_path(
         &self,
-        _connection_id: &str,
-        _from_path: &str,
-        _new_name: &str,
+        connection_id: &str,
+        from_path: &str,
+        new_name: &str,
     ) -> Result<(), RemoteError> {
-        Err(RemoteError::unsupported(
-            "OneDrive 目前是只读接入，不支持重命名。",
-        ))
+        let name = new_name.trim();
+
+        if name.is_empty() {
+            return Err(RemoteError::protocol("新名字不能为空。"));
+        }
+
+        if name.contains('/') || name.contains('\\') {
+            return Err(RemoteError::protocol(
+                "新名字只能是文件名，不能包含路径分隔符。",
+            ));
+        }
+
+        let (_key, session, normalized) = self.prepare(connection_id, from_path).await?;
+
+        if normalized == "/" {
+            return Err(RemoteError::protocol("不能重命名远端空间的根目录。"));
+        }
+
+        let work = async {
+            self.api.rename_item(&session, &normalized, name).await
+        };
+
+        with_timeout(self.directory_timeout, "重命名 OneDrive 文件或目录", work).await
     }
 }
 
@@ -999,6 +1451,10 @@ mod tests {
         downloaded_range: Mutex<Option<String>>,
         refreshed: Mutex<Option<OnedriveAuthSession>>,
         refresh_calls: Mutex<usize>,
+        uploaded_items: Mutex<Vec<(String, Vec<u8>)>>,
+        created_folders: Mutex<Vec<String>>,
+        renamed_items: Mutex<Vec<(String, String)>>,
+        deleted_items: Mutex<Vec<String>>,
     }
 
     impl FakeApi {
@@ -1023,12 +1479,36 @@ mod tests {
                 downloaded_range: Mutex::new(None),
                 refreshed: Mutex::new(None),
                 refresh_calls: Mutex::new(0),
+                uploaded_items: Mutex::new(Vec::new()),
+                created_folders: Mutex::new(Vec::new()),
+                renamed_items: Mutex::new(Vec::new()),
+                deleted_items: Mutex::new(Vec::new()),
             }
         }
 
         fn with_refresh(mut self, refreshed: OnedriveAuthSession) -> Self {
             self.refreshed = Mutex::new(Some(refreshed));
             self
+        }
+
+        /// 上传过的文件（路径 + 内容）。
+        fn uploaded(&self) -> Vec<(String, Vec<u8>)> {
+            self.uploaded_items.lock().expect("lock").clone()
+        }
+
+        /// 新建过的目录。
+        fn created_folders(&self) -> Vec<String> {
+            self.created_folders.lock().expect("lock").clone()
+        }
+
+        /// 改过的名（路径 + 新名字）。
+        fn renamed_items(&self) -> Vec<(String, String)> {
+            self.renamed_items.lock().expect("lock").clone()
+        }
+
+        /// 删掉过的路径。
+        fn deleted_items(&self) -> Vec<String> {
+            self.deleted_items.lock().expect("lock").clone()
         }
     }
 
@@ -1083,6 +1563,82 @@ mod tests {
             _session: &OnedriveAuthSession,
         ) -> Result<OnedriveDriveInfo, RemoteError> {
             Ok(OnedriveDriveInfo::default())
+        }
+
+        async fn item_by_path(
+            &self,
+            _session: &OnedriveAuthSession,
+            remote_path: &str,
+        ) -> Result<OnedriveGraphItem, RemoteError> {
+            let name = remote_path
+                .trim_end_matches('/')
+                .rsplit('/')
+                .next()
+                .unwrap_or(remote_path)
+                .to_string();
+
+            Ok(OnedriveGraphItem {
+                id: format!("id::{remote_path}"),
+                name,
+                ..Default::default()
+            })
+        }
+
+        async fn upload_content(
+            &self,
+            _session: &OnedriveAuthSession,
+            remote_path: &str,
+            content: &[u8],
+            on_progress: &(dyn Fn(u64) + Send + Sync),
+        ) -> Result<(), RemoteError> {
+            self.uploaded_items
+                .lock()
+                .expect("lock")
+                .push((remote_path.to_string(), content.to_vec()));
+
+            on_progress(content.len() as u64);
+
+            Ok(())
+        }
+
+        async fn create_folder(
+            &self,
+            _session: &OnedriveAuthSession,
+            remote_path: &str,
+        ) -> Result<(), RemoteError> {
+            self.created_folders
+                .lock()
+                .expect("lock")
+                .push(remote_path.to_string());
+
+            Ok(())
+        }
+
+        async fn rename_item(
+            &self,
+            _session: &OnedriveAuthSession,
+            remote_path: &str,
+            new_name: &str,
+        ) -> Result<(), RemoteError> {
+            self.renamed_items
+                .lock()
+                .expect("lock")
+                .push((remote_path.to_string(), new_name.to_string()));
+
+            Ok(())
+        }
+
+        async fn delete_item(
+            &self,
+            _session: &OnedriveAuthSession,
+            remote_path: &str,
+        ) -> Result<(), RemoteError> {
+            self.deleted_items
+                .lock()
+                .expect("lock")
+                .push(remote_path.to_string());
+
+            Ok(())
         }
     }
 
@@ -1211,42 +1767,60 @@ mod tests {
         assert_eq!(stored.refresh_token, "new-refresh-token");
     }
 
-    /// 只读：写、删、改名、建目录一律 `Unsupported`。
+    /// 写路径现在**真的能写**（批次 40：OneDrive 从只读升级为读写）。
+    /// 只有「改权限」仍是 Unsupported —— Graph 没有 POSIX 权限位，
+    /// 假装支持比明说不支持更糟。
     #[tokio::test]
-    async fn every_write_operation_is_reported_as_unsupported() {
+    async fn file_operations_work_but_permissions_stay_unsupported() {
         let session = session_with("access-token", "refresh-token", onedrive_now_unix() + 3_600);
         let (_dir, user_data_dir, store) = fixture(session);
+        let api = Arc::new(FakeApi::new());
+        let store = Arc::new(store);
+        let provider =
+            OnedriveRemoteProvider::with_parts(&user_data_dir, api.clone(), store.clone());
 
-        let provider = provider(&user_data_dir, FakeApi::new(), &Arc::new(store));
-
-        let write = provider
-            .write_file(CONNECTION_ID, "/a.txt", b"body".to_vec())
+        provider
+            .write_file(CONNECTION_ID, "/docs/report.bin", b"hello onedrive".to_vec())
             .await
-            .expect_err("write must fail");
-        assert_eq!(write.kind, RemoteErrorKind::Unsupported);
-
-        let make_dir = provider
-            .make_dir(CONNECTION_ID, "/sub")
+            .expect("upload must succeed");
+        provider
+            .make_dir(CONNECTION_ID, "/docs/sub")
             .await
-            .expect_err("mkdir must fail");
-        assert_eq!(make_dir.kind, RemoteErrorKind::Unsupported);
-
-        let remove = provider
-            .remove_path(CONNECTION_ID, "/a.txt", false)
+            .expect("mkdir must succeed");
+        provider
+            .rename_path(CONNECTION_ID, "/docs/report.bin", "renamed.bin")
             .await
-            .expect_err("remove must fail");
-        assert_eq!(remove.kind, RemoteErrorKind::Unsupported);
-
-        let rename = provider
-            .rename_path(CONNECTION_ID, "/a.txt", "b.txt")
+            .expect("rename must succeed");
+        provider
+            .remove_path(CONNECTION_ID, "/docs/renamed.bin", false)
             .await
-            .expect_err("rename must fail");
-        assert_eq!(rename.kind, RemoteErrorKind::Unsupported);
+            .expect("remove must succeed");
+
+        assert_eq!(
+            api.uploaded(),
+            vec![("/docs/report.bin".to_string(), b"hello onedrive".to_vec())],
+            "上传的内容必须逐字节送到目标路径"
+        );
+        assert_eq!(
+            api.created_folders(),
+            vec!["/docs/sub".to_string()],
+            "新建目录必须落在目标路径"
+        );
+        assert_eq!(
+            api.renamed_items(),
+            vec![("/docs/report.bin".to_string(), "renamed.bin".to_string())],
+            "改名只带新名字，不带路径"
+        );
+        assert_eq!(
+            api.deleted_items(),
+            vec!["/docs/renamed.bin".to_string()],
+            "删除必须打在目标路径上"
+        );
 
         let chmod = provider
-            .set_permissions(CONNECTION_ID, "/a.txt", 0o644)
+            .set_permissions(CONNECTION_ID, "/docs/report.bin", 0o644)
             .await
-            .expect_err("chmod must fail");
+            .expect_err("Graph 没有 POSIX 权限位，改权限必须明确说不支持");
         assert_eq!(chmod.kind, RemoteErrorKind::Protocol);
     }
 
@@ -1434,6 +2008,150 @@ mod tests {
             RemoteErrorKind::Auth,
             "假令牌的读失败必须归 Auth（实际 {:?}，消息：{}）",
             error.kind,
+            error.message
+        );
+    }
+
+    // ---- 批次 39：测试连接复用已保存的授权会话 -------------------------------
+
+    /// scope 必须含 offline_access（少了它微软不发 refresh token），
+    /// **且**必须是 Files.ReadWrite —— 只读的 Files.Read 不再算数。
+    #[test]
+    fn the_requested_scope_carries_read_write_and_offline_access() {
+        let scope = super::super::onedrive_auth::ONEDRIVE_SCOPE;
+
+        assert!(
+            scope.contains("Files.ReadWrite"),
+            "scope 必须是读写权限，实际：{scope}"
+        );
+        assert!(
+            scope.contains("offline_access"),
+            "scope 必须含 offline_access，否则没有 refresh token，实际：{scope}"
+        );
+        assert!(
+            !scope.contains("Files.Read "),
+            "只读的 Files.Read 不能再出现在 scope 里，实际：{scope}"
+        );
+    }
+
+    /// 刷新请求体**不得**带 scope：带了与当初不同的范围，微软回
+    /// invalid_scope（AADSTS70011），把用户**已经登录好的会话**直接废掉。
+    #[test]
+    fn the_refresh_request_never_carries_a_scope() {
+        let body =
+            super::super::onedrive_auth::onedrive_refresh_request_body("client-id", "refresh-token");
+
+        assert!(!body.contains("scope"), "刷新请求不能带 scope，实际：{body}");
+        assert!(
+            body.contains("grant_type=refresh_token"),
+            "实际：{body}"
+        );
+        assert!(body.contains("client_id=client-id"), "实际：{body}");
+    }
+
+    /// 存档里有会话且**未过期** ⇒ 拿到那条 access token，
+    /// 且**不写回存档**（探针是纯读操作，不该改变下次测试的输入）。
+    #[tokio::test]
+    async fn ensure_session_token_returns_the_stored_token_without_writing_back() {
+        let session = session_with("stored-token", "refresh-token", onedrive_now_unix() + 3_600);
+        let (_dir, user_data_dir, store) = fixture(session);
+        let store = Arc::new(store);
+        let provider = OnedriveRemoteProvider::with_parts(
+            &user_data_dir,
+            Arc::new(FakeApi::new()),
+            store.clone(),
+        );
+
+        let token = provider
+            .ensure_session_token(CONNECTION_ID)
+            .await
+            .expect("存档里有会话，必须拿得到令牌");
+
+        assert_eq!(token, Some("stored-token".to_string()));
+        assert_eq!(
+            store.saved_keys(),
+            Vec::<String>::new(),
+            "探针不得改写已保存的会话"
+        );
+    }
+
+    /// 存档里的会话**已过期** ⇒ 先续期再返回新令牌，**并写回**
+    /// （微软的 refresh token 是 90 天滚动窗口，不写回第 91 天会突然失效）。
+    #[tokio::test]
+    async fn ensure_session_token_refreshes_an_expired_session_and_writes_it_back() {
+        let expired = session_with("stale-token", "refresh-token", onedrive_now_unix() - 10);
+        let (_dir, user_data_dir, store) = fixture(expired);
+
+        let refreshed =
+            session_with("fresh-token", "new-refresh-token", onedrive_now_unix() + 3_600);
+        let api = Arc::new(FakeApi::new().with_refresh(refreshed));
+        let store = Arc::new(store);
+        let provider =
+            OnedriveRemoteProvider::with_parts(&user_data_dir, api.clone(), store.clone());
+
+        let token = provider
+            .ensure_session_token(CONNECTION_ID)
+            .await
+            .expect("过期会话必须先续期再给令牌");
+
+        assert_eq!(token, Some("fresh-token".to_string()));
+        assert_eq!(
+            api.refresh_calls.lock().expect("lock").clone(),
+            1,
+            "过期会话必须先刷新一次"
+        );
+        assert_eq!(
+            store.saved_keys(),
+            vec![CONNECTION_ID.to_string()],
+            "刷新后的会话必须立刻写回存档"
+        );
+    }
+
+    /// 存档里**根本没有**会话（从未授权）⇒ Ok(None)：
+    /// 调用方据此报 MissingCredential，**不得**报 AuthRejected。
+    #[tokio::test]
+    async fn ensure_session_token_reports_a_missing_session_as_none() {
+        let session = session_with("stored-token", "refresh-token", onedrive_now_unix() + 3_600);
+        let (_dir, user_data_dir, _store) = fixture(session);
+
+        let empty = Arc::new(FakeSessionStore::default());
+        let provider = OnedriveRemoteProvider::with_parts(
+            &user_data_dir,
+            Arc::new(FakeApi::new()),
+            empty,
+        );
+
+        let token = provider
+            .ensure_session_token("never-authorized")
+            .await
+            .expect("没有会话不是错误，是「没授权」");
+
+        assert_eq!(token, None);
+    }
+
+    /// 续期失败 ⇒ 报错（调用方据此报 AuthRejected），
+    /// **不能**退化成「没有凭据」—— 那会把用户引向错误的动作。
+    #[tokio::test]
+    async fn ensure_session_token_reports_a_failed_refresh_as_an_error() {
+        let expired = session_with("stale-token", "refresh-token", onedrive_now_unix() - 10);
+        let (_dir, user_data_dir, store) = fixture(expired);
+
+        // FakeApi 没配置刷新结果 ⇒ 刷新回 Auth。
+        let provider = OnedriveRemoteProvider::with_parts(
+            &user_data_dir,
+            Arc::new(FakeApi::new()),
+            Arc::new(store),
+        );
+
+        let error = provider
+            .ensure_session_token(CONNECTION_ID)
+            .await
+            .expect_err("续期失败必须报错，不能装作没有凭据");
+
+        assert_eq!(error.kind, RemoteErrorKind::Auth);
+        assert!(
+            error.message.contains("重新登录"),
+            "文案必须把用户引向「重新登录」，实际：{}",
             error.message
         );
     }

@@ -1,6 +1,18 @@
 # Registro de cambios
 
 
+## [3.20.0] - November 2026
+
+**Resumen:** OneDrive ya no es de solo lectura. La conexión que se añadió en 3.18.0 ahora también escribe en la unidad: subir archivos, crear carpetas, renombrar y borrar, igual que los demás discos de red. El inicio de sesión pide acceso de lectura y escritura, y *Probar conexión* por fin reconoce la sesión con la que ya ha iniciado sesión.
+
+### What changed
+
+**Añadido: OneDrive ya puede escribir en la unidad** Subir archivos, crear carpetas, renombrar y borrar se aplican de verdad a la unidad; lo borrado va a la papelera y no se elimina de forma permanente. Una carpeta nueva nunca reemplaza a otra con el mismo nombre: en ese caso la aplicación rechaza el nombre.
+**Añadido: Los archivos grandes también se pueden subir** Hasta 250 MB de una sola vez; los mayores, en trozos de 5 MB, indicando cuánto se ha subido.
+**Añadido: *Probar conexión* usa la sesión que ya tienes** Antes decía que faltaban credenciales aunque el formulario mostrara *autorizado*. Ahora usa la sesión guardada, renueva por su cuenta el token caducado y solo informa de credenciales ausentes si de verdad no hay sesión.
+**Añadido: Las sesiones anteriores siguen funcionando** Las sesiones creadas antes de esta versión se renuevan, leen, descargan e indexan como siempre. Para escribir hay que iniciar sesión una vez más, porque Microsoft concede el acceso ampliado al autorizar.
+**Corregido: La columna *Espacio disponible* de la lista de *Ubicaciones* ahora está alineada con las demás.** El texto de esa columna se quedaba pegado arriba en su celda, mientras que las otras columnas lo mostraban en el centro, así que las filas quedaban desiguales. Ahora la columna centra su texto verticalmente como las demás.
+
 ## [3.18.0] - November 2026
 
 **Resumen:** OneDrive ya se conecta como cuarto disco en la nube: en *Configuración* aparece bajo el título *Añadir disco en la nube*, justo al lado de *Baidu Drive*, *Quark Drive* y *Aliyun Drive*. La sesión se inicia en el navegador del sistema con tu cuenta de Microsoft, no hay que copiar ningún token a mano, y la sesión queda en el almacén cifrado de credenciales de la propia aplicación. Esta versión es solo de lectura: puedes recorrer carpetas, leer y descargar archivos y meter la conexión en la búsqueda global, pero todavía no puedes subir archivos, crear carpetas, renombrarlos ni borrarlos.

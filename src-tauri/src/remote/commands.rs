@@ -460,6 +460,44 @@ pub async fn remote_test_connection(
         }
     }
 
+    // OneDrive：与百度/夸克/阿里云同构 —— 令牌框留空 = 「用已保存的那份会话去测」，
+    // **不是**「没有凭据」。少了这一步，编辑一条已经登录的 OneDrive 连接时点
+    // 「测试连接」必然回一句「还没有登录凭据」—— 而用户明明已经存过会话了。
+    //
+    // 但 OneDrive 比那三家多一步：存档里的 access token 约 1 小时有效，
+    // 直接回填旧令牌会被微软判成「凭据无效」——
+    // 那是**误导性结论**（用户明明登录过）。所以这里走 provider 的
+    // `ensure_session_token`：过期就静默续期（微软 refresh token 90 天滚动窗口），
+    // 与列目录/下载同一条路径，两边结论一致。
+    //
+    // 契约口径（`impl-brief.md` §88）：
+    // - 从未授权（存档里根本没有会话）⇒ 交给探针报 `MissingCredential`（「请先完成授权」）；
+    // - 登录过但续期失败 ⇒ `AuthRejected`（「请重新登录」），
+    //   **不能**伪装成「没有凭据」—— 那会把用户引向错误的动作。
+    if request.protocol == RemoteProtocol::OnedrivePan
+        && password.as_deref().map(str::trim).unwrap_or("").is_empty()
+    {
+        if let Some(key) = request.credential_key.clone() {
+            let user_dir = user_data_dir(&app)?;
+            let data_dir = app_data_dir(&app)?;
+
+            // provider 的取法与 `remote_read_dir` / `remote_download` 一致（`new_deferred`），
+            // **不另造一条获取路径** —— 构造失败（HTTP 客户端建不起来）被推迟到第一次调用。
+            let provider = super::onedrive_provider::OnedriveRemoteProvider::new_deferred(
+                &user_dir,
+                &data_dir,
+            );
+
+            match provider.ensure_session_token(&key).await {
+                Ok(Some(token)) => password = Some(token),
+                // 从未授权 ⇒ 保持 `password = None`，探针会回 `MissingCredential`。
+                Ok(None) => {}
+                // 续期失败 ⇒ 直接给结论（`AuthRejected` / `Unreachable`）。
+                Err(error) => return Ok(connection_test::report_from_error(error)),
+            }
+        }
+    }
+
     let target = ProbeTarget {
         protocol: request.protocol,
         host: request.host,

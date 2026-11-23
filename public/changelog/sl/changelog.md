@@ -1,6 +1,18 @@
 # Dnevnik sprememb
 
 
+## [3.20.0] - November 2026
+
+**Povzetek:** OneDrive ni več samo za branje. Povezava, dodana v 3.18.0, zdaj piše tudi na disk: nalaganje datoteke, ustvarjanje mape, preimenovanje in brisanje, enako kot pri drugih omrežnih diskih. Prijava zdaj zahteva dovoljenje za branje in pisanje, *Preveri povezavo* pa končno prepozna sejo, s katero ste se že prijavili.
+
+### What changed
+
+**Dodano: OneDrive zdaj piše na disk** Nalaganje datoteke, ustvarjanje mape, preimenovanje in brisanje res vplivajo na disk; izbrisano gre v smeti in ni trajno. Nova mapa nikoli ne zamenja mape z enakim imenom - pri istem imenu aplikacija zavrne ime.
+**Dodano: Velike datoteke je mogoče naložiti** Do 250 MB v enem zahtevku, večje v kosih po 5 MB, z prikazom naloženega obsega.
+**Dodano: *Preveri povezavo* uporabi že shranjeno sejo** Prej je trdila, da manjkajo poverilnice, čeprav je obrazec pokazal *pooblaščeno*. Zdaj uporabi shranjeno sejo, poteklo žetono sam osveži, in o manjkajočih poverilnicah sporoči šele, kadar seje res ni.
+**Dodano: Stare seje še vedno delujejo** Seje, ustvarjene pred to različico, se še vedno osvežijo, berejo, prenašajo in indeksirajo. Za pisanje se je treba enkrat prijaviti znova, saj Microsoft širši dostop podeli šele ob avtorizaciji.
+**Popravljeno: Stolpec *Prosto prostor* na seznamu *Lokacije* je zdaj poravnan z drugimi stolpci.** Besedilo v tem stolpcu je prej držalo zgoraj v svoji celici, medtem ko so ga drugi stolpci prikazovali na sredini, zato so bile vrstice videti neenakomerne. Zdaj ta stolpec svojega besedila navpično sredinsko poravna tako kot drugi.
+
 ## [3.18.0] - November 2026
 
 **Povzetek:** OneDrive se je zdaj mogoče povezati kot četrti omrežni disk: v razdelku *Nastavitve* stoji pod naslovom *Dodaj omrežni disk* tik ob *Baidu Drive*, *Quark Drive* in *Aliyun Drive*. Prijava poteka v privzetem brskalniku sistema z vašim Microsoftovim računom, nobenega žetona ni treba ročno kopirati, seja pa ostane v šifriranem skladišču poverilnic aplikacije. Ta različica je samo za branje: mape lahko prebrskate, datoteke preberete in prenesete, povezavo pa lahko vključite v globalno iskanje - nalaganja, ustvarjanja map, preimenovanja in brisanja še ni.

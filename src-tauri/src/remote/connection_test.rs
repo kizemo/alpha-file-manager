@@ -223,7 +223,12 @@ pub async fn probe(target: &ProbeTarget) -> Result<ConnectionTestReport, RemoteE
     Ok(outcome)
 }
 
-fn report_from_error(error: RemoteError) -> ConnectionTestReport {
+/// 错误 → 探针报告。
+///
+/// `pub(crate)`：OneDrive 的「测试连接」在**取令牌**那一步就可能失败
+/// （会话过期 ⇒ 续期失败），那条路上没有 `ProbeTarget` 可探，
+/// 只能直接把错误翻译成结论 —— 映射口径必须与这里**同一份**。
+pub(crate) fn report_from_error(error: RemoteError) -> ConnectionTestReport {
     ConnectionTestReport::new(error.kind.into_outcome(), error.message)
 }
 

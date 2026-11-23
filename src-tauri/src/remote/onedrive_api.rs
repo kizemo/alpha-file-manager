@@ -713,6 +713,132 @@ fn onedrive_split_utc_offset(rest: &str) -> Option<(&str, i64)> {
 }
 
 // ---------------------------------------------------------------------------
+// 写路径寻址（批次 40：OneDrive 从只读升级为读写）
+// ---------------------------------------------------------------------------
+
+/// 单次**简单上传**的字节上限（250 MiB）。
+///
+/// Graph 的 `PUT .../content` 简单上传上限就是 250 MiB；
+/// 超过它必须走上传会话（`createUploadSession`）分块 PUT。
+pub const ONEDRIVE_MAX_SIMPLE_UPLOAD_BYTES: usize = 250 * 1024 * 1024;
+
+/// 上传会话的分块大小（5 MiB）。
+///
+/// Graph 要求分块大小是 320 KiB 的整数倍：5 MiB = 16 × 320 KiB ✓。
+pub const ONEDRIVE_UPLOAD_CHUNK_BYTES: usize = 5 * 1024 * 1024;
+
+/// 按路径取单个条目的地址（拿它的 `id`）。
+///
+/// 根目录走 `/me/drive/root`（**不是** `root:/:/` —— 那是无效路径）。
+pub fn onedrive_build_item_url(remote_path: &str) -> String {
+    let encoded = onedrive_encode_path(remote_path);
+
+    if encoded.is_empty() {
+        format!("{ONEDRIVE_GRAPH_BASE_URL}/me/drive/root")
+    } else {
+        format!("{ONEDRIVE_GRAPH_BASE_URL}/me/drive/root:/{encoded}")
+    }
+}
+
+/// 上传内容的地址。
+pub fn onedrive_build_upload_url(remote_path: &str) -> String {
+    let encoded = onedrive_encode_path(remote_path);
+    format!("{ONEDRIVE_GRAPH_BASE_URL}/me/drive/root:/{encoded}:/content")
+}
+
+/// 创建上传会话的地址（大文件分块上传用）。
+pub fn onedrive_build_upload_session_url(remote_path: &str) -> String {
+    let encoded = onedrive_encode_path(remote_path);
+    format!("{ONEDRIVE_GRAPH_BASE_URL}/me/drive/root:/{encoded}:/createUploadSession")
+}
+
+/// 按条目 id 寻址的地址（改名、删除）。
+pub fn onedrive_build_item_by_id_url(item_id: &str) -> String {
+    format!(
+        "{ONEDRIVE_GRAPH_BASE_URL}/me/drive/items/{}",
+        urlencoding::encode(item_id.trim())
+    )
+}
+
+/// 在**根目录**下创建子项的地址。
+pub fn onedrive_build_root_children_url() -> String {
+    format!("{ONEDRIVE_GRAPH_BASE_URL}/me/drive/root/children")
+}
+
+/// 在指定**父目录 id** 下创建子项的地址。
+///
+/// Graph 的「创建子项」只认父目录的 `id`，不认路径 —— 父目录要先查一次。
+pub fn onedrive_build_children_by_id_url(parent_id: &str) -> String {
+    format!(
+        "{ONEDRIVE_GRAPH_BASE_URL}/me/drive/items/{}/children",
+        urlencoding::encode(parent_id.trim())
+    )
+}
+
+/// 解析单个 driveItem（`GET .../root:/path` 的响应）。
+pub fn onedrive_parse_item(body: &str) -> Result<OnedriveGraphItem, RemoteError> {
+    serde_json::from_str::<OnedriveGraphItem>(body)
+        .map_err(|error| RemoteError::protocol(format!("OneDrive 返回的条目无法解析：{error}")))
+}
+
+/// 解析 `createUploadSession` 的响应，取出 `uploadUrl`。
+pub fn onedrive_parse_upload_session(body: &str) -> Result<String, RemoteError> {
+    let value: serde_json::Value = serde_json::from_str(body).map_err(|error| {
+        RemoteError::protocol(format!("OneDrive 返回的上传会话无法解析：{error}"))
+    })?;
+
+    value
+        .get("uploadUrl")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|url| !url.is_empty())
+        .map(|url| url.to_string())
+        .ok_or_else(|| {
+            RemoteError::protocol("OneDrive 没有给出上传会话地址，无法继续上传这个文件。")
+        })
+}
+
+/// 新建目录的请求体。
+///
+/// `@microsoft.graph.conflictBehavior: "fail"` —— 同名目录**不覆盖**。
+/// 静默覆盖同名目录是最不能出的错（用户以为新建了一个，其实是换掉了原来那个）。
+pub fn onedrive_build_create_folder_body(name: &str) -> String {
+    serde_json::json!({
+        "name": name,
+        "folder": { "@odata.type": "#microsoft.graph.driveItem" },
+        "@microsoft.graph.conflictBehavior": "fail"
+    })
+    .to_string()
+}
+
+/// 改名的请求体。
+pub fn onedrive_build_rename_body(new_name: &str) -> String {
+    serde_json::json!({ "name": new_name }).to_string()
+}
+
+/// 拆出父目录路径与条目名。
+///
+/// `/a/b/c` → `("/a/b", "c")`；`/c` → `("/", "c")`；`/` → `None`。
+pub fn onedrive_split_parent_and_name(remote_path: &str) -> Option<(String, String)> {
+    let trimmed = remote_path.trim();
+    let index = trimmed.rfind('/')?;
+    let name = trimmed[index + 1..].trim().to_string();
+
+    if name.is_empty() {
+        return None;
+    }
+
+    let parent = trimmed[..index].trim_end_matches('/');
+    let parent = if parent.is_empty() {
+        "/".to_string()
+    } else {
+        parent.to_string()
+    };
+
+    Some((parent, name))
+}
+
+// ---------------------------------------------------------------------------
 // 条目转换
 // ---------------------------------------------------------------------------
 
@@ -1163,5 +1289,107 @@ mod tests {
 
         assert_eq!(info.id.as_deref(), Some("drive-1"));
         assert_eq!(info.account_name().as_deref(), Some("张三"));
+    }
+}
+
+#[cfg(test)]
+mod write_path_tests {
+    use super::*;
+
+    // ---- 写路径寻址 ---------------------------------------------------------
+
+    #[test]
+    fn write_urls_use_the_path_form() {
+        assert_eq!(
+            onedrive_build_item_url("/Documents/MyFile.xlsx"),
+            "https://graph.microsoft.com/v1.0/me/drive/root:/Documents/MyFile.xlsx"
+        );
+        assert_eq!(
+            onedrive_build_item_url("/"),
+            "https://graph.microsoft.com/v1.0/me/drive/root"
+        );
+        assert_eq!(
+            onedrive_build_upload_url("/Documents/MyFile.xlsx"),
+            "https://graph.microsoft.com/v1.0/me/drive/root:/Documents/MyFile.xlsx:/content"
+        );
+        assert_eq!(
+            onedrive_build_upload_session_url("/Documents/MyFile.bin"),
+            "https://graph.microsoft.com/v1.0/me/drive/root:/Documents/MyFile.bin:/createUploadSession"
+        );
+        assert_eq!(
+            onedrive_build_item_by_id_url("item-1"),
+            "https://graph.microsoft.com/v1.0/me/drive/items/item-1"
+        );
+        assert_eq!(
+            onedrive_build_root_children_url(),
+            "https://graph.microsoft.com/v1.0/me/drive/root/children"
+        );
+        assert_eq!(
+            onedrive_build_children_by_id_url("parent-1"),
+            "https://graph.microsoft.com/v1.0/me/drive/items/parent-1/children"
+        );
+    }
+
+    #[test]
+    fn write_paths_are_encoded_segment_by_segment() {
+        assert_eq!(
+            onedrive_build_upload_url("/My Files/a b.txt"),
+            "https://graph.microsoft.com/v1.0/me/drive/root:/My%20Files/a%20b.txt:/content"
+        );
+    }
+
+    #[test]
+    fn parent_and_name_are_split_out_of_a_path() {
+        assert_eq!(
+            onedrive_split_parent_and_name("/Documents/sub"),
+            Some(("/Documents".to_string(), "sub".to_string()))
+        );
+        assert_eq!(
+            onedrive_split_parent_and_name("/sub"),
+            Some(("/".to_string(), "sub".to_string()))
+        );
+        assert_eq!(onedrive_split_parent_and_name("/"), None);
+    }
+
+    #[test]
+    fn a_new_folder_never_silently_replaces_an_existing_one() {
+        let body = onedrive_build_create_folder_body("sub");
+
+        assert!(
+            body.contains("conflictBehavior") && body.contains("fail"),
+            "同名必须是 fail 而不是 replace：{body}"
+        );
+        assert!(
+            !body.contains("replace"),
+            "同名目录绝不能被静默覆盖：{body}"
+        );
+    }
+
+    #[test]
+    fn a_rename_body_carries_only_the_new_name() {
+        assert_eq!(onedrive_build_rename_body("b.txt"), "{\"name\":\"b.txt\"}");
+    }
+
+    #[test]
+    fn an_upload_session_without_a_url_is_an_error() {
+        assert!(onedrive_parse_upload_session("{}").is_err());
+        assert_eq!(
+            onedrive_parse_upload_session("{\"uploadUrl\":\"https://upload.example/s/1\"}")
+                .expect("must parse"),
+            "https://upload.example/s/1"
+        );
+    }
+
+    #[test]
+    fn a_drive_item_is_parsed_into_its_id_and_kind() {
+        let item = onedrive_parse_item(
+            "{\"id\":\"item-1\",\"name\":\"sub\",\"folder\":{\"childCount\":0}}",
+        )
+        .expect("must parse");
+
+        assert_eq!(item.id, "item-1");
+        assert_eq!(item.name, "sub");
+        assert!(item.folder.is_some());
+        assert!(item.file.is_none());
     }
 }
