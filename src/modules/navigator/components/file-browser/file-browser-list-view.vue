@@ -906,6 +906,7 @@ const visibleRows = computed<FileBrowserListDisplayItem[]>(() => {
 .file-browser-list-view__entry-linkStatus,
 .file-browser-list-view__entry-items,
 .file-browser-list-view__entry-size,
+.file-browser-list-view__entry-availableSpace,
 .file-browser-list-view__entry-modified,
 .file-browser-list-view__entry-created,
 .file-browser-list-view__entry-tags {
@@ -926,8 +927,15 @@ const visibleRows = computed<FileBrowserListDisplayItem[]>(() => {
    日期列内部那个 __date-hover 是 inline-grid 且 primary/absolute 都是
    place-self:start，但它的盒子高度只有一行文字，所以把外层居中即可。 */
 
+/* FORK-MODIFICATION 2026-11-24（用户指出）：「可用空间」列的文字贴在格子顶部，
+   和其它列不齐。根因同上 —— 这一列**整列都没有任何 CSS 规则**（既没有
+   display:flex + align-items:center，也没有上面那条共享的字号/颜色/省略号规则），
+   所以它是唯一一个普通 span 子项，被 grid 拉伸后文字就顶在上面。
+   这里把它补进居中分组和共享排版分组，与其它列对齐。 */
+
 .file-browser-list-view__entry-kind,
 .file-browser-list-view__entry-items,
+.file-browser-list-view__entry-availableSpace,
 .file-browser-list-view__entry-modified,
 .file-browser-list-view__entry-created {
   display: flex;
