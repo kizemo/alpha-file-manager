@@ -608,3 +608,233 @@ passed 两边同为 1667，ignored 差 2、总数差 2 ⇒ 差的正是后来新
 
 **§11.7 之后的 git 实况（本会话亲跑）**：§11 文档 commit `69366f9b` → §11.7 再追加一条 docs commit；`main` ahead origin **8**，push 仍未做（用户裁决）。
 
+### 12. 真实凭据用例：装置已就绪、干跑全链闭合；5 个用例仍未判定 —— 唯一缺口是**合法的 Azure 应用(客户端)ID（GUID 形态）**（2026-11-22 22:22–22:33）
+
+§11.6 里「真实凭据 5 用例仍未判定」的**根因本轮坐实，且与代码/装置无关**：外部依赖没到位。
+本节所有数字均为**本会话当场执行或当场回读**。
+
+#### 12.1 用户给的 `client_id` 不是应用 ID（判别性实测，落盘可复现）
+
+`duanyi@aiec.fun` 是 **Microsoft 登录账号形态**，不是「应用程序(客户端)ID」。token 端点
+`https://login.microsoftonline.com/common/oauth2/v2.0/token` 的 **client_credentials 形状**（带假 secret）给出
+**有判别力**的响应 —— 证据 `.superpowers/sdd/b38/clientid-probe-20261122.log`（1,593 B，sha256 `04a45aee…ef4e6`）：
+
+| client_id | HTTP | error | AADSTS | 解读 |
+|---|---|---|---|---|
+| `duanyi@aiec.fun` | 400 | invalid_grant | **53003** | 解析不出应用 ⇒ 目录查无此应用 |
+| `11111111-2222-3333-4444-555555555555`（随机 GUID 对照） | 400 | invalid_grant | **53003** | 与上面**同款** |
+| `04b07795-8ddb-461a-bbee-02f9e1bf7b46`（**已注册的真实 public client**，微软公开示例） | **401** | invalid_client | **7000215** Invalid client secret provided | 应用**确实存在**，只是 secret 不对 |
+
+⇒ 判别逻辑：**只有真实存在的应用才会走到「secret 不对」这一步（7000215）**。
+邮箱形态与随机 GUID 同返 53003 ⇒ **`duanyi@aiec.fun` 在微软目录查无此应用**。
+
+同一日志里另外 4 种请求形状（refresh_token+scope / refresh_token+redirect_uri / authorization_code / refresh_token 裸形状）
+**三者全部同返 `AADSTS9002313`，无判别力**；`authorize` 端点对三种 client_id 一律 **HTTP 200 且响应体无 AADSTS**
+⇒ **不能拿 authorize 的 200 当「应用存在」的证据**。
+
+> 口径订正：本会话早前曾观察到 `AADSTS700016`（identifier 被截断成 `duanyi`），本轮矩阵**未能复现**该形态（改判 `53003`）。以本轮落盘日志为准，勿再引用 700016。
+
+#### 12.2 装置门槛：非 GUID 会静默跳过整个 login 阶段
+
+`accept-real-credentials.ps1:1572` 用 GUID 正则校验 `-ClientId`，不匹配则 `$loginPossible=$false`（1574）⇒
+`if ($loginPossible)`（1652）整块登录流程被跳过 ⇒ **拿邮箱直接跑只会得到「5 项全 UNDETERMINED、退出码 0」的假绿**。
+这正是「不能为了跑出结果而硬塞一个非法 client_id」的技术依据。
+
+#### 12.3 本轮修掉的 2 处**装置**缺陷（不是产品回归）
+
+| # | 缺陷 | 现象 | 修法 | 现落点 |
+|---|---|---|---|---|
+| D1 | 不钉启动页 | 应用按真实 user-data 遗留 `lastRoute=navigator` 开在文件浏览器 ⇒ 找不到「远程」按钮 ⇒ login 阶段全死（干跑 1：`nav rail buttons: 0`、`STEP_02 UNDETERMINED`、`pass=1 fail=0 undetermined=1`） | 新增 `Set-StartupRoute()`（1587），调 `pin-startup-route.cjs` 钉启动路由；login 钉 `settings`/`remote`（1653），verify 钉 `home`（1673） | 照兄弟装置 `b38-accept.ps1` 既有做法 |
+| D2 | `Navigate-ToRoute` 只在点击循环里查 URL | 已在目标路由也会被报「could not reach」 | 进循环前先查文档 URL，命中即短路返回 true | `Navigate-ToRoute`（836） |
+
+**不改 `Get-RailButtons`**（818）—— 路由表 `src/router/routes.ts:36-68` 的 rail 图标是 lucide 组件
+（HomeIcon/FolderClosedIcon/BookmarkIcon/SettingsIcon/XIcon）⇒ rail 按钮**带图标标签** ⇒ 按「无名字按钮」筛永远 0 候选。
+改为**开机直达目标路由**（login→`settings`、verify→`home`），彻底绕开 rail 按钮依赖。
+（真实 route name 是 `home`（path `/`）/ `navigator` / `dashboard` / `settings` / `extensions`；装置注释里的 "positions" 是作者 paraphrasing。）
+
+**补丁纪律**：一律 **node 脚本 + 锚点/行级断言**（`reports/patch-accept-real-device.cjs` 4 处锚点替换、
+`reports/patch-accept-real-device2.cjs` 行级断言 + 抽出 `Set-StartupRoute`），改完当场校验纯 ASCII。
+`accept-real-credentials.ps1` = **72,936 B，non_ascii=0**，sha256 `98b960c1…818c2`。
+
+#### 12.4 非交互启动器（新增，纯 ASCII）
+
+`.superpowers/sdd/b38/run-real-credentials.cmd`（2,973 B，non_ascii=0，sha256 `e22044fd…af3`）：
+stdin 重定向自一行空文件自动喂回车、`cd /d` 到仓库根、显式传 `-ExePath`、**自己取 `DEVICE_EXIT`**（紧邻装置调用后读 `%ERRORLEVEL%`）、
+设备 stdout 落 `%TEMP%\sfm-accept-stdout.log` 再回显；环境变量开关 `SFM_EXE` / `SFM_PHASE` / `SFM_TIMEOUT` / `SFM_RESTORE`。
+
+**为什么可以自动喂回车（不会造成假 PASS）**：装置里 `Read-Host` 在 **1072**（唯一人工点），
+其后才是按授权卡真实状态轮询判定 —— 已授权→PASS（1092）/ 超时→UNDETERMINED（1097），上限 `-TimeoutSeconds`（默认 600，参数在 69）
+⇒ **提前喂不会造出假 PASS**；应用侧回调窗口 `onedrive_oauth.rs:60` `CALLBACK_TIMEOUT = Duration::from_secs(300)`（用在 442）
+⇒ 喂早反而给用户更宽的 MFA 时间。
+探针实测：`Read-Host` 在重定向 stdin 下**立即返回**（`GOT=[]`、`REDIRECTED=True`、`PROBE_EXIT=0`）。
+
+#### 12.5 干跑三（`-Phase all`，假 GUID）逐项判词
+
+证据目录 `.superpowers/sdd/b38/accept-real-20261122-222908/`（`report.txt` 2,846 B sha256 `8bf45309…da54`；
+`report.json` 6,694 B sha256 `99416951…0a71`；`auth-url.txt` 351 B；`auth-url-checks.txt` 894 B；`accept-real.log` 7,144 B）。
+
+**`SUMMARY pass=18 fail=2 undetermined=6`**；`DEVICE_EXIT=1`、`WRAPPER_EXIT=1`（有 FAIL ⇒ 非 0，**不是崩溃**）。
+
+| 步骤 | 判词 | 说明 |
+|---|---|---|
+| STEP_01 | PASS | 操作者桌面前台未被抢（before=786542 after=786542） |
+| STEP_02–05 | PASS | 表单 4 项：client-id 回读 length=36 / 连接名 `OneDrive` / 全局检索开关 `On` / 本地目录 |
+| STEP_06–17 | PASS（12 项） | 授权 URL 全参数：host、path、`response_type=code`、scope 含 `offline_access` 与 `Files.Read`、`code_challenge_method=S256`、challenge 长度 43、base64url 无填充、**无 `client_secret`**、loopback `redirect_uri=http://localhost:63480`、client_id 匹配、state 长度 32 |
+| STEP_18 | **UNDETERMINED** | 25 s 内无已登录状态（无人登录，**预期**） |
+| STEP_19 | **FAIL** | 保存列表无 `OneDrive` 条目 —— 无真实会话 ⇒ 应用不落盘连接，**预期行为** |
+| STEP_20 | **FAIL** | `user-remote-connections.json` 无 `onedrive_pan` —— 同上，**预期行为** |
+| STEP_21 | PASS | verify 阶段前台未被抢 |
+| STEP_22–26 | **UNDETERMINED** | verify 全部跳过：无已保存的 `onedrive_pan` 连接（**预期**） |
+
+实测授权 URL（假 GUID，只证明**参数构造正确**）：
+
+```
+https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=11111111-2222-3333-4444-555555555555&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A63480&response_mode=query&scope=Files.Read%20offline_access&state=0c2d7c716f8742f9891ec2cce732181c&code_challenge=W7xKP5QyfmmerRo8Qg6PN30hX5hoaI68PebCzPQNZ1c&code_challenge_method=S256
+```
+
+⇒ 与 `impl-brief` 契约逐条对齐：host/path/`response_type`/`scope`（**空格分隔**）/`S256`/无 `client_secret`/loopback redirect/`state` 非空。
+
+**收尾**：`startup route restored from backup`（用户自己的启动页已还原）；
+`user data was NOT restored`（备份留在 `accept-real-20261122-222908\appdata-backup-222909`，回滚需**先杀进程**再复制覆盖）。
+
+#### 12.6 用户数据完好性（本会话当场回读）
+
+| 项 | 实测 |
+|---|---|
+| `user-settings.json` | `lastRoute.name=navigator`、`lastRoute.fullPageId` 空、`settingsCurrentTab=search` ⇒ **与开工前逐字一致**（启动页 pin 已撤销）；**字节级证明**：当前文件 sha256 `2b3f78a5a817734add988092e37ee1aef8b4ffa894f7c0746dcd98259b16bc4b` 与装置备份 `appdata-backup-222909\user-settings.json` **完全相同** |
+| `user-remote-connections.json` | **6 条**：速豹堂`sftp`、aiec.fun`sftp`、jury.xin`sftp`、百度网盘`baidu_pan`、夸克网盘`quark_pan`、阿里云盘`aliyun_pan` ⇒ **无 `onedrive_pan`** |
+| `remote-credentials.json` | **不存在** ⇒ 未落任何凭据 |
+| `alpha-file-manager` 进程数 | **0** |
+
+#### 12.7 拿到合法 GUID 后的跑法（一条命令，编排已就绪）
+
+```powershell
+# 推荐：走启动器（自动喂回车 + 自己取退出码）
+& 'F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\b38\run-real-credentials.cmd' '<GUID>'
+
+# 等价：直接调装置（必须 powershell.exe 5.1，必须显式 -ExePath）
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .superpowers\sdd\b38\accept-real-credentials.ps1 `
+  -ClientId '<GUID>' `
+  -ExePath 'D:\Program Files\Alpha File Manager\alpha-file-manager.exe' `
+  -Phase all
+```
+
+- `-Phase login|verify|all`；`-TimeoutSeconds` 默认 **600**（授权轮询/下载/索引/探测上限）。
+- 装置默认 `-ArtifactDir` = `Join-Path $PSScriptRoot ('accept-real-' + 时间戳)`（82 行）⇒ **必落在 `.superpowers\sdd\b38\`**。
+- 默认**不**还原 user-data；回滚加 `-RestoreUserData`（**回滚前先确认 `alpha-file-manager` 进程为 0**）。
+- **时间窗**：授权 URL 发出后应用侧只等 **300 s** ⇒ 需在 5 分钟内完成「打开浏览器 → 登录 → MFA → 回车」。
+
+**用户侧只需做两件事**（其余编排全自动）：
+
+1. 提供 Azure 应用**「应用程序(客户端)ID」（GUID 形态）** —— 注册 Azure 原生（移动和桌面）应用，
+   重定向 URI 平台选「移动和桌面应用程序」、填 `http://localhost`（不填端口、**不要选单页应用**），
+   委托权限加 `Files.Read`，**不生成客户端密钥**；必要时管理员同意（详见 `REAL-CREDENTIAL-ACCEPT.md` §1）。
+2. 在真实桌面浏览器完成 Microsoft 登录 + MFA。
+
+#### 12.8 本轮新增的 cmd / 取证坑
+
+1. **cmd 的 `rem` 行会解析 `<` `>` `|`**：第一版启动器 `rem ... <azure-application-client-id-guid>` 直接报
+   `id was unexpected at this time.`（退出码 **255**，脚本一行都没执行）⇒ **rem 行禁 `<` `>` `|`**；`if (...)` 块内 echo 文本避开 `()`。
+2. **`[IO.File]::ReadAllBytes` 按进程 CWD 解析相对路径**（与 PowerShell 的 `Set-Location` 不同）⇒ 校验字节/ASCII 必须传**绝对路径**。
+3. **必须 `powershell.exe` 5.1**：本机 `5.1.26100.9818`；pwsh 7 下装置内嵌 C# `Add-Type` 编译失败 **CS0246**（`List<>` 找不到）。
+4. **`Invoke-WebRequest` 的异常会吞掉错误响应体**（pwsh 7）⇒ 要拿 AADSTS 错误码必须加 **`-SkipHttpErrorCheck`**，
+   否则 BODY 恒为空，探针会「看似无差异」而误判。
+5. **token 端点的请求形状决定判别力**：`refresh_token` / `authorization_code` 形状对三种 client_id 一律 `AADSTS9002313`；
+   `client_credentials` 形状才有 53003 vs 7000215 的区分（见 §12.1）。
+6. **拿不到 webview console 是本项目常态** ⇒ 界面证据只认 UIA 树 dump；**PNG 截图通道无判别力**（隔离桌面恒黑/全白）。
+
+#### 12.9 本轮**未做**（边界不变）
+
+- **未 push**（`HEAD=64c9f61a`，`ahead=8 / behind=0`）、**未对外发布**、**未动批次 39**、
+  **未修 `LOCAL-BUILDS.txt` 登记漂移**（`release/local-builds/` 实有 **17** 个文件，`LOCAL-BUILDS.txt` 共 **18** 行含标题行，非一一对应）。
+- **未重跑 `tauri build`**（不为补 `BUILD_EXIT`/`GATE_EXIT`）；沿用已装机 **3.18.0**（`D:\Program Files\Alpha File Manager\alpha-file-manager.exe`，85,634,048 B）。
+- **`reports/` 未入库**（`git status --porcelain` 仍只有 `?? reports/`；本轮新增 `probe-readhost.cmd` + 2 个 patch 脚本）。
+- **装置与启动器都没进 git**：`.superpowers/sdd/.gitignore:1:*` ⇒ `.superpowers/sdd/` 整个被忽略
+  （`git ls-files .superpowers/sdd/b38/` 为空）⇒ 改装置**不污染提交历史**，但**换机器要重做 D1/D2 两处修复**。
+
+
+
+## 2026-11-23 07:20 run9 现状：根因查实 = 工作站锁屏（与账号 / MFA / 代码均无关）
+
+**取证（当场回读）**
+
+- `Get-Process LogonUI` → `Id=975708 start=2026-11-23 00:00:35 session=1` ⇒ 锁屏界面进程自 00:00:35 起常驻。
+- `GetForegroundWindow()` 取到空标题（无前台窗口）⇒ 交互桌面被安全桌面接管。
+- `GetThreadDesktop` + `GetUserObjectInformationW(UOI_NAME)` → `DESKTOP_NAME=Default` ⇒ **不是影刀虚拟桌面**，是真实桌面但被锁。
+- 抓帧 `maintenance\b38-captures\edge-3-6164950.png`（`PrintWindow(hwnd,hdc,2)`，nonwhite_pct=99.92）：
+  - 地址栏 = `https://login.microsoftonline.com/common/oauth2/deviceauth?otc=N5UKQSHW7&login_hint=kizemo%40hotmail.com`
+  - 标签标题 = 「登录到您的帐户」⇒ **页面已成功加载**（标题来自 DOM）；内容区空白 = 锁屏期间 Chromium 渲染层挂起，**不是页面坏**。
+- `keeper-b38.log` 与 `run9\device-code.txt` 一致：当前码 `N5UKQSHW7`，07:15:16 已开新窗、关旧窗，InPrivate 窗口**唯一**。
+
+**结论**
+
+1. 整夜十余个设备码过期，根因是**机器锁屏 7 小时，人不在屏幕前**，而非用户不作为、密码错误或 MFA 拦截。
+2. 用户提的「提示输入移动设备显示的代码」是微软设备码页**固定文案**；那 9 位码来自本机脚本（已写进地址栏 `otc=` 参数），**与手机无关**；个人账号只需密码、无 MFA。
+3. 页面已预填（`otc=` 参数的既定行为）；若框内为空，手动敲地址栏那 9 位即可。
+
+**处置**
+
+- 新增 `.superpowers/sdd/b38/UNLOCK-AND-LOGIN.md`（解锁后 5 步操作指南，含过期码 F5 自救）。
+- run9 两任务仍活：`bg_2387d1d0`（注册）/ `bg_1f1da51b`（守窗器），≈16:14 到期；额度闸门覆盖至 16:24:35。
+- 已知风险备选：若纯 MSA 租户被 Graph 拦（`Directory_AccessDenied`），改走多租户应用路线（保留 `signInAudience=AzureADandPersonalMicrosoftAccount`）。
+## 2026-11-23 接管轮（§13）：用户裁决「先暂停这条线」+ 两处根因并存（含与 run9 的矛盾并置）
+
+**本节性质**：本节由**接管轮**追加（承接上文 run9 的 07:20 段落），只做**事实登记**，不改动 §1–§12 的任何判词。
+
+### 13.1 裁决与状态
+
+- **2026-11-23 09:13 用户在询问卡片中选择「先暂停这条线」** ⇒ **真实凭据验收（5 用例）不再推进**，装置与本轮改造**全部保留待续**。
+- 5 个 OneDrive 真实凭据用例（真实登录 / 列目录 / 下载 / 全局索引 / 测试连接）**仍为「未判定」**：
+  硬阻塞 = 缺**合法的 Azure 应用(客户端)ID（GUID 形态）**；且本轮**从未创建任何应用注册**。
+
+### 13.2 本轮取证（全部当场回读原文件）
+
+| 证据文件 | 逐字要点 | 判读 |
+|---|---|---|
+| `.superpowers/sdd/b38/azure/azure-register6.log` | `STEP=1 request device code` / `STEP=2 wait for user sign-in` / `DEVICE_CODE_EXPIRED_AT=00:19:34` / `STEP=1b refresh device code` / `TOKEN_TIMEOUT (no sign-in inside timeout window)` | 设备码流**超时未登录**；后台任务 `AZURE_REGISTER6_EXIT=5` |
+| `.superpowers/sdd/b38/azure/device-code.txt` | `user_code=S5XWEUBQX`、`issued_at=2026-11-23 00:19:38`、`expires_in=900`、`tenant=common` | 当前码**已过期**（900 s TTL，签发后 900 s 即失效） |
+| `.superpowers/sdd/b38/azure/azure-app.json` | **文件不存在**（`Test-Path` = False） | **从未创建应用注册** ⇒ client_id 无来源 |
+| `.superpowers/sdd/b38/azure/uia-fill-code.log` | 23:27:50 `CODE_BOX_VALUE=` + `CODE_BOX_NOT_FILLED`；23:28:44 起地址栏变为 `https://login.microsoftonline.com/common/login`，密码框控件名 = 「输入 duanyi@oxingtui.com 的密码」；23:30:03 / 23:30:06 页面文本含「你的帐户已暂被锁定」；`CODE_BOX_NOT_FOUND`；`OTHER_ACCOUNT_ENTRY_NOT_FOUND` | Edge 默认档案里的 MSA **已被微软锁号** ⇒ UIA 自动化往**错误账号**的密码框填码 |
+| 锁屏 | 本轮 09:14:36 实测 `Get-Process LogonUI` → **none**（当前已解锁）；run9 记录 LogonUI 自 **00:00:35** 常驻 | 机器整夜锁屏 ≈7 h ⇒ 设备码连续过期 |
+
+### 13.3 本轮实测的内置浏览器链路（可复用）
+
+1. `navigate` → `https://microsoft.com/devicelogin?otc=<USER_CODE>&login_hint=kizemo%40hotmail.com`
+2. **`id=otc` 验证码框为空**（`otc=` URL 参数**未预填**）⇒ Agent 手工 `fill`（回读 `textLength=9`, `verified:true`）
+3. `click_and_wait_for_navigation` 点「下一步」⇒ 落点 `https://login.microsoftonline.com/common/oauth2/deviceauth`（页面文案「你正在从位于 中国 的另一台设备上登录 Microsoft Azure PowerShell」），**`id=i0116` 邮箱框为空**（`login_hint` 同样未预填）
+4. **边界**：Agent 可代填一次性设备码；**邮箱 / 密码 / MFA 属用户本人**，只能在登录页停下交用户接管。
+
+### 13.4 两处根因并存（互不覆盖）
+
+- **根因 A = 账号锁号**：Edge 默认档案里的 MSA `duanyi@oxingtui.com` 被微软锁号（`uia-fill-code.log` 逐字）⇒ 解释「UIA 自动化填不进码 / 越点越锁」。
+- **根因 B = 主机锁屏**：LogonUI 常驻 00:00:35 → 约 09:13，人不在屏幕前 ⇒ 解释「整夜十余个设备码连续过期、无人完成人工登录」。
+- **矛盾并置（不单方面采信）**：run9 §「页面已预填（`otc=` 参数的既定行为）」与本轮内置浏览器实测（框空、必须手工填）**直接冲突**。
+  - 两边都如实登记；差异可能来自**客户端不同**（run9 = Edge InPrivate + UIA 树；本轮 = MiniMax Code 内置浏览器 Chromium profile）导致的会话存储 / 重定向差异，**未判定**。
+  - 续做时**不要**预设「已预填」，一律按「框空 → 手工填」准备。
+
+### 13.5 本轮改动（均在 gitignored 目录，不污染提交历史）
+
+- `.superpowers/sdd/b38/azure/azure-register-device2.ps1`：新增 `[switch]$NoOpenBrowser`（**默认行为不变**）+ `EDGE_OPEN_SKIPPED=1` 分支 ⇒ 设备码流不再自动打开 Edge InPrivate。
+- `.superpowers/sdd/b38/azure/run-azure-register3.cmd`（**新建，纯 ASCII，347 B**）：`-ExpectedAccount kizemo@hotmail.com -TimeoutSeconds 1800 -NoOpenBrowser`，输出 `azure-register6.log`。
+- 杀掉上一轮遗留的僵尸 poller（PID 986356）⇒ 旧 poller 码过期后会自动 `New-DeviceCode` 并**覆写 `device-code.txt` 冲掉新码**，接手前必须先查并只留一个。
+- `git ls-files .superpowers/sdd/b38/` 仍为空 ⇒ **装置与启动器都没进 git**（`.superpowers/sdd/.gitignore:1:*`），换机器要重做。
+
+### 13.6 本轮清理（残留状态）
+
+- 杀掉 run9 遗留的持久 poller：`azure-register-persist.ps1 -OutDir ...\b38\azure\run9 -ExpectedAccount kizemo@hotmail.com -TimeoutSeconds 39600`（PID 428188，04:14:35 创建）⇒ 与「暂停」裁决一致，且避免它继续向微软换码、覆写 `run9/device-code.txt`。
+- 本会话后台任务**全部终态**（10 个 `bg_*` 均 `succeeded`）；无未终态任务。
+
+### 13.7 未做（边界不变）
+
+- **未 push**（`HEAD=64c9f61a`）、**未对外发布**（GitHub Release / winget / 站点上传均需用户授权）。
+- **未重跑 `tauri build`** ⇒ `BUILD_EXIT` / `GATE_EXIT` 仍**证据不完整**（不是失败），沿用已装机 **3.18.0**（`D:\Program Files\Alpha File Manager\alpha-file-manager.exe`，85,634,048 B，FileVersion 3.18.0，装机口径真机验收 **13/13 PASS**、`ACCEPT_EXIT=0`）。
+- **未动 OneDrive 3 处 dead code**（`ONEDRIVE_EXPIRY_WARN_SECONDS` / `ONEDRIVE_TENANT` / `onedrive_is_expiring_soon`，及 `with_timeouts`）⇒ 留批次 39（避免让已验收的包与源码失配）。
+- **`reports/` 未入库**（`git status --porcelain` 仍为 `M docs/handoff-...md` + `?? reports/`）。
+
+### 13.8 续做时的最短路径（用户改主意后）
+
+1. **前提**：用户给 **GUID 形态**的 Azure 应用(客户端)ID（consumer 账号须 `signInAudience=AzureADandPersonalMicrosoftAccount`），并**本人**完成 Microsoft 登录 / MFA；**机器保持解锁**（否则设备码必过期）。
+2. 起流：只留**一个** poller ⇒ 读 `.superpowers\sdd\b38\azure\device-code.txt` 取当前码（**换码时日志看不到**，只有 `STEP=1b refresh device code`）。
+3. 人工登录：用**隔离档案 / 内置浏览器**（**绝不用用户默认 Edge 档案** —— 锁号 MSA 会劫持 `login_hint`）⇒ `otc` 框按「空 → 手工填」准备；邮箱 / 密码 / MFA 由用户本人做。
+4. 建应用后取 client_id ⇒ 跑 `.superpowers\sdd\b38\accept-real-credentials.ps1`（**`powershell.exe` 5.1** + **显式 `-ExePath`**；pwsh 7 下内嵌 C# `Add-Type` 会 CS0246 `List<>` 找不到），判 `ACCEPT_EXIT`。
+5. **未验证的关键不确定性**：消费级 MSA 租户（`kizemo@hotmail.com`）能否经 Graph `POST /v1.0/applications` 建注册 —— `Application.ReadWrite.All` 委托权限通常需管理员同意，个人号常报 **AADSTS65001**。备选：改走**多租户应用**路线，或门户「我的应用程序」手工注册。
