@@ -1664,6 +1664,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\.superpowers\sdd\b41\a
 - 同文件 `:475-477` `create-file` 还要 `canCreateFile !== false`，而
   `canCreateFile = !hasRemoteTarget(targets)` ⇒ 远程窗格**按设计**不出现「新建文件」，这不是缺陷
 - ⇒ **空白区右键时没有选中项 → hasDirectories=false → 菜单里根本不会出现「新建」**。
+  > **【已被 §十一·5 实测推翻（2026-11-24）】** 这条只对**行上下文菜单**成立。
+  > 远程窗格**空白区右键是有「新建」触发器的** —— 装置走 `background-right-click` 路线成功提交了新建对话框，
+  > 并真的填了名字、点了「创建」。原因：空白区菜单是**独立组件**
+  > `src/modules/navigator/components/file-browser/file-browser-background-context-menu.ts`，
+  > 走的是另一套可见性逻辑，**根本不经过** `hasCreateTarget`。
+  > ⇒ 后续装置/排障**不要**按「空白区右键没有新建」这条去找入口；下面「正确触发方式是右键一个目录条目行」
+  > 只能当作「行上下文菜单」这一条路径的说法。
   正确触发方式是**右键一个「目录」条目行**（右键会选中该行 → selectedEntries 含该目录
   → hasCreateTarget=true → 菜单出现「新建」→ 子项「目录」）。
 - 「重命名」在**行操作 actions 菜单**里（`file-browser-actions-menu.vue:222` 附近），右键菜单本来就没有；
@@ -1705,4 +1712,210 @@ W4 = 右键远程行 → 删除。执行产物落 `.superpowers/sdd/b41/accept-r
 3. **（建议首项）把 AAD 的 `error_description` 透传到前端**——否则发布形态登录失败无法定位，
    闭环「验得了失败原因」这一半。
 4. 位置页像素核验已闭环，不必再做；若后续改列表列样式，用同一套
+   `pin-locations-route.ps1` + `capture-app.ps1` + `analyze-available-space.ps1` 三件套复验。
+
+## 十一、批次 41 三续篇：OneDrive 新建目录 HTTP 400 —— 根因坐实 → 源码修复 → 3.20.1 → 真机复测全绿（2026-11-24）
+
+> 一句话：上一轮把 W1「新建目录」判成 UNDETERMINED 是**错的**，那不是装置路线问题，
+> 是**真产品缺陷**（OneDrive 新建目录 100% 失败，HTTP 400）。根因已由 Graph 变体对照实验坐实，
+> 源码已修、版本已升 3.20.1、真机重装重跑 **`SUMMARY pass=10 fail=0 undetermined=0`**。
+>
+> 本节编号用中文「十一」：本文件 `### 12.`（611 行）与 `### 13.x` 已被占用，
+> 阿拉伯编号 12/13 不可复用；文末已有 `## 十、批次 41 续篇`，故续编为「十一」。
+
+### 十一·1 缺陷现象：UI 链路是通的，请求本身被 Graph 拒
+
+W1「在 OneDrive 远程窗格里新建目录」的 **UI 链路全通** —— 装置确实调出了对话框、填了名字、点了「创建」，
+UIA dump 里抓到了产品自己的报错 toast（`uia-dump-W1-after-create.txt` 第 20 行逐字）：
+
+```
+ControlType.ListItem  创建目录失败 OneDrive 拒绝了这次请求（HTTP 400）。
+```
+
+⇒ **错误是被产品如实报出来的（前端提示没问题），是请求本身被 Graph 拒绝**：
+Graph 复核显示目录在 OneDrive 里 **ABSENT** ⇒ **目录压根没建出来**。
+
+对照：**上传（W3）PASS** —— 上传走的是另一套 API 形态（`PUT .../content` / `createUploadSession`），
+请求体里没有 facet，不触发同类缺陷。
+
+### 十一·2 根因坐实：Graph 变体对照实验（唯一变量法）
+
+证据文件：`.superpowers/sdd/b41/probe-graph-create-variants.out.txt`
+（**同 token、同 URL、同目录名，唯一变量是 `folder` facet**；每个变体建完即删）
+
+| 变体 | 请求体 | Graph 结果 |
+|---|---|---|
+| **A = 产品原样** | `"folder":{"@odata.type":"#microsoft.graph.driveItem"}` | **400** `invalidRequest`: `[item] Incompatible type kinds were found. The type 'oneDrive.item' was found to be of kind 'Entity' instead of the expected kind 'Complex'.` |
+| **B = 空 facet** | `"folder":{}` | **201 Created** ✅ `id=E3E891FD2518ED0F!s267b5a10346a4b6d8fb50f951197b5f6`（随后 `DELETE` → 204） |
+| **C = 空名字** | `"folder":{}` + `name=""` | 400 `The item must have a name.` ← **错误文本与 A 完全不同** |
+| **D** | A 的 facet + `conflictBehavior=replace` | 400（与 A 同） |
+| **E** | A 的请求体改打父项 id | 400（与 A 同） |
+
+两个关键推论：
+
+1. **C 的错误文本不同 ⇒ 排除「输入框没填上」假设**（不必再逐字重敲一遍键盘去排除）。
+2. **A→B 只改 facet ⇒ 唯一病因就是那个 `@odata.type`**。
+
+机理：facet 里一旦带 `@odata.type`，Graph 服务端要的是 **Complex 类型**的 facet（`#microsoft.graph.folder`），
+而 `#microsoft.graph.driveItem` 是 **Entity** 类型 ⇒ kind 不兼容 ⇒ 整个请求被拒。
+
+### 十一·3 修复：空 facet + 回归测试
+
+`src-tauri/src/remote/onedrive_api.rs` 的 `onedrive_build_create_folder_body()`：
+
+```rust
+// 改前
+"folder": { "@odata.type": "#microsoft.graph.driveItem" },
+// 改后
+"folder": {},
+```
+
+`@microsoft.graph.conflictBehavior: "fail"` **保持不变** —— 「同名目录绝不静默覆盖」这条安全边界不能动。
+
+全仓只有这一处构造该请求体（grep `conflictBehavior` / `microsoft.graph.driveItem` 复核过），
+其余写路径（改名只带 `{name}`、上传 PUT、删除 DELETE）不带 facet，不受同类缺陷影响。
+
+新增回归测试 `a_new_folder_body_uses_an_empty_folder_facet`：断言请求体**不含** `#microsoft.graph.driveItem`
+且**必须**含 `"folder":{}` ⇒ 以后谁把 facet 加回去，测试立刻红。
+`cargo test --release onedrive` → `CARGO_TEST_EXIT=0`，**65 passed / 0 failed / 2 ignored**。
+
+### 十一·4 版本策略：为什么不是「重建一个 3.20.0」
+
+`release/` 里已经躺着一个 3.20.0 包（46,061,676 B，sha256 `777577f9…`），**它的建目录功能是坏的**。
+若在 3.20.0 上直接重建：
+
+- `scripts/publish-bundle-to-release.mjs` 的 `placeArtifact()` 发现 `release/<同名>` 已存在且**内容不同**
+  ⇒ 把新包改写进 `release/local-builds/<同名>.build-<时间戳>.exe`，**不覆盖**顶层文件；
+- 结果磁盘上会有**三个**自称 3.20.0、字节不同的包，其中顶层那个**仍然是坏的**；
+- 这正是本文件 §2.1 明确禁止的情形（「两个内容不同的二进制都自称 3.17.0」）。
+
+⇒ **升版到 3.20.1**（patch），一个版本号对应一个二进制：
+
+- `package.json` → `3.20.1`（`npm run sync-version` 自动同步 3 个 `Cargo.toml`；
+  `src-tauri/tauri.conf.json` 的 version 本来就指向 `../package.json`）；
+- 根 `CHANGELOG.md` + `public/changelog/<locale>/changelog.md` **14 份 locale** 补 3.20.1 条目
+  （locale 的日期与 `### ` 小标题行**从各自文件的 3.20.0 条目里抄**，不臆造格式；
+  摘要标签各 locale 不同：ch=`**摘要：**`、de=`**Zusammenfassung:**`、es=`**Resumen:**`、fa=`**خلاصه:**`、
+  fr=`**Résumé :**`、hi=`**सारांश:**`、it=`**Riepilogo:**`、ja=`**概要:**`、pt=`**Resumo:**`、ru=`**Кратко:**`、
+  sl=`**Povzetek:**`、tr=`**Özet:**`、ur=`**خلاصہ:**`、vi=`**Tóm tắt:**`）；
+- `release/LOCAL-BUILDS.txt` 登记 3.20.1（`NO_OFFICIAL_ASSET`）+ sha256 + 字节数。
+
+> 附注：根 `CHANGELOG.md` 被前端以 `?raw` 打进包
+> （`src/modules/changelog/composables/use-changelog.ts:9`）⇒ **改它必须重新 vite build**；
+> locale changelog 是运行时 `fetch('/changelog/<locale>/changelog.md')`，不受此限。
+
+### 十一·5 订正：上一版 handoff 被实测推翻的结论（空白区右键其实有「新建」）
+
+§10 里曾写「远程窗格空白区右键**不会出现**『新建』」—— **这条被装置实跑推翻**：
+
+- 远程窗格**空白区右键是有『新建』子菜单触发器的**（装置走 `background-right-click` 路线成功提交了对话框，
+  并真的填了名字、点了创建）；
+- `hasCreateTarget` 判定**只作用于行上下文菜单**（需要有选中的目录），
+  空白区菜单是**独立组件** `src/modules/navigator/components/file-browser/file-browser-background-context-menu.ts`，
+  走的是另一套可见性逻辑，**根本不经过** `hasCreateTarget`。
+
+⇒ 后续装置/排障**不要**按「空白区右键没有新建」这条去找入口。
+（§十·2 正文里已就地加了同一条订正块，并回指本节。）
+
+### 十一·6 真机复测全绿（3.20.1 装机）
+
+**装机自证**：
+
+| 项 | 值 |
+|---|---|
+| 安装路径 | `D:\Program Files\Alpha File Manager\alpha-file-manager.exe` |
+| ProductVersion / FileVersion | **3.20.1** / 3.20.1 |
+| 文件大小 / mtime | 85,689,856 B / 2026-11-24 09:08:46 |
+| 安装包 sha256 | `e24e86b8ebec227847cbe27c533e2c70df3a52c2d24e810a417f38d455335ac4` |
+| 安装包字节数 | 46,039,959 B |
+| 安装方式 | NSIS `/S /FORCE`（同版本重装**必须**带 `/FORCE`，否则命中 `same-build` 防呆 `EXIT=2`，那不是包坏了） |
+
+磁盘上 3.20.1 **唯一一份字节**：`release/Alpha File Manager_3.20.1_x64-setup.exe` 与
+`release/local-builds/Alpha File Manager_3.20.1_x64-setup.exe` 同 sha256、同 46,039,959 B。
+
+**验收轮次**（最终全绿轮）：`.superpowers/sdd/b41/accept-real-b41write-20261124-091714/`
+
+```
+SUMMARY pass=10 fail=0 undetermined=0
+
+STEP_01 PASS  operator desktop foreground untouched :: before=262696 after=262696
+STEP_02 PASS  plant the probe directory in OneDrive out of band
+STEP_03 PASS  open the remote pane of the OneDrive connection
+STEP_04 PASS  W1 create a directory in the OneDrive remote pane
+              :: the row "afm-b41-probe-20261124-091715-app" is listed in the remote pane (route background-right-click)
+STEP_05 PASS  graph cross check after W1
+              :: the directory exists in OneDrive (FOUND id=E3E891FD2518ED0F!s36c78dca9f7346269b84ccb695ec537d parent=ROOT)
+STEP_06 PASS  W2 rename the probe directory in the OneDrive remote pane
+STEP_07 PASS  graph cross check after W2
+              :: FOUND id=E3E891FD2518ED0F!s907e2038712347a5aecabfdfca84c801 and the old name is gone
+STEP_08 PASS  W4 delete the probe directory in the OneDrive remote pane
+STEP_09 PASS  graph cross check after W4 :: both probe names are gone from OneDrive
+STEP_10 PASS  W5 cleanup audit :: nothing is left behind: 1 probe item(s) found and 1 deleted
+```
+
+独立复核（验收后单独再跑一次清理脚本）：`PROBE_ITEMS_FOUND=0 PROBE_ITEMS_DELETED=0`
+⇒ OneDrive 侧确实干净，没有探针残留。
+
+**门禁**：`npm run check` → `GATE_EXIT=0`（330 测试文件 / 3553 测试 passed；`verify-changelog` OK；
+`verify:sandbox` PASS / 20 patterns / 0 violations）。
+
+**前一轮 `pass=9 fail=1` 的唯一 FAIL 是 W5 判据 bug，不是产品缺陷**（见 十一·7 坑 3）。
+该轮证据同样有效，可与最终轮互相印证：W1 独立建出
+`id=E3E891FD2518ED0F!s4dd6b476cbf7470284a8cb29118b4360`；
+W2 的 id 与夹具 id **相同** ⇒ 是同一个 item 被改名，不是新建了一个；W4 后两个名字都 ABSENT ⇒ 真删了。
+
+### 十一·7 本轮踩的三个坑（**全是装置侧**，不是产品缺陷）
+
+**坑 1：Graph 探针不刷新令牌 ⇒ 过期即假失败。**
+vault 里存的 `access_token` 只有约 1 小时有效期，而 b41 的三个 Graph 探针
+（`probe-graph-items.ps1` / `probe-graph-create-fixture.ps1` / `cleanup-probe-items.ps1`）
+都**直读 vault、不刷新**。令牌一过期，每个复核都 401，每个判据都变成假失败。
+修法：三个脚本加**内存内**刷新（`client_id` + `grant_type=refresh_token` + `refresh_token`），
+**刻意不带 `scope`** —— 带一个与当初不同的 scope ⇒ 微软回 `AADSTS70011`，把**已经登录好的会话直接废掉**；
+不带 ⇒ 沿用当初授权的范围。**不改写 vault**（回写有损坏凭据库、迫使用户重新登录的风险）。
+实测 `SESSION_REFRESHED expires_at=1795485844`，随后 Graph 正常扫到根目录 11 项 + 7 个子目录。
+
+**坑 2：`New-GraphFixture` 里 `$psExe` 从未定义 ⇒ 验收在 STEP_01 后直接崩。**
+`accept-real-write2.ps1` 的 `New-GraphFixture` 直接 `& $psExe ...`，但该函数作用域里从没赋值
+（同级函数 `Invoke-GraphProbe` / `Invoke-CleanupAudit` 都有）。未定义变量让调用运算符报
+`The expression after '&' in a pipeline element produced an object that was not valid`，
+整轮验收在 STEP_01 之后就中断了（`SUMMARY pass=1 fail=0 undetermined=0` —— **看着像全过，其实什么都没验**）。
+修法：在函数体内解析 `$psExe`（`Join-Path $PSHOME 'powershell.exe'` + fallback）。
+
+**坑 3：W5 清理审计的判据写错 ⇒ 把「已清干净」误判成 FAIL。**
+`cleanup-probe-items.ps1` **既查又删**，语义是「找到的都删掉」，
+所以 W5 的正确判据是 `found -eq deleted`（都删干净了），而不是 `found -eq 0`（什么都没找到）。
+实际发生：审计找到 W1 留下的 `afm-b41-probe-20261124-091207-app`，`DELETED status=204` 删掉了它，
+但判据 `found -eq 0` 把 `found=1 deleted=1` 判成 FAIL。
+补充：W1 建的目录带 `-app` 后缀，是**故意**与 W2/W4 的夹具隔离的
+（避免 W1 失败时把 W2/W4 的前提一起毁掉），所以它**本来就应该**由 W5 审计收尾。
+
+### 十一·8 已验证 / 推断 / 未验证（三分法，交接时别混）
+
+**已验证**（有实测证据）：
+- 应用经**自己的**「新建目录」路径在 OneDrive 建出目录，Graph 独立复核 FOUND，
+  id `...s36c78dca9f7346269b84ccb695ec537d`（前一轮 `...s4dd6b476cbf7470284a8cb29118b4360` 互证）
+- 改名 / 删除真实落库（id 不变 / 名字 ABSENT）
+- 3.20.1 装机版本号自证（ProductVersion + FileVersion 均 3.20.1）
+- `npm run check` 全绿（330 文件 / 3553 测试、changelog、sandbox）；`cargo test --release onedrive` 65 passed / 0 failed
+- Graph 5 变体对照实验（空 facet 201 / 带 facet 400）
+
+**推断**（有强证据但未直接观测）：
+- `folder: {}` 空 facet 就是 Graph 接受、而 `@odata.type` facet 被拒的确切机制
+  —— 依据 5 变体对照实验，未再补更细的官方文档佐证
+
+**未验证**：
+- **发布形态（用户自建 Entra 应用）的登录闭环** —— 仍缺用户自建应用的 `client_id`；
+  本轮全部验证都在第一方 client_id `14d82eec-204b-4c2f-b7e8-296a70dab67e` 下完成
+- 升级 scope（`Files.Read` → `Files.ReadWrite`）后**老会话**能否自动续期
+  —— 本轮用的是 07:50 重新授权拿到的会话，老会话路径未覆盖
+
+### 十一·9 下一阶段（按优先级，接力时按此推进）
+
+1. **发布形态真 GUID 登录闭环** —— 阻塞项，需要用户自建 Entra 应用的 `client_id`
+   （public client、`signInAudience=AzureADandPersonalMicrosoftAccount`、redirect `http://localhost`）。
+   发布形态**不得复用**任何第一方 id（如 `14d82eec-204b-4c2f-b7e8-296a70dab67e`）。
+2. **（建议首项）把 AAD 的 `error_description` 透传到前端** —— 否则发布形态登录失败无法定位，
+   闭环「验得了失败原因」这一半。
+3. OneDrive 写路径已闭环，不必重跑；若后续改列表列样式，用
    `pin-locations-route.ps1` + `capture-app.ps1` + `analyze-available-space.ps1` 三件套复验。
