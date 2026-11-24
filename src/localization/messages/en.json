@@ -567,7 +567,10 @@
       "remoteIndexDescription": "Files from connections added to global search appear in the search results.",
       "rebuildRemoteIndex": "Rebuild cloud index",
       "rebuildRemoteIndexDescription": "Fetches the files of the checked connections again and writes them into the index; this uses up the netdisk API quota.",
-      "noRemoteInSearch": "No netdisk added to global search yet"
+      "noRemoteInSearch": "No netdisk added to global search yet",
+      "noNetdiskConnections": "No connections for this netdisk yet",
+      "rebuildCheckedRemoteIndex": "Rebuild index for checked connections",
+      "rebuildCheckedRemoteIndexHint": "Rebuilding always uses the whole set of checked connections — one connection cannot be rebuilt on its own."
     },
     "drives": {
       "driveDetection": "Drive detection",

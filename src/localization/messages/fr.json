@@ -530,7 +530,10 @@
       "remoteIndexDescription": "Les fichiers des connexions ajoutées à la recherche globale apparaissent dans les résultats.",
       "rebuildRemoteIndex": "Reconstruire l'index cloud",
       "rebuildRemoteIndexDescription": "Récupère à nouveau les fichiers des connexions cochées et les écrit dans l'index ; cela consomme le quota d'API du disque réseau.",
-      "noRemoteInSearch": "Aucun disque réseau ajouté à la recherche globale"
+      "noRemoteInSearch": "Aucun disque réseau ajouté à la recherche globale",
+      "noNetdiskConnections": "Aucune connexion pour ce disque cloud pour le moment",
+      "rebuildCheckedRemoteIndex": "Reconstruire l'index des connexions cochées",
+      "rebuildCheckedRemoteIndexHint": "La reconstruction utilise toujours l'ensemble des connexions cochées : une connexion ne peut pas être reconstruite seule."
     },
     "drives": {
       "driveDetection": "Détection de lecteur",

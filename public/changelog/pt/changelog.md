@@ -1,6 +1,20 @@
 # Registro de alterações
 
 
+## [3.21.0] - November 2026
+
+**Resumo:** A ronda dos discos em nuvem ficou mais arrumada. Os botões de *Adicionar disco na nuvem* mostram agora qual fornecedor escolheu, *Configurações* -> *Pesquisar* lista os seus discos em nuvem agrupados por fornecedor, para que decida o que participa da busca global, e ao remover um disco em nuvem já não pisca uma janela de consola preta. O OneDrive fica de pausa por agora - saiu da interface por enquanto e pode ser ligado mais tarde sem ser reconstruído.
+
+### What changed
+
+**Adicionado** **Os botões de *Adicionar disco na nuvem* mostram agora qual escolheu** - Ao escolher *Baidu Netdisk*, *Quark Netdisk* ou *Aliyun Drive*, esse botão fica marcado, pelo que vê de relance qual fornecedor está prestes a adicionar. O botão que escolheu fica marcado até escolher outro ou fechar o painel.
+
+**Adicionado** **Os discos em nuvem são agora listados por fornecedor em *Configurações* -> *Pesquisar*** - A parte *Pesquisa na nuvem* das definições de *Pesquisar* agrupa agora os seus discos em nuvem por fornecedor - *Baidu Netdisk*, *Aliyun Drive*, *Quark Netdisk* e qualquer tipo de disco em nuvem que seja adicionado mais tarde. Debaixo de cada fornecedor marca as ligações que devem participar da busca global, e o índice de pesquisa é reconstruído por si. Um fornecedor a que ainda não se ligou continua a aparecer, para que veja que tipos de disco em nuvem a aplicação conhece.
+
+**Corrigido** **Remover um disco em nuvem já não pisca uma janela de consola preta** - Ao remover um disco em nuvem, abria-se por um instante uma janela de consola preta no ambiente de trabalho. A ferramenta que restringe as credenciais guardadas à sua própria conta do Windows passa agora a correr sem abrir janela, pelo que remover um disco em nuvem voltou a ser silencioso.
+
+**Alterado** **O OneDrive fica de pausa por agora** - A opção do OneDrive sai, por enquanto, da lista *Adicionar disco na nuvem*. Tudo o que o OneDrive precisa continua no seu lugar atrás de um único interruptor, por isso pode voltar mais tarde sem ser reconstruído, e as ligações que já tem ficam como estão.
+
 ## [3.20.1] - November 2026
 
 **Resumo:** Agora criar pastas no OneDrive funciona mesmo. O aplicativo enviava a nova pasta num formato que a unidade não aceita, e cada tentativa era recusada com HTTP 400 sem criar nada. Agora o pedido é enviado do jeito que a unidade espera.

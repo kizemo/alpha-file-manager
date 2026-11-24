@@ -530,7 +530,10 @@
       "remoteIndexDescription": "I file delle connessioni aggiunte alla ricerca globale compaiono nei risultati.",
       "rebuildRemoteIndex": "Ricostruisci indice cloud",
       "rebuildRemoteIndexDescription": "Ricarica i file delle connessioni selezionate e li scrive nell'indice; consuma la quota API del disco di rete.",
-      "noRemoteInSearch": "Nessun disco di rete aggiunto alla ricerca globale"
+      "noRemoteInSearch": "Nessun disco di rete aggiunto alla ricerca globale",
+      "noNetdiskConnections": "Nessuna connessione per questo disco cloud",
+      "rebuildCheckedRemoteIndex": "Ricostruisci l'indice delle connessioni selezionate",
+      "rebuildCheckedRemoteIndexHint": "La ricostruzione usa sempre l'insieme completo delle connessioni selezionate: una singola connessione non può essere ricostruita da sola."
     },
     "drives": {
       "driveDetection": "Rilevamento unità",

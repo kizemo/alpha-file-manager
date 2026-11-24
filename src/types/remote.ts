@@ -271,8 +271,11 @@ export function isNetdiskProtocol(protocol: RemoteProtocol): protocol is Netdisk
  * 三个键**都已存在**（`settings.remote.netdisk.baidu` / `.quark` / `.aliyun`），
  * 所以预填名字不需要任何新语言包 —— 而且预填出来的名字必须与按钮上的那个
  * 一模一样，用户不该在同一个界面里看到两种叫法。
+ *
+ * **导出**是因为「设置 → 搜索」的云盘检索按网盘类型分组，组标题要走同一张表
+ * —— 网盘类型清单是动态派生的（接第四家网盘时不用再改界面）。
  */
-const NETDISK_PROVIDER_NAME_KEYS: Record<NetdiskProtocol, string> = {
+export const NETDISK_PROVIDER_NAME_KEYS: Record<NetdiskProtocol, string> = {
   baidu_pan: 'settings.remote.netdisk.baidu',
   quark_pan: 'settings.remote.netdisk.quark',
   aliyun_pan: 'settings.remote.netdisk.aliyun',

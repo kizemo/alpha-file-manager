@@ -1,6 +1,20 @@
 # Dnevnik sprememb
 
 
+## [3.21.0] - November 2026
+
+**Povzetek:** Krog omrežnih diskov je postal urejenejši. Gumbi za *Dodaj omrežni disk* zdaj pokazujejo, katerega ponudnika ste izbrali, *Nastavitve* -> *Iskanje* našteva vaše omrežne diske po ponudnikih, zato sami odločite, kaj sodeluje v globalnem iskanju, odstranitev omrežnega diska pa ne povzroči več črnega okna konzole. OneDrive je za zdaj odstavljen - za zdaj je izginil iz vmesnika in ga je mogoče pozneje vrniti brez ponovne gradnje.
+
+### What changed
+
+**Dodano** **Gumbi za *Dodaj omrežni disk* zdaj pokažejo, katerega ste izbrali** - Ko izberete *Baidu Netdisk*, *Quark Netdisk* ali *Aliyun Drive*, je ta gumb označen, zato naenkrat vidite, katerega ponudnika boste dodali. Izbrani gumb ostane označen, dokler ne izberete drugega ali ne zaprete ploščo.
+
+**Dodano** **Omrežni diski so zdaj navedeni po ponudnikih v *Nastavitve* -> *Iskanje*** - Del *Iskanje v oblaku* v nastavitvah *Iskanja* zdaj združi vaše omrežne diske po ponudnikih - *Baidu Netdisk*, *Aliyun Drive*, *Quark Netdisk* in vsaka vrsta omrežnega diska, ki bo dodana pozneje. Pod vsakim ponudnikom označite povezave, ki naj sodelujejo v globalnem iskanju, iskalni indeks pa se za vas pregradi. Ponudnik, s katerim še niste povezani, je prav tako na seznamu, tako da vidite, katere vrste omrežnih diskov aplikacija pozna.
+
+**Popravljeno** **Odstranitev omrežnega diska ne utripa več črnega okna konzole** - Pri odstranitvi omrežnega diska se je na namizniku za trenutek odprlo črno okno konzole. Orodje, ki omeji shranjene poverilnice na vaš lastni račun Windows, se zdaj izvaja brez odpiranja okna, zato je odstranitev omrežnega diska spet tiha.
+
+**Spremenjeno** **OneDrive je za zdaj odstavljen** - Možnost OneDrive je za zdaj odstranjena s seznama *Dodaj omrežni disk*. Vse, kar OneDrive potrebuje, je še vedno na mestu za enim stikalom, zato se lahko pozneje vrne brez ponovne gradnje, vaše obstoječe povezave pa ostanejo nedotaknjene.
+
 ## [3.20.1] - November 2026
 
 **Povzetek:** Mape v OneDrive se zdaj ustvarjajo. Aplikacija je poslala zahtevo v obliki, ki je pogon ni sprejel - vsak poskus je bil zavrnjen s HTTP 400 in nič ni bilo ustvarjeno. Zahteva je zdaj poslana na način, ki ga pogon pričakuje.

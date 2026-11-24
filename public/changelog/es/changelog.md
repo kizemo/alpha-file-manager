@@ -1,6 +1,20 @@
 # Registro de cambios
 
 
+## [3.21.0] - November 2026
+
+**Resumen:** La ronda de los discos en la nube quedó más ordenada. Los botones de *Añadir disco en la nube* muestran ahora qué proveedor has elegido, *Configuración* -> *Buscar* lista tus discos en la nube agrupados por proveedor, para que decidas qué participa en la búsqueda global, y al quitar un disco en la nube ya no parpadea una ventana negra de consola. OneDrive queda aparcado por ahora: sale de la interfaz de momento y se puede volver a activar más adelante sin tener que recompilar nada.
+
+### What changed
+
+**Añadido** **Los botones de *Añadir disco en la nube* muestran ahora cuál has elegido** - Al elegir *Baidu Netdisk*, *Quark Netdisk* o *Aliyun Drive*, ese botón queda marcado, así que ves de un vistazo qué proveedor estás a punto de añadir. El botón que elegiste se queda marcado hasta que elijas otro o cierres el panel.
+
+**Añadido** **Los discos en la nube se listan ahora por proveedor en *Configuración* -> *Buscar*** - La parte *Búsqueda en la nube* de los ajustes de *Buscar* agrupa ahora tus discos en la nube por proveedor - *Baidu Netdisk*, *Aliyun Drive*, *Quark Netdisk* y cualquier tipo de disco en la nube que se añada más adelante. Bajo cada proveedor marcas las conexiones que deben participar en la búsqueda global, y el índice de búsqueda se reconstruye por ti. Un proveedor con el que todavía no te has conectado aparece igualmente, para que veas qué tipos de disco en la nube conoce la aplicación.
+
+**Corregido** **Quitar un disco en la nube ya no hace parpadear una ventana negra de consola** - Al quitar un disco en la nube se abría brevemente una ventana negra de consola en tu escritorio. La herramienta que restringe las credenciales guardadas a tu propia cuenta de Windows ahora se ejecuta sin abrir ninguna ventana, así que quitar un disco en la nube vuelve a ser silencioso.
+
+**Cambiado** **OneDrive queda aparcado por ahora** - La opción de OneDrive sale por ahora de la lista de *Añadir disco en la nube*. Todo lo que OneDrive necesita sigue en su sitio detrás de un único interruptor, así que puede volver más adelante sin tener que recompilarlo, y las conexiones que ya tienes no se tocan.
+
 ## [3.20.1] - November 2026
 
 **Resumen:** Ahora las carpetas de OneDrive se crean de verdad. La aplicación enviaba la carpeta nueva en un formato que el disco no aceptaba, así que cada intento se rechazaba con HTTP 400 y no se creaba nada. Ahora la petición se envía como el disco la espera.

@@ -1,6 +1,20 @@
 # Registro delle modifiche
 
 
+## [3.21.0] - November 2026
+
+**Riepilogo:** Il giro dei dischi cloud si è fatto più ordinato. I pulsanti di *Aggiungi disco cloud* mostrano ora quale provider hai scelto, *Impostazioni* -> *Ricerca* elenca i tuoi dischi cloud raggruppati per provider, così decidi tu che cosa partecipa alla ricerca globale, e quando rimuovi un disco cloud non lampeggia più una finestra di console nera. OneDrive è momentaneamente in pausa - per ora è uscito dall'interfaccia e si può riattivare più avanti senza doverlo ricostruire.
+
+### What changed
+
+**Aggiunto** **I pulsanti di *Aggiungi disco cloud* mostrano ora quello che hai scelto** - Scegliendo *Baidu Netdisk*, *Quark Netdisk* o *Aliyun Drive* quel pulsante resta segnato, così vedi a colpo d'occhio quale provider stai per aggiungere. Il pulsante che hai scelto resta segnato finché non ne scegli un altro o non chiudi il pannello.
+
+**Aggiunto** **I dischi cloud sono ora elencati per provider in *Impostazioni* -> *Ricerca*** - La parte *Ricerca cloud* delle impostazioni di *Ricerca* ora raggruppa i tuoi dischi cloud per provider - *Baidu Netdisk*, *Aliyun Drive*, *Quark Netdisk* e qualunque tipo di disco cloud aggiunto in seguito. Sotto ogni provider spunti le connessioni che devono partecipare alla ricerca globale, e l'indice di ricerca viene ricostruito per te. Un provider a cui non sei ancora collegato compare comunque nell'elenco, così vedi quali tipi di disco cloud l'app conosce.
+
+**Corretto** **Rimuovere un disco cloud non fa più lampeggiare una finestra di console nera** - Rimuovendo un disco cloud si apriva per un istante una finestra di console nera sul desktop. Lo strumento che limita le credenziali memorizzate al tuo account Windows ora viene eseguito senza aprire alcuna finestra, così rimuovere un disco cloud è di nuovo silenzioso.
+
+**Modificato** **OneDrive è momentaneamente in pausa** - Per ora l'opzione OneDrive è uscita dalla lista *Aggiungi disco cloud*. Tutto ciò che OneDrive serve è ancora al suo posto dietro un unico interruttore, così può tornare più avanti senza dover essere ricostruito, e le connessioni che hai già non vengono toccate.
+
 ## [3.20.1] - November 2026
 
 **Riepilogo:** Ora le cartelle in OneDrive si creano davvero. L’app inviava la richiesta in una forma che l’unità rifiutava: ogni tentativo veniva respinto con HTTP 400 e non veniva creato nulla. Ora la richiesta viene inviata nel modo in cui l’unità la accetta.

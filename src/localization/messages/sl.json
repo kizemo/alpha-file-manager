@@ -567,7 +567,10 @@
       "remoteIndexDescription": "Datoteke povezav, dodanih v globalno iskanje, se prikažejo v rezultatih.",
       "rebuildRemoteIndex": "Znova zgradi oblakni indeks",
       "rebuildRemoteIndexDescription": "Ponovno prinese datoteke označenih povezav in jih zapiše v indeks; porabi se kvota API omrežnega diska.",
-      "noRemoteInSearch": "V globalno iskanje še ni dodan nobena omrežna disk"
+      "noRemoteInSearch": "V globalno iskanje še ni dodan nobena omrežna disk",
+      "noNetdiskConnections": "Za ta oblak oziroma še ni povezav",
+      "rebuildCheckedRemoteIndex": "Ponovno zgradi indeks za označene povezave",
+      "rebuildCheckedRemoteIndexHint": "Ponovno sestavljanje vedno uporabi celoten nabor označenih povezav — posamezne povezave ni mogoče sestaviti same."
     },
     "drives": {
       "driveDetection": "Zaznavanje pogonov",

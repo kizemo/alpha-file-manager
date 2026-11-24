@@ -683,6 +683,46 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
   }
 
   /**
+   * 只改一条连接的「加入全局检索」勾选状态（批次 43）。
+   *
+   * **绝不能拿 `saveConnection` 干这件事** —— 那条路对网盘协议有重副作用：
+   * 会走 `remote_baidu_save_session` / 登录槽位 claim，槽位为空时直接抛
+   * `baiduLoginRequired` / `quarkLoginRequired` / `aliyunLoginRequired`。
+   * 用户在设置页点一下复选框，却因为「凭据槽位是空的」被弹一句「请先登录」，
+   * 是最典型的误伤 —— 而这个勾选跟登录态毫无关系。
+   *
+   * 这里**只写 `includeInGlobalSearch` 一个字段**：其余字段原样带回，
+   * 再走**同一条**连接记录落盘通路（`saveStorageData`），
+   * 不碰凭据、不认领登录槽位、不重新登录、不抛任何 login-required 错误。
+   *
+   * 返回 `false` = 这条连接已经不在了（界面上那行刚好被删掉）。
+   */
+  async function setConnectionIncludeInGlobalSearch(id: string, value: boolean): Promise<boolean> {
+    const existing = getConnection(id);
+
+    if (!existing) {
+      return false;
+    }
+
+    if (existing.includeInGlobalSearch === value) {
+      return true;
+    }
+
+    connections.value = connections.value.map(item => (
+      item.id === id
+        ? {
+            ...item,
+            includeInGlobalSearch: value,
+          }
+        : item
+    ));
+
+    await saveStorageData();
+
+    return true;
+  }
+
+  /**
    * 删掉一条连接，并把它的密文一并清掉。
    *
    * storage 先删、密文后删，且**密文删失败不抛错**：连接已经不存在了，
@@ -1026,6 +1066,7 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     saveStorageData,
     getConnection,
     saveConnection,
+    setConnectionIncludeInGlobalSearch,
     deleteConnection,
     saveProxySecret,
     loadCredentialForTest,

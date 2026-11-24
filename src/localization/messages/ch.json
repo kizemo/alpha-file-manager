@@ -530,7 +530,10 @@
       "remoteIndexDescription": "已加入全局检索的网盘，其文件会出现在搜索结果中",
       "rebuildRemoteIndex": "重建云盘索引",
       "rebuildRemoteIndexDescription": "重新抓取已勾选网盘的文件并写入索引，会消耗网盘 API 配额",
-      "noRemoteInSearch": "暂无已加入检索的网盘"
+      "noRemoteInSearch": "暂无已加入检索的网盘",
+      "noNetdiskConnections": "该网盘暂无连接",
+      "rebuildCheckedRemoteIndex": "重建已勾选连接的索引",
+      "rebuildCheckedRemoteIndexHint": "重建始终按「全部已勾选连接」进行 —— 单条连接无法单独重建。"
     },
     "drives": {
       "driveDetection": "驱动检测",

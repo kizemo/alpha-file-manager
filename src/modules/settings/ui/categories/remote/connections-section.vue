@@ -6,15 +6,14 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { invoke } from '@tauri-apps/api/core';
 import { SettingsItem } from '@/modules/settings';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from '@/components/ui/toaster';
 import { ServerIcon, PlusIcon, TrashIcon } from '@lucide/vue';
 import ConnectionForm from './connection-form.vue';
 import NetdiskAddDialog from './netdisk-add-dialog.vue';
 import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
+import { useRemoteGlobalSearchIndex } from '@/composables/use-remote-global-search-index';
 import { ONEDRIVE_ENABLED } from '@/constants/feature-flags';
 import { isNetdiskProtocol } from '@/types/remote';
 import type { NetdiskProtocol, RemoteConnection, RemoteProtocol } from '@/types/remote';
@@ -61,117 +60,39 @@ const createProtocol = ref<RemoteProtocol>('ftp');
  */
 const createNetdiskProtocol = ref<NetdiskProtocol>('baidu_pan');
 
+/**
+ * 「添加网盘」区块里当前选中的 provider（用户 2026-11-24）。
+ *
+ * **只是选中态，不改点击行为** —— 点哪颗按钮仍然立刻走那家的流程
+ * （百度 / 夸克开内嵌登录窗，阿里 / OneDrive 开内联连接表单），
+ * 不是改成「先选中、再点确认」的两步式。
+ *
+ * 这个状态只回答一件事：「用户此刻盯的是哪一家」。
+ */
+const selectedNetdiskProtocol = ref<NetdiskProtocol | null>(null);
+
+/**
+ * 某颗 provider 按钮当前是不是选中的。
+ *
+ * 四颗按钮共用这一份判定 —— 各写一份的话，早晚有一颗会漏。
+ */
+function isNetdiskSelected(protocol: NetdiskProtocol): boolean {
+  return selectedNetdiskProtocol.value === protocol;
+}
+
 const netdiskConnections = computed(() => store.connections.filter(connection => isNetdiskProtocol(connection.protocol)));
 const remoteConnections = computed(() => store.connections.filter(connection => !isNetdiskProtocol(connection.protocol)));
 
 /**
- * 当前勾选了「加入全局检索」的连接 id（批次 37）。
+ * 「加入全局检索」的云盘索引重建（批次 37 → 批次 43）。
  *
- * **建索引时必须传当前全部已勾选的连接** —— 后端按传进来的集合整体重建云盘索引，
- * 漏掉一条就等于把那条的条目从索引里抹掉。
+ * **实现已经搬到共享 composable**（`@/composables/use-remote-global-search-index`）：
+ * 「设置 → 搜索」页也要在勾选变化时触发同一条串行重建，
+ * 两边各写一份就有两把锁 ⇒ 可能并发踩后端的「整体重建」。
+ *
+ * 这里只负责**开闸**（读盘完成后再开始监听勾选变化）。
  */
-const globalSearchConnectionIds = computed(() => store.globalSearchConnections.map(connection => connection.id));
-
-/** 上一次已知的勾选集合（排序后拼成的串）。用来判「集合变了没有」。 */
-let knownGlobalSearchIdsKey = '';
-
-/**
- * 初始读盘**不算**「集合变了」。
- *
- * 刚打开设置页就去重建云盘索引是白耗网盘 API 配额 ——
- * 只有用户真的改了勾选状态才需要重建。
- */
-let canTriggerRemoteIndex = false;
-
-function globalSearchIdsKey(ids: string[]): string {
-  return [...ids].sort().join('|');
-}
-
-/**
- * 是否已有重建在跑。
- *
- * 后端的重建是「按传入集合**整体**重建」：重建会先把索引目录删掉再重新写。
- * 两个重建并发跑时，后一个会把前一个刚建好的目录删掉 —— 两者互相踩，
- * 最后留在盘上的可能是半个索引（tantivy 的 commit 是原子的，但目录删除不是）。
- */
-let remoteIndexRebuildRunning = false;
-
-/**
- * 重建期间发生的**最新**勾选集合。
- *
- * 跑的过程中又有勾选变化时记在这里，跑完用最新集合补跑一次 ——
- * 补跑用的是最新集合，不是当时那个旧的。
- */
-let pendingRemoteIndexIds: string[] | null = null;
-
-/**
- * 把排队中的重建跑干净（一次真正的重建 + 必要时用最新集合补跑）。
- *
- * 用递归而不是 `while` + `await`：项目 ESLint 开着严格规则，循环里 await
- * 容易踩 `no-await-in-loop`。递归每次只走一层，深度最多 2
- * （一次重建 + 一次收尾），不会无限递归。
- */
-async function drainRemoteIndexRebuild(): Promise<void> {
-  const ids = pendingRemoteIndexIds;
-  pendingRemoteIndexIds = null;
-
-  if (ids === null) {
-    remoteIndexRebuildRunning = false;
-    return;
-  }
-
-  try {
-    await invoke<number>('global_search_index_remote_connections', {
-      connectionIds: ids,
-    });
-  }
-  catch (error) {
-    console.error('Failed to rebuild remote global search index:', error);
-    toast({
-      title: t('globalSearch.remoteIndexFailed'),
-    });
-  }
-
-  // 重建期间又有勾选变化 ⇒ 用最新集合再跑一次。
-  await drainRemoteIndexRebuild();
-}
-
-/**
- * 重建云盘索引（批次 37）。
- *
- * **串行**：同一时刻只跑一个重建（理由见上面的 `remoteIndexRebuildRunning`）。
- *
- * **失败绝不影响保存**：连接已经落盘了，索引重建失败只是「这次没抓到」，
- * 用户还能到全局检索设置页手动重来。所以这里只弹一条提示，不往上抛。
- */
-function rebuildRemoteIndex(connectionIds: string[]): void {
-  pendingRemoteIndexIds = connectionIds;
-
-  if (remoteIndexRebuildRunning) {
-    return;
-  }
-
-  remoteIndexRebuildRunning = true;
-  void drainRemoteIndexRebuild();
-}
-
-watch(globalSearchConnectionIds, (ids) => {
-  const key = globalSearchIdsKey(ids);
-
-  if (!canTriggerRemoteIndex) {
-    knownGlobalSearchIdsKey = key;
-    return;
-  }
-
-  if (key === knownGlobalSearchIdsKey) {
-    return;
-  }
-
-  knownGlobalSearchIdsKey = key;
-
-  // 不 await：保存界面不能被索引重建卡住。
-  void rebuildRemoteIndex(ids);
-});
+const { markReady: markGlobalSearchIndexReady } = useRemoteGlobalSearchIndex();
 
 /**
  * 用户手动选过的分区。
@@ -299,6 +220,10 @@ function applyPendingCreate(): void {
   if (isNetdiskProtocol(requested)) {
     isCreating.value = false;
 
+    // 导航栏（或主页）发来的「添加网盘」也要让「添加网盘」区块的选中态对上，
+    // 否则用户看到的是「流程已经开了，那颗按钮却都没亮」。
+    selectedNetdiskProtocol.value = requested;
+
     // 阿里云盘是例外（2026-11-19 批次 26）：它要填 OAuth 的 `client_id`，
     // 那个字段只存在于连接表单里 —— 快捷弹窗里没地方填，
     // 所以这里改成开表单，让用户自己填应用信息再点登录。
@@ -354,17 +279,53 @@ onMounted(async () => {
 
   // 读盘完成后再开闸：初始的那批连接不算「勾选集合变了」，
   // 否则每次进设置页都会白重建一次云盘索引。
-  knownGlobalSearchIdsKey = globalSearchIdsKey(globalSearchConnectionIds.value);
-  canTriggerRemoteIndex = true;
+  markGlobalSearchIndexReady();
 });
 
 watch(() => store.pendingEditId, applyPendingEdit);
 watch(() => store.pendingCreate, applyPendingCreate);
 watch(() => store.pendingSection, applyPendingSection);
 
+/**
+ * 开始编辑某条既有连接时，「添加网盘」的选中态要清掉。
+ *
+ * 用 watch 而不是逐个调用点手动清：编辑的入口不止一个
+ * （列表里的「编辑」按钮、导航栏发来的编辑请求），漏一个就会出现
+ * 「正在编辑 A 连接，添加网盘那块还亮着百度」这种错位状态。
+ *
+ * ⚠️ 守卫必须是「只在变成**某条连接**时清」，不能写成无条件清。
+ * `watch` 默认 pre-flush：回调要等当前同步代码跑完才执行。而
+ * `startAddAliyunNetdisk()` / `startAddOnedriveNetdisk()` 是**先记下选中、
+ * 再把 `editing` 置空**的，无条件清会让这个异步回调反过来把刚设上的
+ * 选中态擦掉 —— 表现是「点了添加阿里云盘，那颗按钮闪一下就灭」。
+ * 置空 `editing` 本来就不代表「开始编辑」，跳过它才对。
+ */
+watch(editing, (connection) => {
+  if (connection) {
+    selectedNetdiskProtocol.value = null;
+  }
+});
+
 function startCreate() {
   editing.value = null;
   isCreating.value = true;
+}
+
+/**
+ * 「添加百度网盘」：记下选中态，然后开内嵌登录窗。
+ *
+ * **动作与改动前完全一致** —— 选中态是加在原动作上的旁路，
+ * 不是把流程改成「先选中、再确认」的两步式。
+ */
+function startAddBaiduNetdisk(): void {
+  selectedNetdiskProtocol.value = 'baidu_pan';
+  netdiskDialogRef.value?.startAdd('baidu_pan');
+}
+
+/** 「添加夸克网盘」：与百度同构。 */
+function startAddQuarkNetdisk(): void {
+  selectedNetdiskProtocol.value = 'quark_pan';
+  netdiskDialogRef.value?.startAdd('quark_pan');
 }
 
 /**
@@ -374,6 +335,7 @@ function startCreate() {
  * 而 `client_id` 只有这张表单里能填。
  */
 function startAddAliyunNetdisk() {
+  selectedNetdiskProtocol.value = 'aliyun_pan';
   editing.value = null;
   createNetdiskProtocol.value = 'aliyun_pan';
   activeSection.value = 'netdisk';
@@ -388,6 +350,7 @@ function startAddAliyunNetdisk() {
  * 抓 cookie」的形态，OneDrive 走的是系统浏览器 + 环回 redirect 的授权码流程。
  */
 function startAddOnedriveNetdisk() {
+  selectedNetdiskProtocol.value = 'onedrive_pan';
   editing.value = null;
   createNetdiskProtocol.value = 'onedrive_pan';
   activeSection.value = 'netdisk';
@@ -403,6 +366,9 @@ function startEdit(connection: RemoteConnection) {
 function closeForm() {
   isCreating.value = false;
   editing.value = null;
+  // 这一轮「添加」结束了（存好了、或用户取消了）⇒ 选中态清掉，
+  // 免得那颗按钮还亮着，看着像「还有一家正在进行中」。
+  selectedNetdiskProtocol.value = null;
 }
 
 async function handleDelete(connection: RemoteConnection) {
@@ -577,17 +543,35 @@ function describeProxy(connection: RemoteConnection): string {
         {{ t('settings.remote.nav.addNetdisk') }}
       </h4>
       <div class="remote-connections__add-netdisk-options">
+        <!--
+          provider 按钮的**选中态**（用户 2026-11-24：点过的要看得出来）。
+
+          选中项：variant 换成 `secondary`（有底色）+ 一圈 primary 描边 + 加粗，
+          另外带 `aria-pressed` / `data-selected`；
+          未选中项：保持 `outline`（只有描边）。
+
+          **点击行为一个字没改** —— 还是点哪颗就立刻开那家的登录窗 / 表单，
+          不是改成「先选中、再点确认」的两步式。
+        -->
         <Button
-          variant="outline"
+          :variant="isNetdiskSelected('baidu_pan') ? 'secondary' : 'outline'"
           data-test="add-netdisk-baidu_pan"
-          @click="netdiskDialogRef?.startAdd('baidu_pan')"
+          :data-selected="isNetdiskSelected('baidu_pan') ? 'true' : 'false'"
+          :aria-pressed="isNetdiskSelected('baidu_pan') ? 'true' : 'false'"
+          class="remote-connections__add-netdisk-option"
+          :class="{ 'remote-connections__add-netdisk-option--selected': isNetdiskSelected('baidu_pan') }"
+          @click="startAddBaiduNetdisk"
         >
           {{ t('settings.remote.netdisk.baidu') }}
         </Button>
         <Button
-          variant="outline"
+          :variant="isNetdiskSelected('quark_pan') ? 'secondary' : 'outline'"
           data-test="add-netdisk-quark_pan"
-          @click="netdiskDialogRef?.startAdd('quark_pan')"
+          :data-selected="isNetdiskSelected('quark_pan') ? 'true' : 'false'"
+          :aria-pressed="isNetdiskSelected('quark_pan') ? 'true' : 'false'"
+          class="remote-connections__add-netdisk-option"
+          :class="{ 'remote-connections__add-netdisk-option--selected': isNetdiskSelected('quark_pan') }"
+          @click="startAddQuarkNetdisk"
         >
           {{ t('settings.remote.netdisk.quark') }}
         </Button>
@@ -596,8 +580,12 @@ function describeProxy(connection: RemoteConnection): string {
           OAuth 的 `client_id` 只有表单里能填，没有它授权页开不起来。
         -->
         <Button
-          variant="outline"
+          :variant="isNetdiskSelected('aliyun_pan') ? 'secondary' : 'outline'"
           data-test="add-netdisk-aliyun_pan"
+          :data-selected="isNetdiskSelected('aliyun_pan') ? 'true' : 'false'"
+          :aria-pressed="isNetdiskSelected('aliyun_pan') ? 'true' : 'false'"
+          class="remote-connections__add-netdisk-option"
+          :class="{ 'remote-connections__add-netdisk-option--selected': isNetdiskSelected('aliyun_pan') }"
           @click="startAddAliyunNetdisk"
         >
           {{ t('settings.remote.netdisk.aliyun') }}
@@ -612,8 +600,12 @@ function describeProxy(connection: RemoteConnection): string {
         -->
         <Button
           v-if="ONEDRIVE_ENABLED"
-          variant="outline"
+          :variant="isNetdiskSelected('onedrive_pan') ? 'secondary' : 'outline'"
           data-test="add-netdisk-onedrive_pan"
+          :data-selected="isNetdiskSelected('onedrive_pan') ? 'true' : 'false'"
+          :aria-pressed="isNetdiskSelected('onedrive_pan') ? 'true' : 'false'"
+          class="remote-connections__add-netdisk-option"
+          :class="{ 'remote-connections__add-netdisk-option--selected': isNetdiskSelected('onedrive_pan') }"
           @click="startAddOnedriveNetdisk"
         >
           {{ t('settings.remote.netdisk.onedrive') }}
@@ -762,6 +754,21 @@ function describeProxy(connection: RemoteConnection): string {
 .remote-connections__add-netdisk-options {
   display: flex;
   gap: 0.5rem;
+}
+
+/*
+  「添加网盘」里 provider 按钮的选中态（用户 2026-11-24）。
+
+  选中项除了换 variant（`secondary` 有底色 vs `outline` 只有描边），
+  再补一圈 primary 描边并加粗 —— 粗看能分出、细看也能分出是哪颗。
+
+  颜色一律走主题变量（`--primary` / `--secondary`），不写死颜色。
+  描边用 1px：与 `outline` 那几颗的边框一样宽 ⇒ 切换时按钮不会跳动。
+*/
+
+.remote-connections__add-netdisk-options :deep(.remote-connections__add-netdisk-option--selected) {
+  border: 1px solid hsl(var(--primary) / 45%);
+  font-weight: 600;
 }
 
 .remote-connections__list {

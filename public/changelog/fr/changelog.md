@@ -1,6 +1,20 @@
 # Journal des modifications
 
 
+## [3.21.0] - November 2026
+
+**Résumé :** Le tour des disques en ligne est plus net. Les boutons *Ajouter un disque cloud* montrent maintenant quel fournisseur vous avez choisi, *Paramètres* -> *Rechercher* liste vos disques en ligne regroupés par fournisseur, pour que vous décidiez ce qui participe à la recherche globale, et retirer un disque en ligne ne fait plus clignoter une fenêtre de console noire. OneDrive est mis de côté pour l'instant - il a quitté l'interface pour le moment et peut être remis en marche plus tard sans avoir à tout reconstruire.
+
+### What changed
+
+**Ajouté** **Les boutons *Ajouter un disque cloud* montrent maintenant celui que vous avez choisi** - Choisir *Baidu Netdisk*, *Quark Netdisk* ou *Aliyun Drive* marque le bouton correspondant, si bien que vous voyez d'un coup d'œil quel fournisseur vous êtes sur le point d'ajouter. Le bouton que vous avez choisi reste marqué jusqu'à ce que vous en choisissiez un autre ou que vous fermiez le panneau.
+
+**Ajouté** **Les disques en ligne sont maintenant regroupés par fournisseur dans *Paramètres* -> *Rechercher*** - La partie *Recherche dans le cloud* des réglages de *Rechercher* regroupe maintenant vos disques en ligne par fournisseur - *Baidu Netdisk*, *Aliyun Drive*, *Quark Netdisk* et tout type de disque en ligne ajouté plus tard. Sous chaque fournisseur, vous cochez les connexions qui doivent participer à la recherche globale, et l'index de recherche est reconstruit pour vous. Un fournisseur auquel vous n'êtes pas encore connecté figure quand même dans la liste, pour que vous voyiez quels types de disques en ligne l'application connaît.
+
+**Corrigé** **Retirer un disque en ligne ne fait plus clignoter une fenêtre de console noire** - En retirant un disque en ligne, une fenêtre de console noire s'ouvrait brièvement sur votre bureau. L'outil qui restreint les identifiants enregistrés à votre propre compte Windows s'exécute maintenant sans ouvrir de fenêtre : retirer un disque en ligne est de nouveau silencieux.
+
+**Modifié** **OneDrive est mis de côté pour l'instant** - L'option OneDrive a quitté pour l'instant la liste *Ajouter un disque cloud*. Tout ce dont OneDrive a besoin est toujours en place derrière un simple interrupteur, de sorte qu'il puisse revenir plus tard sans avoir à être reconstruit, et les connexions que vous avez déjà restent intactes.
+
 ## [3.20.1] - November 2026
 
 **Résumé :** Créer un dossier dans OneDrive fonctionne enfin. L’application envoyait la nouvelle demande dans une forme que le disque refusait : chaque tentative était rejetée en HTTP 400 et rien n’était créé. La demande est désormais envoyée comme le disque l’attend.

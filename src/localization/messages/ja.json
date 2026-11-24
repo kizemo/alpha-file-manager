@@ -530,7 +530,10 @@
       "remoteIndexDescription": "グローバル検索に追加した接続のファイルが検索結果に表示されます。",
       "rebuildRemoteIndex": "クラウド索引を再構築",
       "rebuildRemoteIndexDescription": "チェックした接続のファイルを再取得してインデックスに書き込みます。ネットディスクの API 割当量を使用します。",
-      "noRemoteInSearch": "グローバル検索に追加されたネットディスクはありません"
+      "noRemoteInSearch": "グローバル検索に追加されたネットディスクはありません",
+      "noNetdiskConnections": "このクラウドストレージにはまだ接続がありません",
+      "rebuildCheckedRemoteIndex": "チェックした接続のインデックスを再構築",
+      "rebuildCheckedRemoteIndexHint": "再構築は常にチェック済みの接続すべてを対象にするため、個々の接続だけを再構築することはできません。"
     },
     "drives": {
       "driveDetection": "ドライブ検出",
