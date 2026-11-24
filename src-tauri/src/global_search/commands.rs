@@ -94,8 +94,21 @@ pub async fn global_search_index_remote_connections(
 
     let index_path = super::index::remote_index_dir(&base_dir);
 
+    // W-7（批次 45）：重建的入口/出口/耗时此前全程无声，
+    // 日志里只有逐连接的「收集到 N 条」，看不出这场重建到底开没开始、写完没写完、花了多久。
+    let rebuild_started = std::time::Instant::now();
+    log::info!(
+        "[global-search] 云盘索引重建开始：{} 个连接 {}",
+        connection_ids.len(),
+        connection_ids.join(",")
+    );
+
     if connection_ids.is_empty() {
         super::remote_index::clear_remote_index(&index_path)?;
+        log::info!(
+            "[global-search] 云盘索引重建：连接列表为空，已清空索引目录（{} 连接未勾「加入全局检索」）",
+            index_path.display()
+        );
         return Ok(0);
     }
 
@@ -103,16 +116,34 @@ pub async fn global_search_index_remote_connections(
     // **不要**在 `spawn_blocking` 里再套一层 tokio runtime
     // （`Runtime::block_on` 在运行时内部会 panic：
     // "Cannot start a runtime from within a runtime"）。
+    let collect_started = std::time::Instant::now();
     let docs =
         super::remote_index::collect_remote_entries(&user_data_dir, &base_dir, &connection_ids)
             .await;
+    let collected = docs.len();
+    log::info!(
+        "[global-search] 云盘索引收集完成：{} 条，collect={}ms（上限 {} 条）",
+        collected,
+        collect_started.elapsed().as_millis(),
+        super::remote_index::REMOTE_INDEX_MAX_ENTRIES
+    );
 
     // 写盘（tantivy）挪到工作线程，别占着 async 运行时的工作线程。
-    tauri::async_runtime::spawn_blocking(move || {
+    let indexed = tauri::async_runtime::spawn_blocking(move || {
         super::remote_index::write_remote_index(&index_path, &docs)
     })
     .await
-    .map_err(|join_error| format!("Remote search index task failed: {join_error}"))?
+    .map_err(|join_error| {
+        log::warn!("[global-search] 云盘索引写盘线程崩溃：{}", join_error);
+        format!("Remote search index task failed: {join_error}")
+    })??;
+
+    log::info!(
+        "[global-search] 云盘索引重建完成：写入 {} 条，总耗时 {}ms",
+        indexed,
+        rebuild_started.elapsed().as_millis()
+    );
+    Ok(indexed)
 }
 
 /// 云盘索引的当前状态（`missing` / `stale` / `ready`）。

@@ -254,23 +254,76 @@ pub(super) fn write_remote_index(
             .map_err(|error| error.to_string())?;
     }
 
-    writer.commit().map_err(|error| error.to_string())?;
+    // W-7（批次 45）：重建此前只在**遍历阶段**逐连接打了「收集到 N 条」，
+    // 提交成功/失败与耗时全程无声 —— 出问题时只能靠 `meta.json` 的 mtime 反推。
+    let commit_started = std::time::Instant::now();
+    writer.commit().map_err(|error| {
+        log::warn!(
+            "[global-search] 云盘索引提交失败（待写 {} 条）：{}",
+            docs.len(),
+            error
+        );
+        error.to_string()
+    })?;
+    REMOTE_INDEX_UNAVAILABLE_LOGGED.store(false, std::sync::atomic::Ordering::Relaxed);
+    log::info!(
+        "[global-search] 云盘索引提交完成：{} 条，commit={}ms，目录 {}",
+        docs.len(),
+        commit_started.elapsed().as_millis(),
+        index_path.display()
+    );
 
     Ok(docs.len() as u64)
+}
+
+/// W-8（批次 45）：查询侧「为什么没有云盘结果」的**一次性**日志开关。
+///
+/// 检索每敲一个字符都会走 `open_remote_reader`，逐次打会刷屏；
+/// 而取证要的不是频次，是用户报「云盘搜不到」时，日志里能不能把它和
+/// 「索引不存在 / 打不开 / schema 不符 / 当前没有勾选」区分开
+/// —— 在加这几行之前，查询侧对云盘路径**零日志**，`None` 静默降级成只搜本地，
+/// 「索引是空的」与「勾选过滤生效了」在日志里长得一模一样。
+///
+/// 口径：每种不可用原因**首次**出现时打一行 INFO，之后静默；
+/// 索引被重写（`write_remote_index` 提交成功）后开关复位，
+/// 下一次再不可用仍然会说一遍。进程重启自然复位。
+static REMOTE_INDEX_UNAVAILABLE_LOGGED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+/// 打一行「本次查询云盘结果被忽略」的一次性日志；已经说过就静默。
+fn log_remote_index_unavailable_once(message: &str) {
+    if !REMOTE_INDEX_UNAVAILABLE_LOGGED.swap(true, std::sync::atomic::Ordering::Relaxed) {
+        log::info!("[global-search] {}", message);
+    }
 }
 
 /// 打开云盘索引的 reader。
 ///
 /// 索引目录不存在 / 打不开 / schema 对不上，一律返回 `None` ——
-/// 查询路径据此判定「没有云盘索引」，行为与加这个功能之前**完全一致**。
+/// 查询路径据此判定「没有云盘索引」，行为与加这个功能之前**完全一致**
+/// （**返回值的语义没动**，只是每种原因现在会在日志里说清楚）。
 pub(super) fn open_remote_reader(
     index_path: &Path,
 ) -> Option<(IndexReader, GlobalSearchIndexFields)> {
     if !index_path.exists() {
+        log_remote_index_unavailable_once(&format!(
+            "云盘索引目录不存在（{}），本次及后续查询只返回本地结果，直到下一次重建",
+            index_path.display()
+        ));
         return None;
     }
 
-    let index = Index::open_in_dir(index_path).ok()?;
+    let index = match Index::open_in_dir(index_path) {
+        Ok(index) => index,
+        Err(error) => {
+            log::warn!(
+                "[global-search] 云盘索引打不开（{}）：{}；本次查询忽略云盘结果",
+                index_path.display(),
+                error
+            );
+            return None;
+        }
+    };
     let (schema, fields) = build_remote_schema();
 
     if index.schema() != schema {
@@ -278,11 +331,17 @@ pub(super) fn open_remote_reader(
         return None;
     }
 
-    let reader = index
+    let reader = match index
         .reader_builder()
         .reload_policy(ReloadPolicy::Manual)
         .try_into()
-        .ok()?;
+    {
+        Ok(reader) => reader,
+        Err(error) => {
+            log::warn!("[global-search] 云盘索引 reader 建立失败：{}；本次查询忽略云盘结果", error);
+            return None;
+        }
+    };
 
     Some((reader, fields))
 }

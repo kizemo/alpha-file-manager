@@ -303,6 +303,17 @@ fn search_remote_index(
     if allowed_connection_ids.is_empty() {
         // 一个网盘都没勾 ⇒ 云盘一条都不该出现。
         // 注意这**不是**「没有云盘索引」（`None`），而是「有索引但当前没有可见的连接」。
+        //
+        // W-8（批次 45）：这条路径以前无声，日志上和「索引是空的」完全分不开。
+        // 每次输入都会命中，所以只在**首次**说一遍；重新勾上后再取消，
+        // 进程内不会重复刷，但日志里已经留下了这条判据。
+        static LOGGED_EMPTY_SELECTION: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(false);
+        if !LOGGED_EMPTY_SELECTION.swap(true, std::sync::atomic::Ordering::Relaxed) {
+            log::info!(
+                "[global-search] 当前没有任何勾选「加入全局检索」的云盘连接，本次查询云盘结果按空处理"
+            );
+        }
         return Some(Vec::new());
     }
 
