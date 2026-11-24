@@ -344,10 +344,26 @@ async function cancelScan() {
 const {
   globalSearchConnectionIds,
   isRebuilding: isRebuildingRemoteIndex,
+  indexTargetConnectionIds,
   lastIndexedItemCount: remoteIndexedItemCount,
   triggerRebuild,
   markReady: markGlobalSearchIndexReady,
 } = useRemoteGlobalSearchIndex();
+
+/**
+ * 这一条连接现在正在被索引吗。
+ *
+ * ⚠️ **单行状态必须按连接判，不能用 `isRebuildingRemoteIndex`**：
+ * 那是全局互斥锁 —— 后端「整体重建」的语义下，勾选百度一家在跑，
+ * 阿里和夸克那两行也会跟着显示「正在索引云盘」，取消勾选后还要等上一轮
+ * 跑完才回落。这正是批次 43 装机反馈里的那个缺陷。
+ * 顶部那颗「全部重建」按钮才该用全局锁。
+ */
+const indexingIdSet = computed(() => new Set(indexTargetConnectionIds.value));
+
+function isIndexingConnection(connectionId: string): boolean {
+  return isRebuildingRemoteIndex.value && indexingIdSet.value.has(connectionId);
+}
 
 /**
  * 按网盘类型分组的连接清单。
@@ -711,8 +727,16 @@ onUnmounted(() => {
                   <!--
                     每行这颗按钮**重建的是全部已勾选连接的集合**，不是这一行 ——
                     后端是「整体重建」语义。提示里写清楚了，避免用户误以为能单条重建。
+
+                    ⚠️ 两处判据是分开的，各自解决一个装机反馈：
+                    - **禁用**用全局锁 `isRebuildingRemoteIndex`：重建必须串行，
+                      任何一条在跑时都不该再提交一次。
+                    - **文案**用「这一条连接是否在本轮索引集合里」`isIndexingConnection`：
+                      批次 43 反馈「勾选一个百度网盘，其它两个也显示正在索引云盘，
+                      取消勾选后状态没有变化」就是因为这里拿了全局锁当每行状态。
+                    - 未勾选的行**不渲染**这颗按钮：对它点重建只会重建别的连接，摆着是误导。
                   -->
-                  <Tooltip>
+                  <Tooltip v-if="connection.includeInGlobalSearch === true">
                     <TooltipTrigger as-child>
                       <Button
                         variant="outline"
@@ -722,7 +746,7 @@ onUnmounted(() => {
                         @click="rebuildRemoteIndex"
                       >
                         <RefreshCcwIcon :size="14" />
-                        <span>{{ isRebuildingRemoteIndex
+                        <span>{{ isIndexingConnection(connection.id)
                           ? t('globalSearch.remoteIndexing')
                           : t('settings.globalSearch.rebuildCheckedRemoteIndex') }}</span>
                       </Button>

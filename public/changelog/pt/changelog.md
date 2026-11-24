@@ -1,6 +1,16 @@
 # Registro de alterações
 
 
+## [3.21.1] - November 2026
+
+**Resumo:** O remate da ronda dos discos em nuvem. Em *Configurações* -> *Pesquisar*, o indicador de indexação agora pertence ao disco em que carregou mesmo, em vez de se acender em todos ao mesmo tempo, e desaparece logo que essa reconstrução termina. Uma reconstrução que falhou com a página fechada é tentada de novo da próxima vez que a abrir.
+
+### What changed
+
+**Corrigido** **O estado de indexação já não se entranha nos outros discos** - Ao reconstruir o índice na nuvem de um disco em nuvem, *A indexar discos na nuvem* aparecia em todos os discos da lista, e o texto ficava mesmo depois de desmarcar um disco. Agora cada linha diz se *esse* disco faz parte da reconstrução em curso; as restantes linhas mantêm o botão normal. Os discos que deixou de fora da busca global já não mostram botão de reconstrução nenhum, por isso não há nada que se preste a engano. As reconstruções continuam a correr uma de cada vez.
+
+**Corrigido** **Uma reconstrução na nuvem falhada é repetida quando volta** - O índice na nuvem é reconstruído em bloco, para o conjunto todo, pelo que uma reconstrução que falhasse a meio o podia deixar descompassado das suas caixas de seleção. Quando isso acontece, a visita seguinte a *Configurações* -> *Pesquisar* volta a lançar a reconstrução sozinha, pelo que os discos desmarcados deixam de aparecer nos resultados sem ter de carregar em seja o que for.
+
 ## [3.21.0] - November 2026
 
 **Resumo:** A ronda dos discos em nuvem ficou mais arrumada. Os botões de *Adicionar disco na nuvem* mostram agora qual fornecedor escolheu, *Configurações* -> *Pesquisar* lista os seus discos em nuvem agrupados por fornecedor, para que decida o que participa da busca global, e ao remover um disco em nuvem já não pisca uma janela de consola preta. O OneDrive fica de pausa por agora - saiu da interface por enquanto e pode ser ligado mais tarde sem ser reconstruído.

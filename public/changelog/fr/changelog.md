@@ -1,6 +1,16 @@
 # Journal des modifications
 
 
+## [3.21.1] - November 2026
+
+**Résumé :** La suite du tour des disques en ligne. Dans *Paramètres* -> *Rechercher*, le témoin « indexation en cours » appartient maintenant au disque sur lequel vous avez vraiment appuyé, au lieu de s'allumer sur tous à la fois, et il s'efface dès que cette reconstruction est finie. Une reconstruction qui a échoué pendant que la page était fermée est relancée toute seule à l'ouverture suivante.
+
+### What changed
+
+**Corrigé** **L'état d'indexation ne déborde plus sur les autres disques** - Quand vous reconstruiez l'index cloud d'un disque en ligne, la mention *Indexation des disques cloud* s'affichait sur tous les disques de la liste, et elle restait même après avoir décoché un disque. Désormais chaque ligne indique si *ce* disque participe bien à la reconstruction en cours ; les autres lignes gardent leur bouton habituel. Les disques que vous avez laissés hors de la recherche globale n'affichent plus du tout de bouton de reconstruction, il n'y a donc rien à mal interpréter. Les reconstructions continuent de se faire une à la fois.
+
+**Corrigé** **Une reconstruction cloud ratée est relancée à votre retour** - L'index cloud se reconstruit d'un bloc pour l'ensemble de la sélection, si bien qu'une reconstruction interrompue à mi-chemin pouvait le désynchroniser de vos cases. Quand cela arrive, la visite suivante dans *Paramètres* -> *Rechercher* relance la reconstruction toute seule, et les disques décochés cessent de remonter dans les résultats sans que vous ayez à appuyer sur quoi que ce soit.
+
 ## [3.21.0] - November 2026
 
 **Résumé :** Le tour des disques en ligne est plus net. Les boutons *Ajouter un disque cloud* montrent maintenant quel fournisseur vous avez choisi, *Paramètres* -> *Rechercher* liste vos disques en ligne regroupés par fournisseur, pour que vous décidiez ce qui participe à la recherche globale, et retirer un disque en ligne ne fait plus clignoter une fenêtre de console noire. OneDrive est mis de côté pour l'instant - il a quitté l'interface pour le moment et peut être remis en marche plus tard sans avoir à tout reconstruire.
