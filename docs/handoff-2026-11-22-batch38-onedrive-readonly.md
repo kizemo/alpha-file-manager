@@ -3327,3 +3327,85 @@ token 取自 `%APPDATA%\com.sigma-file-manager.app\mcp-access.json` 的 `token` 
   （进程 603288 仍在）；要扫码必须先跑 `aliyun-open-edit.ps1` → `aliyun-open-login.ps1` 重开
 - **已废弃（别再用）**：`aliyun-login-go.ps1`、`aliyun-invoke-login.ps1`；
   worker 遗留的 `b46-accept.ps1`（41,668 B，无配套 steps JSON，未测）
+
+### 二十·9 §6-3 闭合实录：缺的只有「点保存」这一步（23:00–23:10 真机）
+
+**结论**：**§6-3 判闭合**（真机实测）。阿里云盘重新授权**既不需要扫码、也不需要用户重开登录窗** ——
+上一轮已经**登录成功**，链路只差保存弹窗上那个没被按下的「保存」。
+
+#### 1. 真实根因分两层
+
+- **上一层（上一轮已定位）**：登录入口在「阿里云盘 → 编辑」弹窗**内**，不在远程页上。
+- **这一层（本轮补上）**：**「登录成功」≠「已授权」**。网页登录与扫码都只把会话放进内存中的
+  「待认领槽位」（`store_pending`），必须走 `saveConnection → remote_aliyun_login_claim` 才落盘。
+  决定性证据是弹窗里那行前端文案：`已登录。保存这条连接即可——会话会在保存时写入。`
+  （`accept-aliyun\state-2302.txt:63`，`ControlType.Text` 元素）。
+- **反面订正**：上一轮判断「改用扫码登录」是**错的**。「扫码登录」按钮走的是 Rust 自造
+  `generate.do` / `query.do` 路线，`src-tauri/src/aliyun_login.rs` 模块头注释已写明实测**卡在 `NEW` 永不推进**
+  （根因：`query.do` 需要真实页面上下文里的 `_csrf` / `umidToken` / `hsiz` 与页面自种的 cookie）。
+  可用路径就是用户已经走过的「**打开登录窗口**」：页面自己驱动接口，注入的 `ALIYUN_LOGIN_HOOK_JS`
+  （`aliyun_login.rs:872-980`）只挂 `query.do` 的**响应正文**取 `qrCodeStatus` / `bizExt`，
+  经 `__TAURI_INTERNALS__.invoke('remote_aliyun_login_observed')` 交回 Rust（落点 `aliyun_login.rs:1190`；
+  iframe 内优先直投 IPC，退路 `window.parent.postMessage`）。
+  ⇒ `.superpowers/sdd/b46/aliyun-qr-start.ps1` 属**废路线**，不要再用。
+
+#### 2. 动作序列（全部 UIA `InvokePattern`，零键盘注入）
+
+1. `aliyun-open-edit.ps1` —— 在所有 `Name=='编辑'` 的 Button 里取 **Y 最大**者定位阿里云盘行
+   （实测百度 -31853 / 夸克 -31713 / 阿里云盘 -31572），打开编辑弹窗。
+2. `aliyun-save.ps1 -Tag save-2306` —— **保存按钮定位法**：先取全部 `取消` 按钮的最大 Y 作锚
+   （`CANCEL_Y=-30002`），再在 `Name=='保存'` 里取 Y 与锚相差 ≤15px 者；同名多个时优先
+   `ClassName` 含 `--default`（实测 `sigma-ui-button sigma-ui-button--default sigma-ui-button--size-default`）。
+   元素落在窗口矩形之外（`TARGET_Y=-30002`、窗口 `-31988,-31998,2232x1207`）也能 Invoke 成功。
+3. `aliyun-testconn.ps1` —— 点弹窗自带「测试连接」，做真实服务端往返。
+4. `aliyun-testconn.ps1 -CloseDialog` —— 点「取消」收尾关弹窗。
+
+#### 3. 落盘判据（三条，缺一不可）
+
+- 凭据库 mtime：`BEFORE_CRED_MTIME=2026-11-24 11:37:45` → **`AFTER_CRED_MTIME=2026-11-24 23:03:01`**。
+- 重开编辑弹窗读会话摘要：**`剩余0秒` → `剩余6776秒`**；字段 `access_token(len=777)` +
+  `refresh_token(len=32)` + `drive=15998870` + `nick=段燚` + `secret=无` **均未变**（同一账号续期，不是换号）。
+- 弹窗内「保存」按钮数：`SAVE_BUTTONS_AFTER=0`（保存后弹窗自动关闭）。
+- **反例警示（必须记住）**：**不能以「点保存没报错」当成功**。已存连接的 `credentialKey` 与 `id` 同值
+  （`646dacdb6ff34af4b26f88dd802baf02`），**槽位为空时点保存只会静默沿用旧凭据**；
+  凭据库三键长度（712 / **1736** / 3144，SIZE 5761）也不变（access token 定长 777）。
+  唯一可靠信号 = **「会话摘要 `剩余N秒` 变新」+「凭据库 mtime 变新」**。
+  （另注：脚本里 `Count-TextLike` 之类的**函数返回计数不可轻信** —— 本轮 `READY_AFTER=3` 而 dump 里 0 命中，
+  判据一律以 dump 文件 grep 与摘要行为准。）
+
+#### 4. 端到端验证（真实服务端往返，非本地推断）
+
+点弹窗自带「测试连接」后新增三条文案（`NAMES_BEFORE=90 → NAMES_AFTER=93`，`EXIT=0`）：
+
+- `连接成功，服务器接受了当前设置。`
+- `阿里云盘连接正常，账号：段燚`
+- `本次未提交密码，因此不能据此确认密码正确。`
+
+⇒ 新会话对阿里云盘服务端**确实有效**，§6-3 判闭合成立。
+
+#### 5. 正交遗留（不在本项范围，别混判）
+
+- refresh 仍 **400 `InvalidParameter.ClientId`**（应用日志 `ALIYUN_TOTAL=4`，本地 07:28:10 与 12:39:32 各两条，
+  **本轮无新增**）。`src-tauri/src/remote/aliyun_provider.rs:955-960` 注释明确：假 token 配任何 client_id
+  只会回 `InvalidParameter.RefreshToken`，出现 `ClientId` 反证 refresh_token**为真** ⇒
+  候选链（`index=0` 存值 `25dzX3vbYqktVxyX`、`index=1` 为 `None`）**两级都不被接受** ⇒ **B-2 仍未解**。
+- 本次 access_token 约 **6776 秒**后才过期，届时仍需再登一次；在此之前 B-3 / B-5 / B-6 的
+  「授权前置」已解除，可直接进入界面级验收。
+
+#### 6. 复现配方（脚本纯 ASCII，本轮四步全部 `EXIT=0`）
+
+```powershell
+$B = '<repo>\.superpowers\sdd\b46'
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$B\aliyun-open-edit.ps1"
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$B\aliyun-save.ps1" -Tag 'save-2306'
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$B\aliyun-testconn.ps1"
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$B\aliyun-testconn.ps1" -CloseDialog
+```
+
+#### 7. 本节新增取证产物（全部在 `.superpowers/sdd/b46/`）
+
+- `aliyun-save.ps1`（6,706 B）+ `aliyun-save-labels.json`（131 B，中文标签与 ASCII 脚本分离）
+- `aliyun-testconn.ps1` + `aliyun-testconn-labels.json`（195 B）
+- `accept-aliyun\save-2306-before.txt` / `save-2306-after.txt`（后者 129 行）
+- `accept-aliyun\S63-CLOSEOUT.txt`（2,791 B，7 节：动作序列 / 落盘判据 / 会话有效性 / 端到端验证 /
+  正交遗留 / 复现配方 / 关键教训）
