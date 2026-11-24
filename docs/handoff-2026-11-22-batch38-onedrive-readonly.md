@@ -2430,3 +2430,218 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
 - 本轮 `bash` 有一次被本地安全策略拦下：`Set-Location` 之后又在同一条命令里出现 `git -C <子目录>`
   ⇒ 报「write/delete targets cannot be verified safely after a command working directory change」。
   **改法**：`git -C` 单独成一条命令、不与 `Set-Location` 混用；纯读目录检查用 `Test-Path` + `Get-ChildItem` 全路径。
+## 十六、批次 44：把「勾了哪个网盘就只搜哪个网盘」钉进索引数据 —— O-1/O-2/O-3/O-6 四项闭合（升版 3.22.0，2026-11-24）
+
+> 一句话：上一轮（批次 43）把「勾选控制检索」在**正常路径**上跑通了，但留下一个洞 ——
+> 索引条目**不记自己属于哪个网盘**，所以「重建中途失败」时旧条目还在、
+> 已被取消勾选的网盘**仍可能被搜到**。本批次把连接维度**写进索引 schema**，
+> 查询侧按**当前**勾选集合在索引层过滤 ⇒ 「取消勾选 = 立刻搜不到」不再依赖「等下次重建顺手清掉」。
+> 顺带闭合了自愈补跑多跑一次（O-2）、补了搜索页组件级单测（O-3）、清了 `reports/` 残留（O-6），
+> 升版 **3.22.0**，已打包、已静默装机、真机已验证「升级后旧索引确实判 stale 且自动重建已被触发」。
+>
+> 本节编号用中文「十六」：承接文末 `## 十五`（批次 43 收口），文内小节沿用 `### 十·N` 的体例。
+
+### 十六·1 本轮范围与逐项结论
+
+| 台账项 | 结论 | 关键落点 |
+| --- | --- | --- |
+| **O-1**（最高优先）索引条目记「它属于哪个网盘」 | **闭合** | `src-tauri/src/global_search/{state,index,types,remote_index,query,commands}.rs` + `src-tauri/src/lib.rs` + `src-tauri/permissions/app-commands.toml` |
+| **O-2** 自愈补跑跨页切换可能多跑一次 | **闭合** | `src/composables/use-remote-global-search-index.ts`（模块级闸门） |
+| **O-3** 搜索页模板没有自动化测试 | **闭合**（6 例） | `src/modules/settings/ui/categories/search/__tests__/global-search-remote-index.test.ts`（新增） |
+| **O-6** `reports/` 残留目录未跟踪 | **闭合** | 4 个批次 38/41 探针文件归档到 `.superpowers/sdd/b38/reports-archive/` |
+| O-5 推送 origin | **未做**（需用户授权，对外动作） | 本地 `main` 领先 origin **6 个提交** |
+
+### 十六·2 O-1 的实现：三个决定 + 一条链路
+
+**决定 1：云盘索引用**独立 schema**，本地索引 schema 一字不动。**
+`build_schema_inner(with_connection_id)` 拆出两版：本地 7 字段保持原样，
+云盘版在**末尾**追加 `connection_id`（`STRING | STORED`）。
+> `connection_id` 必须加在**最后**：`tantivy::Schema` 的 `PartialEq` 按**字段顺序**比较，
+> 顺序变了 ⇒ 读侧判定为「不同 schema」⇒ 老索引全部失效。
+
+**决定 2：过滤发生在**索引层**，不是物化后过滤。**
+`collect_remote_candidate_addresses()` 取 `BooleanQuery` 的 `Must` 文本条件，
+再叠加 `build_connection_filter()`（`connection_id` 上的 `TermQuery`），
+与文本条件用 `BooleanQuery` 的 `Must` 组合 ⇒ 过滤发生在候选收集阶段。
+> 被否决的替代方案「先按 path 派生 connection_id 再筛」：未勾选网盘的条目会**吃光候选预算**，
+> 勾选网盘的条目反而被挤掉 ⇒ 否决。
+
+**决定 3：连接表读失败 ⇒ 按「无勾选」处理（空集合），绝不放行全部。**
+`enabled_connection_ids(user_data_dir)` 读 `user-remote-connections.json` 的
+`includeInGlobalSearch`；读失败 ⇒ 空集合 + `warn!`。
+
+**新增三态命令** `global_search_remote_index_state(app) -> String`：
+- `"missing"` —— 压根没建过云盘索引；
+- `"stale"` —— 有索引但 schema 与当前版本对不上（**升级后的老索引就在这一档**）；
+- `"ready"` —— schema 对得上。
+
+> 语义严格区分：「没有云盘索引」= `None`；「有索引但当前无可见连接」= `Some(空 vec)`。
+
+**ACL**：`src-tauri/permissions/app-commands.toml` 同步登记 `global_search_remote_index_state`
+—— 新增 Tauri 命令**必须**同步 ACL，否则 `src-tauri/src/remote/commands.rs`（约 1493 行）
+的 `BTreeSet` 比对测试立刻红。
+
+**旧索引不被删**：`open_remote_reader` 发现 schema 不匹配时**只 warn + 返回 `None`**，
+绝不删索引目录（用户数据不能被「读不到就清空」这种逻辑误伤）。
+
+**Rust 单测**：`remote_index.rs` 7 条（三态、旧 schema = stale、远程 schema ≠ 本地 schema、
+空/坏连接表 = 空集合）+ `query.rs` 4 条（往返、未勾选被过滤、空集合无云盘结果、多个已勾选均可搜）。
+
+### 十六·3 O-2 闸门 与 O-3 组件级单测
+
+**O-2（自愈补跑不多跑一次）**：`use-remote-global-search-index.ts` 加**模块级**闸门
+`remoteIndexResyncAttempted` ——
+- 一次失败**最多自动补跑一次**；catch 分支**不清**闸门；
+- 只有「勾选集合真的变了」（watch 分支）才重开；
+- 成功时复位。
+
+**顺带加的「索引格式过期自愈」**：`ensureRemoteIndexFormatCurrent(ids)` +
+模块级 `remoteIndexFormatChecked`（每进程只查一次状态）：
+进设置页时 `invoke('global_search_remote_index_state')`，**仅 `stale`** 才自动重建一次；
+`missing` **不**自动重建（用户还没勾网盘，不该替他花网盘 API 配额），
+重建在跑/排队时跳过；`markReady()` 末尾以 `void` 调（设置界面不能被索引重建卡住）。
+> 不加新 i18n 键（避免 17 个语言包母语复核债务）。
+
+**O-3（组件级单测 6 例）**：桩的边界是「**只桩控制器、保留真逻辑**」——
+- **真**：`useRemoteConnectionsStore` / `useGlobalSearchStore` / `useUserSettingsStore`（真 pinia）、
+  `buildRemoteNetdiskGroups`（真实现）；
+- **桩**：`@tauri-apps/api/core`（invoke）、`@tauri-apps/plugin-store`（LazyStore，键 `'connections'`）、
+  `@tauri-apps/api/event`、`@/components/ui/toaster`、`@/stores/storage/user-paths`、
+  `@/modules/home/composables/use-drives`、`@/router`、`@/components/ui/tooltip`、
+  以及 composable 的**控制器**（`useRemoteGlobalSearchIndex` 返回可控 refs）。
+
+六例：① 分组/逐行/勾选态 ② 未勾选行不渲染重建按钮 ③「正在索引云盘」只给本轮集合
+④ 顶部「全部重建」只传已勾选集合 ⑤ 一个都没勾选时提示且无按钮
+⑥ 取消勾选当场落库 `false` 且该行重建按钮立刻消失。
+
+### 十六·4 门禁与发版（3.22.0）
+
+| 项 | 值 |
+| --- | --- |
+| `npm run check` | **全绿**：`Test Files 334 passed (334)` / `Tests 3597 passed (3597)`（日志 `.superpowers/sdd/b44/check3.log`） |
+| `cargo test --lib` | **1691 passed / 0 failed / 3 ignored**（日志 `.superpowers/sdd/b44-cargo-test.log`） |
+| `npm run verify-changelog` | `OK CHANGELOG.md 覆盖当前版本，条目顺序正确。`（67 条目） |
+| 版本 | `package.json` 3.21.1 → **3.22.0**；`npm run sync-version` → 同步 3 个 `Cargo.toml` |
+| CHANGELOG | 根 `CHANGELOG.md` + **14 个 locale** 全部插入 `## [3.22.0] - November 2026` |
+| 安装包 | `release/Alpha File Manager_3.22.0_x64-setup.exe`，**46,151,697 B** |
+| 装机 | `D:\Program Files\Alpha File Manager\alpha-file-manager.exe`，`ProductVersion = 3.22.0`（升级前 3.21.1） |
+| 提交 | `1b0b32e3 feat(batch44): …`（31 文件 / +1292 行），**未推送 origin** |
+
+> ⚠️ `src-tauri/src/global_search/scan.rs:387` 的 `unused variable: reader` 是**改动前既有基线**，本批次未动。
+
+### 十六·5 真机取证：UIA 路线打通，CDP 仍然不通（O-4 的新结论）
+
+**先说结论：本项目的「界面级取证」不再是死路 —— UIA（UI Automation）能驱动 WebView2 里的真实界面。**
+
+- WebView2 会把页面的**可访问性树**暴露给 UIA：能读到元素**名**（`设置`、`百度网盘`、`正在索引云盘`）
+  **和 CSS class 名**（`global-search-settings__remote-index-item` 等）；
+- `InvokePattern` **不可用**，但 `GetClickablePoint()` + 鼠标点击**可用**
+  ⇒ `.superpowers/sdd/b44/uia-drive-settings.ps1` 靠这个把「设置」点开、并读到了搜索页的全部云盘行。
+- **仍不通的两件事**：
+  1. `data-test` 属性 UIA 看不到（它不是可访问性属性）—— 判据要用 **class 名**（本项目 class 名同样稳定）；
+  2. **webview console / CDP 依旧拿不到**：`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 被 wry 传入的
+     `AdditionalBrowserArguments` **覆盖** ⇒ 进程命令行里没有 `--remote-debugging-port`，
+     9222 端口无监听（127.0.0.1 / localhost / ::1 全试过，均 connection refused）。
+
+**本轮真机实测（stale 前提 + 触发链路）**：
+
+| 观测 | 结果 |
+| --- | --- |
+| 升级前（3.21.1）建的 `remote-index/meta.json` | 7 字段（`path/name/name_lower/is_file/is_dir/modified_time/size`），**无 `connection_id`** ⇒ 升级后判 `stale` 属实 |
+| 首次 UIA dump（**点任何东西之前**） | 搜索页云盘区已是 **「百度网盘 正在索引云盘」**（夸克/阿里无此态）⇒ 重建**已被触发** |
+| 触发时机 | 3.22.0 启动后**恢复了上次的「设置-搜索」路由** ⇒ 页面挂载 ⇒ `markReady()` ⇒ `stale` ⇒ 自动重建 |
+| 索引文件 | 重建**仍在跑**（网盘 API 扫 2 万条，慢）⇒ 收口时 `meta.json` **尚未改写** |
+| 进程活性 | 与网盘 API 保持 `Established` 连接（`36.110.192.103:443`）；15 秒内 CPU 增长 0.38 s ⇒ **扫描在推进、不是卡死** |
+
+> ⇒ 「进设置页 ⇒ stale ⇒ 自动重建」这条链路**已被真机观测到前半段**（触发 + 正在扫）；
+> 后半段（索引文件改写为含 `connection_id` 的新 schema）**在本轮收口时仍在进行中**，未观测到。
+>
+> ⚠️ **口径订正**（收口时自查发现，别再误传）：重建是在**应用启动时**被触发的
+> （路由恢复到「设置-搜索」页 ⇒ 组件挂载 ⇒ `markReady()`），
+> **不是** UIA 那次点击「设置」触发的 —— UIA 点击只是**复核**用的第二次进页，
+> 两次触发的是同一段代码路径，且模块级闸门 `remoteIndexFormatChecked` 保证**只会触发一次**。
+
+### 十六·6 已验证 / 推断 / 未验证（三分法，交接时别混）
+
+**已验证**（有实测输出）：
+- `npm run check` 全绿（334 文件 / 3597 用例）；`cargo test --lib` 1691 passed / 0 failed；
+- `npm run verify-changelog` OK；`npm run sync-version` 同步 3 个 `Cargo.toml`；
+- 3.22.0 安装包字节数、`ProductVersion = 3.22.0`、二进制内含 `global_search_remote_index_state` 与 `connection_id`；
+- 升级前的云盘索引确实是 7 字段旧 schema（**stale 前提成立**）；
+- UIA 能枚举 WebView2 可访问性树并驱动点击（**O-4 半通**）；
+- 应用启动（恢复到「设置-搜索」路由）后界面出现「正在索引云盘」，且进程与网盘 API 保持
+  `Established` 连接、CPU 持续增长 ⇒ **stale ⇒ 自动重建的触发被观测到，且扫描在推进**。
+
+**推断**（有强证据但未直接观测）：
+- 「重建跑完后 `meta.json` 会带 `connection_id`」—— 依据：新 schema 由 `write_remote_index` 用
+  `build_remote_schema()` 写入，且重建确实在跑；但**收口时索引文件尚未改写**，未当场观测到。
+- 「wry 覆盖 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 是 CDP 连不上的根因」——
+  依据：进程命令行里确实没有 `--remote-debugging-port`；未逐字读 wry 源码坐实覆盖语义。
+
+**未验证**：
+- **B-1 真机**：取消勾选后旧条目是否真的从搜索结果消失（用户本机三条真实连接，条件已具备），
+  以及多连接混合检索的排序 —— 仍需用户手工做；
+- **云盘索引重建完成后的新 schema 落地**（索引文件改写）—— 收口时仍在跑；
+- 推送 origin（O-5）—— 需用户授权。
+
+### 十六·7 本轮踩的坑（**装置侧**，不是产品缺陷）
+
+**坑 1：组件级测试的六个连锁坑，按出现顺序** ——
+① `TypeError: routes is not iterable`（`src/router/index.ts:11`，`routes` 来自构建期虚拟模块）
+⇒ 加 `vi.mock('@/router', ...)` 桩（设置页依赖链 `@/modules/settings` → `open-settings` 会摸到它）；
+② `window.matchMedia is not a function`（`src/stores/storage/composables/use-theme.ts:260`
+← `user-settings.ts:428`）⇒ 测试文件顶部 `Object.defineProperty(window, 'matchMedia', {...})`；
+③ `No "sharedDrives" export is defined on the "@/modules/home/composables/use-drives" mock`
+⇒ 改成 `vi.mock(..., async (importOriginal) => ...)` 保留 `actual` 导出；
+④ `Cannot read properties of undefined (reading 'map')`（`global-search.vue:185`）
+⇒ 桩 `useDrives` 必须返回 **ref**（`{ drives: vueRef([]) }`），不是普通对象；
+⑤ reka-ui 的 `TooltipRoot` 在测试环境**不渲染子树**（只吐 Vue warn）
+⇒ `vi.mock('@/components/ui/tooltip', ...)` 把三个子组件换成「就地渲染」替身。
+
+**坑 2：`eslint` 一轮只暴露一层。** 门禁首轮红的只是新测试文件里一条
+`@stylistic/object-property-newline`；`--fix` 之后又冒出
+`@stylistic/padding-line-between-statements`（`if {}` 块后要空行）。
+⇒ 看**完整日志**再定性，别当「修了又坏」。
+
+**坑 3：worker 做「调研 + 落盘新文件」型任务会长时间零产出。**
+本批次派 worker 写 O-3 组件测试，**45 分钟零产出**、收限时令后仍停滞 ⇒ 取消，改由父会话手写
+（一次性 6 例通过）。下轮同类任务：**父会话自写，或给 worker 更硬的文件级模板**。
+
+**坑 4：`expect(invokeMock).toHaveBeenCalledTimes(n)` 统计重建次数不稳**
+（参数里混着其它 invoke）⇒ 改成按命令名过滤的 `rebuildCalls(): string[][]`。
+
+**坑 5（后端）**：`cargo test --lib` 报的 `unused variable: reader` 在 `scan.rs:387`，
+是**改动前就有**的基线，**不是**本批次引入 —— 别去「顺手修」，也别误报成回归。
+
+### 十六·8 下一阶段（按优先级，接力时按此推进）
+
+1. **（建议首项）等 3.22.0 的云盘索引重建跑完，回读 `remote-index/meta.json`**
+   ⇒ 确认 schema 里出现 `connection_id`（8 字段），把 §十六·5 的「后半段」补成已验证。
+   ⚠️ **别再用 `.superpowers/sdd/b44/poll-rebuild*.cmd`**：`timeout /t 15` 在**无控制台**的后台进程里
+   会立即报错退出 ⇒ 本轮两个探测器都写出 `TIMEOUT` / `TIMEOUT2` **假阴性**（一次 7 分钟早退、一次 65 秒秒退）。
+   正确姿势：PowerShell 循环 + `Start-Sleep 15`（前台跑最省事）；
+   判据就是 `meta.json` 的 `schema` 数组里有没有 `connection_id`。
+2. **B-1 交用户手工验收**（3 步，5 分钟）：取消勾选百度 → 搜百度独有文件名 → **立刻搜不到**；
+   只勾百度 → 搜夸克/阿里独有文件名 → **搜不到**。
+3. **O-5 推送**（需用户明确授权）：本地 `main` 领先 origin **6 个提交**
+   （`1b6c2ba0` / `c97644a4` / `3dbcf57d` / `5409b9c4` / `1b0b32e3` / 「docs(batch44) 收口文档提交，紧跟 `1b0b32e3` 之后」）。
+4. **升级后请打开一次「设置」页**（重要）：格式自愈只在进设置页时触发一次；
+   从没进过设置页 ⇒ 云盘索引停在旧格式 ⇒ 云盘检索为空。这条要写进发布说明。
+5. **O-4 收尾（可选）**：若要拿 webview console / CDP，打一个**验收专用包**
+   （改 `AdditionalBrowserArguments`，**不进 `release/`）；否则沿用本轮的 UIA 路线即可 ——
+   UIA 能读元素名 + class 名 + 状态文案，判据够用。
+
+### 十六·9 本轮证据清单（全部在仓库内，可直接点开）
+
+| 用途 | 路径 |
+| --- | --- |
+| 门禁日志 | `.superpowers/sdd/b44/check3.log` |
+| 打包日志 | `.superpowers/sdd/b44/tauri-build.log` |
+| 装机状态 | `.superpowers/sdd/b44/install-status.txt` |
+| UIA 驱动脚本（点开设置页） | `.superpowers/sdd/b44/uia-drive-settings.ps1` |
+| UIA 只读观察脚本 | `.superpowers/sdd/b44/uia-observe.ps1` |
+| UIA 观察结果（设置页 + 云盘行） | `.superpowers/sdd/b44/uia-report.txt`、`.superpowers/sdd/b44/uia-observe.txt` |
+| 重建探测器 | `.superpowers/sdd/b44/poll-rebuild.cmd`、`.superpowers/sdd/b44/poll-rebuild2.cmd` |
+| Rust 单测日志 | `.superpowers/sdd/b44-cargo-test.log` |
+| CHANGELOG 写入脚本 | `.superpowers/sdd/b44-changelog-3.22.0.cjs` |
+| 提交 | `1b0b32e3 feat(batch44): …` |
