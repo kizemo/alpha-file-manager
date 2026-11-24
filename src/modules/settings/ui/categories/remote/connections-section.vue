@@ -15,6 +15,7 @@ import { ServerIcon, PlusIcon, TrashIcon } from '@lucide/vue';
 import ConnectionForm from './connection-form.vue';
 import NetdiskAddDialog from './netdisk-add-dialog.vue';
 import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
+import { ONEDRIVE_ENABLED } from '@/constants/feature-flags';
 import { isNetdiskProtocol } from '@/types/remote';
 import type { NetdiskProtocol, RemoteConnection, RemoteProtocol } from '@/types/remote';
 import { sectionOfConnection, sectionOfProtocol } from './sections';
@@ -303,6 +304,14 @@ function applyPendingCreate(): void {
     // 所以这里改成开表单，让用户自己填应用信息再点登录。
     // OneDrive（批次 38）同理：`client_id` 也由用户自填，没有它开不了授权页。
     if (requested === 'aliyun_pan' || requested === 'onedrive_pan') {
+      // ⚠️ OneDrive 支持暂时下线（2026-11-24，见 src/constants/feature-flags.ts）：
+      // 「添加 OneDrive」按钮已被开关隐藏，这里只是兜底 —— 开关关闭时不开 OneDrive 表单。
+      // （守卫必须单独成句：写成 `ONEDRIVE_ENABLED && requested === 'onedrive_pan'`
+      //   会让 TS 收窄不出 `requested`，后面 `startAdd(requested)` 的类型就崩了。）
+      if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
+        return;
+      }
+
       createNetdiskProtocol.value = requested;
       isCreating.value = true;
       return;
@@ -596,8 +605,13 @@ function describeProxy(connection: RemoteConnection): string {
         <!--
           OneDrive（批次 38）：与阿里云盘同一条路径 —— 开表单填 `client_id`，
           再点「开始授权」把 Microsoft 授权页交给系统浏览器。
+
+          ⚠️ OneDrive 支持暂时下线（2026-11-24，见 src/constants/feature-flags.ts）：
+          开关关闭时这个入口**整个不渲染** ⇒ 用户新建不了 OneDrive 连接。
+          恢复步骤见 docs/plan-2026-11-24-onedrive-deferral-resume.md。
         -->
         <Button
+          v-if="ONEDRIVE_ENABLED"
           variant="outline"
           data-test="add-netdisk-onedrive_pan"
           @click="startAddOnedriveNetdisk"

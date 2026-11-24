@@ -1919,3 +1919,113 @@ vault 里存的 `access_token` 只有约 1 小时有效期，而 b41 的三个 G
    闭环「验得了失败原因」这一半。
 3. OneDrive 写路径已闭环，不必重跑；若后续改列表列样式，用
    `pin-locations-route.ps1` + `capture-app.ps1` + `analyze-available-space.ps1` 三件套复验。
+
+## 十二、OneDrive 整条线延期（2026-11-24，批次 42）
+
+### 十二·1 决策与口径
+
+用户 2026-11-24 指令：OneDrive 支持**整体延期**，转向其它任务；要求
+① 写延期待办文档以便日后恢复，② 从 app 代码中**暂时去除** OneDrive 相关内容。
+
+「暂时去除」的口径（本轮拍板）：**用户可见界面里彻底没有 OneDrive，但物理源码全部保留、可一键恢复**。
+不选「物理删源码」是因为用户明确说了「暂时」，而恢复成本是硬要求。
+
+用**集中开关**实现这一口径，而不是逐处删代码：
+
+- `src/constants/feature-flags.ts`（新增）导出 `export const ONEDRIVE_ENABLED = false;`
+  （文件内附语义说明与恢复指引）
+- 开关关闭 = 用户看不到任何 OneDrive 入口；开关打开 = 立即恢复
+
+### 十二·2 本轮代码改动（6 个触点）
+
+改动前枚举过全部 OneDrive 触点：前端 `src/types/remote.ts`、`src/stores/storage/remote-connections.ts`、
+`src/modules/settings/ui/categories/remote/{connections-section,connection-form}.vue`；后端 Rust 12 个文件
+（`src-tauri/src/remote/onedrive_*.rs`、`src-tauri/src/onedrive_oauth.rs`、`remote/{commands,connection,connection_test,mod,registry}.rs`、`lib.rs`）。
+
+| 文件 | 改动 |
+| --- | --- |
+| `src/constants/feature-flags.ts` | 新增：`ONEDRIVE_ENABLED = false` |
+| `connections-section.vue` | :18 import 开关；:311 快捷弹窗守卫；:613「添加 OneDrive」按钮 `v-if="ONEDRIVE_ENABLED"` |
+| `connection-form.vue` | :27 import 开关；:1751 OneDrive 表单区块 `v-else-if="isOnedriveNetdisk && ONEDRIVE_ENABLED"`；:1824 通用 SFTP 分支 `v-else` → `v-else-if="!isOnedriveNetdisk"`；:1958 旧连接会话状态块 `v-if="ONEDRIVE_ENABLED && onedriveConnectionId"` |
+
+第 4 条（通用分支加 `!isOnedriveNetdisk`）容易被漏：开关关闭时，**已存在的旧 OneDrive 连接**若走通用
+分支，会错误显示 SFTP 的服务器/端口字段。
+
+### 十二·3 刻意保留的资产（恢复时不要重写）
+
+- **协议清单保留 `'onedrive_pan'`**（`src/types/remote.ts` 的 `NETDISK_PROTOCOLS`）：
+  旧连接仍能解析成网盘类型、可显示可删除 ⇒ 不丢用户数据、不崩；
+  同时不用改 `src/types/__tests__/remote-protocol-aliyun.test.ts:91` 的四元素断言。
+- **后端 Rust 12 个文件全部不动**、**17 个语言包文案全部不动**、**store 方法全部不动**
+  ⇒ 恢复时无需重写实现、无需重跑大批 Rust 单测。
+- **旧 OneDrive 连接在设置列表/侧边栏仍可见** —— 这是**有意的数据可见性**，不是漏网；
+  要彻底隐藏属于恢复时的可选项。
+
+### 十二·4 门禁踩坑：字面量 `false` 开关会破坏 TS 类型收窄
+
+首跑 `npm run check` **红**（`GATE_EXIT=1`）：`TS2345 ×2`，`connections-section.vue(312,38)`。
+根因：守卫写成 `if (ONEDRIVE_ENABLED && requested === 'onedrive_pan') { return; }` ——
+`ONEDRIVE_ENABLED` 是**字面量类型 `false`**，参与 `&&` 后 TS 无法收窄 `requested`，
+后续 `startAdd(requested)` 类型不匹配。
+
+修法：守卫必须写成**独立语句**，不要与开关合并在一个 `&&` 里：
+
+```ts
+if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
+  return;
+}
+```
+
+这条已写进源码注释，避免以后再犯。
+
+第二条坑：`@stylistic/padding-line-between-statements` 要求 **block 语句之后要空行**。
+守卫 `if {...}` 后面紧跟 `createNetdiskProtocol.value = requested;` 会报
+`314:7 error Expected blank line before this statement` ⇒ 补一个空行即可。
+（`vue-tsc` 那一步此时已经过了，所以 eslint 是在 TS 绿之后才暴露出来的第二个红。）
+
+### 十二·5 延期待办文档（恢复入口）
+
+`docs/plan-2026-11-24-onedrive-deferral-resume.md`（约 11.9 KB），内含：
+
+- 下线口径与改动清单、用户可见表现
+- **R1–R8 恢复步骤**：翻开关 → 回填 client_id → 核对租户存活 → 真 GUID 登录验收 →
+  写路径验收 → 清理审计 → 门禁/升版/打包 → 发布形态核对
+- **三件必须同时处理的事**：租户保活（每 60 天登录 portal.azure.com）/ client_id 单点风险 /
+  AAD `error_description` 未透传
+- 保留资产清单（代码位置 + gitignored 装置 + 四份研究底稿）
+- 内联应用注册 6 项规格、三分法
+
+### 十二·6 本轮保留的研究底稿（均在 `.superpowers/sdd/b41/`，gitignored）
+
+| 文件 | 内容 |
+| --- | --- |
+| `release-account-decoupling-runbook.md` | 发布账号与公司账号解耦四层模型 + 四步操作 + 租户保活 + 39 项清单 + 11 条参考链接 |
+| `entra-app-checklist.md` | 应用注册 checklist（**已订正**：平台项 Web → **Mobile and desktop applications**） |
+| `onedrive-cost-analysis.md` | OneDrive 成本 $0.00 论证 |
+| `entra-account-mfa-bootstrap.md` | 企业账号 MFA 死锁解答 |
+
+### 十二·7 本轮已验证 / 推断 / 未验证
+
+**已验证**：
+- OneDrive 触点枚举完整（前端 4 文件 + 后端 12 文件，grep 逐点确认）
+- 代码下线 grep 复查通过（6 个改动点全部落地）
+- `npm run check` 全绿：**330 文件 / 3554 测试** 全过、changelog 校验通过、sandbox 门禁 PASS
+  （修 TS2345 + eslint 空行规则之后重跑，日志 `.superpowers/sdd/b42/check-onedrive-off.log`，`GATE_EXIT=0`）
+
+**推断**：
+- 旧 OneDrive 连接在设置列表/侧边栏仍可列出/删除、不丢数据 —— 由「协议清单 + store 方法全部保留」推出，
+  未在真机上实际点过删除
+
+**未验证**：
+- **本轮下线改动的真机界面表现未验证**（本轮未升版、未 `tauri build`、未装机）
+- 已发布 3.20.1 **不受影响**（旧二进制里 OneDrive 仍在）；「下次发版才不含 OneDrive」，
+  该版 CHANGELOG 需写明 OneDrive 暂不提供
+- 自建 Entra 应用注册后默认租户实际名称/ID；免费账号升级 PAYG 当前页面按钮位置
+
+### 十二·8 下一阶段（延期后转向其它任务）
+
+1. OneDrive 线**整体挂起**，不占用本阶段资源；恢复入口就是 §十二·5 的待办文档。
+2. 恢复时**仍被阻塞**的一件事：需要用户回传**自建 Entra 应用的 Application (client) ID（GUID，不要 secret）**
+   —— 已并入待办文档 R2/R4，不是本轮阻塞项。
+3. 恢复后建议首项：把 AAD 的 `error_description` 透传到前端（否则发布形态登录失败无法定位）。
+4. 本轮**未升版、未打包、未 push**，只做本地 commit；`reports/` 为旧批次未跟踪产物，**保持不动**。
