@@ -1,6 +1,14 @@
 # Journal des modifications
 
 
+## [3.20.1] - November 2026
+
+**Résumé :** Créer un dossier dans OneDrive fonctionne enfin. L’application envoyait la nouvelle demande dans une forme que le disque refusait : chaque tentative était rejetée en HTTP 400 et rien n’était créé. La demande est désormais envoyée comme le disque l’attend.
+
+### What changed
+
+**Corrigé** **La création d’un dossier dans OneDrive échouait en HTTP 400** - L’application indiquait le nouveau dossier avec un type que Microsoft n’accepte pas pour cette demande ; le disque refusait chaque tentative et le dossier n’était jamais créé. Le dossier est maintenant créé, et si autre chose échoue l’application affiche l’erreur signalée par le disque lui-même.
+
 ## [3.20.0] - November 2026
 
 **Résumé :** OneDrive n’est plus en lecture seule. La connexion ajoutée en 3.18.0 écrit désormais sur le disque : envoyer un fichier, créer un dossier, renommer et supprimer, comme les autres disques réseau. La connexion demande maintenant un accès en lecture et en écriture, et *Tester la connexion* reconnaît enfin la session avec laquelle vous vous êtes déjà connecté.

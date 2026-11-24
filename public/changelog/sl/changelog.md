@@ -1,6 +1,14 @@
 # Dnevnik sprememb
 
 
+## [3.20.1] - November 2026
+
+**Povzetek:** Mape v OneDrive se zdaj ustvarjajo. Aplikacija je poslala zahtevo v obliki, ki je pogon ni sprejel - vsak poskus je bil zavrnjen s HTTP 400 in nič ni bilo ustvarjeno. Zahteva je zdaj poslana na način, ki ga pogon pričakuje.
+
+### What changed
+
+**Popravljeno** **Ustvarjanje mape v OneDrive ni uspelo s HTTP 400** - Aplikacija je novo mapo označila s tipom, ki ga Microsoft pri tej zahtevi ne sprejme; pogon je zavrnil vsak poskus in mapa nikoli ni bila ustvarjena. Zdaj je mapa ustvarjena, pri drugih težavah pa aplikacija prikaže napako, ki jo je sporočil sam pogon.
+
 ## [3.20.0] - November 2026
 
 **Povzetek:** OneDrive ni več samo za branje. Povezava, dodana v 3.18.0, zdaj piše tudi na disk: nalaganje datoteke, ustvarjanje mape, preimenovanje in brisanje, enako kot pri drugih omrežnih diskih. Prijava zdaj zahteva dovoljenje za branje in pisanje, *Preveri povezavo* pa končno prepozna sejo, s katero ste se že prijavili.

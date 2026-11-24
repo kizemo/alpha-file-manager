@@ -1,6 +1,14 @@
 # Değişiklik Günlüğü
 
 
+## [3.20.1] - November 2026
+
+**Özet:** OneDrive’da klasör oluşturma artık gerçekten çalışıyor. Uygulama isteği sürücünün kabul etmediği bir biçimde gönderiyordu; her deneme HTTP 400 ile reddediliyor ve hiçbir şey oluşmuyordu. İstek artık sürücünün beklediği biçimde gönderiliyor.
+
+### What changed
+
+**Düzeltildi** **OneDrive’da klasör oluşturma HTTP 400 hatasıyla başarısız oluyordu** - Uygulama yeni klasörü, Microsoft’un bu istekte kabul etmediği bir türle işaretliyordu; sürücü her denemeyi reddediyor ve klasör hiçbir zaman oluşmuyordu. Artık klasör oluşuyor ve başka bir sorun çıkarsa uygulama sürücünün bildirdiği hatayı gösteriyor.
+
 ## [3.20.0] - November 2026
 
 **Özet:** OneDrive artık yalnızca okunabilir değil. 3.18.0 ile eklenen bağlantı artık sürücüye de yazabiliyor: dosya yükleme, klasör oluşturma, yeniden adlandırma ve silme - diğer ağ sürücüleriyle aynı biçimde. Oturum açma artık hem okuma hem yazma izni istiyor ve *Bağlantıyı sına* düğmesi daha önce açtığınız oturumu artık tanıyor.
