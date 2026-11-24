@@ -24,6 +24,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ONEDRIVE_ENABLED } from '@/constants/feature-flags';
 import { useRemoteConnectionsStore, fixedNetdiskHost, fixedNetdiskPort } from '@/stores/storage/remote-connections';
 import {
   getRemoteProtocolDefaultPort,
@@ -1747,7 +1748,7 @@ function onProtocolChange(value: unknown) {
       `client_id` 是**登录期参数**：只作为 `login_start` 的入参，不进连接表。
     -->
     <div
-      v-else-if="isOnedriveNetdisk"
+      v-else-if="isOnedriveNetdisk && ONEDRIVE_ENABLED"
       class="remote-connection-form__row"
       data-test="onedrive-embedded"
     >
@@ -1820,7 +1821,7 @@ function onProtocolChange(value: unknown) {
     </div>
 
     <div
-      v-else
+      v-else-if="!isOnedriveNetdisk"
       class="remote-connection-form__row"
     >
       <Label for="remote-password">{{ t('settings.remote.field.password') }}</Label>
@@ -1954,7 +1955,7 @@ function onProtocolChange(value: unknown) {
 
     <!-- OneDrive 的授权卡（批次 38）：只显示状态与账号，不显示任何 token。 -->
     <div
-      v-if="onedriveConnectionId"
+      v-if="ONEDRIVE_ENABLED && onedriveConnectionId"
       class="remote-connection-form__baidu"
       data-test="onedrive-status"
     >
