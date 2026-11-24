@@ -41,11 +41,26 @@ use super::types::RemoteIndexState;
 /// 而每多一层就是一轮网络往返。
 pub(super) const REMOTE_INDEX_MAX_DEPTH: usize = 8;
 
-/// 单次重建最多写入的条目数（**所有连接合计**）。
+/// **单个连接**在一轮重建里最多写入的条目数。
 ///
-/// 这是「一次重建要花多少网络往返 / 多少接口配额」的总闸门。
+/// 2026-11-24（批次 45）订正：此前这个上限是**所有连接合计**的全局配额（`20_000`），
+/// 于是「谁排在第一个谁吃光全部配额」—— 实测百度一条连接独占 20 000 条，
+/// 阿里云盘 / 夸克**一条都没进索引**（`meta.json` 只有 1 段 `max_doc = 20000`），
+/// 用户表现为「勾了另两个网盘也搜不到它们任何文件」。
+/// ⇒ 配额必须**按连接**算，否则「勾了哪个网盘就只搜哪个网盘」这条产品承诺
+/// 对第二个网盘就是假的。
+///
 /// 触顶时必须 `log::warn!` 说出来 —— 静默截断等于骗用户「云盘内容全都在索引里」。
-pub(super) const REMOTE_INDEX_MAX_ENTRIES: usize = 20_000;
+pub(super) const REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION: usize = 20_000;
+
+/// 一轮重建里**所有连接合计**能写入的条目数上限。
+///
+/// = 每连接配额 × 本轮连接数（3 个连接 ⇒ 60 000 条 ⇒ 索引约 19 MB）。
+/// 它**不是**另一个独立闸门，而是各连接配额的合计 ——
+/// 否则「合计上限」本身又会变成新的饿死点（连接数一多，最后几个连接又进不去）。
+pub(super) fn total_entry_limit(connection_count: usize) -> usize {
+    REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION * connection_count.max(1)
+}
 
 /// 一条待写入云盘索引的条目。
 ///
@@ -71,8 +86,19 @@ pub(super) struct RemoteIndexDoc {
 ///
 /// 抽成纯函数是为了能在**没有网络**的情况下单测上限判定：
 /// 深度超了、条目数满了，都必须停，而且必须**说出来**。
-pub(super) fn walk_should_continue(depth: usize, indexed_entries: usize) -> bool {
-    depth <= REMOTE_INDEX_MAX_DEPTH && indexed_entries < REMOTE_INDEX_MAX_ENTRIES
+/// 遍历是否还应继续。
+///
+/// `per_connection_entries` 是**本连接**已收集的条目数（配额按连接算），
+/// `total_entries` / `total_limit` 是本轮合计的进度与上限。
+pub(super) fn walk_should_continue(
+    depth: usize,
+    per_connection_entries: usize,
+    total_entries: usize,
+    total_limit: usize,
+) -> bool {
+    depth <= REMOTE_INDEX_MAX_DEPTH
+        && per_connection_entries < REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION
+        && total_entries < total_limit
 }
 
 /// 从完整的 `sfm://remote/<连接id>/...` 路径里取出**远端路径**部分。
@@ -97,11 +123,22 @@ pub(super) async fn collect_remote_entries(
 ) -> Vec<RemoteIndexDoc> {
     let mut docs: Vec<RemoteIndexDoc> = Vec::new();
 
+    // 本轮合计上限 = 每连接配额 × 本轮连接数。
+    // 配额按连接算是批次 45 的订正（见 `REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION`）：
+    // 旧口径是全局配额，先到的连接吃光全部额度，后面的连接一条都进不了索引。
+    let total_limit = total_entry_limit(connection_ids.len());
+    log::info!(
+        "[global-search] 本轮重建 {} 个连接，每连接上限 {} 条，合计上限 {} 条",
+        connection_ids.len(),
+        REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION,
+        total_limit
+    );
+
     for connection_id in connection_ids {
-        if !walk_should_continue(0, docs.len()) {
+        if !walk_should_continue(0, 0, docs.len(), total_limit) {
             log::warn!(
-                "[global-search] 云盘索引已达条目上限 {}，剩余连接不再遍历",
-                REMOTE_INDEX_MAX_ENTRIES
+                "[global-search] 云盘索引已达合计条目上限 {}，剩余连接不再遍历",
+                total_limit
             );
             break;
         }
@@ -127,12 +164,13 @@ pub(super) async fn collect_remote_entries(
         .await;
 
         let before = docs.len();
-        walk_connection(provider.as_ref(), connection_id, &mut docs).await;
+        walk_connection(provider.as_ref(), connection_id, &mut docs, total_limit).await;
 
         log::info!(
-            "[global-search] 云盘索引连接 {} 收集到 {} 条",
+            "[global-search] 云盘索引连接 {} 收集到 {} 条（本连接上限 {} 条）",
             connection_id,
-            docs.len() - before
+            docs.len() - before,
+            REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION
         );
     }
 
@@ -147,17 +185,22 @@ async fn walk_connection(
     provider: &dyn crate::remote::RemoteProvider,
     connection_id: &str,
     docs: &mut Vec<RemoteIndexDoc>,
+    total_limit: usize,
 ) {
     // 待访问的目录队列：(远端路径, 深度)。连接根的远端路径是空串。
     let mut pending: Vec<(String, usize)> = vec![(String::new(), 0)];
+    // **本连接**已收集的条目数 —— 配额按连接算（批次 45 订正，见常量说明）。
+    let mut connection_entries: usize = 0;
 
     while let Some((remote_path, depth)) = pending.pop() {
-        if !walk_should_continue(depth, docs.len()) {
+        if !walk_should_continue(depth, connection_entries, docs.len(), total_limit) {
             log::warn!(
-                "[global-search] 云盘索引连接 {} 达到上限，停止遍历（深度 {}，已收集 {} 条）",
+                "[global-search] 云盘索引连接 {} 达到上限，停止遍历（深度 {}，本连接已收集 {} 条，总计 {} 条 / 合计上限 {} 条）",
                 connection_id,
                 depth,
-                docs.len()
+                connection_entries,
+                docs.len(),
+                total_limit
             );
             break;
         }
@@ -179,7 +222,8 @@ async fn walk_connection(
             if entry.is_dir {
                 match remote_path_of(&entry.path) {
                     Some(child_path) => {
-                        if walk_should_continue(depth + 1, docs.len()) {
+                        if walk_should_continue(depth + 1, connection_entries, docs.len(), total_limit)
+                        {
                             pending.push((child_path, depth + 1));
                         } else {
                             log::warn!(
@@ -205,12 +249,14 @@ async fn walk_connection(
                 modified_time: entry.modified_time,
                 connection_id: connection_id.to_string(),
             });
+            connection_entries += 1;
 
-            if docs.len() >= REMOTE_INDEX_MAX_ENTRIES {
+            if !walk_should_continue(depth, connection_entries, docs.len(), total_limit) {
                 log::warn!(
-                    "[global-search] 云盘索引连接 {} 达到条目上限 {}，停止遍历",
+                    "[global-search] 云盘索引连接 {} 达到条目上限（本连接 {} 条 / 合计上限 {} 条），停止遍历",
                     connection_id,
-                    REMOTE_INDEX_MAX_ENTRIES
+                    REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION,
+                    total_limit
                 );
                 break;
             }
@@ -475,16 +521,79 @@ mod tests {
     /// 上限判定是纯函数 —— 没有网络也能把两条边界都钉住。
     #[test]
     fn the_walk_stops_at_the_depth_cap() {
-        assert!(walk_should_continue(0, 0));
-        assert!(walk_should_continue(REMOTE_INDEX_MAX_DEPTH, 0));
-        assert!(!walk_should_continue(REMOTE_INDEX_MAX_DEPTH + 1, 0));
+        assert!(walk_should_continue(0, 0, 0, usize::MAX));
+        assert!(walk_should_continue(REMOTE_INDEX_MAX_DEPTH, 0, 0, usize::MAX));
+        assert!(!walk_should_continue(
+            REMOTE_INDEX_MAX_DEPTH + 1,
+            0,
+            0,
+            usize::MAX
+        ));
     }
 
     #[test]
     fn the_walk_stops_at_the_entry_cap() {
-        assert!(walk_should_continue(0, REMOTE_INDEX_MAX_ENTRIES - 1));
-        assert!(!walk_should_continue(0, REMOTE_INDEX_MAX_ENTRIES));
-        assert!(!walk_should_continue(0, REMOTE_INDEX_MAX_ENTRIES + 1));
+        assert!(walk_should_continue(
+            0,
+            REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION - 1,
+            0,
+            usize::MAX
+        ));
+        assert!(!walk_should_continue(
+            0,
+            REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION,
+            0,
+            usize::MAX
+        ));
+        assert!(!walk_should_continue(
+            0,
+            REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION + 1,
+            0,
+            usize::MAX
+        ));
+    }
+
+    /// **批次 45 订正的回归锁**：配额按连接算 ⇒
+    /// 一个连接吃满自己的 20 000 条之后，**下一个连接仍然能开始遍历**。
+    ///
+    /// 旧口径（全局配额）下这条是假的：实测百度一条连接独占全部 20 000 条，
+    /// 阿里云盘 / 夸克一条都没进索引 ⇒ 表现为「勾了另两个网盘也搜不到它们任何文件」。
+    #[test]
+    fn a_filled_connection_does_not_starve_the_next_one() {
+        let total_limit = total_entry_limit(3);
+
+        // 第一个连接已经吃满自己的配额（20 000 条）。
+        assert!(!walk_should_continue(
+            0,
+            REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION,
+            REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION,
+            total_limit
+        ));
+
+        // 但**下一个连接**的配额是空的 ⇒ 它仍然可以开始遍历。
+        assert!(walk_should_continue(
+            0,
+            0,
+            REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION,
+            total_limit
+        ));
+    }
+
+    /// 合计上限 = 每连接配额 × 连接数（3 个连接 ⇒ 60 000 条）。
+    #[test]
+    fn the_total_limit_scales_with_the_connection_count() {
+        assert_eq!(
+            total_entry_limit(1),
+            REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION
+        );
+        assert_eq!(
+            total_entry_limit(3),
+            REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION * 3
+        );
+        assert_eq!(
+            total_entry_limit(0),
+            REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION
+        );
     }
 
     /// 写入 → 打开 → 文档数对得上，且条目按原样落盘。

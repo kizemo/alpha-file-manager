@@ -2892,3 +2892,276 @@ $env:Path = "C:\Users\Duanyi\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bi
 - 项目原 AGENTS.md 教的 `cd src-tauri; cargo test --lib` 在本机当前状态下**失效**，按上面姿势走。
 - 待用户处置：是否允许跑 `rustup` 修复 / 回滚 `stable`（属仓库外系统状态，本会话未动）；
   不修则后续批次的 `cargo test --lib` 与 `tauri:build` 都只能借 1.90.0 工具链。
+
+---
+
+## 十八、批次 45 续篇：云盘索引配额归因与修复（每连接 20k）+ O-4 路线 A 启动（2026-11-24 晚）
+
+### 1. 一句话结论
+
+批次 45 剩下三项里，**B-1 的「另一半口径」被一个此前 44 个批次都没查到的根因卡住**：
+`REMOTE_INDEX_MAX_ENTRIES = 20_000` 其实是**「所有连接合计」的全局配额**，百度一个连接就吃满 20k，
+**阿里云盘 / 夸克一条都没进索引**。本轮已把配额改成「**每连接 20k + 合计随连接数伸缩**」，
+门禁全绿，并按 AGENTS.md:117「一旦判断出要真机验收就早启动」**起了 O-4 路线 A 的验收专用包构建**。
+
+### 2. 新根因：20k 是全局配额，不是每连接配额
+
+| 证据 | 位置 | 结论 |
+|---|---|---|
+| 源码注释 | `src-tauri/src/global_search/remote_index.rs:44-48` | 注释写明「所有连接合计」⇒ 20k 是**全局**配额 |
+| 盘上索引 | `%APPDATA%\com.sigma-file-manager.app\remote-index\meta.json` | `max_doc: 20000`，8 字段 schema（末字段 `connection_id`），段文件 6 个合计约 3.9 MB |
+| 应用日志 | `global_search::remote_index` 的「收集到 N 条」**全量只有 6 行** | 百度 `0f0696babf4f42d1aef22c61aa89b0a9` 连续 5 次各 **20000** 条（06:34 / 07:37 / 08:39 / 09:10 / 09:19 UTC）；阿里云盘 `5834131e…` 只 **11** 条（03:37:45 UTC）⇒ **阿里云盘 / 夸克一条都没进索引** |
+| 耗时 | 日志时间戳 | 百度单连接一轮重建约 **9 分钟**（09:10:32 → 09:19:29 UTC） |
+
+⇒ **B-1 的「另一半口径」（只勾百度 → 搜阿里云盘/夸克独有文件名 → 应搜不到）此刻做不了**：
+此刻「搜不到」的真因是「**压根没索引**」，不是「过滤生效」⇒ 不能当过滤语义的真机证据。
+Rust 层过滤语义已由单测坐实（`query.rs:1706` / `1750` / `1780`，机制是 `build_connection_filter`
+在 `connection_id` 上做 `TermQuery` + `BooleanQuery::Should`），真机那半必须等索引里真的有第二个连接。
+
+### 3. 修复：每连接 20k + 合计随连接数伸缩
+
+改动落点（**未提交**，工作区改动；diff = `.superpowers/sdd/b45/quota-change.diff`）：
+
+| 文件 | 变更 |
+|---|---|
+| `src-tauri/src/global_search/remote_index.rs` | +131 / −26 |
+| `src-tauri/src/global_search/commands.rs` | +2 / −2 |
+
+1. 常量 `REMOTE_INDEX_MAX_ENTRIES`（全局 20_000）→ `REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION`（**每连接** 20_000）。
+2. 新增 `total_entry_limit(connection_count) = 20_000 × connection_count`。
+   **不设独立全局闸门** ⇒ 避免「合计上限本身成为新的饿死点」；
+   也不采用「先到先得的全局 60k」⇒ 那只是把饿死推迟，顺序依赖仍在。
+3. `walk_should_continue` 改为同时判三重上限：深度上限 / 本连接配额 / 合计上限。
+4. 日志增强：入口 INFO 打「本轮重建 N 个连接，每连接上限 X 条，合计上限 Y 条」；
+   逐连接 INFO 区分「本连接配额截断」与「合计上限截断」两类原因；
+   `commands.rs` 收集完成行改为「云盘索引收集完成：N 条，collect=Xms（每连接上限 {} 条）」。
+5. 新增两条回归单测：
+   - `a_filled_connection_does_not_starve_the_next_one`（前一个连接吃满 20k 后，下一个连接**仍能开始遍历**）；
+   - `the_total_limit_scales_with_the_connection_count`（3 连接 ⇒ 60_000）。
+
+**代价（要认）**：3 个连接索引约 19 MB；单次全连接重建显著变长（百度已占 9 分钟，另两个网盘耗时未知）。
+
+### 4. 门禁（本轮实跑，全绿）
+
+| 门禁 | 结果 | 日志 |
+|---|---|---|
+| `cargo test --lib --manifest-path <绝对路径>`（1.90.0 工具链绝对路径） | **PASS** — `1693 passed / 0 failed / 3 ignored`（基线 1691，**+2 正是上面那两条新单测**） | `.superpowers/sdd/b45/cargo-test-lib.log` |
+| `npm.cmd --prefix <绝对路径> run check` | **PASS** — `NPM_EXIT=0`；CHANGELOG 覆盖当前版本且顺序正确；扩展沙箱门禁 `OK 全部扩展入口通过` | `.superpowers/sdd/b45/npm-check.log` |
+
+Rust 门禁的 warning 全是既有噪音（`unused variable: reader`、`field ... is never read`、
+`constant ONEDRIVE_* is never used`），**本轮改动未引入新 warning**；
+`scan.rs:387 unused variable: reader` 按台账口径不顺手修。
+
+### 5. O-4 路线 A：装置、状态与回滚要求
+
+- **唯一可行装置**（AGENTS.md:845-850）：`src-tauri/tauri.conf.json` → `app.windows[0].additionalBrowserArgs`；
+  `HKCU\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments` 与环境变量
+  `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` **对本应用都无效**（wry 不透传）。
+  ⚠️ 台账 §2 原先写的 `src-tauri/src/tauri_capability.rs:225-239` **路径不存在**，已订正。
+- **注入内容**：`--remote-debugging-port=45777 --remote-allow-origins=*`（端口避开 Edge 常用的 9222）。
+- **取证手段**：Node 内置 `WebSocket`（本机 Node v26.13.0 自带，**无需任何 npm 依赖**）直连 CDP。
+- **既成佐证**：`src-tauri/target/release/afm-cdp.exe` 含 `remote-debugging-port` 字符串、`afm-plain.exe` 不含 ⇒ 这条路以前走通过。
+- **⚠️ 回滚是硬要求**：该字段是**验收用临时改动** ⇒ 收尾必须 `git checkout -- src-tauri/tauri.conf.json`
+  并重新打包出干净交付包；判据 = **交付 exe 内不含 `remote-debugging-port` 字符串**（对照 `afm-cdp.exe` 含 / `afm-plain.exe` 不含，判别性成立）。
+- **本轮新增脚本**：
+  - `.superpowers/sdd/b45/patch-cdp.cjs` —— `on` / `off` 切换 `additionalBrowserArgs`（幂等：已是目标态就 `PATCH_NOOP`）。
+  - `.superpowers/sdd/b45/build-accept.cmd` —— 杀 `alpha-file-manager` + vcvars64 + 1.90.0 工具链 + `npm run tauri:build`，
+    **日志 `.superpowers/sdd/b45/b45-build.log`，成败只看 `BUILD_EXIT=`**（纯 ASCII；内部 `> log 2>&1`，不挂 stdout 管道）。
+- **构建前的备份**：`release/Alpha File Manager_3.22.0_x64-setup.exe`（**46,151,697 B / SHA256 `4AB5032B…D470`**）
+  已备份到 `.superpowers/sdd/b45/setup-backup-Alpha File Manager_3.22.0_x64-setup.exe`（构建会**同名覆盖**）。
+  ⚠️ 台账 §7 原先写的 `release/sigma-file-manager_3.22.0_x64-setup.exe`（42,981,492 B / `11594C69…F6D2`）**是错指针**，release/ 下无此文件，已订正。
+
+### 6. 本轮踩到的两个新坑
+
+1. **`.cmd` 里不能用 `timeout /t 3 /nobreak`**：在非交互 / stdin 被重定向的上下文里它直接
+   `ERROR: Input redirection is not supported, exiting the process immediately.`
+   ⇒ **整个 cmd 进程当场终止，`npm run tauri:build` 根本没启动**（日志里只有 `BUILD_START` 与这条错误）。
+   改用 `ping -n 4 127.0.0.1 > nul` 等待。
+2. **`release/` 里堆了 30 多代安装包**，用 `Get-ChildItem -Filter '*setup.exe' | Select -First 1` 备份会**挑到最老的 3.10.0**。
+   ⇒ 备份必须按版本号精确匹配（`*3.22.0*setup.exe`），且备份完要**回读 SHA256** 再信。
+
+### 7. 假设与待决
+
+- **H1**：本轮实现依赖「配额按连接算」。若用户改选别的方案（保持全局 20k 只补日志 / 全局提到 60k 先到先得 / 分页续扫），
+  `remote_index.rs` 的形状要改 ⇒ 门禁重跑、验收包重出。
+- **H2**：本机 `rustup` 的 `stable` 已损坏（1.97.1，编译炸数百条假错误；cargo 缓存报 `file is not a database` code 26）
+  ⇒ 一律用 `C:\Users\Duanyi\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin`。
+  **本会话未动仓库外的系统状态**，修复 / 回滚 `stable` 需用户授权。
+- **H3**：3.22.0 之后的版本号与 CHANGELOG 条目尚未定（`verify-changelog` 基线 67 条目，CHANGELOG 当前覆盖 3.22.0）。
+
+### 8. 下一轮照做
+
+1. ✅ 两道门禁已 PASS（§4）。
+2. 🔄 验收包构建中 → 装包 → Node 内置 `WebSocket` 直连 CDP（`http://127.0.0.1:45777/json`）
+   → 取 console + 交互级取证，解锁 B-3 / B-5 / B-6。
+3. **回滚** `src-tauri/tauri.conf.json` → 重新打包出干净交付包 → 验「交付 exe 不含 `remote-debugging-port`」。
+4. 装干净包 → 真机触发一轮全连接重建 → 确认索引出现第二个连接的条目
+   → 走完 **B-1 的「另一半口径」**（只勾百度 → 搜阿里云盘/夸克独有文件名 → 应搜不到）。
+   ⚠️ **重建是「整体重建」语义**（`use-remote-global-search-index.ts` + 后端
+   `global_search_index_remote_connections(checkedIds)`）：勾选变化会按**当前勾选集**重建
+   ⇒ 只勾百度的重建会把阿里云盘条目**从索引里抹掉**
+   ⇒ 验收必须在「勾选切到只勾百度后、重建还没跑完的那几分钟窗口内」完成搜索，
+   并用**应用日志**（重建逐连接「收集到 N 条」+ 查询侧一次性 INFO）与**段文件计数**
+   证明「条目当时还在索引里」，否则「搜不到」仍然可能是「被重建抹掉了」而不是「被过滤挡掉了」。
+5. 更新 `docs/open-items-2026-11-24.md`（§2 O-4 / §3 B-7 / §6 顺序 / §7 证据 / 变更记录）—— 本轮已同步。
+
+### 9. 证据路径（本轮）
+
+- `.superpowers/sdd/b45/state-batch45.md` —— 本轮状态落盘（改动 / 门禁 / 根因 / 假设 / 下一步 / 坑）
+- `.superpowers/sdd/b45/quota-change.diff`、`git-diff-stat.txt`、`git-status.txt`
+- `.superpowers/sdd/b45/cargo-test-lib.log`、`npm-check.log`
+- `.superpowers/sdd/b45/patch-cdp.cjs`、`build-accept.cmd`、`b45-build.log`（判 `BUILD_EXIT=`）
+- `.superpowers/sdd/b45/setup-backup-Alpha File Manager_3.22.0_x64-setup.exe`
+
+## 十九、批次 45 收尾：O-4 路线 A 闭合 + 配额口径落地 + B-1「另一半」A/B 取证（2026-11-24 晚）
+
+> 本节是批次 45 最后一轮的完整记录。证据全在 `.superpowers/sdd/b45/`。
+> **时间戳口径**：应用日志用 UTC（本地 = UTC+8），其余用本地时间。
+
+### 1. 一句话结论
+
+批次 45 的三项全部收口：**O-4** 路线 A 实测三档能力（console / 后端命令 / 界面交互）全部拿到；
+**云盘索引配额**改为「每连接 20k + 合计随连接数伸缩」并真机验证（21870 条）；
+**B-1 的「另一半口径」**用「同一索引、只切勾选集合」的 A/B 对照闭合（0 → 2 → 0 命中）。
+交付包已回滚 CDP 旗标重打（见 §5）。
+
+### 2. O-4（界面级验证通道）—— 路线 A 实质闭合
+
+- **路线 A 执行**：临时给 `src-tauri/tauri.conf.json` 注入
+  `app.windows[0].additionalBrowserArgs = "--remote-debugging-port=45777 --remote-allow-origins=*"`，
+  打出**验收专用包**再安装。
+  - 验收包：`src-tauri/target/release/bundle/nsis/Alpha File Manager_3.22.0_x64-setup.exe`（46,088,636 B），
+    同时复制到 `release/local-builds/`；构建前的旧包备份在
+    `.superpowers/sdd/b45/setup-backup-Alpha File Manager_3.22.0_x64-setup.exe`。
+  - 二进制判别（`check-cdp-flag.ps1`）：装机件 `CDP_FLAG_PRESENT=True`，
+    对照 `src-tauri/target/release/afm-plain.exe` = `False`
+    ⇒ 旗标确实进了包（不是「配置写了但没生效」）。
+- **CDP 直连成功**：用 Node 内置 `WebSocket`（本机 Node 自带，**不装任何 npm 依赖**）直连
+  `http://127.0.0.1:45777/json`，共 4 个 target（page `http://tauri.localhost/settings` + 3 个 worker）。
+- **三档能力全部拿到**（这是 O-4 的验收判据）：
+  1. **console 级**：`Runtime.consoleAPICalled` 抓到 65 条 console、**0 exception**
+     （证据 `.superpowers/sdd/b45/cdp-probe-1.txt`）。
+  2. **后端命令级**：`window.__TAURI_INTERNALS__.invoke` 在页面里可直接调 ⇒ 能直调任意 Tauri command。
+  3. **交互级**：页面内 DOM 可直接点 —— 例如云盘勾选控件
+     `src/modules/settings/ui/categories/search/global-search.vue:719-724`，渲染为 `<button aria-checked>`，
+     `id = remote-index-checkbox-<连接 id>`；实测点击后 `aria-checked` 在 `true ↔ false` 之间切换，
+     **点得动且状态真的变**。
+- **三家网盘可达性**：百度 ✅（根目录 73 项）、夸克 ✅（根 5 项）、**阿里云盘 ❌ HTTP 400（鉴权失效）**。
+- **收尾义务**：CDP 旗标是**验收用临时改动**，交付包必须回滚后重打 —— 见 §5。
+
+### 3. 「云盘索引写盘失败」的真因：不是写盘失败，是并发重建互踩
+
+- **现象**：中途取盘上索引看到 `meta.json` 里 `segments: []`（空段）、`opstamp` 不动 ⇒ 一度判成「提交写盘失败」。
+- **日志时间线（UTC）**：
+
+  | 时刻 | 事件 |
+  |---|---|
+  | 12:41:28 | 第一次重建开始（2 连接）—— 经 CDP 直调后端触发 |
+  | 12:49:29 | **第二次**重建开始（2 连接）—— 前端勾选夸克自动触发 |
+  | 12:50:11 | 第一次收集完成 21870 条（collect=523020ms） |
+  | **12:58:33** | **提交完成 21870 条，commit=294ms**；「重建完成：写入 21870 条，总耗时 544396ms」 |
+  | 12:58:33 | 第三次重建开始（**1 连接 = 仅百度**，前端取消夸克勾选触发） |
+  | **13:08:32** | 收集完成 20000 条 + 提交完成 20000 条（commit=349ms），总耗时 598292ms |
+  | **13:21:38** | 第四次重建完成：**写入 21870 条，总耗时 569289ms**（`opstamp` 20001 → 21871） |
+
+- **结论**：
+  1. **后端 `write_remote_index` 正常** —— 12:58:33 真提交了 21870 条；
+     13:08:32 第三次重建把它刷成**纯百度 20000 条**（夸克条目被整体重建语义抹掉）。
+  2. 12:55 取到的「空索引」= **两次并发重建抢同一索引目录** + **采样落在交错窗口** 造成的**假象**。
+  3. **后端 `global_search_index_remote_connections` 没有互斥锁** ⇒ 并发调用会互踩。
+     前端只有**模块级串行锁**（`use-remote-global-search-index.ts`），CDP 直调会绕过它 ⇒ 已登记为待办缺陷（见 §6）。
+- **读码补充**：`open_remote_reader` 用 `ReloadPolicy::Manual`（`remote_index.rs:380-383`），
+  但**每次查询都重新 `Index::open_in_dir` + 新建 reader** ⇒ **提交后下一次查询即可见新条目，无需重启应用**。
+- **读码补充（过滤语义）**：`remote_index.rs:435-463` 的 `enabled_connection_ids` 读连接表的
+  `includeInGlobalSearch` 标记，与「重建集合」是**两套独立真相**：
+  - **重建集合**决定索引里**有什么**；
+  - **勾选集合**决定**能不能被搜到**；
+  - 读失败时返回**空集合**（一条都不给），不是「放行全部」。
+
+### 4. 云盘索引配额口径：每连接 20k + 合计随连接数伸缩
+
+- **改动**（`src-tauri/src/global_search/remote_index.rs`，+131/−26；`commands.rs`，+2/−2）：
+  - `REMOTE_INDEX_MAX_ENTRIES` → `REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION`；
+  - 新增 `total_entry_limit(connection_count)`；
+  - `walk_should_continue` 同时判「深度 / 本连接配额 / 合计上限」；
+  - 日志区分「本连接配额触顶」与「合计上限触顶」；
+  - 新增 2 条回归单测。
+- **效果**：每连接各拿 20k，合计 = 每连接配额 × 连接数 ⇒ **第二个连接不会再被百度饿死**。
+- **门禁**（实跑全绿）：
+  - `cargo test --lib --manifest-path F:/soft/00selfmade/filemanager/sigma-file-manager/src-tauri/Cargo.toml`
+    （1.90.0 工具链绝对路径）→ **1693 passed / 0 failed / 3 ignored**
+    （日志 `.superpowers/sdd/b45/cargo-test-lib.log`）
+  - `npm.cmd --prefix <绝对路径> run check` → **EXIT=0**（日志 `.superpowers/sdd/b45/npm-check.log`）
+- **真机已见**：百度 20000 + 夸克 1870 = **21870 条**，与新口径一致。
+
+### 5. B-1「另一半」：同一索引、只切勾选集合的 A/B 对照
+
+> **B-1 的另一半口径**：只勾百度时，搜**另一个网盘独有**的文件名 → **应当搜不到**。
+> **前置**：索引里必须**真的有**第二个连接的条目，否则「搜不到」证明的是「压根没索引」而不是「过滤生效」（这正是 B-7 的由来）。
+
+- **方案（B-7 解掉后的新做法）**：不再靠「点勾选框触发重建后抢窗口」，改为
+  **① 后端直调重建，让索引真的含百度 + 夸克两个连接的条目 → ② 只改连接表里的 `includeInGlobalSearch` 标记 → ③ 重跑同一条查询**。
+  - 好处：**索引内容恒定**，唯一变量是**勾选集合** ⇒ 因果关系干净，不需要抢时间窗口。
+- **设备**：`.superpowers/sdd/b45/b1-rebuild.js`（直调后端重建 + 探针）、`b1-query.js`（纯查询探针）、
+  `b1-toggle.cjs`（改连接表勾选标记并回读校验）、`b1-ab.ps1`（A/B/C 三段编排）。
+- **关键词**：夸克独有 = `夸克网盘使用指南`；百度对照 = `01A_软件`。
+  （分词语义：`split_query_tokens` 仅按 空白/`.`/`_`/`-` 切，`query.rs:93-101` ⇒ 中文整段成词，能命中 `.pdf`。）
+- **连接表**：`%APPDATA%\com.sigma-file-manager.app\user-data\user-remote-connections.json`，
+  顶层 `{"connections":[...]}`，每项含 `id` / `name` / `includeInGlobalSearch`
+  （Rust 字段 `include_in_global_search`，serde camelCase，`#[serde(default)]`）。
+  百度 id `0f0696babf4f42d1aef22c61aa89b0a9`，夸克 id `d2ab9ed3151246d19f6fcc1c1d60e872`。
+- **实测结果（2026-11-24 21:28–21:36 本地；索引全程未重建，`opstamp=21871` / 21870 条）**：
+
+  | 段 | 夸克勾选 | 搜「夸克网盘使用指南」 | 搜「01A_软件」（百度对照） |
+  |---|---|---|---|
+  | A | 否 | **total=0**（按连接计数为空） | total=12，含 `remote:0f0696ba…` 1 条 + local 11 条 |
+  | B | 是 | **total=2**，`remote:d2ab9ed3…` 2 条：`夸克网盘使用指南.jpg` / `夸克网盘使用指南.pdf` | total=11（全 local） |
+  | C | 否（复原） | **total=0**（按连接计数为空） | total=12，含 `remote:0f0696ba…` 1 条 + local 11 条 |
+
+  - A 段「0 命中」→ B 段「2 命中」→ C 段再回「0」⇒ **过滤按勾选集合生效**，不是「索引里压根没夸克条目」。
+  - A / C 段百度对照能命中 `remote:0f0696ba…` ⇒ **索引非空 + 远程检索链路正常**（这一条把「假通过」排除掉）。
+  - 结束后连接表已复原（夸克 `includeInGlobalSearch=false`，百度 `true`）。
+
+### 6. 干净交付包与旗标校验
+
+- **回滚**：`build-clean.cmd` 先 `git checkout -- src-tauri/tauri.conf.json`，再用 `findstr` 断言
+  `remote-debugging-port` 已消失，残留即 `exit /b 7`。
+  日志 `.superpowers/sdd/b45/b45-build-clean.log`：`BUILD_START=2026-11-24 21:35:15` →
+  `ROLLBACK_OK conf is clean` → **`BUILD_EXIT=0`**。
+- **干净包**：`src-tauri/target/release/bundle/nsis/Alpha File Manager_3.22.0_x64-setup.exe`
+  **46,078,103 B / SHA256 `3DA2C149E1AC927CCD7240F1EB0FCB7639568C4100B72473857770110F6C43CF`**。
+- **旗标校验**（`check-cdp-flag.ps1`；对照品 `afm-cdp.exe` 含旗标、`afm-plain.exe` 不含）：
+
+  | 对象 | `remote-debugging-port` | `--remote-allow-origins` |
+  |---|---|---|
+  | 新构建 exe `target/release/alpha-file-manager.exe`（85,795,840 B） | **False** | **False** |
+  | 干净安装包（46,078,103 B） | **False** | **False** |
+  | 装机件 `D:\Program Files\Alpha File Manager\alpha-file-manager.exe`（85,795,840 B，mtime 21:41:26） | **False** | **False** |
+
+- **装机**：`install-accept.cmd` 静默安装，`INSTALL_EXIT=0`；
+  **装机件已被干净包替换**（大小与 mtime 双向对上），应用重启后 **45777 不再监听**（PID 603288，21:43:48 启动）。
+- ⚠️ **一个必须记下来的副作用**：`npm run tauri:build` 末尾会跑
+  `node ./scripts/publish-bundle-to-release.mjs` ⇒ **构建产物会自动覆盖 `release/local-builds/` 里的同名安装包**。
+  本轮后果：**验收包（46,088,636 B，含 CDP 旗标）原件已被就地覆盖，不复存在**。
+  这不影响交付（交付要的就是干净包），但**「验收包备份」这条证据链断了** ——
+  「旗标确实进过包」的证据改由当场的 `CDP_FLAG_PRESENT=True`（验收期装机件实测）+ 对照品 `afm-cdp.exe` 承担。
+
+### 7. 本轮新登记的待办 / 观察项
+
+| ID | 项 | 状态与修法方向 |
+|---|---|---|
+| **W-9** | 后端 `global_search_index_remote_connections` **没有互斥锁** | 观察项，**本轮不改代码**。证据：12:41:28 与 12:49:29 两次重建**并发**互踩同一索引目录 ⇒ 中途采样看到假「空索引」。前端只有模块级串行锁，**CDP 直调 / 任意后端调用会绕过它**。修法方向：加一把**跨连接共用**的 `Mutex`（不是每连接一把） |
+| **W-10** | 「云盘索引达到上限」警告**按目录刷屏** | 观察项。百度触顶后每跳过一个目录打一条 WARN，一轮重建刷数十条，会淹没关键日志。建议改成每连接只打一次 / 降 DEBUG |
+| **W-11** | CDP 探针**回包延迟约 120s** | **装置侧问题，不是产品缺陷**。同轮实测后端 `query timings: total=15ms`，但页面侧命令 120s 后才执行、`--timeout 120000` 一到就回包。下一轮做 CDP 交互必须给足超时（≥150s），**别把这个延迟误判成「后端慢」** |
+
+### 8. 本轮踩到的坑（装置侧，写给下一轮）
+
+1. **`cdp-eval.cjs` 的响应可能永远不回**：重建那次的 eval **后端命令确实执行了**（应用日志 13:21:38 有 `query timings`），
+   但 node 侧 25 分钟没拿到响应、进程空挂 ⇒ **不要用「eval 没回来」推断「后端没执行」**，要去应用日志对时间戳。
+2. **仓库 `package.json` 是 `type: module`** ⇒ 放在仓库目录里的 `.js` 脚本会被当 ESM 加载，
+   `require` 直接抛 `ReferenceError: require is not defined in ES module scope` ⇒ **这类脚本一律用 `.cjs`**。
+3. **`tauri:build` 会自动覆盖 `release/local-builds/` 的同名安装包**（末尾跑 `publish-bundle-to-release.mjs`）⇒
+   备份「上一版安装包」要在**构建之前**做，构建之后备份到的就是新包自己。
+4. **`bash` 里 `Remove-Item` 会被本地安全门禁直接拒** ⇒ 删除走 `rm -- "<path>"`（走 mavis-trash 可恢复通道）。
+5. **应用日志文件被进程独占** ⇒ 必须 `FileStream(FileShare.ReadWrite)` + `StreamReader` 读，不能 `[IO.File]::ReadAllLines`。
+6. **`.cmd` 里不要用 `timeout /t`**（非交互上下文会杀掉整个 cmd）⇒ 用 `ping -n 4 127.0.0.1 > nul`。
