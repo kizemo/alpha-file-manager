@@ -122,10 +122,10 @@ pub async fn global_search_index_remote_connections(
             .await;
     let collected = docs.len();
     log::info!(
-        "[global-search] 云盘索引收集完成：{} 条，collect={}ms（上限 {} 条）",
+        "[global-search] 云盘索引收集完成：{} 条，collect={}ms（每连接上限 {} 条）",
         collected,
         collect_started.elapsed().as_millis(),
-        super::remote_index::REMOTE_INDEX_MAX_ENTRIES
+        super::remote_index::REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION
     );
 
     // 写盘（tantivy）挪到工作线程，别占着 async 运行时的工作线程。
