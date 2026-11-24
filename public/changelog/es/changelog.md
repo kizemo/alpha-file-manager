@@ -1,6 +1,14 @@
 # Registro de cambios
 
 
+## [3.20.1] - November 2026
+
+**Resumen:** Ahora las carpetas de OneDrive se crean de verdad. La aplicación enviaba la carpeta nueva en un formato que el disco no aceptaba, así que cada intento se rechazaba con HTTP 400 y no se creaba nada. Ahora la petición se envía como el disco la espera.
+
+### What changed
+
+**Corregido** **Crear una carpeta en OneDrive fallaba con HTTP 400** - La aplicación marcaba la carpeta nueva con un tipo que Microsoft no acepta en esta petición, el disco rechazaba cada intento y la carpeta nunca llegaba a crearse. Ahora la carpeta sí se crea, y si falla otra cosa la aplicación te muestra el error que informó el propio disco.
+
 ## [3.20.0] - November 2026
 
 **Resumen:** OneDrive ya no es de solo lectura. La conexión que se añadió en 3.18.0 ahora también escribe en la unidad: subir archivos, crear carpetas, renombrar y borrar, igual que los demás discos de red. El inicio de sesión pide acceso de lectura y escritura, y *Probar conexión* por fin reconoce la sesión con la que ya ha iniciado sesión.

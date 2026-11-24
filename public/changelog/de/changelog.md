@@ -1,6 +1,14 @@
 # Änderungsprotokoll
 
 
+## [3.20.1] - November 2026
+
+**Zusammenfassung:** Ordner in OneDrive lassen sich jetzt wirklich anlegen. Die App hat die Anfrage in einer Form geschickt, die der Datenträger nicht akzeptiert: jeder Versuch wurde mit HTTP 400 abgelehnt, und es wurde nichts angelegt. Die Anfrage wird jetzt so gesendet, dass der Datenträger sie akzeptiert.
+
+### What changed
+
+**Behoben** **Ordner in OneDrive anzlegen schlug mit HTTP 400 fehl** - Die App hat den neuen Ordner mit einem Typ-Hinweis versehen, den Microsoft bei dieser Anfrage nicht akzeptiert; der Datenträger lehnte jeden Versuch ab und der Ordner wurde nie angelegt. Der Ordner wird jetzt angelegt, und bei anderen Problemen zeigt die App den Fehler an, den der Datenträger selbst gemeldet hat.
+
 ## [3.20.0] - November 2026
 
 **Zusammenfassung:** OneDrive ist nicht mehr nur lesend. Die in 3.18.0 hinzugefügte Verbindung kann jetzt auch auf das Laufwerk schreiben - Datei hochladen, Ordner anlegen, umbenennen, löschen, wie bei den anderen Netzlaufwerken. Die Anmeldung fragt nun Lese- und Schreibzugriff an, und *Testen der Verbindung* erkennt endlich die Sitzung, mit der Sie sich bereits angemeldet haben.

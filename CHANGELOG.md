@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.20.1] - November 2026
+
+**Summary:** Creating a folder in OneDrive works now. The app asked Microsoft for a folder in a form the drive does not accept, so every attempt was refused with HTTP 400 and nothing was created. The request is sent the way the drive expects now, and the folder really shows up on your OneDrive.
+
+### What changed
+
+**Fixed** **Creating a folder in OneDrive failed with HTTP 400** - The app marked the new folder with a type hint that Microsoft does not accept for this kind of request, so the drive refused every attempt and the folder was never created. The folder is created now, and if anything else goes wrong the app shows you the error the drive itself reported.
+
 ## [3.20.0] - November 2026
 
 **Summary:** OneDrive is no longer read-only. The connection you added in 3.18.0 can now write to your drive as well - upload a file, create a folder, rename an item and delete it, just like with the other netdisks. The sign-in now asks Microsoft for read *and write* access, and *Test connection* finally recognises the session you already signed in with instead of reporting that there are no credentials.

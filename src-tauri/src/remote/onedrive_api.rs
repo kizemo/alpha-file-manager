@@ -803,9 +803,18 @@ pub fn onedrive_parse_upload_session(body: &str) -> Result<String, RemoteError> 
 /// `@microsoft.graph.conflictBehavior: "fail"` —— 同名目录**不覆盖**。
 /// 静默覆盖同名目录是最不能出的错（用户以为新建了一个，其实是换掉了原来那个）。
 pub fn onedrive_build_create_folder_body(name: &str) -> String {
+    // `folder` facet 必须写成**空对象**。
+    //
+    // 写成 `{ "@odata.type": "#microsoft.graph.driveItem" }` 会被 Graph 判 400
+    // （invalidRequest: "The type 'oneDrive.item' was found to be of kind 'Entity'
+    // instead of the expected kind 'Complex'"）—— facet 里带 `@odata.type` 时，
+    // 服务端要的是 Complex 类型的 facet（`#microsoft.graph.folder`），
+    // 而 `driveItem` 是 Entity 类型，两者不兼容 ⇒ **目录根本没建出来**。
+    // 实测（2026-11-24，Graph v1.0 /me/drive/root/children）：
+    //   空 facet → 201 Created；带 driveItem facet → 400。
     serde_json::json!({
         "name": name,
-        "folder": { "@odata.type": "#microsoft.graph.driveItem" },
+        "folder": {},
         "@microsoft.graph.conflictBehavior": "fail"
     })
     .to_string()
@@ -1362,6 +1371,22 @@ mod write_path_tests {
         assert!(
             !body.contains("replace"),
             "同名目录绝不能被静默覆盖：{body}"
+        );
+    }
+
+    #[test]
+    fn a_new_folder_body_uses_an_empty_folder_facet() {
+        let body = onedrive_build_create_folder_body("sub");
+
+        // 带 `@odata.type` 的 facet 会被 Graph 判 400（Entity vs Complex），
+        // 目录压根没建出来。facet 必须是空对象。
+        assert!(
+            !body.contains("#microsoft.graph.driveItem"),
+            "folder facet 不能带 @odata.type=#microsoft.graph.driveItem，Graph 会判 400：{body}"
+        );
+        assert!(
+            body.contains("\"folder\":{}"),
+            "folder facet 必须是空对象：{body}"
         );
     }
 

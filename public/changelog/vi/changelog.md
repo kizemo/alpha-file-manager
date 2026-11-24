@@ -1,6 +1,14 @@
 # Nhật ký thay đổi
 
 
+## [3.20.1] - November 2026
+
+**Tóm tắt:** Tạo thư mục trong OneDrive giờ đã hoạt động thật sự. Ứng dụng gửi yêu cầu theo dạng ổ đĩa không chấp nhận, nên mọi lần thử đều bị từ chối với HTTP 400 và không có gì được tạo. Giờ yêu cầu được gửi đúng cách ổ đĩa mong đợi.
+
+### What changed
+
+**Đã sửa** **Tạo thư mục trong OneDrive thất bại với HTTP 400** - Ứng dụng gắn kiểu cho thư mục mới mà Microsoft không chấp nhận trong yêu cầu này, ổ đĩa từ chối mọi lần thử và thư mục chưa bao giờ được tạo. Giờ thư mục được tạo bình thường, và nếu có lỗi khác thì ứng dụng hiển thị đúng lỗi do chính ổ đĩa báo.
+
 ## [3.20.0] - November 2026
 
 **Tóm tắt:** OneDrive không còn chỉ để đọc. Kết nối thêm trong 3.18.0 giờ cũng ghi được vào ổ đĩa: tải tệp lên, tạo thư mục, đổi tên và xoá, y hệt các ổ mạng khác. Đăng nhập giờ xin quyền vừa đọc vừa ghi, và *Kiểm tra kết nối* cuối cùng cũng nhận ra phiên đăng nhập bạn đã có.

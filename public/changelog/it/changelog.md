@@ -1,6 +1,14 @@
 # Registro delle modifiche
 
 
+## [3.20.1] - November 2026
+
+**Riepilogo:** Ora le cartelle in OneDrive si creano davvero. L’app inviava la richiesta in una forma che l’unità rifiutava: ogni tentativo veniva respinto con HTTP 400 e non veniva creato nulla. Ora la richiesta viene inviata nel modo in cui l’unità la accetta.
+
+### What changed
+
+**Corretto** **La creazione di una cartella in OneDrive falliva con HTTP 400** - L’app marcava la nuova cartella con un tipo che Microsoft non accetta in questa richiesta; l’unità respinse ogni tentativo e la cartella non venne mai creata. Ora la cartella viene creata, e se qualcos’altro va storto l’app mostra l’errore segnalato dall’unità stessa.
+
 ## [3.20.0] - November 2026
 
 **Riepilogo:** OneDrive non è più in sola lettura. La connessione aggiunta in 3.18.0 ora scrive anche sul disco: caricare un file, creare una cartella, rinominare ed eliminare, come gli altri dischi di rete. L’accesso richiede ora permessi di lettura e scrittura, e *Prova connessione* riconosce finalmente la sessione con cui hai già effettuato l’accesso.

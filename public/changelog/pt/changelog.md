@@ -1,6 +1,14 @@
 # Registro de alterações
 
 
+## [3.20.1] - November 2026
+
+**Resumo:** Agora criar pastas no OneDrive funciona mesmo. O aplicativo enviava a nova pasta num formato que a unidade não aceita, e cada tentativa era recusada com HTTP 400 sem criar nada. Agora o pedido é enviado do jeito que a unidade espera.
+
+### What changed
+
+**Corrigido** **Criar uma pasta no OneDrive falhava com HTTP 400** - O aplicativo marcava a nova pasta com um tipo que a Microsoft não aceita nesse pedido; a unidade recusava cada tentativa e a pasta nunca era criada. Agora a pasta é criada, e se der outro erro o aplicativo mostra o erro que a própria unidade informou.
+
 ## [3.20.0] - November 2026
 
 **Resumo:** O OneDrive já não é apenas de leitura. A ligação adicionada na 3.18.0 também passa a escrever na unidade: enviar um ficheiro, criar uma pasta, renomear e eliminar, tal como nas outras unidades de rede. O início de sessão passa a pedir acesso de leitura e escrita, e *Testar ligação* finalmente reconhece a sessão com que já iniciou sessão.
