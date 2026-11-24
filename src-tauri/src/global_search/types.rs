@@ -130,3 +130,23 @@ pub struct IndexPathsSettings {
     pub scan_depth: usize,
     pub ignored_paths: Vec<String>,
 }
+
+/// 云盘（远程连接）索引的当前状态。
+///
+/// 用来回答一个问题：**要不要补跑一次云盘索引重建？**
+///
+/// - `Missing`：索引目录不存在（还没建过索引）。
+///   **不自动重建** —— 建索引要走网络、吃网盘 API 配额，
+///   用户没主动要求就不该替他花。
+/// - `Stale`：目录在，但 **schema 与当前版本对不上**
+///   （升级换了索引格式，老索引里没有 `connection_id` 这个字段）。
+///   **必须重建**，否则查询侧会一直忽略这份索引，
+///   用户看到的现象是「升级之后云盘搜不到东西了」。
+/// - `Ready`：目录在且 schema 兼容，可以直接查。
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum RemoteIndexState {
+    Missing,
+    Stale,
+    Ready,
+}

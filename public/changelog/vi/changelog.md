@@ -1,6 +1,18 @@
 # Nhật ký thay đổi
 
 
+## [3.22.0] - November 2026
+
+**Tóm tắt:** Tìm kiếm toàn cục giờ chỉ tìm đúng những ổ đĩa đám mây mà bạn đã chọn. Mỗi mục trong chỉ mục đám mây giờ ghi rõ nó đến từ ổ đĩa nào, và kết quả được lọc theo những ổ đĩa bạn đang chọn ngay lúc tìm - nên bỏ chọn một ổ đĩa có hiệu lực tức thì, ngay cả khi một lần dựng lại từng hỏng giữa chừng. Sau bản cập nhật này, chỉ mục đám mây được dựng lại một lần, vì định dạng lưu xuống nay đã kèm thông tin mỗi mục thuộc ổ đĩa nào.
+
+### What changed
+
+**Đã sửa** **Chỉ những ổ đĩa bạn chọn mới được tìm** - Chỉ mục tìm kiếm đám mây không ghi lại mỗi mục đến từ ổ đĩa nào, nên khi trả lời một cuộc tìm kiếm, ứng dụng không biết ổ đĩa đó còn được chọn hay không. Nếu một lần dựng lại hỏng giữa chừng, các mục của ổ đĩa mà bạn đã bỏ chọn vẫn có thể xuất hiện trong kết quả. Giờ mỗi mục mang theo ổ đĩa của nó, và kết quả được lọc theo danh sách chọn hiện tại của bạn trong lúc tìm - bỏ chọn một ổ đĩa làm nó biến mất khỏi kết quả ngay lập tức, không phải chờ lần dựng lại kế tiếp. Chỉ mục của ổ đĩa cục bộ của bạn không bị đụng tới, nên không cần quét lại ổ đĩa.
+
+**Đã sửa** **Một lần dựng lại đám mây thất bại được thử lại một lần, thay vì mỗi lần chuyển trang** - Khi một lần dựng lại thất bại, lần truy cập *Cài đặt* -> *Tìm kiếm* kế tiếp đã chạy lại nó. Vì *Tìm kiếm* và *Từ xa* dùng chung quy trình, một lần thất bại có thể khiến nó chạy hai lần. Giờ nó chỉ chạy một lần; nếu lần thử lại cũng thất bại, nút dựng lại trong *Cài đặt* -> *Tìm kiếm* vẫn ở đó để bạn tự làm.
+
+**Đã đổi** **Chỉ mục đám mây được dựng lại một lần sau bản cập nhật này** - Định dạng lưu xuống của chỉ mục tìm kiếm đám mây nay đã kèm thông tin mỗi mục thuộc ổ đĩa nào, nên chỉ mục bạn đang có không phiên bản mới đọc được. Ứng dụng sẽ dựng lại giúp bạn lần đầu bạn mở cài đặt tìm kiếm hoặc từ xa. Trong lần đó chỉ những ổ đĩa bạn đã chọn được duyệt qua một lần và dùng lượng lệnh gọi API của ổ đĩa đám mây; ổ đĩa chưa chọn không bị duyệt, và chỉ mục ổ đĩa cục bộ của bạn vẫn nguyên vẹn.
+
 ## [3.21.1] - November 2026
 
 **Tóm tắt:** Tiếp nối vòng đĩa đám mây. Trong *Cài đặt* -> *Tìm kiếm*, dấu báo đang lập chỉ mục giờ thuộc về đúng ổ mà bạn đã bấm, thay vì sáng lên trên mọi ổ cùng lúc, và nó biến mất ngay khi lần dựng lại đó kết thúc. Một lần dựng lại thất bại khi trang đang đóng sẽ được tự động thử lại vào lần kế tiếp bạn mở trang.

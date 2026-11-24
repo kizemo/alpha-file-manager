@@ -1,6 +1,18 @@
 # Registro delle modifiche
 
 
+## [3.22.0] - November 2026
+
+**Riepilogo:** La ricerca globale ora interroga esattamente i dischi cloud che hai selezionato. Ogni voce dell’indice cloud ora registra da quale disco proviene, e i risultati vengono filtrati in base ai dischi selezionati al momento della ricerca: togliere la spunta da un disco ha effetto immediato, anche se una ricostruzione si è interrotta a metà. Dopo questo aggiornamento l’indice cloud viene ricostruito una volta, perché il formato salvato ora include a quale disco appartiene ogni voce.
+
+### What changed
+
+**Corretto** **Vengono cercati solo i dischi che hai selezionato** - L’indice di ricerca cloud non registrava da quale disco proveniva ogni voce, quindi nel rispondere a una ricerca l’app non poteva sapere se quel disco fosse ancora selezionato. Se una ricostruzione falliva a metà, le voci di un disco tolto dalla selezione potevano comunque comparire nei risultati. Ora ogni voce porta con sé il proprio disco e i risultati vengono filtrati in base alla selezione corrente mentre la ricerca è in corso: togliere la spunta da un disco lo fa sparire subito dai risultati, senza attendere la ricostruzione successiva. L’indice dei tuoi dischi locali non viene toccato, quindi non devi riscaniare il disco.
+
+**Corretto** **Una ricostruzione cloud fallita viene ritentata una volta, non a ogni cambio di pagina** - Dopo un fallimento, la visita successiva a *Impostazioni* -> *Ricerca* rilanciava già la ricostruzione. Poiché *Ricerca* e *Remoto* condividono la stessa routine, un solo fallimento poteva farla partire due volte. Ora parte una volta sola; se anche il tentativo fallisce, il pulsante di ricostruzione in *Impostazioni* -> *Ricerca* permette di rifarla a mano.
+
+**Modificato** **L’indice cloud viene ricostruito una volta dopo questo aggiornamento** - Il formato salvato dell’indice di ricerca cloud ora include a quale disco appartiene ogni voce, quindi l’indice che hai già non può essere letto dalla nuova versione. L’app lo ricostruisce per te la prima volta che apri le impostazioni di ricerca o remote. Vengono percorse una volta le sole dischi selezionati, con consumo di chiamate all’API del disco cloud; i dischi non selezionati non vengono percorsi e l’indice dei tuoi dischi locali resta invariato.
+
 ## [3.21.1] - November 2026
 
 **Riepilogo:** Il seguito del giro dei dischi cloud. In *Impostazioni* -> *Ricerca* l'indicatore di indicizzazione adesso appartiene al disco su cui hai premuto davvero, invece di accendersi su tutti insieme, e sparisce non appena quella ricostruzione finisce. Una ricostruzione fallita a pagina chiusa viene ritentata la volta dopo che la apri.

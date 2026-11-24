@@ -13,7 +13,28 @@ use tantivy::schema::{
 };
 use tantivy::{Index, IndexReader, ReloadPolicy};
 
+/// **本地**索引的 schema。
+///
+/// ⚠️ **不要在这里加字段。** 本地索引是全盘扫描建出来的，schema 一变，
+/// 盘上的旧索引立刻作废（`open_or_create_index` 会把它整个清掉重建）
+/// ⇒ 所有用户都被迫重扫一次硬盘，几十分钟到几小时。
+///
+/// 云盘索引要加字段就加在 `build_remote_schema` 里 —— 那份索引只在用户
+/// 显式重建时刷新，改 schema 的代价只是「升级后重建一次」。
 pub(super) fn build_schema() -> (Schema, GlobalSearchIndexFields) {
+    build_schema_inner(false)
+}
+
+/// **云盘**索引的 schema —— 与本地**逐字一致**，只多一个 `connection_id` 字段。
+///
+/// 为什么要多这个字段：查询侧要按「当前勾选了哪些网盘」过滤结果。
+/// 过滤必须发生在**索引层**（`TermQuery` 打在 `connection_id` 上），
+/// 否则被取消勾选的网盘会先把候选预算吃光，勾选中的网盘反而一条都搜不到。
+pub(super) fn build_remote_schema() -> (Schema, GlobalSearchIndexFields) {
+    build_schema_inner(true)
+}
+
+fn build_schema_inner(with_connection_id: bool) -> (Schema, GlobalSearchIndexFields) {
     let mut schema_builder = Schema::builder();
 
     let name_indexing = TextFieldIndexing::default()
@@ -32,6 +53,15 @@ pub(super) fn build_schema() -> (Schema, GlobalSearchIndexFields) {
     let modified_time = schema_builder.add_u64_field("modified_time", FAST | STORED);
     let size = schema_builder.add_u64_field("size", FAST | STORED);
 
+    // ⚠️ **必须加在最后**：前面 7 个字段的顺序与本地索引逐字一致。
+    // `Schema` 的相等比较是**按顺序**比字段表的，顺序一变字段编号就跟着变，
+    // 两份索引共用同一套字段名做查询时会对不上。
+    let connection_id = if with_connection_id {
+        Some(schema_builder.add_text_field("connection_id", STRING | STORED))
+    } else {
+        None
+    };
+
     let schema = schema_builder.build();
     (
         schema,
@@ -43,6 +73,7 @@ pub(super) fn build_schema() -> (Schema, GlobalSearchIndexFields) {
             is_dir,
             modified_time,
             size,
+            connection_id,
         },
     )
 }
@@ -403,6 +434,24 @@ pub(super) fn create_fresh_index(
     ensure_dir(index_path)?;
 
     let (schema, fields) = build_schema();
+    let index = Index::create_in_dir(index_path, schema).map_err(|error| error.to_string())?;
+
+    Ok((index, fields))
+}
+
+/// 建一份**空**的云盘索引（云盘专用 schema，比本地多一个 `connection_id` 字段）。
+///
+/// 与 `create_fresh_index` 分家：本地索引的 schema 不能动（见 `build_schema`），
+/// 云盘索引必须带 `connection_id` —— 查询侧要靠它按当前勾选集合过滤。
+pub(super) fn create_fresh_remote_index(
+    index_path: &Path,
+) -> Result<(Index, GlobalSearchIndexFields), String> {
+    if index_path.exists() {
+        remove_dir_force(index_path)?;
+    }
+    ensure_dir(index_path)?;
+
+    let (schema, fields) = build_remote_schema();
     let index = Index::create_in_dir(index_path, schema).map_err(|error| error.to_string())?;
 
     Ok((index, fields))

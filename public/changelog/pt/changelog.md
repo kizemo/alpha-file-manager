@@ -1,6 +1,18 @@
 # Registro de alterações
 
 
+## [3.22.0] - November 2026
+
+**Resumo:** A pesquisa global agora pesquisa exatamente os discos na nuvem que você marcou. Cada entrada do índice da nuvem passa a registrar de qual disco veio, e os resultados são filtrados pelos discos marcados no momento da busca - desmarcar um disco passa a valer na hora, mesmo que uma reconstrução tenha falhado no meio do caminho. Depois desta atualização o índice da nuvem é reconstruído uma vez, porque o formato guardado agora inclui a qual disco cada entrada pertence.
+
+### What changed
+
+**Corrigido** **Só são pesquisados os discos que você marcou** - O índice de pesquisa da nuvem não registrava de qual disco cada entrada vinha, então ao responder uma busca o aplicativo não conseguia dizer se aquele disco continuava marcado. Se uma reconstrução falhasse pela metade, entradas de um disco que você desmarcou ainda podiam aparecer nos resultados. Agora cada entrada carrega o seu disco, e os resultados são filtrados pela sua seleção atual enquanto a busca acontece - desmarcar um disco o faz sumir da busca imediatamente, sem esperar a próxima reconstrução. O índice dos seus próprios discos não é tocado, então eles não precisam ser escaneados de novo.
+
+**Corrigido** **Uma reconstrução da nuvem que falhou é refeita uma vez, não a cada troca de página** - Quando uma reconstrução falhava, a visita seguinte a *Configurações* -> *Busca* já a executava de novo. Como *Busca* e *Remoto* compartilham a mesma rotina, uma falha podia fazê-la rodar duas vezes. Agora ela roda uma vez só; se essa nova tentativa falhar também, o botão de reconstruir em *Configurações* -> *Busca* está lá para você fazer na mão.
+
+**Alterado** **O índice da nuvem é reconstruído uma vez depois desta atualização** - O formato guardado do índice de pesquisa da nuvem agora inclui a qual disco cada entrada pertence, então o índice que você já tem não pode ser lido pela nova versão. O aplicativo o reconstrói para você na primeira vez que você abrir as configurações de busca ou remoto. Isso percorre uma vez os discos que você marcou e consome chamadas de API do disco na nuvem; discos não marcados não são percorridos, e o índice dos seus próprios discos permanece intacto.
+
 ## [3.21.1] - November 2026
 
 **Resumo:** O remate da ronda dos discos em nuvem. Em *Configurações* -> *Pesquisar*, o indicador de indexação agora pertence ao disco em que carregou mesmo, em vez de se acender em todos ao mesmo tempo, e desaparece logo que essa reconstrução termina. Uma reconstrução que falhou com a página fechada é tentada de novo da próxima vez que a abrir.

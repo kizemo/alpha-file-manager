@@ -273,6 +273,17 @@ pub(super) fn global_search_query_blocking(
 ///
 /// 过滤口径与本地查询**完全一致**（同一个 `build_query` + 同一个
 /// `materialize_candidates`）：相似度门槛、精确匹配、文件/目录类型都按同一套规则。
+///
+/// # 云盘结果的可见性由「当前勾选集合」决定
+///
+/// 批次 43 登记的遗留项 O-1：**索引里有什么**（重建时传进去的集合）与
+/// **能不能被搜到**（用户当前勾了哪些）是两件事。
+/// 只有前者时，「重建中途失败 ⇒ 旧索引还在」就会让已经被取消勾选的网盘
+/// 继续被搜到。
+///
+/// ⇒ 这里在**索引层**按当前勾选集合过滤（`connection_id` 上的 `TermQuery`），
+/// 不是物化后再筛：
+/// 后筛会让被取消勾选的网盘先把候选预算吃光，勾选中的网盘反而一条都搜不到。
 fn search_remote_index(
     base_dir: &Path,
     query: &str,
@@ -285,19 +296,94 @@ fn search_remote_index(
     let normalized_query = normalize_case(query);
     let candidate_limit = remote_candidate_limit_for(options);
 
-    let candidates =
-        match collect_candidate_addresses(&searcher, &fields, query, options, candidate_limit) {
-            Ok(candidates) => candidates,
-            Err(error) => {
-                log::warn!("[global-search] 云盘索引查询失败：{}", error);
-                return Some(Vec::new());
-            }
-        };
+    // 当前勾选了「加入全局检索」的连接 —— 查询侧的过滤依据。
+    let user_data_dir = super::remote_index::user_data_dir_in(base_dir);
+    let allowed_connection_ids = super::remote_index::enabled_connection_ids(&user_data_dir);
+
+    if allowed_connection_ids.is_empty() {
+        // 一个网盘都没勾 ⇒ 云盘一条都不该出现。
+        // 注意这**不是**「没有云盘索引」（`None`），而是「有索引但当前没有可见的连接」。
+        return Some(Vec::new());
+    }
+
+    let candidates = match collect_remote_candidate_addresses(
+        &searcher,
+        &fields,
+        query,
+        options,
+        candidate_limit,
+        &allowed_connection_ids,
+    ) {
+        Ok(candidates) => candidates,
+        Err(error) => {
+            log::warn!("[global-search] 云盘索引查询失败：{}", error);
+            return Some(Vec::new());
+        }
+    };
 
     let (results, _materialized_count) =
         materialize_candidates(&searcher, &fields, options, &normalized_query, &candidates);
 
     Some(results)
+}
+
+/// 取云盘索引的候选文档地址，**按当前勾选的连接集合过滤**。
+///
+/// 过滤打在 `connection_id` 字段上（`TermQuery` + `BooleanQuery` 的 `Should`），
+/// 与文本查询用 `Must` 组合 —— 两条都得满足才算命中。
+fn collect_remote_candidate_addresses(
+    searcher: &tantivy::Searcher,
+    fields: &GlobalSearchIndexFields,
+    query: &str,
+    options: &GlobalSearchQueryOptions,
+    limit: usize,
+    allowed_connection_ids: &std::collections::BTreeSet<String>,
+) -> Result<Vec<tantivy::DocAddress>, String> {
+    let text_query = build_query(fields, query, options);
+    let connection_filter = build_connection_filter(fields, allowed_connection_ids);
+
+    let query_boxed: Box<dyn Query> = Box::new(BooleanQuery::new(vec![
+        (Occur::Must, text_query),
+        (Occur::Must, connection_filter),
+    ]));
+
+    let top_docs = searcher
+        .search(&query_boxed, &TopDocs::with_limit(limit).order_by_score())
+        .map_err(|error| error.to_string())?;
+
+    Ok(top_docs
+        .into_iter()
+        .map(|(_tantivy_score, doc_address)| doc_address)
+        .take(limit)
+        .collect())
+}
+
+/// 构造「条目属于当前勾选连接之一」这个过滤器。
+///
+/// 空 id 直接跳过：`Term::from_field_text` 拿空串构造出的 term 匹配不到任何东西，
+/// 留着只会让过滤器平白多一个分支。
+fn build_connection_filter(
+    fields: &GlobalSearchIndexFields,
+    allowed_connection_ids: &std::collections::BTreeSet<String>,
+) -> Box<dyn Query> {
+    let connection_id_field = fields
+        .connection_id
+        .expect("云盘索引 schema 必须带 connection_id 字段");
+
+    let subqueries: Vec<(Occur, Box<dyn Query>)> = allowed_connection_ids
+        .iter()
+        .filter(|connection_id| !connection_id.is_empty())
+        .map(|connection_id| {
+            let term = Term::from_field_text(connection_id_field, connection_id);
+
+            (
+                Occur::Should,
+                Box::new(TermQuery::new(term, IndexRecordOption::Basic)) as Box<dyn Query>,
+            )
+        })
+        .collect();
+
+    Box::new(BooleanQuery::new(subqueries))
 }
 
 /// 合并本地结果与云盘结果。
@@ -1569,6 +1655,12 @@ mod tests {
         let temp = tempfile::TempDir::new().expect("temp dir");
         let base_dir = temp.path().to_path_buf();
 
+        // 勾选集合里必须有 conn-a —— 查询侧按**当前**勾选集合过滤。
+        super::super::remote_index::write_test_connections(
+            &super::super::remote_index::user_data_dir_in(&base_dir),
+            &[("conn-a", true)],
+        );
+
         let written = super::super::remote_index::write_remote_index(
             &remote_index_dir(&base_dir),
             &[super::super::remote_index::RemoteIndexDoc {
@@ -1577,6 +1669,7 @@ mod tests {
                 is_dir: false,
                 size: 12,
                 modified_time: 0,
+                connection_id: "conn-a".to_string(),
             }],
         )
         .expect("write");
@@ -1589,5 +1682,125 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].path, "sfm://remote/conn-a/readme.txt");
         assert_eq!(results[0].name, "readme.txt");
+    }
+
+    /// **取消勾选 = 立刻搜不到**（台账 O-1 的验收标准）。
+    ///
+    /// 索引里同时有两条连接的条目，但只有 `conn-a` 还勾着 ⇒
+    /// `conn-b` 的那条**一条都搜不到**。
+    ///
+    /// 这条正是「重建中途失败 ⇒ 旧索引还在」那个场景的正解：
+    /// 过滤发生在**索引层**，不依赖「下次重建顺手清掉」。
+    #[test]
+    fn an_unchecked_connection_is_filtered_out_at_the_index_level() {
+        let temp = tempfile::TempDir::new().expect("temp dir");
+        let base_dir = temp.path().to_path_buf();
+
+        super::super::remote_index::write_test_connections(
+            &super::super::remote_index::user_data_dir_in(&base_dir),
+            &[("conn-a", true), ("conn-b", false)],
+        );
+
+        super::super::remote_index::write_remote_index(
+            &remote_index_dir(&base_dir),
+            &[
+                super::super::remote_index::RemoteIndexDoc {
+                    path: "sfm://remote/conn-a/report.pdf".to_string(),
+                    name: "report.pdf".to_string(),
+                    is_dir: false,
+                    size: 12,
+                    modified_time: 0,
+                    connection_id: "conn-a".to_string(),
+                },
+                super::super::remote_index::RemoteIndexDoc {
+                    path: "sfm://remote/conn-b/report.pdf".to_string(),
+                    name: "report.pdf".to_string(),
+                    is_dir: false,
+                    size: 12,
+                    modified_time: 0,
+                    connection_id: "conn-b".to_string(),
+                },
+            ],
+        )
+        .expect("write");
+
+        let results = search_remote_index(&base_dir, "report", &cloud_options(10))
+            .expect("云盘索引必须存在");
+
+        assert_eq!(results.len(), 1, "没勾选的连接必须一条都搜不到");
+        assert_eq!(results[0].path, "sfm://remote/conn-a/report.pdf");
+    }
+
+    /// **一个网盘都没勾** ⇒ 云盘一条都不出现。
+    ///
+    /// 注意这返回的是 `Some(空)` 而不是 `None`：
+    /// `None` 的含义是「没有云盘索引」，`Some(空)` 是「有索引，但当前没有可见的连接」。
+    #[test]
+    fn no_checked_connection_means_no_remote_results() {
+        let temp = tempfile::TempDir::new().expect("temp dir");
+        let base_dir = temp.path().to_path_buf();
+
+        super::super::remote_index::write_test_connections(
+            &super::super::remote_index::user_data_dir_in(&base_dir),
+            &[("conn-a", false)],
+        );
+
+        super::super::remote_index::write_remote_index(
+            &remote_index_dir(&base_dir),
+            &[super::super::remote_index::RemoteIndexDoc {
+                path: "sfm://remote/conn-a/report.pdf".to_string(),
+                name: "report.pdf".to_string(),
+                is_dir: false,
+                size: 12,
+                modified_time: 0,
+                connection_id: "conn-a".to_string(),
+            }],
+        )
+        .expect("write");
+
+        let results = search_remote_index(&base_dir, "report", &cloud_options(10))
+            .expect("云盘索引存在");
+
+        assert!(results.is_empty());
+    }
+
+    /// **两条连接都勾着** ⇒ 两条都在结果里（过滤不能误伤）。
+    #[test]
+    fn every_checked_connection_stays_searchable() {
+        let temp = tempfile::TempDir::new().expect("temp dir");
+        let base_dir = temp.path().to_path_buf();
+
+        super::super::remote_index::write_test_connections(
+            &super::super::remote_index::user_data_dir_in(&base_dir),
+            &[("conn-a", true), ("conn-b", true)],
+        );
+
+        super::super::remote_index::write_remote_index(
+            &remote_index_dir(&base_dir),
+            &[
+                super::super::remote_index::RemoteIndexDoc {
+                    path: "sfm://remote/conn-a/report.pdf".to_string(),
+                    name: "report.pdf".to_string(),
+                    is_dir: false,
+                    size: 12,
+                    modified_time: 0,
+                    connection_id: "conn-a".to_string(),
+                },
+                super::super::remote_index::RemoteIndexDoc {
+                    path: "sfm://remote/conn-b/report.pdf".to_string(),
+                    name: "report.pdf".to_string(),
+                    is_dir: false,
+                    size: 12,
+                    modified_time: 0,
+                    connection_id: "conn-b".to_string(),
+                },
+            ],
+        )
+        .expect("write");
+
+        let results = search_remote_index(&base_dir, "report", &cloud_options(10))
+            .expect("云盘索引必须存在");
+
+        assert_eq!(results.len(), 2);
     }
 }

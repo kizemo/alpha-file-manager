@@ -1,6 +1,18 @@
 # Registro de cambios
 
 
+## [3.22.0] - November 2026
+
+**Resumen:** La búsqueda global ahora busca exactamente en los discos en la nube que ha marcado. Cada entrada del índice en la nube anota de qué disco procede, y los resultados se filtran según los discos que tiene marcados en ese momento, así que quitar la marca de un disco surte efecto de inmediato, incluso si una reconstrucción se interrumpió a medias. Tras esta actualización el índice en la nube se reconstruye una vez, porque el formato guardado ahora incluye a qué disco pertenece cada entrada.
+
+### What changed
+
+**Corregido** **Solo se buscan los discos que ha marcado** - El índice de búsqueda en la nube no anotaba de qué disco procedía cada entrada, así que al responder una búsqueda la aplicación no podía saber si ese disco seguía marcado. Si una reconstrucción fallaba a medias, las entradas de un disco que había quitado todavía podían aparecer en los resultados. Ahora cada entrada lleva su disco, y los resultados se filtran por su lista actual mientras se ejecuta la búsqueda: quitar la marca de un disco lo hace desaparecer de la búsqueda de inmediato, sin esperar a la siguiente reconstrucción. El índice de sus propias unidades no se toca, así que no hace falta volver a escanear el disco.
+
+**Corregido** **Una reconstrucción fallida de la nube se reintenta una vez, no en cada cambio de página** - Cuando una reconstrucción fallaba, la siguiente visita a *Ajustes* -> *Búsqueda* ya la volvía a ejecutar. Como *Búsqueda* y *Remoto* comparten esa rutina, un solo fallo podía llegar a ejecutarla dos veces. Ahora se ejecuta una sola vez; si ese reintento también falla, el botón de reconstruir de *Ajustes* -> *Búsqueda* está ahí para hacerlo a mano.
+
+**Cambiado** **El índice en la nube se reconstruye una vez tras esta actualización** - El formato guardado del índice de búsqueda en la nube ahora incluye a qué disco pertenece cada entrada, así que el índice que ya tiene no puede leerlo la nueva versión. La aplicación lo reconstruye por usted la primera vez que abre los ajustes de búsqueda o remotos. Eso recorre una vez los discos que ha marcado y consume llamadas a la API del disco en la nube; los discos que no ha marcado no se recorren y el índice de sus propias unidades no se modifica.
+
 ## [3.21.1] - November 2026
 
 **Resumen:** Un remate de la ronda de los discos en la nube. En *Configuración* -> *Buscar*, el aviso de indexación ahora pertenece al disco al que de verdad le diste, en vez de encenderse a la vez en todos, y desaparece en cuanto termina esa reconstrucción. Si una reconstrucción falló con la página cerrada, la próxima vez que la abras se reintenta sola.

@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.22.0] - November 2026
+
+**Summary:** The global search now searches exactly the netdisks you ticked. Every entry in the cloud index now carries the netdisk it came from, and results are filtered against the drives you have ticked at the moment you search - so unticking a netdisk takes effect straight away, even if a rebuild failed half way. After this update the cloud index is rebuilt once, because the stored format now includes which netdisk each entry belongs to.
+
+### What changed
+
+**Fixed** **Only the netdisks you ticked are searched** - The cloud search index did not record which netdisk each entry came from, so when the app answered a search it could not tell whether that netdisk was still ticked. If a rebuild failed part way, entries belonging to a netdisk you had unticked could still turn up in your results. Every entry now carries its netdisk, and results are filtered against your current tick list while the search runs - unticking a netdisk makes it disappear from the search immediately, without waiting for the next rebuild. The index of your own drives is untouched, so your disks do not have to be scanned again.
+
+**Fixed** **A failed cloud rebuild is retried once instead of on every page change** - When a rebuild failed, the next visit to *Settings - Search* already ran it again. Because *Settings - Search* and *Settings - Remote* share that routine, one failure could make it run twice. It now runs once; if that retry fails as well, the rebuild button in *Settings - Search* is there to do it by hand.
+
+**Changed** **The cloud index is rebuilt once after this update** - The stored format of the cloud search index now includes the netdisk each entry belongs to, so the index you already have cannot be read by the new version. The app rebuilds it for you the first time you open the search or remote settings. That walks the netdisks you ticked once and uses netdisk API calls; netdisks you have not ticked are not walked, and the index of your own drives is not touched.
+
 ## [3.21.1] - November 2026
 
 **Summary:** A follow-up to the netdisk round. On *Settings - Search* the "indexing" indicator now belongs to the drive you actually pressed, instead of lighting up on every drive at once, and it clears as soon as that rebuild ends. A rebuild that failed while the page was closed is now retried the next time you open it.
