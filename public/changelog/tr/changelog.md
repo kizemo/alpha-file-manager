@@ -1,6 +1,18 @@
 # Değişiklik Günlüğü
 
 
+## [3.22.0] - November 2026
+
+**Özet:** Genel arama artık yalnızca işaretlediğiniz bulut sürücülerinde arama yapıyor. Bulut dizinindeki her kayıt artık hangi sürücüden geldiğini de taşıyor, sonuçlar da arama anında işaretli sürücülere göre süzülüyor; yani bir sürücünün işaretini kaldırdığınız anda etkisi hemen geçerli oluyor, hatta yeniden oluşturma yarı yolda başarısız olmuş olsa bile. Bu güncellemeden sonra bulut dizini bir kez yeniden oluşturuluyor, çünkü kayıtlı biçim artık her kaydın hangi sürücüye ait olduğunu da içeriyor.
+
+### What changed
+
+**Düzeltildi** **Yalnızca işaretlediğiniz sürücüler aranıyor** - Bulut arama dizini her kaydın hangi sürücüden geldiğini kaydetmiyordu; bu yüzden bir aramaya yanıt verirken uygulama o sürücünün hâlâ işaretli olup olmadığını anlayamıyordu. Yeniden oluşturma yarı yolda başarısız olduğunda, işaretini kaldırdığınız bir sürücünün kayıtları sonuçlarda görünmeye devam edebiliyordu. Artık her kayıt kendi sürücüsünü taşıyor ve sonuçlar arama sürerken anlık seçiminize göre süzülüyor; bir sürücünün işaretini kaldırmak onu bir sonraki yeniden oluşturmayı beklemeden aramadan kaldırıyor. Kendi sürücülerinizin dizinine dokunulmuyor, yani disklerinizi yeniden taramanız gerekmiyor.
+
+**Düzeltildi** **Başarısız bir bulut yeniden oluşturması her sayfa değişiminde değil, yalnızca bir kez tekrarlanıyor** - Bir yeniden oluşturma başarısız olduğunda, *Ayarlar* -> *Arama* sayfasına bir sonraki girişte yeniden oluşturma zaten tekrar çalışıyordu. *Arama* ve *Uzak* aynı yordamı paylaştığı için tek bir hata onu iki kez çalıştırabiliyordu. Artık yalnızca bir kez çalışıyor; bu deneme de başarısız olursa, *Ayarlar* -> *Arama* içindeki yeniden oluşturma düğmesi işi elle yapmanız için duruyor.
+
+**Değiştirildi** **Bulut dizini bu güncellemeden sonra bir kez yeniden oluşturuluyor** - Bulut arama dizininin kayıtlı biçimi artık her kaydın hangi sürücüye ait olduğunu içeriyor, bu yüzden elinizdeki dizini yeni sürüm okuyamıyor. Uygulama, arama veya uzak ayarlarını ilk kez açtığınızda onu sizin yerinize yeniden oluşturur. Bu sırada yalnızca işaretlediğiniz sürücüler bir kez taranır ve bulut sürücüsü API çağrıları harcanır; işaretlemediğiniz sürücüler taranmaz, kendi sürücülerinizin dizinine dokunulmaz.
+
 ## [3.21.1] - November 2026
 
 **Özet:** Ağ diski turunun devamı. *Ayarlar* -> *Arama* içindeki indeksleme işareti artık gerçekten bastığınız diske ait, hepsinde birden yanmıyor; ve o yeniden derleme biter bitmez kayboluyor. Sayfa kapalıyken başarısız olan bir yeniden derleme, bir sonraki açılışta kendiliğinden tekrar deneniyor.

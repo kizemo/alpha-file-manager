@@ -1,6 +1,18 @@
 # Journal des modifications
 
 
+## [3.22.0] - November 2026
+
+**Résumé :** La recherche globale porte maintenant exactement sur les disques en ligne que vous avez cochés. Chaque entrée de l’index en ligne indique désormais le disque dont elle provient, et les résultats sont filtrés selon les disques cochés au moment de la recherche - décocher un disque agit immédiatement, même si une reconstruction s’est interrompue à mi-parcours. Après cette mise à jour, l’index en ligne est reconstruit une fois, car le format enregistré contient maintenant le disque auquel chaque entrée appartient.
+
+### What changed
+
+**Corrigé** **Seuls les disques cochés sont cherchés** - L’index de recherche en ligne n’indiquait pas de quel disque venait chaque entrée ; en répondant à une recherche, l’application ne pouvait donc pas savoir si ce disque était toujours coché. Si une reconstruction échouait à mi-parcours, les entrées d’un disque décoché pouvaient encore apparaître dans les résultats. Chaque entrée porte maintenant son disque, et les résultats sont filtrés selon votre sélection actuelle pendant la recherche - décocher un disque le fait disparaître immédiatement, sans attendre la reconstruction suivante. L’index de vos propres lecteurs n’est pas touché : vos disques n’ont pas besoin d’être réanalysés.
+
+**Corrigé** **Une reconstruction en ligne ratée est relancée une fois, et non à chaque changement de page** - Après l’échec d’une reconstruction, la visite suivante de *Paramètres* -> *Recherche* la relançait déjà. Comme *Recherche* et *Distant* partagent cette routine, un seul échec pouvait la déclencher deux fois. Elle ne s’exécute plus qu’une fois ; si cette tentative échoue elle aussi, le bouton de reconstruction de *Paramètres* -> *Recherche* permet de le faire à la main.
+
+**Modifié** **L’index en ligne est reconstruit une fois après cette mise à jour** - Le format enregistré de l’index de recherche en ligne contient maintenant le disque auquel chaque entrée appartient : l’index que vous avez déjà ne peut donc pas être lu par la nouvelle version. L’application le reconstruit pour vous la première fois que vous ouvrez les paramètres de recherche ou distants. Cela parcourt une fois les disques que vous avez cochés et consomme des appels à l’API du disque en ligne ; les disques non cochés ne sont pas parcourus et l’index de vos propres lecteurs n’est pas modifié.
+
 ## [3.21.1] - November 2026
 
 **Résumé :** La suite du tour des disques en ligne. Dans *Paramètres* -> *Rechercher*, le témoin « indexation en cours » appartient maintenant au disque sur lequel vous avez vraiment appuyé, au lieu de s'allumer sur tous à la fois, et il s'efface dès que cette reconstruction est finie. Une reconstruction qui a échoué pendant que la page était fermée est relancée toute seule à l'ouverture suivante.

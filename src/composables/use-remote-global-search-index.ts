@@ -65,13 +65,37 @@ const lastRemoteIndexedItemCount = ref<number | null>(null);
 const remoteIndexTargetIds = ref<ConnectionIdList>([]);
 
 /**
- * 上一次重建**失败**了 ⇒ 索引内容可能与当前勾选不一致（查询侧不按勾选过滤，
- * 是否被检索完全由重建时传进去的集合决定）。
+ * 上一次重建**失败**了 ⇒ 索引内容可能与当前勾选不一致。
  *
- * 这个标记让失败可以自愈：下一次进设置页（`markReady()`）自动补跑一次重建，
- * 而不是把「我已经取消勾选了，为什么还搜得到」永久留在索引里。
+ * 批次 44 起（O-1）查询侧已经按**当前**勾选集合过滤，所以「取消勾选了还能搜到」
+ * 这个问题已经不存在了；这里要补的只是**新勾选的连接条目还没进索引**这一类缺口。
+ *
+ * 这个标记让失败可以自愈：下一次进设置页（`markReady()`）自动补跑一次重建。
  */
 let remoteIndexResyncNeeded = false;
+
+/**
+ * 本轮失败**已经自动补跑过一次**了。
+ *
+ * 这是 O-2 的修复：两个设置页的 `onMounted` 都会调 `markReady()`，
+ * 而 `pendingRemoteIndexIds` 的合并只覆盖「正在跑」的期间 ——
+ * 「已 drain 完 + 失败」之后每进一次页就会再触发一次重建（多花一次网盘 API 调用）。
+ *
+ * 有了这道闸门：**一次失败最多自动补跑一次**；补跑仍失败就等用户手动重建
+ * （设置页上有重建按钮）或下一次勾选变化。
+ */
+let remoteIndexResyncAttempted = false;
+
+/**
+ * 云盘索引的**格式**在本进程里检查过了没有。
+ *
+ * 批次 44 给云盘索引加了 `connection_id` 字段 ⇒ 升级前建的老索引格式对不上，
+ * 查询侧会直接忽略它 ⇒ 用户表现为「升级之后云盘搜不到东西」。
+ * 所以进设置页时问一次后端「索引是什么状态」，`stale` 就补跑一次重建。
+ *
+ * **每个进程只问一次**：这是升级后的一次性成本，不该每进一次设置页就查一遍。
+ */
+let remoteIndexFormatChecked = false;
 
 /** 上一次已知的勾选集合（排序后拼成的串）。用来判「集合变了没有」。 */
 let knownGlobalSearchIdsKey = '';
@@ -117,6 +141,8 @@ async function drainRemoteIndexRebuild(translate: TranslateFn): Promise<void> {
     lastRemoteIndexedItemCount.value = indexedCount;
     // 索引已经和传进去的勾选集合对齐了，自愈标记可以清掉。
     remoteIndexResyncNeeded = false;
+    // 这一轮没失败 ⇒ 「本轮是否已自动补跑过」也回到初始态。
+    remoteIndexResyncAttempted = false;
 
     toast({
       title: translate('globalSearch.remoteIndexDone'),
@@ -125,6 +151,9 @@ async function drainRemoteIndexRebuild(translate: TranslateFn): Promise<void> {
   catch (error) {
     console.error('Failed to rebuild remote global search index:', error);
     remoteIndexResyncNeeded = true;
+    // ⚠️ **不动 `remoteIndexResyncAttempted`**：
+    // 这次失败如果本身就是「自动补跑」那一次，再清一次闸门就等于每次进页都补跑一次
+    // （O-2 要消掉的正是这个）。闸门只在「勾选集合变了」时重开。
     toast({
       title: translate('globalSearch.remoteIndexFailed'),
     });
@@ -243,22 +272,71 @@ export function useRemoteGlobalSearchIndex(): RemoteGlobalSearchIndexController 
   }
 
   /**
+   * 云盘索引的**格式**是不是落后于当前版本了？落后就补跑一次重建。
+   *
+   * 批次 44 给云盘索引加了 `connection_id` 字段（O-1）⇒ 升级前建的老索引
+   * 与新 schema 对不上，查询侧会直接忽略它 ⇒ 用户表现为「升级之后云盘搜不到东西」。
+   *
+   * **只在进设置页时问一次**，不在每次搜索时问：
+   * 重建要花网盘 API 配额，不能因为「格式不对」就在用户搜索时偷偷烧。
+   *
+   * `missing`（压根没建过索引）**不自动重建** —— 那通常是用户还没勾选网盘，
+   * 不该替他花配额（这一档留给手动重建按钮）。
+   */
+  async function ensureRemoteIndexFormatCurrent(ids: ConnectionIdList): Promise<void> {
+    if (remoteIndexFormatChecked) {
+      return;
+    }
+
+    remoteIndexFormatChecked = true;
+
+    // 已经有重建在跑/排队 ⇒ 那一次重建本身就是用新格式写的，格式问题顺带解决。
+    if (isRebuildingRemoteIndex.value || pendingRemoteIndexIds.value !== null) {
+      return;
+    }
+
+    try {
+      const state = await invoke<string>('global_search_remote_index_state');
+
+      if (state !== 'stale') {
+        return;
+      }
+
+      // 问的这几行里可能刚好起了一轮重建 ⇒ 那轮就是新格式，不必再来一次。
+      if (isRebuildingRemoteIndex.value || pendingRemoteIndexIds.value !== null) {
+        return;
+      }
+
+      triggerRebuild(ids);
+    }
+    catch (error) {
+      console.error('Failed to read the remote global search index state:', error);
+    }
+  }
+
+  /**
    * 读盘完成后开闸。
    *
-   * 顺带做**失败自愈**：上一轮重建失败 ⇒ 索引内容还带着不该再被检索的条目
-   * （查询侧不按勾选过滤，是否被检索只由重建时传进去的集合决定）。
-   * 这种情况下进页面补跑一次，别让「我已经取消勾选了，为什么还搜得到」永久留着。
+   * 顺带做两件**自愈**：
+   *
+   * 1. 上一轮重建失败 ⇒ 索引里可能缺新勾选连接的条目 ⇒ 自动补跑一次重建；
+   * 2. 索引格式落后于当前版本（升级换过 schema）⇒ 同样补跑一次重建。
+   *
+   * ⚠️ 第 1 条**一次失败最多补跑一次**（O-2）：两个设置页都会调 `markReady()`，
+   * 没有闸门的话「失败 → 进 A 页补跑 → 进 B 页再补跑」会白花两次网盘 API。
    */
   function markReady(): void {
     knownGlobalSearchIdsKey = globalSearchIdsKey(globalSearchConnectionIds.value);
     canTriggerRemoteIndex = true;
 
-    if (remoteIndexResyncNeeded) {
-      // 先摘标记再补跑：补跑再次失败时 catch 会把它重新置真，
-      // 但不会在同一次进页面里连环重试。
-      remoteIndexResyncNeeded = false;
+    if (remoteIndexResyncNeeded && !remoteIndexResyncAttempted) {
+      remoteIndexResyncAttempted = true;
       triggerRebuild(globalSearchConnectionIds.value);
     }
+
+    // 升级换了索引格式 ⇒ 老索引用不了，补跑一次重建（一次性成本）。
+    // 不 await：设置界面不能被索引重建卡住。
+    void ensureRemoteIndexFormatCurrent(globalSearchConnectionIds.value);
   }
 
   watch(globalSearchConnectionIds, (ids) => {
@@ -274,6 +352,10 @@ export function useRemoteGlobalSearchIndex(): RemoteGlobalSearchIndexController 
     }
 
     knownGlobalSearchIdsKey = key;
+
+    // 勾选集合变了 = 用户有了新意图 ⇒ 重开「自动补跑」的闸门，
+    // 这样「改完勾选又失败」之后仍允许自动补跑一次（O-2）。
+    remoteIndexResyncAttempted = false;
 
     // 不 await：保存界面不能被索引重建卡住。
     triggerRebuild(ids);

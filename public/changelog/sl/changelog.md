@@ -1,6 +1,18 @@
 # Dnevnik sprememb
 
 
+## [3.22.0] - November 2026
+
+**Povzetek:** Globalno iskanje zdaj poišče natanko po tistih omrežnih diskih, ki ste jih označili. Vsak vnos v omrežnem indeksu zdaj vsebuje, z katerega diska izvira, rezultati pa se filtrirajo glede na diske, označene v trenutku iskanja - zato odstranitev oznake na disku takoj velja, tudi če je bilo prenavljanje prekinjeno na polovici. Po tej posodobitvi se omrežni indeks enkrat prenovi, saj shranjena oblika zdaj vsebuje tudi podatek, kateremu disku pripada posamezen vnos.
+
+### What changed
+
+**Popravljeno** **Iskanje poteka samo po diskih, ki ste jih označili** - Omrežni indeks iskanja ni zapisoval, s katerega diska izvira vsak vnos, zato aplikacija pri odgovoru na iskanje ni mogla vedeti, ali je bil ta disk še označen. Če je bilo prenavljanje prekinjeno na polovici, so vnosi diska, ki ste mu odstranili oznako, lahko še vedno prikazovali v rezultatih. Zdaj vsak vnos nosi svoj disk, rezultati pa se filtrirajo glede na vaš trenutni izbor med samim iskanjem - odstranitev oznake disk takoj odstrani iz iskanja, ne da bi morali čakati na naslednje prenavljanje. Indeks vaših lastnih diskov ni spremenjen, zato jih ni treba znova preiskati.
+
+**Popravljeno** **Neuspešno prenavljanje omrežnega indeksa se ponovi enkrat, ne ob vsaki spremembi strani** - Po neuspešnem prenavljanju je naslednji obisk *Nastavitev* -> *Iskanje* že znova sprožil prenavljanje. Ker *Iskanje* in *Oddaljeno* uporabljata isti postopek, je ena neuspešnost lahko sprožila dve prenovljanji. Zdaj se izvede samo enkrat; če tudi ta poskus spodleti, je na voljo gumb za prenavljanje v *Nastavitev* -> *Iskanje*.
+
+**Spremenjeno** **Omrežni indeks se po tej posodobitvi prenovi enkrat** - Shranjena oblika omrežnega indeksa iskanja zdaj vsebuje podatek, kateremu disku pripada posamezen vnos, zato obstoječega indeksa nova različica ne more prebrati. Aplikacija ga prenovi namesto vas, ko prvič odprete nastavitve iskanja ali oddaljenega dostopa. Pri tem se enkrat preberejo le označeni diski, pri čemer se porabijo klici API-ja omrežnega diska; neoznačeni diski se ne preberejo, indeks vaših lastnih diskov pa ostane nedotaknen.
+
 ## [3.21.1] - November 2026
 
 **Povzetek:** Nadaljevanje kroga omrežnih diskov. V *Nastavitve* -> *Iskanje* indikator indeksiranja zdaj spada na disk, katerega gumb ste zares pritisnili, namesto da bi se prižgal na vseh hkrati; in ugasne, ko ta pregradnja konča. Pregradnja, ki je spodletela, medtem ko je bila stran zaprta, se ob naslednjem obisku samodejno poskusi znova.

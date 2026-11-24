@@ -101,11 +101,17 @@ function createDeferred<T>() {
   };
 }
 
-/** 某次 `invoke` 调用实际传出去的 connectionIds（按调用顺序取）。 */
-function invokedIds(callIndex: number): string[] {
-  const call = invokeMock.mock.calls[callIndex];
-
-  return (call?.[1] as { connectionIds: string[] }).connectionIds;
+/**
+ * 所有**重建**调用（`global_search_index_remote_connections`）传出去的 connectionIds。
+ *
+ * ⚠️ 批次 44 起 `markReady()` 还会额外问一次「云盘索引是什么状态」
+ * （`global_search_remote_index_state`），那**不是**重建调用 ——
+ * 所以这里按命令名过滤，不能直接数 `invokeMock` 的总调用数。
+ */
+function rebuildCalls(): string[][] {
+  return invokeMock.mock.calls
+    .filter(call => call[0] === 'global_search_index_remote_connections')
+    .map(call => (call[1] as { connectionIds: string[] }).connectionIds);
 }
 
 let setFakeConnections: SetFakeConnections;
@@ -208,7 +214,65 @@ describe('勾选变化 → 云盘索引重建', () => {
     const controller = remoteGlobalSearchIndex.useRemoteGlobalSearchIndex();
 
     expect(controller.globalSearchConnectionIds.value).toEqual(['bd-1']);
-    expect(invokeMock).not.toHaveBeenCalled();
+    expect(rebuildCalls()).toHaveLength(0);
+  });
+
+  // 批次 44（O-1）：云盘索引加了 `connection_id` 字段 ⇒ 升级前建的老索引格式对不上，
+  // 查询侧会直接忽略它 ⇒ 用户表现为「升级之后云盘搜不到东西」。
+  // 所以进设置页时问一次后端「索引是什么状态」，`stale` 就补跑一次重建。
+  //
+  // ⚠️ 这条用例必须排在下面那条 `markReady` 用例**之前**：
+  // 「索引状态只问一次」是**模块级**闸门，问过就不再问（升级后的一次性成本）。
+  it('索引格式落后（stale）时，进设置页自动补跑一次重建', async () => {
+    setFakeConnections([createConnection('bd-1', 'baidu_pan', true)]);
+
+    invokeMock.mockImplementation(async (command: string) => (
+      command === 'global_search_remote_index_state' ? 'stale' : 3
+    ));
+
+    const controller = remoteGlobalSearchIndex.useRemoteGlobalSearchIndex();
+
+    controller.markReady();
+    await flushPromises();
+    await nextTick();
+    await flushPromises();
+
+    expect(rebuildCalls()).toHaveLength(1);
+    expect(rebuildCalls()[0]).toEqual(['bd-1']);
+  });
+
+  // O-2：一次失败**最多**自动补跑一次。
+  // 两个设置页的 `onMounted` 都会调 `markReady()`；没有闸门的话
+  // 「失败 → 进 A 页补跑（也失败）→ 再进 B 页」会多补跑一次（多花一次网盘 API）。
+  it('一次失败最多自动补跑一次：补跑仍失败时，再进设置页不再补跑', async () => {
+    setFakeConnections([createConnection('bd-1', 'baidu_pan', true)]);
+
+    invokeMock.mockRejectedValue(new Error('quota exhausted'));
+
+    const controller = remoteGlobalSearchIndex.useRemoteGlobalSearchIndex();
+
+    controller.triggerRebuild(['bd-1']);
+    await flushPromises();
+    await nextTick();
+    await flushPromises();
+
+    expect(rebuildCalls()).toHaveLength(1);
+
+    // 第一次进设置页 ⇒ 补跑一次（这次也失败）。
+    controller.markReady();
+    await flushPromises();
+    await nextTick();
+    await flushPromises();
+
+    expect(rebuildCalls()).toHaveLength(2);
+
+    // 第二次进设置页 ⇒ **不再**补跑（O-2 修掉的就是这一次多余的调用）。
+    controller.markReady();
+    await flushPromises();
+    await nextTick();
+    await flushPromises();
+
+    expect(rebuildCalls()).toHaveLength(2);
   });
 
   it('markReady 之后改勾选，按新的已勾选集合重建一次', async () => {
@@ -225,8 +289,8 @@ describe('勾选变化 → 云盘索引重建', () => {
     await nextTick();
     await flushPromises();
 
-    expect(invokeMock).toHaveBeenCalledTimes(1);
-    expect(invokedIds(0).slice().sort()).toEqual(['bd-1', 'quark-1']);
+    expect(rebuildCalls()).toHaveLength(1);
+    expect(rebuildCalls()[0].slice().sort()).toEqual(['bd-1', 'quark-1']);
     expect(toastMock).toHaveBeenCalledWith({ title: 'globalSearch.remoteIndexDone' });
   });
 
@@ -244,8 +308,8 @@ describe('勾选变化 → 云盘索引重建', () => {
     await nextTick();
     await flushPromises();
 
-    expect(invokeMock).toHaveBeenCalledTimes(1);
-    expect(invokedIds(0)).toEqual(['bd-1']);
+    expect(rebuildCalls()).toHaveLength(1);
+    expect(rebuildCalls()[0]).toEqual(['bd-1']);
   });
 
   it('改的是没勾检索的连接 ⇒ 集合没变，不重建', async () => {
@@ -266,7 +330,7 @@ describe('勾选变化 → 云盘索引重建', () => {
     await nextTick();
     await flushPromises();
 
-    expect(invokeMock).not.toHaveBeenCalled();
+    expect(rebuildCalls()).toHaveLength(0);
   });
 
   it('重建进行中再改勾选 ⇒ 串行补跑，且补跑用最新集合', async () => {
@@ -284,13 +348,13 @@ describe('勾选变化 → 云盘索引重建', () => {
     await nextTick();
 
     expect(controller.isRebuilding.value).toBe(true);
-    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(rebuildCalls()).toHaveLength(1);
 
     // 第一次还没跑完就又改了一次。
     controller.triggerRebuild(['bd-1', 'quark-1']);
     await nextTick();
 
-    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(rebuildCalls()).toHaveLength(1);
 
     first.resolve(9);
     await flushPromises();
@@ -298,8 +362,8 @@ describe('勾选变化 → 云盘索引重建', () => {
     await flushPromises();
 
     // 排队的那次必须在第一次**完成之后**才发起 —— 否则两个整体重建会互相踩。
-    expect(invokeMock).toHaveBeenCalledTimes(2);
-    expect(invokedIds(1)).toEqual(['bd-1', 'quark-1']);
+    expect(rebuildCalls()).toHaveLength(2);
+    expect(rebuildCalls()[1]).toEqual(['bd-1', 'quark-1']);
     // 补跑那一次走的是 beforeEach 里的默认实现（`mockResolvedValue(3)`）——
     // `mockImplementationOnce` 只覆盖第 1 次调用。所以最终计数是 3 而不是 9：
     // 这恰好证明**第二次调用真的发出并写回了自己的结果**，而不是沿用第一次。
@@ -328,7 +392,7 @@ describe('勾选变化 → 云盘索引重建', () => {
     searchPage.triggerRebuild(['bd-1', 'quark-1']);
     await nextTick();
 
-    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(rebuildCalls()).toHaveLength(1);
 
     pending.resolve(1);
     await flushPromises();
@@ -358,7 +422,7 @@ describe('勾选变化 → 云盘索引重建', () => {
     await nextTick();
     await flushPromises();
 
-    expect(invokedIds(1)).toEqual(['bd-1', 'quark-1']);
+    expect(rebuildCalls()[1]).toEqual(['bd-1', 'quark-1']);
   });
 });
 
@@ -461,7 +525,7 @@ describe('按连接的索引状态：全局锁管禁用、按连接集合管文�
     await flushPromises();
 
     // 补跑用的是**最新**集合（只剩 bd-1），跑完才清空。
-    expect(invokedIds(invokeMock.mock.calls.length - 1)).toEqual(['bd-1']);
+    expect(rebuildCalls()[rebuildCalls().length - 1]).toEqual(['bd-1']);
     expect(controller.indexTargetConnectionIds.value).toEqual([]);
     expect(controller.isRebuilding.value).toBe(false);
   });
@@ -488,8 +552,8 @@ describe('按连接的索引状态：全局锁管禁用、按连接集合管文�
     await nextTick();
     await flushPromises();
 
-    expect(invokeMock).toHaveBeenCalledTimes(1);
-    expect(invokedIds(0).slice().sort()).toEqual(['ali-1', 'bd-1', 'quark-1']);
+    expect(rebuildCalls()).toHaveLength(1);
+    expect(rebuildCalls()[0].slice().sort()).toEqual(['ali-1', 'bd-1', 'quark-1']);
     expect(controller.indexTargetConnectionIds.value).toEqual([]);
   });
 
@@ -501,7 +565,7 @@ describe('按连接的索引状态：全局锁管禁用、按连接集合管文�
     // 进页面开闸。此时没有失败标记 ⇒ 不该发任何重建（初始读盘不算集合变了）。
     controller.markReady();
 
-    expect(invokeMock).not.toHaveBeenCalled();
+    expect(rebuildCalls()).toHaveLength(0);
 
     invokeMock.mockRejectedValueOnce(new Error('quota exhausted'));
     controller.triggerRebuild(['bd-1']);
@@ -513,15 +577,15 @@ describe('按连接的索引状态：全局锁管禁用、按连接集合管文�
 
     // 失败 ⇒ 索引内容与勾选可能已经不一致（查询侧不做读时过滤），
     // 下一次进设置页必须补跑，而不是把「取消勾选了还搜得到」永久留在索引里。
-    const base = invokeMock.mock.calls.length;
+    const base = rebuildCalls().length;
 
     controller.markReady();
     await flushPromises();
     await nextTick();
     await flushPromises();
 
-    expect(invokeMock).toHaveBeenCalledTimes(base + 1);
-    expect(invokedIds(base)).toEqual(['bd-1']);
+    expect(rebuildCalls()).toHaveLength(base + 1);
+    expect(rebuildCalls()[base]).toEqual(['bd-1']);
 
     // 补跑成功 ⇒ 自愈标记清掉，不会每次进页面都白烧一次网盘 API 配额。
     controller.markReady();
@@ -529,6 +593,6 @@ describe('按连接的索引状态：全局锁管禁用、按连接集合管文�
     await nextTick();
     await flushPromises();
 
-    expect(invokeMock).toHaveBeenCalledTimes(base + 1);
+    expect(rebuildCalls()).toHaveLength(base + 1);
   });
 });

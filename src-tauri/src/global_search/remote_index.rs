@@ -25,13 +25,15 @@
 //! 所以本模块只认**普通路径**：app-data 目录与 user-data 目录由调用方
 //! （`global_search/commands.rs`）解析好再传进来。
 
-use std::path::Path;
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
 
 use tantivy::doc;
 use tantivy::{Index, IndexReader, ReloadPolicy};
 
-use super::index::{build_schema, create_bulk_index_writer, create_fresh_index};
+use super::index::{build_remote_schema, create_bulk_index_writer, create_fresh_remote_index};
 use super::state::GlobalSearchIndexFields;
+use super::types::RemoteIndexState;
 
 /// 云盘索引的最大遍历深度。连接根算第 0 层，往下最多再钻 8 层。
 ///
@@ -57,6 +59,12 @@ pub(super) struct RemoteIndexDoc {
     pub(super) is_dir: bool,
     pub(super) size: u64,
     pub(super) modified_time: u64,
+    /// **这条条目属于哪个远程连接。**
+    ///
+    /// 这是「勾了哪个网盘，就只搜哪个网盘」这条规则能落地的关键：
+    /// 查询侧拿它按**当前**勾选集合过滤，
+    /// 取消勾选立刻生效，不必等下一次重建把旧条目清掉。
+    pub(super) connection_id: String,
 }
 
 /// 遍历是否还应继续。
@@ -195,6 +203,7 @@ async fn walk_connection(
                 is_dir: entry.is_dir,
                 size: entry.size,
                 modified_time: entry.modified_time,
+                connection_id: connection_id.to_string(),
             });
 
             if docs.len() >= REMOTE_INDEX_MAX_ENTRIES {
@@ -217,8 +226,14 @@ pub(super) fn write_remote_index(
     index_path: &Path,
     docs: &[RemoteIndexDoc],
 ) -> Result<u64, String> {
-    let (index, fields) = create_fresh_index(index_path)?;
+    let (index, fields) = create_fresh_remote_index(index_path)?;
     let mut writer = create_bulk_index_writer(&index)?;
+
+    // 云盘索引**必须**带 `connection_id` 字段 ——
+    // 查询侧要靠它按当前勾选集合过滤（见 `enabled_connection_ids`）。
+    let connection_id_field = fields
+        .connection_id
+        .expect("云盘索引 schema 必须带 connection_id 字段");
 
     for entry in docs {
         let is_file = u64::from(!entry.is_dir);
@@ -234,6 +249,7 @@ pub(super) fn write_remote_index(
                 fields.is_dir => is_dir,
                 fields.modified_time => entry.modified_time,
                 fields.size => entry.size,
+                connection_id_field => entry.connection_id.as_str(),
             ))
             .map_err(|error| error.to_string())?;
     }
@@ -255,7 +271,7 @@ pub(super) fn open_remote_reader(
     }
 
     let index = Index::open_in_dir(index_path).ok()?;
-    let (schema, fields) = build_schema();
+    let (schema, fields) = build_remote_schema();
 
     if index.schema() != schema {
         log::warn!("[global-search] 云盘索引的 schema 与当前不一致，本次查询忽略云盘结果");
@@ -271,9 +287,114 @@ pub(super) fn open_remote_reader(
     Some((reader, fields))
 }
 
+/// 云盘索引的当前状态。
+///
+/// 用来判断「要不要补跑一次重建」：
+///
+/// - `Missing`：目录不存在（还没建过索引）—— **不自动重建**，那要花网盘配额；
+/// - `Stale`：目录在，但 schema 与当前版本对不上（升级换了索引格式）—— **必须重建**，
+///   否则查询侧会一直忽略这份索引，用户表现为「升级之后云盘搜不到东西了」；
+/// - `Ready`：目录在且 schema 兼容。
+pub(super) fn remote_index_state(index_path: &Path) -> RemoteIndexState {
+    if !index_path.exists() {
+        return RemoteIndexState::Missing;
+    }
+
+    let Ok(index) = Index::open_in_dir(index_path) else {
+        // 目录在却打不开 ⇒ 当成「坏了」：重建会把它整个换掉。
+        return RemoteIndexState::Stale;
+    };
+
+    let (schema, _) = build_remote_schema();
+
+    if index.schema() == schema {
+        RemoteIndexState::Ready
+    } else {
+        RemoteIndexState::Stale
+    }
+}
+
+/// app-data 目录 → user-data 目录。
+///
+/// 与 `remote/commands.rs`、`global_search/commands.rs` 用的是**同一个**算法
+/// （`appDataDir + userStorageFiles.userDataDirName`）。
+/// 两处必须一致 —— 算错的表现是「Rust 说这条连接不存在」，
+/// 而界面上明明有（凭据槽位认不出来）。
+pub(super) fn user_data_dir_in(base_dir: &Path) -> PathBuf {
+    base_dir.join(
+        &crate::user_storage_files_config::user_storage_files_config().user_data_dir_name,
+    )
+}
+
+/// **当前**勾选了「加入全局检索」的连接 id 集合。
+///
+/// 这是查询侧的过滤依据：「勾了哪个网盘，就只搜哪个网盘」。
+///
+/// 读的是连接表里的 `includeInGlobalSearch` 标记（前端勾选时写盘），
+/// 与「重建索引时传进去的集合」是**两套独立的真相**：
+///
+/// - 重建集合决定**索引里有什么**；
+/// - 勾选集合决定**能不能被搜到**。
+///
+/// 之前只有前者，于是「重建中途失败 ⇒ 旧索引还在」时，
+/// 已经被取消勾选的网盘仍然搜得到 —— 这就是批次 43 登记的遗留项 O-1。
+///
+/// ⚠️ **读失败时返回空集合（= 一条都不给），而不是放行全部**：
+/// 漏网的代价是「用户取消勾选了还能搜到」，比「暂时搜不到」严重得多。
+pub(super) fn enabled_connection_ids(user_data_dir: &Path) -> BTreeSet<String> {
+    match crate::remote::load_connections(user_data_dir) {
+        Ok(connections) => connections
+            .into_iter()
+            .filter(|connection| connection.include_in_global_search)
+            .map(|connection| connection.id)
+            .collect(),
+        Err(error) => {
+            log::warn!(
+                "[global-search] 读取远程连接列表失败，云盘检索结果按「无勾选」处理：{}",
+                error
+            );
+            BTreeSet::new()
+        }
+    }
+}
+
 /// 清空云盘索引（取消勾选 / 传空列表时用）。
 pub(super) fn clear_remote_index(index_path: &Path) -> Result<(), String> {
     super::index::clear_index(index_path)
+}
+
+/// **仅测试用**：往连接表里写一批连接，用来构造「当前勾选了哪些网盘」这个前提。
+///
+/// `entries` 是 `(连接 id, 是否勾选参与全局检索)`。
+#[cfg(test)]
+pub(super) fn write_test_connections(user_data_dir: &Path, entries: &[(&str, bool)]) {
+    use crate::remote::{ConnectionsFile, ProxyConfig, RemoteConnection, RemoteProtocol};
+
+    std::fs::create_dir_all(user_data_dir).expect("create user data dir");
+
+    let connections = entries
+        .iter()
+        .map(|(id, include_in_global_search)| RemoteConnection {
+            id: (*id).to_string(),
+            name: (*id).to_string(),
+            protocol: RemoteProtocol::BaiduPan,
+            host: "pan.example.com".to_string(),
+            port: 443,
+            username: "tester".to_string(),
+            initial_path: "/".to_string(),
+            local_path: None,
+            proxy: ProxyConfig::Direct,
+            credential_key: None,
+            include_in_global_search: *include_in_global_search,
+        })
+        .collect();
+
+    let file = ConnectionsFile { connections };
+    std::fs::write(
+        crate::remote::connections_path_in(user_data_dir),
+        serde_json::to_string_pretty(&file).expect("serialize connections"),
+    )
+    .expect("write connections file");
 }
 
 #[cfg(test)]
@@ -288,6 +409,7 @@ mod tests {
             is_dir,
             size: 12,
             modified_time: 1_700_000_000_000,
+            connection_id: "conn-a".to_string(),
         }
     }
 
@@ -372,6 +494,127 @@ mod tests {
 
         assert!(!index_path.exists());
         assert!(open_remote_reader(&index_path).is_none());
+    }
+
+    // ---------------------------------------------------------------------
+    // 「勾了哪个网盘，就只搜哪个网盘」—— 批次 44（台账 O-1）
+    // ---------------------------------------------------------------------
+
+    /// **当前勾选集合**只认 `includeInGlobalSearch = true` 的那些连接。
+    ///
+    /// 未勾选 / 老连接（根本没这个键）都**不**算。
+    #[test]
+    fn the_enabled_set_only_contains_the_checked_connections() {
+        let temp = TempDir::new().expect("temp dir");
+        let user_data_dir = temp.path().join("user-data");
+
+        write_test_connections(
+            &user_data_dir,
+            &[("conn-a", true), ("conn-b", false), ("conn-c", true)],
+        );
+
+        let enabled = enabled_connection_ids(&user_data_dir);
+
+        assert!(enabled.contains("conn-a"));
+        assert!(!enabled.contains("conn-b"), "没勾选的不能进集合");
+        assert!(enabled.contains("conn-c"));
+        assert_eq!(enabled.len(), 2);
+    }
+
+    /// 连接表**不存在** ⇒ 一条都不算勾选（不是「全部放行」）。
+    #[test]
+    fn a_missing_connections_file_yields_an_empty_enabled_set() {
+        let temp = TempDir::new().expect("temp dir");
+
+        assert!(enabled_connection_ids(&temp.path().join("user-data")).is_empty());
+    }
+
+    /// 连接表**读不出来**（这里用「写了个不是 JSON 的文件」模拟）⇒
+    /// 按「没有勾选任何网盘」处理，**不能**放行全部。
+    ///
+    /// 漏网的代价（用户取消勾选了还能搜到）比暂时搜不到严重得多。
+    #[test]
+    fn a_broken_connections_file_yields_an_empty_enabled_set() {
+        let temp = TempDir::new().expect("temp dir");
+        let user_data_dir = temp.path().join("user-data");
+        std::fs::create_dir_all(&user_data_dir).expect("create user data dir");
+        std::fs::write(
+            crate::remote::connections_path_in(&user_data_dir),
+            "{ this is not json",
+        )
+        .expect("write broken file");
+
+        assert!(enabled_connection_ids(&user_data_dir).is_empty());
+    }
+
+    /// 云盘索引的状态三态：`missing` → 建过 → `ready`。
+    #[test]
+    fn the_remote_index_state_reports_missing_before_anything_is_built() {
+        let temp = TempDir::new().expect("temp dir");
+        let index_path = temp.path().join("remote-index");
+
+        assert_eq!(remote_index_state(&index_path), RemoteIndexState::Missing);
+    }
+
+    #[test]
+    fn the_remote_index_state_is_ready_once_it_is_built() {
+        let temp = TempDir::new().expect("temp dir");
+        let index_path = temp.path().join("remote-index");
+
+        write_remote_index(&index_path, &[doc("sfm://remote/conn-a/a.txt", "a.txt", false)])
+            .expect("write");
+
+        assert_eq!(remote_index_state(&index_path), RemoteIndexState::Ready);
+    }
+
+    /// **老格式的索引必须被判成 `stale`**（而不是 `ready`）。
+    ///
+    /// 老索引里没有 `connection_id` 字段，查询侧打不出连接过滤 ⇒
+    /// 只能当成「不可用」，让前端补跑一次重建。
+    #[test]
+    fn an_index_built_with_the_old_schema_is_stale() {
+        let temp = TempDir::new().expect("temp dir");
+        let index_path = temp.path().join("remote-index");
+
+        // 用**本地**那份 schema 建一份索引 —— 它正是「老格式」的样子。
+        let (index, fields) = super::super::index::create_fresh_index(&index_path).expect("create");
+        let mut writer = super::super::index::create_bulk_index_writer(&index).expect("writer");
+        writer
+            .add_document(doc!(
+                fields.path => "sfm://remote/conn-a/a.txt",
+                fields.name => "a.txt",
+                fields.name_lower => "a.txt",
+                fields.is_file => 1u64,
+                fields.is_dir => 0u64,
+                fields.modified_time => 0u64,
+                fields.size => 0u64,
+            ))
+            .expect("add doc");
+        writer.commit().expect("commit");
+        drop(writer);
+        drop(index);
+
+        assert_eq!(remote_index_state(&index_path), RemoteIndexState::Stale);
+        // 老索引对查询侧也是「打不开」的 —— 查询结果里不会出现它的条目。
+        assert!(open_remote_reader(&index_path).is_none());
+    }
+
+    /// 云盘索引的 schema 与**本地**索引的不同 ——
+    /// 这正是「本地索引不用重建」的前提（本地索引是全盘扫描建出来的）。
+    #[test]
+    fn the_remote_schema_is_not_the_local_one() {
+        let (local_schema, local_fields) = super::super::index::build_schema();
+        let (remote_schema, remote_fields) = super::super::index::build_remote_schema();
+
+        assert_ne!(local_schema, remote_schema);
+        assert!(
+            local_fields.connection_id.is_none(),
+            "本地索引不许带 connection_id 字段"
+        );
+        assert!(
+            remote_fields.connection_id.is_some(),
+            "云盘索引必须带 connection_id 字段"
+        );
     }
 
     /// `sfm://remote/<id>/...` → 远端路径；解析不出来就返回 `None`。

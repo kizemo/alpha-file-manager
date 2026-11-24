@@ -90,9 +90,7 @@ pub async fn global_search_index_remote_connections(
     // 与 `remote/commands.rs` 的 `user_data_dir` **同源**：
     // `appDataDir + userStorageFiles.userDataDirName`。
     // 两处必须一致 —— 算错的表现是「Rust 说没有这条连接」，而界面上明明有。
-    let user_data_dir = base_dir.join(
-        &crate::user_storage_files_config::user_storage_files_config().user_data_dir_name,
-    );
+    let user_data_dir = super::remote_index::user_data_dir_in(&base_dir);
 
     let index_path = super::index::remote_index_dir(&base_dir);
 
@@ -115,6 +113,31 @@ pub async fn global_search_index_remote_connections(
     })
     .await
     .map_err(|join_error| format!("Remote search index task failed: {join_error}"))?
+}
+
+/// 云盘索引的当前状态（`missing` / `stale` / `ready`）。
+///
+/// 前端进「设置 → 搜索」页时用它决定「要不要补跑一次重建」：
+///
+/// - `stale` ⇒ 盘上的索引是**老格式**（升级换了索引 schema，
+///   老索引里没有 `connection_id` 字段）⇒ 必须重建一次，
+///   否则查询侧会一直忽略这份索引，用户表现为「升级之后云盘搜不到东西」；
+/// - `missing` ⇒ 还没建过索引 ⇒ **不自动重建**（那要花网盘 API 配额，
+///   用户没主动要求就不该替他花）。
+#[tauri::command]
+pub async fn global_search_remote_index_state(app: tauri::AppHandle) -> Result<String, String> {
+    let base_dir =
+        crate::app_dirs::app_data_dir(&app).map_err(|error: tauri::Error| error.to_string())?;
+    let index_path = super::index::remote_index_dir(&base_dir);
+
+    let state = super::remote_index::remote_index_state(&index_path);
+
+    Ok(match state {
+        super::types::RemoteIndexState::Missing => "missing",
+        super::types::RemoteIndexState::Stale => "stale",
+        super::types::RemoteIndexState::Ready => "ready",
+    }
+    .to_string())
 }
 
 // FORK-MODIFICATION: 需求反馈 3 —— 目录内搜索递归化。

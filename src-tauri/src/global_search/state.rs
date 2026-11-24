@@ -19,6 +19,15 @@ pub(super) struct GlobalSearchIndexFields {
     pub(super) is_dir: Field,
     pub(super) modified_time: Field,
     pub(super) size: Field,
+    /// **仅云盘索引**才有：条目归属的远程连接 id。
+    ///
+    /// 本地索引恒为 `None` —— 本地条目没有「属于哪个网盘」这回事。
+    ///
+    /// 为什么本地索引不能也加上这个字段：本地索引是全盘扫描建出来的，
+    /// schema 一变，盘上的旧索引立刻作废 ⇒ 所有用户都得重扫一次硬盘
+    /// （几十分钟到几小时）。云盘索引只在用户显式重建时刷新，
+    /// 改它的代价只是「升级后重建一次」。详见 `index.rs::build_schema`。
+    pub(super) connection_id: Option<Field>,
 }
 
 pub(super) struct GlobalSearchState {

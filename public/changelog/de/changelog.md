@@ -1,6 +1,18 @@
 # Änderungsprotokoll
 
 
+## [3.22.0] - November 2026
+
+**Zusammenfassung:** Die globale Suche durchsucht jetzt genau die Netdisks, die Sie angehakt haben. Jeder Eintrag im Cloud-Index vermerkt nun, von welchem Netdisk er stammt, und die Treffer werden gegen die derzeit angehakten Laufwerke gefiltert - ein abgehaktes Netdisk verschwindet also sofort aus den Ergebnissen, auch wenn ein Neuaufbau mittendrin gescheitert ist. Nach dieser Aktualisierung wird der Cloud-Index einmal neu aufgebaut, weil das gespeicherte Format nun mitführt, zu welchem Netdisk ein Eintrag gehört.
+
+### What changed
+
+**Behoben** **Es wird nur noch nach den angehakten Netdisks gesucht** - Der Cloud-Suchindex vermerkte nicht, von welchem Netdisk ein Eintrag stammte; beim Beantworten einer Suche konnte die App daher nicht unterscheiden, ob dieses Netdisk noch angehakt war. Scheiterte ein Neuaufbau teilweise, konnten Einträge eines abgehakten Netdisks weiterhin in den Ergebnissen auftauchen. Jeder Eintrag führt nun sein Netdisk mit, und die Treffer werden während der Suche gegen Ihre aktuelle Auswahl gefiltert - ein abgehaktes Netdisk verschwindet sofort aus der Suche, ohne auf den nächsten Neuaufbau zu warten. Der Index Ihrer eigenen Laufwerke bleibt unberührt, Ihre Festplatten müssen also nicht erneut durchsucht werden.
+
+**Behoben** **Ein gescheiterter Cloud-Neuaufbau wird einmal nachgeholt statt bei jedem Seitenwechsel** - Nach einem gescheiterten Neuaufbau wurde beim nächsten Besuch von *Einstellungen* -> *Suche* bereits erneut aufgebaut. Da *Suche* und *Remote* dieselbe Routine verwenden, konnte ein Fehlschlag sie zweimal ausloesen. Jetzt laeuft sie nur noch einmal; schlaegt auch dieser Versuch fehl, steht in *Einstellungen* -> *Suche* die Schaltflaeche zum Neuaufbau bereit.
+
+**Geändert** **Der Cloud-Index wird nach dieser Aktualisierung einmal neu aufgebaut** - Das gespeicherte Format des Cloud-Suchindex enthaelt nun auch, zu welchem Netdisk ein Eintrag gehoert; der vorhandene Index laesst sich von der neuen Version daher nicht mehr lesen. Die App baut ihn beim ersten Oeffnen der Suche- oder Remote-Einstellungen fuer Sie neu auf. Dabei werden die von Ihnen angehakten Netdisks einmal durchlaufen, was Netdisk-API-Aufrufe kostet; nicht angehakte Netdisks werden nicht durchlaufen, und der Index Ihrer eigenen Laufwerke bleibt unangetastet.
+
 ## [3.21.1] - November 2026
 
 **Zusammenfassung:** Ein Nachtrag zur Netdisk-Runde. Unter *Einstellungen* -> *Suche* gehört die Anzeige *Indexierung* jetzt zu dem Laufwerk, dessen Knopf Sie wirklich gedrückt haben, statt auf allen Laufwerken zugleich aufzuleuchten - und sie verschwindet, sobald dieser Neubau durch ist. Schlag ein Neubau fehl, während die Seite geschlossen war, wird er beim nächsten Öffnen automatisch nachgeholt.

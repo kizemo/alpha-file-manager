@@ -109,6 +109,7 @@ commands.allow = [
   "global_search_init",
   "global_search_query",
   "global_search_query_paths",
+  "global_search_remote_index_state",
   "global_search_start_scan",
   "import_extension_storage_file",
   "install_local_extension",
