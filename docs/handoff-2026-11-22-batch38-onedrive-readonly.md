@@ -3165,3 +3165,165 @@ Rust 门禁的 warning 全是既有噪音（`unused variable: reader`、`field .
 4. **`bash` 里 `Remove-Item` 会被本地安全门禁直接拒** ⇒ 删除走 `rm -- "<path>"`（走 mavis-trash 可恢复通道）。
 5. **应用日志文件被进程独占** ⇒ 必须 `FileStream(FileShare.ReadWrite)` + `StreamReader` 读，不能 `[IO.File]::ReadAllLines`。
 6. **`.cmd` 里不要用 `timeout /t`**（非交互上下文会杀掉整个 cmd）⇒ 用 `ping -n 4 127.0.0.1 > nul`。
+
+## 二十、批次 46：台账 §6 前三项推进 —— 提交落地 + 勾选过滤的运行时 A/B + 阿里云盘登录链路打通到扫码（2026-11-24 深夜）
+
+> 本轮目标来自 `docs/open-items-2026-11-24.md` §6 的第 1/2/3 项。
+> **结论先说**：第 1 项**闭合**（提交 `613e1958`）；第 2 项**判闭合**（判别性证据齐，唯一缺口是「鼠标点复选框」这个动作，属装置限制）；
+> 第 3 项**推进到只能由人完成的最后一步**（阿里云盘扫码窗已开到扫码页，等用户扫码），Agent 侧动作已全部做完。
+> **⚠️ 22:54 订正**：该登录窗**已被关掉**（顶层窗列表里已无 `阿里云盘 登录`），且应用启动后 417 行日志里
+> **零 `aliyun` 记录** ⇒ 用户**尚未扫码**。重开两步见 §二十·4 末尾与 §二十·8 的脚本清单。
+
+### 二十·1 门禁（本轮实跑，借 1.90.0 工具链）
+
+| 门禁 | 结果 | 日志 |
+|---|---|---|
+| `cargo test --lib` | **1693 passed / 0 failed / 3 ignored** | `.superpowers/sdd/b46/cargo-test-lib.log` |
+| `npm run check` | **EXIT=0** | `.superpowers/sdd/b46/npm-check.log` |
+
+- 本机 `stable` 工具链仍是坏的（1.97.1 编译炸假错误 + cargo 缓存 `file is not a database` code 26），
+  依旧只能把 `C:\Users\Duanyi\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin` 前置到 `PATH`，
+  且**用 `cmd.exe /d /c` 跑**（直接调会踩别的坑）。
+- 两条门禁的用例数与批次 45 续篇基线**逐字一致**（`cargo test --lib` 1693）——
+  因为本轮**没有改任何源码**，只在收尾时补文档。
+
+### 二十·2 §6-1 闭合：批次 45 配额改动 + 两份台账入版本库
+
+- 提交 **`613e1958`**：`4 files changed, 485 insertions(+), 94 deletions(-)`。
+  含 `src-tauri/src/global_search/{remote_index,commands}.rs`（配额口径「每连接 20k + 合计随连接数伸缩」）
+  与两份 docs（`open-items-2026-11-24.md`、`handoff-2026-11-22-batch38-onedrive-readonly.md`）。
+- 提交信息见 `.superpowers/sdd/b46/commit-msg.txt`，**明确写了「版本号与 CHANGELOG 未动，待用户拍板」**，
+  避免下一轮误以为已发版。
+- 提交后 `git status --short` 为空，`HEAD=613e1958`。
+
+### 二十·3 §6-2：勾选过滤的运行时 A/B（改走应用自带 MCP，不再碰 UI）
+
+**为什么换道**：先派的 worker（`bg_ea45aeef-…`）打算沿批次 37 的沙箱 UIA 路线逐步点复选框，
+被 **Token Plan 用量上限（错误码 2056）** 当场打死。
+改走**应用自己就开着的只读 MCP 服务**：`127.0.0.1:55100/mcp`、`mode=readOnly`、6 个只读工具；
+`search_files` 与检索框走**同一个后端查询路径** ⇒ 零 UI 干扰、零焦点抢占、回包直接可比。
+
+**装置**：已装**干净包**（`D:\Program Files\Alpha File Manager\alpha-file-manager.exe`，
+PID 603288，21:43:48 启动，**无 CDP 旗标**）。
+token 取自 `%APPDATA%\com.sigma-file-manager.app\mcp-access.json` 的 `token` 字段，**值不落盘、不落对话**。
+
+**实测（2026-11-24 22:0x–22:3x 本地）**：
+
+| 探针 | 连接表状态 | `search_files` 回包 |
+|---|---|---|
+| `query="01A_软件"` | 百度 `includeInGlobalSearch=true` | `count=13`，其中 **2 条 `sfm://remote/0f0696babf4f42d1aef22c61aa89b0a9/…`** |
+| `query="夸克网盘使用指南"` | 夸克 `includeInGlobalSearch=false` | **`count=0`** |
+
+**判别性在哪（本轮最要紧的一步）**：
+
+- 光有 `count=0` 毫无判别力 —— 「索引里没有夸克条目」和「勾选过滤生效」都给 0。
+- 于是**去盘上索引里数**：docstore（`b332c181-5ec7-4a0c-8d15-f7e0d7360eff`，lz4）里
+  **`sfm://remote/d2ab9ed3151246d19f6fcc1c1d60e872/`（夸克）出现 49 次**
+  ⇒ 夸克文档**确实在索引里**，检索期被过滤掉了。
+- 同段百度探针命中 `remote:0f0696ba…` ⇒ **索引非空 + 远程检索链路正常**，「假阴性」这条路也堵住了。
+- 代码侧链路（本轮 grep 坐实，不再只是推断）：
+  - `src/types/remote.ts:92` —— `includeInGlobalSearch?: boolean`，与 Rust 侧 `include_in_global_search` 逐字镜像；
+  - `src/types/remote.ts:322-325` —— `globalSearchConnectionIds = connections.filter(c => c.includeInGlobalSearch === true)`；
+  - `src/stores/storage/__tests__/remote-connections-global-search.test.ts` —— 勾选持久化 19 条单测；
+  - 本文件 §十六·2（L2277-2284）当时就写明「**查询侧完全不读 `include_in_global_search`，由前端把勾选集合传给后端**」。
+
+**唯一未取证 = 装置限制，不是产品缺陷**：本轮**没有**用鼠标真的点一次「全局搜索」复选框。
+沙箱无键盘（Chromium 取 `GetKeyState`，`PostMessage` 伪造按键无效），而交互桌面按 AGENTS.md §2.8 不抢焦点
+⇒ 这条动作留给用户在日常使用中顺手确认。
+**判定：可判闭合**（判据链完整；缺的那一步是「动作取证」，不是「结论取证」）。
+
+### 二十·4 §6-3：阿里云盘重新授权 —— 打通「登录入口」，止步于「等扫码」
+
+本轮**推翻并订正了连续两轮的错误模型**：
+`设置 → 远程 → 网盘` 页上**根本没有「打开登录窗口」按钮**，三个已存连接只有「编辑 / 删除」；
+登录入口藏在**编辑弹窗**里。此前 v1 的 `LOGIN_BUTTON_NOT_FOUND`、v2 的 `SETTINGS_INVOKE_FAILED`
+都是在错误模型上做诊断。
+
+**打通后的三步链路（均 `EXIT=0`，脚本纯 ASCII）**：
+
+1. `aliyun-dump.ps1` —— 安全转储 `设置 → 远程 → 网盘` 页结构（`DUMP_TOTAL=121 NAMED=53`，10,719 B）。
+   拿到真实布局：`settings-nav-item--active` 在「远程」；`TabItem|网盘` / `TabItem|远程连接`；
+   三个 `ListItem` 依次 百度 y=846 / 夸克 y=986 / 阿里云盘 y=1127，各带 `off=False` 的「编辑」「删除」；
+   「添加网盘」三项 `off=True` 在 y=1346。
+   （上一轮误把 `Button|1029,1346,157,71` 当成登录按钮，其实是「添加网盘」区里 `off=True` 的**阿里云盘新增选项**。）
+2. `aliyun-open-edit.ps1` —— 点开阿里云盘那条的「编辑」
+   （判据：所有 `Name=='编辑'` 的 Button 里取 **Y 最大**的那个，避开被掩码的 `阿里云盘***` 组合名）。
+   树 127 → 164，命中 6 条登录相关元素：
+   - **`Button|打开登录窗口|689,1670,204x71|off=True`**
+   - `Text|扫码登录`、`Button|备用：手动二维码登录|1785`
+   - **`Text|会话已过期，需要重新登录`** ⇒ **这就是 B-3 / B-5 / B-6 的界面侧根因**
+3. `aliyun-open-login.ps1` —— 对上面那个按钮下发 `InvokePattern`。
+   `PATTERNS=InvokePattern,ScrollItem` ⇒ **off-screen 元素 Invoke 依然生效，不需要滚动、不需要 clickable point**。
+   `TOP_AFTER=4`，新顶层窗：**`TOP|0|阿里云盘 登录|cls=Tauri Window|264,0,1949x1468|count=21`**。
+
+**登录窗内容**（`accept-aliyun\login-win-0.txt`，21 元素全部 `off=False`）：
+`Text|扫码登录`、`Hyperlink|账号登录`、`请用 / 阿里云盘 App / 扫码` 三段
+⇒ **确认是扫码页，二维码已在用户屏幕上**。
+
+**当前状态（2026-11-24 22:54 复核，订正 22:50 的旧判断）**：
+⚠️ **登录窗已不在**：22:54 枚举顶层窗只剩主窗 `Alpha File Manager`（2256×1221）与两个 24×24 辅助窗，
+`阿里云盘 登录` 已从列表消失（进程 603288 仍在）⇒ 该窗是**被关掉的**，不是「仍开着等扫码」。
+应用日志里阿里云盘鉴权的最后一条仍是本地 **20:39:32** 的
+`Aliyun refresh attempt index=0 client_id=Some("25dzX3vbYqktVxyX") status=400 code=Some("InvalidParameter.ClientId")`
+（`index=1` 同 400）⇒ **用户尚未扫码**。Agent 侧可做的动作已到边界。
+
+### 二十·5 已验证 / 推断 / 未验证
+
+**已验证（本轮当场执行或当场回读）**
+
+- 门禁：`cargo test --lib` 1693 passed / 0 failed / 3 ignored；`npm run check` EXIT=0。
+- §6-1：提交 `613e1958`，工作区干净。
+- §6-2：干净包 + MCP 通道 A/B（百度 13 条含 2 条远程；夸克 0 条）+ 索引内 49 条夸克条目 + 代码侧勾选集合链路。
+- §6-3：登录入口在「编辑」弹窗内；`打开登录窗口` 按钮可 Invoke（off-screen 亦生效）；登录窗已弹出且是扫码页。
+- 环境：`LOGONUI_ABSENT`、`THREAD_DESKTOP=Default`、`FOREGROUND_PID=603288` —— **不是锁屏、不是影刀虚拟桌面**。
+
+**推断（有依据，不是直接实测）**
+
+- 「勾选集合由前端计算并传给后端」在**干净包**里同样生效 —— 依据是 `search_files` 走的就是同一后端检索路径，
+  且代码链路与单测齐备。**未**做的是「鼠标点复选框」这个动作取证。
+
+**未验证（客观条件不具备，装置已就绪）**
+
+- 扫码之后的完整授权链（能否拿到 unionId、B-2 的 400 是否复现）。
+  需用户扫码；若仍 400，需用户提供 `afm-aliyun-login.log`（`src-tauri/src/remote/aliyun_auth.rs:880` 写的旁路日志）。
+- 授权成功后 B-3（过期提醒）/ B-5（杀软超时）/ B-6（三家界面级验收）才谈得上验收。
+
+### 二十·6 本轮踩到的坑（装置侧，写给下一轮）
+
+1. **`foreach ($e in <AutomationElementCollection>)` 在 `powershell.exe` 5.1 下会退化成只跑一次**
+   ⇒ UIA 遍历一律 `for ($i=0; $i -lt $els.Count; $i++) { $els.Item($i) }`。
+2. **`GetSupportedPatterns()` 必须单独 try**，否则一个元素抛异常会让整轮 catch 跳过
+   ⇒ 转储只剩表头（曾产出 12/16/14 B 空壳，却照样打印 `count=121`）。
+3. **对裁剪元素调 `GetClickablePoint()` 必抛「没有可点击的点」** —— 但这**不影响 `InvokePattern`**。
+   off-screen 元素直接 Invoke 就行，别再去想 ScrollPattern。
+4. **标签文件里有数组时，`[string]$labels.login` 会把数组用空格拼成一长串** ⇒ 恒比较失败。
+   必须 `[IO.File]::ReadAllText(path, UTF8) | ConvertFrom-Json`，再**逐别名比对数组**。
+5. **`powershell.exe`(5.1) 不支持 `Invoke-WebRequest -SkipHttpErrorCheck`**（`NamedParameterNotFound`）
+   ⇒ 走 MCP HTTP 的脚本必须用 pwsh 7。
+6. **判远程命中不能用 `remote:[0-9a-f]{8}`**（恒 0）⇒ 真实前缀是 `sfm://remote/<32 位连接 id>/`。
+7. **`Set-Location` 不改 .NET 进程 CWD** ⇒ `[IO.File]::ReadAllText('相对路径')` 报找不到路径；一律传绝对路径。
+8. **中文 query 塞进 `-ArgsJson` 用 `\uXXXX` 转义**，避免 PowerShell / 控制台编码把参数弄坏。
+9. 应用日志被进程独占 ⇒ `FileStream(FileShare.ReadWrite)` + `StreamReader` 读；`[IO.File]::ReadAllLines` 会直接抛。
+
+### 二十·7 下一轮开工指针（只给路径，不复述内容）
+
+- 台账：`docs/open-items-2026-11-24.md` —— 先读 §0 / §2 / §6。
+- 本轮证据目录：`.superpowers/sdd/b46/`（清单见二十·8）。
+- 扫码之后的验收口径：本文件 §十九·6（干净包 SHA256 与旗标判据）+ §十六·5（UIA 可用但只读）。
+- **不要**再去找「远程页上的打开登录窗口按钮」；**不要**再走 `aliyun-login-go.ps1` / `aliyun-invoke-login.ps1` 这两条废弃路径。
+
+### 二十·8 本轮取证产物（全部在 `.superpowers/sdd/b46/`）
+
+- 门禁：`cargo-test-lib.log`、`npm-check.log`
+- 提交：`commit-msg.txt`
+- MCP：`mcp-client.ps1`、`mcp-tools-list.log`、`mcp-search-baidu-on.log`、`mcp-search-quark-off.log`
+- 阿里云盘链路：`aliyun-dump.ps1`、`aliyun-open-edit.ps1`、`aliyun-open-login.ps1`、
+  `aliyun-login-labels.json`、`aliyun-edit-labels.json`、
+  `aliyun-probe2.out.log`、`aliyun-dump.out.log`、`aliyun-open-edit.out.log`、`aliyun-open-login.out.log`
+- UI 结构转储：`accept-aliyun\` 下的 `dump.txt` / `before-edit.txt` / `after-edit.txt` /
+  `after-edit-hits.txt` / `login-win-0.txt` / `login-windows.txt`
+- 现状快照：`state-check.out.log`（22:50 记的是「窗口开着 + 最后一条阿里云盘 400 是本地 20:39」，
+  ⚠️ 该「窗口开着」已被 22:54 复核推翻：顶层窗只剩主窗 + 两个 24×24 辅助窗，`阿里云盘 登录` 已关闭
+  （进程 603288 仍在）；要扫码必须先跑 `aliyun-open-edit.ps1` → `aliyun-open-login.ps1` 重开
+- **已废弃（别再用）**：`aliyun-login-go.ps1`、`aliyun-invoke-login.ps1`；
+  worker 遗留的 `b46-accept.ps1`（41,668 B，无配套 steps JSON，未测）
