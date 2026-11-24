@@ -1636,3 +1636,73 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\.superpowers\sdd\b41\a
   3. **（建议首项）把 AAD 的 `error_description` 透传到前端**（§五 的缺陷）——
      否则发布形态的登录失败无法定位，闭环「验得了失败原因」这一半；
   4. 解锁屏幕后补位置页像素级核验（或改走 tauri-driver + EdgeDriver 读 computed style）。
+
+---
+
+## 十、批次 41 续篇（2026-11-24 真机解锁后）
+
+### 十·1 本轮做完的事
+
+| 项 | 结论 | 证据 |
+| --- | --- | --- |
+| 位置页「可用空间」列**像素级**核验 | **PASS**：7 行可判定文本，文字中心 vs 单元格带中心最大偏差 **0.5 PNG px ≈ 0.87 设备 px** | `.superpowers/sdd/b41/locations-pixel-verification.md`；帧 `.superpowers/sdd/b41/locations-cap3/app-main-20261124-081428.png`；裁剪放大 `locations-cap3/zoom-available-space.png` |
+| 安装版**编译产物级**复核 | **PASS**：`file-browser-list-view__entry-availableSpace: display:flex + align-items:center present in 2 rule(s)` | `node .superpowers/sdd/b41/check-compiled-alignment.mjs` → `RESULT=PASS` |
+| §九「像素级未判定（锁屏）」 | **撤销**：已判定且通过 | 同上 |
+| 写 scope 就位 | **已就位**：07:50 那轮重授权拿到 `Files.ReadWrite`，Graph 建/删夹写探针 `VERDICT=WRITE_SCOPE_OK` | `.superpowers/sdd/b41/probe-graph-write.ps1`；`.superpowers/sdd/b41/reauth-writescope/` |
+| 写路径 W3 上传 | **PASS**：真文件 68 B 经产品「上传到远程」进入 OneDrive 远程窗格并列出 | `.superpowers/sdd/b41/accept-real-b41write-20261124-080653/report.txt` |
+| OneDrive 探针残留 | **已清干净**：`PROBE_ITEMS_FOUND=1 PROBE_ITEMS_DELETED=1`（ROOT 12 项 + 一级子目录） | `.superpowers/sdd/b41/cleanup-probe-items.ps1` |
+| 写路径 W1/W2/W4 | **根因已定位 = 装置路线缺陷（不是产品缺陷）**；修正后的复测**执行中** | 见 十·2 |
+
+### 十·2 W1「新建目录」0 命中的真正原因（源码坐实）
+
+上一轮把 W1 判成 UNDETERMINED 是**装置路线选错**，不是产品没有这个入口。源码事实：
+
+- `src/modules/navigator/components/file-browser/composables/use-context-menu-items.ts:133-135`
+  `hasCreateTarget = selectionStats.hasDirectories && !hasVirtualLocationSelection`
+- `src/modules/navigator/components/file-browser/utils/context-menu-action-visibility.ts:479-481`
+  `create-directory` 可见 ⟺ `context.hasCreateTarget === true`
+- 同文件 `:475-477` `create-file` 还要 `canCreateFile !== false`，而
+  `canCreateFile = !hasRemoteTarget(targets)` ⇒ 远程窗格**按设计**不出现「新建文件」，这不是缺陷
+- ⇒ **空白区右键时没有选中项 → hasDirectories=false → 菜单里根本不会出现「新建」**。
+  正确触发方式是**右键一个「目录」条目行**（右键会选中该行 → selectedEntries 含该目录
+  → hasCreateTarget=true → 菜单出现「新建」→ 子项「目录」）。
+- 「重命名」在**行操作 actions 菜单**里（`file-browser-actions-menu.vue:222` 附近），右键菜单本来就没有；
+  远程行右键菜单里的删除是 `remote-delete` 动作（`context-menu-action-visibility.ts:483-494`）。
+- UIA dump 证明远程窗格**工具栏没有任何「新建」按钮**（本地窗格也没有）⇒ 旧装置的 route B
+  （找工具栏无名按钮）本身就是错路线。
+
+修正后的装置路线：W1 = 右键远程目录行 → 新建 → 目录；W2 = 行 actions 菜单 → 重命名；
+W4 = 右键远程行 → 删除。执行产物落 `.superpowers/sdd/b41/accept-real-b41write-<时间戳>/`。
+
+### 十·3 本轮新踩的坑（写给下一轮）
+
+- **`lastRoute` 是对象不是字符串**：`user-settings.json` 里 `lastRoute` 的真实结构是
+  `{ "fullPageId": "", "name": "navigator" }`。装置若写成 `"/navigator"`，应用解析失败
+  ⇒ **回落到首页**。首次抓帧拍到的是首页仪表盘，不是位置页。
+- **钉位置页要改三处**：`user-settings.json` 的 `lastRoute.name` + `user-workspaces.json`
+  **顶层** `currentTabGroupIndex` 与 `workspaces[0].currentTabGroupIndex`（两处都要写，
+  只写一处不生效）。
+- **availableSpace 列被追加到最右**（`navigator.listColumnOrder` 不含它）⇒ 窗口不够宽时
+  整列被裁掉，拍不到被测列。核验前临时放宽 `navigator.listColumnFlexWeights`
+  （`name`/`availableSpace` 都给足）+ `navigator.showFolderTree=false`，抓完 `-Restore` 还原。
+- **本机 DPI**：真实屏幕 3840×2160、175% 缩放。`GetWindowRect` 在非 DPI-aware 进程里返回
+  **虚拟化**坐标（2208×1200），UIA `BoundingRectangle` 才是物理像素（0..3842），
+  合成鼠标事件要用后者。
+- **分隔线抗锯齿会造出 1px 高的假文本行**：像素判定里「暗像素行」会把分隔线的
+  抗锯齿残留算成文本行，直接算 delta 会把真实 0.5px 偏差盖成 3.5px 假异常
+  ⇒ 必须剔除高度 <5px 的退化行。
+- **用户数据还原要回读确认**：本次抓完回读为
+  `lastRoute={"fullPageId":"","name":"navigator"} idx=4 tree=True flexName=233`，与抓取前一致。
+
+### 十·4 下一阶段（按优先级，接力时按此推进）
+
+1. 写路径 W1/W2/W4 的修正装置复测（**执行中**）——收口后要 Graph 侧独立复核
+   （建→改名→删 三步都要在 `GET /me/drive/root/children` 上看到对应变化），
+   并用 `cleanup-probe-items.ps1` 清干净探针。
+2. **发布形态真 GUID 登录闭环**——阻塞项，需要用户自建 Entra 应用的 `client_id`
+   （public client、`signInAudience=AzureADandPersonalMicrosoftAccount`、redirect `http://localhost`）。
+   发布形态**不得复用**任何第一方 id（如 `14d82eec-204b-4c2f-b7e8-296a70dab67e`）。
+3. **（建议首项）把 AAD 的 `error_description` 透传到前端**——否则发布形态登录失败无法定位，
+   闭环「验得了失败原因」这一半。
+4. 位置页像素核验已闭环，不必再做；若后续改列表列样式，用同一套
+   `pin-locations-route.ps1` + `capture-app.ps1` + `analyze-available-space.ps1` 三件套复验。
