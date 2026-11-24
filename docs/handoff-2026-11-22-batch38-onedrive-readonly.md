@@ -2449,7 +2449,7 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
 | **O-2** 自愈补跑跨页切换可能多跑一次 | **闭合** | `src/composables/use-remote-global-search-index.ts`（模块级闸门） |
 | **O-3** 搜索页模板没有自动化测试 | **闭合**（6 例） | `src/modules/settings/ui/categories/search/__tests__/global-search-remote-index.test.ts`（新增） |
 | **O-6** `reports/` 残留目录未跟踪 | **闭合** | 4 个批次 38/41 探针文件归档到 `.superpowers/sdd/b38/reports-archive/` |
-| O-5 推送 origin | **未做**（需用户授权，对外动作） | 本地 `main` 领先 origin **6 个提交** |
+| O-5 推送 origin | **闭合**（用户 2026-11-24 授权后已推送） | `origin/main` = 本地 `HEAD`（`af1add65`），领先/落后均为 0 |
 
 ### 十六·2 O-1 的实现：三个决定 + 一条链路
 
@@ -2525,7 +2525,7 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
 | CHANGELOG | 根 `CHANGELOG.md` + **14 个 locale** 全部插入 `## [3.22.0] - November 2026` |
 | 安装包 | `release/Alpha File Manager_3.22.0_x64-setup.exe`，**46,151,697 B** |
 | 装机 | `D:\Program Files\Alpha File Manager\alpha-file-manager.exe`，`ProductVersion = 3.22.0`（升级前 3.21.1） |
-| 提交 | `1b0b32e3 feat(batch44): …`（31 文件 / +1292 行），**未推送 origin** |
+| 提交 | `1b0b32e3 feat(batch44): …`（31 文件 / +1292 行），**已推送 origin**（连同收口文档提交一并推送） |
 
 > ⚠️ `src-tauri/src/global_search/scan.rs:387` 的 `unused variable: reader` 是**改动前既有基线**，本批次未动。
 
@@ -2570,7 +2570,10 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
 - 升级前的云盘索引确实是 7 字段旧 schema（**stale 前提成立**）；
 - UIA 能枚举 WebView2 可访问性树并驱动点击（**O-4 半通**）；
 - 应用启动（恢复到「设置-搜索」路由）后界面出现「正在索引云盘」，且进程与网盘 API 保持
-  `Established` 连接、CPU 持续增长 ⇒ **stale ⇒ 自动重建的触发被观测到，且扫描在推进**。
+  `Established` 连接、CPU 持续增长 ⇒ **stale ⇒ 自动重建的触发被观测到，且扫描在推进**；
+- **推送已完成**：用户 2026-11-24 授权后 `git push origin main` 成功
+  （`0a6b38e4..af1add65  main -> main`，退出码 0）；
+  `git ls-remote origin refs/heads/main` = `af1add65`，本地 `origin/main..HEAD` 与 `HEAD..origin/main` 均为空。
 
 **推断**（有强证据但未直接观测）：
 - 「重建跑完后 `meta.json` 会带 `connection_id`」—— 依据：新 schema 由 `write_remote_index` 用
@@ -2581,8 +2584,7 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
 **未验证**：
 - **B-1 真机**：取消勾选后旧条目是否真的从搜索结果消失（用户本机三条真实连接，条件已具备），
   以及多连接混合检索的排序 —— 仍需用户手工做；
-- **云盘索引重建完成后的新 schema 落地**（索引文件改写）—— 收口时仍在跑；
-- 推送 origin（O-5）—— 需用户授权。
+- **云盘索引重建完成后的新 schema 落地**（索引文件改写）—— 收口时仍在跑。
 
 ### 十六·7 本轮踩的坑（**装置侧**，不是产品缺陷）
 
@@ -2613,6 +2615,14 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
 **坑 5（后端）**：`cargo test --lib` 报的 `unused variable: reader` 在 `scan.rs:387`，
 是**改动前就有**的基线，**不是**本批次引入 —— 别去「顺手修」，也别误报成回归。
 
+**坑 6（推送）**：git 全局配了本地代理 `http://127.0.0.1:7897`（Clash 类）。
+该代理**端口在监听**，但 push 时连接建立后被中断 ⇒
+`fatal: unable to access '…': Recv failure: Connection was aborted`（连试两次同样报错）。
+同期**直连是通的**（`Invoke-WebRequest https://github.com -Method Head` → 200，395 ms；
+`Test-NetConnection github.com -Port 443` → True）⇒ 判定问题出在代理这条路，不是 GitHub 不可达。
+⇒ **绕过代理即可**：`git -c http.proxy= -c https.proxy= push origin main`
+⇒ `0a6b38e4..af1add65  main -> main`，退出码 0。
+
 ### 十六·8 下一阶段（按优先级，接力时按此推进）
 
 1. **（建议首项）等 3.22.0 的云盘索引重建跑完，回读 `remote-index/meta.json`**
@@ -2623,8 +2633,9 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
    判据就是 `meta.json` 的 `schema` 数组里有没有 `connection_id`。
 2. **B-1 交用户手工验收**（3 步，5 分钟）：取消勾选百度 → 搜百度独有文件名 → **立刻搜不到**；
    只勾百度 → 搜夸克/阿里独有文件名 → **搜不到**。
-3. **O-5 推送**（需用户明确授权）：本地 `main` 领先 origin **6 个提交**
-   （`1b6c2ba0` / `c97644a4` / `3dbcf57d` / `5409b9c4` / `1b0b32e3` / 「docs(batch44) 收口文档提交，紧跟 `1b0b32e3` 之后」）。
+3. **（已完成）O-5 推送**：用户 2026-11-24 明确授权后已推 `origin/main`
+   （`0a6b38e4..af1add65`）；推送前撞上代理中断，用
+   `git -c http.proxy= -c https.proxy= push origin main` 绕过（见 §十六·7 坑 6）。
 4. **升级后请打开一次「设置」页**（重要）：格式自愈只在进设置页时触发一次；
    从没进过设置页 ⇒ 云盘索引停在旧格式 ⇒ 云盘检索为空。这条要写进发布说明。
 5. **O-4 收尾（可选）**：若要拿 webview console / CDP，打一个**验收专用包**

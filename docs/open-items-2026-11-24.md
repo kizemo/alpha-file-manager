@@ -3,7 +3,7 @@
 > **作用**：把散落在各批次 handoff / plan 里的「还没做完的事」汇成一张可执行清单，避免再靠记忆翻十份文档。
 > **口径**：`OPEN` = 仍开着、可直接开工；`BLOCKED` = 等外部条件（真实凭据 / 上游服务 / 用户本人操作）；`DEFERRED` = 用户主动延期，不算遗漏；`CLOSED` = 已闭合。
 > **本轮依据**：批次 44 收口（O-1 / O-2 / O-3 / O-6 全部闭合，升版 3.22.0 已装机）。详见 `docs/handoff-2026-11-22-batch38-onedrive-readonly.md` §十六。
-> **最近更新**：2026-11-24
+> **最近更新**：2026-11-24（含 O-5 推送闭合）
 
 ---
 
@@ -12,8 +12,10 @@
 批次 44 把「勾了哪个网盘，就只搜哪个网盘」这条规则**钉进了索引数据里**（O-1 闭合），
 并给它配上了**自动检查**（O-3 闭合）、修掉了自愈补跑的多跑一次（O-2 闭合）、清掉了 `reports/` 残留（O-6 闭合）。
 
-仍然开着 **2 项**：其中 1 项要用户点头（推送 origin，O-5），1 项是界面级取证的**半通**路线（O-4）；
+仍然开着 **1 项**：界面级取证的**半通**路线（O-4）；
 另外 **6 项**属于等外部条件的阻塞项、**1 条**是用户主动延期的线（OneDrive）、**3 项**是已明确不再做的。
+
+**推送已完成**：2026-11-24 用户明确授权后已执行推送，本地 `main` 与 `origin/main` 对齐（领先/落后均为 0）。
 
 ---
 
@@ -25,6 +27,7 @@
 | O-2 自愈补跑跨页切换可能多跑一次 | **已闭合**：模块级闸门 `remoteIndexResyncAttempted`，一次失败最多自动补跑一次 | commit `1b0b32e3`；`src/composables/use-remote-global-search-index.ts` |
 | O-3 搜索页模板没有自动化测试 | **已闭合**：补组件级单测 6 例（分组/逐行/勾选态、未勾选不渲染按钮、正在索引只给本轮集合、全部重建只传已勾选集合、一个没勾选时提示无按钮、取消勾选当场落库且按钮消失） | `src/modules/settings/ui/categories/search/__tests__/global-search-remote-index.test.ts` |
 | O-6 `reports/` 残留目录未跟踪 | **已闭合**：4 个批次 38/41 探针文件归档到 `.superpowers/sdd/b38/reports-archive/`（该目录已被忽略） | `.superpowers/sdd/b38/reports-archive/` |
+| O-5 本地领先的 6 个提交未推送 origin | **已闭合**：用户 2026-11-24 授权后已推送 `origin/main`；`git ls-remote origin refs/heads/main` = `af1add65`，本地 `origin/main..HEAD` 与 `HEAD..origin/main` 均为空 | `git ls-remote` 实测；handoff §十六·1、§十六·7 坑 6 |
 | 门禁 | `npm run check` 全绿（`Test Files 334 passed` / `Tests 3597 passed`）；`cargo test --lib` 1691 passed / 0 failed / 3 ignored | `.superpowers/sdd/b44/check3.log`、`.superpowers/sdd/b44-cargo-test.log` |
 | 打包 + 装机 | `release/Alpha File Manager_3.22.0_x64-setup.exe`（46,151,697 B）；已装到 `D:\Program Files\Alpha File Manager\alpha-file-manager.exe`，`ProductVersion = 3.22.0` | `.superpowers/sdd/b44/tauri-build.log`、`.superpowers/sdd/b44/install-status.txt` |
 | 真机：升级后旧索引确实是「格式过期」 | **已验证**：3.21.1 建的 `remote-index/meta.json` 只有 7 个字段、无 `connection_id` ⇒ 升级后判 `stale` 属实；应用启动（恢复到「设置-搜索」路由）后界面出现「正在索引云盘」、进程与网盘 API 保持 Established 连接 ⇒ 重建**已被触发且在扫描中**（索引文件改写尚未观测到） | `.superpowers/sdd/b44/uia-report.txt`、`.superpowers/sdd/b44/uia-observe.txt` |
@@ -32,22 +35,6 @@
 ---
 
 ## 2. OPEN —— 仍开着，可直接开工
-
-### O-5 四个提交未推送（需要授权）
-
-`git log origin/main..HEAD`：
-
-| 提交 | 内容 |
-| --- | --- |
-| `1b6c2ba0` | OneDrive 支持整条线延期（界面下线，代码全留） |
-| `c97644a4` | 批次 43 四项网盘交互收口（升版 3.21.0） |
-| `3dbcf57d` | 修索引状态串台 + 核查勾选语义（升版 3.21.1） |
-| `5409b9c4` | 批次 43 第二轮收口文档（跨批次台账） |
-| `1b0b32e3` | 批次 44 收口（O-1/O-2/O-3/O-6，升版 3.22.0） |
-| 「docs(batch44) 收口文档提交，紧跟 `1b0b32e3` 之后」 | 批次 44 收口文档（台账更新 + handoff §十六） |
-
-- 远端 `origin = https://github.com/kizemo/alpha-file-manager.git`，本地 `main` 领先 **6 个提交**。
-- **推送属对外动作，需用户明确授权**（本仓一贯口径）。本批次未做任何推送动作。
 
 ### O-4 界面级取证路线：**通了 UI 这一半，console/CDP 那一半仍不通**
 
@@ -122,7 +109,7 @@ O-1 把语义从「取消勾选要等下次重建才清干净」改成「**查�
 
 ### 一句话
 
-**规则已经钉死了，接下来只差两件收尾：把成果推上去，以及你亲手确认一次「取消勾选 = 立刻搜不到」。**
+**规则已经钉死了，成果也已经推上去了，现在只差你亲手确认一次「取消勾选 = 立刻搜不到」。**
 
 ### 拆成三件用户能看懂的事
 
@@ -134,10 +121,9 @@ O-1 把语义从「取消勾选要等下次重建才清干净」改成「**查�
    「设置→搜索」这一页现在有组件级自动测试了：谁该显示正在索引、谁不该显示、
    取消勾选后立刻消失，都写成了断言；以后再改这块代码，改坏了会立刻报错。
 
-3. **（待你点头）让成果真正进发布流程**
-   3.21.0 / 3.21.1 / OneDrive 下线那次 / 3.22.0 这几个版本目前**只在这台电脑上**，
-   还没推到对外的代码库。要做的是：**把这五个提交推上去**，让安装包、线上更新检查和对外下载都能拿到最新版本。
-   这一步是对外动作，需要你点头。
+3. **（已完成）让成果真正进发布流程**
+   3.21.0 / 3.21.1 / OneDrive 下线那次 / 3.22.0 这几个版本在你点头后**已经推到对外的代码库**，
+   安装包、线上更新检查和对外下载现在都能拿到最新版本。
 
 ### 顺带能很快收掉的一件（B-1，你自己就能做）
 
@@ -164,3 +150,4 @@ O-1 把语义从「取消勾选要等下次重建才清干净」改成「**查�
 | 批次 44 门禁 / 打包 / 装机 / 真机证据 | `.superpowers/sdd/b44/`（`check3.log`、`tauri-build.log`、`install-status.txt`、`uia-report.txt`、`uia-observe.txt`、`rebuild-poll2.txt`） |
 | 批次 44 Rust 单测日志 | `.superpowers/sdd/b44-cargo-test.log` |
 | 本轮改动 | commit `1b0b32e3`（3.22.0） |
+| 推送记录 | 2026-11-24 经用户授权推送 `origin/main`（`0a6b38e4..af1add65`）；踩的坑与解法见 handoff §十六·7 坑 6 |
