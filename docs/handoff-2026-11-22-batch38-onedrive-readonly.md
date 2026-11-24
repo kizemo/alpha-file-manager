@@ -2760,6 +2760,7 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
   勾选集为空时静默返回空云盘结果（`query.rs:303-307`）。三者对用户和日志都是同一种「没结果」。
   → **「搜不到」永远无法与「索引是空的」区分开**。本轮若不是去数段文件，就会把 B-1 误判成假通过。
 - 两条修法都极小（1 条 INFO + 2 条 WARN，不动逻辑、不动查询语义），**比任何界面自动化路线都划算**，建议批次 45 后半段直接做。
+  → **已做，见 §十七·9**（四段 INFO + 一次性口径，返回值语义未动）。
 
 ### 十七·6 §十六·8 各项现状对账
 
@@ -2793,3 +2794,101 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
 | 其输出（含 `segments` / mtime / 目录实况） | `.superpowers/sdd/b44/rebuild-final.txt`（6,935 B） |
 | 盘上实况（复查于本地 17:2x） | `C:\Users\Duanyi\AppData\Roaming\com.sigma-file-manager.app\remote-index\` |
 | 应用日志（真机时间线唯一来源，UTC） | `C:\Users\Duanyi\AppData\Local\com.sigma-file-manager.app\logs\Alpha File Manager.log` |
+
+---
+
+### 十七·9 W-7 / W-8 取证日志补丁（批次 45 后半段，本会话）
+
+批次 45 前半段做完 B-1 双向闭合后，用户选「先做 W-7/W-8 日志补丁」，即台账
+`docs/open-items-2026-11-24.md` §4 的 **W-7**（云盘索引重建全程无日志：提交 / 完成 / 耗时都看不见）
+与 **W-8**（查询侧对云盘零日志：「搜不到」和「索引为空」在日志里不可区分）两条缺口。
+本批**纯取证补丁，不改任何返回值语义**，所以行为与已发布的 3.22.0 逐字一致，
+不需要真机验收，只需编译 + 单测。
+
+#### 1. 改了哪些地方（3 个文件 / 5 段改动，本批全部已入库）
+
+| # | 位置 | 改动 | 日志级别 |
+|---|---|---|---|
+| 1 | `src-tauri/src/global_search/remote_index.rs` 模块级 | 新增 `static REMOTE_INDEX_UNAVAILABLE_LOGGED: AtomicBool` + `fn log_remote_index_unavailable_once(message: &str)`，`swap(true)` 判首次 | — |
+| 2 | 同文件 `open_remote_reader` | 原 `.ok()?` 改成显式 `match`：**索引目录不存在** → 一次性 INFO（带 `index_path.display()` + 「直到下一次重建」）；**打不开** → WARN；**schema 不符** 保留原每次 WARN；**reader 构造失败** → WARN。`Option` 返回值语义未动 | INFO / WARN |
+| 3 | 同文件 `write_remote_index` | commit 前取 `Instant::now()`；失败在 `map_err` 里 WARN「提交失败（待写 {} 条）」；成功后 `store(false)` **复位一次性开关** + INFO「提交完成：{} 条，commit={}ms，目录 {}」 | INFO / WARN |
+| 4 | `src-tauri/src/global_search/commands.rs` `global_search_index_remote_connections` | 入口 INFO「重建开始：N 个连接 <ids>」；`connection_ids.is_empty()` 分支在 `clear_remote_index` 后补 INFO 再 `return Ok(0)`；collect 前后计时 → INFO「收集完成：N 条，collect=Xms（上限 {} 条）」；`spawn_blocking` join 崩溃 WARN；收尾 INFO「重建完成：写入 {} 条，总耗时 {}ms」 | INFO / WARN |
+| 5 | `src-tauri/src/global_search/query.rs` `search_remote_index` | 「无勾选连接」分支加函数内 `static LOGGED_EMPTY_SELECTION: AtomicBool`，首次一次性 INFO「当前没有任何勾选「加入全局检索」的云盘连接，本次查询云盘结果按空处理」，`return Some(Vec::new())` 语义未动 | INFO |
+
+上限数字直接从 `super::remote_index::REMOTE_INDEX_MAX_ENTRIES`（`remote_index.rs:48`，值 `20_000`）引用，
+不硬编码，避免将来提额后日志说谎。
+
+#### 2. 判据设计（下次装机怎么看这段日志）
+
+日志位置 `%LOCALAPPDATA%\com.sigma-file-manager.app\logs\Alpha File Manager.log`，
+**时间戳是 UTC，本地 = UTC+8**；过滤噪音用 `-notmatch '\[WARN\]'`，不要用 CJK 字面量匹配。
+
+- 「重建开始 → 收集完成 → 提交完成 → 重建完成」四段 INFO 齐全 ⇒ 重建链路健康，`collect` / `commit` / 总耗时三个数分别定位「网络遍历慢」还是「写盘慢」。
+- 只有「重建开始：0 个连接」+「连接列表为空，已清空索引目录」⇒ 用户没勾任何云盘，**不是索引坏了**。
+- 出现「云盘索引目录不存在…直到下一次重建」⇒ 查询侧空结果的真正原因是索引缺失，与「搜索逻辑坏了」区分开。
+- 「无勾选「加入全局检索」的云盘连接」⇒ 用户视角的「搜不到」在这里，属于配置态而非缺陷。
+- 提交失败 WARN 带「待写 N 条」⇒ 能判断是撞 20000 上限还是 IO / 权限问题。
+
+#### 3. 为什么用「一次性日志」（关键取舍）
+
+查询侧原本 `search_remote_index` 返回 `Option<Vec<...>>`，空勾选与索引不可用都静默返空。
+补日志有两个候选方案：
+
+- **A（采用）**：只在两个**高频且良性**的分支打一次性 INFO —— 「索引目录不存在」和「无勾选连接」。
+  一次查询会命中所有连接的 reader，若每次 INFO，用户搜一次字就刷几十行，日志直接被自己写的噪音淹没。
+  一次性开关由 `write_remote_index` 提交成功复位，因此「重建完成 → 目录又没了」这类**状态变化仍然会说第二遍**。
+- **B（放弃）**：用 static 把 remote outcome 传回 `query.rs:253` 已有的那行 INFO。
+  放弃原因：跨线程并发下 A 任务 set 之后、read 之前可能被 B 任务改写 ⇒ **会给日志打错标签**。
+  取证日志一旦可能说谎，比没有更糟。
+
+schema 不符 / 打不开 / reader 失败三处保持**每次 WARN**：罕见且是真异常，不该被去重吞掉。
+
+已知口径局限（写进代码注释，不是缺陷）：进程内「重新勾选 → 再取消」这类重复不会再说第二遍，进程重启自然复位。
+
+#### 4. 我自己写进去的两个缺陷（自查 + 编译器各抓一个）
+
+1. **第一版 W-8 日志带 `allowed_connection_ids.len()`** —— 该分支的前提就是这个列表为空，
+   恒为 0，打印出来是一句永远说谎的「0 个连接」。当场读回自己刚写的代码发现，改成无参文案。
+   教训：取证补丁的**内容本身也要过一遍判据**，别只保证「有日志」。
+2. **少了一个 `?`**（`commands.rs:139`）—— 原代码靠**尾表达式**直接返回 `spawn_blocking` 闭包内的
+   `Result<u64, String>`；我把它改成 `let indexed = ...?` 后，那个 `?` 只剥掉了外层 `JoinError`，
+   `indexed` 仍是 `Result` ⇒ `E0277 Result<u64,String> doesn't implement Display` + `E0308` 两处红。
+   改成 `})??` 即闭合。**这两条错误是 `cargo test --lib` 报的，我此前四次盲改都没发现** ——
+   凭记忆判断「`pub(super)` 大概不可达 / `try_into` 大概推断不出来」是浪费，编译器一次就给了准话。
+
+#### 5. 门禁
+
+- 前端 `npm run check`：**EXIT=0 全绿**。`Test Files 334 passed (334)`、`Tests 3597 passed (3597)`，
+  ts / eslint / stylelint / verify-changelog / verify:sandbox 全过，sandbox 门禁所有扩展入口 PASS。
+  本批**未新增 Tauri 命令**，故 `app-commands-default.toml` 确认无需改动。
+  证据 `.superpowers/sdd/b45-check.log`（213 行）。
+- Rust `cargo test --lib`（1.90.0 工具链）：**EXIT=0 全绿**。
+  `test result: ok. 1691 passed; 0 failed; 3 ignored; finished in 7.18s` —— 与基线**逐字一致**（不增不减）。
+  首轮 EXIT=101 的唯一原因就是第 4.2 条少掉的那个 `?`，补上 `})??` 后一次通过；
+  **编译器没有报**我此前担心的 `REMOTE_INDEX_MAX_ENTRIES` 可见性、`try_into()` 推断（E0282）、
+  tantivy 错误类型 `Display`、`map_err` 闭包 borrow/move 四类问题 —— 那四条猜测全部落空，
+  印证「凭记忆排风险不如让编译器说一次」。证据 `.superpowers/sdd/b45-cargo-test2.log`（1883 行）。
+- 基线未变：前端 334 文件 / 3597 用例；Rust 1691 passed / 0 failed / 3 ignored；`npm run verify-changelog` 67 条目。
+
+#### 6. 本机 Rust 门禁的唯一可用姿势（重要装置坑）
+
+本会话期间 `C:\Users\Duanyi\.cargo\bin` 里 **cargo.exe / rustc.exe 的 shim 丢失**
+（只剩 `cargo-tauri.exe` / `rustup.exe` / `tauri.exe`），裸 `cargo` 报「术语不会被识别」。
+同时一次**疑似中断的 rustup 升级把 `stable` 装坏了**：`stable` 已指向 1.97.1，但用它编译会在
+**与本项目无关的依赖 crate** 上炸出数百条假错误（`only metadata stub found for 'rlib' dependency
+rustc_std_workspace_core`、`cannot find macro format in this scope`、`E0425/E0433/E0531` 打满
+`find-msvc-tools` 293 错、`phf_shared` 67 错），并伴随 cargo 缓存报 `file is not a database`（code 26）。
+⇒ **不要**在 `stable` 上纠缠，直接指定完好的旧工具链：
+
+```powershell
+# 不切目录 + --manifest-path，避免工作目录变更后写绝对路径被本地安全门禁拒绝
+$env:Path = "C:\Users\Duanyi\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin;" + $env:Path
+& cargo test --lib --manifest-path F:/soft/00selfmade/filemanager/sigma-file-manager/src-tauri/Cargo.toml
+```
+
+- 前端门禁同理：`& "D:\Program Files\nodejs\npm.cmd" --prefix <repo绝对路径> run check`，**不要 `cd`**。
+- 踩过的坑：`cd <dir>` 之后再往**绝对路径**写文件（`Out-File`）会被本地硬安全门禁整条拒
+  （`write/delete targets cannot be verified safely after a command working directory change`）。
+- 项目原 AGENTS.md 教的 `cd src-tauri; cargo test --lib` 在本机当前状态下**失效**，按上面姿势走。
+- 待用户处置：是否允许跑 `rustup` 修复 / 回滚 `stable`（属仓库外系统状态，本会话未动）；
+  不修则后续批次的 `cargo test --lib` 与 `tauri:build` 都只能借 1.90.0 工具链。
