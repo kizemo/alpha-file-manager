@@ -2656,3 +2656,137 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
 | Rust 单测日志 | `.superpowers/sdd/b44-cargo-test.log` |
 | CHANGELOG 写入脚本 | `.superpowers/sdd/b44-changelog-3.22.0.cjs` |
 | 提交 | `1b0b32e3 feat(batch44): …` |
+
+---
+
+## 十七、批次 45 —— B-1 真机闭合 + 云盘索引侧取证（2026-11-24）
+
+### 十七·1 本轮干了什么（一段话）
+
+按 §十六·8 开工：读完 AGENTS.md / 台账 / §十六 → 用户回报 B-1 手工验收通过。
+**本轮没有直接把「用户说搜不到」登记成闭合**，而是先去坐实 §十六·8 第 1 项的后半段——
+「盘上那份云盘索引，验收那一刻到底有没有内容」。查这条花掉的时间比写代码多，但它决定了 B-1 是真证据还是假证据：
+如果索引当时是空的，「取消勾选百度 → 搜不到」就是**必然结果**，过滤逻辑一行没被验证过。
+
+结论：**索引非空，验收成立**，B-1 闭合（残余风险见 §十七·3）。
+过程中另外暴露两条**可观测性缺口**（§十七·5，已进台账 W-7 / W-8），以及 6 条装置坑（§十七·4）。
+
+### 十七·2 B-1 的证据链（为什么这次的「搜不到」算数）
+
+**已验证（盘上 + 日志双向）**
+
+1. **索引非空**：`C:\Users\Duanyi\AppData\Roaming\com.sigma-file-manager.app\remote-index\` 下 `meta.json` 顶层
+   `"segments": [ { "segment_id": "b48f0d55-4be5-4eb3-8b99-2f03eb754a42", "max_doc": 20000 } ]`，
+   配套 6 个段数据文件（`.fast` 1,023,661 / `.fieldnorm` 80,127 / `.idx` 2,120,337 / `.pos` 597,502 /
+   `.store` 1,149,842 / `.term` 1,496,536，合计约 6.4 MB），`.managed.json` 258 B。
+2. **schema 是 8 字段版，末尾带 `connection_id`**（`type: text` / `tokenizer: raw` / `stored: true`）
+   → §十六·5 里「重建后 meta.json 会带 connection_id」那条**推断，本轮实测成立**。
+3. **时间线**（应用日志 `%LOCALAPPDATA%\com.sigma-file-manager.app\logs\Alpha File Manager.log`，
+   时间戳为 **UTC，本地 = UTC+8**）：`INFO 云盘索引连接 0f0696babf4f42d1aef22c61aa89b0a9 收集到 20000 条`
+   出现在 06:34:21 / 07:37:13 / **08:39:35 UTC = 本地 14:34 / 15:37 / 16:39:35**；
+   `meta.json` 的 mtime 与之同刻 → **16:39 那次重建真的写盘了**。
+4. 用户验收在本地 **17:03**，晚于该次提交 → 验收时索引里**确实有**百度条目（`0f0696…` 是百度那条连接）。
+   所以「搜不到」无法用「索引是空的」解释 → **勾选过滤链路在真机上生效**。
+5. **本地索引不受影响**（同日志 08:49:41 UTC `mode=Full outcome=Completed indexed=983899`，
+   F:/ ≈309,022、E:/ ≈674,837）→ 与 §十六「不动本地索引」的设计一致。
+6. 用户后续勾选变更也走通：17:05:16 / 17:06:18 / 17:07:07 各触发一次重建，
+   本轮 17:2x 复查时目录完整、`.managed.json` 已从 14 B 涨到 258 B、段文件齐 → **勾选变更 → 重建端到端可用**。
+
+**代码侧链路（本轮逐行读过，坐实「云盘结果只来自 sidecar 索引、无 live 兜底」）**
+
+- `src-tauri/src/global_search/query.rs:248`
+  `let merged = match search_remote_index(&base_dir, &query, &options) { None => finalized, Some(rs) => merge_search_results(...) }`
+  → 远端返回 `None` 时**静默降级成只搜本地**（见 W-8）。
+- `search_remote_index`（`query.rs:287`）先 `open_remote_reader(&index_path)?`
+  （`remote_index.rs:266`：目录不存在 / 打不开 / schema 不符一律 `None`），
+  再用 `enabled_connection_ids(&user_data_dir)`（`remote_index.rs:344`）在 `connection_id` 上做 `TermQuery` 过滤
+  （`build_connection_filter`，`query.rs:367`）；**勾选集为空 → 返回 `Some(Vec::new())`**（`query.rs:303-307`）。
+- 写入链路本身无缺陷：`commands.rs:83-116` → `app_data_dir` 为 base_dir，
+  `connection_ids` 为空则 `clear_remote_index` 返回 0（`:97-100`），否则
+  `collect_remote_entries(...).await`（`:106-108`）→ `spawn_blocking(write_remote_index)`（`:111-113`）；
+  `remote_index.rs:225-260` `write_remote_index` = 建索引 + bulk writer + 逐条 8 字段 `add_document` + `commit()`。
+
+### 十七·3 残余风险（诚实标注，**未闭合**）
+
+- **阳性对照没单独做一次**：没有在「勾选百度」状态下搜同一个文件名、确认**能搜到**。
+  缓解事实是 §十七·2 的 1/3/4（验收时刻索引里确有 20000 条百度条目），
+  以及用户批次 43/44 期间一直在云盘结果里看到百度文件；
+  但「远端检索在 3.22.0 上本身能出结果」这件事**未被本轮单独记录**。
+  → **30 秒可补**：重新勾选百度 → 搜那个百度独有文件名 → 出现即彻底坐实；不出现则 B-1 需重开。
+- **另一半口径未做**：只勾百度 → 搜一个只有夸克/阿里云盘才有的文件名 → 应搜不到。
+- **多连接混合检索排序**仍未处理（台账 §5 已拍板「暂不做」，用户口径）。
+
+### 十七·4 本轮踩到的取证坑（装置类，写给下一轮，别重复烧额度）
+
+1. **窄控制台里 `Get-ChildItem | Format-Table -AutoSize` 会静默吞行**。
+   我第一次只看到 `meta.json` / `.managed.json` / `.tantivy-writer.lock` 三行，据此一度判定「盘上索引为空 = 0 条」，
+   方向几乎被带偏成「新开一条『收集到 20000 条却提交 0 段』的候选缺陷」，并据此准备把 B-1 判成假通过。
+   **判据**：列目录一律 `-Recurse` + `Select-Object FullName,Length`；
+   **任何「空 / 不存在 / 只有一个文件」的结论，必须用第二种取法复核后才许进账**（`-Recurse`、或 `(Get-ChildItem).Count`、或换 `glob` 工具）。
+2. **Tantivy 0.23 的 `meta.json` 顶层键是 `segments` / `opstamp`，不在 `indexes` 下**。
+   用 `ConvertFrom-Json` 猜结构 → `$j.indexes.segments` 是 `$null`，而 PowerShell 5.1 里 **`@($null).Count == 1`**
+   → 读出「segments=1」这种**伪值**（可能是真 1 段，也可能只是 null）。同一次输出里 `field_names=` 为空就是 `$j.indexes` 为 null 的自证。
+   **判据**：直接 grep 原文 `"segments":\s*\[\s*\{` 与 `max_doc`，别拿反序列化后的计数当事实。
+3. **应用日志时间戳是 UTC（本地 +8）**。本轮是把「本地 16:39 索引落盘」和「本地 17:03 用户验收」对齐后才判得清。
+   按字面当本地时间读，会得出「验收之后才重建」的反向结论。
+4. **`powershell -NoProfile -Command "...$var..."` 在本环境必崩**：bash 吞掉 `$`，PowerShell 收到 `=F:\...`
+   → `The term '=F:\...' is not recognized` + `Get-Item : ... missing mandatory parameters: Path`。本轮踩两次。
+   长逻辑一律落成**纯 ASCII `.ps1`**，用 `-ExecutionPolicy Bypass -File` 跑（本轮产物见 §十七·8）。
+5. **`cd "<repo>" && powershell -File ...` 会被本地硬安全策略整条拒**：
+   `Permission denied for bash: Local hard safety policy blocked bash: write/delete targets cannot be verified safely after a command working directory change.`
+   （`git` 类命令 `cd` 没事；带 `powershell -File` 就不行。）→ 调脚本用**绝对路径、不 cd**。
+6. 日志判读：`未继续下钻` 的 WARN 全是 `REMOTE_INDEX_MAX_ENTRIES = 20_000`（`remote_index.rs:48`）触顶噪音
+   （百度目录超上限），会刷屏盖掉 INFO。过滤用 `-notmatch '\[WARN\]'`，**不要用 CJK 字面量做匹配**。
+7. **locale CHANGELOG 在 `public/changelog/<lang>/changelog.md`，不在 `src/localization/`**。
+   我在 `src/localization` 下 grep「重建」措辞零命中，白烧一次调用。
+8. **本文物理章节顺序是乱的 + 子节编号混用两套风格**：§十一（批次 42）被追加到 §十六 **之后**
+   （`## 十一、` 在行 1716，`## 十六、` 在行 1385），§十二~§十五 仍在其前；子节既有阿拉伯式
+   （`#### 12.5` 行 671 / `### 13.5` 行 815）也有中国式（`### 十一·5` / `### 十七·5`）。
+   ⇒ **判「悬空指针」必须逐字确认目标子节标题存在**，别看到阿拉伯编号就认定断了：本轮一度据
+   「§十一 在 §十六 之后」推断 §十二/§十三 也乱了，进而宣称修好了 §十·2 的 `§12.5` 悬空指针，
+   结果 `git diff` 显示该文件 **126 插入 / 0 删除** —— 既有文本一行没动，**那条「修复」根本没发生过**
+   （复测两份文档均无该表述残留，教训只留在此处）。新增章节沿用「中文编号 + `·N` 子节」，**追加前先 grep 编号防撞**，
+   改完再用 `git diff --numstat` 自证「我以为删了什么、实际删了没有」。
+
+### 十七·5 本轮暴露的产品侧缺口 → 已进台账 W-7 / W-8
+
+- **W-7 重建没有「提交 / 完成 / 耗时」日志**：只有逐连接 `INFO 收集到 N 条`（`remote_index.rs:200-205`）。
+  「用户搜索那一刻重建完了没有」这个问题**当场不可回答**，只能靠 mtime + 段文件反推（本轮反推时还踩了 §十七·4/1）。
+- **W-8 检索链路（查询侧）零日志**：`query.rs` 全程 `Ok/Err` 静默——
+  `search_remote_index` 返回 `None`（目录不存在 / 打不开 / schema 不符）静默降级成只搜本地，
+  勾选集为空时静默返回空云盘结果（`query.rs:303-307`）。三者对用户和日志都是同一种「没结果」。
+  → **「搜不到」永远无法与「索引是空的」区分开**。本轮若不是去数段文件，就会把 B-1 误判成假通过。
+- 两条修法都极小（1 条 INFO + 2 条 WARN，不动逻辑、不动查询语义），**比任何界面自动化路线都划算**，建议批次 45 后半段直接做。
+
+### 十七·6 §十六·8 各项现状对账
+
+| §十六·8 原项 | 本轮现状 |
+|---|---|
+| ① 用户手工验收 B-1 | **已闭合，但判据换过**：不是「用户说搜不到」单独成立，而是「验收时刻盘上索引非空」把它撑起来（§十七·2）。残余见 §十七·3 |
+| ① 回读 `meta.json` 确认重建真机落地 | **已确认**：schema 带 `connection_id` + 索引含 20000 条（§十七·2/1-2） |
+| ② git 遗留 | 工作区干净、`HEAD = 8191bf1b`；`.superpowers/` 属被忽略的证据目录，沿用批次 44 口径**不入库**；worktree 清理待用户授权 |
+| ③ O-4 路线 | **待用户拍板**：A = 打验收专用包改 `AdditionalBrowserArguments` 拿 console / B = 继续 UIA + 手工验收。本轮给台账 §2 补了第三条取证渠道（应用日志，见 W-7/W-8） |
+| ④ CHANGELOG 措辞 | **已落地、无需补**：`1b0b32e3` 一次性把 12 行 3.22.0 条目写进根 `CHANGELOG.md` + 全部 14 个 `public/changelog/<lang>/changelog.md`；中文 `ch` 版第 14 行逐字含「应用会在你第一次打开搜索或远程设置时替你重建」。**订正**：§十六·8 说「待逐字核对」，现已核对 |
+| ⑤ 候选缺陷评估 | 「扫描期间冷启首查返回空」「`search_files.rs` 死代码清理」两项用户已拍板**暂不处理** → 本轮补录进台账 §5 已拍板不做（此前只散落在 handoff 里）；另新增 W-7 / W-8 |
+
+### 十七·7 下轮开工指针（只给路径，不复述内容）
+
+- 台账：`docs/open-items-2026-11-24.md`（§1 B-1 闭合行、§3 末口径更新、§4 W-7/W-8、§6 新顺序、§7 批次 45 证据）
+- 代码：`src-tauri/src/global_search/query.rs`（248 / 287 / 303-307 / 367）、
+  `src-tauri/src/global_search/remote_index.rs`（48 / 200-205 / 225-260 / 266 / 344）、
+  `src-tauri/src/global_search/commands.rs`（83-116）
+- 证据：`.superpowers/sdd/b44/rebuild-final.txt`、`.superpowers/sdd/b44/applog-remote-index.txt`
+- 门禁基线（改后需复跑对齐）：`npm run check` 334 文件 / 3597 用例、`cargo test --lib` 1691 passed / 0 failed / 3 ignored、
+  `npm run verify-changelog` 67 条目；新增 Tauri 命令要同步 `src-tauri/permissions/app-commands.toml`
+- 已知噪音（**非回归、不顺手修**）：`src-tauri/src/global_search/scan.rs:387` `unused variable: reader`
+
+### 十七·8 本轮取证产物
+
+| 用途 | 路径 |
+|---|---|
+| 应用日志 remote_index 行抽取脚本（纯 ASCII） | `.superpowers/sdd/b44/applog-remote-index.ps1`（768 B） |
+| 其输出（293 命中行 / 110,285 B） | `.superpowers/sdd/b44/applog-remote-index.txt` |
+| 索引目录 + meta.json 回读脚本 | `.superpowers/sdd/b44/rebuild-final.ps1`（1,195 B） |
+| 其输出（含 `segments` / mtime / 目录实况） | `.superpowers/sdd/b44/rebuild-final.txt`（6,935 B） |
+| 盘上实况（复查于本地 17:2x） | `C:\Users\Duanyi\AppData\Roaming\com.sigma-file-manager.app\remote-index\` |
+| 应用日志（真机时间线唯一来源，UTC） | `C:\Users\Duanyi\AppData\Local\com.sigma-file-manager.app\logs\Alpha File Manager.log` |
