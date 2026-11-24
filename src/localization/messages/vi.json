@@ -530,7 +530,10 @@
       "remoteIndexDescription": "Các tệp của kết nối đã thêm vào tìm kiếm toàn cục sẽ xuất hiện trong kết quả tìm kiếm.",
       "rebuildRemoteIndex": "Dựng lại chỉ mục đám mây",
       "rebuildRemoteIndexDescription": "Lấy lại các tệp của kết nối đã đánh dấu rồi ghi vào chỉ mục; việc này dùng hết hạn mức API của ổ đĩa mạng.",
-      "noRemoteInSearch": "Chưa thêm ổ đĩa mạng nào vào tìm kiếm toàn cục"
+      "noRemoteInSearch": "Chưa thêm ổ đĩa mạng nào vào tìm kiếm toàn cục",
+      "noNetdiskConnections": "Chưa có kết nối nào cho ổ đám mây này",
+      "rebuildCheckedRemoteIndex": "Xây dựng lại chỉ mục cho các kết nối đã chọn",
+      "rebuildCheckedRemoteIndexHint": "Việc xây dựng lại luôn dùng toàn bộ tập kết nối đã chọn — không thể xây dựng lại riêng một kết nối."
     },
     "drives": {
       "driveDetection": "Phát hiện ổ đĩa",

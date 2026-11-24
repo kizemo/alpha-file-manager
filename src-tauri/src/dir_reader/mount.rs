@@ -97,8 +97,21 @@ fn disconnect_windows_network_drive(mount_point: &str) -> Result<(), String> {
     let drive_letter = parse_windows_drive_letter(mount_point)
         .ok_or_else(|| format!("Invalid network drive mount point: {}", mount_point.trim()))?;
 
-    let output = std::process::Command::new("net")
-        .args(["use", &drive_letter, "/delete", "/y"])
+    let mut command = std::process::Command::new("net");
+    command.args(["use", &drive_letter, "/delete", "/y"]);
+
+    // `net.exe` 是 console 程序，而 AFM 自身不带控制台
+    // （`windows_subsystem = "windows"`），Windows 只能给它新分配一个
+    // conhost —— 用户看到的就是一个黑框一闪而过。
+    // CREATE_NO_WINDOW 让子进程不分配新控制台窗口：断开映射的行为完全不变。
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    let output = command
         .output()
         .map_err(|run_error| format!("Failed to run 'net use': {}", run_error))?;
 

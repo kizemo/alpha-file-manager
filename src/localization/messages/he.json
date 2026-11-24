@@ -567,7 +567,10 @@
       "remoteIndexDescription": "קבצים מחיבורים שנוספו לחיפוש הגלובלי מופיעים בתוצאות החיפוש.",
       "rebuildRemoteIndex": "בנייה מחדש של אינדקס הענן",
       "rebuildRemoteIndexDescription": "מוציא מחדש את הקבצים של החיבורים המסומנים וכותב אותם לאינדקס; הפעולה צורכת מכסת API של הדיסק ברשת.",
-      "noRemoteInSearch": "אין עדיין דיסק ברשת שנוסף לחיפוש הגלובלי"
+      "noRemoteInSearch": "אין עדיין דיסק ברשת שנוסף לחיפוש הגלובלי",
+      "noNetdiskConnections": "אין עדיין חיבורים עבור דיסק הענן הזה",
+      "rebuildCheckedRemoteIndex": "בנייה מחדש של האינדקס של החיבורים המסומנים",
+      "rebuildCheckedRemoteIndexHint": "הבנייה מחדש משתמשת תמיד בכל קבוצת החיבורים המסומנים — לא ניתן לבנות חיבור בודד מחדש."
     },
     "drives": {
       "driveDetection": "זיהוי כוננים",

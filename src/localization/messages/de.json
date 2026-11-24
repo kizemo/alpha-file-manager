@@ -530,7 +530,10 @@
       "remoteIndexDescription": "Dateien von Verbindungen, die zur globalen Suche hinzugefügt wurden, erscheinen in den Suchergebnissen.",
       "rebuildRemoteIndex": "Cloud-Index neu aufbauen",
       "rebuildRemoteIndexDescription": "Dateien der ausgewählten Verbindungen erneut abrufen und in den Index schreiben; das verbraucht das API-Kontingent des Netdisks.",
-      "noRemoteInSearch": "Noch keine Verbindung zur globalen Suche hinzugefügt"
+      "noRemoteInSearch": "Noch keine Verbindung zur globalen Suche hinzugefügt",
+      "noNetdiskConnections": "Für diesen Netzspeicher gibt es noch keine Verbindungen",
+      "rebuildCheckedRemoteIndex": "Index für ausgewählte Verbindungen neu aufbauen",
+      "rebuildCheckedRemoteIndexHint": "Beim Neuaufbau wird immer die gesamte Gruppe der ausgewählten Verbindungen verwendet — eine einzelne Verbindung lässt sich nicht einzeln neu aufbauen."
     },
     "drives": {
       "driveDetection": "Laufwerkserkennung",

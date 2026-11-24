@@ -7,15 +7,14 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
-import { invoke } from '@tauri-apps/api/core';
 import {
   BanIcon, CheckIcon, CircleAlertIcon, ClockIcon, CloudIcon, DatabaseIcon, FolderTreeIcon, HardDriveIcon,
   CircleHelpIcon, ListIcon, LoaderCircleIcon, RefreshCcwIcon, RotateCcwIcon, UsbIcon, XIcon, ZapIcon,
 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { toast } from '@/components/ui/toaster';
 import {
   NumberField,
   NumberFieldContent,
@@ -28,11 +27,13 @@ import { SettingsItem } from '@/modules/settings';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
 import { useGlobalSearchStore } from '@/stores/runtime/global-search';
+import { buildRemoteNetdiskGroups, useRemoteGlobalSearchIndex } from '@/composables/use-remote-global-search-index';
 import { useDrives } from '@/modules/home/composables/use-drives';
 import { formatBytes } from '@/modules/navigator/components/file-browser/utils';
 import { SEARCH_CONSTANTS } from '@/constants';
 import { DEFAULT_GLOBAL_SEARCH_IGNORED_PATHS } from '@/stores/schemas/user-settings';
 import { canonicalizePath } from '@/utils/normalize-path';
+import type { RemoteConnection } from '@/types/remote';
 
 const { t } = useI18n();
 const userSettingsStore = useUserSettingsStore();
@@ -327,20 +328,56 @@ async function cancelScan() {
 }
 
 // ---------------------------------------------------------------------------
-// 云盘检索（批次 37）
+// 云盘检索（批次 37 → 批次 43）
 //
 // 云盘的条目**不进本地索引**，走自己的索引（后端按连接集合整体重建）。
-// 这里的职责只有两件：把已勾选的连接列出来，以及给一颗重建按钮。
+// 这一块的职责：按**网盘类型**分组列出连接、让用户按连接勾选「加入全局检索」，
+// 以及给一颗重建按钮。
 // ---------------------------------------------------------------------------
 
-/** 勾选了「加入全局检索」的那些连接。 */
-const indexedRemoteConnections = computed(() => remoteConnectionsStore.globalSearchConnections);
+/**
+ * 索引重建的控制器（共享 composable）。
+ *
+ * 「设置 → 远程」页与这一页**共用同一把锁、同一个 drain 队列** ——
+ * 后端的重建是「整体重建」，两个重建并发跑会互相踩。
+ */
+const {
+  globalSearchConnectionIds,
+  isRebuilding: isRebuildingRemoteIndex,
+  lastIndexedItemCount: remoteIndexedItemCount,
+  triggerRebuild,
+  markReady: markGlobalSearchIndexReady,
+} = useRemoteGlobalSearchIndex();
 
-/** 正在重建云盘索引吗。 */
-const isRebuildingRemoteIndex = ref(false);
+/**
+ * 按网盘类型分组的连接清单。
+ *
+ * **类型清单是动态派生的**（`NETDISK_PROTOCOLS` 减去下线的 OneDrive）：
+ * 以后接了第四家网盘，这里自动多一组，界面不用再改。
+ * **没有连接的网盘类型也会显示出来**（组内给一句「暂无连接」）。
+ */
+const netdiskGroups = computed(() => buildRemoteNetdiskGroups(remoteConnectionsStore.connections));
 
-/** 上一次重建写进去的条目数。`null` = 本次会话还没重建过。 */
-const remoteIndexedItemCount = ref<number | null>(null);
+/** 已勾选纳入检索的连接数。 */
+const checkedRemoteConnectionCount = computed(() => globalSearchConnectionIds.value.length);
+
+/**
+ * 勾选 / 取消勾选某条连接的「加入全局检索」。
+ *
+ * **只写这一个字段** —— 绝不能走 `saveConnection`：那条路对网盘协议有重副作用
+ * （认领登录槽位，槽位为空时抛 `baiduLoginRequired` 之类），
+ * 而勾一个复选框跟登录态毫无关系。
+ */
+async function toggleIncludeInGlobalSearch(
+  connection: RemoteConnection,
+  value: boolean | 'indeterminate',
+): Promise<void> {
+  const updated = await remoteConnectionsStore.setConnectionIncludeInGlobalSearch(connection.id, value === true);
+
+  if (!updated) {
+    console.warn('Remote connection disappeared before its global-search flag was written:', connection.id);
+  }
+}
 
 /**
  * 重建云盘索引。
@@ -349,43 +386,23 @@ const remoteIndexedItemCount = ref<number | null>(null);
  * 漏掉一条就等于把那条的条目从索引里抹掉。
  *
  * ⚠️ 所以每一行那颗「重建」按钮走的也是同一个集合 —— 逐条重建在
- * 「整体重建」的语义下会把其它连接的条目一起抹掉。
+ * 「整体重建」的语义下会把其它连接的条目一起抹掉（按钮上的提示写清了这点）。
  */
-async function rebuildRemoteIndex(): Promise<void> {
-  if (isRebuildingRemoteIndex.value) {
+function rebuildRemoteIndex(): void {
+  if (checkedRemoteConnectionCount.value === 0) {
     return;
   }
 
-  const connectionIds = indexedRemoteConnections.value.map(connection => connection.id);
-
-  if (connectionIds.length === 0) {
-    return;
-  }
-
-  isRebuildingRemoteIndex.value = true;
-
-  try {
-    const indexedCount = await invoke<number>('global_search_index_remote_connections', { connectionIds });
-    remoteIndexedItemCount.value = indexedCount;
-    toast({
-      title: t('globalSearch.remoteIndexDone'),
-    });
-  }
-  catch (error) {
-    console.error('Failed to rebuild remote global search index:', error);
-    toast({
-      title: t('globalSearch.remoteIndexFailed'),
-    });
-  }
-  finally {
-    isRebuildingRemoteIndex.value = false;
-  }
+  triggerRebuild(globalSearchConnectionIds.value);
 }
 
 onMounted(async () => {
   await globalSearchStore.refreshStatus();
   globalSearchStore.startStatusPolling();
   await remoteConnectionsStore.init();
+  // 读盘完成后再开闸：初始的那批连接不算「勾选集合变了」，
+  // 否则每次进这一页都会白重建一次云盘索引。
+  markGlobalSearchIndexReady();
   displayTickIntervalId = setInterval(() => {
     displayTick.value++;
   }, 30000);
@@ -617,8 +634,12 @@ onUnmounted(() => {
     </SettingsItem>
 
     <!--
-      云盘检索（批次 37）：云盘的条目**不进本地索引**，走自己的索引。
-      这一块只做两件事：把已勾选的连接列出来，以及给一颗重建按钮。
+      云盘检索（批次 37 → 批次 43）：云盘的条目**不进本地索引**，走自己的索引。
+
+      这一块按**网盘类型**分组：每组列出该类型下的连接，每条连接一个复选框，
+      勾上 = 「加入全局检索」。**类型清单是动态派生的** ——
+      以后接了新的网盘，这里自动多一组；没有连接的网盘类型也照样显示
+      （附一句「暂无连接」），用户能看懂这一家存在。
     -->
     <SettingsItem
       :title="t('settings.globalSearch.remoteIndexTitle')"
@@ -628,7 +649,7 @@ onUnmounted(() => {
       <template #nested>
         <div class="global-search-settings__remote-index">
           <p
-            v-if="indexedRemoteConnections.length === 0"
+            v-if="checkedRemoteConnectionCount === 0"
             class="global-search-settings__remote-index-empty"
             data-test="remote-index-empty"
           >
@@ -637,7 +658,7 @@ onUnmounted(() => {
 
           <div class="global-search-settings__remote-index-actions">
             <Button
-              v-if="indexedRemoteConnections.length > 0"
+              v-if="checkedRemoteConnectionCount > 0"
               variant="outline"
               size="sm"
               :disabled="isRebuildingRemoteIndex"
@@ -647,34 +668,79 @@ onUnmounted(() => {
               <RefreshCcwIcon :size="14" />
               <span>{{ isRebuildingRemoteIndex
                 ? t('globalSearch.remoteIndexing')
-                : t('settings.globalSearch.rebuildRemoteIndex') }}</span>
+                : t('settings.globalSearch.rebuildCheckedRemoteIndex') }}</span>
             </Button>
           </div>
 
           <ul
-            v-if="indexedRemoteConnections.length > 0"
             class="global-search-settings__remote-index-list"
             data-test="remote-index-list"
           >
             <li
-              v-for="connection in indexedRemoteConnections"
-              :key="connection.id"
-              class="global-search-settings__remote-index-item"
-              :data-test="`remote-index-item-${connection.id}`"
+              v-for="group in netdiskGroups"
+              :key="group.protocol"
+              class="global-search-settings__remote-index-group"
+              :data-test="`remote-index-group-${group.protocol}`"
             >
-              <span class="global-search-settings__remote-index-name">{{ connection.name }}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                :disabled="isRebuildingRemoteIndex"
-                data-test="rebuild-remote-index-item"
-                @click="rebuildRemoteIndex"
+              <div class="global-search-settings__remote-index-group-header">
+                <span class="global-search-settings__remote-index-group-title">{{ t(group.nameKey) }}</span>
+              </div>
+
+              <ul
+                v-if="group.connections.length > 0"
+                class="global-search-settings__remote-index-group-list"
               >
-                <RefreshCcwIcon :size="14" />
-                <span>{{ isRebuildingRemoteIndex
-                  ? t('globalSearch.remoteIndexing')
-                  : t('settings.globalSearch.rebuildRemoteIndex') }}</span>
-              </Button>
+                <li
+                  v-for="connection in group.connections"
+                  :key="connection.id"
+                  class="global-search-settings__remote-index-item"
+                  :data-test="`remote-index-item-${connection.id}`"
+                >
+                  <label
+                    class="global-search-settings__remote-index-connection"
+                    :for="`remote-index-checkbox-${connection.id}`"
+                  >
+                    <Checkbox
+                      :id="`remote-index-checkbox-${connection.id}`"
+                      :model-value="connection.includeInGlobalSearch === true"
+                      :data-test="`remote-index-checkbox-${connection.id}`"
+                      @update:model-value="value => toggleIncludeInGlobalSearch(connection, value)"
+                    />
+                    <span class="global-search-settings__remote-index-name">{{ connection.name }}</span>
+                  </label>
+                  <!--
+                    每行这颗按钮**重建的是全部已勾选连接的集合**，不是这一行 ——
+                    后端是「整体重建」语义。提示里写清楚了，避免用户误以为能单条重建。
+                  -->
+                  <Tooltip>
+                    <TooltipTrigger as-child>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        :disabled="isRebuildingRemoteIndex"
+                        data-test="rebuild-remote-index-item"
+                        @click="rebuildRemoteIndex"
+                      >
+                        <RefreshCcwIcon :size="14" />
+                        <span>{{ isRebuildingRemoteIndex
+                          ? t('globalSearch.remoteIndexing')
+                          : t('settings.globalSearch.rebuildCheckedRemoteIndex') }}</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {{ t('settings.globalSearch.rebuildCheckedRemoteIndexHint') }}
+                    </TooltipContent>
+                  </Tooltip>
+                </li>
+              </ul>
+
+              <p
+                v-else
+                class="global-search-settings__remote-index-group-empty"
+                :data-test="`remote-index-group-empty-${group.protocol}`"
+              >
+                {{ t('settings.globalSearch.noNetdiskConnections') }}
+              </p>
             </li>
           </ul>
 
@@ -1435,6 +1501,43 @@ onUnmounted(() => {
   list-style: none;
 }
 
+.global-search-settings__remote-index-group {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.global-search-settings__remote-index-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.global-search-settings__remote-index-group-title {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.global-search-settings__remote-index-group-list {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  padding: 0;
+  margin: 0;
+  gap: 6px;
+  list-style: none;
+}
+
+.global-search-settings__remote-index-group-empty {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+}
+
 .global-search-settings__remote-index-item {
   display: flex;
   min-width: 0;
@@ -1444,6 +1547,14 @@ onUnmounted(() => {
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius-sm);
   gap: 12px;
+}
+
+.global-search-settings__remote-index-connection {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  cursor: pointer;
+  gap: 8px;
 }
 
 .global-search-settings__remote-index-name {

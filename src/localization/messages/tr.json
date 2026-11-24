@@ -530,7 +530,10 @@
       "remoteIndexDescription": "Genel aramaya eklenen bağlantıların dosyaları arama sonuçlarında görünür.",
       "rebuildRemoteIndex": "Bulut dizinini yeniden oluştur",
       "rebuildRemoteIndexDescription": "İşaretli bağlantıların dosyalarını yeniden getirip dizine yazar; ağ diskinin API kotasını harcar.",
-      "noRemoteInSearch": "Genel aramaya henüz ağ diski eklenmedi"
+      "noRemoteInSearch": "Genel aramaya henüz ağ diski eklenmedi",
+      "noNetdiskConnections": "Bu bulut diski için henüz bağlantı yok",
+      "rebuildCheckedRemoteIndex": "İşaretli bağlantılar için dizini yeniden oluştur",
+      "rebuildCheckedRemoteIndexHint": "Yeniden oluşturma her zaman işaretli bağlantıların tümünü kullanır — tek bir bağlantı tek başına yeniden oluşturulamaz."
     },
     "drives": {
       "driveDetection": "Sürücü algılama",

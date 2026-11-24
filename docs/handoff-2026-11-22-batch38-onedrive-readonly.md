@@ -2029,3 +2029,163 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
    —— 已并入待办文档 R2/R4，不是本轮阻塞项。
 3. 恢复后建议首项：把 AAD 的 `error_description` 透传到前端（否则发布形态登录失败无法定位）。
 4. 本轮**未升版、未打包、未 push**，只做本地 commit；`reports/` 为旧批次未跟踪产物，**保持不动**。
+
+---
+
+## 十三、批次 43：云盘交互四项需求（2026-11-24）
+
+### 十三·1 用户指令与范围
+
+用户 2026-11-24 提出四项网盘交互需求：
+
+1. 添加云盘时增加是否「添加检索」的选项，**默认不添加**；
+2. 设置→搜索页面的「云盘检索」要有「百度网盘」「阿里云盘」「夸克网盘」及**未来会添加的云盘**选项；
+3. 删除云盘时**不要弹出或闪现 cmd 窗口**；
+4. 添加云盘时点击「百度网盘」等类型按钮，**选中态要与未选中态有明显区别**。
+
+四项需求代码全部落地；自动化门禁全绿；版本升至 **3.21.0**。本批**不 push**，仅本地提交；
+`reports/` 旧批次未跟踪产物保持不动。OneDrive 延期线（§十二）不受本批影响，仍挂起。
+
+### 十三·2 改动清单（按需求）
+
+**需求 1 —— 现状已满足 + 回归护栏**
+- 勾选入口在批次 37 已存在：`netdisk-add-dialog.vue`（`data-test="field-include-in-search"`）
+  与 `connection-form.vue`，默认 false。
+- 新增 `remote/__tests__/remote-netdisk-include-in-search-default.test.ts`（9 用例，
+  用真实 reka-ui CheckboxRoot 读 `aria-checked`）断言默认未勾选。
+- 已知入口位置差异：阿里走表单首屏可见；百度/夸克走内嵌登录窗抓 cookie，
+  **登录成功后**才弹录入表单（勾选在表单内）。是否提前到类型选择一步 = 待答问卷
+  （A 保持现状 / B 提前 / C 两处都放），**未答则按 A 交付**，B/C 需另行实现并重新打包。
+
+**需求 2 —— 搜索页按网盘类型分组 + 连接级勾选**
+- 真相源仍是连接级 `includeInGlobalSearch`，**不引入 provider 级第二层字段**；
+  类型清单从 `NETDISK_PROTOCOLS` 动态派生并排除 `ONEDRIVE_ENABLED=false` 的协议
+  ⇒「未来新增云盘」自动出现在分组里。
+- store 新增轻量方法 `setConnectionIncludeInSearch` / `setConnectionIncludeInSearchGlobal`…
+  （实际名：`setConnectionIncludeInSearch`、`setConnectionIncludeInGlobalSearch`，
+  `remote-connections.ts`）；**禁止**用 `saveConnection()` 改勾选（会走登录槽位 claim）。
+- 抽出共享 composable `src/composables/use-remote-global-search-index.ts`
+  （`drainRemoteIndexRebuild` 串行锁 + `buildRemoteNetdiskGroups` + `resolveVisibleNetdiskProtocols`），
+  远程页与搜索页共用同一把「勾选变化→自动重建索引」的锁。
+- `global-search.vue` 按类型分组渲染，无连接也渲染分组 + 空态；组内每连接一个勾选。
+- 修掉真 bug：`connections-section.vue` 的 `watch(editing)` 原本无条件清
+  `selectedNetdiskProtocol`，会把阿里/OneDrive「先设选中再关编辑」的点亮擦掉
+  ⇒ 改为仅在进入编辑既有连接时设置。
+- `NETDISK_PROVIDER_NAME_KEYS` 改 `export const` 供分组标题取名。
+- 测试：`use-remote-global-search-index.test.ts` 14 用例 + 搜索页既有/新增 34 用例。
+- **测试运行顺序依赖**：composable 的模块级锁跨用例累积，用例不得用 `vi.resetModules()`
+  单跑判色，必须按文件内文档化顺序整文件跑。
+- 已知语义：`lastIndexedItemCount` 记录的是**本次 invoke 返回值**（非累计），
+  两次不同勾选数调用返回不同值属预期。
+
+**需求 3 —— 删除云盘闪 cmd 窗口**
+- 根因：`windows_subsystem = "windows"` 主程序下，console 子进程缺
+  `CREATE_NO_WINDOW` 会新开 conhost 闪窗。补 3 处：
+  `src-tauri/src/mcp/auth.rs`（icacls）、`src-tauri/src/dir_reader/mount.rs`
+  （`net use X: /delete /y`）、`src-tauri/src/dir_reader/network_shares.rs`（net 映射）。
+- `cargo check --lib` CARGO_EXIT=0；全量子进程审计（140 条 `Command::new` 命中逐条核对）：
+  Windows 生产代码所有 console 子进程调用点均已带抑制
+  （link_operations / extensions/processes / process_runner / terminal/windows /
+  open_with / webview_guard 等为既有实现），未带抑制的 4 处全在 `#[cfg(test)]` 内，无害。
+- 真机「闪窗」是瞬态、无法截帧取证；本机用户有 3 条**真实**网盘连接，
+  **不得用于删除实验**。验收配方（用户自助）：装 3.21.0 后
+  设置→远程与存储→删除任一「网络位置映射」类连接，观察有无黑窗闪现。
+
+**需求 4 —— 类型按钮选中态**
+- `connections-section.vue`：`selectedNetdiskProtocol` + `isNetdiskSelected()`；
+  4 颗 provider 按钮绑定 `:variant`（选中实心反色）`:data-selected` `:aria-pressed`。
+- scoped CSS 用 `:deep()` 覆盖按钮变体；导航栏无同类按钮组（2026-11-21 已整行移除），不改。
+- 新增 `remote-netdisk-provider-selection.test.ts`（5 用例）。
+
+### 十三·3 验证结论（自动化级）
+
+| 判据 | 结果 |
+| --- | --- |
+| 全量 `npm run check`（`check-b43-2.log`） | **CHECK2_EXIT=0**（首轮 1 处 stylelint `cursor` 需排在 `gap` 前，已修） |
+| 单元测试 | **333 文件 / 3583 用例全绿**（批次 42 基线 330/3554，+3 文件 +29 用例） |
+| `verify-changelog` | OK：3.21.0 / 65 条目 / 顺序正确 |
+| `verify:sandbox` | 两扩展入口 `RESULT: VALID (0 violations / 20 patterns)` |
+| i18n 键对齐 | `req2-i18n-check.cjs`：FILES=17 BAD=0 |
+| Rust | `cargo check --lib` exit 0（`cargo-check-task3.log`） |
+| 定向门禁 | `ESLINT2_EXIT=0`、`TS2_EXIT=0`、`TESTS2_EXIT=0`（search+remote+composables 217/217） |
+
+### 十三·4 版本与 CHANGELOG
+
+- `3.20.1 → 3.21.0`：`package.json` + `node scripts/sync-version.js`（Synced 3 Cargo manifests）。
+- 根 `CHANGELOG.md` 3.21.0 条目 + 14 个 locale `public/changelog/*/changelog.md` 全部本地化（BAD=0）。
+
+### 十三·5 打包与真机验收
+
+**打包（已完成）**
+
+- 首跑 `run-tauri-build.cmd` **失败**（`cargo metadata: program not found`）：该脚本漏了
+  toolchain 配方。既有铁律（b31 起）：`RUSTUP_TOOLCHAIN=1.90.0` +
+  `PATH=C:\Users\Duanyi\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin;C:\Users\Duanyi\.cargo\bin;%PATH%`
+  （`.cargo\bin` 只有 rustup/tauri shim；默认 stable 1.97.1 编不过 build script）。
+  已按 b31 配方重写为 `run-tauri-build2.cmd` 重跑。
+- 重跑 **`BUILD_EXIT=0`**（约 4.6 分钟），NSIS 产物 46,060,356 B，构建末步已复制到
+  `release\Alpha File Manager_3.21.0_x64-setup.exe`。
+- 装机 **`INSTALL_EXIT=0`**（静默 24 秒，`install-b43.cmd`）；
+  `D:\Program Files\Alpha File Manager\alpha-file-manager.exe` 版本信息
+  **`EXE_PRODUCT=3.21.0` / `FILEVERSION=3.21.0`** ⇒ 装的就是本批产物，装机这一环已实测坐实。
+
+**真机 UI 验收 —— 未取得界面级证据，状态 = 未判定（工具受阻，非功能回归）**
+
+两条自动化路线都跑到各自最后一道墙，判据未落地，因此需求 1/2/4 的**真机界面结论仍待人工确认**：
+
+1. **UIA + PrintWindow 路线**（`.superpowers\sdd\b43\accept6-b43.ps1`，产物 `uia7\`）
+   已修好三处历史坑并实测通过：
+   - 选窗：弃用 `[B41W2]::FindMainWindow`（实测返回 `com.sigma-file-manager.app-siw` 的
+     24×24 隐形辅助窗），改为自带 P/Invoke 按 pid + 可见 + ≥400×300 + 面积降序
+     ⇒ `main-picked hwnd=921968 size=3864x2100 title=Alpha File Manager`；
+   - UIA root：必须用 harness 的 `Refresh-Root`（`AutomationElement.FromHandle($hwnd)`），
+     `[B41W2]::RootOf` 返回 `IntPtr`，直接赋给 root 会转换异常
+     ⇒ `poll 0 total=376 withId=16`（此前恒为 1 个「窗格」）；
+   - 抓帧：**PrintWindow 抓非前台 WebView2 内容可用**
+     （`PRINTWINDOW_OK=True`、`NONWHITE_RATIO=0.896`、`DISTINCT_COLORS=400`、PNG 442,902 B）。
+   **卡点**：首页 UIA 树里既没有可点入口的 Name，也没有 `data-test` —— 实测
+   `uia7\tree-home.txt`（376 元素）grep `设置|远程|搜索` **0 命中**，
+   `ids-home.txt` 16 个 AutomationId 全是 `reka-*-trigger-v-NN` + `RootWebArea`
+   ⇒ **DOM 的 `data-test` 不会暴露成 UIA AutomationId**，按 `data-test` 找元素在真机 UIA 层永久不可用；
+   脚本因此停在 `STEP_03: FAIL open-settings not found`。
+2. **WebView2 CDP 路线**（`cdp-accept-b43.ps1`，产物 `cdp1\`）设计上更优（DOM 级 `data-test`
+   + `getComputedStyle` + `Page.captureScreenshot`），但**开关没生效**：
+   `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223` 通过环境变量注入后，
+   本 app 的浏览器进程命令行里**没有该开关**（实测 pid 387744 `--webview-exe-name=alpha-file-manager.exe`
+   且 `dbgport=False`，`Get-NetTCPConnection -LocalPort 9223` 无监听）⇒ `STEP_02: FAIL cdp-endpoint-unreachable`。
+   下一轮先试这两条：① 把变量写到 **User 作用域**（`[Environment]::SetEnvironmentVariable('WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS',...,'User')`）
+   再冷启动，避开进程树继承路径上的丢失；② 直接改 `src-tauri` 里的 WebView2 环境创建处
+   （`AdditionalBrowserArguments`），临时打一个仅供验收的本地包（不进 release/）。
+   脚本自身的两处坑已修并留证：`GetThreadDesktop` / `GetUserObjectInformationW` 都在 **user32.dll**
+   （写 kernel32 直接抛 EntryPointNotFoundException），且 `GetThreadDesktop` 必须传
+   **真实 GetCurrentThreadId()**（传伪句柄 `-1` 返回 NULL ⇒ `desktop=unknown` 误判锁屏）。
+
+**结论口径（不得夸大）**：需求 1/2/4 已由单元/组件测试 + 构建 + 装机坐实到「代码与产物正确」，
+**界面表现未经真机取证**；需求 3（闪窗）按代码级 + 140 条 `Command::new` 全量审计收口，
+瞬态窗口无法截帧。给用户的自助验收配方见 §十三·6 第 2 条。
+
+真机验收红线（不变）：只开弹窗看界面，**不点保存、不点删除、不点重建索引**
+（保护用户 3 条真实网盘连接：夸克/阿里/百度）；退出用 `[data-test=cancel]` 或 Escape。
+
+### 十三·6 已知边界与遗留
+
+1. 需求 1 问卷（勾选位置 A/B/C）用户未答 ⇒ 按 A（现状）交付。
+2. 需求 3 只能以代码+编译+全量审计收口；瞬态闪窗无法截帧，留用户自助复现配方。
+3. composable 测试有文件内顺序依赖，不得单跑某用例判色。
+4. 孤儿键 `settings.globalSearch.rebuildRemoteIndex` 保留不删（17 locale 键集合仍对齐，
+   删除是纯 churn + 纯风险）。
+5. 全量 `eslint .` 实测干净 —— 订正旧记录「约 188 个存量 error」不成立。
+6. OneDrive 线继续挂起（§十二），恢复入口与 Entra client ID 待办不变。
+
+### 十三·7 下一阶段
+
+1. ~~回填 §十三·5 构建/真机验收结论~~ **已回填**（构建+装机=实测；界面级=未判定，根因与
+   下轮配方见该节）。产物在 `release\`（构建末步自动复制）。
+2. 真机界面取证二选一：**A** 续跑 CDP（先按 §十三·5 的 User 作用域环境变量冷启动法，
+   不行就临时改 `src-tauri` 的 `AdditionalBrowserArguments` 打验收专用包）；
+   **B** 请用户手工点三步（添加网盘→看按钮选中态；设置→搜索→看云盘分组；删除连接→看是否闪窗），
+   截图回传即可结案。A 每轮约 5-10 次工具调用，B 零成本。
+3. 本批改动本地 commit（不 push）。
+4. 用户若答 B/C：把「加入全局检索」勾选提前到类型选择一步（`connections-section.vue`
+   单组件即可实现，约 1 小时含测试与重新打包）。
+5. 需求 3 若用户复现仍闪窗：优先排查卸载残留映射与 `net use` 之外的登录期子进程。

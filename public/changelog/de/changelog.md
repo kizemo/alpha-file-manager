@@ -1,6 +1,20 @@
 # Änderungsprotokoll
 
 
+## [3.21.0] - November 2026
+
+**Zusammenfassung:** Die Netdisk-Runde ist ordentlicher geworden. Die Schaltflächen unter *Netzlaufwerk hinzufügen* zeigen jetzt an, welchen Anbieter Sie gewählt haben, *Einstellungen* -> *Suche* listet Ihre Netdisks nach Anbieter gruppiert, so dass Sie entscheiden können, was an der globalen Suche teilnimmt, und beim Entfernen eines Netdisks blitzt kein schwarzes Konsolenfenster mehr auf. OneDrive ist vorläufig geparkt - es ist erst einmal aus der Oberfläche verschwunden und lässt sich später ohne einen Neubau wieder einschalten.
+
+### What changed
+
+**Hinzugefügt** **Die Schaltflächen unter *Netzlaufwerk hinzufügen* zeigen jetzt an, welchen Sie gewählt haben** - Wählen Sie *Baidu Netdisk*, *Quark Netdisk* oder *Aliyun Drive*, wird die betreffende Schaltfläche markiert, sodass Sie auf einen Blick sehen, welchen Anbieter Sie gerade hinzufügen. Die gewählte Schaltfläche bleibt markiert, bis Sie eine andere wählen oder das Panel schließen.
+
+**Hinzugefügt** **Netdisks stehen jetzt nach Anbieter gruppiert unter *Einstellungen* -> *Suche*** - Der Bereich *Cloud-Suche* in den *Suche*-Einstellungen gruppiert Ihre Netdisks jetzt nach Anbieter - *Baidu Netdisk*, *Aliyun Drive*, *Quark Netdisk* und jede Netdisk-Art, die später hinzukommt. Unter jedem Anbieter haken Sie die Verbindungen ab, die an der globalen Suche teilnehmen sollen, und der Suchindex wird für Sie neu aufgebaut. Ein Anbieter, mit dem Sie noch nicht verbunden sind, steht trotzdem dort, damit Sie sehen, welche Netdisk-Arten die App kennt.
+
+**Behoben** **Beim Entfernen eines Netdisks blitzt kein schwarzes Konsolenfenster mehr auf** - Beim Entfernen eines Netdisks öffnete sich kurz ein schwarzes Konsolenfenster auf Ihrem Desktop. Das Werkzeug, das die gespeicherten Anmeldedaten auf Ihr eigenes Windows-Konto beschränkt, läuft jetzt ohne Fenster, sodass das Entfernen wieder still bleibt.
+
+**Geändert** **OneDrive ist vorläufig geparkt** - Die OneDrive-Option ist vorläufig aus der Liste unter *Netzlaufwerk hinzufügen* verschwunden. Alles, was OneDrive braucht, ist weiterhin vorhanden - hinter einem einzigen Schalter -, sodass es später ohne einen Neubau zurückkommen kann, und Ihre bestehenden Verbindungen bleiben unangetastet.
+
 ## [3.20.1] - November 2026
 
 **Zusammenfassung:** Ordner in OneDrive lassen sich jetzt wirklich anlegen. Die App hat die Anfrage in einer Form geschickt, die der Datenträger nicht akzeptiert: jeder Versuch wurde mit HTTP 400 abgelehnt, und es wurde nichts angelegt. Die Anfrage wird jetzt so gesendet, dass der Datenträger sie akzeptiert.

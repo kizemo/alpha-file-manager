@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.21.0] - November 2026
+
+**Summary:** The netdisk round got tidier. The *Add netdisk* buttons now show which provider you have picked, *Settings - Search* lists your netdisks grouped by provider so you can decide what takes part in the global search, and taking a netdisk away no longer flashes a black console window at you. OneDrive is parked for the time being - it is out of the interface for now, and it can be switched back on later without being rebuilt.
+
+### What changed
+
+**Added** **The *Add netdisk* buttons now show which one you picked** - Picking *Baidu Netdisk*, *Quark Netdisk* or *Aliyun Drive* now marks that button, so you can see at a glance which provider you are about to add. The button you picked stays marked until you pick another one or close the panel.
+
+**Added** **Netdisks are now listed by provider in *Settings - Search*** - The *Cloud drive search* part of the *Search* settings now groups your netdisks by provider - *Baidu Netdisk*, *Aliyun Drive*, *Quark Netdisk* and any netdisk type that is added later. Under each provider you tick the connections that should take part in the global search, and the search index is rebuilt for you. A provider you have not connected to yet is still listed, so you can see which kinds of netdisk the app knows about.
+
+**Fixed** **Taking a netdisk away no longer flashes a black console window** - Removing a netdisk briefly opened a black console window on your desktop. The tool that restricts the stored credentials to your own Windows account now runs without opening a window, so removing a netdisk is quiet again.
+
+**Changed** **OneDrive is parked for the time being** - The OneDrive option is out of the *Add netdisk* list for now. Everything OneDrive needs is still in place behind a single switch, so it can come back later without being rebuilt, and the connections you already have are left alone.
+
 ## [3.20.1] - November 2026
 
 **Summary:** Creating a folder in OneDrive works now. The app asked Microsoft for a folder in a form the drive does not accept, so every attempt was refused with HTTP 400 and nothing was created. The request is sent the way the drive expects now, and the folder really shows up on your OneDrive.

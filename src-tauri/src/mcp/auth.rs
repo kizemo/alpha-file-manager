@@ -118,13 +118,26 @@ pub(crate) fn restrict_to_current_user(path: &Path, label: &str) {
     }
 
     // /inheritance:r 去掉继承来的 ACE，/grant:r 只留当前用户完全控制。
-    let status = std::process::Command::new("icacls")
+    let mut command = std::process::Command::new("icacls");
+    command
         .arg(path)
         .args(["/inheritance:r", "/grant:r"])
         .arg(format!("{user}:(F)"))
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status();
+        .stderr(std::process::Stdio::null());
+
+    // AFM 主程序是 `windows_subsystem = "windows"`（自己不带控制台），
+    // Windows 只能给 `icacls` 这个 console 子进程新分配一个 conhost，
+    // 用户看到的就是黑色控制台窗口一闪而过。
+    // CREATE_NO_WINDOW 让子进程不分配新控制台窗口：权限照样收紧，窗口不再出现。
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    let status = command.status();
 
     match status {
         Ok(status) if status.success() => {}

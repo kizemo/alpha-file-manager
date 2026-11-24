@@ -1,6 +1,20 @@
 # Nhật ký thay đổi
 
 
+## [3.21.0] - November 2026
+
+**Tóm tắt:** Vòng ổ đám mây đã gọn gàng hơn. Các nút *Thêm đĩa đám mây* giờ cho biết bạn đã chọn nhà cung cấp nào, *Cài đặt* -> *Tìm kiếm* liệt kê các ổ đám mây của bạn theo nhóm nhà cung cấp, để bạn tự quyết định ổ nào tham gia tìm kiếm toàn cục, và việc gỡ một ổ đám mây không còn làm lóe lên một cửa sổ console đen nữa. OneDrive tạm thời được để lại - hiện đã rời khỏi giao diện, và sau này có thể bật lại mà không phải dựng lại.
+
+### What changed
+
+**Đã thêm** **Các nút *Thêm đĩa đám mây* giờ cho biết bạn đã chọn nút nào** - Khi chọn *Baidu Netdisk*, *Quark Netdisk* hay *Aliyun Drive*, nút ấy được đánh dấu, nên bạn nhìn một cái là biết mình sắp thêm nhà cung cấp nào. Nút bạn đã chọn vẫn giữ dấu cho tới khi bạn chọn nút khác hoặc đóng bảng.
+
+**Đã thêm** **Các ổ đám mây giờ được liệt kê theo nhà cung cấp trong *Cài đặt* -> *Tìm kiếm*** - Phần *Tìm kiếm đám mây* trong cài đặt *Tìm kiếm* giờ nhóm các ổ đám mây của bạn theo nhà cung cấp - *Baidu Netdisk*, *Aliyun Drive*, *Quark Netdisk* và mọi kiểu ổ đám mây được thêm sau này. Dưới mỗi nhà cung cấp, bạn đánh dấu những kết nối nên tham gia tìm kiếm toàn cục, và chỉ mục tìm kiếm sẽ được dựng lại cho bạn. Một nhà cung cấp bạn chưa kết nối tới vẫn được liệt kê, nhờ đó bạn thấy được ứng dụng biết những kiểu ổ đám mây nào.
+
+**Đã sửa** **Gỡ một ổ đám mây không còn làm lóe cửa sổ console đen nữa** - Khi gỡ một ổ đám mây, một cửa sổ console đen từng mở ra trên desktop trong chốc lát. Công cụ giới hạn thông tin đăng nhập đã lưu vào chính tài khoản Windows của bạn giờ chạy mà không mở cửa sổ, nên gỡ ổ đám mây lại yên lặng như trước.
+
+**Đã đổi** **OneDrive tạm thời được để lại** - Lựa chọn OneDrive tạm thời rời khỏi danh sách *Thêm đĩa đám mây*. Mọi thứ OneDrive cần vẫn còn nguyên sau một công tắc duy nhất, nên sau này nó có thể quay lại mà không phải dựng lại, và những kết nối bạn đã có vẫn được giữ nguyên.
+
 ## [3.20.1] - November 2026
 
 **Tóm tắt:** Tạo thư mục trong OneDrive giờ đã hoạt động thật sự. Ứng dụng gửi yêu cầu theo dạng ổ đĩa không chấp nhận, nên mọi lần thử đều bị từ chối với HTTP 400 và không có gì được tạo. Giờ yêu cầu được gửi đúng cách ổ đĩa mong đợi.

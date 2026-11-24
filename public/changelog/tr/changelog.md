@@ -1,6 +1,20 @@
 # Değişiklik Günlüğü
 
 
+## [3.21.0] - November 2026
+
+**Özet:** Bulut diski turu daha derli toplu hale geldi. *Bulut diski ekle* düğmeleri artık hangi sağlayıcıyı seçtiğinizi gösteriyor, *Ayarlar* -> *Arama* ağ disklerinizi sağlayıcıya göre gruplayarak listeliyor, böylece genel aramaya hangilerinin katılacağına siz karar veriyorsunuz, ve bir ağ diskini kaldırmak artık siyah bir konsol penceresiyle flaş etmiyor. OneDrive şimdilik park edildi - şimdilik arayüzden çıktı ve sonra yeniden derlenmeden geri açılabilir.
+
+### What changed
+
+**Eklendi** ***Bulut diski ekle* düğmeleri artık hangisini seçtiğinizi gösteriyor** - *Baidu Netdisk*, *Quark Netdisk* ya da *Aliyun Drive* seçtiğinizde ilgili düğme işaretlenir, böylece hangi sağlayıcıyı eklemek üzere olduğunuzu bir bakışta görürsünüz. Seçtiğiniz düğme, başka birini seçene kadar ya da paneli kapatana kadar işaretli kalır.
+
+**Eklendi** **Ağ diskleri artık *Ayarlar* -> *Arama* içinde sağlayıcıya göre listeleniyor** - *Arama* ayarlarındaki *Bulut araması* bölümü ağ disklerinizi artık sağlayıcıya göre grupluyor - *Baidu Netdisk*, *Aliyun Drive*, *Quark Netdisk* ve sonradan eklenebilecek her türlü ağ diski. Her sağlayıcının altında genel aramaya katılması gereken bağlantıları işaretlersiniz, arama dizini sizin için yeniden kurulur. Henüz bağlanmadığınız bir sağlayıcı da listede durur; böylece uygulamanın hangi tür ağ disklerini tanıdığını görürsünüz.
+
+**Düzeltildi** **Ağ diskini kaldırmak artık siyah konsol penceresiyle flaş etmiyor** - Ağ diskini kaldırmak, masaüstünüzde kısa süreliğine siyah bir konsol penceresi açıyordu. Kayıtlı kimlik bilgilerini kendi Windows hesabınızla sınırlayan araç artık pencere açmadan çalışıyor, böylece ağ diskini kaldırmak yeniden sessiz hale geldi.
+
+**Değiştirildi** **OneDrive şimdilik park edildi** - OneDrive seçeneği şimdilik *Bulut diski ekle* listesinden çıkarıldı. OneDrive'un ihtiyaç duyduğu her şey hâlâ tek bir anahtarın arkasında yerinde duruyor, bu yüzden sonra yeniden derlenmeden geri gelebilir, ve halihazırda kurduğunuz bağlantılara dokunulmuyor.
+
 ## [3.20.1] - November 2026
 
 **Özet:** OneDrive’da klasör oluşturma artık gerçekten çalışıyor. Uygulama isteği sürücünün kabul etmediği bir biçimde gönderiyordu; her deneme HTTP 400 ile reddediliyor ve hiçbir şey oluşmuyordu. İstek artık sürücünün beklediği biçimde gönderiliyor.

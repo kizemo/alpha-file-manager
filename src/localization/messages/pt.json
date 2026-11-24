@@ -530,7 +530,10 @@
       "remoteIndexDescription": "Os ficheiros das ligações adicionadas à pesquisa global aparecem nos resultados.",
       "rebuildRemoteIndex": "Reconstruir índice da nuvem",
       "rebuildRemoteIndexDescription": "Volta a obter os ficheiros das ligações marcadas e escreve-os no índice; consome a quota de API do disco de rede.",
-      "noRemoteInSearch": "Nenhum disco de rede adicionado à pesquisa global"
+      "noRemoteInSearch": "Nenhum disco de rede adicionado à pesquisa global",
+      "noNetdiskConnections": "Ainda não há conexões para este disco na nuvem",
+      "rebuildCheckedRemoteIndex": "Reconstruir o índice das conexões marcadas",
+      "rebuildCheckedRemoteIndexHint": "A reconstrução sempre usa o conjunto completo de conexões marcadas; uma conexão não pode ser reconstruída sozinha."
     },
     "drives": {
       "driveDetection": "Detecção de unidade",
