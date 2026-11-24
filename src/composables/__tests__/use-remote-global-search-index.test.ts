@@ -361,3 +361,174 @@ describe('勾选变化 → 云盘索引重建', () => {
     expect(invokedIds(1)).toEqual(['bd-1', 'quark-1']);
   });
 });
+
+// 批次 43 真机反馈缺陷：「设置 → 搜索」里勾一家网盘，三家同时显示「正在索引云盘」；
+// 取消勾选之后状态又不回落。根因是把**全局互斥锁**当成了单行状态来渲染 ——
+// 后端是「按传入集合整体重建」，任何一条在索引都会让全局锁为真。
+//
+// 修复口径是两条判据分开：`isRebuilding` 只管按钮能不能点（重建必须串行），
+// `indexTargetConnectionIds` 才管某一行的文案。下面这批用例钉住的就是这个分工。
+//
+// ⚠️ 本 describe 仍然受文件级约定约束（不用 `vi.resetModules()`）：
+// 前面的用例已经把 `canTriggerRemoteIndex` 闸门打开，所以这里每个用例都显式
+// `markReady()`，并且**每条都以成功收尾**，不留失败自愈标记污染下一条。
+describe('按连接的索引状态：全局锁管禁用、按连接集合管文案', () => {
+  it('triggerRebuild 提交的那一刻就记下索引目标，跑完一并清空', async () => {
+    setFakeConnections([]);
+
+    const controller = remoteGlobalSearchIndex.useRemoteGlobalSearchIndex();
+    const pending = createDeferred<number>();
+
+    invokeMock.mockImplementationOnce(() => pending.promise);
+
+    controller.triggerRebuild(['bd-1']);
+
+    // ⚠️ 这里**故意不 await**：这条断言要的就是「同步写入」。
+    // 等后端返回才更新的话，用户点下去的那一下界面仍然毫无反应。
+    expect(controller.indexTargetConnectionIds.value).toEqual(['bd-1']);
+    expect(controller.isRebuilding.value).toBe(true);
+
+    pending.resolve(5);
+    await flushPromises();
+    await nextTick();
+    await flushPromises();
+
+    // 一轮跑完 ⇒ 按连接的状态必须清空，不能挂在已经不该索引的行上。
+    expect(controller.indexTargetConnectionIds.value).toEqual([]);
+    expect(controller.isRebuilding.value).toBe(false);
+  });
+
+  it('索引进行中的那一轮，没参与网盘的 id 不在集合里', async () => {
+    setFakeConnections([
+      createConnection('bd-1', 'baidu_pan', true),
+      createConnection('ali-1', 'aliyun_pan', true),
+      createConnection('quark-1', 'quark_pan', true),
+    ]);
+
+    const controller = remoteGlobalSearchIndex.useRemoteGlobalSearchIndex();
+
+    controller.markReady();
+
+    const pending = createDeferred<number>();
+
+    invokeMock.mockImplementationOnce(() => pending.promise);
+
+    // 只索引百度那一条 ⇒ 阿里/夸克不能跟着显示「正在索引云盘」。
+    controller.triggerRebuild(['bd-1']);
+
+    expect(controller.indexTargetConnectionIds.value).toEqual(['bd-1']);
+    expect(controller.indexTargetConnectionIds.value.includes('ali-1')).toBe(false);
+    expect(controller.indexTargetConnectionIds.value.includes('quark-1')).toBe(false);
+    // 全局锁仍然为真 —— 它只负责「同一时刻只能有一个重建」，按钮禁用靠它。
+    expect(controller.isRebuilding.value).toBe(true);
+
+    pending.resolve(1);
+    await flushPromises();
+    await nextTick();
+    await flushPromises();
+
+    expect(controller.indexTargetConnectionIds.value).toEqual([]);
+  });
+
+  it('取消勾选的瞬间该连接就摘出集合，不等在跑的那轮结束', async () => {
+    setFakeConnections([
+      createConnection('bd-1', 'baidu_pan', true),
+      createConnection('quark-1', 'quark_pan', true),
+    ]);
+
+    const controller = remoteGlobalSearchIndex.useRemoteGlobalSearchIndex();
+
+    controller.markReady();
+
+    const pending = createDeferred<number>();
+
+    invokeMock.mockImplementationOnce(() => pending.promise);
+
+    controller.triggerRebuild(['bd-1', 'quark-1']);
+
+    expect(controller.indexTargetConnectionIds.value).toEqual(['bd-1', 'quark-1']);
+
+    // 用户在这一轮还没跑完的时候就取消了勾选。
+    // 修复前：全局锁还是 true ⇒ 那一行继续显示「正在索引云盘」，状态不回落。
+    setFakeConnections([createConnection('bd-1', 'baidu_pan', true)]);
+    await nextTick();
+
+    expect(controller.indexTargetConnectionIds.value).toEqual(['bd-1']);
+
+    pending.resolve(5);
+    await flushPromises();
+    await nextTick();
+    await flushPromises();
+
+    // 补跑用的是**最新**集合（只剩 bd-1），跑完才清空。
+    expect(invokedIds(invokeMock.mock.calls.length - 1)).toEqual(['bd-1']);
+    expect(controller.indexTargetConnectionIds.value).toEqual([]);
+    expect(controller.isRebuilding.value).toBe(false);
+  });
+
+  it('新勾一条时传出去的是全部已勾选连接，不只是刚勾的那条', async () => {
+    setFakeConnections([
+      createConnection('bd-1', 'baidu_pan', true),
+      createConnection('ali-1', 'aliyun_pan', true),
+      createConnection('quark-1', 'quark_pan', false),
+    ]);
+
+    const controller = remoteGlobalSearchIndex.useRemoteGlobalSearchIndex();
+
+    controller.markReady();
+
+    // 把夸克勾上。后端是整体重建 ⇒ 必须把百度/阿里一起带上，
+    // 只传「刚勾的那条」会把它们的条目从索引里抹掉。
+    // 这条同时是「勾选是否真正控制检索」的前端口径：传出去的集合就是被检索的集合。
+    setFakeConnections([
+      createConnection('bd-1', 'baidu_pan', true),
+      createConnection('ali-1', 'aliyun_pan', true),
+      createConnection('quark-1', 'quark_pan', true),
+    ]);
+    await nextTick();
+    await flushPromises();
+
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(invokedIds(0).slice().sort()).toEqual(['ali-1', 'bd-1', 'quark-1']);
+    expect(controller.indexTargetConnectionIds.value).toEqual([]);
+  });
+
+  it('重建失败后下一次进设置页自动补跑，成功补跑后不再重试', async () => {
+    setFakeConnections([createConnection('bd-1', 'baidu_pan', true)]);
+
+    const controller = remoteGlobalSearchIndex.useRemoteGlobalSearchIndex();
+
+    // 进页面开闸。此时没有失败标记 ⇒ 不该发任何重建（初始读盘不算集合变了）。
+    controller.markReady();
+
+    expect(invokeMock).not.toHaveBeenCalled();
+
+    invokeMock.mockRejectedValueOnce(new Error('quota exhausted'));
+    controller.triggerRebuild(['bd-1']);
+    await flushPromises();
+    await nextTick();
+    await flushPromises();
+
+    expect(toastMock).toHaveBeenCalledWith({ title: 'globalSearch.remoteIndexFailed' });
+
+    // 失败 ⇒ 索引内容与勾选可能已经不一致（查询侧不做读时过滤），
+    // 下一次进设置页必须补跑，而不是把「取消勾选了还搜得到」永久留在索引里。
+    const base = invokeMock.mock.calls.length;
+
+    controller.markReady();
+    await flushPromises();
+    await nextTick();
+    await flushPromises();
+
+    expect(invokeMock).toHaveBeenCalledTimes(base + 1);
+    expect(invokedIds(base)).toEqual(['bd-1']);
+
+    // 补跑成功 ⇒ 自愈标记清掉，不会每次进页面都白烧一次网盘 API 配额。
+    controller.markReady();
+    await flushPromises();
+    await nextTick();
+    await flushPromises();
+
+    expect(invokeMock).toHaveBeenCalledTimes(base + 1);
+  });
+});

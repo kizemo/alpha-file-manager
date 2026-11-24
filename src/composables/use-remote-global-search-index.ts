@@ -52,6 +52,27 @@ const isRebuildingRemoteIndex = ref(false);
 /** 上一次重建写进去的条目数。`null` = 本次会话还没重建过。 */
 const lastRemoteIndexedItemCount = ref<number | null>(null);
 
+/**
+ * 正在被索引的连接 ID 集合。
+ *
+ * **在 `triggerRebuild()` 提交意图的那一刻同步写入**，不等 drain 真正开跑 ——
+ * 否则取消勾选后仍要等上一轮索引跑完才回落，用户看到的正是「状态没变化」。
+ *
+ * 为什么不直接拿 `isRebuildingRemoteIndex` 渲染每一行：那是全局互斥锁，
+ * 后端「按传入集合整体重建」的语义下任何一条连接在索引都会让它为真，
+ * 用它当每行状态会让没参与的网盘一起显示「正在索引云盘」。
+ */
+const remoteIndexTargetIds = ref<ConnectionIdList>([]);
+
+/**
+ * 上一次重建**失败**了 ⇒ 索引内容可能与当前勾选不一致（查询侧不按勾选过滤，
+ * 是否被检索完全由重建时传进去的集合决定）。
+ *
+ * 这个标记让失败可以自愈：下一次进设置页（`markReady()`）自动补跑一次重建，
+ * 而不是把「我已经取消勾选了，为什么还搜得到」永久留在索引里。
+ */
+let remoteIndexResyncNeeded = false;
+
 /** 上一次已知的勾选集合（排序后拼成的串）。用来判「集合变了没有」。 */
 let knownGlobalSearchIdsKey = '';
 
@@ -80,6 +101,9 @@ async function drainRemoteIndexRebuild(translate: TranslateFn): Promise<void> {
 
   if (ids === null) {
     isRebuildingRemoteIndex.value = false;
+    // 本轮结束（含被取消勾选后收尾的那轮）⇒ 按连接的状态一并清空，
+    // 不能让「正在索引」挂在已经不该索引的连接上。
+    remoteIndexTargetIds.value = [];
     return;
   }
 
@@ -91,6 +115,8 @@ async function drainRemoteIndexRebuild(translate: TranslateFn): Promise<void> {
     });
 
     lastRemoteIndexedItemCount.value = indexedCount;
+    // 索引已经和传进去的勾选集合对齐了，自愈标记可以清掉。
+    remoteIndexResyncNeeded = false;
 
     toast({
       title: translate('globalSearch.remoteIndexDone'),
@@ -98,6 +124,7 @@ async function drainRemoteIndexRebuild(translate: TranslateFn): Promise<void> {
   }
   catch (error) {
     console.error('Failed to rebuild remote global search index:', error);
+    remoteIndexResyncNeeded = true;
     toast({
       title: translate('globalSearch.remoteIndexFailed'),
     });
@@ -160,8 +187,13 @@ export function buildRemoteNetdiskGroups(
 export interface RemoteGlobalSearchIndexController {
   /** 勾选了「加入全局检索」的连接 id —— 建索引时传的就是这个集合。 */
   globalSearchConnectionIds: ComputedRef<ConnectionIdList>;
-  /** 正在重建云盘索引吗。 */
+  /** 正在重建云盘索引吗（全局互斥锁：任何一条在跑都为真）。 */
   isRebuilding: Ref<boolean>;
+  /**
+   * 本轮被索引的连接 id。**渲染单行状态用这个**，别用 `isRebuilding` ——
+   * 后者是全局锁，会让没参与的网盘一起显示「正在索引云盘」。
+   */
+  indexTargetConnectionIds: Ref<ConnectionIdList>;
   /** 上一次重建写进去的条目数。`null` = 本次会话还没重建过。 */
   lastIndexedItemCount: Ref<number | null>;
   /** 手动触发一次重建（传当前全部已勾选的连接）。 */
@@ -197,6 +229,9 @@ export function useRemoteGlobalSearchIndex(): RemoteGlobalSearchIndexController 
    * 用户还能手动重来。所以这里只弹一条提示，不往上抛。
    */
   function triggerRebuild(connectionIds: ConnectionIdList): void {
+    // ⚠️ **必须在这里同步写，不能等 drain 开跑才写**：
+    // 取消勾选的那一瞬间，界面就该认定这一行不再被索引。
+    remoteIndexTargetIds.value = [...connectionIds];
     pendingRemoteIndexIds.value = [...connectionIds];
 
     if (isRebuildingRemoteIndex.value) {
@@ -207,9 +242,23 @@ export function useRemoteGlobalSearchIndex(): RemoteGlobalSearchIndexController 
     void drainRemoteIndexRebuild(translate);
   }
 
+  /**
+   * 读盘完成后开闸。
+   *
+   * 顺带做**失败自愈**：上一轮重建失败 ⇒ 索引内容还带着不该再被检索的条目
+   * （查询侧不按勾选过滤，是否被检索只由重建时传进去的集合决定）。
+   * 这种情况下进页面补跑一次，别让「我已经取消勾选了，为什么还搜得到」永久留着。
+   */
   function markReady(): void {
     knownGlobalSearchIdsKey = globalSearchIdsKey(globalSearchConnectionIds.value);
     canTriggerRemoteIndex = true;
+
+    if (remoteIndexResyncNeeded) {
+      // 先摘标记再补跑：补跑再次失败时 catch 会把它重新置真，
+      // 但不会在同一次进页面里连环重试。
+      remoteIndexResyncNeeded = false;
+      triggerRebuild(globalSearchConnectionIds.value);
+    }
   }
 
   watch(globalSearchConnectionIds, (ids) => {
@@ -233,6 +282,7 @@ export function useRemoteGlobalSearchIndex(): RemoteGlobalSearchIndexController 
   return {
     globalSearchConnectionIds,
     isRebuilding: isRebuildingRemoteIndex,
+    indexTargetConnectionIds: remoteIndexTargetIds,
     lastIndexedItemCount: lastRemoteIndexedItemCount,
     triggerRebuild,
     markReady,

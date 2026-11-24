@@ -1,6 +1,16 @@
 # Änderungsprotokoll
 
 
+## [3.21.1] - November 2026
+
+**Zusammenfassung:** Ein Nachtrag zur Netdisk-Runde. Unter *Einstellungen* -> *Suche* gehört die Anzeige *Indexierung* jetzt zu dem Laufwerk, dessen Knopf Sie wirklich gedrückt haben, statt auf allen Laufwerken zugleich aufzuleuchten - und sie verschwindet, sobald dieser Neubau durch ist. Schlag ein Neubau fehl, während die Seite geschlossen war, wird er beim nächsten Öffnen automatisch nachgeholt.
+
+### What changed
+
+**Behoben** **Der Indexierungsstatus greift nicht mehr auf andere Laufwerke über** - Wenn Sie den Cloud-Index für ein Netdisk neu aufbauten, stand bei jedem Laufwerk der Liste *Cloud-Laufwerke werden indexiert*, und der Text blieb auch stehen, nachdem Sie den Haken bei einem Laufwerk weggenommen hatten. Jetzt meldet jede Zeile, ob *ihr* Laufwerk an dem laufenden Neubau beteiligt ist; die übrigen Zeilen zeigen weiterhin ganz normal ihren Knopf. Laufwerke, die Sie aus der globalen Suche herausgelassen haben, zeigen gar keinen Neubau-Knopf mehr, damit gibt es nichts fehlzudeuten. Neubaue laufen weiterhin einer nach dem anderen.
+
+**Behoben** **Ein fehlgeschlagener Cloud-Neubau wird nachgeholt, wenn Sie zurückkommen** - Der Cloud-Index wird immer für alle Häkchen auf einmal neu aufgebaut, deshalb konnte ein Neubau, der mitten drin fehlschlug, ihn aus dem Takt mit Ihren Häkchen bringen. In diesem Fall startet der nächste Besuch unter *Einstellungen* -> *Suche* den Neubau von selbst noch einmal, sodass ein abgewähltes Laufwerk aus den Suchergebnissen verschwindet, ohne dass Sie noch einmal drücken müssen.
+
 ## [3.21.0] - November 2026
 
 **Zusammenfassung:** Die Netdisk-Runde ist ordentlicher geworden. Die Schaltflächen unter *Netzlaufwerk hinzufügen* zeigen jetzt an, welchen Anbieter Sie gewählt haben, *Einstellungen* -> *Suche* listet Ihre Netdisks nach Anbieter gruppiert, so dass Sie entscheiden können, was an der globalen Suche teilnimmt, und beim Entfernen eines Netdisks blitzt kein schwarzes Konsolenfenster mehr auf. OneDrive ist vorläufig geparkt - es ist erst einmal aus der Oberfläche verschwunden und lässt sich später ohne einen Neubau wieder einschalten.

@@ -1,6 +1,16 @@
 # Registro delle modifiche
 
 
+## [3.21.1] - November 2026
+
+**Riepilogo:** Il seguito del giro dei dischi cloud. In *Impostazioni* -> *Ricerca* l'indicatore di indicizzazione adesso appartiene al disco su cui hai premuto davvero, invece di accendersi su tutti insieme, e sparisce non appena quella ricostruzione finisce. Una ricostruzione fallita a pagina chiusa viene ritentata la volta dopo che la apri.
+
+### What changed
+
+**Corretto** **Lo stato di indicizzazione non trapela più sugli altri dischi** - Quando ricostruivi l'indice cloud di un disco cloud, *Indicizzazione dei dischi cloud* compariva su ogni disco dell'elenco, e la scritta restava anche dopo aver tolto la spunta a un disco. Ora ogni riga dice se *quel* disco fa parte della ricostruzione in corso; le altre righe tengono il loro pulsante abituale. I dischi che hai escluso dalla ricerca globale non mostrano affatto il pulsante di ricostruzione, così non c'è niente da fraintendere. Le ricostruzioni continuano a procedere una alla volta.
+
+**Corretto** **Una ricostruzione cloud fallita viene ritentata quando torni** - L'indice cloud viene ricostruito tutto insieme, in un blocco solo, quindi una ricostruzione fallita a metà poteva lasciarlo fuori sincrono con le tue spunte. Quando succede, la visita successiva a *Impostazioni* -> *Ricerca* riesegue la ricostruzione da sola, così i dischi senza spunta smettono di comparire nei risultati di ricerca senza che tu debba premere nulla.
+
 ## [3.21.0] - November 2026
 
 **Riepilogo:** Il giro dei dischi cloud si è fatto più ordinato. I pulsanti di *Aggiungi disco cloud* mostrano ora quale provider hai scelto, *Impostazioni* -> *Ricerca* elenca i tuoi dischi cloud raggruppati per provider, così decidi tu che cosa partecipa alla ricerca globale, e quando rimuovi un disco cloud non lampeggia più una finestra di console nera. OneDrive è momentaneamente in pausa - per ora è uscito dall'interfaccia e si può riattivare più avanti senza doverlo ricostruire.

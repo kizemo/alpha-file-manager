@@ -2189,3 +2189,180 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
 4. 用户若答 B/C：把「加入全局检索」勾选提前到类型选择一步（`connections-section.vue`
    单组件即可实现，约 1 小时含测试与重新打包）。
 5. 需求 3 若用户复现仍闪窗：优先排查卸载残留映射与 `net use` 之外的登录期子进程。
+
+## 十四、批次 43 真机反馈修复：索引状态串台 + 勾选语义核查（2026-11-24）
+
+### 十四·1 用户指令与范围收窄
+
+3.21.0 包装机后用户手工截图反馈两条缺陷（截图原件
+`E:\Users\Duanyi\.minimax\.minimax\v2\assets\2026\11\24\14-29-31-419-asset_20261124-142931-419_1f8e495cc7a5_3e2f6c78-image.png`，
+1501×772）：
+
+1. 「设置 → 搜索」勾选一个百度网盘，另外两家也同时显示「正在索引云盘」；
+   取消勾选后，「正在索引」的状态不回落。
+2. 远程页编辑按钮点了无反应、默认就显示 provider 表单、只显示百度网盘信息。
+
+随后用户把第 2 条**撤回**：「在远程中，设置可以达到要求，只需要检查是否勾选是否真正做到是否检索网盘」。
+⇒ 本轮范围收窄为两件事：**核查勾选语义是否真的控制检索**（十四·3）+
+**修索引状态串台与不回落**（十四·2）。
+
+### 十四·2 索引状态串台：根因与改动
+
+**根因（三条同时成立才会出现截图里的现象）**
+
+1. `src/composables/use-remote-global-search-index.ts` 的
+   `isRebuildingRemoteIndex`（`:50`）是**全局互斥锁**——重建是整体重建、一次只跑一个，
+   这个语义**是对的**，注释原话「这既是那把锁，也是按钮上的转圈状态」；
+   错在把它同时当成**每一行的状态**来渲染 ⇒ 一家在跑，三家全显示「正在索引云盘」。
+2. 「正在索引云盘」这行文案原先在 `<Tooltip>` 内部，而外层 `<Button>` 上没有文本，
+   所以取消勾选后按钮只剩一个图标，**看起来像状态没变**。
+3. 该文案只在 `:disabled` 上用了全局锁，没有任何「这一次重建到底带没带上这条连接」的信息。
+
+**修法（不改后端语义，只把「锁」和「状态」拆开）**
+
+`src/composables/use-remote-global-search-index.ts`：
+
+- 新增模块级 `remoteIndexTargetIds`（`:65`）：**当前这一轮重建实际包含的连接 id**。
+  `triggerRebuild()` 里**同步**写入（`:238`，不等 drain 真正开跑），
+  `drainRemoteIndexRebuild()` 终态（`ids === null`）清空（`:110`），
+  并通过接口暴露为 `indexTargetConnectionIds`（`:196` / `:271`）。
+- 新增模块级 `remoteIndexResyncNeeded`（`:74`）：重建失败时置真（`:131`）、
+  成功时清掉（`:128`）。
+- `markReady()`（`:246+`）改为**自愈版**：带着失败标记进页面时先摘标记再
+  `triggerRebuild(globalSearchConnectionIds.value)`，把索引与勾选集合重新对齐；
+  补跑再次失败会被 catch 重新置真，但不会在同一次进页面里连环重试。
+- 两条注释里显式写出「不能只用全局锁渲染每一行」的理由（`:61-64`、`:129-130`）。
+
+`src/modules/settings/ui/categories/search/global-search.vue`（约 `:344` 解构 / 模板 `:1117` 附近）：
+
+- 新增 `indexingIdSet` + `isIndexingConnection(connectionId)`：
+  **文案用按连接判据，禁用仍用全局锁**（重建必须串行，这条不动摇）。
+- 未勾选的行**不再渲染重建按钮**（`v-if="connection.includeInGlobalSearch === true"`），
+  这样「取消勾选后状态没变化」的现象直接消失，也**回避新增 i18n 键**
+  （17 语言包叶子键对齐的成本不必要）。勾选的行才可能出现「正在索引云盘」，
+  且只有本轮真正带上它时才出现。
+- 文案取 `globalSearch.remoteIndexing` / `settings.globalSearch.rebuildCheckedRemoteIndex`
+  两个既有键；`data-test="rebuild-remote-index-item"` 保持原值不变（不得删改既有 data-test）。
+
+`remote-connections-section.vue`（远程页）也解构了 `isRebuilding`，但那边只有**一颗全局按钮**
+⇒ 全局锁语义本来就对，无需改动。
+
+**测试**（`src/composables/__tests__/use-remote-global-search-index.test.ts`，14 → 19 用例）
+新增 `describe('按连接的索引状态：全局锁管禁用、按连接集合管文案', ...)`，
+刻意**只往文件末尾追加**（该文件不用 `vi.resetModules()`，模块级闸门 `canTriggerRemoteIndex`
+已被前面的用例打开；新 describe 每条用例都以成功收尾，不给下一条留 `remoteIndexResyncNeeded` 污染）：
+
+| 用例 | 钉住什么 |
+| --- | --- |
+| 提交那一刻同步写索引集合 | 不 await，按钮文案必须立刻变 |
+| 全局锁为真时 ali/quark 不在集合里 | 锁管禁用、集合管文案的分工（回归防护） |
+| 取消勾选瞬间摘出 + 跑完清空 | 「状态不回落」的直接判据 |
+| 新勾一条时传全部已勾选连接 | 后端整体重建，只传刚勾那条会抹掉别人的条目 |
+| 失败后下一次 `markReady()` 补跑一次 | 自愈链路，且补跑成功后不再白烧网盘配额 |
+
+定向结果：`Test Files 1 passed (1)`、`Tests 19 passed (19)`、`Duration 1.69s`
+（日志 `.superpowers/sdd/b43/vitest-index-target.log`）。
+注意 `global-search.vue` **没有单测文件**（`.../search/__tests__` 目录不存在），
+模板改动只能靠整仓门禁 + 真机取证。
+
+### 十四·3 核查：勾选是否真正做到「控制网盘是否被检索」
+
+**结论：链路上是闭环的**，证据（file:line 为本轮实测）：
+
+1. 后端只做**整体重建**，不做读时过滤。
+   `src-tauri/src/global_search/commands.rs:74-118`
+   （`global_search_index_remote_connections`，注册于 `src-tauri/src/lib.rs:538`）：
+   先 `clear_remote_index` 再按**传入的 `connection_ids`** 逐个收集并 upsert；
+   传入集合为空 ⇒ 清空索引并返回 0；单个连接失败被隔离、其它照常索引。
+2. 查询侧完全不读 `include_in_global_search`。
+   全仓 grep `include_in_global_search` 只命中
+   `src-tauri/src/remote/connection.rs`（字段 + 3 条测试）与各 provider 的 `false` 默认值，
+   **没有任何 `global_search` 文件引用它**（实测）。⇒ 一个网盘是否被检索
+   **完全取决于重建索引时有没有把它传进去**，没有第二条路径。
+3. 前端传出的集合 = 已勾选集合。
+   `src/stores/storage/remote-connections.ts:195-196`
+   `globalSearchConnections = connections.filter(c => c.includeInGlobalSearch === true)`；
+   `global-search.vue` 的 `rebuildRemoteIndex` / `rebuildAllChecked` 与 composable 的
+   watch 都吃这个集合。
+4. 勾选确实持久化：`remote-connections.ts:700+` `setConnectionIncludeInGlobalSearch`
+   只改该字段并 `await saveStorageData()`（写入
+   `%APPDATA%\com.sigma-alpha-file-manager.app\user-data\user-remote-connections.json`），
+   **不碰凭据、不认领登录槽位**（这是批次 43 早先踩过的 `baiduLoginRequired` 坑）。
+
+**唯一残留风险（本轮已缓解，未根除）**：重建**失败**时索引内容与勾选集合不一致
+⇒ 已取消勾选的网盘仍可能被搜到。根因是 `RemoteIndexDoc`
+（`src-tauri/src/global_search/remote_index.rs:138-209` 的 upsert 段）
+只有 `path/name/is_dir/size/modified_time`，**没有连接维度**，
+所以查询侧无法按连接过滤。本轮用 `markReady()` 自愈补跑覆盖这个缺口
+（下次进「设置 → 搜索」自动重建），**没有动索引结构与 Rust 查询链路**。
+彻底做法是 `remote_index.rs` 建条目时带上 `connection_id`、查询时按当前勾选集合过滤
+——需要改索引 schema + 重建 + 17 语言无关，代价大，列入十四·7 遗留。
+
+**实测 vs 推断的分界**（重要）：
+「勾选 → 传集合 → 后端只索引该集合」= **代码级实测**（上述 file:line）；
+「装机后取消勾选的网盘真的不再出现在搜索结果里」= **未实测**，需要真机（见十四·6）。
+
+### 十四·4 验证结论
+
+- 定向单测：19 passed / 1.69s（见十四·2）。
+- `npm run check`：**CHECK3_EXIT=0 全绿**（日志 `.superpowers/sdd/b43/check-b43-3.log`）——
+  ts 通过、eslint `--max-warnings 0` 通过、`Test Files 333 passed (333)` /
+  `Tests 3588 passed (3588)`（比上轮 3583 多 5 条，即本轮新增用例）、
+  `verify-changelog` 输出 `OK CHANGELOG.md 覆盖当前版本，条目顺序正确。`、
+  `verify:sandbox` 全部扩展入口 PASS。
+- 本轮**没有 Rust 侧改动**（缺陷 A 纯前端），因此不重跑 `cargo test`；
+  §十三 的 `CREATE_NO_WINDOW` 三个文件仍在 `c97644a4` 里未动。
+- 版本同步：`npm run sync-version` 输出 `Synced 3 Cargo manifests to 3.21.1`，
+  四处版本一致（`package.json:3`、`src-tauri/Cargo.toml:4`、
+  `default-file-manager-common/Cargo.toml:4`、`default-file-manager-launcher/Cargo.toml:4`）。
+
+### 十四·5 CHANGELOG 踩坑（可直接推广）
+
+`scripts/verify-changelog.mjs` 的真实判据（本轮实测，别再凭记忆猜）：
+
+- 必须存在**等于 `package.json` version** 的条目，且条目**按版本从新到旧**排列，
+  正则 `^## \[([^\]]+)\] - (.+)$` 与 `src/composables/use-changelog.ts:14` 保持同源；
+- **UTF-8 BOM 直接 FAIL**（不是 note）、U+FFFD 替换字符直接 FAIL；
+  缺当前版本只打 note、**不 FAIL**（前端回退英文条目）。
+- 中文语言目录 code 是 **`ch`**，不是 `zh`。`public/changelog/` 下共 15 个子目录，
+  其中 `assets` **没有** `changelog.md`（历史如此，不要去新建）。
+
+### 十四·6 打包与真机验收
+
+- **构建结果**：`BUILD_EXIT=0`；产物 `release\Alpha File Manager_3.21.1_x64-setup.exe`（46059152 B）。
+  构建脚本 `.superpowers/sdd/b43/tauri-build3.cmd`，日志 `tauri-build3.log`，状态 `.superpowers/sdd/b43/build-status.txt`。
+- **装机结果**：`INSTALL_EXIT=0`；`Get-Item Exe | VersionInfo.ProductVersion = 3.21.1`。
+  安装脚本 `.superpowers/sdd/b43/install-b43fix.cmd`（`/S /FORCE`，先 `taskkill` 老进程），
+  逐行证据 `.superpowers/sdd/b43/install-status.txt`（`SETUP_SIZE=46059152` → `INSTALL_EXIT=0`）。
+- **界面级取证**：本项目拿不到 webview console（CDP 与 UIA 两条自动化路线已在第十三章坐实走不通），
+  因此「索引状态串台」与「取消勾选后不回落」两条**界面证据只能由用户手工截图复验**；
+  本轮交付的是代码级实测 + 19 条单测 + 门禁全绿，装机不等于复验通过。
+- **复验配方**（用户侧，全程不点保存、不点删除）：
+  ① 设置 → 搜索：勾选一条百度连接后点该行「重建云盘索引」，观察**只有勾选的行**显示「正在索引云盘」，
+  夸克/阿里（未勾选）行**不显示重建按钮**；② 等索引完成 toast 出现后取消勾选该行，状态不应残留「正在索引云盘」；
+  ③ 退出用取消按钮或 Esc；④ 若之前有重建失败，重新进入设置页应观察到一次自动补跑而非报错。
+
+### 十四·7 已知边界与遗留
+
+1. **`RemoteIndexDoc` 缺连接维度** ⇒ 无法在读侧过滤，失败自愈只是缓解（十四·3）。
+2. **两个设置页 onMounted 都会调 `markReady()`** ⇒ 失败自愈补跑在跨页切换时
+   可能多跑一次（`pendingRemoteIndexIds` 的合并只覆盖在跑期间，不覆盖
+   「已 drain 完 + 失败」后的两次进页）。代价是一次多余网盘 API 调用，未修。
+3. `global-search.vue` 无单测文件，模板改动缺自动化证据。
+4. 界面级取证路线仍未通（CDP 环境变量注入无效、UIA 抓不到 `data-test`），
+   见 §十三·5；本轮界面证据继续依赖用户手工截图。
+5. 需求①的 B/C 方案（把「加入全局检索」勾选提前到类型选择一步）仍未采纳。
+
+### 十四·8 本轮已验证 / 推断 / 未验证
+
+| 类别 | 内容 |
+| --- | --- |
+| 已验证（代码级 + 自动化） | 索引集合的写入/摘出/清空时机；19 条单测；版本四处同步；勾选持久化只改字段不碰凭据；后端只索引传入集合；查询侧无 `include_in_global_search` 引用 |
+| 推断 | 自愈补跑足以覆盖「重建失败」这一类残留；未勾选行不渲染按钮即可消除「状态不回落」的观感 |
+| 未验证 | 装机后：只勾一家是否只有那一家显示「正在索引」；取消勾选后状态是否立刻消失；被取消的网盘是否真的不再出现在搜索结果里 |
+
+### 十四·9 下一阶段
+
+1. 用户 3.21.1 复验（**只读操作**：设置→搜索 勾选/取消勾选、看每行状态；不要点保存/删除/重建索引以外的写操作——用户本机有夸克/阿里/百度三条真实连接）。
+2. 若仍要求「被取消勾选的网盘立刻从索引消失」：走十四·7 第 1 条，给 `RemoteIndexDoc` 加 `connection_id` + 查询侧过滤。
+3. 若要求补界面自动化：优先「临时改 `AdditionalBrowserArguments` 打验收专用包（不进 `release/`）」。

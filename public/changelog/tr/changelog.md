@@ -1,6 +1,16 @@
 # Değişiklik Günlüğü
 
 
+## [3.21.1] - November 2026
+
+**Özet:** Ağ diski turunun devamı. *Ayarlar* -> *Arama* içindeki indeksleme işareti artık gerçekten bastığınız diske ait, hepsinde birden yanmıyor; ve o yeniden derleme biter bitmez kayboluyor. Sayfa kapalıyken başarısız olan bir yeniden derleme, bir sonraki açılışta kendiliğinden tekrar deneniyor.
+
+### What changed
+
+**Düzeltildi** **İndeksleme durumu artık diğer disklerin üstüne taşmıyor** - Bir ağ diski için bulut dizinini yeniden derlediğinizde, listedeki her diskin üstünde *Bulut diskleri indeksleniyor* yazısı beliriyordu ve bir diskin işaretini kaldırdıktan sonra bile o yazı kalıyordu. Artık her satır yalnızca *o* diskin sürmekte olan yeniden derlemeye katılıp katılmadığını söylüyor; diğer satırlar kendi normal düğmesini göstermeye devam ediyor. Genel aramanın dışında bıraktığınız diskler artık yeniden derleme düğmesini hiç göstermiyor, dolayısıyla yanlış anlaşılacak bir şey kalmıyor. Yeniden derlemeler yine tek tek yürüyor.
+
+**Düzeltildi** **Başarısız olan bulut yeniden derlemesi geri döndüğünüzde tekrarlanır** - Bulut dizini baştan sona tek bir demet için yeniden kurulur; bu yüzden yarıda başarısız olan bir yeniden derleme, dizini işaretlerinizle uyumsuz bırakabiliyordu. Bu olduğunda, *Ayarlar* -> *Arama* sayfasına bir sonraki girişinizde yeniden derleme kendiliğinden çalıştırılır, böylece işaretini kaldırdığınız diskler siz hiçbir şeye basmadan arama sonuçlarından çıkar.
+
 ## [3.21.0] - November 2026
 
 **Özet:** Bulut diski turu daha derli toplu hale geldi. *Bulut diski ekle* düğmeleri artık hangi sağlayıcıyı seçtiğinizi gösteriyor, *Ayarlar* -> *Arama* ağ disklerinizi sağlayıcıya göre gruplayarak listeliyor, böylece genel aramaya hangilerinin katılacağına siz karar veriyorsunuz, ve bir ağ diskini kaldırmak artık siyah bir konsol penceresiyle flaş etmiyor. OneDrive şimdilik park edildi - şimdilik arayüzden çıktı ve sonra yeniden derlenmeden geri açılabilir.

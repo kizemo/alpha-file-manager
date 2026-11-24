@@ -1,6 +1,16 @@
 # Registro de cambios
 
 
+## [3.21.1] - November 2026
+
+**Resumen:** Un remate de la ronda de los discos en la nube. En *Configuración* -> *Buscar*, el aviso de indexación ahora pertenece al disco al que de verdad le diste, en vez de encenderse a la vez en todos, y desaparece en cuanto termina esa reconstrucción. Si una reconstrucción falló con la página cerrada, la próxima vez que la abras se reintenta sola.
+
+### What changed
+
+**Corregido** **El estado de indexación ya no salpica a otros discos** - Al reconstruir el índice en la nube de un disco en la nube, todos los discos de la lista mostraban *Indexando discos en la nube*, y el texto se quedaba incluso después de desmarcar uno. Ahora cada fila indica si *ese* disco forma parte de la reconstrucción en marcha; las demás conservan su botón de siempre. Los discos que dejaste fuera de la búsqueda global ya ni siquiera muestran botón de reconstrucción, así que no hay nada que malinterpretar. Las reconstrucciones siguen yendo de una en una.
+
+**Corregido** **Una reconstrucción en la nube fallida se reintenta al volver** - El índice en la nube se reconstruye de golpe para el conjunto completo, así que una reconstrucción que fallaba a medias podía dejarlo desajustado de tus casillas. Cuando eso pasa, la siguiente visita a *Configuración* -> *Buscar* vuelve a lanzar la reconstrucción automáticamente, de modo que los discos desmarcados dejan de salir en los resultados sin que tengas que pulsar nada.
+
 ## [3.21.0] - November 2026
 
 **Resumen:** La ronda de los discos en la nube quedó más ordenada. Los botones de *Añadir disco en la nube* muestran ahora qué proveedor has elegido, *Configuración* -> *Buscar* lista tus discos en la nube agrupados por proveedor, para que decidas qué participa en la búsqueda global, y al quitar un disco en la nube ya no parpadea una ventana negra de consola. OneDrive queda aparcado por ahora: sale de la interfaz de momento y se puede volver a activar más adelante sin tener que recompilar nada.

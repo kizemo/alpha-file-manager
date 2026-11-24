@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.21.1] - November 2026
+
+**Summary:** A follow-up to the netdisk round. On *Settings - Search* the "indexing" indicator now belongs to the drive you actually pressed, instead of lighting up on every drive at once, and it clears as soon as that rebuild ends. A rebuild that failed while the page was closed is now retried the next time you open it.
+
+### What changed
+
+**Fixed** **The indexing state no longer bleeds across drives** - Rebuilding the cloud index for one netdisk used to show "Indexing cloud drives" on every drive in the list, and the text stayed even after you un-checked a drive. Each row now reports whether *that* drive is part of the rebuild in progress; other rows keep their normal button. Drives you left out of the global search no longer show a rebuild button at all, so there is nothing to misread. Rebuilds still run one at a time.
+
+**Fixed** **A failed cloud rebuild is retried when you come back** - The cloud index is rebuilt as a whole set, so a rebuild that failed part way could leave it out of step with your checkboxes. When that happens the next visit to *Settings - Search* runs the rebuild again automatically, so un-checked drives stop turning up in search results without your having to press anything.
+
 ## [3.21.0] - November 2026
 
 **Summary:** The netdisk round got tidier. The *Add netdisk* buttons now show which provider you have picked, *Settings - Search* lists your netdisks grouped by provider so you can decide what takes part in the global search, and taking a netdisk away no longer flashes a black console window at you. OneDrive is parked for the time being - it is out of the interface for now, and it can be switched back on later without being rebuilt.

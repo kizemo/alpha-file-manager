@@ -1,6 +1,16 @@
 # Dnevnik sprememb
 
 
+## [3.21.1] - November 2026
+
+**Povzetek:** Nadaljevanje kroga omrežnih diskov. V *Nastavitve* -> *Iskanje* indikator indeksiranja zdaj spada na disk, katerega gumb ste zares pritisnili, namesto da bi se prižgal na vseh hkrati; in ugasne, ko ta pregradnja konča. Pregradnja, ki je spodletela, medtem ko je bila stran zaprta, se ob naslednjem obisku samodejno poskusi znova.
+
+### What changed
+
+**Popravljeno** **Stanje indeksiranja več ne prehaja na druge diske** - Ko ste za en omrežni disk na novo gradili oblačni indeks, je besedilo *Indeksiranje omrežnih diskov* stalo na vsakem disku na seznamu, ostalo pa je tudi, ko ste pri katerem odstranili kljukico. Zdaj vsaka vrstica pove samo to, ali *ta* disk sodeluje pri pregradnji, ki teče; ostale vrstice obdržijo svoj navadni gumb. Diski, ki ste jih izključili iz globalnega iskanja, gumba za pregradnjo sploh ne prikazujejo več, tako da ni kaj zmotiti. Pregradnje še vedno tečejo ena za drugo.
+
+**Popravljeno** **Spodletela oblačna pregradnja se ob vrnitvi ponovi** - Oblačni indeks se gradi naenkrat kar za celoten nabor, zato je pregradnja, ki je spodletela sredi pota, lahko zaostala za vašimi kljukicami. Ko se to zgodi, naslednji obisk v *Nastavitve* -> *Iskanje* pregradnjo samodejno požene znova, tako da diski brez kljukice izginejo iz zadetkov iskanja, čeprav niste pritisnili ničesar.
+
 ## [3.21.0] - November 2026
 
 **Povzetek:** Krog omrežnih diskov je postal urejenejši. Gumbi za *Dodaj omrežni disk* zdaj pokazujejo, katerega ponudnika ste izbrali, *Nastavitve* -> *Iskanje* našteva vaše omrežne diske po ponudnikih, zato sami odločite, kaj sodeluje v globalnem iskanju, odstranitev omrežnega diska pa ne povzroči več črnega okna konzole. OneDrive je za zdaj odstavljen - za zdaj je izginil iz vmesnika in ga je mogoče pozneje vrniti brez ponovne gradnje.

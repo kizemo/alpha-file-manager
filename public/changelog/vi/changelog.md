@@ -1,6 +1,16 @@
 # Nhật ký thay đổi
 
 
+## [3.21.1] - November 2026
+
+**Tóm tắt:** Tiếp nối vòng đĩa đám mây. Trong *Cài đặt* -> *Tìm kiếm*, dấu báo đang lập chỉ mục giờ thuộc về đúng ổ mà bạn đã bấm, thay vì sáng lên trên mọi ổ cùng lúc, và nó biến mất ngay khi lần dựng lại đó kết thúc. Một lần dựng lại thất bại khi trang đang đóng sẽ được tự động thử lại vào lần kế tiếp bạn mở trang.
+
+### What changed
+
+**Đã sửa** **Trạng thái lập chỉ mục không còn lan sang các ổ khác** - Trước đây, khi dựng lại chỉ mục đám mây cho một ổ đám mây, dòng *Đang lập chỉ mục các đĩa đám mây* hiện trên mọi ổ trong danh sách, và vẫn ở lại ngay cả khi bạn đã bỏ chọn một ổ. Nay mỗi hàng cho biết đúng *ổ đó* có nằm trong lần dựng lại đang chạy hay không; các hàng khác vẫn giữ nút thường lệ của chúng. Những ổ bạn đã để ngoài tìm kiếm toàn cục không còn hiện nút dựng lại nữa, nên không có gì để đọc nhầm. Các lần dựng lại vẫn chạy một lần một.
+
+**Đã sửa** **Lần dựng lại đám mây thất bại được chạy lại khi bạn quay lại** - Chỉ mục đám mây được dựng lại theo cả một bộ cùng lúc, nên một lần dựng lại hỏng giữa chừng có thể khiến nó lệch so với những ô bạn đã đánh dấu. Khi điều đó xảy ra, lần kế tiếp vào *Cài đặt* -> *Tìm kiếm* sẽ tự chạy lại việc dựng lại, vì vậy những ổ đã bỏ chọn biến mất khỏi kết quả tìm kiếm mà bạn không cần bấm gì cả.
+
 ## [3.21.0] - November 2026
 
 **Tóm tắt:** Vòng ổ đám mây đã gọn gàng hơn. Các nút *Thêm đĩa đám mây* giờ cho biết bạn đã chọn nhà cung cấp nào, *Cài đặt* -> *Tìm kiếm* liệt kê các ổ đám mây của bạn theo nhóm nhà cung cấp, để bạn tự quyết định ổ nào tham gia tìm kiếm toàn cục, và việc gỡ một ổ đám mây không còn làm lóe lên một cửa sổ console đen nữa. OneDrive tạm thời được để lại - hiện đã rời khỏi giao diện, và sau này có thể bật lại mà không phải dựng lại.
