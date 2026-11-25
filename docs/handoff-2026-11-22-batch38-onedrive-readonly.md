@@ -4507,3 +4507,128 @@ function handleEscapeKey(): boolean {
 4. 本仓真实路径纠正：云盘索引模块在 **`src-tauri/src/global_search/remote_index.rs`**（`src-tauri/src-tauri/src/…` 是旧文档里的错路径，不存在）；连接 store 在 **`src/stores/storage/remote-connections.ts`**（旧引用的 `src/modules/remote/stores/remote-connections.ts` 不存在）；`src-tauri/src` 下 `.rs` 文件 **188** 个。
 5. 配额选项 A（每连接席位上限）**已在代码里**：`remote_index.rs:61-63` `total_entry_limit(connection_count) = REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION * connection_count.max(1)`，注释 L58 给算例「3 个连接 ⇒ 60,000 条 ⇒ 约 19 MB」；跳过目录汇总日志在 L198-204。⇒ 用户若确认走 A，此项可直接从待办改为已完成（**待用户追认**）。
 
+## 三十、批次 57（2026-12-02）：盘上取证推翻上一轮误判 → 缺陷 A 本体定根因 → TDD 闭环 → 门禁 + 打包 + 装机 + 真机 A/B 复验
+
+> **本批性质**：接 §二十九（批次 57 只读取证轮，已证伪「缺陷 A 已修」并作废 W-20 前提）。
+> 用户拍板「修缺陷 A 本体」后，本棒完成 **定根因 → RED → GREEN → 门禁 → 打包 → 装机 → 只读 MCP 真机 A/B 复验**。
+> **本批未做**：未升版本号、未改 `tauri.conf.json`、未推送、未发版、未动索引文件（零重建）。
+
+---
+
+### 三十·1 根因（盘上取证，非推断）
+
+- 用户侧现象：全局搜「Midjourney 使用心得+关键词分析」及其子串召不回
+  `Midjourney 使用心得+关键词分析.mp4`（OneDrive 个人盘，file id `646dacdb6ff34af4b26f88dd802baf02`，路径 `08艺术`）。
+- 判据设计：`phrase_on_name=true` 的语义是「对**文件名**做**子串**正则」，故该模式下**词表不拆标点** ——
+  检索词只要落在文件名里，含 `+` 也必须能召回。
+- **根因定位**（`src-tauri/src/global_search/query.rs:107-127`）：`build_name_regex_query()` 把
+  `RegexQuery::from_pattern` 打在**分词字段 `fields.name`** 上，等于要求「整个查询串等于某一个 term」。
+  文件名被词表在 `+` 处切成 `…使用心得` / `关键词分析…` ⇒ 任何跨 `+` 的串都**不是**单个 term ⇒ 子串匹配恒 0 命中。
+  同函数里那句「Tantivy 的 `RegexQuery` 作用于 term 级别，对分词后的 `name` 字段无法做全文子串匹配」
+  是作者写下的**未兑现 TODO** —— 注释正确、代码用错了字段。
+- **最小修复**：靶字段改 `fields.name_lower`。该字段在 `src-tauri/src/global_search/index.rs:49` 定义
+  `schema_builder.add_text_field("name_lower", STRING | STORED)` = **未分词**（整条小写名就是一个 term）且已 STORED，
+  正是子串检索该打的字段（同文件注释 L107/L112 已把这条理由写明）；
+  查询侧 `needle = query.trim().to_lowercase()` 与之口径一致（写入侧统一小写，见 `query.rs:1618/1716/1884/2359`、
+  `index.rs:549/611/664`）。
+  **零索引重建**：不改字段类型、不改 schema ⇒ 已提交的索引（`meta.json` `max_doc=23334` / `opstamp=23335`）直接生效。
+- 顺带修掉的次生 bug：`build_filters()` 里 `if let Ok(q) = build_*(){ queries.push(q) }` 的**静默丢弃** ——
+  子查询构造失败（如通配符致正则非法）时，`phrase_on_name` 会退化成全文 OR 检索。
+  新增 `SearchError::BadQuery(String)`（`types.rs:127`）+ `build_optional()`（`query.rs:142/189`）+ 两处调用点透传。
+
+---
+
+### 三十·2 TDD 证据链（RED 的失败原因必须是缺陷本身）
+
+- **测试构造**：3 条新测试**直接驱动生产函数 `build_query()`** —— 这很关键，
+  若改成测试里自己再打一个字段，就测不到「生产代码选了哪个字段」。
+- **RED**（修复前，`cargo test --lib global_search::query::tests::substring`）：
+  `red2.log:221` = `test result: FAILED. 1 passed; 2 failed; 0 ignored; 0 measured; 1730 filtered out; finished in 0.24s`；
+  两条失败都是**断言级**（不是 panic 崩在建索引之前）：
+  `assertion failed: !q.is_empty(): 跨标点检索词不得返回空查询（缺陷 A 本体）`（`red2.log:191`）、
+  `assertion failed: score_cnt >= 1: name_lower 必须能命中整条跨标点串（缺陷 A 本体）`（`red2.log:196`）。
+  `red2.log:224` = `EXIT=0` —— 这是 `cmd /c` 包了 `powershell -Command` 的退出码，
+  **cargo test 非零退出没被透传**。故本项目的 RED/GREEN **一律以日志里的 `test result:` 行为准，不得看 `EXIT=`**。
+- **GREEN**：定向重跑 `green-filter.log:207` = `ok. 3 passed; 0 failed; 0 ignored; 0 measured; 1730 filtered out`
+  （`FILTER_EXIT=0` 见 `:209`，这次退出码可用）；
+  全量 `green.log:1937` = `ok. 1730 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 9.24s`
+  （基线 1727 + 本批 3 = 1730，零回归；`green.log:202` 亦回显 `running 1733 tests`）。
+- 三条测试分别是：`substring_regex_targets_non_tokenized_name_lower_for_cross_punctuation_query`（缺陷 A 本体）、
+  `substring_regex_finds_plain_substring_in_name_lower`（同字段基本盘）、`substring_regex_respects_case_insensitive_substring`（门槛测试）。
+  第三条在 RED 轮**本就通过**，不构成有效 RED，已如实登记 —— 它的作用是锁定「大小写口径一致」这条回归面。
+- **未覆盖项（诚实留痕）**：假阳性那一层（`+` 两侧的碎 term 拼出「看起来像」的短串）本批**没写断言**，
+  真机 A/B 也未构造出假阳性样本。
+
+---
+
+### 三十·3 门禁与打包
+
+- `npm run check` 全绿（`check.log`，2026-12-02 22:15:52 落盘）：
+  `check.log:167` `Test Files 336 passed (336)`、`:168` `Tests 3610 passed (3610)`、`:170` `Duration 106.07s`、
+  `:211` `[sandbox-gate] OK  全部扩展入口通过`、`:212` `EXIT=0`。
+- 打包 `npm run tauri:build`：`b57-build.log:2363` `BUILD_EXIT=0`，末步仅复制到 `release/`、不上传。
+  产物 NSIS 安装包（盘上回读）：`src-tauri\target\release\bundle\nsis\Alpha File Manager_3.22.0_x64-setup.exe`
+  46,120,764 B（mtime 2026-11-25 22:03:20）、sha256 `1a3256b13036470df4b8a27280031bf8926beaded6668b2d0115c04f5c12435f`。
+
+---
+
+### 三十·4 装机（含一次被推翻的重建判据，必须留痕）
+
+- **首版判据作废**：`install-b57.ps1` / `install-b57.log` 用 `release/local-builds/` 里的**同名旧包**
+  做「重建证据」⇒ 自比自；且 `tauri build` 末步会把新包复制进该目录。该产物与结论**不计入台账**，已改用 `seq-after-b57.ps1`。
+- **有效判据 = 包内容先于安装器退出码**：装机前直接从**新包**里解出 `alpha-file-manager.exe` 取 payload 哈希
+  （`seq-after-b57.log:5` `PACKAGE_PAYLOAD_SHA256=54e4eaf8…515a size=85570560`），
+  安装后与已装 exe 比（`:11` `POST_INSTALLED_SHA256=54e4eaf8…515a`、`:12` `PAYLOAD_MATCH=YES`、
+  `:13` `FIX_APPLIED=True (installed exe replaced by the name_lower substring build)`）。
+- **安装确实换了东西的旁证**：`:7` `PKG_IS_NEW=YES`（新包 sha256 `1a3256b1…435f` ≠ 已装旧 exe `e744cf66…d562d`）、
+  已装 exe mtime 由 `17:57:26` 变 `22:02:40`、`seq-after-b57.log:10` `INSTALLER_EXIT=0`。
+- 版本号**未动**（仍 3.22.0，与 b55 包同名不同哈希）⇒ 发布与否由用户裁决，见本批收尾。
+
+---
+
+### 三十·5 真机 A/B 复验（只读 MCP，装机版）
+
+探针 `.superpowers/sdd/b57/probe-b57.ps1`（参数定义 L17-L23、用例 L101-L108、输出行 `RES <用例> ms= count= target_node= …`）。
+靶子 `sfm://remote/646dacdb6ff34af4b26f88dd802baf02/08艺术/Midjourney 使用心得+关键词分析.mp4`。
+日志行号 = `mcp-probe-before.log` / `mcp-probe-after.log` / `mcp-probe-after2.log` 各自 **L7-L21**。
+
+| 用例 | 查询串 | before（b55 旧 exe） | after（b57 新 exe，同进程第二轮复采） |
+|---|---|---|---|
+| A1 全名精确 | `Midjourney 使用心得+关键词分析` | 277 ms / 39 条，靶子在内 | 1551 ms / 39 条（第二轮 1259）靶子在内，仍被 39 条淹没 |
+| **A2 跨标点缺陷本体** | `心得+关键` | **258 ms / 0 条 / 未召回** | **1298 ms / 1 条 / 精确命中靶子**（第二轮 1334） |
+| **A3 跨标点变体** | `心得+关键词` | **256 ms / 0 条 / 未召回** | **1261 ms / 1 条 / 精确命中靶子**（第二轮 1290） |
+| A4 右半段 | `关键词分析` | 269 ms / 7 条 | 1268 ms / **8 条**（第二轮 1209）—— 子串通道多召回 1 条 |
+| A5 左半截断 | `Midjourney 使用心` | 263 ms / 39 条 | 1382 ms / 39 条（第二轮 1219） |
+| A6 无标点单段（对照） | `使用心得` | 271 ms / 1 条 / 已召回 | 1430 ms / 1 条 / 已召回（第二轮 1272）—— **不含 `+` 的查询修复前后都正常** ⇒ 缺陷只在跨标点 |
+| **A7 控制组** | `发票` | 261 ms / 5 条 / 靶子不在内 | 1369 ms / 5 条（第二轮 1271，payload 长度 715→721）—— 条数一致、**耗时同涨** |
+| A8 精确模式 | `exact_match=true` | 8 ms / 0 条 | 8 ms / 0 条 —— 未受影响（该靶名不在本地全盘索引内，非回归） |
+
+- **结论**：缺陷 A **已修并在装机版上坐实** —— 跨标点查询词从「0 条、未召回」变「1 条、精确命中靶子」，
+  同进程第二轮复采一致（排除偶发）。A2/A3 是用户报告的原始缺陷，A4 的 7→8 条是子串通道生效的正向证据。
+- **新遗留（登记为 W-21，非阻塞但需用户裁决）**：全局检索端到端耗时 **260ms 级 → 1270ms 级（约 5×）**。
+  原因**未分段计时定位**（日志只有端到端 `ms=`），候选含「子串正则打在未分词 STRING 字段 ⇒ 全 doc 枚举」与打包版索引体量；
+  **控制组 `发票` 也同涨 ⇒ 更像全链路/索引枚举代价，而非跨标点分支特有**。需用户裁决是否接受此代价或开优化棒次。
+- 探针参数：`result_limit=50`（仅 A7 用 5），`phrase_on_name=true`（A1-A7）、A8 带 `exact_match=true`。
+
+---
+
+### 三十·6 交下一棒
+
+**本批坐实的事实**
+- 缺陷 A 的真根因是**查询侧字段选错**（分词 `name` vs 未分词 `STRING` 的 `name_lower`），
+  不是索引缺数据、不是词表缺 `+`、不需要改 schema、不需要重建索引。上一轮误判已彻底作废（§二十九）。
+- 本项目的 `cmd /c` 包装会吃掉 cargo/powershell 的非零退出码：**判 RED/GREEN 只认 `test result:` 行**。
+- 装机判据必须「**包内容先于安装器退出码**」：payload 哈希（`seq-after-b57.ps1` L26-L31）是唯一能证明
+  「跑的就是这个包」的证据；`INSTALLER_EXIT=0` 只说明安装器没报错。
+- MCP `search_files` 只能证明「后端召回正确」，不能证明「搜索面板里肉眼可见」—— 后者本仓库**没有可用通道**：
+  AGENTS.md §2.13（L802-805）实测：Tauri 会覆盖 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`，带 `--remote-debugging-port=9333`
+  起来后**无监听**；要走 CDP 只能改 `tauri.conf.json` 注入 `additionalBrowserArgs`（本批未改，该文件现无此配置）。
+  AGENTS.md L35 / L121 另记「拿不到 webview console 是本项目常态」。
+  ⇒ 界面级取证仍只能走 `PrintWindow` 截图 / UIA / 日志文件，**不得声称本仓库已有 CDP 像素通道**
+  （handoff L445-450 已把「9222 在听 / CDP 可达」等判据逐条证伪）。
+
+**本批未做（下棒起点）**
+- 未升版本号 / 未推送 / 未发版；未做全局检索耗时分段计时（W-21 归因）；未测 OneDrive 配额耗尽与超大目录下的假阳性；
+  未复验 B-2（需用户重新授权阿里云盘）。
+- 代码提交 `ae98e82f`（1 file，+95/−2，仅改 `query.rs`；`types.rs` 的 `BadQuery` 在其中）；
+  本批台账与文档另起提交。**待用户裁决**：W-21 是否接受 / 是否发版。

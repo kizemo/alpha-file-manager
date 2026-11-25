@@ -805,6 +805,23 @@ AFM 确实不抢前台（聊天窗口还在前面），但**文件拖不进聊�
   靠环境变量打开的调试端口在 Tauri 里不生效。要走 CDP 只能改 `tauri.conf.json` 注入 `additionalBrowserArgs`
   并**重打两次包**（验收包 + 回滚后的干净包），代价 ≈ 15 分钟且产物带调试端口 ⇒ 本批改走 vitest DOM 级回归测试。
 
+### 2.14 全局索引的姓名列是「未分词 STRING」：子串检索必须打在 name_lower 上（2026-12-02 批次 57 缺陷 A）
+
+- schema 是**代码里构建的**，`src-tauri/src/global_search/` 下**没有 `schema.json`**（本批取证时差点臆造出该文件）。
+  索引字段定义唯一真身：`src-tauri/src/global_search/index.rs:49`
+  `let name_lower = schema_builder.add_text_field("name_lower", STRING | STORED);`
+  ⇒ `STRING` 在 tantivy 里**不分词**：整条小写文件名就是**一个 term**。
+- 小写折叠发生在**写入侧**而非索引配置：`index.rs:549 / 611 / 664`、`query.rs:1618 / 1716 / 1884 / 2359` 一律 `.to_lowercase()`。
+  查询侧口径必须对齐（`needle = query.trim().to_lowercase()`，`query.rs:114` 注释已写明）。
+- **规则**：凡「文件名的任意子串都要能召回」（`regex_on_name` / `phrase_on_name`），查询侧**必须传 `fields.name_lower`**。
+  打在分词字段 `fields.name` 上等价于要求「整个查询串 == 某一个 term」，跨词表分隔符（`+`、`-`、空格）的查询恒 0 命中。
+- 反例即本批缺陷 A（修复 `ae98e82f`）：`心得+关键` 打在 `fields.name` 上 **0 条**，换 `fields.name_lower` 后 **1 条精确命中靶子**；
+  不含标点的 `使用心得` 修复前后都能召回（1 条）⇒ 看到「跨标点召不回」先查**字段选错**，不要怀疑索引没数据或词表缺符号。
+- **代价（已登记 W-21）**：`STRING` 无词典剪枝 ⇒ 子串正则退化为全 doc 枚举 + 逐 doc 正则，
+  装机实测端到端 **260ms 级 → 1270ms 级（约 5×，控制组同涨）**。换字段不是免费午餐，改前先确认能接受。
+- 判 RED/GREEN 只认日志里的 `test result:` 行：本项目 `cmd /c` 包 `powershell -Command` 会吃掉非零退出码
+  （`red2.log:221` 是 `FAILED. 1 passed; 2 failed`，而 `:224` 仍写着 `EXIT=0`）。
+
 ## 3. 代码导航：graphify 知识图谱
 本仓库已建好本地 AST 知识图谱（2026-10-21 部署）：**零 LLM、零 API 成本、纯本地**，产物在 `graphify-out/`（已加进 `.gitignore`，不进版本库）。
 
