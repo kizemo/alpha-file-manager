@@ -3409,3 +3409,371 @@ $B = '<repo>\.superpowers\sdd\b46'
 - `accept-aliyun\save-2306-before.txt` / `save-2306-after.txt`（后者 129 行）
 - `accept-aliyun\S63-CLOSEOUT.txt`（2,791 B，7 节：动作序列 / 落盘判据 / 会话有效性 / 端到端验证 /
   正交遗留 / 复现配方 / 关键教训）
+
+## 二十一、批次 47 —— 重建互斥锁 + 上限警告汇总（W-9 / W-10）
+
+> **时间**：2026-11-25 00:00–00:45（本地）
+> **范围**：台账 `docs/open-items-2026-11-24.md` §6 第 **2、3** 项。
+> **为什么不是第 1 项**：第 1 项（B-3 / B-5 / B-6 界面级验收 + 阿里云盘条目复测）要求界面可操作，
+> 而 00:13 起本机处于**锁屏**态（`LogonUI` pid 31928，START 2026-11-24 23:27:02；`GetForegroundWindow()` 恒 0；
+> 主窗 rect `-32000,-32000,276×45`、`off=True`；UIA `Descendants` 搜到 0 个元素）⇒ 整项无法执行。
+> 已排除的错误解法（**不要再试**）：切 `WinSta0`/`Default`（`SetThreadDesktop` 返 `ERROR_BUSY=170`）；
+> `schtasks /IT` 交互式任务（`FG_AT_START` 仍 0）。两条都不是解法。
+> **结论**：改做剩余项里**唯一纯代码、不依赖用户**的 W-9 + W-10。
+> **状态**：代码 + 单测 + CHANGELOG 已落盘，两侧门禁全绿；**未提交**（等用户回来一并处理）。
+
+### 二十一·1 改动一：后端重建加一把**跨连接共用**的互斥锁（W-9）
+
+**问题**（批次 45 收尾坐实）：`global_search_index_remote_connections` 没有后端互斥。12:41:28 与 12:49:29 两次重建
+**并发**抢同一索引目录，中途采样看到 `segments: []` 的「假空索引」。前端只有**模块级**串行锁，
+CDP 直调 / 任意后端调用都能绕过它。
+
+**修法**（`src-tauri/src/global_search/commands.rs`）：
+
+| 落点 | 内容 |
+|---|---|
+| L74–99 | `static REBUILD_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());` —— **全局一把**，不是每连接一把（每连接一把仍会互相删段文件） |
+| 同上 | `async fn acquire_rebuild_lock() -> MutexGuard<'static, ()>`：先 `try_lock()` 直取；抢不到先打一条 `log::warn!("[global-search] 已有云盘索引重建在进行，本次重建排队等待（W-9）")`，再 `lock().await` **排队** |
+| `global_search_index_remote_connections` 体内第一行（`let base_dir =` 之前） | `let _rebuild_guard = acquire_rebuild_lock().await;` |
+
+**三个设计取舍**（都写进了源码注释，后续改的人别再翻案）：
+
+1. **排队而不是报错** —— 保持既有契约「返回本次写入条数」。报错会让前端把一次正常请求当失败。
+2. **guard 必须在任何文件操作之前取得** —— 一轮重建对索引目录是**先删后建**，只要晚一步拿到锁，删段文件这件事已经发生了。
+3. **排队时打一条 WARN** —— 否则「慢」和「在排队」在日志里不可区分（延续 W-7 的取证思路）。
+
+**判别性单测** `the_rebuild_lock_never_lets_two_rebuilds_run_at_once`
+（`#[tokio::test(flavor = "multi_thread", worker_threads = 4)]`）：4 个 `tokio::spawn` 各自抢锁 →
+`in_flight.fetch_add` → `peak.fetch_max` → `sleep(5ms)` → `fetch_sub`，断言 `peak == 1`。
+**把锁删掉这条必红**（4 个任务会同时进临界区，peak 到 4）。
+
+### 二十一·2 改动二：上限警告「每个连接只汇总一次」（W-10）
+
+**问题**：批次 45 收尾实测，百度触顶后每跳过一个目录就打一条 WARN，21:12–21:21 那次重建刷了数十条，
+把关键日志淹没。不影响正确性。
+
+**修法**（`src-tauri/src/global_search/remote_index.rs`）：
+
+- 新增 `#[derive(Debug, Default)] struct SkippedDirs { count: usize }`：
+  - `record()` —— 命中上限跳过目录时自增；
+  - `describe(&self, connection_id: &str, total_limit: usize) -> Option<String>` —— `count == 0` 返回 `None`，
+    否则返回「连接 X 另有 N 个目录未继续下钻（已达上限 M 条）」**整句**。`&self` ⇒ 只读、可重复调用。
+- `walk_connection`：`let mut skipped_dirs = SkippedDirs::default();`；原逐目录 `log::warn!` 换成 `skipped_dirs.record();`；
+  `while let` 循环**之后**统一 `if let Some(message) = skipped_dirs.describe(connection_id, total_limit) { log::warn!("{message}"); }`。
+
+**为什么不是降级 DEBUG**（台账给了两个选项）：W-7 的思路是「让日志能回答『是不是出事了』」。
+把触顶信息降成 DEBUG，默认级别下等于**删掉可观测性**；汇总成一条就把日志量从 O(目录数) 压到 O(连接数)，
+信息一条不少。**每连接一条**对应「每个连接有自己的 20k 上限」。
+
+**两条单测**：`skipped_dirs_summarize_into_one_line_per_connection`（`None` / 计数 3 / 含连接 id / 含上限 20000 / 单行）、
+`skipped_dirs_describe_is_read_only`（重复 `describe` 不改计数）。
+
+### 二十一·3 门禁（本轮实测）
+
+| 门禁 | 命令 | 结果 | 日志 |
+|---|---|---|---|
+| Rust | `cargo test --lib`（**借 1.90.0 工具链**） | **1696 passed / 0 failed / 3 ignored** —— 基线 1693 + 3 新测试 | `.superpowers/sdd/b47/cargo-test-lib.log`（三条新测试逐条 `... ok`，L638 / L681 / L682） |
+| 前端 | `npm run check` | **EXIT=0** —— Test Files 334 passed / Tests 3597 passed | `.superpowers/sdd/b47/npm-check.log`（`verify-changelog` L173–174、`[sandbox-gate] OK` L211） |
+
+⚠️ 日志 L33 的 `warning: unused variable: reader` 来自 `src/global_search/scan.rs:387`，是**既有告警**，
+与本批次无关，按「不扩大改动面」未修。
+
+`CHANGELOG.md` 只动 `## [3.22.0] - November 2026` 段，在 `## [3.21.1]` 之前补两条英文条目
+（`A second cloud rebuild no longer breaks the one already running` / `A netdisk that fills the index no longer floods the log`）。
+**版本号未另起** —— 3.22.0 还是 3.23.0 仍待用户拍板（批次 45 问卷未答复）。
+
+### 二十一·4 本轮**没**做的事（别当成已完成）
+
+1. **B-3 / B-5 / B-6 界面级验收** —— 锁屏，一条都没做；① 阿里云盘条目复测也没做（token 约 00:56 过期）。
+2. **未提交**。工作区 3 个 M：`CHANGELOG.md`、`src-tauri/src/global_search/commands.rs`、`src-tauri/src/global_search/remote_index.rs`。
+3. **未打包**。本轮没有任何界面级结论，打包无意义；用户要验的是第 1 项，不是这两个补丁。
+4. **W-9 只有单测证据，没有真机并发证据** —— 真机上要造「两次重建同时到达」得有界面或 CDP，两者本轮都拿不到。
+   单测直接测的是那把锁本身（同一对象、同一进程），够判「锁生效」，但**不等于**验过真机行为。
+
+### 二十一·5 复现配方（下一轮接手用）
+
+```powershell
+$R = 'F:\soft\00selfmade\filemanager\sigma-file-manager'
+$B = "$R\.superpowers\sdd\b47"
+
+# 0) 先判现场：锁屏没解锁 → 一切界面类工作都别做
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$B\state.ps1"
+
+# 1) 门禁（Rust 侧必须借 1.90.0；本机 stable 1.97.1 已损坏）
+& cmd.exe /d /c "set PATH=C:\Users\Duanyi\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin;%PATH%&& cd /d $R\src-tauri&& cargo test --lib > $B\cargo-test-lib.log 2>&1"
+& cmd.exe /d /c "cd /d $R&& npm run check > $B\npm-check.log 2>&1"
+
+# 2) 界面树（解锁后才有意义；按进程过滤 + 面积降序取主窗）
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$B\dump-tree.ps1" -OutFile "$B\tree-now.txt"
+```
+
+### 二十一·6 本轮装置（`.superpowers/sdd/b47/`，脚本全部纯 ASCII）
+
+| 文件 | 用途 |
+|---|---|
+| `state.ps1`（1,179 B） | 一行输出 `NOW / LOGONUI / FOREGROUND / APP / CRED / INDEX` —— **每轮开工先跑**，一眼判出能不能做界面 |
+| `dump-tree.ps1`（2,513 B） | UIA 转储主窗元素树（`-AppPid` / `-OutFile`），按面积降序取最大窗口 |
+| `cargo-test-lib.log` / `npm-check.log` | 本轮门禁原始日志 |
+| `tree-now.txt` | 锁屏态产物：**0 行**（`Descendants` 搜不到元素）—— 不是脚本坏了，是锁屏 |
+| `mcp-list-aliyun-root.txt` | MCP 路径口径复核（`sfm://` 虚拟路径不被接受，`-32603 os error 123`） |
+
+### 二十一·7 教训（会重复踩的）
+
+1. **锁屏是「硬阻塞」，不是「难办」**。判据两条同时成立：`Get-Process LogonUI` 命中 + `GetForegroundWindow()` 为 0。
+   命中就**立刻改做不需要界面的活**，别在窗口站 / 前台 / 合成点击上继续试探。
+2. **改勾选不能靠改 JSON 后重启**（再次确认）：`watch(globalSearchConnectionIds)` 只监听**界面内**的集合变化，
+   启动时从盘上读到的勾选不算「集合变了」⇒ 不触发重建。必须在运行中的应用里点复选框。
+3. **`cargo test --lib` 的用例数是对账锚点**：1693 → 1696（+3）且 `0 failed`，才说明新测试真被跑到，
+   而不是「加了测试但没编进去」。
+4. **判「该不该打包」看有没有界面级判别项**，不看「改了多少代码」。本轮零界面判别项 ⇒ 不打包。
+
+---
+
+## 二十二、批次 48（2026-11-25 08:59–09:15）：B-3 闭合 + §6-1① 已证 + 新开 W-12
+
+### 二十二·0 一句话
+
+用户 08:59 前已完成阿里云重登；本轮**只做界面级验收、零源码改动**，闭合了 `docs/open-items-2026-11-24.md` §6 第 1 项的两条（① 云盘条目可被 MCP 检索、② B-3 登录态过期检测/重登提醒），
+同时**新开 W-12（中文子串检索失效）**——它是本轮「阿里云中文词全 0 命中」的真因，与云盘授权/索引无关。
+
+### 二十二·1 开工探针（先判能不能做界面）
+
+`& powershell.exe -File .superpowers\sdd\b47\state.ps1`：
+
+```
+NOW=2026-11-25 08:59:04  LOGONUI=none  FOREGROUND=67634
+CRED=2026-11-24 23:03:01 / 5761 B
+```
+
+- `LOGONUI=none` 且 `FOREGROUND` 非 0 ⇒ 未锁屏，可做界面级验收。
+- `b48\win-list.ps1`：**登录窗 `HWND=9111918` 已消失**（说明 23:03 那次重登确实走完了），`COUNT=13`，
+  主窗 `HWND=67634 CLASS=Tauri Window RECT=-7,-7,2208x1200`。
+- `b47\dump-tree.ps1` → `b48\v5-main.txt`（**158 元素**）。关键 4 行：
+
+| 行 | 元素 | 用途 |
+|---|---|---|
+| L132 | 文本「已登录」 | B-3 重登结果的正向判据 |
+| L124 | `CheckBox\|remote-include-in-search\|加入全局检索\|off=False` | 阿里云 `includeInGlobalSearch` 当时为 **false** |
+| L139/140 | 粘贴 token 的 `保存` @(1492,2052) | **不是**表单提交按钮 |
+| L157 | `保存\|1662,2738\|off=True` | 真正的表单提交按钮 |
+
+### 二十二·2 一次性保存策略（本轮关键决定）
+
+**代码依据（先读码再动手）**：
+
+- `src/.../use-remote-global-search-index.ts:248-250` 的 `globalSearchConnectionIds` 取的是 **store 里已保存的连接**；
+  `watch` 在 L342，**只在保存后触发**。
+- `connection-form.vue:1388-1397` 的复选框只做 `v-model`，`handleSubmit()`（L1317）→ `store.saveConnection(form)`（L1323）才落盘。
+
+⇒ 分两次保存（先改勾选、再干别的）会触发**两轮整体重建**，每轮约 10 分钟。
+所以本轮把「勾选 `includeInGlobalSearch`」与「重登后保存」**合并成同一次 `saveConnection`**，
+只触发一次 `{百度, 阿里云}` 整体重建。
+
+`b48\aliyun-check-and-save.ps1`（8,055 B，纯 ASCII）实测输出：
+
+```
+CHECKBOX_BEFORE off=False
+TOGGLE_STATE_AFTER=On
+SUBMIT_PICK=...（取 y 最大）
+SUBMIT_FINAL=rect=1662,1922|off=False      # ScrollIntoView() 之后矩形上移
+INVOKE=ok
+ELEMENTS_AFTER=120                          # 表单已关闭
+```
+
+**落盘回读**（0 依赖界面判词）：
+
+- `remote-credentials.json` mtime **2026-11-25 09:00:31**，5,761 B
+- `user-data\user-remote-connections.json` mtime **09:00:32**，2,373 B
+- 阿里云 `646dacdb6ff34af4b26f88dd802baf02` 的 `includeInGlobalSearch = true`；百度 `0f0696ba…` 亦为 `true`；
+  3 条 sftp 与夸克为 `false`
+- `global-search` 目录下**只剩 `index` + `status.json`** ⇒ 批次 47 遗留的 staging 残留项**已彻底消解**
+
+### 二十二·3 重建全过程（实测时间戳，全是日志原文）
+
+| 本地时间 | 事件 |
+|---|---|
+| 09:00:32 | `云盘索引重建开始：2 个连接` |
+| 09:01:19 | 百度**撞上限** |
+| 09:09:59 | 百度 `收集到 20000 条` 并停止 |
+| 09:10:50 | 阿里云 `收集到 3334 条` |
+| 09:10:51 | `云盘索引提交完成：23334 条，commit=295ms` + `总耗时 619028ms` |
+
+`remote-index\meta.json`：mtime **09:10:51** / 2,046 B / `opstamp=23335` / `SEGMENTS=1` / `max_doc=23334` / **无 deletes**。
+
+后台探针 `bg_cc0243af-057d-4e87-a83b-3e74c55cac7b`（10 s 轮询 meta.json）以成功终态收尾：
+`COMMIT_DETECTED=2026-11-25T01:10:51Z POLL=50`（UTC，比本地早 8 小时）。期间按额度闸门写过 ack（`until_ms=1795570247099`）。
+
+### 二十二·4 MCP 检索验证（§6-1① 闭合）
+
+**先说装置坑**：`mcp-client.ps1` 必须用 **`pwsh.exe`** 跑 —— `powershell.exe`（5.1）报
+`A parameter cannot be found that matches parameter name 'SkipHttpErrorCheck'`（该参数是 PS 7+）。
+不带 token 时 `INIT_STATUS=401`，这本身是「鉴权生效」的正向判据；token 取自 `mcp-access.json` 的 `token`（len=32）。
+
+实测（opstamp=23335 / 23,334 条）：
+
+| query | `result_limit` | 命中总数 | 阿里云条数 | 备注 |
+|---|---|---|---|---|
+| `AI` | 50 | 50（截断） | 1 | `08艺术/Midjourney AI 技巧收集.xlsx` |
+| `Midjourney` | 200 | 39 | **2** | 上者 + `Midjourney 使用心得+关键词分析.mp4` |
+| `AI` | 500 | 260 | 1 | 上限 500 内未截断 |
+| `技巧` | 200 | 7 | **0** | 全百度 |
+| `收集` | 200 | **0** | 0 | 全局 0 |
+| `心得` | 200 | 1 | 0 | |
+| `分析` | 200 | 5 | 0 | |
+| `艺术` | 200 | 2 | 0 | |
+
+⇒ **阿里云条目服务端可检索性已证**（`Midjourney` 两条命中即是铁证），§6 第 1 项① 闭合。
+同时上表**中间 4 行就是 W-12 的原始证据**：文件名里明明含「技巧 / 收集」，却一条都搜不到。
+
+### 二十二·5 新开缺陷 W-12：中文子串检索失效（**本轮不修**）
+
+**根因（读码坐实，两层）**：
+
+1. `src-tauri/src/global_search/index.rs:40-42` —— `name` 字段用 tantivy **`default` 分词器** ⇒ 一段连续汉字被当成**一个 term**。
+2. `src-tauri/src/global_search/query.rs:40,46-49` —— 查询侧 `split_query_tokens` + `FuzzyTermQuery(distance=1)`
+   ⇒ 与整个 term 差 **2 个字符**即不命中。
+
+所以「技巧」要命中，文件名必须与它**几乎整段相同**；「收集」这类短词更是必死。
+ASCII 正常（`Midjourney` / `AI`），因为那些词本身就被切成词元。
+
+**与云盘无关**：本地文件同样失效，只是本轮先拿云盘文件当对照物才暴露。此前把「阿里云中文词 0 命中」当授权问题，是**假阴**。
+
+**推荐修法（已写进台账 §4 末行，批次 49 第一项）**：
+查询侧对含 CJK 的 token 追加一条 `RegexQuery::from_pattern(".*<regex-escaped>.*", fields.name)` 作 `Should` 子查询；
+`incremental.rs:190-194` 已证 tantivy-fst 是全匹配语义、`.*` 可用 ⇒ **不改索引格式、不需要重建**。
+另需给「中文子串命中」单独定打分口径，否则会被 `min_score_threshold` 二次丢掉。
+
+### 二十二·6 本轮装置与证据（`.superpowers/sdd/b48/`，脚本全部纯 ASCII）
+
+| 文件 | 用途 |
+|---|---|
+| `win-list.ps1` | 枚举应用窗口（按面积降序取主窗），判登录窗是否已关 |
+| `restore-win.ps1` / `shot.ps1` | 恢复主窗 / 取帧（本轮**未用上**：模型不支持图片输入，`read` 返回 `Image not sent`） |
+| `open-settings4.ps1` | 汉堡 → 命令面板 → 输入筛选 → 点 `Sigma: 打开设置`（设置页入口唯一稳定路线） |
+| `aliyun-edit-dump.ps1` / `aliyun-open-login.ps1` | 阿里云条目的「编辑」弹窗转储 / 「打开登录窗口」 |
+| `aliyun-check-and-save.ps1`（8,055 B） | 勾选 + 保存一次性提交；**已知缺陷**：设计里的 `ALIYUN_FLAG` 没打印出来（不影响判据） |
+| `cjk-probe.ps1` / `cjk-probe2.ps1` / `cjk-probe3.ps1` | MCP 中文词探针；CJK 字面量全部用 `[char]` 码点构造，脚本本身纯 ASCII |
+
+证据文件：`v5-main.txt`（158 元素）、`v5-after-save.txt`、`v4-aliyun-edit.txt`、`v4-login-window.txt`、
+`v5-log-tail.txt`、`v5-log-tail2.txt`、`v6-log-tail.txt`、`mcp-search-ai.log`、`mcp-search-aliyun-id.log`、
+`mcp-search-jiaocheng.log`、`mcp-probe-art.log`、`mcp-probe-skill.log`、`mcp-probe-midj.log`、
+`mcp-probe2-{skill200,midj500,ai500}.log`、`mcp-probe3-{collect,insight,analyze}.log`。
+
+### 二十二·7 教训（会重复踩的）
+
+1. **「勾选 + 保存」必须搭同一次 `saveConnection`**。分两次保存 = 两轮整体重建 = 白烧约 10 分钟。
+   判据不是「弹窗里有几个按钮」，而是 `use-remote-global-search-index.ts` 里 `watch` 挂在什么上面。
+2. **同名按钮按「y 最大 + 先 `ScrollIntoView()` 再 Invoke」定位**。设置页有**两颗** `保存`，
+   名字取第一个会点到「粘贴 token」那颗，界面看不出报错、但什么都没落盘。
+3. **MCP 客户端脚本必须 `pwsh.exe`**。`-SkipHttpErrorCheck` 是 PS 7+ 参数，5.1 直接参数错误；
+   报错信息指向「参数不存在」，很容易误判成脚本坏了。
+4. **看不到渲染图像时，「界面是否真的生效」只能靠三件套**：UIA 文本 + 落盘文件 mtime/字段 + 服务端可检索性（MCP）。
+   本机截图路线（`shot.ps1` + `read` 图片）**拿不到任何判据**，不要再在这上面花轮次。
+5. **「云盘文件搜不到」有两条互不相干的假阴**：① 授权/索引（真问题，本轮已证正常）；② **中文子串分词**（W-12，与云盘无关）。
+   诊断顺序固定：先做 ASCII 对照（`Midjourney` / `AI` 有命中）⇒ 排除授权与索引；再上中文词定位查询层。
+6. **20000 条/连接撞顶不会中断另一连接**：撞顶只是「记一条日志 + 跳过该连接剩余目录」，
+   百度 09:01:19 撞顶后阿里云仍在 09:10:50 正常收完 3,334 条。判「重建是否卡死」看的是**另一个连接有没有继续增长**。
+
+### 二十二·8 本轮**未做**（边界）
+
+- **B-5**（杀毒扫描超时提醒）仍等一次真实云盘下载动作 —— 纯用户侧，Agent 无法代做。
+- **B-6**（三家真实账户界面验收）仍需用户在场逐家走一轮。
+- **B-2**（refresh 400 `InvalidParameter.ClientId`）仍等下次复现时抓 `afm-aliyun-login.log`（`remote/aliyun_auth.rs:880`）。
+- **W-12 不在本批次动手**：改查询层会动检索排序，属批次 49 第一项，需要独立门禁（含中文子串打分的单测）。
+- **源码零改动**：本轮只改文档（`docs/open-items-2026-11-24.md` 共 4 处：§3 B-3 行、§4 末行 W-12、§6 第 1 项、§9 日志行）。
+  批次 47 的 5 个改动（`CHANGELOG.md`、本 handoff、台账、`global_search/commands.rs`、`global_search/remote_index.rs`）**仍未提交**。
+- **未打包**：本轮判据全部来自已装的 3.22.0 与落盘文件，无「只有新包才能验」的界面项。
+## 二十三、批次 49（W-12 中文子串检索失效）
+
+批次 49 只做一件事：修台账 §4 的 **W-12**。本批次**未改索引 schema、未重建索引、未升版本号**。
+
+### 二十三·1 根因（已坐实，与云盘无关）
+
+- 索引侧：`name` 字段用 tantivy **`default` 分词器**（`src-tauri/src/global_search/index.rs:40-42`）⇒ **一段连续汉字整体是一个 term**。「Midjourney AI 技巧收集」在索引里没有独立的「技巧」「收集」term。
+- 查询侧：`split_query_tokens`（`query.rs:156-164`）只按空白 / `.` / `_` / `-` 切 ⇒ `技巧` 这种词**不会被拆开**；随后走 `FuzzyTermQuery(distance=1)`（`query.rs:40,46-49`），要求与某个 term 编辑距离 ≤ 1 ⇒ 与整段汉字 term 差好几个字符 ⇒ **不命中**。
+- 因此本地与云盘**一视同仁**都失效：两侧同一套 schema、同一套查询构造。批次 48 的现象（`技巧`→7 条全百度、`收集`→全局 0 条）就是这个根因的表象。
+
+### 二十三·2 修法（只动查询侧，不改索引格式）
+
+- `build_query`（`query.rs:27-98`）：在组装 `BooleanQuery` 之前，对每个 token 调 `build_substring_query`，返回 `Some` 就 push 一条 `Occur::Should` 子查询（与既有 fuzzy / token 分支**并集**，旧行为不变，只多一条命中路径）。
+- `build_substring_query`（`query.rs:100-124`）：`word.is_ascii()` → `None`；否则 `format!(".*{}.*", escape_regex_literal(word))` + `RegexQuery::from_pattern(&pattern, fields.name)`；`Err` ⇒ `log::warn!` + `None`（**单条正则编译失败不允许拖垮整次查询**）。
+- 复用既有 `escape_regex_literal`（`incremental.rs:172-185`，`REGEX_METACHARACTERS = r"\.+*?()[]{}^$|"`），新增 `use super::incremental::escape_regex_literal;`（`query.rs:19`）。
+- **关键取舍**：`name` 用 `default` 分词器决定了「整段汉字 = 一个 term」，而 `RegexQuery` 是在 term 字典上跑正则 ⇒ 能绕过分词限制。**只要不动 schema，23,334 条现有索引不需要重建**，用户升级后立刻生效。换 CJK 分词器则要重建全量索引 + 重排既有 fuzzy/排名，代价与风险都不成比例，本批次不做。
+- `exact_match` 分支（`build_exact_match_query`）**不加正则**：精确匹配的语义是整词相等，且 `matches_exact_name` 事后也会把子串命中筛掉，加了只是白烧算力。
+
+### 二十三·3 打分侧未动（附证明，别再来回改）
+
+- `get_min_score_for_query_length(query_len)` 吃的是**字节长度**（两个调用点 `query.rs:590` / `query.rs:1012` 传的都是 `normalized_query.len()`）：2 字 CJK = 6 字节 → 门槛 0.65；单字 = 3 字节 → 0.9。
+- 单测 `substring_hits_clear_the_length_threshold` 实测 `技巧` / `收集` / `研` 三组的 `calculate_similarity_score` 均 **≥** 对应门槛 ⇒ CJK 子串命中**不会被 `min_score_threshold` 二次丢掉**，无需为它单开打分口径。
+
+### 二十三·4 已知限制（三条，已写进源码注释）
+
+1. **只对含非 ASCII 字符的词加正则**。ASCII 中缀（`eeting` → `meeting`）不处理：`typo_tolerance=true` 时 `eeting` 与 term `meeting` 编辑距离 1，fuzzy 本来就命中，属语义重叠而非缺口；而单字符正则（如 `a`）会在 term 字典上展开命中海量 term，成本过高。
+2. `RegexQuery` 打的是**常量分**，候选数超过 `result_limit` 时取哪几条由文档顺序决定（fuzzy 分支的分差会占优）。**真机实测（2026-11-25，批次 49 装机后）**：`分析` 这种高频 2 字词候选池直接打满服务端硬上限 **500 条**（请求 `result_limit=1000` 仍只回 500），靶子 `Midjourney 使用心得+关键词分析.mp4` 被挤出；同一文件改用 `关键词分析`（5 字）可稳定命中（`score=0.92`，路径 `sfm://remote/646dacdb6ff34af4b26f88dd802baf02/08艺术/Midjourney 使用心得+关键词分析.mp4`）⇒ **正则路径本身生效，缺口在排序/容量层**，属独立议题，本批不处理（另记台账）。
+3. `exact_match` 分支不加正则（见二十三·2 末条）。
+
+### 二十三·5 门禁（全部 EXIT=0）
+
+| 门禁 | 结果 | 证据 |
+|---|---|---|
+| `cargo check --lib` | **EXIT=0**，`Finished dev profile in 3m04s`，36 条既有 warning、0 error | `.superpowers/sdd/b49/cargo-check.log`（360 行） |
+| `cargo test --lib` | **EXIT=0**，**1702 passed / 0 failed / 3 ignored**，`finished in 7.47s`（基线 1696 + 本轮 6） | `.superpowers/sdd/b49/cargo-test-lib2.log` |
+| `npm run check` | **EXIT=0**，末行 `[sandbox-gate] OK  全部扩展入口通过` | `.superpowers/sdd/b49/npm-check.log`（213 行） |
+
+新增 6 条单测全在 `global_search::query::tests::cjk_substring::*`（日志里逐条可查，`COUNT=6`）：
+`finds_substring_in_the_middle_of_a_cjk_run` / `finds_substring_at_the_start_of_a_cjk_run` /
+`finds_single_han_character` / `substring_hits_clear_the_length_threshold` /
+`substring_query_is_built_only_for_non_ascii_words` / `regex_metacharacters_in_the_word_are_escaped`。
+
+测试用 in-memory 索引 + 真实 `build_query` 取候选（不走 `collect_candidate_addresses` /
+`materialize_candidates` 全链路），另用独立阈值断言覆盖「二次过滤」风险。
+
+**放弃的一类用例**：原打算加「ASCII 中缀不被捞出」，实测会假红 —— `eeting` 与 `meeting`
+编辑距离 1，在 `typo_tolerance=true` 下 fuzzy 本来就会命中，断言写死等于跟既有语义打架。
+
+### 二十三·6 装置坑（本轮新增 / 复现，下一轮别再踩）
+
+- **`echo EXITCODE=%ERRORLEVEL%` 这一行在 `cargo test` 之后可能整行丢失**，两次实测：
+  ① 我第一次在它收尾时用 `task_output` 读日志（非共享读，把文件独占）⇒ 追加失败 ⇒ wrapper 退出码 1（测试本身全绿）；
+  ② 改用全新日志文件、全程不读它，`EXITCODE=` 仍然没写进去，但任务状态是 `succeeded` / exit 0。
+  ⇒ **判据不要只看这一行**：要「日志正文里的 `test result:`」+「任务终态退出码」双证。`npm run check` 的日志里这一行是正常落盘的，说明是 cargo 分支的特例。
+- 应用日志 / `cargo-*.log` 在运行期被独占 ⇒ PowerShell 读它必须 `[IO.File]::Open(..., [IO.FileShare]::ReadWrite)`，`[IO.File]::ReadAllLines` 会报 "used by another process"。
+- PowerShell 里 **`Set-Location` + 重定向会被本地安全策略判「无法核实写目标」而整条拒绝** ⇒ 门禁与打包脚本一律写成**纯 ASCII `.cmd`**（内部 `cd /d` + `> log 2>&1`），再用 `cmd.exe /d /c` 起。
+- 本机 `rustup` 的 `stable`（1.97.1）**仍然损坏**（cargo 缓存 `file is not a database` code 26）⇒ 所有 Rust 门禁与打包都借 `C:\Users\Duanyi\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin`（写进 `.cmd` 的 `set PATH=`）。日志开头那两条 `warning: failed to save last-use data` / `failed to auto-clean cache data` 是同一个根因，**不影响结果**。
+
+### 二十三·7 打包与真机 A/B 验收（W-12 已闭）
+
+**打包**：装置 `.superpowers/sdd/b49/build.cmd` ⇒ `npm run tauri:build`，日志 `.superpowers/sdd/b49/tauri-build.log`（2,372+ 行），关键行 `Finished \`release\` profile [optimized] target(s) in 10m 17s` / `Built application at: ...\src-tauri\target\release\alpha-file-manager.exe` / `Running makensis to produce ...bundle\nsis\Alpha File Manager_3.22.0_x64-setup.exe`，任务终态 **succeeded / EXITCODE=0**。
+
+**产物（新旧同名不同内容，故隔离）**：
+
+| 位置 | 尺寸 | 时间 | SHA256 |
+|---|---|---|---|
+| `release\local-builds\Alpha File Manager_3.22.0_x64-setup.exe`（**本轮新包**） | 46,148,338 B | 2026-11-25 10:53:26 | `26051490AD415F80720957E917352F828C28B390FCB8BAFC1DBBBAEA8EAFBCD6` |
+| `release\Alpha File Manager_3.22.0_x64-setup.exe`（已发布副本，**原封未动**） | 46,151,697 B | 2026-11-24 16:22:35 | `4AB5032B56AB42AD2494A52DD77660943A498CE898E70761893A8B12D2B3D470` |
+
+新包落 `local-builds/` 不是失误：`scripts/publish-bundle-to-release.mjs` 的 `placeArtifact()` 明确规定「同名不同内容 ⇒ 写 `local-builds/` 并告警，**绝不覆盖已发布资产**」。
+
+**装机**：`CloseMainWindow()` 对本应用无效 ⇒ `Stop-Process -Force`（旧 pid 86544，`REMAIN=0`）→ `Start-Process <新包> -ArgumentList '/S' -PassThru -Wait` ⇒ **INSTALL_EXIT=0**（10:54:38 → 10:55:17）。落盘 `D:\Program Files\Alpha File Manager\alpha-file-manager.exe` = **85,807,616 B / 2026-11-25 10:52:44**。
+**索引未重建**：`remote-index\meta.json` mtime 仍 `2026-11-25 09:10:51`（opstamp 23335 / max_doc 23334）⇒ 印证二十三·2「不用重建」。
+
+**A/B 实测**（装置 `.superpowers/sdd/b49/w12-probe.ps1 -Tag before|after`，走应用自带只读 MCP `search_files`，`result_limit=200`；`before` = 旧包 3.22.0，`after` = 本轮新包）：
+
+| 查询词 | 旧包（before） | 新包（after） | 判定 |
+|---|---|---|---|
+| `技巧`（2 字） | COUNT=7，阿里云 **0** | COUNT=151，阿里云 **1** ⇒ `Midjourney AI 技巧收集.xlsx` | ✅ 修好 |
+| `收集`（2 字） | COUNT=0，阿里云 **0** | COUNT=15，阿里云 **2** ⇒ 同一 xlsx + `差评收集表格.xlsx` | ✅ 修好 |
+| `心得`（2 字） | COUNT=1，阿里云 **0** | COUNT=21，阿里云 **1** ⇒ `Midjourney 使用心得+关键词分析.mp4` | ✅ 修好 |
+| `分析`（2 字） | COUNT=5，阿里云 0 | COUNT=200；`result_limit=500/1000` 仍阿里云 0 | ⚠ 候选饱和被挤出（二十三·4-2） |
+| `关键词分析`（5 字） | 未测 | COUNT=7，阿里云 **1** ⇒ 同一 mp4，`score=0.92` | ✅ 证明正则生效 |
+| `Midjourney`（ASCII 对照） | COUNT=39，阿里云 2 | COUNT=39，阿里云 2 | ✅ 无回归 |
+
+证据日志：`mcp-before-*.log` / `mcp-after-*.log` / `mcp-after2-{fenxi-l1000,fenxi-l500,guanjianci-fenxi}.log`（均在 `.superpowers/sdd/b49/`）。
+**服务端 `result_limit` 硬上限 = 500**（传 1000 只回 500），这一条也是本轮新发现，写在这里备用。
+
+### 二十三·8 下一步
+
+1. ~~装机新包 → 按二十三·7 口径验 W-12~~ **已完成（2026-11-25）**：6 个查询 5 通过、1 为排序层已知限制 ⇒ 台账 §4 的 W-12 行已改「**已闭合（含真机）**」。
+2. 未提交改动 **6 个文件**：`CHANGELOG.md`、`docs/handoff-2026-11-22-batch38-onedrive-readonly.md`、`docs/open-items-2026-11-24.md`、`src-tauri/src/global_search/commands.rs`、`src-tauri/src/global_search/remote_index.rs`、`src-tauri/src/global_search/query.rs`（本轮 `query.rs` = **+201 / −1**）。等用户拍板是否连同批次 47/48 一起提交。
+3. 仍待用户拍板：版本号（3.23.0？）与 CHANGELOG 是否更新；云盘索引配额最终口径；是否允许 `rustup` 修复 stable。
+4. 新开条目候选（**未做**）：CJK 子串命中的**排序提权**（`BoostQuery` 包 `RegexQuery`），解掉二十三·4-2 的「高频 2 字词被挤出」。属排序层改动，影响全站排名，需单独评估 + 独立 A/B。

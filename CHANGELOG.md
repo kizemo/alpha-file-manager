@@ -12,6 +12,10 @@
 
 **Changed** **The cloud index is rebuilt once after this update** - The stored format of the cloud search index now includes the netdisk each entry belongs to, so the index you already have cannot be read by the new version. The app rebuilds it for you the first time you open the search or remote settings. That walks the netdisks you ticked once and uses netdisk API calls; netdisks you have not ticked are not walked, and the index of your own drives is not touched.
 
+**Fixed** **A second cloud rebuild no longer breaks the one already running** - A rebuild could be started again while one was still going - by opening *Settings - Search* in a second window, or by pressing rebuild on another netdisk. Both rebuilds emptied the same index folder, so the index could end up half written and a netdisk you had ticked returned nothing in search. Rebuilds now wait for each other and only one runs at a time; a rebuild that has to wait says so in the log instead of failing.
+
+**Changed** **A netdisk that fills the index no longer floods the log** - When a netdisk reached the index limit, the app wrote one warning line for every folder it could not descend into. On a large netdisk that ran to tens of thousands of lines and buried everything else. It now writes one line per netdisk, saying how many folders were left out.
+
 ## [3.21.1] - November 2026
 
 **Summary:** A follow-up to the netdisk round. On *Settings - Search* the "indexing" indicator now belongs to the drive you actually pressed, instead of lighting up on every drive at once, and it clears as soon as that rebuild ends. A rebuild that failed while the page was closed is now retried the next time you open it.
