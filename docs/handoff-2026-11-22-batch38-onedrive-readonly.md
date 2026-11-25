@@ -4449,5 +4449,5 @@ function handleEscapeKey(): boolean {
 - **Rust**：`src-tauri/.superpowers/sdd/b56/cargo-test-lib-b56.log` → `test result: ok. 1727 passed; 0 failed; 3 ignored; finished in 8.06s`（与 b55 基线逐字相同，盘上回读）。
 - **前端**：`src-tauri/.superpowers/sdd/b56/npm-check-b56.log`（run1）**红在 eslint**——4 条风格错全在新守卫文件（`@stylistic/arrow-parens` / `padding-line-between-statements` / `quotes` ×2），`ts` 与 `lint:stylelint:check` 无错。`npx eslint <该文件> --fix` 清零后单文件 `--max-warnings 0` 复跑 EXIT=0，守卫复跑仍 **9 passed / 9**。
 - **前端重跑**：`src-tauri/.superpowers/sdd/b56/npm-check-b56-run2.log` → **`Test Files 336 passed (336)` / `Tests 3610 passed (3610)` / Duration 120.19s**，`verify-changelog` 通过，`verify:sandbox` 末行 `[sandbox-gate] OK 全部扩展入口通过`（`RESULT: VALID (0 violations / 20 patterns)`），全程无 `exited with`。**336/3610 正好 = b55 的 335/3601 + 新增 1 个守卫文件 9 条用例**——数量自洽，可作为「本批只加了守卫、没动别的测试」的旁证。
-- **提交**：本批改动 = 新守卫文件 + `docs/open-items-2026-11-24.md` + 本节。`src-tauri/tauri.conf.json` 已回滚干净、不在变更集内。**不推送**（远端仅 gitee，用户未要求）。未做：升版本号、改 CHANGELOG、重建索引、B-2 复验、§6 需用户在场的验收。
+- **提交**：主提交 `1f2b00bb`（父 `e3352cf5`，批次 55 链尾）。本批改动 = 新守卫文件 + `docs/open-items-2026-11-24.md` + 本节。`src-tauri/tauri.conf.json` 已回滚干净、不在变更集内。**不推送**（远端仅 gitee，用户未要求）。未做：升版本号、改 CHANGELOG、重建索引、B-2 复验、§6 需用户在场的验收。
 
