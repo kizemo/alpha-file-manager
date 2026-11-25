@@ -3920,3 +3920,67 @@ ASCII 查询无子串通道 / `exact_match` 无子串通道 / 合并去重且保
    （W-13 召回层修复 + 7 条单测）；**版本号与 CHANGELOG 未动**、**不推送**。
 3. **仍待用户拍板**：版本号（3.23.0？）与 CHANGELOG 是否更新；云盘索引配额最终口径；是否允许跑 `rustup` 修 stable。
 4. **仍待用户在场**：B-5（一次真实云盘下载触发杀毒超时）、B-6（三家网盘各一轮界面级验收）、W-4（360 误报复验）。
+
+## 二十五、批次 52 —— W-14 闭合：同分带保底配额（候选②）+ 云盘池内新近，含真机 A/B
+
+### 二十五·1 本批做了什么
+
+用户拍板候选②（同分命中按来源保底配额），并要求「②必须同时覆盖云盘候选收集与 `merge_search_results` 两处」。本批即按此落地。
+
+**(A) 合并层保底配额**（`src-tauri/src/global_search/query.rs`）
+
+- `merge_search_results` 的 `merged` 从 `Vec<GlobalSearchResultEntry>` 改为 `Vec<(GlobalSearchResultEntry, bool)>`，第二位 = 「这条来自云盘」。**不用 path 前缀嗅探**：`sfm://remote/` 是 `location.rs:74` 的拼装细节，不是合并层的契约。
+- 新增 `reserve_cloud_seats_in_cut_band(merged, limit)`，在规则 2 的稳定排序之后、`truncate(limit)` 之前调用。只在**正好卡在窗口边界的那个分数**（`cut = merged[limit-1].score`）的同分带 `[band_start, band_end)` 内重排：把带内尾部的若干本地席位让给带外的云盘条目，目标是云盘占到窗口的一半。
+- 四条硬约束：不碰分数高于 cut 的条目；函数只重排不删数据（总长度不变，让席的本地条目由 `truncate` 落在窗口外）；**带在窗口内只剩 1 席 ⇒ `giveable == 0` ⇒ 云盘 0 席**，保住 `query.rs` 里成文的产品取向「本地结果优先」；云盘没货不硬凑（席位数受带外云盘条数上限约束）。
+
+**(B) 云盘池内新近优先**
+
+`search_remote_index` 尾部改为 `let (mut results, _materialized_count) = …` 再调用新增的 `sort_remote_hits_by_recency(&mut results)`：按「score 降序 + 同分 `modified_time` 新近」稳定重排。必要性：候选池顺序 = 主池 BM25 序 + 子串池文档序 = **索引写入序**，真机观察到的顺序是 7z → 百度 → 阿里，不重排则 (A) 让出的席位会被最早写入的连接整批吃光，配额交付不了「后写入的条目」。
+
+⚠ 明确**没有**采用「跨索引 doc id 新近」做 tie-break（两索引 doc id 各自独立、云盘恒小 ⇒ 等价云盘优先，那不是拍板的策略），也没有引入跨来源的 mtime 比较（那会撞上「本地优先」取向）。(B) 只在云盘索引内部生效，等价于把候选④的「组内 mtime」限定在云盘组内。
+
+### 二十五·2 TDD 与门禁
+
+| 阶段 | 命令 | 结果 | 日志 |
+| --- | --- | --- | --- |
+| RED | `cargo test w14_cloud_band_quota` | `2 passed / 4 failed`，`CARGO_TEST_W14_EXIT=101` | `.superpowers/sdd/b52/cargo-test-w14.log` |
+| GREEN | 同上 | `6 passed; 0 failed; 1712 filtered out`，`EXIT=0` | 同上（覆盖） |
+| 全量 Rust | `.superpowers/sdd/b52/cargo-test.cmd` | **1715 passed / 0 failed / 3 ignored**（13.51s） | `cargo-test-lib.log` |
+| 前端 | `.superpowers/sdd/b52/npm-check.cmd` | **334 files / 3597 tests**、`NPM_CHECK_EXIT=0` | `npm-check.log` |
+
+基线取自批次 50 的 1709，加 6 条新测试 ⇒ 1715，实测逐字吻合（无既有用例被改动或删除）。测试体例沿用 w13：嵌套 `mod` 于 `mod tests` 内 + `use super::*;`，夹具经 `super::super::super::remote_index::{self, RemoteIndexDoc}` 取；靶子**后写入**以复现文档序劣势。四条 RED 的失败断言与四条机制一一对应（`query.rs:2550/2583/2704/2654`）。
+
+### 二十五·3 真机 A/B（唯一有效口径：打包产物）
+
+`npm run tauri:build` 于 13:52→13:58 完成（`EXITCODE=0`），`install.ps1` 静默装机（bundle sha `F36E9827…28EBF`；批次 50 的同名包已先留存为 `…build-20261125-b50.exe`，顶层已发布副本 sha `4AB5032B…` 复核未被触碰）。A/B 两次都通过应用自带 MCP 工具 `search_files` 取数，就绪判据 = 直探 `http://127.0.0.1:55100/mcp` 返 401。云盘索引 mtime 两次均为 `2026-11-25 09:10:51` ⇒ **同一份索引，无重建干扰**。
+
+| 案例（limit=200） | before 云盘 | after 云盘 | 靶子 before→after | 判读 |
+| --- | --- | --- | --- | --- |
+| `分析` | 1（`0f0696ba`） | **101**（`0f0696ba`） | NO → NO | **配额生效**：同分带让出 100 席给云盘 |
+| `心得` | 1 | 1 | YES → YES | 21 条 < 200 ⇒ 无截断，不受影响（预期） |
+| `关键词分析` | 1 | 1 | YES → YES | 同上 |
+| `Midjourney`（对照） | 2 | 2 | YES → YES | 高分段条目不被配额触碰（预期） |
+| `技巧` | 1 | 1 | NO → NO | 151 条 < 200 ⇒ 无截断 |
+| `收集` | 2 | 2 | NO → NO | 15 条 < 200 ⇒ 无截断 |
+
+只有**真正发生截断**的那一例发生变化，且变化方向与推演一致（`band_start=7`、`window_band=193`、`desired=100`、`giveable` 充足 ⇒ 云盘 1 → 101）。这就是候选②的干净判据。
+
+### 二十五·4 必须记录的订正与未验证项
+
+**订正批次 50 的指认**（此前被当作 W-14 的核心事实）：判别实验 `result_limit=500` 下 `分析` 的云盘命中 251 条**全部来自连接 `0f0696ba…`，阿里云盘 `646dacdb…` 为 0 条**。⇒ 批次 50「307 条云盘候选含靶子、同分被切在窗口外」这句话对**靶子**并不成立；靶子在云盘索引侧对该词**根本没被召回**（文件名是「使用心得+关键词分析」，`分析` 作为独立 token 命不中「关键词分析」，而 W-13 的子串池只在本地侧救回了这类命中）。所以「搜『分析』看不到靶子」的剩余根因在**云盘侧召回粒度**，属 W-13 的延伸，不在配额层。W-14 本身的排序缺陷（后写入的云盘条目在同分带被整批切掉）已由 25·3 的 A/B 坐实并闭合。
+
+**未验证项**：
+
+1. 靶子所在连接的 mtime 是否够新 —— 因该词 0 命中，真机无法验证「配额按新近把靶子端上来」；`sort_remote_hits_by_recency` 的新近取席位目前只有单测证据。
+2. 配额席位在**多连接**间如何平衡（本批实测 `0f0696ba` 独得 101 席）—— 仍属 §5「多连接混合检索的排序策略 —— 暂不做」，无产品规则不动。
+3. 界面级（非 MCP）复验未做：本轮取证走应用自带 MCP 只读工具，未截图。
+
+**本批未做**：未升版本号（仍 3.22.0）、未动 CHANGELOG、未重建任何索引、未推送远端。版本号 / CHANGELOG / 云盘索引配额最终口径 / 是否授权 `rustup` 修 stable 仍待用户拍板。
+
+### 二十五·5 本批工具坑（下次直接避开）
+
+- `Set-Location` **不改 .NET 进程 CWD** ⇒ `[IO.File]::ReadAllText('相对路径')` 报找不到路径；文件 API 一律传绝对路径（本批实测栽一次）。
+- PowerShell 里用四反斜杠做 `-notmatch "'\.superpowers\\\\sdd\\\\b50'"` 这类锚点判断**必然假阴** ⇒ 改字面量 `.Contains()` / `.Replace()`。
+- 判「已装包是不是新包」不能只看版本号（本批未升版，文件名与 3.22.0 同名会互相覆盖）⇒ 装机前先留存旧包副本，装机后回读已装 exe 的 mtime + sha256 比对。
+- 应用 MCP 就绪判据用「直探 `/mcp` 得 401」，不要用 `mcp-access.json` 的 mtime（本机不成立）。
+- `Get-Process -Name 'alpha-file-manager'` 是进程判定的唯一可靠口径（`b47\state.ps1` 曾把在跑的进程判成 `APP NOT RUNNING`）。

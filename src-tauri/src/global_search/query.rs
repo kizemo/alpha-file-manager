@@ -623,10 +623,27 @@ fn search_remote_index(
         );
     }
 
-    let (results, _materialized_count) =
+    let (mut results, _materialized_count) =
         materialize_candidates(&searcher, &fields, options, &normalized_query, &candidates);
 
+    // W-14 (B)：云盘池内部按「分数降序 + 同分 mtime 新近」重排。物化返回的是候选池顺序
+    // = 主池 BM25 序 + 子串池文档序 = **索引写入序**（真机是 7z → 百度网盘 → 阿里云盘）。
+    // 不重排的话，合并层留出的保底席位会被最早写入的那个连接整批吃掉，用户刚上传的靶子
+    // 照样进不了窗口。排序只发生在**同一个云盘索引内部**，不做跨来源新近。
+    sort_remote_hits_by_recency(&mut results);
+
     Some(results)
+}
+
+/// W-14 (B)：云盘同分命中按 `modified_time` 新近优先。稳定排序 —— mtime 相同（含全为 0）
+/// 时保持原有池顺序，因此不同分之间的次序不变。
+fn sort_remote_hits_by_recency(results: &mut [GlobalSearchResultEntry]) {
+    results.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| b.modified_time.cmp(&a.modified_time))
+    });
 }
 
 /// 取云盘索引的候选文档地址，**按当前勾选的连接集合过滤**。
@@ -696,40 +713,158 @@ fn build_connection_filter(
 ///    分数相同保留本地那条（本地先入队）。
 /// 2. **按 score 降序**排全局序。`sort_by` 是稳定排序 ⇒ 分数相同时
 ///    本地条目排在云盘条目前面 —— 本地结果优先，是这个产品一贯的取向。
-/// 3. **总量截断到 `limit`**：`limit` 就是「结果条数上限」这个旋钮本身
+/// 3. **同分带内给云盘保底席位**（FORK-MODIFICATION 2026-11-25，W-14 候选②）：
+///    见 `reserve_cloud_seats_in_cut_band`。只重排「正好卡在窗口边界那个分数」的
+///    同分带，分数高于它的本地条目一条都不会被挤掉。
+/// 4. **总量截断到 `limit`**：`limit` 就是「结果条数上限」这个旋钮本身
 ///    （见 `candidate_limit_for` 的注释），合并后仍然只给用户这么多条。
 pub(super) fn merge_search_results(
     local: Vec<GlobalSearchResultEntry>,
     remote: Vec<GlobalSearchResultEntry>,
     limit: usize,
 ) -> Vec<GlobalSearchResultEntry> {
-    let mut merged: Vec<GlobalSearchResultEntry> = Vec::with_capacity(local.len() + remote.len());
+    // 元组第二位 = 「这条来自云盘」。`GlobalSearchResultEntry` 自身没有来源字段，
+    // 而保底配额要按来源分席 ⇒ 在合并过程中就把来源带着走，
+    // 不去嗅探 path 前缀（`sfm://remote/` 是 `location.rs` 的实现细节，不是这里的契约）。
+    let mut merged: Vec<(GlobalSearchResultEntry, bool)> =
+        Vec::with_capacity(local.len() + remote.len());
     let mut position_by_path: std::collections::HashMap<String, usize> =
         std::collections::HashMap::with_capacity(local.len() + remote.len());
 
-    for entry in local.into_iter().chain(remote.into_iter()) {
+    for (entry, from_cloud) in local
+        .into_iter()
+        .map(|entry| (entry, false))
+        .chain(remote.into_iter().map(|entry| (entry, true)))
+    {
         match position_by_path.get(&entry.path) {
             Some(position) => {
-                if entry.score > merged[*position].score {
-                    merged[*position] = entry;
+                if entry.score > merged[*position].0.score {
+                    merged[*position] = (entry, from_cloud);
                 }
             }
             None => {
                 position_by_path.insert(entry.path.clone(), merged.len());
-                merged.push(entry);
+                merged.push((entry, from_cloud));
             }
         }
     }
 
     merged.sort_by(|entry_a, entry_b| {
         entry_b
+            .0
             .score
-            .partial_cmp(&entry_a.score)
+            .partial_cmp(&entry_a.0.score)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
+    reserve_cloud_seats_in_cut_band(&mut merged, limit);
     merged.truncate(limit);
 
     merged
+        .into_iter()
+        .map(|(entry, _from_cloud)| entry)
+        .collect()
+}
+
+/// W-14 候选②：**同分命中按来源保底配额**（FORK-MODIFICATION 2026-11-25）。
+///
+/// 治的症状（真机实测）：查「分析」时本地 5,200 条、云盘 307 条**全部同分 0.92**，
+/// 规则 2 的稳定排序让本地恒在云盘之前，规则 4 的 `truncate(limit)` 随即把整批云盘
+/// 切在窗口之外 ⇒ 用户的云盘中文文件「搜不到」。批次 50 已让 307 条全部入池，
+/// 丢是丢在这一层。
+///
+/// 做法：只在 **cut 分那一条同分带**内重排 —— `cut = merged[limit - 1].score`，
+/// 即「正好卡在窗口边界上」的那个分数。把窗口内该带尾部的若干**本地**席位，
+/// 让给窗口外该带的**云盘**条目，目标是云盘占到窗口的一半（台账候选②「各占一半」）。
+///
+/// 四条硬约束：
+///
+/// - **不碰更高分的条目**：只重排 `[band_start, band_end)`，分数高于 cut 的原样不动；
+/// - **不丢数据**：让出席位的本地条目挪到窗口之后（由调用方 `truncate` 处理），
+///   本函数只重排、总长度不变；
+/// - **本地优先不破**：同分带在窗口内只剩 1 席时不给云盘（`giveable == 0`）；
+/// - **云盘没货不硬凑**：席位数受「窗口外同分云盘条数」上限约束。
+///
+/// ⚠ 不用「跨索引 doc id 新近」做 tie-break：两个索引的 doc id 各自独立编号、
+/// 云盘索引恒小，那等价于「云盘优先」，不是这里拍板的策略。
+/// 云盘组内的新近优先发生在 `sort_remote_hits_by_recency`（同一个索引内部）。
+fn reserve_cloud_seats_in_cut_band(
+    merged: &mut Vec<(GlobalSearchResultEntry, bool)>,
+    limit: usize,
+) {
+    if limit == 0 || merged.len() <= limit {
+        // 不会发生截断 ⇒ 不存在「被切掉的云盘」，不需要配额。
+        return;
+    }
+
+    let cut = merged[limit - 1].0.score;
+    let Some(band_start) = merged
+        .iter()
+        .position(|(entry, _from_cloud)| entry.score == cut)
+    else {
+        return;
+    };
+    let mut band_end = band_start;
+    while band_end < merged.len() && merged[band_end].0.score == cut {
+        band_end += 1;
+    }
+
+    // 稳定排序后同分带内本地恒在云盘之前 ⇒ 这两个下标列表天然分段。
+    let band_local: Vec<usize> = (band_start..band_end)
+        .filter(|index| !merged[*index].1)
+        .collect();
+    let band_cloud: Vec<usize> = (band_start..band_end)
+        .filter(|index| merged[*index].1)
+        .collect();
+
+    let window_band = limit - band_start;
+    let locals_in_window = band_local.len().min(window_band);
+    let clouds_in_window = window_band - locals_in_window;
+    let clouds_outside = band_cloud.len() - clouds_in_window;
+    if clouds_outside == 0 {
+        return;
+    }
+
+    // 至少给本地留 1 席（本地优先）；云盘的目标是窗口的一半。
+    let giveable = locals_in_window.saturating_sub(1);
+    let desired = (limit / 2).saturating_sub(clouds_in_window);
+    let seats = desired.min(giveable).min(clouds_outside);
+    if seats == 0 {
+        return;
+    }
+
+    let keep_local = locals_in_window - seats;
+    let keep_cloud = window_band - keep_local;
+    let mut band: Vec<(GlobalSearchResultEntry, bool)> =
+        Vec::with_capacity(band_end - band_start);
+    // 窗口内：本地前 keep_local 条 + 云盘前 keep_cloud 条。
+    // 云盘池已按新近排序（`sort_remote_hits_by_recency`）⇒ 这里取到的是最新的那批。
+    band.extend(
+        band_local
+            .iter()
+            .take(keep_local)
+            .map(|index| merged[*index].clone()),
+    );
+    band.extend(
+        band_cloud
+            .iter()
+            .take(keep_cloud)
+            .map(|index| merged[*index].clone()),
+    );
+    // 窗口外：让出席位的本地 + 未入选的云盘。同分，顺序不改变分数语义。
+    band.extend(
+        band_local
+            .iter()
+            .skip(keep_local)
+            .map(|index| merged[*index].clone()),
+    );
+    band.extend(
+        band_cloud
+            .iter()
+            .skip(keep_cloud)
+            .map(|index| merged[*index].clone()),
+    );
+
+    merged.splice(band_start..band_end, band);
 }
 
 /// 单次查询允许物化的文档条数上限。
@@ -2472,5 +2607,242 @@ mod tests {
             .expect("云盘索引必须存在");
 
         assert_eq!(results.len(), 2);
+    }
+
+    // ---- W-14（批次 52）：同分命中按来源保底配额 ------------------------------
+    //
+    // 靶子（真机实测）：阿里云盘 `Midjourney 使用心得+关键词分析.mp4`，查「分析」时
+    // 307 条云盘命中一条都进不了结果窗口。
+    //
+    // 机制（读码坐实，**不是**上一轮记的「子串池互斥门」）：
+    // `query.rs:724` 的稳定排序让同分时本地恒在云盘之前，`:730` 才 `truncate(limit)`；
+    // 而本地侧 `finalize_results` 单就能产出 `limit × 盘符数` 条候选 ⇒ 0.92 这条长同分带
+    // 被本地填满，云盘整批落在窗口之外。批次 50 已让 307 条全部入池，丢在合并层。
+    //
+    // 用户拍板的修法 = 候选②「同分命中按来源保底配额」，且**必须同时覆盖两处**：
+    //   (A) `merge_search_results`：同分带内给云盘保底席位；
+    //   (B) `search_remote_index`：云盘组内同分按 mtime 新近优先 ——
+    //       否则配额席位会被「最早写入索引的连接」（百度）吃光，靶子（阿里，最后写入）依旧不出现。
+    mod w14_cloud_band_quota {
+        use super::*;
+
+        /// 云盘路径前缀（`location.rs` 的 `sfm://remote/{connection_id}{path}`）。
+        const CLOUD_PREFIX: &str = "sfm://remote/";
+
+        /// 带 mtime 的云盘条目 —— `remote_entry` 的 `modified_time` 恒为 0，测「同分按新近」不够用。
+        fn cloud_entry(
+            path: &str,
+            name: &str,
+            score: f32,
+            modified_time: u64,
+        ) -> GlobalSearchResultEntry {
+            GlobalSearchResultEntry {
+                modified_time,
+                ..remote_entry(path, name, score)
+            }
+        }
+
+        /// 长同分本地带：模拟真机「5,200 条本地命中全是 0.92」。
+        fn local_band(count: usize, score: f32) -> Vec<GlobalSearchResultEntry> {
+            (0..count)
+                .map(|i| {
+                    remote_entry(
+                        &format!("C:/local/f{i:04}.txt"),
+                        &format!("f{i:04}.txt"),
+                        score,
+                    )
+                })
+                .collect()
+        }
+
+        fn cloud_count(entries: &[GlobalSearchResultEntry]) -> usize {
+            entries
+                .iter()
+                .filter(|entry| entry.path.starts_with(CLOUD_PREFIX))
+                .count()
+        }
+
+        /// (A) 根因钉死：长同分本地带 ⇒ 云盘一条都进不了窗口。
+        ///
+        /// 修复前 `cloud_count == 0`（本条 RED）；修复后云盘必须拿到保底席位，
+        /// 且拿到的是**最新**的那条（(B) 生效的证据）。
+        #[test]
+        fn a_long_same_score_local_band_must_still_leave_room_for_the_cloud() {
+            let remote = vec![
+                cloud_entry("sfm://remote/conn-baidu/old.docx", "old.docx", 0.92, 100),
+                cloud_entry("sfm://remote/conn-ali/mid.docx", "mid.docx", 0.92, 200),
+                cloud_entry(
+                    "sfm://remote/conn-ali/Midjourney 使用心得+关键词分析.mp4",
+                    "Midjourney 使用心得+关键词分析.mp4",
+                    0.92,
+                    300,
+                ),
+            ];
+
+            let merged = merge_search_results(local_band(10, 0.92), remote, 6);
+
+            assert_eq!(merged.len(), 6, "总量仍受 limit 约束");
+            assert!(
+                cloud_count(&merged) >= 1,
+                "同分带内云盘必须有保底席位，实际云盘 {} 条：{:?}",
+                cloud_count(&merged),
+                merged.iter().map(|e| e.name.as_str()).collect::<Vec<_>>()
+            );
+            assert!(
+                merged
+                    .iter()
+                    .any(|entry| entry.name == "Midjourney 使用心得+关键词分析.mp4"),
+                "保底席位必须给到 mtime 最新的云盘条目（靶子），实际 {:?}",
+                merged.iter().map(|e| e.name.as_str()).collect::<Vec<_>>()
+            );
+        }
+
+        /// (A) 配额只吃**同分**的本地席位：分数高于 cut 的本地条目一条都不能被挤掉。
+        #[test]
+        fn the_quota_never_evicts_a_local_hit_that_scores_above_the_cut() {
+            let mut local = vec![
+                remote_entry("C:/local/top.txt", "top.txt", 1.0),
+                remote_entry("C:/local/second.txt", "second.txt", 0.95),
+            ];
+            local.extend(local_band(8, 0.92));
+            let remote = vec![
+                cloud_entry("sfm://remote/conn-ali/c1.txt", "c1.txt", 0.92, 100),
+                cloud_entry("sfm://remote/conn-ali/c2.txt", "c2.txt", 0.92, 200),
+            ];
+
+            let merged = merge_search_results(local, remote, 10);
+
+            assert_eq!(merged.len(), 10);
+            assert_eq!(merged[0].path, "C:/local/top.txt", "1.0 的本地条目必须留在首位");
+            assert_eq!(merged[1].path, "C:/local/second.txt", "0.95 的本地条目不得被挤掉");
+            assert_eq!(cloud_count(&merged), 2, "同分带内云盘应拿到配额席位");
+        }
+
+        /// (A) 同分带只剩 1 个席位时留给本地 —— 保住「本地结果优先」这个一贯取向。
+        #[test]
+        fn a_single_seat_cut_band_stays_local() {
+            let local = vec![remote_entry("C:/local/a.txt", "a.txt", 0.92)];
+            let remote = vec![cloud_entry(
+                "sfm://remote/conn-ali/b.txt",
+                "b.txt",
+                0.92,
+                999,
+            )];
+
+            let merged = merge_search_results(local, remote, 1);
+
+            assert_eq!(merged.len(), 1);
+            assert_eq!(merged[0].path, "C:/local/a.txt");
+        }
+
+        /// (A) 没有云盘命中时，合并结果与改动前逐条一致（配额不得凭空造条目）。
+        #[test]
+        fn an_empty_cloud_pool_changes_nothing() {
+            let merged = merge_search_results(local_band(5, 0.92), Vec::new(), 3);
+
+            assert_eq!(merged.len(), 3);
+            assert_eq!(cloud_count(&merged), 0);
+            assert_eq!(merged[0].path, "C:/local/f0000.txt");
+        }
+
+        /// (B) 云盘候选池内部：同分必须按 mtime 新近优先。
+        ///
+        /// 真机写入顺序是 7z → 百度 → 阿里，靶子在**最后写入**的连接里；
+        /// 若池内仍按文档序，配额席位会被百度吃光。
+        #[test]
+        fn the_cloud_pool_orders_same_score_hits_newest_first() {
+            use super::super::super::remote_index::{self, RemoteIndexDoc};
+
+            let temp = tempfile::TempDir::new().expect("temp dir");
+            let base_dir = temp.path().to_path_buf();
+            remote_index::write_test_connections(
+                &remote_index::user_data_dir_in(&base_dir),
+                &[("conn-baidu", true), ("conn-ali", true)],
+            );
+            remote_index::write_remote_index(
+                &remote_index_dir(&base_dir),
+                &[
+                    RemoteIndexDoc {
+                        path: "sfm://remote/conn-baidu/旧的分析报告.mp4".to_string(),
+                        name: "旧的分析报告.mp4".to_string(),
+                        is_dir: false,
+                        size: 1,
+                        modified_time: 1_000,
+                        connection_id: "conn-baidu".to_string(),
+                    },
+                    RemoteIndexDoc {
+                        path: "sfm://remote/conn-ali/新的分析报告.mp4".to_string(),
+                        name: "新的分析报告.mp4".to_string(),
+                        is_dir: false,
+                        size: 1,
+                        modified_time: 2_000,
+                        connection_id: "conn-ali".to_string(),
+                    },
+                ],
+            )
+            .expect("write");
+
+            let results = search_remote_index(&base_dir, "分析", &cloud_options(10))
+                .expect("云盘索引必须存在");
+
+            assert_eq!(results.len(), 2, "两条都该命中（子串通道）");
+            assert_eq!(
+                results[0].name, "新的分析报告.mp4",
+                "云盘组内同分必须 mtime 新近优先，实际 {:?}",
+                results
+                    .iter()
+                    .map(|entry| (entry.name.clone(), entry.score, entry.modified_time))
+                    .collect::<Vec<_>>()
+            );
+        }
+
+        /// (A)+(B) 合起来的验收：真实云盘索引 + 长同分本地带 ⇒ 靶子必须落在窗口内。
+        #[test]
+        fn the_target_from_the_last_written_connection_survives_a_long_local_band() {
+            use super::super::super::remote_index::{self, RemoteIndexDoc};
+
+            let temp = tempfile::TempDir::new().expect("temp dir");
+            let base_dir = temp.path().to_path_buf();
+            remote_index::write_test_connections(
+                &remote_index::user_data_dir_in(&base_dir),
+                &[("conn-baidu", true), ("conn-ali", true)],
+            );
+            remote_index::write_remote_index(
+                &remote_index_dir(&base_dir),
+                &[
+                    RemoteIndexDoc {
+                        path: "sfm://remote/conn-baidu/百度盘的分析素材.mp4".to_string(),
+                        name: "百度盘的分析素材.mp4".to_string(),
+                        is_dir: false,
+                        size: 1,
+                        modified_time: 1_000,
+                        connection_id: "conn-baidu".to_string(),
+                    },
+                    RemoteIndexDoc {
+                        path: "sfm://remote/conn-ali/Midjourney 使用心得+关键词分析.mp4".to_string(),
+                        name: "Midjourney 使用心得+关键词分析.mp4".to_string(),
+                        is_dir: false,
+                        size: 1,
+                        modified_time: 2_000,
+                        connection_id: "conn-ali".to_string(),
+                    },
+                ],
+            )
+            .expect("write");
+
+            let remote = search_remote_index(&base_dir, "分析", &cloud_options(50))
+                .expect("云盘索引必须存在");
+            assert_eq!(remote.len(), 2, "两条云盘命中都该入池（批次 50 已闭合召回）");
+
+            let merged = merge_search_results(local_band(200, 0.92), remote, 6);
+
+            assert!(
+                merged
+                    .iter()
+                    .any(|entry| entry.name == "Midjourney 使用心得+关键词分析.mp4"),
+                "靶子必须出现在结果窗口内，实际 {:?}",
+                merged.iter().map(|e| e.name.as_str()).collect::<Vec<_>>()
+            );
+        }
     }
 }
