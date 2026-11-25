@@ -724,6 +724,49 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
     await setUserSettingsStorage(key, value);
   }
 
+  /**
+   * 导入设置：把一份扁平点号键的设置集合按**白名单**过滤后写进内存与盘上。
+   *
+   * 为什么不复用 `setMany`：`setMany` 不做白名单判断，`applySettingValue`
+   * 会照着键一路造出嵌套结构 —— 导入一份坏文件就能把内存里的设置改成任意形状。
+   * 这里必须先过 `allowedUserSettingsStorageKeys`，再落盘。
+   *
+   * `__schemaVersion` 是存储格式的版本、不是用户设置，两端都不搬。
+   */
+  async function importUserSettingsEntries(entries: Record<string, unknown>) {
+    if (!userSettingsStorage.value) {
+      throw new Error('userSettingsStorageNotReady');
+    }
+
+    const accepted = new Map<string, unknown>();
+
+    for (const [key, value] of Object.entries(entries)) {
+      if (key === USER_SETTINGS_SCHEMA_VERSION_KEY) {
+        continue;
+      }
+
+      const normalizedKey = normalizeStorageKeyToMemory(key);
+
+      if (!allowedUserSettingsStorageKeys.value.has(normalizedKey)) {
+        continue;
+      }
+
+      accepted.set(key, value);
+    }
+
+    applyUserSettingsEntries(accepted);
+
+    for (const [key, value] of accepted) {
+      await userSettingsStorage.value.set(key, value);
+    }
+
+    await userSettingsStorage.value.save();
+
+    if (accepted.has('theme')) {
+      await broadcastThemeChange(userSettings.value.theme);
+    }
+  }
+
   async function setMany(entries: Array<{
     key: UserSettingsPath;
     value: unknown;
@@ -834,6 +877,8 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
     init,
     set,
     setMany,
+    // FORK-MODIFICATION: 批次 58 —— 「导入设置」用：按白名单过滤后整体写入。
+    importUserSettingsEntries,
     updateFolderSettings,
     setUserSettingsStorage,
     setLanguage,

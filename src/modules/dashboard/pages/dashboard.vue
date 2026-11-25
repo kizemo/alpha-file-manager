@@ -39,6 +39,10 @@ import DashboardOrderControls from '@/modules/dashboard/components/dashboard-ord
 import DashboardNameDialog from '@/modules/dashboard/components/dashboard-name-dialog.vue';
 import DashboardNewFavoriteDialog from '@/modules/dashboard/components/dashboard-new-favorite-dialog.vue';
 import EntryCard from '@/modules/dashboard/components/entry-card.vue';
+// FORK-MODIFICATION: 批次 58 —— 收藏编辑弹窗（侧边栏小铅笔与卡片 ⋮ 菜单共用同一个组件）。
+import FavoriteEditDialog from '@/components/favorite-edit-dialog.vue';
+import { toast } from '@/components/ui/toaster';
+import { checkFavoritePath, normalizeFavoritePathInput } from '@/utils/favorite-edit';
 import EntryCardTags from '@/modules/dashboard/components/entry-card-tags.vue';
 // FORK-MODIFICATION 2026-10-23：移植 upstream `3eca4c17` 的「给现有卡片加信息」四项。
 // 这里只动信息层，不换页面骨架：标签页、分类分组、条目卡片结构全部保持原样。
@@ -229,10 +233,10 @@ const newTagDialogOpen = ref(false);
 // 复用同一个 name-dialog 做「重命名分类」：标题与初值不同，交互完全一样。
 const renameCategoryDialogOpen = ref(false);
 const categoryBeingRenamed = ref<FavoriteCategory | null>(null);
-// FORK-MODIFICATION: 批次 37 —— 收藏显示名（别名）的编辑入口。
-// 同样复用 name-dialog：清空输入框 = 清掉别名 = 回到原始名称。
-const favoriteAliasDialogOpen = ref(false);
-const favoriteAliasTarget = ref<FavoriteItem | null>(null);
+// FORK-MODIFICATION: 批次 58 —— 收藏编辑弹窗（标题 / 路径 / 分类）。
+// 侧边栏的小铅笔与卡片 ⋮ 菜单里的「编辑收藏」共用同一个弹窗组件。
+const favoriteEditDialogOpen = ref(false);
+const favoriteEditTarget = ref<FavoriteItem | null>(null);
 
 // FORK-MODIFICATION 2026-10-23：色板改为引用 `@/utils/tag-colors` 里的唯一一份。
 const TAG_COLOR_PALETTE = TAG_COLORS;
@@ -726,22 +730,69 @@ async function handleRenameCategory(name: string) {
   categoryBeingRenamed.value = null;
 }
 
-// FORK-MODIFICATION: 批次 37 —— 编辑收藏条目的显示名（别名）。
-// 只改显示名：path 与真实文件名都不动，收藏打开的仍然是原来那个路径。
-function openFavoriteAliasDialog(item: FavoriteItem) {
-  favoriteAliasTarget.value = item;
-  favoriteAliasDialogOpen.value = true;
+// FORK-MODIFICATION: 批次 58 —— 打开收藏编辑弹窗（标题 / 路径 / 分类）。
+function openFavoriteEditDialog(item: FavoriteItem) {
+  favoriteEditTarget.value = item;
+  favoriteEditDialogOpen.value = true;
 }
 
-async function handleSaveFavoriteAlias(name: string) {
-  const target = favoriteAliasTarget.value;
+/**
+ * 卡片上直接改标题（批次 58）。
+ *
+ * 卡片里的输入框预填的是**当前显示出来的那串字**，所以这里要判断
+ * 「用户填的还是不是原始名称」：
+ *   - 还是原始名称 → 清掉别名（保持「没有别名」这个语义）；
+ *   - 不是 → 写成新的别名。
+ * 空串同样是「清掉别名」。
+ */
+async function handleUpdateFavoriteTitle(item: FavoriteItem, value: string) {
+  const baseName = resolveFavoriteDisplayName(item.path, '', t);
+  const nextAlias = value === baseName ? '' : value;
 
-  if (!target) {
+  await userStatsStore.setFavoriteAlias(item.path, nextAlias);
+}
+
+/**
+ * 卡片上直接改路径（批次 58）。
+ *
+ * 判定顺序与弹窗一致：先查重复（纯本地），再问后端路径存不存在。
+ */
+async function handleUpdateFavoritePath(item: FavoriteItem, value: string) {
+  const nextPath = normalizeFavoritePathInput(value);
+
+  if (!nextPath) {
+    toast.error(t('dashboard.favoriteEdit.pathRequired'));
     return;
   }
 
-  await userStatsStore.setFavoriteAlias(target.path, name);
-  favoriteAliasTarget.value = null;
+  if (nextPath === item.path) {
+    return;
+  }
+
+  const otherPaths = userStatsStore.favorites
+    .filter(favorite => favorite.path !== item.path)
+    .map(favorite => favorite.path);
+
+  const result = await checkFavoritePath(nextPath, otherPaths);
+
+  if (result.status === 'missing') {
+    toast.error(t('dashboard.newFavoriteDialog.pathNotFound'));
+    return;
+  }
+
+  if (result.status === 'duplicate') {
+    toast.error(t('dashboard.newFavoriteDialog.pathAlreadyFavorite'));
+    return;
+  }
+
+  const changed = await userStatsStore.updateFavoritePath(item.path, nextPath, result.isFile);
+
+  if (!changed) {
+    toast.error(t('dashboard.favoriteEdit.saveFailed'));
+    return;
+  }
+
+  toast.success(t('dashboard.favoriteEdit.saved'));
 }
 
 // 删分类**不删收藏** —— 它们回到「未分类」。可逆，且不静默丢用户数据。
@@ -976,13 +1027,19 @@ function requestRemoveTaggedItem(item: TaggedItem, sectionTagId: string) {
                     :path="item.path"
                     :is-file="isFavoriteFile(item)"
                   >
+                    <!-- FORK-MODIFICATION: 批次 58 —— 收藏卡显示**完整路径**，
+                         标题与路径都可点击就地编辑。 -->
                     <EntryCard
                       v-bind="getStaggerSlideUpBinding(section.staggerBase + itemIndex)"
                       :path="item.path"
                       :is-file="isFavoriteFile(item)"
                       :size-label="getSizeLabel(item.path)"
                       :alias="item.alias ?? ''"
+                      path-display="full"
+                      :editable="true"
                       @click="openFavoriteItem(item)"
+                      @update:title="handleUpdateFavoriteTitle(item, $event)"
+                      @update:path="handleUpdateFavoritePath(item, $event)"
                     >
                       <!-- FORK-MODIFICATION: 2026-10-31 —— 条目级排序（拖拽手柄 + 上移 / 下移）。 -->
                       <DashboardOrderControls
@@ -1009,7 +1066,7 @@ function requestRemoveTaggedItem(item: TaggedItem, sectionTagId: string) {
                         @move-up="handleMoveFavorite(item.path, -1)"
                         @move-down="handleMoveFavorite(item.path, 1)"
                         @move-to-category="categoryId => handleMoveFavoriteToCategory(item.path, categoryId)"
-                        @rename-favorite="openFavoriteAliasDialog(item)"
+                        @rename-favorite="openFavoriteEditDialog(item)"
                         @remove="requestRemoveFavorite(item.path, $event)"
                       />
                       <!-- FORK-MODIFICATION 2026-10-23：类型 + 「添加于 X 前」 -->
@@ -1248,17 +1305,11 @@ function requestRemoveTaggedItem(item: TaggedItem, sectionTagId: string) {
       @confirm="handleRenameCategory"
     />
 
-    <!-- FORK-MODIFICATION: 批次 37 —— 编辑收藏显示名（别名）。
-         允许提交空名：清空 = 回到原始名称。 -->
-    <DashboardNameDialog
-      v-model:open="favoriteAliasDialogOpen"
-      :title="t('dashboard.actions.renameFavorite')"
-      :initial-name="favoriteAliasTarget?.alias ?? ''"
-      :name-label="t('dashboard.newFavoriteDialog.displayNameLabel')"
-      :name-placeholder="t('dashboard.newFavoriteDialog.displayNamePlaceholder')"
-      :confirm-label="t('save')"
-      allow-empty-name
-      @confirm="handleSaveFavoriteAlias"
+    <!-- FORK-MODIFICATION: 批次 58 —— 收藏编辑弹窗（标题 / 路径 / 分类）。
+         与侧边栏小铅笔共用同一个组件；清空标题 = 回到原始名称。 -->
+    <FavoriteEditDialog
+      v-model:open="favoriteEditDialogOpen"
+      :favorite="favoriteEditTarget"
     />
 
     <!-- FORK-MODIFICATION 2026-10-23：破坏性操作的确认框。 -->

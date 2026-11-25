@@ -273,7 +273,8 @@
       "deleteTagConfirmDescription": "The tag will be deleted and removed from all items.",
       "removeTagConfirmTitle": "Remove this tag from the item?",
       "removeTagConfirmDescription": "The item will no longer carry this tag.",
-      "renameFavorite": "Edit display name"
+      "renameFavorite": "Edit display name",
+      "editFavorite": "Edit favorite"
     },
     "newFavoriteDialog": {
       "title": "Add to favorites",
@@ -291,7 +292,15 @@
       "duplicateName": "\"{name}\" already exists",
       "confirm": "Create"
     },
-    "categoryDeleteNote": "Favorites in this category return to \"Uncategorized\". Nothing is deleted."
+    "categoryDeleteNote": "Favorites in this category return to \"Uncategorized\". Nothing is deleted.",
+    "favoriteEdit": {
+      "pathRequired": "Path cannot be empty",
+      "saved": "Favorite updated",
+      "saveFailed": "Failed to update the favorite"
+    },
+    "favoriteCategoryDialog": {
+      "categoryLabel": "Category"
+    }
   },
   "settingsCategories": {
     "navigation": "Navigation"
@@ -665,6 +674,23 @@
         "clearFailed": "Failed to clear the thumbnail cache",
         "confirmTitle": "Clear the thumbnail cache?",
         "confirmDescription": "This clears both image and video thumbnail caches and cannot be undone. Cleared thumbnails are regenerated the next time you browse those files."
+      },
+      "settingsTransfer": {
+        "title": "Export / import settings",
+        "description": "Export settings, favorites, remote connections and cloud drive connections into one JSON file. Browsing history and frequently used items are not exported.",
+        "export": "Export settings",
+        "import": "Import settings",
+        "exporting": "Exporting…",
+        "importing": "Importing…",
+        "exportSuccess": "Settings exported",
+        "exportFailed": "Failed to export settings",
+        "importSuccess": "Settings imported",
+        "importFailed": "Failed to import settings",
+        "confirmTitle": "Import settings?",
+        "confirmDescription": "Importing overwrites the current settings, favorites, tags and remote connections. Browsing history and frequently used items are not affected.",
+        "invalidFile": "This file is not a valid Alpha File Manager settings export.",
+        "restartHint": "Some settings (such as theme and language) only take effect after restarting the app.",
+        "credentialsHint": "{count} connection(s) need you to sign in again."
       }
     },
     "remote": {
@@ -967,7 +993,8 @@
     "fileView": "file view, box selection, drag selection, list, grid, gaps, padding, spacing, folder, folders, first, top, sort, sorting, order, ordering, files, file, directory, directories, group, grouping, view, precedence",
     "extensions": "extensions, plugins, addons, configuration, settings",
     "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
-    "about": "about, version, update, changelog, github, author, website, wechat, qr code"
+    "about": "about, version, update, changelog, github, author, website, wechat, qr code",
+    "settingsTransfer": "export, import, settings, favorites, remote connections, cloud drive, backup, restore"
   },
   "drag": {
     "holdShiftToChangeMode": "Hold [Shift] to change mode",

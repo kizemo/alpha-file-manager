@@ -246,6 +246,7 @@ export const useSettingsStore = defineStore('settings', () => {
       { default: ExtensionsListSection },
       { default: DefaultFileManagerSection },
       { default: ThumbnailCacheSection },
+      { default: SettingsTransferSection },
       { default: McpServerSection },
       { default: AboutInfoSection },
     ] = await Promise.all([
@@ -282,6 +283,7 @@ export const useSettingsStore = defineStore('settings', () => {
       import('@/modules/settings/ui/categories/extensions/extensions-list.vue'),
       import('@/modules/settings/ui/categories/experimental/default-file-manager.vue'),
       import('@/modules/settings/ui/categories/storage/thumbnail-cache.vue'),
+      import('@/modules/settings/ui/categories/storage/settings-transfer.vue'),
       import('@/modules/settings/ui/categories/experimental/mcp-server.vue'),
       import('@/modules/settings/ui/categories/about/about.vue'),
     ]);
@@ -502,6 +504,15 @@ export const useSettingsStore = defineStore('settings', () => {
         titleKey: 'settings.storage.thumbnailCache.title',
         tags: 'settingsTags.thumbnailCache',
         component: markRaw(ThumbnailCacheSection),
+        category: 'storage',
+      },
+      // FORK-MODIFICATION: 批次 58 —— 「导出设置 / 导入设置」。
+      // 放在「存储」分类：它管的就是设置与用户数据本身。
+      {
+        key: 'settingsTransfer',
+        titleKey: 'settings.storage.settingsTransfer.title',
+        tags: 'settingsTags.settingsTransfer',
+        component: markRaw(SettingsTransferSection),
         category: 'storage',
       },
       {

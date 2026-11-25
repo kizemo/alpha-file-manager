@@ -236,7 +236,8 @@
       "deleteTagConfirmDescription": "该标记将被删除，并从所有条目上移除。",
       "removeTagConfirmTitle": "要移除这个标记吗？",
       "removeTagConfirmDescription": "该条目将不再带有这个标记。",
-      "renameFavorite": "编辑显示名称"
+      "renameFavorite": "编辑显示名称",
+      "editFavorite": "编辑收藏"
     },
     "newFavoriteDialog": {
       "title": "添加到收藏",
@@ -254,7 +255,15 @@
       "duplicateName": "“{name}”已存在",
       "confirm": "创建"
     },
-    "categoryDeleteNote": "该分类下的收藏会回到「未分类」，不会删除任何收藏。"
+    "categoryDeleteNote": "该分类下的收藏会回到「未分类」，不会删除任何收藏。",
+    "favoriteEdit": {
+      "pathRequired": "路径不能为空",
+      "saved": "收藏已更新",
+      "saveFailed": "更新收藏失败"
+    },
+    "favoriteCategoryDialog": {
+      "categoryLabel": "所属分类"
+    }
   },
   "settingsCategories": {
     "navigation": "导航"
@@ -628,6 +637,23 @@
         "clearFailed": "清理缩略图缓存失败",
         "confirmTitle": "清理缩略图缓存？",
         "confirmDescription": "此操作会同时清除图片缩略图与视频缩略图缓存，且无法撤销。被缓存的缩略图会在下次浏览对应文件时重新生成。"
+      },
+      "settingsTransfer": {
+        "title": "导出 / 导入设置",
+        "description": "把设置、收藏夹、远程连接与网盘连接导出成一个 JSON 文件。浏览历史与常用文件不导出。",
+        "export": "导出设置",
+        "import": "导入设置",
+        "exporting": "导出中…",
+        "importing": "导入中…",
+        "exportSuccess": "设置已导出",
+        "exportFailed": "导出设置失败",
+        "importSuccess": "设置已导入",
+        "importFailed": "导入设置失败",
+        "confirmTitle": "确认导入设置？",
+        "confirmDescription": "导入会覆盖当前的设置、收藏夹、标签与远程连接。浏览历史与常用文件不受影响。",
+        "invalidFile": "该文件不是有效的 Alpha File Manager 设置导出文件。",
+        "restartHint": "部分设置（如主题、语言）需要重启应用后才会生效。",
+        "credentialsHint": "有 {count} 条连接需要重新登录。"
       }
     },
     "remote": {
@@ -930,7 +956,8 @@
     "defaultDirectory": "主页, locations, 此电脑, 计算机, 驱动器, 默认文件夹, 默认目录, 新标签, 自定义路径",
     "startupPage": "启动页, 启动, 启动时打开, 主页, 快速访问, 导航器, 上次打开的页面, 恢复, 页面",
     "thumbnailCache": "缩略图, 缓存, 清理, 图片, 视频, 预览, 存储, 磁盘, 占用",
-    "about": "关于, 版本, 更新, 更新日志, github, 作者, 网站, 微信公众号, 二维码"
+    "about": "关于, 版本, 更新, 更新日志, github, 作者, 网站, 微信公众号, 二维码",
+    "settingsTransfer": "导出, 导入, 设置, 收藏夹, 远程连接, 网盘, 备份, 恢复"
   },
   "drag": {
     "holdShiftToChangeMode": "按住 [Shift] 改变模式",

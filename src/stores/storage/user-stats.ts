@@ -683,6 +683,128 @@ export const useUserStatsStore = defineStore('userStats', () => {
     await saveStats();
   }
 
+  /**
+   * 改收藏条目的**路径**。
+   *
+   * 收藏的路径就是它的唯一键（`favorites` 的 key 就是 path），
+   * 所以「改路径」等于换了一条收藏：path 与 isFile 必须一起改 ——
+   * 目标可能从目录变成文件（或反过来）。
+   *
+   * 重复路径直接拒绝：同一份文件被收藏两次会让「移除收藏」只删掉一条，
+   * 侧边栏也会显示两个一模一样的条目。
+   *
+   * @returns 改成功返回 true；找不到这条收藏 / 路径重复 / 路径为空返回 false。
+   */
+  async function updateFavoritePath(path: string, nextPath: string, isFile = false): Promise<boolean> {
+    const favorites = userStats.value.favorites;
+    const index = favorites.findIndex(item => item.path === path);
+
+    if (index === -1) {
+      return false;
+    }
+
+    const trimmed = nextPath.trim();
+
+    if (!trimmed) {
+      return false;
+    }
+
+    if (trimmed !== path && favorites.some(item => item.path === trimmed)) {
+      return false;
+    }
+
+    favorites[index].path = trimmed;
+    favorites[index].isFile = isFile;
+    await saveStats();
+
+    return true;
+  }
+
+  /**
+   * 导入设置时**整体替换**收藏相关数据。
+   *
+   * 刻意不走 `setFavorites` / `setFavoriteCategories` / `setTags` / `setTaggedItems`：
+   * 那四个方法只在「成员没变、只是顺序变了」时才落盘
+   * （`replaceListIfMembershipMatches`），而导入要的恰恰是「换一批成员」。
+   *
+   * 每一份数据都过一遍归一化：导入文件是外部输入，不能直接塞进内存态。
+   */
+  async function replaceFavoritesForImport(payload: {
+    favorites: unknown;
+    favoriteCategories: unknown;
+    tags: unknown;
+    taggedItems: unknown;
+  }): Promise<void> {
+    userStats.value.favorites = normalizeFavorites(payload.favorites);
+    userStats.value.favoriteCategories = normalizeFavoriteCategories(payload.favoriteCategories);
+    userStats.value.tags = normalizeTagsForImport(payload.tags);
+    userStats.value.taggedItems = normalizeTaggedItemsForImport(payload.taggedItems);
+    await saveStats();
+  }
+
+  function normalizeTagsForImport(value: unknown): ItemTag[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const normalized: ItemTag[] = [];
+
+    for (const raw of value) {
+      if (!raw || typeof raw !== 'object') {
+        continue;
+      }
+
+      const record = raw as Record<string, unknown>;
+
+      if (typeof record.id !== 'string' || record.id.length === 0) {
+        continue;
+      }
+
+      if (typeof record.name !== 'string') {
+        continue;
+      }
+
+      normalized.push({
+        id: record.id,
+        name: record.name,
+        color: typeof record.color === 'string' ? record.color : '',
+      });
+    }
+
+    return normalized;
+  }
+
+  function normalizeTaggedItemsForImport(value: unknown): TaggedItem[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const normalized: TaggedItem[] = [];
+
+    for (const raw of value) {
+      if (!raw || typeof raw !== 'object') {
+        continue;
+      }
+
+      const record = raw as Record<string, unknown>;
+
+      if (typeof record.path !== 'string' || record.path.length === 0) {
+        continue;
+      }
+
+      normalized.push({
+        path: record.path,
+        tagIds: Array.isArray(record.tagIds)
+          ? record.tagIds.filter((tagId): tagId is string => typeof tagId === 'string')
+          : [],
+        addedAt: typeof record.addedAt === 'number' ? record.addedAt : 0,
+        isFile: record.isFile === true,
+      });
+    }
+
+    return normalized;
+  }
+
   async function setFavorites(nextFavorites: FavoriteItem[]) {
     await replaceListIfMembershipMatches(
       userStats.value.favorites,
@@ -1032,6 +1154,9 @@ export const useUserStatsStore = defineStore('userStats', () => {
     deleteTag,
     renameTag,
     setFavorites,
+    // FORK-MODIFICATION: 批次 58 —— 收藏路径编辑与「导入设置」时的整体替换。
+    updateFavoritePath,
+    replaceFavoritesForImport,
     setTaggedItems,
     setTags,
     updateTagColor,

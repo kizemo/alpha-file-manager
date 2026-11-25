@@ -56,6 +56,8 @@ const scrollRestorationStore = useScrollRestorationStore();
 const emit = defineEmits<{
   'drag-start': [];
   'drag-end': [];
+  // FORK-MODIFICATION: 批次 58 —— 收藏条目上的小铅笔 → 往侧栏抛「编辑这条收藏」。
+  'edit-favorite': [item: FavoriteItem];
 }>();
 
 const panelRef = ref<HTMLElement | null>(null);
@@ -361,9 +363,13 @@ function getHistoryEntryProps(item: HistoryItem) {
                     @drag-end="handleItemDragEnd"
                   >
                     <template #item="{ item }">
+                      <!-- FORK-MODIFICATION: 批次 58 —— 收藏条目右侧的小铅笔（悬停显现）。 -->
                       <QuickAccessEntry
                         v-bind="getFavoriteEntryProps(item)"
+                        :editable="true"
+                        :edit-label="t('dashboard.actions.editFavorite')"
                         @open="openFavoriteItem(item)"
+                        @edit="emit('edit-favorite', item)"
                       />
                     </template>
                   </SortableList>

@@ -143,13 +143,14 @@ function normalizeCategoryValue(value: unknown): string | null {
 
       <DropdownMenuSeparator />
 
-      <!-- FORK-MODIFICATION: 批次 37 —— 编辑显示名（别名）。只改显示，不改原名。 -->
+      <!-- FORK-MODIFICATION: 批次 58 —— 菜单项从「编辑显示名称」升级为「编辑收藏」
+           （标题 + 路径 + 分类），入口仍在这个 ⋮ 菜单里。 -->
       <DropdownMenuItem
         v-if="showRenameFavorite"
         @click="emit('rename-favorite')"
       >
         <PencilIcon :size="14" />
-        <span>{{ t('dashboard.actions.renameFavorite') }}</span>
+        <span>{{ t('dashboard.actions.editFavorite') }}</span>
       </DropdownMenuItem>
 
       <DropdownMenuItem
