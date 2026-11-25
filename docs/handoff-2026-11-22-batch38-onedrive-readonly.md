@@ -4346,11 +4346,11 @@ fresh 实测（`.superpowers/sdd/b54/probe-limit50.ps1`，装机 3.22.0 `build-2
 3. **Tauri 覆盖 WebView2 调试参数**：`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 被 `AdditionalBrowserArguments` 覆盖 ⇒ CDP 9333 无监听，**界面级复验不能靠 CDP**。
 4. **Rust 单测夹具别放 `std::env::temp_dir()`**：`builtin_ignored_paths()` 会剪掉 `/AppData/Local/Temp` ⇒ 本批夹具改用 `%USERPROFILE%\afm-rust-search-fixtures\`。
 5. **遗留未清**：`F:\soft\00selfmake\...`（误建目录，含一份误置的 `install-b55.ps1` 副本）删除被运行时安全策略拒绝（非交互模式）⇒ **未绕过**，留给用户在交互终端清理。
-6. **门禁顺序**：本批首跑 `npm run check` 早于台账改动 ⇒ **提交态复跑才暴露**一处「**表格多一列**」：我在 `docs/open-items-2026-11-24.md` 的 W-16 行追加批次 55 闭合说明时多写了一个 `|`（表头 4 列、数据行写成 5 列 ⇒ GFM 会静默丢弃最后一列），门禁 `readme-markdown-table.test.ts` 报红（`expected [ { headerLine: 115 } ] to deeply equal []`）。**已修**：把批次 55 段落并入同一状态列。**规则**：台账 / handoff 的表格改动必须发生在**门禁之前**，不能拿改动前的绿灯当收口证据 —— 收口轮要**在文档改完后复跑一次门禁**。
+6. **门禁顺序**：本批首跑 `npm run check` 早于台账改动 ⇒ **提交态复跑才暴露**一处「**表格多一列**」：我在 `docs/open-items-2026-11-24.md` 的 W-16 行追加批次 55 闭合说明时多写了一个 `|`（表头 4 列、数据行写成 5 列 ⇒ GFM 会静默丢弃最后一列），门禁 `readme-markdown-table.test.ts` 报红（`expected [ { headerLine: 115 } ] to deeply equal []`）。**已修**：把批次 55 段落并入同一状态列。**规则**：台账 / handoff 的表格改动必须发生在**门禁之前**，不能拿改动前的绿灯当收口证据 —— 收口轮要**在文档改完后复跑一次门禁**。修表后**复跑门禁已绿**（`.superpowers/sdd/b55/npm-check-b55-postcommit2.log`：335 文件 / 3601 用例 / EXIT=0），修表补记提交 `b13ad4be`。
 
 ### 二十七·12 遗留与下一步
 
 - **用户待拍板（均不阻塞本批）**：W-18 云盘目录递归检索口径 / 索引配额最终口径 / 版本号与 CHANGELOG / W-17 的 15 个外语包 / `rustup` 修复授权 / W-19 界面级像素复验通道。
 - **缺陷 A 仍未修**：跨 token 边界子串召不回，单列在 W-14 尾部（需加子字段 + 重建 23,334 条云盘索引）。
-- **本批提交**：`2f106328`（补记提交紧随其后，**均不推送**；版本号仍 3.22.0、未改 CHANGELOG、未重建索引）。
+- **本批提交**：主提交 `2f106328` → 提交号回填 `10f49025` → 修表补记 `b13ad4be`（**均不推送**；版本号仍 3.22.0、未改 CHANGELOG、未重建索引）。
 - **本轮未做**：升版本号、改 CHANGELOG、重建索引、推送；W-17 的 15 个外语包仍未处理（用户未授权代笔翻译）。
