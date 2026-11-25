@@ -4354,3 +4354,100 @@ fresh 实测（`.superpowers/sdd/b54/probe-limit50.ps1`，装机 3.22.0 `build-2
 - **缺陷 A 仍未修**：跨 token 边界子串召不回，单列在 W-14 尾部（需加子字段 + 重建 23,334 条云盘索引）。
 - **本批提交**：主提交 `2f106328` → 提交号回填 `10f49025` → 修表补记 `b13ad4be`（**均不推送**；版本号仍 3.22.0、未改 CHANGELOG、未重建索引）。
 - **本轮未做**：升版本号、改 CHANGELOG、重建索引、推送；W-17 的 15 个外语包仍未处理（用户未授权代笔翻译）。
+
+---
+
+## 二十八、批次 56 —— W-19 收口：路线 A 在 release 包上取到「界面级像素 + 键盘」真机证据
+
+> 本节是批次 55 唯一遗留「未验」标记的闭合记录。**批次 55 §二十七 里「界面级像素 / 键盘复验通道在本项目不可用」这句绝对化表述被本批推翻**（证据见 ·2）。环境：HEAD 起点 `e3352cf5`（批次 55 链末端）、版本号仍 **3.22.0**、未推送、远端只有 `gitee`。
+
+### 二十八·1 背景与目标
+
+批次 55 收口时（§二十七 L4353），唯一剩下的「未验」是 **W-19**：`§6` 的界面级验收只有**像素级 / 键盘级**证据能闭合，而批次 55 判定「CDP 注入通道在 release 包上不可用」，退而用 vitest DOM 回归测试替代。本批目标 = 把这条通道**实测走通**，在 `tauri build` 产物 + 私有桌面沙箱上取到界面级像素与键盘证据，并诚实标出证据能证到哪一步。
+
+开工前置（§2.8 / §2.11）：一次探针取齐 —— `LOGONUI=absent`（未锁屏）、`FG=135196`（有前台窗口）、`AFM_RUNNING=0`（无用户实例在跑，起沙箱不会杀到用户的东西）。三条都成立才动手。
+
+### 二十八·2 正面裁决：路线 A 可用（判据比批次 55 更强）
+
+`.superpowers/sdd/b45/patch-cdp.cjs on` 把 `src-tauri/tauri.conf.json` 的 `app.windows[0].additionalBrowserArgs` 写成 `--remote-debugging-port=45777 --remote-allow-origins=*`，再 `npm run tauri:build`：
+
+- **构建**：`.superpowers/sdd/b56/build-accept-b56.cmd`（1,060 B，纯 ASCII）→ `b56-build-accept.log`（256,439 B）末行 **`BUILD_EXIT=0`**，产出 `src-tauri/target/release/alpha-file-manager.exe` **85,857,280 B / 19:25:39**。
+- **生效判据**：`GET http://127.0.0.1:45777/json/list` 出现 `type==='page'` 且 `url=http://tauri.localhost/navigator`（不是 `about:blank`），页面 UA 含 `Edg/158.0.0.0`。这条**比批次 55 用的「MCP 端口存活」判据强** —— 它直接证明渲染进程可被 CDP 驱动且已加载应用页面。
+- **沙箱起应用**：`b56-launch-cdp-sandbox.ps1`（改造自 b55 版，就绪闸门轮询上面的 CDP 判据，MCP 55100 降为旁证）→ `launch-cdp3.log`：`sandbox desktop created: AFM-B56CDP-31847` → `app launched pid=201056` → `visible windows = 3` → `CDP(45777): READY_PAGES_1` → `B56_LAUNCH_CDP_OK`。
+- **未变的两条死判**：① 环境变量 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 开 9333 仍不可用（Tauri 显式 `AdditionalBrowserArguments` 覆盖它，WebView2 规则：应用显式参数优先）—— 批次 55 的死判成立，本批只是改走路线 A；② 对已装 exe 做字符串扫描判「有没有 CDP 旗标」无判别力（内嵌资源压缩存储）。
+
+### 二十八·3 界面级像素证据（**已验证**）
+
+`cdp-walk.cjs`（10,717 B）→ `cdp-out/`：`cdp-report.json`（13,655 B）+ **8 帧 PNG 全部非空白**（`pixelsNonBlank=8 / shotsTaken=8`，单帧 358,543–479,340 B）+ 8 个 `text-*.txt`。私有桌面上 `Page.captureScreenshot({fromSurface:true})` 出图正常，无需 `PrintWindow`。
+
+**人工读图**（不是脚本断言，逐帧看过）`03-results-ready.png`（2561×1357）里可见：键盘快捷键打开的全局搜索面板、输入框内容 `Midjourney`、`/sfm:` 分组「34 项」、**云盘靶子 `Midjourney 使用心得+关键…`（485.9 MB）在结果列表内**、两个云连接（`0f0696ba…` / `646dacdb…`）均有结果露出、「结果限制」= 50。⇒ 「用户真的能在界面上看到云盘文件」这条从批次 55 的 DOM 级推断升级为**像素级实证**。
+
+### 二十八·4 键盘路径证据（**已验证到 web 层**，边界写明）
+
+CDP `Input.dispatchKeyEvent` 走 Chromium 真实输入管线，第一轮三项阳性：`hotkeyOpenedSearch=true`（面板 input 计数 1→2）、`typingReachesInput=true`（输入框值 = `Midjourney`）、`needleRendered=true`（命中 60 处）；另有 `focusMovedByArrowDown=true`。
+
+⚠ **诚实边界**（§2.8 第 664-668 行「沙箱里没有键盘输入，别在沙箱里假装验过键盘」）：这证的是 **web 层键盘处理器 + 面板响应**，**不等于 OS→窗口焦点链已验**；本轮**没有**在沙箱内做 OS 级键盘注入（`SendInput` 级），台账不写「键盘已验」，只写「CDP 合成按键链路已验」。
+
+### 二十八·5 Escape 定性：第一轮的「面板没关」是判据缺陷，不是产品缺陷（**已验证**）
+
+`07-after-escape.png` 与 `03` 逐元素比对 ⇒ 按 Escape 后面板**未关闭**。读源码定性（盘上回读 `src/modules/navigator/pages/navigator.vue:1391-1418`）：
+
+```ts
+function handleEscapeKey(): boolean {
+  if (document.querySelectorAll('[data-dismissable-layer]').length > 0) return false;   // ① 交回 reka
+  if (dismissalLayerStore.hasLayers) return dismissalLayerStore.dismissTopLayer();      // ② 顶层浮层
+  if (clipboardStore.hasItems) { clipboardStore.discardClipboard(); return true; }      // ③ 剪贴板队列
+  if (selectedEntries.value.length > 0) { clearAllSelections(); return true; }          // ④ 清选中
+  if (globalSearchStore.isOpen) { globalSearchStore.close(); return true; }             // ⑤ 关面板
+  return false;
+}
+```
+
+注册点 `navigator.vue:1684 shortcutsStore.registerHandler('escape', handleEscapeKey)`。第一轮按下 Escape 时结果**首行处于选中态**（走查脚本为验方向键先按了 ↓）⇒ 命中第 ④ 档就 `return true`，**设计上本来就不会关面板**。故判为**第一轮判据缺陷**，不作为产品缺陷登记，无需用户拍板即可闭合。
+
+### 二十八·6 新增回归守卫（**已验证，9 passed / 9**）
+
+这条「Escape 优先级链」是脆弱设计行为 —— 谁把 ④/⑤ 档顺序调一下，界面行为就静默变样。故补源码级 vitest 守卫 `src/modules/navigator/pages/__tests__/navigator-escape-global-search.test.ts`（三个 describe：**链分支次序** / **`escape` 快捷键定义未被改** / **面板不本地监听 Escape**）。关键写法（照盘上真值，别凭记忆改）：
+
+- `src/stores/runtime/shortcuts.ts:412-421` 的 `escape` 定义是 `defaultKeys: { key: 'Escape' }`（**对象、单键**，不是 `keys: ['Escape']`），每行一属性、4 空格缩进 ⇒ 取块方式 = 从 `id: 'escape'` 切到下一个 `"\n    id: '"`。
+- `global-search-view.vue` 里**没有** `@keydown.esc`（面板不本地监听，故 Escape 由 shortcuts 统一分发），✕ 按钮走 `handleClose() → emit('close')`（`:448-450` / `:544-545`）；`focusInput()`（`:457-461`）只 focus 不 close。
+- 该文件内**不存在** `data-test="global-search-input"` / `data-test="global-search-close-btn"` ⇒ 断言只能用绑定字符串与 class 名。
+- 单文件跑法（实测）：`npm run test:unit:run -- src/modules/navigator/pages/__tests__/navigator-escape-global-search.test.ts`（7.62s，`Tests 9 passed (9)`）。⚠ 不要用绝对路径 `node .../vitest.mjs run --root ...` 直跑 —— `Failed Suites 1`（见 ·9）。
+- 许可证头按先例 `navigator-tree-wiring.test.ts:1-3` 三行（SPDX / GPLv3 / Copyright）+ 空行 + `// FORK-MODIFICATION 2026-11-25：…`。首跑 3 条正则失败，已逐条按盘上真值订正后 9/9。
+
+### 二十八·7 未验证 / 残留（**下一批的起点**）
+
+1. **列表方向键逐行移动**的界面级证据未取得：第一轮 `focusMovesThroughList=false` 判据**无效**（只比 className 字符串，而每行 className 相同）。要验得比 aria-activedescendant / `data-index` / 滚动位置之类的逐行身份。
+2. **第二轮走查未完成**（已判停）：`cdp-walk2.cjs` → `cdp-walk2.log`（298 B）实录 `TARGET=http://tauri.localhost/navigator`、`PAGE_ENABLE_SKIP Page.enable timed out`、`RUNTIME_ENABLE_SKIP Runtime.enable timed out`、`PREFLIGHT_WAIT attempt=1/2/3 err=Runtime.evaluate timed out` ⇒ **索引负载下渲染进程 CDP 回包停摆**（W-11「CDP 探针回包延迟约 2 分钟」同源现象加剧）。下一轮若要再走 CDP：先等索引空闲（帧底部「正在并行索引所有驱动器」消失），或临时把 `selectedDriveRoots` 缩到单盘再验，且 `Runtime.evaluate` 超时按 W-11 给足 ≥150s。
+3. **OS 级键盘注入**仍未做（·4 边界）。
+4. 批次 55 遗留的用户拍板项**原样保留、未被本批回答**：① 云盘索引配额最终口径（现按选项 A：每连接 20k + 合计随连接数伸缩）② W-18 云盘目录递归检索口径（索引 vs 实时遍历）③ 版本号（3.23.0？）与 CHANGELOG 是否本批发版 ④ 是否授权跑 `rustup` 修复/回滚（本机 `stable` 1.97.1 已损坏、cargo 缓存 `file is not a database` code 26 ⇒ 门禁只能借 1.90.0）⑤ W-17 的 15 个外语包是否授权代笔。§6 需用户在场的 B-5 / B-6 / W-4 本批**未推进**。
+5. §二十七·11-5 留给用户的清理项仍在：误建目录 `F:\soft\00selfmake\...`（含误置的 `install-b55.ps1` 副本）。
+
+### 二十八·8 产物纪律与交付包（**已验证**）
+
+带调试端口的 exe / 安装包**只能作取证件，不得当交付包**。本轮收口动作：`git checkout -- src-tauri/tauri.conf.json` 回滚 → 用 `build-clean-b56.cmd`（1,428 B，纯 ASCII，内含前置守卫 `findstr /C:"remote-debugging-port"` 仍在则 `exit /b 7`）重打 → `b56-build-clean.log`（255,142 B）出现 `ROLLBACK_OK conf is clean` 且末行 **`BUILD_EXIT=0`**：
+
+- 交付包 `release/local-builds/Alpha File Manager_3.22.0_x64-setup.exe` **46,114,491 B / SHA256 `776F2A50…C44652`**（20:20:08，`publish-bundle-to-release.mjs` 改写正式名并告警）
+- 二进制 `src-tauri/target/release/alpha-file-manager.exe` 85,570,560 B / SHA256 `BB3FEAD6…D228`（20:20:09，与取证件 85,857,280 B 不同体积）
+- 盘上复核：`src-tauri/tauri.conf.json` 里 `remote-debugging-port` 命中 **0** 处；`git status --porcelain -uall src-tauri/tauri.conf.json` 为空
+- ⚠ 19:25 那套带调试端口的取证件产物（安装包 + exe）**已被这次干净构建覆盖，盘上不再存在**；本批界面级证据只剩 `cdp-out/` 的 8 帧 PNG 与 `cdp-report.json`。**未做装机复验**（§2.9 同版本号会静默 Quit，本轮不需要装机 —— 取证直接用 `target/release` 产物，与装机包的区别仅在打包层）
+- 历史包保留：b55 `…build-20261125-b55.exe`（46,114,293 B / SHA256 `6F4ABEA1…9635B5B`）、b54 `…build-20261125-b54.exe`（46,118,143 B）未被本批触碰
+
+### 二十八·9 本轮工具坑（**勿重试**）
+
+1. `Set-Location` 开头 + 同一条调用里把输出重定向写入文件 ⇒ 被本地硬策略整体拒绝（`Local hard safety policy blocked bash: write/delete targets cannot be verified safely after a command working directory change.`）。改法：全用绝对路径不切目录，或用变量捕获不落文件。
+2. 以 `Set-Location` 起头再跑 `git` 是安全的（无写文件重定向）；但 `npm run test:unit:run` 必须先 `Set-Location $root`，两者不要在同一条命令里混「切目录 + 写文件」。
+3. `node scripts/check-license-headers.mjs` 在本机跑不通（Node v26.13.0 报错、退出 1）⇒ 许可证头交给 `npm run check`，别单独调这个入口。
+4. 绝对路径 `node "$root/node_modules/vitest/vitest.mjs" run --root $root <file>` ⇒ `Failed Suites 1`。单文件跑法只有 `npm run test:unit:run -- <相对路径>`。
+5. `Select-String` 的模式含 `[]`（如 `Running []beforeBundleCommand`）会被当非法正则报 `Unterminated [] set` ⇒ 用 `-SimpleMatch`。
+6. cargo 编译期日志体积长时间不涨不代表卡死 ⇒ 用 `Get-Process cargo,rustc` 的 CPU 增量判活（本轮实测 rustc cpu=1280s 仍在推进）。
+7. 不要 `task_stop` 取消「起沙箱 + 跑走查」的合体后台任务 —— 会连带杀掉沙箱里的应用，CDP 端口随即拒绝连接。
+8. 台账锚点必须来自**当轮 `read` 的盘上原文**：本轮两次 `old_string` 不匹配，都是凭摘要/记忆写锚点造成（真实文件行数与摘要记录不一致：open-items 实际 353 行而非 354）。
+
+### 二十八·10 门禁与提交
+
+- **Rust**：`src-tauri/.superpowers/sdd/b56/cargo-test-lib-b56.log` → `test result: ok. 1727 passed; 0 failed; 3 ignored; finished in 8.06s`（与 b55 基线逐字相同，盘上回读）。
+- **前端**：`src-tauri/.superpowers/sdd/b56/npm-check-b56.log`（run1）**红在 eslint**——4 条风格错全在新守卫文件（`@stylistic/arrow-parens` / `padding-line-between-statements` / `quotes` ×2），`ts` 与 `lint:stylelint:check` 无错。`npx eslint <该文件> --fix` 清零后单文件 `--max-warnings 0` 复跑 EXIT=0，守卫复跑仍 **9 passed / 9**。
+- **前端重跑**：`src-tauri/.superpowers/sdd/b56/npm-check-b56-run2.log` → **`Test Files 336 passed (336)` / `Tests 3610 passed (3610)` / Duration 120.19s**，`verify-changelog` 通过，`verify:sandbox` 末行 `[sandbox-gate] OK 全部扩展入口通过`（`RESULT: VALID (0 violations / 20 patterns)`），全程无 `exited with`。**336/3610 正好 = b55 的 335/3601 + 新增 1 个守卫文件 9 条用例**——数量自洽，可作为「本批只加了守卫、没动别的测试」的旁证。
+- **提交**：本批改动 = 新守卫文件 + `docs/open-items-2026-11-24.md` + 本节。`src-tauri/tauri.conf.json` 已回滚干净、不在变更集内。**不推送**（远端仅 gitee，用户未要求）。未做：升版本号、改 CHANGELOG、重建索引、B-2 复验、§6 需用户在场的验收。
+
