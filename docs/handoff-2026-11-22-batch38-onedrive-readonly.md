@@ -4632,3 +4632,113 @@ function handleEscapeKey(): boolean {
   未复验 B-2（需用户重新授权阿里云盘）。
 - 代码提交 `ae98e82f`（1 file，+95/−2，仅改 `query.rs`；`types.rs` 的 `BadQuery` 在其中）；
   本批台账与文档另起提交。**待用户裁决**：W-21 是否接受 / 是否发版。
+
+## 三十一、批次 58（2026-11-26）：收藏卡全路径 + 就地编辑、侧边栏铅笔收藏编辑弹窗、设置页导出/导入设置
+
+> **本批性质**：三项用户可见功能一次做完，并在**真机 CDP 走查**中抓出并修掉一个**本批自己引入的回归**。
+> **本批未做**：未升版本号（仍 3.22.0）、未推送 `origin/main`、未发版、未重建索引、未动 CHANGELOG。
+
+---
+
+### 三十一·1 三项功能与代码落点
+
+1. **快速访问（dashboard）收藏卡显示完整路径 + 标题/路径可就地编辑**
+   - `src/modules/dashboard/components/entry-card.vue` —— 新增 `pathDisplay`（`full` / `parent`）与 `editable` 两个 prop；
+     路径文本改由 `pathText` 计算（`full` ⇒ 完整路径，`parent` ⇒ 保留原来的上级目录）。
+     标题与路径各一个就地编辑输入框（`.entry-card__input--title` / `.entry-card__input--path`）；
+     新值等于原始名 ⇒ 清别名，空串同样清别名。
+   - `src/modules/dashboard/pages/dashboard.vue` —— 收藏卡改传 `path-display="full"` 与 `editable`，
+     并接 `update:title` / `update:path` 两个事件。
+   - `src/utils/favorite-edit.ts`（新增）—— 路径校验的唯一入口：`normalizeFavoritePathInput`（只脱首尾各一个引号）、
+     `findDuplicateFavoritePath`、`checkFavoritePath` → `{ status: 'ok' | 'missing' | 'duplicate', isFile }`；
+     默认动态 import `@tauri-apps/api/core` 调 `path_exists` / `path_is_regular_file`；
+     **判定顺序 = 重复优先于后端询问**（重复是纯本地判断，先问后端只是白多一次 IPC）。
+   - 卡片主体由 `<button>` 改成 `div[role=button]` + `tabindex` —— 按钮里的输入框在 WebView2 里点不动也聚不了焦。
+
+2. **侧边栏「快速访问」悬停面板的小铅笔按钮 + 收藏编辑弹窗**
+   - `src/modules/nav-sidebar/components/quick-access-entry.vue` —— 条目右侧加 `PencilIcon` 铅笔按钮（`.quick-access-panel__edit-button`）。
+   - `src/components/favorite-edit-dialog.vue`（新增）—— 共享的收藏编辑弹窗：标题 / 路径 / 所属分类三个字段
+     （分类下拉用 `__afm_uncategorized__` 表示「未分类」）；路径变更走 `checkFavoritePath`，
+     别名走 `setFavoriteAlias`，分类走 `moveFavoriteToCategory`。
+   - `src/modules/nav-sidebar/nav-sidebar.vue` —— 弹窗挂在侧边栏这一层（面板在 Radix `TooltipContent` 里，hover 结束就被卸载，弹窗必须挂在外面）。
+   - `src/modules/dashboard/components/dashboard-entry-actions-menu.vue` —— 原来的「重命名」入口升级为「编辑收藏」，与铅笔共用同一个弹窗。
+
+3. **设置页 → 存储分类的「导出设置 / 导入设置」**
+   - `src/modules/settings/utils/settings-transfer.ts`（新增）—— `buildSettingsTransferBundle` / `parseSettingsTransferBundle`，
+     格式标记 `alpha-file-manager-settings`，版本 `1`。
+   - `src/modules/settings/ui/categories/storage/settings-transfer.vue`（新增）—— 两个按钮 + 导入确认弹窗 + toast。
+     导出走 `saveDialog` → `read_file_binary` → `buildSettingsTransferBundle` → `write_file_binary`；
+     导入走 `openDialog` → `read_file_binary` → `parseSettingsTransferBundle` → 确认 → 落盘。
+   - 覆盖范围：设置项 + 收藏夹 + 远程连接 + 网盘（百度 / 夸克 / 阿里 / OneDrive）连接元数据。
+   - **history 与 frequentItems 不导出**；**凭据不导出**（剔除 `credentialKey` 与代理 `password`），
+     导入后同 id 沿用本机凭据，无凭据者计入 `needsCredential` 并在界面上提示。
+   - **不新增 Rust 命令**：复用已有的 `read_file_binary` / `write_file_binary` + `@tauri-apps/plugin-dialog`。
+   - 新增 store API：`user-stats.ts` 的 `updateFavoritePath` / `replaceFavoritesForImport`、
+     `user-settings.ts` 的 `importUserSettingsEntries`、`remote-connections.ts` 的 `replaceConnectionsForImport`；
+     设置页注册 `settingsTransfer` 段（`src/stores/runtime/settings.ts`，category = `storage`）。
+
+---
+
+### 三十一·2 测试与门禁
+
+- 新增单测 **31 条**：`src/utils/__tests__/favorite-edit.test.ts` 13 条、
+  `src/modules/settings/utils/__tests__/settings-transfer.test.ts` 14 条、
+  `src/modules/dashboard/components/__tests__/entry-card-editor-keydown.test.ts` 4 条（回归守卫，见 §三十一·3）。
+- 门禁 `npm run check` 盘上回读：`Test Files 339 passed` / `Tests 3641 passed` / `NPM_CHECK_EXIT=0`，
+  日志 `.superpowers/sdd/b58/check.log`。
+- i18n：en / ch 人工写 **20 个**新键，其余 **15** 个语言包由 `npm run sync-i18n` 以英文兜底 ⇒ 盘上校验
+  17 个包的 key 集合与 `en.json` 完全一致、无空串值。
+  ⚠️ **15 个包目前是英文占位**，待翻译 ⇒ 登记 **W-22**。
+
+---
+
+### 三十一·3 真机走查抓出并修掉的回归（本批自己引入的）
+
+- **现象**：真机 CDP 走查里，按 Enter 保存标题后页面被导航到 `/navigator`（STEP-03 的 `url` 从 `/dashboard` 变成 `/navigator`），
+  于是后续「路径编辑器预填完整路径」「Escape 不改值」两条判据全部失效（当时页面已经不是 dashboard，探测到 0 张卡片）。
+- **根因**：卡片主体改成 `div[role=button]` 后挂着 `@keydown.enter.prevent="handleClick"` 与 `@keydown.space.prevent="handleClick"`；
+  编辑输入框只写了 `.prevent`（阻止默认行为）**没有** `.stop`（阻止冒泡）⇒
+  ① Enter 的 keydown 冒泡到卡片 ⇒ 触发 `handleClick` ⇒ 卡片跳走；
+  ② 空格键冒泡到卡片的 `@keydown.space.prevent` ⇒ 默认行为被取消 ⇒ **标题里打不出空格**。
+- **修复**：两个编辑输入框加 `@keydown.stop`（`src/modules/dashboard/components/entry-card.vue`）。
+- **回归守卫**：`src/modules/dashboard/components/__tests__/entry-card-editor-keydown.test.ts`（4 条）——
+  Enter 提交标题 / 路径但**不**触发卡片点击、空格的 `defaultPrevented` 必须为 `false`、
+  Escape 取消编辑且不提交、路径编辑器预填的是**完整路径**。
+
+---
+
+### 三十一·4 打包、真机取证与交付包
+
+- **取证包（带 CDP 端口，不交付）**：`node .superpowers/sdd/b58/patch-cdp.cjs` 把
+  `--remote-debugging-port=45777` 烤进 `src-tauri/tauri.conf.json` 的 `additionalBrowserArgs`
+  → `.superpowers/sdd/b58/build-accept.cmd` → `.superpowers/sdd/b58/build-accept.log`
+  （`BUILD_MARK=PASS`、安装包 46080047 B / SHA256 `50A9313FE40B4386D1ADEE38AE7B140513F5A76F0A8864A8D3105C30166C0ACD`、产物 `F:/soft/00selfmade/filemanager/sigma-file-manager/release/local-builds/Alpha File Manager_3.22.0_x64-setup.exe`）。
+  环境变量 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 开 CDP 这条路**已证死**
+  （Tauri 显式 `AdditionalBrowserArguments` 覆盖它），只能烤进 conf ⇒ 带端口的 exe 绝不能当交付物。
+- **真机走查**：`.superpowers/sdd/b58/b58-launch-cdp-sandbox.ps1` 在私有桌面 `AFM-B58CDP-*` 起该 exe
+  （就绪闸门 = CDP `/json/list` 出 `type==='page'`），
+  `.superpowers/sdd/b58/cdp-walk-b58.cjs --port 45777 --out .superpowers/sdd/b58/cdp-out`
+  产出 `cdp-report.json` + 帧 PNG + `text-*.txt`。判定：fullPathRendered=true / parentOnlyDisplayed=false / titleChangedInUi=true / titlePersistedToDisk=true / pathEditorPrefillsFullPath=true / pathEscapeKeptValue=true / sidebarPencilPresent=true / editDialogOpened=true / editDialogHasTitleAndPath=true / editDialogHasCategory=true / settingsExportButtonFound=true / settingsImportButtonFound=true / pixelsNonBlank=10/10。
+- **干净交付包**：`cmd.exe /c .superpowers\sdd\b58\rollback-conf.cmd` 回滚 conf
+  （盘上复核 `remote-debugging-port` 在 `tauri.conf.json` 命中 **0** 处）
+  → `.superpowers/sdd/b58/build-clean.cmd` → `BUILD_MARK=PASS`、安装包 46119572 B / SHA256 `C55CEB5271472EBAB3F0454C9815A4B4C919889C4D3DC912811842D20C5EEF4A`、产物 `F:/soft/00selfmade/filemanager/sigma-file-manager/release/local-builds/Alpha File Manager_3.22.0_x64-setup.exe`。
+- **副作用披露**：release 构建忽略 `SFM_E2E_DATA_DIR`，真机实例读写真实数据目录
+  `C:\Users\Duanyi\AppData\Roaming\com.sigma-file-manager.app\user-data\`。
+  走查前后各做一次备份 / 恢复（`.superpowers/sdd/b58/backup-userdata.ps1` / `restore-userdata.ps1`），
+  三份 JSON（`user-settings.json` / `user-stats.json` / `user-remote-connections.json`）
+  恢复后 sha16 与字节数**逐一比对一致**。
+  起沙箱前按 AGENTS.md §2.8 结束正在运行的实例（已安装版
+  `D:\Program Files\Alpha File Manager\alpha-file-manager.exe`，pid=250552）。
+- **未做**：未升版本号（仍 3.22.0）、未推送 `origin/main`（需用户单独授权）、未发版、未动 CHANGELOG、未重建索引。
+
+---
+
+### 三十一·5 证据路径
+
+- 门禁 `.superpowers/sdd/b58/check.log`（`NPM_CHECK_EXIT` / `Test Files` / `Tests` / `[sandbox-gate] OK`）
+- 取证包 `.superpowers/sdd/b58/build-accept.log`（`BUILD_MARK` / `BUILD_SIZE` / `BUILD_SHA` / `BUILD_ARTIFACT`）
+- 干净包 `.superpowers/sdd/b58/build.log`
+- 真机走查 `.superpowers/sdd/b58/cdp-out/`（`cdp-report.json` + PNG 帧 + `text-*.txt`）
+- 走查脚本 `.superpowers/sdd/b58/cdp-walk-b58.cjs`；沙箱启动 `.superpowers/sdd/b58/b58-launch-cdp-sandbox.ps1`
+- 数据备份 / 恢复 `.superpowers/sdd/b58/backup-userdata.ps1` / `.superpowers/sdd/b58/restore-userdata.ps1`
+- 脚本目录 `.superpowers/sdd/b58/`（整目录在 .gitignore 内，不入库）
