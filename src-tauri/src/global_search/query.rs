@@ -103,6 +103,17 @@ pub(super) fn build_query(
 /// tantivy 0.26 的 `RegexQuery` 底层是 `tantivy-fst::Regex` —— DFA 引擎，
 /// **全匹配**语义且不支持 `^` / `$` 这类零宽断言（见 `incremental.rs:192-195`），
 /// 所以两侧的 `.*` 是必需的，不能靠锚点。
+///
+/// 靶字段必须是**未分词**的 `name_lower`，不是 `name`：
+/// `name` 走 `default` 分词器，SimpleTokenizer 按「非字母数字」切分，
+/// 所以 `Midjourney 使用心得+关键词分析.mp4` 里的 `+` 是分隔符，那一段被切成
+/// `使用心得` 与 `关键词分析` 两个 term。`.*使用心得\+关键.*` 匹配的是**单个 term**，
+/// 跨不过那个边界 ⇒ 一条候选都取不到（真机症状：查「使用心得+关键」返 0 条）。
+/// `name_lower` 是 `STRING`，整条小写文件名就是一个 term，同一个正则天然跨标点。
+///
+/// 口径一致性：needle 与 `name_lower` 都是小写（写入侧 `normalize_case` /
+/// `to_lowercase`，查询侧 `normalize_case(query)`），而 `normalize_case` 只做
+/// `trim + to_lowercase`，**不动标点** ⇒ `+` 两侧都原样保留，能对上。
 fn build_substring_query(
     fields: &GlobalSearchIndexFields,
     word: &str,
@@ -113,7 +124,7 @@ fn build_substring_query(
 
     let pattern = format!(".*{}.*", escape_regex_literal(word));
 
-    match RegexQuery::from_pattern(&pattern, fields.name) {
+    match RegexQuery::from_pattern(&pattern, fields.name_lower) {
         Ok(query) => Some(Box::new(query)),
         Err(error) => {
             // 转义之后理论上不会失败；真失败就退化成「只有 fuzzy」，
@@ -1681,11 +1692,15 @@ mod tests {
         use super::*;
 
         /// 与用户实测同形的夹具：CJK 连续串、中间没有分隔符。
-        const SAMPLE_NAMES: [&str; 4] = [
+        ///
+        /// 最后一条带 `+`，钉的是**缺陷 A**：真机云盘靶子
+        /// `Midjourney 使用心得+关键词分析.mp4`，查「使用心得+关键」返 0 条。
+        const SAMPLE_NAMES: [&str; 5] = [
             "2024年用户调研技巧汇总.docx",
             "收集整理项目进度.xlsx",
             "项目计划表.xlsx",
             "meeting-notes.md",
+            "Midjourney 使用心得+关键词分析.mp4",
         ];
 
         fn build_fixture_index() -> (tantivy::Index, GlobalSearchIndexFields) {
@@ -1765,6 +1780,34 @@ mod tests {
             assert!(
                 names.contains(&"2024年用户调研技巧汇总.docx".to_string()),
                 "单字中文取不到候选，names={names:?}"
+            );
+        }
+
+        /// **缺陷 A**：查询词跨 `+` 时，子串检索必须能取到候选。
+        /// 靶子名 `使用心得+关键词分析` 被 default tokenizer 按 `+` 切成两个 token，
+        /// 而 `.*使用心得\+关键.*` 匹配的是单个 token，跨不过那个边界；
+        /// 未分词的 `name_lower` 里整条名是一个 term，同一个正则才跨得过去。
+        #[test]
+        fn finds_cjk_substring_across_a_plus_sign() {
+            let names = candidate_names("使用心得+关键");
+            assert!(
+                names.iter().any(|n| n.starts_with("Midjourney")),
+                "查询词跨 `+` 时子串候选取不到靶子，names={names:?}"
+            );
+        }
+
+        /// 取到候选还不够 —— 跨 `+` 的靶子同样必须过长度门槛。
+        /// 这条钉住的是「修复后别再被门槛挡住」，与上面那条分开写，
+        /// 这样任一环节回归时红灯能直接指出是候选层还是打分层。
+        #[test]
+        fn plus_sign_substring_hit_clears_the_length_threshold() {
+            let query_text = "使用心得+关键";
+            let name = "Midjourney 使用心得+关键词分析.mp4";
+            let min_score = get_min_score_for_query_length(query_text.len());
+            let score = calculate_similarity_score(query_text, name);
+            assert!(
+                score >= min_score,
+                "跨 `+` 子串命中被门槛挡掉：score={score} < min={min_score}"
             );
         }
 
@@ -2590,6 +2633,56 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].path, "sfm://remote/conn-a/readme.txt");
         assert_eq!(results[0].name, "readme.txt");
+    }
+
+    /// **缺陷 A 的端到端判据**：云盘索引里含 `+` 的文件名，查询词跨 `+` 必须召回。
+    /// 这条走 `search_remote_index` 全链（schema → 写入 → 候选 → 打分 → 过滤），
+    /// 是真机症状 `使用心得+关键 → 0 条` 的最小复刻。
+    ///
+    /// 第二条是**负向**断言：只含前半截片段、不含 `+关键` 的文件不该被召回。
+    /// 它钉死「修法不得把查询词按 `+` 切成 Should 片段」——
+    /// 那等于用召回率换精度，与既有「纯子串查询不跑模糊」的取舍相反。
+    #[test]
+    fn remote_index_finds_cjk_substring_across_a_plus_sign() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let base_dir = temp.path().to_path_buf();
+        super::super::remote_index::write_test_connections(
+            &super::super::remote_index::user_data_dir_in(&base_dir),
+            &[("conn-ali", true)],
+        );
+        super::super::remote_index::write_remote_index(
+            &remote_index_dir(&base_dir),
+            &[
+                super::super::remote_index::RemoteIndexDoc {
+                    path: "sfm://remote/conn-ali/08艺术/Midjourney 使用心得+关键词分析.mp4".into(),
+                    name: "Midjourney 使用心得+关键词分析.mp4".into(),
+                    is_dir: false,
+                    size: 485_900_000,
+                    modified_time: 10,
+                    connection_id: "conn-ali".into(),
+                },
+                super::super::remote_index::RemoteIndexDoc {
+                    path: "sfm://remote/conn-ali/08艺术/使用心得.docx".into(),
+                    name: "使用心得.docx".into(),
+                    is_dir: false,
+                    size: 1_000,
+                    modified_time: 20,
+                    connection_id: "conn-ali".into(),
+                },
+            ],
+        );
+
+        let hits = search_remote_index(&base_dir, "使用心得+关键", &cloud_options(10))
+            .expect("remote search to work");
+        let names: Vec<&str> = hits.iter().map(|h| h.name.as_str()).collect();
+        assert!(
+            names.iter().any(|n| n.starts_with("Midjourney")),
+            "cross-`+` query must recall the remote file, got {names:?}"
+        );
+        assert!(
+            names.iter().all(|n| *n != "使用心得.docx"),
+            "the query spans `+关键`, so a file without that tail must not be recalled: {names:?}"
+        );
     }
 
     /// **取消勾选 = 立刻搜不到**（台账 O-1 的验收标准）。
