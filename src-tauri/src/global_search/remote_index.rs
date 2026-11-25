@@ -177,6 +177,34 @@ pub(super) async fn collect_remote_entries(
     docs
 }
 
+/// 因达到上限而**未能继续下钻**的目录计数（W-10，批次 47）。
+///
+/// 旧实现对每一个被跳过的目录都打一条 WARN，配额被填满时日志会被刷成几万行
+/// （实测百度一条连接就吃掉 20000 条），真正的告警全被埋掉。
+/// 计数后只在本连接遍历结束时汇总一句，可观测性不降级、日志量从 O(目录数) 降到 O(连接数)。
+#[derive(Debug, Default)]
+struct SkippedDirs {
+    count: usize,
+}
+
+impl SkippedDirs {
+    fn record(&mut self) {
+        self.count += 1;
+    }
+
+    /// 跳过数为 0 时返回 `None`（不产生任何日志）。
+    fn describe(&self, connection_id: &str, total_limit: usize) -> Option<String> {
+        if self.count == 0 {
+            return None;
+        }
+
+        Some(format!(
+            "[global-search] 云盘索引连接 {} 达到上限，另有 {} 个目录未继续下钻（合计上限 {} 条）",
+            connection_id, self.count, total_limit
+        ))
+    }
+}
+
 /// 递归遍历一个连接的目录树。
 ///
 /// 目录是**广度优先**：一层一层往下走，每层都过一遍上限判定。
@@ -191,6 +219,8 @@ async fn walk_connection(
     let mut pending: Vec<(String, usize)> = vec![(String::new(), 0)];
     // **本连接**已收集的条目数 —— 配额按连接算（批次 45 订正，见常量说明）。
     let mut connection_entries: usize = 0;
+    // W-10：因上限被跳过的子目录，遍历结束后汇总一句。
+    let mut skipped_dirs = SkippedDirs::default();
 
     while let Some((remote_path, depth)) = pending.pop() {
         if !walk_should_continue(depth, connection_entries, docs.len(), total_limit) {
@@ -226,10 +256,11 @@ async fn walk_connection(
                         {
                             pending.push((child_path, depth + 1));
                         } else {
-                            log::warn!(
-                                "[global-search] 云盘索引达到上限，目录 {} 未继续下钻",
-                                entry.path
-                            );
+                            // W-10（批次 47）：这里原本对**每一个**被跳过的目录都打一条 WARN。
+                            // 配额被填满时（实测百度一条连接就吃掉 20000 条），
+                            // 日志会被刷成几万行，真正的告警全被埋掉。改成只计数，
+                            // 本连接遍历结束后由 `SkippedDirs::describe` 汇总一句。
+                            skipped_dirs.record();
                         }
                     }
                     None => {
@@ -261,6 +292,11 @@ async fn walk_connection(
                 break;
             }
         }
+    }
+
+    // W-10：整条连接遍历完只出一条汇总，替代原先逐目录的 WARN。
+    if let Some(message) = skipped_dirs.describe(connection_id, total_limit) {
+        log::warn!("{message}");
     }
 }
 
@@ -516,6 +552,50 @@ mod tests {
             modified_time: 1_700_000_000_000,
             connection_id: "conn-a".to_string(),
         }
+    }
+
+    /// W-10（批次 47）：被上限跳过的目录只在每条连接末尾汇总一句。
+    #[test]
+    fn skipped_dirs_summarize_into_one_line_per_connection() {
+        let mut skipped = SkippedDirs::default();
+        assert!(
+            skipped.describe("conn-a", 20_000).is_none(),
+            "没有目录被跳过时不应产生任何日志"
+        );
+
+        for _ in 0..3 {
+            skipped.record();
+        }
+
+        let message = skipped
+            .describe("conn-a", 20_000)
+            .expect("跳过目录后必须有一条汇总日志");
+        assert!(
+            message.contains("conn-a"),
+            "汇总日志要指明是哪个连接：{message}"
+        );
+        assert!(
+            message.contains("另有 3 个目录"),
+            "汇总日志要给出跳过目录数：{message}"
+        );
+        assert!(
+            message.contains("20000"),
+            "汇总日志要给出合计上限：{message}"
+        );
+        assert_eq!(message.lines().count(), 1, "汇总必须只有一行：{message}");
+    }
+
+    /// W-10：`describe` 是纯读 —— 一条连接只调用一次，但重复调用不得改变计数。
+    #[test]
+    fn skipped_dirs_describe_is_read_only() {
+        let mut skipped = SkippedDirs::default();
+        skipped.record();
+
+        let first = skipped.describe("conn-a", 10).expect("应有一条汇总");
+        let second = skipped.describe("conn-a", 10).expect("应仍有一条汇总");
+
+        assert_eq!(first, second, "describe 不得修改内部计数");
+        assert_eq!(skipped.count, 1, "describe 后计数仍应为 1");
     }
 
     /// 上限判定是纯函数 —— 没有网络也能把两条边界都钉住。

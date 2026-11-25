@@ -8,12 +8,15 @@ use crate::utils::{
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 use tantivy::collector::TopDocs;
-use tantivy::query::{AllQuery, BooleanQuery, FuzzyTermQuery, Occur, Query, TermQuery};
+use tantivy::query::{
+    AllQuery, BooleanQuery, FuzzyTermQuery, Occur, Query, RegexQuery, TermQuery,
+};
 use tantivy::schema::{IndexRecordOption, Value};
 use tantivy::Term;
 use walkdir::WalkDir;
 
 use super::ignore::{builtin_ignored_paths, get_drive_root, normalize_case, IgnoredPathMatcher};
+use super::incremental::escape_regex_literal;
 use super::index::{index_dir, open_or_create_index, remote_index_dir};
 use super::remote_index::open_remote_reader;
 use super::scoring::{calculate_similarity_score, get_min_score_for_query_length};
@@ -58,7 +61,67 @@ pub(super) fn build_query(
         }
     }
 
+    // FORK-MODIFICATION: 2026-11-25 —— W-12「中文子串检索失效」的查询侧兜底。
+    //
+    // 根因不在打分，而在**取不到候选**：`name` 字段用 `default` 分词器，而
+    // SimpleTokenizer 按「非字母数字」切分，CJK 字符的 `is_alphanumeric()` 为真
+    // ⇒ 一整段连续中文只会产出**一个** token：
+    //
+    //   "2024年用户调研技巧汇总.docx" -> ["2024年用户调研技巧汇总", "docx"]
+    //
+    // 而 FuzzyTermQuery 是**整词**比对：查询 "技巧" 要命中上面那个 term 需要
+    // 编辑距离 ≤ 1~2，实际相距 6 ⇒ 一条候选都取不到。于是「中文只要不独立成词
+    // 就永远搜不到」，实测 MCP：`技巧` 只返 7 条（全是「技巧」独立成词的），
+    // `收集` 返 0 条。
+    //
+    // 修法：查询侧补一条 `RegexQuery(".*<词>.*")`。tantivy 0.26 的 RegexQuery
+    // 走 term 词典的自动机枚举，`.*技巧.*` 能命中 term "2024年用户调研技巧汇总"。
+    // 因此**不需要改 schema、不需要重建索引** —— 现有 23,334 条云盘索引照旧可用
+    // （改分词器则必须整库重建，代价与风险都不成比例）。
+    //
+    // 只对**含非 ASCII 字符**的词加这一条，理由：
+    //   - CJK 没有分隔符，子串命中是常态；ASCII 词由 `.`/`_`/`-`/空白天然切开，
+    //     fuzzy 已能覆盖绝大多数，且 ASCII 单字符的正则展开会命中海量 term，
+    //     成本远大于收益（ASCII 中缀子串失效属另一类问题，不在 W-12 范围）。
+    //   - `exact_match` 分支刻意不加：「精确匹配」的语义是整词相等，
+    //     `matches_exact_name` 事后也会把子串命中再筛掉一遍。
+    //
+    // ⚠ RegexQuery 的命中都是同一个常量分，所以候选条数超过 limit 时
+    // 「具体取哪几条」由 tantivy 的文档顺序决定；最终排序仍由
+    // `materialize_candidates` / `finalize_results` 按名字相似度重排。
+    for word in &words {
+        if let Some(substring_query) = build_substring_query(fields, word) {
+            subqueries.push((Occur::Should, substring_query));
+        }
+    }
+
     Box::new(BooleanQuery::from(subqueries))
+}
+
+/// 「这个词作为子串出现」的查询；对纯 ASCII 词返回 `None`（见 `build_query` 注释）。
+///
+/// tantivy 0.26 的 `RegexQuery` 底层是 `tantivy-fst::Regex` —— DFA 引擎，
+/// **全匹配**语义且不支持 `^` / `$` 这类零宽断言（见 `incremental.rs:192-195`），
+/// 所以两侧的 `.*` 是必需的，不能靠锚点。
+fn build_substring_query(
+    fields: &GlobalSearchIndexFields,
+    word: &str,
+) -> Option<Box<dyn Query>> {
+    if word.is_ascii() {
+        return None;
+    }
+
+    let pattern = format!(".*{}.*", escape_regex_literal(word));
+
+    match RegexQuery::from_pattern(&pattern, fields.name) {
+        Ok(query) => Some(Box::new(query)),
+        Err(error) => {
+            // 转义之后理论上不会失败；真失败就退化成「只有 fuzzy」，
+            // 也就是改动前的行为，不阻断查询。
+            log::warn!("[global-search] 子串查询正则构造失败（pattern={pattern}）：{error}");
+            None
+        }
+    }
 }
 
 fn build_exact_match_query(
@@ -1138,6 +1201,143 @@ mod tests {
     //
     // 这个测试按同样的比例造夹具：造足够多的**无关**条目把目标文件挤到
     // collection_cap 之外，再断言它仍能被搜到。夹具只要改动 cap 的倍率就会红。
+    // FORK-MODIFICATION: 2026-11-25 —— W-12「中文子串检索失效」的回归测试。
+    //
+    // 现象（docs/open-items-2026-11-24.md）：`name` 字段走 SimpleTokenizer，一整段
+    // 连续中文只产出一个 term，而 FuzzyTermQuery 是**整词**比对 ⇒ 查询「技巧」
+    // 取不到 term「2024年用户调研技巧汇总」，实测 MCP 只返 7 条、`收集` 返 0 条。
+    //
+    // 钉两件事，缺一不可：
+    //   ① `build_query` 真能取到子串候选（RegexQuery 兜底生效）；
+    //   ② 候选的相似度仍过得了长度门槛 —— 否则取到了也会被
+    //      `materialize_candidates` 二次过滤，等于没修。
+    mod cjk_substring {
+        use super::*;
+
+        /// 与用户实测同形的夹具：CJK 连续串、中间没有分隔符。
+        const SAMPLE_NAMES: [&str; 4] = [
+            "2024年用户调研技巧汇总.docx",
+            "收集整理项目进度.xlsx",
+            "项目计划表.xlsx",
+            "meeting-notes.md",
+        ];
+
+        fn build_fixture_index() -> (tantivy::Index, GlobalSearchIndexFields) {
+            let (schema, fields) = build_schema();
+            let index = tantivy::Index::create_in_ram(schema);
+            let mut writer = index.writer(50_000_000).unwrap();
+
+            for name in SAMPLE_NAMES {
+                writer
+                    .add_document(doc!(
+                        fields.path => format!("C:/test/{name}"),
+                        fields.name => name.to_string(),
+                        fields.name_lower => name.to_lowercase(),
+                        fields.is_file => 1u64,
+                        fields.is_dir => 0u64,
+                        fields.modified_time => 0u64,
+                        fields.size => 0u64,
+                    ))
+                    .unwrap();
+            }
+
+            writer.commit().unwrap();
+            (index, fields)
+        }
+
+        /// 走真实的 `build_query` 取候选；不叠 `materialize_candidates` 的过滤，
+        /// 这样断言的就是「取不取得到」这一层。
+        fn candidate_names(query_text: &str) -> Vec<String> {
+            let (index, fields) = build_fixture_index();
+            let reader = index.reader().unwrap();
+            let searcher = reader.searcher();
+            let query = build_query(&fields, query_text, &create_options(false));
+
+            searcher
+                .search(&query, &TopDocs::with_limit(50).order_by_score())
+                .unwrap()
+                .into_iter()
+                .filter_map(|(_score, address)| {
+                    let document: tantivy::TantivyDocument = searcher.doc(address).ok()?;
+                    document
+                        .get_first(fields.name)
+                        .and_then(|value| value.as_str())
+                        .map(|value| value.to_string())
+                })
+                .collect()
+        }
+
+        #[test]
+        fn finds_substring_in_the_middle_of_a_cjk_run() {
+            let names = candidate_names("技巧");
+
+            assert!(
+                names.contains(&"2024年用户调研技巧汇总.docx".to_string()),
+                "CJK 中段子串取不到候选，names={names:?}"
+            );
+            assert!(
+                !names.iter().any(|name| name == "项目计划表.xlsx"),
+                "无关名字不应被取到，names={names:?}"
+            );
+        }
+
+        #[test]
+        fn finds_substring_at_the_start_of_a_cjk_run() {
+            // 台账里 `收集` 实测返 0 条：fuzzy 是整词比对，隔着 6 个字取不到。
+            let names = candidate_names("收集");
+
+            assert!(
+                names.contains(&"收集整理项目进度.xlsx".to_string()),
+                "CJK 开头子串取不到候选，names={names:?}"
+            );
+        }
+
+        #[test]
+        fn finds_single_han_character() {
+            let names = candidate_names("研");
+
+            assert!(
+                names.contains(&"2024年用户调研技巧汇总.docx".to_string()),
+                "单字中文取不到候选，names={names:?}"
+            );
+        }
+
+        #[test]
+        fn substring_hits_clear_the_length_threshold() {
+            // 取到候选还不够 —— 相似度必须过门槛。门槛按**字节**长度取，
+            // 与 `materialize_candidates` 里 `normalized_query.len()` 一致。
+            for (query_text, name) in [
+                ("技巧", "2024年用户调研技巧汇总.docx"),
+                ("收集", "收集整理项目进度.xlsx"),
+                ("研", "2024年用户调研技巧汇总.docx"),
+            ] {
+                let score = calculate_similarity_score(query_text, name);
+                let threshold = get_min_score_for_query_length(query_text.len());
+
+                assert!(
+                    score >= threshold,
+                    "查询「{query_text}」对「{name}」相似度 {score} 低于门槛 {threshold}"
+                );
+            }
+        }
+
+        #[test]
+        fn substring_query_is_built_only_for_non_ascii_words() {
+            let (_schema, fields) = build_schema();
+
+            assert!(build_substring_query(&fields, "report").is_none());
+            assert!(build_substring_query(&fields, "meeting-notes").is_none());
+            assert!(build_substring_query(&fields, "技巧").is_some());
+            assert!(build_substring_query(&fields, "研").is_some());
+        }
+
+        #[test]
+        fn regex_metacharacters_in_the_word_are_escaped() {
+            // 名字里带 `.` `*` 时不能把正则语义改掉，否则命中范围会跑偏。
+            assert_eq!(escape_regex_literal("a.b*c"), r"a\.b\*c");
+        }
+    }
+
     mod recursive_scan_cap {
         use super::search_directory_recursive_blocking;
         use std::fs;

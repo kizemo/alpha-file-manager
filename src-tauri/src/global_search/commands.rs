@@ -71,6 +71,33 @@ pub async fn global_search_query_paths(
     super::query::global_search_query_paths(paths, query, options).await
 }
 
+/// 云盘索引重建的**全局**互斥锁（W-9，批次 47）。
+///
+/// 为什么必须是全局一把、而不是每个连接一把：一轮重建对索引目录是
+/// **先删（`clear_remote_index`）后建（`write_remote_index`）**，
+/// 两轮重建并发跑就会互相删掉对方正在写的段文件。批次 45 收尾实测：
+/// 12:41:28 与 12:49:29 两次重建并发抢同一目录，中途采样看到 `segments: []`
+/// 的「假空索引」，用户表现为「云盘明明勾着却搜不到东西」。
+///
+/// 前端（`use-remote-global-search-index.ts`）只有一把**模块级**串行锁，
+/// CDP 直调 / 任何后端调用都会绕过它 ⇒ 闸门必须落在后端。
+static REBUILD_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+/// 拿重建锁；已有重建在跑时先记一条 WARN 再排队。
+///
+/// 排队而不是直接失败：调用方拿到的返回值契约是「本次重建写入了多少条」，
+/// 让它排队等前一轮跑完，语义仍然是「从零重建一次」。日志里那句 WARN 是为了
+/// 事后能区分「重建本身慢」和「重建在排队等前一轮」（W-7 那套取证日志的延续）。
+async fn acquire_rebuild_lock() -> tokio::sync::MutexGuard<'static, ()> {
+    match REBUILD_LOCK.try_lock() {
+        Ok(guard) => guard,
+        Err(_) => {
+            log::warn!("[global-search] 已有云盘索引重建在进行，本次重建排队等待（W-9）");
+            REBUILD_LOCK.lock().await
+        }
+    }
+}
+
 /// 按给定的连接 id **从零重建**云盘（远程连接）索引，返回写入的条目总数。
 ///
 /// 语义（与前端约定的契约）：
@@ -84,6 +111,11 @@ pub async fn global_search_index_remote_connections(
     app: tauri::AppHandle,
     connection_ids: Vec<String>,
 ) -> Result<u64, String> {
+    // W-9（批次 47）：整轮重建串行化。
+    // 拿不到锁就排队 —— 排队必须发生在**任何**文件操作之前，
+    // 否则两轮重建还是会同时去删同一个索引目录。
+    let _rebuild_guard = acquire_rebuild_lock().await;
+
     let base_dir =
         crate::app_dirs::app_data_dir(&app).map_err(|error: tauri::Error| error.to_string())?;
 
@@ -183,4 +215,47 @@ pub async fn search_directory_recursive(
     typo_tolerance: bool,
 ) -> Result<Vec<GlobalSearchResultEntry>, String> {
     super::query::search_directory_recursive(root_path, query, max_depth, limit, typo_tolerance).await
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    use super::*;
+
+    /// W-9（批次 47）：两轮云盘索引重建**不得**同时进行。
+    ///
+    /// 判定量是「在飞行中」的峰值：四个重建任务同时抢锁，峰值必须是 1。
+    /// 不加锁时这里是 4 —— 那正是批次 45 实测的成因
+    /// （12:41:28 与 12:49:29 两轮重建同时去删同一个索引目录，
+    /// 中途采样到 `segments: []` 的假空索引）。
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn the_rebuild_lock_never_lets_two_rebuilds_run_at_once() {
+        let in_flight = Arc::new(AtomicUsize::new(0));
+        let peak = Arc::new(AtomicUsize::new(0));
+
+        let mut handles = Vec::new();
+        for _ in 0..4 {
+            let in_flight = Arc::clone(&in_flight);
+            let peak = Arc::clone(&peak);
+            handles.push(tokio::spawn(async move {
+                let _guard = acquire_rebuild_lock().await;
+                let current = in_flight.fetch_add(1, Ordering::SeqCst) + 1;
+                peak.fetch_max(current, Ordering::SeqCst);
+                tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+                in_flight.fetch_sub(1, Ordering::SeqCst);
+            }));
+        }
+
+        for handle in handles {
+            handle.await.expect("重建任务不应 panic");
+        }
+
+        assert_eq!(
+            peak.load(Ordering::SeqCst),
+            1,
+            "两轮重建不得同时进行：峰值并发必须是 1"
+        );
+    }
 }
