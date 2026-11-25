@@ -762,6 +762,49 @@ AFM 确实不抢前台（聊天窗口还在前面），但**文件拖不进聊�
 - **appdata 备份目录会被 WebView2 缓存锁住**：`Remove-Item -Recurse` 报 "being used by another process" 并打断脚本
   （exit 非 0）⇒ 每轮按时间戳新建备份目录 + 复制前先停进程 + `Copy-Item -ErrorAction SilentlyContinue`。
 
+### 2.12 批次 54 新增的四个硬事实：装机判据、探针标量解包、exe 字符串扫描无判别力（2026-11-25 实测）
+
+- **判「装没装上」要用安装包内 payload 的哈希，不要用 `target/release` 副本**：批次 54 实测
+  `src-tauri/target/release/alpha-file-manager.exe` 与已装 exe **同尺寸但 sha 不同**（确定性构建 + 打包进安装包的是另一份副本）
+  ⇒ 该口径失真。正解：`7z x <安装包> -o<out>` 抽出包内 payload，再与已装文件比 sha256
+  （本轮 b54 包内 payload = `B12B4892…D070F`，与已装件逐字节一致；b53 包 payload 不同 ⇒ 可区分版本）。
+- **PowerShell 探针的 `Find-*` 返回值必须包 `@()`**：函数只返回 1 个元素时 PowerShell 会把它**解包成字符串标量**，
+  `$hits[0]` 取到的是**首字符**而不是整条匹配 ⇒ 一条完全正确的 tooltip 会被读成「打」。
+  批次 54 首轮唯一 FAIL 就是这个（**产品无缺陷**）。**断言红了先查探针，再判产品**。
+- **exe 内嵌前端资源是压缩存储 ⇒ 对 exe 做字符串扫描没有判别力**：批次 54 对已装 exe 与 `target/release` exe
+  扫 8 个文案模式**全部 0 命中**（连必然存在的「未找到命令。」也扫不到）。要验文案是否进了包，
+  改扫 `dist/` 构建产物（逐文件统计命中，见 `.superpowers/sdd/b54/scan-dist.cjs`）。
+- **沙箱帧不一定是白帧**：批次 54 沙箱 `PrintWindow` 帧 nonwhite = 100%、画面真实可读
+  （与 §2.11「沙箱帧可能全白」的经验不完全一致）⇒ 仍**以 UIA 为准**，但拿到可读帧就顺手裁一份目标区域图当旁证。
+
+### 2.13 批次 55 新增的三个硬事实：cargo shim 缺失会让打包「假失败」、测试线程复用会掩盖 COM 公寓缺失、Tauri 覆盖 WebView2 调试参数（2026-11-25 实测）
+
+- **`cargo.exe` 不在 PATH ⇒ `npm run tauri:build` 会在 1 分钟内「假失败」**：本机 `C:\Users\Duanyi\.cargo\bin` 里
+  **只有 `rustup.exe`，没有 `cargo.exe` shim** ⇒ 门禁可以用 `rustup run 1.90.0 cargo ...` 正常跑，
+  但 tauri CLI 自己 spawn `cargo metadata --no-deps --format-version 1` 时**找不到 cargo** ⇒ 报
+  `failed to run 'cargo metadata' command to get workspace directory: ... program not found`
+  （看起来像 tauri 配置坏了，实际是 PATH 缺 shim）。
+  修法：**把工具链自己的 bin 目录前置到 PATH** ——
+  `$env:PATH = "$env:USERPROFILE\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin;" + $env:PATH`，
+  再 `npm run tauri:build`；此时 `cargo.exe` 直连该工具链，连 `RUSTUP_TOOLCHAIN` 都不用设。
+  判据：`Get-Command cargo` 非空（空 ⇒ 就是这个坑）。
+- **Rust 测试线程会被复用 ⇒ 「测试自身缺前置条件」会表现成随机红/绿**：批次 55 首次全量 `cargo test --lib`
+  挂在 `dir_reader::shell_namespace::tests::propsys_resolved_system_size_key_reads_real_file_size`
+  （`CO_E_NOTINITIALIZED 0x800401F0`）。根因：该测试**直调 `resolve_shell_item`**，绕过了
+  `read_shell_dir` / `stat_shell_entry` 内部持有的 `ComGuard`；**COM 公寓是线程级的**，测试框架复用线程时
+  若该线程恰好被别的测试初始化过 COM，测试就「碰巧」绿 ⇒ **批次 53 全绿是运气，不是稳定**。
+  修法是**给测试自己建公寓**（`let _com = super::ComGuard::new().expect("COM 初始化应该成功")`），
+  **不要改产品代码**：产品入口本来就持有守卫，给 `resolve_shell_item` 内嵌守卫反而会在 MTA 线程上撞
+  `RPC_E_CHANGED_MODE`。
+  ⇒ 通用教训：**「全量并行偶尔挂、单跑也挂、换个测试又绿」= 典型的线程/环境级偶发**；
+  先 `--exact` 单跑坐实，再看是不是测试自身缺前置条件；
+  **一次全量只挂一个、且两次挂的不是同一个测试 ⇒ 判环境偶发，不要直接改产品代码**。
+- **Tauri 应用会覆盖 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`**：批次 55 想用 CDP
+  （`--remote-debugging-port=9333`）做界面级复验 —— 进程起来了、WebView2 子进程也起了，但 **9333 无监听**：
+  WebView2 的规则是**应用显式设置的参数优先**，Tauri 的 `AdditionalBrowserArguments` 会盖掉同名环境变量 ⇒
+  靠环境变量打开的调试端口在 Tauri 里不生效。要走 CDP 只能改 `tauri.conf.json` 注入 `additionalBrowserArgs`
+  并**重打两次包**（验收包 + 回滚后的干净包），代价 ≈ 15 分钟且产物带调试端口 ⇒ 本批改走 vitest DOM 级回归测试。
+
 ## 3. 代码导航：graphify 知识图谱
 本仓库已建好本地 AST 知识图谱（2026-10-21 部署）：**零 LLM、零 API 成本、纯本地**，产物在 `graphify-out/`（已加进 `.gitignore`，不进版本库）。
 

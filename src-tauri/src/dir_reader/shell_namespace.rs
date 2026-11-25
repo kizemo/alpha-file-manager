@@ -1266,6 +1266,12 @@ mod tests {
         std::fs::write(&sample, vec![0u8; expected_size as usize]).expect("写入样本文件");
 
         let path = sample.to_string_lossy().to_string();
+        // 本测试直接调 `resolve_shell_item`，绕过了 `read_shell_dir` / `stat_shell_entry`
+        // 内部持有的 COM 守卫 ⇒ 必须自己建公寓，否则 shell API 拿到
+        // CO_E_NOTINITIALIZED (0x800401F0)。
+        // 批次 55 实测：不补守卫时该测试会随「测试线程被复用」的时序随机红/绿
+        // （全量并行跑挂在它、单独跑也挂），不是产品缺陷而是测试自身缺前置条件。
+        let _com = super::platform::ComGuard::new().expect("COM 初始化应该成功");
         let item = resolve_shell_item(&path).expect("shell 应能解析普通文件路径");
         let item_with_properties: IShellItem2 = item.cast().expect("shell 条目应支持 IShellItem2");
 

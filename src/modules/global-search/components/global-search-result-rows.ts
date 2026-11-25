@@ -60,6 +60,35 @@ export function groupGlobalSearchResults(entries: readonly DirEntry[]): GlobalSe
 }
 
 /**
+ * 按「显示文件 / 显示目录」过滤结果条目。
+ *
+ * 只按**条目类型**过滤，不看路径、也不看来源 —— 云盘条目（`sfm://remote/...`）
+ * 与本地条目走同一条规则，不会因为路径长得不一样被前端悄悄丢掉。
+ *
+ * 批次 55 把这条规则从视图里抽成独立函数，让「客户端二次过滤不会误丢云盘结果」
+ * 这件事可以被单测锁住（而不是靠读代码确认）。
+ */
+export function filterGlobalSearchResultsByKind(
+  entries: readonly DirEntry[],
+  options: {
+    includeFiles: boolean;
+    includeDirectories: boolean;
+  },
+): DirEntry[] {
+  return entries.filter((entry) => {
+    if (entry.is_file && !options.includeFiles) {
+      return false;
+    }
+
+    if (entry.is_dir && !options.includeDirectories) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+/**
  * 行的 key：只用下标。
  *
  * 拿路径当 key 会让每条结果都持有一份长字符串；同一组里的顺序本来就稳定，下标足够。
