@@ -3,7 +3,7 @@
 > **这份文件是什么**：跨批次的「还没做完 / 还没决定」的唯一账本。
 > **怎么用**：每轮收工前进账（状态有变化就改行，不要另建一份）；开工前先读 §0 + §2 + §3。
 > **本轮依据**：批次 45 收口（B-1 闭合 + W-7/W-8 落地）→ **批次 45 续篇**（云盘索引配额归因与修复 + O-4 路线 A 启动）→ **批次 45 收尾**（O-4 闭合 + 配额落地 + B-1「另一半」A/B 闭合）。详见 `docs/handoff-2026-11-22-batch38-onedrive-readonly.md` §十六 / §十七 / §十八 / §十九。
-> **最近更新**：2026-11-25 深夜（批次 57：**缺陷 A 闭合**（零索引重建，真机确证）+ 新开 **W-21**（检索耗时约 5 倍回归，待裁决）+ **W-20 优先级下调**；手册见 handoff §三十）
+> **最近更新**：2026-11-26（批次 58：**三项功能落地** —— 收藏卡显示完整路径并可就地编辑标题/路径、侧边栏「快速访问」悬停面板铅笔按钮 + 收藏编辑弹窗、设置页 → 存储分类的「导出设置 / 导入设置」；门禁 **339 文件 / 3641 用例 / EXIT=0**；真机 CDP 走查抓出并修掉 1 个本批自引入的键盘冒泡回归；新开 **W-22**（其余 15 个语言包为英文占位）；手册见 handoff §三十一）
 
 ---
 
@@ -23,6 +23,8 @@
 且本次 access_token 约 **6776 秒**后会过期，届时仍需再登一次。
 观察项 **11 项**（W-1…W-11，本轮未新增）；已拍板不做 **4 项**。
 批次 42 的 9 项已知限制已全部关闭。
+
+**批次 58** 新增 **3 项用户可见功能**（收藏卡显示完整路径并可就地编辑标题/路径、侧边栏「快速访问」悬停面板铅笔按钮 + 收藏编辑弹窗、设置页 → 存储分类的「导出设置 / 导入设置」）；观察项新增 **1 项**（W-22：其余 15 个语言包为英文占位，待翻译）。门禁 **339 文件 / 3641 用例 / EXIT=0**，真机 CDP 走查与交付包见 handoff §三十一。
 
 ---
 
@@ -331,6 +333,16 @@
       - **第二轮走查未完成**：`cdp-walk2.cjs`（9,519 B）→ `cdp-walk2.log`（298 B）止于 `PREFLIGHT_WAIT attempt=3`，`Page.enable` / `Runtime.enable` / `Runtime.evaluate` 连续 >30s 超时 ⇒ **索引负载下渲染进程 CDP 回包停摆**（W-11 同源现象加剧），本轮判停，列表**方向键逐行移动**的界面级证据仍未取得（第一轮 `focusMovesThroughList=false` 判据无效：只比 className 字符串，而每行 className 相同）
       - **干净交付包（已回滚 conf 重打）**：`build-clean-b56.cmd`（1,428 B，纯 ASCII）→ `b56-build-clean.log`（255,142 B，`ROLLBACK_OK conf is clean` + 末行 **`BUILD_EXIT=0`**）→ `release/local-builds/Alpha File Manager_3.22.0_x64-setup.exe` **46,114,491 B / SHA256 `776F2A50…C44652`**（`src-tauri/target/release/alpha-file-manager.exe` 85,570,560 B / SHA256 `BB3FEAD6…D228`；盘上复核 `remote-debugging-port` 在 `tauri.conf.json` 命中 **0** 处）。⚠ 带调试端口的 19:25 取证件安装包与 exe 已被这次干净构建覆盖，**不再存在于盘上**（取证证据只剩 `cdp-out/` 的帧与报告）
       - 副作用披露：release 实例读写**真实**数据目录 `C:\Users\Duanyi\AppData\Roaming\com.sigma-file-manager.app\user-data\`（只读检索 + 写入本轮搜索历史 + 走查期间后台继续索引，帧底部显示「正在并行索引所有驱动器 / 已索引项目 97,879」）；起沙箱前按 §2.8 会先结束正在运行的实例，本轮实测 `AFM_RUNNING=0`，无用户实例被杀
+- **批次 58（2026-11-26，三项用户可见功能 + 真机 CDP 走查 + 交付包）**：
+  - 代码落点：新增 `src/utils/favorite-edit.ts`、`src/components/favorite-edit-dialog.vue`、`src/modules/settings/utils/settings-transfer.ts`、`src/modules/settings/ui/categories/storage/settings-transfer.vue`；改动 `src/modules/dashboard/components/entry-card.vue`（`pathDisplay` / `editable` / 就地编辑输入框）、`src/modules/dashboard/pages/dashboard.vue`、`src/modules/dashboard/components/dashboard-entry-actions-menu.vue`、`src/modules/nav-sidebar/components/quick-access-entry.vue`、`src/modules/nav-sidebar/components/quick-access-panel.vue`、`src/modules/nav-sidebar/nav-sidebar.vue`、`src/stores/runtime/settings.ts`、`src/stores/storage/user-settings.ts`、`src/stores/storage/user-stats.ts`、`src/stores/storage/remote-connections.ts`、17 个语言包。
+  - 测试：新增 **31 条**单测（`src/utils/__tests__/favorite-edit.test.ts` 13 条、`src/modules/settings/utils/__tests__/settings-transfer.test.ts` 14 条、`src/modules/dashboard/components/__tests__/entry-card-editor-keydown.test.ts` 4 条）。
+  - 门禁：`npm run check` → `Test Files 339 passed` / `Tests 3641 passed` / `NPM_CHECK_EXIT=0`（`.superpowers/sdd/b58/check.log`）。
+  - 取证包（带 CDP 端口，不交付）：`.superpowers/sdd/b58/build-accept.log` → `BUILD_MARK=PASS`、46080047 B / SHA256 `50A9313FE40B4386D1ADEE38AE7B140513F5A76F0A8864A8D3105C30166C0ACD`。
+  - 真机走查：私有桌面 `AFM-B58CDP-*` + CDP 45777 → `.superpowers/sdd/b58/cdp-out/cdp-report.json`，判定 fullPathRendered=true / parentOnlyDisplayed=false / titleChangedInUi=true / titlePersistedToDisk=true / pathEditorPrefillsFullPath=true / pathEscapeKeptValue=true / sidebarPencilPresent=true / editDialogOpened=true / editDialogHasTitleAndPath=true / editDialogHasCategory=true / settingsExportButtonFound=true / settingsImportButtonFound=true / pixelsNonBlank=10/10。
+  - 干净交付包：回滚 `src-tauri/tauri.conf.json` 后重打 → `BUILD_MARK=PASS`、46119572 B / SHA256 `C55CEB5271472EBAB3F0454C9815A4B4C919889C4D3DC912811842D20C5EEF4A`（`.superpowers/sdd/b58/build.log`）。
+  - 回归留痕：走查抓出「编辑输入框按键冒泡到卡片 ⇒ Enter 连带跳转 + 空格被 preventDefault 吃掉」，已修并补 4 条 DOM 回归测试（详见 handoff §三十一·3）。
+  - 副作用：真机实例读写真实 `user-data` 目录，走查前后各备份 / 恢复一次，三份 JSON sha16 与字节数逐一比对一致；起沙箱前结束了已安装实例 pid=250552。
+
 - [ ] **W-20**（2026-11-30 批次 57 坐实，⏸ **待用户定触发方式**）：**「索引重建触发链」在 release 装机上不可观测**。批次 56 把云盘索引配额改成 A+B（`total_entry_limit = REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION × connection_count`，`remote_index.rs:58-63`），而新配额只在**用户重新保存一次连接勾选**触发重建后才生效；但 release 构建里 `SFM_E2E_DATA_DIR` 无效（AGENTS.md L28 / L118）、打包产物没有可读的索引进度出口，且 OneDrive 连接已从 `user-remote-connections.json` 删除（现存 6 条：速豹堂 / aiec / jury / 百度 / 夸克 / 阿里云盘，无 `0754472*` 前缀）⇒ 本批**既无法自动触发重建、也无法证实它跑过**。盘上现状：`remote-index/meta.json` mtime **2026-11-25 09:10:51**、`max_doc=23334`、单 segment、`.del`=0、`name.tokenizer` 仍 `"default"` ⇒ 索引自批次 48 起未重建。候选解法：(a) 给 release 加一个可读的「索引重建进度 / 结果」出口；(b) 临时打 CDP 取证包代点（代价 = 多一次 30–40 min 构建 + 收口回滚重打干净包）。另注：**缺陷 A 本体（云盘 `name` 无子串 / ngram 子字段）至今未修**，见 handoff §二十九。
 **本项前提已被批次 57 盘上取证证伪并作废**：索引 schema 从未被改动（`index.rs:49` 的 `name_lower` 定义
   修复前后一致，且该目录根本没有 `schema.json`）；4351 只是测试脚本 `test-4351-rebuild.ps1:16` 的 `Write-Host` 字面量，
@@ -351,6 +363,8 @@
   兜底加 term 数量上限、先加分段计时定位瓶颈。→ `docs/handoff-2026-11-22-batch38-onedrive-readonly.md` §三十·5。
 
 ---
+
+- [ ] **W-22（批次 58 新登记，低优先，待翻译）** 本批新增的 **20 个 i18n 键**只有 `en` / `ch` 是人工撰写的文案，其余 **15 个语言包**由 `npm run sync-i18n` 以英文兜底填充（占位英文）⇒ 这些语言下界面会显示英文。盘上校验：17 个包的 key 集合与 `en.json` 完全一致、无空串值（`FILES=17 OK=17 MISS= EMPTY=`）。待办：人工翻译 15 个包的这 20 个键。
 
 ## 变更记录
 
@@ -381,3 +395,5 @@
 | 2026-11-30 | **批次 57 取证订正（用户改判方向 = 修缺陷 A 本体）**：派工标尺「验收 4351 条索引是否真建成」**证伪** —— `4351` 在仓库全库检索 0 命中 + `git log -S '4351'` 无记录 + 云盘索引实际 `max_doc=23334`（`meta.json` mtime 2026-11-25 09:10:51，自批次 48 未重建、`name.tokenizer` 仍 `"default"`）⇒ 批次 56 的配额改动**未实测重建**，「重建后条目数」无历史基线可比。另两处盘上订正：① OneDrive 连接已不在 `user-remote-connections.json`（6 条连接、无 `onedrive` 字串、无 `lastConnectedIds` 键）⇒ 配额选项 A 的 `connection_count` 已回落，且「重存勾选触发重建」这条测试路径少了一个靶子；② 孤儿 OneDrive 索引仍在盘上、判为**未判定**（`.term` 48 MB 是 FST、`.store` 1,320,880 B 是 lz4，扫词阳性对照 `E:/`=0 / `Documents`=0 / `AppData`=0 / `.store` 内 `onedrive`=0 ⇒ 二进制扫词**无判别力**，真判据只能起应用按 `connection_id` 聚合计数）。本地索引 `total_docs=993195`（旧台账 988637 作废，11-25 20:20 全量扫描耗时 18m44s）。新登 **W-20**（release 上索引重建触发链不可观测）。**本批未写代码、未跑门禁、未打包**；版本号仍 3.22.0、未推送 |
 
 | 2026-12-02 | **批次 57（盘上取证纠偏 + 缺陷 A TDD 修复 + 门禁 + 打包 + 装机 + 真机 A/B 复验）**：① **推翻上一轮误判**——索引 schema 从未改动、4351 只是脚本字面量（handoff §二十九），原 **W-20** 前提作废留痕。② **定根因**（`query.rs:107-127`）：子串正则打在分词字段 `fields.name` 上，跨 `+` 查询词无单 term 可匹配；改打未分词 `STRING` 字段 `fields.name_lower`（`index.rs:49`）⇒ **零索引重建**。③ **TDD**：RED `red2.log:221` `1 passed; 2 failed`（`:224` 仍显示 `EXIT=0`，故判据只认 `test result:` 行）→ GREEN 定向 3 passed（`green-filter.log:207`，`FILTER_EXIT=0` 见 `:209`）→ 全量 `cargo test --lib` **1730 passed / 0 failed / 3 ignored / 9.24s**（`green.log:1937`，基线 1727+3，零回归）。④ **门禁** `npm run check`：**336 Test Files / 3610 Tests passed**（`check.log:167-168`，`Duration 106.07s` 见 `:170`）、`[sandbox-gate] OK`（`:211`）、`EXIT=0`（`:212`）。⑤ **打包** `npm run tauri:build` `BUILD_EXIT=0`（`b57-build.log:2363`），NSIS 46,120,764 B / sha256 `1a3256b1…435f`。⑥ **装机** `seq-after-b57.ps1`：以**包内 payload 哈希**（`54e4eaf8…515a`，size 85,570,560）先于安装器退出码坐实包内容 ⇒ `PKG_IS_NEW=YES` / `INSTALLER_EXIT=0` / `PAYLOAD_MATCH=YES` / `FIX_APPLIED=True`。⑦ **真机只读 MCP A/B**：跨标点查询 `心得+关键` / `心得+关键词` before **0 条未召回** → after **1 条精确命中靶子**（`mcp-probe-{before,after,after2}.log` L7-L21，第二轮同进程复采一致）；控制组 `发票` 条数不变；`exact_match` 路径未受影响。⑧ **登记新遗留 W-21**：端到端 260ms 级→1270ms 级（约 5×、控制组同涨、无分段计时），待用户裁决接受或开优化棒次。代码提交 `ae98e82f`（1 file，+95/−2，仅 `query.rs`）。版本号未动（真机验收包仍 3.22.0），发布与推送待用户授权。 |
+
+| 2026-11-26 | **批次 58（三项功能 + 回归修复 + 真机 CDP 走查 + 交付包）**：① 快速访问页收藏卡显示**完整路径**，标题与路径**可就地编辑**；② 侧边栏「快速访问」悬停面板加**小铅笔按钮**，点击弹出收藏编辑弹窗（标题 / 路径 / 所属分类）；③ 设置页 → 存储分类新增**「导出设置 / 导入设置」**（覆盖设置项、收藏夹、远程连接与百度/夸克/阿里/OneDrive 连接元数据；**history 与 frequentItems 不导出、凭据不导出**）。新增单测 **31 条**，门禁 `Test Files 339 passed` / `Tests 3641 passed` / `NPM_CHECK_EXIT=0`。真机 CDP 走查抓出并修掉 1 个**本批自引入的回归**（编辑输入框按键冒泡到卡片 ⇒ Enter 保存连带跳转、空格打不出来），补 4 条 DOM 回归测试。取证包 46080047 B / SHA256 `50A9313FE40B4386D1ADEE38AE7B140513F5A76F0A8864A8D3105C30166C0ACD`；回滚 `tauri.conf.json` 后重打的干净交付包 46119572 B / SHA256 `C55CEB5271472EBAB3F0454C9815A4B4C919889C4D3DC912811842D20C5EEF4A`。用户数据走查前后备份 / 恢复一致。版本号未动（仍 3.22.0）、未推送、未发版、未重建索引。详见 handoff §三十一 |
