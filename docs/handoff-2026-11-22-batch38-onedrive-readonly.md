@@ -4461,3 +4461,49 @@ function handleEscapeKey(): boolean {
     `origin` = `https://github.com/kizemo/alpha-file-manager.git` 与 `upstream`（aleksey-hoffman 上游），
     **没有 `gitee`**。将来若要推送，**先核对远端名再动**；本批一律不推送。
 
+---
+
+## 二十九、批次 57 第一步：索引现状盘上取证 —— 原口径被证伪（2026-11-30 收口）
+
+> 本批开工口径（上一轮接力摘要给出）：「先验索引重建（缺陷 A）：按批次 42 配方重挂 OneDrive 触发全量重索引，验 **4351 条**索引是否真建成」。
+> 按「台账数字一律盘上回读」的纪律读盘 ⇒ **该口径的两个前提都不成立**。本节只登记有盘上原文或 `grep` 工具双证的事实，并标出推断与未验证项。
+
+### 二十九·1 三份运行时原文（`[IO.File]::ReadAllText` 逐字回读，release 真实数据目录）
+
+| 文件 | 盘上关键值 | 判定 |
+| --- | --- | --- |
+| `%APPDATA%\com.sigma-file-manager.app\remote-index\meta.json`<br>2,046 B / mtime **2026-11-25 09:10:51** | `segments:[{segment_id:"9dc1ae57-24d5-413f-90e3-aab3b36888c4", max_doc:**23334**, deletes:null}]`、`opstamp:23335`、`index_settings{docstore_compression:"lz4"}`；schema 八字段 `path/name/name_lower/is_file/is_dir/modified_time/size/connection_id`；**`name` 的 `tokenizer` = `"default"`**、`record` = `"position"`；`path`/`name_lower`/`is_file`/`is_dir`/`connection_id` = raw（不分词） | 云盘索引 = **单段 23,334 条**，自 11-25 09:10:51 **未被改写过**（`remote-index/*.del` 计数 = **0**）。**结构里没有 per-connection 计数**，也没有 `indexed_paths` / `last_indexed_at` 字段（`src-tauri/src` 内 grep 二者 = **No matches**，`grep indexed_paths` 全库仅命中 codebase-memory 的 SQLite 段文件噪声）⇒ 接力摘要所说「meta.json 的 `indexed_paths` 记着 OneDrive 4351 条」是**臆造的字段名 + 臆造的数字**。 |
+| `…\global-search\status.json` 464 B | `last_scan_mode:"full"`、`last_scan_reason:"startup"`、`last_scan_outcome:"completed"`、`last_scan_duration_ms:1123665`（≈18.7 min）、`indexed_item_count:**993195**`、`last_scan_indexed_item_count:993195`、`last_scan_error:null`、`indexed_drive_roots:["E:/","F:/"]`、`incremental_ready:true`、`last_incremental_failed:false`、`schema_version:1` | 本地索引现值 **993,195** 条（§4 W-13/W-15 里的 988,637 是 11-24 快照，已过时）。该次启动全量扫描的收尾时间戳 = `last_scan_finished_time:1795608050112`，即 **11-25 20:20**；**推断（未验）**：云盘索引 mtime 仍停在 09:10:51 ⇒ 那次 `full` 扫描**没有重建云盘索引**（是设计如此还是缺陷，本批未坐实）。 |
+| `…\user-data\user-remote-connections.json` 2,373 B / mtime **2026-11-25 20:09:28** | 顶层键**只有 `connections`**（`HAS_lastConnectedIds=False`）；**6 条连接**：`e2b24ab5…` 速豹堂 / `0eb0fd3d…` aiec.fun / `2470327e…` jury.xin（三者 protocol=sftp，`includeInGlobalSearch:false`）+ `0f0696ba…` 百度网盘 / `d2ab9ed3…` 夸克网盘 / `646dacdb…` 阿里云盘；全文 `(?i)onedrive` = **False**、批次 42 的 OneDrive id `0754472d` = **False** | **OneDrive 连接已被删除**（不是"记法变了"，是字面量在文件里不存在）⇒ 「按批次 42 配方重挂 OneDrive」这条路**需要用户重新走一次 Microsoft OAuth**，agent 侧不可自行完成。顺带订正：`lastConnectedIds` 这个键在盘上文件里**并不存在**，旧文档把它当成"自动重连的必要条件"的说法需要重新核（未验证）。 |
+
+**「4351」这个数的实际出处**（`docs/` 全库逐文件 `ReadAllText` + 正则扫，方法为 PowerShell，结论待下一轮用 grep 复核）：
+只有两处字面命中，**都不是索引条数** —— ① `docs/plan-2026-11-19-aliyun-onedrive.md` 里 `baidu_login.rs（43514 B）`（**字节数**被截读成 4351）；② `docs/handoff-2026-11-10-root-unification.md` 里 `writer.rs:284,351`（**行号对**被 `4,351` 命中）。
+⇒ 属 **AGENTS.md §5 坑 100 类**（继承自压缩摘要的具体值未经盘上回读即为未知数）。本批把它当反例登记。
+
+### 二十九·2 由真值重述的问题（原「验 4351 条」不成立）
+
+1. **缺陷 A 本体未修**（`grep` 双证，原文位点 L3999 / L4060 / L4114 / L4233 / L4245 / L4255 / L4354）：
+   「`name` 用 default 分词器 ⇒ 整段汉字是一个 term，跨 token 边界子串召不回；修法 = 给 `name` 加**子串 / ngram 子字段** + 重建 **23,334** 条云盘索引」。
+   本批在 `meta.json` 里直接看到 `name.tokenizer` 仍是 `"default"` ⇒ **schema 未动、缺陷 A 未修**。
+   所以本批要做的不是「验证一次已发生的重建」，而是**一次待实施的代码改动 + 索引重建**。
+   注意边界（L4233 / L4245 已裁决）：`globalSearch.exactMatch=false` ⇒ 缺陷 A **不是**「云盘文件看不到」的根因，它单列在 **W-14 尾部**，别升级成可见性故障。
+2. **云盘索引是否随启动重建**（新缺陷候选，**拟登记 W-20，尚未入 open-items §4** —— 见二十九·4 的锚点异常）：本地 `full` 扫描 20:20 完成，云盘段自 09:10 未动。触发条件未坐实 ⇒ 需读 `src-tauri/src/global_search/remote_index.rs` 的调度入口（`commands.rs` / `index.rs` 侧调用点）或起应用取证。
+3. **连接删除后云盘索引是否残留孤儿条目**：**未判定，且离线判不了**。本批做过判别力测试：`.term`（48 MB）与 `.store`（1.3 MB）是 FST + lz4 压缩，阳性对照 `E:/`、`F:/`、`Documents`、`AppData`、`.pdf` **全部 0 命中** ⇒ 二进制扫词法在此**无判别力**，不得据其阴性结果下结论。
+   真判据只能是**应用内按 `connection_id` 聚合计数**（起安装包 + 只读 MCP `search_files`）。
+
+### 二十九·3 本批剩余路径（待用户拍板）
+
+| 选项 | 内容 | 前置 / 代价 |
+| --- | --- | --- |
+| **(a) 做缺陷 A 本体**（本轮无阻塞） | 给 `name` 加 ngram/子串子字段（改 `remote_index.rs` schema + 写入 + 查询侧），跑两路门禁，`npm run tauri:build` 装机，用批次 42/52 的只读 MCP A/B 装置验「`使用心得+关键` 这类跨 token 子串现在能召回」 | 纯代码 + 一次打包（30-40 min）；**不需用户在场**；但索引重建的触发方式取决于二十九·2-2，可能需手动触发一次云盘扫描 |
+| **(b) 先补 OneDrive 重新授权** | 用户在应用里重挂 OneDrive，顺带验「新增连接是否触发云盘重建」+ 孤儿条目计数 | **必须用户在场走 OAuth** |
+| **(c) 跳过索引，转发版** | W-14 / W-15 / W-20 留账，本批改做版本号 + CHANGELOG + 提交（推送另需授权） | 最快出交付 |
+
+### 二十九·4 本轮新增工具坑（拟入 AGENTS.md §5）
+
+1. **`Set-Location` 不改 .NET 进程 CWD** ⇒ `[IO.File]::ReadAllLines('相对路径')` 报「找不到文件」并把路径解析到会话工作目录根（本轮白烧 2 次调用）。**一律传绝对路径**。
+2. **这两份 CJK 台账的行数在三种视图下不一致**：`grep`/`read`/字节级 LF 计数 = handoff **4,463** 行、open-items **362** 行；而 `[IO.File]::ReadAllLines().Count` 一度回报 **4,566 / 423**。后果：按 PowerShell 行号去定位锚点会指错位置。本轮实测 `grep` 在 open-items 里查「`## 五、依赖关系与阻塞`」「`## 变更日志`」两个标题**均 0 命中**，与 PowerShell 打印内容矛盾 ⇒ **PowerShell 视图的这两处内容来源未坐实，本节不据其下结论**；下一轮所有 open-items 的写锚点**必须**用 `grep`/`read` 工具重新取。
+3. **判「索引里有没有某条记录」不能用段文件二进制扫词**（见二十九·2-3 的阳性对照）；能用的只有应用内查询或后端日志。
+4. 本仓真实路径纠正：云盘索引模块在 **`src-tauri/src/global_search/remote_index.rs`**（`src-tauri/src-tauri/src/…` 是旧文档里的错路径，不存在）；连接 store 在 **`src/stores/storage/remote-connections.ts`**（旧引用的 `src/modules/remote/stores/remote-connections.ts` 不存在）；`src-tauri/src` 下 `.rs` 文件 **188** 个。
+5. 配额选项 A（每连接席位上限）**已在代码里**：`remote_index.rs:61-63` `total_entry_limit(connection_count) = REMOTE_INDEX_MAX_ENTRIES_PER_CONNECTION * connection_count.max(1)`，注释 L58 给算例「3 个连接 ⇒ 60,000 条 ⇒ 约 19 MB」；跳过目录汇总日志在 L198-204。⇒ 用户若确认走 A，此项可直接从待办改为已完成（**待用户追认**）。
+
