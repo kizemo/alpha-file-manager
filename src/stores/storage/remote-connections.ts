@@ -390,6 +390,18 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     return true;
   }
 
+  /**
+   * 导入设置时**整体替换**连接列表。
+   *
+   * 刻意不走 `saveConnection`：那个方法会连同密码一起写，
+   * 而导入包里的连接**没有凭据**（凭据不导出）—— 走它等于把本机密码清空。
+   * 这里的凭据由调用方先合并好（同 id 沿用本机凭据），这里只负责落盘。
+   */
+  async function replaceConnectionsForImport(nextConnections: RemoteConnection[]): Promise<void> {
+    connections.value = nextConnections.map(connection => normalizeConnectionRecord(connection));
+    await saveStorageData();
+  }
+
   async function saveStorageData(): Promise<void> {
     // **刻意不静默 no-op。** 仓库里既有的 store 在这里写的是
     // `if (!storage.value) return;`，后果是 init 失败时每次保存都悄悄丢掉：
@@ -1064,6 +1076,8 @@ export const useRemoteConnectionsStore = defineStore('remoteConnections', () => 
     init,
     loadStorageData,
     saveStorageData,
+    // FORK-MODIFICATION: 批次 58 —— 「导入设置」用：整体替换连接列表（不走 saveConnection）。
+    replaceConnectionsForImport,
     getConnection,
     saveConnection,
     setConnectionIncludeInGlobalSearch,

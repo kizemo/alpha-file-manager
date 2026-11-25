@@ -229,7 +229,8 @@
       "deleteTagConfirmDescription": "این برچسب حذف شده و از همه موارد برداشته می‌شود.",
       "removeTagConfirmTitle": "این برچسب از مورد حذف شود؟",
       "removeTagConfirmDescription": "این مورد دیگر این برچسب را نخواهد داشت.",
-      "renameFavorite": "ویرایش نام نمایشی"
+      "renameFavorite": "ویرایش نام نمایشی",
+      "editFavorite": "Edit favorite"
     },
     "newFavoriteDialog": {
       "title": "Add to favorites",
@@ -247,7 +248,15 @@
       "duplicateName": "\"{name}\" already exists",
       "confirm": "Create"
     },
-    "categoryDeleteNote": "Favorites in this category return to \"Uncategorized\". Nothing is deleted."
+    "categoryDeleteNote": "Favorites in this category return to \"Uncategorized\". Nothing is deleted.",
+    "favoriteEdit": {
+      "pathRequired": "Path cannot be empty",
+      "saved": "Favorite updated",
+      "saveFailed": "Failed to update the favorite"
+    },
+    "favoriteCategoryDialog": {
+      "categoryLabel": "Category"
+    }
   },
   "settingsCategories": {
     "navigation": "ناوبری"
@@ -621,6 +630,23 @@
         "clearFailed": "Failed to clear the thumbnail cache",
         "confirmTitle": "Clear the thumbnail cache?",
         "confirmDescription": "This clears both image and video thumbnail caches and cannot be undone. Cleared thumbnails are regenerated the next time you browse those files."
+      },
+      "settingsTransfer": {
+        "title": "Export / import settings",
+        "description": "Export settings, favorites, remote connections and cloud drive connections into one JSON file. Browsing history and frequently used items are not exported.",
+        "export": "Export settings",
+        "import": "Import settings",
+        "exporting": "Exporting…",
+        "importing": "Importing…",
+        "exportSuccess": "Settings exported",
+        "exportFailed": "Failed to export settings",
+        "importSuccess": "Settings imported",
+        "importFailed": "Failed to import settings",
+        "confirmTitle": "Import settings?",
+        "confirmDescription": "Importing overwrites the current settings, favorites, tags and remote connections. Browsing history and frequently used items are not affected.",
+        "invalidFile": "This file is not a valid Alpha File Manager settings export.",
+        "restartHint": "Some settings (such as theme and language) only take effect after restarting the app.",
+        "credentialsHint": "{count} connection(s) need you to sign in again."
       }
     },
     "remote": {
@@ -923,7 +949,8 @@
     "defaultDirectory": "خانه، locations، این رایانه، درایو، پوشه پیش‌فرض، برگه جدید، مسیر سفارشی",
     "startupPage": "صفحه راه‌اندازی، راه‌اندازی، باز کردن هنگام راه‌اندازی، خانه، دسترسی سریع، ناوبری، آخرین صفحه، بازیابی، صفحه",
     "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
-    "about": "درباره, نسخه, به‌روزرسانی, گزارش تغییرات, گیت‌هاب, نویسنده, وب‌سایت, وی‌چت, کد qr"
+    "about": "درباره, نسخه, به‌روزرسانی, گزارش تغییرات, گیت‌هاب, نویسنده, وب‌سایت, وی‌چت, کد qr",
+    "settingsTransfer": "export, import, settings, favorites, remote connections, cloud drive, backup, restore"
   },
   "drag": {
     "holdShiftToChangeMode": "برای تغییر حالت، [Shift] را نگه دارید",

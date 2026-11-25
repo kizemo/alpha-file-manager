@@ -273,7 +273,8 @@
       "deleteTagConfirmDescription": "Oznaka bo izbrisana in odstranjena iz vseh predmetov.",
       "removeTagConfirmTitle": "Odstrani to oznako s predmeta?",
       "removeTagConfirmDescription": "Predmet ne bo več imel te oznake.",
-      "renameFavorite": "Uredi prikazno ime"
+      "renameFavorite": "Uredi prikazno ime",
+      "editFavorite": "Edit favorite"
     },
     "newFavoriteDialog": {
       "title": "Add to favorites",
@@ -291,7 +292,15 @@
       "duplicateName": "\"{name}\" already exists",
       "confirm": "Create"
     },
-    "categoryDeleteNote": "Favorites in this category return to \"Uncategorized\". Nothing is deleted."
+    "categoryDeleteNote": "Favorites in this category return to \"Uncategorized\". Nothing is deleted.",
+    "favoriteEdit": {
+      "pathRequired": "Path cannot be empty",
+      "saved": "Favorite updated",
+      "saveFailed": "Failed to update the favorite"
+    },
+    "favoriteCategoryDialog": {
+      "categoryLabel": "Category"
+    }
   },
   "settingsCategories": {
     "navigation": "Navigacija"
@@ -665,6 +674,23 @@
         "clearFailed": "Failed to clear the thumbnail cache",
         "confirmTitle": "Clear the thumbnail cache?",
         "confirmDescription": "This clears both image and video thumbnail caches and cannot be undone. Cleared thumbnails are regenerated the next time you browse those files."
+      },
+      "settingsTransfer": {
+        "title": "Export / import settings",
+        "description": "Export settings, favorites, remote connections and cloud drive connections into one JSON file. Browsing history and frequently used items are not exported.",
+        "export": "Export settings",
+        "import": "Import settings",
+        "exporting": "Exporting…",
+        "importing": "Importing…",
+        "exportSuccess": "Settings exported",
+        "exportFailed": "Failed to export settings",
+        "importSuccess": "Settings imported",
+        "importFailed": "Failed to import settings",
+        "confirmTitle": "Import settings?",
+        "confirmDescription": "Importing overwrites the current settings, favorites, tags and remote connections. Browsing history and frequently used items are not affected.",
+        "invalidFile": "This file is not a valid Alpha File Manager settings export.",
+        "restartHint": "Some settings (such as theme and language) only take effect after restarting the app.",
+        "credentialsHint": "{count} connection(s) need you to sign in again."
       }
     },
     "remote": {
@@ -967,7 +993,8 @@
     "defaultDirectory": "domov, locations, ta računalnik, pogoni, privzeta mapa, nov zavihek, pot po meri",
     "startupPage": "stran ob zagonu, zagon, odpri ob zagonu, domača stran, hitri dostop, navigator, zadnja stran, obnovi, stran",
     "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
-    "about": "o programu, različica, posodobitev, dnevnik sprememb, github, avtor, spletno mesto, wechat, qr koda"
+    "about": "o programu, različica, posodobitev, dnevnik sprememb, github, avtor, spletno mesto, wechat, qr koda",
+    "settingsTransfer": "export, import, settings, favorites, remote connections, cloud drive, backup, restore"
   },
   "drag": {
     "holdShiftToChangeMode": "Zadržite [Shift] za spremembo načina",

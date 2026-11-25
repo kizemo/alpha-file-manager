@@ -34,6 +34,11 @@ import { ContextMenuShortcut } from '@/components/ui/context-menu';
 import { CONTEXT_MENU_OPEN_COUNT_KEY } from '@/components/dir-entry-interactive';
 import { formatKeybindingKeys } from '@/modules/extensions/api';
 import QuickAccessPanel from './components/quick-access-panel.vue';
+// FORK-MODIFICATION: 批次 58 —— 收藏编辑弹窗挂在**侧栏这一层**，不挂在 panel 里。
+// 原因：panel 整体在一个 hover 驱动的 TooltipContent 里，鼠标一移开就会被卸载，
+// 挂在它里面的弹窗会跟着一起消失。
+import FavoriteEditDialog from '@/components/favorite-edit-dialog.vue';
+import type { FavoriteItem } from '@/types/user-stats';
 import RemoteNavPanel from './components/remote-nav-panel.vue';
 import {
   editRemoteConnection,
@@ -91,6 +96,20 @@ function handleQuickAccessReorderStart() {
 function handleQuickAccessReorderEnd() {
   quickAccessHoverOpen.value = true;
   quickAccessReorderOpen.value = false;
+}
+
+/**
+ * 打开收藏编辑弹窗（批次 58）。
+ *
+ * 弹窗挂在侧栏这一层而不是 panel 里 —— panel 在 hover Tooltip 内，
+ * 鼠标移开就被卸载，挂在它里面的弹窗会跟着消失。
+ */
+const favoriteEditDialogOpen = ref(false);
+const favoriteEditTarget = ref<FavoriteItem | null>(null);
+
+function handleEditFavorite(item: FavoriteItem) {
+  favoriteEditTarget.value = item;
+  favoriteEditDialogOpen.value = true;
 }
 
 function isDashboardPage(item: { name?: unknown }) {
@@ -289,6 +308,7 @@ async function openRemoteCreate(protocol: RemoteProtocol) {
             <QuickAccessPanel
               @drag-start="handleQuickAccessReorderStart"
               @drag-end="handleQuickAccessReorderEnd"
+              @edit-favorite="handleEditFavorite"
             />
           </TooltipContent>
         </Tooltip>
@@ -455,6 +475,12 @@ async function openRemoteCreate(protocol: RemoteProtocol) {
     <MountDialog
       v-model:open="showNetworkDriveDialog"
       mode="network"
+    />
+
+    <!-- FORK-MODIFICATION: 批次 58 —— 收藏编辑弹窗（标题 / 路径 / 分类）。 -->
+    <FavoriteEditDialog
+      v-model:open="favoriteEditDialogOpen"
+      :favorite="favoriteEditTarget"
     />
   </div>
 </template>
