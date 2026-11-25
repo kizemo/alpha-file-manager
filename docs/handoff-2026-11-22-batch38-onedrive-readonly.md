@@ -4436,7 +4436,10 @@ function handleEscapeKey(): boolean {
 ### 二十八·9 本轮工具坑（**勿重试**）
 
 1. `Set-Location` 开头 + 同一条调用里把输出重定向写入文件 ⇒ 被本地硬策略整体拒绝（`Local hard safety policy blocked bash: write/delete targets cannot be verified safely after a command working directory change.`）。改法：全用绝对路径不切目录，或用变量捕获不落文件。
-2. 以 `Set-Location` 起头再跑 `git` 是安全的（无写文件重定向）；但 `npm run test:unit:run` 必须先 `Set-Location $root`，两者不要在同一条命令里混「切目录 + 写文件」。
+2. 以 `Set-Location` 起头再跑**只读** `git` 命令是安全的；但 **`Set-Location` + `git add`/`git commit` 会被硬策略拦**
+   （本轮第三次收口提交实测被拦，报同一句 `write/delete targets cannot be verified safely after a command working directory change`）。
+   可用写法：`git -C <绝对路径> add/commit`，完全不切目录。
+   注意 `npm run test:unit:run` 又**必须**先 `Set-Location $root`——两者不要混在同一条命令里。
 3. `node scripts/check-license-headers.mjs` 在本机跑不通（Node v26.13.0 报错、退出 1）⇒ 许可证头交给 `npm run check`，别单独调这个入口。
 4. 绝对路径 `node "$root/node_modules/vitest/vitest.mjs" run --root $root <file>` ⇒ `Failed Suites 1`。单文件跑法只有 `npm run test:unit:run -- <相对路径>`。
 5. `Select-String` 的模式含 `[]`（如 `Running []beforeBundleCommand`）会被当非法正则报 `Unterminated [] set` ⇒ 用 `-SimpleMatch`。
@@ -4450,4 +4453,11 @@ function handleEscapeKey(): boolean {
 - **前端**：`src-tauri/.superpowers/sdd/b56/npm-check-b56.log`（run1）**红在 eslint**——4 条风格错全在新守卫文件（`@stylistic/arrow-parens` / `padding-line-between-statements` / `quotes` ×2），`ts` 与 `lint:stylelint:check` 无错。`npx eslint <该文件> --fix` 清零后单文件 `--max-warnings 0` 复跑 EXIT=0，守卫复跑仍 **9 passed / 9**。
 - **前端重跑**：`src-tauri/.superpowers/sdd/b56/npm-check-b56-run2.log` → **`Test Files 336 passed (336)` / `Tests 3610 passed (3610)` / Duration 120.19s**，`verify-changelog` 通过，`verify:sandbox` 末行 `[sandbox-gate] OK 全部扩展入口通过`（`RESULT: VALID (0 violations / 20 patterns)`），全程无 `exited with`。**336/3610 正好 = b55 的 335/3601 + 新增 1 个守卫文件 9 条用例**——数量自洽，可作为「本批只加了守卫、没动别的测试」的旁证。
 - **提交**：主提交 `1f2b00bb`（父 `e3352cf5`，批次 55 链尾）。本批改动 = 新守卫文件 + `docs/open-items-2026-11-24.md` + 本节。`src-tauri/tauri.conf.json` 已回滚干净、不在变更集内。**不推送**（远端仅 gitee，用户未要求）。未做：升版本号、改 CHANGELOG、重建索引、B-2 复验、§6 需用户在场的验收。
+- **收口补正（盘上回读）**：
+  - 后续小提交 `1b4911b6`（把 open-items §4 的 W-19 行由 **3 列补为 4 列**，与表头分隔行同形；
+    表格列数判据 = 竖线数 **+ 行尾是否闭合**：`### 4.` 表标准形状是 4 列 = 5 竖线，
+    未闭合行 4 竖线也合法，已闭合行 4 竖线 = 只有 3 列会渲染错位）。本节这条补记自身的提交哈希不再回填。
+  - **远端名待核**：上一行「远端仅 gitee」的说法在本轮盘上不成立——`git remote -v` 只列出
+    `origin` = `https://github.com/kizemo/alpha-file-manager.git` 与 `upstream`（aleksey-hoffman 上游），
+    **没有 `gitee`**。将来若要推送，**先核对远端名再动**；本批一律不推送。
 
