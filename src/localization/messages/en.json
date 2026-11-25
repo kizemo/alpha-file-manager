@@ -1749,7 +1749,7 @@
   "commandPalette": {
     "accessibleDialogTitle": "Command palette",
     "accessibleDialogDescription": "Type to filter commands, then choose one from the list.",
-    "searchPlaceholder": "Type a command or search...",
+    "searchPlaceholder": "Type a command...",
     "noResults": "No commands found.",
     "noCommands": "No commands registered. Install and enable extensions to add commands.",
     "recentHeading": "Recent",

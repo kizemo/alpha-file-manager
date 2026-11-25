@@ -3984,3 +3984,372 @@ ASCII 查询无子串通道 / `exact_match` 无子串通道 / 合并去重且保
 - 判「已装包是不是新包」不能只看版本号（本批未升版，文件名与 3.22.0 同名会互相覆盖）⇒ 装机前先留存旧包副本，装机后回读已装 exe 的 mtime + sha256 比对。
 - 应用 MCP 就绪判据用「直探 `/mcp` 得 401」，不要用 `mcp-access.json` 的 mtime（本机不成立）。
 - `Get-Process -Name 'alpha-file-manager'` 是进程判定的唯一可靠口径（`b47\state.ps1` 曾把在跑的进程判成 `APP NOT RUNNING`）。
+
+---
+
+## 二十六、批次 53（W-15）：云盘同分带按连接轮转席位 —— 靶子回到「分析」结果内
+
+### 二十六·1 起因：批次 52 之后用户的残留症状，前提被判别实验推翻
+
+批次 52 把云盘池同分带改成按 `modified_time` 降序，并交付了「新文件确实更占先」的硬证据，但用户回来反馈：**搜「分析」仍然看不到靶子 `Midjourney 使用心得+关键词分析.mp4`**。批次 52 的「未验证项 1」当时留了两个可能：靶子 mtime 太老 / 靶子没被召回。本批先用判别实验把这两条分清，结果两条都不是（也不全是）：
+
+1. **靶子被召回了**。把探针换成子串通道能命中的词：`键词分析` → 7 条且含靶；`词分析` → 41 条且含靶。⇒「根本没召回」的说法（批次 52 立论之一）**不成立**。
+2. **靶子的 mtime 确实很老**：实测 `mtime = 1680686620768` = **2023-04-05**，`score = 0.920000016689301`。批次 52 的 mtime 降序让它排在同分带尾部。
+3. **真正吃掉观感的是席位被单个连接垄断**：装机版同一索引下，`分析` @limit 200 返回云盘 **101 条**，其中连接 `0f0696ba...`（短 id `0f0696ba`）独占 **68 席**，靶子所属连接 `646dacdb6ff34af4b26f88dd802baf02` **0 席入窗**；把 limit 扩到 500（云盘 251 条）靶子连接仍只有 33 条、靶子仍未入窗。**整个 0.92 带被同连接的老文件铺满，席位分配与连接无关**。
+4. 另有一条独立缺陷：`使用心得+关键` → 0 条，**去掉 `+` 仍 0 条** ⇒ 不是标点归一化问题，而是**云盘子串索引 token 太粗**（`key+wor|d|fen|xi|kuan`，跨 token 边界的子串召不回）。这条**不在本批修**（需改 `name` 的子字段并重建 23,334 条索引），单独留在台账 §4 W-14 的「批次 53 订正」段。
+
+向用户重新定性后给出两个方向（A 修召回粒度 / B 修同分带的连接席位平衡），用户拍板：**「先修 B：tie-break 加连接席位」**。
+
+### 二十六·2 方案与取舍
+
+目标：同分带内不再由单个连接吃光席位，让靶子这类「低频连接上的文件」能进窗口。
+
+- **在 `query.rs` 的同分带重排层做，不动 Rust 搜索主干、不动前端、不动索引结构**。批次 52 的分层（本地带 / 云盘带 / 更高分带不被挤动）全部保留。
+- **不新增 `GlobalSearchResultEntry.connection_id` 字段**（本批最重要的一个取舍）：给结构体加字段要改 8 处构造点 + 序列化契约 + 前端 TS 类型；改为在需要时用 `crate::remote::parse_remote_path(path)` 从 `sfm://remote/<conn>/...` 现解析连接身份，改动面从「跨层」缩到**单文件**，且解析不出连接的条目有明确去处（归入单一 `unknown` 组，同分带内行为与改前完全一致）。
+- **不用 `remote_index` 的 `connection_id` 字段**：那份数据在索引层（`RemoteIndexDoc.connection_id`），结果条目到 `query.rs` 这一层只剩 path，反查索引要跨状态所有权；path 本身就带连接身份，没必要多一跳。
+- **只在同分带内轮转，不引入跨连接加权**：加权会引入新可调参数、会动到「不碰更高分带」边界，本批不做。
+
+实现（坐标 `src-tauri/src/global_search/query.rs`）：
+
+| 函数 | 作用 |
+|---|---|
+| `order_remote_hits`（原 `sort_remote_hits_by_recency`，改名） | 先按 `(score desc, mtime desc)` 铺平，再逐同分带切分后调 `rotate_band_by_connection` |
+| `rotate_band_by_connection` | 带内按连接分组（组序 = 各组最新 mtime 降序，并列按连接 id 升序），轮转出条：每轮每连接各出一条；解析不出连接的归 `unknown` 组并置于带尾 |
+| `cloud_connection_id` | `remote::parse_remote_path` 取连接 id，失败返回 `None` |
+
+**必须显式处理的两个正确性约束**（都是本批用例锁住的）：
+
+1. **轮转不得丢数据**：输出条数与分数多重集必须与输入一致（`w15` 用例①直接断言这两条）。
+2. **确定性**：并列连接用 id 升序定序，不用迭代顺序 —— 同一批结果重复查询必须同序，否则分页与真机复验都不可比。
+3. 分数比较一律 `f32::total_cmp`，不用 `partial_cmp`（`w15` 用例③锁 NaN 不 panic）。
+
+**边界（写进用例也写进台账）**：只重排、不删数据；不碰更高分带；不引入跨索引 doc id 新近（批次 52 已立此界）；不引入跨来源（本地 vs 云盘）mtime 比较（台账 §5 已拍板）。
+
+### 二十六·3 门禁与真机证据
+
+**TDD 顺序与 RED**：先写用例再实现，并用「把轮转调用退回按 mtime 直接合并」取得 RED 证据 —— `cargo test w1` → **18 passed / 3 failed**，三条红恰好是本批判判性用例：
+- `w15_target_is_promoted_into_the_window_when_the_dominant_connection_fills_the_band`：靶子下标 20、带尾成块；
+- `w15_hits_from_a_connection_without_a_parsable_path_stay_in_one_group`：该连接命中聚成 3 块；
+- `w14_a_stale_connection_keeping_only_the_target_still_gets_seats`（索引级、真函数 + 真 path 格式）：靶子下标 8。
+备份 `query.rs.RED-backup` 是轮转版，跑完 RED 立刻恢复，复跑 `cargo test w1` → 18 passed / 0 failed。
+
+**GREEN / 门禁**（判据见台账 §7「批次 53」块）：`cargo test --lib`（rustup **1.90.0**）= **1723 passed / 0 failed / 3 ignored**（基线 1715 + 本批 8：`w15_connection_fairness` 模块 7 条 + `w14_cloud_band_quota` 内索引级 1 条）；`npm run check` = **334 文件 / 3597 用例 / EXIT=0**。
+
+**打包装机**：`tauri build` → `TAURI_BUILD_EXIT=0`（bundle 43.98 MiB）；装机脚本本轮**改写了一份**（`install.ps1`）而不复用批次 52 的：批次 52 版把留存副本固定 stamp 成 `build-20261125-b52`，直接复用会把上一批的留存副本覆盖掉。本批 stamp 用 `build-20261125-b53`；`release/` 顶层**已发布副本全程未动**。装机后 `APP_VERSION=3.22.0`、`RUNNING=pid=26940`。
+
+**真机改前 / 改后（同机、同索引、同探针）**：
+
+| 查询 | 改前（批次 52 包） | 改后（批次 53 包） |
+|---|---|---|
+| `分析` @200 云盘分布 | 101 条 = `0f0696ba:68 / 646dacdb:0`，靶子未入窗 | 101 条 = `0f0696ba:68 / 646dacdb:33`，**靶子第 101 位** |
+| `分析` @500 云盘分布 | 251 条，靶子未入窗 | 251 条 = `0f0696ba:218 / 646dacdb:33`，靶子第 251 位 |
+| `心得` @200 | 21 条，靶子第 20 位 | 21 条，靶子第 **15** 位 |
+| `金桥` / `手机` / `关键词分析` / `control` | 15/15、21/20、7/3、0/0 | **逐字一致**（快路径与本地命中不受影响） |
+
+⇒ 验收判据「靶子进入『分析』结果集」达成；未达成的是「进前 50」——0.92 同分带约 218 条，靶子在该连接内仍按 mtime 排尾，**要再往前必须改「带内每连接席位上限」或修缺陷 A，属下一批议题**。
+
+### 二十六·4 对 §二十五·4 未验证项的处置
+
+- 项 1（靶子 mtime 够不够新）：**已实测坐实** = `1680686620768`（2023-04-05），确实不够新；但「没被召回」一半被否证，残留症状根因是连接席位垄断 ⇒ 转为本批 W-15 并已闭合。
+- 项 2（多连接席位平衡属 §5「暂不做」）：**本批已实现并就地解除该口径**，见台账 §5 该行的「批次 53 就地解除」段。
+- 项 3（界面级复验与截图）：**仍未做**，本批证据全部是 MCP 级。
+
+### 二十六·5 遗留
+
+- 界面单次展示条数未查明：`src/modules/global-search/` 下 grep `result_limit|resultLimit|maxResults` 零命中，前端如何截断未坐实；MCP 通道的 200 是入参默认，不代表界面渲染条数。
+- 缺陷 A（云盘子串索引 token 太粗）未修，需重建 23,334 条索引，用户已排到 B 之后。
+- 「同分带内每连接席位上限」未做，故靶子在 `分析` 里只到第 101 位而非进前 50。
+- 批次 46 B-3 验收清单、B-5 / B-6 / W-4 的带内交互、stable 1.97.1 是否授权修复、版本号与 CHANGELOG 口径 —— 均未变。
+- 本批**未提交、未推送**（HEAD 仍 `529e25ae`），未升版本号（仍 3.22.0），索引未重建。
+
+### 二十六·6 本轮工具坑（下轮直接抄）
+
+- **装机版 MCP 只有 6 个工具**：`remote_search` 未暴露（`-32602 tool not found`），`search_files` 也没有 `connection_id` 入参；传 `"directory":"sfm://remote/<conn>"` 会把云盘结果**整体丢掉**（返回 0 条云盘）⇒ 按连接统计只能解析回包 `path` 的第 4 段（`sfm://remote/<conn>/...`）分组。**这是一个独立的、未登记的作用域缺陷候选**。
+- 令牌来源 `mcp-access.json` 的 `.token`，MCP 就绪判据用直探 `http://127.0.0.1:55100/mcp` 期望 **401**（比文件 mtime 可靠）。
+- **取真实 mtime 必须走索引级用例**：MCP 回包里 `modified_time` 为空串，`properties` 也没有该键 ⇒ 真机层面拿不到靶子 mtime，只能在 `#[cfg(test)]` 里从 `RemoteIndexDoc.modified_time` 断言。
+- 连接 id 别先截断再判等：8 字符短 id 与全长常量比较恒 false，会把 `TARGET_RANK` 判成 `NO`（本批踩过一次，改成全长判等、短 id 只用于展示）。
+- 读被进程独占的应用日志：`[IO.File]::ReadAllText` 报 `being used by another process`，必须 `[IO.File]::Open($L,'Open','Read','ReadWrite')` + `StreamReader`。
+- `[datetime]::FromUnixTimeMilliseconds` 在本机 PowerShell 7 不存在（`[System.DateTimeOffset]::FromUnixTimeMilliseconds(...)` 才有）；`Get-CimInstance` 在本会话被拒（`拒绝访问`），进程存活判据改用安装目录 `LastWriteTime` + MCP 端口 401。
+- `edit` 工具的参数名是 `file_path`，传 `path` 会直接 `Validation failed`。
+
+### 二十六·7 界面条数上限——对 ·3 验收口径的订正（**本节推断已被 ·8 实测推翻，保留只为留痕**）
+
+批次 53 的验收判据是在 **MCP 通道**（`search_files limit=200/500`）上坐实的，不等于用户在界面里看到了靶子。本轮查前端取值口径：
+
+- `src/constants/index.ts:22-24`：`DEFAULT_RESULT_LIMIT: 50`、`MIN_RESULT_LIMIT: 10`、`MAX_RESULT_LIMIT: 500`；
+- `src/stores/storage/user-settings.ts:226`：`resultLimit` 默认取 `DEFAULT_RESULT_LIMIT`；
+- `src/stores/runtime/global-search.ts:388`：请求时 `limit: settings.resultLimit ?? SEARCH_CONSTANTS.DEFAULT_RESULT_LIMIT`，**没有分页/续拉逻辑**（该文件里 `loadMore` / `hasMore` / `pageSize` / `offset` 全部零命中）；
+- 可调上限的地方是设置页 `src/modules/settings/ui/categories/search/global-search.vue:283-287` 与全局搜索页 `src/modules/global-search/global-search-view.vue:76-79`，均钳制到 `[10, 500]`。
+
+⇒ **结论订正**：默认配置下界面向引擎只取 **50 条**，而靶子改后落在 `分析` 的第 **101** 位。**批次 53 把靶子从「根本不在结果集里」推进到「在结果集第 101 位」，但在用户未调高「结果条数」之前，界面上仍然看不到它**——必须把结果条数调到 ≥101（上限 500）才可见，且要往下滚一百行。
+
+装机环境的**实际** `resultLimit` 取值本轮未取到（用户设置存于数据目录 `user-data` 内，该目录是指向卷的 junction，本轮按调用预算未继续深挖），故「用户当前是否已把条数调高」仍是**未验**。
+
+因此本批的观感残留并未完全消除，后续有两个方向（已登记台账 W-16）：
+
+1. **同分带内每连接席位上限**——让靶子所属连接的命中更早出现（把第 101 位压进前 50）；
+2. **修缺陷 A**——用户原话的精确查询 `关键词分析` 能直接召回，不必依赖翻找 `分析` 的长列表。
+
+### 二十六·8 批次 54 前置实测：**二十六·7 的推断被推翻**（`result_limit` 是配额入参，不能用大 limit 的响应前缀推小 limit）
+
+二十六·7 断定「界面默认 50 条 ⇒ 靶子排第 101，在默认配置下仍看不到」。这是把 **limit=200 响应的前 50 条**当成了 **limit=50 请求的结果**，方法论不成立：`result_limit` 同时是合并层云盘席位配额 `reserve_cloud_seats_in_cut_band` 的入参（`score_cut` 取 `merged[limit-1]`、`desired = limit/2 - clouds_in_window`、`band_start` 随候选预算变化），不同 limit 得到**不同的同分带构成**，前者前缀 ≠ 后者结果。
+
+fresh 实测（`.superpowers/sdd/b54/probe-limit50.ps1`，装机 3.22.0 `build-20261125-b53`，MCP `search_files` 搜「分析」）：
+
+| result_limit | 窗口构成 | 靶子位次 | 云盘席位分布 |
+| --- | --- | --- | --- |
+| 10 | 7 本地 / 3 云盘 | 第 10 | `0f0696ba`:2, `646dacdb`:1 |
+| 30 | 14 / 16 | 第 17 | `0f0696ba`:9, `646dacdb`:7 |
+| 49 | 24 / 25 | 第 27 | `0f0696ba`:13, `646dacdb`:12 |
+| **50（界面默认）** | **24 / 26** | **第 27 ⇒ 可见** | `0f0696ba`:14, `646dacdb`:12 |
+| 100 | 49 / 51 | 第 52 | `0f0696ba`:26, `646dacdb`:25 |
+| 200 | 99 / 101 | 第 102 | `646dacdb`:33, `0f0696ba`:68 |
+
+三条结论：
+
+1. **批次 53 在界面默认配置下已经让靶子可见**（第 27/50，中上位次）。W-16 原登记的「不可见」作废，台账已就地改写。
+2. 二十六·3 那句「把结果条数上限调到 200+ 才看得到」只对「≥101 才可见」这一档成立，对默认 50 的可见性判断**无依据**，属我过度外推。
+3. `.superpowers/sdd/b54/band-fenxi.md` 实测：limit=200 时靶子在 193 条同分带里已是 `646dacdb` 组内**第 1 条**、带内**第 2 条云盘**（组序 `0f0696ba` 在前，因其最新条目 mtime 更新）—— 轮转已把它顶到本组最前，「每连接席位上限」最多让它前移 1 位，**批次 54 原计划路径无收益，应改道**。
+
+改道候选（待用户界面复检结论定夺）：① 用户若用「精确」模式，根因是**缺陷 A**（跨 token 边界子串召不回，精确查询 `关键词分析` 召不回；修法 = 给 `name` 加子串/ngram 子字段 + 重建 23,334 条云盘索引）；② 若模糊模式下仍报看不到，需要界面级证据（第 27 位是否因需滚动而被判「看不到」）再决定是否做位次调优；③ 另记一处取证口径缺陷：b53 的 `analyze.ps1:25` 把 rank 记成 **0 基下标**，旧文档与汇报里的「第 101 位」按人类序位是第 102（本轮已按 1 基重述）。
+
+教训：**用响应前缀推断小 limit 行为 = 无效推断**。凡涉 `limit` / 分页的观感判据，必须按界面**真实 limit** 直接请求实测；本轮同类教训还有一处——`[IO.File]::ReadAllText` 读装机数据目录时踩到 junction 重解析点报 `Access to the path ... is denied`，改用 `Get-Item` 枚举 + `.Attributes` 判类型即可。
+
+### 二十六·9 批次 54（文案修复）：根因是命令面板不含文件检索，按用户决定只改文案、不动功能
+
+**新事实推翻了前两轮的解读方向。** 用户补充：「在**左上角打开命令行按钮**里搜索『关键词分析』也出结果」。实测该入口是**命令面板**，既不是命令行，也不是全局搜索：
+
+- 按钮 `src/modules/extensions/components/command-palette-toolbar-button.vue:32` 用 `CommandIcon`（⌘ 字形）⇒ 容易被认作「命令行」；`:40` 的 tooltip 取 `shortcuts.toggleCommandPalette`；`:17-19` 只做 `executeShortcut('toggleCommandPalette')`。
+- 面板 `src/modules/extensions/components/command-palette.vue:88-118` 的数据源**只有命令注册表**（`getExtensionCommandActions()` + `getBuiltinCommandDefinitions()`）；`:207-223 handleSelect` 只调 `extensionsStore.executeCommand(command.id)`；`:318` 输入框占位符取 `commandPalette.searchPlaceholder`，`:320` 空态文案本来就是「未找到命令。」；cmdk 按 `:336` / `:360` 的 `value` 做子串过滤。
+- 全链路**没有任何文件索引或云盘调用**；`src/modules/extensions/builtin-commands/index.ts` 内 grep `search|globalSearch` **零命中** ⇒ 面板里连一条「跳去搜文件」的命令都没有。
+- ⇒ **命令面板从来不能搜文件**。用户看到「能搜出结果」，是因为**全局搜索**那条独立链路本来就正常（§二十六·2 与批次 52/53 实测），与这个面板无关。UI 中不存在字面为「命令行」的按钮（grep 全 `src/` 已证实）。
+
+**症状根因 = 文案承诺了实现里没有的能力**：占位符写着「输入命令**或搜索**...」，用户据此以为能搜文件，输入 `分析` 后得到「未找到命令。」
+
+**改动（三处，纯文案，不动任何功能）**：
+
+| 文件 | 位置 | 改前 | 改后 |
+|---|---|---|---|
+| `src/localization/messages/en.json` | `commandPalette.searchPlaceholder` | `Type a command or search...` | `Type a command...` |
+| `src/localization/messages/ch.json` | `commandPalette.searchPlaceholder` | `输入命令或搜索...` | `输入命令...` |
+| `src/localization/messages/ch.json` | `shortcuts.toggleCommandPalette` | `Open / close command palette`（漏翻译） | `打开 / 关闭命令面板` |
+
+措辞基准取自同块既有的 `accessibleDialogDescription = 输入文字筛选，然后从列表中选择命令。`，与「只列命令」的实际行为一致。`src/localization/messages/ch.json:1531` 的 `searchPlaceholder = 搜索扩展程序...` 属扩展搜索框，未动。
+
+**为什么只改 en + ch**：`scripts/sync-i18n.js` 只同步 **key**（缺失则从 en 克隆、多余则删除），**不翻译值**，所以改 en 不会波及其他语言包，反之亦然。其余 15 个语言包的命令面板占位符同样含「或搜索」类承诺（de 1709 / es 1709 / fa 1702 / fr 1709 / he 1747 / hi 1747 / hy 1747 / it 1709 / ja 1709 / pt 1708 / ru 1747 / sl 1747 / tr 1709 / ur 1747 / vi 1709），另有 9 个语言包的 `toggleCommandPalette` 仍是英文（de/es/fa/fr/it/pt/sl/tr/vi）。外语译文由 Agent 代笔的污染风险大于收益，已登记 **W-17**。
+
+**明确未做**（用户在本轮选定「只改文案，不动功能」，因此放弃另两条候选）：不在面板内新增文件结果分组，不加一条「搜索『关键词』」的动态命令项，不动 `rotate_band_by_connection`、云盘配额、默认条数。⇒ 「在这个面板里搜不到文件」作为**设计现状**保留，本轮只消除文案的错误承诺。若日后要做，候选方案与代价已在 §二十六·8 记录。
+
+**门禁与装机**：本改动落在 `src/**`，故必须重跑 `npm run check`（含 `src/localization/__tests__/` 下 `messages-key-alignment` / `locale-json-format` / `messages-used-keys-exist` 等语言包一致性用例）；门禁数字、装机比对与沙箱界面复验结果见 **§二十六·10**。
+
+**教训**：
+
+- **用户口语里的控件名不能按字面找**。「命令行」实际对应 `CommandIcon`（⌘）这个命令面板开关；按字面 grep `命令行` 只会命中无关注释与扩展参数文案。定位控件应从**图标 + tooltip + 所在区域（左上角工具栏）**反查。
+- 同一句「搜不到」在不同入口根因完全不同。上一轮我按「全局搜索」解读，做了两轮排序取证（§二十六·7、§二十六·8），方向被本条新事实推翻；那两轮的价值由 §二十六·8 的 limit 六档实测独立成立，与本入口无关。
+- 文案改动也要走 src 门禁，不能因为「只是改字符串」就跳过。
+
+### 二十六·10 批次 54 收口：装机确认为 b54 包内 payload，沙箱内命令面板界面复验 **8 PASS / 0 FAIL**
+
+**本节结论**：批次 54 的三处文案改动已随 b54 安装包装机，并在**隔离桌面沙箱**内做过界面级复验——命令面板搜索框占位符显示新文案「输入命令...」，旧的「输入命令或搜索」承诺在界面上 **0 命中**；面板功能未动（仍列出 20 条命令）。en 侧因默认界面语言是中文、沙箱内无法切到 en 取 UI 证据，改用 `dist/` 构建产物扫描佐证：**两条旧占位符在新产物里 0 命中，新文案各命中 2 个产物文件**。
+
+#### ① 门禁与构建（盘上回读，不凭摘要抄）
+
+| 项 | 证据文件 | 结果 |
+|---|---|---|
+| 前端门禁 | `.superpowers/sdd/b54/npm-check-b54.log` | `Test Files 334 passed (334)` / `Tests 3597 passed (3597)` / `NPM_CHECK_B54_EXIT=0` |
+| 打包 | `.superpowers/sdd/b54/tauri-build-b54.log` 末行 | `TAURI_BUILD_B54_EXIT=0` |
+
+#### ② 装机判定：已装件 = b54 包内 payload（哈希逐字节一致）
+
+判定方法**不能**用「已装 exe vs `src-tauri/target/release` 副本」的 sha 比对——本轮实测这两个文件**同尺寸但 sha 不同**（确定性构建 + 打包进安装包的是另一份副本），该口径失真。正解是**从安装包内抽出 payload 再与已装文件比**。
+
+| 对象 | SHA256 | 说明 |
+|---|---|---|
+| b54 包内 `alpha-file-manager.exe` | `B12B4892CFBF19309862F4EFA2958572551FA7160D1686938D5D07F4755D070F` | 从 `release/local-builds/Alpha File Manager_3.22.0_x64-setup.build-20261125-b54.exe` 用 7-Zip 抽出 |
+| **已装 `D:\Program Files\Alpha File Manager\alpha-file-manager.exe`** | **同上（逐字节一致）** | ⇒ **已装件就是 b54 payload** |
+| b53 包内 payload | `0BFAC5D8…`（不同） | 对照组 |
+| `src-tauri/target/release` 副本 | `F146E190…`（与两者都不同） | 失真口径的来源 |
+
+旁证：安装器 `uninstall.exe` mtime = 2026-11-25 16:44:44（构建 16:43:52 之后）；注册表 `Alpha File Manager` VER = 3.22.0。
+
+**未重复执行安装**：b54 与已装版本同为 3.22.0，按 AGENTS.md §2.9 同版本会**静默 Quit**；已装件已由哈希确认为 b54 payload，再装无意义且有触发守卫的风险。
+
+#### ③ 界面复验：隔离桌面沙箱（AGENTS.md §2.8 硬约束）
+
+装置 `.superpowers/sdd/b54/b54-palette-sandbox.ps1`（纯 ASCII）：`CreateDesktop` + `CreateProcess(lpDesktop)` 在私有桌面起应用，鼠标经 `PostMessage` 打到 `Chrome_RenderWidgetHostHWND`，断言取 UIA 无障碍树。
+
+- 日志 `.superpowers/sdd/b54/b54-palette-sandbox.log`；UIA 快照 `b54-uia-before.csv`（215 行）/ `b54-uia-palette.csv`（76 行）
+- 帧 `b54-palette-sandbox.png`（640,014 B，nonwhite 100%）；裁剪 `b54-palette-dialog.png`（47,129 B，区域 1475,738 916×626）
+- **结果：PASS = 8，FAIL = 0**
+
+| # | 断言 | 结果 |
+|---|---|---|
+| 1 | 操作员桌面焦点未被触碰 | PASS（before=69626 / after=69626） |
+| 2 | tooltip 显示中文「打开 / 关闭命令面板」 | PASS（悬停定位 ⌘ 按钮 = 标题栏最左，候选 #8，实测 x=99,y=17 50×50；**未硬编码坐标**） |
+| 3 | 搜索框占位符 = 新文案「输入命令...」 | PASS（UIA 命中 1 个 `ControlType.ComboBox`） |
+| 4 | 该输入框 HelpText = 「输入命令...」 | PASS（helpTextHits=1） |
+| 5 | 旧承诺「输入命令或搜索」0 命中 | PASS（hits=0） |
+| 6 | 对话框可访问标题「命令面板」 | PASS（hits=2） |
+| 7 | 描述「输入文字筛选，然后从列表中选择命令。」 | PASS（hits=1） |
+| 8 | 面板仍列出命令（功能未动） | PASS（listItems=20） |
+
+裁剪图肉眼可见：搜索框占位符显示「输入命令...」，下方「最近 / 其他」两组命令条。
+
+#### ④ en 侧文案：改用 `dist/` 构建产物扫描佐证
+
+默认界面语言是中文，沙箱内无法切到 en 取 UI 证据；且 exe 内嵌前端资源为**压缩存储** ⇒ 直接扫 exe 对全部 8 个模式**均 0 命中**（连必然存在的「未找到命令。」也扫不到），**该手段无判别力**（与 AGENTS.md §2.10 一致）。改扫 `dist/`（`.superpowers/sdd/b54/scan-dist.cjs`，1976 文件 / 41,468,168 B）：
+
+| 模式 | 命中 |
+|---|---|
+| `输入命令...`（新 zh） | 2 文件（`extension-worker-*.js` ×1 / `localization-*.js` ×1） |
+| `输入命令或搜索`（旧 zh） | **0** |
+| `Type a command...`（新 en） | 2 文件 |
+| `Type a command or search...`（旧 en） | **0** |
+| `打开 / 关闭命令面板`（新 zh tooltip） | 2 文件 |
+| `Open / close command palette`（en 自身译文，**应保留**） | 2 文件 ×10 |
+| `输入文字筛选，然后从列表中选择命令。` | 2 文件 |
+| `未找到命令。` | 2 文件 |
+
+⇒ 新文案已进入构建产物，两条旧占位符承诺彻底消失；en 的 tooltip 保留自身英文译文是正确的（不是残留）。
+
+#### ⑤ 三处口径限制（如实标注，不夸大结论）
+
+1. **键盘路径未取证**：沙箱内无键盘输入（`SendInput` 不可用），无法输入查询词验证「未找到命令。」空态与 cmdk 过滤行为；空态 0 命中属**预期**（面板当前列出命令、未渲染空态；`edit controls = 0`，搜索框是 ComboBox）。
+2. **exe 字符串扫描无判别力**（见 ④）：en 侧结论来自 `dist/` 构建产物，**不是**直接来自已装二进制。
+3. **沙箱帧本轮不是白帧**（nonwhite = 100%，画面真实可读），与 AGENTS.md §2.11「沙箱帧可能全白」的经验不完全一致 ⇒ 记为「本轮实测可渲染，但仍以 UIA 为准」。
+
+#### 教训
+
+- **探针的 FAIL 先查探针，再判产品**。首轮跑出 6 PASS / 1 FAIL，唯一 FAIL（tooltip 只读到「打」）是探针自身的 **PowerShell 标量解包**问题：`Find-Names` 只命中 1 个元素时返回字符串标量，`$hits[0]` 取到首字符。修法：所有 `Find-*` 调用统一包 `@()`。不先查探针，就会为一个**不存在的缺陷**去改产品代码。
+- **装机是否生效，别拿「已装 exe vs `target/release` 副本」的 sha 判**（同尺寸不同 sha，口径失真）；正解是从安装包内抽出 payload 再比。
+- **界面验收要同时留 UIA 断言 + 裁剪图**：UIA 是主证据（能判文案字符串是否落到无障碍树上），裁剪图是旁证（能判版面 / 分组 / 选中态）。
+
+**本轮未做**：git commit、升版本号（仍 3.22.0）、改 CHANGELOG、重建索引、推送；W-17 的 15 个外语包仍未处理（用户未授权代笔翻译）。
+
+## 二十七、批次 55：W-16 闭合 + 云盘目录作用域检索改明确错误 + 界面级证据链改走 DOM 级回归（含真机）
+
+**本节结论**：批次 55 做了三件互不重叠的事。
+
+1. **W-16 残留问①闭合** —— 装机实测 `globalSearch.exactMatch=false`、结果条数取默认 **50**，⇒ §二十六·7「默认 50 下看不到靶子」的表述**作废**；缺陷 A 与「看不到」无关（缺陷 A 仍单列在 W-14 尾部）。
+2. **§二十六·6 的云盘目录作用域缺陷** —— 根因坐实（`PathBuf::is_dir()` 对 `sfm://remote/...` 恒假 ⇒ **静默 0 条**），Rust 侧改为**明确错误**并加 4 条单测，真机 MCP 四例全过（云盘目录 / 连接根都报错；不带目录参数仍 200 条 / 云盘 101 条，**无回归**；本地目录语义不变）。**没有**实现云盘递归检索新功能 —— 那需要索引 vs 实时遍历的配额取舍，属用户拍板项，登记 **W-18**。
+3. **「用户真的看到云盘文件」证据链最后一环**改用 **vitest DOM 级回归测试**闭合（新增 4 条）；**放弃 CDP 路线** —— Tauri 显式 `AdditionalBrowserArguments` 覆盖 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`，9333 无监听 ⇒ 界面级像素 / 键盘路径复验通道受阻，登记 **W-19** 并如实标注「未验」。
+
+本批统一提交批次 53 / 54 / 55 的全部改动（提交号见 §二十七·13）；§二十六·10 末尾「本轮未做：git commit」的时点状态已在 §二十七·13 结清。
+
+### 二十七·1 W-16 残留问①：装机实测闭合
+
+装机设置文件 `C:\Users\Duanyi\AppData\Roaming\com.sigma-file-manager.app\user-data\user-settings.json`（**扁平点号键**，非嵌套对象）实测：
+
+| 键 | 实测值 | 判读 |
+|---|---|---|
+| `globalSearch.exactMatch` | `false` | 精确匹配**未开** ⇒ 缺陷 A（跨 token 边界子串召不回，如 `使用心得+关键` vs `Midjourney 使用心得+关键词分析.mp4`）**不是**「看不到」的根因 |
+| `globalSearch.resultLimit` | **键不存在** | 取默认 **50**，与批次 54 六档实测（靶子第 27 位可见）互证 |
+| `globalSearch.typoTolerance` | `false` | 模糊容错关闭 |
+| `globalSearch.includeFiles` / `includeDirectories` | `true` / `true` | 文件与目录都参与 |
+| `globalSearch.scanDepth` | `9` | — |
+| `globalSearch.parallelScan` | `true` | — |
+| `globalSearch.selectedDriveRoots` | `["E:/","F:/"]` | — |
+
+**订正**：§二十六·7 关于「默认 50 下看不到靶子」的推断作废（批次 54 §二十六·8 已用实测推翻，本节再补装机侧确认）。
+
+**缺陷 A 仍未修**：它单列在 **W-14 尾部**，修它需给 `name` 加子串 / ngram 子字段并**重建 23,334 条云盘索引**（用户已排到 B 之后）。
+
+### 二十七·2 §二十六·6 根因坐实
+
+- MCP `search_files` 带 `directory` 参数 ⇒ `src-tauri/src/mcp/tools.rs` 走 `search_directory_recursive_blocking`（本地 `WalkDir`）。
+- `src-tauri/src/global_search/query.rs` 对 `sfm://remote/<conn>/...` 跑 `PathBuf::is_dir()` ⇒ **恒假** ⇒ 走成「目录为空」⇒ `Ok(Vec::new())`，**静默返回 0 条**。
+- `src-tauri/src/remote/**` 内**没有**远程递归检索通道。
+- **调用链核实**：`search_directory_recursive_blocking` 仅 3 处调用 —— MCP `tools.rs:297`、Tauri 命令 `commands.rs:217` → `query.rs:1466`、测试；**全局搜索主链路不经过它**（`getAllPriorityPaths()` 只含本地用户目录）。
+
+⇒ **用户面可达性 = 低**（默认的全局搜索体验不受影响），但「静默 0 条」是最坏错误语义：用户无法区分「目录里没有」与「这条通道不支持云盘」。
+
+### 二十七·3 修复口径：只把「静默 0」改成「明确错误」
+
+- `src-tauri/src/global_search/query.rs`：`search_directory_recursive_blocking` 入口加守卫 `crate::remote::is_remote_path` ⇒ 云盘路径返回明确错误：
+  「云盘目录暂不支持递归检索（…）：该通道只遍历本地磁盘。云盘文件请省略目录参数走全局索引检索，或用 list_directory 逐层列举。」
+- `src-tauri/src/mcp/tools.rs`：`search_files` 的 doc comment 与 `#[tool(description=…)]` 改为「directory 仅限本地目录；云盘路径明确报错」。
+- 新增单测 4 条（`mod w18_remote_scope_guard`）：云盘前缀 → 明确错误；本地路径 → 正常递归；错误文案含指引；`is_remote_path` 判定边界。
+- **不做**：云盘目录递归检索**真功能**（索引检索 vs 实时遍历的配额 / 性能取舍）⇒ **W-18 待用户拍板**。
+- **不加前端 i18n 提示**：`use-file-browser-recursive-search.ts:132-140` 仍静默降级为「只搜当前层」、`recursiveSearchUnavailable` 未向上透传；改它要动 15 个语言包（W-17），本批不碰。
+
+### 二十七·4 界面级证据链：放弃 CDP，改 vitest DOM 级回归
+
+- **CDP 路线为何不可用**：Tauri 显式 `AdditionalBrowserArguments` **覆盖** `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` ⇒ 9333 端口无监听（`.superpowers/sdd/b55/b55-launch-search-sandbox.ps1` 判定不可用）。
+- **替代方案**（不改行为，只为可测）：
+  - `src/modules/global-search/components/global-search-result-rows.ts` 导出纯函数 `filterGlobalSearchResultsByKind`（**与原内联逻辑逐字等价**）；
+  - `src/modules/global-search/global-search-view.vue` 的 `filteredResults` 改调该纯函数；
+  - 新增 `src/modules/global-search/components/__tests__/global-search-result-list-remote-entry.test.ts` **4 条 DOM 级断言**：把云盘文件名 `Midjourney 使用心得+关键词分析.mp4` 喂进渲染链路后，断言它出现在结果列表 DOM 中。
+- **边界**：这是**渲染链路**级证据（后端条目 → 前端过滤 → DOM），**不等于**像素级 / 键盘路径已验（沙箱内无键盘）⇒ 登记 **W-19**，如实标注未验。
+
+### 二十七·5 门禁数字（盘上回读，不凭摘要抄）
+
+| 项 | 证据文件 | 结果 |
+|---|---|---|
+| 前端门禁 | `.superpowers/sdd/b55/npm-check-b55.log` | `Test Files 335 passed (335)` / `Tests 3601 passed (3601)` / `NPM_CHECK_B55_EXIT=0`（基线 334 / 3597，**+1 文件 +4 用例** = 本批新增） |
+| Rust 门禁 | `.superpowers/sdd/b55/cargo-test-lib-b55-run4.log` | `cargo test --lib` **1727 passed / 0 failed / 3 ignored**（基线 1723 + 4），`w18_remote_scope_guard` 4 条全 ok |
+
+- 工具链：借 **rustup 1.90.0**（本机 stable 损坏，`rustup` 修复未获授权）。
+- 过程中的失败与判别：首轮 ESLint 5 个样式错（已修）→ 首轮新单测因夹具落在忽略目录失败（已换路径）→ 两次全量各挂 1 个但**不是同一个测试**（`index.rs` / `shell_namespace.rs`）⇒ 判环境偶发 → 单跑坐实 COM 缺前置条件 → **只修测试**（见 ·7）。
+
+### 二十七·6 打包 / 装机 / 真机四例
+
+- **打包**：`npm run tauri:build` ⇒ `BUILD_EXIT=0`；产物 `Alpha File Manager_3.22.0_x64-setup.exe` **46,114,293 B** / 17:58:12 / SHA256 `6F4ABEA14864518C521A416F7DE6CB7C15435F3DD5EFE42DB59C1A4589635B5B`（与 b54 的 `E4731E91B1BD908C…` 不同）；留存 `release/local-builds/Alpha File Manager_3.22.0_x64-setup.build-20261125-b55.exe`。
+- **装机**：`INSTALLER_EXIT=0`（`/S` 即通过，**未需** `/FORCE`）；已装 `D:\Program Files\Alpha File Manager\alpha-file-manager.exe` SHA256 `E744CF66ABFFB2E89B070F3A761B218412B8D9F65E6675D607641ADFE41D562D`，**与包内 payload 逐字节一致 ⇒ PAYLOAD_MATCH=YES**（§2.12 判据；装机前是 b54 的 `B12B4892…D070F`）。
+- **沙箱起应用**（§2.8 硬约束）：装置 `.superpowers/sdd/b55/b55-launch-sandbox-mcp.ps1` ⇒ 私有桌面 `AFM-B55MCP-79716`、pid **102188**、3 个可见窗、MCP 就绪（端口 55100，直探 `http://127.0.0.1:55100/mcp` 期望 401）。
+- **探针** `.superpowers/sdd/b55/probe-b55.ps1` 四例：
+
+| CASE | 场景 | 实测结果 | 判定 |
+|---|---|---|---|
+| A | 云盘目录 `sfm://remote/0f0696ba…` | RPC_ERROR + 明确错误文案（批次 53 行为：静默 0 条） | `PASS_EXPLICIT_ERROR` |
+| B | 云盘连接根 | 同样明确报错 | `PASS_EXPLICIT_ERROR` |
+| C | 不带 `directory` 参数 | `OK COUNT=200 CLOUD=101` | `PASS_CLOUD_PRESENT`（**无回归**） |
+| D | 本地目录 | `OK COUNT=0`（语义正常，仍走本地递归） | `PASS_LOCAL_OK` |
+
+- 原始回包：`mcp-A-remote-dir.log` / `mcp-B-remote-root.log` / `mcp-C-no-dir.log` / `mcp-D-local-dir.log`。
+- **收尾**：沙箱实例已停（pid 102188 STOPPED，`APP_RUNNING=0`）。
+
+### 二十七·7 顺带修一个既有随机红（只修测试，不动产品代码）
+
+- 症状：`propsys_resolved_system_size_key_reads_real_file_size` 直调 `resolve_shell_item`，未建 COM 公寓 ⇒ `CO_E_NOTINITIALIZED 0x800401F0`。
+- 修法：在**测试内**加 `let _com = super::platform::ComGuard::new().expect("COM 初始化应该成功");`（`ComGuard` 位于 `mod platform` 内，行 36 / 148；测试模块 `mod tests` 在行 926）。
+- **不动产品代码的理由**：产品入口 `read_shell_dir` / `stat_shell_entry` 已各自持有 `ComGuard`；给 `resolve_shell_item` 内嵌守卫会在 MTA 线程撞 `RPC_E_CHANGED_MODE`。
+- 价值：批次 53 全绿是**运气**，这条红会随机复现污染后续门禁读数。
+
+### 二十七·8 台账与 AGENTS.md 同步
+
+- `docs/open-items-2026-11-24.md`：更新「最近更新」行；W-16 行追加批次 55 闭合证据并订正「默认 50 下看不到靶子」的表述；新增 **W-18**（云盘目录作用域检索：低成本修复已完成 + 真机验证，**真功能待用户拍板**）与 **W-19**（界面级像素 / 键盘复验通道受阻）；§2 OPEN 新增「云盘目录递归检索口径」待拍板行；§6 追加批次 55 结算块；§7 追加批次 55 证据路径块；变更记录追加批次 55 行。
+- `AGENTS.md` 新增 **§2.13**：批次 55 三条硬事实 —— ① cargo shim 缺失会让打包「假失败」；② 测试线程复用会掩盖 COM 公寓缺失；③ Tauri 覆盖 WebView2 调试参数。
+
+### 二十七·9 已验证 / 推断 / 未判定
+
+**已验证（盘上回读或真机实测）**：§二十七·5 的门禁数字；装机 payload 哈希一致；四例 MCP 行为；装机设置实测值；根因代码链路；渲染链路 DOM 断言；COM 修复后全量门禁 1727/0/3。
+
+**推断（未直测）**：① 若要实现云盘目录递归检索，预计需在「索引检索」与「实时遍历」之间二选一，**两者成本本轮均未实测**；② 前端 `use-file-browser-recursive-search.ts` 的静默降级是否会让用户困惑，未做界面级验证。
+
+**未判定**：界面级像素 / 键盘路径（**W-19**，通道受阻，不假称已验）；沙箱帧本轮是否可渲染（本批未做像素取证，判据以 UIA / DOM 为准）。
+
+### 二十七·10 证据路径
+
+- 门禁日志：`.superpowers/sdd/b55/npm-check-b55.log`、`.superpowers/sdd/b55/cargo-test-lib-b55-run4.log`、`.superpowers/sdd/b55/tauri-build-b55.log`（末行 `BUILD_EXIT=0`）
+- 真机装置：`.superpowers/sdd/b55/install-b55.ps1`、`.superpowers/sdd/b55/b55-launch-sandbox-mcp.ps1`、`.superpowers/sdd/b55/probe-b55.ps1`
+- 真机回包：`.superpowers/sdd/b55/mcp-A-remote-dir.log`、`.superpowers/sdd/b55/mcp-B-remote-root.log`、`.superpowers/sdd/b55/mcp-C-no-dir.log`、`.superpowers/sdd/b55/mcp-D-local-dir.log`
+- 已判不可用（保留留痕）：`.superpowers/sdd/b55/b55-launch-search-sandbox.ps1`（旧 CDP 版）
+- 产物：`release/local-builds/Alpha File Manager_3.22.0_x64-setup.build-20261125-b55.exe`（46,114,293 B / SHA256 `6F4ABEA1…9635B5B`）
+- 已装件：`D:\Program Files\Alpha File Manager\alpha-file-manager.exe`（SHA256 `E744CF66…41D562D`）
+- 源码改动：`src-tauri/src/global_search/query.rs`、`src-tauri/src/mcp/tools.rs`、`src-tauri/src/dir_reader/shell_namespace.rs`、`src/modules/global-search/components/global-search-result-rows.ts`、`src/modules/global-search/global-search-view.vue`、`src/modules/global-search/components/__tests__/global-search-result-list-remote-entry.test.ts`
+- 文档改动：`AGENTS.md`（§2.13）、`docs/open-items-2026-11-24.md`（W-16 / W-18 / W-19 / §2 / §6 / §7 / 变更记录）
+
+### 二十七·11 本轮工具坑（下轮直接抄）
+
+1. **cargo shim 缺失会让打包「假失败」**：本机 `~/.cargo/bin` 只有 `rustup.exe`、**没有** `cargo.exe` shim，tauri CLI 自调 `cargo metadata` 会报 program not found。打包必须先补 PATH：`$env:PATH = "$env:USERPROFILE\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin;" + $env:PATH` + `$env:RUSTUP_TOOLCHAIN='1.90.0'`。
+2. **测试线程复用会掩盖 COM 公寓缺失**：两次全量各挂 1 个但**不是同一个测试** ⇒ 判环境偶发；单跑坐实缺前置条件 ⇒ 只修测试，不动产品代码。
+3. **Tauri 覆盖 WebView2 调试参数**：`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 被 `AdditionalBrowserArguments` 覆盖 ⇒ CDP 9333 无监听，**界面级复验不能靠 CDP**。
+4. **Rust 单测夹具别放 `std::env::temp_dir()`**：`builtin_ignored_paths()` 会剪掉 `/AppData/Local/Temp` ⇒ 本批夹具改用 `%USERPROFILE%\afm-rust-search-fixtures\`。
+5. **遗留未清**：`F:\soft\00selfmake\...`（误建目录，含一份误置的 `install-b55.ps1` 副本）删除被运行时安全策略拒绝（非交互模式）⇒ **未绕过**，留给用户在交互终端清理。
+
+### 二十七·12 遗留与下一步
+
+- **用户待拍板（均不阻塞本批）**：W-18 云盘目录递归检索口径 / 索引配额最终口径 / 版本号与 CHANGELOG / W-17 的 15 个外语包 / `rustup` 修复授权 / W-19 界面级像素复验通道。
+- **缺陷 A 仍未修**：跨 token 边界子串召不回，单列在 W-14 尾部（需加子字段 + 重建 23,334 条云盘索引）。
+- **本批提交**：`<HASH>`（补记提交紧随其后，**均不推送**；版本号仍 3.22.0、未改 CHANGELOG、未重建索引）。
+- **本轮未做**：升版本号、改 CHANGELOG、重建索引、推送；W-17 的 15 个外语包仍未处理（用户未授权代笔翻译）。

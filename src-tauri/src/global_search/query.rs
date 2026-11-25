@@ -626,24 +626,109 @@ fn search_remote_index(
     let (mut results, _materialized_count) =
         materialize_candidates(&searcher, &fields, options, &normalized_query, &candidates);
 
-    // W-14 (B)：云盘池内部按「分数降序 + 同分 mtime 新近」重排。物化返回的是候选池顺序
-    // = 主池 BM25 序 + 子串池文档序 = **索引写入序**（真机是 7z → 百度网盘 → 阿里云盘）。
-    // 不重排的话，合并层留出的保底席位会被最早写入的那个连接整批吃掉，用户刚上传的靶子
-    // 照样进不了窗口。排序只发生在**同一个云盘索引内部**，不做跨来源新近。
-    sort_remote_hits_by_recency(&mut results);
+    // W-14 (B) / 批次 53：云盘池内部按「分数降序 + 同分带内连接公平」重排。物化返回的是
+    // 候选池顺序 = 主池 BM25 序 + 子串池文档序 = **索引写入序**（真机是 7z → 百度网盘 →
+    // 阿里云盘）。不重排的话，合并层留出的保底席位会被最早写入的那个连接整批吃掉，用户刚
+    // 上传的靶子照样进不了窗口。排序只发生在**同一个云盘索引内部**，不做跨来源新近。
+    order_remote_hits(&mut results);
 
     Some(results)
 }
 
-/// W-14 (B)：云盘同分命中按 `modified_time` 新近优先。稳定排序 —— mtime 相同（含全为 0）
-/// 时保持原有池顺序，因此不同分之间的次序不变。
-fn sort_remote_hits_by_recency(results: &mut [GlobalSearchResultEntry]) {
+/// 批次 52 W-14 (B) + 批次 53：云盘命中池的排列口径 = **分数降序，同分带内按连接轮转席位**。
+///
+/// 批次 52 的口径是「同分带内一律 `modified_time` 降序」，真机立刻暴露另一个极端：
+/// `分析` 的 0.92 同分带 101 席全部属于连接 `0f0696ba`，靶子所属连接 `646dacdb` 在 200
+/// 与 500 窗口内各拿 0 席 —— 「谁的文件最新谁独占整带」和「谁先写入谁独占整带」是同一个
+/// 缺陷的两个极端。取证见 `docs/open-items-2026-11-24.md` §7（批次 53）。
+///
+/// 新口径：分数不同仍按分数优先；**同分带内**每个连接轮流拿席位，组内按 mtime 新近优先，
+/// 组序按该组最新 mtime 降序（mtime 全为 0 时退化为连接 id 升序，仍然确定）。
+/// 只重排，不删条目、不丢命中。
+fn order_remote_hits(results: &mut Vec<GlobalSearchResultEntry>) {
+    if results.len() < 2 {
+        return;
+    }
+
+    // 第一步铺平：分数降序 + 同分内 mtime 降序 ⇒ 每个连接组的第一条就是该组最新的一条。
+    // 用 total_cmp 而不是 partial_cmp：NaN 分数也要有确定次序，不能退化成不稳定比较。
     results.sort_by(|a, b| {
         b.score
-            .partial_cmp(&a.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
+            .total_cmp(&a.score)
             .then_with(|| b.modified_time.cmp(&a.modified_time))
     });
+
+    // 第二步：逐个同分带做连接轮转。带与带之间的次序由第一步保证，这里绝不改动。
+    let flat = std::mem::take(results);
+    let mut ordered = Vec::with_capacity(flat.len());
+    let mut rest = flat;
+    while !rest.is_empty() {
+        let band_score = rest[0].score;
+        let band_end = rest
+            .iter()
+            .position(|entry| entry.score.total_cmp(&band_score) != std::cmp::Ordering::Equal)
+            .unwrap_or(rest.len());
+        let band = rest.drain(..band_end).collect::<Vec<_>>();
+        ordered.extend(rotate_band_by_connection(band));
+    }
+    *results = ordered;
+}
+
+/// 同分带内按 `connection_id` 公平轮转发席位：每轮每个连接出一条，直到全部发完。
+///
+/// 组序 = 该组最新 `modified_time` 降序，并列时按连接 id 升序；组内维持传进来的 mtime
+/// 降序。带里只有一个连接（或全是解析不出连接的条目）时原样返回，行为与批次 52 逐条一致。
+fn rotate_band_by_connection(band: Vec<GlobalSearchResultEntry>) -> Vec<GlobalSearchResultEntry> {
+    if band.len() < 2 {
+        return band;
+    }
+
+    let mut groups: std::collections::BTreeMap<
+        String,
+        std::collections::VecDeque<GlobalSearchResultEntry>,
+    > = std::collections::BTreeMap::new();
+    for entry in band {
+        // 解析不出连接的条目并成一类：它们没有「哪个连接」可言，不构成公平性问题。
+        let key = cloud_connection_id(&entry).unwrap_or_default();
+        groups.entry(key).or_default().push_back(entry);
+    }
+    if groups.len() < 2 {
+        return groups.into_values().collect::<Vec<_>>().into_iter().flatten().collect();
+    }
+
+    let mut queues = groups.into_iter().collect::<Vec<_>>();
+    queues.sort_by(|a, b| {
+        let newest = |group: &(String, std::collections::VecDeque<GlobalSearchResultEntry>)| {
+            group.1.front().map(|entry| entry.modified_time)
+        };
+        newest(b)
+            .cmp(&newest(a))
+            .then_with(|| a.0.cmp(&b.0))
+    });
+
+    let mut out = Vec::new();
+    loop {
+        let mut handed_out = false;
+        for (_, queue) in queues.iter_mut() {
+            if let Some(entry) = queue.pop_front() {
+                out.push(entry);
+                handed_out = true;
+            }
+        }
+        if !handed_out {
+            return out;
+        }
+    }
+}
+
+/// 条目所属的云盘连接身份。
+///
+/// 复用应用的 `sfm://` URI 权威解析器 `remote::path::parse_remote_path`（
+/// `remote_index.rs` 的 `remote_path_of` 用的也是它），**不是**嗅探字面量前缀。批次 52
+/// 注释里「不嗅探 path 前缀」针对的是「本地 vs 云盘」的来源标记 —— 那个仍然由
+/// `merge_search_results` 的元组携带；这里只在**已经全是云盘条目的池内部**分连接。
+fn cloud_connection_id(entry: &GlobalSearchResultEntry) -> Option<String> {
+    crate::remote::parse_remote_path(&entry.path).map(|remote| remote.connection_id)
 }
 
 /// 取云盘索引的候选文档地址，**按当前勾选的连接集合过滤**。
@@ -786,7 +871,7 @@ pub(super) fn merge_search_results(
 ///
 /// ⚠ 不用「跨索引 doc id 新近」做 tie-break：两个索引的 doc id 各自独立编号、
 /// 云盘索引恒小，那等价于「云盘优先」，不是这里拍板的策略。
-/// 云盘组内的新近优先发生在 `sort_remote_hits_by_recency`（同一个索引内部）。
+/// 云盘组内的新近优先与连接轮转发生在 `order_remote_hits`（同一个索引内部）。
 fn reserve_cloud_seats_in_cut_band(
     merged: &mut Vec<(GlobalSearchResultEntry, bool)>,
     limit: usize,
@@ -837,7 +922,7 @@ fn reserve_cloud_seats_in_cut_band(
     let mut band: Vec<(GlobalSearchResultEntry, bool)> =
         Vec::with_capacity(band_end - band_start);
     // 窗口内：本地前 keep_local 条 + 云盘前 keep_cloud 条。
-    // 云盘池已按新近排序（`sort_remote_hits_by_recency`）⇒ 这里取到的是最新的那批。
+    // 云盘池已按新近 + 连接轮转排好（`order_remote_hits`）⇒ 这里取到的是最新的那批。
     band.extend(
         band_local
             .iter()
@@ -1179,6 +1264,24 @@ pub(super) fn search_directory_recursive_blocking(
     typo_tolerance: bool,
 ) -> Result<Vec<GlobalSearchResultEntry>, String> {
     let root = PathBuf::from(&root_path);
+
+    // FORK-MODIFICATION 批次 55：云盘路径不是本地文件系统路径。
+    //
+    // 旧行为：`root.is_dir()` 对 `sfm://remote/<conn>/...` 恒为 false，
+    // 于是直接 `Ok(Vec::new())` —— 调用方（MCP 的 search_files）会把
+    // 「这个通道不支持云盘」误读成「这个目录里没有匹配的文件」，
+    // 拿到一个**看起来正常、实际是假**的空结果。
+    //
+    // 现在改成明确报错，把「不支持」与「没有匹配」区分开。
+    // 修的是「静默给错答案」，不是「给云盘加递归检索」——
+    // 后者是新功能（走索引还是走实时遍历、每次按键烧多少 API 配额），
+    // 取舍待定，见台账 W-18。
+    if crate::remote::is_remote_path(&root_path) {
+        return Err(format!(
+            "云盘目录暂不支持递归检索（{root_path}）：该通道只遍历本地磁盘。\
+             云盘文件请省略目录参数走全局索引检索，或用 list_directory 逐层列举。"
+        ));
+    }
 
     if !root.is_dir() {
         return Ok(Vec::new());
@@ -2623,6 +2726,202 @@ mod tests {
     //   (A) `merge_search_results`：同分带内给云盘保底席位；
     //   (B) `search_remote_index`：云盘组内同分按 mtime 新近优先 ——
     //       否则配额席位会被「最早写入索引的连接」（百度）吃光，靶子（阿里，最后写入）依旧不出现。
+    /// 批次 53 B：**云盘同分带内必须按连接轮转席位**，否则一个连接霸榜会把其余连接挤光。
+    ///
+    /// 批次 52 把云盘池的并列序改成「一律按 `modified_time` 降序」，装机版当场证伪其充分性：
+    /// 用户真实索引里搜『分析』，云盘命中 101 条**全部来自同一个连接** `0f0696ba`，
+    /// 靶子所在的 `646dacdb` 在 200 与 500 两个窗口内**都是 0 条**。
+    /// 根因是「按新近」在单连接海量新文件面前等于「按连接独占」。取证见
+    /// `docs/open-items-2026-11-24.md` W-14 与 `.superpowers/sdd/b52/probe.out.md`。
+    ///
+    /// 这里的夹具按真机形状搭：A 连接一屋子名字相同的新文件，B 连接只有靶子这一条旧文件。
+    mod w15_connection_fairness {
+        use super::*;
+
+        /// 只用 `remote_entry` 造条目：`connection_id` **不是索引字段**，连接身份由
+        /// `sfm://remote/<id>/...` 的 path 携带，批次 53 不改数据模型。
+        fn cloud(path: &str, name: &str, score: f32, modified_time: u64) -> GlobalSearchResultEntry {
+            GlobalSearchResultEntry {
+                modified_time,
+                ..remote_entry(path, name, score)
+            }
+        }
+
+        fn conn_of(entry: &GlobalSearchResultEntry) -> Option<&str> {
+            entry.path.split('/').nth(3)
+        }
+
+        fn band(count: usize, base: u64, score: f32) -> Vec<GlobalSearchResultEntry> {
+            (0..count)
+                .map(|i| {
+                    cloud(
+                        &format!("sfm://remote/conn-flat/dir{i:03}/报告{i}.mp4"),
+                        &format!("报告{i}.mp4"),
+                        score,
+                        base - i as u64,
+                    )
+                })
+                .collect()
+        }
+
+        /// 判别性测试：真机那条靶子在修复前落在 21 条云盘命中的**最后一条**。
+        #[test]
+        fn a_stale_connection_must_get_seats_in_a_saturated_same_score_band() {
+            let mut hits: Vec<GlobalSearchResultEntry> = (0..20)
+                .map(|i| {
+                    cloud(
+                        &format!("sfm://remote/conn-new/f{i:02}/分析报告.mp4"),
+                        "分析报告.mp4",
+                        0.92,
+                        9_000 - i as u64,
+                    )
+                })
+                .collect();
+            hits.push(cloud(
+                "sfm://remote/conn-old/08艺术/Midjourney 使用心得+关键词分析.mp4",
+                "Midjourney 使用心得+关键词分析.mp4",
+                0.92,
+                10,
+            ));
+            order_remote_hits(&mut hits);
+
+            assert_eq!(hits.len(), 21, "一个条目都不许丢");
+            let target = hits
+                .iter()
+                .position(|e| e.name.starts_with("Midjourney"))
+                .expect("靶子必须还在窗口里");
+            // 修复前靶子排最后（下标 20）；按连接轮转后它必须拿到第二个席位。
+            assert!(
+                target <= 1,
+                "旧连接的靶子必须进前两名，实际下标 = {target}，窗口 = {:?}",
+                hits.iter().map(|e| conn_of(e).unwrap_or("?")).collect::<Vec<_>>()
+            );
+            assert_eq!(conn_of(&hits[1]).unwrap(), "conn-old", "第二个席位必须给旧连接");
+        }
+
+        /// 轮转必须是**逐轮交替**，而不是「每个连接先放一条再各自排完」。
+        #[test]
+        fn seats_rotate_round_robin_across_connections() {
+            let mk = |conn: &str, latest: u64| {
+                (0..3)
+                    .map(|i| {
+                        cloud(
+                            &format!("sfm://remote/{conn}/d{i}/报告{i}.mp4"),
+                            &format!("{conn}-报告{i}.mp4"),
+                            0.92,
+                            latest - i as u64,
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            };
+            let mut hits = Vec::new();
+            hits.extend(mk("conn-old", 1_000));
+            hits.extend(mk("conn-mid", 5_000));
+            hits.extend(mk("conn-new", 9_000));
+            order_remote_hits(&mut hits);
+
+            let conns: Vec<&str> = hits.iter().map(|e| conn_of(e).unwrap()).collect();
+            assert_eq!(
+                conns,
+                vec![
+                    "conn-new",
+                    "conn-mid",
+                    "conn-old",
+                    "conn-new",
+                    "conn-mid",
+                    "conn-old",
+                    "conn-new",
+                    "conn-mid",
+                    "conn-old",
+                ],
+                "三个连接必须各占每轮的同一位置：{conns:?}"
+            );
+            // 组序按该组最新修改时间降序 ⇒ 新连接仍打头，「更近的先看」这条不回退。
+            assert_eq!(hits[0].modified_time, 9_000, "新连接的更新一条必须仍排第一");
+        }
+
+        /// 铁律 1：轮转不得碰比卡窗口那批更高分的结果。
+        #[test]
+        fn rotation_never_touches_a_higher_score_band() {
+            let mut hits = vec![
+                cloud("sfm://remote/conn-a/a/x1.mp4", "x1.mp4", 0.92, 9),
+                cloud("sfm://remote/conn-b/b/x2.mp4", "x2.mp4", 0.92, 8),
+                cloud("sfm://remote/conn-a/a/x3.mp4", "x3.mp4", 0.92, 7),
+                cloud("sfm://remote/conn-b/b/x4.mp4", "x4.mp4", 0.92, 6),
+                cloud("sfm://remote/conn-b/b/hot.mp4", "hot.mp4", 0.99, 1),
+                cloud("sfm://remote/conn-a/a/top.mp4", "top.mp4", 0.99, 2),
+            ];
+            order_remote_hits(&mut hits);
+
+            assert_eq!(hits.len(), 6);
+            assert_eq!(hits[0].name, "top.mp4", "高分带内部仍按新近，0.99 的两条不许散到后面");
+            assert_eq!(hits[1].name, "hot.mp4");
+            let conns: Vec<&str> = hits[2..].iter().map(|e| conn_of(e).unwrap()).collect();
+            assert_eq!(conns, vec!["conn-a", "conn-b", "conn-a", "conn-b"]);
+        }
+
+        /// 没有连接身份（非 `sfm://remote/` 形态）的条目必须退回批次 52 的纯新近序，
+        /// 且绝不能被误塞进「未知连接」这一组去参与轮转。
+        #[test]
+        fn entries_without_a_connection_keep_the_plain_recency_order() {
+            let mut hits: Vec<GlobalSearchResultEntry> = (0..5)
+                .map(|i| cloud(&format!("C:/local/f{i}.txt"), &format!("f{i}.txt"), 0.92, 500 - i as u64))
+                .collect();
+            hits.reverse();
+            order_remote_hits(&mut hits);
+            let times: Vec<u64> = hits.iter().map(|e| e.modified_time).collect();
+            assert_eq!(times, vec![500, 499, 498, 497, 496]);
+        }
+
+        /// 分数各不相同 ⇒ 没有同分带 ⇒ 只按分数降序，轮转不参与。
+        #[test]
+        fn distinct_scores_stay_in_their_own_bands() {
+            let mut hits = vec![
+                cloud("sfm://remote/conn-c/c.txt", "c.txt", 0.5, 999),
+                cloud("sfm://remote/conn-a/a.txt", "a.txt", 0.9, 1),
+                cloud("sfm://remote/conn-b/b.txt", "b.txt", 0.7, 500),
+            ];
+            order_remote_hits(&mut hits);
+            let names: Vec<&str> = hits.iter().map(|e| e.name.as_str()).collect();
+            assert_eq!(names, vec!["a.txt", "b.txt", "c.txt"]);
+        }
+
+        /// 单连接 + 同分 = 批次 52 的行为，必须**逐条不变**（新规则不能改成洗牌）。
+        #[test]
+        fn a_single_connection_band_is_left_in_recency_order() {
+            let mut hits = band(6, 600, 0.92);
+            hits.reverse();
+            order_remote_hits(&mut hits);
+            let times: Vec<u64> = hits.iter().map(|e| e.modified_time).collect();
+            assert_eq!(times, vec![600, 599, 598, 597, 596, 595]);
+        }
+
+        /// 铁律 2 的规模版：轮转只重排，条数与集合都必须守恒。
+        #[test]
+        fn rotation_conservess_every_entry() {
+            let mut hits: Vec<GlobalSearchResultEntry> = (0..50)
+                .map(|i| {
+                    cloud(
+                        &format!("sfm://remote/conn-{}/f{}", i % 4, i),
+                        &format!("f{i}.txt"),
+                        0.92,
+                        1_000 - i as u64,
+                    )
+                })
+                .collect();
+            let before: Vec<String> = hits.iter().map(|e| e.path.clone()).collect();
+            order_remote_hits(&mut hits);
+            let after: Vec<String> = hits.iter().map(|e| e.path.clone()).collect();
+            assert_eq!(after.len(), before.len());
+            let mut sorted_before = before.clone();
+            let mut sorted_after = after.clone();
+            sorted_before.sort();
+            sorted_after.sort();
+            assert_eq!(sorted_before, sorted_after, "轮转不得增删条目");
+            assert_eq!(after.len(), 50);
+        }
+    }
+
     mod w14_cloud_band_quota {
         use super::*;
 
@@ -2796,6 +3095,70 @@ mod tests {
             );
         }
 
+        /// 批次 53 B 的**真机同构**验收：两个连接、同名的云盘文件，一个连接 8 条新的、
+        /// 另一个连接只有靶子这一条旧的。名字完全一致 ⇒ `name` 字段同分，正是卡窗口时
+        /// 会被「一律按新近」整带让给单个连接的那种形状（真机 101 条同分命中全来自一个连接）。
+        ///
+        /// 修这条夹具时实测到一个重要事实：把新文件改名成 `分析报告.mp4` 后它拿 **0.96875**
+        /// 而靶子名拿 **0.92** —— `分析` 在 `分析报告` 里是**词头**、在 `使用心得+关键词分析`
+        /// 里是**词尾**，两者走的是不同打分通道，**不构成同分带**，因而轮转不适用。
+        /// 所以夹具必须用同名文件才能复现真机的同分挤压。
+        ///
+        /// 修复前实测：靶子排在第 8 位（8 条新文件全压在前面）；按连接轮转后必须进前 2。
+        #[test]
+        fn a_stale_connection_keeping_only_the_target_still_gets_seats() {
+            use super::super::super::remote_index::{self, RemoteIndexDoc};
+
+            const TARGET_NAME: &str = "Midjourney 使用心得+关键词分析.mp4";
+
+            let temp = tempfile::TempDir::new().expect("temp dir");
+            let base_dir = temp.path().to_path_buf();
+            let index_dir = remote_index_dir(&base_dir);
+            let conns = remote_index::user_data_dir_in(&base_dir);
+            remote_index::write_test_connections(&conns, &[("conn-fresh", true), ("conn-stale", true)]);
+
+            let mut docs: Vec<RemoteIndexDoc> = (0..8)
+                .map(|i| RemoteIndexDoc {
+                    path: format!("sfm://remote/conn-fresh/f{i:02}/{TARGET_NAME}"),
+                    name: TARGET_NAME.to_string(),
+                    is_dir: false,
+                    size: 10,
+                    modified_time: 5_000 - i as u64,
+                    connection_id: "conn-fresh".to_string(),
+                })
+                .collect();
+            docs.push(RemoteIndexDoc {
+                path: format!("sfm://remote/conn-stale/08艺术/{TARGET_NAME}"),
+                name: TARGET_NAME.to_string(),
+                is_dir: false,
+                size: 11,
+                modified_time: 10,
+                connection_id: "conn-stale".to_string(),
+            });
+            remote_index::write_remote_index(&index_dir, &docs).expect("write");
+
+            let results = search_remote_index(&base_dir, "分析", &cloud_options(10)).expect("云盘索引必须存在");
+            assert_eq!(results.len(), 9, "一个都不许丢");
+            let target = results
+                .iter()
+                .position(|e| e.path.contains("conn-stale"))
+                .expect("靶子必须出现在窗口里");
+            // 同分前提先自证：否则这条测试测不到轮转，只是测了分数带。
+            let scores: Vec<f32> = results.iter().map(|e| e.score).collect();
+            assert!(
+                scores.windows(2).all(|w| (w[0] - w[1]).abs() < f32::EPSILON),
+                "夹具必须落在同一个分数带上，实际 {scores:?}"
+            );
+            assert!(
+                target <= 1,
+                "只剩一条命中的旧连接必须拿到前排席位，实际下标 = {target}，窗口 = {:?}",
+                results
+                    .iter()
+                    .map(|e| (e.path.split('/').nth(3).unwrap_or("?").to_string(), e.score, e.modified_time))
+                    .collect::<Vec<_>>()
+            );
+        }
+
         /// (A)+(B) 合起来的验收：真实云盘索引 + 长同分本地带 ⇒ 靶子必须落在窗口内。
         #[test]
         fn the_target_from_the_last_written_connection_survives_a_long_local_band() {
@@ -2844,5 +3207,113 @@ mod tests {
                 merged.iter().map(|e| e.name.as_str()).collect::<Vec<_>>()
             );
         }
+    }
+}
+
+// FORK-MODIFICATION 批次 55：云盘目录作用域检索的「静默 0 条」守卫。
+//
+// `search_directory_recursive_blocking` 走的是本地 WalkDir，
+// 对 `sfm://remote/<conn>/...` 这类云盘路径 `root.is_dir()` 恒为 false，
+// 旧行为直接 `Ok(Vec::new())` —— 调用方（MCP 的 search_files）会把
+// 「这个通道不支持云盘」误读成「这个目录里没有匹配的文件」。
+// 批次 55 改成明确报错，并锁住「本地目录的行为一个字都没变」。
+#[cfg(test)]
+mod w18_remote_scope_guard {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn remote_directory_returns_explicit_error_instead_of_empty_result() {
+        let error = search_directory_recursive_blocking(
+            "sfm://remote/conn-baidu/my-drive".to_string(),
+            "分析".to_string(),
+            3,
+            50,
+            false,
+        )
+        .expect_err("云盘目录必须明确报错，而不是静默返回 0 条");
+
+        assert!(
+            error.contains("云盘") && error.contains("不支持"),
+            "错误信息要说清「不支持」，而不是让人误读成「没有匹配」，实际：{error}"
+        );
+        assert!(
+            error.contains("sfm://remote/conn-baidu/my-drive"),
+            "错误信息必须带上原始路径，实际：{error}"
+        );
+    }
+
+    #[test]
+    fn remote_connection_root_also_returns_explicit_error() {
+        let error = search_directory_recursive_blocking(
+            "sfm://remote".to_string(),
+            "分析".to_string(),
+            3,
+            50,
+            false,
+        )
+        .expect_err("连接根目录也必须明确报错");
+
+        assert!(error.contains("不支持"), "实际：{error}");
+    }
+
+    #[test]
+    fn local_missing_directory_still_returns_empty_ok() {
+        let result = search_directory_recursive_blocking(
+            "Z:/__afm_b55_missing__".to_string(),
+            "分析".to_string(),
+            3,
+            50,
+            false,
+        )
+        .expect("本地不存在的目录仍然是「没有匹配」，不是错误");
+
+        assert!(result.is_empty(), "本地缺失目录必须保持空结果");
+    }
+
+    /// 夹具根目录。
+    ///
+    /// 刻意**不用 `std::env::temp_dir()`**：它是 `%USERPROFILE%\AppData\Local\Temp`，
+    /// 而 `builtin_ignored_paths()` 覆盖 `/AppData/Local/Temp`
+    /// ⇒ `filter_entry` 会把整棵夹具剪掉，测试会假成「递归搜索完全失效」。
+    /// 同一个坑本仓库已经栽过两次（见同文件 `recursive_scan_cap` 的夹具注释）。
+    fn fixture_root(label: &str) -> std::path::PathBuf {
+        let home = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:/".to_string());
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+
+        std::path::PathBuf::from(home)
+            .join("afm-rust-search-fixtures")
+            .join(format!("{label}-{}-{nanos}", std::process::id()))
+    }
+
+    #[test]
+    fn local_directory_hit_is_unchanged() {
+        let root = fixture_root("w18-local");
+        let sub = root.join("sub");
+
+        std::fs::create_dir_all(&sub).expect("create fixture dir");
+        std::fs::write(sub.join("分析报告.txt"), b"x").expect("write fixture file");
+
+        let result = search_directory_recursive_blocking(
+            root.to_string_lossy().replace('\\', "/"),
+            "分析".to_string(),
+            3,
+            50,
+            false,
+        )
+        .expect("本地目录检索必须照常成功");
+
+        assert!(
+            result
+                .iter()
+                .any(|entry| entry.name == "分析报告.txt"),
+            "本地命中不能被云盘守卫误伤，实际 {:?}",
+            result.iter().map(|e| e.name.as_str()).collect::<Vec<_>>()
+        );
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

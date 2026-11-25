@@ -37,6 +37,7 @@ import GlobalSearchResultList from './components/global-search-result-list.vue';
 import {
   applyGlobalSearchSingleSelection,
   applyGlobalSearchToggleSelection,
+  filterGlobalSearchResultsByKind,
   findGlobalSearchResultIndex,
   groupGlobalSearchResults,
   resolveGlobalSearchRange,
@@ -148,10 +149,9 @@ type GroupedResults = {
 };
 
 const filteredResults = computed(() => {
-  return globalSearchStore.results.filter((entry) => {
-    if (entry.is_file && !includeFiles.value) return false;
-    if (entry.is_dir && !includeDirectories.value) return false;
-    return true;
+  return filterGlobalSearchResultsByKind(globalSearchStore.results, {
+    includeFiles: includeFiles.value,
+    includeDirectories: includeDirectories.value,
   });
 });
 

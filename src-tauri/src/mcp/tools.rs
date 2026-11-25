@@ -257,10 +257,11 @@ impl AlphaMcpServer {
     }
 
     /// Alpha 的核心差异化工具：已建索引的全局搜索，带拼写容错与排除规则。
-    /// 指定 `directory` 时改走目录内递归扫描（深度 9 层）。
+    /// 指定 `directory` 时改走目录内递归扫描（深度 9 层，仅本地目录）。
     #[tool(
         description = "按文件名搜索文件。默认走已建索引的全局搜索（带拼写容错与排除规则）；\
-                       指定 directory 时在该目录子树内递归搜索（默认 9 层）。"
+                       指定 directory 时在该目录子树内递归搜索（默认 9 层，仅限本地目录；\
+                       云盘路径 sfm://remote/... 会明确报错，云盘文件请走默认的全局索引检索）。"
     )]
     async fn search_files(
         &self,
