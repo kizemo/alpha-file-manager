@@ -3777,3 +3777,146 @@ ASCII 正常（`Midjourney` / `AI`），因为那些词本身就被切成词元�
 2. 未提交改动 **6 个文件**：`CHANGELOG.md`、`docs/handoff-2026-11-22-batch38-onedrive-readonly.md`、`docs/open-items-2026-11-24.md`、`src-tauri/src/global_search/commands.rs`、`src-tauri/src/global_search/remote_index.rs`、`src-tauri/src/global_search/query.rs`（本轮 `query.rs` = **+201 / −1**）。等用户拍板是否连同批次 47/48 一起提交。
 3. 仍待用户拍板：版本号（3.23.0？）与 CHANGELOG 是否更新；云盘索引配额最终口径；是否允许 `rustup` 修复 stable。
 4. 新开条目候选（**未做**）：CJK 子串命中的**排序提权**（`BoostQuery` 包 `RegexQuery`），解掉二十三·4-2 的「高频 2 字词被挤出」。属排序层改动，影响全站排名，需单独评估 + 独立 A/B。
+
+## 二十四、批次 50（W-13 召回层：CJK 子串命中在候选阶段被挤掉）
+
+批次 50 只做一件事：修台账 §4 的 **W-13** 的**召回层**。
+本批次**未改索引 schema、未重建索引、未改最终排序口径、未升版本号、未改连接过滤口径**。
+
+### 二十四·1 根因复核：比批次 49 更精确一层
+
+批次 49 的结论是「`RegexQuery` 走常量分，排在 fuzzy 分之后 ⇒ 候选池一满就被切掉」。本轮把它落到代码与日志：
+
+- **候选阶段**：`TopDocs::with_limit(limit).order_by_score()` ⇒ 池内按 **BM25 分**取前 N 条。
+  正则子句命中拿的是**常量分**，排在所有 fuzzy 命中之后 ⇒ 池一满，只靠正则命中的文档**全部落榜**。
+- **排序阶段**：`merge_search_results` 按 `calculate_similarity_score`（**名称相似度**）降序 + 稳定排序。
+  ⇒ **召回与排序是两套分**：BM25 只决定「谁能进候选池」，相似度只决定「进池后谁排前面」。
+  这也是批次 49 台账里「修法是 `BoostQuery`」那条建议的漏洞：**`BoostQuery` 改的是 BM25 分**，
+  它能帮正则命中挤进候选池，但**改不了最终顺序**（最终顺序只看名称相似度）。
+- **两层叠加**：本地 988,637 条 + 云盘 23,334 条两个索引的结果在 `merge_search_results` 里
+  按分数合并后**统一截断到 `limit`** ⇒ 候选池里没进榜的文档，后面再怎么排序都救不回来
+  ——这就是台账里「缺口在候选阶段」的准确含义。
+
+### 二十四·2 修法：召回层独立子串候选池（不动排序）
+
+在 `src-tauri/src/global_search/query.rs` 加了一条**与主池平行的子串通道**：
+
+- `SUBSTRING_CANDIDATE_LIMIT = 20_000` / `SUBSTRING_CANDIDATE_FLOOR = 4_000`；
+  `substring_candidate_limit_for(options)` = `clamp(limit × 4, 4_000, 20_000)`。
+- `build_substring_only_query`：只含正则子句的查询；`exact_match` 或**纯 ASCII** ⇒ 返回 `None`
+  （ASCII 与 `exact_match` 的行为与改动前**逐字一致**，不多跑一次检索）。
+- `collect_substring_candidate_addresses`：先 `Count` 数命中总数 ⇒ **命中数 ≤ 池上限就整批取回**
+  （整批 ⇒ 没有文档序偏置）；超限才退化成按文档序取前 N，并记一条 WARN。
+- `merge_candidate_pools`：按 `(segment_ord, doc_id)` 去重，**主池在前**。
+- 本地路径与云盘路径**各挂一条**：云盘子串池带 `build_connection_filter`（**当前勾选的连接**），
+  不会把用户已取消勾选的网盘捞进来；失败只记 WARN，**不拖垮整次查询**。
+- 日志新增：`query timings` 追加 `substring_candidates=` / `substring_matched=`；
+  云盘侧另有一条 `云盘子串候选：命中 N 条，入池 M 条`。
+
+**刻意没做的三件事**：① 不改索引 schema（23,334 条云盘索引**不重建**）；
+② 不改最终排序口径（仍是名称相似度降序）；③ 不升版本号、不动 CHANGELOG。
+
+### 二十四·3 门禁（全部 EXIT=0）
+
+| 门禁 | 结果 | 证据 |
+|---|---|---|
+| `cargo test --lib` | **EXIT=0**，**1709 passed / 0 failed / 3 ignored**（基线 1702 + 本轮 7） | `.superpowers/sdd/b50/cargo-test-lib.log` |
+| `npm run check` | **EXIT=0**，末行 `[sandbox-gate] OK  全部扩展入口通过` | `.superpowers/sdd/b50/npm-check.log` |
+
+新增 7 条单测在 `global_search::query::tests::w13_substring_pool::*`：
+主池饱和必丢靶子（基线复现）/ 子串池捞回且合并去重（5 + 13 − 5 = 13）/ 只靠子串命中的文档进最终结果 /
+ASCII 查询无子串通道 / `exact_match` 无子串通道 / 合并去重且保主池顺序 / 池上限伸缩与边界（4,000 / 4,000 / 8,000 / 20,000）。
+夹具：12 个「分析 NN.docx」把主池灌满 + **最后写入**的靶子「深度学习模型分析报告.mp4」
+（与「分析」编辑距离 6 ⇒ fuzzy 匹配不上，**只能靠子串正则**）。
+
+顺手修掉的前端门禁旧账：`docs/open-items-2026-11-24.md` 第 110 行 W-12 行里
+`w12-probe.ps1 -Tag before|after` 的**裸竖线**把表格撑成 5 列（表头 4 列）⇒ markdown 表格测试失败；
+已改成 `` `b49/w12-probe.ps1`（Tag = before / after）``。
+
+### 二十四·4 打包与真机 A/B
+
+**打包**：装置 `.superpowers/sdd/b50/build.cmd` ⇒ `npm run tauri:build`，
+日志 `.superpowers/sdd/b50/tauri-build.log`；关键行 `Finished release profile [optimized] target(s) in 4m 29s` /
+`Running makensis to produce ...\bundle\nsis\Alpha File Manager_3.22.0_x64-setup.exe`，任务终态 **succeeded**。
+
+| 位置 | 尺寸 | 时间 | SHA256 |
+|---|---|---|---|
+| `release\local-builds\Alpha File Manager_3.22.0_x64-setup.exe`（**本轮新包**） | 46,156,750 B | 2026-11-25 11:50:06 | `2366E3BA1BE7FED516352391846BA5BB0F8F770C087B16F68279FA52C779D011` |
+| `release\Alpha File Manager_3.22.0_x64-setup.exe`（已发布副本，**原封未动**） | 46,151,697 B | 2026-11-24 16:22:35 | `4AB5032B56AB42AD2494A52DD77660943A498CE898E70761893A8B12D2B3D470` |
+
+**装机**：`Stop-Process -Force`（旧 pid 156608）→ `Start-Process <新包> -ArgumentList '/S' -Wait`
+⇒ **INSTALL_EXIT=0**；落盘 `D:\Program Files\Alpha File Manager\alpha-file-manager.exe`
+= mtime 2026-11-25 11:49:28 / SHA256 `3E69B14AA3F12435D40B6F68D7AD4C09841245ED0B417B571FA0222A35BABA61`；
+新进程 pid 236732（11:51:24 启动）。MCP 端点 `http://127.0.0.1:55100/mcp` 直探返 **401**
+（端点在线、只是要 token）⇒ 就绪判据成立。
+
+**A/B 实测**（装置 `.superpowers/sdd/b50/probe.ps1 -Tag before` / `-Tag after`，应用自带只读 MCP
+`search_files`，`result_limit=200`；before = 批次 49 包，after = 本轮新包）：
+
+| 查询词 | before（批次 49 包） | after（批次 50 新包） | 判定 |
+|---|---|---|---|
+| `技巧` | COUNT=151，阿里云 1 | COUNT=151，阿里云 1 | ✅ 无回归 |
+| `收集` | COUNT=15，阿里云 2 | COUNT=15，阿里云 2 | ✅ 无回归 |
+| `心得` | COUNT=21，阿里云 1 | COUNT=21，阿里云 1 | ✅ 无回归 |
+| `关键词分析` | COUNT=7，阿里云 1 | COUNT=7，阿里云 1 | ✅ 无回归 |
+| `Midjourney`（ASCII 对照） | COUNT=39，阿里云 2 | COUNT=39，阿里云 2 | ✅ 无回归 |
+| `分析` | COUNT=200，阿里云 **0** | COUNT=200，阿里云 **0** | ⚠ 残留见 二十四·5 / 台账 W-14 |
+
+**应用日志实证**（`%LOCALAPPDATA%\com.sigma-file-manager.app\logs\Alpha File Manager.log`，03:51:43–45）：
+
+- `技巧`：`云盘子串候选：命中 83 条，入池 83 条`；`收集`：`命中 7 条，入池 7 条`；
+  `心得`：`命中 7 条，入池 7 条`；`关键词分析`：`命中 1 条，入池 1 条` ⇒ 子串池**条条全进**。
+- `分析`：`WARN 子串候选命中 5200 条，超过候选上限 4000`（**本地**侧 988,637 条索引，命中 5,200 > 上限 4,000）
+  ＋ `云盘子串候选：命中 307 条，入池 307 条`（**云盘侧 307/307 全进，无截断**）
+  ＋ `query timings: candidates=4001 results=200 substring_candidates=4000 substring_matched=5200`。
+- `Midjourney`（ASCII 对照）：`substring_candidates=0 substring_matched=0` ⇒ ASCII 查询**一次不多跑**。
+
+### 二十四·5 残留：`分析` 仍 0 阿里云命中 —— 根因已从「召回」移到「同分排序 + 结果窗口」
+
+这一条**不是**召回缺陷了，证据链完整：
+
+1. **召回已修**：云盘靶子 `Midjourney 使用心得+关键词分析.mp4` 的名字含「分析」，
+   它**确实进了候选池**（云盘子串池 307/307）⇒ 批次 49 的「正则命中进不了候选」已消除。
+2. **得分与本地噪声完全同分**：靶子在 `分析` 下的得分 = **0.92**，
+   来自 `scoring.rs` 的 token 分支（`name_token.contains(query_token)` ⇒ 0.6 + 0.2 + 0.8 × 0.15）；
+   本地那些「名字里含分析」的文件走的也是同一条分支 ⇒ **同样是 0.92**。
+   实测 `分析` 的 200 / 500 条结果分数区间 **0.92 – 0.96875**，**最低分就是 0.92**。
+3. **同分时按文档序**：最终列表 `merge_search_results` = 按 score 降序 + **稳定排序**，
+   而稳定排序的前提是「本地条目先入队」⇒ 同分时本地在前；同分条目内部按文档序（写入顺序）排，
+   **后写入的云盘条目（远程索引 doc id 更大）永远排在同分本地条目之后**
+   ⇒ 落在 `result_limit`（200，服务端上限 500）窗口之外。
+4. **换大窗口也救不了**：`result_limit=500` 实测 COUNT=500、阿里云 **0**、最低分仍 0.92
+   ⇒ 不是窗口太小，是**同分带太长**（`分析` 在两个索引上共命中 5,207 条）。
+5. **这不是「搜不到这个文件」，是「这个文件在同分带里排第几百名」**：
+   靶子的名字把「分析」藏在「关键词分析」这个更长词里，而本地几百个文件的名字里「分析」更靠前、
+   更像主词 ⇒ 按任何合理的相关性口径，靶子都排在它们后面。
+   **用更具体的词检索已稳定命中**（`关键词分析` ⇒ 7 条含靶子，批次 49 起一直有效）。
+
+⇒ 台账 **W-13 的召回层已闭合（含真机）**；剩下的「同分怎么排 / 结果窗口怎么给」是**排序策略**，
+按台账 §5「多连接混合检索的排序策略 —— 暂不做（用户『暂时不管』）」**本轮不擅自动**，
+单列为 **W-14** 留给用户拍板。W-14 的三个候选修法（都带代价，已写进台账）：
+
+- ① 同分时按**文件修改时间**新近优先 —— 跨索引可比，但需确认索引是否存了 mtime，且会改变**所有**查询的同分顺序；
+- ② 同分时按**来源配额**（本地 / 云盘各占一半）—— 保证两边都有露出，但靶子仍在同分带尾部，**不保证**出现；
+- ③ 维持现状 —— 用更具体的词检索（已稳定命中）。
+- ⚠ **不要用「跨索引 doc id 新近」**：两个索引的 doc id 各自独立，云盘 doc id 恒小于本地（23,334 ≪ 988,637）
+  ⇒ 那等于「云盘优先」，正是 §5 拍板暂不做的排序策略。
+
+### 二十四·6 本轮踩的坑（装置侧）
+
+- **应用日志被独占**：`[IO.File]::ReadAllText` 报 "used by another process" ⇒ 必须
+  `[IO.File]::Open(path, Open, Read, ReadWrite)` + `StreamReader`（共享读）才读得到运行期日志。
+- **构建日志同样被 cmd.exe 的重定向独占** ⇒ 同一个共享读写法；`Get-Content -Tail` 在独占时也会炸。
+- **`task_output` 读不到 `cmd.exe /d /c` 包装器的 stdout**（输出全在重定向的文件里）⇒ 判构建成功要看
+  「日志里的 `Finished release profile` + `Running makensis`」＋「任务终态 succeeded」双证。
+- **`run-app.ps1` 的就绪判据在本机不成立**：它等 `mcp-access.json` 的 mtime 被新进程刷新，
+  但那个文件的 mtime 停在 2026-10-16 ⇒ 脚本会白等 120 秒。改用**直接探 MCP 端口**：
+  `Invoke-WebRequest -SkipHttpErrorCheck` 返 **401** 就说明服务在线（401 = 端点活着、只是要 token）。
+
+### 二十四·7 下一步
+
+1. **W-14 等用户拍板排序规则**（见 二十四·5 的三个候选）—— 属台账 §5 拍板暂不做的范围，本轮未动。
+2. **本批次改动**：本交接文档 + `docs/open-items-2026-11-24.md` + `src-tauri/src/global_search/query.rs`
+   （W-13 召回层修复 + 7 条单测）；**版本号与 CHANGELOG 未动**、**不推送**。
+3. **仍待用户拍板**：版本号（3.23.0？）与 CHANGELOG 是否更新；云盘索引配额最终口径；是否允许跑 `rustup` 修 stable。
+4. **仍待用户在场**：B-5（一次真实云盘下载触发杀毒超时）、B-6（三家网盘各一轮界面级验收）、W-4（360 误报复验）。

@@ -7,7 +7,7 @@ use crate::utils::{
 };
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
-use tantivy::collector::TopDocs;
+use tantivy::collector::{Count, TopDocs};
 use tantivy::query::{
     AllQuery, BooleanQuery, FuzzyTermQuery, Occur, Query, RegexQuery, TermQuery,
 };
@@ -122,6 +122,182 @@ fn build_substring_query(
             None
         }
     }
+}
+
+// FORK-MODIFICATION: 2026-11-25 —— W-13「CJK 子串命中在候选池饱和时被挤出」的召回层修复。
+//
+// ## 症状
+//
+// 台账 `docs/open-items-2026-11-24.md` §4 末行：查「分析」这类**高频 2 字词**时，
+// 候选池直接打满服务端硬上限 500 条，靶子 `Midjourney 使用心得+关键词分析.mp4`
+// 一条都搜不到（改用 5 字的「关键词分析」就稳定命中，score=0.92）。
+//
+// ## 根因（不是排序错，是**候选阶段就被扔掉了**）
+//
+// ① `build_query` 里的子串正则是**众多 Should 分支之一**。tantivy 的
+//    `RegexQuery` 走 `AutomatonWeight`，命中只拿一个**常量分**；
+//    而 fuzzy 分支拿的是 BM25 分。
+// ② 候选池 = `TopDocs::with_limit(limit)`，即**按 BM25 分取前 N 条**。
+//    ⇒ fuzzy 命中的文档（BM25 分高）把池子填满，只靠子串命中的文档
+//    （常量分，排在后面）在**候选阶段**就被切掉了。
+// ③ 后面再怎么按相似度排序也救不回来 —— 池子里已经没有它了。
+//
+// ⇒ 关键推论：**给正则加 `BoostQuery` 提权救不了**。同分时 tantivy 按文档序排，
+// 后写入索引的连接（实测里阿里云盘排在百度后面）会整批落在后面，
+// 池子一填满还是被挤掉。必须在**召回层**解决。
+//
+// ## 修法
+//
+// 单独跑一条「**只有子串正则**」的查询，把「名字里含这个词」的文档**整批**捞出来，
+// 与主池合并后交给**同一套**相似度排序去挑。
+//
+// ⇒ **最终排序口径一个字没改**（仍是名称相似度降序），只是候选更全 ——
+// 这是「召回修复」，不是「排序改写」。
+//
+// ## 为什么子串池要「整批取」而不是取前 N 条
+//
+// 正则命中同分 ⇒ tantivy 按文档序排 ⇒ 取前 N 条等于「只留最早写入索引的那批」。
+// 所以先用 `Count` 收集器把命中总数数一遍：命中数 ≤ 上限时**全部取回**（无偏），
+// 超过上限才退化成取前 N 条并记一条 WARN（结果可能不完整，但不会拖垮查询）。
+
+/// CJK 子串候选池的条数硬顶。
+///
+/// 取值依据：子串候选是**唯一**能把「名字里含这个词」的文档捞出来的通道，
+/// 一旦被截断，截掉的很可能就是用户最想要的那几条（且正则命中同分，
+/// 截断时优先丢的是**后写入索引**的连接 —— 实测里就是阿里云盘）。
+/// 20,000 与云盘索引「每连接 2 万条」的配额同量级：再大也不会多召回什么，
+/// 只会让单次查询的物化开销变高。
+const SUBSTRING_CANDIDATE_LIMIT: usize = 20_000;
+
+/// CJK 子串候选池的条数下限（保底）。
+///
+/// 4,000 条 ≈ 1–2 MB 量级的瞬时物化开销（对比批次 37 之前的 10 万条 / 30–80 MB），
+/// 但足以让「分析」这种一次命中成百上千条的高频 2 字词**整批取回**，
+/// 不被主池的 BM25 顺序挤掉。
+const SUBSTRING_CANDIDATE_FLOOR: usize = 4_000;
+
+/// 子串候选池的条数：主池的数倍，但**不低于 `SUBSTRING_CANDIDATE_FLOOR`**、
+/// 不高于 `SUBSTRING_CANDIDATE_LIMIT`。
+fn substring_candidate_limit_for(options: &GlobalSearchQueryOptions) -> usize {
+    options
+        .limit
+        .max(1)
+        .saturating_mul(4)
+        .clamp(SUBSTRING_CANDIDATE_FLOOR, SUBSTRING_CANDIDATE_LIMIT)
+}
+
+/// 只含「子串正则」的独立查询（不含 fuzzy 分支）。
+///
+/// # 为什么要这条独立通道
+///
+/// 见文件头 W-13 说明：子串正则在主查询里只是众多 Should 分支之一，
+/// 命中只拿常量分 ⇒ 必然排在 BM25 分更高的 fuzzy 命中后面 ⇒ 池子一填满就被切掉。
+///
+/// # 返回 `None` 的两种情况（都与改动前逐字一致）
+///
+/// - 精确匹配模式：语义是「整词相等」，子串命中会被 `matches_exact_name` 筛掉；
+/// - 全 ASCII 查询：没有子串通道 ⇒ **不多跑一次检索**，行为与改动前完全一致。
+fn build_substring_only_query(
+    fields: &GlobalSearchIndexFields,
+    query: &str,
+    options: &GlobalSearchQueryOptions,
+) -> Option<Box<dyn Query>> {
+    if options.exact_match {
+        return None;
+    }
+
+    let normalized = normalize_case(query);
+    let words = split_query_tokens(&normalized);
+
+    let mut subqueries: Vec<(Occur, Box<dyn Query>)> = Vec::new();
+    for word in &words {
+        if let Some(substring_query) = build_substring_query(fields, word) {
+            subqueries.push((Occur::Should, substring_query));
+        }
+    }
+
+    if subqueries.is_empty() {
+        return None;
+    }
+
+    Some(Box::new(BooleanQuery::from(subqueries)))
+}
+
+/// 收集「名字里含查询词」的候选文档地址（子串候选池）。
+///
+/// 返回 `(候选地址, 命中总数)`。
+///
+/// `connection_filter` 传 `Some` 时（云盘侧）按当前勾选的连接集合过滤 ——
+/// 与主查询的口径一致，避免把「用户已取消勾选的网盘」捞进来。
+fn collect_substring_candidate_addresses(
+    searcher: &tantivy::Searcher,
+    fields: &GlobalSearchIndexFields,
+    query: &str,
+    options: &GlobalSearchQueryOptions,
+    limit: usize,
+    connection_filter: Option<Box<dyn Query>>,
+) -> Result<(Vec<tantivy::DocAddress>, usize), String> {
+    let Some(substring_query) = build_substring_only_query(fields, query, options) else {
+        return Ok((Vec::new(), 0));
+    };
+
+    let query_boxed: Box<dyn Query> = match connection_filter {
+        Some(filter) => Box::new(BooleanQuery::new(vec![
+            (Occur::Must, substring_query),
+            (Occur::Must, filter),
+        ])),
+        None => substring_query,
+    };
+
+    let matched = searcher
+        .search(&query_boxed, &Count)
+        .map_err(|error| error.to_string())?;
+
+    let top_docs = searcher
+        .search(&query_boxed, &TopDocs::with_limit(limit).order_by_score())
+        .map_err(|error| error.to_string())?;
+
+    let candidates: Vec<tantivy::DocAddress> = top_docs
+        .into_iter()
+        .map(|(_score, address)| address)
+        .take(limit)
+        .collect();
+
+    if matched > candidates.len() {
+        log::warn!(
+            "[global-search] 子串候选命中 {matched} 条，超过候选上限 {limit}，本次只取前 {} 条（结果可能不完整）",
+            candidates.len()
+        );
+    }
+
+    Ok((candidates, matched))
+}
+
+/// 合并主池与子串池（按文档地址去重，主池在前）。
+///
+/// 去重是必须的：主查询里也含子串正则，两边会取到同一批文档；
+/// 不去重会让同一条结果出现两次（排序键相同 ⇒ 相邻，看起来像重复项）。
+fn merge_candidate_pools(
+    primary: Vec<tantivy::DocAddress>,
+    extra: Vec<tantivy::DocAddress>,
+) -> Vec<tantivy::DocAddress> {
+    if extra.is_empty() {
+        return primary;
+    }
+
+    let mut seen: std::collections::HashSet<(u32, u32)> = primary
+        .iter()
+        .map(|address| (address.segment_ord, address.doc_id))
+        .collect();
+
+    let mut merged = primary;
+    for address in extra {
+        if seen.insert((address.segment_ord, address.doc_id)) {
+            merged.push(address);
+        }
+    }
+
+    merged
 }
 
 fn build_exact_match_query(
@@ -288,8 +464,25 @@ pub(super) fn global_search_query_blocking(
     let drive_count = state.status.indexed_drive_roots.len();
     let candidate_limit = candidate_limit_for(&options, drive_count);
     let collect_started = std::time::Instant::now();
-    let candidates =
+    let primary_candidates =
         collect_candidate_addresses(&searcher, &fields, &query, &options, candidate_limit)?;
+
+    // FORK-MODIFICATION 2026-11-25（W-13）：追加「子串候选池」。
+    //
+    // 主池按 **BM25 分**取前 N 条 ⇒ 只靠子串正则命中的文档（常量分，排在
+    // fuzzy 命中之后）会在**候选阶段**被切掉，后面再怎么按相似度排序也救不回来。
+    // 子串池把这些「名字里含查询词」的文档整批捞进来 ⇒ 召回变全，
+    // 而**最终排序口径一个字没改**（仍是名称相似度降序）。
+    let (substring_candidates, substring_matched) = collect_substring_candidate_addresses(
+        &searcher,
+        &fields,
+        &query,
+        &options,
+        substring_candidate_limit_for(&options),
+        None,
+    )?;
+    let substring_candidate_count = substring_candidates.len();
+    let candidates = merge_candidate_pools(primary_candidates, substring_candidates);
     let collect_ms = collect_started.elapsed().as_millis();
 
     let materialize_started = std::time::Instant::now();
@@ -314,7 +507,7 @@ pub(super) fn global_search_query_blocking(
     };
 
     log::info!(
-        "[global-search] query timings: total={}ms index_open={}ms collect={}ms materialize={}ms finalize={}ms candidates={} results={} index_docs={}",
+        "[global-search] query timings: total={}ms index_open={}ms collect={}ms materialize={}ms finalize={}ms candidates={} results={} substring_candidates={} substring_matched={} index_docs={}",
         query_started.elapsed().as_millis(),
         index_open_ms,
         collect_ms,
@@ -322,6 +515,8 @@ pub(super) fn global_search_query_blocking(
         finalize_ms,
         candidates.len(),
         merged.len(),
+        substring_candidate_count,
+        substring_matched,
         searcher.num_docs()
     );
 
@@ -380,7 +575,7 @@ fn search_remote_index(
         return Some(Vec::new());
     }
 
-    let candidates = match collect_remote_candidate_addresses(
+    let primary_candidates = match collect_remote_candidate_addresses(
         &searcher,
         &fields,
         query,
@@ -394,6 +589,39 @@ fn search_remote_index(
             return Some(Vec::new());
         }
     };
+
+    // FORK-MODIFICATION 2026-11-25（W-13）：云盘侧同样追加「子串候选池」。
+    //
+    // 云盘的实测症状最典型（W-13 台账行）：查「分析」这类高频 2 字词时，
+    // 候选池被百度那批 fuzzy 命中填满，**后写入索引的阿里云盘**里
+    // 「只能靠子串命中」的文档一条都进不来 ⇒ 用户的云盘中文文件「搜不到」。
+    //
+    // 过滤口径与主查询一致：同样按当前勾选的连接集合过滤，
+    // 不会把「用户已取消勾选的网盘」捞进来。
+    let (substring_candidates, substring_matched) = match collect_substring_candidate_addresses(
+        &searcher,
+        &fields,
+        query,
+        options,
+        substring_candidate_limit_for(options),
+        Some(build_connection_filter(&fields, &allowed_connection_ids)),
+    ) {
+        Ok(result) => result,
+        Err(error) => {
+            log::warn!("[global-search] 云盘子串候选查询失败：{}", error);
+            (Vec::new(), 0)
+        }
+    };
+    let substring_candidate_count = substring_candidates.len();
+    let candidates = merge_candidate_pools(primary_candidates, substring_candidates);
+
+    if substring_matched > 0 {
+        log::info!(
+            "[global-search] 云盘子串候选：命中 {} 条，入池 {} 条",
+            substring_matched,
+            substring_candidate_count
+        );
+    }
 
     let (results, _materialized_count) =
         materialize_candidates(&searcher, &fields, options, &normalized_query, &candidates);
@@ -1335,6 +1563,237 @@ mod tests {
         fn regex_metacharacters_in_the_word_are_escaped() {
             // 名字里带 `.` `*` 时不能把正则语义改掉，否则命中范围会跑偏。
             assert_eq!(escape_regex_literal("a.b*c"), r"a\.b\*c");
+        }
+    }
+
+    // FORK-MODIFICATION: 2026-11-25 —— W-13「CJK 子串命中在候选池饱和时被挤出」的回归测试。
+    //
+    // 症状（台账 docs/open-items-2026-11-24.md §4 末行）：查「分析」这类高频 2 字词时，
+    // 候选池打满，**只靠子串命中**的文档一条都搜不到（改用 5 字的「关键词分析」就稳定命中）。
+    //
+    // 根因：主池按 BM25 取前 N 条 ⇒ 只命中子串正则（常量分）的文档排在后面，
+    // 池子一填满就在**候选阶段**被切掉，后面再怎么按相似度排序也救不回来。
+    //
+    // 修复：另开一条「子串候选池」，把「名字里含查询词」的文档整批捞进来再合并。
+    //
+    // 夹具的关键设计（否则测试会假绿）：
+    //   · 12 个填充文档名含**独立成词**的「分析」⇒ fuzzy 分支命中，分数更高；
+    //   · 靶子名为「深度学习模型分析报告」⇒ 与「分析」的编辑距离为 6，
+    //     **fuzzy 分支匹配不上**，只有子串正则能命中；
+    //   · 填充文档**先写**、靶子**后写** ⇒ 同分时 tantivy 按文档序排，靶子天然在末尾。
+    // ⇒ 主池（limit=5）必然挤掉靶子；子串池必然捞得到靶子。
+    mod w13_substring_pool {
+        use super::*;
+
+        const FILLER_COUNT: usize = 12;
+        const TARGET_NAME: &str = "深度学习模型分析报告.mp4";
+        const TARGET_TOKEN: &str = "深度学习模型分析报告";
+
+        fn build_saturated_fixture() -> (tantivy::Index, GlobalSearchIndexFields) {
+            let (schema, fields) = build_schema();
+            let index = tantivy::Index::create_in_ram(schema);
+            let mut writer = index.writer(50_000_000).unwrap();
+
+            for filler_index in 0..FILLER_COUNT {
+                let name = format!("分析 {filler_index:02}.docx");
+                writer
+                    .add_document(doc!(
+                        fields.path => format!("C:/test/{name}"),
+                        fields.name => name.clone(),
+                        fields.name_lower => name.to_lowercase(),
+                        fields.is_file => 1u64,
+                        fields.is_dir => 0u64,
+                        fields.modified_time => 0u64,
+                        fields.size => 0u64,
+                    ))
+                    .unwrap();
+            }
+
+            // 靶子**最后**写入：同分时按文档序 ⇒ 它天然排在池子末尾。
+            writer
+                .add_document(doc!(
+                    fields.path => format!("C:/test/{TARGET_NAME}"),
+                    fields.name => TARGET_NAME.to_string(),
+                    fields.name_lower => TARGET_NAME.to_lowercase(),
+                    fields.is_file => 1u64,
+                    fields.is_dir => 0u64,
+                    fields.modified_time => 0u64,
+                    fields.size => 0u64,
+                ))
+                .unwrap();
+
+            writer.commit().unwrap();
+
+            (index, fields)
+        }
+
+        /// 靶子在索引里的文档地址（按整词 term 精确取，不依赖夹具里的写入顺序）。
+        fn target_address(
+            searcher: &tantivy::Searcher,
+            fields: &GlobalSearchIndexFields,
+        ) -> tantivy::DocAddress {
+            address_of_token(searcher, fields, TARGET_TOKEN)
+        }
+
+        /// 任一填充文档（token「分析」）的文档地址。
+        fn filler_address(
+            searcher: &tantivy::Searcher,
+            fields: &GlobalSearchIndexFields,
+        ) -> tantivy::DocAddress {
+            address_of_token(searcher, fields, "分析")
+        }
+
+        fn address_of_token(
+            searcher: &tantivy::Searcher,
+            fields: &GlobalSearchIndexFields,
+            token: &str,
+        ) -> tantivy::DocAddress {
+            let term = Term::from_field_text(fields.name, token);
+            let query = TermQuery::new(term, IndexRecordOption::Basic);
+            let hits = searcher
+                .search(&query, &TopDocs::with_limit(1).order_by_score())
+                .unwrap();
+
+            hits.first()
+                .map(|(_score, address)| *address)
+                .unwrap_or_else(|| panic!("夹具里找不到 token 对应的文档：{token}"))
+        }
+
+        fn pool_contains(pool: &[tantivy::DocAddress], address: tantivy::DocAddress) -> bool {
+            pool.iter().any(|candidate| {
+                candidate.segment_ord == address.segment_ord && candidate.doc_id == address.doc_id
+            })
+        }
+
+        #[test]
+        fn saturated_primary_pool_drops_substring_only_target() {
+            let (index, fields) = build_saturated_fixture();
+            let reader = index.reader().unwrap();
+            let searcher = reader.searcher();
+            let options = create_options(false);
+            let target = target_address(&searcher, &fields);
+
+            let primary = collect_candidate_addresses(&searcher, &fields, "分析", &options, 5).unwrap();
+
+            assert_eq!(primary.len(), 5, "夹具失效：主池没被填满");
+            assert!(
+                !pool_contains(&primary, target),
+                "夹具失效：靶子不该靠主池进来（它与「分析」编辑距离 6，fuzzy 分支匹配不上）"
+            );
+        }
+
+        #[test]
+        fn substring_pool_recovers_target_and_merges_without_duplicates() {
+            let (index, fields) = build_saturated_fixture();
+            let reader = index.reader().unwrap();
+            let searcher = reader.searcher();
+            let options = create_options(false);
+            let target = target_address(&searcher, &fields);
+
+            let primary = collect_candidate_addresses(&searcher, &fields, "分析", &options, 5).unwrap();
+            let (substring, matched) =
+                collect_substring_candidate_addresses(&searcher, &fields, "分析", &options, 512, None)
+                    .unwrap();
+
+            assert_eq!(matched, FILLER_COUNT + 1, "子串命中总数应当是全部 13 条");
+            assert!(
+                pool_contains(&substring, target),
+                "子串池必须捞到只靠子串命中的靶子"
+            );
+
+            let merged = merge_candidate_pools(primary, substring);
+            assert!(pool_contains(&merged, target), "合并后靶子必须进池");
+            assert_eq!(
+                merged.len(),
+                FILLER_COUNT + 1,
+                "合并必须去重：主池 5 + 子串池 13 - 重叠 5 = 13"
+            );
+        }
+
+        #[test]
+        fn substring_only_document_reaches_final_results() {
+            let (index, fields) = build_saturated_fixture();
+            let reader = index.reader().unwrap();
+            let searcher = reader.searcher();
+            // limit 放大到 100：让「最终截断」不成为干扰项 ——
+            // W-13 的病灶在**候选阶段**，不在这一层的截断。
+            let mut options = create_options(false);
+            options.limit = 100;
+
+            let primary = collect_candidate_addresses(&searcher, &fields, "分析", &options, 5).unwrap();
+            let (substring, _matched) =
+                collect_substring_candidate_addresses(&searcher, &fields, "分析", &options, 512, None)
+                    .unwrap();
+            let candidates = merge_candidate_pools(primary, substring);
+
+            let (results, _materialized) =
+                materialize_candidates(&searcher, &fields, &options, "分析", &candidates);
+            let finalized = finalize_results(results, options.limit);
+
+            assert!(
+                finalized.iter().any(|entry| entry.name == TARGET_NAME),
+                "只靠子串命中的文档必须出现在最终结果里"
+            );
+        }
+
+        #[test]
+        fn ascii_query_produces_no_substring_channel() {
+            let (_schema, fields) = build_schema();
+            let options = create_options(false);
+
+            assert!(
+                build_substring_only_query(&fields, "midjourney", &options).is_none(),
+                "纯 ASCII 查询不该多跑一次子串检索（行为必须与改动前一致）"
+            );
+            assert!(build_substring_only_query(&fields, "分析", &options).is_some());
+        }
+
+        #[test]
+        fn exact_match_mode_produces_no_substring_channel() {
+            let (_schema, fields) = build_schema();
+            let options = create_options(true);
+
+            assert!(
+                build_substring_only_query(&fields, "分析", &options).is_none(),
+                "精确匹配模式下子串命中会被 matches_exact_name 筛掉，不该多跑一次检索"
+            );
+        }
+
+        #[test]
+        fn merge_candidate_pools_dedupes_and_keeps_primary_order() {
+            let (index, fields) = build_saturated_fixture();
+            let reader = index.reader().unwrap();
+            let searcher = reader.searcher();
+
+            let filler = filler_address(&searcher, &fields);
+            let target = target_address(&searcher, &fields);
+
+            let merged = merge_candidate_pools(vec![filler], vec![filler, target]);
+            let keys: Vec<(u32, u32)> = merged
+                .iter()
+                .map(|address| (address.segment_ord, address.doc_id))
+                .collect();
+            let filler_key = (filler.segment_ord, filler.doc_id);
+            let target_key = (target.segment_ord, target.doc_id);
+
+            assert_eq!(keys, vec![filler_key, target_key], "重复项必须去掉，主池顺序必须保留");
+        }
+
+        #[test]
+        fn substring_candidate_limit_scales_with_limit_and_is_bounded() {
+            let mut options = create_options(false);
+
+            options.limit = 10;
+            assert_eq!(substring_candidate_limit_for(&options), 4000, "少于下限时抬到 4000");
+
+            options.limit = 1000;
+            assert_eq!(substring_candidate_limit_for(&options), 4000, "limit x 4 = 4000");
+
+            options.limit = 2000;
+            assert_eq!(substring_candidate_limit_for(&options), 8000, "正常值是 limit 的 4 倍");
+
+            options.limit = 10000;
+            assert_eq!(substring_candidate_limit_for(&options), 20000, "超量时压到硬顶 20000");
         }
     }
 
