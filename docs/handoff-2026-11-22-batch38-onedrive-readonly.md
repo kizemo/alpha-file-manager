@@ -5886,3 +5886,46 @@ W-18「云盘目录作用域递归检索」的**后端**在批次 59 已做成�
   多连接混合检索排序策略；`search_files.rs` 死代码清理；扫描期间冷启首查返空；云盘索引配额最终口径。
 - **AGENTS.md §2.16 已新增三条硬事实**：`DataSource` 双实现契约（外部模式要补桩）、静默降级必须透到界面、
   CDP 取证必须先改 `tauri.conf.json` 再重打包（环境变量注入无效）。
+
+
+## 四十二、批次 66（发版轮）：版本升到 3.24.1，站点 aiec.fun + GitHub Release 对外发布
+
+**本轮定位**：批次 65 之后的发版轮，不改业务代码。发布内容 = 批次 65 的 W-18 修复（云盘目录递归检索的失败原因上屏）。
+
+**为什么是补丁号 3.24.1**：本轮唯一用户可见改动是那一处修复，`CHANGELOG` 归为 Fixed；仓库有 `3.20.1` / `3.21.1` 补丁先例，故不起 3.25.0。
+
+**1. 版本与材料（盘上回读）**
+- `package.json` = `3.24.1`；`npm run sync-version` 输出 `Cargo manifests are already synced to 3.24.1`；`src-tauri/Cargo.toml`、`default-file-manager-common/Cargo.toml`、`default-file-manager-launcher/Cargo.toml` 均 `3.24.1`，`src-tauri/Cargo.lock` 随动。`tauri.conf.json` 的 `version` 引用 `../package.json`，无需改。
+- `CHANGELOG.md` 顶部 `## [3.24.1] - November 2026`（1 Fixed + 1 Changed）；`public/changelog/ch/changelog.md` 顶部 `## [3.24.1] - 2026 年 11 月`；新建 `docs/release-notes/3.24.1.md`（**1087 B**）；`README.md` / `README.zh-CN.md` 各加变更表并改版本引用。
+- **原地发版必须 `prepare --bump none`**：`--bump` 默认 patch 会自己顶版本号（批次 64 已踩）。
+
+**2. 门禁（日志 `.superpowers/sdd/b66/check.log`）**
+`npm run check` = **Test Files 342 passed (342) / Tests 3664 passed (3664) / Duration 156.69s**；`verify-changelog` 输出「OK CHANGELOG.md 覆盖当前版本，条目顺序正确」；`verify:sandbox` 两个扩展入口均 PASS。
+
+**3. 打包**
+`.superpowers/sdd/b66/build-3241.cmd`（vcvars64 + Rust 1.90.0 钉版 + 首行 `taskkill /IM alpha-file-manager.exe /F`）后台跑，日志 `build-3.24.1.log` 末行 `[build] BUILD_EXIT=0`。产物 `release\Alpha File Manager_3.24.1_x64-setup.exe` = **46,258,933 B / sha256 `ecd332517d1644ad88133fc9a8e43622857a32fa890f2ac62da87c2ad3c26563`**。
+
+**4. 站点发布（两步：安装包先、版本清单后）**
+- `prepare --bump none --skip-build --notes-file docs/release-notes/3.24.1.md` ⇒ 站点 `version.json` = **3.24.1** / `pub_date 2026-11-26T14:06:01Z` / sha256 同上，文件 **51654 B**；3.24.0 归档进 `history[]`；安装包复制为 `Alpha_File_Manager_3.24.1_x64-setup.exe`（sha256 一致）。
+- `prepare --write-notes docs/release-notes/3.24.1.md` ⇒ 生成 `E:\办公文件\L1网站\alpha-file-manager\_release-notes-v3.24.1.md`（**1296 B**）。`github` 子命令只读该文件，漏生成就发空正文。
+- 上传分两步，每步以**服务器端 md5+size** 为准：`_upload_alpha_files.py --only 'Alpha_File_Manager_3.24.1_x64-setup.exe'`（md5 `cf6b18606d19e1cbfe67b5c369ed26fe`）→ `--files-only`（`index.html` / `.htaccess` / `version.json` / `download.php`）。
+- `release-publish.mjs verify` 公网回读通过：**版本号 / 大小 / sha256 三项均一致（源站与边缘都已生效）**，源站与边缘包均 46,258,933 B。
+
+**5. 推送与 GitHub Release**
+- 提交 `a3de6fed` `release: 3.24.1`（10 文件，含新增 `docs/release-notes/3.24.1.md`）。
+- 推送只能走站点 VPS 的 SSH SOCKS 隧道（`socks5h://127.0.0.1:11080`，转发器 `.superpowers/sdd/b64/ssh_socks.py`）；直连与本地 `127.0.0.1:7897` 代理仍是批次 64 确诊的失效状态。`db154185..a3de6fed main -> main`；**硬判据** `git ls-remote origin main` == `git rev-parse HEAD` == `a3de6fed890f01e59ede7fc325d2b7a4772bcd82`。
+- GitHub Release `v3.24.1` = <https://github.com/kizemo/alpha-file-manager/releases/tag/v3.24.1>；`gh api` 回读 `tag=v3.24.1` / `draft=False` / `prerelease=False` / 资产 `Alpha_File_Manager_3.24.1_x64-setup.exe` 46,258,933 B / `digest: sha256:ecd332517d1644ad88133fc9a8e43622857a32fa890f2ac62da87c2ad3c26563`，与本地逐字节一致。**先推 main 再发版**，tag 才落在已推送提交上。
+
+**6. `release/` 台账**
+- `mirror-check-324.mjs --apply` 判定 `release/ | Alpha File Manager_3.24.1_x64-setup.exe | MATCH | 46258933 | ecd332517d1644ad | 46258933`，`SHA256SUMS.txt` 重写为 **11 条记录**（13 行注释 + 11 条 = 24 非空行），3.24.1 行 sha256 `ecd3325…6563`。
+- **`--apply` 只重写 `SHA256SUMS.txt`**（脚本第 114–133 行），**不改 `release/README.md` 的计数** ⇒ 第 34 行 `10` → `11` 手工补。
+- `release/README.md` 的 13 / 40 两个计数与两张明细表本轮无需动（`local-builds/` 无新增）。
+- **`release/` 整体在 `.gitignore:45` 被忽略** ⇒ 台账改动不进提交，`git status` 保持干净（`STATUS=0`）。
+
+**7. 本轮未做**
+其余 13 个非中英语种 changelog 仍停在 3.22.0（用户已裁决不做）；15 个语言包仍用英文占位；`hideStatusBar` 关闭时递归检索提示不可见（已知边界）；未重建索引。
+
+**8. 可复用的坑**
+- `bash` 里把 `Set-Location` 与 `> 文件` / `Out-File` 混用会被安全策略拦（`write/delete targets cannot be verified safely after a command working directory change`）⇒ 要么只用绝对路径且不改 cwd，要么 `npm --prefix <root>`。
+- `git ls-remote` 首次报 `Operation too slow. Less than 1000 bytes/sec transferred the last 60 seconds` 是瞬时速率触发，加 `-c http.lowSpeedLimit=0 -c http.lowSpeedTime=600` 重试即恢复，不必重启隧道（隧道进程一直活着、端口在听）。
+- 连续三次 `task_output` 同一后台任务会触发「停止轮询」提醒；`| Select-Object -Last N` 会缓冲全部输出，后台任务完成前看不到增量。
