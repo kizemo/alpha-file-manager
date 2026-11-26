@@ -41,6 +41,8 @@ mod orphan_webview;
 // 与应用内跑的是同一份端点代码，不是另写一份。
 mod focus_sync_sidecar;
 mod focus_sync_supervisor;
+// `/health` 握手的纯逻辑（无 tauri），单独成模块只为能在 `cargo test --lib` 里直接测。
+mod focus_sync_health;
 pub mod mcp;
 // OneDrive（批次 38）：7 条命令都在这个顶层模块里 —— 它需要 `AppHandle`
 // （app-data 目录是读写 DPAPI 密文的唯一入口），而 `remote/` 目录是**无 tauri**的

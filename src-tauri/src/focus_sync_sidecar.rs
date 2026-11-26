@@ -25,18 +25,34 @@
 //!
 //! 注意：**不要**给侧车传 `--service` —— 该 flag 会关掉看门狗。
 //! 保留它只是为了兼容历史部署（legacy 计划任务）。
+//!
+//! 另有一处**只读**的启动握探针（批次 63，见 `spawn_health_probe`）：
+//! 侧车起来后探一次 `GET /health`，把侧车的 `version`/`mode`/扩展存活状态写进
+//! 主日志，并与扩展自己 `package.json` 里的版本比对。它**只写日志**，
+//! 既不改变监督器行为，也不因为版本不一致拒绝启动。
 
 use std::io;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
+use std::time::Duration;
 use tauri::Manager;
 
+use crate::focus_sync_health;
 use crate::focus_sync_supervisor::{Launcher, Supervisor};
 
 const SIDECAR_FILE_NAME: &str = "focus-sync-sidecar.exe";
 /// 与扩展侧 `dist/index.js`、侧车默认值保持一致的固定端口。
 const SIDECAR_PORT: u16 = 37421;
+/// 扩展自己的清单文件（VS Code 式扩展格式，`version` 就在顶层）。
+const EXTENSION_PACKAGE_FILE_NAME: &str = "package.json";
+
+/// 握手探测的总尝试次数 × 间隔 ≈ 6s：侧车从 spawn 到 listen 通常 < 1s，
+/// 余量用来覆盖「端口刚被上一次进程占用、侧车正在重试」这类慢启动。
+const HEALTH_PROBE_ATTEMPTS: u32 = 15;
+const HEALTH_PROBE_INTERVAL: Duration = Duration::from_millis(400);
+/// 单次请求超时。本地回环，2s 已经非常宽松。
+const HEALTH_PROBE_TIMEOUT: Duration = Duration::from_secs(2);
 
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -112,6 +128,9 @@ pub fn start(app: &tauri::AppHandle) {
     let supervisor = Supervisor::new(launcher);
     supervisor.start();
     app.manage(supervisor);
+
+    // 侧车刚 spawn，端口通常还没 listen 完成 —— 放到后台等，不阻塞 setup。
+    spawn_health_probe(resolve_extension_version(app));
 }
 
 /// 在 `RunEvent::Exit` 里调用：停止监督并杀掉侧车。
@@ -123,4 +142,97 @@ pub fn stop(app: &tauri::AppHandle) {
         return;
     };
     state.stop();
+}
+
+/// 读扩展自己 `package.json` 里的版本，用来和侧车 `/health` 报的版本比对。
+///
+/// 读不到就返回 `None`（老装机可能没有这个文件）—— 调用方据此静默跳过比对，
+/// 不制造假告警。
+fn resolve_extension_version(app: &tauri::AppHandle) -> Option<String> {
+    let data_dir = crate::app_dirs::app_data_dir(app).ok()?;
+    let manifest = data_dir
+        .join("extensions")
+        .join("kizemo.focus-sync")
+        .join(EXTENSION_PACKAGE_FILE_NAME);
+    let raw = std::fs::read_to_string(manifest).ok()?;
+    focus_sync_health::version_from_package_json(&raw)
+}
+
+/// 探一次 `GET /health`，把侧车版本/模式与扩展版本一起写进主日志。
+///
+/// 为什么要这个探针（批次 62 的教训）：扩展报「未连接」时，主日志里只有
+/// `focus-sync sidecar: launched pid=...`，分不清是
+/// ①侧车没起来 ②起来的是别的版本（装了扩展但侧车还是旧的）
+/// ③侧车正常、扩展从没 push 过。三者的处置完全不同，而这三条信息
+/// `/health` 里全都有 —— 以前只能另起探针手工 curl 才看得到。
+///
+/// ⚠️ 纯可观测性：不重试拉起、不 kill、不影响监督器的重启计数。
+fn spawn_health_probe(extension_version: Option<String>) {
+    tauri::async_runtime::spawn(async move {
+        let Ok(client) = reqwest::Client::builder()
+            .timeout(HEALTH_PROBE_TIMEOUT)
+            // 127.0.0.1 绝不能走系统代理：开了代理的机器会把回环请求送出去，
+            // 拿回一个代理错误页，比探针失败更容易误导排查。
+            .no_proxy()
+            .build()
+        else {
+            log::warn!("focus-sync sidecar: health probe skipped (cannot build http client)");
+            return;
+        };
+
+        let url = format!("http://127.0.0.1:{SIDECAR_PORT}/health");
+        let mut last_error = String::from("no attempt made");
+
+        for attempt in 1..=HEALTH_PROBE_ATTEMPTS {
+            match client.get(&url).send().await {
+                Ok(response) => {
+                    let status = response.status();
+                    let body = response.text().await.unwrap_or_default();
+                    if !status.is_success() {
+                        log::warn!(
+                            "focus-sync sidecar: health probe got status={status} url={url} \
+                             body={}",
+                            focus_sync_health::snippet(&body)
+                        );
+                        return;
+                    }
+                    match focus_sync_health::parse_health(&body) {
+                        Ok(snapshot) => {
+                            log::info!(
+                                "focus-sync sidecar: health {}",
+                                focus_sync_health::describe(&snapshot)
+                            );
+                            if let Some(skew) = focus_sync_health::version_skew(
+                                &snapshot.version,
+                                extension_version.as_deref(),
+                            ) {
+                                log::warn!("focus-sync sidecar: {skew}");
+                            }
+                            return;
+                        }
+                        Err(error) => {
+                            // 侧车答了但不是我们认得的格式：重试也没意义，直接记下来。
+                            log::warn!(
+                                "focus-sync sidecar: health body unreadable ({error}) url={url} \
+                                 body={}",
+                                focus_sync_health::snippet(&body)
+                            );
+                            return;
+                        }
+                    }
+                }
+                Err(error) => {
+                    last_error = error.to_string();
+                    if attempt < HEALTH_PROBE_ATTEMPTS {
+                        tokio::time::sleep(HEALTH_PROBE_INTERVAL).await;
+                    }
+                }
+            }
+        }
+
+        log::warn!(
+            "focus-sync sidecar: health probe gave up after {HEALTH_PROBE_ATTEMPTS} attempts \
+             url={url} last_error={last_error}"
+        );
+    });
 }
