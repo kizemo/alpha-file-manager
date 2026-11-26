@@ -70,12 +70,14 @@ const STUBS = {
   FileBrowserExtensionMenuItems: true,
 };
 
-function mountStatusBar(recursiveSearchError?: string | null) {
+function mountStatusBar(recursiveSearchError?: string | null, hiddenByUser?: boolean) {
   return mount(FileBrowserStatusBar, {
     props: {
       dirContents: null,
       filteredCount: 0,
       ...(recursiveSearchError === undefined ? {} : { recursiveSearchError }),
+      // 批次 67：只在调用方显式给出时才传，默认路径仍走组件自己的默认值。
+      ...(hiddenByUser === undefined ? {} : { hiddenByUser }),
     },
     global: {
       stubs: STUBS,
@@ -105,5 +107,39 @@ describe('file-browser-status-bar · 批次 65（W-18）递归搜索失败提示
     const wrapper = mountStatusBar();
 
     expect(wrapper.find('[data-file-browser-recursive-search-error]').exists()).toBe(false);
+  });
+});
+
+// FORK-MODIFICATION: 批次 67 —— 「隐藏状态栏」不能把递归检索失败一起隐藏。
+//
+// 批次 65 把提示安在状态栏里，于是 `hideStatusBar` 为真的 pane 又回到静默降级，
+// 那条修复对这类用户完全失效。规则收在状态栏自己身上：
+// 隐藏只对「无事发生」生效；有错误就必须露面。
+//
+// 为什么测这里：真正会踩坑的是「隐藏 + 有错」的组合，而 file-browser.vue 没有
+// 现成的挂载夹具（依赖 fb / stores / DataSource）。规则搬进状态栏后，
+// 这个组合可以在 DOM 层直接验证，而不是去 grep 源码字符串。
+describe('file-browser-status-bar · 批次 67 隐藏状态栏时错误仍然可见', () => {
+  it('隐藏 + 有错误：整条状态栏出现，错误节点带着后端原文', () => {
+    const wrapper = mountStatusBar(BACKEND_ERROR, true);
+
+    expect(wrapper.find('.file-browser-status-bar').exists()).toBe(true);
+    const notice = wrapper.find('[data-file-browser-recursive-search-error]');
+    expect(notice.exists()).toBe(true);
+    expect(notice.text()).toContain(BACKEND_ERROR);
+  });
+
+  it('隐藏 + 无错误：整条状态栏不渲染（隐藏依然生效）', () => {
+    const wrapper = mountStatusBar(null, true);
+
+    expect(wrapper.find('.file-browser-status-bar').exists()).toBe(false);
+    expect(wrapper.find('[data-file-browser-recursive-search-error]').exists()).toBe(false);
+  });
+
+  it('不隐藏 + 有错误：行为与批次 65 一致', () => {
+    const wrapper = mountStatusBar(BACKEND_ERROR, false);
+
+    expect(wrapper.find('.file-browser-status-bar').exists()).toBe(true);
+    expect(wrapper.find('[data-file-browser-recursive-search-error]').exists()).toBe(true);
   });
 });

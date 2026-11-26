@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.24.2] - November 2026
+
+**Summary:** A recursive search that cannot run inside a netdisk folder now says so even when the status bar of the file browser is turned off - which is exactly where that message lives. Nothing else changes, and no index has to be rebuilt.
+
+### What changed
+
+**Fixed** **The warning survives a hidden status bar** - 3.24.1 put the warning into the status bar: a recursive search that cannot run says that it is unavailable, that only the current folder was searched, and the reason the backend gave. Turning the status bar off, however, removed the whole bar from the page, and the warning went with it - on such a pane the list was once more a short list with no explanation. The bar now comes back for that one reason and stays out of the way the rest of the time.
+
 ## [3.24.1] - November 2026
 
 **Summary:** A recursive search that cannot run inside a netdisk folder no longer comes back as a short list with no explanation - the status bar says that the recursive search is unavailable and that only the current folder was searched, together with the reason the backend gave. What the current folder holds is still listed and filtered as before, so nothing that used to work is taken away.

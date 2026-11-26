@@ -443,8 +443,12 @@ defineExpose({
       @update:search-result-limit="fb.setResultLimit"
     />
 
+    <!-- FORK-MODIFICATION: 批次 67 —— 「隐藏状态栏」只对常态生效。
+         这里不再用 v-if 一刀切：递归检索失败时状态栏必须露面，
+         否则批次 65 加的提示在这些 pane 上等于不存在。
+         判定逻辑在 file-browser-status-bar.vue 内部（hiddenByUser）。 -->
     <FileBrowserStatusBar
-      v-if="!hideStatusBar"
+      :hidden-by-user="hideStatusBar"
       :dir-contents="fb.dirContents.value"
       :filtered-count="fb.entries.value.length"
       :selected-count="fb.selectedEntries.value.length"

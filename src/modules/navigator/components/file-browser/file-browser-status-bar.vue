@@ -62,12 +62,18 @@ const props = withDefaults(defineProps<{
   // FORK-MODIFICATION: 批次 65（W-18）—— 递归搜索失败时的后端原文。
   // 非 null 时状态栏显示一条可见提示，而不是静默退回「只搜当前层」。
   recursiveSearchError?: string | null;
+  // FORK-MODIFICATION: 批次 67 —— 调用方（file-browser.vue）把 `hideStatusBar`
+  // 通过这个 prop 传进来，由状态栏自己决定「隐身还是露面」。
+  // 为什么不在父组件用 v-if 一刀切：那样批次 65 的提示会跟着一起消失，
+  // 等于回到静默降级。规则收在这里，单一样式来源，也能被 DOM 测试直接验证。
+  hiddenByUser?: boolean;
 }>(), {
   selectedCount: undefined,
   selectedEntries: undefined,
   isSplitView: false,
   isActivePane: false,
   recursiveSearchError: null,
+  hiddenByUser: false,
 });
 
 const emit = defineEmits<{
@@ -337,6 +343,7 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
 
 <template>
   <div
+    v-if="!hiddenByUser || recursiveSearchError"
     class="file-browser-status-bar"
     :class="{ 'file-browser-status-bar--active-pane': showActivePaneIndicator }"
   >
