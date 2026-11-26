@@ -162,6 +162,12 @@ SFTP/FTP/FTPS 远程服务器、目录递归比较与同步、批量改名，以
 | ![仪表板快速访问](docs/screenshots/afm-dashboard-hero-light-zh.png) | **快速访问** —— 收藏按分类分组，带缩略图、大小与「X 小时前」 |
 | ![仪表板卡片](docs/screenshots/afm-dashboard-card-enrichment-zh.png) | **仪表板卡片** —— 上层是名称、大小与路径，下层是类型与条目数，每张卡片自带拖动、排序与编辑快捷操作 |
 
+### 3.24.1 改了什么
+
+| | | |
+|---|---|---|
+| 🧭 | **递归检索跑不起来时会明说** —— 在网盘目录里检索、或在不参与全局索引的远程连接里检索时，这条通道只能走当前打开的文件夹；以前失败被吞掉，列表只安静地显示当前层的命中项，看上去就像「更深的地方没有匹配」。现在状态栏会带一条告警：递归搜索不可用、仅搜索了当前层，并把后端给出的原因写出来 —— 对网盘来说，就是这个连接没有勾选「加入全局检索」 |
+
 ### 3.24.0 改了什么
 
 | | | | 
@@ -368,7 +374,7 @@ SFTP/FTP/FTPS 远程服务器、目录递归比较与同步、批量改名，以
 ## 📦 下载与安装
 
 **主要下载入口：** [**www.aiec.fun/alpha-file-manager**](https://www.aiec.fun/alpha-file-manager/)
-—— 应用自己检查更新的也是这个通道。当前版本是 **3.24.0**。
+—— 应用自己检查更新的也是这个通道。当前版本是 **3.24.1**。
 
 | | 平台 | 怎么装 |
 |---|---|---|
@@ -377,7 +383,7 @@ SFTP/FTP/FTPS 远程服务器、目录递归比较与同步、批量改名，以
 | 🐧 | **Linux** | 从源码构建（`.deb` / `.AppImage`），见[从源码构建](#-从源码构建) |
 
 GitHub Releases 里放的是同一个安装包，作为备用镜像：
-[releases/latest](https://github.com/kizemo/alpha-file-manager/releases/latest) —— 3.24.0 也在那里。
+[releases/latest](https://github.com/kizemo/alpha-file-manager/releases/latest) —— 3.24.1 也在那里。
 
 > **Windows 版本未做代码签名**，所以 SmartScreen 会提示「未知发布者」——
 > 点「更多信息 → 仍要运行」。原地升级会保留你的设置、扩展与窗口布局。

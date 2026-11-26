@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.24.1] - November 2026
+
+**Summary:** A recursive search that cannot run inside a netdisk folder no longer comes back as a short list with no explanation - the status bar says that the recursive search is unavailable and that only the current folder was searched, together with the reason the backend gave. What the current folder holds is still listed and filtered as before, so nothing that used to work is taken away.
+
+### What changed
+
+**Fixed** **A recursive search that cannot run now says so** - Searching inside a folder of a netdisk, or inside a remote connection that is not part of the global index, could only walk the folder that was open. The failure was swallowed and the list quietly showed the hits of the current folder, which reads exactly like "nothing deeper matches". The status bar now carries a warning: the recursive search is unavailable and only the current folder was searched, followed by the reason the backend gave - for a netdisk, that is the connection not being ticked for the global search, so the index is out of reach. The current folder is still filtered as before.
+
+**Changed** **The new status line is in English in 15 of the 17 languages for now** - The warning is written out in Chinese and English. The other 15 language packs carry the English text until they are translated.
+
 ## [3.24.0] - November 2026
 
 **Summary:** A search that is meant to stay inside one folder of a netdisk now really looks in that folder instead of stopping at the edge of the cloud index - and when it cannot answer, it says which of the four preconditions is missing. The arrow keys belong to the search result list again, so they no longer move the file browser behind the panel. A Chinese search term is found considerably faster. And the app log now tells you what the Focus Sync sidecar is doing, so an extension that reports "not connected" can be told apart from one that never reached the sidecar at all.

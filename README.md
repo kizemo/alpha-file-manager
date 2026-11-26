@@ -172,6 +172,12 @@ Adding a netdisk here has none of that:
 | ![Dashboard quick access](docs/screenshots/afm-dashboard-hero-light-en.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
 | ![Dashboard cards](docs/screenshots/afm-dashboard-card-enrichment-en.png) | **Dashboard cards** — name, size and path on top, type and item count below, with drag, reorder and edit shortcuts on every card |
 
+### What changed in 3.24.1
+
+| | | |
+|---|---|---|
+| 🧭 | **A recursive search that cannot run now says so** — searching inside a folder of a netdisk, or of a remote connection that is not part of the global index, could only walk the folder that was open; the failure was swallowed and the list quietly showed the hits of the current folder, which reads exactly like "nothing deeper matches". The status bar now carries a warning that the recursive search is unavailable and that only the current folder was searched, with the backend's own reason spelled out — for a netdisk, that is the connection not being ticked for the global search |
+
 ### What changed in 3.24.0
 
 | | | | 
@@ -398,7 +404,7 @@ they compare.
 
 **Primary download:** [**www.aiec.fun/alpha-file-manager**](https://www.aiec.fun/alpha-file-manager/)
 — this is the update channel the app itself checks. The current release is
-**3.24.0**.
+**3.24.1**.
 
 | | Platform | How |
 |---|---|---|
@@ -408,7 +414,7 @@ they compare.
 
 GitHub releases carry the same installer and act as a fallback mirror:
 [releases/latest](https://github.com/kizemo/alpha-file-manager/releases/latest) —
-3.24.0 is there as well.
+3.24.1 is there as well.
 
 > **Windows builds are unsigned**, so SmartScreen reports *"Unknown publisher"* —
 > click **More info → Run anyway**. Upgrading in place keeps your settings,
