@@ -5357,3 +5357,23 @@ PUSH raw="E:/办公文件" matched=undefined status=404
 3. 遗留 1/2（提交信息英文化、13 个非中英语种 changelog / W-22）用户已裁决**不做**，后续轮不要自行捡回。
 4. 外部人工环节：winget 版主审批（催审评论 7182189978 已发）、HelloGitHub 登录态收录。
 5. `docs/bugs-found-unowned.md` 仍未登记（用户此前未采纳）。
+
+### 三十六·7 交付回执（盘上回读；本节最后追加）
+
+1. **提交/推送**：`e1e0a506` `fix(global-search): keep arrow keys owned by the result list`，**5 files / +354 / −4**；
+   推送 `6b5a6ccf..e1e0a506 main -> main` 走代理单次 `-c http.proxy=https.proxy=127.0.0.1:7897`（直连 schannel 握手失败）；
+   提交后 `git status --porcelain -uall` **全空**。`src-tauri/tauri.conf.json` 的取证旗标已 `git checkout --` 回滚（复验命中 **0**），**未进 commit**。
+2. **干净门禁**（回滚 conf 后复跑）：**`Test Files 340 passed (340)` / `Tests 3652 passed (3652)` / `Duration 115.38s` / `EXIT=0`**，
+   较首轮 3641 多 **11 条** = 本轮新增的方向键归属守卫。落盘 `.superpowers/sdd/b59/gate3.txt`。
+3. **干净 exe**：`src-tauri\target\release\alpha-file-manager.exe` **85,987,328 B** / mtime **15:47:49** /
+   SHA256 `3F8BE410666EFA0033938C4945B4D80C46F480192FF5AB9A7DAE819A283FE7F8`；
+   `b45\check-cdp-flag.ps1 -Exe <该 exe>` ⇒ **`CDP_FLAG_PRESENT=False` / `ALLOW_ORIGINS_PRESENT=False` / `CHECK_EXIT=0`**。
+4. **安装器**：`...\bundle\nsis\Alpha File Manager_3.23.0_x64-setup.exe` **46,195,584 B** / mtime **15:47:47** /
+   SHA256 `7730D58C1BC0500C0A89D2A7C57B6F198865EF494C0C84197557741AB4CC4ED9`；publish 落 `release\local-builds\`（**未覆盖已发布资产镜像**）。
+5. **二重核验（比容器搜索更硬）**：`7z e` 解出包内 `alpha-file-manager.exe` **85,987,328 B**（与磁盘 exe **同尺寸**），ASCII 扫
+   `remote-debugging-port` / `remote-allow-origins` 均 **False**；包内 `focus-sync-sidecar.exe`、`uninstall.exe` 同判 False。
+   解包目录 `.superpowers/sdd/b59/w19-setup-verify\`。⚠️ **包内 exe 的 SHA 与 `target\release` 那个不等**（NSIS 打包阶段注入差异，
+   本项目 Rust 构建本就非字节可复现）⇒ 判「干净」用**同尺寸 + 同 False 扫描**，**不比对 SHA**（否则会把已知现象当缺陷）。
+6. **边界（勿误读）**：界面真机判据来自 **round 4 取证版**（与干净版同一 commit `84055071`、同一探针字节，仅差 conf 旗标）；
+   干净交付包**没有再跑一次界面**——它不带 CDP 通道，再跑得重新注旗标重打。即「修复已在真机验证过」+「交付包不含取证仪器」
+   是两份二进制，这是本项目取证路线的固有代价，不是遗漏。round 5 补充探针（Home/End、Shift 选区保持）脚本 `b59/w19-forensic5.ps1` 已就位未执行。
