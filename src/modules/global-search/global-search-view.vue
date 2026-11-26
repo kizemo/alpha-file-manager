@@ -270,11 +270,61 @@ function extendSelectionTo(index: number) {
   setSelectedEntries(range.length > 0 ? range : applyGlobalSearchSingleSelection(entry));
 }
 
-function handleResultNavigate(direction: GlobalSearchNavigateDirection, extend: boolean) {
+/**
+ * 批次 59 · W-19：焦点是否落在「可输入」元素上。
+ *
+ * 方向键的归属要分两种情况：焦点在搜索输入框时，↓ 的既有行为是 `focusFirstResult`
+ * （模板上的 `@keydown.down.prevent`，见根元素附近），不能被结果列表抢走；
+ * 焦点在结果列表本身（`role="listbox"`）时，↑/↓ 才由本面板逐行移动。
+ */
+function isEditableFocusTarget(): boolean {
+  const activeElement = document.activeElement as HTMLElement | null;
+
+  if (!activeElement) {
+    return false;
+  }
+
+  if (activeElement.isContentEditable) {
+    return true;
+  }
+
+  const tagName = activeElement.tagName;
+
+  return tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT';
+}
+
+/**
+ * 批次 59 · W-19：↑/↓ 此刻该不该由搜索面板处理 —— 供导航页的全局快捷键调用。
+ *
+ * 导航页把裸 ArrowUp/ArrowDown 注册成了 `scope: 'navigator'` 的 navigateUp/navigateDown，
+ * 监听点在 `document` 的 capture 阶段（`stores/runtime/shortcuts.ts` 的 startGlobalListener），
+ * 于是它先于本面板 listbox 的 keydown 拿到事件，条件（非输入框、非对话框）一通过就去移动
+ * 导航格选中项；而导航格选择一变，navigator.vue 的 handleSelectionChange 会反过来
+ * 调 clearSelections() 把面板的 focusedPath 清空。更糟的是快捷键一旦「已处理」就会
+ * preventDefault() + stopPropagation()，capture 阶段的 stop 让事件永远到不了 listbox，
+ * 本面板的 handleListKeydown 连一次都没跑 —— 表现即为「第一次按方向键，焦点就从搜索
+ * 列表整体逃逸到背景文件浏览器」。这与批次 C1 修过的 Ctrl+A 是同一类缺陷。
+ *
+ * 判据只认「焦点确实在面板内 + 不在输入框 + 有可见结果」三条，缺一条就交还给导航格，
+ * 保证不吞掉原本可用的按键。
+ */
+function ownsArrowNavigation(): boolean {
+  if (!isPanelFocused.value || isEditableFocusTarget()) {
+    return false;
+  }
+
+  return allEntries.value.length > 0;
+}
+
+/**
+ * 批次 59 · W-19：把一次方向键导航落到搜索结果上。
+ * 返回「这一击是否被本面板消费」，调用方（全局快捷键）据此决定是否放行给导航格。
+ */
+function navigateResults(direction: GlobalSearchNavigateDirection, extend = false): boolean {
   const entries = allEntries.value;
 
   if (entries.length === 0) {
-    return;
+    return false;
   }
 
   const currentIndex = focusedPath.value ? findGlobalSearchResultIndex(entries, focusedPath.value) : -1;
@@ -292,10 +342,16 @@ function handleResultNavigate(direction: GlobalSearchNavigateDirection, extend: 
 
   if (extend) {
     extendSelectionTo(nextIndex);
-    return;
+  }
+  else {
+    focusEntryAt(nextIndex);
   }
 
-  focusEntryAt(nextIndex);
+  return true;
+}
+
+function handleResultNavigate(direction: GlobalSearchNavigateDirection, extend: boolean) {
+  navigateResults(direction, extend);
 }
 
 function handleResultActivate() {
@@ -437,6 +493,9 @@ defineExpose({
   clearSelections,
   getSelectedEntries,
   isSearchPanelFocused,
+  // 批次 59 · W-19：方向键归属与导航入口，供导航页的全局快捷键调用。
+  navigateResults,
+  ownsArrowNavigation,
   selectAllResults,
   startRename,
 });

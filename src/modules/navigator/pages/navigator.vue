@@ -125,6 +125,10 @@ type GlobalSearchViewInstance = InstanceType<typeof GlobalSearchView> & {
   getSelectedEntries?: () => DirEntry[];
   isSearchPanelFocused?: () => boolean;
   selectAllResults?: () => void;
+  // FORK-MODIFICATION 批次 59 · W-19：方向键的归属判断与导航入口。
+  // 返回 true 表示这一击已被搜索结果列表消费。
+  ownsArrowNavigation?: () => boolean;
+  navigateResults?: (direction: 'next' | 'previous' | 'first' | 'last', extend?: boolean) => boolean;
   startRename?: (entry: DirEntry) => void;
 };
 
@@ -1606,6 +1610,32 @@ function callActivePaneNavigate(
   if (hasBlockingDismissalLayersForNavigatorShortcuts()) return false;
 
   if (hasBlockingRekaDismissableLayersForNavigatorShortcuts()) return false;
+
+  // FORK-MODIFICATION 批次 59 · W-19：↑/↓ 归搜索结果列表时，绝不能落到导航格上。
+  //
+  // 裸 ArrowUp/ArrowDown 在 shortcuts.ts 里是 scope:'navigator' 的 navigateUp/navigateDown，
+  // 监听点在 document 的 capture 阶段，于是它比搜索面板 listbox 的 keydown 先拿到事件；
+  // 面板不是对话框、焦点也不在输入框，conditions 全通过，于是直接移动导航格选中项。
+  // 而导航格选择一变，本文件的 handleSelectionChange 会反过来 clearSelections() 清掉面板的
+  // focusedPath，快捷键「已处理」还会 preventDefault()+stopPropagation() 让事件到不了 listbox ——
+  // 真机表现即第一次按方向键焦点就从搜索列表整体逃逸到背景文件浏览器。
+  // 与批次 C1 修过的 Ctrl+A 同源，当时只补了 selectAll，漏了方向键。
+  //
+  // 判据交给面板自己（焦点在面板内 + 不在输入框 + 有可见结果），
+  // 交还不回来就按原逻辑走导航格，保证不吞掉原本可用的按键。
+  // navigateLeft/navigateRight 不在搜索结果列表的按键契约内，保持原有导航格行为。
+  if (method === 'navigateUp' || method === 'navigateDown') {
+    const searchView = globalSearchViewRef.value;
+
+    if (searchView?.ownsArrowNavigation?.()) {
+      if (searchView.navigateResults?.(
+        method === 'navigateUp' ? 'previous' : 'next',
+        isExtendSelectionShortcutEvent(event),
+      )) {
+        return true;
+      }
+    }
+  }
 
   const pane = getActivePaneRef();
 

@@ -5240,3 +5240,120 @@ PUSH raw="E:/办公文件" matched=undefined status=404
 3. 三十四·4 的 `status=404` 路由兜底线索值得单独开项排查。
 4. 外部人工环节本会话推不动：winget 版主审批（催审评论 7182189978 已发）、HelloGitHub 登录态收录。
 5. 提醒：每次取证脚本的 `pre-stop` 与 `teardown` 都会杀 `alpha-file-manager.exe`，操作员自己开着的实例可能已被关。
+
+---
+
+## 三十五、批次 59 · W-19 修复轮：方向键归属搜索结果列表（代码已落盘，真机复验进行中）
+
+用户指令「W-19焦点逃逸，现在修。修好后，打干净包」⇒ 本轮先修 W-19，再走「取证包复验 → 回滚 conf → 干净交付包」两次构建。
+
+### 三十五·1 根因（本轮读实源码逐环坐实，非推断）
+
+§三十四 的真机判据是「**第一次**按方向键，焦点就从搜索列表整体逃逸到背景文件浏览器」——注意面板**没关**，只是 `focusedPath` 变 null、`activeElement` 落到 `file-browser-list-view__entry`。源码链条：
+
+1. `src/stores/runtime/shortcuts.ts:583-609` 把裸 `ArrowUp` / `ArrowDown` 注册为 `scope: 'navigator'` 的 `navigateUp` / `navigateDown`，`conditions` 只有 `{inputFieldIsActive: false, dialogIsOpened: false}`（`shortcuts.ts:39-43`）+ `optionalShift: true` —— **不排除「焦点在搜索结果列表」**。
+2. `shortcuts.ts:2078-2083 startGlobalListener` 把监听挂在 `document` 的 **capture 阶段**（`:true`），所以它比面板 listbox 上冒泡阶段的 `handleListKeydown`（`global-search-result-list.vue:255`）**先拿到事件**。
+3. `shortcuts.ts:1985-2038 handleKeydown` 判定「已处理」后 `preventDefault()` + `stopPropagation()`（`:2029-2032`）⇒ **listbox 的按键处理一次都没跑**，这解释了为什么面板自身的 ↑/↓ 逻辑形同不存在。
+4. 快捷键处理器落到 `navigator.vue:1696-1699` 注册的 `callActivePaneNavigate('navigateUp'|'navigateDown')` → `pane.navigateUp()/navigateDown()`，即**移动的是背景导航格**。
+5. 导航格选中一变 → `navigator.vue:830-848 handleSelectionChange` 因 `entries.length > 0` 调 `globalSearchViewRef.value?.clearSelections?.()` ⇒ 面板 `focusedPath` 被清空。第 3 步的 stop 又让事件下不去 ⇒ 焦点既不在面板也不在 listbox，就落在背景列表上。
+
+**两条排除性证据**（防误判）：
+- `utils/disable-web-view-features.ts` 全文读过，只 preventDefault 了 Alt+方向键、Ctrl/Cmd+F、Ctrl/Cmd+P、contextmenu ⇒ **不是元凶**。
+- `grep` `shortcuts.ts` 里 `key: 'Home'` / `key: 'End'` **零命中** ⇒ 面板的 Home/End 本来就正常，**只有 ↑/↓ 被抢**，与「capture 阶段快捷键只注册了上下键」完全自洽，反向印证根因。
+
+### 三十五·2 修法：归属判断 + 显式转交（与批次 C1 的 Ctrl+A 同构）
+
+刻意**不**走「让 shortcut handler 返回 false 使事件继续传播到 listbox」——capture 阶段已 stop，且原生行为不确定；显式路由**可单测、行为确定**。
+
+改动 **2 个文件**：
+
+- `src/modules/global-search/global-search-view.vue` 新增并 `defineExpose`：
+  - `ownsArrowNavigation()`（`:311`）三条件**缺一不可**：`isPanelFocused.value` + `!isEditableFocusTarget()` + `allEntries.value.length > 0`。保住「焦点在搜索输入框时按 ↓ 走 `focusFirstResult`（模板 `@keydown.down.prevent`）」这一既有行为，也保证**结果集为空时不劫持方向键**。
+  - `isEditableFocusTarget()`：`isContentEditable` 或 tagName ∈ {INPUT, TEXTAREA, SELECT}。
+  - `navigateResults(direction, extend = false)`（`:323`）返回「是否被本面板消费」；无焦点行时落首行，`next` 用 `Math.min(currentIndex+1, len-1)`、`previous` 用 `Math.max(currentIndex-1, 0)` 夹边界，`last` 取 `len-1`；`extend` 为真走 `extendSelectionTo`（Shift 连选）否则 `focusEntryAt`。
+  - `handleResultNavigate` 改为**委托** `navigateResults`，让 listbox 冒泡路径与快捷键转交路径共用同一实现，不再有第二套索引算术。
+- `src/modules/navigator/pages/navigator.vue`：`GlobalSearchViewInstance`（`:121-131`）补两个可选成员；`callActivePaneNavigate`（`:1606+`）在**两个 blocking-layer 检查之后、取 pane ref 之前**插归属守卫，只对 `navigateUp`/`navigateDown` 生效，交还不回来就按原逻辑走导航格（**不吞原本可用的按键**）。`navigateLeft/navigateRight` 不在搜索结果列表按键契约内，**不动**；`isSearchSelectionActive` **刻意不用**（批次 C1 的 Ctrl+A 用它，但鼠标点过 pane 空白处后方向键会被误抢）。
+
+### 三十五·3 回归守卫测试（源码文本断言范式）
+
+新增 `src/modules/navigator/pages/__tests__/navigator-arrow-ownership-global-search.test.ts`，**11 条**断言，钉住：归属守卫存在且在取 pane ref **之前**、守卫在 blocking-layer **之后**、只截上下键不碰左右键、`ownsArrowNavigation` 三条件、`navigateResults` 夹边界、两条路径共用同一实现、输入框不算拥有、且**不允许改回无条件透传**。沿用项目既有范式（同目录 `navigator-escape-global-search.test.ts` 亦为 `readFileSync` + `sliceFunction` + 正则），原因见三十四·7：私有桌面沙箱拿不到 OS 级键盘注入，**行为级证据只能真机取**。
+
+**盘上回读（本轮实测）**：`npx vue-tsc --noEmit -p tsconfig.json` ⇒ `TSC_EXIT=0`；`npx vitest run src/modules/navigator/pages/__tests__ src/modules/global-search` ⇒ **6 个文件 / 52 条用例全绿 / VITEST_EXIT=0**。完整门禁 `npm run check` 尚未复跑（排在真机复验之后）。
+
+### 三十五·4 本轮结论的可信度分级
+
+- **已验证**：根因链条的每一环（读实源码 + §三十四 真机判据双向吻合）；类型检查通过；定向单测通过；取证包已注入 CDP（`node .superpowers/sdd/b45/patch-cdp.cjs on` → conf `:28 "additionalBrowserArgs": "--remote-debugging-port=45777 --remote-allow-origins=*"`）。
+- **推断（尚未证实）**：修复真的让 ↑/↓ 在面板内逐行移动 —— 只有源码形态对，**行为级证据必须等带 CDP 的新包在隔离桌面按键取证**。
+- **未验证**：真机复验、干净交付包、`check-cdp-flag.ps1 -Exe` 判 `False`、完整门禁、提交推送。
+
+### 三十五·5 本轮新增工具坑（三条，都是本轮现场踩的）
+
+1. **`import.meta.url` 在本项目 vitest 环境里不是 `file:` scheme** ⇒ `readFileSync(new URL('../x.vue', import.meta.url))` 直接 `TypeError: The URL must be of scheme file`（`ERR_INVALID_URL_SCHEME`，套件级失败）。正解是项目先例的姿势：`readFileSync(resolve(process.cwd(), 'src/...'), 'utf8')`。（§三十四 之前记的「先例用 new URL」是错的，先例用的是 `process.cwd()`。）
+2. **源码文本守卫不能用注释里出现过的词做 `not.toMatch`** —— 我为根因写的说明注释里含 `clearSelections()` 字样，把 `not.toMatch(/clearSelections/)` 打红了。判据要收紧到真实调用形态 `clearSelections?.()`。
+3. **`publish-bundle-to-release.mjs` 已内置保护**：目标同名文件存在但内容不同 ⇒ 改写到 `release/local-builds/` 并告警，**绝不覆盖已发布资产**。所以带 CDP 的取证包不会污染 `release/` 顶层的 3.23.0 镜像——这条本轮读实，后续轮不必再为此单独设防。
+
+### 三十五·6 下一步计划（按顺序）
+
+1. 等 `b59/w19-build-cdp.log` 出现 `BUILD_EXIT=0`（约 30–40 分钟，后台任务 `bg_c7aa6a32`），跑 `b59/w19-forensic3.ps1` 同源姿势在**隔离桌面**复验：判据应为 **首次 ArrowDown 后 `focusedIndex=1`、`activeElement` 仍是 `global-search-result-list`、五次按键全程 `focusedIndex` 非 null 且单调**。
+2. 复验通过 ⇒ `git checkout -- src-tauri/tauri.conf.json` 回滚，重打干净交付包，`b45/check-cdp-flag.ps1 -Exe target\release\alpha-file-manager.exe` 要求 **`CDP_FLAG_PRESENT=False`**（跑 setup.exe 无效，NSIS 容器是假阴性）。
+3. 台账（本节 + open-items 行）在门禁**之前**落盘，然后复跑 `npm run check`，再提交推送；本轮**不发布、不动版本号**（仍 3.23.0）。
+4. 复验若仍为负 ⇒ 说明还有第二条抢键路径（候选：`openSelected` shortcut `key:'Enter'` + `dirItemIsSelected:true` 可能以同样机制抢走 listbox 的 Enter→activate），据实回填判据，不要为了交包而宣布修好。
+5. 三十四·4 的 `PUSH raw="E:/办公文件" matched=undefined status=404` 路由兜底线索仍待单独开项。
+6. 外部人工环节本会话推不动：winget 版主审批（催审评论 7182189978 已发）、HelloGitHub 登录态收录。
+
+## 三十六、批次 59 · W-19 真机复验判据转正（焦点不再逃逸）+ 干净交付包
+
+### 三十六·1 背景与目标
+
+用户指令「W-19焦点逃逸，现在修。修好后，打干净包」。§三十五 已把修复代码 + 11 条回归守卫落盘（改 `global-search-view.vue` 与 `navigator.vue` 两个文件，形态与行号见 §三十五·2/·3），本轮任务是**用真机界面证据把判据转正**，再回滚临时 CDP 旗标、重打**可交付**的干净包。
+
+### 三十六·2 取证包与真机复验（round 4，判据转正）
+
+带 CDP 的取证版由 `b59/w19-build-cdp.cmd` 产出：`Finished \`release\` profile [optimized] target(s) in 4m 28s` / `BUILD_EXIT=0`，exe `85,957,120 B`、mtime **2026-11-26 15:34:15**，`b45/check-cdp-flag.ps1 -Exe` 判 **`CDP_FLAG_PRESENT=True`** —— 这是**故意含旗标**的取证版，用来证明「跑的就是含修复的这份产物」。
+
+复验脚本 `.superpowers/sdd\b59\w19-forensic4.ps1`（隔离桌面 → 启动器 → boot 探针 → CDP 方向键探针 → teardown）。**探针与 round 3 的阴性基线字节同一**（`b59/cdp-arrow.cjs` 未改一个字符，只把落点换成 `b59/cdp-arrow-out4` / `b59/w19-arrow4.log`），因此**判据翻转只能归因于被测程序变了**。
+
+启动侧：`sandbox desktop created: AFM-B56CDP-33950`、`pid=68564`、`visible windows=3`、`MCP(55100)=READY_401`、`CDP(45777)=READY_PAGES_1`、`LAUNCH_EXIT=0`；boot 探针 `P3_READY=true` / `P3_EXCEPTIONS=0` / `CONSOLE_LINES=68` / `BOOT_READY=True`。
+
+主判据（`ARROW_EXIT=0`，needle/query 均为 `Midjourney`）：
+
+| 判据 | round 3（修复前） | round 4（修复后） |
+| --- | --- | --- |
+| `V_panelOpen` | true | true |
+| `V_resultsRendered` | true rows=39 | true rows=39 |
+| `V_focusedRowAlwaysPresent` | **false** | **true** |
+| `V_focusedNameChangedEveryPress` | **false** | **true** |
+| `V_focusMovedDownStrictly` | **false** | **true** |
+| `V_focusMovedByExactlyOneRow` | **false** | **true** |
+| `V_pixelsNonBlank / V_shotsTaken` | 6 / 6 | 6 / 6 |
+
+实测序列：`AFTER_CLICK focusedIndex="0"` → `down-1 "1"` → `down-2 "2"` → `down-3 "3"` → `down-4 "4"` → `up-1 "3"` → `up-2 "2"`；六次按键后 `activeClass` **恒为** `sigma-ui-context-menu-trigger global-search-result-list`（焦点始终在列表内、未落到背景行）。证据：`b59/w19-launch4.log`、`b59/w19-boot4.log`、`b59/boot4-out/`、`b59/w19-arrow4.log`、`b59/cdp-arrow-out4/cdp-arrow-report.json`、`b59/cdp-arrow-out4/arrow-*.png`（908,774–955,624 B）。round 3 阴性基线（`w19-arrow3.log` / `cdp-arrow-out3`）未被覆盖，仍有效，构成前后对照。
+
+**裁决：W-19 焦点逃逸缺陷已修复，且取得界面级行为证据（非仅源码形态）。** §三十五·6 第 4 条设想的「第二条抢键路径」候选（`openSelected` 抢 Enter）本轮未触发 —— 方向键路径已干净，Enter 行为不在本次指令范围内，未动。
+
+### 三十六·3 补充探针（选区保持 / Home / End）——仪器缺陷，未取到追加证据
+
+`b59/cdp-arrow-extra4.cjs`（round 4 主判据之后跑）**EXTRA_EXIT=2**，属**仪器自身缺陷而非产品缺陷**：`Ctrl+F` 是 **toggle**，主判据跑完后面板仍处打开态，补充探针再按一次 ⇒ **把面板关掉**（`listVisible=false`、`visibleInputs=0`），随后 40s 空等 ⇒ `throw 'no visible result row to click'`。已就地修好主体逻辑（`PANEL_OPEN_EXPR` 只认 `.global-search-view` 的可见尺寸、严禁回退到 `[class*=global-search]`；`ensurePanelClosed/ensurePanelOpen` 各最多 4 次；等待循环应改按 `panelOpen && rowCount>0` 判）。**该探针未复跑**：主判据已满足验收，选区保持与 Home/End 属追加证据、不是放行前提，且 §三十五·3 的 11 条源码守卫 + 定向 vitest 52 用例（含 Home/End 与 extend 分支）已覆盖其形态。`b59/w19-forensic5.ps1` 已备好，后续若要补这份证据直接跑它。
+
+### 三十六·4 干净交付包（本轮收口）
+
+1. `git checkout -- src-tauri/tauri.conf.json` 回滚 CDP 旗标（该文件**绝不进 commit**），复验 `Select-String` 命中数 **0**。
+2. `b59/w19-build-clean.cmd` 内置防呆：先 `findstr` 检查 conf，若仍含 `remote-debugging-port` / `remote-allow-origins` 则写 `CONF_HAS_CDP_ABORT` + `CLEAN_BUILD_EXIT=90` 直接退出；通过才 `taskkill /IM alpha-file-manager.exe /F` 再 `call npm run tauri:build`，日志写 `CONF_CLEAN_OK`。
+3. 交付判据只认 **`b45/check-cdp-flag.ps1 -Exe target\release\alpha-file-manager.exe` 的 `CDP_FLAG_PRESENT=False`**（exit 0）。NSIS setup.exe 容器搜索是**假阴性**，不作数。
+4. 本轮**不发布、版本号仍 3.23.0**，不改 `Cargo.toml`、不动索引 schema。
+
+### 三十六·5 本轮工具坑（勿重犯）
+
+1. **`Ctrl+F` 是 toggle**：任何「先开面板」的探针都必须先判面板当前可见性再决定按不按，否则第二轮起会把面板关掉，症状是「40s 空等后 throw」，看起来像产品挂了。
+2. **`Select-String -Path 'src\**\*.vue'`** 与不存在的目录会直接报「找不到路径」并刷错误块；取源码一律用 `grep` 工具（`output_mode=content` + `context`）或 `node -e` 读切片。
+3. **grep 全域零命中不等于类名不在 DOM**：`nav-file-list-item` 是上游摘记笔误（零命中），背景行真实类名是 `file-browser-list-view__entry`（+ `--dir`），选中态用 `[class*=selected]` 计数；类名以实测 `activeClass` 为准。
+4. 仍有效的前轮结论：`import.meta.url` 在本项目 vitest 里不是 `file:` scheme；守卫断言不能用自己注释里出现过的词做 `not.toMatch`；`publish-bundle-to-release.mjs` 同名不同内容会落到 `release/local-builds/`，不覆盖已发布资产。
+5. **跨工作区边界的内联写命令会被安全策略拦下**（`Set-Location` + 写 ⇒ "write/delete targets cannot be verified safely after a command working directory change"），台账这类追加改用编辑工具直接落盘更省轮次。
+
+### 三十六·6 下一轮待办
+
+1. **W-18 装机版真机验收仍未做**（只验到 Rust 层）。可复用本轮通道：conf 注 CDP 旗标 → 打包 → `b56` 隔离桌面启动器 → `b56-mcp-call.ps1` 直接打 MCP `search_files` 的 `scopePath`。⚠️ 环境类失败（`DESKTOP_CREATE_FAILED`）先查**影刀虚拟桌面**，别改成产品代码。
+2. `focus-sync PUSH ... status=404` 候选待单独开项（round 3 见过 `E:/办公文件`，round 4 又见 `F:/soft/00selfmade/practilog/release` ⇒ 可复现）。
+3. 遗留 1/2（提交信息英文化、13 个非中英语种 changelog / W-22）用户已裁决**不做**，后续轮不要自行捡回。
+4. 外部人工环节：winget 版主审批（催审评论 7182189978 已发）、HelloGitHub 登录态收录。
+5. `docs/bugs-found-unowned.md` 仍未登记（用户此前未采纳）。
