@@ -5456,3 +5456,185 @@ PUSH raw="E:/办公文件" matched=undefined status=404
    ② 若长期无动静，去 `521xueweihan/HelloGitHub` 开 issue 说明已提交时间与项目地址
    （**该做法未在本机核实模板是否存在，属推断，不得当已验证事实引用**）。HelloGitHub 是编辑人工挑选
    + 月刊制，提交成功不代表会被收录。
+
+---
+
+### 三十七 批次 61：HelloGitHub 进度跟进 issue + `focus-sync PUSH status=404` 定性
+
+日期 2026-11-26。本轮**不改代码**，只做两件事：把 §三十六·10 交回用户的 HelloGitHub 环节往前推一格（并订正那节的「属推断」），把挂了三轮的 §三十四·4 `status=404` 线索从「未知」变成「有边界的已知」。
+
+#### 三十七·1 HelloGitHub：跟进 issue 已建（`#4532`）
+
+| 项 | 值（`gh issue view` 盘上回读，非摘要转抄） |
+| --- | --- |
+| 编号 / 状态 | `521xueweihan/HelloGitHub#4532` / `OPEN` |
+| URL | `https://github.com/521xueweihan/HelloGitHub/issues/4532` |
+| 作者 | `kizemo` |
+| 创建时间 | `2026-11-26T08:58:26Z` |
+| 标题 | `[咨询] Alpha File Manager 网站自荐审核进度跟进（2026-10-24 提交）` |
+| 正文落盘 | `.superpowers/sdd/hellogithub-followup.md`（1,436 B） |
+
+正文写实四项事实：项目地址 `https://github.com/kizemo/alpha-file-manager`、自荐渠道 hellogithub.com「提交项目」、**提交时间 `2026-10-24 13:06（UTC+8）`**、当前状态「审核中」；再问三件事（是否仍在排队 / 是否需要补材料 / 大概审核周期）。
+
+**为什么不套 `[开源推荐]` 模板**：实测该仓库 `.github/ISSUE_TEMPLATE` 只有 `submit-cn.yaml`、`submit-en.yaml`、`config.yml`，`config.yml` 里 `blank_issues_enabled: false`、contact link 只有一个「Website Submit Project → https://hellogithub.com/」。套 `[开源推荐]` 前缀会被当成**第二次自荐**（10-24 那次已完成，用户已裁决不重复提交），故正文显式声明「不是重复推荐、不希望占用一次新的推荐名额」。经 API 建非模板 issue 可行（`gh issue create` 成功），只是偏离仓库表单流程，因此文案刻意短、事实化、不夹带推销。
+
+**订正 §三十六·10 第 4 条**：那节写「该做法未在本机核实模板是否存在，属推断，不得当已验证事实引用」——现已核实：**该仓库没有咨询类模板**，非模板 issue 可建且已建；`CONTRIBUTING.md` 取回 **404**（无贡献指南）。
+
+#### 三十七·2 `focus-sync PUSH … status=404`：定性与归因边界
+
+线索原文（§三十四·4，`.superpowers/sdd/b59/w19-boot3.log`）：`PUSH raw="E:/办公文件" matched=undefined status=404`；§三十六·6 第 2 条补记 round 4 又见 `F:/soft/00selfmade/practilog/release` ⇒ 与具体路径无关、可复现。
+
+本轮取证（全部本机实测）：
+
+| # | 事实 | 证据 |
+| --- | --- | --- |
+| 1 | 该行是**扩展自己打印**的，不是应用路由 / 404 兜底 | 同一批 console 上一行是 `[focus-sync] v0.6.2 attached: file input -> overlay` |
+| 2 | 侧车二进制位置与版本物证 | `%APPDATA%\com.sigma-file-manager.app\extensions\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe`，**2,907,648 B** / mtime `2026-11-18 20:47:58` |
+| 3 | 侧车只有 `/health` 活着 | 手动 `--port 37421` 起：`GET /health` = **200**，载荷 `{"status":"ok",…"version":"0.6.1","mode":"spawn",…,"extension_alive":false,"first_push_received":false,"last_health_poll_age_ms":-1}` |
+| 4 | 11 个候选路径全 404 | `/`、`/status`、`/push`、`/current`、`/visit`、`/dialogs`、`/state`、`/focus`、`/event`、`/ping`、`/path` 逐个 `GET`+`POST` ⇒ 全 **404 `not found`**（axum 风格纯文本 ⇒ 确系侧车自己回，不是被代理或被应用改写） |
+| 5 | 二进制里有关键串 | `write_path: extension not alive (no /health poll within ms); refusing to inject stale path`、`extension_not_alive`、`v0.5.8` |
+| 6 | 探完无残留 | `Get-Process focus-sync-sidecar` = 无；`Get-NetTCPConnection -LocalPort 37421` = 端口空闲 |
+
+**两条并存的可疑根因**：
+
+1. **版本错配**：扩展自报 **v0.6.2**，盘上侧车 **v0.6.1**。`focus_sync_sidecar.rs:44-53` 的注释本来就点过这个风险（「若让 AFM 自带的 `tools\` 副本优先，就会出现扩展已是新版、侧车还是旧版」），所以它把扩展目录排在 `tools\` 之前；但**两份都旧不在它的防护范围内**——排在首位那份本身是 0.6.1，扩展是 0.6.2，push 路由若在 0.6.2 才新增或改名，就必然 404。
+2. **`extension_alive` 闸门**：侧车要求扩展近期轮询过 `/health` 才肯 `write_path`（串里明写「refusing to inject stale path」）。实测刚起时 `extension_alive:false`、`last_health_poll_age_ms:-1` ⇒ 这个前提不是自动成立的。
+
+**结论（边界）**：404 的**真实路由名**与**版本对齐**都在 `kizemo/focus-sync` 仓库（扩展 `dist/index.js` + 侧车 `src/http_server.rs`），**不在本仓库源码内**，本仓库无法直接修。本仓库能做的只有可观测性一层：`focus_sync_sidecar::start()` 拉起后探一次 `/health`，把 `version`/`mode` 写进主日志，与扩展自报版本不一致时 `warn`。**本轮未做**——要改 Rust + 加单测 + 重打构建，且「不一致就告警还是拒绝启动」属行为契约选择，需先定阈值再动手。
+
+**下一步三条（按顺序）**：① 读扩展 `dist/index.js` 定位真实 push URL 与 health 轮询间隔（据此判定是「路由名错」还是「版本缺路由」）；② 把侧车升到与扩展同版，或反向把扩展降到 0.6.1；③ 再决定是否加应用侧版本握手告警。
+
+#### 三十七·3 可复用探针（别再靠猜路由）
+
+一条 pwsh 即可枚举侧车路由面：`Start-Process $sidecar -ArgumentList '--port','37421' -PassThru` → `Start-Sleep 3` → 对候选路径 `Invoke-WebRequest -SkipHttpErrorCheck` → `Stop-Process -Id $pid -Force`。
+
+两个必须记住的点：① `Invoke-WebRequest` 遇 404 **要加 `-SkipHttpErrorCheck`**，否则直接抛异常，看不到状态码与 body，探测结果会和「服务没起」混在一起；② 不带 `--service` 起侧车时它有父进程看门狗，会话退出即自清，但**仍要显式 `Stop-Process` 并回读确认**（本轮已确认无残留进程、端口 37421 空闲）。
+
+#### 三十七·4 本轮状态
+
+**空改动**：未改一行源码、未升版号（仍 **3.23.0**）、未重打安装器、未推送、未重建索引、未跑 `npm run check`（本轮无源码变更）。台账只加 `open-items` 批次 61 一行 + 本节（handoff 盘上回读 **5458 → 5515 行，+57**；`open-items` **407 → 408 行，+1**）。`git status --porcelain -uall` 仅这两个 `M`，无其它改动。
+
+---
+
+### 三十八 批次 62：`focus-sync` 源码定案 —— PUSH 打的是 `/set_path`，404 是「没有活动对话框」的业务语义
+
+**结论先行**：`PUSH … status=404` **不是路由名错、不是版本缺路由、也不是任意 bug**。扩展推路径打的是 `POST http://127.0.0.1:37421/set_path`；侧车在「此刻没有可写的另存为对话框」时，按 v0.5.24 契约**主动**返回 `404 {"ok":false,"error":"no_active_dialog"}` —— 路径已被侧车记住，但一个字节都没写。§三十七·2 并列的两条可疑根因**双双被推翻**。
+
+#### 三十八·1 真实路由与轮询参数（读本机实际运行的扩展包）
+
+源码口径：`%APPDATA%\com.sigma-file-manager.app\extensions\kizemo.focus-sync\dist\index.js`，**50,560 B / 47,238 字符**，未压缩、带中文注释，可直接读。这是真正被加载的那一份，不是 GitHub 仓库里的。
+
+| 用途 | 方法 + 路径 | 备注 |
+| --- | --- | --- |
+| 推路径 / 清路径 | `POST ${SIDECAR_HTTP}/set_path` | body `{path, auto_confirm}`；**清空也走同一条**，body 为 `{path:'', auto_confirm}` |
+| 健康检查 | `GET ${SIDECAR_HTTP}/health` | 每 **15,000 ms** 一次，timeout **5,000 ms**，连续 **3** 次失败才弹通知 |
+| 存活 ping | `GET ${SIDECAR_HTTP}/ext_alive` | fire-and-forget，每次 health tick 先打一次，不读 body |
+
+常量原文：`const SIDECAR_HTTP = 'http://127.0.0.1:37421';` / `HEALTH_CHECK_INTERVAL_MS = 15_000` / `HEALTH_CHECK_TIMEOUT_MS = 5_000` / `HEALTH_FAILURES_BEFORE_NOTIFY = 3`。轮询不是 `setInterval`，而是 `setTimeout(tick, HEALTH_CHECK_INTERVAL_MS)` 自链（注释写明：防沙箱屏蔽 `setInterval`）。
+
+`/ext_alive` 为何单独存在（注释要点）：`/health` 是共享诊断口，`read-sidecar-log.ps1`、随手 `Invoke-WebRequest` 都会打它，拿它当存活信号会让「陈旧路径闸门」被误开；`/ext_alive` 只有扩展自己调，所以 ping 到这里才真代表「扩展活着」。
+
+#### 三十八·2 决定性鉴别：两种 404 的 body 不同
+
+| 请求 | 状态 | body | 含义 |
+| --- | --- | --- | --- |
+| `POST /set_path`（`{"path":"E:\\办公文件","auto_confirm":false}`） | **404** | `{"ok":false,"error":"no_active_dialog"}` | 路由**存在**，业务拒绝：此刻没有可写对话框 |
+| `POST /ext_alive` | **404** | `not found`（纯文本） | 路由不存在时的 axum 兜底形态（该口只收 GET） |
+| `GET /ext_alive` | 200 | `{"ok":true}` | 存活打点正常 |
+| `GET /health` | 200 | `"version":"0.6.1"`、`"mode":"spawn"`、`extension_alive:true`、`first_push_received:true`、`last_health_poll_age_ms:1` | 侧车健康、闸门已开 |
+
+⇒ **判据写作**：`404 + JSON {"error":"no_active_dialog"}` = 业务语义；`404 + 纯文本 not found` = 路由不存在。两者可分，以后不必再猜路由名。
+
+#### 三十八·3 上一轮为什么判偏（三条根因全不成立）
+
+- **「路由名错」✗**：真实名就是 `/set_path`；上一轮探的 11 个候选（`/`、`/status`、`/push`、`/current`、`/visit`、`/dialogs`、`/state`、`/focus`、`/event`、`/ping`、`/path`）**恰好漏了它**，于是「全 404」被误读成「路由都不对」。
+- **「版本错配缺路由」✗**：盘上侧车 v0.6.1 确实有 `/set_path`（运行时 JSON 404 已证）。扩展 v0.6.2 ↔ 侧车 v0.6.1 的版本差**客观存在，但不是 404 成因**。
+- **`extension_alive` 闸门 ✗**：实测 `extension_alive:true` 时 `/set_path` 仍回 404 `no_active_dialog`，闸门不是这条 404 的来源。
+- **新坑（本轮亲手踩到，务必记住）**：**二进制 ASCII 扫描零命中不能证明路由不存在**。对 `focus-sync-sidecar.exe`（2,907,648 B）扫 `/set_path` 直串得 **0**，只扫到被截断的 `/set_pat`；而运行时该路由工作正常。字符串表对齐/拼接会切断字面量，路由存在性**只能靠运行时探测**判定。
+
+#### 三十八·4 旧证据行的版本归属（`matched=undefined` 的来历）
+
+`.superpowers/sdd/b59/w19-boot3.log` 里那行 `PUSH raw="E:/办公文件" matched=undefined status=404`：对当前 v0.6.2 构建全文搜 `matched` = **零命中**；`PUSH` 只有 3 处，形态为 `'[focus-sync] PUSH raw=' + JSON.stringify(path) + ' normalized=' + …`，以及另一行 `PUSH response status=404`。⇒ 那条日志来自 **≤ v0.6.1 的旧构建**，不是现在跑的代码。
+
+顺带：v0.6.2 已把该情形在返回值里说清楚 —— `if (r.status === 404) { return { ok:false, status:404, reason:'no-dialog', wrote:false } }`，注释原文「404 = 这一刻没有可写的对话框——路径记住了，但一个字节都没写。不能当成成功」。旧实现在「Sync Now」工具栏无论成败都弹 `Synced: <path>`，v0.6.2 已修。
+
+#### 三十八·5 结论与可选后续
+
+- **本仓库无可修项**：404 是侧车正常业务回执，应用侧没有任何 `status=404` 兜底参与其中。
+- **可选 A（未做，属扩展仓库）**：把扩展 console 的 `PUSH response status=404` 文案改成 `no-dialog` 类，减少误读 —— 属 `kizemo/focus-sync` 改动，未授权。
+- **可选 B（未做，属本仓库）**：`focus_sync_sidecar::start()` 后探一次 `/health`，把 `version`/`mode` 写进主日志、与扩展版本不一致时 `warn`。与 404 无关，纯可观测性；「不一致就告警还是拒绝启动」属行为契约变更，需先定阈值。
+- `kizemo/focus-sync` GitHub 仓库确实存在（`main`，`size=20`，`pushed_at 2026-11-05T01:45:14Z`），但**未读其文件清单**，其内容与盘上 v0.6.2 构建是否同源**未验证**；本轮一切结论以本机 `dist/index.js` 为准。
+
+#### 三十八·6 本轮状态
+
+**空改动**：未改一行源码、未升版号（仍 **3.23.0**）、未重打安装器、未推送、未重建索引、未跑 `npm run check`（无源码变更）。台账只在 `open-items` 追加批次 62 一行 + 本节（盘上回读：本文件 **5515 → 5570 行，+55**，`CRLF=0`；`open-items` **408 → 409 行，+1**，`CRLF=0`）。探针收尾已回读：`focus-sync-sidecar` 进程 **0**、端口 37421 监听 **0**。
+
+## 三十九、批次 63：`focus-sync` 侧车 `/health` 握手写进主日志（§三十八·5 可选 B 落地）
+
+### 三十九·1 为什么做这一项
+
+批次 62 把 `PUSH status=404` 定性为「侧车正常业务回执、本仓库无可修项」之后，只剩一个真实痛点：**扩展报「未连接」时主日志里只有 `focus-sync sidecar: launched pid=…` 一行**，分不清下面三种情况中的哪一种，而三者的处置完全不同：
+
+| 现象 | 处置 |
+| --- | --- |
+| 侧车根本没起来 | 查监督器重启计数、查扩展 `bin/` 落地 |
+| 起来的是别的版本（装了扩展但侧车还是旧的） | 重装 / 升级扩展 |
+| 侧车正常、扩展从没 push 过 | 查扩展侧 health 轮询与对话框时机 |
+
+这三条信息 `/health` 里全都有（`version` / `mode` / `extension_alive` / `first_push_received` / `last_health_poll_age_ms`），但以前**只能另起探针手工 curl** 才看得到。可选 **A**（改 `kizemo/focus-sync` 的 console 文案）属另一仓库、未授权，故本轮只做**本仓库侧的可观测性**。
+
+### 三十九·2 改了什么（3 个文件）
+
+| 文件 | 改动 | 盘上回读 |
+| --- | --- | --- |
+| `src-tauri/src/focus_sync_health.rs` | **新建**，纯逻辑（无 tauri / 无网络 / 无文件系统） | **11,382 B / 288 行（LF=287） / CRLF=0** |
+| `src-tauri/src/focus_sync_sidecar.rs` | `start()` 末尾挂探针 | **+112 / −0**，现 **10,521 B / 238 行（LF=237）** |
+| `src-tauri/src/lib.rs` | 加 `mod focus_sync_health;` | **+2 / −0** |
+
+- **`focus_sync_health` 里有什么**：`HealthSnapshot`、`HealthParseError{NotJsonObject,MissingVersion,MissingMode}` + `Display`、`parse_health`、`describe`（**固定字段序** `version= mode= extension_alive= first_push= last_health_poll=`，日志可比对可 grep）、`snippet`（控制字符压空格、**>160 字符截断加 `…`**，避免把整段 body 灌进日志）、`normalize_version`（去 `v`/`V` 前缀）、`version_from_package_json`、`version_skew`；**13 条单测**。
+- **为什么单独成模块**：`focus_sync_sidecar` 引用 `tauri`，而 `focus_sync_supervisor.rs:17-21` 已记载「模块引用 `tauri::AppHandle` 会让 `cargo test --lib` 测试二进制在加载阶段以 `STATUS_ENTRYPOINT_NOT_FOUND` 崩掉（tao 需 comctl32 v6）」⇒ **可测逻辑必须待在不引用 tauri 的模块里**。
+- **`spawn_health_probe` 的形状**：`tauri::async_runtime::spawn`（不阻塞 `setup`）、`reqwest` 客户端 **2s 超时**、**强制 `.no_proxy()`**、**15 次 × 400ms** 重试；非 2xx 记 warn、body 不可解析记 warn（且**不重试**——侧车答了但不是这个格式，重试无意义）、15 次全败记 `gave up after 15 attempts … last_error=`。
+
+### 三十九·3 刻意不做的三件事
+
+1. **不拒绝启动**：版本不一致只 `warn`。「不一致就拒绝启动」属行为契约变更，阈值需用户拍板。
+2. **`extension_alive=false` 只记 INFO 不记 WARN**：启动瞬间扩展还没轮询过 `/health` 是**正常状态**，记 WARN 会造成每天一次假告警。
+3. **读不到扩展 `package.json` 就静默跳过比对**（`extension_version = None` ⇒ `version_skew` 返回 `None`），不制造「unknown != 0.6.1」这类假告警。
+
+### 三十九·4 门禁（盘上回读）
+
+| 门禁 | 结果 |
+| --- | --- |
+| `cargo test --lib focus_sync` | `b63-test.log:306` = **16 passed / 0 failed / 0 ignored / 1744 filtered out / 0.83s**，`exit code: 0`（16 = 13 条新增 health + 3 条既有 supervisor） |
+| `cargo clippy --lib`（**项目基线形状**） | **exit 0**，`focus_sync` **零告警** |
+| `npm run check` | **未跑**（本批只改 Rust） |
+
+**本轮新增一条口径（重要）**：`cargo clippy --lib --tests -- -D warnings` 在本仓库**恒红** —— `b63-clippy.log` 退出码 **101**、`^error:` **161 处**，**0 处指向 `focus_sync*`**（存量：`baidu_login.rs:95`、`batch_rename/history.rs:31`、`extensions/http.rs:19`、`image_edit.rs:24`、`remote/aliyun_*.rs`、`compare/*` dead_code、`ftp_provider.rs:327/592` unused_mut、`global_search/scan.rs:387` 等）。⇒ **`-D warnings` 从来不是本项目基线**，判绿只认 `cargo clippy --lib`（历史脚本 `b24-cargo-gate.cmd:16` / `b25-root-gates.cmd:22` 用的就是这条）。以后别再拿 `-D warnings` 判红归因到某一批。
+
+### 三十九·5 真机取证：判据转正
+
+打包产物 `target\release\alpha-file-manager.exe` 直接起 26s，主日志 `%LOCALAPPDATA%\com.sigma-file-manager.app\logs\Alpha File Manager.log`：
+
+- 基线 **8,780 行**（1,746,538 B）→ 运行后 **+49 行**，其中本批产出两条：
+
+```
+[2026-11-26][09:50:51][sigma_file_manager_lib::focus_sync_sidecar][INFO] focus-sync sidecar: resolving exe=…\extensions\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe port=37421
+[2026-11-26][09:50:51][sigma_file_manager_lib::focus_sync_supervisor][INFO] focus-sync sidecar: launched pid=164164
+[2026-11-26][09:50:52][sigma_file_manager_lib::focus_sync_sidecar][INFO] focus-sync sidecar: health version=0.6.1 mode=spawn extension_alive=false first_push=false last_health_poll=none
+[2026-11-26][09:50:52][sigma_file_manager_lib::focus_sync_sidecar][WARN] focus-sync sidecar: version skew: sidecar 0.6.1 != extension 0.5.9; the extension's bundled sidecar is probably stale (reinstall or update the Focus Sync extension)
+```
+
+- 时序自洽：`launched` 后 **1 秒**拿到 health（首次尝试即成功，未走到重试上限）；`extension_alive=false` 属设计内的 INFO。
+- 收尾回读：`left_app=0 left_sidecar=0`。
+
+**顺带订正一处事实（本轮实测）**：盘上扩展 `%APPDATA%\com.sigma-file-manager.app\extensions\kizemo.focus-sync\package.json` 的 `version` 是 **0.5.9**，而批次 62 从 `dist/index.js` 读到的是 **v0.6.2** ⇒ **扩展清单滞后于代码**。所以 skew 文案里的 `extension 0.5.9` 取自清单，可能与扩展自述版本不符；**判据未改**（清单是盘上唯一可程序化读到的版本源，比解析 `dist/index.js` 稳），但读日志的人要按「清单可能滞后」理解这条 warn。
+
+### 三十九·6 打包
+
+- `b63-build.cmd`（纯 ASCII，含 `taskkill /IM alpha-file-manager.exe /F` 自愈 + vcvars64 + PATH 钉 1.90.0）⇒ `Finished release profile in 8m 15s`。
+- exe **86,163,968 B**（mtime 17:50:17）；安装包 **46,240,975 B / SHA256 `AEFF100212BF258B28917AB6EA6542080FAF7EB4BEF777312E6E00A054343F81`**，已复制到 `release\local-builds\`。
+- ⚠️ 该复制**覆盖了同名的 3.23.0 旧本地包（46,195,584 B）**；已发布的 `release\` 顶层资产镜像**未动**。
+
+### 三十九·7 本轮状态
+
+**未提交、未推送、未升版号（仍 3.23.0）、未重建索引、未动 CHANGELOG**。工作树内本批 3 个源码文件 + 两处台账文档改动。W-20 / W-21 / W-22 / W-17 一律未动（后者已被用户裁决不做）。
