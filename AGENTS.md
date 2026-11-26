@@ -840,6 +840,20 @@ AFM 确实不抢前台（聊天窗口还在前面），但**文件拖不进聊�
   每步都以**服务器端 md5+size 校验**为准；最后用 `release-publish.mjs verify` 做公网回读（**版本号 / 大小 / sha256 三项**，
   且要看边缘 `CF-Cache-Status` 与边缘包字节数，别只信源站）。
 
+### 2.16 批次 65 的三个硬事实：`DataSource` 是双实现契约、静默降级必须透到界面、CDP 取证要先打补丁重建（2026-11-26 实测）
+
+- **`DataSource` 有两处实现，新增字段必须两处都补**：`use-file-browser.ts` 里 `setupNavigationDataSource`（导航模式）
+  与 `setupExternalDataSource`（外部模式）都返回这个接口。批次 65 只在导航侧加了 `recursiveSearchError`，
+  `vue-tsc` 立刻报 `TS2353: Object literal may only specify known properties, and 'recursiveSearchError' does not exist in type 'DataSource'`；
+  外部侧补 `computed(() => null)`（**不是 `undefined`**）后即绿 —— 语义就是「契约字段永远存在，调用方不必分支」。
+- **「静默降级」必须把失败原因透到界面**：W-18 的后端早就给出明确中文报错（「该连接当前没有勾选『加入全局检索』，索引层不可见」），
+  但前端 `catch` 只留一个**从未向上透传**的布尔标记 ⇒ 用户只看到「只有当前层的结果」。**凡是降级到更弱可用性的分支，
+  都要把原因带到界面上**；否则后端做得再对也没人看见。
+- **CDP 取证要先打补丁重建，调试包不能当发布物**：§2.13 已记「Tauri 覆盖 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`」，
+  所以沙箱里用 CDP 驱动真实 DOM 必须改 `src-tauri/tauri.conf.json` 的 `app.windows[0].additionalBrowserArgs` 并**重新打包**
+  （批次 45 路线 A、批次 56 收口、批次 65 复用同一手法）。打完的调试包**不能**进 `release/`，
+  必须回滚补丁再打一次干净包。
+
 
 本仓库已建好本地 AST 知识图谱（2026-10-21 部署）：**零 LLM、零 API 成本、纯本地**，产物在 `graphify-out/`（已加进 `.gitignore`，不进版本库）。
 

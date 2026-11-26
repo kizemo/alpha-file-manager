@@ -5754,3 +5754,128 @@ sha256 `9476c77af71591c223acab948ad09d5facd36374f693ee1753675834182f1c3b`**，
 - **已推送**：`main` = `545f4bbc`（与 `origin/main` 逐字相等）；**已发版**：站点 3.24.0 + GitHub Release `v3.24.0`。
 - **未做**：其余 13 个非中英语种 changelog 仍停在 3.22.0（用户已裁决不做，本批只如实记录）；未重建索引。
 - **已知限制（沿用前批口径）**：W-18 的网盘目录作用域**只在检索接口层生效**，文件浏览器内的递归检索 UI 仍未透传该作用域。
+
+## 四十一、批次 65：W-18 前端透传 —— 云盘目录递归检索的失败原因上屏（不再静默降级）
+
+### 四十一·1 缺口定性：后端早就说了，前端把话咽了
+
+W-18「云盘目录作用域递归检索」的**后端**在批次 59 已做成真功能：
+`src-tauri/src/global_search/query.rs` 的 `search_remote_directory_scoped()` 走**云盘索引**（不打网盘 API），
+失败时返回明确中文报错，原文形如：
+
+- `云盘目录递归检索失败（<路径>）：该连接当前没有勾选「加入全局检索」，索引层不可见。请先在设置的云盘连接里勾选它。`
+- `云盘目录递归检索失败（<路径>）：云盘索引尚未建立（<base_dir>/remote-index 缺失或 schema 不匹配）。……`
+
+但前端 `src/modules/navigator/components/file-browser/composables/use-file-browser-recursive-search.ts`
+的 `catch` **把错误整个吞掉**，只留一个布尔标记 `recursiveSearchUnavailable` —— 而那个标记**从来没有向上透传**
+（`use-file-browser.ts` 里那段「暂不向上透传」的注释就是这么写的）。
+⇒ 用户在云盘目录里搜索时看到的是「只有当前层的结果」，**完全不知道为什么**。
+
+本批只补这一段前端透传：**不改后端、不改架构、不碰已裁决不做的事项**（其余 13 个非中英语种 changelog、
+15 语言包代笔翻译、多连接混合排序、云盘索引配额口径等一律不动）。
+
+### 四十一·2 改动清单（源码 5 个文件 + i18n 17 包 + 测试 2 个新文件）
+
+| 文件 | 改动 |
+| --- | --- |
+| `composables/use-file-browser-recursive-search.ts` | `recursiveSearchUnavailable: Ref<boolean>` ⇒ `recursiveSearchError = ref<string \| null>(null)`（L124）；新增**导出**函数 `toRecursiveSearchErrorMessage(error: unknown): string`（L82–100，接住 Tauri 的**字符串拒绝**、`Error` 实例、带 `message` 的对象，`String(error)` 兜底，**永不返回空串**）；`catch` 写入后端原文（L165–175）；成功（L163）/ 查询清空（L205）/ 目录切换时置 `null` |
+| `composables/use-file-browser-entries.ts` | 透传字段改名 `recursiveSearchError`（L75 / L179） |
+| `composables/use-file-browser.ts` | `DataSource` 接口新增 `recursiveSearchError: ComputedRef<string \| null>`（L126）；`setupNavigationDataSource` 返回真实值（L205）；`setupExternalDataSource` 补桩 `computed(() => null)`（L299）；外层 `useFileBrowser` return 暴露（L699） |
+| `file-browser.vue` | 状态栏传参 `:recursive-search-error="fb.recursiveSearchError.value"`（L452） |
+| `file-browser-status-bar.vue` | 新 prop `recursiveSearchError?: string \| null`（L64，默认 `null`）；在计数区与 MCP 指示器之间渲染提示节点（`data-file-browser-recursive-search-error`，L564）：图标 + 本地化标题 + **后端原文详情**（完整文案进 Tooltip）；新增 scoped 样式（图标取 `--destructive`，详情省略号截断） |
+| `src/localization/messages/*.json` | **17 个语言包**各加 1 个叶子键 `fileBrowser.recursiveSearchUnavailableTitle`（中文「递归搜索不可用，仅搜索当前层」，其余 15 包沿用 W-22 现状做英文占位） |
+
+**i18n 约束落实**：`src/localization/index.ts` 无 `fallbackLocale`，
+`src/localization/__tests__/messages-key-alignment.test.ts` 要求 17 个语言包的叶子 key 集合与 `en.json` **完全相等**且无空串
+⇒ 新键 17 包全加（脚本 `.superpowers/sdd/b65/i18n-add-recursive-search-key.mjs`，写入后做格式往返自检，17/17 一致）。
+
+**契约口径**：`DataSource` 的 `recursiveSearchError` 字段**永远存在**（外部模式补 `computed(() => null)` 桩而不是 `undefined`），
+调用方不必分支。
+
+### 四十一·3 行为口径（刻意不做的也写清楚）
+
+- 递归通道失败时**仍然退回「只搜当前层」**（当前层过滤照常生效），只是**不再假装一切正常**。
+- 提示内容 = **本地化短标题 + 后端原文**，不重写、不丢细节。
+- 查询清空 / 目录切换 ⇒ 旧报错立即清空（否则会变成一条与当前状态无关的旧提示）。
+- 提示位在**文件浏览器状态栏**；状态栏被 `hideStatusBar` 隐藏时不可见 —— 已知边界，本批接受。
+
+### 四十一·4 门禁（盘上回读）
+
+- `npm run check` = **CHECK_EXIT=0**，**Test Files 342 passed / Tests 3663 passed**（Duration 106.88s），
+  日志 `.superpowers/sdd/b65/check.log`；同日志内 `verify-changelog` 判「CHANGELOG.md 覆盖当前版本，条目顺序正确」、
+  `verify:sandbox` 判 `RESULT: VALID (0 violations / 20 patterns)`、`[sandbox-gate] OK`。
+- 定向回归 `node ./scripts/vitest-run.mjs run src/modules/navigator/components/file-browser` = **67 文件 / 585 用例全过**。
+- 新增测试 2 个文件：`composables/__tests__/use-file-browser-recursive-search.test.ts`（**7 条**）、
+  `file-browser/__tests__/file-browser-status-bar-recursive-search-error.test.ts`（**3 条** DOM 级）。
+- **修门禁的过程**（都记下来，因为都是可复用的坑）：首轮 vue-tsc 红（`TS2353` / `TS2339`：`DataSource` 缺字段）⇒ 补接口 + 外部模式桩 + 外层 return；
+  第二轮 eslint 红 5 处（`object-curly-newline` / `object-property-newline` / `padding-line-between-statements`）⇒ 用 **node 子进程**在项目根 cwd 下跑 `eslint --fix`
+  （`npm --prefix <root> exec -- eslint` 的 cwd 不是 prefix，**相对路径找不到文件**）；第三轮 stylelint 红 2 处（`rule-empty-line-before` / `properties-order`）⇒ `stylelint --fix`。
+- 测试坑：`vi.mock('vue-i18n', () => ({ useI18n }))` 这种**整模块替换**会缺 `createI18n` ⇒ 必须用 `importOriginal` 做部分 mock；
+  直接调用 composable 会在 `onUnmounted` 告警 ⇒ 用 `mount(defineComponent({ setup, render: () => null }))` + holder 持有 state。
+
+### 四十一·5 真机取证（CDP 驱动真实 DOM，隔离桌面）
+
+**手法**：沿用批次 45 / 56 的路线 A —— 临时给 `src-tauri/tauri.conf.json` 的 `app.windows[0].additionalBrowserArgs`
+加 `--remote-debugging-port=9333` ⇒ **重新打包**（Tauri 会覆盖 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`，
+环境变量注入无效，AGENTS.md §2.13）⇒ `CreateDesktop` 起隔离桌面（掩码 `DESKTOP_ALL 0x1FF`，不抢用户焦点，AGENTS.md §2.8）
+⇒ CDP `Runtime.evaluate` / `Input.dispatchKeyEvent` 驱动真实 DOM。
+
+**目标选择**：夸克网盘（连接 id `d2ab9ed3151246d19f6fcc1c1d60e872`，`includeInGlobalSearch=false`）⇒
+正好命中「未勾选加入全局检索」这条报错；阿里云盘 access_token 已过期（2026-11-25 23:03 签发），未选。
+
+**本轮新踩的三个坑**：
+
+1. **`cdp-eval.mjs` 的表达式包装**：`Runtime.evaluate` 的表达式被包成 `(async () => { <文件内容> })()`，
+   **块体不返回值** ⇒ 表达式文件必须用**顶层 `return`**，**不能自带 IIFE**，否则结果恒为 `null`（第一版转储脚本因此白跑一轮）。
+2. **地址栏进不去 `sfm://remote/<连接id>`**：`isVirtualDirectoryPath` 只认 `sfm://locations` 与 WSL 根
+   （`src/utils/virtual-path-constants.ts`），`virtual-locations.ts` 只为 **`sfm://remote` 根**造了虚拟目录条目
+   ⇒ 直接输入连接根路径回车**没有任何反应**（既不是 bug 也不是本批范围，远程连接本来就只能从连接列表进入）。
+   **正确路径是两跳**：地址栏进 `sfm://remote` ⇒ 再点开连接条目进连接根。
+3. **点条目要用 `.click()`，必要时补 `dblclick`**：列表项 `data-entry-path` 元素上 `el.click()` 后路径没变，就再补一次
+   `MouseEvent('dblclick')`（同时打到自身与首个子元素）。
+
+**取证结果**（`.superpowers/sdd/b65/cdp-out/cdp-report-v3.json`，截图 `04-remote-filtered.png` = 188,647 B）：
+
+| 判据 | 结果 |
+| --- | --- |
+| 两跳导航 | `sfm://remote` ⇒ `sfm://remote/d2ab9ed3151246d19f6fcc1c1d60e872`（**V_navigatedToRemoteRoot / V_navigatedToConnection = true**） |
+| 夸克目录列举本身 | **成功**（截图可见「5 个项目」与 2 个子目录）⇒ 失败的是**递归检索**，不是目录不可读 |
+| 状态栏提示 | **V_remoteErrorVisible / V_remoteErrorHasTitle / V_remoteErrorHasBackendReason = true** |
+| 标题 | `递归搜索不可用，仅搜索当前层` |
+| 详情（后端原文） | `云盘目录递归检索失败（sfm://remote/d2ab9ed3151246d19f6fcc1c1d60e872）：该连接当前没有勾选「加入全局检索」，索引层不可见。请先在设置的云盘连接里勾选它。` |
+| 本地回归 | 本地目录过滤**生效**且**无**错误提示（V_localFilterReached / V_localNoErrorPrompt = true） |
+
+**收尾（调试包不进 `release/`）**：取证后 **taskkill 掉沙箱实例**（它锁着 `target/release/alpha-file-manager.exe`，
+导致 NSIS 打包报 `另一个程序正在使用此文件 os error 32`）⇒ 用 `.superpowers/sdd/b65/revert-cdp-patch.mjs`
+**回滚** `tauri.conf.json` 的 CDP 补丁（脚本对目标串做**先断言后替换**，命中数 ≠ 1 即 exit 2；实测 `REMOVED=1`，
+回读 `tauri.conf.json` 已**无** `additionalBrowserArgs`）⇒ 重打**干净**正式包。
+
+### 四十一·6 打包：干净正式包（CDP 补丁已回滚后才打的）
+
+构建脚本 `.superpowers/sdd/b65/build-b65.cmd`（vcvars64 + **Rust 1.90.0 钉版** + 首行 `taskkill` 自愈），
+日志 `.superpowers/sdd/b65/build-b65.log`：
+
+| 产物 | 数值（盘上回读） |
+| --- | --- |
+| Rust 编译 | `Finished \`release\` profile [optimized] target(s) in 4m 39s` |
+| `src-tauri\target\release\alpha-file-manager.exe` | **86,169,600 B** / SHA256 `2DC5552A4436E40DED98AED637419F58EF0CD4425211CAE484CE90BD557D3D71` |
+| NSIS 安装包 `Alpha File Manager_3.24.0_x64-setup.exe` | **46,269,191 B** / SHA256 `01C84FC4BF17B3F2FBE7FC08C5E6817B364DA36BDED8A3717220026253156107` |
+| 发布落点 | `release\local-builds\`（**新内容不覆盖已发布资产**） |
+| `release\` 顶层（已发布镜像） | **未动**：3.24.0 仍是 46,260,878 B / 20:23:13（官方资产） |
+| 版本号 | 仍是 **3.24.0**（本批**未升版号**） |
+
+- 打包日志里有一条 `file is not a database / Caused by: Error code 26: File opened that is not a database file`
+  （本机 cargo 缓存读写的既有告警），**未阻断构建**：其后 `Finished release profile`、NSIS 打包、发布落盘全部成功。
+- 打包前已 **taskkill 掉沙箱实例**（pid 173504）—— 它锁着 `target/release/alpha-file-manager.exe`，
+  不杀就会在 NSIS 阶段报 `另一个程序正在使用此文件 os error 32`（批次 65 首轮 CDP 包就是这么失败的）。
+- **调试包不进 `release/`**：CDP 调试产物只在 `src-tauri/target/release/` 下，回滚补丁后重打的这一份才是要发布的。
+
+### 四十一·7 本轮状态与遗留
+
+- **已验证**：门禁绿（342 文件 / 3663 用例）；真机两跳导航 + 后端报错原文上屏 + 本地无回归（判据见 §四十一·5 表）。
+- **已推断 / 未验证**：未做真机安装器装机复验（验收对象是 `tauri build` 产物，**调试包不带进 `release/`**）；
+  未跑 `cargo test --lib`（本批**未改 Rust**；且本机 `stable` 工具链损坏，构建走 1.90.0 直连）。
+- **未做（用户已裁决不做 / 与本批无关）**：其余 13 个非中英语种 changelog 仍停在 3.22.0；15 语言包仍是英文占位；
+  多连接混合检索排序策略；`search_files.rs` 死代码清理；扫描期间冷启首查返空；云盘索引配额最终口径。
+- **AGENTS.md §2.16 已新增三条硬事实**：`DataSource` 双实现契约（外部模式要补桩）、静默降级必须透到界面、
+  CDP 取证必须先改 `tauri.conf.json` 再重打包（环境变量注入无效）。
