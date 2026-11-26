@@ -5365,6 +5365,8 @@ PUSH raw="E:/办公文件" matched=undefined status=404
    提交后 `git status --porcelain -uall` **全空**。`src-tauri/tauri.conf.json` 的取证旗标已 `git checkout --` 回滚（复验命中 **0**），**未进 commit**。
 2. **干净门禁**（回滚 conf 后复跑）：**`Test Files 340 passed (340)` / `Tests 3652 passed (3652)` / `Duration 115.38s` / `EXIT=0`**，
    较首轮 3641 多 **11 条** = 本轮新增的方向键归属守卫。落盘 `.superpowers/sdd/b59/gate3.txt`。
+   **回执提交后复跑**（本 §三十六·7 自身入库前后各一次）：`.superpowers/sdd/b59/gate4.txt` ⇒ **`Test Files 340 passed (340)` /
+   `Tests 3652 passed (3652)` / `Duration 130.56s` / `EXIT=0`**，FAIL/error 行 **NONE**；即台账改动未影响门禁。
 3. **干净 exe**：`src-tauri\target\release\alpha-file-manager.exe` **85,987,328 B** / mtime **15:47:49** /
    SHA256 `3F8BE410666EFA0033938C4945B4D80C46F480192FF5AB9A7DAE819A283FE7F8`；
    `b45\check-cdp-flag.ps1 -Exe <该 exe>` ⇒ **`CDP_FLAG_PRESENT=False` / `ALLOW_ORIGINS_PRESENT=False` / `CHECK_EXIT=0`**。
