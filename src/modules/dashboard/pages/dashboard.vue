@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: GPL-3.0-or-later
+﻿<!-- SPDX-License-Identifier: GPL-3.0-or-later
 License: GNU GPLv3 or later. See the license file in the project root for more information.
 Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 -->
@@ -8,6 +8,7 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import {
+  FolderPlusIcon,
   StarIcon,
   TagIcon,
   TrendingUpIcon,
@@ -17,6 +18,7 @@ import {
 import { PageDefaultLayout } from '@/layouts';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { DirEntryInteractive } from '@/components/dir-entry-interactive';
 import { useUserStatsStore } from '@/stores/storage/user-stats';
 import { usePageDropZone } from '@/composables/use-page-drop-zone';
@@ -26,12 +28,40 @@ import { openNavigatorNavigablePath } from '@/utils/open-navigator-directory';
 import { isVirtualLocationPath } from '@/utils/virtual-locations';
 import DashboardActionBar from '@/modules/dashboard/components/dashboard-action-bar.vue';
 import DashboardEmptyState from '@/modules/dashboard/components/dashboard-empty-state.vue';
+// FORK-MODIFICATION 2026-10-23：Hero 顶部区（移植自 upstream `3eca4c17`）。
+import DashboardHero from '@/modules/dashboard/components/dashboard-hero.vue';
 import DashboardTagSectionHeader from '@/modules/dashboard/components/dashboard-tag-section-header.vue';
+// FORK-MODIFICATION: 需求反馈 4（2026-10-15）——收藏/标记的新建与编辑入口。
+import DashboardCategorySectionHeader from '@/modules/dashboard/components/dashboard-category-section-header.vue';
+import DashboardEntryActionsMenu from '@/modules/dashboard/components/dashboard-entry-actions-menu.vue';
+// FORK-MODIFICATION 2026-10-31：收藏夹排序（拖拽 + 上移 / 下移）。
+import DashboardOrderControls from '@/modules/dashboard/components/dashboard-order-controls.vue';
+import DashboardNameDialog from '@/modules/dashboard/components/dashboard-name-dialog.vue';
+import DashboardNewFavoriteDialog from '@/modules/dashboard/components/dashboard-new-favorite-dialog.vue';
 import EntryCard from '@/modules/dashboard/components/entry-card.vue';
+// FORK-MODIFICATION: 批次 58 —— 收藏编辑弹窗（侧边栏小铅笔与卡片 ⋮ 菜单共用同一个组件）。
+import FavoriteEditDialog from '@/components/favorite-edit-dialog.vue';
+import { toast } from '@/components/ui/toaster';
+import { checkFavoritePath, normalizeFavoritePathInput } from '@/utils/favorite-edit';
 import EntryCardTags from '@/modules/dashboard/components/entry-card-tags.vue';
+// FORK-MODIFICATION 2026-10-23：移植 upstream `3eca4c17` 的「给现有卡片加信息」四项。
+// 这里只动信息层，不换页面骨架：标签页、分类分组、条目卡片结构全部保持原样。
+import DashboardTaggedItemMeta from '@/modules/dashboard/components/dashboard-tagged-item-meta.vue';
+import DashboardConfirmDialog from '@/modules/dashboard/components/dashboard-confirm-dialog.vue';
+import { provideDashboardEntryPreviews } from '@/modules/dashboard/composables/use-dashboard-entry-previews';
+import {
+  useDashboardItemSizes,
+  type DashboardSizedItem,
+} from '@/modules/dashboard/composables/use-dashboard-item-sizes';
+import { formatDashboardRelativeTime } from '@/utils/dashboard-relative-time';
+import { resolveFavoriteDisplayName } from '@/utils/favorite-display-name';
+// FORK-MODIFICATION 2026-10-31：拖放落点判定（指针落在目标框的哪一半）。
+import { getDropPlacement, getElementRect } from '@/modules/dashboard/utils/drop-placement';
+import type { DropPlacement } from '@/stores/storage/utils/favorites-order';
 import FileBrowserConflictDialog from '@/modules/navigator/components/file-browser/file-browser-conflict-dialog.vue';
 import FileBrowserTopLevelConflictDialog from '@/modules/navigator/components/file-browser/file-browser-top-level-conflict-dialog.vue';
 import type {
+  FavoriteCategory,
   FavoriteItem,
   HistoryItem,
   FrequentItem,
@@ -39,15 +69,29 @@ import type {
   TaggedItem,
 } from '@/types/user-stats';
 import { getStaggerSlideUpBinding } from '@/utils/stagger-animation';
+// FORK-MODIFICATION 2026-10-23：标签分组逻辑与色板抽成纯模块（移植自 upstream `3eca4c17`）。
+// 原来色板在这个文件里抄了两份（下面一份常量、一份数组字面量），迟早漂移。
+import { getTaggedSections, type TaggedSection } from '@/utils/tagged-sections';
+import { pickRandomTagColor, TAG_COLORS } from '@/utils/tag-colors';
 
 type ActiveTagSelector = {
   sectionTagId: string;
   itemPath: string;
 };
 
-type TaggedSection = {
-  tag: ItemTag;
-  items: TaggedItem[];
+// FORK-MODIFICATION 2026-10-23：分组本体来自 `@/utils/tagged-sections` 的纯函数，
+// 这里只加一个本仓特有的 `staggerBase`（错落入场动画的起始序号）。
+type DashboardTaggedSection = TaggedSection & {
+  staggerBase: number;
+};
+
+// FORK-MODIFICATION: 反馈 4 —— 收藏按分类分组显示。
+// 「未分类」是一个**虚拟分组**：category 为 null，没有可改名/删除的实体，
+// 所以它的标题不渲染编辑按钮。
+type FavoriteSection = {
+  key: string;
+  category: FavoriteCategory | null;
+  items: FavoriteItem[];
   staggerBase: number;
 };
 
@@ -78,31 +122,204 @@ usePageDropZone({
 });
 
 const favoriteItems = computed(() => userStatsStore.favorites);
+const favoriteCategories = computed(() => userStatsStore.favoriteCategories);
 const taggedItems = computed(() => userStatsStore.taggedItems);
 const historyItems = computed(() => userStatsStore.sortedHistory);
 const frequentItems = computed(() => userStatsStore.sortedFrequentItems);
 const tags = computed(() => userStatsStore.tags);
 
-const taggedSections = computed((): TaggedSection[] => {
+// FORK-MODIFICATION 2026-10-23：缩略图助手在**页面级** provide，
+// 几十张卡片共用一套缩略图缓存 —— 每张卡片各建一个 composable
+// 会让同一个文件被重复解码、重复占内存。
+provideDashboardEntryPreviews();
+
+// 只统计**当前页签**的条目大小。四个页签的条目合起来可能几百条，
+// 一次性全部 stat 会把界面卡住；切页签时 watch 会自动重新取，
+// 目录大小还有 `useDirSizesStore` 的全局缓存兜底。
+const activeSizedItems = computed<DashboardSizedItem[]>(() => {
+  switch (activeTab.value) {
+    case 'tagged':
+      return taggedItems.value.map(item => ({
+        path: item.path,
+        isFile: item.isFile,
+      }));
+    case 'frequent':
+      return frequentItems.value.map(item => ({
+        path: item.path,
+        isFile: item.isFile,
+      }));
+    case 'history':
+      return historyItems.value.map(item => ({
+        path: item.path,
+        isFile: item.isFile,
+      }));
+    default:
+      return favoriteItems.value.map(item => ({
+        path: item.path,
+        isFile: isFavoriteFile(item),
+      }));
+  }
+});
+
+const { getSizeLabel } = useDashboardItemSizes(activeSizedItems);
+
+// FORK-MODIFICATION 2026-10-23：破坏性操作先弹确认框。
+// 收进来的口径（与 upstream 一致）：**批量**与**不可逆**的操作要确认；
+// 可逆的不确认 ——
+//   确认：清空收藏/标记/常用、删除标记、取消收藏、移除单个标记；
+//   不确认：删除收藏分类（收藏会回到「未分类」，可逆）、
+//           移除历史记录（重新访问就回来了，可逆）。
+type ConfirmAction = {
+  title: string;
+  description: string;
+  onConfirm: () => void | Promise<void>;
+};
+
+const confirmDialogOpen = ref(false);
+const pendingConfirmAction = ref<ConfirmAction | null>(null);
+
+function requestConfirmation(action: ConfirmAction) {
+  pendingConfirmAction.value = action;
+  confirmDialogOpen.value = true;
+}
+
+async function handleConfirmAction() {
+  const action = pendingConfirmAction.value;
+  pendingConfirmAction.value = null;
+
+  if (action) {
+    await action.onConfirm();
+  }
+}
+
+// FORK-MODIFICATION 2026-10-23：清空整个列表先弹确认框。
+function requestClearFavorites() {
+  requestConfirmation({
+    title: t('dashboard.actions.clearAllConfirmTitle'),
+    description: t('dashboard.actions.clearAllConfirmDescription'),
+    onConfirm: () => userStatsStore.clearAllFavorites(),
+  });
+}
+
+function requestClearTagged() {
+  requestConfirmation({
+    title: t('dashboard.actions.clearAllConfirmTitle'),
+    description: t('dashboard.actions.clearAllConfirmDescription'),
+    onConfirm: () => userStatsStore.clearAllTagged(),
+  });
+}
+
+function requestClearFrequent() {
+  requestConfirmation({
+    title: t('dashboard.actions.clearAllConfirmTitle'),
+    description: t('dashboard.actions.clearAllConfirmDescription'),
+    onConfirm: () => userStatsStore.clearAllFrequent(),
+  });
+}
+
+function requestClearHistory() {
+  requestConfirmation({
+    title: t('dashboard.actions.clearAllConfirmTitle'),
+    description: t('dashboard.actions.clearAllConfirmDescription'),
+    onConfirm: () => userStatsStore.clearHistory(),
+  });
+}
+
+// FORK-MODIFICATION: 反馈 4 —— 对话框状态。三种「新建」共用 name-dialog，
+// 只有「新建收藏」因为需要路径输入而单独一个。
+const newFavoriteDialogOpen = ref(false);
+const newCategoryDialogOpen = ref(false);
+const newTagDialogOpen = ref(false);
+// 复用同一个 name-dialog 做「重命名分类」：标题与初值不同，交互完全一样。
+const renameCategoryDialogOpen = ref(false);
+const categoryBeingRenamed = ref<FavoriteCategory | null>(null);
+// FORK-MODIFICATION: 批次 58 —— 收藏编辑弹窗（标题 / 路径 / 分类）。
+// 侧边栏的小铅笔与卡片 ⋮ 菜单里的「编辑收藏」共用同一个弹窗组件。
+const favoriteEditDialogOpen = ref(false);
+const favoriteEditTarget = ref<FavoriteItem | null>(null);
+
+// FORK-MODIFICATION 2026-10-23：色板改为引用 `@/utils/tag-colors` 里的唯一一份。
+const TAG_COLOR_PALETTE = TAG_COLORS;
+
+const categoryNameDraft = ref('');
+const tagNameDraft = ref('');
+const tagColorDraft = ref(TAG_COLOR_PALETTE[0]);
+
+const categoryNameConflict = computed(() => {
+  const draft = categoryNameDraft.value.trim().toLowerCase();
+  const excludedId = categoryBeingRenamed.value?.id ?? null;
+
+  if (!draft) {
+    return null;
+  }
+
+  const clash = favoriteCategories.value.find(
+    category => category.id !== excludedId && category.name.toLowerCase() === draft,
+  );
+
+  return clash ? clash.name : null;
+});
+
+const tagNameConflict = computed(() => {
+  const draft = tagNameDraft.value.trim().toLowerCase();
+
+  if (!draft) {
+    return null;
+  }
+
+  const clash = tags.value.find(tag => tag.name.toLowerCase() === draft);
+  return clash ? clash.name : null;
+});
+
+// 收藏分组：先按分类定义顺序输出（新建的分类排在最后），再补「未分类」。
+// 分类被删掉后其下收藏回到 categoryId === null，不会凭空消失。
+const favoriteSections = computed((): FavoriteSection[] => {
   let staggerBase = 0;
-  const sections: TaggedSection[] = [];
+  const sections: FavoriteSection[] = [];
 
-  for (const tag of tags.value) {
-    const itemsForTag = taggedItems.value.filter(item => item.tagIds.includes(tag.id));
+  for (const category of favoriteCategories.value) {
+    const itemsForCategory = favoriteItems.value.filter(item => item.categoryId === category.id);
 
-    if (itemsForTag.length === 0) {
-      continue;
-    }
-
+    // 空分类也要渲染分区头。跳过它的话，用户新建的分类在界面上完全不存在，
+    // 于是既看不到自己建了什么，也没有任何入口能重命名或删除它 —— 只能靠
+    // 「手滑建错了一个分类」这条永远走不通的路径。真机验收踩到过这个。
     sections.push({
-      tag,
-      items: itemsForTag,
+      key: category.id,
+      category,
+      items: itemsForCategory,
       staggerBase,
     });
-    staggerBase += itemsForTag.length;
+
+    staggerBase += itemsForCategory.length;
+  }
+
+  const uncategorized = favoriteItems.value.filter(item => !item.categoryId);
+
+  if (uncategorized.length > 0) {
+    sections.push({
+      key: '__afm_uncategorized__',
+      category: null,
+      items: uncategorized,
+      staggerBase,
+    });
   }
 
   return sections;
+});
+
+// FORK-MODIFICATION 2026-10-23：分组交给纯函数 `getTaggedSections`，
+// 这里只补上本仓特有的 `staggerBase`（错落入场动画的起始序号）。
+const taggedSections = computed((): DashboardTaggedSection[] => {
+  let staggerBase = 0;
+
+  return getTaggedSections(tags.value, taggedItems.value).map((section) => {
+    const staggered = {
+      ...section,
+      staggerBase,
+    };
+    staggerBase += section.items.length;
+    return staggered;
+  });
 });
 
 function isTagSelectorActive(sectionTagId: string, itemPath: string): boolean {
@@ -131,25 +348,26 @@ function openItem(path: string, isFile: boolean) {
   openNavigatorNavigablePath(router, path, isFile);
 }
 
+// FORK-MODIFICATION: 反馈 4 —— 直接读 FavoriteItem.isFile。
+// 原来是 `!item.path.endsWith('/') && item.path.includes('.')`，把
+// `my.folder` 这类含点目录当成文件。isFile 由「新建收藏」时后端 stat 判定，
+// 老记录由 store 读入时按同一规则补齐（user-stats store 的 normalizeFavorites），
+// 所以这里不需要再兜底。
 function isFavoriteFile(item: FavoriteItem): boolean {
   if (isVirtualLocationPath(item.path)) {
     return false;
   }
 
-  return !item.path.endsWith('/') && item.path.includes('.');
+  return item.isFile;
 }
 
+// FORK-MODIFICATION 2026-10-23：相对时间改为复用纯模块
+// `@/utils/dashboard-relative-time`（原来这里内联了一份，和新加的
+// 「条目添加时间」是同一套逻辑，两处各写一遍迟早漂移）。
 function formatRelativeTime(timestamp: number): string {
-  const now = Date.now();
-  const diffMs = now - timestamp;
-  const diffMinutes = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMinutes < 1) return t('dashboard.justNow');
-  if (diffMinutes < 60) return t('dashboard.minutesAgo', diffMinutes);
-  if (diffHours < 24) return t('dashboard.hoursAgo', diffHours);
-  return t('dashboard.daysAgo', diffDays);
+  return formatDashboardRelativeTime(timestamp, (key, count) => {
+    return count === undefined ? t(key) : t(key, count);
+  });
 }
 
 function openFavoriteItem(item: FavoriteItem) {
@@ -164,9 +382,18 @@ function openFrequentItem(item: FrequentItem) {
   openItem(item.path, item.isFile);
 }
 
-async function removeFavorite(path: string, event: MouseEvent) {
-  event.stopPropagation();
-  await userStatsStore.removeFromFavorites(path);
+// FORK-MODIFICATION 2026-10-23：取消收藏改成先弹确认框。
+// 这个按钮是 AFM 特意保留的（upstream 把它删了且没补替代入口），
+// 误点之后只能靠「记得路径」重新收藏 —— 代价对用户是实打实的。
+function requestRemoveFavorite(path: string, event?: MouseEvent) {
+  // 事件是可选的：卡片上的「取消收藏」既可能来自卡片按钮（带 MouseEvent），
+  // 也可能来自 ⋮ 菜单项（无参数）。
+  event?.stopPropagation();
+  requestConfirmation({
+    title: t('dashboard.actions.removeFavoriteConfirmTitle'),
+    description: t('dashboard.actions.removeFavoriteConfirmDescription'),
+    onConfirm: () => userStatsStore.removeFromFavorites(path),
+  });
 }
 
 async function removeHistoryItem(path: string, openedAt: number, event: MouseEvent) {
@@ -186,15 +413,20 @@ async function handleToggleTagOnItem(item: TaggedItem, tagId: string) {
 }
 
 async function handleCreateTagForItem(item: TaggedItem, name: string) {
-  const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899'];
-  const randomColor = colors[Math.floor(Math.random() * colors.length)];
+  const randomColor = pickRandomTagColor();
   const newTag = await userStatsStore.createTag(name, randomColor);
 
   await userStatsStore.addTagToItem(item.path, newTag.id, item.isFile);
 }
 
-async function handleDeleteTag(tagId: string) {
-  await userStatsStore.deleteTag(tagId);
+// FORK-MODIFICATION 2026-10-23：删标记先弹确认框 —— 删标记会同时把所有条目上的
+// tagId 剥掉，这一步是不可逆的。
+function requestDeleteTag(tagId: string) {
+  requestConfirmation({
+    title: t('dashboard.actions.deleteTagConfirmTitle'),
+    description: t('dashboard.actions.deleteTagConfirmDescription'),
+    onConfirm: () => userStatsStore.deleteTag(tagId),
+  });
 }
 
 async function handleRenameTag(tagId: string, name: string) {
@@ -208,74 +440,506 @@ async function handleUpdateTagColor(tagId: string, color: string) {
 async function handleReorderTags(nextTags: ItemTag[]) {
   await userStatsStore.setTags(nextTags);
 }
+
+// ── 反馈 4：新建与编辑 ────────────────────────────────────────────────
+
+// 上移/下移是否可用：只看在**当前分组**里的位置。
+// 收藏和标记两个页签的分组结构不同（categoryId vs tagId），但这个判定一样，
+// 所以抽成一个按「同一分组内的有序列表」工作的函数，避免两处各写一遍。
+function canMoveWithinGroup<T extends { path: string }>(
+  items: T[],
+  path: string,
+  direction: -1 | 1,
+): boolean {
+  const index = items.findIndex(item => item.path === path);
+
+  if (index === -1) {
+    return false;
+  }
+
+  return direction === -1 ? index > 0 : index < items.length - 1;
+}
+
+async function handleMoveFavorite(path: string, direction: -1 | 1) {
+  await userStatsStore.moveFavoriteWithinCategory(path, direction);
+}
+
+async function handleMoveFavoriteToCategory(path: string, categoryId: string | null) {
+  await userStatsStore.moveFavoriteToCategory(path, categoryId);
+}
+
+// FORK-MODIFICATION: 2026-10-31 —— 收藏夹排序（拖拽 + 上移 / 下移）。
+//
+// 两条交互路径落到**同一份数据**上：
+//   - 上移 / 下移按钮 → store.moveFavoriteCategory / moveFavoriteWithinCategory
+//   - 拖拽          → store.reorderFavoriteCategories / reorderFavorites
+// 两条路径最后都走 store 的 saveStats()，所以都真的落盘到 user-stats.json。
+//
+// 拖拽状态：同时只会有一种拖拽在跑 —— 拖分类时 draggedCategoryId 有值，
+// 拖收藏条目时 draggedFavoritePath 有值。两者互斥，所以同一个 dragover
+// 事件里不会同时命中两种落点。
+const draggedCategoryId = ref<string | null>(null);
+const draggedFavoritePath = ref<string | null>(null);
+const categoryDropTargetKey = ref<string | null>(null);
+const categoryDropPlacement = ref<DropPlacement | null>(null);
+const favoriteDropTargetPath = ref<string | null>(null);
+const favoriteDropPlacement = ref<DropPlacement | null>(null);
+
+function clearCategoryDropTarget() {
+  categoryDropTargetKey.value = null;
+  categoryDropPlacement.value = null;
+}
+
+function clearFavoriteDropTarget() {
+  favoriteDropTargetPath.value = null;
+  favoriteDropPlacement.value = null;
+}
+
+// FORK-MODIFICATION: 2026-10-31 —— 拖拽离开落点时收起指示线。
+// `relatedTarget` 是**即将进入**的元素：指针只是挪到落点内部的子元素上时，
+// 不算离开，指示线要留着；真正离开整个落点才清。
+function handleCategoryDragLeave(event: DragEvent, section: FavoriteSection) {
+  if (categoryDropTargetKey.value !== section.key) {
+    return;
+  }
+
+  const current = getEventElement(event);
+  const related = event.relatedTarget;
+
+  if (current && related instanceof Node && current.contains(related)) {
+    return;
+  }
+
+  clearCategoryDropTarget();
+}
+
+function handleFavoriteDragLeave(event: DragEvent, item: FavoriteItem) {
+  if (favoriteDropTargetPath.value !== item.path) {
+    return;
+  }
+
+  const current = getEventElement(event);
+  const related = event.relatedTarget;
+
+  if (current && related instanceof Node && current.contains(related)) {
+    return;
+  }
+
+  clearFavoriteDropTarget();
+}
+
+function getEventElement(event: Event): Element | null {
+  return event.currentTarget instanceof Element ? event.currentTarget : null;
+}
+
+// 拖放落点只看指针坐标。抽出来是为了让「取指针位置」在四处调用点写法一致 ——
+// 对象字面量一个属性一行，是本仓 eslint 的硬规矩。
+function getPointerPosition(event: DragEvent) {
+  return {
+    x: event.clientX,
+    y: event.clientY,
+  };
+}
+
+/**
+ * 分类能不能上移 / 下移。只看**真实分类**列表 ——
+ * 「未分类」是虚拟分组，永远排在最后，没有可换位的对象。
+ */
+function canMoveFavoriteCategory(categoryId: string, direction: -1 | 1): boolean {
+  const index = favoriteCategories.value.findIndex(category => category.id === categoryId);
+
+  if (index === -1) {
+    return false;
+  }
+
+  return direction === -1 ? index > 0 : index < favoriteCategories.value.length - 1;
+}
+
+async function handleMoveFavoriteCategoryUp(category: FavoriteCategory) {
+  await userStatsStore.moveFavoriteCategory(category.id, -1);
+}
+
+async function handleMoveFavoriteCategoryDown(category: FavoriteCategory) {
+  await userStatsStore.moveFavoriteCategory(category.id, 1);
+}
+
+function handleCategoryDragStart(category: FavoriteCategory) {
+  draggedCategoryId.value = category.id;
+  draggedFavoritePath.value = null;
+  clearFavoriteDropTarget();
+}
+
+function handleCategoryDragEnd() {
+  draggedCategoryId.value = null;
+  clearCategoryDropTarget();
+}
+
+function handleCategoryDragOver(event: DragEvent, section: FavoriteSection) {
+  // 「未分类」是虚拟分区，不接受落点。
+  if (!draggedCategoryId.value || !section.category) {
+    return;
+  }
+
+  event.preventDefault();
+
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+
+  const rect = getElementRect(getEventElement(event));
+
+  if (!rect) {
+    return;
+  }
+
+  // 竖排列表：落在上半区 → 插到目标分类前面，下半区 → 插到后面。
+  categoryDropTargetKey.value = section.key;
+  categoryDropPlacement.value = getDropPlacement(
+    getPointerPosition(event),
+    rect,
+    'vertical',
+  );
+}
+
+async function handleCategoryDrop(event: DragEvent, section: FavoriteSection) {
+  const draggedId = draggedCategoryId.value;
+  const rect = getElementRect(getEventElement(event));
+  const placement = rect
+    ? getDropPlacement(getPointerPosition(event), rect, 'vertical')
+    : 'before';
+
+  handleCategoryDragEnd();
+
+  if (!draggedId || !section.category) {
+    return;
+  }
+
+  event.preventDefault();
+
+  await userStatsStore.reorderFavoriteCategories(draggedId, section.category.id, placement);
+}
+
+function handleFavoriteDragStart(item: FavoriteItem) {
+  draggedFavoritePath.value = item.path;
+  draggedCategoryId.value = null;
+  clearCategoryDropTarget();
+}
+
+function handleFavoriteDragEnd() {
+  draggedFavoritePath.value = null;
+  clearFavoriteDropTarget();
+}
+
+function handleFavoriteDragOver(event: DragEvent, item: FavoriteItem) {
+  if (!draggedFavoritePath.value) {
+    return;
+  }
+
+  event.preventDefault();
+
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+
+  const rect = getElementRect(getEventElement(event));
+
+  if (!rect) {
+    return;
+  }
+
+  // grid 是行优先排列：落在卡片左半区 → 插到它前面，右半区 → 插到后面。
+  favoriteDropTargetPath.value = item.path;
+  favoriteDropPlacement.value = getDropPlacement(
+    getPointerPosition(event),
+    rect,
+    'horizontal',
+  );
+}
+
+async function handleFavoriteDrop(event: DragEvent, item: FavoriteItem) {
+  const draggedPath = draggedFavoritePath.value;
+  const rect = getElementRect(getEventElement(event));
+  const placement = rect
+    ? getDropPlacement(getPointerPosition(event), rect, 'horizontal')
+    : 'before';
+
+  handleFavoriteDragEnd();
+
+  if (!draggedPath) {
+    return;
+  }
+
+  event.preventDefault();
+
+  await userStatsStore.reorderFavorites(draggedPath, item.path, placement);
+}
+
+// FORK-MODIFICATION: 批次 37 —— 可见名与 a11y 标签必须一致：
+// 有别名就用别名，没有才回退原始名称。
+function getFavoriteDisplayName(item: FavoriteItem): string {
+  return resolveFavoriteDisplayName(item.path, item.alias, t);
+}
+
+function getFavoriteMoveUpLabel(item: FavoriteItem): string {
+  return t('dashboard.actions.moveUpWithName', { name: getFavoriteDisplayName(item) });
+}
+
+function getFavoriteMoveDownLabel(item: FavoriteItem): string {
+  return t('dashboard.actions.moveDownWithName', { name: getFavoriteDisplayName(item) });
+}
+
+// FORK-MODIFICATION: 批次 37 —— alias 是收藏条目的**显示名**，只影响显示。
+async function handleCreateFavorite(
+  path: string,
+  isFile: boolean,
+  categoryId: string | null,
+  alias: string | null,
+) {
+  await userStatsStore.addToFavorites(path, isFile, categoryId, alias ?? '');
+}
+
+function openNewCategoryDialog() {
+  categoryNameDraft.value = '';
+  newCategoryDialogOpen.value = true;
+}
+
+async function handleCreateCategory(name: string) {
+  const created = await userStatsStore.createFavoriteCategory(name);
+
+  if (!created) {
+    return;
+  }
+
+  categoryNameDraft.value = created.name;
+}
+
+function openRenameCategoryDialog(category: FavoriteCategory) {
+  categoryBeingRenamed.value = category;
+  categoryNameDraft.value = category.name;
+  renameCategoryDialogOpen.value = true;
+}
+
+async function handleRenameCategory(name: string) {
+  const category = categoryBeingRenamed.value;
+
+  if (!category) {
+    return;
+  }
+
+  await userStatsStore.renameFavoriteCategory(category.id, name);
+  categoryBeingRenamed.value = null;
+}
+
+// FORK-MODIFICATION: 批次 58 —— 打开收藏编辑弹窗（标题 / 路径 / 分类）。
+function openFavoriteEditDialog(item: FavoriteItem) {
+  favoriteEditTarget.value = item;
+  favoriteEditDialogOpen.value = true;
+}
+
+/**
+ * 卡片上直接改标题（批次 58）。
+ *
+ * 卡片里的输入框预填的是**当前显示出来的那串字**，所以这里要判断
+ * 「用户填的还是不是原始名称」：
+ *   - 还是原始名称 → 清掉别名（保持「没有别名」这个语义）；
+ *   - 不是 → 写成新的别名。
+ * 空串同样是「清掉别名」。
+ */
+async function handleUpdateFavoriteTitle(item: FavoriteItem, value: string) {
+  const baseName = resolveFavoriteDisplayName(item.path, '', t);
+  const nextAlias = value === baseName ? '' : value;
+
+  await userStatsStore.setFavoriteAlias(item.path, nextAlias);
+}
+
+/**
+ * 卡片上直接改路径（批次 58）。
+ *
+ * 判定顺序与弹窗一致：先查重复（纯本地），再问后端路径存不存在。
+ */
+async function handleUpdateFavoritePath(item: FavoriteItem, value: string) {
+  const nextPath = normalizeFavoritePathInput(value);
+
+  if (!nextPath) {
+    toast.error(t('dashboard.favoriteEdit.pathRequired'));
+    return;
+  }
+
+  if (nextPath === item.path) {
+    return;
+  }
+
+  const otherPaths = userStatsStore.favorites
+    .filter(favorite => favorite.path !== item.path)
+    .map(favorite => favorite.path);
+
+  const result = await checkFavoritePath(nextPath, otherPaths);
+
+  if (result.status === 'missing') {
+    toast.error(t('dashboard.newFavoriteDialog.pathNotFound'));
+    return;
+  }
+
+  if (result.status === 'duplicate') {
+    toast.error(t('dashboard.newFavoriteDialog.pathAlreadyFavorite'));
+    return;
+  }
+
+  const changed = await userStatsStore.updateFavoritePath(item.path, nextPath, result.isFile);
+
+  if (!changed) {
+    toast.error(t('dashboard.favoriteEdit.saveFailed'));
+    return;
+  }
+
+  toast.success(t('dashboard.favoriteEdit.saved'));
+}
+
+// 删分类**不删收藏** —— 它们回到「未分类」。可逆，且不静默丢用户数据。
+async function handleDeleteCategory(category: FavoriteCategory) {
+  await userStatsStore.deleteFavoriteCategory(category.id);
+}
+
+function openNewTagDialog() {
+  tagNameDraft.value = '';
+  tagColorDraft.value = TAG_COLOR_PALETTE[Math.floor(Math.random() * TAG_COLOR_PALETTE.length)];
+  newTagDialogOpen.value = true;
+}
+
+async function handleCreateTag(name: string, color: string) {
+  await userStatsStore.createTag(name, color || tagColorDraft.value);
+}
+
+function getTagSectionIndex(tagId: string): number {
+  return taggedSections.value.findIndex(section => section.tag.id === tagId);
+}
+
+function canMoveTag(tagId: string, direction: -1 | 1): boolean {
+  const index = getTagSectionIndex(tagId);
+  return direction === -1 ? index > 0 : index >= 0 && index < taggedSections.value.length - 1;
+}
+
+async function handleMoveTag(tagId: string, direction: -1 | 1) {
+  const nextTags = [...tags.value];
+  const index = nextTags.findIndex(tag => tag.id === tagId);
+  const target = index + direction;
+
+  if (index === -1 || target < 0 || target >= nextTags.length) {
+    return;
+  }
+
+  const moved = nextTags[index];
+  nextTags[index] = nextTags[target];
+  nextTags[target] = moved;
+
+  await userStatsStore.setTags(nextTags);
+}
+
+// 标记条目的排序：同分组内按数组顺序渲染（taggedSections 就是按 tagIds 过滤
+// taggedItems 的结果），所以只要在 taggedItems 数组里把相邻两条换位。
+async function handleMoveTaggedItem(section: TaggedSection, path: string, direction: -1 | 1) {
+  const globalIndexes = section.items
+    .map(item => taggedItems.value.findIndex(candidate => candidate.path === item.path))
+    .filter(index => index !== -1);
+
+  const position = section.items.findIndex(item => item.path === path);
+  const targetPosition = position + direction;
+
+  if (position === -1 || targetPosition < 0 || targetPosition >= globalIndexes.length) {
+    return;
+  }
+
+  const nextItems = [...taggedItems.value];
+  const from = globalIndexes[position];
+  const to = globalIndexes[targetPosition];
+  const moved = nextItems[from];
+
+  nextItems[from] = nextItems[to];
+  nextItems[to] = moved;
+
+  await userStatsStore.setTaggedItems(nextItems);
+}
+
+// FORK-MODIFICATION 2026-10-23：移除单个标记先弹确认框。
+function requestRemoveTaggedItem(item: TaggedItem, sectionTagId: string) {
+  requestConfirmation({
+    title: t('dashboard.actions.removeTagConfirmTitle'),
+    description: t('dashboard.actions.removeTagConfirmDescription'),
+    onConfirm: () => userStatsStore.removeTagFromItem(item.path, sectionTagId),
+  });
+}
 </script>
 
 <template>
-  <PageDefaultLayout
-    class="dashboard-page"
-    :title="t('pages.dashboard')"
-    :subtitle="t('dashboard.subtitle')"
-  >
+  <PageDefaultLayout class="dashboard-page">
     <div ref="dropContainerRef">
       <Tabs
         v-model="activeTab"
         default-value="favorites"
         class="dashboard-page__tabs"
       >
-        <TabsList class="dashboard-page__tabs-list">
-          <TabsTrigger
-            value="favorites"
-            class="dashboard-page__tab-trigger"
-          >
-            <StarIcon :size="16" />
-            <span>{{ t('dashboard.tabs.favorites') }}</span>
-            <span
-              v-if="favoriteItems.length > 0"
-              class="dashboard-page__tab-badge"
+        <!-- FORK-MODIFICATION 2026-10-23：Hero 顶部区（移植自 upstream `3eca4c17`）。
+             页签从 Hero 外面挪进 Hero 底部，样式仍是本仓的胶囊页签 ——
+             upstream 那个位置放的是四张大计数卡，本仓不能换。 -->
+        <DashboardHero
+          :title="t('pages.dashboard')"
+          :subtitle="t('dashboard.subtitle')"
+        >
+          <TabsList class="dashboard-page__tabs-list">
+            <TabsTrigger
+              value="favorites"
+              class="dashboard-page__tab-trigger"
             >
-              {{ favoriteItems.length }}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="tagged"
-            class="dashboard-page__tab-trigger"
-          >
-            <TagIcon :size="16" />
-            <span>{{ t('dashboard.tabs.tagged') }}</span>
-            <span
-              v-if="taggedItems.length > 0"
-              class="dashboard-page__tab-badge"
+              <StarIcon :size="16" />
+              <span>{{ t('dashboard.tabs.favorites') }}</span>
+              <span
+                v-if="favoriteItems.length > 0"
+                class="dashboard-page__tab-badge"
+              >
+                {{ favoriteItems.length }}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="tagged"
+              class="dashboard-page__tab-trigger"
             >
-              {{ taggedItems.length }}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="frequent"
-            class="dashboard-page__tab-trigger"
-          >
-            <TrendingUpIcon :size="16" />
-            <span>{{ t('dashboard.tabs.frequent') }}</span>
-            <span
-              v-if="frequentItems.length > 0"
-              class="dashboard-page__tab-badge"
+              <TagIcon :size="16" />
+              <span>{{ t('dashboard.tabs.tagged') }}</span>
+              <span
+                v-if="taggedItems.length > 0"
+                class="dashboard-page__tab-badge"
+              >
+                {{ taggedItems.length }}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="frequent"
+              class="dashboard-page__tab-trigger"
             >
-              {{ frequentItems.length }}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="history"
-            class="dashboard-page__tab-trigger"
-          >
-            <ClockIcon :size="16" />
-            <span>{{ t('dashboard.tabs.history') }}</span>
-            <span
-              v-if="historyItems.length > 0"
-              class="dashboard-page__tab-badge"
+              <TrendingUpIcon :size="16" />
+              <span>{{ t('dashboard.tabs.frequent') }}</span>
+              <span
+                v-if="frequentItems.length > 0"
+                class="dashboard-page__tab-badge"
+              >
+                {{ frequentItems.length }}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="history"
+              class="dashboard-page__tab-trigger"
             >
-              {{ historyItems.length }}
-            </span>
-          </TabsTrigger>
-        </TabsList>
+              <ClockIcon :size="16" />
+              <span>{{ t('dashboard.tabs.history') }}</span>
+              <span
+                v-if="historyItems.length > 0"
+                class="dashboard-page__tab-badge"
+              >
+                {{ historyItems.length }}
+              </span>
+            </TabsTrigger>
+          </TabsList>
+        </DashboardHero>
 
         <TabsContent
           value="favorites"
@@ -283,39 +947,137 @@ async function handleReorderTags(nextTags: ItemTag[]) {
         >
           <DashboardActionBar
             :is-empty="favoriteItems.length === 0"
-            @clear-all="userStatsStore.clearAllFavorites()"
-          />
+            @clear-all="requestClearFavorites()"
+          >
+            <template #menu-items>
+              <DropdownMenuItem
+                @click="newFavoriteDialogOpen = true"
+              >
+                <StarIcon :size="14" />
+                <span>{{ t('dashboard.actions.newFavorite') }}</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                @click="openNewCategoryDialog()"
+              >
+                <FolderPlusIcon :size="14" />
+                <span>{{ t('dashboard.actions.newCategory') }}</span>
+              </DropdownMenuItem>
+            </template>
+          </DashboardActionBar>
           <DashboardEmptyState
             v-if="favoriteItems.length === 0"
             type="favorites"
             :title="t('dashboard.emptyFavorites')"
             :description="t('dashboard.emptyFavoritesDescription')"
           />
+          <!-- FORK-MODIFICATION: 反馈 4 —— 收藏按分类分组显示，组内可排序、可改归属。 -->
           <div
             v-else
-            class="dashboard-page__items-grid"
+            class="dashboard-page__tagged-sections"
           >
-            <DirEntryInteractive
-              v-for="(item, itemIndex) in favoriteItems"
-              :key="item.path"
-              :path="item.path"
-              :is-file="isFavoriteFile(item)"
+            <section
+              v-for="section in favoriteSections"
+              :key="section.key"
+              class="dashboard-page__tagged-section"
             >
-              <EntryCard
-                v-bind="getStaggerSlideUpBinding(itemIndex)"
-                :path="item.path"
-                @click="openFavoriteItem(item)"
+              <!-- FORK-MODIFICATION: 2026-10-31 —— 分类排序的落点挂在**分区标题**上。
+                   排序的语义单位是「分类」本身，分区里还压着一堆收藏卡片，
+                   拿整个分区的高度判断插到前一个还是后一个分类会算错。 -->
+              <div
+                class="dashboard-page__tagged-section-head"
+                :class="{
+                  'dashboard-page__tagged-section-head--drop-before': categoryDropTargetKey === section.key && categoryDropPlacement === 'before',
+                  'dashboard-page__tagged-section-head--drop-after': categoryDropTargetKey === section.key && categoryDropPlacement === 'after',
+                }"
+                @dragover="handleCategoryDragOver($event, section)"
+                @drop="handleCategoryDrop($event, section)"
+                @dragleave="handleCategoryDragLeave($event, section)"
               >
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  class="entry-card__action"
-                  @click="removeFavorite(item.path, $event)"
+                <DashboardCategorySectionHeader
+                  :name="section.category?.name ?? t('dashboard.actions.uncategorized')"
+                  :count="section.items.length"
+                  :category="section.category"
+                  :can-move-up="section.category ? canMoveFavoriteCategory(section.category.id, -1) : false"
+                  :can-move-down="section.category ? canMoveFavoriteCategory(section.category.id, 1) : false"
+                  @rename-category="openRenameCategoryDialog"
+                  @delete-category="handleDeleteCategory"
+                  @move-up="handleMoveFavoriteCategoryUp"
+                  @move-down="handleMoveFavoriteCategoryDown"
+                  @drag-start="handleCategoryDragStart"
+                  @drag-end="handleCategoryDragEnd"
+                />
+              </div>
+              <div class="dashboard-page__items-grid">
+                <!-- FORK-MODIFICATION: 2026-10-31 —— 收藏条目的落点。
+                     DirEntryInteractive 是多根节点组件，attrs 不会透传，
+                     所以外面套一层 div 当 drop target。 -->
+                <div
+                  v-for="(item, itemIndex) in section.items"
+                  :key="item.path"
+                  class="dashboard-page__favorite-item"
+                  :class="{
+                    'dashboard-page__favorite-item--drop-before': favoriteDropTargetPath === item.path && favoriteDropPlacement === 'before',
+                    'dashboard-page__favorite-item--drop-after': favoriteDropTargetPath === item.path && favoriteDropPlacement === 'after',
+                  }"
+                  @dragover="handleFavoriteDragOver($event, item)"
+                  @drop="handleFavoriteDrop($event, item)"
+                  @dragleave="handleFavoriteDragLeave($event, item)"
                 >
-                  <XIcon :size="14" />
-                </Button>
-              </EntryCard>
-            </DirEntryInteractive>
+                  <DirEntryInteractive
+                    :path="item.path"
+                    :is-file="isFavoriteFile(item)"
+                  >
+                    <!-- FORK-MODIFICATION: 批次 58 —— 收藏卡显示**完整路径**，
+                         标题与路径都可点击就地编辑。 -->
+                    <EntryCard
+                      v-bind="getStaggerSlideUpBinding(section.staggerBase + itemIndex)"
+                      :path="item.path"
+                      :is-file="isFavoriteFile(item)"
+                      :size-label="getSizeLabel(item.path)"
+                      :alias="item.alias ?? ''"
+                      path-display="full"
+                      :editable="true"
+                      @click="openFavoriteItem(item)"
+                      @update:title="handleUpdateFavoriteTitle(item, $event)"
+                      @update:path="handleUpdateFavoritePath(item, $event)"
+                    >
+                      <!-- FORK-MODIFICATION: 2026-10-31 —— 条目级排序（拖拽手柄 + 上移 / 下移）。 -->
+                      <DashboardOrderControls
+                        :can-move-up="canMoveWithinGroup(section.items, item.path, -1)"
+                        :can-move-down="canMoveWithinGroup(section.items, item.path, 1)"
+                        :drag-key="item.path"
+                        :drag-label="t('dashboard.actions.dragToReorder')"
+                        :move-up-label="getFavoriteMoveUpLabel(item)"
+                        :move-down-label="getFavoriteMoveDownLabel(item)"
+                        drag-image-selector=".entry-card"
+                        @move-up="handleMoveFavorite(item.path, -1)"
+                        @move-down="handleMoveFavorite(item.path, 1)"
+                        @drag-start="handleFavoriteDragStart(item)"
+                        @drag-end="handleFavoriteDragEnd"
+                      />
+                      <DashboardEntryActionsMenu
+                        :can-move-up="canMoveWithinGroup(section.items, item.path, -1)"
+                        :can-move-down="canMoveWithinGroup(section.items, item.path, 1)"
+                        show-category-picker
+                        show-rename-favorite
+                        :categories="favoriteCategories"
+                        :current-category-id="item.categoryId"
+                        :remove-label="t('dashboard.actions.removeFavorite')"
+                        @move-up="handleMoveFavorite(item.path, -1)"
+                        @move-down="handleMoveFavorite(item.path, 1)"
+                        @move-to-category="categoryId => handleMoveFavoriteToCategory(item.path, categoryId)"
+                        @rename-favorite="openFavoriteEditDialog(item)"
+                        @remove="requestRemoveFavorite(item.path, $event)"
+                      />
+                      <!-- FORK-MODIFICATION 2026-10-23：类型 + 「添加于 X 前」 -->
+                      <template #meta>
+                        <DashboardTaggedItemMeta :item="item" />
+                      </template>
+                    </EntryCard>
+                  </DirEntryInteractive>
+                </div>
+              </div>
+            </section>
           </div>
         </TabsContent>
 
@@ -325,8 +1087,17 @@ async function handleReorderTags(nextTags: ItemTag[]) {
         >
           <DashboardActionBar
             :is-empty="taggedItems.length === 0"
-            @clear-all="userStatsStore.clearAllTagged()"
-          />
+            @clear-all="requestClearTagged()"
+          >
+            <template #menu-items>
+              <DropdownMenuItem
+                @click="openNewTagDialog()"
+              >
+                <TagIcon :size="14" />
+                <span>{{ t('dashboard.actions.newTag') }}</span>
+              </DropdownMenuItem>
+            </template>
+          </DashboardActionBar>
           <DashboardEmptyState
             v-if="taggedItems.length === 0"
             type="tagged"
@@ -345,9 +1116,13 @@ async function handleReorderTags(nextTags: ItemTag[]) {
               <div class="dashboard-page__tagged-section-head">
                 <DashboardTagSectionHeader
                   :tag="section.tag"
+                  :can-move-up="canMoveTag(section.tag.id, -1)"
+                  :can-move-down="canMoveTag(section.tag.id, 1)"
                   @rename-tag="handleRenameTag"
-                  @delete-tag="handleDeleteTag"
+                  @delete-tag="requestDeleteTag"
                   @update-tag-color="handleUpdateTagColor"
+                  @move-up="tagId => handleMoveTag(tagId, -1)"
+                  @move-down="tagId => handleMoveTag(tagId, 1)"
                 />
               </div>
               <div class="dashboard-page__items-grid">
@@ -361,6 +1136,7 @@ async function handleReorderTags(nextTags: ItemTag[]) {
                     v-bind="getStaggerSlideUpBinding(section.staggerBase + itemIndex)"
                     :path="item.path"
                     :is-file="item.isFile"
+                    :size-label="getSizeLabel(item.path)"
                     @click="openItem(item.path, item.isFile)"
                   >
                     <template #footer>
@@ -377,6 +1153,19 @@ async function handleReorderTags(nextTags: ItemTag[]) {
                         @reorder-tags="handleReorderTags"
                       />
                     </template>
+                    <!-- FORK-MODIFICATION: 反馈 4 —— 组内排序与移除标记。 -->
+                    <DashboardEntryActionsMenu
+                      :can-move-up="canMoveWithinGroup(section.items, item.path, -1)"
+                      :can-move-down="canMoveWithinGroup(section.items, item.path, 1)"
+                      :remove-label="t('dashboard.actions.removeTag')"
+                      @move-up="handleMoveTaggedItem(section, item.path, -1)"
+                      @move-down="handleMoveTaggedItem(section, item.path, 1)"
+                      @remove="requestRemoveTaggedItem(item, section.tag.id)"
+                    />
+                    <!-- FORK-MODIFICATION 2026-10-23：类型 + 「添加于 X 前」 -->
+                    <template #meta>
+                      <DashboardTaggedItemMeta :item="item" />
+                    </template>
                   </EntryCard>
                 </DirEntryInteractive>
               </div>
@@ -390,7 +1179,7 @@ async function handleReorderTags(nextTags: ItemTag[]) {
         >
           <DashboardActionBar
             :is-empty="frequentItems.length === 0"
-            @clear-all="userStatsStore.clearAllFrequent()"
+            @clear-all="requestClearFrequent()"
           />
           <DashboardEmptyState
             v-if="frequentItems.length === 0"
@@ -412,6 +1201,7 @@ async function handleReorderTags(nextTags: ItemTag[]) {
                 v-bind="getStaggerSlideUpBinding(itemIndex)"
                 :path="item.path"
                 :is-file="item.isFile"
+                :size-label="getSizeLabel(item.path)"
                 @click="openFrequentItem(item)"
               >
                 <div class="entry-card__stats">
@@ -428,7 +1218,7 @@ async function handleReorderTags(nextTags: ItemTag[]) {
         >
           <DashboardActionBar
             :is-empty="historyItems.length === 0"
-            @clear-all="userStatsStore.clearHistory()"
+            @clear-all="requestClearHistory()"
           />
           <DashboardEmptyState
             v-if="historyItems.length === 0"
@@ -450,6 +1240,7 @@ async function handleReorderTags(nextTags: ItemTag[]) {
                 v-bind="getStaggerSlideUpBinding(itemIndex)"
                 :path="item.path"
                 :is-file="item.isFile"
+                :size-label="getSizeLabel(item.path)"
                 @click="openHistoryItem(item)"
               >
                 <span class="entry-card__time">{{ formatRelativeTime(item.openedAt) }}</span>
@@ -482,6 +1273,52 @@ async function handleReorderTags(nextTags: ItemTag[]) {
       @merge="handleTopLevelNameConflictMerge"
       @cancel="handleTopLevelNameConflictCancel"
     />
+
+    <!-- FORK-MODIFICATION: 反馈 4 —— 四个对话框。 -->
+    <DashboardNewFavoriteDialog
+      v-model:open="newFavoriteDialogOpen"
+      :categories="favoriteCategories"
+      :is-already-favorite="path => userStatsStore.isFavorite(path)"
+      @confirm="handleCreateFavorite"
+    />
+
+    <DashboardNameDialog
+      v-model:open="newCategoryDialogOpen"
+      :title="t('dashboard.actions.newCategory')"
+      :duplicate-of="categoryNameConflict"
+      @confirm="(name) => handleCreateCategory(name)"
+    />
+
+    <DashboardNameDialog
+      v-model:open="newTagDialogOpen"
+      :title="t('dashboard.actions.newTag')"
+      :initial-color="tagColorDraft"
+      :duplicate-of="tagNameConflict"
+      @confirm="handleCreateTag"
+    />
+
+    <DashboardNameDialog
+      v-model:open="renameCategoryDialogOpen"
+      :title="t('dashboard.actions.renameCategory')"
+      :initial-name="categoryBeingRenamed?.name ?? ''"
+      :duplicate-of="categoryNameConflict"
+      @confirm="handleRenameCategory"
+    />
+
+    <!-- FORK-MODIFICATION: 批次 58 —— 收藏编辑弹窗（标题 / 路径 / 分类）。
+         与侧边栏小铅笔共用同一个组件；清空标题 = 回到原始名称。 -->
+    <FavoriteEditDialog
+      v-model:open="favoriteEditDialogOpen"
+      :favorite="favoriteEditTarget"
+    />
+
+    <!-- FORK-MODIFICATION 2026-10-23：破坏性操作的确认框。 -->
+    <DashboardConfirmDialog
+      v-model:open="confirmDialogOpen"
+      :title="pendingConfirmAction?.title ?? ''"
+      :description="pendingConfirmAction?.description ?? ''"
+      @confirm="handleConfirmAction"
+    />
   </PageDefaultLayout>
 </template>
 
@@ -491,11 +1328,18 @@ async function handleReorderTags(nextTags: ItemTag[]) {
   flex-direction: column;
 }
 
+/* FORK-MODIFICATION 2026-10-23：页签挪进 Hero 之后改玻璃态 ——
+   胶囊压在背景图上，半透明 + 背景模糊才读得清。
+   `display` 从 flex 改回 inline-flex：胶囊块按内容宽度收缩，
+   像一块浮在 Hero 底部的玻璃，而不是横贯一整行。 */
+
 .dashboard-page__tabs-list {
-  display: flex;
+  display: inline-flex;
   padding: 4px;
+  border: 1px solid hsl(var(--border) / 70%);
   border-radius: var(--radius);
-  background-color: hsl(var(--muted) / 50%);
+  backdrop-filter: blur(10px);
+  background-color: hsl(var(--card) / 72%);
   gap: 4px;
 }
 
@@ -553,7 +1397,55 @@ async function handleReorderTags(nextTags: ItemTag[]) {
 }
 
 .dashboard-page__tagged-section-head {
+  position: relative;
   min-width: 0;
+}
+
+/* FORK-MODIFICATION: 2026-10-31 —— 收藏排序的落点指示线。 */
+.dashboard-page__tagged-section-head--drop-before::after,
+.dashboard-page__tagged-section-head--drop-after::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 2px;
+  border-radius: 1px;
+  background-color: hsl(var(--primary));
+  content: '';
+  pointer-events: none;
+}
+
+.dashboard-page__tagged-section-head--drop-before::after {
+  top: -5px;
+}
+
+.dashboard-page__tagged-section-head--drop-after::after {
+  bottom: -5px;
+}
+
+/* FORK-MODIFICATION: 2026-10-31 —— 收藏条目的落点容器 + 指示线。 */
+.dashboard-page__favorite-item {
+  position: relative;
+  min-width: 0;
+}
+
+.dashboard-page__favorite-item--drop-before::before,
+.dashboard-page__favorite-item--drop-after::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 2px;
+  background-color: hsl(var(--primary));
+  content: '';
+  pointer-events: none;
+}
+
+.dashboard-page__favorite-item--drop-before::before {
+  left: -6px;
+}
+
+.dashboard-page__favorite-item--drop-after::after {
+  right: -6px;
 }
 
 .dashboard-page__tagged-section-head .tag-selector__tag-name {

@@ -12,6 +12,15 @@
 
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+// FORK-MODIFICATION 2026-10-19：祖先链要认得 `sfm://remote/<id>` 这个根。
+import {
+  getRemoteParentPath,
+  isRemoteConnectionRootPath,
+  isRemotePath,
+} from '@/utils/remote-paths';
+// FORK-MODIFICATION 2026-11-19（批次 24）：shell 设备路径是不透明标识符，
+// 祖先链与父级都必须走前缀截断，不能先 `\`→`/` 再按 `/` 切段。
+import { getShellParentPath, isShellPath } from '@/utils/shell-paths';
 
 /**
  * Pure helper: return all ancestor directories of `path`, root-most first,
@@ -26,15 +35,40 @@ import { ref } from 'vue';
  *   '/'                   → []
  *   ''                    → []
  */
+/**
+ * shell 命名空间路径的祖先链（批次 24：手机 / 读卡器设备根）。
+ *
+ * 只能做前缀截断：这类路径整体是不透明标识符，`\` 不是分隔符、`?` 是 shell
+ * 解析名的分隔标记。按 `/` 切段（或先归一分隔符再切）会得到树里根本不存在的
+ * 假祖先，`useFileTree.ensureLoaded` 找不到节点就 addRoot，设备子目录被立成
+ * 并列的第二个根。`getShellParentPath` 在设备根处返回 null，链自然停在设备根。
+ */
+function computeShellAncestorPaths(path: string): string[] {
+  const ancestors: string[] = [];
+  let current = path;
+
+  while (true) {
+    const parent = getShellParentPath(current);
+    if (parent === null || parent === current) break;
+    ancestors.unshift(parent);
+    current = parent;
+  }
+
+  return ancestors;
+}
+
 export function computeAncestorPaths(path: string): string[] {
   if (!path) return [];
+  // 护栏必须在 `\`→`/` 归一**之前**：归一一次，shell 路径就废了。
+  if (isShellPath(path)) return computeShellAncestorPaths(path);
   const trimmed = path.replace(/\\/g, '/').replace(/\/+$/, '');
   if (!trimmed) return [];
 
   const ancestors: string[] = [];
   let current = trimmed;
+
   while (true) {
-    const parent = parentDirectoryOf(current);
+    const parent = parentDirectoryPath(current);
     if (parent === null || parent === current) break;
     // POSIX root '/' is not an "ancestor" to expand (no useful UI state).
     if (parent === '/') break;
@@ -43,16 +77,37 @@ export function computeAncestorPaths(path: string): string[] {
     if (/^[A-Z]:\/$/i.test(parent)) break;
     current = parent;
   }
+
   return ancestors;
 }
 
 /** Return parent directory of `path`, or null if path is a root.
- *  Pure / path-string only — no FS access. */
-function parentDirectoryOf(path: string): string | null {
+ *  Pure / path-string only — no FS access. Exported so callers that mutate
+ *  the filesystem can name the directory whose cached children went stale. */
+export function parentDirectoryPath(path: string): string | null {
   if (!path) return null;
   if (path === '/') return null;
   // Windows drive root: 'C:/', 'C:'
   if (/^[A-Z]:\/?$/i.test(path)) return null;
+
+  // FORK-MODIFICATION 2026-10-19：远程连接根 `sfm://remote/<id>` 就是根。
+  //
+  // 不认它的话，祖先链会一路爬到 `sfm://remote`、`sfm:` —— 这些路径树里根本没有，
+  // `expandedPaths` 装进去之后 `useFileTree` 一个都匹配不上，结果就是
+  // 「根出现了但永远展不开」（用户 2026-10-19 实测）。
+  if (isRemotePath(path)) {
+    return isRemoteConnectionRootPath(path) ? null : getRemoteParentPath(path);
+  }
+
+  // FORK-MODIFICATION 2026-11-19（批次 24）：shell 设备路径只做前缀截断。
+  //
+  // 下面那段 `lastIndexOf('/')` 对 `::{GUID}\?\usb#vid_...` 恒返回 -1 → null，
+  // 于是设备根被当成「没有父级」，而设备下任意一层的父级也算不出来 ——
+  // 祖先链断掉，选中设备目录时设备根既不高亮也不展开。
+  // `getShellParentPath` 在设备根处返回 null：设备根就是根，与盘符同构。
+  if (isShellPath(path)) {
+    return getShellParentPath(path);
+  }
 
   const lastSlash = path.lastIndexOf('/');
   if (lastSlash === -1) return null;
@@ -73,6 +128,18 @@ export const useFolderTreeStore = defineStore('folderTree', () => {
   const loadingPaths = ref<Set<string>>(new Set());
   /** Set of paths whose children failed to load (permission denied, etc.). */
   const loadErrorPaths = ref<Set<string>>(new Set());
+  /**
+   * v6.5: directories whose *cached* children are stale because something
+   * outside the tree changed them (create / rename / delete in a file browser
+   * pane). The tree-view consumes these and re-reads; nothing else should.
+   */
+  const staleTreePaths = ref<Set<string>>(new Set());
+  /**
+   * Bumped by `markTreeStale`. Needed because the stale set dedupes, so
+   * invalidating the same path twice is not otherwise observable by a
+   * watcher that only tracks the set.
+   */
+  const staleTreeRevision = ref(0);
 
   function isExpanded(path: string): boolean {
     return expandedPaths.value.has(path);
@@ -96,10 +163,12 @@ export const useFolderTreeStore = defineStore('folderTree', () => {
    */
   function setSelectedPath(path: string | null): void {
     selectedPath.value = path;
+
     if (!path) {
       expandedPaths.value = new Set();
       return;
     }
+
     const ancestors = computeAncestorPaths(path);
     const next = new Set<string>(ancestors);
     next.add(path);
@@ -108,12 +177,14 @@ export const useFolderTreeStore = defineStore('folderTree', () => {
 
   function toggleExpanded(path: string): void {
     const next = new Set(expandedPaths.value);
+
     if (next.has(path)) {
       next.delete(path);
     }
     else {
       next.add(path);
     }
+
     expandedPaths.value = next;
   }
 
@@ -145,11 +216,112 @@ export const useFolderTreeStore = defineStore('folderTree', () => {
     loadErrorPaths.value = next;
   }
 
+  /**
+   * v6.5: publish directories whose cached children are stale. Called by the
+   * filesystem mutations; consumed by `file-browser-tree-view`, which turns
+   * each path into a real re-read.
+   *
+   * Only the shallowest paths survive: invalidating an ancestor already
+   * clears and re-reads everything beneath it, so keeping a descendant would
+   * just cost a second, redundant disk read.
+   */
+  function markTreeStale(paths: string[]): void {
+    // Merge into whatever is still pending, never replace: the consumer reads
+    // on the next flush, so a later call must not discard an earlier one.
+    const merged = new Set<string>(staleTreePaths.value);
+
+    // 「严格位于 ancestor 之下」。
+    //
+    // FORK-MODIFICATION 2026-11-19（批次 24）：shell 命名空间路径的分隔符是 `\`，
+    // 只拼 `/` 的话「设备根 vs 设备下的层」互相认不出来，
+    // 失效清单会同时留下设备根和设备子目录 —— 多一次白花的重读。
+    // shell 侧只做前缀截断比较，且**不改写任何分隔符**。
+    function isStrictlyUnder(p: string, q: string): boolean {
+      if (isShellPath(p) || isShellPath(q)) {
+        return !!q && p.startsWith(`${q.replace(/[\\/]+$/, '')}\\`);
+      }
+
+      return p.startsWith(`${q.replace(/\/+$/, '')}/`);
+    }
+
+    for (const p of paths) {
+      // DirEntry.path is already '/'-normalized by the Rust layer
+      // (src-tauri/src/utils.rs::normalize_path); normalize anyway so a
+      // hand-built or stale path still matches a tree node. Note the stored
+      // key is NOT trimmed — only rejected when blank — because a real path
+      // must be reproduced exactly to match a tree node.
+      //
+      // ⚠️ 但 shell 命名空间路径**不能**归一：`\`→`/` 之后这条 key 后端认不出来，
+      // 树里的节点 key 却还是原样那条 ⇒ 失效标记没人认领，
+      // 设备目录里新建/删除之后树永远不刷新（批次 24）。
+      const key = p ? (isShellPath(p) ? p : p.replace(/\\/g, '/')) : '';
+      if (key.trim()) merged.add(key);
+    }
+
+    // Keep only the shallowest paths: invalidating an ancestor already
+    // clears and re-reads everything beneath it, so keeping a descendant would
+    // just cost a second, redundant disk read.
+    const shallowest = [...merged].filter(
+      p => ![...merged].some(q => q !== p && isStrictlyUnder(p, q)),
+    );
+    staleTreePaths.value = new Set(shallowest);
+    staleTreeRevision.value += 1;
+  }
+
+  /** Take the pending stale paths and clear them. Exactly one consumer
+   *  (the mounted tree view) is expected to call this. */
+  function consumeStaleTreePaths(): string[] {
+    const out = [...staleTreePaths.value];
+    staleTreePaths.value = new Set();
+    return out;
+  }
+
+  /**
+   * v6.5: a rename moves a directory, so the tree's per-path state has to
+   * follow it — otherwise the tree shows the old name expanded while the
+   * browser shows the new one. Mirrors the `handlePathRenamed` shape already
+   * used by the workspaces / stats / settings stores.
+   */
+  function handlePathRenamed(oldPath: string, newPath: string): void {
+    if (!oldPath || !newPath || oldPath === newPath) return;
+
+    if (expandedPaths.value.has(oldPath)) {
+      const next = new Set(expandedPaths.value);
+      next.delete(oldPath);
+      next.add(newPath);
+      expandedPaths.value = next;
+    }
+
+    if (selectedPath.value === oldPath) {
+      selectedPath.value = newPath;
+    }
+
+    // A pending invalidation filed under the old name has to follow the rename,
+    // or the tree would re-read the directory that no longer exists.
+    const stale: string[] = [];
+
+    if (staleTreePaths.value.has(oldPath)) {
+      stale.push(newPath);
+    }
+
+    if (loadErrorPaths.value.has(oldPath)) {
+      const next = new Set(loadErrorPaths.value);
+      next.delete(oldPath);
+      next.add(newPath);
+      loadErrorPaths.value = next;
+    }
+
+    if (stale.length > 0) {
+      staleTreePaths.value = new Set(stale);
+    }
+  }
+
   function reset(): void {
     selectedPath.value = null;
     expandedPaths.value = new Set();
     loadingPaths.value = new Set();
     loadErrorPaths.value = new Set();
+    staleTreePaths.value = new Set();
   }
 
   return {
@@ -158,6 +330,8 @@ export const useFolderTreeStore = defineStore('folderTree', () => {
     expandedPaths,
     loadingPaths,
     loadErrorPaths,
+    staleTreePaths,
+    staleTreeRevision,
     // queries
     isExpanded,
     isLoading,
@@ -169,6 +343,9 @@ export const useFolderTreeStore = defineStore('folderTree', () => {
     collapsePath,
     markLoading,
     markLoadError,
+    markTreeStale,
+    consumeStaleTreePaths,
+    handlePathRenamed,
     reset,
   };
 });

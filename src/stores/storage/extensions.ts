@@ -10,6 +10,8 @@ import type {
   BinaryPathPreference,
   ExtensionStorageData,
   ExtensionRegistry,
+  ExtensionRegistryCache,
+  ExtensionMarketSource,
   ExtensionManifest,
   ExtensionSettings,
   ExtensionScopedDirectory,
@@ -26,6 +28,10 @@ import {
   mergeSharedBinaryInfo,
   resolveSharedBinaryStorageVersion,
 } from '@/modules/extensions/utils/shared-binary';
+import {
+  OFFICIAL_MARKET_SOURCE_ID,
+  normalizeMarketSourceRecord,
+} from '@/modules/extensions/utils/market-sources';
 import { useUserPathsStore } from './user-paths';
 import {
   canUseStartupStorageFastPath,
@@ -43,6 +49,8 @@ export const useExtensionsStorageStore = defineStore('extensionsStorage', () => 
     sharedBinaries: {},
     customBinaryPreferences: {},
     registryCache: undefined,
+    registryCaches: {},
+    marketSources: [],
     recentCommandIds: [],
   });
   const isInitialized = ref(false);
@@ -78,6 +86,8 @@ export const useExtensionsStorageStore = defineStore('extensionsStorage', () => 
     const sharedBinaries = record.sharedBinaries as ExtensionStorageData['sharedBinaries'] | undefined;
     const customBinaryPreferences = record.customBinaryPreferences as ExtensionStorageData['customBinaryPreferences'] | undefined;
     const registryCache = record.registryCache as ExtensionStorageData['registryCache'] | undefined;
+    const registryCaches = record.registryCaches as ExtensionStorageData['registryCaches'] | undefined;
+    const marketSources = record.marketSources as ExtensionStorageData['marketSources'] | undefined;
     const recentCommandIds = record.recentCommandIds as ExtensionStorageData['recentCommandIds'] | undefined;
 
     if (installedExtensions) {
@@ -99,6 +109,27 @@ export const useExtensionsStorageStore = defineStore('extensionsStorage', () => 
       extensionsData.value.registryCache = registryCache;
     }
 
+    if (registryCaches) {
+      extensionsData.value.registryCaches = { ...registryCaches };
+    }
+    else if (
+      registryCache
+      && Object.keys(extensionsData.value.registryCaches ?? {}).length === 0
+    ) {
+      // 旧版本只有单数的 registryCache（那是官方源的清单缓存），迁移成按源缓存。
+      extensionsData.value.registryCaches = {
+        [OFFICIAL_MARKET_SOURCE_ID]: registryCache,
+      };
+    }
+
+    if (marketSources) {
+      const normalizedMarketSources = marketSources
+        .map(source => normalizeMarketSourceRecord(source))
+        .filter((source): source is ExtensionMarketSource => source !== null);
+
+      extensionsData.value.marketSources = normalizedMarketSources;
+    }
+
     if (recentCommandIds) {
       extensionsData.value.recentCommandIds = recentCommandIds;
     }
@@ -112,6 +143,8 @@ export const useExtensionsStorageStore = defineStore('extensionsStorage', () => 
       const sharedBinaries = await storage.value.get<ExtensionStorageData['sharedBinaries']>('sharedBinaries');
       const customBinaryPreferences = await storage.value.get<ExtensionStorageData['customBinaryPreferences']>('customBinaryPreferences');
       const registryCache = await storage.value.get<ExtensionStorageData['registryCache']>('registryCache');
+      const registryCaches = await storage.value.get<ExtensionStorageData['registryCaches']>('registryCaches');
+      const marketSources = await storage.value.get<ExtensionStorageData['marketSources']>('marketSources');
       const recentCommandIds = await storage.value.get<ExtensionStorageData['recentCommandIds']>('recentCommandIds');
       const sharedBinaryKeyCountBeforeLoad = sharedBinaries ? Object.keys(sharedBinaries).length : 0;
 
@@ -120,6 +153,8 @@ export const useExtensionsStorageStore = defineStore('extensionsStorage', () => 
         sharedBinaries,
         customBinaryPreferences,
         registryCache,
+        registryCaches,
+        marketSources,
         recentCommandIds,
       });
 
@@ -162,6 +197,11 @@ export const useExtensionsStorageStore = defineStore('extensionsStorage', () => 
       if (extensionsData.value.registryCache) {
         await storage.value.set('registryCache', extensionsData.value.registryCache);
       }
+
+      // 按源存放的清单缓存 + 自建源列表：读写两侧必须同时改，
+      // 否则会出现「界面有、重启即丢」。
+      await storage.value.set('registryCaches', extensionsData.value.registryCaches ?? {});
+      await storage.value.set('marketSources', extensionsData.value.marketSources ?? []);
 
       if (extensionsData.value.recentCommandIds) {
         await storage.value.set('recentCommandIds', extensionsData.value.recentCommandIds);
@@ -286,11 +326,67 @@ export const useExtensionsStorageStore = defineStore('extensionsStorage', () => 
   }
 
   async function updateRegistryCache(registry: ExtensionRegistry): Promise<void> {
-    extensionsData.value.registryCache = {
+    await updateRegistryCacheForSource(OFFICIAL_MARKET_SOURCE_ID, registry);
+  }
+
+  async function updateRegistryCacheForSource(
+    sourceId: string,
+    registry: ExtensionRegistry,
+  ): Promise<void> {
+    if (!extensionsData.value.registryCaches) {
+      extensionsData.value.registryCaches = {};
+    }
+
+    const cache: ExtensionRegistryCache = {
       data: registry,
       fetchedAt: Date.now(),
     };
 
+    extensionsData.value.registryCaches[sourceId] = cache;
+
+    // 官方源同时写回旧字段，兼容仍然读 `registryCache` 的旧路径。
+    if (sourceId === OFFICIAL_MARKET_SOURCE_ID) {
+      extensionsData.value.registryCache = cache;
+    }
+
+    await saveStorageData();
+  }
+
+  function getRegistryCacheForSource(sourceId: string): ExtensionRegistryCache | undefined {
+    const cached = extensionsData.value.registryCaches?.[sourceId];
+
+    if (cached) {
+      return cached;
+    }
+
+    // 兼容旧版单数缓存字段：旧版本的数据可能只存在于 registryCache 里。
+    if (sourceId === OFFICIAL_MARKET_SOURCE_ID) {
+      return extensionsData.value.registryCache;
+    }
+
+    return undefined;
+  }
+
+  async function removeRegistryCacheForSource(sourceId: string): Promise<void> {
+    if (!extensionsData.value.registryCaches || !(sourceId in extensionsData.value.registryCaches)) {
+      return;
+    }
+
+    delete extensionsData.value.registryCaches[sourceId];
+
+    if (sourceId === OFFICIAL_MARKET_SOURCE_ID) {
+      extensionsData.value.registryCache = undefined;
+    }
+
+    await saveStorageData();
+  }
+
+  async function setMarketSources(sources: ExtensionMarketSource[]): Promise<void> {
+    const normalizedSources = sources
+      .map(source => normalizeMarketSourceRecord(source))
+      .filter((source): source is ExtensionMarketSource => source !== null);
+
+    extensionsData.value.marketSources = normalizedSources;
     await saveStorageData();
   }
 
@@ -651,6 +747,10 @@ export const useExtensionsStorageStore = defineStore('extensionsStorage', () => 
     refreshLocalExtension,
     setExtensionEnabled,
     updateRegistryCache,
+    updateRegistryCacheForSource,
+    getRegistryCacheForSource,
+    removeRegistryCacheForSource,
+    setMarketSources,
     getExtensionSettings,
     updateExtensionSettings,
     clearExtensionBinaryStorage,

@@ -8,8 +8,13 @@ import FileBrowserToolbarAddressBar from './file-browser-toolbar-address-bar.vue
 import FileBrowserToolbarNavButtons from './file-browser-toolbar-nav-buttons.vue';
 import FileBrowserToolbarCreateButton from './file-browser-toolbar-create-button.vue';
 import FileBrowserToolbarFilter from './file-browser-toolbar-filter.vue';
+import FileBrowserToolbarSwapPanesButton from './file-browser-toolbar-swap-panes-button.vue';
+import FileBrowserToolbarSyncBrowsingButton from './file-browser-toolbar-sync-browsing-button.vue';
+// FORK-MODIFICATION 2026-10-20：远程「新建文件」是永久非目标（规格 §1）。
+import { canCreateFileIn } from '@/modules/remote/utils/remote-write';
+import { computed } from 'vue';
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   pathInput: string;
   filterQuery: string;
   canGoBack: boolean;
@@ -19,9 +24,23 @@ withDefaults(defineProps<{
   isFilterOpen: boolean;
   focusFilterInput: boolean;
   isSplitView?: boolean;
+  // FORK-MODIFICATION: 需求反馈 2 —— layout toggle forwarded from file-browser.vue
+  currentLayout: 'list' | 'grid';
+  /**
+   * FORK-MODIFICATION 2026-10-20：当前目录的路径。
+   *
+   * 单独传而不用 `pathInput`：地址栏里的文字在用户打字时是**未提交**的，
+   * 用它判断「能不能新建文件」会在打字过程中忽然把菜单项藏掉。
+   */
+  currentPath?: string;
 }>(), {
   isSplitView: false,
+  currentLayout: 'list',
+  currentPath: '',
 });
+
+/** 目标目录能不能「新建空文件」。远程一律不行。 */
+const canCreateFile = computed(() => canCreateFileIn(props.currentPath || props.pathInput));
 
 const emit = defineEmits<{
   (event: 'update:pathInput', value: string): void;
@@ -39,6 +58,8 @@ const emit = defineEmits<{
   (event: 'createNewDirectory'): void;
   (event: 'createNewFile'): void;
   (event: 'filterInputFocused'): void;
+  (event: 'toggle-layout'): void;
+  (event: 'swap-panes'): void;
 }>();
 
 function handleAddressBarNavigate(path: string) {
@@ -58,6 +79,8 @@ function handleAddressBarNavigate(path: string) {
         :can-go-forward="canGoForward"
         :can-go-up="canGoUp"
         :is-loading="isLoading"
+        :current-layout="currentLayout"
+        :can-create-file="canCreateFile"
         @go-back="emit('goBack')"
         @go-forward="emit('goForward')"
         @go-up="emit('goUp')"
@@ -65,6 +88,7 @@ function handleAddressBarNavigate(path: string) {
         @refresh="emit('refresh')"
         @create-new-directory="emit('createNewDirectory')"
         @create-new-file="emit('createNewFile')"
+        @toggle-layout="emit('toggle-layout')"
       />
 
       <FileBrowserToolbarAddressBar
@@ -78,6 +102,7 @@ function handleAddressBarNavigate(path: string) {
       <div class="file-browser-toolbar__actions">
         <div class="file-browser-toolbar__create-button">
           <FileBrowserToolbarCreateButton
+            :can-create-file="canCreateFile"
             @create-new-directory="emit('createNewDirectory')"
             @create-new-file="emit('createNewFile')"
           />
@@ -89,6 +114,15 @@ function handleAddressBarNavigate(path: string) {
           @update:filter-query="emit('update:filterQuery', $event)"
           @update:is-filter-open="emit('update:isFilterOpen', $event)"
           @filter-input-focused="emit('filterInputFocused')"
+        />
+        <!-- FORK-MODIFICATION 2026-10-19：同步浏览开关，位置在用户指定的
+             「左右互换窗口」左边。两者都只在分屏下出现。 -->
+        <FileBrowserToolbarSyncBrowsingButton :is-split-view="isSplitView" />
+        <!-- FORK-MODIFICATION: 分屏时把左右两格的路径对调。只在分屏下出现，
+             单格时没有「另一格」可换，摆出来只是个永远无效的按钮。 -->
+        <FileBrowserToolbarSwapPanesButton
+          v-if="isSplitView"
+          @swap-panes="emit('swap-panes')"
         />
       </div>
     </div>

@@ -2,7 +2,14 @@
 // License: GNU GPLv3 or later. See the license file in the project root for more information.
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
-import { describe, expect, it } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import {
   LOCATIONS_VIRTUAL_PATH,
   WSL_HOST_VIRTUAL_PATH,
@@ -18,10 +25,45 @@ import {
   isVirtualDirectoryPath,
   isVirtualLocationPath,
   isWslHostVirtualPath,
+  readLocationsDirectory,
+  resolveDirEntry,
+  resolveDirectoryContents,
+  shellDeviceInfoToDirEntry,
   shouldPrependLocationsCrumb,
   virtualLocationPathExists,
 } from '@/utils/virtual-locations';
 import type { DriveInfo } from '@/types/drive-info';
+import type { RemoteConnection } from '@/types/remote';
+import { setRemoteLocationRefs } from '@/utils/remote-location-refs';
+
+// FORK-MODIFICATION 2026-10-18：远程分支的判别点全在「invoke 了哪个 command」上，
+// 所以这里必须把 `@tauri-apps/api/core` 换成桩 —— 真实模块在测试环境里没有 IPC。
+const { invokeMock } = vi.hoisted(() => {
+  return {
+    invokeMock: vi.fn<(command: string, payload?: unknown) => Promise<unknown>>(),
+  };
+});
+
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: invokeMock,
+}));
+
+// FORK-MODIFICATION 2026-11-19（批次 23）：设备清单来自共享缓存（`shell-devices.ts`）。
+//
+// 这里换成桩：位置页的「读目录 / 盘符变化重建 / 签名比较」三处必须同源，
+// 而单测要能分别控制「显示出来的」与「重建出来的」是不是同一份。
+const { fetchShellDevicesMock, getCachedShellDevicesMock } = vi.hoisted(() => ({
+  fetchShellDevicesMock: vi.fn(),
+  getCachedShellDevicesMock: vi.fn(),
+}));
+
+vi.mock('@/utils/shell-devices', () => ({
+  fetchShellDevices: fetchShellDevicesMock,
+  getCachedShellDevices: getCachedShellDevicesMock,
+}));
+
+getCachedShellDevicesMock.mockReturnValue([]);
+fetchShellDevicesMock.mockResolvedValue([]);
 
 describe('virtual-locations', () => {
   it('detects the locations virtual path', () => {
@@ -77,6 +119,11 @@ describe('virtual-locations', () => {
       is_mounted: true,
       mount_point: 'C:\\',
       device_path: '\\\\.\\C:',
+      // FORK-MODIFICATION: 验收反馈 2026-10-13 — drive_metadata 补两个字段:
+      //   available_space  → UI 显示"磁盘空余空间"(替代 "X 项 · 总容量")
+      //   drive_letter_index → 'C:' → 3,供 locations 视图按盘符排序
+      available_space: 500,
+      drive_letter_index: 3,
     });
     expect(driveEntry.item_count).toBeNull();
   });
@@ -268,6 +315,27 @@ describe('virtual-locations', () => {
       expect(getNavigableParentPath('//server/share', 'windows')).toBe('//server');
       expect(getNavigableParentPath('//server/share/docs', 'windows')).toBe('//server/share');
     });
+
+    it('walks up the remote path family', () => {
+      // 改动前：sfm://remote 的父级是本地 getParentPath 算出来的 'sfm:/'，
+      // 含 .. 的路径会原样带出 'sfm://remote/conn-a/pub/..' —— 两条都是垃圾路径。
+      // 简单嵌套路径改动前碰巧是对的（字符串切分刚好切对），所以下面两条才是判别点。
+      expect(getNavigableParentPath('sfm://remote/conn-a/pub/docs', 'windows')).toBe('sfm://remote/conn-a/pub');
+      expect(getNavigableParentPath('sfm://remote/conn-a/pub', 'windows')).toBe('sfm://remote/conn-a');
+      expect(getNavigableParentPath('sfm://remote/conn-a', 'windows')).toBe('sfm://remote');
+      // FORK-MODIFICATION 2026-11-09 反馈 6：改动前这里是 null（「无处可上」）。
+      // 远程根现在与 `//wsl.localhost` 同构 —— 上一层是「位置」，
+      // 不然进入 sfm://remote 之后面包屑里没有「位置」、向上按钮失灵。
+      expect(getNavigableParentPath('sfm://remote', 'windows')).toBe(LOCATIONS_VIRTUAL_PATH);
+    });
+
+    it('refuses to navigate up from an invalid remote path', () => {
+      // `..` 段让 parseRemotePath 返回 null。刻意返回 null 而不是放行到本地解析：
+      // canonicalizePath 会把 sfm://remote/... 拆成盘符路径，那是在编造一个
+      // 用户从没去过的目录。宁可「无处可上」，阶段 1 的 command 会给出显式错误。
+      expect(getNavigableParentPath('sfm://remote/conn-a/pub/../etc', 'windows')).toBeNull();
+      expect(getNavigableParentPath('sfm://remote/conn-a/pub/./etc', 'windows')).toBeNull();
+    });
   });
 
   describe('shouldPrependLocationsCrumb', () => {
@@ -286,6 +354,424 @@ describe('virtual-locations', () => {
       expect(shouldPrependLocationsCrumb('/Volumes/MyDisk', 'macos')).toBe(true);
       expect(shouldPrependLocationsCrumb('/media/user/disk', 'linux')).toBe(true);
       expect(shouldPrependLocationsCrumb('/', 'linux')).toBe(true);
+    });
+  });
+
+  // FORK-MODIFICATION 2026-10-18：远程目录的真实出口（阶段 2 需求 1）。
+  //
+  // 这是需求 1 的根因所在：改动前 `sfm://remote/...` 一律落到本地 `read_dir`，
+  // Rust 拿它去 `fs::metadata` 必然失败，导航器再把失败静默兜底成默认目录 ——
+  // 用户看到的就是「点远程连接，右栏变成 C:\Users\...」。
+  describe('远程路径分发', () => {
+    const remoteContents = {
+      path: 'sfm://remote/conn-a',
+      entries: [],
+      total_count: 0,
+      dir_count: 0,
+      file_count: 0,
+      opened_directory_times: {
+        modified_time: 0,
+        accessed_time: 0,
+        created_time: 0,
+      },
+    };
+
+    beforeEach(() => {
+      invokeMock.mockReset();
+    });
+
+    it('远程目录走 remote_read_dir，不再走本地 read_dir', async () => {
+      invokeMock.mockResolvedValue(remoteContents);
+
+      const result = await resolveDirectoryContents('sfm://remote/conn-a');
+
+      expect(invokeMock).toHaveBeenCalledTimes(1);
+      expect(invokeMock).toHaveBeenCalledWith('remote_read_dir', {
+        path: 'sfm://remote/conn-a',
+      });
+      expect(result).toBe(remoteContents);
+    });
+
+    it('remote_read_dir 的结果原样返回（字段名不做二次加工）', async () => {
+      const payload = {
+        ...remoteContents,
+        path: 'sfm://remote/conn-a/pub',
+        total_count: 1,
+        dir_count: 1,
+        entries: [{
+          name: 'docs',
+          path: 'sfm://remote/conn-a/pub/docs',
+          is_file: false,
+          is_dir: true,
+          is_hidden: false,
+          is_symlink: false,
+          size: 0,
+          item_count: null,
+          created_time: 0,
+          modified_time: 0,
+          accessed_time: 0,
+          ext: null,
+          mime: null,
+        }],
+      };
+      invokeMock.mockResolvedValue(payload);
+
+      const result = await resolveDirectoryContents('sfm://remote/conn-a/pub');
+
+      expect(result.entries[0]?.path).toBe('sfm://remote/conn-a/pub/docs');
+      expect(result.total_count).toBe(1);
+    });
+
+    it('不把本地的 readDirOptions 塞给远程 command', async () => {
+      // 这些开关（快捷方式目标 / 硬链接计数 / 条目数）远程一个都给不出。
+      // 传过去只会让后端多出一堆「收到但必须忽略」的字段。
+      invokeMock.mockResolvedValue(remoteContents);
+
+      await resolveDirectoryContents('sfm://remote/conn-a', {
+        includeShortcutTargets: true,
+        includeHardLinkCounts: true,
+      });
+
+      expect(invokeMock).toHaveBeenCalledWith('remote_read_dir', {
+        path: 'sfm://remote/conn-a',
+      });
+    });
+
+    it('远程单个条目走 remote_stat_dir_entry', async () => {
+      const entry = {
+        name: 'readme.txt',
+        path: 'sfm://remote/conn-a/readme.txt',
+        is_file: true,
+        is_dir: false,
+      };
+      invokeMock.mockResolvedValue(entry);
+
+      const result = await resolveDirEntry('sfm://remote/conn-a/readme.txt');
+
+      expect(invokeMock).toHaveBeenCalledWith('remote_stat_dir_entry', {
+        path: 'sfm://remote/conn-a/readme.txt',
+      });
+      expect(result).toBe(entry);
+    });
+
+    it('远程条目取不到时返回 null，不抛错', async () => {
+      // `resolveDirEntry` 的既有契约就是「拿不到给 null」，地址栏自动补全依赖它。
+      invokeMock.mockRejectedValue({
+        kind: 'not_found',
+        message: '没有那个条目',
+      });
+
+      await expect(resolveDirEntry('sfm://remote/conn-a/nope')).resolves.toBeNull();
+    });
+
+    it('远程目录读失败时原样抛出 RemoteError 载荷', async () => {
+      const remoteError = {
+        kind: 'auth',
+        message: '密码错误',
+      };
+      invokeMock.mockRejectedValue(remoteError);
+
+      // 不吞错误：导航器要靠它把「密码错」显示给用户，而不是静默跳走。
+      await expect(resolveDirectoryContents('sfm://remote/conn-a')).rejects.toBe(remoteError);
+    });
+
+    it('本地路径仍然走 read_dir（阳性对照）', async () => {
+      // 没有这一条，上面五条全绿也可能是「所有路径都改走远程了」。
+      invokeMock.mockResolvedValue(remoteContents);
+
+      await resolveDirectoryContents('C:/Users');
+
+      expect(invokeMock).toHaveBeenCalledWith('read_dir', {
+        path: 'C:/Users',
+        options: undefined,
+      });
+    });
+
+    it('本地单个条目仍然走 get_dir_entry_with_timeout（阳性对照）', async () => {
+      invokeMock.mockResolvedValue(null);
+
+      await resolveDirEntry('C:/Users', 250);
+
+      expect(invokeMock).toHaveBeenCalledWith('get_dir_entry_with_timeout', {
+        path: 'C:/Users',
+        timeoutMs: 250,
+      });
+    });
+
+    // FORK-MODIFICATION（2026-11-08，用户需求 1）：「位置」页的分区标记。
+    //
+    // 盘符归「分区」，远程条目按协议归「网盘 / 远程连接」——
+    // 归类口径与设置页、主页完全一致，只有 `isBaiduPanProtocol` 一个判定。
+    describe('位置页分区标记', () => {
+      const drivePayload: DriveInfo = {
+        name: 'Local Disk (C:)',
+        path: 'C:/',
+        mount_point: 'C:\\',
+        file_system: 'NTFS',
+        drive_type: 'SSD',
+        total_space: 1000,
+        available_space: 500,
+        used_space: 500,
+        percent_used: 50,
+        is_removable: false,
+        is_read_only: false,
+        is_mounted: true,
+        device_path: '\\\\.\\C:',
+      };
+
+      afterEach(() => {
+        // 注册表是模块级状态，不清掉会污染后面所有用例。
+        setRemoteLocationRefs([]);
+      });
+
+      it('盘符打分区标记，远程条目按协议归类', () => {
+        const connections: RemoteConnection[] = [
+          {
+            id: 'conn-baidu',
+            name: '百度网盘',
+            protocol: 'baidu_pan',
+            host: 'pan.baidu.com',
+            port: 443,
+            username: '',
+            initialPath: '/',
+            proxy: { kind: 'direct' },
+          },
+          {
+            id: 'conn-sftp',
+            name: '速豹堂',
+            protocol: 'sftp',
+            host: 'example.com',
+            port: 22,
+            username: 'demo',
+            initialPath: '/',
+            proxy: { kind: 'direct' },
+          },
+        ];
+
+        setRemoteLocationRefs(connections);
+
+        const contents = buildLocationsDirectoryFromDrives([drivePayload]);
+
+        expect(contents.entries.map(entry => entry.name)).toEqual([
+          'Local Disk (C:)',
+          '百度网盘',
+          '速豹堂',
+        ]);
+        expect(contents.entries.map(entry => entry.location_group)).toEqual([
+          'drives',
+          'netdisk',
+          'remote',
+        ]);
+      });
+
+      it('没有配置远程连接时只留下分区组', () => {
+        setRemoteLocationRefs([]);
+
+        const contents = buildLocationsDirectoryFromDrives([drivePayload]);
+
+        expect(contents.entries).toHaveLength(1);
+        expect(contents.entries[0]?.location_group).toBe('drives');
+      });
+    });
+
+    // FORK-MODIFICATION 2026-11-09 反馈 6：进入 `sfm://remote`（位置 ⇒ 远程、地址栏分隔符段、
+    // 直接键入该路径）改动前报「不是一条合法的远程路径：sfm://remote」——
+    // 后端 parse_remote_path 要求路径里带连接 id，根路径永远过不了这个校验。
+    // 修法是前端在发出 IPC 之前把根分流出来，用本地注册表渲染「所有远程连接」。
+    describe('远程根 sfm://remote', () => {
+      const baiduConn: RemoteConnection = {
+        id: 'conn-baidu',
+        name: '百度网盘',
+        protocol: 'baidu_pan',
+        host: 'pan.baidu.com',
+        port: 443,
+        username: '',
+        initialPath: '/',
+        proxy: { kind: 'direct' },
+      };
+      const ftpConn: RemoteConnection = {
+        id: 'conn-ftp',
+        name: '速豹堂',
+        protocol: 'ftp',
+        host: 'ftp.example.com',
+        port: 21,
+        username: 'demo',
+        initialPath: '/',
+        proxy: { kind: 'direct' },
+      };
+
+      beforeEach(() => {
+        invokeMock.mockReset();
+        setRemoteLocationRefs([baiduConn, ftpConn]);
+      });
+
+      afterEach(() => {
+        // 注册表是模块级状态，不清掉会污染后面所有用例。
+        setRemoteLocationRefs([]);
+      });
+
+      it('列内容来自本地注册表，一条 IPC 都不发', async () => {
+        const contents = await resolveDirectoryContents('sfm://remote');
+
+        expect(invokeMock).not.toHaveBeenCalled();
+        expect(contents.path).toBe('sfm://remote');
+        expect(contents.entries.map(entry => entry.path)).toEqual([
+          'sfm://remote/conn-baidu',
+          'sfm://remote/conn-ftp',
+        ]);
+      });
+
+      it('条目显示连接名并按协议分区，尾斜杠形态同样认作根', async () => {
+        const contents = await resolveDirectoryContents('sfm://remote/');
+
+        expect(contents.entries.map(entry => entry.name)).toEqual(['百度网盘', '速豹堂']);
+        expect(contents.entries.map(entry => entry.location_group)).toEqual(['netdisk', 'remote']);
+        expect(contents.entries.every(entry => entry.is_dir)).toBe(true);
+      });
+
+      it('根的父级是「位置」，且自身能 stat 成目录而不落到本地 get_dir_entry', async () => {
+        expect(getNavigableParentPath('sfm://remote', 'windows')).toBe(LOCATIONS_VIRTUAL_PATH);
+
+        const entry = await resolveDirEntry('sfm://remote');
+
+        expect(entry?.path).toBe('sfm://remote');
+        expect(entry?.is_dir).toBe(true);
+        expect(invokeMock).not.toHaveBeenCalled();
+      });
+
+      it('没有配置任何远程连接时根返回空列表，而不是报错', async () => {
+        setRemoteLocationRefs([]);
+
+        const contents = await resolveDirectoryContents('sfm://remote');
+
+        expect(contents.entries).toEqual([]);
+        expect(contents.path).toBe('sfm://remote');
+      });
+
+      it('带连接 id 的路径照旧下发 remote_read_dir（阳性对照，证明分流没有吃掉正常分支）', async () => {
+        invokeMock.mockResolvedValue({
+          path: 'sfm://remote/conn-ftp',
+          entries: [],
+        });
+
+        await resolveDirectoryContents('sfm://remote/conn-ftp');
+
+        expect(invokeMock).toHaveBeenCalledWith('remote_read_dir', { path: 'sfm://remote/conn-ftp' });
+      });
+    });
+
+    it('位置与 WSL 虚拟目录不受远程分支影响（阳性对照）', async () => {
+      invokeMock.mockResolvedValue([]);
+      await resolveDirectoryContents(LOCATIONS_VIRTUAL_PATH);
+      expect(invokeMock).toHaveBeenCalledWith('get_system_drives');
+
+      invokeMock.mockReset();
+      invokeMock.mockResolvedValue([]);
+      await resolveDirectoryContents(WSL_HOST_VIRTUAL_PATH);
+      expect(invokeMock).toHaveBeenCalledWith('get_system_drives');
+    });
+  });
+
+  // FORK-MODIFICATION 2026-11-19（批次 23）：设备（手机 / MTP）在「位置」页。
+  //
+  // 根因是架构级的：「位置」页的盘符 100% 来自 `get_system_drives`（Win32 卷枚举），
+  // 而手机在 Windows 里**不是卷**，它是 shell 命名空间里的一个对象 ⇒ 永远进不了位置页。
+  // 所以这里要单独接一条 shell 通道，并把设备放在盘符之后、远程之前。
+  describe('shell 设备（手机 / MTP）', () => {
+    const deviceShellPath = '::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\?\\usb#vid_22d9&pid_2765';
+    const deviceInfo = {
+      name: 'Galaxy S22',
+      shellPath: deviceShellPath,
+      isFolder: true,
+    };
+    const drivePayload: DriveInfo = {
+      name: 'Local Disk (C:)',
+      path: 'C:/',
+      mount_point: 'C:\\',
+      file_system: 'NTFS',
+      drive_type: 'SSD',
+      total_space: 1000,
+      available_space: 500,
+      used_space: 500,
+      percent_used: 50,
+      is_removable: false,
+      is_read_only: false,
+      is_mounted: true,
+      device_path: '\\\\.\\C:',
+    };
+
+    beforeEach(() => {
+      invokeMock.mockReset();
+      getCachedShellDevicesMock.mockReset().mockReturnValue([]);
+      fetchShellDevicesMock.mockReset().mockResolvedValue([]);
+    });
+
+    afterEach(() => {
+      getCachedShellDevicesMock.mockReset().mockReturnValue([]);
+      fetchShellDevicesMock.mockReset().mockResolvedValue([]);
+    });
+
+    it('位置页列出设备条目，path 原样保留后端的 shellPath', () => {
+      const contents = buildLocationsDirectoryFromDrives(
+        [drivePayload],
+        undefined,
+        [shellDeviceInfoToDirEntry(deviceInfo)],
+      );
+
+      const deviceEntry = contents.entries.find(entry => entry.location_group === 'devices');
+
+      // 原样保留：规范化会把这个标识符改坏，后端就认不出来了。
+      expect(deviceEntry?.path).toBe(deviceShellPath);
+      expect(deviceEntry?.name).toBe('Galaxy S22');
+      expect(deviceEntry?.is_dir).toBe(true);
+    });
+
+    it('设备排在盘符之后、远程之前', () => {
+      const contents = buildLocationsDirectoryFromDrives(
+        [drivePayload],
+        undefined,
+        [shellDeviceInfoToDirEntry(deviceInfo)],
+      );
+
+      expect(contents.entries.map(entry => entry.path)).toEqual(['C:/', deviceShellPath]);
+      expect(contents.entries.map(entry => entry.location_group)).toEqual(['drives', 'devices']);
+    });
+
+    it('readLocationsDirectory 并发拉盘符与设备', async () => {
+      invokeMock.mockImplementation(async (command: string) => {
+        if (command === 'get_system_drives') {
+          return [drivePayload];
+        }
+
+        return null;
+      });
+      fetchShellDevicesMock.mockResolvedValue([deviceInfo]);
+
+      const contents = await readLocationsDirectory();
+
+      expect(invokeMock).toHaveBeenCalledWith('get_system_drives');
+      expect(fetchShellDevicesMock).toHaveBeenCalledTimes(1);
+      expect(contents.entries.map(entry => entry.path)).toEqual(['C:/', deviceShellPath]);
+      expect(contents.entries[1]?.location_group).toBe('devices');
+    });
+
+    it('设备打不开（枚举失败）时位置页只剩盘符，不整个页面报错', async () => {
+      invokeMock.mockImplementation(async (command: string) => {
+        if (command === 'get_system_drives') {
+          return [drivePayload];
+        }
+
+        return null;
+      });
+      fetchShellDevicesMock.mockRejectedValue(new Error('设备枚举失败'));
+
+      const contents = await readLocationsDirectory();
+
+      expect(contents.entries.map(entry => entry.path)).toEqual(['C:/']);
+    });
+
+    it('设备路径的上一层是「位置」页', () => {
+      expect(getNavigableParentPath(deviceShellPath, 'windows')).toBe(LOCATIONS_VIRTUAL_PATH);
     });
   });
 });

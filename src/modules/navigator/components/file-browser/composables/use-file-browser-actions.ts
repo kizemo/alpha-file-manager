@@ -7,11 +7,36 @@ import type { DirEntry } from '@/types/dir-entry';
 import type { ContextMenuAction } from '@/modules/navigator/components/file-browser/types';
 import { quickViewSupportedPathsFromVisibleEntries } from '@/stores/runtime/quick-view';
 import { usePlatformStore } from '@/stores/runtime/platform';
+import { useRouter } from 'vue-router';
 import { openNativeProperties } from '@/utils/open-native-properties';
+import { openNavigatorRevealEntry } from '@/utils/open-navigator-directory';
+// FORK-MODIFICATION (2026-11-05)：「打开文件所在目录」的执行逻辑（默认资源管理器
+// 时改走应用内定位，否则走原生 Explorer）抽到共享 util，
+// 全局搜索结果面板的右键菜单复用同一条路径。
+import { revealEntriesContainingDirectory } from '@/utils/reveal-containing-directory';
 import { isContextMenuActionVisible } from '@/modules/navigator/components/file-browser/utils/context-menu-action-visibility';
 import { toast, ToastStatic } from '@/components/ui/toaster';
-import { markRaw } from 'vue';
+import { getCurrentInstance, markRaw } from 'vue';
 import { useI18n } from 'vue-i18n';
+// FORK-MODIFICATION: 图片编辑四动作（左旋 / 右旋 / 左右翻 / 上下翻）的执行封装。
+import {
+  applyImageEdit,
+  getImageEditOperation,
+  isImageEditAction,
+} from '@/utils/image-edit';
+// FORK-MODIFICATION: 共享缩略图缓存实例（navigator.vue 里 provide 的那一份）。
+import { useNavigatorImageThumbnails } from '@/modules/navigator/composables/use-navigator-image-thumbnails';
+// FORK-MODIFICATION: 本地 ↔ 远程传输（上传 / 下载）与远程权限设置。
+//
+// 2026-10-26：上传 / 下载改走 `remote-transfer-service` ——
+// 冲突确认（要不要覆盖）、进度条、失败与跳过的原因都收在那儿。
+import {
+  downloadItemsFromRemote,
+  uploadItemsToRemote,
+  type RemoteTransferItem,
+} from '@/modules/remote/utils/remote-transfer-service';
+import { useRemoteTransferTargets } from '@/modules/remote/utils/remote-transfer-targets';
+import { openRemotePermissionsDialog } from '@/modules/remote/utils/remote-permissions-dialog-state';
 
 type ContextMenuState = {
   targetEntry: DirEntry | null;
@@ -34,9 +59,55 @@ export function useFileBrowserActions(options: {
   handleEntryMouseUp: (entry: DirEntry, event: MouseEvent) => void;
   handleDragMouseDown?: (entry: DirEntry, event: MouseEvent) => void;
   isDragging?: Ref<boolean>;
+  /**
+   * FORK-MODIFICATION: 反馈 3（2026-10-15）——当前过滤词。
+   * 「打开所属目录」要把它交接给拆出来的右格 pane，否则右格挂载时是空的，
+   * 用户要的「右边保持搜索结果」就变回「右边是搜索前的目录」。
+   * 用 getter 而不是值：右键菜单弹出到点选之间用户仍可能在过滤框里打字。
+   */
+  getFilterQuery?: () => string;
 }) {
   const { t } = useI18n();
   const platformStore = usePlatformStore();
+  const router = useRouter();
+  const transferTargets = useRemoteTransferTargets();
+
+  /**
+   * FORK-MODIFICATION: 共享的缩略图缓存实例。
+   *
+   * 它由 navigator.vue `provide`、这里 `inject` —— 所以只有在组件上下文里
+   * 才拿得到（`getCurrentInstance()` 为空时就是没有组件级 provide，
+   * 例如单元测试直接调本 composable）。拿不到就不传，缓存失效交给
+   * 「目录重读 ⇒ mtime/size 变 ⇒ 缓存键变」这条既有机制兜底。
+   */
+  const imageThumbnails = getCurrentInstance() ? useNavigatorImageThumbnails() : null;
+
+  /** 条目 → 传输用的条目。 */
+  function toTransferItem(entry: DirEntry): RemoteTransferItem {
+    return {
+      path: entry.path,
+      name: entry.name,
+      isDirectory: entry.is_dir,
+      size: entry.size,
+    };
+  }
+
+  /**
+   * 逐个上传。
+   *
+   * **顺序执行**，不并发 —— 并发开多条连接会打满服务器的并发连接数，
+   * 而用户一次通常也就选几个条目。
+   *
+   * 覆盖确认、进度条、失败与跳过的原因都在
+   * `remote-transfer-service` 里处理。
+   */
+  async function uploadEntries(entries: DirEntry[], remoteDir: string) {
+    await uploadItemsToRemote(entries.map(toTransferItem), remoteDir);
+  }
+
+  async function downloadEntries(entries: DirEntry[], localDir: string) {
+    await downloadItemsFromRemote(entries.map(toTransferItem), localDir);
+  }
 
   function canPerformAction(action: ContextMenuAction, entries: DirEntry[]): boolean {
     return isContextMenuActionVisible(action, entries, {
@@ -128,6 +199,113 @@ export function useFileBrowserActions(options: {
 
       if (entries.length > 0) {
         void openProperties(entries);
+      }
+
+      return;
+    }
+
+    if (action === 'open-containing-directory') {
+      const entries = options.contextMenu.value.selectedEntries;
+
+      // FORK-MODIFICATION (2026-11-05)：执行逻辑抽到共享 util
+      // （`utils/reveal-containing-directory.ts`），全局搜索结果面板的右键菜单
+      // 复用同一条定位路径，不会再出现「导航器里能定位、搜索结果里定位不了」。
+      void revealEntriesContainingDirectory(entries, {
+        router,
+        filterQuery: options.getFilterQuery?.() ?? '',
+        onError: (error: unknown) => {
+          console.error('revealInExplorer failed:', error);
+          // FORK-MODIFICATION (2026-11-01)：失败必须让用户看见。
+          // 以前只 console.error，界面上毫无反馈，用户只能对着「什么也没发生」猜。
+          toast.error(t('fileBrowser.actions.openContainingDirectoryFailed'), {
+            description: error instanceof Error ? error.message : String(error),
+          });
+        },
+      });
+
+      return;
+    }
+
+    // FORK-MODIFICATION: 搜索结果「打开所属目录」——把父目录放进结果列表旁边的
+    // 导航器 pane 并选中该条目。
+    // FORK-MODIFICATION: 这里**不能**关全局搜索面板。搜索面板本身就在布局左侧，
+    // 它就是用户要的「保持打开、内容不变」的那一格；关掉之后 `openNavigatorRevealEntry`
+    // 填进去的是右侧导航器 pane，左侧列表整格消失，正是 2026-10-15 用户指出的错。
+    // FORK-MODIFICATION（反馈 3）：过滤词一并传下去。全局搜索面板开着时它是空串 ——
+    // 那条通道的结果列表在面板里，导航器 pane 不需要它。
+    if (action === 'open-containing-directory-in-app') {
+      const entries = options.contextMenu.value.selectedEntries;
+      const targetEntry = entries[0];
+
+      if (!targetEntry) {
+        return;
+      }
+
+      openNavigatorRevealEntry(router, targetEntry.path, {
+        filterQuery: options.getFilterQuery?.() ?? '',
+      });
+
+      return;
+    }
+
+    // FORK-MODIFICATION: 「上传到远程」——目标是**对面那一格**当前所在的远程目录。
+    //
+    // 目标从模块级登记表取（由导航器写入）。没有对面那一格时菜单项压根不出现，
+    // 所以这里拿到 `null` 只可能是状态刚变，按「什么都不做」处理。
+    if (action === 'upload-to-remote') {
+      const entries = options.contextMenu.value.selectedEntries;
+      const target = transferTargets.remotePanePath.value;
+
+      if (entries.length > 0 && target) {
+        void uploadEntries(entries, target);
+      }
+
+      return;
+    }
+
+    // FORK-MODIFICATION: 「下载到本地」——目标是**对面那一格**当前所在的本地目录。
+    if (action === 'download-to-local') {
+      const entries = options.contextMenu.value.selectedEntries;
+      const target = transferTargets.localPanePath.value;
+
+      if (entries.length > 0 && target) {
+        void downloadEntries(entries, target);
+      }
+
+      return;
+    }
+
+    // FORK-MODIFICATION: 「权限设置」——只对单条目有意义（多个条目权限各不相同）。
+    // 可见性判定已经保证选中的全是远程条目且协议支持改权限。
+    if (action === 'remote-permissions') {
+      const entry = options.contextMenu.value.selectedEntries[0];
+
+      if (entry) {
+        openRemotePermissionsDialog({
+          path: entry.path,
+          name: entry.name,
+          isDirectory: entry.is_dir,
+        });
+      }
+
+      return;
+    }
+
+    // FORK-MODIFICATION: 图片编辑四动作（左旋 / 右旋 / 左右翻 / 上下翻）。
+    //
+    // 这里**必须自己拦下来**：文件浏览器链路最终的动作分派在
+    // `use-file-browser-selection.ts` 的 switch 里（那个文件不在本轮改动范围内），
+    // 放行过去等于「点了没反应」。
+    if (isImageEditAction(action)) {
+      const entries = options.contextMenu.value.selectedEntries;
+      const entry = entries[0];
+
+      if (entries.length === 1 && entry) {
+        void applyImageEdit({
+          entry,
+          operation: getImageEditOperation(action),
+          thumbnailCache: imageThumbnails,
+        });
       }
 
       return;

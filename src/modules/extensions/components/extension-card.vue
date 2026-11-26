@@ -19,6 +19,8 @@ import ExtensionBadge from './extension-badge.vue';
 import ExtensionIcon from './extension-icon.vue';
 import type { ExtensionWithManifest } from '@/modules/extensions/composables/use-extensions';
 import { formatBytes } from '@/modules/navigator/components/file-browser/utils';
+import { OFFICIAL_MARKET_SOURCE_ID } from '@/modules/extensions/utils/market-sources';
+import { useExtensionLocalizedDescription } from '@/modules/extensions/composables/use-extension-localized-description';
 
 const props = defineProps<{
   extension: ExtensionWithManifest;
@@ -27,6 +29,15 @@ const props = defineProps<{
   isInstallDisabled?: boolean;
 }>();
 
+const sourceLabel = computed(() => {
+  const sourceId = props.extension.sourceId;
+
+  if (!sourceId || sourceId === OFFICIAL_MARKET_SOURCE_ID) {
+    return '';
+  }
+
+  return props.extension.sourceName ?? '';
+});
 const emit = defineEmits<{
   click: [event: MouseEvent];
   install: [];
@@ -42,8 +53,10 @@ const displayName = computed(() => {
   return props.extension.name || props.extension.manifest?.name || props.extension.id.split('.').pop() || props.extension.id;
 });
 
+const { localizedDescription } = useExtensionLocalizedDescription(() => props.extension);
+
 const description = computed(() => {
-  return props.extension.description || t('extensions.noDescription');
+  return localizedDescription.value || props.extension.description || t('extensions.noDescription');
 });
 
 const publisherName = computed(() => {
@@ -120,16 +133,23 @@ function handleCancelClick(event: MouseEvent) {
             {{ displayName }}
           </h3>
           <ExtensionBadge
-            v-if="isLocal"
-            type="local"
+            v-if="isOfficial"
+            type="official"
+            show-label
           />
           <ExtensionBadge
-            v-else-if="isOfficial"
-            type="official"
+            v-else-if="isLocal"
+            type="local"
           />
           <ExtensionBadge
             v-else
             type="community"
+          />
+          <ExtensionBadge
+            v-if="sourceLabel"
+            type="source"
+            :label="sourceLabel"
+            show-label
           />
         </div>
         <p class="extension-card__publisher">

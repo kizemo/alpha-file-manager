@@ -21,6 +21,12 @@ use super::types::{
     MAX_BINARY_DOWNLOAD_BYTES,
 };
 
+/// 扩展单文件读取上限（64 MiB）。
+///
+/// 扩展可以通过 `read_extension_file` 读任意路径下的文件，
+/// 没有上限时一个超大文件就能把整个 Rust 进程的内存顶起来。
+const MAX_EXTENSION_FILE_READ_BYTES: u64 = 64 * 1024 * 1024;
+
 pub async fn read_extension_manifest(
     app_handle: tauri::AppHandle,
     extension_id: String,
@@ -59,12 +65,24 @@ pub async fn read_extension_file(
         "Access denied: path traversal detected",
     )?;
 
-    let mut file = fs::File::open(&normalized_full_path)
+    let file = fs::File::open(&normalized_full_path)
         .map_err(|error| format!("Failed to open file: {}", error))?;
 
+    // 读上限用 take() 兜底：即便目标文件被换成超大文件，也只读「上限 + 1」字节就停，
+    // 不会把整个文件读进内存。
+    let mut limited = file.take(MAX_EXTENSION_FILE_READ_BYTES + 1);
+
     let mut contents = Vec::new();
-    file.read_to_end(&mut contents)
+    limited
+        .read_to_end(&mut contents)
         .map_err(|error| format!("Failed to read file: {}", error))?;
+
+    if contents.len() as u64 > MAX_EXTENSION_FILE_READ_BYTES {
+        return Err(format!(
+            "File exceeds maximum readable size of {} bytes",
+            MAX_EXTENSION_FILE_READ_BYTES
+        ));
+    }
 
     Ok(contents)
 }

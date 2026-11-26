@@ -17,12 +17,17 @@ import { useDirSizesStore } from '@/stores/runtime/dir-sizes';
 import { useItemCountsStore } from '@/stores/runtime/item-counts';
 import { Skeleton } from '@/components/ui/skeleton';
 import FileBrowserEntryIcon from './file-browser-entry-icon.vue';
+// FORK-MODIFICATION 2026-10-27：就地重命名的输入框。
+import FileBrowserInlineRenameInput from './file-browser-inline-rename-input.vue';
 import { useFileBrowserContext } from './composables/use-file-browser-context';
+import { getFileBrowserEntryKey } from './utils/file-browser-entry-key';
 import { usePlatformStore } from '@/stores/runtime/platform';
 import { resolveImageDisplaySrc } from '@/modules/navigator/utils/resolve-image-display-src';
 import { useDevicePixelPreviewSize } from '@/modules/navigator/composables/use-device-pixel-preview-size';
+import { quantizeImageThumbnailMaxDimension } from './composables/use-image-thumbnails';
 import { getImageSrc } from './utils';
-import { getDriveEntryVolumeSizeBytes } from '@/utils/drive-icon';
+import { getDriveEntryVolumeSizeBytes, getDriveEntryAvailableSpaceBytes } from '@/utils/drive-icon';
+import { getDriveFillLevel, getUsedSpacePercent } from '@/modules/navigator/utils/drive-usage';
 
 const DEFAULT_GRID_THUMBNAIL_SIZE = {
   width: 340,
@@ -68,7 +73,14 @@ const clipboardPathsMap = computed(() => {
 
   return map;
 });
-const imageThumbnailMaxDimension = computed(() => Math.max(previewSize.value.width, previewSize.value.height));
+// FORK-MODIFICATION 2026-11-21（批次 34 缺陷 A）：必须量化后再当缓存键用。
+// `previewSize` 是布局实测值（`clientWidth * devicePixelRatio`），会被滚动条出现/消失与
+// 亚像素抖动改写；它进缩略图缓存键 ⇒ 抖动即换 key，同一张图反复重下，而主图样式是
+// `--final { opacity: 0 }` + `--final-loaded { opacity: 1 }`，键一变 `--final-loaded` 就失效
+// ⇒ 网格视图的图片停在透明态（列表视图用固定 48px 单一键，所以不受影响）。
+const imageThumbnailMaxDimension = computed(() => quantizeImageThumbnailMaxDimension(
+  Math.max(previewSize.value.width, previewSize.value.height),
+));
 const imagePreviewSrc = computed(() => {
   if (props.variant !== 'image' || !isPreviewInLoadRange.value) {
     return undefined;
@@ -220,7 +232,41 @@ function cancelPreviewThumbnail(): void {
   }
 }
 
+// FORK-MODIFICATION 2026-10-20：磁盘条目的占用比例与配色档位（用户 2026-10-20 要求）。
+//
+// 非磁盘条目（普通目录、图片、视频…）一律是 `null` —— 模板用 `v-if` 跳过填充，
+// 所以文件多了也不会给它们画一条「占用 0%」的色带。
+const driveUsedPercent = computed(() => {
+  const available = getDriveEntryAvailableSpaceBytes(props.entry);
+  const total = getDriveEntryVolumeSizeBytes(props.entry);
+
+  return getUsedSpacePercent(available, total);
+});
+
+const driveFillLevel = computed(() => getDriveFillLevel(driveUsedPercent.value));
+
 function getDirSizeDisplay(entry: DirEntry): string | null {
+  // FORK-MODIFICATION: 验收反馈 2026-10-13 — 磁盘条目（locations 视图）显示
+  // "空余空间 / 总空间"。前一轮只显示空余空间,用户要求两个一起看。
+  //
+  // 分隔符刻意用 " / " 而不是 t('freeOf'):
+  //   1) 斜杠是符号,不是词,不需要进 17 个语言包;
+  //   2) ch.json 的 freeOf 曾经是机器翻译残留的 "自由于",渲染成
+  //      "147.1 GB 自由于 931.3 GB"。走语言包就得连带修 17 个包的值,
+  //      而这个位置的语义用斜杠表达更准确。
+  const driveAvailableSpace = getDriveEntryAvailableSpaceBytes(entry);
+
+  if (driveAvailableSpace !== null) {
+    const availableStr = formatBytes(driveAvailableSpace);
+    const driveVolumeSize = getDriveEntryVolumeSizeBytes(entry);
+
+    // 总空间取不到时（老数据的磁盘条目没有 size 字段）退回只显示空余，
+    // 保持上一轮的行为不变，不要退化成 "X / " 这种半截写法。
+    return driveVolumeSize !== null
+      ? `${availableStr} / ${formatBytes(driveVolumeSize)}`
+      : availableStr;
+  }
+
   const itemCount = getDirItemCount(entry);
   const itemCountStr = itemCount !== null ? t('fileBrowser.itemCountShort', { count: itemCount }) : null;
   const driveVolumeSize = getDriveEntryVolumeSizeBytes(entry);
@@ -317,6 +363,7 @@ watch(imagePreviewPlaceholderSrc, () => {
       },
     ]"
     :data-entry-path="props.entry.path"
+    :data-entry-key="getFileBrowserEntryKey(props.entry)"
     :data-selected="ctx.isEntrySelected(props.entry) || undefined"
     :data-in-clipboard="clipboardPathsMap.has(props.entry.path) || undefined"
     :data-clipboard-type="clipboardPathsMap.get(props.entry.path) || undefined"
@@ -328,6 +375,20 @@ watch(imagePreviewPlaceholderSrc, () => {
     @keydown="handleEntryKeydown"
   >
     <div class="file-browser-grid-card__overlay-container">
+      <!--
+        FORK-MODIFICATION 2026-10-20（用户 2026-10-20 00:05 附图要求）：
+        磁盘条目用背景色填充表示**已用空间的比例**，可用 < 20% 走浅红。
+
+        放在 overlay 容器里、且排在 selected/clipboard/hover **之前** ——
+        选中、剪贴板、悬停这三层都是半透明遮罩，叠在上面才对；
+        放在它们下面会被选中态整块盖住，用户一选中就看不到占用比例了。
+      -->
+      <div
+        v-if="driveUsedPercent !== null"
+        class="file-browser-grid-card__overlay file-browser-grid-card__overlay--drive-usage"
+        :class="`file-browser-grid-card__overlay--drive-usage-${driveFillLevel}`"
+        :style="{ '--afm-drive-used': `${driveUsedPercent}%` }"
+      />
       <div class="file-browser-grid-card__overlay file-browser-grid-card__overlay--selected" />
       <div class="file-browser-grid-card__overlay file-browser-grid-card__overlay--clipboard" />
       <div class="file-browser-grid-card__overlay file-browser-grid-card__overlay--hover" />
@@ -383,10 +444,15 @@ watch(imagePreviewPlaceholderSrc, () => {
           class="file-browser-grid-card__icon"
         />
       </template>
+      <!-- FORK-MODIFICATION: 反馈 2 追加要求（2026-10-15）——非媒体文件的图标
+           缩到和目录图标同尺寸（都是 24px）。原来这里是 48px，与媒体卡的
+           占位图标一样大；但媒体卡的高度是给缩略图留的（120~300px），
+           非媒体卡没有缩略图，一个 48px 图标配固定卡高只是浪费空间。
+           对齐目录图标后两侧的视觉重量一致，卡高也能再压一档。 -->
       <FileBrowserEntryIcon
         v-else
         :entry="props.entry"
-        :size="48"
+        :size="24"
         class="file-browser-grid-card__icon"
       />
     </div>
@@ -398,7 +464,14 @@ watch(imagePreviewPlaceholderSrc, () => {
         'file-browser-grid-card__info--bottom': props.variant === 'other',
       }"
     >
-      <span class="file-browser-grid-card__name">{{ entry.name }}</span>
+      <FileBrowserInlineRenameInput
+        v-if="ctx.inlineRename.editingEntryPath.value === props.entry.path"
+        :entry="props.entry"
+      />
+      <span
+        v-else
+        class="file-browser-grid-card__name"
+      >{{ entry.name }}</span>
       <div class="file-browser-grid-card__meta">
         <LoaderCircleIcon
           v-if="props.variant === 'dir' && isDirLoadingWithProgress(props.entry)"
@@ -469,6 +542,7 @@ watch(imagePreviewPlaceholderSrc, () => {
   flex-direction: row;
   align-items: center;
   padding: 8px 12px;
+  background-color: hsl(var(--row-dir-bg));
   contain-intrinsic-size: auto var(--navigator-grid-view-dir-entry-height);
   gap: 10px;
 }
@@ -493,9 +567,18 @@ watch(imagePreviewPlaceholderSrc, () => {
 }
 
 .file-browser-grid-card--image,
-.file-browser-grid-card--video,
-.file-browser-grid-card--other {
+.file-browser-grid-card--video {
   height: var(--navigator-grid-view-entry-height);
+}
+
+/* FORK-MODIFICATION: 反馈 2（2026-10-15）——非媒体文件（文档/代码/压缩包等，--other）
+   保持高度不变，调缩略图档位时只改宽度。
+   视频即使暂时没缩略图（--icon-full）也仍然算媒体：它是媒体文件，只是图还没到。
+   高度来源 utils/file-browser-thumbnail-sizes.ts 的 GRID_FILE_ENTRY_HEIGHT，四档同值。 */
+
+.file-browser-grid-card--other {
+  height: var(--navigator-grid-view-file-entry-height);
+  contain-intrinsic-size: auto var(--navigator-grid-view-file-entry-height);
 }
 
 .file-browser-grid-card__preview {
@@ -589,9 +672,22 @@ watch(imagePreviewPlaceholderSrc, () => {
   margin: 8px;
 }
 
+/* FORK-MODIFICATION: 反馈 2 追加要求（2026-10-15）——非媒体卡的图标盒缩到 24px。
+   这条选择器刻意写成三个类（比上面那条多一个），不要图省事去掉中间那个：
+   两条规则的选择器权重都是 (0,2,0)，只靠书写顺序决胜，以后有人在上面那条
+   附近插一段媒体专用样式，顺序就反过来了，图标会静默变回 48px。
+   图片/视频卡即使没有缩略图也**不**走这条 —— 它们仍然是媒体卡，
+   高度按媒体档走，48px 图标在 120px 起的卡里放得下。 */
+
+.file-browser-grid-card--other.file-browser-grid-card--icon-full .file-browser-grid-card__icon {
+  width: 24px;
+  height: 24px;
+  margin: 8px;
+}
+
 .file-browser-grid-card__name {
   overflow: hidden;
-  font-size: 13px;
+  font-size: calc(13px + var(--font-size-offset, 0px));
   font-weight: 500;
   overflow-wrap: break-word;
   text-overflow: ellipsis;
@@ -601,7 +697,7 @@ watch(imagePreviewPlaceholderSrc, () => {
 .file-browser-grid-card__meta {
   display: flex;
   align-items: center;
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   gap: 6px;
   opacity: 0.8;
 }
@@ -659,6 +755,43 @@ watch(imagePreviewPlaceholderSrc, () => {
   background-color: hsl(var(--primary) / 20%);
   box-shadow: inset 0 0 0 2px hsl(var(--primary) / 60%);
   opacity: 0;
+}
+
+/*
+  FORK-MODIFICATION 2026-10-20：磁盘占用的背景填充（用户 2026-10-20 00:05 附图要求）。
+
+  配色三档、透明度都很低，用户明确要求「配色不要太突兀」：
+  · calm   —— 6%   几乎只是「这张卡有数据」的一点提示
+  · notice —— 10%  开始看得见
+  · low    —— 14%  浅红，饱和度刻意压低（不用 --destructive 的满饱和红）
+
+  填充用 `linear-gradient(to right, 颜色 0 var(--afm-drive-used), 透明 …)`：
+  从左边按比例铺满。**不用** `background-color` + 宽度百分比，那是整块染色，
+  看不出「占了多少」；也不用 conic-gradient（会变成饼图，和文字抢注意力）。
+*/
+
+.file-browser-grid-card__overlay--drive-usage {
+  background-image: linear-gradient(
+    to right,
+    hsl(var(--muted-foreground) / 6%) 0 var(--afm-drive-used),
+    transparent var(--afm-drive-used) 100%
+  );
+}
+
+.file-browser-grid-card__overlay--drive-usage-notice {
+  background-image: linear-gradient(
+    to right,
+    hsl(var(--muted-foreground) / 10%) 0 var(--afm-drive-used),
+    transparent var(--afm-drive-used) 100%
+  );
+}
+
+.file-browser-grid-card__overlay--drive-usage-low {
+  background-image: linear-gradient(
+    to right,
+    hsl(0deg 55% 62% / 14%) 0 var(--afm-drive-used),
+    transparent var(--afm-drive-used) 100%
+  );
 }
 
 .file-browser-grid-card[data-selected] .file-browser-grid-card__overlay--selected {

@@ -273,12 +273,12 @@ function getLocalReinstallButtonTitle(extensionId: string): string {
                 type="broken"
               />
               <ExtensionBadge
-                v-else-if="extension.isLocal"
-                type="local"
-              />
-              <ExtensionBadge
                 v-else-if="extension.isOfficial"
                 type="official"
+              />
+              <ExtensionBadge
+                v-else-if="extension.isLocal"
+                type="local"
               />
               <ExtensionBadge
                 v-else

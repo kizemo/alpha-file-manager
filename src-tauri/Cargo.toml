@@ -1,12 +1,12 @@
 [package]
-name = "sigma-file-manager"
-description = "Sigma File Manager"
-version = "2.2.0"
+name = "alpha-file-manager"
+description = "Alpha File Manager"
+version = "3.22.0"
 license = "GPL-3.0-or-later"
-authors = ["Aleksey Hoffman"]
-repository = "https://github.com/aleksey-hoffman/sigma-file-manager"
+authors = ["kizemo"]
+repository = "https://github.com/kizemo/alpha-file-manager"
 edition = "2021"
-rust-version = "1.88.0"
+rust-version = "1.90.0"
 
 [workspace]
 members = [".", "default-file-manager-common", "default-file-manager-launcher"]
@@ -48,12 +48,20 @@ dirs = "6"
 tantivy = "0.26"
 walkdir = "2.5"
 rayon = "1.12"
-tokio = { version = "1", features = ["rt", "rt-multi-thread", "sync"] }
+# "net"/"time"：扩展下载的 SSRF 防护要在 DNS resolver 里查解析结果（tokio::net::lookup_host）
+# 并对解析超时设上限（tokio::time::timeout），这两个 feature 是那套代码的前提。
+# "io-util" 是远程 provider（FTP/FTPS/SFTP）与局域网共享在用的，别删。
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "sync", "io-util", "net", "time"] }
 notify = "8"
 tauri-plugin-drag = "~2.1"
 tauri-plugin-window-state = "~2.4"
 tauri-plugin-single-instance = "~2.4"
-reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream"] }
+# "gzip"：阿里云盘开放平台的前置网关（istio-envoy）对**不声明 Accept-Encoding: gzip**
+# 的请求，只回响应头、承诺 Content-Length，然后把响应体挂住 20 秒再掐断连接 ——
+# 实测同一条 curl：identity = 20.1s / 0 字节 / exit 18，带 gzip = 0.19s / 2580 字节。
+# reqwest 的 gzip feature 是编译期的：不开它，请求根本不会带 Accept-Encoding 头，
+# reqwest 也会报 "error decoding response body"。别删这个 feature。
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream", "gzip"] }
 httpdate = "1.0"
 futures-util = "0.3"
 zip = "8.6"
@@ -67,6 +75,12 @@ axum = { version = "0.8", features = ["multipart"] }
 mime_guess = "2"
 mdns-sd = { version = "0.20", features = ["async"] }
 tokio-util = { version = "0.7", features = ["io"] }
+# 远程 provider trait 的异步方法包装。MIT OR Apache-2.0，MSRV 远低于本项目的 1.90。
+# 选它而不是原生 AFIT：阶段 1 的连接注册表要存 Box<dyn RemoteProvider>，AFIT 不是 dyn 兼容的。
+async-trait = "0.1"
+# SOCKS5 客户端 + 假服务端（测试夹具）。MIT，anyip.io 维护。
+# TCPBind 由 Socks5Stream::connect_raw(Socks5Command::TCPBind, ...) 使用，供 FTP 被动模式数据通道。
+fast-socks5 = "1.0"
 urlencoding = "2"
 local-ip-address = "0.6"
 rcgen = "0.14"
@@ -76,6 +90,48 @@ globset = "0.4.18"
 encoding_rs = "0.8"
 dunce = "1"
 arboard = "3.6.1"
+# MCP 服务端 SDK。
+#
+# 版本必须精确锁定（`=`）：SDK 抬 MSRV 会直接把本项目挡在门外，而 Cargo 只会给
+# 一个含糊的编译错误。2026-10-17 全依赖图扫描确认 rmcp 3.5.1 声明 MSRV 1.88，
+# 低于本 crate 的 1.90，不再是「零余量」，但升级前仍需重跑扫描。
+# 扫描脚本：`.superpowers/sdd/msrv-scan.cjs`（先 cargo metadata 输出到文件再喂给它；
+# 别用 PowerShell 管道，Get-Content -Raw 会塞 BOM 导致 JSON.parse 失败）。
+#
+# 本 crate 的 rust-version 已从 1.88.0 改成 1.90.0：依赖图里 tauri 2.12 全系列
+# 声明 MSRV 1.90、gtk/glib 0.22 声明 1.92，1.88 早已不可用，旧声明只是把失败推迟。
+rmcp = { version = "=3.5.1", default-features = false, features = [
+    "macros",
+    "server",
+    "transport-streamable-http-server",
+] }
+uuid = { version = "1", features = ["v4"] }
+
+# SSH 客户端。Apache-2.0，MSRV 1.89（低于本 crate 的 1.90）。
+#
+# **必须锁 0.63 而不是最新的 0.64**：`russh-sftp 3.0.1` 依赖的是 `russh ^0.63.2`。
+# 阶段 2 列远端目录要加 `russh-sftp`，届时如果 russh 是 0.64，依赖树里会同时存在
+# 两个 russh，russh-sftp 的 `SftpSession` 类型对不上我们自己实现的 `Handler`，
+# 报出来的是一串毫无线索的类型不匹配。所以从一开始就与它对齐。
+#
+# `default-features = false`：default 带 `aws-lc-rs`，它在 Windows 上要 cmake/nasm。
+# 这里只要密码认证，`ring` 足够 —— 本 crate 早就因为 reqwest 用了 ring 版 rustls
+# （见上面 rustls 那一行），不会再多编一份。
+# 未开 `rsa`：现代 OpenSSH 主机密钥走 ed25519 / ecdsa。若真机 kex 协商失败
+# （表现为「连上了但换密钥失败」），再开这个 feature 并用 NAS 实测。
+russh = { version = "0.63", default-features = false, features = ["ring"] }
+# 阶段 2 的 SFTP provider。**它的 dev-dependency 写的是 `russh = "0.63.2"`**，
+# 所以上一行的 0.63 锁是硬约束，不是「暂时这样」——
+# 升到 0.64 会让依赖树里同时存在两个 russh，`SftpSession::new` 要的字节流
+# 对不上我们自己实现的 `Handler`，报出来是一串没有线索的类型不匹配。
+# russh-sftp 只依赖 tokio 一族，本仓早已有，无需新增。
+russh-sftp = "3.0.1"
+
+# FTP / FTPS 的 TLS 升级。给「测试连接」把 `TransportStream` 包成 TLS 用。
+# 必须用 ring 而不是默认的 aws-lc-rs：后者在 Windows 上要 cmake/nasm，
+# 而本 crate 早就因为 reqwest 用了 ring 版 rustls（见上面 rustls 那一行）。
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12", "logging"] }
+jpeg-encoder = { version = "0.5", features = ["std", "simd"] }
 
 # TODO: Remove this patch once drag-rs ships a fix for network-path outbound drag on Windows.
 # Upstream: https://github.com/crabnebula-dev/drag-rs/issues/72
@@ -85,6 +141,9 @@ drag = { path = "./patches/drag" }
 [dev-dependencies]
 tempfile = "3"
 tokio = { version = "1", features = ["macros", "test-util"] }
+# FTPS 的假服务端要签一张自签证书，用的是上面 `[dependencies]` 里那个 `rcgen`
+# （`lan_share/tls.rs` 早就在用了）。这里**不重复声明** ——
+# 测试能用的依赖就是生产能用的依赖，不必为了测试再开一份。
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
@@ -105,6 +164,11 @@ windows = { version = "0.58", features = [
     "Win32_System_SystemServices",
     "Win32_UI_Shell",
     "Win32_UI_Shell_Common",
+    # FORK-MODIFICATION 2026-11-19：shell namespace（`::{...}` / `shell:`）读取管线。
+    # `IShellItem2::GetProperty` / `GetFileTime`（取大小与修改时间）挂在这个 feature 上。
+    "Win32_UI_Shell_PropertiesSystem",
+    # WPD（手机 / 便携设备）判据：`IShellItem::QueryInterface(IPortableDevice)`。
+    "Win32_Devices_PortableDevices",
     "Win32_System_Environment",
     "Win32_Foundation",
     "Win32_System_Ole",
@@ -116,6 +180,13 @@ windows = { version = "0.58", features = [
     "Win32_UI_Input_KeyboardAndMouse",
     "Win32_System_Console",
     "Win32_System_Threading",
+    # FORK-MODIFICATION 2026-10-24：「解除文件锁定 / 彻底删除」用 Restart Manager
+    # 查出「谁占着这个文件」（rstrtmgr.dll 的 RmStartSession / RmRegisterResources /
+    # RmGetList）。这套 API 就在 `windows` crate 里，开个 feature 即可，
+    # 不需要引入外部 crate。
+    "Win32_System_RestartManager",
+    # 远程凭据的 DPAPI 加解密（CryptProtectData / CryptUnprotectData）。
+    "Win32_Security_Cryptography",
 ] }
 windows-sys = { version = "0.59", features = [
     "Win32_UI_Shell",

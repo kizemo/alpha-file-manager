@@ -12,14 +12,60 @@ mod network_shares;
 mod path_helpers;
 mod path_volume;
 mod read;
+#[cfg(windows)]
+mod reveal;
+mod shell_namespace;
 mod types;
 
 #[allow(unused_imports)]
 pub use types::{
     DirContents, DirEntry, DriveInfo, MountableDevice, NetworkShareParams, OpenedDirectoryTimes,
+    ShellDeviceInfo, ShellPathCrumb,
 };
 
 pub use commands::*;
+
+/// FORK-MODIFICATION 2026-11-19：shell namespace 路径判定（`system_icons.rs` 要用）。
+pub(crate) use shell_namespace::{is_shell_namespace_path, shell_item_thumbnail_rgba};
+
+// ---------------------------------------------------------------------------
+// 阻塞内核的对外入口
+//
+// `commands.rs` 里的异步 command 一律走 `tauri::async_runtime::spawn_blocking`。
+// MCP 模块不能走这条路径：Tauri 的 `async_runtime` 全局静态带默认类型参数
+// `Wry`（`static RUNTIME: OnceLock<GlobalRuntime<Wry>>`），只要有一处调用被链进来，
+// `<Wry as Runtime>` 就会被单态化，把 tao 整条窗口链（CreateWindowExW / SendInput /
+// TaskDialogIndirect …）拖进 `cargo test --lib` 的测试二进制。而测试二进制没有
+// application manifest 声明 comctl32 v6，`TaskDialogIndirect` 解析不到，
+// 进程在加载阶段就以 `STATUS_ENTRYPOINT_NOT_FOUND` (0xC0000139) 崩掉 ——
+// 一个测试都跑不了，且报错与本模块毫无关系，极难定位。
+//
+// 所以下面这两个入口让调用方自己选执行器：MCP 用自己的 tokio 运行时跑，
+// 人类操作那条路完全不动。
+// ---------------------------------------------------------------------------
+
+/// FORK-MODIFICATION 2026-11-06：解析 Windows 快捷方式（`.lnk`）的目标路径。
+///
+/// `read::resolve_windows_shortcut_target` 是 `pub(super)`（只对 `dir_reader` 可见），
+/// 这里包一层 `pub(crate)` 给全 crate 用 —— `system_icons.rs` 要靠它给快捷方式
+/// 取**目标**的图标。
+#[cfg(windows)]
+pub(crate) fn resolve_shortcut_target_path(path: &std::path::Path) -> Option<String> {
+    read::resolve_windows_shortcut_target(path)
+}
+
+/// 列目录的阻塞内核。调用方负责放进合适的阻塞线程池。
+pub(crate) fn read_dir_blocking(
+    path: String,
+    options: Option<read::ReadDirOptions>,
+) -> Result<DirContents, String> {
+    read::read_dir(path, options)
+}
+
+/// 枚举系统盘符的阻塞内核。
+pub(crate) fn get_system_drives_blocking() -> Result<Vec<DriveInfo>, String> {
+    drives::get_system_drives()
+}
 
 #[cfg(all(test, windows))]
 mod tests {

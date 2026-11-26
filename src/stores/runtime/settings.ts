@@ -64,6 +64,10 @@ const settingsTabs: SettingsTab[] = [
     labelKey: 'settingsTabs.dataStorage',
   },
   {
+    name: 'remote',
+    labelKey: 'settingsTabs.remote',
+  },
+  {
     name: 'extensions',
     labelKey: 'settingsTabs.extensions',
   },
@@ -75,10 +79,30 @@ const settingsTabs: SettingsTab[] = [
     name: 'experimental',
     labelKey: 'settingsTabs.experimental',
   },
+  {
+    name: 'about',
+    labelKey: 'settingsTabs.about',
+  },
 ];
 
 function normalizeSettingsTabName(tabName: string): string {
   return settingsTabs.some(tab => tab.name === tabName) ? tabName : 'general';
+}
+
+/**
+ * FORK-MODIFICATION 2026-11-08：初始化后判定「当前页签是否仍然可用」。
+ *
+ * 判据必须是「导航页签列表（tabs）」，不能是「可搜索小节列表（sections）」：
+ * 「远程」分类是整页分类（由 settings/ui/view.vue 的 categoryComponentMap 渲染），
+ * 它在 allSections 里**没有**任何 category === 'remote' 的小节；
+ * 用 sections 判定会把合法的 currentTab === 'remote' 误回落成 'general'，
+ * 导致首页「网盘 / 远程连接」入口跳转后落在「常规」页。
+ */
+export function resolveSettingsTabAfterInit(
+  tabName: string,
+  availableTabNames: string[],
+): string {
+  return availableTabNames.includes(tabName) ? tabName : 'general';
 }
 
 function getExtensionCommandSearchTitles(extensionId: string, commandId: string): string[] {
@@ -221,11 +245,15 @@ export const useSettingsStore = defineStore('settings', () => {
       { default: TabAppearanceSection },
       { default: ExtensionsListSection },
       { default: DefaultFileManagerSection },
+      { default: ThumbnailCacheSection },
+      { default: SettingsTransferSection },
+      { default: McpServerSection },
+      { default: AboutInfoSection },
     ] = await Promise.all([
       import('@/modules/settings/ui/categories/general/language.vue'),
       import('@/modules/settings/ui/categories/general/date-time.vue'),
       import('@/modules/settings/ui/categories/general/window-scaling.vue'),
-      import('@/modules/settings/ui/categories/general/whats-new.vue'),
+      import('@/modules/settings/ui/categories/about/whats-new.vue'),
       import('@/modules/settings/ui/categories/general/startup.vue'),
       import('@/modules/settings/ui/categories/general/startup-page.vue'),
       import('@/modules/settings/ui/categories/general/performance.vue'),
@@ -254,6 +282,10 @@ export const useSettingsStore = defineStore('settings', () => {
       import('@/modules/settings/ui/categories/tabs/tab-appearance.vue'),
       import('@/modules/settings/ui/categories/extensions/extensions-list.vue'),
       import('@/modules/settings/ui/categories/experimental/default-file-manager.vue'),
+      import('@/modules/settings/ui/categories/storage/thumbnail-cache.vue'),
+      import('@/modules/settings/ui/categories/storage/settings-transfer.vue'),
+      import('@/modules/settings/ui/categories/experimental/mcp-server.vue'),
+      import('@/modules/settings/ui/categories/about/about.vue'),
     ]);
 
     allSections.value = [
@@ -271,24 +303,6 @@ export const useSettingsStore = defineStore('settings', () => {
         component: markRaw(WindowScalingSection),
         category: 'general',
       },
-      {
-        key: 'whatsNew',
-        titleKey: 'changelog.settingsTitle',
-        tags: 'settingsTags.whatsNew',
-        component: markRaw(WhatsNewSection),
-        category: 'general',
-      },
-      ...(platformStore.appUpdatesManagedExternally
-        ? []
-        : [
-            {
-              key: 'appUpdates',
-              titleKey: 'appUpdates',
-              tags: 'settingsTags.updates',
-              component: markRaw(AppUpdatesSection),
-              category: 'general',
-            },
-          ]),
       {
         key: 'startup',
         titleKey: 'settings.general.startupBehavior',
@@ -485,6 +499,59 @@ export const useSettingsStore = defineStore('settings', () => {
         component: markRaw(DefaultFileManagerSection),
         category: 'experimental',
       },
+      {
+        key: 'thumbnailCache',
+        titleKey: 'settings.storage.thumbnailCache.title',
+        tags: 'settingsTags.thumbnailCache',
+        component: markRaw(ThumbnailCacheSection),
+        category: 'storage',
+      },
+      // FORK-MODIFICATION: 批次 58 —— 「导出设置 / 导入设置」。
+      // 放在「存储」分类：它管的就是设置与用户数据本身。
+      {
+        key: 'settingsTransfer',
+        titleKey: 'settings.storage.settingsTransfer.title',
+        tags: 'settingsTags.settingsTransfer',
+        component: markRaw(SettingsTransferSection),
+        category: 'storage',
+      },
+      {
+        key: 'mcpServer',
+        titleKey: 'settings.experimental.mcp.title',
+        tags: 'settingsTags.experimental',
+        component: markRaw(McpServerSection),
+        category: 'experimental',
+      },
+      {
+        key: 'aboutInfo',
+        titleKey: 'settings.about.title',
+        tags: 'settingsTags.about',
+        component: markRaw(AboutInfoSection),
+        category: 'about',
+      },
+      // FORK-MODIFICATION 2026-11-02：「新功能」条目从「常规」页迁到「关于」页。
+      // 它本来就是关于版本与更新的内容，放在「关于」页比放在「常规」页更贴合语义；
+      // 条目本身（标题、说明、「查看更新日志」按钮、启动时是否自动弹出的开关）保持不变，
+      // 只是归属的分类变了 —— 搜索索引按 titleKey / tags 跨语言匹配、与分类无关，
+      // 因此在设置页搜「新功能 / 更新日志 / whats new」依然能命中这一条。
+      {
+        key: 'whatsNew',
+        titleKey: 'changelog.settingsTitle',
+        tags: 'settingsTags.whatsNew',
+        component: markRaw(WhatsNewSection),
+        category: 'about',
+      },
+      ...(platformStore.appUpdatesManagedExternally
+        ? []
+        : [
+            {
+              key: 'appUpdates',
+              titleKey: 'appUpdates',
+              tags: 'settingsTags.updates',
+              component: markRaw(AppUpdatesSection),
+              category: 'about',
+            },
+          ]),
     ];
 
     const normalizedStoredTab = normalizeSettingsTabName(userSettingsStore.userSettings.settingsCurrentTab);
@@ -493,8 +560,14 @@ export const useSettingsStore = defineStore('settings', () => {
       setCurrentTab(normalizedStoredTab);
     }
 
-    if (!sections.value.some(section => section.category === currentTab.value)) {
-      setCurrentTab('general');
+    // FORK-MODIFICATION 2026-11-08：判据换成导航页签列表，理由见 resolveSettingsTabAfterInit。
+    const resolvedTab = resolveSettingsTabAfterInit(
+      currentTab.value,
+      tabs.value.map(tab => tab.name),
+    );
+
+    if (resolvedTab !== currentTab.value) {
+      setCurrentTab(resolvedTab);
     }
 
     isInitialized.value = true;

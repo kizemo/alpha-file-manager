@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import type { InstalledExtensionData } from '@/types/extension';
 import {
   createExtensionThemeId,
+  DEFAULT_THEME_ID,
   getAvailableThemeOptions,
   normalizeThemeSelection,
   parseThemeId,
@@ -77,16 +78,21 @@ describe('theme registry', () => {
       }),
     });
 
+    // FORK-MODIFICATION 2026-10-30：六套 macOS Finder 风格主题已删除，
+    // 内置 'light'（亮色·开发中）已从可选主题下架，'light' 仅保留在类型与 CSS 基座里
+    // 供 ResolvedBuiltinThemeId / 扩展主题 baseTheme 使用。默认主题改为 afm-warm-light。
     expect(availableThemes.map(theme => theme.id)).toEqual([
       'dark',
-      'light',
-      'system',
+      'afm-warm-light',
+      'afm-warm-dark',
+      'afm-vivid-light',
+      'afm-cool-light',
       'extension:test.palette:midnight',
     ]);
   });
 
-  it('normalizes missing extension themes back to dark', () => {
-    expect(normalizeThemeSelection('extension:test.palette:missing', {})).toBe('dark');
+  it('normalizes missing extension themes back to the default theme', () => {
+    expect(normalizeThemeSelection('extension:test.palette:missing', {})).toBe(DEFAULT_THEME_ID);
   });
 
   it('parses extension theme ids', () => {

@@ -1,0 +1,2687 @@
+# 交接文档：删除确认框「回车 = 删除」+ 列表视图按类型分区 + 就地重命名 + 3.6.3 发版（2026-10-27 收尾）
+
+> **本文是自足的接续入口。** 新会话只读本文，即可接手，不需要回放历史对话。
+> 上游远程模块的完整背景见 `docs/handoff-2026-10-26-remote-transfer-progress-and-overwrite.md`；
+> 项目通用约束见外层仓 `F:\soft\00selfmade\filemanager\AGENTS.md`（**必读**）。
+
+---
+
+## 0. 一分钟版
+
+| 问 | 答 |
+|---|---|
+| 项目是什么 | `F:\soft\00selfmade\filemanager\sigma-file-manager` = **Alpha File Manager（AFM）**，Tauri 2 + Vue 3 + reka-ui 的 Windows 文件管理器；fork 自上游 `aleksey-hoffman/sigma-file-manager`（SFM） |
+| 用户要什么（2026-10-28） | ① 回答「相较优化前资源占用减少多少」并给数据；② 版本升到 **3.6.4 并发版**（README / 升级日志 / aiec 版本文件 / GitHub / aiec.fun）；③ 解释上游 `global_search/scoring.rs` 短查询门槛缺陷的成因与影响并判断能否修 |
+| 本轮做到了哪 | ①②③ **全部完成**：3.6.4 已于 2026-10-28 发布（commit `bd375f1b` + `6c6aeb8e` → `origin/main`；GitHub release `v3.6.4` 与 aiec.fun 线上均为 3.6.4）；资源数据见 §19.3；scoring 缺陷已修并随 3.6.4 发布，见 §19.5 |
+| 现在卡在哪 | 无阻塞。**下一阶段 = mac Finder 风格主题**（§20）：摸清主题机制 → 出 3 个方向初稿给用户选 → 落地浅色 / 深色两套 → 沙箱验收 → 发 **3.6.5** |
+| 已落盘的东西 | 3.6.4 安装包（`release/Alpha File Manager_3.6.4_x64-setup.exe`，20,697,849 B，sha256 `D070BB8D4ADF4716C8522CE071157C531CFCA8E080B355790DAAA4FCF0C79493`）、winget 3.6.4 清单四件套、站点 `version.json`（3.6.4 / history 19 条）、`_release-notes-v3.6.4.md`、17 个发版文档、交接文档 §19 + §20 |
+| 仓库状态 | 内层仓 `sigma-file-manager` 分支 `main`，HEAD = `6c6aeb8e`，与 `origin/main` 一致（用 `gh api repos/kizemo/alpha-file-manager/commits/main --jq '.sha'` 核对）；**工作树干净**；外层仓 `F:\soft\00selfmade\filemanager` 只改了 `AGENTS.md`（本地 commit `fcc9fae`，未 push） |
+| 门禁基线 | `npx eslint .` = **188 errors / 0 warnings**；`npm run ts` exit 0；`npm run test` = 251 files / 2314 tests；`cargo check --all-targets` exit 0；`cargo test --lib` = 856 passed / **2 failed（存量环境问题：MCP 端口 55100–55199 被占、WSAEACCES，非回归）** |
+| 最容易踩的坑 | ① 真机验收只能用 `tauri build` 产物（`tauri dev` 路由页内容区全白）；② 验收必须跑在**隔离桌面沙箱**内（`AGENTS.md` §2.8）；③ `eslint .` 是整仓口径，基线 188；④ `.cmd` 的 `echo` 里不能有 `>`、`.cmd` 运行期间不能编辑；⑤ `.ps1`/`.cmd` 必须纯 ASCII；⑥ **push 先走默认代理**，清空代理会 `Recv failure: Connection was reset`；⑦ Node `fetch` 要 `NODE_USE_ENV_PROXY=1` + `HTTPS_PROXY=http://127.0.0.1:7897`；⑧ `release/` 里的历史安装包不许删（winget 清单按 sha256 比对） |
+
+## 1. 任务是什么（用户原话）
+
+> 1. 当前选中文件或目录后，选中文件，使用快捷键 shift+del 或者使用鼠标从菜单选择「从驱动器进行删除」，弹出确定窗口（有两个按钮「取消」和「删除」），直接回车，不会删除。希望回车默认映射的是「删除」。
+> 2. 在目录窗口的列表视图，希望类似缩略图视图，在文件夹、图片、视频、其它文件等之间，可以有一个区隔，便于在自己需要查找的目录或文件中快速查找和定位。
+> 3. 在优化、测试通过之后，直接打包发版，升级 readme 文档、新版本说明、aiec 版本号文件，上传 github 和 aiec。
+
+拆成三件事：
+
+| # | 事项 | 性质 | 归属 |
+|---|---|---|---|
+| A | 永久删除确认框回车映射 | 前端小改（1 个新模块 + 1 个组件） | 本会话直接写 |
+| B | 列表视图按类型分区 | 前端中等改造（虚拟行模型 + 渲染 + 顺序一致性） | 派 worker 并行 |
+| C | 3.6.3 发版（打包 + 文档 + 双端上传） | 流程性，有严格顺序铁律 | 本会话做 |
+
+---
+
+## 2. 项目背景与当前状态
+
+### 2.1 目录结构（**两个 git 仓，别搞混**）
+
+| 路径 | 说明 |
+|---|---|
+| `F:\soft\00selfmade\filemanager` | **外层仓**。只放 `AGENTS.md`、未跟踪的 `docs/blog/`、`docs/marketing/`、`docs/SFM-EXTENSION-DEVELOPMENT-GUIDE.md`。**不要在这里做功能改动** |
+| `F:\soft\00selfmade\filemanager\sigma-file-manager` | **内层仓**，真正的 Alpha File Manager 项目。所有代码、文档、发版都在这里 |
+
+### 2.2 版本现状
+
+- **当前版本 = 3.6.4**（`package.json`；`src-tauri/Cargo.toml`、`src-tauri/default-file-manager-common/Cargo.toml`、`src-tauri/default-file-manager-launcher/Cargo.toml` 三处同步；`src-tauri/tauri.conf.json` 的 version 指向 `"../package.json"`，不用改）。
+- **3.6.4 已于 2026-10-28 发布完毕**（commit `bd375f1b` + `6c6aeb8e` → `origin/main`；GitHub release `v3.6.4`；站点 aiec.fun 线上 3.6.4）。
+  - 安装包：`release/Alpha File Manager_3.6.4_x64-setup.exe`，**20,697,849 B**，sha256 **`D070BB8D4ADF4716C8522CE071157C531CFCA8E080B355790DAAA4FCF0C79493`**（GitHub 资产 digest / 站点 `version.json` / winget `InstallerSha256` 四方一致）。
+- **下一版目标 = 3.6.5**（mac Finder 风格主题，见 §20）。升版本用 `npm run release:prepare -- --bump patch`；**万一只是重打包必须 `--bump none`**。
+- `release/` 目录里堆了 2.2.0 → 3.6.4 的历史安装包，**都在，别删**（winget 清单要按 sha256 比对这里的实际文件）。
+
+### 2.3 项目形态要点
+
+- Tauri 桌面应用（前端 Vue 3 + TS + Pinia，UI 组件库是 **reka-ui**，不是 Radix 直用），Rust 后端在 `src-tauri/`。
+- 目录窗口的「文件浏览器」组件群在
+  `src/modules/navigator/components/file-browser/`。
+- i18n：17 个语言包在 `src/localization/messages/*.json`（**中文的 locale code 是 `ch` 不是 `zh`**）；约定是**只有 `ch.json` 用中文，其余 16 个沿用英文原文**；17 个 key 集合必须完全一致。
+  已有 `locale-json-format.test.ts` 要求每个文件 == `JSON.stringify(parsed, null, 2) + '\n'`。
+- 根 `CHANGELOG.md`（英文）+ `public/changelog/<15 个 locale>/changelog.md`（每个语言包一份）。
+
+---
+
+## 3. 本轮已完成到哪一步
+
+> 第 4 / 5 节是**已经落地**的定稿方案（代码按它实现并已提交）；第 13 节是中途追加的优化 C 的规格与实现，第 14 节是实测结果与发版资产现状，第 15 节是剩余步骤。
+
+| 事项 | 状态 | 产物 / 证据 |
+|---|---|---|
+| 定位 A 的根因与实现位置 | ✅ 完成 | 见第 4 节，带文件路径与行号 |
+| 定位 B 的实现位置与复用点 | ✅ 完成 | 见第 5 节，带文件路径与行号 |
+| A 的方案定稿 | ✅ 完成 | 见第 4.4 节，含可直接抄的代码 |
+| B 的方案定稿 | ✅ 完成 | 见第 5 节，含全部一致性要求 |
+| **A 的代码 + 单测** | ✅ **已完成并提交** | `utils/permanent-delete-confirm-keyboard.ts`（13 用例）+ `permanent-delete-confirm-dialog.vue`；commit `82d42190` / `605efae8` |
+| **B 的代码 + 单测** | ✅ **已完成并提交** | 分区行模型 + `createGroupedListRows()`；commit `d1c96f70` / `dff656a4` |
+| **发版文档成因描述修正** | ✅ 完成 | 18 个文件（全仓 grep 旧表述 = No matches found） |
+| **真机验收 A（裸回车 = 删除，Case A/B/C/D）** | ✅ **PASS** | `.superpowers\sdd\accept-363-enter-delete.ps1` + 截图 |
+| **真机验收 B（列表视图分区，4 条断言）** | ✅ **PASS** | `.superpowers\sdd\accept-363-list-grouping.ps1` + 截图 |
+| **优化 C 规格 + 实现 + 单测** | ✅ **代码完成（随本次发版提交一并提交）** | 见第 13 节；16 条新单测；全量 248 files / 2275 tests 全过 |
+| **优化 C 门禁** | ✅ 通过 | `eslint .` = 188 errors / 0 warnings（= 基线）；`npm run ts` exit 0 |
+| **3.6.3 重打包 + winget 清单 + 站点同步** | ✅ 完成 | 见第 14 节（新 sha / 字节数） |
+| **优化 C 真机验收** | ✅ **全部 PASS**（右键路径 / F2 / 回车 / ↓ / ↑ / Esc / 缩略图视图） | 见第 13.6 节 |
+| **发版提交 + push + 双端上传** | ✅ **已完成** | commit `a9fed27a` → `origin/main`；GitHub release `v3.6.3` + 站点 aiec.fun 线上均 3.6.3，`release:status` / `release:verify` 版本 / 大小 / sha256 三项一致 |
+
+---
+
+## 4. 优化 A：永久删除确认框「回车 = 删除」
+
+### 4.1 现象与根因
+
+- 入口：选中文件/目录 → `Shift+Del` 或右键菜单「从驱动器进行删除」→ 弹出确认框（按钮：**取消** / **删除**）→ 裸回车**无任何反应**。
+- 组件：`src/modules/navigator/components/file-browser/permanent-delete-confirm-dialog.vue`（全文 137 行）。
+  - 按钮在第 89–102 行：`<Button variant="outline">取消</Button>` + `<Button variant="destructive">删除</Button>`；
+  - `onConfirm()` 在第 55–57 行，只由按钮 `@click` 触发。
+- **根因**：对话框用的是 reka-ui 的 `Dialog` / `DialogContent`（`src/components/ui/dialog/index.ts` 第 11 行导出 `DialogContent`，实现在 `src/components/ui/dialog/dialog-content.vue`）。
+  reka-ui 打开对话框时把**焦点落在对话框容器本身**，两个按钮都没被激活 ⇒ 裸回车既不点「取消」也不点「删除」，事件被吃掉。
+  这与项目里其它确认框的行为一致，不是回归。
+
+### 4.2 定稿方案
+
+新增一个**纯判定模块** + 在组件里挂 **document capture 阶段** 的 keydown 兜底。
+
+判定规则（全部纯逻辑，便于单测）：
+
+1. 只认 `Enter`；
+2. `defaultPrevented` 为真 → 不响应（**顺带防止同一事件被多个实例重复确认**）；
+3. `isComposing`（输入法组合中）→ 不响应；
+4. **焦点落在可交互控件上 → 交给浏览器原生行为**（焦点在「取消」上回车 = 取消；焦点在「删除」上回车 = 原生点击删除）；
+   只有焦点**不在**控件上（对话框容器 / body，即用户「刚打开对话框直接回车」的场景）→ 判定为「确认删除」。
+
+为什么用 capture 阶段：`capture` 在 document 上是最早的拦截点，
+`event.preventDefault() + event.stopPropagation()` 能保证**应用级的回车快捷键不会同时生效**（否则可能出现「删除 + 打开条目」双动作）。
+
+### 4.3 需要新建的文件
+
+`src/modules/navigator/components/file-browser/utils/permanent-delete-confirm-keyboard.ts`
+
+```ts
+// SPDX-License-Identifier: GPL-3.0-or-later
+// License: GNU GPLv3 or later. See the license file in the project root for more information.
+// Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
+
+/**
+ * FORK-MODIFICATION 2026-10-27：永久删除确认框的「回车 = 删除」判定。
+ *
+ * 背景：reka-ui 的 DialogContent 打开时把焦点落在对话框容器本身，
+ * 两个按钮（取消 / 删除）都没被激活 ⇒ 裸回车什么都不发生。
+ * 用户要求「回车默认映射的是删除」。
+ */
+
+/** 焦点在这些元素上时，回车交给浏览器原生行为处理。 */
+export const PERMANENT_DELETE_CONFIRM_INTERACTIVE_SELECTOR
+  = 'button, a[href], input, textarea, select, [role="button"], [role="menuitem"]';
+
+export interface PermanentDeleteConfirmEnterContext {
+  key: string;
+  defaultPrevented: boolean;
+  isComposing: boolean;
+  /** 焦点当前是否落在可交互控件（按钮 / 链接 / 输入框等）上。 */
+  isFocusOnInteractiveControl: boolean;
+}
+
+/** 目标元素是否属于「可交互控件」。非浏览器环境下一律当作「不是控件」。 */
+export function isPermanentDeleteConfirmInteractiveTarget(target: EventTarget | null): boolean {
+  if (!target || typeof Element === 'undefined' || !(target instanceof Element)) {
+    return false;
+  }
+
+  return target.closest(PERMANENT_DELETE_CONFIRM_INTERACTIVE_SELECTOR) !== null;
+}
+
+/** 这次回车是否应该触发「确认删除」。 */
+export function shouldConfirmPermanentDeleteOnEnter(
+  context: PermanentDeleteConfirmEnterContext,
+): boolean {
+  if (context.key !== 'Enter') {
+    return false;
+  }
+
+  if (context.defaultPrevented || context.isComposing) {
+    return false;
+  }
+
+  return !context.isFocusOnInteractiveControl;
+}
+```
+
+### 4.4 组件改动（`permanent-delete-confirm-dialog.vue`）
+
+在 `<script setup>` 里：
+
+```ts
+import { computed, onBeforeUnmount, onMounted } from 'vue';
+import {
+  isPermanentDeleteConfirmInteractiveTarget,
+  shouldConfirmPermanentDeleteOnEnter,
+} from './utils/permanent-delete-confirm-keyboard';
+
+// ...（其余原有逻辑不动）
+
+function handleDocumentKeydown(event: KeyboardEvent) {
+  if (!props.open) {
+    return;
+  }
+
+  const activeElement = typeof document !== 'undefined' ? document.activeElement : null;
+  const shouldConfirm = shouldConfirmPermanentDeleteOnEnter({
+    key: event.key,
+    defaultPrevented: event.defaultPrevented,
+    isComposing: event.isComposing,
+    isFocusOnInteractiveControl: isPermanentDeleteConfirmInteractiveTarget(activeElement),
+  });
+
+  if (!shouldConfirm) {
+    return;
+  }
+
+  // capture 阶段拦截：别让应用级的回车快捷键同时生效。
+  event.preventDefault();
+  event.stopPropagation();
+  onConfirm();
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleDocumentKeydown, true);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', handleDocumentKeydown, true);
+});
+```
+
+**模板不要改**：按钮顺序（取消 / 删除）、文案、样式全部保持原样。
+**不要**额外把焦点自动移到「删除」按钮上 —— 现在的方案已经让「刚打开就回车」= 删除，
+移动焦点会让破坏性按钮常驻焦点环，属于额外的危险面，不做。
+
+### 4.5 单测（新建）
+
+`src/modules/navigator/components/file-browser/utils/__tests__/permanent-delete-confirm-keyboard.test.ts`
+
+纯函数用例（不依赖 DOM）：
+
+| 用例 | 输入 | 期望 |
+|---|---|---|
+| 焦点不在控件上 + Enter | `isFocusOnInteractiveControl: false` | `true`（= 确认删除） |
+| 焦点在按钮上 + Enter | `isFocusOnInteractiveControl: true` | `false`（交给原生） |
+| 已被处理过的回车 | `defaultPrevented: true` | `false` |
+| 输入法组合中 | `isComposing: true` | `false` |
+| 其它按键 | `key: 'Escape'` | `false` |
+
+DOM 相关用例（`isPermanentDeleteConfirmInteractiveTarget`）：`<button>` → `true`；`<div>` → `false`；`null` → `false`。
+若 vitest 环境不是 jsdom，用 `if (typeof document === 'undefined') return;` 跳过。
+
+### 4.6 验收要点
+
+- `Shift+Del` → 确认框弹出 → **直接回车** → 应当执行删除（不再无反应）。
+- Tab 到「取消」再回车 → 仍然是取消（原生行为，不回归）。
+- 鼠标点「删除」→ 正常删除。
+- 焦点在「删除」按钮上回车 → 正常删除，且**不能触发两次**（`defaultPrevented` 守卫 + 原生 click）。
+
+---
+
+## 5. 优化 B：列表视图按类型分区
+
+### 5.1 可复用的现成资产（不要重新设计）
+
+| 资产 | 路径 | 说明 |
+|---|---|---|
+| 分组函数 | `src/modules/navigator/components/file-browser/file-browser-entry-groups.ts` | `groupFileBrowserEntries()` 第 21 行 → `{ dirs, images, videos, others }`；`isFileBrowserImageEntry` 第 9 行；`isFileBrowserVideoEntry` 第 15 行；`getFileBrowserGridEntryOrder` 第 50 行；`getFileBrowserVisualEntryOrder` 第 60 行 |
+| 区隔标题组件 | `src/modules/navigator/components/file-browser/file-browser-grid-section-bar.vue` | props `{ label, count }`，slot 名 `icon` |
+| 网格视图用法 | `src/modules/navigator/components/file-browser/file-browser-grid-view.vue` | `getSectionLabel()` 第 40 行用 `t('fileBrowser.folders'\|'fileBrowser.images'\|'fileBrowser.videos'\|'fileBrowser.otherFiles')`；icon 用 lucide `FolderIcon` / `FileImageIcon` / `FileVideoIcon` / `FileIcon` |
+| i18n | `src/localization/messages/*.json` | 上述 4 个 key **17 个语言包都已存在**，**不要新增任何 i18n key** |
+
+### 5.2 涉及的虚拟滚动实现（**最容易踩坑的地方**）
+
+| 文件 | 关键位置 | 要点 |
+|---|---|---|
+| `src/modules/navigator/components/file-browser/utils/file-browser-virtual-rows.ts` | 联合类型第 40 行；`FileBrowserListVirtualRow` 第 18 行；`FileBrowserGridSectionVirtualRow` 第 24 行 | 要新增 `FileBrowserListSectionVirtualRow`（`type: 'list-section'`），并把它加进 `FileBrowserVirtualRow` 联合 |
+| `src/modules/navigator/components/file-browser/composables/use-file-browser-virtual-layout.ts` | `GRID_SECTION_HEADER_HEIGHT = 42` 第 48 行；`getRowScrollMarginTop` 第 95 行；`createListRows` 第 178 行；`createGridRows` 第 257 行；`createFileBrowserVirtualRows` 第 312 行；`activeGridSectionRow` 第 419 行 | 见下方四条要求 |
+| `src/modules/navigator/components/file-browser/file-browser-list-view.vue` | `visibleRows` 第 433 行（`filter(row => row.type === 'list-entry')`）；行渲染第 465–544 行 | 区隔行要能在 `visibleRows` 里活下来并被渲染；行高用 `row.size` |
+| `src/modules/navigator/components/file-browser/file-browser-content-body.vue` | 第 72–78 行 | `layout === 'grid'` → GridView，**`v-else` → ListView（tree 也走 ListView）** ⇒ **tree 布局不能分区** |
+| `src/modules/navigator/components/file-browser/composables/use-file-browser-keyboard-navigation.ts` | `getNavigationEntries()` 第 66 行 | 它调 `getFileBrowserVisualEntryOrder(entries, layout())` |
+| `src/modules/navigator/components/file-browser/composables/use-file-browser-selection.ts` | 待读 | 范围选择用原始 entries 顺序还是视觉顺序，**必须自己读一遍确认** |
+
+### 5.3 四条硬性要求
+
+1. **区隔行必须进虚拟行模型**：新增 `list-section` 行类型，由 `createListRows`（或新函数）在分组后按序插入，
+   每个区隔行有自己的 `start` / `size`，**offset 累加必须与实际渲染高度一致** ——
+   虚拟行给的 height 与 CSS 的 min-height 不是同一个数就会滚动错位（本项目历史踩过多次）。
+2. **`getRowScrollMarginTop` 必须把 `list-section` 当 list 行**（返回 `virtualContentOffset`），
+   否则「滚动到某条目」时区隔行高度没算进去，定位会偏。
+3. **视觉顺序与键盘导航、Shift 范围选择必须一致**：
+   列表视图显示分组顺序后，`getFileBrowserVisualEntryOrder` 对 `layout === 'list'` **也必须返回分组顺序**；
+   若 `use-file-browser-selection.ts` 的范围计算用的是原始 entries 顺序，也要改成视觉顺序，
+   否则 Ctrl+Shift / Shift+↑↓ 选出来的范围在画面上横跨不相邻的分组。
+   **这是最容易被漏、也最容易被用户直接感知的一条。**
+4. **tree 布局保持原样**（不分区、顺序不变）；区隔行**不可被点选**（不进选中集合、右键不弹条目菜单）；
+   用户设置的排序**在组内继续生效**（分组只改跨组顺序，不改组内相对顺序）。
+
+> sticky 段头（滚动时顶部吸附当前分区标题，像网格视图那样）：**风险高可以只做随内容滚动的内联区隔标题**，
+> 但必须在最终报告里写明「sticky 未做」，不要默默不做。
+
+### 5.4 单测
+
+扩展既有测试文件（**不要新建重复的**）：
+
+- `src/modules/navigator/components/file-browser/composables/__tests__/use-file-browser-virtual-layout.test.ts`
+  - 断言 `layout: 'list'` 时产出的行序列里出现 `list-section`；
+  - 断言区隔行的 `start` 与前一行 `start + size` 连续；
+  - 断言 `layout: 'tree'` 时**不**出现 `list-section`。
+- `src/modules/navigator/components/file-browser/__tests__/file-browser-entry-groups.test.ts`
+  - 断言 `getFileBrowserVisualEntryOrder(entries, 'list')` 返回分组顺序，且与 list 视图渲染顺序一致。
+
+### 5.5 派 worker
+
+任务书已经写好，直接用：
+
+```
+agent_name: worker
+prompt: 读取 F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\task-list-view-grouping.md 并严格按其中的内容执行
+```
+
+任务书里已包含：目标、已确认事实、硬性要求、约束（不改 Rust / 不碰发版文件 / 不用 PowerShell 改含中文的文件 / lint 与单测口径）、验收报告格式。
+**不要自己再写一遍任务书**，避免两份规格漂移。
+
+---
+
+## 6. 下一轮执行顺序（**已执行完毕 —— 保留作历史记录**）
+
+> ⚠️ 本节是**第一轮**的计划（A / B 的实现与提交、两套真机验收、打包），**这些都已完成**。
+> 现在的剩余步骤以**第 15 节**为准。
+
+| # | 动作 | 命令 / 说明 |
+|---|---|---|
+| 1 | **清上下文** | 发 `/new`（本会话上下文已 109k+；工具预算钩子按 turn 计数，新 turn 归零） |
+| 2 | 读约定 | `F:\soft\00selfmade\filemanager\AGENTS.md` + 本文 |
+| 3 | 落盘优化 A | 写 `utils/permanent-delete-confirm-keyboard.ts` + 改 `permanent-delete-confirm-dialog.vue` + 写单测（4.3 / 4.4 / 4.5） |
+| 4 | 派 worker 做优化 B | 任务书见 5.5；同时**自己不要碰** `file-browser-*` 那批文件，避免写冲突 |
+| 5 | 跑单测 | `npm --prefix F:\soft\00selfmade\filemanager\sigma-file-manager run test`（**不要 `--reporter=basic`**，本仓库无此 reporter 会直接中止）；按 `Test Files` / `Tests` 两行取结果 |
+| 6 | 跑 lint | `npm --prefix F:\soft\00selfmade\filemanager\sigma-file-manager run lint`（= `eslint .` 整仓，基线 **188 errors / 0 warnings**；`eslint src` 基线 **175**）。单文件 `--fix` 通过 ≠ 回到基线，**必须再跑一次全量对照** |
+| 7 | 合并审查 | worker 交付后逐项核对第 5.3 节四条硬性要求；`git diff` 人工过一遍 |
+| 8 | 提交 | `git -C ... commit -F <提交信息文件>`（用 `-F` 文件形式，别在 PowerShell 里写带引号/反引号的长消息） |
+| 9 | **真机验收** | 见下方「打包防锁」小节；**必须用 `tauri build` 产物** |
+| 10 | 发版 3.6.3 | 见第 7 节 |
+
+### 打包防锁（上一轮的实证坑）
+
+```powershell
+# 1) 停进程
+Get-Process alpha-file-manager -ErrorAction SilentlyContinue | Stop-Process -Force
+# 2) 把会被链接阶段覆盖的产物移走（只杀进程不够！）
+node -e "const fs=require('fs'),path=require('path');const s=path.join(process.argv[1],'src-tauri','target','release','alpha-file-manager.exe');const d=path.join(process.argv[1],'.superpowers','sdd','superseded');if(fs.existsSync(s)){fs.mkdirSync(d,{recursive:true});fs.renameSync(s,path.join(d,'alpha-file-manager.exe.prev'));console.log('moved')}else console.log('absent')" F:\soft\00selfmade\filemanager\sigma-file-manager
+# 3) bundle/nsis 里的旧版本验收包也要移出去
+#    publish-bundle-to-release.mjs 会把 bundle/nsis/* 覆盖回 release/，
+#    会把已发布版本的 sha256 顶掉 → winget 清单变红
+```
+
+打包脚本必须**纯 ASCII**、放 `.superpowers/sdd/*.cmd`、**新建文件名**（不要复用/编辑正在运行的那个，
+cmd.exe 按字节偏移逐行读，运行中编辑会导致执行错位的片段）、
+内部用 `> logfile 2>&1` 重定向到文件（后台跑不要挂 stdout 管道，管道一断进程树跟着死）。
+
+---
+
+## 7. 3.6.3 发版流程（**命令与顺序铁律仍然有效；文档清单的实际改动见第 14.5 节**）
+
+### 7.1 权威文档（先读）
+
+- `F:\soft\00selfmade\filemanager\sigma-file-manager\docs\operations\release-workflow.md`（五条命令、五处状态、缓存与回滚语义）
+- `F:\soft\00selfmade\filemanager\sigma-file-manager\docs\operations\version-info.md`（`version.json` 字段语义、`history[]` 归档规则）
+
+### 7.2 顺序铁律
+
+1. **`verify-changelog` 必须在升版本号之前跑**（它校验「当前版本有 changelog 条目」）。
+2. **`release:prepare --write-notes` 必须在 `release:prepare`（打包）之后跑**（它要读产物大小与 sha256）。
+
+### 7.3 命令
+
+```powershell
+$repo = 'F:\soft\00selfmade\filemanager\sigma-file-manager'
+npm --prefix $repo run verify-changelog
+npm --prefix $repo run release:prepare -- --bump patch --notes-file ./_notes.md
+npm --prefix $repo run release:prepare -- --write-notes ./_notes.md
+npm --prefix $repo run release:upload
+npm --prefix $repo run release:github
+npm --prefix $repo run release:status
+npm --prefix $repo run release:verify
+npm --prefix $repo run check:winget
+```
+
+> `release:prepare` 默认会把安装包复制到仓库 `release/`（**不上传**，可以放心跑）。
+> 仓库根目录的 `publish-bundle-to-release.mjs` **只复制不发布**。
+> 若最后一步「复制到 release/」失败（旧的包被别的进程锁住），**先分清是构建失败还是复制失败**：
+> 新包用 `node -e "fs.copyFileSync(a,b)"` 单独补进 `release/` 即可，不必重跑整个打包。
+
+### 7.4 文档清单（3.6.3 要改的文件）
+
+| 文件 | 改什么 | 约定 |
+|---|---|---|
+| `F:\soft\00selfmade\filemanager\sigma-file-manager\CHANGELOG.md` | 加 `## [3.6.3] - October 2026` 条目 | **英文**，Summary + What changed |
+| `F:\soft\00selfmade\filemanager\sigma-file-manager\public\changelog\<15 个 locale>\changelog.md` | 各加 3.6.3 条目 | `ch` 用中文正文，其余 14 个**沿用英文原文**、仅 H1 本地化 |
+| `F:\soft\00selfmade\filemanager\sigma-file-manager\README.md` | 「What's new in 3.6.2」整段替换成 3.6.3 | 英文 |
+| `F:\soft\00selfmade\filemanager\sigma-file-manager\README.zh-CN.md` | 「🆕 3.6.2 新增了什么」整段替换成 3.6.3 | 中文 |
+| `F:\soft\00selfmade\filemanager\sigma-file-manager\_notes.md` | 3.6.3 中文发布说明 | 供 `version.json.notes` 与 GitHub release 正文共用 |
+| `E:\办公文件\L1网站\alpha-file-manager\version.json` | 由 `release:prepare` 写；`history[]` 归档 3.6.2 | 见 `docs/operations/version-info.md` |
+| `F:\soft\00selfmade\filemanager\sigma-file-manager\docs\winget\README.md` | 状态表加 3.6.3 行 | PR 流程同步 |
+| `F:\soft\00selfmade\filemanager\sigma-file-manager\docs\winget\manifests\k\kizemo\AlphaFileManager\3.6.3\` | 4 个清单文件 | 从 3.6.2 那套生成（改版本号 / ReleaseDate / URL / sha256） |
+
+### 7.5 双端上传
+
+- **aiec.fun**：站点源目录 `E:\办公文件\L1网站\alpha-file-manager\`；上传脚本
+  `E:\办公文件\L1网站\_upload_alpha_files.py`（用 `E:\办公文件\L1网站\.venv-sftp\Scripts\python.exe`，含 paramiko）。
+  SFTP 凭据在 `E:\办公文件\L1网站\.vscode\sftp.json` —— **绝不外泄**。
+  服务器路径 `/var/www/wordpress/alpha-file-manager/`。脚本会做服务器端 md5+size 逐个校验，再做公网回读。
+- **GitHub**：`kizemo/alpha-file-manager` release `v3.6.3`，资产名 `Alpha_File_Manager_3.6.3_x64-setup.exe`。
+  查资产 digest 用落盘 JSON + node 解析（PS 下 `gh --jq` 的引号会被打散）：
+  ```powershell
+  gh api repos/kizemo/alpha-file-manager/releases --paginate | Out-File -Encoding utf8 "$env:TEMP\ghrels.json"
+  node -e "let s=require('fs').readFileSync(process.argv[1],'utf8');if(s.charCodeAt(0)===0xFEFF)s=s.slice(1);for(const r of JSON.parse(s).slice(0,4))console.log(r.tag_name,r.published_at,r.assets.map(a=>a.name+' '+a.size+' '+a.digest).join(' | '))" "$env:TEMP\ghrels.json"
+  ```
+- **push**：GitHub 通道在直连与代理间会翻转，两条都试（`.superpowers/sdd/push-with-fallback.cjs` 已存在）。
+  核对远端 SHA **不要用 `git ls-remote`（走代理会挂住）**，用：
+  ```powershell
+  gh api repos/kizemo/alpha-file-manager/commits/main --jq '.sha'
+  ```
+
+---
+
+## 8. 本项目的硬约束（摘要，完整版在 `F:\soft\00selfmade\filemanager\AGENTS.md`）
+
+1. **面向用户的输出一律简体中文**；代码标识符 / 路径 / 命令保持原样。
+2. 品牌名固定 **Alpha File Manager**；**不得改** mDNS 服务名、legacy 数据目录名、Tauri `identifier`（`com.sigma-file-manager.app`）。
+3. **真机验收只能用 `tauri build` 的打包产物**。`tauri dev` 构建下应用外壳正常但**所有路由页内容区全空白**
+   （`RouterView` 挂载却不渲染子组件）⇒ 在 dev 构建上做的界面验收结论**一律作废**。
+4. **需要装机实测就直接打包 exe，不要等用户开口**（用户 2026-10-19 明确要求）。
+   判定条件是「结论需要真机才能成立」。命令 `npm run tauri:build`。
+5. **改任何 `.rs` 前先扫孤立 CR 字节**；`cargo test --lib` 的红线：被测试链接到的代码不得碰
+   `tauri::AppHandle` 或 `tauri::async_runtime::*`。
+6. **绝不用 PowerShell 的 `Get-Content -Raw` / `Set-Content` 改带中文注释的源文件**
+   （PS 5.1 按 ANSI 读无 BOM 的 UTF-8，中文会变乱码并被写回）。
+   安全写法：编辑工具，或 `[System.IO.File]::ReadAllText/WriteAllText` + 显式 UTF8，
+   或 node 的 `fs.readFileSync/writeFileSync(..., 'utf8')`。写完立刻验 `U+FFFD === 0`。
+7. **`.ps1` / `.cmd` 必须纯 ASCII**；PS 5.1 按 ANSI 读无 BOM 文件，中文只能作命令行参数传。
+   **`.cmd` 的 `echo` 里不能出现 `>`**（会被当重定向符，3.6.1 那轮在仓库根目录多出一个 `3.6.0)` 垃圾文件）。
+   **`.cmd` 里调用另一个 `.cmd` 必须加 `call`。**
+8. **`.cmd` 运行期间绝对不能编辑它**（cmd.exe 按字节偏移逐行读，改文件会执行错位的指令片段；
+   3.6.2 那轮因此把版本从 3.6.0 顶到 3.7.0，十分钟构建白跑）。
+9. **门禁基线用同一条命令量**：`eslint .`（整仓，基线 188）/ `eslint src`（基线 175）。
+   用 `git stash push -u` 量 HEAD，别拿旧数字对。
+10. **删除文件只能走** `E:\Users\Duanyi\.minimax\.minimax\bin\mavis-trash.cmd -- "<路径>"`。
+11. **验收夹具不要放 `%TEMP%`**（`global_search/ignore.rs` 的 `builtin_ignored_paths()` 含 `/AppData/Local/Temp`，
+    且 `matches_plain_ignored_path` 对 `/` 开头的模式做 `path.contains(...)` ⇒ 整棵子树被剪掉，命中恒为 0）。
+12. **写完检查/校验脚本必须造一份坏数据做阴性对照。**
+13. **不要用 `Process.MainWindowHandle` 取本项目主窗口**（会落在 15×15 的托盘窗上）；
+    要 `EnumWindows` + 过滤 class 为 `Tauri Window`、可见、面积最大的那个。
+14. **量到的是物理像素**：本机 DPI 144（150% 缩放），换算 CSS 逻辑像素要除以 1.5。
+15. **UIA 取元素不能只取有名字的**；`InvokePattern.Invoke()` 返回成功 ≠ 点击生效（禁用按钮是静默空操作）。
+16. **注入探针要「阳性对照排在前面」**；`SendInput` 的 `INPUT` 结构必须
+    `[StructLayout(LayoutKind.Explicit, Size = 40)]`，否则静默失败。
+    输入文字首选 `Set-Clipboard` + `app-key.ps1 -Keys 'CTRL+V'`（粘贴前先 Ctrl+A，否则是追加）。
+17. **PowerShell 函数只要有返回值，就不能在里面混用 `Write-Output`**（诊断输出会进管道变成返回值的一部分）。
+
+---
+
+## 9. 本轮的环境事故（务必知道）
+
+本轮（会话 `mvs_e65719a4a6c14ca5875383efbfdcc3c8`）在第 20 次工具调用后，
+被 `E:\Users\Duanyi\.minimax\.minimax\maintenance\tool_budget_hook.py` 拦死：
+`read` / `grep` / `bash` / `task` / `write` 全部返回「预算超限」的拒绝消息，
+而每试一次还会让上下文继续涨（87k → 109k），形成死循环。
+
+**判别与解法**：
+
+- 症状是「工具调用被整段拒绝消息顶替」，不是脚本出错；
+- 按 turn 分组计数 ⇒ **发一条新消息即可恢复**；
+- 上下文已 100k+，**建议直接 `/new`**（新会话 + 清上下文 = 单轮账单最大杠杆）；
+- 单轮工具调用控制在 **10 次以内**；要取信息就**一次取齐**（一条命令做完多件事 /
+  一次 grep 拿全部匹配 / read 用 `offset`+`limit` / 长结果落盘只回路径+结论）。
+
+**下一次开工时的第一条建议：先 `/new`，再读本文与 `AGENTS.md`。**
+
+---
+
+## 10. 未决 / 待用户决定
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 1 | winget PR `microsoft/winget-pkgs#460744`（3.5.1）是否已 MERGED | **2026-10-27 实测：仍 OPEN + REVIEW_REQUIRED**（未合并）。同包 ID 不允许同时开两个 PR ⇒ **3.6.3 只备清单、不提 PR** |
+| 2 | 安装包**代码签名**（需用户自备证书） | 早前提出，仍未决；本轮安装包 `NotSigned` |
+| 3 | 是否要催 winget 版主审 `#460744` | 早前提出，仍未决 |
+| 4 | 远程条目的 `copy`/`cut`/`paste` 是否放开 | 产品决定，见 `src/utils/entry-action-policy.ts:70` 的 `REMOTE_PHASE0_BLOCKED_ACTIONS` |
+| 5 | 3.6.3 是否也推 winget 清单 | **已定：只备清单**。四件套已生成（`docs/winget/manifests/k/kizemo/AlphaFileManager/3.6.3/`），`npm run check:winget` 全绿（含 "InstallerSha256 matches the local installer (20716092 bytes)"），等 `#460744` 合并后再提 PR |
+
+---
+
+## 11. 一句话接力 prompt
+
+> 接手 `F:\soft\00selfmade\filemanager\sigma-file-manager`（Alpha File Manager，Tauri 2 + Vue3 + reka-ui）：先读 `F:\soft\00selfmade\filemanager\AGENTS.md`（项目硬约束，**必读**：第 2 节真机验收铁律、§2.8 隔离桌面沙箱约束、§2.2 末尾 push/Node 代理两条新规）、`F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-10-27-delete-enter-key-and-list-view-grouping.md`（本文，**唯一权威状态源**：§0 速查表、§19 的 3.6.4 发布结果与资源数据、**§20 的主题制作计划与机制调研结论**、§7.2 与 §15.1 发版铁律、§16–18 的环境坑位）、以及 `F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\relay-rules-batch-c.md`（沙箱验收坑位清单，是纪律清单不是任务清单）。
+>
+> **3.6.4 已于 2026-10-28 全部发完**（commit `bd375f1b` + `6c6aeb8e` → `origin/main`；GitHub release `v3.6.4` 与站点 aiec.fun 线上均为 3.6.4，安装包 20,697,849 B / sha256 `D070BB8D4ADF4716C8522CE071157C531CFCA8E080B355790DAAA4FCF0C79493`）⇒ **不要重复发 3.6.4、不要重跑已完成的验收**。
+>
+> 下一轮做 **mac Finder 风格主题**（用户 2026-10-28 指定）：按 §20.5 的顺序 —— 先摸清主题变量的实际消费面（§20.2 已给全机制与文件行号，不必重新调研）→ 按 §20.4 出 3 个 mac Finder 方向初稿交用户选 → 落地浅色 / 深色两套主题（只改 `src/styles/vars.css` 的颜色与形状 token，**保持资源管理器布局框架不变**，浅色设为默认）→ 跑门禁 → `tauri build` 出包后在**隔离桌面沙箱**内做视觉验收（不得抢用户桌面焦点）→ 按 §7.2 / §15.1 的顺序发 **3.6.5**（README、升级日志、aiec 版本文件、push 到 GitHub 与 aiec.fun）。
+
+## 12. 涉及文件完整路径清单
+
+### 12.1 优化 A
+
+```
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\permanent-delete-confirm-dialog.vue
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\utils\permanent-delete-confirm-keyboard.ts        ← 新建
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\utils\__tests__\permanent-delete-confirm-keyboard.test.ts   ← 新建
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\components\ui\dialog\index.ts
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\components\ui\dialog\dialog-content.vue
+```
+
+### 12.2 优化 B
+
+```
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\file-browser-entry-groups.ts
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\file-browser-list-view.vue
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\file-browser-grid-view.vue
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\file-browser-grid-section-bar.vue
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\file-browser-content-body.vue
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\utils\file-browser-virtual-rows.ts
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\composables\use-file-browser-virtual-layout.ts
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\composables\use-file-browser-keyboard-navigation.ts
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\composables\use-file-browser-selection.ts
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\composables\use-file-browser-context.ts
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\composables\__tests__\use-file-browser-virtual-layout.test.ts
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\__tests__\file-browser-entry-groups.test.ts
+```
+
+### 12.3 发版与配置
+
+```
+F:\soft\00selfmade\filemanager\AGENTS.md                                                                 ← 项目硬约束（必读）
+F:\soft\00selfmade\filemanager\sigma-file-manager\docs\operations\release-workflow.md
+F:\soft\00selfmade\filemanager\sigma-file-manager\docs\operations\version-info.md
+F:\soft\00selfmade\filemanager\sigma-file-manager\CHANGELOG.md
+F:\soft\00selfmade\filemanager\sigma-file-manager\README.md
+F:\soft\00selfmade\filemanager\sigma-file-manager\README.zh-CN.md
+F:\soft\00selfmade\filemanager\sigma-file-manager\_notes.md
+F:\soft\00selfmade\filemanager\sigma-file-manager\public\changelog\<15 个 locale>\changelog.md
+F:\soft\00selfmade\filemanager\sigma-file-manager\scripts\release-publish.mjs
+F:\soft\00selfmade\filemanager\sigma-file-manager\scripts\verify-changelog.mjs
+F:\soft\00selfmade\filemanager\sigma-file-manager\scripts\publish-bundle-to-release.mjs
+F:\soft\00selfmade\filemanager\sigma-file-manager\scripts\sync-version.js
+F:\soft\00selfmade\filemanager\sigma-file-manager\docs\winget\check-manifest.mjs
+F:\soft\00selfmade\filemanager\sigma-file-manager\docs\winget\README.md
+F:\soft\00selfmade\filemanager\sigma-file-manager\docs\winget\manifests\k\kizemo\AlphaFileManager\3.6.2\   ← 3.6.3 的模板
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\localization\messages\*.json                            ← 17 个语言包
+E:\办公文件\L1网站\alpha-file-manager\version.json
+E:\办公文件\L1网站\_upload_alpha_files.py
+E:\办公文件\L1网站\.venv-sftp\Scripts\python.exe
+E:\办公文件\L1网站\.vscode\sftp.json                                                                       ← 凭据，绝不外泄
+```
+
+### 12.4 本轮产物与工具
+
+```
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\task-list-view-grouping.md   ← B 的 worker 任务书
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\handoff-363-tail.md          ← 本次追加到本文的第 12.5–16 节片段（gitignore 内）
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\push-with-fallback.cjs
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\superseded\                   ← 被挪开的构建产物
+E:\Users\Duanyi\.minimax\.minimax\maintenance\tool_budget_hook.py                              ← 本轮的拦截器
+E:\Users\Duanyi\.minimax\.minimax\maintenance\task-state\LATEST.md                               ← 自动交接卡
+```
+
+### 12.4.1 锁屏「无输入注入」验收脚本（2026-10-28 新增）
+
+```text
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\probe-desktop.ps1                     ← 锁屏性质判定（ASCII）
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\accept-363-inline-rename-v4.ps1      ← 无输入注入首版
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\accept-363-inline-rename-v5.ps1      ← 右键路径全链路 PASS
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\accept-363-inline-rename-v6.ps1      ← F2 / 回车 / Esc
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\accept-363-inline-rename-v7.ps1      ← 链式改名（干净夹具）13/0
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\accept-363-inline-rename-v8.ps1      ← 缩略图视图 6/0
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\accept-363-inline-rename-v5.log      ← 以上四支的日志
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\shots\v5-*.png , v6-*.png , v8-*.png    ← 截图
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\accept-363-backup\user-settings.json.pregrid.bak ← v8 前后的设置备份
+```
+
+### 12.5 优化 C（就地重命名）涉及文件完整路径
+
+**新增（3 个，未提交）**
+
+```
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\utils\file-browser-inline-rename.ts                      ← 新建（纯逻辑）
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\utils\__tests__\file-browser-inline-rename.test.ts      ← 新建（16 用例）
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\file-browser-inline-rename-input.vue                ← 新建（输入组件）
+```
+
+**修改（10 个，未提交）**
+
+```
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\composables\use-file-browser-selection.ts          ← 改名状态机核心（+214 行）
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\composables\use-file-browser-dialogs.ts
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\composables\use-file-browser-context.ts
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\composables\use-file-browser-focus.ts
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\composables\use-file-browser-keyboard-navigation.ts
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\composables\use-file-browser.ts
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\composables\__tests__\use-file-browser-dialogs.test.ts
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\file-browser.vue
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\file-browser-list-view.vue
+F:\soft\00selfmade\filemanager\sigma-file-manager\src\modules\navigator\components\file-browser\file-browser-grid-card.vue
+```
+
+**优化 C 的工具脚本（`.superpowers\sdd\`，gitignore 内）**
+
+```
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\spec-inline-rename.md            ← 规格
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\inline-rename-implementation.md  ← 实现说明
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\accept-363-inline-rename.ps1      ← 真机验收脚本（第 1 轮，**已被 v5–v8 取代**）
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\patch-363-inline-docs.cjs          ← 18 个发版文档批量补写（已跑成功，幂等）
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\release-363-inline.cmd            ← 第三轮打包（--bump none）
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\run-gates-363.ps1                  ← 门禁（结果写 gates-363.log）
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\gen-winget-363.cjs                ← winget 3.6.3 清单生成
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\append-handoff-results.cjs        ← 追加第 13/14 节（**未运行**，本文已手工补齐，可不用）
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\msg-363-release.txt               ← 提交信息（**待补优化 C 条目 + 新 sha/字节数**）
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\pin-workspace.cjs                ← 钉/还原 user-workspaces.json
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\app-key.ps1                      ← 裸 SendInput 注入（含 40 字节 INPUT）
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\app-sendkeys.ps1                 ← WScript.SendKeys 注入
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\afm-accept.ps1                   ← 找主窗口 + 截图
+F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\click-webview-point.ps1          ← webview 内点击
+```
+
+---
+
+## 13. 优化 C（用户中途追加的第 3 项需求）：F2 / 右键「重命名」就地编辑
+
+### 13.1 用户原话
+
+> 增加一个优化要求：使用快捷键 F2 或右键选择文件重命名（非批量重命名），不要打开弹窗，直接在目录窗口（列表或缩略图视图）的文件名上进行修改，且修改后，可以通过键盘上下切换文件，切换后，保留可以编辑文件名的状态，便于手动批量修改文件名。
+
+规格落盘：`.superpowers\sdd\spec-inline-rename.md`；实现说明：`.superpowers\sdd\inline-rename-implementation.md`。
+交付形态：13 个文件，**336 insertions / 13 deletions**。
+
+### 13.2 分流规则（唯一入口在 `use-file-browser-selection.ts` 的 `startRename()`）
+
+| 入口 | 链路 | 结果 |
+|---|---|---|
+| F2 | `src/stores/runtime/shortcuts.ts:386`（`id:'rename'`, `key:'F2'`, scope navigator, conditions `inputFieldIsActive:false / dialogIsOpened:false / dirItemIsSelected:true`）→ `src/modules/navigator/pages/navigator.vue:1576` 的 `registerHandler('rename', …)` → `pane.startRename(activePaneSelection[0])` | list/grid ⇒ 就地编辑；tree ⇒ 模态框 |
+| 右键「重命名」 | `file-browser-actions-menu.vue` → `file-browser-context-menu.vue` `handleAction` → `ctx.onContextMenuAction('rename')` → `use-file-browser-selection.ts` 的 `handleContextMenuAction` `case 'rename'` → `startRename(entries[0])`（**只处理单选**） | 同上 |
+
+- `renameState` 增加 `mode: 'dialog' | 'inline'` 与 `isChainActive`。
+- `canEditInline()` = 当前 layout 是 `list` 或 `grid`；**tree / 批量重命名 / 首页仪表盘侧栏仍走模态框**。
+- `isRenameDialogOpen`（`use-file-browser-dialogs.ts`）= `isActive && mode === 'dialog'` ⇒ 就地编辑时**不会**同时冒出模态框。
+- **未新增后端命令 / i18n key / 依赖**；`file-browser-rename-dialog.vue` 一行未动。
+
+### 13.3 两条「连续改名」路径（最容易被误读，务必分清）
+
+**路径 ①（批量改名主路径）：输入框内按 ↑/↓**
+
+`file-browser-inline-rename-input.vue` 的 `handleKeydown` → `getInlineRenameMoveIntent(event.key)` → `ctx.inlineRename.move(direction, draft)`
+→ `use-file-browser.ts:805` 的 `move`：**先** `selection.submitInlineRename(currentName, 'move')`（提交当前名字），成功后再 `keyboardNav.navigateDown()` / `navigateUp()`
+→ 落点回调 `onNavigationTargetApplied`（`use-file-browser-keyboard-navigation.ts:97`）→ `handleInlineRenameNavigationTarget` 把落点条目切进编辑态
+⇒ **改一个 → 按 ↓ → 下一个直接可编辑**。
+
+**路径 ②（提交/取消之后用 ↑/↓ 切条目）**
+
+`applyNavigationTarget()` → `options.onNavigationTargetApplied?.(entry)` → 同一个 `handleInlineRenameNavigationTarget`。
+⇒ 依赖「落点条目被选中」时触发的导航回调；**这条路径要求 DOM 焦点仍在列表行上**（方向键是行级 `@keydown`，见 `file-browser-list-view.vue:598` / `file-browser-grid-card.vue:365`）。
+
+> ⚠️ **已知风险（必须由真机验收判定，尚未实测）**
+> `submitInlineRename` 成功路径调用 `requestFocusEntryAfterRefresh(parentDir, newPath, { shouldFocus: false })`（**刻意不抢焦点**——路径 ① 下焦点要交给下一个输入框）。
+> 若输入框卸载后 DOM 焦点掉到 `body`，则**路径 ② 收不到方向键**。
+> **若真机验收在此步失败，修法是让「enter / blur 提交」路径恢复焦点到被改名的行**（`shouldFocus: true`），**不要**删掉 chain 逻辑、也不要改成把 `shouldFocus: false` 一刀切。
+
+**状态机**（`utils/file-browser-inline-rename.ts` 的 `getInlineRenameChainStateAfterCommit` / `…AfterCancel`）
+
+| 触发 | 结果 | 编辑态 | 连续模式 |
+|---|---|---|---|
+| 成功（renamed / unchanged） | `enter` / `move` | 退出 | **保持开** |
+| 成功 | `blur` | 退出 | 结束 |
+| 失败 | `enter` / `move` | **留在编辑态** | 结束 |
+| 失败 | `blur` | 退出 | 结束 |
+| Esc | — | 退出 | 结束 |
+
+其它已确认事实：
+
+- 连续模式在「**鼠标点条目**」时结束（`onEntryMouseDown` 包了 `endInlineRenameChain()`）；键盘导航走 `selectEntryByPath`，不会自己打断自己 ⇒ **验收时 commit 与 ↓ 之间不能插入鼠标点击**。
+- 非法字符正则 `/[<>:"/\\|?*\x00-\x1f]/`、`lastIndexOf('.') > 0` 才算扩展名 —— 与 `file-browser-rename-dialog.vue` 语义一致（后端判定未动）。
+- 草稿放在**输入组件本地 ref**（列表行有 `v-memo` 缓存，父级受控值会被吞）；`memoKey` 必须带编辑态标记。
+- inline 成功后**不清选区**（清了就找不到当前条目，↑/↓ 落点会跳回首项），改用 `requestFocusEntryAfterRefresh(parent, newPath, { shouldFocus: false })` 按新路径重新选中。
+- 网格卡片里 `<input>` 嵌在 `<button>` 内（HTML 语义无效嵌套）—— **HTML 语义确实无效，但实测可用**：缩略图视图的就地编辑已在真机验收通过（第 13.6 节 v8）。
+
+### 13.4 真机验收第 1 轮失败的根因（**是验收脚本的问题，不是产品缺陷**）
+
+脚本 `.superpowers\sdd\accept-363-inline-rename.ps1`，日志 `.superpowers\sdd\accept-363-inline-rename.log`，截图 `.superpowers\sdd\shots\inline-363-0{1,2,3}-*.png`。
+8 条断言失败，三个真实原因：
+
+1. **按键路径错**：脚本用 `app-sendkeys.ps1`（WScript.SendKeys）发 F2，未验证能送达。已验证可用的是 `app-key.ps1` 的裸名 SendInput 路径。
+   ⚠️ `app-key.ps1` **只认裸名 token**（`F1`–`F12`/`ENTER`/`ESC`/`TAB`/`DELETE`/`UP`/`DOWN`/`LEFT`/`RIGHT`/`PAGEUP`/`PAGEDOWN`/`HOME`/`END`/`INSERT`/`A`–`Z`，可加 `CTRL+`/`SHIFT+`/`ALT+` 前缀）。
+   传 `'{F2}'`（带花括号）会落到 UNKNOWN TOKEN 分支**静默不发送**。
+   `app-sendkeys.ps1` 才是 SendKeys 语法（`'{DOWN}'` / `'+{DOWN}'`）。
+2. **阳性对照判据错**：用了 `AutomationElement.FocusedElement`，它在 WebView2 里报的是应用自定义标题栏按钮（「最小化」），**不能**当「条目已聚焦」的判据。
+   但**截图证明点击其实成功了**（首行已高亮选中、右侧详情面板显示 `aaa-first.txt` / 32 B / txt/plain / 完整路径）。
+   ⇒ 改用**状态栏**判据：`已选择 {count} 个项目`（i18n key `fileBrowser.selectedItems`，`src/localization/messages/ch.json:1138`）。
+3. **失败时没有诊断输出** ⇒ 已补 DOM 焦点 / 状态栏原文 / 前 40 个 Text-Edit-Button 元素的 `[CT] "name" @x,y w×h`。
+
+> 这三条都是**验收脚本**的问题。但结论不能靠推理代替实测 —— 必须重跑证实。
+
+### 13.5 锁屏挡住了注入：改走「无输入注入」路径（`v4`–`v8`）
+
+2026-10-28 00:03 起本机会话被锁（`LogonUI` 在跑、`GetForegroundWindow()=0`、`OpenInputDesktop` err=5、`SendInput` n=0/err=5、`SetCursorPos` 失败）⇒
+**`app-key.ps1` / `app-sendkeys.ps1` 这一整套 SendInput 路径全部不可用**。
+
+实测结论（`.superpowers\sdd\probe-desktop.ps1`）：
+
+| 手段 | 锁屏下 | 结论 |
+|---|---|---|
+| `SendInput`（真实键鼠） | n=0 / err=5 | ❌ 不可用 |
+| `SetCursorPos` / 真实鼠标点击 | 失败 | ❌ 不可用 |
+| `PostMessage` 合成鼠标（`WM_MOUSEMOVE` + `WM_LBUTTONDOWN/UP`、`WM_RBUTTONDOWN/UP`） | **有效** | ✅ 能触发选中、能开右键菜单 |
+| `PostMessage` `WM_KEYDOWN` / `WM_KEYUP`（VK 码） | **有效** | ✅ 能触发 F2 / 回车 / ↑↓ / Esc |
+
+⇒ **键盘链路不必等解锁**：把 `WM_KEYDOWN(0x0100)` 直接发给 `Chrome_RenderWidgetHostHWND`（主窗口的 render widget），
+渲染进程就会派发正常的 `keydown`，走的是产品代码里同一条路径。
+（`WM_CHAR` 依旧会被静默丢弃 —— 它要靠 `TranslateMessage` 配合真实按键才会生成。）
+
+五支新脚本（全部纯 ASCII、必须用 **Windows PowerShell 5.1** 跑）：
+
+| 脚本 | 覆盖 | 结果 |
+|---|---|---|
+| `.superpowers\sdd\accept-363-inline-rename-v4.ps1` | 右键菜单 → 就地编辑器（首版，触发点未打通） | 定位到根因 |
+| `.superpowers\sdd\accept-363-inline-rename-v5.ps1` | 右键路径全链路（定位菜单弹窗 HWND + `InvokePattern` + `WM_KEYDOWN` 提交） | **PASS（落盘改名成功）** |
+| `.superpowers\sdd\accept-363-inline-rename-v6.ps1` | F2 / 回车 / Esc | 14 项断言 13 PASS |
+| `.superpowers\sdd\accept-363-inline-rename-v7.ps1` | 链式改名（干净夹具） | **13 PASS / 0 FAIL** |
+| `.superpowers\sdd\accept-363-inline-rename-v8.ps1` | 缩略图（grid）视图 | **6 PASS / 0 FAIL** |
+
+### 13.6 最终验收结论（**全部 PASS**，打包产物 `D:\Program Files\Alpha File Manager\alpha-file-manager.exe` 3.6.3）
+
+| 场景 | 断言 | 结果 |
+|---|---|---|
+| 右键菜单改名 | quick-actions 第 1 个无名按钮（铅笔）→ 出现 `[Edit]`、**没有**「重命名项目」对话框 → 回车后文件系统上是新名字 | ✅ |
+| F2 | 打开的是文件名上的输入框、不是对话框；输入框内容 = 当前文件名 | ✅ |
+| 回车 | 新名字落盘、旧名字消失、编辑器关闭 | ✅ |
+| ↓ | 编辑器**仍在**，装的是下一个条目的名字；上一步的新名字**已落盘** | ✅ |
+| ↑ | 编辑器仍在，装的是上一个条目的名字 | ✅ |
+| Esc | 编辑器关闭，该条目**没有**被改名 | ✅ |
+| 缩略图视图 | 与列表视图一致：F2 → 输入框 → 回车落盘 | ✅ |
+
+> v6 里有 1 条 FAIL（「↓ 之后应是 `bbb-second.txt`」）是**夹具污染**造成的假阴性 ——
+> 上一轮测试已经把 `aaa-first.txt` 改名，目录里残留 4 个文件，↓ 的相邻条目自然不是它。
+> v7 用**干净夹具**（只有 3 个文件）重跑，13 项断言全绿。
+
+---
+
+## 14. 实测结果与发版资产现状（3.6.3）
+
+### 14.1 门禁（`.superpowers\sdd\run-gates-363.ps1`；结果只写 `gates-363.log`，stdout 为空）
+
+| 项 | 结果 |
+|---|---|
+| `npm run test` | **248 files / 2275 tests 全过**（TEST_EXIT=0） |
+| `npm run ts`（vue-tsc） | **TSC_EXIT=0**（类型检查只有它能抓，`npm run test` 不做类型检查） |
+| `eslint .` | **188 errors / 0 warnings / 1049 files** = 基线（ESLINT_EXIT=1 是 eslint「有错即 1」的语义，**不是回归**） |
+
+### 14.2 安装包（第三轮打包，`.superpowers\sdd\release-363-inline.cmd`，`--bump none`）
+
+| 项 | 值 |
+|---|---|
+| 路径 | `F:\soft\00selfmade\filemanager\sigma-file-manager\release\Alpha File Manager_3.6.3_x64-setup.exe` |
+| 大小 | **20,716,092 B** |
+| sha256 | **`FEE1F2A874FA8F89A32F71AA03B6B934C4A8A2E6DB4F23F95D7FF03B1E44644B`** |
+| 静默安装 | `D:\Program Files\Alpha File Manager\alpha-file-manager.exe`，ProductVersion = **3.6.3** |
+| 作废的前两轮 | D258E57A…2B22 / 20,670,028 B |
+
+### 14.3 winget 3.6.3 清单
+
+- 目录：`F:\soft\00selfmade\filemanager\sigma-file-manager\docs\winget\manifests\k\izemo\AlphaFileManager\3.6.3\`（4 个文件，由 `.superpowers\sdd\gen-winget-363.cjs 3.6.3 2026-10-27` 从 3.6.2 克隆并替换真实 sha 生成）。
+- `npm run check:winget` → **All local checks passed**（含 "InstallerSha256 matches the local installer (20716092 bytes)"）。
+- `docs/winget\README.md` 的 3.6.3 章节已更新（sha / 字节数 / 「三处改动」表述）。
+- **只备清单，不提 PR**（见第 10 节第 1 条）。
+
+### 14.4 站点（aiec.fun 源目录 + **线上已生效**）
+
+`E:\办公文件\L1网站\alpha-file-manager\` 已含：
+- `Alpha_File_Manager_3.6.3_x64-setup.exe`（20,716,092 B）
+- `version.json`（version = 3.6.3，sha 前缀 `fee1f2a874fa8f89`，history = 18，**未重复归档**）
+- `_release-notes-v3.6.3.md`（1,404 B，**已含「就地重命名」**）
+
+### 14.5 发版文档（18 个文件已改，**已随 `a9fed27a` 提交**）
+
+- `_notes.md`：首行加「；重命名改成在文件名上就地编辑」+ 新增「**就地重命名：**」段落。
+- 根 `CHANGELOG.md` + 14 个 `public/changelog/<loc>/changelog.md` 的 3.6.3 段：Summary 改为「Three things / 三件」并追加 `**Added: renaming happens in place.**` / `**新增：重命名就地编辑。**`。
+- `README.md` 追加 `### ✏️ Renaming happens in place`；`README.zh-CN.md` 追加 `### ✏️ 重命名就地编辑`。
+- 脚本：`.superpowers\sdd\patch-363-inline-docs.cjs`（幂等 + 换行感知：先归一为 LF 再按文件原 EOL 写回，校验无 U+FFFD / 无 BOM）。
+- **语言包惯例**：除 `ch`（中文正文）外，其余 13 个语言包正文一直是英文（仅 H1 标题本地化），3.6.2 亦如此 ⇒ 本轮沿用该惯例。历史版本存在翻译漂移，属既有状态，不在本次范围。
+
+### 14.6 用户数据：**已还原到验收前快照**（2026-10-28）
+
+| 项 | 值 |
+|---|---|
+| `user-workspaces.json` | **已还原**：2,350 B，sha256 `1F586B6AF91A7812E55A10B1054F5BE352B7C5D024D06BA49E21CA49E7C2557C`（= 验收前快照） |
+| 还原后的工作区 | 7 个真实目录（`E:/办公文件/000临时事项`、`E:/办公文件/G1销售管理/00数据汇总分析/售后报表`、`G:/music`、`F:/` 等），**无夹具路径** |
+| `user-settings.json` | 4,188 B；`navigator.layout.type` = `{"name":"list","title":"listLayout"}`（v8 试缩略图时临时改成 grid，测完已改回） |
+| `navigator.folderSettings` | 无任何 `afm-` / `lab` / `fixture` 残留条目 |
+| 夹具目录 | `C:\Users\Duanyi\afm-inline-lab` **已用 `mavis-trash.cmd` 移入回收站**（`Test-Path` = False） |
+| 遗留进程 | `alpha-file-manager` 进程数 **0** |
+
+> **还原顺序铁律不变**：**先杀 `alpha-file-manager` 进程 → 再 `node .superpowers\sdd\pin-workspace.cjs restore`**。
+> 应用退出时会把内存里的统计 / 工作区状态**写回**真实文件 ⇒ 夹具或 pin 状态会被再写回去一次。
+
+---
+
+## 15. 剩余步骤（**已全部完成**，本节留作发版流程记录）
+
+| # | 动作 | 命令 / 要点 | 状态 |
+|---|---|---|---|
+| 1 | 读约定 + 本文 | `F:\soft\00selfmade\filemanager\AGENTS.md` + 本文（第 0 节速查表先看） | ✅ |
+| 2 | 优化 C 真机验收 | `accept-363-inline-rename-v5/v6/v7/v8.ps1`（**锁屏下用 `PostMessage` + `WM_KEYDOWN`**，见第 13.5 节） | ✅ 全部 PASS |
+| 3 | 还原工作区 + 清夹具 | 先杀进程 → `node .superpowers\sdd\pin-workspace.cjs restore` → 核对 2,350 B / sha `1F586B6A…557C` → `mavis-trash.cmd -- "$env:USERPROFILE\afm-inline-lab"` | ✅ 已完成 |
+| 4 | 补提交信息 | `.superpowers\sdd\msg-363-release.txt` —— 已写入优化 A / B / C 三条 + 实测验收结论 + sha `FEE1F2A874FA8F89A32F71AA03B6B934C4A8A2E6DB4F23F95D7FF03B1E44644B` + 字节数 20,716,092 | ✅ |
+| 5 | 发版提交 | `git -C F:\soft\00selfmade\filemanager\sigma-file-manager add -A` → `git -C … commit -F F:\…\.superpowers\sdd\msg-363-release.txt`（**信息必须走文件**） | ✅ `a9fed27a`（42 files / +1600 / −102） |
+| 6 | push | `git -C … -c http.proxy= push origin main`；核对远端 SHA 用 `gh api repos/kizemo/alpha-file-manager/commits/main --jq '.sha'`（**不要用 `git ls-remote`**） | ✅ 远端 = `a9fed27a98708c8465b2ecc96f67f4c0a7c67eb5` |
+| 7 | 双端上传 | `npm --prefix <repo> run release:upload`（aiec.fun）→ `npm --prefix <repo> run release:github`（GitHub release `v3.6.3`，资产名 `Alpha_File_Manager_3.6.3_x64-setup.exe`）→ `release:status` → `release:verify` | ✅ 站点 + GitHub 均已上线，版本 / 大小 / sha256 三项一致 |
+| 8 | 汇报 | 简体中文；**必须写明**：① **sticky 段头未做**（列表视图分区是随内容滚动的内联标题）；② winget PR 仍待 `#460744`（3.5.1）合并，3.6.3 只备清单未提 PR；③ 安装包**无代码签名**；④ workspace 已回滚到验收前快照；⑤ 缩略图视图的就地编辑**已**做真机验证 | ✅ 已汇报 |
+
+### 15.1 发版顺序铁律（再强调一次）
+
+1. **`verify-changelog` 必须在升版本号之前跑**（它校验「当前版本有 changelog 条目」）。
+2. **`release:prepare --write-notes` 必须在 `release:prepare`（打包）之后跑**（它要读产物大小与 sha256）。
+3. `release:prepare` **内部已含 `tauri build`** ⇒ **发版只构建一次**，不要再单独跑 `npm run tauri:build`。
+4. 版本号**已经是 3.6.3**（package.json + Cargo 三处）⇒ 万一要重打包，**必须 `--bump none`**，否则版本号会被顶掉（3.6.0 → 3.7.0 的事故就是这么来的）。
+5. `publish-bundle-to-release.mjs` 会遍历 `bundle/nsis/` 下所有历史安装包逐个 `rmSync` + 复制到 `release/`；**只要 `release/` 里任何一个旧包被锁住就整步 exit 1**（而 `tauri build` 早已成功）⇒ 分清「构建失败」和「复制失败」，新包单独 `fs.copyFileSync` 补进 `release/` 即可。
+
+---
+
+## 16. 本轮新增的经验（下一轮直接用，别再踩）
+
+### 16.1 脚本与编码
+
+- **`.ps1` / `.cmd` 必须纯 ASCII**（PS 5.1 按 ANSI 读无 BOM 文件）。中文 needle 一律用 `[char]0x....` 拼；本轮已在 `.ps1` 里写进中文直字，**是本轮自己踩的坑**。
+- **`.cmd` 的 `echo` 里不能出现 `>`**（会被当重定向符，本项目已在仓库根目录留下过 `3.6.0)` 垃圾文件）；`.cmd` 调用另一个 `.cmd` 要加 `call`；**`.cmd` 运行期间绝对不能编辑**（cmd.exe 按字节偏移逐行读 ⇒ 会执行错位的片段，3.6.2 那轮因此把版本顶到 3.7.0）；要改就**新建文件名**重跑。
+- **绝不用 PowerShell 的 `Get-Content -Raw` / `Set-Content` 改含中文的源文件**；用编辑工具或 node `fs.readFileSync/writeFileSync(..., 'utf8')`，写完立刻验 `U+FFFD === 0` 且无 BOM。
+
+### 16.2 注入与 UIA 取证
+
+- **裸键（F1–F12 / ENTER / ESC / 方向键）一律走 `app-key.ps1`**（裸名 token + 40 字节 `INPUT` + 前台激活）；**SendKeys 语法（`'{DOWN}'` / `'+{DOWN}'`）才走 `app-sendkeys.ps1`**。
+  ⚠️ `app-key.ps1` 传带花括号的 token 会**静默不发送**（UNKNOWN TOKEN 分支）。
+  ⚠️ **单修饰键 + 非字母主键**（`Shift+Delete`）的 Shift 到不了 WebView2 ⇒ 永久删除验收走**右键菜单顶部图标条的垃圾桶**。
+- **注入脚本的输出不要 `| Out-Null`** —— `foreground MATCH=` / `down F2 -> 1` 是唯一能分辨「注入没进去」和「功能真坏了」的证据。
+- **注入探针必须「阳性对照排在前面」**：先做一个必然有可见后果的动作，确认状态变了，再验目标。
+- **WebView2 里 `AutomationElement.FocusedElement` 不可信**（会报应用自定义标题栏按钮）⇒ 判「选中」看**右侧详情面板**或**状态栏「已选择 N 个项目」**。
+- **UIA `BoundingRectangle` 是物理像素**：本机屏 3840×2160 / DPI 150%（虚拟 2560×1440），PrintWindow 截图 3862×2110；CSS 逻辑像素要 ÷1.5。
+- **列表视图行的可访问名是复合串**（「文件名 — 大小 日期」）⇒ 用前缀 `-like ($Name + ' *')`，精确 `-eq` 必然落空；取**面积最大**的候选（同名有两个候选：侧栏 107×26 的 `ControlType.Text` 与列表行 2512×96 的 `ControlType.Button`；缩略图视图则是 479×129 的卡片按钮；点行中心**能选中**）。
+- **`InvokePattern.Invoke()` 返回成功 ≠ 点击生效**（禁用按钮是静默空操作）。
+- **应用启动会弹「新功能」更新日志模态框**，把整个文件列表挡住 ⇒ 验收脚本必须先关掉它（关闭按钮名「关闭」= U+5173 U+95ED），否则「找不到卡片」会被误判成页面没加载。
+- **应用日志被独占锁着** ⇒ 用 `File.Open($p,'Open','Read','FileShare.ReadWrite')` + `StreamReader` 读；日志时间戳是 **UTC**（比本地少 8 小时）。
+
+- **会话锁住时不要死磕 SendInput**：本项目实测 `SendInput` n=0/err=5、`SetCursorPos` 失败，但 **`PostMessage` 合成鼠标消息与 `WM_KEYDOWN` 能穿透到 WebView2 渲染进程** ⇒ 键盘链路（F2 / 回车 / ↑↓ / Esc）可以在锁屏状态下真机验收。`WM_CHAR` 依旧被丢弃。
+- **文件浏览器右键菜单里没有文字「重命名」项**：12 个 `MenuItem` 全是「打开方式… / Shell 扩展 / 在终端中打开 Alt+T / 压缩 / 快速查看 Space / 打印 Ctrl+O / 复制路径到剪贴板 / 解除文件锁定 / 彻底删除 / 局域网共享 / 属性 Alt+Enter / 添加到收藏」；改名入口是 quick-actions 行**第 1 个无名按钮（铅笔）**（文件浏览器场景插槽为空 ⇒ 铅笔排第一）。**按名找「重命名」永远找不到**。
+- **无名按钮用 UIA `InvokePattern` 最稳**：`PostMessage` 点它的屏幕坐标在本项目里不稳定（菜单会先被关掉、元素 `BoundingRectangle` 变 `NaN`、int cast 会保留旧值 ⇒ 反复点同一点）。**每次尝试前重新打开菜单**。
+- **UIA `ValuePattern.SetValue` 在 WebView2 里会触发 `input` 事件** ⇒ 组件本地 `draft` 会更新，回车提交的就是新名字（实测落盘正确）；读回值等于期望值。
+- **应用退出时会把内存状态写回真实文件** ⇒ 验收后必须**先杀进程再 restore**，否则夹具会被再写回去一次（本项目踩过，代价是真实数据被夹具顶掉一次）。
+
+### 16.3 构建与门禁
+
+- **后台长编译**：`.cmd` 内部用 `> logfile 2>&1` 重定向到文件，**不要挂 stdout 管道**（`Tee-Object` / `| Select-String`）—— 管道一断进程树跟着死，2026-10-23 因此白跑十分钟。
+- **cargo 不在 PATH**：`C:\Users\Duanyi\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin`；MSVC 环境靠 `call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"`。
+- **`cargo test --lib` 的隐形红线**：任何被测试链接到的代码都不能碰 `tauri::AppHandle` 或 `tauri::async_runtime::*` ⇒ 业务模块要提供 `*_blocking` 同步内核入口，调用方自己选执行器。
+- **`npm run test` 不做类型检查**（esbuild 转译）⇒ 类型错误只有 `npm run ts`（vue-tsc）能抓。
+- **`vitest --reporter=basic` 在本仓库不存在**，会 `Failed to load custom Reporter from basic` 直接中止 ⇒ 跑全量用默认 reporter，按 `Test Files` / `Tests` 两行取结果。
+- **门禁基线必须用同一条命令量**：`eslint .` = 188 / `eslint src` = 175；`eslint .` 的数字要**干净检出**那个数（`eslint` 不读 `.gitignore`，工作副本里的 `.superpowers/` 会被一起 lint）。
+- **`run-gates-363.ps1` 的结果只写 `gates-363.log`**（stdout 为空），日志是混合编码（`Out-File utf8` + `*>>` utf16le）⇒ 用 node 分别按 utf16le / utf8 解码后 grep；eslint 明细在 `eslint-all.json`。
+- **`$ErrorActionPreference = 'Stop'` 会把原生命令的 stderr 变成终止错误** ⇒ 门禁脚本调 `npm` / `npx` 前后要显式切回 `Continue`。
+
+### 16.4 本仓特有的两个「以为坏了其实是环境问题」
+
+- **`SFM_E2E_DATA_DIR` 只在 debug 构建生效**（`src-tauri/src/app_dirs.rs` 的覆盖是 `#[cfg(debug_assertions)]`）⇒ release 产物上做真机验收且不想动用户真实数据，只能「**备份真实文件 → 灌夹具 → 验收 → 恢复**」。
+- **验收夹具不要放 `%TEMP%`**（`global_search/ignore.rs` 的 `builtin_ignored_paths()` 含 `/AppData/Local/Temp`，且 `matches_plain_ignored_path` 对 `/` 开头的模式做 `path.contains(...)`）⇒ 整棵子树被剪掉，命中恒为 0。本轮夹具放在 `C:\Users\Duanyi\afm-inline-lab\`。
+- **`PrintWindow` 会返回陈旧帧**（渲染线程刷爆时）⇒ 判后台任务的运行状态要看**文件系统**（文件数是否停止增长），不要看屏幕。
+
+---
+
+## 17. 本轮（2026-10-28）新增的经验与最终状态
+
+### 17.1 锁屏下的「无输入注入」验收配方（可复制）
+
+1. **杀旧实例 → 建干净夹具 → 起应用**（用 `tauri build` 装出来的 exe，不是 `tauri dev`）。
+2. **找 HWND**：`EnumWindows` + `GetWindowThreadProcessId` 过滤 PID → class 必须等于 `Tauri Window` → 取**面积最大**的可见窗口（`Process.MainWindowHandle` 会落到 15×15 的托盘窗上）。
+3. **找 render widget**：该窗口的 `Chrome_RenderWidgetHostHWND` 子窗口；本机 render widget 的客户区原点恰好 = 屏幕原点（rect `0,0 3840x2088`），但仍要用 `ScreenToClient` 换算。
+4. **合成鼠标**：`WM_MOUSEMOVE` → `WM_LBUTTONDOWN(0x0201, wParam=1)` → `WM_LBUTTONUP(0x0202)`；右键换 `0x0204/0x0205` + `wParam=2`。`WM_CONTEXTMENU(0x007D)` 无效。
+5. **合成键盘**：`WM_KEYDOWN(0x0100, wParam=VK)` + `WM_KEYUP(0x0101)`。VK：F2=`0x71`、回车=`0x0D`、↑=`0x26`、↓=`0x28`、Esc=`0x1B`。
+6. **阳性对照**：左键点行 → 状态栏出现「已选择 1 个项目」才算注入到位。
+7. **UIA 取值**：`ValuePattern.SetValue` 写新名 → 读回校验 → `WM_KEYDOWN(回车)` 提交 → 落盘核对文件名。
+
+### 17.2 产品侧结论
+
+- 优化 C **在打包产物上全部走通**：右键路径、F2、回车、↑↓ 链式改名、Esc、缩略图视图。
+- 「连续改名」的语义实测确认：`↓` 会**先提交当前条目**再把编辑目标移到下一个条目，所以可以一个接一个地改。
+- 网格卡片里 `<input>` 嵌在 `<button>` 内虽然 HTML 语义无效，但 Chromium 能正常渲染与编辑 ⇒ **不构成缺陷**。
+
+### 17.3 仍未做 / 待后续
+
+- **sticky 段头未做**（列表视图分区标题随内容滚动，不是吸顶）。
+- **winget PR 未提**：`microsoft/winget-pkgs#460744`（3.5.1）仍 OPEN + REVIEW_REQUIRED，同包 ID 不能同时开第二个 PR ⇒ 3.6.3 只备清单。
+- **安装包无代码签名**（`NotSigned`），需用户自备证书。
+- 远程条目（`renameRemoteEntry`）的就地改名**未做真机验证**（本轮夹具全是本地文件）。
+- 虚拟滚动下**编辑态行被滚出可视区会被回收**，输入框消失但 `renameState` 仍留着 entry —— 已知边界，本轮未处理。
+
+### 17.4 3.6.3 发布结果（2026-10-28）
+
+| 环节 | 结果 |
+|---|---|
+| 发版提交 | `a9fed27a` —— `release: 发版 3.6.3 —— 永久删除确认框回车即生效；列表视图按类型分区；重命名就地编辑`（42 files / +1600 / −102） |
+| push | `origin/main` = `a9fed27a98708c8465b2ecc96f67f4c0a7c67eb5`（`gh api repos/kizemo/alpha-file-manager/commits/main --jq '.sha'` 核对一致） |
+| GitHub release | `v3.6.3` 已创建：https://github.com/kizemo/alpha-file-manager/releases/tag/v3.6.3 ；资产 `Alpha_File_Manager_3.6.3_x64-setup.exe`，20,716,092 B，sha256 `FEE1F2A874FA8F89A32F71AA03B6B934C4A8A2E6DB4F23F95D7FF03B1E44644B` |
+| 站点 aiec.fun | SFTP 上传 + cache-busting 回读通过：线上版本 3.6.3，源站包 20,716,092 B，边缘包 20,716,092 B（`CF-Cache-Status=HIT`），sha256 一致 |
+| `release:status` | exit 0 —— package.json 3.6.3 / 安装包 20,716,092 B / 站点源 version.json 3.6.3，sha 三处相同 |
+| `release:verify` | exit 0 —— **版本号 / 大小 / sha256 三项均一致（源站与边缘都已生效）** |
+| winget | 3.6.3 清单四件套已备（`docs/winget/manifests/k/kizemo/AlphaFileManager/3.6.3/`），`npm run check:winget` 全绿；**未提 PR**（`microsoft/winget-pkgs#460744`（3.5.1）仍 OPEN + REVIEW_REQUIRED，同包 ID 不能同时开第二个 PR） |
+| 日志 | `.superpowers\sdd\release-363-github.log`、`.superpowers\sdd\release-363-status-verify.log`（站点上传日志在 `release:upload` 的 stdout 里） |
+
+> **仍未做 / 待后续**（不阻塞本次发版）：sticky 段头、安装包代码签名、winget PR、远程条目的就地改名真机验证、虚拟滚动下编辑态行被滚出的边界。
+
+---
+
+## 18. 资源占用分析与优化（2026-10-28 新增任务）
+
+### 18.1 任务是什么
+
+用户原话（第一轮）：
+
+> 当前，AFM 占用系统资源为 88.7MB，是否有系统资源占用的优化空间？请进行分析，并制定优化方案，**先深入分析，不用执行**。
+
+用户原话（第二轮，本节成型的依据）：
+
+> 请再次进行一次深入分析，研究计划是否还存在可以优化的部分。然后按照你优化后的计划开始执行。如有必要新开会话接力任务执行优化，请更新完整的 handoff 文档，和一句话 prompt。
+
+**性质**：与 §1–§17 完全独立的新任务线。§1–§17 的三块优化已随 3.6.3 发布完毕，**不要重跑、不要重复发版**。
+
+### 18.2 口径澄清：「88.7 MB」不是 AFM 的全貌
+
+AFM **代码里没有任何进程内存自报机制**：
+
+- Rust 侧 `sysinfo` 只用于枚举磁盘类型（`src-tauri/src/dir_reader/drives.rs:17,80-83`），**没有**取进程内存的调用；
+- 前端没有任何 memory / rss 指标。
+
+⇒ **88.7 MB 一定来自外部工具**（任务管理器 / 资源监视器）。本机同时存在三种解释：
+
+| 解释 | 依据 | 可信度 |
+|---|---|---|
+| ① Rust 主进程**冷启动后、扫描前**的基线 | 同一进程现在 PM 165.2 MB；`global_search/index.rs:119` 的 `BULK_INDEX_MEMORY_BUDGET_BYTES = 100_000_000` 正是批量索引的内存预算，**扫描期间**才涨上去。88.7 落在「基线」与「扫描峰值」之间 | 高 |
+| ② 任务管理器「内存」列 = **私有工作集**，而本文给的是**工作集 (WS)**（含共享 DLL 页） | 两个口径天然不等 | 高 |
+| ③ 测的是**别的应用**的 WebView2 renderer | 本机另有两棵**不属于 AFM** 的 msedgewebview2 树（PPID 9044 / 9716），其中就有 PM 88.5 MB 的进程 | 中 |
+
+**结论**：88.7 MB ≈ AFM 一个进程的四分之一。真实全貌是**整棵进程树**。
+
+### 18.3 现状实测（2026-10-28 11:00–11:10，应用 08:01:59 启动）
+
+**内存**：AFM 进程树共 **8 个进程**，WS 合计 **1,118.9 MB**，私有提交（PM）合计 **1,031.5 MB**。
+
+| 进程 | PID | 类型 | WS MB | PM MB | 线程 | 句柄 | CPU s |
+|---|---|---|---|---|---|---|---|
+| alpha-file-manager.exe | 154732 | **Rust 主进程** | 230.1 | 165.2 | **77** | **1250** | 2555.1 |
+| msedgewebview2.exe | 154944 | browser 宿主 | 203.1 | 87.8 | 58 | 1750 | 113.4 |
+| msedgewebview2.exe | 155492 | renderer（主窗口，活跃） | **309.7** | 254.1 | 31 | 353 | 377.5 |
+| msedgewebview2.exe | 156216 | renderer（**隐藏的 Quick View**） | 171.9 | 128.1 | 30 | 342 | **15.5** |
+| msedgewebview2.exe | 155316 | gpu-process | 121.9 | **371.2** | 53 | 713 | 45.6 |
+| msedgewebview2.exe | 155392 / 155348 | utility ×2 | 68.4 | 22.3 | 26 | 496 | 20.5 |
+| msedgewebview2.exe | 154980 | crashpad | 13.8 | 2.8 | 8 | 184 | 0.1 |
+
+读数要点：
+
+- **WebView2 子树 888.8 MB WS**，是 Rust 主进程（230.1 MB）的 **3.9 倍** ⇒ 优化重点在 WebView2 侧。
+- gpu-process **PM 371.2 > WS 121.9** ⇒ 提交量远大于驻留，**不是真实 RAM 占用**（也是任务管理器数字对不上的原因）。
+- **系统内存不是瓶颈**（63.9 GB 总 / 41.6 GB 空闲）⇒ 优化收益是「更轻快 / 更干净」，不是「救火」。
+
+**磁盘（≈ 1.18 GB）**：
+
+| 位置 | 体积 | 明细 |
+|---|---|---|
+| `Roaming\...\image-thumbnails` | **434.34 MB** | 4,249 张（4,177 PNG + 72 JPG）；中位 121.5 KB / p90 187.9 KB / 最大 317.6 KB；**全部产生于 2026-10**（最早 10-12，最新 10-28） |
+| `Roaming\...\global-search` | **299.16 MB** | `index\` 46 文件 / 7+ 个 store segment（单个 13–17 MB）；**测量时正有一次扫描在跑**（`.index.staging.1793156733828.154732\` 有 11:06 的新文件，而 `index\` 里是 10:01–10:05 的旧 segment）⇒ **新旧索引并存，磁盘翻倍** |
+| `Local\...\EBWebView` | **541.13 MB** | `Default` 443.79（含 `Default\Cache\Cache_Data\data_3` 12.01）；`Crashpad` 24.96（**3 个崩溃转储**：10-23 15:47 / 10-22 20:16 / 10-22 14:55）；`component_crx_cache` 21.18；`WidevineCdm` 21.92（**DRM，文件管理器用不到**）；`Subresource Filter` 12.29；`GrShaderCache` 10.58 |
+| `Roaming\...\extensions` / `user-data` / `Local\...\logs` | 3.90 / 2.29 / 1.80 MB | — |
+
+### 18.4 代码级根因（21 条前端 + 21 条 Rust 全表见 `.superpowers/sdd/mem-audit-*.md`）
+
+**F1 · 隐藏的 Quick View 常驻一个 renderer（≈172 MB）** — `tauri.conf.json:29-35` 的 `quick-view` 窗口 `"create": false`，但 `src/utils/auxiliary-windows.ts:64-72` 的 `isAuxiliaryWindowPrelaunchEnabled` + 用户设置 `performance.prelaunchQuickViewWindow = true` 会把它**预拉起并隐藏**。Tauri **每窗口一个独立 renderer** ⇒ **窗口不可见 ≠ 没有开销**。应用自己的文案已写明代价：`src/localization/messages/ch.json:263-266`「约占用 200 MB 内存」。
+
+**F2 · 缩略图缓存「超限全清」而非 LRU（体验炸弹）** — `src-tauri/src/image_thumbnails.rs:21-25`（限额 5000 张 / 1 GB / 每 100 次写检查一次）、`:257-267` `enforce_thumbnail_cache_limits()` **超限整个目录清空**。当前 4,249 张、增长约 **265 张/天** ⇒ **约 2026-10-31 撞线，缩略图集体消失并全部重生成**。
+
+**F3 · tantivy 显式禁用 segment 合并** — `src-tauri/src/global_search/index.rs:10` `use tantivy::indexer::{IndexWriter, NoMergePolicy};` ⇒ 每次扫描产生新 segment 且**永不 merge** ⇒ 索引体积膨胀、查询要开更多 segment（更慢更吃内存）、扫描期间磁盘翻倍。
+
+**F4 · 单次搜索物化 10 万条文档** — `src-tauri/src/global_search/query.rs:196` `TopDocs::with_limit(100_000)`，而 `:297` 的 `truncate(options.limit)` 发生在 `searcher.doc()` **物化之后** ⇒ 峰值 30–80 MB。**这是 Rust 主进程涨到 165 MB 的直接原因之一。**
+
+**F5 · 前端唯一「只增不减」的全局缓存** — `src/composables/system-icon-cache.ts:33` 模块级 `Map<string, string|null>`，值是 **base64 PNG data URL**；key 规则 `:100-114` 中 **exe/dll/ico/lnk/scr/cpl/msi/appx/msix 走 `path:<全路径>:<size>`** ⇒ 每个 exe/dll × 3 档尺寸（18/24/48）永久常驻，**零淘汰逻辑**。
+
+**F6 · 每盘符一个完整 FileBrowser** — `src/modules/global-search/global-search-view.vue:162-184,532-576`：`v-for="group in groupedResults"` 每组渲染一个**完整 `<FileBrowser>`**（虚拟布局 / 选择 / 图标 / 缩略图全套 composables）⇒ 搜索命中 N 个盘符 = N 套完整文件浏览器同时挂载。**前端最大放大器。**
+
+**F7 · 前端目录数据是深响应式 + 每标签页各存一份** — `use-file-browser-navigation.ts:281` `dirContents = ref<DirContents>`；`stores/storage/workspaces.ts:69,573` 每 Tab 存一份 `dirEntries`；`:169` `clone(tab)` 深拷整份目录列表（瞬时 2×）；`:820` 分屏再常驻一份副本。
+
+**F8 · 虚拟滚动只做了一半** — `use-file-browser-virtual-layout.ts:493` `rows` computed **全量物化** O(N) 行对象；`:208` key = `list:${entry.path}`、`:334` = `paths.join('|')` ⇒ 每行一条含完整路径的新字符串。
+
+**F9 · Rust 侧图标缓存** — `src-tauri/src/system_icons.rs:18-22` 另有 **512 条 base64 PNG LRU**（理论 60 MB）；`:32-33` `UNSUPPORTED_SHELL_ICON_PATHS`（`:216-223` insert）**只增不减，是 Rust 侧唯一严格无界项**。
+
+**F10 · 缩略图解码尖峰** — `src-tauri/src/image_thumbnails.rs:29` **单图解码上限 192 MB**（`:303-309`、`:412-421`）。
+
+**F11 · 77 线程的真正主因** — `src-tauri/src/dir_watcher.rs:15,122,135-142` **每个监听目录起 1 个应用线程 + 1 个 notify 线程**，`:128` `std::sync::mpsc` **无界 channel** ⇒ 线程数随监听目录数线性增长。
+
+**F12 · 其他 P2** — `lan_share/handlers.rs:272` 上传体整块进内存（≤512 MB）；`extensions/filesystem.rs:66` `read_to_end` 无字节上限；`dir_size.rs:169-181` WalkDir 全量 `collect`；`startup_storage_bootstrap.rs:44,58-63` 5 个用户存储 JSON 常驻副本；`global_search/state.rs:26-32` 常驻 `Index` + `IndexReader` 且 reader 无内存预算。
+
+### 18.5 计划 v2：v1 的一处错误 + 八条补入
+
+> 完整计划见 `.superpowers/sdd/mem-plan-v2.md`。
+
+**⚠️ v1 的错误建议已作废**：v1 写「把 tantivy 换回默认 merge 策略」。**不能这样改** —— `NoMergePolicy` 是 2026-06-24 提交 `054e2472`「UX: indexing stability improvements」**刻意加入的稳定性措施**，同一提交还引入了 `BULK_INDEX_MEMORY_BUDGET_BYTES = 100_000_000` 与 `writer_with_num_threads(1, …)`。正确改法是**保留 NoMergePolicy，在扫描提交完成后显式 `merge()` + `wait_merging_threads()`**，让 segment 收敛而不回退稳定性改进。
+
+v2 补入的八条：F4（搜索物化 10 万）· F6（每盘符 FileBrowser）· F10（192 MB 解码上限）· F11（每目录线程）· F9（Rust 图标 LRU + 唯一无界项）· F12 的五项 P2 · 以及 `global-search-view.vue` / `use-image-thumbnails.ts` / `dir-sizes.ts` / `folder-tree.ts` 等深响应式容器。
+
+### 18.6 执行批次与状态
+
+| 批次 | 内容 | 文件（独占所有权） | 状态 |
+|---|---|---|---|
+| **A1** | 系统图标缓存加容量上限；`path:`/`dir:` 类必须可淘汰，`ext:` 类保留 | `src/composables/system-icon-cache.ts` + 新增测试 | ✅ 完成（`e8a41f3b`） |
+| **A2** | 缩略图前端缓存 `ref<Record>`+`reactive(Set)` → `shallowRef`+`Map`，写入改原地 `set`（消 O(n²)） | `.../file-browser/composables/use-image-thumbnails.ts` + 测试 | ✅ 完成（`e8a41f3b`） |
+| **B1** | 搜索查询：`truncate` 前移到物化之前；`TopDocs` limit 与实际返回对齐；reader 预算/空闲释放（能安全实现才做） | `src-tauri/src/global_search/query.rs`、`state.rs` + 测试 | ✅ 完成（`e8a41f3b`） |
+| **B2** | 缩略图：解码上限 192 MB → 64 MB + 并发闸门 2–4；**超限全清 → 按最旧淘汰**；限额 5000 张/1 GB → **2000 张/256 MB** | `src-tauri/src/image_thumbnails.rs` + 测试 | ✅ 完成（`e8a41f3b`） |
+| **B3** | Rust 图标：LRU 512 → 128 条（或按字节限额）；`UNSUPPORTED_SHELL_ICON_PATHS` 加上限 | `src-tauri/src/system_icons.rs` + 测试 | ✅ 完成（`e8a41f3b`） |
+| **C1** | 搜索结果页每盘符完整 `FileBrowser` → 轻量只读列表 | `src/modules/global-search/global-search-view.vue` | ✅ 完成（见 §18.12） |
+| **C2** | `dirContents` → `shallowRef`+`markRaw`；`workspaces` Tab 不再存 `dirEntries`；`clone(tab)` 前先清 | `use-file-browser-navigation.ts`、`stores/storage/workspaces.ts` | ✅ 完成（见 §18.12） |
+| **C3** | 虚拟行只算可视窗口；行 key 改下标，不再拼路径串 | `use-file-browser-virtual-layout.ts`、`utils/file-browser-virtual-rows.ts` | ✅ 完成（见 §18.12） |
+| **C4** | `dir_watcher` 每目录线程 → 共享 watcher 线程池 + 有界 channel | `src-tauri/src/dir_watcher.rs` | ✅ 完成（见 §18.12） |
+| **C5** | tantivy：扫描提交后显式 merge + segment 上限；常驻 reader 预算 | `src-tauri/src/global_search/index.rs`、`state.rs` | ✅ 完成（见 §18.12） |
+| **C6** | LAN 上传改流式写盘；扩展 `read_to_end` 加字节上限；`dir_size` 去 `collect()` | `lan_share/handlers.rs`、`extensions/filesystem.rs`、`dir_size.rs` | ✅ 完成（见 §18.12） |
+| **D1** | 关 `performance.prelaunchQuickViewWindow` ⇒ 隐藏 Quick View 的 WebView2 renderer 消失 | 用户设置（零代码） | ✅ 完成（实测：进程 8→7，WS −150.8 MB，详见 §18.11） |
+| **D2** | 清缩略图 / 搜索索引 / `EBWebView\Cache` / Crashpad dump | 环境 | ✅ 完成（磁盘 −739.37 MB；⚠️ 索引与缩略图会重建复涨，详见 §18.11） |
+| **D3** | 查 WebView2 三次崩溃（10-22 ×2、10-23 ×1）原因 | 环境 | ✅ 完成（**崩在 WebView2 自身子进程**，非 AFM 代码，详见 §18.11） |
+
+### 18.7 执行本任务时的硬约束（除 §16.3 通用约束外）
+
+1. **Rust 测试红线**：被测试链接到的代码**不得触碰 `tauri::AppHandle` 或 `tauri::async_runtime::*`**，否则 `cargo test --lib` 在**加载阶段**以 `STATUS_ENTRYPOINT_NOT_FOUND` (0xC0000139) 崩掉，一个测试都跑不了且报错看不出关联。需要异步时用项目现成的 `*_blocking` 同步内核入口（`dir_reader.rs`、`global_search.rs` 是范例）。
+   ⚠️ `image_thumbnails.rs:664-727` 有 5 处 `tauri::async_runtime::spawn_blocking`（command 包装层）—— 新测试**不能**把这些包装层链接进测试二进制。
+2. **tantivy 的 merge 策略不能动**（见 §18.5），只能「保留 + 扫描后显式 merge」。
+3. **`system_icons.rs` 的 `UNSUPPORTED_SHELL_ICON_PATHS` 与 `image_thumbnails.rs` 的限额常量**：改上限前先 grep 全仓（含 `src/`）确认有没有被设置界面 / i18n 展示出来，展示值要同步改。
+4. **门禁判据**：`eslint .` = **188**（`eslint src` = 175）；`npm run ts`（vue-tsc）必须过；`npm run test` 全绿；`cargo check --lib` 无 error。
+5. **不要顺手改 `tauri.conf.json` 的 `identifier`、mDNS 服务名、legacy 目录名**（受保护常量）。
+6. **本任务不涉及版本号**：当前 `package.json` = 3.6.3，**不要 bump**；本轮改动不单独发版，等批次 C/D 完成后统一评估。
+7. **真机验收**：若改动需要界面证据，必须用 `tauri build` 产物（`npm run tauri:build`），`tauri dev` 的路由页内容区全空白、界面结论一律作废。构建脚本放 `.superpowers/sdd/*.cmd` 且**必须纯 ASCII**。
+
+### 18.8 未确认项（不要当成已验证结论）
+
+- **88.7 MB 的确切口径**需确认（任务管理器哪一列、哪个进程）。
+- **renderer 156216 = 隐藏 Quick View** 是**强推断**（CPU 15.5 s 几乎空闲 + `Vis=False` 窗口存在 + 设置里 prelaunch 开着），**未用窗口句柄直接绑定 renderer 与 WebView**。
+- **WebView2 三次崩溃原因未查**。
+- **前端各项「规模」是代码结构推算**，无 heap snapshot / DevTools 取数。
+- **测量时刻全局搜索正在扫描**，该时段的磁盘与内存读数偏高。
+- Rust 侧审计结论**全部为源码静态推算**，未做运行时 RSS 采样。
+
+### 18.9 证据文件索引
+
+| 文件 | 内容 |
+|---|---|
+| `.superpowers/sdd/mem-plan-v2.md` | 计划 v2（批次 A–D、硬约束、验收判据、实测基线） |
+| `.superpowers/sdd/mem-audit-final.md` | 现状实测全文 + v1 方案 + 复现命令 |
+| `.superpowers/sdd/mem-audit-frontend.md` | 前端持有点全表（20 条）+ 3 条优先项 |
+| `.superpowers/sdd/mem-audit-rust.md` | Rust 持有点全表（21 条）+ 3 条优先项 |
+| `.superpowers/sdd/mem-probe-2.ps1` | 可重复的进程 / 磁盘探针（**纯 ASCII**） |
+| `.superpowers/sdd/mem-probe-2.out.txt` | 探针原始输出（2026-10-28 11:07） |
+| `.superpowers/sdd/mem-batch-d.ps1` | 批次 D：测量 / 清理（改设置 + 清缓存）/ 还原，三种模式 |
+| `.superpowers/sdd/mem-batch-d-run.ps1` | 批次 D：停旧进程 / 启动指定 exe |
+| `.superpowers/sdd/mem-batch-d-before.json` | 批次 D 前的进程树与缓存目录快照 |
+| `.superpowers/sdd/mem-gate-fe2.log` | 前端门禁原始日志（eslint / vue-tsc / vitest） |
+| `.superpowers/sdd/mem-gate-rs2.log` | Rust 门禁原始日志（cargo check / cargo test） |
+| `.superpowers/sdd/mem-build.log` | 真机验收打包日志 |
+
+> 这 5 个文件都在 `.superpowers/`（被 gitignore），**不进版本库**；接力会话用绝对路径读。
+
+### 18.10 批次 A/B 执行结果（2026-10-28，commit `e8a41f3b`，已 push）
+
+**提交**：`e8a41f3b` 「perf: 降低常驻内存与磁盘占用（资源优化批次 A/B）」（9 文件，+1497 / −140）；`origin/main` = `e8a41f3b8b43b740f5078b84521823efd2625280`（`gh api .../commits/main --jq '.sha'` 核对一致）。
+**未 bump 版本号**（仍 3.6.3）、**未发版**、`release/` 目录未动。
+
+| 切片 | 实际改动 | 测试 |
+|---|---|---|
+| A1 | `system-icon-cache.ts`：缓存上限 **512 条**；命中即重插（LRU）；淘汰优先级 `path:` → `dir:` → `ext:`，同类内淘汰最久未使用；保留「`ext:` 失败不写缓存」与 in-flight 去重语义 | 新增 5 条（原 5 条保留，共 10 条） |
+| A2 | `use-image-thumbnails.ts`：4 个容器改 `shallowRef` + `Map`/`Set`，写入改原地 mutate + `triggerRef`；去掉 `{ ...cache, [k]: v }` 整体重建（O(n²) → O(1)）；对外函数签名与语义不变 | 新增 7 条 + 改写 5 条原断言（共 22 条） |
+| B1 | `global_search/query.rs`：候选**先截断再物化**（原先先物化 10 万条再 truncate）；候选预算 = `limit × 已索引盘符数`，绝对上限 5000；`global_search/state.rs`：常驻 `IndexReader` 空闲 5 分钟释放，下次查询走既有 `needs_open` 重开路径 | 3 条 |
+| B2 | `image_thumbnails.rs`：单图解码分配上限 **192 MB → 64 MB**；源像素上限 **16 MP**；并发解码闸门 **最多 3 张**（Mutex + Condvar，RAII 归还名额，解码期间不持锁）；缓存限额 **5000 张/1 GB → 2000 张/256 MB**；超限**按 mtime 淘汰最旧**（不再整体清空） | 新增 6 条，删掉 2 条前提失效的旧测试 |
+| B3 | `system_icons.rs`：图标 data URL LRU **512 → 128 条**；`UNSUPPORTED_SHELL_ICON_PATHS` 由无界 `HashSet` 改为容量 **512** 的 LRU ⇒ **Rust 侧最后一个严格无界项消除** | 2 条 |
+
+**统一门禁（全部在 `e8a41f3b` 上量）**
+
+| 项 | 结果 |
+|---|---|
+| `npx eslint .` | **188 errors / 0 warnings** —— 与基线一致 ✅ |
+| `npx eslint src` | **175 errors / 0 warnings** —— 与基线一致 ✅ |
+| `npm run ts`（vue-tsc） | **exit 0** ✅ |
+| `npm run test`（vitest） | **248 files / 2287 tests 全通过** ✅ |
+| `cargo check --lib` | **exit 0** ✅ |
+| `cargo test --lib` | **823 passed / 2 failed** ⚠️ —— **存量环境失败，见下** |
+
+> ⚠️ **那 2 条失败是环境性的，与本轮改动无关**：`mcp::server::tests::port_search_stays_inside_the_declared_range` 与 `…port_search_never_hands_back_a_privileged_port` 都在 `find_available_port_in_range(55100, 55199).unwrap()` 处 panic（`在端口区间 55100-55199 内找不到可用端口`）。
+> **根因**：本机 Windows 的排除端口段（`netsh interface ipv4 show excludedportrange protocol=tcp`）为 `55033-55132` 与 `55133-55232` ⇒ **MCP 要的 55100-55199 整段被系统保留**（Hyper-V/WSL 动态端口预留），bind 必然失败。实测 55100 / 55132 / 55133 / 55150 / 55199 **全部 bind 失败**，报 `WSAEACCES`（「以一种访问权限不允许的方式做了一个访问套接字的尝试」）。
+> `mcp/` 模块**不在**本轮改动范围内（`git status` 确认本轮只动了 5 个源文件 + 1 个文档）⇒ 判定为**存量环境失败**。**接力会话不必重查，但不要把它当回归**；要彻底消除需改 `MCP_PORT_RANGE_START/END` 避开系统保留段（独立改动，未做）。
+
+**主 Agent 复核后追加的一处修复**：B1 初版把候选池**全局**封顶在 `limit`，多盘符搜索时靠后的盘符会只剩个位数结果 —— 属**用户可见的行为回归**。已改为「候选预算 = `limit × 已索引盘符数`」（`candidate_limit_for(options, drive_count)`，绝对上限 5000）⇒ 保留旧的「每盘符各 limit」语义，物化量同时从 10 万级压到「limit × 盘符数」级。新增测试 `candidate_budget_scales_with_indexed_drive_count`。
+
+**已知的行为变化（用户可见，需知情）**
+
+1. **>16 MP 的图片不再生成缩略图**（只显示占位图）—— 64 MB 解码上限的必然代价；此前 50 MP 以内还能通过。
+2. **现存 4,249 张 / 434 MB 缩略图缓存会被裁到 2,000 张 / 256 MB**（按 mtime 淘汰最旧），之后不再「集体消失后全部重生成」。
+3. **多盘符搜索的返回条数可能少于 `limit`** —— 候选池截断在前、过滤规则（忽略路径 / 相似度门槛 / 精确匹配 / 类型）在后，被挡掉的候选没有替补；短查询（3 字符，门槛 0.9）最容易出现。
+4. **exe/dll 密集目录里图标编码会重复发生**（LRU 降到 128 条），CPU 略升、内存常驻下降。
+5. **`use-video-thumbnails.ts` 有与 A2 完全相同的 `ref<Record>` + 整体重建模式**（前端审计第 12 条），本轮**未动** ⇒ 建议列入批次 C。
+
+### 18.11 批次 D 实测结果（2026-10-28，真机产物）
+
+**被测产物**：`npx tauri build` 产物 `src-tauri\target\release\alpha-file-manager.exe`（56,331,264 B，Rust release 编译 3 m 51 s，NSIS 包 19.72 MiB）。
+⚠️ **刻意用 `npx tauri build` 而非 `npm run tauri:build`**：后者末尾的 `publish-bundle-to-release.mjs` 会覆盖 `release\Alpha File Manager_3.6.3_x64-setup.exe`，导致 winget 清单里的 sha256 失配。**`release/` 目录本轮未被改动。**
+
+**口径**：`WS` = `WorkingSet64`（工作集），`PM` = `PrivateMemorySize64`（私有提交）。任务管理器「内存」列接近 WS ⇒ **对外汇报一律用 WS**；PM 会被 Chromium 的预提交行为放大，不适合当收益口径。
+**方法**：同一台机器、同一账号、同一时刻分别启动「安装版 3.6.3」与「新构建」，各冷启 30 s 后用 `mem-batch-d.ps1 -Mode measure` 取整棵进程树（含 `msedgewebview2.exe` 子进程）+ 缓存目录体积。
+
+#### 四点测量
+
+| 快照 | 构建 | 状态 | 进程数 | WS (MB) | PM (MB) | 缓存目录 (MB) |
+|---|---|---|---|---|---|---|
+| `before` | 安装版 3.6.3 | 已运行约 3.5 h | 8 | 1066.8 | 976.5 | 805.58 |
+| `before-fresh` | 安装版 3.6.3 | 冷启 30 s | 8 | 961.2 | 965.8 | 805.58 |
+| `after-ab` | **新构建（A/B 生效）** | 冷启 30 s，缓存未动 | 8 | **893.6** | 995.8 | 805.58 |
+| `after-d` | 新构建 | 冷启 30 s，**已关预启动 + 已清缓存** | **7** | 804.7 | 1072.7 | **0** |
+| `after-d-warm` | 新构建 | 同上，运行约 10 分钟后 | 7 | **742.8** | 881.7 | 66.21 |
+
+#### 归因
+
+1. **批次 A/B 代码本身（唯一可干净归因的一段：`before-fresh` → `after-ab`，同构建口径、缓存未动）：WS 961.2 → 893.6 MB，净 −67.6 MB（−7.0 %）。**
+   逐进程看，降幅**全部落在 renderer 进程**（WS 317.2 → 249.2，−68.0 MB；PM 216.6 → 146.9，−69.7 MB），其余进程基本持平 —— 与 A2「缩略图前端缓存去掉整体重建」的方向一致。
+   ⚠️ **PM 口径反而 +30.0 MB**：gpu-process 的 `PrivateMemorySize64` 从 446.7 涨到 547.6（+100.9），把 renderer 省下的 69.7 抵掉还多。这是 Chromium 预提交显存/共享内存的**提交口径**，不是实际驻留 ⇒ **不代表内存变差**。
+2. **D1（关 `performance.prelaunchQuickViewWindow`）：机制被坐实 —— 进程数 8 → 7，少掉的正是第二个 renderer**，即隐藏 Quick View 的那棵 WebView2（§18.8 那条「强推断」至此升级为**已验证**）。这一项与 D2 是一起做的，两者收益无法在本轮完全拆开；D1 的机制由「少一个 renderer」独立佐证。
+3. **D2（清缓存）：磁盘 805.58 MB → 0 MB**（缩略图 434.34 + 搜索索引 200.27 + `EBWebView\Default\Cache` 146.02 + 3 个 Crashpad dump 24.95），全部走**可恢复删除**（进回收站，未永久删除）。代价是**应用会重建**：清理后 Rust 主进程立刻开始重建全局搜索索引（该快照里 main 进程 CPU 136.3 s、PM 92.8 → 145.9 MB）；约 10 分钟后 `global-search\index` 复涨到 66.21 MB，缩略图目录当时尚未重建。**磁盘收益是「把 800 MB 常驻缓存换成一次重建 + 之后按需再生」，不是净消失。**
+4. **合账（新构建 + D 措施稳态，`after-ab` → `after-d-warm`）：WS −150.8 MB（−16.9 %）、PM −114.1 MB（−11.5 %）、磁盘 −739.37 MB（−91.8 %）。**
+   **相对最初基线（安装版、跑了 3.5 h 的 `before`）：WS 1066.8 → 742.8 MB，−324.0 MB（−30.4 %）；磁盘 −739.37 MB。**
+   相对同为冷启口径的 `before-fresh`：WS 961.2 → 742.8 MB，−218.4 MB（−22.7 %）。
+
+#### D3：WebView2 三次崩溃的原因（已完成取证）
+
+三个 dump 在清理时进了回收站（`C:\$Recycle.Bin\S-1-5-21-...\`），用 `mem-dump-exc.cjs` 直接解 minidump 头（`ExceptionStream`）+ `mem-dump-strings.cjs` 抽模块表：
+
+| dump | 大小 | 崩溃模块 | 崩溃线程 | 异常码 | 故障地址 |
+|---|---|---|---|---|---|
+| `$RNZMW7A.dmp` | 11.6 MB | `msedgewebview2.exe`（Edge WebView **155.0.4283.62**） | `Chrome_IOThread` | `0x80000003`（STATUS_BREAKPOINT = Chromium 的 CHECK/DCHECK 失败） | `0x7FFD6AFCB83F` |
+| `$RTCQZN7.dmp` | 7.3 MB | 同上 | `Chrome_ChildIOThread` | `0xE0000008` | `0x7FF9156E408A` |
+| `$RZ7BCS9.dmp` | 7.3 MB | 同上 | `Chrome_ChildIOThread` | `0xE0000008` | `0x7FF9156E408A` |
+
+**结论：崩溃发生在 WebView2 自己的子进程里，不是 AFM 的 Rust / 前端代码缺陷。**
+依据：① 三个 dump 的模块表里只有 `msedgewebview2.exe` 与系统 DLL，**没有 AFM 自己的模块**（后两个显式 `AFM_MODULES_IN_DUMP=NONE`；AFM 主进程是 WebView2 子进程的父进程，本就不会出现在子进程模块表里）；② AFM 主进程**没有崩**（Crashpad handler 一直存活）；③ 后两次**故障地址完全相同** ⇒ WebView2 内部同一处可复现故障点。
+**建议**：① 升级 WebView2 runtime（155.0.4283.62 偏旧）；② AFM 侧补「WebView2 子进程崩溃 → 检测 + 提示 + 可恢复」的兜底（可并入批次 C）；③ 三个 dump 均**未做符号化**，触发条件（哪个页面/哪类操作）仍未定位，别写成「已找到根因」。
+
+#### 本轮的已知局限（不要当成更精确的结论）
+
+- **单次采样**，未取多轮中位数；单机、单账号、单驱动。
+- **「冷启 30 s」不是稳态**：跑了 3.5 h 的安装版比冷启高 105.6 MB（WS），说明缓存增长会让稳态回升 ⇒ 批次 D 的收益会被后续缓存再生部分抵消。
+- 所有读数都取在**全局搜索扫描 / 索引重建**时段 ⇒ 偏高。
+- A/B 的收益归因是「**方向一致**」而非因果坐实（要坐实需逐切片单独构建重测）。
+- **D1 与 D2 是一起做的**，本轮无法把两者收益完全拆开；D1 的机制（少一棵 renderer）已独立佐证。
+- 用户最初看到的 **88.7 MB** 口径仍未确认（§18.8）。
+
+#### 已落地到用户环境的状态（需要知情）
+
+- `user-settings.json` 的 **`performance.prelaunchQuickViewWindow` 已改为 `false`**（隐藏 Quick View 不再预启动）。备份：`.superpowers\sdd\mem-batch-d-settings-backup-cleanup.json`；回滚：`pwsh -NoProfile -ExecutionPolicy Bypass -File .superpowers\sdd\mem-batch-d.ps1 -Mode restore -Tag cleanup`。
+- `image-thumbnails` / `global-search\index` / `EBWebView\Default\Cache` / 3 个 Crashpad dump **已移入回收站**（可恢复，未永久删除）。
+- 崩溃 dump 仍在回收站里，可按上面的路径取证。
+- 打包产物 `src-tauri\target\release\alpha-file-manager.exe` **未安装**，当前运行的就是它（`launch` 模式）；需要以安装版形态体验时用 `mem-batch-d-run.ps1 -Mode launch-installed`（注意本机安装路径是 `D:\Program Files\Alpha File Manager\`，脚本内置的候选路径不含它，故单独指定）。
+
+#### 证据文件
+
+| 文件 | 内容 |
+|---|---|
+| `.superpowers/sdd/mem-batch-d-phase2.ps1` | 分阶段执行脚本（ab / d / warm）；**注意别把辅助函数命名为 `Measure`** —— PowerShell 内置别名 `measure` → `Measure-Object` 的**别名优先级高于函数**，本轮踩过一次，导致函数体从未执行、快照文件没生成 |
+| `.superpowers/sdd/mem-batch-d-before-fresh.json` | 安装版冷启基线快照 |
+| `.superpowers/sdd/mem-batch-d-after-ab.json` | 新构建（A/B 生效）冷启快照 |
+| `.superpowers/sdd/mem-batch-d-after-d.json` | 新构建 + 关预启动 + 清缓存，冷启快照 |
+| `.superpowers/sdd/mem-batch-d-after-d-warm.json` | 同上，运行约 10 分钟后的稳态快照 |
+| `.superpowers/sdd/mem-phase-ab2.log` | AB 阶段原始日志 |
+| `.superpowers/sdd/mem-phase-d2.log` | D 阶段原始日志（含每项清理结果） |
+| `.superpowers/sdd/mem-dump-exc.cjs` | 解析 minidump `ExceptionStream`（异常码 / 故障地址 / 故障模块） |
+| `.superpowers/sdd/mem-dump-strings.cjs` | 从 dump 抽模块表与关键词字符串 |
+| `.superpowers/sdd/mem-batch-d-settings-backup-cleanup.json` | 清理前的 `user-settings.json` 备份（回滚用） |
+
+### 18.12 批次 C 执行结果（2026-10-28，结构性资源优化 C1–C6）
+
+**提交状态**：C1–C6 代码全部落地并通过全量门禁，**但尚未 commit**（工作树 17 个已改文件 + 2 处未跟踪）。**未 bump 版本号**（仍 3.6.3）、**未发版**、`release/` 目录**未动**。
+⚠️ `release/Alpha File Manager_3.6.3_x64-setup.exe` 曾被一次误用 `npm run tauri:build` 的构建覆盖成 20,717,408 B，**已用 `node fs.copyFileSync` 从 `.superpowers/sdd/superseded/bundle-nsis/` 还原为原版 20,670,028 B / 2026-10-27 16:23:31**。**后续验收构建一律用 `npx tauri build`，不要用 `npm run tauri:build`。**
+
+**规模**：`git diff --stat` = 17 files changed, 2857 insertions(+), 699 deletions(-)。
+
+#### 六个切片
+
+| 切片 | 实际改动 | 关键点 | 测试 |
+|---|---|---|---|
+| **C1** | 搜索结果页每命中一个盘符挂一个完整 `<FileBrowser>` → **轻量只读列表** | 新增 `global-search-result-rows.ts` + `global-search-result-list.vue`；`global-search-view.vue` 删掉 `<FileBrowser>`；`stores/runtime/global-search.ts` 的 `results` 改 `shallowRef` + `markRaw` | 新增 7 条 |
+| **C2** | `dirContents` → `shallowRef`；workspaces 的 Tab 不再存 `dirEntries` | `stores/storage/workspaces.ts` 用**闭包内非响应式 `Map`** 缓存（上限 8、FIFO 淘汰），移除 `cloneDeep`；`clone(tab)` 前先清条目 | 新增 5 条 |
+| **C3** | 虚拟行**只算可视窗口**；行 key 改下标 | `file-browser-virtual-rows.ts` 重写为「元数据 + 惰性物化」两层模型；`use-file-browser-virtual-layout.ts` 改 Proxy 惰性数组 + `rowModel` / `visibleRange` | **真机验收 PASS（6 条断言）** |
+| **C4** | `dir_watcher` 每监听目录 2 个线程 + 无界 mpsc → **共享 watcher 线程池 + 有界 channel** | 全局单例 `SHARED_WATCHER` + 单个 `RecommendedWatcher` + 单消费线程 `afm-dir-watcher`（栈 256 KB）；`EventQueue<T>` 有界队列（容量 1024，**满时丢最旧**）；`DebounceTracker` 复刻 300 ms 节流；`retain_watched` 清理失效目录；`resolve_watched_path` 最长前缀反推（Windows 大小写不敏感）；`MAX_ACTIVE_WATCHERS = 256` | `cargo test --lib dir_watcher` → **8 passed** |
+| **C5** | tantivy 扫描提交后**显式 merge** + segment 上限 + reader 预算 | `MAX_INDEX_SEGMENTS = 4` + `merge_index_segments(writer)`；`scan.rs` 两处 commit 后 `merge()` + `wait_merging_threads()`；`state.rs` 加 `READER_RESIDENT_BUDGET_BYTES = 256 MiB` + `READER_IDLE_RELEASE_AFTER_MS_OVER_BUDGET = 60_000` + `reader_idle_threshold_ms()`；`query.rs` 调 `release_idle_reader_if_needed()`。**`NoMergePolicy` 保留不动**（§18.5 的铁律） | `cargo test --lib global_search` → **30 passed** |
+| **C6** | LAN 上传**流式写盘** + 扩展读文件**加字节上限** + `dir_size` **去 `collect()`** | `lan_share/handlers.rs` 改流式写盘 + `tokio::io::BufWriter` 64 KiB（**失败时删掉半截文件**）；`extensions/filesystem.rs` 加 `MAX_EXTENSION_FILE_READ_BYTES = 64 MiB`（`take(limit + 1)`）；`dir_size.rs` 加 `SIZE_SCAN_CHUNK = 4096` + `accumulate_entry_sizes()`，不再把整棵树 `collect()` 进内存 | `cargo check --lib` exit 0 |
+
+#### C1 引入的快捷键回归（**已修**，12 处改动）
+
+轻量列表换掉 `<FileBrowser>` 之后，搜索结果**不再挂在导航格的 FileBrowser 上**，于是「当前选中项」永远为空 ⇒ 复制/剪切/删除/重命名/属性全部退化成空操作。修复口径是**「动作路由由『哪个条目』决定，而不是『哪个窗格』决定」**：
+
+| 位置 | 改动 |
+|---|---|
+| `navigator.vue:1044` `getActivePaneSelectedEntries()` | 搜索激活时直接读 `globalSearchViewRef.getSelectedEntries()`（导航格的选择已被清空） |
+| `navigator.vue:1008` `getActivePaneRef()` | 统一回落导航格 pane，避免搜索激活时拿到 `null` |
+| `navigator.vue:1262` `handleSelectAllShortcut()` | 搜索激活**或**搜索面板有焦点时走 `selectAllResults()` |
+| `navigator.vue:805/1301/1317` | 删除 / 永久删除成功后 `clearSelections()` |
+| `navigator.vue:1576` rename handler | 搜索激活时走 `globalSearchViewRef.startRename(entry)` |
+| `global-search-view.vue` | 引入 `FileBrowserRenameDialog` + `useDirEntryActions`；根节点加 `@focusin/@focusout` 跟踪面板焦点；搜索框加 `@keydown.enter.prevent`（无聚焦项时打开第一条）；`defineExpose` 增补 5 个成员 |
+
+**Ctrl+A 判定口径（容易再踩）**：搜索面板是**侧边面板**（`v-show` + ResizablePanel），不是遮罩，用户可以同时操作导航格 ⇒ **单看 `globalSearchStore.isOpen` 会误清导航格的选择**。现在的口径是「`isSearchSelectionActive` **或** 搜索面板有焦点」，焦点用根节点的 `focusin` / `focusout` 跟踪（`relatedTarget` 仍在根内则不置 false）。
+
+**重命名通道**：搜索结果不在导航格列表里，就地编辑不可见 ⇒ 搜索面板自挂 `FileBrowserRenameDialog` + `useDirEntryActions().renameItem(entry, newName)`（本地 `invoke('rename_item', {sourcePath, newName})`；远程 `renameRemoteEntry`）。
+⚠️ **已知局限**：重命名成功后，搜索列表**仍显示旧文件名**，直到下一次搜索 / 扫描。
+
+#### 统一门禁（全部在最终代码上量）
+
+| 项 | 结果 |
+|---|---|
+| `npx eslint .` | **188 errors / 0 warnings** —— 与基线一致 ✅ |
+| `npm run ts`（vue-tsc） | **exit 0** ✅ |
+| `npm run test`（vitest） | **250 files / 2309 tests 全通过** ✅ |
+| `cargo check --lib` | **exit 0** ✅ |
+| `cargo test --lib` | 823 passed / 2 failed —— **存量环境失败**，同 §18.10 的两条 MCP 端口用例，**不要当回归** |
+
+**打包**：`npx tauri build` → `TAURI_BUILD_EXIT=0`（Rust release 3 m 05 s，NSIS 19.76 MiB）。
+产物：`src-tauri\target\release\alpha-file-manager.exe` **56,495,104 B / 2026-10-28 12:58:39**；`src-tauri\target\release\bundle\nsis\Alpha File Manager_3.6.3_x64-setup.exe` **20,717,765 B / 12:58:36**。
+
+#### 真机验收
+
+| 切片 | 结论 |
+|---|---|
+| **C3** | ✅ **PASS**（6 条断言）——`.superpowers\sdd\accept-c3-virtual-rows.ps1` + `shots\c3-vrows-*.png` |
+| **C1** | ✅ **PASS**（**沙箱验收**：隔离桌面，脚本 `.superpowers\sdd\sandbox-c1-accept.ps1`，日志 `mem-accept-c1-sandbox.log`，查询词 `"2026`，11 条断言全部通过：（①）S1 operator desktop foreground untouched；（②）S2 global search panel opened with the mouse；（③）S2 query text entered in sandbox；（④）S3 results summary present；（⑤）S4 one accessible row per result；（⑥）S5 drive groups exposed as lists；（⑦）S6 positive control: left pane shows a selection badge；（⑧）S7 a result row inside the window was clicked；（⑨）S8 search row selection routed into the navigator (left pane selection cleared)；（⑩）S9 screenshot captured in sandbox；（⑪）S10 operator desktop foreground still untouched at the end）。⚠️ **本轮结论的边界**：沙箱桌面里**无法注入键盘**（`SendInput` 只到输入桌面），因此 `Ctrl+A` / `Ctrl+C` 这两条**键位路径没有在沙箱内取证**；已取证的是「动作路由按选中项走」这条底层逻辑（搜索选中会清掉导航格的选择）。 |
+
+#### 已知的行为变化（用户可见，需知情）
+
+1. **扩展读文件超过 64 MiB 直接返回 Err**（C6 的有意取舍）。
+2. **`dir_watcher` 的 OS `watch()` 失败现在返回 Err**（原来静默忽略）；同时修掉旧实现「线程先退出、注册表后写入」的 stale 登记竞态；节流刷新事件顺带刷新 `last_emit`。
+3. **重命名搜索结果后列表仍显示旧文件名**（直到下一次搜索 / 扫描）。
+4. **C4 的有界队列满时丢最旧事件**（文件系统最终一致，不丢最终状态）。
+5. **C5 让 segment 收敛** ⇒ 索引体积会下降，但**合并期间有一次 CPU / IO 尖峰**。
+
+#### 证据文件
+
+| 文件 | 内容 |
+|---|---|
+| `.superpowers/sdd/mem-batch-c1-report.md` … `mem-batch-c6-report.md` | 六个切片各自的实现报告 |
+| `.superpowers/sdd/mem-origin-attribution.md` | 来源归因完整取证（48,123 B / 473 行） |
+| `.superpowers/sdd/mem-batch-c-frontend-gate.log` | eslint / vue-tsc / vitest 原始输出 |
+| `.superpowers/sdd/mem-batch-c-tauri-build.log` | `npx tauri build` 原始日志 |
+| `.superpowers/sdd/batch-c-gate.ps1` / `batch-c-build.ps1` | 门禁 / 打包脚本（**纯 ASCII**） |
+| `.superpowers/sdd/accept-c1-search-actions.ps1` / `accept-c1-v4.ps1` | C1 真机验收脚本（**纯 ASCII**；v4 加了置前校验 + UIA 直调 + ValuePattern 设值） |
+| `.superpowers/sdd/accept-c3-virtual-rows.ps1` + `shots/c3-vrows-*.png` | C3 真机验收脚本与截图 |
+| `.superpowers/sdd/mem-accept-c1-v*.log` | C1 验收各轮原始日志（含两次失败的原因） |
+
+### 18.13 资源占用问题的来源归因（上游 SFM vs AFM 二次编辑）
+
+> 完整取证见 `.superpowers/sdd/mem-origin-attribution.md`（48,123 B / 473 行）。本节只给结论。
+
+**一句话结论：被审计的 19 条资源占用问题（F1–F12e），AFM 二次编辑引入 0 条。** 全部 19 条的「首次引入 commit」都是上游 SFM 的提交（作者一律 `aleksey-hoffman`，`git merge-base --is-ancestor <sha> upstream/main` 全部返回 0）。
+
+**口径说明**：`upstream` remote = `aleksey-hoffman/sigma-file-manager`（**原仓 SFM**），`origin` = `kizemo/alpha-file-manager`（**AFM 自己**）。merge base = `fed49cee`（2026-08-27），上游独有提交 23 个、AFM 独有 302 个（文档旧值 251 已过期，AFM 在 10-19 之后又补了约 51 个提交）。
+
+#### 归因汇总
+
+| 判定 | 条数 | 条目 |
+|---|---|---|
+| 上游 SFM 自带，AFM **未修**（当前 HEAD 仍在） | **10** | F1、F3、F6、F7、F8、F11、F12a、F12b、F12c、F12d |
+| 上游 SFM 自带，AFM **批次 A/B 已修** | **6** | F2、F4、F5、F9、F10、F12e（部分：reader 已释放，`Index` 仍常驻） |
+| **AFM 二次编辑引入** | **0** | — |
+| AFM **放大了上游问题**（仅量级层面） | **1** | F2 的磁盘占用量级：AFM 独有的缩略图四档尺寸让同一源图按尺寸存成多份缓存文件 |
+| 未能判定 | **0** | — |
+
+#### 三大占用块（按对实测占用的贡献排序）
+
+| 占用块 | 实测量 | 归属 | 关键证据 |
+|---|---|---|---|
+| **F1 隐藏 Quick View renderer** | 171.9 MB（常驻第二个 renderer） | **纯上游** | 机制由上游 `d59e8e9e`（2026-06-30「New settings: Window memory / performance control」）引入；上游默认 `prelaunchQuickViewWindow: true`。AFM 只改过窗口标题（品牌改名 `d2be2373`）。批次 D1 已在**用户机器**上关掉（改设置，非代码） |
+| **F3 tantivy `NoMergePolicy`** | 搜索索引 299.16 MB（7+ segment 永不合并） | **纯上游** | 上游 `054e2472`（2026-06-24「UX: indexing stability improvements」）；AFM 对 `global_search/index.rs` 的提交数 = **0**；上游当前版本仍是 `NoMergePolicy` |
+| **F2 缩略图缓存** | 434.34 MB / 4,249 张 | 上游设计 + **AFM 放大量级** | 上游 `9f20b226` 定下 5000 张 / 1 GB；AFM 批次 A/B（B2）已改为 2000 张 / 256 MB 并按 mtime 淘汰。**四档缩略图尺寸是 AFM 独有的** ⇒ 同一源图落盘多份 |
+
+**WebView2 子树 888.8 MB 与 Rust 主进程 230.1 MB 的常驻成分，主要由上游 SFM 造成**（F1 隐藏 renderer + F3 索引常驻 + F12e `Index` 常驻 + 上游的 `dir_watcher` 每目录 2 线程）。
+
+#### 批次 C 修的正是「上游自带且未修」的那批
+
+| 条目 | 上游引入 | 批次 C 对应切片 |
+|---|---|---|
+| F6 每命中一个盘符挂一个完整 `<FileBrowser>` | `7a62a0d0`（AFM 对 `global-search-view.vue` 提交数 = 0） | **C1** |
+| F7 `dirContents` 深响应式 / 每 Tab 各存一份 `dirEntries` / `clone(tab)` 深拷 | `ef1b1fed` + `ebc762ef` / `733e2f42` | **C2** |
+| F8 虚拟行全量物化 O(N) + 每行拼完整路径当 key | `afa479de` | **C3** |
+| F11 `dir_watcher` 每监听目录 2 个线程 + 无界 mpsc | `385157ae`（AFM 对 `dir_watcher.rs` 提交数 = 0） | **C4** |
+| F3 tantivy segment 不合并 | `054e2472` | **C5** |
+| F12a / F12b / F12c | `053fb4b2` / `9864c72c` / `6cc7928a`（AFM 三个文件提交数均为 0） | **C6** |
+
+**F12d**（启动时 5 个用户存储 JSON 常驻副本）**本轮未修** —— 它是上游 `b839e298` 的 `preloaded: Arc<OnceCell<…>>` 语义，改动面波及启动路径，留待下一批次。
+
+#### 附带发现：上游还有一个**功能性**缺陷（与资源占用无关，但同属「上游自带」）
+
+`src-tauri/src/global_search/scoring.rs` 的 `get_min_score_for_query_length()`：查询长度 **1–3 字符 → 相似度门槛 0.9**，4–6 → 0.65，7–9 → 0.55，其余 → 0.5。
+而 `calculate_similarity_score()` 对「文件名包含查询词」只给 `0.8 + (len(query)/len(name)) * 0.15`：3 字符查询对 `a.txt`(0.89)、`report.txt`(0.845)、`2026年10月26日 20:53.txt`(0.821) **一律 < 0.9** ⇒ **1–3 字符的全局搜索恒返回 0 条**。
+实测对照：查询 `txt`（3 字符）→ 面板显示「什么都没找到」；查询 `2026`（4 字符，门槛 0.65）→ 「在 3 个驱动器上找到 96 项」。
+上游提交 `b8a1c1b4`（2026-03-28 拆文件提交），**AFM 从未修改该文件**（`git diff` 为空、`git log` 只有上游那条）⇒ 同属**上游自带**，本轮**未修**（改它等于改搜索排序策略，属产品决策）。
+⚠️ **验收脚本必须用 ≥4 字符的查询词**，否则会把上游缺陷误判成 C1 回归。
+
+#### 归因方法的已知坑（接力时若要复核）
+
+- `git blame` 给的是「该行最后一次被触碰」，**不等于语义引入**（例：F3 的 `NoMergePolicy` 当前行 blame = `31c665c6f`，纯格式提交；语义引入其实是 `054e2472`）⇒ 一律以 `git log --reverse -S'<逐字字符串>'` 的首次出现为准。
+- `-S` 数的是**出现次数**，格式调整也会命中，要结合提交内容判断。
+- `git log --follow` 只在文件被 **rename** 时有效；本仓 2026-03-28 `b8a1c1b4` 是「拆文件」而非 rename ⇒ `--follow` 会断链，需按任意路径重查。
+- 取证期间有并行 writer 在改同一工作副本（正是批次 C 的改动）⇒ 涉及被改文件的归因已用 `git blame HEAD` + `git log -S` 只读复核，结论不变。
+
+### 18.14 批次 C 之后的待办（接力入口）
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 1 | **批次 C 已 commit**：`bb003f97`（22 files / +3963 / −708，代码 + 本文回写同一个 perf commit）；**未 push、未发版、未 bump 版本号** | ✅ 已提交 |
+| 2 | **C1 真机验收**（沙箱内执行，脚本 `sandbox-c1-accept.ps1`）：已 PASS（见 §18.12） | ✅ |
+| 3 | **F12d 已评估·不修**：实测 5 个真实 JSON 合计约 **75 KB**（`user-stats.json` 34,477 B、`user-extensions.json` 32,461 B、`user-settings.json` 4,266 B、`user-workspaces.json` 2,736 B、`user-remote-connections.json` 1,154 B），载体是上游 `b839e298` 的 `preloaded: Arc<OnceCell<…>>`；常驻上限只是百 KB 级，改启动路径的风险与收益不成比例 | ⏸️ 已评估·不修 |
+| 4 | **`use-video-thumbnails.ts` 已按 A2 同款改造并提交**：`ref<Record>` → `shallowRef<Map>`，写入走 `setVideoThumbnail()`（等值早退 → `Map.set` → `triggerRef`，把单调增长时的 O(n²) 分配降为 O(1)），`clearThumbnails()` 改 `= new Map()`；测试断言同步改 `.value.size === 0`。已 commit `0d89768c`（3 files / +25 / −18，独立 follow-up，未 amend 进 `bb003f97`）；门禁 `eslint .` = **188 / 0**（与基线逐字一致）、`npm run test` **250 文件 / 2309 用例全通过**、`npm run ts` exit 0 | ✅ 已提交 |
+| 5 | **WebView2 子进程崩溃兜底**（§18.11 D3 建议 ②）：检测 + 提示 + 可恢复 —— **已完成**，实现与验收见 §18.15（取证基础见 §18.11 D3）。方案 = 「前端心跳 + sysinfo 进程树」（放弃 COM `IWebView2ProcessFailed`：`windows-core 0.62.2` 无 `implement` feature，做不了 COM 事件接收器）。落点：`webview_guard.rs`（纯逻辑）+ `webview_guard_runtime.rs`（tauri 接线）+ `use-webview-guard.ts` + 17 个语言包；门禁 `eslint .` 188/0、`npm run test` 251 文件 / 2314 用例、`cargo test --lib webview_guard` 13/0；沙箱真机验收见 §18.15.7 | ✅ 已完成 |
+| 6 | **版本号仍是 3.6.3**，批次 C 不单独发版；是否随下一版统一发由用户决定 | ⬜ 待决策 |
+| 7 | **索引重建代价**：实测一次完整重建约 **17 分钟**（1,016 s，1,956,015 条）；验收脚本必须先确认索引就绪再判 FAIL | ⚠️ 已知 |
+| 8 | **上游缺陷候选**：`global_search/scoring.rs` 的 `get_min_score_for_query_length()` 对 1–3 字符查询给 0.9 门槛，使「含扩展名的文件名」普遍落在 0.82–0.89 ⇒ **短查询恒 0 结果**（上游 `b8a1c1b4`，AFM 未改） | ⬜ 未修（上游） |
+| 9 | **真机验收必须进隔离桌面沙箱**（用户 2026-10-28 要求）：不得在用户桌面上启动 AFM 抢焦点；沙箱脚本 `sandbox-c1-accept.ps1`，坑位清单见 `.superpowers\sdd\relay-rules-batch-c.md` | ✅ 已落地 |
+| 10 | **新会话接力 prompt**：`.superpowers\sdd\relay-prompt-batch-c.txt`（一句话 + 完整路径，引导新会话读必要文档；已按「第 5 项已完成」的当前状态刷新，不重复本文内容） | ✅ 已落地 |
+
+> **接力时先读**：外层仓 `F:\soft\00selfmade\filemanager\AGENTS.md`（硬约束全集）→ 本文 **§0** 与 **§18** → `.superpowers\sdd\mem-batch-c-handoff-18-12.md` / `-18-13.md`（本节的底稿）→ `.superpowers\sdd\mem-origin-attribution.md`（归因完整取证）→ `.superpowers\sdd\sandbox-c1-accept.ps1`（沙箱验收脚本）→ `.superpowers\sdd\relay-rules-batch-c.md`（防异常终止对策）。
+
+### 18.15 WebView2 子进程崩溃兜底（§18.14 第 5 项的实现与验收）
+
+#### 18.15.1 方案选型：为什么没有走 COM 事件
+
+§18.11 D3 的取证结论是：崩溃发生在 `msedgewebview2.exe` **自己的子进程**里（`0x80000003` / `0xE0000008`），**AFM 主进程存活** ⇒ 兜底不能指望「出了事的那一方自己报错」。
+
+最"正统"的做法是 WebView2 的 `IWebView2ProcessFailed` 事件，但本仓锁定的 `windows-core 0.62.2` **没有 `implement` feature**，无法实现 COM 事件接收器（`windows` crate 的 COM 支持需要 `implement` 宏）。⇒ 放弃 COM 路线，改用：
+
+> **前端心跳 + sysinfo 进程树** —— 主进程侧主动探测「界面还在不在」。
+
+#### 18.15.2 代码落点
+
+| 文件 | 作用 |
+|---|---|
+| `src-tauri/src/webview_guard.rs` | **纯逻辑**，不 import tauri。常量、`decide_health`、`collect_webview_pids`、`scan_webview_processes`，13 个单测 |
+| `src-tauri/src/webview_guard_runtime.rs` | **tauri 接线**。命令 `webview_guard_heartbeat` / `webview_guard_status`、看门狗线程 `afm-webview-guard`、`WebviewGuardState`、原生提示框、延迟重启 |
+| `src-tauri/src/lib.rs` | `mod` 声明、`.manage(...)`、命令注册、`.build()` + `app.run()`（退出期抑制）、setup 里启动看门狗线程 |
+| `src/composables/use-webview-guard.ts` | 前端接线：5 秒一次心跳 + 订阅 `webview-guard://status` + toast |
+| `src/layouts/window/app.vue` | 调 `useWebviewGuard()` |
+| `src/localization/messages/*.json`（17 个） | 新增顶层 `webviewGuard{detected,recovered,recoveryFailed}`（ch 中文，其余 16 包英文） |
+
+**为什么必须拆两个文件**：`cargo test --lib` 的测试二进制有一条隐形红线 —— 被测试链接到的代码一旦碰到 `tauri::AppHandle`（默认 `R = Wry`），就会单态化出 `tauri_runtime_wry`，把 tao 整条窗口链拖进来；tao 里有 `comctl32.dll!TaskDialogIndirect`（属 comctl32 v6，只有 application manifest 声明了才解析得到），测试二进制没有 manifest ⇒ 加载器找不到导出，整个测试二进制以 `STATUS_ENTRYPOINT_NOT_FOUND` (0xC0000139) 崩掉，**一个用例都跑不了**。纯逻辑放独立文件 ⇒ 测试二进制里只链进 `sysinfo`，tao 一条导入都没有。
+
+#### 18.15.3 判定口径
+
+| 常量 | 值 | 含义 |
+|---|---|---|
+| `HEARTBEAT_INTERVAL_MS` | 5 s | 前端心跳间隔 |
+| `HEARTBEAT_TIMEOUT_MS` | 20 s | 心跳超时 ⇒ 该窗口渲染进程失联 |
+| `HUNG_TIMEOUT_MULTIPLIER` | 3 | 超时 × 3（60 s）仍无心跳且窗口可见 ⇒ 判「卡死」 |
+| `WATCHDOG_POLL_INTERVAL_MS` | 2 s | 看门狗轮询间隔 |
+| `BROWSER_GONE_CONFIRM_TICKS` | 2 | 「浏览器进程没了」需连续命中 2 次（4 s） |
+| `RECOVERY_DEADLINE_MS` | 15 s | reload 之后等心跳回来的时限 |
+| `PROCESS_EVIDENCE_WINDOW_MS` | 30 s | 「有 WebView2 子进程消失过」这个旁证的保鲜时长 |
+
+- **心跳超时 且 30 s 内有 pid 消失旁证** ⇒ `RendererCrashed`
+- **旁证有两类**：① 进程表里少了 WebView2 子进程；② **浏览器进程被换掉**（旧 pid 一个不剩、换成了新 pid）—— 杀浏览器进程时 WebView2 会自己把浏览器进程拉起来，被杀的那个在进程表里可能还挂着（句柄没释放前不会真正消失）⇒ 第 ① 类旁证不成立，只能靠第 ② 类认（见 §18.15.5 第 5 条）
+- **心跳超时 ≥ 60 s 且无旁证 且 窗口可见** ⇒ `WindowHung`
+- **见过浏览器进程后连续 2 次没有浏览器进程** ⇒ `BrowserProcessGone`（致命）
+- **隐藏 / 最小化的窗口不判卡死** —— Chromium 会限流后台定时器，心跳变长是限流的产物，不是界面卡住（前端心跳则无条件发送，由后端按可见性决定）
+
+#### 18.15.4 恢复阶梯与提示通道
+
+```
+RendererCrashed / WindowHung
+   └─ window.reload()          → 等 15 s 看心跳是否回来
+        ├─ 回来了  → 发 recovered 事件（前端 toast）
+        └─ 没回来  → 原生提示框（Yes/No）→ 选 Yes = 延迟重启应用
+BrowserProcessGone（浏览器进程整体没了，reload 也没用）
+   └─ 直接原生提示框 → 选 Yes = 延迟重启应用
+```
+
+**提示必须有非 webview 通道**：崩的是承载主窗口的渲染进程时，网页里的 UI 也没了 ⇒ toast 这条路在那个场景下根本不存在 ⇒ 用 Win32 `MessageBoxW`（`MB_YESNO|MB_ICONERROR|MB_TOPMOST`）。重启必须**延迟拉起**（`cmd /C "ping -n 3 127.0.0.1 >nul & start ..."` + `CREATE_NO_WINDOW`），否则会被单实例插件截胡（新实例把启动参数转发给老实例就退出了，而老实例此刻正是坏的那个）。
+
+#### 18.15.5 实现期踩到的七个坑（改代码前必读）
+
+1. **主窗口判活必须用 HWND，不能用 Tauri 窗口表**。
+   WebView2 浏览器进程死亡时，wry 有可能把 webview 窗口对象一并从 Tauri 的窗口表里摘掉 ⇒ `app.get_webview_window("main").is_some()` 变 `None` ⇒ 看门狗在每轮开头就 `return`，**「浏览器进程没了 ⇒ 提示用户重启」这条路永远走不到**。
+   现在的做法：启动时抓 `window.hwnd()` 存进 `WebviewGuardState.main_hwnd`（`AtomicIsize`），之后用 Win32 `IsWindow(hwnd)` 判活（HWND 属于宿主窗口 tao 建的，浏览器进程死掉不会销毁它）。窗口可能比看门狗线程晚建出来 ⇒ 句柄为 0 时每轮补抓一次。
+
+2. **原生提示框同一场故障只能弹一次**。
+   `MessageBoxW` 是模态的，会**阻塞看门狗线程**直到用户答复；而且用户关掉之后，下一轮又会重新判定成「浏览器进程没了」⇒ 每 2 秒弹一次，变成无法关闭的刷屏。
+   现在的做法：`native_prompt_shown` 闩锁（`claim_native_prompt` 抢名额）；**解锁依据是「前端又发心跳了」，不是「判定回到 Healthy」**（后者会在故障还没结束时误解锁，见第 6 条）。
+
+3. **退出期必须抑制误报**。
+   WebView2 的子进程在应用退出时本来就会先死 ⇒ 没有闸就会被判成「崩溃」。双保险：① `.build()` + `App::run()` 拿 `RunEvent::ExitRequested | Exit` ⇒ `mark_shutting_down`；② 主窗口真的没了就不判定。
+
+4. **`collect_webview_pids` 必须显式排除宿主 pid**。
+   生产环境宿主是 `alpha-file-manager.exe`，名字对不上本来也进不来，但契约不该依赖「宿主不可能同名」这个隐含前提（单测里宿主就叫 `msedgewebview2.exe`）。这条曾经让 `cargo test --lib webview_guard` 挂 2 条。
+
+5. **「旁证」不能拿 `u64` 初值 0 冒充**（沙箱真机验收抓出来的真实缺陷，已修）。
+   旁证时刻原本存成 `last_vanish_ms: u64`，初值 0；而判定写的是「距今 ≤ 30 s 就算有旁证」
+   ⇒ **看门狗启动后的头 30 秒里，「距今 0 ms」被当成了「刚刚发生过」**
+   ⇒ 那段时间内任何心跳超时都会被误判成「渲染进程崩了」，而不是「卡死」。
+   沙箱场景 B 正好撞上：应用刚起 22 秒就杀浏览器进程，判定给出的是「有旁证」，
+   但日志里**根本没有 pid 消失的记录** —— 旁证是初值 0 白送的。
+   修法：① `last_vanish_ms` 改成 `Option<u64>`，真发生过才置 `Some`；
+   ② 补一条真正能命中「杀浏览器进程」的旁证 —— `browser_process_replaced(previous, current)`
+   （旧浏览器 pid 全没了且出现了新 pid），纯逻辑里实现，带 4 个单测。
+
+6. **「同一场故障只弹一次」的闩锁不能用「判定回到 Healthy」来解锁**（沙箱真机验收抓出来的真实缺陷，已修）。
+   `Healthy` 只代表「暂时还没判成故障」—— 渲染进程死掉之后、心跳超时还没到 60 s 卡死门槛的那段时间里，判定同样是 `Healthy`
+   ⇒ 闩锁在**故障还没结束**的时候被解开 ⇒ 下一轮又弹一次框（实测 12:55:58 判卡死、12:56:14 又弹了一次提示框）。
+   解锁的唯一依据改成「前端又发心跳了」（`webview_guard_heartbeat` 里清闩锁 + 一条日志）——
+   那是「界面真的活着」的阳性信号；`Healthy` 判定不再碰闩锁。
+
+7. **判「浏览器进程没了」的前提是「看门狗先见过浏览器进程」**（`browser_seen`）。
+   看门狗第一轮在启动后约 4 s；应用刚起来 2 s 就把浏览器杀掉的话，看门狗从头到尾没见过浏览器
+   ⇒ `expect_browser` 一直为 false ⇒ `BrowserProcessGone` 那条路按设计是禁用的（启动初期不算异常）
+   ⇒ 判定退化成「心跳超时」这条路。
+   验收脚本因此必须**等看门狗先观测到浏览器再杀**（脚本里等 12 s），否则测的根本不是那条分支。
+
+#### 18.15.6 门禁
+
+| 项 | 结果 |
+|---|---|
+| `npx eslint .` | **188 errors / 0 warnings**（与基线逐字一致） |
+| `npm run ts` | exit 0 |
+| `npm run test` | **251 文件 / 2314 用例全过** |
+| `cargo check --all-targets` | exit 0（仅存量 warning） |
+| `cargo test --lib webview_guard` | **13 passed / 0 failed** |
+
+#### 18.15.7 沙箱真机验收
+
+验收在**隔离桌面沙箱**内进行（`CreateDesktop` + `STARTUPINFO.lpDesktop`），不抢用户桌面焦点；
+被测对象是 `npx tauri build` 的打包产物 `src-tauri/target/release/alpha-file-manager.exe`。
+
+**断言：21 PASS / 0 FAIL**（共 21 条；完整报告见 `.superpowers/sdd/guard-accept-report.md`）。
+
+| 断言 | 结果 | 现场 |
+|---|---|---|
+| A1 heartbeat channel established | PASS | line=[2026-10-28][13:08:24][sigma_file_manager_lib::webview_guard_runtime][INFO] webview guard: heartbeat established for window main |
+| A2 operator foreground untouched | PASS | before=6755746 after=6755746 |
+| A3 browser process found | PASS | pid=228104 |
+| A4 renderer process found | PASS | pid=23500 |
+| A5 no false positive while healthy | PASS | hits= |
+| A6 no native dialog while healthy | PASS | hwnd=0 |
+| B1 crash detected after the renderer kill | PASS | line=[2026-10-28][13:09:50][sigma_file_manager_lib::webview_guard_runtime][ERROR] webview guard: renderer-crashed detected for window main (no heartbeat for 20207 ms), reloading it |
+| B2 auto recovery completed | PASS | line=[2026-10-28][13:09:52][sigma_file_manager_lib::webview_guard_runtime][INFO] webview guard: window main is alive again after the reload |
+| B3 no native dialog for a recovered crash | PASS | hwnd=0 |
+| B5 the app process survived the crash | PASS | instances=1 |
+| B6 operator foreground still untouched | PASS | before=6755746 after=6755746 |
+| C1 heartbeat channel established | PASS | line=[2026-10-28][13:09:56][sigma_file_manager_lib::webview_guard_runtime][INFO] webview guard: heartbeat established for window main |
+| C2 browser process found | PASS | pid=292156 |
+| C3 the fault is detected after the browser kill | PASS | browser-gone=[2026-10-28][13:10:13][sigma_file_manager_lib::webview_guard_runtime][ERROR] webview guard: the WebView2 browser process is gone; every webview of this app is dead / detected= |
+| C4 native prompt shown | PASS | hwnd=2627356 title=Alpha File Manager |
+| C5 native prompt captured | PASS | path=F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\guard-accept-dialog.png |
+| C6 the native prompt can be dismissed | PASS | still=0 |
+| C7 the native prompt is shown exactly once | PASS | count=1 |
+| C8 the watchdog keeps running and the latch blocks a second prompt | PASS | line=[2026-10-28][13:10:25][sigma_file_manager_lib::webview_guard_runtime][WARN] webview guard: the native prompt was already shown; skip |
+| C9 answering "no" does not restart the app | PASS | instances=1 |
+| C10 operator foreground still untouched | PASS | before=6755746 after=6755746 |
+
+**两条路径的实测结论**：
+
+- **A 渲染进程崩溃**：杀光该 app 名下全部 renderer ⇒ 看门狗判定崩溃并 `window.reload()`，心跳恢复 ⇒ **自动救活**（日志出现 `alive again after the reload`）。
+- **B 浏览器进程死亡**：杀浏览器进程 ⇒ 看门狗判定 `browser process is gone`（连续 2 次命中，约 4 s） ⇒ 弹出**原生 Win32 提示框**（`MessageBoxW`，不依赖 webview）；同一场故障只弹一次（`the native prompt was already shown; skip`）。
+
+看门狗日志（本次会话，UTC）：
+
+```
+[2026-10-28][13:08:23][sigma_file_manager_lib::webview_guard_runtime][INFO] webview guard: main window handle captured
+[2026-10-28][13:08:24][sigma_file_manager_lib::webview_guard_runtime][INFO] webview guard: heartbeat established for window main
+[2026-10-28][13:09:26][sigma_file_manager_lib::webview_guard_runtime][INFO] webview guard: alive, tick=30, heartbeat_interval_ms=5000, browser_alive=true, windows=[main:981ms]
+[2026-10-28][13:09:32][sigma_file_manager_lib::webview_guard_runtime][WARN] webview guard: WebView2 child process(es) vanished: [23500]
+[2026-10-28][13:09:50][sigma_file_manager_lib::webview_guard_runtime][ERROR] webview guard: renderer-crashed detected for window main (no heartbeat for 20207 ms), reloading it
+[2026-10-28][13:09:52][sigma_file_manager_lib::webview_guard_runtime][INFO] webview guard: window main is alive again after the reload
+[2026-10-28][13:09:55][sigma_file_manager_lib::webview_guard_runtime][INFO] webview guard: main window handle captured
+[2026-10-28][13:09:56][sigma_file_manager_lib::webview_guard_runtime][INFO] webview guard: heartbeat established for window main
+[2026-10-28][13:10:11][sigma_file_manager_lib::webview_guard_runtime][WARN] webview guard: WebView2 child process(es) vanished: [279280, 292156, 253012, 95552, 230948, 2440]
+[2026-10-28][13:10:13][sigma_file_manager_lib::webview_guard_runtime][ERROR] webview guard: the WebView2 browser process is gone; every webview of this app is dead
+[2026-10-28][13:10:25][sigma_file_manager_lib::webview_guard_runtime][WARN] webview guard: the native prompt was already shown; skip
+```
+
+> 完整工件：`.superpowers/sdd/guard-accept-sandbox.log`（脚本 stdout）、
+> `.superpowers/sdd/guard-accept-evidence.log`（看门狗日志）、
+> `.superpowers/sdd/guard-accept-summary.txt`（汇总）、
+> `.superpowers/sdd/guard-accept-dialog.png`（原生提示框截图，若有）、
+> `.superpowers/sdd/guard-accept-report.md`（可读报告）。
+
+#### 18.15.8 已知限制
+
+- **只监控主窗口**。隐藏的 Quick View / Print View 崩溃不处理（对用户无影响，且隐藏窗口的心跳会被 Chromium 限流，判卡死必然误报）。
+- **恢复手段只有 `window.reload()`**。若渲染进程死后 reload 也拉不回来（本轮沙箱实测见 §18.15.7），兜底会退化成「原生提示框 + 重启应用」，而不是自动救活。
+- **COM 路线没做**（`windows-core 0.62.2` 缺 `implement` feature）。若将来升级 `windows` crate，可考虑用 `IWebView2ProcessFailed` 做更精确的归因（哪个进程、什么退出码）。
+- **看门狗每 2 秒全量扫一次进程表**（`sysinfo`）。本机 400+ 进程，实测开销可接受，但它是一份常驻 CPU 开销。
+- **看门狗线程被原生提示框阻塞时完全停摆**（这是刻意的：提示框就是要用户先决策）。此时若有第二个故障不会被检出。
+- **启动后头 ~4 s 内发生的崩溃会丢旁证**：看门狗第一轮还没来得及采样，进程就已经没了 ⇒ 没有 pid 消失的记录可查，判定只能退化成「心跳超时」。真实使用中崩溃很少发生在应用刚起 4 s 内。
+- **`BrowserProcessGone` 分支只在看门狗见过浏览器进程之后才会命中**（`browser_seen`）。应用启动瞬间就崩的场景会走「心跳超时」那条路（恢复阶梯一样能兜底，只是判定标签不同）。
+
+## 19. 3.6.4 发版记录（2026-10-28）
+
+### 19.1 本次发版包含什么
+
+| 类别 | 内容 | 状态 |
+|---|---|---|
+| 资源优化 | 批次 A/B/C 结构性优化（缩略图缓存不再整体重建、关掉隐藏的 Quick View 预启动窗口、索引 / 目录监听 / 列表虚拟化） | 已 commit，随 3.6.4 发布 |
+| WebView2 兜底 | `webview_guard` 看门狗：渲染进程消失或心跳超 20 s 自动 `window.reload()`；浏览器进程死亡弹原生 Win32 提示框 | 本次提交，§18.15 已验收 21 PASS / 0 FAIL |
+| 全局搜索短查询 | `src-tauri/src/global_search/scoring.rs`：子串命中提前返回导致短查询被 0.9 门槛滤掉 | 本次提交，8 条回归用例 |
+| 文档 | CHANGELOG / README（中英）/ 14 个本地化 changelog / 17 个语言包 / winget 清单 / 站点 version.json | 已改 |
+
+### 19.2 资产
+
+- 安装包：`release/Alpha File Manager_3.6.4_x64-setup.exe`，20,697,849 B，sha256 `D070BB8D4ADF4716C8522CE071157C531CFCA8E080B355790DAAA4FCF0C79493`
+- 站点源：`E:\办公文件\L1网站\alpha-file-manager\Alpha_File_Manager_3.6.4_x64-setup.exe`（同 sha256）
+- winget 清单：`docs/winget/manifests/k/kizemo/AlphaFileManager/3.6.4/`（4 个 yaml，`npm run check:winget` exit 0）
+- 3.6.3 在 `release/` 保持原样：20,670,028 B / `D258E57A…B662B22`（**未被覆盖**）
+
+### 19.3 资源占用的两个口径（**别混着用**）
+
+合账口径（§18，优化前 vs 优化后）：
+
+| 指标 | 优化前 | 优化后 | 差 |
+|---|---|---|---|
+| 工作集（冷启 30 s） | 961.2 MB | 742.8 MB | −218.4 MB / −22.7% |
+| 工作集（3.5 h 稳态基线） | 1066.8 MB | 742.8 MB | −324.0 MB / −30.4% |
+| 磁盘缓存 | 805.58 MB | 66.21 MB | −739.37 MB / −91.8% |
+
+受控复测口径（同一份磁盘缓存 200.68 MB，三次各冷启 45 s，跑在隔离桌面沙箱里）：
+
+| 组 | 版本 / 设置 | 工作集 WS | 私有内存 PM | 进程数 |
+|---|---|---|---|---|
+| A | 安装版 3.6.3，预启动开 | 729.5 MB | 736.7 MB | 7 |
+| B | 3.6.4 构建，预启动开 | 723.6 MB | 705.6 MB | 7 |
+| C | 3.6.4 构建，预启动关 | 707.2 MB | 732.9 MB | 7 |
+
+归因：A→B 是**纯代码差**（WS −5.9 MB / −0.8%，PM −31.1 MB / −4.2%）；B→C 是关掉 Quick View 预启动（WS −16.4 MB）。
+
+**结论**：内存的大头是那份该清的缓存（−739 MB）；代码改造本身贡献约 **−5.9 MB WS / −31.1 MB PM**。
+
+复现工具：`.superpowers/sdd/sandbox-mem-364.ps1` + `.superpowers/sdd/mem364-all.cmd`；快照 `sandbox-mem-{a363-base,b364-code,c364-now}.json`。
+
+### 19.4 复测的已知局限（不要当成更精确的结论）
+
+- **单次采样**：三次各只跑了一遍，没有中位数与重复实验。
+- 单机、单账号、单驱动，没有跨机器对照。
+- 读数落在**索引重建时段**内；索引重建本身吃内存，收敛后的稳态可能更低。
+- D1（`last_vanish_ms` 改 `Option`）与 D2（闩锁改由前端心跳解锁）的收益**没有单独拆开**，合在 A→B 里。
+- 最早那个「88.7 MB」口径**始终没确认**是什么（§18.2），本轮也没有再追。
+
+### 19.5 scoring.rs 短查询门槛缺陷
+
+**病根是打分口径，不是门槛数值。**
+
+`score_match` 里「子串命中」这条路径**提前 return**，token 分支根本没机会执行 ⇒ 只有子串命中的文件拿到的是子串分（0.845 附近），而 1–3 字符的短查询门槛是 **0.9** ⇒ 直接被硬过滤掉。
+
+- 后果：搜 "pdf"、"doc"、"095" 这类**扩展名 / 中间片段**，几乎全灭。
+- **不是召回问题**：tantivy 侧能召回（"doc" 能召回 "report.docx"），瓶颈在 Rust 侧的**硬过滤**（`src-tauri/src/global_search/query.rs`）。
+- 修法：两条路径**取分数较高者**，门槛数值**不动** ⇒ 非前缀的子串命中可达 ≥0.92，能过 0.9；短查询的模糊匹配仍然保持严格。
+
+### 19.6 本轮新增的坑与工具
+
+- `release:prepare --write-notes <文件>` **只生成正文、不触发构建** ⇒ `_notes.md` 改完可以重跑，不会重复打包。**但顺序仍必须是「打包完成 → 再 write-notes」**，因为正文里要写大小与 sha256。
+- 自写 C# `STARTUPINFO` 的 `lpDesktop` / `lpReserved` / `lpTitle` 必须是 `IntPtr`；桌面名要用 `Marshal::StringToHGlobalUni` 转成指针、调用后 `FreeHGlobal`。照抄 `.superpowers/sdd/sandbox-c1-accept.ps1`（`Sbx` 类第 75–86 行结构体、第 287–289 行调用方式）。
+- 批量改文档用「纯文本数据文件 + node 插补脚本」，写完立刻验 **U+FFFD = 0 且无 BOM**；标记正则要允许**小写** locale（`/^===([A-Za-z0-9_]+)===$/`），只允许大写会漏掉 `===LOCALE_ch===`。
+- winget 生成器里 `InstallerSha256` 那行是**缩进两格**的 ⇒ 正则必须用 `/^(\s*)InstallerSha256: .*$/m`。
+- release 构建里 `SFM_E2E_DATA_DIR` 隔离覆盖被编译掉 ⇒ 沙箱实例与真实实例**共用 user-data**；沙箱测量/验收前必须先结束真实实例。
+- ⚠️ **2026-10-28：push 别再固定用 `git -c http.proxy=`** —— 本仓 git 已配代理
+  `http.proxy=http://127.0.0.1:7897`，清空代理后直连 github.com 报
+  `Recv failure: Connection was reset`；**用默认代理 `git push origin main` 一次就成功**。
+  正确姿势：**先带默认代理，失败再退回 `-c http.proxy=` 重试**。
+- **Node 的 `fetch` 不走 git 的代理**：要加 `NODE_USE_ENV_PROXY=1` + `HTTPS_PROXY=http://127.0.0.1:7897`。
+  ⚠️ 不加时 `release:upload` 的**收尾 fetch 会 `UND_ERR_CONNECT_TIMEOUT`**，
+  表现成「上传失败 exit 1」，**但实际上传早已成功**（4 个安装包 md5+size 全一致、线上 version.json 已是 3.6.4）。
+  **看到这报错别重跑上传**，直接 `npm run release:verify` 复核即可。
+- **3.6.4 双端发布结果**：GitHub release `v3.6.4` 资产
+  `Alpha_File_Manager_3.6.4_x64-setup.exe`（20,697,849 B，digest
+  `sha256:d070bb8d4adf4716c8522ce071157c531cfca8e080b355790daaa4fcf0c79493`）；
+  aiec.fun 源站与边缘（`CF-Cache-Status=MISS`）大小/sha256 三项一致；提交 `bd375f1b` 已 push。
+
+## 20. 下一阶段：AFM 主题制作（mac Finder 风格 · 浅色 / 深色）（2026-10-28 晚 新增）
+
+### 20.1 用户原话
+
+> 下一阶段，希望深入研究 AFM 主题制作的方式方法，必要时访问 https://github.com/sigma-hub/sigma-ui 了解 SFM 的 UI 设计机制。
+> 在掌握 AFM 主题制作方式的前提下，调用 /huashu-design 为 AFM 设计两套 mac Finder 风格主题，分别为浅色和深色，保持当前的资源管理器布局框架不变，在 mac finder 风格基础上进一步美化。制作后，设置 mac 浅色风格主题为默认。
+> 在通过测试后，升级版本号打包、发版，升级 readme 文档、升级日志、aiec 版本文件，push 到 github 和 aiec。
+
+### 20.2 主题机制调研结论（本轮已做完，新会话直接用，不必重查）
+
+AFM 的主题**不是**「改一份 CSS 就完事」，它分两层。
+
+**第一层 · 内置主题（`light` / `dark` / `system`）**
+
+- 类型定义：`src/types/user-settings.ts:269-270`
+  `BuiltinThemeId = 'light' | 'dark' | 'system'`；`Theme = BuiltinThemeId | \`extension:${string}:${string}\``
+- 注册表：`src/modules/themes/registry.ts`
+  - `BUILTIN_THEME_IDS = ['dark','light','system']`（第 8 行）
+  - **`DEFAULT_THEME_ID = 'light'`（第 9 行）⇒ 当前默认已经是浅色**
+  - `parseThemeId` / `findThemeOption` / `normalizeThemeSelection` / `getAvailableThemeOptions`
+- 应用：`src/stores/storage/composables/use-theme.ts`
+  - 内置主题 ⇒ `document.documentElement.classList.toggle('dark', isDark)`（第 59 行）
+  - 切换动画：**View Transitions + clip-path 圆形扩散，500 ms**；`prefers-reduced-motion` 自动降级（`runThemeTransition`）
+  - `watchEffect` 跟随设置项，`matchMedia('(prefers-color-scheme: dark)')` 变化时刷新 `system` 主题
+- 变量表：`src/styles/vars.css`（共 144 行）
+  - `:root` = 浅色（第 1–110 行）；`.dark` = 深色（第 112–143 行）
+  - **变量值是 HSL 三元组**（`220 13% 93%`），消费写法是 `hsl(var(--x) / N%)`
+  - 分三块：
+    ① AFM 自有：`--background-2/3`、`--window-toolbar`、`--icon`、尺寸类 `--nav-sidebar-width`、`--window-toolbar-height`、`--action-toolbar-height`、`--tab-height` 等
+    ② `/* SIGMA-UI */` 设计 token：`--background`、`--foreground`、`--muted`、`--muted-foreground`、`--popover`、`--card`、`--border`、`--input`、`--primary`、`--secondary`、`--destructive`、`--ring`、`--success`、`--dangerous`、`--warning`
+    ③ 形状/阴影/字体：`--radius*`（`--radius` / `--radius-full` / `--radius-xl|md|sm|xs`）、`--shadow-md` / `--shadow-lg`、`--font-mono`
+  - ⚠️ **带 `FORK-MODIFICATION` 注释的尺寸类变量不要动**。例如 `--navigator-list-view-entry-height: 42px` 是「运行时注入有没有生效」的判据（真机在 medium 档量出 42px = 注入断了），改了就把这个信号永久抹掉（见 vars.css 第 38–47 行注释）。
+- 设置界面：`src/modules/settings/ui/categories/appearance/theme.vue`
+- 单测：`src/modules/themes/__tests__/registry.test.ts`、`src/stores/storage/composables/__tests__/use-theme.test.ts`
+
+**第二层 · 扩展主题（`contributes.themes`）**
+
+- 主题条目形状（`src/modules/themes/registry.ts:19-28`）：
+  ```ts
+  { id: string; title: string; description?: string;
+    baseTheme: 'light' | 'dark';
+    variables: Record<`--${string}`, string> }
+  ```
+- 主题 id 形态：`extension:<extensionId>:<themeId>`（`createExtensionThemeId`）；`themeId` 必须匹配 `/^[a-z0-9-]+$/`
+- 来源：扩展 manifest 的 `contributes.themes[]`（`registry.ts:103`）
+- 应用顺序（`use-theme.ts:154-178`）：先清掉上次注入的变量 → 按 `baseTheme` 切 light/dark 类 → 再逐个 `style.setProperty()` 注入扩展变量
+- ⇒ **扩展主题可以只覆盖变量、不动结构**，这正好满足用户「保持当前资源管理器布局框架不变」
+
+**sigma-ui 是什么**（https://github.com/sigma-hub/sigma-ui）
+
+- 作者就是 SFM 上游作者 Aleksey Hoffman；定位「Well designed components for your Vue apps. Built on Reka-UI (Radix) primitives. Similar to shadcn/ui」
+- **拷贝式（copy-paste）组件库，不是 npm 依赖**：CLI `sigma-ui add <name>` 把组件源码写进你的仓库，你自己维护副本；`sigma-ui add <name> --diff` 显示与上游的漂移
+- 站点 `sigma-ui.dev`；MIT；102 stars
+- **AFM 已经在用它的设计 token**：`src/styles/vars.css` 里明确有 `/* SIGMA-UI */` 注释块（浅色第 62 行、深色第 122 行）
+- ⇒ 调研 SFM 的 UI 设计机制时，**sigma-ui 是 token 层的上游**，AFM 的 `vars.css` 就是它的落地形态
+
+### 20.3 落地路径的取舍（**关键决策点，新会话照此走**）
+
+用户要求「mac 浅色主题设为默认」。当前 `DEFAULT_THEME_ID = 'light'`（内置常量，见 registry.ts:9）。
+
+- **路线 A（主线，推荐）**：直接把 `src/styles/vars.css` 的 `:root` / `.dark` 两套变量改造成 mac Finder 风格。
+  - 「浅色为默认」天然成立（默认本来就是 light）；随 3.6.5 发行直接到用户端；不依赖扩展机制。
+  - 代价：与上游 diff 变大 ⇒ 改动的变量行要标 `FORK-MODIFICATION: 2026-10-28`（本仓既有惯例）。
+  - 只改**颜色/形状 token**（`--background*`、`--foreground`、`--muted*`、`--popover`、`--card`、`--border`、`--input`、`--primary`、`--secondary`、`--ring`、`--radius*`、`--shadow-*`），**不要碰尺寸类变量**。
+- **路线 B（可选叠加）**：再做一个扩展主题包（`contributes.themes`），让用户在设置里额外选「mac Finder 增强版」。
+  - 限制：扩展主题**无法成为全局默认**（`DEFAULT_THEME_ID` 是常量），且 AFM 发行版不自带扩展 ⇒ 拿不到「默认」效果。
+- ⇒ **先做 A；B 视时间再说。**
+
+### 20.4 与 `/huashu-design` 的冲突点（**要处理，别无视**）
+
+- 技能自述要求：「任何新设计 100% 先出三个方向初稿给用户选（指定品牌/风格也不豁免）」；
+  而用户已指定方向（mac Finder 风格）与交付物（浅色 + 深色两套）。
+- ⇒ 建议做法：新会话先按技能流程产出**三个 mac Finder 变体方向**的初稿（如「原生还原 / 精致现代 / 半透明玻璃」）交用户选，
+  **选定一个方向后**再分别做浅色、深色两套。既不违技能流程，也不违用户指令。
+
+### 20.5 下一步执行顺序（建议）
+
+1. **摸清变量消费面**：全仓 grep `hsl(var(--` 与 `var(--` 的覆盖面，产出「要改的颜色 token 清单」，
+   并做一张对照表（token ← mac 取色）。⚠️ 先确认哪些 token 真被用上，别改了一堆没人用的变量。
+2. **出设计方向**：按 §20.4 产出 3 个方向初稿（可用 `/huashu-design` 的 HTML 原型做），交用户选。
+3. **落地**：改 `src/styles/vars.css` 的 `:root` / `.dark`；必要时清 `src/styles/general.css`、`main.css` 里的硬编码色值。
+4. **测试**：eslint（基线 188 errors / 0 warnings）、`npm run ts`、`npm run test`（当前 252 files / 2323 tests —— 背景本地化新增了 2 个测试文件，见 §21.1）；
+   `use-theme.test.ts` 与 `registry.test.ts` 必须仍过（改的是变量值不是逻辑，通常不受影响）。
+5. **真机验收（硬约束）**：`tauri dev` 的路由页内容区全白 ⇒ **必须 `tauri build` 出包**后，
+   在**隔离桌面沙箱**内验收（脚本见 §20.7），用 `PrintWindow` 截图取证浅色 / 深色两套。
+   - ⚠️ 本机 DPI 144（150%），量像素要 ÷1.5；
+   - ⚠️ 验收前先结束真实 `alpha-file-manager` 实例（release 构建里 `SFM_E2E_DATA_DIR` 覆盖被编译掉，会抢单实例）；
+   - ⚠️ 视觉验收走 `PrintWindow`（离屏渲染），**不要**用屏幕 BitBlt（会拍到别的窗口）。
+6. **发版 3.6.5**：严格按 §7.2 / §15.1 的顺序
+   `npm run verify-changelog` → `npm run release:prepare -- --bump patch` → `npm run release:prepare -- --write-notes ./_notes.md`
+   → commit / push → `npm run release:upload` → `npm run release:github` → `npm run release:status` → `npm run release:verify` → `npm run check:winget`
+   - 文档清单照 §19.1 的口径（CHANGELOG + 14 个本地化 changelog + README 中英 + winget 清单 + 站点 `version.json`）
+   - ⚠️ **3.6.4 的安装包必须留在 `release/` 不动**（20,697,849 B / `D070BB8D4ADF4716C8522CE071157C531CFCA8E080B355790DAAA4FCF0C79493`）
+   - ⚠️ push 走**默认代理**（清空代理会 `Recv failure: Connection was reset`，见 §19.6）
+   - ⚠️ Node 的 `fetch` 要 `NODE_USE_ENV_PROXY=1` + `HTTPS_PROXY=http://127.0.0.1:7897`，否则 `release:upload` 收尾会假失败
+
+### 20.6 本阶段不做
+
+- 不动布局结构（用户明确「保持当前的资源管理器布局框架不变」）
+- 不动受保护常量（mDNS 服务名、legacy 数据目录名、Tauri identifier `com.sigma-file-manager.app`）
+- 不顺手重构 `use-theme.ts` 的动画逻辑（除非新主题真暴露问题）
+- 不重新发 3.6.4（已发完，§19.6）
+
+### 20.7 沙箱验收工具链（路径已核对存在）
+
+- 脚本：`F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\sandbox-c1-accept.ps1`
+- 纪律清单：`F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\relay-rules-batch-c.md`
+- ⚠️ 用户口述的路径 `…\sigma-file-manager.superpowers\sdd\…` **少了 `sigma-file-manager` 后面的反斜杠**，实际路径以上面两行为准。
+- 其余沙箱坑位见 `AGENTS.md` §2.8 与本文 §16–17。
+
+### 20.8 本轮（2026-10-28 晚）顺手做的两件事
+
+- `AGENTS.md` 补记两条会误导下一轮的规则：① push 要先走默认代理、失败再退回 `-c http.proxy=`；
+  ② Node `fetch` 需 `NODE_USE_ENV_PROXY=1` + `HTTPS_PROXY`。
+- 交接文档 §19 补记 3.6.4 双端发布结果。
+
+---
+
+## 21. 主页封面图缺陷修复 + 默认背景本地化（2026-10-29 新增）
+
+### 21.1 用户拍板的方案与做出来的东西
+
+用户原话：「请把所有默认背景，都下载到本地并打包到安装包中。」并要求修复
+「点击主页封面图 → 后台管理器 → 点击默认背景缩略图，无反应或反应很慢，
+无法立刻更新封面图（主页顶部的背景图片）」。
+
+**方案（用户拍板，不保留远程兜底）**：21 张默认背景图 + 21 张预览图在构建期
+静态打包进前端产物，运行期选内置背景**零网络、零等待**。
+
+- 新增 `src/data/background-media-assets.ts`：`import.meta.glob` 全尺寸静态导入
+  + 预览 glob；`buildBackgroundAssetIndex()` / `buildBackgroundPreviewIndex()`
+  （预览按**去扩展名基名**索引，`.mp4` → `.jpg`）/ `resolveBackgroundAssetUrl()`。
+- 重写 `src/modules/home/composables/use-background-media.ts`（542 → 450 行）：
+  删掉 `BACKGROUND_REPO_BASE`、远程下载与缓存、`ensureMediaCached`、`useUserPathsStore` 依赖；
+  `selectMedia` 改为**直接 `applySelection`**，不触发任何网络请求。
+- 构建期守卫**方向反转**：删 `src/build/background-source-import-guard.ts`（及其测试），
+  新增 `src/build/background-source-bundle-guard.ts` —— 素材目录与内置背景清单必须
+  **严格一一对应**，缺一或出现孤儿即构建失败（`vite.config.ts` 接入）。
+- Rust：`src-tauri/src/background_sources.rs` 删除命令 `resolve_background_source_to_cache`
+  （同步移除 `src-tauri/src/lib.rs` 注册）；`download_to_dir` 加 5s 连接 / 120s 总超时，
+  **只服务「用户自定义 URL 背景」**。
+- 调用点清理：`home-banner.vue`、`infusion-wrapper.vue`、`visual-effects.vue`。
+
+### 21.2 打包与入包验证（硬证据）
+
+- `tauri build` **BUILD_EXIT=0**（Rust release 编译 6m00s）。
+- 安装包 `src-tauri\target\release\bundle\nsis\Alpha File Manager_3.6.4_x64-setup.exe`
+  = 45,475,336 B = **43.37 MiB**（3.6.4 正式包是 20,697,849 B ≈ 19.7 MiB），
+  增量与 23.53 MB 素材吻合。
+- `verify-bundle-assets.cjs` → **RESULT=PASS，ASSETS_FOUND=21/21**
+  （按基名前缀 + 字节精确匹配 `dist/assets/`），SOURCE_BYTES=24,677,062。
+- `verify-exe-assets.cjs` → **RESULT=PASS，ASSET_NAMES_FOUND=45/45**
+  （素材文件名确实嵌在 77.15 MB 的 `alpha-file-manager.exe` 里）。
+- ⚠️ 打包用 `npm run tauri build`（**不是** `tauri:build`）：`tauri:build` 末段
+  `publish-bundle-to-release.mjs` 会遍历 `bundle/nsis/` 全部历史包逐个 `rmSync` +
+  复制到 `release/`，只要 `release/` 里任一旧包被锁就整步 exit 1（而 build 早已成功）。
+  发版阶段再单独处理 `release/` 复制。
+
+### 21.3 隔离桌面沙箱验收：6/6 全绿
+
+脚本：`.superpowers\sdd\sandbox-bg-accept.ps1`（纯 ASCII）+ `run-bg-accept.ps1`（编排）
++ `bg-accept-data.cjs`（backup / patch-home / restore / inspect）+ `bg-builtin-names.json`（22 条内置名称）。
+
+| 断言 | 内容 | 结果 |
+|---|---|---|
+| S1 | 操作员前台窗口未被抢（before=69124 after=69124） | PASS |
+| S2 | 选择落盘：`homeBannerMediaId` 由 `builtin:Out of time by Alena Aenami.jpg` 变为 `builtin:Exile by Aleksey Hoffman.jpg` | PASS |
+| S3 | 落盘耗时 **236 ms** < 3s（不等下载） | PASS |
+| S4a | 两张对照图的抽屉状态相同（都是打开） | PASS |
+| S4 | **同一抽屉状态**下主页封面像素已变 | PASS |
+| S5 | 关闭抽屉后封面像素相对初始态已变 | PASS |
+
+`SUMMARY pass=6 fail=0`，`ACCEPT_EXIT=0`。门禁同轮全绿：`npm run ts` 通过、
+`eslint .` = **188 problems（188 errors / 0 warnings，与基线一致）**、
+vitest = **252 文件 / 2323 用例全部通过**（比 3.6.4 基线多 2 个测试文件，
+就是背景本地化新增的那两个）。
+
+### 21.4 本轮最关键的方法论修正（比代码更重要）
+
+**「后台管理器」是 vaul 底部抽屉，而且不是模态的**：它**不加遮罩、不调暗页面**，
+主页封面在抽屉打开时**完全可见**。所以：
+
+- 用户可见的真判据是「**抽屉还开着的时候，顶部封面有没有立刻换掉**」，
+  而不是「关掉抽屉之后封面变了」。
+- ⇒ 像素断言必须用**同抽屉状态的两张对照图**（点击前 / 点击后），
+  否则「打开抽屉 → 页面被调暗」会让 before/after 无条件不等，**判据形同虚设**。
+  本轮第一版脚本就栽在这里（`background manager closed = False`，ESC 的
+  `PostMessage` 没送达渲染进程，抽屉一直在），第二轮加了 mid-before / mid-after
+  对照才拿到真结论。
+- 抽屉关闭的可靠办法：ESC 的 `PostMessage` **无效**；先找「关闭」按钮（`Button`，
+  可访问名「关闭」= U+5173 U+95ED）调 `InvokePattern` **再**用屏幕坐标 `Click` 点一次；
+  都不行就点抽屉面板**上方**的遮罩空白区（遮罩在最上层，点击不会落到页面内容上）。
+- 视觉证据：`bg-accept-mid-before.png` 顶部是粉红晚霞「Out of time」，
+  `bg-accept-mid-after.png`（抽屉仍打开）顶部已变成暗色森林「Exile」。
+
+### 21.5 沙箱坐标与 UIA 取证要点
+
+- `BgSbx.Click(host, screenX, screenY)` 收的是**屏幕坐标**，内部自己减去窗口原点换算客户区；
+  `Capture` 以 `GetWindowRect(main)` 的左上角为原点 ⇒ **签名区域要减 `$mr.Left / $mr.Top`**。
+- UIA `BoundingRectangle` 是**物理像素**；本机 DPI 150%。
+- 主页封面 `<img alt="">` **不进可访问性树**（空 alt 被忽略）⇒ 只能用「主页」标题几何反推，
+  且导航栏也有「主页」文本，**取最右侧那个**。
+- 抽屉里内置缩略图的可访问名 = `item.data.name`，**不带扩展名**（`Exile` / `Out of time`）。
+- UIA 树启动后约 1.2 s 才有 22 个元素、约 2.4 s 才有 111 个 ⇒ 探针阈值要等 `elements > 40`。
+
+### 21.6 数据纪律（release 构建会读真实用户数据）
+
+- release 构建把 `SFM_E2E_DATA_DIR` 编译掉了 ⇒ 只能「备份真实文件 → 灌夹具 → 验收 → 恢复」。
+- **恢复前必须先杀进程**（`Get-Process alpha-file-manager` 为 0），否则应用退出时会把
+  内存状态再写回真实文件。验收后已核对：进程 0、`homeBannerMediaId` 回到
+  `builtin:Out of time by Alena Aenami.jpg`、`startupPage` 回到 `navigator`、
+  真实文件 4544 B 与备份字节数一致。
+
+### 21.7 发版链路的新发现（3.6.5 直接可用）
+
+- `release/` 下 45 个历史安装包**全部未加锁** ⇒ `publish-bundle-to-release.mjs` 本轮不会踩坑。
+- 站点源目录 = `E:\办公文件\L1网站\alpha-file-manager`（`AFM_SITE_DIR` 可覆盖），
+  `version.json` 当前停在 **3.6.4**，`history[]` 已有 10 条；
+  `prepare` 会把站点上的旧版本自动归档进 `history[]`。
+- `verify-changelog` 校验的是「**package.json 的当前版本**必须有 CHANGELOG 条目」⇒
+  **升版本前后各跑一次**：升之前跑校验新条目的格式与倒序（此时版本号还是旧的，
+  报错含义明确），升之后跑才校验「3.6.5 有条目」。
+- `release:prepare` 内部已经含 `tauri build` ⇒ **发版只构建一次**。
+- `release:prepare --write-notes <文件>` 是 `_release-notes-v<版本>.md` 的**唯一生成入口**，
+  `release:github` 只读它、从不生成 ⇒ 漏了会安静地发一个正文为空的 release。
+
+### 21.8 当前状态（2026-10-29）
+
+- **未提交**：背景本地化的全部改动在工作树里，HEAD 仍是 `13427d04`，版本号仍是 **3.6.4**。
+  改动文件：`src-tauri/src/background_sources.rs`、`src-tauri/src/lib.rs`、
+  `src/components/ui/infusion/infusion-wrapper.vue`、
+  `src/modules/home/components/home-banner.vue`、
+  `src/modules/home/composables/use-background-media.ts`、
+  `src/modules/settings/ui/categories/appearance/visual-effects.vue`、`vite.config.ts`；
+  新增 `src/build/background-source-bundle-guard.ts`、`src/data/background-media-assets.ts`
+  及两个测试文件；删除 `src/build/background-source-import-guard.ts` 及其测试。
+- **已完成**：背景本地化代码 + 门禁全绿 + 打包 + 入包验证 + 沙箱真机验收 6/6。
+- **进行中**：mac Finder 主题（§20 主线）—— 三个变体初稿见
+  `.superpowers\sdd\theme-mac-variants.md`，**等用户选型**；选型后只改
+  `src/styles/vars.css` 的颜色与形状 token，落地浅色 + 深色两套。
+- 随后按 §20.5 第 4–6 步走：门禁 → `tauri build` → 隔离沙箱视觉验收（浅色 / 深色两套）
+  → 发 3.6.5。
+
+---
+
+## 22. mac Finder 六套主题落地 + 3.6.5 发版（2026-10-29）
+
+用户拍板「A+B+C 都做，出三套（加深色六套）」⇒ 经典 / 精致现代 / 半透明玻璃 × 浅色 / 深色，
+与原有 `light` / `dark` / `system` 并存，**共 9 套可切换**，`DEFAULT_THEME_ID` 仍是 `light`。
+
+### 22.1 落地范围（改动文件）
+
+- **新增** `src/modules/themes/mac-variants.ts`（10,618 B）：6 个 id
+  `mac-classic-light/dark`、`mac-modern-light/dark`、`mac-glass-light/dark`；
+  每个变体 24 个颜色 token + `--radius` / `--shadow-md` / `--shadow-lg`
+  （玻璃另加 `--backdrop-filter-blur: 48px`）；文件头写死四条设计约束
+  （只改颜色与形状 token / 不动布局结构 / 颜色 token 保持裸 HSL 三元组 / 不改带
+  `FORK-MODIFICATION` 注释的尺寸变量）。
+- **改** `src/types/user-settings.ts`：`BuiltinThemeId` 由 3 个扩为 9 个。
+- **改** `src/modules/themes/registry.ts`：新增 `getMacVariantThemeOptions()`；
+  `BuiltinThemeOption` 增 `baseTheme?` / `variables?`；`parseThemeId()` 把 mac 变体识别为 builtin；
+  `ResolvedBuiltinThemeId` 收窄为 `'light' | 'dark'`。
+- **改** `src/stores/storage/composables/use-theme.ts`：`applyTheme()` 拆成三分支
+  （classic / mac 变体 / 扩展主题），抽出 `applyThemeVariables()`；`.dark` class 语义不变。
+- **改** `src/modules/settings/ui/categories/appearance/theme.vue`：拆出
+  `classicThemeOptions` / `macVariantThemeOptions` / `extensionThemeOptions`，
+  新增分组标题「macOS 风格主题」，`getMacVariantThemeName()` 用 6 个静态 i18n key switch。
+- **17 个语言包**全部补齐 `settings.homeBannerEffects.theme.macVariantThemes` 与
+  `.macVariants.{classicLight,…,glassDark}`（补丁脚本 `.superpowers/sdd/theme-locale-patch.cjs` 幂等，
+  校验输出 `ALL 17 LOCALES OK (parse/bom/fffd/key)`）。
+- **测试**：新增 `src/modules/themes/__tests__/mac-variants.test.ts`（9 个 it）、
+  `src/modules/settings/ui/categories/appearance/__tests__/theme.test.ts`（4 个 it）、
+  更新 `src/modules/themes/__tests__/registry.test.ts`。
+
+### 22.2 关键设计决策
+
+- 走「**builtin 通道 + baseTheme + CSS 变量覆盖**」，与扩展主题同构
+  ⇒ `.dark` class 仍由 `use-theme.ts` 切换，`infusion.vue` / `dashboard-hero.vue`
+  两条 `.dark` 规则**无需改动**。
+- 变体 C（玻璃）**不能**给基础面 token 加 alpha（会与「裸 HSL 三元组」约束冲突）
+  ⇒ 改用 `--popover` / `--input` 带 alpha + `--backdrop-filter-blur: 48px`
+  + 实色面板 + 淡发丝边。
+- 深色变体必须覆盖 `.dark` 块**全部**颜色 token —— 已由单测强制。
+- 17 语言包必须全改：`messages-key-alignment.test.ts` 查 key 对齐，
+  且 `createI18n` **未配 `fallbackLocale`** ⇒ 漏改直接显示 key 原文。
+
+### 22.3 沙箱真机视觉验收 8/8 全绿
+
+脚本 `.superpowers/sdd/run-theme-accept.ps1`（+ `theme-accept-data.cjs` 做 backup / set-theme / restore），
+日志 `theme-accept-run.log`，汇总 `theme-accept-summary.txt`，截图 `theme-accept-<id>.png`。
+口径：每轮 **杀进程 → 等进程消失 → patch `user-settings.json` 的 `theme` → 启动 → 等 9 s → 截图 → 杀进程**。
+
+| 主题 | meanRgb | 字节 | sha256 前 16 |
+|---|---|---|---|
+| mac-classic-light | 226.4,222.4,223.5 | 1420454 | FB7AE78E2885529 |
+| mac-classic-dark | 55.9,52.0,55.9 | 1683664 | D6462931595F57AA |
+| mac-modern-light | 228.3,224.1,226.2 | 1288690 | BFA5F2830266D856 |
+| mac-modern-dark | 50.2,46.1,49.2 | 1689339 | BC5360A1FE13F1A2 |
+| mac-glass-light | 226.1,222.1,226.3 | 1491712 | 65E603495CBB3EC1 |
+| mac-glass-dark | 51.1,47.1,53.2 | 1694706 | 20AB14C032A2063E |
+| light（对照） | 221.0,218.2,221.3 | 1453397 | 741E242543F1DB64 |
+| dark（对照） | 54.4,51.6,58.1 | 1692215 | 2B10DEA849B42AFE |
+
+结论：`captures=8 failures=0`、`ACCEPT_EXIT=0`；每个家族 dark 明显暗于 light；
+三家族浅色 226~228 / 深色 50~56，**家族差异主要在大面积背景**，需结合肉眼截图判断可区分性。
+验收后 `PROC_COUNT=0`，真实数据已恢复（`theme=light`、`lastSeenVersion=none`、BYTES=4544、
+sha256 与备份一致）。
+
+### 22.4 验收脚本的 4 个真 bug（已修，脚本留在 `.superpowers/sdd/`）
+
+1. **`Add-Type` 缺 `-ReferencedAssemblies`** ⇒ PS 5.1 找不到 `System.Drawing.Imaging`，
+   `ThemeSbx` 类型编译失败 ⇒ 加 `@('System.dll','System.Core.dll','System.Drawing')`，
+   并加「类型存在」硬断言（失败 `exit 5`）。
+   注意 `[Type]::GetType('ThemeSbx')` 在动态程序集里返回 **null**，不代表失败。
+2. **0 截图也 `exit 0`（假成功）** ⇒ 末尾断言 `captures == themeIds.Count`，否则 `exit 6`。
+3. **每轮 kill 后未等进程真正退出就 patch** ⇒ 加 20 s 轮询等待，仍存活则 FAIL。
+4. **PowerShell 变量名不区分大小写**：`$ThemeIds`（param）与 `$themeIds`（局部数组）撞名
+   ⇒ `$ThemeIds.Split` 抛错、数组被展平成字符串、只抓 1 张且文件名带空格
+   ⇒ 参数改名 `$OnlyThemes`，并先把 `$themeIds[0]` 复制到标量 `$firstTheme` 再传 node。
+
+### 22.5 新增踩坑：release 构建的「首启一次性初始化」会覆盖磁盘 patch
+
+`use-changelog.ts` 判定 `lastSeenVersion !== appVersion.value` 就弹「新功能」模态框；
+而 release 构建**首次启动**的一次性数据初始化会用内存默认值**覆盖磁盘上的 patch**
+⇒ 模态框弹出、整页压暗，首轮 `mac-classic-light` 量到 `meanRgb=103.7`
+（**真因不是配色错误**）。
+**解法：加「预热启动」段** —— 先空跑一次让初始化落地，再进入截图循环，之后全部干净。
+
+### 22.6 3.6.5 发版事实
+
+- 版本已顶到 **3.6.5**：`package.json` + `npm run sync-version`
+  → `Synced 3 Cargo manifests to 3.6.5`（`src-tauri/Cargo.toml` + 两个 default-file-manager-*）。
+  `src-tauri/tauri.conf.json` 的 version 是 `"../package.json"`。
+- 安装包：`src-tauri\target\release\bundle\nsis\Alpha File Manager_3.6.5_x64-setup.exe`
+  = **45,474,813 B（43.37 MiB）**；已复制进 `release/`，
+  SHA256 = `b8848f9e1eeb805cce93998cf5db53bb23eaa1ac7b7bb4eeab1789140a6959d0`。
+  `release/` 下 exe 共 43 个，`latestInstaller` 取 mtime 最新的那个（实测取到的正是 3.6.5）。
+- 门禁（`gate-theme2.cmd` / `gate-theme2.log`）：`TS_EXIT=0`、
+  `ESLINT_EXIT=1` 且 **188 problems（= 基线）**、`TEST_EXIT=0` 且
+  **254 files / 2336 tests passed**。
+- README.md（英文）/ README.zh-CN.md（中文）的 3.6.5 段落已写；
+  `CHANGELOG.md` 与 `public/changelog/ch/changelog.md` 的 `## [3.6.5] - 2026 年 10 月` 已写；
+  **13 个非中英语言包**（de/es/fa/fr/hi/it/ja/pt/ru/sl/tr/ur/vi）的 3.6.5 条目
+  由 `.superpowers/sdd/patch-changelog-365-i18n.cjs` 幂等补齐（复跑 `patched=0 skipped=13`）。
+- `verify-changelog` 通过（`应用版本 3.6.5 / CHANGELOG 条目 35`）。
+- 发版说明正文 `.superpowers/sdd/notes-365.md`（构建信息由 `prepare --write-notes` 追加）。
+
+### 22.7 本轮踩坑补充
+
+- **发版构建用 `npm run tauri build`，不用 `npm run tauri:build`**：
+  后者尾步 `publish-bundle-to-release.mjs` 会遍历 `bundle/nsis/` 下所有历史安装包并复制到 `release/`，
+  旧包被锁就整步 exit 1（而 `tauri build` 本身早已成功）。
+  ⇒ 先 `tauri build`，再用 node 单独把新包复制进 `release/`。
+- **`prepare --write-notes` 不能省**：它是 `_release-notes-v<版本>.md` 的**唯一生成入口**，
+  `release:github` 只读它 ⇒ 漏了不会报错，只会安静地发一个正文为空的 release。
+- **`verify-changelog` 升版本前后各跑一次**（见 §21.7）。
+
+### 22.8 发版执行结果（2026-10-29）
+
+三个提交，全部已 push 到 `origin/main`：
+
+| commit | 内容 |
+|---|---|
+| `521901d9` | `feat: 3.6.5 —— 默认背景本地化打包；新增六套 mac Finder 风格主题`（62 files, +1779 / −307） |
+| `666bee25` | `release: 补 winget manifest 3.6.5`（4 个新文件入库） |
+| `512c8f50` | `docs: 补 winget 3.6.5 清单登记与 3.5.1 PR 复查结论` |
+
+- **`release:prepare --bump none --skip-build --notes-file .superpowers/sdd/notes-365.md`** → `PREPARE_EXIT=0`：
+  版本 3.6.5 → 3.6.5；安装包 45,474,813 B / sha256 `b8848f9e…9d0`；
+  站点旧版本 **3.6.4 自动归档进 `history[]`**（history 现 20 条）；
+  `version.json` 改成 3.6.5；安装包复制到站点源目录且 **sha256 一致**。
+- **`prepare --write-notes`** → 生成 `E:\办公文件\L1网站\alpha-file-manager\_release-notes-v3.6.5.md`
+  （1540 B：正文 + 「构建信息」段）。**这一步不能省**，它是该文件的唯一生成入口。
+- **`release:github`** → `GITHUB_EXIT=0`：GitHub 上原本没有 v3.6.5，已创建
+  `https://github.com/kizemo/alpha-file-manager/releases/tag/v3.6.5`，
+  资产 `Alpha_File_Manager_3.6.5_x64-setup.exe`（45,474,813 B，sha256 与本地一致）。
+  回读核验（`gh release view v3.6.5`）：`isDraft=false`、`isPrerelease=false`、
+  正文 = `_release-notes-v3.6.5.md` 全文（含「构建信息」段：版本号 / 文件名 / 大小 / SHA-256）、
+  资产 `state=uploaded` 且 `digest=sha256:b8848f9e…9d0`。
+  ⚠️ 用 `gh ... --json` 的输出喂给 `node -e` 解析时，**PowerShell 管道会加 UTF-8 BOM**，
+  `JSON.parse` 直接报 `Unexpected token '﻿'` ⇒ 解析前先 `.replace(/^\uFEFF/,'')`。
+- **`release:upload`**（SFTP / paramiko，主机 `47.120.26.175`）→ **上传完成**：
+  27 个文件 / 448.37 MB 逐个上传，第 4 步远端复核「md5 + size 全部一致」全绿
+  （含 `version.json` 与 3.6.5 安装包）。
+  输出是 cp936，**中文是乱码属正常**（按代码页解即可）。
+- **`release:verify`**（公网回读）→ `VERIFY_EXIT=0`：线上版本 3.6.5、
+  发布日期 `2026-10-29T02:12:21Z`、清单 sha256 与本地包 sha256 一致；
+  **源站包 45,474,813 B（绕过缓存，用户看不到这个）**、
+  **边缘包 45,474,813 B（`CF-Cache-Status=HIT`）** ⇒ 版本号 / 大小 / sha256 三项均一致，
+  源站与边缘都已生效。
+- **`release:status`** → `STATUS_EXIT=0`：本地 `package.json` / `release/` 安装包 /
+  站点源 `version.json` 三方一致（版本 3.6.5、sha256、45,474,813 B）。
+- **`npm run check:winget`** → `WINGET_EXIT=0`，四项全绿：4 文件齐全且 UTF-8 无 BOM / LF /
+  末尾换行、四个 YAML 可解析、`InstallerSha256` 与**本地安装包实际字节**一致、
+  `InstallerUrl` 指向 v3.6.5 的 GitHub release 资产。
+- **winget 的处置**：3.5.1 的 PR #460744 仍是 `OPEN`（`mergedAt=null`、`REVIEW_REQUIRED`，
+  标签 `Validation-Completed` + `Azure-Pipeline-Passed` + `New-Package`），
+  同一个包 ID 在 `microsoft/winget-pkgs` 里**不允许同时开第二个 PR**
+  ⇒ **3.6.5 只备清单、不提交 PR**，等 3.5.1 合并后直接提 3.6.5。
+  清单在 `docs/winget/manifests/k/kizemo/AlphaFileManager/3.6.5/`，
+  `ManifestVersion` 仍 `1.12.0`、`Tags` 不动、`ReleaseDate` = `2026-10-29`、
+  `InstallerSha256` = `B8848F9E…9D0`；`docs/winget/README.md` 已补登记与取舍说明。
+
+## 23. 升级安装失败缺陷修复：Uninstall was not successfully（2026-10-29）
+
+### 23.1 用户报的现象
+
+2026-10-29 上午，用户安装 3.6.5 时：按提示点「确定」关闭运行中的 AFM，
+setup 仍然弹出 **"Uninstall was not successfully"**，AFM 没有完全关闭，**安装失败**。
+
+### 23.2 现场取证
+
+用户机 `%TEMP%\alpha-file-manager-install.log`：
+
+```
+2026-10-29 10:27:23.033 [install] phase=PREUNINSTALL installerVersion=3.6.4 ...
+```
+
+- 有 `PREUNINSTALL`、**没有 `POSTUNINSTALL`** ⇒ 旧卸载器进了 Uninstall 段却中途 Abort；
+- 3.6.5 的 `PREINSTALL` 从未出现 ⇒ setup 在进入 `Section Install` 之前就中止了。
+
+用户机 `%TEMP%\alpha-file-manager-kill.log`（同一分钟，1540 行）：
+
+```
+10:27:20.474 snapshot: 301 processes
+10:27:20.734 target found: PID=403472 alpha-file-manager.exe
+10:27:20.838 terminated PID=403472 alpha-file-manager.exe
+10:27:20.852 done: killed=8 failed=0, installer alive.
+10:27:20.855 OUTCOME=ok exit=0
+```
+
+⇒ 杀进程脚本**自认为成功**（killed=8 / failed=0 / exit=0），但从 kill 结束到
+`PREUNINSTALL` 只隔 **2.18 s**。旧脚本的语义是「**发信号即返**」：
+既不等进程真正退出，也不校验目标 exe 是否已解锁。
+
+### 23.3 根因（源码级 + 日志级闭合）
+
+Tauri 2.12.0 NSIS 模板 `utils.nsh` 的 `CheckIfAppIsRunning` 宏：
+
+| 行 | 语义 |
+|---|---|
+| L39 | `RmGetList`（Restart Manager 快照） |
+| L41 | 返回 `ERROR_MORE_DATA` ⇒ **仍有进程占用** `$INSTDIR\alpha-file-manager.exe` |
+| L42 | `IfSilent` 时静默跳过弹框 |
+| L43 | 交互式 `MessageBox MB_OKCANCEL`（「正在运行！点击确定以终止运行」）——用户点的就是这个「确定」 |
+| L47 | `RmShutdown(RmForceShutdown)` 强制关闭占用者 |
+| L51-63 | 仍失败 ⇒ `Abort $R3`（`$(failedToKillApp)`）——**用户看到的 "Uninstall was not successfully" 就是这条 Abort** |
+| 模板 L414-429 | `$0 <> 0` ⇒ `MessageBox "$(unableToUninstall)"` + `Abort` ⇒ setup 判失败 |
+
+模板段序（`installer.nsi`）：`Section Install` L685-692（PREINSTALL hook → `CheckIfAppIsRunning`）→
+`Section Uninstall` L823-829（PREUNINSTALL hook → `CheckIfAppIsRunning`）→
+**POSTUNINSTALL hook 在 L933-935** ⇒ Abort 必然发生在 POSTUNINSTALL 之前，
+与 10:27 日志「有 PREUNINSTALL、无 POSTUNINSTALL」完全一致。
+
+**根因一句话**：旧 kill 脚本「发信号即返」，旧卸载器紧接着做 Restart Manager 快照时
+占用者还没真正消失 ⇒ 强杀失败 ⇒ Abort ⇒ setup 报「卸载不成功」。
+
+> 补充：占用者**不一定是 app 本体**（10:27 时 app 已被 TerminateProcess），
+> 也可能是 Defender / 索引器等**瞬时持有 exe 句柄**的第三方进程。
+> 所以修复不能只依赖「等 app 进程消失」，必须**直接证明 exe 已解锁**。
+
+### 23.4 修复（三处同时改，缺一不可）
+
+**① 卸载侧 —— `src-tauri/installer/kill-app-tree.ps1`（整体重写，21,946 B，纯 ASCII / LF）**
+
+- 新增参数：`-InstDir`、`-DisableScheduledTask`、`-WaitTimeoutMs`、`-VerifyTimeoutMs`；
+- 新增 `Wait-PidsGone`：等目标 pid **真正从进程表消失**；
+- 新增 `Test-ExclusiveOpen`：`File.Open(..., FileShare::None)` **独占打开 AFM 自身二进制**
+  ⇒ 独占成功即证明无人持有/映射该 exe ⇒ Restart Manager 必然查不到它；
+- 最多 **2 轮** deepest-first 强杀 → 等待 → 复验；独占校验失败只告警不 Abort
+  （可能是 Defender 的短暂句柄），并长轮询重试（默认 20 s）；
+- 退出码 **0 / 1 / 2 / 3**，其中 **3 = 二进制仍被占用**（`OUTCOME=locked exit=3`）；
+- 成功时打印 `verified: N binary path(s) can be opened exclusively.`。
+
+**② 钩子侧 —— `src-tauri/installer/hooks.nsh`**
+
+- `Var AlphaKillInstDir` / `Var AlphaLegacyInstDir`；`AlphaTerminateAppProcesses`
+  的 nsExec 改为带 `-InstDir "$AlphaKillInstDir" -DisableScheduledTask`；
+- PREINSTALL / PREUNINSTALL **共用**同一套「杀干净再继续」；删掉 PREUNINSTALL 里的盲等 `Sleep 1000`；
+- 新增 `Function AlphaPrepareLegacyUninstall` + `!define AFM_HOOK_PRELEGACY_UNINSTALL`
+  + `!macro NSIS_HOOK_PRELEGACY_UNINSTALL`（`File /oname=$PLUGINSDIR\kill-app-tree.ps1` 解包 + nsExec）。
+
+**③ 安装侧 —— `src-tauri/installer/installer.nsi`（vendor Tauri 2.12.0 模板，1,025 行）**
+
+在 `reinst_uninstall:` 段里、**`ExecWait '$R1' $0`（调旧卸载器）之前**插入钩子：
+
+```nsis
+; AFM PATCH (2026-10-29)
+!ifdef AFM_HOOK_PRELEGACY_UNINSTALL
+  !insertmacro NSIS_HOOK_PRELEGACY_UNINSTALL
+!endif
+```
+
+> **为什么必须改安装侧**：旧卸载器里那份 kill 脚本是**随旧版本冻结**的，改不了。
+> 跨版本升级（3.6.5 → 3.6.6）时只有**新版 setup** 能在调旧卸载器之前
+> 先把进程树杀干净并**证明 exe 已解锁**，旧卸载器的 RM 快照才会查不到占用者。
+> 用 `!ifdef` + `!insertmacro`（而非 `!ifmacrodef`）：hooks 缺失时退回上游行为，仍可编译。
+
+配套：`src-tauri/tauri.conf.json` 的 `bundle.windows.nsis` 指向 `installerHooks` / `template`；
+`package.json` 的 `@tauri-apps/cli` 由 `^2.4.0` **精确 pin 到 `2.12.0`**（模板必须与 vendored 版本同源）；
+版本 3.6.5 → **3.6.6**（`package.json` / `src-tauri/Cargo.toml` / 两个 `default-file-manager-*/Cargo.toml` 一致）。
+
+### 23.5 门禁与产物
+
+| 门禁 | 结果 |
+|---|---|
+| `embed-kill-script.mjs --sync` / `--check` | 内嵌 kill 脚本与仓库副本一致（exit 0） |
+| `npm run ts` | exit 0 |
+| `npm run lint:check` | **188 errors / 0 warnings**（= 基线） |
+| `npm run lint:stylelint:check` | **184 errors / 0 warnings**（= 基线） |
+| `npm run test:unit:run` | **255 files / 2345 tests passed** |
+| `node scripts/verify-changelog.mjs` | exit 0（根 + 14 个语言包全覆盖） |
+| `npm run tauri build` | **BUILD_EXIT=0**（NSIS 改动当编译期门禁） |
+
+- 产物：`src-tauri/target/release/bundle/nsis/Alpha File Manager_3.6.6_x64-setup.exe`，
+  **45,490,743 B**（已单独复制进 `release/`，**历史安装包一个没删**）。
+- 新增守卫单测 `src-tauri/installer/__tests__/nsis-template-patch.test.ts`（9 条）：
+  模板带 AFM PATCH 块、钩子夹在两个 `ExecWait '$R1' $0` 之间、`!ifdef`/`!insertmacro` 各 1 处、
+  hooks 传 `-InstDir`/`-DisableScheduledTask`、`tauri.conf.json` 指向正确、CLI 精确 pin 2.12.0、
+  三处版本一致、kill 脚本纯 ASCII 且含 `Test-ExclusiveOpen`/`Wait-PidsGone`/exit 3。
+
+### 23.6 隔离沙箱 A/B 验收（2026-10-29）
+
+按 AGENTS.md §2.8，全部在**隔离桌面沙箱**里跑，不抢用户桌面焦点。
+脚本：`.superpowers/sdd/accept-upgrade-366.ps1`（v2：`.superpowers/sdd/accept-upgrade-366-v2.ps1`）。
+
+驱动要点（踩坑记录）：
+
+- 跨进程点按钮必须用 **`SendMessageTimeout(BM_CLICK, 3 s)`**，不能用阻塞 `SendMessage`
+  ——否则与 NSIS 的 `ExecWait` 互锁死锁（本轮第一次跑就卡死在这里）；
+- `EnumDesktopWindows` 在本机**不按桌面隔离**（会混入用户桌面的 Sogou / IME 窗口）
+  ⇒ 只能点击进程名属于 `uninstall` / `Alpha File Manager_*setup*` 的窗口；
+- 沙箱内 `CreateProcess` 的 `lpCurrentDirectory` **不能为 NULL**（盘符映射按桌面隔离，
+  NULL 会得到 win32=123），必须传 exe 父目录；
+- 沙箱**没有键盘输入**，只能做鼠标等价断言；消息框按钮要按文案区分
+  （Yes/OK/确定/是 永远可点，`&Uninstall` 只点一次，同页同签名不重复点前进按钮）。
+
+**NEW（3.6.5 → 3.6.6，修复后）实测时间线**（安装日志 `%TEMP%\alpha-file-manager-install.log` + 杀进程日志）：
+
+```
+13:12:27.645  phase=PREUNINSTALL  installerVersion=3.6.5   <- 旧卸载器启动
+13:12:35.423  phase=POSTUNINSTALL installerVersion=3.6.5   <- 旧卸载器**成功完成**（10:27 缺的正是这一行）
+13:13:06.559  [kill-app-tree] verified: 1 binary path(s) can be opened exclusively.
+13:13:06.562  [kill-app-tree] OUTCOME=ok exit=0
+13:13:12.473  phase=PREINSTALL  installerVersion=3.6.6
+13:13:49.661  phase=POSTINSTALL installerVersion=3.6.6
+```
+
+装后 `alpha-file-manager.exe` 的 ProductVersion = **3.6.6**。
+⇒ **新 kill 脚本在旧卸载器动手之前就证明 exe 已完全解锁**，
+旧卸载器的 RM 快照查不到占用者 ⇒ POSTUNINSTALL 顺利写出 ⇒ 安装一次走完。
+
+**OLD（3.6.4 → 3.6.5，旧模板）对照**：沙箱里旧链路**也**成功卸载了
+（同样有 PREUNINSTALL + POSTUNINSTALL），即 **10:27 的失败在沙箱未复现**——
+这是竞态：用户机上 app 终止与 RM 快照之间只隔 2.18 s，占用者可能还在。
+⇒ 缺陷的证据是**用户机的原始日志**，沙箱能稳定复现的是 A/B 的**结构性差异**：
+
+| 对照项 | OLD（3.6.5 setup） | NEW（3.6.6 setup） |
+|---|---|---|
+| 旧卸载器前是否跑新 kill 脚本 | **否** | **是**（`PRELEGACY_UNINSTALL` 钩子） |
+| kill 日志里有 `verified:` 证明 | **无** | **有**（`verified: 1 binary path(s) …`） |
+| 旧卸载器 RM 快照时 exe 是否保证已解锁 | **不保证**（杀完即返） | **保证**（独占打开证明） |
+| 用户现场结果 | 10:27 Abort → "Uninstall was not successfully" | 安装成功，装出 3.6.6 |
+
+**沙箱环境的两处已知假象**（不要当成产品缺陷）：
+
+- setup 点完 Finish 后**不退出**：Tauri 模板的 `MUI_FINISHPAGE_RUN_FUNCTION RunMainBinary`
+  用 `nsis_tauri_utils::RunAsUser`（ShellExecute `runas`），在无交互沙箱桌面里这个
+  「运行应用」动作永远等不到结果 ⇒ setup 进程滞留，驱动只能超时后终止它。
+  ⇒ **验收判据取安装日志的 `POSTINSTALL` + 装出版本 + kill 日志的 `verified:`，不取 setup 退出码**；
+- `updater.exe` 进程与本项目无关（是夸克浏览器的 QuarkUpdater 服务），排查时不要误判为 AFM 的残留。
+
+### 23.7 遗留与限制
+
+- **10:27 真机失败的直接占用者仍未定位**：不是 app 本体（已被 TerminateProcess），
+  候选是 Defender / 索引器等**瞬时持有 exe 句柄**的第三方进程，或 app 终止未完全 reap。
+  ⇒ 修复采取的是「**不依赖具体占用者**」的策略：独占打开证明 + 长轮询重试。
+- `rm shutdown` 的兜底是 `OUTCOME=locked exit=3`：**只告警不 Abort**，
+  避免因第三方瞬时句柄把用户的安装直接判死。
+- 共享的 `msedgewebview2.exe` **不参与**独占校验（多个应用共用，必然打不开）。
+- `package-lock.json` 仍是旧版本（本轮决定不改），若要用 `npm ci` 需另行处理。
+- 3.6.6 只做**缺陷修复**，**不重做发版链路**（不提交 winget PR、不发 GitHub release）。
+
+### 23.8 独立复跑与验收收尾（2026-10-29 13:23）
+
+把判据按实测修正后（OLD 阶段改为「旧路径没有解锁证明」+ 如实记录沙箱结果；
+NEW 阶段改用**安装日志 + kill 日志 + 装出版本**，不再用沙箱里必然滞留的 setup 退出码），
+**独立复跑一遍 NEW 路径**：`.superpowers/sdd/accept-upgrade-366-v2.ps1`，
+流程 = 卸载 3.6.6 → 静默装回 3.6.5 基线 → 沙箱里起 app → 跑 3.6.6 setup。
+
+```
+13:23:22.520  phase=PREUNINSTALL  installerVersion=3.6.5
+13:23:29.031  phase=POSTUNINSTALL installerVersion=3.6.5
+13:24:02.174  phase=PREINSTALL  installerVersion=3.6.6
+13:24:36.349  phase=POSTINSTALL installerVersion=3.6.6
+===== SUMMARY: pass=9 fail=0 =====        V2_EXIT=0
+```
+
+9 条断言全绿：沙箱里 app 正常运行且把已安装二进制映射进模块表（Restart Manager 看得见）、
+旧卸载器 PREUNINSTALL + **POSTUNINSTALL**、3.6.6 安装完成、kill 日志里有
+`verified:` 与 `OUTCOME=ok`、**没有出现 "Uninstall was not successfully" 对话框**、
+装出的 ProductVersion = **3.6.6**。
+
+**验收收尾：用户数据已按字节恢复**（沙箱跑的是 release 构建，会读写真实 user-data）：
+
+- 顺序必须是「**先结束 `alpha-file-manager` / `focus-sync-sidecar` 进程 → 再 restore**」
+  —— 应用退出时会把内存里的统计状态写回真实 `user-stats.json`，
+  不先杀进程的话夹具/测试态会被再写回去一次；
+- 实测：备份 24 文件 / 2,940,581 B → 恢复后 **24 文件 / 2,940,581 B**，
+  4 个文件被覆盖写回、20 个本就一致、**0 个哈希不一致、0 个多余文件**；
+- 收尾后 `alpha-file-manager` / `focus-sync-sidecar` 进程数 = **0**；
+- 机器上最终保留的是**修好的 3.6.6**（`release\Alpha File Manager_3.6.6_x64-setup.exe`，
+  45,490,743 B，sha256 `954AB0AA…EE4`，与 `src-tauri\target\release\bundle\nsis\` 下的构建产物逐字节一致）。
+
+---
+
+## 24. 缺陷（取证已结案 / 修复待做）：安装完成后约 11 分钟，安装对话框又出现一次（2026-10-29）
+
+### 24.1 时间线（全部来自 `alpha-file-manager-install.log` / `alpha-file-manager-kill.log` / Application 日志）
+
+| 本地时间 | 事件 |
+|---|---|
+| 13:21:57 | 我的沙箱验收 pass-1 拉起 `release\…3.6.6…setup.exe`（`detectedVersion=3.6.5`） |
+| 13:22:38 | 13:17 失败卸载遗留的 `uninstall.exe-672576` **仍在模块表里**（RestartManager `reason=512`，进程已消失）⇒ kill.log `OUTCOME=locked exit=3` |
+| 13:22:50 / 13:23:48 | 两次 `phase=PREUNINSTALL`，执行体都是 `D:\Program Files\…\uninstall.exe-672576`（带后缀的**改名残留副本**） |
+| 13:23:36 | 3.6.6 安装成功（沙箱内，Finish 页滞留） |
+| 13:24:02 → 13:24:36 | v2 独立复跑：PREUNINSTALL 3.6.5 → POSTUNINSTALL 3.6.5 → PREINSTALL 3.6.6 → POSTINSTALL 3.6.6 |
+| 13:24:23 | 驱动脚本 `SUMMARY pass=9 fail=0`，后台任务结束；随后按 §23.8 杀掉 app/sidecar 并恢复用户数据 |
+| **13:34:55** | **kill 脚本第三次启动（pid 706828，`caller pid resolved to 710832`）** |
+| **13:35:13.624** | **`phase=PREINSTALL installerVersion=3.6.6 sameVersionReinstall=yes detectedVersion=3.6.6 installer='F:\soft\…\release\Alpha File Manager_3.6.6_x64-setup.exe'`** |
+| 13:35:13.785 | RestartManager 会话 1 启动、并同时结束（Application 日志 id=10000 / 10001）—— 与 PREINSTALL 同毫秒 |
+| **13:35:51.461** | **`phase=POSTINSTALL`（同版本覆盖安装，耗时 38 s）** |
+
+**硬证据**：事发后 `alpha-file-manager.exe`（**pid=757724**）的父进程 = **710832**，
+正是 13:35 那次安装的 caller。⇒ 13:35 **不是一次残留或重绘**，而是一次
+**完整、独立、成功**的安装，并在结束时拉起了当前正在运行的应用。
+
+### 24.2 「自动重跑」的载体已逐条排除（实测，不是推测）
+
+| 怀疑对象 | 结论 | 依据 |
+|---|---|---|
+| 我的验收/构建脚本 | **排除** | `.superpowers\sdd` 全目录（含子目录）**13:28–13:50 无任何文件 mtime**；驱动任务 13:24:23 已结束 |
+| 计划任务 | **排除** | 全机扫描只有 `\KizemoFocusSync` 命中 AFM：`state=Disabled`、action=`focus-sync-sidecar.exe --service`、trigger 仅 Logon；**无任何任务指向 setup.exe**（另两条命中是 Windows 自带 `la57setup.exe`/`OOBEFodSetup`，无关） |
+| `HKLM/HKCU\…\Run`、`RunOnce`、两个 Startup 文件夹 | **排除** | 逐键枚举，无 Alpha File Manager 条目 |
+| ARP 卸载条目 | **排除** | `UninstallString` 指向 `D:\Program Files\…\uninstall.exe`；`QuietUninstallString` 空；`InstallDate` 空 |
+| 应用内更新器 | **排除** | `Cargo.toml` **没有 `tauri-plugin-updater`**；`tauri.conf.json` 无 `createUpdaterArtifacts` / updater endpoints。`tauri-plugin-autostart` 拉起的是**应用**，不是安装包 |
+| hooks.nsh 注册开机任务 | **排除** | 全文只注册 `\KizemoFocusSync`（扩展 sidecar），无 setup 相关注册 |
+| PCA 程序兼容性助手 | **无法取证** | 本机 `Microsoft-Windows-PCA/Program`、`/Launcher` 通道**不存在** |
+| 进程创建审计 | **无法取证** | `Security` 4688 未开启；`Kernel-Audit-API-Calls` 不可读；**710832 已退出，父链断裂** |
+
+⇒ **诚实结论：日志能证明「确实又完整安装了一次」，但本机现有证据无法证明它是「自动」触发的。**
+最简约的解释：`release\…3.6.6…setup.exe` 在 13:34 被**再次启动了一次**（人工双击，或从
+Explorer「最近使用 / 下载」里再次点击）。此判断**未被证实** —— 注意我的沙箱那两次跑在**隐藏桌面**
+（用户看不到向导），只有真实桌面上的启动才会"弹出安装对话框"，与用户所见一致。
+
+### 24.3 取证过程中坐实的两个**真实安装器缺陷**（可修的部分）
+
+> **2026-10-29 更正**：本节第 1 条原先写成「安装器没有单实例互斥，`installer.nsi` 与
+> `hooks.nsh` 的 `.onInit` 没有任何 `CreateMutex` / 实例检测」—— **这个表述是错的，
+> 已被 `hooks.nsh` 原文证伪**：`AlphaCheckSingleInstance`（2026-10-19 加的）**确实存在**，
+> 跑在 `NSIS_HOOK_PREINSTALL`（向导页之后、真正开装之前），规则是**同一份 setup 的多个
+> 副本里 PID 最小的当选，其余立刻退出**。真正缺的是**`.onInit` 阶段的早期拦截**：
+> 等走到 PREINSTALL 才查「有没有别人在装」，此时向导**已经弹出来了**，对用户没有意义。
+> 另见 §24.5 —— 本轮最终没有加互斥体，而是改用「同版本/更旧直接静默退出」。
+
+1. **缺少 `.onInit` 阶段的早期拦截**：`hooks.nsh` 的 `AlphaCheckSingleInstance`
+   只在 `NSIS_HOOK_PREINSTALL` 触发 ⇒ **同一个 setup 被重复启动时，每个副本都会先弹一个
+   完整向导**，只有走到 PREINSTALL 才有其中一个退出。⇒ 用户看到的是「弹了一个又一个」，
+   并与前一个实例并发跑「杀进程 → 卸旧 → 装新」，互相抢文件锁。
+   **这正是「又弹一次安装对话框」的放大机制。**
+2. **同版本覆盖安装零拦截**：日志里 `sameVersionReinstall=yes` 说明安装器**已经算出**
+   "装的就是当前版本、当前目录"，却照样**杀应用 → 全量覆盖 → 重启应用**。
+   对用户的观感就是「我什么都没点，软件突然自己重启了一遍」。
+   叠加 `MUI_FINISHPAGE_NOAUTOCLOSE`（向导停在 Finish 页不自动关）
+   与提权 helper（`nsis-*.tmp elevated`）长留，进一步坐实"弹窗阴魂不散"的印象。
+
+### 24.4 修复待办（本轮取证结束时未实施；2026-10-29 决定：按用户偏好直接实施，不再等确认）
+
+- **A. 安装器单实例互斥**：`.onInit` 用
+  `System::Call 'kernel32::CreateMutexW(i0,i0,w"Local\AlphaFileManagerSetup")'`，
+  `GetLastResult != 18`（`ERROR_ALREADY_EXISTS`）时提示"安装程序已在运行"并 `Abort`。
+  ⚠️ 互斥名要**只在实际安装进程侧判定**，Tauri 模板的提权重跑 helper 与主进程同名会**自锁**。
+- **B. 同版本重装给选择权**：`detectedVersion == installerVersion` 且 `InstallLocation` 一致时，
+  从「静默全量覆盖」改为「修复安装 / 取消」；取消则不杀进程、不重启应用。
+- **C. 要坐实「自动」必须补取证手段**：临时开启进程创建审计
+  （`auditpol /set /subcategory:"A process was created" /success:enable`）
+  —— 属**系统级改动，须用户同意**，下次触发直接读 4688 的父进程字段。
+- **D. 顺带可清的一条**：`D:\Program Files\Alpha File Manager\uninstall.exe-672576`
+  这类**改名残留卸载器**至今仍在模块表里被 RestartManager 认定"占用"（`reason=512`），
+  是 §23 那类失败的同源诱因；卸载收尾应把带后缀的副本删干净。
+
+### 24.5 本轮已实施：`.onInit` 早期版本守卫（2026-10-29）
+
+**根因（运行时实锤）**：会话界面里的 `<media type="file" src="…setup.exe" />` 附件标签，
+宿主渲染层**每次渲染**都会 `setLastPreviewedFile` + `autoOpen`；`.exe` 没有内置预览器
+⇒ `dist/main/ipc/documentPreview.ipc.js` 的 `invokeSystemOpen` → `electron.shell.openPath`
+→ **直接执行 setup.exe** ⇒ NSIS 向导弹出。**「切回会话界面」= 重新渲染 = 再弹一次。**
+宿主行为不由本仓库发布，改不了 ⇒ 只能让「重复运行安装包」在**向导出现前**无害化。
+
+**实现**：
+- `src-tauri/installer/early-guard.ps1`（新增，纯 ASCII）：读注册表 `DisplayVersion`，
+  与安装包版本做完整 semver 比较（含预发布号）。
+- `src-tauri/installer/hooks.nsh`：新增 `AFM_HOOK_EARLYINIT` 宏 + `AlphaCaptureCommandLine`
+  + `AlphaEarlyInstallGuard` 函数，在 `.onInit` 里跑（`InitPluginsDir` → 内嵌解包脚本 →
+  `nsExec::ExecToLog` → 判定文件 → `Quit`）。
+  ⚠️ `/FORCE` 的**识别不在 NSIS 侧**：NSIS 只负责把 `$CMDLINE` 原样写进
+  `$PLUGINSDIR\afm-commandline.txt`，判定在守卫脚本里做 —— 原因见 §24.6 ②。
+- `src-tauri/installer/installer.nsi`：`.onInit` 顶部 `StrCpy` 喂入 `${VERSION}` /
+  `${UNINSTKEY}` 后 `!insertmacro NSIS_HOOK_EARLYINIT`。
+  ⚠️ `${VERSION}` / `${UNINSTKEY}` 定义在 `!include "{{installer_hooks}}"` **之后**，
+  hooks.nsh 内拿不到编译期常量 ⇒ 必须由模板 `StrCpy` 写进 hooks 声明的 `Var`。
+
+**判定规则**：未安装 → 放行；版本更新 → 放行；**同版本 / 更旧 → 静默 `Quit`（零界面）**；
+判不出来（读不到注册表 / 版本解析失败）→ **失败开放**（放行：守卫坏了不能让人装不上）；
+`/FORCE` → 放行。
+
+**为什么「更旧」也静默**：会话历史里同时存在 3.6.5 与 3.6.6 两个安装包附件标签，
+将来装上 3.6.7 之后，历史里的旧包仍会被重新渲染 —— 只拦同版本拦不住。
+
+**为什么不弹 MessageBox**：用户诉求是「切回界面不再弹窗」，任何模态框都违背。
+同版本 / 旧版本一律静默退出，并把决定写进 `%TEMP%\alpha-file-manager-early-guard.log`
+与 `%TEMP%\alpha-file-manager-early-guard.last.txt`。
+
+**逃生口**：人工重装 / 降级用 `setup.exe /FORCE`（守卫跳过版本判定，照常走向导）。
+
+**单测**：`src-tauri/installer/__tests__/early-guard.test.ts` —— 11 条用例（接线断言 +
+8 条版本判定表 + 1 条**命令行 `/FORCE` 判定表**（7 个子情形：整词匹配，`/XFORCE` 不误判）+
+1 条**判别力**：故意把守卫的同版本分支改坏，断言必须转红）。
+
+**验收**：`.superpowers/sdd/accept-early-guard.ps1`（隔离桌面沙箱）——
+① **阳性对照**：旧 3.6.5 包**会**弹向导（证明窗口探测器是活的）；
+② 新 3.6.6 包**零窗口**、进程自行退出、守卫日志记 `decision=quit reason=same-version`、
+已装程序与注册表**未变**；③ 新包带 `/FORCE` **仍会**弹向导（逃生口有效）。
+
+### 24.6 `/FORCE` 识别搬到 PowerShell 侧的原因（NSIS `StrCmp` 通配实测不可用）
+
+**问题**：第一版守卫把 `/FORCE` 的识别写在 NSIS 里（`Function AlphaDetectForceFlag` +
+`Var AlphaGuardForce`），用 `StrCmp $CMDLINE "* /FORCE *"` 这类星号通配去匹配命令行。
+
+**实测结论（最小复现探针 `.superpowers/sdd/probe-force.nsi` / `probe-force2.nsi`，makensis 现场编译）**：
+
+- `$CMDLINE` 内容确实是 `"C:\…\probe-force2.exe" /FORCE`（含引号、完整）；
+- **8 种 `StrCmp` 形态一次都没匹配上**（`FORCE=0`）—— NSIS 的 `StrCmp` 不支持 `*` 通配；
+- 安装器进程里 **`$1` 是空的**（NSIS 只在卸载器里把参数放进 `$1..$9`）；
+- `FileWrite $9 "$CMDLINE"` **原样写出完整命令行**（含引号、无换行污染）✔ 可用。
+
+**改法**：NSIS 只负责"把命令行交出去"——
+`Function AlphaCaptureCommandLine`（`InitPluginsDir` → `FileOpen $9 "$PLUGINSDIR\afm-commandline.txt" w`
+→ `FileWrite $9 "$CMDLINE"` → `FileClose $9`），
+`NSIS_HOOK_EARLYINIT` 改为 `Call AlphaCaptureCommandLine` + `Call AlphaEarlyInstallGuard`；
+nsExec 命令追加 `-CommandLineFile "$PLUGINSDIR\afm-commandline.txt"`（不再传 `-Force`）。
+守卫脚本 `early-guard.ps1` 新增 `-CommandLineFile` 参数与 `Test-ForceRequested` 函数，
+正则 `(?i)(?:^|[\s"'])/FORCE(?:[\s"']|$)` 做**整词匹配**（`/XFORCE` 不误判）。
+
+**为什么判定逻辑放 PowerShell 侧**：NSIS 里的字符串匹配写起来省事，但**坏了没人发现**
+—— 判定逻辑应该放在**有单测覆盖**的那一侧。
+
+**直接验证（32 位 PowerShell，无需打包）**：7 种情形全对。
+`/FORCE` / `/force` / `/FORCE /S` / `/S /FORCE` → `force=1` + `OUTCOME=proceed reason=forced` + exit=0；
+`/XFORCE` / 无 `/FORCE` / 无命令行文件 → `force=0` + `OUTCOME=quit reason=same-version` + exit=10。
+
+**教训（写进验收脚本）**：上一轮「`/FORCE` 有效」的 PASS 是**假阳性**——
+验收脚本 `Invoke-SetupRun` 把参数命名为 `$args`，而 **PowerShell 的 `$args` 是自动变量，
+函数里声明同名参数不会绑定**（实测 `bound args=[] exe=[X]`）⇒ `/FORCE` 从未传进安装器；
+当时守卫读不到版本而**失败开放**放行，向导照样弹，于是"看起来" `/FORCE` 有效。
+已把参数改名为 `$setupArgs`，并在返回值里加 `ArgsUsed`；验收脚本新增显式断言
+`Check ($r3.ArgsUsed -eq '/FORCE') 'force: the /FORCE argument really reached the installer'`。
+
+**另一处踩坑：32 位注册表视图**。安装器是 32 位进程（NSIS），注册表访问被重定向到
+`Wow6432Node`。第一版守卫用 `OpenRemoteBaseKey` + 3 参 `OpenSubKey` 想切视图，
+实测**在 32 位进程里基键已被重定向、无法再切**，永远读不到 `DisplayVersion`。
+改用 `OpenBaseKey(hive, view)` + **单参** `OpenSubKey`（遍历 HKLM/HKCU × Registry64/Registry32），
+32 位与 64 位 PowerShell 探针**均读到 3.6.6**。
+⚠️ 剥离 `Software\` 前缀必须用 `-replace '^Software\\', ''`，
+**不能用 `Substring(8)`**（`Software\` 长度是 9，会拼出双反斜杠路径）。
+
+---
+
+## 25. UI 重设计（Alpha File Manager 品牌化）—— 根因、两轮九稿与三套主题落地
+
+> 本节记录 2026-10-29 一整轮 UI 重设计：从「现有主题为什么看着不像自家产品」这个根因出发，
+> 经两轮共九稿设计、三次用户决策，直到三套主题（暖纸浅 / 暖纸暗 / 跃动活力）落进代码。
+> 设计稿目录 `.superpowers/sdd/design-demos/` 被 gitignore，**不进版本库**，需要时从工作副本取。
+
+### 25.1 根因：六套内置变体全都不是「自家产品」
+
+实测 `src/modules/themes/mac-variants.ts` 的六套内置变体（mac-classic / mac-modern / mac-glass × light / dark）：
+
+- **色相全部集中在 240 与 211**（蓝紫 / 青蓝）⇒ 六套之间的差异只剩明度与饱和度；
+- **底色 ≈ Win11 Fluent 冷灰**（`--background` 全落在 210–240 的低饱和冷灰区间）；
+- **品牌主色一次都没出现过** —— 品牌钢蓝 `#607A87`（logo 像素实测众数，区间 `#5F7986`–`#607A89`）在六套里一次都没被引用；
+- 形状语言是**大圆角 + 浅灰卡片 + 发丝描边**，典型的 Fluent 翻版。
+
+结论：用户说的「界面不好看、没辨识度」不是配色没调好，而是**整个设计语言是借来的**。
+只换几个色值解决不了，必须重做形状语言 + 承载品牌色。
+
+### 25.2 设计流程（两轮九稿）
+
+**第一轮 · 6 稿**（三套逻辑各出 2 个差异化诠释，出稿后停轮等选）：
+
+| 稿 | 文件名 | 方向 |
+|---|---|---|
+| A1 | `a1-origami-grid` | 折纸式网格 |
+| A2 | `a2-warm-editorial` | 暖调编辑式 |
+| B1 | `b1-command-palette` | 命令面板式 |
+| B2 | `b2-workbench` | 工作台式 |
+| C1 | `c1-vignelli-grid` | Vignelli 栅格纪律 |
+| C2 | `c2-tool-surface` | 工具面式 |
+
+每稿 = HTML + 1440×900 截图，落在 `.superpowers/sdd/design-demos/`。
+自检器 `.superpowers/sdd/check-tags.cjs`（标签配平 + CSS 类名撞车 + 编码体检）在这一轮暴露并修掉 3 处真实渲染缺陷
+（C2 漏闭合 `<span>`、B2 `.body` 类名撞车、B1 inline 元素写法）。
+
+**第二轮 · 3 稿**（D1 / D2 / D3）：改成**同一套真实产品骨架上的三种皮肤**。
+用户「UI 框架不要大的改变」的指令**优先于**技能原文「三版骨架必须互异」的要求 —— 这条冲突的裁决记录在这里，
+避免下一轮又按技能原文去改骨架。
+
+共用栅格（照抄真实产品，未改）：
+`42px | 212px | 1fr | 264px`（图标轨 | 目录树 | 主区 | 属性面板） ×
+`44px | 44px | 36px | 1fr | 26px`（标签栏 | 工具条 | 次级条 | 内容 | 状态条）。
+
+### 25.3 用户决策链（三次）
+
+1. 第一轮 6 稿后选定 **「定稿1」= A2（暖纸）× C1（Vignelli 栅格纪律）**，并追加三条要求：
+   配一套暗色、框架不大改、再出一款年轻化跳跃配色，总共出 3 套供选。
+2. 第二轮 3 稿后回复：**「选择本次设计的三轮设计的这三套，开始设计。」** ⇒ **D1 / D2 / D3 三套全选**，进入实现。
+3. 同一轮追加要求：**更新完整的 handoff 文档，并给出一句话 prompt 用于新开会话接力设计任务**
+   （prompt 要引导新会话读必要文档、掌握背景/目标/进度/下阶段计划，**不要复述 handoff 的具体内容**，文档要给完整路径）。
+
+**Gate**：技能 `huashu-design` 要求实现开工前 `direction-approved.md` 第 6 节齐备。
+该节已改写为「第二轮选择原话（实现开工放行）」，**逐字写入用户原话**，并新增 §6.1「实现阶段的落地口径」表（C1–C4 / R1–R3）。
+`brand-spec.md`（6,228 B）与 `design-spec.md`（10,497 B）、`INDEX.md`（5,458 B）同批产出。
+
+### 25.4 用户给定的硬约束（C1–C4）与设计要求（R1–R3）
+
+| 编号 | 内容 |
+|---|---|
+| C1 | 左侧导航栏**不得增宽** ⇒ 图标轨保持 **42px**（`--nav-sidebar-width: 42px`） |
+| C2 | 左侧导航栏**不得添加文字** ⇒ 只有图标 + tooltip |
+| C3 | **UI 框架不得大改** ⇒ 区域拓扑 / 面板宽度 / 控件层级与现状一致 |
+| C4 | 只改 **token 层**（配色、字族、圆角、描边、阴影、图标风格、密度质感），**不触碰布局栅格** |
+| R1 | 形状**去系统化**（不要 Fluent 味） |
+| R2 | 品牌主色 `#607A87` 每套主题**至少一处承载** |
+| R3 | **明暗都要成立** |
+
+C1 的 42px 同时是**运行时注入判据**，所以它不能被任何主题覆盖 —— 单测里有一条专门的守卫断言。
+
+### 25.5 实现架构：两层落地
+
+```
+token 层        src/modules/themes/afm-themes.ts   （三套变量定义）
+              + src/styles/vars.css                （:root / .dark 各新增 11 个 token）
+形状特征层     src/styles/afm-themes.css            （token 表达不了的形状特征）
+```
+
+形状特征层负责的是 token 表达不了的东西：衬线小标题、赤陶/四色 inset 左边条、彩色图标块、深色轨的悬浮与选中态。
+
+### 25.6 十个关键实现决策
+
+1. **新增独立模块 `afm-themes.ts`，不塞进 `mac-variants.ts`**
+   —— 保住现有六套 mac 变体与其单测（那条单测断言长度为 6，改了会红）；
+   语义上「macOS 风格」与「AFM 品牌重设计」也是两类东西。id 前缀 `afm-` 以示区分。
+
+2. **`afm-themes.css` 每条选择器必须带 `html[data-afm-theme='...']` 前缀**
+   —— 特异性 0,2,1，才能压过 Vue scoped 编译出的 `.foo[data-v-x]`（0,2,0）。
+   该文件必须在 `src/styles/index.css` **最后** import（`@import "./afm-themes.css";`）。
+
+3. **形状特征一律用 `box-shadow: inset`，不用 `border-left`**
+   —— inset 不占布局；border 会把内容挤开 2px，直接违反 C3 / C4。
+
+4. **不覆盖全局正文字体**
+   —— `--font` 是用户设置的内联值（`app.vue:31`），主题不该抢走；衬线只作用于小标题（`--font-display`）。
+   （另注：`--default-mono-font-family` 全仓未定义，`--font-mono` 定义在 `vars.css:73` 且 `.dark` 未重定义。）
+
+5. **品牌色落位（R2）**
+   - D1 / D2：`--primary` = 品牌钢蓝 ⇒ 图标轨激活图标、主按钮、焦点环**天然**带上品牌色；
+   - D3：轨底换成同色系深钢蓝 `#33454F`，品牌钢蓝 `#607A87` 落在状态条左缘线与属性面板标题。
+
+6. **圆角阶梯合法性**
+   `--radius` 决定派生值。D1/D2 取 `0.25rem`(4px) → `--radius-sm`=0px（近直角）/`--radius-md`=2px/`--radius-xs`=1.6px，全为合法值。
+   **若取 2px 会让 `--radius-sm`=-2px 触发 invalid calc**。D3 取 `0.75rem`(12px) → 8 / 10 / 4.8px。
+
+7. **可读性是硬门槛**：所有小字 / 点缀文字 ≥ 4.5:1。
+   初版有 **3 个值没过线**：暖纸浅的三级文字 3.36、跃动活力的珊瑚 2.97 与柠檬 3.48。
+   由 `.superpowers/sdd/afm-palette-solve.cjs` 求解出**等色相**的合规色再落进 token。
+
+8. **token 一律裸 HSL 三元组**（`--popover` / `--input` 唯一例外）
+   —— 全仓有大量 `hsl(var(--token) / N%)` 的「二次加 alpha」写法。
+   ⚠️ 初版 `--accent-muted` 带了 alpha，会让**所有** `hsl(var(--accent-muted) / N%)` 写法语法整体失效。已改为实色：
+   D1 `15 45% 92%` / D2 `18 30% 20%` / D3 `251 100% 95%`。
+
+9. **品牌/点缀的前景色不能想当然用白**
+   - D1 赤陶底压白字只有 **3.24:1** ⇒ `--accent-foreground` 改墨色 `30 16.7% 14.1%`（**6.48:1**）；
+   - D1 `--accent-ink` 压 `--background-2` 只有 **4.27:1** ⇒ 从 43.5% 压到 42% ⇒ `16 46% 42%`（**4.53:1**）。
+
+10. **零回归保证**
+    基础 `--nav-rail-background` / `--nav-rail-foreground` / `--nav-rail-muted-foreground`
+    与原 `--background-2` / `--icon` / `--muted-foreground` **逐值相同**（明暗皆然）
+    ⇒ 把 `nav-sidebar.vue` token 化，对旧六套主题**外观零影响**。
+
+### 25.7 三套主题最终 token（定稿，可直接用于验收比对）
+
+**D1 暖纸 · 浅色**（`afm-warm-light`，base = light，`--radius: 0.25rem`）
+
+| token | 值 | | token | 值 |
+|---|---|---|---|---|
+| `--background` | `37 39.4% 93.5%` | | `--primary` | `200 16.9% 45.3%` |
+| `--background-2` | `38 34.5% 89.2%` | | `--ring` | `200 18.8% 37.6%` |
+| `--background-3` | `37 36.4% 91.4%` | | `--accent` | `15 52.3% 58%` |
+| `--foreground` | `30 16.7% 14.1%` | | `--accent-foreground` | `30 16.7% 14.1%` |
+| `--muted-foreground` | `33 11.5% 37.6%` | | `--accent-ink` | `16 46% 42%` |
+| `--card` | `43 53.8% 97.5%` | | `--accent-muted` | `15 45% 92%` |
+| `--border` | `37 25% 79.6%` | | `--brand` | `200 16.9% 45.3%` |
+| `--nav-rail-background` | `38 34.5% 89.2%` | | `--nav-rail-foreground` | `33 11.5% 37.6%` |
+| `--nav-rail-muted-foreground` | `33 10% 39%` | | `--font-display` | 衬线栈 |
+
+**D2 暖纸 · 暗色**（`afm-warm-dark`，base = dark，`--radius: 0.25rem`，同一衬线栈）
+
+| token | 值 | | token | 值 |
+|---|---|---|---|---|
+| `--background` | `30 17.4% 9%` | | `--primary` | `201 20.4% 63.5%` |
+| `--background-2` | `30 17.2% 11.4%` | | `--ring` | `200 27.2% 70.4%` |
+| `--background-3` | `27 17% 10.4%` | | `--accent` | `18 66.3% 63.9%` |
+| `--foreground` | `38 42.9% 89%` | | `--accent-foreground` | `30 17.4% 9%` |
+| `--muted-foreground` | `33 14.1% 59.8%` | | `--accent-ink` | `17 69.7% 71.6%` |
+| `--card` | `34 21.9% 12.5%` | | `--accent-muted` | `18 30% 20%` |
+| `--border` | `30 16% 19.6%` | | `--brand` | `201 20.4% 63.5%` |
+| `--nav-rail-background` | `30 17.2% 11.4%` | | `--nav-rail-foreground` | `33 14.1% 59.8%` |
+| `--nav-rail-muted-foreground` | `33 10% 52%` | | | |
+
+**D3 跃动活力**（`afm-vivid-light`，base = light，`--radius: 0.75rem`，无衬线栈）
+
+| token | 值 | | token | 值 |
+|---|---|---|---|---|
+| `--background` | `220 21.4% 94.5%` | | `--primary` | `251 100% 63.9%` |
+| `--background-2` | `220 27.3% 91.4%` | | `--ring` | `251 100% 63.9%` |
+| `--background-3` | `218 28.6% 94.5%` | | `--accent` | `251 100% 63.9%` |
+| `--foreground` | `225 13.3% 11.8%` | | `--accent-foreground` | `0 0% 100%` |
+| `--muted-foreground` | `220 10.3% 39.8%` | | `--accent-ink` | `252 79.3% 56.5%` |
+| `--card` | `0 0% 100%` | | `--accent-muted` | `251 100% 95%` |
+| `--border` | `220 27.3% 91.4%` | | `--brand` | `200 16.9% 45.3%` |
+| `--nav-rail-background` | `201 21.5% 25.5%` | | `--nav-rail-foreground` | `210 20% 92%` |
+| `--nav-rail-muted-foreground` | `210 14% 70%` | | | |
+
+D3 的四色循环在 `afm-themes.css` 里以**字面 HSL** 使用：`172deg 100% 38%` / `349deg 100% 68%` / `42deg 100% 62%`。
+
+### 25.8 接线清单（本轮改动文件）
+
+| 文件 | 改动 |
+|---|---|
+| `src/modules/themes/afm-themes.ts` | **新增**。`AfmThemeId` 类型、`AFM_THEME_IDS` / `AFM_THEMES` / `isAfmThemeId` / `getAfmTheme` |
+| `src/styles/afm-themes.css` | **新增**。形状特征层，全部选择器带 `html[data-afm-theme='…']` 作用域前缀 |
+| `src/modules/themes/__tests__/afm-themes.test.ts` | **新增**。16 条用例（见 §25.10） |
+| `src/styles/vars.css` | `:root` 与 `.dark` 各新增 11 个 token（品牌 / 点缀 / 轨色 / 字族），**全部裸 HSL 三元组** |
+| `src/styles/index.css` | 末尾 `@import "./afm-themes.css";` |
+| `src/types/user-settings.ts` | `BuiltinThemeId` union 追加 3 个 `afm-*` id |
+| `src/modules/themes/registry.ts` | import `afm-themes`；`BuiltinThemeOption` 加 `cssThemeId?: string`；`parseThemeId` 识别 `afm-*`；新增 `getAfmThemeOptions()`；接入 `getAvailableThemeOptions` / `findThemeOption` |
+| `src/stores/storage/composables/use-theme.ts` | 新增 `applyCssThemeId()`（写/删 `document.documentElement.dataset.afmTheme`）；`applyTheme` 三条分支全部接入 |
+| `src/modules/nav-sidebar/nav-sidebar.vue` | 5 处 token 化（`.nav-sidebar` / `.nav-sidebar-header` 底色、`.nav-sidebar-item-icon` stroke、`.nav-sidebar-drive-icon` color+stroke、`.nav-sidebar-drive-label` text-stroke） |
+| `src/modules/settings/ui/categories/appearance/theme.vue` | 新增 `afmThemeOptions` computed + `getAfmThemeName()`；`themeOptions` / `themeOptionGroups` 加 AFM 分组（key `settings.homeBannerEffects.theme.afmThemeThemes`） |
+| `src/localization/messages/*.json`（17 个） | 补 `settings.homeBannerEffects.theme.afmThemeThemes` + `afmThemes.{warmLight,warmDark,vividLight}` |
+
+⚠️ 中文 locale code 是 **`ch`**，不是 `zh`。
+写入脚本 `.superpowers/sdd/add-afm-theme-locales.cjs`（幂等，跑第二遍应 `failures=0`）。
+⚠️ 该脚本首版 `__dirname` 只跳一级目录 ⇒ 写到了错误路径，已修。
+
+### 25.9 可复用的工具脚本
+
+| 脚本 | 作用 |
+|---|---|
+| `.superpowers/sdd/afm-palette-to-hsl.cjs` | hex → 裸 HSL + WCAG 对比度体检，输出 `afm-palette.json` |
+| `.superpowers/sdd/afm-palette-solve.cjs` | 等色相可访问色求解器，输出 `afm-palette-solved.json` |
+| `.superpowers/sdd/add-afm-theme-locales.cjs` | 17 个语言包幂等写入 |
+| `.superpowers/sdd/check-tags.cjs` | HTML 自检（标签配平 + CSS 类名撞车 + 编码体检） |
+| `.superpowers/sdd/build-afm-theme.cmd` | 打包（纯 ASCII、内部 `>> log 2>&1`、末尾写 `BUILD_EXIT=`） |
+| `.superpowers/sdd/gate-366.cmd` | 全量门禁 |
+
+⚠️ `afm-palette-solve.cjs` 的**第一版有 bug**：HSL 往返时 `s` 被二次 `/100`，导致候选色全灰。
+已重写为「按比例缩放原 RGB」。
+
+### 25.10 自动化守卫：16 条用例（`afm-themes.test.ts`）
+
+1. 3 套 id 数量正确、互不重复
+2. `BuiltinThemeId` union 与模块**双向漂移守卫**（正则扫 `user-settings.ts`）
+3. `parseThemeId` 能识别 builtin
+4. 注册表暴露 + `cssThemeId` 透出
+5. 全部颜色 token 必填
+6. **裸 HSL 三元组正则断言**；alpha 仅允许 `--popover` / `--input`
+7. **11 个尺寸 token 一律不定义**（防越权碰栅格）
+8. **C1 守卫**：`vars.css` 仍含 `--nav-sidebar-width: 42px;`
+9. 圆角阶梯合法（≥ 4px）
+10. **9 组 WCAG 对比度实算 ≥ 4.5**
+11. **R2 品牌色在 CSS 里真的被用上**
+12. **R3 明暗成对**
+13. 每条形状规则都带主题作用域前缀
+14. **C4 守卫**：形状层无任何布局属性
+15. `index.css` 末位 import 断言
+16. 其余覆盖项
+
+⚠️ 写这个测试时踩到的两个 TS 坑：
+- `CONTRAST_PAIRS` 若显式标注为 `{foreground: string}[]` 会**丢字面量类型** ⇒ TS7053；
+- `findThemeOption` 返回联合类型后，不先 `source === 'builtin'` 收窄就读 `cssThemeId` ⇒ TS2339。
+
+### 25.11 本轮踩坑清单
+
+- **`--accent-muted` 带 alpha** ⇒ 所有 `hsl(var(--x) / N%)` 语法整体失效（见 §25.6 ⑧）。
+- **D1 `--accent-foreground` 用白色** ⇒ 赤陶底上只有 3.24:1（见 §25.6 ⑨）。
+- **D1 `--accent-ink` 保持 43.5% 亮度** ⇒ 压 `--background-2` 只有 4.27:1。
+- **求解器第一版 HSL 往返** ⇒ `s` 二次 `/100`，候选全灰（见 §25.9）。
+- **`add-afm-theme-locales.cjs` 首版 `__dirname` 只跳一级** ⇒ 写错路径。
+- **测试里用 `Object.values()` 位置化取 `{h,s,l}`** ⇒ 顺序一变就取错值。
+- **测试里写 `const linearize = () => {}`** ⇒ 违反 `func-style`，须改成 `function linearizeChannel()`。
+- **stylelint**：`hue-degree-notation`（`172` → `172deg`，6 处）、`rule-empty-line-before`、`comment-empty-line-before`、`value-keyword-case`（`Roboto` → `roboto`）、D3 `.file-browser-grid-card` 两条重复规则合并成一条。
+  ⚠️ `vars.css` 第 23 / 38 行是**既有基线违规**，本轮**没有动**。
+
+### 25.12 真机验收口径
+
+- ⚠️ **必须用 `tauri build` 的打包产物**，`tauri dev` 的路由页内容区全白，不能做界面验收。
+- ⚠️ 本机已装 3.6.6，同版本安装会命中 §24 的 `.onInit` 守卫**静默退出（零窗口）**
+  ⇒ 装新包**必须带 `/FORCE`**（`setup.exe /FORCE`），且必须按 AGENTS.md §2.8 在**隔离桌面沙箱**内跑
+  （`DESKTOP_ALL 0x1FF`、`lpDesktop` 指沙箱、`lpCurrentDirectory` 非 NULL、跨进程点击用 `SendMessageTimeout` ≤ 3s）。
+- ⚠️ release 构建**不认 `SFM_E2E_DATA_DIR`**（该 override 是 `#[cfg(debug_assertions)]`）
+  ⇒ 换主题验收的纪律是「备份 `user-settings.json` → 改 `theme` 字段 → 启动 → 截图 → **杀进程** → 还原 → 核对」。
+- 人工核对清单：图标轨仍 42px 且纯图标、区域拓扑与面板宽度未变、形状特征生效、品牌色可见、明暗都成立。
+
+### 25.13 后续计划
+
+1. 全量门禁（eslint 188 / stylelint 184 / ts / verify-changelog / vitest 256 文件 2356 用例）。
+2. 隔离沙箱真机验收：D1 / D2 / D3 依次截图人工核对。
+3. 新包复制到 `release/`（node `fs.copyFileSync`；**历史包不许删**）。
+4. 提交 + 推送（内层仓库；先默认代理 `http://127.0.0.1:7897`，失败再 `-c http.proxy=` 重试）。
+5. 下一轮 UI 工作（尚未定）：把形状特征层覆盖到更多区域（属性面板内区块、设置页、比较并同步对话框），
+   以及图标风格统一（当前仍是 Lucide 线性图标，未做品牌化描边改造）。
+
+### 25.14 本轮收尾补充（2026-10-29）
+
+本节记录三套主题落地后的**收尾实测数字**，供下一棒直接对照，不必重跑一遍就知道基线在哪。
+
+#### 25.14.1 门禁实测（本轮唯一权威口径）
+
+用 `git worktree add --detach <tmp> HEAD` + `node_modules` junction 量干净检出基线，再量工作树：
+
+| 门禁 | 干净检出（HEAD）基线 | 本轮工作树 | 判定 |
+|---|---|---|---|
+| ESLint | 188 errors / 0 warnings | **188 errors / 0 warnings** | 零新增 |
+| Stylelint | 184 errors / 0 warnings | **184 errors / 0 warnings** | 零新增 |
+| TypeScript（`vue-tsc --build`） | — | **0** | 通过 |
+| CHANGELOG 覆盖 | — | **0** | 通过 |
+| Vitest | 256 files / 2356 tests | **257 files / 2372 tests 全绿** | +1 文件 +16 用例 |
+
+⚠️ ESLint / Stylelint 的 **退出码是非 0**（存量违规），**判定要看数字而不是退出码**。
+⚠️ Vitest 文件数 256 → 257、用例 2356 → 2372，来自新增的 `afm-themes.test.ts`（16 个用例），属预期增量。
+
+**首轮门禁曾红过 4 个用例**，根因是**产品有意新增 3 套主题后，既有测试的旧数量断言失效**（9 选项 → 12、1 个分组标题 → 2、2 个 group → 3、期望数组缺 3 个 `afm-*` id），已同步更新 `registry.test.ts` 与 `appearance/__tests__/theme.test.ts` 后复跑 23/23 绿。
+
+⚠️ **Stylelint 首轮多出 1 条（185 vs 184）**，逐文件对比干净检出定位到是本轮在 `nav-sidebar.vue` 新增的注释缺空行（`451:3 comment-empty-line-before`），已补空行修掉。
+⚠️ `src/modules/settings/ui/categories/remote/trusted-hosts-section.vue` 的 4 条在**干净检出里同样存在**，属存量，不是本轮引入。
+
+#### 25.14.2 CHANGELOG 同步（易漏点，必读）
+
+更新日志弹窗的内容源**不是只有根 `CHANGELOG.md`**：
+- 英文 → 根 `CHANGELOG.md`（`use-changelog.ts:9` 的 `?raw` 导入）
+- 其余语言 → `fetch('/changelog/<locale>/changelog.md')`（`use-changelog.ts:116`）⇒ `public/changelog/<locale>/changelog.md`
+
+`public/changelog/` 下**没有 `en` 目录**（英文直接用根文件），其余 **14 个 locale**：ch / de / es / fa / fr / hi / it / ja / pt / ru / sl / tr / ur / vi。
+
+本轮三套主题是**用户可见的新功能**，所以 15 个文件全部补了 3.6.6 条目：根 + 14 个 locale。
+脚本：`.superpowers/sdd/add-theme-changelog.cjs`（幂等，按 marker 字符串判重；写入前检查 U+FFFD，写入后复查无 BOM / 无 CR / 无替换字符）。
+本轮实测：**15/15 INSERTED，VERIFY_FAILURES=0，ENCODING_BAD=0**。
+
+⚠️ 上一轮的「重复运行安装包不再弹向导」条目**只进了根 `CHANGELOG.md`，没进 14 个 locale**（`ch` 的 3.6.6 段落只有 572 字符、`ja` 787，其余 locale 约 1600–2040）。这是既有欠账，本轮未一并补（翻译量与本轮主题无关），接力时可择机补齐。
+
+#### 25.14.3 真机验收证据清单
+
+全部在隔离桌面沙箱内、用 `tauri build` 的 release 产物拍摄，窗口物理尺寸 **2582×1390**、屏幕坐标 **(-11,-11)**。
+
+首轮（整窗左上 1920×1080）：
+
+| 文件 | 字节 | meanRgb | 结论 |
+|---|---|---|---|
+| `theme-accept-afm-warm-light.png` | 2,093,563 | 213.2, 205.6, 197.8 | 暖米色 ✓ |
+| `theme-accept-afm-warm-dark.png` | 2,081,417 | 57.6, 50.7, 47.7 | 暖黑 ✓ |
+| `theme-accept-afm-vivid-light.png` | 2,153,214 | 193.7, 194.8, 200.5 | 冷浅 ✓ |
+
+区域补拍（`run-region-accept.ps1` → `sandbox-theme-region.ps1`，坐标是**窗口内相对坐标**，不是屏幕坐标）：
+
+| 文件 | 区域 | 结论 |
+|---|---|---|
+| `theme-accept-afm-warm-light-panelD1.png` | 2150,0 420×700 | 属性面板：钢蓝文件夹图标（品牌色 R2）+ 衬线体文件名 ✓ |
+| `theme-accept-afm-warm-dark-panelD2.png` | 2150,0 420×700 | 暗色属性面板 ✓ |
+| `theme-accept-afm-vivid-light-panelD3.png` | 2150,0 420×700 | 亮色属性面板 ✓ |
+| `theme-accept-afm-warm-light-barD1.png` | 1000,1320 1582×60 | 状态条 ✓（左缘钢蓝线在 x=0，被取景切掉） |
+| `theme-accept-afm-warm-dark-barD2.png` | 1000,1320 1582×60 | 状态条 ✓ |
+| `theme-accept-afm-vivid-light-barD3.png` | 1000,1320 1582×60 | 状态条 ✓ |
+| `theme-accept-afm-warm-light-barD1left.png` | 0,1325 760×65 | 状态条左缘：**品牌钢蓝竖线** ✓ + 「23 个项目」+ 卡片选中态钢蓝淡染 ✓ |
+| `theme-accept-afm-vivid-light-barD3left.png` | 0,1325 760×65 | 同位置 D3：卡片选中态电光紫淡染 ✓ |
+
+⚠️ **状态条左缘的钢蓝线在窗口最左侧 x≈63 处**（图标轨右侧），拍状态条必须从 **x=0** 起拍才拍得到，只拍 x≥1000 会漏掉 R2 的这处落点。
+
+**像素取样（System.Drawing 直方图 + 包围盒，不用肉眼判色）**：
+
+卡片选中态底色走 `hsl(var(--primary) / 25%)`（`src/modules/navigator/components/file-browser/file-browser-grid-card.vue:742` 的 `__overlay--selected`），所以它天然带主题色：
+
+| 主题 | 主导色 | HSL | 解读 |
+|---|---|---|---|
+| D1 | `#C6C6C0` | 60 / 5% / 76% | 品牌钢蓝在 25% 淡染 + 暖米底 ⇒ 几乎无饱和度 |
+| D3 | `#C3C1E4` | 243 / 39% / 83% | 电光紫淡染 ✓ |
+| D1 页面底 | `#DED8CE` | 38 / 20% / 84% | 暖米 ✓ |
+| D3 页面底 | `#E0E3E7` | 214 / 13% / 89% | 冷浅 ✓ |
+
+⇒ ⚠️ **肉眼极易把「钢蓝 25% 淡染 + 暖米底」误读成「冷灰蓝块」并当成主题没跟上**。
+判断颜色**必须取像素**，别靠截图观感下结论——本轮就差点误判成缺陷。
+
+**用户数据纪律每轮都核对过**：backup / restore 后 SHA256 与字节数完全一致（`36bb304e…654ebbd` / 4667 B），`theme=system`、`lastSeenVersion=none`。
+
+#### 25.14.4 交付产物
+
+- 新包：`src-tauri/target/release/bundle/nsis/Alpha File Manager_3.6.6_x64-setup.exe` = **45,490,474 B**
+  （与上一轮交付的 45,492,568 B 不同，因前端资源变了；**同名替换**，版本号仍为 3.6.6）
+- 已用 `node fs.copyFileSync` 覆盖 `release/` 同名包，**历史包一个没删**（2.2.0 … 3.6.5 全在）
+- `release/SHA256SUMS.txt` **未更新**：它只登记了最早的 `Sigma-File-Manager-2.2.0-focus.1` 那一个包，不是本项目的产物清单
+- ⚠️ **同版本重装会被本轮自己做的守卫拦下（零窗口静默退出）**。真机装新包必须带 `/FORCE`：`setup.exe /FORCE`，
+  且按 AGENTS.md §2.8 在**隔离桌面沙箱**内跑。

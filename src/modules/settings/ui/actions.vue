@@ -7,7 +7,8 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { appDataDir, appConfigDir, appLogDir } from '@tauri-apps/api/path';
+// FORK-MODIFICATION 2026-10-20：移植上游 8908e214 —— app 目录走后端统一解析。
+import { appDataDir, appConfigDir, appLogDir } from '@/utils/app-dirs';
 import {
   FolderIcon,
   ExternalLinkIcon,
@@ -75,16 +76,17 @@ function openIssuesPage() {
   openUrl(externalLinks.githubIssuesLink);
 }
 
-function openDiscussionsPage() {
-  openUrl(externalLinks.githubDiscussionsLink);
-}
-
-function openChangelogPage() {
-  openUrl(externalLinks.githubChangelogLink);
-}
-
+// FORK-MODIFICATION 2026-10-14：原 openDiscussionsPage 指向 /discussions/，
+// 但 kizemo/alpha-file-manager 从未开启 Discussions，该链接必然 404 —— 随菜单项一并删除。
+// 原 openChangelogPage 指向 GitHub 的 CHANGELOG.md，现「更新日志」改指 aiec 下载页，
+// 与 openReleasesPage 完全同义，留着会变成没人调用的函数并触发 no-unused-vars。
 function openReleasesPage() {
-  openUrl(externalLinks.githubAllReleases);
+  // 更新渠道已迁到自建站；这里的 GitHub 仓仍指向 sigma 上游，会把用户带到别人的版本列表。
+  openUrl(externalLinks.updateChannelSiteUrl);
+}
+
+function openLearningNotes() {
+  openUrl(externalLinks.learningNotesUrl);
 }
 </script>
 
@@ -183,15 +185,8 @@ function openReleasesPage() {
             />
             {{ t('projectGithubButtons.requestsIssues') }}
           </DropdownMenuItem>
-          <DropdownMenuItem @click="openDiscussionsPage">
-            <ExternalLinkIcon
-              :size="16"
-              class="settings-actions__links-menu-icon"
-            />
-            {{ t('projectGithubButtons.discussions') }}
-          </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem @click="openChangelogPage">
+          <DropdownMenuItem @click="openReleasesPage">
             <ExternalLinkIcon
               :size="16"
               class="settings-actions__links-menu-icon"
@@ -204,6 +199,13 @@ function openReleasesPage() {
               class="settings-actions__links-menu-icon"
             />
             {{ t('settings.actions.allReleases') }}
+          </DropdownMenuItem>
+          <DropdownMenuItem @click="openLearningNotes">
+            <ExternalLinkIcon
+              :size="16"
+              class="settings-actions__links-menu-icon"
+            />
+            {{ t('settings.actions.learningNotes') }}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

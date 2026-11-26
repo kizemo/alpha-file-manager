@@ -28,16 +28,33 @@ import { useUserPathsStore } from './user-paths';
 import { useExtensionsStorageStore } from './extensions';
 import { i18n } from '@/localization';
 import { getLanguage } from '@/localization/data';
+import { resolveAppLocaleFromSystem } from '@/localization/system-locale';
+import {
+  isDefaultFileManager,
+  setDefaultFileManager,
+} from '@/utils/default-file-manager';
+import { canUseDefaultFileManager } from '@/stores/runtime/platform';
+import { locale, platform } from '@tauri-apps/plugin-os';
+import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { emit, listen, type UnlistenFn } from '@tauri-apps/api/event';
 import {
   buildAllowedUserSettingsStorageKeys,
   DEFAULT_GLOBAL_SEARCH_IGNORED_PATHS,
+  DEFAULT_SCAN_DEPTH,
   migrateUserSettingsStorage,
   USER_SETTINGS_SCHEMA_VERSION_KEY,
   USER_SETTINGS_SCHEMA_VERSION,
 } from '@/stores/schemas/user-settings';
 import { SEARCH_CONSTANTS } from '@/constants';
+import {
+  DEFAULT_INFUSION_BLEND_MODE,
+  DEFAULT_INFUSION_BLEND_TARGET,
+  DEFAULT_INFUSION_BLEND_TINT,
+  normalizeInfusionBlendSettings,
+} from '@/utils/infusion-blend';
+// FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）。
+import { resolveFontSizeOffset } from '@/utils/font-size';
 import {
   canUseStartupStorageFastPath,
   getStartupStorageFile,
@@ -75,9 +92,15 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
       isHumanReviewed: true,
       isRtl: false,
     },
-    theme: 'dark',
+    theme: 'afm-warm-light',
     text: {
       font: 'system-ui',
+      // FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）。
+      // 默认档 = 0 偏移，与本需求落地前的排版完全一致。
+      // 这个字段必须出现在**默认对象**里：
+      // 允许键集合（buildAllowedUserSettingsStorageKeys）是从默认对象自动派生的，
+      // 默认对象里没有 ⇒ 读侧不认、写侧也存不进去。
+      fontSize: 'default',
     },
     transparentToolbars: false,
     dateTime: {
@@ -97,7 +120,13 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
     navigator: {
       lastTabCloseBehavior: 'createDefaultTab',
       defaultDirectory: {
-        kind: 'userHome',
+        // FORK-MODIFICATION 2026-10-20（用户 2026-10-20 00:05 附图要求）：
+        // 新标签页默认打开「位置」，不是用户文件夹。
+        //
+        // ⚠️ 这里才是**真正生效**的那一处：设置没落盘时读的是本默认值，
+        // 只改 `resolve-default-directory.ts` 里的兜底是没用的 ——
+        // 那一层拿到的是本对象里已经填好的 `kind`。
+        kind: 'locations',
         customPath: '',
       },
       boldActiveTabTitle: false,
@@ -128,6 +157,13 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
         autoplayVideoPreview: false,
       },
       showHiddenFiles: false,
+      // FORK-MODIFICATION 2026-11-01：目录树开关（navigator.showFolderTree）。
+      // 这个字段必须出现在**默认对象**里：
+      // 允许键集合（buildAllowedUserSettingsStorageKeys）是从默认对象自动派生的，
+      // 默认对象里没有 ⇒ 读侧不认（磁盘上的 false 被静默丢弃，目录树重启后又回来）、
+      // 写侧也存不进去。
+      // 默认值 true，与 navigator.vue 里 `?? true` 的兜底一致（没用过该开关的用户行为不变）。
+      showFolderTree: true,
       splitViewMode: 'split',
       folderSettings: {},
       folderIconTheme: BUILTIN_NAVIGATOR_ICON_THEME_IDS.system,
@@ -139,6 +175,9 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
         linkStatus: false,
         items: true,
         size: true,
+        // FORK-MODIFICATION 2026-10-20：新增「可用空间」列，默认打开
+        // （用户 2026-10-20 明确要求列位于「大小」右侧）。
+        availableSpace: true,
         modified: true,
         created: false,
         tags: false,
@@ -146,16 +185,39 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
       listColumnFillWidth: true,
       listColumnWidths: {},
       listColumnFlexWeights: {},
-      listColumnOrder: ['items', 'size', 'modified', 'created', 'tags', 'kind', 'links', 'linkStatus'],
+      listColumnOrder: [
+        'items',
+        'size',
+        'availableSpace',
+        'modified',
+        'created',
+        'tags',
+        'kind',
+        'links',
+        'linkStatus',
+      ],
       listSortColumn: null,
       listSortDirection: 'asc',
+      // FORK-MODIFICATION: 可关闭的文件夹优先排序（上游 #529/#481/#482）
+      foldersFirst: true,
       gridSortColumn: 'name',
       gridSortDirection: 'asc',
-      enableBoxSelection: false,
+      // FORK-MODIFICATION: 框选默认开启（上游 #465）
+      enableBoxSelection: true,
+      // FORK-MODIFICATION: 列表视图缩略图默认开启（上游 #231）
+      showListThumbnails: true,
+      // FORK-MODIFICATION: 缩略图大小四档（small / medium / large / xlarge），默认 medium（需求 3.6.2）。
+      //   中档 = 48 像素缩略图 / 64 逻辑像素行高（缩略图 + 16 留白），
+      //   不是 32 像素缩略图，也不是 42 像素行高。
+      //   其余档位参数（带说明行高、网格卡高、网格最小列宽）不要在这里抄第二份，
+      //   唯一度量来源是 navigator/components/file-browser/utils/file-browser-thumbnail-sizes.ts。
+      thumbnailSize: 'medium',
       increaseFileViewGaps: false,
     },
     globalSearch: {
-      scanDepth: 7,
+      // FORK-MODIFICATION: 2026-10-16 —— 由 7 改为 9。值来自 schemas 层，
+      // 与迁移步骤共用同一个常量，避免「默认值改了、迁移还认旧值」这种半改状态。
+      scanDepth: DEFAULT_SCAN_DEPTH,
       autoScanPeriodMinutes: 60,
       autoReindexWhenIdle: true,
       ignoredPaths: [...DEFAULT_GLOBAL_SEARCH_IGNORED_PATHS],
@@ -206,7 +268,7 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
     focusWindowOnDriveConnected: true,
     preventDropdownCloseFocusReturn: false,
     quickAccessOnHover: true,
-    quickAccessSectionOrder: ['favorites', 'tagged'],
+    quickAccessSectionOrder: ['favorites', 'tagged', 'frequent', 'history'],
     tooltipDelayMs: 0,
     launchAtStartup: false,
     launchAtStartupHidden: false,
@@ -247,13 +309,15 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
     const background = createDefaultInfusionBackground();
 
     return {
-      blur: 64,
+      blur: 0,
       mediaContrast: 100,
       mediaBrightness: 100,
-      opacity: 15,
-      noise: 5,
+      opacity: 0,
+      noise: 0,
       noiseScale: 0.5,
-      mixBlendMode: 'normal',
+      mixBlendMode: DEFAULT_INFUSION_BLEND_MODE,
+      blendTarget: DEFAULT_INFUSION_BLEND_TARGET,
+      blendTint: DEFAULT_INFUSION_BLEND_TINT,
       background,
     };
   }
@@ -262,13 +326,15 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
     const background = createDefaultInfusionBackground();
 
     return {
-      blur: 32,
+      blur: 0,
       mediaContrast: 100,
       mediaBrightness: 100,
-      opacity: 5,
-      noise: 5,
+      opacity: 0,
+      noise: 0,
       noiseScale: 0.5,
-      mixBlendMode: 'normal',
+      mixBlendMode: DEFAULT_INFUSION_BLEND_MODE,
+      blendTarget: DEFAULT_INFUSION_BLEND_TARGET,
+      blendTint: DEFAULT_INFUSION_BLEND_TINT,
       background,
     };
   }
@@ -313,6 +379,40 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
 
   const defaultFontFamily = computed(
     () => userSettings.value.text?.font ?? 'system-ui',
+  );
+
+  /**
+   * FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）。
+   *
+   * 绝对 **px 偏移**，不是倍率：默认 0 / 大 2 / 特大 4。
+   * 非法值（被手改过的配置文件）一律回落到 0 —— 宁可什么都不放大，
+   * 也不能让布局炸掉。
+   */
+  const fontSizeOffset = computed(
+    () => resolveFontSizeOffset(userSettings.value.text?.fontSize),
+  );
+
+  /**
+   * 把偏移量写到**根元素的内联 style** 上。
+   *
+   * 内联 style 的优先级高于样式表，所以 src/styles/vars.css 里的
+   * `--font-size-offset: 0px` 只是「变量不存在时 calc() 不炸」的兜底，
+   * 不会覆盖这里写的值。
+   */
+  function applyFontSizeOffset(offset: number) {
+    if (typeof document === 'undefined' || !document.documentElement) {
+      return;
+    }
+
+    document.documentElement.style.setProperty('--font-size-offset', `${offset}px`);
+  }
+
+  watch(
+    fontSizeOffset,
+    (offset) => {
+      applyFontSizeOffset(offset);
+    },
+    { immediate: true },
   );
   const themeSettingRef = computed(() => userSettings.value.theme);
   const normalizedThemeSelection = computed(() => {
@@ -364,6 +464,24 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
       }
 
       setNestedValue(userSettings.value as Record<string, unknown>, normalizedKey, value);
+    }
+
+    normalizeInfusionPagesBlendSettings();
+  }
+
+  function normalizeInfusionPagesBlendSettings() {
+    const pages = userSettings.value.infusion?.pages;
+
+    if (!pages) {
+      return;
+    }
+
+    for (const pageSettings of Object.values(pages)) {
+      if (!pageSettings || typeof pageSettings !== 'object') {
+        continue;
+      }
+
+      Object.assign(pageSettings, normalizeInfusionBlendSettings(pageSettings));
     }
   }
 
@@ -483,6 +601,84 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
     await setUserSettingsStorage('language', newLanguage);
   }
 
+  /**
+   * v6.6: the one-shot marker separating "first launch after install" from
+   * every later launch. Everything gated on it must run exactly once per data
+   * directory, because re-running it later would silently overwrite a choice
+   * the user made by hand.
+   */
+  const FIRST_RUN_MARKER_KEY = 'appDefaultsInitialized';
+
+  async function isFirstRun() {
+    if (!userSettingsStorage.value) {
+      return false;
+    }
+
+    return !(await userSettingsStorage.value.get(FIRST_RUN_MARKER_KEY));
+  }
+
+  /**
+   * First launch only, and only when there is no stored language yet.
+   *
+   * The second condition is what protects users upgrading from an older build:
+   * the language they already picked is an explicit choice, so it outranks the
+   * system locale. Runs before `initLanguage()`, which is what actually applies
+   * `userSettings.language` to the running i18n instance.
+   */
+  async function applyFirstRunLanguage() {
+    if (!await isFirstRun()) {
+      return;
+    }
+
+    // An upgrade carries a stored language forward. Respect it.
+    if (await userSettingsStorage.value?.get('language')) {
+      return;
+    }
+
+    try {
+      const appLocale = resolveAppLocaleFromSystem(await locale());
+      const language = getLanguage(appLocale);
+
+      if (language) {
+        userSettings.value.language = language;
+        await setUserSettingsStorage('language', language);
+      }
+    }
+    catch (error) {
+      // Detection must never break startup; the English default stays in place.
+      console.error('[UserSettings] System locale detection failed:', error);
+    }
+  }
+
+  /**
+   * First launch only: register as the Windows default file manager.
+   *
+   * Deliberately kept out of the pre-`initLanguage` path — writing shell
+   * registry keys is much slower than reading the system locale, and there is
+   * no reason to make the first paint wait on it. Also writes the one-shot
+   * marker, which is why it must run after {@link applyFirstRunLanguage}.
+   */
+  async function applyFirstRunDefaults() {
+    if (!await isFirstRun()) {
+      return;
+    }
+
+    try {
+      const available = await invoke<boolean>('default_file_manager_available');
+
+      if (canUseDefaultFileManager(platform(), available) && !await isDefaultFileManager()) {
+        await setDefaultFileManager(true);
+      }
+    }
+    catch (error) {
+      console.error('[UserSettings] Failed to register as default file manager:', error);
+    }
+
+    // Written last and unconditionally: even a failed claim must not make the
+    // next launch retry the whole thing.
+    await setUserSettingsStorage(FIRST_RUN_MARKER_KEY, true);
+  }
+
   function initTheme() {
     setTheme(userSettings.value.theme);
   }
@@ -526,6 +722,49 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
     }
 
     await setUserSettingsStorage(key, value);
+  }
+
+  /**
+   * 导入设置：把一份扁平点号键的设置集合按**白名单**过滤后写进内存与盘上。
+   *
+   * 为什么不复用 `setMany`：`setMany` 不做白名单判断，`applySettingValue`
+   * 会照着键一路造出嵌套结构 —— 导入一份坏文件就能把内存里的设置改成任意形状。
+   * 这里必须先过 `allowedUserSettingsStorageKeys`，再落盘。
+   *
+   * `__schemaVersion` 是存储格式的版本、不是用户设置，两端都不搬。
+   */
+  async function importUserSettingsEntries(entries: Record<string, unknown>) {
+    if (!userSettingsStorage.value) {
+      throw new Error('userSettingsStorageNotReady');
+    }
+
+    const accepted = new Map<string, unknown>();
+
+    for (const [key, value] of Object.entries(entries)) {
+      if (key === USER_SETTINGS_SCHEMA_VERSION_KEY) {
+        continue;
+      }
+
+      const normalizedKey = normalizeStorageKeyToMemory(key);
+
+      if (!allowedUserSettingsStorageKeys.value.has(normalizedKey)) {
+        continue;
+      }
+
+      accepted.set(key, value);
+    }
+
+    applyUserSettingsEntries(accepted);
+
+    for (const [key, value] of accepted) {
+      await userSettingsStorage.value.set(key, value);
+    }
+
+    await userSettingsStorage.value.save();
+
+    if (accepted.has('theme')) {
+      await broadcastThemeChange(userSettings.value.theme);
+    }
   }
 
   async function setMany(entries: Array<{
@@ -621,17 +860,25 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
     initTheme();
     themeTransitionsEnabled.value = true;
     await ensureThemeChangeListener();
+    // Must precede initLanguage(): that call is what pushes
+    // userSettings.language into the running i18n instance.
+    await applyFirstRunLanguage();
     initLanguage();
     await initZoom();
+    // Last, because it mutates shell registry state and is the slowest step.
+    await applyFirstRunDefaults();
   }
 
   return {
     userSettings,
     userSettingsDefault,
     defaultFontFamily,
+    fontSizeOffset,
     init,
     set,
     setMany,
+    // FORK-MODIFICATION: 批次 58 —— 「导入设置」用：按白名单过滤后整体写入。
+    importUserSettingsEntries,
     updateFolderSettings,
     setUserSettingsStorage,
     setLanguage,

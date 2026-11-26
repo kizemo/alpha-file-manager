@@ -5,18 +5,24 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
 <script setup lang="ts">
 import { computed, provide, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
-import { BlocksIcon, HardDriveIcon, NetworkIcon, UsbIcon } from '@lucide/vue';
+import {
+  BlocksIcon, CloudIcon, HardDriveIcon, NetworkIcon, UsbIcon,
+} from '@lucide/vue';
 import { useAppStore } from '@/stores/runtime/app';
+import { useAppWindowStore } from '@/stores/runtime/app-window';
 import { useExtensionsStore } from '@/stores/runtime/extensions';
 import {
   BUILTIN_NAVIGATION_PAGE_SHORTCUTS,
   useShortcutsStore,
 } from '@/stores/runtime/shortcuts';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
+import { useWorkspacesStore } from '@/stores/storage/workspaces';
 import { openNavigatorPath, openNavigatorPathInNewTab } from '@/utils/open-navigator-directory';
+import { getDriveShortLabel as getDriveShortLabelFromMountPoint } from '@/utils/drive-short-label';
 import { useDrives } from '@/modules/home/composables';
-import { DriveCard } from '@/modules/home/components';
+import { DriveCard, MountDialog } from '@/modules/home/components';
 import { getLucideIcon } from '@/utils/lucide-icons';
 import {
   Tooltip,
@@ -28,18 +34,45 @@ import { ContextMenuShortcut } from '@/components/ui/context-menu';
 import { CONTEXT_MENU_OPEN_COUNT_KEY } from '@/components/dir-entry-interactive';
 import { formatKeybindingKeys } from '@/modules/extensions/api';
 import QuickAccessPanel from './components/quick-access-panel.vue';
+// FORK-MODIFICATION: 批次 58 —— 收藏编辑弹窗挂在**侧栏这一层**，不挂在 panel 里。
+// 原因：panel 整体在一个 hover 驱动的 TooltipContent 里，鼠标一移开就会被卸载，
+// 挂在它里面的弹窗会跟着一起消失。
+import FavoriteEditDialog from '@/components/favorite-edit-dialog.vue';
+import type { FavoriteItem } from '@/types/user-stats';
+import RemoteNavPanel from './components/remote-nav-panel.vue';
+import {
+  editRemoteConnection,
+  openRemoteConnection,
+} from '@/modules/remote/utils/open-remote-connection';
+import { openSettingsTab } from '@/modules/settings/utils/open-settings';
+import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
+import type { RemoteConnection, RemoteProtocol } from '@/types/remote';
 import UbuntuWslIcon from '@/components/icons/ubuntu-wsl-icon.vue';
 import { useTextDirection } from '@/composables/use-text-direction';
 
 const router = useRouter();
 const appStore = useAppStore();
+const appWindowStore = useAppWindowStore();
 const extensionsStore = useExtensionsStore();
 const shortcutsStore = useShortcutsStore();
 const userSettingsStore = useUserSettingsStore();
+const workspacesStore = useWorkspacesStore();
+const remoteConnectionsStore = useRemoteConnectionsStore();
 const { drives } = useDrives();
 const { inlineEndSide } = useTextDirection();
+const { t } = useI18n();
+
+/**
+ * 「添加网络驱动器」对话框的开关。
+ *
+ * 资源管理器把这条路径放在「此电脑 → 映射网络驱动器」，而用户最常找它的地方
+ * 就是左侧栏那一列盘符 —— 盘符多了、或者想临时挂一个共享时，从那儿点一下最顺。
+ */
+const showNetworkDriveDialog = ref(false);
 
 const quickAccessOnHover = computed(() => userSettingsStore.userSettings.quickAccessOnHover);
+// 全屏时侧栏头部不该是拖拽区 —— 全屏没有标题栏可拖。
+const windowDragRegion = computed(() => (appWindowStore.isMainWindowFullscreen ? 'false' : ''));
 
 const quickAccessContextMenuOpenCount = ref(0);
 provide(CONTEXT_MENU_OPEN_COUNT_KEY, quickAccessContextMenuOpenCount);
@@ -63,6 +96,20 @@ function handleQuickAccessReorderStart() {
 function handleQuickAccessReorderEnd() {
   quickAccessHoverOpen.value = true;
   quickAccessReorderOpen.value = false;
+}
+
+/**
+ * 打开收藏编辑弹窗（批次 58）。
+ *
+ * 弹窗挂在侧栏这一层而不是 panel 里 —— panel 在 hover Tooltip 内，
+ * 鼠标移开就被卸载，挂在它里面的弹窗会跟着消失。
+ */
+const favoriteEditDialogOpen = ref(false);
+const favoriteEditTarget = ref<FavoriteItem | null>(null);
+
+function handleEditFavorite(item: FavoriteItem) {
+  favoriteEditTarget.value = item;
+  favoriteEditDialogOpen.value = true;
 }
 
 function isDashboardPage(item: { name?: unknown }) {
@@ -126,6 +173,81 @@ function getDriveIcon(drive: {
 
   return drive.is_removable ? UsbIcon : HardDriveIcon;
 }
+
+/**
+ * 从挂载点提取用于窄侧栏标识的短标签（2026-10-11）。
+ * 实现在 @/utils/drive-short-label，抽出是为了能单独写单测。
+ */
+function getDriveShortLabel(drive: { mount_point: string }): string {
+  return getDriveShortLabelFromMountPoint(drive.mount_point);
+}
+
+// ---------------------------------------------------------------------------
+// 远程（2026-10-18）
+//
+// 面板是 hover 驱动的，开合状态自己管 —— 跟上面「仪表盘」那块同一个模式，
+// 用 Tooltip 的受控 `:open` 而不是让它自己判断，鼠标从按钮移到面板上时
+// 才不会闪一下。
+// ---------------------------------------------------------------------------
+
+const remotePanelOpen = ref(false);
+
+function handleRemotePanelOpenChange(value: boolean) {
+  remotePanelOpen.value = value;
+}
+
+async function openRemoteSettings() {
+  remotePanelOpen.value = false;
+  // 不能只 `router.push({ name: 'settings' })`：用户若已经停在设置页的别的分类上，
+  // 点了这个入口会落在旧分类，看着像「按钮没反应」。仓库已有
+  // `openSettingsTab`，它会先 setCurrentTab 再跳转。
+  await openSettingsTab('remote');
+}
+
+/**
+ * 连一个远程：切到导航器页，开一组标签页，左本地右远端。
+ *
+ * 判定与顺序都在 `openRemoteConnection` 里（抽出去是为了能测），
+ * 这里只把 router / workspaces store 注入进去。**不在这里自己 if 一次**：
+ * 判定逻辑在别处、也已被测过，这里再抄一遍就是两份真相。
+ */
+async function handleRemoteOpen(connection: RemoteConnection) {
+  remotePanelOpen.value = false;
+  await openRemoteConnection(connection, {
+    navigateToNavigator: () => router.push({ name: 'navigator' }),
+    openPanes: paths => workspacesStore.openNewTabGroupWithPaths(paths),
+  });
+}
+
+/**
+ * 从悬停面板直接进某条连接的编辑表单（用户 2026-10-18 要求）。
+ */
+async function handleRemoteEdit(connection: RemoteConnection) {
+  remotePanelOpen.value = false;
+  await editRemoteConnection(connection, {
+    requestEdit: id => remoteConnectionsStore.requestRemoteEdit(id),
+    openSettingsTab: tab => openSettingsTab(tab),
+  });
+}
+
+/**
+ * 「添加连接」入口（2026-11-08）。
+ *
+ * 需求来源：用户反馈「左侧导航里找不到添加百度网盘的入口」。
+ *
+ * 现在**只剩悬停面板这一个入口**：图标轨上那颗常驻的「+」按用户要求撤掉了
+ * （2026-11-08）。面板里分成「网盘」「远程连接」两个分区，各自带一颗添加按钮，
+ * 点哪颗就把新建请求的协议预置成对应的那个（网盘 → `baidu_pan`）。
+ *
+ * 入口只做两件事：往 store 里放一个**新建请求**（瞬态，消费即清空），
+ * 再跳到设置页的远程分类 —— 表单与标签页由那一侧自己打开，
+ * 这里不直接操纵设置页的内部状态（那是设置页自己的职责）。
+ */
+async function openRemoteCreate(protocol: RemoteProtocol) {
+  remotePanelOpen.value = false;
+  remoteConnectionsStore.requestRemoteCreate(protocol);
+  await openSettingsTab('remote');
+}
 </script>
 
 <template>
@@ -135,11 +257,11 @@ function getDriveIcon(drive: {
   >
     <div
       class="nav-sidebar-header"
-      data-tauri-drag-region
+      :data-tauri-drag-region="windowDragRegion"
     >
       <div class="nav-sidebar-header-logo">
         <img
-          data-tauri-drag-region
+          :data-tauri-drag-region="windowDragRegion"
           src="@/assets/icons/logo-32x32.png"
           width="20"
           height="20"
@@ -179,17 +301,14 @@ function getDriveIcon(drive: {
             :collision-padding="6"
             class="nav-sidebar__quick-access-tooltip"
           >
-            <div class="nav-sidebar__quick-access-title">
-              <div class="nav-sidebar__tooltip-row">
-                <span>{{ item.title }}</span>
-                <ContextMenuShortcut v-if="getPageShortcutLabel(item.name)">
-                  {{ getPageShortcutLabel(item.name) }}
-                </ContextMenuShortcut>
-              </div>
-            </div>
+            <!-- FORK-MODIFICATION: 需求 N3① —— 删掉「仪表盘 Alt+3」这行标题。
+                 面板内容本身就是仪表盘快捷入口，标题行是重复信息。
+                 Alt+3 快捷键本身不变（`BUILTIN_NAVIGATION_PAGE_SHORTCUTS`），
+                 仍可用，也仍在设置页展示。 -->
             <QuickAccessPanel
               @drag-start="handleQuickAccessReorderStart"
               @drag-end="handleQuickAccessReorderEnd"
+              @edit-favorite="handleEditFavorite"
             />
           </TooltipContent>
         </Tooltip>
@@ -224,6 +343,38 @@ function getDriveIcon(drive: {
           </TooltipContent>
         </Tooltip>
       </template>
+
+      <Tooltip
+        :open="remotePanelOpen"
+        @update:open="handleRemotePanelOpenChange"
+      >
+        <TooltipTrigger as-child>
+          <Button
+            class="nav-sidebar-item"
+            size="icon"
+            data-test="remote-nav-button"
+          >
+            <CloudIcon
+              :size="18"
+              class="nav-sidebar-item-icon"
+            />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent
+          :side="inlineEndSide"
+          align="start"
+          :side-offset="12"
+          :collision-padding="6"
+          class="nav-sidebar__remote-tooltip"
+        >
+          <RemoteNavPanel
+            @add="openRemoteCreate"
+            @open-settings="openRemoteSettings"
+            @open="handleRemoteOpen"
+            @edit="handleRemoteEdit"
+          />
+        </TooltipContent>
+      </Tooltip>
 
       <Tooltip
         v-for="registration in sortedExtensionPages"
@@ -271,17 +422,20 @@ function getDriveIcon(drive: {
             @click="openDrive(drive.path)"
             @mousedown="handleDriveMouseDown($event, drive.path)"
           >
-            <UbuntuWslIcon
-              v-if="drive.drive_type === 'WSL'"
-              :size="16"
-              class="nav-sidebar-drive-icon"
-            />
-            <component
-              v-else
-              :is="getDriveIcon(drive)"
-              :size="16"
-              class="nav-sidebar-drive-icon"
-            />
+            <span class="nav-sidebar-drive-stack">
+              <UbuntuWslIcon
+                v-if="drive.drive_type === 'WSL'"
+                :size="16"
+                class="nav-sidebar-drive-icon"
+              />
+              <component
+                v-else
+                :is="getDriveIcon(drive)"
+                :size="16"
+                class="nav-sidebar-drive-icon"
+              />
+              <span class="nav-sidebar-drive-label">{{ getDriveShortLabel(drive) }}</span>
+            </span>
           </Button>
         </TooltipTrigger>
         <TooltipContent
@@ -293,7 +447,41 @@ function getDriveIcon(drive: {
           <DriveCard :drive="drive" />
         </TooltipContent>
       </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <Button
+            class="nav-sidebar-drive nav-sidebar-drive--add"
+            size="icon"
+            :aria-label="t('mapNetworkDrive')"
+            @click="showNetworkDriveDialog = true"
+          >
+            <NetworkIcon
+              :size="16"
+              class="nav-sidebar-drive-icon"
+            />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent
+          :side="inlineEndSide"
+          :side-offset="12"
+          :collision-padding="6"
+        >
+          {{ t('mapNetworkDrive') }}
+        </TooltipContent>
+      </Tooltip>
     </div>
+
+    <MountDialog
+      v-model:open="showNetworkDriveDialog"
+      mode="network"
+    />
+
+    <!-- FORK-MODIFICATION: 批次 58 —— 收藏编辑弹窗（标题 / 路径 / 分类）。 -->
+    <FavoriteEditDialog
+      v-model:open="favoriteEditDialogOpen"
+      :favorite="favoriteEditTarget"
+    />
   </div>
 </template>
 
@@ -306,7 +494,10 @@ function getDriveIcon(drive: {
   flex-direction: column;
   border-radius: var(--radius-sm);
   margin: 6px;
-  background-color: hsl(var(--background-2));
+
+  /* FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：图标轨底色改走 token，
+     让「跃动活力」那套能把整条轨换成深钢蓝。宽度仍由 --nav-sidebar-width 决定（42px 不变）。 */
+  background-color: hsl(var(--surface-sidebar));
 }
 
 .nav-sidebar-header {
@@ -318,7 +509,7 @@ function getDriveIcon(drive: {
   justify-content: center;
   border-radius: var(--radius-sm);
   margin-bottom: 12px;
-  background-color: hsl(var(--background-2));
+  background-color: hsl(var(--surface-sidebar));
 }
 
 .nav-sidebar-items {
@@ -363,7 +554,7 @@ function getDriveIcon(drive: {
 }
 
 .nav-sidebar-item-icon {
-  stroke: hsl(var(--icon));
+  stroke: hsl(var(--nav-rail-foreground));
 }
 
 .nav-sidebar-item[is-active="true"] .nav-sidebar-item-icon {
@@ -385,14 +576,106 @@ function getDriveIcon(drive: {
   background-color: hsl(var(--foreground) / 3%);
 }
 
-.nav-sidebar-drive-icon {
+/*
+ * 「添加网络驱动器」按钮。
+ *
+ * 盘符按钮是 24x24 的方块（图标 + 绝对定位的盘符字标），
+ * 这个按钮没有盘符字标，图标居中即可，所以只多一个内缩，
+ * 让它和上面那一列盘符在视觉上对齐。
+ */
+
+.nav-sidebar-drive--add {
+  border: 1px dashed hsl(var(--border));
+  margin-top: 2px;
   color: hsl(var(--muted-foreground));
-  stroke: hsl(var(--muted-foreground));
 }
+
+.nav-sidebar-drive-icon {
+  color: hsl(var(--nav-rail-muted-foreground));
+  stroke: hsl(var(--nav-rail-muted-foreground));
+}
+
+/*
+ * 图标 + 盘符的纵向叠放容器（2026-10-11）。
+ *
+ * 用 overlay 而不是 flex 列布局，是为了**不改变按钮高度** ——
+ * 侧栏里可能同时挂着十几个盘（网络盘 + U 盘），
+ * 若每个按钮因加字而变高，底部空间不够时整列会被挤变形。
+ * 字标绝对定位在图标下缘，向上溢出可见，容器尺寸保持 24x24 不变。
+ */
+
+.nav-sidebar-drive-stack {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+/*
+ * 盘符字标：与图标合成一个整体（2026-10-11 第三轮）。
+ *
+ * 第一轮放在图标**下方**，两者是分离的两个元素，视觉上像两样东西。
+ * 第三轮按用户意见改成：压到图标上、只留字母、字母放大。
+ *
+ * 实现要点：
+ *
+ * 1. 去掉冒号，只留字母。侧栏仅 24px 宽，字高已放到 12px，
+ *    冒号在这个尺寸不增加辨识度、却占掉描边留白，反而让字母更难认。
+ *    认错分区是要付代价的，所以宁小勿杂。
+ *
+ * 2. `transform: translate(-50%, 10%)` 让字标顶边压到容器垂直中线略下方，
+ *    即字标上部压进图标下部、重叠约 56.7%。
+ *    取值来自逐档实测（12px 字 / 16px 图标，用 getBoundingClientRect 量重叠），
+ *    由用户从对照图里选定这一档：
+ *        0% → 66.7%   10% → 56.7% ← 当前值
+ *       18% → 48.7%   25% → 41.7%
+ *       32% → 34.7%   40% → 26.7%
+ *    0% 会压得太深、字母下半截沉进图标里显糊；40% 只剩 1/4 叠合，
+ *    「合成一体」的效果弱了。10% 是观感与辨识度的平衡点。
+ *
+ * 3. 描边用 `background-2`（侧栏自身底色）而不是固定灰：
+ *    浅色主题下是浅灰、深色主题下是深灰，永远与所在面板同色，
+ *    等于把图标线条从字上「抠断」，切任何主题都不会糊。
+ *    `paint-order: stroke fill` 保证描边画在字形**下面**而非盖住字 ——
+ *    实测去掉它，字几乎完全消失（见 scripts/drive-label-preview.html 的对照B）。
+ *
+ * 4. 描边宽度 2px 是可读性下限：再窄图标线条就会重新穿进字里。
+ */
+
+.nav-sidebar-drive-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+  paint-order: stroke fill;
+  pointer-events: none;
+  -webkit-text-stroke: 2px hsl(var(--surface-sidebar));
+  transform: translate(-50%, 10%);
+  white-space: nowrap;
+}
+
+/*
+ * 悬停/聚焦时才提亮图标与字标。
+ * 默认态保持 muted，避免一列盘符全部高亮导致视觉噪音。
+ *
+ * 刻意只改 color 不改 -webkit-text-stroke：
+ * 描边必须始终等于侧栏底色，悬停时若跟着变色，
+ * 描边就盖不住图标线条了，「合成一体」的效果会消失。
+ */
 
 .nav-sidebar-drive:hover .nav-sidebar-drive-icon {
   color: hsl(var(--foreground));
   stroke: hsl(var(--foreground));
+}
+
+.nav-sidebar-drive:hover .nav-sidebar-drive-label {
+  color: hsl(var(--foreground));
 }
 
 </style>
@@ -405,12 +688,17 @@ function getDriveIcon(drive: {
   margin-top: 0;
 }
 
-.nav-sidebar__quick-access-title {
-  padding: 8px 10px;
-  border-bottom: 1px solid hsl(var(--border) / 50%);
-}
+/* FORK-MODIFICATION: 需求 N3① 删掉「仪表盘 Alt+3」标题行后，
+   原 `.nav-sidebar__quick-access-title` 已无对应元素，一并删除。 */
 
 .nav-sidebar-drive-tooltip {
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+/* 远程面板与盘符面板一样，去掉气泡自身的内边距与边框，由面板自己排版。 */
+.sigma-ui-tooltip-content.nav-sidebar__remote-tooltip {
   padding: 0;
   border: none;
   background: transparent;

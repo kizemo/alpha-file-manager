@@ -1,0 +1,1226 @@
+// MIT License — Copyright (c) inaku-Gyan
+// Ported from https://github.com/inaku-Gyan/PathWrap/blob/main/src/os/monitor.rs
+// Original file: src/os/monitor.rs (399 lines, MIT licensed)
+//
+// Adaptations from original:
+// - `egui::Context ctx` parameter → `Arc<tokio::sync::Notify> notify` (spike runs in tokio)
+// - `ctx.request_repaint()` → `notify.notify_one()` (3 occurrences in monitor loop)
+// - `log::{debug, trace}` → `tracing::{debug, trace}` (spike uses tracing)
+// - `DialogInfo` defined locally (was `crate::core::types::DialogInfo` in PathWrap)
+// - 3-event hook + adaptive polling (8/30ms) + lost-tick recovery + multi-feature dialog
+//   detection + DPI awareness — all ported verbatim (PathWrap's full feature set)
+// - `start_monitor` kept synchronous (blocking thread); caller invokes via
+//   `tokio::task::spawn_blocking` in Task 7 wiring
+//
+// See handoff §6.2 for detailed adaptation notes.
+
+//! UIA event monitor: tracks foreground window changes via `SetWinEventHook`
+//! and adaptive polling, identifies file dialog HWNDs, emits dialog info events.
+//!
+//! Public API:
+//! - [`DialogInfo`] — info struct emitted per detected dialog
+//! - [`start_monitor`] — blocking loop, run via `tokio::task::spawn_blocking`
+//! - [`foreground_hwnd`] — current foreground HWND (for controller to verify)
+//! - [`get_dialog_info_if_match`] — file-dialog check (used by `detector.rs`)
+//! - [`get_dialog_info_by_hwnd`] — get info for a specific HWND (used by state lookup)
+
+use crate::events::Event;
+use crate::logger::{log_event, now_iso8601};
+use std::mem::size_of;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
+use tokio::sync::Notify;
+use tracing::{debug, trace};
+use windows::Win32::Foundation::{HANDLE, HWND, LPARAM, RECT};
+use windows::Win32::System::Diagnostics::ToolHelp::{
+    CREATE_TOOLHELP_SNAPSHOT_FLAGS, CreateToolhelp32Snapshot, Process32FirstW, Process32NextW,
+    PROCESSENTRY32W,
+};
+use windows::Win32::Graphics::Dwm::{DWMWA_EXTENDED_FRAME_BOUNDS, DwmGetWindowAttribute};
+use windows::Win32::UI::Accessibility::{HWINEVENTHOOK, SetWinEventHook, UnhookWinEvent};
+use windows::Win32::UI::HiDpi::GetDpiForWindow;
+use windows::Win32::UI::WindowsAndMessaging::{
+    DispatchMessageW, EVENT_OBJECT_FOCUS, EVENT_OBJECT_SHOW, EVENT_SYSTEM_FOREGROUND, EnumWindows,
+    FindWindowExW, GetClassNameW, GetForegroundWindow, GetMessageW, GetWindowRect, GetWindowTextW,
+    IsWindow, IsWindowVisible, MSG, TranslateMessage, WINEVENT_OUTOFCONTEXT,
+    WINEVENT_SKIPOWNPROCESS,
+};
+use windows::core::BOOL;
+use windows::core::w;
+
+/// v0.5.7 G-1 — pure decision function for "should a KNOWN dialog re-sync?".
+///
+/// `known_same`  : the monitor is already tracking this exact hwnd
+///                 (so the round-18 dedup would suppress an `Opened`).
+/// `pending`     : path most recently pushed by the extension.
+/// `last_written`: what we last wrote into this dialog.
+///
+/// LOOP SAFETY: once a write-back happens, main.rs sets
+/// `DialogInfo.last_known_path = state.current_path()`, so on the very next
+/// 8ms tick `last_written == pending` and this returns false. Without that,
+/// the monitor would push `Opened` every tick — the exact flash loop the
+/// round-18 dedup was added to prevent.
+pub(crate) fn should_resync_known_dialog(known_same: bool, pending: &str, last_written: Option<&str>) -> bool {
+    // v0.5.16: 归一化后比较。reader 登记的是 `F:/dir`（正斜杠，shell 返回），
+    // AFM 推给侧车的是 `F:\dir`（反斜杠）—— 不归一化的话这个谓词恒为真 ⇒
+    // monitor 每 1200ms 触发一次无意义的 resync。真机日志里「1.2s 一次、
+    // 连续十几轮读失败」的读失败风暴就是这么来的。
+    known_same
+        && !pending.is_empty()
+        && match last_written {
+            Some(last) => !crate::state::paths_equal(last, pending),
+            None => true,
+        }
+}
+
+/// Information about a detected file dialog.
+#[derive(Debug, Clone)]
+pub struct DialogInfo {
+    pub hwnd: isize,
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+    pub dpi: u32,
+}
+
+/// Round 18: monitor emits an enum so the consumer can distinguish
+/// "dialog appeared" from "dialog closed" without leaking monitor-internal
+/// `last_hwnd` state into the main select! loop.
+#[derive(Debug, Clone)]
+pub enum DialogEvent {
+    Opened(DialogInfo),
+    Closed { last_hwnd: isize },
+}
+
+fn monitor_wakeup_sender() -> &'static Mutex<Option<Sender<()>>> {
+    static WAKEUP_SENDER: OnceLock<Mutex<Option<Sender<()>>>> = OnceLock::new();
+    WAKEUP_SENDER.get_or_init(|| Mutex::new(None))
+}
+
+unsafe extern "system" fn monitor_event_callback(
+    _h_win_event_hook: HWINEVENTHOOK,
+    _event: u32,
+    hwnd: HWND,
+    _id_object: i32,
+    _id_child: i32,
+    _dw_event_thread: u32,
+    _dwms_event_time: u32,
+) {
+    if hwnd.is_invalid() {
+        return;
+    }
+
+    if let Ok(guard) = monitor_wakeup_sender().lock() {
+        if let Some(sender) = guard.as_ref() {
+            let _ = sender.send(());
+        }
+    }
+}
+
+fn start_event_wakeup_hook() -> Receiver<()> {
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    std::thread::spawn(move || {
+        if let Ok(mut guard) = monitor_wakeup_sender().lock() {
+            *guard = Some(tx);
+        }
+
+        let hooks = unsafe {
+            [
+                SetWinEventHook(
+                    EVENT_SYSTEM_FOREGROUND,
+                    EVENT_SYSTEM_FOREGROUND,
+                    None,
+                    Some(monitor_event_callback),
+                    0,
+                    0,
+                    WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS,
+                ),
+                SetWinEventHook(
+                    EVENT_OBJECT_FOCUS,
+                    EVENT_OBJECT_FOCUS,
+                    None,
+                    Some(monitor_event_callback),
+                    0,
+                    0,
+                    WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS,
+                ),
+                SetWinEventHook(
+                    EVENT_OBJECT_SHOW,
+                    EVENT_OBJECT_SHOW,
+                    None,
+                    Some(monitor_event_callback),
+                    0,
+                    0,
+                    WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS,
+                ),
+            ]
+        };
+
+        let registered_hooks: Vec<HWINEVENTHOOK> =
+            hooks.into_iter().filter(|h| !h.is_invalid()).collect();
+        if registered_hooks.is_empty() {
+            if let Ok(mut guard) = monitor_wakeup_sender().lock() {
+                *guard = None;
+            }
+            return;
+        }
+
+        let mut msg = MSG::default();
+        loop {
+            let result = unsafe { GetMessageW(&mut msg, None, 0, 0) };
+            if result.0 <= 0 {
+                break;
+            }
+            unsafe {
+                let _ = TranslateMessage(&msg);
+                DispatchMessageW(&msg);
+            }
+        }
+
+        for hook in registered_hooks {
+            unsafe {
+                let _ = UnhookWinEvent(hook);
+            }
+        }
+
+        if let Ok(mut guard) = monitor_wakeup_sender().lock() {
+            *guard = None;
+        }
+    });
+
+    rx
+}
+
+/// Synchronous blocking monitor loop. Run via `tokio::task::spawn_blocking`.
+/// Emits detected `DialogEvent` via `sender` and wakes main tokio loop via `notify.notify_one()`.
+/// v0.5.7 F-1 — signature change: takes `state` so the monitor thread can
+/// publish the foreground dialog HWND into shared state.
+///
+/// WHY: this thread is the ONLY one whose foreground observation is reliable.
+/// It pumps Windows messages (`GetMessageW`/`DispatchMessageW`), so
+/// `GetForegroundWindow()` returns the true foreground window here. The HTTP
+/// server thread has no message pump and its answers disagreed with this
+/// thread's — which made `/set_path` defer every push (2026-10-07 16:39).
+pub fn start_monitor(
+    sender: Sender<DialogEvent>,
+    notify: Arc<Notify>,
+    state: Arc<crate::state::AppState>,
+) {
+    const INVALID_HWND: isize = 0;
+    const IDLE_POLL_INTERVAL_MS: u64 = 30;
+    const TRACKING_POLL_INTERVAL_MS: u64 = 8;
+    const LOST_CONFIRM_TICKS: u8 = 3;
+    // v0.5.21 — 枚举顶层窗口学习 AFM pid 的间隔（AFM 主窗口不在前台时的
+    // 唯一学习途径）。500ms 一次足够：EnumWindows 很便宜。
+    const AFM_ENUM_INTERVAL: Duration = Duration::from_millis(500);
+    let wakeup_rx = start_event_wakeup_hook();
+
+    let mut last_hwnd: isize = INVALID_HWND;
+    let mut last_foreground_signature: Option<String> = None;
+    let mut lost_ticks: u8 = 0;
+    // v0.5.7 G-3: source-side rate limit.
+    //
+    // The G-2 `sync_in_progress` guard is set by main WHEN IT STARTS handling an
+    // event, which is too late: the monitor keeps polling every 8ms while a
+    // ~300ms write is queued but not yet started, and mpsc has no backpressure.
+    // Observed 2026-10-07 21:57: 24 resyncs queued in 320ms -> the address bar
+    // accumulated the path ~24 times and the dialog died mid-injection with
+    // RPC_E_DISCONNECTED (0x80010108).
+    //
+    // Rate-limiting AT THE SOURCE bounds the backlog to one pending event.
+    let mut last_resync_at: Option<Instant> = None;
+    let resync_cooldown = Duration::from_millis(1200);
+
+    // v0.5.15 — AFM 前台上升沿跟踪。初值 false 是有意的：侧车一般由 AFM 拉起，
+    // 此刻 AFM 正前台，第一个 tick 就上弦，于是「启动后的首次同步」照旧成立。
+    let mut was_afm_foreground = false;
+    // v0.5.20 — 下降沿那一次采样没读到接手应用的 pid 时置位，下一 tick 重采样。
+    // 只有「pid 丢了」这一条路径会置位 ⇒ 授权被消费后不会重新上弦。
+    let mut handoff_retry_pending = false;
+    // v0.5.21 — AFM 进程身份：周期性枚举顶层窗口补学 pid。
+    let mut last_afm_enum_at: Option<Instant> = None;
+
+    loop {
+        let loop_started = Instant::now();
+        let current_dialog = get_active_file_dialog();
+
+        // v0.5.7 F-1: publish the authoritative foreground answer for the rest
+        // of the process. `0` = no foreground file dialog.
+        state.set_foreground_dialog(
+            current_dialog
+                .as_ref()
+                .map(|d| d.hwnd as u32)
+                .unwrap_or(0),
+        );
+
+        // v0.5.19 — 交接记录只在这一处（monitor 是全进程唯一带消息泵的前台
+        // 观察方，HTTP 线程自问 GetForegroundWindow 不可靠）。
+        //
+        // 语义从「访问闩」改成「交接」：
+        //   * AFM -> 非 AFM 的下降沿 = 用户把焦点交给了某个应用 ⇒ 记下
+        //     「接手的应用 pid」和时刻，这就是「直接从 AFM 切换」的起点；
+        //   * 非 AFM -> AFM 的上升沿 = 用户回到 AFM ⇒ 作废上一次交接
+        //     （陈旧授权不许复活）。
+        // v0.5.21 — AFM 身份：先学 pid，再判「是不是在前台」。
+        //
+        // ① 前台窗口命中 class+title ⇒ 立刻学到 AFM 的 pid；
+        // ② 每 500ms 枚举一次顶层窗口补学（AFM 主窗口不在前台时的唯一途径）；
+        // ③ 判据 = 窗口特征命中 **或** 前台窗口属于 AFM 那个进程。
+        //
+        // 旧实现只做 ③ 的前半截（窗口特征），于是 AFM 的辅助窗口
+        // （`com.sigma-file-manager.app-sic`）在前台时产生**假下降沿**。
+        let fg_hwnd = unsafe { GetForegroundWindow() };
+        let fg_pid = foreground_window_pid();
+        let fg_class_title = if fg_hwnd.is_invalid() {
+            false
+        } else {
+            is_afm_window(fg_hwnd)
+        };
+        state.learn_afm_pid(fg_class_title, fg_pid);
+        let enum_due = last_afm_enum_at
+            .map(|t| t.elapsed() >= AFM_ENUM_INTERVAL)
+            .unwrap_or(true);
+        if enum_due {
+            last_afm_enum_at = Some(Instant::now());
+            let found = find_afm_pid_by_enum();
+            if found != 0 {
+                // v0.5.22 — **只在 pid 变化时**打印。旧实现每 500ms 打一行，
+                // 真机 2026-11-18 一天刷出 15,951 行 / 1.5 MB tracing 日志
+                // （agent 自己引入的回归）。
+                let prev_afm_pid = state.afm_pid();
+                state.learn_afm_pid(true, found);
+                if state.afm_pid() != prev_afm_pid {
+                    debug!("[afm-gate] learned AFM pid={} by window enumeration", found);
+                }
+            }
+        }
+        let afm_now = foreground_is_afm_by(state.afm_pid(), fg_class_title, fg_pid);
+        // v0.5.22 — 记录「用户最近一次在 AFM 前台」的时刻。
+        // 闸门路径 B（「对话框开着的时候用户去过 AFM」）靠它判定。
+        if afm_now {
+            state.set_last_afm_foreground_ts(crate::state::now_unix_millis());
+        }
+        // v0.5.22 — 采样「接收方应用」。
+        //
+        // 三条规则（按优先级）：
+        //   1. 前台窗口**就是**那个文件对话框 ⇒ 接收方 = 对话框的属主进程
+        //      （经典 AFM → 对话框 直接切换，身份最准）；
+        //   2. 前台窗口是 shell 表面（任务栏 / 桌面）⇒ **不算接收方**，重采样
+        //      （真机 2026-11-18：用户点任务栏切回对话框 ⇒ 采样落在
+        //      `explorer.exe`(13080) 上，把 shell 记成了接收方 ⇒ 合法写回
+        //      全线被拒：`dialog_pid=619924 handoff_pid=13080`）；
+        //   3. 其余情况 ⇒ 接收方 = 前台窗口的属主进程。
+        let fg_class = if fg_hwnd.is_invalid() {
+            String::new()
+        } else {
+            get_class_name(fg_hwnd)
+        };
+        let fg_hwnd_u32 = if fg_hwnd.is_invalid() {
+            0
+        } else {
+            fg_hwnd.0 as usize as u32
+        };
+        let fg_is_dialog = current_dialog
+            .as_ref()
+            .map(|d| d.hwnd as u32 == fg_hwnd_u32)
+            .unwrap_or(false);
+        let sampled_receiver: Option<u32> = if fg_is_dialog {
+            current_dialog
+                .as_ref()
+                .map(|d| window_pid_isize(d.hwnd as isize))
+                .filter(|p| *p != 0)
+        } else if is_shell_surface_class(&fg_class) {
+            None
+        } else if fg_pid != 0 {
+            Some(fg_pid)
+        } else {
+            None
+        };
+        if afm_now != was_afm_foreground {
+            if afm_now {
+                state.clear_afm_handoff();
+                handoff_retry_pending = false;
+                debug!("[afm-gate] AFM back in foreground; previous handoff cleared");
+                log_event(&Event::SpikeError {
+                    kind: "afm_gate_cleared".into(),
+                    message: format!("AFM back in foreground (afm_pid={})", state.afm_pid()),
+                    ts: now_iso8601(),
+                });
+            } else if let Some(pid) = sampled_receiver {
+                state.set_afm_handoff(pid);
+                handoff_retry_pending = false;
+                debug!("[afm-gate] handoff recorded: pid={}", pid);
+                log_event(&Event::SpikeError {
+                    kind: "afm_gate_armed".into(),
+                    message: format!(
+                        "handoff recorded: pid={} afm_pid={} fg_class_title={} fg_class={}",
+                        pid,
+                        state.afm_pid(),
+                        fg_class_title,
+                        fg_class
+                    ),
+                    ts: now_iso8601(),
+                });
+            } else {
+                // v0.5.20/v0.5.22 —— 这一瞬间没读到「接收方应用」：前台窗口
+                // 为空（pid 读不到），或前台只是任务栏/桌面（shell 表面）。
+                // 交接授权的可核对性全部建立在 pid 上 ⇒ **不记录**，下一 tick
+                // 重采样。不重采样的话，一次坏采样会毒化整个会话：此后的
+                // 同步全被挡住，直到用户再回一次 AFM 再切走。
+                handoff_retry_pending = true;
+                debug!("[afm-gate] handoff sample has no receiving app yet; will retry");
+                log_event(&Event::SpikeError {
+                    kind: "afm_gate_retry".into(),
+                    message: format!(
+                        "handoff sample has no receiving app yet; will retry (afm_pid={} fg_class={})",
+                        state.afm_pid(),
+                        fg_class
+                    ),
+                    ts: now_iso8601(),
+                });
+            }
+        } else if handoff_retry_pending && !afm_now {
+            // v0.5.20/v0.5.22 —— 还在非 AFM 前台、且交接尚未记录 ⇒ 重采样接收方。
+            // 这条分支只在「没读到接收方」时激活 ⇒ 授权被消费后不会重新上弦。
+            if let Some(pid) = sampled_receiver {
+                state.set_afm_handoff(pid);
+                handoff_retry_pending = false;
+                debug!("[afm-gate] handoff recorded on retry: pid={}", pid);
+                log_event(&Event::SpikeError {
+                    kind: "afm_gate_armed".into(),
+                    message: format!(
+                        "handoff recorded on retry: pid={} afm_pid={} fg_class_title={} fg_class={}",
+                        pid,
+                        state.afm_pid(),
+                        fg_class_title,
+                        fg_class
+                    ),
+                    ts: now_iso8601(),
+                });
+            }
+        }
+        // v0.5.22 — 「用户仍停留在接收方应用里」⇒ 给交接链续期。
+        //
+        // 真机 2026-11-18 的真实流程：23:58 从 AFM 切进 UGREEN NAS →
+        // 02:17 该应用弹出文件对话框；中间用户一直待在那个应用里，但交接
+        // 记录停在 23:58 ⇒ 120 秒 TTL 早过期 ⇒ 合法写回被拒。
+        // 续期只延长「同一条 AFM → X 链」，且**不复活已过期的链**
+        // （用户去了别的应用待够久，那条链仍然会死）。
+        if let Some(handoff) = state.afm_handoff() {
+            let in_receiver = fg_pid != 0
+                && (fg_pid == handoff.pid
+                    || (enum_due && same_application_process(fg_pid, handoff.pid)));
+            if in_receiver {
+                state.refresh_afm_handoff();
+            }
+        }
+        was_afm_foreground = afm_now;
+
+        if let Some(info) = current_dialog {
+            lost_ticks = 0;
+            let (should_push, next_last_hwnd) = dedup_opened(last_hwnd, &info);
+
+            // v0.5.7 G-1 (2026-10-07): re-sync a KNOWN dialog when the user
+            // brings it back to the foreground and a newer path is pending.
+            //
+            // WITHOUT THIS the round-18 dedup (which suppresses repeat `Opened`
+            // for an unchanged hwnd, added to stop the 8ms flash loop) also
+            // suppressed every legitimate re-sync. Observed 2026-10-07:
+            //   21:14:32 dialog detected, synced to E:\resource   (OK)
+            //   21:20:07 user navigates Sigma FM to E:\obsidian -> /set_path
+            //           defers (correct: user owns focus)
+            //   user clicks back to the dialog -> dedup sees the same hwnd ->
+            //           NO Opened event -> the deferred sync never runs.
+            //
+            // The dedup key is `DialogInfo.last_known_path`, which main.rs
+            // updates to `state.current_path` right after a write-back
+            // (unconditionally, which is what breaks any push loop).
+            // `current_path.is_empty()` guards the pre-first-push window where
+            // there is nothing meaningful to sync.
+            let hwnd_u32 = info.hwnd as u32;
+            let pending = state.get_current_path();
+            let last_written = state.last_written_path(hwnd_u32);
+            let known_same = last_hwnd == info.hwnd as isize;
+            let cooldown_ok = last_resync_at
+                .map(|t| t.elapsed() >= resync_cooldown)
+                .unwrap_or(true);
+            let should_resync = should_resync_known_dialog(
+                known_same,
+                &pending,
+                last_written.as_deref(),
+            ) && !state.sync_in_progress()
+                && cooldown_ok;
+
+            if should_push || should_resync {
+                if should_push {
+                    debug!(
+                        "[monitor] dialog detected: hwnd={} rect=({}, {}) {}x{}",
+                        info.hwnd, info.x, info.y, info.width, info.height
+                    );
+                } else {
+                    debug!(
+                        "[monitor] dialog regained foreground with pending path \
+                         change (hwnd={}, pending='{}', last_written='{}') -> resync",
+                        info.hwnd,
+                        pending,
+                        state.last_written_path(hwnd_u32).unwrap_or_default()
+                    );
+                }
+                last_hwnd = next_last_hwnd;
+                // v0.5.8: arm the cooldown on EVERY send, not only on the
+                // resync branch.
+                //
+                // BUG (measured 2026-10-08 16:00 and 16:01, 2 of 2 dialogs):
+                // on the FIRST detection of a dialog the `should_push` branch
+                // fires and `should_resync_at` stayed None. The very next poll
+                // tick, 8ms later, saw `should_push == false` (last_hwnd now
+                // matches) but `last_written == None` — because the first write
+                // takes ~400ms and main.rs has not registered it yet — so
+                // `should_resync_known_dialog` returned true and a SECOND
+                // `Opened` event went out for the same dialog. The user saw the
+                // address bar jump twice, ~900ms apart, with the same target.
+                //
+                //   08:00:47.939  dialog detected: hwnd=15467576
+                //   08:00:47.959  regained foreground, last_written='' -> resync
+                //   08:00:48.387  write_path commit=true
+                //   08:00:49.286  write_path commit=false     <-- duplicate
+                //
+                // The 1200ms cooldown already exists for exactly this class of
+                // repeat; it just was not armed on the path that opened the
+                // window. Arming it on every send is the minimal fix and does
+                // not affect legitimate re-syncs: those happen when the user
+                // returns to the dialog, which is seconds later.
+                last_resync_at = Some(Instant::now());
+                // Round 18: only push when hwnd actually changes — previously the
+                // 8ms polling loop pushed every tick, causing main to re-write the
+                // filename box continuously (flash loop). PathWrap upstream does
+                // not have a polling-loop sender — its dialog_info_if_match is
+                // called once per winit event.
+                let _ = sender.send(DialogEvent::Opened(info));
+                notify.notify_one();
+            }
+        } else if last_hwnd != INVALID_HWND {
+            // Keep following only the previously-accepted dialog to survive short focus jumps
+            // without re-opening detection on unrelated top-level windows.
+            //
+            // Round 18: dialog still exists at the original hwnd (just lost focus) —
+            // do NOT push again. main already registered this dialog; re-pushing would
+            // cause repeated reader+register churn every 8ms. Only push when we
+            // discover a *new* dialog hwnd or confirm the dialog is gone.
+            if let Some(_info) = get_dialog_info_by_hwnd(last_hwnd) {
+                lost_ticks = 0;
+            } else {
+                // Handle common dialog-handle recreation during open/save transitions.
+                // This fallback only runs while we already have a trusted last_hwnd.
+                if let Some(info) = find_any_file_dialog() {
+                    if last_hwnd != info.hwnd {
+                        debug!("[monitor] dialog switched: {} -> {}", last_hwnd, info.hwnd);
+                        last_hwnd = info.hwnd;
+                        let _ = sender.send(DialogEvent::Opened(info));
+                        notify.notify_one();
+                    }
+                    lost_ticks = 0;
+                } else {
+                    lost_ticks = lost_ticks.saturating_add(1);
+                    if lost_ticks >= LOST_CONFIRM_TICKS {
+                        debug!("[monitor] dialog lost: hwnd={}", last_hwnd);
+                        let closed_hwnd = last_hwnd;
+                        last_hwnd = INVALID_HWND;
+                        lost_ticks = 0;
+                        let _ = sender.send(DialogEvent::Closed { last_hwnd: closed_hwnd });
+                        notify.notify_one();
+                    }
+                }
+            }
+        } else if let Some(sig) = get_foreground_signature() {
+            if last_foreground_signature.as_deref() != Some(sig.as_str()) {
+                trace!("[monitor] foreground: {}", sig);
+                last_foreground_signature = Some(sig);
+            }
+        }
+
+        let poll_interval = if last_hwnd != INVALID_HWND {
+            TRACKING_POLL_INTERVAL_MS
+        } else {
+            IDLE_POLL_INTERVAL_MS
+        };
+        let target_interval = Duration::from_millis(poll_interval);
+        let elapsed = loop_started.elapsed();
+        let remaining = target_interval.saturating_sub(elapsed);
+        if remaining > Duration::ZERO {
+            match wakeup_rx.recv_timeout(remaining) {
+                Ok(_) => {
+                    // Multiple events can arrive within one polling window; drain extras to coalesce wakeups.
+                    let mut drained = 0usize;
+                    while wakeup_rx.try_recv().is_ok() {
+                        drained += 1;
+                    }
+                    if drained > 0 {
+                        trace!("monitor wakeups coalesced: {} extra events", drained);
+                    }
+                }
+                Err(RecvTimeoutError::Timeout) => {}
+                Err(RecvTimeoutError::Disconnected) => std::thread::sleep(remaining),
+            }
+        }
+    }
+}
+
+pub fn get_active_file_dialog() -> Option<DialogInfo> {
+    let hwnd = unsafe { GetForegroundWindow() };
+    if !hwnd.is_invalid() {
+        if let Some(info) = get_dialog_info_if_match(hwnd) {
+            return Some(info);
+        }
+    }
+
+    // Intentionally no global scan here: new detection must come from foreground to reduce
+    // false positives from generic #32770 system dialogs (e.g. warning/message boxes).
+    None
+}
+
+/// Current foreground HWND (for the controller to check whether the dialog is still foreground).
+pub fn foreground_hwnd() -> isize {
+    unsafe { GetForegroundWindow().0 as isize }
+}
+
+pub fn get_dialog_info_if_match(hwnd: HWND) -> Option<DialogInfo> {
+    if unsafe { !IsWindowVisible(hwnd).as_bool() } {
+        return None;
+    }
+
+    let class_string = get_class_name(hwnd);
+    if class_string != "#32770" {
+        return None;
+    }
+
+    let title = get_window_text(hwnd);
+    let title_lower = title.to_lowercase();
+
+    let title_looks_like_file_dialog = title.contains("打开")
+        || title.contains("保存")
+        || title.contains("另存为")
+        || title.contains("选择")
+        || title_lower.contains("open")
+        || title_lower.contains("save")
+        || title_lower.contains("select");
+
+    // File dialogs and generic alert dialogs both use #32770. To distinguish them, require
+    // structure that looks like a file browser surface, not just a matching title.
+    let has_combo = has_child_class(hwnd, w!("ComboBoxEx32"));
+    let has_directui = has_child_class(hwnd, w!("DirectUIHWND"));
+    let has_shell_view = has_child_class(hwnd, w!("SHELLDLL_DefView"));
+    let has_dui_view = has_child_class(hwnd, w!("DUIViewWndClassName"));
+
+    // Require stronger structural evidence to avoid matching generic #32770 alerts.
+    let has_strong_structure = (has_combo && (has_directui || has_shell_view || has_dui_view))
+        || (has_directui && has_shell_view)
+        || (has_directui && has_dui_view);
+
+    let has_file_dialog_signature = has_strong_structure
+        || (title_looks_like_file_dialog
+            && (has_combo || has_directui || has_shell_view || has_dui_view));
+
+    if has_file_dialog_signature {
+        get_dialog_info(hwnd)
+    } else {
+        None
+    }
+}
+
+fn has_child_class(parent: HWND, class_name: windows::core::PCWSTR) -> bool {
+    unsafe {
+        FindWindowExW(
+            Some(parent),
+            None,
+            class_name,
+            windows::core::PCWSTR::null(),
+        )
+        .map(|h| !h.is_invalid())
+        .unwrap_or(false)
+    }
+}
+
+fn find_any_file_dialog() -> Option<DialogInfo> {
+    let mut hwnds: Vec<isize> = Vec::new();
+
+    unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        let hwnds = unsafe { &mut *(lparam.0 as *mut Vec<isize>) };
+        hwnds.push(hwnd.0 as isize);
+        BOOL(1)
+    }
+
+    let lparam = LPARAM((&mut hwnds as *mut Vec<isize>) as isize);
+    let _ = unsafe { EnumWindows(Some(enum_proc), lparam) };
+
+    for hwnd_raw in hwnds {
+        let hwnd = HWND(hwnd_raw as *mut core::ffi::c_void);
+        if let Some(info) = get_dialog_info_if_match(hwnd) {
+            return Some(info);
+        }
+    }
+
+    None
+}
+
+fn get_class_name(hwnd: HWND) -> String {
+    unsafe {
+        let mut class_name = [0u16; 256];
+        let len = GetClassNameW(hwnd, &mut class_name);
+        match usize::try_from(len) {
+            Ok(n) if n > 0 => String::from_utf16_lossy(&class_name[..n]),
+            _ => String::new(),
+        }
+    }
+}
+
+fn get_window_text(hwnd: HWND) -> String {
+    unsafe {
+        let mut text = [0u16; 512];
+        let len = GetWindowTextW(hwnd, &mut text);
+        match usize::try_from(len) {
+            Ok(n) if n > 0 => String::from_utf16_lossy(&text[..n]),
+            _ => String::new(),
+        }
+    }
+}
+
+/// v0.5.15 — 这个窗口是不是 Alpha File Manager？
+///
+/// 判据 = 窗口类名 `Tauri Window` **且** 标题前缀 `Alpha File Manager`：
+/// - 类名挡掉「浏览器页面标题里出现 AFM」的误命中（Edge/Chrome 顶层窗口类是
+///   `Chrome_WidgetWin_1`）；
+/// - 标题前缀挡掉别人的 Tauri 应用，并天然覆盖 AFM 的三个窗口——
+///   `main`（"Alpha File Manager"）、`quick-view`（"... | Quick View"）、
+///   `print-view`（"... | Print"），切到任何一个都算「访问过 AFM」。
+///
+/// 依据：`src-tauri/tauri.conf.json` 的三个窗口 title；全仓 grep
+/// `document.title` 无命中（前端不改标题），`decorations: false` 不影响
+/// OS 窗口标题 ⇒ 标题静态可用。
+// ---- v0.5.22：接收方识别 + 「同一个应用」判据 ----
+
+/// v0.5.22 — 「这个前台窗口只是 shell 表面（任务栏 / 桌面），不是某个应用」
+/// 吗？
+///
+/// 为什么必须判：真机 2026-11-18，用户从 AFM 切回文件对话框时是先点**任务栏**
+/// 切换窗口的 ⇒ 那一瞬间的前台窗口是任务栏（属主 = `explorer.exe`
+/// pid=13080）⇒ 交接把 **shell** 记成了「接收方应用」⇒ 之后所有真实对话框
+/// 的属主 pid 都对不上 ⇒ 合法写回全线被拒（`dialog_pid=619924
+/// handoff_pid=13080`）。
+///
+/// 注意：**不能**按进程判（explorer 同时拥有「我的电脑」这类真窗口），
+/// 必须按**窗口类名**判。
+///
+/// 纯函数 ⇒ 可单测。
+pub fn is_shell_surface_class(class: &str) -> bool {
+    matches!(
+        class,
+        "Shell_TrayWnd" | "Shell_SecondaryTrayWnd" | "Progman" | "WorkerW"
+    )
+}
+
+/// v0.5.22 — 纯函数版「两个进程是不是同一个应用」。
+///
+/// `parent_of` 给出某个 pid 的父进程（查不到 ⇒ None）。同应用 = 相同，
+/// 或其中一个是另一个的祖先/后代（helper 进程）。
+pub fn same_application_in<F>(a: u32, b: u32, parent_of: F) -> bool
+where
+    F: Fn(u32) -> Option<u32>,
+{
+    if a == 0 || b == 0 {
+        return false;
+    }
+    if a == b {
+        return true;
+    }
+    let is_ancestor = |ancestor: u32, mut node: u32| -> bool {
+        // 最多向上走 16 层（进程树深度足够），并防自环。
+        for _ in 0..16 {
+            if node == 0 {
+                return false;
+            }
+            if node == ancestor {
+                return true;
+            }
+            match parent_of(node) {
+                Some(p) if p != node => node = p,
+                _ => return false,
+            }
+        }
+        false
+    };
+    is_ancestor(a, b) || is_ancestor(b, a)
+}
+
+/// v0.5.22 — 进程 id → 父进程 id（查不到 ⇒ None）。
+///
+/// 用 ToolHelp 快照枚举进程表（`CreateToolhelp32Snapshot`）。
+pub fn parent_pid_of(pid: u32) -> Option<u32> {
+    if pid == 0 {
+        return None;
+    }
+    unsafe {
+        let snapshot = CreateToolhelp32Snapshot(CREATE_TOOLHELP_SNAPSHOT_FLAGS(0x2), 0).ok()?;
+        let _guard = SnapshotGuard(snapshot);
+        let mut entry = PROCESSENTRY32W {
+            dwSize: size_of::<PROCESSENTRY32W>() as u32,
+            ..Default::default()
+        };
+        if Process32FirstW(snapshot, &mut entry).is_err() {
+            return None;
+        }
+        loop {
+            if entry.th32ProcessID == pid {
+                return Some(entry.th32ParentProcessID);
+            }
+            if Process32NextW(snapshot, &mut entry).is_err() {
+                return None;
+            }
+        }
+    }
+}
+
+/// v0.5.22 — 进程快照句柄的 RAII 关闭。
+struct SnapshotGuard(HANDLE);
+
+impl Drop for SnapshotGuard {
+    fn drop(&mut self) {
+        unsafe {
+            windows::Win32::Foundation::CloseHandle(self.0).ok();
+        }
+    }
+}
+
+/// v0.5.22 — 「这两个 pid 属于同一个应用吗？」（真实进程表）。
+///
+/// 用于闸门放宽：接收方应用派生的 helper 进程承载对话框时，属主 pid 与
+/// 接收方 pid 不同，但它们是同一个应用。
+pub fn same_application_process(a: u32, b: u32) -> bool {
+    if a == 0 || b == 0 {
+        return false;
+    }
+    if a == b {
+        return true;
+    }
+    same_application_in(a, b, parent_pid_of)
+}
+
+#[cfg(test)]
+mod v522_shell_and_identity_tests {
+    use super::{is_shell_surface_class, same_application_in};
+
+    #[test]
+    fn the_taskbar_and_desktop_are_not_receiving_apps() {
+        assert!(is_shell_surface_class("Shell_TrayWnd"));
+        assert!(is_shell_surface_class("Shell_SecondaryTrayWnd"));
+        assert!(is_shell_surface_class("Progman"));
+        assert!(is_shell_surface_class("WorkerW"));
+        // 真窗口 / 对话框 / AFM 主窗口都**不是** shell 表面。
+        assert!(!is_shell_surface_class("CabinetWClass"));
+        assert!(!is_shell_surface_class("#32770"));
+        assert!(!is_shell_surface_class("Tauri Window"));
+    }
+
+    #[test]
+    fn a_descendant_process_is_the_same_application() {
+        let parents: std::collections::HashMap<u32, u32> =
+            [(619_924u32, 152_04u32), (152_04u32, 100u32)].into_iter().collect();
+        let lookup = |pid: u32| parents.get(&pid).copied();
+        assert!(same_application_in(15204, 619_924, lookup));
+        assert!(same_application_in(619_924, 15204, lookup));
+        assert!(same_application_in(15204, 15204, lookup));
+        assert!(!same_application_in(15204, 4242, lookup));
+        assert!(!same_application_in(0, 4242, lookup));
+    }
+}
+
+pub fn is_afm_window(hwnd: HWND) -> bool {
+    get_class_name(hwnd) == "Tauri Window"
+        && get_window_text(hwnd).starts_with("Alpha File Manager")
+}
+
+/// v0.5.21 — 「当前前台窗口是不是 AFM」？
+///
+/// 判据从「窗口特征」升级为「进程身份」：
+///   * `class_title_match` —— 原判据（类名 `Tauri Window` + 标题前缀），
+///     命中即算 AFM；
+///   * `known_afm_pid != 0 && hwnd_pid == known_afm_pid` —— 前台窗口属于
+///     AFM 那个进程（主窗口 / 辅助窗口 / 托盘窗都算）。
+///
+/// 为什么必须加第二条：装机版 AFM 进程持有**可见**的辅助窗口
+/// （类名 `com.sigma-file-manager.app-sic` / `-siw`），它**不**满足类名 +
+/// 标题判据，但它持有前台时用户确实「在 AFM」。旧判据在这种窗口上恒为 false
+/// ⇒ 闸门产生假下降沿 ⇒ 交接记录把 AFM 自己的 pid 写进授权 ⇒ 真实对话框的
+/// pid 永远匹配不上（真机 2026-11-17：`handoff recorded: pid=72772`，而
+/// 72772 就是 AFM 的 pid）。
+///
+/// 纯函数 ⇒ 可在没有真实前台窗口的情况下单测。
+pub fn foreground_is_afm_by(known_afm_pid: u32, class_title_match: bool, hwnd_pid: u32) -> bool {
+    if class_title_match {
+        return true;
+    }
+    known_afm_pid != 0 && hwnd_pid == known_afm_pid
+}
+
+/// v0.5.21 — 枚举顶层窗口学习 AFM pid 时用的共享槽（只有 monitor 线程写）。
+static FOUND_AFM_PID: AtomicU32 = AtomicU32::new(0);
+
+/// v0.5.21 — 枚举所有顶层窗口，找出属于 AFM 的进程 id（0 = 没找到）。
+///
+/// 为什么必须枚举：AFM 的主窗口**不一定**在前台（用户可能在别的应用里），
+/// 而「前台窗口命中 class+title」只在 AFM 恰好在前台时才发生 —— 侧车启动时
+/// 用户很可能正盯着别的窗口 ⇒ 只靠前台学习永远学不到 pid ⇒ 闸门一直认不出
+/// AFM ⇒ 写回被全线拒绝。
+///
+/// `EnumWindows` 会列出**不可见**的顶层窗口，所以隐藏的主窗口也能找到。
+pub fn find_afm_pid_by_enum() -> u32 {
+    FOUND_AFM_PID.store(0, Ordering::SeqCst);
+
+    unsafe extern "system" fn enum_proc(hwnd: HWND, _lparam: LPARAM) -> BOOL {
+        if is_afm_window(hwnd) {
+            let mut pid: u32 = 0;
+            windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId(
+                hwnd,
+                Some(&mut pid as *mut u32),
+            );
+            if pid != 0 {
+                FOUND_AFM_PID.store(pid, Ordering::SeqCst);
+                return BOOL(0); // FALSE = 停止枚举
+            }
+        }
+        BOOL(1)
+    }
+
+    let _ = unsafe { EnumWindows(Some(enum_proc), LPARAM(0)) };
+    FOUND_AFM_PID.load(Ordering::SeqCst)
+}
+
+/// v0.5.19 — 当前前台窗口所属的**进程 id**（0 = 取不到）。
+///
+/// 交接闸门要靠它回答「用户从 AFM 切给了哪个应用」。用进程而不是窗口：
+/// 同一个应用内部在主窗口和文件对话框之间切换不改变 pid，所以
+/// 「在 Edge 里点下载 → 弹出另存为」不会被误判成换了应用。
+pub fn foreground_window_pid() -> u32 {
+    unsafe {
+        let hwnd = GetForegroundWindow();
+        if hwnd.is_invalid() {
+            return 0;
+        }
+        let mut pid: u32 = 0;
+        windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId(
+            hwnd,
+            Some(&mut pid as *mut u32),
+        );
+        pid
+    }
+}
+
+/// v0.5.19 — 指定窗口所属的**进程 id**（0 = 取不到）。
+pub fn window_pid_isize(hwnd: isize) -> u32 {
+    unsafe {
+        let h = HWND(hwnd as *mut core::ffi::c_void);
+        if h.is_invalid() {
+            return 0;
+        }
+        let mut pid: u32 = 0;
+        windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId(
+            h,
+            Some(&mut pid as *mut u32),
+        );
+        pid
+    }
+}
+
+fn get_foreground_signature() -> Option<String> {
+    unsafe {
+        let hwnd = GetForegroundWindow();
+        if hwnd.is_invalid() {
+            return None;
+        }
+
+        let class_name = get_class_name(hwnd);
+        let title = get_window_text(hwnd);
+        Some(format!(
+            "hwnd={} class='{}' title='{}'",
+            hwnd.0 as isize, class_name, title
+        ))
+    }
+}
+
+pub fn get_dialog_info_by_hwnd(hwnd_isize: isize) -> Option<DialogInfo> {
+    let hwnd = HWND(hwnd_isize as *mut core::ffi::c_void);
+    if unsafe { IsWindow(Some(hwnd)).as_bool() && IsWindowVisible(hwnd).as_bool() } {
+        get_dialog_info(hwnd)
+    } else {
+        None
+    }
+}
+
+fn get_dialog_info(hwnd: HWND) -> Option<DialogInfo> {
+    if let Some(rect) = get_window_visual_rect(hwnd) {
+        let dpi = get_window_dpi(hwnd);
+        Some(DialogInfo {
+            hwnd: hwnd.0 as isize,
+            x: rect.left,
+            y: rect.top,
+            width: rect.right - rect.left,
+            height: rect.bottom - rect.top,
+            dpi,
+        })
+    } else {
+        None
+    }
+}
+
+fn get_window_visual_rect(hwnd: HWND) -> Option<RECT> {
+    let mut visual_rect = RECT::default();
+    let dwm_result = unsafe {
+        DwmGetWindowAttribute(
+            hwnd,
+            DWMWA_EXTENDED_FRAME_BOUNDS,
+            (&mut visual_rect as *mut RECT).cast(),
+            u32::try_from(size_of::<RECT>()).unwrap_or_default(),
+        )
+    };
+
+    if dwm_result.is_ok() {
+        return Some(visual_rect);
+    }
+
+    let mut window_rect = RECT::default();
+    if unsafe { GetWindowRect(hwnd, &mut window_rect) }.is_ok() {
+        Some(window_rect)
+    } else {
+        None
+    }
+}
+
+fn get_window_dpi(hwnd: HWND) -> u32 {
+    let dpi = unsafe { GetDpiForWindow(hwnd) };
+    if dpi == 0 { 96 } else { dpi }
+}
+
+/// Round 18 regression gate: pure dedup decision for the Opened branch of
+/// `start_monitor`. Returns `(should_push, next_last_hwnd)`. The flash-loop
+/// root cause was a missing dedup here (every 8ms tick re-pushed). Extracted
+/// as a free fn so the invariant is testable without a real foreground window.
+fn dedup_opened(last_hwnd: isize, info: &DialogInfo) -> (bool, isize) {
+    if last_hwnd != info.hwnd {
+        (true, info.hwnd)
+    } else {
+        (false, last_hwnd)
+    }
+}
+
+/// v0.5.21 — 判别性测试：AFM 的「进程身份」判据。
+///
+/// 真机根因（2026-11-17）：旧判据只认「类名 == `Tauri Window` 且标题以
+/// `Alpha File Manager` 开头」。装机版 AFM 进程另持有可见的辅助窗口
+/// （`com.sigma-file-manager.app-sic`）⇒ 它在前台时闸门误判「离开 AFM」
+/// ⇒ 假下降沿 ⇒ 交接记录把 AFM 自己的 pid（72772）写进授权 ⇒ 真实对话框的
+/// pid 永远匹配不上 ⇒ 写回全线被拒（当天 656 次 `skip_no_afm_visit`）。
+#[cfg(test)]
+mod v521_afm_identity_tests {
+    use super::foreground_is_afm_by;
+
+    #[test]
+    fn the_afm_helper_window_still_counts_as_afm() {
+        // 前台是 AFM 的辅助窗口（特征不匹配），但它属于 AFM 那个进程。
+        assert!(
+            foreground_is_afm_by(72772, false, 72772),
+            "同一进程的任何窗口在前台都算「用户在 AFM」"
+        );
+    }
+
+    #[test]
+    fn another_process_never_counts_as_afm() {
+        assert!(!foreground_is_afm_by(72772, false, 24696));
+        assert!(!foreground_is_afm_by(72772, false, 0));
+    }
+
+    #[test]
+    fn an_unknown_afm_pid_cannot_be_guessed() {
+        // 还没学到 AFM pid（0）时，不得凭 pid 猜。
+        assert!(!foreground_is_afm_by(0, false, 72772));
+    }
+
+    #[test]
+    fn the_class_and_title_match_still_wins() {
+        assert!(foreground_is_afm_by(0, true, 24696));
+        assert!(foreground_is_afm_by(72772, true, 24696));
+    }
+}
+
+#[cfg(test)]
+mod g1_resync_tests {
+    use super::{dedup_opened, should_resync_known_dialog, DialogInfo};
+    use std::time::{Duration, Instant};
+
+    /// Minimal DialogInfo for the monitor-sequence tests below. (The one in
+    /// `mod tests` is not visible across sibling test modules.)
+    fn info(hwnd: isize) -> DialogInfo {
+        DialogInfo {
+            hwnd,
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+            dpi: 96,
+        }
+    }
+
+    /// The bug this fixes: user navigates in Sigma FM, path is deferred, then
+    /// brings the SAME dialog back to the foreground. The round-18 dedup would
+    /// suppress the Opened event -> sync never runs.
+    #[test]
+    fn known_dialog_with_new_pending_path_resyncs() {
+        assert!(should_resync_known_dialog(
+            true,
+            "E:\\obsidian",
+            Some("E:\\resource")
+        ));
+    }
+
+    /// LOOP SAFETY (critical): after a write-back main.rs sets
+    /// last_known_path = current_path, so the next 8ms tick must NOT push.
+    /// Pushing here every tick is the round-17 flash loop.
+    #[test]
+    fn already_written_path_does_not_resync_again() {
+        assert!(!should_resync_known_dialog(
+            true,
+            "E:\\obsidian",
+            Some("E:\\obsidian")
+        ));
+    }
+
+    /// Pre-first-push window: current_path is "" (Fix F). Nothing to sync and
+    /// pushing would re-trigger the sentinel path forever.
+    #[test]
+    fn empty_pending_never_resyncs() {
+        assert!(!should_resync_known_dialog(true, "", Some("")));
+        assert!(!should_resync_known_dialog(true, "", None));
+    }
+
+    /// Unknown dialog -> the normal `should_push` path handles it.
+    #[test]
+    fn unknown_dialog_is_not_a_resync() {
+        assert!(!should_resync_known_dialog(
+            false,
+            "E:\\obsidian",
+            Some("E:\\resource")
+        ));
+    }
+
+    /// Never written to (not in registry) + a pending path -> resync, otherwise
+    /// a dialog that was registered but never written would never sync.
+    #[test]
+    fn never_written_dialog_with_pending_path_resyncs() {
+        assert!(should_resync_known_dialog(true, "E:\\tmp", None));
+    }
+
+    /// v0.5.8 REGRESSION — the duplicate-write bug (measured 2026-10-08 16:00,
+    /// reproduced on 2 of 2 dialogs).
+    ///
+    /// `should_resync_known_dialog` itself is CORRECT here: a known dialog with
+    /// nothing written yet and a pending path genuinely should resync. The bug
+    /// was that the follow-up tick was allowed to ask the question at all,
+    /// because the `should_push` branch never armed `last_resync_at`.
+    ///
+    /// So this test pins the SEQUENCE, not the pure function: first detection
+    /// fires `should_push`; the next tick must be suppressed by the cooldown
+    /// even though the pure predicate would still say "resync".
+    #[test]
+    fn first_detection_then_followup_tick_does_not_double_write() {
+        // Tick 1: brand-new dialog -> should_push fires.
+        let (push, next_last) = dedup_opened(0, &info(15467576));
+        assert!(push, "first sighting of a dialog must push");
+        assert_eq!(next_last, 15467576);
+
+        // main.rs has NOT registered the write yet -> last_written is None.
+        // The pure predicate WOULD say resync...
+        assert!(
+            should_resync_known_dialog(true, "E:\\recuva", None),
+            "predicate alone still says resync - which is exactly why the \
+             monitor must gate it with the cooldown"
+        );
+
+        // Tick 2 (8ms later): should_push is now false...
+        let (push2, _) = dedup_opened(next_last, &info(15467576));
+        assert!(!push2, "same hwnd must not re-push");
+
+        // ...and the cooldown armed by tick 1 is what stops the duplicate.
+        // This mirrors the loop body: last_resync_at is set on EVERY send.
+        let armed_at = Instant::now();
+        let cooldown = Duration::from_millis(1200);
+        let elapsed = armed_at.elapsed();
+        assert!(
+            elapsed < cooldown,
+            "a follow-up tick 8ms later must still be inside the cooldown, \
+             otherwise the address bar is written twice"
+        );
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn info(hwnd: isize) -> DialogInfo {
+        DialogInfo {
+            hwnd,
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+            dpi: 96,
+        }
+    }
+
+    /// Round 18 regression: the very first detected hwnd must push.
+    #[test]
+    fn first_hwnd_pushes() {
+        let (push, next) = dedup_opened(0, &info(12345));
+        assert!(push);
+        assert_eq!(next, 12345);
+    }
+
+    /// Round 18 regression: re-observing the same hwnd must NOT push —
+    /// this is the flash-loop fix (8ms polling loop sees the same dialog
+    /// and would otherwise re-push every tick).
+    #[test]
+    fn same_hwnd_does_not_repush() {
+        let (push, next) = dedup_opened(12345, &info(12345));
+        assert!(!push);
+        assert_eq!(next, 12345);
+    }
+
+    /// Round 18 regression: when the dialog hwnd switches (e.g. native
+    /// dialog handle recreation), we must push the new hwnd.
+    #[test]
+    fn different_hwnd_pushes() {
+        let (push, next) = dedup_opened(12345, &info(67890));
+        assert!(push);
+        assert_eq!(next, 67890);
+    }
+
+    /// Round 18 regression: Opened/Closed events are distinguishable so
+    /// main can clean the registry without mirroring last_hwnd.
+    #[test]
+    fn dialog_event_enum_distinguishes_opened_closed() {
+        let info = info(42);
+        let opened = DialogEvent::Opened(info.clone());
+        let closed = DialogEvent::Closed { last_hwnd: 42 };
+
+        match opened {
+            DialogEvent::Opened(i) => assert_eq!(i.hwnd, 42),
+            _ => panic!("expected Opened"),
+        }
+        match closed {
+            DialogEvent::Closed { last_hwnd } => assert_eq!(last_hwnd, 42),
+            _ => panic!("expected Closed"),
+        }
+    }
+}

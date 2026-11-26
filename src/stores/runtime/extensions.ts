@@ -9,8 +9,11 @@ import { getVersion } from '@tauri-apps/api/app';
 import { ref, computed, watch } from 'vue';
 import type {
   ContextMenuContext,
+  ExtensionMarketSource,
   ExtensionRegistry,
   ExtensionRegistryEntry,
+  ExtensionRegistryEntryWithSource,
+  MergedExtensionRegistry,
   ExtensionManifest,
   ExtensionActivationEvent,
   InstalledExtension,
@@ -24,6 +27,17 @@ import type {
   SharedBinaryInfo,
 } from '@/types/extension';
 import { getCurrentPath, getSelectedEntries } from '@/modules/extensions/context';
+import {
+  COMMUNITY_MARKET_SOURCE_ID,
+  OFFICIAL_MARKET_SOURCE_ID,
+  buildCustomMarketSource,
+  collectApprovedExtensionIds,
+  mergeMarketSourceRegistries,
+  normalizeMarketSourceUrl,
+  resolveRegistryFetchedAt,
+  type MarketSourceFetchOutcome,
+  type RegistrySourceState,
+} from '@/modules/extensions/utils/market-sources';
 import externalLinks from '@/data/external-links';
 import {
   EXTENSION_REGISTRY_CACHE_TTL_MS,
@@ -74,6 +88,8 @@ import {
 } from '@/modules/extensions/utils/toast-utils';
 import { filterReachableRegistryEntries } from '@/modules/extensions/utils/registry-utils';
 import { syncManifestBinariesForExtension } from '@/modules/extensions/runtime/manifest-binaries';
+import { setWorkerDiagnosticSink } from '@/modules/extensions/runtime/worker-diagnostics';
+import { createPersistingWorkerDiagnosticSink } from '@/modules/extensions/utils/worker-diagnostic-persistence';
 import { reconcileCustomBinaryPreferences } from '@/modules/extensions/utils/reconcile-custom-binary-preferences';
 import {
   getPlatformBinaryDefinitions,
@@ -102,13 +118,59 @@ import type { ExtensionKeybindingWhen } from '@/types/extension';
 import { clearInstalledIconThemeCache } from '@/modules/icon-theme/extension-icon-themes';
 import { resetNavigatorIconThemesForExtension } from '@/modules/icon-theme/navigator-icon-theme-settings';
 
+export type MarketSourceMutationResult
+  = | { ok: true }
+    | { error: 'invalid-url' | 'duplicate' | 'not-found' };
+
 export const useExtensionsStore = defineStore('extensions', () => {
   const storageStore = useExtensionsStorageStore();
 
-  const registry = ref<ExtensionRegistry | null>(null);
+  // Webview console output never reaches the application log in this project,
+  // so a worker that fails to load used to fail completely silently. Persist the
+  // worker lifecycle ring into each extension's own settings file, which is the
+  // only externally readable channel available.
+  setWorkerDiagnosticSink(
+    createPersistingWorkerDiagnosticSink(storageStore),
+  );
+
+  const registry = ref<MergedExtensionRegistry | null>(null);
   const registryFetchedAt = ref<number | null>(null);
   const isFetchingRegistry = ref(false);
   const registryError = ref<string | null>(null);
+
+  // 市场源：官方源与第三方内置源都是常量（不落盘、不可删、不可改地址），
+  // 自建源落盘在 extensionsData.marketSources 里。
+  // 顺序即优先级：合并清单时先到先得，官方源同 id 条目优先于第三方源。
+  const marketSources = ref<ExtensionMarketSource[]>([]);
+  const registrySourceStates = ref<Record<string, RegistrySourceState>>({});
+
+  const officialMarketSource = computed<ExtensionMarketSource>(() => ({
+    id: OFFICIAL_MARKET_SOURCE_ID,
+    name: i18n.global.t('extensions.marketSourceOfficial'),
+    url: externalLinks.extensionsRegistryUrl,
+    kind: 'official',
+    enabled: true,
+    builtIn: true,
+  }));
+
+  const communityMarketSource = computed<ExtensionMarketSource>(() => ({
+    id: COMMUNITY_MARKET_SOURCE_ID,
+    name: i18n.global.t('extensions.marketSourceCommunity'),
+    url: externalLinks.extensionsCommunityRegistryUrl,
+    kind: 'community',
+    enabled: true,
+    builtIn: true,
+  }));
+
+  const allMarketSources = computed<ExtensionMarketSource[]>(() => [
+    officialMarketSource.value,
+    communityMarketSource.value,
+    ...marketSources.value,
+  ]);
+
+  const enabledMarketSources = computed<ExtensionMarketSource[]>(() => {
+    return allMarketSources.value.filter(source => source.enabled);
+  });
 
   const loadedExtensions = ref<Map<string, LoadedExtension>>(new Map());
   const isInitialized = ref(false);
@@ -365,7 +427,7 @@ export const useExtensionsStore = defineStore('extensions', () => {
 
     if (!compatibility.isAppCompatible) {
       requirements.push(
-        `Sigma File Manager ${compatibility.appRequirement} (current: ${appVersion})`,
+        `Alpha File Manager ${compatibility.appRequirement} (current: ${appVersion})`,
       );
     }
 
@@ -677,6 +739,10 @@ export const useExtensionsStore = defineStore('extensions', () => {
     return Date.now() - registryFetchedAt.value < EXTENSION_REGISTRY_CACHE_TTL_MS;
   });
 
+  function toErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+  }
+
   async function fetchRegistry(forceRefresh = false): Promise<void> {
     if (isFetchingRegistry.value) return;
 
@@ -686,13 +752,108 @@ export const useExtensionsStore = defineStore('extensions', () => {
     registryError.value = null;
 
     try {
-      const response = await fetchUrlText(externalLinks.extensionsRegistryUrl);
+      const sources = enabledMarketSources.value;
+      const outcomes = new Map<string, MarketSourceFetchOutcome>();
+      const results = await Promise.allSettled(
+        sources.map(source => fetchRegistryFromSource(source)),
+      );
+
+      results.forEach((result, index) => {
+        const source = sources[index];
+
+        if (!source) {
+          return;
+        }
+
+        outcomes.set(
+          source.id,
+          result.status === 'fulfilled'
+            ? result.value
+            : {
+                status: 'error',
+                error: toErrorMessage(result.reason),
+              },
+        );
+      });
+
+      const mergedRegistry = mergeMarketSourceRegistries(sources, outcomes);
+
+      for (const conflict of mergedRegistry.conflicts) {
+        console.warn(
+          `[extensions] Duplicate extension id "${conflict.id}" in market source "${conflict.droppedSourceId}",`
+          + ` keeping the entry from "${conflict.keptSourceId}".`,
+        );
+      }
+
+      registrySourceStates.value = buildRegistrySourceStates(sources, outcomes);
+
+      if (mergedRegistry.entries.length > 0 || mergedRegistry.failedSourceIds.length === 0) {
+        const mergedEntries = [...mergedRegistry.entries];
+        const seenExtensionIds = new Set(mergedEntries.map(entry => entry.id));
+
+        // 已停用的源不再拉取，但它缓存里的条目仍要留在市场上：
+        // 用户只是不想再从那个源取新东西，已经在册的扩展不该凭空消失。
+        for (const entry of collectDisabledSourceEntries()) {
+          if (seenExtensionIds.has(entry.id)) {
+            continue;
+          }
+
+          seenExtensionIds.add(entry.id);
+          mergedEntries.push(entry);
+        }
+
+        registry.value = {
+          schemaVersion: mergedRegistry.schemaVersion,
+          extensions: mergedEntries,
+        };
+        registryFetchedAt.value = resolveRegistryFetchedAt(outcomes);
+      }
+
+      if (sources.length > 0 && mergedRegistry.failedSourceIds.length === sources.length) {
+        const firstFailure = outcomes.get(sources[0].id);
+
+        registryError.value = firstFailure && firstFailure.status === 'error'
+          ? firstFailure.error
+          : 'Failed to fetch registry';
+      }
+
+      // 卸载判定必须在合并之后做，而且只在「所有启用的源都拿到了条目」时才做：
+      // 只要有一个源彻底拉不到，它的条目就是未知，此时判定会把别的源的扩展误删。
+      if (mergedRegistry.failedSourceIds.length === 0) {
+        const disabledSourceCaches = marketSources.value
+          .filter(source => !source.enabled)
+          .map(source => storageStore.getRegistryCacheForSource(source.id));
+        await removeUnapprovedInstalledExtensions(
+          collectApprovedExtensionIds(mergedRegistry.entries, disabledSourceCaches),
+        );
+      }
+      else {
+        console.warn(
+          '[extensions] Skipped the uninstall check because some market sources could not be fetched.',
+        );
+      }
+    }
+    catch (error) {
+      console.error('Failed to fetch the extension marketplace:', error);
+    }
+    finally {
+      isFetchingRegistry.value = false;
+    }
+  }
+
+  async function fetchRegistryFromSource(
+    source: ExtensionMarketSource,
+  ): Promise<MarketSourceFetchOutcome> {
+    try {
+      const response = await fetchUrlText(source.url);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch registry: ${response.status}`);
       }
 
-      markGitHubRepositoryReachable();
+      if (source.kind === 'official') {
+        markGitHubRepositoryReachable();
+      }
 
       const parsedData = JSON.parse(response.body) as unknown;
       assertValidRegistryData(parsedData);
@@ -704,32 +865,172 @@ export const useExtensionsStore = defineStore('extensions', () => {
             ...data,
             extensions: reachableExtensions,
           };
-      registry.value = filteredRegistry;
-      registryFetchedAt.value = Date.now();
 
-      await storageStore.updateRegistryCache(filteredRegistry);
-      await removeUnapprovedInstalledExtensions(filteredRegistry);
+      await storageStore.updateRegistryCacheForSource(source.id, filteredRegistry);
+
+      return {
+        status: 'ok',
+        registry: filteredRegistry,
+        fetchedAt: Date.now(),
+      };
     }
     catch (error) {
-      markGitHubRepositoryUnreachable('registry', error);
-      registryError.value = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
 
-      const cached = storageStore.extensionsData.registryCache;
+      if (source.kind === 'official') {
+        markGitHubRepositoryUnreachable('registry', error);
+      }
 
-      if (cached && !registry.value) {
+      const cachedRegistry = storageStore.getRegistryCacheForSource(source.id);
+
+      if (cachedRegistry) {
         try {
-          assertValidRegistryData(cached.data);
-          registry.value = cached.data;
-          registryFetchedAt.value = cached.fetchedAt;
-          registryError.value = null;
+          assertValidRegistryData(cachedRegistry.data);
+
+          // 拉取失败但有上次缓存 ⇒ 用缓存兜底并标记 stale。
+          // 这个源的条目仍然参与卸载判定，不会被误删。
+          return {
+            status: 'stale',
+            registry: cachedRegistry.data,
+            fetchedAt: cachedRegistry.fetchedAt,
+            error: message,
+          };
         }
         catch {
         }
       }
+
+      console.warn(
+        `[extensions] Failed to fetch market source "${source.name}" (${source.url}):`,
+        error,
+      );
+
+      return {
+        status: 'error',
+        error: message,
+      };
     }
-    finally {
-      isFetchingRegistry.value = false;
+  }
+
+  function buildRegistrySourceStates(
+    sources: ExtensionMarketSource[],
+    outcomes: Map<string, MarketSourceFetchOutcome>,
+  ): Record<string, RegistrySourceState> {
+    const sourceStates: Record<string, RegistrySourceState> = {};
+
+    for (const source of sources) {
+      const outcome = outcomes.get(source.id);
+
+      if (!outcome || outcome.status === 'error') {
+        sourceStates[source.id] = {
+          sourceId: source.id,
+          status: 'error',
+          error: outcome && outcome.status === 'error' ? outcome.error : 'Unknown error',
+          entryCount: 0,
+        };
+        continue;
+      }
+
+      sourceStates[source.id] = {
+        sourceId: source.id,
+        status: outcome.status === 'stale' ? 'stale' : 'ok',
+        error: outcome.status === 'stale' ? outcome.error : undefined,
+        fetchedAt: outcome.fetchedAt,
+        entryCount: outcome.registry.extensions.length,
+      };
     }
+
+    return sourceStates;
+  }
+
+  /** 已停用源的缓存条目（带来源 id）。停用 ≠ 下架，这些条目仍然在册。 */
+  function collectDisabledSourceEntries(): ExtensionRegistryEntryWithSource[] {
+    const entries: ExtensionRegistryEntryWithSource[] = [];
+
+    for (const source of marketSources.value) {
+      if (source.enabled) {
+        continue;
+      }
+
+      const cache = storageStore.getRegistryCacheForSource(source.id);
+
+      if (!cache) {
+        continue;
+      }
+
+      for (const entry of cache.data.extensions) {
+        entries.push({
+          ...entry,
+          sourceId: source.id,
+        });
+      }
+    }
+
+    return entries;
+  }
+
+  async function addMarketSource(name: string, url: string): Promise<MarketSourceMutationResult> {
+    const normalizedUrl = normalizeMarketSourceUrl(url);
+
+    if (!normalizedUrl) {
+      return { error: 'invalid-url' };
+    }
+
+    const source = buildCustomMarketSource(name, normalizedUrl);
+
+    if (marketSources.value.some(existing => existing.id === source.id)) {
+      return { error: 'duplicate' };
+    }
+
+    await storageStore.setMarketSources([...marketSources.value, source]);
+    marketSources.value = storageStore.extensionsData.marketSources ?? [];
+
+    void fetchRegistry(true);
+
+    return { ok: true };
+  }
+
+  async function removeMarketSource(sourceId: string): Promise<MarketSourceMutationResult> {
+    if (!marketSources.value.some(source => source.id === sourceId)) {
+      return { error: 'not-found' };
+    }
+
+    await storageStore.setMarketSources(
+      marketSources.value.filter(source => source.id !== sourceId),
+    );
+    marketSources.value = storageStore.extensionsData.marketSources ?? [];
+
+    // 源被删除 ⇒ 它的缓存条目不再在册 ⇒ 下次刷新时它提供的扩展会被卸载。
+    await storageStore.removeRegistryCacheForSource(sourceId);
+
+    void fetchRegistry(true);
+
+    return { ok: true };
+  }
+
+  async function setMarketSourceEnabled(
+    sourceId: string,
+    enabled: boolean,
+  ): Promise<MarketSourceMutationResult> {
+    if (!marketSources.value.some(source => source.id === sourceId)) {
+      return { error: 'not-found' };
+    }
+
+    await storageStore.setMarketSources(
+      marketSources.value.map(source => (
+        source.id === sourceId
+          ? {
+              ...source,
+              enabled,
+            }
+          : source
+      )),
+    );
+    marketSources.value = storageStore.extensionsData.marketSources ?? [];
+
+    void fetchRegistry(true);
+
+    return { ok: true };
   }
 
   async function fetchExtensionManifest(
@@ -1881,8 +2182,7 @@ export const useExtensionsStore = defineStore('extensions', () => {
     }
   }
 
-  async function removeUnapprovedInstalledExtensions(nextRegistry: ExtensionRegistry): Promise<void> {
-    const approvedExtensionIds = new Set(nextRegistry.extensions.map(extension => extension.id));
+  async function removeUnapprovedInstalledExtensions(approvedExtensionIds: Set<string>): Promise<void> {
     const removableExtensionIds = Object.entries(storageStore.extensionsData.installedExtensions)
       .filter(([extensionId, installedExtensionData]) => {
         if (installedExtensionData.isLocal) {
@@ -2038,6 +2338,37 @@ export const useExtensionsStore = defineStore('extensions', () => {
     });
   }
 
+  /**
+   * v6.5.1: marketplace work that must never gate a locally installed
+   * extension from starting.
+   *
+   * Measured 2026-10-09: `init()` used to `await fetchRegistry()` (which
+   * itself runs `filterReachableRegistryEntries` — one raw.githubusercontent.com
+   * probe per registry entry), then `prefetchAllVersions()` (one more per
+   * entry), then `autoUpdateAllExtensions()` — and only THEN load extensions.
+   *
+   * On a mainland-CN connection raw.githubusercontent.com intermittently
+   * blackholes, so each probe burned the 15s connect timeout plus retries
+   * before falling through to the jsDelivr candidate. Measured on a real
+   * install: window visible at 0.6s, extension activation at 180.5s. The app
+   * looked broken for three minutes for what was only a marketplace refresh.
+   *
+   * Local extensions are already on disk — nothing about starting them needs
+   * the network. So they go first, and the marketplace sync runs afterwards
+   * without being awaited. A slow, unreachable or hostile registry now costs
+   * an installed extension exactly nothing.
+   */
+  async function runStartupMarketplaceSync(): Promise<void> {
+    try {
+      await fetchRegistry();
+      await prefetchAllVersions();
+      await autoUpdateAllExtensions();
+    }
+    catch (error) {
+      console.error('Failed to sync extension marketplace at startup:', error);
+    }
+  }
+
   async function init(): Promise<void> {
     if (isInitialized.value) return;
 
@@ -2047,30 +2378,41 @@ export const useExtensionsStore = defineStore('extensions', () => {
     await cleanupOrphanedIncompleteExtensionInstalls();
     await runCustomBinaryHealthCheck();
 
-    const cached = storageStore.extensionsData.registryCache;
+    marketSources.value = storageStore.extensionsData.marketSources ?? [];
 
-    if (cached) {
+    const cachedSources = allMarketSources.value;
+    const cachedOutcomes = new Map<string, MarketSourceFetchOutcome>();
+
+    for (const source of cachedSources) {
+      const cache = storageStore.getRegistryCacheForSource(source.id);
+
+      if (!cache) {
+        continue;
+      }
+
       try {
-        assertValidRegistryData(cached.data);
-        registry.value = cached.data;
-        registryFetchedAt.value = cached.fetchedAt;
+        assertValidRegistryData(cache.data);
+        cachedOutcomes.set(source.id, {
+          status: 'ok',
+          registry: cache.data,
+          fetchedAt: cache.fetchedAt,
+        });
       }
       catch {
       }
     }
 
+    if (cachedOutcomes.size > 0) {
+      const mergedCachedRegistry = mergeMarketSourceRegistries(cachedSources, cachedOutcomes);
+
+      registry.value = {
+        schemaVersion: mergedCachedRegistry.schemaVersion,
+        extensions: mergedCachedRegistry.entries,
+      };
+      registryFetchedAt.value = resolveRegistryFetchedAt(cachedOutcomes);
+    }
+
     recentCommandIds.value = storageStore.getRecentCommandIds();
-
-    await fetchRegistry();
-
-    await prefetchAllVersions();
-
-    try {
-      await autoUpdateAllExtensions();
-    }
-    catch (error) {
-      console.error('Failed to auto-update extensions:', error);
-    }
 
     for (const extension of enabledExtensions.value) {
       if (!shouldActivateOnStartup(extension.manifest)) {
@@ -2085,6 +2427,8 @@ export const useExtensionsStore = defineStore('extensions', () => {
         console.error(`Failed to load extension ${extension.id}: ${message}`);
       }
     }
+
+    void runStartupMarketplaceSync();
 
     filterRecentCommandsToExisting();
 
@@ -2118,6 +2462,10 @@ export const useExtensionsStore = defineStore('extensions', () => {
     isFetchingRegistry,
     isFetchingExtensionRemoteMetadata,
     registryError,
+    marketSources,
+    allMarketSources,
+    enabledMarketSources,
+    registrySourceStates,
     loadedExtensions,
     isInitialized,
 
@@ -2145,6 +2493,9 @@ export const useExtensionsStore = defineStore('extensions', () => {
     isRegistryCacheValid,
 
     fetchRegistry,
+    addMarketSource,
+    removeMarketSource,
+    setMarketSourceEnabled,
     prefetchAllVersions,
     fetchExtensionManifest,
     fetchExtensionVersions,

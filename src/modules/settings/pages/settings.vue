@@ -50,7 +50,11 @@ watch(
   >
     <SettingsActions />
     <SettingsSearch />
-    <SettingsHeader v-if="!settingsStore.search" />
+    <!-- FORK-MODIFICATION 2026-10-31（r15 需求 4）：「关于」页自带头部（图标 + 应用名 + 版本 + 更新日志），
+         再叠一层通用简介头会变成两个图标、两个应用名，所以这一页把通用头收起来。 -->
+    <SettingsHeader
+      v-if="!settingsStore.search && settingsStore.currentTab !== 'about'"
+    />
     <SettingsContent />
   </PageDefaultLayout>
 </template>

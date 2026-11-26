@@ -12,31 +12,150 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use super::security::verify_integrity_sha256_digest;
+use super::security::{
+    is_private_ip_address, validate_remote_url, verify_integrity_sha256_digest,
+    BLOCKED_TARGET_MESSAGE,
+};
 use super::types::{FetchUrlResult, MAX_TEXT_FETCH_BYTES};
 
 const HTTP_TIMEOUT_SECS: u64 = 900;
-const HTTP_CONNECT_TIMEOUT_SECS: u64 = 15;
+// v6.5.1: was 15s. raw.githubusercontent.com intermittently blackholes on
+// mainland-CN connections, and this value is charged ONCE PER CANDIDATE, per
+// registry entry, per startup — before the jsDelivr candidate is even tried.
+// 15s x retries x N probes was the entire 180s cold start. A reachable CDN or
+// GitHub connects in well under a second, so 5s costs nothing when the network
+// is fine and saves ~2/3 of the stall when it is not. See extensions.ts
+// `runStartupMarketplaceSync` for the other half of that fix.
+const HTTP_CONNECT_TIMEOUT_SECS: u64 = 5;
 const HTTP_POOL_IDLE_TIMEOUT_SECS: u64 = 30;
 const HTTP_TCP_KEEPALIVE_SECS: u64 = 30;
 const PROGRESS_EMIT_INTERVAL_BYTES: u64 = 256 * 1024;
 const MAX_RETRY_AFTER_SECS: u64 = 60;
+const DNS_RESOLVE_TIMEOUT_SECS: u64 = 10;
+const MAX_REMOTE_REDIRECTS: usize = 10;
 
 pub const HTTP_USER_AGENT: &str = concat!(
-    "sigma-file-manager/",
+    "alpha-file-manager/",
     env!("CARGO_PKG_VERSION"),
-    " (+https://github.com/aleksey-hoffman/sigma-file-manager)"
+    " (+https://github.com/kizemo/alpha-file-manager)"
 );
 
-pub fn build_http_client() -> Result<reqwest::Client, String> {
+fn base_http_client_builder() -> reqwest::ClientBuilder {
     reqwest::Client::builder()
         .timeout(Duration::from_secs(HTTP_TIMEOUT_SECS))
         .connect_timeout(Duration::from_secs(HTTP_CONNECT_TIMEOUT_SECS))
         .pool_idle_timeout(Duration::from_secs(HTTP_POOL_IDLE_TIMEOUT_SECS))
         .tcp_keepalive(Duration::from_secs(HTTP_TCP_KEEPALIVE_SECS))
         .user_agent(HTTP_USER_AGENT)
+}
+
+/// Client for fixed, app-chosen hosts only. Use `build_remote_http_client`
+/// for any URL that comes from an extension, manifest, or registry entry.
+pub fn build_http_client() -> Result<reqwest::Client, String> {
+    base_http_client_builder()
         .build()
         .map_err(|error| format!("Failed to create HTTP client: {}", error))
+}
+
+#[derive(Debug)]
+pub(crate) struct BlockedTargetError;
+
+impl std::fmt::Display for BlockedTargetError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(BLOCKED_TARGET_MESSAGE)
+    }
+}
+
+impl std::error::Error for BlockedTargetError {}
+
+fn ensure_public_socket_addrs(addrs: &[std::net::SocketAddr]) -> Result<(), BlockedTargetError> {
+    if addrs.iter().any(|addr| is_private_ip_address(&addr.ip())) {
+        return Err(BlockedTargetError);
+    }
+
+    Ok(())
+}
+
+/// Resolves hostnames for remote download clients and refuses to hand any
+/// address to the connector unless every resolved address is public. Since
+/// the check runs inside the resolver, the address that gets connected to is
+/// always the address that was checked: on the first request, on every
+/// redirect hop, on retries, and on fallback URLs.
+///
+/// IP-literal hosts never reach a resolver; those are covered by
+/// `validate_remote_url` and by `remote_redirect_policy`.
+#[derive(Debug, Default, Clone, Copy)]
+struct PublicOnlyResolver;
+
+impl reqwest::dns::Resolve for PublicOnlyResolver {
+    fn resolve(&self, name: reqwest::dns::Name) -> reqwest::dns::Resolving {
+        let host = name.as_str().to_string();
+
+        Box::pin(async move {
+            let lookup = tokio::time::timeout(
+                Duration::from_secs(DNS_RESOLVE_TIMEOUT_SECS),
+                tokio::net::lookup_host((host.as_str(), 0)),
+            )
+            .await
+            .map_err(|_| -> Box<dyn std::error::Error + Send + Sync> {
+                format!("Timed out resolving host '{}'", host).into()
+            })??;
+
+            let addrs: Vec<std::net::SocketAddr> = lookup.collect();
+            ensure_public_socket_addrs(&addrs)?;
+
+            let resolved: reqwest::dns::Addrs = Box::new(addrs.into_iter());
+            Ok(resolved)
+        })
+    }
+}
+
+fn remote_redirect_policy() -> reqwest::redirect::Policy {
+    reqwest::redirect::Policy::custom(|attempt| {
+        if attempt.previous().len() >= MAX_REMOTE_REDIRECTS {
+            return attempt.error("too many redirects");
+        }
+
+        if validate_remote_url(attempt.url().as_str()).is_err() {
+            return attempt.error(BlockedTargetError);
+        }
+
+        attempt.follow()
+    })
+}
+
+fn build_remote_http_client_with_resolver<R>(resolver: R) -> Result<reqwest::Client, String>
+where
+    R: reqwest::dns::Resolve + 'static,
+{
+    base_http_client_builder()
+        .dns_resolver(Arc::new(resolver))
+        .redirect(remote_redirect_policy())
+        .build()
+        .map_err(|error| format!("Failed to create HTTP client: {}", error))
+}
+
+/// Client for URLs supplied by extensions, manifests, or registry entries.
+/// Blocks connections to non-public addresses at connect time and validates
+/// every redirect target.
+///
+/// If the user has HTTP(S)_PROXY set, the proxy resolves the hostname and
+/// this check only applies to the proxy address itself.
+pub fn build_remote_http_client() -> Result<reqwest::Client, String> {
+    build_remote_http_client_with_resolver(PublicOnlyResolver)
+}
+
+fn is_blocked_target_error(error: &reqwest::Error) -> bool {
+    let mut source = std::error::Error::source(error);
+
+    while let Some(inner_error) = source {
+        if inner_error.is::<BlockedTargetError>() {
+            return true;
+        }
+        source = inner_error.source();
+    }
+
+    false
 }
 
 #[derive(Debug)]
@@ -106,6 +225,10 @@ impl RetryConfig {
 }
 
 pub fn classify_reqwest_error(prefix: &str, error: reqwest::Error) -> HttpRetryError {
+    if is_blocked_target_error(&error) {
+        return HttpRetryError::Permanent(format!("{}: {}", prefix, BLOCKED_TARGET_MESSAGE));
+    }
+
     let detail = if error.is_timeout() {
         format!("network timeout: {}", error)
     } else if error.is_connect() {
@@ -283,7 +406,18 @@ where
                 }
 
                 let delay = compute_backoff_delay(config, attempt, retry_after);
-                log::warn!(
+                // FORK-MODIFICATION 2026-11-02：中间重试从 WARN 降为 DEBUG。
+                //
+                // 一轮 metadata 拉取（`RetryConfig::for_metadata()` = 2 次尝试）
+                // 原来会因为「每次失败 + 最终放弃」各记一条 WARN，再叠上
+                // `fetch_url_across_urls` 换候选 URL 的 WARN，一次拉取刷出 4 条
+                // 重复告警（2026-11-01 日志里 86 条 WARN 大半是这么来的）。
+                //
+                // 降级只针对**中间过程**：下面 `attempt >= config.max_attempts`
+                // 的 `giving up after N attempts` 仍然是 WARN，`fetch_url_across_urls`
+                // 在全部候选失败后也仍然记一条 WARN。所以真正的失败不会丢日志，
+                // 丢掉的只是「这一次没成、下一次可能成」的中间态。
+                log::debug!(
                     "{}: attempt {}/{} failed: {}. Retrying in {}ms",
                     operation_label,
                     attempt,
@@ -466,6 +600,17 @@ impl UrlCandidates {
         self
     }
 
+    /// 追加中国大陆镜像候选（排在 `primary` 之后、已有 fallback 之前）。
+    ///
+    /// 必须在其它 `with_fallback` 之前调用，才能让镜像优先于 jsDelivr / codeload
+    /// 这类回退源被尝试（实测镜像延迟明显更低）。
+    pub fn with_china_mirrors(mut self) -> Self {
+        for mirror in build_china_mirror_urls(&self.primary) {
+            self = self.with_fallback(Some(mirror));
+        }
+        self
+    }
+
     pub fn ordered(&self) -> Vec<reqwest::Url> {
         let mut all = Vec::with_capacity(1 + self.fallbacks.len());
         all.push(self.primary.clone());
@@ -547,6 +692,55 @@ pub fn build_codeload_fallback_url(url: &reqwest::Url) -> Option<reqwest::Url> {
     reqwest::Url::parse(&candidate).ok()
 }
 
+/// 中国大陆可达的 GitHub 镜像前缀（按实测连接延迟从快到慢排列）。
+///
+/// 用法是把原始 GitHub 地址整体拼在前缀之后，例如
+/// `https://ghfast.top/https://raw.githubusercontent.com/o/r/main/f.json`。
+///
+/// 实测边界（2026-11-05）：这些镜像只代理 `raw.githubusercontent.com` 与
+/// `github.com` 两个 host；对 `codeload.github.com` 与 `api.github.com`
+/// 一律返回 403，因此不为这两个 host 生成候选。
+pub const CHINA_GITHUB_MIRROR_PREFIXES: &[&str] =
+    &["https://ghfast.top/", "https://gh-proxy.com/", "https://ghproxy.net/"];
+
+fn is_china_mirror_supported_host(host: &str) -> bool {
+    matches!(host, "raw.githubusercontent.com" | "github.com")
+}
+
+/// 为单个 GitHub 地址生成中国大陆镜像候选（不含原始地址本身）。
+///
+/// 仅接受 `https` 且 host 属于镜像支持范围的地址，其余返回空列表。
+pub fn build_china_mirror_urls(url: &reqwest::Url) -> Vec<reqwest::Url> {
+    let host = url.host_str().unwrap_or_default().to_ascii_lowercase();
+
+    if url.scheme() != "https" || !is_china_mirror_supported_host(&host) {
+        return Vec::new();
+    }
+
+    CHINA_GITHUB_MIRROR_PREFIXES
+        .iter()
+        .filter_map(|prefix| reqwest::Url::parse(&format!("{}{}", prefix, url.as_str())).ok())
+        .collect()
+}
+
+/// 取证用的候选 URL 文本：保留 scheme / host / path，丢掉 query、fragment 与 userinfo。
+///
+/// 中国镜像候选的完整形态是
+/// `https://ghfast.top/https://raw.githubusercontent.com/owner/repo/main/file.json`，
+/// 只记 host（`describe_url_for_log` 的做法）看不出到底走了哪条路，
+/// 所以这里补一条能直接当应用内证据用的完整形态。
+/// query 可能带访问令牌，不落日志。
+fn describe_candidate_for_log(url: &reqwest::Url) -> String {
+    let host = url.host_str().unwrap_or("unknown-host");
+    let path = url.path();
+
+    if path.is_empty() {
+        format!("{}://{}", url.scheme(), host)
+    } else {
+        format!("{}://{}{}", url.scheme(), host, path)
+    }
+}
+
 pub async fn fetch_text_across_urls_with_retry(
     client: &reqwest::Client,
     candidates: UrlCandidates,
@@ -576,6 +770,14 @@ pub async fn fetch_text_across_urls_with_config(
     for (index, url) in urls.iter().enumerate() {
         let url_for_log = url.clone();
         let url_label = describe_url_for_log(&url_for_log);
+        let candidate_label = describe_candidate_for_log(&url_for_log);
+        log::info!(
+            "[ext-http] attempt op={} candidate={}/{} url={}",
+            operation_label,
+            index + 1,
+            urls.len(),
+            candidate_label
+        );
         let attempt_label = if index == 0 {
             format!("{} ({})", operation_label, url_label)
         } else {
@@ -616,12 +818,40 @@ pub async fn fetch_text_across_urls_with_config(
         .await;
 
         match result {
-            Ok(value) => return Ok(value),
-            Err(HttpRetryError::Permanent(message)) => return Err(message),
+            Ok(value) => {
+                log::info!(
+                    "[ext-http] result op={} candidate={}/{} status={} ok={} url={}",
+                    operation_label,
+                    index + 1,
+                    urls.len(),
+                    value.status,
+                    value.ok,
+                    candidate_label
+                );
+                return Ok(value);
+            }
+            // FORK-MODIFICATION 2026-11-02：中间过程降为 DEBUG，最终结果才进 WARN。
+            //
+            // 旧实现把三层失败都记成 WARN：单次尝试失败、切换到下一个候选、
+            // 某个候选放弃。raw.githubusercontent.com 在国内经常整段不可达，
+            // 一次元数据拉取就要刷 4 条 WARN，日志里全是同一个原因、看不出
+            // 究竟失败了几次请求。现在只有「这次拉取最终失败了」进 WARN。
+            Err(HttpRetryError::Permanent(message)) => {
+                log::warn!("{}: {}", operation_label, message);
+                return Err(message);
+            }
             Err(HttpRetryError::Transient { message, .. }) => {
+                log::info!(
+                    "[ext-http] candidate-failed op={} candidate={}/{} url={} reason={}",
+                    operation_label,
+                    index + 1,
+                    urls.len(),
+                    candidate_label,
+                    message
+                );
                 last_error = Some(message);
                 if index + 1 < urls.len() {
-                    log::warn!(
+                    log::debug!(
                         "{}: trying next fallback URL after transient failure",
                         operation_label
                     );
@@ -630,7 +860,14 @@ pub async fn fetch_text_across_urls_with_config(
         }
     }
 
-    Err(last_error.unwrap_or_else(|| format!("{} failed: no URL candidates", operation_label)))
+    let message = format!(
+        "{}: all {} URL candidate(s) failed. Last error: {}",
+        operation_label,
+        urls.len(),
+        last_error.unwrap_or_else(|| "no attempt was made".to_string())
+    );
+    log::warn!("{}", message);
+    Err(message)
 }
 
 pub async fn download_to_file_across_urls_with_retry(
@@ -652,6 +889,14 @@ pub async fn download_to_file_across_urls_with_retry(
 
     for (index, url) in urls.iter().enumerate() {
         let url_label = describe_url_for_log(url);
+        let candidate_label = describe_candidate_for_log(url);
+        log::info!(
+            "[ext-http] attempt op={} candidate={}/{} url={}",
+            operation_label,
+            index + 1,
+            urls.len(),
+            candidate_label
+        );
         let attempt_label = if index == 0 {
             format!("{} ({})", operation_label, url_label)
         } else {
@@ -680,7 +925,16 @@ pub async fn download_to_file_across_urls_with_retry(
             .await;
 
             match attempt_result {
-                Ok(()) => return Ok(()),
+                Ok(()) => {
+                    log::info!(
+                        "[ext-http] result op={} candidate={}/{} ok url={}",
+                        operation_label,
+                        index + 1,
+                        urls.len(),
+                        candidate_label
+                    );
+                    return Ok(());
+                }
                 Err(HttpRetryError::Permanent(message)) => return Err(message),
                 Err(HttpRetryError::Transient {
                     message,
@@ -772,7 +1026,7 @@ pub async fn download_url_bytes(
 ) -> Result<Vec<u8>, String> {
     let parsed_url =
         reqwest::Url::parse(url).map_err(|error| format!("Invalid URL '{}': {}", url, error))?;
-    let client = build_http_client()?;
+    let client = build_remote_http_client()?;
     let operation_label = request_error_label.to_string();
     let read_error_label = read_error_label.to_string();
     let config = RetryConfig::default();
@@ -885,6 +1139,94 @@ mod tests {
         let fallback = reqwest::Url::parse("https://mirror.example.com/a").unwrap();
         let candidates = UrlCandidates::new(primary).with_fallback(Some(fallback));
         assert_eq!(candidates.ordered().len(), 2);
+    }
+
+    #[test]
+    fn china_mirrors_cover_raw_githubusercontent() {
+        let url = reqwest::Url::parse(
+            "https://raw.githubusercontent.com/kizemo/focus-sync/main/locales/zh-CN.json",
+        )
+        .unwrap();
+        let mirrors = build_china_mirror_urls(&url);
+
+        assert_eq!(mirrors.len(), CHINA_GITHUB_MIRROR_PREFIXES.len());
+        assert_eq!(
+            mirrors[0].as_str(),
+            "https://ghfast.top/https://raw.githubusercontent.com/kizemo/focus-sync/main/locales/zh-CN.json"
+        );
+    }
+
+    #[test]
+    fn china_mirrors_cover_github_archive_downloads() {
+        let url = reqwest::Url::parse(
+            "https://github.com/kizemo/focus-sync/archive/refs/tags/v0.5.8.zip",
+        )
+        .unwrap();
+        let mirrors = build_china_mirror_urls(&url);
+
+        assert_eq!(mirrors.len(), CHINA_GITHUB_MIRROR_PREFIXES.len());
+        assert_eq!(
+            mirrors[0].as_str(),
+            "https://ghfast.top/https://github.com/kizemo/focus-sync/archive/refs/tags/v0.5.8.zip"
+        );
+    }
+
+    #[test]
+    fn china_mirrors_skip_hosts_that_return_403() {
+        for raw in [
+            "https://codeload.github.com/kizemo/focus-sync/zip/refs/tags/v0.5.8",
+            "https://api.github.com/repos/kizemo/focus-sync/tags",
+            "https://example.com/owner/repo/main/file.json",
+        ] {
+            let url = reqwest::Url::parse(raw).unwrap();
+            assert!(build_china_mirror_urls(&url).is_empty(), "{}", raw);
+        }
+    }
+
+    #[test]
+    fn china_mirrors_skip_non_https_urls() {
+        let url =
+            reqwest::Url::parse("http://raw.githubusercontent.com/o/r/main/file.json").unwrap();
+        assert!(build_china_mirror_urls(&url).is_empty());
+    }
+
+    #[test]
+    fn describe_candidate_for_log_keeps_full_china_mirror_shape() {
+        // 应用内取证的形态：scheme + host + path 全保留，能一眼看出走了哪条镜像。
+        let mirror = reqwest::Url::parse(
+            "https://ghfast.top/https://raw.githubusercontent.com/kizemo/focus-sync/main/locales/zh-CN.json",
+        )
+        .unwrap();
+
+        assert_eq!(
+            describe_candidate_for_log(&mirror),
+            "https://ghfast.top/https://raw.githubusercontent.com/kizemo/focus-sync/main/locales/zh-CN.json"
+        );
+    }
+
+    #[test]
+    fn describe_candidate_for_log_drops_query_and_fragment() {
+        // query 可能带访问令牌，绝不能落进日志。
+        let url = reqwest::Url::parse("https://example.com/a/b.json?token=secret#frag").unwrap();
+
+        assert_eq!(describe_candidate_for_log(&url), "https://example.com/a/b.json");
+    }
+
+    #[test]
+    fn with_china_mirrors_orders_mirrors_before_other_fallbacks() {
+        let primary =
+            reqwest::Url::parse("https://raw.githubusercontent.com/o/r/main/file.json").unwrap();
+        let jsdelivr =
+            reqwest::Url::parse("https://cdn.jsdelivr.net/gh/o/r@main/file.json").unwrap();
+        let ordered = UrlCandidates::new(primary.clone())
+            .with_china_mirrors()
+            .with_fallback(Some(jsdelivr.clone()))
+            .ordered();
+
+        assert_eq!(ordered[0], primary);
+        assert_eq!(ordered[1].host_str(), Some("ghfast.top"));
+        assert_eq!(ordered.last().unwrap(), &jsdelivr);
+        assert_eq!(ordered.len(), 1 + CHINA_GITHUB_MIRROR_PREFIXES.len() + 1);
     }
 
     #[test]
@@ -1195,5 +1537,130 @@ mod tests {
                 elapsed
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod remote_client_tests {
+    use super::*;
+    use std::io::Read as _;
+
+    fn spawn_http_server(response: String) -> u16 {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            for mut stream in listener.incoming().flatten() {
+                let mut buffer = [0_u8; 4096];
+                let _ = stream.read(&mut buffer);
+                let _ = stream.write_all(response.as_bytes());
+            }
+        });
+        port
+    }
+
+    fn ok_response(body: &str) -> String {
+        format!(
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            body.len(),
+            body
+        )
+    }
+
+    fn redirect_response(location: &str) -> String {
+        format!(
+            "HTTP/1.1 302 Found\r\nLocation: {}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            location
+        )
+    }
+
+    /// Test resolver: "public.test" pretends to be a public host but points at
+    /// a local test server; every other name goes through the real guard.
+    #[derive(Clone, Copy)]
+    struct TestResolver {
+        public_test_port: u16,
+    }
+
+    impl reqwest::dns::Resolve for TestResolver {
+        fn resolve(&self, name: reqwest::dns::Name) -> reqwest::dns::Resolving {
+            if name.as_str() == "public.test" {
+                let addr: std::net::SocketAddr = format!("127.0.0.1:{}", self.public_test_port)
+                    .parse()
+                    .unwrap();
+                return Box::pin(async move {
+                    let resolved: reqwest::dns::Addrs = Box::new(std::iter::once(addr));
+                    Ok(resolved)
+                });
+            }
+            PublicOnlyResolver.resolve(name)
+        }
+    }
+
+    #[test]
+    fn resolver_guard_rejects_any_non_public_address() {
+        let public: std::net::SocketAddr = "1.1.1.1:443".parse().unwrap();
+        let loopback: std::net::SocketAddr = "127.0.0.1:443".parse().unwrap();
+        let mapped: std::net::SocketAddr = "[::ffff:169.254.169.254]:80".parse().unwrap();
+        assert!(ensure_public_socket_addrs(&[public]).is_ok());
+        assert!(ensure_public_socket_addrs(&[public, loopback]).is_err());
+        assert!(ensure_public_socket_addrs(&[mapped]).is_err());
+    }
+
+    #[tokio::test]
+    async fn remote_client_blocks_redirect_to_ip_literal() {
+        let internal_port = spawn_http_server(ok_response("INTERNAL-DATA"));
+        let public_port = spawn_http_server(redirect_response(&format!(
+            "http://127.0.0.1:{}/",
+            internal_port
+        )));
+        let client = build_remote_http_client_with_resolver(TestResolver {
+            public_test_port: public_port,
+        })
+        .unwrap();
+
+        let error = client
+            .get(format!("http://public.test:{}/", public_port))
+            .send()
+            .await
+            .expect_err("redirect to loopback must be blocked");
+        assert!(is_blocked_target_error(&error), "unexpected error: {error}");
+        assert!(matches!(
+            classify_reqwest_error("download", error),
+            HttpRetryError::Permanent(message) if message.contains(BLOCKED_TARGET_MESSAGE)
+        ));
+    }
+
+    #[tokio::test]
+    async fn remote_client_blocks_redirect_to_ipv6_literal() {
+        let public_port = spawn_http_server(redirect_response("http://[::ffff:127.0.0.1]:9/"));
+        let client = build_remote_http_client_with_resolver(TestResolver {
+            public_test_port: public_port,
+        })
+        .unwrap();
+
+        let error = client
+            .get(format!("http://public.test:{}/", public_port))
+            .send()
+            .await
+            .expect_err("redirect to mapped loopback must be blocked");
+        assert!(is_blocked_target_error(&error), "unexpected error: {error}");
+    }
+
+    #[tokio::test]
+    async fn remote_client_follows_redirect_between_public_hosts() {
+        let public_port = spawn_http_server(ok_response("PUBLIC-DATA"));
+        let client = build_remote_http_client_with_resolver(TestResolver {
+            public_test_port: public_port,
+        })
+        .unwrap();
+
+        let body = client
+            .get(format!("http://public.test:{}/", public_port))
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap();
+        assert_eq!(body, "PUBLIC-DATA");
     }
 }

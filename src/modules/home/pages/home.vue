@@ -9,6 +9,7 @@ import { useI18n } from 'vue-i18n';
 import {
   DrivesSection,
   HomeBanner,
+  RemoteEntriesSection,
   UserDirectoriesSection,
 } from '@/modules/home/components';
 import { PageHomeLayout } from '@/layouts';
@@ -63,6 +64,8 @@ usePageDropZone({
 
       <UserDirectoriesSection v-bind="getStaggerSlideUpBinding(0, {initialDelayMs: 0, stepMs: 300})" />
       <DrivesSection v-bind="getStaggerSlideUpBinding(1, {initialDelayMs: 0, stepMs: 300})" />
+      <!-- 用户 2026-11-08：位置页分区下方加「网盘」「远程连接」两个入口。 -->
+      <RemoteEntriesSection v-bind="getStaggerSlideUpBinding(2, {initialDelayMs: 0, stepMs: 300})" />
     </div>
 
     <FileBrowserConflictDialog
@@ -99,13 +102,18 @@ usePageDropZone({
 .home-page__header {
   display: flex;
   flex-direction: column;
-  margin-bottom: 8px;
+
+  /* FORK-MODIFICATION: 验收反馈 2026-10-13 — 标题与下方内容间距加大。 */
+  margin-bottom: 16px;
   gap: 8px;
 }
 
 .home-page__title {
   color: hsl(var(--foreground));
-  font-size: 2rem;
+
+  /* FORK-MODIFICATION: 验收反馈 2026-10-13 — 字号从 2rem(32px) 加大到 2.5rem(40px),
+     与 banner 内的"主页"标题统一(都是 32px,这里略大),让 banner 关闭态时仍然醒目。 */
+  font-size: 2.5rem;
   font-weight: 600;
   letter-spacing: -0.025em;
 }

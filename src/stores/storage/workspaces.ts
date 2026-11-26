@@ -15,8 +15,8 @@ import { useNavigatorStore } from '@/stores/runtime/navigator';
 import { useUserPathsStore } from '@/stores/storage/user-paths';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import { UI_CONSTANTS } from '@/constants';
-import clone from '@/utils/clone';
 import normalizePath, { canonicalizePath, getPathDisplayName } from '@/utils/normalize-path';
+import { collectVolumeCloseTargets } from '@/utils/volume-removal';
 import {
   isVirtualLocationPath,
   resolveDirEntry,
@@ -29,6 +29,7 @@ import {
   resolveDefaultDirectoryPath,
 } from '@/utils/resolve-default-directory';
 import uniqueId from '@/utils/unique-id';
+import { swapTabGroupPaths } from '@/modules/navigator/utils/swap-split-pane-paths';
 import type { DirContents, DirEntry } from '@/types/dir-entry';
 import type { Workspace, Tab, TabGroup } from '@/types/workspaces';
 import type { ComputedRef } from 'vue';
@@ -57,6 +58,11 @@ type CurrentTabPathNavigationRequest = {
 
 const CLOSED_TAB_GROUP_HISTORY_LIMIT = 20;
 
+/**
+ * 目录条目缓存的容量上限（按路径去重，先进先出淘汰）。
+ */
+const DIRECTORY_ENTRIES_CACHE_LIMIT = 8;
+
 export const useWorkspacesStore = defineStore('workspaces', () => {
   const { t } = useI18n();
   const userPathsStore = useUserPathsStore();
@@ -73,6 +79,50 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
   const closedTabGroupHistory = ref<ClosedTabGroupHistoryEntry[]>([]);
   const currentTabPathNavigationRequest = ref<CurrentTabPathNavigationRequest | null>(null);
   const pendingLaunchReveal = computed(() => pendingLaunchRevealQueue.value[0] ?? null);
+
+  /**
+   * 目录条目缓存：普通 Map，**刻意不是 ref**。
+   *
+   * 批次 C2 之前，目录条目是存在 Tab.dirEntries 里的 —— 于是每个标签页各存一份，
+   * 而且因为 workspaces 是深响应式的 ref，这些条目对象全都被套进了 Vue 代理。
+   * 现在标签页只记路径，条目对象统一放这里：既不随 store 变化触发更新，
+   * 也不会在切标签组时被 cloneDeep 复制一遍。
+   *
+   * 刻意不把这个 Map 放进 store 的 return 里：Pinia 只会把返回出去的 state
+   * 变成响应式，留在闭包里的普通 Map 永远不会被代理。
+   */
+  const directoryEntriesCache = new Map<string, DirEntry[]>();
+
+  function getCachedDirectoryEntries(path: string): DirEntry[] | null {
+    const cachedEntries = directoryEntriesCache.get(normalizePath(path));
+
+    if (!cachedEntries || cachedEntries.length === 0) {
+      return null;
+    }
+
+    return cachedEntries;
+  }
+
+  function cacheDirectoryEntries(path: string, entries: DirEntry[]): void {
+    const key = normalizePath(path);
+
+    directoryEntriesCache.delete(key);
+    directoryEntriesCache.set(key, entries);
+
+    while (directoryEntriesCache.size > DIRECTORY_ENTRIES_CACHE_LIMIT) {
+      const oldestKey = directoryEntriesCache.keys().next().value;
+
+      if (oldestKey === undefined) {
+        break;
+      }
+
+      directoryEntriesCache.delete(oldestKey);
+    }
+  }
+
+  function removeCachedDirectoryEntries(path: string): void {
+    directoryEntriesCache.delete(normalizePath(path));
+  }
 
   const primaryWorkspace: ComputedRef<Workspace | null> = computed(() => (
     workspaces.value?.find(workspace => workspace.isPrimary) || null
@@ -164,11 +214,40 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
     currentWorkspace.value?.tabGroups?.push(tabGroup);
   }
 
+  /**
+   * 标签页的标量浅拷贝。
+   *
+   * 批次 C2 之前这里是 clone(tab)（lodash cloneDeep）：整棵条目对象树被复制一遍，
+   * 而那些条目对象本来就不该被标签页持有。现在标签页只剩标量字段，
+   * 逐字段抄一遍既便宜，也不会把条目对象带进快照。
+   */
+  function createTabSnapshot(tab: Tab): Tab {
+    const tabSnapshot: Tab = {
+      id: tab.id,
+      name: tab.name,
+      path: tab.path,
+      type: tab.type,
+      paneWidth: tab.paneWidth,
+      filterQuery: tab.filterQuery,
+      dirEntries: [],
+      selectedDirEntries: [],
+    };
+
+    // 运行期交接位：分栏出来的 pane 要继承过滤词与「强制列表样式」标记。
+    if (tab.pendingFilterQuery !== undefined) {
+      tabSnapshot.pendingFilterQuery = tab.pendingFilterQuery;
+    }
+
+    if (tab.pendingForceListLayout !== undefined) {
+      tabSnapshot.pendingForceListLayout = tab.pendingForceListLayout;
+    }
+
+    return tabSnapshot;
+  }
+
   function createClosedTabSnapshot(tab: Tab): Tab {
-    const tabSnapshot = clone(tab);
+    const tabSnapshot = createTabSnapshot(tab);
     tabSnapshot.id = uniqueId();
-    tabSnapshot.dirEntries = [];
-    tabSnapshot.selectedDirEntries = [];
     return tabSnapshot;
   }
 
@@ -477,6 +556,65 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
     }
   }
 
+  /**
+   * FORK-MODIFICATION: 批次 25 缺陷 B25-2（2026-11-19）——U 盘弹出时关掉该盘的标签页。
+   *
+   * 后端放掉句柄只是一半：标签页还开着的话，导航轮询和目录读取会立刻重新打开
+   * 该盘句柄，Windows 又会弹出失败（`ERROR_REMOVE_VETOED`）。所以前端收到
+   * `volume-change` 必须把落在这块盘上的页全部关掉。
+   *
+   * 名单来自 `collectVolumeCloseTargets`，按 **id** 而不是索引给出，原因是
+   * 关整组会让后面所有组索引整体前移；因此这里每个目标都重新定位一次。
+   */
+  async function closeTabsOnDrive(driveLetter: string) {
+    const workspace = currentWorkspace.value;
+
+    if (!workspace?.tabGroups) {
+      return {
+        closedGroups: 0,
+        closedTabs: 0,
+      };
+    }
+
+    const { groupIds, tabIds } = collectVolumeCloseTargets(workspace.tabGroups, driveLetter);
+    let closedGroups = 0;
+    let closedTabs = 0;
+
+    for (const groupId of groupIds) {
+      const tabGroup = workspace.tabGroups.find(group => group?.[0]?.id === groupId);
+
+      if (!tabGroup) {
+        continue;
+      }
+
+      await closeTabGroup(tabGroup);
+      closedGroups++;
+    }
+
+    for (const tabId of tabIds) {
+      const tabGroupIndex = workspace.tabGroups.findIndex(group =>
+        group?.some(tab => tab.id === tabId));
+
+      if (tabGroupIndex === -1) {
+        continue;
+      }
+
+      const tabIndex = workspace.tabGroups[tabGroupIndex].findIndex(tab => tab.id === tabId);
+
+      if (tabIndex === -1) {
+        continue;
+      }
+
+      closeTab(workspace, tabGroupIndex, tabIndex);
+      closedTabs++;
+    }
+
+    return {
+      closedGroups,
+      closedTabs,
+    };
+  }
+
   async function addNewTabGroup(path?: string) {
     const newTab = await createNewTab(path);
     const newTabGroup = [newTab];
@@ -492,6 +630,35 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
     }
   }
 
+  /**
+   * 开一组标签页：第一格给 `paths[0]`，其余作为**同组内的分屏**并排。
+   *
+   * 为什么不用 `openNewTabGroup` 连开两次：那个函数每次开的是**独立的一组**，
+   * 结果是并排的两个标签组（上下叠），不是左右双栏。本项目的分屏表示是
+   * 「一组标签页多于一个」，见 `adjustSplitViewPanes`。
+   *
+   * **顺序即左右**：调用方给的顺序原样保留，远程连接的判定
+   * （`resolveRemoteOpenPanes`）返回的是 `[本地, 远端]`，反了就颠倒了。
+   */
+  async function openNewTabGroupWithPaths(paths: string[]) {
+    const usable = paths.filter(path => typeof path === 'string' && path.trim().length > 0);
+
+    if (usable.length === 0) {
+      return;
+    }
+
+    const tabs: Tab[] = [];
+
+    for (const path of usable) {
+      tabs.push(await createNewTab(path));
+    }
+
+    const tabGroup: TabGroup = tabs;
+    addTabGroup(tabGroup);
+    adjustSplitViewPanes(tabGroup);
+    openTabGroup(tabGroup);
+  }
+
   async function openPathInCurrentTab(path: string) {
     if (!currentTab.value || !currentTabGroup.value) {
       await openNewTabGroup(path);
@@ -505,8 +672,6 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
           path,
         };
     updateTabPath(currentTab.value, path);
-    currentTab.value.dirEntries = [];
-    currentTab.value.selectedDirEntries = [];
     currentTab.value.filterQuery = '';
     await loadCurrentTabGroup();
   }
@@ -652,7 +817,8 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
         });
 
         if (tab.type === 'directory' && normalizePath(tab.path) === requestedPath) {
-          tab.dirEntries = dirEntries;
+          // 条目对象不进标签页：标签页只记路径，条目统一放进按路径去重的缓存。
+          cacheDirectoryEntries(tab.path, dirEntries);
         }
       }
     }));
@@ -739,6 +905,24 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
     return tabGroup.length > 1;
   }
 
+  /**
+   * FORK-MODIFICATION: 交换分屏两格显示的路径。
+   *
+   * 只改 tab.path 就够了：`useFileBrowserLifecycle` 盯着 `{ id, path }`，
+   * 路径一变各面板自己会 readDir；而 workspaces 上的 deep watch 会把改动落盘。
+   * 刻意**不**调 loadCurrentTabGroup() —— 那会把整组标签页重开一遍，
+   * 而这里要的只是「换个目录」。
+   *
+   * 也刻意不写 currentTabPathNavigationRequest：互换不是一次用户导航，
+   * 不该被塞进后退历史里（按「后退」时不该莫名冒出一次换向）。
+   *
+   * 真正的交换逻辑在 utils/swap-split-pane-paths.ts（纯函数，可单测），
+   * 这里只负责取当前标签组并把结果返回给调用方。
+   */
+  function swapSplitPanePaths(): boolean {
+    return swapTabGroupPaths(currentTabGroup.value);
+  }
+
   function toggleSplitView() {
     if (!currentWorkspace.value) {
       return;
@@ -769,7 +953,7 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
   }
 
   function splitTabGroup(tabGroup: TabGroup) {
-    const newTab = clone(tabGroup[0]);
+    const newTab = createTabSnapshot(tabGroup[0]);
     newTab.id = uniqueId();
     tabGroup.push(newTab);
   }
@@ -996,6 +1180,7 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
     init,
     addNewTabGroup,
     openNewTabGroup,
+    openNewTabGroupWithPaths,
     openPathInCurrentTab,
     consumeCurrentTabPathNavigationRequest,
     restoreLastClosedTabGroup,
@@ -1003,16 +1188,21 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
     openOrFocusTabGroup,
     preloadDefaultTab,
     getDirEntry,
+    getCachedDirectoryEntries,
+    cacheDirectoryEntries,
+    removeCachedDirectoryEntries,
     loadCurrentTabGroup,
     openTabGroup,
     closeTabGroup,
     closeAllTabGroups,
     closeOtherTabGroups,
     closeAllDuplicatePathTabs,
+    closeTabsOnDrive,
     hasDuplicatePathTabs,
     setCurrentTabIndex,
     setTabs,
     toggleSplitView,
+    swapSplitPanePaths,
     setTabFilterQuery,
     setPendingLaunchReveal,
     clearPendingLaunchReveal,

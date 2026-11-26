@@ -4,9 +4,46 @@
 
 import { describe, expect, it } from 'vitest';
 import type { DirEntry } from '@/types/dir-entry';
-import { createFileBrowserVirtualRows } from '../../composables/use-file-browser-virtual-layout';
+import {
+  createFileBrowserVirtualRows,
+  type FileBrowserGridItemsVirtualRow,
+  type FileBrowserListVirtualRow,
+  type FileBrowserVirtualRow,
+} from '../../composables/use-file-browser-virtual-layout';
 import { collectFileBrowserBoxSelectionEntries } from '../file-browser-box-selection-hit-test';
 import { findVirtualRowRangeOverlappingContentSpan } from '../file-browser-virtual-rows';
+import { resolveThumbnailMetrics } from '../file-browser-thumbnail-sizes';
+
+// FORK-MODIFICATION: 列表行高来自缩略图档位度量表，写死像素值会在改档位时静默失配。
+// 行内位置必须从**实际行模型**取：意见 9（2026-10-30）之后，目录里只有一种类型时
+// 不再有分类标题行（以前固定多出 LIST_SECTION_HEADER_HEIGHT = 40px），行整体上移 ——
+// 写死那个常数会让框选落到上一行的条目上。
+function getEntryRowTop(rows: FileBrowserVirtualRow[], entryIndex: number): number {
+  const entryRows = rows.filter(
+    (row): row is FileBrowserListVirtualRow => row.type === 'list-entry',
+  );
+  const target = entryRows[entryIndex];
+
+  if (!target) {
+    throw new Error('entry row not found: ' + entryIndex);
+  }
+
+  return 200 + target.start;
+}
+
+// 网格第一行卡片的屏幕纵坐标，同样从实际行模型取：
+// 网格分类标题行在不在由目录里的类型数决定，不能写死。
+function getFirstGridItemsRowTop(rows: FileBrowserVirtualRow[]): number {
+  const first = rows.find(
+    (row): row is FileBrowserGridItemsVirtualRow => row.type === 'grid-items',
+  );
+
+  if (!first) {
+    throw new Error('grid items row not found');
+  }
+
+  return 200 + first.start;
+}
 
 function createEntry(path: string): DirEntry {
   return {
@@ -40,14 +77,15 @@ describe('collectFileBrowserBoxSelectionEntries', () => {
     });
     const contentRect = new DOMRect(100, 200, 800, 600);
     const viewportRect = new DOMRect(100, 200, 800, 600);
+    const rowTop = getEntryRowTop(rows, 1);
 
     const selectedEntries = collectFileBrowserBoxSelectionEntries({
       rows,
       selectionBox: {
         left: 100,
-        top: 242,
+        top: rowTop + 2,
         right: 900,
-        bottom: 270,
+        bottom: rowTop + 28,
       },
       layout: 'list',
       contentRect,
@@ -56,6 +94,7 @@ describe('collectFileBrowserBoxSelectionEntries', () => {
       virtualContentOffset: 0,
       scrollTop: 0,
       increaseFileViewGaps: false,
+      gridMinColumnWidth: 170,
     });
 
     expect(selectedEntries.map(entry => entry.path)).toEqual(['/tmp/b']);
@@ -78,8 +117,7 @@ describe('collectFileBrowserBoxSelectionEntries', () => {
     const gridGap = 12;
     const columnCount = 4;
     const columnWidth = (800 - ((columnCount - 1) * gridGap)) / columnCount;
-    const sectionHeaderSize = 42 + gridGap;
-    const rowTop = 200 + sectionHeaderSize;
+    const rowTop = getFirstGridItemsRowTop(rows);
     const columnOneLeft = contentRect.left + columnWidth + gridGap;
 
     const selectedEntries = collectFileBrowserBoxSelectionEntries({
@@ -97,6 +135,7 @@ describe('collectFileBrowserBoxSelectionEntries', () => {
       virtualContentOffset: 0,
       scrollTop: 0,
       increaseFileViewGaps: false,
+      gridMinColumnWidth: 170,
     });
 
     expect(selectedEntries.map(entry => entry.path)).toEqual(['/tmp/b']);
@@ -116,6 +155,7 @@ describe('collectFileBrowserBoxSelectionEntries', () => {
       virtualContentOffset: 0,
       scrollTop: 0,
       increaseFileViewGaps: false,
+      gridMinColumnWidth: 170,
     });
 
     expect(gapOnlySelection).toEqual([]);
@@ -130,11 +170,12 @@ describe('collectFileBrowserBoxSelectionEntries', () => {
     });
     const contentRect = new DOMRect(100, 200, 800, 600);
     const viewportRect = new DOMRect(100, 200, 800, 600);
+    const rowTop = getEntryRowTop(rows, 1);
     const selectionBox = {
       left: 100,
-      top: 242,
+      top: rowTop + 2,
       right: 900,
-      bottom: 270,
+      bottom: rowTop + 28,
     };
     const { startIndex, endIndex } = findVirtualRowRangeOverlappingContentSpan(
       rows,
@@ -154,9 +195,67 @@ describe('collectFileBrowserBoxSelectionEntries', () => {
       virtualContentOffset: 0,
       scrollTop: 0,
       increaseFileViewGaps: false,
+      gridMinColumnWidth: 170,
     });
 
     expect(selectedEntries).toHaveLength(1);
     expect(selectedEntries[0]?.path).toBe('/tmp/item-1');
+  });
+
+  // FORK-MODIFICATION: 需求 3.6 —— 列数随档位变化后，框选必须用同一套列宽，
+  // 否则选中的会是另一张卡片。用同一个选框在两种列宽下必须选到不同条目。
+  it('follows the thumbnail size when mapping a box to grid columns', () => {
+    const entries = [
+      createEntry('/tmp/a'),
+      createEntry('/tmp/b'),
+      createEntry('/tmp/c'),
+      createEntry('/tmp/d'),
+    ];
+    const rows = createFileBrowserVirtualRows({
+      entries,
+      layout: 'grid',
+      viewportWidth: 800,
+      // 必须显式指定档位：这 4 个条目要留在同一行，断言才是在比较
+      // 「同一个选框在不同列宽下落到哪一列」，而不是在比较不同的行分布。
+      // 以前这里靠默认档恰好给 4 列，默认档一改就会静默换掉被测场景。
+      thumbnailSize: 'small',
+    });
+    const contentRect = new DOMRect(100, 200, 800, 600);
+    const viewportRect = new DOMRect(100, 200, 800, 600);
+    const rowTop = getFirstGridItemsRowTop(rows);
+    // 列宽从档位表取，不写死像素值 —— 2026-10-15 网格四档整体上移后，
+    // 写死的 170 / 283 已经不对应任何档位，标签会变成假话。
+    // small 170：floor((800 + 12) / (170 + 12)) = 4 列，列宽 (800 - 3*12)/4 = 191，
+    // 第 4 列左边界 100 + 3*(191+12) = 709，选框 711 起正好落在第 4 列。
+    const selectionBox = {
+      left: 711,
+      top: rowTop + 2,
+      right: 898,
+      bottom: rowTop + 40,
+    };
+    const shared = {
+      rows,
+      selectionBox,
+      layout: 'grid' as const,
+      contentRect,
+      viewportRect,
+      contentWidth: 800,
+      virtualContentOffset: 0,
+      scrollTop: 0,
+      increaseFileViewGaps: false,
+    };
+
+    expect(collectFileBrowserBoxSelectionEntries({
+      ...shared,
+      gridMinColumnWidth: resolveThumbnailMetrics('small').gridMinColumnWidth,
+    })
+      .map(entry => entry.path)).toEqual(['/tmp/d']);
+    // xlarge 420：floor((800 + 12) / (420 + 12)) = 1 列，整行都是第 1 列，
+    // 同一个 x 区间落到 /tmp/a —— 与 small 的结论不同，说明框选确实跟着档位走。
+    expect(collectFileBrowserBoxSelectionEntries({
+      ...shared,
+      gridMinColumnWidth: resolveThumbnailMetrics('xlarge').gridMinColumnWidth,
+    })
+      .map(entry => entry.path)).toEqual(['/tmp/a']);
   });
 });

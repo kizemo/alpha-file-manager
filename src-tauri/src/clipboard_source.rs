@@ -129,7 +129,10 @@ fn resolve_process_icon_url(process_path: &str) -> Option<String> {
         return None;
     }
 
-    crate::system_icons::get_system_icon(
+    // FORK-MODIFICATION (2026-11-07)：`get_system_icon` 已改成 async command
+    // （搬到工作线程，避免堵死 Tauri 主线程）。这里本来就是同步上下文
+    // （剪贴板监听线程），直接用纯逻辑版本 `get_system_icon_blocking`。
+    crate::system_icons::get_system_icon_blocking(
         process_path.to_string(),
         false,
         Some("exe".to_string()),

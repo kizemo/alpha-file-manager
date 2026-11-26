@@ -56,6 +56,8 @@ function createNavigatorSettings(overrides: Partial<UserSettingsNavigator> = {})
       linkStatus: false,
       items: true,
       size: true,
+      // FORK-MODIFICATION 2026-10-20
+      availableSpace: true,
       modified: true,
       created: false,
       tags: false,
@@ -66,9 +68,14 @@ function createNavigatorSettings(overrides: Partial<UserSettingsNavigator> = {})
     listColumnOrder: ['items', 'size', 'modified', 'created', 'tags', 'kind', 'links', 'linkStatus'],
     listSortColumn: null,
     listSortDirection: 'asc',
+    foldersFirst: true,
     gridSortColumn: 'name',
     gridSortDirection: 'asc',
     enableBoxSelection: false,
+    // FORK-MODIFICATION: 列表视图缩略图（上游 #231），与默认值一致
+    showListThumbnails: true,
+    // FORK-MODIFICATION: 缩略图大小默认中等档
+    thumbnailSize: 'medium',
     increaseFileViewGaps: false,
     ...overrides,
   };

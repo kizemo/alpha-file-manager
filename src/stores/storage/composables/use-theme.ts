@@ -5,8 +5,8 @@
 import {
   ref, computed, type Ref, type ComputedRef, watchEffect,
 } from 'vue';
-import type { Theme } from '@/types/user-settings';
-import { findThemeOption, parseThemeId } from '@/modules/themes/registry';
+import type { BuiltinThemeId, Theme } from '@/types/user-settings';
+import { DEFAULT_THEME_ID, findThemeOption, parseThemeId } from '@/modules/themes/registry';
 import { useExtensionsStorageStore } from '@/stores/storage/extensions';
 
 export type ThemeTransitionOrigin = {
@@ -59,8 +59,43 @@ export function useTheme(
     document.documentElement.classList.toggle('dark', currentTheme.value === 'dark');
   }
 
-  function resolveBuiltinTheme(theme: 'light' | 'dark' | 'system'): 'light' | 'dark' {
-    return theme === 'system' ? getSystemPreference() : theme;
+  function resolveBuiltinTheme(theme: BuiltinThemeId): 'light' | 'dark' {
+    if (theme === 'system') {
+      return getSystemPreference();
+    }
+
+    if (theme === 'light' || theme === 'dark') {
+      return theme;
+    }
+
+    return 'dark';
+  }
+
+  function applyThemeVariables(variables: Record<`--${string}`, string>) {
+    for (const [variableName, variableValue] of Object.entries(variables)) {
+      document.documentElement.style.setProperty(variableName, variableValue);
+      appliedThemeVariables.add(variableName);
+    }
+  }
+
+  /**
+   * FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：把主题标识写到 `<html data-afm-theme>`。
+   *
+   * 少量形状特征（衬线小标题、彩色左边条、彩色图标块）用 CSS 变量表达不了，
+   * 靠这个属性在 `src/styles/afm-themes.css` 里做作用域覆盖。
+   * 非 AFM 主题必须把属性**删掉**，否则会残留上一套主题的形状特征。
+   */
+  function applyCssThemeId(cssThemeId: string | undefined) {
+    if (typeof document === 'undefined' || !document.documentElement) {
+      return;
+    }
+
+    if (cssThemeId) {
+      document.documentElement.dataset.afmTheme = cssThemeId;
+    }
+    else {
+      delete document.documentElement.dataset.afmTheme;
+    }
   }
 
   function getTransitionOrigin(): ThemeTransitionOrigin {
@@ -159,22 +194,36 @@ export function useTheme(
       extensionsStorageStore.extensionsData.installedExtensions,
     );
 
-    if (!themeOption || themeOption.source === 'builtin') {
+    if (!themeOption) {
+      applyBaseTheme('dark');
+      applyCssThemeId(undefined);
+      return;
+    }
+
+    if (themeOption.source === 'builtin') {
+      // FORK-MODIFICATION 2026-10-29：内置变体主题（AFM 品牌三套）
+      // 带 CSS 变量覆盖，走「基础明暗 class + 变量覆盖」这条通道，
+      // 与扩展主题完全同构，所以 `.dark` 选择器仍然生效。
+      if (themeOption.variables && themeOption.baseTheme) {
+        applyBaseTheme(themeOption.baseTheme);
+        applyThemeVariables(themeOption.variables);
+        applyCssThemeId(themeOption.cssThemeId);
+        return;
+      }
+
       const parsedTheme = parseThemeId(theme);
       const resolvedTheme = parsedTheme?.source === 'builtin'
         ? resolveBuiltinTheme(parsedTheme.builtinThemeId)
         : 'dark';
 
       applyBaseTheme(resolvedTheme);
+      applyCssThemeId(undefined);
       return;
     }
 
     applyBaseTheme(themeOption.baseTheme);
-
-    for (const [variableName, variableValue] of Object.entries(themeOption.variables)) {
-      document.documentElement.style.setProperty(variableName, variableValue);
-      appliedThemeVariables.add(variableName);
-    }
+    applyThemeVariables(themeOption.variables);
+    applyCssThemeId(undefined);
   }
 
   function setTheme(theme: Theme) {
@@ -190,7 +239,7 @@ export function useTheme(
   }
 
   function toggleTheme() {
-    return setTheme(currentTheme.value === 'dark' ? 'light' : 'dark');
+    return setTheme(currentTheme.value === 'dark' ? DEFAULT_THEME_ID : 'dark');
   }
 
   function handleSystemThemeChange(event: MediaQueryListEvent) {

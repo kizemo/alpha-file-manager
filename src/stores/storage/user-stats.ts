@@ -3,12 +3,14 @@
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
 import { defineStore } from 'pinia';
+import { useMcpStore } from '@/stores/runtime/mcp';
 import { invoke } from '@tauri-apps/api/core';
 import { LazyStore } from '@tauri-apps/plugin-store';
 import { ref, computed } from 'vue';
 import { useUserPathsStore } from './user-paths';
 import type {
   UserStats,
+  FavoriteCategory,
   FavoriteItem,
   HistoryItem,
   FrequentItem,
@@ -22,6 +24,13 @@ import {
   getStartupStorageRecord,
   type StartupStorageFileBootstrap,
 } from './utils/startup-storage-bootstrap';
+// FORK-MODIFICATION: 2026-10-31 —— 收藏夹排序的纯语义（拖到前面还是后面、
+// 能不能跨分类）集中在这里，组件只负责把指针位置翻译成 before / after。
+import {
+  reorderFavoriteCategoriesByDrop,
+  reorderFavoritesByDrop,
+  type DropPlacement,
+} from './utils/favorites-order';
 import { i18n } from '@/localization';
 import { getTagsByIdsInListOrder } from '@/utils/item-tag-order';
 import { reconcileMissingTagDefinitions as mergeTagDefinitionsFromTaggedItems } from '@/utils/reconcile-user-stats-tags';
@@ -32,6 +41,18 @@ const HISTORY_MAX_ITEMS = 100;
 const FREQUENT_ITEMS_MAX = 100;
 const PATH_EXISTS_BATCH_SIZE = 4;
 
+// FORK-MODIFICATION: 顶层字段白名单（预批 0，2026-10-15）。
+// 原来是 `key in userStats.value` —— 判断对象是**运行时实例**，于是：
+//   1) 给 UserStats 加了字段却忘了加进 DEFAULT_USER_STATS，会静默丢数据：
+//      不报错、不落盘、界面上没有任何线索，下一轮加 `categories` 时必踩；
+//   2) `in` 会走原型链，`toString` / `constructor` 这类继承键能通过判断，
+//      顺着写进去就是把原型成员换成用户的脏数据（与 thumbnail-metrics 那次同类）。
+// 现在改成从 DEFAULT_USER_STATS 派生白名单，方向反过来了 ——
+// 遍历「schema 认为合法的字段」并去记录里取值，两个方向的问题一起消失。
+// DEFAULT_USER_STATS 与 UserStats 的字段一致性由
+// __tests__/user-stats.test.ts 里的编译期断言守住，漏改会被 npm run ts 拦下。
+const USER_STATS_TOP_LEVEL_KEYS = Object.keys(DEFAULT_USER_STATS) as Array<keyof UserStats>;
+
 export const useUserStatsStore = defineStore('userStats', () => {
   const userPathsStore = useUserPathsStore();
   const userStatsStorage = ref<LazyStore | null>(null);
@@ -39,6 +60,8 @@ export const useUserStatsStore = defineStore('userStats', () => {
   let deferredMaintenancePromise: Promise<void> | null = null;
 
   const favorites = computed(() => userStats.value.favorites);
+  // FORK-MODIFICATION: 反馈 4 —— 收藏分类。
+  const favoriteCategories = computed(() => userStats.value.favoriteCategories);
   const tags = computed(() => userStats.value.tags);
   const taggedItems = computed(() => userStats.value.taggedItems);
   const history = computed(() => userStats.value.history);
@@ -81,11 +104,19 @@ export const useUserStatsStore = defineStore('userStats', () => {
       return;
     }
 
-    for (const [key, value] of Object.entries(statsRecord)) {
-      if (key in userStats.value) {
-        (userStats.value as Record<string, unknown>)[key] = value;
+    for (const key of USER_STATS_TOP_LEVEL_KEYS) {
+      if (Object.hasOwn(statsRecord, key)) {
+        (userStats.value as Record<string, unknown>)[key] = statsRecord[key];
       }
     }
+
+    // FORK-MODIFICATION: 反馈 4 —— 收藏条目新增 isFile / categoryId 后，老记录
+    // 缺这两个键。归一化放在这里（读入的唯一入口）而不是各读取点，
+    // 保证内存里的 FavoriteItem 形状永远一致。
+    userStats.value.favorites = normalizeFavorites(userStats.value.favorites);
+    userStats.value.favoriteCategories = normalizeFavoriteCategories(
+      userStats.value.favoriteCategories,
+    );
   }
 
   async function loadStatsFromBootstrap(bootstrapFile?: StartupStorageFileBootstrap): Promise<boolean> {
@@ -153,12 +184,31 @@ export const useUserStatsStore = defineStore('userStats', () => {
 
       if (userStatsStorage.value) {
         await userStatsStorage.value.set('favorites', userStats.value.favorites);
+        // FORK-MODIFICATION: 反馈 4 —— 这一行是修一个已发出去的数据丢失缺陷。
+        // 加 favoriteCategories 到 DEFAULT_USER_STATS 只修好了「读」这一侧
+        // （USER_STATS_TOP_LEVEL_KEYS 由它派生），写这一侧是下面这串显式的
+        // set()，漏掉它就变成：新建分类 -> 界面出现 -> 刷新/重启后消失，
+        // 不报错、不落盘。加新顶层字段时读白名单和写列表要一起改。
+        await userStatsStorage.value.set('favoriteCategories', userStats.value.favoriteCategories);
         await userStatsStorage.value.set('tags', userStats.value.tags);
         await userStatsStorage.value.set('taggedItems', userStats.value.taggedItems);
         await userStatsStorage.value.set('history', userStats.value.history);
         await userStatsStorage.value.set('frequentItems', userStats.value.frequentItems);
         await userStatsStorage.value.save();
       }
+
+      // FORK-MODIFICATION: MCP —— 把收藏分类推给 Rust 侧的 MCP 工具。
+      // 收藏文件的位置用户可以自定义，Rust 自己拼路径会读错文件，所以由前端给。
+      // 同步失败只记 warn：MCP 是可选功能，不能让它把收藏保存带崩。
+      await useMcpStore().syncFavorites(
+        userStats.value.favoriteCategories.map(category => ({
+          id: category.id,
+          name: category.name,
+          items: userStats.value.favorites
+            .filter(item => item.categoryId === category.id)
+            .map(item => item.path),
+        })),
+      );
     }
     catch (error) {
       console.error('Failed to save user stats:', error);
@@ -169,15 +219,143 @@ export const useUserStatsStore = defineStore('userStats', () => {
     return userStats.value.favorites.some(item => item.path === path);
   }
 
-  async function addToFavorites(path: string) {
+  // FORK-MODIFICATION: 反馈 4 —— 老收藏记录没有 isFile / categoryId。
+  // 在**读入一处**补齐，而不是让每个读取点判 undefined：仪表盘原来把
+  // 「路径含 `.`」当文件判定，复制到多处就等于把这个误判复制到多处。
+  // 老数据只能按老规则兜底（拿不到别的信息），新数据一律用调用方给的 isFile。
+  function inferLegacyFavoriteIsFile(path: string): boolean {
+    return !path.endsWith('/') && path.includes('.');
+  }
+
+  function normalizeFavorites(favorites: unknown): FavoriteItem[] {
+    if (!Array.isArray(favorites)) {
+      return [];
+    }
+
+    const normalized: FavoriteItem[] = [];
+
+    for (const rawItem of favorites) {
+      if (!rawItem || typeof rawItem !== 'object') {
+        continue;
+      }
+
+      const record = rawItem as Record<string, unknown>;
+
+      if (typeof record.path !== 'string' || record.path.length === 0) {
+        continue;
+      }
+
+      const normalizedItem: FavoriteItem = {
+        path: record.path,
+        addedAt: typeof record.addedAt === 'number' ? record.addedAt : 0,
+        isFile: typeof record.isFile === 'boolean'
+          ? record.isFile
+          : inferLegacyFavoriteIsFile(record.path),
+        categoryId: typeof record.categoryId === 'string' ? record.categoryId : null,
+      };
+
+      // FORK-MODIFICATION: 批次 37 —— 老记录没有 alias 键；脏值（非字符串）也丢掉。
+      // 键本身**不补**：缺省即「没有别名」，显示名回退到原始名称，老数据的形状不变。
+      if (typeof record.alias === 'string') {
+        normalizedItem.alias = record.alias.trim();
+      }
+
+      normalized.push(normalizedItem);
+    }
+
+    return normalized;
+  }
+
+  function normalizeFavoriteCategories(categories: unknown): FavoriteCategory[] {
+    if (!Array.isArray(categories)) {
+      return [];
+    }
+
+    const knownIds = new Set<string>();
+    const normalized: FavoriteCategory[] = [];
+
+    for (const rawItem of categories) {
+      if (!rawItem || typeof rawItem !== 'object') {
+        continue;
+      }
+
+      const record = rawItem as Record<string, unknown>;
+
+      if (typeof record.id !== 'string' || record.id.length === 0) {
+        continue;
+      }
+
+      if (typeof record.name !== 'string' || record.name.trim().length === 0) {
+        continue;
+      }
+
+      // 重复 id 会让「按分类过滤」把同一条收藏显示两遍，直接丢掉后来的。
+      if (knownIds.has(record.id)) {
+        continue;
+      }
+
+      knownIds.add(record.id);
+      normalized.push({
+        id: record.id,
+        name: record.name,
+        createdAt: typeof record.createdAt === 'number' ? record.createdAt : 0,
+      });
+    }
+
+    return normalized;
+  }
+
+  // FORK-MODIFICATION: 批次 37 —— 第 4 个参数是**显示名**（别名），只影响显示。
+  async function addToFavorites(
+    path: string,
+    isFile = false,
+    categoryId: string | null = null,
+    alias = '',
+  ) {
     if (isFavorite(path)) return;
 
     const newFavorite: FavoriteItem = {
       path,
       addedAt: Date.now(),
+      isFile,
+      categoryId,
     };
 
+    // 别名为空就不写这个键：没有别名的条目不该凭空多出一个空字段。
+    const trimmedAlias = alias.trim();
+
+    if (trimmedAlias) {
+      newFavorite.alias = trimmedAlias;
+    }
+
     userStats.value.favorites.push(newFavorite);
+    await saveStats();
+  }
+
+  /**
+   * 设置收藏条目的**显示名**（别名）。
+   *
+   * 只改界面上显示的名字，**不碰** path，也不碰真实文件名 / 目录名 ——
+   * 收藏打开的仍然是原来那个路径。
+   *
+   * 传空串 = 清掉别名，界面回到原始名称。清空是常用操作（改错了要还原），
+   * 所以这里必须接受空值，不能像分类改名那样把空名当非法输入拒掉。
+   * 走的是 `saveStats()` 里现成的 `favorites` 整份写盘，不新增存储键。
+   */
+  async function setFavoriteAlias(path: string, alias: string) {
+    const favorite = userStats.value.favorites.find(item => item.path === path);
+
+    if (!favorite) {
+      return;
+    }
+
+    const trimmed = alias.trim();
+
+    if ((favorite.alias ?? '') === trimmed) {
+      return;
+    }
+
+    favorite.alias = trimmed;
     await saveStats();
   }
 
@@ -190,15 +368,201 @@ export const useUserStatsStore = defineStore('userStats', () => {
     }
   }
 
-  async function toggleFavorite(path: string): Promise<boolean> {
+  async function toggleFavorite(path: string, isFile = false): Promise<boolean> {
     if (isFavorite(path)) {
       await removeFromFavorites(path);
       return false;
     }
     else {
-      await addToFavorites(path);
+      await addToFavorites(path, isFile);
       return true;
     }
+  }
+
+  // FORK-MODIFICATION: 反馈 4 —— 收藏的编辑能力（排序 / 改归属分类）。
+
+  /**
+   * 在**当前分类内**把收藏上移/下移一位。
+   *
+   * 为什么在分类内而不是整个列表：仪表盘收藏是 grid 布局，跨分类移动会让
+   * 卡片「跳」到另一个分组里，用户预期是「在我这组里挪一格」。分类之间要挪
+   * 用 `moveFavoriteToCategory`。
+   */
+  async function moveFavoriteWithinCategory(path: string, direction: -1 | 1) {
+    const favorites = userStats.value.favorites;
+    const index = favorites.findIndex(item => item.path === path);
+
+    if (index === -1) {
+      return;
+    }
+
+    const currentCategoryId = favorites[index].categoryId;
+    const siblingIndexes = favorites
+      .map((item, itemIndex) => (item.categoryId === currentCategoryId ? itemIndex : -1))
+      .filter(itemIndex => itemIndex !== -1);
+
+    const positionInCategory = siblingIndexes.indexOf(index);
+
+    if (positionInCategory === -1) {
+      return;
+    }
+
+    const targetPosition = positionInCategory + direction;
+
+    if (targetPosition < 0 || targetPosition >= siblingIndexes.length) {
+      return;
+    }
+
+    const targetIndex = siblingIndexes[targetPosition];
+    const moved = favorites[index];
+    const displaced = favorites[targetIndex];
+
+    favorites[index] = displaced;
+    favorites[targetIndex] = moved;
+
+    await saveStats();
+  }
+
+  async function moveFavoriteToCategory(path: string, categoryId: string | null) {
+    const favorite = userStats.value.favorites.find(item => item.path === path);
+
+    if (!favorite || favorite.categoryId === categoryId) {
+      return;
+    }
+
+    favorite.categoryId = categoryId;
+    await saveStats();
+  }
+
+  /**
+   * 收藏分类之间上移 / 下移一位。
+   *
+   * 「未分类」不是真实分类（没有 id、没有实体），它永远排在最后，
+   * 所以这里只在 `favoriteCategories` 这条真实列表上换位。
+   */
+  async function moveFavoriteCategory(categoryId: string, direction: -1 | 1) {
+    const categories = userStats.value.favoriteCategories;
+    const index = categories.findIndex(category => category.id === categoryId);
+
+    if (index === -1) {
+      return;
+    }
+
+    const targetIndex = index + direction;
+
+    if (targetIndex < 0 || targetIndex >= categories.length) {
+      return;
+    }
+
+    const next = [...categories];
+    const moved = next[index];
+    next[index] = next[targetIndex];
+    next[targetIndex] = moved;
+
+    await setFavoriteCategories(next);
+  }
+
+  /**
+   * 按拖放结果重排收藏分类。落点语义（目标前面 / 后面）由纯函数决定，
+   * 组件只负责判断指针落在目标框的哪一半。
+   */
+  async function reorderFavoriteCategories(
+    draggedId: string,
+    targetId: string,
+    placement: DropPlacement,
+  ) {
+    const next = reorderFavoriteCategoriesByDrop(
+      userStats.value.favoriteCategories,
+      draggedId,
+      targetId,
+      placement,
+    );
+
+    await setFavoriteCategories(next);
+  }
+
+  /**
+   * 按拖放结果重排某个分类内的收藏条目。
+   *
+   * 与 `moveFavoriteWithinCategory` 走的是同一份数据（`userStats.favorites`），
+   * 只是落点可以是任意一项而不只是相邻项 —— 两条路径最终都落到
+   * `saveStats()`，所以都真的落盘。
+   */
+  async function reorderFavorites(
+    draggedPath: string,
+    targetPath: string,
+    placement: DropPlacement,
+  ) {
+    const next = reorderFavoritesByDrop(
+      userStats.value.favorites,
+      draggedPath,
+      targetPath,
+      placement,
+    );
+
+    await setFavorites(next);
+  }
+
+  function hasFavoriteCategoryNameConflict(name: string, excludedId: string | null = null): boolean {
+    const normalizedName = name.trim().toLowerCase();
+
+    return userStats.value.favoriteCategories.some(
+      category => category.id !== excludedId && category.name.toLowerCase() === normalizedName,
+    );
+  }
+
+  async function createFavoriteCategory(name: string): Promise<FavoriteCategory | null> {
+    const trimmed = name.trim();
+
+    if (!trimmed || hasFavoriteCategoryNameConflict(trimmed)) {
+      return null;
+    }
+
+    const newCategory: FavoriteCategory = {
+      id: `favcat-${Date.now()}`,
+      name: trimmed,
+      createdAt: Date.now(),
+    };
+
+    userStats.value.favoriteCategories.push(newCategory);
+    await saveStats();
+    return newCategory;
+  }
+
+  async function renameFavoriteCategory(categoryId: string, name: string) {
+    const trimmed = name.trim();
+    const category = userStats.value.favoriteCategories.find(item => item.id === categoryId);
+
+    if (!category || !trimmed || hasFavoriteCategoryNameConflict(trimmed, categoryId)) {
+      return;
+    }
+
+    category.name = trimmed;
+    await saveStats();
+  }
+
+  /**
+   * 删除分类。**其下的收藏回到「未分类」，不连带删除。**
+   *
+   * 连带删除会静默丢用户数据，而且是不可逆的（收藏没法恢复）；回到未分类
+   * 完全可逆 —— 用户重新建一个同名分类就能复原布局。
+   */
+  async function deleteFavoriteCategory(categoryId: string) {
+    const categoryIndex = userStats.value.favoriteCategories.findIndex(item => item.id === categoryId);
+
+    if (categoryIndex === -1) {
+      return;
+    }
+
+    userStats.value.favoriteCategories.splice(categoryIndex, 1);
+
+    for (const favorite of userStats.value.favorites) {
+      if (favorite.categoryId === categoryId) {
+        favorite.categoryId = null;
+      }
+    }
+
+    await saveStats();
   }
 
   function getItemTags(path: string): ItemTag[] {
@@ -319,6 +683,128 @@ export const useUserStatsStore = defineStore('userStats', () => {
     await saveStats();
   }
 
+  /**
+   * 改收藏条目的**路径**。
+   *
+   * 收藏的路径就是它的唯一键（`favorites` 的 key 就是 path），
+   * 所以「改路径」等于换了一条收藏：path 与 isFile 必须一起改 ——
+   * 目标可能从目录变成文件（或反过来）。
+   *
+   * 重复路径直接拒绝：同一份文件被收藏两次会让「移除收藏」只删掉一条，
+   * 侧边栏也会显示两个一模一样的条目。
+   *
+   * @returns 改成功返回 true；找不到这条收藏 / 路径重复 / 路径为空返回 false。
+   */
+  async function updateFavoritePath(path: string, nextPath: string, isFile = false): Promise<boolean> {
+    const favorites = userStats.value.favorites;
+    const index = favorites.findIndex(item => item.path === path);
+
+    if (index === -1) {
+      return false;
+    }
+
+    const trimmed = nextPath.trim();
+
+    if (!trimmed) {
+      return false;
+    }
+
+    if (trimmed !== path && favorites.some(item => item.path === trimmed)) {
+      return false;
+    }
+
+    favorites[index].path = trimmed;
+    favorites[index].isFile = isFile;
+    await saveStats();
+
+    return true;
+  }
+
+  /**
+   * 导入设置时**整体替换**收藏相关数据。
+   *
+   * 刻意不走 `setFavorites` / `setFavoriteCategories` / `setTags` / `setTaggedItems`：
+   * 那四个方法只在「成员没变、只是顺序变了」时才落盘
+   * （`replaceListIfMembershipMatches`），而导入要的恰恰是「换一批成员」。
+   *
+   * 每一份数据都过一遍归一化：导入文件是外部输入，不能直接塞进内存态。
+   */
+  async function replaceFavoritesForImport(payload: {
+    favorites: unknown;
+    favoriteCategories: unknown;
+    tags: unknown;
+    taggedItems: unknown;
+  }): Promise<void> {
+    userStats.value.favorites = normalizeFavorites(payload.favorites);
+    userStats.value.favoriteCategories = normalizeFavoriteCategories(payload.favoriteCategories);
+    userStats.value.tags = normalizeTagsForImport(payload.tags);
+    userStats.value.taggedItems = normalizeTaggedItemsForImport(payload.taggedItems);
+    await saveStats();
+  }
+
+  function normalizeTagsForImport(value: unknown): ItemTag[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const normalized: ItemTag[] = [];
+
+    for (const raw of value) {
+      if (!raw || typeof raw !== 'object') {
+        continue;
+      }
+
+      const record = raw as Record<string, unknown>;
+
+      if (typeof record.id !== 'string' || record.id.length === 0) {
+        continue;
+      }
+
+      if (typeof record.name !== 'string') {
+        continue;
+      }
+
+      normalized.push({
+        id: record.id,
+        name: record.name,
+        color: typeof record.color === 'string' ? record.color : '',
+      });
+    }
+
+    return normalized;
+  }
+
+  function normalizeTaggedItemsForImport(value: unknown): TaggedItem[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const normalized: TaggedItem[] = [];
+
+    for (const raw of value) {
+      if (!raw || typeof raw !== 'object') {
+        continue;
+      }
+
+      const record = raw as Record<string, unknown>;
+
+      if (typeof record.path !== 'string' || record.path.length === 0) {
+        continue;
+      }
+
+      normalized.push({
+        path: record.path,
+        tagIds: Array.isArray(record.tagIds)
+          ? record.tagIds.filter((tagId): tagId is string => typeof tagId === 'string')
+          : [],
+        addedAt: typeof record.addedAt === 'number' ? record.addedAt : 0,
+        isFile: record.isFile === true,
+      });
+    }
+
+    return normalized;
+  }
+
   async function setFavorites(nextFavorites: FavoriteItem[]) {
     await replaceListIfMembershipMatches(
       userStats.value.favorites,
@@ -326,6 +812,24 @@ export const useUserStatsStore = defineStore('userStats', () => {
       item => item.path,
       (items) => {
         userStats.value.favorites = items;
+      },
+    );
+  }
+
+  /**
+   * 收藏分类的整体顺序。分类数组的顺序就是界面上的分区顺序，
+   * 所以「重排分类」只需要改这一个数组的顺序。
+   *
+   * 走 `replaceListIfMembershipMatches` 是为了跟 `setFavorites` / `setTags`
+   * 保持同一条规矩：只有「成员没变、只是顺序变了」才落盘。
+   */
+  async function setFavoriteCategories(nextCategories: FavoriteCategory[]) {
+    await replaceListIfMembershipMatches(
+      userStats.value.favoriteCategories,
+      nextCategories,
+      category => category.id,
+      (items) => {
+        userStats.value.favoriteCategories = items;
       },
     );
   }
@@ -617,6 +1121,7 @@ export const useUserStatsStore = defineStore('userStats', () => {
   return {
     userStats,
     favorites,
+    favoriteCategories,
     tags,
     taggedItems,
     history,
@@ -627,8 +1132,21 @@ export const useUserStatsStore = defineStore('userStats', () => {
     runDeferredMaintenance,
     isFavorite,
     addToFavorites,
+    // FORK-MODIFICATION: 批次 37 —— 收藏条目的显示名（别名）。
+    setFavoriteAlias,
     removeFromFavorites,
     toggleFavorite,
+    // FORK-MODIFICATION: 反馈 4 —— 收藏分类与收藏的编辑能力。
+    moveFavoriteWithinCategory,
+    moveFavoriteToCategory,
+    // FORK-MODIFICATION: 2026-10-31 —— 收藏分类与收藏条目的排序。
+    moveFavoriteCategory,
+    reorderFavoriteCategories,
+    reorderFavorites,
+    setFavoriteCategories,
+    createFavoriteCategory,
+    renameFavoriteCategory,
+    deleteFavoriteCategory,
     getItemTags,
     addTagToItem,
     removeTagFromItem,
@@ -636,6 +1154,9 @@ export const useUserStatsStore = defineStore('userStats', () => {
     deleteTag,
     renameTag,
     setFavorites,
+    // FORK-MODIFICATION: 批次 58 —— 收藏路径编辑与「导入设置」时的整体替换。
+    updateFavoritePath,
+    replaceFavoritesForImport,
     setTaggedItems,
     setTags,
     updateTagColor,

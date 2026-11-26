@@ -17,7 +17,6 @@ const open = defineModel<boolean>('open', { required: true });
 defineProps<{
   icon: Component;
   title: string;
-  count: number;
   emptyText: string;
   isEmpty: boolean;
 }>();
@@ -59,14 +58,15 @@ defineProps<{
             class="quick-access-panel__section-icon"
           />
           <span class="quick-access-panel__section-title">{{ title }}</span>
-          <span
-            v-if="count > 0"
-            class="quick-access-panel__badge"
-          >
-            {{ count }}
-          </span>
+          <!-- FORK-MODIFICATION: 反馈 5（2026-10-15）——标题右侧的计数徽标整体去掉。
+               面板宽度本来就窄，「常用 100」「历史 3」这类数字把标题和右侧的跳转箭头
+               挤到一行里，真正要点的条目反而要滚动才看得到；数量在仪表盘页本来就有。 -->
         </button>
       </CollapsibleTrigger>
+      <!-- FORK-MODIFICATION: 标题右侧的附加动作（需求 N3⑤）。
+           放在 CollapsibleTrigger 外面，避免点击它被折叠切换吞掉。
+           同时给折叠按钮加 stop，让「点标题右侧」与「点标题其余部分」互不干扰。 -->
+      <slot name="header-action" />
     </div>
     <CollapsibleContent class="quick-access-panel__section-content">
       <div
@@ -168,19 +168,13 @@ defineProps<{
   white-space: nowrap;
 }
 
-.quick-access-panel__badge {
-  flex-shrink: 0;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  background-color: hsl(var(--primary) / 20%);
-  color: hsl(var(--primary));
-  font-size: 0.6875rem;
-  font-weight: 600;
-}
+/* FORK-MODIFICATION: 反馈 5b（2026-10-15）—— 20px → 28px。
+   分组标题与它下面的条目要能一眼看出层级：20px 时条目的图标几乎与标题的
+   收藏星/标签图标左对齐，读起来像平铺；28px 把子项明显推入一级。 */
 
 .quick-access-panel__section-content {
   padding-bottom: 4px;
-  padding-inline-start: 20px;
+  padding-inline-start: 28px;
 }
 
 .quick-access-panel__section-content[data-state="open"] {

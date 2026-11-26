@@ -55,6 +55,8 @@ function createNavigator(overrides: Partial<UserSettingsNavigator> = {}): UserSe
       linkStatus: false,
       items: true,
       size: true,
+      // FORK-MODIFICATION 2026-10-20
+      availableSpace: true,
       modified: true,
       created: false,
       tags: false,
@@ -65,9 +67,14 @@ function createNavigator(overrides: Partial<UserSettingsNavigator> = {}): UserSe
     listColumnOrder: ['items', 'size', 'modified', 'created', 'tags', 'kind', 'links', 'linkStatus'],
     listSortColumn: null,
     listSortDirection: 'asc',
+    foldersFirst: true,
     gridSortColumn: 'name',
     gridSortDirection: 'asc',
     enableBoxSelection: false,
+    // FORK-MODIFICATION: 列表视图缩略图（上游 #231），与默认值一致
+    showListThumbnails: true,
+    // FORK-MODIFICATION: 缩略图大小默认中等档
+    thumbnailSize: 'medium',
     increaseFileViewGaps: false,
     ...overrides,
   };
@@ -328,7 +335,10 @@ describe('resolve navigator folder settings', () => {
   it('returns tree layout when global navigator is set to tree', () => {
     const navigator = createNavigator({
       layout: {
-        type: { title: 'treeLayout', name: 'tree' },
+        type: {
+          title: 'treeLayout',
+          name: 'tree',
+        },
         dirItemOptions: {
           title: { height: 32 },
           directory: { height: 48 },
@@ -346,7 +356,10 @@ describe('resolve navigator folder settings', () => {
     const folderSettings = createFolderSettings({ layout: 'tree' });
     const navigator = createNavigator({
       layout: {
-        type: { title: 'listLayout', name: 'list' },
+        type: {
+          title: 'listLayout',
+          name: 'list',
+        },
         dirItemOptions: {
           title: { height: 32 },
           directory: { height: 48 },
@@ -366,7 +379,10 @@ describe('resolve navigator folder settings', () => {
   it('falls back to the global tree layout when folder setting is missing', () => {
     const navigator = createNavigator({
       layout: {
-        type: { title: 'treeLayout', name: 'tree' },
+        type: {
+          title: 'treeLayout',
+          name: 'tree',
+        },
         dirItemOptions: {
           title: { height: 32 },
           directory: { height: 48 },

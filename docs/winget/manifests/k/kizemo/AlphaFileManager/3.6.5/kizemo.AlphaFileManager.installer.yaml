@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json
+
+PackageIdentifier: kizemo.AlphaFileManager
+PackageVersion: 3.6.5
+ReleaseDate: 2026-10-29
+Installers:
+- Architecture: x64
+  InstallerType: nullsoft
+  Scope: machine
+  InstallerUrl: https://github.com/kizemo/alpha-file-manager/releases/download/v3.6.5/Alpha_File_Manager_3.6.5_x64-setup.exe
+  InstallerSha256: B8848F9E1EEB805CCE93998CF5DB53BB23EAA1AC7B7BB4EEAB1789140A6959D0
+  ProductCode: Alpha File Manager
+  UpgradeBehavior: install
+  ElevationRequirement: elevatesSelf
+  InstallationMetadata:
+    DefaultInstallLocation: '%ProgramFiles%\Alpha File Manager'
+ManifestType: installer
+ManifestVersion: 1.12.0

@@ -4,7 +4,7 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 -->
 
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { Infusion } from './index';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
@@ -14,13 +14,18 @@ import { useDropOverlayStore } from '@/stores/runtime/drop-overlay';
 import { useBackgroundMedia } from '@/modules/home/composables/use-background-media';
 import { backgroundMedia, DEFAULT_INFUSION_BACKGROUND_FILE_NAME } from '@/data/background-media';
 import type { InfusionPage } from '@/types/user-settings';
+import {
+  normalizeInfusionBlendMode,
+  normalizeInfusionBlendTarget,
+  normalizeInfusionBlendTint,
+} from '@/utils/infusion-blend';
 
 const userSettingsStore = useUserSettingsStore();
 const appStateStore = useAppStateStore();
 const appWindowStore = useAppWindowStore();
 const dropOverlayStore = useDropOverlayStore();
 const route = useRoute();
-const { getMediaUrl, ensureMediaCached, resolveMediaSelection } = useBackgroundMedia();
+const { getMediaUrl, resolveMediaSelection } = useBackgroundMedia();
 
 const infusionSettings = computed(() => userSettingsStore.userSettings.infusion);
 
@@ -67,19 +72,6 @@ const infusionMediaInfo = computed(() => getInfusionMediaFromBackground(effectiv
 const infusionSrc = computed(() => infusionMediaInfo.value.url);
 const infusionType = computed(() => infusionMediaInfo.value.type);
 
-watch(
-  () => resolveMediaSelection(
-    effectivePageSettings.value.background,
-    infusionMediaSelectionOptions,
-  )?.item ?? null,
-  (selectionItem) => {
-    if (selectionItem) {
-      ensureMediaCached(selectionItem);
-    }
-  },
-  { immediate: true },
-);
-
 const infusionOpacity = computed(() => effectivePageSettings.value.opacity / 100);
 const infusionBlur = computed(() => effectivePageSettings.value.blur);
 const infusionMediaContrast = computed(
@@ -97,8 +89,10 @@ const infusionBlendMode = computed(() => {
     return preview;
   }
 
-  return effectivePageSettings.value.mixBlendMode;
+  return normalizeInfusionBlendMode(effectivePageSettings.value.mixBlendMode);
 });
+const infusionBlendTarget = computed(() => normalizeInfusionBlendTarget(effectivePageSettings.value.blendTarget));
+const infusionBlendTint = computed(() => normalizeInfusionBlendTint(effectivePageSettings.value.blendTint));
 const infusionEnabled = computed(() => infusionSettings.value.enabled);
 
 const pauseOverlayBackgroundVideo = computed(() => {
@@ -127,6 +121,8 @@ const pauseOverlayBackgroundVideo = computed(() => {
     :noise-opacity="infusionNoise"
     :noise-scale="infusionNoiseScale"
     :blend-mode="infusionBlendMode"
+    :blend-target="infusionBlendTarget"
+    :blend-tint="infusionBlendTint"
     :pause-playback="pauseOverlayBackgroundVideo"
   />
 </template>

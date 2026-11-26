@@ -7,11 +7,13 @@ import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import { toLocalTime } from '@/utils/date-time';
+import { useNativePath } from '@/composables/use-native-path';
 import type { DirEntry } from '@/types/dir-entry';
 import type { Runtime } from '@/types/runtime';
 
 export const useNavigatorStore = defineStore('navigator', () => {
   const userSettingsStore = useUserSettingsStore();
+  const { toNativePath } = useNativePath();
 
   const { t, locale } = useI18n();
 
@@ -36,7 +38,7 @@ export const useNavigatorStore = defineStore('navigator', () => {
       {
         propName: 'path',
         title: t('path'),
-        value: dirEntry.path,
+        value: toNativePath(dirEntry.path),
         tooltip: 'copyPathTooltip',
       },
       {

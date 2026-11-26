@@ -18,12 +18,24 @@ import {
   CommandList,
   CommandShortcut,
 } from '@/components/ui/command';
+import { useRoute } from 'vue-router';
+import {
+  buildPaletteActionRegistry,
+  getActionContext,
+  getPaletteActionEntries,
+  type PaletteActionCommand,
+  type PaletteActionEntry,
+} from '@/core/actions';
 import { getKeybindingParts } from '@/modules/extensions/api';
-import { getBuiltinCommandDefinitions } from '@/modules/extensions/builtin-commands';
+import {
+  BUILTIN_COMMAND_TITLE_KEYS,
+  getBuiltinCommandDefinitions,
+} from '@/modules/extensions/builtin-commands';
 import { getPaletteCommandEntries } from '@/modules/extensions/utils/command-display';
+// 批次 3：扩展经 `registerCommand()` 注册的命令在这里接到动作注册表上。
+import { getExtensionCommandActions } from '@/modules/extensions/api/registrations';
 import { useShortcutsStore } from '@/stores/runtime/shortcuts';
 import { useExtensionsStore } from '@/stores/runtime/extensions';
-import type { ExtensionCommand } from '@/types/extension';
 import {
   registerPaletteFormHandler,
   unregisterPaletteFormHandler,
@@ -42,11 +54,8 @@ const { t } = useI18n();
 const shortcutsStore = useShortcutsStore();
 const extensionsStore = useExtensionsStore();
 
-const builtinCommandTitleKeys: Record<string, string> = {
-  'sigma.app.openSettings': 'openSettings',
-  'sigma.app.openExtensions': 'openExtensions',
-  'sigma.app.reloadWindow': 'trayMenu.reloadWindow',
-};
+const route = useRoute();
+const activeRouteName = computed(() => (typeof route.name === 'string' ? route.name : null));
 
 const isOpen = ref(false);
 const paletteModal = ref<ModalInstance | null>(null);
@@ -72,34 +81,41 @@ const dialogOpen = computed({
   },
 });
 
-const allCommands = computed(() => {
-  const entries: Array<{
-    extensionId: string;
-    command: ExtensionCommand;
-  }> = getPaletteCommandEntries(
-    extensionsStore.enabledExtensions,
-    extensionsStore.commands,
-  );
-  const existingIds = new Set(entries.map(entry => entry.command.id));
-
-  const builtinCommands = getBuiltinCommandDefinitions();
-
-  for (const builtin of builtinCommands) {
-    if (!builtin.showInPalette) continue;
-    if (existingIds.has(builtin.id)) continue;
-
-    existingIds.add(builtin.id);
-    entries.push({
+/**
+ * Every palette entry comes from the action registry: extension and runtime
+ * commands first, then the builtin declarations that opt into the palette.
+ */
+function resolveAllCommands(): PaletteActionEntry[] {
+  const registry = buildPaletteActionRegistry({
+    extensionActions: [
+      // 批次 3：API 注册的扩展命令排在**最前** ——
+      // 动作注册表「先注册者赢」，保证 `registerCommand()` 注册的命令
+      // 不会被 manifest 声明的同名命令顶掉。
+      ...getExtensionCommandActions().map(action => ({
+        extensionId: action.extensionId,
+        id: action.id,
+        title: action.title,
+      })),
+      ...getPaletteCommandEntries(
+        extensionsStore.enabledExtensions,
+        extensionsStore.commands,
+      ).map(entry => ({
+        extensionId: entry.extensionId,
+        id: entry.command.id,
+        title: entry.command.title,
+      })),
+    ],
+    builtinActions: getBuiltinCommandDefinitions().map(command => ({
       extensionId: 'sigma',
-      command: {
-        id: builtin.id,
-        title: builtin.title,
-      },
-    });
-  }
+      ...command,
+    })),
+    titleKeys: BUILTIN_COMMAND_TITLE_KEYS,
+  });
 
-  return entries;
-});
+  return getPaletteActionEntries(registry, getActionContext(activeRouteName.value));
+}
+
+const allCommands = computed<PaletteActionEntry[]>(() => resolveAllCommands());
 
 const recentCommands = computed(() => {
   const recentIds = extensionsStore.recentCommandIds;
@@ -167,11 +183,13 @@ function getCommandShortcutLabel(commandId: string): string {
   return getCommandShortcutParts(commandId).join('+');
 }
 
-function getCommandTitle(command: ExtensionCommand): string {
-  const builtinTitleKey = builtinCommandTitleKeys[command.id];
+function getPaletteTitleKey(commandId: string): string | undefined {
+  return allCommands.value.find(entry => entry.command.id === commandId)?.titleKey;
+}
 
-  if (builtinTitleKey) {
-    return t(builtinTitleKey);
+function getCommandTitle(command: PaletteActionCommand, titleKey?: string): string {
+  if (titleKey) {
+    return t(titleKey);
   }
 
   return command.title;
@@ -186,8 +204,8 @@ function exitFormMode(): void {
   paletteCommandTitle.value = undefined;
 }
 
-async function handleSelect(_extensionId: string, command: ExtensionCommand) {
-  paletteCommandTitle.value = getCommandTitle(command);
+async function handleSelect(_extensionId: string, command: PaletteActionCommand) {
+  paletteCommandTitle.value = getCommandTitle(command, getPaletteTitleKey(command.id));
 
   extensionsStore.executeCommand(command.id).catch((error) => {
     console.error(`Failed to execute command ${command.id}:`, error);
@@ -315,7 +333,7 @@ defineExpose({
           <CommandItem
             v-for="cmd in recentCommands"
             :key="cmd.command.id"
-            :value="`${getExtensionName(cmd.extensionId)}: ${getCommandTitle(cmd.command)}`"
+            :value="`${getExtensionName(cmd.extensionId)}: ${getCommandTitle(cmd.command, cmd.titleKey)}`"
             @select="handleSelect(cmd.extensionId, cmd.command)"
           >
             <ExtensionIcon
@@ -325,7 +343,7 @@ defineExpose({
               :size="18"
             />
             <span class="command-palette__extension-name">{{ getExtensionName(cmd.extensionId) }}:</span>
-            <span>{{ getCommandTitle(cmd.command) }}</span>
+            <span>{{ getCommandTitle(cmd.command, cmd.titleKey) }}</span>
             <CommandShortcut v-if="getCommandShortcutLabel(cmd.command.id)">
               {{ getCommandShortcutLabel(cmd.command.id) }}
             </CommandShortcut>
@@ -339,7 +357,7 @@ defineExpose({
           <CommandItem
             v-for="cmd in otherCommands"
             :key="cmd.command.id"
-            :value="`${getExtensionName(cmd.extensionId)}: ${getCommandTitle(cmd.command)}`"
+            :value="`${getExtensionName(cmd.extensionId)}: ${getCommandTitle(cmd.command, cmd.titleKey)}`"
             @select="handleSelect(cmd.extensionId, cmd.command)"
           >
             <ExtensionIcon
@@ -349,7 +367,7 @@ defineExpose({
               :size="18"
             />
             <span class="command-palette__extension-name">{{ getExtensionName(cmd.extensionId) }}:</span>
-            <span>{{ getCommandTitle(cmd.command) }}</span>
+            <span>{{ getCommandTitle(cmd.command, cmd.titleKey) }}</span>
             <CommandShortcut v-if="getCommandShortcutLabel(cmd.command.id)">
               {{ getCommandShortcutLabel(cmd.command.id) }}
             </CommandShortcut>

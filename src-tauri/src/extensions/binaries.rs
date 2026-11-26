@@ -9,7 +9,9 @@ use tauri::Emitter;
 
 use super::archives::extract_archive;
 use super::fs_ops::{next_sibling_temp_dir, remove_dir_force};
-use super::http::{build_http_client, download_to_file_across_urls_with_retry, UrlCandidates};
+use super::http::{
+    build_remote_http_client, download_to_file_across_urls_with_retry, UrlCandidates,
+};
 use super::paths::{ensure_app_data_subdir, get_extension_dir};
 use super::security::{
     authorize_extension_caller, require_integrity, validate_binary_path_component,
@@ -171,9 +173,9 @@ pub async fn download_extension_binary(
         }
     }
 
-    let client = build_http_client()?;
+    let client = build_remote_http_client()?;
     let cancel_flag = get_extension_install_cancellation_flag(request.cancellation_id.as_ref());
-    let candidates = UrlCandidates::new(validated_url);
+    let candidates = UrlCandidates::new(validated_url).with_china_mirrors();
     let mut on_progress = |_downloaded: u64, _total: Option<u64>| {};
 
     download_to_file_across_urls_with_retry(
@@ -241,9 +243,9 @@ pub async fn download_and_extract_extension_binary(
 
     let archive_path = staging_root_dir.join("download_archive");
 
-    let client = build_http_client()?;
+    let client = build_remote_http_client()?;
     let cancel_flag = get_extension_install_cancellation_flag(request.cancellation_id.as_ref());
-    let candidates = UrlCandidates::new(validated_url);
+    let candidates = UrlCandidates::new(validated_url).with_china_mirrors();
     let mut on_progress = |_downloaded: u64, _total: Option<u64>| {};
 
     if let Err(error) = download_to_file_across_urls_with_retry(
@@ -518,9 +520,9 @@ async fn run_download_shared_binary(
         }
     }
 
-    let client = build_http_client()?;
+    let client = build_remote_http_client()?;
     let cancel_flag = get_extension_install_cancellation_flag(cancellation_id.as_ref());
-    let candidates = UrlCandidates::new(validated_url);
+    let candidates = UrlCandidates::new(validated_url).with_china_mirrors();
     let mut on_progress =
         make_shared_binary_progress_emitter(app_handle.clone(), progress_event_id.clone());
 
@@ -663,9 +665,9 @@ async fn run_download_and_extract_shared_binary(
 
     let archive_path = staging_root_dir.join("download_archive");
 
-    let client = build_http_client()?;
+    let client = build_remote_http_client()?;
     let cancel_flag = get_extension_install_cancellation_flag(cancellation_id.as_ref());
-    let candidates = UrlCandidates::new(validated_url);
+    let candidates = UrlCandidates::new(validated_url).with_china_mirrors();
     let mut on_progress =
         make_shared_binary_progress_emitter(app_handle.clone(), progress_event_id.clone());
 

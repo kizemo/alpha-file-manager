@@ -1,0 +1,377 @@
+# winget 清单（Windows Package Manager）
+
+本目录保存提交到 [`microsoft/winget-pkgs`](https://github.com/microsoft/winget-pkgs) 的
+清单原文，方便后续版本照着改。
+
+## 已提交的版本
+
+| 版本 | PR | 状态 |
+|---|---|---|
+| 3.5.1 | https://github.com/microsoft/winget-pkgs/pull/460744 | **已关闭（2026-11-01，未合并）** —— 由我们自己关掉，理由见下方「3.14.0 的清单」一节 |
+| 3.6.0 | 不提交 | 清单留在 `manifests/.../3.6.0/` 备查，但**跳过这一版**（2026-10-26 决定） |
+| 3.6.1 | 不提交 | 清单留在 `manifests/.../3.6.1/` 备查，但**跳过这一版**（2026-10-26 决定：3.6.2 已发布，直接提 3.6.2） |
+| 3.6.2 | 尚未提交 | 清单**已备好**（`manifests/.../3.6.2/`），**3.5.1 合并后开 PR** |
+| 3.6.3 | 尚未提交 | 清单**已备好**（`manifests/.../3.6.3/`），**3.5.1 合并后直接提这一版**（winget 允许跳版，3.6.2 留作备份） |
+| 3.6.4 | 不提交 | 清单留在 `manifests/.../3.6.4/` 备查，但**跳过这一版**（2026-10-29 补记：3.5.1 未合并，直接提 3.6.5） |
+| 3.6.5 | 尚未提交 | 清单**已备好**（`manifests/.../3.6.5/`），**3.5.1 合并后直接提这一版**（winget 允许跳版，3.6.4 留作备份） |
+| 3.9.0 | 尚未提交 | 清单**已备好**（`manifests/.../3.9.0/`）；2026-11-01 实际提上去的是 **3.9.1**，这一版跳过 |
+| 3.9.1 | https://github.com/microsoft/winget-pkgs/pull/467381 | **仍 OPEN**（2026-11-12 复查）—— 上游同一包 ID 同时只允许一个 PR，**这就是当前唯一的阻塞点** |
+| 3.14.0 | 尚未提交 | 清单**已备好**（`manifests/.../3.14.0/`，本地自检全绿）；**#467381 合并后直接提这一版** |
+
+目录结构与上游仓库一致：
+
+```
+manifests/<发布者首字母小写>/<发布者>/<应用名>/<版本>/
+    <包 ID>.yaml                # ManifestType: version      —— 带 DefaultLocale 字段
+    <包 ID>.installer.yaml      # ManifestType: installer
+    <包 ID>.locale.en-US.yaml   # ManifestType: defaultLocale —— 其 PackageLocale 必须等于上面那个 DefaultLocale
+    <包 ID>.locale.zh-CN.yaml   # ManifestType: locale        —— 其它语言只能是这个值
+```
+
+中间两层是**包 ID 按点拆开后的发布者段与应用名段**，不是包名 —— 本项目是
+`kizemo.AlphaFileManager` ⇒ `manifests/k/kizemo/AlphaFileManager/3.5.1/`，
+不是 `Alpha File Manager`（带空格，不能当目录名）。
+对照：`manifests/j/Justsenger/ExHyperV/1.5.2/Justsenger.ExHyperV.yaml`。
+
+> 踩过的坑：用 contents API 提交时，如果相对路径以 `.../winget/manifests` 为基准，
+> `manifests/` 这层根目录会被吃掉，文件落到仓库根下的 `k/...` ——
+> 机器人直接判 `missing the manifests folder`。相对路径必须以包含 `manifests/` 的那层为基准。
+
+## 必须守住的规则
+
+1. **`Publisher` 必须等于安装器写进 Windows ARP 的那个发布者。**
+   它的来源是 `src-tauri/tauri.conf.json` 的 `bundle.publisher` → NSIS 模板的
+   `!define MANUFACTURER` → `WriteRegStr ... "Publisher"`。
+   两者对不上，包管理器就不认为你机器上装的是清单里那个程序，升级也就不会认出来。
+   改 `bundle.publisher` 之后**必须重新打包并重新发版**，否则清单和安装包对不上。
+
+2. **一个 PR 只放一个版本，只放清单文件。** 上游的校验流水线会拒绝夹带非清单改动。
+
+3. **`InstallerSha256` 是安装包字节的 SHA-256**（大写十六进制）。
+   重新打包后哈希会变，清单和 PR 都要一起更新。
+
+4. **一个版本目录里，每种 `ManifestType` 只允许一份文件。**
+   `version` / `installer` / `defaultLocale` 各一份；其它语言一律写
+   `ManifestType: locale`。两份 locale 文件都写 `defaultLocale`，上游会判
+   `DuplicateMultiFileManifestType`（"The multi file manifest should contain only one
+   file with the particular ManifestType"），校验在第 02 步直接停掉，后面几步根本不跑。
+
+   规则出处：`microsoft/winget-cli` 的
+   `src/AppInstallerCommonCore/Manifest/YamlParser.cpp` —— `Version` / `Installer` /
+   `DefaultLocale` 各自有一个「已找到」标志位，重复即报错；`Locale` 分支只查
+   `PackageLocale` 是否重复（错误码 `DuplicateMultiFileManifestLocale`），允许多份。
+
+   顺带两个 schema 差异（`aka.ms/winget-manifest.*.1.12.0.schema.json`）：
+
+   - `defaultLocale` 必填 `Publisher` / `PackageName` / `License` / `ShortDescription`；
+     `locale` 只必填 `PackageIdentifier` / `PackageVersion` / `PackageLocale` /
+     `ManifestType` / `ManifestVersion`。
+   - **`Moniker` 只在 `defaultLocale` 的字段表里**，`locale` 的字段表里没有。
+
+   所以 locale 文件只放「翻译过的那些字段」（对照上游
+   `manifests/m/Microsoft/AKSdesktop/0.43.0/`）：`PackageIdentifier`、`PackageVersion`、
+   `PackageLocale`、`ShortDescription`、`Description`、`Tags`、`ManifestType`、
+   `ManifestVersion`。完整元数据（`Publisher`、`PackageName`、`License`、`Moniker`…）
+   留在 `defaultLocale` 文件里。
+
+5. **`version` 文件的 `DefaultLocale` 必须等于 `defaultLocale` 文件的 `PackageLocale`。**
+   不一致会被判 `InconsistentMultiFileManifestDefaultLocale`。
+
+## 提交方式
+
+不需要带 `winget` scope 的令牌 —— 那个 scope 只给「Submit new package」工具用。
+直接开 PR 即可：
+
+1. fork `microsoft/winget-pkgs`；
+2. 从 `master` 拉一个分支，把 `manifests/` 下对应的文件放进去；
+3. 向 `master` 开 PR，标题用 `New package: <包 ID> version <版本>`。
+
+上游会自动跑校验流水线（会下载安装包核对哈希、跑 `winget validate`、
+在沙箱里试装）。本机没装 `winget` 命令行时，本地那两项就交给流水线。
+
+## CLA 签署：每次提交新包前先做这一步
+
+上游机器人 `microsoft-github-policy-service` 会在 PR 里留言，要求回复一行命令：
+
+```
+@microsoft-github-policy-service agree
+```
+
+回复后 `license/cla` 校验变 success（摘要 "All CLA requirements met."）。
+两个版本含义不同 —— 一个是「个人独立拥有知识产权、不是为雇主工作」，
+一个是「在为雇主工作过程中提交、已获雇主许可」，**只能由账号本人选**。
+同一个 GitHub 账号对 microsoft 各仓库只需签一次，之后不用重复。
+
+代发命令（令牌身份就是 PR 作者）：
+
+```powershell
+gh pr comment <PR号> --repo microsoft/winget-pkgs --body '@microsoft-github-policy-service agree'
+```
+
+## 校验什么时候跑
+
+上游现在是「Agentic Workflow」体系：`.github/workflows/*.lock.yml` 由打标签触发，
+真正的清单校验由 `wingetvalidator-prod[bot]` 这个 App 跑。新包会先被自动打上
+`Project-File` 标签，校验随后才开始 —— 要下载安装包核对哈希、在沙箱里试装，
+十几分钟起步。**PR 提交后没有立刻出现校验结果是正常的**。
+
+## 校验怎么跑、怎么看、怎么重跑
+
+**状态看标签，不看 check runs。** 校验 App 在一次 operation 结束后会把自己的 10 条
+check run 删掉，所以「PR 上没有校验条目」通常意味着**已经跑完了**。真正的状态在标签上：
+
+| 标签 | 含义 |
+|---|---|
+| `Validation-Completed` | 校验通过（常同时有 `Azure-Pipeline-Passed`） |
+| `Validation-Executable-Error` | 校验脚本自身出错 |
+| `Validation-Installation-Error` | 沙箱试装失败 |
+| `Validation-Defender-Error` | 安装包被 Defender 拦 |
+| `Validation-Guide` | 机器人在 PR 里给了指引 |
+| `Needs-Author-Feedback` | 要作者回复 |
+
+**重跑校验：** ① 版主在 PR 里发 `@wingetbot run`（非版主发会被拒，机器人回
+`Commenter does not have sufficient privileges`）；② 推一个新的 commit（`synchronize` 事件）——
+**不能是空提交**，空提交会被判 `noContent`（"This pull request does not update any files"）。
+想重跑就往清单里加一行真实的注释再推。
+
+**踩过的坑：** 一次 operation 报 `Internal-Error-PR` / `WinGetSvcError`（03–09 步全 skipped、
+10 步 neutral），发生在分支正被连续删/加文件的半路上 —— operation 是在 diff 还没稳定时算的。
+**一次把清单推到位再让它跑**，别一边改一边验。
+
+**第 08 步（沙箱试装）可能跑很久，别当成卡死。** 本项目实测 3.5.1 这一轮第 08 步
+从 07:10 跑到 07:45，**约 35 分钟**（同期其它包样本约 10 分钟）。原因：
+`src-tauri/tauri.conf.json` **没有配 `webviewInstallMode`**，Tauri v2 默认
+`downloadBootstrapper` —— 沙箱机器上没装 WebView2 运行时时，安装过程要联网下载
+引导程序再装运行时（~130MB）。这是**安装耗时**，不是挂起。
+⚠️ 取舍：改 `offlineInstaller` 会让安装包多出 ~130MB；改 `skip` 则目标机没装
+WebView2 就跑不起来。当前配置已通过上游校验，暂不需要动。
+
+## 校验通过之后
+
+机器流程到此为止，剩下的是**社区版主人工评审与合并**。上游机器人会留言：
+
+> The check-in policies require a moderator to approve PRs from the community.
+> Our moderators are community volunteers, please be patient and allow them
+> sufficient time to review your submission.
+
+已合并的上游 PR 标签形如 `Validation-Completed` + `Azure-Pipeline-Passed` +
+`Moderator-Approved` + `New-Package` —— `Moderator-Approved` 是版主加的，
+**我们加不了，也不该加**。版主的名单见
+`doc/Moderation.md#moderators`。`@wingetbot run` 也只有版主能发。
+
+## 3.6.2 的清单：已备好，等 3.5.1 合并
+
+2026-10-25 决定：**不与 3.5.1 并行提交**。3.5.1 还没被版主合并，
+同时提下一版有可能被要求「等前一版合了再提」；先合并、再提，链路更干净。
+
+2026-10-26 补充决定：**跳过 3.6.0 与 3.6.1，直接提 3.6.2。**
+
+- 3.6.0 带的是**已经修掉的缺陷**（文件拖到微信/钉钉/飞书发不出去，3.6.1 才修好），
+  把有缺陷的那一版先铺给 winget 用户没有意义；
+- 3.6.2 已于 2026-10-26 发布，3.6.1 只比它早一天，再提一版等于让用户多等一轮评审；
+- winget 不要求版本号连续，多提一版就多一轮版主评审 ——
+  先合 3.6.0 再合 3.6.1 再合 3.6.2 等于让用户多等三轮；
+- 一次到位，用户装到的就是能用的版本。
+
+`manifests/k/kizemo/AlphaFileManager/3.6.0/` 与 `.../3.6.1/` 下的四个文件
+保留在仓库里备查，不删。
+
+`manifests/k/kizemo/AlphaFileManager/3.6.2/` 下四个文件已经写好并入库，
+**3.5.1 一合并就可以直接提**，剩下的只是开 PR + 回 CLA + 等校验。
+
+### 这一版清单的几个取舍
+
+1. **`ManifestVersion` 仍是 `1.12.0`，不升到上游当前的 `1.28.0`。**
+   上游最近合并的 PR 里 1.28.0 是主流，但抽样 6 份最近合并的清单，
+   仍有 2 份用 1.12.0、1 份用 1.6.0 —— **旧 schema 版本照收不误**，
+   而 1.12.0 已经被 3.5.1 验证过一轮，风险最低。
+
+2. **`Tags` 上限是 16 个，而 3.5.1 的标签**正好已经 16 个** ——
+   想加新功能的标签必须先删一个。删掉的是 `file-management`
+   （与 `file-manager`、`file-explorer` 语义重复），换上 `file-unlock`。
+
+3. **`ReleaseDate` 用 `2026-10-26`** —— 3.6.2 的 release 实际发布时刻是
+   `2026-10-26T08:29:15Z`，按本地（UTC+8）日期算就是 10-26；
+   且必须**严格晚于** 3.5.1 的 `2026-10-24`。
+
+4. **`ShortDescription` 与 `Description` 沿用 3.6.0 那一版**（解除文件锁定 / 彻底删除），
+   长度远在 schema 上限内（256 / 10000）。
+   远程传输的进度条与覆盖确认是**修复**不是新功能，没写进 `Description`。
+
+5. **`InstallerSha256` = `65B3AF7C…DC89`**，与 GitHub release v3.6.2 的资产、
+   `release/` 下的本地安装包、站点 `version.json` 四方一致（20,671,224 字节）。
+
+### 本地自检
+
+本机**没装 `winget` 命令行**（`Get-Command winget` 为空），所以本地那两项
+（`winget validate`、沙箱试装）交给上游流水线。但上游一轮校验要十几分钟起步，
+错误的往返成本很高 ⇒ 写了一个本地自检脚本，把 schema 约束与上游规则
+逐条核一遍：
+
+```powershell
+npm run check:winget
+```
+
+它检查：四个文件齐全 / 无 BOM / LF / 末尾换行 / YAML 可解析；
+`PackageIdentifier` 与 `PackageVersion` 一致；四种 `ManifestType` 各一份；
+`version.DefaultLocale` == `defaultLocale.PackageLocale`；
+locale 文件不重复声明 defaultLocale；locale 文件只带可翻译字段、`Moniker` 不外泄；
+`ShortDescription` / `Description` / `Tags` 的长度与去重；
+`InstallerSha256` 与**本地安装包实际字节**核对；
+`InstallerUrl` 指向本版本 GitHub release 资产。
+
+⚠️ 它**不能替代上游流水线** —— 真值仍以 `Validation-Completed` 标签为准。
+
+### 3.5.1 合并后要做的
+
+这一节的**版本号已被 3.6.3 取代** —— 3.5.1 合并后直接提 **3.6.3**，
+步骤见下一章「3.6.3 的清单」。`3.6.2/` 下的四个文件保留在仓库里备查。
+
+## 3.6.3 的清单：已备好，3.5.1 合并后直接提
+
+2026-10-27 决定：**3.6.3 只备清单，不提交 PR**。
+
+同一个包 ID（`kizemo.AlphaFileManager`）在 `microsoft/winget-pkgs` 里
+**不允许同时开第二个 PR** —— 3.5.1 的
+[PR #460744](https://github.com/microsoft/winget-pkgs/pull/460744) 在 2026-10-27 复查
+仍是 `OPEN`（标签 `Azure-Pipeline-Passed` + `Validation-Completed` + `New-Package`，
+CLA 已由 `@microsoft-github-policy-service agree` 签掉），
+`reviewDecision` 还是 `REVIEW_REQUIRED`，**只等社区版主审批合并**。
+
+3.5.1 一合并，**直接提 3.6.3**，不再提 3.6.2：winget 不要求版本号连续，跳版是允许的，
+而每多提一版就多一轮版主评审 —— 用户装到的直接就是最新能用的版本。
+
+`manifests/k/kizemo/AlphaFileManager/3.6.3/` 下四个文件已经写好并入库，
+本地自检（`npm run check:winget`）全绿。
+
+### 这一版清单的几个取舍
+
+1. **`ManifestVersion` 仍是 `1.12.0`，不升到上游当前的 `1.28.0`。**
+   与 3.5.1 / 3.6.2 保持一致 —— 旧 schema 版本照收不误，风险最低。
+
+2. **`Tags` 一个不动** —— 3.5.1 已经把 16 个标签的上限用满，
+   3.6.3 没有「新的功能类别」值得加标签，硬加就得先删一个。
+
+3. **`ReleaseDate` 用 `2026-10-27`** —— 3.6.3 的实际发布日，
+   且必须**严格晚于** 3.5.1 的 `2026-10-24`。
+
+4. **`ShortDescription` 与 `Description` 沿用 3.6.2 那一版** ——
+   3.6.3 的三处改动（永久删除确认框回车即生效、列表视图按类型分区、重命名可就地编辑）
+   都是**交互改进**而不是新的功能类别，不写进描述。
+
+5. **`InstallerSha256` = `FEE1F2A8…644B`**，与 GitHub release v3.6.3 的资产、
+   `release/` 下的本地安装包、站点 `version.json` 四方一致（20,716,092 字节）。
+
+### 本地自检
+
+```powershell
+npm run check:winget
+```
+
+### 3.5.1 合并后要做的
+
+1. fork `microsoft/winget-pkgs`（本地还没有克隆，需要先 clone）；
+2. 从 `master` 拉分支，把 `manifests/k/kizemo/AlphaFileManager/3.6.3/` 四个文件放进去；
+3. 向 `master` 开 PR，标题 `New package: kizemo.AlphaFileManager version 3.6.3`；
+4. 机器人要求时回一行 `@microsoft-github-policy-service agree`；
+5. 等校验跑完（看标签，不看 check runs），再等版主评审。
+
+## 3.6.4 / 3.6.5 的清单：已备好，3.5.1 合并后直接提 3.6.5
+
+> **2026-11-01 更新：本节已被 3.9.0 取代。** 3.9.0 发布后，按「只提最新一版、每多一版就多一轮版主评审」
+> 的既定原则，3.5.1 合并后**直接提 3.9.0**，本节的 3.6.4 / 3.6.5 两个目录保留在仓库里备查，不提交。
+> 见下一节「3.9.0 的清单」。
+
+2026-10-29 复查：3.5.1 的
+[PR #460744](https://github.com/microsoft/winget-pkgs/pull/460744) 仍是 `OPEN`
+（标签 `Validation-Completed` + `Azure-Pipeline-Passed` + `New-Package`，
+`mergedAt` 为 null，`reviewDecision` 仍是 `REVIEW_REQUIRED`），**只等社区版主审批合并**。
+
+同一个包 ID（`kizemo.AlphaFileManager`）在 `microsoft/winget-pkgs` 里
+**不允许同时开第二个 PR** ⇒ 3.6.4 与 3.6.5 都**只备清单、不提交 PR**；
+3.5.1 一合并，直接提 **3.6.5**（winget 不要求版本号连续，跳版是允许的，
+而每多提一版就多一轮版主评审）。
+
+`manifests/k/kizemo/AlphaFileManager/3.6.4/` 与 `.../3.6.5/` 下的四个文件
+都已写好并入库，3.6.5 的本地自检（`npm run check:winget`）全绿。
+
+### 这一版清单的几个取舍
+
+1. **`ManifestVersion` 仍是 `1.12.0`，不升到上游当前的 `1.28.0`。**
+   与 3.5.1 / 3.6.2 / 3.6.3 保持一致 —— 旧 schema 版本照收不误，风险最低。
+
+2. **`Tags` 一个不动**（15 个）—— 3.6.5 的两处改动（默认背景本地化、
+   六套 macOS Finder 风格主题）都不是新的功能类别，硬加就得先删一个。
+
+3. **`ReleaseDate` 用 `2026-10-29`** —— 3.6.5 的实际发布日，
+   且必须**严格晚于** 3.5.1 的 `2026-10-24`。
+
+4. **`ShortDescription` 不动**，`Description` 末尾**加了一段** 3.6.5 的新特性
+   （默认背景随安装包打包、六套 macOS Finder 风格主题）——
+   长度远在 schema 上限内（256 / 10000）。
+
+5. **`InstallerSha256` = `B8848F9E…9D0`**，与 GitHub release v3.6.5 的资产、
+   `release/` 下的本地安装包、站点 `version.json` 四方一致（45,474,813 字节）。
+
+### 本地自检
+
+```powershell
+npm run check:winget
+```
+
+### 3.5.1 合并后要做的
+
+1. fork `microsoft/winget-pkgs`（本地还没有克隆，需要先 clone）；
+2. 从 `master` 拉分支，把 `manifests/k/kizemo/AlphaFileManager/3.6.5/` 四个文件放进去；
+3. 向 `master` 开 PR，标题 `New package: kizemo.AlphaFileManager version 3.6.5`；
+4. 机器人要求时回一行 `@microsoft-github-policy-service agree`；
+5. 等校验跑完（看标签，不看 check runs），再等版主评审。
+
+## 3.9.0 的清单：已备好，3.5.1 合并后直接提这一版
+
+2026-11-01：3.9.0 已发布（站点 `aiec.fun` + GitHub 兜底双通道都已生效），按「只提最新一版、
+每多一版就多一轮版主评审、用户装到的应该是能用的最新版本」的既定原则，
+**3.5.1 合并后直接提 3.9.0**；3.6.2 / 3.6.3 / 3.6.4 / 3.6.5 四个目录保留在仓库里备查，不提交。
+
+2026-11-01 复查：3.5.1 的 [PR #460744](https://github.com/microsoft/winget-pkgs/pull/460744)
+仍是 `OPEN`（`mergedAt` 为 null，`reviewDecision` 仍是 `REVIEW_REQUIRED`，标签 `Validation-Completed` +
+`Azure-Pipeline-Passed` + `New-Package`），**只等社区版主审批合并**。
+同一个包 ID 在 `microsoft/winget-pkgs` 里不允许同时开第二个 PR ⇒ **3.9.0 的 PR 现在还不能提**。
+
+### 这一版清单的几个取舍
+
+1. **`ManifestVersion` 仍是 `1.12.0`**，与 3.5.1 / 3.6.2 / 3.6.3 / 3.6.5 保持一致 ——
+   旧 schema 版本照收不误，风险最低。
+
+2. **`Tags` 16 个**，与 3.5.1 / 3.6.5 一致 —— 正好卡在 schema 的 16 个上限内。
+   3.9.0 的新特性（字体大小三档、设置「关于」页、品牌图标重设计、收藏夹拖拽排序）
+   都不属于新的功能类别，硬加就得先删一个。
+
+3. **`ReleaseDate` 用 `2026-11-01`** —— 3.9.0 的实际发布时刻是 `2026-11-01T01:17:58Z`，
+   按本地（UTC+8）日期算就是 11-01；且严格晚于 3.5.1 的 `2026-10-24`。
+
+4. **`ShortDescription` 不动**，`Description` 末尾**加了一段** 3.9.0 的新特性
+   （图标重画、字体大小三档、关于页、收藏夹拖拽排序、安装器同版本重装修复）——
+   长度远在 schema 上限内（256 / 10000）。
+
+5. **`InstallerSha256` = `EC0EDA4D…B05`**，与 GitHub release v3.9.0 的资产、
+   `release/` 下的本地安装包、站点 `version.json` 四方一致（44,776,031 字节）。
+
+### 本地自检
+
+```powershell
+npm run check:winget
+```
+
+### 3.5.1 合并后要做的
+
+1. fork `microsoft/winget-pkgs`（本地还没有克隆，需要先 clone）；
+2. 从 `master` 拉分支，把 `manifests/k/kizemo/AlphaFileManager/3.9.0/` 四个文件放进去；
+3. 向 `master` 开 PR，标题 `New package: kizemo.AlphaFileManager version 3.9.0`；
+4. 机器人要求时回一行 `@microsoft-github-policy-service agree`；
+5. 等校验跑完（看标签，不看 check runs），再等版主评审。
+
+## 还没解决的事
+
+安装包**没有代码签名**。上游评审通常会要求签名，这需要发布者自己准备证书；
+在拿到证书之前，本目录里的清单只能覆盖无签名的版本。

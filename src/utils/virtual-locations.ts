@@ -5,6 +5,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { DirContents, DirEntry, ReadDirOptions } from '@/types/dir-entry';
 import type { DriveInfo } from '@/types/drive-info';
+import type { ShellDeviceInfo } from '@/types/shell-device';
 import normalizePath, {
   canonicalizePath,
   getParentPath,
@@ -12,7 +13,11 @@ import normalizePath, {
   isUncShareRootPath,
   isWslPath,
 } from '@/utils/normalize-path';
+import { getCachedShellDevices, fetchShellDevices } from '@/utils/shell-devices';
+import { getShellParentPath, getShellPathDisplayName, isShellPath } from '@/utils/shell-paths';
 import { isProtectedSystemPath } from '@/utils/is-protected-system-path';
+import { getRemoteParentPath, isRemotePath, isRemoteRootPath, REMOTE_SCHEME } from '@/utils/remote-paths';
+import { readRemoteDirectory, statRemoteEntry } from '@/utils/remote-directory';
 import {
   isUnderUnixSystemMount,
   isWindowsLocationsScopePath,
@@ -25,6 +30,8 @@ import {
   WSL_HOST_VIRTUAL_PATH,
 } from '@/utils/virtual-path-constants';
 import { createDriveEntryMetadata } from '@/utils/drive-icon';
+import { getRemoteLocationRefs } from '@/utils/remote-location-refs';
+import { isNetdiskProtocol } from '@/types/remote';
 
 export {
   isVirtualDirectoryPath,
@@ -111,8 +118,136 @@ export function getWslDistributionDrives(drives: DriveInfo[]): DriveInfo[] {
   return drives.filter(drive => isWslDistributionDrive(drive));
 }
 
-export function buildLocationsDirectoryFromDrives(drives: DriveInfo[]): DirContents {
-  const entries = drives.map(drive => driveInfoToDirEntry(drive));
+/**
+ * 远程连接在「位置」页里的条目（用户 2026-11-08 需求 3）。
+ *
+ * 「位置」此前只有分区。用户已配置的网盘与远程服务器同样属于「位置」，
+ * 应该在同一页列出来、点一下就进去，而不是去设置页或悬停面板里找。
+ *
+ * 条目来自 `remote-location-refs` 注册表，由 `remote-connections` store 在连接变化时写入，
+ * 每条已是**连接根目录**，非法 id 在写入侧就被丢掉。
+ *
+ * 这里**不能**直接 import store：本模块被工具栏、地址栏和若干纯函数单测引入，
+ * 引入 store 会把 `@tauri-apps/plugin-store` 与 `@/data/user-paths` 一并拖进每个使用方的模块图，
+ * 实测拖坏 `use-file-browser-drag-session.test.ts` 的 8 条用例。
+ *
+ * 注册表为空（单测环境、或 store 尚未初始化）时，位置页退化成「只有分区」，与改动前一致。
+ */
+function getRemoteLocationEntries(): DirEntry[] {
+  return getRemoteLocationRefs().map((ref) => {
+    const entry = createVirtualDirectoryEntry(ref.path, ref.name);
+
+    // 归类口径与设置页、主页**完全一致**：只有 `isNetdiskProtocol` 一个判定。
+    // 它认全三家网盘（百度 / 夸克 / 阿里云盘），接第四家时只要扩那一个函数。
+    entry.location_group = isNetdiskProtocol(ref.protocol) ? 'netdisk' : 'remote';
+
+    return entry;
+  });
+}
+
+/**
+ * 远程空间根（`sfm://remote`）的目录内容 = **已建立的连接列表**。
+ *
+ * 用户 2026-11-09 反馈 6：地址栏从「位置」点「远程」直接报错
+ * 「无法打开此文件夹：不是一条合法的远程路径：sfm://remote」。
+ * 根因是后端 `remote_read_dir` 的入参校验只接受 `sfm://remote/<连接id>/...`，
+ * 根上没有任何连接可解析（`parseRemotePath` 对它返回 `null`）。
+ *
+ * 这里在前端把根**分流**成一个虚拟列表，不动后端协议语义：
+ * `sfm://remote` 从来不是某台服务器上的目录，它本来就是「连接清单」这一层，
+ * 和「位置」页同属应用自己维护的虚拟空间。
+ *
+ * 条目直接复用 `getRemoteLocationEntries()`，因此与「位置」页、主页、设置页
+ * 走的是同一个注册表与同一套 `location_group` 归类口径（网盘 / 远程）。
+ * `remoteEntries` 同样做成默认参数，理由与下面 `buildLocationsDirectoryFromDrives` 一致。
+ */
+export function buildRemoteRootDirectory(
+  remoteEntries: DirEntry[] = getRemoteLocationEntries(),
+): DirContents {
+  const directoryCount = remoteEntries.length;
+
+  return {
+    path: REMOTE_SCHEME,
+    entries: remoteEntries,
+    total_count: directoryCount,
+    dir_count: directoryCount,
+    file_count: 0,
+    opened_directory_times: {
+      modified_time: 0,
+      accessed_time: 0,
+      created_time: 0,
+    },
+  };
+}
+
+/** 远程空间根的条目形态，供 `resolveDirEntry` 与面包屑使用（名字由显示层给）。 */
+export function createRemoteRootDirEntry(): DirEntry {
+  return createVirtualDirectoryEntry(REMOTE_SCHEME, '');
+}
+
+/**
+ * shell 设备条目（手机 / MTP 便携设备）。
+ *
+ * 盘符来自 Win32 卷枚举，**看不到手机** —— 手机在 Windows 里是 shell 命名空间里的
+ * 一个对象，不是卷。所以「位置」页要单独拉一份设备清单。
+ *
+ * `path` 用后端给的 `shellPath`：**不透明路径，原样保留**。
+ * 规范化它就等于毁掉它（见 `@/utils/shell-paths` 的说明）。
+ */
+export function shellDeviceInfoToDirEntry(device: ShellDeviceInfo): DirEntry {
+  const shellPath = device.shellPath;
+  const displayName = device.name.trim() || getShellPathDisplayName(shellPath, 'Device');
+
+  return {
+    name: displayName,
+    path: shellPath,
+    is_file: false,
+    is_dir: true,
+    is_hidden: false,
+    is_symlink: false,
+    size: 0,
+    item_count: null,
+    created_time: 0,
+    modified_time: 0,
+    accessed_time: 0,
+    ext: null,
+    mime: null,
+    // 「位置」页的新分区：设备与盘符不是一回事（盘符是卷，设备是 shell 对象）。
+    location_group: 'devices',
+  };
+}
+
+/** 已知的 shell 设备条目（读自共享缓存）。 */
+function getShellDeviceEntries(): DirEntry[] {
+  return getCachedShellDevices().map(shellDeviceInfoToDirEntry);
+}
+
+/**
+ * `remoteEntries` / `deviceEntries` 做成**默认参数**，是为了让所有调用方口径一致。
+ *
+ * 位置页的条目由三处生成：`readLocationsDirectory`（真正读目录）、
+ * `buildVirtualDirectoryFromDrives`（盘符变化时重建）、
+ * `getLocationsDriveListDisplaySignature`（与当前目录比较判是否刷新）。
+ * 只要有一处不带远程条目或设备条目，`use-file-browser-navigation.ts` 里的签名比较
+ * 就永远不相等，盘符每变化一次都会多触发一次 `silentRefresh`。默认参数把这条路堵死。
+ */
+export function buildLocationsDirectoryFromDrives(
+  drives: DriveInfo[],
+  remoteEntries: DirEntry[] = getRemoteLocationEntries(),
+  deviceEntries: DirEntry[] = getShellDeviceEntries(),
+): DirContents {
+  const entries = [
+    ...drives.map((drive) => {
+      const entry = driveInfoToDirEntry(drive);
+
+      // 「位置」页分区（用户 2026-11-08 需求 1）：盘符 / 分区在最上面一组。
+      entry.location_group = 'drives';
+
+      return entry;
+    }),
+    ...deviceEntries,
+    ...remoteEntries,
+  ];
   const directoryCount = entries.length;
 
   return {
@@ -155,8 +290,22 @@ export function getLocationsEntriesDisplaySignature(entries: DirEntry[]): string
 }
 
 export async function readLocationsDirectory(): Promise<DirContents> {
-  const drives = await invoke<DriveInfo[]>('get_system_drives');
-  return buildLocationsDirectoryFromDrives(drives);
+  // FORK-MODIFICATION 2026-11-19（批次 23）：盘符与设备**并发**拉取。
+  //
+  // 盘符是 Win32 卷，设备是 shell 命名空间对象 —— 两边合起来才是完整的「位置」。
+  // 设备清单失败时 `fetchShellDevices` 自己兜住（清空缓存并返回空数组），
+  // 这里再兜一层，保证「位置」页永远只受盘符影响 —— 后端还没实现 `get_shell_devices`
+  // 或设备枚举报错时，页面照常显示盘符，而不是整个打不开。
+  const [drives, devices] = await Promise.all([
+    invoke<DriveInfo[]>('get_system_drives'),
+    fetchShellDevices().catch(() => []),
+  ]);
+
+  return buildLocationsDirectoryFromDrives(
+    drives,
+    undefined,
+    devices.map(shellDeviceInfoToDirEntry),
+  );
 }
 
 export function buildWslHostDirectoryFromDrives(drives: DriveInfo[]): DirContents {
@@ -206,6 +355,26 @@ export async function resolveDirectoryContents(
     return readWslHostDirectory();
   }
 
+  // FORK-MODIFICATION 2026-10-18：远程分支（阶段 2 需求 1）。
+  //
+  // 改动前 `sfm://remote/...` 落到下面的本地 `read_dir`，Rust 拿它去 `fs::metadata`
+  // 必然失败；导航器再把这个失败当「路径打不开」静默跳到默认目录 ——
+  // 用户看到的就是「点远程连接，右栏变成 C:\Users\...」。这不是渲染问题，是一次静默兜底。
+  //
+  // `options` 刻意**不传**：它控制的是本地盘的快捷方式目标、硬链接计数与条目数统计，
+  // 远程 provider 一个都给不出。把本地语义的开关塞给远程命令，
+  // 只会让后端多出一堆「收到但必须忽略」的字段。
+  // FORK-MODIFICATION 2026-11-09 反馈 6：`sfm://remote` 是「所有远程连接」的根。
+  // 后端 remote_read_dir 把它当非法远程路径直接报错（parse_remote_path 要求带连接 id），
+  // 所以必须在发出 IPC 之前分流，否则位置页点「远程」/地址栏进 `sfm://remote` 都是一条红字。
+  if (isRemoteRootPath(path)) {
+    return buildRemoteRootDirectory();
+  }
+
+  if (isRemotePath(path)) {
+    return readRemoteDirectory(path);
+  }
+
   return invoke<DirContents>('read_dir', {
     path,
     options,
@@ -222,6 +391,19 @@ export async function resolveDirEntry(
 
   if (isWslHostVirtualPath(path)) {
     return createWslHostDirEntry();
+  }
+
+  // FORK-MODIFICATION 2026-11-09 反馈 6：远程根本身也要能被 stat 到，
+  // 否则 `resolveDirEntry('sfm://remote')` 落到本地 `get_dir_entry_with_timeout`，
+  // Rust 拿它去 `fs::metadata` 必然失败（返回 null），面包屑与标签页会当成坏路径。
+  if (isRemoteRootPath(path)) {
+    return createRemoteRootDirEntry();
+  }
+
+  // 远程路径没有「本地 stat 超时」这回事 —— 超时是本地盘慢目录的缓解手段，
+  // 远程的慢来自网络与服务器，塞一个本地阈值进去只会让人误以为它在防什么。
+  if (isRemotePath(path)) {
+    return statRemoteEntry(path);
   }
 
   try {
@@ -247,8 +429,34 @@ export function getNavigableParentPath(path: string, platform: string | null): s
     return null;
   }
 
+  // FORK-MODIFICATION 2026-11-19（批次 23）：shell 设备（手机 / MTP）的上一层
+  // 是「位置」—— 与 `//wsl.localhost`、远程根同构。
+  // 设备根本身没有更上一级（`getShellParentPath` 返回 null），
+  // 但从设备**里面**往上走时应该回到「位置」页，而不是卡住。
+  if (isShellPath(normalizedPath)) {
+    const shellParentPath = getShellParentPath(normalizedPath);
+
+    return shellParentPath ?? LOCATIONS_VIRTUAL_PATH;
+  }
+
   if (isWslHostVirtualPath(normalizedPath)) {
     return LOCATIONS_VIRTUAL_PATH;
+  }
+
+  // FORK-MODIFICATION 2026-11-09 反馈 6：远程根 `sfm://remote` 的上一层是「位置」，
+  // 与 `//wsl.localhost` 同构。不特判时 parse_remote_path 认不出根（它要求带连接 id），
+  // 父级返回 null —— 表现为「向上」按钮失灵、面包屑里没有「位置」这一段。
+  if (isRemoteRootPath(normalizedPath)) {
+    return LOCATIONS_VIRTUAL_PATH;
+  }
+
+  // 远程分支必须排在 `canonicalizePath` 之前。canonicalizePath 会把尾斜杠剥掉、
+  // 后续 getParentPath 只按字符串切分，于是 `sfm://remote` 的父级会变成 `sfm:/`，
+  // 含 `..` 的路径会原样带出 `..` —— 两个都是用户从没去过的垃圾路径。
+  if (isRemotePath(normalizedPath)) {
+    // 非法远程路径（含 `.` / `..` 段）在这里返回 null，即「无处可上」。
+    // 刻意不放行到本地解析：那等于凭空编造一个目录。阶段 1 的 command 会给出显式错误。
+    return getRemoteParentPath(normalizedPath);
   }
 
   const canonicalPath = canonicalizePath(normalizedPath);

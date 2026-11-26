@@ -1,0 +1,198 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  sidecar:
+    name: Build focus-sync-sidecar.exe (Windows x64)
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: sidecar
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        run: |
+          rustup default stable
+          rustup target add x86_64-pc-windows-msvc
+
+      - name: Build sidecar (release)
+        # NOTE: --locked removed temporarily to regen Cargo.lock after adding axum dep.
+        # After this run commits a fresh Cargo.lock, re-add --locked.
+        run: cargo build --release
+
+      - name: Verify sidecar binary
+        shell: pwsh
+        run: |
+          $exe = "target\release\focus-sync-sidecar.exe"
+          if (-not (Test-Path $exe)) { throw "focus-sync-sidecar.exe not found" }
+          $size = (Get-Item $exe).Length
+          Write-Host "focus-sync-sidecar.exe size: $size bytes"
+          if ($size -lt 1MB) { throw "focus-sync-sidecar.exe suspiciously small" }
+
+      - name: Run unit tests
+        # NOTE: --locked removed temporarily to match build step.
+        run: cargo test --lib
+
+      - name: Upload regenerated Cargo.lock
+        # While --locked is temporarily removed, upload the lock file so a human
+        # can download + commit the new version, then re-add --locked.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sidecar-cargo-lock
+          path: sidecar/Cargo.lock
+          if-no-files-found: ignore
+
+      - name: Upload sidecar binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: focus-sync-sidecar-windows-x64
+          path: sidecar/target/release/focus-sync-sidecar.exe
+          if-no-files-found: error
+
+  extension:
+    name: Build extension (TS bundle)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extension
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        # No cache-dependency-path because package-lock.json is not yet committed
+        # (run `npm install` locally and commit it for reproducible CI).
+        run: npm install
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build extension bundle
+        run: npm run build
+
+      - name: Verify dist/index.js exists
+        run: |
+          if [ ! -f dist/index.js ]; then
+            echo "ERROR: dist/index.js missing"
+            exit 1
+          fi
+          echo "Built dist/index.js:"
+          ls -la dist/
+
+      - name: Upload extension bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-dist
+          path: extension/dist/
+          if-no-files-found: error
+
+  integration:
+    name: Smoke test sidecar HTTP mode
+    runs-on: windows-latest
+    needs: sidecar
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download sidecar binary
+        uses: actions/download-artifact@v4
+        with:
+          name: focus-sync-sidecar-windows-x64
+          path: sidecar/
+
+      # NOTE: GitHub Actions does NOT preserve background processes across
+      # step boundaries by default — each `run:` runs in a fresh process tree
+      # and child processes are reaped. All sidecar interactions MUST happen
+      # in a single step. This test: start sidecar, poll /health, exercise
+      # all endpoints, quit, cleanup — all in one PowerShell invocation.
+      - name: Smoke test sidecar HTTP (single step)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $sidecar = "sidecar\focus-sync-sidecar.exe"
+          $port = 37422
+          $logOut = "sidecar.out.log"
+          $logErr = "sidecar.err.log"
+
+          # Launch sidecar with --no-uia (CI runners have no UIAutomationCore).
+          $proc = Start-Process -FilePath $sidecar `
+            -ArgumentList "--ipc", "http", "--port", $port, "--no-uia" `
+            -PassThru -NoNewWindow `
+            -RedirectStandardOutput $logOut `
+            -RedirectStandardError $logErr
+          Write-Host "sidecar launched PID=$($proc.Id)"
+
+          try {
+            # Poll /health up to 30s.
+            $ready = $false
+            for ($i = 1; $i -le 30; $i++) {
+              try {
+                $r = Invoke-WebRequest -Uri "http://127.0.0.1:${port}/health" `
+                  -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+                if ($r.StatusCode -eq 200) {
+                  Write-Host "sidecar ready after ${i}s"
+                  $ready = $true
+                  break
+                }
+              } catch { }
+              Start-Sleep -Seconds 1
+            }
+            if (-not $ready) { throw "sidecar did not become ready within 30s" }
+
+            # 1. Re-verify /health.
+            $r = Invoke-WebRequest -Uri "http://127.0.0.1:${port}/health" -UseBasicParsing
+            if ($r.StatusCode -ne 200) { throw "health failed: $($r.StatusCode)" }
+            $body = $r.Content | ConvertFrom-Json
+            if (-not $body.ok) { throw "health body invalid" }
+            Write-Host "[1] health OK: $($body | ConvertTo-Json -Compress)"
+
+            # 2. POST /set_path.
+            $payload = @{ path = "C:\Users\Public" } | ConvertTo-Json -Compress
+            $r = Invoke-WebRequest -Uri "http://127.0.0.1:${port}/set_path" `
+              -Method POST -Body $payload -ContentType "application/json" -UseBasicParsing
+            if ($r.StatusCode -ne 200) { throw "set_path failed: $($r.StatusCode)" }
+            Write-Host "[2] set_path OK"
+
+            # 3. GET /get_status (verify path was stored).
+            $r = Invoke-WebRequest -Uri "http://127.0.0.1:${port}/get_status" -UseBasicParsing
+            $body = $r.Content | ConvertFrom-Json
+            if ($body.current_path -ne "C:\Users\Public") {
+              throw "expected current_path=C:\Users\Public, got $($body.current_path)"
+            }
+            Write-Host "[3] get_status OK: current_path=$($body.current_path) active_dialogs=$($body.active_dialogs)"
+
+            # 4. POST /quit (graceful shutdown).
+            try {
+              $null = Invoke-WebRequest -Uri "http://127.0.0.1:${port}/quit" `
+                -Method POST -UseBasicParsing -TimeoutSec 2
+            } catch {
+              Write-Host "[4] quit closed connection (expected)"
+            }
+            Start-Sleep -Seconds 1
+
+            Write-Host "ALL CHECKS PASSED"
+          }
+          catch {
+            Write-Host "=== sidecar.out.log ==="
+            if (Test-Path $logOut) { Get-Content $logOut }
+            Write-Host "=== sidecar.err.log ==="
+            if (Test-Path $logErr) { Get-Content $logErr }
+            throw
+          }
+          finally {
+            $procs = Get-Process -Name focus-sync-sidecar -ErrorAction SilentlyContinue
+            if ($procs) {
+              Write-Host "cleanup: killing sidecar PIDs $($procs.Id -join ', ')"
+              $procs | Stop-Process -Force
+            }
+          }

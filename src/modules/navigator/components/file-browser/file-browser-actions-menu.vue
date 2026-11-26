@@ -15,17 +15,30 @@ import {
   FolderInputIcon,
   ClipboardPasteIcon,
   Trash2Icon,
-  ShredderIcon,
   EyeIcon,
   PrinterIcon,
   Share2Icon,
   SquarePlusIcon,
   StarIcon,
+  FolderSearchIcon,
+  // FORK-MODIFICATION: 「打开文件所在目录」（原生 Explorer 定位）用的图标。
+  FolderOpenIcon,
   UnplugIcon,
   InfoIcon,
+  TextCursorInputIcon,
+  // FORK-MODIFICATION 2026-10-24：解除文件锁定 / 彻底删除。
+  LockOpenIcon,
+  FlameIcon,
+  // FORK-MODIFICATION: 本地 ↔ 远程传输与远程权限设置。
+  UploadIcon,
+  DownloadIcon,
+  ShieldIcon,
+  // FORK-MODIFICATION: 图片编辑四动作（左旋 / 右旋 / 左右翻 / 上下翻）。
+  RotateCcwIcon,
+  RotateCwIcon,
+  FlipHorizontalIcon,
+  FlipVerticalIcon,
 } from '@lucide/vue';
-import { useClipboardStore } from '@/stores/runtime/clipboard';
-import { usePlatformStore } from '@/stores/runtime/platform';
 import { useUserStatsStore } from '@/stores/storage/user-stats';
 import { useShortcutsStore } from '@/stores/runtime/shortcuts';
 import type { DirEntry } from '@/types/dir-entry';
@@ -48,15 +61,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ContextMenuShortcut } from '@/components/ui/context-menu';
-import {
-  getAvailableLinkCreationOptions,
-  type LinkCreationKind,
-} from '@/utils/link-operations';
+import { type LinkCreationKind } from '@/utils/link-operations';
 import { useTextDirection } from '@/composables/use-text-direction';
-import { isSelectionVirtualLocation } from '@/utils/entry-action-policy';
 
 const props = withDefaults(defineProps<{
   selectedEntries: DirEntry[];
@@ -64,9 +74,21 @@ const props = withDefaults(defineProps<{
   menuSeparatorComponent: object;
   disableDestructiveActions?: boolean;
   isCurrentDirectoryContext?: boolean;
+  /** FORK-MODIFICATION: 供「打开所属目录」判定是否在搜索结果视图。 */
+  isSearchResultsView?: boolean;
+  /**
+   * FORK-MODIFICATION (2026-11-05)：被调用方显式排除的动作。
+   *
+   * 有些界面复用同一份动作菜单，但其中几项在那儿**没有执行通道**
+   * （例如全局搜索结果面板的「打开方式」「编辑标签」「新建」）。
+   * 与其显示出来点了没反应，不如直接不显示。
+   */
+  excludedActions?: ContextMenuAction[];
 }>(), {
   disableDestructiveActions: false,
   isCurrentDirectoryContext: false,
+  isSearchResultsView: false,
+  excludedActions: () => [],
 });
 
 const emit = defineEmits<{
@@ -93,17 +115,37 @@ function handleCutClick() {
 
 const { t } = useI18n();
 
-const clipboardStore = useClipboardStore();
-const platformStore = usePlatformStore();
 const userStatsStore = useUserStatsStore();
 const shortcutsStore = useShortcutsStore();
 const selectedEntriesRef = toRef(props, 'selectedEntries');
 const { inlineEndSide } = useTextDirection();
 
-const { isActionVisible, selectionStats } = useContextMenuItems(
+const {
+  isMenuActionVisible: isMenuActionAvailable,
+  isMenuActionDisabled,
+  hasVirtualLocationSelection,
+  linkCreationOptions,
+} = useContextMenuItems(
   selectedEntriesRef,
-  { disableDestructiveActions: toRef(props, 'disableDestructiveActions') },
+  {
+    disableDestructiveActions: toRef(props, 'disableDestructiveActions'),
+    isSearchResultsView: toRef(props, 'isSearchResultsView'),
+  },
 );
+
+/**
+ * FORK-MODIFICATION (2026-11-05)：被调用方排除的动作一律不显示。
+ *
+ * 与可见性判定（`useContextMenuItems`）分开：那一层判的是「这个动作在当前
+ * 上下文里能不能用」，这一层判的是「这个界面有没有它的执行通道」。
+ */
+function isMenuActionVisible(action: ContextMenuAction): boolean {
+  if (props.excludedActions.includes(action)) {
+    return false;
+  }
+
+  return isMenuActionAvailable(action);
+}
 
 const allSelectedAreFavorites = computed(() => {
   return props.selectedEntries.every(entry => userStatsStore.isFavorite(entry.path));
@@ -136,33 +178,13 @@ async function handleUpdateTagColor(tagId: string, color: string) {
 }
 
 const selectedItemTagIds = computed(() => getEntriesSharedTagIds(selectedEntriesRef.value));
-const linkCreationOptions = computed(() =>
-  getAvailableLinkCreationOptions(props.selectedEntries, platformStore.currentPlatform),
-);
-
-const selectedDirectory = computed(() => {
-  return props.selectedEntries.find(entry => entry.is_dir);
-});
-
-const hasVirtualLocationSelection = computed(() => {
-  return isSelectionVirtualLocation(props.selectedEntries);
-});
-
-const canPasteToSelectedDirectory = computed(() => {
-  if (hasVirtualLocationSelection.value || !clipboardStore.hasItems || !selectedDirectory.value) {
-    return false;
-  }
-
-  return clipboardStore.canPasteTo(selectedDirectory.value.path);
-});
-
 const isShiftHeld = ref(false);
 
-const trashTooltipKey = computed(() => props.isCurrentDirectoryContext
+const moveToTrashLabelKey = computed(() => props.isCurrentDirectoryContext
   ? 'shortcuts.moveCurrentDirectoryToTrash'
   : 'shortcuts.moveSelectedItemsToTrash');
 
-const deleteTooltipKey = computed(() => props.isCurrentDirectoryContext
+const deleteFromDriveLabelKey = computed(() => props.isCurrentDirectoryContext
   ? 'shortcuts.deleteCurrentDirectoryFromDrive'
   : 'shortcuts.deleteSelectedItemsFromDrive');
 
@@ -188,10 +210,6 @@ onUnmounted(() => {
   window.removeEventListener('keyup', handleKeyUp);
 });
 
-function handleDeleteClick() {
-  emitAction(isShiftHeld.value ? 'delete-permanently' : 'delete');
-}
-
 function handleCreateLink(linkKind: LinkCreationKind) {
   emit('createLink', linkKind);
 }
@@ -201,12 +219,14 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   <div class="file-browser-actions-menu__quick-actions">
     <slot name="quick-actions" />
     <Tooltip
-      v-if="isActionVisible('rename')"
+      v-if="isMenuActionVisible('rename')"
     >
       <TooltipTrigger as-child>
         <Button
           variant="ghost"
           size="xs"
+          :disabled="isMenuActionDisabled('rename')"
+          :aria-disabled="isMenuActionDisabled('rename')"
           @click="emitAction('rename')"
         >
           <PencilIcon :size="16" />
@@ -220,12 +240,43 @@ function handleCreateLink(linkKind: LinkCreationKind) {
       </TooltipContent>
     </Tooltip>
     <Tooltip
-      v-if="isActionVisible('copy')"
+      v-if="isMenuActionVisible('batch-rename')"
     >
       <TooltipTrigger as-child>
         <Button
           variant="ghost"
           size="xs"
+          :disabled="isMenuActionDisabled('batch-rename')"
+          :aria-disabled="isMenuActionDisabled('batch-rename')"
+          @click="emitAction('batch-rename')"
+        >
+          <TextCursorInputIcon :size="16" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>
+        <div class="file-browser-actions-menu__tooltip-row">
+          {{ t('batchRename.menuItem') }}
+        </div>
+      </TooltipContent>
+    </Tooltip>
+    <Tooltip
+      v-if="isMenuActionVisible('copy')"
+    >
+      <TooltipTrigger as-child>
+        <!--
+          FORK-MODIFICATION 2026-11-11（T9 批次 9）：复制图标补可访问名。
+
+          缺陷 ①（真机坐实）：这个图标按钮**没有**文字、没有 aria-label、没有 title，
+          于是自动化枚举拿到的 `Name` 是空串、用户也认不出它是「复制」。
+          `title` 让原生提示与枚举都能报出动作名，`aria-label` 补无障碍名。
+        -->
+        <Button
+          variant="ghost"
+          size="xs"
+          :disabled="isMenuActionDisabled('copy')"
+          :aria-disabled="isMenuActionDisabled('copy')"
+          :title="t('fileBrowser.actions.copy')"
+          :aria-label="t('fileBrowser.actions.copy')"
           @click="handleCopyClick"
         >
           <CopyIcon :size="16" />
@@ -239,12 +290,14 @@ function handleCreateLink(linkKind: LinkCreationKind) {
       </TooltipContent>
     </Tooltip>
     <Tooltip
-      v-if="isActionVisible('cut')"
+      v-if="isMenuActionVisible('cut')"
     >
       <TooltipTrigger as-child>
         <Button
           variant="ghost"
           size="xs"
+          :disabled="isMenuActionDisabled('cut')"
+          :aria-disabled="isMenuActionDisabled('cut')"
           @click="handleCutClick"
         >
           <FolderInputIcon :size="16" />
@@ -257,13 +310,15 @@ function handleCreateLink(linkKind: LinkCreationKind) {
         </div>
       </TooltipContent>
     </Tooltip>
-    <Tooltip v-if="isActionVisible('link') && linkCreationOptions.length > 0">
+    <Tooltip v-if="isMenuActionVisible('link')">
       <DropdownMenu>
         <TooltipTrigger as-child>
           <DropdownMenuTrigger as-child>
             <Button
               variant="ghost"
               size="xs"
+              :disabled="isMenuActionDisabled('link')"
+              :aria-disabled="isMenuActionDisabled('link')"
             >
               <LinkIcon :size="16" />
             </Button>
@@ -296,12 +351,14 @@ function handleCreateLink(linkKind: LinkCreationKind) {
       </DropdownMenu>
     </Tooltip>
     <Tooltip
-      v-if="canPasteToSelectedDirectory"
+      v-if="isMenuActionVisible('paste')"
     >
       <TooltipTrigger as-child>
         <Button
           variant="ghost"
           size="xs"
+          :disabled="isMenuActionDisabled('paste')"
+          :aria-disabled="isMenuActionDisabled('paste')"
           @click="emitAction('paste')"
         >
           <ClipboardPasteIcon :size="16" />
@@ -314,41 +371,105 @@ function handleCreateLink(linkKind: LinkCreationKind) {
         </div>
       </TooltipContent>
     </Tooltip>
-    <Tooltip
-      v-if="isActionVisible('delete')"
-    >
-      <TooltipTrigger as-child>
+    <!--
+      FORK-MODIFICATION 2026-10-20（用户附图）：删除入口从「悬停提示」改成
+      **真正可点的下拉菜单**。
+
+      原来这里挂的是 Tooltip：鼠标停在垃圾桶图标上时浮出「移至垃圾箱 /
+      从驱动器中删除」两行字，但那只是**提示**——点不动。用户看到的就是一个
+      「看得见、点不着的子菜单」，只能靠 Shift+点击垃圾桶图标去猜。
+
+      现在换成 DropdownMenu：两个操作各占一项，各自带快捷键提示。
+      Del / Shift+Del 这两个**全局快捷键**不受影响，行为不变。
+
+      图标不再跟着 Shift 变色（ShredderIcon）：按下 Shift 也不再有
+      「点下去就是永久删除」这个含义了，菜单里已经写得很清楚。
+    -->
+    <DropdownMenu v-if="isMenuActionVisible('delete')">
+      <DropdownMenuTrigger as-child>
         <Button
           variant="ghost"
           size="xs"
+          :disabled="isMenuActionDisabled('delete')"
+          :aria-disabled="isMenuActionDisabled('delete')"
           class="file-browser-actions-menu__action--danger"
-          @click="handleDeleteClick"
         >
-          <ShredderIcon
-            v-if="isShiftHeld"
-            :size="16"
-          />
-          <Trash2Icon
-            v-else
-            :size="16"
-          />
+          <Trash2Icon :size="16" />
         </Button>
-      </TooltipTrigger>
-      <TooltipContent class="file-browser-actions-menu__tooltip">
-        <div class="file-browser-actions-menu__tooltip-row">
-          {{ t(trashTooltipKey) }}
-          <ContextMenuShortcut>{{ shortcutsStore.getShortcutLabel('delete') }}</ContextMenuShortcut>
-        </div>
-        <div class="file-browser-actions-menu__tooltip-row">
-          {{ t(deleteTooltipKey) }}
-          <ContextMenuShortcut>{{ shortcutsStore.getShortcutLabel('deletePermanently') }}</ContextMenuShortcut>
-        </div>
-      </TooltipContent>
-    </Tooltip>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        side="bottom"
+        class="file-browser-actions-menu__delete-dropdown"
+      >
+        <DropdownMenuItem
+          :disabled="isMenuActionDisabled('delete')"
+          :aria-disabled="isMenuActionDisabled('delete')"
+          @select="emitAction('delete')"
+        >
+          <span>{{ t(moveToTrashLabelKey) }}</span>
+          <DropdownMenuShortcut>{{ shortcutsStore.getShortcutLabel('delete') }}</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          :disabled="isMenuActionDisabled('delete-permanently')"
+          :aria-disabled="isMenuActionDisabled('delete-permanently')"
+          @select="emitAction('delete-permanently')"
+        >
+          <span>{{ t(deleteFromDriveLabelKey) }}</span>
+          <DropdownMenuShortcut>{{ shortcutsStore.getShortcutLabel('deletePermanently') }}</DropdownMenuShortcut>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+    <!--
+      FORK-MODIFICATION 2026-10-20：远程条目的删除入口。
+
+      远程**没有回收箱**，所以只有「删除」一个动作，不做下拉 ——
+      摆一个「移至垃圾箱」在远程是假选项（远程删除根本不走本地回收站）。
+
+      权限不够时**不隐藏**：能不能删取决于服务器上那个账户属于
+      owner/group/other 哪一组，前端判不准；判错的后果是「能删的菜单被置灰」。
+      所以一律显示，点了没权限由后端如实报错。
+    -->
+    <Button
+      v-if="isMenuActionVisible('remote-delete')"
+      variant="ghost"
+      size="xs"
+      class="file-browser-actions-menu__action--danger"
+      :title="t('remote.delete.menuItem')"
+      :disabled="isMenuActionDisabled('remote-delete')"
+      :aria-disabled="isMenuActionDisabled('remote-delete')"
+      @click="emitAction('remote-delete')"
+    >
+      <Trash2Icon :size="16" />
+    </Button>
   </div>
   <component :is="menuSeparatorComponent" />
+  <!--
+    FORK-MODIFICATION 2026-11-11（T9 批次 9）：远程条目右键补「复制」**正文项**。
+
+    缺陷 ①（真机坐实）：网盘条目右键菜单里**没有**「复制」这一项 ——
+    只有顶部图标条里一个没有文字、没有 aria-label 的 `lucide-copy` 图标。
+    没有可访问名的图标按钮在自动化枚举里 `Name` 是空串、在用户眼里也只是一个
+    「长得像复制的方块」⇒ 用户报「右键没有复制」。
+
+    这里补一个**带文字**的正文项：「复制」在菜单里可读、可点，
+    也能被 UIA / CDP 枚举到 —— 判据 ① 从此有一个确定的文字锚点。
+  -->
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('copy')"
+    :disabled="isMenuActionDisabled('copy')"
+    :aria-disabled="isMenuActionDisabled('copy')"
+    @select="emitAction('copy')"
+  >
+    <CopyIcon :size="16" />
+    <span>{{ t('fileBrowser.actions.copy') }}</span>
+    <ContextMenuShortcut v-if="shortcutsStore.getShortcutLabel('copy')">
+      {{ shortcutsStore.getShortcutLabel('copy') }}
+    </ContextMenuShortcut>
+  </component>
   <FileBrowserOpenWithSubmenu
-    v-if="isActionVisible('open-with')"
+    v-if="isMenuActionVisible('open-with')"
     :selected-entries="selectedEntries"
     @open-custom-dialog="handleOpenCustomDialog"
   />
@@ -367,8 +488,10 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   />
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('quick-view')"
+    v-if="isMenuActionVisible('quick-view')"
     class="file-browser-actions-menu__item-with-shortcut"
+    :disabled="isMenuActionDisabled('quick-view')"
+    :aria-disabled="isMenuActionDisabled('quick-view')"
     @select="emitAction('quick-view')"
   >
     <EyeIcon :size="16" />
@@ -379,8 +502,10 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   </component>
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('print')"
+    v-if="isMenuActionVisible('print')"
     class="file-browser-actions-menu__item-with-shortcut"
+    :disabled="isMenuActionDisabled('print')"
+    :aria-disabled="isMenuActionDisabled('print')"
     @select="emitAction('print')"
   >
     <PrinterIcon :size="16" />
@@ -389,17 +514,99 @@ function handleCreateLink(linkKind: LinkCreationKind) {
       {{ shortcutsStore.getShortcutLabel('print') }}
     </ContextMenuShortcut>
   </component>
+  <!--
+    FORK-MODIFICATION: 图片编辑四动作。
+
+    可见性由 `context-menu-action-visibility.ts` 判定：
+    **只对单个可编辑图片文件出现**（多选 / 目录 / 非图片 / SVG / 远程 / 虚拟位置都不出现）。
+
+    动作 id 与后端 `operation` 的对应关系在 `src/utils/image-edit.ts` 里
+    （`IMAGE_EDIT_ACTIONS`）—— 菜单只负责发 id，不认识后端。
+  -->
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('open-in-new-tab')"
+    v-if="isMenuActionVisible('rotate-image-left')"
+    :disabled="isMenuActionDisabled('rotate-image-left')"
+    :aria-disabled="isMenuActionDisabled('rotate-image-left')"
+    @select="emitAction('rotate-image-left')"
+  >
+    <RotateCcwIcon :size="16" />
+    <span>{{ t('fileBrowser.actions.rotateImageLeft') }}</span>
+  </component>
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('rotate-image-right')"
+    :disabled="isMenuActionDisabled('rotate-image-right')"
+    :aria-disabled="isMenuActionDisabled('rotate-image-right')"
+    @select="emitAction('rotate-image-right')"
+  >
+    <RotateCwIcon :size="16" />
+    <span>{{ t('fileBrowser.actions.rotateImageRight') }}</span>
+  </component>
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('flip-image-horizontal')"
+    :disabled="isMenuActionDisabled('flip-image-horizontal')"
+    :aria-disabled="isMenuActionDisabled('flip-image-horizontal')"
+    @select="emitAction('flip-image-horizontal')"
+  >
+    <FlipHorizontalIcon :size="16" />
+    <span>{{ t('fileBrowser.actions.flipImageHorizontal') }}</span>
+  </component>
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('flip-image-vertical')"
+    :disabled="isMenuActionDisabled('flip-image-vertical')"
+    :aria-disabled="isMenuActionDisabled('flip-image-vertical')"
+    @select="emitAction('flip-image-vertical')"
+  >
+    <FlipVerticalIcon :size="16" />
+    <span>{{ t('fileBrowser.actions.flipImageVertical') }}</span>
+  </component>
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('open-in-new-tab')"
+    :disabled="isMenuActionDisabled('open-in-new-tab')"
+    :aria-disabled="isMenuActionDisabled('open-in-new-tab')"
     @select="emitAction('open-in-new-tab')"
   >
     <SquarePlusIcon :size="16" />
     <span>{{ t('fileBrowser.actions.openInNewTab') }}</span>
   </component>
+  <!--
+    FORK-MODIFICATION: 「打开文件所在目录」—— 在原生 Windows Explorer 里定位选中文件。
+    这个动作的可见性规则（context-menu-action-visibility.ts：仅 Windows + 仅 file）
+    和后端处理（use-file-browser-actions.ts → revealInExplorer）**一直都在**，
+    但本菜单从来没渲染过这一项 ⇒ 入口实际不可达。
+    而目录树自 3.9.0 起只显示目录（use-file-tree.ts 过滤 is_dir === true），
+    树菜单里的同名项因此永远不显示（showOpenContainingDirectory 恒为 false）。
+    ⇒ 这里补上菜单项，把原生定位通道真正接回界面。
+  -->
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('disconnect')"
+    v-if="isMenuActionVisible('open-containing-directory')"
+    :disabled="isMenuActionDisabled('open-containing-directory')"
+    :aria-disabled="isMenuActionDisabled('open-containing-directory')"
+    @select="emitAction('open-containing-directory')"
+  >
+    <FolderOpenIcon :size="16" />
+    <span>{{ t('fileBrowser.actions.openContainingDirectory') }}</span>
+  </component>
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('open-containing-directory-in-app')"
+    :disabled="isMenuActionDisabled('open-containing-directory-in-app')"
+    :aria-disabled="isMenuActionDisabled('open-containing-directory-in-app')"
+    @select="emitAction('open-containing-directory-in-app')"
+  >
+    <FolderSearchIcon :size="16" />
+    <span>{{ t('fileBrowser.actions.openContainingDirectoryInApp') }}</span>
+  </component>
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('disconnect')"
+    :disabled="isMenuActionDisabled('disconnect')"
+    :aria-disabled="isMenuActionDisabled('disconnect')"
     @select="emitAction('disconnect')"
   >
     <UnplugIcon :size="16" />
@@ -407,19 +614,116 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   </component>
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('copy-path')"
+    v-if="isMenuActionVisible('copy-path')"
+    :disabled="isMenuActionDisabled('copy-path')"
+    :aria-disabled="isMenuActionDisabled('copy-path')"
     @select="emitAction('copy-path')"
   >
     <CopyIcon :size="16" />
     <span>{{ t('settings.addressBar.copyPathToClipboard') }}</span>
   </component>
+  <!--
+    FORK-MODIFICATION 2026-11-06：「粘贴快捷方式」——
+    把剪贴板里的文件 / 目录以 `.lnk` 的形式放进目标目录。
+  -->
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('paste-shortcut')"
+    :disabled="isMenuActionDisabled('paste-shortcut')"
+    :aria-disabled="isMenuActionDisabled('paste-shortcut')"
+    @select="emitAction('paste-shortcut')"
+  >
+    <LinkIcon :size="16" />
+    <span>{{ t('fileBrowser.actions.pasteShortcut') }}</span>
+  </component>
+  <!--
+    FORK-MODIFICATION 2026-10-24：「解除文件锁定」与「彻底删除」。
+
+    这两个动作解决的是「文件被占用 → 删不掉」：
+    - **解除文件锁定**：查出谁占着它，把挡着删除的东西清掉
+      （清只读位 / 结束占用者）。⚠️ **它不删文件**。
+    - **彻底删除**：删文件。手段按代价从低到高：清只读位 → 标记删除
+      （占用者一放手就消失，不用重启）→ 登记为「重启后删除」。
+
+    可见性由 `context-menu-action-visibility.ts` 判定：
+    **只在 Windows 上出现、且只对单个条目出现**。
+  -->
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('unlock')"
+    :disabled="isMenuActionDisabled('unlock')"
+    :aria-disabled="isMenuActionDisabled('unlock')"
+    @select="emitAction('unlock')"
+  >
+    <LockOpenIcon :size="16" />
+    <span>{{ t('fileBrowser.actions.unlock') }}</span>
+  </component>
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('force-delete')"
+    class="file-browser-actions-menu__action--danger"
+    :disabled="isMenuActionDisabled('force-delete')"
+    :aria-disabled="isMenuActionDisabled('force-delete')"
+    @select="emitAction('force-delete')"
+  >
+    <FlameIcon :size="16" />
+    <span>{{ t('fileBrowser.actions.forceDelete') }}</span>
+  </component>
+  <!-- FORK-MODIFICATION: 本地 ↔ 远程传输。三个动作的前提都是「对面还有一格」，
+       所以可见性判定不在 `CONTEXT_MENU_ITEMS` 那张表里，见
+       `src/modules/remote/utils/remote-context-menu-visibility.ts`。 -->
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('upload-to-remote')"
+    :disabled="isMenuActionDisabled('upload-to-remote')"
+    :aria-disabled="isMenuActionDisabled('upload-to-remote')"
+    @select="emitAction('upload-to-remote')"
+  >
+    <UploadIcon :size="16" />
+    <span>{{ t('remote.transfer.uploadToRemote') }}</span>
+  </component>
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('download-to-local')"
+    :disabled="isMenuActionDisabled('download-to-local')"
+    :aria-disabled="isMenuActionDisabled('download-to-local')"
+    @select="emitAction('download-to-local')"
+  >
+    <DownloadIcon :size="16" />
+    <span>{{ t('remote.transfer.downloadToLocal') }}</span>
+  </component>
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('remote-permissions')"
+    :disabled="isMenuActionDisabled('remote-permissions')"
+    :aria-disabled="isMenuActionDisabled('remote-permissions')"
+    @select="emitAction('remote-permissions')"
+  >
+    <ShieldIcon :size="16" />
+    <span>{{ t('remote.permissions.menuItem') }}</span>
+  </component>
+  <!-- FORK-MODIFICATION 2026-10-20：远程删除。菜单项**始终保留**，
+       权限不足时点下去由后端报错（用户原话：「可以设置为灰色，但要保留菜单」）。 -->
+  <component
+    :is="menuItemComponent"
+    v-if="isMenuActionVisible('remote-delete')"
+    :disabled="isMenuActionDisabled('remote-delete')"
+    :aria-disabled="isMenuActionDisabled('remote-delete')"
+    @select="emitAction('remote-delete')"
+  >
+    <Trash2Icon :size="16" />
+    <span>{{ t('remote.delete.menuItem') }}</span>
+  </component>
   <FileBrowserNewSubmenu
-    v-if="selectionStats.hasDirectories && !hasVirtualLocationSelection"
+    v-if="isMenuActionVisible('create-directory')"
+    :can-create-file="isMenuActionVisible('create-file')"
     @action="emitAction"
   />
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('share')"
+    v-if="isMenuActionVisible('share')"
+    :disabled="isMenuActionDisabled('share')"
+    :aria-disabled="isMenuActionDisabled('share')"
     @select="emitAction('share')"
   >
     <Share2Icon :size="16" />
@@ -427,8 +731,10 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   </component>
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('properties')"
+    v-if="isMenuActionVisible('properties')"
     class="file-browser-actions-menu__item-with-shortcut"
+    :disabled="isMenuActionDisabled('properties')"
+    :aria-disabled="isMenuActionDisabled('properties')"
     @select="emitAction('properties')"
   >
     <InfoIcon :size="16" />
@@ -440,7 +746,9 @@ function handleCreateLink(linkKind: LinkCreationKind) {
   <component :is="menuSeparatorComponent" />
   <component
     :is="menuItemComponent"
-    v-if="isActionVisible('toggle-favorite')"
+    v-if="isMenuActionVisible('toggle-favorite')"
+    :disabled="isMenuActionDisabled('toggle-favorite')"
+    :aria-disabled="isMenuActionDisabled('toggle-favorite')"
     @select="emitAction('toggle-favorite')"
   >
     <StarIcon
@@ -450,7 +758,7 @@ function handleCreateLink(linkKind: LinkCreationKind) {
     <span>{{ allSelectedAreFavorites ? t('fileBrowser.actions.removeFromFavorites') : t('fileBrowser.actions.addToFavorites') }}</span>
   </component>
   <div
-    v-if="isActionVisible('edit-tags')"
+    v-if="isMenuActionVisible('edit-tags')"
     class="file-browser-actions-menu__tag-selector"
   >
     <TagSelector
@@ -481,6 +789,19 @@ function handleCreateLink(linkKind: LinkCreationKind) {
 
 .file-browser-actions-menu__link-dropdown {
   min-width: 160px;
+}
+
+/* FORK-MODIFICATION 2026-10-20：删除下拉。宽度要容得下
+   「从驱动器中删除」+ 快捷键提示两列，否则文字会被挤到换行。 */
+
+.file-browser-actions-menu__delete-dropdown {
+  min-width: 220px;
+}
+
+.file-browser-actions-menu__delete-dropdown .sigma-ui-dropdown-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .file-browser-actions-menu__action--danger:hover {

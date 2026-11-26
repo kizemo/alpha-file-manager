@@ -2,26 +2,55 @@
 // License: GNU GPLv3 or later. See the license file in the project root for more information.
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
+// FORK-MODIFICATION 2026-10-20：移植上游 8908e214。
+// e2e 隔离数据目录的唯一解析点（见 `app_dirs.rs` 顶部的说明）。
+mod aliyun_login;
+mod app_dirs;
 mod app_updater;
 mod archive;
 mod background_sources;
+mod baidu_login;
+mod baidu_probe;
+mod batch_rename;
 mod clipboard_source;
 mod clipboard_watcher;
+mod compare;
 mod copy_move_job;
 mod default_file_manager;
 mod delete_job;
+mod delete_tree;
+mod device_events;
 mod dir_reader;
 mod dir_size;
 mod dir_watcher;
+mod drag_no_activate;
 mod extensions;
+mod file_lock;
+mod file_lock_commands;
 mod file_operations;
 mod global_search;
+mod image_edit;
+mod image_edit_commands;
 mod image_thumbnails;
 mod input_simulation;
 mod lan_share;
 mod link_operations;
+mod main_window_state;
+mod orphan_webview;
+// `pub` 是为了让 `examples/mcp-spike.rs` 能起同一个模块 —— Phase 0 的 spike
+// 与应用内跑的是同一份端点代码，不是另写一份。
+mod focus_sync_sidecar;
+mod focus_sync_supervisor;
+pub mod mcp;
+// OneDrive（批次 38）：7 条命令都在这个顶层模块里 —— 它需要 `AppHandle`
+// （app-data 目录是读写 DPAPI 密文的唯一入口），而 `remote/` 目录是**无 tauri**的
+// 内核层，碰了 `tauri::` 会让 `cargo test --lib` 的测试二进制在加载阶段崩掉。
+mod onedrive_oauth;
 mod open_with;
 mod process_runner;
+mod quark_login;
+pub mod remote;
+pub mod startup_probe;
 mod startup_storage_bootstrap;
 mod system_clipboard;
 mod system_icons;
@@ -31,6 +60,9 @@ mod terminal;
 mod url_drop;
 mod user_storage_files_config;
 pub mod utils;
+mod version_json;
+mod webview_guard;
+mod webview_guard_runtime;
 mod windows_installation;
 #[cfg(windows)]
 mod windows_print_view_webview;
@@ -91,15 +123,37 @@ fn is_sfm_absorbed_shell_path(path: &str) -> bool {
 }
 
 #[cfg(windows)]
+#[allow(dead_code)]
 fn open_in_native_explorer(path: &str) {
-    let _ = std::process::Command::new("explorer.exe").arg(path).spawn();
+    // FORK-MODIFICATION (2026-11-01)：**只加日志，不改语义**。
+    // 以前 `let _ = ...spawn()` 把错误整个吞掉，失败时日志里一行都没有，
+    // 事后根本没法判断是哪个 path 出的问题。
+    //
+    // FORK-MODIFICATION (2026-11-19)：**当前没有调用点**。
+    // 以前唯一的调用点是 `delegate_shell_namespace_paths`（启动参数里的 shell
+    // namespace 路径自动踢给原生资源管理器），那条委派已经取消 ——
+    // 手机 / 设备节点只有 AFM 自己能读，踢给 explorer.exe 等于「点了没反应」。
+    // 函数本体保留：将来要手动「在系统资源管理器中打开」时直接用。
+    match std::process::Command::new("explorer.exe").arg(path).spawn() {
+        Ok(_) => log::info!("[reveal] open_in_native_explorer spawned: path={path}"),
+        Err(error) => {
+            log::error!("[reveal] open_in_native_explorer failed: path={path} error={error}")
+        }
+    }
 }
 
 #[cfg(windows)]
 struct ShellFilterResult {
     filtered_args: Vec<String>,
     had_absorbed_paths: bool,
+    /// 自动委派给 `explorer.exe` 的路径。
+    ///
+    /// FORK-MODIFICATION 2026-11-19：**恒为空**。自动委派已取消
+    /// （AFM 是默认文件管理器，不能把用户点开的设备踢回原生资源管理器）。
+    /// 字段保留是为了「万一将来要恢复显式委派」时不用改调用方。
     delegated_paths: Vec<String>,
+    /// 保留在 `filtered_args` 里、准备交给前端打开的 shell namespace 路径。
+    kept_shell_paths: Vec<String>,
 }
 
 #[cfg(windows)]
@@ -113,7 +167,8 @@ impl ShellFilterResult {
 fn filter_shell_namespace_args(args: Vec<String>) -> ShellFilterResult {
     let mut filtered = Vec::with_capacity(args.len());
     let mut had_absorbed_paths = false;
-    let mut delegated_paths = Vec::new();
+    let delegated_paths = Vec::new();
+    let mut kept_shell_paths = Vec::new();
 
     for (index, arg) in args.into_iter().enumerate() {
         if index == 0 {
@@ -123,10 +178,23 @@ fn filter_shell_namespace_args(args: Vec<String>) -> ShellFilterResult {
 
         if is_shell_namespace_path(&arg) {
             if is_sfm_absorbed_shell_path(&arg) {
+                // 「此电脑」这类精确串：仍然只置标志、**不进** filtered_args
+                // （双击「此电脑」→ 位置页的老行为不变）。
                 had_absorbed_paths = true;
-            } else {
-                delegated_paths.push(arg);
+                continue;
             }
+
+            // FORK-MODIFICATION 2026-11-19：其它 shell namespace 路径
+            // （手机 / 设备节点，形态是 `::{20D04FE0-...}\\?\usb#vid_...`）
+            // **保留**在 filtered_args 里，交给前端打开。
+            //
+            // 以前这里是「从 filtered_args 删掉 + 自动委派 explorer.exe」，
+            // 结果是：AFM 收不到路径（前端没东西可打开），路径又被踢给原生
+            // 资源管理器 —— 与「AFM 是默认文件管理器」互相踢皮球。
+            let path = arg;
+            log::info!("[launch] shell namespace path kept: path={path}");
+            kept_shell_paths.push(path.clone());
+            filtered.push(path);
             continue;
         }
 
@@ -137,13 +205,7 @@ fn filter_shell_namespace_args(args: Vec<String>) -> ShellFilterResult {
         filtered_args: filtered,
         had_absorbed_paths,
         delegated_paths,
-    }
-}
-
-#[cfg(windows)]
-fn delegate_shell_namespace_paths(paths: &[String]) {
-    for path in paths {
-        open_in_native_explorer(path);
+        kept_shell_paths,
     }
 }
 
@@ -216,51 +278,109 @@ fn get_launch_context() -> LaunchContext {
     }
 }
 
+// FORK-MODIFICATION 2026-10-20：移植上游 8908e214。
+//
+// 单实例的「第二个实例把启动参数交给第一个」这段逻辑抽成独立函数，
+// 是为了在 e2e 隔离模式下**整个不装**这个插件 —— 隔离实例不能把启动
+// 交接给一个正在用真实数据运行的已安装 SFM。
+fn handle_second_instance(app: &tauri::AppHandle, argv: Vec<String>, cwd: String) {
+    #[cfg(windows)]
+    {
+        let filter_result = filter_shell_namespace_args(argv);
+        // FORK-MODIFICATION 2026-11-19：**不再自动委派 explorer.exe**。
+        // shell namespace 路径（手机 / 设备节点）现在留在 filtered_args 里由
+        // AFM 自己读；踢给原生资源管理器等于「点了没反应」。
+        //
+        // has_openable_paths 的口径跟着改了：以前只看「有没有文件系统路径」，
+        // 现在「保留下来的 shell namespace 路径」也算可打开 —— 否则第二个实例
+        // 带着手机路径启动时，前端什么也收不到。
+        let has_openable_paths =
+            filter_result.filtered_args.len() > 1 || !filter_result.kept_shell_paths.is_empty();
+        // 最后一项 `!had_delegated_paths()` 现在恒为 true（自动委派已取消），
+        // 保留是为了维持旧行为：「第二个实例总是把主窗口拉到前台」。
+        let should_focus = has_openable_paths
+            || filter_result.had_absorbed_paths
+            || !filter_result.had_delegated_paths();
+
+        if should_focus {
+            system_tray::focus_main_window(app);
+        }
+
+        if has_openable_paths {
+            let had_delegated_shell_paths = filter_result.had_delegated_paths();
+            let launch_context = build_launch_context(
+                filter_result.filtered_args,
+                Some(cwd),
+                filter_result.had_absorbed_paths,
+                had_delegated_shell_paths,
+            );
+            let _ = app.emit("app-launch-args", launch_context);
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        system_tray::focus_main_window(app);
+        let launch_context = build_launch_context(argv, Some(cwd), false, false);
+        let _ = app.emit("app-launch-args", launch_context);
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    // 2026-10-10 启动崩溃 0xc0000005 的定位分界线。
+    //
+    // WER 报告显示故障时 EmbeddedBrowserWebView.dll **已加载**，说明进程活过了
+    // WebView2 初始化；但偏移量无法映射（崩溃二进制已不存在）。
+    // 这两条标记把「Tauri 初始化」切成两半，下次复现时可直接读出进程死在哪一侧：
+    //   只有 pre_tauri            → 死在 wry / WebView2 创建窗口期间
+    //   pre_tauri + builder_built → 死在 setup_handler 或更后面
+    //
+    // builder_built 必须打在 .run() 之前：.run() 内部才真正创建窗口并加载 WebView2。
+    startup_probe::mark("run: entering tauri builder");
+
+    // FORK-MODIFICATION 2026-10-20：移植上游 8908e214。
+    //
+    // 必须在任何线程 / WebView 存在之前调用：它会把 WebView2 的 profile 目录
+    // 指到隔离目录，并在 debug 构建下创建那批隔离子目录。
+    // release 构建里这段是编译不进去的（`cfg!(debug_assertions)`），
+    // 所以对正式发布的包**零影响**。
+    app_dirs::prepare_isolated_environment();
+
+    // 清理上一轮异常退出留下的 WebView2 孤儿进程。
+    // 它们会锁住 WebView2 用户数据目录，导致本次启动创建 webview 时失败
+    // （WebView2 error 0x800700AA）并 panic 退出（exit code 101）。
+    // 必须在任何 WebView2 进程被创建之前调用。
+    orphan_webview::cleanup_orphan_webview_processes();
+
+    // 窗口状态文件：隔离模式下插件要把状态写到隔离目录的 config 下，
+    // 否则 e2e 会读到用户上次真实使用时的窗口位置。
+    let mut window_state_plugin = tauri_plugin_window_state::Builder::default()
+        .with_state_flags(main_window_state::state_flags())
+        .with_denylist(&["quick-view"])
+        // main 窗口的状态由 `main_window_state::restore_main_window_state`
+        // 手动、分段恢复（见那个文件里的原因）。插件自己那套自动恢复
+        // 发生在窗口还没就绪的时候，会把「上次全屏时保存的整屏尺寸」
+        // 生硬套上去，窗口比工作区还高，底部跑到屏幕外。
+        .skip_initial_state("main");
+    if let Some(window_state_file) = app_dirs::window_state_file_override() {
+        window_state_plugin = window_state_plugin.with_filename(window_state_file);
+    }
+
+    let mut builder = tauri::Builder::default()
         .manage(startup_storage_bootstrap::StartupStorageBootstrapState::default())
-        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
-            #[cfg(windows)]
-            {
-                let filter_result = filter_shell_namespace_args(argv);
-                delegate_shell_namespace_paths(&filter_result.delegated_paths);
-                let has_filesystem_paths = filter_result.filtered_args.len() > 1;
-                let should_focus = has_filesystem_paths
-                    || filter_result.had_absorbed_paths
-                    || !filter_result.had_delegated_paths();
+        // WebView2 子进程崩溃兜底的状态。看门狗线程由 setup_handler 启动。
+        .manage(webview_guard_runtime::WebviewGuardState::default());
 
-                if should_focus {
-                    system_tray::focus_main_window(app);
-                }
+    // 隔离的 e2e 实例不能把启动交接给（也不能去聚焦）一个正在用真实数据
+    // 运行的已安装 SFM，所以隔离模式下整个不装单实例插件。
+    if !app_dirs::is_isolated() {
+        builder = builder.plugin(tauri_plugin_single_instance::init(handle_second_instance));
+    }
 
-                if has_filesystem_paths {
-                    let had_delegated_shell_paths = filter_result.had_delegated_paths();
-                    let launch_context = build_launch_context(
-                        filter_result.filtered_args,
-                        Some(cwd),
-                        filter_result.had_absorbed_paths,
-                        had_delegated_shell_paths,
-                    );
-                    let _ = app.emit("app-launch-args", launch_context);
-                }
-            }
-
-            #[cfg(not(windows))]
-            {
-                system_tray::focus_main_window(app);
-                let launch_context = build_launch_context(argv, Some(cwd), false, false);
-                let _ = app.emit("app-launch-args", launch_context);
-            }
-        }))
+    let app = builder
         .plugin(tauri_plugin_store::Builder::new().build())
-        .plugin({
-            use tauri_plugin_window_state::StateFlags;
-            tauri_plugin_window_state::Builder::default()
-                .with_state_flags(StateFlags::all() & !StateFlags::VISIBLE)
-                .with_denylist(&["quick-view"])
-                .build()
-        })
+        .plugin(window_state_plugin.build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_dialog::init())
@@ -274,9 +394,76 @@ pub fn run() {
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
+            app_dirs::get_app_dirs,
             configure_webview_hide_pdf_more_settings,
+            drag_no_activate::set_drag_no_activate,
+            drag_no_activate::clear_drag_no_activate,
+            drag_no_activate::focus_main_window,
+            drag_no_activate::drag_no_activate_status,
+            drag_no_activate::left_mouse_button_down,
+            drag_no_activate::drag_no_activate_trace,
+            drag_no_activate::probe_pointer_over_external_window,
+            drag_no_activate::capture_outbound_drag_target,
+            drag_no_activate::restore_outbound_drag_foreground,
+            drag_no_activate::begin_outbound_drag_activation_watch,
+            drag_no_activate::end_outbound_drag_activation_watch,
             get_launch_context,
             startup_storage_bootstrap::get_startup_storage_bootstrap,
+            remote::remote_save_credential,
+            remote::remote_load_credential,
+            remote::remote_delete_credential,
+            remote::remote_baidu_save_session,
+            remote::remote_baidu_auth_status,
+            remote::remote_baidu_delete_session,
+            baidu_login::remote_baidu_login_start,
+            baidu_login::remote_baidu_login_pending,
+            baidu_login::remote_baidu_login_claim,
+            baidu_login::remote_baidu_login_cancel,
+            remote::remote_quark_save_session,
+            remote::remote_quark_auth_status,
+            remote::remote_quark_delete_session,
+            quark_login::remote_quark_login_start,
+            quark_login::remote_quark_login_pending,
+            quark_login::remote_quark_login_claim,
+            quark_login::remote_quark_login_cancel,
+            aliyun_login::remote_aliyun_qr_start,
+            aliyun_login::remote_aliyun_qr_poll,
+            aliyun_login::remote_aliyun_login_start,
+            aliyun_login::remote_aliyun_login_observed,
+            aliyun_login::remote_aliyun_login_close,
+            aliyun_login::remote_aliyun_save_session,
+            aliyun_login::remote_aliyun_login_pending,
+            aliyun_login::remote_aliyun_login_claim,
+            aliyun_login::remote_aliyun_login_cancel,
+            aliyun_login::remote_aliyun_auth_status,
+            aliyun_login::remote_aliyun_delete_session,
+            // OneDrive（批次 38）：实现在顶层 `onedrive_oauth` 模块
+            // （它需要 `AppHandle`，而 `remote/` 目录禁 tauri）。
+            onedrive_oauth::remote_onedrive_login_start,
+            onedrive_oauth::remote_onedrive_login_pending,
+            onedrive_oauth::remote_onedrive_login_claim,
+            onedrive_oauth::remote_onedrive_login_cancel,
+            onedrive_oauth::remote_onedrive_auth_status,
+            onedrive_oauth::remote_onedrive_save_session,
+            onedrive_oauth::remote_onedrive_delete_session,
+            remote::remote_test_connection,
+            remote::remote_read_dir,
+            remote::remote_stat_dir_entry,
+            remote::remote_list_known_hosts,
+            remote::remote_trust_host,
+            remote::remote_forget_host,
+            remote::remote_upload_paths,
+            remote::remote_download_paths,
+            remote::remote_chmod,
+            remote::remote_get_permissions,
+            remote::remote_remove_path,
+            remote::remote_make_dir,
+            remote::remote_rename_path,
+            remote::remote_generate_thumbnail,
+            compare::commands::compare_directories,
+            compare::commands::preview_compare_sync,
+            compare::commands::start_compare_sync_job,
+            compare::commands::cancel_compare_sync_job,
             default_file_manager::default_file_manager_available,
             default_file_manager::is_default_file_manager,
             default_file_manager::set_default_file_manager,
@@ -290,8 +477,11 @@ pub fn run() {
             dir_reader::get_dir_entry_with_timeout,
             dir_reader::get_link_metadata_batch,
             dir_reader::get_dir_item_counts_batch,
+            dir_reader::resolve_reveal_entry_target,
             dir_reader::resolve_windows_directory_shortcut,
             dir_reader::get_system_drives,
+            dir_reader::get_shell_devices,
+            dir_reader::resolve_shell_path_chain,
             dir_reader::get_parent_dir,
             dir_reader::path_exists,
             dir_reader::path_is_regular_file,
@@ -299,6 +489,7 @@ pub fn run() {
             dir_reader::paths_are_directories,
             dir_reader::path_volume_is_case_sensitive,
             dir_reader::path_comparison_volume_roots,
+            dir_reader::reveal_in_explorer,
             dir_reader::get_mountable_devices,
             dir_reader::mount_drive,
             dir_reader::unmount_drive,
@@ -324,8 +515,19 @@ pub fn run() {
             archive::encoding::check_archive,
             copy_move_job::start_copy_move_job,
             copy_move_job::cancel_copy_move_job,
+            delete_job::recycle_bin_unavailable_paths,
+            // FORK-MODIFICATION 2026-11-01：`scan_delete_targets` 已注销。
+            //
+            // 那是删除**之前**另起的一趟同步预扫描 ⇒ Tauri v2 把它跑在主线程上
+            // ⇒ 扫一棵大树时整个窗口冻住，用户看到的就是「删除后长时间无响应」。
+            // 规模现在由删除作业自己的扫描阶段产出（同一趟遍历，不重复扫）。
             delete_job::start_delete_job,
             delete_job::cancel_delete_job,
+            // FORK-MODIFICATION 2026-10-24：解除文件锁定 / 彻底删除。
+            file_lock_commands::diagnose_file_locks,
+            file_lock_commands::unlock_file,
+            file_lock_commands::force_delete_path,
+            file_lock_commands::terminate_lock_holder_processes,
             global_search::global_search_init,
             global_search::global_search_get_status,
             global_search::global_search_start_scan,
@@ -333,9 +535,15 @@ pub fn run() {
             global_search::global_search_index_paths,
             global_search::global_search_query,
             global_search::global_search_query_paths,
+            global_search::global_search_index_remote_connections,
+            global_search::global_search_remote_index_state,
+            global_search::search_directory_recursive,
             image_thumbnails::cache_video_thumbnail,
+            image_thumbnails::clear_thumbnail_cache,
             image_thumbnails::generate_image_thumbnail,
             image_thumbnails::get_cached_video_thumbnail,
+            image_thumbnails::get_thumbnail_cache_stats,
+            image_edit_commands::apply_image_edit,
             open_with::get_associated_programs,
             open_with::open_with_program,
             open_with::open_with_default,
@@ -408,12 +616,26 @@ pub fn run() {
             extensions::get_shared_binaries_base_dir,
             extensions::fetch_github_tags,
             extensions::fetch_url_text,
-            background_sources::resolve_background_source_to_cache,
             background_sources::download_url_to_path,
             background_sources::copy_files_to_backgrounds,
             lan_share::start_lan_share,
             lan_share::stop_lan_share,
             lan_share::get_local_ip,
+            batch_rename::batch_rename_preview,
+            batch_rename::batch_rename_execute,
+            batch_rename::batch_rename_history,
+            batch_rename::batch_rename_undo,
+            mcp::commands::mcp_get_status,
+            mcp::commands::mcp_set_mode,
+            mcp::commands::mcp_get_client_config,
+            mcp::commands::mcp_rotate_token,
+            mcp::commands::mcp_sync_favorites,
+            mcp::commands::mcp_get_audit_log,
+            mcp::commands::mcp_list_clients,
+            mcp::commands::mcp_install_client,
+            mcp::commands::mcp_uninstall_client,
+            webview_guard_runtime::webview_guard_heartbeat,
+            webview_guard_runtime::webview_guard_status,
         ])
         .setup(setup_handler)
         .on_window_event(|window, event| {
@@ -427,28 +649,142 @@ pub fn run() {
             }
             if let tauri::WindowEvent::Destroyed = event {
                 if window.label() == "main" {
+                    // FORK-MODIFICATION 2026-11-19（B25-2）：主窗口真正销毁时
+                    // 把文件系统 watch 放掉，别让卷根句柄跟着进程活到最后一刻。
+                    release_all_filesystem_watches("window destroyed");
                     tokio::spawn(async { lan_share::stop_lan_share().await.ok() });
                 }
             }
         })
         .on_menu_event(system_tray::handle_menu_event)
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build({
+            // 必须在 .run() 之前落盘：真正的窗口创建与 WebView2 加载发生在
+            // .run() 内部，这条标记是「进去之前」的最后一站。
+            startup_probe::mark("run: builder built, entering .run()");
+            tauri::generate_context!()
+        })
+        .expect("error while building tauri application");
+
+    // 这里用 `build()` + `App::run()`，而不是一把梭的 `Builder::run()`：
+    // 后者拿不到 `RunEvent`，而看门狗必须知道「应用正在退出」——
+    // 退出时 WebView2 的子进程会先死，没有这个信号就会被误判成
+    // 「浏览器进程消失」，然后弹出一个莫名其妙的重启提示框。
+    app.run(|app_handle, event| {
+        if matches!(
+            event,
+            tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
+        ) {
+            webview_guard_runtime::mark_shutting_down(app_handle);
+        }
+        // Focus Sync 侧车跟着应用退出。只在真正的 Exit 上杀：ExitRequested
+        // 可能被托盘逻辑取消，此时不应该把侧车拆掉。
+        if matches!(event, tauri::RunEvent::Exit) {
+            // FORK-MODIFICATION 2026-11-19（B25-2）：退出兜底释放。
+            // 点关闭按钮只是 `hide()`（托盘常驻），句柄全都还在，
+            // 所以正常路径靠 WM_DEVICECHANGE 按卷释放；这里是最后一道。
+            release_all_filesystem_watches("app exit");
+            focus_sync_sidecar::stop(app_handle);
+        }
+    });
+}
+
+/// FORK-MODIFICATION 2026-11-19（B25-2）：把所有文件系统 watch 一次放掉。
+///
+/// 为什么要有这一条：Windows 上只要进程还持有卷内任意目录的句柄，
+/// 「安全弹出」就会被 `CR_REMOVE_VETOED (23)` 挡掉，用户只能硬拔 ——
+/// 拔了可能损坏 U 盘上的文件系统。正常路径由 `device_events` 在收到
+/// `WM_DEVICECHANGE` 时按卷释放，这里是关窗/退出的兜底。
+///
+/// 幂等：两个 release 都返回「实际放掉的数量」，重复调用第二次得到 0。
+fn release_all_filesystem_watches(reason: &'static str) {
+    let released_dirs = dir_watcher::release_all_watches();
+    let released_roots = global_search::release_all_root_watches();
+
+    log::info!(
+        "[shutdown] released filesystem watches ({reason}): {released_dirs} dir watcher handle(s), {released_roots} index root(s)"
+    );
 }
 
 fn setup_handler(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    if cfg!(debug_assertions) {
-        app.handle().plugin(
-            tauri_plugin_log::Builder::default()
-                .level(log::LevelFilter::Info)
-                .build(),
-        )?;
+    // 与日志插件并行落盘：即使后面插件初始化失败，这条也已经在磁盘上，
+    // 足以证明「进程活过了 WebView2 与窗口创建」。
+    startup_probe::mark("setup_handler: entered");
+
+    // v2.2.0-beta (2026-10-10): this used to be gated behind
+    // cfg!(debug_assertions), so a shipped build wrote nothing anywhere. That
+    // is why the 0xc0000005 startup crash left no trace to diagnose from.
+    //
+    // Builder::default() already targets LogDir, so the file lands in the
+    // Taurilog app log directory on release too. The plugin's own default
+    // max file size is only 40 KB, which is too small to be useful after the
+    // fact, so raise it. KeepOne keeps growth bounded (no unbounded rotated
+    // history on end-user machines).
+    //
+    // FORK-MODIFICATION 2026-10-20：移植上游 8908e214 ——
+    // 隔离的 e2e 实例要把日志写进隔离目录，否则 CI 收不到失败现场，
+    // 而且真实用户目录里会多出一份测试日志。
+    let mut log_plugin = tauri_plugin_log::Builder::default()
+        .level(log::LevelFilter::Info)
+        .max_file_size(2 * 1024 * 1024)
+        .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepOne);
+    if let Some(log_dir) = app_dirs::log_dir_override() {
+        log_plugin = log_plugin.targets([
+            tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+            tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Folder {
+                path: log_dir,
+                file_name: None,
+            }),
+        ]);
     }
+    app.handle().plugin(log_plugin.build())?;
+    log::info!(
+        "setup_handler: app started, version={}, exe={}",
+        app.package_info().version,
+        std::env::current_exe()
+            .map(|p| p.display().to_string())
+            .unwrap_or_default(),
+    );
 
     system_tray::setup_system_tray(app.handle())?;
+
+    // WebView2 子进程崩溃兜底：启动看门狗线程。
+    // 判定逻辑在 webview_guard.rs（纯逻辑，不引用 tauri），这里只做接线。
+    webview_guard_runtime::start_webview_guard(app.handle());
+    // Focus Sync 侧车：随应用启动，随应用退出（见 focus_sync_sidecar 模块注释）。
+    // 找不到二进制属于正常（用户没装该扩展），只记日志。
+    focus_sync_sidecar::start(app.handle());
+
+    // FORK-MODIFICATION 2026-11-19（B25-2）：接上 `WM_DEVICECHANGE`。
+    //
+    // U 盘弹不出来（`CR_REMOVE_VETOED = 23`）的直接原因是本进程持着卷根句柄：
+    // 全局搜索索引对每个盘根 `watch(root, Recursive)`，文件浏览器对当前目录
+    // 也有 notify watch。device_events 收到移除广播时先把这些句柄放掉再放行。
+    //
+    // 发送器在这里以闭包注入，`device_events.rs` 内部刻意不出现 `tauri::*`：
+    // 测试二进制一旦单态化 `AppHandle` 就会拖进 tao 的窗口链，而它缺
+    // comctl32 v6 manifest，`cargo test --lib` 会在加载阶段直接 0xC0000139
+    // （同一个坑见 `dir_reader.rs` 与 `mcp/mod.rs` 顶部的记录）。
+    {
+        let handle = app.handle().clone();
+        device_events::init(move |payloads| {
+            for payload in payloads {
+                if let Err(error) = handle.emit(device_events::VOLUME_EVENT, &payload) {
+                    log::warn!("[device-events] failed to emit volume event: {error}");
+                }
+            }
+        });
+    }
     startup_storage_bootstrap::migrate_legacy_user_storage_filenames(app.handle());
+    // FORK-MODIFICATION 2026-10-20：移植上游 8908e214。
+    //
+    // 迁移会改写用户**真实**的默认文件管理器注册表集成 —— 那个东西住在
+    // app 目录之外，隔离目录管不到它。所以隔离的 e2e 实例整段跳过。
     #[cfg(windows)]
-    if let Err(error) = default_file_manager::migrate_legacy_default_file_manager(app.handle()) {
+    if app_dirs::is_isolated() {
+        log::info!("Isolated e2e data folder in use; skipping default file manager migration");
+    } else if let Err(error) =
+        default_file_manager::migrate_legacy_default_file_manager(app.handle())
+    {
         eprintln!("Failed to migrate legacy default file manager integration: {error}");
     }
     startup_storage_bootstrap::start_preload(
@@ -458,26 +794,73 @@ fn setup_handler(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
             .clone(),
     );
 
+    // MCP：注入审计目录与索引目录，并按上次保存的档位决定要不要监听端口。
+    // 档位为「关闭」时 bootstrap 直接返回，不占用任何端口。
+    {
+        let handle = app.handle().clone();
+        tauri::async_runtime::spawn(async move {
+            mcp::commands::bootstrap(handle).await;
+        });
+    }
+
     let raw_args: Vec<String> = std::env::args().collect();
 
     #[cfg(windows)]
     let should_hide_main_window_on_startup = {
-        let filter_result = filter_shell_namespace_args(raw_args.clone());
-        delegate_shell_namespace_paths(&filter_result.delegated_paths);
+        // FORK-MODIFICATION 2026-11-19：自动委派 explorer.exe 已取消，
+        // 「只带被委派路径启动 → 隐藏主窗口」这个场景不再存在 ——
+        // shell namespace 路径现在由 AFM 自己打开，窗口该显示就显示。
         url_drop::setup(app.handle());
+        // T1/U1 探针：仅在 AFM_BAIDU_PROBE=1 时生效，否则立即返回、零副作用。
+        // 见 src-tauri/src/baidu_probe.rs 顶部说明（含 cargo test --lib 红线）。
+        baidu_probe::install(app.handle());
+        // 端到端自检：仅在 AFM_BAIDU_SELFTEST=1 时生效，
+        // 跑「开登录窗 → 等登录态 → 认领落盘」的真实命令链路。
+        baidu_probe::install_selftest(app.handle());
 
-        let launched_only_with_delegated_paths = !filter_result.had_absorbed_paths
-            && filter_result.had_delegated_paths()
-            && filter_result.filtered_args.len() <= 1;
-
-        launched_from_autostart(&raw_args) || launched_only_with_delegated_paths
+        launched_from_autostart(&raw_args)
     };
 
     #[cfg(not(windows))]
     let should_hide_main_window_on_startup = launched_from_autostart(&raw_args);
 
-    if !should_hide_main_window_on_startup {
-        if let Some(main_window) = app.get_webview_window("main") {
+    if let Some(main_window) = app.get_webview_window("main") {
+        // 上游的修复：分三段恢复窗口状态，修「全屏 / 最大化 / 贴边之后
+        // 窗口状态坏掉」。原因见 `main_window_state.rs` 顶部的说明。
+        main_window_state::restore_main_window_state(&main_window);
+
+        // 「长按文件/目录拖出时不抢前台」的窗口子类。
+        //
+        // 必须在 UI 线程上装（setup 闭包就跑在 UI 线程），而且要在窗口建好
+        // 之后 —— 详见 drag_no_activate.rs 顶部的说明。
+        //
+        // 注意 `hwnd()` 返回的是 Tauri 自己那版 windows crate 的 HWND 类型
+        // （0.62），本仓用的是 0.58 —— 两个类型不同源，不能直接传，
+        // 所以只取裸指针当 isize 传过去。
+        #[cfg(windows)]
+        if let Ok(hwnd) = main_window.hwnd() {
+            drag_no_activate::setup(hwnd.0 as isize);
+        }
+
+        if !should_hide_main_window_on_startup {
+            // 启动默认最大化（2026-10-11）。
+            //
+            // 为什么放在这里而不是 tauri.conf.json 里写 `"maximized": true`：
+            // tauri-plugin-window-state 会在 setup 阶段恢复用户上次的尺寸与位置，
+            // 它恢复出来的状态会覆盖 conf 里的初值 —— 那样只有「首次启动」会最大化，
+            // 用户手动改过尺寸之后就再也不最大化了，达不到「默认」的效果。
+            //
+            // 所以这里显式调用 maximize()，且**必须在 show() 之前**：
+            // Windows 上对不可见窗口 maximize 有时不会立即生效，
+            // show() 之后再最大化会出现「先闪一下小窗再放大」。
+            //
+            // 幂等：窗口已经是最大化时再次调用不改变任何东西，
+            // 因此自启动（窗口保持隐藏）路径不受影响。
+            //
+            // 与上游的差别：上游是「恢复你上次离开时的状态」，本仓是「一律最大化」。
+            // 所以这里在最大化之前先退出全屏 —— 对全屏窗口调 maximize() 会得到
+            // 「既全屏又最大化」的怪状态（标题栏叠在任务栏上）。
+            main_window_state::apply_startup_maximized(&main_window);
             let _ = main_window.show();
         }
     }
@@ -497,12 +880,55 @@ fn setup_handler(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
 mod tests {
     use super::filter_shell_namespace_args;
 
+    /// 手机（MTP）节点在 Windows 启动参数里的真实形态。
+    /// 必须是原样字符串：既不能规范化（`\` → `/`），也不能按 `/` 切分。
+    const PHONE_SHELL_PATH: &str = r#"::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\\?\usb#vid_22d9&pid_2765&mi_00#6&337f5e7c&1&0000#{6ac27878-a6fa-4155-ba85-f98f491d4f33}\SID-{10001,,1001925963776}"#;
+
+    /// FORK-MODIFICATION 2026-11-19：设备节点路径**保留**在 filtered_args 里。
+    ///
+    /// 以前这里是「删掉 + 委派 explorer.exe」，AFM 自己反而收不到路径。
     #[test]
-    fn delegated_shell_namespace_paths_are_removed_from_launch_args() {
+    fn kept_shell_namespace_path_stays_in_launch_args() {
         let result = filter_shell_namespace_args(vec![
             "sigma-file-manager.exe".to_string(),
-            "shell:downloads".to_string(),
+            PHONE_SHELL_PATH.to_string(),
+        ]);
+
+        assert_eq!(
+            result.filtered_args,
+            vec![
+                "sigma-file-manager.exe".to_string(),
+                PHONE_SHELL_PATH.to_string()
+            ]
+        );
+        assert_eq!(result.kept_shell_paths, vec![PHONE_SHELL_PATH.to_string()]);
+        assert!(!result.had_absorbed_paths);
+    }
+
+    /// FORK-MODIFICATION 2026-11-19：「此电脑」精确串的老行为不变 ——
+    /// 只置 absorbed 标志，不进 filtered_args。
+    #[test]
+    fn absorbed_computer_folder_path_is_not_kept() {
+        let result = filter_shell_namespace_args(vec![
+            "sigma-file-manager.exe".to_string(),
+            "::{20D04FE0-3AEA-1069-A2D8-08002B30309D}".to_string(),
+        ]);
+
+        assert_eq!(
+            result.filtered_args,
+            vec!["sigma-file-manager.exe".to_string()]
+        );
+        assert!(result.kept_shell_paths.is_empty());
+        assert!(result.had_absorbed_paths);
+    }
+
+    /// 普通文件系统路径不受影响。
+    #[test]
+    fn ordinary_filesystem_paths_are_untouched() {
+        let result = filter_shell_namespace_args(vec![
+            "sigma-file-manager.exe".to_string(),
             "C:\\Users\\aleks\\Documents".to_string(),
+            "D:\\media".to_string(),
         ]);
 
         assert_eq!(
@@ -510,26 +936,22 @@ mod tests {
             vec![
                 "sigma-file-manager.exe".to_string(),
                 "C:\\Users\\aleks\\Documents".to_string(),
+                "D:\\media".to_string(),
             ]
         );
-        assert_eq!(result.delegated_paths, vec!["shell:downloads".to_string()]);
+        assert!(result.kept_shell_paths.is_empty());
         assert!(!result.had_absorbed_paths);
-        assert!(result.had_delegated_paths());
     }
 
+    /// 自动委派已取消：保留下来的 shell 路径**不**进 delegated_paths。
     #[test]
-    fn absorbed_shell_namespace_paths_are_tracked_without_delegation() {
+    fn kept_shell_namespace_path_is_not_delegated() {
         let result = filter_shell_namespace_args(vec![
             "sigma-file-manager.exe".to_string(),
-            "shell:MyComputerFolder".to_string(),
+            PHONE_SHELL_PATH.to_string(),
         ]);
 
-        assert_eq!(
-            result.filtered_args,
-            vec!["sigma-file-manager.exe".to_string()]
-        );
         assert!(result.delegated_paths.is_empty());
-        assert!(result.had_absorbed_paths);
         assert!(!result.had_delegated_paths());
     }
 }

@@ -2,6 +2,10 @@
 // License: GNU GPLv3 or later. See the license file in the project root for more information.
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
+// FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）。
+// 档位类型只有**一份**定义，在 @/utils/font-size —— 这里不再另起一份。
+import type { FontSizeTier } from '@/utils/font-size';
+
 type NestedPaths<T, K extends keyof T = keyof T> = K extends string
   ? T[K] extends Record<string, unknown>
     ? T[K] extends unknown[]
@@ -46,7 +50,24 @@ export type UserDirectoryCustomization = {
 
 export type UserDirectoriesCustomizations = Record<string, UserDirectoryCustomization>;
 
-export type MixBlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'color-dodge' | 'color-burn' | 'hard-light' | 'soft-light' | 'difference' | 'exclusion' | 'hue' | 'saturation' | 'color' | 'luminosity';
+export type MixBlendMode
+  = | 'normal'
+    | 'darken'
+    | 'multiply'
+    | 'color-burn'
+    | 'lighten'
+    | 'screen'
+    | 'color-dodge'
+    | 'plus-lighter'
+    | 'overlay'
+    | 'soft-light'
+    | 'hard-light'
+    | 'difference'
+    | 'exclusion'
+    | 'color'
+    | 'luminosity';
+
+export type InfusionBlendTarget = 'ui' | 'fill';
 
 export type InfusionPageSettings = {
   blur: number;
@@ -56,6 +77,8 @@ export type InfusionPageSettings = {
   noise: number;
   noiseScale: number;
   mixBlendMode: MixBlendMode;
+  blendTarget: InfusionBlendTarget;
+  blendTint: string;
   background: {
     type: 'image' | 'video';
     path: string;
@@ -143,7 +166,16 @@ export type ShortcutId
     | 'uiZoomDecrease'
     | 'toggleFullscreen';
 
-export type UserShortcuts = Partial<Record<ShortcutId, UserShortcutStoredValue>>;
+/**
+ * 持久化的快捷键绑定表。
+ *
+ * 键有两种格式：
+ * - 新格式：动作注册表 id（`sigma.shortcut.<shortcutId>`）
+ * - 旧格式：历史 `ShortcutId`，只为兼容既有用户数据保留，读取时自动回落到旧逻辑
+ *
+ * 值与旧格式一致：单槽是一个键位组合，多槽是按槽位排列的数组。
+ */
+export type UserShortcuts = Partial<Record<string, UserShortcutStoredValue>>;
 
 export type ShortcutUserAlternateChordSlots = Partial<Record<ShortcutId, number[]>>;
 
@@ -168,6 +200,12 @@ export type PerformanceSettings = {
 
 export type TextSettings = {
   font: string;
+  // FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）。
+  // 三档是「默认 / 大 / 特大」，对应绝对 px 偏移 0 / 2 / 4。
+  // 档位类型只有**一份**定义，见 @/utils/font-size
+  // （本文件曾经另起过一份 'xlarge'，与真实档位名 'extra-large' 漂移过）。
+  // 可选：升级前的存档里没有这个字段，读侧必须兜得住（见 resolveFontSizeOffset）。
+  fontSize?: FontSizeTier;
 };
 
 export type ClipboardSettings = {
@@ -175,7 +213,9 @@ export type ClipboardSettings = {
   showToolbarForExternalPaths: boolean;
 };
 
-export type QuickAccessSectionId = 'favorites' | 'tagged';
+// FORK-MODIFICATION: 新增 `frequent` / `history` 两个 section（需求 N3②）。
+// 点击这两个 section 会切到仪表盘对应页签，见 `useRestoredActiveTab` 的反向 watch。
+export type QuickAccessSectionId = 'favorites' | 'tagged' | 'frequent' | 'history';
 
 export type UserSettings = {
   language: LocalizationLanguage;
@@ -245,7 +285,22 @@ export type LocalizationLanguage = {
   isRtl: boolean;
 };
 
-export type BuiltinThemeId = 'light' | 'dark' | 'system';
+// FORK-MODIFICATION 2026-10-30（AFM 3.6.7 · 主题精简）：六套 macOS Finder 风格主题与
+// 系统自带的「亮色（开发中）」已从**可选主题**中下架（见 `registry.ts` 的 `BUILTIN_THEME_IDS`）。
+// 但 `light` 必须保留在本类型里：它是 `ResolvedBuiltinThemeId` 与浅色 token 基座
+// （`src/styles/vars.css` 的 `:root`），AFM 浅色主题与扩展主题的 `baseTheme` 都依赖它。
+export type BuiltinThemeId
+  = | 'light'
+    | 'dark'
+    | 'system'
+    // FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：三套品牌重设计主题
+    // （暖纸浅色 / 暖纸暗色 / 跃动活力），与经典主题（暗色 / 跟随系统）并存可切换。
+    // 这三个 id 与 `src/modules/themes/afm-themes.ts` 里的 `AFM_THEME_IDS` 一一对应，
+    // 该文件有单测断言两边不漂移。
+    | 'afm-warm-light'
+    | 'afm-warm-dark'
+    | 'afm-vivid-light'
+    | 'afm-cool-light';
 export type Theme = BuiltinThemeId | `extension:${string}:${string}`;
 export type NavigatorIconTheme = string;
 
@@ -271,6 +326,7 @@ export type ListColumnVisibility = {
   linkStatus: boolean;
   items: boolean;
   size: boolean;
+  availableSpace: boolean;
   modified: boolean;
   created: boolean;
   tags: boolean;
@@ -280,6 +336,7 @@ export type ListColumnWidths = {
   name?: number;
   items?: number;
   size?: number;
+  availableSpace?: number;
   modified?: number;
   created?: number;
   tags?: number;
@@ -292,6 +349,7 @@ export type ListColumnFlexWeights = {
   name?: number;
   items?: number;
   size?: number;
+  availableSpace?: number;
   modified?: number;
   created?: number;
   tags?: number;
@@ -303,6 +361,9 @@ export type ListColumnFlexWeights = {
 export type ListReorderableColumnId
   = | 'items'
     | 'size'
+    // FORK-MODIFICATION 2026-10-20（用户 2026-10-20 00:05 附图要求）：
+    // 列表视图在「大小」右侧加一列「可用空间」。
+    | 'availableSpace'
     | 'modified'
     | 'created'
     | 'tags'
@@ -373,9 +434,18 @@ export type UserSettingsNavigator = {
   listColumnOrder: ListColumnOrder;
   listSortColumn: ListSortColumn | null;
   listSortDirection: ListSortDirection;
+  // FORK-MODIFICATION: 可关闭的文件夹优先排序（上游 #529/#481/#482）
+  foldersFirst: boolean;
   gridSortColumn: ListSortColumn | null;
   gridSortDirection: ListSortDirection;
   enableBoxSelection: boolean;
+  // FORK-MODIFICATION: 列表视图缩略图开关（上游 #231）
+  showListThumbnails: boolean;
+  // FORK-MODIFICATION: 缩略图大小四档（small / medium / large / xlarge），默认 medium。
+  //   缩略图像素 32 / 48 / 64 / 80，行高联动 48 / 64 / 80 / 96 逻辑像素。
+  //   其余档位参数（带说明行高、网格卡高、网格最小列宽）不要在这里抄第二份，
+  //   唯一度量来源是 navigator/components/file-browser/utils/file-browser-thumbnail-sizes.ts。
+  thumbnailSize: 'small' | 'medium' | 'large' | 'xlarge';
   increaseFileViewGaps: boolean;
   // FORK-MODIFICATION: sidebar tree toggle persistence (issue #499)
   showFolderTree?: boolean;

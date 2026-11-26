@@ -20,7 +20,7 @@ import { useLinkMetadataStore } from '@/stores/runtime/link-metadata';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import type { DirEntry } from '@/types/dir-entry';
 import type { RelativeTimeTranslations } from '@/modules/navigator/components/file-browser/utils';
-import { getPathDisplayValue } from '@/utils/normalize-path';
+import { useNativePath } from '@/composables/use-native-path';
 import { formatRelativeDateDisplay } from '@/utils/relative-date-display';
 import {
   getDirEntryKindKey,
@@ -39,6 +39,7 @@ const props = withDefaults(defineProps<{
 });
 
 const { t, locale } = useI18n();
+const { toNativeDisplayValue } = useNativePath();
 const dirSizesStore = useDirSizesStore();
 const linkMetadataStore = useLinkMetadataStore();
 const userSettingsStore = useUserSettingsStore();
@@ -155,7 +156,7 @@ const properties = computed<PropertyItem[]>(() => {
   });
   items.push({
     title: t('path'),
-    value: getPathDisplayValue(entry.path),
+    value: toNativeDisplayValue(entry.path),
   });
 
   if (entry.is_dir && entry.item_count !== null) {
@@ -218,7 +219,7 @@ const properties = computed<PropertyItem[]>(() => {
   });
   items.push({
     title: t('fileBrowser.linkTarget'),
-    value: entry.link_target ? getPathDisplayValue(entry.link_target) : '—',
+    value: entry.link_target ? toNativeDisplayValue(entry.link_target) : '—',
   });
   items.push({
     title: t('fileBrowser.linkStatus'),
@@ -417,7 +418,7 @@ watch(
   align-items: center;
   justify-content: center;
   color: hsl(var(--muted-foreground));
-  font-size: 13px;
+  font-size: calc(13px + var(--font-size-offset, 0px));
 }
 
 .info-panel-properties__list {
@@ -451,14 +452,14 @@ watch(
 
 .info-panel-properties__title {
   color: hsl(var(--muted-foreground));
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   line-height: inherit;
   text-transform: uppercase;
 }
 
 .info-panel-properties__value {
   color: hsl(var(--foreground));
-  font-size: 13px;
+  font-size: calc(13px + var(--font-size-offset, 0px));
   line-height: 1.4;
   word-break: break-all;
 }
@@ -466,7 +467,7 @@ watch(
 .info-panel-properties__compact-text {
   overflow: hidden;
   color: hsl(var(--muted-foreground));
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -499,7 +500,7 @@ watch(
 .info-panel-properties__calculated-ago {
   overflow: hidden;
   color: hsl(var(--muted-foreground) / 70%);
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;

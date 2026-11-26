@@ -13,7 +13,28 @@ use tantivy::schema::{
 };
 use tantivy::{Index, IndexReader, ReloadPolicy};
 
+/// **本地**索引的 schema。
+///
+/// ⚠️ **不要在这里加字段。** 本地索引是全盘扫描建出来的，schema 一变，
+/// 盘上的旧索引立刻作废（`open_or_create_index` 会把它整个清掉重建）
+/// ⇒ 所有用户都被迫重扫一次硬盘，几十分钟到几小时。
+///
+/// 云盘索引要加字段就加在 `build_remote_schema` 里 —— 那份索引只在用户
+/// 显式重建时刷新，改 schema 的代价只是「升级后重建一次」。
 pub(super) fn build_schema() -> (Schema, GlobalSearchIndexFields) {
+    build_schema_inner(false)
+}
+
+/// **云盘**索引的 schema —— 与本地**逐字一致**，只多一个 `connection_id` 字段。
+///
+/// 为什么要多这个字段：查询侧要按「当前勾选了哪些网盘」过滤结果。
+/// 过滤必须发生在**索引层**（`TermQuery` 打在 `connection_id` 上），
+/// 否则被取消勾选的网盘会先把候选预算吃光，勾选中的网盘反而一条都搜不到。
+pub(super) fn build_remote_schema() -> (Schema, GlobalSearchIndexFields) {
+    build_schema_inner(true)
+}
+
+fn build_schema_inner(with_connection_id: bool) -> (Schema, GlobalSearchIndexFields) {
     let mut schema_builder = Schema::builder();
 
     let name_indexing = TextFieldIndexing::default()
@@ -32,6 +53,15 @@ pub(super) fn build_schema() -> (Schema, GlobalSearchIndexFields) {
     let modified_time = schema_builder.add_u64_field("modified_time", FAST | STORED);
     let size = schema_builder.add_u64_field("size", FAST | STORED);
 
+    // ⚠️ **必须加在最后**：前面 7 个字段的顺序与本地索引逐字一致。
+    // `Schema` 的相等比较是**按顺序**比字段表的，顺序一变字段编号就跟着变，
+    // 两份索引共用同一套字段名做查询时会对不上。
+    let connection_id = if with_connection_id {
+        Some(schema_builder.add_text_field("connection_id", STRING | STORED))
+    } else {
+        None
+    };
+
     let schema = schema_builder.build();
     (
         schema,
@@ -43,12 +73,21 @@ pub(super) fn build_schema() -> (Schema, GlobalSearchIndexFields) {
             is_dir,
             modified_time,
             size,
+            connection_id,
         },
     )
 }
 
 pub(super) fn index_dir(base_dir: &Path) -> PathBuf {
     global_search_dir(base_dir).join("index")
+}
+
+/// 云盘索引目录。与本地索引**分开**放在 app-data 根下。
+///
+/// 单独一个目录的理由见 `global_search/remote_index.rs` 的模块头注释：
+/// 把云盘混进本地索引会让增量判定（`same_drive_roots`）每轮都不成立。
+pub(super) fn remote_index_dir(base_dir: &Path) -> PathBuf {
+    base_dir.join("remote-index")
 }
 
 fn global_search_dir(base_dir: &Path) -> PathBuf {
@@ -113,6 +152,14 @@ pub(super) struct GlobalSearchMeta {
     pub(super) last_scan_error: Option<String>,
     #[serde(default)]
     pub(super) indexed_drive_roots: Vec<String>,
+    #[serde(default)]
+    pub(super) last_scan_mode: Option<super::types::GlobalSearchScanMode>,
+    #[serde(default)]
+    pub(super) incremental_ready: bool,
+    #[serde(default)]
+    pub(super) incremental_watcher_generation: u64,
+    #[serde(default)]
+    pub(super) last_incremental_failed: bool,
 }
 
 pub(super) const SCHEMA_VERSION: u32 = 1;
@@ -292,6 +339,62 @@ pub(super) fn create_bulk_index_writer(index: &Index) -> Result<IndexWriter, Str
     Ok(writer)
 }
 
+/// 索引 segment 数量上限。
+///
+/// 上游用 `NoMergePolicy`（关掉后台自动合并），每提交一次扫描就多一个 segment。
+/// segment 越多，reader 需要 mmap 的文件越多，常驻内存与句柄随 segment 线性增长。
+pub(super) const MAX_INDEX_SEGMENTS: usize = 4;
+
+/// 提交之后显式合并 segment，把数量压回上限。返回被并进去的 segment 数。
+///
+/// 关键点：tantivy 的 `IndexWriter::merge()` 是**显式**合并入口，它直接走
+/// `segment_updater.make_merge_operation()`，**不经过 merge policy**；
+/// 而 `NoMergePolicy` 只负责让「后台自动合并」不发生。
+/// 于是两个目标可以同时成立：
+///   * 扫描过程中索引结构完全不动（`NoMergePolicy` 的稳定性意图，AFM 2026-06-24 加的）；
+///   * 扫描提交后 segment 数量不会无限增长（靠这里的显式 `merge()`）。
+///
+/// 合并对象取「文档数最少」的一批：合并代价与被合并体积成正比，
+/// 不必为了压数量把整个索引重写一遍。
+pub(super) fn merge_index_segments(writer: &mut IndexWriter) -> Result<usize, String> {
+    // `IndexWriter` 内部的 `Index` 与外部句柄共享同一份 segment 列表（`Arc<IndexInner>`），
+    // 但这份列表在 writer 提交后不会自动刷新，需要显式 `load_metas()` 重读 meta.json。
+    let segment_metas = {
+        let index = writer.index();
+        index.load_metas().map_err(|error| error.to_string())?;
+        index
+            .searchable_segment_metas()
+            .map_err(|error| error.to_string())?
+    };
+
+    if segment_metas.len() <= MAX_INDEX_SEGMENTS {
+        return Ok(0);
+    }
+
+    // 合并 k 个 segment 之后数量变成 n - k + 1，令其 <= 上限 ⇒ k >= n + 1 - 上限。
+    let needed = segment_metas.len() + 1 - MAX_INDEX_SEGMENTS;
+
+    let mut ordered = segment_metas;
+    ordered.sort_by_key(|meta| meta.num_docs());
+
+    let segment_ids: Vec<_> = ordered
+        .iter()
+        .take(needed)
+        .map(|meta| meta.id())
+        .collect();
+
+    // `merge()` 返回的 Future 会阻塞到合并真正结束（tantivy 的 `FutureResult::wait`）。
+    writer
+        .merge(&segment_ids)
+        .wait()
+        .map_err(|error| error.to_string())?;
+
+    // 合并后的 segment 列表要再提交一次才会落盘（meta.json）。
+    writer.commit().map_err(|error| error.to_string())?;
+
+    Ok(segment_ids.len())
+}
+
 pub(super) fn open_or_create_index(
     index_path: &Path,
 ) -> Result<(Index, IndexReader, GlobalSearchIndexFields), String> {
@@ -331,6 +434,24 @@ pub(super) fn create_fresh_index(
     ensure_dir(index_path)?;
 
     let (schema, fields) = build_schema();
+    let index = Index::create_in_dir(index_path, schema).map_err(|error| error.to_string())?;
+
+    Ok((index, fields))
+}
+
+/// 建一份**空**的云盘索引（云盘专用 schema，比本地多一个 `connection_id` 字段）。
+///
+/// 与 `create_fresh_index` 分家：本地索引的 schema 不能动（见 `build_schema`），
+/// 云盘索引必须带 `connection_id` —— 查询侧要靠它按当前勾选集合过滤。
+pub(super) fn create_fresh_remote_index(
+    index_path: &Path,
+) -> Result<(Index, GlobalSearchIndexFields), String> {
+    if index_path.exists() {
+        remove_dir_force(index_path)?;
+    }
+    ensure_dir(index_path)?;
+
+    let (schema, fields) = build_remote_schema();
     let index = Index::create_in_dir(index_path, schema).map_err(|error| error.to_string())?;
 
     Ok((index, fields))
@@ -467,6 +588,89 @@ mod tests {
 
         let error = validate_staged_index(&staged_path, 2).unwrap_err();
         assert!(error.contains("document count mismatch"));
+    }
+
+    #[test]
+    fn merge_index_segments_collapses_segments_above_limit() {
+        let temp = TempDir::new().unwrap();
+        let index_path = index_dir(temp.path());
+        let (index, fields) = create_fresh_index(&index_path).unwrap();
+
+        let mut writer = create_bulk_index_writer(&index).unwrap();
+
+        // `NoMergePolicy` 下每次 commit 产生一个新 segment，不会自动合并。
+        for round in 0..(MAX_INDEX_SEGMENTS + 3) {
+            let path_string = format!("/doc-{round}");
+            let name_string = format!("doc-{round}");
+            let name_lower_string = name_string.to_lowercase();
+
+            writer
+                .add_document(doc!(
+                    fields.path => path_string.as_str(),
+                    fields.name => name_string.as_str(),
+                    fields.name_lower => name_lower_string.as_str(),
+                    fields.is_file => 1u64,
+                    fields.is_dir => 0u64,
+                    fields.modified_time => 0u64,
+                    fields.size => 0u64,
+                ))
+                .unwrap();
+            writer.commit().unwrap();
+        }
+
+        index.load_metas().unwrap();
+        let before = index.searchable_segment_metas().unwrap().len();
+        assert!(
+            before > MAX_INDEX_SEGMENTS,
+            "expected more than {MAX_INDEX_SEGMENTS} segments before merge, got {before}"
+        );
+
+        let merged = merge_index_segments(&mut writer).unwrap();
+        assert!(merged > 0, "expected a merge to happen");
+        writer.wait_merging_threads().unwrap();
+
+        index.load_metas().unwrap();
+        let after = index.searchable_segment_metas().unwrap().len();
+        assert!(
+            after <= MAX_INDEX_SEGMENTS,
+            "expected at most {MAX_INDEX_SEGMENTS} segments after merge, got {after}"
+        );
+
+        // 合并不能丢文档。
+        let reader = index
+            .reader_builder()
+            .reload_policy(ReloadPolicy::Manual)
+            .try_into()
+            .unwrap();
+        assert_eq!(
+            reader.searcher().num_docs(),
+            (MAX_INDEX_SEGMENTS + 3) as u64,
+            "merge must not lose documents"
+        );
+    }
+
+    #[test]
+    fn merge_index_segments_is_noop_below_limit() {
+        let temp = TempDir::new().unwrap();
+        let index_path = index_dir(temp.path());
+        let (index, fields) = create_fresh_index(&index_path).unwrap();
+
+        let mut writer = create_bulk_index_writer(&index).unwrap();
+        let path_string = "/only".to_string();
+        writer
+            .add_document(doc!(
+                fields.path => path_string.as_str(),
+                fields.name => path_string.as_str(),
+                fields.name_lower => path_string.as_str(),
+                fields.is_file => 1u64,
+                fields.is_dir => 0u64,
+                fields.modified_time => 0u64,
+                fields.size => 0u64,
+            ))
+            .unwrap();
+        writer.commit().unwrap();
+
+        assert_eq!(merge_index_segments(&mut writer).unwrap(), 0);
     }
 
     #[test]

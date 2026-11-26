@@ -2,7 +2,7 @@
 // License: GNU GPLv3 or later. See the license file in the project root for more information.
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
-import { markRaw } from 'vue';
+import { getCurrentInstance, markRaw } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
@@ -17,24 +17,52 @@ import {
 } from '@/stores/runtime/clipboard';
 import { useDirSizesStore } from '@/stores/runtime/dir-sizes';
 import { useDeleteJobsStore } from '@/stores/runtime/delete-jobs';
+// FORK-MODIFICATION 2026-10-20：远程写操作（新建目录 / 重命名）。
+import { useFolderTreeStore } from '@/stores/runtime/folder-tree';
+import { createRemoteDirectory, hasRemoteTarget, renameRemoteEntry } from '@/modules/remote/utils/remote-write';
+import { isRemotePath } from '@/utils/remote-paths';
+// FORK-MODIFICATION 2026-11-11 (batch 9, R2): 判「系统剪贴板里是不是我们自己的远程 URI」。
+import { clipboardPathsHoldRemote } from '@/utils/clipboard-routing';
 import { useQuickViewStore } from '@/stores/runtime/quick-view';
 import { toast, ToastStatic } from '@/components/ui/toaster';
 import { useLanShare } from '@/composables/use-lan-share';
 import { useCopyMoveWithConflicts } from '@/composables/use-copy-move-with-conflicts';
 import { getParentDirectory } from '@/utils/normalize-path';
+import { useNativePath } from '@/composables/use-native-path';
+// FORK-MODIFICATION 2026-11-06：「粘贴快捷方式」的执行封装。
+import { usePasteShortcut } from '@/composables/use-paste-shortcut';
 import { getSharedSourceDirectory } from '@/utils/file-operation-paths';
 import { basenameFromPath } from '@/utils/source-display-name';
 import { resolveNavigableItemTarget } from '@/utils/resolve-navigable-item-target';
 import { openNavigatorNavigablePath } from '@/utils/open-navigator-directory';
 import { usePermanentDeleteConfirm } from '@/composables/use-permanent-delete-confirm';
+// FORK-MODIFICATION 2026-10-20：移植上游 0ae258d6 —— 回收站不可用时先确认再永久删除。
+import { planDeleteJobs } from '@/utils/recycle-bin-delete';
 import { usePlatformStore } from '@/stores/runtime/platform';
 import { openNativeProperties } from '@/utils/open-native-properties';
 import { disconnectDriveForEntry } from '@/utils/disconnect-drive';
 import { refreshDrives } from '@/modules/home/composables/use-drives';
+// FORK-MODIFICATION 2026-10-24：解除文件锁定 / 彻底删除。
+import { useFileLockWorkflow } from '@/composables/use-file-lock-workflow';
+// FORK-MODIFICATION 2026-10-26：粘到远程面板走远程通道。
+import {
+  handleRemotePaste,
+  remoteTransferItemsFromPaths,
+  toRemoteTransferItems,
+} from '@/modules/remote/utils/remote-transfer-service';
+// FORK-MODIFICATION: 图片编辑四动作（左旋 / 右旋 / 左右翻 / 上下翻）的执行封装。
+import {
+  applyImageEdit,
+  getImageEditOperation,
+} from '@/utils/image-edit';
+// FORK-MODIFICATION: 共享缩略图缓存实例（navigator.vue 里 provide 的那一份）。
+import { useNavigatorImageThumbnails } from '@/modules/navigator/composables/use-navigator-image-thumbnails';
 
 export function useDirEntryActions() {
   const { t } = useI18n();
   const platformStore = usePlatformStore();
+  const { toNativePath } = useNativePath();
+  const { pasteShortcut } = usePasteShortcut();
   const router = useRouter();
   const workspacesStore = useWorkspacesStore();
   const userStatsStore = useUserStatsStore();
@@ -43,8 +71,19 @@ export function useDirEntryActions() {
   const dirSizesStore = useDirSizesStore();
   const deleteJobsStore = useDeleteJobsStore();
   const quickViewStore = useQuickViewStore();
+  const folderTreeStore = useFolderTreeStore();
   const { startShare } = useLanShare();
   const permanentDeleteConfirm = usePermanentDeleteConfirm();
+
+  /**
+   * FORK-MODIFICATION: 共享的缩略图缓存实例。
+   *
+   * 由 navigator.vue `provide`、这里 `inject` —— 只在组件上下文里拿得到；
+   * 拿不到就不传（缓存失效由「目录重读 ⇒ mtime/size 变 ⇒ 缓存键变」兜底）。
+   */
+  const imageThumbnails = getCurrentInstance() ? useNavigatorImageThumbnails() : null;
+  // FORK-MODIFICATION 2026-10-24：解除文件锁定 / 彻底删除。
+  const fileLockWorkflow = useFileLockWorkflow();
   const {
     performCopyMoveWithConflicts,
     conflictDialogState,
@@ -85,8 +124,40 @@ export function useDirEntryActions() {
   async function pasteItems(destinationPath: string): Promise<boolean> {
     const systemClipboard = await clipboardStore.readSystemClipboardFiles();
 
-    if (!systemClipboard?.paths.length) {
+    // FORK-MODIFICATION 2026-11-11 (batch 9, R2): 系统剪贴板里若只有我们自己的
+    // `sfm://remote/…` URI（本机根本不存在的「路径」），它不许遮蔽应用内剪贴板。
+    // 真机 2026-11-11 13:35：网盘内 Ctrl+C 把远程 URI 写进了系统剪贴板，
+    // 本函数从此只看系统剪贴板、永不进入应用内分支 ⇒ 本地窗格 Ctrl+V 毫无反应
+    // （用户报的「复制粘贴无效」）。这类残留按「空」处理：远程内容一律走
+    // 应用内剪贴板 + `handleRemotePaste`（内部再分流到下载）。
+    const systemClipboardPaths = systemClipboard?.paths ?? [];
+    const systemClipboardIsRemoteResidue
+      = clipboardPathsHoldRemote(systemClipboardPaths);
+
+    if (!systemClipboard || !systemClipboardPaths.length || systemClipboardIsRemoteResidue) {
+      if (systemClipboardIsRemoteResidue) {
+        console.warn('[paste] 系统剪贴板里是网盘 URI 残留，改按应用内剪贴板处理');
+      }
+
       if (clipboardStore.hasFileItems) {
+        // FORK-MODIFICATION 2026-10-26：粘到远程面板走远程通道。
+        //
+        // 右键菜单的「粘贴」与导航器的 Ctrl+V 是两条独立路径，
+        // 两处都要拦 —— 漏一处，那个入口就还是那句
+        // 「Destination path does not exist」。
+        const remoteOutcome = await handleRemotePaste(
+          toRemoteTransferItems(clipboardStore.clipboardItems),
+          destinationPath,
+        );
+
+        if (remoteOutcome !== null) {
+          if (remoteOutcome) {
+            clipboardStore.discardClipboard();
+          }
+
+          return remoteOutcome;
+        }
+
         const sourcePaths = clipboardStore.clipboardItems.map(item => item.path);
         const operation = clipboardStore.isCopyOperation ? 'copy' : 'move';
         const result = await performCopyMoveWithConflicts(sourcePaths, destinationPath, operation);
@@ -126,6 +197,16 @@ export function useDirEntryActions() {
       }
 
       return await pasteSystemClipboardImage(destinationPath);
+    }
+
+    // FORK-MODIFICATION 2026-10-26：系统剪贴板里的文件粘到远程面板。
+    const remoteOutcome = await handleRemotePaste(
+      remoteTransferItemsFromPaths(systemClipboard.paths),
+      destinationPath,
+    );
+
+    if (remoteOutcome !== null) {
+      return remoteOutcome;
     }
 
     const result = await performCopyMoveWithConflicts(
@@ -192,50 +273,65 @@ export function useDirEntryActions() {
       return false;
     }
 
-    if (!useTrash) {
-      const confirmed = await permanentDeleteConfirm.requestConfirm(entries);
+    // FORK-MODIFICATION 2026-10-20：移植上游 0ae258d6。
+    //
+    // UNC 路径与映射的网络驱动器没有回收站。这里的做法是**先问后做**：
+    // `planDeleteJobs` 问后端「这批路径里哪些不能进回收站」，
+    // 对那部分弹永久删除确认框（用户明确同意才删），其余照常进回收站。
+    // 确认被取消时，能进回收站的那部分**照常进回收站** —— 取消的是「永久删除」，
+    // 不是「整个删除操作」。
+    const jobs = await planDeleteJobs({
+      entries,
+      useTrash,
+      requestPermanentConfirm: pendingEntries => permanentDeleteConfirm.requestConfirm(pendingEntries),
+    });
 
-      if (!confirmed) {
-        return false;
-      }
-    }
-
-    const paths = entries.map(entry => entry.path);
-    const sharedParentDirectory = getSharedSourceDirectory(paths);
-    const displayPath = sharedParentDirectory
-      ? basenameFromPath(sharedParentDirectory)
-      : '';
-
-    try {
-      const result = await deleteJobsStore.startJob(paths, useTrash, {
-        label: useTrash ? t('notifications.trashingItems') : t('notifications.deletingItems'),
-        displayPath,
-      });
-
-      if (result.deletedPaths.length > 0) {
-        workspacesStore.handlePathsDeleted(result.deletedPaths);
-        userStatsStore.handlePathsDeleted(result.deletedPaths);
-        userSettingsStore.handlePathsDeleted(result.deletedPaths);
-        dirSizesStore.invalidate(result.deletedPaths);
-
-        const parentDirs = [...new Set(result.deletedPaths.map(path => getParentDirectory(path)))];
-        workspacesStore.handleDirectoryContentsChanged(parentDirs);
-      }
-
-      return result.success && !result.cancelled;
-    }
-    catch (error) {
-      toast.custom(markRaw(ToastStatic), {
-        componentProps: {
-          data: {
-            title: useTrash ? t('notifications.errorTrashItems') : t('notifications.errorDeleteItems'),
-            description: String(error),
-          },
-        },
-      });
-
+    if (!jobs) {
       return false;
     }
+
+    let allSucceeded = true;
+
+    for (const job of jobs) {
+      const sharedParentDirectory = getSharedSourceDirectory(job.paths);
+      const displayPath = sharedParentDirectory
+        ? basenameFromPath(sharedParentDirectory)
+        : '';
+
+      try {
+        const result = await deleteJobsStore.startJob(job.paths, job.useTrash, {
+          label: job.useTrash ? t('notifications.trashingItems') : t('notifications.deletingItems'),
+          displayPath,
+        });
+
+        if (result.deletedPaths.length > 0) {
+          workspacesStore.handlePathsDeleted(result.deletedPaths);
+          userStatsStore.handlePathsDeleted(result.deletedPaths);
+          userSettingsStore.handlePathsDeleted(result.deletedPaths);
+          dirSizesStore.invalidate(result.deletedPaths);
+
+          const parentDirs = [...new Set(result.deletedPaths.map(path => getParentDirectory(path)))];
+          workspacesStore.handleDirectoryContentsChanged(parentDirs);
+        }
+
+        if (!result.success || result.cancelled) {
+          allSucceeded = false;
+        }
+      }
+      catch (error) {
+        allSucceeded = false;
+        toast.custom(markRaw(ToastStatic), {
+          componentProps: {
+            data: {
+              title: job.useTrash ? t('notifications.errorTrashItems') : t('notifications.errorDeleteItems'),
+              description: String(error),
+            },
+          },
+        });
+      }
+    }
+
+    return allSucceeded;
   }
 
   async function renameItem(entry: DirEntry, newName: string): Promise<boolean> {
@@ -243,6 +339,40 @@ export function useDirEntryActions() {
 
     if (!trimmedName || trimmedName === entry.name) {
       return false;
+    }
+
+    // FORK-MODIFICATION 2026-10-20：远程条目走**远程**改名通道。
+    // 本地的 `rename_item` 对 `sfm://remote/...` 只会得到一句「路径不存在」。
+    if (isRemotePath(entry.path)) {
+      const result = await renameRemoteEntry(entry, trimmedName);
+
+      if (!result.ok) {
+        toast.custom(markRaw(ToastStatic), {
+          componentProps: {
+            data: {
+              title: t('notifications.failedToRenameItem'),
+              description: result.message,
+            },
+          },
+        });
+
+        return false;
+      }
+
+      toast.custom(markRaw(ToastStatic), {
+        componentProps: {
+          data: {
+            title: t('notifications.renamed'),
+            description: '',
+          },
+        },
+      });
+
+      // 远程条目**不在**本地那几本账里（收藏夹、设置记的都是本地路径），
+      // 所以只让目录树知道「这一层变了」。
+      folderTreeStore.markTreeStale([getParentDirectory(entry.path)]);
+
+      return true;
     }
 
     try {
@@ -316,6 +446,67 @@ export function useDirEntryActions() {
     }
 
     if (trimmedName === '.' || trimmedName === '..') {
+      return false;
+    }
+
+    // FORK-MODIFICATION 2026-10-20：远程目标走**远程**通道。
+    // 本地的 `create_item` 拿 `sfm://remote/...` 去问文件系统引擎，
+    // 只会得到一句 `Directory does not exist: sfm://remote/...`。
+    //
+    // **「新建文件」在远程侧是永久非目标**（规格 §1）——
+    // 这里必须明确报错，而不是静默失败。
+    if (hasRemoteTarget(targetPaths)) {
+      if (itemType === 'file') {
+        toast.custom(markRaw(ToastStatic), {
+          componentProps: {
+            data: {
+              title: t('dialogs.newDirItemDialog.failedToCreateNewFile'),
+              description: t('remote.write.fileCreationNotSupported'),
+            },
+          },
+        });
+
+        return false;
+      }
+
+      let remoteSuccessCount = 0;
+      let remoteLastError: string | null = null;
+
+      for (const directoryPath of targetPaths) {
+        const result = await createRemoteDirectory(trimmedName, directoryPath);
+
+        if (result.ok) {
+          remoteSuccessCount++;
+        }
+        else {
+          remoteLastError = result.message;
+        }
+      }
+
+      if (remoteSuccessCount > 0) {
+        toast.custom(markRaw(ToastStatic), {
+          componentProps: {
+            data: {
+              title: t('dialogs.newDirItemDialog.newDirectoryCreated'),
+              description: '',
+            },
+          },
+        });
+
+        folderTreeStore.markTreeStale(targetPaths);
+
+        return true;
+      }
+
+      toast.custom(markRaw(ToastStatic), {
+        componentProps: {
+          data: {
+            title: t('dialogs.newDirItemDialog.failedToCreateNewDirectory'),
+            description: remoteLastError || '',
+          },
+        },
+      });
+
       return false;
     }
 
@@ -416,7 +607,7 @@ export function useDirEntryActions() {
   function copyPath(entries: DirEntry[]) {
     if (entries.length === 0) return;
 
-    const pathText = entries.map(entry => entry.path).join('\n');
+    const pathText = entries.map(entry => toNativePath(entry.path)).join('\n');
     navigator.clipboard.writeText(pathText).then(() => {
       toast.custom(markRaw(ToastStatic), {
         componentProps: {
@@ -466,6 +657,20 @@ export function useDirEntryActions() {
     }
   }
 
+  /**
+   * FORK-MODIFICATION 2026-10-24：解除文件锁定 / 彻底删除。
+   *
+   * 具体流程在 `use-file-lock-workflow.ts`（两个调用点共用一份，
+   * 免得破坏性动作的确认框在某一处漏掉）。
+   */
+  async function unlockEntry(entry: DirEntry) {
+    await fileLockWorkflow.unlockEntry(entry);
+  }
+
+  async function forceDeleteEntry(entry: DirEntry) {
+    fileLockWorkflow.forceDeleteEntry(entry);
+  }
+
   function handleContextMenuAction(action: ContextMenuAction, entries: DirEntry[]) {
     if (entries.length === 0) return;
 
@@ -489,11 +694,39 @@ export function useDirEntryActions() {
         break;
       }
 
+      // FORK-MODIFICATION 2026-11-06：「粘贴快捷方式」——
+      // 把剪贴板里的文件 / 目录以 `.lnk` 快捷方式的形式放进**右键的那一个目录**。
+      //
+      // 与「粘贴」的区别：粘的是**快捷方式**而不是副本；
+      // 与「创建链接」的区别：源是**剪贴板内容**，不是选中的条目。
+      case 'paste-shortcut': {
+        const targetDir = entries.length === 1 && !entries[0].is_file
+          ? entries[0].path
+          : undefined;
+
+        if (targetDir) {
+          void pasteShortcut(targetDir);
+        }
+
+        break;
+      }
+
       case 'delete':
         deleteItems(entries, true);
         break;
       case 'delete-permanently':
         void deleteItems(entries, false);
+        break;
+      // FORK-MODIFICATION 2026-10-24：解除文件锁定 / 彻底删除。
+      //
+      // 这两个动作**只对单个条目**开放（可见性判定在
+      // `context-menu-action-visibility.ts`），所以这里拿到的
+      // `entries` 必然只有一个。
+      case 'unlock':
+        void unlockEntry(entries[0]);
+        break;
+      case 'force-delete':
+        void forceDeleteEntry(entries[0]);
         break;
       case 'open-in-new-tab':
         openEntriesInNewTabs(entries);
@@ -516,6 +749,28 @@ export function useDirEntryActions() {
       case 'properties':
         void openProperties(entries);
         break;
+      // FORK-MODIFICATION: 图片编辑四动作（左旋 / 右旋 / 左右翻 / 上下翻）。
+      //
+      // 可见性判定保证选中的**只有一个**可编辑图片文件，
+      // 这里再兜一层长度判断（执行通道不能假设调用方一定判过）。
+      case 'rotate-image-left':
+      case 'rotate-image-right':
+      case 'flip-image-horizontal':
+
+      case 'flip-image-vertical': {
+        const entry = entries[0];
+
+        if (entries.length === 1 && entry) {
+          void applyImageEdit({
+            entry,
+            operation: getImageEditOperation(action),
+            thumbnailCache: imageThumbnails,
+          });
+        }
+
+        break;
+      }
+
       case 'disconnect':
         if (entries.length === 1) {
           void disconnectDriveEntry(entries[0]);
@@ -551,5 +806,7 @@ export function useDirEntryActions() {
     handleTopLevelNameConflictMerge,
     handleTopLevelNameConflictCancel,
     permanentDeleteConfirm,
+    // FORK-MODIFICATION 2026-10-24：解除文件锁定 / 彻底删除。
+    fileLockWorkflow,
   };
 }

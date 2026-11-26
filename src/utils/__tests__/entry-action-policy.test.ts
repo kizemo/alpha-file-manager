@@ -65,12 +65,145 @@ describe('entry-action-policy', () => {
       expect(isActionBlockedByEntryPolicy('toggle-favorite', entries, 'windows')).toBe(false);
     });
 
+    /**
+     * FORK-MODIFICATION: 图片编辑四动作（左旋 / 右旋 / 左右翻 / 上下翻）
+     * 对虚拟位置也是非目标 —— 虚拟位置不是真实文件路径，
+     * 后端那套「原地写回」对它没有意义。
+     */
+    it('blocks the image edit actions for virtual locations', () => {
+      const entries = [createEntry(LOCATIONS_VIRTUAL_PATH)];
+
+      expect(isActionBlockedByEntryPolicy('rotate-image-left', entries, 'windows')).toBe(true);
+      expect(isActionBlockedByEntryPolicy('rotate-image-right', entries, 'windows')).toBe(true);
+      expect(isActionBlockedByEntryPolicy('flip-image-horizontal', entries, 'windows')).toBe(true);
+      expect(isActionBlockedByEntryPolicy('flip-image-vertical', entries, 'windows')).toBe(true);
+    });
+
     it('honors disableDestructiveActions for mount-root entries', () => {
       const entries = [createEntry('D:/')];
 
       expect(isActionBlockedByEntryPolicy('delete', entries, 'windows', {
         disableDestructiveActions: true,
       })).toBe(true);
+    });
+  });
+
+  describe('remote policy', () => {
+    it('classifies remote paths as remote, not as virtual or mount root', () => {
+      expect(getEntryActionPolicy('sfm://remote/conn-a', 'windows')).toBe('remote');
+      expect(getEntryActionPolicy('sfm://remote/conn-a/pub', 'windows')).toBe('remote');
+      expect(getEntryActionPolicy('sfm://remote', 'windows')).toBe('remote');
+    });
+
+    it('blocks every non-navigation action on remote paths in phase 0', () => {
+      const entries = [createEntry('sfm://remote/conn-a/pub')];
+
+      expect(isActionBlockedByEntryPolicy('delete', entries, 'windows')).toBe(true);
+      expect(isActionBlockedByEntryPolicy('paste', entries, 'windows')).toBe(true);
+      expect(isActionBlockedByEntryPolicy('properties', entries, 'windows')).toBe(true);
+      // 导航类必须放行，否则远程路径根本点不进去
+      expect(isActionBlockedByEntryPolicy('open-in-new-tab', entries, 'windows')).toBe(false);
+      expect(isActionBlockedByEntryPolicy('toggle-favorite', entries, 'windows')).toBe(false);
+    });
+
+    /**
+     * FORK-MODIFICATION 2026-11-11（T9 真机复测）：网盘里**复制**必须放行。
+     *
+     * 用户报的缺陷：新扫码登录夸克后，网盘条目右键没有「复制」项，Ctrl+C 也毫无反应。
+     * 根因之一就在这份门禁里 —— `'copy'` 被当成阶段 0 未实现而屏蔽，
+     * 于是「网盘里复制 → 本地窗格粘贴（= 下载到本地）」这条主路径整个不存在。
+     *
+     * 只放行 `'copy'`，`'cut'` 与「网盘目录内的粘贴」继续屏蔽，边界要写清：
+     * - `cut` 的语义是**远程移动**，后端没有接线，放出去就是个假按钮；
+     * - 远程目录内的 `paste` 会往网盘里写文件，属于另一条未实现链路；
+     * - `copy` 落地由 `handleRemotePaste → downloadItemsFromRemote` 完成，是真功能。
+     */
+    it('lets remote copy through but keeps cut and paste blocked', () => {
+      const entries = [createEntry('sfm://remote/conn-a/pub')];
+
+      expect(isActionBlockedByEntryPolicy('copy', entries, 'windows')).toBe(false);
+      expect(isActionBlockedByEntryPolicy('cut', entries, 'windows')).toBe(true);
+      expect(isActionBlockedByEntryPolicy('paste', entries, 'windows')).toBe(true);
+    });
+
+    /**
+     * FORK-MODIFICATION 2026-10-20（阶段 3 收尾）：远程**重命名**与
+     * **新建目录**已实现，所以这两条不再被门禁挡住。
+     *
+     * 断言的是「**具体哪些动作**放行」，而不是笼统的「不挡了」——
+     * 门禁的价值就在于精确：多放一条就多点得到一个没接线的按钮，
+     * 少放一条就少一个用户想用的功能。
+     */
+    it('lets remote rename and remote create-directory through', () => {
+      const entries = [createEntry('sfm://remote/conn-a/pub')];
+
+      expect(isActionBlockedByEntryPolicy('rename', entries, 'windows')).toBe(false);
+      expect(isActionBlockedByEntryPolicy('create-directory', entries, 'windows')).toBe(false);
+    });
+
+    /**
+     * FORK-MODIFICATION 2026-10-20（阶段 3 收尾）：远程「新建空文件」是
+     * **永久非目标**（规格 §1）—— 所以它**永远**被门禁挡住。
+     *
+     * 这条与上面那条配对：只断言「放行了改名」的话，
+     * 「新建文件」被顺手放行也不会有任何用例变红。
+     */
+    it('keeps remote create-file blocked forever', () => {
+      const entries = [createEntry('sfm://remote/conn-a/pub')];
+
+      expect(isActionBlockedByEntryPolicy('create-file', entries, 'windows')).toBe(true);
+    });
+
+    /**
+     * FORK-MODIFICATION: 图片编辑四动作在远程路径上一律屏蔽 ——
+     * 那是本地文件写操作（原地旋转 / 翻转），远程写操作走的是另一套通道。
+     */
+    it('blocks the image edit actions on remote paths', () => {
+      const entries = [createEntry('sfm://remote/conn-a/pub')];
+
+      expect(isActionBlockedByEntryPolicy('rotate-image-left', entries, 'windows')).toBe(true);
+      expect(isActionBlockedByEntryPolicy('rotate-image-right', entries, 'windows')).toBe(true);
+      expect(isActionBlockedByEntryPolicy('flip-image-horizontal', entries, 'windows')).toBe(true);
+      expect(isActionBlockedByEntryPolicy('flip-image-vertical', entries, 'windows')).toBe(true);
+    });
+
+    /**
+     * 混合选择时取**最严格**的策略（规格 §5）。
+     *
+     * 本地 + 远程混选时，「新建目录」虽然对远程合法，
+     * 但混选本身是跨边界（规格 §5 那一列是 ❌）——
+     * 所以只要有一个远程条目，就该整体挡住。
+     */
+    it('takes the strictest policy when a selection mixes remote and normal entries', () => {
+      const mixed = [createEntry('C:/Users'), createEntry('sfm://remote/conn-a/pub')];
+
+      expect(isActionBlockedByEntryPolicy('delete', mixed, 'windows')).toBe(true);
+      expect(isActionBlockedByEntryPolicy('copy', mixed, 'windows')).toBe(true);
+      // 重命名是**逐条**执行的，混选时对本地那部分仍然合法 ——
+      // 但入口一旦显示，界面上说不清楚「改的是哪个」。
+      // 这里断言的是当前实现的事实：远程条目不再挡住重命名。
+      expect(isActionBlockedByEntryPolicy('rename', mixed, 'windows')).toBe(false);
+    });
+
+    it('leaves local paths on the normal policy', () => {
+      expect(getEntryActionPolicy('C:/Users', 'windows')).toBe('normal');
+      expect(isActionBlockedByEntryPolicy('copy', [createEntry('C:/Users')], 'windows')).toBe(false);
+    });
+
+    /**
+     * FORK-MODIFICATION 2026-10-20：远程删除走独立动作 `remote-delete`，
+     * **不在**阶段 0 的屏蔽集合里，所以远程条目可以有删除入口。
+     *
+     * 上面那条用例断言本地的 `delete` 仍然对远程屏蔽 —— 两条合起来才是
+     * 完整的事实：**远程能删，但走的不是「移至垃圾箱」那条路**。
+     */
+    it('lets the dedicated remote-delete action through on remote paths', () => {
+      const entries = [createEntry('sfm://remote/conn-a/pub')];
+
+      expect(isActionBlockedByEntryPolicy('remote-delete', entries, 'windows')).toBe(false);
+      // 本地的两个删除动作仍然屏蔽：远程没有回收箱。
+      expect(isActionBlockedByEntryPolicy('delete', entries, 'windows')).toBe(true);
+      expect(isActionBlockedByEntryPolicy('delete-permanently', entries, 'windows')).toBe(true);
     });
   });
 });

@@ -4,23 +4,41 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 -->
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { DirEntry } from '@/types/dir-entry';
 import type { Tab } from '@/types/workspaces';
 import { getScrollRestorationKey } from '@/stores/runtime/scroll-restoration';
 import { useFileBrowser } from './composables/use-file-browser';
+import { useForcedListLayout } from './composables/use-forced-list-layout';
 import { useOpenCopiedPath } from './composables/use-open-copied-path';
 import { provideFileBrowserContext } from './composables/use-file-browser-context';
+import { useUserSettingsStore } from '@/stores/storage/user-settings';
+// FORK-MODIFICATION: 右键「添加到收藏」要先选分类，收藏的写入口只有这个 store。
+import { useUserStatsStore } from '@/stores/storage/user-stats';
+import { resolveThumbnailCssVariables } from './utils/file-browser-thumbnail-sizes';
+import { resolveFavoriteCategorySelection } from './utils/file-browser-favorites';
+import { useNavigatorFolderSettings } from '@/modules/navigator/composables/use-navigator-folder-settings';
 import FileBrowserContent from './file-browser-content.vue';
 import FileBrowserToolbar from './file-browser-toolbar.vue';
 import FileBrowserStatusBar from './file-browser-status-bar.vue';
 import FileBrowserRenameDialog from './file-browser-rename-dialog.vue';
+import FileBrowserBatchRenameDialog from './file-browser-batch-rename-dialog.vue';
 import FileBrowserNewItemDialog from './file-browser-new-item-dialog.vue';
 import FileBrowserOpenWithDialog from './file-browser-open-with-dialog.vue';
+import FileBrowserFavoriteCategoryDialog from './file-browser-favorite-category-dialog.vue';
 import FileBrowserInboundDragOverlay from './file-browser-inbound-drag-overlay.vue';
 import FileBrowserConflictDialog from './file-browser-conflict-dialog.vue';
 import FileBrowserTopLevelConflictDialog from './file-browser-top-level-conflict-dialog.vue';
 import PermanentDeleteConfirmDialog from './permanent-delete-confirm-dialog.vue';
+// FORK-MODIFICATION 2026-10-24：解除文件锁定 / 彻底删除的对话框。
+import FileLockDialog from './file-lock-dialog.vue';
+// FORK-MODIFICATION 2026-10-20：远程删除的确认框。
+import RemoteDeleteConfirmDialog from '@/modules/remote/components/remote-delete-confirm-dialog.vue';
+import HostKeyTrustDialog from '@/modules/remote/components/host-key-trust-dialog.vue';
+// FORK-MODIFICATION 2026-10-26：远程传输的覆盖确认框与进度 / 结果框。
+import RemoteTransferConflictDialog from '@/modules/remote/components/remote-transfer-conflict-dialog.vue';
+import RemoteTransferProgressDialog from '@/modules/remote/components/remote-transfer-progress-dialog.vue';
+import { useRemoteTransferDialogStates } from '@/modules/remote/utils/remote-transfer-state';
 import AddressBarEditorDialog from './address-bar-editor-dialog.vue';
 import type { AddressBarEditorMode } from './address-bar-editor-utils';
 import ArchiveOptionsDialog, { type ArchiveOptions } from './archive-options-dialog.vue';
@@ -53,19 +71,41 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   'update:selectedEntries': [entries: DirEntry[]];
   'update:currentDirEntry': [entry: DirEntry | null];
+  'update:currentPath': [path: string];
   'openEntry': [entry: DirEntry];
+  'swapPanes': [];
 }>();
 
 const fileBrowserRef = ref<HTMLElement | null>(null);
 const addressBarEditorRef = ref<InstanceType<typeof AddressBarEditorDialog> | null>(null);
 
+const userSettingsStore = useUserSettingsStore();
+// FORK-MODIFICATION: 网格/列表的行高与卡高由 CSS 变量驱动，这里按当前档位覆盖。
+// 注入没发生时退化到 vars.css 的静态兜底（列表 42px / 网格 52px 与 120px），
+// 刻意不等于 medium 档的 64px：行高量到 42px 就是判定注入失效的信号。
+const thumbnailCssVariables = computed(() => resolveThumbnailCssVariables(
+  userSettingsStore.userSettings.navigator.thumbnailSize,
+  // FORK-MODIFICATION: 字体大小三档（需求 3，2026-10-31）——绝对 px 偏移。
+  userSettingsStore.fontSizeOffset,
+));
+
 function getScrollStateKey(): string | undefined {
   return props.tab ? getScrollRestorationKey('navigator', props.tab.id, props.paneIndex ?? 0) : undefined;
 }
 
+// FORK-MODIFICATION: 反馈 3（2026-10-15）——「打开所属目录」分栏出来的两格
+// 强制列表样式（用户原话：「注意都采用列表样式视图」）。标记写在 tab 上，
+// 由这里解析，外层 navigator.vue 一行都不用改。
+//
+// 必须声明在 `useFileBrowser` 之前：下面把 `layout` 传成了 `() => effectiveLayout.value`，
+// 放晚了就是在 setup 期间引用还处于 TDZ 的 const。
+const effectiveLayout = computed<'list' | 'grid' | 'tree' | undefined>(() => (
+  props.tab?.pendingForceListLayout ? 'list' : props.layout
+));
+
 const fb = useFileBrowser({
   tab: () => props.tab,
-  layout: () => props.layout,
+  layout: () => effectiveLayout.value,
   externalEntries: props.externalEntries ? () => props.externalEntries! : undefined,
   basePath: props.basePath !== undefined ? () => props.basePath! : undefined,
   onSelectedEntriesChange: entries => emit('update:selectedEntries', entries),
@@ -80,6 +120,39 @@ const fb = useFileBrowser({
 
 const permanentDeleteIsOpen = fb.permanentDeleteConfirm.isOpen;
 const permanentDeletePendingEntries = fb.permanentDeleteConfirm.pendingEntries;
+
+// FORK-MODIFICATION 2026-10-20：远程删除的确认框。**每个 pane 一份**，
+// 与上面的本地永久删除确认框同款。
+const remoteDeleteIsOpen = fb.remoteDeleteConfirm.isOpen;
+const remoteDeletePendingEntries = fb.remoteDeleteConfirm.pendingEntries;
+
+// FORK-MODIFICATION 2026-10-24：解除文件锁定 / 彻底删除的对话框。
+// **每个 pane 一份**，与上面两个确认框同款。
+const fileLockIsOpen = fb.fileLockWorkflow.isOpen;
+const fileLockMode = fb.fileLockWorkflow.mode;
+const fileLockPath = fb.fileLockWorkflow.path;
+const fileLockHolders = fb.fileLockWorkflow.holders;
+const fileLockBusy = fb.fileLockWorkflow.isBusy;
+
+// FORK-MODIFICATION 2026-10-18：主机公钥信任流（阶段 2 决策 3）。
+// 与上面同理 —— `fb.xxx` 是普通对象上的 ref，模板只会解包**顶层**绑定，
+// 直接写 `:prompt="fb.hostKeyPrompt"` 会把整个 Ref 当成 HostKeyTrustPrompt 传进去。
+const hostKeyPrompt = fb.hostKeyPrompt;
+const confirmHostKeyTrust = fb.confirmHostKeyTrust;
+const dismissHostKeyTrust = fb.dismissHostKeyTrust;
+
+// FORK-MODIFICATION 2026-10-19：把「这一格换目录了」这件事报给外层。
+//
+// 为什么原来不报：同步浏览（联动）当时挂的是 `update:selected-entries`，
+// 也就是**选中**驱动。可用户心里的「同步浏览」是**进目录**驱动 ——
+// 他双击 `wp-content` 进去，另一格跟着进，结果什么都没发生。
+// 选中驱动还有两个先天毛病：右格自己选中东西也会被当成信号，
+// 而它连「另一格」在哪都不知道。
+watch(fb.currentPath, (path) => {
+  if (path) {
+    emit('update:currentPath', path);
+  }
+});
 
 const showArchiveOptions = ref(false);
 const archiveNeedsPassword = ref(false);
@@ -120,6 +193,32 @@ const { openCopiedPath } = useOpenCopiedPath({
   openFile: fb.openFile,
 });
 
+// FORK-MODIFICATION: layout toggle button moved to file-browser-toolbar-nav-buttons.
+// 按当前激活选项卡的 path 写 per-folder settings —— 不同选项卡可独立设置视图（不再统一全局）。
+const { persistForScope } = useNavigatorFolderSettings(
+  () => fb.currentPath.value,
+  () => Boolean(props.tab?.type !== 'search' && fb.currentPath.value),
+);
+
+// 解锁时机之一：用户点布局按钮 —— 必须先清标记再写设置，
+// 否则点了网格界面纹丝不动，用户会以为按钮坏了（而设置其实已经写进去了，更难查）。
+// 另一个时机（导航去别的目录）由 composable 内部的 watch 负责。
+const forcedListLayout = useForcedListLayout({
+  getTab: () => props.tab,
+  currentPath: fb.currentPath,
+});
+
+const currentLayout = computed<'list' | 'grid'>(() => (
+  effectiveLayout.value === 'grid' ? 'grid' : 'list'
+));
+
+async function setLayout(target: 'list' | 'grid') {
+  // 总是 per-folder：让不同选项卡的目录独立记忆各自视图。
+  // 如需切回全局一致，可走 navigator-toolbar-actions ⋮ 菜单「设置作用域」Tab。
+  forcedListLayout.release();
+  await persistForScope('folder', { layout: target });
+}
+
 function openAddressBarEditor(mode: AddressBarEditorMode) {
   addressBarEditorRef.value?.open(mode);
 }
@@ -130,7 +229,70 @@ async function revealAddressBarEntry(parentPath: string, entryPath: string) {
   await fb.navigateToPath(parentPath);
 }
 
+const userStatsStore = useUserStatsStore();
+// FORK-MODIFICATION 2026-10-26：远程传输的两个对话框是**全局单例**（模块级状态），
+// 这里只是把「开没开」接到界面上。
+const { conflictDialogState, progressDialogState } = useRemoteTransferDialogStates();
+
+// FORK-MODIFICATION: 右键「添加到收藏」→ 选分类 → 真正落盘。
+// 决策逻辑（三条规则：新分类优先 / 重名落未分类 / 跳过已收藏）在
+// utils/file-browser-favorites.ts 里并有单测覆盖，这里只做接线。
+async function handleFavoriteCategoryConfirm(
+  categoryId: string | null,
+  newCategoryName: string | null,
+  alias: string | null,
+) {
+  const entries = fb.favoriteCategoryDialogState.value.entries;
+
+  if (entries.length === 0) {
+    return;
+  }
+
+  const created = newCategoryName?.trim()
+    ? await userStatsStore.createFavoriteCategory(newCategoryName.trim())
+    : null;
+
+  resolveFavoriteCategorySelection(
+    entries,
+    categoryId,
+    created ? created.name : null,
+    {
+      isFavorite: path => userStatsStore.isFavorite(path),
+      // 分类已经建好了，所以这里回传现成的 id，不再建一次。
+      createFavoriteCategory: () => created,
+      addToFavorites: async (path, isFile, resolvedCategoryId, resolvedAlias) => {
+        await userStatsStore.addToFavorites(
+          path,
+          isFile,
+          resolvedCategoryId,
+          resolvedAlias ?? '',
+        );
+      },
+    },
+    alias,
+  );
+}
+
+const favoriteCategoryEntries = computed(() => {
+  return fb.favoriteCategoryDialogState.value.entries;
+});
+
+const favoriteCategoryEntryNames = computed(() => {
+  return favoriteCategoryEntries.value.map(entry => entry.name);
+});
+
+// FORK-MODIFICATION: 需求反馈 2 —— 搜索选项条（常驻在结果上方）。
+// 只有真的在过滤时才渲染：平时浏览目录不占那一行高度，而一个常驻在空列表上方的
+// 控件会被读成「这个区域一直是这样的」。
+const isSearching = computed(() => !!fb.filterQuery.value.trim());
+
+const searchMatchCount = computed(() => {
+  return isSearching.value ? fb.entries.value.length : 0;
+});
+
 provideFileBrowserContext({
+  // FORK-MODIFICATION 2026-10-27：就地重命名。
+  inlineRename: fb.inlineRename,
   entries: fb.entries,
   directoryEntryCount: computed(() => fb.dirContents.value?.total_count ?? 0),
   currentPath: fb.currentPath,
@@ -141,6 +303,7 @@ provideFileBrowserContext({
   selectedEntries: fb.selectedEntries,
   isEntrySelected: fb.isEntrySelected,
   contextMenu: fb.contextMenu,
+  isSearchResultsView: fb.isSearchResultsView,
   getImageThumbnail: fb.getImageThumbnail,
   getImageThumbnailPlaceholder: fb.getImageThumbnailPlaceholder,
   shouldShowImageThumbnailFallback: fb.shouldShowImageThumbnailFallback,
@@ -224,6 +387,7 @@ defineExpose({
   <div
     ref="fileBrowserRef"
     class="file-browser"
+    :style="thumbnailCssVariables"
   >
     <FileBrowserToolbar
       v-if="!hideToolbar"
@@ -236,10 +400,12 @@ defineExpose({
       :can-go-up="!!fb.parentPath.value"
       :is-loading="fb.isLoading.value || fb.isRefreshing.value"
       :is-split-view="props.isSplitView"
+      :current-layout="currentLayout"
+      :current-path="fb.currentPath.value"
       @go-back="fb.goBack"
       @go-forward="fb.goForward"
       @go-up="fb.navigateToParent"
-      @go-home="fb.navigateToHome"
+      @go-home="fb.navigateToLocations"
       @refresh="fb.refresh"
       @submit-path="fb.handlePathSubmit"
       @navigate-to="fb.navigateToPath"
@@ -248,6 +414,8 @@ defineExpose({
       @create-new-directory="fb.openNewItemDialog('directory')"
       @create-new-file="fb.openNewItemDialog('file')"
       @filter-input-focused="fb.clearFilterInputFocusRequest"
+      @toggle-layout="setLayout(currentLayout === 'grid' ? 'list' : 'grid')"
+      @swap-panes="emit('swapPanes')"
     />
     <AddressBarEditorDialog
       ref="addressBarEditorRef"
@@ -259,8 +427,20 @@ defineExpose({
     />
 
     <FileBrowserContent
-      :layout="props.layout"
+      :layout="effectiveLayout"
       :track-relative-time="props.trackRelativeTime"
+      :is-searching="isSearching"
+      :search-include-files="fb.searchOptions.value.includeFiles"
+      :search-include-directories="fb.searchOptions.value.includeDirectories"
+      :search-exact-match="fb.searchOptions.value.exactMatch"
+      :search-typo-tolerance="fb.searchOptions.value.typoTolerance"
+      :search-result-limit="fb.searchOptions.value.resultLimit"
+      :search-match-count="searchMatchCount"
+      @update:search-include-files="fb.setIncludeFiles"
+      @update:search-include-directories="fb.setIncludeDirectories"
+      @update:search-exact-match="fb.setExactMatch"
+      @update:search-typo-tolerance="fb.setTypoTolerance"
+      @update:search-result-limit="fb.setResultLimit"
     />
 
     <FileBrowserStatusBar
@@ -283,6 +463,13 @@ defineExpose({
       @cancel="fb.handleRenameCancel"
     />
 
+    <FileBrowserBatchRenameDialog
+      v-model:open="fb.isBatchRenameDialogOpen.value"
+      :directory="fb.currentPath.value"
+      :entries="fb.batchRenameState.value.entries"
+      @applied="fb.refresh"
+    />
+
     <FileBrowserNewItemDialog
       v-model:open="fb.isNewItemDialogOpen.value"
       :type="fb.newItemDialogState.value.type"
@@ -294,6 +481,13 @@ defineExpose({
       v-model:open="fb.openWithState.value.isOpen"
       :entries="fb.openWithState.value.entries"
       @close="fb.closeOpenWithDialog"
+    />
+
+    <FileBrowserFavoriteCategoryDialog
+      v-model:open="fb.isFavoriteCategoryDialogOpen.value"
+      :categories="userStatsStore.favoriteCategories"
+      :entry-names="favoriteCategoryEntryNames"
+      @confirm="handleFavoriteCategoryConfirm"
     />
 
     <Transition name="cross-pane-drop-overlay">
@@ -335,6 +529,44 @@ defineExpose({
       :entries="permanentDeletePendingEntries"
       @update:open="fb.permanentDeleteConfirm.handleOpenChange"
       @confirm="fb.permanentDeleteConfirm.handleConfirm"
+    />
+
+    <!-- FORK-MODIFICATION 2026-10-20：远程删除的确认框。 -->
+    <RemoteDeleteConfirmDialog
+      :open="remoteDeleteIsOpen"
+      :entries="remoteDeletePendingEntries"
+      @update:open="fb.remoteDeleteConfirm.handleOpenChange"
+      @confirm="fb.remoteDeleteConfirm.handleConfirm"
+    />
+
+    <!-- FORK-MODIFICATION 2026-10-24：解除文件锁定 / 彻底删除的对话框。 -->
+    <FileLockDialog
+      :open="fileLockIsOpen"
+      :mode="fileLockMode"
+      :path="fileLockPath"
+      :holders="fileLockHolders"
+      :busy="fileLockBusy"
+      @update:open="fb.fileLockWorkflow.handleOpenChange"
+      @unlock="fb.fileLockWorkflow.handleUnlock"
+      @force-delete="fb.fileLockWorkflow.handleForceDelete"
+      @terminate-holders="fb.fileLockWorkflow.handleTerminateHolders"
+    />
+
+    <!-- FORK-MODIFICATION 2026-10-18：SSH 主机公钥的信任确认（阶段 2 决策 3）。 -->
+    <HostKeyTrustDialog
+      :prompt="hostKeyPrompt"
+      @confirm="confirmHostKeyTrust"
+      @cancel="dismissHostKeyTrust"
+    />
+
+    <!-- FORK-MODIFICATION 2026-10-26：远端同名文件的覆盖确认框（可整批同策略）。 -->
+    <RemoteTransferConflictDialog
+      v-model:open="conflictDialogState.isOpen"
+    />
+
+    <!-- FORK-MODIFICATION 2026-10-26：远程传输的进度条与结果明细。 -->
+    <RemoteTransferProgressDialog
+      v-model:open="progressDialogState.isOpen"
     />
 
     <ArchiveOptionsDialog

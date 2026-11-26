@@ -1,5 +1,581 @@
 # تبدیلی لاگ
 
+
+## [3.22.0] - November 2026
+
+**خلاصہ:** عالمی تلاش اب انہی کلاؤڈ ڈسکوں میں تلاش کرتا ہے جنہیں آپ نے منتخب کیا ہے۔ کلاؤڈ انڈیکس کا ہر اندراج اب یہ بھی بتاتا ہے کہ وہ کس ڈسک سے آیا ہے، اور نتائج تلاش کے وقت منتخب ڈسکوں کے مطابق چھانٹے جاتے ہیں — یعنی کسی ڈسک کا چیک ہٹانے کا اثر فوراً ہو جاتا ہے، چاہے دوبارہ بنانے کا کام درمیان میں ناکام ہی چکا ہو۔ اس اپ ڈیٹ کے بعد کلاؤڈ انڈیکس ایک بار دوبارہ بنایا جاتا ہے، کیونکہ محفوظ شدہ فارمیٹ میں اب یہ بھی شامل ہے کہ ہر اندراج کس ڈسک کا ہے۔
+
+### What changed
+
+**درست کیا گیا** **صرف وہی ڈسک تلاش ہوتے ہیں جنہیں آپ نے منتخب کیا ہے** — کلاؤڈ تلاش انڈیکس میں یہ ریکارڈ نہیں تھا کہ ہر اندراج کس ڈسک سے آیا ہے، اس لیے تلاش کا جواب دیتے وقت ایپ کو یہ معلوم نہیں ہوتا تھا کہ کیا وہ ڈسک اب بھی منتخب ہے۔ اگر دوبارہ بنانے کا کام درمیان میں ناکام ہو جاتا تھا تو جس ڈسک کا چیک آپ نے ہٹا دیا تھا، اس کے اندراج بھی نتائج میں آ سکتے تھے۔ اب ہر اندراج اپنا ڈسک ساتھ لے کر چلتا ہے اور نتائج تلاش کے دوران آپ کی موجودہ فہرست کے مطابق چھانٹے جاتے ہیں — چیک ہٹانے پر ڈسک فوراً تلاش سے غائب ہو جاتا ہے، اگلے دوبارہ بنانے کا انتظار نہیں کرنا پڑتا۔ آپ کے اپنے ڈسکوں کا انڈیکس نہیں چھوا گیا، اس لیے ڈسک دوبارہ اسکین کرنے کی ضرورت نہیں۔
+
+**درست کیا گیا** **ناکام کلاؤڈ دوبارہ بنانے ہر صفحہ تبدیلی پر نہیں، صرف ایک بار دہرایا جاتا ہے** — دوبارہ بنانے کے ناکام ہونے پر *ترتیبات* -> *تلاش* کا اگلا دورہ خود اسے دوبارہ چلا دیتا تھا۔ چونکہ *تلاش* اور *ریموٹ* ایک ہی کلاسک استعمال کرتے ہیں، ایک ناکامی اسے دو بار چلا سکتی تھی۔ اب یہ صرف ایک بار چلتا ہے؛ اگر یہ کوشش بھی ناکام ہو جائے تو *ترتیبات* -> *تلاش* میں موجود دوبارہ بنانے کا بٹن کام ہاتے سے کرنے کے لیے موجود ہے۔
+
+**تبدیل کیا گیا** **اس اپ ڈیٹ کے بعد کلاؤڈ انڈیکس ایک بار دوبارہ بنایا جاتا ہے** — کلاؤڈ تلاش انڈیکس کے محفوظ شدہ فارمیٹ میں اب یہ بھی شامل ہے کہ ہر اندراج کس ڈسک کا ہے، اس لیے آپ کے پاس موجود انڈیکس نیا ورژن نہیں پڑھ سکتا۔ ایپ آپ کے لیے اسے دوبارہ بناتی ہے جب آپ پہلی بار تلاش یا ریموٹ کی ترتیبات کھولتے ہیں۔ اس دوران صرف منتخب ڈسک ایک بار دیکھے جاتے ہیں اور کلاؤڈ ڈسک API کالیں لگتی ہیں؛ غیر منتخب ڈسک نہیں دیکھے جاتے، اور آپ کے اپنے ڈسکوں کا انڈیکس نہیں بدلتا۔
+
+## [3.21.1] - November 2026
+
+**خلاصہ:** کلاؤڈ ڈسک والے دور کی یہ مزید صفائی ہے۔ *ترتیبات* -> *تلاش* میں فہرست بننے کا اشارہ اب اسی ڈسک سے متعلق ہے جس کا بٹن آپ نے واقعی دبایا، اور ایک ساتھ سب ڈسکس پر روشن نہیں ہوتا؛ جب وہ دوبارہ تعمیر ختم ہو جاتی ہے تو فوراً اٹھ جاتا ہے۔ اگر کوئی دوبارہ تعمیر صفحہ بند رہتے ہوئے ناکام ہو گئی تھی تو اگلی بار صفحہ کھولنے پر وہ خودکار طور پر دوبارہ کوشش کر لی جاتی ہے۔
+
+### What changed
+
+**درست کیا گیا** **فہرست کی حالت اب دوسری ڈسکس پر نہیں پھیلتی** - جب آپ ایک کلاؤڈ ڈسک کے لیے کلاؤڈ فہرست دوبارہ بناتے تھے تو فہرست میں ہر ڈسک پر *کلاؤڈ ڈسکس کی فہرست بنائی جا رہی ہے* نظر آتا تھا، اور کسی ڈسک کا ٹک ہٹانے کے بعد بھی وہ لکھا جم جاتا تھا۔ اب ہر قطار صرف یہ بتاتی ہے کہ چل رہی دوبارہ تعمیر میں *وہی* ڈسک شامل ہے یا نہیں؛ باقی قطاریں اپنا معمول کا بٹن ہی دکھاتی ہیں۔ جن ڈسکس آپ نے عالمی تلاش سے باہر رکھے ہیں، وہ دوبارہ تعمیر کا بٹن بالکل نہیں دکھاتیں، اس لیے غلط فہمی کا کوئی موقع نہیں۔ دوبارہ تعمیرات پہلے کی طرح ایک ایک کر کے ہی چلتی ہیں۔
+
+**درست کیا گیا** **ناکام کلاؤڈ دوبارہ تعمیر آپ کے واپس آنے پر دہرائی جاتی ہے** - کلاؤڈ فہرست ایک ساتھ پورے سیٹ کے لیے بنتی ہے، اس لیے آدھے راستے میں ناکام ہونے والی تعمیر فہرست کو آپ کے ٹکس سے بے ہم آہنگ چھوڑ سکتی تھی۔ جب ایسا ہوتا ہے تو *ترتیبات* -> *تلاش* میں اگلی آمد دوبارہ تعمیر خودکار طور پر چلا دیتی ہے، جس سے جن ڈسکس کا ٹک ہٹا دیا گیا ہے وہ آپ کے کچھ دبائے بغیر ہی تلاش کے نتائج سے غائب ہو جاتے ہیں۔
+
+## [3.21.0] - November 2026
+
+**خلاصہ:** کلاؤڈ ڈسک کا یہ راؤنڈ زیادہ ترتیب مند ہو گیا ہے۔ *کلاؤڈ ڈسک شامل کریں* کے بٹن اب دکھاتے ہیں کہ آپ نے کون سا فراہم کنندہ منتخب کیا ہے، *ترتیبات* -> *تلاش* آپ کے کلاؤڈ ڈسکس کو فراہم کنندہ کے مطابق گروپ میں دکھاتی ہے تاکہ آپ فیصلہ کر سکیں کہ عالمی تلاش میں کون شامل ہو، اور کلاؤڈ ڈسک ہٹانے پر اب کوئی کالا کنسول ونڈو نہیں چمکتا۔ OneDrive فی وقت کے لیے پارک کر دیا گیا ہے - ابھی وہ انٹرفیس سے باہر ہے، اور بعد میں اسے دوبارہ بنائے بغیر واپس آنے کے قابل ہے۔
+
+### What changed
+
+**شامل کیا گیا** ***کلاؤڈ ڈسک شامل کریں* کے بٹن اب دکھاتے ہیں کہ آپ نے کون سا منتخب کیا** - *Baidu Netdisk*، *Quark Netdisk* یا *Aliyun Drive* میں سے کوئی ایک منتخب کرنے پر وہی بٹن نشان زد ہو جاتا ہے، اس لیے آپ کو ایک نظر میں معلوم ہو جاتا ہے کہ آپ کون سا فراہم کنندہ شامل کرنے والے ہیں۔ آپ کا منتخب کردہ بٹن اس وقت تک نشان زد رہتا ہے جب تک آپ کوئی دوسرا منتخب نہ کریں یا پینل بند نہ کر دیں۔
+
+**شامل کیا گیا** **کلاؤڈ ڈسکس اب *ترتیبات* -> *تلاش* میں فراہم کنندہ کے مطابق دکھائی دیتی ہیں** - *تلاش* کی ترتیبات کے *کلاؤڈ تلاش* حصے میں آپ کے کلاؤڈ ڈسکس اب فراہم کنندہ کے مطابق گروپ میں آتے ہیں - *Baidu Netdisk*، *Aliyun Drive*، *Quark Netdisk* اور بعد میں شامل کیا جانے والا کوئی بھی قسم کا کلاؤڈ ڈسک۔ ہر فراہم کنندہ کے نیچے آپ وہ کنکشن منتخب کرتے ہیں جو عالمی تلاش میں شامل ہونے چاہیے، اور تلاش کا انڈیکس آپ کے لیے خود دوبارہ بن جاتا ہے۔ جس فراہم کنندہ سے آپ ابھی تک منسلک نہیں ہیں وہ بھی فہرست میں آتا رہتا ہے، تاکہ آپ کو معلوم ہو کہ ایپ کون کون سی قسم کے کلاؤڈ ڈسکس جانتی ہے۔
+
+**درست کیا گیا** **کلاؤڈ ڈسک ہٹانے پر اب کالا کنسول ونڈو نہیں چمکتا** - کلاؤڈ ڈسک ہٹانے پر آپ کے ڈیسک ٹاپ پر تھوڑی دیر کے لیے ایک کالا کنسول ونڈو کھل جاتا تھا۔ محفوظ شدہ اسناد کو آپ کے اپنے Windows اکاؤنٹ تک محدود رکھنے والا اوزار اب کوئی ونڈو کھولے بغیر چلتا ہے، اس لیے کلاؤڈ ڈسک ہٹانا پھر خاموش ہو گیا ہے۔
+
+**تبدیل کیا گیا** **OneDrive فی وقت کے لیے پارک کر دیا گیا ہے** - OneDrive کا اختیار فی وقت کے لیے *کلاؤڈ ڈسک شامل کریں* کی فہرست سے باہر ہے۔ OneDrive کو جو چاہیے وہ سب ایک ہی سوئچ کے پیچھے اب بھی موجود ہے، اس لیے بعد میں اسے دوبارہ بنائے بغیر واپس لایا جا سکتا ہے، اور پہلے سے موجود کنکشن کو کوئی نقصان نہیں پہنچتا۔
+
+## [3.20.1] - November 2026
+
+**خلاصہ:** OneDrive میں فولڈرز اب واقعی بن جاتے ہیں۔ ایپ نئے فولڈر کو ایسے انداز میں بھیجتا تھا جسے ڈرائی قبول نہیں کرتا تھا، ہر کوشش HTTP 400 پر مسترد ہو جاتی تھی اور کچھ بھی نہیں بنتا تھا۔ اب درخواست اسی طرح بھیجی جاتی ہے جیسے ڈرائی expect کرتا ہے۔
+
+### What changed
+
+**درست کیا گیا** **OneDrive میں فولڈر بنانا HTTP 400 کے ساتھ ناکام ہوتا تھا** - ایپ نئے فولڈر پر وہ قسم لگاتی تھی جو Microsoft اس درخواست میں قبول نہیں کرتا؛ ڈرائی ہر کوشش مسترد کر دیتا تھا اور فولڈر کبھی نہیں بنا۔ اب فولڈر بن جاتا ہے اور کوئی اور مسئلہ ہو تو ایپ ڈرائی کی اپنی بتائی گئی خرابی دکھاتی ہے۔
+
+## [3.20.0] - November 2026
+
+**خلاصہ:** OneDrive اب صرفاً پڑھنے کے لیے نہیں رہا۔ 3.18.0 میں شامل کی گئی کنکشن اب ڈرائیو پر لکھ بھی سکتی ہے: فائل اپ لوڈ کرنا، فولڈر بنانا، نام بدلنا اور حذف کرنا - بالکل دوسرے نیٹ ڈسکس کی طرح۔ سائن ان اب پڑھنے اور لکھنے دونوں کی اجازت مانگتا ہے، اور «کنکشن چیک کریں» اب پہلے سے موجود سیشن کو پہچان لیتا ہے۔
+
+### What changed
+
+**شامل کیا گیا: OneDrive اب ڈرائیو پر لکھ سکتا ہے** فائل اپ لوڈ کرنا، فولڈر بنانا، نام بدلنا اور حذف کرنا ڈرائیو پر واقعی لاگو ہوتے ہیں؛ حذف شدہ چیز ڈرائیو کی ری سائیکل بین میں جاتی ہے، مستقل طور پر نہیں گنی جاتی۔ نیا فولڈر کبھی بھی ایک ہی نام والے فولڈر کی جگہ نہیں لیتا - نام مل جائے تو ایپ اس نام کو قبول نہیں کرتی۔
+**شامل کیا گیا: بڑی فائلیں بھی اپ لوڈ ہو سکتی ہیں** 250 MB تک ایک ہی درخواست میں؛ اس سے بڑی فائلیں 5 MB کے حصوں میں، اور یہ بھی دکھایا جاتا ہے کہ کتنا اپ لوڈ ہوا۔
+**شامل کیا گیا: «کنکشن چیک کریں» اب موجود سیشن استعمال کرتا ہے** پہلے فارم پر «مجاز» دکھانے کے باوجود کہتا تھا کہ اسناد موجود نہیں۔ اب محفوظ شدہ سیشن استعمال کرتا ہے، میعاد ختم ٹوکن خود بخود تازہ کرتا ہے، اور اسناد کی کمی صرف اس وقت بتاتا ہے جب سیشن واقعی موجود نہ ہو۔
+**شامل کیا گیا: پرانے سیشن بھی کام کرتے رہتے ہیں** اس اپ ڈیٹ سے پہلے بنائے گئے سیشن تازہ ہوتے رہتے ہیں اور پڑھتے، ڈاؤن لوڈ کرتے اور انڈیکس کرتے رہتے ہیں۔ لکھنے کے لیے ایک بار دوبارہ سائن ان کرنا پڑتا ہے، کیونکہ Microsoft وسیع تر اجازت صرف اجازت نامے کے وقت دیتا ہے۔
+**درست کیا گیا: *مقامات* کی فہرست میں *دستیاب اسپیس* کالم اب دوسرے کالموں سے ہم آہنگ ہے۔** پہلے اس کالم کا متن اپنے خانے کے اوپر چپکے رہتا تھا، جبکہ دوسرے کالم اسے درمیان میں دکھاتے تھے، جس کی وجہ سے قطاریں بے ترتیب لگتی تھیں۔ اب یہ کالم بھی اپنا متن دوسرے کالموں کی طرح عمودی طور پر درمیان میں رکھتا ہے۔
+
+## [3.18.0] - November 2026
+
+**خلاصہ:** OneDrive اب چوتھا کلاؤڈ ڈسک کے طور پر شامل ہو گیا ہے: *ترتیبات* میں *کلاؤڈ ڈسک شامل کریں* کے نیچے یہ *Baidu Drive*، *Quark Drive* اور *Aliyun Drive* کے ساتھ کھڑا ہے۔ سائن اِن آپ کے سسٹم براؤزر میں ہی Microsoft اکاؤنٹ سے ہوتا ہے، کوئی ٹوکن دستی کاپی نہیں کرنا پڑتا، اور سیشن ایپ کے اپنے انکرپٹ شدہ اسناد اسٹور میں محفوظ رہتا ہے۔ یہ ورژن صرف پڑھنے کے لیے ہے: فولڈر دیکھے جا سکتے ہیں، فائلیں پڑھی اور ڈاؤن لوڈ کی جا سکتی ہیں، اور کنکشن کو عالمی تلاش میں بھی شامل کیا جا سکتا ہے - اپ لوڈ، نیا فولڈر بنانا، نام بدلنا اور حذف کرنا ابھی موجود نہیں۔
+
+### What changed
+
+**شامل کیا گیا: OneDrive چوتھا کلاؤڈ ڈسک ہے** *ترتیبات* میں *کلاؤڈ ڈسک شامل کریں* کے نیچے اب چار بٹن ہیں: *Baidu Drive*، *Quark Drive*، *Aliyun Drive* اور *OneDrive*۔ *OneDrive* منتخب کرنے پر کنکشن فارم کھلتا ہے، جس میں آپ کو اپنی Azure ایپلیکیشن کا client id درج کرنا پڑتا ہے - یہ وہی ایپلیکیشن ہے جو آپ نے OneDrive کے لیے Microsoft Entra میں رجسٹر کی تھی۔ ایپ میں کوئی default client_id نہیں ہے، یہ آپ کو خود درج کرنا پڑتا ہے۔
+**شامل کیا گیا: OneDrive میں سائن اِن آپ کے اپنے براؤزر میں ہوتا ہے** سائن اِن شروع کرنے پر Microsoft کا سائن اِن صفحہ سسٹم کے ڈیفالٹ براؤزر میں کھلتا ہے، اور وہاں آپ اپنے Microsoft اکاؤنٹ سے سائن اِن کرتے ہیں۔ نتیجہ ایپ اسی مشین کے مقامی لوپ بیک پتے پر لیتا ہے - *http://localhost* کے ساتھ ایک بے ترتیب پورٹ -، اس لیے نہ ٹوکن دستی کاپی کرنا ہے، نہ کوڈ، اور نہ فارم میں کچھ چسپاں کرنا ہے۔ سائن اِن PKCE کے ذریعے ہوتا ہے، Microsoft سے صرف فائلوں کا پڑھنے کا اجازت اور آف لائن سائن اِن مانگا جاتا ہے (*Files.Read* اور *offline_access*)، اور کہیں بھی client secret استعمال نہیں ہوتا۔
+**شامل کیا گیا: OneDrive کا سیشن ایپ کے اپنے انکرپٹ شدہ اسناد اسٹور میں رہتا ہے** اجازت مکمل ہونے کے بعد سیشن ایپ کے اسناد اسٹور میں لکھا جاتا ہے اور Windows DPAPI کے ذریعے انکرپٹ ہوتا ہے، تاکہ وہ اسی مشین پر رہے۔ ٹوکن خود انٹرفیس کو واپس نہیں دیا جاتا: فارم صرف یہ بتاتا ہے کہ اجازت ہوئی ہے یا نہیں اور سیشن کب ختم ہوگا۔
+**شامل کیا گیا: OneDrive کا کنکشن پہلے آزمائا جا سکتا ہے** کنکشن فارم میں موجود ٹیسٹ کنکشن بٹن OneDrive سے خود پوچھ لیتا ہے کہ یہ اکاؤنٹ رابطے میں آتا ہے یا نہیں۔ اگر نہیں آتا تو یہیں پتہ چل جاتا ہے، کسی فولڈر کھولنے پر نہیں۔
+**شامل کیا گیا: OneDrive کی فائلیں بھی عالمی تلاش سے مل جاتی ہیں** باقی کلاؤڈ ڈسکس کی طرح آپ OneDrive کنکشن کو *گلوبل تلاش میں شامل کریں* کے ذریعے عالمی تلاش میں شامل کر سکتے ہیں؛ اس ڈرائیو کی فائلیں انڈیکس ہو کر آپ کی مقامی فائلوں کے ساتھ تلاش کے نتائج میں نظر آتی ہیں۔ انڈیکس صرف اس وقت دوبارہ بنتا ہے جب آپ کہیں - *ترتیبات* -> *عالمی تلاش* -> *کلاؤڈ اشاریہ دوبارہ بنائیں* -۔
+**شامل کیا گیا: اس ورژن میں OneDrive کیا کر سکتا ہے اور کیا نہیں** فولڈر کی فہرست بنانا، فائل پڑھنا اور اسے مقامی فولڈر میں ڈاؤن لوڈ کرنا - یہ سب ہے۔ فائل اپ لوڈ کرنا، نیا فولڈر بنانا، نام بدلنا اور حذف کرنا اس ورژن میں نہیں ہے؛ اور OneDrive کی تصاویر کی ابھی تھمب نیل نہیں ہے، وہ آج بھی عام فائل آئیکن دکھاتی ہیں۔
+
+## [3.17.0] - November 2026
+
+**خلاصہ:** اب آپ کی کلاؤڈ ڈسکوں کی فائلیں ایپ کی عالمی تلاش میں مل جاتی ہیں - ہر کنکشن کے لیے آپ خود فیصلہ کرتے ہیں کہ وہ شامل ہو یا نہیں، اس لیے کچھ بھی آپ کی خبر کے بغیر نیٹ ورک پر نہیں جاتا۔ آپ جو کلاؤڈ ڈسک شامل کرتے ہیں وہ اب اپنے نام کے ساتھ آتا ہے، اور پسندیدہ کو مینو میں اپنا الگ نام دیا جا سکتا ہے، بغیر اس کے پیچھے کی اصل فائل یا فولڈر کو چھیڑے۔
+
+### What changed
+
+**شامل کیا گیا: کلاؤڈ ڈسک کی فائلیں اب عالمی تلاش سے مل جاتی ہیں** عالمی تلاش پہلے صرف آپ کے مقامی ڈرائیو دیکھتی تھی، اس لیے Baidu Netdisk، Quark Netdisk یا Aliyun Drive پر رکھی فائل کبھی امیدوار نہیں بنتی تھی۔ کلاؤڈ ڈسک شامل کرتے وقت اب آپ *عالمی تلاش میں شامل کریں* منتخب کر سکتے ہیں؛ اس ڈرائیو کی فائلیں انڈیکس ہو کر آپ کی مقامی فائلوں کے ساتھ تلاش کے نتائج میں نظر آتی ہیں۔ فیصلہ ہر کنکشن کے لیے الگ ہوتا ہے اور خانہ شروع میں خالی رہتا ہے: کسی ڈرائیو کو انڈیکس میں شامل کرنے کا مطلب ہے نیٹ ورک پر جانا اور اس ڈرائیو کی API کوٹا خرچ کرنا، اور یہ فیصلہ ایپ کو آپ کی طرف سے نہیں لینا چاہیے۔ انڈیکس صرف اس وقت دوبارہ بنتا ہے جب آپ کہیں - *ترتیبات* -> *عالمی تلاش* -> *کلاؤڈ انڈیکس دوبارہ بنائیں* - اس لیے ایپ کبھی اپنی مرضی سے کلاؤڈ ڈسک نہیں سلگریتا۔ اگر اس وقت کوئی ڈرائیو نہ پڑھ سکے تو اس کی اطلاع دی جاتی ہے اور باقی کنکشن عام طور پر انڈیکس ہو جاتے ہیں۔
+**شامل کیا گیا: شامل کیا گیا کلاؤڈ ڈسک اب اپنے نام کے ساتھ آتا ہے** کلاؤڈ ڈسک شامل کرتے وقت نام کا خانہ پہلے خالی رہتا تھا، اس لیے ہر ڈرائیو کا نام دستی رکھنا پڑتا تھا۔ اب فراہم کنندہ کا نام آپ کے لیے بھر دیا جاتا ہے - *Baidu Netdisk*، *Quark Netdisk* یا *Aliyun Drive* - اور آپ ڈرائیو کو کوئی اور نام دینا چاہیں تو بدل سکتے ہیں۔ موجودہ کنکشن کا نام بدلنا جیسا تھا ویسا ہی رہا ہے: آپ کا دیا ہوا نام محفوظ رہتا ہے۔
+**شامل کیا گیا: پسندیدہ اپنا الگ نام رکھ سکتا ہے** پسندیدہ چیزیں پہلے ان کے پیچھے موجود فائل یا فولڈر کے نام سے دکھائی جاتی تھیں، اور یہ ہمیشہ وہ نام نہیں ہوتا جو آپ مینو میں دیکھنا چاہتے ہیں۔ اب آپ پسندیدہ کو شامل کرتے وقت یا بعد میں کارڈ کے مینو سے *ظاہر نام میں ترمیم* کے ذریعے اپنا ظاہر نام دے سکتے ہیں۔ صرف مینو کا نام بدلتا ہے: پیچھے کی فائل اور فولڈر اپنے اصل نام رکھتے ہیں، اور پسندیدہ وہی جگہ کھولتا ہے۔
+
+## [3.16.1] - November 2026
+
+**خلاصہ:** اب Aliyun Drive کو ایپ کے اندر سے منسلک کیا جا سکتا ہے: ایپ کے اندر ہی سائن-اِن کا کھڑکا کھلتا ہے، آپ فون سے QR کوڈ اسکین کرتے ہیں، اور ڈرائیو ایک ایسے پینل بن جاتا ہے جسے آپ دیکھ اور پڑھ سکتے ہیں۔ اب یہ صرف پڑھنے کے لیے محدود نہیں: آپ ڈرائیو میں فولڈر بنا سکتے ہیں، فائلیں اپ لوڈ کر سکتے ہیں، انہیں حذف اور نام تبدیل بھی کر سکتے ہیں — بالکل اپنے دوسرے کلاؤڈ ڈسکس کی طرح۔ ڈرائیو پر موجود تصاویر اب تھمب نیل نشانی دکھاتی ہیں، تھمب نیل ویو میں بھی اور لسٹ ویو میں بھی، اور کسی فائل پر کلک کرنے سے صرف وہی ایک فائل منتخب ہوتی ہے، چاہے فولڈر میں ایک ہی نام والی کئی فائلیں موجود ہوں، اور جو ڈرائیو پڑھی نہیں جا سکتی، اب وہ یہ بات بتا دیتا ہے، خاموشی سے کچھ نہ کرنے کی بجائے۔
+
+### What changed
+
+**شامل کیا گیا: Aliyun Drive کو تیسرے کلاؤڈ ڈسک فراہم کنندہ کے طور پر شامل کیا جا سکتا ہے۔** ترتیبات میں *Remote* کے تحت *Netdisks* ٹیب میں *Add netdisk* اب *Baidu Netdisk* اور *Quark Netdisk* کے ساتھ *Aliyun Drive* بھی پیش کرتا ہے۔ ایپ کے اندر ایک سائن-اِن کھڑکا کھلتا ہے، فون سے QR کوڈ اسکین کرنا کافی ہے، اور سیشن ایپ کے اپنے انکرپٹ شدہ کریڈینشل اسٹور میں محفوظ ہو جاتا ہے: کوئی ٹوکن دستی سے نقل نہیں کرنا پڑتا۔ محفوظ ہونے کے بعد یہ کنکشن ہر دوسرے ریموٹ کنکشن کی طرح چلتا ہے: ڈرائیو اپنے اصل فائل ناموں کے ساتھ فہرست میں آتی ہے، اور فائل کو مقامی فولڈر میں پڑھا جا سکتا ہے۔
+**شامل کیا گیا: Aliyun Drive اب آپ کی ڈرائیو میں لکھ بھی سکتا ہے۔** فولڈر کی فہرست اور ایک فائل کے پڑھنے کے علاوہ فراہم کنندہ اب فولڈر بناتا ہے، فائلیں اپ لوڈ کرتا ہے، انہیں حذف کرتا ہے اور نام تبدیل کرتا ہے۔ کسی دوسرے فولڈر میں منتقل کرنا اور شیئر کرنا اب بھی فراہم نہیں: ایپ یہ دونوں کسی بھی کلاؤڈ ڈسک کے لیے فراہم نہیں کرتی۔ ویلٹ ڈرائیو پہچان لی جاتی ہے، مگر اُن لاک نہیں کی جاتی۔
+**درست کیا گیا: Aliyun Drive اب بیس سیکنڈ تک نہیں رکتی پھر ٹوٹی ہوئی کنکشن کی اطلاع نہیں دیتی۔** Aliyun Drive کے آگے موجود گیٹ وے صرف اُس وقت ہی جواب کا مواد بھیجتا تھا جب درخواست gzip سے compressed مواد مانگتی تھی۔ اس درخواست کے ہیڈر کے بغیر وہ صرف ہیڈر بھیجتا تھا، مواد کو تقریباً بیس سیکنڈ روکے رکھتا تھا اور پھر کنکشن کاٹ دیتا تھا، اور آپ کے پاس یہ *Aliyun Drive سے کنکشن قطع* کے طور پر پہنچتا تھا۔ اب HTTP کلائنٹ gzip کی درست بات چیت کرتا ہے، اس لیے فولڈر کی فہرست ٹائم آؤٹ کے بجائے ملی سیکنڈ میں ہو جاتی ہے۔
+**درست کیا گیا: ریموٹ خرابی کی اطلاع اب اس ڈرائیو کے مطابق الفاظ میں دی جاتی ہے جس پر یہ ہوئی۔** جب کوئی کلاؤڈ ڈسک تک رسائی نہ ہو تو دکھایا جانے والا پیغام ایک مقررہ فراہم کنندہ کا نام لیتا تھا۔ اب یہ اس فراہم کنندہ کا نام لیتا ہے جو واقعی ناکام ہوا، اس لیے Aliyun Drive کی خرابی کسی دوسری ڈرائیو کا ذکر نہیں کرتی۔
+**درست کیا گیا: جڑا ہوا فون فولڈر ٹری میں نظر آتا ہے اور اس کا بریڈ کرم اس کے اندر لے جاتا ہے۔** Windows شیل کے نیم اسپیس میں فون کا راستہ فرنٹ اینڈ نہیں توڑ سکتا: اس میں ایسے الگ کرنے والے ہیں جو ڈائریکٹری الگ کرنے والے نہیں ہیں، اس لیے فون کے اندر کی درجے ایک مبہم *ڈیوائس* اندراج میں چپٹ جاتے تھے۔ اب درجے خود شیل سے ایک ایک کر کے لیے جاتے ہیں: ٹری ان ڈیوائس جڑوں کو بھی دکھاتی ہے جن کے پاس ڈرائیو حرف نہیں ہوتا، اور ایڈریس بار ہر درجے کے اصل نام سے آگے بڑھتا ہے۔
+**درست کیا گیا: سائن-اِن QR کوڈ اب اسکرین ریڈرز پڑھتے ہیں۔** تصویر میں پہلے کوئی تفصیل نہیں تھی، اس لیے اسے سجاوٹ سمجھ کر اسکرین ریڈرز خاموشی سے چھوڑ دیتے تھے۔ اب اس میں تفصیل ہے، اور یہ کسی بھی نام والے عنصر کی طرح پڑھا جاتا ہے۔
+**شامل کیا گیا: Aliyun Drive کلاؤڈ ڈسک کی تصاویر اب تھمب نیل نشانی دکھاتی ہیں۔** تھمب نیل نشانیاں پہلے تصویر کو ڈسک سے پڑھ کر بنائی جاتی تھیں، اور کلاؤڈ ڈسک پر رکھی فائل کا کوئی ڈسک راستہ نہیں ہوتا، اس لیے کلاؤڈ ڈسک کی کوئی تصویر کبھی پیش نظارہ نہیں دکھا سکی۔ اب ایپ خود کلاؤڈ ڈسک سے تصویر مانگتی ہے، خود ہی بایٹز ڈاؤن لوڈ کرتی ہے، اور جو بایٹز اسے ملتے ہیں انہی سے تھمب نیل بناتی ہے - بالکل مقامی تصویر جیسے ہی - اس لیے اب کوئی ایسی لنک جس کی میعاد ختم ہو چکی ہو یا جو براہ راست لوڈنے سے انکار کر دے، پیش نظارہ خراب نہیں کر سکتی۔ ریموٹ تھمب نیلز اپنے ہی کیش فولڈر میں رکھی جاتی ہیں، اس لیے وہ کبھی مقامی تھمب نیلز سے مخلوط نہیں ہوتیں۔ آج یہ طریقہ صرف Aliyun Drive کو دستیاب ہے; Baidu Netdisk اور Quark Netdisk ابھی یہ نہیں دیتے اور اپنا معمول کا فائل آئیکن برقرار رکھتے ہیں۔
+**درست کیا گیا: ریموٹ تصاویر اب تھمب نیل (گرڈ) ویو میں بھی تھمب نیل دکھاتی ہیں۔** پہلے صرف لسٹ ویو ریموٹ تصاویر دکھاتا تھا؛ گرڈ ویو خالی رہتا تھا، حالانکہ ایپ نے تصویر پہلے ہی حاصل کر لی تھی۔ گرڈ جو سائز مانگتا تھا وہ کچھ قریب قریب قدر کے درمیان جھولتا رہتا تھا، اور ہر جھول کو ایک دوسری تصویر سمجھا جاتا تھا، اس لیے ان میں سے کوئی بھی کبھی دوبارہ استعمال نہیں ہوئی؛ اب سائز کو مقررہ درجے پر گول کیا جاتا ہے۔ ایک بار ناکام ہونے والی پیش نظارہ کو بھی حتمی جواب سمجھا جاتا تھا اور دوبارہ کوشش نہیں کی جاتی تھی، اور ایک رُکی ہوئی کوشش اپنے "جاری ہے" نشانات چھوڑ جاتی تھی، اس لیے اگلی کوشش شروع ہی نہیں ہوتی تھی۔ تینوں چیزیں درست کر دی گئی ہیں: گرڈ ویو اب ریموٹ تصاویر دکھاتا ہے، ناکام پیش نظارہ چند بار دوبارہ کوشش کرتا ہے، اور فولڈر تبدیل کرنا اب اگلی کوشش کو روکتا نہیں۔
+**درست کیا گیا: جو کلاؤڈ ڈسک پڑھی نہیں جا سکتی، اب وہ یہ بات بتا دیتا ہے، خاموشی سے کچھ نہ کرنے کی بجائے۔** جب ڈرائیو پڑھی نہیں جا سکتی تھی، تو ایپ خاموشی سے طے شدہ فولڈر پر واپس چلی جاتی تھی، اس لیے کسی ریموٹ کنکشن پر کلک کرنے پر لگتا تھا کہ کچھ نہیں ہوا - نہ کوئی مواد، نہ کوئی پیغام۔ اب خرابی جہاں پیش آئی وہیں رہ جاتی ہے: پینل کنکشن کھلا رکھتا ہے اور وجہ اس کے ساتھ دکھاتا ہے۔
+**درست کیا گیا: کلاؤڈ ڈسک میں کسی ایک فائل پر کلک کرنے سے اب دو فائلیں منتخب نہیں ہوتیں۔** کلاؤڈ ڈسک کے فولڈر میں ایک ہی نام والی کئی فائلیں ہو سکتی ہیں، مگر ان سب کو ایک ہی راستہ دیا جاتا تھا، کیونکہ راستہ والد فولڈر اور فائل کے نام کو ملا کر بنایا جاتا ہے۔ ایپ یہ طے کرتی تھی کہ کون سا منتخب ہے، اس لیے اس پتے کا موازنہ کیا جاتا تھا، اور ایک پر کلک کرنے سے دونوں روشن ہو جاتے تھے۔ اب ہر ریموٹ اندراج اپنی ایک شناخت رکھتا ہے جو ڈرائیو سے ملتی ہے، اور منتخب ہونے کا فیصلہ اسی شناخت کی بنیاد پر ہوتا ہے — یعنی جس فائل پر آپ نے کلک کیا، منتخب صرف وہی فائل ہوتی ہے۔ کلاؤڈ ڈسک کے فولڈر کی کئی فائلوں کا ایک ساتھ نام تبدیل کرنا، حذف کرنا یا نقل کرنا اب بھی فائل کے نام پر ہی کام کرتا ہے، اس لیے ایک ہی نام رکھنے والی دو فائلیں ان عملوں کے ذریعے ابھی ممیز نہیں کی جاتیں۔
+**تبدیل کیا گیا:** **ریموٹ کنکشنز کے ہوور پینل میں کلاؤڈ ڈسک کے عنوان کے ساتھ افزودن کے بٹنوں کی قطار نہیں رہی۔** سائیڈ بار میں *ریموٹ* پر ہوور کرنے پر کلاؤڈ ڈسک کے عنوان کے ساتھ تین بٹن تھے - *کلاؤڈ ڈسک شامل کریں*، *Quark Netdisk* اور *Aliyun Drive*۔ اب وہ نہیں رہے: یہ پینل اُن کنکشنز کو کھولنے کے لیے ہے جو آپ کے پاس پہلے سے موجود ہیں، اور نئے کنکشن *سیٹنگز* میں *ریموٹ* کے تحت شامل کیے جاتے ہیں، جہاں تینوں کلاؤڈ ڈسک ایک ساتھ رہتے ہیں۔ *ریموٹ کنکشن* حصے کی اپنی افزودن بٹن برقرار ہے۔
+## [3.15.0] - November 2026
+
+**خلاصہ:** کمپیوٹر میں لگانے والا فون یا یو ایس بی ڈرائیو اب *مقامات* میں نظر آتا ہے، اور Windows فائل ایکسپلورر سے کسی کو کھولنے پر آپ خالی صفحے پر نہیں رکھے جاتے بلکہ ڈیوائس کے اندر پہنچ جاتے ہیں۔
+
+### What changed
+
+**درست کیا گیا: لگایا گیا فون یا یو ایس بی ڈرائیو اب *مقامات* میں نظر آتا ہے۔** *مقامات* پہلے صرف ان ڈرائیوز کی فہرست دکھاتے تھے جنہیں Windows عام ڈسک حجم کے طور پر بتاتا ہے۔ MTP کے ذریعے جڑا ہوا فون ایسا حجم نہیں ہوتا، اس لیے وہ کبھی سامنے ہی نہیں آیا، اور یو ایس بی ڈرائیو بھی اُس وقت گر جاتی تھی جب Windows نے ابھی اس کا حجم نہیں بتایا تھا۔ اب ڈیوائسز کی فہرست خود Windows شیل کے ذریعے جمع کی جاتی ہے، اس لیے لگایا گیا فون اپنے نام کے ساتھ نظر آتا ہے، اور جو ڈرائیوز حجم نہیں بتاتیں وہ اب پھینکے نہیں جاتے۔ لگائے گئے فون اور یو ایس بی ڈرائیوز اپنے الگ *ڈیوائسز* حصے میں دکھائی دیتی ہیں۔
+
+**درست کیا گیا: Windows فائل ایکسپلورر سے فون کھولنے پر اب واقعی فون ہی کھلتا ہے۔** جب Alpha File Manager کو ڈیفالٹ فائل مینیجر بنا دیا جائے تو Windows میں فون پر ڈبل کلک کرنے سے راستہ Windows فائل ایکسپلورر کو دے دیتا تھا، جبکہ ایپ نے وہ راستہ پہلے ہی پھینک دیا تھا، اس لیے صرف *مقامات* کا صفحہ باقی رہ جاتا تھا۔ اب راستہ محفوظ رکھا جاتا ہے اور ایپ کے اندر کھولا جاتا ہے، اور فون کے اندر موجود فولڈرز بھی کسی اور فولڈر کی طرح سے چلے جا سکتے ہیں۔
+
+**شامل کیا گیا: ڈیوائس کو واپس Windows فائل ایکسپلورر میں دیا جا سکتا ہے۔** اگر کوئی ڈیوائس ایپ کے اندر نہیں کھل سکتی تو اس کے بارے میں بتانے والا پیغام اب اسے Windows فائل ایکسپلورر میں کھولنے کا راستہ بتاتا ہے، تاکہ آپ کبھی پھنسے نہیں رہے۔
+
+**درست کیا گیا: جو ڈیوائس پڑھی نہیں جا سکتی وہ اب پورے *مقامات* صفحے کو خالی نہیں کرتی۔** ڈرائیوز اور لگائی گئی ڈیوائسز اب ساتھ ساتھ حاصل کی جاتی ہیں، اس لیے جو ڈیوائس جواب نہیں دیتی وہ اب ڈرائیوز کے نظر آنا نہیں روکتی۔
+
+## [3.14.1] - November 2026
+
+**خلاصہ:** Focus Sync دوبارہ اُس فولڈر کو، جسے آپ دیکھ رہے ہیں، دوسرے پروگراموں کے «Open» اور «Save as» ڈائیلاگوں میں بھیج سکتا ہے، اور سیٹ اپ فائل اب پرانے کی جگہ اس ریلیز سے تعلق رکھنے والا ساتھی شامل کرتی ہے۔
+
+### What changed
+
+**درست کیا گیا: Focus Sync دوبارہ دوسرے پروگراموں کے کھولنے اور محفوظ کرنے والے ڈائیلاگ بھرتا ہے۔** یہ جانچ جو طے کرتی تھی کہ کوئی فولڈر دوسرے پروگرام کو دیا جا سکتا ہے یا نہیں، بہت سخت ہو گئی تھی، اس لیے ہر کوشش رد کر دی گئی اور آپ جو فولڈر دیکھ رہے تھے وہ کبھی ڈائیلاگ تک نہیں پہنچا۔ ڈسک پر واقعی موجود فولڈر اب دوبارہ گزر جاتے ہیں، اور آپ ان میں داخل ہوتے ہی یہ فولڈر براہ راست دے دیا جاتا ہے، اس لیے اگلا کھولنے یا محفوظ کرنے والا ڈائیلاگ پہلے ہی صحیح جگہ سے شروع ہوتا ہے۔
+
+**درست کیا گیا: Focus Sync اب لگا کر ایک ہی سطر کو لاگ میں نہیں بھرتا۔** ساتھی اپنی ہی صحت کی جانچ کا جواب دیتے ہوئے ہر بار پوچھے جانے پر لاگ میں ایک نئی سطر لکھ دیتا تھا، جس سے لاگ خود بڑھتا گیا اور اہم پیغامات نظر سے گھٹ گئے۔ اب صحت کی جانچ خاموش رہتی ہے، اور صرف اصل واقعات درج کیے جاتے ہیں۔
+
+**درست کیا گیا: سیٹ اپ فائل اب پرانے کی جگہ موجودہ ساتھی شامل کرتی ہے۔** انسٹالر اب بھی کسی پرانے بلڈ کا ساتھی شامل کر رہا تھا، اس لیے اسے انسٹال کرنے پر مشین پر پرانا رویہ برگشت آ جاتا تھا۔ اب سیٹ اپ فائل میں اس ریلیز سے تعلق رکھنے والا ساتھی ہوتا ہے، اور انسٹالر آپ کے صارف ڈیٹا فولڈر میں موجود نقل کو اس سے بدل دیتا ہے۔
+
+**درست کیا گیا: Focus Sync اپنی تشخیصی معلومات پڑھنے کے قابل رکھتا ہے اور اب ان فولڈرز کو نہیں دیتا جو ڈسک پر نہیں ہیں۔** صحت کی جانچ ہر پندرہ سیکنڈ میں چلتی تھی اور لاگ کو ایک طرف دھکیل دیتی تھی، اس لیے آپ کو درکار اندراجات نظر سے باہر چلی جاتی تھیں۔ اب صحت کی جانچ تشخیص میں شامل نہیں ہوتی، اور صرف مجازی جگہ پر موجود فولڈرز — مثلاً نیٹ ڈسک کنکشن — عام فولڈرز کی طرح ساتھی کو نہیں دیے جاتے۔
+
+**درست کیا گیا: ایک ہی فولڈر اب ڈائیلاگ میں دو بار نہیں رکھا جاتا۔** ساتھی ڈائیلاگ کا فولڈر دو بار سیٹ کر سکتا تھا: ایک بار جب ایپ بتاتی تھی کہ آپ کون سا فولڈر دیکھ رہے ہیں، اور دوسری بار جب ڈائیلاگ خود کھل رہا تھا۔ اب فولڈر صرف ایک بار سیٹ ہوتا ہے۔ کسی دوسرے فولڈر پر جانے پر، یا ڈائیلاگ کو خود منتقل کرنے پر، اب بھی سب کچھ پہلے کی طرح ہی سنک ہوتا رہتا ہے۔
+
+## [3.14.0] - November 2026
+
+**خلاصہ:** اب آپ Baidu Netdisk کے ساتھ Quark Netdisk بھی جوڑ سکتے ہیں - *سیٹنگز* میں *ریموٹ* کے تحت نیٹ ڈسک ٹیب سے اسے شامل کریں، ایپ کے اندر ایک بار سائن اِن کریں، اور Baidu Netdisk کی طرح ہی فائلیں دیکھیں، ڈاؤن لوڈ کریں اور کاپی کریں۔
+
+### What changed
+
+**شامل کیا گیا: Quark Netdisk کو دوسرے نیٹ ڈسک فراہم کنندہ کے طور پر شامل کیا جا سکتا ہے۔** *سیٹنگز* میں *ریموٹ* کے تحت نیٹ ڈسک ٹیب کے *نیٹ ڈسک شامل کریں* حصے میں *Baidu Netdisk* اور *Quark Netdisk* دونوں دستیاب ہیں۔ آپ جو بھی منتخب کریں، سائن اِن ونڈو ایپ کے اندر فوراً کھل جاتی ہے۔ سائن اِن مکمل ہونے پر ایک ڈائیلاگ پوچھتا ہے کہ کنکشن کا نام، مقامی فولڈر اور ابتدائی ڈائریکٹری کیا ہوگی، یہ بتاتا ہے کہ آپ سائن اِن ہو چکے ہیں، اور محفوظ کرنے سے کنکشن شامل ہو جاتا ہے۔ محفوظ کردہ کنکشن دوسرے ریموٹ کنکشن کی طرح ہی کام کرتا ہے: جڑ فولڈر کی فہرست، ضمنی فولڈرز میں داخلہ، کوئی فائل کمپیوٹر پر ڈاؤن لوڈ کرنا، ریموٹ فائل کو مقامی فولڈر میں کاپی کرنا، اور ری سٹارٹ کے بعد بھی وہاں موجود رہنا۔ Quark اور Baidu کنکشن ایک ساتھ موجود رہ سکتے ہیں اور ایک دوسرے میں مداخلت نہیں کرتے؛ اور محفوظ سیشن کی معاد ختم ہو جائے تو ایپ خاموشی سے ناکام نہیں ہوتی بلکہ دوبارہ سائن اِن کرنے کو کہتی ہے۔
+
+**تبدیل کیا گیا: ریموٹ سیٹنگز صفحہ اب ٹیب سے شروع ہوتا ہے۔** جو تعارف *نیٹ ڈسک* اور *ریموٹ کنکشن* ٹیب کے اوپر تھا، وہ اب خود ٹیب کے اندر منتقل ہو گیا ہے: نیٹ ڈسک ٹیب بتاتا ہے کہ نیٹ ڈسک کنکشن کیا ہوتا ہے، اور ریموٹ کنکشن ٹیب باقی کنکشن اقسام کے بارے میں بتاتا ہے۔
+
+**درست کیا گیا: نیٹ ڈسک فولڈر سے فائل کاپی کرنا دوباره کام کرتا ہے۔** نیٹ ڈسک فولڈر میں کسی فائل پر دائیں کلک کرنے پر *کاپی* دوباره دکھائی دیتا ہے، اور اسے مقامی فولڈر میں چسپاں کرنے پر فائل واقعی وہاں جاتی ہے، اس کے بجائے کچھ نہ ہو۔
+
+## [3.13.7] - November 2026
+
+**خلاصہ:** ایپ اب یہ بتاتی ہے کہ کوئی کی بورڈ شارٹ کٹ پہلے ہی Windows یا کسی دوسرے پروگرام کے قبے میں ہے یا نہیں — اس لیے جو کمانڈ بغیر کسی وجہ کے چلتی نہیں تھی، وہ اب معمہ نہیں رہی۔
+
+### What changed
+
+**شامل کیا گیا: جس شارٹ کٹ پر کوئی دوسرا پروگرام پہلے ہی قبے میں ہے، اب اسے نشان زد کیا جاتا ہے۔** `Ctrl+Shift+P` جیسے مجموعے کو Alpha File Manager کے پتہ لگنے سے پہلے ہی کسی دوسرے پروگرام نے سسٹم لیول پر رجسٹر کر دیا ہو سکتا ہے۔ اس صورت میں آپریٹنگ سسٹم کی پریس کو نگل جاتا ہے، کمانڈ بالکل نہیں چلتی، اور اسکرین پر اس کی کوئی وجہ بیان نہیں ہوتی۔ اب *سیٹنگز* میں شارٹ کٹ کی فہرست ہر باندشت کو آپریٹنگ سسٹم سے ملاتی ہے اور پہلے سے قبے میں موجود آنے والوں کو نشان زد کرتی ہے؛ نیا مجموعہ ریکارڈ کرتے وقت شارٹ کٹ ایڈیٹر بھی یہی انتباہ دکھاتا ہے۔ ڈیفالٹ باندشتیں تبدیل نہیں ہوتیں، اور انتباہ کبھی محفوظ کرنے کو روکتا نہیں — صرف یہ بتاتا ہے کہ وہ کلید صرف اس وقت کام کرے گی جب دوسرا پروگرام چل رہا نہ ہو۔
+
+## [3.13.6] - November 2026
+
+**Summary:** The address bar no longer goes blank without a word, and an extension the app would refuse can no longer reach you inside a package.
+
+### What changed
+
+- **Fixed** **The address bar no longer goes blank without saying why** - When the backend returned a directory listing without an entry list, the address bar called `.filter()` on it and threw. That call chain is fire-and-forget, so the failure was swallowed: no error code, no message, just an empty suggestion list while you type a path. Such a payload is now treated as a failed listing, and the address bar falls back to listing the current folder, so suggestions keep coming.
+- **Fixed** **Focus Sync can no longer install silently dead** - The app refuses an extension that breaks its sandbox rules, and it refuses it before the extension ever runs: no window, no notification, the feature simply is not there. The check meant to catch this was skipped, because it looked for its scanner inside the source tree - a packaged install does not have one. The check now runs where the code actually is, and every build is verified before it is packaged, so an extension the app would refuse never reaches a user.
+
+## [3.13.5] - November 2026
+
+**Summary:** The focus-sync helper no longer starts on its own at logon - it now belongs to Alpha File Manager and lives exactly as long as the app does. An upgrade also stops the old logon task for good, even when the old helper is running at that moment.
+
+### What changed
+
+- **Fixed** **The focus-sync helper no longer keeps running after Alpha is closed** - The helper used to be started by a logon task and stayed resident, holding its port and watching windows even while Alpha was not open. Alpha now starts it and stops it again, so the helper is alive exactly while the app is.
+- **Fixed** **An upgrade no longer leaves the old logon task behind** - The task was removed only after the new helper had been deployed, so a failed deployment left it registered and it could bring the old helper back a minute later. The task is now removed before the helper files are touched, and the installer waits for the old process to exit before replacing its files.
+
+## [3.13.4] - November 2026
+
+**Summary:** Signing in to Baidu Netdisk now happens inside the app, and four defects found while verifying the previous build are fixed: a stale session could be taken for a fresh sign-in, *Test connection* claimed a password had been refused when nothing had been checked, a deleted file only left the listing after pressing *Refresh*, and creating a folder on Baidu Netdisk was rejected by the server because the request carried no form body.
+
+### What changed
+
+- **New** **Baidu Netdisk can be signed in inside the app** - *Use the embedded window to sign in* opens the real Baidu login page in a built-in browser window; scanning the QR code there is enough, the session is picked up automatically and no cookie has to be copied by hand.
+- **Fixed** **A stale session is no longer taken for a fresh sign-in** - Each attempt starts from a clean cookie jar, a sign-in that hands back the same session as the one before is refused, and a session the server already treats as signed out is rejected instead of being stored.
+- **Fixed** **Saving without a signed-in session is refused** - The form points at *Sign in inside the app* instead of saving an entry that answers every request as signed out, and a sign-in that ends badly (window closed, timed out, session unreadable) now raises a toast instead of leaving one grey line of text.
+- **Fixed** ***Test connection* no longer claims the password was refused** - With no stored credential the check reports a missing credential, and the backend's own message appears under the outcome, so a timeout, an expired session and a refused credential no longer read alike.
+- **Fixed** **Deleting a remote entry updates the listing immediately** - The entries are removed from the listing before the refresh runs, so the change is visible without pressing *Refresh*.
+- **Fixed** **Creating a folder on Baidu Netdisk no longer fails with a protocol error** - The request put every parameter in the query string and sent an empty body, which the server answered with a parameter error; the request now sends a proper form body and a new remote folder is created on the drive itself.
+- **Fixed** **A failed remote *New folder* no longer leaves the dialog stuck** - The *Create* button is re-enabled when the operation fails and the dialog stays open for another attempt.
+- **Added** **Remote operations now leave traces in the log** - *List*, *Delete* and *Create folder* each log a begin/done pair with the connection, the path, the entry count and the elapsed time.
+
+## [3.13.0] - November 2026
+
+**Summary:** Baidu Netdisk is now a remote connection you can browse like any other server, and the places you reach a remote server from have been rebuilt around that. *Settings* splits net disks and remote connections into two tabs, the dashboard lists the connections you have saved, and the *Locations* page groups everything - volumes first, then net disks, then remote connections.
+
+### What changed
+
+- **New** **Baidu Netdisk can be browsed as a remote connection** - A *Baidu Netdisk* entry joins the remote family next to FTP and SFTP: add it from the cloud icon in the sidebar, give it the cookie of a signed-in session, and the file list opens the disk's own directory tree - listing, creating a folder, renaming, deleting and downloading all go through to the drive rather than to a local folder. The protocol has no host or port of its own - the host is fixed to `pan.baidu.com` over HTTPS and the agent is always a direct connection - so only the cookie is asked for.
+- **New** **Settings separates net disks from remote connections** - The *Remote* page in *Settings* is split into two tabs, *Net disk* and *Remote connection*. A connection is filed under the second tab unless its protocol is a net disk, and *Trusted hosts* is shown only where it applies. The *Add connection* page was split the same way and opens on the net disk tab.
+- **New** **The dashboard lists the connections you have saved** - The dashboard's *Net disk & remote connections* card now lists the servers you have configured by name instead of sending you to the settings page. Clicking one opens it in the navigator, and the empty state still offers the way to add one.
+- **New** **The *Locations* page groups what you can reach** - *Locations* used to be a flat list of volumes. It now has three groups: volumes first, then net disks, then remote connections. A group with nothing in it is not shown at all - no heading, no empty row - so a machine with no net disk configured shows just its volumes.
+- **Changed** **The sidebar's cloud icon is the one way in** - The permanent *+* under the cloud icon is gone; the cloud icon's own panel now lists the net disk and remote connection groups and is where *Add connection* lives.
+- **Fixed** **The navigator no longer stalls while a global search is running** - The disk I/O of a search submission held the state write lock, so the window's message pump could stop and the navigator would briefly report *not responding*. The I/O now runs off the lock and the status and cancel commands are asynchronous.
+
+## [3.12.2] - November 2026
+
+**Summary:** *Reveal* on a shortcut now opens the folder its target actually lives in, and the three system dialogs that used to interrupt it are gone. The visual-effects defaults in *Settings* now match the specification sheet.
+
+### What changed
+
+- **Fixed** **Revealing a shortcut opens the target's folder** — *Open file location* on a `.lnk` used to do nothing whenever the shortcut pointed at a file rather than a folder: the target was only resolved for folder targets, and when resolving failed the `.lnk` itself was handed to Explorer. The target's path is now read with a two-step lookup that no longer blocks, so the shortcut's real folder opens and the target is selected inside it.
+- **Fixed** **The three system dialogs that interrupted it are gone** — *The operation has been aborted*, *The renderer process crashed (window main)* and *Windows can't find the `\` file* no longer show up. The shortcut work now runs off the main thread with a timeout, the shell resolve call that could block forever was dropped, and a shortcut whose target no longer exists quietly falls back to opening the folder the `.lnk` itself sits in instead of being handed to the shell.
+- **Changed** **The visual effects defaults now match the specification** — In *Settings > UI appearance > Visual effects* the overlay blur is 0px (was 64px on inner pages and 32px on the home page), the overlay opacity is 0% (was 5%) and the overlay noise is 0% (was 5%). Everything else - overlay media contrast 100%, overlay media brightness 100%, overlay noise scale 0.5, overlay blend mode *Normal*, blend with *Interface*, the three switches, and the style settings' brightness 100% / contrast 100% / dialog backdrop blur 8px - already matched and is unchanged. *Reset visual effects to defaults* on that page returns to these values, and so does a fresh install on first launch. **Existing installations are not migrated automatically** - press *Reset visual effects to defaults* on that page, or set the three values by hand, to pick them up.
+## [3.12.1] - November 2026
+
+**Summary:** Two loose ends from 3.12.0 are closed: a shortcut now wears its target's icon whichever icon scheme the file list uses, and the address bar you type into finally writes paths the Windows way. The Focus Sync background component bundled into this build follows the save dialog again.
+
+### What changed
+
+- **Fixed** **A shortcut keeps its target's icon whatever the icon settings are** — 3.12.0 made a `.lnk` show the icon of what it points at, but only while *System icons* were switched on; with the file list drawn from the icon theme instead, every shortcut fell back to the same generic arrow again. Shortcuts now go through the shell whichever scheme the list uses, so what you see is the target's own icon. A shortcut whose target cannot be found still falls back to the generic shortcut icon.
+- **Fixed** **The address bar you type into writes paths the Windows way** — The 3.12.0 change covered the file list, the breadcrumb, *Copy path*, the properties panel and the rest, but the address bar editor and the suggestions beneath it still showed `/`. Both now show the native separator - `\` on Windows - while the application keeps a single internal spelling, so what you type, what gets matched and what ends up on the clipboard stay consistent, and the caret stays where you left it while you edit.
+- **Fixed** **Focus Sync follows the save dialog again** — The published 3.12.0 installer still carried the older background component, which lost track of the folder when a *Save as* dialog opened and when a folder was shown under a localized name such as *Downloads*, so nothing was written back. This build carries 0.5.18: it resolves localized folder names, no longer trusts a directory change that reports success without having changed anything, and checks the path before writing it.
+## [3.12.0] - November 2026
+
+**Summary:** Paths are written the way Windows writes them, the right-click menu can paste a shortcut, and a shortcut shows the icon of the program it points at.
+
+### What changed
+
+- **New** **Paste a shortcut from the right-click menu** — Copy a file or a folder, then right-click a folder and pick *Paste shortcut*: whatever is on the clipboard lands there as a `.lnk` shortcut pointing at it instead of a copy of the file itself. The clipboard is left as it is, so the same content can be pasted into as many folders as you like. The entry appears only when the clipboard actually holds files - a picture on the clipboard cannot become a shortcut - and only where there is a folder to paste into.
+- **New** **A shortcut shows the icon of what it points at** — A `.lnk` in the file list used to carry one generic arrow for every shortcut, whatever it pointed at. It now shows the icon of its target, so a shortcut to an executable wears that program's own icon. A shortcut whose target cannot be found - a broken link, or one pointing at a place that no longer exists - falls back to the generic shortcut icon instead of showing nothing at all.
+- **Changed** **Paths are written the way Windows writes them** — Every path the application shows you, and every path it hands to the clipboard, now uses the native separator: `\` on Windows, `/` on macOS and Linux. This covers the address bar, the breadcrumb, *Copy path* on a file or a folder, the properties panel, the global search results, tab titles and the drive cards on the dashboard. Remote and virtual locations keep their own spelling, because there the separator is part of the address rather than a separator between folders.
+## [3.11.0] - November 2026
+
+**Summary:** اب تصاویر کو براہ رات منیو سے گھمائی یا پلٹی جا سکتی ہیں اور تبدیلی فوراً محفوظ ہو جاتی ہے؛ ٹاسک بار میں پن کی گئی آئیکن اپ ڈیٹ کے بعد بھی رہتی ہے؛ اور عالمی تلاش کے نتائج کا منیو واپس آ گیا ہے، «میں موجود فولڈر کھولیں» کے ساتھ۔
+
+### What changed
+
+**نیا:** تصویر کو اس کے منیو سے گھمائیں یا پلٹیں۔ جب ایک ہی تصویری فائل منتخب ہو تو منیو میں *بائیں گھمائیں*، *دائیں گھمائیں*، *افقی پلٹیں* اور *عمودی پلٹیں* آ جاتے ہیں۔ ان میں سے کوئی ایک منتخب کرنے پر تصویر میں ترمیم ہوتی ہے اور وہی فوراً اسی فائل میں دوبارہ لکھ دی جاتی ہے — کوئی ڈائیلاگ نہیں، کوئی *Save as* نہیں، اور دوسری بار تصدیق بھی نہیں۔ گھمانا اور پلٹنا ایک دوسرے کے الٹ ہیں، اس لیے اصل شکل ہمیشہ الٹ کارروائی دہر کر بحال کی جا سکتی ہے۔ یہ چار اختیارات صرف ایک تصویر پر ہی دکھائی دیتے ہیں — فولڈر پر نہیں، ایک سے زیادہ فائلیں منتخب ہونے پر نہیں، اور SVG پر بھی نہیں۔
+
+**درست کیا گیا:** ٹاسک بار میں پن کی گئی آئیکن اپ ڈیٹ کے بعد اب غائب نہیں ہوتی۔ نیا ورژن انسٹال کرتے وقت پرانا ان انسٹالر ایسے چلتا تھا جیسے آپ پروگرام ہٹانا چاہتے ہیں، اور اس کے ساتھ ٹاسک بار کی پن بھی ہٹا دیتا تھا۔ اب موجودہ ورژن کے اوپر انسٹال کرنے پر پرانا ان انسٹالر صفائی کرنے کے بجائے حوالگی کرتا ہے: پن شدہ آئیکن، اسٹارٹ مینو شارٹ کٹ اور آٹو اسٹارٹ اندراج جہاں تھے وہیں رہتے ہیں۔ جان بوجھ کر کیا گیا ان انسٹال انہیں اب بھی ہٹا دیتا ہے۔
+
+**درست کیا گیا:** عالمی تلاش کے نتائج کا منیو واپس آ گیا ہے۔ نتائج کی فہرست کو ہلکی فہرست کی شکل میں دوبارہ لکھا گیا تھا اور منیو اس کے ساتھ ہی غائب ہو گیا: نتیجے پر دائیں کلک کرنے سے کچھ نہیں ہوتا تھا، اور «میں موجود فولڈر کھولیں» (جسے فائل کے فولڈر میں جا کر فائل منتخب کرتا ہے) بھی غائب تھا۔ اب منیو واپس آ گیا ہے، وہی عنصر لے کر آتا ہے جس پر آپ نے واقعی دائیں کلک کیا تھا، اور جانتا ہے کہ وہ تلاش کے نتائج دیکھ رہا ہے: «میں موجود فولڈر میں کھولیں» پینل کے ساتھ والے نیویگیٹر میں فولڈر کھولتا ہے اور وہاں فائل کو منتخب کرتا ہے، جبکہ «فائل کی جگہ کھولیں» مقام Windows ایکسپلورر کو سونپ دیتا ہے۔ جن آپشنز کا پینل میں کوئی عمل نہیں ہوتا، انہیں بے اثر دکھانے کے بجائے چھوڑ دیا جاتا ہے۔
+
+**بہتر:** بڑی تصویر میں ترمیم کرنے پر ونڈو اب منجھ نہیں ہوتا۔ کام پسِ پیش ہوتا ہے، تصویر محفوظ ہونے تک ایک اطلاع پیش رفت دکھاتی ہے، اور خراب فائل صرف مسئلہ بتاتی ہے، ایپ کو بھی گرا نہیں دیتی۔
+
+## [3.8.0] - October 2026
+
+**Summary:** «آرکائو پیپر» کا نظارہ دوسرے مرحلے سے گزر گیا ہے۔ دونوں *Warm Paper* تھیمز کا مرکزی حصہ روشن‌تر اور کم رنگین ہے، تمام آئیکنز ہلکے بیج کی لکیروں میں بنائے گئے ہیں، فولڈر آئیکنز پر کم رنگ سبز نشان ہے، غیر فعال ٹیبز مدھم اور ہلکے بیج-گرے کنارے کے ساتھ ہیں، فہرست کا سرخی بارے میں اوپر اور نیچے لائن کے ساتھ گہرے پس منظر پر بیٹھتا ہے، اور فولڈر اور فائلیں اب ایک ہی پس منظر نہیں رکھتیں۔ *Vivid* میں ٹول بار کے بٹن اپنے کام کے مطابق رنگ رکھتے ہیں، ٹیب اپنے عنوان کے مطابق چوڑا ہوتا ہے، اور ایپلیکیشن آئیکن گرم کاغذ کے رنگ میں دوبارہ بنائی گئی ہے۔ *پاتھ فالو* ایکسٹینشن اپ ڈیٹ کے بعد دوبارہ کام کرتی ہے۔
+
+### What changed
+
+**بہتر: *Warm Paper* تھیمز کو دوسری بار باریک کیا گیا۔** مرکزی حصہ پہلے سے زیادہ روشن اور کم رنگین ہے۔ تمام آئیکنز ایک ہی ہلکے بیج لکیرے میں بنائے گئے ہیں، فولڈر آئیکنز پر کم رنگ سبز نشان ہے، غیر فعال ٹیبز مدھم ہو کر ہلکے بیج-گرے کنارے رکھتے ہیں، فہرست کا سرخی اوپر اور نیچے لائن کے ساتھ گہرے پس منظر پر بیٹھتا ہے، اور بائیں طرف کا آئیکن ریل گہری سیاہی رنگ ہے جس پر ہلکے آئیکن ہیں۔
+
+**بہتر: ٹول بار کے بٹن اپنے کام کے مطابق رنگ رکھتے ہیں۔** *Vivid* میں اوپر دائیں کے ہر بٹن کا اپنا رنگ ہے — تقسیم شدہ منظر، فولڈر درخت، تفصیلات، موازنہ، مزید، ایکسٹینشنز، تلاش، نیا، فلٹر — اور ایڈریس بار کے بائیں بٹن (واپس، آگے، اوپر، ہوم) بھی ایک ایک کر کے الگ رنگ رکھتے ہیں۔ ہر رنگ اسی موضوع کے ٹائٹل بار کے پس منظر کے حساب سے نکالا گیا ہے، اس لیے کوئی آئیکن بغیر متن والے ڈرافکس کے لازمی 3 : 1 سے نیچے نہیں جاتا۔
+
+**بہتر: ٹیب اپنے عنوان کو درکار ہونے والی چوڑائی لیتا ہے۔** پہلے تمام ٹیب ایک جیسی چوڑے تھے، چھوٹا نام خالی جگہ چھوڑتا تھا اور لمبا نام دبے جاتا تھا۔ اب ٹیب اپنے عنوان کے ساتھ ایک حد تک بڑھتا ہے، اور پھر بھی لمبا عنوان تین نقطوں سے کٹ دیا جاتا ہے۔
+
+**بہتر: فولڈر کی قطار اور فائل کی قطار اب ایک ہی پس منظر پر نہیں۔** فہرست کے منظر میں فولڈر کی قطار کو اپنا کچھ گرم رنگ ملتا ہے اور فائلیں صاف سطح پر رہتی ہیں، اس لیے لمبا فہرست ہر قطار پڑھے بغیر شکل سے پڑھا جا سکتا ہے۔
+
+**تبدیل: ایپلیکیشن آئیکن گرم کاغذ کے رنگ میں دوبارہ بنائی گئی۔** انٹرفیس کے گہرے ریل کے لیے یہ ہلکا فولڈر ہے جس پر گہری سیاہی کا ایلفا ہے؛ انسٹالر اور ٹاسک بار کے لیے گہری سیاہی کا فولڈر جس پر ہلکا ایلفا ہے۔
+
+**درست کیا گیا: *پاتھ فالو* ایکسٹینشن انسٹال یا اپ ڈیٹ کے بعد دوبارہ کام کرتی ہے۔** انسٹالر کا اَن انسٹال مرحلہ ایکسٹینشن کا زمانہ بند کردہ ٹاسک بند کر دیتا تھا، اور انسٹال مرحلہ صرف اسے شروع کرتا تھا — جو بند کردہ ٹاسک پر کامیاب نہیں ہو سکتا۔ اب انسٹالر ٹاسک کو شروع کرنے سے پہلے فعال کرتا ہے، اس لیے اپ ڈیٹ کے بعد ایکسٹینشن خود بخود واپس آ جاتی ہے۔ اگر پھر بھی جواب نہ دے تو ایپلیکیشن ایک بار دوبارہ شروع کریں۔
+
+**درست کیا گیا: ایکسٹینشن کی انسٹال اسکرپٹ اب خراب عنوان نہیں لکھتی۔** عنوان میں ڈیش کو براہِ راست حرف کے طور پر محفوظ کیا گیا تھا اور سسٹم کے کوڈ پیج سے پڑھا جاتا تھا، اس لیے دوسری زبان والے ونڈوز پر ایکسٹینشن فہرست میں عنوان بھڑکیلا نمودار ہوتا تھا۔ اب اسکرپٹ خالص ASCII ہے، ڈیش رن ٹائم پر بناتی ہے، اور پہلے سے خراب لکھا گیا عنوان درست کر دیتی ہے۔
+
+## [3.7.0] - October 2026
+
+**Summary:** برانڈ تھیمز کو گہرائی مل گئی ہے۔ *Warm Paper* اب ایک ہموار کریم شیٹ کی طرح نہیں لگتا: بائیں طرف آئیکن ریل، کھلے ڈائریکٹریوں کے ٹیبز، فعال ٹیب، ڈائریکٹری ٹری، دائیں طرف تفصیلی پینل اور سیٹنگز کے صفحے کا نیویگیشن کالم — ہر ایک اپنے اپنے رنگ پر بیٹھتا ہے، اور ڈائریکٹری ٹری سطر بہ سطر بدلتی ہے۔ *جوشنگار انرژی* اب ٹول بار کے آئیکنز کو ایک گرے کے بجائے مختلف رنگوں میں رنگتا ہے، اور لسٹ ویو ہر اندراج پر وہی رنگین بائیں کنارہ دکھاتا ہے جو تھمب نیل ویو پہلے سے دکھاتا تھا۔ *سسٹم کی پیروی* کو *ٹھنڈا چراب* کے نام سے ایک مقرر ٹھنڈے تھیم کے طور پر برقرار رکھا گیا ہے، طے شدہ اوورلے دھندلاپن کے بغیر حصہ اب 5% ہے، اور پورا سیٹ دوبارہ ترتیب دیا گیا ہے تاکہ روشن اور تاریک دونوں اپنی جگہ کھڑے رہیں۔
+
+### What changed
+
+**بہتر: تھیمز کی گہرائی ہے، ایک ہموار رنگ نہیں۔** کھڑکی پہلے ایک ہی کریم میدان تھی اور چیزیں صرف لکھائی سے الگ پڑتی تھیں۔ اب ہر حصے کا اپنا رنگ ہے، اس لیے آنکھ پڑھے بغیر انہیں الگ کر سکتی ہے: بائیں طرف آئیکن ریل سب سے گہری سطح ہے، جن ڈائریکٹریوں کو آپ نے کھولا ہے ان کے ٹیبز دوسرے اور تیسرے رنگ سے گزرتے ہیں، جس ٹیب میں آپ ہیں وہ ان سے اوپر اٹھا ہوا ہے، ڈائریکٹری ٹری سطر بہ سطر دو رنگوں کے درمیان بدلتی ہے، دائیں طرف تفصیلی پینل ایک قدم پیچھے ہے، اور سیٹنگز کے صفحے کا نیویگیشن کالم اپنا الگ رنگ رکھتا ہے۔ ڈائریکٹری ٹری کی اسکرول بارز گرم کاغذ کے رنگوں کے خاندان میں رنگی ہیں، نظامی سرمئی میں نہیں۔
+
+**بہتر: *جوشنگار انرژی* میں ٹول بار کے آئیکنز کے رنگ مختلف ہیں۔** فائل براؤزر کی ٹول بار کے آئیکنز سب ایک ہی سرمئی رنگ میں بنائے گئے تھے، جس کی وجہ سے وہ ایک ہی دھندلی قطار کی طرح لگتے تھے۔ *جوشنگار انرژی* میں اب وہ اپنے کام کے مطابق مختلف رنگ اختیار کرتے ہیں، تاکہ آپ مطلوبہ بٹن ایک نظر میں ڈھونڈ لیں۔ دونوں *Warm Paper* تھیمز اپنا پُرسکون سرمئی برقرار رکھتی ہیں، کیونکہ یہی ان کا مقصد ہے۔
+
+**بہتر: لسٹ ویو رنگین بائیں کنارہ دکھاتا ہے۔** تھمب نیل ویو میں ہر اندراج کے بائیں کنارے پر پہلے ہی ایک رنگین پٹی ہوتی تھی۔ لسٹ ویو میں یہ صرف اُن اندراجوں کی نشان تھی جو کاپی کرنے یا منتقل کرنے کے لیے نشان زد ہوتے تھے۔ اب اندراج کی قسم - ایک فولڈر، ایک تصویر، ایک ویڈیو، ایک آڈیو فائل، ایک دستاویز، ایک آرکائیو - اسی کنارے کے رنگ سے دکھائی دیتی ہے، دونوں ویوز میں، تاکہ دونوں ایک جیسا پڑھا جا سکے۔
+
+**تبدیل: *سسٹم کی پیروی* اب *ٹھنڈا چراب* کے نام سے ایک مقرر ٹھنڈا تھیم ہے۔** آپریٹنگ سسٹم کی پیروی ایپ کو ہر مشین پر مختلف دکھاتی تھی، جو برانڈ تھیم کا مقصد نہیں ہے۔ تھیم منتخب اب یہ پیش نہیں کرتا؛ اس کی جگہ *ٹھنڈا چراب* ہے، ایک پُرسکان نیلا سبز تھیم جو ہر جگہ ایک جیسی رہتی ہے اور منتخب میں گرم تھیمز کے ساتھ اپنا مقام رکھتی ہے۔ نیا انسٹال *گرم کاغذ · روشن* میں کھلتا ہے۔ اگر آپ کا محفوظ تھیم *سسٹم کی پیروی* تھا، تو ایپ اگلے آغاز پر آپ کو *ٹھنڈا چراب* پر منتقل کر دیتی ہے، اور باقی ترتیبات کو نہیں چھیڑتی۔
+
+**تبدیل: طے شدہ اوورلے دھندلاپن کے بغیر حصہ 5% ہے۔** سیٹنگز میں بصری اثرات آپ اپنی مرضی سے اتنے شدید کر سکتے تھے، مگر طے شدہ مقدار اتنی زیادہ تھی کہ اُن پر متن آرام سے نہیں پڑھا جا سکتا تھا۔ اب یہ 5% سے شروع ہوتے ہیں، جو اثر کو نظر میں رکھتے ہوئے بھی راستہ نہیں روکتے۔
+## [3.6.7] - October 2026
+
+**Summary:** تھیم منتخب چھوٹا ہو گیا ہے اور طے شدہ شکل بدل گئی ہے۔ چھ macOS Finder طرز کے تھیمز اور نامکمل بنیادی *روشن* اختیار ہٹا دیے گئے ہیں، اور ایپ اب *گرم کاغذ (روشن)* میں کھلتی ہے، جو نئے برانڈ تھیمز میں سے ایک ہے۔ *تاریک* اور *سسٹم کی پیروی* پہلے جیسے ہی ہیں۔
+
+### What changed
+
+**تبدیل: کم تھیمز، اور نیا طے شدہ۔** منتخب میں اب تک بارہ بنیادی شکلیں تھیں۔ چھ macOS Finder طرز کے تھیمز (macOS Native، Refined Modern اور Translucent Glass، ہر ایک کا روشن اور تاریک روپ) ہٹا دیے گئے ہیں، اور بنیادی *روشن* اختیار بھی جو ابھی «زیرِ تخلیق» لکھا تھا۔ باقی بچے ہیں *تاریک*، *سسٹم کی پیروی*، اور تین برانڈ تھیمز: *گرم کاغذ (روشن)*، *گرم کاغذ (تاریک)* اور *Vivid*۔ *گرم کاغذ (روشن)* اب طے شدہ ہے — نیا انسٹال اسی میں کھلتا ہے، اور Ctrl+T اسی اور *تاریک* کے درمیان بدلتا ہے۔ اگر آپ کا محفوظ تھیم ان میں سے کوئی تھا جو ہٹا دیا گیا، تو ایپ اگلے آغاز پر آپ کو *گرم کاغذ (روشن)* پر منتقل کر دے گا اور باقی ترتیبات کو نہیں چھیڑے گا۔
+
+## [3.6.6] - October 2026
+
+**Summary:** ایپلیکیشن ابھی بھی چل رہی ہو تو اپ ڈیٹ ناکام نہیں ہوتا۔ پرانے ورژن کے اوپر نیا ورژن انسٹال کرتے وقت انسٹالیشن «Uninstall was not successfully» پر رک سکتا تھا — یہاں تک کہ آپ نے چلتی ہوئی ایپلیکیشن بند کرنے کی ہدایت پر «ٹھیک ہے» کلک کردیا تھا: پرانا ان انسٹالر ایپلیکیشن سے بند ہونے کو کہتا تھا، مگر اصل میں اس کے باہر آنے کا انتظار نہیں کرتا تھا، پھر آپریٹنگ سسٹم سے پوچھتا تھا کہ کیا انسٹال شدہ پروگرام اب بھی استعمال میں ہے — جواب ہمیشہ «ہاں» ہی آتا تھا، اور وہ ہار مان لیتا تھا۔ اب انسٹالر ایپلیکیشن خود بند کرتا ہے اور پرانے ان انسٹالر کو کال کرنے سے پہلے انتظار کرتا ہے یہاں تک کہ پروگرام فائل واقعی آزاد ہو جائے، اس لیے یہ سوال پیش ہی نہیں آتا۔
+
+### What changed
+
+**درست: اپ ڈیٹ کا راستہ پچھلے ورژن کے ساتھ جاری کیا گیا ان انسٹالر چلاتا ہے، اور وہ ان انسٹالر اب بدلا نہیں جا سکتا — وہ اُنہی ماشینوں پر پہلے سے موجود ہے جو اپ ڈیٹ ہو رہی ہیں۔ اس نے چلتی ہوئی ایپلیکیشن سے بند ہونے کو کہا، فوراً واپس آ گیا، اور تقریباً دو سیکنڈ بعد آپریٹنگ سسٹم سے پوچھتا کہ کیا انسٹال شدہ پروگرام اب بھی استعمال میں ہے۔ جواب ہمیشہ «ہاں» ہی آتا تھا، اس لیے وہ «ایپلیکیشن چل رہی ہے، ختم کرنے کے لیے «ٹھیک ہے» پر کلک کریں» دکھاتا تھا؛ «ٹھیک ہے» کلک کرنے کے باوجود بند کرنا ناکام ہو سکتا تھا، ان انسٹالر غلطی کے ساتھ بند ہو جاتا تھا، اور انسٹالر اسے ناکام ان انسٹال قرار دیتا تھا۔ اب انسٹالر ایپلیکیشن خود بند کرتا ہے اور پرانے ان انسٹالر کو کال کرنے سے پہلے انتظار کرتا ہے یہاں تک کہ پروگرام فائل انحصاری کھل سکے — یہ ثبوت ہے کہ اب کوئی عمل اُسے پکڑے نہیں ہے۔ انتظار دونوں طرف ہوتا ہے: انسٹال سے پہلے ایک بار اور ان انسٹال سے پہلے ایک بار۔ نتیجہ یہ ہے کہ یہ سوال کبھی نہیں پوچھا جاتا اور اپ ڈیٹ خود آگے بڑھ جاتا ہے۔**
+
+**نیا: تین برانڈ تھیمز۔** تھیم منتخب میں اب تین مزید روپے موجود ہیں۔ *گرم کاغذ (روشن)* پوری کھڑکی کو کریم رنگ کی پس منظر پر رکھتا ہے، کارڈ تقریباً کونے کے بغیر ہوتے ہیں، تقسیم کار کتنے باریک ہیں اور چھوٹے عنوانات سیریف میں ہیں۔ *گرم کاغذ (تاریک)* یہی خیال اندھیرے میں ہے — عام سرد سرمئی کی جگہ ایک گرم تقریباً سیاہ رنگ۔ *Vivid* سب سے زیادہ نمایاں ہے: گول کونوں والے کارڈ، بائیں طرف گہرا اسٹیل بلو آئیکن ریل، ہر کارڈ کے بائیں کنارے پر بدلتا رنگ، اور بجلی جیسا بنفشی ایکسنٹ رنگ۔ تینوں میں ترتیب نہیں بدلتی — آئیکن ریل کی چوڑائی بالکل وہی رہتی ہے، پینل اپنی چوڑائی برقرار رکھتے ہیں اور کوئی کنٹرول نہیں ہلتا۔ چھ بنیادی تھیم میں کبھی نظر آنے والا برانڈ اسٹیل بلو اب اسٹیٹس بار اور تفصیلی پینل میں نظر آتا ہے۔
+
+## [3.6.5] - October 2026
+
+**Summary:** دو واضح تبدیلی۔ اب تمام طے شدہ پس منظر اندر انسٹالر پیکج کے ساتھ آتے ہیں اور فوراً تبدیل ہو جاتے ہیں - ہوم پیج کا کور آپ کا انتخاب کرتے ہی دوبارہ بن جاتا ہے، اس کے بجائے کسی ایسی ڈاؤن لوڈ کا انتظار جو شاید کبھی مکمل ہی نہ ہو۔ اور تھیم چننے والی فہرست میں اب macOS Finder کے انداز کی چھ صورتیں ہیں - ہر ایک کی ہلکی اور گہری دونوں صورتیں، پہلے سے موجود صورتوں کے ساتھ۔
+
+### What changed
+
+**درست: ہوم پیج کا کور آپ پس منظر چنتے ہی فوراً تبدیل ہو جاتا ہے۔** کور پر کلک کرنے سے پس منظر مینیجر کھلتا تھا، لیکن وہاں سے کوئی تصویر چننے کا کوئی نظر آنے والا فرق نہیں ہوتا تھا - تصویر وہی رہ جاتی تھی۔ وجہ یہ تھی کہ تمام طے شدہ پس منظر ابھی بھی کلک کرنے کے وقت ہی نیٹ ورک سے لیے جا رہے تھے، اس لیے تبدیلی یا بہت دیر میں ہوتی تھی یا بالکل نہیں ہوتی تھی۔ اب وہ سب اندر انسٹالر پیکج میں ہیں (21 تصاویر، تقریباً 24 MB)، فهرست بغیر کسی نیٹ ورک درخواست کے کھلتی ہے، اور کور سیکنڈ کے حصے میں دوبارہ بن جاتا ہے - ٹیسٹ مشین پر تقریباً 240 ملی سیکنڈ۔
+
+**نیا: macOS Finder کے انداز کی چھ تھیمیں۔** تھیم چننے والی فہرست میں اب تین نئی صورتیں ہیں، ہر ایک کی ہلکی اور گہری دونوں صورتیں، جنہیں کسی بھی وقت پہلے سے موجود صورتوں سے بدلا جا سکتا ہے۔ *macOS Native* سب سے سادہ ہے: سفید کھڑکی، ہلکی سلیٹی بار، سسٹم کا نیلا رنگ، بال جتنی باریک لائنیں۔ *Refined Modern* ایپ کا ہمیشہ سے موجود تقریباً کالا رنگ برقرار رکھتا ہے مگر تہوں بدل دیتا ہے: زیادہ گول کونے، نرم سائے، زیادہ گھبریہوا۔ *Translucent Glass* مینیوز اور تیرتے باکسوں سے پیچھے کی تصویر نظر آنے دیتا ہے۔ پہلے سے موجود تین - لائٹ، ڈارک اور سسٹم کے مطابق - بالکل ویسے ہی رہتے ہیں۔
+
+## [3.6.4] - October 2026
+
+**Summary:** تین باتیں، جن میں سے ایک نظر نہیں آتی۔ ایپلیکیشن اب کہیں بھی کم میموری رکھتی ہے - ایک ہی مشین، ایک ہی اکاؤنٹ اور ایک ہی ڈسک پر، ٹھنڈی شروعات پر ورکنگ سیٹ 961.2 MB سے گھٹ کر 742.8 MB (-22.7%) ہو گیا، اور ڈسک پر کیش 805.58 MB سے گھٹ کر 66.21 MB (-91.8%) ہو گیا۔ WebView2 کے رینڈرنگ پروسیس کے کریش ہونے پر اب سفید کھڑکی نہیں رہتی: ایک واچ ڈاگ خود صفحہ دوبارہ لوڈ کرتا ہے، اور صفحہ واپس نہ آئے تو ہی دوبارہ چلانے کا پوچھتا ہے۔ عالمی تلاش بھی اب چھوٹے الفاظ پر خالی نہیں لوٹتی: "pdf"، "doc" یا "095" جیسے الفاظ اکثر کچھ نہیں تلاش کر پاتے تھے۔
+
+### What changed
+
+**بہتر: ایپلیکیشن کہیں بھی کم میموری رکھتی ہے۔** انٹرفیس کا تھمب نیل کیش اب ہر ویو بدلنے پر نیا بنائے جانے کے بجائے برقرار رہتا ہے (رینڈرنگ پروسیس 68 MB واپس کرتا ہے - کل کمی تقریباً یہیں سے آتی ہے)، چھپا ہوا Quick View ونڈو اب پہلے سے شروع نہیں ہوتا (ایک مکمل WebView2 رینڈرنگ پروسیس کم)، اور بنیادی تبدیلیوں کی ایک قطار (تلاش کا اشاریہ، ڈائریکٹری نگرانی، ورچوئلائزڈ فہرست) باقی حصہ سنبھالتی ہے۔ جمع شدہ تھمب نیل اور اشاریے کا کیش بھی صاف کر دیا گیا: ڈسک پر 739 MB آزاد، اور ضرورت پرنے دوبارہ بنایا جاتا ہے۔
+
+**نیا: WebView2 کی کریش خود ٹھیک ہو جاتی ہے۔** رینڈرنگ پروسیس مر جاتا تھا تو کھڑکی سفید رہ جاتی تھی اور ایک ہی راستہ تھا - پروگرام دوبارہ چلانا۔ اب ایک واچ ڈاگ اس پر نظر رکھتا ہے: رینڈرنگ پروسیس غائب ہو جائے، یا انٹرفیس 20 سیکنڈ سے زیادہ دل کی دھڑکن نہ بھیجے، تو صفحہ دوبارہ لوڈ ہوتا ہے۔ صفحہ واپس آ جائے تو کچھ نہیں ہوتا؛ نہ آئے تو نظامی ڈائلاگ پوچھتا ہے کہ پروگرام دوبارہ چلائیں - ایک ہر خرابی کے لیے۔
+
+**درست: عالمی تلاش میں چھوٹے الفاظ کچھ نہیں تلاش کر پاتے تھے۔** "pdf"، "doc" یا "095" تلاش کرنے پر اکثر خالی فہرست آتی تھی۔ اسکور لگانے والا منطق "نام میں لفظ شامل ہے" پر جلد واپس لوٹتا تھا، اس لیے ٹوکن کے مطابق موازنہ کبھی چلتا ہی نہیں تھا: "report.docx" میں "doc" جیسا ظاہری مطابقت صرف 0.845 پوائنٹ حاصل کرتا تھا، جبکہ تین حروف والے لفظ کی حد 0.9 ہے - اس لیے مطابقت چھانٹ دی جاتی تھی، اور توسیع سے تلاش تقریباً ہمیشہ خالی رہتی تھی۔ اب دونوں راستوں میں سے زیادہ اسکور رکھا جاتا ہے، اس لیے نام کے شروع میں نہ ہونے والی مطابقت بھی حد سے گزر جاتی ہے۔ حد کی قدر خود نہیں بدلی؛ چھوٹے الفاظ پر مبہم تلاش اتنی ہی سخت رہتی ہے جتنی پہلے تھی۔
+
+## [3.6.3] - October 2026
+
+**Summary:** Three things that were quietly getting in the way. Deleting a file for good now does what you expect when you press Enter — the confirmation used to open with the keyboard focus on *Cancel*, so Enter closed it again and left the file where it was - the only way to confirm was to reach for the mouse. And the list view now separates folders, pictures, videos and other files into groups, the way the thumbnail view already did, so the thing you are looking for is one heading away instead of somewhere in the middle of a long list. Renaming no longer opens a dialog either: the name turns into a field right where it stands, and the arrow keys keep taking you from one file to the next with the field still ready, so a whole pile of files can be renamed in a row.
+
+### What changed
+
+**Fixed: Enter now confirms the permanent delete.** Choosing *Delete from drive* (or pressing Shift+Delete) opens a confirmation with two buttons, *Cancel* and *Delete*. Pressing Enter right after it opened did nothing at all: the keyboard focus landed on the *Cancel* button, so Enter activated Cancel and the dialog closed again without deleting anything. It now confirms the deletion. The rule is deliberately narrow: if the focus is already on a button, Enter keeps its normal meaning, so tabbing to *Cancel* and pressing Enter still cancels, and a second press never deletes anything twice.
+
+**Added: the list view groups entries by type.** The list view showed every entry in one long, unbroken list, which is exactly where the thumbnail view draws a line between folders, pictures, videos and everything else. The list view now draws the same line, and each group gets a heading of its own. The sorting you chose still applies inside each group, the tree layout is untouched, and what the keyboard selects — including a Shift range — follows the order you actually see, so a range stays a range instead of jumping across the headings.
+
+**Added: renaming happens in place.** Pressing F2 — or picking *Rename* in the right-click menu for a single entry — used to open a dialog with the name in it. The name is now edited right where it stands, in the list or in the thumbnail view. Enter keeps the new name, Escape puts the old one back. And the part that matters when a lot of files need renaming: once a name has been changed, the arrow keys still move to the next and the previous entry with the field ready, so a whole run of files can be renamed in a row without going back to the mouse. Bulk renaming, and renaming in the tree layout, keep using the dialog.
+
+## [3.6.2] - October 2026
+
+**Summary:** Copying files to and from a remote server (SFTP, FTP or FTPS) now tells you what is actually happening. Uploading used to fail with nothing but a number in the way — no reason, and no way to tell whether the server had refused the file or the application had quietly skipped it. Pasting files into the remote pane reported *Destination path does not exist*, which was never a statement about the server at all: the remote path was being handed to the local copy engine, which asked the local file system and of course found nothing there. The remote transfer channel now has its own path, shows a progress bar while it works, and asks before it replaces anything.
+
+### What changed
+
+**Fixed: a failed upload now says why it failed.** When the remote already held a file with the same name, the old policy was to skip it silently — the file was left alone and the reason never reached the interface. The result dialog used to show counts and nothing else. It now reports what happened to every file: which ones were transferred, which ones were skipped, which ones failed, and why. A file you chose to skip is no longer listed twice.
+
+**Fixed: pasting into the remote pane no longer reports a path that does not exist.** Pasting into a remote panel sent a `sfm://remote/...` path to the local copy engine, which asked the local file system whether that path exists and was told no, every time. Pasting into a remote panel now goes through the remote transfer channel, and the same rules apply there as for a transfer started from the toolbar.
+
+**Added: a remote transfer now asks before it overwrites anything.** If the remote already has a file with the same name, a dialog lists them and lets you decide one by one — overwrite, or skip. Tick *use the same choice for all files with the same name* and one decision settles the whole batch, which is what you want when you are moving a folder of files across. The files you chose to overwrite are the only ones the application is allowed to replace; nothing else on the server is touched.
+
+**Added: remote transfers show a progress bar.** Uploading or downloading a large tree used to be a wait with nothing to look at. The progress dialog says what is being transferred, how many items are done out of how many, and the totals are worked out before the transfer starts — so the bar moves forward instead of jumping to the end and back to the start again. Downloading a remote file is available from the right-click menu of the remote entry.
+
+## [3.6.1] - October 2026
+
+**Summary:** Dragging a file out to another program now works whether this window is maximized or not. Until now the system-level drag only began once the pointer left this window, and a maximized window covers the whole screen, so the pointer was still "inside" the window while it sat over a chat program in front of it — the file was never handed to the system at all. The application now asks Windows what is actually under the pointer and switches to the system-level drag as soon as the pointer rests on another program. The same pass makes the window you are dragging towards come to the front while the drag runs, and hands the foreground back to it afterwards.
+
+### What changed
+
+**Fixed: a file could not be dragged into another program while this window was maximized.** The system-level drag used to start only when the pointer left the application window. With the window maximized that never happens: the window covers the screen, so a pointer sitting on a chat program in front of it is still within this window's coordinates, and nothing was ever dragged out — the drag simply ended when the button came up. The application now asks Windows what is under the pointer, and as soon as the pointer rests on a different program the file is handed over to the system's own drag-and-drop, which is what lets it land in a chat window. The answer has to hold for a moment before the drag begins, so that merely passing over a window on the way somewhere else does not start a drag by accident. Dragging inside this window is unaffected: a file dropped on a folder here is still moved the way it always was.
+
+**Fixed: the program you are dragging towards now comes to the front, and keeps the focus afterwards.** Windows does not raise the window under the pointer during a system-level drag, and when the drag ends it activates the window the drag came from — which put this application on top of the program you had just dropped the file into. On the new route the application raises the target while the drag is in progress and hands the foreground back to it when the drag ends, so the drop can be seen and the program you dropped into stays in front.
+
+## [3.6.0] - October 2026
+
+**Summary:** A file that Windows refuses to delete can now be dealt with from the right-click menu. Two entries were added. The first one asks Windows which program is holding the file open and shows you its name and process id, so you can tell an editor from a backup tool from a stuck service — and end one of them if that is what you want. The second one deletes the file anyway: it clears the read-only flag, then marks the file so that it disappears the moment the program holding it lets go, and if even that is refused, asks Windows to delete it at the next restart. If none of the three works, it says so plainly instead of pretending the file is gone. Neither entry needs anything extra installed — the Windows APIs that do the work were already part of the application's own dependencies.
+
+### What changed
+
+**Added: the right-click menu can now tell you what is holding a file open.** Delete a file and Windows says the operation cannot be completed because the file is open in another program, and leaves you there. The new *Unlock file* entry asks Windows which programs have the file open and lists them with their process ids. You can end one of them from the same dialog, and the application checks again afterwards whether the file can be deleted now. It never deletes anything itself: it clears what is in the way — the read-only flag and the programs holding the file — and then tells you the file is free.
+
+**Added: the right-click menu can now delete a file that will not delete.** Some files refuse to be deleted no matter what you try: they are read-only, or a program holds them open without allowing the deletion. The new *Delete anyway* entry tries three things in order, cheapest first. It clears the read-only flag. If the file is still held, it marks the file for deletion, which makes it disappear as soon as the program holding it closes — no restart needed. If that is refused as well, it registers the file with Windows to be deleted at the next restart, which needs administrator rights. Every step reports what actually happened: a file that could not be deleted is reported as such, not as a success.
+
+**Improved: the two new entries only appear where they can work.** They are shown on Windows, for a single item at a time, and never for a remote location — a file lock on a remote server is not something this machine can clear — nor for a virtual location or the root of a drive.
+
+## [3.2.11] - October 2026
+
+**Summary:** Alpha File Manager can browse remote servers for real. SFTP, FTP and FTPS connections open a remote folder tree you can walk, the two panes can be told to browse together, files and folders can be uploaded and downloaded, and remote files can be deleted. On top of that, seven rounds of local work landed: a new tab opens on your drives, the drives page shows how full each drive is, columns that have nothing to say were dropped, the remote tree follows the pane you are working in, the delete options became a real menu, and the pane that receives a transfer now shows the result straight away.
+
+### What changed
+
+**Changed: a new tab opens on your drives.** Clicking + used to open your home folder, which is rarely where you want to be. It now opens the locations page -- your drive list -- which is also where you start from when you only want to go somewhere else. The setting still chooses between your drives, your home folder and a folder you pick; only the default moved. Anything you have already chosen yourself is left alone.
+
+**Added: the drives page shows how full each drive is.** In the grid view every drive card is filled from the left in proportion to how much of it is used. The fill comes in three strengths rather than one continuous colour: a faint wash while there is room to spare, a stronger one past 60% used, and a light red, no louder than it needs to be, once less than 20% of the drive is left -- the point at which you start running out. Exactly 20% left is not counted as low. A drive whose size cannot be read is left plain instead of being drawn as an empty one, because "cannot tell" and "empty" are not the same thing.
+
+**Added: a free space column in the list view.** The list view has a Free space column sitting to the right of Size, showing how much room is left on each drive. It is on by default, can be hidden and dragged into place like the other columns, and reads `--` for anything that is not a drive -- "this does not apply" and "there is no room left" are different things, and only one of them should look urgent.
+
+**Changed: the locations page no longer shows a modified time column.** The locations page lists **drives**, and a drive has neither a modified time nor a creation time -- both columns are nothing but dashes, taking up room without saying anything. They are now left out of that page, and "Created" stays out of it even if you turn it on yourself. This is **only for that page**: the global column preferences are untouched, so a normal folder still shows the date columns.
+
+**Changed: the free space column only appears on the locations page.** The free space column added in the previous round shows a dash for every row in **any other folder** -- there are no drive entries there -- so it takes up room without saying anything. It now appears only on the locations page, which really does list drives. Ordinary folders keep their date columns, and the two rules are complementary.
+
+**Fixed: the size column rendered its title twice.** The header read "Size ⓘSize" -- the title was rendered twice, with the icon that explains how size is worked out in between. The cause was a mis-paired `v-if` / `v-else` in the template: the `v-else` on the last button paired with the `<span v-if>` above it rather than with the branch holding the icon, so the size column rendered both the button with the icon and the one without it. The three branches are now mutually exclusive: the title appears once, and the icon and the sort arrows are unchanged.
+
+**Added: remote files can be deleted.** A remote file had no delete entry at all -- the row of quick-action icons was empty for it and there was no "Delete" in the right-click menu, so it could only be looked at. There is now a trash button in that row and a "Delete" entry in the right-click menu. There is no recycle bin on a remote server, so a remote entry gets one "Delete" rather than a "Move to recycle bin" that could not work. It asks once first, and says plainly that there is no recycle bin and the file cannot be recovered. A directory has to be empty first -- neither protocol deletes recursively, and the server refuses a directory that still has things in it; the message then says to empty the directory first. If your account is not allowed to delete, the menu entry is **still there** -- it is never hidden -- and the server's refusal is reported as it is. Whether the delete can happen depends on whether your account is the owner, in the group, or "other" on the server; the front end cannot work that out, and guessing wrong would grey out an entry that would have worked.
+
+**Fixed: the pane you transfer to did not show what you just transferred.** After downloading a remote file to the local pane, or uploading a file or a folder to the remote pane, the pane that **received** the files kept showing what it had before -- the new file only turned up after you refreshed by hand. The receiving pane now reads its directory again as soon as the transfer finishes, so the file is there straight away. It is the pane that refreshes **itself**, and only when the directory it is showing is the one that received the files: if you moved that pane somewhere else in the meantime, it is left alone rather than being re-read into the wrong place. A transfer that was skipped because the target already had a file of that name changed nothing, so nothing is re-read for it.
+
+**Fixed: the tree showed an expanded root with nothing under it.** Switching between a local and a remote pane rebuilds the tree's rows from scratch, and a rebuilt row starts out empty. The record of which directories had already been read, however, was never cleared to match -- so the second time you arrived at the remote tree, the tree believed it had already read that folder and never read it again. The row was expanded, the children were never filled in, and it looked like the remote directory could not be read at all. The record is now cleared whenever a row is rebuilt empty.
+
+**Fixed: the tree did not scroll to the directory you were in.** Choosing a directory is supposed to bring it into view: the row is highlighted, and the tree scrolls to it. The scrolling half never ran. The element that was supposed to be scrolled was the one carrying the right-click menu trigger, and the menu library rebuilds that element in a way that discards the reference to it -- so the code that was meant to move it had nothing to move, and returned quietly instead of failing. The scrolling container is now a separate element the menu library leaves alone, the current directory is read before its position is worked out, and the tree scrolls by the smallest amount that brings the row into view. A row that is already in view is left alone, so a tree you have expanded by hand is not scrolled out from under you.
+
+**Fixed: the tree could sprout extra roots of its own.** When the directory you were in sat more than one level below the tree's root, the folders in between were never read, so the directory you were in could not be found among the tree's rows and was added as a root of its own. The chain of folders between the root and your directory is now read in order, so the tree keeps a single root and your directory stays where it belongs.
+
+**Fixed: the tree kept the local drive list after you moved to a remote pane.** The tree's roots and its highlighted row were being read from two different places. The roots came from the path saved for the tab, which is the local folder you started from; the highlighted row came from the path the pane is actually showing. Once you navigated the remote pane, the two disagreed: the tree still showed `Win (C:)`, `Program (D:)` and the rest, all folded, while the pane was somewhere else entirely. Both now come from the same place, so a remote pane gets a remote tree.
+
+**Fixed: the non-focused pane could steal the tree's selection.** With the window split in two, both panes reported their current directory, and the tree took whichever report arrived last. The remote pane is slower to connect and to read, so its report arrived after the local pane's and replaced the selection with a remote path, while the roots stayed local. Nothing in the remote tree was reachable, so it expanded nothing. Only the pane you are actually working in can change the tree's selection now.
+
+**Fixed: the tree scrolled before the row it was aiming at existed.** The scroll ran as soon as the selected path changed, but at that moment the tree was still the old one -- the remote row had not been drawn yet, so there was nothing to scroll to and the code returned without doing anything, silently. When you came back later and the row was there, nothing scrolled to it. The tree now watches where the selected row sits among the visible rows, and scrolls when that row appears or moves. Scrolling the tree by hand does not move the row, so your own scrolling is not undone.
+
+**Fixed: two features disappeared depending on where you had been.** The list of saved remote connections was only read when the sidebar's remote panel or the settings page happened to open first. Open the navigator straight away and that list was still empty, which took two things with it: the **Permissions** entry in the right-click menu decides whether to show itself by asking which protocol the connection uses, and the tree root labels a remote connection by its name -- with no connection to look up, the menu entry vanished and the root fell back to showing the 32-character connection id instead of the connection's name. Neither reported an error; they just quietly stopped working until you visited a screen that happened to load the list. Connections are now read as part of startup, before the window is shown.
+
+**Fixed: the two delete options could not be clicked.** After you select a file or a folder, the trash icon in the top right used to float out two lines of text -- "Move to recycle bin" and "Delete from drive" -- but they were only a *tooltip*, not a menu: they vanished as soon as the pointer moved away, and there was nothing to click. They are now a real dropdown, with one entry per operation and the keyboard shortcut shown next to each. The Del and Shift+Del shortcuts are unchanged.
+
+**Changed: permissions are picked from a list.** Setting permissions asked you to type the octal digits yourself, where one wrong digit either widens or narrows someone else's access to the file. The field is now a list of the usual modes, each shown with its `rwxr-xr-x` form so you can tell 640 from 644 without leaving the list. Whichever mode the file already has is always in the list, even when it is not one of the usual ones -- opening the dialog and pressing Apply without changing anything leaves the mode exactly as it was. The owner / group / others breakdown below updates as you pick, as before.
+
+**Changed: the remote tree is rooted at the folder you configured.** When you focus a remote pane, the tree now starts at that connection's configured directory rather than at the connection itself, so you see the project you set up rather than having to walk down through the parent folders. The root follows the connection's setting, so it does not move as you navigate -- which is what keeps the tree from rebuilding under you.
+
+**Fixed: the root was labelled with the connection's identifier.** The name shown for a root row was decided once, when the row was built. The tree's root can be worked out immediately, but the label has to wait for the connection list, which loads asynchronously -- and the two do not change the tree's roots, so the row was never rebuilt and the name stayed on the path's last component. For a remote root that last component is the 32-character identifier. Root names are now recalculated once the labels arrive, and are also refreshed if you rename the connection.
+
+**Fixed: three phantom roots appeared above the real one.** Selecting a directory expands the whole chain of ancestors, and that code does not know where the tree's roots are. With the root now being the configured folder, that chain included folders *above* it, and each one that was not already in the tree was added as a root of its own. A path that sits above a root is now left out -- the tree starts at its root, and what is above it is not part of the tree.
+
+**Fixed: going up a level did not move the other pane.** The two panes were lined up by directory name, which works while you are going *down* into a folder that happens to share a name. Going *up* is the case where the names differ: the parent of a local `wp-content` is `E:\website_sbt`, the parent of a remote `wp_root\wp-content` is `…\wp_root`, and no amount of name matching reconciles those. Every time a synchronization has actually succeeded, the pair is now remembered, along with its parent; moving up then follows what was established rather than what is spelled alike. The correspondence is built from what really happened, not from configuration -- a pair is only remembered once the two panes have genuinely agreed on it.
+
+**Fixed: the folder tree did not follow the panes, at all.** The watch that was supposed to mirror the focused pane's path into the folder tree had been referring to a value declared fifty-odd lines further down, with the watch set to run immediately. Vue evaluates such a getter straight away, which meant an error before initialisation was raised and then *swallowed* -- the page kept working, but the watch never recorded a single dependency and so never fired again. The tree has therefore not followed the panes since it was written, for local paths as much as remote ones. It is now declared after what it depends on, and it watches the path rather than the pane's identity, which does not change when the pane navigates on its own.
+
+**Fixed: opening a connection dragged both panes off their configured directories.** Both panes mount and load on their own, in an order that is not fixed. Because synchronized browsing is a saved setting and was on, whichever pane finished first reported "I opened where I was told to" -- and synchronized browsing read that as a deliberate move, sending the other pane to the last segment of its own path. Neither pane ended up where the connection said it should be, and the local one landed on a directory that does not exist. Each pane's first report is now treated as settling rather than as a move, and synchronization only begins once both have settled.
+
+**Fixed: a missing folder on the other side produced an error.** The two panes line up by name, and a matching name is common rather than guaranteed -- a WordPress image ships a stub `wp-content` inside its document root that nothing local corresponds to. The target is now checked before the other pane moves; if it is not there, that pane simply stays put and says nothing.
+
+**Fixed: the remote folder tree never opened.** The ancestor chain walked straight past the connection root and on into paths the tree does not have, so nothing the tree was asked to expand actually existed. The chain now stops at the connection.
+
+**Fixed: synchronized browsing never did anything.** The toggle was wired to a guard meant for the settings menu, one that latches off once you have opened that menu on a folder that has its own settings. Clicking the button did nothing and wrote nothing to disk. It now writes the setting directly.
+
+**Synchronized browsing is now triggered by entering a directory, in either pane.** It used to fire on *selection* in the left pane only. Double-clicking into a folder cleared the selection before it could be read, and the right pane ignored you entirely. Whichever pane you move is the one that drives; the other follows.
+
+**The button moved next to the left/right swap button,** where you asked for it. Both appear only while split view is on.
+
+**The folder tree switches to the remote tree when focus is in a remote directory.** It already knew how to read over SSH -- the only thing missing was a root. The tree is now rooted at the connection, labelled with the connection name rather than its identifier.
+
+**Fixed: opening a connection ignored the path you gave it.** Every connection has an "initial path" field, and it was saved, validated and shown back to you correctly -- but nothing ever read it. Opening a connection built its path from the connection id alone, so the remote pane always landed on the remote root and you had to walk down to your folder by hand every single time. It now opens on the configured path. An initial path of `/` behaves exactly as before.
+
+**A "synchronized browsing" button in the navigator toolbar.** Linked browsing already worked -- select a single folder in the left pane and the right pane follows -- but the only way to reach it was a setting buried at the bottom of the navigator options menu, which is not somewhere you would look after connecting to a remote machine. There is now a button next to the split-view toggle, and it only appears while split view is on, because with a single pane there is nothing to synchronise with.
+
+**Fixed: synchronized browsing dragged the remote pane back to the local machine.** When one pane showed a local folder and the other a remote one, following along handed the remote pane a local path, so the remote pane quietly turned into a local directory. The two panes now line up by folder name when they are on opposite sides, so entering `wp-content` on the local side opens `wp-content` on the remote side. Two local panes, or two remote panes, keep behaving exactly as they did.
+
+**SFTP, FTP and FTPS all read remote directories for real.** Three protocols, one code path per protocol, each building a fresh connection per operation. The remote root of a saved connection is now a real folder listing rather than the local home directory.
+
+**Host keys and certificates are pinned, and the first sighting asks.** The first time you reach a machine you get a prompt showing its fingerprint before anything is trusted -- never silent trust-on-first-use. SSH public keys and X.509 certificates are stored as separate records for the same host and port, so trusting one never implies the other. For FTPS the fingerprint is the certificate's SHA-256 in the same colon-hexadecimal form OpenSSL prints, so you can compare it against what your administrator gave you.
+
+**A certificate that changes is reported as a change, not as a network failure.** A refused certificate reaches you as "you have not trusted this certificate yet" or "this certificate changed", naming the fingerprint you had trusted before, instead of a generic TLS handshake error that sends you off to debug the network.
+
+**Settings gained a "Trusted hosts" section.** Every remembered host is listed with its kind and fingerprint, and each one can be revoked from there. Revoking an FTPS certificate leaves any SSH record for the same machine untouched.
+
+**Fixed: FTPS could crash the app on first use.** Building the TLS client configuration needed a process-level crypto provider. This repository enables two rustls providers at once, which leaves rustls unable to pick one on its own, so the very first FTPS connection panicked before it could report anything. It now installs the provider it uses everywhere it needs one. Connections tested through the "Test connection" button were affected by the same thing.
+
+### Known limits
+
+**Copying into a remote location is not implemented.** The file operation engine still works entirely against the local filesystem, so a remote path handed to it is reported as missing even when it is there and can be browsed. Uploading and downloading are separate entries of their own and they work; what is missing is the everyday vocabulary around them -- copy, cut and paste across the boundary, renaming a remote entry, and creating a new file or folder there. There is no code path for those yet, and the entries that would use one are not offered in a remote location rather than being offered and then failing.
+
+**FTPS file contents are not encrypted yet.** The control channel is protected by certificate pinning, but the data channel uses the server's default, which for explicit FTPS means plaintext file contents in transit. RFC 2228's `PBSZ` / `PROT P` is not sent. This is a recorded trade-off, not an oversight; when it is added it will refuse loudly rather than falling back to plaintext.
+
+**FTPS has never been run against a real server.** It is covered end to end by a stub server that signs a real certificate and upgrades the connection on `AUTH TLS`, which catches the protocol sequencing but not any wording a real server happens to use. SFTP has been run against a real server; FTP and FTPS have not.
+
+### How this release was verified
+
+**The last round was checked on an installed build.** Everything in the 3.2.11 round was measured on a packaged release build rather than a development build: the new tab opening on the drives page, the drive cards showing their fill, the columns that were dropped and the ones kept, the remote file delete and the delete dropdown, and the pane that refreshes itself after a transfer. The last of those was measured against a real SFTP server -- uploading a file, uploading a folder, downloading a file -- and watching the receiving pane pick each one up. The tree work was checked on a packaged build as well: switching to a remote pane replaces the drive list with the remote tree, expands it down to the directory you are in, and scrolls that row into view.
+
+**The earlier rounds were covered by unit tests and fault injection.** The remote browsing work (3.2.5), the connection's initial path and the synchronized-browsing button (3.2.6), the tree following the panes (3.2.7), the races when a connection opens (3.2.8), going up a level (3.2.9) and the remote tree's root (3.2.10) were each written with tests that fail when the behavior breaks, and each one was then checked by deliberately breaking it. They were not each verified one by one on an installed build, and this release does not claim that they were.
+
+**One defect is still open.** Switching to another tab and back could leave the remote tree with nothing but its root. It could not be reproduced on an instrumented build: with a read counter on each row, the whole chain came back intact (`vol1` 16 folders, `@team` 5, `study_platform` 27, `wp_root` 28, `wp-content` 1). Coming back from the remote tab changes which pane is active, and the tree follows the pane you are actually in -- so what was on screen was the local tree, which is the right answer, not a broken remote one. That is one round without a failure, not a fix, and it is not claimed as one.
+
+## [3.2.4] - October 2026
+
+**Summary:** The first stable build of the 3.2 line. The address bar behaves the way Windows Explorer does, split view can swap its two panes, and the thumbnail size control survives a narrow window. This replaces 3.2.1-beta, which was the last published test build.
+
+### The address bar now works the way you expect
+
+Click the address bar and it turns into an edit box with the current path already selected — paste a new path and press Enter to go there. Previously the caret sat at the end, so pasting appended to the old path and produced a mashed-together string. Press End if you would rather extend the existing path, exactly as in Explorer.
+
+Three defects are fixed together, and any one of them on its own is enough to make pasting a path unreliable:
+
+- **A path was only treated as a folder if it ended with a slash.** Paste `D:\photos\2026` without the trailing slash and you got a single search result back instead of the folder. A bare word such as `photos` is still treated as a search term, so name-based lookup keeps working.
+- **Enter no longer depends on the list catching up.** Right after you paste, the suggestion list needs a moment to refresh; pressing Enter during that window used to do nothing at all. It now acts on what is in the input box, immediately.
+- **Arrow keys still win.** If you arrow down to a particular file and press Enter, that file is what opens — the typed path does not override your choice.
+
+### The suggestion list reads as a small tree
+
+The first row is the directory you are pointing at: flush left, in a heavier weight, and selected when the list opens, so pressing Enter goes straight into it. Subfolders and files sit one indent in, level with each other, connected by a vertical line with a short dash into each icon and closed off at the last row. Subfolders are listed before files, each sorted by name.
+
+### Swap the two panes in split view
+
+With two panes open, a swap button appears to the right of the search box in each pane's toolbar. Click it and the panes trade folders: whatever the left one was showing, the right one shows now, and vice versa. Each pane keeps its own width and its own place in the tab order — only the folder changes. The button is not there with a single pane, because there would be nothing to swap.
+
+If both panes already show the same folder, nothing happens, and that is deliberate: swapping two identical folders is a no-op, and making the panes flicker through a change you cannot see is worse than doing nothing.
+
+### The thumbnail size control survives a narrow window
+
+On a narrow window the toolbar buttons collapse into a single "..." menu holding back, forward, up, locations, refresh, the list/grid toggle and the two create commands. The thumbnail size control had only ever been added to the wide-screen row of icons, so once the window narrowed below 600px there was no way to reach it at all — not hidden, simply absent.
+
+It is now in both places, in the same order: after the list/grid button on the wide toolbar, and after the matching list/grid item in the "..." menu. Both open the same dialog.
+
+### What this release is
+
+3.2.4 is the first stable build of the 3.2 line. The MCP server introduced in 3.2.1-beta comes along unchanged, still read-only. Nothing in this release can move, rename or delete your files.
+
+## [3.1.3] - October 2026
+
+**Summary:** Directory search had two defects that made recursion look unimplemented; both are fixed. Search options now sit where you can watch results change, and split view keeps directories on the left.
+
+### Directory search: recursion genuinely was not working
+
+The most important fix here, caused by two independent problems stacked on top of each other:
+
+- **The traversal cap counted the wrong thing.** The recursive walk had a "stop once we have seen enough" limit, but it counted **entries scanned**, not entries matched, and the limit was 20× the result limit (50 × 20 = 1000 by default). In a photo directory with 43,167 entries the walk therefore stopped at entry 1000 — indistinguishable from "current layer only". It now stops on match count, with the scan-volume safety valve widened separately.
+- **Short queries were discarded by the score threshold.** After a filename substring matched, a score gate still applied, and three-character queries demanded 0.9: searching `095` against `20251009_0095_27.jpg` scores only 0.82, so it was **thrown away on the spot**. This was independent of directory size — small directories failed the same way. The score now only ranks results; it no longer gates them.
+
+The previous release note claiming "directory search is now recursive" was therefore not true at the time.
+
+### Search options moved above the results
+
+Show files / show directories / exact match / typo tolerance / result limit used to live in a button plus popover inside the filter box — but the point of adjusting options is to **watch the results change**, and hiding them behind a popover means opening and closing a floating layer on every adjustment. They are now permanently visible above the search results, so ticking one box updates the list below in view.
+
+**Typo tolerance now actually does something** rather than being decoration: the recursive scan also computes a similarity score when the substring misses. With it off, a misspelled query still finds nothing; with it on, it matches — both directions are covered by tests.
+
+Directory search and global search now **use the same set of options**, instead of each behaving its own way.
+
+### Split view after search: directories on the left, search on the right
+
+Opening global search previously pushed the search UI to the left and shoved directories to the right. It is now the other way round: **the left pane keeps the directory view and the right pane switches to search**, matching the "open containing directory" layout.
+
+### Default search depth 7 → 9 levels
+
+Existing installations are migrated to 9 as well — changing only the default has no effect on people who already have 7 written in their local settings. A depth you set yourself is never overwritten.
+
+### Also
+
+- **Right-click "Add to favorites" now asks for a category**: pick an existing one or create one on the spot.
+
+## [3.0.1] - October 2026
+
+**Summary:** Fixes a data-loss bug in batch rename, found while testing 3.0.0.
+
+### Batch Rename
+
+- **Fixed: a rename could silently overwrite a file the rules left unchanged.** When a new name collided with another file in the same batch that no rule modified, that file was never moved aside and the rename landed on top of it. On Windows this happens with no error at all, so the original content was destroyed and could not be undone. Such a collision is now blocked in the preview, with the conflicting row highlighted;
+- **Fixed: Title Case no longer rewrites your separators.** `27_gri_r0_c0` came out as `27 Gri R 0 C 0`, because underscores and hyphens were treated as word breaks and replaced with spaces. Original separators are preserved now, and digits are no longer treated as word boundaries;
+- **Fixed: case-only changes are no longer reported as "unchanged".** Converting a selection to UPPERCASE or lowercase showed `0` items to change. A case-only rename is a real operation and is now counted and applied;
+- **Fixed: rule options from the interface now take effect.** Checkboxes such as *Include extension* did nothing, because the field names sent to the backend did not match the ones it expected;
+- **Numbering is easier to reach.** Numbering only supplies `{n}` for template rules and never renames on its own, which surprised people. A one-click *Add a template rule* button now sits next to it, pre-filled with `{n}-{name}`;
+
+## [3.0.0] - October 2026
+
+**Summary:** The first official release under the Alpha File Manager brand. Adds batch rename, makes drives identifiable in the narrow sidebar, and ships a substantially hardened dialog focus sync extension.
+
+This release also renames the product from Sigma File Manager to **Alpha File Manager** throughout the interface, installer, and error messages. The underlying project lineage is unchanged; existing settings and layouts carry over.
+
+### Batch Rename
+
+Rename many files in one directory at once, with a live preview before anything touches disk.
+
+- **Entry point**: select two or more items, right-click, and choose `Batch rename`. Single selection keeps using the existing `Rename` action;
+- **Rules**: find and replace (optionally case-sensitive, optionally including the extension), case conversion (UPPERCASE, lowercase, Title Case, camelCase, snake_case, kebab-case), template names, numbering, and extension changes. Rules apply in the order shown and can be reordered;
+- **Template variables**: `{name}`, `{ext}`, `{parent}`, `{size}`, `{date}`, `{n}`, with `{date:YYYYMMDD}` formatting and local time;
+- **Live preview**: every entry shows its current and proposed name as you type. Entries that do not change are dimmed;
+- **Conflict safety**: a new name that collides with a file outside the batch is blocked rather than overwritten; two entries that would end up with the same name are blocked and named; swap cycles such as `a -> b` and `b -> a` are resolved automatically through a two-pass rename with no user-visible temporary files;
+- **Undo**: the last 10 batches are recorded and can be reverted, including batches that failed partway through. Reverting re-checks for collisions and refuses rather than overwriting later changes;
+
+Numbering supplies the value for `{n}` and does not rename on its own; pair it with a Template rule.
+
+### Drive Labels In The Sidebar
+
+Disks in the narrow sidebar are now distinguishable at a glance.
+
+- **Short label on the icon**: each drive icon carries a short label derived from its mount point — `C`, `D`, or the share name for network paths;
+- **Why it matters**: the sidebar column is only 24px wide and every drive icon looks alike, so it was impossible to tell partitions apart;
+- **Themed outline**: the label uses a 2px stroke in the sidebar's own background colour with `paint-order: stroke fill`, so the icon lines are knocked out behind the glyph. It stays legible in both light and dark themes;
+
+Folder tree panels also start slightly wider, so directory names are readable without dragging the divider.
+
+### Dialog Focus Sync
+
+The Focus Sync extension (`kizemo.focus-sync`) reaches version 0.5.8 with a set of correctness fixes. It navigates Windows file dialogs — including Save As in other applications — to the folder currently focused in Alpha File Manager.
+
+- **No more duplicate writes**: a dialog is no longer navigated twice about 900ms apart, which previously made the address bar visibly jump;
+- **Window activation races**: Windows routes activation through a short-lived `ForegroundStaging` window. The extension now waits for the dialog to be foreground again (up to 500ms) instead of giving up and falling through to a path that never actually navigated;
+- **Honest restore reporting**: restoring the filename field is now verified by reading the value back. A failed restore returns false instead of reporting success;
+- **Cleaner diagnostics**: the trace ring is no longer saturated by health-check polling, so a lost push is distinguishable from a callback that never fired. Dead window handles are reaped on sight instead of accumulating;
+- **Sidecar safety**: running the test suite no longer force-kills a sidecar you are actively using;
+
+### Branding
+
+- The application is now **Alpha File Manager** in the interface, the installer, window titles, and error messages;
+- The install, upgrade, and uninstall paths are stable across 2.2.x and 3.0.0 — upgrading in place preserves your settings, layouts, and shortcuts;
+
 ## [2.2.0] - July 2026
 
 **خلاصہ:** دوسری ایپس کے ساتھ سسٹم کلپ بورڈ کا انضمام، باکس انتخاب، منسلک تقسیم منظر، لنک ہینڈلنگ، پاس ورڈ سے محفوظ ZIP آرکائیوز، Windows پر نیٹو خصوصیات، ایکسٹینشن API کی توسیع، عبرانی زبان کی حمایت، اور نیویگیٹر میں بہتریاں۔

@@ -42,13 +42,17 @@ import { DirEntryInteractive } from '@/components/dir-entry-interactive';
 import { registerDropContainer, unregisterDropContainer } from '@/composables/use-drop-target-registry';
 import { useShortcutsStore } from '@/stores/runtime/shortcuts';
 import { usePlatformStore } from '@/stores/runtime/platform';
-import { getPathDisplayName } from '@/utils/normalize-path';
+import { getPathDisplayName, toNativePathSeparators } from '@/utils/normalize-path';
 import {
   buildLocationsDirectoryFromDrives,
   resolveDirectoryContents,
+  shellDeviceInfoToDirEntry,
 } from '@/utils/virtual-locations';
 import { useDrives } from '@/modules/home/composables/use-drives';
 import { useOpenCopiedPath } from './composables/use-open-copied-path';
+import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
+import { useShellDevices } from '@/composables/use-shell-devices';
+import { useShellPathChain } from '@/composables/use-shell-path-chain';
 import { buildAddressBarParts } from './address-bar-parts';
 
 const props = defineProps<{
@@ -64,9 +68,27 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const shortcutsStore = useShortcutsStore();
 const platformStore = usePlatformStore();
+const remoteConnectionsStore = useRemoteConnectionsStore();
 const { drives } = useDrives();
-const locationsDirectoryPaths = computed(() => {
-  return buildLocationsDirectoryFromDrives(drives.value).entries.map(entry => entry.path);
+// FORK-MODIFICATION 2026-11-19（批次 23）：设备（手机 / MTP）也属于「位置」，
+// 地址栏下拉与「位置」页同源，所以两处都要有。
+const { shellDevices } = useShellDevices();
+// FORK-MODIFICATION 2026-11-19（批次 24）：shell 路径的祖先链由后端
+// `resolve_shell_path_chain` 给出，显示名与层级一律信后端，前端绝不拆字符串。
+const { shellPathChain } = useShellPathChain(() => props.currentPath);
+const shellDeviceEntries = computed(() => shellDevices.value.map(shellDeviceInfoToDirEntry));
+const locationsDirectoryItems = computed(() => {
+  // 下拉要显示**连接名**而不是 32 位 ID（用户 2026-11-09 反馈 5）：
+  // 远程条目在地址栏里是 `sfm://remote/<uuid>`，`getPathDisplayName()` 只能回显末段 ID。
+  // `entry.name` 与「位置」页同源（remote-location-refs 里就是用户起的连接名）。
+  return buildLocationsDirectoryFromDrives(
+    drives.value,
+    undefined,
+    shellDeviceEntries.value,
+  ).entries.map(entry => ({
+    path: entry.path,
+    name: entry.name,
+  }));
 });
 const { openCopiedPath } = useOpenCopiedPath({
   openDirectory: path => emit('navigate', path),
@@ -76,13 +98,44 @@ const openCopiedPathShortcutLabel = computed(() => shortcutsStore.getShortcutLab
 
 const addressBarRef = ref<HTMLElement | null>(null);
 const breadcrumbsContainerRef = ref<HTMLElement | null>(null);
-const separatorDropdowns = ref<{ [key: number]: string[] }>({});
+const separatorDropdowns = ref<{
+  [key: number]: {
+    path: string;
+    name: string;
+  }[];
+}>({});
 const openSeparatorIndex = ref<number | null>(null);
+
+// FORK-MODIFICATION 2026-10-18：远程面包屑要用连接名而不是连接 id（阶段 2 需求 1）。
+// 导航栏的 store 是懒加载的（面板 mounted 才 init），所以这里**不**主动 init ——
+// 查不到名字时面包屑会退回显示 id，而那条路径本来也只有从导航栏点进来才存在。
+const remoteConnectionNames = computed(() => {
+  return Object.fromEntries(
+    remoteConnectionsStore.connections.map(connection => [connection.id, connection.name]),
+  );
+});
+
+// FORK-MODIFICATION 2026-11-19（批次 23）：shell 路径 → 设备名。
+// 面包屑要显示「Galaxy S22」而不是 `::{20D04FE0-...}`。
+const shellDeviceNames = computed(() => {
+  return Object.fromEntries(
+    shellDevices.value.map(device => [device.shellPath, device.name]),
+  );
+});
 
 const addressParts = computed(() => buildAddressBarParts(
   props.currentPath,
   platformStore.currentPlatform,
   t('locations'),
+  {
+    rootLabel: t('settingsTabs.remote'),
+    connectionNames: remoteConnectionNames.value,
+  },
+  {
+    deviceNames: shellDeviceNames.value,
+    fallbackLabel: t('fileBrowser.device'),
+    pathChain: shellPathChain.value,
+  },
 ));
 
 watch(() => props.currentPath, () => {
@@ -114,7 +167,8 @@ async function loadSeparatorDirectories(index: number) {
         name: entry.name,
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
-    separatorDropdowns.value[index] = directories.map(d => d.path);
+    // 保留 name：下拉要显示目录名而不是拼出来的路径（用户 2026-11-09 反馈 5）。
+    separatorDropdowns.value[index] = directories;
   }
   catch {
     separatorDropdowns.value[index] = [];
@@ -142,12 +196,13 @@ function openEditor() {
 
 async function copyPathToClipboard() {
   try {
-    await navigator.clipboard.writeText(props.currentPath);
+    const nativePath = toNativePathSeparators(props.currentPath, platformStore.isWindows);
+    await navigator.clipboard.writeText(nativePath);
     toast.custom(markRaw(ToastStatic), {
       componentProps: {
         data: {
           title: t('dialogs.localShareManagerDialog.addressCopiedToClipboard'),
-          description: props.currentPath,
+          description: nativePath,
         },
       },
       duration: 2000,
@@ -246,7 +301,7 @@ onUnmounted(() => {
             <button
               class="address-bar__part"
               :class="{ 'address-bar__part--last': part.isLast }"
-              :title="part.displayRootIcon ? t('locations') : part.path"
+              :title="part.displayRootIcon ? t('locations') : toNativePathSeparators(part.path, platformStore.isWindows)"
               :aria-label="part.displayRootIcon ? t('locations') : part.name"
               @click.stop="!part.isLast && navigateToPart(part.path)"
             >
@@ -293,15 +348,15 @@ onUnmounted(() => {
                 class="address-bar__separator-menu-scroll"
               >
                 <DropdownMenuItem
-                  v-for="dirPath in part.useLocationsDropdown ? locationsDirectoryPaths : separatorDropdowns[index]"
-                  :key="dirPath"
-                  @select="handleSeparatorNavigate(dirPath)"
+                  v-for="item in (part.useLocationsDropdown ? locationsDirectoryItems : separatorDropdowns[index])"
+                  :key="item.path"
+                  @select="handleSeparatorNavigate(item.path)"
                 >
                   <FolderIcon
                     :size="14"
                     class="address-bar__separator-menu-icon"
                   />
-                  <span class="address-bar__separator-menu-path">{{ getPathDisplayName(dirPath) || dirPath }}</span>
+                  <span class="address-bar__separator-menu-path">{{ item.name || getPathDisplayName(item.path) || item.path }}</span>
                 </DropdownMenuItem>
               </ScrollArea>
             </DropdownMenuContent>
@@ -359,6 +414,15 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
+/* FORK-MODIFICATION 2026-10-31（按钮配色统一）：地址栏左侧这几个图标按钮
+   跟右上角的最小化 / 最大化 / 搜索按钮共用同一个颜色 token，
+   暖纸浅色下是低饱和度红，起强调作用。 */
+
+.address-bar__menu-button :deep(svg),
+.address-bar__edit-button :deep(svg) {
+  stroke: hsl(var(--toolbar-action-foreground));
+}
+
 .address-bar__tooltip-row {
   display: flex;
   align-items: center;
@@ -400,7 +464,7 @@ onUnmounted(() => {
   background: transparent;
   color: hsl(var(--muted-foreground) / 70%);
   cursor: pointer;
-  font-size: 13px;
+  font-size: calc(13px + var(--font-size-offset, 0px));
   line-height: 18px;
   transition: background-color 0.1s, color 0.1s;
   white-space: nowrap;
@@ -431,7 +495,7 @@ onUnmounted(() => {
   background: transparent;
   color: hsl(var(--muted-foreground) / 60%);
   cursor: pointer;
-  font-size: 13px;
+  font-size: calc(13px + var(--font-size-offset, 0px));
   transition: background-color 0.1s, color 0.1s;
 }
 
@@ -475,13 +539,17 @@ onUnmounted(() => {
 }
 
 .address-bar__separator-menu-scroll {
-  max-height: 250px;
+  /* 固定 250px 在窗口较矮、或地址栏靠近窗口下沿时会顶出可用空间：
+     菜单本体带 `overflow: hidden`，超出部分既看不见也滚不到，
+     看起来就是「下拉被下面的标题栏、目录视图遮挡」（用户 2026-11-09 反馈 5）。
+     绑到 Reka 的可用高度变量是仓内既有写法（见 navigator-toolbar-actions.vue）。 */
+  max-height: min(250px, var(--reka-dropdown-menu-content-available-height, calc(100vh - var(--window-toolbar-height) - 12px)));
   padding: 4px 0;
 }
 
 .address-bar__separator-menu .sigma-ui-dropdown-menu-item {
   padding: 6px 12px;
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   gap: 8px;
 }
 

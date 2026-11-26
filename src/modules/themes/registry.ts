@@ -4,16 +4,38 @@
 
 import type { InstalledExtensionData } from '@/types/extension';
 import type { BuiltinThemeId, Theme } from '@/types/user-settings';
+// FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：三套品牌重设计主题。
+import {
+  isAfmThemeId,
+  AFM_THEMES,
+} from '@/modules/themes/afm-themes';
 
-export const BUILTIN_THEME_IDS = ['dark', 'light', 'system'] as const;
-export const DEFAULT_THEME_ID: BuiltinThemeId = 'dark';
+// FORK-MODIFICATION 2026-10-30：「跟随系统」不再是**可选主题**（下拉里不再出现），
+// 它的位置由静态冷色主题冷杉（afm-cool-light）接替。老配置里的 'system'
+// 通过 LEGACY_THEME_ALIASES 平滑落到冷杉，而不是回默认暖纸。
+export const BUILTIN_THEME_IDS = ['dark'] as const;
+export const DEFAULT_THEME_ID: BuiltinThemeId = 'afm-warm-light';
 
-type ResolvedBuiltinThemeId = Exclude<BuiltinThemeId, 'system'>;
+// FORK-MODIFICATION 2026-10-29：原来这里是 `Exclude<BuiltinThemeId, 'system'>`，
+// BuiltinThemeId 扩出 afm-* 变体 id 之后，那个排除会把变体 id 也算进来，
+// 而扩展主题的 baseTheme 只允许 'light' / 'dark'，所以这里必须写死。
+type ResolvedBuiltinThemeId = 'light' | 'dark';
 
 type BuiltinThemeOption = {
   id: BuiltinThemeId;
   source: 'builtin';
   builtinThemeId: BuiltinThemeId;
+  /**
+   * FORK-MODIFICATION 2026-10-29：内置变体主题（AFM 品牌三套）的 CSS 变量覆盖。
+   * 经典主题（dark / system）没有这个字段；`use-theme.ts` 用它区分两条应用路径。
+   */
+  baseTheme?: 'light' | 'dark';
+  variables?: Record<`--${string}`, string>;
+  /**
+   * FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：写入 `<html data-afm-theme>` 的值。
+   * 少量 token 表达不了的形状特征靠它做作用域覆盖（见 `src/styles/afm-themes.css`）。
+   */
+  cssThemeId?: string;
 };
 
 type ExtensionThemeOption = {
@@ -45,12 +67,32 @@ type ParsedThemeId = ParsedBuiltinThemeId | ParsedExtensionThemeId;
 const EXTENSION_THEME_PREFIX = 'extension:';
 const EXTENSION_THEME_ID_PATTERN = /^[a-z0-9-]+$/;
 
+// FORK-MODIFICATION 2026-10-30：经典解析分支**保留不动** —— 'system' 仍然算一个合法
+// 的历史主题 id，只是不再出现在可选列表里。
+const CLASSIC_BUILTIN_THEME_IDS: readonly string[] = ['dark', 'system'];
+
+/**
+ * FORK-MODIFICATION 2026-10-30：历史主题 id 的落点。
+ * 'system' -> 'afm-cool-light'（冷杉）。
+ */
+const LEGACY_THEME_ALIASES: Readonly<Record<string, string>> = {
+  system: 'afm-cool-light',
+};
+
 export function createExtensionThemeId(extensionId: string, themeId: string): Theme {
   return `${EXTENSION_THEME_PREFIX}${extensionId}:${themeId}` as Theme;
 }
 
 export function parseThemeId(theme: string): ParsedThemeId | null {
-  if (theme === 'dark' || theme === 'light' || theme === 'system') {
+  if (CLASSIC_BUILTIN_THEME_IDS.includes(theme)) {
+    return {
+      source: 'builtin',
+      builtinThemeId: theme as BuiltinThemeId,
+    };
+  }
+
+  // FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：三套品牌重设计主题同样走 builtin 通道。
+  if (isAfmThemeId(theme)) {
     return {
       source: 'builtin',
       builtinThemeId: theme,
@@ -87,6 +129,22 @@ export function getBuiltinThemeOptions(): ThemeOption[] {
     id: themeId,
     source: 'builtin' as const,
     builtinThemeId: themeId,
+  }));
+}
+
+/**
+ * FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：三套品牌重设计主题。
+ * 与扩展主题同构（基础明暗 + CSS 变量覆盖），额外带 `cssThemeId`，
+ * 供 `use-theme.ts` 写到 `<html data-afm-theme>` 上做形状特征的作用域覆盖。
+ */
+export function getAfmThemeOptions(): ThemeOption[] {
+  return AFM_THEMES.map(theme => ({
+    id: theme.id,
+    source: 'builtin' as const,
+    builtinThemeId: theme.id,
+    baseTheme: theme.baseTheme,
+    variables: theme.variables,
+    cssThemeId: theme.cssThemeId,
   }));
 }
 
@@ -138,6 +196,7 @@ export function getAvailableThemeOptions(
 ): ThemeOption[] {
   return [
     ...getBuiltinThemeOptions(),
+    ...getAfmThemeOptions(),
     ...getExtensionThemeOptions(installedExtensions),
   ];
 }
@@ -146,14 +205,22 @@ export function findThemeOption(
   theme: string,
   installedExtensions: Record<string, InstalledExtensionData>,
 ): ThemeOption | undefined {
-  const parsedTheme = parseThemeId(theme);
+  const parsedTheme = parseThemeId(LEGACY_THEME_ALIASES[theme] ?? theme);
 
   if (!parsedTheme) {
     return undefined;
   }
 
   if (parsedTheme.source === 'builtin') {
-    return getBuiltinThemeOptions().find(option => option.id === parsedTheme.builtinThemeId);
+    const builtinOption = getBuiltinThemeOptions()
+      .find(option => option.id === parsedTheme.builtinThemeId);
+
+    if (builtinOption) {
+      return builtinOption;
+    }
+
+    return getAfmThemeOptions()
+      .find(option => option.id === parsedTheme.builtinThemeId);
   }
 
   return getExtensionThemeOptions(installedExtensions).find((option) => {

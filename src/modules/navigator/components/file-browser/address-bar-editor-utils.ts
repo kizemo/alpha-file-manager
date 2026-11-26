@@ -11,6 +11,7 @@ import normalizePath, {
   getPathDisplayName,
   isUncPath,
   isWindowsDriveRootPath,
+  toNativePathSeparators,
 } from '@/utils/normalize-path';
 import {
   driveInfoToDirEntry,
@@ -20,7 +21,8 @@ import {
 
 export type AddressBarEditorMode = 'path' | 'entry';
 
-export type AddressBarSuggestionSource = 'directory' | 'recent' | 'tagged' | 'exact' | 'userDirectory' | 'systemDrive';
+export type AddressBarSuggestionSource
+  = 'directory' | 'recent' | 'tagged' | 'exact' | 'userDirectory' | 'systemDrive' | 'target';
 
 export interface AddressBarSuggestion {
   id: string;
@@ -32,6 +34,11 @@ export interface AddressBarSuggestion {
   source: AddressBarSuggestionSource;
   entry: DirEntry;
   tag?: ItemTag;
+  /**
+   * 树形缩进层级：0 = 目标目录（树的根，顶格），1 = 它的子目录与文件（齐平一格）。
+   * 子目录与文件同层，区分靠图标与颜色，不靠多缩一格。
+   */
+  depth: number;
   historyOpenedAt?: number;
 }
 
@@ -123,6 +130,7 @@ export function createAddressBarSuggestion(
   entry: DirEntry,
   source: AddressBarSuggestionSource,
   tag?: ItemTag,
+  depth = 0,
 ): AddressBarSuggestion {
   return {
     id: tag ? `${source}:${tag.id}:${entry.path}` : `${source}:${entry.path}`,
@@ -134,6 +142,7 @@ export function createAddressBarSuggestion(
     source,
     entry,
     tag,
+    depth,
   };
 }
 
@@ -147,8 +156,50 @@ export function createDirectorySuggestionGroup(
     id: source === 'exact' ? 'exact' : `directory:${label}`,
     label,
     collapsible,
-    items: entries.map(entry => createAddressBarSuggestion(entry, source)),
+    items: entries.map(entry => createAddressBarSuggestion(
+      entry,
+      source,
+      undefined,
+      // 精确命中只有一项，是整个列表的主角，不缩进。
+      // 目录 / 搜索结果里，子目录与文件齐平缩进一格。
+      source === 'exact' ? 0 : 1,
+    )),
   };
+}
+
+/**
+ * 「目标目录」自己独占第一行，是整棵树的根。
+ *
+ * 早先 `kind === 'directory'` 时 exactEntry 已经被算好了，但模板只渲染 groups，
+ * 这行数据从来没显示过 —— 用户看不到自己正指向哪个目录，也无法「回车进入它」。
+ * label 留空，模板据此不渲染分组标题，省掉 17 个语言包的文案。
+ */
+export function createTargetDirectorySuggestionGroup(directoryPath: string): AddressBarSuggestionGroup {
+  return {
+    id: 'targetDirectory',
+    label: '',
+    collapsible: false,
+    items: [
+      createAddressBarSuggestion(
+        createAddressBarFallbackEntry(directoryPath, false),
+        'target',
+        undefined,
+        0,
+      ),
+    ],
+  };
+}
+
+/** 子目录在前、文件在后，各自按名称排序 —— 弹窗靠树形导线分层，顺序必须稳定。 */
+export function orderDirectoryEntriesForSuggestionList(entries: DirEntry[]): DirEntry[] {
+  function byName(left: DirEntry, right: DirEntry): number {
+    return left.name.localeCompare(right.name);
+  }
+
+  return [
+    ...entries.filter(entryItem => entryItem.is_dir).sort(byName),
+    ...entries.filter(entryItem => !entryItem.is_dir).sort(byName),
+  ];
 }
 
 export function createUserDirectoriesSuggestionGroup(
@@ -270,6 +321,20 @@ export function ensureAddressBarDirectoryQuery(path: string): string {
   return normalizedPath.endsWith('/') ? normalizedPath : `${normalizedPath}/`;
 }
 
+/**
+ * 地址栏里**给人看的**路径写法。
+ *
+ * 应用内部统一用正斜杠（`normalizePath` 把 `\` 归一成 `/`），那是比较键、
+ * 缓存键和「尾斜杠 = 浏览目录内」语义的依赖项，不能动。
+ *
+ * 但地址栏输入框和建议行是 Windows 上的原生体验，应该显示 `C:\Users\...`。
+ * 带 `://` 的虚拟 / 远程路径（`sfm://remote/...`）原样保留 ——
+ * 那里的 `/` 是协议语义，换成 `\` 会得到一个根本打不开的路径。
+ */
+export function toAddressBarDisplayPath(path: string, isWindows: boolean): string {
+  return toNativePathSeparators(path, isWindows);
+}
+
 export function addressBarPathHasNoParentDirectory(trimmedNormalizedQuery: string): boolean {
   if (!trimmedNormalizedQuery) {
     return false;
@@ -361,6 +426,35 @@ function getImplicitAddressBarAbsoluteDirectoryBrowsePath(normalizedQuery: strin
   return trim.endsWith('/') ? trim : `${trim}/`;
 }
 
+/**
+ * 无结尾斜杠的绝对路径同样按「浏览这个目录」处理。
+ *
+ * 早先这条规则只覆盖了 UNC 路径，导致粘贴 `F:/a/b/nsis` 被当成搜索词：
+ * 先列父目录再按 `nsis` 过滤，弹窗里只剩一条叫 nsis 的结果（用户截图 2）。
+ * 这里把同一条规则补到所有「看起来像路径」的输入上。
+ *
+ * 裸词（如 `nsis`）不含斜杠也不带盘符，交给 addressBarTrimmedQueryLooksLikeFilesystemPath 挡掉，
+ * 保持「按名字搜」的既有行为不变。
+ */
+function resolveAddressBarUnseparatedDirectoryBrowsePath(normalizedQuery: string): string | null {
+  const trimmed = canonicalizePath(normalizedQuery);
+
+  if (!trimmed || trimmed.endsWith('/')) {
+    return null;
+  }
+
+  // 裸盘符（`C:`）不是目录路径，交给既有分支处理。
+  if (trimmed.endsWith(':')) {
+    return null;
+  }
+
+  if (!addressBarTrimmedQueryLooksLikeFilesystemPath(trimmed)) {
+    return null;
+  }
+
+  return trimmed;
+}
+
 function addressBarQueryMeansBrowseInsideDirectory(normalizedTrimmedQuery: string): boolean {
   return normalizedTrimmedQuery.endsWith('/');
 }
@@ -394,11 +488,13 @@ async function resolveAddressBarDirectoryListingOrExactOrSearch(
 ): Promise<AddressBarSuggestionState> {
   try {
     const directoryContents = await options.lookup.readDir(pathForReadDir);
+
     return {
       kind: 'directory',
       groups: [
+        createTargetDirectorySuggestionGroup(directoryContents.path),
         createDirectorySuggestionGroup(
-          directoryContents.entries,
+          orderDirectoryEntriesForSuggestionList(directoryContents.entries),
           options.directoryGroupLabel,
           'directory',
         ),
@@ -414,6 +510,11 @@ async function resolveAddressBarDirectoryListingOrExactOrSearch(
         ? `${exactPath}/`
         : exactPath;
       const exactEntry = await options.lookup.getDirEntry(exactPath);
+
+      if (!exactEntry) {
+        return resolveSearchSuggestions(options, fallbackNormalizedQuery);
+      }
+
       return {
         kind: 'exact',
         groups: [createDirectorySuggestionGroup([exactEntry], options.exactGroupLabel, 'exact')],
@@ -451,7 +552,8 @@ export async function resolveAddressBarSuggestions(
     );
   }
 
-  const implicitBrowsePath = getImplicitAddressBarAbsoluteDirectoryBrowsePath(normalizedQuery);
+  const implicitBrowsePath = getImplicitAddressBarAbsoluteDirectoryBrowsePath(normalizedQuery)
+    ?? resolveAddressBarUnseparatedDirectoryBrowsePath(normalizedQuery);
 
   if (implicitBrowsePath !== null) {
     return resolveAddressBarDirectoryListingOrExactOrSearch(
@@ -464,6 +566,22 @@ export async function resolveAddressBarSuggestions(
   return resolveSearchSuggestions(options, normalizedQuery);
 }
 
+/**
+ * readDir 的结果来自 IPC 边界，运行时未必符合 DirContents 的静态类型：
+ * 后端异常路径可能给出没有 entries 字段的载荷。这类载荷一旦被当成数组用，
+ * 会在 .filter() 上抛 TypeError；调用方是 fire-and-forget 的异步链，
+ * 抛出的异常会变成 unhandled rejection（不报错码、不中断流程）。
+ *
+ * 载荷不合法时按“读取失败”处理，让上层走既有的回退分支，而不是崩溃。
+ */
+function requireDirEntries(contents: DirContents | undefined | null): DirEntry[] {
+  if (!contents || !Array.isArray(contents.entries)) {
+    throw new Error('readDir returned a payload without an entries array');
+  }
+
+  return contents.entries;
+}
+
 function addressBarEntryPathDedupeKey(path: string): string {
   return canonicalizePath(path);
 }
@@ -473,6 +591,10 @@ function deduplicateDirEntriesByPath(entries: DirEntry[]): DirEntry[] {
   const uniqueEntries: DirEntry[] = [];
 
   for (const candidate of entries) {
+    if (!candidate || typeof candidate.path !== 'string') {
+      continue;
+    }
+
     const dedupeKey = addressBarEntryPathDedupeKey(candidate.path);
 
     if (seenKeys.has(dedupeKey)) {
@@ -491,15 +613,19 @@ async function resolveSearchSuggestions(
   normalizedQuery: string,
 ): Promise<AddressBarSuggestionState> {
   let searchEntries = options.mode === 'entry'
-    ? flattenAddressBarSuggestionGroups(options.entryModeGroups).map(suggestion => suggestion.entry)
-    : options.lastDirectoryEntries;
+    ? (Array.isArray(options.entryModeGroups)
+        ? flattenAddressBarSuggestionGroups(options.entryModeGroups)
+            .map(suggestion => suggestion.entry)
+            .filter((entry): entry is DirEntry => Boolean(entry))
+        : [])
+    : (Array.isArray(options.lastDirectoryEntries) ? options.lastDirectoryEntries : []);
   let searchQuery = normalizedQuery;
   const parentPath = getParentPath(normalizedQuery);
 
   if (parentPath && parentPath !== normalizedQuery) {
     try {
       const parentContents = await options.lookup.readDir(parentPath);
-      searchEntries = parentContents.entries;
+      searchEntries = requireDirEntries(parentContents);
       searchQuery = getPathDisplayName(normalizedQuery);
     }
     catch {
@@ -509,7 +635,7 @@ async function resolveSearchSuggestions(
       ) {
         try {
           const currentContents = await options.lookup.readDir(options.currentPath);
-          searchEntries = currentContents.entries;
+          searchEntries = requireDirEntries(currentContents);
         }
         catch {
           searchEntries = [];
@@ -533,4 +659,61 @@ async function resolveSearchSuggestions(
     exactEntry: null,
     directoryPath: null,
   };
+}
+
+export interface AddressBarTypedDirectoryTarget {
+  kind: 'directory';
+  path: string;
+}
+
+export interface AddressBarTypedFileTarget {
+  kind: 'file';
+  path: string;
+}
+
+export interface AddressBarTypedNoneTarget {
+  kind: 'none';
+}
+
+export type AddressBarTypedTarget
+  = AddressBarTypedDirectoryTarget | AddressBarTypedFileTarget | AddressBarTypedNoneTarget;
+
+/**
+ * 把输入框里的文字直接解析成一个可执行目标。
+ *
+ * 回车不能只依赖「列表选中项」：粘贴之后选中项要等防抖 + 两次异步 IO 才恢复，
+ * 那一小段窗口里按回车会静默什么都不做（用户截图 2 的另一半原因）；
+ * 更糟的是若此时 suggestionState 还是上一次的陈旧结果，回车会跳到上一个目录。
+ * 这个函数不碰选中项、不读 suggestionState，只看文字，因此不受时序影响。
+ */
+export async function resolveAddressBarTypedTarget(
+  rawQuery: string,
+  lookup: AddressBarSuggestionLookup,
+): Promise<AddressBarTypedTarget> {
+  const trimmed = canonicalizePath(normalizePath(rawQuery).trim());
+
+  if (!trimmed || trimmed.endsWith(':')) {
+    return { kind: 'none' };
+  }
+
+  try {
+    const dirEntry = await lookup.getDirEntry(trimmed);
+
+    if (!dirEntry) {
+      return { kind: 'none' };
+    }
+
+    return dirEntry.is_dir
+      ? {
+          kind: 'directory',
+          path: dirEntry.path,
+        }
+      : {
+          kind: 'file',
+          path: dirEntry.path,
+        };
+  }
+  catch {
+    return { kind: 'none' };
+  }
 }

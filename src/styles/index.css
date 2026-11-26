@@ -2,3 +2,7 @@
 @import "./main.css";
 @import "./general.css";
 @import "./stagger-animation.css";
+
+/* FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：形状特征层必须放在最后，
+   才能在同特异性下压过前面的基础样式表。 */
+@import "./afm-themes.css";

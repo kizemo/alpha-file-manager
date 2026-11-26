@@ -1,8 +1,11 @@
 {
   "app": {
-    "name": "सिग्मा फ़ाइल प्रबंधक",
-    "description": "एक मुफ़्त, खुला स्रोत, उन्नत, आधुनिक फ़ाइल प्रबंधक ऐप है, जो GNU GPLv3 या उसके बाद के संस्करण के तहत लाइसेंस प्राप्त है।",
-    "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
+    "name": "Alpha File Manager",
+    "description": "is developed on top of Sigma File Manager, adding practical features such as a directory tree, quick switching (path focus sync for file dialogs) and batch rename. Many details have been refined to deliver a more complete file manager experience.",
+    "copyright": "Credits to the original author Aleksey Hoffman.",
+    "developerLabel": "Developed by ",
+    "developer": "kizemo",
+    "repository": "https://github.com/kizemo/alpha-file-manager"
   },
   "units": {
     "px": "पिक्सल"
@@ -19,7 +22,7 @@
   "pages": {
     "home": "होम पेज",
     "navigator": "फ़ाइल एक्सप्लोरर",
-    "dashboard": "डैशबोर्ड",
+    "dashboard": "त्वरित पहुँच",
     "notes": "टिप्पणियाँ",
     "settings": "सेटिंग्स",
     "extensions": "एक्सटेंशन"
@@ -33,7 +36,15 @@
     "tagged": "टैग किए गए",
     "emptyFavorites": "कोई पसंदीदा नहीं",
     "emptyTagged": "कोई टैग किया गया आइटम नहीं",
-    "unknownTagGroup": "अज्ञात टैग"
+    "unknownTagGroup": "अज्ञात टैग",
+    "frequent": "Frequent",
+    "history": "History",
+    "emptyFrequent": "No frequently used items",
+    "emptyHistory": "No history yet",
+    "openFavoritesTab": "Open Favorites tab in Quick Access",
+    "openFrequentTab": "Open Frequent tab in Quick Access",
+    "openHistoryTab": "Open History tab in Quick Access",
+    "openTaggedTab": "Open Tagged tab in Quick Access"
   },
   "placeholders": {
     "noDrivesFound": "कोई ड्राइव नहीं मिली",
@@ -76,6 +87,8 @@
     "music": "संगीत"
   },
   "tabs": {
+    "scrollTabsLeft": "टैब को बाईं ओर स्क्रॉल करें",
+    "scrollTabsRight": "टैब को दाईं ओर स्क्रॉल करें",
     "newTab": "नया टैब",
     "duplicateTab": "टैब डुप्लिकेट करें",
     "closeOtherTabs": "अन्य टैब बंद करें",
@@ -89,6 +102,9 @@
   "splitViewMode": "भाजित दृश्य मोड",
   "splitViewModeSplit": "भाजित",
   "splitViewModeLinked": "लिंक",
+  "syncBrowsing": "Synchronized browsing",
+  "syncBrowsingOn": "Synchronized browsing: on",
+  "syncBrowsingHint": "Select a folder in the left pane and the right pane jumps to the folder of the same name.",
   "filter": {
     "filter": "फ़िल्टर",
     "showHiddenItems": "छुपे हुए आइटम दिखाएँ",
@@ -121,7 +137,9 @@
       "trash": "ट्रैश",
       "deletePermanent": "हटाएँ",
       "archive": "संग्रह",
-      "dirSize": "फ़ोल्डर आकार"
+      "dirSize": "फ़ोल्डर आकार",
+      "remoteUpload": "Upload",
+      "remoteDownload": "Download"
     },
     "operationStatusShort": {
       "completed": "सफलता",
@@ -131,9 +149,17 @@
       "pending": "लंबित",
       "cancelling": "रद्द हो रहा है…"
     },
-    "toolbarActiveCount": "0 ऑपरेशन | 1 ऑपरेशन | {n} ऑपरेशन | {n} ऑपरेशन"
+    "toolbarActiveCount": "0 ऑपरेशन | 1 ऑपरेशन | {n} ऑपरेशन | {n} ऑपरेशन",
+    "deleteScanning": "Measuring what will be deleted…",
+    "deleteScanningFound": "{count} items found",
+    "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "रीसायकल बिन में ले जाया जा रहा है…",
+    "cancelNotAccepted": "रद्द नहीं किया जा सकता: फ़ाइलें पहले से ही रीसायकल बिन में ले जाई जा रही हैं।",
+    "deleteBytesProgress": "{done} / {total} freed"
   },
   "globalSearch": {
+    "scanModeFull": "पूर्ण",
+    "scanModeIncremental": "क्रमिक",
     "globalSearch": "वैश्विक खोज",
     "driveScanInProgress": "ड्राइव अनुक्रमण प्रगति पर है",
     "searchDataIncomplete": "खोज डेटा अधूरा है",
@@ -176,7 +202,10 @@
       "indexed": "अनुक्रमित {time}",
       "nothingFound": "कुछ न मिला"
     },
-    "showSearchSettings": "खोज सेटिंग दिखाएं"
+    "showSearchSettings": "खोज सेटिंग दिखाएं",
+    "remoteIndexing": "क्लाउड ड्राइव इंडेक्स हो रहा है",
+    "remoteIndexDone": "क्लाउड सूचकांश अद्यतन किया गया",
+    "remoteIndexFailed": "क्लाउड सूचकांश विफल रहा"
   },
   "home": {
     "mediaBannerOptions": "मीडिया बैनर विकल्प",
@@ -195,11 +224,11 @@
     "newDirectory": "नई निर्देशिका",
     "newFile": "नई फ़ाइल",
     "reloadCurrentDirectory": "वर्तमान निर्देशिका पुनः लोड करें",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "फ़ोल्डर ट्री दिखाएँ",
+    "hideFolderTree": "फ़ोल्डर ट्री छिपाएँ"
   },
   "dashboard": {
-    "subtitle": "आपके पसंदीदा, टैग किए गए और अक्सर उपयोग किए जाने वाले आइटम तक त्वरित पहुंच",
+    "subtitle": "आपके पसंदीदा, टैग किए गए और अक्सर उपयोग किए जाने वाले आइटम — सब एक जगह",
     "tabs": {
       "favorites": "पसंदीदा",
       "tagged": "टैग",
@@ -220,7 +249,57 @@
     "daysAgo": "{n} दिन पहले | {n} दिन पहले | {n} दिन पहले | {n} दिन पहले",
     "openedCount": "{n} समय पर खोला गया | {n} बार खोला गया | {n} बार खोला गया | {n} बार खोला गया",
     "actions": {
-      "clearAll": "इस सूची से सभी को हटा दें"
+      "clearAll": "इस सूची से सभी को हटा दें",
+      "newFavorite": "New favorite",
+      "newCategory": "New category",
+      "newTag": "New tag",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "moveUpWithName": "{name} को ऊपर ले जाएँ",
+      "moveDownWithName": "{name} को नीचे ले जाएँ",
+      "dragToReorder": "क्रम बदलने के लिए खींचें",
+      "moveToCategory": "Move to category",
+      "removeFavorite": "Remove from favorites",
+      "removeTag": "Remove tag",
+      "renameCategory": "Rename category",
+      "deleteCategory": "Delete category",
+      "uncategorized": "Uncategorized",
+      "confirmRemove": "हटाएँ",
+      "clearAllConfirmTitle": "इस सूची से सभी हटाएँ?",
+      "clearAllConfirmDescription": "इसे पूर्ववत नहीं किया जा सकता।",
+      "removeFavoriteConfirmTitle": "पसंदीदा से हटाएँ?",
+      "removeFavoriteConfirmDescription": "आइटम यहाँ से हटा दिया जाएगा। वापस लाने के लिए इसे फिर से पसंदीदा बनाएँ।",
+      "deleteTagConfirmTitle": "यह टैग हटाएँ?",
+      "deleteTagConfirmDescription": "टैग हटा दिया जाएगा और सभी आइटम से हटा दिया जाएगा।",
+      "removeTagConfirmTitle": "आइटम से यह टैग हटाएँ?",
+      "removeTagConfirmDescription": "आइटम पर अब यह टैग नहीं होगा।",
+      "renameFavorite": "प्रदर्शित नाम संपादित करें",
+      "editFavorite": "Edit favorite"
+    },
+    "newFavoriteDialog": {
+      "title": "Add to favorites",
+      "pathLabel": "File or folder path",
+      "pathPlaceholder": "Paste a full path",
+      "pathNotFound": "Path does not exist",
+      "pathAlreadyFavorite": "Already in favorites",
+      "confirm": "Add",
+      "displayNameLabel": "प्रदर्शित नाम",
+      "displayNamePlaceholder": "मूल नाम का उपयोग करने के लिए खाली छोड़ें"
+    },
+    "nameDialog": {
+      "nameLabel": "Name",
+      "namePlaceholder": "Enter a name",
+      "duplicateName": "\"{name}\" already exists",
+      "confirm": "Create"
+    },
+    "categoryDeleteNote": "Favorites in this category return to \"Uncategorized\". Nothing is deleted.",
+    "favoriteEdit": {
+      "pathRequired": "Path cannot be empty",
+      "saved": "Favorite updated",
+      "saveFailed": "Failed to update the favorite"
+    },
+    "favoriteCategoryDialog": {
+      "categoryLabel": "Category"
     }
   },
   "settingsCategories": {
@@ -249,8 +328,19 @@
         "title": "फ़ाइल दृश्य",
         "enableBoxSelection": "बॉक्स चयन सक्षम करें",
         "enableBoxSelectionDescription": "खाली जगह पर खींचकर चयन बॉक्स से कई आइटम चुनें। चयन में जोड़ने के लिए Ctrl या Shift दबाए रखें; उलटने के लिए Alt।",
+        "boxSelectionEnabledByDefault": "Box selection is now enabled by default. If drag-selecting gets in the way, you can turn it off here.",
         "increaseFileViewGaps": "फ़ाइल दृश्य में अंतर बढ़ाएँ",
-        "increaseFileViewGapsDescription": "सूची लेआउट में साइड padding जोड़ता है और ग्रिड लेआउट में अंतर बढ़ाकर चयन आसान बनाता है।"
+        "increaseFileViewGapsDescription": "सूची लेआउट में साइड padding जोड़ता है और ग्रिड लेआउट में अंतर बढ़ाकर चयन आसान बनाता है।",
+        "foldersFirst": "Place folders before files in list view",
+        "foldersFirstDescription": "Only affects the list view; the grid view always groups entries by type.",
+        "showListThumbnails": "Show thumbnails in list view",
+        "showListThumbnailsDescription": "Images and videos show thumbnails in the list. Folders and documents still show their type icon. Grid view always shows thumbnails and is not affected by this switch.",
+        "thumbnailSizeTitle": "Thumbnail size",
+        "thumbnailSizeDescription": "Adjust thumbnail size in the list and grid views.",
+        "thumbnailSizeSmall": "Small",
+        "thumbnailSizeMedium": "Medium",
+        "thumbnailSizeLarge": "Large",
+        "thumbnailSizeXLarge": "Extra large"
       },
       "startupPage": {
         "title": "स्टार्टअप पेज",
@@ -270,7 +360,8 @@
       "openAppLogDirectory": "ऐप लॉग निर्देशिका खोलें",
       "openGlobalSearchIndexDirectory": "वैश्विक खोज सूचकांक निर्देशिका खोलें",
       "changelog": "बदलाव का",
-      "allReleases": "सभी रिलीज़"
+      "allReleases": "सभी रिलीज़",
+      "learningNotes": "段燚的学习笔记"
     },
     "visualEffects": {
       "title": "दृश्य प्रभाव",
@@ -289,16 +380,20 @@
         "darken": "गहरा करें",
         "lighten": "हल्का",
         "color-dodge": "रंग हटना",
+        "plus-lighter": "लीनियर डॉज (जोड़ें)",
         "color-burn": "रंग जलना",
         "hard-light": "हार्ड लाइट",
         "soft-light": "नरम रोशनी",
         "difference": "अंतर",
         "exclusion": "बहिष्करण",
-        "hue": "रंग",
-        "saturation": "परिपूर्णता",
         "color": "रंग",
         "luminosity": "चमक"
       },
+      "blendTarget": "इसके साथ मिलाएँ",
+      "blendTargetUi": "इंटरफ़ेस",
+      "blendTargetFill": "भराव रंग",
+      "blendTint": "भराव रंग",
+      "blendTintCustom": "कस्टम रंग",
       "overlayBackground": "ओवरले पृष्ठभूमि",
       "selectNextBackground": "अगली पृष्ठभूमि चुनें",
       "useTheSameSettingsForAllPages": "सभी पेजों के लिए समान सेटिंग्स का उपयोग करें",
@@ -310,9 +405,15 @@
       "theme": {
         "title": "विषय",
         "extensionThemes": "एक्सटेंशन थीम",
+        "afmThemeThemes": "AFM ब्रांड थीम",
+        "afmThemes": {
+          "warmLight": "वार्म पेपर · लाइट",
+          "warmDark": "वार्म पेपर · डार्क",
+          "vividLight": "वाइविड एनर्जी",
+          "coolLight": "ठंडा पाइन"
+        },
         "themeTypeRadio": {
-          "dark": "अँधेरा",
-          "light": "प्रकाश (विकास में)"
+          "dark": "अँधेरा"
         }
       }
     },
@@ -327,7 +428,14 @@
       "selectedFont": "चयनित फ़ॉन्ट",
       "defaultFont": "मूलभूत अक्षर",
       "reFetchSystemFonts": "सिस्टम फ़ॉन्ट पुनः प्राप्त करें",
-      "resetFontToDefault": "फ़ॉन्ट को डिफ़ॉल्ट पर रीसेट करें"
+      "resetFontToDefault": "फ़ॉन्ट को डिफ़ॉल्ट पर रीसेट करें",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "दिनांक समय",
@@ -352,7 +460,7 @@
       "preventDropdownCloseFocusReturn": "ड्रॉपडाउन बंद करते समय फोकस रिटर्न को रोकें",
       "preventDropdownCloseFocusReturnDescription": "सक्षम होने पर, ड्रॉपडाउन बंद करने से (उदाहरण के लिए एस्केप के साथ) ट्रिगर बटन पर फोकस वापस नहीं आएगा, फोकस रिंग और टूलटिप डिस्प्ले से बचा जा सकेगा",
       "quickAccessOnHover": "होवर पर त्वरित पहुंच पैनल खोलें",
-      "quickAccessOnHoverDescription": "सक्षम होने पर, साइडबार में डैशबोर्ड बटन पर होवर करने पर त्वरित एक्सेस पैनल स्वचालित रूप से खुल जाता है"
+      "quickAccessOnHoverDescription": "सक्षम होने पर, साइडबार में त्वरित पहुँच बटन पर होवर करने पर त्वरित एक्सेस पैनल स्वचालित रूप से खुल जाता है"
     },
     "tooltips": {
       "title": "टूलटिप्स",
@@ -408,7 +516,6 @@
       }
     },
     "navigator": {
-      "navigatorViewLayout": "लेआउट",
       "navigatorOptions": "नेविगेटर विकल्प",
       "systemIcons": "आइकन थीम",
       "systemIconsDirectories": "निर्देशिका",
@@ -464,7 +571,15 @@
       "ignoredPathsHelpDownloads": "उस पथ उपसर्ग को छोड़ता है।",
       "ignoredPathsHelpTestFolder": "कहीं भी test नाम वाले फ़ोल्डर और उनकी सामग्री छोड़ता है।",
       "ignoredPathsHelpExtensionMask": "कहीं भी .log एक्सटेंशन वाली फ़ाइलें छोड़ता है।",
-      "ignoredPathsHelpNestedExtensionMask": "किसी भी फ़ोल्डर में .tmp एक्सटेंशन वाली फ़ाइलें छोड़ता है।"
+      "ignoredPathsHelpNestedExtensionMask": "किसी भी फ़ोल्डर में .tmp एक्सटेंशन वाली फ़ाइलें छोड़ता है।",
+      "remoteIndexTitle": "क्लाउड खोज",
+      "remoteIndexDescription": "वैश्विक खोज में शामिल किए गए कनेक्शन की फ़ाइलें खोज परिणामों में दिखती हैं।",
+      "rebuildRemoteIndex": "क्लाउड सूचकांश पुनर्निर्मित करें",
+      "rebuildRemoteIndexDescription": "चिह्नित कनेक्शन की फ़ाइलों को फिर से लाता है और सूचकांश में लिखता है; इससे नेटडिस्क API कोटा खर्च होता है।",
+      "noRemoteInSearch": "अभी तक वैश्विक खोज में कोई नेटडिस्क नहीं जोड़ा गया",
+      "noNetdiskConnections": "इस क्लाउड डिस्क के लिए अभी तक कोई कनेक्शन नहीं है",
+      "rebuildCheckedRemoteIndex": "चयनित कनेक्शन के लिए इंडेक्स पुनर्निर्मित करें",
+      "rebuildCheckedRemoteIndexHint": "पुनर्निर्माण हमेशा चयनित कनेक्शनों के पूरे समूह का उपयोग करता है — एक कनेक्शन को अकेले पुनर्निर्मित नहीं किया जा सकता।"
     },
     "drives": {
       "driveDetection": "ड्राइव का पता लगाना",
@@ -474,7 +589,7 @@
     },
     "stats": {
       "title": "उपयोगकर्ता का डेटा",
-      "description": "डैशबोर्ड सूचियों और खोज जैसी सुविधाओं को सक्षम करने के लिए ऐप स्थानीय रूप से डेटा (टैग, पसंदीदा, इतिहास, हाल ही में खोले गए आइटम) संग्रहीत करता है। यह डेटा ऐप डायरेक्टरी में संग्रहीत है।",
+      "description": "त्वरित पहुँच सूचियों और खोज जैसी सुविधाओं को सक्षम करने के लिए ऐप स्थानीय रूप से डेटा (टैग, पसंदीदा, इतिहास, हाल ही में खोले गए आइटम) संग्रहीत करता है। यह डेटा ऐप डायरेक्टरी में संग्रहीत है।",
       "openDataDirectory": "डेटा निर्देशिका खोलें"
     },
     "experimental": {
@@ -482,13 +597,354 @@
         "title": "सिग्मा फ़ाइल प्रबंधक को डिफ़ॉल्ट फ़ाइल प्रबंधक के रूप में सेट करें",
         "description": "यह विकल्प सिस्टम रजिस्ट्री को संशोधित करता है और आपके डिवाइस पर अप्रत्याशित दुष्प्रभाव हो सकता है। स्वयं के जोखिम पर आगे बढ़ें।",
         "unavailableInMicrosoftStore": "Microsoft Store संस्करण में उपलब्ध नहीं"
+      },
+      "mcp": {
+        "title": "MCP server (for AI agents)",
+        "description": "Let AI clients such as Claude or Cursor call this app's read-only capabilities over MCP. Off by default — when off, no port is opened at all.",
+        "modes": {
+          "off": "Off",
+          "readOnly": "Read-only",
+          "writable": "Writable",
+          "askEachTime": "Ask each time"
+        },
+        "modeDescriptions": {
+          "off": "The server does not start and no port is opened. Nothing on this machine can reach it.",
+          "readOnly": "Exposes directory listing, drives, mountable devices, the indexed global search, directory size and favourites. Entirely read-only — no file is ever modified.",
+          "writable": "Adds write operations on top of read-only. Deletion still goes to the recycle bin, never a hard delete.",
+          "askEachTime": "Same as writable, but every write operation needs individual confirmation."
+        },
+        "running": "Running · port {port}",
+        "stopped": "Not running",
+        "endpoint": "Endpoint",
+        "clients": "Connected clients",
+        "copyConfig": "Copy config snippet",
+        "copied": "Copied",
+        "copyFailed": "Copy failed — please copy the snippet manually",
+        "rotateToken": "Regenerate token",
+        "tokenRotated": "New token generated. Previous configs stop working immediately.",
+        "token": "Token",
+        "tokenHint": "Any process on this machine can reach 127.0.0.1. The token is the only barrier — do not share it.",
+        "auditTitle": "Recent calls",
+        "outcomes": {
+          "allowed": "allowed",
+          "denied": "denied",
+          "error": "error"
+        },
+        "clientsConnected": "{count} agent(s) connected",
+        "indicatorTooltip": "An AI client is using this app's capabilities",
+        "notRunning": "MCP server is not running",
+        "deployTitle": "One-click deploy to AI clients",
+        "deployHint": "One-click deploy writes this server straight into the client’s own config file without touching any other entry, and backs the original up as .alpha-mcp.bak beforehand. The change only takes effect after you quit that client completely and start it again.",
+        "deployAction": "One-click deploy",
+        "deployInstalled": "Deployed",
+        "deployNotYet": "Not deployed",
+        "deployNotDetected": "Client not found",
+        "deployDoneShort": "Configured",
+        "deployRemove": "Remove",
+        "deployLoading": "Scanning this machine for clients…",
+        "deployFailed": "Deployment failed — see the error below",
+        "deployAlreadyCurrent": "The config was already up to date, so nothing was changed.",
+        "deployDone": "Deployed to {client}. Config file: {path}. The original file was backed up as {backup}. Please quit {client} completely and start it again.",
+        "deployRemoved": "Removed this server from {client}’s config.",
+        "deployClients": {
+          "codex": "Codex",
+          "cursor": "Cursor",
+          "claudeCode": "Claude Code",
+          "claudeDesktop": "Claude Desktop",
+          "openclaw": "OpenClaw",
+          "minimaxCode": "Minimax Code"
+        },
+        "recheck": "Re-check",
+        "restartTitle": "{client} must be fully quit and restarted",
+        "restartBody": "The config file is written, but MCP clients only read it at startup — they never reload it while running. Quit {client} from its tray icon (closing the window is not enough), reopen it, then come back here and press Re-check.",
+        "restartBackup": "The original file was backed up to {backup}. To undo, rename the backup back.",
+        "restartDismiss": "Got it"
       }
+    },
+    "storage": {
+      "thumbnailCache": {
+        "title": "Thumbnail cache",
+        "description": "Image and video thumbnails share the same cache directory. Cleared thumbnails are regenerated automatically the next time you browse.",
+        "sizeLabel": "Disk usage",
+        "sizeUnknown": "Unknown",
+        "countLabel": "Items",
+        "countUnknown": "Unknown",
+        "clear": "Clear cache",
+        "clearSuccess": "Thumbnail cache cleared",
+        "clearFailed": "Failed to clear the thumbnail cache",
+        "confirmTitle": "Clear the thumbnail cache?",
+        "confirmDescription": "This clears both image and video thumbnail caches and cannot be undone. Cleared thumbnails are regenerated the next time you browse those files."
+      },
+      "settingsTransfer": {
+        "title": "Export / import settings",
+        "description": "Export settings, favorites, remote connections and cloud drive connections into one JSON file. Browsing history and frequently used items are not exported.",
+        "export": "Export settings",
+        "import": "Import settings",
+        "exporting": "Exporting…",
+        "importing": "Importing…",
+        "exportSuccess": "Settings exported",
+        "exportFailed": "Failed to export settings",
+        "importSuccess": "Settings imported",
+        "importFailed": "Failed to import settings",
+        "confirmTitle": "Import settings?",
+        "confirmDescription": "Importing overwrites the current settings, favorites, tags and remote connections. Browsing history and frequently used items are not affected.",
+        "invalidFile": "This file is not a valid Alpha File Manager settings export.",
+        "restartHint": "Some settings (such as theme and language) only take effect after restarting the app.",
+        "credentialsHint": "{count} connection(s) need you to sign in again."
+      }
+    },
+    "remote": {
+      "connections": {
+        "title": "Remote connections",
+        "empty": "No connections yet."
+      },
+      "action": {
+        "add": "Add connection",
+        "edit": "Edit",
+        "delete": "Delete",
+        "save": "Save",
+        "cancel": "Cancel",
+        "browse": "Browse…",
+        "test": "Test connection"
+      },
+      "field": {
+        "name": "Name",
+        "protocol": "Protocol",
+        "host": "Server address",
+        "port": "Port",
+        "username": "Username",
+        "password": "Password",
+        "initialPath": "Initial directory",
+        "proxy": "Proxy",
+        "proxyHost": "Proxy address",
+        "proxyPort": "Proxy port",
+        "proxyUsername": "Proxy username",
+        "proxyPassword": "Proxy password",
+        "localPath": "Local folder",
+        "cookie": "Cookie",
+        "includeInSearch": "वैश्विक खोज में शामिल करें",
+        "includeInSearchHint": "चेक करने पर इस कनेक्शन की फ़ाइलें वैश्विक खोज सूचकांश में शामिल हो जाती हैं (क्लाउड सूचकांश मैन्युअल रूप से फिर से बनाएँ)।"
+      },
+      "protocol": {
+        "ftp": "FTP",
+        "ftps_explicit": "FTPS (explicit)",
+        "ftps_implicit": "FTPS (implicit)",
+        "sftp": "SFTP",
+        "baidu_pan": "बाइडू नेटडिस्क",
+        "quark_pan": "Quark Drive",
+        "aliyun_pan": "Aliyun Drive",
+        "onedrive_pan": "OneDrive"
+      },
+      "proxy": {
+        "direct": "Direct connection",
+        "socks5": "SOCKS5",
+        "http_connect": "HTTP CONNECT"
+      },
+      "password": {
+        "saved": "Password saved",
+        "savedHint": "Leave blank to keep the current password.",
+        "clear": "Remove the saved password"
+      },
+      "error": {
+        "nameRequired": "Connection name cannot be empty.",
+        "hostRequired": "Server address cannot be empty.",
+        "hostHasWhitespace": "Server address cannot contain spaces.",
+        "portInvalid": "Port must be between 1 and 65535.",
+        "initialPathInvalid": "Initial directory contains an invalid segment.",
+        "proxyHostRequired": "Proxy address cannot be empty.",
+        "proxyHostHasWhitespace": "Proxy address cannot contain spaces.",
+        "proxyPortInvalid": "Proxy port must be between 1 and 65535.",
+        "connectionIdInvalid": "Connection id is invalid.",
+        "remoteConnectionsStorageNotReady": "The connection list has not finished loading. Please try again in a moment.",
+        "unknown": "Failed to save the connection.",
+        "localPathHasWhitespace": "Local folder cannot contain spaces.",
+        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
+        "baiduLoginRequired": "पहले ऐप के भीतर Baidu Pan में साइन इन करें, फिर यह कनेक्शन सहेजें।",
+        "quarkLoginRequired": "इस कनेक्शन को सहेजने से पहले ऐप में Quark Drive में साइन इन करें।",
+        "aliyunLoginRequired": "इस कनेक्शन को सहेजने से पहले ऐप में Aliyun Drive में साइन इन करें।",
+        "onedriveLoginRequired": "Sign in to OneDrive inside the app before saving this connection."
+      },
+      "localPath": {
+        "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
+      },
+      "test": {
+        "testing": "Testing…",
+        "outcome": {
+          "verified": "Connected. The server accepted these settings.",
+          "auth_rejected": "Connected, but the server rejected the username or password.",
+          "missing_credential": "Connected, but no password was supplied, so authentication was not verified.",
+          "wrong_protocol": "Something answered, but it is not the selected protocol.",
+          "unreachable": "Could not reach the server. Check the address, port and proxy.",
+          "protocol_error": "Connected, but the exchange did not complete as expected."
+        },
+        "passwordNotChecked": "No password was submitted, so this does not confirm that it is correct.",
+        "tlsNotVerified": "The TLS certificate was not verified."
+      },
+      "nav": {
+        "openSettings": "Remote settings",
+        "connect": "Connect",
+        "netdisk": "क्लाउड स्टोरेज",
+        "netdiskDescription": "ऐप में एम्बेडेड विंडो में बाइडू नेटडिस्क, क्वार्क ड्राइव या अलीक्लाउन ड्राइव में साइन इन करें। क्रेडेंशियल Windows DPAPI से एन्क्रिप्ट होते हैं और कभी इस मशीन से बाहर नहीं जाते।",
+        "remoteSection": "रिमोट कनेक्शन",
+        "remoteDescription": "यहाँ FTP, FTPS और SFTP कनेक्शन सहेजें। क्रेडेंशियल Windows DPAPI से एन्क्रिप्ट होते हैं और कभी इस मशीन से बाहर नहीं जाते।",
+        "addNetdisk": "क्लाउड स्टोरेज जोड़ें",
+        "addRemote": "रिमोट कनेक्शन जोड़ें",
+        "emptyNetdisk": "अभी तक कोई क्लाउड स्टोरेज कनेक्शन नहीं है।",
+        "emptyRemote": "अभी तक कोई रिमोट कनेक्शन नहीं है।",
+        "empty": "No connections yet.",
+        "split": "Split",
+        "editConnection": "Edit this connection",
+        "homeEmpty": "अभी तक कोई क्लाउड स्टोरेज या रिमोट कनेक्शन कॉन्फ़िगर नहीं किया गया है।"
+      },
+      "trustedHosts": {
+        "title": "Trusted hosts",
+        "description": "Host keys you have confirmed. Remote directories only open after you trust the server here.",
+        "empty": "You have not trusted any host yet.",
+        "loadFailed": "The trusted host list could not be read.",
+        "forget": "Forget",
+        "forgetFailed": "That host could not be removed. It is still on the list.",
+        "kindSsh": "SSH key",
+        "kindX509": "X.509 certificate"
+      },
+      "baidu": {
+        "status": {
+          "loading": "प्राधिकरण स्थिति पढ़ी जा रही है…",
+          "missing": "लॉग इन नहीं है",
+          "ready": "प्राधिकृत",
+          "stoken_expired": "STOKEN की समय-सीमा समाप्त — फिर से लॉग इन करें",
+          "stoken_expiring_soon": "STOKEN की समय-सीमा समाप्त होने वाली है"
+        },
+        "action": {
+          "deleteSession": "सहेजा गया सत्र हटाएँ"
+        },
+        "embedded": {
+          "title": "Sign in inside the app",
+          "start": "Sign in with the built-in window",
+          "cancel": "Stop waiting",
+          "hint": "Opens a sign-in window inside the app. Once you are signed in, this form fills itself in — you only need to give the connection a name and save.",
+          "status": {
+            "waiting": "Waiting for you to finish signing in…",
+            "ready": "Signed in. Give this connection a name and save — the session is stored when you save.",
+            "closed": "The sign-in window was closed before signing in finished.",
+            "timeout": "Signing in took too long. Try again.",
+            "error": "Could not read the session. Use the Cookie field instead."
+          },
+          "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
+        }
+      },
+      "quark": {
+        "status": {
+          "loading": "प्राधिकरण की स्थिति पढ़ी जा रही है…",
+          "missing": "साइन इन नहीं किया गया",
+          "ready": "प्राधिकृत",
+          "stale": "सत्र समाप्त हो गया; कृपया फिर से साइन इन करें",
+          "stale_soon": "सत्र जल्द ही समाप्त हो जाएगा"
+        },
+        "action": {
+          "deleteSession": "सहेजा गया सत्र हटाएँ"
+        },
+        "embedded": {
+          "title": "ऐप में साइन इन करें",
+          "start": "एम्बेडेड विंडो से साइन इन करें",
+          "cancel": "प्रतीक्षा रोकें",
+          "hint": "ऐप में एक साइन इन विंडो खुलती है। साइन इन पूरा होते ही यह अपने आप बंद हो जाती है और सत्र तुरंत मिल जाता है — आपको बस यह कनेक्शन सहेजना है।",
+          "status": {
+            "waiting": "आपके साइन इन करने की प्रतीक्षा हो रही है…",
+            "ready": "साइन इन हो गया। यह कनेक्शन सहेजें — सत्र सहेजते समय लिखा जाएगा।",
+            "closed": "साइन इन पूरा होने से पहले ही विंडो बंद कर दी गई।",
+            "timeout": "साइन इन की प्रतीक्षा समय-सीमा समाप्त हो गई। कृपया फिर से प्रयास करें।",
+            "error": "साइन इन की स्थिति पढ़ी नहीं जा सकी। कृपया फिर से प्रयास करें।"
+          },
+          "saved": "Quark Drive में साइन इन सफल: विंडो अपने आप बंद हो गई और सत्र मिल गया। उपयोग के लिए यह कनेक्शन सहेजें।"
+        }
+      },
+      "aliyun": {
+        "status": {
+          "loading": "प्राधिकरण की स्थिति पढ़ी जा रही है…",
+          "missing": "साइन इन नहीं किया गया",
+          "ready": "प्राधिकृत",
+          "stale": "सत्र समाप्त हो गया; कृपया फिर से साइन इन करें",
+          "stale_soon": "सत्र जल्द ही समाप्त हो जाएगा"
+        },
+        "action": {
+          "deleteSession": "सहेजा गया सत्र हटाएँ"
+        },
+        "embedded": {
+          "title": "QR कोड स्कैन करके साइन इन करें",
+          "start": "QR कोड दिखाएँ",
+          "cancel": "प्रतीक्षा रोकें",
+          "hint": "यहाँ साइन इन का QR कोड दिखेगा। इसे अपने फ़ोन पर Aliyun Drive ऐप से स्कैन करें — सत्र अपने आप मिल जाता है, आपको बस यह कनेक्शन सहेजना है। अगर स्कैन नहीं कर सके, तो नीचे एक्सेस टोकन पेस्ट करें।",
+          "status": {
+            "waiting": "आपके स्कैन करने की प्रतीक्षा हो रही है…",
+            "ready": "साइन इन हो गया। यह कनेक्शन सहेजें — सत्र सहेजते समय लिखा जाएगा।",
+            "closed": "साइन इन पूरा होने से पहले ही रद्द कर दिया गया।",
+            "timeout": "QR कोड की समय-सीमा समाप्त हो गई। कृपया फिर से प्रयास करें।",
+            "error": "साइन इन की स्थिति पढ़ी नहीं जा सकी। कृपया फिर से प्रयास करें।",
+            "scanned": "स्कैन हो गया, कृपया फ़ोन पर पुष्टि करें"
+          },
+          "saved": "Aliyun Drive में साइन इन सफल। उपयोग के लिए यह कनेक्शन सहेजें।",
+          "refresh": "QR कोड ताज़ा करें",
+          "windowStart": "लॉगिन विंडो खोलें",
+          "windowCancel": "विंडो बंद करें",
+          "windowHint": "आधिकारिक Aliyun Drive पृष्ठ विंडो में QR कोड दिखाता है और पुष्टि करता है; क्रेडेंशियल सीधे ऐप तक जाते हैं।",
+          "qrFallback": "वैकल्पिक: मैनुअल QR लॉगिन"
+        },
+        "field": {
+          "pasteToken": "एक्सेस टोकन",
+          "pasteTokenHint": "अपने पास मौजूद टोकन चिपकाएँ। सहेजने से पहले उसकी जाँच Aliyun Drive से होती है, और टोकन स्पष्ट रूप में इस मशीन से बाहर नहीं जाता।"
+        }
+      },
+      "netdisk": {
+        "provider": "क्लाउड ड्राइव",
+        "baidu": "Baidu Drive",
+        "quark": "Quark Drive",
+        "aliyun": "Aliyun Drive",
+        "signedIn": "साइन इन हो गया",
+        "onedrive": "OneDrive"
+      },
+      "onedrive": {
+        "field": {
+          "clientId": "Application (client) ID",
+          "clientIdHint": "The client id of the Microsoft Entra application you registered for OneDrive. It is stored with the session on this machine and is never sent through this form.",
+          "authUrl": "Authorization URL",
+          "authUrlHint": "If the browser did not open by itself, copy this URL and finish signing in there."
+        },
+        "action": {
+          "start": "Start sign-in",
+          "cancel": "Stop waiting",
+          "deleteSession": "Delete the saved session"
+        },
+        "state": {
+          "pending": "Waiting for you to finish signing in in the browser…",
+          "completed": "Signed in. Save this connection — the session will be written when you save.",
+          "failed": "The sign-in did not complete. Please try again."
+        },
+        "auth": {
+          "authorized": "Authorized",
+          "missing": "Not signed in",
+          "loading": "Reading authorization status…"
+        },
+        "hint": {
+          "clientIdRequired": "Fill in the application (client) ID first."
+        }
+      }
+    },
+    "about": {
+      "title": "परिचय",
+      "changelog": "परिवर्तन लॉग",
+      "projectLinks": "प्रोजेक्ट लिंक",
+      "commits": "कमिट",
+      "author": "लेखक",
+      "developer": "段燚",
+      "website": "वेबसाइट",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "फ़ॉलो करने के लिए स्कैन करें"
     }
   },
   "projectGithubButtons": {
     "projectPage": "प्रोजेक्ट पेज",
-    "requestsIssues": "अनुरोध और मुद्दे",
-    "discussions": "विचार विमर्श"
+    "requestsIssues": "अनुरोध और मुद्दे"
   },
   "settingsTabs": {
     "general": "सामान्य",
@@ -499,7 +955,9 @@
     "dataStorage": "आधार सामग्री भंडारण",
     "extensions": "एक्सटेंशन",
     "stats": "आँकड़े",
-    "experimental": "प्रयोगात्मक"
+    "experimental": "प्रयोगात्मक",
+    "remote": "Remote",
+    "about": "परिचय"
   },
   "settingsTags": {
     "language": "भाषा",
@@ -512,8 +970,8 @@
     "visualFilters": "दृश्य, फ़िल्टर, रंग, कंट्रास्ट, चमक, संतृप्ति, छवि, वीडियो, थीम, संवाद, पृष्ठभूमि, धुंधलापन",
     "fonts": "फ़ॉन्ट, पाठ",
     "dateTime": "दिनांक, समय, प्रारूप",
-    "uiElements": "यूआई, तत्व, दृश्य, इनपुट, उच्चारण, रंग, समयरेखा, डैशबोर्ड, पृष्ठ, हाल ही में, कार्ड, होम, ड्राइव, स्थान, संकेतक, शैली",
-    "quickAccess": "त्वरित, पहुंच, पैनल, होवर, साइडबार, डैशबोर्ड",
+    "uiElements": "यूआई, तत्व, दृश्य, इनपुट, उच्चारण, रंग, समयरेखा, त्वरित पहुँच, पृष्ठ, हाल ही में, कार्ड, होम, ड्राइव, स्थान, संकेतक, शैली",
+    "quickAccess": "त्वरित, पहुंच, पैनल, होवर, साइडबार",
     "tooltips": "tooltip, tooltips, hover, delay, timing",
     "clipboard": "क्लिपबोर्ड, पेस्ट, कॉपी, कट, टूलबार, छवि, स्क्रीनशॉट, पथ, फ़ाइल",
     "homePageMediaBanner": "होम, पेज, मीडिया, बैनर, पृष्ठभूमि, छवि, वीडियो",
@@ -521,7 +979,7 @@
     "shortcuts": "शॉर्टकट",
     "tabAppearance": "टैब, सक्रिय टैब, बोल्ड, टेक्स्ट",
     "globalSearch": "वैश्विक, खोजें, ढूंढें, देखें, फ़िल्टर करें, स्कैन करें",
-    "stats": "आँकड़े, डेटा, उपयोगकर्ता, पसंदीदा, टैग, इतिहास, हालिया, डैशबोर्ड, भंडारण",
+    "stats": "आँकड़े, डेटा, उपयोगकर्ता, पसंदीदा, टैग, इतिहास, हालिया, त्वरित पहुँच, भंडारण",
     "driveDetection": "ड्राइव, यूएसबी, स्टोरेज, डिस्क, डिवाइस, डिटेक्शन, कनेक्शन",
     "autoplay": "ऑटोप्ले, एक्सप्लोरर, विंडोज़, ड्राइव, यूएसबी, स्वचालित, ओपन, फ़ोल्डर",
     "experimental": "उन्नत, प्रयोगात्मक, डिफ़ॉल्ट फ़ाइल प्रबंधक, फ़ाइल एक्सप्लोरर, रजिस्ट्री, टर्मिनल, शेल",
@@ -530,10 +988,13 @@
     "extensions": "एक्सटेंशन, प्लगइन्स, ऐडऑन, कॉन्फ़िगरेशन, सेटिंग्स",
     "infoPanelPreview": "info, panel, preview, image, thumbnail, memory, original, video, mute, autoplay",
     "performance": "performance, memory, quick view, print, window, launch, preload",
-    "fileView": "फ़ाइल दृश्य, बॉक्स चयन, खींचकर चयन, सूची, ग्रिड, अंतर, padding",
+    "fileView": "फ़ाइल दृश्य, बॉक्स चयन, खींचकर चयन, सूची, ग्रिड, अंतर, padding, folder, folders, first, top, sort, sorting, order, ordering, list, files, file, directory, directories, group, grouping, view, precedence",
     "tabsWorkspaces": "टैब, वर्कस्पेस, बंद, अंतिम टैब, डिफ़ॉल्ट टैब",
     "defaultDirectory": "होम, locations, यह पीसी, कंप्यूटर, ड्राइव, डिफ़ॉल्ट फ़ोल्डर, नया टैब, कस्टम पथ",
-    "startupPage": "स्टार्टअप पेज, स्टार्टअप, लॉन्च पर खोलें, होम, डैशबोर्ड, नेविगेटर, अंतिम पृष्ठ, पुनर्स्थापित, पेज"
+    "startupPage": "स्टार्टअप पेज, स्टार्टअप, लॉन्च पर खोलें, होम, त्वरित पहुँच, नेविगेटर, अंतिम पृष्ठ, पुनर्स्थापित, पेज",
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "परिचय, संस्करण, अपडेट, परिवर्तन लॉग, गिटहब, लेखक, वेबसाइट, वीचैट, क्यूआर कोड",
+    "settingsTransfer": "export, import, settings, favorites, remote connections, cloud drive, backup, restore"
   },
   "drag": {
     "holdShiftToChangeMode": "मोड बदलने के लिए [Shift] दबाए रखें",
@@ -566,13 +1027,15 @@
     "localShortcutsAppScope": "स्थानीय शॉर्टकट (ऐप स्कोप)",
     "unknownMainKey": "अज्ञात कुंजी",
     "globalShortcutRegisterFailed": "यह वैश्विक शॉर्टकट पंजीकृत नहीं किया जा सका. इसका उपयोग पहले से ही विंडोज़ या किसी अन्य ऐप द्वारा किया जा सकता है। एक भिन्न संयोजन आज़माएँ (उदाहरण के लिए Win+Shift+… या Ctrl+Alt+…)।",
-    "shortcutRecorderGlobalCaptureHint": "यदि कुंजी दबाने पर वे दिखाई नहीं देती हैं, तो हो सकता है कि आपका सिस्टम या कोई अन्य प्रोग्राम इस विंडो द्वारा उन्हें प्राप्त करने से पहले ही उन्हें संभाल रहा हो। किसी अन्य संयोजन का प्रयास करें."
+    "shortcutRecorderGlobalCaptureHint": "यदि कुंजी दबाने पर वे दिखाई नहीं देती हैं, तो हो सकता है कि आपका सिस्टम या कोई अन्य प्रोग्राम इस विंडो द्वारा उन्हें प्राप्त करने से पहले ही उन्हें संभाल रहा हो। किसी अन्य संयोजन का प्रयास करें.",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "ऐप विंडो पर फोकस करें",
     "switchToHomePage": "होम पेज पर स्विच करें",
     "switchToNavigatorPage": "नेविगेटर पेज पर स्विच करें",
-    "switchToDashboardPage": "डैशबोर्ड पर स्विच करें",
+    "switchToDashboardPage": "त्वरित पहुँच पर स्विच करें",
     "switchToSettingsPage": "सेटिंग्स पेज पर स्विच करें",
     "switchToExtensionsPage": "एक्सटेंशन पेज पर स्विच करें",
     "navigatePageBack": "पिछले पेज पर जाएँ",
@@ -670,6 +1133,22 @@
       "description": "यह ऑपरेशन आपके कंप्यूटर से {count} आइटम को स्थायी रूप से हटा देगा।",
       "confirm": "पुष्टि करें, यदि आप समझते हैं कि इसे पूर्ववत नहीं किया जा सकता है।",
       "delete": "मिटाना"
+    },
+    "remoteHostKeyUnknown": {
+      "title": "This server’s identity has not been verified yet",
+      "description": "Alpha File Manager has connected to this host for the first time. Compare the fingerprint below with the one your server administrator gave you, then decide whether to trust it.",
+      "trust": "Trust and continue"
+    },
+    "remoteHostKeyChanged": {
+      "title": "This server’s identity has changed",
+      "description": "The host key presented by this server does not match the one you trusted before. This can mean the server was reinstalled, or that someone is intercepting the connection.",
+      "expected": "Previously trusted fingerprint:",
+      "trustAnyway": "Replace and continue"
+    },
+    "remoteHostKeyCommon": {
+      "algorithm": "Host key algorithm: {algorithm}",
+      "hint": "You can check it yourself with: ssh-keygen -lf <host key file>",
+      "hintX509": "You can check it yourself with: openssl x509 -fingerprint -sha256 -noout -in <certificate file>"
     }
   },
   "notifications": {
@@ -703,7 +1182,9 @@
     "printViewFileIsNotSupported": "मुद्रण: फ़ाइल समर्थित नहीं है",
     "createdNLinks": "0 लिंक बनाए गए | 1 लिंक बनाया गया | {n} लिंक बनाए गए | {n} लिंक बनाए गए",
     "createdNOfNLinks": "{total} में से {created} लिंक बनाए गए",
-    "linkCreationPartialFailureDescription": "{count} लिंक विफल रहे। पहली त्रुटि: {error}"
+    "linkCreationPartialFailureDescription": "{count} लिंक विफल रहे। पहली त्रुटि: {error}",
+    "deletingLargeBatch": "Deleting {count} items",
+    "deletingLargeBatchDetail": "{files} files · {directories} folders · {size}"
   },
   "contextMenus": {
     "dirItem": {
@@ -886,6 +1367,7 @@
     },
     "name": "नाम",
     "size": "आकार",
+    "availableSpace": "उपलब्ध स्थान",
     "modified": "संशोधित",
     "listModifiedDate": {
       "todayAt": "आज {time}",
@@ -894,6 +1376,7 @@
     "columns": "कॉलम",
     "tags": "टैग",
     "folders": "फ़ोल्डर",
+    "partitions": "विभाजन",
     "images": "इमेजिस",
     "videos": "वीडियो",
     "video": "वीडियो",
@@ -940,12 +1423,16 @@
     "actions": {
       "rename": "नाम बदलें",
       "copy": "प्रतिलिपि",
+      "cut": "काटें",
       "move": "कदम",
       "paste": "पेस्ट करें",
       "pasteToPane1": "फलक 1 पर चिपकाएँ",
       "pasteToPane2": "फलक 2 पर चिपकाएँ",
       "delete": "मिटाना",
       "openWith": "के साथ खोलें...",
+      "openContainingDirectory": "Open containing directory",
+      "openContainingDirectoryFailed": "समावेशी निर्देशिका खोली नहीं जा सकी",
+      "openContainingDirectoryInApp": "Show containing folder in split view",
       "properties": "गुण",
       "propertiesFailed": "गुण खोले नहीं जा सके",
       "quickView": "त्वरित देखें",
@@ -954,7 +1441,17 @@
       "openInNewTab": "वेब टेब में खोलें",
       "addToFavorites": "पसंदीदा में जोड़े",
       "removeFromFavorites": "पसंदीदा से हटाएँ",
-      "createLink": "लिंक बनाएं"
+      "createLink": "लिंक बनाएं",
+      "unlock": "Unlock file",
+      "forceDelete": "Force delete",
+      "rotateImageLeft": "बाईं ओर घुमाएँ",
+      "rotateImageRight": "दाईं ओर घुमाएँ",
+      "flipImageHorizontal": "क्षैतिज फ़्लिप करें",
+      "flipImageVertical": "लंबवत फ़्लिप करें",
+      "imageEditSucceeded": "छवि सफलतापूर्वक संपादित की गई",
+      "imageEditFailed": "छवि संपादित करने में विफल",
+      "imageEditInProgress": "प्रोसेस हो रहा है…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "प्रतीकात्मक लिंक",
@@ -1025,7 +1522,30 @@
     "linkMetadataPerformanceWarning": "मेमोरी उपयोग बढ़ा सकता है और प्रदर्शन घटा सकता है।",
     "fillColumnWidth": "उपलब्ध चौड़ाई भरें",
     "setMinimumColumnWidths": "न्यूनतम चौड़ाई सेट करें",
-    "items": "सामान"
+    "items": "सामान",
+    "favoriteCategoryDialog": {
+      "title": "Add to favorites",
+      "categoryLabel": "Choose a category",
+      "uncategorized": "Uncategorized",
+      "newCategoryLabel": "Or create a new category",
+      "newCategoryPlaceholder": "Type a name for the new category",
+      "confirm": "Add to favorites",
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "प्रदर्शित नाम",
+      "displayNamePlaceholder": "मूल नाम का उपयोग करने के लिए खाली छोड़ें"
+    },
+    "searchOptions": {
+      "title": "खोज विकल्प",
+      "matchCount": "{n} मेल",
+      "results": "परिणाम",
+      "options": "विकल्प"
+    },
+    "swapPanes": "Swap panes",
+    "devices": "डिवाइस",
+    "device": "डिवाइस",
+    "deviceOpenFailed": "यह डिवाइस नहीं खोला जा सका",
+    "deviceOpenFailedDescription": "संभव है कि डिवाइस का कनेक्ट टूट गया हो। इसे सिस्टम एक्सप्लोरर में खोलें।",
+    "openInSystemExplorer": "सिस्टम एक्सप्लोरर में खोलें"
   },
   "openWith": {
     "loadingPrograms": "प्रोग्राम लोड हो रहे हैं...",
@@ -1186,7 +1706,7 @@
     },
     "badges": {
       "official": "अधिकारी",
-      "officialTooltip": "यह एक्सटेंशन सिग्मा फ़ाइल मैनेजर टीम द्वारा बनाया और प्रबंधित किया जाता है",
+      "officialTooltip": "यह एक्सटेंशन Alpha File Manager टीम द्वारा बनाया और प्रबंधित किया जाता है",
       "community": "समुदाय",
       "communityTooltip": "यह एक सामुदायिक विस्तार है. इंस्टॉल करने से पहले स्रोत कोड की समीक्षा करें.",
       "local": "स्थानीय",
@@ -1194,7 +1714,9 @@
       "broken": "टूटा हुआ",
       "brokenTooltip": "एक्सटेंशन फ़ाइलें अनुपलब्ध हैं. सूची से हटाने के लिए अनइंस्टॉल करें.",
       "disabled": "अक्षम",
-      "disabledTooltip": "यह एक्सटेंशन अक्षम है"
+      "disabledTooltip": "यह एक्सटेंशन अक्षम है",
+      "source": "स्रोत",
+      "sourceTooltip": "बाज़ार स्रोत: {name}"
     },
     "stats": {
       "total": "कुल",
@@ -1221,17 +1743,30 @@
       "stop": "रुकना"
     },
     "engineIncompatibleShort": "अपडेट आवश्यक",
-    "engineAppWarning": "Sigma File Manager {range} आवश्यक है (आपके पास {current})",
+    "engineAppWarning": "Alpha File Manager {range} आवश्यक है (आपके पास {current})",
     "engineApiWarning": "एक्सटेंशन API {range} आवश्यक है (आपके पास {current})",
     "engineRequirements": "आवश्यकताएँ",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "एक्सटेंशन API",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",
     "githubConnectivityIssue": "GitHub तक पहुँच नहीं हो सकी",
     "githubConnectivityIssueDescription": "ऐप GitHub से कनेक्ट नहीं हो सका, इसलिए कुछ एक्सटेंशन संस्करण जांच विफल रही। अपना इंटरनेट कनेक्शन, VPN या फ़ायरवॉल सेटिंग जांचें और बाद में फिर कोशिश करें।",
     "offlineIssue": "You are offline",
-    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features."
+    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features.",
+    "marketSources": "बाज़ार स्रोत",
+    "marketSourceAdd": "बाज़ार स्रोत जोड़ें",
+    "marketSourceName": "नाम",
+    "marketSourceUrl": "रजिस्ट्री URL",
+    "marketSourceOfficial": "आधिकारिक",
+    "marketSourceCommunity": "समुदाय",
+    "marketSourceCustom": "कस्टम",
+    "marketSourceAll": "सभी",
+    "marketSourceEmpty": "अभी तक कोई बाज़ार स्रोत नहीं जोड़ा गया है।",
+    "marketSourceRemove": "बाज़ार स्रोत हटाएँ",
+    "marketSourceRemoveConfirm": "यह बाज़ार स्रोत हटाएँ? इससे मिलने वाले एक्सटेंशन अगली बार बाज़ार रीफ़्रेश होने पर हटा दिए जाएँगे।",
+    "marketSourceInvalidUrl": "एक सार्वजनिक HTTPS URL दर्ज करें।",
+    "marketSourceUnreachable": "पहुँच योग्य नहीं"
   },
   "commandPalette": {
     "accessibleDialogTitle": "कमांड पैलेट",
@@ -1266,5 +1801,291 @@
     "replaceShareDialogDescription": "फ़ाइलें पहले से ही नेटवर्क पर साझा की जा रही हैं. वर्तमान शेयर बंद कर दिया जाएगा और उसके स्थान पर नया शेयर ले लिया जाएगा।",
     "replaceShareDialogConfirm": "प्रतिस्थापित करें"
   },
-  "tree": "Tree"
+  "tree": "Tree",
+  "batchRename": {
+    "menuItem": "Batch rename",
+    "dialog": {
+      "title": "Batch rename",
+      "tabRename": "Rename",
+      "tabHistory": "Undo history",
+      "cancel": "Cancel",
+      "apply": "Rename",
+      "close": "Close",
+      "loading": "Calculating…",
+      "noRules": "No rules added — nothing will be renamed.",
+      "summaryChanged": "{count} item(s) will be renamed",
+      "summaryUnchanged": "{count} item(s) unchanged",
+      "blocked": "Conflicts found. Fix them before applying.",
+      "openHistory": "Undo history"
+    },
+    "rules": {
+      "title": "Rules",
+      "empty": "No rules yet.",
+      "add": "Add rule",
+      "remove": "Remove rule",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "sortLabel": "Numbering order",
+      "type": {
+        "findReplace": "Find and replace",
+        "caseTransform": "Change case",
+        "template": "Template",
+        "sequence": "Numbering",
+        "extension": "Extension"
+      },
+      "findReplace": {
+        "find": "Find",
+        "replace": "Replace with",
+        "caseSensitive": "Match case",
+        "includeExtension": "Include extension"
+      },
+      "caseTransform": {
+        "mode": "Mode",
+        "includeExtension": "Include extension"
+      },
+      "case": {
+        "upper": "UPPERCASE",
+        "lower": "lowercase",
+        "title": "Title Case",
+        "camel": "camelCase",
+        "snake": "snake_case",
+        "kebab": "kebab-case"
+      },
+      "template": {
+        "pattern": "Pattern",
+        "variables": "Available variables",
+        "dateFormat": "Date format"
+      },
+      "sequence": {
+        "start": "Start",
+        "step": "Step",
+        "pad": "Zero padding",
+        "hint": "Numbering does not rename anything on its own. It only supplies the sequence variable used by a Template rule — add a Template rule to use it.",
+        "addTemplate": "Add a Template rule"
+      },
+      "extension": {
+        "newExtension": "New extension",
+        "newExtensionHint": "Leave empty to remove the extension"
+      }
+    },
+    "sort": {
+      "selection": "Selection order",
+      "nameAsc": "Name A to Z",
+      "nameDesc": "Name Z to A",
+      "modifiedAsc": "Modified, oldest first",
+      "modifiedDesc": "Modified, newest first",
+      "sizeAsc": "Size, smallest first",
+      "sizeDesc": "Size, largest first"
+    },
+    "preview": {
+      "title": "Preview",
+      "oldName": "Current name",
+      "newName": "New name",
+      "empty": "Nothing to preview.",
+      "unchanged": "unchanged"
+    },
+    "conflicts": {
+      "title": "Conflicts",
+      "targetExists": "The new name is already taken by another file in this folder.",
+      "duplicateTarget": "Several items would get the same name.",
+      "invalidTitle": "Invalid file names",
+      "invalid": {
+        "empty": "Name is empty.",
+        "illegalCharacter": "Contains a character that is not allowed in file names.",
+        "windowsReservedName": "Reserved name on Windows.",
+        "trailingDotOrSpace": "Cannot end with a dot or a space."
+      }
+    },
+    "result": {
+      "success": "Renamed {count} item(s)",
+      "partial": "Rename failed",
+      "rollbackOk": "Rolled back — the folder is back to its previous state.",
+      "rollbackFailed": "Rollback failed. The folder may be in a mixed state — check it manually.",
+      "noUndo": "This change could not be recorded for undo."
+    },
+    "history": {
+      "title": "Undo history",
+      "empty": "No history yet.",
+      "undo": "Undo",
+      "undoing": "Undoing…",
+      "itemCount": "{count} file(s)",
+      "undoSuccess": "Reverted {count} item(s)",
+      "undoFailed": "Undo failed",
+      "blockedBy": "These names are taken, so they could not be restored: {names}",
+      "notFound": "That history entry no longer exists."
+    }
+  },
+  "remote": {
+    "transfer": {
+      "uploadToRemote": "Upload to remote",
+      "downloadToLocal": "Download to local",
+      "uploadSucceeded": "Uploaded {files} file(s) to the remote folder.",
+      "uploadFailed": "Upload did not fully succeed: {files} uploaded, {skipped} skipped, {failed} failed.",
+      "downloadSucceeded": "Downloaded {files} file(s) to the local folder.",
+      "downloadFailed": "Download did not fully succeed: {files} downloaded, {skipped} skipped, {failed} failed.",
+      "uploading": "Uploading to remote",
+      "downloading": "Downloading from remote",
+      "progressFiles": "{done} / {total} files transferred",
+      "progressBytes": "{done} / {total} transferred",
+      "progressCurrent": "Current: {name}",
+      "resultTitle": "Transfer result",
+      "resultSummary": "{files} file(s) succeeded, {skipped} skipped, {failed} failed",
+      "failureSection": "Failed items",
+      "skippedSection": "Skipped items",
+      "skipReasonAlreadyExists": "Target already exists (not overwritten)",
+      "conflictTitle": "Target already exists",
+      "conflictMessage": "{count} file(s) already exist in the target folder. Overwrite them?",
+      "conflictOverwrite": "Overwrite",
+      "conflictSkipExisting": "Skip existing",
+      "noRemotePane": "The other pane is not on a remote host",
+      "uploadFailedTitle": "Upload did not fully succeed",
+      "downloadFailedTitle": "Download did not fully succeed",
+      "pasteToRemoteFailed": "Copy failed",
+      "remoteToRemoteNotSupported": "Copying between two remote locations is not supported yet. Click a local folder pane first and press Ctrl+V to download, or right-click the file and choose Download to local.",
+      "pasteFromRemoteFailed": "Copy from remote failed",
+      "conflictApplyToAll": "Apply the same choice to all files",
+      "conflictContinue": "Continue",
+      "skipReasonUserSkipped": "Skipped by you"
+    },
+    "permissions": {
+      "menuItem": "Permissions...",
+      "title": "Set permissions",
+      "modeLabel": "Permissions (octal)",
+      "modeHint": "For example 0754 means the owner may read, write and execute; the group may read and execute; others may read.",
+      "unknownMode": "The current permissions could not be read. Pick one from the list.",
+      "owner": "Owner",
+      "group": "Group",
+      "others": "Others",
+      "read": "read",
+      "write": "write",
+      "execute": "execute",
+      "none": "none",
+      "separator": ", ",
+      "recursive": "Apply to subdirectories and the files in them",
+      "apply": "Apply",
+      "success": "Permissions updated ({changed} item(s)).",
+      "partialFailure": "Permissions updated for {changed} item(s); {failed} failed.",
+      "failed": "Could not set permissions: {message}",
+      "error": {
+        "empty": "Enter the permissions in octal, for example 0754.",
+        "tooLong": "At most 4 octal digits are allowed.",
+        "notOctal": "Only the digits 0-7 are allowed.",
+        "unknown": "This permission value could not be recognized."
+      }
+    },
+    "delete": {
+      "menuItem": "हटाएँ",
+      "title": "दूरस्थ आइटम हटाएँ",
+      "descriptionSingle": "{path} स्थायी रूप से हटा दिया जाएगा। इसे वापस नहीं लाया जा सकता।",
+      "description": "यह क्रिया दूरस्थ सर्वर से {count} आइटम स्थायी रूप से हटा देगी। इसे वापस नहीं लाया जा सकता।",
+      "noTrashHint": "दूरस्थ सर्वर पर रीसायकल बिन नहीं है, इसलिए हटाए गए आइटम वापस नहीं लाए जा सकते।",
+      "connectionHint": "कनेक्शन: {name}",
+      "confirm": "हटाएँ",
+      "success": "{count} दूरस्थ आइटम हटाए गए।",
+      "failed": "हटाना विफल",
+      "permissionDenied": "अनुमति नहीं मिली"
+    },
+    "write": {
+      "fileCreationNotSupported": "रिमोट निर्देशिकाएँ खाली फ़ाइलें बनाने का समर्थन नहीं करतीं।",
+      "fileCreationNotSupportedTitle": "फ़ाइल नहीं बनाई जा सकती"
+    }
+  },
+  "compareSync": {
+    "title": "Compare & Sync",
+    "description": "Compare the two directories and sync the differences. This step never deletes anything.",
+    "stepSettings": "Setup",
+    "stepResults": "Results",
+    "stepPreview": "Preview & Run",
+    "leftDirectory": "Left directory",
+    "rightDirectory": "Right directory",
+    "leftDirectoryHint": "Source side",
+    "rightDirectoryHint": "Target side",
+    "tabCriteria": "Criteria",
+    "tabExclude": "Exclude",
+    "criteriaByTime": "By modification time",
+    "criteriaBySize": "By file size",
+    "criteriaByChecksum": "By content checksum",
+    "criteriaByChecksumHint": "Only available between two local folders; remote servers have no checksum to compare.",
+    "criteriaCaseSensitive": "Case sensitive",
+    "criteriaRecursive": "Compare subfolders recursively",
+    "criteriaMaxDepth": "Maximum depth",
+    "criteriaMaxDepthUnlimited": "Unlimited",
+    "criteriaRemoteTimeOffset": "Remote time offset (seconds)",
+    "criteriaRemoteTimeOffsetHint": "Servers usually report time in their own time zone; this offset converts it to yours.",
+    "excludePatterns": "Exclude rules",
+    "excludePatternsHint": "One per line, * and ? are supported. A matching folder drops its whole subtree from the comparison.",
+    "compare": "Compare",
+    "comparing": "Comparing…",
+    "back": "Back",
+    "preview": "Build preview",
+    "execute": "Start sync",
+    "executing": "Syncing…",
+    "cancel": "Cancel",
+    "filterAll": "All",
+    "filterDifferences": "Differences only",
+    "statusSame": "Same",
+    "statusOnlyLeft": "Left only",
+    "statusOnlyRight": "Right only",
+    "statusNewer": "Left is newer",
+    "statusOlder": "Left is older",
+    "statusSizeDiff": "Different size",
+    "statusContentDiff": "Different content",
+    "statusKindDiff": "Different type",
+    "statusIndeterminate": "Undecidable",
+    "directionToRight": "Left → Right",
+    "directionToLeft": "Right → Left",
+    "directionNone": "Nothing to do",
+    "directionIndeterminate": "Direction undecided",
+    "noDifferences": "No differences.",
+    "statsTotal": "Total",
+    "statsSame": "Same",
+    "statsDifferences": "Different",
+    "statsNeedsReview": "Undecided",
+    "actionCreateDir": "Create folder",
+    "actionTransferFile": "Transfer file",
+    "actionSkip": "Skip",
+    "planSummary": "Will create {dirs} folders, transfer {files} files and skip {skipped} items.",
+    "reportTransferred": "Transferred",
+    "reportCreatedDirs": "Folders created",
+    "reportSkipped": "Skipped",
+    "reportFailed": "Failed",
+    "reportCancelled": "Cancelled",
+    "invalidPath": "This path cannot be used.",
+    "progressPreparing": "तैयारी हो रही है…",
+    "progressScanningLeft": "बायाँ पक्ष स्कैन हो रहा है…",
+    "progressScanningRight": "दायाँ पक्ष स्कैन हो रहा है…",
+    "progressComparing": "तुलना हो रही है…",
+    "progressDone": "पूर्ण",
+    "progressScanned": "{count} प्रविष्टियाँ स्कैन की गईं",
+    "progressCompared": "{total} में से {count} प्रविष्टियों की तुलना की गई",
+    "rowsTruncated": "{total} में से {shown} दिखाई जा रही हैं। सीमित करने के लिए फ़िल्टर का उपयोग करें।",
+    "showMore": "और {count} दिखाएँ",
+    "statsUnreadable": "पढ़ा नहीं जा सका"
+  },
+  "mapNetworkDrive": "Map network drive",
+  "mapNetworkDriveDescription": "Map a network share to a drive letter. Once it is mounted it shows up in the drive list on the left.",
+  "networkDriveLetter": "Drive letter",
+  "networkDriveLetterPlaceholder": "Auto",
+  "fileLock": {
+    "unlocked": "File unlocked",
+    "unlockedDescription": "Whatever was blocking the file has been cleared. You can delete it normally now.",
+    "unlockFailed": "Could not unlock the file",
+    "forceDeleted": "File deleted",
+    "forceDeletedDescription": "The file was removed even though it was in use.",
+    "forceDeleteFailed": "Could not delete the file",
+    "scheduledForReboot": "Deletion scheduled",
+    "scheduledForRebootDescription": "The file is still in use. It will be deleted the next time Windows starts.",
+    "terminateFailed": "Could not end the process",
+    "unknownError": "Unknown error",
+    "holdersTitle": "Programs using this file",
+    "holdersDescription": "These programs are holding the file open. Ending one of them may lose unsaved work.",
+    "noHolders": "No program was found holding this file.",
+    "endProcess": "End process",
+    "diagnoseFailed": "Could not check which programs are using this file"
+  },
+  "webviewGuard": {
+    "detected": "The interface renderer process crashed. Trying to recover automatically...",
+    "recovered": "The interface is working again.",
+    "recoveryFailed": "The interface could not be recovered automatically. Please restart the app."
+  }
 }

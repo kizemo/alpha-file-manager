@@ -8,6 +8,7 @@
     "print-view"
   ],
   "permissions": [
+    "default",
     "core:default",
     "core:window:allow-close",
     "core:window:allow-destroy",
@@ -60,9 +61,11 @@
     "system-fonts:default",
     "drag:default",
     "clipboard-manager:allow-write-text",
+    "clipboard-manager:allow-write-html",
     "clipboard-manager:allow-write-image",
     "clipboard-manager:allow-read-text",
     "clipboard-manager:allow-read-image",
-    "autostart:default"
+    "autostart:default",
+    "os:allow-locale"
   ]
 }

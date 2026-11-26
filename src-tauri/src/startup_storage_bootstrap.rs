@@ -10,7 +10,6 @@ use std::sync::Arc;
 
 use serde::Serialize;
 use serde_json::{Map, Value};
-use tauri::Manager;
 use tokio::sync::OnceCell;
 
 use crate::user_storage_files_config::user_storage_files_config;
@@ -37,6 +36,7 @@ pub struct StartupStorageBootstrapPayload {
     workspaces: StartupStorageFileBootstrap,
     user_stats: StartupStorageFileBootstrap,
     extensions: StartupStorageFileBootstrap,
+    remote_connections: StartupStorageFileBootstrap,
 }
 
 #[derive(Clone)]
@@ -72,7 +72,7 @@ fn build_app_user_data_dir(app_data_dir: &Path) -> std::path::PathBuf {
 }
 
 pub fn migrate_legacy_user_storage_filenames(app_handle: &tauri::AppHandle) {
-    let Ok(app_data_dir) = app_handle.path().app_data_dir() else {
+    let Ok(app_data_dir) = crate::app_dirs::app_data_dir(app_handle) else {
         return;
     };
 
@@ -209,6 +209,13 @@ fn build_error_payload(error: String) -> StartupStorageBootstrapPayload {
             error: file_error.clone(),
         },
         extensions: StartupStorageFileBootstrap {
+            path: empty_path.clone(),
+            status: ERROR_STATUS,
+            data: None,
+            schema_version: None,
+            error: file_error.clone(),
+        },
+        remote_connections: StartupStorageFileBootstrap {
             path: empty_path,
             status: ERROR_STATUS,
             data: None,
@@ -219,7 +226,7 @@ fn build_error_payload(error: String) -> StartupStorageBootstrapPayload {
 }
 
 fn load_startup_storage_bootstrap(app_handle: &tauri::AppHandle) -> StartupStorageBootstrapPayload {
-    let app_data_dir = match app_handle.path().app_data_dir() {
+    let app_data_dir = match crate::app_dirs::app_data_dir(app_handle) {
         Ok(path) => path,
         Err(error) => {
             return build_error_payload(format!("Failed to resolve app data dir: {}", error));
@@ -240,6 +247,10 @@ fn load_startup_storage_bootstrap(app_handle: &tauri::AppHandle) -> StartupStora
         ),
         user_stats: load_storage_file(&app_user_data_dir.join(&file_names.user_stats), None),
         extensions: load_storage_file(&app_user_data_dir.join(&file_names.extensions), None),
+        remote_connections: load_storage_file(
+            &app_user_data_dir.join(&file_names.remote_connections),
+            None,
+        ),
     }
 }
 

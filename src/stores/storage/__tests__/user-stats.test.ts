@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+﻿// SPDX-License-Identifier: GPL-3.0-or-later
 // License: GNU GPLv3 or later. See the license file in the project root for more information.
 // Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 
@@ -9,7 +9,13 @@ import { createPinia, setActivePinia } from 'pinia';
 import type { StartupStorageFileBootstrap } from '@/stores/storage/utils/startup-storage-bootstrap';
 import { useUserStatsStore } from '@/stores/storage/user-stats';
 import { DEFAULT_USER_STATS } from '@/types/user-stats';
-import type { FavoriteItem, ItemTag, TaggedItem } from '@/types/user-stats';
+import type {
+  FavoriteCategory,
+  FavoriteItem,
+  ItemTag,
+  TaggedItem,
+  UserStats,
+} from '@/types/user-stats';
 import { reorderMatchingItems } from '@/utils/reorder-matching-items';
 
 const {
@@ -59,10 +65,13 @@ vi.mock('@/localization', () => ({
   },
 }));
 
+// FORK-MODIFICATION: 反馈 4 —— FavoriteItem 增加了 isFile / categoryId。
 function createFavorite(path: string): FavoriteItem {
   return {
     path,
     addedAt: 1,
+    isFile: false,
+    categoryId: null,
   };
 }
 
@@ -92,6 +101,92 @@ function createStatsBootstrap(data: Record<string, unknown>): StartupStorageFile
     error: null,
   };
 }
+
+// FORK-MODIFICATION: 预批 0（2026-10-15）—— applyStatsRecord 的顶层字段白名单。
+//
+// 编译期护栏：DEFAULT_USER_STATS 必须覆盖 UserStats 的每一个字段。
+// 声明这一行就会实例化 AssertNever，所以给 UserStats 加字段却忘了加默认值时，
+// 这里直接是类型错误 —— npm run ts 拦下，不用等运行时丢一次数据才发现。
+// 用 export 而不是普通 type alias，避免被当成未使用声明。
+type MissingDefaultKeys = Exclude<keyof UserStats, keyof typeof DEFAULT_USER_STATS>;
+type AssertNever<TField extends never> = TField;
+export type UserStatsDefaultsCoverEveryField = AssertNever<MissingDefaultKeys>;
+
+// 这组测试守的是「静默丢数据」这种不会报错的坏：白名单若又退回
+// `key in userStats.value`，给 UserStats 加字段忘了加默认值时，
+// 记录里的数据会被无声丢弃，界面上没有任何线索。
+describe('user stats top-level field allowlist', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    storedValues.clear();
+    lazyStoreSaveMock.mockReset();
+    lazyStoreSetMock.mockReset();
+  });
+
+  it('applies every field that the stored record actually has', async () => {
+    const favorites = [createFavorite('/kept')];
+    const store = useUserStatsStore();
+
+    await store.init(createStatsBootstrap({
+      ...DEFAULT_USER_STATS,
+      favorites,
+      tags: [createTag('tag-x', 'X')],
+    }));
+
+    expect(store.userStats.favorites).toEqual(favorites);
+    expect(store.userStats.tags).toEqual([createTag('tag-x', 'X')]);
+  });
+
+  it('leaves the default in place for a field the stored record omits', async () => {
+    const store = useUserStatsStore();
+
+    await store.init(createStatsBootstrap({ favorites: [createFavorite('/only-this')] }));
+
+    // 记录里没有的字段必须保持默认值，而不是变成 undefined。
+    expect(store.userStats.tags).toEqual(DEFAULT_USER_STATS.tags);
+    expect(store.userStats.history).toEqual([]);
+    expect(store.userStats.frequentItems).toEqual([]);
+  });
+
+  // 判别性用例：白名单若退回 `key in userStats.value`，
+  // `categories` 会因为「UserStats 类型里还没有、但记录里带了」而被静默丢在门外，
+  // 而这里断言的是它连 key 都不该出现在 state 上 —— 方向反了才对。
+  it('ignores a stored field that the schema does not know about', async () => {
+    const store = useUserStatsStore();
+
+    await store.init(createStatsBootstrap({
+      ...DEFAULT_USER_STATS,
+      categories: [
+        {
+          id: 'cat-1',
+          name: 'Not In Schema Yet',
+        },
+      ],
+    }));
+
+    expect(Object.keys(store.userStats)).not.toContain('categories');
+    expect(store.userStats.favorites).toEqual([]);
+  });
+
+  // 判别性用例：`in` 走原型链，旧写法会把 `toString` 这类继承键当成合法字段写进去，
+  // 等于把 Object.prototype 的成员换成用户数据里的值。
+  it('never lets an inherited key overwrite a prototype member', async () => {
+    const store = useUserStatsStore();
+
+    await store.init(createStatsBootstrap({
+      ...DEFAULT_USER_STATS,
+      toString: 'polluted',
+      constructor: 'polluted',
+    }));
+
+    const state = store.userStats as unknown as Record<string, unknown>;
+
+    expect(Object.prototype.hasOwnProperty.call(state, 'toString')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(state, 'constructor')).toBe(false);
+    expect(typeof state.toString).toBe('function');
+    expect(typeof state.constructor).toBe('function');
+  });
+});
 
 describe('user stats reorder setters', () => {
   beforeEach(() => {
@@ -248,6 +343,526 @@ describe('user stats reorder setters', () => {
     await store.setTags(tags);
 
     expect(store.tags.map(tag => tag.id)).toEqual(['tag-work', 'tag-personal']);
+    expect(lazyStoreSetMock).not.toHaveBeenCalled();
+  });
+});
+
+// ── 反馈 4：收藏分类与收藏编辑 ─────────────────────────────────────────
+
+describe('favorite categories (feedback 4)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    storedValues.clear();
+    lazyStoreSaveMock.mockReset();
+    lazyStoreSetMock.mockReset();
+  });
+
+  // 判别性用例：只断言内存状态（store.favoriteCategories）的用例**抓不到**
+  // 这个缺陷。真机验收实测过：分类能建出来、界面下拉里也有，但 user-stats.json
+  // 里 favoriteCategories 是 undefined，重启即丢 —— 因为 saveStats 里的 set()
+  // 是逐键显式写的，加字段时只改了 DEFAULT_USER_STATS（读白名单）没改写列表。
+  // 这里走 mock store 的 entries() 往返，才等于「真的落了盘」。
+  it('writes favoriteCategories through to the store on disk', async () => {
+    const store = useUserStatsStore();
+    await store.init(createStatsBootstrap({ ...DEFAULT_USER_STATS }));
+
+    const created = await store.createFavoriteCategory('Work');
+
+    expect(created).not.toBeNull();
+    expect(storedValues.get('favoriteCategories')).toEqual([
+      {
+        id: created!.id,
+        name: 'Work',
+        createdAt: created!.createdAt,
+      },
+    ]);
+    expect(lazyStoreSaveMock).toHaveBeenCalled();
+  });
+
+  it('keeps favoriteCategories on disk when a favorite is filed under one', async () => {
+    const store = useUserStatsStore();
+    await store.init(createStatsBootstrap({ ...DEFAULT_USER_STATS }));
+
+    const created = await store.createFavoriteCategory('Work');
+    await store.addToFavorites('/work-1', false, created!.id);
+
+    // 改收藏会再次 saveStats()，顺带确认这条路径不会把分类抹掉。
+    expect(storedValues.get('favoriteCategories')).toHaveLength(1);
+  });
+
+  it('persists a new category and rejects a duplicate name', async () => {
+    const store = useUserStatsStore();
+    await store.init(createStatsBootstrap({ ...DEFAULT_USER_STATS }));
+
+    const created = await store.createFavoriteCategory('Work');
+
+    expect(created?.name).toBe('Work');
+    expect(store.favoriteCategories).toHaveLength(1);
+    // 大小写不敏感的重名必须被拒：分类名是用户用来扫视的，Work / work 两份没有意义。
+    expect(await store.createFavoriteCategory('work')).toBeNull();
+    expect(store.favoriteCategories).toHaveLength(1);
+  });
+
+  it('lets a category be renamed back to a name that only conflicts with itself', async () => {
+    const store = useUserStatsStore();
+    await store.init(createStatsBootstrap({ ...DEFAULT_USER_STATS }));
+
+    const created = await store.createFavoriteCategory('Work');
+    await store.renameFavoriteCategory(created!.id, '  Job  ');
+    expect(store.favoriteCategories[0].name).toBe('Job');
+
+    // 排除自身后不应与自己冲突
+    await store.renameFavoriteCategory(created!.id, 'Job');
+    expect(store.favoriteCategories[0].name).toBe('Job');
+  });
+
+  // 判别性用例：把「删除分类」写成连带删除收藏（更常见的直觉实现）时，
+  // 这里会看到 favorites 变短 —— 那就是静默丢用户数据。
+  it('returns the category favorites to uncategorized instead of deleting them', async () => {
+    const store = useUserStatsStore();
+    await store.init(createStatsBootstrap({
+      ...DEFAULT_USER_STATS,
+      favoriteCategories: [{
+        id: 'cat-1',
+        name: 'Work',
+        createdAt: 1,
+      }],
+      favorites: [
+        {
+          ...createFavorite('/work-1'),
+          categoryId: 'cat-1',
+        },
+        createFavorite('/loose'),
+      ],
+    }));
+
+    await store.deleteFavoriteCategory('cat-1');
+
+    expect(store.favoriteCategories).toEqual([]);
+    expect(store.favorites.map(item => item.path)).toEqual(['/work-1', '/loose']);
+    expect(store.favorites[0].categoryId).toBeNull();
+  });
+
+  it('moves a favorite to another category', async () => {
+    const store = useUserStatsStore();
+    await store.init(createStatsBootstrap({
+      ...DEFAULT_USER_STATS,
+      favoriteCategories: [{
+        id: 'cat-1',
+        name: 'Work',
+        createdAt: 1,
+      }],
+      favorites: [createFavorite('/a')],
+    }));
+
+    await store.moveFavoriteToCategory('/a', 'cat-1');
+    expect(store.favorites[0].categoryId).toBe('cat-1');
+
+    // 再移一次到同一个分类应当是 no-op，不该白白落盘
+    lazyStoreSetMock.mockClear();
+    lazyStoreSaveMock.mockClear();
+    await store.moveFavoriteToCategory('/a', 'cat-1');
+    expect(lazyStoreSetMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('favorite ordering within a category (feedback 4)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    storedValues.clear();
+    lazyStoreSaveMock.mockReset();
+    lazyStoreSetMock.mockReset();
+  });
+
+  async function seedTwoCategories() {
+    const store = useUserStatsStore();
+
+    await store.init(createStatsBootstrap({
+      ...DEFAULT_USER_STATS,
+      favoriteCategories: [
+        {
+          id: 'cat-1',
+          name: 'Work',
+          createdAt: 1,
+        },
+        {
+          id: 'cat-2',
+          name: 'Home',
+          createdAt: 2,
+        },
+      ],
+      favorites: [
+        {
+          ...createFavorite('/w1'),
+          categoryId: 'cat-1',
+        },
+        {
+          ...createFavorite('/w2'),
+          categoryId: 'cat-1',
+        },
+        {
+          ...createFavorite('/h1'),
+          categoryId: 'cat-2',
+        },
+      ],
+    }));
+
+    lazyStoreSetMock.mockClear();
+    lazyStoreSaveMock.mockClear();
+    return store;
+  }
+
+  it('swaps a favorite with the previous one in the same category only', async () => {
+    const store = await seedTwoCategories();
+
+    await store.moveFavoriteWithinCategory('/w2', -1);
+
+    // 分类内的顺序变了，分类外的那条必须原地不动
+    expect(store.favorites.map(item => item.path)).toEqual(['/w2', '/w1', '/h1']);
+  });
+
+  it('refuses to move past either end of its own category', async () => {
+    const store = await seedTwoCategories();
+
+    await store.moveFavoriteWithinCategory('/w1', -1);
+    await store.moveFavoriteWithinCategory('/w2', 1);
+
+    expect(store.favorites.map(item => item.path)).toEqual(['/w1', '/w2', '/h1']);
+    expect(lazyStoreSetMock).not.toHaveBeenCalled();
+  });
+
+  // 判别性用例：若实现用的是「在 favorites 数组里找相邻元素整体换位」，
+  // 分类 2 的 /h1 会跟着被拖动 —— 上面的顺序断言正是防这个。
+  it('never lets a move drag an item from another category along', async () => {
+    const store = await seedTwoCategories();
+
+    await store.moveFavoriteWithinCategory('/w1', 1);
+
+    expect(store.favorites.map(item => item.categoryId)).toEqual(['cat-1', 'cat-1', 'cat-2']);
+  });
+});
+
+describe('legacy favorite normalization (feedback 4)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    storedValues.clear();
+    lazyStoreSaveMock.mockReset();
+    lazyStoreSetMock.mockReset();
+  });
+
+  // 老记录没有 isFile / categoryId。归一化必须在**读入**处完成，
+  // 否则每个读取点都要自己判 undefined，那个「含点就是文件」的误判会被复制到多处。
+  it('fills isFile and categoryId for records written before feedback 4', async () => {
+    const store = useUserStatsStore();
+
+    await store.init(createStatsBootstrap({
+      favorites: [
+        {
+          path: '/notes.md',
+          addedAt: 1,
+        },
+        {
+          path: '/my.folder',
+          addedAt: 2,
+        },
+        {
+          path: '/dir/',
+          addedAt: 3,
+        },
+      ],
+    } as unknown as Record<string, unknown>));
+
+    expect(store.favorites.map(item => item.isFile)).toEqual([true, true, false]);
+    expect(store.favorites.every(item => item.categoryId === null)).toBe(true);
+  });
+
+  it('keeps an explicit isFile instead of re-deriving it from the path', async () => {
+    const store = useUserStatsStore();
+
+    await store.init(createStatsBootstrap({
+      favorites: [{
+        path: '/my.folder',
+        addedAt: 1,
+        isFile: false,
+        categoryId: 'cat-x',
+      }],
+    }));
+
+    expect(store.favorites[0].isFile).toBe(false);
+    expect(store.favorites[0].categoryId).toBe('cat-x');
+  });
+});
+
+// FORK-MODIFICATION: 2026-10-31 —— 收藏夹排序（拖拽 + 上移 / 下移）。
+//
+// 排序结果要**真的落到 user-stats.json**，所以这里断言的是 mock store 里
+// 真正写下去的那份数据（storedValues），而不是 store 内存里的数组 ——
+// 只断言内存状态抓不到「写列表漏了 favoriteCategories / favorites」的缺陷。
+describe('favorites and favorite categories reordering (2026-10-31)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    storedValues.clear();
+    lazyStoreSaveMock.mockReset();
+    lazyStoreSetMock.mockReset();
+  });
+
+  async function seedThreeCategories() {
+    const store = useUserStatsStore();
+
+    await store.init(createStatsBootstrap({
+      ...DEFAULT_USER_STATS,
+      favoriteCategories: [
+        {
+          id: 'cat-1',
+          name: 'Work',
+          createdAt: 1,
+        },
+        {
+          id: 'cat-2',
+          name: 'Home',
+          createdAt: 2,
+        },
+        {
+          id: 'cat-3',
+          name: 'Temp',
+          createdAt: 3,
+        },
+      ],
+      favorites: [
+        {
+          ...createFavorite('/w1'),
+          categoryId: 'cat-1',
+        },
+        {
+          ...createFavorite('/w2'),
+          categoryId: 'cat-1',
+        },
+        {
+          ...createFavorite('/w3'),
+          categoryId: 'cat-1',
+        },
+        {
+          ...createFavorite('/h1'),
+          categoryId: 'cat-2',
+        },
+      ],
+    }));
+
+    lazyStoreSetMock.mockClear();
+    lazyStoreSaveMock.mockClear();
+
+    return store;
+  }
+
+  function storedCategoryIds(): string[] {
+    const stored = storedValues.get('favoriteCategories') as FavoriteCategory[];
+
+    return stored.map(category => category.id);
+  }
+
+  function storedFavoritePaths(): string[] {
+    const stored = storedValues.get('favorites') as FavoriteItem[];
+
+    return stored.map(item => item.path);
+  }
+
+  it('writes the new favorite category order to disk', async () => {
+    const store = await seedThreeCategories();
+
+    await store.moveFavoriteCategory('cat-3', -1);
+
+    expect(store.favoriteCategories.map(category => category.id)).toEqual([
+      'cat-1',
+      'cat-3',
+      'cat-2',
+    ]);
+    expect(storedCategoryIds()).toEqual(['cat-1', 'cat-3', 'cat-2']);
+  });
+
+  // 边界项：已经在最上 / 最下的分类再点一次上移 / 下移，必须什么都不写。
+  it('writes nothing when a category is already at the boundary', async () => {
+    const store = await seedThreeCategories();
+
+    await store.moveFavoriteCategory('cat-1', -1);
+    await store.moveFavoriteCategory('cat-3', 1);
+
+    expect(store.favoriteCategories.map(category => category.id)).toEqual([
+      'cat-1',
+      'cat-2',
+      'cat-3',
+    ]);
+    expect(lazyStoreSetMock).not.toHaveBeenCalled();
+  });
+
+  it('writes the dragged favorite category order to disk', async () => {
+    const store = await seedThreeCategories();
+
+    await store.reorderFavoriteCategories('cat-3', 'cat-1', 'before');
+
+    expect(store.favoriteCategories.map(category => category.id)).toEqual([
+      'cat-3',
+      'cat-1',
+      'cat-2',
+    ]);
+    expect(storedCategoryIds()).toEqual(['cat-3', 'cat-1', 'cat-2']);
+  });
+
+  it('writes the dragged favorite order to disk', async () => {
+    const store = await seedThreeCategories();
+
+    await store.reorderFavorites('/w3', '/w1', 'before');
+
+    expect(store.favorites.map(item => item.path)).toEqual([
+      '/w3',
+      '/w1',
+      '/w2',
+      '/h1',
+    ]);
+    expect(storedFavoritePaths()).toEqual(['/w3', '/w1', '/w2', '/h1']);
+  });
+
+  it('writes nothing when a favorite is dropped into another category', async () => {
+    const store = await seedThreeCategories();
+
+    await store.reorderFavorites('/w1', '/h1', 'before');
+
+    expect(store.favorites.map(item => item.path)).toEqual([
+      '/w1',
+      '/w2',
+      '/w3',
+      '/h1',
+    ]);
+    expect(lazyStoreSetMock).not.toHaveBeenCalled();
+  });
+});
+
+// ── 批次 37：收藏显示名（别名） ────────────────────────────────────────
+//
+// 别名**只影响显示**：路径与真实文件名一个字符都不能动。
+// 这组测试断言的是「真的落到 user-stats.json」的那份数据
+// （storedValues），不是内存里的数组 —— 只断言内存抓不到落盘缺陷。
+
+describe('favorite display alias (batch 37)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    storedValues.clear();
+    lazyStoreSaveMock.mockReset();
+    lazyStoreSetMock.mockReset();
+  });
+
+  function storedFavorites(): FavoriteItem[] {
+    return storedValues.get('favorites') as FavoriteItem[];
+  }
+
+  it('writes the alias through to the store on disk', async () => {
+    const store = useUserStatsStore();
+    await store.init(createStatsBootstrap({ ...DEFAULT_USER_STATS }));
+
+    await store.addToFavorites('/notes.md', true, null, '我的笔记');
+
+    expect(storedFavorites()).toHaveLength(1);
+    expect(storedFavorites()[0].alias).toBe('我的笔记');
+    expect(lazyStoreSaveMock).toHaveBeenCalled();
+  });
+
+  // 判别性用例：别名写进去了，但**路径被顺手改掉** —— 那就是破坏了
+  // 「只改显示」的约定，收藏打开的会是另一个地方。
+  it('never changes the stored path when an alias is set', async () => {
+    const store = useUserStatsStore();
+    await store.init(createStatsBootstrap({ ...DEFAULT_USER_STATS }));
+
+    await store.addToFavorites('/notes.md', true, null, '我的笔记');
+    await store.setFavoriteAlias('/notes.md', '新的名字');
+
+    expect(storedFavorites()[0].path).toBe('/notes.md');
+    expect(storedFavorites()[0].alias).toBe('新的名字');
+  });
+
+  it('keeps a stored alias across a restart', async () => {
+    const store = useUserStatsStore();
+
+    await store.init(createStatsBootstrap({
+      favorites: [
+        {
+          path: '/notes.md',
+          addedAt: 1,
+          isFile: true,
+          categoryId: null,
+          alias: '我的笔记',
+        },
+      ],
+    }));
+
+    expect(store.favorites[0].alias).toBe('我的笔记');
+  });
+
+  it('leaves legacy records without an alias alone', async () => {
+    const store = useUserStatsStore();
+
+    await store.init(createStatsBootstrap({
+      favorites: [
+        {
+          path: '/notes.md',
+          addedAt: 1,
+          isFile: true,
+          categoryId: null,
+        },
+      ],
+    }));
+
+    expect(store.favorites[0].alias).toBeUndefined();
+  });
+
+  // 脏数据：alias 不是字符串时必须丢掉，不能把数字当显示名渲染出去。
+  it('drops a non-string alias', async () => {
+    const store = useUserStatsStore();
+
+    await store.init(createStatsBootstrap({
+      favorites: [
+        {
+          path: '/notes.md',
+          addedAt: 1,
+          isFile: true,
+          categoryId: null,
+          alias: 42,
+        },
+      ],
+    } as unknown as Record<string, unknown>));
+
+    expect(store.favorites[0].alias).toBeUndefined();
+  });
+
+  it('clears the alias when an empty name is given', async () => {
+    const store = useUserStatsStore();
+    await store.init(createStatsBootstrap({ ...DEFAULT_USER_STATS }));
+
+    await store.addToFavorites('/notes.md', true, null, '我的笔记');
+    await store.setFavoriteAlias('/notes.md', '');
+
+    expect(storedFavorites()[0].alias ?? '').toBe('');
+    expect(storedFavorites()[0].path).toBe('/notes.md');
+  });
+
+  it('does not write when the alias does not change', async () => {
+    const store = useUserStatsStore();
+    await store.init(createStatsBootstrap({ ...DEFAULT_USER_STATS }));
+
+    await store.addToFavorites('/notes.md', true, null, '我的笔记');
+    lazyStoreSetMock.mockClear();
+    lazyStoreSaveMock.mockClear();
+
+    await store.setFavoriteAlias('/notes.md', '我的笔记');
+
+    expect(lazyStoreSetMock).not.toHaveBeenCalled();
+  });
+
+  it('ignores an alias change for a path that is not favorited', async () => {
+    const store = useUserStatsStore();
+    await store.init(createStatsBootstrap({ ...DEFAULT_USER_STATS }));
+    lazyStoreSetMock.mockClear();
+
+    await store.setFavoriteAlias('/missing.md', '不存在的条目');
+
     expect(lazyStoreSetMock).not.toHaveBeenCalled();
   });
 });

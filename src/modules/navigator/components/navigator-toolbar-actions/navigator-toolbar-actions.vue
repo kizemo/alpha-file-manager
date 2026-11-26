@@ -26,11 +26,10 @@ import { ContextMenuShortcut } from '@/components/ui/context-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   FlipHorizontalIcon,
+  GitCompareArrowsIcon,
   PanelLeftRightDashedIcon,
   PanelRightOpenIcon,
-  LayoutGridIcon,
   FolderTreeIcon,
-  ListIcon,
   CircleHelpIcon,
   EllipsisVerticalIcon,
   EyeOffIcon,
@@ -47,8 +46,6 @@ import type {
 } from '@/modules/navigator/utils/resolve-navigator-folder-settings';
 import NavigatorLayoutSortControls from './navigator-layout-sort-controls.vue';
 
-type LayoutType = 'list' | 'grid';
-
 const props = defineProps<{
   isSplitView: boolean;
   showInfoPanel: boolean;
@@ -62,6 +59,7 @@ const emit = defineEmits<{
   'toggle-split-view': [];
   'toggle-info-panel': [];
   'toggle-folder-tree': [];
+  'open-compare-sync': [];
 }>();
 
 const { t } = useI18n();
@@ -126,10 +124,6 @@ function setSplitViewMode(mode: SplitViewMode) {
   userSettingsStore.set('navigator.splitViewMode', mode);
 }
 
-async function setLayout(layoutName: LayoutType) {
-  await persistScopedPatch({ layout: layoutName });
-}
-
 function handleToggleHiddenFiles(checked: boolean) {
   persistScopedPatch({ showHiddenFiles: checked });
 }
@@ -161,7 +155,7 @@ function handleSettingsScopeChange(value: string | number) {
               >
                 <EllipsisVerticalIcon
                   :size="16"
-                  class="navigator-toolbar-actions__icon"
+                  class="navigator-toolbar-actions__icon navigator-toolbar-actions__icon--more"
                 />
               </Button>
             </DropdownMenuTrigger>
@@ -179,7 +173,7 @@ function handleSettingsScopeChange(value: string | number) {
               >
                 <FolderTreeIcon
                   :size="16"
-                  class="navigator-toolbar-actions__icon"
+                  class="navigator-toolbar-actions__icon navigator-toolbar-actions__icon--tree"
                 />
               </Button>
             </TooltipTrigger>
@@ -265,35 +259,6 @@ function handleSettingsScopeChange(value: string | number) {
                       </div>
                     </CollapsibleContent>
                   </Collapsible>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  @select.prevent
-                  class="navigator-settings-menu__item navigator-settings-menu__item--layout"
-                >
-                  <div class="navigator-settings-menu__layout-label">
-                    {{ t('settings.navigator.navigatorViewLayout') }}
-                  </div>
-                  <div class="navigator-settings-menu__layout-row">
-                    <button
-                      type="button"
-                      class="navigator-settings-menu__layout-option"
-                      :class="{ 'navigator-settings-menu__layout-option--active': currentLayout === 'list' }"
-                      @click="setLayout('list')"
-                    >
-                      <ListIcon :size="24" />
-                      <span>{{ t('list') }}</span>
-                    </button>
-                    <button
-                      type="button"
-                      class="navigator-settings-menu__layout-option"
-                      :class="{ 'navigator-settings-menu__layout-option--active': currentLayout === 'grid' }"
-                      @click="setLayout('grid')"
-                    >
-                      <LayoutGridIcon :size="24" />
-                      <span>{{ t('grid') }}</span>
-                    </button>
-                  </div>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -429,15 +394,14 @@ function handleSettingsScopeChange(value: string | number) {
             :disabled="props.isGlobalSearchOpen"
             @click="emit('toggle-split-view')"
           >
-            <PanelLeftRightDashedIcon
-              v-if="splitViewMode === 'linked'"
-              :size="16"
-              class="navigator-toolbar-actions__icon"
-            />
+            <!--
+              固定用 FlipHorizontalIcon。原来这里会按 splitViewMode 换成
+              PanelLeftRightDashedIcon，而「联动」现在有了自己那颗按钮，
+              在分屏开关上换图标只会让人以为那个按钮管的是联动。
+            -->
             <FlipHorizontalIcon
-              v-else
               :size="16"
-              class="navigator-toolbar-actions__icon"
+              class="navigator-toolbar-actions__icon navigator-toolbar-actions__icon--split"
             />
           </Button>
         </TooltipTrigger>
@@ -446,6 +410,30 @@ function handleSettingsScopeChange(value: string | number) {
             {{ t('splitView') }}
             <ContextMenuShortcut>{{ shortcutsStore.getShortcutLabel('toggleSplitView') }}</ContextMenuShortcut>
           </div>
+        </TooltipContent>
+      </Tooltip>
+      <!--
+        「比较并同步」只在**分屏**下才有意义 —— 没有左右两侧就没什么可比的。
+        全局搜索打开时也不给点：那会儿左右两格被搜索面板占着，
+        用户看到的路径和真正在比的路径对不上。
+      -->
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <Button
+            variant="ghost"
+            size="icon"
+            :disabled="!props.isSplitView || props.isGlobalSearchOpen"
+            :aria-label="t('compareSync.title')"
+            @click="emit('open-compare-sync')"
+          >
+            <GitCompareArrowsIcon
+              :size="16"
+              class="navigator-toolbar-actions__icon navigator-toolbar-actions__icon--compare"
+            />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          {{ t('compareSync.title') }}
         </TooltipContent>
       </Tooltip>
       <Tooltip>
@@ -458,7 +446,7 @@ function handleSettingsScopeChange(value: string | number) {
           >
             <PanelRightOpenIcon
               :size="16"
-              class="navigator-toolbar-actions__icon"
+              class="navigator-toolbar-actions__icon navigator-toolbar-actions__icon--info"
             />
           </Button>
         </TooltipTrigger>
@@ -466,6 +454,7 @@ function handleSettingsScopeChange(value: string | number) {
           {{ t('settings.infoPanel.title') }}
         </TooltipContent>
       </Tooltip>
+      <!-- FORK-MODIFICATION: layout toggle moved to file-browser-toolbar-nav-buttons (refresh 旁). -->
     </div>
   </Teleport>
 </template>

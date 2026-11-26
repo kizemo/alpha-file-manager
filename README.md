@@ -1,57 +1,498 @@
+<!-- markdownlint-disable MD033 MD041 -->
+
 **[English](README.md)** | **[中文](README.zh-CN.md)**
 
+[![Stars](https://img.shields.io/github/stars/kizemo/alpha-file-manager?style=for-the-badge&logo=github&color=70b59d)](https://github.com/kizemo/alpha-file-manager/stargazers)
+[![Forks](https://img.shields.io/github/forks/kizemo/alpha-file-manager?style=for-the-badge&logo=github&color=70b59d)](https://github.com/kizemo/alpha-file-manager/network/members)
+[![Issues](https://img.shields.io/github/issues/kizemo/alpha-file-manager?style=for-the-badge&logo=github&color=70b59d)](https://github.com/kizemo/alpha-file-manager/issues)
+[![Latest release](https://img.shields.io/github/v/release/kizemo/alpha-file-manager?style=for-the-badge&logo=github&color=70b59d&label=release)](https://github.com/kizemo/alpha-file-manager/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/kizemo/alpha-file-manager/total?style=for-the-badge&logo=github&color=70b59d)](https://github.com/kizemo/alpha-file-manager/releases)
+[![License](https://img.shields.io/badge/license-GPL--3.0-70b59d.svg)](./LICENSE.md)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-70b59d.svg)](https://github.com/kizemo/alpha-file-manager/releases)
+
 <h1>
-  <img valign="middle" src="https://github.com/aleksey-hoffman/sigma-file-manager/raw/main/.github/media/logo-1024x1024.png" width="64px">
-  &nbsp;&nbsp;Sigma File Manager (kizemo fork)
+  <img valign="middle" src="./.github/media/alpha-file-manager-logo.png" width="56px" alt="Alpha File Manager">
+  &nbsp;&nbsp;Alpha File Manager
 </h1>
 
-"Sigma File Manager" is a free, open-source, quickly evolving, modern file manager (explorer / finder) app for Windows and Linux.
+**The best file manager for Windows and Linux** — with the two things you miss most
+in Explorer: a real folder tree, and file dialogs that follow you between apps.**
 
-This repository is a personal fork maintained by [kizemo](https://github.com/kizemo) that tracks upstream [`aleksey-hoffman/sigma-file-manager`](https://github.com/aleksey-hoffman/sigma-file-manager) and adds tree-view and other ergonomic improvements on top of it.
+![Alpha File Manager](docs/screenshots/afm-main-window-en.png)
 
-**Pre-built fork binary**: download [**v2.2.0-tree.1 — Folder Tree Sidebar**](https://github.com/kizemo/sigma-file-manager/releases/tag/v2.2.0-tree.1) — a Windows NSIS installer built from the `feat/tree-sidebar-v6-1` branch (HEAD `8caf14ae`). This fork does **not** have a code-signing certificate, so Windows SmartScreen will warn "Unknown publisher" on first launch — click **More info** → **Run anyway**. Installer sha256: `c63ef9194c1e284e983a06d22c4e85f54eef9c5f9c18c0105570b18de58b2f35`.
+Alpha File Manager is an independent build of
+[Sigma File Manager](https://github.com/aleksey-hoffman/sigma-file-manager),
+maintained by [kizemo](https://github.com/kizemo). It tracks upstream and layers on
+a permanent folder tree, cross-app dialog path sync, a built-in MCP server for AI
+assistants, remote servers over SFTP/FTP/FTPS, recursive folder comparison with
+sync, batch rename, and a long list of day-to-day fixes. **If you have been looking for the best file manager on Windows, this is the one worth trying.**
 
-## Folder tree sidebar (the main fork feature)
+> [!IMPORTANT]
+> **Alpha File Manager is an independent community project.** It is not affiliated
+> with, endorsed by, or supported by the Sigma File Manager project. The base
+> application's features and branding belong to [Aleksey Hoffman](https://github.com/aleksey-hoffman).
 
-![Sigma File Manager with tree sidebar showing E:/办公文件 directory](./docs/screenshots/tree-sidebar-v6.4.1.png)
+---
 
-A left-side **folder tree sidebar** that mirrors the file system and follows the active pane, so you always see where you are and can jump up/down the hierarchy with a single click.
+## ✨ Highlights
 
-- **Toggle:** a dedicated `FolderTree` icon button in the navigator toolbar — it is intentionally **not** inside the layout dropdown, so the toggle stays one click away at all times.
-- **Sync sources:** the tree automatically follows the address bar, the favorites / quick-access panel, and the **active pane** in split-view, so each side keeps its own tree state.
-- **Single-path expand:** when you navigate, only the ancestor chain of the current path stays open; previously-open branches elsewhere are collapsed, keeping the tree compact and scannable.
-- **Click semantics:** clicking a row navigates to that folder; clicking the chevron expands or collapses the branch without changing the current directory.
-- **Drive labels:** root nodes show both the volume label and the drive letter, e.g. `Win (C:)`, so multi-WSD / multi-drive setups are disambiguated at a glance.
-- **Persistence:** the show/hide state survives restarts via `userSettings.navigator.showFolderTree`.
-- **Implementation branch:** [`feat/tree-sidebar-v6-1`](https://github.com/kizemo/sigma-file-manager/tree/feat/tree-sidebar-v6-1), HEAD `8caf14ae` — 6 atomic commits, ~3000 lines including tests and docs.
-- **Tests:** 259 unit tests passing.
-- **Upstream tracking:** this work is tracked against upstream issue [#499](https://github.com/aleksey-hoffman/sigma-file-manager/issues/499).
+- 🗂️ **A folder tree that is always there** — it follows the pane you are in, local
+  or remote, and it is the first thing you reach for instead of typing a path.
+- ⚡ **Focus Sync** — every *Save As* / *Open* dialog in any other Windows app
+  opens in the folder you are browsing. Zero configuration.
+- 🔍 **Compare two folders, then sync what you find** — recursive, with the
+  criteria serious tools use, and an explicit "direction undecided" state instead
+  of guessing which side is newer.
+- 🤖 **A built-in MCP server** — let an AI assistant list drives, browse folders,
+  search files and read your favourites over a standard interface.
+- 🔐 **Real remote servers** — SFTP, FTP and FTPS with pinned host keys and
+  certificates, plus upload, download, delete and permission editing.
+- ☁️ **Netdisks are remote connections too** — add Baidu Netdisk, Quark Netdisk
+  or Aliyun Drive in a few steps, sign in inside the app, and browse it like any
+  server; OneDrive joins the same list and signs you in through your browser.
+- 🧠 **Batch rename that does not lose work** — find-and-replace, case conversion,
+  templates and numbering, with a live preview, conflicts blocked instead of
+  silently overwriting, and undo.
+- 🔓 **A file that will not delete can be dealt with** — the right-click menu tells
+  you which program is holding it open, and *Delete anyway* removes it even when
+  Windows refuses to.
 
-## Listary-style focus sync (Experimental)
+---
 
-A second experimental fork feature: any Windows app's file dialog (Chrome downloads, Word "Save As", VS Code "Open Folder", 钉钉 / 飞书 save flows, etc.) auto-jumps to Sigma's current folder when you Alt-Tab from the dialog to Sigma and back.
+## 🧭 Features
 
-**Status**: Experimental — UI Automation coverage validated via the [`sigma-listary-spike/`](./../sigma-listary-spike/) subdirectory. The spike binary builds cleanly on Windows 11 with `windows` crate 0.62 and empirically validates all three capabilities (detect / read / write) on a standard Win32 OpenFileDialog. Chromium hosts are shielded by an `EnableWindow(FALSE)` RAII guard ported from QwenLM (measured 7/8 → 0 z-drops on Chromium).
+### Browse and organise
 
-**Enable**: launch `sigma-listary-spike/target/release/spike.exe` before opening Sigma. The binary communicates with Sigma over TCP on `127.0.0.1:37421` (line-based JSON protocol: `set_path`, `get_status`, `quit`).
+| | |
+|---|---|
+| 🗂️ | **Permanent folder tree** — follows the active pane, becomes the remote tree, remembers its own expansion state |
+| 📱 | **Phones and USB drives** — plug one in and it shows up under *Locations* with its own name; open it and browse it right here, without switching to another program |
+| 🗂️ | **Tabs and split view** — swap the two panes with one button, and a synchronized-browsing toggle right beside it |
+| 🔎 | **Smart global search** — full-drive search with typo tolerance, and directory search that genuinely recurses |
+| 🏷️ | **Tags** — organise files and folders, with a grouped, editable dashboard |
+| ⭐ | **Favourites by category** — adding one asks which category it belongs to; categories are editable |
+| 🎚️ | **Item filter** — narrow a large folder by name, size, date, type and more |
+| 🖼️ | **Thumbnails** — four sizes, generated lazily only for what is on screen; pictures on a netdisk use the thumbnail the drive itself hands out |
+| 📐 | **Per-folder layout** — list or grid, chosen per location rather than globally |
+| 🔓 | **Unlock a file that is in use** — the right-click menu lists the programs holding it, by name and process id; *Delete anyway* removes it even when Windows says no |
 
-**Limitations**:
-- **No headless GUI verification on all 7 target apps** — only the Win32 #32770 dialog path is auto-verified. Manual GUI verification recommended per app before production use.
-- **fg_bypass covers Chromium only** — UWP / XAML hosts are not specially shielded (port omitted QwenLM's UWP branch per spike simplification).
-- **STA threading constraint** — spike uses a single-threaded tokio runtime to keep UIA on the main COM STA thread.
+### Compare and sync
 
-**Source attribution** (MIT / Apache-2.0 licenses preserved per file):
-- [`inaku-Gyan/PathWrap`](https://github.com/inaku-Gyan/PathWrap) — `src/os/dialog.rs` (MIT) + `src/os/monitor.rs` (MIT)
-- [`QwenLM/qwen-code`](https://github.com/QwenLM/qwen-code) — `fg_bypass.rs` (Apache-2.0)
+| | |
+|---|---|
+| 🔍 | **Recursive comparison** — modification time first, then size, then content checksum, in WinSCP's order |
+| 🧭 | **"Direction undecided"** — same timestamp, different contents: listed separately, never overwritten |
+| 📋 | **The plan comes first** — a preview of every file that would be created, copied or skipped, before the first byte moves |
+| 🗑️ | **Compare and sync never deletes** — mirroring is a later release |
 
-**Spike report**: [`docs/superpowers/spike-reports/2026-09-27-listary-focus-sync-spike.md`](./../docs/superpowers/spike-reports/2026-09-27-listary-focus-sync-spike.md)
-**Decision**: [`docs/superpowers/decisions/2026-09-27-listary-focus-sync-decision.md`](./../docs/superpowers/decisions/2026-09-27-listary-focus-sync-decision.md)
+### Work on remote servers
+
+| | |
+|---|---|
+| 🔐 | **SFTP · FTP · FTPS** — host keys and X.509 certificates pinned per host and port |
+| ⬆️⬇️ | **Upload and download** — the receiving pane refreshes itself when the transfer finishes |
+| 🗑️ | **Delete, honestly** — one *Delete* entry, no pretend recycle bin, the server's refusal reported as it is |
+| 🔐 | **Permissions from a list** — pick the mode instead of typing the octal |
+| 🌐 | **Map a network drive** — pick the share and the drive letter, like Explorer does |
+
+### Working on netdisks
+
+| | |
+|---|---|
+| ☁️ | **Baidu Netdisk signs in inside the app** — one click opens the real login page, scanning the QR code is enough, and the session is picked up into the credential store — no cookie copying by hand |
+| 🔗 | **Quark Netdisk works the same way** — pick it in the very same *Add netdisk* list, scan the QR code in the window that opens inside the app, and the session is stored for you |
+| 🔗 | **Aliyun Drive joins them** — pick it in the same *Add netdisk* list, scan the QR code in the window that opens inside the app, and the session is stored for you as well; it creates folders, uploads files, deletes them and renames them on the drive — moving and sharing are not offered yet |
+| ➕ | **Adding a netdisk takes three steps** — *Settings* → *Remote* → *Netdisks* → pick the provider → scan the QR code → give the connection a name. No token to copy, no config file to hand-edit, no service to start |
+| 📂 | **A netdisk browsed like a remote connection** — listing, creating a folder, renaming, deleting and downloading all reach the drive itself, not a shadow of a local folder |
+| ⚙️ | **Netdisks and remote servers are kept apart** — the settings page splits them into two tabs, *Netdisks* and *Remote connections*, so each connection sits where it belongs |
+| 🔗 | **OneDrive is in the list now** — pick it in the very same *Add netdisk* list next to the other three, sign in with your Microsoft account in the browser that opens, and the session is kept in the app's own encrypted credential store. This version browses and downloads, and the drive can take part in the global search; since 3.20.0 it writes as well - upload a file, create a folder, rename and delete on the drive itself |
+
+#### Why this is simpler than mounting the drive with alist
+
+Mounting a netdisk into Windows Explorer — with alist, rclone or a WebDAV
+bridge — means running a second program just to look at your files. That
+program needs its own container or service, its own database, a token or a
+refresh key pasted into its own config, and a manual restart whenever it
+falls over. Explorer then reaches the drive through a WebDAV client, which
+brings its own limits along with it.
+
+Adding a netdisk here has none of that:
+
+| | Mounting with alist / a WebDAV bridge | Adding it in Alpha File Manager |
+|---|---|---|
+| 🧩 | **Extra software to install and keep running** — a server process, a container, a service that can fall over on its own | **Nothing extra** — the netdisk provider is built into the app |
+| 🔑 | **The credentials live in the bridge** — tokens and refresh keys pasted into another program's config | **The credentials stay in the app** — the session arrives by scanning a QR code and is kept in the app's own encrypted credential store |
+| 🪟 | **A drive letter or a WebDAV client is required** — and the limits of that client are part of the deal | **No mapping at all** — the netdisk is a pane in the app, with the tree, the listings and the transfers |
+| 🛡️ | **A bridge that is down means a broken drive** — the drive disappears until the service is back | **Nothing sits between you and the drive** — the app talks to the provider's own API, so there is no third-party hop that can be down, slow or rate-limited |
+| 🔁 | **Two things to keep up to date** — the bridge needs a new driver whenever the provider changes its API | **One thing to keep up to date** — the app itself, through its own update channel |
+
+### Automation and AI assistants
+
+| | |
+|---|---|
+| 🤖 | **Built-in MCP server** — six read-only tools: drives, directory listing, search, size, favourites, mountable devices |
+| ⚡ | **One-click setup for six assistants** — Codex, Cursor, Claude Code, Claude Desktop, OpenClaw, MiniMax Code |
+| 🔒 | **Hardened by default** — localhost only, a random access key, and per-call permission checks |
+| 🔌 | **Extensions and a marketplace** — extensions can add commands, pages, shortcuts and settings |
+| ⌨️ | **Shortcuts and a command palette** — most actions are reachable from the keyboard |
+
+### Look and feel
+
+| | |
+|---|---|
+| 🎨 | **Background effects** — custom images and videos, with Photoshop-style blend modes |
+| 🌈 | **Multiple beautified custom themes** — switch freely between Vivid Energy, Cool Pine, Warm Paper · Light / Dark and more |
+| 🖼️ | **Quick view** — preview images, video, audio, PDFs and text with `Space`, without leaving the app |
+| 📦 | **Zip archives** — compress and extract without leaving the app |
+| 🪟 | **Can replace Explorer** — register as the default file manager on Windows |
+
+| | |
+|---|---|
+| ![Theme picker](docs/screenshots/afm-theme-picker-en.png) | **Theme picker** — open the theme dropdown in Settings → UI appearance and see every bundled theme at once |
+| ![Vivid Energy](docs/screenshots/afm-theme-vivid-light-en.png) | **Vivid Energy** — vivid accents on a light canvas |
+| ![Cool Pine](docs/screenshots/afm-theme-cool-light-en.png) | **Cool Pine** — a cool green take on the light theme |
+| ![Warm Paper Dark](docs/screenshots/afm-theme-warm-dark-en.png) | **Warm Paper · Dark** — the paper theme turned down for the night |
+
+---
+
+## 📸 Screenshots
+
+| | |
+|---|---|
+| ![Dashboard quick access](docs/screenshots/afm-dashboard-hero-light-en.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
+| ![Dashboard cards](docs/screenshots/afm-dashboard-card-enrichment-en.png) | **Dashboard cards** — name, size and path on top, type and item count below, with drag, reorder and edit shortcuts on every card |
+
+### What changed in 3.20.0
+
+| | | |
+|---|---|---|
+| ✍️ | **OneDrive can write to your drive now** — the connection that was read-only in 3.18.0 writes as well: upload a file, create a folder, rename an item and delete it on the drive itself. Deleting puts the item into the drive's recycle bin, and a new folder never silently replaces an existing one of the same name - the app refuses the name instead |
+| 📦 | **Large files can be uploaded** — up to 250 MB in one request, bigger files in 5 MB pieces, with the progress shown while it runs |
+| 🩺 | **Test connection now sees the sign-in you already did** — it used to answer that the connection had no credentials while the form right above it showed the connection as authorized. The saved session is used now, an access token that ran out is renewed by itself, and a missing credential is only reported when there really is no session for that connection |
+| 🔑 | **The sign-in asks Microsoft for read *and* write access now** — Files.ReadWrite and offline_access instead of Files.Read and offline_access. A session signed in earlier keeps working for reading, downloading and indexing; to write, sign in once more, because Microsoft grants the wider permission when you authorize |
+
+### What changed in 3.18.0
+
+| | | |
+|---|---|---|
+| ☁️ | **OneDrive can be added as a fourth netdisk provider** — in *Settings* → *Remote* → *Netdisks*, *Add netdisk* now offers *OneDrive* next to *Baidu Netdisk*, *Quark Netdisk* and *Aliyun Drive*. The one field you bring along is the application (client) ID of the application you registered in Microsoft Entra for OneDrive — the app has no client ID of its own |
+| 🔑 | **Signing in to OneDrive happens in your own browser** — *Start sign-in* opens the Microsoft login page in your default browser, you sign in there with your Microsoft account, and the app picks the result up over a loopback address on this machine (http://localhost with a random port). No token is copied by hand; the sign-in uses PKCE, asked for read-only file access and offline sign-in (Files.Read and offline_access) in this version - since 3.20.0 it asks for read and write access - and uses no client secret |
+| 🔐 | **The OneDrive session is kept in the app's own encrypted credential store** — it is written into the credential store of the app, encrypted with Windows DPAPI, so it stays on this machine. The token itself is never handed back to the interface |
+| 🩺 | **A OneDrive connection can be checked with *Test connection*** — the button asks OneDrive whether the account can be reached at all, so you find that out before you open a folder |
+| 🧭 | **Files on OneDrive can be found with global search** — like any other netdisk, a OneDrive connection can be ticked *Include in global search*, and the files of that drive are then indexed and show up in the search results next to your local files. The index is rebuilt only when you ask for it |
+| ✍️ | **OneDrive can write to your drive since 3.20.0** — on top of listing folders, reading a file and downloading it, you can upload a file, create a folder, rename an item and delete it on the drive; deleting puts the item into the drive's recycle bin. The sign-in now asks Microsoft for read *and write* access, so a session signed in earlier has to be renewed once. Pictures on OneDrive still have no thumbnail |
+
+### What changed in 3.16.0
+
+| | | |
+|---|---|---|
+| ☁️ | **Aliyun Drive can be added as a third netdisk provider** — in *Settings* → *Remote* → *Netdisks*, *Add netdisk* now offers *Aliyun Drive* next to *Baidu Netdisk* and *Quark Netdisk*. A sign-in window opens inside the app, scanning the QR code with your phone is enough, and the session is stored in the app's own encrypted credential store — no token to copy by hand. Once it is saved, the drive is listed with its real file names and a file can be read into a local folder |
+| 🔐 | **Aliyun Drive writes to your drive as well** — on top of listing a folder and reading a file, the provider now creates folders, uploads files, deletes them and renames them. Moving a file to another folder and sharing are still not offered; the vault drive is recognised but not unlocked |
+| 🐛 | **Aliyun Drive no longer hangs for twenty seconds and then reports a broken connection** — the gateway in front of Aliyun Drive only sends the body of a response when the request asks for gzip-compressed content. Without that request header it replied with the headers alone, held the body back for about twenty seconds and then cut the connection, which reached you as *the connection to Aliyun Drive was interrupted*. The HTTP client now negotiates gzip the way it is supposed to, so listing a folder takes milliseconds instead of a timeout |
+| 🖼️ | **Pictures on a netdisk now show a thumbnail** — thumbnails used to be produced by reading the picture off the disk, and a file on a netdisk has no disk path, so not one picture in a netdisk could ever preview. The picture address the drive itself hands out is now used directly, so images in a netdisk show the same way images in a local folder do. Aliyun Drive offers one today; Baidu Netdisk and Quark Netdisk do not hand out a picture address yet and keep their plain file icon |
+| 👆 | **Clicking one file in a netdisk no longer selects two files** — a netdisk folder may hold several files with the same name, but all of them were given the same path, because a path is built from the parent folder plus the file name. The app compared that path when it decided what was selected, so clicking one of them lit up both. Every remote entry now carries an identity of its own, taken from the drive, and the selection compares that identity — so exactly the file you clicked is the one that gets selected. Renaming, deleting or copying several files of a netdisk folder at once still works on the file name, so two files that share a name are not told apart by those actions yet |
+| 💬 | **A remote failure is now reported in words that fit the drive it happened on** — the fallback message shown when a netdisk cannot be reached used to name one fixed provider. It now names the provider that actually failed, so an Aliyun Drive problem no longer talks about another drive |
+| 📱 | **A connected phone shows up in the folder tree, and its breadcrumb leads the way into it** — the path of a phone in the Windows shell namespace cannot be split by the front end, because it contains separators that are not directory separators, so the levels inside the phone were flattened into one vague *Device* entry. The hierarchy is now taken from the shell itself, one level at a time: the tree shows the device roots that have no drive letter at all, and the address bar leads down through the real names of each level |
+
+### What changed in 3.15.0
+
+| | | |
+|---|---|---|
+| 📱 | **A connected phone or USB drive now shows up in *Locations*** — *Locations* used to list only the drives Windows reports as ordinary disk volumes, and a phone connected over MTP is not such a volume, so it never appeared at all; a USB drive could be dropped as well while Windows had not reported its size yet. The device list is now gathered through the Windows shell itself, so a phone appears under its own name and drives that report no size are no longer thrown away |
+| 🐛 | **Opening a phone from the Windows file explorer now opens the phone** — with Alpha File Manager set as the default file manager, double-clicking a phone handed the path over to the Windows explorer while the app had already thrown it away, leaving you on the *Locations* page; the path is now kept and opened inside the app, and the folders inside the phone can be walked through like any other folder |
+| 🔁 | **A device can be handed back to the Windows file explorer** — when a device cannot be opened inside the app, the message now offers to open it in the Windows file explorer instead, so you are never left stuck |
+| 🧩 | **A device that cannot be read no longer empties the whole *Locations* page** — the drives and the connected devices are now fetched side by side, so one device that fails to answer no longer keeps the drives from showing up as well |
+
+### What changed in 3.14.1
+
+| | | |
+|---|---|---|
+| 🪄 | **Focus Sync fills the open and save dialogs of other programs again** — the check that decides whether a folder may be handed over had become too strict, so every attempt was turned down and the folder you are looking at never reached the dialog; real folders on disk are let through again, and the folder is handed over as soon as you enter it |
+| 📝 | **Focus Sync no longer fills the log with the same line over and over** — the helper wrote a new log line every time its own health check asked, which made the log grow by itself and pushed the messages that matter out of sight; the health check now stays quiet and only real events are written down |
+| 📦 | **The setup file now carries the current helper instead of an old one** — the installer still shipped the helper from an earlier build, so installing it put the previous behavior back on the machine; the setup file now contains the helper that belongs to this release |
+| 🧭 | **Focus Sync keeps its diagnostics readable and stops handing over folders that are not on disk** — the health check ran every fifteen seconds and pushed the log aside, so the entries you needed were pushed out of view; the health check no longer takes part in the diagnostics, and folders that only exist in a virtual place, such as a netdisk connection, are no longer handed to the helper as if they were ordinary folders |
+
+### What changed in 3.14.0
+
+| | | |
+|---|---|---|
+| ☁️ | **Quark Netdisk can be added next to Baidu Netdisk** — in *Settings* → *Remote* → *Netdisks*, the *Add netdisk* section now offers both providers; the sign-in window opens inside the app, the session is stored for you, and the connection you save behaves like any other remote connection |
+| 🔐 | **A netdisk session is saved only when it is complete** — the download link needs one more cookie than the login page hands out first; the app waits for it before saving, so a session that would fail on the very first download is never stored in the first place |
+| 📋 | **Copying a file out of a netdisk folder works again** — right-clicking a file offers *Copy*, and pasting it into a local folder puts the file there instead of doing nothing |
+| 📑 | **The remote settings page now starts with the tabs** — the introduction that used to sit above the *Netdisks* and *Remote connections* tabs has moved into the tabs themselves |
+
+### What changed in 3.13.6
+
+| | | |
+|---|---|---|
+| ⌨️ | **The address bar no longer goes blank without saying why** — when the backend returned a directory listing without an entry list, the address bar threw and the failure was swallowed, so you got an empty suggestion list while typing a path. Such a payload is now treated as a failed listing, and the address bar falls back to listing the current folder |
+| 🧩 | **Focus Sync can no longer install silently dead** — the app refuses an extension that breaks its sandbox rules before it ever runs: no window, no notification, the feature simply is not there. The check meant to catch this was skipped on packaged installs; every build is now verified before it is packaged |
+
+### What changed in 3.13.5
+
+| | | |
+|---|---|---|
+| 🔌 | **The Focus Sync helper no longer starts on its own** — it used to be launched by a Windows logon task and stayed resident, holding its port and watching dialogs even while Alpha File Manager was closed. It is now started by the app and stopped with it, so the helper lives exactly as long as the app does |
+| 🧹 | **An upgrade removes the old logon task for good** — the task used to be deleted only after the new helper had been deployed, so a failed deployment left it registered and it could bring the old helper back a minute later. It is now removed before any helper file is touched, and the installer waits for the old process to exit before replacing its files |
+| 📦 | **The standalone extension installer follows the same rule** — installing the Focus Sync extension on its own no longer registers the retired logon task; it clears it instead, and ends any leftover helper process before the new binary is deployed |
+
+### What changed in 3.13.4
+
+| | | |
+|---|---|---|
+| 🔑 | **Baidu Netdisk signs in inside the app** — *Use the embedded window to sign in* opens the real Baidu login page in a built-in browser window; scanning the QR code there is enough, the session is picked up automatically and no cookie has to be copied by hand |
+| 🛡️ | **A stale session is no longer taken for a fresh sign-in** — each attempt starts from a clean cookie jar, a sign-in that hands back the same session as the one before is refused, and a session the server already treats as signed out is rejected instead of being stored |
+| 🚫 | **Saving without a signed-in session is refused** — the form points at *Sign in inside the app* instead of saving an entry that answers every request as signed out, and a sign-in that ends badly (window closed, timed out, session unreadable) now raises a toast instead of leaving one grey line of text |
+| 🩺 | ***Test connection* tells the truth** — with no stored credential it no longer claims the password was refused, and the backend's own message appears under the outcome, so a timeout, an expired session and a refused credential no longer read alike |
+| ⚡ | **Deleting a remote entry updates the listing at once** — the entries are removed from the listing before the refresh runs, so the change is visible without pressing *Refresh* |
+| 📁 | **Creating a folder on Baidu Netdisk works** — the request used to carry every parameter in the query string with an empty body, which the server answered with a protocol error; it now sends a proper form body, and the new folder is created on the drive itself |
+| 🐛 | **A failed remote *New folder* no longer leaves the dialog stuck** — the *Create* button is re-enabled when the operation fails and the dialog stays open for another attempt |
+| 📝 | **Remote operations leave traces in the log** — *List*, *Delete* and *Create folder* each log a begin/done pair with the connection, the path, the entry count and the elapsed time |
+
+### What changed in 3.13.0
+
+| | |
+|---|---|
+| ☁ | **Baidu Netdisk is browsable as a remote connection** — add it from the cloud icon, give it the cookie of a signed-in session, and listing, creating a folder, renaming, deleting and downloading all reach the drive itself; no host or port is asked for, the host is fixed to `pan.baidu.com` and the agent is always direct |
+| ⚙ | **Settings separates net disks from remote connections** — the *Remote* page is split into *Net disk* and *Remote connection* tabs, the add-connection page opens on the net disk tab, and *Trusted hosts* shows only where it applies |
+| 🏠 | **The dashboard lists your connections** — the *Net disk & remote connections* card lists the servers you have saved by name and opens one in the navigator, instead of only offering a way to the settings page |
+| 📍 | **The *Locations* page groups what you can reach** — volumes first, then net disks, then remote connections; a group with nothing in it shows no heading at all |
+| 🐛 | **The navigator no longer stalls during a global search** — the search submission's disk I/O no longer holds the state write lock, so the window keeps responding while a scan runs |
+
+### What changed in 3.12.2
+
+| | |
+|---|---|
+| 🔗 | **Revealing a shortcut opens the target's folder** — *Open file location* on a `.lnk` now lands in the folder its target really lives in, with the target selected; a shortcut whose target is gone quietly falls back to the folder the `.lnk` sits in |
+| 🛡️ | **The three system dialogs are gone** — *The operation has been aborted*, *The renderer process crashed (window main)* and *Windows can't find the `\` file* no longer interrupt the action, and the work now runs off the main thread instead of freezing the window |
+| 🎨 | **Visual effects defaults match the specification** — overlay blur 0px, overlay opacity 0% and overlay noise 0% (were 64px/32px, 5% and 5%); *Reset visual effects to defaults* and fresh installs get these values, existing installations are not migrated automatically |
+
+### What changed in 3.12.1
+
+| | |
+|---|---|
+| 🖼️ | **A shortcut's icon no longer depends on your icon settings** — a `.lnk` shows its target's own icon whether the list is drawn from system icons or from the icon theme; a shortcut with a missing target still falls back to the generic one |
+| 🪟 | **The address bar you type into shows `\` too** — the editor and the suggestions under it were still showing `/` after 3.12.0; they now match the rest of the app, while the internal path spelling stays single |
+| 💾 | **Focus Sync follows *Save as* again** — the installer now carries 0.5.18 of the background component, which no longer loses the folder in a save dialog or in a localized one such as *Downloads* |
+
+### What changed in 3.12.0
+
+| | |
+|---|---|
+| 🪟 | **Paths are written the way Windows writes them** — every path you see, and every path you copy, now comes with `\` separators instead of `/`: the address bar, the breadcrumb, *Copy path*, the properties panel, a search result, a tab |
+| 🔗 | **Paste a shortcut from the right-click menu** — copy a file or a folder, right-click a folder and pick *Paste shortcut*: the clipboard content lands there as a `.lnk` shortcut instead of a copy, and the clipboard stays put so you can paste it into more than one folder |
+| 🖼️ | **A shortcut shows the icon of what it points at** — a `.lnk` to an executable wears that program's own icon in the file list; a shortcut whose target is gone falls back to the generic shortcut icon |
+
+### What changed in 3.11.0
+
+| | |
+|---|---|
+| 🔄 | **Turn and flip a picture from the right-click menu** — *Rotate left*, *Rotate right*, *Flip horizontally* and *Flip vertically* appear for a picture file; the edit is written back to the same file at once, with no dialog, no *Save as* and no second confirmation |
+| 📌 | **A taskbar icon you pinned survives an update** — installing over an existing version hands the program over instead of cleaning up, so the pinned icon, the Start Menu shortcut and the autostart entry all stay where they were |
+| 🔎 | **The global search results have their right-click menu again** — right-clicking a result opens the menu as before, and *Open the containing folder* jumps to the folder that holds the file and selects it there |
+| ⚡ | **Turning a picture no longer takes the application down, and it is much faster** — the edit runs on a background thread, so the window stays responsive instead of the built-in watchdog shutting the program down and starting it again; encoding a large picture dropped from about 5.6 seconds to about 2.1 seconds |
+
+### What changed in 3.9.0
+
+| | |
+|---|---|
+| 🎨 | **The application icon was redrawn** — the whole set of glyphs was scaled up and the characters moved down, so the mark reads as a solid shape at task bar and installer sizes. Two colourways of it: a dark folder with a pale alpha on light backgrounds, a pale folder with a dark alpha on dark backgrounds. The settings header follows the theme; the installer and the task bar use the dark-background colourway |
+| 🔴 | **Two icons at the top right of the navigator wear a low-saturation red** — the split view and folder tree buttons in the *Warm Paper* themes were a bright red that did not sit well on the paper |
+| 🌍 | **The folder tree tooltip is now translated** — *Show folder tree* and *Hide folder tree* used to be English in every language; all seventeen language packs now carry them |
+| 🔤 | **Three font sizes** — *Default*, *Large* and *Extra large*, each a fixed step of 0, 2 and 4 pixels on top of the current size, with the line heights and the properties panel following along |
+| 📄 | **The settings page has an *About* page** — the logo, the name, the version that is running, and links out to the changelog, the project page, the commits and the issue tracker |
+| ↕️ | **Favourites can be put in order** — drag the categories and the favourites in them into place, and the order is kept between restarts |
+
+---
+
+## ⚖️ Alpha File Manager vs Sigma File Manager vs Windows Explorer
+
+Three different tools, three different jobs. Here is the honest version of how
+they compare.
+
+| | | Alpha File Manager | Sigma File Manager | Windows Explorer |
+|---|---|---|---|---|
+| 🖥️ | **Where it runs** | Windows + Linux | Windows + Linux | Windows only |
+| 🌲 | **Folder tree in the left sidebar** | ✅ a permanent tree that follows the pane you are in — and becomes the remote tree | ➖ none | ✅ in the navigation pane |
+| ⭐ | **Getting to the folders you use daily** | ✅ favourites grouped by category and editable — adding one asks which category it belongs to, so your working set is one click away | ➖ no categories, and adding one never asks | ➖ pinned to Quick access, no categories |
+| ⚡ | **File dialogs in other apps** | ✅ **Focus Sync** — every dialog opens in the folder you are browsing | ➖ | ❌ |
+| 🤖 | **Driven by an AI assistant** | ✅ built-in MCP server, one-click setup for six assistants | ❌ | ❌ |
+| 🔐 | **Remote servers** | ✅ SFTP · FTP · FTPS, host keys and certificates pinned | ❌ | ➖ SMB / WebDAV / OneDrive, and no SFTP at all |
+| ☁️ | **Netdisks (cloud drives)** | ✅ **Baidu Netdisk, Quark Netdisk, Aliyun Drive and OneDrive** — add them in the app, sign in (inside the app, or in your browser for OneDrive), and browse them like any remote connection; **Google Drive and other mainstream netdisks are on the way** | ❌ | ➖ OneDrive only |
+| 📤 | **Working on remote files** | ✅ upload, download, delete, set permissions | ❌ | ➖ shares only |
+| ↔️ | **Two panes, used together** | ✅ **swap them with one button**, and a **synchronized browsing** toggle right beside it — enter a folder and the other pane follows, going up a level takes it along too | ➖ **no pane swap**; linked browsing exists but is a buried option in the navigator menu | ➖ tabs, not panes |
+| 🔍 | **Comparing two folders** | ✅ recursively, with the criteria serious tools use — and an explicit "direction undecided" state instead of guessing which side is newer | ➖ | ➖ compares by size and date only, and the choice is buried |
+| 🧠 | **Batch rename** | ✅ find-and-replace, case conversion, templates and numbering — with a live preview, conflicts blocked instead of silently overwriting, and undo | ❌ not in Sigma at all | ✅ find-and-replace, with a preview |
+| 🔓 | **A file that will not delete** | ✅ the right-click menu lists the programs holding it, and *Delete anyway* removes it anyway — clearing the read-only flag, marking it for deletion, or falling back to deletion at the next restart | ➖ | ❌ |
+| 🫳 | **Dragging a file into another program** | ✅ **hold the file and drag** it into WeChat, DingTalk or a browser — the window you are dragging out of stays in the background | ➖ | ✅ |
+| 👁️ | **The program you drag over comes to the front** | ✅ the window under the pointer is brought forward while you carry the file, so you can see where it will land | ➖ | ➖ a Windows drag never raises the window under the pointer |
+| ⌨️ | **Keyboard range selection** | ✅ **Shift + arrow key** extends the selection from the anchor you started at | ➖ | ✅ Shift + arrow key extends the selection too |
+| 📊 | **Which columns to show** | ✅ chosen per location — the drives page drops the columns that have nothing to say | ➖ one set for every folder | ➖ one set for every folder |
+| 💾 | **How full a drive is** | ✅ filled on the card, plus a Free space column | ➖ | ✅ |
+| 🖼️ | **Thumbnail size** | ✅ four sizes | ➖ | ➖ the system size |
+| 🌐 | **Mapping a network drive** | ✅ from the sidebar, with a drive letter you pick | ➖ | ✅ |
+| 🎨 | **Background effects can blend** | ✅ the full set of Photoshop layer modes, with your own fill colour | ➖ | ❌ |
+
+✅ has it · ➖ not part of that project · ❌ cannot
+
+> **Netdisks are a growing surface, and we will keep working on them.** What
+> works today is Baidu Netdisk, Quark Netdisk and Aliyun Drive — add one in the
+> app, sign in inside it, and browse it like a remote connection; listings,
+> uploads and downloads all reach the drive itself, and Aliyun Drive also
+> creates folders, deletes files and renames them. Google Drive and the other
+> mainstream netdisks will be plugged into the very same machinery: one
+> connection in the sidebar, and the tree, the listings and the transfers
+> follow it.
+
+> **If you want the file manager that is part of Windows** — with the shell
+> extensions, the codecs, the network shares, the EFS encryption and the "it
+> works with everything" factor — use Explorer. No third-party file manager
+> replaces that, and we are not going to pretend otherwise.
+>
+> **If you want one window in which a local disk and a remote server sit side by
+> side**, with an assistant able to read your drives over a standard interface
+> and a tree that follows you into either of them — that is what Alpha File
+> Manager is. Explorer ships no SFTP client at all, and no way to let an
+> assistant see your files without a third-party bridge.
+>
+> **Sigma File Manager** is the base application we build on. Take it if you
+> want the upstream project itself, its own release cadence and its community.
+> Alpha File Manager is an independent fork of it and tracks upstream.
+
+---
+
+## 📦 Download & install
+
+**Primary download:** [**www.aiec.fun/alpha-file-manager**](https://www.aiec.fun/alpha-file-manager/)
+— this is the update channel the app itself checks.
+
+| | Platform | How |
+|---|---|---|
+| 🪟 | **Windows** | One-step installer from [the download page](https://www.aiec.fun/alpha-file-manager/) — installs, upgrades in place, and uninstalls cleanly |
+| 🪟 | **Windows, portable** | The same installer works as a per-user install; the app never needs elevation |
+| 🐧 | **Linux** | Builds are produced from source (`.deb` / `.AppImage`); see [build from source](#-build-from-source) |
+
+GitHub releases carry the same installer and act as a fallback mirror:
+[releases/latest](https://github.com/kizemo/alpha-file-manager/releases/latest).
+
+> **Windows builds are unsigned**, so SmartScreen reports *"Unknown publisher"* —
+> click **More info → Run anyway**. Upgrading in place keeps your settings,
+> extensions and window layout.
+
+---
+
+## 🆕 What's new in 3.8.0
+
+### 🎨 The archival-paper look, refined again
+
+**Improved.** The two *Warm Paper* themes were tuned a second time: the main area is brighter
+and less saturated, all icons are drawn in one pale beige line art, folder icons carry a muted
+green accent, the tabs you are not in are dimmed and given a pale beige-grey edge, the list
+header sits on a deeper ground with a rule above and below it, and the icon rail on the left is
+a deep ink colour with pale icons on it. In *Vivid* the toolbar buttons are coloured by the job
+they do - split view, folder tree, details, compare, more, extensions, search, new, filter - and
+the buttons at the left of the address bar each get a colour of their own. Every colour was
+solved against the title bar of its theme, so no icon falls below the 3 : 1 that non-text
+graphics have to keep.
+
+### 📐 Tabs size themselves, rows tell themselves apart
+
+**Improved.** A tab now takes only as much width as its title needs, up to a maximum, and a
+title that is still too long is cut with an ellipsis. In the list view a folder row and a file
+row no longer sit on the same ground - folders get a tint of their own - so a long list can be
+read by shape instead of by reading every line.
+
+### 🖼️ A new application icon, in the warm-paper palette
+
+**Changed.** The icon comes in two colourways: a dark folder with a pale alpha on light
+backgrounds, and a pale folder with a dark alpha on dark backgrounds. The settings header
+follows the theme; the installer and the task bar use the dark-background colourway.
+
+### 🛠️ The *Follow Path* extension works again
+
+**Fixed.** The uninstall step of the installer disabled the scheduled task of the extension and
+the install step only started it, which cannot succeed for a task that is disabled - the
+extension stopped answering after every install and every update. The installer now enables the
+task before it starts it, so the extension comes back on its own. Its install script also no
+longer writes a garbled title into the extension list, because the dash in the title is now
+built at runtime instead of being read with the code page of the system. If the extension still
+does not answer after an update, restart the application once.
+
+---
+
+## 👥 Community
+
+| | |
+|---|---|
+| 🌐 | **Website** — [www.aiec.fun/alpha-file-manager](https://www.aiec.fun/alpha-file-manager/) |
+| 💬 | **Discussions** — [ask a question or share an idea](https://github.com/kizemo/alpha-file-manager/discussions) |
+| 🐛 | **Issues** — [report a bug](https://github.com/kizemo/alpha-file-manager/issues) |
+| 🧑‍💻 | **Contributing** — [CONTRIBUTING.md](CONTRIBUTING.md) |
+
+> **If Alpha File Manager is useful to you, a star helps other people find it.**
+> GitHub only shows a project to people who search for it or see it shared, and
+> a star is the single cheapest way to make it visible to both.
+
+---
+
+## 💻 Build from source
+
+Alpha File Manager is a [Tauri v2](https://v2.tauri.app/) application: a Rust
+backend (`src-tauri/`) and a Vue 3 + TypeScript frontend (`src/`).
+
+```bash
+git clone https://github.com/kizemo/alpha-file-manager.git
+cd alpha-file-manager
+npm ci --ignore-scripts
+npm run tauri:dev          # development
+npm run check              # lint + type-check + tests
+npm run tauri:build        # release build
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites and the full workflow.
+
+---
 
 ## Credits
 
-- Upstream: [aleksey-hoffman/sigma-file-manager](https://github.com/aleksey-hoffman/sigma-file-manager) by [Aleksey Hoffman](https://github.com/aleksey-hoffman). All product features, branding, and release pipelines belong to upstream.
-- Fork maintainer: [kizemo](https://github.com/kizemo).
+- **Upstream:** [aleksey-hoffman/sigma-file-manager](https://github.com/aleksey-hoffman/sigma-file-manager)
+  by [Aleksey Hoffman](https://github.com/aleksey-hoffman). The base application,
+  its features and its branding belong to upstream.
+- **Focus Sync extension:** lives in THIS repository under
+  [`extensions/kizemo.focus-sync/`](./extensions/kizemo.focus-sync/) —
+  extension payload, sidecar source and the standalone installer. Released
+  standalone installers are archived at
+  [kizemo/focus-sync](https://github.com/kizemo/focus-sync).
+- **Git Tools extension:** lives in THIS repository under
+  [`extensions/kizemo.git/`](./extensions/kizemo.git/) and is published from
+  [kizemo/sfm-git-extension](https://github.com/kizemo/sfm-git-extension). It is
+  served to the application from our own registry,
+  [kizemo/sfm-marketplace](https://github.com/kizemo/sfm-marketplace), which the
+  market reads as the *Official* source, above the legacy Sigma registry shown as
+  a *Third-party* source.
+- **Publisher of our extensions:** [Alpha File Manager](https://github.com/kizemo/alpha-file-manager).
+  Extensions we publish are badged *Official* next to their name and listed under
+  *Featured* in the market.
+- **Maintainer of this fork:** [kizemo](https://github.com/kizemo)
+
+Additional code reused under its original terms:
+[inaku-Gyan/PathWrap](https://github.com/inaku-Gyan/PathWrap) (MIT) ·
+[QwenLM/qwen-code](https://github.com/QwenLM/qwen-code) (Apache-2.0).
+
+---
 
 ## License
 
-GPL-3.0-or-later — see [`LICENSE.md`](./LICENSE.md). Fork additions are contributed under the same license.
+**GPL-3.0-or-later** — the full text is in [`LICENSE.md`](./LICENSE.md), and the
+copyright notice plus a plain-language summary are in [`NOTICE.md`](./NOTICE.md).
+Fork additions are contributed under the same license.
+
+As required by GPL-3, the corresponding source for every shipped binary is
+available at:
+
+| Component | Source |
+|---|---|
+| Alpha File Manager (this fork) | <https://github.com/kizemo/alpha-file-manager> |
+| Sigma File Manager (base) | <https://github.com/aleksey-hoffman/sigma-file-manager> |
+| Focus Sync extension + sidecar | bundled in this repository, `extensions/kizemo.focus-sync/` |
+| Git Tools extension | bundled in this repository, `extensions/kizemo.git/` |

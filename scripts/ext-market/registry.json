@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "1.0.0",
+  "extensions": [
+    {
+      "id": "kizemo.focus-sync",
+      "name": "Focus Sync",
+      "description": "Listary-style global focus sync: push the current Alpha File Manager folder into any open file dialog (Chrome, Word, VS Code, etc.). The sidecar runs as a Windows Scheduled Task, independent of the app lifecycle.",
+      "publisher": {
+        "name": "Alpha File Manager",
+        "url": "https://github.com/kizemo"
+      },
+      "repository": "https://github.com/kizemo/focus-sync",
+      "featured": true,
+      "categories": [
+        "Productivity",
+        "Integration"
+      ],
+      "tags": [
+        "listary",
+        "focus",
+        "sync",
+        "file-dialog"
+      ],
+      "releaseMetadata": {
+        "0.5.9": {
+          "integrity": "sha256:9ec308531f9ade968a50733bb900e1de1b913f595d92c0bac30510cccf38cf94",
+          "manifest": "https://raw.githubusercontent.com/kizemo/focus-sync/v0.5.9/package.json"
+        },
+        "0.5.8": {
+          "integrity": "sha256:480ac78c5a49a08d5d7fb8a605fef5a36594b345d2223dce7688b587e2b50d15",
+          "manifest": "https://raw.githubusercontent.com/kizemo/focus-sync/main/package.json"
+        }
+      }
+    },
+    {
+      "id": "kizemo.git",
+      "name": "Git Tools",
+      "description": "Do Git work directly inside Alpha File Manager: init, clone, fetch, pull, push, sync, browse branches, commits and tracked files, and hand the repository to your IDE.",
+      "publisher": {
+        "name": "Alpha File Manager",
+        "url": "https://github.com/kizemo"
+      },
+      "repository": "https://github.com/kizemo/sfm-git-extension",
+      "featured": true,
+      "categories": [
+        "Developer Tools",
+        "Productivity"
+      ],
+      "tags": [
+        "git",
+        "vcs",
+        "developer",
+        "source-control"
+      ],
+      "releaseMetadata": {
+        "0.1.0": {
+          "integrity": "sha256:4f0111d93591f82a5ce5124053660e7f8f3d39d146eb3c720ee4e1fc7391b09a",
+          "manifest": "https://raw.githubusercontent.com/kizemo/sfm-git-extension/main/package.json"
+        }
+      }
+    }
+  ]
+}

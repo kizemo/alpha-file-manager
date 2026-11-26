@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import {
   computeAncestorPaths,
+  parentDirectoryPath,
   useFolderTreeStore,
 } from '@/stores/runtime/folder-tree';
 
@@ -18,6 +19,78 @@ describe('computeAncestorPaths', () => {
     expect(computeAncestorPaths('/')).toEqual([]);
     expect(computeAncestorPaths('C:/')).toEqual([]);
     expect(computeAncestorPaths('C:\\')).toEqual([]);
+  });
+
+  // FORK-MODIFICATION 2026-11-19（批次 24）：shell 命名空间路径（手机 / 读卡器）。
+  //
+  // 用户 2026-11-19：「在位置中，已经可以显示手机，但在目录树无法显示手机」。
+  // 设备进树之后，选中路径可能是 `::{GUID}\?\usb#vid_22d9&pid_2765&mi_00\SDcard\DCIM`。
+  // 这条链必须由 `getShellParentPath`（前缀截断）算：
+  //   · 先 `\`→`/` 再按 `/` 切段，会把不透明标识符拆成树里根本没有的假祖先；
+  //   · `?` 与裸 GUID 都不是一层目录，拆出来没人能匹配上，
+  //     `ensureLoaded` 找不到节点就 addRoot，设备子目录会被立成并列的第二个根。
+  describe('shell 设备路径：不透明标识符，按段拆就是错的', () => {
+    const DEVICE = '::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\?\\usb#vid_22d9&pid_2765&mi_00';
+    const DEVICE_CHILD = `${DEVICE}\\SDcard`;
+
+    it('设备根自己就是根：parentDirectoryPath 返回 null', () => {
+      expect(parentDirectoryPath(DEVICE)).toBeNull();
+    });
+
+    it('裸 GUID（「此电脑」）没有更上一级', () => {
+      expect(parentDirectoryPath('::{20D04FE0-3AEA-1069-A2D8-08002B30309D}')).toBeNull();
+    });
+
+    it('设备根的直接子目录：父级 = 设备根，逐字符原样', () => {
+      expect(parentDirectoryPath(`${DEVICE}\\SDcard`)).toBe(DEVICE);
+    });
+
+    it('祖先链只到设备根为止，且一路保留 \\ 与 ?（不做任何归一）', () => {
+      expect(computeAncestorPaths(`${DEVICE}\\SDcard\\DCIM`))
+        .toEqual([DEVICE, `${DEVICE}\\SDcard`]);
+    });
+
+    it('链里不出现 ?、裸 GUID、`::{GUID}\\?` 这类垃圾祖先', () => {
+      const ancestors = computeAncestorPaths(`${DEVICE}\\SDcard\\DCIM\\Camera`);
+
+      expect(ancestors).toEqual([
+        DEVICE,
+        `${DEVICE}\\SDcard`,
+        `${DEVICE}\\SDcard\\DCIM`,
+      ]);
+      expect(ancestors).not.toContain('::{20D04FE0-3AEA-1069-A2D8-08002B30309D}');
+      expect(ancestors.some(p => p.includes('/'))).toBe(false);
+    });
+
+    it('setSelectedPath(设备深层目录) 展开的是设备根那条链', () => {
+      setActivePinia(createPinia());
+      const store = useFolderTreeStore();
+
+      store.setSelectedPath(`${DEVICE}\\SDcard`);
+
+      expect(store.expandedPaths.has(DEVICE)).toBe(true);
+      expect(store.expandedPaths.has(`${DEVICE}\\SDcard`)).toBe(true);
+    });
+
+    it('markTreeStale 不把 shell key 的分隔符改写掉', () => {
+      setActivePinia(createPinia());
+      const store = useFolderTreeStore();
+
+      // 树里的节点 key 就是 Rust 给的原始 shell 路径，
+      // 一旦 `\`→`/`，失效标记就没人认领 —— 设备目录里新建/删除后树不刷新。
+      store.markTreeStale([DEVICE_CHILD]);
+
+      expect(store.staleTreePaths.has(DEVICE_CHILD)).toBe(true);
+    });
+
+    it('markTreeStale 设备根已失效时，不再重复排设备下的层', () => {
+      setActivePinia(createPinia());
+      const store = useFolderTreeStore();
+
+      store.markTreeStale([DEVICE_CHILD, DEVICE]);
+
+      expect([...store.staleTreePaths]).toEqual([DEVICE]);
+    });
   });
 
   it('expands POSIX absolute path', () => {
@@ -47,6 +120,51 @@ describe('computeAncestorPaths', () => {
   it('expands multi-segment relative path', () => {
     expect(computeAncestorPaths('foo/bar/baz'))
       .toEqual(['foo', 'foo/bar']);
+  });
+
+  // FORK-MODIFICATION 2026-10-19：远程连接根就是根。
+  // 用户实测：树根切到「速豹堂」了，但永远展不开 —— 祖先链爬到了
+  // `sfm://remote` 和 `sfm:` 这些树里根本不存在的路径上。
+  it('expands remote path down to the connection root, and stops there', () => {
+    const CONN = 'e2b24ab525544dc7adeb5cedb192179b';
+
+    expect(computeAncestorPaths(`sfm://remote/${CONN}/vol1/@team/study_platform`))
+      .toEqual([
+        `sfm://remote/${CONN}`,
+        `sfm://remote/${CONN}/vol1`,
+        `sfm://remote/${CONN}/vol1/@team`,
+      ]);
+  });
+
+  it('never emits `sfm:` or `sfm://remote` as an ancestor', () => {
+    const CONN = 'e2b24ab525544dc7adeb5cedb192179b';
+    const ancestors = computeAncestorPaths(`sfm://remote/${CONN}/vol1`);
+
+    expect(ancestors).not.toContain('sfm:');
+    expect(ancestors).not.toContain('sfm://remote');
+    expect(ancestors).not.toContain('sfm://');
+  });
+
+  it('connection root itself has no ancestors', () => {
+    const CONN = 'e2b24ab525544dc7adeb5cedb192179b';
+
+    expect(computeAncestorPaths(`sfm://remote/${CONN}`)).toEqual([]);
+    expect(computeAncestorPaths(`sfm://remote/${CONN}/`)).toEqual([]);
+  });
+});
+
+describe('parentDirectoryPath · 远程', () => {
+  const CONN = 'e2b24ab525544dc7adeb5cedb192179b';
+
+  it('到连接根就停', () => {
+    expect(parentDirectoryPath(`sfm://remote/${CONN}/vol1/@team`))
+      .toBe(`sfm://remote/${CONN}/vol1`);
+    expect(parentDirectoryPath(`sfm://remote/${CONN}/vol1`))
+      .toBe(`sfm://remote/${CONN}`);
+  });
+
+  it('连接根没有父级', () => {
+    expect(parentDirectoryPath(`sfm://remote/${CONN}`)).toBeNull();
   });
 });
 
@@ -164,5 +282,114 @@ describe('useFolderTreeStore', () => {
     store.markLoadError('C:/Users', true);
     expect(store.isExpanded('C:/Users')).toBe(true);
     expect(store.hasLoadError('C:/Users')).toBe(true);
+  });
+});
+
+describe('folderTree store — stale-path channel (v6.5)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  it('markTreeStale normalizes separators and drops descendants of a stale ancestor', () => {
+    // Invalidating an ancestor already re-reads everything beneath it, so
+    // keeping the descendant would only cost a second, redundant disk read.
+    const store = useFolderTreeStore();
+    store.markTreeStale(['C:\\work', 'C:/work/sub', 'C:/work/sub/deeper', 'D:/other']);
+
+    expect([...store.staleTreePaths].sort()).toEqual(['C:/work', 'D:/other']);
+  });
+
+  it('markTreeStale handles drive roots and trailing slashes', () => {
+    const store = useFolderTreeStore();
+    store.markTreeStale(['C:/', 'C:/Users/', 'E:/']);
+    expect([...store.staleTreePaths].sort()).toEqual(['C:/', 'E:/']);
+  });
+
+  it('markTreeStale ignores empty input and bumps the revision', () => {
+    // The revision is what makes a watcher fire: the stale Set dedupes, so
+    // invalidating the same path twice is otherwise invisible to a watcher
+    // that only tracks the Set.
+    const store = useFolderTreeStore();
+    const before = store.staleTreeRevision;
+
+    store.markTreeStale(['C:/work']);
+    const afterFirst = store.staleTreeRevision;
+    expect(afterFirst).toBeGreaterThan(before);
+
+    store.markTreeStale(['C:/work']);
+    expect(store.staleTreeRevision).toBeGreaterThan(afterFirst);
+    expect([...store.staleTreePaths]).toEqual(['C:/work']);
+
+    store.markTreeStale(['', '   ']);
+    expect([...store.staleTreePaths]).toEqual(['C:/work']);
+  });
+
+  it('consumeStaleTreePaths hands over the paths and clears them', () => {
+    const store = useFolderTreeStore();
+    store.markTreeStale(['C:/work']);
+
+    expect(store.consumeStaleTreePaths()).toEqual(['C:/work']);
+    expect(store.consumeStaleTreePaths()).toEqual([]);
+    expect(store.staleTreePaths.size).toBe(0);
+  });
+
+  it('consumeStaleTreePaths preserves paths published while the tree panel is hidden', () => {
+    // navigator.vue mounts FileBrowserTreeView under v-if="showFolderTree".
+    // Invalidation published while it is unmounted must survive until the
+    // tree comes back — the consumer only reads on mount/r revision change.
+    const store = useFolderTreeStore();
+    store.markTreeStale(['C:/work']);
+    expect(store.consumeStaleTreePaths()).toEqual(['C:/work']);
+
+    store.markTreeStale(['C:/work']);
+    expect(store.consumeStaleTreePaths()).toEqual(['C:/work']);
+  });
+
+  it('handlePathRenamed moves expansion and selection onto the new path', () => {
+    const store = useFolderTreeStore();
+    store.setSelectedPath('C:/work/sub');
+    store.expandPath('C:/work');
+
+    store.handlePathRenamed('C:/work/sub', 'C:/work/renamed');
+
+    expect(store.isExpanded('C:/work/renamed')).toBe(true);
+    expect(store.isExpanded('C:/work/sub')).toBe(false);
+    expect(store.selectedPath).toBe('C:/work/renamed');
+  });
+
+  it('handlePathRenamed is a no-op for unchanged or empty paths', () => {
+    const store = useFolderTreeStore();
+    store.setSelectedPath('C:/work/sub');
+
+    store.handlePathRenamed('C:/work/sub', 'C:/work/sub');
+    expect(store.selectedPath).toBe('C:/work/sub');
+
+    store.handlePathRenamed('', 'C:/x');
+    store.handlePathRenamed('C:/a', '');
+    expect(store.selectedPath).toBe('C:/work/sub');
+  });
+
+  it('reset clears pending stale paths', () => {
+    const store = useFolderTreeStore();
+    store.markTreeStale(['C:/work']);
+    store.reset();
+    expect(store.staleTreePaths.size).toBe(0);
+    expect(store.consumeStaleTreePaths()).toEqual([]);
+  });
+});
+
+describe('parentDirectoryPath', () => {
+  it('returns the parent for nested paths', () => {
+    expect(parentDirectoryPath('C:/Users/foo')).toBe('C:/Users');
+    expect(parentDirectoryPath('C:/Users/foo/bar.txt')).toBe('C:/Users/foo');
+    expect(parentDirectoryPath('/usr/local/bin')).toBe('/usr/local');
+  });
+
+  it('returns null for roots and non-paths', () => {
+    expect(parentDirectoryPath('')).toBeNull();
+    expect(parentDirectoryPath('/')).toBeNull();
+    expect(parentDirectoryPath('C:/')).toBeNull();
+    expect(parentDirectoryPath('C:')).toBeNull();
+    expect(parentDirectoryPath('foo')).toBeNull();
   });
 });

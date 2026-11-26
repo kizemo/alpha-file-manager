@@ -1,8 +1,11 @@
 {
   "app": {
-    "name": "Sigma File Manager",
-    "description": "is a free, open source, advanced, modern file manager app, licensed under GNU GPLv3 or later.",
-    "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
+    "name": "Alpha File Manager",
+    "description": "is developed on top of Sigma File Manager, adding practical features such as a directory tree, quick switching (path focus sync for file dialogs) and batch rename. Many details have been refined to deliver a more complete file manager experience.",
+    "copyright": "Credits to the original author Aleksey Hoffman.",
+    "developerLabel": "Developed by ",
+    "developer": "kizemo",
+    "repository": "https://github.com/kizemo/alpha-file-manager"
   },
   "units": {
     "px": "px"
@@ -19,7 +22,7 @@
   "pages": {
     "home": "Home page",
     "navigator": "Navigator",
-    "dashboard": "Dashboard",
+    "dashboard": "Quick Access",
     "notes": "Notes",
     "settings": "Settings",
     "extensions": "Extensions"
@@ -33,7 +36,15 @@
     "tagged": "Tagged",
     "emptyFavorites": "No favorites",
     "emptyTagged": "No tagged items",
-    "unknownTagGroup": "Unknown tag"
+    "unknownTagGroup": "Unknown tag",
+    "frequent": "Frequent",
+    "history": "History",
+    "emptyFrequent": "No frequently used items",
+    "emptyHistory": "No history yet",
+    "openFavoritesTab": "Open Favorites tab in Quick Access",
+    "openFrequentTab": "Open Frequent tab in Quick Access",
+    "openHistoryTab": "Open History tab in Quick Access",
+    "openTaggedTab": "Open Tagged tab in Quick Access"
   },
   "placeholders": {
     "noDrivesFound": "No drives found",
@@ -76,6 +87,8 @@
     "music": "Music"
   },
   "tabs": {
+    "scrollTabsLeft": "Scroll tabs left",
+    "scrollTabsRight": "Scroll tabs right",
     "newTab": "New tab",
     "duplicateTab": "Duplicate tab",
     "closeOtherTabs": "Close other tabs",
@@ -89,6 +102,9 @@
   "splitViewMode": "Split view mode",
   "splitViewModeSplit": "Split",
   "splitViewModeLinked": "Linked",
+  "syncBrowsing": "Synchronized browsing",
+  "syncBrowsingOn": "Synchronized browsing: on",
+  "syncBrowsingHint": "Select a folder in the left pane and the right pane jumps to the folder of the same name.",
   "filter": {
     "filter": "Filter",
     "showHiddenItems": "Show Hidden Items",
@@ -121,7 +137,9 @@
       "trash": "Trash",
       "deletePermanent": "Delete",
       "archive": "Archive",
-      "dirSize": "Folder size"
+      "dirSize": "Folder size",
+      "remoteUpload": "Upload",
+      "remoteDownload": "Download"
     },
     "operationStatusShort": {
       "completed": "Success",
@@ -131,9 +149,17 @@
       "pending": "Pending",
       "cancelling": "Canceling…"
     },
-    "toolbarActiveCount": "0 operations | 1 operation | {n} operations | {n} operations"
+    "toolbarActiveCount": "0 operations | 1 operation | {n} operations | {n} operations",
+    "deleteScanning": "Measuring what will be deleted…",
+    "deleteScanningFound": "{count} items found",
+    "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "Moving to the Recycle Bin…",
+    "cancelNotAccepted": "Cannot cancel: files are already being moved to the Recycle Bin.",
+    "deleteBytesProgress": "{done} / {total} freed"
   },
   "globalSearch": {
+    "scanModeFull": "Full",
+    "scanModeIncremental": "Incremental",
     "globalSearch": "Global search",
     "driveScanInProgress": "Drive indexing in progress",
     "searchDataIncomplete": "Search data is incomplete",
@@ -176,7 +202,10 @@
       "indexed": "Indexed {time}",
       "nothingFound": "Nothing was found"
     },
-    "showSearchSettings": "Show search settings"
+    "showSearchSettings": "Show search settings",
+    "remoteIndexing": "Indexing cloud drives",
+    "remoteIndexDone": "Cloud index updated",
+    "remoteIndexFailed": "Cloud index failed"
   },
   "home": {
     "mediaBannerOptions": "Media banner options",
@@ -199,7 +228,7 @@
     "hideFolderTree": "Hide folder tree"
   },
   "dashboard": {
-    "subtitle": "Quick access to your favorite, tagged, and frequently used items",
+    "subtitle": "Favorites, tagged items, and frequently used files — all in one place",
     "tabs": {
       "favorites": "Favorites",
       "tagged": "Tagged",
@@ -220,7 +249,57 @@
     "daysAgo": "{n} day ago | {n} days ago | {n} days ago | {n} days ago",
     "openedCount": "Opened {n} time | Opened {n} times | Opened {n} times | Opened {n} times",
     "actions": {
-      "clearAll": "Remove all from this list"
+      "clearAll": "Remove all from this list",
+      "newFavorite": "New favorite",
+      "newCategory": "New category",
+      "newTag": "New tag",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "moveUpWithName": "Move {name} up",
+      "moveDownWithName": "Move {name} down",
+      "dragToReorder": "Drag to reorder",
+      "moveToCategory": "Move to category",
+      "removeFavorite": "Remove from favorites",
+      "removeTag": "Remove tag",
+      "renameCategory": "Rename category",
+      "deleteCategory": "Delete category",
+      "uncategorized": "Uncategorized",
+      "confirmRemove": "Remove",
+      "clearAllConfirmTitle": "Remove all from this list?",
+      "clearAllConfirmDescription": "This cannot be undone.",
+      "removeFavoriteConfirmTitle": "Remove this favorite?",
+      "removeFavoriteConfirmDescription": "The item will be removed from here. Favorite it again to bring it back.",
+      "deleteTagConfirmTitle": "Delete this tag?",
+      "deleteTagConfirmDescription": "The tag will be deleted and removed from all items.",
+      "removeTagConfirmTitle": "Remove this tag from the item?",
+      "removeTagConfirmDescription": "The item will no longer carry this tag.",
+      "renameFavorite": "Edit display name",
+      "editFavorite": "Edit favorite"
+    },
+    "newFavoriteDialog": {
+      "title": "Add to favorites",
+      "pathLabel": "File or folder path",
+      "pathPlaceholder": "Paste a full path",
+      "pathNotFound": "Path does not exist",
+      "pathAlreadyFavorite": "Already in favorites",
+      "confirm": "Add",
+      "displayNameLabel": "Display name",
+      "displayNamePlaceholder": "Leave empty to use the original name"
+    },
+    "nameDialog": {
+      "nameLabel": "Name",
+      "namePlaceholder": "Enter a name",
+      "duplicateName": "\"{name}\" already exists",
+      "confirm": "Create"
+    },
+    "categoryDeleteNote": "Favorites in this category return to \"Uncategorized\". Nothing is deleted.",
+    "favoriteEdit": {
+      "pathRequired": "Path cannot be empty",
+      "saved": "Favorite updated",
+      "saveFailed": "Failed to update the favorite"
+    },
+    "favoriteCategoryDialog": {
+      "categoryLabel": "Category"
     }
   },
   "settingsCategories": {
@@ -258,8 +337,19 @@
         "title": "File view",
         "enableBoxSelection": "Enable box selection",
         "enableBoxSelectionDescription": "Drag on empty space to select multiple items with a selection box. Hold Ctrl or Shift to add to the selection; hold Alt to invert.",
+        "boxSelectionEnabledByDefault": "Box selection is now enabled by default. If drag-selecting gets in the way, you can turn it off here.",
         "increaseFileViewGaps": "Increase file view gaps",
-        "increaseFileViewGapsDescription": "Adds side padding in list layout and increases gaps in grid layout for easier targeting."
+        "increaseFileViewGapsDescription": "Adds side padding in list layout and increases gaps in grid layout for easier targeting.",
+        "foldersFirst": "Place folders before files in list view",
+        "foldersFirstDescription": "Only affects the list view; the grid view always groups entries by type.",
+        "showListThumbnails": "Show thumbnails in list view",
+        "showListThumbnailsDescription": "Images and videos show thumbnails in the list. Folders and documents still show their type icon. Grid view always shows thumbnails and is not affected by this switch.",
+        "thumbnailSizeTitle": "Thumbnail size",
+        "thumbnailSizeDescription": "Adjust thumbnail size in the list and grid views.",
+        "thumbnailSizeSmall": "Small",
+        "thumbnailSizeMedium": "Medium",
+        "thumbnailSizeLarge": "Large",
+        "thumbnailSizeXLarge": "Extra large"
       }
     },
     "actions": {
@@ -270,7 +360,8 @@
       "openAppLogDirectory": "Open app log directory",
       "openGlobalSearchIndexDirectory": "Open global search index directory",
       "changelog": "Changelog",
-      "allReleases": "All releases"
+      "allReleases": "All releases",
+      "learningNotes": "段燚的学习笔记"
     },
     "visualEffects": {
       "title": "Visual effects",
@@ -289,16 +380,20 @@
         "darken": "Darken",
         "lighten": "Lighten",
         "color-dodge": "Color dodge",
+        "plus-lighter": "Linear dodge (add)",
         "color-burn": "Color burn",
         "hard-light": "Hard light",
         "soft-light": "Soft light",
         "difference": "Difference",
         "exclusion": "Exclusion",
-        "hue": "Hue",
-        "saturation": "Saturation",
         "color": "Color",
         "luminosity": "Luminosity"
       },
+      "blendTarget": "Blend with",
+      "blendTargetUi": "Interface",
+      "blendTargetFill": "Fill color",
+      "blendTint": "Fill color",
+      "blendTintCustom": "Custom color",
       "overlayBackground": "Overlay background",
       "selectNextBackground": "Select next background",
       "useTheSameSettingsForAllPages": "Use the same settings for all pages",
@@ -310,9 +405,15 @@
       "theme": {
         "title": "Theme",
         "extensionThemes": "Extension themes",
+        "afmThemeThemes": "AFM Brand Themes",
+        "afmThemes": {
+          "warmLight": "Warm Paper · Light",
+          "warmDark": "Warm Paper · Dark",
+          "vividLight": "Vivid Energy",
+          "coolLight": "Cool Pine"
+        },
         "themeTypeRadio": {
-          "dark": "Dark",
-          "light": "Light (in development)"
+          "dark": "Dark"
         }
       }
     },
@@ -327,7 +428,14 @@
       "selectedFont": "Selected font",
       "defaultFont": "default font",
       "reFetchSystemFonts": "Re-fetch system fonts",
-      "resetFontToDefault": "Reset font to default"
+      "resetFontToDefault": "Reset font to default",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "Date / time",
@@ -352,7 +460,7 @@
       "preventDropdownCloseFocusReturn": "Prevent focus return when closing dropdowns",
       "preventDropdownCloseFocusReturnDescription": "When enabled, closing a dropdown (e.g. with Escape) will not return focus to the trigger button, avoiding focus ring and tooltip display",
       "quickAccessOnHover": "Open quick access panel on hover",
-      "quickAccessOnHoverDescription": "When enabled, the quick access panel opens automatically when hovering over the dashboard button in the sidebar"
+      "quickAccessOnHoverDescription": "When enabled, the quick access panel opens automatically when hovering over the quick access button in the sidebar"
     },
     "tooltips": {
       "title": "Tooltips",
@@ -408,7 +516,6 @@
       }
     },
     "navigator": {
-      "navigatorViewLayout": "Layout",
       "navigatorOptions": "Navigator options",
       "systemIcons": "Icon Theme",
       "systemIconsDirectories": "Directories",
@@ -464,7 +571,15 @@
       "ignoredPathsHelpDownloads": "Skips that path prefix.",
       "ignoredPathsHelpTestFolder": "Skips folders named test and their contents anywhere.",
       "ignoredPathsHelpExtensionMask": "Skips files with the .log extension anywhere.",
-      "ignoredPathsHelpNestedExtensionMask": "Skips files with the .tmp extension in any folder."
+      "ignoredPathsHelpNestedExtensionMask": "Skips files with the .tmp extension in any folder.",
+      "remoteIndexTitle": "Cloud search",
+      "remoteIndexDescription": "Files from connections added to global search appear in the search results.",
+      "rebuildRemoteIndex": "Rebuild cloud index",
+      "rebuildRemoteIndexDescription": "Fetches the files of the checked connections again and writes them into the index; this uses up the netdisk API quota.",
+      "noRemoteInSearch": "No netdisk added to global search yet",
+      "noNetdiskConnections": "No connections for this netdisk yet",
+      "rebuildCheckedRemoteIndex": "Rebuild index for checked connections",
+      "rebuildCheckedRemoteIndexHint": "Rebuilding always uses the whole set of checked connections — one connection cannot be rebuilt on its own."
     },
     "drives": {
       "driveDetection": "Drive detection",
@@ -474,21 +589,362 @@
     },
     "stats": {
       "title": "User data",
-      "description": "The app stores data locally (tags, favorites, history, recently opened items) to enable features like dashboard lists and search. This data is stored in the app directory.",
+      "description": "The app stores data locally (tags, favorites, history, recently opened items) to enable features like quick access lists and search. This data is stored in the app directory.",
       "openDataDirectory": "Open data directory"
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "Set Sigma File Manager as the default file manager",
+        "title": "Set Alpha File Manager as the default file manager",
         "description": "This option modifies the system registry and can have unexpected side effects on your device. Continue at your own risk.",
         "unavailableInMicrosoftStore": "Not available in the Microsoft Store version"
+      },
+      "mcp": {
+        "title": "MCP server (for AI agents)",
+        "description": "Let AI clients such as Claude or Cursor call this app's read-only capabilities over MCP. Off by default — when off, no port is opened at all.",
+        "modes": {
+          "off": "Off",
+          "readOnly": "Read-only",
+          "writable": "Writable",
+          "askEachTime": "Ask each time"
+        },
+        "modeDescriptions": {
+          "off": "The server does not start and no port is opened. Nothing on this machine can reach it.",
+          "readOnly": "Exposes directory listing, drives, mountable devices, the indexed global search, directory size and favourites. Entirely read-only — no file is ever modified.",
+          "writable": "Adds write operations on top of read-only. Deletion still goes to the recycle bin, never a hard delete.",
+          "askEachTime": "Same as writable, but every write operation needs individual confirmation."
+        },
+        "running": "Running · port {port}",
+        "stopped": "Not running",
+        "endpoint": "Endpoint",
+        "clients": "Connected clients",
+        "copyConfig": "Copy config snippet",
+        "copied": "Copied",
+        "copyFailed": "Copy failed — please copy the snippet manually",
+        "rotateToken": "Regenerate token",
+        "tokenRotated": "New token generated. Previous configs stop working immediately.",
+        "token": "Token",
+        "tokenHint": "Any process on this machine can reach 127.0.0.1. The token is the only barrier — do not share it.",
+        "auditTitle": "Recent calls",
+        "outcomes": {
+          "allowed": "allowed",
+          "denied": "denied",
+          "error": "error"
+        },
+        "clientsConnected": "{count} agent(s) connected",
+        "indicatorTooltip": "An AI client is using this app's capabilities",
+        "notRunning": "MCP server is not running",
+        "deployTitle": "One-click deploy to AI clients",
+        "deployHint": "One-click deploy writes this server straight into the client’s own config file without touching any other entry, and backs the original up as .alpha-mcp.bak beforehand. The change only takes effect after you quit that client completely and start it again.",
+        "deployAction": "One-click deploy",
+        "deployInstalled": "Deployed",
+        "deployNotYet": "Not deployed",
+        "deployNotDetected": "Client not found",
+        "deployDoneShort": "Configured",
+        "deployRemove": "Remove",
+        "deployLoading": "Scanning this machine for clients…",
+        "deployFailed": "Deployment failed — see the error below",
+        "deployAlreadyCurrent": "The config was already up to date, so nothing was changed.",
+        "deployDone": "Deployed to {client}. Config file: {path}. The original file was backed up as {backup}. Please quit {client} completely and start it again.",
+        "deployRemoved": "Removed this server from {client}’s config.",
+        "deployClients": {
+          "codex": "Codex",
+          "cursor": "Cursor",
+          "claudeCode": "Claude Code",
+          "claudeDesktop": "Claude Desktop",
+          "openclaw": "OpenClaw",
+          "minimaxCode": "Minimax Code"
+        },
+        "recheck": "Re-check",
+        "restartTitle": "{client} must be fully quit and restarted",
+        "restartBody": "The config file is written, but MCP clients only read it at startup — they never reload it while running. Quit {client} from its tray icon (closing the window is not enough), reopen it, then come back here and press Re-check.",
+        "restartBackup": "The original file was backed up to {backup}. To undo, rename the backup back.",
+        "restartDismiss": "Got it"
       }
+    },
+    "storage": {
+      "thumbnailCache": {
+        "title": "Thumbnail cache",
+        "description": "Image and video thumbnails share the same cache directory. Cleared thumbnails are regenerated automatically the next time you browse.",
+        "sizeLabel": "Disk usage",
+        "sizeUnknown": "Unknown",
+        "countLabel": "Items",
+        "countUnknown": "Unknown",
+        "clear": "Clear cache",
+        "clearSuccess": "Thumbnail cache cleared",
+        "clearFailed": "Failed to clear the thumbnail cache",
+        "confirmTitle": "Clear the thumbnail cache?",
+        "confirmDescription": "This clears both image and video thumbnail caches and cannot be undone. Cleared thumbnails are regenerated the next time you browse those files."
+      },
+      "settingsTransfer": {
+        "title": "Export / import settings",
+        "description": "Export settings, favorites, remote connections and cloud drive connections into one JSON file. Browsing history and frequently used items are not exported.",
+        "export": "Export settings",
+        "import": "Import settings",
+        "exporting": "Exporting…",
+        "importing": "Importing…",
+        "exportSuccess": "Settings exported",
+        "exportFailed": "Failed to export settings",
+        "importSuccess": "Settings imported",
+        "importFailed": "Failed to import settings",
+        "confirmTitle": "Import settings?",
+        "confirmDescription": "Importing overwrites the current settings, favorites, tags and remote connections. Browsing history and frequently used items are not affected.",
+        "invalidFile": "This file is not a valid Alpha File Manager settings export.",
+        "restartHint": "Some settings (such as theme and language) only take effect after restarting the app.",
+        "credentialsHint": "{count} connection(s) need you to sign in again."
+      }
+    },
+    "remote": {
+      "connections": {
+        "title": "Remote connections",
+        "empty": "No connections yet."
+      },
+      "action": {
+        "add": "Add connection",
+        "edit": "Edit",
+        "delete": "Delete",
+        "save": "Save",
+        "cancel": "Cancel",
+        "browse": "Browse…",
+        "test": "Test connection"
+      },
+      "field": {
+        "name": "Name",
+        "protocol": "Protocol",
+        "host": "Server address",
+        "port": "Port",
+        "username": "Username",
+        "password": "Password",
+        "initialPath": "Initial directory",
+        "proxy": "Proxy",
+        "proxyHost": "Proxy address",
+        "proxyPort": "Proxy port",
+        "proxyUsername": "Proxy username",
+        "proxyPassword": "Proxy password",
+        "localPath": "Local folder",
+        "cookie": "Cookie",
+        "includeInSearch": "Include in global search",
+        "includeInSearchHint": "When checked, files from this connection are added to the global search index (rebuild the cloud index manually)."
+      },
+      "protocol": {
+        "ftp": "FTP",
+        "ftps_explicit": "FTPS (explicit)",
+        "ftps_implicit": "FTPS (implicit)",
+        "sftp": "SFTP",
+        "baidu_pan": "Baidu Netdisk",
+        "quark_pan": "Quark Drive",
+        "aliyun_pan": "Aliyun Drive",
+        "onedrive_pan": "OneDrive"
+      },
+      "proxy": {
+        "direct": "Direct connection",
+        "socks5": "SOCKS5",
+        "http_connect": "HTTP CONNECT"
+      },
+      "password": {
+        "saved": "Password saved",
+        "savedHint": "Leave blank to keep the current password.",
+        "clear": "Remove the saved password"
+      },
+      "error": {
+        "nameRequired": "Connection name cannot be empty.",
+        "hostRequired": "Server address cannot be empty.",
+        "hostHasWhitespace": "Server address cannot contain spaces.",
+        "portInvalid": "Port must be between 1 and 65535.",
+        "initialPathInvalid": "Initial directory contains an invalid segment.",
+        "proxyHostRequired": "Proxy address cannot be empty.",
+        "proxyHostHasWhitespace": "Proxy address cannot contain spaces.",
+        "proxyPortInvalid": "Proxy port must be between 1 and 65535.",
+        "connectionIdInvalid": "Connection id is invalid.",
+        "remoteConnectionsStorageNotReady": "The connection list has not finished loading. Please try again in a moment.",
+        "unknown": "Failed to save the connection.",
+        "localPathHasWhitespace": "Local folder cannot contain spaces.",
+        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
+        "baiduLoginRequired": "Sign in to Baidu Pan inside the app, then save this connection.",
+        "quarkLoginRequired": "Sign in to Quark Drive inside the app before saving this connection.",
+        "aliyunLoginRequired": "Sign in to Aliyun Drive inside the app before saving this connection.",
+        "onedriveLoginRequired": "Sign in to OneDrive inside the app before saving this connection."
+      },
+      "localPath": {
+        "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
+      },
+      "test": {
+        "testing": "Testing…",
+        "outcome": {
+          "verified": "Connected. The server accepted these settings.",
+          "auth_rejected": "Connected, but the server rejected the username or password.",
+          "missing_credential": "Connected, but no password was supplied, so authentication was not verified.",
+          "wrong_protocol": "Something answered, but it is not the selected protocol.",
+          "unreachable": "Could not reach the server. Check the address, port and proxy.",
+          "protocol_error": "Connected, but the exchange did not complete as expected."
+        },
+        "passwordNotChecked": "No password was submitted, so this does not confirm that it is correct.",
+        "tlsNotVerified": "The TLS certificate was not verified."
+      },
+      "nav": {
+        "openSettings": "Remote settings",
+        "connect": "Connect",
+        "netdisk": "Netdisks",
+        "netdiskDescription": "Sign in to Baidu Netdisk, Quark Drive or Aliyun Drive inside the app. Credentials are encrypted with Windows DPAPI and never leave this machine.",
+        "remoteSection": "Remote connections",
+        "remoteDescription": "Save FTP, FTPS and SFTP connections here. Credentials are encrypted with Windows DPAPI and never leave this machine.",
+        "addNetdisk": "Add netdisk",
+        "addRemote": "Add remote connection",
+        "emptyNetdisk": "No netdisk connections yet.",
+        "emptyRemote": "No remote connections yet.",
+        "empty": "No connections yet.",
+        "split": "Split",
+        "editConnection": "Edit this connection",
+        "homeEmpty": "No netdisks or remote connections configured yet."
+      },
+      "trustedHosts": {
+        "title": "Trusted hosts",
+        "description": "Host keys you have confirmed. Remote directories only open after you trust the server here.",
+        "empty": "You have not trusted any host yet.",
+        "loadFailed": "The trusted host list could not be read.",
+        "forget": "Forget",
+        "forgetFailed": "That host could not be removed. It is still on the list.",
+        "kindSsh": "SSH key",
+        "kindX509": "X.509 certificate"
+      },
+      "baidu": {
+        "embedded": {
+          "title": "Sign in inside the app",
+          "start": "Sign in with the built-in window",
+          "cancel": "Stop waiting",
+          "hint": "Opens a sign-in window inside the app. Once you are signed in, the window closes on its own and the cookie is captured — you only need to save this connection.",
+          "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it.",
+          "status": {
+            "waiting": "Waiting for you to finish signing in…",
+            "ready": "Signed in. Save this connection — the session is stored when you save.",
+            "closed": "The sign-in window was closed before signing in finished.",
+            "timeout": "Signing in took too long. Try again.",
+            "error": "Could not read the session. Try again."
+          }
+        },
+        "status": {
+          "loading": "Reading authorization status…",
+          "missing": "Not signed in",
+          "ready": "Authorized",
+          "stoken_expired": "STOKEN has expired — sign in again",
+          "stoken_expiring_soon": "STOKEN expires soon"
+        },
+        "action": {
+          "deleteSession": "Delete saved session"
+        }
+      },
+      "quark": {
+        "status": {
+          "loading": "Reading authorization status…",
+          "missing": "Not signed in",
+          "ready": "Authorized",
+          "stale": "The session has expired; please sign in again",
+          "stale_soon": "The session is about to expire"
+        },
+        "action": {
+          "deleteSession": "Delete the saved session"
+        },
+        "embedded": {
+          "title": "Sign in inside the app",
+          "start": "Sign in with the embedded window",
+          "cancel": "Stop waiting",
+          "hint": "A sign-in window opens inside the app. It closes automatically once you are signed in, and the session is picked up right away — all you have to do is save this connection.",
+          "status": {
+            "waiting": "Waiting for you to sign in…",
+            "ready": "Signed in. Save this connection — the session will be written when you save.",
+            "closed": "The sign-in window was closed before you finished signing in.",
+            "timeout": "Timed out while waiting for sign-in. Please try again.",
+            "error": "Could not read the sign-in state. Please try again."
+          },
+          "saved": "Signed in to Quark Drive: the window closed automatically and the session was picked up. Save this connection to use it."
+        }
+      },
+      "aliyun": {
+        "status": {
+          "loading": "Reading authorization status…",
+          "missing": "Not signed in",
+          "ready": "Authorized",
+          "stale": "The session has expired; please sign in again",
+          "stale_soon": "The session is about to expire"
+        },
+        "action": {
+          "deleteSession": "Delete the saved session"
+        },
+        "embedded": {
+          "title": "Sign in by scanning the QR code",
+          "start": "Show the QR code",
+          "refresh": "Refresh the QR code",
+          "cancel": "Stop waiting",
+          "hint": "A sign-in QR code appears here. Scan it with the Aliyun Drive app on your phone — the session is picked up automatically, so all you have to do is save this connection. If you cannot scan, paste an access token below.",
+          "status": {
+            "waiting": "Waiting for you to scan the code…",
+            "scanned": "Your phone scanned the code — tap Confirm login on the phone; this will change to Signed in.",
+            "ready": "Signed in. Save this connection — the session will be written when you save.",
+            "closed": "The sign-in was canceled before you finished.",
+            "timeout": "The QR code has expired. Please try again.",
+            "error": "Could not read the sign-in state. Please try again."
+          },
+          "saved": "Signed in to Aliyun Drive. Save this connection to use it.",
+          "windowStart": "Open login window",
+          "windowCancel": "Close window",
+          "windowHint": "The official Aliyun Drive page shows the QR code and handles confirmation inside the window; credentials go straight to the app, never through this form.",
+          "qrFallback": "Fallback: manual QR code login"
+        },
+        "field": {
+          "pasteToken": "Access token",
+          "pasteTokenHint": "Paste a token you already have. It is checked against Aliyun Drive before it is stored, and the token never leaves this machine in plain text."
+        }
+      },
+      "netdisk": {
+        "provider": "Cloud drive",
+        "baidu": "Baidu Drive",
+        "quark": "Quark Drive",
+        "aliyun": "Aliyun Drive",
+        "signedIn": "Signed in",
+        "onedrive": "OneDrive"
+      },
+      "onedrive": {
+        "field": {
+          "clientId": "Application (client) ID",
+          "clientIdHint": "The client id of the Microsoft Entra application you registered for OneDrive. It is stored with the session on this machine and is never sent through this form.",
+          "authUrl": "Authorization URL",
+          "authUrlHint": "If the browser did not open by itself, copy this URL and finish signing in there."
+        },
+        "action": {
+          "start": "Start sign-in",
+          "cancel": "Stop waiting",
+          "deleteSession": "Delete the saved session"
+        },
+        "state": {
+          "pending": "Waiting for you to finish signing in in the browser…",
+          "completed": "Signed in. Save this connection — the session will be written when you save.",
+          "failed": "The sign-in did not complete. Please try again."
+        },
+        "auth": {
+          "authorized": "Authorized",
+          "missing": "Not signed in",
+          "loading": "Reading authorization status…"
+        },
+        "hint": {
+          "clientIdRequired": "Fill in the application (client) ID first."
+        }
+      }
+    },
+    "about": {
+      "title": "About",
+      "changelog": "Changelog",
+      "projectLinks": "Project links",
+      "commits": "Commits",
+      "author": "Author",
+      "developer": "段燚",
+      "website": "Website",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "Scan to follow"
     }
   },
   "projectGithubButtons": {
     "projectPage": "Project page",
-    "requestsIssues": "Requests & issues",
-    "discussions": "Discussions"
+    "requestsIssues": "Requests & issues"
   },
   "settingsTabs": {
     "general": "General",
@@ -499,7 +955,9 @@
     "dataStorage": "Data & storage",
     "extensions": "Extensions",
     "stats": "Stats",
-    "experimental": "Experimental"
+    "experimental": "Experimental",
+    "remote": "Remote",
+    "about": "About"
   },
   "settingsTags": {
     "language": "language",
@@ -512,8 +970,8 @@
     "visualFilters": "visual, filters, color, contrast, brightness, saturation, image, video, theme, dialog, backdrop, blur",
     "fonts": "fonts, text",
     "dateTime": "date, time, format",
-    "uiElements": "ui, elements, visual, input, accent, color, timeline, dashboard, page, recent, cards, home, drive, space, indicator, style",
-    "quickAccess": "quick, access, panel, hover, sidebar, dashboard",
+    "uiElements": "ui, elements, visual, input, accent, color, timeline, quick access, page, recent, cards, home, drive, space, indicator, style",
+    "quickAccess": "quick, access, panel, hover, sidebar",
     "tooltips": "tooltip, tooltips, hover, delay, timing",
     "clipboard": "clipboard, paste, copy, cut, toolbar, image, screenshot, path, files",
     "homePageMediaBanner": "home, page, media, banner, background, image, video",
@@ -523,17 +981,20 @@
     "tabAppearance": "tabs, active tab, bold, text",
     "tabsWorkspaces": "tabs, workspaces, close, last tab, default tab",
     "defaultDirectory": "home, locations, this pc, computer, drives, default folder, default directory, new tab, custom path",
-    "startupPage": "startup page, startup, launch, open on launch, home, dashboard, navigator, last page, restore, page",
+    "startupPage": "startup page, startup, launch, open on launch, home, quick access, navigator, last page, restore, page",
     "globalSearch": "global, search, find, look, filter, scan",
-    "stats": "stats, data, user, favorites, tags, history, recent, dashboard, storage",
+    "stats": "stats, data, user, favorites, tags, history, recent, quick access, storage",
     "driveDetection": "drive, usb, storage, disk, device, detection, connection",
     "autoplay": "autoplay, explorer, windows, drive, usb, automatic, open, folder",
     "experimental": "advanced, experimental, default file manager, file explorer, registry, terminal, shell",
     "whatsNew": "what's new, changelog, release notes, version, update, news",
     "autostart": "autostart, startup, boot, login, launch, system, wake",
     "performance": "performance, memory, quick view, print, window, launch, preload",
-    "fileView": "file view, box selection, drag selection, list, grid, gaps, padding, spacing",
-    "extensions": "extensions, plugins, addons, configuration, settings"
+    "fileView": "file view, box selection, drag selection, list, grid, gaps, padding, spacing, folder, folders, first, top, sort, sorting, order, ordering, files, file, directory, directories, group, grouping, view, precedence",
+    "extensions": "extensions, plugins, addons, configuration, settings",
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "about, version, update, changelog, github, author, website, wechat, qr code",
+    "settingsTransfer": "export, import, settings, favorites, remote connections, cloud drive, backup, restore"
   },
   "drag": {
     "holdShiftToChangeMode": "Hold [Shift] to change mode",
@@ -566,13 +1027,15 @@
     "localShortcutsAppScope": "Local shortcuts (app scope)",
     "unknownMainKey": "Unknown key",
     "globalShortcutRegisterFailed": "This global shortcut could not be registered. It may already be used by Windows or another app. Try a different combination (for example Win+Shift+… or Ctrl+Alt+…).",
-    "shortcutRecorderGlobalCaptureHint": "If keys do not appear when you press them, your system or another program may be handling them before this window receives them. Try another combination."
+    "shortcutRecorderGlobalCaptureHint": "If keys do not appear when you press them, your system or another program may be handling them before this window receives them. Try another combination.",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "Focus the app window",
     "switchToHomePage": "Switch to home page",
     "switchToNavigatorPage": "Switch to navigator page",
-    "switchToDashboardPage": "Switch to dashboard page",
+    "switchToDashboardPage": "Switch to quick access page",
     "switchToSettingsPage": "Switch to settings page",
     "switchToExtensionsPage": "Switch to extensions page",
     "navigatePageBack": "Navigate to previous page",
@@ -670,6 +1133,22 @@
       "description": "This operation will permanently delete {count} items from your computer.",
       "confirm": "Confirm, if you understand this cannot be undone.",
       "delete": "Delete"
+    },
+    "remoteHostKeyUnknown": {
+      "title": "This server’s identity has not been verified yet",
+      "description": "Alpha File Manager has connected to this host for the first time. Compare the fingerprint below with the one your server administrator gave you, then decide whether to trust it.",
+      "trust": "Trust and continue"
+    },
+    "remoteHostKeyChanged": {
+      "title": "This server’s identity has changed",
+      "description": "The host key presented by this server does not match the one you trusted before. This can mean the server was reinstalled, or that someone is intercepting the connection.",
+      "expected": "Previously trusted fingerprint:",
+      "trustAnyway": "Replace and continue"
+    },
+    "remoteHostKeyCommon": {
+      "algorithm": "Host key algorithm: {algorithm}",
+      "hint": "You can check it yourself with: ssh-keygen -lf <host key file>",
+      "hintX509": "You can check it yourself with: openssl x509 -fingerprint -sha256 -noout -in <certificate file>"
     }
   },
   "notifications": {
@@ -703,7 +1182,9 @@
     "printViewFileIsNotSupported": "Print: file is not supported",
     "createdNLinks": "Created 0 links | Created 1 link | Created {n} links | Created {n} links",
     "createdNOfNLinks": "Created {created} of {total} links",
-    "linkCreationPartialFailureDescription": "{count} links failed. First error: {error}"
+    "linkCreationPartialFailureDescription": "{count} links failed. First error: {error}",
+    "deletingLargeBatch": "Deleting {count} items",
+    "deletingLargeBatchDetail": "{files} files · {directories} folders · {size}"
   },
   "contextMenus": {
     "dirItem": {
@@ -830,6 +1311,10 @@
   "networkRemotePath": "Remote path",
   "networkMountName": "Mount as",
   "networkMountNamePlaceholder": "my_share",
+  "mapNetworkDrive": "Map network drive",
+  "mapNetworkDriveDescription": "Map a network share to a drive letter. Once it is mounted it shows up in the drive list on the left.",
+  "networkDriveLetter": "Drive letter",
+  "networkDriveLetterPlaceholder": "Auto",
   "connect": "Connect",
   "terminal": {
     "openInTerminal": "Open in terminal",
@@ -887,6 +1372,7 @@
     },
     "name": "Name",
     "size": "Size",
+    "availableSpace": "Available space",
     "modified": "Modified",
     "listModifiedDate": {
       "todayAt": "Today at {time}",
@@ -897,6 +1383,7 @@
     "setMinimumColumnWidths": "Set minimum widths",
     "tags": "Tags",
     "folders": "Folders",
+    "partitions": "Volumes",
     "images": "Images",
     "videos": "Videos",
     "video": "Video",
@@ -943,13 +1430,18 @@
     "actions": {
       "rename": "Rename",
       "copy": "Copy",
+      "cut": "Cut",
       "move": "Move",
       "createLink": "Create link",
       "paste": "Paste",
       "pasteToPane1": "Paste to pane 1",
       "pasteToPane2": "Paste to pane 2",
+      "pasteShortcut": "Paste shortcut",
       "delete": "Delete",
       "openWith": "Open with...",
+      "openContainingDirectory": "Open containing directory",
+      "openContainingDirectoryFailed": "Could not open the containing directory",
+      "openContainingDirectoryInApp": "Show containing folder in split view",
       "properties": "Properties",
       "propertiesFailed": "Could not open properties",
       "quickView": "Quick view",
@@ -957,7 +1449,16 @@
       "share": "Share over LAN",
       "openInNewTab": "Open in new tab",
       "addToFavorites": "Add to favorites",
-      "removeFromFavorites": "Remove from favorites"
+      "removeFromFavorites": "Remove from favorites",
+      "unlock": "Unlock file",
+      "forceDelete": "Force delete",
+      "rotateImageLeft": "Rotate Left",
+      "rotateImageRight": "Rotate Right",
+      "flipImageHorizontal": "Flip Horizontally",
+      "flipImageVertical": "Flip Vertically",
+      "imageEditSucceeded": "Image edited successfully",
+      "imageEditFailed": "Failed to edit the image",
+      "imageEditInProgress": "Processing…"
     },
     "linkTypes": {
       "symlink": "Symbolic link",
@@ -1026,7 +1527,30 @@
       "unsupported": "Unsupported"
     },
     "linkMetadataPerformanceWarning": "May increase memory usage and reduce performance.",
-    "items": "Items"
+    "items": "Items",
+    "favoriteCategoryDialog": {
+      "title": "Add to favorites",
+      "categoryLabel": "Choose a category",
+      "uncategorized": "Uncategorized",
+      "newCategoryLabel": "Or create a new category",
+      "newCategoryPlaceholder": "Type a name for the new category",
+      "confirm": "Add to favorites",
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "Display name",
+      "displayNamePlaceholder": "Leave empty to use the original name"
+    },
+    "searchOptions": {
+      "title": "Search options",
+      "matchCount": "no matches | 1 match | {n} matches",
+      "results": "Results",
+      "options": "Options"
+    },
+    "swapPanes": "Swap panes",
+    "devices": "Devices",
+    "device": "Device",
+    "deviceOpenFailed": "Could not open this device",
+    "deviceOpenFailedDescription": "The device may have been disconnected. Open it in System Explorer instead.",
+    "openInSystemExplorer": "Open in System Explorer"
   },
   "openWith": {
     "loadingPrograms": "Loading programs...",
@@ -1193,7 +1717,7 @@
     },
     "badges": {
       "official": "Official",
-      "officialTooltip": "This extension is created and maintained by the Sigma File Manager team",
+      "officialTooltip": "This extension is created and maintained by the Alpha File Manager team",
       "community": "Community",
       "communityTooltip": "This is a community extension. Review the source code before installing.",
       "local": "Local",
@@ -1201,7 +1725,9 @@
       "broken": "Broken",
       "brokenTooltip": "Extension files are missing. Uninstall to remove from the list.",
       "disabled": "Disabled",
-      "disabledTooltip": "This extension is disabled"
+      "disabledTooltip": "This extension is disabled",
+      "source": "Source",
+      "sourceTooltip": "Market source: {name}"
     },
     "stats": {
       "total": "Total",
@@ -1228,16 +1754,29 @@
       "stop": "Stop"
     },
     "engineIncompatibleShort": "Update required",
-    "engineAppWarning": "Requires Sigma File Manager {range} (you have {current})",
+    "engineAppWarning": "Requires Alpha File Manager {range} (you have {current})",
     "engineApiWarning": "Requires extension API {range} (you have {current})",
     "engineRequirements": "Requirements",
-    "requiresSigmaFileManager": "Sigma File Manager",
-    "requiresExtensionApi": "Extension API"
+    "requiresSigmaFileManager": "Alpha File Manager",
+    "requiresExtensionApi": "Extension API",
+    "marketSources": "Market sources",
+    "marketSourceAdd": "Add market source",
+    "marketSourceName": "Name",
+    "marketSourceUrl": "Registry URL",
+    "marketSourceOfficial": "Official",
+    "marketSourceCommunity": "Community",
+    "marketSourceCustom": "Custom",
+    "marketSourceAll": "All",
+    "marketSourceEmpty": "No market sources have been added yet.",
+    "marketSourceRemove": "Remove market source",
+    "marketSourceRemoveConfirm": "Remove this market source? The extensions it provides will be uninstalled the next time the marketplace refreshes.",
+    "marketSourceInvalidUrl": "Enter a public HTTPS URL.",
+    "marketSourceUnreachable": "Unreachable"
   },
   "commandPalette": {
     "accessibleDialogTitle": "Command palette",
     "accessibleDialogDescription": "Type to filter commands, then choose one from the list.",
-    "searchPlaceholder": "Type a command or search...",
+    "searchPlaceholder": "Type a command...",
     "noResults": "No commands found.",
     "noCommands": "No commands registered. Install and enable extensions to add commands.",
     "recentHeading": "Recent",
@@ -1266,5 +1805,287 @@
     "replaceShareDialogTitle": "Replace current share?",
     "replaceShareDialogDescription": "Files are already being shared over the network. The current share will be stopped and replaced with the new one.",
     "replaceShareDialogConfirm": "Replace"
+  },
+  "batchRename": {
+    "menuItem": "Batch rename",
+    "dialog": {
+      "title": "Batch rename",
+      "tabRename": "Rename",
+      "tabHistory": "Undo history",
+      "cancel": "Cancel",
+      "apply": "Rename",
+      "close": "Close",
+      "loading": "Calculating…",
+      "noRules": "No rules added — nothing will be renamed.",
+      "summaryChanged": "{count} item(s) will be renamed",
+      "summaryUnchanged": "{count} item(s) unchanged",
+      "blocked": "Conflicts found. Fix them before applying.",
+      "openHistory": "Undo history"
+    },
+    "rules": {
+      "title": "Rules",
+      "empty": "No rules yet.",
+      "add": "Add rule",
+      "remove": "Remove rule",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "sortLabel": "Numbering order",
+      "type": {
+        "findReplace": "Find and replace",
+        "caseTransform": "Change case",
+        "template": "Template",
+        "sequence": "Numbering",
+        "extension": "Extension"
+      },
+      "findReplace": {
+        "find": "Find",
+        "replace": "Replace with",
+        "caseSensitive": "Match case",
+        "includeExtension": "Include extension"
+      },
+      "caseTransform": {
+        "mode": "Mode",
+        "includeExtension": "Include extension"
+      },
+      "case": {
+        "upper": "UPPERCASE",
+        "lower": "lowercase",
+        "title": "Title Case",
+        "camel": "camelCase",
+        "snake": "snake_case",
+        "kebab": "kebab-case"
+      },
+      "template": {
+        "pattern": "Pattern",
+        "variables": "Available variables",
+        "dateFormat": "Date format"
+      },
+      "sequence": {
+        "start": "Start",
+        "step": "Step",
+        "pad": "Zero padding",
+        "hint": "Numbering does not rename anything on its own. It only supplies the sequence variable used by a Template rule — add a Template rule to use it.",
+        "addTemplate": "Add a Template rule"
+      },
+      "extension": {
+        "newExtension": "New extension",
+        "newExtensionHint": "Leave empty to remove the extension"
+      }
+    },
+    "sort": {
+      "selection": "Selection order",
+      "nameAsc": "Name A to Z",
+      "nameDesc": "Name Z to A",
+      "modifiedAsc": "Modified, oldest first",
+      "modifiedDesc": "Modified, newest first",
+      "sizeAsc": "Size, smallest first",
+      "sizeDesc": "Size, largest first"
+    },
+    "preview": {
+      "title": "Preview",
+      "oldName": "Current name",
+      "newName": "New name",
+      "empty": "Nothing to preview.",
+      "unchanged": "unchanged"
+    },
+    "conflicts": {
+      "title": "Conflicts",
+      "targetExists": "The new name is already taken by another file in this folder.",
+      "duplicateTarget": "Several items would get the same name.",
+      "invalidTitle": "Invalid file names",
+      "invalid": {
+        "empty": "Name is empty.",
+        "illegalCharacter": "Contains a character that is not allowed in file names.",
+        "windowsReservedName": "Reserved name on Windows.",
+        "trailingDotOrSpace": "Cannot end with a dot or a space."
+      }
+    },
+    "result": {
+      "success": "Renamed {count} item(s)",
+      "partial": "Rename failed",
+      "rollbackOk": "Rolled back — the folder is back to its previous state.",
+      "rollbackFailed": "Rollback failed. The folder may be in a mixed state — check it manually.",
+      "noUndo": "This change could not be recorded for undo."
+    },
+    "history": {
+      "title": "Undo history",
+      "empty": "No history yet.",
+      "undo": "Undo",
+      "undoing": "Undoing…",
+      "itemCount": "{count} file(s)",
+      "undoSuccess": "Reverted {count} item(s)",
+      "undoFailed": "Undo failed",
+      "blockedBy": "These names are taken, so they could not be restored: {names}",
+      "notFound": "That history entry no longer exists."
+    }
+  },
+  "remote": {
+    "transfer": {
+      "uploadToRemote": "Upload to remote",
+      "downloadToLocal": "Download to local",
+      "uploadSucceeded": "Uploaded {files} file(s) to the remote folder.",
+      "uploadFailed": "Upload did not fully succeed: {files} uploaded, {skipped} skipped, {failed} failed.",
+      "downloadSucceeded": "Downloaded {files} file(s) to the local folder.",
+      "downloadFailed": "Download did not fully succeed: {files} downloaded, {skipped} skipped, {failed} failed.",
+      "uploading": "Uploading to remote",
+      "downloading": "Downloading from remote",
+      "progressFiles": "{done} / {total} files transferred",
+      "progressBytes": "{done} / {total} transferred",
+      "progressCurrent": "Current: {name}",
+      "resultTitle": "Transfer result",
+      "resultSummary": "{files} file(s) succeeded, {skipped} skipped, {failed} failed",
+      "failureSection": "Failed items",
+      "skippedSection": "Skipped items",
+      "skipReasonAlreadyExists": "Target already exists (not overwritten)",
+      "conflictTitle": "Target already exists",
+      "conflictMessage": "{count} file(s) already exist in the target folder. Overwrite them?",
+      "conflictOverwrite": "Overwrite",
+      "conflictSkipExisting": "Skip existing",
+      "noRemotePane": "The other pane is not on a remote host",
+      "uploadFailedTitle": "Upload did not fully succeed",
+      "downloadFailedTitle": "Download did not fully succeed",
+      "pasteToRemoteFailed": "Copy failed",
+      "remoteToRemoteNotSupported": "Copying between two remote locations is not supported yet. Click a local folder pane first and press Ctrl+V to download, or right-click the file and choose Download to local.",
+      "pasteFromRemoteFailed": "Copy from remote failed",
+      "conflictApplyToAll": "Apply the same choice to all files",
+      "conflictContinue": "Continue",
+      "skipReasonUserSkipped": "Skipped by you"
+    },
+    "permissions": {
+      "menuItem": "Permissions...",
+      "title": "Set permissions",
+      "modeLabel": "Permissions (octal)",
+      "modeHint": "For example 0754 means the owner may read, write and execute; the group may read and execute; others may read.",
+      "unknownMode": "The current permissions could not be read. Pick one from the list.",
+      "owner": "Owner",
+      "group": "Group",
+      "others": "Others",
+      "read": "read",
+      "write": "write",
+      "execute": "execute",
+      "none": "none",
+      "separator": ", ",
+      "recursive": "Apply to subdirectories and the files in them",
+      "apply": "Apply",
+      "success": "Permissions updated ({changed} item(s)).",
+      "partialFailure": "Permissions updated for {changed} item(s); {failed} failed.",
+      "failed": "Could not set permissions: {message}",
+      "error": {
+        "empty": "Enter the permissions in octal, for example 0754.",
+        "tooLong": "At most 4 octal digits are allowed.",
+        "notOctal": "Only the digits 0-7 are allowed.",
+        "unknown": "This permission value could not be recognized."
+      }
+    },
+    "delete": {
+      "menuItem": "Delete",
+      "title": "Delete remote items",
+      "descriptionSingle": "{path} will be deleted permanently. This cannot be undone.",
+      "description": "This will permanently delete {count} item(s) on the remote server. This cannot be undone.",
+      "noTrashHint": "There is no recycle bin on the remote server, so deleted items cannot be recovered.",
+      "connectionHint": "Connection: {name}",
+      "confirm": "Delete",
+      "success": "Deleted {count} remote item(s).",
+      "failed": "Could not delete",
+      "permissionDenied": "Permission denied"
+    },
+    "write": {
+      "fileCreationNotSupported": "Remote directories do not support creating empty files.",
+      "fileCreationNotSupportedTitle": "Cannot create file"
+    }
+  },
+  "compareSync": {
+    "title": "Compare & Sync",
+    "description": "Compare the two directories and sync the differences. This step never deletes anything.",
+    "stepSettings": "Setup",
+    "stepResults": "Results",
+    "stepPreview": "Preview & Run",
+    "leftDirectory": "Left directory",
+    "rightDirectory": "Right directory",
+    "leftDirectoryHint": "Source side",
+    "rightDirectoryHint": "Target side",
+    "tabCriteria": "Criteria",
+    "tabExclude": "Exclude",
+    "criteriaByTime": "By modification time",
+    "criteriaBySize": "By file size",
+    "criteriaByChecksum": "By content checksum",
+    "criteriaByChecksumHint": "Only available between two local folders; remote servers have no checksum to compare.",
+    "criteriaCaseSensitive": "Case sensitive",
+    "criteriaRecursive": "Compare subfolders recursively",
+    "criteriaMaxDepth": "Maximum depth",
+    "criteriaMaxDepthUnlimited": "Unlimited",
+    "criteriaRemoteTimeOffset": "Remote time offset (seconds)",
+    "criteriaRemoteTimeOffsetHint": "Servers usually report time in their own time zone; this offset converts it to yours.",
+    "excludePatterns": "Exclude rules",
+    "excludePatternsHint": "One per line, * and ? are supported. A matching folder drops its whole subtree from the comparison.",
+    "compare": "Compare",
+    "comparing": "Comparing…",
+    "back": "Back",
+    "preview": "Build preview",
+    "execute": "Start sync",
+    "executing": "Syncing…",
+    "cancel": "Cancel",
+    "filterAll": "All",
+    "filterDifferences": "Differences only",
+    "statusSame": "Same",
+    "statusOnlyLeft": "Left only",
+    "statusOnlyRight": "Right only",
+    "statusNewer": "Left is newer",
+    "statusOlder": "Left is older",
+    "statusSizeDiff": "Different size",
+    "statusContentDiff": "Different content",
+    "statusKindDiff": "Different type",
+    "statusIndeterminate": "Undecidable",
+    "directionToRight": "Left → Right",
+    "directionToLeft": "Right → Left",
+    "directionNone": "Nothing to do",
+    "directionIndeterminate": "Direction undecided",
+    "noDifferences": "No differences.",
+    "statsTotal": "Total",
+    "statsSame": "Same",
+    "statsDifferences": "Different",
+    "statsNeedsReview": "Undecided",
+    "actionCreateDir": "Create folder",
+    "actionTransferFile": "Transfer file",
+    "actionSkip": "Skip",
+    "planSummary": "Will create {dirs} folders, transfer {files} files and skip {skipped} items.",
+    "reportTransferred": "Transferred",
+    "reportCreatedDirs": "Folders created",
+    "reportSkipped": "Skipped",
+    "reportFailed": "Failed",
+    "reportCancelled": "Cancelled",
+    "invalidPath": "This path cannot be used.",
+    "progressPreparing": "Preparing…",
+    "progressScanningLeft": "Scanning the left side…",
+    "progressScanningRight": "Scanning the right side…",
+    "progressComparing": "Comparing…",
+    "progressDone": "Done",
+    "progressScanned": "{count} entries scanned",
+    "progressCompared": "{count} of {total} entries compared",
+    "rowsTruncated": "Showing {shown} of {total}. Use the filters to narrow it down.",
+    "showMore": "Show {count} more",
+    "statsUnreadable": "unreadable"
+  },
+  "fileLock": {
+    "unlocked": "File unlocked",
+    "unlockedDescription": "Whatever was blocking the file has been cleared. You can delete it normally now.",
+    "unlockFailed": "Could not unlock the file",
+    "forceDeleted": "File deleted",
+    "forceDeletedDescription": "The file was removed even though it was in use.",
+    "forceDeleteFailed": "Could not delete the file",
+    "scheduledForReboot": "Deletion scheduled",
+    "scheduledForRebootDescription": "The file is still in use. It will be deleted the next time Windows starts.",
+    "terminateFailed": "Could not end the process",
+    "unknownError": "Unknown error",
+    "holdersTitle": "Programs using this file",
+    "holdersDescription": "These programs are holding the file open. Ending one of them may lose unsaved work.",
+    "noHolders": "No program was found holding this file.",
+    "endProcess": "End process",
+    "diagnoseFailed": "Could not check which programs are using this file"
+  },
+  "webviewGuard": {
+    "detected": "The interface renderer process crashed. Trying to recover automatically...",
+    "recovered": "The interface is working again.",
+    "recoveryFailed": "The interface could not be recovered automatically. Please restart the app."
   }
 }

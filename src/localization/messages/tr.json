@@ -1,8 +1,11 @@
 {
   "app": {
-    "name": "Sigma File Manager",
-    "description": "ücretsiz, açık kaynaklı, gelişmiş, modern bir dosya yöneticisi uygulamasıdır, GNU GPLv3 veya üstü altında lisanslanmıştır.",
-    "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
+    "name": "Alpha File Manager",
+    "description": "is developed on top of Sigma File Manager, adding practical features such as a directory tree, quick switching (path focus sync for file dialogs) and batch rename. Many details have been refined to deliver a more complete file manager experience.",
+    "copyright": "Credits to the original author Aleksey Hoffman.",
+    "developerLabel": "Developed by ",
+    "developer": "kizemo",
+    "repository": "https://github.com/kizemo/alpha-file-manager"
   },
   "units": {
     "px": "px"
@@ -19,7 +22,7 @@
   "pages": {
     "home": "Ana sayfa",
     "navigator": "Navigatör",
-    "dashboard": "Gösterge Tablosu",
+    "dashboard": "Hızlı Erişim",
     "notes": "Notlar",
     "settings": "Ayarlar",
     "extensions": "Uzantılar"
@@ -33,7 +36,15 @@
     "tagged": "Etiketli",
     "emptyFavorites": "Favori yok",
     "emptyTagged": "Etiketli öğe yok",
-    "unknownTagGroup": "Bilinmeyen etiket"
+    "unknownTagGroup": "Bilinmeyen etiket",
+    "frequent": "Frequent",
+    "history": "History",
+    "emptyFrequent": "No frequently used items",
+    "emptyHistory": "No history yet",
+    "openFavoritesTab": "Open Favorites tab in Quick Access",
+    "openFrequentTab": "Open Frequent tab in Quick Access",
+    "openHistoryTab": "Open History tab in Quick Access",
+    "openTaggedTab": "Open Tagged tab in Quick Access"
   },
   "placeholders": {
     "noDrivesFound": "Sürücü bulunamadı",
@@ -76,6 +87,8 @@
     "music": "Müzik"
   },
   "tabs": {
+    "scrollTabsLeft": "Sekmeleri sola kaydır",
+    "scrollTabsRight": "Sekmeleri sağa kaydır",
     "newTab": "Yeni sekme",
     "duplicateTab": "Sekmeyi çoğalt",
     "closeOtherTabs": "Diğer sekmeleri kapat",
@@ -89,6 +102,9 @@
   "splitViewMode": "Bölünmüş görünüm modu",
   "splitViewModeSplit": "Bölünmüş",
   "splitViewModeLinked": "Bağlı",
+  "syncBrowsing": "Synchronized browsing",
+  "syncBrowsingOn": "Synchronized browsing: on",
+  "syncBrowsingHint": "Select a folder in the left pane and the right pane jumps to the folder of the same name.",
   "filter": {
     "filter": "Filtre",
     "showHiddenItems": "Gizli Öğeleri Göster",
@@ -105,6 +121,8 @@
     }
   },
   "globalSearch": {
+    "scanModeFull": "Tam",
+    "scanModeIncremental": "Artımlı",
     "globalSearch": "Küresel arama",
     "driveScanInProgress": "Sürücü indeksleme devam ediyor",
     "searchDataIncomplete": "Arama verileri eksik",
@@ -147,7 +165,10 @@
       "indexed": "{time} dizine eklendi",
       "nothingFound": "Hiçbir şey bulunamadı"
     },
-    "showSearchSettings": "Arama ayarlarını göster"
+    "showSearchSettings": "Arama ayarlarını göster",
+    "remoteIndexing": "Bulut diskleri dizine ekleniyor",
+    "remoteIndexDone": "Bulut dizini güncellendi",
+    "remoteIndexFailed": "Bulut dizini oluşturulamadı"
   },
   "home": {
     "mediaBannerOptions": "Medya banner seçenekleri",
@@ -166,11 +187,11 @@
     "newDirectory": "Yeni direktör",
     "newFile": "Yeni dosya",
     "reloadCurrentDirectory": "Geçerli dizini yeniden yükle",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "Klasör ağacını göster",
+    "hideFolderTree": "Klasör ağacını gizle"
   },
   "dashboard": {
-    "subtitle": "Favorilerinize, etiketli ve sık kullanılan öğelerinize hızlı erişim",
+    "subtitle": "Favoriler, etiketli ve sık kullanılan öğeler — hepsi bir arada",
     "tabs": {
       "favorites": "Favoriler",
       "tagged": "Etiketli",
@@ -191,7 +212,57 @@
     "daysAgo": "{n} gün önce | {n} gün önce | {n} gün önce | {n} gün önce",
     "openedCount": "{n} kez açıldı | {n} kez açıldı | {n} kez açıldı | {n} kez açıldı",
     "actions": {
-      "clearAll": "Tümünü bu listeden kaldır"
+      "clearAll": "Tümünü bu listeden kaldır",
+      "newFavorite": "New favorite",
+      "newCategory": "New category",
+      "newTag": "New tag",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "moveUpWithName": "{name} öğesini yukarı taşı",
+      "moveDownWithName": "{name} öğesini aşağı taşı",
+      "dragToReorder": "Sıralamak için sürükleyin",
+      "moveToCategory": "Move to category",
+      "removeFavorite": "Remove from favorites",
+      "removeTag": "Remove tag",
+      "renameCategory": "Rename category",
+      "deleteCategory": "Delete category",
+      "uncategorized": "Uncategorized",
+      "confirmRemove": "Kaldır",
+      "clearAllConfirmTitle": "Bu listeden tümünü kaldırmak istiyor musunuz?",
+      "clearAllConfirmDescription": "Bu işlem geri alınamaz.",
+      "removeFavoriteConfirmTitle": "Favorilerden kaldırılsın mı?",
+      "removeFavoriteConfirmDescription": "Öğe buradan kaldırılacak. Geri getirmek için tekrar favoriye ekleyin.",
+      "deleteTagConfirmTitle": "Bu etiket silinsin mi?",
+      "deleteTagConfirmDescription": "Etiket silinecek ve tüm öğelerden kaldırılacak.",
+      "removeTagConfirmTitle": "Bu etiket öğeden kaldırılsın mı?",
+      "removeTagConfirmDescription": "Öğe artık bu etiketi taşımayacak.",
+      "renameFavorite": "Görünen adı düzenle",
+      "editFavorite": "Edit favorite"
+    },
+    "newFavoriteDialog": {
+      "title": "Add to favorites",
+      "pathLabel": "File or folder path",
+      "pathPlaceholder": "Paste a full path",
+      "pathNotFound": "Path does not exist",
+      "pathAlreadyFavorite": "Already in favorites",
+      "confirm": "Add",
+      "displayNameLabel": "Görünen ad",
+      "displayNamePlaceholder": "Özgün adı kullanmak için boş bırakın"
+    },
+    "nameDialog": {
+      "nameLabel": "Name",
+      "namePlaceholder": "Enter a name",
+      "duplicateName": "\"{name}\" already exists",
+      "confirm": "Create"
+    },
+    "categoryDeleteNote": "Favorites in this category return to \"Uncategorized\". Nothing is deleted.",
+    "favoriteEdit": {
+      "pathRequired": "Path cannot be empty",
+      "saved": "Favorite updated",
+      "saveFailed": "Failed to update the favorite"
+    },
+    "favoriteCategoryDialog": {
+      "categoryLabel": "Category"
     }
   },
   "settingsCategories": {
@@ -220,8 +291,19 @@
         "title": "Dosya görünümü",
         "enableBoxSelection": "Kutu seçimini etkinleştir",
         "enableBoxSelectionDescription": "Boş alanda sürükleyerek bir seçim kutusuyla birden fazla öğe seçin. Seçime eklemek için Ctrl veya Shift'i basılı tutun; tersine çevirmek için Alt.",
+        "boxSelectionEnabledByDefault": "Box selection is now enabled by default. If drag-selecting gets in the way, you can turn it off here.",
         "increaseFileViewGaps": "Dosya görünümü boşluklarını artır",
-        "increaseFileViewGapsDescription": "Liste düzeninde yan dolgu ekler ve ızgara düzenindeki boşlukları artırarak hedeflemeyi kolaylaştırır."
+        "increaseFileViewGapsDescription": "Liste düzeninde yan dolgu ekler ve ızgara düzenindeki boşlukları artırarak hedeflemeyi kolaylaştırır.",
+        "foldersFirst": "Place folders before files in list view",
+        "foldersFirstDescription": "Only affects the list view; the grid view always groups entries by type.",
+        "showListThumbnails": "Show thumbnails in list view",
+        "showListThumbnailsDescription": "Images and videos show thumbnails in the list. Folders and documents still show their type icon. Grid view always shows thumbnails and is not affected by this switch.",
+        "thumbnailSizeTitle": "Thumbnail size",
+        "thumbnailSizeDescription": "Adjust thumbnail size in the list and grid views.",
+        "thumbnailSizeSmall": "Small",
+        "thumbnailSizeMedium": "Medium",
+        "thumbnailSizeLarge": "Large",
+        "thumbnailSizeXLarge": "Extra large"
       },
       "startupPage": {
         "title": "Başlangıç sayfası",
@@ -241,7 +323,8 @@
       "openAppLogDirectory": "Uygulama günlük dizinini aç",
       "openGlobalSearchIndexDirectory": "Genel arama dizin dizinini aç",
       "changelog": "Değişiklik günlüğü",
-      "allReleases": "Tüm sürümler"
+      "allReleases": "Tüm sürümler",
+      "learningNotes": "段燚的学习笔记"
     },
     "visualEffects": {
       "title": "Görsel efektler",
@@ -260,16 +343,20 @@
         "darken": "Karart",
         "lighten": "Açıklaştır",
         "color-dodge": "Renk aşındırma",
+        "plus-lighter": "Doğrusal soldurma (ekle)",
         "color-burn": "Renk yakma",
         "hard-light": "Sert ışık",
         "soft-light": "Yumuşak ışık",
         "difference": "Fark",
         "exclusion": "Hariç tutma",
-        "hue": "Renk tonu",
-        "saturation": "Doygunluk",
         "color": "Renk",
         "luminosity": "Parlaklık"
       },
+      "blendTarget": "Şununla karıştır",
+      "blendTargetUi": "Arayüz",
+      "blendTargetFill": "Dolgu rengi",
+      "blendTint": "Dolgu rengi",
+      "blendTintCustom": "Özel renk",
       "overlayBackground": "Bindirme arka planı",
       "selectNextBackground": "Sonraki arka planı seç",
       "useTheSameSettingsForAllPages": "Tüm sayfalar için aynı ayarları kullan",
@@ -281,9 +368,15 @@
       "theme": {
         "title": "Tema",
         "extensionThemes": "Uzantı temaları",
+        "afmThemeThemes": "AFM marka temaları",
+        "afmThemes": {
+          "warmLight": "Sıcak kağıt · Açık",
+          "warmDark": "Sıcak kağıt · Koyu",
+          "vividLight": "Canlı enerji",
+          "coolLight": "Soğuk çam"
+        },
         "themeTypeRadio": {
-          "dark": "Karanlık",
-          "light": "Hafif (geliştirme aşamasında)"
+          "dark": "Karanlık"
         }
       }
     },
@@ -298,7 +391,14 @@
       "selectedFont": "Seçilen yazı tipi",
       "defaultFont": "varsayılan yazı tipi",
       "reFetchSystemFonts": "Sistem yazı tiplerini yeniden getir",
-      "resetFontToDefault": "Yazı tipini varsayılana sıfırla"
+      "resetFontToDefault": "Yazı tipini varsayılana sıfırla",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "Tarih / saat",
@@ -323,7 +423,7 @@
       "preventDropdownCloseFocusReturn": "Açılır menüler kapatıldığında odak dönüşünü engelle",
       "preventDropdownCloseFocusReturnDescription": "Etkinleştirildiğinde, bir açılır menüyü kapatmak (ör. Escape ile) odağı tetikleyici düğmeye geri döndürmeyecek, odak halkası ve araç ipucu görüntülenmesini önleyecektir",
       "quickAccessOnHover": "Fareyle üzerine gelindiğinde hızlı erişim panelini aç",
-      "quickAccessOnHoverDescription": "Etkinleştirildiğinde, kenar çubuğundaki pano düğmesinin üzerine gelindiğinde hızlı erişim paneli otomatik olarak açılır"
+      "quickAccessOnHoverDescription": "Etkinleştirildiğinde, kenar çubuğundaki hızlı erişim düğmesinin üzerine gelindiğinde hızlı erişim paneli otomatik olarak açılır"
     },
     "tooltips": {
       "title": "İpuçları",
@@ -379,7 +479,6 @@
       }
     },
     "navigator": {
-      "navigatorViewLayout": "Düzen",
       "navigatorOptions": "Gezgin seçenekleri",
       "systemIcons": "Simge teması",
       "systemIconsDirectories": "Klasörler",
@@ -435,7 +534,15 @@
       "ignoredPathsHelpDownloads": "Bu yol önekini atlar.",
       "ignoredPathsHelpTestFolder": "Adı test olan klasörleri ve içeriklerini her yerde atlar.",
       "ignoredPathsHelpExtensionMask": ".log uzantılı dosyaları her yerde atlar.",
-      "ignoredPathsHelpNestedExtensionMask": "Herhangi bir klasördeki .tmp uzantılı dosyaları atlar."
+      "ignoredPathsHelpNestedExtensionMask": "Herhangi bir klasördeki .tmp uzantılı dosyaları atlar.",
+      "remoteIndexTitle": "Bulut araması",
+      "remoteIndexDescription": "Genel aramaya eklenen bağlantıların dosyaları arama sonuçlarında görünür.",
+      "rebuildRemoteIndex": "Bulut dizinini yeniden oluştur",
+      "rebuildRemoteIndexDescription": "İşaretli bağlantıların dosyalarını yeniden getirip dizine yazar; ağ diskinin API kotasını harcar.",
+      "noRemoteInSearch": "Genel aramaya henüz ağ diski eklenmedi",
+      "noNetdiskConnections": "Bu bulut diski için henüz bağlantı yok",
+      "rebuildCheckedRemoteIndex": "İşaretli bağlantılar için dizini yeniden oluştur",
+      "rebuildCheckedRemoteIndexHint": "Yeniden oluşturma her zaman işaretli bağlantıların tümünü kullanır — tek bir bağlantı tek başına yeniden oluşturulamaz."
     },
     "drives": {
       "driveDetection": "Sürücü algılama",
@@ -445,21 +552,362 @@
     },
     "stats": {
       "title": "Kullanıcı verileri",
-      "description": "Uygulama, gösterge paneli listeleri ve arama gibi özellikleri etkinleştirmek için verileri yerel olarak depolar (etiketler, favoriler, geçmiş, son açılan öğeler). Bu veriler uygulama dizininde saklanır.",
+      "description": "Uygulama, hızlı erişim listeleri ve arama gibi özellikleri etkinleştirmek için verileri yerel olarak depolar (etiketler, favoriler, geçmiş, son açılan öğeler). Bu veriler uygulama dizininde saklanır.",
       "openDataDirectory": "Veri dizinini aç"
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "Sigma File Manager'i varsayılan dosya yöneticisi olarak ayarla",
+        "title": "Alpha File Manager'i varsayılan dosya yöneticisi olarak ayarla",
         "description": "Bu seçenek sistem kaydını değiştirir ve cihazınızda beklenmedik yan etkilere neden olabilir. Riski kabul ederek devam edin.",
         "unavailableInMicrosoftStore": "Microsoft Store sürümünde kullanılamaz"
+      },
+      "mcp": {
+        "title": "MCP server (for AI agents)",
+        "description": "Let AI clients such as Claude or Cursor call this app's read-only capabilities over MCP. Off by default — when off, no port is opened at all.",
+        "modes": {
+          "off": "Off",
+          "readOnly": "Read-only",
+          "writable": "Writable",
+          "askEachTime": "Ask each time"
+        },
+        "modeDescriptions": {
+          "off": "The server does not start and no port is opened. Nothing on this machine can reach it.",
+          "readOnly": "Exposes directory listing, drives, mountable devices, the indexed global search, directory size and favourites. Entirely read-only — no file is ever modified.",
+          "writable": "Adds write operations on top of read-only. Deletion still goes to the recycle bin, never a hard delete.",
+          "askEachTime": "Same as writable, but every write operation needs individual confirmation."
+        },
+        "running": "Running · port {port}",
+        "stopped": "Not running",
+        "endpoint": "Endpoint",
+        "clients": "Connected clients",
+        "copyConfig": "Copy config snippet",
+        "copied": "Copied",
+        "copyFailed": "Copy failed — please copy the snippet manually",
+        "rotateToken": "Regenerate token",
+        "tokenRotated": "New token generated. Previous configs stop working immediately.",
+        "token": "Token",
+        "tokenHint": "Any process on this machine can reach 127.0.0.1. The token is the only barrier — do not share it.",
+        "auditTitle": "Recent calls",
+        "outcomes": {
+          "allowed": "allowed",
+          "denied": "denied",
+          "error": "error"
+        },
+        "clientsConnected": "{count} agent(s) connected",
+        "indicatorTooltip": "An AI client is using this app's capabilities",
+        "notRunning": "MCP server is not running",
+        "deployTitle": "One-click deploy to AI clients",
+        "deployHint": "One-click deploy writes this server straight into the client’s own config file without touching any other entry, and backs the original up as .alpha-mcp.bak beforehand. The change only takes effect after you quit that client completely and start it again.",
+        "deployAction": "One-click deploy",
+        "deployInstalled": "Deployed",
+        "deployNotYet": "Not deployed",
+        "deployNotDetected": "Client not found",
+        "deployDoneShort": "Configured",
+        "deployRemove": "Remove",
+        "deployLoading": "Scanning this machine for clients…",
+        "deployFailed": "Deployment failed — see the error below",
+        "deployAlreadyCurrent": "The config was already up to date, so nothing was changed.",
+        "deployDone": "Deployed to {client}. Config file: {path}. The original file was backed up as {backup}. Please quit {client} completely and start it again.",
+        "deployRemoved": "Removed this server from {client}’s config.",
+        "deployClients": {
+          "codex": "Codex",
+          "cursor": "Cursor",
+          "claudeCode": "Claude Code",
+          "claudeDesktop": "Claude Desktop",
+          "openclaw": "OpenClaw",
+          "minimaxCode": "Minimax Code"
+        },
+        "recheck": "Re-check",
+        "restartTitle": "{client} must be fully quit and restarted",
+        "restartBody": "The config file is written, but MCP clients only read it at startup — they never reload it while running. Quit {client} from its tray icon (closing the window is not enough), reopen it, then come back here and press Re-check.",
+        "restartBackup": "The original file was backed up to {backup}. To undo, rename the backup back.",
+        "restartDismiss": "Got it"
       }
+    },
+    "storage": {
+      "thumbnailCache": {
+        "title": "Thumbnail cache",
+        "description": "Image and video thumbnails share the same cache directory. Cleared thumbnails are regenerated automatically the next time you browse.",
+        "sizeLabel": "Disk usage",
+        "sizeUnknown": "Unknown",
+        "countLabel": "Items",
+        "countUnknown": "Unknown",
+        "clear": "Clear cache",
+        "clearSuccess": "Thumbnail cache cleared",
+        "clearFailed": "Failed to clear the thumbnail cache",
+        "confirmTitle": "Clear the thumbnail cache?",
+        "confirmDescription": "This clears both image and video thumbnail caches and cannot be undone. Cleared thumbnails are regenerated the next time you browse those files."
+      },
+      "settingsTransfer": {
+        "title": "Export / import settings",
+        "description": "Export settings, favorites, remote connections and cloud drive connections into one JSON file. Browsing history and frequently used items are not exported.",
+        "export": "Export settings",
+        "import": "Import settings",
+        "exporting": "Exporting…",
+        "importing": "Importing…",
+        "exportSuccess": "Settings exported",
+        "exportFailed": "Failed to export settings",
+        "importSuccess": "Settings imported",
+        "importFailed": "Failed to import settings",
+        "confirmTitle": "Import settings?",
+        "confirmDescription": "Importing overwrites the current settings, favorites, tags and remote connections. Browsing history and frequently used items are not affected.",
+        "invalidFile": "This file is not a valid Alpha File Manager settings export.",
+        "restartHint": "Some settings (such as theme and language) only take effect after restarting the app.",
+        "credentialsHint": "{count} connection(s) need you to sign in again."
+      }
+    },
+    "remote": {
+      "connections": {
+        "title": "Remote connections",
+        "empty": "No connections yet."
+      },
+      "action": {
+        "add": "Add connection",
+        "edit": "Edit",
+        "delete": "Delete",
+        "save": "Save",
+        "cancel": "Cancel",
+        "browse": "Browse…",
+        "test": "Test connection"
+      },
+      "field": {
+        "name": "Name",
+        "protocol": "Protocol",
+        "host": "Server address",
+        "port": "Port",
+        "username": "Username",
+        "password": "Password",
+        "initialPath": "Initial directory",
+        "proxy": "Proxy",
+        "proxyHost": "Proxy address",
+        "proxyPort": "Proxy port",
+        "proxyUsername": "Proxy username",
+        "proxyPassword": "Proxy password",
+        "localPath": "Local folder",
+        "cookie": "Cookie",
+        "includeInSearch": "Genel aramaya dahil et",
+        "includeInSearchHint": "İşaretlenirse bu bağlantının dosyaları genel arama dizinine eklenir (bulut dizinini elle yeniden oluşturun)."
+      },
+      "protocol": {
+        "ftp": "FTP",
+        "ftps_explicit": "FTPS (explicit)",
+        "ftps_implicit": "FTPS (implicit)",
+        "sftp": "SFTP",
+        "baidu_pan": "Baidu Netdisk",
+        "quark_pan": "Quark Drive",
+        "aliyun_pan": "Aliyun Drive",
+        "onedrive_pan": "OneDrive"
+      },
+      "proxy": {
+        "direct": "Direct connection",
+        "socks5": "SOCKS5",
+        "http_connect": "HTTP CONNECT"
+      },
+      "password": {
+        "saved": "Password saved",
+        "savedHint": "Leave blank to keep the current password.",
+        "clear": "Remove the saved password"
+      },
+      "error": {
+        "nameRequired": "Connection name cannot be empty.",
+        "hostRequired": "Server address cannot be empty.",
+        "hostHasWhitespace": "Server address cannot contain spaces.",
+        "portInvalid": "Port must be between 1 and 65535.",
+        "initialPathInvalid": "Initial directory contains an invalid segment.",
+        "proxyHostRequired": "Proxy address cannot be empty.",
+        "proxyHostHasWhitespace": "Proxy address cannot contain spaces.",
+        "proxyPortInvalid": "Proxy port must be between 1 and 65535.",
+        "connectionIdInvalid": "Connection id is invalid.",
+        "remoteConnectionsStorageNotReady": "The connection list has not finished loading. Please try again in a moment.",
+        "unknown": "Failed to save the connection.",
+        "localPathHasWhitespace": "Local folder cannot contain spaces.",
+        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
+        "baiduLoginRequired": "Önce uygulama içinde Baidu Pan'a giriş yapın, sonra bu bağlantıyı kaydedin.",
+        "quarkLoginRequired": "Bu bağlantıyı kaydetmeden önce uygulama içinde Quark Drive’a giriş yapın.",
+        "aliyunLoginRequired": "Bu bağlantıyı kaydetmeden önce uygulama içinde Aliyun Drive’a giriş yapın.",
+        "onedriveLoginRequired": "Sign in to OneDrive inside the app before saving this connection."
+      },
+      "localPath": {
+        "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
+      },
+      "test": {
+        "testing": "Testing…",
+        "outcome": {
+          "verified": "Connected. The server accepted these settings.",
+          "auth_rejected": "Connected, but the server rejected the username or password.",
+          "missing_credential": "Connected, but no password was supplied, so authentication was not verified.",
+          "wrong_protocol": "Something answered, but it is not the selected protocol.",
+          "unreachable": "Could not reach the server. Check the address, port and proxy.",
+          "protocol_error": "Connected, but the exchange did not complete as expected."
+        },
+        "passwordNotChecked": "No password was submitted, so this does not confirm that it is correct.",
+        "tlsNotVerified": "The TLS certificate was not verified."
+      },
+      "nav": {
+        "openSettings": "Remote settings",
+        "connect": "Connect",
+        "netdisk": "Bulut diskleri",
+        "netdiskDescription": "Gömülü pencerede Baidu Netdisk, Quark Drive veya Aliyun Drive hesabınıza giriş yapın. Kimlik bilgileri Windows DPAPI ile şifrelenir ve bu bilgisayardan hiç çıkmaz.",
+        "remoteSection": "Uzak bağlantılar",
+        "remoteDescription": "FTP, FTPS ve SFTP bağlantılarını burada kaydedin. Kimlik bilgileri Windows DPAPI ile şifrelenir ve bu bilgisayardan hiç çıkmaz.",
+        "addNetdisk": "Bulut diski ekle",
+        "addRemote": "Uzak bağlantı ekle",
+        "emptyNetdisk": "Henüz bulut diski bağlantısı yok.",
+        "emptyRemote": "Henüz uzak bağlantı yok.",
+        "empty": "No connections yet.",
+        "split": "Split",
+        "editConnection": "Edit this connection",
+        "homeEmpty": "Henüz bulut diski veya uzak bağlantı yapılandırılmadı."
+      },
+      "trustedHosts": {
+        "title": "Trusted hosts",
+        "description": "Host keys you have confirmed. Remote directories only open after you trust the server here.",
+        "empty": "You have not trusted any host yet.",
+        "loadFailed": "The trusted host list could not be read.",
+        "forget": "Forget",
+        "forgetFailed": "That host could not be removed. It is still on the list.",
+        "kindSsh": "SSH key",
+        "kindX509": "X.509 certificate"
+      },
+      "baidu": {
+        "status": {
+          "loading": "Yetkilendirme durumu okunuyor…",
+          "missing": "Giriş yapılmamış",
+          "ready": "Yetkilendirildi",
+          "stoken_expired": "STOKEN süresi doldu — yeniden giriş yapın",
+          "stoken_expiring_soon": "STOKEN süresi dolmak üzere"
+        },
+        "action": {
+          "deleteSession": "Kayıtlı oturumu sil"
+        },
+        "embedded": {
+          "title": "Sign in inside the app",
+          "start": "Sign in with the built-in window",
+          "cancel": "Stop waiting",
+          "hint": "Opens a sign-in window inside the app. Once you are signed in, this form fills itself in — you only need to give the connection a name and save.",
+          "status": {
+            "waiting": "Waiting for you to finish signing in…",
+            "ready": "Signed in. Give this connection a name and save — the session is stored when you save.",
+            "closed": "The sign-in window was closed before signing in finished.",
+            "timeout": "Signing in took too long. Try again.",
+            "error": "Could not read the session. Use the Cookie field instead."
+          },
+          "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
+        }
+      },
+      "quark": {
+        "status": {
+          "loading": "Yetkilendirme durumu okunuyor…",
+          "missing": "Giriş yapılmadı",
+          "ready": "Yetkili",
+          "stale": "Oturumun süresi doldu; yeniden giriş yapın",
+          "stale_soon": "Oturumun süresi dolmak üzere"
+        },
+        "action": {
+          "deleteSession": "Kaydedilmiş oturumu sil"
+        },
+        "embedded": {
+          "title": "Uygulama içinde giriş yap",
+          "start": "Gömülü pencerede giriş yap",
+          "cancel": "Beklemeyi durdur",
+          "hint": "Uygulama içinde bir giriş penceresi açılır. Giriş tamamlandığında otomatik kapanır ve oturum hemen alınır — tek yapmanız gereken bu bağlantıyı kaydetmek.",
+          "status": {
+            "waiting": "Giriş yapmanız bekleniyor…",
+            "ready": "Giriş yapıldı. Bu bağlantıyı kaydedin — oturum kaydetme sırasında yazılacak.",
+            "closed": "Giriş tamamlanmadan giriş penceresi kapatıldı.",
+            "timeout": "Giriş bekleme zaman aşımına uğradı. Lütfen yeniden deneyin.",
+            "error": "Giriş durumu okunamadı. Lütfen yeniden deneyin."
+          },
+          "saved": "Quark Drive’a giriş yapıldı: pencere otomatik kapandı, oturum alındı. Bu bağlantıyı kaydederek kullanabilirsiniz."
+        }
+      },
+      "aliyun": {
+        "status": {
+          "loading": "Yetkilendirme durumu okunuyor…",
+          "missing": "Giriş yapılmadı",
+          "ready": "Yetkili",
+          "stale": "Oturumun süresi doldu; yeniden giriş yapın",
+          "stale_soon": "Oturumun süresi dolmak üzere"
+        },
+        "action": {
+          "deleteSession": "Kaydedilmiş oturumu sil"
+        },
+        "embedded": {
+          "title": "QR kodunu tarayarak giriş yap",
+          "start": "QR kodunu göster",
+          "cancel": "Beklemeyi durdur",
+          "hint": "Burada giriş için bir QR kodu görünür. Telefonunuzdaki Aliyun Drive uygulamasıyla tarayın — oturum otomatik olarak alınır, tek yapmanız gereken bu bağlantıyı kaydetmek. Tarayamıyorsanız aşağıya bir erişim belirteci yapıştırın.",
+          "status": {
+            "waiting": "Kodu taramanız bekleniyor…",
+            "ready": "Giriş yapıldı. Bu bağlantıyı kaydedin — oturum kaydetme sırasında yazılacak.",
+            "closed": "Giriş tamamlanmadan iptal edildi.",
+            "timeout": "QR kodunun süresi doldu. Lütfen yeniden deneyin.",
+            "error": "Giriş durumu okunamadı. Lütfen yeniden deneyin.",
+            "scanned": "Tarandı, lütfen telefonda onaylayın"
+          },
+          "saved": "Aliyun Drive’a giriş yapıldı. Kullanmak için bu bağlantıyı kaydedin.",
+          "refresh": "QR kodunu yenile",
+          "windowStart": "Giriş penceresini aç",
+          "windowCancel": "Pencereyi kapat",
+          "windowHint": "Resmî Aliyun Drive sayfası pencerede QR kodu gösterir ve onaylar; kimlik bilgileri doğrudan uygulamaya gider.",
+          "qrFallback": "Yedek: elle QR kod girişi"
+        },
+        "field": {
+          "pasteToken": "Erişim belirteci",
+          "pasteTokenHint": "Zaten sahip olduğunuz belirteci yapıştırın. Kaydedilmeden önce Aliyun Drive karşısında doğrulanır; belirteç bu bilgisayardan hiçbir zaman açık metin olarak çıkmaz."
+        }
+      },
+      "netdisk": {
+        "provider": "Bulut sürücüsü",
+        "baidu": "Baidu Drive",
+        "quark": "Quark Drive",
+        "aliyun": "Aliyun Drive",
+        "signedIn": "Oturum açıldı",
+        "onedrive": "OneDrive"
+      },
+      "onedrive": {
+        "field": {
+          "clientId": "Application (client) ID",
+          "clientIdHint": "The client id of the Microsoft Entra application you registered for OneDrive. It is stored with the session on this machine and is never sent through this form.",
+          "authUrl": "Authorization URL",
+          "authUrlHint": "If the browser did not open by itself, copy this URL and finish signing in there."
+        },
+        "action": {
+          "start": "Start sign-in",
+          "cancel": "Stop waiting",
+          "deleteSession": "Delete the saved session"
+        },
+        "state": {
+          "pending": "Waiting for you to finish signing in in the browser…",
+          "completed": "Signed in. Save this connection — the session will be written when you save.",
+          "failed": "The sign-in did not complete. Please try again."
+        },
+        "auth": {
+          "authorized": "Authorized",
+          "missing": "Not signed in",
+          "loading": "Reading authorization status…"
+        },
+        "hint": {
+          "clientIdRequired": "Fill in the application (client) ID first."
+        }
+      }
+    },
+    "about": {
+      "title": "Hakkında",
+      "changelog": "Sürüm notları",
+      "projectLinks": "Proje bağlantıları",
+      "commits": "Commitler",
+      "author": "Yazar",
+      "developer": "段燚",
+      "website": "Web sitesi",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "Takip etmek için tarayın"
     }
   },
   "projectGithubButtons": {
     "projectPage": "Proje sayfası",
-    "requestsIssues": "İstekler ve sorunlar",
-    "discussions": "Tartışmalar"
+    "requestsIssues": "İstekler ve sorunlar"
   },
   "settingsTabs": {
     "general": "Genel",
@@ -470,7 +918,9 @@
     "dataStorage": "Veri depolama",
     "stats": "İstatistikler",
     "experimental": "Deneysel",
-    "extensions": "Uzantılar"
+    "extensions": "Uzantılar",
+    "remote": "Remote",
+    "about": "Hakkında"
   },
   "settingsTags": {
     "language": "dil",
@@ -483,8 +933,8 @@
     "visualFilters": "görsel, filtreler, renk, kontrast, parlaklık, doygunluk, görüntü, video, tema, iletişim kutusu, arka plan, bulanıklık",
     "fonts": "yazı tipleri, metin",
     "dateTime": "tarih, saat, biçim",
-    "uiElements": "ui, öğeler, görsel, giriş, vurgu, renk, zaman çizelgesi, pano, sayfa, son, kartlar, ev, sürücü, boşluk, gösterge, stil",
-    "quickAccess": "quick, access, panel, hover, sidebar, dashboard",
+    "uiElements": "ui, öğeler, görsel, giriş, vurgu, renk, zaman çizelgesi, hızlı erişim, sayfa, son, kartlar, ev, sürücü, boşluk, gösterge, stil",
+    "quickAccess": "quick, access, panel, hover, sidebar",
     "tooltips": "tooltip, tooltips, hover, delay, timing",
     "clipboard": "pano, yapıştır, kopyala, kes, araç çubuğu, görsel, ekran görüntüsü, yol, dosya",
     "homePageMediaBanner": "ana sayfa, sayfa, medya, afiş, arka plan, resim, video",
@@ -492,7 +942,7 @@
     "shortcuts": "kısayollar",
     "tabAppearance": "sekmeler, etkin sekme, kalın, metin",
     "globalSearch": "global, ara, bul, bak, filtrele, tara",
-    "stats": "istatistikler, veri, kullanıcı, favoriler, etiketler, geçmiş, son, gösterge paneli, depolama",
+    "stats": "istatistikler, veri, kullanıcı, favoriler, etiketler, geçmiş, son, hızlı erişim, depolama",
     "driveDetection": "sürücü, usb, depolama, disk, cihaz, algılama, bağlantı",
     "autoplay": "otomatik oynatma, gezgin, windows, sürücü, usb, otomatik, aç, klasör",
     "experimental": "gelişmiş, deneysel, varsayılan dosya yöneticisi, dosya gezgini, kayıt defteri, terminal, shell",
@@ -501,10 +951,13 @@
     "extensions": "extensions, plugins, addons, configuration, settings",
     "infoPanelPreview": "info, panel, preview, image, thumbnail, memory, original, video, mute, autoplay",
     "performance": "performance, memory, quick view, print, window, launch, preload",
-    "fileView": "dosya görünümü, kutu seçimi, sürükleme seçimi, liste, ızgara, boşluklar, dolgu",
+    "fileView": "dosya görünümü, kutu seçimi, sürükleme seçimi, liste, ızgara, boşluklar, dolgu, folder, folders, first, top, sort, sorting, order, ordering, list, files, file, directory, directories, group, grouping, view, precedence",
     "tabsWorkspaces": "sekmeler, çalışma alanları, kapat, son sekme, varsayılan sekme",
     "defaultDirectory": "ana sayfa, locations, bu bilgisayar, sürücüler, varsayılan klasör, varsayılan dizin, yeni sekme, özel yol",
-    "startupPage": "başlangıç sayfası, başlangıç, başlangıçta aç, ana sayfa, pano, gezgin, son sayfa, geri yükle, sayfa"
+    "startupPage": "başlangıç sayfası, başlangıç, başlangıçta aç, ana sayfa, hızlı erişim, gezgin, son sayfa, geri yükle, sayfa",
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "hakkında, sürüm, güncelleme, sürüm notları, github, yazar, web sitesi, wechat, qr kodu",
+    "settingsTransfer": "export, import, settings, favorites, remote connections, cloud drive, backup, restore"
   },
   "drag": {
     "holdShiftToChangeMode": "Modu değiştirmek için [Shift]'e basılı tutun",
@@ -537,13 +990,15 @@
     "localShortcutsAppScope": "Yerel kısayollar (uygulama kapsamı)",
     "unknownMainKey": "Bilinmeyen tuş",
     "globalShortcutRegisterFailed": "Bu genel kısayol kaydedilemedi. Windows veya başka bir uygulama tarafından kullanılıyor olabilir. Farklı bir kombinasyon deneyin (ör. Win+Shift+… veya Ctrl+Alt+…).",
-    "shortcutRecorderGlobalCaptureHint": "Tuşlara bastığınızda hiçbir şey görünmüyorsa, sisteminiz veya başka bir program tuşları bu pencereye ulaşmadan yakalıyor olabilir. Başka bir kombinasyon deneyin."
+    "shortcutRecorderGlobalCaptureHint": "Tuşlara bastığınızda hiçbir şey görünmüyorsa, sisteminiz veya başka bir program tuşları bu pencereye ulaşmadan yakalıyor olabilir. Başka bir kombinasyon deneyin.",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "Uygulama penceresini odakla",
     "switchToHomePage": "Ana sayfaya geç",
     "switchToNavigatorPage": "Gezgin sayfasına geç",
-    "switchToDashboardPage": "Panoya geç",
+    "switchToDashboardPage": "Hızlı Erişime geç",
     "switchToSettingsPage": "Ayarlar sayfasına geç",
     "switchToExtensionsPage": "Uzantılar sayfasına geç",
     "navigatePageBack": "Önceki sayfaya git",
@@ -641,6 +1096,22 @@
       "description": "Bu işlem bilgisayarınızdan {count} öğeyi kalıcı olarak siler.",
       "confirm": "Yalnızca bunun geri alınamayacağını anlıyorsanız onaylayın.",
       "delete": "Sil"
+    },
+    "remoteHostKeyUnknown": {
+      "title": "This server’s identity has not been verified yet",
+      "description": "Alpha File Manager has connected to this host for the first time. Compare the fingerprint below with the one your server administrator gave you, then decide whether to trust it.",
+      "trust": "Trust and continue"
+    },
+    "remoteHostKeyChanged": {
+      "title": "This server’s identity has changed",
+      "description": "The host key presented by this server does not match the one you trusted before. This can mean the server was reinstalled, or that someone is intercepting the connection.",
+      "expected": "Previously trusted fingerprint:",
+      "trustAnyway": "Replace and continue"
+    },
+    "remoteHostKeyCommon": {
+      "algorithm": "Host key algorithm: {algorithm}",
+      "hint": "You can check it yourself with: ssh-keygen -lf <host key file>",
+      "hintX509": "You can check it yourself with: openssl x509 -fingerprint -sha256 -noout -in <certificate file>"
     }
   },
   "notifications": {
@@ -674,7 +1145,9 @@
     "addedToFavorites": "Added 0 items to favorites | Added 1 item to favorites | Added {n} items to favorites | Added {n} items to favorites",
     "createdNLinks": "0 bağlantı oluşturuldu | 1 bağlantı oluşturuldu | {n} bağlantı oluşturuldu | {n} bağlantı oluşturuldu",
     "createdNOfNLinks": "{total} bağlantıdan {created} tanesi oluşturuldu",
-    "linkCreationPartialFailureDescription": "{count} bağlantı başarısız oldu. İlk hata: {error}"
+    "linkCreationPartialFailureDescription": "{count} bağlantı başarısız oldu. İlk hata: {error}",
+    "deletingLargeBatch": "Deleting {count} items",
+    "deletingLargeBatchDetail": "{files} files · {directories} folders · {size}"
   },
   "contextMenus": {
     "dirItem": {
@@ -856,6 +1329,7 @@
     },
     "name": "Ad",
     "size": "Boyut",
+    "availableSpace": "Kullanılabilir alan",
     "modified": "Değiştirilme",
     "listModifiedDate": {
       "todayAt": "Bugün {time}",
@@ -864,6 +1338,7 @@
     "columns": "Sütunlar",
     "tags": "Etiketler",
     "folders": "Klasörler",
+    "partitions": "Bölümler",
     "images": "Resimler",
     "videos": "Videolar",
     "video": "Video",
@@ -910,12 +1385,16 @@
     "actions": {
       "rename": "Yeniden adlandır",
       "copy": "Kopyala",
+      "cut": "Kes",
       "move": "Taşı",
       "paste": "Yapıştır",
       "pasteToPane1": "Panel 1'e yapıştır",
       "pasteToPane2": "Panel 2'e yapıştır",
       "delete": "Sil",
       "openWith": "Birlikte aç...",
+      "openContainingDirectory": "Open containing directory",
+      "openContainingDirectoryFailed": "İçeren klasör açılamadı",
+      "openContainingDirectoryInApp": "Show containing folder in split view",
       "properties": "Özellikler",
       "propertiesFailed": "Özellikler açılamadı",
       "quickView": "Hızlı görünüm",
@@ -924,7 +1403,17 @@
       "openInNewTab": "Yeni sekmede aç",
       "addToFavorites": "Favorilere ekle",
       "removeFromFavorites": "Favorilerden kaldır",
-      "createLink": "Bağlantı oluştur"
+      "createLink": "Bağlantı oluştur",
+      "unlock": "Unlock file",
+      "forceDelete": "Force delete",
+      "rotateImageLeft": "Sola çevir",
+      "rotateImageRight": "Sağa çevir",
+      "flipImageHorizontal": "Yatay çevir",
+      "flipImageVertical": "Dikey çevir",
+      "imageEditSucceeded": "Görsel başarıyla düzenlendi",
+      "imageEditFailed": "Görsel düzenlenemedi",
+      "imageEditInProgress": "İşleniyor…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "Sembolik bağlantı",
@@ -995,7 +1484,30 @@
     "linkMetadataPerformanceWarning": "Bellek kullanımını artırabilir ve performansı düşürebilir.",
     "fillColumnWidth": "Fill available width",
     "setMinimumColumnWidths": "Minimum genişlikleri ayarla",
-    "items": "Öğeler"
+    "items": "Öğeler",
+    "favoriteCategoryDialog": {
+      "title": "Add to favorites",
+      "categoryLabel": "Choose a category",
+      "uncategorized": "Uncategorized",
+      "newCategoryLabel": "Or create a new category",
+      "newCategoryPlaceholder": "Type a name for the new category",
+      "confirm": "Add to favorites",
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "Görünen ad",
+      "displayNamePlaceholder": "Özgün adı kullanmak için boş bırakın"
+    },
+    "searchOptions": {
+      "title": "Arama seçenekleri",
+      "matchCount": "{n} eşleşme",
+      "results": "Sonuçlar",
+      "options": "Seçenekler"
+    },
+    "swapPanes": "Swap panes",
+    "devices": "Cihazlar",
+    "device": "Cihaz",
+    "deviceOpenFailed": "Bu cihaz açılamadı",
+    "deviceOpenFailedDescription": "Cihazın bağlantısı kesilmiş olabilir. Bunun yerine sistem gezgininde açın.",
+    "openInSystemExplorer": "Sistem gezgininde aç"
   },
   "openWith": {
     "loadingPrograms": "Programlar yükleniyor...",
@@ -1095,7 +1607,7 @@
     },
     "badges": {
       "official": "Resmi",
-      "officialTooltip": "Bu eklenti Sigma File Manager ekibi tarafından oluşturulmuş ve sürdürülmektedir",
+      "officialTooltip": "Bu eklenti Alpha File Manager ekibi tarafından oluşturulmuş ve sürdürülmektedir",
       "community": "Topluluk",
       "communityTooltip": "Bu bir topluluk eklentisidir. Yüklemeden önce kaynak kodunu inceleyin.",
       "local": "Yerel",
@@ -1103,7 +1615,9 @@
       "broken": "Bozuk",
       "brokenTooltip": "Eklenti dosyaları eksik. Listeden kaldırmak için kaldırın.",
       "disabled": "Devre dışı",
-      "disabledTooltip": "Bu uzantı devre dışı"
+      "disabledTooltip": "Bu uzantı devre dışı",
+      "source": "Kaynak",
+      "sourceTooltip": "Market kaynağı: {name}"
     },
     "stats": {
       "total": "Toplam",
@@ -1191,17 +1705,30 @@
       "reloadFailed": "İkili ayarlar güncellendikten sonra uzantı yeniden yüklenemedi"
     },
     "engineIncompatibleShort": "Güncelleme gerekli",
-    "engineAppWarning": "Sigma File Manager {range} gerektirir (sizde {current})",
+    "engineAppWarning": "Alpha File Manager {range} gerektirir (sizde {current})",
     "engineApiWarning": "Uzantı API {range} gerektirir (sizde {current})",
     "engineRequirements": "Gereksinimler",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "Uzantı API",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",
     "githubConnectivityIssue": "GitHub'a erişilemiyor",
     "githubConnectivityIssueDescription": "Uygulama GitHub'a bağlanamadığı için bazı eklenti sürüm kontrolleri başarısız oldu. İnternet bağlantınızı, VPN'inizi veya güvenlik duvarı ayarlarınızı kontrol edip daha sonra tekrar deneyin.",
     "offlineIssue": "You are offline",
-    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features."
+    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features.",
+    "marketSources": "Market kaynakları",
+    "marketSourceAdd": "Market kaynağı ekle",
+    "marketSourceName": "Ad",
+    "marketSourceUrl": "Kayıt defteri URL'si",
+    "marketSourceOfficial": "Resmi",
+    "marketSourceCommunity": "Topluluk",
+    "marketSourceCustom": "Özel",
+    "marketSourceAll": "Tümü",
+    "marketSourceEmpty": "Henüz hiçbir market kaynağı eklenmedi.",
+    "marketSourceRemove": "Market kaynağını kaldır",
+    "marketSourceRemoveConfirm": "Bu market kaynağı kaldırılsın mı? Sağladığı eklentiler, market bir sonraki yenilendiğinde kaldırılacak.",
+    "marketSourceInvalidUrl": "Herkese açık bir HTTPS URL'si girin.",
+    "marketSourceUnreachable": "Erişilemiyor"
   },
   "commandPalette": {
     "accessibleDialogTitle": "Komut paleti",
@@ -1229,7 +1756,9 @@
       "trash": "Çöp",
       "deletePermanent": "Sil",
       "archive": "Arşiv",
-      "dirSize": "Klasör boyutu"
+      "dirSize": "Klasör boyutu",
+      "remoteUpload": "Upload",
+      "remoteDownload": "Download"
     },
     "operationStatusShort": {
       "completed": "Başarılı",
@@ -1239,7 +1768,13 @@
       "pending": "Beklemede",
       "cancelling": "İptal ediliyor…"
     },
-    "toolbarActiveCount": "0 işlem | 1 işlem | {n} işlem | {n} işlem"
+    "toolbarActiveCount": "0 işlem | 1 işlem | {n} işlem | {n} işlem",
+    "deleteScanning": "Measuring what will be deleted…",
+    "deleteScanningFound": "{count} items found",
+    "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "Geri dönüşüm kutusuna taşınıyor…",
+    "cancelNotAccepted": "İptal edilemez: dosyalar zaten Geri Dönüşüm Kutusu'na taşınıyor.",
+    "deleteBytesProgress": "{done} / {total} freed"
   },
   "recalculate": "Recalculate",
   "lanShare": {
@@ -1266,5 +1801,291 @@
     "replaceShareDialogDescription": "Ağ üzerinden zaten dosyalar paylaşılıyor. Mevcut paylaşım durdurulup yenisiyle değiştirilecek.",
     "replaceShareDialogConfirm": "Değiştir"
   },
-  "tree": "Tree"
+  "tree": "Tree",
+  "batchRename": {
+    "menuItem": "Batch rename",
+    "dialog": {
+      "title": "Batch rename",
+      "tabRename": "Rename",
+      "tabHistory": "Undo history",
+      "cancel": "Cancel",
+      "apply": "Rename",
+      "close": "Close",
+      "loading": "Calculating…",
+      "noRules": "No rules added — nothing will be renamed.",
+      "summaryChanged": "{count} item(s) will be renamed",
+      "summaryUnchanged": "{count} item(s) unchanged",
+      "blocked": "Conflicts found. Fix them before applying.",
+      "openHistory": "Undo history"
+    },
+    "rules": {
+      "title": "Rules",
+      "empty": "No rules yet.",
+      "add": "Add rule",
+      "remove": "Remove rule",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "sortLabel": "Numbering order",
+      "type": {
+        "findReplace": "Find and replace",
+        "caseTransform": "Change case",
+        "template": "Template",
+        "sequence": "Numbering",
+        "extension": "Extension"
+      },
+      "findReplace": {
+        "find": "Find",
+        "replace": "Replace with",
+        "caseSensitive": "Match case",
+        "includeExtension": "Include extension"
+      },
+      "caseTransform": {
+        "mode": "Mode",
+        "includeExtension": "Include extension"
+      },
+      "case": {
+        "upper": "UPPERCASE",
+        "lower": "lowercase",
+        "title": "Title Case",
+        "camel": "camelCase",
+        "snake": "snake_case",
+        "kebab": "kebab-case"
+      },
+      "template": {
+        "pattern": "Pattern",
+        "variables": "Available variables",
+        "dateFormat": "Date format"
+      },
+      "sequence": {
+        "start": "Start",
+        "step": "Step",
+        "pad": "Zero padding",
+        "hint": "Numbering does not rename anything on its own. It only supplies the sequence variable used by a Template rule — add a Template rule to use it.",
+        "addTemplate": "Add a Template rule"
+      },
+      "extension": {
+        "newExtension": "New extension",
+        "newExtensionHint": "Leave empty to remove the extension"
+      }
+    },
+    "sort": {
+      "selection": "Selection order",
+      "nameAsc": "Name A to Z",
+      "nameDesc": "Name Z to A",
+      "modifiedAsc": "Modified, oldest first",
+      "modifiedDesc": "Modified, newest first",
+      "sizeAsc": "Size, smallest first",
+      "sizeDesc": "Size, largest first"
+    },
+    "preview": {
+      "title": "Preview",
+      "oldName": "Current name",
+      "newName": "New name",
+      "empty": "Nothing to preview.",
+      "unchanged": "unchanged"
+    },
+    "conflicts": {
+      "title": "Conflicts",
+      "targetExists": "The new name is already taken by another file in this folder.",
+      "duplicateTarget": "Several items would get the same name.",
+      "invalidTitle": "Invalid file names",
+      "invalid": {
+        "empty": "Name is empty.",
+        "illegalCharacter": "Contains a character that is not allowed in file names.",
+        "windowsReservedName": "Reserved name on Windows.",
+        "trailingDotOrSpace": "Cannot end with a dot or a space."
+      }
+    },
+    "result": {
+      "success": "Renamed {count} item(s)",
+      "partial": "Rename failed",
+      "rollbackOk": "Rolled back — the folder is back to its previous state.",
+      "rollbackFailed": "Rollback failed. The folder may be in a mixed state — check it manually.",
+      "noUndo": "This change could not be recorded for undo."
+    },
+    "history": {
+      "title": "Undo history",
+      "empty": "No history yet.",
+      "undo": "Undo",
+      "undoing": "Undoing…",
+      "itemCount": "{count} file(s)",
+      "undoSuccess": "Reverted {count} item(s)",
+      "undoFailed": "Undo failed",
+      "blockedBy": "These names are taken, so they could not be restored: {names}",
+      "notFound": "That history entry no longer exists."
+    }
+  },
+  "remote": {
+    "transfer": {
+      "uploadToRemote": "Upload to remote",
+      "downloadToLocal": "Download to local",
+      "uploadSucceeded": "Uploaded {files} file(s) to the remote folder.",
+      "uploadFailed": "Upload did not fully succeed: {files} uploaded, {skipped} skipped, {failed} failed.",
+      "downloadSucceeded": "Downloaded {files} file(s) to the local folder.",
+      "downloadFailed": "Download did not fully succeed: {files} downloaded, {skipped} skipped, {failed} failed.",
+      "uploading": "Uploading to remote",
+      "downloading": "Downloading from remote",
+      "progressFiles": "{done} / {total} files transferred",
+      "progressBytes": "{done} / {total} transferred",
+      "progressCurrent": "Current: {name}",
+      "resultTitle": "Transfer result",
+      "resultSummary": "{files} file(s) succeeded, {skipped} skipped, {failed} failed",
+      "failureSection": "Failed items",
+      "skippedSection": "Skipped items",
+      "skipReasonAlreadyExists": "Target already exists (not overwritten)",
+      "conflictTitle": "Target already exists",
+      "conflictMessage": "{count} file(s) already exist in the target folder. Overwrite them?",
+      "conflictOverwrite": "Overwrite",
+      "conflictSkipExisting": "Skip existing",
+      "noRemotePane": "The other pane is not on a remote host",
+      "uploadFailedTitle": "Upload did not fully succeed",
+      "downloadFailedTitle": "Download did not fully succeed",
+      "pasteToRemoteFailed": "Copy failed",
+      "remoteToRemoteNotSupported": "Copying between two remote locations is not supported yet. Click a local folder pane first and press Ctrl+V to download, or right-click the file and choose Download to local.",
+      "pasteFromRemoteFailed": "Copy from remote failed",
+      "conflictApplyToAll": "Apply the same choice to all files",
+      "conflictContinue": "Continue",
+      "skipReasonUserSkipped": "Skipped by you"
+    },
+    "permissions": {
+      "menuItem": "Permissions...",
+      "title": "Set permissions",
+      "modeLabel": "Permissions (octal)",
+      "modeHint": "For example 0754 means the owner may read, write and execute; the group may read and execute; others may read.",
+      "unknownMode": "The current permissions could not be read. Pick one from the list.",
+      "owner": "Owner",
+      "group": "Group",
+      "others": "Others",
+      "read": "read",
+      "write": "write",
+      "execute": "execute",
+      "none": "none",
+      "separator": ", ",
+      "recursive": "Apply to subdirectories and the files in them",
+      "apply": "Apply",
+      "success": "Permissions updated ({changed} item(s)).",
+      "partialFailure": "Permissions updated for {changed} item(s); {failed} failed.",
+      "failed": "Could not set permissions: {message}",
+      "error": {
+        "empty": "Enter the permissions in octal, for example 0754.",
+        "tooLong": "At most 4 octal digits are allowed.",
+        "notOctal": "Only the digits 0-7 are allowed.",
+        "unknown": "This permission value could not be recognized."
+      }
+    },
+    "delete": {
+      "menuItem": "Sil",
+      "title": "Uzak öğeleri sil",
+      "descriptionSingle": "{path} kalıcı olarak silinecek. Bu işlem geri alınamaz.",
+      "description": "Bu işlem uzak sunucudaki {count} öğeyi kalıcı olarak siler. Geri alınamaz.",
+      "noTrashHint": "Uzak sunucuda geri dönüşüm kutusu yok, bu yüzden silinen öğeler geri getirilemez.",
+      "connectionHint": "Bağlantı: {name}",
+      "confirm": "Sil",
+      "success": "{count} uzak öğe silindi.",
+      "failed": "Silinemedi",
+      "permissionDenied": "İzin yok"
+    },
+    "write": {
+      "fileCreationNotSupported": "Uzak dizinler boş dosya oluşturmayı desteklemez.",
+      "fileCreationNotSupportedTitle": "Dosya oluşturulamadı"
+    }
+  },
+  "compareSync": {
+    "title": "Compare & Sync",
+    "description": "Compare the two directories and sync the differences. This step never deletes anything.",
+    "stepSettings": "Setup",
+    "stepResults": "Results",
+    "stepPreview": "Preview & Run",
+    "leftDirectory": "Left directory",
+    "rightDirectory": "Right directory",
+    "leftDirectoryHint": "Source side",
+    "rightDirectoryHint": "Target side",
+    "tabCriteria": "Criteria",
+    "tabExclude": "Exclude",
+    "criteriaByTime": "By modification time",
+    "criteriaBySize": "By file size",
+    "criteriaByChecksum": "By content checksum",
+    "criteriaByChecksumHint": "Only available between two local folders; remote servers have no checksum to compare.",
+    "criteriaCaseSensitive": "Case sensitive",
+    "criteriaRecursive": "Compare subfolders recursively",
+    "criteriaMaxDepth": "Maximum depth",
+    "criteriaMaxDepthUnlimited": "Unlimited",
+    "criteriaRemoteTimeOffset": "Remote time offset (seconds)",
+    "criteriaRemoteTimeOffsetHint": "Servers usually report time in their own time zone; this offset converts it to yours.",
+    "excludePatterns": "Exclude rules",
+    "excludePatternsHint": "One per line, * and ? are supported. A matching folder drops its whole subtree from the comparison.",
+    "compare": "Compare",
+    "comparing": "Comparing…",
+    "back": "Back",
+    "preview": "Build preview",
+    "execute": "Start sync",
+    "executing": "Syncing…",
+    "cancel": "Cancel",
+    "filterAll": "All",
+    "filterDifferences": "Differences only",
+    "statusSame": "Same",
+    "statusOnlyLeft": "Left only",
+    "statusOnlyRight": "Right only",
+    "statusNewer": "Left is newer",
+    "statusOlder": "Left is older",
+    "statusSizeDiff": "Different size",
+    "statusContentDiff": "Different content",
+    "statusKindDiff": "Different type",
+    "statusIndeterminate": "Undecidable",
+    "directionToRight": "Left → Right",
+    "directionToLeft": "Right → Left",
+    "directionNone": "Nothing to do",
+    "directionIndeterminate": "Direction undecided",
+    "noDifferences": "No differences.",
+    "statsTotal": "Total",
+    "statsSame": "Same",
+    "statsDifferences": "Different",
+    "statsNeedsReview": "Undecided",
+    "actionCreateDir": "Create folder",
+    "actionTransferFile": "Transfer file",
+    "actionSkip": "Skip",
+    "planSummary": "Will create {dirs} folders, transfer {files} files and skip {skipped} items.",
+    "reportTransferred": "Transferred",
+    "reportCreatedDirs": "Folders created",
+    "reportSkipped": "Skipped",
+    "reportFailed": "Failed",
+    "reportCancelled": "Cancelled",
+    "invalidPath": "This path cannot be used.",
+    "progressPreparing": "Hazırlanıyor…",
+    "progressScanningLeft": "Sol taraf taranıyor…",
+    "progressScanningRight": "Sağ taraf taranıyor…",
+    "progressComparing": "Karşılaştırılıyor…",
+    "progressDone": "Tamam",
+    "progressScanned": "{count} öğe tarandı",
+    "progressCompared": "{total} ögeden {count} tanesi karşılaştırıldı",
+    "rowsTruncated": "{total} ögeden {shown} tanesi gösteriliyor. Daraltmak için filtreleri kullanın.",
+    "showMore": "{count} tane daha göster",
+    "statsUnreadable": "okunamıyor"
+  },
+  "mapNetworkDrive": "Map network drive",
+  "mapNetworkDriveDescription": "Map a network share to a drive letter. Once it is mounted it shows up in the drive list on the left.",
+  "networkDriveLetter": "Drive letter",
+  "networkDriveLetterPlaceholder": "Auto",
+  "fileLock": {
+    "unlocked": "File unlocked",
+    "unlockedDescription": "Whatever was blocking the file has been cleared. You can delete it normally now.",
+    "unlockFailed": "Could not unlock the file",
+    "forceDeleted": "File deleted",
+    "forceDeletedDescription": "The file was removed even though it was in use.",
+    "forceDeleteFailed": "Could not delete the file",
+    "scheduledForReboot": "Deletion scheduled",
+    "scheduledForRebootDescription": "The file is still in use. It will be deleted the next time Windows starts.",
+    "terminateFailed": "Could not end the process",
+    "unknownError": "Unknown error",
+    "holdersTitle": "Programs using this file",
+    "holdersDescription": "These programs are holding the file open. Ending one of them may lose unsaved work.",
+    "noHolders": "No program was found holding this file.",
+    "endProcess": "End process",
+    "diagnoseFailed": "Could not check which programs are using this file"
+  },
+  "webviewGuard": {
+    "detected": "The interface renderer process crashed. Trying to recover automatically...",
+    "recovered": "The interface is working again.",
+    "recoveryFailed": "The interface could not be recovered automatically. Please restart the app."
+  }
 }

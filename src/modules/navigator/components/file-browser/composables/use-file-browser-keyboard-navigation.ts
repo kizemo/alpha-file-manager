@@ -4,6 +4,7 @@
 
 import { nextTick, type Ref } from 'vue';
 import type { DirEntry } from '@/types/dir-entry';
+import { getFileBrowserEntryKey } from '@/modules/navigator/components/file-browser/utils/file-browser-entry-key';
 import { getFileBrowserVisualEntryOrder } from '../file-browser-entry-groups';
 
 const ROW_TOLERANCE_PX = 30;
@@ -12,8 +13,21 @@ const OVERLAP_TOLERANCE_PX = 2;
 export function useFileBrowserKeyboardNavigation(options: {
   entries: Ref<DirEntry[]>;
   selectedEntries: Ref<DirEntry[]>;
+  lastSelectedEntry: Ref<DirEntry | null>;
+  focusedEntry: Ref<DirEntry | null>;
   layout: () => 'list' | 'grid' | 'tree' | undefined;
+  /**
+   * FORK-MODIFICATION 2026-10-27：导航落点已经应用之后的回调。
+   * 连续改名模式用它把落点条目切进「就地编辑态」。
+   */
+  onNavigationTargetApplied?: (entry: DirEntry) => void;
   selectEntryByPath: (path: string) => boolean;
+  /**
+   * 按「条目唯一键」选中条目。远程网盘同目录同名条目的 `path` 逐字相同，
+   * 只按 path 选会永远命中第一个同名条目 ⇒ 有这个入口时优先用它。
+   */
+  selectEntryByKey?: (key: string) => boolean;
+  selectRange: (fromEntry: DirEntry, toEntry: DirEntry, additive?: boolean) => void;
   scrollToPath?: (path: string, align?: ScrollLogicalPosition) => Promise<boolean>;
   getEntryElement?: (path: string) => HTMLElement | null;
   getGridNavigationEntry?: (path: string, direction: 'up' | 'down') => DirEntry | null;
@@ -43,7 +57,38 @@ export function useFileBrowserKeyboardNavigation(options: {
     return container.querySelector<HTMLElement>(`[data-entry-path="${CSS.escape(path)}"]`);
   }
 
-  function getLastSelectedEntry(): DirEntry | null {
+  /**
+   * 取某个条目的 DOM 行。
+   *
+   * 优先按 `data-entry-key` 找：远程网盘同目录同名条目的 `path` 逐字相同，
+   * 只按 `data-entry-path` 找会永远命中第一个同名条目。
+   */
+  function getEntryElementForEntry(entry: DirEntry): HTMLElement | null {
+    const container = options.entriesContainerRef.value;
+
+    if (container) {
+      const key = getFileBrowserEntryKey(entry);
+      const elementByKey = container.querySelector<HTMLElement>(
+        `[data-entry-key="${CSS.escape(key)}"]`,
+      );
+
+      if (elementByKey) {
+        return elementByKey;
+      }
+    }
+
+    return getEntryElement(entry.path);
+  }
+
+  function getFocusedEntry(): DirEntry | null {
+    if (options.focusedEntry.value) {
+      return options.focusedEntry.value;
+    }
+
+    if (options.lastSelectedEntry.value) {
+      return options.lastSelectedEntry.value;
+    }
+
     const selected = options.selectedEntries.value;
     return selected.length > 0 ? selected[selected.length - 1] : null;
   }
@@ -56,31 +101,53 @@ export function useFileBrowserKeyboardNavigation(options: {
     return getFileBrowserVisualEntryOrder(options.entries.value, options.layout());
   }
 
-  async function selectAndFocusEntry(entry: DirEntry) {
-    options.selectEntryByPath(entry.path);
+  async function applyNavigationTarget(entry: DirEntry, extendSelection: boolean) {
+    if (extendSelection) {
+      const anchor = options.lastSelectedEntry.value
+        ?? options.focusedEntry.value
+        ?? entry;
+      options.selectRange(anchor, entry);
+    }
+    else {
+      const entryKey = getFileBrowserEntryKey(entry);
+
+      if (options.selectEntryByKey) {
+        options.selectEntryByKey(entryKey);
+      }
+      else {
+        options.selectEntryByPath(entry.path);
+      }
+    }
+
     await options.scrollToPath?.(entry.path);
     await nextTick();
 
-    const element = getEntryElement(entry.path);
+    const element = getEntryElementForEntry(entry);
 
     if (element) {
       element.focus({ preventScroll: true });
     }
+
+    // FORK-MODIFICATION 2026-10-27：落点回调放在最后 ——
+    // 选区、滚动、DOM 焦点都落定之后，再把落点切进就地编辑态。
+    options.onNavigationTargetApplied?.(entry);
   }
 
-  function navigateFlat(direction: 'previous' | 'next') {
+  function navigateFlat(direction: 'previous' | 'next', extendSelection: boolean) {
     const entries = getNavigationEntries();
 
     if (entries.length === 0) return;
 
-    const lastSelected = getLastSelectedEntry();
+    const focusedEntry = getFocusedEntry();
     let targetIndex: number;
 
-    if (!lastSelected) {
+    if (!focusedEntry) {
       targetIndex = direction === 'next' ? 0 : entries.length - 1;
     }
     else {
-      const currentIndex = entries.findIndex(entry => entry.path === lastSelected.path);
+      const currentIndex = entries.findIndex(
+        entry => getFileBrowserEntryKey(entry) === getFileBrowserEntryKey(focusedEntry),
+      );
 
       if (currentIndex === -1) {
         targetIndex = direction === 'next' ? 0 : entries.length - 1;
@@ -92,31 +159,32 @@ export function useFileBrowserKeyboardNavigation(options: {
 
     if (targetIndex < 0 || targetIndex >= entries.length) return;
 
-    selectAndFocusEntry(entries[targetIndex]);
+    applyNavigationTarget(entries[targetIndex], extendSelection);
   }
 
-  function navigateGridVertical(direction: 'up' | 'down') {
+  function navigateGridVertical(direction: 'up' | 'down', extendSelection: boolean) {
     const navigationEntries = getNavigationEntries();
 
     if (navigationEntries.length === 0) return;
 
-    const lastSelected = getLastSelectedEntry();
+    const focusedEntry = getFocusedEntry();
 
-    if (!lastSelected) {
-      selectAndFocusEntry(
+    if (!focusedEntry) {
+      applyNavigationTarget(
         direction === 'down' ? navigationEntries[0] : navigationEntries[navigationEntries.length - 1],
+        extendSelection,
       );
       return;
     }
 
-    const virtualTargetEntry = options.getGridNavigationEntry?.(lastSelected.path, direction);
+    const virtualTargetEntry = options.getGridNavigationEntry?.(focusedEntry.path, direction);
 
     if (virtualTargetEntry) {
-      selectAndFocusEntry(virtualTargetEntry);
+      applyNavigationTarget(virtualTargetEntry, extendSelection);
       return;
     }
 
-    const currentElement = getEntryElement(lastSelected.path);
+    const currentElement = getEntryElementForEntry(focusedEntry);
 
     if (!currentElement) return;
 
@@ -179,38 +247,38 @@ export function useFileBrowserKeyboardNavigation(options: {
     }
 
     if (bestEntry) {
-      selectAndFocusEntry(bestEntry);
+      applyNavigationTarget(bestEntry, extendSelection);
     }
   }
 
-  function navigateUp() {
+  function navigateUp(extendSelection = false) {
     const layout = options.layout();
 
     if (layout === 'grid') {
-      navigateGridVertical('up');
+      navigateGridVertical('up', extendSelection);
     }
     else {
-      navigateFlat('previous');
+      navigateFlat('previous', extendSelection);
     }
   }
 
-  function navigateDown() {
+  function navigateDown(extendSelection = false) {
     const layout = options.layout();
 
     if (layout === 'grid') {
-      navigateGridVertical('down');
+      navigateGridVertical('down', extendSelection);
     }
     else {
-      navigateFlat('next');
+      navigateFlat('next', extendSelection);
     }
   }
 
-  function navigateLeft() {
-    navigateFlat('previous');
+  function navigateLeft(extendSelection = false) {
+    navigateFlat('previous', extendSelection);
   }
 
-  function navigateRight() {
-    navigateFlat('next');
+  function navigateRight(extendSelection = false) {
+    navigateFlat('next', extendSelection);
   }
 
   function openSelected() {

@@ -11,10 +11,14 @@ import {
   createRecentSuggestionGroup,
   createTaggedSuggestionGroups,
   createSystemDrivesSuggestionGroup,
+  createTargetDirectorySuggestionGroup,
   createUserDirectoriesSuggestionGroup,
   ensureAddressBarDirectoryQuery,
+  toAddressBarDisplayPath,
   getAddressBarRevealTarget,
+  orderDirectoryEntriesForSuggestionList,
   resolveAddressBarSuggestions,
+  resolveAddressBarTypedTarget,
 } from '../address-bar-editor-utils';
 
 function entry(path: string, options?: {
@@ -130,7 +134,8 @@ describe('address bar editor utils', () => {
 
     expect(state.kind).toBe('directory');
     expect(readDir).toHaveBeenCalledWith('C:/');
-    expect(state.groups[0].items.map(item => item.path)).toEqual(['C:/Windows']);
+    expect(state.groups[0].items.map(item => item.path)).toEqual(['C:/']);
+    expect(state.groups[1].items.map(item => item.path)).toEqual(['C:/Windows']);
   });
 
   it('lists a WSL UNC directory when the path has no trailing separator', async () => {
@@ -164,6 +169,9 @@ describe('address bar editor utils', () => {
     expect(state.kind).toBe('directory');
     expect(readDir).toHaveBeenCalledWith('//wsl.localhost/Ubuntu-24.04/');
     expect(state.groups[0].items.map(item => item.path)).toEqual([
+      '//wsl.localhost/Ubuntu-24.04',
+    ]);
+    expect(state.groups[1].items.map(item => item.path)).toEqual([
       '//wsl.localhost/Ubuntu-24.04/home',
     ]);
   });
@@ -189,6 +197,33 @@ describe('address bar editor utils', () => {
 
     expect(state.kind).toBe('search');
     expect(readDir.mock.calls.every(call => call[0] !== '/workspace')).toBe(true);
+    expect(state.groups[0].items).toHaveLength(0);
+  });
+
+  it('treats a readDir payload without entries as a failed listing instead of throwing', async () => {
+    // readDir 的结果来自 IPC 边界，后端异常路径可能给出没有 entries 字段的载荷。
+    // 旧行为是在 .filter() 上抛 TypeError，并且因为调用链是 fire-and-forget，
+    // 异常会变成 unhandled rejection（不报错码、不中断流程、也看不出是哪一步坏了）。
+    const malformedPayload = { path: '/workspace' } as unknown as DirContents;
+    const readDir = vi.fn().mockResolvedValue(malformedPayload);
+
+    const state = await resolveAddressBarSuggestions({
+      query: '/workspace/photos',
+      mode: 'path',
+      currentPath: '/workspace',
+      directoryGroupLabel: 'Directory entries',
+      exactGroupLabel: 'Exact match',
+      resultsGroupLabel: 'Results',
+      entryModeGroups: [],
+      lastDirectoryEntries: [],
+      lookup: {
+        readDir,
+        getDirEntry: vi.fn(),
+      },
+      createSearchMatcher: searchMatcher,
+    });
+
+    expect(state.kind).toBe('search');
     expect(state.groups[0].items).toHaveLength(0);
   });
 
@@ -220,7 +255,8 @@ describe('address bar editor utils', () => {
     });
 
     expect(state.kind).toBe('directory');
-    expect(state.groups[0].items.map(item => item.path)).toEqual([
+    expect(state.groups[0].items.map(item => item.path)).toEqual(['/workspace']);
+    expect(state.groups[1].items.map(item => item.path)).toEqual([
       '/workspace/src',
       '/workspace/readme.md',
     ]);
@@ -299,7 +335,8 @@ describe('address bar editor utils', () => {
 
     expect(state.kind).toBe('search');
     expect(readDir).toHaveBeenCalledWith('/workspace');
-    expect(getDirEntry).not.toHaveBeenCalled();
+    // 无结尾斜杠的绝对路径现在会先被当作目录探测一次，探测落空才回落搜索。
+    expect(getDirEntry).toHaveBeenCalledWith('/workspace/readme.md');
     expect(state.groups[0].items.map(item => item.path)).toEqual(['/workspace/readme.md']);
     expect(state.groups[0].items[0].isFile).toBe(true);
   });
@@ -497,5 +534,213 @@ describe('address bar editor utils', () => {
       parentPath: '/workspace/src',
       entryPath: '/workspace/src/file.txt',
     });
+  });
+
+  it('browses a typed absolute directory path without a trailing separator', async () => {
+    const readDir = vi.fn(async (pathArg: string) => {
+      if (pathArg === 'F:/soft/00selfmade/filemanager/sigma-file-manager') {
+        return dirContents('F:/soft/00selfmade/filemanager/sigma-file-manager', [
+          entry('F:/soft/00selfmade/filemanager/sigma-file-manager/src'),
+        ]);
+      }
+
+      throw new Error('unexpected readDir path');
+    });
+
+    const state = await resolveAddressBarSuggestions({
+      query: 'F:/soft/00selfmade/filemanager/sigma-file-manager',
+      mode: 'path',
+      currentPath: 'C:/Folder',
+      directoryGroupLabel: 'Directory entries',
+      exactGroupLabel: 'Exact match',
+      resultsGroupLabel: 'Results',
+      entryModeGroups: [],
+      lastDirectoryEntries: [],
+      lookup: {
+        readDir,
+        getDirEntry: vi.fn(),
+      },
+      createSearchMatcher: searchMatcher,
+    });
+
+    expect(state.kind).toBe('directory');
+    expect(readDir).toHaveBeenCalledWith('F:/soft/00selfmade/filemanager/sigma-file-manager');
+    expect(state.directoryPath).toBe('F:/soft/00selfmade/filemanager/sigma-file-manager');
+  });
+
+  it('keeps a bare name as a search term rather than a directory path', async () => {
+    const state = await resolveAddressBarSuggestions({
+      query: 'nsis',
+      mode: 'path',
+      currentPath: 'C:/Folder',
+      directoryGroupLabel: 'Directory entries',
+      exactGroupLabel: 'Exact match',
+      resultsGroupLabel: 'Results',
+      entryModeGroups: [],
+      lastDirectoryEntries: [],
+      lookup: {
+        readDir: vi.fn().mockRejectedValue(new Error('missing')),
+        getDirEntry: vi.fn().mockRejectedValue(new Error('missing')),
+      },
+      createSearchMatcher: searchMatcher,
+    });
+
+    expect(state.kind).toBe('search');
+  });
+
+  it('survives a lookup that resolves to undefined instead of throwing', async () => {
+    const state = await resolveAddressBarSuggestions({
+      query: '/workspace/gone',
+      mode: 'path',
+      currentPath: '/workspace',
+      directoryGroupLabel: 'Directory entries',
+      exactGroupLabel: 'Exact match',
+      resultsGroupLabel: 'Results',
+      entryModeGroups: [],
+      lastDirectoryEntries: [],
+      lookup: {
+        readDir: vi.fn().mockRejectedValue(new Error('missing')),
+        getDirEntry: vi.fn().mockResolvedValue(undefined),
+      },
+      createSearchMatcher: searchMatcher,
+    });
+
+    expect(state.kind).toBe('search');
+  });
+
+  it('resolves a typed directory path into a navigate target', async () => {
+    const target = await resolveAddressBarTypedTarget(
+      'F:/soft/00selfmade/filemanager/sigma-file-manager/src/',
+      {
+        readDir: vi.fn(),
+        getDirEntry: vi.fn().mockResolvedValue(
+          entry('F:/soft/00selfmade/filemanager/sigma-file-manager/src'),
+        ),
+      },
+    );
+
+    expect(target).toEqual({
+      kind: 'directory',
+      path: 'F:/soft/00selfmade/filemanager/sigma-file-manager/src',
+    });
+  });
+
+  it('resolves a typed file path into an open target', async () => {
+    const target = await resolveAddressBarTypedTarget(
+      'F:/soft/00selfmade/filemanager/sigma-file-manager/readme.md',
+      {
+        readDir: vi.fn(),
+        getDirEntry: vi.fn().mockResolvedValue(
+          entry('F:/soft/00selfmade/filemanager/sigma-file-manager/readme.md', {
+            isFile: true,
+            name: 'readme.md',
+          }),
+        ),
+      },
+    );
+
+    expect(target).toEqual({
+      kind: 'file',
+      path: 'F:/soft/00selfmade/filemanager/sigma-file-manager/readme.md',
+    });
+  });
+
+  it('reports no target for an empty or unresolvable query', async () => {
+    await expect(resolveAddressBarTypedTarget('', {
+      readDir: vi.fn(),
+      getDirEntry: vi.fn(),
+    })).resolves.toEqual({ kind: 'none' });
+
+    await expect(resolveAddressBarTypedTarget('F:/nowhere', {
+      readDir: vi.fn(),
+      getDirEntry: vi.fn().mockRejectedValue(new Error('missing')),
+    })).resolves.toEqual({ kind: 'none' });
+  });
+
+  it('puts the target directory first, then subdirectories, then files', async () => {
+    const readDir = vi.fn().mockResolvedValue(dirContents('F:/target', [
+      entry('F:/target/zeta.txt', {
+        isFile: true,
+        name: 'zeta.txt',
+      }),
+      entry('F:/target/beta'),
+      entry('F:/target/alpha'),
+      entry('F:/target/beta.txt', {
+        isFile: true,
+        name: 'beta.txt',
+      }),
+    ]));
+
+    const state = await resolveAddressBarSuggestions({
+      query: 'F:/target/',
+      mode: 'path',
+      currentPath: 'C:/Folder',
+      directoryGroupLabel: 'Directory entries',
+      exactGroupLabel: 'Exact match',
+      resultsGroupLabel: 'Results',
+      entryModeGroups: [],
+      lastDirectoryEntries: [],
+      lookup: {
+        readDir,
+        getDirEntry: vi.fn(),
+      },
+      createSearchMatcher: searchMatcher,
+    });
+
+    expect(state.groups[0].id).toBe('targetDirectory');
+    expect(state.groups[0].items.map(item => item.path)).toEqual(['F:/target']);
+    expect(state.groups[0].items[0].depth).toBe(0);
+
+    expect(state.groups[1].items.map(item => item.path)).toEqual([
+      'F:/target/alpha',
+      'F:/target/beta',
+      'F:/target/beta.txt',
+      'F:/target/zeta.txt',
+    ]);
+    // 子目录与文件齐平缩进一格，靠图标而不是缩进区分两者。
+    expect(state.groups[1].items.map(item => item.depth)).toEqual([1, 1, 1, 1]);
+  });
+
+  it('builds a target group that holds exactly the directory itself', () => {
+    const group = createTargetDirectorySuggestionGroup('F:/target');
+
+    expect(group.id).toBe('targetDirectory');
+    expect(group.label).toBe('');
+    expect(group.collapsible).toBe(false);
+    expect(group.items).toHaveLength(1);
+    expect(group.items[0].path).toBe('F:/target');
+    expect(group.items[0].isDirectory).toBe(true);
+  });
+
+  it('orders subdirectories before files and sorts each bucket by name', () => {
+    const ordered = orderDirectoryEntriesForSuggestionList([
+      entry('F:/target/b.txt', {
+        isFile: true,
+        name: 'b.txt',
+      }),
+      entry('F:/target/z'),
+      entry('F:/target/a'),
+      entry('F:/target/a.txt', {
+        isFile: true,
+        name: 'a.txt',
+      }),
+    ]);
+
+    expect(ordered.map(item => item.name)).toEqual(['a', 'z', 'a.txt', 'b.txt']);
+  });
+});
+
+describe('toAddressBarDisplayPath', () => {
+  it('converts windows paths to native backslash separators', () => {
+    expect(toAddressBarDisplayPath('C:/ProgramData/Windows', true)).toBe('C:\\ProgramData\\Windows');
+    expect(toAddressBarDisplayPath('C:/ProgramData/Windows/', true)).toBe('C:\\ProgramData\\Windows\\');
+  });
+
+  it('keeps virtual remote paths untouched', () => {
+    expect(toAddressBarDisplayPath('sfm://remote/share', true)).toBe('sfm://remote/share');
+  });
+
+  it('keeps forward slashes on non-windows platforms', () => {
+    expect(toAddressBarDisplayPath('C:/ProgramData/Windows', false)).toBe('C:/ProgramData/Windows');
   });
 });

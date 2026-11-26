@@ -10,6 +10,8 @@ import {
   getAvailableThemeOptions,
   normalizeThemeSelection,
 } from '@/modules/themes/registry';
+// FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：三套品牌重设计主题。
+import { isAfmThemeId, type AfmThemeId } from '@/modules/themes/afm-themes';
 import { useExtensionsStorageStore } from '@/stores/storage/extensions';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import type { Theme } from '@/types/user-settings';
@@ -37,23 +39,58 @@ const availableThemeOptions = computed(() => {
   return getAvailableThemeOptions(extensionsStorageStore.extensionsData.installedExtensions);
 });
 
-const builtinThemeOptions = computed<ThemeSelectOption[]>(() => {
+// FORK-MODIFICATION 2026-10-29（AFM 3.6.5）：经典三套（亮色 / 暗色 / 跟随系统）。
+// 内置变体主题带 CSS 变量覆盖（option.variables），所以这里用 variables 把两组分开。
+const classicThemeOptions = computed<ThemeSelectOption[]>(() => {
   return availableThemeOptions.value.flatMap((option) => {
-    if (option.source === 'builtin') {
-      return [{
-        name: option.builtinThemeId === 'dark'
-          ? t('settings.homeBannerEffects.theme.themeTypeRadio.dark')
-          : option.builtinThemeId === 'light'
-            ? t('settings.homeBannerEffects.theme.themeTypeRadio.light')
-            : t('system'),
-        value: option.id,
-        source: option.source,
-      }];
+    if (option.source !== 'builtin' || option.variables) {
+      return [];
     }
 
-    return [];
+    return [{
+      // FORK-MODIFICATION 2026-10-30：「跟随系统」已从可选主题中下架，
+      // 经典组现在只剩「暗色」一项。
+      name: t('settings.homeBannerEffects.theme.themeTypeRadio.dark'),
+      value: option.id,
+      source: option.source,
+    }];
   });
 });
+
+// FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：三套品牌重设计主题
+// （暖纸浅色 / 暖纸暗色 / 跃动活力）。
+const afmThemeOptions = computed<ThemeSelectOption[]>(() => {
+  return availableThemeOptions.value.flatMap((option) => {
+    if (option.source !== 'builtin' || !option.variables) {
+      return [];
+    }
+
+    if (!isAfmThemeId(option.builtinThemeId)) {
+      return [];
+    }
+
+    return [{
+      name: getAfmThemeName(option.builtinThemeId),
+      value: option.id,
+      source: option.source,
+    }];
+  });
+});
+
+function getAfmThemeName(themeId: AfmThemeId): string {
+  switch (themeId) {
+    case 'afm-warm-light':
+      return t('settings.homeBannerEffects.theme.afmThemes.warmLight');
+    case 'afm-warm-dark':
+      return t('settings.homeBannerEffects.theme.afmThemes.warmDark');
+    case 'afm-vivid-light':
+      return t('settings.homeBannerEffects.theme.afmThemes.vividLight');
+    case 'afm-cool-light':
+      return t('settings.homeBannerEffects.theme.afmThemes.coolLight');
+  }
+
+  return '';
+}
 
 const extensionThemeOptions = computed<ThemeSelectOption[]>(() => {
   return availableThemeOptions.value.flatMap((option) => {
@@ -70,16 +107,26 @@ const extensionThemeOptions = computed<ThemeSelectOption[]>(() => {
 });
 
 const themeOptions = computed<ThemeSelectOption[]>(() => [
-  ...builtinThemeOptions.value,
+  ...classicThemeOptions.value,
+  ...afmThemeOptions.value,
   ...extensionThemeOptions.value,
 ]);
 
 const themeOptionGroups = computed<ThemeSelectOptionGroup[]>(() => {
   const groups: ThemeSelectOptionGroup[] = [
     {
-      options: builtinThemeOptions.value,
+      options: classicThemeOptions.value,
     },
   ];
+
+  // FORK-MODIFICATION 2026-10-29（AFM UI 重设计）：三套品牌重设计主题单独一组，
+  // 放在经典主题之后、扩展主题之前。
+  if (afmThemeOptions.value.length > 0) {
+    groups.push({
+      heading: t('settings.homeBannerEffects.theme.afmThemeThemes'),
+      options: afmThemeOptions.value,
+    });
+  }
 
   if (extensionThemeOptions.value.length > 0) {
     groups.push({

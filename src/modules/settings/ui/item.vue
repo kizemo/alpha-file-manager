@@ -71,7 +71,7 @@ const staggerBinding = getStaggerSlideUpBinding(getNextSettingsItemStaggerIndex(
   overflow: hidden;
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius);
-  background-color: hsl(var(--card));
+  background-color: hsl(var(--surface-settings-card));
   container-type: inline-size;
 }
 
@@ -112,14 +112,14 @@ const staggerBinding = getStaggerSlideUpBinding(getNextSettingsItemStaggerIndex(
 .settings-view-item__title {
   margin: 0;
   color: hsl(var(--foreground));
-  font-size: 1rem;
+  font-size: calc(1rem + var(--font-size-offset, 0px));
   font-weight: 600;
 }
 
 .settings-view-item__description {
   margin: 0;
   color: hsl(var(--muted-foreground));
-  font-size: 0.875rem;
+  font-size: calc(0.875rem + var(--font-size-offset, 0px));
   line-height: 1.4;
 }
 
@@ -136,7 +136,7 @@ const staggerBinding = getStaggerSlideUpBinding(getNextSettingsItemStaggerIndex(
   justify-content: space-between;
   padding: 0.875rem 1rem;
   border-top: 1px solid hsl(var(--border));
-  background-color: hsl(var(--background));
+  background-color: hsl(var(--surface-settings-nested));
   gap: 1rem 2rem;
 }
 </style>

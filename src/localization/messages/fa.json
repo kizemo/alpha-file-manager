@@ -1,8 +1,11 @@
 {
   "app": {
-    "name": "Sigma File Manager",
-    "description": "یک برنامه مدیریت فایل رایگان، منبع باز، پیشرفته و مدرن است که تحت مجوز GNU GPLv3 یا جدیدتر است.",
-    "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
+    "name": "Alpha File Manager",
+    "description": "is developed on top of Sigma File Manager, adding practical features such as a directory tree, quick switching (path focus sync for file dialogs) and batch rename. Many details have been refined to deliver a more complete file manager experience.",
+    "copyright": "Credits to the original author Aleksey Hoffman.",
+    "developerLabel": "Developed by ",
+    "developer": "kizemo",
+    "repository": "https://github.com/kizemo/alpha-file-manager"
   },
   "units": {
     "px": "px"
@@ -19,7 +22,7 @@
   "pages": {
     "home": "صفحه نخست",
     "navigator": "ناوبر",
-    "dashboard": "داشبورد",
+    "dashboard": "دسترسی سریع",
     "notes": "یادداشت",
     "settings": "تنظیمات",
     "extensions": "برنامه های افزودنی"
@@ -33,7 +36,15 @@
     "tagged": "برچسب‌خورده",
     "emptyFavorites": "بدون موردعلاقه",
     "emptyTagged": "بدون آیتم برچسب‌خورده",
-    "unknownTagGroup": "برچسب ناشناخته"
+    "unknownTagGroup": "برچسب ناشناخته",
+    "frequent": "Frequent",
+    "history": "History",
+    "emptyFrequent": "No frequently used items",
+    "emptyHistory": "No history yet",
+    "openFavoritesTab": "Open Favorites tab in Quick Access",
+    "openFrequentTab": "Open Frequent tab in Quick Access",
+    "openHistoryTab": "Open History tab in Quick Access",
+    "openTaggedTab": "Open Tagged tab in Quick Access"
   },
   "placeholders": {
     "noDrivesFound": "هیچ درایوی پیدا نشد",
@@ -76,6 +87,8 @@
     "music": "موسیقی"
   },
   "tabs": {
+    "scrollTabsLeft": "پیمایش زبانه‌ها به چپ",
+    "scrollTabsRight": "پیمایش زبانه‌ها به راست",
     "newTab": "برگه جدید",
     "duplicateTab": "تکرار برگه",
     "closeOtherTabs": "بستن سایر برگه ها",
@@ -101,6 +114,8 @@
     }
   },
   "globalSearch": {
+    "scanModeFull": "کامل",
+    "scanModeIncremental": "افزایشی",
     "globalSearch": "جستجوی جهانی",
     "driveScanInProgress": "فهرست‌بندی درایو در حال انجام است",
     "searchDataIncomplete": "داده های جستجو ناقص است",
@@ -143,7 +158,10 @@
       "indexed": "شاخص‌گذاری شده {time}",
       "nothingFound": "هیچ چیزی پیدا نشد"
     },
-    "showSearchSettings": "نمایش تنظیمات جستجو"
+    "showSearchSettings": "نمایش تنظیمات جستجو",
+    "remoteIndexing": "نمایه‌سازی دیسک‌های ابری",
+    "remoteIndexDone": "نمایهٔ ابری به‌روزرسانی شد",
+    "remoteIndexFailed": "نمایه‌سازی ابری ناموفق بود"
   },
   "home": {
     "mediaBannerOptions": "گزینه های بنر رسانه",
@@ -162,11 +180,11 @@
     "newDirectory": "دایرکتوری جدید",
     "newFile": "فایل جدید",
     "reloadCurrentDirectory": "بارگیری مجدد فهرست فعلی",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "نمایش درخت پوشه",
+    "hideFolderTree": "پنهان‌کردن درخت پوشه"
   },
   "dashboard": {
-    "subtitle": "دسترسی سریع به موارد دلخواه، برچسب‌گذاری شده و پرکاربرد",
+    "subtitle": "موارد دلخواه، برچسب‌گذاری‌شده و پرکاربرد — همه در یک جا",
     "tabs": {
       "favorites": "موردعلاقه‌ها",
       "tagged": "برچسب‌گذاری شده",
@@ -187,7 +205,57 @@
     "daysAgo": "{n} روز پیش | {n} روز پیش | {n} روز پیش | {n} روز پیش",
     "openedCount": "{n} بار باز شده | {n} بار باز شده | {n} بار باز شده | {n} بار باز شده",
     "actions": {
-      "clearAll": "حذف همه از این لیست"
+      "clearAll": "حذف همه از این لیست",
+      "newFavorite": "New favorite",
+      "newCategory": "New category",
+      "newTag": "New tag",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "moveUpWithName": "انتقال {name} به بالا",
+      "moveDownWithName": "انتقال {name} به پایین",
+      "dragToReorder": "برای مرتب‌سازی بکشید",
+      "moveToCategory": "Move to category",
+      "removeFavorite": "Remove from favorites",
+      "removeTag": "Remove tag",
+      "renameCategory": "Rename category",
+      "deleteCategory": "Delete category",
+      "uncategorized": "Uncategorized",
+      "confirmRemove": "حذف",
+      "clearAllConfirmTitle": "همه از این فهرست حذف شوند؟",
+      "clearAllConfirmDescription": "این کار قابل بازگشت نیست.",
+      "removeFavoriteConfirmTitle": "از علاقه‌مندی‌ها حذف شود؟",
+      "removeFavoriteConfirmDescription": "این مورد از اینجا حذف می‌شود. برای بازگرداندن آن دوباره آن را علاقه‌مندی کنید.",
+      "deleteTagConfirmTitle": "این برچسب حذف شود؟",
+      "deleteTagConfirmDescription": "این برچسب حذف شده و از همه موارد برداشته می‌شود.",
+      "removeTagConfirmTitle": "این برچسب از مورد حذف شود؟",
+      "removeTagConfirmDescription": "این مورد دیگر این برچسب را نخواهد داشت.",
+      "renameFavorite": "ویرایش نام نمایشی",
+      "editFavorite": "Edit favorite"
+    },
+    "newFavoriteDialog": {
+      "title": "Add to favorites",
+      "pathLabel": "File or folder path",
+      "pathPlaceholder": "Paste a full path",
+      "pathNotFound": "Path does not exist",
+      "pathAlreadyFavorite": "Already in favorites",
+      "confirm": "Add",
+      "displayNameLabel": "نام نمایشی",
+      "displayNamePlaceholder": "خالی بگذارید تا نام اصلی استفاده شود"
+    },
+    "nameDialog": {
+      "nameLabel": "Name",
+      "namePlaceholder": "Enter a name",
+      "duplicateName": "\"{name}\" already exists",
+      "confirm": "Create"
+    },
+    "categoryDeleteNote": "Favorites in this category return to \"Uncategorized\". Nothing is deleted.",
+    "favoriteEdit": {
+      "pathRequired": "Path cannot be empty",
+      "saved": "Favorite updated",
+      "saveFailed": "Failed to update the favorite"
+    },
+    "favoriteCategoryDialog": {
+      "categoryLabel": "Category"
     }
   },
   "settingsCategories": {
@@ -216,8 +284,19 @@
         "title": "نمای فایل",
         "enableBoxSelection": "فعال‌سازی انتخاب با کادر",
         "enableBoxSelectionDescription": "روی فضای خالی بکشید تا چند مورد را با کادر انتخاب کنید. Ctrl یا Shift را نگه دارید تا به انتخاب اضافه شود؛ Alt برای معکوس کردن.",
+        "boxSelectionEnabledByDefault": "Box selection is now enabled by default. If drag-selecting gets in the way, you can turn it off here.",
         "increaseFileViewGaps": "افزایش فاصله‌ها در نمای فایل",
-        "increaseFileViewGapsDescription": "padding کناری در نمای فهرست اضافه می‌کند و فاصله‌ها در نمای شبکه‌ای را برای هدف‌گیری آسان‌تر افزایش می‌دهد."
+        "increaseFileViewGapsDescription": "padding کناری در نمای فهرست اضافه می‌کند و فاصله‌ها در نمای شبکه‌ای را برای هدف‌گیری آسان‌تر افزایش می‌دهد.",
+        "foldersFirst": "Place folders before files in list view",
+        "foldersFirstDescription": "Only affects the list view; the grid view always groups entries by type.",
+        "showListThumbnails": "Show thumbnails in list view",
+        "showListThumbnailsDescription": "Images and videos show thumbnails in the list. Folders and documents still show their type icon. Grid view always shows thumbnails and is not affected by this switch.",
+        "thumbnailSizeTitle": "Thumbnail size",
+        "thumbnailSizeDescription": "Adjust thumbnail size in the list and grid views.",
+        "thumbnailSizeSmall": "Small",
+        "thumbnailSizeMedium": "Medium",
+        "thumbnailSizeLarge": "Large",
+        "thumbnailSizeXLarge": "Extra large"
       },
       "startupPage": {
         "title": "صفحه راه‌اندازی",
@@ -237,7 +316,8 @@
       "openAppLogDirectory": "باز کردن پوشه گزارش‌های برنامه",
       "openGlobalSearchIndexDirectory": "باز کردن پوشه شاخص جستجوی جهانی",
       "changelog": "تاریخچه تغییرات",
-      "allReleases": "همه نسخه‌ها"
+      "allReleases": "همه نسخه‌ها",
+      "learningNotes": "段燚的学习笔记"
     },
     "visualEffects": {
       "title": "جلوههای بصری",
@@ -256,16 +336,20 @@
         "darken": "تیره",
         "lighten": "روشن",
         "color-dodge": "رنگ روشن",
+        "plus-lighter": "محو خطی (افزودن)",
         "color-burn": "رنگ سوخته",
         "hard-light": "نور سخت",
         "soft-light": "نور نرم",
         "difference": "تفاوت",
         "exclusion": "استثنا",
-        "hue": "فام",
-        "saturation": "اشباع",
         "color": "رنگ",
         "luminosity": "درخشندگی"
       },
+      "blendTarget": "ترکیب با",
+      "blendTargetUi": "رابط کاربری",
+      "blendTargetFill": "رنگ پرکننده",
+      "blendTint": "رنگ پرکننده",
+      "blendTintCustom": "رنگ سفارشی",
       "overlayBackground": "پس زمینه روکش",
       "selectNextBackground": "انتخاب پس زمینه بعدی",
       "useTheSameSettingsForAllPages": "استفاده از تنظیمات یکسان برای همه صفحات",
@@ -277,9 +361,15 @@
       "theme": {
         "title": "موضوع",
         "extensionThemes": "تم‌های افزونه",
+        "afmThemeThemes": "تم‌های برند AFM",
+        "afmThemes": {
+          "warmLight": "کاغذ گرم · روشن",
+          "warmDark": "کاغذ گرم · تیره",
+          "vividLight": "انرژی پرشور",
+          "coolLight": "کاج سرد"
+        },
         "themeTypeRadio": {
-          "dark": "تاریک",
-          "light": "نور (در حال توسعه)"
+          "dark": "تاریک"
         }
       }
     },
@@ -294,7 +384,14 @@
       "selectedFont": "فونت انتخاب شده",
       "defaultFont": "فونت پیش فرض",
       "reFetchSystemFonts": "بازیابی فونت های سیستم",
-      "resetFontToDefault": "بازنشانی فونت به پیش فرض"
+      "resetFontToDefault": "بازنشانی فونت به پیش فرض",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "وقت قرار",
@@ -319,7 +416,7 @@
       "preventDropdownCloseFocusReturn": "جلوگیری از بازگشت فوکوس هنگام بستن منوهای کشویی",
       "preventDropdownCloseFocusReturnDescription": "وقتی فعال است، بستن یک منوی کشویی (مثلاً با Escape) فوکوس را به دکمه راه‌اندازی برنمی‌گرداند و از نمایش حلقه فوکوس و راهنما جلوگیری می‌کند",
       "quickAccessOnHover": "باز کردن پنل دسترسی سریع هنگام حرکت ماوس",
-      "quickAccessOnHoverDescription": "هنگام فعال بودن، پنل دسترسی سریع به طور خودکار هنگام حرکت ماوس روی دکمه داشبورد در نوار کناری باز می‌شود"
+      "quickAccessOnHoverDescription": "هنگام فعال بودن، پنل دسترسی سریع به طور خودکار هنگام حرکت ماوس روی دکمه دسترسی سریع در نوار کناری باز می‌شود"
     },
     "tooltips": {
       "title": "راهنماها",
@@ -375,7 +472,6 @@
       }
     },
     "navigator": {
-      "navigatorViewLayout": "چیدمان",
       "navigatorOptions": "گزینه‌های ناوبر",
       "systemIcons": "تم آیکون",
       "systemIconsDirectories": "پوشه‌ها",
@@ -431,7 +527,15 @@
       "ignoredPathsHelpDownloads": "این پیشوند مسیر را رد می‌کند.",
       "ignoredPathsHelpTestFolder": "پوشه‌هایی با نام test و محتوای آن‌ها را در هرجا رد می‌کند.",
       "ignoredPathsHelpExtensionMask": "فایل‌های دارای پسوند .log را در هرجا رد می‌کند.",
-      "ignoredPathsHelpNestedExtensionMask": "فایل‌های دارای پسوند .tmp را در هر پوشه‌ای رد می‌کند."
+      "ignoredPathsHelpNestedExtensionMask": "فایل‌های دارای پسوند .tmp را در هر پوشه‌ای رد می‌کند.",
+      "remoteIndexTitle": "جستجوی ابری",
+      "remoteIndexDescription": "فایل‌های اتصال‌هایی که به جستجوی سراسری افزوده شده‌اند در نتایج جستجو ظاهر می‌شوند.",
+      "rebuildRemoteIndex": "بازسازی نمایهٔ ابری",
+      "rebuildRemoteIndexDescription": "فایل‌های اتصال‌های علامت‌خورده را دوباره می‌گیرد و در نمایه می‌نویسد؛ این کار سهمیهٔ API دیسک شبکه‌ای را مصرف می‌کند.",
+      "noRemoteInSearch": "هنوز دیسکی به جستجوی سراسری افزوده نشده است",
+      "noNetdiskConnections": "هنوز هیچ اتصالی برای این دیسک ابری وجود ندارد",
+      "rebuildCheckedRemoteIndex": "بازسازی نمایه برای اتصال‌های انتخاب‌شده",
+      "rebuildCheckedRemoteIndexHint": "بازسازی همواره از کل مجموعه اتصال‌های انتخاب‌شده استفاده می‌کند — یک اتصال را نمی‌توان به‌تنهایی بازسازی کرد."
     },
     "drives": {
       "driveDetection": "تشخیص درایو",
@@ -441,21 +545,362 @@
     },
     "stats": {
       "title": "داده های کاربر",
-      "description": "برنامه داده ها را به صورت محلی ذخیره می کند (برچسب ها، موارد دلخواه، تاریخچه، موارد اخیراً باز شده) تا ویژگی هایی مانند لیست های داشبورد و جستجو را فعال کند. این داده ها در پوشه برنامه ذخیره می شوند.",
+      "description": "برنامه داده ها را به صورت محلی ذخیره می کند (برچسب ها، موارد دلخواه، تاریخچه، موارد اخیراً باز شده) تا ویژگی هایی مانند فهرست های دسترسی سریع و جستجو را فعال کند. این داده ها در پوشه برنامه ذخیره می شوند.",
       "openDataDirectory": "باز کردن پوشه داده ها"
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "Sigma File Manager را به عنوان مدیر فایل پیش فرض تنظیم کنید",
+        "title": "Alpha File Manager را به عنوان مدیر فایل پیش فرض تنظیم کنید",
         "description": "این گزینه رجیستری سیستم را تغییر می دهد و ممکن است عوارض جانبی غیرمنتظره ای روی دستگاه شما داشته باشد. با مسئولیت خود ادامه دهید.",
         "unavailableInMicrosoftStore": "در نسخه Microsoft Store در دسترس نیست"
+      },
+      "mcp": {
+        "title": "MCP server (for AI agents)",
+        "description": "Let AI clients such as Claude or Cursor call this app's read-only capabilities over MCP. Off by default — when off, no port is opened at all.",
+        "modes": {
+          "off": "Off",
+          "readOnly": "Read-only",
+          "writable": "Writable",
+          "askEachTime": "Ask each time"
+        },
+        "modeDescriptions": {
+          "off": "The server does not start and no port is opened. Nothing on this machine can reach it.",
+          "readOnly": "Exposes directory listing, drives, mountable devices, the indexed global search, directory size and favourites. Entirely read-only — no file is ever modified.",
+          "writable": "Adds write operations on top of read-only. Deletion still goes to the recycle bin, never a hard delete.",
+          "askEachTime": "Same as writable, but every write operation needs individual confirmation."
+        },
+        "running": "Running · port {port}",
+        "stopped": "Not running",
+        "endpoint": "Endpoint",
+        "clients": "Connected clients",
+        "copyConfig": "Copy config snippet",
+        "copied": "Copied",
+        "copyFailed": "Copy failed — please copy the snippet manually",
+        "rotateToken": "Regenerate token",
+        "tokenRotated": "New token generated. Previous configs stop working immediately.",
+        "token": "Token",
+        "tokenHint": "Any process on this machine can reach 127.0.0.1. The token is the only barrier — do not share it.",
+        "auditTitle": "Recent calls",
+        "outcomes": {
+          "allowed": "allowed",
+          "denied": "denied",
+          "error": "error"
+        },
+        "clientsConnected": "{count} agent(s) connected",
+        "indicatorTooltip": "An AI client is using this app's capabilities",
+        "notRunning": "MCP server is not running",
+        "deployTitle": "One-click deploy to AI clients",
+        "deployHint": "One-click deploy writes this server straight into the client’s own config file without touching any other entry, and backs the original up as .alpha-mcp.bak beforehand. The change only takes effect after you quit that client completely and start it again.",
+        "deployAction": "One-click deploy",
+        "deployInstalled": "Deployed",
+        "deployNotYet": "Not deployed",
+        "deployNotDetected": "Client not found",
+        "deployDoneShort": "Configured",
+        "deployRemove": "Remove",
+        "deployLoading": "Scanning this machine for clients…",
+        "deployFailed": "Deployment failed — see the error below",
+        "deployAlreadyCurrent": "The config was already up to date, so nothing was changed.",
+        "deployDone": "Deployed to {client}. Config file: {path}. The original file was backed up as {backup}. Please quit {client} completely and start it again.",
+        "deployRemoved": "Removed this server from {client}’s config.",
+        "deployClients": {
+          "codex": "Codex",
+          "cursor": "Cursor",
+          "claudeCode": "Claude Code",
+          "claudeDesktop": "Claude Desktop",
+          "openclaw": "OpenClaw",
+          "minimaxCode": "Minimax Code"
+        },
+        "recheck": "Re-check",
+        "restartTitle": "{client} must be fully quit and restarted",
+        "restartBody": "The config file is written, but MCP clients only read it at startup — they never reload it while running. Quit {client} from its tray icon (closing the window is not enough), reopen it, then come back here and press Re-check.",
+        "restartBackup": "The original file was backed up to {backup}. To undo, rename the backup back.",
+        "restartDismiss": "Got it"
       }
+    },
+    "storage": {
+      "thumbnailCache": {
+        "title": "Thumbnail cache",
+        "description": "Image and video thumbnails share the same cache directory. Cleared thumbnails are regenerated automatically the next time you browse.",
+        "sizeLabel": "Disk usage",
+        "sizeUnknown": "Unknown",
+        "countLabel": "Items",
+        "countUnknown": "Unknown",
+        "clear": "Clear cache",
+        "clearSuccess": "Thumbnail cache cleared",
+        "clearFailed": "Failed to clear the thumbnail cache",
+        "confirmTitle": "Clear the thumbnail cache?",
+        "confirmDescription": "This clears both image and video thumbnail caches and cannot be undone. Cleared thumbnails are regenerated the next time you browse those files."
+      },
+      "settingsTransfer": {
+        "title": "Export / import settings",
+        "description": "Export settings, favorites, remote connections and cloud drive connections into one JSON file. Browsing history and frequently used items are not exported.",
+        "export": "Export settings",
+        "import": "Import settings",
+        "exporting": "Exporting…",
+        "importing": "Importing…",
+        "exportSuccess": "Settings exported",
+        "exportFailed": "Failed to export settings",
+        "importSuccess": "Settings imported",
+        "importFailed": "Failed to import settings",
+        "confirmTitle": "Import settings?",
+        "confirmDescription": "Importing overwrites the current settings, favorites, tags and remote connections. Browsing history and frequently used items are not affected.",
+        "invalidFile": "This file is not a valid Alpha File Manager settings export.",
+        "restartHint": "Some settings (such as theme and language) only take effect after restarting the app.",
+        "credentialsHint": "{count} connection(s) need you to sign in again."
+      }
+    },
+    "remote": {
+      "connections": {
+        "title": "Remote connections",
+        "empty": "No connections yet."
+      },
+      "action": {
+        "add": "Add connection",
+        "edit": "Edit",
+        "delete": "Delete",
+        "save": "Save",
+        "cancel": "Cancel",
+        "browse": "Browse…",
+        "test": "Test connection"
+      },
+      "field": {
+        "name": "Name",
+        "protocol": "Protocol",
+        "host": "Server address",
+        "port": "Port",
+        "username": "Username",
+        "password": "Password",
+        "initialPath": "Initial directory",
+        "proxy": "Proxy",
+        "proxyHost": "Proxy address",
+        "proxyPort": "Proxy port",
+        "proxyUsername": "Proxy username",
+        "proxyPassword": "Proxy password",
+        "localPath": "Local folder",
+        "cookie": "Cookie",
+        "includeInSearch": "افزودن به جستجوی سراسری",
+        "includeInSearchHint": "با فعال کردن، فایل‌های این اتصال به نمایهٔ جستجوی سراسری افزوده می‌شوند (نمایهٔ ابری را دستی بازسازی کنید)."
+      },
+      "protocol": {
+        "ftp": "FTP",
+        "ftps_explicit": "FTPS (explicit)",
+        "ftps_implicit": "FTPS (implicit)",
+        "sftp": "SFTP",
+        "baidu_pan": "بائیدو نت‌دیسک",
+        "quark_pan": "Quark Drive",
+        "aliyun_pan": "Aliyun Drive",
+        "onedrive_pan": "OneDrive"
+      },
+      "proxy": {
+        "direct": "Direct connection",
+        "socks5": "SOCKS5",
+        "http_connect": "HTTP CONNECT"
+      },
+      "password": {
+        "saved": "Password saved",
+        "savedHint": "Leave blank to keep the current password.",
+        "clear": "Remove the saved password"
+      },
+      "error": {
+        "nameRequired": "Connection name cannot be empty.",
+        "hostRequired": "Server address cannot be empty.",
+        "hostHasWhitespace": "Server address cannot contain spaces.",
+        "portInvalid": "Port must be between 1 and 65535.",
+        "initialPathInvalid": "Initial directory contains an invalid segment.",
+        "proxyHostRequired": "Proxy address cannot be empty.",
+        "proxyHostHasWhitespace": "Proxy address cannot contain spaces.",
+        "proxyPortInvalid": "Proxy port must be between 1 and 65535.",
+        "connectionIdInvalid": "Connection id is invalid.",
+        "remoteConnectionsStorageNotReady": "The connection list has not finished loading. Please try again in a moment.",
+        "unknown": "Failed to save the connection.",
+        "localPathHasWhitespace": "Local folder cannot contain spaces.",
+        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
+        "baiduLoginRequired": "ابتدا در برنامه وارد Baidu Pan شوید، سپس این اتصال را ذخیره کنید.",
+        "quarkLoginRequired": "پیش از ذخیرهٔ این اتصال، درون برنامه وارد Quark Drive شوید.",
+        "aliyunLoginRequired": "پیش از ذخیرهٔ این اتصال، درون برنامه وارد Aliyun Drive شوید.",
+        "onedriveLoginRequired": "Sign in to OneDrive inside the app before saving this connection."
+      },
+      "localPath": {
+        "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
+      },
+      "test": {
+        "testing": "Testing…",
+        "outcome": {
+          "verified": "Connected. The server accepted these settings.",
+          "auth_rejected": "Connected, but the server rejected the username or password.",
+          "missing_credential": "Connected, but no password was supplied, so authentication was not verified.",
+          "wrong_protocol": "Something answered, but it is not the selected protocol.",
+          "unreachable": "Could not reach the server. Check the address, port and proxy.",
+          "protocol_error": "Connected, but the exchange did not complete as expected."
+        },
+        "passwordNotChecked": "No password was submitted, so this does not confirm that it is correct.",
+        "tlsNotVerified": "The TLS certificate was not verified."
+      },
+      "nav": {
+        "openSettings": "Remote settings",
+        "connect": "Connect",
+        "netdisk": "دیسک‌های ابری",
+        "netdiskDescription": "در پنجرهٔ جاسازی‌شده وارد Baidu Netdisk، Quark Drive یا Aliyun Drive شوید. اطلاعات ورود با Windows DPAPI رمزگذاری می‌شود و هرگز از این رایانه خارج نمی‌شود.",
+        "remoteSection": "اتصال‌های راه دور",
+        "remoteDescription": "اتصال‌های FTP، FTPS و SFTP را اینجا ذخیره کنید. اطلاعات ورود با Windows DPAPI رمزگذاری می‌شود و هرگز از این رایانه خارج نمی‌شود.",
+        "addNetdisk": "افزودن دیسک ابری",
+        "addRemote": "افزودن اتصال راه دور",
+        "emptyNetdisk": "هنوز هیچ دیسک ابری‌ای اضافه نشده است.",
+        "emptyRemote": "هنوز هیچ اتصال راه دوری اضافه نشده است.",
+        "empty": "No connections yet.",
+        "split": "Split",
+        "editConnection": "Edit this connection",
+        "homeEmpty": "هنوز هیچ دیسک ابری یا اتصال راه دوری پیکربندی نشده است."
+      },
+      "trustedHosts": {
+        "title": "Trusted hosts",
+        "description": "Host keys you have confirmed. Remote directories only open after you trust the server here.",
+        "empty": "You have not trusted any host yet.",
+        "loadFailed": "The trusted host list could not be read.",
+        "forget": "Forget",
+        "forgetFailed": "That host could not be removed. It is still on the list.",
+        "kindSsh": "SSH key",
+        "kindX509": "X.509 certificate"
+      },
+      "baidu": {
+        "status": {
+          "loading": "در حال خواندن وضعیت مجوز…",
+          "missing": "وارد نشده‌اید",
+          "ready": "مجاز",
+          "stoken_expired": "اعتبار STOKEN به پایان رسید — دوباره وارد شوید",
+          "stoken_expiring_soon": "اعتبار STOKEN به‌زودی منقضی می‌شود"
+        },
+        "action": {
+          "deleteSession": "حذف نشست ذخیره‌شده"
+        },
+        "embedded": {
+          "title": "Sign in inside the app",
+          "start": "Sign in with the built-in window",
+          "cancel": "Stop waiting",
+          "hint": "Opens a sign-in window inside the app. Once you are signed in, this form fills itself in — you only need to give the connection a name and save.",
+          "status": {
+            "waiting": "Waiting for you to finish signing in…",
+            "ready": "Signed in. Give this connection a name and save — the session is stored when you save.",
+            "closed": "The sign-in window was closed before signing in finished.",
+            "timeout": "Signing in took too long. Try again.",
+            "error": "Could not read the session. Use the Cookie field instead."
+          },
+          "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
+        }
+      },
+      "quark": {
+        "status": {
+          "loading": "در حال خواندن وضعیت مجوز…",
+          "missing": "وارد نشده‌اید",
+          "ready": "مجاز",
+          "stale": "نشست منقضی شده است؛ دوباره وارد شوید",
+          "stale_soon": "نشست به‌زودی منقضی می‌شود"
+        },
+        "action": {
+          "deleteSession": "حذف نشست ذخیره‌شده"
+        },
+        "embedded": {
+          "title": "ورود درون برنامه",
+          "start": "ورود با پنجرهٔ جاسازی‌شده",
+          "cancel": "توقف انتظار",
+          "hint": "درون برنامه پنجرهٔ ورود باز می‌شود. پس از ورود، به‌طور خودکار بسته می‌شود و نشست بی‌درنگ دریافت می‌شود — کافی است این اتصال را ذخیره کنید.",
+          "status": {
+            "waiting": "در انتظار ورود شما…",
+            "ready": "وارد شدید. این اتصال را ذخیره کنید — نشست هنگام ذخیره نوشته می‌شود.",
+            "closed": "پنجرهٔ ورود پیش از پایان ورود بسته شد.",
+            "timeout": "زمان انتظار برای ورود تمام شد. دوباره تلاش کنید.",
+            "error": "وضعیت ورود خوانده نشد. دوباره تلاش کنید."
+          },
+          "saved": "ورود به Quark Drive موفق بود: پنجره به‌طور خودکار بسته شد و نشست دریافت شد. برای استفاده، این اتصال را ذخیره کنید."
+        }
+      },
+      "aliyun": {
+        "status": {
+          "loading": "در حال خواندن وضعیت مجوز…",
+          "missing": "وارد نشده‌اید",
+          "ready": "مجاز",
+          "stale": "نشست منقضی شده است؛ دوباره وارد شوید",
+          "stale_soon": "نشست به‌زودی منقضی می‌شود"
+        },
+        "action": {
+          "deleteSession": "حذف نشست ذخیره‌شده"
+        },
+        "embedded": {
+          "title": "ورود با اسکن کد QR",
+          "start": "نمایش کد QR",
+          "cancel": "توقف انتظار",
+          "hint": "اینجا کد QR ورود نمایش داده می‌شود. آن را با برنامه Aliyun Drive روی تلفن خود اسکن کنید — نشست به‌طور خودکار دریافت می‌شود و کافی است این اتصال را ذخیره کنید. اگر توانایی اسکن ندارید، یک توکن دسترسی را در پایین جای‌گذاری کنید.",
+          "status": {
+            "waiting": "در انتظار اسکن شما…",
+            "ready": "وارد شدید. این اتصال را ذخیره کنید — نشست هنگام ذخیره نوشته می‌شود.",
+            "closed": "ورود پیش از پایان لغو شد.",
+            "timeout": "کد QR منقضی شده است. دوباره تلاش کنید.",
+            "error": "وضعیت ورود خوانده نشد. دوباره تلاش کنید.",
+            "scanned": "اسکن شد، لطفاً در تلفن تأیید کنید"
+          },
+          "saved": "ورود به Aliyun Drive موفق بود. برای استفاده، این اتصال را ذخیره کنید.",
+          "refresh": "به‌روزرسانی کد QR",
+          "windowStart": "باز کردن پنجرهٔ ورود",
+          "windowCancel": "بستن پنجره",
+          "windowHint": "صفحهٔ رسمی Aliyun Drive در پنجره کد QR را نشان می‌دهد و تأیید را انجام می‌دهد؛ اطلاعات ورود مستقیم به برنامه می‌رود.",
+          "qrFallback": "جایگزین: ورود دستی با کد QR"
+        },
+        "field": {
+          "pasteToken": "توکن دسترسی",
+          "pasteTokenHint": "یک توکن که از قبل دارید را جای‌گذاری کنید. پیش از ذخیره شدن با سرویس Aliyun Drive بررسی می‌شود و توکن هرگز به‌صورت متن ساده از این رایانه خارج نمی‌شود."
+        }
+      },
+      "netdisk": {
+        "provider": "درایو ابری",
+        "baidu": "Baidu Drive",
+        "quark": "Quark Drive",
+        "aliyun": "Aliyun Drive",
+        "signedIn": "وارد شده",
+        "onedrive": "OneDrive"
+      },
+      "onedrive": {
+        "field": {
+          "clientId": "Application (client) ID",
+          "clientIdHint": "The client id of the Microsoft Entra application you registered for OneDrive. It is stored with the session on this machine and is never sent through this form.",
+          "authUrl": "Authorization URL",
+          "authUrlHint": "If the browser did not open by itself, copy this URL and finish signing in there."
+        },
+        "action": {
+          "start": "Start sign-in",
+          "cancel": "Stop waiting",
+          "deleteSession": "Delete the saved session"
+        },
+        "state": {
+          "pending": "Waiting for you to finish signing in in the browser…",
+          "completed": "Signed in. Save this connection — the session will be written when you save.",
+          "failed": "The sign-in did not complete. Please try again."
+        },
+        "auth": {
+          "authorized": "Authorized",
+          "missing": "Not signed in",
+          "loading": "Reading authorization status…"
+        },
+        "hint": {
+          "clientIdRequired": "Fill in the application (client) ID first."
+        }
+      }
+    },
+    "about": {
+      "title": "درباره",
+      "changelog": "گزارش تغییرات",
+      "projectLinks": "پیوندهای پروژه",
+      "commits": "کامیت‌ها",
+      "author": "نویسنده",
+      "developer": "段燚",
+      "website": "وب‌سایت",
+      "wechat": "وی‌چت",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "برای دنبال کردن اسکن کنید"
     }
   },
   "projectGithubButtons": {
     "projectPage": "صفحه پروژه",
-    "requestsIssues": "درخواست ها و مشکلات",
-    "discussions": "بحث"
+    "requestsIssues": "درخواست ها و مشکلات"
   },
   "settingsTabs": {
     "general": "عمومی",
@@ -466,7 +911,9 @@
     "dataStorage": "داده ها و ذخیره سازی",
     "stats": "آمار",
     "experimental": "آزمایشی",
-    "extensions": "برنامه های افزودنی"
+    "extensions": "برنامه های افزودنی",
+    "remote": "Remote",
+    "about": "درباره"
   },
   "settingsTags": {
     "language": "زبان",
@@ -479,8 +926,8 @@
     "visualFilters": "بصری، فیلترها، رنگ، کنتراست، روشنایی، اشباع، تصویر، ویدئو، تم، گفتگو، پس‌زمینه، تار",
     "fonts": "فونت، متن",
     "dateTime": "تاریخ، زمان، قالب",
-    "uiElements": "رابط کاربری، عناصر، بصری، ورودی، لهجه، رنگ، جدول زمانی، داشبورد، صفحه، اخیر، کارت‌ها، خانه، درایو، فضا، نشانگر، سبک",
-    "quickAccess": "quick, access, panel, hover, sidebar, dashboard",
+    "uiElements": "رابط کاربری، عناصر، بصری، ورودی، لهجه، رنگ، جدول زمانی، دسترسی سریع، صفحه، اخیر، کارت‌ها، خانه، درایو، فضا، نشانگر، سبک",
+    "quickAccess": "quick, access, panel, hover, sidebar",
     "tooltips": "tooltip, tooltips, hover, delay, timing",
     "clipboard": "کلیپ‌بورد, چسباندن, کپی, برش, نوار ابزار, تصویر, اسکرین‌شات, مسیر, فایل",
     "homePageMediaBanner": "خانه، صفحه، رسانه، بنر، پس زمینه، تصویر، ویدئو",
@@ -488,7 +935,7 @@
     "shortcuts": "میانبرها",
     "tabAppearance": "برگه‌ها، برگه فعال، پررنگ، متن",
     "globalSearch": "جهانی، جستجو، یافتن، جستجو، فیلتر، اسکن",
-    "stats": "آمار، داده، کاربر، موارد دلخواه، برچسب ها، تاریخچه، اخیر، داشبورد، ذخیره سازی",
+    "stats": "آمار، داده، کاربر، موارد دلخواه، برچسب ها، تاریخچه، اخیر، دسترسی سریع، ذخیره سازی",
     "driveDetection": "درایو، usb، ذخیره سازی، دیسک، دستگاه، تشخیص، اتصال",
     "autoplay": "پخش خودکار، اکسپلورر، ویندوز، درایو، usb، خودکار، باز کردن، پوشه",
     "experimental": "پیشرفته، آزمایشی، مدیر فایل پیش فرض، فایل اکسپلورر، رجیستری، ترمینال، شل",
@@ -497,10 +944,13 @@
     "extensions": "extensions, plugins, addons, configuration, settings",
     "infoPanelPreview": "info, panel, preview, image, thumbnail, memory, original, video, mute, autoplay",
     "performance": "performance, memory, quick view, print, window, launch, preload",
-    "fileView": "نمای فایل, کادر, انتخاب, کشیدن, فهرست, شبکه, فاصله, padding",
+    "fileView": "نمای فایل, کادر, انتخاب, کشیدن, فهرست, شبکه, فاصله, padding, folder, folders, first, top, sort, sorting, order, ordering, list, files, file, directory, directories, group, grouping, view, precedence",
     "tabsWorkspaces": "برگه، فضای کاری، بستن، آخرین برگه، برگه پیش‌فرض",
     "defaultDirectory": "خانه، locations، این رایانه، درایو، پوشه پیش‌فرض، برگه جدید، مسیر سفارشی",
-    "startupPage": "صفحه راه‌اندازی، راه‌اندازی، باز کردن هنگام راه‌اندازی، خانه، داشبورد، ناوبری، آخرین صفحه، بازیابی، صفحه"
+    "startupPage": "صفحه راه‌اندازی، راه‌اندازی، باز کردن هنگام راه‌اندازی، خانه، دسترسی سریع، ناوبری، آخرین صفحه، بازیابی، صفحه",
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "درباره, نسخه, به‌روزرسانی, گزارش تغییرات, گیت‌هاب, نویسنده, وب‌سایت, وی‌چت, کد qr",
+    "settingsTransfer": "export, import, settings, favorites, remote connections, cloud drive, backup, restore"
   },
   "drag": {
     "holdShiftToChangeMode": "برای تغییر حالت، [Shift] را نگه دارید",
@@ -533,13 +983,15 @@
     "localShortcutsAppScope": "میانبرهای محلی (حوزه برنامه)",
     "unknownMainKey": "کلید ناشناخته",
     "globalShortcutRegisterFailed": "ثبت این میانبر سراسری ممکن نشد. ممکن است ویندوز یا برنامهٔ دیگری از آن استفاده کند. ترکیب دیگری امتحان کنید (مثلاً Win+Shift+… یا Ctrl+Alt+…).",
-    "shortcutRecorderGlobalCaptureHint": "اگر با فشار کلید چیزی دیده نمی‌شود، سیستم شما یا برنامهٔ دیگری ممکن است قبل از این پنجره کلیدها را بگیرد. ترکیب دیگری امتحان کنید."
+    "shortcutRecorderGlobalCaptureHint": "اگر با فشار کلید چیزی دیده نمی‌شود، سیستم شما یا برنامهٔ دیگری ممکن است قبل از این پنجره کلیدها را بگیرد. ترکیب دیگری امتحان کنید.",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "نمایش پنجره برنامه",
     "switchToHomePage": "رفتن به صفحه نخست",
     "switchToNavigatorPage": "رفتن به صفحه ناوبر",
-    "switchToDashboardPage": "رفتن به داشبورد",
+    "switchToDashboardPage": "رفتن به دسترسی سریع",
     "switchToSettingsPage": "رفتن به صفحه تنظیمات",
     "switchToExtensionsPage": "رفتن به صفحه برنامه‌های افزودنی",
     "navigatePageBack": "رفتن به صفحه قبلی",
@@ -637,6 +1089,22 @@
       "description": "این عمل {count} مورد را از رایانه شما برای همیشه حذف می‌کند.",
       "confirm": "تنها در صورت تأیید کنید که می‌دانید این کار قابل بازگشت نیست.",
       "delete": "حذف"
+    },
+    "remoteHostKeyUnknown": {
+      "title": "This server’s identity has not been verified yet",
+      "description": "Alpha File Manager has connected to this host for the first time. Compare the fingerprint below with the one your server administrator gave you, then decide whether to trust it.",
+      "trust": "Trust and continue"
+    },
+    "remoteHostKeyChanged": {
+      "title": "This server’s identity has changed",
+      "description": "The host key presented by this server does not match the one you trusted before. This can mean the server was reinstalled, or that someone is intercepting the connection.",
+      "expected": "Previously trusted fingerprint:",
+      "trustAnyway": "Replace and continue"
+    },
+    "remoteHostKeyCommon": {
+      "algorithm": "Host key algorithm: {algorithm}",
+      "hint": "You can check it yourself with: ssh-keygen -lf <host key file>",
+      "hintX509": "You can check it yourself with: openssl x509 -fingerprint -sha256 -noout -in <certificate file>"
     }
   },
   "notifications": {
@@ -670,7 +1138,9 @@
     "addedToFavorites": "Added 0 items to favorites | Added 1 item to favorites | Added {n} items to favorites | Added {n} items to favorites",
     "createdNLinks": "۰ پیوند ایجاد شد | ۱ پیوند ایجاد شد | {n} پیوند ایجاد شد | {n} پیوند ایجاد شد",
     "createdNOfNLinks": "{created} از {total} لینک ایجاد شد",
-    "linkCreationPartialFailureDescription": "{count} لینک ناموفق بود. اولین خطا: {error}"
+    "linkCreationPartialFailureDescription": "{count} لینک ناموفق بود. اولین خطا: {error}",
+    "deletingLargeBatch": "Deleting {count} items",
+    "deletingLargeBatchDetail": "{files} files · {directories} folders · {size}"
   },
   "contextMenus": {
     "dirItem": {
@@ -852,6 +1322,7 @@
     },
     "name": "نام",
     "size": "اندازه",
+    "availableSpace": "فضای در دسترس",
     "modified": "تغییر یافته",
     "listModifiedDate": {
       "todayAt": "امروز، {time}",
@@ -860,6 +1331,7 @@
     "columns": "ستون‌ها",
     "tags": "برچسب‌ها",
     "folders": "پوشه‌ها",
+    "partitions": "پارتیشن‌ها",
     "images": "تصاویر",
     "videos": "ویدیوها",
     "video": "ویدیو",
@@ -906,12 +1378,16 @@
     "actions": {
       "rename": "تغییر نام",
       "copy": "کپی",
+      "cut": "برش",
       "move": "انتقال",
       "paste": "چسباندن",
       "pasteToPane1": "چسباندن در پنل ۱",
       "pasteToPane2": "چسباندن در پنل ۲",
       "delete": "حذف",
       "openWith": "باز کردن با...",
+      "openContainingDirectory": "Open containing directory",
+      "openContainingDirectoryFailed": "پوشهٔ حاوی باز نشد",
+      "openContainingDirectoryInApp": "Show containing folder in split view",
       "properties": "ویژگی‌ها",
       "propertiesFailed": "ویژگی‌ها باز نشد",
       "quickView": "نمای سریع",
@@ -920,7 +1396,17 @@
       "openInNewTab": "باز کردن در برگه جدید",
       "addToFavorites": "افزودن به موردعلاقه‌ها",
       "removeFromFavorites": "حذف از موردعلاقه‌ها",
-      "createLink": "ایجاد پیوند"
+      "createLink": "ایجاد پیوند",
+      "unlock": "Unlock file",
+      "forceDelete": "Force delete",
+      "rotateImageLeft": "چرخش به چپ",
+      "rotateImageRight": "چرخش به راست",
+      "flipImageHorizontal": "بازتاب افقی",
+      "flipImageVertical": "بازتاب عمودی",
+      "imageEditSucceeded": "تصویر با موفقیت ویرایش شد",
+      "imageEditFailed": "ویرایش تصویر ناموفق بود",
+      "imageEditInProgress": "در حال پردازش…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "پیوند نمادین",
@@ -991,7 +1477,30 @@
     "linkMetadataPerformanceWarning": "ممکن است مصرف حافظه را افزایش دهد و عملکرد را کاهش دهد.",
     "fillColumnWidth": "پر کردن عرض موجود",
     "setMinimumColumnWidths": "تنظیم حداقل عرض‌ها",
-    "items": "موارد"
+    "items": "موارد",
+    "favoriteCategoryDialog": {
+      "title": "Add to favorites",
+      "categoryLabel": "Choose a category",
+      "uncategorized": "Uncategorized",
+      "newCategoryLabel": "Or create a new category",
+      "newCategoryPlaceholder": "Type a name for the new category",
+      "confirm": "Add to favorites",
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "نام نمایشی",
+      "displayNamePlaceholder": "خالی بگذارید تا نام اصلی استفاده شود"
+    },
+    "searchOptions": {
+      "title": "گزینه‌های جستجو",
+      "matchCount": "{n} نتیجه",
+      "results": "نتایج",
+      "options": "گزینه‌ها"
+    },
+    "swapPanes": "Swap panes",
+    "devices": "دستگاه‌ها",
+    "device": "دستگاه",
+    "deviceOpenFailed": "این دستگاه باز نشد",
+    "deviceOpenFailedDescription": "ممکن است دستگاه قطع شده باشد. به‌جای آن، دستگاه را در فایل‌مندوی سیستم باز کنید.",
+    "openInSystemExplorer": "باز کردن در فایل‌مندوی سیستم"
   },
   "openWith": {
     "loadingPrograms": "در حال بارگذاری برنامه‌ها...",
@@ -1091,7 +1600,7 @@
     },
     "badges": {
       "official": "رسمی",
-      "officialTooltip": "این افزونه توسط تیم Sigma File Manager ایجاد و نگهداری می‌شود",
+      "officialTooltip": "این افزونه توسط تیم Alpha File Manager ایجاد و نگهداری می‌شود",
       "community": "جامعه",
       "communityTooltip": "این یک افزونه جامعه است. قبل از نصب، کد منبع را بررسی کنید.",
       "local": "محلی",
@@ -1099,7 +1608,9 @@
       "broken": "خراب",
       "brokenTooltip": "فایل‌های افزونه یافت نشدند. برای حذف از لیست، افزونه را حذف نصب کنید.",
       "disabled": "غیرفعال",
-      "disabledTooltip": "این افزونه غیرفعال است"
+      "disabledTooltip": "این افزونه غیرفعال است",
+      "source": "منبع",
+      "sourceTooltip": "منبع بازار: {name}"
     },
     "stats": {
       "total": "مجموع",
@@ -1187,17 +1698,30 @@
       "reloadFailed": "پس از به‌روزرسانی تنظیمات باینری، بارگذاری مجدد افزونه ناموفق بود"
     },
     "engineIncompatibleShort": "به‌روزرسانی لازم است",
-    "engineAppWarning": "به Sigma File Manager {range} نیاز دارد (نسخه شما {current})",
+    "engineAppWarning": "به Alpha File Manager {range} نیاز دارد (نسخه شما {current})",
     "engineApiWarning": "به API افزونه {range} نیاز دارد (نسخه شما {current})",
     "engineRequirements": "نیازمندی‌ها",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "API افزونه",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",
     "githubConnectivityIssue": "اتصال به GitHub برقرار نشد",
     "githubConnectivityIssueDescription": "برخی بررسی‌های نسخه افزونه‌ها به‌دلیل عدم اتصال برنامه به GitHub ناموفق بود. اتصال اینترنت، VPN یا تنظیمات فایروال را بررسی کنید و بعداً دوباره تلاش کنید.",
     "offlineIssue": "You are offline",
-    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features."
+    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features.",
+    "marketSources": "منابع بازار",
+    "marketSourceAdd": "افزودن منبع بازار",
+    "marketSourceName": "نام",
+    "marketSourceUrl": "نشانی رجیستری",
+    "marketSourceOfficial": "رسمی",
+    "marketSourceCommunity": "انجمن",
+    "marketSourceCustom": "اختصاصی",
+    "marketSourceAll": "همه",
+    "marketSourceEmpty": "هنوز هیچ منبع بازاری افزوده نشده است.",
+    "marketSourceRemove": "حذف منبع بازار",
+    "marketSourceRemoveConfirm": "این منبع بازار حذف شود؟ افزونه‌هایی که ارائه می‌کند، در تازه‌سازی بعدی بازار حذف خواهند شد.",
+    "marketSourceInvalidUrl": "یک نشانی HTTPS عمومی وارد کنید.",
+    "marketSourceUnreachable": "غیرقابل دسترس"
   },
   "commandPalette": {
     "accessibleDialogTitle": "پالت فرمان",
@@ -1212,6 +1736,9 @@
   "splitViewMode": "حالت نمای تقسیم‌شده",
   "splitViewModeSplit": "تقسیم",
   "splitViewModeLinked": "پیوند",
+  "syncBrowsing": "Synchronized browsing",
+  "syncBrowsingOn": "Synchronized browsing: on",
+  "syncBrowsingHint": "Select a folder in the left pane and the right pane jumps to the folder of the same name.",
   "statusCenter": {
     "title": "Status center",
     "clearCompleted": "Clear completed",
@@ -1229,7 +1756,9 @@
       "trash": "زباله",
       "deletePermanent": "حذف",
       "archive": "بایگانی",
-      "dirSize": "اندازه پوشه"
+      "dirSize": "اندازه پوشه",
+      "remoteUpload": "Upload",
+      "remoteDownload": "Download"
     },
     "operationStatusShort": {
       "completed": "موفق",
@@ -1239,7 +1768,13 @@
       "pending": "در انتظار",
       "cancelling": "در حال لغو…"
     },
-    "toolbarActiveCount": "0 عملیات | 1 عملیات | {n} عملیات | {n} عملیات"
+    "toolbarActiveCount": "0 عملیات | 1 عملیات | {n} عملیات | {n} عملیات",
+    "deleteScanning": "Measuring what will be deleted…",
+    "deleteScanningFound": "{count} items found",
+    "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "در حال انتقال به سطل زباله…",
+    "cancelNotAccepted": "لغو امکان‌پذیر نیست: فایل‌ها هم‌اکنون در حال انتقال به سطل زباله هستند.",
+    "deleteBytesProgress": "{done} / {total} freed"
   },
   "recalculate": "Recalculate",
   "lanShare": {
@@ -1266,5 +1801,291 @@
     "replaceShareDialogDescription": "فایل‌ها از قبل از طریق شبکه به اشتراک گذاشته شده‌اند. اشتراک‌گذاری فعلی متوقف و با مورد جدید جایگزین خواهد شد.",
     "replaceShareDialogConfirm": "جایگزینی"
   },
-  "tree": "Tree"
+  "tree": "Tree",
+  "batchRename": {
+    "menuItem": "Batch rename",
+    "dialog": {
+      "title": "Batch rename",
+      "tabRename": "Rename",
+      "tabHistory": "Undo history",
+      "cancel": "Cancel",
+      "apply": "Rename",
+      "close": "Close",
+      "loading": "Calculating…",
+      "noRules": "No rules added — nothing will be renamed.",
+      "summaryChanged": "{count} item(s) will be renamed",
+      "summaryUnchanged": "{count} item(s) unchanged",
+      "blocked": "Conflicts found. Fix them before applying.",
+      "openHistory": "Undo history"
+    },
+    "rules": {
+      "title": "Rules",
+      "empty": "No rules yet.",
+      "add": "Add rule",
+      "remove": "Remove rule",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "sortLabel": "Numbering order",
+      "type": {
+        "findReplace": "Find and replace",
+        "caseTransform": "Change case",
+        "template": "Template",
+        "sequence": "Numbering",
+        "extension": "Extension"
+      },
+      "findReplace": {
+        "find": "Find",
+        "replace": "Replace with",
+        "caseSensitive": "Match case",
+        "includeExtension": "Include extension"
+      },
+      "caseTransform": {
+        "mode": "Mode",
+        "includeExtension": "Include extension"
+      },
+      "case": {
+        "upper": "UPPERCASE",
+        "lower": "lowercase",
+        "title": "Title Case",
+        "camel": "camelCase",
+        "snake": "snake_case",
+        "kebab": "kebab-case"
+      },
+      "template": {
+        "pattern": "Pattern",
+        "variables": "Available variables",
+        "dateFormat": "Date format"
+      },
+      "sequence": {
+        "start": "Start",
+        "step": "Step",
+        "pad": "Zero padding",
+        "hint": "Numbering does not rename anything on its own. It only supplies the sequence variable used by a Template rule — add a Template rule to use it.",
+        "addTemplate": "Add a Template rule"
+      },
+      "extension": {
+        "newExtension": "New extension",
+        "newExtensionHint": "Leave empty to remove the extension"
+      }
+    },
+    "sort": {
+      "selection": "Selection order",
+      "nameAsc": "Name A to Z",
+      "nameDesc": "Name Z to A",
+      "modifiedAsc": "Modified, oldest first",
+      "modifiedDesc": "Modified, newest first",
+      "sizeAsc": "Size, smallest first",
+      "sizeDesc": "Size, largest first"
+    },
+    "preview": {
+      "title": "Preview",
+      "oldName": "Current name",
+      "newName": "New name",
+      "empty": "Nothing to preview.",
+      "unchanged": "unchanged"
+    },
+    "conflicts": {
+      "title": "Conflicts",
+      "targetExists": "The new name is already taken by another file in this folder.",
+      "duplicateTarget": "Several items would get the same name.",
+      "invalidTitle": "Invalid file names",
+      "invalid": {
+        "empty": "Name is empty.",
+        "illegalCharacter": "Contains a character that is not allowed in file names.",
+        "windowsReservedName": "Reserved name on Windows.",
+        "trailingDotOrSpace": "Cannot end with a dot or a space."
+      }
+    },
+    "result": {
+      "success": "Renamed {count} item(s)",
+      "partial": "Rename failed",
+      "rollbackOk": "Rolled back — the folder is back to its previous state.",
+      "rollbackFailed": "Rollback failed. The folder may be in a mixed state — check it manually.",
+      "noUndo": "This change could not be recorded for undo."
+    },
+    "history": {
+      "title": "Undo history",
+      "empty": "No history yet.",
+      "undo": "Undo",
+      "undoing": "Undoing…",
+      "itemCount": "{count} file(s)",
+      "undoSuccess": "Reverted {count} item(s)",
+      "undoFailed": "Undo failed",
+      "blockedBy": "These names are taken, so they could not be restored: {names}",
+      "notFound": "That history entry no longer exists."
+    }
+  },
+  "remote": {
+    "transfer": {
+      "uploadToRemote": "Upload to remote",
+      "downloadToLocal": "Download to local",
+      "uploadSucceeded": "Uploaded {files} file(s) to the remote folder.",
+      "uploadFailed": "Upload did not fully succeed: {files} uploaded, {skipped} skipped, {failed} failed.",
+      "downloadSucceeded": "Downloaded {files} file(s) to the local folder.",
+      "downloadFailed": "Download did not fully succeed: {files} downloaded, {skipped} skipped, {failed} failed.",
+      "uploading": "Uploading to remote",
+      "downloading": "Downloading from remote",
+      "progressFiles": "{done} / {total} files transferred",
+      "progressBytes": "{done} / {total} transferred",
+      "progressCurrent": "Current: {name}",
+      "resultTitle": "Transfer result",
+      "resultSummary": "{files} file(s) succeeded, {skipped} skipped, {failed} failed",
+      "failureSection": "Failed items",
+      "skippedSection": "Skipped items",
+      "skipReasonAlreadyExists": "Target already exists (not overwritten)",
+      "conflictTitle": "Target already exists",
+      "conflictMessage": "{count} file(s) already exist in the target folder. Overwrite them?",
+      "conflictOverwrite": "Overwrite",
+      "conflictSkipExisting": "Skip existing",
+      "noRemotePane": "The other pane is not on a remote host",
+      "uploadFailedTitle": "Upload did not fully succeed",
+      "downloadFailedTitle": "Download did not fully succeed",
+      "pasteToRemoteFailed": "Copy failed",
+      "remoteToRemoteNotSupported": "Copying between two remote locations is not supported yet. Click a local folder pane first and press Ctrl+V to download, or right-click the file and choose Download to local.",
+      "pasteFromRemoteFailed": "Copy from remote failed",
+      "conflictApplyToAll": "Apply the same choice to all files",
+      "conflictContinue": "Continue",
+      "skipReasonUserSkipped": "Skipped by you"
+    },
+    "permissions": {
+      "menuItem": "Permissions...",
+      "title": "Set permissions",
+      "modeLabel": "Permissions (octal)",
+      "modeHint": "For example 0754 means the owner may read, write and execute; the group may read and execute; others may read.",
+      "unknownMode": "The current permissions could not be read. Pick one from the list.",
+      "owner": "Owner",
+      "group": "Group",
+      "others": "Others",
+      "read": "read",
+      "write": "write",
+      "execute": "execute",
+      "none": "none",
+      "separator": ", ",
+      "recursive": "Apply to subdirectories and the files in them",
+      "apply": "Apply",
+      "success": "Permissions updated ({changed} item(s)).",
+      "partialFailure": "Permissions updated for {changed} item(s); {failed} failed.",
+      "failed": "Could not set permissions: {message}",
+      "error": {
+        "empty": "Enter the permissions in octal, for example 0754.",
+        "tooLong": "At most 4 octal digits are allowed.",
+        "notOctal": "Only the digits 0-7 are allowed.",
+        "unknown": "This permission value could not be recognized."
+      }
+    },
+    "delete": {
+      "menuItem": "حذف",
+      "title": "حذف موارد راه دور",
+      "descriptionSingle": "{path} برای همیشه حذف می‌شود. این کار قابل بازگشت نیست.",
+      "description": "این کار {count} مورد را به‌طور دائمی از سرور راه دور حذف می‌کند. این کار قابل بازگشت نیست.",
+      "noTrashHint": "سرور راه دور سطل بازیافت ندارد، بنابراین موارد حذف‌شده قابل بازیابی نیستند.",
+      "connectionHint": "اتصال: {name}",
+      "confirm": "حذف",
+      "success": "{count} مورد راه دور حذف شد.",
+      "failed": "حذف انجام نشد",
+      "permissionDenied": "دسترسی مجاز نیست"
+    },
+    "write": {
+      "fileCreationNotSupported": "پوشه‌های راه دور از ساخت فایل خالی پشتیبانی نمی‌کنند.",
+      "fileCreationNotSupportedTitle": "امکان ایجاد فایل وجود ندارد"
+    }
+  },
+  "compareSync": {
+    "title": "Compare & Sync",
+    "description": "Compare the two directories and sync the differences. This step never deletes anything.",
+    "stepSettings": "Setup",
+    "stepResults": "Results",
+    "stepPreview": "Preview & Run",
+    "leftDirectory": "Left directory",
+    "rightDirectory": "Right directory",
+    "leftDirectoryHint": "Source side",
+    "rightDirectoryHint": "Target side",
+    "tabCriteria": "Criteria",
+    "tabExclude": "Exclude",
+    "criteriaByTime": "By modification time",
+    "criteriaBySize": "By file size",
+    "criteriaByChecksum": "By content checksum",
+    "criteriaByChecksumHint": "Only available between two local folders; remote servers have no checksum to compare.",
+    "criteriaCaseSensitive": "Case sensitive",
+    "criteriaRecursive": "Compare subfolders recursively",
+    "criteriaMaxDepth": "Maximum depth",
+    "criteriaMaxDepthUnlimited": "Unlimited",
+    "criteriaRemoteTimeOffset": "Remote time offset (seconds)",
+    "criteriaRemoteTimeOffsetHint": "Servers usually report time in their own time zone; this offset converts it to yours.",
+    "excludePatterns": "Exclude rules",
+    "excludePatternsHint": "One per line, * and ? are supported. A matching folder drops its whole subtree from the comparison.",
+    "compare": "Compare",
+    "comparing": "Comparing…",
+    "back": "Back",
+    "preview": "Build preview",
+    "execute": "Start sync",
+    "executing": "Syncing…",
+    "cancel": "Cancel",
+    "filterAll": "All",
+    "filterDifferences": "Differences only",
+    "statusSame": "Same",
+    "statusOnlyLeft": "Left only",
+    "statusOnlyRight": "Right only",
+    "statusNewer": "Left is newer",
+    "statusOlder": "Left is older",
+    "statusSizeDiff": "Different size",
+    "statusContentDiff": "Different content",
+    "statusKindDiff": "Different type",
+    "statusIndeterminate": "Undecidable",
+    "directionToRight": "Left → Right",
+    "directionToLeft": "Right → Left",
+    "directionNone": "Nothing to do",
+    "directionIndeterminate": "Direction undecided",
+    "noDifferences": "No differences.",
+    "statsTotal": "Total",
+    "statsSame": "Same",
+    "statsDifferences": "Different",
+    "statsNeedsReview": "Undecided",
+    "actionCreateDir": "Create folder",
+    "actionTransferFile": "Transfer file",
+    "actionSkip": "Skip",
+    "planSummary": "Will create {dirs} folders, transfer {files} files and skip {skipped} items.",
+    "reportTransferred": "Transferred",
+    "reportCreatedDirs": "Folders created",
+    "reportSkipped": "Skipped",
+    "reportFailed": "Failed",
+    "reportCancelled": "Cancelled",
+    "invalidPath": "This path cannot be used.",
+    "progressPreparing": "در حال آماده‌سازی…",
+    "progressScanningLeft": "در حال پویش سمت چپ…",
+    "progressScanningRight": "در حال پویش سمت راست…",
+    "progressComparing": "در حال مقایسه…",
+    "progressDone": "انجام شد",
+    "progressScanned": "{count} ورودی پویش شد",
+    "progressCompared": "{count} از {total} ورودی مقایسه شد",
+    "rowsTruncated": "نمایش {shown} از {total}. برای محدود کردن از فیلترها استفاده کنید.",
+    "showMore": "نمایش {count} مورد بیشتر",
+    "statsUnreadable": "خوانده نشدنی"
+  },
+  "mapNetworkDrive": "Map network drive",
+  "mapNetworkDriveDescription": "Map a network share to a drive letter. Once it is mounted it shows up in the drive list on the left.",
+  "networkDriveLetter": "Drive letter",
+  "networkDriveLetterPlaceholder": "Auto",
+  "fileLock": {
+    "unlocked": "File unlocked",
+    "unlockedDescription": "Whatever was blocking the file has been cleared. You can delete it normally now.",
+    "unlockFailed": "Could not unlock the file",
+    "forceDeleted": "File deleted",
+    "forceDeletedDescription": "The file was removed even though it was in use.",
+    "forceDeleteFailed": "Could not delete the file",
+    "scheduledForReboot": "Deletion scheduled",
+    "scheduledForRebootDescription": "The file is still in use. It will be deleted the next time Windows starts.",
+    "terminateFailed": "Could not end the process",
+    "unknownError": "Unknown error",
+    "holdersTitle": "Programs using this file",
+    "holdersDescription": "These programs are holding the file open. Ending one of them may lose unsaved work.",
+    "noHolders": "No program was found holding this file.",
+    "endProcess": "End process",
+    "diagnoseFailed": "Could not check which programs are using this file"
+  },
+  "webviewGuard": {
+    "detected": "The interface renderer process crashed. Trying to recover automatically...",
+    "recovered": "The interface is working again.",
+    "recoveryFailed": "The interface could not be recovered automatically. Please restart the app."
+  }
 }

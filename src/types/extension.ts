@@ -41,6 +41,44 @@ export type ExtensionRegistry = {
   extensions: ExtensionRegistryEntry[];
 };
 
+/**
+ * 市场源类型。
+ *
+ * - `official`：官方市场源（内置常量，不落盘、不可删、不可改地址）。
+ * - `custom`：用户自建市场源（落盘、可增删、可停用）。
+ */
+// `official` / `community` 都是代码内置源（不落盘、不可删、不可改地址）：
+//   - official  = 本项目自己的市场，排第一，市场页不显示来源标签
+//   - community = 上游社区市场，排在 official 之后，条目上标来源
+// `custom` 是用户自建源，可停用、可删除。
+export type ExtensionMarketSourceKind = 'official' | 'community' | 'custom';
+
+export type ExtensionMarketSource = {
+  id: string;
+  name: string;
+  url: string;
+  kind: ExtensionMarketSourceKind;
+  enabled: boolean;
+  builtIn?: boolean;
+};
+
+/** 条目带上来源，便于市场页按来源过滤、卡片标注来源。 */
+export type ExtensionRegistryEntryWithSource = ExtensionRegistryEntry & {
+  sourceId: string;
+};
+
+/** 多源合并后的清单：每条条目都带上来源 id。 */
+export type MergedExtensionRegistry = {
+  schemaVersion: string;
+  extensions: ExtensionRegistryEntryWithSource[];
+};
+
+/** 按源存放的清单缓存（Phase 1 起取代单数的 `registryCache`）。 */
+export type ExtensionRegistryCache = {
+  data: ExtensionRegistry;
+  fetchedAt: number;
+};
+
 export type ExtensionShortcutScope = 'local' | 'global';
 
 export type ExtensionKeybindingOverride = {
@@ -117,6 +155,10 @@ export type ExtensionStorageData = {
     data: ExtensionRegistry;
     fetchedAt: number;
   };
+  /** 按市场源分别存放的清单缓存（Phase 1 起取代单数的 `registryCache`）。 */
+  registryCaches?: Record<string, ExtensionRegistryCache>;
+  /** 用户自建的市场源；官方源是内置常量，不落盘。 */
+  marketSources?: ExtensionMarketSource[];
   recentCommandIds?: string[];
 };
 

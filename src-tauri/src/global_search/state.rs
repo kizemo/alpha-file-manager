@@ -4,7 +4,7 @@
 
 use super::types::{GlobalSearchScanPhase, GlobalSearchStatus};
 use once_cell::sync::Lazy;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tantivy::schema::Field;
@@ -19,6 +19,15 @@ pub(super) struct GlobalSearchIndexFields {
     pub(super) is_dir: Field,
     pub(super) modified_time: Field,
     pub(super) size: Field,
+    /// **仅云盘索引**才有：条目归属的远程连接 id。
+    ///
+    /// 本地索引恒为 `None` —— 本地条目没有「属于哪个网盘」这回事。
+    ///
+    /// 为什么本地索引不能也加上这个字段：本地索引是全盘扫描建出来的，
+    /// schema 一变，盘上的旧索引立刻作废 ⇒ 所有用户都得重扫一次硬盘
+    /// （几十分钟到几小时）。云盘索引只在用户显式重建时刷新，
+    /// 改它的代价只是「升级后重建一次」。详见 `index.rs::build_schema`。
+    pub(super) connection_id: Option<Field>,
 }
 
 pub(super) struct GlobalSearchState {
@@ -27,9 +36,21 @@ pub(super) struct GlobalSearchState {
     pub(super) reader: Option<IndexReader>,
     pub(super) fields: Option<GlobalSearchIndexFields>,
     pub(super) cancel_flag: Arc<AtomicBool>,
+    /// 应用自己的目录（索引目录、WebView2 缓存都在里面）。
+    ///
+    /// 它们**不能**进全局搜索索引，也不该产生 watcher 事件：
+    ///   * 索引目录会把索引自己写进索引（自指，索引每轮都在长）；
+    ///   * WebView2 缓存是几十万个小文件的纯噪音；
+    ///   * 更要命的是，watcher 递归监听盘根时，**写索引本身**就会产生事件
+    ///     ⇒ 增量通道会被自己的写入喂出无限循环。
+    pub(super) app_owned_prefixes: Vec<String>,
 }
 
 pub(super) static GLOBAL_SEARCH_STATE: Lazy<Arc<RwLock<GlobalSearchState>>> = Lazy::new(|| {
+    // 把「上一次查询时间」在状态初始化时就钉住（通常≈进程启动时刻），
+    // 这样「启动后一直没人搜索」也能在超时后释放常驻 reader。
+    let _ = &*LAST_QUERY_AT_MS;
+
     Arc::new(RwLock::new(GlobalSearchState {
         status: GlobalSearchStatus {
             is_scan_in_progress: false,
@@ -45,6 +66,10 @@ pub(super) static GLOBAL_SEARCH_STATE: Lazy<Arc<RwLock<GlobalSearchState>>> = La
             last_scan_duration_ms: None,
             last_scan_indexed_item_count: None,
             last_scan_error: None,
+            last_scan_mode: None,
+            incremental_ready: false,
+            incremental_watcher_generation: 0,
+            last_incremental_failed: false,
             indexed_item_count: 0,
             scan_indexed_item_count: 0,
             indexed_drive_roots: vec![],
@@ -60,6 +85,7 @@ pub(super) static GLOBAL_SEARCH_STATE: Lazy<Arc<RwLock<GlobalSearchState>>> = La
         reader: None,
         fields: None,
         cancel_flag: Arc::new(AtomicBool::new(false)),
+        app_owned_prefixes: Vec::new(),
     }))
 });
 
@@ -68,4 +94,91 @@ pub(super) fn now_millis() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis() as u64)
         .unwrap_or(0)
+}
+
+// FORK-MODIFICATION: 2026-10-28 —— 搜索常驻 reader 的空闲释放。
+//
+// tantivy 的 `IndexReader` **没有内存预算旋钮**（`IndexReaderBuilder` 只有
+// `reload_policy` 与 `try_into`），能做的只有「不用就放掉」：常驻的 reader 会
+// 一直攥着各个 segment 的 store / 倒排 mmap，索引越大常驻占用越可观。
+//
+// 这里采取的策略是「空闲即释放」：
+//   * 超过阈值没有查询 ⇒ 把 `state.reader` 置空；
+//   * 下次查询走 `query.rs` 里**已经存在**的 `needs_open` 重新打开路径
+//     （`open_or_create_index`），索引本身不受影响，搜索结果不变。
+//
+// 释放动作只在写锁内做，因此不可能与正在跑的查询抢同一份 reader
+// （查询全程持有读锁）。
+//
+// 阈值取 5 分钟：空闲 5 分钟后就把常驻 reader 归还（重开一次索引是百毫秒级，
+// 用户无感），同时不至于让「连续搜索」的用户频繁付重开的代价。
+pub(super) const READER_IDLE_RELEASE_AFTER_MS: u64 = 5 * 60 * 1000;
+
+/// 索引体积超过 `READER_RESIDENT_BUDGET_BYTES` 时，reader 的空闲释放阈值（毫秒）。
+///
+/// 索引越大，reader 攥着的 segment mmap 越多，就越应该早点放掉。
+pub(super) const READER_IDLE_RELEASE_AFTER_MS_OVER_BUDGET: u64 = 60 * 1000;
+
+/// 常驻 reader 的体积预算（字节）。
+///
+/// tantivy 0.26 的 `IndexReaderBuilder` 只有 `reload_policy` 与 `try_into`，
+/// **没有**内存预算旋钮，所以这一层的「预算」只能用「按体积提前释放」来实现：
+/// 索引在预算之内按 5 分钟释放，超出预算按 1 分钟释放。
+pub(super) const READER_RESIDENT_BUDGET_BYTES: u64 = 256 * 1024 * 1024;
+
+/// 上一次查询的时间戳（毫秒）。
+///
+/// 首次访问时初始化（进程启动阶段被 `GLOBAL_SEARCH_STATE` 的初始化顺带钉住，
+// 若状态更晚才被碰到，则退化成「第一次查询的时刻」）。
+pub(super) static LAST_QUERY_AT_MS: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(now_millis()));
+
+/// 记一次查询活动（空闲释放的判断以「上一次查询时间」为准）。
+pub(super) fn mark_query_activity() {
+    LAST_QUERY_AT_MS.store(now_millis(), Ordering::Relaxed);
+}
+
+/// 常驻 reader 是否已经空闲超过阈值（按索引体积自适应）。
+pub(super) fn is_reader_idle(now_ms: u64, index_size_bytes: u64) -> bool {
+    let last_query_at = LAST_QUERY_AT_MS.load(Ordering::Relaxed);
+    let idle_ms = now_ms.saturating_sub(last_query_at);
+
+    idle_ms >= reader_idle_threshold_ms(index_size_bytes)
+}
+
+/// reader 的空闲释放阈值（毫秒）：索引越大，越早放掉常驻 reader。
+pub(super) fn reader_idle_threshold_ms(index_size_bytes: u64) -> u64 {
+    if index_size_bytes > READER_RESIDENT_BUDGET_BYTES {
+        READER_IDLE_RELEASE_AFTER_MS_OVER_BUDGET
+    } else {
+        READER_IDLE_RELEASE_AFTER_MS
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reader_idle_threshold_is_shorter_when_index_exceeds_budget() {
+        let under_budget = READER_RESIDENT_BUDGET_BYTES;
+        let over_budget = READER_RESIDENT_BUDGET_BYTES + 1;
+
+        assert_eq!(
+            reader_idle_threshold_ms(under_budget),
+            READER_IDLE_RELEASE_AFTER_MS
+        );
+        assert_eq!(
+            reader_idle_threshold_ms(over_budget),
+            READER_IDLE_RELEASE_AFTER_MS_OVER_BUDGET
+        );
+        assert!(
+            READER_IDLE_RELEASE_AFTER_MS_OVER_BUDGET < READER_IDLE_RELEASE_AFTER_MS,
+            "超预算时必须更早释放 reader"
+        );
+    }
+
+    #[test]
+    fn reader_idle_threshold_uses_default_for_zero_sized_index() {
+        assert_eq!(reader_idle_threshold_ms(0), READER_IDLE_RELEASE_AFTER_MS);
+    }
 }

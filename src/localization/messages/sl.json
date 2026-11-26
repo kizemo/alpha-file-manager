@@ -1,8 +1,11 @@
 {
   "app": {
-    "name": "Sigma File Manager",
-    "description": "je brezplačni, odprtokodni, napredni, moderen upravitelj datotek, licenciran pod GNU GPLv3 ali poznejšo licenco.",
-    "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
+    "name": "Alpha File Manager",
+    "description": "is developed on top of Sigma File Manager, adding practical features such as a directory tree, quick switching (path focus sync for file dialogs) and batch rename. Many details have been refined to deliver a more complete file manager experience.",
+    "copyright": "Credits to the original author Aleksey Hoffman.",
+    "developerLabel": "Developed by ",
+    "developer": "kizemo",
+    "repository": "https://github.com/kizemo/alpha-file-manager"
   },
   "units": {
     "px": "px"
@@ -19,7 +22,7 @@
   "pages": {
     "home": "Domača stran",
     "navigator": "Navigator",
-    "dashboard": "Nadzorna plošča",
+    "dashboard": "Hitri dostop",
     "notes": "Opombe",
     "settings": "Nastavitve",
     "extensions": "Razširitve"
@@ -33,7 +36,15 @@
     "tagged": "Označeno",
     "emptyFavorites": "Ni priljubljenih",
     "emptyTagged": "Ni označenih predmetov",
-    "unknownTagGroup": "Neznana oznaka"
+    "unknownTagGroup": "Neznana oznaka",
+    "frequent": "Frequent",
+    "history": "History",
+    "emptyFrequent": "No frequently used items",
+    "emptyHistory": "No history yet",
+    "openFavoritesTab": "Open Favorites tab in Quick Access",
+    "openFrequentTab": "Open Frequent tab in Quick Access",
+    "openHistoryTab": "Open History tab in Quick Access",
+    "openTaggedTab": "Open Tagged tab in Quick Access"
   },
   "placeholders": {
     "noDrivesFound": "Ni najdenih pogonov",
@@ -76,6 +87,8 @@
     "music": "Glasba"
   },
   "tabs": {
+    "scrollTabsLeft": "Pomakni zavihke levo",
+    "scrollTabsRight": "Pomakni zavihke desno",
     "newTab": "Nov zavihek",
     "duplicateTab": "Podvoji zavihek",
     "closeOtherTabs": "Zapri druge zavihke",
@@ -89,6 +102,9 @@
   "splitViewMode": "Način razdeljenega pogleda",
   "splitViewModeSplit": "Razdeljen",
   "splitViewModeLinked": "Povezan",
+  "syncBrowsing": "Synchronized browsing",
+  "syncBrowsingOn": "Synchronized browsing: on",
+  "syncBrowsingHint": "Select a folder in the left pane and the right pane jumps to the folder of the same name.",
   "filter": {
     "filter": "Filter",
     "showHiddenItems": "Pokaži skrite predmete",
@@ -121,7 +137,9 @@
       "trash": "Koš",
       "deletePermanent": "Brisanje",
       "archive": "Arhiv",
-      "dirSize": "Velikost mape"
+      "dirSize": "Velikost mape",
+      "remoteUpload": "Upload",
+      "remoteDownload": "Download"
     },
     "operationStatusShort": {
       "completed": "Uspeh",
@@ -131,9 +149,17 @@
       "pending": "V čakanju",
       "cancelling": "Preklic…"
     },
-    "toolbarActiveCount": "0 opravil | 1 opravilo | {n} opravil | {n} opravil"
+    "toolbarActiveCount": "0 opravil | 1 opravilo | {n} opravil | {n} opravil",
+    "deleteScanning": "Measuring what will be deleted…",
+    "deleteScanningFound": "{count} items found",
+    "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "Premikanje v koš…",
+    "cancelNotAccepted": "Preklic ni mogoče: datoteke se že prestavljajo v koš.",
+    "deleteBytesProgress": "{done} / {total} freed"
   },
   "globalSearch": {
+    "scanModeFull": "Popolno",
+    "scanModeIncremental": "Inkrementalno",
     "globalSearch": "Globalno iskanje",
     "driveScanInProgress": "Indeksiranje pogona je v teku",
     "searchDataIncomplete": "Podatki za iskanje so nepopolni",
@@ -176,7 +202,10 @@
       "indexed": "Indeksirano {time}",
       "nothingFound": "Nič ni bilo najdeno"
     },
-    "showSearchSettings": "Pokaži nastavitve iskanja"
+    "showSearchSettings": "Pokaži nastavitve iskanja",
+    "remoteIndexing": "Indeksiranje oblakovnih diskov",
+    "remoteIndexDone": "Oblakni indeks je posodobljen",
+    "remoteIndexFailed": "Indeksiranje oblaka ni uspelo"
   },
   "home": {
     "mediaBannerOptions": "Možnosti medijskega pasice",
@@ -195,11 +224,11 @@
     "newDirectory": "Nova mapa",
     "newFile": "Nova datoteka",
     "reloadCurrentDirectory": "Ponovno naloži trenutno mapo",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "Prikaži drevo map",
+    "hideFolderTree": "Skrij drevo map"
   },
   "dashboard": {
-    "subtitle": "Hiter dostop do vaših priljubljenih, označenih in pogosto uporabljenih predmetov",
+    "subtitle": "Priljubljeni, označeni in pogosto uporabljeni predmeti — vse na enem mestu",
     "tabs": {
       "favorites": "Priljubljene",
       "tagged": "Označene",
@@ -220,7 +249,57 @@
     "daysAgo": "{n} dan nazaj | {n} dni nazaj | {n} dni nazaj | {n} dni nazaj",
     "openedCount": "Odprto {n} krat | Odprto {n} krat | Odprto {n} krat | Odprto {n} krat",
     "actions": {
-      "clearAll": "Odstrani vse s tega seznama"
+      "clearAll": "Odstrani vse s tega seznama",
+      "newFavorite": "New favorite",
+      "newCategory": "New category",
+      "newTag": "New tag",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "moveUpWithName": "Premakni {name} navzgor",
+      "moveDownWithName": "Premakni {name} navzdol",
+      "dragToReorder": "Povlecite za preurejanje",
+      "moveToCategory": "Move to category",
+      "removeFavorite": "Remove from favorites",
+      "removeTag": "Remove tag",
+      "renameCategory": "Rename category",
+      "deleteCategory": "Delete category",
+      "uncategorized": "Uncategorized",
+      "confirmRemove": "Odstrani",
+      "clearAllConfirmTitle": "Odstrani vse s tega seznama?",
+      "clearAllConfirmDescription": "Tega dejanja ni mogoče razveljaviti.",
+      "removeFavoriteConfirmTitle": "Odstrani iz priljubljenih?",
+      "removeFavoriteConfirmDescription": "Predmet bo odstranjen od todaj. Ponovno ga dodajte med priljubljene, da ga vrnete.",
+      "deleteTagConfirmTitle": "Izbrišati to oznako?",
+      "deleteTagConfirmDescription": "Oznaka bo izbrisana in odstranjena iz vseh predmetov.",
+      "removeTagConfirmTitle": "Odstrani to oznako s predmeta?",
+      "removeTagConfirmDescription": "Predmet ne bo več imel te oznake.",
+      "renameFavorite": "Uredi prikazno ime",
+      "editFavorite": "Edit favorite"
+    },
+    "newFavoriteDialog": {
+      "title": "Add to favorites",
+      "pathLabel": "File or folder path",
+      "pathPlaceholder": "Paste a full path",
+      "pathNotFound": "Path does not exist",
+      "pathAlreadyFavorite": "Already in favorites",
+      "confirm": "Add",
+      "displayNameLabel": "Prikazno ime",
+      "displayNamePlaceholder": "Pustite prazno za uporabo prvotnega imena"
+    },
+    "nameDialog": {
+      "nameLabel": "Name",
+      "namePlaceholder": "Enter a name",
+      "duplicateName": "\"{name}\" already exists",
+      "confirm": "Create"
+    },
+    "categoryDeleteNote": "Favorites in this category return to \"Uncategorized\". Nothing is deleted.",
+    "favoriteEdit": {
+      "pathRequired": "Path cannot be empty",
+      "saved": "Favorite updated",
+      "saveFailed": "Failed to update the favorite"
+    },
+    "favoriteCategoryDialog": {
+      "categoryLabel": "Category"
     }
   },
   "settingsCategories": {
@@ -249,8 +328,19 @@
         "title": "Pogled datotek",
         "enableBoxSelection": "Omogoči izbiro s kvadratom",
         "enableBoxSelectionDescription": "Povlecite po praznem prostoru, da izberete več elementov s kvadratom izbire. Za dodajanje k izbiri držite Ctrl ali Shift; za obrat izbiro Alt.",
+        "boxSelectionEnabledByDefault": "Box selection is now enabled by default. If drag-selecting gets in the way, you can turn it off here.",
         "increaseFileViewGaps": "Povečaj razmike v pogledu datotek",
-        "increaseFileViewGapsDescription": "Doda stranski odmik v seznamu in poveča razmike v mreži za lažje ciljanje."
+        "increaseFileViewGapsDescription": "Doda stranski odmik v seznamu in poveča razmike v mreži za lažje ciljanje.",
+        "foldersFirst": "Place folders before files in list view",
+        "foldersFirstDescription": "Only affects the list view; the grid view always groups entries by type.",
+        "showListThumbnails": "Show thumbnails in list view",
+        "showListThumbnailsDescription": "Images and videos show thumbnails in the list. Folders and documents still show their type icon. Grid view always shows thumbnails and is not affected by this switch.",
+        "thumbnailSizeTitle": "Thumbnail size",
+        "thumbnailSizeDescription": "Adjust thumbnail size in the list and grid views.",
+        "thumbnailSizeSmall": "Small",
+        "thumbnailSizeMedium": "Medium",
+        "thumbnailSizeLarge": "Large",
+        "thumbnailSizeXLarge": "Extra large"
       },
       "startupPage": {
         "title": "Stran ob zagonu",
@@ -270,7 +360,8 @@
       "openAppLogDirectory": "Odpri mapo dnevnika aplikacije",
       "openGlobalSearchIndexDirectory": "Odpri mapo indeksov globalnega iskanja",
       "changelog": "Zapis sprememb",
-      "allReleases": "Vse izdaje"
+      "allReleases": "Vse izdaje",
+      "learningNotes": "段燚的学习笔记"
     },
     "visualEffects": {
       "title": "Vizualni učinki",
@@ -289,16 +380,20 @@
         "darken": "Potemnitev",
         "lighten": "Posvetlitev",
         "color-dodge": "Posvetlitev barve",
+        "plus-lighter": "Linearno posvetljevanje (dodaj)",
         "color-burn": "Potemnitev barve",
         "hard-light": "Trda svetloba",
         "soft-light": "Mehka svetloba",
         "difference": "Razlika",
         "exclusion": "Izključitev",
-        "hue": "Barvni ton",
-        "saturation": "Nasičenost",
         "color": "Barva",
         "luminosity": "Svetlost"
       },
+      "blendTarget": "Mešaj z",
+      "blendTargetUi": "Vmesnikom",
+      "blendTargetFill": "Barvo polnila",
+      "blendTint": "Barva polnila",
+      "blendTintCustom": "Barva po meri",
       "overlayBackground": "Ozadje prekrivanja",
       "selectNextBackground": "Izberi naslednje ozadje",
       "useTheSameSettingsForAllPages": "Uporabi iste nastavitve za vse strani",
@@ -310,9 +405,15 @@
       "theme": {
         "title": "Tema",
         "extensionThemes": "Teme razširitev",
+        "afmThemeThemes": "Znamke teme AFM",
+        "afmThemes": {
+          "warmLight": "Topel papir · Svetla",
+          "warmDark": "Topel papir · Temna",
+          "vividLight": "Živa energija",
+          "coolLight": "Hladna borovnica"
+        },
         "themeTypeRadio": {
-          "dark": "Temna",
-          "light": "Svetla (v razvoju)"
+          "dark": "Temna"
         }
       }
     },
@@ -327,7 +428,14 @@
       "selectedFont": "Izbrana pisava",
       "defaultFont": "privzeta pisava",
       "reFetchSystemFonts": "Ponovno pridobi sistemske pisave",
-      "resetFontToDefault": "Ponastavi pisavo na privzeto"
+      "resetFontToDefault": "Ponastavi pisavo na privzeto",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "Datum / čas",
@@ -352,7 +460,7 @@
       "preventDropdownCloseFocusReturn": "Prepreči vrnitev fokusa ob zapiranju spustnih menijev",
       "preventDropdownCloseFocusReturnDescription": "Ko je omogočeno, zapiranje spustnega menija (npr. z Escape) ne bo vrnilo fokusa na gumb aktivacije, kar prepreči prikaz obroča fokusa in namiga",
       "quickAccessOnHover": "Odpri ploščo za hitri dostop ob lebdenju",
-      "quickAccessOnHoverDescription": "Ko je omogočeno, se plošča za hitri dostop samodejno odpre ob lebdenju nad gumbom nadzorne plošče v stranski vrstici"
+      "quickAccessOnHoverDescription": "Ko je omogočeno, se plošča za hitri dostop samodejno odpre ob lebdenju nad gumbom hitrega dostopa v stranski vrstici"
     },
     "tooltips": {
       "title": "Namigi",
@@ -408,7 +516,6 @@
       }
     },
     "navigator": {
-      "navigatorViewLayout": "Razporeditev",
       "navigatorOptions": "Možnosti navigatorja",
       "systemIcons": "Tema ikon",
       "systemIconsDirectories": "Mape",
@@ -464,7 +571,15 @@
       "ignoredPathsHelpDownloads": "Preskoči to predpono poti.",
       "ignoredPathsHelpTestFolder": "Preskoči mape z imenom test in njihovo vsebino kjer koli.",
       "ignoredPathsHelpExtensionMask": "Preskoči datoteke s končnico .log kjer koli.",
-      "ignoredPathsHelpNestedExtensionMask": "Preskoči datoteke s končnico .tmp v kateri koli mapi."
+      "ignoredPathsHelpNestedExtensionMask": "Preskoči datoteke s končnico .tmp v kateri koli mapi.",
+      "remoteIndexTitle": "Iskanje v oblaku",
+      "remoteIndexDescription": "Datoteke povezav, dodanih v globalno iskanje, se prikažejo v rezultatih.",
+      "rebuildRemoteIndex": "Znova zgradi oblakni indeks",
+      "rebuildRemoteIndexDescription": "Ponovno prinese datoteke označenih povezav in jih zapiše v indeks; porabi se kvota API omrežnega diska.",
+      "noRemoteInSearch": "V globalno iskanje še ni dodan nobena omrežna disk",
+      "noNetdiskConnections": "Za ta oblak oziroma še ni povezav",
+      "rebuildCheckedRemoteIndex": "Ponovno zgradi indeks za označene povezave",
+      "rebuildCheckedRemoteIndexHint": "Ponovno sestavljanje vedno uporabi celoten nabor označenih povezav — posamezne povezave ni mogoče sestaviti same."
     },
     "drives": {
       "driveDetection": "Zaznavanje pogonov",
@@ -474,21 +589,362 @@
     },
     "stats": {
       "title": "Uporabniški podatki",
-      "description": "Aplikacija lokalno shranjuje podatke (oznake, priljubljene, zgodovina, nedavno odprti predmeti) za omogočanje funkcij kot so seznami na nadzorni plošči in iskanje. Ti podatki so shranjeni v mapi aplikacije.",
+      "description": "Aplikacija lokalno shranjuje podatke (oznake, priljubljene, zgodovina, nedavno odprti predmeti) za omogočanje funkcij kot so seznami hitrega dostopa in iskanje. Ti podatki so shranjeni v mapi aplikacije.",
       "openDataDirectory": "Odpri podatkovno mapo"
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "Nastavi Sigma File Manager kot privzeti upravljalnik datotek",
+        "title": "Nastavi Alpha File Manager kot privzeti upravljalnik datotek",
         "description": "Ta možnost spremeni sistemski register in lahko povzroči nepričakovane stranske učinke na vaši napravi. Nadaljujte na lastno odgovornost.",
         "unavailableInMicrosoftStore": "Ni na voljo v različici iz trgovine Microsoft Store"
+      },
+      "mcp": {
+        "title": "MCP server (for AI agents)",
+        "description": "Let AI clients such as Claude or Cursor call this app's read-only capabilities over MCP. Off by default — when off, no port is opened at all.",
+        "modes": {
+          "off": "Off",
+          "readOnly": "Read-only",
+          "writable": "Writable",
+          "askEachTime": "Ask each time"
+        },
+        "modeDescriptions": {
+          "off": "The server does not start and no port is opened. Nothing on this machine can reach it.",
+          "readOnly": "Exposes directory listing, drives, mountable devices, the indexed global search, directory size and favourites. Entirely read-only — no file is ever modified.",
+          "writable": "Adds write operations on top of read-only. Deletion still goes to the recycle bin, never a hard delete.",
+          "askEachTime": "Same as writable, but every write operation needs individual confirmation."
+        },
+        "running": "Running · port {port}",
+        "stopped": "Not running",
+        "endpoint": "Endpoint",
+        "clients": "Connected clients",
+        "copyConfig": "Copy config snippet",
+        "copied": "Copied",
+        "copyFailed": "Copy failed — please copy the snippet manually",
+        "rotateToken": "Regenerate token",
+        "tokenRotated": "New token generated. Previous configs stop working immediately.",
+        "token": "Token",
+        "tokenHint": "Any process on this machine can reach 127.0.0.1. The token is the only barrier — do not share it.",
+        "auditTitle": "Recent calls",
+        "outcomes": {
+          "allowed": "allowed",
+          "denied": "denied",
+          "error": "error"
+        },
+        "clientsConnected": "{count} agent(s) connected",
+        "indicatorTooltip": "An AI client is using this app's capabilities",
+        "notRunning": "MCP server is not running",
+        "deployTitle": "One-click deploy to AI clients",
+        "deployHint": "One-click deploy writes this server straight into the client’s own config file without touching any other entry, and backs the original up as .alpha-mcp.bak beforehand. The change only takes effect after you quit that client completely and start it again.",
+        "deployAction": "One-click deploy",
+        "deployInstalled": "Deployed",
+        "deployNotYet": "Not deployed",
+        "deployNotDetected": "Client not found",
+        "deployDoneShort": "Configured",
+        "deployRemove": "Remove",
+        "deployLoading": "Scanning this machine for clients…",
+        "deployFailed": "Deployment failed — see the error below",
+        "deployAlreadyCurrent": "The config was already up to date, so nothing was changed.",
+        "deployDone": "Deployed to {client}. Config file: {path}. The original file was backed up as {backup}. Please quit {client} completely and start it again.",
+        "deployRemoved": "Removed this server from {client}’s config.",
+        "deployClients": {
+          "codex": "Codex",
+          "cursor": "Cursor",
+          "claudeCode": "Claude Code",
+          "claudeDesktop": "Claude Desktop",
+          "openclaw": "OpenClaw",
+          "minimaxCode": "Minimax Code"
+        },
+        "recheck": "Re-check",
+        "restartTitle": "{client} must be fully quit and restarted",
+        "restartBody": "The config file is written, but MCP clients only read it at startup — they never reload it while running. Quit {client} from its tray icon (closing the window is not enough), reopen it, then come back here and press Re-check.",
+        "restartBackup": "The original file was backed up to {backup}. To undo, rename the backup back.",
+        "restartDismiss": "Got it"
       }
+    },
+    "storage": {
+      "thumbnailCache": {
+        "title": "Thumbnail cache",
+        "description": "Image and video thumbnails share the same cache directory. Cleared thumbnails are regenerated automatically the next time you browse.",
+        "sizeLabel": "Disk usage",
+        "sizeUnknown": "Unknown",
+        "countLabel": "Items",
+        "countUnknown": "Unknown",
+        "clear": "Clear cache",
+        "clearSuccess": "Thumbnail cache cleared",
+        "clearFailed": "Failed to clear the thumbnail cache",
+        "confirmTitle": "Clear the thumbnail cache?",
+        "confirmDescription": "This clears both image and video thumbnail caches and cannot be undone. Cleared thumbnails are regenerated the next time you browse those files."
+      },
+      "settingsTransfer": {
+        "title": "Export / import settings",
+        "description": "Export settings, favorites, remote connections and cloud drive connections into one JSON file. Browsing history and frequently used items are not exported.",
+        "export": "Export settings",
+        "import": "Import settings",
+        "exporting": "Exporting…",
+        "importing": "Importing…",
+        "exportSuccess": "Settings exported",
+        "exportFailed": "Failed to export settings",
+        "importSuccess": "Settings imported",
+        "importFailed": "Failed to import settings",
+        "confirmTitle": "Import settings?",
+        "confirmDescription": "Importing overwrites the current settings, favorites, tags and remote connections. Browsing history and frequently used items are not affected.",
+        "invalidFile": "This file is not a valid Alpha File Manager settings export.",
+        "restartHint": "Some settings (such as theme and language) only take effect after restarting the app.",
+        "credentialsHint": "{count} connection(s) need you to sign in again."
+      }
+    },
+    "remote": {
+      "connections": {
+        "title": "Remote connections",
+        "empty": "No connections yet."
+      },
+      "action": {
+        "add": "Add connection",
+        "edit": "Edit",
+        "delete": "Delete",
+        "save": "Save",
+        "cancel": "Cancel",
+        "browse": "Browse…",
+        "test": "Test connection"
+      },
+      "field": {
+        "name": "Name",
+        "protocol": "Protocol",
+        "host": "Server address",
+        "port": "Port",
+        "username": "Username",
+        "password": "Password",
+        "initialPath": "Initial directory",
+        "proxy": "Proxy",
+        "proxyHost": "Proxy address",
+        "proxyPort": "Proxy port",
+        "proxyUsername": "Proxy username",
+        "proxyPassword": "Proxy password",
+        "localPath": "Local folder",
+        "cookie": "Cookie",
+        "includeInSearch": "Vključi v globalno iskanje",
+        "includeInSearchHint": "Če označite, bodo datoteke te povezave vključene v indeks globalnega iskanja (oblakni indeks znova zgradite ročno)."
+      },
+      "protocol": {
+        "ftp": "FTP",
+        "ftps_explicit": "FTPS (explicit)",
+        "ftps_implicit": "FTPS (implicit)",
+        "sftp": "SFTP",
+        "baidu_pan": "Baidu Netdisk",
+        "quark_pan": "Quark Drive",
+        "aliyun_pan": "Aliyun Drive",
+        "onedrive_pan": "OneDrive"
+      },
+      "proxy": {
+        "direct": "Direct connection",
+        "socks5": "SOCKS5",
+        "http_connect": "HTTP CONNECT"
+      },
+      "password": {
+        "saved": "Password saved",
+        "savedHint": "Leave blank to keep the current password.",
+        "clear": "Remove the saved password"
+      },
+      "error": {
+        "nameRequired": "Connection name cannot be empty.",
+        "hostRequired": "Server address cannot be empty.",
+        "hostHasWhitespace": "Server address cannot contain spaces.",
+        "portInvalid": "Port must be between 1 and 65535.",
+        "initialPathInvalid": "Initial directory contains an invalid segment.",
+        "proxyHostRequired": "Proxy address cannot be empty.",
+        "proxyHostHasWhitespace": "Proxy address cannot contain spaces.",
+        "proxyPortInvalid": "Proxy port must be between 1 and 65535.",
+        "connectionIdInvalid": "Connection id is invalid.",
+        "remoteConnectionsStorageNotReady": "The connection list has not finished loading. Please try again in a moment.",
+        "unknown": "Failed to save the connection.",
+        "localPathHasWhitespace": "Local folder cannot contain spaces.",
+        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
+        "baiduLoginRequired": "Najprej se v aplikaciji prijavite v Baidu Pan, nato shranite to povezavo.",
+        "quarkLoginRequired": "Pred shranjevanjem te povezave se prijavite v Quark Drive v aplikaciji.",
+        "aliyunLoginRequired": "Pred shranjevanjem te povezave se prijavite v Aliyun Drive v aplikaciji.",
+        "onedriveLoginRequired": "Sign in to OneDrive inside the app before saving this connection."
+      },
+      "localPath": {
+        "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
+      },
+      "test": {
+        "testing": "Testing…",
+        "outcome": {
+          "verified": "Connected. The server accepted these settings.",
+          "auth_rejected": "Connected, but the server rejected the username or password.",
+          "missing_credential": "Connected, but no password was supplied, so authentication was not verified.",
+          "wrong_protocol": "Something answered, but it is not the selected protocol.",
+          "unreachable": "Could not reach the server. Check the address, port and proxy.",
+          "protocol_error": "Connected, but the exchange did not complete as expected."
+        },
+        "passwordNotChecked": "No password was submitted, so this does not confirm that it is correct.",
+        "tlsNotVerified": "The TLS certificate was not verified."
+      },
+      "nav": {
+        "openSettings": "Remote settings",
+        "connect": "Connect",
+        "netdisk": "Omrežni diski",
+        "netdiskDescription": "Prijavite se v Baidu Netdisk, Quark Drive ali Aliyun Drive v vgrajenem oknu. Poverilnice so šifrirane z Windows DPAPI in nikoli ne zapustijo tega računalnika.",
+        "remoteSection": "Oddaljene povezave",
+        "remoteDescription": "Tukaj shranjujte povezave FTP, FTPS in SFTP. Poverilnice so šifrirane z Windows DPAPI in nikoli ne zapustijo tega računalnika.",
+        "addNetdisk": "Dodaj omrežni disk",
+        "addRemote": "Dodaj oddaljeno povezavo",
+        "emptyNetdisk": "Še ni omrežnih diskov.",
+        "emptyRemote": "Še ni oddaljenih povezav.",
+        "empty": "No connections yet.",
+        "split": "Split",
+        "editConnection": "Edit this connection",
+        "homeEmpty": "Omrežni diski ali oddaljene povezave še niso nastavljeni."
+      },
+      "trustedHosts": {
+        "title": "Trusted hosts",
+        "description": "Host keys you have confirmed. Remote directories only open after you trust the server here.",
+        "empty": "You have not trusted any host yet.",
+        "loadFailed": "The trusted host list could not be read.",
+        "forget": "Forget",
+        "forgetFailed": "That host could not be removed. It is still on the list.",
+        "kindSsh": "SSH key",
+        "kindX509": "X.509 certificate"
+      },
+      "baidu": {
+        "status": {
+          "loading": "Branje stanja pooblastitev…",
+          "missing": "Ni prijavljen",
+          "ready": "Pooblastjeno",
+          "stoken_expired": "Veljavnost STOKEN je potekla — prijavite se znova",
+          "stoken_expiring_soon": "Veljavnost STOKEN bo kmalu potekla"
+        },
+        "action": {
+          "deleteSession": "Izbriši shranjeno sejo"
+        },
+        "embedded": {
+          "title": "Sign in inside the app",
+          "start": "Sign in with the built-in window",
+          "cancel": "Stop waiting",
+          "hint": "Opens a sign-in window inside the app. Once you are signed in, this form fills itself in — you only need to give the connection a name and save.",
+          "status": {
+            "waiting": "Waiting for you to finish signing in…",
+            "ready": "Signed in. Give this connection a name and save — the session is stored when you save.",
+            "closed": "The sign-in window was closed before signing in finished.",
+            "timeout": "Signing in took too long. Try again.",
+            "error": "Could not read the session. Use the Cookie field instead."
+          },
+          "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
+        }
+      },
+      "quark": {
+        "status": {
+          "loading": "Branje stanja avtorizacije…",
+          "missing": "Ni prijavljeni",
+          "ready": "Avtorizirano",
+          "stale": "Sedenja je potekla; prijavite se znova",
+          "stale_soon": "Sedenja bo kmalu potekla"
+        },
+        "action": {
+          "deleteSession": "Izbriši shranjeno sejenje"
+        },
+        "embedded": {
+          "title": "Prijava v aplikaciji",
+          "start": "Prijava v vgrajenem oknu",
+          "cancel": "Prenehaj čakati",
+          "hint": "V aplikaciji se odpri okno za prijavo. Ko se prijavite, se samodejno zapre, seja pa je takoj prevzeta – shraniti morate le še to povezavo.",
+          "status": {
+            "waiting": "Čakamo, da se prijavite…",
+            "ready": "Prijavljeni. Shranite to povezavo – seja bo zapisana ob shranjevanju.",
+            "closed": "Okno za prijavo je bilo zaprto, preden ste končali s prijavo.",
+            "timeout": "Čas za pričakovanje prijave je potekel. Poskusite znova.",
+            "error": "Stanja prijave ni bilo mogoče prebrati. Poskusite znova."
+          },
+          "saved": "Prijava v Quark Drive je uspela: okno se je samodejno zaprlo in seja je bila prevzeta. Shranite to povezavo za uporabo."
+        }
+      },
+      "aliyun": {
+        "status": {
+          "loading": "Branje stanja avtorizacije…",
+          "missing": "Ni prijavljeni",
+          "ready": "Avtorizirano",
+          "stale": "Sedenja je potekla; prijavite se znova",
+          "stale_soon": "Sedenja bo kmalu potekla"
+        },
+        "action": {
+          "deleteSession": "Izbriši shranjeno sejenje"
+        },
+        "embedded": {
+          "title": "Prijava s QR-kodo",
+          "start": "Prikaži QR-kodo",
+          "cancel": "Prenehaj čakati",
+          "hint": "Tukaj se pojavi QR-koda za prijavo. Skenirajte jo z aplikacijo Aliyun Drive v telefonu – seja je samodejno prevzeta, shraniti morate le še to povezavo. Če ne morete skenirati, spodaj prilepite dostopni žeton.",
+          "status": {
+            "waiting": "Čakamo, da skenirate kodo…",
+            "ready": "Prijavljeni. Shranite to povezavo – seja bo zapisana ob shranjevanju.",
+            "closed": "Prijava je bila preklicana, preden ste končali.",
+            "timeout": "QR-koda je potekla. Poskusite znova.",
+            "error": "Stanja prijave ni bilo mogoče prebrati. Poskusite znova.",
+            "scanned": "Prebrano, potrdite v telefonu"
+          },
+          "saved": "Prijava v Aliyun Drive je uspela. Shranite to povezavo za uporabo.",
+          "refresh": "Osveži QR-kodo",
+          "windowStart": "Odpri okno za prijavo",
+          "windowCancel": "Zapri okno",
+          "windowHint": "Uradna stran Aliyun Drive v oknu prikaže QR kodo in potrditev; poverilice grejo neposredno v aplikacijo.",
+          "qrFallback": "Rezerva: ročna prijava z QR kodo"
+        },
+        "field": {
+          "pasteToken": "Dostopni žeton",
+          "pasteTokenHint": "Prilepite žeton, ki ga že imate. Pred shranjevanjem je preverjen pri Aliyun Drive, žeton pa nikoli ne zapusti tega računalnika v jasni obliki."
+        }
+      },
+      "netdisk": {
+        "provider": "Oblačni disk",
+        "baidu": "Baidu Drive",
+        "quark": "Quark Drive",
+        "aliyun": "Aliyun Drive",
+        "signedIn": "Prijavljen",
+        "onedrive": "OneDrive"
+      },
+      "onedrive": {
+        "field": {
+          "clientId": "Application (client) ID",
+          "clientIdHint": "The client id of the Microsoft Entra application you registered for OneDrive. It is stored with the session on this machine and is never sent through this form.",
+          "authUrl": "Authorization URL",
+          "authUrlHint": "If the browser did not open by itself, copy this URL and finish signing in there."
+        },
+        "action": {
+          "start": "Start sign-in",
+          "cancel": "Stop waiting",
+          "deleteSession": "Delete the saved session"
+        },
+        "state": {
+          "pending": "Waiting for you to finish signing in in the browser…",
+          "completed": "Signed in. Save this connection — the session will be written when you save.",
+          "failed": "The sign-in did not complete. Please try again."
+        },
+        "auth": {
+          "authorized": "Authorized",
+          "missing": "Not signed in",
+          "loading": "Reading authorization status…"
+        },
+        "hint": {
+          "clientIdRequired": "Fill in the application (client) ID first."
+        }
+      }
+    },
+    "about": {
+      "title": "O programu",
+      "changelog": "Dnevnik sprememb",
+      "projectLinks": "Povezave projekta",
+      "commits": "Commits",
+      "author": "Avtor",
+      "developer": "段燚",
+      "website": "Spletno mesto",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "Skenirajte za sledenje"
     }
   },
   "projectGithubButtons": {
     "projectPage": "Stran projekta",
-    "requestsIssues": "Zahteve & napake",
-    "discussions": "Razprave"
+    "requestsIssues": "Zahteve & napake"
   },
   "settingsTabs": {
     "general": "Splošno",
@@ -499,7 +955,9 @@
     "dataStorage": "Podatki & shranjevanje",
     "stats": "Statistika",
     "experimental": "Eksperimentalno",
-    "extensions": "Razširitve"
+    "extensions": "Razširitve",
+    "remote": "Remote",
+    "about": "O programu"
   },
   "settingsTags": {
     "language": "language",
@@ -512,8 +970,8 @@
     "visualFilters": "visual, filters, color, contrast, brightness, saturation, image, video, theme, dialog, backdrop, blur",
     "fonts": "fonts, text",
     "dateTime": "date, time, format",
-    "uiElements": "ui, elements, visual, input, accent, color, timeline, dashboard, page, recent, cards, home, drive, space, indicator, style",
-    "quickAccess": "quick, access, panel, hover, sidebar, dashboard",
+    "uiElements": "ui, elements, visual, input, accent, color, timeline, hitri dostop, page, recent, cards, home, drive, space, indicator, style",
+    "quickAccess": "quick, access, panel, hover, sidebar",
     "tooltips": "tooltip, tooltips, hover, delay, timing",
     "clipboard": "odložišče, prilepi, kopiraj, izreži, orodna vrstica, slika, posnetek zaslona, pot, datoteke",
     "homePageMediaBanner": "home, page, media, banner, background, image, video",
@@ -521,7 +979,7 @@
     "shortcuts": "shortcuts",
     "tabAppearance": "zavihki, aktiven zavihek, krepko, besedilo",
     "globalSearch": "global, search, find, look, filter, scan",
-    "stats": "stats, data, user, favorites, tags, history, recent, dashboard, storage",
+    "stats": "stats, data, user, favorites, tags, history, recent, hitri dostop, storage",
     "driveDetection": "drive, usb, storage, disk, device, detection, connection",
     "autoplay": "autoplay, explorer, windows, drive, usb, automatic, open, folder",
     "experimental": "napredno, eksperimentalno, privzeti upravljalnik datotek, raziskovalec datotek, register, terminal, lupina",
@@ -530,10 +988,13 @@
     "extensions": "extensions, plugins, addons, configuration, settings",
     "infoPanelPreview": "info, panel, preview, image, thumbnail, memory, original, video, mute, autoplay",
     "performance": "performance, memory, quick view, print, window, launch, preload",
-    "fileView": "pogled datotek, kvadrat, izbira, povleci, seznam, mreža, razmiki, odmik",
+    "fileView": "pogled datotek, kvadrat, izbira, povleci, seznam, mreža, razmiki, odmik, folder, folders, first, top, sort, sorting, order, ordering, list, files, file, directory, directories, group, grouping, view, precedence",
     "tabsWorkspaces": "zavihki, delovni prostori, zapri, zadnji zavihek, privzet zavihek",
     "defaultDirectory": "domov, locations, ta računalnik, pogoni, privzeta mapa, nov zavihek, pot po meri",
-    "startupPage": "stran ob zagonu, zagon, odpri ob zagonu, domača stran, nadzorna plošča, navigator, zadnja stran, obnovi, stran"
+    "startupPage": "stran ob zagonu, zagon, odpri ob zagonu, domača stran, hitri dostop, navigator, zadnja stran, obnovi, stran",
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "o programu, različica, posodobitev, dnevnik sprememb, github, avtor, spletno mesto, wechat, qr koda",
+    "settingsTransfer": "export, import, settings, favorites, remote connections, cloud drive, backup, restore"
   },
   "drag": {
     "holdShiftToChangeMode": "Zadržite [Shift] za spremembo načina",
@@ -566,13 +1027,15 @@
     "localShortcutsAppScope": "Lokalne bližnjice (obseg aplikacije)",
     "unknownMainKey": "Neznana tipka",
     "globalShortcutRegisterFailed": "Tega globalnega bližnjice ni bilo mogoče registrirati. Morda ga že uporabljata Windows ali druga aplikacija. Poskusite drugo kombinacijo (npr. Win+Shift+… ali Ctrl+Alt+…).",
-    "shortcutRecorderGlobalCaptureHint": "Če se ob pritisku tipk nič ne prikaže, jih morda vaš sistem ali drug program prestreže, preden jih to okno prejme. Poskusite drugo kombinacijo."
+    "shortcutRecorderGlobalCaptureHint": "Če se ob pritisku tipk nič ne prikaže, jih morda vaš sistem ali drug program prestreže, preden jih to okno prejme. Poskusite drugo kombinacijo.",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "Prikaži okno aplikacije",
     "switchToHomePage": "Preklopi na domačo stran",
     "switchToNavigatorPage": "Preklopi na stran Navigator",
-    "switchToDashboardPage": "Preklopi na nadzorno ploščo",
+    "switchToDashboardPage": "Preklopi na hitri dostop",
     "switchToSettingsPage": "Preklopi na stran z nastavitvami",
     "switchToExtensionsPage": "Preklopi na stran z razširitvami",
     "navigatePageBack": "Pojdi na prejšnjo stran",
@@ -670,6 +1133,22 @@
       "description": "Ta operacija bo trajno izbrisala {count} predmetov z vašega računalnika.",
       "confirm": "Potrdite, če razumete, da tega ni mogoče razveljaviti.",
       "delete": "Izbriši"
+    },
+    "remoteHostKeyUnknown": {
+      "title": "This server’s identity has not been verified yet",
+      "description": "Alpha File Manager has connected to this host for the first time. Compare the fingerprint below with the one your server administrator gave you, then decide whether to trust it.",
+      "trust": "Trust and continue"
+    },
+    "remoteHostKeyChanged": {
+      "title": "This server’s identity has changed",
+      "description": "The host key presented by this server does not match the one you trusted before. This can mean the server was reinstalled, or that someone is intercepting the connection.",
+      "expected": "Previously trusted fingerprint:",
+      "trustAnyway": "Replace and continue"
+    },
+    "remoteHostKeyCommon": {
+      "algorithm": "Host key algorithm: {algorithm}",
+      "hint": "You can check it yourself with: ssh-keygen -lf <host key file>",
+      "hintX509": "You can check it yourself with: openssl x509 -fingerprint -sha256 -noout -in <certificate file>"
     }
   },
   "notifications": {
@@ -703,7 +1182,9 @@
     "printViewFileIsNotSupported": "Tiskanje: datoteka ni podprta",
     "createdNLinks": "Ustvarjenih 0 povezav | Ustvarjena 1 povezava | Ustvarjene {n} povezave | Ustvarjenih {n} povezav",
     "createdNOfNLinks": "Ustvarjenih {created} od {total} povezav",
-    "linkCreationPartialFailureDescription": "{count} povezav ni uspelo. Prva napaka: {error}"
+    "linkCreationPartialFailureDescription": "{count} povezav ni uspelo. Prva napaka: {error}",
+    "deletingLargeBatch": "Deleting {count} items",
+    "deletingLargeBatchDetail": "{files} files · {directories} folders · {size}"
   },
   "contextMenus": {
     "dirItem": {
@@ -886,6 +1367,7 @@
     },
     "name": "Ime",
     "size": "Velikost",
+    "availableSpace": "Prosto prostor",
     "modified": "Spremenjeno",
     "listModifiedDate": {
       "todayAt": "Danes ob {time}",
@@ -894,6 +1376,7 @@
     "columns": "Stolpci",
     "tags": "Oznake",
     "folders": "Mape",
+    "partitions": "Particije",
     "images": "Slike",
     "videos": "Videi",
     "video": "Video",
@@ -940,12 +1423,16 @@
     "actions": {
       "rename": "Preimenuj",
       "copy": "Kopiraj",
+      "cut": "Izreži",
       "move": "Premakni",
       "paste": "Prilepi",
       "pasteToPane1": "Prilepi v podokno 1",
       "pasteToPane2": "Prilepi v podokno 2",
       "delete": "Izbriši",
       "openWith": "Odpri z...",
+      "openContainingDirectory": "Open containing directory",
+      "openContainingDirectoryFailed": "Mapečne mape ni bilo mogoče odpreti",
+      "openContainingDirectoryInApp": "Show containing folder in split view",
       "properties": "Lastnosti",
       "propertiesFailed": "Lastnosti ni bilo mogoče odpreti",
       "quickView": "Hitri pregled",
@@ -954,7 +1441,17 @@
       "openInNewTab": "Odpri v novem zavihku",
       "addToFavorites": "Dodaj med priljubljene",
       "removeFromFavorites": "Odstrani iz priljubljenih",
-      "createLink": "Ustvari povezavo"
+      "createLink": "Ustvari povezavo",
+      "unlock": "Unlock file",
+      "forceDelete": "Force delete",
+      "rotateImageLeft": "Zasukaj levo",
+      "rotateImageRight": "Zasukaj desno",
+      "flipImageHorizontal": "Zrni vodoravno",
+      "flipImageVertical": "Zrni navpično",
+      "imageEditSucceeded": "Slika je bila uspešno urejena",
+      "imageEditFailed": "Urejanje slike ni uspelo",
+      "imageEditInProgress": "Obdelava…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "Simbolična povezava",
@@ -1025,7 +1522,30 @@
     "linkMetadataPerformanceWarning": "Lahko poveča porabo pomnilnika in zmanjša zmogljivost.",
     "fillColumnWidth": "Fill available width",
     "setMinimumColumnWidths": "Nastavi minimalne širine",
-    "items": "Predmeti"
+    "items": "Predmeti",
+    "favoriteCategoryDialog": {
+      "title": "Add to favorites",
+      "categoryLabel": "Choose a category",
+      "uncategorized": "Uncategorized",
+      "newCategoryLabel": "Or create a new category",
+      "newCategoryPlaceholder": "Type a name for the new category",
+      "confirm": "Add to favorites",
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "Prikazno ime",
+      "displayNamePlaceholder": "Pustite prazno za uporabo prvotnega imena"
+    },
+    "searchOptions": {
+      "title": "Možnosti iskanja",
+      "matchCount": "{n} zadetkov",
+      "results": "Zadetki",
+      "options": "Možnosti"
+    },
+    "swapPanes": "Swap panes",
+    "devices": "Naprave",
+    "device": "Naprava",
+    "deviceOpenFailed": "Te naprave ni bilo mogoče odpreti",
+    "deviceOpenFailedDescription": "Naprava je bila morda odklopljena. Odprite jo v sistemskem Raziskovalcu.",
+    "openInSystemExplorer": "Odpri v sistemskem Raziskovalcu"
   },
   "openWith": {
     "loadingPrograms": "Nalagam programe...",
@@ -1186,7 +1706,7 @@
     },
     "badges": {
       "official": "Uradna",
-      "officialTooltip": "To razširitev je ustvarila in vzdržuje ekipa Sigma File Manager",
+      "officialTooltip": "To razširitev je ustvarila in vzdržuje ekipa Alpha File Manager",
       "community": "Skupnost",
       "communityTooltip": "To je razširitev skupnosti. Pred namestitvijo pregledajte izvorno kodo.",
       "local": "Lokalna",
@@ -1194,7 +1714,9 @@
       "broken": "Poškodovana",
       "brokenTooltip": "Datoteke razširitve manjkajo. Odstranite namestitev, da jo odstranite s seznama.",
       "disabled": "Onemogočeno",
-      "disabledTooltip": "Ta razširitev je onemogočena"
+      "disabledTooltip": "Ta razširitev je onemogočena",
+      "source": "Vir",
+      "sourceTooltip": "Vir trgovine: {name}"
     },
     "stats": {
       "total": "Total",
@@ -1221,17 +1743,30 @@
       "stop": "Ustavi"
     },
     "engineIncompatibleShort": "Potrebna posodobitev",
-    "engineAppWarning": "Zahteva Sigma File Manager {range} (imate {current})",
+    "engineAppWarning": "Zahteva Alpha File Manager {range} (imate {current})",
     "engineApiWarning": "Zahteva API razširitev {range} (imate {current})",
     "engineRequirements": "Zahteve",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "API razširitev",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",
     "githubConnectivityIssue": "GitHub ni dosegljiv",
     "githubConnectivityIssueDescription": "Nekatera preverjanja različic razširitev niso uspela, ker se aplikacija ni mogla povezati z GitHubom. Preverite internetno povezavo, VPN ali požarni zid in poskusite znova pozneje.",
     "offlineIssue": "You are offline",
-    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features."
+    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features.",
+    "marketSources": "Viri trgovine",
+    "marketSourceAdd": "Dodaj vir trgovine",
+    "marketSourceName": "Ime",
+    "marketSourceUrl": "URL registra",
+    "marketSourceOfficial": "Uradna",
+    "marketSourceCommunity": "Skupnost",
+    "marketSourceCustom": "Lastna",
+    "marketSourceAll": "Vse",
+    "marketSourceEmpty": "Nobenih virov trgovine še ni bilo dodanih.",
+    "marketSourceRemove": "Odstrani vir trgovine",
+    "marketSourceRemoveConfirm": "Odstraniti ta vir trgovine? Razširitve, ki jih ponuja, bodo odstranjene ob naslednji osvežitvi trgovine.",
+    "marketSourceInvalidUrl": "Vnesite javni URL s protokolom HTTPS.",
+    "marketSourceUnreachable": "Nedosegljivo"
   },
   "commandPalette": {
     "accessibleDialogTitle": "Ukazna paleta",
@@ -1266,5 +1801,291 @@
     "replaceShareDialogDescription": "Datoteke se že delijo po omrežju. Trenutno deljenje bo ustavljeno in zamenjano z novim.",
     "replaceShareDialogConfirm": "Zamenjaj"
   },
-  "tree": "Tree"
+  "tree": "Tree",
+  "batchRename": {
+    "menuItem": "Batch rename",
+    "dialog": {
+      "title": "Batch rename",
+      "tabRename": "Rename",
+      "tabHistory": "Undo history",
+      "cancel": "Cancel",
+      "apply": "Rename",
+      "close": "Close",
+      "loading": "Calculating…",
+      "noRules": "No rules added — nothing will be renamed.",
+      "summaryChanged": "{count} item(s) will be renamed",
+      "summaryUnchanged": "{count} item(s) unchanged",
+      "blocked": "Conflicts found. Fix them before applying.",
+      "openHistory": "Undo history"
+    },
+    "rules": {
+      "title": "Rules",
+      "empty": "No rules yet.",
+      "add": "Add rule",
+      "remove": "Remove rule",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "sortLabel": "Numbering order",
+      "type": {
+        "findReplace": "Find and replace",
+        "caseTransform": "Change case",
+        "template": "Template",
+        "sequence": "Numbering",
+        "extension": "Extension"
+      },
+      "findReplace": {
+        "find": "Find",
+        "replace": "Replace with",
+        "caseSensitive": "Match case",
+        "includeExtension": "Include extension"
+      },
+      "caseTransform": {
+        "mode": "Mode",
+        "includeExtension": "Include extension"
+      },
+      "case": {
+        "upper": "UPPERCASE",
+        "lower": "lowercase",
+        "title": "Title Case",
+        "camel": "camelCase",
+        "snake": "snake_case",
+        "kebab": "kebab-case"
+      },
+      "template": {
+        "pattern": "Pattern",
+        "variables": "Available variables",
+        "dateFormat": "Date format"
+      },
+      "sequence": {
+        "start": "Start",
+        "step": "Step",
+        "pad": "Zero padding",
+        "hint": "Numbering does not rename anything on its own. It only supplies the sequence variable used by a Template rule — add a Template rule to use it.",
+        "addTemplate": "Add a Template rule"
+      },
+      "extension": {
+        "newExtension": "New extension",
+        "newExtensionHint": "Leave empty to remove the extension"
+      }
+    },
+    "sort": {
+      "selection": "Selection order",
+      "nameAsc": "Name A to Z",
+      "nameDesc": "Name Z to A",
+      "modifiedAsc": "Modified, oldest first",
+      "modifiedDesc": "Modified, newest first",
+      "sizeAsc": "Size, smallest first",
+      "sizeDesc": "Size, largest first"
+    },
+    "preview": {
+      "title": "Preview",
+      "oldName": "Current name",
+      "newName": "New name",
+      "empty": "Nothing to preview.",
+      "unchanged": "unchanged"
+    },
+    "conflicts": {
+      "title": "Conflicts",
+      "targetExists": "The new name is already taken by another file in this folder.",
+      "duplicateTarget": "Several items would get the same name.",
+      "invalidTitle": "Invalid file names",
+      "invalid": {
+        "empty": "Name is empty.",
+        "illegalCharacter": "Contains a character that is not allowed in file names.",
+        "windowsReservedName": "Reserved name on Windows.",
+        "trailingDotOrSpace": "Cannot end with a dot or a space."
+      }
+    },
+    "result": {
+      "success": "Renamed {count} item(s)",
+      "partial": "Rename failed",
+      "rollbackOk": "Rolled back — the folder is back to its previous state.",
+      "rollbackFailed": "Rollback failed. The folder may be in a mixed state — check it manually.",
+      "noUndo": "This change could not be recorded for undo."
+    },
+    "history": {
+      "title": "Undo history",
+      "empty": "No history yet.",
+      "undo": "Undo",
+      "undoing": "Undoing…",
+      "itemCount": "{count} file(s)",
+      "undoSuccess": "Reverted {count} item(s)",
+      "undoFailed": "Undo failed",
+      "blockedBy": "These names are taken, so they could not be restored: {names}",
+      "notFound": "That history entry no longer exists."
+    }
+  },
+  "remote": {
+    "transfer": {
+      "uploadToRemote": "Upload to remote",
+      "downloadToLocal": "Download to local",
+      "uploadSucceeded": "Uploaded {files} file(s) to the remote folder.",
+      "uploadFailed": "Upload did not fully succeed: {files} uploaded, {skipped} skipped, {failed} failed.",
+      "downloadSucceeded": "Downloaded {files} file(s) to the local folder.",
+      "downloadFailed": "Download did not fully succeed: {files} downloaded, {skipped} skipped, {failed} failed.",
+      "uploading": "Uploading to remote",
+      "downloading": "Downloading from remote",
+      "progressFiles": "{done} / {total} files transferred",
+      "progressBytes": "{done} / {total} transferred",
+      "progressCurrent": "Current: {name}",
+      "resultTitle": "Transfer result",
+      "resultSummary": "{files} file(s) succeeded, {skipped} skipped, {failed} failed",
+      "failureSection": "Failed items",
+      "skippedSection": "Skipped items",
+      "skipReasonAlreadyExists": "Target already exists (not overwritten)",
+      "conflictTitle": "Target already exists",
+      "conflictMessage": "{count} file(s) already exist in the target folder. Overwrite them?",
+      "conflictOverwrite": "Overwrite",
+      "conflictSkipExisting": "Skip existing",
+      "noRemotePane": "The other pane is not on a remote host",
+      "uploadFailedTitle": "Upload did not fully succeed",
+      "downloadFailedTitle": "Download did not fully succeed",
+      "pasteToRemoteFailed": "Copy failed",
+      "remoteToRemoteNotSupported": "Copying between two remote locations is not supported yet. Click a local folder pane first and press Ctrl+V to download, or right-click the file and choose Download to local.",
+      "pasteFromRemoteFailed": "Copy from remote failed",
+      "conflictApplyToAll": "Apply the same choice to all files",
+      "conflictContinue": "Continue",
+      "skipReasonUserSkipped": "Skipped by you"
+    },
+    "permissions": {
+      "menuItem": "Permissions...",
+      "title": "Set permissions",
+      "modeLabel": "Permissions (octal)",
+      "modeHint": "For example 0754 means the owner may read, write and execute; the group may read and execute; others may read.",
+      "unknownMode": "The current permissions could not be read. Pick one from the list.",
+      "owner": "Owner",
+      "group": "Group",
+      "others": "Others",
+      "read": "read",
+      "write": "write",
+      "execute": "execute",
+      "none": "none",
+      "separator": ", ",
+      "recursive": "Apply to subdirectories and the files in them",
+      "apply": "Apply",
+      "success": "Permissions updated ({changed} item(s)).",
+      "partialFailure": "Permissions updated for {changed} item(s); {failed} failed.",
+      "failed": "Could not set permissions: {message}",
+      "error": {
+        "empty": "Enter the permissions in octal, for example 0754.",
+        "tooLong": "At most 4 octal digits are allowed.",
+        "notOctal": "Only the digits 0-7 are allowed.",
+        "unknown": "This permission value could not be recognized."
+      }
+    },
+    "delete": {
+      "menuItem": "Izbriši",
+      "title": "Brisanje oddaljenih elementov",
+      "descriptionSingle": "{path} bo trajno izbrisan. Tega ni mogoče razveljaviti.",
+      "description": "Ta dejanje bo trajno izbrisalo {count} elementov z oddaljenega strežnika. Tega ni mogoče razveljaviti.",
+      "noTrashHint": "Oddaljeni strežnik nima koša, zato izbrisanih elementov ni mogoče obnoviti.",
+      "connectionHint": "Povezava: {name}",
+      "confirm": "Izbriši",
+      "success": "Izbrisani oddaljeni elementi: {count}.",
+      "failed": "Brisanje ni uspelo",
+      "permissionDenied": "Dovoljenje zavrnjeno"
+    },
+    "write": {
+      "fileCreationNotSupported": "Oddaljene mape ne podobajo ustvarjanja praznih datotek.",
+      "fileCreationNotSupportedTitle": "Datoteke ni mogoče ustvariti"
+    }
+  },
+  "compareSync": {
+    "title": "Compare & Sync",
+    "description": "Compare the two directories and sync the differences. This step never deletes anything.",
+    "stepSettings": "Setup",
+    "stepResults": "Results",
+    "stepPreview": "Preview & Run",
+    "leftDirectory": "Left directory",
+    "rightDirectory": "Right directory",
+    "leftDirectoryHint": "Source side",
+    "rightDirectoryHint": "Target side",
+    "tabCriteria": "Criteria",
+    "tabExclude": "Exclude",
+    "criteriaByTime": "By modification time",
+    "criteriaBySize": "By file size",
+    "criteriaByChecksum": "By content checksum",
+    "criteriaByChecksumHint": "Only available between two local folders; remote servers have no checksum to compare.",
+    "criteriaCaseSensitive": "Case sensitive",
+    "criteriaRecursive": "Compare subfolders recursively",
+    "criteriaMaxDepth": "Maximum depth",
+    "criteriaMaxDepthUnlimited": "Unlimited",
+    "criteriaRemoteTimeOffset": "Remote time offset (seconds)",
+    "criteriaRemoteTimeOffsetHint": "Servers usually report time in their own time zone; this offset converts it to yours.",
+    "excludePatterns": "Exclude rules",
+    "excludePatternsHint": "One per line, * and ? are supported. A matching folder drops its whole subtree from the comparison.",
+    "compare": "Compare",
+    "comparing": "Comparing…",
+    "back": "Back",
+    "preview": "Build preview",
+    "execute": "Start sync",
+    "executing": "Syncing…",
+    "cancel": "Cancel",
+    "filterAll": "All",
+    "filterDifferences": "Differences only",
+    "statusSame": "Same",
+    "statusOnlyLeft": "Left only",
+    "statusOnlyRight": "Right only",
+    "statusNewer": "Left is newer",
+    "statusOlder": "Left is older",
+    "statusSizeDiff": "Different size",
+    "statusContentDiff": "Different content",
+    "statusKindDiff": "Different type",
+    "statusIndeterminate": "Undecidable",
+    "directionToRight": "Left → Right",
+    "directionToLeft": "Right → Left",
+    "directionNone": "Nothing to do",
+    "directionIndeterminate": "Direction undecided",
+    "noDifferences": "No differences.",
+    "statsTotal": "Total",
+    "statsSame": "Same",
+    "statsDifferences": "Different",
+    "statsNeedsReview": "Undecided",
+    "actionCreateDir": "Create folder",
+    "actionTransferFile": "Transfer file",
+    "actionSkip": "Skip",
+    "planSummary": "Will create {dirs} folders, transfer {files} files and skip {skipped} items.",
+    "reportTransferred": "Transferred",
+    "reportCreatedDirs": "Folders created",
+    "reportSkipped": "Skipped",
+    "reportFailed": "Failed",
+    "reportCancelled": "Cancelled",
+    "invalidPath": "This path cannot be used.",
+    "progressPreparing": "Pripravljam…",
+    "progressScanningLeft": "Skeniranje leve strani…",
+    "progressScanningRight": "Skeniranje desne strani…",
+    "progressComparing": "Primerjavam…",
+    "progressDone": "Končano",
+    "progressScanned": "Skeniranih {count} vnosov",
+    "progressCompared": "Primerjanih {count} od {total} vnosov",
+    "rowsTruncated": "Prikazanih {shown} od {total}. Za omejitev uporabite filtre.",
+    "showMore": "Prikaži še {count}",
+    "statsUnreadable": "neberljivo"
+  },
+  "mapNetworkDrive": "Map network drive",
+  "mapNetworkDriveDescription": "Map a network share to a drive letter. Once it is mounted it shows up in the drive list on the left.",
+  "networkDriveLetter": "Drive letter",
+  "networkDriveLetterPlaceholder": "Auto",
+  "fileLock": {
+    "unlocked": "File unlocked",
+    "unlockedDescription": "Whatever was blocking the file has been cleared. You can delete it normally now.",
+    "unlockFailed": "Could not unlock the file",
+    "forceDeleted": "File deleted",
+    "forceDeletedDescription": "The file was removed even though it was in use.",
+    "forceDeleteFailed": "Could not delete the file",
+    "scheduledForReboot": "Deletion scheduled",
+    "scheduledForRebootDescription": "The file is still in use. It will be deleted the next time Windows starts.",
+    "terminateFailed": "Could not end the process",
+    "unknownError": "Unknown error",
+    "holdersTitle": "Programs using this file",
+    "holdersDescription": "These programs are holding the file open. Ending one of them may lose unsaved work.",
+    "noHolders": "No program was found holding this file.",
+    "endProcess": "End process",
+    "diagnoseFailed": "Could not check which programs are using this file"
+  },
+  "webviewGuard": {
+    "detected": "The interface renderer process crashed. Trying to recover automatically...",
+    "recovered": "The interface is working again.",
+    "recoveryFailed": "The interface could not be recovered automatically. Please restart the app."
+  }
 }

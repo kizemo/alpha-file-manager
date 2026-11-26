@@ -11,7 +11,11 @@ import { useWorkspacesStore } from '@/stores/storage/workspaces';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import type { Tab } from '@/types/workspaces';
 import { CopyPlusIcon, Layers, XIcon, XLineTopIcon } from '@lucide/vue';
-import { getPathDisplayName, getPathDisplayValue } from '@/utils/normalize-path';
+import { getPathDisplayName } from '@/utils/normalize-path';
+import { parseRemotePath } from '@/utils/remote-paths';
+import { buildRemoteTabLabels } from '@/modules/tab-bar/utils/remote-tab-labels';
+import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
+import { useNativePath } from '@/composables/use-native-path';
 import {
   Tooltip,
   TooltipContent,
@@ -43,9 +47,11 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>();
 
 const { t } = useI18n();
+const { toNativeDisplayValue } = useNativePath();
 const workspacesStore = useWorkspacesStore();
 const shortcutsStore = useShortcutsStore();
 const userSettingsStore = useUserSettingsStore();
+const remoteConnectionsStore = useRemoteConnectionsStore();
 const dragSession = useFileBrowserDragSession();
 const activeFileBrowserDragState = dragSession.dragState;
 
@@ -123,9 +129,62 @@ const { start: startDragHoverOpenTimer, stop: stopDragHoverOpenTimer } = useTime
   workspacesStore.openTabGroup(props.tabGroup);
 }, TAB_DRAG_HOVER_OPEN_DELAY, { immediate: false });
 
+/**
+ * 远程标签页的标题与副标题（2026-11-08）。
+ *
+ * 远程路径长这样：`sfm://remote/<连接id>/<远端路径>`。而 `getPathDisplayName`
+ * 对普通路径取的是叶子名 —— 对远程路径来说叶子就是那串连接 id，
+ * 于是标签页上摆的是「0736c40a51db4fd19f711c0b6934f103」，
+ * 用户完全看不出那是自己的百度网盘（用户 2026-11-08）。
+ *
+ * 这里换成**连接名**：连接根显示连接名，连接下面的子目录显示「连接名 / 目录名」。
+ *
+ * 算标签的纯逻辑放在 `utils/remote-tab-labels.ts` 里 —— 标签页这一圈依赖
+ * （工作区 store、快捷键 store、拖拽会话）在测试环境里拖不进完整应用上下文，
+ * 而这一行字恰恰是用户盯着看的。
+ */
+function getRemoteTabLabels(path: string) {
+  const parsed = parseRemotePath(path);
+
+  if (!parsed) {
+    return null;
+  }
+
+  const connectionName = remoteConnectionsStore.getConnection(parsed.connectionId)?.name;
+
+  return buildRemoteTabLabels(parsed, connectionName);
+}
+
+/**
+ * 标签页的副标题（悬停提示里的第二行）。
+ *
+ * 远程路径原本摆的是 `sfm://remote/<连接id>` —— 一串用户看不懂也不需要看的
+ * 技术串。这里换成远端自己的路径（`/`、`/prompts`），
+ * 连接名已经在标题那一行了，不必再重复一遍。
+ */
+function getTabSubtitle(tab: Tab | undefined): string {
+  if (!tab?.path) {
+    return '';
+  }
+
+  const labels = getRemoteTabLabels(tab.path);
+
+  if (labels) {
+    return labels.subtitle;
+  }
+
+  return toNativeDisplayValue(tab.path);
+}
+
 function getTabDisplayName(tab: Tab | undefined): string {
   if (!tab) {
     return '';
+  }
+
+  const labels = tab.path ? getRemoteTabLabels(tab.path) : null;
+
+  if (labels?.title) {
+    return labels.title;
   }
 
   return getPathDisplayName(tab.path, t) || getPathDisplayName(tab.name, t) || tab.name || tab.path;
@@ -245,7 +304,7 @@ onBeforeUnmount(() => {
             class="tab"
             :class="{ 'tab--active-title-bold': userSettingsStore.userSettings.navigator.boldActiveTabTitle }"
             :style="{
-              '--tab-width': `${props.tabGroup.length === 2 ? NAVIGATOR_TAB_WIDTH * 2 : NAVIGATOR_TAB_WIDTH}px`
+              '--tab-min-width': `calc(var(--tab-group-base-width, ${NAVIGATOR_TAB_WIDTH}px) * ${props.tabGroup.length === 2 ? 2 : 1})`
             }"
             :is-active="isActive"
             :data-drag-over="isDragOver || undefined"
@@ -329,7 +388,7 @@ onBeforeUnmount(() => {
               {{ getTabDisplayName(tab) }}
             </div>
             <div class="tab__tooltip-subtitle">
-              {{ getPathDisplayValue(tab.path) }}
+              {{ getTabSubtitle(tab) }}
             </div>
           </div>
         </span>
@@ -343,16 +402,23 @@ onBeforeUnmount(() => {
   position: relative;
   display: flex;
   overflow: hidden;
-  width: var(--tab-width, 100px);
-  min-width: 0;
-  height: var(--tab-height);
+  width: auto;
+  min-width: var(--tab-min-width, 100px);
+  max-width: var(--tab-max-width, 280px);
+
+  /* FORK-MODIFICATION 2026-10-31（r14 需求 3）：标签行高随字号档位变化。
+     单行文本元素按「base + 1.5 x offset」增长 —— 行高是字号的 1.5 倍，
+     所以每 1px 字号偏移带来 1.5px 行高增长。
+     offset 由根元素内联变量 --font-size-offset 提供（0 / 2 / 4），
+     缺省 0 = 与现状完全一致。 */
+  height: calc(var(--tab-height) + var(--font-size-offset, 0px) * 1.5);
   align-items: center;
   padding: 0 10px;
-  padding-right: 4px;
+  padding-right: 28px;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   -webkit-app-region: no-drag;
-  background-color: transparent;
+  background-color: hsl(var(--state-hover));
   color: hsl(var(--muted-foreground));
   cursor: pointer;
   opacity: 0.9;
@@ -360,7 +426,11 @@ onBeforeUnmount(() => {
 }
 
 .tab[is-active="true"] {
-  background-color: hsl(var(--background-2));
+  /* FORK-MODIFICATION 2026-10-31（r14 需求 6）：激活标签加可见边线。
+     颜色走 --tab-active-border（四套 AFM 主题各给一档）；经典主题没有这个
+     token，回退到 --border，保证任何主题下都有边线而不是 transparent。 */
+  border-color: hsl(var(--tab-active-border, var(--border)));
+  background-color: hsl(var(--tab-surface-active));
   color: hsl(var(--foreground) / 80%);
   opacity: 1;
 }
@@ -382,12 +452,13 @@ onBeforeUnmount(() => {
 }
 
 .tab[is-active="true"]::after {
-  background-color: hsl(var(--primary) / 40%);
-  box-shadow: 0 0 8px hsl(var(--primary) / 90%);
+  background-color: hsl(var(--tab-indicator));
+  box-shadow: 0 0 8px hsl(var(--tab-indicator));
 }
 
-.tab:hover {
-  background-color: hsl(var(--background-2) / 70%)
+/* 已激活的标签不参与 hover 变底，否则激活态的专属底色会被冲掉。 */
+.tab:not([is-active="true"]):hover {
+  background-color: hsl(var(--state-active));
 }
 
 .tab[data-drag-over] {
@@ -398,9 +469,10 @@ onBeforeUnmount(() => {
 
 .tab__title {
   overflow: hidden;
-  width: calc(100% - 24px);
-  font-size: 12px;
-  text-overflow: clip;
+  min-width: 0;
+  flex: 1 1 auto;
+  font-size: calc(12px + var(--font-size-offset, 0px));
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -429,7 +501,7 @@ onBeforeUnmount(() => {
 .tab__tooltip-title {
   overflow: hidden;
   color: hsl(var(--foreground));
-  font-size: 16px;
+  font-size: calc(16px + var(--font-size-offset, 0px));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -437,7 +509,7 @@ onBeforeUnmount(() => {
 .tab__tooltip-subtitle {
   overflow: hidden;
   color: hsl(var(--foreground) / 50%);
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   text-overflow: ellipsis;
   white-space: nowrap;
 }

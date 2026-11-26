@@ -11,7 +11,7 @@ use super::fs_ops::{
     replace_extension_dir,
 };
 use super::http::{
-    build_codeload_fallback_url, build_http_client, download_to_file_across_urls_with_retry,
+    build_codeload_fallback_url, build_remote_http_client, download_to_file_across_urls_with_retry,
     UrlCandidates,
 };
 use super::paths::{get_extension_dir, get_extensions_base_dir};
@@ -133,8 +133,9 @@ pub async fn download_extension(
         .map_err(|error| format!("Failed to create staging directory: {}", error))?;
 
     let result = async {
-        let client = build_http_client()?;
+        let client = build_remote_http_client()?;
         let candidates = UrlCandidates::new(validated_url.clone())
+            .with_china_mirrors()
             .with_fallback(build_codeload_fallback_url(&validated_url));
 
         let cancel_flag = get_extension_install_cancellation_flag(cancellation_id.as_ref());

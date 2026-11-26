@@ -1,0 +1,386 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// License: GNU GPLv3 or later. See the license file in the project root for more information.
+// Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
+
+use crate::remote::error::RemoteError;
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+
+/// 远程目录条目。
+///
+/// 时间单位与 `dir_reader::types::DirEntry.modified_time` 一致：
+/// **Unix 纪元毫秒**（后端 `metadata_times_unix_ms`）。这里写死是因为
+/// `RemoteEntry` 最终要被适配成本地 `DirEntry`，单位不一致会让「按修改时间排序」
+/// 在远程目录下变成一片随机顺序，而且不会报错。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RemoteEntry {
+    pub name: String,
+    /// 完整 `sfm://remote/<连接id>/<远端路径>` 形式，可直接喂给前端导航。
+    pub path: String,
+    pub is_dir: bool,
+    pub size: u64,
+    pub modified_time: u64,
+    pub is_hidden: bool,
+    pub is_symlink: bool,
+    /// 服务端给的稳定条目 ID（远程网盘用），本地条目恒为 `None`。
+    ///
+    /// 远程条目的 `path` 只由「父目录路径 + 条目名」组成，而同一个目录里**允许同名条目**
+    /// （阿里云盘真机实测：照片备份目录下约 90 组同名 jpg）⇒ 两个不同条目的 `path` 相同。
+    /// 选中判定必须改用这个 ID，否则点一个会同时高亮两个。
+    pub entry_id: Option<String>,
+    /// 服务端给的缩略图直链（远程网盘用），本地条目恒为 `None`。
+    ///
+    /// 这是**签名 URL**：能直接给 `<img src>`，但不得写进日志或用户可见文案。
+    pub thumbnail_url: Option<String>,
+}
+
+/// 分块写的大小。256 KiB —— 足够小，进度条动得起来；
+/// 又足够大，不会把一次传输切成几千次系统调用。
+pub const REMOTE_WRITE_CHUNK_BYTES: usize = 256 * 1024;
+
+/// 所有远程协议（FTP / FTPS / SFTP）的统一入口。
+///
+/// 刻意是 **async**：FTP 与 SFTP 库（`suppaftp` / `russh-sftp`）都是异步的。
+/// 现在写成同步的，阶段 2 就要把这个 trait 连同所有调用点一起推翻重来。
+///
+/// 刻意用 `#[async_trait]` 而非原生 AFIT：阶段 1 的连接注册表要存
+/// `HashMap<String, Box<dyn RemoteProvider>>`，而原生 AFIT 不是 dyn 兼容的。
+/// 有一条测试专门锁住这个决策（见下方 `providers_are_usable_through_a_trait_object`）。
+#[async_trait]
+pub trait RemoteProvider: Send + Sync {
+    /// 列出 `remote_path` 下的直接子项。
+    ///
+    /// 实现方**必须**把传入的 `remote_path` 过一遍 `normalize_remote_path` ——
+    /// 调用方可能是用户手输的 `pub//docs`。返回的每个 `RemoteEntry.path`
+    /// 必须是完整的 `sfm://remote/...` 路径。
+    async fn read_dir(
+        &self,
+        connection_id: &str,
+        remote_path: &str,
+    ) -> Result<Vec<RemoteEntry>, RemoteError>;
+
+    /// 读取远程文件全部内容。
+    ///
+    /// **没有流式版本**：这是阶段 3 的已知限制，一个大文件会整份进内存。
+    /// trait 上刻意不提供 `read_to`/`write_from` 之类的流接口 —— 那样每个协议
+    /// 都要实现两套（FTP 的数据连接是「按顺序的字节流」，SFTP 是「按偏移量的
+    /// 读写句柄」，形状对不上），而收益要等真的有用户抱怨大文件时才兑现。
+    async fn read_file(
+        &self,
+        connection_id: &str,
+        remote_path: &str,
+    ) -> Result<Vec<u8>, RemoteError>;
+
+    /// 写入远程文件（**覆盖**语义）。
+    ///
+    /// 「不静默覆盖已存在的同名文件」**不是**这一层的责任：`transfer` 模块
+    /// 在调用之前就会先 `read_dir` 目标目录并把同名项放进 `skipped`。
+    /// 这一层要保证的只是「用户显式要求覆盖时能覆盖」。
+    async fn write_file(
+        &self,
+        connection_id: &str,
+        remote_path: &str,
+        content: Vec<u8>,
+    ) -> Result<(), RemoteError>;
+
+    /// 写入远程文件（**覆盖**语义），并**在传输过程中回报进度**。
+    ///
+    /// `on_progress` 收到的是**这个文件已经写出去的字节数**（累计值，
+    /// 不是增量）：分块写完一块就报一次。
+    ///
+    /// ## 为什么要有这个方法
+    ///
+    /// 2026-10-26 真机验收：用户传一个几十兆的文件时，界面上什么动静都没有 ——
+    /// [`Self::write_file`] 一次写完，传输期间**一个字节的进度都报不出来**。
+    /// 「上传进度条」在大文件上就成了一句空话。
+    ///
+    /// ## 为什么不给默认实现
+    ///
+    /// 与 [`Self::set_permissions`] 同一条理由：默认实现会变成
+    /// 「新加一个 provider 时忘了写」→ 编译通过、进度永远停在 0、
+    /// 用户以为卡死了。宁可让编译器逼每个实现方表态。
+    ///
+    /// ## 与 `write_file` 的关系
+    ///
+    /// 两者的语义必须一致：`write_file_with_progress` 成功 ⇒ 远端文件内容
+    /// 与 `content` 逐字节相同。**不要**把「只写了一半」当成成功。
+    async fn write_file_with_progress(
+        &self,
+        connection_id: &str,
+        remote_path: &str,
+        content: Vec<u8>,
+        on_progress: &(dyn Fn(u64) + Send + Sync),
+    ) -> Result<(), RemoteError>;
+
+    /// 创建远程目录（父目录必须已存在；已存在视为成功）。
+    async fn make_dir(
+        &self,
+        connection_id: &str,
+        remote_path: &str,
+    ) -> Result<(), RemoteError>;
+
+    /// 设置权限位（`mode` 是八进制数值，`0755` 传 `0o755`）。
+    ///
+    /// **FTP / FTPS 不支持，必须返回 `RemoteErrorKind::Protocol` 的明确错误，
+    /// 绝不静默成功。** 这里**刻意不给默认实现** ——
+    /// 有默认实现的话，新加一个 provider 时「忘了写」会变成编译通过、
+    /// 用户点了没反应、报告还显示成功。宁可让编译器逼每个实现方表态。
+    async fn set_permissions(
+        &self,
+        connection_id: &str,
+        remote_path: &str,
+        mode: u32,
+    ) -> Result<(), RemoteError>;
+
+    /// 读取权限位（低 12 位，`0o7777` 掩码）。
+    ///
+    /// `Ok(None)` 表示「**取不到**」，两种情形共用它：
+    /// 路径不存在，以及**该协议压根没有可靠的权限位**（FTP / FTPS）。
+    /// 权限设置对话框要靠这个区分「显示当前权限」与「不支持改权限」，
+    /// 所以走错成 `Err` 会让每一次打开对话框都变成一次未捕获异常。
+    async fn get_permissions(
+        &self,
+        connection_id: &str,
+        remote_path: &str,
+    ) -> Result<Option<u32>, RemoteError>;
+
+    /// 删除远程文件或目录。
+    ///
+    /// `is_dir` 决定走哪条命令（SFTP 的 `remove` / `rmdir`；FTP 的 `DELE` / `RMD`）。
+    ///
+    /// **目录必须为空**：SFTP 与 FTP 都没有递归删除，目录里还有东西时服务器会
+    /// 拒绝。失败必须**如实报出来** —— 悄悄删掉一半是最坏的结果。
+    ///
+    /// **刻意不给默认实现**，理由与 [`Self::set_permissions`] 完全一样：
+    /// 有默认实现的话，新加一个 provider 时「忘了写」会变成编译通过、
+    /// 用户点了没反应、报告还显示成功。宁可让编译器逼每个实现方表态。
+    async fn remove_path(
+        &self,
+        connection_id: &str,
+        remote_path: &str,
+        is_dir: bool,
+    ) -> Result<(), RemoteError>;
+
+    /// 把 `from_path` 指向的条目**在原目录内**改名为 `new_name`。
+    ///
+    /// ## 为什么签名是 `(from_path, new_name)` 而不是 `(from_path, to_path)`
+    ///
+    /// 「改名」在语义上就是**在原目录内换个名字**，不是「移动」。
+    /// 若让调用方传完整的目标路径，就等于把「跨目录移动」这个**后果更重的操作**
+    /// 混进一个改名动作里 —— 前端一旦把父目录算错，一次改名就变成一次远程移动。
+    /// 所以目标路径由实现方从 `from_path` 的父目录推导，三种协议行为一致。
+    ///
+    /// ## 目标已存在时怎么办
+    ///
+    /// **各服务器不一样**：有的直接覆盖，有的回 `550`。
+    /// 本层**不做统一语义**，如实把服务器的回应带回去 ——
+    /// 悄悄覆盖掉一个同名文件是本项目最不能出的错（规格 §6）。
+    ///
+    /// ## 断线时不自动重放
+    ///
+    /// 规格 §6.2：写操作失败即停，把控制权交回用户。
+    /// 重放一次改名可能作用在状态已变的对象上。
+    ///
+    /// **刻意不给默认实现**，理由与 [`Self::remove_path`] 完全一样：
+    /// 有默认实现的话，新加一个 provider 时「忘了写」会变成编译通过、
+    /// 用户点了没反应、报告还显示成功。宁可让编译器逼每个实现方表态。
+    async fn rename_path(
+        &self,
+        connection_id: &str,
+        from_path: &str,
+        new_name: &str,
+    ) -> Result<(), RemoteError>;
+
+    /// 取远端条目的缩略图像素；拿不到时返回 `Ok(None)`。
+    ///
+    /// **为什么需要它**：网盘给的缩略图直链带短期签名，且要求请求带浏览器
+    /// `Referer`，前端的 `<img>` 两样都拿不到（实测判定见
+    /// `docs/handoff-2026-11-21-batch32-remote-thumbnail-verdict.md` §3），
+    /// 所以远程缩略图必须由 Rust 侧代取，再按本地图片同一套管线缩好交给前端。
+    ///
+    /// **为什么这里刻意给了默认实现**：与 `write_file_with_progress` /
+    /// `remove_path` / `rename_path` / `set_permissions` 不同——那四个忘了写会被
+    /// 当成「操作成功」，是数据事故；而「这个协议没有缩略图」是合法且常见的结果，
+    /// 调用方会把 `None` 降级成占位图，新增协议不会因为漏实现而做错事。
+    /// 同样返回 `Ok(None)` 表示「没有」的先例见 [`RemoteProvider::get_permissions`]。
+    ///
+    /// **实现纪律**：
+    /// - 签名 URL 不得离开实现所在模块，且**绝不进日志与用户可见文案**；
+    /// - 任何形式的失败（鉴权过期、限流、直链已失效、下载失败、条目是目录）
+    ///   都返回 `Ok(None)`，不得 panic，也不得把上游错误文案往外抛；
+    /// - `max_bytes` 由调用方给定，实现方不得放宽成整个文件的大小上限——
+    ///   缩略图不该把整部电影拉进内存。
+    async fn thumbnail_bytes(
+        &self,
+        connection_id: &str,
+        remote_path: &str,
+        max_bytes: u64,
+    ) -> Result<Option<Vec<u8>>, RemoteError> {
+        let _ = (connection_id, remote_path, max_bytes);
+        Ok(None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::remote::error::RemoteErrorKind;
+    use crate::remote::fake::FakeRemoteProvider;
+
+    #[tokio::test]
+    async fn fake_provider_returns_configured_entries() {
+        let provider = FakeRemoteProvider::sample();
+        let entries = provider
+            .read_dir("conn-a", "/")
+            .await
+            .expect("sample root must be readable");
+
+        assert_eq!(entries.len(), 2);
+        assert!(entries
+            .iter()
+            .all(|entry| entry.path.starts_with("sfm://remote/conn-a/")));
+    }
+
+    #[tokio::test]
+    async fn fake_provider_normalizes_the_incoming_remote_path() {
+        let provider = FakeRemoteProvider::sample();
+
+        // 与 `parse_remote_path` 同一套规范化：尾斜杠与连续斜杠都要被折叠
+        let with_slash = provider
+            .read_dir("conn-a", "/pub/")
+            .await
+            .expect("trailing slash must still resolve");
+        let without_slash = provider
+            .read_dir("conn-a", "/pub")
+            .await
+            .expect("plain path must resolve");
+        let doubled = provider
+            .read_dir("conn-a", "/pub//")
+            .await
+            .expect("repeated slash must still resolve");
+
+        assert_eq!(with_slash, without_slash);
+        assert_eq!(doubled, without_slash);
+        assert_eq!(with_slash.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn fake_provider_reports_unknown_paths_as_not_found() {
+        let provider = FakeRemoteProvider::sample();
+        let error = provider
+            .read_dir("conn-a", "/nope")
+            .await
+            .expect_err("unknown path must fail");
+
+        assert_eq!(error.kind, RemoteErrorKind::NotFound);
+    }
+
+    #[tokio::test]
+    async fn fake_provider_reports_unknown_connections_as_not_found() {
+        let provider = FakeRemoteProvider::sample();
+        let error = provider
+            .read_dir("conn-missing", "/")
+            .await
+            .expect_err("unknown connection must fail");
+
+        assert_eq!(error.kind, RemoteErrorKind::NotFound);
+    }
+
+    #[tokio::test]
+    async fn fake_provider_rejects_dot_segments_as_protocol_errors() {
+        let provider = FakeRemoteProvider::sample();
+        let error = provider
+            .read_dir("conn-a", "/pub/../etc")
+            .await
+            .expect_err("dot-dot segments must be rejected");
+
+        assert_eq!(error.kind, RemoteErrorKind::Protocol);
+    }
+
+    #[tokio::test]
+    async fn providers_are_usable_through_a_trait_object() {
+        // 这一条锁住「dyn 兼容」这个决策：如果哪天有人把 `#[async_trait]` 换成原生 AFIT，
+        // 这条测试会**编译失败**，从而在阶段 1 动手之前就把问题暴露出来。
+        let provider: Box<dyn RemoteProvider> = Box::new(FakeRemoteProvider::sample());
+
+        assert_eq!(
+            provider
+                .read_dir("conn-a", "/")
+                .await
+                .expect("read through the trait object")
+                .len(),
+            2
+        );
+    }
+
+    /// 阶段 3 加的五个方法同样要能被 dyn 调用 ——
+    /// `transfer.rs` 的整个递归编排就是靠 `&dyn RemoteProvider` 跑的。
+    #[tokio::test]
+    async fn the_transfer_methods_are_usable_through_a_trait_object() {
+        let provider: Box<dyn RemoteProvider> =
+            Box::new(FakeRemoteProvider::sample_with_writable_files(vec![]));
+
+        provider
+            .write_file("conn-a", "/pub/new.txt", b"body".to_vec())
+            .await
+            .expect("write");
+        assert_eq!(
+            provider.read_file("conn-a", "/pub/new.txt").await.expect("read"),
+            b"body".to_vec()
+        );
+
+        provider.make_dir("conn-a", "/pub/sub").await.expect("mkdir");
+        provider
+            .set_permissions("conn-a", "/pub/sub", 0o750)
+            .await
+            .expect("chmod");
+        assert_eq!(
+            provider.get_permissions("conn-a", "/pub/sub").await.expect("mode"),
+            Some(0o750)
+        );
+    }
+
+    /// 阶段 3 收尾加的 `rename_path` 同样要能被 dyn 调用。
+    #[tokio::test]
+    async fn the_rename_method_is_usable_through_a_trait_object() {
+        let provider: Box<dyn RemoteProvider> =
+            Box::new(FakeRemoteProvider::sample_with_writable_files(vec![]));
+
+        provider
+            .rename_path("conn-a", "/pub/readme.txt", "说明.txt")
+            .await
+            .expect("rename");
+
+        let names: Vec<String> = provider
+            .read_dir("conn-a", "/pub")
+            .await
+            .expect("list")
+            .into_iter()
+            .map(|entry| entry.name)
+            .collect();
+
+        assert_eq!(names, vec!["说明.txt".to_string()]);
+    }
+
+    #[test]
+    fn remote_entry_serializes_for_the_frontend() {
+        let entry = RemoteEntry {
+            name: "readme.txt".to_string(),
+            path: "sfm://remote/conn-a/readme.txt".to_string(),
+            is_dir: false,
+            size: 12,
+            modified_time: 1_700_000_000_000,
+            is_hidden: false,
+            is_symlink: false,
+            entry_id: None,
+            thumbnail_url: None,
+        };
+        let json = serde_json::to_value(&entry).expect("serialize");
+
+        assert_eq!(json["name"], "readme.txt");
+        assert_eq!(json["path"], "sfm://remote/conn-a/readme.txt");
+        assert_eq!(json["is_dir"], false);
+        assert_eq!(json["size"], 12);
+        assert_eq!(json["modified_time"], 1_700_000_000_000_u64);
+    }
+}

@@ -18,6 +18,16 @@ fn default_scan_reason() -> GlobalSearchScanReason {
     GlobalSearchScanReason::Manual
 }
 
+/// 这一轮扫描走的是哪条路。
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum GlobalSearchScanMode {
+    /// 全量重扫 —— 重建整棵索引。
+    Full,
+    /// 增量更新 —— 只把 watcher 报出来的变化应用到活索引。
+    Incremental,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum GlobalSearchScanPhase {
@@ -94,6 +104,14 @@ pub struct GlobalSearchStatus {
     pub last_scan_duration_ms: Option<u64>,
     pub last_scan_indexed_item_count: Option<u64>,
     pub last_scan_error: Option<String>,
+    /// 上一轮扫描走的是全量还是增量。
+    pub last_scan_mode: Option<GlobalSearchScanMode>,
+    /// 增量通道是否就绪（活索引有效 + watcher 在跑 + 代次对得上）。
+    pub incremental_ready: bool,
+    /// 增量 watcher 的代次 —— 换过一次就说明中间有缺口，不能只做增量。
+    pub incremental_watcher_generation: u64,
+    /// 上一轮增量应用是否失败。
+    pub last_incremental_failed: bool,
     pub indexed_item_count: u64,
     pub scan_indexed_item_count: u64,
     pub indexed_drive_roots: Vec<String>,
@@ -111,4 +129,24 @@ pub struct IndexPathsSettings {
     pub paths: Vec<String>,
     pub scan_depth: usize,
     pub ignored_paths: Vec<String>,
+}
+
+/// 云盘（远程连接）索引的当前状态。
+///
+/// 用来回答一个问题：**要不要补跑一次云盘索引重建？**
+///
+/// - `Missing`：索引目录不存在（还没建过索引）。
+///   **不自动重建** —— 建索引要走网络、吃网盘 API 配额，
+///   用户没主动要求就不该替他花。
+/// - `Stale`：目录在，但 **schema 与当前版本对不上**
+///   （升级换了索引格式，老索引里没有 `connection_id` 这个字段）。
+///   **必须重建**，否则查询侧会一直忽略这份索引，
+///   用户看到的现象是「升级之后云盘搜不到东西了」。
+/// - `Ready`：目录在且 schema 兼容，可以直接查。
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum RemoteIndexState {
+    Missing,
+    Stale,
+    Ready,
 }

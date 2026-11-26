@@ -27,9 +27,56 @@ coverage
 *.sln
 *.sw?
 
+# --- Focus Sync plugin (added 2026-10-09) ---
+# The root-level `dist` rule above matches at ANY depth, so it would swallow
+# the plugin's hand-maintained runtime payload. Re-include the DIRECTORY
+# (not the files inside it): git cannot descend into an excluded directory,
+# so negating the files themselves would silently not work.
+!extensions/kizemo.focus-sync/dist/
+# Build outputs of the plugin, never committed.
+extensions/kizemo.focus-sync/bin/
+extensions/kizemo.focus-sync/*.exe
+# makensis bundles the sidecar from beside installer.nsi, so a copy lands here.
+extensions/kizemo.focus-sync/installer/*.exe
+# The build publishes its installers here (see scripts/publish-bundle-to-release.mjs),
+# so the ROOT `release/` is a build output and stays untracked. Anchored with a
+# leading slash on purpose: the unanchored form also matched `scripts/release/`,
+# which holds hand-maintained release helpers that must stay tracked.
+/release/
+# Explicit backstop for the built installers. Tauri names them after
+# productName, which CONTAINS SPACES: "Alpha File Manager_2.2.0_x64-setup.exe".
+# The `/release/` rule above covers it, but a rule that silently stops
+# matching the moment productName changes is exactly the safety net that fails
+# when you need it most - so name the real shape explicitly. The legacy Sigma
+# spelling is kept while Sigma->Alpha upgrades are still supported.
+/release/Alpha File Manager_*.exe
+/release/Sigma File Manager_*.exe
+/release/Alpha-File-Manager-*.exe
+
 *.tsbuildinfo
 
 flatpak/.deb-input/
 flatpak/.build/
 flatpak/.repo/
 flatpak/output/
+
+# --- Verification scratch space (added 2026-10-14) ---
+# `_acceptance/` holds throwaway probe binaries, NSIS probe projects and
+# one-off PowerShell/JS harnesses used to drive real-machine acceptance runs.
+# It reached 263 MB of mostly-disposable .exe probes. The durable write-ups
+# are NOT here: the root-cause and version-node audit reports live under
+# docs/archive/root-cause/.
+/_acceptance/
+
+# Intermediates of the abandoned FileWrite-based kill-script embedding.
+# hooks.nsh now uses `File /oname=...` (byte-exact, no ANSI escaping) driven by
+# embed-kill-script.mjs; these three are leftovers of the approach it replaced.
+src-tauri/installer/_gen_block.txt
+src-tauri/installer/materialized-kill-app-tree.ps1
+src-tauri/installer/embed-kill-script.mjs.parts.json
+
+# --- graphify knowledge graph (added 2026-10-21) ---
+# `graphify extract . --code-only` writes the local AST knowledge graph here
+# (graph.json / GRAPH_REPORT.md / graph.html). It is a derived artifact, fully
+# regenerable with one command and zero API cost, so it never belongs in git.
+graphify-out/

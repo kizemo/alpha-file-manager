@@ -1,8 +1,11 @@
 {
   "app": {
-    "name": "Sigma File Manager",
-    "description": "là một ứng dụng quản lý tệp hiện đại, mã nguồn mở, miễn phí, được cấp phép theo GNU GPLv3 trở lên.",
-    "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
+    "name": "Alpha File Manager",
+    "description": "is developed on top of Sigma File Manager, adding practical features such as a directory tree, quick switching (path focus sync for file dialogs) and batch rename. Many details have been refined to deliver a more complete file manager experience.",
+    "copyright": "Credits to the original author Aleksey Hoffman.",
+    "developerLabel": "Developed by ",
+    "developer": "kizemo",
+    "repository": "https://github.com/kizemo/alpha-file-manager"
   },
   "units": {
     "px": "px"
@@ -19,7 +22,7 @@
   "pages": {
     "home": "Trang chủ",
     "navigator": "Trình duyệt tệp",
-    "dashboard": "Bảng điều khiển",
+    "dashboard": "Truy cập nhanh",
     "notes": "Ghi chú",
     "settings": "Cài đặt",
     "extensions": "Tiện ích mở rộng"
@@ -33,7 +36,15 @@
     "tagged": "Đã gắn thẻ",
     "emptyFavorites": "Chưa có mục yêu thích",
     "emptyTagged": "Chưa có mục được gắn thẻ",
-    "unknownTagGroup": "Thẻ không xác định"
+    "unknownTagGroup": "Thẻ không xác định",
+    "frequent": "Frequent",
+    "history": "History",
+    "emptyFrequent": "No frequently used items",
+    "emptyHistory": "No history yet",
+    "openFavoritesTab": "Open Favorites tab in Quick Access",
+    "openFrequentTab": "Open Frequent tab in Quick Access",
+    "openHistoryTab": "Open History tab in Quick Access",
+    "openTaggedTab": "Open Tagged tab in Quick Access"
   },
   "placeholders": {
     "noDrivesFound": "Không tìm thấy ổ đĩa",
@@ -76,6 +87,8 @@
     "music": "Nhạc"
   },
   "tabs": {
+    "scrollTabsLeft": "Cuộn thẻ sang trái",
+    "scrollTabsRight": "Cuộn thẻ sang phải",
     "newTab": "Thẻ mới",
     "duplicateTab": "Nhân bản thẻ",
     "closeOtherTabs": "Đóng các thẻ khác",
@@ -89,6 +102,9 @@
   "splitViewMode": "Chế độ chia màn hình",
   "splitViewModeSplit": "Chia",
   "splitViewModeLinked": "Liên kết",
+  "syncBrowsing": "Synchronized browsing",
+  "syncBrowsingOn": "Synchronized browsing: on",
+  "syncBrowsingHint": "Select a folder in the left pane and the right pane jumps to the folder of the same name.",
   "filter": {
     "filter": "Lọc",
     "showHiddenItems": "Hiển thị mục ẩn",
@@ -105,6 +121,8 @@
     }
   },
   "globalSearch": {
+    "scanModeFull": "Toàn bộ",
+    "scanModeIncremental": "Tăng dần",
     "globalSearch": "Tìm kiếm toàn cầu",
     "driveScanInProgress": "Đang lập chỉ mục ổ đĩa",
     "searchDataIncomplete": "Dữ liệu tìm kiếm không đầy đủ",
@@ -147,7 +165,10 @@
       "indexed": "Được lập chỉ mục {time}",
       "nothingFound": "Không tìm thấy gì"
     },
-    "showSearchSettings": "Hiển thị cài đặt tìm kiếm"
+    "showSearchSettings": "Hiển thị cài đặt tìm kiếm",
+    "remoteIndexing": "Đang lập chỉ mục ổ đĩa đám mây",
+    "remoteIndexDone": "Đã cập nhật chỉ mục đám mây",
+    "remoteIndexFailed": "Lập chỉ mục đám mây thất bại"
   },
   "home": {
     "mediaBannerOptions": "Tùy chọn biểu ngữ phương tiện",
@@ -166,11 +187,11 @@
     "newDirectory": "Thư mục mới",
     "newFile": "Tệp mới",
     "reloadCurrentDirectory": "Tải lại thư mục hiện tại",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "Hiện cây thư mục",
+    "hideFolderTree": "Ẩn cây thư mục"
   },
   "dashboard": {
-    "subtitle": "Truy cập nhanh các mục yêu thích, được gắn thẻ và thường dùng",
+    "subtitle": "Yêu thích, mục đã gắn thẻ và mục thường dùng — tất cả ở một nơi",
     "tabs": {
       "favorites": "Yêu thích",
       "tagged": "Đã gắn thẻ",
@@ -191,7 +212,57 @@
     "daysAgo": "{n} ngày trước | {n} ngày trước | {n} ngày trước | {n} ngày trước",
     "openedCount": "Đã mở {n} lần | Đã mở {n} lần | Đã mở {n} lần | Đã mở {n} lần",
     "actions": {
-      "clearAll": "Xóa tất cả khỏi danh sách này"
+      "clearAll": "Xóa tất cả khỏi danh sách này",
+      "newFavorite": "New favorite",
+      "newCategory": "New category",
+      "newTag": "New tag",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "moveUpWithName": "Di chuyển {name} lên trên",
+      "moveDownWithName": "Di chuyển {name} xuống dưới",
+      "dragToReorder": "Kéo để sắp xếp lại",
+      "moveToCategory": "Move to category",
+      "removeFavorite": "Remove from favorites",
+      "removeTag": "Remove tag",
+      "renameCategory": "Rename category",
+      "deleteCategory": "Delete category",
+      "uncategorized": "Uncategorized",
+      "confirmRemove": "Xóa",
+      "clearAllConfirmTitle": "Xóa tất cả khỏi danh sách này?",
+      "clearAllConfirmDescription": "Không thể hoàn tác hành động này.",
+      "removeFavoriteConfirmTitle": "Xóa khỏi yêu thích?",
+      "removeFavoriteConfirmDescription": "Mục sẽ bị xóa khỏi đây. Đánh dấu yêu thích lại để đưa nó trở về.",
+      "deleteTagConfirmTitle": "Xóa thẻ này?",
+      "deleteTagConfirmDescription": "Thẻ sẽ bị xóa và gỡ khỏi mọi mục.",
+      "removeTagConfirmTitle": "Xóa thẻ này khỏi mục?",
+      "removeTagConfirmDescription": "Mục sẽ không còn mang thẻ này.",
+      "renameFavorite": "Sửa tên hiển thị",
+      "editFavorite": "Edit favorite"
+    },
+    "newFavoriteDialog": {
+      "title": "Add to favorites",
+      "pathLabel": "File or folder path",
+      "pathPlaceholder": "Paste a full path",
+      "pathNotFound": "Path does not exist",
+      "pathAlreadyFavorite": "Already in favorites",
+      "confirm": "Add",
+      "displayNameLabel": "Tên hiển thị",
+      "displayNamePlaceholder": "Để trống để dùng tên gốc"
+    },
+    "nameDialog": {
+      "nameLabel": "Name",
+      "namePlaceholder": "Enter a name",
+      "duplicateName": "\"{name}\" already exists",
+      "confirm": "Create"
+    },
+    "categoryDeleteNote": "Favorites in this category return to \"Uncategorized\". Nothing is deleted.",
+    "favoriteEdit": {
+      "pathRequired": "Path cannot be empty",
+      "saved": "Favorite updated",
+      "saveFailed": "Failed to update the favorite"
+    },
+    "favoriteCategoryDialog": {
+      "categoryLabel": "Category"
     }
   },
   "settingsCategories": {
@@ -220,8 +291,19 @@
         "title": "Chế độ xem tệp",
         "enableBoxSelection": "Bật chọn bằng khung kéo",
         "enableBoxSelectionDescription": "Kéo trên vùng trống để chọn nhiều mục bằng khung chọn. Giữ Ctrl hoặc Shift để thêm vào vùng chọn; giữ Alt để đảo ngược.",
+        "boxSelectionEnabledByDefault": "Box selection is now enabled by default. If drag-selecting gets in the way, you can turn it off here.",
         "increaseFileViewGaps": "Tăng khoảng cách trong chế độ xem tệp",
-        "increaseFileViewGapsDescription": "Thêm khoảng đệm hai bên trong chế độ danh sách và tăng khoảng cách trong chế độ lưới để dễ chọn hơn."
+        "increaseFileViewGapsDescription": "Thêm khoảng đệm hai bên trong chế độ danh sách và tăng khoảng cách trong chế độ lưới để dễ chọn hơn.",
+        "foldersFirst": "Place folders before files in list view",
+        "foldersFirstDescription": "Only affects the list view; the grid view always groups entries by type.",
+        "showListThumbnails": "Show thumbnails in list view",
+        "showListThumbnailsDescription": "Images and videos show thumbnails in the list. Folders and documents still show their type icon. Grid view always shows thumbnails and is not affected by this switch.",
+        "thumbnailSizeTitle": "Thumbnail size",
+        "thumbnailSizeDescription": "Adjust thumbnail size in the list and grid views.",
+        "thumbnailSizeSmall": "Small",
+        "thumbnailSizeMedium": "Medium",
+        "thumbnailSizeLarge": "Large",
+        "thumbnailSizeXLarge": "Extra large"
       },
       "startupPage": {
         "title": "Trang khởi động",
@@ -241,7 +323,8 @@
       "openAppLogDirectory": "Mở thư mục nhật ký ứng dụng",
       "openGlobalSearchIndexDirectory": "Mở thư mục chỉ mục tìm kiếm toàn cục",
       "changelog": "Nhật ký thay đổi",
-      "allReleases": "Tất cả phiên bản"
+      "allReleases": "Tất cả phiên bản",
+      "learningNotes": "段燚的学习笔记"
     },
     "visualEffects": {
       "title": "Hiệu ứng hình ảnh",
@@ -260,16 +343,20 @@
         "darken": "Tối hơn",
         "lighten": "Sáng hơn",
         "color-dodge": "Làm sáng màu",
+        "plus-lighter": "Làm sáng tuyến tính (cộng)",
         "color-burn": "Làm tối màu",
         "hard-light": "Ánh sáng mạnh",
         "soft-light": "Ánh sáng mềm",
         "difference": "Khác biệt",
         "exclusion": "Loại trừ",
-        "hue": "Sắc độ",
-        "saturation": "Độ bão hòa",
         "color": "Màu sắc",
         "luminosity": "Độ sáng"
       },
+      "blendTarget": "Hòa trộn với",
+      "blendTargetUi": "Giao diện",
+      "blendTargetFill": "Màu nền",
+      "blendTint": "Màu nền",
+      "blendTintCustom": "Màu tùy chỉnh",
       "overlayBackground": "Lớp phủ nền",
       "selectNextBackground": "Chọn nền tiếp theo",
       "useTheSameSettingsForAllPages": "Sử dụng cùng một cài đặt cho tất cả các trang",
@@ -281,9 +368,15 @@
       "theme": {
         "title": "Chủ đề",
         "extensionThemes": "Chủ đề tiện ích mở rộng",
+        "afmThemeThemes": "Chủ đề thương hiệu AFM",
+        "afmThemes": {
+          "warmLight": "Giấy ấm · Sáng",
+          "warmDark": "Giấy ấm · Tối",
+          "vividLight": "Năng lượng rực rỡ",
+          "coolLight": "Thông lạnh"
+        },
         "themeTypeRadio": {
-          "dark": "Tối",
-          "light": "Ánh sáng (đang phát triển)"
+          "dark": "Tối"
         }
       }
     },
@@ -298,7 +391,14 @@
       "selectedFont": "Phông chữ đã chọn",
       "defaultFont": "phông chữ mặc định",
       "reFetchSystemFonts": "Tìm nạp lại phông chữ hệ thống",
-      "resetFontToDefault": "Đặt lại phông chữ về mặc định"
+      "resetFontToDefault": "Đặt lại phông chữ về mặc định",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "Ngày giờ",
@@ -323,7 +423,7 @@
       "preventDropdownCloseFocusReturn": "Ngăn trả lại tiêu điểm khi đóng menu thả xuống",
       "preventDropdownCloseFocusReturnDescription": "Khi bật, đóng menu thả xuống (ví dụ bằng phím Escape) sẽ không trả tiêu điểm về nút kích hoạt, tránh hiển thị vòng tiêu điểm và chú thích",
       "quickAccessOnHover": "Mở bảng truy cập nhanh khi di chuột",
-      "quickAccessOnHoverDescription": "Khi bật, bảng truy cập nhanh sẽ tự động mở khi di chuột qua nút bảng điều khiển trên thanh bên"
+      "quickAccessOnHoverDescription": "Khi bật, bảng truy cập nhanh sẽ tự động mở khi di chuột qua nút truy cập nhanh trên thanh bên"
     },
     "tooltips": {
       "title": "Chú thích",
@@ -379,7 +479,6 @@
       }
     },
     "navigator": {
-      "navigatorViewLayout": "Bố cục",
       "navigatorOptions": "Tùy chọn điều hướng",
       "systemIcons": "Chủ đề biểu tượng",
       "systemIconsDirectories": "Thư mục",
@@ -435,7 +534,15 @@
       "ignoredPathsHelpDownloads": "Bỏ qua tiền tố đường dẫn đó.",
       "ignoredPathsHelpTestFolder": "Bỏ qua các thư mục tên test và nội dung của chúng ở mọi nơi.",
       "ignoredPathsHelpExtensionMask": "Bỏ qua các tệp có phần mở rộng .log ở mọi nơi.",
-      "ignoredPathsHelpNestedExtensionMask": "Bỏ qua các tệp có phần mở rộng .tmp trong bất kỳ thư mục nào."
+      "ignoredPathsHelpNestedExtensionMask": "Bỏ qua các tệp có phần mở rộng .tmp trong bất kỳ thư mục nào.",
+      "remoteIndexTitle": "Tìm kiếm đám mây",
+      "remoteIndexDescription": "Các tệp của kết nối đã thêm vào tìm kiếm toàn cục sẽ xuất hiện trong kết quả tìm kiếm.",
+      "rebuildRemoteIndex": "Dựng lại chỉ mục đám mây",
+      "rebuildRemoteIndexDescription": "Lấy lại các tệp của kết nối đã đánh dấu rồi ghi vào chỉ mục; việc này dùng hết hạn mức API của ổ đĩa mạng.",
+      "noRemoteInSearch": "Chưa thêm ổ đĩa mạng nào vào tìm kiếm toàn cục",
+      "noNetdiskConnections": "Chưa có kết nối nào cho ổ đám mây này",
+      "rebuildCheckedRemoteIndex": "Xây dựng lại chỉ mục cho các kết nối đã chọn",
+      "rebuildCheckedRemoteIndexHint": "Việc xây dựng lại luôn dùng toàn bộ tập kết nối đã chọn — không thể xây dựng lại riêng một kết nối."
     },
     "drives": {
       "driveDetection": "Phát hiện ổ đĩa",
@@ -445,21 +552,362 @@
     },
     "stats": {
       "title": "Dữ liệu người dùng",
-      "description": "Ứng dụng lưu trữ dữ liệu cục bộ (thẻ, mục yêu thích, lịch sử, các mục đã mở gần đây) để kích hoạt các tính năng như danh sách bảng điều khiển và tìm kiếm. Dữ liệu này được lưu trữ trong thư mục ứng dụng.",
+      "description": "Ứng dụng lưu trữ dữ liệu cục bộ (thẻ, mục yêu thích, lịch sử, các mục đã mở gần đây) để kích hoạt các tính năng như danh sách truy cập nhanh và tìm kiếm. Dữ liệu này được lưu trữ trong thư mục ứng dụng.",
       "openDataDirectory": "Mở thư mục dữ liệu"
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "Đặt Sigma File Manager làm trình quản lý tệp mặc định",
+        "title": "Đặt Alpha File Manager làm trình quản lý tệp mặc định",
         "description": "Tùy chọn này sửa đổi sổ đăng ký hệ thống và có thể gây ra tác dụng phụ ngoài ý muốn trên thiết bị của bạn. Hãy tiếp tục với rủi ro của riêng bạn.",
         "unavailableInMicrosoftStore": "Không khả dụng trong phiên bản Microsoft Store"
+      },
+      "mcp": {
+        "title": "MCP server (for AI agents)",
+        "description": "Let AI clients such as Claude or Cursor call this app's read-only capabilities over MCP. Off by default — when off, no port is opened at all.",
+        "modes": {
+          "off": "Off",
+          "readOnly": "Read-only",
+          "writable": "Writable",
+          "askEachTime": "Ask each time"
+        },
+        "modeDescriptions": {
+          "off": "The server does not start and no port is opened. Nothing on this machine can reach it.",
+          "readOnly": "Exposes directory listing, drives, mountable devices, the indexed global search, directory size and favourites. Entirely read-only — no file is ever modified.",
+          "writable": "Adds write operations on top of read-only. Deletion still goes to the recycle bin, never a hard delete.",
+          "askEachTime": "Same as writable, but every write operation needs individual confirmation."
+        },
+        "running": "Running · port {port}",
+        "stopped": "Not running",
+        "endpoint": "Endpoint",
+        "clients": "Connected clients",
+        "copyConfig": "Copy config snippet",
+        "copied": "Copied",
+        "copyFailed": "Copy failed — please copy the snippet manually",
+        "rotateToken": "Regenerate token",
+        "tokenRotated": "New token generated. Previous configs stop working immediately.",
+        "token": "Token",
+        "tokenHint": "Any process on this machine can reach 127.0.0.1. The token is the only barrier — do not share it.",
+        "auditTitle": "Recent calls",
+        "outcomes": {
+          "allowed": "allowed",
+          "denied": "denied",
+          "error": "error"
+        },
+        "clientsConnected": "{count} agent(s) connected",
+        "indicatorTooltip": "An AI client is using this app's capabilities",
+        "notRunning": "MCP server is not running",
+        "deployTitle": "One-click deploy to AI clients",
+        "deployHint": "One-click deploy writes this server straight into the client’s own config file without touching any other entry, and backs the original up as .alpha-mcp.bak beforehand. The change only takes effect after you quit that client completely and start it again.",
+        "deployAction": "One-click deploy",
+        "deployInstalled": "Deployed",
+        "deployNotYet": "Not deployed",
+        "deployNotDetected": "Client not found",
+        "deployDoneShort": "Configured",
+        "deployRemove": "Remove",
+        "deployLoading": "Scanning this machine for clients…",
+        "deployFailed": "Deployment failed — see the error below",
+        "deployAlreadyCurrent": "The config was already up to date, so nothing was changed.",
+        "deployDone": "Deployed to {client}. Config file: {path}. The original file was backed up as {backup}. Please quit {client} completely and start it again.",
+        "deployRemoved": "Removed this server from {client}’s config.",
+        "deployClients": {
+          "codex": "Codex",
+          "cursor": "Cursor",
+          "claudeCode": "Claude Code",
+          "claudeDesktop": "Claude Desktop",
+          "openclaw": "OpenClaw",
+          "minimaxCode": "Minimax Code"
+        },
+        "recheck": "Re-check",
+        "restartTitle": "{client} must be fully quit and restarted",
+        "restartBody": "The config file is written, but MCP clients only read it at startup — they never reload it while running. Quit {client} from its tray icon (closing the window is not enough), reopen it, then come back here and press Re-check.",
+        "restartBackup": "The original file was backed up to {backup}. To undo, rename the backup back.",
+        "restartDismiss": "Got it"
       }
+    },
+    "storage": {
+      "thumbnailCache": {
+        "title": "Thumbnail cache",
+        "description": "Image and video thumbnails share the same cache directory. Cleared thumbnails are regenerated automatically the next time you browse.",
+        "sizeLabel": "Disk usage",
+        "sizeUnknown": "Unknown",
+        "countLabel": "Items",
+        "countUnknown": "Unknown",
+        "clear": "Clear cache",
+        "clearSuccess": "Thumbnail cache cleared",
+        "clearFailed": "Failed to clear the thumbnail cache",
+        "confirmTitle": "Clear the thumbnail cache?",
+        "confirmDescription": "This clears both image and video thumbnail caches and cannot be undone. Cleared thumbnails are regenerated the next time you browse those files."
+      },
+      "settingsTransfer": {
+        "title": "Export / import settings",
+        "description": "Export settings, favorites, remote connections and cloud drive connections into one JSON file. Browsing history and frequently used items are not exported.",
+        "export": "Export settings",
+        "import": "Import settings",
+        "exporting": "Exporting…",
+        "importing": "Importing…",
+        "exportSuccess": "Settings exported",
+        "exportFailed": "Failed to export settings",
+        "importSuccess": "Settings imported",
+        "importFailed": "Failed to import settings",
+        "confirmTitle": "Import settings?",
+        "confirmDescription": "Importing overwrites the current settings, favorites, tags and remote connections. Browsing history and frequently used items are not affected.",
+        "invalidFile": "This file is not a valid Alpha File Manager settings export.",
+        "restartHint": "Some settings (such as theme and language) only take effect after restarting the app.",
+        "credentialsHint": "{count} connection(s) need you to sign in again."
+      }
+    },
+    "remote": {
+      "connections": {
+        "title": "Remote connections",
+        "empty": "No connections yet."
+      },
+      "action": {
+        "add": "Add connection",
+        "edit": "Edit",
+        "delete": "Delete",
+        "save": "Save",
+        "cancel": "Cancel",
+        "browse": "Browse…",
+        "test": "Test connection"
+      },
+      "field": {
+        "name": "Name",
+        "protocol": "Protocol",
+        "host": "Server address",
+        "port": "Port",
+        "username": "Username",
+        "password": "Password",
+        "initialPath": "Initial directory",
+        "proxy": "Proxy",
+        "proxyHost": "Proxy address",
+        "proxyPort": "Proxy port",
+        "proxyUsername": "Proxy username",
+        "proxyPassword": "Proxy password",
+        "localPath": "Local folder",
+        "cookie": "Cookie",
+        "includeInSearch": "Thêm vào tìm kiếm toàn cục",
+        "includeInSearchHint": "Khi đánh dấu, các tệp của kết nối này sẽ được thêm vào chỉ mục tìm kiếm toàn cục (hãy dựng lại chỉ mục đám mây thủ công)."
+      },
+      "protocol": {
+        "ftp": "FTP",
+        "ftps_explicit": "FTPS (explicit)",
+        "ftps_implicit": "FTPS (implicit)",
+        "sftp": "SFTP",
+        "baidu_pan": "Baidu Netdisk",
+        "quark_pan": "Quark Drive",
+        "aliyun_pan": "Aliyun Drive",
+        "onedrive_pan": "OneDrive"
+      },
+      "proxy": {
+        "direct": "Direct connection",
+        "socks5": "SOCKS5",
+        "http_connect": "HTTP CONNECT"
+      },
+      "password": {
+        "saved": "Password saved",
+        "savedHint": "Leave blank to keep the current password.",
+        "clear": "Remove the saved password"
+      },
+      "error": {
+        "nameRequired": "Connection name cannot be empty.",
+        "hostRequired": "Server address cannot be empty.",
+        "hostHasWhitespace": "Server address cannot contain spaces.",
+        "portInvalid": "Port must be between 1 and 65535.",
+        "initialPathInvalid": "Initial directory contains an invalid segment.",
+        "proxyHostRequired": "Proxy address cannot be empty.",
+        "proxyHostHasWhitespace": "Proxy address cannot contain spaces.",
+        "proxyPortInvalid": "Proxy port must be between 1 and 65535.",
+        "connectionIdInvalid": "Connection id is invalid.",
+        "remoteConnectionsStorageNotReady": "The connection list has not finished loading. Please try again in a moment.",
+        "unknown": "Failed to save the connection.",
+        "localPathHasWhitespace": "Local folder cannot contain spaces.",
+        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
+        "baiduLoginRequired": "Hãy đăng nhập Baidu Pan trong ứng dụng trước, rồi lưu kết nối này.",
+        "quarkLoginRequired": "Hãy đăng nhập vào Quark Drive trong ứng dụng trước khi lưu kết nối này.",
+        "aliyunLoginRequired": "Hãy đăng nhập vào Aliyun Drive trong ứng dụng trước khi lưu kết nối này.",
+        "onedriveLoginRequired": "Sign in to OneDrive inside the app before saving this connection."
+      },
+      "localPath": {
+        "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
+      },
+      "test": {
+        "testing": "Testing…",
+        "outcome": {
+          "verified": "Connected. The server accepted these settings.",
+          "auth_rejected": "Connected, but the server rejected the username or password.",
+          "missing_credential": "Connected, but no password was supplied, so authentication was not verified.",
+          "wrong_protocol": "Something answered, but it is not the selected protocol.",
+          "unreachable": "Could not reach the server. Check the address, port and proxy.",
+          "protocol_error": "Connected, but the exchange did not complete as expected."
+        },
+        "passwordNotChecked": "No password was submitted, so this does not confirm that it is correct.",
+        "tlsNotVerified": "The TLS certificate was not verified."
+      },
+      "nav": {
+        "openSettings": "Remote settings",
+        "connect": "Connect",
+        "netdisk": "Đĩa đám mây",
+        "netdiskDescription": "Đăng nhập Baidu Netdisk, Quark Drive hoặc Aliyun Drive trong cửa sổ nhúng. Thông tin đăng nhập được mã hóa bằng Windows DPAPI và không bao giờ rời khỏi máy này.",
+        "remoteSection": "Kết nối từ xa",
+        "remoteDescription": "Lưu các kết nối FTP, FTPS và SFTP tại đây. Thông tin đăng nhập được mã hóa bằng Windows DPAPI và không bao giờ rời khỏi máy này.",
+        "addNetdisk": "Thêm đĩa đám mây",
+        "addRemote": "Thêm kết nối từ xa",
+        "emptyNetdisk": "Chưa có kết nối đĩa đám mây nào.",
+        "emptyRemote": "Chưa có kết nối từ xa nào.",
+        "empty": "No connections yet.",
+        "split": "Split",
+        "editConnection": "Edit this connection",
+        "homeEmpty": "Chưa cấu hình đĩa đám mây hay kết nối từ xa nào."
+      },
+      "trustedHosts": {
+        "title": "Trusted hosts",
+        "description": "Host keys you have confirmed. Remote directories only open after you trust the server here.",
+        "empty": "You have not trusted any host yet.",
+        "loadFailed": "The trusted host list could not be read.",
+        "forget": "Forget",
+        "forgetFailed": "That host could not be removed. It is still on the list.",
+        "kindSsh": "SSH key",
+        "kindX509": "X.509 certificate"
+      },
+      "baidu": {
+        "status": {
+          "loading": "Đang đọc trạng thái uỷ quyền…",
+          "missing": "Chưa đăng nhập",
+          "ready": "Đã uỷ quyền",
+          "stoken_expired": "STOKEN đã hết hạn — hãy đăng nhập lại",
+          "stoken_expiring_soon": "STOKEN sắp hết hạn"
+        },
+        "action": {
+          "deleteSession": "Xoá phiên đăng nhập đã lưu"
+        },
+        "embedded": {
+          "title": "Sign in inside the app",
+          "start": "Sign in with the built-in window",
+          "cancel": "Stop waiting",
+          "hint": "Opens a sign-in window inside the app. Once you are signed in, this form fills itself in — you only need to give the connection a name and save.",
+          "status": {
+            "waiting": "Waiting for you to finish signing in…",
+            "ready": "Signed in. Give this connection a name and save — the session is stored when you save.",
+            "closed": "The sign-in window was closed before signing in finished.",
+            "timeout": "Signing in took too long. Try again.",
+            "error": "Could not read the session. Use the Cookie field instead."
+          },
+          "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
+        }
+      },
+      "quark": {
+        "status": {
+          "loading": "Đang đọc trạng thái ủy quyền…",
+          "missing": "Chưa đăng nhập",
+          "ready": "Đã ủy quyền",
+          "stale": "Phiên đã hết hạn; vui lòng đăng nhập lại",
+          "stale_soon": "Phiên sắp hết hạn"
+        },
+        "action": {
+          "deleteSession": "Xóa phiên đã lưu"
+        },
+        "embedded": {
+          "title": "Đăng nhập trong ứng dụng",
+          "start": "Đăng nhập bằng cửa sổ nhúng",
+          "cancel": "Ngừng chờ đợi",
+          "hint": "Một cửa sổ đăng nhập sẽ mở trong ứng dụng. Nó tự đóng ngay khi bạn đăng nhập xong và phiên được lấy về luôn — bạn chỉ cần lưu kết nối này.",
+          "status": {
+            "waiting": "Đang chờ bạn đăng nhập…",
+            "ready": "Đã đăng nhập. Hãy lưu kết nối này — phiên sẽ được ghi khi bạn lưu.",
+            "closed": "Cửa sổ đăng nhập đã bị đóng trước khi bạn đăng nhập xong.",
+            "timeout": "Đã hết thời gian chờ đăng nhập. Vui lòng thử lại.",
+            "error": "Không đọc được trạng thái đăng nhập. Vui lòng thử lại."
+          },
+          "saved": "Đã đăng nhập vào Quark Drive: cửa sổ đã tự đóng và phiên đã được lấy về. Hãy lưu kết nối này để sử dụng."
+        }
+      },
+      "aliyun": {
+        "status": {
+          "loading": "Đang đọc trạng thái ủy quyền…",
+          "missing": "Chưa đăng nhập",
+          "ready": "Đã ủy quyền",
+          "stale": "Phiên đã hết hạn; vui lòng đăng nhập lại",
+          "stale_soon": "Phiên sắp hết hạn"
+        },
+        "action": {
+          "deleteSession": "Xóa phiên đã lưu"
+        },
+        "embedded": {
+          "title": "Đăng nhập bằng cách quét mã QR",
+          "start": "Hiển thị mã QR",
+          "cancel": "Ngừng chờ đợi",
+          "hint": "Mã QR đăng nhập sẽ xuất hiện ở đây. Hãy dùng ứng dụng Aliyun Drive trên điện thoại để quét — phiên được lấy về tự động, bạn chỉ cần lưu kết nối này. Nếu không quét được, hãy dán token truy cập bên dưới.",
+          "status": {
+            "waiting": "Đang chờ bạn quét mã…",
+            "ready": "Đã đăng nhập. Hãy lưu kết nối này — phiên sẽ được ghi khi bạn lưu.",
+            "closed": "Đăng nhập đã bị hủy trước khi bạn hoàn tất.",
+            "timeout": "Mã QR đã hết hạn. Vui lòng thử lại.",
+            "error": "Không đọc được trạng thái đăng nhập. Vui lòng thử lại.",
+            "scanned": "Đã quét, vui lòng xác nhận trên điện thoại"
+          },
+          "saved": "Đã đăng nhập vào Aliyun Drive. Hãy lưu kết nối này để sử dụng.",
+          "refresh": "Làm mới mã QR",
+          "windowStart": "Mở cửa sổ đăng nhập",
+          "windowCancel": "Đóng cửa sổ",
+          "windowHint": "Trang chính thức của Aliyun Drive hiển thị mã QR và xác nhận trong cửa sổ; thông tin đăng nhập được gửi thẳng tới ứng dụng.",
+          "qrFallback": "Dự phòng: đăng nhập bằng mã QR thủ công"
+        },
+        "field": {
+          "pasteToken": "Token truy cập",
+          "pasteTokenHint": "Dán một mã truy cập mà bạn đã có. Mã này được kiểm tra với Aliyun Drive trước khi lưu, và không bao giờ rời khỏi máy này ở dạng văn bản thuần."
+        }
+      },
+      "netdisk": {
+        "provider": "Dịch vụ đám mây",
+        "baidu": "Baidu Drive",
+        "quark": "Quark Drive",
+        "aliyun": "Aliyun Drive",
+        "signedIn": "Đã đăng nhập",
+        "onedrive": "OneDrive"
+      },
+      "onedrive": {
+        "field": {
+          "clientId": "Application (client) ID",
+          "clientIdHint": "The client id of the Microsoft Entra application you registered for OneDrive. It is stored with the session on this machine and is never sent through this form.",
+          "authUrl": "Authorization URL",
+          "authUrlHint": "If the browser did not open by itself, copy this URL and finish signing in there."
+        },
+        "action": {
+          "start": "Start sign-in",
+          "cancel": "Stop waiting",
+          "deleteSession": "Delete the saved session"
+        },
+        "state": {
+          "pending": "Waiting for you to finish signing in in the browser…",
+          "completed": "Signed in. Save this connection — the session will be written when you save.",
+          "failed": "The sign-in did not complete. Please try again."
+        },
+        "auth": {
+          "authorized": "Authorized",
+          "missing": "Not signed in",
+          "loading": "Reading authorization status…"
+        },
+        "hint": {
+          "clientIdRequired": "Fill in the application (client) ID first."
+        }
+      }
+    },
+    "about": {
+      "title": "Giới thiệu",
+      "changelog": "Nhật ký thay đổi",
+      "projectLinks": "Liên kết dự án",
+      "commits": "Commit",
+      "author": "Tác giả",
+      "developer": "段燚",
+      "website": "Trang web",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "Quét mã để theo dõi"
     }
   },
   "projectGithubButtons": {
     "projectPage": "Trang dự án",
-    "requestsIssues": "Yêu cầu & vấn đề",
-    "discussions": "Thảo luận"
+    "requestsIssues": "Yêu cầu & vấn đề"
   },
   "settingsTabs": {
     "general": "Chung",
@@ -470,7 +918,9 @@
     "dataStorage": "Dữ liệu & lưu trữ",
     "stats": "Số liệu thống kê",
     "experimental": "Thử nghiệm",
-    "extensions": "Tiện ích mở rộng"
+    "extensions": "Tiện ích mở rộng",
+    "remote": "Remote",
+    "about": "Giới thiệu"
   },
   "settingsTags": {
     "language": "ngôn ngữ",
@@ -483,8 +933,8 @@
     "visualFilters": "hình ảnh, bộ lọc, màu sắc, độ tương phản, độ sáng, độ bão hòa, hình ảnh, video, chủ đề, hộp thoại, nền, mờ",
     "fonts": "phông chữ, văn bản",
     "dateTime": "ngày, giờ, định dạng",
-    "uiElements": "ui, thành phần, hình ảnh, đầu vào, dấu, màu sắc, dòng thời gian, bảng điều khiển, trang, gần đây, thẻ, nhà, ổ đĩa, không gian, chỉ báo, kiểu",
-    "quickAccess": "quick, access, panel, hover, sidebar, dashboard",
+    "uiElements": "ui, thành phần, hình ảnh, đầu vào, dấu, màu sắc, dòng thời gian, truy cập nhanh, trang, gần đây, thẻ, nhà, ổ đĩa, không gian, chỉ báo, kiểu",
+    "quickAccess": "quick, access, panel, hover, sidebar",
     "tooltips": "tooltip, tooltips, hover, delay, timing",
     "clipboard": "bảng nhớ tạm, dán, sao chép, cắt, thanh công cụ, hình ảnh, ảnh chụp màn hình, đường dẫn, tệp",
     "homePageMediaBanner": "trang chủ, trang, phương tiện, biểu ngữ, nền, hình ảnh, video",
@@ -492,7 +942,7 @@
     "shortcuts": "phím tắt",
     "tabAppearance": "tab, tab đang hoạt động, in đậm, văn bản",
     "globalSearch": "toàn cầu, tìm kiếm, tìm, xem, lọc, quét",
-    "stats": "thống kê, dữ liệu, người dùng, yêu thích, thẻ, lịch sử, gần đây, bảng điều khiển, lưu trữ",
+    "stats": "thống kê, dữ liệu, người dùng, yêu thích, thẻ, lịch sử, gần đây, truy cập nhanh, lưu trữ",
     "driveDetection": "ổ đĩa, usb, lưu trữ, đĩa, thiết bị, phát hiện, kết nối",
     "autoplay": "tự động phát, trình khám phá, windows, ổ đĩa, usb, tự động, mở, thư mục",
     "experimental": "nâng cao, thử nghiệm, trình quản lý tệp mặc định, trình khám phá tệp, sổ đăng ký, terminal, shell",
@@ -501,10 +951,13 @@
     "extensions": "extensions, plugins, addons, configuration, settings",
     "infoPanelPreview": "info, panel, preview, image, thumbnail, memory, original, video, mute, autoplay",
     "performance": "performance, memory, quick view, print, window, launch, preload",
-    "fileView": "chế độ xem tệp, khung kéo, chọn hộp, kéo chọn, danh sách, lưới, khoảng cách, đệm",
+    "fileView": "chế độ xem tệp, khung kéo, chọn hộp, kéo chọn, danh sách, lưới, khoảng cách, đệm, folder, folders, first, top, sort, sorting, order, ordering, list, files, file, directory, directories, group, grouping, view, precedence",
     "tabsWorkspaces": "tab, không gian làm việc, đóng, tab cuối, tab mặc định",
     "defaultDirectory": "home, locations, máy tính, ổ đĩa, thư mục mặc định, tab mới, đường dẫn tùy chỉnh",
-    "startupPage": "trang khởi động, khởi động, mở khi khởi động, trang chủ, bảng điều khiển, navigator, trang gần nhất, khôi phục, trang"
+    "startupPage": "trang khởi động, khởi động, mở khi khởi động, trang chủ, truy cập nhanh, navigator, trang gần nhất, khôi phục, trang",
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "giới thiệu, phiên bản, cập nhật, nhật ký thay đổi, github, tác giả, trang web, wechat, mã qr",
+    "settingsTransfer": "export, import, settings, favorites, remote connections, cloud drive, backup, restore"
   },
   "drag": {
     "holdShiftToChangeMode": "Giữ [Shift] để thay đổi chế độ",
@@ -537,13 +990,15 @@
     "localShortcutsAppScope": "Phím tắt cục bộ (phạm vi ứng dụng)",
     "unknownMainKey": "Phím không xác định",
     "globalShortcutRegisterFailed": "Không thể đăng ký phím tắt toàn cục này. Có thể Windows hoặc ứng dụng khác đang dùng. Hãy thử tổ hợp khác (ví dụ Win+Shift+… hoặc Ctrl+Alt+…).",
-    "shortcutRecorderGlobalCaptureHint": "Nếu nhấn phím mà không thấy gì, hệ thống của bạn hoặc chương trình khác có thể đã chặn phím trước khi cửa sổ này nhận được. Hãy thử tổ hợp khác."
+    "shortcutRecorderGlobalCaptureHint": "Nếu nhấn phím mà không thấy gì, hệ thống của bạn hoặc chương trình khác có thể đã chặn phím trước khi cửa sổ này nhận được. Hãy thử tổ hợp khác.",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "Hiển thị cửa sổ ứng dụng",
     "switchToHomePage": "Chuyển sang trang chủ",
     "switchToNavigatorPage": "Chuyển sang trang trình điều hướng",
-    "switchToDashboardPage": "Chuyển sang bảng điều khiển",
+    "switchToDashboardPage": "Chuyển sang truy cập nhanh",
     "switchToSettingsPage": "Chuyển sang trang cài đặt",
     "switchToExtensionsPage": "Chuyển sang trang tiện ích mở rộng",
     "navigatePageBack": "Đi tới trang trước",
@@ -641,6 +1096,22 @@
       "description": "Thao tác này sẽ xóa vĩnh viễn {count} mục khỏi máy tính của bạn.",
       "confirm": "Chỉ xác nhận nếu bạn hiểu rằng không thể hoàn tác.",
       "delete": "Xóa"
+    },
+    "remoteHostKeyUnknown": {
+      "title": "This server’s identity has not been verified yet",
+      "description": "Alpha File Manager has connected to this host for the first time. Compare the fingerprint below with the one your server administrator gave you, then decide whether to trust it.",
+      "trust": "Trust and continue"
+    },
+    "remoteHostKeyChanged": {
+      "title": "This server’s identity has changed",
+      "description": "The host key presented by this server does not match the one you trusted before. This can mean the server was reinstalled, or that someone is intercepting the connection.",
+      "expected": "Previously trusted fingerprint:",
+      "trustAnyway": "Replace and continue"
+    },
+    "remoteHostKeyCommon": {
+      "algorithm": "Host key algorithm: {algorithm}",
+      "hint": "You can check it yourself with: ssh-keygen -lf <host key file>",
+      "hintX509": "You can check it yourself with: openssl x509 -fingerprint -sha256 -noout -in <certificate file>"
     }
   },
   "notifications": {
@@ -674,7 +1145,9 @@
     "addedToFavorites": "Đã thêm 0 mục vào mục yêu thích | Đã thêm 1 mục vào mục yêu thích | Đã thêm {n} mục vào mục yêu thích | Đã thêm {n} mục vào mục yêu thích",
     "createdNLinks": "Đã tạo 0 liên kết | Đã tạo 1 liên kết | Đã tạo {n} liên kết | Đã tạo {n} liên kết",
     "createdNOfNLinks": "Đã tạo {created} trên {total} liên kết",
-    "linkCreationPartialFailureDescription": "{count} liên kết thất bại. Lỗi đầu tiên: {error}"
+    "linkCreationPartialFailureDescription": "{count} liên kết thất bại. Lỗi đầu tiên: {error}",
+    "deletingLargeBatch": "Deleting {count} items",
+    "deletingLargeBatchDetail": "{files} files · {directories} folders · {size}"
   },
   "contextMenus": {
     "dirItem": {
@@ -856,6 +1329,7 @@
     },
     "name": "Tên",
     "size": "Kích thước",
+    "availableSpace": "Dung lượng trống",
     "modified": "Đã sửa đổi",
     "listModifiedDate": {
       "todayAt": "Hôm nay {time}",
@@ -864,6 +1338,7 @@
     "columns": "Cột",
     "tags": "Thẻ",
     "folders": "Thư mục",
+    "partitions": "Phân vùng",
     "images": "Hình ảnh",
     "videos": "Video",
     "video": "Video",
@@ -910,12 +1385,16 @@
     "actions": {
       "rename": "Đổi tên",
       "copy": "Sao chép",
+      "cut": "Cắt",
       "move": "Di chuyển",
       "paste": "Dán",
       "pasteToPane1": "Dán vào bảng 1",
       "pasteToPane2": "Dán vào bảng 2",
       "delete": "Xóa",
       "openWith": "Mở bằng...",
+      "openContainingDirectory": "Open containing directory",
+      "openContainingDirectoryFailed": "Không thể mở thư mục chứa",
+      "openContainingDirectoryInApp": "Show containing folder in split view",
       "properties": "Thuộc tính",
       "propertiesFailed": "Không thể mở thuộc tính",
       "quickView": "Xem nhanh",
@@ -924,7 +1403,17 @@
       "openInNewTab": "Mở trong thẻ mới",
       "addToFavorites": "Thêm vào yêu thích",
       "removeFromFavorites": "Xóa khỏi yêu thích",
-      "createLink": "Tạo liên kết"
+      "createLink": "Tạo liên kết",
+      "unlock": "Unlock file",
+      "forceDelete": "Force delete",
+      "rotateImageLeft": "Xoay sang trái",
+      "rotateImageRight": "Xoay sang phải",
+      "flipImageHorizontal": "Lật ngang",
+      "flipImageVertical": "Lật dọc",
+      "imageEditSucceeded": "Đã chỉnh sửa hình ảnh thành công",
+      "imageEditFailed": "Không thể chỉnh sửa hình ảnh",
+      "imageEditInProgress": "Đang xử lý…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "Liên kết tượng trưng",
@@ -995,7 +1484,30 @@
     "linkMetadataPerformanceWarning": "Có thể tăng mức sử dụng bộ nhớ và giảm hiệu năng.",
     "fillColumnWidth": "Fill available width",
     "setMinimumColumnWidths": "Đặt độ rộng tối thiểu",
-    "items": "Mục"
+    "items": "Mục",
+    "favoriteCategoryDialog": {
+      "title": "Add to favorites",
+      "categoryLabel": "Choose a category",
+      "uncategorized": "Uncategorized",
+      "newCategoryLabel": "Or create a new category",
+      "newCategoryPlaceholder": "Type a name for the new category",
+      "confirm": "Add to favorites",
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "Tên hiển thị",
+      "displayNamePlaceholder": "Để trống để dùng tên gốc"
+    },
+    "searchOptions": {
+      "title": "Tùy chọn tìm kiếm",
+      "matchCount": "{n} kết quả khớp",
+      "results": "Kết quả",
+      "options": "Tùy chọn"
+    },
+    "swapPanes": "Swap panes",
+    "devices": "Thiết bị",
+    "device": "Thiết bị",
+    "deviceOpenFailed": "Không thể mở thiết bị này",
+    "deviceOpenFailedDescription": "Thiết bị có thể đã bị ngắt kết nối. Hãy mở bằng File Explorer của hệ thống.",
+    "openInSystemExplorer": "Mở trong File Explorer của hệ thống"
   },
   "openWith": {
     "loadingPrograms": "Đang tải chương trình...",
@@ -1095,7 +1607,7 @@
     },
     "badges": {
       "official": "Chính thức",
-      "officialTooltip": "Tiện ích mở rộng này được tạo và duy trì bởi đội ngũ Sigma File Manager",
+      "officialTooltip": "Tiện ích mở rộng này được tạo và duy trì bởi đội ngũ Alpha File Manager",
       "community": "Cộng đồng",
       "communityTooltip": "Đây là tiện ích mở rộng cộng đồng. Xem xét mã nguồn trước khi cài đặt.",
       "local": "Cục bộ",
@@ -1103,7 +1615,9 @@
       "broken": "Lỗi",
       "brokenTooltip": "Thiếu tệp tiện ích mở rộng. Gỡ cài đặt để xóa khỏi danh sách.",
       "disabled": "Đã tắt",
-      "disabledTooltip": "Tiện ích mở rộng này đã bị tắt"
+      "disabledTooltip": "Tiện ích mở rộng này đã bị tắt",
+      "source": "Nguồn",
+      "sourceTooltip": "Nguồn cửa hàng: {name}"
     },
     "stats": {
       "total": "Tổng",
@@ -1191,17 +1705,30 @@
       "reloadFailed": "Không thể tải lại tiện ích sau khi cập nhật cài đặt tệp nhị phân"
     },
     "engineIncompatibleShort": "Cần cập nhật",
-    "engineAppWarning": "Yêu cầu Sigma File Manager {range} (bạn đang dùng {current})",
+    "engineAppWarning": "Yêu cầu Alpha File Manager {range} (bạn đang dùng {current})",
     "engineApiWarning": "Yêu cầu API extension {range} (bạn đang dùng {current})",
     "engineRequirements": "Yêu cầu",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "API extension",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",
     "githubConnectivityIssue": "Không thể kết nối GitHub",
     "githubConnectivityIssueDescription": "Một số kiểm tra phiên bản tiện ích thất bại vì ứng dụng không thể kết nối tới GitHub. Hãy kiểm tra kết nối Internet, VPN hoặc tường lửa và thử lại sau.",
     "offlineIssue": "You are offline",
-    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features."
+    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features.",
+    "marketSources": "Nguồn cửa hàng",
+    "marketSourceAdd": "Thêm nguồn cửa hàng",
+    "marketSourceName": "Tên",
+    "marketSourceUrl": "URL kho",
+    "marketSourceOfficial": "Chính thức",
+    "marketSourceCommunity": "Cộng đồng",
+    "marketSourceCustom": "Tự tạo",
+    "marketSourceAll": "Tất cả",
+    "marketSourceEmpty": "Chưa thêm nguồn cửa hàng nào.",
+    "marketSourceRemove": "Xóa nguồn cửa hàng",
+    "marketSourceRemoveConfirm": "Xóa nguồn cửa hàng này? Các tiện ích mở rộng do nguồn này cung cấp sẽ bị gỡ cài đặt khi cửa hàng được làm mới lần sau.",
+    "marketSourceInvalidUrl": "Nhập một URL HTTPS công khai.",
+    "marketSourceUnreachable": "Không truy cập được"
   },
   "commandPalette": {
     "accessibleDialogTitle": "Bảng lệnh",
@@ -1229,7 +1756,9 @@
       "trash": "Thùng rác",
       "deletePermanent": "Xóa",
       "archive": "Lưu trữ",
-      "dirSize": "Kích thước thư mục"
+      "dirSize": "Kích thước thư mục",
+      "remoteUpload": "Upload",
+      "remoteDownload": "Download"
     },
     "operationStatusShort": {
       "completed": "Thành công",
@@ -1239,7 +1768,13 @@
       "pending": "Đang chờ",
       "cancelling": "Đang hủy…"
     },
-    "toolbarActiveCount": "0 thao tác | 1 thao tác | {n} thao tác | {n} thao tác"
+    "toolbarActiveCount": "0 thao tác | 1 thao tác | {n} thao tác | {n} thao tác",
+    "deleteScanning": "Measuring what will be deleted…",
+    "deleteScanningFound": "{count} items found",
+    "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "Đang chuyển vào Thùng rác…",
+    "cancelNotAccepted": "Không thể hủy: các tệp đã được chuyển vào Thùng rác.",
+    "deleteBytesProgress": "{done} / {total} freed"
   },
   "recalculate": "Tính toán lại",
   "lanShare": {
@@ -1266,5 +1801,291 @@
     "replaceShareDialogDescription": "Các tập tin đang được chia sẻ qua mạng. Chia sẻ hiện tại sẽ bị dừng và thay thế bằng chia sẻ mới.",
     "replaceShareDialogConfirm": "Thay thế"
   },
-  "tree": "Tree"
+  "tree": "Tree",
+  "batchRename": {
+    "menuItem": "Batch rename",
+    "dialog": {
+      "title": "Batch rename",
+      "tabRename": "Rename",
+      "tabHistory": "Undo history",
+      "cancel": "Cancel",
+      "apply": "Rename",
+      "close": "Close",
+      "loading": "Calculating…",
+      "noRules": "No rules added — nothing will be renamed.",
+      "summaryChanged": "{count} item(s) will be renamed",
+      "summaryUnchanged": "{count} item(s) unchanged",
+      "blocked": "Conflicts found. Fix them before applying.",
+      "openHistory": "Undo history"
+    },
+    "rules": {
+      "title": "Rules",
+      "empty": "No rules yet.",
+      "add": "Add rule",
+      "remove": "Remove rule",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "sortLabel": "Numbering order",
+      "type": {
+        "findReplace": "Find and replace",
+        "caseTransform": "Change case",
+        "template": "Template",
+        "sequence": "Numbering",
+        "extension": "Extension"
+      },
+      "findReplace": {
+        "find": "Find",
+        "replace": "Replace with",
+        "caseSensitive": "Match case",
+        "includeExtension": "Include extension"
+      },
+      "caseTransform": {
+        "mode": "Mode",
+        "includeExtension": "Include extension"
+      },
+      "case": {
+        "upper": "UPPERCASE",
+        "lower": "lowercase",
+        "title": "Title Case",
+        "camel": "camelCase",
+        "snake": "snake_case",
+        "kebab": "kebab-case"
+      },
+      "template": {
+        "pattern": "Pattern",
+        "variables": "Available variables",
+        "dateFormat": "Date format"
+      },
+      "sequence": {
+        "start": "Start",
+        "step": "Step",
+        "pad": "Zero padding",
+        "hint": "Numbering does not rename anything on its own. It only supplies the sequence variable used by a Template rule — add a Template rule to use it.",
+        "addTemplate": "Add a Template rule"
+      },
+      "extension": {
+        "newExtension": "New extension",
+        "newExtensionHint": "Leave empty to remove the extension"
+      }
+    },
+    "sort": {
+      "selection": "Selection order",
+      "nameAsc": "Name A to Z",
+      "nameDesc": "Name Z to A",
+      "modifiedAsc": "Modified, oldest first",
+      "modifiedDesc": "Modified, newest first",
+      "sizeAsc": "Size, smallest first",
+      "sizeDesc": "Size, largest first"
+    },
+    "preview": {
+      "title": "Preview",
+      "oldName": "Current name",
+      "newName": "New name",
+      "empty": "Nothing to preview.",
+      "unchanged": "unchanged"
+    },
+    "conflicts": {
+      "title": "Conflicts",
+      "targetExists": "The new name is already taken by another file in this folder.",
+      "duplicateTarget": "Several items would get the same name.",
+      "invalidTitle": "Invalid file names",
+      "invalid": {
+        "empty": "Name is empty.",
+        "illegalCharacter": "Contains a character that is not allowed in file names.",
+        "windowsReservedName": "Reserved name on Windows.",
+        "trailingDotOrSpace": "Cannot end with a dot or a space."
+      }
+    },
+    "result": {
+      "success": "Renamed {count} item(s)",
+      "partial": "Rename failed",
+      "rollbackOk": "Rolled back — the folder is back to its previous state.",
+      "rollbackFailed": "Rollback failed. The folder may be in a mixed state — check it manually.",
+      "noUndo": "This change could not be recorded for undo."
+    },
+    "history": {
+      "title": "Undo history",
+      "empty": "No history yet.",
+      "undo": "Undo",
+      "undoing": "Undoing…",
+      "itemCount": "{count} file(s)",
+      "undoSuccess": "Reverted {count} item(s)",
+      "undoFailed": "Undo failed",
+      "blockedBy": "These names are taken, so they could not be restored: {names}",
+      "notFound": "That history entry no longer exists."
+    }
+  },
+  "remote": {
+    "transfer": {
+      "uploadToRemote": "Upload to remote",
+      "downloadToLocal": "Download to local",
+      "uploadSucceeded": "Uploaded {files} file(s) to the remote folder.",
+      "uploadFailed": "Upload did not fully succeed: {files} uploaded, {skipped} skipped, {failed} failed.",
+      "downloadSucceeded": "Downloaded {files} file(s) to the local folder.",
+      "downloadFailed": "Download did not fully succeed: {files} downloaded, {skipped} skipped, {failed} failed.",
+      "uploading": "Uploading to remote",
+      "downloading": "Downloading from remote",
+      "progressFiles": "{done} / {total} files transferred",
+      "progressBytes": "{done} / {total} transferred",
+      "progressCurrent": "Current: {name}",
+      "resultTitle": "Transfer result",
+      "resultSummary": "{files} file(s) succeeded, {skipped} skipped, {failed} failed",
+      "failureSection": "Failed items",
+      "skippedSection": "Skipped items",
+      "skipReasonAlreadyExists": "Target already exists (not overwritten)",
+      "conflictTitle": "Target already exists",
+      "conflictMessage": "{count} file(s) already exist in the target folder. Overwrite them?",
+      "conflictOverwrite": "Overwrite",
+      "conflictSkipExisting": "Skip existing",
+      "noRemotePane": "The other pane is not on a remote host",
+      "uploadFailedTitle": "Upload did not fully succeed",
+      "downloadFailedTitle": "Download did not fully succeed",
+      "pasteToRemoteFailed": "Copy failed",
+      "remoteToRemoteNotSupported": "Copying between two remote locations is not supported yet. Click a local folder pane first and press Ctrl+V to download, or right-click the file and choose Download to local.",
+      "pasteFromRemoteFailed": "Copy from remote failed",
+      "conflictApplyToAll": "Apply the same choice to all files",
+      "conflictContinue": "Continue",
+      "skipReasonUserSkipped": "Skipped by you"
+    },
+    "permissions": {
+      "menuItem": "Permissions...",
+      "title": "Set permissions",
+      "modeLabel": "Permissions (octal)",
+      "modeHint": "For example 0754 means the owner may read, write and execute; the group may read and execute; others may read.",
+      "unknownMode": "The current permissions could not be read. Pick one from the list.",
+      "owner": "Owner",
+      "group": "Group",
+      "others": "Others",
+      "read": "read",
+      "write": "write",
+      "execute": "execute",
+      "none": "none",
+      "separator": ", ",
+      "recursive": "Apply to subdirectories and the files in them",
+      "apply": "Apply",
+      "success": "Permissions updated ({changed} item(s)).",
+      "partialFailure": "Permissions updated for {changed} item(s); {failed} failed.",
+      "failed": "Could not set permissions: {message}",
+      "error": {
+        "empty": "Enter the permissions in octal, for example 0754.",
+        "tooLong": "At most 4 octal digits are allowed.",
+        "notOctal": "Only the digits 0-7 are allowed.",
+        "unknown": "This permission value could not be recognized."
+      }
+    },
+    "delete": {
+      "menuItem": "Xóa",
+      "title": "Xóa mục từ xa",
+      "descriptionSingle": "{path} sẽ bị xóa vĩnh viễn. Không thể hoàn tác thao tác này.",
+      "description": "Thao tác này sẽ xóa vĩnh viễn {count} mục khỏi máy chủ từ xa. Không thể hoàn tác.",
+      "noTrashHint": "Máy chủ từ xa không có thùng rác, nên các mục đã xóa không thể khôi phục.",
+      "connectionHint": "Kết nối: {name}",
+      "confirm": "Xóa",
+      "success": "Đã xóa {count} mục từ xa.",
+      "failed": "Không thể xóa",
+      "permissionDenied": "Không có quyền"
+    },
+    "write": {
+      "fileCreationNotSupported": "Các thư mục từ xa không hỗ trợ tạo tệp trống.",
+      "fileCreationNotSupportedTitle": "Không thể tạo tệp"
+    }
+  },
+  "compareSync": {
+    "title": "Compare & Sync",
+    "description": "Compare the two directories and sync the differences. This step never deletes anything.",
+    "stepSettings": "Setup",
+    "stepResults": "Results",
+    "stepPreview": "Preview & Run",
+    "leftDirectory": "Left directory",
+    "rightDirectory": "Right directory",
+    "leftDirectoryHint": "Source side",
+    "rightDirectoryHint": "Target side",
+    "tabCriteria": "Criteria",
+    "tabExclude": "Exclude",
+    "criteriaByTime": "By modification time",
+    "criteriaBySize": "By file size",
+    "criteriaByChecksum": "By content checksum",
+    "criteriaByChecksumHint": "Only available between two local folders; remote servers have no checksum to compare.",
+    "criteriaCaseSensitive": "Case sensitive",
+    "criteriaRecursive": "Compare subfolders recursively",
+    "criteriaMaxDepth": "Maximum depth",
+    "criteriaMaxDepthUnlimited": "Unlimited",
+    "criteriaRemoteTimeOffset": "Remote time offset (seconds)",
+    "criteriaRemoteTimeOffsetHint": "Servers usually report time in their own time zone; this offset converts it to yours.",
+    "excludePatterns": "Exclude rules",
+    "excludePatternsHint": "One per line, * and ? are supported. A matching folder drops its whole subtree from the comparison.",
+    "compare": "Compare",
+    "comparing": "Comparing…",
+    "back": "Back",
+    "preview": "Build preview",
+    "execute": "Start sync",
+    "executing": "Syncing…",
+    "cancel": "Cancel",
+    "filterAll": "All",
+    "filterDifferences": "Differences only",
+    "statusSame": "Same",
+    "statusOnlyLeft": "Left only",
+    "statusOnlyRight": "Right only",
+    "statusNewer": "Left is newer",
+    "statusOlder": "Left is older",
+    "statusSizeDiff": "Different size",
+    "statusContentDiff": "Different content",
+    "statusKindDiff": "Different type",
+    "statusIndeterminate": "Undecidable",
+    "directionToRight": "Left → Right",
+    "directionToLeft": "Right → Left",
+    "directionNone": "Nothing to do",
+    "directionIndeterminate": "Direction undecided",
+    "noDifferences": "No differences.",
+    "statsTotal": "Total",
+    "statsSame": "Same",
+    "statsDifferences": "Different",
+    "statsNeedsReview": "Undecided",
+    "actionCreateDir": "Create folder",
+    "actionTransferFile": "Transfer file",
+    "actionSkip": "Skip",
+    "planSummary": "Will create {dirs} folders, transfer {files} files and skip {skipped} items.",
+    "reportTransferred": "Transferred",
+    "reportCreatedDirs": "Folders created",
+    "reportSkipped": "Skipped",
+    "reportFailed": "Failed",
+    "reportCancelled": "Cancelled",
+    "invalidPath": "This path cannot be used.",
+    "progressPreparing": "Đang chuẩn bị…",
+    "progressScanningLeft": "Đang quét phía trái…",
+    "progressScanningRight": "Đang quét phía phải…",
+    "progressComparing": "Đang so sánh…",
+    "progressDone": "Xong",
+    "progressScanned": "Đã quét {count} mục",
+    "progressCompared": "Đã so sánh {count} / {total} mục",
+    "rowsTruncated": "Đang hiển thị {shown} / {total}. Dùng bộ lọc để thu hẹp.",
+    "showMore": "Hiện thêm {count}",
+    "statsUnreadable": "không đọc được"
+  },
+  "mapNetworkDrive": "Map network drive",
+  "mapNetworkDriveDescription": "Map a network share to a drive letter. Once it is mounted it shows up in the drive list on the left.",
+  "networkDriveLetter": "Drive letter",
+  "networkDriveLetterPlaceholder": "Auto",
+  "fileLock": {
+    "unlocked": "File unlocked",
+    "unlockedDescription": "Whatever was blocking the file has been cleared. You can delete it normally now.",
+    "unlockFailed": "Could not unlock the file",
+    "forceDeleted": "File deleted",
+    "forceDeletedDescription": "The file was removed even though it was in use.",
+    "forceDeleteFailed": "Could not delete the file",
+    "scheduledForReboot": "Deletion scheduled",
+    "scheduledForRebootDescription": "The file is still in use. It will be deleted the next time Windows starts.",
+    "terminateFailed": "Could not end the process",
+    "unknownError": "Unknown error",
+    "holdersTitle": "Programs using this file",
+    "holdersDescription": "These programs are holding the file open. Ending one of them may lose unsaved work.",
+    "noHolders": "No program was found holding this file.",
+    "endProcess": "End process",
+    "diagnoseFailed": "Could not check which programs are using this file"
+  },
+  "webviewGuard": {
+    "detected": "The interface renderer process crashed. Trying to recover automatically...",
+    "recovered": "The interface is working again.",
+    "recoveryFailed": "The interface could not be recovered automatically. Please restart the app."
+  }
 }

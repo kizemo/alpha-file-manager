@@ -4,9 +4,13 @@
 
 import { nextTick, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
+import { markRaw } from 'vue';
 import { useUserPathsStore } from '@/stores/storage/user-paths';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import { useUserStatsStore } from '@/stores/storage/user-stats';
+// FORK-MODIFICATION 2026-10-20：启动序列要加载远程连接（见 init 里的说明）。
+import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
 import { useWorkspacesStore } from '@/stores/storage/workspaces';
 import { usePlatformStore } from '@/stores/runtime/platform';
 import { useGlobalSearchStore } from '@/stores/runtime/global-search';
@@ -32,22 +36,32 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { SIGMA_AUTOSTART_CLI_FLAG } from '@/constants/autostart';
 import { applyLaunchAtStartupPreference } from '@/utils/autostart-sync';
+// FORK-MODIFICATION 2026-10-20：移植上游 8908e214 —— 隔离的 e2e 实例不碰真实系统集成。
+import { isIsolatedDataDir } from '@/utils/app-dirs';
 import {
   prelaunchConfiguredAuxiliaryWindows,
   setupAuxiliaryWindowLifecycle,
 } from '@/utils/auxiliary-windows';
 import {
+  getLaunchSelectRequest,
+  getLaunchShellPathCandidates,
   hasLaunchDirectoryCandidates,
   resolveLaunchTargetsFromArgs,
+  resolveSelectLaunchTarget,
   type LaunchContext,
 } from '@/utils/launch-directories';
+import { isShellPath } from '@/utils/shell-paths';
+import { openInSystemExplorer } from '@/utils/open-in-system-explorer';
+import { toast, ToastStatic } from '@/components/ui/toaster';
 import { applyUiZoomStep } from '@/utils/ui-zoom';
+import { installBackgroundActivationFallback } from '@/utils/drag-no-activate';
 import { useClipboardFocusSync } from '@/composables/use-clipboard-focus-sync';
 import { toggleMainWindowFullscreen } from '@/utils/window-fullscreen';
 import { removeAppSplash } from '@/utils/app-splash';
 import { logInitTrace, traceInitStep } from '@/utils/init-trace';
 import { warmPathComparisonVolumeCache } from '@/utils/path-comparison-volume-cache';
 import { openNavigatorPath, preloadNavigatorRoute } from '@/utils/open-navigator-directory';
+import { refreshDrives } from '@/modules/home/composables/use-drives';
 import {
   persistLastRoute,
   resolveStartupRouteLocation,
@@ -55,14 +69,39 @@ import {
 } from '@/utils/last-route';
 
 const APP_LAUNCH_ARGS_EVENT = 'app-launch-args';
+
+// FORK-MODIFICATION 2026-11-19（批次 25 缺陷 B25-2）：U 盘安全弹出。
+// 后端 message-only 窗口把 WM_DEVICECHANGE 转成这个事件广播出来，
+// 事件名必须与 src-tauri/src/device_events.rs 的 VOLUME_EVENT 一字不差。
+const VOLUME_CHANGE_EVENT = 'volume-change';
+
+// 这三个 kind 表示系统正在/即将拿掉这块卷，必须关掉该盘上的标签页。
+// 刻意包含 query-remove：后端此时已经放掉句柄，标签页若继续开着，
+// 下一次目录读取会重新打开该盘句柄，弹出又会拿到 ERROR_REMOVE_VETOED(23)。
+const VOLUME_REMOVAL_EVENT_KINDS = new Set([
+  'query-remove',
+  'remove-pending',
+  'remove-complete',
+]);
+
+// 与后端 device_events::VolumeEventPayload（serde camelCase）一一对应。
+type VolumeChangePayload = {
+  kind: string;
+  driveLetter?: string | null;
+  releasedDirWatches?: number;
+  releasedIndexRoots?: number;
+};
+
 const STARTUP_BACKGROUND_REFRESH_TIMEOUT_MS = 1500;
 const STARTUP_DIR_ENTRY_TIMEOUT_MS = 2000;
 
 export function useInit() {
   const router = useRouter();
+  const { t } = useI18n();
   const userSettingsStore = useUserSettingsStore();
   const userStatsStore = useUserStatsStore();
   const workspacesStore = useWorkspacesStore();
+  const remoteConnectionsStore = useRemoteConnectionsStore();
   const userPathsStore = useUserPathsStore();
   const platformStore = usePlatformStore();
   const globalSearchStore = useGlobalSearchStore();
@@ -80,6 +119,7 @@ export function useInit() {
   const { initAutoCheck } = useAppUpdater();
   useClipboardFocusSync();
   let appLaunchArgsUnlisten: UnlistenFn | null = null;
+  let volumeChangeUnlisten: UnlistenFn | null = null;
   let auxiliaryWindowLifecycleUnlisten: UnlistenFn | null = null;
   const backgroundTasks = new Set<Promise<void>>();
 
@@ -193,23 +233,85 @@ export function useInit() {
     removeAppSplash();
   }
 
+  /**
+   * FORK-MODIFICATION 2026-11-19（批次 23）：设备（手机 / MTP）打不开时的**可见提示**。
+   *
+   * 故障链：设备拔出 / MTP 尚未就绪 ⇒ `get_dir_entry` 拿不到条目 ⇒ 没有任何启动目标
+   * ⇒ 用户停在启动页，看起来像「双击手机完全没反应」。
+   *
+   * 这里必须明确告诉他「这个设备打不开」，并给出唯一的出路：交给系统资源管理器
+   * （Windows 对 `::{GUID}` 这类 shell 命名空间路径是原生支持的）。
+   */
+  function showShellDeviceOpenFailed(shellPath: string) {
+    toast.custom(markRaw(ToastStatic), {
+      componentProps: {
+        data: {
+          title: t('fileBrowser.deviceOpenFailed'),
+          description: t('fileBrowser.deviceOpenFailedDescription'),
+          actionText: t('fileBrowser.openInSystemExplorer'),
+          onAction: () => {
+            void openInSystemExplorer(shellPath);
+          },
+        },
+      },
+      duration: 8000,
+    });
+  }
+
   async function openDirectoriesFromLaunchArgs(launchContext: LaunchContext): Promise<boolean> {
-    const launchTargets = await resolveLaunchTargetsFromArgs(
-      launchContext,
-      path => workspacesStore.getDirEntry({
+    function getDirEntry(path: string) {
+      return workspacesStore.getDirEntry({
         path,
         timeoutMs: STARTUP_DIR_ENTRY_TIMEOUT_MS,
-      }),
-    );
+      });
+    }
 
-    if (launchTargets.length === 0) {
+    const launchTargets = await resolveLaunchTargetsFromArgs(launchContext, getDirEntry);
+
+    // FORK-MODIFICATION (2026-11-03)：L3 —— 「打开文件所在目录」的 select 请求。
+    // 语义是「打开条目的**父目录** + 选中该条目」，与普通「打开这个路径」不同
+    // （普通打开一个目录是「进入该目录、不选中」），所以单独解析、单独成目标。
+    const selectRequest = getLaunchSelectRequest(launchContext);
+    const selectTarget = selectRequest
+      ? await resolveSelectLaunchTarget(selectRequest.selectPath, getDirEntry)
+      : null;
+    const allLaunchTargets = selectTarget
+      ? [...launchTargets, selectTarget]
+      : launchTargets;
+
+    // FORK-MODIFICATION 2026-11-19（批次 23）：设备候选逐个确认。
+    //
+    // 候选在、却拿不到条目 ⇒ 设备打不开（已拔出 / MTP 未就绪）。
+    // 这里**独立于** `resolveLaunchTargetsFromArgs` 判定：那个函数只把成功的目标
+    // 交出来，失败信息会被丢掉，于是「双击手机没反应」变成了静默失败。
+    for (const shellCandidate of getLaunchShellPathCandidates(launchContext)) {
+      const shellEntry = await getDirEntry(shellCandidate);
+
+      if (!shellEntry) {
+        showShellDeviceOpenFailed(shellCandidate);
+      }
+    }
+
+    if (allLaunchTargets.length === 0) {
       return false;
     }
 
     await router.push({ name: 'navigator' });
 
-    for (const launchTarget of launchTargets) {
-      await workspacesStore.openOrFocusTabGroup(launchTarget.directoryPath);
+    for (const launchTarget of allLaunchTargets) {
+      try {
+        await workspacesStore.openOrFocusTabGroup(launchTarget.directoryPath);
+      }
+      catch (openError: unknown) {
+        // 非设备路径维持原样（抛出去，由上层记日志）；设备路径只提示，不中断其它目标。
+        if (!isShellPath(launchTarget.directoryPath)) {
+          throw openError;
+        }
+
+        console.error('Failed to open the shell device directory:', openError);
+        showShellDeviceOpenFailed(launchTarget.directoryPath);
+        continue;
+      }
 
       if (launchTarget.focusPath) {
         workspacesStore.setPendingLaunchReveal(
@@ -271,6 +373,53 @@ export function useInit() {
   function unregisterAppLaunchArgsListener() {
     appLaunchArgsUnlisten?.();
     appLaunchArgsUnlisten = null;
+  }
+
+  async function handleVolumeChangeEvent(payload: VolumeChangePayload | undefined) {
+    if (!payload) {
+      return;
+    }
+
+    if (payload.kind === 'arrival') {
+      void refreshDrives();
+
+      return;
+    }
+
+    if (!VOLUME_REMOVAL_EVENT_KINDS.has(payload.kind)) {
+      return;
+    }
+
+    const driveLetter = payload.driveLetter;
+
+    if (!driveLetter) {
+      return;
+    }
+
+    // 句柄广播与未知类型不带盘符，到这里就已经放行完毕，前端无事可做。
+    try {
+      await workspacesStore.closeTabsOnDrive(driveLetter);
+      void refreshDrives();
+    }
+    catch (error) {
+      console.error('Failed to close tabs on removed drive:', error);
+    }
+  }
+
+  async function registerVolumeChangeListener() {
+    if (volumeChangeUnlisten || !isMainWebviewWindow()) {
+      return;
+    }
+
+    volumeChangeUnlisten = await listen<VolumeChangePayload>(
+      VOLUME_CHANGE_EVENT,
+      event => void handleVolumeChangeEvent(event.payload),
+    );
+  }
+
+  function unregisterVolumeChangeListener() {
+    volumeChangeUnlisten?.();
+    volumeChangeUnlisten = null;
   }
 
   function runInBackground(task: () => Promise<void>, errorMessage: string) {
@@ -338,6 +487,23 @@ export function useInit() {
     await traceInitStep(
       'workspacesStore.init',
       () => workspacesStore.init(undefined, { loadInitialTabGroup: false }),
+    );
+
+    // FORK-MODIFICATION 2026-10-20：远程连接 store **必须**在启动序列里，
+    // 不能只靠「哪个组件先挂载」来触发。
+    //
+    // 真实故障（打包版实测，探针读数 n=1 remote=1 conn=ok proto=undefined）：
+    // 这个 store 原本只有侧栏远程面板和设置页远程分类在 onMounted 里 init()。
+    // 于是「直接进导航器、没点过侧栏和设置」的那条路径上，`connections` 一直是空数组，
+    // 而导航器本身依赖它：
+    //   · 右键菜单的「权限设置」按 `selectionProtocol === 'sftp'` 判定，
+    //     协议查不到 → 菜单项整个消失；
+    //   · 目录树根的标签按连接名显示，查不到就回落成 32 位连接 id。
+    // 两处都不报错，只是「功能凭空没了」，排查成本极高。
+    // 组件级的 onMounted init 是**显示需要**，不是数据就绪保证。
+    await traceInitStep(
+      'remoteConnectionsStore.init',
+      () => remoteConnectionsStore.init(),
     );
 
     if (isMainWindow) {
@@ -417,7 +583,16 @@ export function useInit() {
 
     runInBackgroundWithTrace(
       'background:applyLaunchAtStartupPreference',
-      () => applyLaunchAtStartupPreference(userSettingsStore.userSettings.launchAtStartup),
+      async () => {
+        // FORK-MODIFICATION 2026-10-20：移植上游 8908e214。
+        // 隔离的 e2e 实例用的是默认设置，同步它们会改掉用户**真实**的
+        // 操作系统开机自启项 —— 那是 app 目录之外的东西，隔离目录管不到。
+        if (await isIsolatedDataDir()) {
+          return;
+        }
+
+        await applyLaunchAtStartupPreference(userSettingsStore.userSettings.launchAtStartup);
+      },
       'Failed to apply launch at startup preference:',
     );
     runInBackgroundWithTrace(
@@ -495,6 +670,15 @@ export function useInit() {
     if (isMainWebviewWindow()) {
       registerShortcutHandlers();
       void registerAppLaunchArgsListener();
+      void registerVolumeChangeListener();
+
+      // FORK-MODIFICATION 2026-10-21：「长按拖出时不抢前台」的前端兜底。
+      //
+      // 后端抑制激活时，普通点击的激活时机从「按下」推迟到了「抬手」，
+      // 这里装上抬手补焦点的监听器 —— 否则「点一下后台窗口」会毫无反应。
+      //
+      // 只装主窗口：辅助窗口（快速查看等）抬手时不该把主窗口拽到前台。
+      installBackgroundActivationFallback();
     }
   });
 
@@ -502,6 +686,7 @@ export function useInit() {
     if (isMainWebviewWindow()) {
       unregisterShortcutHandlers();
       unregisterAppLaunchArgsListener();
+      unregisterVolumeChangeListener();
     }
 
     appWindowStore.disposeMainWindowStateListeners();

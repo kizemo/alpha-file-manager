@@ -672,7 +672,7 @@ async function closeWindow() {
 
 async function setQuickViewWindowTitle(path: string) {
   const quickWindow = getCurrentWindow();
-  await quickWindow.setTitle(`Sigma File Manager | Quick View - ${getFileName(path)}`);
+  await quickWindow.setTitle(`Alpha File Manager | Quick View - ${getFileName(path)}`);
 }
 
 async function ensureResolvedSiblingPaths(): Promise<string[]> {

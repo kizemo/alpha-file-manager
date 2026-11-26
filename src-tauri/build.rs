@@ -11,7 +11,46 @@ fn main() {
     #[cfg(target_os = "windows")]
     build_default_file_manager_launcher();
 
-    tauri_build::build();
+    emit_icon_rerun_guards();
+
+    // Tauri 2.12 起：只要应用定义了 app 级 ACL manifest，**所有**自定义命令
+    // （含本地来源）都会走 ACL 判定。`permissions/app-commands.toml` 就是本应用的
+    // app manifest —— 不注册它，内嵌阿里云盘登录窗（远程源
+    // `https://passport.alipan.com`）的 `remote_aliyun_login_observed`
+    // 会在 Rust 侧被直接 reject，注入的 hook 永远回传不到凭据。
+    tauri_build::try_build(
+        tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new()),
+    )
+    .expect("failed to run tauri-build");
+}
+
+/// Re-runs this build script when the bundled application icons change.
+///
+/// Without these guards the build script only re-ran for the launcher sources
+/// listed above, so `tauri_build` reused the previously generated Windows
+/// resource script (`.rc` / `.res`) and the executable kept the old taskbar
+/// icon even after `icons/icon.ico` was regenerated.
+fn emit_icon_rerun_guards() {
+    for icon in [
+        "icons/icon.ico",
+        "icons/icon.png",
+        "icons/icon.icns",
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/Square30x30Logo.png",
+        "icons/Square44x44Logo.png",
+        "icons/Square71x71Logo.png",
+        "icons/Square89x89Logo.png",
+        "icons/Square107x107Logo.png",
+        "icons/Square142x142Logo.png",
+        "icons/Square150x150Logo.png",
+        "icons/Square284x284Logo.png",
+        "icons/Square310x310Logo.png",
+        "icons/StoreLogo.png",
+    ] {
+        println!("cargo:rerun-if-changed={icon}");
+    }
 }
 
 #[cfg(target_os = "windows")]

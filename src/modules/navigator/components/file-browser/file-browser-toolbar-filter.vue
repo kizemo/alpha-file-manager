@@ -26,6 +26,11 @@ import {
 } from '@/modules/navigator/components/file-browser/utils/file-browser-quick-search-query';
 import { useIsSmallScreen } from '@/composables/use-responsive-query';
 
+// FORK-MODIFICATION: 2026-10-16 —— 搜索选项**不再**由这个组件承载。
+// 它们原本收在这个弹窗的第二个面板里（按钮 + 弹窗），现在搬到内容区顶部的
+// `file-browser-search-options-bar.vue` 常驻显示，与全局搜索的布局一致。
+// 本组件只保留「按列筛选」那组结构化谓词按钮 —— 那是目录内搜索独有的，
+// 全局搜索没有对应物，硬塞进共用布局反而两边都不像。
 const props = defineProps<{
   filterQuery: string;
   isFilterOpen: boolean;
@@ -155,7 +160,7 @@ function selectProperty(property: QuickSearchProperty) {
             :class="{ 'file-browser-toolbar-filter__button--active': filterQuery }"
             @click="handleFilterButtonClick"
           >
-            <TextSearchIcon class="file-browser-toolbar-filter__icon" />
+            <TextSearchIcon class="file-browser-toolbar-filter__icon file-browser-toolbar-filter__icon--filter" />
           </Button>
         </PopoverTrigger>
       </TooltipTrigger>
@@ -314,7 +319,7 @@ function selectProperty(property: QuickSearchProperty) {
 .file-browser-toolbar-filter__property-panel-title {
   margin-bottom: 8px;
   color: hsl(var(--muted-foreground));
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -330,7 +335,7 @@ function selectProperty(property: QuickSearchProperty) {
   height: 1.375rem;
   min-height: 1.375rem;
   padding: 0 0.35rem;
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   line-height: 1.15;
   text-transform: capitalize;
 }
@@ -350,6 +355,60 @@ function selectProperty(property: QuickSearchProperty) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.file-browser-toolbar-filter__options-panel {
+  padding: 4px;
+  border-top: 1px solid hsl(var(--border) / 50%);
+  margin-top: 4px;
+}
+
+.file-browser-toolbar-filter__options-panel-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: hsl(var(--muted-foreground));
+  font-size: calc(11px + var(--font-size-offset, 0px));
+  font-weight: 600;
+  gap: 8px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.file-browser-toolbar-filter__options-panel-count {
+  color: hsl(var(--muted-foreground) / 80%);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.file-browser-toolbar-filter__options-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-block: 2px;
+}
+
+.file-browser-toolbar-filter__option-label {
+  cursor: pointer;
+  font-size: calc(12px + var(--font-size-offset, 0px));
+}
+
+.file-browser-toolbar-filter__options-limit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid hsl(var(--border) / 40%);
+  margin-top: 6px;
+  gap: 8px;
+}
+
+.file-browser-toolbar-filter__options-limit-field {
+  width: 6.5rem;
+  flex-shrink: 0;
 }
 </style>
 

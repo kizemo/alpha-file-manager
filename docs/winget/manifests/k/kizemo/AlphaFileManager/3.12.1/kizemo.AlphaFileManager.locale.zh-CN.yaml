@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.locale.1.12.0.schema.json
+
+PackageIdentifier: kizemo.AlphaFileManager
+PackageVersion: 3.12.1
+PackageLocale: zh-CN
+ShortDescription: 面向 Windows 与 Linux 的双栏文件管理器，支持 SFTP/FTP、目录比较同步、批量改名与解除文件锁定。
+Description: |-
+  Alpha File Manager 是一款面向 Windows 与 Linux 的双栏文件管理器，技术栈是 Tauri 2 + Rust + Vue 3。
+
+  两侧文件窗格共用一个导航器：左侧目录树会跟着你正在用的那一格走，连上远程服务器也能展开成树。收藏按分类分组，常用目录一点就进。
+
+  它说的是你真正在用的协议：SFTP、FTP 与 FTPS。目录比较会逐个文件、逐层目录说清楚到底哪里不同，然后才动任何东西，而且自己绝不删东西。
+
+  另外还有：批量改名、文件比较与同步、压缩包查看器、快速预览面板，以及一个终端。
+
+  当 Windows 拒绝删除某个文件时，右键菜单能处理：它会告诉你是哪个程序占着这个文件，并且可以把文件彻底删掉——先清只读位，再标记成「占用者一放手就消失」，最后兜底到「下次启动 Windows 时删掉」。
+
+  3.12.1 是 3.12.0 之上的修复版：上面那两项行为在 3.12.0 的安装包里并没有真正生效，这一版补齐——快捷方式（`.lnk`）现在无视图标主题与「系统图标」开关，始终显示它所指向目标的图标；地址栏编辑器与路径补全建议改用 Windows 原生的反斜杠路径（内部仍按正斜杠语义处理，输入时光标不跳）；另外「另存为」对话框不再失败（内嵌 focus-sync-sidecar 由 0.5.15 升级到 0.5.18）。
+Tags:
+- file-manager
+- file-explorer
+- dual-pane
+- file-transfer
+- file-unlock
+- sftp
+- ftp
+- batch-rename
+- file-comparison
+- foss
+- open-source
+- windows
+- linux
+- rust
+- tauri
+- vue
+ManifestType: locale
+ManifestVersion: 1.12.0

@@ -4,6 +4,7 @@
 
 import {
   ref,
+  shallowRef,
   computed,
   watch,
   nextTick,
@@ -25,6 +26,7 @@ import { useLinkMetadataStore } from '@/stores/runtime/link-metadata';
 import { useItemCountsStore } from '@/stores/runtime/item-counts';
 import { useStatusCenterStore } from '@/stores/runtime/status-center';
 import { usePlatformStore } from '@/stores/runtime/platform';
+import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
 import { DIR_SIZE_CONSTANTS } from '@/constants';
 import normalizePath, { getPathDisplayName } from '@/utils/normalize-path';
 import { resolveNavigableItemTarget } from '@/utils/resolve-navigable-item-target';
@@ -36,6 +38,14 @@ import {
   resolveDirectoryContents,
   getLocationsEntriesDisplaySignature,
 } from '@/utils/virtual-locations';
+import { isRemotePath, parseRemotePath } from '@/utils/remote-paths';
+import { subscribeRemoteLocationRefs } from '@/utils/remote-location-refs';
+import {
+  applyHostKeyTrust,
+  buildHostKeyTrustPrompt,
+  describeRemoteError,
+  type HostKeyTrustPrompt,
+} from '@/utils/remote-directory';
 import { sharedDrives } from '@/modules/home/composables/use-drives';
 import { getFileBrowserSortReadDirOptions } from '@/modules/navigator/components/file-browser/utils/file-browser-sort-columns';
 import { resolveNavigatorFolderSettings } from '@/modules/navigator/utils/resolve-navigator-folder-settings';
@@ -43,6 +53,7 @@ import {
   createDefaultDirectoryResolveInput,
   resolveDefaultDirectory,
 } from '@/utils/resolve-default-directory';
+import { LOCATIONS_VIRTUAL_PATH } from '@/utils/virtual-path-constants';
 
 interface DirChangePayload {
   watchedPath: string;
@@ -52,9 +63,30 @@ interface DirChangePayload {
 
 const DIRECTORY_DWELL_TIME_MS = 3000;
 const WATCHER_DEBOUNCE_MS = 500;
+// FORK-MODIFICATION 2026-11-04：监听器登记/注销是「锦上添花」的副作用，不是读目录的前置条件。
+// 一旦这两个 invoke 静默挂起（后端不返回、也不报错），旧实现会让目录列表永远等下去。
+// 这里给它们加上限：超过这个时间就当它没完成，放行后续流程并留下告警。
+const WATCHER_OPERATION_TIMEOUT_MS = 5000;
 
 function dirWatcherDiagEnabled(): boolean {
-  return import.meta.env.DEV && localStorage.getItem('SFM_DIR_WATCHER_DIAG') === '1';
+  // FORK-MODIFICATION 2026-11-04：诊断开关绝不允许有能力打断主流程。
+  // 旧实现直接 `localStorage.getItem(...)`：在没有 localStorage 的宿主
+  // （Node/单元测试环境、隐私模式、被策略禁用的 WebView）里 `localStorage` 是 undefined，
+  // 抛出的 TypeError 会把 `readDir` 在真正读目录之前就打断 —— 表现为目录一直转圈。
+  try {
+    if (!import.meta.env.DEV) {
+      return false;
+    }
+
+    if (typeof localStorage === 'undefined' || localStorage === null) {
+      return false;
+    }
+
+    return localStorage.getItem('SFM_DIR_WATCHER_DIAG') === '1';
+  }
+  catch {
+    return false;
+  }
 }
 
 function logDirWatcherDiag(message: string, details?: Record<string, unknown>) {
@@ -68,6 +100,58 @@ function logDirWatcherDiag(message: string, details?: Record<string, unknown>) {
   }
 
   console.debug(`[dir-watcher-diag] ${message}`);
+}
+
+/**
+ * FORK-MODIFICATION 2026-11-04：给监听器登记/注销这两个 invoke 加超时兜底。
+ *
+ * 背景：`watch_directory` / `unwatch_directory` 是跨进程调用，后端可能因为任何原因
+ * 不返回（既不断开也不报错）。旧实现直接 `await`，于是一次挂起就会把
+ * `enqueueWatcherOperation` 的串行队列永久毒化 —— 之后所有导航都会等同一个死掉的 Promise，
+ * 症状是「目录进不去、刷新键一直转圈、整个浏览器全盘失效」，而后端日志一条错误都没有。
+ *
+ * 语义：这个函数**永不 reject**，超时或失败都只是放行并留下日志。
+ * 监听器状态因此可能与后端短暂不一致（最坏情况是少一次自动刷新），
+ * 这远优于把整个文件浏览主流程挂死。
+ */
+function withWatcherTimeout(operation: Promise<unknown>, label: string): Promise<void> {
+  return new Promise<void>((resolve) => {
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      console.warn(
+        `[dir-watcher] ${label} did not settle within ${WATCHER_OPERATION_TIMEOUT_MS} ms; continuing without it`,
+      );
+      resolve();
+    }, WATCHER_OPERATION_TIMEOUT_MS);
+
+    // Node/测试环境下让这个兜底计时器不阻止进程退出（浏览器里没有 unref，跳过）。
+    const unrefableTimer = timer as unknown as { unref?: () => void };
+
+    if (typeof unrefableTimer.unref === 'function') {
+      unrefableTimer.unref();
+    }
+
+    function settle() {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(timer);
+      resolve();
+    }
+
+    operation.then(settle, (error: unknown) => {
+      console.error(`[dir-watcher] ${label} failed:`, error);
+      settle();
+    });
+  });
 }
 
 function buildDirContentsFromEntries(path: string, entries: DirEntry[]): DirContents {
@@ -118,6 +202,109 @@ export function useFileBrowserNavigation(
   const itemCountsStore = useItemCountsStore();
   const statusCenterStore = useStatusCenterStore();
   const platformStore = usePlatformStore();
+  const remoteConnectionsStore = useRemoteConnectionsStore();
+
+  /**
+   * FORK-MODIFICATION 2026-10-18：SSH 主机公钥的信任确认（阶段 2 决策 3）。
+   *
+   * 非 `null` 时导航器应当弹窗等用户决定。**这期间不写 `error`、
+   * 也不跳去默认目录** —— 弹窗本身就是「这一次连接还没结束」的表示，
+   * 顺手把它兜底掉的话，用户会看到弹窗一闪而过，然后被丢回本机目录。
+   */
+  const hostKeyPrompt = ref<HostKeyTrustPrompt | null>(null);
+
+  function findRemoteConnection(path: string) {
+    const parsed = parseRemotePath(path);
+
+    if (parsed === null) {
+      return undefined;
+    }
+
+    return remoteConnectionsStore.getConnection(parsed.connectionId);
+  }
+
+  /**
+   * 用户点了「我核对过了，信任」。信任落盘后**自动重试**刚才那次导航。
+   *
+   * 重试只走一次，不循环：若信任之后仍然拿到同一类错误（服务器又换了一把钥匙、
+   * 或中间人持续替换），循环会变成一个点不掉的弹窗循环。
+   */
+  async function confirmHostKeyTrust(): Promise<void> {
+    const prompt = hostKeyPrompt.value;
+    hostKeyPrompt.value = null;
+
+    if (!prompt) {
+      return;
+    }
+
+    try {
+      await applyHostKeyTrust(prompt);
+    }
+    catch (trustError) {
+      error.value = describeRemoteError(trustError);
+      console.error(trustError);
+      return;
+    }
+
+    await readDir(prompt.path, false);
+  }
+
+  /**
+   * 用户点了取消。
+   *
+   * **刻意什么都不做** —— 不写 `error`、不跳默认目录。
+   * 用户是主动放弃这一次连接的，界面停在原地就是正确结果；
+   * 反过来「顺手兜底一下」正是需求 1 最初那个静默跳走的毛病。
+   */
+  function dismissHostKeyTrust(): void {
+    hostKeyPrompt.value = null;
+  }
+
+  /**
+   * 这个目录要不要跑本地文件系统那两件配套工作：**目录监听**与**子目录大小统计**。
+   *
+   * FORK-MODIFICATION 2026-10-18：远程路径要一并排除（阶段 2 需求 1）。
+   *
+   * 改动前只排除 `isVirtualDirectoryPath`，于是远程目录照样触发
+   * `watch_directory` 与 `get_dir_sizes_batch`。两者都 catch 掉只打日志，不会崩，
+   * **所以它不会以报错的形式暴露** —— 表现是：远程目录卡片上「大小」那一列永远在转圈，
+   * 控制台刷一串本地路径 stat 失败的日志，而用户完全不知道发生了什么。
+   *
+   * 监听同理：`watch_directory` 盯的是本地 inotify/ReadDirectoryChangesW，
+   * 它对 `sfm://remote/...` 根本没有对应的 OS 句柄，永远不会触发事件。
+   */
+  function requiresLocalDirectorySideWork(path: string): boolean {
+    return !isVirtualDirectoryPath(path) && !isRemotePath(path);
+  }
+
+  /**
+   * FORK-MODIFICATION 2026-10-18：远程目录卡片要显示**连接名**而不是连接 id（阶段 2 需求 1）。
+   *
+   * 远程路径的「显示名」是 `sfm://remote/<uuid>`，而 uuid 是 `createRemoteConnectionId()`
+   * 生成的随机串。改动前标签页上写的就是那串 uuid，用户完全对不上是哪台机器。
+   *
+   * 查不到连接就退回 `getPathDisplayName` 的原结果，而不是空串 ——
+   * 连接被删掉后仍留在 workspace 里的标签页不该变成空白。
+   */
+  function getRemoteTabName(path: string): string | null {
+    const parsed = parseRemotePath(path);
+
+    if (parsed === null) {
+      return null;
+    }
+
+    const connection = remoteConnectionsStore.getConnection(parsed.connectionId);
+
+    if (!connection) {
+      return null;
+    }
+
+    // 连接根显示连接名；根以下的目录显示远端目录名，
+    // 否则面包屑显示「速豹堂 / pub」而标签页只写「速豹堂」，点进去就不知道在哪。
+    return parsed.remotePath === '/'
+      ? connection.name
+      : (getPathDisplayName(path) || connection.name);
+  }
 
   function getParentOfPath(path: string): string | null {
     return getNavigableParentPath(path, platformStore.currentPlatform);
@@ -130,6 +317,21 @@ export function useFileBrowserNavigation(
   async function directoryPathExists(path: string): Promise<boolean> {
     if (isVirtualDirectoryPath(path)) {
       return true;
+    }
+
+    // FORK-MODIFICATION 2026-10-18：远程路径要问远程，不要问本地盘。
+    // 改动前这里直接 `invoke('read_dir', …)`，远程路径必然失败 → 返回 false
+    // → `validateCurrentPath` 判成「当前目录没了」→ 一路往上走到默认目录。
+    // 今天它还没被触发（远程目录不启动目录监听，事件源不存在），
+    // 但这是一颗定时炸弹：谁给远程目录加上刷新轮询，谁就会踩到「点远程连接又被弹回本机」。
+    if (isRemotePath(path)) {
+      try {
+        await resolveDirectoryContents(path);
+        return true;
+      }
+      catch {
+        return false;
+      }
     }
 
     try {
@@ -151,7 +353,10 @@ export function useFileBrowserNavigation(
   }
 
   const currentPath = ref('');
-  const dirContents = ref<DirContents | null>(null);
+  // 批次 C2：目录条目是「一次性读出来、整体换掉」的数据，用 shallowRef
+  // 只追踪 .value 本身的替换 —— 条目对象不会被套上 Vue 代理，
+  // 也就不会在每次读盘时多出一份深响应式的代理树。
+  const dirContents = shallowRef<DirContents | null>(null);
   const isLoading = ref(false);
   const isRefreshing = ref(false);
   const error = ref<string | null>(null);
@@ -278,10 +483,16 @@ export function useFileBrowserNavigation(
       }
 
       try {
-        await invoke('watch_directory', { path: normalizedPath });
+        await withWatcherTimeout(
+          invoke('watch_directory', { path: normalizedPath }),
+          'watch_directory',
+        );
 
         if (isDisposed || normalizePath(currentPath.value) !== normalizedPath) {
-          await invoke('unwatch_directory', { path: normalizedPath });
+          await withWatcherTimeout(
+            invoke('unwatch_directory', { path: normalizedPath }),
+            'unwatch_directory',
+          );
           return;
         }
 
@@ -343,17 +554,22 @@ export function useFileBrowserNavigation(
 
     if (watchedPath) {
       const pathToStop = watchedPath;
+      // FORK-MODIFICATION 2026-11-04：先清空本地状态，再去 await 后端。
+      // 旧实现把 `watchedPath = null` 放在 await **之后**：一旦 unwatch 不返回，
+      // 状态就永久停留在「正在监听旧目录」，之后每次导航都会重复 await 同一个死 Promise。
+      watchedPath = null;
       logDirWatcherDiag('stopWatching begin', { path: pathToStop });
 
       try {
-        await invoke('unwatch_directory', { path: pathToStop });
+        await withWatcherTimeout(
+          invoke('unwatch_directory', { path: pathToStop }),
+          'unwatch_directory',
+        );
         logDirWatcherDiag('stopWatching complete', { path: pathToStop });
       }
       catch (error) {
         console.error('[dir-watcher-diag] Failed to stop directory watcher:', error);
       }
-
-      watchedPath = null;
     }
   }
 
@@ -382,11 +598,30 @@ export function useFileBrowserNavigation(
     void silentRefresh();
   }, { deep: true });
 
+  // FORK-MODIFICATION 2026-11-08：远程连接变了，「位置」页要立刻反映出来。
+  //
+  // 改动前「位置」页的条目是「读目录时顺手拼」的，而触发重读的只有 `watch(sharedDrives)`。
+  // 盘符变化会重读，连接列表变化不会 —— 新增/改名/删除连接之后，位置页要等下一次
+  // 切页或手动刷新才变（用户 2026-11-08 反馈的「位置」页问题之一）。
+  //
+  // 这里订阅 `remote-location-refs` 注册表的变化通知补上这条路。订阅而不是轮询：
+  // 轮询要么挂常驻定时器，要么把 store 拖进纯工具模块。
+  const unsubscribeRemoteLocationRefs = subscribeRemoteLocationRefs(() => {
+    // 不在「位置」页就不管 —— 别的页面不显示远程条目，刷新了也是白刷。
+    if (!isVirtualLocationPath(currentPath.value) || !dirContents.value) {
+      return;
+    }
+
+    void silentRefresh();
+  });
+
   onUnmounted(() => {
     isDisposed = true;
     readGeneration += 1;
     cancelPendingDirectoryRecord();
     stopWatching();
+
+    unsubscribeRemoteLocationRefs();
 
     if (iconPrefetchTimer) {
       clearTimeout(iconPrefetchTimer);
@@ -402,6 +637,13 @@ export function useFileBrowserNavigation(
   const canGoBack = computed(() => historyIndex.value > 0);
   const canGoForward = computed(() => historyIndex.value < history.value.length - 1);
 
+  /**
+   * 按路径取回上次读到的目录条目。
+   *
+   * 批次 C2 之前这份缓存挂在 Tab.dirEntries 上 —— 也就是「每个标签页各存一份」，
+   * 而且条目对象还被 store 的深响应式代理过。现在缓存统一放在 store 的
+   * 非响应式 Map 里（按路径去重），标签页只记路径。
+   */
   function getCachedDirContentsForPath(path: string): DirContents | null {
     const currentTab = tab();
 
@@ -409,15 +651,13 @@ export function useFileBrowserNavigation(
       return null;
     }
 
-    if (normalizePath(currentTab.path) !== path) {
+    const cachedEntries = workspacesStore.getCachedDirectoryEntries(path);
+
+    if (!cachedEntries) {
       return null;
     }
 
-    if (!Array.isArray(currentTab.dirEntries) || currentTab.dirEntries.length === 0) {
-      return null;
-    }
-
-    return buildDirContentsFromEntries(path, currentTab.dirEntries);
+    return buildDirContentsFromEntries(path, cachedEntries);
   }
 
   function applyDirectoryContents(
@@ -439,16 +679,20 @@ export function useFileBrowserNavigation(
     currentPath.value = result.path;
     pathInput.value = result.path;
 
+    // 读到的条目进按路径去重的缓存（不进标签页）：切回这个目录时可以先显示再复核。
+    workspacesStore.cacheDirectoryEntries(result.path, result.entries);
+
     const currentTab = tab();
 
     if (currentTab) {
       currentTab.path = result.path;
-      currentTab.dirEntries = result.entries;
 
       if (options.updateTabName) {
-        currentTab.name = isVirtualLocationPath(result.path)
-          ? result.path
-          : (getPathDisplayName(result.path) || result.path);
+        // 远程路径优先：连接根要显示连接名而不是 uuid（见 getRemoteTabName）。
+        currentTab.name = getRemoteTabName(result.path)
+          ?? (isVirtualLocationPath(result.path)
+            ? result.path
+            : (getPathDisplayName(result.path) || result.path));
       }
     }
 
@@ -470,7 +714,7 @@ export function useFileBrowserNavigation(
       .slice(0, DIR_SIZE_CONSTANTS.BATCH_LIMIT)
       .map(entry => entry.path);
 
-    if (dirPaths.length > 0 && !isCopyOrMoveInProgress() && !isVirtualDirectoryPath(result.path)) {
+    if (dirPaths.length > 0 && !isCopyOrMoveInProgress() && requiresLocalDirectorySideWork(result.path)) {
       dirSizesStore.requestSizesBatch(dirPaths);
     }
   }
@@ -487,6 +731,33 @@ export function useFileBrowserNavigation(
         navigatorIconsStore.prefetchForDirectoryEntries(entries);
       }
     }, 0);
+  }
+
+  // FORK-MODIFICATION 2026-11-09（用户反馈：删除成功后目录不实时更新，必须手点「刷新」）：
+  // 从当前目录列表里就地剔除已确认删除的路径，不等重新列举。
+  // 为什么不能只靠 silentRefresh()：① 它的守卫在并发导航时会早退；② 网盘服务端的
+  // 列表接口有秒级延迟，重列可能拿回删除前的快照 —— 两条都会让界面停在旧样子。
+  // 前提是「后端已确认删除成功」（调用方传的是 DeleteReport.deleted），不是「点了删除」。
+  function removeEntriesLocally(paths: string[]): void {
+    const snapshot = dirContents.value;
+
+    if (!snapshot || paths.length === 0) {
+      return;
+    }
+
+    const removed = new Set(paths.map(path => normalizePath(path)));
+    const kept = snapshot.entries.filter(entry => !removed.has(normalizePath(entry.path)));
+
+    if (kept.length === snapshot.entries.length) {
+      return;
+    }
+
+    // dirContents 是 shallowRef：只改 entries 数组不会触发响应式，必须整体换对象。
+    dirContents.value = {
+      ...snapshot,
+      entries: kept,
+    };
+    workspacesStore.cacheDirectoryEntries(snapshot.path, kept);
   }
 
   async function silentRefresh(): Promise<void> {
@@ -525,10 +796,7 @@ export function useFileBrowserNavigation(
       invalidateDirectoryItemCounts(result);
       primeDirectoryMetadataCaches(result, readOptions);
       dirContents.value = result;
-
-      if (currentTab) {
-        currentTab.dirEntries = result.entries;
-      }
+      workspacesStore.cacheDirectoryEntries(result.path, result.entries);
 
       scheduleDirectoryIconPrefetch(result.entries);
 
@@ -537,7 +805,7 @@ export function useFileBrowserNavigation(
         .slice(0, DIR_SIZE_CONSTANTS.BATCH_LIMIT)
         .map(entry => entry.path);
 
-      if (dirPaths.length > 0 && !isCopyOrMoveInProgress() && !isVirtualDirectoryPath(result.path)) {
+      if (dirPaths.length > 0 && !isCopyOrMoveInProgress() && requiresLocalDirectorySideWork(result.path)) {
         dirSizesStore.requestSizesBatch(dirPaths);
       }
     }
@@ -649,23 +917,22 @@ export function useFileBrowserNavigation(
 
     onSelectionClear?.();
 
-    const stopWatcherPromise = (watchedPath && watchedPath !== normalizedPath)
-      ? (() => {
-          logDirWatcherDiag('readDir stopping watcher before navigation', {
-            from: watchedPath,
-            to: normalizedPath,
-          });
-          return stopWatching();
-        })()
-      : Promise.resolve();
+    // FORK-MODIFICATION 2026-11-04：停监听只是副作用，绝不参与「什么时候能画出列表」的决策。
+    // 旧实现是 `await Promise.all([loadDirectoryContents(...), stopWatching()])` ——
+    // unwatch 只要不返回，目录内容就算已经读到了也不会渲染，`isLoading` 一直停在 true，
+    // 用户看到的就是「点了目录长时间不出列表、刷新键一直转圈」。
+    if (watchedPath && watchedPath !== normalizedPath) {
+      logDirWatcherDiag('readDir stopping watcher before navigation', {
+        from: watchedPath,
+        to: normalizedPath,
+      });
+      void stopWatching();
+    }
 
     try {
       logDirWatcherDiag('readDir loading directory', { path: normalizedPath });
       const readOptions = createReadDirOptions(normalizedPath);
-      const [result] = await Promise.all([
-        loadDirectoryContents(path, readOptions),
-        stopWatcherPromise,
-      ]);
+      const result = await loadDirectoryContents(path, readOptions);
 
       if (isDisposed || requestGeneration !== readGeneration) {
         return;
@@ -681,7 +948,7 @@ export function useFileBrowserNavigation(
       isRefreshing.value = false;
       scheduleDirectoryIconPrefetch(result.entries);
 
-      if (!isVirtualDirectoryPath(result.path)) {
+      if (requiresLocalDirectorySideWork(result.path)) {
         logDirWatcherDiag('readDir starting watcher after load', {
           path: result.path,
           entryCount: result.entries.length,
@@ -694,8 +961,32 @@ export function useFileBrowserNavigation(
         return;
       }
 
-      const errorMessage = caughtError instanceof Error ? caughtError.message : String(caughtError);
+      // FORK-MODIFICATION 2026-10-18：先看是不是主机公钥问题（阶段 2 决策 3）。
+      //
+      // 这两类错误**不能**落到下面的通用分支：`error.value` 一写，
+      // `init()` 就会把它当成「这个目录打不开」而静默跳去默认目录 ——
+      // 用户点一次「信任」之后被丢回本机目录，整个信任流程等于没有发生。
+      const hostKey = buildHostKeyTrustPrompt(
+        caughtError,
+        path,
+        findRemoteConnection(path),
+      );
+
+      if (hostKey) {
+        hostKeyPrompt.value = hostKey;
+        return;
+      }
+
+      // FORK-MODIFICATION 2026-10-18：`String(caughtError)` 对远程错误无效（阶段 2 需求 1）。
+      // 远程 `RemoteError` 序列化成**普通对象** `{ kind, message }`，走 `String()` 得到
+      // 字面量 `[object Object]` —— 认证失败时用户看到的就是这一串。
+      // `describeRemoteError` 对本地错误的行为与原来完全一致，只多认一种形状。
+      const errorMessage = describeRemoteError(caughtError);
       error.value = errorMessage;
+
+      // 这次读盘失败了，缓存里那份多半已经过期（目录多半被删了）。
+      // 留着它只会让下一次重试先闪一份陈旧内容再报错。
+      workspacesStore.removeCachedDirectoryEntries(normalizedPath);
       console.error(caughtError);
     }
     finally {
@@ -760,6 +1051,20 @@ export function useFileBrowserNavigation(
     );
   }
 
+  // FORK-MODIFICATION 2026-10-14：工具栏「小房子」按钮改为跳「此电脑」。
+  //
+  // 原实现跳 userPaths.homeDir。人已经在该目录时 readDir 读到同一个路径，界面无任何变化，
+  // 观感就是「点击没有反应」—— 不是按钮坏了，是目的地选错了。
+  //
+  // LOCATIONS_VIRTUAL_PATH 不是新造概念：设置项「默认目录 → 位置」经 resolveDefaultDirectory
+  // 返回的就是它，再走同一条 navigateToResolvedPath → readDir。
+  //
+  // 刻意不动 navigateToHome：目录读取失败时错误页的「主页」按钮仍调它
+  // （file-browser-content-body.vue:38），那是独立场景，不在本次改动范围内。
+  async function navigateToLocations() {
+    await navigateToResolvedPath(LOCATIONS_VIRTUAL_PATH);
+  }
+
   async function goBack() {
     if (canGoBack.value) {
       cancelPendingDirectoryRecord();
@@ -816,7 +1121,19 @@ export function useFileBrowserNavigation(
       await readDir(currentTab.path);
 
       if (error.value) {
-        await navigateToDefaultDirectory();
+        // FORK-MODIFICATION 2026-11-21（批次 35）：远程路径读失败时**不**兜底跳默认目录。
+        //
+        // 兜底会再调一次 `readDir`，而 `readDir` 开头无条件 `error.value = null`
+        // （同文件 :916）—— 刚写进去的错误被自己抹掉，面包屑同时落到默认目录。
+        // 用户看到的就是「点了远程连接没反应」：既没有内容，也没有错误横幅。
+        //
+        // 远程路径必须把错误**留在原地**：`FileBrowserError` 横幅渲染的就是
+        // `error.value`，它一被清掉，远程读失败就彻底没有任何可见反馈。
+        //
+        // 本地路径保持原行为：本地目录打不开时兜底回默认目录仍是既有期望。
+        if (!isRemotePath(currentTab.path)) {
+          await navigateToDefaultDirectory();
+        }
       }
       else {
         schedulePendingDirectoryRecordIfCurrent(currentTab.path);
@@ -892,10 +1209,15 @@ export function useFileBrowserNavigation(
     currentDirEntry,
     readDir,
     silentRefresh,
+    removeEntriesLocally,
+    hostKeyPrompt,
+    confirmHostKeyTrust,
+    dismissHostKeyTrust,
     navigateToPath,
     navigateToEntry,
     navigateToParent,
     navigateToHome,
+    navigateToLocations,
     goBack,
     goForward,
     refresh,

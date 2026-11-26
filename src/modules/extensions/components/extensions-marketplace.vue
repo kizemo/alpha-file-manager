@@ -4,18 +4,22 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 -->
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { SparklesIcon, SearchXIcon, Loader2Icon, WifiOffIcon } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import ExtensionCard from './extension-card.vue';
 import type { ExtensionWithManifest } from '@/modules/extensions/composables/use-extensions';
+import type { ExtensionMarketSource } from '@/types/extension';
+import type { RegistrySourceState } from '@/modules/extensions/utils/market-sources';
 import { getStaggerSlideUpBinding } from '@/utils/stagger-animation';
 
 const props = defineProps<{
   extensions: ExtensionWithManifest[];
   featuredExtensions: ExtensionWithManifest[];
+  marketSources?: ExtensionMarketSource[];
+  marketSourceStates?: Record<string, RegistrySourceState>;
   isLoading?: boolean;
   error?: string | null;
   installingExtensions: Set<string>;
@@ -36,24 +40,70 @@ const { t } = useI18n();
 
 const hasSearchQuery = computed(() => props.searchQuery.trim().length > 0);
 
+const ALL_SOURCES_ID = 'all';
+
+const activeSourceId = ref<string>(ALL_SOURCES_ID);
+
+const sourceTabs = computed(() => {
+  const tabs: Array<{
+    id: string;
+    name: string;
+    status: string;
+  }> = [
+    {
+      id: ALL_SOURCES_ID,
+      name: t('extensions.marketSourceAll'),
+      status: 'idle',
+    },
+  ];
+
+  for (const source of props.marketSources ?? []) {
+    tabs.push({
+      id: source.id,
+      name: source.name,
+      status: props.marketSourceStates?.[source.id]?.status ?? 'idle',
+    });
+  }
+
+  return tabs;
+});
+
+function matchesActiveSource(extension: ExtensionWithManifest): boolean {
+  if (activeSourceId.value === ALL_SOURCES_ID) {
+    return true;
+  }
+
+  return extension.sourceId === activeSourceId.value;
+}
+
+const sourceFilteredExtensions = computed(() => {
+  return props.extensions.filter(matchesActiveSource);
+});
+
+const sourceFilteredFeaturedExtensions = computed(() => {
+  return props.featuredExtensions.filter(matchesActiveSource);
+});
+
 const showFeatured = computed(() => {
-  return !hasSearchQuery.value && props.featuredExtensions.length > 0;
+  return !hasSearchQuery.value && sourceFilteredFeaturedExtensions.value.length > 0;
 });
 
 const displayExtensions = computed(() => {
   if (hasSearchQuery.value) {
-    return props.extensions;
+    return sourceFilteredExtensions.value;
   }
 
-  return props.extensions.filter(ext => !ext.featured);
+  return sourceFilteredExtensions.value.filter(ext => !ext.featured);
 });
 
 const noResults = computed(() => {
-  return hasSearchQuery.value && props.extensions.length === 0;
+  return hasSearchQuery.value && sourceFilteredExtensions.value.length === 0;
 });
 
 const showMarketplaceUnavailable = computed(() => {
-  return Boolean(props.error) && props.extensions.length === 0 && !hasSearchQuery.value;
+  return Boolean(props.error)
+    && sourceFilteredExtensions.value.length === 0
+    && !hasSearchQuery.value;
 });
 </script>
 
@@ -92,6 +142,30 @@ const showMarketplaceUnavailable = computed(() => {
 
     <template v-else>
       <div
+        v-if="sourceTabs.length > 1"
+        class="extensions-marketplace__sources"
+      >
+        <button
+          v-for="tab in sourceTabs"
+          :key="tab.id"
+          type="button"
+          :class="[
+            'extensions-marketplace__source-tab',
+            { 'extensions-marketplace__source-tab--active': tab.id === activeSourceId },
+          ]"
+          @click="activeSourceId = tab.id"
+        >
+          <span class="extensions-marketplace__source-tab-name">{{ tab.name }}</span>
+          <span
+            v-if="tab.status === 'error' || tab.status === 'stale'"
+            class="extensions-marketplace__source-tab-status"
+          >
+            {{ t('extensions.marketSourceUnreachable') }}
+          </span>
+        </button>
+      </div>
+
+      <div
         v-if="noResults"
         class="extensions-marketplace__no-results"
       >
@@ -114,7 +188,7 @@ const showMarketplaceUnavailable = computed(() => {
           </div>
           <div class="extensions-marketplace__grid extensions-marketplace__grid--featured">
             <ExtensionCard
-              v-for="(extension, itemIndex) in featuredExtensions"
+              v-for="(extension, itemIndex) in sourceFilteredFeaturedExtensions"
               :key="extension.id"
               v-bind="getStaggerSlideUpBinding(itemIndex)"
               :extension="extension"
@@ -155,7 +229,7 @@ const showMarketplaceUnavailable = computed(() => {
         </div>
 
         <div
-          v-if="extensions.length === 0 && !hasSearchQuery"
+          v-if="sourceFilteredExtensions.length === 0 && !hasSearchQuery"
           class="extensions-marketplace__empty"
         >
           <p>{{ t('extensions.noExtensionsAvailable') }}</p>
@@ -172,6 +246,47 @@ const showMarketplaceUnavailable = computed(() => {
   max-width: 100%;
   flex-direction: column;
   gap: 32px;
+}
+
+.extensions-marketplace__sources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.extensions-marketplace__source-tab {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 999px;
+  background-color: transparent;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  font-size: 0.8125rem;
+  gap: 6px;
+}
+
+.extensions-marketplace__source-tab:hover {
+  color: hsl(var(--foreground));
+}
+
+.extensions-marketplace__source-tab--active {
+  border-color: hsl(var(--primary));
+  color: hsl(var(--foreground));
+}
+
+.extensions-marketplace__source-tab-name {
+  overflow: hidden;
+  max-width: 220px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.extensions-marketplace__source-tab-status {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.6875rem;
 }
 
 .extensions-marketplace__loading,

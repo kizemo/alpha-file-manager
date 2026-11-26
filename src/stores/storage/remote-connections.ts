@@ -1,0 +1,1118 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// License: GNU GPLv3 or later. See the license file in the project root for more information.
+// Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
+
+// 远程连接的**元数据**由本 store 经 tauri-plugin-store 拥有（落在
+// `user-data/user-remote-connections.json`），密码由 Rust 侧经 DPAPI 拥有
+// （落在 app-data 目录根的 `remote-credentials.json`）。
+//
+// 两条链刻意分开。合并成一条的后果是密文要跟着前端 schema 迁移走，还要塞进读白名单 ——
+// 本项目已经因为「读写两侧不同步导致重启即丢」吃过一次亏。
+//
+// 但分开不等于可以随便写：**写顺序有硬约束**，见 `saveConnection`。
+
+import { defineStore } from 'pinia';
+import { LazyStore } from '@tauri-apps/plugin-store';
+import { invoke } from '@tauri-apps/api/core';
+import { computed, ref, watch } from 'vue';
+import type {
+  AliyunAuthStatusPayload,
+  AliyunLoginClaimPayload,
+  AliyunLoginPendingPayload,
+  AliyunLoginStartPayload,
+  AliyunQrPollPayload,
+  AliyunQrStartPayload,
+  BaiduAuthStatusPayload,
+  BaiduLoginClaimPayload,
+  QuarkAuthStatusPayload,
+  QuarkLoginClaimPayload,
+  QuarkLoginPendingPayload,
+  QuarkLoginStartPayload,
+  OnedriveAuthStatusPayload,
+  OnedriveLoginPendingPayload,
+  OnedriveLoginStartPayload,
+  RemoteConnection,
+  RemoteConnectionForm,
+  RemoteConnectionTestReport,
+  RemoteProxyConfig,
+  RemoteProtocol,
+} from '@/types/remote';
+import {
+  createRemoteConnectionId,
+  isAliyunPanProtocol,
+  isBaiduPanProtocol,
+  isNetdiskProtocol,
+  isOnedrivePanProtocol,
+  isQuarkPanProtocol,
+} from '@/types/remote';
+import { normalizeRemotePath } from '@/utils/remote-paths';
+import { setRemoteLocationRefs } from '@/utils/remote-location-refs';
+import { useUserPathsStore } from './user-paths';
+import {
+  canUseStartupStorageFastPath,
+  getStartupStorageFile,
+  getStartupStorageRecord,
+  type StartupStorageFileBootstrap,
+} from './utils/startup-storage-bootstrap';
+
+/** storage 文件里的键。与后端 `src-tauri/src/user_storage_files_config.rs` 无关，两边各存各的。 */
+const CONNECTIONS_KEY = 'connections';
+
+/**
+ * 百度网盘的固定主机与端口。
+ *
+ * 百度网盘没有「自选服务器」这回事 —— 用户填什么 host 都会被后端忽略，
+ * 但连接表里那个字段是必填的（Rust 侧 `RemoteConnection::validate` 要求非空），
+ * 所以前端统一写死这两个值，别让用户去填一个填了也没用的输入框。
+ */
+const BAIDU_PAN_HOST = 'pan.baidu.com';
+const BAIDU_PAN_PORT = 443;
+
+/**
+ * 夸克网盘的固定主机与端口。
+ *
+ * 与百度侧同构：用户填什么 host 都会被后端忽略，但连接表里那个字段必填
+ * （Rust 侧 `RemoteConnection::validate` 要求非空），
+ * 所以前端统一写死，别让用户去填一个填了也没用的输入框。
+ *
+ * ⚠️ 主机名取 `pan.quark.cn`（与后端 `quark_api::QUARK_PAN_HOST` 一致）；
+ * 真正跑列表 / 下载请求的是 `drive-pc.quark.cn` —— 那是后端自己的事。
+ */
+const QUARK_PAN_HOST = 'pan.quark.cn';
+const QUARK_PAN_PORT = 443;
+
+/**
+ * 阿里云盘的固定主机与端口。
+ *
+ * 与百度 / 夸克同构：用户填什么 host 都会被后端忽略，但连接表里那个字段必填，
+ * 所以前端统一写死 —— 开放平台只提供 `openapi.alipan.com` 这一个 HTTPS 端点。
+ */
+const ALIYUN_PAN_HOST = 'api.aliyundrive.com';
+const ALIYUN_PAN_PORT = 443;
+
+/**
+ * OneDrive 的固定主机与端口（批次 38）。
+ *
+ * 与前三家同构：连接表里 host 必填（Rust 侧 `RemoteConnection::validate` 要求非空），
+ * 但它对 OneDrive **没有语义** —— 后端一律走 Microsoft Graph，忽略这里的值。
+ * 写 `graph.microsoft.com` 只是让人一眼看出这条连接指向哪里。
+ */
+const ONEDRIVE_PAN_HOST = 'graph.microsoft.com';
+const ONEDRIVE_PAN_PORT = 443;
+
+/**
+ * 网盘协议的固定主机。返回 `null` = 该协议不是网盘，host 由用户填。
+ *
+ * **导出**是因为设置页的表单与「添加网盘」弹窗也要写同一个值 ——
+ * 三个地方各写一份，改协议名时必漏一处。
+ */
+export function fixedNetdiskHost(protocol: RemoteProtocol): string | null {
+  if (isBaiduPanProtocol(protocol)) {
+    return BAIDU_PAN_HOST;
+  }
+
+  if (isQuarkPanProtocol(protocol)) {
+    return QUARK_PAN_HOST;
+  }
+
+  if (isAliyunPanProtocol(protocol)) {
+    return ALIYUN_PAN_HOST;
+  }
+
+  if (isOnedrivePanProtocol(protocol)) {
+    return ONEDRIVE_PAN_HOST;
+  }
+
+  return null;
+}
+
+/** 网盘协议的固定端口。返回 `null` = 该协议不是网盘，port 由用户填。 */
+export function fixedNetdiskPort(protocol: RemoteProtocol): number | null {
+  if (isBaiduPanProtocol(protocol)) {
+    return BAIDU_PAN_PORT;
+  }
+
+  if (isQuarkPanProtocol(protocol)) {
+    return QUARK_PAN_PORT;
+  }
+
+  if (isAliyunPanProtocol(protocol)) {
+    return ALIYUN_PAN_PORT;
+  }
+
+  if (isOnedrivePanProtocol(protocol)) {
+    return ONEDRIVE_PAN_PORT;
+  }
+
+  return null;
+}
+
+/**
+ * 把一条落盘记录归一化成前端的形状（批次 37）。
+ *
+ * **`includeInGlobalSearch` 是后加的字段**：老记录里根本没有这个键。
+ * 缺省必须读成 `false`（不加入全局检索），而不是 `undefined` ——
+ * `undefined` 在模板里虽然也是 falsy，但存回盘上就还是「没有这个键」，
+ * 归一化必须是**真的归一**。
+ *
+ * 导出是为了能单独测它：这条规则一旦漂了，老用户的网盘会莫名其妙地
+ * 被塞进全局检索（要走网络、吃配额）。
+ */
+export function normalizeConnectionRecord(record: unknown): RemoteConnection {
+  const source = (record ?? {}) as Partial<RemoteConnection>;
+
+  return {
+    ...(source as RemoteConnection),
+    includeInGlobalSearch: source.includeInGlobalSearch === true,
+  };
+}
+
+/**
+ * 网盘协议的界面名称（简体中文）。
+ *
+ * 只给**非要拼一句中文**的地方用 —— 比如「测试连接」那条兜底提示。
+ * 其余地方一律走 i18n 键，别在这里扩。
+ */
+const NETDISK_PROTOCOL_LABELS: Record<string, string> = {
+  baidu_pan: '百度网盘',
+  quark_pan: '夸克网盘',
+  aliyun_pan: '阿里云盘',
+  onedrive_pan: 'OneDrive',
+};
+
+export const useRemoteConnectionsStore = defineStore('remoteConnections', () => {
+  const userPathsStore = useUserPathsStore();
+
+  const storage = ref<LazyStore | null>(null);
+  const connections = ref<RemoteConnection[]>([]);
+
+  /**
+   * 勾选了「加入全局检索」的那些连接（批次 37）。
+   *
+   * 建云盘索引时传的就是它们的 id —— **必须是当前全部已勾选的**：
+   * 后端按传进来的集合整体重建云盘索引，漏掉一条就等于把那条的条目抹掉。
+   */
+  const globalSearchConnections = computed(() => (
+    connections.value.filter(connection => connection.includeInGlobalSearch === true)
+  ));
+
+  /**
+   * 把连接列表同步给「位置」页的注册表（用户 2026-11-08 需求 3）。
+   *
+   * 方向刻意是「store 推、`virtual-locations.ts` 读快照」：那个模块是纯工具，
+   * 被工具栏、地址栏与大量单测引入，让它反过来 import 本 store 会把
+   * `@tauri-apps/plugin-store` 与 `@/data/user-paths` 拖进每个使用方的模块图，
+   * 实测拖坏 `use-file-browser-drag-session.test.ts` 的 8 条用例。
+   *
+   * `immediate: true` 不能省：连接表可能在本 store 初始化之前就已就绪
+   * （启动存储快路径），否则注册表会一直是空的。
+   */
+  watch(connections, value => setRemoteLocationRefs(value), { immediate: true });
+  const isInitialized = ref(false);
+
+  /**
+   * 「请打开某条连接的编辑表单」的一次性请求。
+   *
+   * 需求来源（2026-10-18）：导航栏悬停面板上每条连接右侧加一个设置按钮，
+   * 点它直接进那条连接的编辑界面。
+   *
+   * 为什么是 store 上的瞬态值而不是路由参数：设置页的分类切换已经有自己的
+   * 机制（`openSettingsTab`），再加一个 query 参数就要让分类、面板、滚动位置
+   * 三处都认识它。而这里要的只是「到了远程分类后，把这条连接的表单打开」，
+   * 一个消费即清空的 id 就够 —— **消费方必须清空**，否则用户关掉表单后再切回
+   * 远程分类，表单会凭空自己弹出来。
+   */
+  const pendingEditId = ref<string | null>(null);
+
+  function requestRemoteEdit(id: string): void {
+    if (!isValidConnectionId(id)) {
+      return;
+    }
+
+    pendingEditId.value = id;
+  }
+
+  /** 取走一次请求。取走即清空，避免下次进设置页时误开表单。 */
+  function consumeRemoteEdit(): string | null {
+    const id = pendingEditId.value;
+    pendingEditId.value = null;
+    return id;
+  }
+
+  /**
+   * 「请新建一条连接」的一次性请求（2026-11-08）。
+   *
+   * 需求来源：用户反馈「左侧导航里找不到添加百度网盘的入口」。
+   * 左侧导航的云图标本身只展开一个**悬停面板**，对第一次用这个功能的人来说太隐蔽，
+   * 所以图标轨上再加一颗常驻的「+」按钮，点它直接跳到设置页的远程分类并打开新建表单。
+   *
+   * 与 `pendingEditId` 同理是 store 上的瞬态值：**消费即清空**，
+   * 否则用户关掉表单后再切回远程分类，表单会凭空自己弹出来。
+   */
+  const pendingCreate = ref<RemoteProtocol | null>(null);
+
+  function requestRemoteCreate(protocol: RemoteProtocol = 'ftp'): void {
+    pendingCreate.value = protocol;
+  }
+
+  /** 取走一次新建请求，连带要预置的协议。取走即清空，避免下次进设置页时误开表单。 */
+  function consumeRemoteCreate(): RemoteProtocol | null {
+    const requested = pendingCreate.value;
+    pendingCreate.value = null;
+    return requested;
+  }
+
+  /**
+   * 「请把远程分类切到某个分区」的一次性请求（2026-11-08）。
+   *
+   * 需求来源：位置页（主页）底部新增了「网盘」「远程连接」两个入口，
+   * 点它们要直接落到设置页远程分类的**对应标签**上。
+   *
+   * 设置页的**顶层**分类由 `openSettingsTab('remote')` 负责，
+   * 但那一层只认得到「远程」这个分类，认不到分类内部的「网盘 / 远程连接」两个标签，
+   * 所以这里补一个瞬态值。
+   *
+   * 与 `pendingEditId` / `pendingCreate` 同理：**消费即清空**，
+   * 否则用户下次自己进这一页，会被莫名其妙地拽回某个标签。
+   */
+  const pendingSection = ref<'netdisk' | 'remote' | null>(null);
+
+  function requestRemoteSection(section: 'netdisk' | 'remote'): void {
+    pendingSection.value = section;
+  }
+
+  /** 取走一次分区请求。取走即清空。 */
+  function consumeRemoteSection(): 'netdisk' | 'remote' | null {
+    const section = pendingSection.value;
+    pendingSection.value = null;
+    return section;
+  }
+
+  function isValidConnectionId(id: string): boolean {
+    return id.length > 0 && !id.includes('/') && !id.includes('\\');
+  }
+
+  /**
+   * 逐条校验，与后端 `RemoteConnection::validate` 对齐。
+   *
+   * 前端也要校验，不是为了代替后端，而是为了**在写盘之前**挡住明显错误 ——
+   * 后端校验发生在凭据已经写进 DPAPI 之后，那时用户看到的是「保存失败」，
+   * 而密码已经留下了。前端这一层是提前给出可读提示。
+   */
+  function validateForm(form: RemoteConnectionForm, id: string): string | null {
+    if (!isValidConnectionId(id)) {
+      return 'connectionIdInvalid';
+    }
+
+    if (form.name.trim().length === 0) {
+      return 'nameRequired';
+    }
+
+    // 百度网盘没有「服务器地址」与「端口」的概念 —— 主机恒为 pan.baidu.com，
+    // 凭据是一整段 Cookie。拿 FTP 那套规则去卡它，用户根本填不出一个能保存的表单。
+    if (!isNetdiskProtocol(form.protocol)) {
+      if (form.host.trim().length === 0) {
+        return 'hostRequired';
+      }
+
+      if (/\s/.test(form.host)) {
+        return 'hostHasWhitespace';
+      }
+
+      if (!Number.isInteger(form.port) || form.port < 1 || form.port > 65535) {
+        return 'portInvalid';
+      }
+    }
+
+    if (normalizeRemotePath(form.initialPath) === null) {
+      return 'initialPathInvalid';
+    }
+
+    // 本地目录**只查「像不像路径」**，不查存在性 ——
+    // 校验发生在写盘之前，去 stat 一个还没建好的目录只会误报。
+    // 与 Rust 侧 `RemoteConnection::validate` 同规则。
+    if (form.localPath.trim().length > 0 && /\s/.test(form.localPath)) {
+      return 'localPathHasWhitespace';
+    }
+
+    if (form.proxy.kind !== 'direct') {
+      if (form.proxy.host.trim().length === 0) {
+        return 'proxyHostRequired';
+      }
+
+      if (/\s/.test(form.proxy.host)) {
+        return 'proxyHostHasWhitespace';
+      }
+
+      if (!Number.isInteger(form.proxy.port) || form.proxy.port < 1 || form.proxy.port > 65535) {
+        return 'proxyPortInvalid';
+      }
+    }
+
+    return null;
+  }
+
+  function applyRecord(record: Record<string, unknown>): void {
+    const stored = record[CONNECTIONS_KEY];
+
+    if (!Array.isArray(stored)) {
+      connections.value = [];
+      return;
+    }
+
+    connections.value = stored.map(item => normalizeConnectionRecord(item));
+  }
+
+  async function loadStorageData(): Promise<void> {
+    if (!storage.value) return;
+
+    try {
+      const stored = await storage.value.get<RemoteConnection[]>(CONNECTIONS_KEY);
+      applyRecord({ [CONNECTIONS_KEY]: stored });
+    }
+    catch (error) {
+      console.error('Failed to load remote connections storage:', error);
+    }
+  }
+
+  function loadFromBootstrap(bootstrapFile?: StartupStorageFileBootstrap): boolean {
+    if (!canUseStartupStorageFastPath(bootstrapFile)) {
+      return false;
+    }
+
+    const bootstrapRecord = getStartupStorageRecord(bootstrapFile);
+
+    if (!bootstrapRecord) {
+      return true;
+    }
+
+    applyRecord(bootstrapRecord);
+    return true;
+  }
+
+  /**
+   * 导入设置时**整体替换**连接列表。
+   *
+   * 刻意不走 `saveConnection`：那个方法会连同密码一起写，
+   * 而导入包里的连接**没有凭据**（凭据不导出）—— 走它等于把本机密码清空。
+   * 这里的凭据由调用方先合并好（同 id 沿用本机凭据），这里只负责落盘。
+   */
+  async function replaceConnectionsForImport(nextConnections: RemoteConnection[]): Promise<void> {
+    connections.value = nextConnections.map(connection => normalizeConnectionRecord(connection));
+    await saveStorageData();
+  }
+
+  async function saveStorageData(): Promise<void> {
+    // **刻意不静默 no-op。** 仓库里既有的 store 在这里写的是
+    // `if (!storage.value) return;`，后果是 init 失败时每次保存都悄悄丢掉：
+    // 界面立刻显示新连接、内存里也有，重启即无，全程零报错。
+    // 密码的写入顺序依赖这一层「要么写成功、要么明确失败」，
+    // 静默返回会让调用方以为已经落盘。
+    if (!storage.value) {
+      throw new Error('remoteConnectionsStorageNotReady');
+    }
+
+    try {
+      await storage.value.set(CONNECTIONS_KEY, connections.value);
+      await storage.value.save();
+    }
+    catch (error) {
+      console.error('Failed to save remote connections storage:', error);
+      throw error;
+    }
+  }
+
+  async function init(bootstrapFile?: StartupStorageFileBootstrap): Promise<void> {
+    if (isInitialized.value) return;
+
+    try {
+      const resolvedBootstrapFile = bootstrapFile ?? await getStartupStorageFile('remoteConnections');
+      storage.value = await new LazyStore(userPathsStore.customPaths.appUserDataRemoteConnectionsPath);
+      await storage.value.save();
+
+      if (!loadFromBootstrap(resolvedBootstrapFile)) {
+        await loadStorageData();
+      }
+
+      isInitialized.value = true;
+    }
+    catch (error) {
+      console.error('Failed to initialize remote connections storage:', error);
+    }
+  }
+
+  function getConnection(id: string): RemoteConnection | undefined {
+    return connections.value.find(connection => connection.id === id);
+  }
+
+  /**
+   * 新建或更新一条连接。
+   *
+   * ## 写顺序是硬约束，不能调换
+   *
+   * 1. **先**写 DPAPI 密文，**后**写 storage。密文写失败就直接抛错返回，
+   *    storage 一行都不动。反过来的话，storage 里会留下一条 `credentialKey`
+   *    指向不存在的密文 —— 界面显示「已保存密码」，实际连上去必然认证失败，
+   *    而且没有任何报错可查。
+   * 2. storage 写失败不回滚密文。那只是一条没有引用的加密数据块，
+   *    用户重新保存一次覆盖掉即可；反过来回滚则要在失败路径上再发一次 invoke，
+   *    反而制造出「invoke 成功但 store 没更新」这种更难查的状态。
+   *
+   * ## 密码框空串 = 「不碰已存的密码」
+   *
+   * 用户改个端口顺手清空密码框是常事，那**不等于**要清密码。
+   * 真正要清必须显式传 `clearPassword`。
+   */
+  async function saveConnection(form: RemoteConnectionForm): Promise<RemoteConnection> {
+    const id = form.id ?? createRemoteConnectionId();
+    const validationError = validateForm(form, id);
+
+    if (validationError) {
+      throw new Error(validationError);
+    }
+
+    const existing = getConnection(id);
+    const hasNewPassword = form.password.length > 0 && !form.clearPassword;
+    const normalizedPath = normalizeRemotePath(form.initialPath) ?? '/';
+    const trimmedLocalPath = form.localPath.trim();
+
+    // 第一步：密文先行。
+    let credentialKey = existing?.credentialKey;
+
+    if (isQuarkPanProtocol(form.protocol)) {
+      // 夸克网盘的凭据同样不是口令，是一整段会话 Cookie（核心是 `__pus`）。
+      // 走**独立**的 command：后端要解析出 `__pus` 并拒绝格式不合法的 cookie，
+      // 塞进通用的 `remote_save_credential` 等于把没解析过的垃圾也存成「已登录」。
+      if (hasNewPassword) {
+        await invoke('remote_quark_save_session', {
+          connectionId: id,
+          cookie: form.password,
+        });
+        credentialKey = id;
+      }
+      else if (form.clearPassword) {
+        await invoke('remote_quark_delete_session', {
+          connectionId: id,
+        });
+        credentialKey = undefined;
+      }
+      else {
+        // 内嵌登录：登录态先暂存在后端的「待认领槽位」里（它比连接本身先产生）。
+        // 认领必须放在这里：只有走到这一步才会有 id 可以落盘。
+        // 槽位为空时后端返回 claimed:false，是一次空操作，不会覆盖已存会话。
+        //
+        // ⚠️ 认领**失败**（登录窗尚未接线 / 读不到槽位）要归一化成
+        // 「没有可认领的登录态」：直接抛出的话，界面上拿到的是后端序列化后的
+        // 错误对象，`error instanceof Error` 为 false ⇒ 落进 'unknown'，
+        // 用户只会看到一句「保存连接失败。」，而不知道下一步该做什么。
+        let claimed: QuarkLoginClaimPayload | null = null;
+
+        try {
+          claimed = await invoke<QuarkLoginClaimPayload>('remote_quark_login_claim', {
+            connectionId: id,
+          });
+        }
+        catch (error) {
+          console.warn('Quark login claim failed:', error);
+        }
+
+        if (claimed?.claimed) {
+          credentialKey = id;
+        }
+        else if (!credentialKey) {
+          // 会话槽位是空的，而且这条连接本来也没有凭据 —— 保存下去会得到一条
+          // 「看起来加成功了、实际连不上」的网盘连接，界面上没有任何提示。
+          // 抛 i18n key，由表单按既有约定渲染成中文提示。
+          throw new Error('quarkLoginRequired');
+        }
+      }
+    }
+    else if (isBaiduPanProtocol(form.protocol)) {
+      // 百度网盘的凭据不是口令，是一整段会话 Cookie（BDUSS + STOKEN）。
+      // 走**独立**的 command：后端要解析出这两个值，并拒绝格式不合法的 cookie。
+      // 塞进通用的 `remote_save_credential` 等于把没解析过的垃圾也存成「已登录」，
+      // 界面上还显示「已保存密码」—— 用户会一直连不上却不知道原因。
+      if (hasNewPassword) {
+        await invoke('remote_baidu_save_session', {
+          connectionId: id,
+          cookie: form.password,
+        });
+        credentialKey = id;
+      }
+      else if (form.clearPassword) {
+        await invoke('remote_baidu_delete_session', {
+          connectionId: id,
+        });
+        credentialKey = undefined;
+      }
+      else {
+        // 内嵌登录（2026-11-08）：登录态先暂存在后端的「待认领槽位」里，
+        // 因为它比连接本身先产生 —— 用户是先登录、后点保存。
+        // 认领必须放在这里：只有走到这一步才会有 id 可以落盘。
+        // 槽位为空时后端返回 claimed:false，是一次空操作，不会覆盖已存会话。
+        const claimed = await invoke<BaiduLoginClaimPayload>('remote_baidu_login_claim', {
+          connectionId: id,
+        });
+
+        if (claimed.claimed) {
+          credentialKey = id;
+        }
+        else if (!credentialKey) {
+          // 会话槽位是空的，而且这条连接本来也没有凭据 —— 保存下去会得到一条
+          // 「看起来加成功了、实际连不上」的网盘连接，界面上没有任何提示。
+          // 2026-11-09 用户实测就是这么丢掉一次扫码登录的。
+          // 抛 i18n key，由表单按既有约定渲染成中文提示。
+          throw new Error('baiduLoginRequired');
+        }
+      }
+    }
+    else if (isAliyunPanProtocol(form.protocol)) {
+      // 阿里云盘的凭据是一整段会话（access_token），不是口令：
+      // 扫码或「粘贴 access_token」都把会话先暂存在后端的「待认领槽位」里，
+      // 保存时（那时才有连接 id）认领并写进 DPAPI 密文。
+      // 「粘贴 access_token」兜底走 `remote_aliyun_save_session`，
+      // 它在后端探活通过后也写进同一个槽位 ⇒ 这里只管认领。
+      if (form.clearPassword) {
+        // 勾了「移除已保存的密码」= 退出登录。删掉会话，连接还在。
+        await invoke('remote_aliyun_delete_session', {
+          connectionId: id,
+        });
+        credentialKey = undefined;
+      }
+      else {
+        // 槽位为空时后端返回 claimed:false，是一次空操作，不会覆盖已存会话。
+        //
+        // ⚠️ 认领**失败**（登录窗尚未接线 / 读不到槽位）要归一化成
+        // 「没有可认领的登录态」：直接抛出的话，界面上拿到的是后端序列化后的
+        // 错误对象，`error instanceof Error` 为 false ⇒ 落进 'unknown'，
+        // 用户只会看到一句「保存连接失败。」，而不知道下一步该做什么。
+        let claimed: AliyunLoginClaimPayload | null = null;
+
+        try {
+          claimed = await invoke<AliyunLoginClaimPayload>('remote_aliyun_login_claim', {
+            connectionId: id,
+          });
+        }
+        catch (error) {
+          console.warn('Aliyun login claim failed:', error);
+        }
+
+        if (claimed?.claimed) {
+          credentialKey = id;
+        }
+        else if (!credentialKey) {
+          // 会话槽位是空的，而且这条连接本来也没有凭据 —— 保存下去会得到一条
+          // 「看起来加成功了、实际连不上」的网盘连接，界面上没有任何提示。
+          // 抛 i18n key，由表单按既有约定渲染成中文提示。
+          throw new Error('aliyunLoginRequired');
+        }
+      }
+    }
+    else if (isOnedrivePanProtocol(form.protocol)) {
+      // OneDrive（批次 38）的凭据是一整套 Microsoft OAuth 会话
+      // （access_token / refresh_token），同样不是口令：用户在系统浏览器里授权后，
+      // 后端把换到的会话暂存在「待认领槽位」，保存这条连接时（那时才有 id）认领打盘。
+      // ⚠️ 认领返回的是 `OnedriveAuthStatusPayload`（判定字段是 `authorized`），
+      // 与前三家的 `claimed` 形状不同，别照抄。
+      if (form.clearPassword) {
+        // 勾了「移除已保存的密码」= 退出登录。删掉会话，连接还在。
+        await invoke('remote_onedrive_delete_session', {
+          connectionId: id,
+        });
+        credentialKey = undefined;
+      }
+      else {
+        let claimed: OnedriveAuthStatusPayload | null = null;
+
+        try {
+          claimed = await invoke<OnedriveAuthStatusPayload>('remote_onedrive_login_claim', {
+            connectionId: id,
+          });
+        }
+        catch (error) {
+          console.warn('OneDrive login claim failed:', error);
+        }
+
+        if (claimed?.authorized) {
+          credentialKey = id;
+        }
+        else if (!credentialKey) {
+          // 槽位为空且这条连接本来也没有凭据 —— 保存下去会得到一条
+          // 「看起来加成功了、实际连不上」的连接，界面上没有任何提示。
+          // 抛 i18n key，由表单按既有约定渲染成中文提示。
+          throw new Error('onedriveLoginRequired');
+        }
+      }
+    }
+    else if (hasNewPassword) {
+      await invoke('remote_save_credential', {
+        key: id,
+        secret: form.password,
+      });
+      credentialKey = id;
+    }
+    else if (form.clearPassword) {
+      await invoke('remote_delete_credential', {
+        key: id,
+      });
+      credentialKey = undefined;
+    }
+
+    const connection: RemoteConnection = {
+      id,
+      name: form.name.trim(),
+      protocol: form.protocol,
+      // 百度网盘不认自定义主机 —— 恒为 pan.baidu.com:443。
+      // 写成别的值会让「远程位置」里那条连接连到别处去。
+      host: fixedNetdiskHost(form.protocol) ?? form.host.trim(),
+      port: fixedNetdiskPort(form.protocol) ?? form.port,
+      username: form.username,
+      initialPath: normalizedPath,
+      // 空串 / 纯空白 → 字段整个不写出去，保持与「不摆双屏」同义。
+      ...(trimmedLocalPath
+        ? { localPath: trimmedLocalPath }
+        : {}),
+      proxy: form.proxy,
+      ...(credentialKey
+        ? { credentialKey }
+        : {}),
+      // 「加入全局检索」跟着连接一起存。**缺省不加入** ——
+      // 给云盘建索引要走网络、吃网盘 API 配额，默认打开等于替用户做决定。
+      includeInGlobalSearch: form.includeInGlobalSearch === true,
+    };
+
+    // 第二步：storage。走到这里密文已经在盘上。
+    if (existing) {
+      connections.value = connections.value.map(item => (item.id === id ? connection : item));
+    }
+    else {
+      connections.value = [...connections.value, connection];
+    }
+
+    await saveStorageData();
+
+    return connection;
+  }
+
+  /**
+   * 只改一条连接的「加入全局检索」勾选状态（批次 43）。
+   *
+   * **绝不能拿 `saveConnection` 干这件事** —— 那条路对网盘协议有重副作用：
+   * 会走 `remote_baidu_save_session` / 登录槽位 claim，槽位为空时直接抛
+   * `baiduLoginRequired` / `quarkLoginRequired` / `aliyunLoginRequired`。
+   * 用户在设置页点一下复选框，却因为「凭据槽位是空的」被弹一句「请先登录」，
+   * 是最典型的误伤 —— 而这个勾选跟登录态毫无关系。
+   *
+   * 这里**只写 `includeInGlobalSearch` 一个字段**：其余字段原样带回，
+   * 再走**同一条**连接记录落盘通路（`saveStorageData`），
+   * 不碰凭据、不认领登录槽位、不重新登录、不抛任何 login-required 错误。
+   *
+   * 返回 `false` = 这条连接已经不在了（界面上那行刚好被删掉）。
+   */
+  async function setConnectionIncludeInGlobalSearch(id: string, value: boolean): Promise<boolean> {
+    const existing = getConnection(id);
+
+    if (!existing) {
+      return false;
+    }
+
+    if (existing.includeInGlobalSearch === value) {
+      return true;
+    }
+
+    connections.value = connections.value.map(item => (
+      item.id === id
+        ? {
+            ...item,
+            includeInGlobalSearch: value,
+          }
+        : item
+    ));
+
+    await saveStorageData();
+
+    return true;
+  }
+
+  /**
+   * 删掉一条连接，并把它的密文一并清掉。
+   *
+   * storage 先删、密文后删，且**密文删失败不抛错**：连接已经不存在了，
+   * 残留的密文只是一块没人引用的加密数据。反过来的话，凭据没了而连接还在，
+   * 用户会看到一个「有密码」的连接但怎么都连不上。
+   */
+  async function deleteConnection(id: string): Promise<void> {
+    const existing = getConnection(id);
+
+    connections.value = connections.value.filter(connection => connection.id !== id);
+    await saveStorageData();
+
+    if (!existing?.credentialKey) return;
+
+    try {
+      await invoke('remote_delete_credential', {
+        key: existing.credentialKey,
+      });
+    }
+    catch (error) {
+      console.error('Failed to delete remote credential:', error);
+    }
+  }
+
+  /** 代理密码也走 DPAPI，与连接密码是两条独立记录。 */
+  async function saveProxySecret(
+    connectionId: string,
+    proxy: RemoteProxyConfig,
+  ): Promise<RemoteProxyConfig> {
+    if (proxy.kind === 'direct' || !proxy.password) {
+      return proxy;
+    }
+
+    await invoke('remote_save_credential', {
+      key: `${connectionId}:proxy`,
+      secret: proxy.password,
+    });
+
+    return proxy;
+  }
+
+  /**
+   * 拿一条已保存连接的密码，供「测试连接」用。
+   *
+   * **只在内存里过一趟，不写回任何地方。** 测试连接是个纯读操作：
+   * 测一次不该改变下次测试的输入，也不该动 DPAPI 存档。
+   *
+   * 返回 `null` 表示「没存过」—— 调用方据此把 `password` 传成
+   * `undefined`（= 不打算提交凭据），而不是传空串。
+   */
+  async function loadCredentialForTest(key: string | undefined): Promise<string | null> {
+    if (!key) {
+      return null;
+    }
+
+    return invoke<string | null>('remote_load_credential', { key });
+  }
+
+  /**
+   * 真去连一次，把结论报回来。**不写任何盘上的状态。**
+   *
+   * `password` 传 `undefined` 表示「这次不提交凭据」，与空串是两件事：
+   * 匿名 FTP 会回 `verified` + `passwordChecked: false`，
+   * 传空串则会让后端把空口令真的发出去。
+   *
+   * ⚠️ **`clearPassword` 的优先级与 `saveConnection` 保持一致**：
+   * 那里是 `hasNewPassword = password.length > 0 && !clearPassword`，
+   * 即「勾了移除，键入的密码也不算数」。这里必须同规则，
+   * 否则同一张表单里这个勾选框会有两种含义 —— 用户勾掉密码、点测试，
+   * 却拿刚要被删掉的那条去认证并回一句「密码没问题」。
+   */
+  async function testConnection(
+    form: RemoteConnectionForm,
+  ): Promise<RemoteConnectionTestReport> {
+    // 网盘三种都**不走** `loadCredentialForTest`：那边取回来的是存档里的会话
+    // JSON（不是原始 cookie），当成 cookie 发过去必然解析失败。
+    // 这里留空即可 —— 后端会按 `credentialKey` 自己去读存档里的会话。
+    //
+    // 判定用 `isNetdiskProtocol`（认全三家网盘），不再写「百度或夸克」的二元式。
+    const isNetdisk = isNetdiskProtocol(form.protocol);
+    let password = form.password.length > 0 && !form.clearPassword ? form.password : undefined;
+
+    if (password === undefined && form.id && !form.clearPassword && !isNetdisk) {
+      // 编辑既有连接且密码框留空：空串的语义是「不碰已存的密码」，
+      // 所以要把存过的那条取出来用，否则测的其实是「空密码」。
+      password = (await loadCredentialForTest(form.id)) ?? undefined;
+    }
+
+    // FORK-MODIFICATION 2026-11-09：百度网盘的会话是按**连接 id** 存进保险库的。
+    // 未保存的表单没有 id，就没有可读的会话 —— 后端只会回一句「还没有登录凭据」，
+    // 而用户刚刚扫码成功过，读起来像「登录白做了」。这里直接说清楚缺的那一步。
+    // （手工粘贴了 cookie 的情况不拦：`password` 有值就照常发出去测。）
+    if (isNetdisk && password === undefined && !form.id) {
+      // 网盘名按协议取，不写死在三元式里 —— 接第三家网盘时这里不用再改。
+      const label = NETDISK_PROTOCOL_LABELS[form.protocol] ?? '网盘';
+
+      return {
+        outcome: 'missing_credential',
+        passwordChecked: false,
+        tlsVerified: false,
+        message: `这条${label}连接还没有保存，请先点「保存」，再点「测试连接」。`,
+      };
+    }
+
+    return invoke<RemoteConnectionTestReport>('remote_test_connection', {
+      request: {
+        protocol: form.protocol,
+        // 网盘用存档里的会话去测；其余协议不需要这个字段。
+        credentialKey: isNetdisk ? form.id : undefined,
+        host: fixedNetdiskHost(form.protocol) ?? form.host.trim(),
+        port: fixedNetdiskPort(form.protocol) ?? form.port,
+        username: form.username,
+        password,
+        proxy: form.proxy,
+      },
+    });
+  }
+
+  /**
+   * 百度网盘会话的当前状态，给设置页的授权卡用。
+   *
+   * **只返回状态，不返回凭据** —— 与后端一致：摘要里只有 cookie 的名字与长度，
+   * 没有任何明文片段。
+   */
+  async function getBaiduAuthStatus(
+    connectionId: string,
+  ): Promise<BaiduAuthStatusPayload> {
+    return invoke<BaiduAuthStatusPayload>('remote_baidu_auth_status', {
+      connectionId,
+    });
+  }
+
+  /** 删掉已保存的百度网盘会话（退出登录）。键不存在是成功的空操作。 */
+  async function deleteBaiduSession(connectionId: string): Promise<void> {
+    await invoke('remote_baidu_delete_session', {
+      connectionId,
+    });
+  }
+
+  /**
+   * 打开**内嵌**百度网盘登录窗口（2026-11-08）。
+   *
+   * 窗口由 Rust 侧建（`src-tauri/src/baidu_login.rs`），前端只发起动作：
+   * 这样登录页跑在应用自己的 WebView2 里，cookie 直接落在应用的 cookie 罐，
+   * 后端 `cookies_for_url` 读得到 `HttpOnly` 的 `BDUSS` ——
+   * 走系统浏览器则完全读不回来（`HttpOnly` 就是防这个的）。
+   *
+   * 重复调用只会聚焦已经打开的窗口，不会开出第二个。
+   */
+  async function startBaiduLogin(): Promise<void> {
+    await invoke('remote_baidu_login_start');
+  }
+
+  /** 放弃内嵌登录：关窗口并丢弃已读到但没人认领的会话。 */
+  async function cancelBaiduLogin(): Promise<void> {
+    await invoke('remote_baidu_login_cancel');
+  }
+
+  /**
+   * 夸克网盘会话的当前状态，给设置页的授权卡用。
+   *
+   * **只返回状态，不返回凭据** —— 与后端一致：摘要里只有 cookie 的名字与长度，
+   * 没有任何明文片段。
+   */
+  async function getQuarkAuthStatus(
+    connectionId: string,
+  ): Promise<QuarkAuthStatusPayload> {
+    return invoke<QuarkAuthStatusPayload>('remote_quark_auth_status', {
+      connectionId,
+    });
+  }
+
+  /** 删掉已保存的夸克网盘会话（退出登录）。键不存在是成功的空操作。 */
+  async function deleteQuarkSession(connectionId: string): Promise<void> {
+    await invoke('remote_quark_delete_session', {
+      connectionId,
+    });
+  }
+
+  /**
+   * 打开**内嵌**夸克网盘登录窗口。
+   *
+   * 窗口由 Rust 侧建（`src-tauri/src/quark_login.rs`），前端只发起动作：
+   * 登录页跑在应用自己的 WebView2 里，cookie 直接落在应用的 cookie 罐，
+   * 后端才读得到 `HttpOnly` 的 `__pus`。
+   */
+  async function startQuarkLogin(): Promise<QuarkLoginStartPayload> {
+    return invoke<QuarkLoginStartPayload>('remote_quark_login_start');
+  }
+
+  /** 放弃内嵌登录：关窗口并丢弃已读到但没人认领的会话。 */
+  async function cancelQuarkLogin(): Promise<void> {
+    await invoke('remote_quark_login_cancel');
+  }
+
+  /** 有没有待认领的夸克登录态（前端打开表单时用来兜底）。 */
+  async function getQuarkLoginPending(): Promise<QuarkLoginPendingPayload> {
+    return invoke<QuarkLoginPendingPayload>('remote_quark_login_pending');
+  }
+
+  /**
+   * 阿里云盘会话的当前状态，给设置页的授权卡用。
+   *
+   * **只返回状态，不返回凭据** —— 与后端一致：摘要里没有任何 token 片段。
+   */
+  async function getAliyunAuthStatus(
+    connectionId: string,
+  ): Promise<AliyunAuthStatusPayload> {
+    return invoke<AliyunAuthStatusPayload>('remote_aliyun_auth_status', {
+      connectionId,
+    });
+  }
+
+  /** 删掉已保存的阿里云盘会话（退出登录）。键不存在是成功的空操作。 */
+  async function deleteAliyunSession(connectionId: string): Promise<void> {
+    await invoke('remote_aliyun_delete_session', {
+      connectionId,
+    });
+  }
+
+  /**
+   * 取一张阿里云盘登录二维码。
+   *
+   * 扫码登录（批次 29）：后端只给二维码内容与轮询票据，**不碰任何凭据**。
+   * 二维码内容由前端用 `qrcode` 库渲染成图片。
+   */
+  async function startAliyunQr(): Promise<AliyunQrStartPayload> {
+    return invoke<AliyunQrStartPayload>('remote_aliyun_qr_start');
+  }
+
+  /** 轮询扫码状态。终态由后端用 `finalStatus` 标出，前端据此停表。 */
+  async function pollAliyunQr(ck: string, t: number | null): Promise<AliyunQrPollPayload> {
+    return invoke<AliyunQrPollPayload>('remote_aliyun_qr_poll', {
+      ck,
+      t,
+    });
+  }
+
+  /**
+   * 「粘贴 access_token」兜底。
+   *
+   * `connectionId` 为空串时（新连接还没有 id）后端把会话存进待认领槽位，
+   * 保存这条连接时再认领落盘。
+   */
+  async function saveAliyunSession(
+    connectionId: string,
+    accessToken: string,
+  ): Promise<AliyunAuthStatusPayload> {
+    return invoke<AliyunAuthStatusPayload>('remote_aliyun_save_session', {
+      connectionId,
+      accessToken,
+    });
+  }
+
+  /** 放弃内嵌登录：关窗口并丢弃已换到但没人认领的会话。 */
+  async function cancelAliyunLogin(): Promise<void> {
+    await invoke('remote_aliyun_login_cancel');
+  }
+
+  /** 有没有待认领的阿里云盘登录态（前端打开表单时用来兜底）。 */
+  async function getAliyunLoginPending(): Promise<AliyunLoginPendingPayload> {
+    return invoke<AliyunLoginPendingPayload>('remote_aliyun_login_pending');
+  }
+
+  /**
+   * 打开阿里云盘官方登录页（批次 29，与百度网盘 / 夸克同构的内嵌浏览器登录）。
+   *
+   * 页面自己驱动 generate.do / query.do；注入进去的钩子把 query.do 响应里的
+   * bizExt 直接交回 Rust，凭据落进**待认领槽位**，保存这条连接时由
+   * remote_aliyun_login_claim 认领 —— 前端全程不经手 token。
+   * 事件 payload 只有脱敏摘要。
+   */
+  async function openAliyunLogin(): Promise<AliyunLoginStartPayload> {
+    return invoke<AliyunLoginStartPayload>('remote_aliyun_login_start');
+  }
+
+  /** 主动关掉内嵌登录窗：放弃本轮流程，但不动已落到待认领槽位的会话。 */
+  async function closeAliyunLogin(): Promise<void> {
+    await invoke('remote_aliyun_login_close');
+  }
+
+  /**
+   * OneDrive 的授权状态，给设置页的授权卡用（批次 38）。
+   *
+   * **只返回状态与账号摘要，不返回任何 token 片段** —— 与后端一致。
+   */
+  async function getOnedriveAuthStatus(
+    connectionId: string,
+  ): Promise<OnedriveAuthStatusPayload> {
+    return invoke<OnedriveAuthStatusPayload>('remote_onedrive_auth_status', {
+      connectionId,
+    });
+  }
+
+  /** 删掉已保存的 OneDrive 会话（退出登录）。键不存在是成功的空操作。 */
+  async function deleteOnedriveSession(connectionId: string): Promise<void> {
+    await invoke('remote_onedrive_delete_session', {
+      connectionId,
+    });
+  }
+
+  /**
+   * 启动 OneDrive 授权（批次 38）。
+   *
+   * 与前三家**不同**：OneDrive 走 Microsoft 的 OAuth 授权码流程，
+   * 不是内嵌窗口抓 cookie —— 后端只给一个授权 URL 与一个环回 redirect URI，
+   * 浏览器由调用方（表单）用系统浏览器打开。
+   * `clientId` 由用户自填：不传 `openBrowser` 时后端自己开浏览器。
+   */
+  async function startOnedriveLogin(
+    clientId: string,
+    openBrowser?: boolean,
+  ): Promise<OnedriveLoginStartPayload> {
+    return invoke<OnedriveLoginStartPayload>('remote_onedrive_login_start', {
+      clientId,
+      openBrowser,
+    });
+  }
+
+  /** 有没有待认领的 OneDrive 登录态 / 授权进行到哪一步。 */
+  async function getOnedriveLoginPending(): Promise<OnedriveLoginPendingPayload> {
+    return invoke<OnedriveLoginPendingPayload>('remote_onedrive_login_pending');
+  }
+
+  /** 放弃本轮授权：后端关掉环回监听。已落盘的会话不受影响。 */
+  async function cancelOnedriveLogin(): Promise<void> {
+    await invoke('remote_onedrive_login_cancel');
+  }
+
+  return {
+    storage,
+    connections,
+    globalSearchConnections,
+    isInitialized,
+    pendingEditId,
+    pendingCreate,
+    pendingSection,
+
+    init,
+    loadStorageData,
+    saveStorageData,
+    // FORK-MODIFICATION: 批次 58 —— 「导入设置」用：整体替换连接列表（不走 saveConnection）。
+    replaceConnectionsForImport,
+    getConnection,
+    saveConnection,
+    setConnectionIncludeInGlobalSearch,
+    deleteConnection,
+    saveProxySecret,
+    loadCredentialForTest,
+    testConnection,
+    getBaiduAuthStatus,
+    deleteBaiduSession,
+    startBaiduLogin,
+    cancelBaiduLogin,
+    getQuarkAuthStatus,
+    deleteQuarkSession,
+    startQuarkLogin,
+    cancelQuarkLogin,
+    getQuarkLoginPending,
+    getAliyunAuthStatus,
+    deleteAliyunSession,
+    startAliyunQr,
+    pollAliyunQr,
+    saveAliyunSession,
+    cancelAliyunLogin,
+    getAliyunLoginPending,
+    openAliyunLogin,
+    closeAliyunLogin,
+    getOnedriveAuthStatus,
+    deleteOnedriveSession,
+    startOnedriveLogin,
+    getOnedriveLoginPending,
+    cancelOnedriveLogin,
+    requestRemoteEdit,
+    consumeRemoteEdit,
+    requestRemoteCreate,
+    consumeRemoteCreate,
+    requestRemoteSection,
+    consumeRemoteSection,
+  };
+});

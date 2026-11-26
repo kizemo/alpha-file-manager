@@ -1,0 +1,148 @@
+# register-scheduled-task.ps1
+#
+# ============================================================================
+# DEPRECATED / NO LONGER EXECUTED (v0.5.9, 2026-11-10)
+#
+# This script is kept ONLY as the source of truth for the legacy task
+# parameters (RestartCount 3 / RestartInterval 1min, see the file body).
+# Neither the AFM main installer nor the standalone extension installer
+# calls it any more:
+#
+#   - the main installer (src-tauri/installer/hooks.nsh) stopped registering
+#     the task in 3.13.5 and now only removes it;
+#   - the standalone installer (installer.nsi) likewise stopped registering
+#     it in 0.5.9 and now only removes it.
+#
+# Reason: the sidecar is now a CHILD PROCESS of the Alpha File Manager main
+# process (spawned on startup, killed on exit, command line is
+# "--port 37421" without "--service"). A logon-scheduled task that keeps a
+# "--service" sidecar alive is detached from that lifecycle and fights the
+# main process for port 37421.
+#
+# Do NOT re-enable this script. Use remove-legacy-focus-task.ps1 instead.
+#
+# The body below is preserved verbatim for reference.
+# ============================================================================
+#
+# v0.3.0 (focus-sync Scheduled Task migration)
+# Creates a per-user Windows Scheduled Task that runs focus-sync-sidecar.exe
+# at user logon. The task is the lifecycle owner of the sidecar - Alpha File Manager
+# no longer spawns/kills it, so 7 classes of reload triggers (locale watcher,
+# binary edit, install/update, app restart, etc.) cannot kill the sidecar.
+#
+# Called by:
+#   - the AFM bundled installer (Installer A) POSTINSTALL stage 9 via
+#     sigma-file-manager/src-tauri/installer/hooks.nsh   [NO LONGER]
+#   - Standalone installer (Installer B) install section   [NO LONGER]
+#
+# Idempotent: re-running on an already-installed user is safe (skips create,
+# restarts task).
+#
+# Designed for PowerShell 5.1 (Windows 11 default).
+#
+# Pure ASCII on purpose: PowerShell 5.1 reads a BOM-less .ps1 as ANSI.
+
+# NOTE: v0.3.0 hotfix - removed [CmdletBinding()] because NSIS nsExec::ExecToLog
+# invocation (via cmd.exe) was triggering "AmbiguousParameterSet" errors when
+# -SidecarPath contained spaces. Without CmdletBinding, the function-style
+# parameter binding is unambiguous.
+
+param(
+    [Parameter(Mandatory = $true)]
+    [string]$SidecarPath
+)
+
+$ErrorActionPreference = 'Stop'
+
+$taskName = 'KizemoFocusSync'
+
+# ---------------------------------------------------------------------------
+# v2 review M2 (v0.4) - cross-installer path-change detection.
+# If an existing task points to a DIFFERENT sidecar binary path
+# (e.g. user upgraded from Installer B's $LOCALAPPDATA\... to
+# Installer A's $PROGRAMFILES\...$), unregister the stale task before
+# creating the new one. Without this, the old task continues to launch
+# the old binary, leaving two sidecars fighting over 37421.
+# ---------------------------------------------------------------------------
+$existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+if ($existingTask) {
+    $existingAction = $existingTask.Actions[0].Execute
+    # v4 review V4.1: PS 5.1 / 6.x may return IExecAction object vs raw string.
+    # Force .ToString() for safe -ne comparison.
+    if ($existingAction -isnot [string]) {
+        $existingAction = $existingAction.ToString()
+    }
+    if ($existingAction -ne $SidecarPath) {
+        Write-Host "INFO: existing task points to '$existingAction', but new path is '$SidecarPath'. Unregistering old task."
+        schtasks /Delete /TN $taskName /F | Out-Null
+        $existingTask = $null
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Create task if not already present. Idempotent - re-run is safe.
+# v3 review V3.22: --service flag is appended by the task action so the
+# sidecar knows to use fail-fast port mode. Without it, the sidecar would
+# try retry-bind 800ms x 3, which on multi-user machines triggers Task
+# Scheduler restart-spam (round 19g root cause).
+# ---------------------------------------------------------------------------
+if (-not $existingTask) {
+    $action = New-ScheduledTaskAction -Execute $SidecarPath -Argument '--service'
+    $trigger = New-ScheduledTaskTrigger -AtLogOn
+    # v0.3.0 fix: -RunLevel Limited MUST be on New-ScheduledTaskPrincipal ONLY.
+    # Setting it on BOTH Principal and Register-ScheduledTask triggers
+    # "AmbiguousParameterSet" errors in PowerShell 5.1 (parameter binding
+    # conflict between the principal's RunLevel and the cmdlet-level RunLevel).
+    $principal = New-ScheduledTaskPrincipal -User $env:USERNAME -LogonType Interactive -RunLevel Limited
+    $settings = New-ScheduledTaskSettingsSet `
+        -AllowStartIfOnBatteries `
+        -DontStopIfGoingOnBatteries `
+        -RestartCount 3 `
+        -RestartInterval (New-TimeSpan -Minutes 1) `
+        -ExecutionTimeLimit (New-TimeSpan -Seconds 0)  # 0 = unlimited (v0.3.0 H1.4 fix)
+
+    Register-ScheduledTask `
+        -TaskName $taskName `
+        -Action $action `
+        -Trigger $trigger `
+        -Principal $principal `
+        -Settings $settings `
+        -Description 'Kizemo Focus Sync sidecar helper (v0.3.0 Scheduled Task mode)' | Out-Null
+
+    Write-Host "OK: Created Scheduled Task '$taskName' pointing to '$SidecarPath'."
+}
+
+# ---------------------------------------------------------------------------
+# Always try to start the task (covers both first-install and re-run cases
+# where user just wants to ensure the task is running NOW, not waiting for
+# next logon). v0.3.0 M7: 0x800710D5 = "task already running" - silently OK.
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# v0.5.9 (2026-10-30) fix: re-enable the task before starting it.
+#
+# Root cause: the AFM installer (src-tauri/installer/hooks.nsh, PREINSTALL)
+# runs Disable-ScheduledTask so the sidecar cannot respawn while files are
+# overwritten. Nothing ever re-enabled it, so after every install/upgrade the
+# task stayed Disabled, Start-ScheduledTask failed silently, and the
+# focus-sync extension permanently reported "Sidecar not reachable on
+# 127.0.0.1:37421".
+#
+# Enable-ScheduledTask is idempotent (enabling an already-enabled task is a
+# no-op), so calling it on every run is safe.
+# ---------------------------------------------------------------------------
+try {
+    Enable-ScheduledTask -TaskName $taskName -ErrorAction Stop | Out-Null
+} catch {
+    Write-Host "WARNING: Enable-ScheduledTask failed: $($_.Exception.Message)"
+}
+
+try {
+    Start-ScheduledTask -TaskName $taskName -ErrorAction Stop | Out-Null
+} catch {
+    $hresult = $_.Exception.HResult
+    if ($hresult -ne 0x800710D5) {
+        Write-Host "WARNING: Start-ScheduledTask failed: $($_.Exception.Message)"
+    }
+}
+
+exit 0

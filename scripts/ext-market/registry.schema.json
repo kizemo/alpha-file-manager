@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kizemo.github.io/alpha-file-manager/ext-market/registry.schema.json",
+  "title": "Alpha File Manager 自建扩展市场清单",
+  "description": "结构与宿主 assertValidRegistryData 逐字对齐：schemaVersion 必须是 x.y.z，extensions 里的每条都要通过 isValidRegistryEntry 校验。",
+  "type": "object",
+  "required": ["schemaVersion", "extensions"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[\\w.]+)?$",
+      "description": "清单格式版本，必须三段（宿主 isVersionString 要求）"
+    },
+    "extensions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/extensionEntry" }
+    }
+  },
+  "$defs": {
+    "extensionEntry": {
+      "type": "object",
+      "required": ["id", "name", "description", "publisher", "repository", "featured", "categories"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "description": "必须与扩展 package.json 的 id 完全一致"
+        },
+        "name": { "type": "string", "minLength": 1, "maxLength": 50 },
+        "description": { "type": "string", "minLength": 10, "maxLength": 500 },
+        "publisher": {
+          "type": "object",
+          "required": ["name"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "url": { "type": "string", "minLength": 1 }
+          }
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "description": "扩展仓库地址。宿主用它拼 manifest / 版本 / release ZIP 地址，当前实现要求 GitHub 仓库。"
+        },
+        "featured": { "type": "boolean" },
+        "categories": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "integrity": {
+          "type": "string",
+          "minLength": 1,
+          "description": "形如 sha256:<hex>；可省，省略时宿主跳过完整性校验"
+        },
+        "releaseMetadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "integrity": { "type": "string", "minLength": 1 },
+              "manifest": { "type": "string", "minLength": 1 }
+            }
+          },
+          "propertyNames": {
+            "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[\\w.]+)?$",
+            "description": "版本键不带 v 前缀（1.0.0 对应 tag v1.0.0）"
+          }
+        }
+      }
+    }
+  }
+}

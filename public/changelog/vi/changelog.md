@@ -1,5 +1,581 @@
 # Nhật ký thay đổi
 
+
+## [3.22.0] - November 2026
+
+**Tóm tắt:** Tìm kiếm toàn cục giờ chỉ tìm đúng những ổ đĩa đám mây mà bạn đã chọn. Mỗi mục trong chỉ mục đám mây giờ ghi rõ nó đến từ ổ đĩa nào, và kết quả được lọc theo những ổ đĩa bạn đang chọn ngay lúc tìm - nên bỏ chọn một ổ đĩa có hiệu lực tức thì, ngay cả khi một lần dựng lại từng hỏng giữa chừng. Sau bản cập nhật này, chỉ mục đám mây được dựng lại một lần, vì định dạng lưu xuống nay đã kèm thông tin mỗi mục thuộc ổ đĩa nào.
+
+### What changed
+
+**Đã sửa** **Chỉ những ổ đĩa bạn chọn mới được tìm** - Chỉ mục tìm kiếm đám mây không ghi lại mỗi mục đến từ ổ đĩa nào, nên khi trả lời một cuộc tìm kiếm, ứng dụng không biết ổ đĩa đó còn được chọn hay không. Nếu một lần dựng lại hỏng giữa chừng, các mục của ổ đĩa mà bạn đã bỏ chọn vẫn có thể xuất hiện trong kết quả. Giờ mỗi mục mang theo ổ đĩa của nó, và kết quả được lọc theo danh sách chọn hiện tại của bạn trong lúc tìm - bỏ chọn một ổ đĩa làm nó biến mất khỏi kết quả ngay lập tức, không phải chờ lần dựng lại kế tiếp. Chỉ mục của ổ đĩa cục bộ của bạn không bị đụng tới, nên không cần quét lại ổ đĩa.
+
+**Đã sửa** **Một lần dựng lại đám mây thất bại được thử lại một lần, thay vì mỗi lần chuyển trang** - Khi một lần dựng lại thất bại, lần truy cập *Cài đặt* -> *Tìm kiếm* kế tiếp đã chạy lại nó. Vì *Tìm kiếm* và *Từ xa* dùng chung quy trình, một lần thất bại có thể khiến nó chạy hai lần. Giờ nó chỉ chạy một lần; nếu lần thử lại cũng thất bại, nút dựng lại trong *Cài đặt* -> *Tìm kiếm* vẫn ở đó để bạn tự làm.
+
+**Đã đổi** **Chỉ mục đám mây được dựng lại một lần sau bản cập nhật này** - Định dạng lưu xuống của chỉ mục tìm kiếm đám mây nay đã kèm thông tin mỗi mục thuộc ổ đĩa nào, nên chỉ mục bạn đang có không phiên bản mới đọc được. Ứng dụng sẽ dựng lại giúp bạn lần đầu bạn mở cài đặt tìm kiếm hoặc từ xa. Trong lần đó chỉ những ổ đĩa bạn đã chọn được duyệt qua một lần và dùng lượng lệnh gọi API của ổ đĩa đám mây; ổ đĩa chưa chọn không bị duyệt, và chỉ mục ổ đĩa cục bộ của bạn vẫn nguyên vẹn.
+
+## [3.21.1] - November 2026
+
+**Tóm tắt:** Tiếp nối vòng đĩa đám mây. Trong *Cài đặt* -> *Tìm kiếm*, dấu báo đang lập chỉ mục giờ thuộc về đúng ổ mà bạn đã bấm, thay vì sáng lên trên mọi ổ cùng lúc, và nó biến mất ngay khi lần dựng lại đó kết thúc. Một lần dựng lại thất bại khi trang đang đóng sẽ được tự động thử lại vào lần kế tiếp bạn mở trang.
+
+### What changed
+
+**Đã sửa** **Trạng thái lập chỉ mục không còn lan sang các ổ khác** - Trước đây, khi dựng lại chỉ mục đám mây cho một ổ đám mây, dòng *Đang lập chỉ mục các đĩa đám mây* hiện trên mọi ổ trong danh sách, và vẫn ở lại ngay cả khi bạn đã bỏ chọn một ổ. Nay mỗi hàng cho biết đúng *ổ đó* có nằm trong lần dựng lại đang chạy hay không; các hàng khác vẫn giữ nút thường lệ của chúng. Những ổ bạn đã để ngoài tìm kiếm toàn cục không còn hiện nút dựng lại nữa, nên không có gì để đọc nhầm. Các lần dựng lại vẫn chạy một lần một.
+
+**Đã sửa** **Lần dựng lại đám mây thất bại được chạy lại khi bạn quay lại** - Chỉ mục đám mây được dựng lại theo cả một bộ cùng lúc, nên một lần dựng lại hỏng giữa chừng có thể khiến nó lệch so với những ô bạn đã đánh dấu. Khi điều đó xảy ra, lần kế tiếp vào *Cài đặt* -> *Tìm kiếm* sẽ tự chạy lại việc dựng lại, vì vậy những ổ đã bỏ chọn biến mất khỏi kết quả tìm kiếm mà bạn không cần bấm gì cả.
+
+## [3.21.0] - November 2026
+
+**Tóm tắt:** Vòng ổ đám mây đã gọn gàng hơn. Các nút *Thêm đĩa đám mây* giờ cho biết bạn đã chọn nhà cung cấp nào, *Cài đặt* -> *Tìm kiếm* liệt kê các ổ đám mây của bạn theo nhóm nhà cung cấp, để bạn tự quyết định ổ nào tham gia tìm kiếm toàn cục, và việc gỡ một ổ đám mây không còn làm lóe lên một cửa sổ console đen nữa. OneDrive tạm thời được để lại - hiện đã rời khỏi giao diện, và sau này có thể bật lại mà không phải dựng lại.
+
+### What changed
+
+**Đã thêm** **Các nút *Thêm đĩa đám mây* giờ cho biết bạn đã chọn nút nào** - Khi chọn *Baidu Netdisk*, *Quark Netdisk* hay *Aliyun Drive*, nút ấy được đánh dấu, nên bạn nhìn một cái là biết mình sắp thêm nhà cung cấp nào. Nút bạn đã chọn vẫn giữ dấu cho tới khi bạn chọn nút khác hoặc đóng bảng.
+
+**Đã thêm** **Các ổ đám mây giờ được liệt kê theo nhà cung cấp trong *Cài đặt* -> *Tìm kiếm*** - Phần *Tìm kiếm đám mây* trong cài đặt *Tìm kiếm* giờ nhóm các ổ đám mây của bạn theo nhà cung cấp - *Baidu Netdisk*, *Aliyun Drive*, *Quark Netdisk* và mọi kiểu ổ đám mây được thêm sau này. Dưới mỗi nhà cung cấp, bạn đánh dấu những kết nối nên tham gia tìm kiếm toàn cục, và chỉ mục tìm kiếm sẽ được dựng lại cho bạn. Một nhà cung cấp bạn chưa kết nối tới vẫn được liệt kê, nhờ đó bạn thấy được ứng dụng biết những kiểu ổ đám mây nào.
+
+**Đã sửa** **Gỡ một ổ đám mây không còn làm lóe cửa sổ console đen nữa** - Khi gỡ một ổ đám mây, một cửa sổ console đen từng mở ra trên desktop trong chốc lát. Công cụ giới hạn thông tin đăng nhập đã lưu vào chính tài khoản Windows của bạn giờ chạy mà không mở cửa sổ, nên gỡ ổ đám mây lại yên lặng như trước.
+
+**Đã đổi** **OneDrive tạm thời được để lại** - Lựa chọn OneDrive tạm thời rời khỏi danh sách *Thêm đĩa đám mây*. Mọi thứ OneDrive cần vẫn còn nguyên sau một công tắc duy nhất, nên sau này nó có thể quay lại mà không phải dựng lại, và những kết nối bạn đã có vẫn được giữ nguyên.
+
+## [3.20.1] - November 2026
+
+**Tóm tắt:** Tạo thư mục trong OneDrive giờ đã hoạt động thật sự. Ứng dụng gửi yêu cầu theo dạng ổ đĩa không chấp nhận, nên mọi lần thử đều bị từ chối với HTTP 400 và không có gì được tạo. Giờ yêu cầu được gửi đúng cách ổ đĩa mong đợi.
+
+### What changed
+
+**Đã sửa** **Tạo thư mục trong OneDrive thất bại với HTTP 400** - Ứng dụng gắn kiểu cho thư mục mới mà Microsoft không chấp nhận trong yêu cầu này, ổ đĩa từ chối mọi lần thử và thư mục chưa bao giờ được tạo. Giờ thư mục được tạo bình thường, và nếu có lỗi khác thì ứng dụng hiển thị đúng lỗi do chính ổ đĩa báo.
+
+## [3.20.0] - November 2026
+
+**Tóm tắt:** OneDrive không còn chỉ để đọc. Kết nối thêm trong 3.18.0 giờ cũng ghi được vào ổ đĩa: tải tệp lên, tạo thư mục, đổi tên và xoá, y hệt các ổ mạng khác. Đăng nhập giờ xin quyền vừa đọc vừa ghi, và *Kiểm tra kết nối* cuối cùng cũng nhận ra phiên đăng nhập bạn đã có.
+
+### What changed
+
+**Đã thêm: OneDrive giờ ghi được vào ổ đĩa** Tải tệp lên, tạo thư mục, đổi tên và xoá đều có hiệu lực thật trên ổ đĩa; mục bị xoá rơi vào thùng rác của ổ đĩa chứ không mất vĩnh viễn. Một thư mục mới không bao giờ ghi đè một thư mục trùng tên - trùng tên thì ứng dụng từ chối cái tên đó.
+**Đã thêm: Tệp lớn cũng tải lên được** Tới 250 MB trong một yêu cầu; lớn hơn thì chia thành các khối 5 MB, kèm hiển thị đã tải được bao nhiêu.
+**Đã thêm: *Kiểm tra kết nối* dùng đúng phiên bạn đã đăng nhập** Trước đây nó nói thiếu thông tin đăng nhập dù biểu mẫu đã hiện *đã cấp quyền*. Nay nó dùng phiên đã lưu, tự làm mới token hết hạn, và chỉ báo thiếu thông tin đăng nhập khi thật sự không có phiên nào.
+**Đã thêm: Các phiên cũ vẫn dùng được** Các phiên tạo trước bản này vẫn được làm mới, đọc, tải xuống và lập chỉ mục như trước. Muốn ghi thì cần đăng nhập lại một lần, vì Microsoft chỉ cấp quyền rộng hơn đúng lúc bạn cấp quyền.
+**Đã sửa: Cột *Dung lượng trống* trong danh sách *Địa điểm* nay đã thẳng hàng với các cột khác.** Trước đây chữ trong cột này dính sát vào mép trên của ô, trong khi các cột khác đặt chữ ở giữa, nên các dòng trông lệch nhau. Nay cột này cũng canh giữa theo chiều dọc giống các cột khác.
+
+## [3.18.0] - November 2026
+
+**Tóm tắt:** OneDrive giờ đã là nhà cung cấp ổ đám mây thứ tư: trong *Cài đặt*, dưới mục *Thêm đĩa đám mây*, nó đứng cạnh *Baidu Drive*, *Quark Drive* và *Aliyun Drive*. Bạn đăng nhập ngay trong trình duyệt của hệ thống bằng tài khoản Microsoft, không phải chép tay bất kỳ token nào, và phiên đăng nhập nằm trong kho thông tin đăng nhập đã mã hóa của chính ứng dụng. Bản này chỉ đọc: bạn có thể xem các thư mục, đọc và tải tệp xuống, cũng như đưa kết nối vào tìm kiếm toàn cục - còn tải tệp lên, tạo thư mục mới, đổi tên và xóa thì chưa có.
+
+### What changed
+
+**Đã thêm: OneDrive là nhà cung cấp ổ đám mây thứ tư** Trong *Cài đặt*, dưới mục *Thêm đĩa đám mây*, giờ có bốn nút: *Baidu Drive*, *Quark Drive*, *Aliyun Drive* và *OneDrive*. Chọn *OneDrive* sẽ mở biểu mẫu kết nối, và biểu mẫu đó hỏi bạn client id của ứng dụng Azure của chính bạn - ứng dụng bạn đã đăng ký trong Microsoft Entra cho OneDrive. Ứng dụng không có sẵn client_id nào, bạn phải tự điền vào.
+**Đã thêm: OneDrive đăng nhập trong trình duyệt của chính bạn** Bấm nút bắt đầu đăng nhập, trang đăng nhập của Microsoft sẽ mở ra trong trình duyệt mặc định của hệ thống, và ở đó bạn đăng nhập bằng tài khoản Microsoft của mình. Kết quả được ứng dụng nhận ở một địa chỉ loopback cục bộ trên chính máy này - *http://localhost* kèm một cổng ngẫu nhiên -, nên không có token hay mã nào phải chép tay, cũng không có gì phải dán vào biểu mẫu. Việc đăng nhập dùng PKCE, ứng dụng chỉ xin Microsoft quyền đọc tệp và đăng nhập ngoại tuyến (*Files.Read* và *offline_access*), và xuyên suốt không dùng client secret.
+**Đã thêm: Phiên đăng nhập của OneDrive nằm trong kho thông tin đăng nhập đã mã hóa của ứng dụng** Sau khi ủy quyền xong, phiên được ghi vào kho thông tin đăng nhập của ứng dụng và mã hóa bằng Windows DPAPI, nên nó nằm lại trên máy này. Bản thân token không được trả về giao diện: biểu mẫu chỉ cho bạn biết đã ủy quyền hay chưa và phiên hết hạn lúc nào.
+**Đã thêm: Kết nối OneDrive có thể thử trước** Nút thử kết nối trong biểu mẫu sẽ hỏi OneDrive xem tài khoản đó có kết nối được không. Nếu không, bạn biết ngay tại đây, thay vì phải mở một thư mục rồi mới phát hiện.
+**Đã thêm: Tệp trên OneDrive cũng được tìm kiếm toàn cục tìm thấy** Như với các ổ đám mây khác, bạn có thể đánh dấu kết nối OneDrive bằng *Thêm vào tìm kiếm toàn cục*; các tệp của ổ đó sẽ được lập chỉ mục và xuất hiện trong kết quả tìm kiếm bên cạnh các tệp cục bộ của bạn. Chỉ mục vẫn chỉ được dựng lại khi bạn yêu cầu - *Cài đặt* -> *Tìm kiếm toàn cầu* -> *Dựng lại chỉ mục đám mây* -.
+**Đã thêm: Ở bản này OneDrive làm được gì và không làm được gì** Liệt kê thư mục, đọc tệp và tải tệp về một thư mục cục bộ thì được. Tải tệp lên, tạo thư mục mới, đổi tên và xóa thì bản này chưa có; và ảnh trong OneDrive hiện vẫn chưa có ảnh thu nhỏ, vẫn hiện biểu tượng tệp thường.
+
+## [3.17.0] - November 2026
+
+**Tóm tắt:** Giờ các tệp trên ổ đám mây của bạn có thể được tìm thấy bằng tìm kiếm toàn cục của ứng dụng - bạn tự quyết định cho từng kết nối rằng có tham gia hay không, nên không có gì tự ra mạng sau lưng bạn. Ổ đám mây bạn thêm vào giờ đã có sẵn tên của nó, và một mục yêu thích có thể mang tên riêng trong menu, mà không hề đụng tới tệp hay thư mục thật đứng sau nó.
+
+### What changed
+
+**Đã thêm: Tệp trên ổ đám mây giờ đã tìm thấy được bằng tìm kiếm toàn cục** Trước đây tìm kiếm toàn cục chỉ duyệt qua ổ đĩa cục bộ của bạn, nên một tệp trên Baidu Netdisk, Quark Netdisk hay Aliyun Drive chưa bao giờ là ứng viên. Khi thêm một ổ đám mây, giờ bạn có thể chọn *Bao gồm trong tìm kiếm toàn cục*, và các tệp của ổ đó sẽ được lập chỉ mục rồi xuất hiện trong kết quả tìm kiếm bên cạnh các tệp cục bộ của bạn. Quyết định được đưa ra cho từng kết nối, và ô đánh dấu bắt đầu ở trạng thái không chọn: đưa một ổ vào chỉ mục nghĩa là ra mạng và dùng hết hạn mức API của ổ đó, và ứng dụng không nên tự quyết điều đó thay bạn. Chỉ mục chỉ được dựng lại khi bạn yêu cầu - *Cài đặt* -> *Tìm kiếm toàn cục* -> *Dựng lại chỉ mục đám mây* -, nên ứng dụng không bao giờ tự dò một ổ đám mây theo lịch của riêng mình. Nếu một ổ không đọc được vào lúc đó, ứng dụng sẽ báo ra và các kết nối còn lại vẫn được lập chỉ mục như thường.
+**Đã thêm: Ổ đám mây bạn thêm vào giờ đã có sẵn tên của nó** Khi thêm ổ đám mây, trường tên trước đây để trống, nên mỗi ổ đều phải tự đặt tên bằng tay. Giờ tên của nhà cung cấp được điền sẵn cho bạn - *Baidu Netdisk*, *Quark Netdisk* hay *Aliyun Drive* -, và bạn vẫn có thể đổi nếu muốn gọi ổ đó bằng tên khác. Việc đổi tên một kết nối đã có không thay đổi: cái tên bạn đã đặt vẫn được giữ nguyên.
+**Đã thêm: Một mục yêu thích có thể mang tên riêng** Các mục yêu thích trước đây hiện theo tên của tệp hoặc thư mục đứng sau nó, và đó không phải lúc nào cũng là tên bạn muốn thấy trong menu. Giờ bạn có thể đặt cho một mục yêu thích một tên hiển thị riêng, khi thêm nó hoặc sau này qua *Sửa tên hiển thị* trên menu của thẻ. Chỉ có tên trong menu thay đổi: tệp và thư mục đứng sau vẫn giữ tên thật, và mục yêu thích vẫn mở đúng chỗ cũ.
+
+## [3.16.1] - November 2026
+
+**Tóm tắt:** Aliyun Drive giờ đã có thể kết nối ngay trong ứng dụng: một cửa sổ đăng nhập mở ra bên trong ứng dụng, bạn quét mã QR bằng điện thoại, và ổ đĩa trở thành một bảng mà bạn có thể duyệt và đọc. Nó không còn chỉ đọc nữa: bạn có thể tạo thư mục, tải tệp lên, xóa và đổi tên ngay trên ổ đĩa, y hệt với những ổ đám mây khác của bạn. Ảnh trên ổ đĩa giờ hiện hình thu nhỏ, cả ở chế độ xem hình thu nhỏ lẫn ở chế độ xem danh sách, và bấm vào một tệp chỉ chọn đúng tệp đó, kể cả khi thư mục có nhiều tệp trùng tên, còn ổ đĩa không đọc được thì giờ nói rõ điều đó thay vì im lặng không làm gì cả.
+
+### What changed
+
+**Đã thêm: Aliyun Drive có thể được thêm làm nhà cung cấp đĩa đám mây thứ ba.** Trong tab *Netdisks* của *Remote* trong phần cài đặt, *Add netdisk* giờ đã có *Aliyun Drive* bên cạnh *Baidu Netdisk* và *Quark Netdisk*. Một cửa sổ đăng nhập mở ra bên trong ứng dụng, chỉ cần quét mã QR bằng điện thoại, và phiên làm việc được lưu vào kho thông tin đăng nhập mã hóa của chính ứng dụng: không có token nào phải chép tay. Sau khi lưu, kết nối này hành xử giống hệt mọi kết nối từ xa khác: ổ đĩa được liệt kê với tên tệp thật, và một tệp có thể được đọc vào một thư mục cục bộ.
+**Đã thêm: Aliyun Drive giờ đã ghi được lên ổ đĩa của bạn.** Ngoài việc liệt kê một thư mục và đọc một tệp, nhà cung cấp giờ tạo thư mục, tải tệp lên, xóa và đổi tên tệp. Di chuyển sang thư mục khác và chia sẻ vẫn không được cung cấp: ứng dụng không có cả hai việc này với bất kỳ ổ đám mây nào. ổ kho vựng được nhận diện nhưng không được mở khóa.
+**Đã sửa: Aliyun Drive không còn treo hai mươi giây rồi báo là kết nối đã đứt.** Cổng kết nối trước Aliyun Drive chỉ gửi phần thân của câu trả lời khi câu yêu cầu nội dung nén gzip. Không có tiêu đề yêu cầu đó, nó chỉ trả về tiêu đề, giữ phần thân lại khoảng hai mươi giây rồi cắt kết nối, và bạn thấy điều đó dưới dạng *kết nối với Aliyun Drive đã bị gián đoạn*. Bây giờ máy khách HTTP thương lượng gzip đúng cách, nên liệt kê một thư mục chỉ mất vài mili giây thay vì hết thời gian chờ.
+**Đã sửa: Lỗi kết nối từ xa giờ được thông báo bằng đúng lời lẽ của ổ đĩa đó.** Thông báo dự phòng hiện ra khi không tới được một ổ đám mây trước đây luôn nói tên một nhà cung cấp cố định. Giờ nó nói tên nhà cung cấp thực sự thất bại, nên một sự cố của Aliyun Drive không còn nhắc tới ổ đĩa khác.
+**Đã sửa: Điện thoại đã cắm xuất hiện trong cây thư mục, và đường dẫn điều hướng dẫn vào bên trong nó.** Đường dẫn của một chiếc điện thoại trong không gian tên của Windows shell không thể được chia nhỏ ở tầng giao diện: nó chứa các dấu phân cách không phải dấu phân cách thư mục, nên các cấp bên trong điện thoại bị gộp thành một mục chung chung *Thiết bị*. Nay thứ bậc được lấy từ chính shell, từng cấp một: cây hiện ra cả những gốc thiết bị không có chữ cái ổ đĩa, và thanh địa chỉ đi xuống qua những tên thật của từng cấp.
+**Đã sửa: Mã QR đăng nhập giờ đã được trình đọc màn hình đọc.** Trước đây ảnh không có mô tả nên bị coi là trang trí, và trình đọc màn hình lặng lẽ bỏ qua. Giờ ảnh đã có mô tả và được đọc như mọi phần tử có tên khác.
+**Đã thêm: Ảnh trong ổ đám mây Aliyun Drive giờ hiện hình thu nhỏ.** Trước đây hình thu nhỏ được tạo ra bằng cách đọc ảnh từ ổ đĩa, mà một tệp nằm trên ổ đám mây không có đường dẫn ổ đĩa, nên chưa ảnh nào trong ổ đám mây từng có thể xem trước. Giờ ứng dụng tự hỏi ổ đám mây lấy ảnh, tự tải phần byte về và dựng hình thu nhỏ từ đúng những byte nhận được - y hệt cách một ảnh cục bộ được xử lý -, nên một liên kết hết hạn hoặc từ chối tải trực tiếp không còn làm hỏng phần xem trước nữa. Hình thu nhỏ từ xa được giữ trong thư mục bộ nhớ đệm riêng, nên không bao giờ lẫn với hình thu nhỏ cục bộ. Hiện nay Aliyun Drive là ổ đám mây có thể phục vụ ảnh theo cách này; Baidu Netdisk và Quark Netdisk vẫn giữ biểu tượng tệp thông thường.
+**Đã sửa: Ảnh từ xa giờ cũng hiện hình thu nhỏ ở chế độ xem hình thu nhỏ (lưới).** Trước đây chỉ chế độ xem danh sách hiện ảnh từ xa; chế độ xem lưới cứ trống trơn dù ứng dụng đã lấy được ảnh rồi. Kích thước mà lưới yêu cầu thay đổi liên tục giữa vài giá trị gần nhau, và mỗi lần thay đổi đều bị tính là một ảnh khác, nên không ảnh nào từng được dùng lại; nay kích thước được làm tròn theo các bậc cố định. Một phần xem trước đã hỏng một lần cũng bị coi là câu trả lời cuối cùng và không bao giờ thử lại, còn một lượt bị gián đoạn để lại các dấu "đang xử lý", khiến lượt sau chẳng bắt đầu nổi. Cả ba đều đã được sửa: chế độ xem lưới hiện ảnh từ xa, phần xem trước bị hỏng sẽ thử lại vài lần, và việc chuyển thư mục không còn chặn lượt kế tiếp nữa.
+**Đã sửa: Ổ đám mây không đọc được giờ nói rõ điều đó thay vì không làm gì cả.** Khi không đọc được ổ đĩa, ứng dụng lặng lẽ quay về thư mục mặc định, nên bấm vào một kết nối từ xa trông như chẳng có gì xảy ra - không có nội dung, cũng không có thông báo. Nay lỗi vẫn nằm nguyên chỗ xảy ra: bảng giữ kết nối mở và hiện lý do bên cạnh.
+**Đã sửa: Bấm vào một tệp trong ổ đám mây giờ không còn chọn nhầm hai tệp.** Một thư mục của ổ đám mây có thể chứa nhiều tệp trùng tên, nhưng trước đây tất cả đều nhận cùng một đường dẫn, vì đường dẫn được dựng từ thư mục cha cộng với tên tệp. Ứng dụng so sánh đường dẫn đó khi quyết định cái gì đang được chọn, nên bấm vào một tệp lại làm sáng cả hai. Giờ mỗi mục từ xa mang theo một danh tính riêng do ổ đĩa cung cấp, và việc chọn so sánh danh tính đó - đúng tệp bạn bấm vào sẽ được chọn. Đổi tên, xóa hoặc sao chép nhiều tệp của một thư mục trong ổ đám mây cùng lúc vẫn dựa trên tên tệp, nên hai tệp cùng tên vẫn chưa được phân biệt bởi những thao tác đó.
+**Đã đổi:** **Tiêu đề ổ đám mây trong bảng lơi kết nối từ xa không còn mang theo hàng nút thêm nữa.** Khi rê chuột lên *Từ xa* ở thanh bên, tiêu đề ổ đám mây có ba nút bên cạnh - *Thêm ổ đám mây*, *Quark Netdisk* và *Aliyun Drive*. Giờ chúng đã biến mất: bảng lơi này để mở những kết nối bạn đã có, còn kết nối mới được thêm trong *Cài đặt*, mục *Từ xa*, nơi cả ba ổ đám mây nằm cạnh nhau. Mục *Kết nối từ xa* vẫn giữ nút thêm của riêng nó.
+## [3.15.0] - November 2026
+
+**Tóm tắt:** Một chiếc điện thoại hay ổ USB bạn cắm vào máy tính giờ đã hiện trong *Địa điểm*, và mở một thiết bị từ File Explorer của Windows sẽ đưa bạn vào bên trong thiết bị thay vì bỏ bạn ở một trang trống.
+
+### What changed
+
+**Đã sửa: một chiếc điện thoại hoặc ổ USB đã cắm vào giờ hiện trong *Địa điểm*.** Trước đây *Địa điểm* chỉ liệt kê những ổ đĩa mà Windows báo là các ổ đĩa thông thường. Một chiếc điện thoại cắm qua MTP không phải là ổ đĩa như vậy, nên nó chưa từng xuất hiện, và ổ USB cũng có thể bị bỏ sót khi Windows chưa báo kích thước của nó. Giờ danh sách thiết bị được lấy trực tiếp từ lớp vỏ Windows, nên một chiếc điện thoại đã cắm sẽ hiện ra dưới chính tên của nó, và những ổ đĩa không báo kích thước không còn bị vứt bỏ. Điện thoại và ổ USB đã cắm được hiển thị trong mục *Thiết bị* riêng.
+
+**Đã sửa: mở một chiếc điện thoại từ File Explorer của Windows giờ thực sự mở chiếc điện thoại đó.** Khi Alpha File Manager được đặt làm trình quản lý tệp mặc định, việc bấm đúp vào một chiếc điện thoại trong Windows sẽ chuyển đường dẫn cho File Explorer của Windows, trong khi ứng dụng đã vứt bỏ đường dẫn đó từ trước, nên bạn chỉ còn lại trang *Địa điểm*. Giờ đường dẫn được giữ lại và mở ngay trong ứng dụng, và các thư mục bên trong chiếc điện thoại có thể được duyệt như bất kỳ thư mục nào khác.
+
+**Đã thêm: một thiết bị có thể được trả lại cho File Explorer của Windows.** Nếu một thiết bị không mở được trong ứng dụng, thông báo nói rõ điều đó giờ đề nghị mở nó bằng File Explorer của Windows, nên bạn không bao giờ bị bỏ lửng ở đó.
+
+**Đã sửa: một thiết bị không đọc được không còn làm trống cả trang *Địa điểm*.** Các ổ đĩa và các thiết bị đã cắm giờ được lấy song song, nên một thiết bị không phản hồi không còn khiến các ổ đĩa cũng không hiện ra.
+
+## [3.14.1] - November 2026
+
+**Tóm tắt:** Focus Sync có thể đưa lại thư mục bạn đang xem vào hộp thoại «Mở» và «Lưu thành» của các chương trình khác, và tệp cài đặt nay mang theo trợ giúp thuộc về bản phát hành này thay vì bản cũ.
+
+### What changed
+
+**Đã sửa: Focus Sync lại điền vào hộp thoại mở và lưu của các chương trình khác.** Kiểm tra quyết định một thư mục có thể được giao cho chương trình khác hay không đã trở nên quá nghiêm ngặt, nên mọi lần thử đều bị từ chối và thư mục bạn đang xem không bao giờ tới được hộp thoại. Những thư mục thực sự tồn tại trên ổ đĩa lại được cho qua, và thư mục được giao ngay khi bạn bước vào nó, nên hộp thoại mở hoặc lưu kế tiếp đã bắt đầu đúng chỗ.
+
+**Đã sửa: Focus Sync không còn lấp đầy nhật ký bằng cùng một dòng.** Trợ giúp trả lời cuộc kiểm tra sức khỏe của chính nó bằng cách mỗi lần bị hỏi đều ghi thêm một dòng mới vào nhật ký, khiến nhật ký tự phình ra và đẩy những thông điệp quan trọng ra khỏi tầm mắt. Giờ cuộc kiểm tra sức khỏe im lặng, và chỉ những sự kiện thực sự mới được ghi lại.
+
+**Đã sửa: tệp cài đặt nay mang theo trợ giúp hiện hành thay vì bản cũ.** Trình cài đặt vẫn phát hành trợ giúp từ một bản dựng cũ hơn, nên việc cài đặt lại đưa hành vi cũ trở lại máy. Tệp cài đặt nay chứa trợ giúp thuộc về bản phát hành này, và trình cài đặt thay bản sao trong thư mục dữ liệu người dùng của bạn bằng nó.
+
+**Đã sửa: Focus Sync giữ cho thông tin chẩn đoán dễ đọc và ngừng giao những thư mục không có trên ổ đĩa.** Cuộc kiểm tra sức khỏe chạy mỗi mười lăm giây và đẩy nhật ký sang bên, nên những mục bạn cần bị đẩy ra khỏi tầm nhìn. Cuộc kiểm tra sức khỏe nay không còn tham gia vào việc chẩn đoán, và những thư mục chỉ tồn tại ở một nơi ảo — ví dụ là một kết nối đĩa mạng — không còn được giao cho trợ giúp như thể chúng là thư mục bình thường.
+
+**Đã sửa: Cùng một thư mục không còn được đưa vào hộp thoại hai lần nữa.** Trợ giúp có thể đặt thư mục của hộp thoại hai lần: một lần khi ứng dụng báo cho nó biết bạn đang xem thư mục nào, và một lần nữa khi chính hộp thoại mở ra. Giờ thư mục chỉ được đặt một lần. Nếu bạn chuyển sang thư mục khác, hoặc tự chuyển hộp thoại sang chỗ khác, việc đồng bộ vẫn diễn ra như trước.
+
+## [3.14.0] - November 2026
+
+**Tóm tắt:** Giờ bạn có thể kết nối Quark Netdisk bên cạnh Baidu Netdisk - thêm từ thẻ đĩa mạng trong *Cài đặt* dưới mục *Từ xa*, đăng nhập một lần trong cửa sổ bên trong ứng dụng, rồi duyệt, tải về và sao chép y hệt Baidu Netdisk.
+
+### What changed
+
+**Đã thêm: Quark Netdisk có thể được thêm như nhà cung cấp đĩa mạng thứ hai.** Trong thẻ *Đĩa mạng* của *Cài đặt* dưới mục *Từ xa*, mục *Thêm đĩa mạng* có *Baidu Netdisk* và *Quark Netdisk*. Chọn một trong hai và cửa sổ đăng nhập sẽ mở ngay bên trong ứng dụng. Sau khi đăng nhập xong, một hộp thoại sẽ hỏi tên kết nối, thư mục cục bộ và thư mục bắt đầu, cho biết bạn đã đăng nhập, và lưu sẽ thêm kết nối đó. Kết nối đã lưu hành xử y như mọi kết nối từ xa khác: liệt kê thư mục gốc, đi vào các thư mục con, tải một tệp về máy tính, sao chép một tệp từ xa sang thư mục cục bộ và vẫn thấy nó sau khi khởi động lại. Một kết nối Quark và một kết nối Baidu có thể cùng tồn tại mà không ảnh hưởng lẫn nhau, và khi phiên đã lưu hết hạn, ứng dụng sẽ báo rằng bạn cần đăng nhập lại thay vì im lặng thất bại.
+
+**Đã thay đổi: trang cài đặt từ xa giờ bắt đầu bằng các thẻ.** Phần giới thiệu trước đây nằm phía trên các thẻ *Đĩa mạng* và *Kết nối từ xa* đã được chuyển vào chính các thẻ đó: thẻ đĩa mạng giải thích đĩa mạng là gì, còn thẻ kết nối từ xa giải thích các loại kết nối còn lại.
+
+**Đã sửa: sao chép tệp ra khỏi thư mục đĩa mạng hoạt động trở lại.** Nhấp chuột phải vào một tệp trong thư mục đĩa mạng sẽ hiện lại *Sao chép*, và khi dán vào thư mục cục bộ thì tệp sẽ nằm ở đó thay vì không có gì xảy ra.
+
+## [3.13.7] - November 2026
+
+**Tóm tắt:** Ứng dụng giờ cho biết khi nào một tổ hợp phím đã bị Windows hoặc chương trình khác chiếm mất - nên một lệnh im lặng không chạy không còn là điều bí ẩn nữa.
+
+### What changed
+
+**Đã thêm: Những tổ hợp phím đã bị chương trình khác chiếm mất giờ được đánh dấu.** Một tổ hợp như `Ctrl+Shift+P` có thể đã được một chương trình khác đăng ký ở mức hệ thống trước khi Alpha File Manager kịp nhìn thấy. Khi đó hệ điều hành nuốt mất lần nhấn phím, lệnh đơn giản là không chạy, và trên màn hình không có gì giải thích lý do. Danh sách phím tắt trong *Cài đặt* giờ đối chiếu từng ánh xạ với hệ điều hành và đánh dấu những tổ hợp đã bị chiếm; trình chỉnh sửa phím tắt cũng hiện cùng cảnh báo đó khi bạn ghi lại một tổ hợp mới. Các ánh xạ mặc định không đổi và cảnh báo không bao giờ chặn việc lưu - nó chỉ cho biết phím đó chỉ hoạt động khi chương trình kia không chạy.
+
+## [3.13.6] - November 2026
+
+**Summary:** The address bar no longer goes blank without a word, and an extension the app would refuse can no longer reach you inside a package.
+
+### What changed
+
+- **Fixed** **The address bar no longer goes blank without saying why** - When the backend returned a directory listing without an entry list, the address bar called `.filter()` on it and threw. That call chain is fire-and-forget, so the failure was swallowed: no error code, no message, just an empty suggestion list while you type a path. Such a payload is now treated as a failed listing, and the address bar falls back to listing the current folder, so suggestions keep coming.
+- **Fixed** **Focus Sync can no longer install silently dead** - The app refuses an extension that breaks its sandbox rules, and it refuses it before the extension ever runs: no window, no notification, the feature simply is not there. The check meant to catch this was skipped, because it looked for its scanner inside the source tree - a packaged install does not have one. The check now runs where the code actually is, and every build is verified before it is packaged, so an extension the app would refuse never reaches a user.
+
+## [3.13.5] - November 2026
+
+**Summary:** The focus-sync helper no longer starts on its own at logon - it now belongs to Alpha File Manager and lives exactly as long as the app does. An upgrade also stops the old logon task for good, even when the old helper is running at that moment.
+
+### What changed
+
+- **Fixed** **The focus-sync helper no longer keeps running after Alpha is closed** - The helper used to be started by a logon task and stayed resident, holding its port and watching windows even while Alpha was not open. Alpha now starts it and stops it again, so the helper is alive exactly while the app is.
+- **Fixed** **An upgrade no longer leaves the old logon task behind** - The task was removed only after the new helper had been deployed, so a failed deployment left it registered and it could bring the old helper back a minute later. The task is now removed before the helper files are touched, and the installer waits for the old process to exit before replacing its files.
+
+## [3.13.4] - November 2026
+
+**Summary:** Signing in to Baidu Netdisk now happens inside the app, and four defects found while verifying the previous build are fixed: a stale session could be taken for a fresh sign-in, *Test connection* claimed a password had been refused when nothing had been checked, a deleted file only left the listing after pressing *Refresh*, and creating a folder on Baidu Netdisk was rejected by the server because the request carried no form body.
+
+### What changed
+
+- **New** **Baidu Netdisk can be signed in inside the app** - *Use the embedded window to sign in* opens the real Baidu login page in a built-in browser window; scanning the QR code there is enough, the session is picked up automatically and no cookie has to be copied by hand.
+- **Fixed** **A stale session is no longer taken for a fresh sign-in** - Each attempt starts from a clean cookie jar, a sign-in that hands back the same session as the one before is refused, and a session the server already treats as signed out is rejected instead of being stored.
+- **Fixed** **Saving without a signed-in session is refused** - The form points at *Sign in inside the app* instead of saving an entry that answers every request as signed out, and a sign-in that ends badly (window closed, timed out, session unreadable) now raises a toast instead of leaving one grey line of text.
+- **Fixed** ***Test connection* no longer claims the password was refused** - With no stored credential the check reports a missing credential, and the backend's own message appears under the outcome, so a timeout, an expired session and a refused credential no longer read alike.
+- **Fixed** **Deleting a remote entry updates the listing immediately** - The entries are removed from the listing before the refresh runs, so the change is visible without pressing *Refresh*.
+- **Fixed** **Creating a folder on Baidu Netdisk no longer fails with a protocol error** - The request put every parameter in the query string and sent an empty body, which the server answered with a parameter error; the request now sends a proper form body and a new remote folder is created on the drive itself.
+- **Fixed** **A failed remote *New folder* no longer leaves the dialog stuck** - The *Create* button is re-enabled when the operation fails and the dialog stays open for another attempt.
+- **Added** **Remote operations now leave traces in the log** - *List*, *Delete* and *Create folder* each log a begin/done pair with the connection, the path, the entry count and the elapsed time.
+
+## [3.13.0] - November 2026
+
+**Summary:** Baidu Netdisk is now a remote connection you can browse like any other server, and the places you reach a remote server from have been rebuilt around that. *Settings* splits net disks and remote connections into two tabs, the dashboard lists the connections you have saved, and the *Locations* page groups everything - volumes first, then net disks, then remote connections.
+
+### What changed
+
+- **New** **Baidu Netdisk can be browsed as a remote connection** - A *Baidu Netdisk* entry joins the remote family next to FTP and SFTP: add it from the cloud icon in the sidebar, give it the cookie of a signed-in session, and the file list opens the disk's own directory tree - listing, creating a folder, renaming, deleting and downloading all go through to the drive rather than to a local folder. The protocol has no host or port of its own - the host is fixed to `pan.baidu.com` over HTTPS and the agent is always a direct connection - so only the cookie is asked for.
+- **New** **Settings separates net disks from remote connections** - The *Remote* page in *Settings* is split into two tabs, *Net disk* and *Remote connection*. A connection is filed under the second tab unless its protocol is a net disk, and *Trusted hosts* is shown only where it applies. The *Add connection* page was split the same way and opens on the net disk tab.
+- **New** **The dashboard lists the connections you have saved** - The dashboard's *Net disk & remote connections* card now lists the servers you have configured by name instead of sending you to the settings page. Clicking one opens it in the navigator, and the empty state still offers the way to add one.
+- **New** **The *Locations* page groups what you can reach** - *Locations* used to be a flat list of volumes. It now has three groups: volumes first, then net disks, then remote connections. A group with nothing in it is not shown at all - no heading, no empty row - so a machine with no net disk configured shows just its volumes.
+- **Changed** **The sidebar's cloud icon is the one way in** - The permanent *+* under the cloud icon is gone; the cloud icon's own panel now lists the net disk and remote connection groups and is where *Add connection* lives.
+- **Fixed** **The navigator no longer stalls while a global search is running** - The disk I/O of a search submission held the state write lock, so the window's message pump could stop and the navigator would briefly report *not responding*. The I/O now runs off the lock and the status and cancel commands are asynchronous.
+
+## [3.12.2] - November 2026
+
+**Summary:** *Reveal* on a shortcut now opens the folder its target actually lives in, and the three system dialogs that used to interrupt it are gone. The visual-effects defaults in *Settings* now match the specification sheet.
+
+### What changed
+
+- **Fixed** **Revealing a shortcut opens the target's folder** — *Open file location* on a `.lnk` used to do nothing whenever the shortcut pointed at a file rather than a folder: the target was only resolved for folder targets, and when resolving failed the `.lnk` itself was handed to Explorer. The target's path is now read with a two-step lookup that no longer blocks, so the shortcut's real folder opens and the target is selected inside it.
+- **Fixed** **The three system dialogs that interrupted it are gone** — *The operation has been aborted*, *The renderer process crashed (window main)* and *Windows can't find the `\` file* no longer show up. The shortcut work now runs off the main thread with a timeout, the shell resolve call that could block forever was dropped, and a shortcut whose target no longer exists quietly falls back to opening the folder the `.lnk` itself sits in instead of being handed to the shell.
+- **Changed** **The visual effects defaults now match the specification** — In *Settings > UI appearance > Visual effects* the overlay blur is 0px (was 64px on inner pages and 32px on the home page), the overlay opacity is 0% (was 5%) and the overlay noise is 0% (was 5%). Everything else - overlay media contrast 100%, overlay media brightness 100%, overlay noise scale 0.5, overlay blend mode *Normal*, blend with *Interface*, the three switches, and the style settings' brightness 100% / contrast 100% / dialog backdrop blur 8px - already matched and is unchanged. *Reset visual effects to defaults* on that page returns to these values, and so does a fresh install on first launch. **Existing installations are not migrated automatically** - press *Reset visual effects to defaults* on that page, or set the three values by hand, to pick them up.
+## [3.12.1] - November 2026
+
+**Summary:** Two loose ends from 3.12.0 are closed: a shortcut now wears its target's icon whichever icon scheme the file list uses, and the address bar you type into finally writes paths the Windows way. The Focus Sync background component bundled into this build follows the save dialog again.
+
+### What changed
+
+- **Fixed** **A shortcut keeps its target's icon whatever the icon settings are** — 3.12.0 made a `.lnk` show the icon of what it points at, but only while *System icons* were switched on; with the file list drawn from the icon theme instead, every shortcut fell back to the same generic arrow again. Shortcuts now go through the shell whichever scheme the list uses, so what you see is the target's own icon. A shortcut whose target cannot be found still falls back to the generic shortcut icon.
+- **Fixed** **The address bar you type into writes paths the Windows way** — The 3.12.0 change covered the file list, the breadcrumb, *Copy path*, the properties panel and the rest, but the address bar editor and the suggestions beneath it still showed `/`. Both now show the native separator - `\` on Windows - while the application keeps a single internal spelling, so what you type, what gets matched and what ends up on the clipboard stay consistent, and the caret stays where you left it while you edit.
+- **Fixed** **Focus Sync follows the save dialog again** — The published 3.12.0 installer still carried the older background component, which lost track of the folder when a *Save as* dialog opened and when a folder was shown under a localized name such as *Downloads*, so nothing was written back. This build carries 0.5.18: it resolves localized folder names, no longer trusts a directory change that reports success without having changed anything, and checks the path before writing it.
+## [3.12.0] - November 2026
+
+**Summary:** Paths are written the way Windows writes them, the right-click menu can paste a shortcut, and a shortcut shows the icon of the program it points at.
+
+### What changed
+
+- **New** **Paste a shortcut from the right-click menu** — Copy a file or a folder, then right-click a folder and pick *Paste shortcut*: whatever is on the clipboard lands there as a `.lnk` shortcut pointing at it instead of a copy of the file itself. The clipboard is left as it is, so the same content can be pasted into as many folders as you like. The entry appears only when the clipboard actually holds files - a picture on the clipboard cannot become a shortcut - and only where there is a folder to paste into.
+- **New** **A shortcut shows the icon of what it points at** — A `.lnk` in the file list used to carry one generic arrow for every shortcut, whatever it pointed at. It now shows the icon of its target, so a shortcut to an executable wears that program's own icon. A shortcut whose target cannot be found - a broken link, or one pointing at a place that no longer exists - falls back to the generic shortcut icon instead of showing nothing at all.
+- **Changed** **Paths are written the way Windows writes them** — Every path the application shows you, and every path it hands to the clipboard, now uses the native separator: `\` on Windows, `/` on macOS and Linux. This covers the address bar, the breadcrumb, *Copy path* on a file or a folder, the properties panel, the global search results, tab titles and the drive cards on the dashboard. Remote and virtual locations keep their own spelling, because there the separator is part of the address rather than a separator between folders.
+## [3.11.0] - November 2026
+
+**Summary:** Bây giờ có thể xoay và lật ảnh ngay trong menu chuột phải, thay đổi được lưu tự động; biểu tượng đã ghim vào thanh tác vụ không còn biến mất sau khi cập nhật; và menu chuột phải của kết quả tìm kiếm toàn cục đã trở lại, kèm theo mục "Mở thư mục chứa".
+
+### What changed
+
+**Bổ sung:** Xoay và lật ảnh trong menu chuột phải. Khi bạn bấm chuột phải vào một tệp ảnh, menu giờ có thêm *Xoay trái*, *Xoay phải*, *Lật ngang* và *Lật dọc*. Thao tác sẽ chỉnh sửa ảnh và ghi ngay trở lại chính tệp đó: không có hộp thoại, không có *Lưu thành*, không hỏi lại lần nữa. Xoay và lật là hai thao tác nghịch đảo của nhau, nên bạn luôn có thể đưa ảnh về trạng thái ban đầu. Bốn mục này chỉ hiện khi chọn đúng một tệp ảnh — không hiện với thư mục, không hiện khi chọn nhiều tệp và không hiện với SVG.
+
+**Đã sửa:** Biểu tượng đã ghim vào thanh tác vụ không còn biến mất sau khi cập nhật. Khi cài phiên bản mới, trình cài đặt khởi chạy trình gỡ cũ như thể bạn đang gỡ bỏ hẳn chương trình, và trình gỡ đó cũng gỡ luôn biểu tượng trên thanh tác vụ. Giờ khi cài đè lên một phiên bản đã có, trình gỡ cũ sẽ nhận lệnh cập nhật thay vì lệnh dọn dẹp: biểu tượng đã ghim, lối tắt trong menu Start và mục tự khởi động đều được giữ nguyên. Khi bạn chủ động gỡ bỏ chương trình, chúng vẫn bị xóa như trước.
+
+**Đã sửa:** Kết quả tìm kiếm toàn cục đã có lại menu chuột phải. Danh sách kết quả từng được đổi sang một danh sách gọn nhẹ, và menu cũng biến mất cùng nó: bấm chuột phải vào một kết quả không có gì xảy ra, và mục "Mở thư mục chứa" — mục nhảy tới thư mục của tệp và chọn tệp đó — cũng không còn. Menu đã trở lại, nó mang theo đúng mục bạn vừa bấm chuột phải, và nó biết mình đang nhìn kết quả tìm kiếm: "Mở thư mục chứa" mở thư mục ngay trong thanh điều hướng bên cạnh ô tìm kiếm và chọn tệp tại đó, còn "Mở thư mục" thì mở bằng Windows Explorer. Những mục không thể làm gì trong ô tìm kiếm thì vắng mặt cho tốt, thay vì hiện ra mà không tác dụng.
+
+**Cải thiện:** chỉnh sửa ảnh lớn không còn làm treo cửa sổ. Việc này chạy nền, một thông báo hiển thị tiến trình cho tới khi ảnh được lưu lại, và tệp hỏng chỉ báo lỗi chứ không làm ứng dụng sập.
+
+## [3.8.0] - October 2026
+
+**Summary:** Diện mạo *giấy lưu trữ* đã trải qua một vòng hoàn thiện thứ hai. Hai chủ đề *Warm Paper* ở khu vực chính sáng hơn và bớt bão hòa, mọi biểu tượng được vẽ bằng nét be nhạt, biểu tượng thư mục mang điểm nhấn xanh nhạt, các tab không hoạt động được làm tối hơn và có viền be xám, tiêu đề danh sách nằm trên nền tối hơn có đường kẻ trên và dưới, và thư mục cùng tập tin không còn dùng chung một nền. Trong *Vivid*, các nút trên thanh công cụ được tô màu theo đúng việc chúng làm, tab co giãn theo tiêu đề, và biểu tượng ứng dụng được vẽ lại theo bảng màu giấy ấm. Tiện ích *Theo dõi đường dẫn* hoạt động trở lại sau khi cập nhật.
+
+### What changed
+
+**Cải thiện: hai chủ đề *Warm Paper* được hiệu chỉnh lần thứ hai.** Khu vực chính sáng hơn và bớt bão hòa hơn trước. Mọi biểu tượng được vẽ bằng cùng một nét be nhạt, biểu tượng thư mục mang điểm nhấn xanh nhạt, tab không hoạt động tối hơn và có viền be xám, tiêu đề danh sách nằm trên nền tối hơn với đường kẻ trên và dưới, còn thanh biểu tượng bên trái là mực đậm với biểu tượng nhạt đặt trên.
+
+**Cải thiện: các nút thanh công cụ được tô màu theo đúng việc chúng làm.** Trong *Vivid*, mỗi nút ở góc trên bên phải có một màu riêng — chia đôi, cây thư mục, chi tiết, so sánh, thêm, tiện ích, tìm kiếm, tạo mới, lọc — và các nút bên trái thanh địa chỉ (quay lại, tiến, lên, trang chủ) cũng có màu riêng từng nút. Mọi màu đều được tính trên nền thanh tiêu đề của chủ đề tương ứng, nên không biểu tượng nào rơi xuống dưới mức 3 : 1 mà hình không chữ phải giữ.
+
+**Cải thiện: một tab chỉ chiếm đúng bề rộng tiêu đề của nó cần.** Trước đây mọi tab đều rộng như nhau, tên ngắn để lại khoảng trống còn tên dài bị bóp. Nay tab lớn dần theo tiêu đề tới một giới hạn, và tiêu đề vẫn quá dài sẽ bị cắt bằng dấu ba chấm.
+
+**Cải thiện: dòng thư mục và dòng tập tin không còn nằm trên cùng một nền.** Ở chế độ danh sách, dòng thư mục có sắc thái riêng ấm hơn một chút, còn tập tin vẫn nằm trên mặt phẳng trơn, nên một danh sách dài có thể đọc bằng hình dáng thay vì đọc từng dòng.
+
+**Thay đổi: biểu tượng ứng dụng được vẽ lại theo bảng màu giấy ấm.** Với thanh tối trong giao diện, đó là một thư mục nhạt có lớp alpha mực đậm đặt trên; với trình cài đặt và thanh tác vụ, đó là một thư mục mực đậm có lớp alpha nhạt.
+
+**Đã sửa: tiện ích *Theo dõi đường dẫn* hoạt động trở lại sau khi cài hoặc cập nhật.** Bước gỡ cài đặt của trình cài đặt đã vô hiệu hoá tác vụ theo lịch của tiện ích, còn bước cài đặt chỉ khởi động nó — điều không thể thành công với một tác vụ đã bị vô hiệu hoá. Nay trình cài đặt bật tác vụ trước khi khởi động, nên tiện ích tự quay lại sau khi cập nhật. Nếu vẫn không phản hồi, hãy khởi động lại ứng dụng một lần.
+
+**Đã sửa: kịch bản cài tiện ích không còn ghi tiêu đề hỏng.** Dấu gạch trong tiêu đề trước đây được lưu dưới dạng ký tự thật và đọc theo bảng mã của hệ thống, nên trên Windows dùng ngôn ngữ khác, tiêu đề trong danh sách tiện ích hiện ra thành ký tự vô nghĩa. Nay kịch bản chỉ còn ASCII thuần, dựng dấu gạch khi chạy, và sửa luôn tiêu đề đã bị ghi hỏng.
+
+## [3.7.0] - October 2026
+
+**Summary:** Các chủ đề thương hiệu đã có thêm chiều sâu. *Warm Paper* không còn đọc ra như một tờ kem phẳng: thanh biểu tượng bên trái, các thẻ thư mục đã mở, thẻ đang hoạt động, cây thư mục, bảng chi tiết bên phải và cột điều hướng của trang cài đặt giờ mỗi thứ nằm trên sắc thái riêng, còn cây thư mục thì đổi màu từng dòng. *Năng lượng rực rỡ* nay vẽ các biểu tượng trên thanh công cụ bằng nhiều màu khác nhau thay vì một màu xám, và chế độ xem danh sách hiện dải màu ở mép trái giống hệt dải màu mà chế độ xem hình thu nhỏ vốn đã có trên mọi mục. *Theo hệ thống* được giữ lại như một chủ đề mát cố định có tên *Thông lạnh*, độ mờ của lớp phủ mặc định nay là 5% và toàn bộ bộ chủ đề được thiết kế lại để cả bản sáng lẫn bản tối đều vững vàng.
+
+### What changed
+
+**Cải thiện: các chủ đề có chiều sâu thay vì một màu phẳng.** Cửa sổ trước đây chỉ là một mảng kem duy nhất và chỉ có chữ phân biệt được mọi thứ. Nay mỗi vùng có sắc thái riêng, nên con mắt phân biệt được mà không cần đọc: thanh biểu tượng bên trái là bề mặt tối nhất, các thẻ của những thư mục bạn đã mở đi qua sắc thái thứ hai và thứ ba, thẻ bạn đang ở được nâng cao hơn chúng, cây thư mục đổi xen kẽ giữa hai sắc thái theo từng dòng, bảng chi tiết bên phải lùi lại một bước, còn cột điều hướng của trang cài đặt có sắc thái riêng. Các thanh cuộn của cây thư mục được tô bằng bảng màu giấy ấm thay vì màu xám của hệ thống.
+
+**Cải thiện: các biểu tượng trên thanh công cụ trong *Năng lượng rực rỡ* có màu khác nhau.** Trước đây các biểu tượng trên thanh công cụ của trình duyệt tệp đều được vẽ bằng cùng một sắc xám, khiến chúng đọc ra như một hàng dính liền mờ mịt. Trong *Năng lượng rực rỡ*, chúng nay mang màu khác nhau theo đúng việc mình làm, nên bạn tìm được nút mình muốn ngay lập tức. Hai chủ đề *Warm Paper* vẫn giữ màu xám dịu dàng của chúng, bởi đó là điều chúng tồn tại để làm.
+
+**Cải thiện: chế độ xem danh sách hiện mép trái có màu.** Ở chế độ xem hình thu nhỏ, mọi mục vốn đã có một dải màu chạy dọc mép trái. Chế độ xem danh sách chỉ có dải đó để đánh dấu những mục được chọn để sao chép hoặc di chuyển. Nay loại của mục - một thư mục, một hình ảnh, một video, một tệp âm thanh, một tài liệu, một tệp nén - được hiện ra bằng màu của mép đó, ở cả hai chế độ, để hai chế độ có thể được đọc theo cùng một cách.
+
+**Thay đổi: *Theo hệ thống* nay là một chủ đề mát cố định có tên *Thông lạnh*.** Theo hệ điều hành khiến ứng dụng trông khác nhau trên mỗi máy, mà đó không phải việc một chủ đề thương hiệu nên làm. Bộ chọn không còn đưa ra lựa chọn đó; thay vào đó là *Thông lạnh*, một chủ đề xanh lục dịu dàng giống nhau ở mọi nơi và đứng vững trong bộ chọn bên cạnh những chủ đề ấm. Một bản cài mới sẽ mở bằng *Giấy ấm · Sáng*. Nếu chủ đề đã lưu của bạn là *Theo hệ thống*, ứng dụng sẽ chuyển bạn sang *Thông lạnh* ở lần khởi động kế tiếp, và không đụng tới bất kỳ thiết lập nào khác.
+
+**Thay đổi: độ mờ của lớp phủ mặc định là 5%.** Các hiệu ứng hình ảnh trong cài đặt có thể được đặt mạnh tuỳ ý, nhưng mức mặc định lại quá mạnh để đọc chữ thoải mái phía trên. Nay nó bắt đầu ở mức 5%, giữ hiệu ứng vẫn thấy được mà không chen đường.
+## [3.6.7] - October 2026
+
+**Summary:** Bộ chọn chủ đề ngắn hơn và diện mạo mặc định đã thay đổi. Sáu chủ đề kiểu macOS Finder cùng tùy chọn tích hợp *Sáng* chưa hoàn thiện đã bị loại bỏ, và ứng dụng nay mở bằng *Giấy ấm (sáng)*, một trong những chủ đề thương hiệu mới. *Tối* và *Theo hệ thống* giữ nguyên.
+
+### What changed
+
+**Thay đổi: ít chủ đề hơn và một mặc định mới.** Bộ chọn trước đây liệt kê mười hai kiểu tích hợp. Sáu chủ đề kiểu macOS Finder (macOS Native, Refined Modern và Translucent Glass, mỗi loại có bản sáng và tối) đã bị loại bỏ, cùng với tùy chọn tích hợp *Sáng* vốn vẫn được đánh dấu là đang phát triển. Còn lại là *Tối*, *Theo hệ thống* và ba chủ đề thương hiệu: *Giấy ấm (sáng)*, *Giấy ấm (tối)* và *Vivid*. *Giấy ấm (sáng)* nay là mặc định — bản cài mới sẽ mở bằng nó, và Ctrl+T chuyển giữa nó với *Tối*. Nếu chủ đề đã lưu của bạn thuộc nhóm bị loại bỏ, ứng dụng sẽ chuyển bạn sang *Giấy ấm (sáng)* ở lần khởi động kế tiếp và không đụng tới bất kỳ thiết lập nào khác.
+
+## [3.6.6] - October 2026
+
+**Summary:** Bản cập nhật không còn thất bại khi ứng dụng vẫn đang chạy. Khi cài phiên bản mới lên bản cũ, việc cài đặt có thể dừng lại với thông báo «Uninstall was not successfully» — ngay cả khi bạn đã bấm «OK» ở lời nhắc yêu cầu đóng ứng dụng đang chạy: trình gỡ cài đặt cũ chỉ yêu cầu ứng dụng đóng mà không hề chờ ứng dụng thực sự kết thúc, rồi hỏi hệ điều hành xem chương trình đã cài còn đang được dùng hay không — câu trả lời vẫn là «có», và nó bỏ cuộc. Giờ đây trình cài đặt tự đóng ứng dụng và chờ tới khi tệp chương trình thực sự được giải phóng trước khi gọi trình gỡ cài đặt cũ, nên câu hỏi ấy không còn xuất hiện.
+
+### What changed
+
+**Sửa: Đường đi của bản cập nhật chạy trình gỡ cài đặt đã phát hành cùng phiên bản trước, và trình gỡ cài đặt đó không thể sửa nữa — nó vốn đã nằm trên chính những máy đang được cập nhật. Nó yêu cầu ứng dụng đang chạy đóng lại, quay về ngay lập tức, rồi khoảng hai giây sau hỏi hệ điều hành xem chương trình đã cài còn đang được sử dụng không. Câu trả lời vẫn là «có», nên nó hiện thông báo «Ứng dụng đang chạy, bấm OK để kết thúc»; ngay cả sau khi bấm OK, việc đóng ứng dụng vẫn có thể thất bại, trình gỡ cài đặt hủy với lỗi, và trình cài đặt báo là gỡ cài đặt thất bại. Giờ đây trình cài đặt tự đóng ứng dụng và chờ tới khi tệp chương trình có thể mở ở chế độ độc quyền — bằng chứng rằng không còn tiến trình nào giữ nó — rồi mới gọi trình gỡ cài đặt cũ. Việc chờ xảy ra theo cả hai chiều: một lần trước khi cài đặt và một lần trước khi gỡ cài đặt. Kết quả là câu hỏi ấy không bao giờ được hỏi, và bản cập nhật tự đi tiếp.**
+
+**Mới: ba chủ đề thương hiệu.** Bộ chọn chủ đề giờ có thêm ba kiểu hiển thị. *Giấy ấm (sáng)* phủ kín cửa sổ bằng nền màu kem, thẻ gần như vuông vức, đường phân cách mảnh như sợi tóc và những tiêu đề nhỏ dùng chữ serif. *Giấy ấm (tối)* là cùng ý tưởng ấy ở chế độ tối: một màu gần đen mang chút ấm thay cho xám lạnh quen thuộc. *Vivid* là phiên bản nổi bật: thẻ bo tròn rộng hơn, thanh biểu tượng bên trái màu xanh thép đậm, mỗi thẻ có một dải màu chạy dọc mép trái và màu nhấn là tím điện. Cả ba đều không đổi bố cục: thanh biểu tượng giữ nguyên độ rộng cũ, các bảng vẫn giữ bề rộng của mình, và không có điều khiển nào dịch chuyển. Màu xanh thép của thương hiệu — vốn chưa từng xuất hiện trong cả sáu chủ đề tích hợp — nay hiện ra ở thanh trạng thái và bảng chi tiết.
+
+## [3.6.5] - October 2026
+
+**Summary:** Hai điều nhìn thấy được. Tất cả nền mặc định giờ nằm ngay trong bộ cài đặt và đổi tức thì: ảnh bìa của trang chủ được vẽ lại ngay khoảnh khắc bạn chọn một ảnh, thay vì phải chờ một bản tải về có thể không bao giờ xong. Và bộ chọn chủ đề giờ có sáu kiểu dáng theo phong cách Finder của macOS, cả bản sáng lẫn bản tối, đứng cạnh những kiểu đã có sẵn.
+
+### What changed
+
+**Sửa: ảnh bìa của trang chủ đổi ngay khi bạn chọn nền.** Bấm vào ảnh bìa sẽ mở trình quản lý nền, nhưng việc chọn một ảnh ở đó không tạo ra thay đổi nào nhìn thấy được: bức ảnh vẫn y nguyên. Nguyên nhân là mọi nền mặc định vẫn còn được lấy từ mạng đúng lúc bạn bấm, nên việc đổi hoặc mất rất lâu, hoặc không xảy ra. Bây giờ chúng đều nằm trong bộ cài đặt (21 ảnh, khoảng 24 MB), danh sách mở ra mà không phát sinh một yêu cầu mạng nào, và ảnh bìa được vẽ lại trong một phần giây: khoảng 240 mili giây trên máy thử nghiệm.
+
+**Thêm mới: sáu chủ đề theo phong cách Finder của macOS.** Bộ chọn chủ đề giờ có ba kiểu dáng mới, mỗi kiểu một bản sáng và một bản tối, và bạn có thể chuyển qua lại với các kiểu cũ bất cứ lúc nào. *macOS Native* là kiểu mộc mạc nhất: cửa sổ trắng, thanh bên xám nhạt, màu xanh hệ thống, các đường phân cách mảnh như sợi tóc. *Refined Modern* giữ lại màu nhấn gần như đen mà ứng dụng luôn dùng, nhưng thay đổi lớp bố cục: góc bo tròn hơn, bóng đổ mềm hơn, thoáng hơn. *Translucent Glass* để bức ảnh phía sau cửa sổ hiện ra qua các menu và hộp thoại nổi. Ba kiểu đã có sẵn - Sáng, Tối và Theo hệ thống - giữ nguyên đúng như cũ.
+
+## [3.6.4] - October 2026
+
+**Summary:** Ba điều, một điều không thấy được. Ứng dụng giờ dùng bộ nhớ ít hơn nhiều - trên cùng máy, cùng tài khoản và cùng ổ đĩa, tập làm việc lúc khởi động nguội giảm từ 961,2 MB xuống 742,8 MB (-22,7%), và bộ nhớ đệm trên đĩa giảm từ 805,58 MB xuống 66,21 MB (-91,8%). Khi tiến trình kết xuất của WebView2 sập, cửa sổ trắng không còn đứng lại nữa: một trình giám sát tự tải lại trang, và chỉ hỏi khởi động lại khi trang không quay lại. Tìm kiếm toàn cục cũng không còn trả về rỗng với từ khóa ngắn: "pdf", "doc" hay "095" trước đây thường không tìm thấy gì cả.
+
+### What changed
+
+**Cải thiện: ứng dụng dùng ít bộ nhớ hơn nhiều.** Bộ nhớ đệm ảnh thu nhỏ của giao diện không còn được dựng lại từ đầu mỗi khi khung nhìn đổi (tiến trình kết xuất trả lại 68 MB - phần giảm gần như toàn bộ đến từ đây), cửa sổ Quick View ẩn không còn được mở sẵn (bớt hẳn một tiến trình kết xuất WebView2), và một loạt thay đổi mang tính cấu trúc (chỉ mục tìm kiếm, theo dõi thư mục, danh sách ảo hóa) loại phần còn lại. Bộ nhớ đệm ảnh thu nhỏ và chỉ mục tìm kiếm tích tụ cũng đã được dọn: giải phóng 739 MB trên đĩa, và được dựng lại khi cần.
+
+**Thêm mới: sập WebView2 tự phục hồi.** Khi tiến trình kết xuất chết, cửa sổ cứ trắng và cách duy nhất là mở lại chương trình. Nay đã có một trình giám sát: nếu tiến trình kết xuất biến mất, hoặc giao diện ngừng gửi nhịp sống quá 20 giây, trang sẽ được tải lại. Nếu trang quay lại thì không có gì xảy ra; nếu không, một hộp thoại của hệ thống sẽ hỏi bạn có khởi động lại chương trình không - mỗi lần sập chỉ một lần.
+
+**Sửa: từ khóa ngắn trong tìm kiếm toàn cục không ra kết quả.** Tìm "pdf", "doc" hay "095" thường trả về danh sách rỗng. Phần chấm điểm trả về sớm ở trường hợp "tên chứa từ khóa", nên phần so khớp theo token không bao giờ được chạy tới: một kết quả hiển nhiên như "doc" trong "report.docx" chỉ được 0,845 điểm, trong khi ngưỡng cho từ khóa ba ký tự là 0,9 - nên bị loại bỏ, và tìm theo phần mở rộng gần như luôn trống. Nay hai đường đi lấy điểm cao hơn, nên một kết quả không nằm ở đầu tên vẫn vượt ngưỡng. Bản thân ngưỡng không đổi; tìm kiếm mờ với từ khóa ngắn vẫn chặt chẽ như trước.
+
+## [3.6.3] - October 2026
+
+**Summary:** Three things that were quietly getting in the way. Deleting a file for good now does what you expect when you press Enter — the confirmation used to open with the keyboard focus on *Cancel*, so Enter closed it again and left the file where it was - the only way to confirm was to reach for the mouse. And the list view now separates folders, pictures, videos and other files into groups, the way the thumbnail view already did, so the thing you are looking for is one heading away instead of somewhere in the middle of a long list. Renaming no longer opens a dialog either: the name turns into a field right where it stands, and the arrow keys keep taking you from one file to the next with the field still ready, so a whole pile of files can be renamed in a row.
+
+### What changed
+
+**Fixed: Enter now confirms the permanent delete.** Choosing *Delete from drive* (or pressing Shift+Delete) opens a confirmation with two buttons, *Cancel* and *Delete*. Pressing Enter right after it opened did nothing at all: the keyboard focus landed on the *Cancel* button, so Enter activated Cancel and the dialog closed again without deleting anything. It now confirms the deletion. The rule is deliberately narrow: if the focus is already on a button, Enter keeps its normal meaning, so tabbing to *Cancel* and pressing Enter still cancels, and a second press never deletes anything twice.
+
+**Added: the list view groups entries by type.** The list view showed every entry in one long, unbroken list, which is exactly where the thumbnail view draws a line between folders, pictures, videos and everything else. The list view now draws the same line, and each group gets a heading of its own. The sorting you chose still applies inside each group, the tree layout is untouched, and what the keyboard selects — including a Shift range — follows the order you actually see, so a range stays a range instead of jumping across the headings.
+
+**Added: renaming happens in place.** Pressing F2 — or picking *Rename* in the right-click menu for a single entry — used to open a dialog with the name in it. The name is now edited right where it stands, in the list or in the thumbnail view. Enter keeps the new name, Escape puts the old one back. And the part that matters when a lot of files need renaming: once a name has been changed, the arrow keys still move to the next and the previous entry with the field ready, so a whole run of files can be renamed in a row without going back to the mouse. Bulk renaming, and renaming in the tree layout, keep using the dialog.
+
+## [3.6.2] - October 2026
+
+**Summary:** Copying files to and from a remote server (SFTP, FTP or FTPS) now tells you what is actually happening. Uploading used to fail with nothing but a number in the way — no reason, and no way to tell whether the server had refused the file or the application had quietly skipped it. Pasting files into the remote pane reported *Destination path does not exist*, which was never a statement about the server at all: the remote path was being handed to the local copy engine, which asked the local file system and of course found nothing there. The remote transfer channel now has its own path, shows a progress bar while it works, and asks before it replaces anything.
+
+### What changed
+
+**Fixed: a failed upload now says why it failed.** When the remote already held a file with the same name, the old policy was to skip it silently — the file was left alone and the reason never reached the interface. The result dialog used to show counts and nothing else. It now reports what happened to every file: which ones were transferred, which ones were skipped, which ones failed, and why. A file you chose to skip is no longer listed twice.
+
+**Fixed: pasting into the remote pane no longer reports a path that does not exist.** Pasting into a remote panel sent a `sfm://remote/...` path to the local copy engine, which asked the local file system whether that path exists and was told no, every time. Pasting into a remote panel now goes through the remote transfer channel, and the same rules apply there as for a transfer started from the toolbar.
+
+**Added: a remote transfer now asks before it overwrites anything.** If the remote already has a file with the same name, a dialog lists them and lets you decide one by one — overwrite, or skip. Tick *use the same choice for all files with the same name* and one decision settles the whole batch, which is what you want when you are moving a folder of files across. The files you chose to overwrite are the only ones the application is allowed to replace; nothing else on the server is touched.
+
+**Added: remote transfers show a progress bar.** Uploading or downloading a large tree used to be a wait with nothing to look at. The progress dialog says what is being transferred, how many items are done out of how many, and the totals are worked out before the transfer starts — so the bar moves forward instead of jumping to the end and back to the start again. Downloading a remote file is available from the right-click menu of the remote entry.
+
+## [3.6.1] - October 2026
+
+**Summary:** Dragging a file out to another program now works whether this window is maximized or not. Until now the system-level drag only began once the pointer left this window, and a maximized window covers the whole screen, so the pointer was still "inside" the window while it sat over a chat program in front of it — the file was never handed to the system at all. The application now asks Windows what is actually under the pointer and switches to the system-level drag as soon as the pointer rests on another program. The same pass makes the window you are dragging towards come to the front while the drag runs, and hands the foreground back to it afterwards.
+
+### What changed
+
+**Fixed: a file could not be dragged into another program while this window was maximized.** The system-level drag used to start only when the pointer left the application window. With the window maximized that never happens: the window covers the screen, so a pointer sitting on a chat program in front of it is still within this window's coordinates, and nothing was ever dragged out — the drag simply ended when the button came up. The application now asks Windows what is under the pointer, and as soon as the pointer rests on a different program the file is handed over to the system's own drag-and-drop, which is what lets it land in a chat window. The answer has to hold for a moment before the drag begins, so that merely passing over a window on the way somewhere else does not start a drag by accident. Dragging inside this window is unaffected: a file dropped on a folder here is still moved the way it always was.
+
+**Fixed: the program you are dragging towards now comes to the front, and keeps the focus afterwards.** Windows does not raise the window under the pointer during a system-level drag, and when the drag ends it activates the window the drag came from — which put this application on top of the program you had just dropped the file into. On the new route the application raises the target while the drag is in progress and hands the foreground back to it when the drag ends, so the drop can be seen and the program you dropped into stays in front.
+
+## [3.6.0] - October 2026
+
+**Summary:** A file that Windows refuses to delete can now be dealt with from the right-click menu. Two entries were added. The first one asks Windows which program is holding the file open and shows you its name and process id, so you can tell an editor from a backup tool from a stuck service — and end one of them if that is what you want. The second one deletes the file anyway: it clears the read-only flag, then marks the file so that it disappears the moment the program holding it lets go, and if even that is refused, asks Windows to delete it at the next restart. If none of the three works, it says so plainly instead of pretending the file is gone. Neither entry needs anything extra installed — the Windows APIs that do the work were already part of the application's own dependencies.
+
+### What changed
+
+**Added: the right-click menu can now tell you what is holding a file open.** Delete a file and Windows says the operation cannot be completed because the file is open in another program, and leaves you there. The new *Unlock file* entry asks Windows which programs have the file open and lists them with their process ids. You can end one of them from the same dialog, and the application checks again afterwards whether the file can be deleted now. It never deletes anything itself: it clears what is in the way — the read-only flag and the programs holding the file — and then tells you the file is free.
+
+**Added: the right-click menu can now delete a file that will not delete.** Some files refuse to be deleted no matter what you try: they are read-only, or a program holds them open without allowing the deletion. The new *Delete anyway* entry tries three things in order, cheapest first. It clears the read-only flag. If the file is still held, it marks the file for deletion, which makes it disappear as soon as the program holding it closes — no restart needed. If that is refused as well, it registers the file with Windows to be deleted at the next restart, which needs administrator rights. Every step reports what actually happened: a file that could not be deleted is reported as such, not as a success.
+
+**Improved: the two new entries only appear where they can work.** They are shown on Windows, for a single item at a time, and never for a remote location — a file lock on a remote server is not something this machine can clear — nor for a virtual location or the root of a drive.
+
+## [3.2.11] - October 2026
+
+**Summary:** Alpha File Manager can browse remote servers for real. SFTP, FTP and FTPS connections open a remote folder tree you can walk, the two panes can be told to browse together, files and folders can be uploaded and downloaded, and remote files can be deleted. On top of that, seven rounds of local work landed: a new tab opens on your drives, the drives page shows how full each drive is, columns that have nothing to say were dropped, the remote tree follows the pane you are working in, the delete options became a real menu, and the pane that receives a transfer now shows the result straight away.
+
+### What changed
+
+**Changed: a new tab opens on your drives.** Clicking + used to open your home folder, which is rarely where you want to be. It now opens the locations page -- your drive list -- which is also where you start from when you only want to go somewhere else. The setting still chooses between your drives, your home folder and a folder you pick; only the default moved. Anything you have already chosen yourself is left alone.
+
+**Added: the drives page shows how full each drive is.** In the grid view every drive card is filled from the left in proportion to how much of it is used. The fill comes in three strengths rather than one continuous colour: a faint wash while there is room to spare, a stronger one past 60% used, and a light red, no louder than it needs to be, once less than 20% of the drive is left -- the point at which you start running out. Exactly 20% left is not counted as low. A drive whose size cannot be read is left plain instead of being drawn as an empty one, because "cannot tell" and "empty" are not the same thing.
+
+**Added: a free space column in the list view.** The list view has a Free space column sitting to the right of Size, showing how much room is left on each drive. It is on by default, can be hidden and dragged into place like the other columns, and reads `--` for anything that is not a drive -- "this does not apply" and "there is no room left" are different things, and only one of them should look urgent.
+
+**Changed: the locations page no longer shows a modified time column.** The locations page lists **drives**, and a drive has neither a modified time nor a creation time -- both columns are nothing but dashes, taking up room without saying anything. They are now left out of that page, and "Created" stays out of it even if you turn it on yourself. This is **only for that page**: the global column preferences are untouched, so a normal folder still shows the date columns.
+
+**Changed: the free space column only appears on the locations page.** The free space column added in the previous round shows a dash for every row in **any other folder** -- there are no drive entries there -- so it takes up room without saying anything. It now appears only on the locations page, which really does list drives. Ordinary folders keep their date columns, and the two rules are complementary.
+
+**Fixed: the size column rendered its title twice.** The header read "Size ⓘSize" -- the title was rendered twice, with the icon that explains how size is worked out in between. The cause was a mis-paired `v-if` / `v-else` in the template: the `v-else` on the last button paired with the `<span v-if>` above it rather than with the branch holding the icon, so the size column rendered both the button with the icon and the one without it. The three branches are now mutually exclusive: the title appears once, and the icon and the sort arrows are unchanged.
+
+**Added: remote files can be deleted.** A remote file had no delete entry at all -- the row of quick-action icons was empty for it and there was no "Delete" in the right-click menu, so it could only be looked at. There is now a trash button in that row and a "Delete" entry in the right-click menu. There is no recycle bin on a remote server, so a remote entry gets one "Delete" rather than a "Move to recycle bin" that could not work. It asks once first, and says plainly that there is no recycle bin and the file cannot be recovered. A directory has to be empty first -- neither protocol deletes recursively, and the server refuses a directory that still has things in it; the message then says to empty the directory first. If your account is not allowed to delete, the menu entry is **still there** -- it is never hidden -- and the server's refusal is reported as it is. Whether the delete can happen depends on whether your account is the owner, in the group, or "other" on the server; the front end cannot work that out, and guessing wrong would grey out an entry that would have worked.
+
+**Fixed: the pane you transfer to did not show what you just transferred.** After downloading a remote file to the local pane, or uploading a file or a folder to the remote pane, the pane that **received** the files kept showing what it had before -- the new file only turned up after you refreshed by hand. The receiving pane now reads its directory again as soon as the transfer finishes, so the file is there straight away. It is the pane that refreshes **itself**, and only when the directory it is showing is the one that received the files: if you moved that pane somewhere else in the meantime, it is left alone rather than being re-read into the wrong place. A transfer that was skipped because the target already had a file of that name changed nothing, so nothing is re-read for it.
+
+**Fixed: the tree showed an expanded root with nothing under it.** Switching between a local and a remote pane rebuilds the tree's rows from scratch, and a rebuilt row starts out empty. The record of which directories had already been read, however, was never cleared to match -- so the second time you arrived at the remote tree, the tree believed it had already read that folder and never read it again. The row was expanded, the children were never filled in, and it looked like the remote directory could not be read at all. The record is now cleared whenever a row is rebuilt empty.
+
+**Fixed: the tree did not scroll to the directory you were in.** Choosing a directory is supposed to bring it into view: the row is highlighted, and the tree scrolls to it. The scrolling half never ran. The element that was supposed to be scrolled was the one carrying the right-click menu trigger, and the menu library rebuilds that element in a way that discards the reference to it -- so the code that was meant to move it had nothing to move, and returned quietly instead of failing. The scrolling container is now a separate element the menu library leaves alone, the current directory is read before its position is worked out, and the tree scrolls by the smallest amount that brings the row into view. A row that is already in view is left alone, so a tree you have expanded by hand is not scrolled out from under you.
+
+**Fixed: the tree could sprout extra roots of its own.** When the directory you were in sat more than one level below the tree's root, the folders in between were never read, so the directory you were in could not be found among the tree's rows and was added as a root of its own. The chain of folders between the root and your directory is now read in order, so the tree keeps a single root and your directory stays where it belongs.
+
+**Fixed: the tree kept the local drive list after you moved to a remote pane.** The tree's roots and its highlighted row were being read from two different places. The roots came from the path saved for the tab, which is the local folder you started from; the highlighted row came from the path the pane is actually showing. Once you navigated the remote pane, the two disagreed: the tree still showed `Win (C:)`, `Program (D:)` and the rest, all folded, while the pane was somewhere else entirely. Both now come from the same place, so a remote pane gets a remote tree.
+
+**Fixed: the non-focused pane could steal the tree's selection.** With the window split in two, both panes reported their current directory, and the tree took whichever report arrived last. The remote pane is slower to connect and to read, so its report arrived after the local pane's and replaced the selection with a remote path, while the roots stayed local. Nothing in the remote tree was reachable, so it expanded nothing. Only the pane you are actually working in can change the tree's selection now.
+
+**Fixed: the tree scrolled before the row it was aiming at existed.** The scroll ran as soon as the selected path changed, but at that moment the tree was still the old one -- the remote row had not been drawn yet, so there was nothing to scroll to and the code returned without doing anything, silently. When you came back later and the row was there, nothing scrolled to it. The tree now watches where the selected row sits among the visible rows, and scrolls when that row appears or moves. Scrolling the tree by hand does not move the row, so your own scrolling is not undone.
+
+**Fixed: two features disappeared depending on where you had been.** The list of saved remote connections was only read when the sidebar's remote panel or the settings page happened to open first. Open the navigator straight away and that list was still empty, which took two things with it: the **Permissions** entry in the right-click menu decides whether to show itself by asking which protocol the connection uses, and the tree root labels a remote connection by its name -- with no connection to look up, the menu entry vanished and the root fell back to showing the 32-character connection id instead of the connection's name. Neither reported an error; they just quietly stopped working until you visited a screen that happened to load the list. Connections are now read as part of startup, before the window is shown.
+
+**Fixed: the two delete options could not be clicked.** After you select a file or a folder, the trash icon in the top right used to float out two lines of text -- "Move to recycle bin" and "Delete from drive" -- but they were only a *tooltip*, not a menu: they vanished as soon as the pointer moved away, and there was nothing to click. They are now a real dropdown, with one entry per operation and the keyboard shortcut shown next to each. The Del and Shift+Del shortcuts are unchanged.
+
+**Changed: permissions are picked from a list.** Setting permissions asked you to type the octal digits yourself, where one wrong digit either widens or narrows someone else's access to the file. The field is now a list of the usual modes, each shown with its `rwxr-xr-x` form so you can tell 640 from 644 without leaving the list. Whichever mode the file already has is always in the list, even when it is not one of the usual ones -- opening the dialog and pressing Apply without changing anything leaves the mode exactly as it was. The owner / group / others breakdown below updates as you pick, as before.
+
+**Changed: the remote tree is rooted at the folder you configured.** When you focus a remote pane, the tree now starts at that connection's configured directory rather than at the connection itself, so you see the project you set up rather than having to walk down through the parent folders. The root follows the connection's setting, so it does not move as you navigate -- which is what keeps the tree from rebuilding under you.
+
+**Fixed: the root was labelled with the connection's identifier.** The name shown for a root row was decided once, when the row was built. The tree's root can be worked out immediately, but the label has to wait for the connection list, which loads asynchronously -- and the two do not change the tree's roots, so the row was never rebuilt and the name stayed on the path's last component. For a remote root that last component is the 32-character identifier. Root names are now recalculated once the labels arrive, and are also refreshed if you rename the connection.
+
+**Fixed: three phantom roots appeared above the real one.** Selecting a directory expands the whole chain of ancestors, and that code does not know where the tree's roots are. With the root now being the configured folder, that chain included folders *above* it, and each one that was not already in the tree was added as a root of its own. A path that sits above a root is now left out -- the tree starts at its root, and what is above it is not part of the tree.
+
+**Fixed: going up a level did not move the other pane.** The two panes were lined up by directory name, which works while you are going *down* into a folder that happens to share a name. Going *up* is the case where the names differ: the parent of a local `wp-content` is `E:\website_sbt`, the parent of a remote `wp_root\wp-content` is `…\wp_root`, and no amount of name matching reconciles those. Every time a synchronization has actually succeeded, the pair is now remembered, along with its parent; moving up then follows what was established rather than what is spelled alike. The correspondence is built from what really happened, not from configuration -- a pair is only remembered once the two panes have genuinely agreed on it.
+
+**Fixed: the folder tree did not follow the panes, at all.** The watch that was supposed to mirror the focused pane's path into the folder tree had been referring to a value declared fifty-odd lines further down, with the watch set to run immediately. Vue evaluates such a getter straight away, which meant an error before initialisation was raised and then *swallowed* -- the page kept working, but the watch never recorded a single dependency and so never fired again. The tree has therefore not followed the panes since it was written, for local paths as much as remote ones. It is now declared after what it depends on, and it watches the path rather than the pane's identity, which does not change when the pane navigates on its own.
+
+**Fixed: opening a connection dragged both panes off their configured directories.** Both panes mount and load on their own, in an order that is not fixed. Because synchronized browsing is a saved setting and was on, whichever pane finished first reported "I opened where I was told to" -- and synchronized browsing read that as a deliberate move, sending the other pane to the last segment of its own path. Neither pane ended up where the connection said it should be, and the local one landed on a directory that does not exist. Each pane's first report is now treated as settling rather than as a move, and synchronization only begins once both have settled.
+
+**Fixed: a missing folder on the other side produced an error.** The two panes line up by name, and a matching name is common rather than guaranteed -- a WordPress image ships a stub `wp-content` inside its document root that nothing local corresponds to. The target is now checked before the other pane moves; if it is not there, that pane simply stays put and says nothing.
+
+**Fixed: the remote folder tree never opened.** The ancestor chain walked straight past the connection root and on into paths the tree does not have, so nothing the tree was asked to expand actually existed. The chain now stops at the connection.
+
+**Fixed: synchronized browsing never did anything.** The toggle was wired to a guard meant for the settings menu, one that latches off once you have opened that menu on a folder that has its own settings. Clicking the button did nothing and wrote nothing to disk. It now writes the setting directly.
+
+**Synchronized browsing is now triggered by entering a directory, in either pane.** It used to fire on *selection* in the left pane only. Double-clicking into a folder cleared the selection before it could be read, and the right pane ignored you entirely. Whichever pane you move is the one that drives; the other follows.
+
+**The button moved next to the left/right swap button,** where you asked for it. Both appear only while split view is on.
+
+**The folder tree switches to the remote tree when focus is in a remote directory.** It already knew how to read over SSH -- the only thing missing was a root. The tree is now rooted at the connection, labelled with the connection name rather than its identifier.
+
+**Fixed: opening a connection ignored the path you gave it.** Every connection has an "initial path" field, and it was saved, validated and shown back to you correctly -- but nothing ever read it. Opening a connection built its path from the connection id alone, so the remote pane always landed on the remote root and you had to walk down to your folder by hand every single time. It now opens on the configured path. An initial path of `/` behaves exactly as before.
+
+**A "synchronized browsing" button in the navigator toolbar.** Linked browsing already worked -- select a single folder in the left pane and the right pane follows -- but the only way to reach it was a setting buried at the bottom of the navigator options menu, which is not somewhere you would look after connecting to a remote machine. There is now a button next to the split-view toggle, and it only appears while split view is on, because with a single pane there is nothing to synchronise with.
+
+**Fixed: synchronized browsing dragged the remote pane back to the local machine.** When one pane showed a local folder and the other a remote one, following along handed the remote pane a local path, so the remote pane quietly turned into a local directory. The two panes now line up by folder name when they are on opposite sides, so entering `wp-content` on the local side opens `wp-content` on the remote side. Two local panes, or two remote panes, keep behaving exactly as they did.
+
+**SFTP, FTP and FTPS all read remote directories for real.** Three protocols, one code path per protocol, each building a fresh connection per operation. The remote root of a saved connection is now a real folder listing rather than the local home directory.
+
+**Host keys and certificates are pinned, and the first sighting asks.** The first time you reach a machine you get a prompt showing its fingerprint before anything is trusted -- never silent trust-on-first-use. SSH public keys and X.509 certificates are stored as separate records for the same host and port, so trusting one never implies the other. For FTPS the fingerprint is the certificate's SHA-256 in the same colon-hexadecimal form OpenSSL prints, so you can compare it against what your administrator gave you.
+
+**A certificate that changes is reported as a change, not as a network failure.** A refused certificate reaches you as "you have not trusted this certificate yet" or "this certificate changed", naming the fingerprint you had trusted before, instead of a generic TLS handshake error that sends you off to debug the network.
+
+**Settings gained a "Trusted hosts" section.** Every remembered host is listed with its kind and fingerprint, and each one can be revoked from there. Revoking an FTPS certificate leaves any SSH record for the same machine untouched.
+
+**Fixed: FTPS could crash the app on first use.** Building the TLS client configuration needed a process-level crypto provider. This repository enables two rustls providers at once, which leaves rustls unable to pick one on its own, so the very first FTPS connection panicked before it could report anything. It now installs the provider it uses everywhere it needs one. Connections tested through the "Test connection" button were affected by the same thing.
+
+### Known limits
+
+**Copying into a remote location is not implemented.** The file operation engine still works entirely against the local filesystem, so a remote path handed to it is reported as missing even when it is there and can be browsed. Uploading and downloading are separate entries of their own and they work; what is missing is the everyday vocabulary around them -- copy, cut and paste across the boundary, renaming a remote entry, and creating a new file or folder there. There is no code path for those yet, and the entries that would use one are not offered in a remote location rather than being offered and then failing.
+
+**FTPS file contents are not encrypted yet.** The control channel is protected by certificate pinning, but the data channel uses the server's default, which for explicit FTPS means plaintext file contents in transit. RFC 2228's `PBSZ` / `PROT P` is not sent. This is a recorded trade-off, not an oversight; when it is added it will refuse loudly rather than falling back to plaintext.
+
+**FTPS has never been run against a real server.** It is covered end to end by a stub server that signs a real certificate and upgrades the connection on `AUTH TLS`, which catches the protocol sequencing but not any wording a real server happens to use. SFTP has been run against a real server; FTP and FTPS have not.
+
+### How this release was verified
+
+**The last round was checked on an installed build.** Everything in the 3.2.11 round was measured on a packaged release build rather than a development build: the new tab opening on the drives page, the drive cards showing their fill, the columns that were dropped and the ones kept, the remote file delete and the delete dropdown, and the pane that refreshes itself after a transfer. The last of those was measured against a real SFTP server -- uploading a file, uploading a folder, downloading a file -- and watching the receiving pane pick each one up. The tree work was checked on a packaged build as well: switching to a remote pane replaces the drive list with the remote tree, expands it down to the directory you are in, and scrolls that row into view.
+
+**The earlier rounds were covered by unit tests and fault injection.** The remote browsing work (3.2.5), the connection's initial path and the synchronized-browsing button (3.2.6), the tree following the panes (3.2.7), the races when a connection opens (3.2.8), going up a level (3.2.9) and the remote tree's root (3.2.10) were each written with tests that fail when the behavior breaks, and each one was then checked by deliberately breaking it. They were not each verified one by one on an installed build, and this release does not claim that they were.
+
+**One defect is still open.** Switching to another tab and back could leave the remote tree with nothing but its root. It could not be reproduced on an instrumented build: with a read counter on each row, the whole chain came back intact (`vol1` 16 folders, `@team` 5, `study_platform` 27, `wp_root` 28, `wp-content` 1). Coming back from the remote tab changes which pane is active, and the tree follows the pane you are actually in -- so what was on screen was the local tree, which is the right answer, not a broken remote one. That is one round without a failure, not a fix, and it is not claimed as one.
+
+## [3.2.4] - October 2026
+
+**Summary:** The first stable build of the 3.2 line. The address bar behaves the way Windows Explorer does, split view can swap its two panes, and the thumbnail size control survives a narrow window. This replaces 3.2.1-beta, which was the last published test build.
+
+### The address bar now works the way you expect
+
+Click the address bar and it turns into an edit box with the current path already selected — paste a new path and press Enter to go there. Previously the caret sat at the end, so pasting appended to the old path and produced a mashed-together string. Press End if you would rather extend the existing path, exactly as in Explorer.
+
+Three defects are fixed together, and any one of them on its own is enough to make pasting a path unreliable:
+
+- **A path was only treated as a folder if it ended with a slash.** Paste `D:\photos\2026` without the trailing slash and you got a single search result back instead of the folder. A bare word such as `photos` is still treated as a search term, so name-based lookup keeps working.
+- **Enter no longer depends on the list catching up.** Right after you paste, the suggestion list needs a moment to refresh; pressing Enter during that window used to do nothing at all. It now acts on what is in the input box, immediately.
+- **Arrow keys still win.** If you arrow down to a particular file and press Enter, that file is what opens — the typed path does not override your choice.
+
+### The suggestion list reads as a small tree
+
+The first row is the directory you are pointing at: flush left, in a heavier weight, and selected when the list opens, so pressing Enter goes straight into it. Subfolders and files sit one indent in, level with each other, connected by a vertical line with a short dash into each icon and closed off at the last row. Subfolders are listed before files, each sorted by name.
+
+### Swap the two panes in split view
+
+With two panes open, a swap button appears to the right of the search box in each pane's toolbar. Click it and the panes trade folders: whatever the left one was showing, the right one shows now, and vice versa. Each pane keeps its own width and its own place in the tab order — only the folder changes. The button is not there with a single pane, because there would be nothing to swap.
+
+If both panes already show the same folder, nothing happens, and that is deliberate: swapping two identical folders is a no-op, and making the panes flicker through a change you cannot see is worse than doing nothing.
+
+### The thumbnail size control survives a narrow window
+
+On a narrow window the toolbar buttons collapse into a single "..." menu holding back, forward, up, locations, refresh, the list/grid toggle and the two create commands. The thumbnail size control had only ever been added to the wide-screen row of icons, so once the window narrowed below 600px there was no way to reach it at all — not hidden, simply absent.
+
+It is now in both places, in the same order: after the list/grid button on the wide toolbar, and after the matching list/grid item in the "..." menu. Both open the same dialog.
+
+### What this release is
+
+3.2.4 is the first stable build of the 3.2 line. The MCP server introduced in 3.2.1-beta comes along unchanged, still read-only. Nothing in this release can move, rename or delete your files.
+
+## [3.1.3] - October 2026
+
+**Summary:** Directory search had two defects that made recursion look unimplemented; both are fixed. Search options now sit where you can watch results change, and split view keeps directories on the left.
+
+### Directory search: recursion genuinely was not working
+
+The most important fix here, caused by two independent problems stacked on top of each other:
+
+- **The traversal cap counted the wrong thing.** The recursive walk had a "stop once we have seen enough" limit, but it counted **entries scanned**, not entries matched, and the limit was 20× the result limit (50 × 20 = 1000 by default). In a photo directory with 43,167 entries the walk therefore stopped at entry 1000 — indistinguishable from "current layer only". It now stops on match count, with the scan-volume safety valve widened separately.
+- **Short queries were discarded by the score threshold.** After a filename substring matched, a score gate still applied, and three-character queries demanded 0.9: searching `095` against `20251009_0095_27.jpg` scores only 0.82, so it was **thrown away on the spot**. This was independent of directory size — small directories failed the same way. The score now only ranks results; it no longer gates them.
+
+The previous release note claiming "directory search is now recursive" was therefore not true at the time.
+
+### Search options moved above the results
+
+Show files / show directories / exact match / typo tolerance / result limit used to live in a button plus popover inside the filter box — but the point of adjusting options is to **watch the results change**, and hiding them behind a popover means opening and closing a floating layer on every adjustment. They are now permanently visible above the search results, so ticking one box updates the list below in view.
+
+**Typo tolerance now actually does something** rather than being decoration: the recursive scan also computes a similarity score when the substring misses. With it off, a misspelled query still finds nothing; with it on, it matches — both directions are covered by tests.
+
+Directory search and global search now **use the same set of options**, instead of each behaving its own way.
+
+### Split view after search: directories on the left, search on the right
+
+Opening global search previously pushed the search UI to the left and shoved directories to the right. It is now the other way round: **the left pane keeps the directory view and the right pane switches to search**, matching the "open containing directory" layout.
+
+### Default search depth 7 → 9 levels
+
+Existing installations are migrated to 9 as well — changing only the default has no effect on people who already have 7 written in their local settings. A depth you set yourself is never overwritten.
+
+### Also
+
+- **Right-click "Add to favorites" now asks for a category**: pick an existing one or create one on the spot.
+
+## [3.0.1] - October 2026
+
+**Summary:** Fixes a data-loss bug in batch rename, found while testing 3.0.0.
+
+### Batch Rename
+
+- **Fixed: a rename could silently overwrite a file the rules left unchanged.** When a new name collided with another file in the same batch that no rule modified, that file was never moved aside and the rename landed on top of it. On Windows this happens with no error at all, so the original content was destroyed and could not be undone. Such a collision is now blocked in the preview, with the conflicting row highlighted;
+- **Fixed: Title Case no longer rewrites your separators.** `27_gri_r0_c0` came out as `27 Gri R 0 C 0`, because underscores and hyphens were treated as word breaks and replaced with spaces. Original separators are preserved now, and digits are no longer treated as word boundaries;
+- **Fixed: case-only changes are no longer reported as "unchanged".** Converting a selection to UPPERCASE or lowercase showed `0` items to change. A case-only rename is a real operation and is now counted and applied;
+- **Fixed: rule options from the interface now take effect.** Checkboxes such as *Include extension* did nothing, because the field names sent to the backend did not match the ones it expected;
+- **Numbering is easier to reach.** Numbering only supplies `{n}` for template rules and never renames on its own, which surprised people. A one-click *Add a template rule* button now sits next to it, pre-filled with `{n}-{name}`;
+
+## [3.0.0] - October 2026
+
+**Summary:** The first official release under the Alpha File Manager brand. Adds batch rename, makes drives identifiable in the narrow sidebar, and ships a substantially hardened dialog focus sync extension.
+
+This release also renames the product from Sigma File Manager to **Alpha File Manager** throughout the interface, installer, and error messages. The underlying project lineage is unchanged; existing settings and layouts carry over.
+
+### Batch Rename
+
+Rename many files in one directory at once, with a live preview before anything touches disk.
+
+- **Entry point**: select two or more items, right-click, and choose `Batch rename`. Single selection keeps using the existing `Rename` action;
+- **Rules**: find and replace (optionally case-sensitive, optionally including the extension), case conversion (UPPERCASE, lowercase, Title Case, camelCase, snake_case, kebab-case), template names, numbering, and extension changes. Rules apply in the order shown and can be reordered;
+- **Template variables**: `{name}`, `{ext}`, `{parent}`, `{size}`, `{date}`, `{n}`, with `{date:YYYYMMDD}` formatting and local time;
+- **Live preview**: every entry shows its current and proposed name as you type. Entries that do not change are dimmed;
+- **Conflict safety**: a new name that collides with a file outside the batch is blocked rather than overwritten; two entries that would end up with the same name are blocked and named; swap cycles such as `a -> b` and `b -> a` are resolved automatically through a two-pass rename with no user-visible temporary files;
+- **Undo**: the last 10 batches are recorded and can be reverted, including batches that failed partway through. Reverting re-checks for collisions and refuses rather than overwriting later changes;
+
+Numbering supplies the value for `{n}` and does not rename on its own; pair it with a Template rule.
+
+### Drive Labels In The Sidebar
+
+Disks in the narrow sidebar are now distinguishable at a glance.
+
+- **Short label on the icon**: each drive icon carries a short label derived from its mount point — `C`, `D`, or the share name for network paths;
+- **Why it matters**: the sidebar column is only 24px wide and every drive icon looks alike, so it was impossible to tell partitions apart;
+- **Themed outline**: the label uses a 2px stroke in the sidebar's own background colour with `paint-order: stroke fill`, so the icon lines are knocked out behind the glyph. It stays legible in both light and dark themes;
+
+Folder tree panels also start slightly wider, so directory names are readable without dragging the divider.
+
+### Dialog Focus Sync
+
+The Focus Sync extension (`kizemo.focus-sync`) reaches version 0.5.8 with a set of correctness fixes. It navigates Windows file dialogs — including Save As in other applications — to the folder currently focused in Alpha File Manager.
+
+- **No more duplicate writes**: a dialog is no longer navigated twice about 900ms apart, which previously made the address bar visibly jump;
+- **Window activation races**: Windows routes activation through a short-lived `ForegroundStaging` window. The extension now waits for the dialog to be foreground again (up to 500ms) instead of giving up and falling through to a path that never actually navigated;
+- **Honest restore reporting**: restoring the filename field is now verified by reading the value back. A failed restore returns false instead of reporting success;
+- **Cleaner diagnostics**: the trace ring is no longer saturated by health-check polling, so a lost push is distinguishable from a callback that never fired. Dead window handles are reaped on sight instead of accumulating;
+- **Sidecar safety**: running the test suite no longer force-kills a sidecar you are actively using;
+
+### Branding
+
+- The application is now **Alpha File Manager** in the interface, the installer, window titles, and error messages;
+- The install, upgrade, and uninstall paths are stable across 2.2.x and 3.0.0 — upgrading in place preserves your settings, layouts, and shortcuts;
+
 ## [2.2.0] - July 2026
 
 **Tóm tắt:** Tích hợp bảng tạm hệ thống với các ứng dụng khác, chọn bằng khung kéo, chế độ xem chia đôi liên kết, xử lý liên kết, tệp ZIP có mật khẩu, cửa sổ Thuộc tính gốc của Windows, mở rộng API tiện ích, hỗ trợ tiếng Do Thái và cải thiện trình điều hướng.

@@ -7,7 +7,19 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import { computed, ref } from 'vue';
-import { LinkIcon } from '@lucide/vue';
+import {
+  FileIcon,
+  FileImageIcon,
+  FileVideoIcon,
+  FolderIcon,
+  LinkIcon,
+  // FORK-MODIFICATION（2026-11-08，用户需求 1）：「位置」页三个分区的图标。
+  HardDriveIcon,
+  CloudIcon,
+  ServerIcon,
+  // FORK-MODIFICATION（2026-11-19，批次 23）：设备分区（手机 / MTP）。
+  SmartphoneIcon,
+} from '@lucide/vue';
 import type { DirEntry } from '@/types/dir-entry';
 import { formatBytes } from './utils';
 import { useClipboardStore } from '@/stores/runtime/clipboard';
@@ -17,16 +29,27 @@ import { useItemCountsStore } from '@/stores/runtime/item-counts';
 import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import { usePlatformStore } from '@/stores/runtime/platform';
 import FileBrowserEntryIcon from './file-browser-entry-icon.vue';
+import FileBrowserListEntryThumbnail from './file-browser-list-entry-thumbnail.vue';
+// FORK-MODIFICATION 2026-10-27：就地重命名的输入框。
+import FileBrowserInlineRenameInput from './file-browser-inline-rename-input.vue';
 import { useRelativeDateDisplayClock } from '@/composables/use-relative-date-display';
 import { useFileBrowserContext } from './composables/use-file-browser-context';
+import { getFileBrowserEntryKey } from './utils/file-browser-entry-key';
 import { useFileBrowserTags } from './composables/use-file-browser-tags';
-import { getDriveEntryVolumeSizeBytes } from '@/utils/drive-icon';
+import { getDriveEntryVolumeSizeBytes, getDriveEntryAvailableSpaceBytes } from '@/utils/drive-icon';
 import {
   useFileBrowserVisibleListColumns,
   type FileBrowserVisibleOptionalListColumn,
 } from './composables/use-file-browser-visible-list-columns';
+// FORK-MODIFICATION 2026-10-20：按当前路径算「实际可见性」。
+import { useFileBrowserListColumnVisibility } from './composables/use-file-browser-list-column-visibility';
 import FileBrowserListViewColumnCell from './file-browser-list-view-column-cell.vue';
-import type { FileBrowserListVirtualRow } from './composables/use-file-browser-virtual-layout';
+import FileBrowserGridSectionBar from './file-browser-grid-section-bar.vue';
+import type {
+  FileBrowserListSectionVirtualRow,
+  FileBrowserListVirtualRow,
+  FileBrowserSectionKey,
+} from './composables/use-file-browser-virtual-layout';
 import type { ItemTag } from '@/types/user-stats';
 import {
   getDirEntryKindKey,
@@ -60,12 +83,16 @@ interface FileBrowserListSizeDisplay {
 interface FileBrowserListDisplayRow extends FileBrowserListVirtualRow {
   entry: DirEntry;
   entryDescription: string | undefined;
+  // FORK-MODIFICATION 2026-10-27：这一行是不是正处于「就地编辑态」。
+  isInlineRenameTarget: boolean;
   entryStyle: Record<string, string>;
   isSelected: boolean;
   isInClipboard: boolean;
   clipboardType: string | undefined;
   itemsDisplay: string;
   sizeDisplay: string | null;
+  /** FORK-MODIFICATION 2026-10-20：磁盘的可用空间；非磁盘为 `null`。 */
+  availableSpaceDisplay: string | null;
   isDirLoadingWithProgress: boolean;
   isSizeSkeletonVisible: boolean;
   modifiedDate: FileBrowserListDateDisplay;
@@ -81,6 +108,19 @@ interface FileBrowserListDisplayRow extends FileBrowserListVirtualRow {
   linkTargetKindLabel: string;
   memoKey: string;
 }
+
+/**
+ * FORK-MODIFICATION: 分区标题行的展示模型。
+ * 它不是条目：没有 entry、没有选中态、不响应条目级事件，
+ * 只负责把不同类型的条目隔开，并标出这一组是什么。
+ */
+interface FileBrowserListSectionDisplayRow extends FileBrowserListSectionVirtualRow {
+  label: string;
+  sectionStyle: Record<string, string>;
+  memoKey: string;
+}
+
+type FileBrowserListDisplayItem = FileBrowserListDisplayRow | FileBrowserListSectionDisplayRow;
 
 const emptyDateDisplay: FileBrowserListDateDisplay = {
   primary: '',
@@ -112,7 +152,7 @@ const { clipboardItems, clipboardType, showClipboardUi } = storeToRefs(clipboard
 const { t, locale } = useI18n();
 const activeTagSelectorPath = ref<string | null>(null);
 
-const columnVisibility = computed(() => userSettingsStore.userSettings.navigator.listColumnVisibility);
+const columnVisibility = useFileBrowserListColumnVisibility();
 const { visibleOptionalListColumns, visibleListColumnOrderKey } = useFileBrowserVisibleListColumns();
 const visibleListColumns = computed(() => {
   return getVisibleListColumnDefinitions(
@@ -125,6 +165,9 @@ function getOptionalColumnId(column: FileBrowserVisibleOptionalListColumn) {
   return column.id;
 }
 
+const showListThumbnails = computed(
+  () => userSettingsStore.userSettings.navigator.showListThumbnails,
+);
 const showModifiedColumn = computed(() => columnVisibility.value.modified);
 const showCreatedColumn = computed(() => columnVisibility.value.created);
 const shouldTrackListRelativeTime = computed(() => {
@@ -173,6 +216,19 @@ const clipboardPathsMap = computed(() => {
 
   return map;
 });
+
+/**
+ * FORK-MODIFICATION 2026-10-20：磁盘的可用空间（用户 2026-10-20 00:05 附图要求）。
+ *
+ * 只有磁盘条目有值。`getDriveEntryAvailableSpaceBytes` 内部已经处理了
+ * 「老数据没有 available_space → 回落到 size」的情况，
+ * 所以这里不需要再判断一次是磁盘还是不是磁盘。
+ */
+function getEntryAvailableSpaceDisplay(entry: DirEntry): string | null {
+  const available = getDriveEntryAvailableSpaceBytes(entry);
+
+  return available === null ? null : formatBytes(available);
+}
 
 function getEntrySizeDisplay(entry: DirEntry): FileBrowserListSizeDisplay {
   if (entry.is_file) {
@@ -330,6 +386,7 @@ function createDisplayRow(row: FileBrowserListVirtualRow): FileBrowserListDispla
   const visible = columnVisibility.value;
   const entry = itemCountsStore.mergeEntry(linkMetadataStore.mergeEntry(row.entry));
   const sizeDisplay = visible.size ? getEntrySizeDisplay(entry) : emptySizeDisplay;
+  const availableSpaceDisplay = visible.availableSpace ? getEntryAvailableSpaceDisplay(entry) : null;
   const selectedTagIds = visible.tags ? getEntryTagIds(entry) : [];
   const selectedTags = visible.tags ? getEntryTags(entry) : [];
   const tagBadges = selectedTags.map(createTagBadge);
@@ -347,6 +404,10 @@ function createDisplayRow(row: FileBrowserListVirtualRow): FileBrowserListDispla
   const linkStatusLabel = visible.linkStatus ? getLinkStatusDisplay(entry) : '';
   const isTagSelectorMounted = visible.tags && activeTagSelectorPath.value === entry.path;
   const tagSummary = visible.tags ? getEntryTagSummary(selectedTags, selectedTagIds) : '';
+  // FORK-MODIFICATION 2026-10-27：这一行是不是正处于「就地编辑态」。
+  // 行上有 `v-memo` 缓存 —— 编辑态变了却没换 memoKey 的话，
+  // 那一行会被缓存住，输入框永远不出现。
+  const isInlineRenameTarget = ctx.inlineRename.editingEntryPath.value === entry.path;
   const memoParts = [
     visibleColumnMemoKey.value,
     row.key,
@@ -365,6 +426,7 @@ function createDisplayRow(row: FileBrowserListVirtualRow): FileBrowserListDispla
     sizeDisplay.display ?? '',
     sizeDisplay.isLoadingWithProgress ? 'loading-size' : '',
     sizeDisplay.isSkeletonVisible ? 'size-skeleton' : '',
+    availableSpaceDisplay ?? '',
     modifiedDate.primary,
     modifiedDate.absolute,
     createdDate.primary,
@@ -377,6 +439,7 @@ function createDisplayRow(row: FileBrowserListVirtualRow): FileBrowserListDispla
     linkStatusLabel,
     isLinkSkeletonVisible ? 'link-skeleton' : '',
     isTagSelectorMounted ? 'tags-open' : '',
+    isInlineRenameTarget ? 'inline-rename' : '',
   ];
 
   return {
@@ -389,6 +452,7 @@ function createDisplayRow(row: FileBrowserListVirtualRow): FileBrowserListDispla
     clipboardType: clipboardPathType,
     itemsDisplay,
     sizeDisplay: sizeDisplay.display,
+    availableSpaceDisplay,
     isDirLoadingWithProgress: sizeDisplay.isLoadingWithProgress,
     isSizeSkeletonVisible: sizeDisplay.isSkeletonVisible,
     modifiedDate,
@@ -397,6 +461,8 @@ function createDisplayRow(row: FileBrowserListVirtualRow): FileBrowserListDispla
     tagBadges,
     tagSummary,
     isTagSelectorMounted,
+    // FORK-MODIFICATION 2026-10-27：这一行是不是正处于「就地编辑态」。
+    isInlineRenameTarget,
     kindLabel,
     linksDisplay,
     linkStatusLabel,
@@ -406,10 +472,74 @@ function createDisplayRow(row: FileBrowserListVirtualRow): FileBrowserListDispla
   };
 }
 
-const visibleRows = computed<FileBrowserListDisplayRow[]>(() => {
+// FORK-MODIFICATION: 分区标题的文案与网格视图共用同一批 i18n key，
+// 不新增任何语言包条目。
+function getSectionLabel(sectionKey: FileBrowserSectionKey): string {
+  switch (sectionKey) {
+    case 'dirs':
+      return t('fileBrowser.folders');
+    case 'images':
+      return t('fileBrowser.images');
+    case 'videos':
+      return t('fileBrowser.videos');
+    case 'others':
+      return t('fileBrowser.otherFiles');
+    // FORK-MODIFICATION（2026-11-08，用户需求 1）：「位置」页的分区标题。
+    case 'drives':
+      return t('fileBrowser.partitions');
+    // FORK-MODIFICATION（2026-11-19，批次 23）：设备（手机 / MTP）分区。
+    case 'devices':
+      return t('fileBrowser.devices');
+    case 'netdisk':
+      return t('settings.remote.nav.netdisk');
+    case 'remote':
+      return t('settings.remote.nav.remoteSection');
+  }
+}
+
+// FORK-MODIFICATION（2026-11-08）：分区图标用一张表，网格视图与列表视图同源。
+const SECTION_ICONS = {
+  dirs: FolderIcon,
+  images: FileImageIcon,
+  videos: FileVideoIcon,
+  others: FileIcon,
+  drives: HardDriveIcon,
+  // FORK-MODIFICATION（2026-11-19，批次 23）：设备用手机图标 ——
+  // 「位置」页里的设备主要就是手机（MTP）与便携设备。
+  devices: SmartphoneIcon,
+  netdisk: CloudIcon,
+  remote: ServerIcon,
+} as const;
+
+function getSectionIcon(sectionKey: FileBrowserSectionKey) {
+  return SECTION_ICONS[sectionKey];
+}
+
+function createSectionDisplayRow(row: FileBrowserListSectionVirtualRow): FileBrowserListSectionDisplayRow {
+  const label = getSectionLabel(row.sectionKey);
+
+  return {
+    ...row,
+    label,
+    sectionStyle: {
+      height: `${row.size}px`,
+    },
+    memoKey: `section:${row.sectionKey}:${row.count}:${label}`,
+  };
+}
+
+const visibleRows = computed<FileBrowserListDisplayItem[]>(() => {
   return ctx.visibleVirtualRows.value
-    .filter((row): row is FileBrowserListVirtualRow => row.type === 'list-entry')
-    .map(createDisplayRow);
+    .filter((row): row is FileBrowserListVirtualRow | FileBrowserListSectionVirtualRow => {
+      return row.type === 'list-entry' || row.type === 'list-section';
+    })
+    .map((row) => {
+      if (row.type === 'list-section') {
+        return createSectionDisplayRow(row);
+      }
+
+      return createDisplayRow(row);
+    });
 });
 </script>
 
@@ -438,81 +568,123 @@ const visibleRows = computed<FileBrowserListDisplayRow[]>(() => {
         class="file-browser-list-view__virtual-window"
         :style="ctx.virtualWindowStyle.value"
       >
-        <div
+        <!--
+          FORK-MODIFICATION: v-memo 必须落在「带 v-for 的那个节点」上。
+          把它写在 <template> 的子元素上，所有行会共用同一个缓存槽（缓存退化，
+          等于失去 memo）；写在 <template> 上则与「v-for + v-memo 同元素」编译出的
+          形态完全等价，仍然是逐行缓存。
+        -->
+        <!-- eslint-disable vue/no-useless-template-attributes -->
+        <template
           v-for="row in visibleRows"
           :key="row.key"
-          v-memo="[row.memoKey]"
-          role="button"
-          tabindex="0"
-          class="file-browser-list-view__entry"
-          :class="{
-            'file-browser-list-view__entry--dir': row.entry.is_dir,
-            'file-browser-list-view__entry--file': row.entry.is_file,
-            'file-browser-list-view__entry--hidden': row.entry.is_hidden,
-          }"
-          :style="row.entryStyle"
-          :data-entry-path="row.entry.path"
-          :data-selected="row.isSelected || undefined"
-          :data-in-clipboard="row.isInClipboard || undefined"
-          :data-clipboard-type="row.clipboardType"
-          :data-link-status="row.entry.link_status || undefined"
-          :data-drop-target="row.entry.is_dir || undefined"
-          @mousedown="ctx.onEntryMouseDown(row.entry, $event)"
-          @mouseup="ctx.onEntryMouseUp(row.entry, $event)"
-          @focus="ctx.handleEntryFocus(row.entry, $event)"
-          @contextmenu="ctx.handleEntryContextMenu(row.entry)"
-          @keydown="handleEntryKeydown($event, row.entry)"
+          v-memo="[row.memoKey, showListThumbnails]"
         >
-          <div class="file-browser-list-view__entry-name">
-            <FileBrowserEntryIcon
-              :entry="row.entry"
-              :size="18"
-              class="file-browser-list-view__entry-icon"
-              :class="{ 'file-browser-list-view__entry-icon--folder': row.entry.is_dir }"
-            />
-            <div class="file-browser-list-view__entry-name-content">
-              <div class="file-browser-list-view__entry-name-row">
-                <span class="file-browser-list-view__entry-text">{{ row.entry.name }}</span>
-                <span
-                  v-if="columnVisibility.linkTarget && row.entry.link_target"
-                  class="file-browser-list-view__entry-link-target"
-                >
-                  <LinkIcon
-                    :size="11"
-                    class="file-browser-list-view__entry-link-target-icon"
+          <div
+            v-if="row.type === 'list-section'"
+            class="file-browser-list-view__section"
+            :style="row.sectionStyle"
+          >
+            <FileBrowserGridSectionBar
+              :label="row.label"
+              :count="row.count"
+            >
+              <template #icon>
+                <component
+                  :is="getSectionIcon(row.sectionKey)"
+                  :size="14"
+                />
+              </template>
+            </FileBrowserGridSectionBar>
+          </div>
+          <div
+            v-else
+            role="button"
+            tabindex="0"
+            class="file-browser-list-view__entry"
+            :class="{
+              'file-browser-list-view__entry--dir': row.entry.is_dir,
+              'file-browser-list-view__entry--file': row.entry.is_file,
+              'file-browser-list-view__entry--hidden': row.entry.is_hidden,
+            }"
+            :style="row.entryStyle"
+            :data-entry-path="row.entry.path"
+            :data-entry-key="getFileBrowserEntryKey(row.entry)"
+            :data-selected="row.isSelected || undefined"
+            :data-in-clipboard="row.isInClipboard || undefined"
+            :data-clipboard-type="row.clipboardType"
+            :data-link-status="row.entry.link_status || undefined"
+            :data-drop-target="row.entry.is_dir || undefined"
+            @mousedown="ctx.onEntryMouseDown(row.entry, $event)"
+            @mouseup="ctx.onEntryMouseUp(row.entry, $event)"
+            @focus="ctx.handleEntryFocus(row.entry, $event)"
+            @contextmenu="ctx.handleEntryContextMenu(row.entry)"
+            @keydown="handleEntryKeydown($event, row.entry)"
+          >
+            <div class="file-browser-list-view__entry-name">
+              <FileBrowserListEntryThumbnail
+                v-if="showListThumbnails"
+                :entry="row.entry"
+              />
+              <FileBrowserEntryIcon
+                v-else
+                :entry="row.entry"
+                :size="18"
+                class="file-browser-list-view__entry-icon"
+                :class="{ 'file-browser-list-view__entry-icon--folder': row.entry.is_dir }"
+              />
+              <div class="file-browser-list-view__entry-name-content">
+                <div class="file-browser-list-view__entry-name-row">
+                  <FileBrowserInlineRenameInput
+                    v-if="row.isInlineRenameTarget"
+                    :entry="row.entry"
                   />
                   <span
-                    v-if="row.entry.link_type"
-                    class="file-browser-list-view__entry-link-target-type"
+                    v-else
+                    class="file-browser-list-view__entry-text"
+                  >{{ row.entry.name }}</span>
+                  <span
+                    v-if="columnVisibility.linkTarget && row.entry.link_target"
+                    class="file-browser-list-view__entry-link-target"
                   >
-                    {{ row.linkTargetKindLabel }}:
+                    <LinkIcon
+                      :size="11"
+                      class="file-browser-list-view__entry-link-target-icon"
+                    />
+                    <span
+                      v-if="row.entry.link_type"
+                      class="file-browser-list-view__entry-link-target-type"
+                    >
+                      {{ row.linkTargetKindLabel }}:
+                    </span>
+                    <span class="file-browser-list-view__entry-link-target-text">
+                      {{ row.entry.link_target }}
+                    </span>
                   </span>
-                  <span class="file-browser-list-view__entry-link-target-text">
-                    {{ row.entry.link_target }}
-                  </span>
-                </span>
+                </div>
+                <span
+                  v-if="row.entryDescription"
+                  class="file-browser-list-view__entry-description"
+                >{{ row.entryDescription }}</span>
               </div>
-              <span
-                v-if="row.entryDescription"
-                class="file-browser-list-view__entry-description"
-              >{{ row.entryDescription }}</span>
             </div>
+            <FileBrowserListViewColumnCell
+              v-for="column in visibleOptionalListColumns"
+              :key="column.id"
+              :column-id="getOptionalColumnId(column)"
+              :row="row"
+              :available-tags="availableTags"
+              @toggle-tag="handleToggleEntryTag"
+              @create-tag="handleCreateEntryTag"
+              @rename-tag="renameTag"
+              @update-tag-color="updateTagColor"
+              @reorder-tags="setTags"
+              @tags-open-change="handleEntryTagsOpenChange"
+              @open-tag-selector="openEntryTagSelector"
+            />
           </div>
-          <FileBrowserListViewColumnCell
-            v-for="column in visibleOptionalListColumns"
-            :key="column.id"
-            :column-id="getOptionalColumnId(column)"
-            :row="row"
-            :available-tags="availableTags"
-            @toggle-tag="handleToggleEntryTag"
-            @create-tag="handleCreateEntryTag"
-            @rename-tag="renameTag"
-            @update-tag-color="updateTagColor"
-            @reorder-tags="setTags"
-            @tags-open-change="handleEntryTagsOpenChange"
-            @open-tag-selector="openEntryTagSelector"
-          />
-        </div>
+        </template>
+        <!-- eslint-enable vue/no-useless-template-attributes -->
       </div>
     </div>
   </div>
@@ -559,6 +731,29 @@ const visibleRows = computed<FileBrowserListDisplayRow[]>(() => {
   animation: sigma-ui-fade-in 0.2s ease-out;
 }
 
+/*
+ * FORK-MODIFICATION: 列表视图的分区标题行。
+ * 高度由虚拟行内联给出（40px = 上下各 2px padding + 36px 的段头 bar），
+ * 这里必须显式 min-height: 0 —— 否则会继承条目行的
+ * --navigator-list-view-entry-height（64px），把区隔行撑高，
+ * 与虚拟模型算出的行高对不上，滚动就会错位。
+ */
+
+.file-browser-list-view__section {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  width: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  flex: none;
+  padding: 2px var(--file-browser-list-row-padding-x);
+  border: none;
+  margin: 0;
+  background: transparent;
+  contain: layout paint style;
+}
+
 .file-browser-list-view__entry {
   position: relative;
   display: grid;
@@ -573,12 +768,24 @@ const visibleRows = computed<FileBrowserListDisplayRow[]>(() => {
   column-gap: var(--file-browser-list-column-gap);
   contain: layout paint style;
   cursor: default;
-  font-size: 13px;
+  font-size: calc(13px + var(--font-size-offset, 0px));
   grid-template-columns: var(--file-browser-list-columns);
   padding-inline-end: calc(var(--file-browser-list-row-padding-x) + var(--file-browser-list-columns-button-width));
   scroll-margin-top: var(--file-browser-list-header-height);
   text-align: start;
   user-select: none;
+}
+
+/* FORK-MODIFICATION 2026-10-30（任务 4）：目录行 / 文件行底色区隔。
+   颜色走 token：AFM 主题在 afm-themes.ts 给值，经典主题在 vars.css 给值。
+   规则紧跟在基础规则之后，源序天然胜出，不需要额外提高权重。 */
+
+.file-browser-list-view__entry--dir {
+  background-color: hsl(var(--row-dir-bg));
+}
+
+.file-browser-list-view__entry--file {
+  background-color: hsl(var(--row-file-bg));
 }
 
 .file-browser-list-view__entry:focus-visible {
@@ -647,7 +854,7 @@ const visibleRows = computed<FileBrowserListDisplayRow[]>(() => {
 .file-browser-list-view__entry-link-target {
   overflow: hidden;
   color: hsl(var(--muted-foreground));
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -696,9 +903,10 @@ const visibleRows = computed<FileBrowserListDisplayRow[]>(() => {
 
 .file-browser-list-view__entry-kind,
 .file-browser-list-view__entry-links,
-.file-browser-list-view__entry-link-status,
+.file-browser-list-view__entry-linkStatus,
 .file-browser-list-view__entry-items,
 .file-browser-list-view__entry-size,
+.file-browser-list-view__entry-availableSpace,
 .file-browser-list-view__entry-modified,
 .file-browser-list-view__entry-created,
 .file-browser-list-view__entry-tags {
@@ -706,9 +914,32 @@ const visibleRows = computed<FileBrowserListDisplayRow[]>(() => {
   z-index: 1;
   overflow: hidden;
   color: hsl(var(--muted-foreground));
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* FORK-MODIFICATION: 反馈 4（2026-10-15）——这几列改成垂直居中。
+   根因：`.file-browser-list-view__entry` 是 grid 容器，子项默认被拉伸到整行高度，
+   而这四个类当时只是普通 span（上面那条共享规则只给了颜色/字号/省略号，
+   没有 display:flex），文字就贴在格子的顶部。名称 / 大小 / 标签 / 链接数
+   之所以是居中的，是因为它们各自有 display:flex + align-items:center。
+   日期列内部那个 __date-hover 是 inline-grid 且 primary/absolute 都是
+   place-self:start，但它的盒子高度只有一行文字，所以把外层居中即可。 */
+
+/* FORK-MODIFICATION 2026-11-24（用户指出）：「可用空间」列的文字贴在格子顶部，
+   和其它列不齐。根因同上 —— 这一列**整列都没有任何 CSS 规则**（既没有
+   display:flex + align-items:center，也没有上面那条共享的字号/颜色/省略号规则），
+   所以它是唯一一个普通 span 子项，被 grid 拉伸后文字就顶在上面。
+   这里把它补进居中分组和共享排版分组，与其它列对齐。 */
+
+.file-browser-list-view__entry-kind,
+.file-browser-list-view__entry-items,
+.file-browser-list-view__entry-availableSpace,
+.file-browser-list-view__entry-modified,
+.file-browser-list-view__entry-created {
+  display: flex;
+  align-items: center;
 }
 
 .file-browser-list-view__entry-tags {
@@ -753,7 +984,7 @@ const visibleRows = computed<FileBrowserListDisplayRow[]>(() => {
 }
 
 .file-browser-list-view__entry-links,
-.file-browser-list-view__entry-link-status {
+.file-browser-list-view__entry-linkStatus {
   display: flex;
   align-items: center;
 }
@@ -764,7 +995,7 @@ const visibleRows = computed<FileBrowserListDisplayRow[]>(() => {
 }
 
 .file-browser-list-view__entry-links .file-browser-list-view__column-value,
-.file-browser-list-view__entry-link-status .file-browser-list-view__column-value {
+.file-browser-list-view__entry-linkStatus .file-browser-list-view__column-value {
   flex: 1;
 }
 
@@ -835,8 +1066,18 @@ const visibleRows = computed<FileBrowserListDisplayRow[]>(() => {
   pointer-events: none;
 }
 
+/*
+ * FORK-MODIFICATION 2026-10-30：列表视图的彩色左边条。
+ * 复用已有的 inset 通道；颜色由主题层通过 --entry-accent 灌进来，
+ * 跃动活力下与网格视图共用同一组四色循环色（见 src/styles/afm-themes.css）。
+ * --entry-accent 没定义时整条声明失效，退化成「没有左边条」，
+ * 所以暖纸两套与经典两套完全不受影响。
+ * 选中态 / 剪贴板态的规则排在这条之后、特异性相同 —— 状态优先，类型色让位。
+ */
+
 .file-browser-list-view__entry::before {
-  opacity: 0;
+  box-shadow: inset 3px 0 0 0 hsl(var(--entry-accent));
+  opacity: 1;
 }
 
 .file-browser-list-view__entry[data-selected]::before {
@@ -876,7 +1117,7 @@ const visibleRows = computed<FileBrowserListDisplayRow[]>(() => {
 .file-browser-list-view__entry[data-selected][data-in-clipboard][data-clipboard-type="move"] .file-browser-list-view__entry-size,
 .file-browser-list-view__entry[data-selected][data-in-clipboard][data-clipboard-type="move"] .file-browser-list-view__entry-modified,
 .file-browser-list-view__entry[data-selected][data-in-clipboard][data-clipboard-type="move"] .file-browser-list-view__entry-created,
-.file-browser-list-view__entry[data-selected][data-in-clipboard][data-clipboard-type="move"] .file-browser-list-view__entry-link-status,
+.file-browser-list-view__entry[data-selected][data-in-clipboard][data-clipboard-type="move"] .file-browser-list-view__entry-linkStatus,
 .file-browser-list-view__entry[data-selected][data-in-clipboard][data-clipboard-type="move"] .file-browser-list-view__entry-tags,
 .file-browser-list-view__entry[data-selected][data-in-clipboard][data-clipboard-type="move"] .file-browser-list-view__entry-tags-static,
 .file-browser-list-view__entry[data-selected][data-in-clipboard][data-clipboard-type="move"] .file-browser-list-view__entry-tags :deep(.tag-selector__trigger) {

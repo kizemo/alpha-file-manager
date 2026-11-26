@@ -8,15 +8,29 @@ import type { CustomBackgroundMediaItem, HomeBannerPosition } from '@/types/user
 import { collectNestedRecordPaths, isRecord, migrateStorageSchema } from './schema-utils';
 import { backgroundMedia, DEFAULT_BACKGROUND_FILE_NAME } from '@/data/background-media';
 import { invoke } from '@tauri-apps/api/core';
-import { appDataDir } from '@tauri-apps/api/path';
+// FORK-MODIFICATION 2026-10-20：移植上游 8908e214 —— app 目录走后端统一解析。
+import { appDataDir } from '@/utils/app-dirs';
 import {
   homeBannerStorageKeys,
   legacyBackgroundStorageKeys,
 } from '@/modules/home/background-storage-keys';
 import { BUILTIN_NAVIGATOR_ICON_THEME_IDS } from '@/types/icon-theme';
+import { isInfusionBlendMode, normalizeInfusionBlendMode } from '@/utils/infusion-blend';
 
 export const USER_SETTINGS_SCHEMA_VERSION_KEY = '__schemaVersion';
-export const USER_SETTINGS_SCHEMA_VERSION = 26;
+// FORK-MODIFICATION 2026-10-21：移植上游 feature/background-blend-modes 时由 32 提到 33
+// （上游那份是 26→27，我们 fork 的 schema 已经走到 32，版本号不能倒退也不能复用）。
+export const USER_SETTINGS_SCHEMA_VERSION = 33;
+
+/**
+ * 搜索深度默认值，同时也是 `global-search` 索引与目录内递归搜索共用的层数上限。
+ *
+ * FORK-MODIFICATION: 2026-10-16 —— 由 7 提到 9。放在这里而不是散在各个调用点的
+ * 字面量里，是为了让「迁移时认得出旧默认值」成为一件可验证的事：
+ * 迁移步骤靠 `LEGACY_DEFAULT_SCAN_DEPTH` 判断「这个 7 是旧默认还是用户自己设的」。
+ */
+export const DEFAULT_SCAN_DEPTH = 9;
+export const LEGACY_DEFAULT_SCAN_DEPTH = 7;
 
 export const DEFAULT_GLOBAL_SEARCH_IGNORED_PATHS = [
   '/node_modules',
@@ -478,6 +492,67 @@ async function migrateUserSettingsStep(storage: StorageAdapter, fromVersion: num
     }
   }
 
+  // FORK-MODIFICATION: 可关闭的文件夹优先排序（上游 #529/#481/#482）
+  // 默认 true，等同改动前的硬编码置顶；已有取值一律不覆盖。
+  if (fromVersion === 26 && toVersion === 27) {
+    await setDefaultBooleanIfMissing(storage, 'navigator.foldersFirst', true);
+  }
+
+  // FORK-MODIFICATION: 框选迁移强制开启（上游 #465）。
+  // 框选功能早已实现且含单测，但默认关闭导致用户不进设置就用不了（#465）。
+  // 这是**覆盖写**而非 setDefaultBooleanIfMissing —— 已确认要覆盖用户此前的关闭选择。
+  // 补偿措施：设置项下方有说明文案，告知可在此再次关闭。
+  if (fromVersion === 27 && toVersion === 28) {
+    await storage.set('navigator.enableBoxSelection', true);
+  }
+
+  // FORK-MODIFICATION: 列表视图缩略图（上游 #231）。
+  // 用「缺失才写」而非覆盖写：缩略图是全新功能，用户此前没有这个选项，
+  // 不存在「此前的选择」被覆盖的问题。覆盖写会让用户日后主动关掉后，
+  // 每升一次版又被强行打开。
+  if (fromVersion === 28 && toVersion === 29) {
+    await setDefaultBooleanIfMissing(storage, 'navigator.showListThumbnails', true);
+  }
+
+  // FORK-MODIFICATION: 缩略图大小三档（small / medium / large），默认 medium。
+  // 用「缺失才写」而非覆盖写：与 29 步相同理由（用户主动选择不应被升级冲掉）。
+  if (fromVersion === 29 && toVersion === 30) {
+    await setDefaultEnumIfMissing(storage, 'navigator.thumbnailSize', 'medium', ['small', 'medium', 'large']);
+  }
+
+  // FORK-MODIFICATION: 缩略图四档（新增 xlarge = 80 像素 / 行高 96 逻辑像素）。
+  // 档位参数（缩略图像素 32/48/64/80、行高 48/64/80/96）的唯一度量来源是
+  // navigator/components/file-browser/utils/file-browser-thumbnail-sizes.ts，这里不重复记录。
+  // 仍走 setDefaultEnumIfMissing —— 已有值不动;allowed 扩到 4 档让 schema 校验更松。
+  if (fromVersion === 30 && toVersion === 31) {
+    await setDefaultEnumIfMissing(storage, 'navigator.thumbnailSize', 'medium', ['small', 'medium', 'large', 'xlarge']);
+  }
+
+  // FORK-MODIFICATION: 2026-10-16 —— 搜索深度默认 7 → 9（用户反馈）。
+  //
+  // 这一步**必须走迁移**，不能只改 DEFAULT_USER_SETTINGS：已装机的用户
+  // user-settings.json 里已经写着 globalSearch.scanDepth = 7，只改默认值
+  // 对他们完全无效 —— 界面显示 7 层，磁盘上也只扫 7 层，而用户以为自己改了默认值。
+  // 只有 schema 版本递进才会让已有数据也走到这一步。
+  //
+  // 判定写成「当前值恰好是旧默认 7」而不是无条件覆盖：用户自己把深度调到别的值
+  // 之后升级，不该被这步迁移按回 9。
+  if (fromVersion === 31 && toVersion === 32) {
+    const existingDepth = await storage.get<unknown>('globalSearch.scanDepth');
+
+    if (typeof existingDepth !== 'number' || existingDepth === LEGACY_DEFAULT_SCAN_DEPTH) {
+      await storage.set('globalSearch.scanDepth', DEFAULT_SCAN_DEPTH);
+    }
+  }
+
+  // FORK-MODIFICATION 2026-10-21：移植上游 feature/background-blend-modes ——
+  // 背景混合模式白名单迁移（Hue / Saturation → Color，其余不在白名单里的 → Normal）。
+  // 上游原本挂在 26→27；我们 fork 的 26→27 已经被 foldersFirst 占用，
+  // 所以这步顺延到 32→33。迁移是逐级调用的，已装机的 v32 用户会走到这一步。
+  if (fromVersion === 32 && toVersion === 33) {
+    await migrateInfusionBlendModes(storage);
+  }
+
   if (fromVersion === 6 && toVersion === 7) {
     const appData = await appDataDir();
     const mediaDir = `${appData.replace(/\\/g, '/')}/user-data/media`.replace(/\/+/g, '/');
@@ -500,6 +575,27 @@ async function migrateUserSettingsStep(storage: StorageAdapter, fromVersion: num
   }
 
   void storage;
+}
+
+const INFUSION_STORAGE_PAGE_KEYS = ['global', 'home', 'navigator', 'dashboard', 'settings', 'extensions'];
+
+/**
+ * The blend mode menu now only offers modes from the allowlist (see INFUSION_BLEND_MODES). Saved Hue and
+ * Saturation become Color, anything else that is not in the allowlist becomes Normal. Modes that are
+ * still offered, and pages without a saved mode, are left alone. Blend target and fill color are new
+ * and fall back to their defaults (interface, #3b82f6), which renders the same as before.
+ */
+async function migrateInfusionBlendModes(storage: StorageAdapter) {
+  for (const pageKey of INFUSION_STORAGE_PAGE_KEYS) {
+    const storageKey = `infusion.pages.${pageKey}.mixBlendMode`;
+    const storedMode = await storage.get<unknown>(storageKey);
+
+    if (storedMode === undefined || isInfusionBlendMode(storedMode)) {
+      continue;
+    }
+
+    await storage.set(storageKey, normalizeInfusionBlendMode(storedMode));
+  }
 }
 
 async function addDefaultGlobalSearchIgnoredPaths(
@@ -530,6 +626,19 @@ async function setDefaultBooleanIfMissing(
   const existingValue = await storage.get<unknown>(key);
 
   if (typeof existingValue !== 'boolean') {
+    await storage.set(key, defaultValue);
+  }
+}
+
+async function setDefaultEnumIfMissing<T extends string>(
+  storage: StorageAdapter,
+  key: string,
+  defaultValue: T,
+  allowed: readonly T[],
+) {
+  const existingValue = await storage.get<unknown>(key);
+
+  if (typeof existingValue !== 'string' || !allowed.includes(existingValue as T)) {
     await storage.set(key, defaultValue);
   }
 }

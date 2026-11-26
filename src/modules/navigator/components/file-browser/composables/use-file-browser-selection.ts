@@ -17,22 +17,45 @@ import {
 import { useDirSizesStore } from '@/stores/runtime/dir-sizes';
 import { useLinkMetadataStore } from '@/stores/runtime/link-metadata';
 import { useDeleteJobsStore } from '@/stores/runtime/delete-jobs';
+import { useFolderTreeStore, parentDirectoryPath } from '@/stores/runtime/folder-tree';
 import { toast, ToastProgress, ToastStatic } from '@/components/ui/toaster';
 import { useLanShare } from '@/composables/use-lan-share';
 import { useCopyMoveWithConflicts } from '@/composables/use-copy-move-with-conflicts';
-import normalizePath, { joinPath } from '@/utils/normalize-path';
+// FORK-MODIFICATION 2026-11-06：「粘贴快捷方式」的执行封装。
+import { usePasteShortcut } from '@/composables/use-paste-shortcut';
+import normalizePath, { joinPath, toNativePathSeparators } from '@/utils/normalize-path';
 import { isVirtualLocationPath } from '@/utils/virtual-locations';
 import {
   getSharedSourceDirectory,
   isDestinationInsideAnySourceDirectory,
 } from '@/utils/file-operation-paths';
 import { useFileBrowserClickSelection } from '@/modules/navigator/components/file-browser/composables/use-file-browser-click-selection';
+import { getFileBrowserEntryKey } from '@/modules/navigator/components/file-browser/utils/file-browser-entry-key';
 import { blurFocusedDirEntry } from '@/modules/navigator/utils/blur-focused-dir-entry';
 import { createIndexedFileName, safeFileNameFromUrl } from '@/utils/remote-file';
 import { basenameFromPath } from '@/utils/source-display-name';
 import { usePermanentDeleteConfirm } from '@/composables/use-permanent-delete-confirm';
+// FORK-MODIFICATION 2026-10-20：移植上游 0ae258d6 —— 回收站不可用时先确认再永久删除。
+import { planDeleteJobs } from '@/utils/recycle-bin-delete';
+// FORK-MODIFICATION 2026-10-20：远程删除。
+import { useRemoteDeleteConfirm } from '@/modules/remote/utils/remote-delete-confirm';
+import { deleteRemoteEntries } from '@/modules/remote/utils/remote-delete';
+// FORK-MODIFICATION 2026-10-20：远程写操作（新建目录 / 重命名）。
+import { createRemoteDirectory, hasRemoteTarget, renameRemoteEntry } from '@/modules/remote/utils/remote-write';
+import { isRemotePath } from '@/utils/remote-paths';
+// FORK-MODIFICATION 2026-11-11（T9 批次 9，判据 ②）：应用内剪贴板装着**远程条目**时，
+// 粘贴一律以它为准 —— 系统剪贴板里的旧本地文件不得抢走粘贴结果。
+// 这个判定函数早就写好了（`clipboard-routing.ts`），但此前全仓零生产引用（未接线）。
+import { clipboardHoldsRemoteItems } from '@/utils/clipboard-routing';
 import { usePlatformStore } from '@/stores/runtime/platform';
 import { isContextMenuActionVisible } from '@/modules/navigator/components/file-browser/utils/context-menu-action-visibility';
+import { formatBytes } from '@/modules/navigator/components/file-browser/utils';
+// FORK-MODIFICATION 2026-11-01：大批量删除的规模摘要（阈值与判定都在 util 里，
+// 这样「扫描阶段什么时候算完了」能被单测直接覆盖）。
+import {
+  shouldWarnLargeBatchDelete,
+  type DeleteScanSummary,
+} from '@/utils/delete-scan-summary';
 import { applyBackgroundContextMenu } from '@/modules/navigator/components/file-browser/utils/file-browser-background-context-menu';
 import { resolveNavigableItemTarget } from '@/utils/resolve-navigable-item-target';
 import type { CreateLinksResult, LinkCreationKind } from '@/utils/link-operations';
@@ -43,8 +66,48 @@ import {
 } from '../utils/file-browser-range-selection';
 import { disconnectDriveForEntry } from '@/utils/disconnect-drive';
 import { refreshDrives } from '@/modules/home/composables/use-drives';
+// FORK-MODIFICATION 2026-10-24：解除文件锁定 / 彻底删除。
+// 与 `use-dir-entry-actions.ts` 共用同一份流程，避免破坏性动作的确认框漏一处。
+import { useFileLockWorkflow } from '@/composables/use-file-lock-workflow';
+import { shouldOpenFavoriteCategoryDialog } from '@/modules/navigator/components/file-browser/utils/file-browser-favorites';
+// FORK-MODIFICATION 2026-10-27：就地重命名（F2 / 右键「重命名」不弹框）。
+// 校验规则与选区规则直接复用 `utils/file-browser-inline-rename.ts`，
+// 那份与 `file-browser-rename-dialog.vue` 同源，两边不许各写一套。
+import {
+  getInlineRenameChainStateAfterCancel,
+  getInlineRenameChainStateAfterCommit,
+  isValidInlineRenameName,
+  shouldEnterInlineRenameOnNavigationTarget,
+  type InlineRenameCommitOutcome,
+  type InlineRenameCommitTrigger,
+} from '@/modules/navigator/components/file-browser/utils/file-browser-inline-rename';
+// FORK-MODIFICATION 2026-10-26：粘到远程面板走远程通道。
+//
+// 旧行为是把 `sfm://remote/...` 丢给本地复制引擎，引擎拿 `Path::exists()`
+// 问本地文件系统 —— 永远问不到，于是报一句
+// 「Destination path does not exist」，用户完全看不懂。
+// 现在这一趟由远程通道自己处理，**绝不再落回本地复制**。
+import {
+  handleRemotePaste,
+  remoteTransferItemsFromPaths,
+  toRemoteTransferItems,
+} from '@/modules/remote/utils/remote-transfer-service';
 
 export const FILE_BROWSER_REVEAL_STALE_FOCUS_GUARD_MS = 500;
+
+/**
+ * FORK-MODIFICATION 2026-10-27：单项改名的两种形态。
+ *
+ * - `dialog`：现有的模态框（tree 布局 / 批量重命名 / 首页等场景）。
+ * - `inline`：就地编辑（列表视图 / 缩略图视图）。
+ *
+ * 布局分流必须显式做：tree 没有就地编辑实现，让它共用同一份选中态
+ * 只会变成「按了 F2 什么也没发生」。
+ */
+export type FileBrowserRenameMode = 'dialog' | 'inline';
+
+// FORK-MODIFICATION 2026-11-01：「大批量」阈值（10,000）已迁到
+// `@/utils/delete-scan-summary`，与规模摘要的判定逻辑放在一起。
 
 export function useFileBrowserSelection(
   entriesRef: Ref<DirEntry[]>,
@@ -52,8 +115,16 @@ export function useFileBrowserSelection(
   onSelect: (entries: DirEntry[]) => void,
   onOpen: (entry: DirEntry) => void,
   onOpenProperties: (entries: DirEntry[]) => void,
-  onRefresh: () => void,
+  // FORK-MODIFICATION: 用户反馈（2026-10-15）——「添加到收藏」多一步选分类。
+  // 由 use-file-browser.ts 回填成 dialogs.openFavoriteCategoryDialog。
+  onRequestFavoriteCategoryDialog: (entries: DirEntry[]) => void,
+  // FORK-MODIFICATION 2026-10-27：就地改名要等刷新落地才能继续导航，允许它返回 Promise。
+  onRefresh: () => void | Promise<void>,
   layout?: () => 'list' | 'grid' | 'tree' | undefined,
+  // FORK-MODIFICATION 2026-11-09（用户反馈：删除成功后目录不实时更新）：
+  // 删除成功后的乐观更新回调，先把已删路径从本地列表剔除，再靠 onRefresh 校准。
+  // 放在最后一位是为了不破坏既有按位置传参的调用点。
+  onEntriesRemoved?: (paths: string[]) => void,
 ) {
   const { t } = useI18n();
   const platformStore = usePlatformStore();
@@ -61,11 +132,19 @@ export function useFileBrowserSelection(
   const userStatsStore = useUserStatsStore();
   const userSettingsStore = useUserSettingsStore();
   const clipboardStore = useClipboardStore();
+  const { pasteShortcut } = usePasteShortcut();
   const dirSizesStore = useDirSizesStore();
   const linkMetadataStore = useLinkMetadataStore();
   const deleteJobsStore = useDeleteJobsStore();
+  const folderTreeStore = useFolderTreeStore();
   const { startShare } = useLanShare();
   const permanentDeleteConfirm = usePermanentDeleteConfirm();
+  // FORK-MODIFICATION 2026-10-20：远程删除的确认框。**每个 FileBrowser 实例一份**，
+  // 与本地的 `permanentDeleteConfirm` 同款 —— 左右双屏时两格不能共用一份待确认条目。
+  const remoteDeleteConfirm = useRemoteDeleteConfirm();
+  // FORK-MODIFICATION 2026-10-24：解除文件锁定 / 彻底删除。**每个 FileBrowser 实例一份**，
+  // 与 `permanentDeleteConfirm` 同款 —— 左右双屏时两格不能共用一份待确认路径。
+  const fileLockWorkflow = useFileLockWorkflow();
   const {
     performCopyMoveWithConflicts,
     conflictDialogState,
@@ -78,6 +157,9 @@ export function useFileBrowserSelection(
   } = useCopyMoveWithConflicts();
   const selectedEntries = ref<DirEntry[]>([]);
   const lastSelectedEntry = ref<DirEntry | null>(null);
+  // 「键盘焦点所在的那一条」—— 与「上一次被点中的那一条」不是一回事：
+  // 连选（Shift+方向键）时，锚点是 lastSelectedEntry，光标走的是 focusedEntry。
+  const focusedEntry = ref<DirEntry | null>(null);
 
   const contextMenu = ref({
     targetEntry: null as DirEntry | null,
@@ -87,6 +169,11 @@ export function useFileBrowserSelection(
   const renameState = ref({
     isActive: false,
     entry: null as DirEntry | null,
+    // FORK-MODIFICATION 2026-10-27：就地编辑（见 `FileBrowserRenameMode`）。
+    mode: 'dialog' as FileBrowserRenameMode,
+    // FORK-MODIFICATION 2026-10-27：连续改名模式。
+    // 提交成功后打开，此时用 ↑/↓ 切到相邻条目，落点条目会自动进入编辑态。
+    isChainActive: false,
   });
 
   type PendingFocusRequest
@@ -94,6 +181,11 @@ export function useFileBrowserSelection(
       type: 'path';
       targetPath: string;
       path: string;
+      /**
+       * FORK-MODIFICATION 2026-10-27：刷新后要不要把 DOM 焦点也带走。
+       * 就地改名走这条路时**不要**抢焦点 —— 焦点可能已经在下一个条目的输入框里了。
+       */
+      shouldFocus?: boolean;
     }
     | {
       type: 'diff';
@@ -118,11 +210,16 @@ export function useFileBrowserSelection(
     );
   }
 
-  function requestFocusEntryAfterRefresh(parentDirectoryPath: string, entryPath: string) {
+  function requestFocusEntryAfterRefresh(
+    parentDirectoryPath: string,
+    entryPath: string,
+    options?: { shouldFocus?: boolean },
+  ) {
     pendingFocusRequest.value = {
       type: 'path',
       targetPath: normalizePath(parentDirectoryPath),
       path: normalizePath(entryPath),
+      shouldFocus: options?.shouldFocus,
     };
   }
 
@@ -160,12 +257,15 @@ export function useFileBrowserSelection(
   function clearSelection() {
     selectedEntries.value = [];
     lastSelectedEntry.value = null;
+    focusedEntry.value = null;
     onSelect([]);
     blurFocusedDirEntry();
   }
 
   function isEntrySelected(entry: DirEntry): boolean {
-    return selectedEntries.value.some(selectedEntry => selectedEntry.path === entry.path);
+    return selectedEntries.value.some(
+      selectedEntry => getFileBrowserEntryKey(selectedEntry) === getFileBrowserEntryKey(entry),
+    );
   }
 
   function getOrderedEntries(): DirEntry[] {
@@ -180,6 +280,13 @@ export function useFileBrowserSelection(
     }
 
     selectedEntries.value = applyRangeSelection(selectedEntries.value, rangeEntries, additive);
+
+    // 连选的锚点：第一次连选时锚点就是起点。
+    if (lastSelectedEntry.value == null) {
+      lastSelectedEntry.value = fromEntry;
+    }
+
+    focusedEntry.value = toEntry;
     onSelect(selectedEntries.value);
   }
 
@@ -187,20 +294,25 @@ export function useFileBrowserSelection(
     if (!isEntrySelected(entry)) {
       selectedEntries.value = [...selectedEntries.value, entry];
       lastSelectedEntry.value = entry;
+      focusedEntry.value = entry;
       onSelect(selectedEntries.value);
     }
   }
 
   function removeFromSelection(entry: DirEntry) {
     selectedEntries.value = selectedEntries.value.filter(
-      selectedEntry => selectedEntry.path !== entry.path,
+      selectedEntry => getFileBrowserEntryKey(selectedEntry) !== getFileBrowserEntryKey(entry),
     );
 
-    if (lastSelectedEntry.value?.path === entry.path) {
+    if (lastSelectedEntry.value && getFileBrowserEntryKey(lastSelectedEntry.value) === getFileBrowserEntryKey(entry)) {
       const lastEntry = selectedEntries.value.length > 0
         ? selectedEntries.value[selectedEntries.value.length - 1]
         : null;
       lastSelectedEntry.value = lastEntry;
+    }
+
+    if (focusedEntry.value && getFileBrowserEntryKey(focusedEntry.value) === getFileBrowserEntryKey(entry)) {
+      focusedEntry.value = lastSelectedEntry.value;
     }
 
     onSelect(selectedEntries.value);
@@ -209,6 +321,7 @@ export function useFileBrowserSelection(
   function replaceSelection(entry: DirEntry) {
     selectedEntries.value = [entry];
     lastSelectedEntry.value = entry;
+    focusedEntry.value = entry;
     onSelect(selectedEntries.value);
   }
 
@@ -218,6 +331,7 @@ export function useFileBrowserSelection(
       ? selectedEntries.value[selectedEntries.value.length - 1]
       : null;
     lastSelectedEntry.value = lastEntry;
+    focusedEntry.value = lastEntry;
     onSelect(selectedEntries.value);
 
     if (entries.length === 0) {
@@ -229,6 +343,25 @@ export function useFileBrowserSelection(
     const normalizedPath = normalizePath(path);
     const targetEntry = entriesRef.value.find(
       entry => normalizePath(entry.path) === normalizedPath,
+    );
+
+    if (!targetEntry) {
+      return false;
+    }
+
+    replaceSelection(targetEntry);
+    return true;
+  }
+
+  /**
+   * 按「条目唯一键」选中一个条目。
+   *
+   * 远程网盘的 `path` 只由「父路径 + 文件名」拼成，同一目录里**允许同名条目** ⇒
+   * 两个不同条目的 `path` 逐字相同。只按 path 找条目，永远命中第一个同名条目。
+   */
+  function selectEntryByKey(key: string): boolean {
+    const targetEntry = entriesRef.value.find(
+      entry => getFileBrowserEntryKey(entry) === key,
     );
 
     if (!targetEntry) {
@@ -261,6 +394,11 @@ export function useFileBrowserSelection(
     isWindows: platformStore.isWindows,
   });
 
+  // 批量改名对话框的状态由 useFileBrowserDialogs 持有，而那个 composable
+  // 在 selection 之后才创建（它反过来要用 selection 的 renameState）。
+  // 用一个可后填的引用接上，好过为了开一个对话框去动 selection 的位置参数列表。
+  let openBatchRenameDialogForSelection: (entries: DirEntry[]) => void = () => {};
+
   function handleEntryFocus(entry: DirEntry, event: FocusEvent) {
     if (pendingFocusRequest.value != null) {
       return;
@@ -279,9 +417,14 @@ export function useFileBrowserSelection(
       return;
     }
 
-    if (selectedEntries.value.length !== 1 || !isEntrySelected(entry)) {
-      replaceSelection(entry);
+    if (isEntrySelected(entry)) {
+      // 已经选中的条目：只挪动键盘焦点，不清掉已有的选择 ——
+      // 否则点一下已选中的条目就会把整组选择清掉。
+      focusedEntry.value = entry;
+      return;
     }
+
+    replaceSelection(entry);
   }
 
   function handleEntryContextMenu(entry: DirEntry) {
@@ -485,13 +628,46 @@ export function useFileBrowserSelection(
       return false;
     }
 
+    // FORK-MODIFICATION 2026-11-11（T9 批次 9，判据 ②）：
+    // 应用内剪贴板装着**远程条目**时，一律以它为准，**不**让系统剪贴板抢走粘贴结果。
+    //
+    // 根因：远程条目按设计不写系统剪贴板，但系统剪贴板里往往还留着用户**上一次**
+    // 复制的本地文件。旧逻辑「系统剪贴板非空 ⇒ 用它」于是把远程条目整个遮蔽 ——
+    // 用户在网盘里 Ctrl+C、在本地格 Ctrl+V，粘出来的却是上一次的本地文件。
+    const internalHoldsRemoteItems = clipboardStore.hasFileItems
+      && clipboardHoldsRemoteItems(clipboardStore.clipboardItems);
+
+    if (internalHoldsRemoteItems) {
+      const sourcePaths = clipboardStore.clipboardItems.map(item => item.path);
+      const operation = clipboardStore.isCopyOperation ? 'copy' : 'move';
+      const pasted = await handleExternalDrop(
+        sourcePaths,
+        targetPath,
+        operation,
+        clipboardStore.clipboardItems,
+      );
+
+      if (pasted) {
+        clipboardStore.discardClipboard();
+      }
+
+      return pasted;
+    }
+
     const systemClipboard = await clipboardStore.readSystemClipboardFiles();
 
     if (!systemClipboard?.paths.length) {
       if (clipboardStore.hasFileItems) {
         const sourcePaths = clipboardStore.clipboardItems.map(item => item.path);
         const operation = clipboardStore.isCopyOperation ? 'copy' : 'move';
-        const pasted = await handleExternalDrop(sourcePaths, targetPath, operation);
+        // FORK-MODIFICATION 2026-10-26：把条目本身传下去 ——
+        // 远程通道要知道名字与「是不是目录」，光有路径不够。
+        const pasted = await handleExternalDrop(
+          sourcePaths,
+          targetPath,
+          operation,
+          clipboardStore.clipboardItems,
+        );
 
         if (pasted) {
           clipboardStore.discardClipboard();
@@ -558,9 +734,33 @@ export function useFileBrowserSelection(
     return true;
   }
 
-  async function handleExternalDrop(sourcePaths: string[], targetPath: string, operation: 'copy' | 'move' = 'copy'): Promise<boolean> {
+  async function handleExternalDrop(
+    sourcePaths: string[],
+    targetPath: string,
+    operation: 'copy' | 'move' = 'copy',
+    // FORK-MODIFICATION 2026-10-26：条目本身（可选）。
+    // 有条目时远程通道能拿到「名字 / 是不是目录」，没有就退回按路径末段推。
+    sourceItems?: DirEntry[],
+  ): Promise<boolean> {
     if (isVirtualLocationPath(targetPath)) {
       return false;
+    }
+
+    // FORK-MODIFICATION 2026-10-26：粘到远程面板（或从远程面板粘出来）走远程通道。
+    //
+    // 返回 `null` = 这一趟与远程无关，交给本地复制；
+    // 返回 `true` / `false` = 远程通道已经处理过了（成功 / 失败）。
+    // **失败时绝不能落回本地复制** —— 那正是
+    // 「Destination path does not exist」的来处。
+    const remoteOutcome = await handleRemotePaste(
+      sourceItems
+        ? toRemoteTransferItems(sourceItems)
+        : remoteTransferItemsFromPaths(sourcePaths),
+      targetPath,
+    );
+
+    if (remoteOutcome !== null) {
+      return remoteOutcome;
     }
 
     const shouldFocusPaste = targetPath === currentPathRef.value;
@@ -731,6 +931,19 @@ export function useFileBrowserSelection(
     }
   }
 
+  /**
+   * 当前布局是否支持就地编辑。
+   *
+   * FORK-MODIFICATION 2026-10-27：显式分流 ——
+   * 列表视图（list）与缩略图视图（grid）走就地编辑，
+   * 树形视图（tree）**没有**就地编辑实现，仍走模态框。
+   */
+  function canEditInline(): boolean {
+    const currentLayout = layout?.();
+
+    return currentLayout === 'list' || currentLayout === 'grid';
+  }
+
   function startRename(entry: DirEntry) {
     if (!canPerformAction('rename', [entry])) {
       return;
@@ -739,6 +952,10 @@ export function useFileBrowserSelection(
     renameState.value = {
       isActive: true,
       entry,
+      mode: canEditInline() ? 'inline' : 'dialog',
+      // FORK-MODIFICATION 2026-10-27：进入就地编辑态时**不**开连续模式 ——
+      // 连续模式是「提交一次之后」才开的。
+      isChainActive: false,
     };
   }
 
@@ -746,11 +963,81 @@ export function useFileBrowserSelection(
     renameState.value = {
       isActive: false,
       entry: null,
+      mode: 'dialog',
+      isChainActive: false,
     };
   }
 
-  async function confirmRename(newName: string): Promise<boolean> {
+  /**
+   * 远程条目的改名。
+   *
+   * 单独一个函数而不是在 `confirmRename` 里塞一段：
+   * 本地改名与远程改名的**后续动作不一样** ——
+   * 本地要更新 `workspaces` / `userStats` / `userSettings` / `folderTree` 四本账，
+   * 而远程条目**不在这些账里**（它们记的是本地路径）。
+   * 混在一起写会出现「远程改名之后去更新本地收藏夹」这种莫名其妙的事。
+   */
+  async function confirmRemoteRename(
+    entry: DirEntry,
+    trimmedName: string,
+    inlineTrigger?: InlineRenameCommitTrigger,
+  ): Promise<boolean> {
+    const result = await renameRemoteEntry(entry, trimmedName);
+
+    if (!result.ok) {
+      toast.custom(markRaw(ToastStatic), {
+        componentProps: {
+          data: {
+            title: t('notifications.failedToRenameItem'),
+            description: result.message,
+          },
+        },
+      });
+
+      applyInlineRenameCommitState(inlineTrigger, 'failed');
+      return false;
+    }
+
+    toast.custom(markRaw(ToastStatic), {
+      componentProps: {
+        data: {
+          title: t('notifications.renamed'),
+          description: '',
+        },
+      },
+    });
+
+    // 远程改名**不会**改动本地那几本账 ——
+    // 收藏夹、标签页、设置里记的都是本地路径。
+    // 但目录树的缓存要知道「这一层变了」，否则树里还显示着旧名字。
+    const parentDir = entry.path.substring(0, entry.path.lastIndexOf('/'));
+    folderTreeStore.markTreeStale([parentDir]);
+
+    // FORK-MODIFICATION 2026-10-27：就地改名的成功路径（远程条目同理）。
+    if (inlineTrigger) {
+      requestFocusEntryAfterRefresh(parentDir, `${parentDir}/${trimmedName}`, { shouldFocus: false });
+      applyInlineRenameCommitState(inlineTrigger, 'renamed');
+      await onRefresh();
+      return true;
+    }
+
+    cancelRename();
+    clearSelection();
+    onRefresh();
+
+    return true;
+  }
+
+  async function confirmRename(
+    newName: string,
+    inlineTrigger?: InlineRenameCommitTrigger,
+  ): Promise<boolean> {
     if (!renameState.value.entry || !newName.trim()) {
+      if (inlineTrigger) {
+        applyInlineRenameCommitState(inlineTrigger, 'failed');
+        return false;
+      }
+
       cancelRename();
       return false;
     }
@@ -759,8 +1046,21 @@ export function useFileBrowserSelection(
     const trimmedName = newName.trim();
 
     if (trimmedName === entry.name) {
+      if (inlineTrigger) {
+        applyInlineRenameCommitState(inlineTrigger, 'unchanged');
+        return true;
+      }
+
       cancelRename();
       return true;
+    }
+
+    // FORK-MODIFICATION 2026-10-20：远程条目走**远程**改名通道。
+    //
+    // 本地的 `rename_item` 对 `sfm://remote/...` 只会得到一个「路径不存在」——
+    // 那不是「功能没做」，是**接错了通道**。
+    if (isRemotePath(entry.path)) {
+      return confirmRemoteRename(entry, trimmedName, inlineTrigger);
     }
 
     try {
@@ -786,8 +1086,24 @@ export function useFileBrowserSelection(
         workspacesStore.handlePathRenamed(oldPath, newPath);
         userStatsStore.handlePathRenamed(oldPath, newPath);
         userSettingsStore.handlePathRenamed(oldPath, newPath);
+        folderTreeStore.handlePathRenamed(oldPath, newPath);
 
         dirSizesStore.invalidate([entry.path, currentPathRef.value]);
+
+        // v6.5: the tree caches each directory's children and nothing ever
+        // cleared them, so the renamed entry would keep showing its old name.
+        folderTreeStore.markTreeStale([parentDir]);
+
+        // FORK-MODIFICATION 2026-10-27：就地改名的成功路径。
+        //
+        // **不**清空选区 —— 清了之后条目路径就变了，↑/↓ 会找不到当前条目，
+        // 落点会跳回首项。改成刷新之后按新路径重新选中（但不要抢 DOM 焦点）。
+        if (inlineTrigger) {
+          requestFocusEntryAfterRefresh(parentDir, newPath, { shouldFocus: false });
+          applyInlineRenameCommitState(inlineTrigger, 'renamed');
+          await onRefresh();
+          return true;
+        }
 
         cancelRename();
         clearSelection();
@@ -803,6 +1119,7 @@ export function useFileBrowserSelection(
             },
           },
         });
+        applyInlineRenameCommitState(inlineTrigger, 'failed');
         return false;
       }
     }
@@ -815,8 +1132,173 @@ export function useFileBrowserSelection(
           },
         },
       });
+      applyInlineRenameCommitState(inlineTrigger, 'failed');
       return false;
     }
+  }
+
+  /**
+   * 把「连续改名状态机」的结论写回 `renameState`。
+   *
+   * 没有 `trigger`（模态框那条路）时**什么都不做** ——
+   * 模态框的开关由对话框自己管。
+   */
+  function applyInlineRenameCommitState(
+    trigger: InlineRenameCommitTrigger | undefined,
+    outcome: InlineRenameCommitOutcome,
+  ) {
+    if (!trigger) {
+      return;
+    }
+
+    const nextState = getInlineRenameChainStateAfterCommit(trigger, outcome);
+
+    renameState.value = {
+      ...renameState.value,
+      isActive: nextState.isEditing,
+      entry: nextState.isEditing ? renameState.value.entry : null,
+      isChainActive: nextState.isChainActive,
+    };
+  }
+
+  /**
+   * 就地改名的提交入口。
+   *
+   * 只在「就地编辑模式」下生效 —— 模态框那条路走 `confirmRename`。
+   */
+  async function submitInlineRename(
+    newName: string,
+    trigger: InlineRenameCommitTrigger,
+  ): Promise<boolean> {
+    if (!renameState.value.isActive || renameState.value.mode !== 'inline') {
+      return false;
+    }
+
+    const trimmedName = newName.trim();
+
+    // 名字不合法 ⇒ 不提交（视图层已经拦了一道，这里再兜一层）。
+    if (!trimmedName || !isValidInlineRenameName(trimmedName)) {
+      return false;
+    }
+
+    return confirmRename(trimmedName, trigger);
+  }
+
+  /**
+   * 放弃就地编辑（Esc）。
+   */
+  function cancelInlineRename() {
+    if (renameState.value.mode !== 'inline') {
+      cancelRename();
+      return;
+    }
+
+    const nextState = getInlineRenameChainStateAfterCancel();
+
+    renameState.value = {
+      isActive: nextState.isEditing,
+      entry: nextState.isEditing ? renameState.value.entry : null,
+      mode: 'inline',
+      isChainActive: nextState.isChainActive,
+    };
+  }
+
+  /**
+   * 连续改名模式：导航落点自动进入编辑态。
+   */
+  function handleInlineRenameNavigationTarget(entry: DirEntry) {
+    if (!shouldEnterInlineRenameOnNavigationTarget(
+      renameState.value.isChainActive,
+      canEditInline(),
+    )) {
+      return;
+    }
+
+    renameState.value = {
+      isActive: true,
+      entry,
+      mode: 'inline',
+      isChainActive: true,
+    };
+  }
+
+  /**
+   * 结束「连续改名模式」。
+   *
+   * 鼠标点到别的条目上时调用 —— 连续模式是给「手不离开键盘」用的，
+   * 一旦用户开始用鼠标点，就不该再自动把落点切进编辑态。
+   */
+  function endInlineRenameChain() {
+    if (!renameState.value.isChainActive) {
+      return;
+    }
+
+    renameState.value = {
+      ...renameState.value,
+      isChainActive: false,
+    };
+  }
+
+  /**
+   * 在一批远程目录里新建同名目录。
+   *
+   * 与本地那套一样是**逐个**建、失败不影响其余 ——
+   * 但远端目标**通常只有一个**（当前目录，或右键选中的那个远程目录）。
+   */
+  async function createRemoteDirectoryIn(
+    trimmedName: string,
+    directoryPaths: string[],
+  ): Promise<boolean> {
+    let successCount = 0;
+    let lastError: string | null = null;
+    const changedDirs: string[] = [];
+
+    for (const directoryPath of directoryPaths) {
+      const result = await createRemoteDirectory(trimmedName, directoryPath);
+
+      if (result.ok) {
+        successCount++;
+        changedDirs.push(directoryPath);
+
+        if (directoryPath === currentPathRef.value) {
+          pendingFocusRequest.value = {
+            type: 'path',
+            targetPath: currentPathRef.value,
+            path: `${currentPathRef.value}/${trimmedName}`,
+          };
+        }
+      }
+      else {
+        lastError = result.message;
+      }
+    }
+
+    if (successCount > 0) {
+      toast.custom(markRaw(ToastStatic), {
+        componentProps: {
+          data: {
+            title: t('dialogs.newDirItemDialog.newDirectoryCreated'),
+            description: '',
+          },
+        },
+      });
+
+      folderTreeStore.markTreeStale(changedDirs);
+      onRefresh();
+
+      return true;
+    }
+
+    toast.custom(markRaw(ToastStatic), {
+      componentProps: {
+        data: {
+          title: t('dialogs.newDirItemDialog.failedToCreateNewDirectory'),
+          description: lastError || '',
+        },
+      },
+    });
+
+    return false;
   }
 
   async function createNewItem(
@@ -848,8 +1330,34 @@ export function useFileBrowserSelection(
       return false;
     }
 
+    // FORK-MODIFICATION 2026-10-20：远程目标走**远程**通道。
+    //
+    // 本地的 `create_item` 拿 `sfm://remote/...` 去问文件系统引擎，
+    // 只会得到一句 `Directory does not exist: sfm://remote/...` ——
+    // 那是「接错了通道」，不是「远程不支持建目录」。
+    //
+    // **「新建文件」在远程侧是永久非目标**（规格 §1），所以这里要明确报错，
+    // 而不是静默失败：静默失败会让用户以为是自己名字打错了。
+    if (hasRemoteTarget(directoryPaths)) {
+      if (itemType === 'file') {
+        toast.custom(markRaw(ToastStatic), {
+          componentProps: {
+            data: {
+              title: t('dialogs.newDirItemDialog.failedToCreateNewFile'),
+              description: t('remote.write.fileCreationNotSupported'),
+            },
+          },
+        });
+
+        return false;
+      }
+
+      return createRemoteDirectoryIn(trimmedName, directoryPaths);
+    }
+
     let successCount = 0;
     let lastError: string | null = null;
+    const changedDirs: string[] = [];
 
     for (const directoryPath of directoryPaths) {
       try {
@@ -861,6 +1369,7 @@ export function useFileBrowserSelection(
 
         if (result.success) {
           successCount++;
+          changedDirs.push(directoryPath);
           dirSizesStore.invalidate([directoryPath]);
 
           if (directoryPath === currentPathRef.value) {
@@ -891,6 +1400,10 @@ export function useFileBrowserSelection(
           },
         },
       });
+      // v6.5: this is the reported bug — a folder created inside an already
+      // expanded directory never appeared in the tree, because the tree's
+      // per-directory child cache had no way to be invalidated.
+      folderTreeStore.markTreeStale(changedDirs);
       onRefresh();
       return true;
     }
@@ -918,6 +1431,14 @@ export function useFileBrowserSelection(
         }
 
         break;
+      case 'batch-rename':
+        // 可见性规则已经保证只在多选时出现，这里再挡一次是防止
+        // 快捷键或其它调用方绕过可见性判断直接派发。
+        if (entries.length > 1) {
+          openBatchRenameDialogForSelection(entries);
+        }
+
+        break;
       case 'copy':
         if (entries.length > 0) {
           copyItems(entries);
@@ -939,6 +1460,18 @@ export function useFileBrowserSelection(
         break;
       }
 
+      // FORK-MODIFICATION 2026-11-06：「粘贴快捷方式」。
+      //
+      // 目标目录的取法与「粘贴」一致：右键了一个目录就用它，
+      // 否则（浏览器空白区右键）用当前目录。
+      case 'paste-shortcut': {
+        const targetDir = entries.length === 1 && !entries[0].is_file
+          ? entries[0].path
+          : currentPathRef.value;
+        void pasteShortcut(targetDir);
+        break;
+      }
+
       case 'delete':
         if (entries.length > 0) {
           deleteItems(entries, true);
@@ -951,6 +1484,33 @@ export function useFileBrowserSelection(
         }
 
         break;
+      // FORK-MODIFICATION 2026-10-24：解除文件锁定 / 彻底删除。
+      //
+      // 只对**单个**条目开放（可见性判定在
+      // `context-menu-action-visibility.ts`），所以这里拿到的 entries 只有一个。
+      case 'unlock':
+        if (entries.length === 1) {
+          void fileLockWorkflow.unlockEntry(entries[0]);
+        }
+
+        break;
+      case 'force-delete':
+        if (entries.length === 1) {
+          fileLockWorkflow.forceDeleteEntry(entries[0]);
+        }
+
+        break;
+      // FORK-MODIFICATION 2026-10-20：远程删除。
+      //
+      // 刻意**不复用**上面的 `delete` / `delete-permanently`：
+      // 那两个走的是本地通道（回收箱 / 本地永久删除），对 `sfm://remote/...` 路径
+      // 只会得到一个「路径不存在」。远程只有一个「删除」动作。
+      case 'remote-delete':
+        if (entries.length > 0) {
+          void deleteRemoteItems(entries);
+        }
+
+        break;
       case 'open-in-new-tab':
         if (entries.length > 0) {
           openEntriesInNewTabs(entries);
@@ -958,6 +1518,9 @@ export function useFileBrowserSelection(
 
         break;
       case 'toggle-favorite':
+        // INVARIANT (2026-10-12 §5.5.1): toggle-favorite 唯一入口是右键菜单与
+        // 快捷键。file row 上未绑 long-press / pointer-hold / touchstart handler,
+        // 不会有"长按文件 → 切换置顶"的代码路径触发本 case。
         if (entries.length > 0) {
           toggleFavorites(entries);
         }
@@ -965,7 +1528,7 @@ export function useFileBrowserSelection(
         break;
       case 'copy-path':
         if (entries.length > 0) {
-          const pathText = entries.map(entry => entry.path).join('\n');
+          const pathText = entries.map(entry => toNativePathSeparators(entry.path, platformStore.isWindows)).join('\n');
           navigator.clipboard.writeText(pathText).then(() => {
             toast.custom(markRaw(ToastStatic), {
               componentProps: {
@@ -1004,13 +1567,17 @@ export function useFileBrowserSelection(
   async function toggleFavorites(entries: DirEntry[]) {
     const allAreFavorites = entries.every(entry => userStatsStore.isFavorite(entry.path));
 
+    // FORK-MODIFICATION: 用户反馈（2026-10-15）——收藏时要多一步选分类，
+    // 于是「加」走分类对话框，「取消收藏」仍然直接做：取消不需要挑分类，
+    // 多弹一次框只会让人以为还有别的事没做完。
+    // 判定本身在 utils 里（可单测），这里只做接线。
+    if (shouldOpenFavoriteCategoryDialog(entries, path => userStatsStore.isFavorite(path))) {
+      onRequestFavoriteCategoryDialog(entries);
+      return;
+    }
+
     for (const entry of entries) {
-      if (allAreFavorites) {
-        await userStatsStore.removeFromFavorites(entry.path);
-      }
-      else if (!userStatsStore.isFavorite(entry.path)) {
-        await userStatsStore.addToFavorites(entry.path);
-      }
+      await userStatsStore.removeFromFavorites(entry.path);
     }
 
     const message = allAreFavorites
@@ -1033,7 +1600,46 @@ export function useFileBrowserSelection(
       ? selectedEntries.value[selectedEntries.value.length - 1]
       : null;
     lastSelectedEntry.value = lastEntry;
+    focusedEntry.value = lastEntry;
     onSelect(selectedEntries.value);
+  }
+
+  /**
+   * FORK-MODIFICATION 2026-11-01：大批量删除把规模摆出来。
+   *
+   * 删一棵含 25 万个文件的目录树时，界面上从头到尾只看得见「1 个项目」。
+   * 用户按下删除之前完全无从判断自己在删什么 —— 这是 2026-10-22 那份
+   * 分析报告 P2 的一条：展示「N 个文件 / M 个目录 / X GiB」。
+   *
+   * 规模来源变了：以前是删除**之前**另起一趟同步预扫描（`scan_delete_targets`），
+   * 那趟扫描跑在 Tauri 主线程上，扫大树时整个窗口冻住 —— 用户看到的就是
+   * 「删除后长时间无响应」。现在由删除作业自己的扫描阶段产出：同一趟遍历，
+   * 既当进度分母又是提示来源，还跑在后台线程上、可取消。
+   *
+   * 提示的语义不变：「正在删除 N 个项目」是**进行中提示**，不是删除前的
+   * 确认框；作业的扫描阶段发生在真正删除之前，所以时机等价。
+   */
+  function showLargeBatchDeleteSummary(summary: DeleteScanSummary): void {
+    if (!shouldWarnLargeBatchDelete(summary)) {
+      return;
+    }
+
+    toast.custom(markRaw(ToastStatic), {
+      componentProps: {
+        data: {
+          title: t('notifications.deletingLargeBatch', {
+            count: summary.totalItems.toLocaleString(),
+          }),
+          description: t('notifications.deletingLargeBatchDetail', {
+            files: summary.files.toLocaleString(),
+            directories: summary.directories.toLocaleString(),
+            size: formatBytes(summary.totalBytes),
+          }),
+          actionText: '',
+        },
+      },
+      duration: 8000,
+    });
   }
 
   async function deleteItems(entries: DirEntry[], useTrash: boolean = true): Promise<boolean> {
@@ -1047,51 +1653,156 @@ export function useFileBrowserSelection(
       return false;
     }
 
-    if (!useTrash) {
-      const confirmed = await permanentDeleteConfirm.requestConfirm(entries);
+    // FORK-MODIFICATION 2026-11-01：规模提示改由删除作业的扫描阶段产出。
+    //
+    // 这里不再有「删除前先扫一遍」。一次删除可能被 `planDeleteJobs` 拆成多个
+    // 作业（回收站不可用的那部分走永久删除），提示只弹一次 —— 用这个开关
+    // 挡住后续作业的重复弹窗。
+    let largeBatchNoticeShown = false;
 
-      if (!confirmed) {
-        return false;
+    // FORK-MODIFICATION 2026-10-20：移植上游 0ae258d6。
+    //
+    // UNC 路径与映射的网络驱动器没有回收站。这里的做法是**先问后做**：
+    // `planDeleteJobs` 问后端「这批路径里哪些不能进回收站」，
+    // 对那部分弹永久删除确认框（用户明确同意才删），其余照常进回收站。
+    // 确认被取消时，能进回收站的那部分**照常进回收站**。
+    //
+    // 注意：这里的「远程」指**网络路径**（UNC / 映射盘），不是本仓 2026-10-20
+    // 引入的 SFTP/FTP 远程条目 —— 后者走的是完全另一条通道 `deleteRemoteItems`。
+    const jobs = await planDeleteJobs({
+      entries,
+      useTrash,
+      requestPermanentConfirm: pendingEntries => permanentDeleteConfirm.requestConfirm(pendingEntries),
+    });
+
+    if (!jobs) {
+      return false;
+    }
+
+    let allSucceeded = true;
+
+    for (const job of jobs) {
+      const sharedParentDirectory = getSharedSourceDirectory(job.paths);
+      const displayPath = sharedParentDirectory
+        ? basenameFromPath(sharedParentDirectory)
+        : '';
+
+      try {
+        const result = await deleteJobsStore.startJob(job.paths, job.useTrash, {
+          label: job.useTrash ? t('notifications.trashingItems') : t('notifications.deletingItems'),
+          displayPath,
+          onScanCompleted: (summary) => {
+            if (largeBatchNoticeShown) {
+              return;
+            }
+
+            largeBatchNoticeShown = true;
+            showLargeBatchDeleteSummary(summary);
+          },
+        });
+
+        if (result.deletedPaths.length > 0) {
+          workspacesStore.handlePathsDeleted(result.deletedPaths);
+          userStatsStore.handlePathsDeleted(result.deletedPaths);
+          userSettingsStore.handlePathsDeleted(result.deletedPaths);
+
+          dirSizesStore.invalidate([currentPathRef.value, ...result.deletedPaths]);
+
+          // v6.5: the same dead child cache that hid newly created folders also
+          // kept deleted ones and stale rename targets on screen.
+          const changedParents = result.deletedPaths
+            .map(parentDirectoryPath)
+            .filter((p): p is string => p !== null);
+          folderTreeStore.markTreeStale(changedParents);
+
+          clearSelection();
+          onRefresh();
+        }
+
+        if (!result.success || result.cancelled) {
+          allSucceeded = false;
+        }
+      }
+      catch (error) {
+        allSucceeded = false;
+        toast.custom(markRaw(ToastStatic), {
+          componentProps: {
+            data: {
+              title: job.useTrash ? t('notifications.errorTrashItems') : t('notifications.errorDeleteItems'),
+              description: String(error),
+            },
+          },
+        });
       }
     }
 
-    const paths = entries.map(entry => entry.path);
-    const sharedParentDirectory = getSharedSourceDirectory(paths);
-    const displayPath = sharedParentDirectory
-      ? basenameFromPath(sharedParentDirectory)
-      : '';
+    return allSucceeded;
+  }
 
-    try {
-      const result = await deleteJobsStore.startJob(paths, useTrash, {
-        label: useTrash ? t('notifications.trashingItems') : t('notifications.deletingItems'),
-        displayPath,
-      });
+  /**
+   * FORK-MODIFICATION 2026-10-20：删除远程条目。
+   *
+   * 与本地的 `deleteItems` 有三处**刻意**不同：
+   *
+   * 1. **没有回收箱**，所以一定要先确认。远程删除不可撤销，
+   *    误操作的代价远高于本地。
+   * 2. **不走 `deleteJobsStore`**。那个 store 走的是本地文件操作通道
+   *    （`trash` / 永久删除），它的进度与「已删除路径」回调都是本地的；
+   *    远程条目塞进去只会得到一个永远转不出来的进度条。
+   * 3. **失败要逐条报**。后端一条命令只吃一个路径，多选是前端循环，
+   *    循环里第 3 个失败不该让前 2 个的成功显示不出来。
+   */
+  async function deleteRemoteItems(entries: DirEntry[]): Promise<boolean> {
+    const remoteEntries = entries.filter(entry => isRemotePath(entry.path));
 
-      if (result.deletedPaths.length > 0) {
-        workspacesStore.handlePathsDeleted(result.deletedPaths);
-        userStatsStore.handlePathsDeleted(result.deletedPaths);
-        userSettingsStore.handlePathsDeleted(result.deletedPaths);
-
-        dirSizesStore.invalidate([currentPathRef.value, ...result.deletedPaths]);
-
-        clearSelection();
-        onRefresh();
-      }
-
-      return result.success && !result.cancelled;
+    if (remoteEntries.length === 0) {
+      return false;
     }
-    catch (error) {
+
+    const confirmed = await remoteDeleteConfirm.requestConfirm(remoteEntries);
+
+    if (!confirmed) {
+      return false;
+    }
+
+    const report = await deleteRemoteEntries(remoteEntries);
+
+    if (report.failures.length > 0) {
+      const denied = report.failures.some(failure => failure.kind === 'permission');
+
       toast.custom(markRaw(ToastStatic), {
         componentProps: {
           data: {
-            title: useTrash ? t('notifications.errorTrashItems') : t('notifications.errorDeleteItems'),
-            description: String(error),
+            title: denied
+              ? t('remote.delete.permissionDenied')
+              : t('remote.delete.failed'),
+            description: report.failures
+              .map(failure => `${failure.path}: ${failure.message}`)
+              .join('\n'),
+          },
+        },
+        duration: 6000,
+      });
+    }
+
+    if (report.deleted.length > 0) {
+      toast.custom(markRaw(ToastStatic), {
+        componentProps: {
+          data: {
+            title: t('remote.delete.success', { count: report.deleted.length }),
+            description: '',
           },
         },
       });
 
-      return false;
+      clearSelection();
+      // FORK-MODIFICATION 2026-11-09：先本地剔除（界面立刻变），再静默刷新校准。
+      // 顺序不能反：onRefresh 是 async，且可能因守卫早退 / 服务端延迟拿回旧列表。
+      onEntriesRemoved?.(report.deleted);
+      onRefresh();
     }
+
+    return report.deleted.length > 0;
   }
 
   function performSelectionAction(action: ContextMenuAction) {
@@ -1111,6 +1822,7 @@ export function useFileBrowserSelection(
   return {
     selectedEntries,
     lastSelectedEntry,
+    focusedEntry,
     mouseDownState,
     contextMenu,
     renameState,
@@ -1128,7 +1840,9 @@ export function useFileBrowserSelection(
     performSelectionAction,
     resetMouseState,
     selectAll,
+    selectRange,
     selectEntryByPath,
+    selectEntryByKey,
     removeFromSelection,
     copyItems,
     cutItems,
@@ -1140,6 +1854,12 @@ export function useFileBrowserSelection(
     startRename,
     cancelRename,
     confirmRename,
+    // FORK-MODIFICATION 2026-10-27：就地改名。
+    submitInlineRename,
+    cancelInlineRename,
+    handleInlineRenameNavigationTarget,
+    endInlineRenameChain,
+    canEditInline,
     createNewItem,
     pendingFocusRequest,
     clearPendingFocusRequest,
@@ -1153,5 +1873,12 @@ export function useFileBrowserSelection(
     handleTopLevelNameConflictMerge,
     handleTopLevelNameConflictCancel,
     permanentDeleteConfirm,
+    // FORK-MODIFICATION 2026-10-20：远程删除的确认框状态。
+    remoteDeleteConfirm,
+    // FORK-MODIFICATION 2026-10-24：解除文件锁定 / 彻底删除的对话框状态。
+    fileLockWorkflow,
+    setOpenBatchRenameDialogHandler(handler: (entries: DirEntry[]) => void) {
+      openBatchRenameDialogForSelection = handler;
+    },
   };
 }

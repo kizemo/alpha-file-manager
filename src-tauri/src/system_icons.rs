@@ -9,29 +9,47 @@ use image::codecs::png::PngEncoder;
 use image::ImageEncoder;
 use lru::LruCache;
 use once_cell::sync::Lazy;
-use std::collections::HashSet;
 use std::fs;
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+/// 图标 data URL 缓存的条数上限。
+///
+/// 2026-10-28 从 512 降到 128：单条 base64 PNG 在 256px 时可达百 KB 级，
+/// 512 条理论上能到 60 MB 常驻。key 里 `ext:<扩展名>:<尺寸>` 那一族是全目录共享的
+/// （几十个扩展名 × 3 档尺寸），真正把槽位撑满的是 `path:<完整路径>:<尺寸>`
+/// 那一族 —— 而它本来就是「每个 exe 各占一条」，被淘汰的代价最小。
+const ICON_DATA_URL_CACHE_CAPACITY: usize = 128;
+
+/// 「取不到图标」的路径标记的条数上限。
+///
+/// 2026-10-28 之前这个集合只增不减，是 Rust 侧唯一严格无界的容器。
+/// 超出上限时按最旧优先淘汰：这些路径只是「取不到图标」的标记，
+/// 命中与否只影响图标是否 fallback，淘汰掉最多让下次多试一次系统调用。
+const MAX_UNSUPPORTED_SHELL_ICON_PATHS: usize = 512;
+
 static ICON_DATA_URL_CACHE: Lazy<Mutex<LruCache<String, String>>> = Lazy::new(|| {
     Mutex::new(LruCache::new(
-        NonZeroUsize::new(512).unwrap_or_else(|| NonZeroUsize::new(512).unwrap()),
+        NonZeroUsize::new(ICON_DATA_URL_CACHE_CAPACITY)
+            .unwrap_or_else(|| NonZeroUsize::new(ICON_DATA_URL_CACHE_CAPACITY).unwrap()),
     ))
 });
 
 static ICON_PROBE_DIR: Lazy<Result<PathBuf, String>> = Lazy::new(|| {
-    let dir = dirs::data_local_dir()
+    let dir = crate::app_dirs::local_data_dir_without_app("com.sigma-file-manager.app")
         .ok_or_else(|| "Could not resolve local data directory".to_string())?
-        .join("com.sigma-file-manager.app")
         .join("icon-probes");
     fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
     Ok(dir)
 });
 
-static UNSUPPORTED_SHELL_ICON_PATHS: Lazy<Mutex<HashSet<String>>> =
-    Lazy::new(|| Mutex::new(HashSet::new()));
+static UNSUPPORTED_SHELL_ICON_PATHS: Lazy<Mutex<LruCache<String, ()>>> = Lazy::new(|| {
+    Mutex::new(LruCache::new(
+        NonZeroUsize::new(MAX_UNSUPPORTED_SHELL_ICON_PATHS)
+            .unwrap_or_else(|| NonZeroUsize::new(MAX_UNSUPPORTED_SHELL_ICON_PATHS).unwrap()),
+    ))
+});
 
 fn normalize_path_for_os(path: &str) -> PathBuf {
     #[cfg(windows)]
@@ -117,14 +135,10 @@ fn is_shell_icon_candidate_path(path: &str) -> bool {
         return false;
     }
 
-    #[cfg(windows)]
-    {
-        let lower = trimmed.to_ascii_lowercase();
-        if trimmed.starts_with("::{") || lower.starts_with("shell:") {
-            return false;
-        }
-    }
-
+    // FORK-MODIFICATION 2026-11-19：**这里不再拒绝 shell namespace 路径**。
+    // shell 路径（`::{...}` / `shell:...`）改走 `shell_namespace_icon_data_url`
+    // （`SHCreateItemFromParsingName` → `IShellItemImageFactory::GetImage`），
+    // 由 `get_system_icon_blocking` 在最前面分流；这里只管「文件系统路径能不能查图标」。
     true
 }
 
@@ -214,13 +228,24 @@ fn is_shell_parsable_path(_path: &Path) -> bool {
     true
 }
 
+/// 记一条「取不到图标」的路径，返回 true 表示这是新记的。
+///
+/// 容量超限时 LRU 自动淘汰最旧的一条。语义不变：这些路径只是
+/// 「取不到图标」的标记，命中与否只影响图标是否 fallback。
+fn remember_unsupported_shell_icon_key(
+    unsupported_paths: &mut LruCache<String, ()>,
+    path_key: String,
+) -> bool {
+    unsupported_paths.put(path_key, ()).is_none()
+}
+
 fn remember_unsupported_shell_icon_path(path: &Path) -> bool {
     let path_key = path.to_string_lossy().to_ascii_lowercase();
     let Ok(mut unsupported_paths) = UNSUPPORTED_SHELL_ICON_PATHS.lock() else {
         return false;
     };
 
-    unsupported_paths.insert(path_key)
+    remember_unsupported_shell_icon_key(&mut unsupported_paths, path_key)
 }
 
 fn is_remembered_unsupported_shell_icon_path(path: &Path) -> bool {
@@ -228,7 +253,7 @@ fn is_remembered_unsupported_shell_icon_path(path: &Path) -> bool {
     UNSUPPORTED_SHELL_ICON_PATHS
         .lock()
         .ok()
-        .is_some_and(|unsupported_paths| unsupported_paths.contains(&path_key))
+        .is_some_and(|mut unsupported_paths| unsupported_paths.get(&path_key).is_some())
 }
 
 fn absolute_existing_path(path: &Path) -> Option<PathBuf> {
@@ -253,11 +278,47 @@ fn absolute_existing_path(path: &Path) -> Option<PathBuf> {
         .filter(|resolved_path| is_usable_shell_icon_target(resolved_path))
 }
 
+/// FORK-MODIFICATION 2026-11-06：`.lnk` 快捷方式的目标路径（取图标用）。
+///
+/// 解析不出来、目标不存在、目标是 WindowsApps 别名 —— 一律返回 `None`，
+/// 由调用方回退到快捷方式自身的图标。
+#[cfg(windows)]
+fn resolve_shortcut_icon_target(path: &Path) -> Option<PathBuf> {
+    let extension = path.extension()?.to_str()?.to_ascii_lowercase();
+
+    if extension != "lnk" {
+        return None;
+    }
+
+    let target_path = PathBuf::from(crate::dir_reader::resolve_shortcut_target_path(path)?);
+
+    if !target_path.is_absolute() || !target_path.exists() {
+        return None;
+    }
+
+    if is_windows_apps_alias_path(&target_path.to_string_lossy()) {
+        return None;
+    }
+
+    Some(target_path)
+}
+
+#[cfg(not(windows))]
+fn resolve_shortcut_icon_target(_path: &Path) -> Option<PathBuf> {
+    None
+}
+
 fn resolve_shell_icon_path(
     path: &str,
     is_dir: bool,
     extension: &Option<String>,
 ) -> Option<PathBuf> {
+    // shell namespace 路径不是文件系统路径，这套「按文件系统路径找图标」的逻辑吃不了它
+    // —— 它已经在 `get_system_icon_blocking` 里被分流到 shell 图标工厂。
+    if crate::dir_reader::is_shell_namespace_path(path) {
+        return None;
+    }
+
     if !is_shell_icon_candidate_path(path) {
         return None;
     }
@@ -272,10 +333,129 @@ fn resolve_shell_icon_path(
     }
 
     if normalized_path.is_file() {
+        // FORK-MODIFICATION 2026-11-06：`.lnk` 显示**目标**的图标。
+        //
+        // 系统给快捷方式文件本身的是通用「快捷方式」图标；把链接解析成目标再取图标，
+        // 才能显示 exe / 文档自己的图标。断链或解析失败时回退到 `.lnk` 自身。
+        if let Some(shortcut_target) = resolve_shortcut_icon_target(&normalized_path) {
+            if let Some(resolved_target) = absolute_existing_path(&shortcut_target) {
+                return Some(resolved_target);
+            }
+        }
+
         return absolute_existing_path(&normalized_path);
     }
 
     absolute_existing_path(&icon_probe_path(extension).ok()?)
+}
+
+/// FORK-MODIFICATION 2026-11-19：shell namespace 路径（`::{...}` / `shell:...`）的图标。
+///
+/// 设备（手机 / U 盘）在位置页是空白图标很难受，但这些路径**不是文件系统路径**，
+/// `file_icon_provider` 吃不了 ⇒ 走 shell 自己的图标工厂：
+/// `SHCreateItemFromParsingName` → `IShellItemImageFactory::GetImage`（拿 HBITMAP）
+/// → `GetDIBits`（取 BGRA 像素）→ 转 RGBA → 编码 PNG。
+#[cfg(windows)]
+fn shell_namespace_icon_data_url(shell_path: &str, size: u16) -> Option<String> {
+    use windows::core::HSTRING;
+    use windows::Win32::Foundation::SIZE;
+    use windows::Win32::Graphics::Gdi::{
+        GetDIBits, GetDC, ReleaseDC, BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, HGDIOBJ,
+    };
+    use windows::Win32::System::Com::{CoInitialize, CoUninitialize, IBindCtx};
+    use windows::Win32::UI::Shell::{
+        IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_BIGGERSIZEOK, SIIGBF_ICONONLY,
+        SIIGBF_RESIZETOFIT,
+    };
+
+    let icon_size = i32::from(size).max(16);
+
+    unsafe {
+        // COM 必须贯穿整个取图流程：提前 CoUninitialize 的话 GetImage 拿不到位图。
+        if CoInitialize(None).is_err() {
+            return None;
+        }
+
+        let image_factory = match SHCreateItemFromParsingName::<_, _, IShellItemImageFactory>(
+            &HSTRING::from(shell_path),
+            None::<&IBindCtx>,
+        ) {
+            Ok(factory) => factory,
+            Err(_) => {
+                CoUninitialize();
+                return None;
+            }
+        };
+
+        let bitmap = match image_factory.GetImage(
+            SIZE {
+                cx: icon_size,
+                cy: icon_size,
+            },
+            SIIGBF_ICONONLY | SIIGBF_BIGGERSIZEOK | SIIGBF_RESIZETOFIT,
+        ) {
+            Ok(bitmap) => bitmap,
+            Err(_) => {
+                CoUninitialize();
+                return None;
+            }
+        };
+
+        let mut bitmap_info = BITMAPINFO {
+            bmiHeader: BITMAPINFOHEADER {
+                biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                biWidth: icon_size,
+                // 负高度 = 自上而下，省一次翻转。
+                biHeight: -icon_size,
+                biPlanes: 1,
+                biBitCount: 32,
+                biCompression: 0,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let pixel_count = (icon_size * icon_size * 4) as usize;
+        let mut bgra_pixels = vec![0u8; pixel_count];
+
+        let device_context = GetDC(None);
+        let copied_lines = GetDIBits(
+            device_context,
+            bitmap,
+            0,
+            icon_size as u32,
+            Some(bgra_pixels.as_mut_ptr().cast()),
+            &mut bitmap_info,
+            DIB_RGB_COLORS,
+        );
+
+        ReleaseDC(None, device_context);
+        // DeleteObject 返回 #[must_use] 的 Result：位图删除失败不影响已经拷贝出来的像素数据，
+        // 但必须显式吞掉返回值，否则触发 unused_must_use 告警。
+        let _ = windows::Win32::Graphics::Gdi::DeleteObject(HGDIOBJ::from(bitmap));
+
+        if copied_lines <= 0 {
+            CoUninitialize();
+            return None;
+        }
+
+        // BGRA → RGBA
+        let mut rgba_pixels = bgra_pixels;
+
+        for pixel in rgba_pixels.chunks_exact_mut(4) {
+            pixel.swap(0, 2);
+        }
+
+        let data_url =
+            encode_icon_to_png_data_url(icon_size as u32, icon_size as u32, rgba_pixels).ok();
+        CoUninitialize();
+        data_url
+    }
+}
+
+#[cfg(not(windows))]
+fn shell_namespace_icon_data_url(_shell_path: &str, _size: u16) -> Option<String> {
+    None
 }
 
 fn encode_icon_to_png_data_url(width: u32, height: u32, pixels: Vec<u8>) -> Result<String, String> {
@@ -346,14 +526,57 @@ pub(crate) fn get_path_icon_data_url(path: &Path, size: u16) -> Option<String> {
     get_icon_data_url_uncached(path, size).ok()
 }
 
+// FORK-MODIFICATION (2026-11-07)：搬到工作线程。
+//
+// `get_system_icon` 要做 COM 取图标 + PNG 编码，单次就不便宜；同步 command 跑在
+// Tauri 主线程上，一个列表页几十个条目就能把事件循环堵死 ⇒ WebView2 心跳断掉
+// ⇒ 看门狗判「窗口卡死」⇒ 渲染进程崩溃（2026-11-07 用户实测）。
+// 纯逻辑挪到 `get_system_icon_blocking`（不碰 tauri runtime，可被单测链接）。
 #[tauri::command]
-pub fn get_system_icon(
+pub async fn get_system_icon(
+    path: String,
+    is_dir: bool,
+    extension: Option<String>,
+    size: Option<u16>,
+) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        get_system_icon_blocking(path, is_dir, extension, size)
+    })
+    .await
+    .map_err(|join_error| format!("Failed to get system icon: {join_error}"))?
+}
+
+pub(crate) fn get_system_icon_blocking(
     path: String,
     is_dir: bool,
     extension: Option<String>,
     size: Option<u16>,
 ) -> Result<Option<String>, String> {
     let icon_size = size.unwrap_or(32).clamp(8, 256);
+
+    // FORK-MODIFICATION 2026-11-19：shell namespace 路径（`::{...}` / `shell:...`）
+    // 走 shell 图标工厂 —— 设备（手机 / U 盘）在位置页不该是空白图标。
+    // 单独用一套 cache key：这类路径没有扩展名，共用 `ext:` 那一族 key 会串图。
+    if crate::dir_reader::is_shell_namespace_path(&path) {
+        let cache_key = format!("shellns:{}:{icon_size}", path.to_lowercase());
+
+        if let Ok(mut cache) = ICON_DATA_URL_CACHE.lock() {
+            if let Some(cached_value) = cache.get(&cache_key) {
+                return Ok(Some(cached_value.to_string()));
+            }
+        }
+
+        let data_url = shell_namespace_icon_data_url(&path, icon_size);
+
+        if let Some(data_url) = data_url.clone() {
+            if let Ok(mut cache) = ICON_DATA_URL_CACHE.lock() {
+                cache.put(cache_key, data_url);
+            }
+        }
+
+        return Ok(data_url);
+    }
+
     let cache_key = file_icon_cache_key(&path, is_dir, &extension, icon_size);
 
     if let Ok(mut cache) = ICON_DATA_URL_CACHE.lock() {
@@ -466,4 +689,100 @@ mod tests {
         let forward_slash_path = PathBuf::from(r"C:/Windows/System32/cmd.exe");
         assert!(get_path_icon_data_url(&forward_slash_path, 32).is_some());
     }
-}
+
+    /// 「取不到图标」的路径标记必须有上限：它是 Rust 侧唯一严格无界的容器，
+    /// 2026-10-28 之前只增不减。
+    #[test]
+    fn unsupported_shell_icon_paths_are_capped() {
+        let mut unsupported_paths = LruCache::new(
+            NonZeroUsize::new(MAX_UNSUPPORTED_SHELL_ICON_PATHS)
+                .unwrap_or_else(|| NonZeroUsize::new(MAX_UNSUPPORTED_SHELL_ICON_PATHS).unwrap()),
+        );
+
+        for path_index in 0..(MAX_UNSUPPORTED_SHELL_ICON_PATHS + 64) {
+            remember_unsupported_shell_icon_key(
+                &mut unsupported_paths,
+                format!("c:/fake/path-{path_index}.exe"),
+            );
+        }
+
+        assert!(
+            unsupported_paths.len() <= MAX_UNSUPPORTED_SHELL_ICON_PATHS,
+            "路径标记条数 {} 超过了上限 {MAX_UNSUPPORTED_SHELL_ICON_PATHS}",
+            unsupported_paths.len(),
+        );
+        assert_eq!(unsupported_paths.len(), MAX_UNSUPPORTED_SHELL_ICON_PATHS);
+        assert!(
+            !unsupported_paths.contains("c:/fake/path-0.exe"),
+            "最早的路径应被淘汰"
+        );
+        assert!(
+            unsupported_paths.contains(&format!(
+                "c:/fake/path-{}.exe",
+                MAX_UNSUPPORTED_SHELL_ICON_PATHS + 63
+            )),
+            "最新的路径应被保留"
+        );
+    }
+
+    /// FORK-MODIFICATION 2026-11-06：`.lnk` 要能解析出目标，才能取到**目标的**图标。
+    ///
+    /// 这条用例同时覆盖正反两面：
+    /// - 指向真实文件的快捷方式 ⇒ 解析出目标；
+    /// - 指向已删除文件的断链快捷方式 ⇒ 解析不出目标（回退到快捷方式自身的图标）。
+    #[test]
+    #[cfg(windows)]
+    fn shortcut_icon_target_resolves_lnk_target() {
+        let temp_dir = std::env::temp_dir().join("afm-shortcut-icon-target-test");
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        std::fs::create_dir_all(&temp_dir).expect("create temp dir");
+
+        let source_path = temp_dir.join("target.exe");
+        std::fs::write(&source_path, b"afm-shortcut-icon-test").expect("write source file");
+        let shortcut_path = temp_dir.join("target.lnk");
+        crate::link_operations::create_shortcut(&source_path, &shortcut_path)
+            .expect("create shortcut");
+        assert!(shortcut_path.exists(), "shortcut file should exist");
+
+        let resolved = crate::dir_reader::resolve_shortcut_target_path(&shortcut_path)
+            .expect("shortcut target should resolve");
+        assert!(
+            resolved.to_ascii_lowercase().ends_with("target.exe"),
+            "resolved target was {resolved}"
+        );
+
+        let icon_target =
+            resolve_shortcut_icon_target(&shortcut_path).expect("icon target should resolve");
+        assert_eq!(
+            icon_target
+                .file_name()
+                .map(|name| name.to_string_lossy().to_string()),
+            Some("target.exe".to_string())
+        );
+
+        let broken_shortcut_path = temp_dir.join("broken.lnk");
+        crate::link_operations::create_shortcut(&temp_dir.join("missing.exe"), &broken_shortcut_path)
+            .expect("create broken shortcut");
+
+        assert!(
+            resolve_shortcut_icon_target(&broken_shortcut_path).is_none(),
+            "broken shortcut must not resolve to an icon target"
+        );
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    /// 图标 data URL 缓存的条数上限被收紧到 128（2026-10-28 之前是 512）。
+    #[test]
+    fn icon_data_url_cache_capacity_stays_tightened() {
+        assert_eq!(ICON_DATA_URL_CACHE_CAPACITY, 128);
+
+        let cache_capacity = ICON_DATA_URL_CACHE
+            .lock()
+            .map(|cache| cache.cap().get())
+            .unwrap_or_default();
+
+        assert_eq!(cache_capacity, ICON_DATA_URL_CACHE_CAPACITY);
+    }
+
+        }

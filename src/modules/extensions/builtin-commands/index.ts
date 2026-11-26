@@ -122,6 +122,16 @@ async function openPathInNavigator(path: string): Promise<void> {
   await openFile(entry.path);
 }
 
+/**
+ * Builtin commands whose palette label comes from the i18n catalogue instead of
+ * their English declaration title.
+ */
+export const BUILTIN_COMMAND_TITLE_KEYS: Record<string, string> = {
+  'sigma.app.openSettings': 'openSettings',
+  'sigma.app.openExtensions': 'openExtensions',
+  'sigma.app.reloadWindow': 'trayMenu.reloadWindow',
+};
+
 export const BUILTIN_COMMANDS: BuiltinCommandDefinition[] = [
   {
     id: 'sigma.navigator.openPath',

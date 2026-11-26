@@ -1,8 +1,11 @@
 {
   "app": {
-    "name": "Sigma File Manager",
-    "description": "是一个免费、开源、先进、现代的文件管理器应用程序，在 GNU GPLv3 或更高版本下授权。",
-    "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
+    "name": "Alpha File Manager",
+    "description": "基于 Sigma File Manager 二次开发，新增目录树、快速切换（文件对话框路径焦点同步）、批量重命名等实用能力，对很多细节进行了优化，打造体验更完善的文件管理器。",
+    "copyright": "鸣谢原作者 Aleksey Hoffman。",
+    "developerLabel": "开发：",
+    "developer": "段燚",
+    "repository": "https://github.com/kizemo/alpha-file-manager"
   },
   "units": {
     "px": "px"
@@ -19,7 +22,7 @@
   "pages": {
     "home": "主页",
     "navigator": "导航器",
-    "dashboard": "仪表板",
+    "dashboard": "快速访问",
     "notes": "笔记",
     "settings": "设置",
     "extensions": "扩展功能"
@@ -33,7 +36,15 @@
     "tagged": "已标记",
     "emptyFavorites": "无收藏",
     "emptyTagged": "无已标记项目",
-    "unknownTagGroup": "未知标签"
+    "unknownTagGroup": "未知标签",
+    "frequent": "常用",
+    "history": "历史",
+    "emptyFrequent": "无常用项目",
+    "emptyHistory": "暂无历史记录",
+    "openFavoritesTab": "在快速访问打开「收藏夹」页签",
+    "openFrequentTab": "在快速访问打开「常用」页签",
+    "openHistoryTab": "在快速访问打开「历史」页签",
+    "openTaggedTab": "在快速访问打开「已标记」页签"
   },
   "placeholders": {
     "noDrivesFound": "未找到驱动器",
@@ -76,6 +87,8 @@
     "music": "音乐"
   },
   "tabs": {
+    "scrollTabsLeft": "向左滚动标签页",
+    "scrollTabsRight": "向右滚动标签页",
     "newTab": "新标签页",
     "duplicateTab": "复制标签页",
     "closeOtherTabs": "关闭其他标签",
@@ -89,6 +102,9 @@
   "splitViewMode": "分屏模式",
   "splitViewModeSplit": "分割",
   "splitViewModeLinked": "联动",
+  "syncBrowsing": "同步浏览",
+  "syncBrowsingOn": "同步浏览：已开启",
+  "syncBrowsingHint": "在左格选中一个目录，右格会跳到同名目录。",
   "filter": {
     "filter": "筛选",
     "showHiddenItems": "显示隐藏的项目",
@@ -105,6 +121,8 @@
     }
   },
   "globalSearch": {
+    "scanModeFull": "全量",
+    "scanModeIncremental": "增量",
     "globalSearch": "全局搜索",
     "driveScanInProgress": "正在索引驱动器",
     "searchDataIncomplete": "搜索数据不完整",
@@ -147,7 +165,10 @@
       "indexed": "索引于 {time}",
       "nothingFound": "什么都没找到"
     },
-    "showSearchSettings": "显示搜索设置"
+    "showSearchSettings": "显示搜索设置",
+    "remoteIndexing": "正在索引云盘",
+    "remoteIndexDone": "云盘索引已更新",
+    "remoteIndexFailed": "云盘索引失败"
   },
   "home": {
     "mediaBannerOptions": "媒体横幅选项",
@@ -166,11 +187,11 @@
     "newDirectory": "新建目录",
     "newFile": "新建文件",
     "reloadCurrentDirectory": "重新加载当前目录",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "显示目录树",
+    "hideFolderTree": "隐藏目录树"
   },
   "dashboard": {
-    "subtitle": "快速访问您的收藏、标记和常用项目",
+    "subtitle": "收藏、标记与常用项目，一处直达",
     "tabs": {
       "favorites": "收藏",
       "tagged": "已标记",
@@ -191,7 +212,57 @@
     "daysAgo": "{n}天前 | {n}天前 | {n}天前 | {n}天前",
     "openedCount": "已打开{n}次 | 已打开{n}次 | 已打开{n}次 | 已打开{n}次",
     "actions": {
-      "clearAll": "从此列表中删除全部"
+      "clearAll": "从此列表中删除全部",
+      "newFavorite": "新建收藏",
+      "newCategory": "新建分类",
+      "newTag": "新建标记",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "moveUpWithName": "上移 {name}",
+      "moveDownWithName": "下移 {name}",
+      "dragToReorder": "拖拽以排序",
+      "moveToCategory": "移到分类",
+      "removeFavorite": "取消收藏",
+      "removeTag": "移除标记",
+      "renameCategory": "重命名分类",
+      "deleteCategory": "删除分类",
+      "uncategorized": "未分类",
+      "confirmRemove": "移除",
+      "clearAllConfirmTitle": "要从这个列表中移除全部吗？",
+      "clearAllConfirmDescription": "此操作无法撤销。",
+      "removeFavoriteConfirmTitle": "要取消收藏吗？",
+      "removeFavoriteConfirmDescription": "该条目将从此处移除。重新收藏即可让它回到这里。",
+      "deleteTagConfirmTitle": "要删除这个标记吗？",
+      "deleteTagConfirmDescription": "该标记将被删除，并从所有条目上移除。",
+      "removeTagConfirmTitle": "要移除这个标记吗？",
+      "removeTagConfirmDescription": "该条目将不再带有这个标记。",
+      "renameFavorite": "编辑显示名称",
+      "editFavorite": "编辑收藏"
+    },
+    "newFavoriteDialog": {
+      "title": "添加到收藏",
+      "pathLabel": "文件或文件夹路径",
+      "pathPlaceholder": "粘贴完整路径",
+      "pathNotFound": "路径不存在",
+      "pathAlreadyFavorite": "已在收藏中",
+      "confirm": "添加",
+      "displayNameLabel": "显示名称",
+      "displayNamePlaceholder": "留空则使用原始名称"
+    },
+    "nameDialog": {
+      "nameLabel": "名称",
+      "namePlaceholder": "请输入名称",
+      "duplicateName": "“{name}”已存在",
+      "confirm": "创建"
+    },
+    "categoryDeleteNote": "该分类下的收藏会回到「未分类」，不会删除任何收藏。",
+    "favoriteEdit": {
+      "pathRequired": "路径不能为空",
+      "saved": "收藏已更新",
+      "saveFailed": "更新收藏失败"
+    },
+    "favoriteCategoryDialog": {
+      "categoryLabel": "所属分类"
     }
   },
   "settingsCategories": {
@@ -220,8 +291,19 @@
         "title": "文件视图",
         "enableBoxSelection": "启用框选",
         "enableBoxSelectionDescription": "在空白区域拖动即可用选择框选中多个项目。按住 Ctrl 或 Shift 可添加到选择；按住 Alt 可反选。",
+        "boxSelectionEnabledByDefault": "框选已默认启用。若拖拽选择影响你的操作习惯，可在此关闭。",
         "increaseFileViewGaps": "增大文件视图间距",
-        "increaseFileViewGapsDescription": "增加列表布局的左右内边距以及网格布局的间距，便于选择。"
+        "increaseFileViewGapsDescription": "增加列表布局的左右内边距以及网格布局的间距，便于选择。",
+        "foldersFirst": "列表视图中文件夹排在文件之前",
+        "foldersFirstDescription": "仅影响列表视图；网格视图始终按类型分区显示文件夹。",
+        "showListThumbnails": "列表视图中显示缩略图",
+        "showListThumbnailsDescription": "图片和视频在列表中显示缩略图；文件夹与文档仍显示类型图标。网格视图始终显示缩略图，不受此开关影响。",
+        "thumbnailSizeTitle": "缩略图大小",
+        "thumbnailSizeDescription": "调整列表视图与网格视图中的缩略图尺寸。",
+        "thumbnailSizeSmall": "小",
+        "thumbnailSizeMedium": "中",
+        "thumbnailSizeLarge": "大",
+        "thumbnailSizeXLarge": "特大"
       },
       "startupPage": {
         "title": "启动页",
@@ -241,7 +323,8 @@
       "openAppLogDirectory": "打开应用日志目录",
       "openGlobalSearchIndexDirectory": "打开全局搜索索引目录",
       "changelog": "更新日志",
-      "allReleases": "所有版本"
+      "allReleases": "所有版本",
+      "learningNotes": "段燚的学习笔记"
     },
     "visualEffects": {
       "title": "视觉效果",
@@ -260,16 +343,20 @@
         "darken": "变暗",
         "lighten": "变亮",
         "color-dodge": "颜色减淡",
+        "plus-lighter": "线性减淡（添加）",
         "color-burn": "颜色加深",
         "hard-light": "强光",
         "soft-light": "柔光",
         "difference": "差值",
         "exclusion": "排除",
-        "hue": "色相",
-        "saturation": "饱和度",
         "color": "颜色",
         "luminosity": "明度"
       },
+      "blendTarget": "混合对象",
+      "blendTargetUi": "界面",
+      "blendTargetFill": "填充颜色",
+      "blendTint": "填充颜色",
+      "blendTintCustom": "自定义颜色",
       "overlayBackground": "叠加背景",
       "selectNextBackground": "选择下一个背景",
       "useTheSameSettingsForAllPages": "对所有页面使用相同的设置",
@@ -281,9 +368,15 @@
       "theme": {
         "title": "主题",
         "extensionThemes": "扩展主题",
+        "afmThemeThemes": "AFM 品牌主题",
+        "afmThemes": {
+          "warmLight": "暖纸 · 浅色",
+          "warmDark": "暖纸 · 深色",
+          "vividLight": "跃动活力",
+          "coolLight": "冷杉"
+        },
         "themeTypeRadio": {
-          "dark": "暗色",
-          "light": "亮色（开发中）"
+          "dark": "暗色"
         }
       }
     },
@@ -298,7 +391,14 @@
       "selectedFont": "选择的字体",
       "defaultFont": "默认字体",
       "reFetchSystemFonts": "重新获取系统字体",
-      "resetFontToDefault": "将字体重置为默认值"
+      "resetFontToDefault": "将字体重置为默认值",
+      "fontSize": {
+        "label": "字体大小",
+        "description": "界面文字大小",
+        "default": "默认",
+        "large": "大",
+        "extra-large": "特大"
+      }
     },
     "dateTime": {
       "dateTime": "日期时间",
@@ -323,7 +423,7 @@
       "preventDropdownCloseFocusReturn": "关闭下拉菜单时不返回焦点",
       "preventDropdownCloseFocusReturnDescription": "启用后，关闭下拉菜单（例如按 Escape）时不会将焦点返回到触发按钮，从而避免显示焦点环和工具提示",
       "quickAccessOnHover": "悬停时打开快速访问面板",
-      "quickAccessOnHoverDescription": "启用后，将鼠标悬停在侧边栏的仪表板按钮上时，快速访问面板会自动打开"
+      "quickAccessOnHoverDescription": "启用后，将鼠标悬停在侧边栏的快速访问按钮上时，快速访问面板会自动打开"
     },
     "tooltips": {
       "title": "工具提示",
@@ -379,7 +479,6 @@
       }
     },
     "navigator": {
-      "navigatorViewLayout": "布局",
       "navigatorOptions": "导航器选项",
       "systemIcons": "图标主题",
       "systemIconsDirectories": "文件夹",
@@ -435,7 +534,15 @@
       "ignoredPathsHelpDownloads": "跳过该路径前缀。",
       "ignoredPathsHelpTestFolder": "跳过任意位置名为 test 的文件夹及其内容。",
       "ignoredPathsHelpExtensionMask": "跳过任意位置扩展名为 .log 的文件。",
-      "ignoredPathsHelpNestedExtensionMask": "跳过任意文件夹中扩展名为 .tmp 的文件。"
+      "ignoredPathsHelpNestedExtensionMask": "跳过任意文件夹中扩展名为 .tmp 的文件。",
+      "remoteIndexTitle": "云盘检索",
+      "remoteIndexDescription": "已加入全局检索的网盘，其文件会出现在搜索结果中",
+      "rebuildRemoteIndex": "重建云盘索引",
+      "rebuildRemoteIndexDescription": "重新抓取已勾选网盘的文件并写入索引，会消耗网盘 API 配额",
+      "noRemoteInSearch": "暂无已加入检索的网盘",
+      "noNetdiskConnections": "该网盘暂无连接",
+      "rebuildCheckedRemoteIndex": "重建已勾选连接的索引",
+      "rebuildCheckedRemoteIndexHint": "重建始终按「全部已勾选连接」进行 —— 单条连接无法单独重建。"
     },
     "drives": {
       "driveDetection": "驱动检测",
@@ -445,21 +552,362 @@
     },
     "stats": {
       "title": "用户数据",
-      "description": "应用程序在本地存储数据（标签、收藏、历史记录、最近打开的项目）以支持仪表板列表和搜索等功能。这些数据存储在应用程序目录中。",
+      "description": "应用程序在本地存储数据（标签、收藏、历史记录、最近打开的项目）以支持快速访问列表和搜索等功能。这些数据存储在应用程序目录中。",
       "openDataDirectory": "打开数据目录"
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "将 Sigma File Manager 设为默认文件管理器",
+        "title": "将 Alpha File Manager 设为默认文件管理器",
         "description": "此选项会修改系统注册表，并且可能会对您的设备产生意外的副作用。请自行承担风险后继续。",
         "unavailableInMicrosoftStore": "Microsoft Store 版本不可用"
+      },
+      "mcp": {
+        "title": "MCP 服务（AI 接入）",
+        "description": "让 Claude、Cursor 等 AI 客户端通过 MCP 调用本应用的只读能力。默认关闭，关闭时不监听任何端口。",
+        "modes": {
+          "off": "关闭",
+          "readOnly": "只读",
+          "writable": "可写",
+          "askEachTime": "每次审批"
+        },
+        "modeDescriptions": {
+          "off": "服务不启动，不占用任何端口。本机没有任何程序能连上。",
+          "readOnly": "开放列目录、盘符、可挂载设备、已建索引的全局搜索、目录大小、收藏分类。全部只读，不会修改任何文件。",
+          "writable": "在只读之上开放写操作。删除仍会走回收站，不是硬删除。",
+          "askEachTime": "同「可写」，但每个写操作都要逐条人工确认。"
+        },
+        "running": "运行中 · 端口 {port}",
+        "stopped": "未运行",
+        "endpoint": "端点",
+        "clients": "已连接客户端",
+        "copyConfig": "复制配置片段",
+        "copied": "已复制",
+        "copyFailed": "复制失败，请手动复制下方配置",
+        "rotateToken": "重新生成 token",
+        "tokenRotated": "已生成新的 token，旧配置立即失效",
+        "token": "token",
+        "tokenHint": "本机任何程序都能连 127.0.0.1 的端口，token 是唯一屏障，请勿外传。",
+        "auditTitle": "最近调用",
+        "outcomes": {
+          "allowed": "已放行",
+          "denied": "已拒绝",
+          "error": "出错"
+        },
+        "clientsConnected": "{count} 个 agent 已连接",
+        "indicatorTooltip": "AI 客户端正在访问本应用的能力",
+        "notRunning": "MCP 服务未运行",
+        "deployTitle": "一键部署到 AI 客户端",
+        "deployHint": "点「一键部署」会直接把本服务写进该客户端的配置文件，不改动其它条目；写入前会自动备份成 .alpha-mcp.bak。写完请完整退出并重启该客户端才会生效。",
+        "deployAction": "一键部署",
+        "deployInstalled": "已部署",
+        "deployNotYet": "未部署",
+        "deployNotDetected": "未检测到该客户端",
+        "deployDoneShort": "已配置",
+        "deployRemove": "移除",
+        "deployLoading": "正在探测本机客户端…",
+        "deployFailed": "部署失败，请查看下方错误提示",
+        "deployAlreadyCurrent": "配置本来就是最新的，什么都没改。",
+        "deployDone": "已部署到 {client}。配置文件：{path}。原文件已备份为 {backup}。请完整退出并重启该客户端。",
+        "deployRemoved": "已从 {client} 的配置中移除本服务。",
+        "deployClients": {
+          "codex": "Codex",
+          "cursor": "Cursor",
+          "claudeCode": "Claude Code",
+          "claudeDesktop": "Claude Desktop",
+          "openclaw": "OpenClaw",
+          "minimaxCode": "Minimax Code"
+        },
+        "recheck": "重新检测",
+        "restartTitle": "{client} 需要完整退出并重启",
+        "restartBody": "配置文件已经写好，但 MCP 客户端只在启动时读取配置，运行时不会自动刷新。请在 {client} 的托盘图标上右键退出（关窗口不算），再重新打开，然后回到这里点「重新检测」确认。",
+        "restartBackup": "原文件已备份为 {backup}，想撤销就把备份改回原名。",
+        "restartDismiss": "知道了"
       }
+    },
+    "storage": {
+      "thumbnailCache": {
+        "title": "缩略图缓存",
+        "description": "图片与视频缩略图共用同一个缓存目录。清理后缩略图会在下次浏览时自动重新生成。",
+        "sizeLabel": "占用大小",
+        "sizeUnknown": "未知",
+        "countLabel": "条目数",
+        "countUnknown": "未知",
+        "clear": "清理缓存",
+        "clearSuccess": "缩略图缓存已清理",
+        "clearFailed": "清理缩略图缓存失败",
+        "confirmTitle": "清理缩略图缓存？",
+        "confirmDescription": "此操作会同时清除图片缩略图与视频缩略图缓存，且无法撤销。被缓存的缩略图会在下次浏览对应文件时重新生成。"
+      },
+      "settingsTransfer": {
+        "title": "导出 / 导入设置",
+        "description": "把设置、收藏夹、远程连接与网盘连接导出成一个 JSON 文件。浏览历史与常用文件不导出。",
+        "export": "导出设置",
+        "import": "导入设置",
+        "exporting": "导出中…",
+        "importing": "导入中…",
+        "exportSuccess": "设置已导出",
+        "exportFailed": "导出设置失败",
+        "importSuccess": "设置已导入",
+        "importFailed": "导入设置失败",
+        "confirmTitle": "确认导入设置？",
+        "confirmDescription": "导入会覆盖当前的设置、收藏夹、标签与远程连接。浏览历史与常用文件不受影响。",
+        "invalidFile": "该文件不是有效的 Alpha File Manager 设置导出文件。",
+        "restartHint": "部分设置（如主题、语言）需要重启应用后才会生效。",
+        "credentialsHint": "有 {count} 条连接需要重新登录。"
+      }
+    },
+    "remote": {
+      "connections": {
+        "title": "远程连接",
+        "empty": "还没有任何连接。"
+      },
+      "action": {
+        "add": "添加连接",
+        "edit": "编辑",
+        "delete": "删除",
+        "save": "保存",
+        "cancel": "取消",
+        "browse": "浏览…",
+        "test": "测试连接"
+      },
+      "field": {
+        "name": "名称",
+        "protocol": "协议",
+        "host": "服务器地址",
+        "port": "端口",
+        "username": "用户名",
+        "password": "密码",
+        "initialPath": "初始目录",
+        "proxy": "代理",
+        "proxyHost": "代理地址",
+        "proxyPort": "代理端口",
+        "proxyUsername": "代理用户名",
+        "proxyPassword": "代理密码",
+        "localPath": "本地目录",
+        "cookie": "Cookie",
+        "includeInSearch": "加入全局检索",
+        "includeInSearchHint": "勾选后，该连接的文件会进入全局检索索引（需手动重建云盘索引）"
+      },
+      "protocol": {
+        "ftp": "FTP（明文）",
+        "ftps_explicit": "FTPS（显式）",
+        "ftps_implicit": "FTPS（隐式）",
+        "sftp": "SFTP",
+        "baidu_pan": "百度网盘",
+        "quark_pan": "夸克网盘",
+        "aliyun_pan": "阿里云盘",
+        "onedrive_pan": "OneDrive"
+      },
+      "proxy": {
+        "direct": "直连",
+        "socks5": "SOCKS5",
+        "http_connect": "HTTP CONNECT"
+      },
+      "password": {
+        "saved": "已保存密码",
+        "savedHint": "留空表示保持当前密码不变。",
+        "clear": "删除已保存的密码"
+      },
+      "error": {
+        "nameRequired": "连接名称不能为空。",
+        "hostRequired": "服务器地址不能为空。",
+        "hostHasWhitespace": "服务器地址不能包含空格。",
+        "portInvalid": "端口必须在 1 到 65535 之间。",
+        "initialPathInvalid": "初始目录含有不合法的段（不能是 . 或 ..）。",
+        "proxyHostRequired": "代理地址不能为空。",
+        "proxyHostHasWhitespace": "代理地址不能包含空格。",
+        "proxyPortInvalid": "代理端口必须在 1 到 65535 之间。",
+        "connectionIdInvalid": "连接 id 不合法。",
+        "remoteConnectionsStorageNotReady": "连接列表尚未加载完成，请稍后重试。",
+        "unknown": "保存连接失败。",
+        "localPathHasWhitespace": "本地目录不能包含空格。",
+        "testInvalidInput": "当前设置无法测试，请先填好服务器地址与端口。",
+        "baiduLoginRequired": "请先在应用内完成百度网盘登录，再保存这条连接。",
+        "quarkLoginRequired": "请先在应用内完成夸克网盘登录，再保存这条连接。",
+        "aliyunLoginRequired": "请先在应用内完成阿里云盘登录，再保存这条连接。",
+        "onedriveLoginRequired": "请先在应用内完成 OneDrive 授权，再保存此连接。"
+      },
+      "localPath": {
+        "hint": "可选。填写后，打开该连接会自动显示左右双屏：左侧是本地目录，右侧是远端目录。"
+      },
+      "test": {
+        "testing": "测试中…",
+        "outcome": {
+          "verified": "连接成功，服务器接受了当前设置。",
+          "auth_rejected": "连上了，但服务器拒绝了该用户名或密码。",
+          "missing_credential": "没有可用于验证的凭据，本次未做身份确认。",
+          "wrong_protocol": "对端有回应，但它不是所选协议的服务。",
+          "unreachable": "无法连接到服务器，请检查地址、端口与代理设置。",
+          "protocol_error": "连上了，但交互没有按预期完成。"
+        },
+        "passwordNotChecked": "本次未提交密码，因此不能据此确认密码正确。",
+        "tlsNotVerified": "TLS 证书未经验证。"
+      },
+      "nav": {
+        "openSettings": "远程连接设置",
+        "connect": "连接",
+        "netdisk": "网盘",
+        "netdiskDescription": "在内嵌窗口里登录百度网盘、夸克网盘或阿里云盘。凭据经 Windows DPAPI 加密，不会离开本机。",
+        "remoteSection": "远程连接",
+        "remoteDescription": "在这里保存 FTP、FTPS 与 SFTP 连接。凭据经 Windows DPAPI 加密，不会离开本机。",
+        "addNetdisk": "添加网盘",
+        "addRemote": "添加远程连接",
+        "emptyNetdisk": "还没有网盘连接。",
+        "emptyRemote": "还没有远程连接。",
+        "empty": "还没有配置任何远程连接。",
+        "split": "双屏",
+        "editConnection": "编辑该连接",
+        "homeEmpty": "还没有配置任何网盘或远程连接。"
+      },
+      "trustedHosts": {
+        "title": "已信任的主机",
+        "description": "你已核对过的主机公钥。只有信任之后，远程目录才会打开。",
+        "empty": "还没有信任过任何主机。",
+        "loadFailed": "读取已信任主机列表失败。",
+        "forget": "删除记录",
+        "forgetFailed": "删除这条记录失败，它仍在列表中。",
+        "kindSsh": "SSH 公钥",
+        "kindX509": "X.509 证书"
+      },
+      "baidu": {
+        "status": {
+          "loading": "正在读取授权状态…",
+          "missing": "尚未登录",
+          "ready": "已授权",
+          "stoken_expired": "STOKEN 已过期，需要重新登录",
+          "stoken_expiring_soon": "STOKEN 即将过期"
+        },
+        "action": {
+          "deleteSession": "删除已保存的会话"
+        },
+        "embedded": {
+          "title": "在应用内登录",
+          "start": "用内嵌窗口登录",
+          "cancel": "停止等待",
+          "hint": "在应用内打开登录窗口。登录成功后窗口会自动关闭，Cookie 随即取到——你只需保存这条连接。",
+          "status": {
+            "waiting": "正等你完成登录…",
+            "ready": "已登录。保存这条连接即可——会话会在保存时写入。",
+            "closed": "登录还没完成，登录窗口就被关掉了。",
+            "timeout": "登录等待超时了，请重试。",
+            "error": "读不到登录态，请重试。"
+          },
+          "saved": "百度网盘登录成功：窗口已自动关闭，Cookie 已取到，保存这条连接即可使用。"
+        }
+      },
+      "quark": {
+        "status": {
+          "loading": "正在读取授权状态…",
+          "missing": "尚未登录",
+          "ready": "已授权",
+          "stale": "会话已过期，需要重新登录",
+          "stale_soon": "会话即将过期"
+        },
+        "action": {
+          "deleteSession": "删除已保存的会话"
+        },
+        "embedded": {
+          "title": "在应用内登录",
+          "start": "用内嵌窗口登录",
+          "cancel": "停止等待",
+          "hint": "在应用内打开登录窗口。登录成功后窗口会自动关闭，会话随即取到——你只需保存这条连接。",
+          "status": {
+            "waiting": "正等你完成登录…",
+            "ready": "已登录。保存这条连接即可——会话会在保存时写入。",
+            "closed": "登录还没完成，登录窗口就被关掉了。",
+            "timeout": "登录等待超时了，请重试。",
+            "error": "读不到登录态，请重试。"
+          },
+          "saved": "夸克网盘登录成功：窗口已自动关闭，会话已取到，保存这条连接即可使用。"
+        }
+      },
+      "aliyun": {
+        "status": {
+          "loading": "正在读取授权状态…",
+          "missing": "尚未登录",
+          "ready": "已授权",
+          "stale": "会话已过期，需要重新登录",
+          "stale_soon": "会话即将过期"
+        },
+        "action": {
+          "deleteSession": "删除已保存的会话"
+        },
+        "embedded": {
+          "title": "扫码登录",
+          "start": "显示二维码",
+          "refresh": "刷新二维码",
+          "cancel": "停止等待",
+          "hint": "这里会显示登录二维码，用手机上的阿里云盘 App 扫一下即可；会话会自动取到，你只需保存这条连接。扫不了码的话，可以在下面粘贴 access token。",
+          "status": {
+            "waiting": "正等你扫码…",
+            "scanned": "手机已扫到二维码——请在手机上点「确认登录」，确认后这里会自动变成「已登录」。",
+            "ready": "已登录。保存这条连接即可——会话会在保存时写入。",
+            "closed": "扫码在完成前被取消了。",
+            "timeout": "二维码已过期，请重新生成。",
+            "error": "读不到登录态，请重试。"
+          },
+          "saved": "阿里云盘登录成功。保存这条连接即可使用。",
+          "windowStart": "打开登录窗口",
+          "windowCancel": "关闭窗口",
+          "windowHint": "窗口里由阿里云盘官方页面出码并确认，凭据直接交给程序，不经过本表单。",
+          "qrFallback": "备用：手动二维码登录"
+        },
+        "field": {
+          "pasteToken": "access token（访问令牌）",
+          "pasteTokenHint": "粘贴你已有的 access token。保存前会先向阿里云盘校验，token 明文不会离开本机。"
+        }
+      },
+      "netdisk": {
+        "provider": "网盘类型",
+        "baidu": "百度网盘",
+        "quark": "夸克网盘",
+        "aliyun": "阿里云盘",
+        "signedIn": "已登入",
+        "onedrive": "OneDrive"
+      },
+      "onedrive": {
+        "field": {
+          "clientId": "应用（客户端）ID",
+          "clientIdHint": "你在 Microsoft Entra 里为 OneDrive 注册的应用客户端 ID。它随授权会话一起存在本机，不经过这个表单。",
+          "authUrl": "授权页地址",
+          "authUrlHint": "浏览器没有自动打开时，复制这个地址到浏览器里完成授权。"
+        },
+        "action": {
+          "start": "开始授权",
+          "cancel": "取消等待",
+          "deleteSession": "删除已保存的会话"
+        },
+        "state": {
+          "pending": "正在等待你在浏览器里完成授权……",
+          "completed": "已授权。保存此连接时会把会话写入。",
+          "failed": "授权没有完成，请重试。"
+        },
+        "auth": {
+          "authorized": "已授权",
+          "missing": "未授权",
+          "loading": "正在读取授权状态……"
+        },
+        "hint": {
+          "clientIdRequired": "请先填写应用（客户端）ID。"
+        }
+      }
+    },
+    "about": {
+      "title": "关于",
+      "changelog": "更新日志",
+      "projectLinks": "项目链接",
+      "commits": "提交记录",
+      "author": "作者",
+      "developer": "段燚",
+      "website": "网站",
+      "wechat": "微信公众号",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "扫码关注"
     }
   },
   "projectGithubButtons": {
     "projectPage": "项目页面",
-    "requestsIssues": "报告问题",
-    "discussions": "讨论"
+    "requestsIssues": "报告问题"
   },
   "settingsTabs": {
     "general": "常规",
@@ -470,7 +918,9 @@
     "dataStorage": "数据存储",
     "stats": "统计",
     "experimental": "实验性",
-    "extensions": "拓展功能"
+    "extensions": "拓展功能",
+    "remote": "远程",
+    "about": "关于"
   },
   "settingsTags": {
     "language": "语言",
@@ -483,8 +933,8 @@
     "visualFilters": "视觉、滤镜、颜色、对比度、亮度、饱和度、图像、视频、主题、对话框、背景、模糊",
     "fonts": "字体,文本",
     "dateTime": "日期,时间,格式",
-    "uiElements": "ui、元素、视觉、输入、重音、颜色、时间线、仪表板、页面、最近、卡片、主页、驱动器、空间、指示器、样式",
-    "quickAccess": "quick, access, panel, hover, sidebar, dashboard",
+    "uiElements": "ui、元素、视觉、输入、重音、颜色、时间线、快速访问、页面、最近、卡片、主页、驱动器、空间、指示器、样式",
+    "quickAccess": "quick, access, panel, hover, sidebar",
     "tooltips": "tooltip, tooltips, hover, delay, timing",
     "clipboard": "剪贴板, 粘贴, 复制, 剪切, 工具栏, 图像, 截图, 路径, 文件",
     "homePageMediaBanner": "主页、页面、媒体、横幅、背景、图像、视频",
@@ -492,7 +942,7 @@
     "shortcuts": "快捷键",
     "tabAppearance": "标签,活动标签,加粗,文本",
     "globalSearch": "全局,搜索,查找,查看,过滤,扫描",
-    "stats": "统计、数据、用户、收藏、标签、历史、最近、仪表板、存储",
+    "stats": "统计、数据、用户、收藏、标签、历史、最近、快速访问、存储",
     "driveDetection": "驱动器、USB、存储、磁盘、设备、检测、连接",
     "autoplay": "自动播放、资源管理器、windows、驱动器、usb、自动、打开、文件夹",
     "experimental": "高级，实验性，默认文件管理器，文件资源管理器，注册表，终端，壳",
@@ -501,10 +951,13 @@
     "extensions": "extensions, plugins, addons, configuration, settings",
     "infoPanelPreview": "info, panel, preview, image, thumbnail, memory, original, full-size, quick view, video, mute, autoplay",
     "performance": "performance, memory, quick view, print, window, launch, preload",
-    "fileView": "文件视图, 框选, 拖动选择, 列表, 网格, 间距, 内边距",
+    "fileView": "文件视图, 框选, 拖动选择, 列表, 网格, 间距, 内边距, 文件夹, 优先, 置顶, 排序, 顺序, 文件, 目录, 分组, 视图",
     "tabsWorkspaces": "标签, 工作区, 关闭, 最后一个标签, 默认标签",
     "defaultDirectory": "主页, locations, 此电脑, 计算机, 驱动器, 默认文件夹, 默认目录, 新标签, 自定义路径",
-    "startupPage": "启动页, 启动, 启动时打开, 主页, 仪表板, 导航器, 上次打开的页面, 恢复, 页面"
+    "startupPage": "启动页, 启动, 启动时打开, 主页, 快速访问, 导航器, 上次打开的页面, 恢复, 页面",
+    "thumbnailCache": "缩略图, 缓存, 清理, 图片, 视频, 预览, 存储, 磁盘, 占用",
+    "about": "关于, 版本, 更新, 更新日志, github, 作者, 网站, 微信公众号, 二维码",
+    "settingsTransfer": "导出, 导入, 设置, 收藏夹, 远程连接, 网盘, 备份, 恢复"
   },
   "drag": {
     "holdShiftToChangeMode": "按住 [Shift] 改变模式",
@@ -537,13 +990,15 @@
     "localShortcutsAppScope": "本地快捷键（应用范围）",
     "unknownMainKey": "未知按键",
     "globalShortcutRegisterFailed": "无法注册此全局快捷键。可能已被 Windows 或其他应用占用。请尝试其他组合（例如 Win+Shift+… 或 Ctrl+Alt+…）。",
-    "shortcutRecorderGlobalCaptureHint": "如果按键后没有任何显示，可能是您的系统或其他程序在本窗口收到按键之前就拦截了。请尝试其他组合。"
+    "shortcutRecorderGlobalCaptureHint": "如果按键后没有任何显示，可能是您的系统或其他程序在本窗口收到按键之前就拦截了。请尝试其他组合。",
+    "shortcutTakenBySystem": "已被系统占用",
+    "shortcutSystemConflictHint": "该组合键已被其他程序注册为系统级热键，Alpha File Manager 收不到它，请换用其他组合键。"
   },
   "shortcuts": {
     "focusAppWindow": "聚焦应用程序窗口",
     "switchToHomePage": "切换到主页",
     "switchToNavigatorPage": "切换到导航器页面",
-    "switchToDashboardPage": "切换到仪表板",
+    "switchToDashboardPage": "切换到快速访问",
     "switchToSettingsPage": "切换到设置页面",
     "switchToExtensionsPage": "切换到扩展页面",
     "navigatePageBack": "导航到上一页",
@@ -596,7 +1051,7 @@
     "deleteSelectedItemsFromDrive": "从驱动器中删除",
     "moveCurrentDirectoryToTrash": "将当前目录移至垃圾箱",
     "deleteCurrentDirectoryFromDrive": "从驱动器中删除当前目录",
-    "toggleCommandPalette": "Open / close command palette"
+    "toggleCommandPalette": "打开 / 关闭命令面板"
   },
   "dialogs": {
     "userDirectoryEditorDialog": {
@@ -641,6 +1096,22 @@
       "description": "此操作将永久性地从您的计算机中删除 {count} 个项目。",
       "confirm": "如果您了解此操作无法撤消，请确认。",
       "delete": "删除"
+    },
+    "remoteHostKeyUnknown": {
+      "title": "还没有核对过这台服务器的身份",
+      "description": "这是第一次连接这台主机。请把下面的指纹与服务器管理员给你的那份逐一对照，确认无误之后再决定是否信任。",
+      "trust": "信任并继续"
+    },
+    "remoteHostKeyChanged": {
+      "title": "这台服务器的身份变了",
+      "description": "它出示的主机公钥与你此前信任过的那份不一致。可能是服务器重装了密钥，也可能有人在中途。",
+      "expected": "此前已信任的指纹：",
+      "trustAnyway": "替换并继续"
+    },
+    "remoteHostKeyCommon": {
+      "algorithm": "主机公钥算法：{algorithm}",
+      "hint": "可以自己核对：ssh-keygen -lf <主机公钥文件>",
+      "hintX509": "你可以自己核对：openssl x509 -fingerprint -sha256 -noout -in <证书文件>"
     }
   },
   "notifications": {
@@ -674,7 +1145,9 @@
     "addedToFavorites": "Added 0 items to favorites | Added 1 item to favorites | Added {n} items to favorites | Added {n} items to favorites",
     "createdNLinks": "已创建 0 个链接 | 已创建 1 个链接 | 已创建 {n} 个链接 | 已创建 {n} 个链接",
     "createdNOfNLinks": "已创建 {total} 个链接中的 {created} 个",
-    "linkCreationPartialFailureDescription": "{count} 个链接失败。第一个错误：{error}"
+    "linkCreationPartialFailureDescription": "{count} 个链接失败。第一个错误：{error}",
+    "deletingLargeBatch": "正在删除 {count} 个项目",
+    "deletingLargeBatchDetail": "{files} 个文件 · {directories} 个目录 · {size}"
   },
   "contextMenus": {
     "dirItem": {
@@ -779,7 +1252,7 @@
   "left": "左",
   "right": "右",
   "none": "无",
-  "freeOf": "自由于",
+  "freeOf": "可用",
   "driveNotMounted": "未挂载",
   "mounting": "挂载中",
   "unmount": "卸载",
@@ -799,6 +1272,10 @@
   "networkRemotePath": "远程路径",
   "networkMountName": "挂载为",
   "networkMountNamePlaceholder": "my_share",
+  "mapNetworkDrive": "添加网络驱动器",
+  "mapNetworkDriveDescription": "把一个网络共享映射成一个盘符。挂好之后它会出现在左侧的盘符列表里。",
+  "networkDriveLetter": "盘符",
+  "networkDriveLetterPlaceholder": "自动",
   "connect": "连接",
   "terminal": {
     "openInTerminal": "在终端中打开",
@@ -856,6 +1333,7 @@
     },
     "name": "名称",
     "size": "大小",
+    "availableSpace": "可用空间",
     "modified": "修改时间",
     "listModifiedDate": {
       "todayAt": "今天 {time}",
@@ -864,6 +1342,7 @@
     "columns": "列",
     "tags": "标签",
     "folders": "文件夹",
+    "partitions": "分区",
     "images": "图片",
     "videos": "视频",
     "video": "视频",
@@ -910,12 +1389,17 @@
     "actions": {
       "rename": "重命名",
       "copy": "复制",
+      "cut": "剪切",
       "move": "移动",
       "paste": "粘贴",
       "pasteToPane1": "粘贴到面板 1",
       "pasteToPane2": "粘贴到面板 2",
+      "pasteShortcut": "粘贴快捷方式",
       "delete": "删除",
       "openWith": "打开方式...",
+      "openContainingDirectory": "打开文件所在目录",
+      "openContainingDirectoryFailed": "无法打开文件所在目录",
+      "openContainingDirectoryInApp": "打开所属目录",
       "properties": "属性",
       "propertiesFailed": "无法打开属性",
       "quickView": "快速查看",
@@ -924,7 +1408,16 @@
       "openInNewTab": "在新标签页中打开",
       "addToFavorites": "添加到收藏",
       "removeFromFavorites": "从收藏中移除",
-      "createLink": "创建链接"
+      "createLink": "创建链接",
+      "unlock": "解除文件锁定",
+      "forceDelete": "彻底删除",
+      "rotateImageLeft": "向左旋转",
+      "rotateImageRight": "向右旋转",
+      "flipImageHorizontal": "左右翻转",
+      "flipImageVertical": "上下翻转",
+      "imageEditSucceeded": "图片编辑成功",
+      "imageEditFailed": "图片编辑失败",
+      "imageEditInProgress": "处理中…"
     },
     "linkTypes": {
       "symlink": "符号链接",
@@ -995,7 +1488,30 @@
     "linkMetadataPerformanceWarning": "可能会增加内存使用量并降低性能。",
     "fillColumnWidth": "填充可用宽度",
     "setMinimumColumnWidths": "设置最小宽度",
-    "items": "项目"
+    "items": "项目",
+    "favoriteCategoryDialog": {
+      "title": "添加到收藏",
+      "categoryLabel": "选择分类",
+      "uncategorized": "未分类",
+      "newCategoryLabel": "或新建分类",
+      "newCategoryPlaceholder": "输入新分类名称",
+      "confirm": "添加到收藏",
+      "multipleEntries": "以及另外 {n} 个项目",
+      "displayNameLabel": "显示名称",
+      "displayNamePlaceholder": "留空则使用原始名称"
+    },
+    "searchOptions": {
+      "title": "搜索选项",
+      "matchCount": "无匹配 | 匹配 1 项 | 匹配 {n} 项",
+      "results": "结果",
+      "options": "选项"
+    },
+    "swapPanes": "左右互换",
+    "devices": "设备",
+    "device": "设备",
+    "deviceOpenFailed": "无法打开该设备",
+    "deviceOpenFailedDescription": "设备可能已断开连接。可以改用系统资源管理器打开。",
+    "openInSystemExplorer": "在系统资源管理器中打开"
   },
   "openWith": {
     "loadingPrograms": "正在加载程序...",
@@ -1095,7 +1611,7 @@
     },
     "badges": {
       "official": "官方",
-      "officialTooltip": "此扩展程序由 Sigma 文件管理器团队创建和维护",
+      "officialTooltip": "此扩展程序由 Alpha File Manager 团队创建和维护",
       "community": "社区",
       "communityTooltip": "这是社区扩展程序。安装前请查看源代码。",
       "local": "本地",
@@ -1103,7 +1619,9 @@
       "broken": "损坏",
       "brokenTooltip": "扩展文件缺失。卸载以从列表中移除。",
       "disabled": "已禁用",
-      "disabledTooltip": "此扩展已禁用"
+      "disabledTooltip": "此扩展已禁用",
+      "source": "来源",
+      "sourceTooltip": "市场源：{name}"
     },
     "stats": {
       "total": "总计",
@@ -1191,22 +1709,35 @@
       "reloadFailed": "更新二进制设置后重新加载扩展失败"
     },
     "engineIncompatibleShort": "需要更新",
-    "engineAppWarning": "需要 Sigma File Manager {range}（当前为 {current}）",
+    "engineAppWarning": "需要 Alpha File Manager {range}（当前为 {current}）",
     "engineApiWarning": "需要扩展 API {range}（当前为 {current}）",
     "engineRequirements": "要求",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "扩展 API",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",
     "githubConnectivityIssue": "无法连接 GitHub",
     "githubConnectivityIssueDescription": "部分扩展版本检查失败，因为应用无法连接到 GitHub。请检查网络连接、VPN 或防火墙设置，稍后再试。",
     "offlineIssue": "You are offline",
-    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features."
+    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features.",
+    "marketSources": "市场源",
+    "marketSourceAdd": "添加市场源",
+    "marketSourceName": "名称",
+    "marketSourceUrl": "清单地址",
+    "marketSourceOfficial": "官方",
+    "marketSourceCommunity": "第三方",
+    "marketSourceCustom": "自建",
+    "marketSourceAll": "全部",
+    "marketSourceEmpty": "还没有添加任何市场源。",
+    "marketSourceRemove": "移除市场源",
+    "marketSourceRemoveConfirm": "移除该市场源？它提供的扩展会在下次刷新市场时被卸载。",
+    "marketSourceInvalidUrl": "请输入公网 HTTPS 地址。",
+    "marketSourceUnreachable": "无法连接"
   },
   "commandPalette": {
     "accessibleDialogTitle": "命令面板",
     "accessibleDialogDescription": "输入文字筛选，然后从列表中选择命令。",
-    "searchPlaceholder": "输入命令或搜索...",
+    "searchPlaceholder": "输入命令...",
     "noResults": "未找到命令。",
     "noCommands": "未注册任何命令。安装并启用扩展以添加命令。",
     "recentHeading": "最近",
@@ -1229,7 +1760,9 @@
       "trash": "回收站",
       "deletePermanent": "删除",
       "archive": "归档",
-      "dirSize": "文件夹大小"
+      "dirSize": "文件夹大小",
+      "remoteUpload": "上传",
+      "remoteDownload": "下载"
     },
     "operationStatusShort": {
       "completed": "成功",
@@ -1239,7 +1772,13 @@
       "pending": "等待中",
       "cancelling": "正在取消…"
     },
-    "toolbarActiveCount": "0 项操作 | 1 项操作 | {n} 项操作 | {n} 项操作"
+    "toolbarActiveCount": "0 项操作 | 1 项操作 | {n} 项操作 | {n} 项操作",
+    "deleteScanning": "正在统计要删掉多少…",
+    "deleteScanningFound": "已发现 {count} 项",
+    "deleteItemsProgress": "已删除 {done} / {total} 项",
+    "deleteTrashing": "正在移至回收站…",
+    "cancelNotAccepted": "无法取消：文件正在移入回收站，搬运中途不能中断。",
+    "deleteBytesProgress": "已释放 {done} / {total}"
   },
   "recalculate": "Recalculate",
   "lanShare": {
@@ -1266,5 +1805,287 @@
     "replaceShareDialogDescription": "文件已在网络上共享。当前共享将被停止并替换为新的共享。",
     "replaceShareDialogConfirm": "替换"
   },
-  "tree": "Tree"
+  "tree": "Tree",
+  "batchRename": {
+    "menuItem": "批量改名",
+    "dialog": {
+      "title": "批量改名",
+      "tabRename": "改名",
+      "tabHistory": "撤销历史",
+      "cancel": "取消",
+      "apply": "执行改名",
+      "close": "关闭",
+      "loading": "正在计算…",
+      "noRules": "尚未添加规则，不会改名。",
+      "summaryChanged": "将改名 {count} 项",
+      "summaryUnchanged": "{count} 项保持不变",
+      "blocked": "存在冲突，请先解决再执行。",
+      "openHistory": "撤销历史"
+    },
+    "rules": {
+      "title": "规则",
+      "empty": "还没有规则。",
+      "add": "添加规则",
+      "remove": "删除规则",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "sortLabel": "编号顺序",
+      "type": {
+        "findReplace": "查找替换",
+        "caseTransform": "大小写转换",
+        "template": "模板",
+        "sequence": "序号",
+        "extension": "扩展名"
+      },
+      "findReplace": {
+        "find": "查找",
+        "replace": "替换为",
+        "caseSensitive": "区分大小写",
+        "includeExtension": "包含扩展名"
+      },
+      "caseTransform": {
+        "mode": "转换方式",
+        "includeExtension": "包含扩展名"
+      },
+      "case": {
+        "upper": "全部大写",
+        "lower": "全部小写",
+        "title": "首字母大写",
+        "camel": "驼峰",
+        "snake": "下划线",
+        "kebab": "短横线"
+      },
+      "template": {
+        "pattern": "模板",
+        "variables": "可用变量",
+        "dateFormat": "日期格式"
+      },
+      "sequence": {
+        "start": "起始值",
+        "step": "步长",
+        "pad": "补零位数",
+        "hint": "序号本身不产生改名，它只是为模板规则提供序号变量。需要再加一条模板规则才会生效。",
+        "addTemplate": "添加一条模板规则"
+      },
+      "extension": {
+        "newExtension": "新扩展名",
+        "newExtensionHint": "留空表示去掉扩展名"
+      }
+    },
+    "sort": {
+      "selection": "按选择顺序",
+      "nameAsc": "按名称升序",
+      "nameDesc": "按名称降序",
+      "modifiedAsc": "按修改时间从早到晚",
+      "modifiedDesc": "按修改时间从晚到早",
+      "sizeAsc": "按大小从小到大",
+      "sizeDesc": "按大小从大到小"
+    },
+    "preview": {
+      "title": "预览",
+      "oldName": "原文件名",
+      "newName": "新文件名",
+      "empty": "没有可预览的条目。",
+      "unchanged": "不变"
+    },
+    "conflicts": {
+      "title": "冲突",
+      "targetExists": "新名已被目录内其它文件占用。",
+      "duplicateTarget": "有多个条目会得到相同的名字。",
+      "invalidTitle": "非法的文件名",
+      "invalid": {
+        "empty": "文件名为空。",
+        "illegalCharacter": "包含文件名不允许的字符。",
+        "windowsReservedName": "Windows 保留名。",
+        "trailingDotOrSpace": "不能以点或空格结尾。"
+      }
+    },
+    "result": {
+      "success": "已改名 {count} 项",
+      "partial": "改名失败",
+      "rollbackOk": "已回滚，目录恢复到改动前状态。",
+      "rollbackFailed": "回滚失败，目录可能处于中间状态，请手动检查。",
+      "noUndo": "本次改动未能记录，无法撤销。"
+    },
+    "history": {
+      "title": "撤销历史",
+      "empty": "暂无历史记录。",
+      "undo": "撤销",
+      "undoing": "撤销中…",
+      "itemCount": "{count} 个文件",
+      "undoSuccess": "已撤销 {count} 项",
+      "undoFailed": "撤销失败",
+      "blockedBy": "以下名称已被占用，无法还原：{names}",
+      "notFound": "该条历史记录已不存在。"
+    }
+  },
+  "remote": {
+    "transfer": {
+      "uploadToRemote": "上传到远程",
+      "downloadToLocal": "下载到本地",
+      "uploadSucceeded": "已上传 {files} 个文件到远程目录。",
+      "uploadFailed": "上传没有完全成功：成功 {files} 个，跳过 {skipped} 个，失败 {failed} 个。",
+      "downloadSucceeded": "已下载 {files} 个文件到本地目录。",
+      "downloadFailed": "下载没有完全成功：成功 {files} 个，跳过 {skipped} 个，失败 {failed} 个。",
+      "uploading": "正在上传到远程",
+      "downloading": "正在从远程下载",
+      "progressFiles": "已传输 {done} / {total} 个文件",
+      "progressBytes": "已传输 {done} / {total}",
+      "progressCurrent": "当前：{name}",
+      "resultTitle": "传输结果",
+      "resultSummary": "成功 {files} 个，跳过 {skipped} 个，失败 {failed} 个",
+      "failureSection": "失败的文件",
+      "skippedSection": "跳过的文件",
+      "skipReasonAlreadyExists": "目标已存在，未覆盖",
+      "conflictTitle": "目标已存在",
+      "conflictMessage": "目标目录里已有 {count} 个同名文件，要覆盖它们吗？",
+      "conflictOverwrite": "覆盖",
+      "conflictSkipExisting": "跳过已存在的",
+      "noRemotePane": "对面那一格不在远程上",
+      "uploadFailedTitle": "上传没有完全成功",
+      "downloadFailedTitle": "下载没有完全成功",
+      "pasteToRemoteFailed": "复制失败",
+      "remoteToRemoteNotSupported": "网盘文件暂不支持复制到另一个网盘位置。请先点击本地文件夹窗格，再按 Ctrl+V 粘贴下载；也可以右键网盘文件选择「下载到本地」。",
+      "pasteFromRemoteFailed": "从远程复制失败",
+      "conflictApplyToAll": "对所有同名文件使用相同处理",
+      "conflictContinue": "继续",
+      "skipReasonUserSkipped": "你选择了跳过"
+    },
+    "permissions": {
+      "menuItem": "权限设置...",
+      "title": "权限设置",
+      "modeLabel": "权限（八进制）",
+      "modeHint": "例如 0754 表示所有者可读、可写、可执行，组可读、可执行，其他可读。",
+      "unknownMode": "读不到当前权限，请从列表中选择。",
+      "owner": "所有者",
+      "group": "组",
+      "others": "其他",
+      "read": "读",
+      "write": "写",
+      "execute": "执行",
+      "none": "无",
+      "separator": "、",
+      "recursive": "同时应用到子目录和其中的文件",
+      "apply": "应用",
+      "success": "权限已更新（{changed} 项）。",
+      "partialFailure": "权限已更新 {changed} 项，另有 {failed} 项失败。",
+      "failed": "权限设置失败：{message}",
+      "error": {
+        "empty": "请填写八进制权限，例如 0754。",
+        "tooLong": "最多 4 位八进制数字。",
+        "notOctal": "只能使用 0-7 这几个数字。",
+        "unknown": "无法识别这个权限值。"
+      }
+    },
+    "delete": {
+      "menuItem": "删除",
+      "title": "删除远程项目",
+      "descriptionSingle": "{path} 将被永久删除，无法撤销。",
+      "description": "此操作将永久删除远程服务器上的 {count} 个项目，无法撤销。",
+      "noTrashHint": "远程服务器上没有回收箱，删除后无法恢复。",
+      "connectionHint": "连接：{name}",
+      "confirm": "删除",
+      "success": "已删除 {count} 个远程项目。",
+      "failed": "删除失败",
+      "permissionDenied": "权限不足，无法删除"
+    },
+    "write": {
+      "fileCreationNotSupported": "远程目录不支持新建空文件。",
+      "fileCreationNotSupportedTitle": "无法新建文件"
+    }
+  },
+  "compareSync": {
+    "title": "比较并同步",
+    "description": "对比左右两侧的目录，按结果同步。这一步不做删除。",
+    "stepSettings": "设置",
+    "stepResults": "结果",
+    "stepPreview": "预览与执行",
+    "leftDirectory": "左侧目录",
+    "rightDirectory": "右侧目录",
+    "leftDirectoryHint": "来源侧",
+    "rightDirectoryHint": "目标侧",
+    "tabCriteria": "准则",
+    "tabExclude": "排除",
+    "criteriaByTime": "按修改时间",
+    "criteriaBySize": "按文件大小",
+    "criteriaByChecksum": "按内容校验和",
+    "criteriaByChecksumHint": "只有本地与本地之间算得出来；远程没有校验和可比。",
+    "criteriaCaseSensitive": "区分大小写",
+    "criteriaRecursive": "递归比较子目录",
+    "criteriaMaxDepth": "最大递归深度",
+    "criteriaMaxDepthUnlimited": "不限",
+    "criteriaRemoteTimeOffset": "远端时间偏移（秒）",
+    "criteriaRemoteTimeOffsetHint": "服务器报的通常是服务器本地时区的时间，用这个偏移换算到本机时区。",
+    "excludePatterns": "排除规则",
+    "excludePatternsHint": "一行一条，支持 * 与 ?。命中的目录整棵子树都不参与比较。",
+    "compare": "比较",
+    "comparing": "比较中…",
+    "back": "上一步",
+    "preview": "生成预览",
+    "execute": "开始同步",
+    "executing": "同步中…",
+    "cancel": "取消",
+    "filterAll": "全部",
+    "filterDifferences": "仅差异",
+    "statusSame": "相同",
+    "statusOnlyLeft": "仅左侧",
+    "statusOnlyRight": "仅右侧",
+    "statusNewer": "左侧较新",
+    "statusOlder": "左侧较旧",
+    "statusSizeDiff": "大小不同",
+    "statusContentDiff": "内容不同",
+    "statusKindDiff": "类型不同",
+    "statusIndeterminate": "无法判定",
+    "directionToRight": "左侧 → 右侧",
+    "directionToLeft": "右侧 → 左侧",
+    "directionNone": "无需处理",
+    "directionIndeterminate": "方向待定",
+    "noDifferences": "没有差异。",
+    "statsTotal": "共",
+    "statsSame": "相同",
+    "statsDifferences": "有差异",
+    "statsNeedsReview": "待定",
+    "actionCreateDir": "新建目录",
+    "actionTransferFile": "传输文件",
+    "actionSkip": "跳过",
+    "planSummary": "将新建 {dirs} 个目录、传输 {files} 个文件、跳过 {skipped} 项。",
+    "reportTransferred": "已传输",
+    "reportCreatedDirs": "已新建目录",
+    "reportSkipped": "已跳过",
+    "reportFailed": "失败",
+    "reportCancelled": "已取消",
+    "invalidPath": "这个路径用不了。",
+    "progressPreparing": "准备中…",
+    "progressScanningLeft": "正在扫描左侧…",
+    "progressScanningRight": "正在扫描右侧…",
+    "progressComparing": "正在比对差异…",
+    "progressDone": "完成",
+    "progressScanned": "已扫描 {count} 个条目",
+    "progressCompared": "已比对 {count} / {total} 个条目",
+    "rowsTruncated": "共 {total} 条，已显示 {shown} 条。条目太多时请用筛选缩小范围。",
+    "showMore": "再显示 {count} 条",
+    "statsUnreadable": "无法读取"
+  },
+  "fileLock": {
+    "unlocked": "已解除锁定",
+    "unlockedDescription": "挡着删除的东西已经清掉，现在可以正常删除这个文件了。",
+    "unlockFailed": "无法解除文件锁定",
+    "forceDeleted": "已彻底删除",
+    "forceDeletedDescription": "该文件虽然正在被使用，仍已被删除。",
+    "forceDeleteFailed": "无法彻底删除该文件",
+    "scheduledForReboot": "已登记为重启后删除",
+    "scheduledForRebootDescription": "该文件仍被占用，已登记为下次启动 Windows 时删除。",
+    "terminateFailed": "无法结束进程",
+    "unknownError": "未知错误",
+    "holdersTitle": "正在使用该文件的程序",
+    "holdersDescription": "这些程序正占用着该文件。结束其中任何一个都可能导致未保存的内容丢失。",
+    "noHolders": "没有找到占用该文件的程序。",
+    "endProcess": "结束进程",
+    "diagnoseFailed": "无法查出哪些程序正在使用该文件"
+  },
+  "webviewGuard": {
+    "detected": "检测到界面渲染进程异常，正在尝试自动恢复",
+    "recovered": "界面已恢复正常",
+    "recoveryFailed": "界面无法自动恢复，请重启应用"
+  }
 }

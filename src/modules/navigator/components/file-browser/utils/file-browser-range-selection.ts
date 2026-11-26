@@ -4,14 +4,19 @@
 
 import type { DirEntry } from '@/types/dir-entry';
 import { mergeBoxSelection } from './file-browser-box-selection-policy';
+import { getFileBrowserEntryKey } from './file-browser-entry-key';
 
 export function getEntriesInInclusiveRange(
   entries: readonly DirEntry[],
   fromEntry: DirEntry,
   toEntry: DirEntry,
 ): DirEntry[] {
-  let startIndex = entries.findIndex(item => item.path === fromEntry.path);
-  let endIndex = entries.findIndex(item => item.path === toEntry.path);
+  let startIndex = entries.findIndex(
+    item => getFileBrowserEntryKey(item) === getFileBrowserEntryKey(fromEntry),
+  );
+  let endIndex = entries.findIndex(
+    item => getFileBrowserEntryKey(item) === getFileBrowserEntryKey(toEntry),
+  );
 
   if (startIndex === -1 || endIndex === -1) {
     return [];

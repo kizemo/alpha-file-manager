@@ -26,6 +26,7 @@ const {
   platformInitMock,
   quickViewEnsureMainWindowDisplayedPathListenerMock,
   removeAppSplashMock,
+  remoteConnectionsInitMock,
   resolveLaunchTargetsFromArgsMock,
   routerPushMock,
   setFocusMock,
@@ -61,6 +62,7 @@ const {
   platformInitMock: vi.fn(),
   quickViewEnsureMainWindowDisplayedPathListenerMock: vi.fn(),
   removeAppSplashMock: vi.fn(),
+  remoteConnectionsInitMock: vi.fn(),
   resolveLaunchTargetsFromArgsMock: vi.fn(),
   routerPushMock: vi.fn(),
   setFocusMock: vi.fn(),
@@ -84,6 +86,12 @@ const {
     },
   },
   userSettingsSetMock: vi.fn(),
+}));
+
+// FORK-MODIFICATION 2026-11-19（批次 23）：设备打开失败时的可见提示。
+const { openInSystemExplorerMock, toastCustomMock } = vi.hoisted(() => ({
+  openInSystemExplorerMock: vi.fn(),
+  toastCustomMock: vi.fn(),
 }));
 
 vi.mock('vue', async () => {
@@ -170,6 +178,12 @@ vi.mock('@/stores/storage/workspaces', () => ({
     openOrFocusTabGroup: openOrFocusTabGroupMock,
     getDirEntry: getDirEntryMock,
     setPendingLaunchReveal: setPendingLaunchRevealMock,
+  }),
+}));
+
+vi.mock('@/stores/storage/remote-connections', () => ({
+  useRemoteConnectionsStore: () => ({
+    init: remoteConnectionsInitMock,
   }),
 }));
 
@@ -332,6 +346,27 @@ vi.mock('@/utils/path-comparison-volume-cache', () => ({
   warmPathComparisonVolumeCache: vi.fn().mockResolvedValue(undefined),
 }));
 
+// FORK-MODIFICATION 2026-11-19（批次 23）：设备打开失败提示用到的三样东西都换成桩。
+//
+// `vue-i18n` 必须换：真实 `useI18n()` 要求有活跃的组件实例与 i18n 实例，
+// 而这里是纯函数式调用（`useInit()` 由 app.vue 在 setup 里调，但单测直接调）。
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string) => `t:${key}`,
+  }),
+}));
+
+vi.mock('@/components/ui/toaster', () => ({
+  toast: {
+    custom: toastCustomMock,
+  },
+  ToastStatic: { name: 'ToastStatic' },
+}));
+
+vi.mock('@/utils/open-in-system-explorer', () => ({
+  openInSystemExplorer: openInSystemExplorerMock,
+}));
+
 describe('useInit startup restoration', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -354,6 +389,7 @@ describe('useInit startup restoration', () => {
     platformInitMock.mockReset().mockResolvedValue(undefined);
     quickViewEnsureMainWindowDisplayedPathListenerMock.mockReset().mockResolvedValue(undefined);
     removeAppSplashMock.mockReset();
+    remoteConnectionsInitMock.mockReset().mockResolvedValue(undefined);
     resolveLaunchTargetsFromArgsMock.mockReset().mockResolvedValue([]);
     routerPushMock.mockReset().mockResolvedValue(undefined);
     setFocusMock.mockReset().mockResolvedValue(undefined);
@@ -475,6 +511,48 @@ describe('useInit startup restoration', () => {
     expect(showWindowMock).toHaveBeenCalledTimes(1);
     expect(callOrder.indexOf('loadCurrentTabGroup')).toBeLessThan(callOrder.indexOf('showMainWindow'));
     expect(callOrder.indexOf('openOrFocusTabGroup:C:/Launch')).toBeLessThan(
+      callOrder.indexOf('showMainWindow'),
+    );
+  });
+
+  /**
+   * FORK-MODIFICATION 2026-10-20：远程连接必须在**启动序列**里加载，不能靠组件
+   * 各自 onMounted。
+   *
+   * 打包版实测到的故障：直接进导航器、没打开过侧栏远程面板和设置页时，
+   * `connections` 一直是空的，于是右键菜单的「权限设置」按协议判定整个消失，
+   * 目录树根的标签也从连接名回落成 32 位连接 id —— 两处都不报错，
+   * 只是功能「凭空没了」。
+   *
+   * 断言的是**在窗口第一次显示之前**就加载完：用户能看见界面时，
+   * 数据必须已经在那里，不能靠「哪个组件先挂载」。
+   */
+  it('loads remote connections before the main window is shown', async () => {
+    const callOrder: string[] = [];
+
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'get_launch_context') {
+        return createLaunchContext({});
+      }
+
+      return null;
+    });
+
+    remoteConnectionsInitMock.mockImplementation(async () => {
+      callOrder.push('remoteConnectionsInit');
+    });
+
+    showWindowMock.mockImplementation(async () => {
+      callOrder.push('showMainWindow');
+    });
+
+    const { useInit } = await import('@/composables/use-init');
+    const { init } = useInit();
+
+    await completeInit(init);
+
+    expect(remoteConnectionsInitMock).toHaveBeenCalledTimes(1);
+    expect(callOrder.indexOf('remoteConnectionsInit')).toBeLessThan(
       callOrder.indexOf('showMainWindow'),
     );
   });
@@ -766,6 +844,122 @@ describe('useInit startup restoration', () => {
     await completeInit(init);
 
     expect(routerPushMock).toHaveBeenCalledWith({ name: 'settings' });
+  });
+
+  // FORK-MODIFICATION 2026-11-19（批次 23）：设备（手机 / MTP）的启动落点。
+  //
+  // 故障链：手机传给 AFM 的 argv 是 `::{20D04FE0-...}\?\usb#...`。
+  // 改动前它被规范化改坏 ⇒ 候选被判成空 ⇒ 兜底把用户丢到「位置」页。
+  // Rust 侧改动后这类路径**原样留在 args 里**，前端这边必须真的导航到设备，
+  // 设备打不开时必须给用户**明确可见**的提示，而不是静默停在启动页。
+  describe('shell 设备启动', () => {
+    const devicePath = '::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\?\\usb#vid_22d9&pid_2765';
+
+    function createDeviceLaunchContext() {
+      return createLaunchContext({
+        args: ['sigma-file-manager.exe', devicePath],
+        hadAbsorbedShellPaths: false,
+        hadDelegatedShellPaths: false,
+      });
+    }
+
+    beforeEach(() => {
+      toastCustomMock.mockReset();
+      openInSystemExplorerMock.mockReset().mockResolvedValue(undefined);
+    });
+
+    it('有 shell 候选时真的导航到设备，而不是落到「位置」页', async () => {
+      invokeMock.mockImplementation(async (command: string) => {
+        if (command === 'get_launch_context') {
+          return createDeviceLaunchContext();
+        }
+
+        return null;
+      });
+
+      getDirEntryMock.mockResolvedValue({
+        name: 'Galaxy S22',
+        path: devicePath,
+        is_file: false,
+        is_dir: true,
+      });
+
+      resolveLaunchTargetsFromArgsMock.mockResolvedValue([
+        {
+          directoryPath: devicePath,
+          focusPath: null,
+        },
+      ]);
+
+      const { useInit } = await import('@/composables/use-init');
+      const { init, awaitBackgroundTasks } = useInit();
+
+      await completeInit(init, awaitBackgroundTasks);
+
+      expect(openOrFocusTabGroupMock).toHaveBeenCalledWith(devicePath);
+      // 「位置」页兜底没有顶掉设备候选。
+      expect(openOrFocusTabGroupMock).not.toHaveBeenCalledWith('sfm://locations');
+      expect(routerPushMock).toHaveBeenCalledWith({ name: 'navigator' });
+      expect(toastCustomMock).not.toHaveBeenCalled();
+    });
+
+    it('设备打不开时给用户明确可见的提示，并给出「在系统资源管理器中打开」的动作', async () => {
+      invokeMock.mockImplementation(async (command: string) => {
+        if (command === 'get_launch_context') {
+          return createDeviceLaunchContext();
+        }
+
+        return null;
+      });
+
+      // 设备已拔出 ⇒ 拿不到条目 ⇒ 解析不出启动目标。
+      getDirEntryMock.mockResolvedValue(null);
+      resolveLaunchTargetsFromArgsMock.mockResolvedValue([]);
+
+      const { useInit } = await import('@/composables/use-init');
+      const { init, awaitBackgroundTasks } = useInit();
+
+      await completeInit(init, awaitBackgroundTasks);
+
+      expect(toastCustomMock).toHaveBeenCalledTimes(1);
+
+      const toastOptions = toastCustomMock.mock.calls[0]?.[1] as
+        { componentProps?: { data?: Record<string, unknown> } }
+        | undefined;
+      const toastData = toastOptions?.componentProps?.data;
+
+      expect(toastData?.title).toBe('t:fileBrowser.deviceOpenFailed');
+      expect(toastData?.description).toBe('t:fileBrowser.deviceOpenFailedDescription');
+      expect(toastData?.actionText).toBe('t:fileBrowser.openInSystemExplorer');
+
+      // 点了动作就真的交给系统资源管理器。
+      const onAction = toastData?.onAction as (() => void) | undefined;
+
+      onAction?.();
+
+      expect(openInSystemExplorerMock).toHaveBeenCalledWith(devicePath);
+    });
+
+    it('hadDelegatedShellPaths 为 false 时窗口照常显示，不被隐藏', async () => {
+      invokeMock.mockImplementation(async (command: string) => {
+        if (command === 'get_launch_context') {
+          return createDeviceLaunchContext();
+        }
+
+        return null;
+      });
+
+      getDirEntryMock.mockResolvedValue(null);
+      resolveLaunchTargetsFromArgsMock.mockResolvedValue([]);
+
+      const { useInit } = await import('@/composables/use-init');
+      const { init } = useInit();
+
+      await completeInit(init);
+
+      expect(showWindowMock).toHaveBeenCalledTimes(1);
+      expect(hideWindowMock).not.toHaveBeenCalled();
+    });
   });
 });
 

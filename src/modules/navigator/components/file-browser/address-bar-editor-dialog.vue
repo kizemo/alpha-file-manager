@@ -57,6 +57,7 @@ import {
 import { useVerticalVirtualList } from '@/composables/use-vertical-virtual-list';
 import {
   addressBarPathHasNoParentDirectory,
+  toAddressBarDisplayPath,
   addressBarTrimmedQueryLooksLikeFilesystemPath,
   createRecentSuggestionGroup,
   createTaggedSuggestionGroups,
@@ -68,6 +69,7 @@ import {
   getAddressBarRevealTarget,
   isAddressBarDirectoryShortcutCandidate,
   resolveAddressBarSuggestions,
+  resolveAddressBarTypedTarget,
   type AddressBarEditorMode,
   type AddressBarSuggestion,
   type AddressBarSuggestionGroup,
@@ -114,6 +116,8 @@ type AddressBarEditorVirtualRow
     navigationIndex: number;
     groupId: string;
     suggestion: AddressBarSuggestion;
+    /** 该分组里是不是最后一行 —— 树形导线的最后一条要画成「└」收尾。 */
+    isLastChild: boolean;
   };
 
 const RECENT_ENTRY_LIMIT = 10;
@@ -147,6 +151,9 @@ const isOpen = ref(false);
 const mode = ref<AddressBarEditorMode>('path');
 const query = ref('');
 const selectedIndex = ref(-1);
+// 用户有没有主动用方向键移动过选中项。为 false 时回车以输入框文字为准，
+// 为 true 时回车以选中项为准 —— 否则「打开列表后按 ↓ 选文件再回车」会被输入框内容劫持。
+const userMovedSelection = ref(false);
 const suggestionState = shallowRef<AddressBarSuggestionState>({
   kind: 'empty',
   groups: [],
@@ -293,7 +300,7 @@ const suggestionVirtualRows = computed<AddressBarEditorVirtualRow[]>(() => {
         group,
       });
     }
-    else if (group.items.length > 0) {
+    else if (group.items.length > 0 && group.label) {
       rows.push({
         type: 'group-heading',
         key: `group-heading:${group.id}`,
@@ -310,6 +317,9 @@ const suggestionVirtualRows = computed<AddressBarEditorVirtualRow[]>(() => {
         navigationIndex: group.firstItemIndex + itemOffset,
         groupId: group.id,
         suggestion,
+        // 只对缩进一层的行有意义：目标目录是树根，不收尾任何分支。
+        // 它虽然是所在分组的唯一项，但导线根本不画（depth 0），不该标成收尾。
+        isLastChild: suggestion.depth > 0 && itemOffset === group.items.length - 1,
       });
     }
   }
@@ -433,6 +443,54 @@ async function applyEditorQueryWithoutDebouncedWatch(nextQueryExact: string): Pr
   suppressDebouncedSuggestionsOnQueryMutation.value = false;
   await refreshSuggestions(nextQueryExact);
 }
+
+/**
+ * 输入框里**给人看的**查询串：Windows 上用原生反斜杠。
+ *
+ * 内部 `query` 一律保持正斜杠（`normalizePath` 的归一结果）—— 比较键、缓存键、
+ * 「尾斜杠 = 浏览目录内」的语义全都依赖它，不能改。只在展示这一层做换算。
+ */
+const displayQuery = computed(() => toAddressBarDisplayPath(query.value, platformStore.isWindows));
+
+/**
+ * 用户自己打字时的光标位置。
+ *
+ * 输入框是受控组件：用户敲一个 `/`，显示值会被换算成 `\` 回写进去，
+ * 浏览器可能顺手把光标丢到末尾。只在「用户输入」这条路径上记一次光标，
+ * 回写之后原样放回去。
+ */
+let pendingEditorInputCaret: number | null = null;
+let pendingEditorInputQuery: string | null = null;
+
+function handleQueryModelUpdate(nextValue: string): void {
+  pendingEditorInputCaret = getAddressBarInputElement()?.selectionStart ?? null;
+  pendingEditorInputQuery = normalizePath(nextValue);
+  query.value = pendingEditorInputQuery;
+}
+
+watch(displayQuery, async () => {
+  // 只有「这次变化确实来自用户输入」时才恢复光标 ——
+  // 程序化改写 query（打开对话框、上移一级）时不能把光标按到旧位置。
+  if (pendingEditorInputCaret === null || pendingEditorInputQuery !== query.value) {
+    pendingEditorInputCaret = null;
+    pendingEditorInputQuery = null;
+    return;
+  }
+
+  const caret = pendingEditorInputCaret;
+  pendingEditorInputCaret = null;
+  pendingEditorInputQuery = null;
+
+  await nextTick();
+
+  const inputElement = getAddressBarInputElement();
+
+  if (!inputElement) {
+    return;
+  }
+
+  inputElement.setSelectionRange(caret, caret);
+});
 
 function appendEditorNavigateForwardStep(nextQueryExact: string): void {
   if (!allowAddressBarFilesystemNavigationShortcuts.value) {
@@ -704,6 +762,7 @@ watch(query, (value) => {
   }
 
   selectedIndex.value = -1;
+  userMovedSelection.value = false;
   debouncedRefreshSuggestions(value);
 });
 
@@ -801,6 +860,7 @@ function getActiveEntry(): DirEntry | null {
 
 function moveSelection(offset: number): void {
   const rowTotal = flatNavigableRowCount.value;
+  userMovedSelection.value = true;
 
   if (rowTotal === 0) {
     selectedIndex.value = -1;
@@ -841,6 +901,7 @@ function selectCollapsibleGroupHeader(group: RenderedSuggestionGroup): void {
     return;
   }
 
+  userMovedSelection.value = true;
   selectedIndex.value = group.headerIndex;
   scrollSelectedIntoView();
 }
@@ -903,6 +964,31 @@ async function openEntry(entry: DirEntry): Promise<void> {
   }
 
   emit('openFile', entry.path);
+}
+
+async function handleEnter(): Promise<void> {
+  // 只有处在「文件系统路径」语境时才去解析输入框文字。entry 模式是按名字找条目，
+  // 拿 'down' 这种词去当路径解析既没有意义，又是一次白跑的 IO。
+  if (!userMovedSelection.value && allowAddressBarFilesystemNavigationShortcuts.value) {
+    const typedTarget = await resolveAddressBarTypedTarget(query.value, {
+      readDir,
+      getDirEntry,
+    });
+
+    if (typedTarget.kind === 'directory') {
+      isOpen.value = false;
+      emit('openDirectory', typedTarget.path);
+      return;
+    }
+
+    if (typedTarget.kind === 'file') {
+      isOpen.value = false;
+      emit('openFile', typedTarget.path);
+      return;
+    }
+  }
+
+  await openActiveEntry();
 }
 
 async function openActiveEntry(): Promise<void> {
@@ -1063,7 +1149,7 @@ async function handleInputKeydown(event: KeyboardEvent): Promise<void> {
       return;
     }
 
-    await openActiveEntry();
+    await handleEnter();
     return;
   }
 
@@ -1136,10 +1222,17 @@ async function open(modeToOpen: AddressBarEditorMode): Promise<void> {
     await refreshSuggestions(query.value, 'preserve');
   });
 
-  await moveAddressBarInputCaretToEndAfterPaint();
+  await selectAddressBarInputTextAfterPaint();
 }
 
-async function moveAddressBarInputCaretToEndAfterPaint(): Promise<void> {
+/**
+ * 打开时整条全选，而不是把光标丢在末尾。
+ *
+ * 用户从地址栏进来的目的大多是要粘一条新路径覆盖掉；光标在末尾时粘贴会追加，
+ * 得到一个「原路径 + 新路径」的拼接结果，正是最让人困惑的那种失败。
+ * 想在原路径后面续写，按一下 End 就行 —— 这也是资源管理器的行为。
+ */
+async function selectAddressBarInputTextAfterPaint(): Promise<void> {
   await nextTick();
   requestAnimationFrame(() => {
     const inputElement = getAddressBarInputElement();
@@ -1148,8 +1241,8 @@ async function moveAddressBarInputCaretToEndAfterPaint(): Promise<void> {
       return;
     }
 
-    const length = inputElement.value.length;
-    inputElement.setSelectionRange(length, length);
+    inputElement.focus();
+    inputElement.select();
   });
 }
 
@@ -1196,9 +1289,10 @@ defineExpose({
     <div ref="addressBarCommandInputMountReference">
       <CommandInput
         v-bind="pathEditorYieldMarkerBindings"
-        v-model="query"
+        :model-value="displayQuery"
         :placeholder="inputPlaceholder"
         @keydown="handleInputKeydown"
+        @update:model-value="handleQueryModelUpdate"
       />
     </div>
     <ScrollAreaRoot
@@ -1276,6 +1370,8 @@ defineExpose({
                 :style="{ height: `${virtualRow.size}px` }"
                 :suggestion="virtualRow.item.suggestion"
                 :item-index="virtualRow.item.navigationIndex"
+                :depth="virtualRow.item.suggestion.depth"
+                :is-last-child="virtualRow.item.isLastChild"
                 :shows-path-beside-name="showsPathBesideSuggestionName"
                 :selected="virtualRow.item.navigationIndex === selectedIndex"
                 :recent-entry-remove-label="virtualRow.item.groupId === 'recent' ? t('settings.addressBar.removeRecentEntry') : undefined"

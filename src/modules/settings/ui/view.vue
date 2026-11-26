@@ -14,10 +14,12 @@ import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { resetSettingsItemStaggerIndex } from '@/utils/settings-item-stagger';
 
+import AboutCategory from './categories/about/index.vue';
 import AppearanceCategory from './categories/appearance/index.vue';
 import ExperimentalCategory from './categories/experimental/index.vue';
 import ExtensionsCategory from './categories/extensions/index.vue';
 import GeneralCategory from './categories/general/index.vue';
+import RemoteCategory from './categories/remote/index.vue';
 import SearchCategory from './categories/search/index.vue';
 import ShortcutsCategory from './categories/shortcuts/index.vue';
 import StatsCategory from './categories/stats/index.vue';
@@ -49,6 +51,7 @@ const currentTabLabel = computed(() => {
 });
 
 const categoryComponentMap: Record<string, unknown> = {
+  about: AboutCategory,
   general: GeneralCategory,
   appearance: AppearanceCategory,
   experimental: ExperimentalCategory,
@@ -57,6 +60,7 @@ const categoryComponentMap: Record<string, unknown> = {
   tabs: TabsCategory,
   stats: StatsCategory,
   storage: StorageCategory,
+  remote: RemoteCategory,
   extensions: ExtensionsCategory,
 };
 
@@ -140,14 +144,14 @@ watch(
 .settings-view__title {
   margin: 0;
   color: hsl(var(--foreground));
-  font-size: 1.5rem;
+  font-size: calc(1.5rem + var(--font-size-offset, 0px));
   font-weight: 600;
 }
 
 .settings-view__search-info {
   margin: 0;
   color: hsl(var(--muted-foreground));
-  font-size: 0.875rem;
+  font-size: calc(0.875rem + var(--font-size-offset, 0px));
 }
 
 .settings-view__content {

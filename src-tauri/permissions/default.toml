@@ -1,0 +1,5 @@
+# app 级默认权限集：被 capabilities/default.json 的 "default"" 条目引用，
+# 让主窗 / quick-view / print-view 继续可以调用全部应用命令
+# （Tauri 2.12 起，定义了 app manifest 之后本地来源的自定义命令同样走 ACL）。
+[default]
+permissions = ["allow-app-commands"]

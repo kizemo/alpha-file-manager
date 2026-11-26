@@ -85,7 +85,7 @@ const isDrawerOpen = ref(false);
   flex-shrink: 0;
   padding: 6px;
   border-radius: var(--radius-sm);
-  background-color: hsl(var(--background-2));
+  background-color: hsl(var(--surface-panel));
   container-name: info-panel;
   container-type: inline-size;
 }
@@ -135,7 +135,7 @@ const isDrawerOpen = ref(false);
   }
 
   .info-panel :deep(.info-panel-header__name) {
-    font-size: 13px;
+    font-size: calc(13px + var(--font-size-offset, 0px));
     line-height: 1.3;
   }
 
@@ -170,7 +170,7 @@ const isDrawerOpen = ref(false);
   padding-top: 0;
   border-color: hsl(var(--border));
   margin-top: 0;
-  background-color: hsl(var(--background-2));
+  background-color: hsl(var(--surface-panel));
 }
 
 .info-panel-compact-drawer__body {

@@ -35,7 +35,10 @@ const settingsStore = useSettingsStore();
   flex-direction: column;
   align-self: start;
   padding-right: 1rem;
-  border-right: 1px solid hsl(var(--border));
+
+  /* FORK-MODIFICATION 2026-10-30：设置页左侧导航用抬起的面板色，与右侧内容区有层次差。 */
+  border-right: 1px solid hsl(var(--border-subtle));
+  background-color: hsl(var(--surface-panel));
   gap: 1rem;
   overflow-y: auto;
 }
@@ -45,6 +48,15 @@ const settingsStore = useSettingsStore();
   flex-direction: column;
   padding: 4px;
   gap: 0.25rem;
+}
+
+/* FORK-MODIFICATION 2026-10-30：导航项的悬浮 / 选中态跟着层次 token 走。 */
+.settings-nav :deep(.settings-nav-item:hover) {
+  background-color: hsl(var(--state-hover));
+}
+
+.settings-nav :deep(.settings-nav-item--active) {
+  background-color: hsl(var(--state-selected));
 }
 
 @media (width <= 768px) {

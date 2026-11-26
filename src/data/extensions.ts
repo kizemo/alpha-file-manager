@@ -213,13 +213,30 @@ export function getExtensionDownloadUrl(repository: string, version: string): st
   return `https://github.com/${owner}/${cleanRepo}/archive/refs/tags/v${version}.zip`;
 }
 
-export const OFFICIAL_EXTENSION_ORG = 'sigma-hub';
+/**
+ * GitHub owners whose repositories are published by the Alpha File Manager team.
+ *
+ * An extension counts as **official** when its `repository` is hosted under one of
+ * these owners — that is what makes it "our own plugin", and both the badge next to
+ * the extension name and the publisher line on the card key off it.
+ *
+ * `sigma-hub` is deliberately NOT in the list: the upstream marketplace is wired as a
+ * third-party *market source* (see `DEFAULT_EXTENSION_MARKET_SOURCES` in
+ * `@/modules/extensions/utils/market-sources`), so its entries carry the third-party
+ * source label instead of the official badge. The two axes stay orthogonal: anything
+ * published under an official owner is marked official even when it is fetched
+ * through a third-party mirror.
+ */
+export const OFFICIAL_EXTENSION_OWNERS = ['kizemo'];
 
 export function isOfficialExtension(repository: string): boolean {
   const match = repository.match(/github\.com\/([^/]+)\/([^/]+)/);
   if (!match) return false;
   const [, owner] = match;
-  return owner.toLowerCase() === OFFICIAL_EXTENSION_ORG.toLowerCase();
+  const normalizedOwner = owner.toLowerCase();
+  return OFFICIAL_EXTENSION_OWNERS.some(
+    officialOwner => officialOwner.toLowerCase() === normalizedOwner,
+  );
 }
 
 export function getGitHubRepoInfo(repository: string): {

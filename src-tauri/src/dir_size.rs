@@ -135,6 +135,28 @@ fn set_cached_size(path: &str, entry: CacheEntry) {
     }
 }
 
+/// 目录大小扫描的分块大小。
+const SIZE_SCAN_CHUNK: usize = 4096;
+
+/// 累加一批条目的 size / 文件数 / 目录数（块内并行）。
+fn accumulate_entry_sizes(
+    entries: &[walkdir::DirEntry],
+    total_size: &AtomicU64,
+    file_count: &AtomicU64,
+    dir_count: &AtomicU64,
+) {
+    entries.par_iter().for_each(|entry| {
+        if let Ok(metadata) = entry.metadata() {
+            if metadata.is_file() {
+                total_size.fetch_add(metadata.len(), Ordering::Relaxed);
+                file_count.fetch_add(1, Ordering::Relaxed);
+            } else if metadata.is_dir() {
+                dir_count.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+    });
+}
+
 fn calculate_dir_size_with_timeout(path: &Path, timeout: Duration) -> DirSizeResult {
     let path_str = normalize_path(&path.to_string_lossy());
 
@@ -166,32 +188,37 @@ fn calculate_dir_size_with_timeout(path: &Path, timeout: Duration) -> DirSizeRes
     let file_count = Arc::new(AtomicU64::new(0));
     let dir_count = Arc::new(AtomicU64::new(0));
 
-    let entries: Vec<_> = WalkDir::new(path)
+    // 分块统计：不再把整棵树的全部条目 collect 进内存。
+    //
+    // 改前：先把所有条目 collect 成一个 Vec，再交给 rayon 并行取 metadata，
+    //       峰值内存是 O(条目数) —— 百万级目录树会在内存里堆一份完整路径表。
+    // 改后：只保留 SIZE_SCAN_CHUNK 个条目的缓冲，峰值内存 O(块大小)，
+    //       并行度与超时语义保持不变。
+    let mut chunk: Vec<walkdir::DirEntry> = Vec::with_capacity(SIZE_SCAN_CHUNK);
+    let mut walker = WalkDir::new(path)
         .min_depth(1)
         .into_iter()
-        .filter_map(|entry| entry.ok())
-        .take_while(|_| {
-            if start_time.elapsed() > timeout {
-                cancelled.store(true, Ordering::SeqCst);
-                false
-            } else {
-                true
-            }
-        })
-        .collect();
+        .filter_map(|entry| entry.ok());
+
+    while let Some(entry) = walker.next() {
+        if start_time.elapsed() > timeout {
+            cancelled.store(true, Ordering::SeqCst);
+            break;
+        }
+
+        chunk.push(entry);
+
+        if chunk.len() >= SIZE_SCAN_CHUNK {
+            accumulate_entry_sizes(&chunk, &total_size, &file_count, &dir_count);
+            chunk.clear();
+        }
+    }
+
+    if !chunk.is_empty() {
+        accumulate_entry_sizes(&chunk, &total_size, &file_count, &dir_count);
+    }
 
     let was_cancelled = cancelled.load(Ordering::SeqCst);
-
-    entries.par_iter().for_each(|entry| {
-        if let Ok(metadata) = entry.metadata() {
-            if metadata.is_file() {
-                total_size.fetch_add(metadata.len(), Ordering::Relaxed);
-                file_count.fetch_add(1, Ordering::Relaxed);
-            } else if metadata.is_dir() {
-                dir_count.fetch_add(1, Ordering::Relaxed);
-            }
-        }
-    });
 
     let final_size = total_size.load(Ordering::SeqCst);
     let final_file_count = file_count.load(Ordering::SeqCst);

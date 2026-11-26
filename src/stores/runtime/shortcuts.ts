@@ -20,6 +20,18 @@ import {
 } from '@/localization/shortcut-main-key-label';
 import { isDialogOpened, isInputFieldActive } from '@/utils/dom-interaction-state';
 import router from '@/router';
+import {
+  buildShortcutActionId,
+  buildShortcutActionRegistry,
+  parseShortcutActionId,
+} from '@/core/actions/shortcut-actions';
+import {
+  lookupShortcutBinding,
+  migrateShortcutBindings,
+  pickShortcutBindingSlot,
+  type ShortcutBindingFormat,
+  type ShortcutBindingLookup,
+} from '@/core/actions/shortcut-bindings';
 
 export type { ShortcutId, ShortcutKeys, UserShortcuts };
 export type { UserShortcutStoredValue, ShortcutUserAlternateChordSlots } from '@/types/user-settings';
@@ -40,6 +52,7 @@ export type ShortcutDefinition = {
   scope: 'global' | 'navigator' | 'settings';
   conditions: ShortcutConditions;
   isReadOnly: boolean;
+  optionalShift?: boolean;
 };
 
 type BuiltinNavigationPageRouteName = 'home' | 'navigator' | 'dashboard' | 'settings' | 'extensions';
@@ -578,6 +591,7 @@ const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
       dialogIsOpened: false,
     },
     isReadOnly: false,
+    optionalShift: true,
   },
   {
     id: 'navigateDown',
@@ -591,6 +605,7 @@ const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
       dialogIsOpened: false,
     },
     isReadOnly: false,
+    optionalShift: true,
   },
   {
     id: 'navigateLeft',
@@ -604,6 +619,7 @@ const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
       dialogIsOpened: false,
     },
     isReadOnly: false,
+    optionalShift: true,
   },
   {
     id: 'navigateRight',
@@ -617,6 +633,7 @@ const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
       dialogIsOpened: false,
     },
     isReadOnly: false,
+    optionalShift: true,
   },
   {
     id: 'openSelected',
@@ -1138,7 +1155,11 @@ function modifiersMatch(event: KeyboardEvent | MouseEvent, keys: ShortcutKeys): 
   return true;
 }
 
-export function matchesShortcut(event: KeyboardEvent, keys: ShortcutKeys): boolean {
+export function matchesShortcut(
+  event: KeyboardEvent,
+  keys: ShortcutKeys,
+  matchOptions: { optionalShift?: boolean } = {},
+): boolean {
   if (!keys.key) return false;
   if (keys.key.startsWith('MouseButton')) return false;
 
@@ -1173,7 +1194,14 @@ export function matchesShortcut(event: KeyboardEvent, keys: ShortcutKeys): boole
     }
   }
 
-  if (event.shiftKey !== (keys.shift || false)) return false;
+  const shiftMatches = event.shiftKey === (keys.shift || false);
+  const extraShiftAllowed = Boolean(
+    matchOptions.optionalShift
+    && event.shiftKey
+    && !keys.shift,
+  );
+
+  if (!shiftMatches && !extraShiftAllowed) return false;
 
   if (expectedKey === ' ' && event.code === 'Space') return true;
 
@@ -1276,7 +1304,9 @@ export function getSelectedTextForCopy(): string | null {
   return text;
 }
 
-type ShortcutHandler = () => void | boolean | Promise<void | boolean>;
+type ShortcutHandler = (
+  event?: KeyboardEvent | MouseEvent,
+) => void | boolean | Promise<void | boolean>;
 type ShortcutHandlerResult = ReturnType<ShortcutHandler>;
 
 type HandlerRegistration = {
@@ -1306,6 +1336,72 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
       await userSettingsStore.setUserSettingsStorage('shortcuts', value);
     },
   });
+
+  const knownShortcutIds = new Set<string>(DEFAULT_SHORTCUTS.map(definition => definition.id));
+
+  /**
+   * 快捷键在动作注册表里的声明。批次 2 起，快捷键与命令共用一个 id 空间。
+   */
+  const shortcutActionRegistry = computed(() =>
+    buildShortcutActionRegistry(
+      DEFAULT_SHORTCUTS.map(definition => ({
+        id: definition.id,
+        labelKey: definition.labelKey,
+      })),
+    ),
+  );
+
+  /**
+   * 旧格式（键是 `ShortcutId`）到新格式（键是动作注册表 id）的内存映射。
+   * 只映射不落盘，用户文件保持原样，直到他真的改动某个绑定。
+   */
+  const migratedShortcutBindings = computed(() => {
+    const raw = userShortcuts.value as Record<string, unknown> | undefined;
+
+    return migrateShortcutBindings(
+      raw,
+      shortcutId => knownShortcutIds.has(shortcutId),
+    );
+  });
+
+  function getShortcutActionId(shortcutId: ShortcutId): string {
+    return buildShortcutActionId(shortcutId);
+  }
+
+  /**
+   * 查找某个快捷键当前生效的绑定。
+   *
+   * 优先走动作注册表 id（新格式）；注册表没有这个动作、或迁移失败时，
+   * 回落旧逻辑按 `ShortcutId` 读既有用户数据，既有绑定不会失效。
+   */
+  function resolveShortcutBindingEntry(shortcutId: ShortcutId): ShortcutBindingLookup {
+    const actionId = buildShortcutActionId(shortcutId);
+    const raw = userShortcuts.value as Record<string, unknown> | undefined;
+
+    try {
+      if (shortcutActionRegistry.value.has(actionId)) {
+        const migration = migratedShortcutBindings.value;
+        const entry = migration.bindings[actionId];
+
+        if (entry !== undefined) {
+          return {
+            entry,
+            format: migration.formats[actionId] ?? 'action-id',
+          };
+        }
+      }
+    }
+    catch {
+      // 迁移不可用：回落旧逻辑
+    }
+
+    return lookupShortcutBinding(raw, actionId, shortcutId);
+  }
+
+  async function persistShortcutBindings(bindings: UserShortcuts): Promise<void> {
+    userSettingsStore.userSettings.shortcuts = bindings;
+    await userSettingsStore.setUserSettingsStorage('shortcuts', bindings);
+  }
 
   async function persistShortcutUserAlternateChordSlots(next: ShortcutUserAlternateChordSlots): Promise<void> {
     const cleaned: ShortcutUserAlternateChordSlots = {};
@@ -1340,40 +1436,37 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
 
   function resolveShortcutBindingKeys(definition: ShortcutDefinition): ShortcutKeys {
     const bindingSlot = definition.bindingSlot ?? 0;
-    const shortcutId = definition.id;
-    const entry = userShortcuts.value[shortcutId];
-    const defaultKeys = definition.defaultKeys;
+    const lookup = resolveShortcutBindingEntry(definition.id);
+    const slotKeys = pickShortcutBindingSlot(lookup.entry, bindingSlot);
 
-    if (entry === undefined) {
-      return defaultKeys;
-    }
-
-    if (!Array.isArray(entry)) {
-      return bindingSlot === 0 ? entry : defaultKeys;
-    }
-
-    const slotValue = entry[bindingSlot];
-
-    return slotValue != null ? slotValue : defaultKeys;
+    return slotKeys ?? definition.defaultKeys;
   }
 
   function getShortcutBindingLabel(definition: ShortcutDefinition): string {
     return formatShortcutKeys(resolveShortcutBindingKeys(definition));
   }
 
+  function getShortcutBindingKeys(definition: ShortcutDefinition): ShortcutKeys {
+    return resolveShortcutBindingKeys(definition);
+  }
+
   function isShortcutBindingCustomized(definition: ShortcutDefinition): boolean {
     const bindingSlot = definition.bindingSlot ?? 0;
-    const entry = userShortcuts.value[definition.id];
+    const lookup = resolveShortcutBindingEntry(definition.id);
 
-    if (entry === undefined) {
+    if (lookup.entry === undefined) {
       return false;
     }
 
-    if (!Array.isArray(entry)) {
+    if (!Array.isArray(lookup.entry)) {
       return bindingSlot === 0;
     }
 
-    return entry[bindingSlot] != null;
+    return lookup.entry[bindingSlot] != null;
+  }
+
+  function getShortcutBindingFormat(definition: ShortcutDefinition): ShortcutBindingFormat | null {
+    return resolveShortcutBindingEntry(definition.id).format;
   }
 
   function getShortcutBindingSource(definition: ShortcutDefinition): 'system' | 'user' {
@@ -1407,7 +1500,7 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
   }
 
   function isCustomized(shortcutId: ShortcutId): boolean {
-    return userShortcuts.value[shortcutId] !== undefined;
+    return resolveShortcutBindingEntry(shortcutId).entry !== undefined;
   }
 
   function getSource(shortcutId: ShortcutId): 'system' | 'user' {
@@ -1419,18 +1512,18 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
     keys: ShortcutKeys,
     bindingSlot = 0,
   ): Promise<void> {
+    const actionId = buildShortcutActionId(shortcutId);
     const arrayLength = getMaxBindingSlotIndex(shortcutId) + 1;
+    const current = resolveShortcutBindingEntry(shortcutId).entry;
+    const nextBindings: UserShortcuts = { ...(userShortcuts.value ?? {}) };
 
     if (arrayLength <= 1) {
-      const newShortcuts = {
-        ...userShortcuts.value,
-        [shortcutId]: keys,
-      };
-      userShortcuts.value = newShortcuts;
+      nextBindings[actionId] = keys;
+      delete nextBindings[shortcutId];
+      await persistShortcutBindings(nextBindings);
       return;
     }
 
-    const current = userShortcuts.value[shortcutId];
     const nextArray: Array<ShortcutKeys | null> = Array.from({ length: arrayLength }, () => null);
 
     if (Array.isArray(current)) {
@@ -1445,25 +1538,25 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
     nextArray[bindingSlot] = keys;
 
     if (nextArray.every(slotValue => slotValue == null)) {
-      const newShortcuts = { ...userShortcuts.value };
-      delete newShortcuts[shortcutId];
-      userShortcuts.value = newShortcuts;
-      return;
+      delete nextBindings[actionId];
+    }
+    else {
+      nextBindings[actionId] = nextArray;
     }
 
-    userShortcuts.value = {
-      ...userShortcuts.value,
-      [shortcutId]: nextArray,
-    };
+    delete nextBindings[shortcutId];
+    await persistShortcutBindings(nextBindings);
   }
 
   async function resetShortcut(shortcutId: ShortcutId, bindingSlot?: number): Promise<void> {
+    const actionId = buildShortcutActionId(shortcutId);
     const arrayLength = getMaxBindingSlotIndex(shortcutId) + 1;
+    const nextBindings: UserShortcuts = { ...(userShortcuts.value ?? {}) };
 
     if (bindingSlot === undefined) {
-      const newShortcuts = { ...userShortcuts.value };
-      delete newShortcuts[shortcutId];
-      userShortcuts.value = newShortcuts;
+      delete nextBindings[actionId];
+      delete nextBindings[shortcutId];
+      await persistShortcutBindings(nextBindings);
 
       const clearedExtras: ShortcutUserAlternateChordSlots = {
         ...(userSettingsStore.userSettings.shortcutUserAlternateChordSlots ?? {}),
@@ -1473,14 +1566,15 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
       return;
     }
 
+    const current = resolveShortcutBindingEntry(shortcutId).entry;
+
     if (arrayLength <= 1) {
-      const newShortcuts = { ...userShortcuts.value };
-      delete newShortcuts[shortcutId];
-      userShortcuts.value = newShortcuts;
+      delete nextBindings[actionId];
+      delete nextBindings[shortcutId];
+      await persistShortcutBindings(nextBindings);
       return;
     }
 
-    const current = userShortcuts.value[shortcutId];
     const nextArray: Array<ShortcutKeys | null> = Array.from({ length: arrayLength }, () => null);
 
     if (Array.isArray(current)) {
@@ -1495,38 +1589,60 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
     nextArray[bindingSlot] = null;
 
     if (nextArray.every(slotValue => slotValue == null)) {
-      const newShortcuts = { ...userShortcuts.value };
-      delete newShortcuts[shortcutId];
-      userShortcuts.value = newShortcuts;
-      return;
+      delete nextBindings[actionId];
+    }
+    else {
+      nextBindings[actionId] = nextArray;
     }
 
-    userShortcuts.value = {
-      ...userShortcuts.value,
-      [shortcutId]: nextArray,
-    };
+    delete nextBindings[shortcutId];
+    await persistShortcutBindings(nextBindings);
+  }
+
+  /**
+   * 以动作注册表 id 绑定一个快捷键。未知动作不落盘。
+   */
+  async function setShortcutForAction(
+    actionId: string,
+    keys: ShortcutKeys,
+    bindingSlot = 0,
+  ): Promise<void> {
+    const shortcutId = parseShortcutActionId(actionId);
+
+    if (!shortcutId || !knownShortcutIds.has(shortcutId)) return;
+
+    await setShortcut(shortcutId as ShortcutId, keys, bindingSlot);
+  }
+
+  async function resetShortcutForAction(actionId: string, bindingSlot?: number): Promise<void> {
+    const shortcutId = parseShortcutActionId(actionId);
+
+    if (!shortcutId || !knownShortcutIds.has(shortcutId)) return;
+
+    await resetShortcut(shortcutId as ShortcutId, bindingSlot);
   }
 
   function trimUserShortcutEntryToMaxSlot(shortcutId: ShortcutId): void {
     const maxSlotIndex = getMaxBindingSlotIndex(shortcutId);
     const arrayLength = maxSlotIndex + 1;
-    const currentEntry = userShortcuts.value[shortcutId];
+    const actionId = buildShortcutActionId(shortcutId);
+    const currentEntry = resolveShortcutBindingEntry(shortcutId).entry;
 
     if (!Array.isArray(currentEntry)) return;
 
     const trimmed = currentEntry.slice(0, arrayLength);
+    const nextBindings: UserShortcuts = { ...(userShortcuts.value ?? {}) };
+
+    delete nextBindings[shortcutId];
 
     if (trimmed.every(slotValue => slotValue == null)) {
-      const newShortcuts = { ...userShortcuts.value };
-      delete newShortcuts[shortcutId];
-      userShortcuts.value = newShortcuts;
-      return;
+      delete nextBindings[actionId];
+    }
+    else {
+      nextBindings[actionId] = trimmed;
     }
 
-    userShortcuts.value = {
-      ...userShortcuts.value,
-      [shortcutId]: trimmed,
-    };
+    void persistShortcutBindings(nextBindings);
   }
 
   async function addUserAlternateChordBinding(
@@ -1617,7 +1733,7 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
   }
 
   async function resetAllShortcuts(): Promise<void> {
-    userShortcuts.value = {};
+    await persistShortcutBindings({});
     await persistShortcutUserAlternateChordSlots({});
   }
 
@@ -1705,7 +1821,10 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
     isShortcutCaptureActive.value = isActive;
   }
 
-  function callShortcutHandler(shortcutId: ShortcutId): ShortcutHandlerResult | null {
+  function callShortcutHandler(
+    shortcutId: ShortcutId,
+    event?: KeyboardEvent | MouseEvent,
+  ): ShortcutHandlerResult | null {
     const definition = getShortcutDefinition(shortcutId);
     if (!definition) return null;
 
@@ -1716,7 +1835,7 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
       return null;
     }
 
-    return registration.handler();
+    return registration.handler(event);
   }
 
   async function executeShortcut(shortcutId: ShortcutId): Promise<boolean> {
@@ -1735,7 +1854,7 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
     for (const definition of definitions.value) {
       const keys = resolveShortcutBindingKeys(definition);
 
-      if (matchesShortcut(event, keys)) {
+      if (matchesShortcut(event, keys, { optionalShift: definition.optionalShift })) {
         return definition.id;
       }
     }
@@ -1749,7 +1868,7 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
     for (const definition of definitions.value) {
       const keys = resolveShortcutBindingKeys(definition);
 
-      if (matchesShortcut(event, keys)) {
+      if (matchesShortcut(event, keys, { optionalShift: definition.optionalShift })) {
         matchingShortcuts.push(definition.id);
       }
     }
@@ -1900,7 +2019,7 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
     if (matchingShortcutIds.length === 0) return false;
 
     for (const shortcutId of matchingShortcutIds) {
-      const result = callShortcutHandler(shortcutId);
+      const result = callShortcutHandler(shortcutId, event);
       if (result === null) continue;
 
       const isHandled = result instanceof Promise
@@ -1930,7 +2049,7 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
     if (matchingShortcutIds.length === 0) return false;
 
     for (const shortcutId of matchingShortcutIds) {
-      const result = callShortcutHandler(shortcutId);
+      const result = callShortcutHandler(shortcutId, event);
       if (result === null) continue;
 
       const isHandled = result instanceof Promise
@@ -2005,18 +2124,24 @@ export const useShortcutsStore = defineStore('shortcuts', () => {
   return {
     definitions,
     userShortcuts,
+    shortcutActionRegistry,
     isInitialized,
     getShortcutKeys,
     getShortcutLabel,
     getShortcutDefinition,
+    getShortcutActionId,
     resolveShortcutBindingKeys,
     getShortcutBindingLabel,
+    getShortcutBindingKeys,
     getShortcutBindingSource,
+    getShortcutBindingFormat,
     isShortcutBindingCustomized,
     isCustomized,
     getSource,
     setShortcut,
     resetShortcut,
+    setShortcutForAction,
+    resetShortcutForAction,
     resetAllShortcuts,
     addUserAlternateChordBinding,
     removeUserAlternateChordBindingRow,

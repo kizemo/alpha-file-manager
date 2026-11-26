@@ -5,7 +5,10 @@
 mod commands;
 mod ignore;
 mod index;
+mod incremental;
+mod index_watcher;
 mod query;
+mod remote_index;
 mod scan;
 mod scoring;
 mod state;
@@ -15,3 +18,37 @@ mod types;
 pub use types::*;
 
 pub use commands::*;
+
+// FORK-MODIFICATION 2026-11-19（B25-2）：`device_events` 需要在 WM_DEVICECHANGE
+// 里释放索引 watcher 持有的卷根句柄。`index_watcher` 模块本身是 `global_search`
+// 的私有子模块（它刻意不引用 tauri，见模块头注释），所以只把这一个入口转发出去。
+pub(crate) use index_watcher::release_root_watch;
+pub(crate) use index_watcher::release_all_root_watches;
+
+// ---------------------------------------------------------------------------
+// 阻塞内核的对外入口
+//
+// 与 `dir_reader.rs` 里同名区块是同一个理由：MCP 不能经过
+// `tauri::async_runtime::spawn_blocking`，否则 `cargo test --lib` 的测试二进制
+// 会被拖进 Wry 运行时，在加载阶段就崩掉。详见 `dir_reader.rs` 的注释。
+// ---------------------------------------------------------------------------
+
+/// 全局搜索的阻塞内核。`base_dir` 是 app-data 目录（索引存放处）。
+pub(crate) fn global_search_query_blocking(
+    base_dir: std::path::PathBuf,
+    query: String,
+    options: GlobalSearchQueryOptions,
+) -> Result<Vec<GlobalSearchResultEntry>, String> {
+    query::global_search_query_blocking(base_dir, query, options)
+}
+
+/// 目录内递归搜索的阻塞内核。
+pub(crate) fn search_directory_recursive_blocking(
+    root_path: String,
+    query: String,
+    max_depth: u32,
+    limit: u32,
+    typo_tolerance: bool,
+) -> Result<Vec<GlobalSearchResultEntry>, String> {
+    query::search_directory_recursive_blocking(root_path, query, max_depth, limit, typo_tolerance)
+}

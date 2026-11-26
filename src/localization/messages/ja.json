@@ -1,8 +1,11 @@
 {
   "app": {
-    "name": "Sigma File Manager",
-    "description": "はフリー、オープンソース、高機能、モダンなファイルマネージャーアプリで、GNU GPLv3またはそれ以降でライセンスされています。",
-    "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
+    "name": "Alpha File Manager",
+    "description": "is developed on top of Sigma File Manager, adding practical features such as a directory tree, quick switching (path focus sync for file dialogs) and batch rename. Many details have been refined to deliver a more complete file manager experience.",
+    "copyright": "Credits to the original author Aleksey Hoffman.",
+    "developerLabel": "Developed by ",
+    "developer": "kizemo",
+    "repository": "https://github.com/kizemo/alpha-file-manager"
   },
   "units": {
     "px": "px"
@@ -19,7 +22,7 @@
   "pages": {
     "home": "ホームページ",
     "navigator": "ナビゲーター",
-    "dashboard": "ダッシュボード",
+    "dashboard": "クイックアクセス",
     "notes": "ノート",
     "settings": "環境設定",
     "extensions": "拡張機能"
@@ -33,7 +36,15 @@
     "tagged": "タグ付き",
     "emptyFavorites": "お気に入りなし",
     "emptyTagged": "タグ付きアイテムなし",
-    "unknownTagGroup": "不明なタグ"
+    "unknownTagGroup": "不明なタグ",
+    "frequent": "Frequent",
+    "history": "History",
+    "emptyFrequent": "No frequently used items",
+    "emptyHistory": "No history yet",
+    "openFavoritesTab": "Open Favorites tab in Quick Access",
+    "openFrequentTab": "Open Frequent tab in Quick Access",
+    "openHistoryTab": "Open History tab in Quick Access",
+    "openTaggedTab": "Open Tagged tab in Quick Access"
   },
   "placeholders": {
     "noDrivesFound": "ドライブが見つかりません",
@@ -76,6 +87,8 @@
     "music": "ミュージック"
   },
   "tabs": {
+    "scrollTabsLeft": "タブを左にスクロール",
+    "scrollTabsRight": "タブを右にスクロール",
     "newTab": "新しいタブ",
     "duplicateTab": "タブを複製",
     "closeOtherTabs": "他のタブを閉じる",
@@ -89,6 +102,9 @@
   "splitViewMode": "分割表示モード",
   "splitViewModeSplit": "分割",
   "splitViewModeLinked": "連動",
+  "syncBrowsing": "Synchronized browsing",
+  "syncBrowsingOn": "Synchronized browsing: on",
+  "syncBrowsingHint": "Select a folder in the left pane and the right pane jumps to the folder of the same name.",
   "filter": {
     "filter": "フィルター",
     "showHiddenItems": "隠しアイテムを表示",
@@ -105,6 +121,8 @@
     }
   },
   "globalSearch": {
+    "scanModeFull": "全体",
+    "scanModeIncremental": "差分",
     "globalSearch": "グローバル検索",
     "driveScanInProgress": "ドライブのインデックス作成中",
     "searchDataIncomplete": "検索データが不完全です",
@@ -147,7 +165,10 @@
       "indexed": "{time}にインデックス作成",
       "nothingFound": "何も見つかりませんでした"
     },
-    "showSearchSettings": "検索設定を表示"
+    "showSearchSettings": "検索設定を表示",
+    "remoteIndexing": "クラウドドライブをインデックス中",
+    "remoteIndexDone": "クラウド索引を更新しました",
+    "remoteIndexFailed": "クラウドのインデックス作成に失敗しました"
   },
   "home": {
     "mediaBannerOptions": "メディアバナーオプション",
@@ -166,11 +187,11 @@
     "newDirectory": "新しいディレクトリ",
     "newFile": "新しいファイル",
     "reloadCurrentDirectory": "現在のディレクトリをリロード",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "フォルダーツリーを表示",
+    "hideFolderTree": "フォルダーツリーを非表示"
   },
   "dashboard": {
-    "subtitle": "お気に入り、タグ付け、よく使うアイテムへのクイックアクセス",
+    "subtitle": "お気に入り、タグ付け、よく使うアイテム — すべてここに",
     "tabs": {
       "favorites": "お気に入り",
       "tagged": "タグ",
@@ -191,7 +212,57 @@
     "daysAgo": "{n}日前 | {n}日前 | {n}日前 | {n}日前",
     "openedCount": "{n}回開いた | {n}回開いた | {n}回開いた | {n}回開いた",
     "actions": {
-      "clearAll": "このリストからすべて削除"
+      "clearAll": "このリストからすべて削除",
+      "newFavorite": "New favorite",
+      "newCategory": "New category",
+      "newTag": "New tag",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "moveUpWithName": "{name} を上へ移動",
+      "moveDownWithName": "{name} を下へ移動",
+      "dragToReorder": "ドラッグして並べ替え",
+      "moveToCategory": "Move to category",
+      "removeFavorite": "Remove from favorites",
+      "removeTag": "Remove tag",
+      "renameCategory": "Rename category",
+      "deleteCategory": "Delete category",
+      "uncategorized": "Uncategorized",
+      "confirmRemove": "削除",
+      "clearAllConfirmTitle": "このリストからすべて削除しますか？",
+      "clearAllConfirmDescription": "この操作は元に戻せません。",
+      "removeFavoriteConfirmTitle": "お気に入りから外しますか？",
+      "removeFavoriteConfirmDescription": "項目はここから削除されます。再度お気に入りに追加すると元に戻せます。",
+      "deleteTagConfirmTitle": "このタグを削除しますか？",
+      "deleteTagConfirmDescription": "タグは削除され、すべての項目から取り除かれます。",
+      "removeTagConfirmTitle": "この項目からタグを削除しますか？",
+      "removeTagConfirmDescription": "項目はこのタグを持たなくなります。",
+      "renameFavorite": "表示名を編集",
+      "editFavorite": "Edit favorite"
+    },
+    "newFavoriteDialog": {
+      "title": "Add to favorites",
+      "pathLabel": "File or folder path",
+      "pathPlaceholder": "Paste a full path",
+      "pathNotFound": "Path does not exist",
+      "pathAlreadyFavorite": "Already in favorites",
+      "confirm": "Add",
+      "displayNameLabel": "表示名",
+      "displayNamePlaceholder": "空欄のときは元の名前を使用します"
+    },
+    "nameDialog": {
+      "nameLabel": "Name",
+      "namePlaceholder": "Enter a name",
+      "duplicateName": "\"{name}\" already exists",
+      "confirm": "Create"
+    },
+    "categoryDeleteNote": "Favorites in this category return to \"Uncategorized\". Nothing is deleted.",
+    "favoriteEdit": {
+      "pathRequired": "Path cannot be empty",
+      "saved": "Favorite updated",
+      "saveFailed": "Failed to update the favorite"
+    },
+    "favoriteCategoryDialog": {
+      "categoryLabel": "Category"
     }
   },
   "settingsCategories": {
@@ -220,8 +291,19 @@
         "title": "ファイルビュー",
         "enableBoxSelection": "ボックス選択を有効にする",
         "enableBoxSelectionDescription": "空白部分をドラッグして、選択ボックスで複数の項目を選択します。Ctrl または Shift を押しながらで追加、Alt を押しながらで反転します。",
+        "boxSelectionEnabledByDefault": "Box selection is now enabled by default. If drag-selecting gets in the way, you can turn it off here.",
         "increaseFileViewGaps": "ファイルビューの間隔を広げる",
-        "increaseFileViewGapsDescription": "リスト表示の左右余白を追加し、グリッド表示の間隔を広げて選択しやすくします。"
+        "increaseFileViewGapsDescription": "リスト表示の左右余白を追加し、グリッド表示の間隔を広げて選択しやすくします。",
+        "foldersFirst": "Place folders before files in list view",
+        "foldersFirstDescription": "Only affects the list view; the grid view always groups entries by type.",
+        "showListThumbnails": "Show thumbnails in list view",
+        "showListThumbnailsDescription": "Images and videos show thumbnails in the list. Folders and documents still show their type icon. Grid view always shows thumbnails and is not affected by this switch.",
+        "thumbnailSizeTitle": "Thumbnail size",
+        "thumbnailSizeDescription": "Adjust thumbnail size in the list and grid views.",
+        "thumbnailSizeSmall": "Small",
+        "thumbnailSizeMedium": "Medium",
+        "thumbnailSizeLarge": "Large",
+        "thumbnailSizeXLarge": "Extra large"
       },
       "startupPage": {
         "title": "起動ページ",
@@ -241,7 +323,8 @@
       "openAppLogDirectory": "アプリログディレクトリを開く",
       "openGlobalSearchIndexDirectory": "グローバル検索インデックスディレクトリを開く",
       "changelog": "変更履歴",
-      "allReleases": "すべてのリリース"
+      "allReleases": "すべてのリリース",
+      "learningNotes": "段燚的学习笔记"
     },
     "visualEffects": {
       "title": "視覚効果",
@@ -260,16 +343,20 @@
         "darken": "比較（暗）",
         "lighten": "比較（明）",
         "color-dodge": "覆い焼きカラー",
+        "plus-lighter": "覆い焼き（リニア）- 加算",
         "color-burn": "焼き込みカラー",
         "hard-light": "ハードライト",
         "soft-light": "ソフトライト",
         "difference": "差分",
         "exclusion": "除外",
-        "hue": "色相",
-        "saturation": "彩度",
         "color": "カラー",
         "luminosity": "輝度"
       },
+      "blendTarget": "ブレンド対象",
+      "blendTargetUi": "インターフェース",
+      "blendTargetFill": "塗りつぶしカラー",
+      "blendTint": "塗りつぶしカラー",
+      "blendTintCustom": "カスタムカラー",
       "overlayBackground": "オーバーレイ背景",
       "selectNextBackground": "次の背景を選択",
       "useTheSameSettingsForAllPages": "すべてのページに同じ設定を使用する",
@@ -281,9 +368,15 @@
       "theme": {
         "title": "テーマ",
         "extensionThemes": "拡張機能のテーマ",
+        "afmThemeThemes": "AFM ブランドテーマ",
+        "afmThemes": {
+          "warmLight": "ウォームペーパー · ライト",
+          "warmDark": "ウォームペーパー · ダーク",
+          "vividLight": "バイビッド",
+          "coolLight": "クールパイン"
+        },
         "themeTypeRadio": {
-          "dark": "暗い",
-          "light": "ライト（開発中）"
+          "dark": "暗い"
         }
       }
     },
@@ -298,7 +391,14 @@
       "selectedFont": "選択したフォント",
       "defaultFont": "デフォルトのフォント",
       "reFetchSystemFonts": "システムフォントを再取得",
-      "resetFontToDefault": "フォントをデフォルトにリセット"
+      "resetFontToDefault": "フォントをデフォルトにリセット",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "日付時刻",
@@ -323,7 +423,7 @@
       "preventDropdownCloseFocusReturn": "ドロップダウンを閉じた時にフォーカスを戻さない",
       "preventDropdownCloseFocusReturnDescription": "有効にすると、ドロップダウンを閉じても（Escapeキーなど）フォーカスがトリガーボタンに戻らず、フォーカスリングやツールチップの表示を防ぎます",
       "quickAccessOnHover": "ホバーでクイックアクセスパネルを開く",
-      "quickAccessOnHoverDescription": "有効にすると、サイドバーのダッシュボードボタンにマウスを合わせたときにクイックアクセスパネルが自動的に開きます"
+      "quickAccessOnHoverDescription": "有効にすると、サイドバーのクイックアクセスボタンにマウスを合わせたときにクイックアクセスパネルが自動的に開きます"
     },
     "tooltips": {
       "title": "ツールチップ",
@@ -379,7 +479,6 @@
       }
     },
     "navigator": {
-      "navigatorViewLayout": "レイアウト",
       "navigatorOptions": "ナビゲーターオプション",
       "systemIcons": "アイコンテーマ",
       "systemIconsDirectories": "フォルダー",
@@ -435,7 +534,15 @@
       "ignoredPathsHelpDownloads": "そのパス接頭辞をスキップします。",
       "ignoredPathsHelpTestFolder": "任意の場所にある test という名前のフォルダーとその内容をスキップします。",
       "ignoredPathsHelpExtensionMask": "任意の場所にある .log 拡張子のファイルをスキップします。",
-      "ignoredPathsHelpNestedExtensionMask": "任意のフォルダー内にある .tmp 拡張子のファイルをスキップします。"
+      "ignoredPathsHelpNestedExtensionMask": "任意のフォルダー内にある .tmp 拡張子のファイルをスキップします。",
+      "remoteIndexTitle": "クラウド検索",
+      "remoteIndexDescription": "グローバル検索に追加した接続のファイルが検索結果に表示されます。",
+      "rebuildRemoteIndex": "クラウド索引を再構築",
+      "rebuildRemoteIndexDescription": "チェックした接続のファイルを再取得してインデックスに書き込みます。ネットディスクの API 割当量を使用します。",
+      "noRemoteInSearch": "グローバル検索に追加されたネットディスクはありません",
+      "noNetdiskConnections": "このクラウドストレージにはまだ接続がありません",
+      "rebuildCheckedRemoteIndex": "チェックした接続のインデックスを再構築",
+      "rebuildCheckedRemoteIndexHint": "再構築は常にチェック済みの接続すべてを対象にするため、個々の接続だけを再構築することはできません。"
     },
     "drives": {
       "driveDetection": "ドライブ検出",
@@ -445,21 +552,362 @@
     },
     "stats": {
       "title": "ユーザーデータ",
-      "description": "アプリはデータをローカルに保存します（タグ、お気に入り、履歴、最近開いた項目）。これにより、ダッシュボードリストや検索などの機能が有効になります。このデータはアプリディレクトリに保存されます。",
+      "description": "アプリはデータをローカルに保存します（タグ、お気に入り、履歴、最近開いた項目）。これにより、クイックアクセスリストや検索などの機能が有効になります。このデータはアプリディレクトリに保存されます。",
       "openDataDirectory": "データディレクトリを開く"
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "Sigma File Manager を既定のファイルマネージャーとして設定",
+        "title": "Alpha File Manager を既定のファイルマネージャーとして設定",
         "description": "このオプションはシステム レジストリを変更するため、デバイスで予期しない副作用が発生する可能性があります。自己責任で続行してください。",
         "unavailableInMicrosoftStore": "Microsoft Store 版では利用できません"
+      },
+      "mcp": {
+        "title": "MCP server (for AI agents)",
+        "description": "Let AI clients such as Claude or Cursor call this app's read-only capabilities over MCP. Off by default — when off, no port is opened at all.",
+        "modes": {
+          "off": "Off",
+          "readOnly": "Read-only",
+          "writable": "Writable",
+          "askEachTime": "Ask each time"
+        },
+        "modeDescriptions": {
+          "off": "The server does not start and no port is opened. Nothing on this machine can reach it.",
+          "readOnly": "Exposes directory listing, drives, mountable devices, the indexed global search, directory size and favourites. Entirely read-only — no file is ever modified.",
+          "writable": "Adds write operations on top of read-only. Deletion still goes to the recycle bin, never a hard delete.",
+          "askEachTime": "Same as writable, but every write operation needs individual confirmation."
+        },
+        "running": "Running · port {port}",
+        "stopped": "Not running",
+        "endpoint": "Endpoint",
+        "clients": "Connected clients",
+        "copyConfig": "Copy config snippet",
+        "copied": "Copied",
+        "copyFailed": "Copy failed — please copy the snippet manually",
+        "rotateToken": "Regenerate token",
+        "tokenRotated": "New token generated. Previous configs stop working immediately.",
+        "token": "Token",
+        "tokenHint": "Any process on this machine can reach 127.0.0.1. The token is the only barrier — do not share it.",
+        "auditTitle": "Recent calls",
+        "outcomes": {
+          "allowed": "allowed",
+          "denied": "denied",
+          "error": "error"
+        },
+        "clientsConnected": "{count} agent(s) connected",
+        "indicatorTooltip": "An AI client is using this app's capabilities",
+        "notRunning": "MCP server is not running",
+        "deployTitle": "One-click deploy to AI clients",
+        "deployHint": "One-click deploy writes this server straight into the client’s own config file without touching any other entry, and backs the original up as .alpha-mcp.bak beforehand. The change only takes effect after you quit that client completely and start it again.",
+        "deployAction": "One-click deploy",
+        "deployInstalled": "Deployed",
+        "deployNotYet": "Not deployed",
+        "deployNotDetected": "Client not found",
+        "deployDoneShort": "Configured",
+        "deployRemove": "Remove",
+        "deployLoading": "Scanning this machine for clients…",
+        "deployFailed": "Deployment failed — see the error below",
+        "deployAlreadyCurrent": "The config was already up to date, so nothing was changed.",
+        "deployDone": "Deployed to {client}. Config file: {path}. The original file was backed up as {backup}. Please quit {client} completely and start it again.",
+        "deployRemoved": "Removed this server from {client}’s config.",
+        "deployClients": {
+          "codex": "Codex",
+          "cursor": "Cursor",
+          "claudeCode": "Claude Code",
+          "claudeDesktop": "Claude Desktop",
+          "openclaw": "OpenClaw",
+          "minimaxCode": "Minimax Code"
+        },
+        "recheck": "Re-check",
+        "restartTitle": "{client} must be fully quit and restarted",
+        "restartBody": "The config file is written, but MCP clients only read it at startup — they never reload it while running. Quit {client} from its tray icon (closing the window is not enough), reopen it, then come back here and press Re-check.",
+        "restartBackup": "The original file was backed up to {backup}. To undo, rename the backup back.",
+        "restartDismiss": "Got it"
       }
+    },
+    "storage": {
+      "thumbnailCache": {
+        "title": "Thumbnail cache",
+        "description": "Image and video thumbnails share the same cache directory. Cleared thumbnails are regenerated automatically the next time you browse.",
+        "sizeLabel": "Disk usage",
+        "sizeUnknown": "Unknown",
+        "countLabel": "Items",
+        "countUnknown": "Unknown",
+        "clear": "Clear cache",
+        "clearSuccess": "Thumbnail cache cleared",
+        "clearFailed": "Failed to clear the thumbnail cache",
+        "confirmTitle": "Clear the thumbnail cache?",
+        "confirmDescription": "This clears both image and video thumbnail caches and cannot be undone. Cleared thumbnails are regenerated the next time you browse those files."
+      },
+      "settingsTransfer": {
+        "title": "Export / import settings",
+        "description": "Export settings, favorites, remote connections and cloud drive connections into one JSON file. Browsing history and frequently used items are not exported.",
+        "export": "Export settings",
+        "import": "Import settings",
+        "exporting": "Exporting…",
+        "importing": "Importing…",
+        "exportSuccess": "Settings exported",
+        "exportFailed": "Failed to export settings",
+        "importSuccess": "Settings imported",
+        "importFailed": "Failed to import settings",
+        "confirmTitle": "Import settings?",
+        "confirmDescription": "Importing overwrites the current settings, favorites, tags and remote connections. Browsing history and frequently used items are not affected.",
+        "invalidFile": "This file is not a valid Alpha File Manager settings export.",
+        "restartHint": "Some settings (such as theme and language) only take effect after restarting the app.",
+        "credentialsHint": "{count} connection(s) need you to sign in again."
+      }
+    },
+    "remote": {
+      "connections": {
+        "title": "Remote connections",
+        "empty": "No connections yet."
+      },
+      "action": {
+        "add": "Add connection",
+        "edit": "Edit",
+        "delete": "Delete",
+        "save": "Save",
+        "cancel": "Cancel",
+        "browse": "Browse…",
+        "test": "Test connection"
+      },
+      "field": {
+        "name": "Name",
+        "protocol": "Protocol",
+        "host": "Server address",
+        "port": "Port",
+        "username": "Username",
+        "password": "Password",
+        "initialPath": "Initial directory",
+        "proxy": "Proxy",
+        "proxyHost": "Proxy address",
+        "proxyPort": "Proxy port",
+        "proxyUsername": "Proxy username",
+        "proxyPassword": "Proxy password",
+        "localPath": "Local folder",
+        "cookie": "Cookie",
+        "includeInSearch": "グローバル検索に含める",
+        "includeInSearchHint": "チェックすると、この接続のファイルがグローバル検索のインデックスに入ります（クラウド索引は手動で再構築してください）。"
+      },
+      "protocol": {
+        "ftp": "FTP",
+        "ftps_explicit": "FTPS (explicit)",
+        "ftps_implicit": "FTPS (implicit)",
+        "sftp": "SFTP",
+        "baidu_pan": "Baidu ネットディスク",
+        "quark_pan": "クアークドライブ",
+        "aliyun_pan": "阿里雲ドライブ",
+        "onedrive_pan": "OneDrive"
+      },
+      "proxy": {
+        "direct": "Direct connection",
+        "socks5": "SOCKS5",
+        "http_connect": "HTTP CONNECT"
+      },
+      "password": {
+        "saved": "Password saved",
+        "savedHint": "Leave blank to keep the current password.",
+        "clear": "Remove the saved password"
+      },
+      "error": {
+        "nameRequired": "Connection name cannot be empty.",
+        "hostRequired": "Server address cannot be empty.",
+        "hostHasWhitespace": "Server address cannot contain spaces.",
+        "portInvalid": "Port must be between 1 and 65535.",
+        "initialPathInvalid": "Initial directory contains an invalid segment.",
+        "proxyHostRequired": "Proxy address cannot be empty.",
+        "proxyHostHasWhitespace": "Proxy address cannot contain spaces.",
+        "proxyPortInvalid": "Proxy port must be between 1 and 65535.",
+        "connectionIdInvalid": "Connection id is invalid.",
+        "remoteConnectionsStorageNotReady": "The connection list has not finished loading. Please try again in a moment.",
+        "unknown": "Failed to save the connection.",
+        "localPathHasWhitespace": "Local folder cannot contain spaces.",
+        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
+        "baiduLoginRequired": "先にアプリ内で Baidu Pan にログインしてから、この接続を保存してください。",
+        "quarkLoginRequired": "この接続を保存する前に、アプリ内でクアークドライブにログインしてください。",
+        "aliyunLoginRequired": "この接続を保存する前に、アプリ内で阿里雲ドライブにログインしてください。",
+        "onedriveLoginRequired": "Sign in to OneDrive inside the app before saving this connection."
+      },
+      "localPath": {
+        "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
+      },
+      "test": {
+        "testing": "Testing…",
+        "outcome": {
+          "verified": "Connected. The server accepted these settings.",
+          "auth_rejected": "Connected, but the server rejected the username or password.",
+          "missing_credential": "Connected, but no password was supplied, so authentication was not verified.",
+          "wrong_protocol": "Something answered, but it is not the selected protocol.",
+          "unreachable": "Could not reach the server. Check the address, port and proxy.",
+          "protocol_error": "Connected, but the exchange did not complete as expected."
+        },
+        "passwordNotChecked": "No password was submitted, so this does not confirm that it is correct.",
+        "tlsNotVerified": "The TLS certificate was not verified."
+      },
+      "nav": {
+        "openSettings": "Remote settings",
+        "connect": "Connect",
+        "netdisk": "クラウドディスク",
+        "netdiskDescription": "埋め込みウィンドウで Baidu Netdisk、Quark Drive または Aliyun Drive にサインインします。資格情報は Windows DPAPI で暗号化され、この端末の外には出ません。",
+        "remoteSection": "リモート接続",
+        "remoteDescription": "FTP、FTPS、SFTP の接続をここで保存します。資格情報は Windows DPAPI で暗号化され、この端末の外には出ません。",
+        "addNetdisk": "クラウドディスクを追加",
+        "addRemote": "リモート接続を追加",
+        "emptyNetdisk": "クラウドディスクの接続はまだありません。",
+        "emptyRemote": "リモート接続はまだありません。",
+        "empty": "No connections yet.",
+        "split": "Split",
+        "editConnection": "Edit this connection",
+        "homeEmpty": "クラウドディスクもリモート接続もまだ設定されていません。"
+      },
+      "trustedHosts": {
+        "title": "Trusted hosts",
+        "description": "Host keys you have confirmed. Remote directories only open after you trust the server here.",
+        "empty": "You have not trusted any host yet.",
+        "loadFailed": "The trusted host list could not be read.",
+        "forget": "Forget",
+        "forgetFailed": "That host could not be removed. It is still on the list.",
+        "kindSsh": "SSH key",
+        "kindX509": "X.509 certificate"
+      },
+      "baidu": {
+        "status": {
+          "loading": "認可状態を確認しています…",
+          "missing": "未ログイン",
+          "ready": "認可済み",
+          "stoken_expired": "STOKEN の有効期限が切れました。再度ログインしてください",
+          "stoken_expiring_soon": "STOKEN の有効期限が近づいています"
+        },
+        "action": {
+          "deleteSession": "保存したセッションを削除"
+        },
+        "embedded": {
+          "title": "Sign in inside the app",
+          "start": "Sign in with the built-in window",
+          "cancel": "Stop waiting",
+          "hint": "Opens a sign-in window inside the app. Once you are signed in, this form fills itself in — you only need to give the connection a name and save.",
+          "status": {
+            "waiting": "Waiting for you to finish signing in…",
+            "ready": "Signed in. Give this connection a name and save — the session is stored when you save.",
+            "closed": "The sign-in window was closed before signing in finished.",
+            "timeout": "Signing in took too long. Try again.",
+            "error": "Could not read the session. Use the Cookie field instead."
+          },
+          "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
+        }
+      },
+      "quark": {
+        "status": {
+          "loading": "認証状態を確認しています…",
+          "missing": "未ログイン",
+          "ready": "認証済み",
+          "stale": "セッションの有効期限が切れました。再度ログインしてください",
+          "stale_soon": "セッションの有効期限が近づいています"
+        },
+        "action": {
+          "deleteSession": "保存済みのセッションを削除"
+        },
+        "embedded": {
+          "title": "アプリ内でログイン",
+          "start": "埋め込みウィンドウでログイン",
+          "cancel": "待機を停止",
+          "hint": "アプリ内にログインウィンドウが開きます。ログインが完了すると自動的に閉じ、セッションもすぐ取得されます。この接続を保存するだけです。",
+          "status": {
+            "waiting": "ログインをお待ちしています…",
+            "ready": "ログインしました。この接続を保存してください。セッションは保存時に書き込まれます。",
+            "closed": "ログインが完了する前にウィンドウが閉じられました。",
+            "timeout": "ログインの待機がタイムアウトしました。もう一度お試しください。",
+            "error": "ログイン状態を読み取れませんでした。もう一度お試しください。"
+          },
+          "saved": "クアークドライブにログインしました。ウィンドウは自動的に閉じ、セッションも取得済みです。この接続を保存すると利用できます。"
+        }
+      },
+      "aliyun": {
+        "status": {
+          "loading": "認証状態を確認しています…",
+          "missing": "未ログイン",
+          "ready": "認証済み",
+          "stale": "セッションの有効期限が切れました。再度ログインしてください",
+          "stale_soon": "セッションの有効期限が近づいています"
+        },
+        "action": {
+          "deleteSession": "保存済みのセッションを削除"
+        },
+        "embedded": {
+          "title": "QRコードでログイン",
+          "start": "QRコードを表示",
+          "cancel": "待機を停止",
+          "hint": "ここにログイン用のQRコードが表示されます。スマートフォンの阿里雲ドライブアプリでスキャンしてください。セッションは自動的に取得されるので、この接続を保存するだけです。スキャンできない場合は、下にアクセストークンを貼り付けてください。",
+          "status": {
+            "waiting": "スキャンをお待ちしています…",
+            "ready": "ログインしました。この接続を保存してください。セッションは保存時に書き込まれます。",
+            "closed": "ログインが完了する前にキャンセルされました。",
+            "timeout": "QRコードの有効期限が切れました。もう一度お試しください。",
+            "error": "ログイン状態を読み取れませんでした。もう一度お試しください。",
+            "scanned": "スキャン済み。スマートフォンで確認してください"
+          },
+          "saved": "阿里雲ドライブにログインしました。この接続を保存すると利用できます。",
+          "refresh": "QRコードを更新",
+          "windowStart": "ログインウィンドウを開く",
+          "windowCancel": "ウィンドウを閉じる",
+          "windowHint": "公式ページがウィンドウ内で QR コードを表示し確認します。認証情報はフォームを経由せずアプリに渡されます。",
+          "qrFallback": "予備：手動 QR コードログイン"
+        },
+        "field": {
+          "pasteToken": "アクセストークン",
+          "pasteTokenHint": "既存のアクセストークンを貼り付けてください。保存前に Aliyun Drive で検証され、トークンが平文で端末の外へ出ることはありません。"
+        }
+      },
+      "netdisk": {
+        "provider": "クラウドドライブ",
+        "baidu": "Baidu ドライブ",
+        "quark": "クアークドライブ",
+        "aliyun": "阿里雲ドライブ",
+        "signedIn": "サインイン済み",
+        "onedrive": "OneDrive"
+      },
+      "onedrive": {
+        "field": {
+          "clientId": "Application (client) ID",
+          "clientIdHint": "The client id of the Microsoft Entra application you registered for OneDrive. It is stored with the session on this machine and is never sent through this form.",
+          "authUrl": "Authorization URL",
+          "authUrlHint": "If the browser did not open by itself, copy this URL and finish signing in there."
+        },
+        "action": {
+          "start": "Start sign-in",
+          "cancel": "Stop waiting",
+          "deleteSession": "Delete the saved session"
+        },
+        "state": {
+          "pending": "Waiting for you to finish signing in in the browser…",
+          "completed": "Signed in. Save this connection — the session will be written when you save.",
+          "failed": "The sign-in did not complete. Please try again."
+        },
+        "auth": {
+          "authorized": "Authorized",
+          "missing": "Not signed in",
+          "loading": "Reading authorization status…"
+        },
+        "hint": {
+          "clientIdRequired": "Fill in the application (client) ID first."
+        }
+      }
+    },
+    "about": {
+      "title": "このアプリについて",
+      "changelog": "変更履歴",
+      "projectLinks": "プロジェクトリンク",
+      "commits": "コミット",
+      "author": "作者",
+      "developer": "段燚",
+      "website": "ウェブサイト",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "スキャンしてフォロー"
     }
   },
   "projectGithubButtons": {
     "projectPage": "プロジェクトページ",
-    "requestsIssues": "リクエストと問題",
-    "discussions": "ディスカッション"
+    "requestsIssues": "リクエストと問題"
   },
   "settingsTabs": {
     "general": "全般",
@@ -470,7 +918,9 @@
     "dataStorage": "データとストレージ",
     "stats": "統計",
     "experimental": "実験的",
-    "extensions": "拡張機能"
+    "extensions": "拡張機能",
+    "remote": "Remote",
+    "about": "このアプリについて"
   },
   "settingsTags": {
     "language": "言語",
@@ -483,8 +933,8 @@
     "visualFilters": "ビジュアル、フィルター、色、コントラスト、明るさ、彩度、画像、動画、テーマ、ダイアログ、背景、ぼかし",
     "fonts": "フォント、テキスト",
     "dateTime": "日付、時刻、形式",
-    "uiElements": "UI、要素、ビジュアル、入力、アクセント、色、タイムライン、ダッシュボード、ページ、最近、カード、ホーム、ドライブ、スペース、インジケーター、スタイル",
-    "quickAccess": "quick, access, panel, hover, sidebar, dashboard",
+    "uiElements": "UI、要素、ビジュアル、入力、アクセント、色、タイムライン、クイックアクセス、ページ、最近、カード、ホーム、ドライブ、スペース、インジケーター、スタイル",
+    "quickAccess": "quick, access, panel, hover, sidebar",
     "tooltips": "tooltip, tooltips, hover, delay, timing",
     "clipboard": "クリップボード, 貼り付け, コピー, 切り取り, ツールバー, 画像, スクリーンショット, パス, ファイル",
     "homePageMediaBanner": "ホーム、ページ、メディア、バナー、背景、画像、動画",
@@ -492,7 +942,7 @@
     "shortcuts": "ショートカット",
     "tabAppearance": "タブ、アクティブなタブ、太字、テキスト",
     "globalSearch": "グローバル、検索、検索、検索、フィルター、スキャン",
-    "stats": "統計、データ、ユーザー、お気に入り、タグ、履歴、最近、ダッシュボード、ストレージ",
+    "stats": "統計、データ、ユーザー、お気に入り、タグ、履歴、最近、クイックアクセス、ストレージ",
     "driveDetection": "ドライブ、USB、ストレージ、ディスク、デバイス、検出、接続",
     "autoplay": "自動再生、エクスプローラー、windows、ドライブ、usb、自動、開く、フォルダ",
     "experimental": "高度, 実験的, 既定のファイルマネージャー, エクスプローラー, レジストリ, ターミナル, シェル",
@@ -501,10 +951,13 @@
     "extensions": "extensions, plugins, addons, configuration, settings",
     "infoPanelPreview": "info, panel, preview, image, thumbnail, memory, original, video, mute, autoplay",
     "performance": "performance, memory, quick view, print, window, launch, preload",
-    "fileView": "ファイルビュー, ボックス選択, ドラッグ選択, リスト, グリッド, 間隔, 余白",
+    "fileView": "ファイルビュー, ボックス選択, ドラッグ選択, リスト, グリッド, 間隔, 余白, folder, folders, first, top, sort, sorting, order, ordering, list, files, file, directory, directories, group, grouping, view, precedence",
     "tabsWorkspaces": "タブ, ワークスペース, 閉じる, 最後のタブ, デフォルトタブ",
     "defaultDirectory": "ホーム, locations, このPC, コンピュータ, ドライブ, デフォルトフォルダー, デフォルトディレクトリ, 新しいタブ, カスタムパス",
-    "startupPage": "起動ページ, 起動, スタート, 起動時に開く, ホーム, ダッシュボード, ナビゲーター, 最後のページ, 復元, ページ"
+    "startupPage": "起動ページ, 起動, スタート, 起動時に開く, ホーム, クイックアクセス, ナビゲーター, 最後のページ, 復元, ページ",
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "このアプリについて, バージョン, 更新, 変更履歴, ギットハブ, 作者, ウェブサイト, wechat, qrコード",
+    "settingsTransfer": "export, import, settings, favorites, remote connections, cloud drive, backup, restore"
   },
   "drag": {
     "holdShiftToChangeMode": "[Shift] を押してモードを変更",
@@ -537,13 +990,15 @@
     "localShortcutsAppScope": "ローカル ショートカット (アプリ スコープ)",
     "unknownMainKey": "不明なキー",
     "globalShortcutRegisterFailed": "このグローバルショートカットを登録できませんでした。Windows や他のアプリが使用中の可能性があります。別の組み合わせ（例: Win+Shift+… や Ctrl+Alt+…）をお試しください。",
-    "shortcutRecorderGlobalCaptureHint": "キーを押しても何も表示されない場合、お使いのシステムや他のプログラムがこのウィンドウより先にキーを取っている可能性があります。別の組み合わせをお試しください。"
+    "shortcutRecorderGlobalCaptureHint": "キーを押しても何も表示されない場合、お使いのシステムや他のプログラムがこのウィンドウより先にキーを取っている可能性があります。別の組み合わせをお試しください。",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "アプリ ウィンドウをフォーカスする",
     "switchToHomePage": "ホームページに切り替え",
     "switchToNavigatorPage": "ナビゲーターページに切り替え",
-    "switchToDashboardPage": "ダッシュボードに切り替え",
+    "switchToDashboardPage": "クイックアクセスに切り替え",
     "switchToSettingsPage": "設定ページに切り替え",
     "switchToExtensionsPage": "拡張機能ページに切り替え",
     "navigatePageBack": "前のページへ移動",
@@ -641,6 +1096,22 @@
       "description": "この操作はコンピューターから {count} 個のアイテムを完全に削除します。",
       "confirm": "この操作は取り消せません。本当に削除しますか？",
       "delete": "削除"
+    },
+    "remoteHostKeyUnknown": {
+      "title": "This server’s identity has not been verified yet",
+      "description": "Alpha File Manager has connected to this host for the first time. Compare the fingerprint below with the one your server administrator gave you, then decide whether to trust it.",
+      "trust": "Trust and continue"
+    },
+    "remoteHostKeyChanged": {
+      "title": "This server’s identity has changed",
+      "description": "The host key presented by this server does not match the one you trusted before. This can mean the server was reinstalled, or that someone is intercepting the connection.",
+      "expected": "Previously trusted fingerprint:",
+      "trustAnyway": "Replace and continue"
+    },
+    "remoteHostKeyCommon": {
+      "algorithm": "Host key algorithm: {algorithm}",
+      "hint": "You can check it yourself with: ssh-keygen -lf <host key file>",
+      "hintX509": "You can check it yourself with: openssl x509 -fingerprint -sha256 -noout -in <certificate file>"
     }
   },
   "notifications": {
@@ -674,7 +1145,9 @@
     "addedToFavorites": "お気に入りに 0 個のアイテムを追加しました | お気に入りに 1 個のアイテムを追加しました | 気に入りに {n} 個のアイテムをお追加しました | お気に入りに {n} 個のアイテムを追加しました",
     "createdNLinks": "0 個のリンクを作成しました | 1 個のリンクを作成しました | {n} 個のリンクを作成しました | {n} 個のリンクを作成しました",
     "createdNOfNLinks": "{total} 件中 {created} 件のリンクを作成しました",
-    "linkCreationPartialFailureDescription": "{count} 件のリンクに失敗しました。最初のエラー: {error}"
+    "linkCreationPartialFailureDescription": "{count} 件のリンクに失敗しました。最初のエラー: {error}",
+    "deletingLargeBatch": "Deleting {count} items",
+    "deletingLargeBatchDetail": "{files} files · {directories} folders · {size}"
   },
   "contextMenus": {
     "dirItem": {
@@ -856,6 +1329,7 @@
     },
     "name": "名前",
     "size": "サイズ",
+    "availableSpace": "空き容量",
     "modified": "更新日時",
     "listModifiedDate": {
       "todayAt": "今日 {time}",
@@ -864,6 +1338,7 @@
     "columns": "列",
     "tags": "タグ",
     "folders": "フォルダー",
+    "partitions": "パーティション",
     "images": "画像",
     "videos": "動画",
     "video": "動画",
@@ -910,12 +1385,16 @@
     "actions": {
       "rename": "名前を変更",
       "copy": "コピー",
+      "cut": "切り取り",
       "move": "移動",
       "paste": "貼り付け",
       "pasteToPane1": "ペイン1に貼り付け",
       "pasteToPane2": "ペイン2に貼り付け",
       "delete": "削除",
       "openWith": "アプリで開く...",
+      "openContainingDirectory": "Open containing directory",
+      "openContainingDirectoryFailed": "親フォルダーを開けませんでした",
+      "openContainingDirectoryInApp": "Show containing folder in split view",
       "properties": "プロパティ",
       "propertiesFailed": "プロパティを開けませんでした",
       "quickView": "クイックビュー",
@@ -924,7 +1403,17 @@
       "openInNewTab": "新しいタブで開く",
       "addToFavorites": "お気に入りに追加",
       "removeFromFavorites": "お気に入りから削除",
-      "createLink": "リンクを作成"
+      "createLink": "リンクを作成",
+      "unlock": "Unlock file",
+      "forceDelete": "Force delete",
+      "rotateImageLeft": "左に回転",
+      "rotateImageRight": "右に回転",
+      "flipImageHorizontal": "左右反転",
+      "flipImageVertical": "上下反転",
+      "imageEditSucceeded": "画像を編集しました",
+      "imageEditFailed": "画像の編集に失敗しました",
+      "imageEditInProgress": "処理中…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "シンボリックリンク",
@@ -995,7 +1484,30 @@
     "linkMetadataPerformanceWarning": "メモリ使用量が増え、パフォーマンスが低下する可能性があります。",
     "fillColumnWidth": "利用可能な幅を埋める",
     "setMinimumColumnWidths": "最小幅を設定",
-    "items": "アイテム"
+    "items": "アイテム",
+    "favoriteCategoryDialog": {
+      "title": "Add to favorites",
+      "categoryLabel": "Choose a category",
+      "uncategorized": "Uncategorized",
+      "newCategoryLabel": "Or create a new category",
+      "newCategoryPlaceholder": "Type a name for the new category",
+      "confirm": "Add to favorites",
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "表示名",
+      "displayNamePlaceholder": "空欄のときは元の名前を使用します"
+    },
+    "searchOptions": {
+      "title": "検索オプション",
+      "matchCount": "{n} 件の一致",
+      "results": "結果",
+      "options": "オプション"
+    },
+    "swapPanes": "Swap panes",
+    "devices": "デバイス",
+    "device": "デバイス",
+    "deviceOpenFailed": "このデバイスを開けませんでした",
+    "deviceOpenFailedDescription": "デバイスが接続されていない可能性があります。代わりにシステムエクスプローラーで開いてください。",
+    "openInSystemExplorer": "システムエクスプローラーで開く"
   },
   "openWith": {
     "loadingPrograms": "プログラムを読み込み中...",
@@ -1095,7 +1607,7 @@
     },
     "badges": {
       "official": "公式",
-      "officialTooltip": "この拡張機能はSigma File Managerチームによって作成・管理されています",
+      "officialTooltip": "この拡張機能はAlpha File Managerチームによって作成・管理されています",
       "community": "コミュニティ",
       "communityTooltip": "これはコミュニティ拡張機能です。インストール前にソースコードを確認してください。",
       "local": "ローカル",
@@ -1103,7 +1615,9 @@
       "broken": "破損",
       "brokenTooltip": "拡張機能のファイルが見つかりません。リストから削除するにはアンインストールしてください。",
       "disabled": "無効",
-      "disabledTooltip": "この拡張機能は無効です"
+      "disabledTooltip": "この拡張機能は無効です",
+      "source": "ソース",
+      "sourceTooltip": "マーケットソース: {name}"
     },
     "stats": {
       "total": "合計",
@@ -1191,17 +1705,30 @@
       "reloadFailed": "バイナリ設定の更新後に拡張機能を再読み込みできませんでした"
     },
     "engineIncompatibleShort": "更新が必要",
-    "engineAppWarning": "Sigma File Manager {range} が必要です（現在: {current}）",
+    "engineAppWarning": "Alpha File Manager {range} が必要です（現在: {current}）",
     "engineApiWarning": "拡張機能 API {range} が必要です（現在: {current}）",
     "engineRequirements": "要件",
-    "requiresSigmaFileManager": "Sigma File Manager",
+    "requiresSigmaFileManager": "Alpha File Manager",
     "requiresExtensionApi": "拡張機能 API",
     "marketplaceUnavailable": "Marketplace unavailable",
     "marketplaceUnavailableDescription": "Could not connect to the extension registry. Check your internet connection and try again.",
     "githubConnectivityIssue": "GitHub に接続できません",
     "githubConnectivityIssueDescription": "アプリが GitHub に接続できなかったため、一部の拡張機能のバージョン確認に失敗しました。インターネット接続、VPN、ファイアウォール設定を確認し、後でもう一度お試しください。",
     "offlineIssue": "You are offline",
-    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features."
+    "offlineIssueDescription": "Extension installs, updates, and version checks require an internet connection. Reconnect to the network to use marketplace features.",
+    "marketSources": "マーケットソース",
+    "marketSourceAdd": "マーケットソースを追加",
+    "marketSourceName": "名前",
+    "marketSourceUrl": "レジストリの URL",
+    "marketSourceOfficial": "公式",
+    "marketSourceCommunity": "コミュニティ",
+    "marketSourceCustom": "カスタム",
+    "marketSourceAll": "すべて",
+    "marketSourceEmpty": "マーケットソースはまだ追加されていません。",
+    "marketSourceRemove": "マーケットソースを削除",
+    "marketSourceRemoveConfirm": "このマーケットソースを削除しますか？提供されている拡張機能は、次回マーケットプレイスを更新するときにアンインストールされます。",
+    "marketSourceInvalidUrl": "公開 HTTPS URL を入力してください。",
+    "marketSourceUnreachable": "接続できません"
   },
   "commandPalette": {
     "accessibleDialogTitle": "コマンドパレット",
@@ -1229,7 +1756,9 @@
       "trash": "ゴミ箱",
       "deletePermanent": "削除",
       "archive": "アーカイブ",
-      "dirSize": "フォルダー サイズ"
+      "dirSize": "フォルダー サイズ",
+      "remoteUpload": "Upload",
+      "remoteDownload": "Download"
     },
     "operationStatusShort": {
       "completed": "成功",
@@ -1239,7 +1768,13 @@
       "pending": "保留中",
       "cancelling": "キャンセル中…"
     },
-    "toolbarActiveCount": "0 件の処理 | 1 件の処理 | {n} 件の処理 | {n} 件の処理"
+    "toolbarActiveCount": "0 件の処理 | 1 件の処理 | {n} 件の処理 | {n} 件の処理",
+    "deleteScanning": "Measuring what will be deleted…",
+    "deleteScanningFound": "{count} items found",
+    "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "ごみ箱へ移動しています…",
+    "cancelNotAccepted": "キャンセルできません：ファイルはすでにごみ箱へ移動しています。",
+    "deleteBytesProgress": "{done} / {total} freed"
   },
   "recalculate": "Recalculate",
   "lanShare": {
@@ -1266,5 +1801,291 @@
     "replaceShareDialogDescription": "すでにネットワーク上でファイルが共有されています。現在の共有を停止し、新しいものに置き換えます。",
     "replaceShareDialogConfirm": "置き換え"
   },
-  "tree": "Tree"
+  "tree": "Tree",
+  "batchRename": {
+    "menuItem": "Batch rename",
+    "dialog": {
+      "title": "Batch rename",
+      "tabRename": "Rename",
+      "tabHistory": "Undo history",
+      "cancel": "Cancel",
+      "apply": "Rename",
+      "close": "Close",
+      "loading": "Calculating…",
+      "noRules": "No rules added — nothing will be renamed.",
+      "summaryChanged": "{count} item(s) will be renamed",
+      "summaryUnchanged": "{count} item(s) unchanged",
+      "blocked": "Conflicts found. Fix them before applying.",
+      "openHistory": "Undo history"
+    },
+    "rules": {
+      "title": "Rules",
+      "empty": "No rules yet.",
+      "add": "Add rule",
+      "remove": "Remove rule",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "sortLabel": "Numbering order",
+      "type": {
+        "findReplace": "Find and replace",
+        "caseTransform": "Change case",
+        "template": "Template",
+        "sequence": "Numbering",
+        "extension": "Extension"
+      },
+      "findReplace": {
+        "find": "Find",
+        "replace": "Replace with",
+        "caseSensitive": "Match case",
+        "includeExtension": "Include extension"
+      },
+      "caseTransform": {
+        "mode": "Mode",
+        "includeExtension": "Include extension"
+      },
+      "case": {
+        "upper": "UPPERCASE",
+        "lower": "lowercase",
+        "title": "Title Case",
+        "camel": "camelCase",
+        "snake": "snake_case",
+        "kebab": "kebab-case"
+      },
+      "template": {
+        "pattern": "Pattern",
+        "variables": "Available variables",
+        "dateFormat": "Date format"
+      },
+      "sequence": {
+        "start": "Start",
+        "step": "Step",
+        "pad": "Zero padding",
+        "hint": "Numbering does not rename anything on its own. It only supplies the sequence variable used by a Template rule — add a Template rule to use it.",
+        "addTemplate": "Add a Template rule"
+      },
+      "extension": {
+        "newExtension": "New extension",
+        "newExtensionHint": "Leave empty to remove the extension"
+      }
+    },
+    "sort": {
+      "selection": "Selection order",
+      "nameAsc": "Name A to Z",
+      "nameDesc": "Name Z to A",
+      "modifiedAsc": "Modified, oldest first",
+      "modifiedDesc": "Modified, newest first",
+      "sizeAsc": "Size, smallest first",
+      "sizeDesc": "Size, largest first"
+    },
+    "preview": {
+      "title": "Preview",
+      "oldName": "Current name",
+      "newName": "New name",
+      "empty": "Nothing to preview.",
+      "unchanged": "unchanged"
+    },
+    "conflicts": {
+      "title": "Conflicts",
+      "targetExists": "The new name is already taken by another file in this folder.",
+      "duplicateTarget": "Several items would get the same name.",
+      "invalidTitle": "Invalid file names",
+      "invalid": {
+        "empty": "Name is empty.",
+        "illegalCharacter": "Contains a character that is not allowed in file names.",
+        "windowsReservedName": "Reserved name on Windows.",
+        "trailingDotOrSpace": "Cannot end with a dot or a space."
+      }
+    },
+    "result": {
+      "success": "Renamed {count} item(s)",
+      "partial": "Rename failed",
+      "rollbackOk": "Rolled back — the folder is back to its previous state.",
+      "rollbackFailed": "Rollback failed. The folder may be in a mixed state — check it manually.",
+      "noUndo": "This change could not be recorded for undo."
+    },
+    "history": {
+      "title": "Undo history",
+      "empty": "No history yet.",
+      "undo": "Undo",
+      "undoing": "Undoing…",
+      "itemCount": "{count} file(s)",
+      "undoSuccess": "Reverted {count} item(s)",
+      "undoFailed": "Undo failed",
+      "blockedBy": "These names are taken, so they could not be restored: {names}",
+      "notFound": "That history entry no longer exists."
+    }
+  },
+  "remote": {
+    "transfer": {
+      "uploadToRemote": "Upload to remote",
+      "downloadToLocal": "Download to local",
+      "uploadSucceeded": "Uploaded {files} file(s) to the remote folder.",
+      "uploadFailed": "Upload did not fully succeed: {files} uploaded, {skipped} skipped, {failed} failed.",
+      "downloadSucceeded": "Downloaded {files} file(s) to the local folder.",
+      "downloadFailed": "Download did not fully succeed: {files} downloaded, {skipped} skipped, {failed} failed.",
+      "uploading": "Uploading to remote",
+      "downloading": "Downloading from remote",
+      "progressFiles": "{done} / {total} files transferred",
+      "progressBytes": "{done} / {total} transferred",
+      "progressCurrent": "Current: {name}",
+      "resultTitle": "Transfer result",
+      "resultSummary": "{files} file(s) succeeded, {skipped} skipped, {failed} failed",
+      "failureSection": "Failed items",
+      "skippedSection": "Skipped items",
+      "skipReasonAlreadyExists": "Target already exists (not overwritten)",
+      "conflictTitle": "Target already exists",
+      "conflictMessage": "{count} file(s) already exist in the target folder. Overwrite them?",
+      "conflictOverwrite": "Overwrite",
+      "conflictSkipExisting": "Skip existing",
+      "noRemotePane": "The other pane is not on a remote host",
+      "uploadFailedTitle": "Upload did not fully succeed",
+      "downloadFailedTitle": "Download did not fully succeed",
+      "pasteToRemoteFailed": "Copy failed",
+      "remoteToRemoteNotSupported": "Copying between two remote locations is not supported yet. Click a local folder pane first and press Ctrl+V to download, or right-click the file and choose Download to local.",
+      "pasteFromRemoteFailed": "Copy from remote failed",
+      "conflictApplyToAll": "Apply the same choice to all files",
+      "conflictContinue": "Continue",
+      "skipReasonUserSkipped": "Skipped by you"
+    },
+    "permissions": {
+      "menuItem": "Permissions...",
+      "title": "Set permissions",
+      "modeLabel": "Permissions (octal)",
+      "modeHint": "For example 0754 means the owner may read, write and execute; the group may read and execute; others may read.",
+      "unknownMode": "The current permissions could not be read. Pick one from the list.",
+      "owner": "Owner",
+      "group": "Group",
+      "others": "Others",
+      "read": "read",
+      "write": "write",
+      "execute": "execute",
+      "none": "none",
+      "separator": ", ",
+      "recursive": "Apply to subdirectories and the files in them",
+      "apply": "Apply",
+      "success": "Permissions updated ({changed} item(s)).",
+      "partialFailure": "Permissions updated for {changed} item(s); {failed} failed.",
+      "failed": "Could not set permissions: {message}",
+      "error": {
+        "empty": "Enter the permissions in octal, for example 0754.",
+        "tooLong": "At most 4 octal digits are allowed.",
+        "notOctal": "Only the digits 0-7 are allowed.",
+        "unknown": "This permission value could not be recognized."
+      }
+    },
+    "delete": {
+      "menuItem": "削除",
+      "title": "リモート項目を削除",
+      "descriptionSingle": "{path} は完全に削除されます。この操作は元に戻せません。",
+      "description": "この操作により、リモートサーバー上の {count} 個の項目が完全に削除されます。元に戻せません。",
+      "noTrashHint": "リモートサーバーにはゴミ箱がないため、削除した項目は復元できません。",
+      "connectionHint": "接続: {name}",
+      "confirm": "削除",
+      "success": "リモート項目を {count} 個削除しました。",
+      "failed": "削除できませんでした",
+      "permissionDenied": "権限がありません"
+    },
+    "write": {
+      "fileCreationNotSupported": "リモートディレクトリでは空のファイルを作成できません。",
+      "fileCreationNotSupportedTitle": "ファイルを作成できません"
+    }
+  },
+  "compareSync": {
+    "title": "Compare & Sync",
+    "description": "Compare the two directories and sync the differences. This step never deletes anything.",
+    "stepSettings": "Setup",
+    "stepResults": "Results",
+    "stepPreview": "Preview & Run",
+    "leftDirectory": "Left directory",
+    "rightDirectory": "Right directory",
+    "leftDirectoryHint": "Source side",
+    "rightDirectoryHint": "Target side",
+    "tabCriteria": "Criteria",
+    "tabExclude": "Exclude",
+    "criteriaByTime": "By modification time",
+    "criteriaBySize": "By file size",
+    "criteriaByChecksum": "By content checksum",
+    "criteriaByChecksumHint": "Only available between two local folders; remote servers have no checksum to compare.",
+    "criteriaCaseSensitive": "Case sensitive",
+    "criteriaRecursive": "Compare subfolders recursively",
+    "criteriaMaxDepth": "Maximum depth",
+    "criteriaMaxDepthUnlimited": "Unlimited",
+    "criteriaRemoteTimeOffset": "Remote time offset (seconds)",
+    "criteriaRemoteTimeOffsetHint": "Servers usually report time in their own time zone; this offset converts it to yours.",
+    "excludePatterns": "Exclude rules",
+    "excludePatternsHint": "One per line, * and ? are supported. A matching folder drops its whole subtree from the comparison.",
+    "compare": "Compare",
+    "comparing": "Comparing…",
+    "back": "Back",
+    "preview": "Build preview",
+    "execute": "Start sync",
+    "executing": "Syncing…",
+    "cancel": "Cancel",
+    "filterAll": "All",
+    "filterDifferences": "Differences only",
+    "statusSame": "Same",
+    "statusOnlyLeft": "Left only",
+    "statusOnlyRight": "Right only",
+    "statusNewer": "Left is newer",
+    "statusOlder": "Left is older",
+    "statusSizeDiff": "Different size",
+    "statusContentDiff": "Different content",
+    "statusKindDiff": "Different type",
+    "statusIndeterminate": "Undecidable",
+    "directionToRight": "Left → Right",
+    "directionToLeft": "Right → Left",
+    "directionNone": "Nothing to do",
+    "directionIndeterminate": "Direction undecided",
+    "noDifferences": "No differences.",
+    "statsTotal": "Total",
+    "statsSame": "Same",
+    "statsDifferences": "Different",
+    "statsNeedsReview": "Undecided",
+    "actionCreateDir": "Create folder",
+    "actionTransferFile": "Transfer file",
+    "actionSkip": "Skip",
+    "planSummary": "Will create {dirs} folders, transfer {files} files and skip {skipped} items.",
+    "reportTransferred": "Transferred",
+    "reportCreatedDirs": "Folders created",
+    "reportSkipped": "Skipped",
+    "reportFailed": "Failed",
+    "reportCancelled": "Cancelled",
+    "invalidPath": "This path cannot be used.",
+    "progressPreparing": "準備中…",
+    "progressScanningLeft": "左側を走査中…",
+    "progressScanningRight": "右側を走査中…",
+    "progressComparing": "比較中…",
+    "progressDone": "完了",
+    "progressScanned": "{count} 件の項目を走査しました",
+    "progressCompared": "{total} 件中 {count} 件を比較しました",
+    "rowsTruncated": "{total} 件中 {shown} 件を表示しています。フィルターで絞り込んでください。",
+    "showMore": "さらに {count} 件表示",
+    "statsUnreadable": "読み取り不可"
+  },
+  "mapNetworkDrive": "Map network drive",
+  "mapNetworkDriveDescription": "Map a network share to a drive letter. Once it is mounted it shows up in the drive list on the left.",
+  "networkDriveLetter": "Drive letter",
+  "networkDriveLetterPlaceholder": "Auto",
+  "fileLock": {
+    "unlocked": "File unlocked",
+    "unlockedDescription": "Whatever was blocking the file has been cleared. You can delete it normally now.",
+    "unlockFailed": "Could not unlock the file",
+    "forceDeleted": "File deleted",
+    "forceDeletedDescription": "The file was removed even though it was in use.",
+    "forceDeleteFailed": "Could not delete the file",
+    "scheduledForReboot": "Deletion scheduled",
+    "scheduledForRebootDescription": "The file is still in use. It will be deleted the next time Windows starts.",
+    "terminateFailed": "Could not end the process",
+    "unknownError": "Unknown error",
+    "holdersTitle": "Programs using this file",
+    "holdersDescription": "These programs are holding the file open. Ending one of them may lose unsaved work.",
+    "noHolders": "No program was found holding this file.",
+    "endProcess": "End process",
+    "diagnoseFailed": "Could not check which programs are using this file"
+  },
+  "webviewGuard": {
+    "detected": "The interface renderer process crashed. Trying to recover automatically...",
+    "recovered": "The interface is working again.",
+    "recoveryFailed": "The interface could not be recovered automatically. Please restart the app."
+  }
 }

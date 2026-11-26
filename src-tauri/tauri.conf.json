@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Sigma File Manager",
+  "productName": "Alpha File Manager",
   "version": "../package.json",
   "identifier": "com.sigma-file-manager.app",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Sigma File Manager",
+        "title": "Alpha File Manager",
         "width": 1280,
         "height": 720,
         "minWidth": 500,
@@ -29,7 +29,7 @@
       {
         "label": "quick-view",
         "create": false,
-        "title": "Sigma File Manager | Quick View",
+        "title": "Alpha File Manager | Quick View",
         "width": 1280,
         "height": 720,
         "minWidth": 300,
@@ -44,7 +44,7 @@
       {
         "label": "print-view",
         "create": false,
-        "title": "Sigma File Manager | Print",
+        "title": "Alpha File Manager | Print",
         "width": 1280,
         "height": 720,
         "minWidth": 300,
@@ -70,6 +70,7 @@
   },
   "bundle": {
     "active": true,
+    "publisher": "kizemo",
     "targets": [
       "nsis",
       "appimage",
@@ -78,20 +79,25 @@
       "dmg"
     ],
     "resources": {
-      "../../release/extension/package.json": "extensions/kizemo.focus-sync/package.json",
-      "../../release/extension/dist": "extensions/kizemo.focus-sync/dist",
-      "../../release/extension/locales": "extensions/kizemo.focus-sync/locales",
-      "../../release/extension-installer/register.ps1": "tools/register.ps1",
-      "../../release/extension-installer/resolve_user_appdata.ps1": "tools/resolve_user_appdata.ps1",
-      "../../release/extension-installer/register-scheduled-task.ps1": "tools/register-scheduled-task.ps1",
-      "../../release/extension-installer/unregister-scheduled-task.ps1": "tools/unregister-scheduled-task.ps1",
-      "../../release/extension/bin/focus-sync-sidecar.exe": "tools/focus-sync-sidecar.exe"
+      "../extensions/kizemo.focus-sync/package.json": "extensions/kizemo.focus-sync/package.json",
+      "../extensions/kizemo.focus-sync/dist": "extensions/kizemo.focus-sync/dist",
+      "../extensions/kizemo.focus-sync/locales": "extensions/kizemo.focus-sync/locales",
+      "../extensions/kizemo.focus-sync/installer/register.ps1": "tools/register.ps1",
+      "../extensions/kizemo.focus-sync/installer/resolve_user_appdata.ps1": "tools/resolve_user_appdata.ps1",
+      "../extensions/kizemo.focus-sync/installer/register-scheduled-task.ps1": "tools/register-scheduled-task.ps1",
+      "../extensions/kizemo.focus-sync/installer/unregister-scheduled-task.ps1": "tools/unregister-scheduled-task.ps1",
+      "../extensions/kizemo.focus-sync/installer/remove-legacy-focus-task.ps1": "tools/remove-legacy-focus-task.ps1",
+      "../extensions/kizemo.focus-sync/bin/focus-sync-sidecar.exe": "tools/focus-sync-sidecar.exe",
+      "../extensions/kizemo.git/package.json": "extensions/kizemo.git/package.json",
+      "../extensions/kizemo.git/dist": "extensions/kizemo.git/dist",
+      "../extensions/kizemo.git/locales": "extensions/kizemo.git/locales"
     },
     "windows": {
       "nsis": {
         "installMode": "perMachine",
         "installerIcon": "icons/icon.ico",
-        "installerHooks": "installer/hooks.nsh"
+        "installerHooks": "installer/hooks.nsh",
+        "template": "installer/installer.nsi"
       }
     },
     "icon": [

@@ -1,8 +1,11 @@
 {
   "app": {
-    "name": "Sigma File Manager",
-    "description": "անվճար, բաց կոդով, առաջադեմ, ժամանակակից ֆայլային մենեջեր, լիցենզիա՝ GNU GPLv3 կամ ավելի ուշ լիցենզիայով։",
-    "copyright": "Copyright © 2021 - present Aleksey Hoffman. All rights reserved."
+    "name": "Alpha File Manager",
+    "description": "is developed on top of Sigma File Manager, adding practical features such as a directory tree, quick switching (path focus sync for file dialogs) and batch rename. Many details have been refined to deliver a more complete file manager experience.",
+    "copyright": "Credits to the original author Aleksey Hoffman.",
+    "developerLabel": "Developed by ",
+    "developer": "kizemo",
+    "repository": "https://github.com/kizemo/alpha-file-manager"
   },
   "units": {
     "px": "px"
@@ -19,7 +22,7 @@
   "pages": {
     "home": "Գլխավոր էջ",
     "navigator": "Նավիգատոր",
-    "dashboard": "Վահանակ",
+    "dashboard": "Արագ մուտք",
     "notes": "Նշումներ",
     "settings": "Կարգավորումներ",
     "extensions": "Ընդլայնումներ"
@@ -33,7 +36,15 @@
     "tagged": "Թեգված",
     "emptyFavorites": "Սիրված բան չկա",
     "emptyTagged": "Թեգված բան չկա",
-    "unknownTagGroup": "Անհայտ թեգ"
+    "unknownTagGroup": "Անհայտ թեգ",
+    "frequent": "Frequent",
+    "history": "History",
+    "emptyFrequent": "No frequently used items",
+    "emptyHistory": "No history yet",
+    "openFavoritesTab": "Open Favorites tab in Quick Access",
+    "openFrequentTab": "Open Frequent tab in Quick Access",
+    "openHistoryTab": "Open History tab in Quick Access",
+    "openTaggedTab": "Open Tagged tab in Quick Access"
   },
   "placeholders": {
     "noDrivesFound": "Սկավառակ չգտնվեց",
@@ -76,6 +87,8 @@
     "music": "Երգեր"
   },
   "tabs": {
+    "scrollTabsLeft": "Ոլորեք թաբերը ձախ",
+    "scrollTabsRight": "Ոլորեք թաբերը աջ",
     "newTab": "Նոր թաբ",
     "duplicateTab": "Կրկնօրինակել թաբը",
     "closeOtherTabs": "Փակել այլ թաբերը",
@@ -89,6 +102,9 @@
   "splitViewMode": "Կիսված տեսքի ռեժիմ",
   "splitViewModeSplit": "Կիսել",
   "splitViewModeLinked": "Կապված",
+  "syncBrowsing": "Synchronized browsing",
+  "syncBrowsingOn": "Synchronized browsing: on",
+  "syncBrowsingHint": "Select a folder in the left pane and the right pane jumps to the folder of the same name.",
   "filter": {
     "filter": "Ֆիլտր",
     "showHiddenItems": "Ցուցադրել թաքնված իրերը",
@@ -121,7 +137,9 @@
       "trash": "Աղբարկղ",
       "deletePermanent": "Ջնջել",
       "archive": "Արխիվ",
-      "dirSize": "Պանակի չափսը"
+      "dirSize": "Պանակի չափսը",
+      "remoteUpload": "Upload",
+      "remoteDownload": "Download"
     },
     "operationStatusShort": {
       "completed": "Հաջողություն",
@@ -131,9 +149,17 @@
       "pending": "Սպասող",
       "cancelling": "Չեղարկում․․․"
     },
-    "toolbarActiveCount": "0 գործողություն | 1 գործողություն | {n} գործողություն | {n} գործողություն"
+    "toolbarActiveCount": "0 գործողություն | 1 գործողություն | {n} գործողություն | {n} գործողություն",
+    "deleteScanning": "Measuring what will be deleted…",
+    "deleteScanningFound": "{count} items found",
+    "deleteItemsProgress": "{done} / {total} items deleted",
+    "deleteTrashing": "Տեղափոխվում է աղբյուրի…",
+    "cancelNotAccepted": "Չեղարկել հնարավոր չէ․ ֆայլերն արդեն տեղափոխվում են աղբյուրում։",
+    "deleteBytesProgress": "{done} / {total} freed"
   },
   "globalSearch": {
+    "scanModeFull": "Ամբողի",
+    "scanModeIncremental": "Անհետևական",
     "globalSearch": "Գլոբալ որոնում",
     "driveScanInProgress": "Դրայվի ինդեքսավորումը ընթացքի մեջ է",
     "searchDataIncomplete": "Որոնման տվյալները թերի են",
@@ -176,7 +202,10 @@
       "indexed": "Ինդեքսավորված {time}",
       "nothingFound": "Ոչինչ չի գտնվել"
     },
-    "showSearchSettings": "Ցուցադրել որոնման կարգավորումները"
+    "showSearchSettings": "Ցուցադրել որոնման կարգավորումները",
+    "remoteIndexing": "Ամպամային սակավերի ինդեքսավորում",
+    "remoteIndexDone": "Ամպամային ինդեքսը թարմացվեց",
+    "remoteIndexFailed": "Ամպամային ինդեքսը ձախողացավ"
   },
   "home": {
     "mediaBannerOptions": "Ֆոնի փոփոխում",
@@ -195,11 +224,11 @@
     "newDirectory": "Նոր պանակ",
     "newFile": "Նոր ֆայլ",
     "reloadCurrentDirectory": "Թարմացնել այս պանակը",
-    "showFolderTree": "Show folder tree",
-    "hideFolderTree": "Hide folder tree"
+    "showFolderTree": "Տեղացույց ցուցադրել",
+    "hideFolderTree": "Տեղացույց թաքցնել"
   },
   "dashboard": {
-    "subtitle": "Արագ տեսեք ձեր սիրված, թեգված և հաճախ օգտագործվող իրերը",
+    "subtitle": "Սիրվածները, թեգված և հաճախ օգտագործվող իրերը — բոլորը մի տեղում",
     "tabs": {
       "favorites": "Սիրվածներ",
       "tagged": "Թեգված",
@@ -220,7 +249,57 @@
     "daysAgo": "{n} օր առաջ | {n} օր առաջ | {n} օր առաջ | {n} օր առաջ",
     "openedCount": "Բացված {n} անգամ | Բացված {n} անգամ | Բացված {n} անգամ | Բացված {n} անգամ",
     "actions": {
-      "clearAll": "Ջնջել բոլոր այս ցուցակից"
+      "clearAll": "Ջնջել բոլոր այս ցուցակից",
+      "newFavorite": "New favorite",
+      "newCategory": "New category",
+      "newTag": "New tag",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "moveUpWithName": "Տեղափոխել {name}-ը վերև",
+      "moveDownWithName": "Տեղափոխել {name}-ը ներքև",
+      "dragToReorder": "Տեղափոխել ստորադրականությունը փոխելու համար ձգեցրու",
+      "moveToCategory": "Move to category",
+      "removeFavorite": "Remove from favorites",
+      "removeTag": "Remove tag",
+      "renameCategory": "Rename category",
+      "deleteCategory": "Delete category",
+      "uncategorized": "Uncategorized",
+      "confirmRemove": "Հեռացնել",
+      "clearAllConfirmTitle": "Հանել բոլորը այս ցանկից?",
+      "clearAllConfirmDescription": "Սա հետ բերել հնարավոր չէ:",
+      "removeFavoriteConfirmTitle": "Հեռացնել սիրելիներից?",
+      "removeFavoriteConfirmDescription": "Տեղանշանը կհեռացվի այստեղից։ Վերադարձնելու համար նորից նշեք սիրելի։",
+      "deleteTagConfirmTitle": "Ջեռնանշանը ջնջե՞լ:",
+      "deleteTagConfirmDescription": "Ջեռնանշանը կջնջվի և կհանվի բոլոր տեղանշաններից։",
+      "removeTagConfirmTitle": "Հեռացնե՞լ ջեռնանշանը տեղանշանից։",
+      "removeTagConfirmDescription": "Տեղանշանը այլևս չի կրում այս ջեռնանշանը։",
+      "renameFavorite": "Խմբագրել ցուցադրվող անունը",
+      "editFavorite": "Edit favorite"
+    },
+    "newFavoriteDialog": {
+      "title": "Add to favorites",
+      "pathLabel": "File or folder path",
+      "pathPlaceholder": "Paste a full path",
+      "pathNotFound": "Path does not exist",
+      "pathAlreadyFavorite": "Already in favorites",
+      "confirm": "Add",
+      "displayNameLabel": "Ցուցադրվող անուն",
+      "displayNamePlaceholder": "Թողեք դատարկ՝ բնագիր անունը կիրառելու համար"
+    },
+    "nameDialog": {
+      "nameLabel": "Name",
+      "namePlaceholder": "Enter a name",
+      "duplicateName": "\"{name}\" already exists",
+      "confirm": "Create"
+    },
+    "categoryDeleteNote": "Favorites in this category return to \"Uncategorized\". Nothing is deleted.",
+    "favoriteEdit": {
+      "pathRequired": "Path cannot be empty",
+      "saved": "Favorite updated",
+      "saveFailed": "Failed to update the favorite"
+    },
+    "favoriteCategoryDialog": {
+      "categoryLabel": "Category"
     }
   },
   "settingsCategories": {
@@ -249,8 +328,19 @@
         "title": "Ֆայլի դիտում",
         "enableBoxSelection": "Միացնել վանդակի ընտրությունը",
         "enableBoxSelectionDescription": "Ֆայլերի ցուցակի դատարկ մասում սեղմիր ու քաշիր՝ ուղղանկյուն ընտրության շրջանակով մի քանի ֆայլ ու պանակ միանգամից ընտրելու համար։ Ctrl կամ Shift պահիր՝ այդ ընտրությանը ավելացնելու համար; Alt պահիր՝ ընտրությունը հետադարձելու համար։",
+        "boxSelectionEnabledByDefault": "Box selection is now enabled by default. If drag-selecting gets in the way, you can turn it off here.",
         "increaseFileViewGaps": "Մեծացնել ֆայլի ցուցադրման բացատները",
-        "increaseFileViewGapsDescription": "Ավելացնում է կողային բացատներ ցուցակում և մեծացնում է բացերը ցանցում ավելի հեշտ ընտրելու համար։"
+        "increaseFileViewGapsDescription": "Ավելացնում է կողային բացատներ ցուցակում և մեծացնում է բացերը ցանցում ավելի հեշտ ընտրելու համար։",
+        "foldersFirst": "Place folders before files in list view",
+        "foldersFirstDescription": "Only affects the list view; the grid view always groups entries by type.",
+        "showListThumbnails": "Show thumbnails in list view",
+        "showListThumbnailsDescription": "Images and videos show thumbnails in the list. Folders and documents still show their type icon. Grid view always shows thumbnails and is not affected by this switch.",
+        "thumbnailSizeTitle": "Thumbnail size",
+        "thumbnailSizeDescription": "Adjust thumbnail size in the list and grid views.",
+        "thumbnailSizeSmall": "Small",
+        "thumbnailSizeMedium": "Medium",
+        "thumbnailSizeLarge": "Large",
+        "thumbnailSizeXLarge": "Extra large"
       },
       "startupPage": {
         "title": "Գործարկման էջ",
@@ -270,7 +360,8 @@
       "openAppLogDirectory": "Բացել ծրագրի լոգերի պանակը",
       "openGlobalSearchIndexDirectory": "Բացել գլոբալ որոնման ինդեքսի պանակը",
       "changelog": "Փոփոխությունների ցանկ",
-      "allReleases": "Բոլոր թողարկումները"
+      "allReleases": "Բոլոր թողարկումները",
+      "learningNotes": "段燚的学习笔记"
     },
     "visualEffects": {
       "title": "Վիզուալ էֆեկտներ",
@@ -289,16 +380,20 @@
         "darken": "Մթացում",
         "lighten": "Լուսացում",
         "color-dodge": "Հիմքի լուսացում",
+        "plus-lighter": "Գծային լուսացում (գումարում)",
         "color-burn": "Հիմքի մթացում",
         "hard-light": "Կոշտ լույս",
         "soft-light": "Փափուկ լույս",
         "difference": "Տարբերություն",
         "exclusion": "Բացառություն",
-        "hue": "Գունային երանգ",
-        "saturation": "Հագեցվածություն",
         "color": "Գույն",
         "luminosity": "Լուսավորություն"
       },
+      "blendTarget": "Խառնել",
+      "blendTargetUi": "Ինտերֆեյսի հետ",
+      "blendTargetFill": "Լցման գույնի հետ",
+      "blendTint": "Լցման գույն",
+      "blendTintCustom": "Հատուկ գույն",
       "overlayBackground": "Վերադրված ֆոն",
       "selectNextBackground": "Ընտրել հաջորդ ֆոնը",
       "useTheSameSettingsForAllPages": "Օգտագործել նույն կարգավորումը բոլոր էջերի համար",
@@ -310,9 +405,15 @@
       "theme": {
         "title": "Տեսք",
         "extensionThemes": "Ընդլայնման տեսք",
+        "afmThemeThemes": "AFM այքի թեմաներ",
+        "afmThemes": {
+          "warmLight": "Լա թղթ · բաց",
+          "warmDark": "Լա թղթ · մուգ",
+          "vividLight": "Կենդանի էներգիա",
+          "coolLight": "Սառը Փին"
+        },
         "themeTypeRadio": {
-          "dark": "Մութ",
-          "light": "Լուսավոր"
+          "dark": "Մութ"
         }
       }
     },
@@ -327,7 +428,14 @@
       "selectedFont": "Ընտրված ֆոնթ",
       "defaultFont": "լռելյայն ֆոնթ",
       "reFetchSystemFonts": "Վերաբեռնել համակարգի ֆոնթերը",
-      "resetFontToDefault": "Վերականգնել ֆոնթերը լռելյայնի"
+      "resetFontToDefault": "Վերականգնել ֆոնթերը լռելյայնի",
+      "fontSize": {
+        "label": "Font size",
+        "description": "Interface text size",
+        "default": "Default",
+        "large": "Large",
+        "extra-large": "Extra large"
+      }
     },
     "dateTime": {
       "dateTime": "Ամսաթիվ/ժամ",
@@ -352,7 +460,7 @@
       "preventDropdownCloseFocusReturn": "Չվերադարձնել ֆոկուսը ընկնող մենյուները փակելու ժամանակ",
       "preventDropdownCloseFocusReturnDescription": "Երբ միացված է, մենյուն փակելը (օրինակ՝ Escape-ով), չի վերադարձնի ֆոկուսը կոճակի վրա, ինչը կբացառի ֆոկուսի սահմանը և հուշումը ցույց տալը",
       "quickAccessOnHover": "Բացել արագ մուտքի վահանակը, երբ մկնիկը տանում եք վրան",
-      "quickAccessOnHoverDescription": "Երբ միացված է, մկնիկը արագ մուտքի վահանակի կոճակի վրա դնելիս միանգամից կբացի կողային վահանակը"
+      "quickAccessOnHoverDescription": "Երբ միացված է, մկնիկը արագ մուտքի կոճակի վրա դնելիս միանգամից կբացի արագ մուտքի վահանակը"
     },
     "tooltips": {
       "title": "Հուշումներ",
@@ -408,7 +516,6 @@
       }
     },
     "navigator": {
-      "navigatorViewLayout": "Դասավորությոյւն",
       "navigatorOptions": "Նավիգացիայի կարգավորումներ",
       "systemIcons": "Նշանների տեսքը",
       "systemIconsDirectories": "Պանակներ",
@@ -464,7 +571,15 @@
       "ignoredPathsHelpDownloads": "Բաց է թողնում այդ ուղու նախածանցը։",
       "ignoredPathsHelpTestFolder": "Բաց է թողնում test անունով պանակները և դրանց պարունակությունը ցանկացած տեղում։",
       "ignoredPathsHelpExtensionMask": "Բաց է թողնում .log ընդլայնմամբ ֆայլերը ցանկացած տեղում։",
-      "ignoredPathsHelpNestedExtensionMask": "Բաց է թողնում ֆայլերը .tmp ընդլայնումով ցանկացած պանակում։"
+      "ignoredPathsHelpNestedExtensionMask": "Բաց է թողնում ֆայլերը .tmp ընդլայնումով ցանկացած պանակում։",
+      "remoteIndexTitle": "Ամպամային որոնում",
+      "remoteIndexDescription": "Գլոբալ որոնման մեջ ընդունված կապերի ֆայլերը հայտնվում են որոնման արդյունքներում։",
+      "rebuildRemoteIndex": "Վերակառուցել ամպամային ինդեքսը",
+      "rebuildRemoteIndexDescription": "Նշված կապերի ֆայլերը կրկին ստանում է և գրում ինդեքսում; սա սպահում է ցանցային սկավծի API քվոտան։",
+      "noRemoteInSearch": "Դեռ ոչ մի ցանցային սկավծ չի ընդունվել գլոբալ որոնման մեջ",
+      "noNetdiskConnections": "Այս ամպամայի համար դեռ կապեր չկան",
+      "rebuildCheckedRemoteIndex": "Վերակառուցել ինդեքսը ընտրված կապերի համար",
+      "rebuildCheckedRemoteIndexHint": "Վերակառուցումը միշտ օգտագործում է ընտրված բոլոր կապերի հավաքը — առանձին կապը չի կարող վերակառուցվել։"
     },
     "drives": {
       "driveDetection": "Սկավառակի հայտնաբերում",
@@ -479,16 +594,357 @@
     },
     "experimental": {
       "defaultFileManager": {
-        "title": "Դնել Sigma File Manager որպես լռելյայն ֆայլային մենեջեր",
+        "title": "Դնել Alpha File Manager որպես լռելյայն ֆայլային մենեջեր",
         "description": "Այս տարբերակը փոխում է համակարգի կարգավորումները և կարող է անսպասելի ազդեցություններ ունենալ սարքի վրա։ Շարունակեք Ձեր ռիսկով։",
         "unavailableInMicrosoftStore": "Հասանելի չէ Microsoft Store-ից ներբեռնված վերսիայում"
+      },
+      "mcp": {
+        "title": "MCP server (for AI agents)",
+        "description": "Let AI clients such as Claude or Cursor call this app's read-only capabilities over MCP. Off by default — when off, no port is opened at all.",
+        "modes": {
+          "off": "Off",
+          "readOnly": "Read-only",
+          "writable": "Writable",
+          "askEachTime": "Ask each time"
+        },
+        "modeDescriptions": {
+          "off": "The server does not start and no port is opened. Nothing on this machine can reach it.",
+          "readOnly": "Exposes directory listing, drives, mountable devices, the indexed global search, directory size and favourites. Entirely read-only — no file is ever modified.",
+          "writable": "Adds write operations on top of read-only. Deletion still goes to the recycle bin, never a hard delete.",
+          "askEachTime": "Same as writable, but every write operation needs individual confirmation."
+        },
+        "running": "Running · port {port}",
+        "stopped": "Not running",
+        "endpoint": "Endpoint",
+        "clients": "Connected clients",
+        "copyConfig": "Copy config snippet",
+        "copied": "Copied",
+        "copyFailed": "Copy failed — please copy the snippet manually",
+        "rotateToken": "Regenerate token",
+        "tokenRotated": "New token generated. Previous configs stop working immediately.",
+        "token": "Token",
+        "tokenHint": "Any process on this machine can reach 127.0.0.1. The token is the only barrier — do not share it.",
+        "auditTitle": "Recent calls",
+        "outcomes": {
+          "allowed": "allowed",
+          "denied": "denied",
+          "error": "error"
+        },
+        "clientsConnected": "{count} agent(s) connected",
+        "indicatorTooltip": "An AI client is using this app's capabilities",
+        "notRunning": "MCP server is not running",
+        "deployTitle": "One-click deploy to AI clients",
+        "deployHint": "One-click deploy writes this server straight into the client’s own config file without touching any other entry, and backs the original up as .alpha-mcp.bak beforehand. The change only takes effect after you quit that client completely and start it again.",
+        "deployAction": "One-click deploy",
+        "deployInstalled": "Deployed",
+        "deployNotYet": "Not deployed",
+        "deployNotDetected": "Client not found",
+        "deployDoneShort": "Configured",
+        "deployRemove": "Remove",
+        "deployLoading": "Scanning this machine for clients…",
+        "deployFailed": "Deployment failed — see the error below",
+        "deployAlreadyCurrent": "The config was already up to date, so nothing was changed.",
+        "deployDone": "Deployed to {client}. Config file: {path}. The original file was backed up as {backup}. Please quit {client} completely and start it again.",
+        "deployRemoved": "Removed this server from {client}’s config.",
+        "deployClients": {
+          "codex": "Codex",
+          "cursor": "Cursor",
+          "claudeCode": "Claude Code",
+          "claudeDesktop": "Claude Desktop",
+          "openclaw": "OpenClaw",
+          "minimaxCode": "Minimax Code"
+        },
+        "recheck": "Re-check",
+        "restartTitle": "{client} must be fully quit and restarted",
+        "restartBody": "The config file is written, but MCP clients only read it at startup — they never reload it while running. Quit {client} from its tray icon (closing the window is not enough), reopen it, then come back here and press Re-check.",
+        "restartBackup": "The original file was backed up to {backup}. To undo, rename the backup back.",
+        "restartDismiss": "Got it"
       }
+    },
+    "storage": {
+      "thumbnailCache": {
+        "title": "Thumbnail cache",
+        "description": "Image and video thumbnails share the same cache directory. Cleared thumbnails are regenerated automatically the next time you browse.",
+        "sizeLabel": "Disk usage",
+        "sizeUnknown": "Unknown",
+        "countLabel": "Items",
+        "countUnknown": "Unknown",
+        "clear": "Clear cache",
+        "clearSuccess": "Thumbnail cache cleared",
+        "clearFailed": "Failed to clear the thumbnail cache",
+        "confirmTitle": "Clear the thumbnail cache?",
+        "confirmDescription": "This clears both image and video thumbnail caches and cannot be undone. Cleared thumbnails are regenerated the next time you browse those files."
+      },
+      "settingsTransfer": {
+        "title": "Export / import settings",
+        "description": "Export settings, favorites, remote connections and cloud drive connections into one JSON file. Browsing history and frequently used items are not exported.",
+        "export": "Export settings",
+        "import": "Import settings",
+        "exporting": "Exporting…",
+        "importing": "Importing…",
+        "exportSuccess": "Settings exported",
+        "exportFailed": "Failed to export settings",
+        "importSuccess": "Settings imported",
+        "importFailed": "Failed to import settings",
+        "confirmTitle": "Import settings?",
+        "confirmDescription": "Importing overwrites the current settings, favorites, tags and remote connections. Browsing history and frequently used items are not affected.",
+        "invalidFile": "This file is not a valid Alpha File Manager settings export.",
+        "restartHint": "Some settings (such as theme and language) only take effect after restarting the app.",
+        "credentialsHint": "{count} connection(s) need you to sign in again."
+      }
+    },
+    "remote": {
+      "connections": {
+        "title": "Remote connections",
+        "empty": "No connections yet."
+      },
+      "action": {
+        "add": "Add connection",
+        "edit": "Edit",
+        "delete": "Delete",
+        "save": "Save",
+        "cancel": "Cancel",
+        "browse": "Browse…",
+        "test": "Test connection"
+      },
+      "field": {
+        "name": "Name",
+        "protocol": "Protocol",
+        "host": "Server address",
+        "port": "Port",
+        "username": "Username",
+        "password": "Password",
+        "initialPath": "Initial directory",
+        "proxy": "Proxy",
+        "proxyHost": "Proxy address",
+        "proxyPort": "Proxy port",
+        "proxyUsername": "Proxy username",
+        "proxyPassword": "Proxy password",
+        "localPath": "Local folder",
+        "cookie": "Cookie",
+        "includeInSearch": "Ընդունել գլոբալ որոնման մեջ",
+        "includeInSearchHint": "Նշումը վերադարձնում է այս կապի ֆայլերը գլոբալ որոնման ինդեքսում (վերակառուցե՛ ամպամային ինդեքսը ձեռքով)։"
+      },
+      "protocol": {
+        "ftp": "FTP",
+        "ftps_explicit": "FTPS (explicit)",
+        "ftps_implicit": "FTPS (implicit)",
+        "sftp": "SFTP",
+        "baidu_pan": "Baidu Netdisk",
+        "quark_pan": "Quark Drive",
+        "aliyun_pan": "Aliyun Drive",
+        "onedrive_pan": "OneDrive"
+      },
+      "proxy": {
+        "direct": "Direct connection",
+        "socks5": "SOCKS5",
+        "http_connect": "HTTP CONNECT"
+      },
+      "password": {
+        "saved": "Password saved",
+        "savedHint": "Leave blank to keep the current password.",
+        "clear": "Remove the saved password"
+      },
+      "error": {
+        "nameRequired": "Connection name cannot be empty.",
+        "hostRequired": "Server address cannot be empty.",
+        "hostHasWhitespace": "Server address cannot contain spaces.",
+        "portInvalid": "Port must be between 1 and 65535.",
+        "initialPathInvalid": "Initial directory contains an invalid segment.",
+        "proxyHostRequired": "Proxy address cannot be empty.",
+        "proxyHostHasWhitespace": "Proxy address cannot contain spaces.",
+        "proxyPortInvalid": "Proxy port must be between 1 and 65535.",
+        "connectionIdInvalid": "Connection id is invalid.",
+        "remoteConnectionsStorageNotReady": "The connection list has not finished loading. Please try again in a moment.",
+        "unknown": "Failed to save the connection.",
+        "localPathHasWhitespace": "Local folder cannot contain spaces.",
+        "testInvalidInput": "These settings cannot be tested yet. Fill in the server address and port.",
+        "baiduLoginRequired": "Նախ հավելվածում մուտք գործեք Baidu Pan, ապա պահպանեք այս միացումը.",
+        "quarkLoginRequired": "Նախքան պահել այս կապը, մուտք գործեք Quark Drive-ում հավելվածի ներսում։",
+        "aliyunLoginRequired": "Նախքան պահել այս կապը, մուտք գործեք Aliyun Drive-ում հավելվածի ներսում։",
+        "onedriveLoginRequired": "Sign in to OneDrive inside the app before saving this connection."
+      },
+      "localPath": {
+        "hint": "Optional. When set, opening this connection shows a split view: local folder on the left, remote folder on the right."
+      },
+      "test": {
+        "testing": "Testing…",
+        "outcome": {
+          "verified": "Connected. The server accepted these settings.",
+          "auth_rejected": "Connected, but the server rejected the username or password.",
+          "missing_credential": "Connected, but no password was supplied, so authentication was not verified.",
+          "wrong_protocol": "Something answered, but it is not the selected protocol.",
+          "unreachable": "Could not reach the server. Check the address, port and proxy.",
+          "protocol_error": "Connected, but the exchange did not complete as expected."
+        },
+        "passwordNotChecked": "No password was submitted, so this does not confirm that it is correct.",
+        "tlsNotVerified": "The TLS certificate was not verified."
+      },
+      "nav": {
+        "openSettings": "Remote settings",
+        "connect": "Connect",
+        "netdisk": "Կայան սեփական դիսկներ",
+        "netdiskDescription": "Մտեք հեռվորդված պատուհանում Baidu Netdisk, Quark Drive կամ Aliyun Drive-ին։ Տվյալները գաղտնագրվում են Windows DPAPI-ով և երբեք չեն լքում այս սարքը։",
+        "remoteSection": "Հեռակառուց կապեր",
+        "remoteDescription": "Պահեցրու այստեղ FTP, FTPS և SFTP կապերը։ Տվյալները գաղտնագրվում են Windows DPAPI-ով և երբեք չեն լքում այս սարքը։",
+        "addNetdisk": "Ավելացնել կայան սեփական դիսկ",
+        "addRemote": "Ավելացնել հեռակառուց կապ",
+        "emptyNetdisk": "Կայան սեփական դիսկներ դեռ չկան։",
+        "emptyRemote": "Հեռակառուց կապեր դեռ չկան։",
+        "empty": "No connections yet.",
+        "split": "Split",
+        "editConnection": "Edit this connection",
+        "homeEmpty": "Դեռ ոչ մի ամպային սկավառակ կամ հեռակառուց կապ կարգավորված չէ։"
+      },
+      "trustedHosts": {
+        "title": "Trusted hosts",
+        "description": "Host keys you have confirmed. Remote directories only open after you trust the server here.",
+        "empty": "You have not trusted any host yet.",
+        "loadFailed": "The trusted host list could not be read.",
+        "forget": "Forget",
+        "forgetFailed": "That host could not be removed. It is still on the list.",
+        "kindSsh": "SSH key",
+        "kindX509": "X.509 certificate"
+      },
+      "baidu": {
+        "status": {
+          "loading": "Վերահաստատման վիճակը կարդում է…",
+          "missing": "Մուտք չկա",
+          "ready": "Վերահաստատված",
+          "stoken_expired": "STOKEN-ի ժամկետն է սահել — նորից մուտք գործեք",
+          "stoken_expiring_soon": "STOKEN-ը շուտ ժամկետի է լինելու"
+        },
+        "action": {
+          "deleteSession": "Պահպանված սեսիան ջնջել"
+        },
+        "embedded": {
+          "title": "Sign in inside the app",
+          "start": "Sign in with the built-in window",
+          "cancel": "Stop waiting",
+          "hint": "Opens a sign-in window inside the app. Once you are signed in, this form fills itself in — you only need to give the connection a name and save.",
+          "status": {
+            "waiting": "Waiting for you to finish signing in…",
+            "ready": "Signed in. Give this connection a name and save — the session is stored when you save.",
+            "closed": "The sign-in window was closed before signing in finished.",
+            "timeout": "Signing in took too long. Try again.",
+            "error": "Could not read the session. Use the Cookie field instead."
+          },
+          "saved": "Baidu Netdisk sign-in succeeded. The window has closed and the cookie is ready — save this connection to use it."
+        }
+      },
+      "quark": {
+        "status": {
+          "loading": "Ընթացքի կարգը կարդվում է…",
+          "missing": "Մուտք չի կատարվել",
+          "ready": "Ավտորիզացված",
+          "stale": "Նստայինը ժամանակը սպաստել է. նորից մուտք գործեք",
+          "stale_soon": "Նստայինը մոտ է սպառվելու"
+        },
+        "action": {
+          "deleteSession": "Ջնջել պահված նստայինը"
+        },
+        "embedded": {
+          "title": "Մուտք հավելվածի ներսում",
+          "start": "Մուտք ներդցված պատուհանով",
+          "cancel": "Չսպասել",
+          "hint": "Հավելվածի ներսում բացվում է մուտքի պատուհանը։ Մուտքն ավարտվելուն իրենից այն փակվում է, իսկ նստայինը ստացվում է անմիջապես՝ այդ դեպքում միայն պահել է պետք այս կապը։",
+          "status": {
+            "waiting": "Սպասում ենք ձեր մուտքին…",
+            "ready": "Մուտքը կատարված է։ Պահեք այս կապը՝ նստայինը կգրավվի պահելիս։",
+            "closed": "Մուտքի պատուհանը փակվել է մուտքն ավարտելու համար։",
+            "timeout": "Մուտքի սպասման ժամանակը սպասացավ։ Փորձեք նորից։",
+            "error": "Մուտքի վիճակը հաստատել չհաջողվեց։ Փորձեք նորից։"
+          },
+          "saved": "Մուտքը Quark Drive-ում հաջողվեց․ պատուհանն ինքն փակվեց, նստայինը ստացվեց՝ պահեք այս կապը սպառման համար։"
+        }
+      },
+      "aliyun": {
+        "status": {
+          "loading": "Ընթացքի կարգը կարդվում է…",
+          "missing": "Մուտք չի կատարվել",
+          "ready": "Ավտորիզացված",
+          "stale": "Նստայինը ժամանակը սպաստել է. նորից մուտք գործեք",
+          "stale_soon": "Նստայինը մոտ է սպառվելու"
+        },
+        "action": {
+          "deleteSession": "Ջնջել պահված նստայինը"
+        },
+        "embedded": {
+          "title": "Մուտք՝ QR կոդը սկանավորելով",
+          "start": "Ցույց տալ QR կոդը",
+          "cancel": "Չսպասել",
+          "hint": "Այստեղ բացվում է մուտքի QR կոդը։ Սկանավորեք այն ձեր հեռախոսի Aliyun Drive հավելվածով՝ նստայինը անմիջապես կստացվի, և միայն պահել է պետք այս կապը։ Եթե չեք կարող սկանավորել, տեղադրեք արդեն ունեցող թոկենը։",
+          "status": {
+            "waiting": "Սպասում ենք ձեր սկանավորմանը…",
+            "ready": "Մուտքը կատարված է։ Պահեք այս կապը՝ նստայինը կգրավվի պահելիս։",
+            "closed": "Մուտքը չեղարկվեց՝ ավարտվելուց առաջ։",
+            "timeout": "QR կոդի ժամանակը լրացել է։ Փորձեք նորից։",
+            "error": "Մուտքի վիճակը հաստատել չհաջողվեց։ Փորձեք նորից։",
+            "scanned": "Սկանավորված է, հաստատեք հեռախոսով"
+          },
+          "saved": "Մուտքը Aliyun Drive-ում հաջողվեց։ Պահեք այս կապը՝ օգտագործելու համար։",
+          "refresh": "Թարմացնել QR կոդը",
+          "windowStart": "Բացել մուտքի պատուհանը",
+          "windowCancel": "Փակել պատուհանը",
+          "windowHint": "Aliyun Drive-ի պաշտոնական էջը պատուհանում ցույց է տալիս QR կոդը և հաստատում. տվյալներն ուղղակի փոխանցվում են հավելվածին։",
+          "qrFallback": "Ալտերնատիվ՝ ձեռքով QR մուտք"
+        },
+        "field": {
+          "pasteToken": "Մուսքային թոկեն",
+          "pasteTokenHint": "Տեղադրեք արդեն ունեցող թոկենը։ Այն պահելուց առաջ ստուգվում է Aliyun Drive-ի հետ, և թոկենը մաքութային տեքստով չի դուրս գալիս այս սարքից։"
+        }
+      },
+      "netdisk": {
+        "provider": "Ամպային սկիզբ",
+        "baidu": "Baidu Drive",
+        "quark": "Quark Drive",
+        "aliyun": "Aliyun Drive",
+        "signedIn": "Մուտք է կատարված",
+        "onedrive": "OneDrive"
+      },
+      "onedrive": {
+        "field": {
+          "clientId": "Application (client) ID",
+          "clientIdHint": "The client id of the Microsoft Entra application you registered for OneDrive. It is stored with the session on this machine and is never sent through this form.",
+          "authUrl": "Authorization URL",
+          "authUrlHint": "If the browser did not open by itself, copy this URL and finish signing in there."
+        },
+        "action": {
+          "start": "Start sign-in",
+          "cancel": "Stop waiting",
+          "deleteSession": "Delete the saved session"
+        },
+        "state": {
+          "pending": "Waiting for you to finish signing in in the browser…",
+          "completed": "Signed in. Save this connection — the session will be written when you save.",
+          "failed": "The sign-in did not complete. Please try again."
+        },
+        "auth": {
+          "authorized": "Authorized",
+          "missing": "Not signed in",
+          "loading": "Reading authorization status…"
+        },
+        "hint": {
+          "clientIdRequired": "Fill in the application (client) ID first."
+        }
+      }
+    },
+    "about": {
+      "title": "Հետեր",
+      "changelog": "Փոխոխությունների մատյան",
+      "projectLinks": "Նախագծի հղումներ",
+      "commits": "Կոմիտներ",
+      "author": "Հեղինակ",
+      "developer": "段燚",
+      "website": "Կայք",
+      "wechat": "WeChat",
+      "wechatAccount": "段燚的学习笔记",
+      "scanQrCode": "Հետերվելու համար սկանեք"
     }
   },
   "projectGithubButtons": {
     "projectPage": "Պրոյեկտի էջ",
-    "requestsIssues": "Հարցումներ և սխալներ",
-    "discussions": "Քննարկումներ"
+    "requestsIssues": "Հարցումներ և սխալներ"
   },
   "settingsTabs": {
     "general": "Հիմնական",
@@ -499,7 +955,9 @@
     "dataStorage": "Տվյալ և հիշողություն",
     "extensions": "Ընդլայնումներ",
     "stats": "Վիճակագրություն",
-    "experimental": "Փորձնական"
+    "experimental": "Փորձնական",
+    "remote": "Remote",
+    "about": "Հետեր"
   },
   "settingsTags": {
     "language": "լեզու",
@@ -512,7 +970,7 @@
     "visualFilters": "վիզուալ էֆեկտ, ֆիլտրե, գույն․ կոնտրաստ, լուսավորություն․ հագեցվածություն, նկար, վիդեո, տեսք, երկխոսություն, ֆոն, բլյուր",
     "fonts": "տառատեսակ, տեքստ",
     "dateTime": "ամսաթիվ, ժամ, ֆորմատ",
-    "uiElements": "ui, էլեմենտներ, վիզուալ էլեմենտ, մուտքագրում, ակցենտ, գույն, թայմլայն, վահանակ, էջ, վերջիններ, քարտեր, գլխավոր էջ, սկավառակ, տարածք, ինդիկատոր, ոճ",
+    "uiElements": "ui, էլեմենտներ, վիզուալ էլեմենտ, մուտքագրում, ակցենտ, գույն, թայմլայն, արագ մուտք, էջ, վերջիններ, քարտեր, գլխավոր էջ, սկավառակ, տարածք, ինդիկատոր, ոճ",
     "quickAccess": "արագ մուտք, պանել, վրան պահել, կողային վահանակ, վահանակ",
     "tooltips": "հուշում, հուշումներ, վրան պահել, ուշացում, թայմինգ",
     "clipboard": "փոխանակման բուֆեր",
@@ -522,18 +980,21 @@
     "shortcuts": "կարճուղիներ",
     "tabAppearance": "թաբեր, ակտիվ թաբ, հաստ, տեքստ",
     "globalSearch": "գլոբալ որոնում, գտնել, տեսնել, ֆիլտրացում, սկանավորում",
-    "stats": "վիճակագրություն, տվյալ, օգտատեր, սիրվածներ, թեգր, պատմություն, վերջիններ, վահանակ, հիշողություն",
+    "stats": "վիճակագրություն, տվյալ, օգտատեր, սիրվածներ, թեգր, պատմություն, վերջիններ, արագ մուտք, հիշողություն",
     "driveDetection": "սկավառակ, usb, հիշողություն, սկավառակ, սարք, հայտնաբերում, միացում",
     "autoplay": "ավտոնվագարկում, ֆայլային մենեջեր, windows, սկավառակ, usb, ավտոմատ, բացել, պանակ",
     "experimental": "առաջադեմ, փորձարարական, լռելյայն ֆայլերի մենեջեր, ֆայլերի մենեջեր, ռեգիստր, տերմինալ, shell",
     "whatsNew": "ինչ նոր բան կա, փոփոխությունների պատմություն, թողարկման նշումներ, վերսիա, թարմացում, նորություններ",
     "autostart": "ավտոբացում, միացում, boot, մուտք համակարգ, միացում, համակարգ",
     "performance": "կատարողականություն, հիշողություն, արագ դիտում, տպում, պատուհան, գործարկում, նախաբեռնում",
-    "fileView": "ֆայլի դիտում, վանդակի ընտրություն, քաշելու ընտրություն, ցանկ, ցանց, բացատներ, լրացում, միջակայք",
+    "fileView": "ֆայլի դիտում, վանդակի ընտրություն, քաշելու ընտրություն, ցանկ, ցանց, բացատներ, լրացում, միջակայք, folder, folders, first, top, sort, sorting, order, ordering, list, files, file, directory, directories, group, grouping, view, precedence",
     "extensions": "ընդլայնումներ, պլագիններ, addon-ներ, կարգավորում, կարգավորումներ",
     "tabsWorkspaces": "թաբեր, աշխատատարածքներ, փակել, վերջին թաբ, լռելյայն թաբ",
     "defaultDirectory": "տուն, locations, այս համակարգիչ, սկավառակներ, լռելյայն պանակ, նոր թաբ, հատուկ ուղի",
-    "startupPage": "գործարկման էջ, գործարկում, բացել գործարկման ժամանակ, գլխավոր, վահանակ, նավիգատոր, վերջին էջ, վերականգնել, էջ"
+    "startupPage": "գործարկման էջ, գործարկում, բացել գործարկման ժամանակ, գլխավոր, արագ մուտք, նավիգատոր, վերջին էջ, վերականգնել, էջ",
+    "thumbnailCache": "thumbnail, cache, clear, image, video, preview, storage, disk, usage",
+    "about": "հետեր, տարբերակ, թարմացում, փոխոխությունների մատյան, գիթհաբ, հեղինակ, կայք, վեչատ, qr կոդ",
+    "settingsTransfer": "export, import, settings, favorites, remote connections, cloud drive, backup, restore"
   },
   "drag": {
     "holdShiftToChangeMode": "Պահեք [Shift] կոճակը՝ ռեժիմը փոխելու համար",
@@ -566,13 +1027,15 @@
     "localShortcutsAppScope": "Լոկալ կարճուղիներ (ծրագրում)",
     "unknownMainKey": "Անհայտ ստեղն",
     "globalShortcutRegisterFailed": "Այս գլոբալ կարճուղին հնարավոր չէ գրանցել։ Հնարավոր է՝ այն արդեն օգտագործվում է Windows-ի կամ այլ ծրագրի կողմից։ Փորձեք այլ համադրություն (օրինակ՝ Win+Shift+… կամ Ctrl+Alt+…):",
-    "shortcutRecorderGlobalCaptureHint": "Եթե ստեղները չեն հայտնվում դրանք սեղմելիս, հնարավոր է, որ ձեր համակարգը կամ մեկ այլ ծրագիր մշակում է դրանք, նախքան այս պատուհանը դրանք ստանա։ Փորձեք մեկ այլ համադրություն։"
+    "shortcutRecorderGlobalCaptureHint": "Եթե ստեղները չեն հայտնվում դրանք սեղմելիս, հնարավոր է, որ ձեր համակարգը կամ մեկ այլ ծրագիր մշակում է դրանք, նախքան այս պատուհանը դրանք ստանա։ Փորձեք մեկ այլ համադրություն։",
+    "shortcutTakenBySystem": "Used by the system",
+    "shortcutSystemConflictHint": "Another application has registered this combination as a system-wide hotkey, so Alpha File Manager never receives it. Pick a different combination."
   },
   "shortcuts": {
     "focusAppWindow": "Ցուցադրել ծրագրի պատուհանը",
     "switchToHomePage": "Գնալ գլխավոր էջ",
     "switchToNavigatorPage": "Գնալ նավիգացիայի էջ",
-    "switchToDashboardPage": "Գնալ վահանակի էջ",
+    "switchToDashboardPage": "Գնալ արագ մուտքի էջ",
     "switchToSettingsPage": "Բացել կարգավորումները",
     "switchToExtensionsPage": "Բացել ընդլայնումները",
     "navigatePageBack": "Գնալ նախորդ էջ",
@@ -670,6 +1133,22 @@
       "description": "Այս գործողությունը ձեր համակարգչից անվերադարձ կջնջի {count} իր։",
       "confirm": "Հաստատեք, եթե հասկանում եք, որ սա հետադարձել հնարավոր չէ։",
       "delete": "Ջնջել"
+    },
+    "remoteHostKeyUnknown": {
+      "title": "This server’s identity has not been verified yet",
+      "description": "Alpha File Manager has connected to this host for the first time. Compare the fingerprint below with the one your server administrator gave you, then decide whether to trust it.",
+      "trust": "Trust and continue"
+    },
+    "remoteHostKeyChanged": {
+      "title": "This server’s identity has changed",
+      "description": "The host key presented by this server does not match the one you trusted before. This can mean the server was reinstalled, or that someone is intercepting the connection.",
+      "expected": "Previously trusted fingerprint:",
+      "trustAnyway": "Replace and continue"
+    },
+    "remoteHostKeyCommon": {
+      "algorithm": "Host key algorithm: {algorithm}",
+      "hint": "You can check it yourself with: ssh-keygen -lf <host key file>",
+      "hintX509": "You can check it yourself with: openssl x509 -fingerprint -sha256 -noout -in <certificate file>"
     }
   },
   "notifications": {
@@ -703,7 +1182,9 @@
     "printViewFileIsNotSupported": "Տպել. ֆայլը չի աջակցվում",
     "createdNLinks": "Ստեղծվել է 0 հղում | Ստեղծվել է 1 հղում | Ստեղծվել է {n} հղում | Ստեղծվել է {n} հղում",
     "createdNOfNLinks": "Ստեղծվել է {created}/{total} հղում",
-    "linkCreationPartialFailureDescription": "{count} հղում չհաջողվեց։ Առաջին սխալը՝ {error}"
+    "linkCreationPartialFailureDescription": "{count} հղում չհաջողվեց։ Առաջին սխալը՝ {error}",
+    "deletingLargeBatch": "Deleting {count} items",
+    "deletingLargeBatchDetail": "{files} files · {directories} folders · {size}"
   },
   "contextMenus": {
     "dirItem": {
@@ -886,6 +1367,7 @@
     },
     "name": "Անուն",
     "size": "Չափ",
+    "availableSpace": "Ազատ տեղ",
     "modified": "Փոփոխված",
     "listModifiedDate": {
       "todayAt": "Այսօր {time}-ին",
@@ -896,6 +1378,7 @@
     "setMinimumColumnWidths": "Դնել նվազագույն լայնությունները",
     "tags": "Թեգեր",
     "folders": "Պանակներ",
+    "partitions": "Բաժիններ",
     "images": "Նկարներ",
     "videos": "Վիդեոներ",
     "video": "Վիդեո",
@@ -942,6 +1425,7 @@
     "actions": {
       "rename": "Վերանվանել",
       "copy": "Պատճենել",
+      "cut": "Կտել",
       "move": "Տեղափոխել",
       "createLink": "Ստեղծել հղում",
       "paste": "Տեղադրել",
@@ -949,6 +1433,9 @@
       "pasteToPane2": "Տեղադրել 2-րդ վահանակում",
       "delete": "Ջնջել",
       "openWith": "Բացել․․․",
+      "openContainingDirectory": "Open containing directory",
+      "openContainingDirectoryFailed": "Չհաջողվեց բացել պարունակող պանակը",
+      "openContainingDirectoryInApp": "Show containing folder in split view",
       "properties": "Հատկություններ",
       "propertiesFailed": "Չհաջողվեց բացել հատկությունները",
       "quickView": "Արագ դիտում",
@@ -956,7 +1443,17 @@
       "share": "Կիսվել LAN-ի միջոցով",
       "openInNewTab": "Բացել նոր թաբում",
       "addToFavorites": "Ավելացնել սիրվածներին",
-      "removeFromFavorites": "Ջնջել սիրվածներից"
+      "removeFromFavorites": "Ջնջել սիրվածներից",
+      "unlock": "Unlock file",
+      "forceDelete": "Force delete",
+      "rotateImageLeft": "Ներձ աջ պտտել",
+      "rotateImageRight": "Ներձ ձայն պտտել",
+      "flipImageHorizontal": "Հորիզոնական շրջել",
+      "flipImageVertical": "Ուղղահայաց շրջել",
+      "imageEditSucceeded": "Նկարը հաջողությամբ խմբագրվեց",
+      "imageEditFailed": "Չհաջողվեց նկարը խմբագրել",
+      "imageEditInProgress": "Գործի ընթացքում…",
+      "pasteShortcut": "Paste shortcut"
     },
     "linkTypes": {
       "symlink": "Սիմվոլիկ հղում",
@@ -1025,7 +1522,30 @@
       "unsupported": "Չի աջակցվում"
     },
     "linkMetadataPerformanceWarning": "Կարող է մեծացնել հիշողության օգտագործումը և նվազեցնել կատարողականությունը։",
-    "items": "Իրեր"
+    "items": "Իրեր",
+    "favoriteCategoryDialog": {
+      "title": "Add to favorites",
+      "categoryLabel": "Choose a category",
+      "uncategorized": "Uncategorized",
+      "newCategoryLabel": "Or create a new category",
+      "newCategoryPlaceholder": "Type a name for the new category",
+      "confirm": "Add to favorites",
+      "multipleEntries": "and {n} more items",
+      "displayNameLabel": "Ցուցադրվող անուն",
+      "displayNamePlaceholder": "Թողեք դատարկ՝ բնագիր անունը կիրառելու համար"
+    },
+    "searchOptions": {
+      "title": "Որոնման տարբերակներ",
+      "matchCount": "{n} համընկերություններ",
+      "results": "արդյունքներ",
+      "options": "տարբերակներ"
+    },
+    "swapPanes": "Swap panes",
+    "devices": "Սարքավորություններ",
+    "device": "Սարք",
+    "deviceOpenFailed": "Սարքավորությունը բացել չի հաջողվել",
+    "deviceOpenFailedDescription": "Սարքավորությունը կարող է հետանվել լինել։ Բացեք այն համակարգի ֆայլային դիտարկիչում։",
+    "openInSystemExplorer": "Բացել համակարգի ֆայլային դիտարկիչում"
   },
   "openWith": {
     "loadingPrograms": "Ծրագրերը բեռնվում են...",
@@ -1192,7 +1712,7 @@
     },
     "badges": {
       "official": "Պաշտոնական",
-      "officialTooltip": "Այս ընդլայնումը ստեղծվել և պահպանվում է Sigma ֆայլային մենեջերի թիմի կողմից։",
+      "officialTooltip": "Այս ընդլայնումը ստեղծվել և պահպանվում է Alpha File Managerի թիմի կողմից։",
       "community": "Համայնք",
       "communityTooltip": "Սա համայնքի ընդլայնում է: Տեղադրելուց առաջ վերանայեք սկզբնական կոդը:",
       "local": "Տեղական",
@@ -1200,7 +1720,9 @@
       "broken": "Կոտրված",
       "brokenTooltip": "Ընդլայնման ֆայլերը բացակայում են: Ապատեղադրեք՝ ցանկից ջնջելու համար:",
       "disabled": "Անջատված",
-      "disabledTooltip": "Այս ընդլայնումը անջատված է"
+      "disabledTooltip": "Այս ընդլայնումը անջատված է",
+      "source": "Աղբյուր",
+      "sourceTooltip": "Շուկայի աղբյուրը: {name}"
     },
     "stats": {
       "total": "Ընդհանուր",
@@ -1227,11 +1749,24 @@
       "stop": "Կանգնեցնել"
     },
     "engineIncompatibleShort": "Անհրաժեշտ է թարմացում",
-    "engineAppWarning": "Պահանջվում է Sigma ֆայլերի մենեջեր {range} (դուք ունեք {current})",
+    "engineAppWarning": "Պահանջվում է Alpha File Manager {range} (դուք ունեք {current})",
     "engineApiWarning": "Պահանջվում է {range} API ընդլայնում (դուք ունեք {current})",
     "engineRequirements": "Պահանջներ",
-    "requiresSigmaFileManager": "Sigma ֆայլերի մենեջեր",
-    "requiresExtensionApi": "Ընդլայնման API"
+    "requiresSigmaFileManager": "Alpha File Manager",
+    "requiresExtensionApi": "Ընդլայնման API",
+    "marketSources": "Շուկայի աղբյուրներ",
+    "marketSourceAdd": "Ավելացնել շուկայի աղբյուր",
+    "marketSourceName": "Անուն",
+    "marketSourceUrl": "Ռեգիստրի URL",
+    "marketSourceOfficial": "Պաշտոնական",
+    "marketSourceCommunity": "Համայնք",
+    "marketSourceCustom": "Սեփական",
+    "marketSourceAll": "Բոլորը",
+    "marketSourceEmpty": "Շուկայի աղբյուրներ դեռ չեն ավելացվել։",
+    "marketSourceRemove": "Հեռացնել շուկայի աղբյուրը",
+    "marketSourceRemoveConfirm": "Հեռացնե՞լ այս շուկայի աղբյուրը։ Այն տալիս ընդլայնումները կհանվեն շուկայի հաջորդ թարմացման ժամանակ։",
+    "marketSourceInvalidUrl": "Մուտքագրեք հանրային HTTPS URL։",
+    "marketSourceUnreachable": "Հասանելի չէ"
   },
   "commandPalette": {
     "accessibleDialogTitle": "Հրամանների պալիտրա",
@@ -1266,5 +1801,291 @@
     "replaceShareDialogDescription": "Ֆայլերն արդեն կիսվում են ցանցում: Ընթացիկ կիսումը կդադարեցվի և կփոխարինվի նորով:",
     "replaceShareDialogConfirm": "Փոխարինել"
   },
-  "tree": "Tree"
+  "tree": "Tree",
+  "batchRename": {
+    "menuItem": "Batch rename",
+    "dialog": {
+      "title": "Batch rename",
+      "tabRename": "Rename",
+      "tabHistory": "Undo history",
+      "cancel": "Cancel",
+      "apply": "Rename",
+      "close": "Close",
+      "loading": "Calculating…",
+      "noRules": "No rules added — nothing will be renamed.",
+      "summaryChanged": "{count} item(s) will be renamed",
+      "summaryUnchanged": "{count} item(s) unchanged",
+      "blocked": "Conflicts found. Fix them before applying.",
+      "openHistory": "Undo history"
+    },
+    "rules": {
+      "title": "Rules",
+      "empty": "No rules yet.",
+      "add": "Add rule",
+      "remove": "Remove rule",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "sortLabel": "Numbering order",
+      "type": {
+        "findReplace": "Find and replace",
+        "caseTransform": "Change case",
+        "template": "Template",
+        "sequence": "Numbering",
+        "extension": "Extension"
+      },
+      "findReplace": {
+        "find": "Find",
+        "replace": "Replace with",
+        "caseSensitive": "Match case",
+        "includeExtension": "Include extension"
+      },
+      "caseTransform": {
+        "mode": "Mode",
+        "includeExtension": "Include extension"
+      },
+      "case": {
+        "upper": "UPPERCASE",
+        "lower": "lowercase",
+        "title": "Title Case",
+        "camel": "camelCase",
+        "snake": "snake_case",
+        "kebab": "kebab-case"
+      },
+      "template": {
+        "pattern": "Pattern",
+        "variables": "Available variables",
+        "dateFormat": "Date format"
+      },
+      "sequence": {
+        "start": "Start",
+        "step": "Step",
+        "pad": "Zero padding",
+        "hint": "Numbering does not rename anything on its own. It only supplies the sequence variable used by a Template rule — add a Template rule to use it.",
+        "addTemplate": "Add a Template rule"
+      },
+      "extension": {
+        "newExtension": "New extension",
+        "newExtensionHint": "Leave empty to remove the extension"
+      }
+    },
+    "sort": {
+      "selection": "Selection order",
+      "nameAsc": "Name A to Z",
+      "nameDesc": "Name Z to A",
+      "modifiedAsc": "Modified, oldest first",
+      "modifiedDesc": "Modified, newest first",
+      "sizeAsc": "Size, smallest first",
+      "sizeDesc": "Size, largest first"
+    },
+    "preview": {
+      "title": "Preview",
+      "oldName": "Current name",
+      "newName": "New name",
+      "empty": "Nothing to preview.",
+      "unchanged": "unchanged"
+    },
+    "conflicts": {
+      "title": "Conflicts",
+      "targetExists": "The new name is already taken by another file in this folder.",
+      "duplicateTarget": "Several items would get the same name.",
+      "invalidTitle": "Invalid file names",
+      "invalid": {
+        "empty": "Name is empty.",
+        "illegalCharacter": "Contains a character that is not allowed in file names.",
+        "windowsReservedName": "Reserved name on Windows.",
+        "trailingDotOrSpace": "Cannot end with a dot or a space."
+      }
+    },
+    "result": {
+      "success": "Renamed {count} item(s)",
+      "partial": "Rename failed",
+      "rollbackOk": "Rolled back — the folder is back to its previous state.",
+      "rollbackFailed": "Rollback failed. The folder may be in a mixed state — check it manually.",
+      "noUndo": "This change could not be recorded for undo."
+    },
+    "history": {
+      "title": "Undo history",
+      "empty": "No history yet.",
+      "undo": "Undo",
+      "undoing": "Undoing…",
+      "itemCount": "{count} file(s)",
+      "undoSuccess": "Reverted {count} item(s)",
+      "undoFailed": "Undo failed",
+      "blockedBy": "These names are taken, so they could not be restored: {names}",
+      "notFound": "That history entry no longer exists."
+    }
+  },
+  "remote": {
+    "transfer": {
+      "uploadToRemote": "Upload to remote",
+      "downloadToLocal": "Download to local",
+      "uploadSucceeded": "Uploaded {files} file(s) to the remote folder.",
+      "uploadFailed": "Upload did not fully succeed: {files} uploaded, {skipped} skipped, {failed} failed.",
+      "downloadSucceeded": "Downloaded {files} file(s) to the local folder.",
+      "downloadFailed": "Download did not fully succeed: {files} downloaded, {skipped} skipped, {failed} failed.",
+      "uploading": "Uploading to remote",
+      "downloading": "Downloading from remote",
+      "progressFiles": "{done} / {total} files transferred",
+      "progressBytes": "{done} / {total} transferred",
+      "progressCurrent": "Current: {name}",
+      "resultTitle": "Transfer result",
+      "resultSummary": "{files} file(s) succeeded, {skipped} skipped, {failed} failed",
+      "failureSection": "Failed items",
+      "skippedSection": "Skipped items",
+      "skipReasonAlreadyExists": "Target already exists (not overwritten)",
+      "conflictTitle": "Target already exists",
+      "conflictMessage": "{count} file(s) already exist in the target folder. Overwrite them?",
+      "conflictOverwrite": "Overwrite",
+      "conflictSkipExisting": "Skip existing",
+      "noRemotePane": "The other pane is not on a remote host",
+      "uploadFailedTitle": "Upload did not fully succeed",
+      "downloadFailedTitle": "Download did not fully succeed",
+      "pasteToRemoteFailed": "Copy failed",
+      "remoteToRemoteNotSupported": "Copying between two remote locations is not supported yet. Click a local folder pane first and press Ctrl+V to download, or right-click the file and choose Download to local.",
+      "pasteFromRemoteFailed": "Copy from remote failed",
+      "conflictApplyToAll": "Apply the same choice to all files",
+      "conflictContinue": "Continue",
+      "skipReasonUserSkipped": "Skipped by you"
+    },
+    "permissions": {
+      "menuItem": "Permissions...",
+      "title": "Set permissions",
+      "modeLabel": "Permissions (octal)",
+      "modeHint": "For example 0754 means the owner may read, write and execute; the group may read and execute; others may read.",
+      "unknownMode": "The current permissions could not be read. Pick one from the list.",
+      "owner": "Owner",
+      "group": "Group",
+      "others": "Others",
+      "read": "read",
+      "write": "write",
+      "execute": "execute",
+      "none": "none",
+      "separator": ", ",
+      "recursive": "Apply to subdirectories and the files in them",
+      "apply": "Apply",
+      "success": "Permissions updated ({changed} item(s)).",
+      "partialFailure": "Permissions updated for {changed} item(s); {failed} failed.",
+      "failed": "Could not set permissions: {message}",
+      "error": {
+        "empty": "Enter the permissions in octal, for example 0754.",
+        "tooLong": "At most 4 octal digits are allowed.",
+        "notOctal": "Only the digits 0-7 are allowed.",
+        "unknown": "This permission value could not be recognized."
+      }
+    },
+    "delete": {
+      "menuItem": "Ջնջել",
+      "title": "Ջնջել հեռակա տարրերը",
+      "descriptionSingle": "{path}-ը մշտականությամբ կջնջվել է։ Դա հետ բերել հնարավոր չէ։",
+      "description": "Այս գործողությունը մշտականությամբ կջնջել է հեռակա սերվերից {count} տարր։ Դա հետ բերել հնարավոր չէ։",
+      "noTrashHint": "Հեռակա սերվերում ոչ կա աղբյուռ, ուստի ջնջված տարրերը հետ բերել հնարավոր չէ։",
+      "connectionHint": "Կապ: {name}",
+      "confirm": "Ջնջել",
+      "success": "Ջնջվեց {count} հեռակա տարր։",
+      "failed": "Ջնջելը ձախողվեց",
+      "permissionDenied": "Առաքմություն չկա"
+    },
+    "write": {
+      "fileCreationNotSupported": "Հեռահետ տեղացույցները չեն աջակցում դատարկ ֆայլերի ստեղծմանը։",
+      "fileCreationNotSupportedTitle": "Ֆայլը ստեղծել հնարավոր չէ"
+    }
+  },
+  "compareSync": {
+    "title": "Compare & Sync",
+    "description": "Compare the two directories and sync the differences. This step never deletes anything.",
+    "stepSettings": "Setup",
+    "stepResults": "Results",
+    "stepPreview": "Preview & Run",
+    "leftDirectory": "Left directory",
+    "rightDirectory": "Right directory",
+    "leftDirectoryHint": "Source side",
+    "rightDirectoryHint": "Target side",
+    "tabCriteria": "Criteria",
+    "tabExclude": "Exclude",
+    "criteriaByTime": "By modification time",
+    "criteriaBySize": "By file size",
+    "criteriaByChecksum": "By content checksum",
+    "criteriaByChecksumHint": "Only available between two local folders; remote servers have no checksum to compare.",
+    "criteriaCaseSensitive": "Case sensitive",
+    "criteriaRecursive": "Compare subfolders recursively",
+    "criteriaMaxDepth": "Maximum depth",
+    "criteriaMaxDepthUnlimited": "Unlimited",
+    "criteriaRemoteTimeOffset": "Remote time offset (seconds)",
+    "criteriaRemoteTimeOffsetHint": "Servers usually report time in their own time zone; this offset converts it to yours.",
+    "excludePatterns": "Exclude rules",
+    "excludePatternsHint": "One per line, * and ? are supported. A matching folder drops its whole subtree from the comparison.",
+    "compare": "Compare",
+    "comparing": "Comparing…",
+    "back": "Back",
+    "preview": "Build preview",
+    "execute": "Start sync",
+    "executing": "Syncing…",
+    "cancel": "Cancel",
+    "filterAll": "All",
+    "filterDifferences": "Differences only",
+    "statusSame": "Same",
+    "statusOnlyLeft": "Left only",
+    "statusOnlyRight": "Right only",
+    "statusNewer": "Left is newer",
+    "statusOlder": "Left is older",
+    "statusSizeDiff": "Different size",
+    "statusContentDiff": "Different content",
+    "statusKindDiff": "Different type",
+    "statusIndeterminate": "Undecidable",
+    "directionToRight": "Left → Right",
+    "directionToLeft": "Right → Left",
+    "directionNone": "Nothing to do",
+    "directionIndeterminate": "Direction undecided",
+    "noDifferences": "No differences.",
+    "statsTotal": "Total",
+    "statsSame": "Same",
+    "statsDifferences": "Different",
+    "statsNeedsReview": "Undecided",
+    "actionCreateDir": "Create folder",
+    "actionTransferFile": "Transfer file",
+    "actionSkip": "Skip",
+    "planSummary": "Will create {dirs} folders, transfer {files} files and skip {skipped} items.",
+    "reportTransferred": "Transferred",
+    "reportCreatedDirs": "Folders created",
+    "reportSkipped": "Skipped",
+    "reportFailed": "Failed",
+    "reportCancelled": "Cancelled",
+    "invalidPath": "This path cannot be used.",
+    "progressPreparing": "Նախապահում…",
+    "progressScanningLeft": "Սկանում են ձախ կողմը…",
+    "progressScanningRight": "Սկանում են աջ կողմը…",
+    "progressComparing": "Համեմատում է…",
+    "progressDone": "Պատրաստ",
+    "progressScanned": "Սկանվել է {count} գրառ",
+    "progressCompared": "Համեմատվել է {total}-ից {count} գրառ",
+    "rowsTruncated": "Ցուցադրվում է {total}-ից {shown}։ Սեղմացրեք զտիչները՝ նվազև տեսնելու համար։",
+    "showMore": "Ցուցադրել ևս {count}",
+    "statsUnreadable": "չի կարող ընթերցվել"
+  },
+  "mapNetworkDrive": "Map network drive",
+  "mapNetworkDriveDescription": "Map a network share to a drive letter. Once it is mounted it shows up in the drive list on the left.",
+  "networkDriveLetter": "Drive letter",
+  "networkDriveLetterPlaceholder": "Auto",
+  "fileLock": {
+    "unlocked": "File unlocked",
+    "unlockedDescription": "Whatever was blocking the file has been cleared. You can delete it normally now.",
+    "unlockFailed": "Could not unlock the file",
+    "forceDeleted": "File deleted",
+    "forceDeletedDescription": "The file was removed even though it was in use.",
+    "forceDeleteFailed": "Could not delete the file",
+    "scheduledForReboot": "Deletion scheduled",
+    "scheduledForRebootDescription": "The file is still in use. It will be deleted the next time Windows starts.",
+    "terminateFailed": "Could not end the process",
+    "unknownError": "Unknown error",
+    "holdersTitle": "Programs using this file",
+    "holdersDescription": "These programs are holding the file open. Ending one of them may lose unsaved work.",
+    "noHolders": "No program was found holding this file.",
+    "endProcess": "End process",
+    "diagnoseFailed": "Could not check which programs are using this file"
+  },
+  "webviewGuard": {
+    "detected": "The interface renderer process crashed. Trying to recover automatically...",
+    "recovered": "The interface is working again.",
+    "recoveryFailed": "The interface could not be recovered automatically. Please restart the app."
+  }
 }

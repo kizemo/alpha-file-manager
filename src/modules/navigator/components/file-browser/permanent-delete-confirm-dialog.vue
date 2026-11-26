@@ -4,7 +4,9 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 -->
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import {
+  computed, nextTick, onBeforeUnmount, onMounted, watch,
+} from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { DirEntry } from '@/types/dir-entry';
 import {
@@ -16,7 +18,12 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { getPathDisplayValue } from '@/utils/normalize-path';
+import { useNativePath } from '@/composables/use-native-path';
+import {
+  focusPermanentDeleteConfirmContent,
+  isPermanentDeleteConfirmInteractiveTarget,
+  shouldConfirmPermanentDeleteOnEnter,
+} from './utils/permanent-delete-confirm-keyboard';
 
 const props = defineProps<{
   open: boolean;
@@ -29,13 +36,14 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const { toNativeDisplayValue } = useNativePath();
 
 const singlePathDisplay = computed(() => {
   if (props.entries.length !== 1) {
     return '';
   }
 
-  return getPathDisplayValue(props.entries[0].path);
+  return toNativeDisplayValue(props.entries[0].path);
 });
 
 const bodyPrimaryMultiple = computed(() => {
@@ -55,6 +63,62 @@ function onRequestClose() {
 function onConfirm() {
   emit('confirm');
 }
+
+// FORK-MODIFICATION 2026-10-27：裸回车 = 确认删除。
+// reka-ui 的 FocusScope 在对话框挂载时把焦点落到内容里第一个可聚焦控件上，
+// 而本对话框里那个控件是「取消」按钮 ⇒ 「刚打开就回车」= 取消，不是删除。
+// 因此对话框打开后把焦点挪到对话框容器（容器不是可交互控件）上，
+// 裸回车落到「焦点不在控件上 ⇒ 确认删除」的兜底分支；
+// 用户 Tab 之后焦点在按钮上时，仍然交给浏览器原生行为。
+watch(
+  () => props.open,
+  async (open) => {
+    if (!open) {
+      return;
+    }
+
+    await nextTick();
+
+    // 等一拍再挪：reka-ui 的 FocusScope 在挂载之后还会再抢一次焦点。
+    setTimeout(() => {
+      if (props.open) {
+        focusPermanentDeleteConfirmContent();
+      }
+    }, 0);
+  },
+);
+
+function handleDocumentKeydown(event: KeyboardEvent) {
+  if (!props.open) {
+    return;
+  }
+
+  const activeElement = typeof document !== 'undefined' ? document.activeElement : null;
+  const shouldConfirm = shouldConfirmPermanentDeleteOnEnter({
+    key: event.key,
+    defaultPrevented: event.defaultPrevented,
+    isComposing: event.isComposing,
+    isRepeat: event.repeat,
+    isFocusOnInteractiveControl: isPermanentDeleteConfirmInteractiveTarget(activeElement),
+  });
+
+  if (!shouldConfirm) {
+    return;
+  }
+
+  // capture 阶段拦截：别让应用级的回车快捷键同时生效。
+  event.preventDefault();
+  event.stopPropagation();
+  onConfirm();
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleDocumentKeydown, true);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', handleDocumentKeydown, true);
+});
 </script>
 
 <template>

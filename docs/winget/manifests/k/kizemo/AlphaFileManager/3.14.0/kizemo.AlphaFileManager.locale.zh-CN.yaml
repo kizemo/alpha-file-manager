@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.locale.1.12.0.schema.json
+
+PackageIdentifier: kizemo.AlphaFileManager
+PackageVersion: 3.14.0
+PackageLocale: zh-CN
+ShortDescription: 面向 Windows 与 Linux 的双栏文件管理器，支持 SFTP/FTP、网盘、目录比较同步、批量改名与解除文件锁定。
+Description: |-
+  Alpha File Manager 是一款面向 Windows 与 Linux 的双栏文件管理器，技术栈是 Tauri 2 + Rust + Vue 3。
+
+  两侧文件窗格共用一个导航器：左侧目录树会跟着你正在用的那一格走，连上远程服务器也能展开成树。收藏按分类分组，常用目录一点就进。
+
+  它说的是你真正在用的协议：SFTP、FTP 与 FTPS。目录比较会逐个文件、逐层目录说清楚到底哪里不同，然后才动任何东西，而且自己绝不删东西。
+
+  另外还有：批量改名、文件比较与同步、压缩包查看器、快速预览面板，以及一个终端。
+
+  当 Windows 拒绝删除某个文件时，右键菜单能处理：它会告诉你是哪个程序占着这个文件，并且可以把文件彻底删掉——先清只读位，再标记成「占用者一放手就消失」，最后兜底到「下次启动 Windows 时删掉」。
+
+  3.14.0 把网盘也接进了远程这一族。百度网盘与夸克网盘现在和你的服务器并列：在「设置 → 远程」里点「添加网盘」，用应用内弹出的登录窗口扫码（或者输账号）即可，登录态存进应用自己的加密凭据库。之后这个网盘就和别的远程位置一样用——列目录、进子目录、下载到本地，或者把网盘里的文件复制出来粘到本地文件夹。不用另外装任何东西，也不用把 Token 粘进别的程序的配置文件，重启之后登录态还在。远程设置页也改成直接进两个标签页，网盘条目的复制操作这次也修好了。
+Tags:
+- file-manager
+- file-explorer
+- dual-pane
+- file-transfer
+- file-unlock
+- sftp
+- ftp
+- batch-rename
+- file-comparison
+- foss
+- open-source
+- windows
+- linux
+- rust
+- tauri
+- vue
+ManifestType: locale
+ManifestVersion: 1.12.0

@@ -101,4 +101,111 @@ describe('isContextMenuActionVisible', () => {
 
     expect(isContextMenuActionVisible('disconnect', entries, { platform: 'windows' })).toBe(false);
   });
+
+  // ---- 批量改名入口 ----
+
+  describe('batch-rename', () => {
+    it('shows for a multiple selection', () => {
+      const entries = [
+        {
+          ...createDirectoryEntry('D:/docs/a.txt'),
+          is_dir: false,
+        },
+        {
+          ...createDirectoryEntry('D:/docs/b.txt'),
+          is_dir: false,
+        },
+      ];
+
+      expect(isContextMenuActionVisible('batch-rename', entries, { platform: 'windows' })).toBe(true);
+    });
+
+    it('stays hidden for a single selection, where rename already applies', () => {
+      // 单选是既有单项改名的场景。两个入口同时出现只会让用户犹豫该点哪个。
+      const entries = [{
+        ...createDirectoryEntry('D:/docs/a.txt'),
+        is_dir: false,
+      }];
+
+      expect(isContextMenuActionVisible('batch-rename', entries, { platform: 'windows' })).toBe(false);
+    });
+
+    it('shows for a mixed selection of files and directories', () => {
+      const entries = [
+        {
+          ...createDirectoryEntry('D:/docs/a.txt'),
+          is_dir: false,
+        },
+        createDirectoryEntry('D:/docs/folder'),
+      ];
+
+      expect(isContextMenuActionVisible('batch-rename', entries, { platform: 'windows' })).toBe(true);
+    });
+
+    it('is hidden inside virtual locations, same as rename', () => {
+      const entries = [
+        createDirectoryEntry(LOCATIONS_VIRTUAL_PATH),
+        createDirectoryEntry(`${LOCATIONS_VIRTUAL_PATH}/other`),
+      ];
+
+      expect(isContextMenuActionVisible('batch-rename', entries, { platform: 'windows' })).toBe(false);
+    });
+  });
+
+  // ---- FORK-MODIFICATION: 搜索结果「打开所属目录」 ----
+
+  describe('open-containing-directory-in-app', () => {
+    const searchFile = {
+      ...createDirectoryEntry('D:/docs/a.txt'),
+      is_dir: false,
+    };
+    const searchDirectory = createDirectoryEntry('D:/docs/folder');
+
+    const inSearchView = {
+      platform: 'windows',
+      isSearchResultsView: true,
+    };
+    const inPlainView = {
+      platform: 'windows',
+      isSearchResultsView: false,
+    };
+
+    it('shows in a search results view for both files and directories', () => {
+      expect(isContextMenuActionVisible('open-containing-directory-in-app', [searchFile], inSearchView)).toBe(true);
+      expect(isContextMenuActionVisible('open-containing-directory-in-app', [searchDirectory], inSearchView)).toBe(true);
+    });
+
+    it('stays hidden in a plain directory view, where the parent is already shown', () => {
+      // 这是本项需求的核心护栏：普通目录视图里不能多出一个点了没用的菜单项。
+      expect(isContextMenuActionVisible('open-containing-directory-in-app', [searchFile], inPlainView)).toBe(false);
+      expect(isContextMenuActionVisible('open-containing-directory-in-app', [searchDirectory], inPlainView)).toBe(false);
+    });
+
+    it('defaults to hidden when no options are passed at all', () => {
+      expect(isContextMenuActionVisible('open-containing-directory-in-app', [searchFile])).toBe(false);
+    });
+
+    it('is not Windows-only, unlike the explorer variant', () => {
+      // 资源管理器那条是 Windows 专属；应用内跳转在别的平台同样成立。
+      const linuxSearchView = {
+        platform: 'linux',
+        isSearchResultsView: true,
+      };
+
+      expect(isContextMenuActionVisible('open-containing-directory-in-app', [searchFile], linuxSearchView)).toBe(true);
+      expect(isContextMenuActionVisible('open-containing-directory', [searchFile], linuxSearchView)).toBe(false);
+    });
+
+    it('requires a single selection', () => {
+      const twoFiles = [
+        searchFile,
+        {
+          ...createDirectoryEntry('D:/docs/b.txt'),
+          is_dir: false,
+        },
+      ];
+
+      expect(isContextMenuActionVisible('open-containing-directory-in-app', twoFiles, inSearchView)).toBe(false);
+    });
+  });
 });

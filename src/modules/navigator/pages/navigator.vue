@@ -27,6 +27,10 @@ import FileBrowserTreeView from '@/modules/navigator/components/file-browser/fil
 import { useGlobalSearchStore } from '@/stores/runtime/global-search';
 import { useQuickViewStore } from '@/stores/runtime/quick-view';
 import { useShortcutsStore, getSelectedTextForCopy } from '@/stores/runtime/shortcuts';
+// FORK-MODIFICATION 2026-11-06：快捷键复制目录路径也要走原生分隔符。
+import { useNativePath } from '@/composables/use-native-path';
+// FORK-MODIFICATION 2026-11-19（批次 24）：目录树根显示 shell 设备（手机 / 读卡器）。
+import { useShellDevices } from '@/composables/use-shell-devices';
 import { toast, ToastStatic } from '@/components/ui/toaster';
 import {
   getVirtualLocationActionContext,
@@ -50,6 +54,7 @@ import {
   useInfoPanelLayout,
 } from '@/modules/navigator/components/info-panel/composables/use-info-panel-layout';
 import { NavigatorToolbarActions } from '@/modules/navigator/components/navigator-toolbar-actions';
+import CompareSyncDialog from '@/modules/navigator/components/compare-sync/compare-sync-dialog.vue';
 import { ClipboardToolbar } from '@/modules/navigator/components/clipboard-toolbar';
 import { GlobalSearchView } from '@/modules/global-search';
 import type { DirEntry } from '@/types/dir-entry';
@@ -60,11 +65,27 @@ import { useIsSmallScreen } from '@/composables/use-responsive-query';
 import { useFileDropOperation } from '@/composables/use-file-drop-operation';
 import { provideNavigatorImageThumbnails } from '@/modules/navigator/composables/use-navigator-image-thumbnails';
 import { arePathsEquivalent, getParentPath } from '@/utils/file-operation-paths';
+// FORK-MODIFICATION 2026-10-19：同步前先探目标是否存在（它有远程分支）。
+import { resolveDirEntry } from '@/utils/virtual-locations';
+// FORK-MODIFICATION 2026-10-19：跨族对应关系表只记跨族，同族要判出来。
+import { isRemotePath, parseRemotePath } from '@/utils/remote-paths';
+// FORK-MODIFICATION 2026-11-11（T9 批次 9，判据 ②）：粘贴目标路由要判「剪贴板里是不是远程条目」。
+import { clipboardHoldsRemoteItems } from '@/utils/clipboard-routing';
+// FORK-MODIFICATION 2026-10-19：目录树切远程时要按连接定根、用连接名当标签。
+import { resolveTreeActivePath, resolveTreeRoots, shouldDriveTreeSelection, type TreeConnectionInfo } from '@/modules/navigator/utils/remote-tree-roots';
+// FORK-MODIFICATION: 本地 ↔ 远程传输。导航器是**唯一**知道两格分别在哪儿的地方，
+// 所以传输目标（对面那一格）的登记也放在这里写。
+import { setRemoteTransferTargets, useRemoteTransferTargets } from '@/modules/remote/utils/remote-transfer-targets';
+import { useRemotePermissionsDialogState } from '@/modules/remote/utils/remote-permissions-dialog-state';
+import RemotePermissionsDialog from '@/modules/remote/components/remote-permissions-dialog.vue';
+import { useRemoteConnectionsStore } from '@/stores/storage/remote-connections';
 import {
-  createLinkedPaneSyncQueueState,
-  drainLinkedPaneSyncQueue,
-  getLinkedPaneNavigationTarget,
-  queueLinkedPaneNavigation,
+  decideLinkedPaneGate,
+  planLinkedPaneNavigation,
+  recordLinkedPanePair,
+  type LinkedPanePairs,
+  type LinkedPanePosition,
+  type LinkedPaneTarget,
 } from '@/modules/navigator/utils/linked-split-sync';
 import { getPathDisplayName } from '@/utils/normalize-path';
 
@@ -83,10 +104,10 @@ type FileBrowserInstance = InstanceType<typeof FileBrowser> & {
   requestFocusEntryAfterRefresh?: (parentDirectoryPath: string, entryPath: string) => void;
   startRename?: (entry: DirEntry) => void;
   selectFirstEntry?: () => Promise<void>;
-  navigateUp?: () => void;
-  navigateDown?: () => void;
-  navigateLeft?: () => void;
-  navigateRight?: () => void;
+  navigateUp?: (extendSelection?: boolean) => void;
+  navigateDown?: (extendSelection?: boolean) => void;
+  navigateLeft?: (extendSelection?: boolean) => void;
+  navigateRight?: (extendSelection?: boolean) => void;
   openSelected?: () => void;
   goBack?: () => void | Promise<void>;
   goForward?: () => void | Promise<void>;
@@ -98,16 +119,25 @@ type FileBrowserInstance = InstanceType<typeof FileBrowser> & {
 };
 
 type GlobalSearchViewInstance = InstanceType<typeof GlobalSearchView> & {
-  getActiveFileBrowser?: () => FileBrowserInstance | undefined;
   clearSelections?: () => void;
+  // FORK-MODIFICATION 批次 C1：搜索面板不再挂 FileBrowser，
+  // 动作入口改由搜索面板自己提供。
+  getSelectedEntries?: () => DirEntry[];
+  isSearchPanelFocused?: () => boolean;
+  selectAllResults?: () => void;
+  startRename?: (entry: DirEntry) => void;
 };
 
 const workspacesStore = useWorkspacesStore();
 const clipboardStore = useClipboardStore();
 const dismissalLayerStore = useDismissalLayerStore();
 const folderTreeStore = useFolderTreeStore();
+// FORK-MODIFICATION 2026-10-19：树根标签要用连接名。
+const remoteConnectionsStore = useRemoteConnectionsStore();
 const globalSearchStore = useGlobalSearchStore();
 const shortcutsStore = useShortcutsStore();
+// FORK-MODIFICATION 2026-11-06：路径展示/复制按平台原生分隔符。
+const { toNativePath } = useNativePath();
 const terminalsStore = useTerminalsStore();
 const dirSizesStore = useDirSizesStore();
 provideNavigatorImageThumbnails();
@@ -229,19 +259,24 @@ const currentDirEntry = ref<DirEntry | null>(
 const activeTabId = ref<string | null>(null);
 const isSmallScreen = useIsSmallScreen();
 
-// FORK-MODIFICATION: split-view tree sync (issue #499, v6.2).
-// In split view the tree should reflect the path of whichever pane the user
-// last focused, not just `workspacesStore.currentTab` (which is always the
-// first tab in the group). When the active pane changes — via
-// `activateTabPane`, a click on a pane, or split-view toggling — mirror its
-// path into the folder-tree store so the sidebar tree expands to it.
-watch([activeTabId, () => isSplitView.value], () => {
-  if (!isSplitView.value) return;
-  const activeTab = workspacesStore.currentTabGroup?.find(
-    (tab) => tab.id === activeTabId.value,
-  );
-  folderTreeStore.setSelectedPath(activeTab?.path ?? null);
-}, { immediate: true });
+// FORK-MODIFICATION 2026-10-19（缺陷修复）：原来「分屏下把当前格的路径同步进
+// 目录树 store」这条 watch 就写在这里，引用了**下面 57 行**才声明的 `isSplitView`，
+// 又带 `immediate: true` —— Vue 会同步执行 source getter
+// （@vue/reactivity `watch()` 里的 `job(true)`），当场命中 TDZ 抛
+// `ReferenceError: Cannot access 'isSplitView' before initialization`。
+//
+// 页面之所以没崩：Vue 把 source getter 包在 `callWithAsyncErrorHandling` 里
+// （`reactivity.cjs.js` 的 `return call ? call(s, 2) : s()`），异常被吞成控制台
+// 警告。但代价是 `effect.run()` 没跑完，**一个依赖都没被收集** ——
+// 这个 watch 从 2026-09-26 建好那天起就彻底是死的。
+//
+// 表现：分屏下目录树永远不跟着面板走，本地远程都一样，只有手动点树才动
+// （那条路在下面 `onTreeEntryActivate` 里，不经过这个 watch）。
+// 上一轮只修了 `computeAncestorPaths` 认得远程根，没人调用它，所以看不出变化。
+//
+// 现在这段挪到 `activeFolderSettingsPath` 声明之后（TDZ 安全），并且把
+// 「当前格的路径」也放进 source —— 原版只盯 `activeTabId` 与 `isSplitView`，
+// 面板在自己内部导航时 id 根本不变，回调不会触发。
 
 watch(() => workspacesStore.currentTabGroup, (newGroup, oldGroup) => {
   const currentTabIds = new Set(
@@ -267,6 +302,23 @@ watch(() => workspacesStore.currentTabGroup, (newGroup, oldGroup) => {
   }
 });
 
+// FORK-MODIFICATION: 拆分视图下「哪个 pane 是当前」有两份状态 ——
+// `currentTabIndex` 住在 store 里，`activeTabId` 是本页局部 ref，只有
+// `activateTabPane`（用户点面板）才会同时写两者。于是 store 侧被别的代码改动时
+// 本页不知情：搜索结果「打开所属目录」（utils/open-navigator-directory.ts 的
+// openNavigatorRevealEntry）先 toggleSplitView 再 setCurrentTabIndex(1)，
+// activeTabId 却还停在原值，随后 getNavigatorPaneRef 落到 tabGroup[0]，
+// 选中就出现在**左侧**面板而不是刚打开的右侧面板。
+// 这里把 store 侧的变化同步回来；用户点面板时 activateTabPane 已经写过同样的值，
+// 所以这条 watch 只是补上「外部改动」这条路，不会和点击互相打架。
+watch(() => workspacesStore.currentTab?.id, (newCurrentTabId) => {
+  if (!isSplitView.value || !newCurrentTabId) {
+    return;
+  }
+
+  activeTabId.value = newCurrentTabId;
+});
+
 const infoPanelEntry = computed(() => {
   if (selectedEntries.value.length > 0) {
     return selectedEntries.value[selectedEntries.value.length - 1];
@@ -278,6 +330,32 @@ const infoPanelEntry = computed(() => {
 const isSplitView = computed(() => {
   return (workspacesStore.currentTabGroup?.length ?? 0) > 1;
 });
+
+/**
+ * 「比较并同步」对话框的开关，以及左右两侧要比的路径。
+ *
+ * 路径取**窗格实例**的当前位置（`paneRefsMap`），不是 tab 上的路径 ——
+ * tab 的路径有写盘延迟，窗格在自己内部导航时它不会立刻更新，
+ * 拿旧路径去比较会得出「两个目录其实不一样」的结论。
+ */
+const showCompareSyncDialog = ref(false);
+
+function panePathAt(index: number): string {
+  const tab = workspacesStore.currentTabGroup?.[index];
+
+  if (!tab) {
+    return '';
+  }
+
+  return paneRefsMap.value.get(tab.id)?.currentPath || tab.path || '';
+}
+
+const compareSyncLeftPath = computed(() => panePathAt(0));
+const compareSyncRightPath = computed(() => panePathAt(1));
+
+function handleOpenCompareSync() {
+  showCompareSyncDialog.value = true;
+}
 
 const trackNavigatorRelativeTime = computed(() => !globalSearchStore.isOpen);
 
@@ -296,6 +374,70 @@ const activeFolderSettingsPath = computed(() => {
 
   return currentActivePath.value ?? workspacesStore.currentTabGroup?.[0]?.path;
 });
+
+/**
+ * FORK-MODIFICATION 2026-10-19：当前格的**实时**路径。
+ *
+ * 不能直接拿 `activeFolderSettingsPath` 展开目录树 —— 它读的是 tab 上的 path，
+ * 而本文件自己写着「tab 路径有写盘延迟」（见 `collectLinkedPanePositions`）。
+ * 用它的话树会慢一拍，用户看到的就是「停在上一层」。
+ *
+ * 这里的两个前提让实时路径可读：
+ * - `paneRefsMap = ref(new Map())` —— Map 被 reactive 代理，`get` / `set` 都被追踪，
+ *   所以窗格挂载与卸载都会让本 computed 重算；
+ * - `FileBrowser` 用 `defineExpose({ currentPath: fb.currentPath })` 暴露的是 ref，
+ *   Vue 解包后仍保持响应，面板内部导航同样会触发。
+ *
+ * 窗格还没挂上时退回 tab 路径 —— 慢一拍总比不展开强。
+ */
+const activePaneLivePath = computed<string | null>(() => {
+  if (!isSplitView.value) {
+    return null;
+  }
+
+  const live = activeTabId.value
+    ? paneRefsMap.value.get(activeTabId.value)?.currentPath
+    : null;
+
+  return live ?? activeFolderSettingsPath.value ?? null;
+});
+
+/**
+ * FORK-MODIFICATION 2026-10-19（用户第三次反馈「远程目录树仍然不正常」）：
+ * 目录树的**根**与**选中路径**必须用**同一个源**。
+ *
+ * 之前是两个源：
+ * - 根：`activeFolderSettingsPath` —— tab 上的**存档**路径；
+ * - 选中路径：`activePaneLivePath` —— 窗格的**实时**路径。
+ *
+ * 两者不一致时，树会自相矛盾：根是本地盘符、选中路径却是远程的，
+ * 于是远程那一层**根本不在树里**，展开与定位都无从谈起。
+ * 真机实测（2026-10-19 装机）：切到远程格后，树里还是 Win (C:) / Program (D:) …，
+ * 一个都没展开 —— 因为选中路径（远程）压根不在那棵本地树里。
+ *
+ * 真实路径才是对的：它就是窗格里**当前显示**的目录。
+ * 分屏时取窗格实时路径；单格时 `activePaneLivePath` 恒为 null，
+ * 退回 tab 路径（= 当前目录），与原来的行为一致。
+ */
+const treeActivePath = computed<string | undefined>(() => {
+  return resolveTreeActivePath(activePaneLivePath.value, activeFolderSettingsPath.value);
+});
+
+/**
+ * FORK-MODIFICATION 2026-10-19（缺陷修复）：分屏下把当前格的路径同步进目录树 store。
+ *
+ * 原实现放在 `activeTabId` 正下方（见那里的注释），因 TDZ + `immediate: true`
+ * 从建好那天起就没生效过。这里是修好后的版本：
+ *
+ * - 位置在 `activePaneLivePath` 之后 —— 位置本身就是修复的一半：反向声明会命中 TDZ。
+ * - source 跟着**路径**而不是 `activeTabId` —— 面板在自己内部导航时 id 根本不变，
+ *   只盯 id 的 watch 永远不会触发。
+ * - `isSplitView` 的守卫保留原语义：单格模式不动树（那是上游 v6.2 的原设计）。
+ */
+watch([isSplitView, treeActivePath], () => {
+  if (!isSplitView.value) return;
+  folderTreeStore.setSelectedPath(treeActivePath.value ?? null);
+}, { immediate: true });
 
 const canUseFolderSettingsForActivePath = computed(() => {
   if (!activeFolderSettingsPath.value) {
@@ -360,6 +502,14 @@ function handleToggleSplitView() {
   workspacesStore.toggleSplitView();
 }
 
+// FORK-MODIFICATION: 工具栏「左右互换」按钮 —— 把分屏两格显示的路径对调。
+// 逻辑本体在 store 里（swapSplitPanePaths），这里只做一件事：
+// 全局搜索开着时不许换 —— 搜索面板正在用那两个路径，换了会让搜索结果对不上。
+function handleSwapSplitPanePaths() {
+  if (globalSearchStore.isOpen) return;
+  workspacesStore.swapSplitPanePaths();
+}
+
 const userSettingsStore = useUserSettingsStore();
 const splitViewMode = computed(() => userSettingsStore.userSettings.navigator.splitViewMode);
 
@@ -370,21 +520,30 @@ const showFolderTree = ref(
   userSettingsStore.userSettings.navigator.showFolderTree ?? true,
 );
 const { drives } = useDrives();
-const treeRootPaths = computed(() => drives.value.map((d) => d.path));
-// v6.4: drive volume labels + drive path set so the sidebar tree can show
-// "Win (C:)" instead of just "C:" and use a drive icon instead of a
-// folder icon for drive roots.
+
+// FORK-MODIFICATION 2026-11-19（批次 24）：手机（MTP）/ 无盘符读卡器在 Windows 里
+// 不是卷，是 shell 命名空间里的对象 —— 「位置」页早就把它们列出来了，
+// 目录树的根里却只有盘符。用户原话：「在位置中，已经可以显示手机，但在目录树无法显示手机」。
 //
-// The Rust backend (DriveInfo.name) already includes the drive letter in
-// the form "VolumeLabel (X:)" — e.g. "Win (C:)", "Program (D:)". Don't
-// append the path again or you get "Win (C:) (C:)" (regression caught
-// in v6.4 testing). Use `drive.name` as-is; fall back to the path
-// basename for drives without a label.
-const treeRootLabels = computed<Record<string, string>>(() => {
+// 这一层只做「喂数据」：合成顺序、去重、标签兜底全在纯函数 `resolveTreeRoots` 里，
+// 那边可单测。设备枚举失败时清单是空的（`@/utils/shell-devices` 会清空缓存），
+// 树根退回纯盘符列表，与改动前逐字节一致 —— 不影响盘符根的渲染（要求 ②）。
+const { shellDevices } = useShellDevices();
+
+const treeDeviceRoots = computed(() => shellDevices.value
+  .filter(device => !!device.shellPath?.trim())
+  .map(device => ({
+    path: device.shellPath,
+    label: device.name?.trim(),
+  })));
+
+const treeDriveLabels = computed<Record<string, string>>(() => {
   const out: Record<string, string> = {};
+
   for (const d of drives.value) {
     if (!d.path) continue;
     const name = d.name?.trim();
+
     if (name) {
       out[d.path] = name;
     }
@@ -394,9 +553,56 @@ const treeRootLabels = computed<Record<string, string>>(() => {
       out[d.path] = parts[parts.length - 1] ?? d.path;
     }
   }
+
   return out;
 });
-const drivePaths = computed<string[]>(() => drives.value.map((d) => d.path));
+
+const treeConnections = computed<Record<string, TreeConnectionInfo>>(() => {
+  const out: Record<string, TreeConnectionInfo> = {};
+
+  for (const connection of remoteConnectionsStore.connections) {
+    out[connection.id] = {
+      name: connection.name,
+      // 树根要用它 —— 用户 2026-10-19 要求「根显示设置里的远程目录」。
+      // 连接表是异步填充的，这里读到的 initialPath 可能暂时是 undefined，
+      // 那一轮先退回连接根，等表到位后 computed 重算，根和标签一起纠正。
+      initialPath: connection.initialPath,
+    };
+  }
+
+  return out;
+});
+
+// FORK-MODIFICATION 2026-10-19：焦点在远程目录时，目录树切到远程目录树。
+// 判定本身在 `remote-tree-roots.ts`（纯函数，可单测），这里只喂数据。
+//
+// ⚠️ `activePath` 必须与下面 `setSelectedPath` 用的是**同一个** `treeActivePath`：
+// 根与选中路径分家时，树会自相矛盾（根是本地、选中路径是远程），
+// 远程那一层就不在树里，展开与定位全都无从谈起。
+const treeRoots = computed(() => resolveTreeRoots({
+  activePath: treeActivePath.value,
+  drivePaths: drives.value.map(d => d.path),
+  driveLabels: treeDriveLabels.value,
+  connectionsById: treeConnections.value,
+  // 焦点在远程时这条会被纯函数忽略（远程分支优先，要求 ①）。
+  deviceRoots: treeDeviceRoots.value,
+}));
+
+const treeRootPaths = computed(() => treeRoots.value.rootPaths);
+// v6.4: drive volume labels + drive path set so the sidebar tree can show
+// "Win (C:)" instead of just "C:" and use a drive icon instead of a
+// folder icon for drive roots.
+//
+// The Rust backend (DriveInfo.name) already includes the drive letter in
+// the form "VolumeLabel (X:)" — e.g. "Win (C:)", "Program (D:)". Don't
+// append the path again or you get "Win (C:) (C:)" (regression caught
+// in v6.4 testing). Use `drive.name` as-is; fall back to the path
+// basename for drives without a label.
+// FORK-MODIFICATION 2026-10-19：标签跟着根走。远程根用**连接名**（「速豹堂」），
+// 否则树里那行只能显示连接 id 的一串 32 位十六进制。
+const treeRootLabels = computed<Record<string, string>>(() => treeRoots.value.rootLabels);
+
+const drivePaths = computed<string[]>(() => drives.value.map(d => d.path));
 
 watch(showFolderTree, (next) => {
   void userSettingsStore.set('navigator.showFolderTree', next);
@@ -408,38 +614,189 @@ function handleToggleFolderTree() {
 
 const isLinkedMode = computed(() => splitViewMode.value === 'linked' && isSplitView.value);
 
-const linkedPaneSyncQueue = createLinkedPaneSyncQueueState();
+/**
+ * FORK-MODIFICATION 2026-10-19：同步浏览从「选中驱动」改成「进目录驱动」。
+ *
+ * 用户实测反馈：按钮点了之后「点击进入本地或远程一个子目录（比如 wp-content)，
+ * 另一侧没有同步打开」。两个错都在旧实现里：
+ * - 旧实现挂的是 `update:selected-entries`，**选中**才触发。
+ *   用户双击进目录时，选中态在导航瞬间被清掉，信号就丢了。
+ * - 旧实现硬编码「只有 tabGroup[0]（左格）能驱动」，右格选中什么都被忽略。
+ *
+ * 现在由 `FileBrowser` 的 `update:currentPath` 驱动（见 file-browser.vue），
+ * 谁动谁说了算。
+ */
 
-function syncLinkedPane(entries: DirEntry[], tabId: string) {
+/** 我们刚下发的联动目标。用来识别回声，否则两格会互相触发到停不下来。 */
+let pendingLinkedTarget: LinkedPaneTarget | null = null;
+
+/**
+ * FORK-MODIFICATION 2026-10-19：每一格**第一次**报上来的路径只算「就位」，不算「用户动了一下」。
+ *
+ * 用户实测反馈 1 的根因：打开连接时两格各自挂载、各自加载，先后顺序不定。
+ * 联动是开着的（`splitViewMode` 持久化了），于是**先加载完的那一格会把刚打开的
+ * 路径当成用户操作**，指挥另一格跳到自己路径的最后一段 ——
+ * 结果两端都被推离各自配置的默认目录（`localPath` / `initialPath`），
+ * 本地那格还撞上一个不存在的子目录。
+ *
+ * 规则：每一格的首次上报只记账；**两格都记账之后**才开始联动。
+ */
+const linkedPaneSettledTabIds = new Set<string>();
+
+/**
+ * FORK-MODIFICATION 2026-10-19，用户实测反馈 2：「从子目录提升到上一级目录时，
+ * 由于建立关联的目录名称不同，无法同步切换」。
+ *
+ * 跨族只按目录名对齐管不了「上一级」：本地 `wp-content` 的父级是 `E:/website_sbt`，
+ * 远端 `wp_root/wp-content` 的父级是 `…/wp_root`，名字根本不同。
+ *
+ * 这张表由**同步成功的事实**累积而成 —— 不是配置出来的，是两格真的对上过的路径对。
+ * 每成功同步一次就记一对（连同它们的父级），点「上一级」时先查它。
+ * 语义与边界全在 `linked-split-sync.ts` 里。
+ */
+const linkedPanePairs: LinkedPanePairs = new Map();
+
+/** 标签组换了（新开一组、切组）就重新记账 —— 旧组的状态对新组没有意义。 */
+watch(() => workspacesStore.currentTabGroup?.map(tab => tab.id).join('|'), () => {
+  linkedPaneSettledTabIds.clear();
+  linkedPanePairs.clear();
+  pendingLinkedTarget = null;
+});
+
+/**
+ * FORK-MODIFICATION 2026-10-19：两格「属于哪一边」的签名 ——
+ * 本地格记 `local`，远程格记 `remote:<连接id>`。
+ *
+ * 只在上面那个「切标签组」的 watch 里清表是不够的：用户**在同一个标签组里**
+ * 把远程格换成另一个连接时，tab id 不变，签名也不变，旧连接积累下来的路径对
+ * 会继续被查用 —— 下一次同步就把另一格送到**旧连接**的目录去。
+ * 那正是这个功能本来要消灭的「跳到错误目录」，只是换了个来源。
+ */
+watch(
+  () => collectLinkedPanePositions()
+    .map((pane) => {
+      const connectionId = parseRemotePath(pane.path)?.connectionId;
+
+      return connectionId ? `remote:${connectionId}` : 'local';
+    })
+    .sort()
+    .join('|'),
+  () => {
+    linkedPanePairs.clear();
+  },
+);
+
+/** 两格窗格各自的当前位置。路径取自窗格实例，而不是 tab —— tab 路径有写盘延迟。 */
+function collectLinkedPanePositions(): LinkedPanePosition[] {
   const tabGroup = workspacesStore.currentTabGroup;
-  const targetPath = getLinkedPaneNavigationTarget(
-    entries,
-    tabId,
-    tabGroup?.[0]?.id ?? null,
-    tabGroup?.length ?? 0,
-  );
 
-  if (!targetPath) {
+  if (!tabGroup) {
+    return [];
+  }
+
+  return tabGroup.flatMap((tab) => {
+    const panePath = paneRefsMap.value.get(tab.id)?.currentPath;
+
+    return panePath
+      ? [{
+          tabId: tab.id,
+          path: panePath,
+        }]
+      : [];
+  });
+}
+
+/**
+ * 登记「对面那一格」当前在哪儿，供传输类右键菜单（上传 / 下载）取目标。
+ *
+ * 路径同样取自**窗格实例**（`collectLinkedPanePositions`）而不是 tab ——
+ * tab 路径有写盘延迟，用它会把文件传到上一次的目录里去，而那一步没有任何提示。
+ */
+watch(
+  () => collectLinkedPanePositions().map(pane => pane.path).join('|'),
+  () => {
+    setRemoteTransferTargets(collectLinkedPanePositions().map(pane => pane.path));
+  },
+  { immediate: true },
+);
+
+const remotePermissionsDialog = useRemotePermissionsDialogState();
+
+function handlePaneNavigation(path: string, tabId: string) {
+  const tabGroup = workspacesStore.currentTabGroup ?? [];
+  const decision = decideLinkedPaneGate({
+    isLinkedMode: isLinkedMode.value,
+    fromTabId: tabId,
+    fromPath: path,
+    allTabIds: tabGroup.map(tab => tab.id),
+    settledTabIds: linkedPaneSettledTabIds,
+    pending: pendingLinkedTarget,
+  });
+
+  if (decision === 'echo') {
+    pendingLinkedTarget = null;
+
     return;
   }
 
-  queueLinkedPaneNavigation(
-    linkedPaneSyncQueue,
-    targetPath,
-    () => drainLinkedPaneSyncQueue(
-      linkedPaneSyncQueue,
-      () => workspacesStore.currentTabGroup?.length ?? 0,
-      () => {
-        const latestTabGroup = workspacesStore.currentTabGroup;
+  if (decision === 'settle') {
+    linkedPaneSettledTabIds.add(tabId);
 
-        if (!latestTabGroup || latestTabGroup.length < 2) {
-          return undefined;
+    return;
+  }
+
+  if (decision !== 'sync') {
+    return;
+  }
+
+  const target = planLinkedPaneNavigation({
+    fromTabId: tabId,
+    fromPath: path,
+    panes: collectLinkedPanePositions(),
+    pending: pendingLinkedTarget,
+    pairs: linkedPanePairs,
+  });
+
+  if (!target) {
+    return;
+  }
+
+  const navigate = paneRefsMap.value.get(target.tabId)?.navigateToPath;
+
+  if (!navigate) {
+    return;
+  }
+
+  pendingLinkedTarget = target;
+
+  // FORK-MODIFICATION 2026-10-19：目标不存在就**静默放弃**这次同步。
+  //
+  // 用户实测反馈 2：另一端没有同名目录时，不该把那一格推到「无法打开此文件夹」。
+  // 本地 ↔ 远程按名字对齐，「同名」只是常见情况而不是保证 ——
+  // 远端 `wp_root` 里的 `wp-content` 就是个空残桩，本地根本没有对应项。
+  //
+  // `resolveDirEntry` 已经有远程分支（`statRemoteEntry`），所以这一句两边通用。
+  void resolveDirEntry(target.path)
+    .then((entry) => {
+      if (entry) {
+        // 只记真正同步成功过的这一对 —— 对应关系得是事实，不能是猜测。
+        // 同族不需要记：那边的规则是「跳到同一个绝对路径」，本来就不靠对应表。
+        if (isRemotePath(path) !== isRemotePath(target.path)) {
+          recordLinkedPanePair(linkedPanePairs, path, target.path);
         }
 
-        return paneRefsMap.value.get(latestTabGroup[1].id)?.navigateToPath;
-      },
-    ),
-  );
+        return navigate(target.path);
+      }
+
+      pendingLinkedTarget = null;
+
+      return undefined;
+    })
+    .catch(() => {
+      // 探测本身失败（网络断了之类）同样按「放弃同步」处理 ——
+      // 宁可不同步，也不要把错误甩到用户脸上。
+      pendingLinkedTarget = null;
+    });
 }
 
 async function handleToggleInfoPanel() {
@@ -471,9 +828,8 @@ function activateTabPane(tabId: string) {
 }
 
 function handleSelectionChange(entries: DirEntry[], tabId?: string) {
-  if (isLinkedMode.value && tabId) {
-    syncLinkedPane(entries, tabId);
-  }
+  // FORK-MODIFICATION 2026-10-19：这里原来会 `syncLinkedPane(entries, tabId)`。
+  // 同步浏览已改为「进目录驱动」，见 `handlePaneNavigation`。
 
   if (entries.length > 0) {
     isSearchSelectionActive.value = false;
@@ -514,13 +870,32 @@ function handleSearchSelectionChange(entries: DirEntry[]) {
   }
 }
 
-function handleCurrentDirChange(entry: DirEntry | null) {
+function handleCurrentDirChange(entry: DirEntry | null, paneId?: string) {
   currentDirEntry.value = entry;
+
   // FORK-MODIFICATION: tree sync v6 (issue #499). Drive the folder-tree store
   // directly here so FileBrowserTreeView (which subscribes via storeToRefs)
   // reveals the selected path's ancestor chain without any imperative ref
   // forwarding. Replaces the v0..v5 broken `treeViewRef.value?.expandToPath`
   // chain (see handoff-2026-09-26-tree-sync-retro.md).
+  //
+  // ⚠️ FORK-MODIFICATION 2026-10-19：只有**当前格**能改写树的选中路径。
+  //
+  // 分屏时**两个窗格都发**这个事件，而「最后发声的那个」不一定是当前格：
+  // 远程格要建连、要读目录，比本地格慢得多，它的 current-dir-entry 后到，
+  // 就把树的选中路径改成了**远程**的；而树的**根**跟着当前格走（本地盘符）。
+  // 于是树自相矛盾：根是本地、选中路径是远程 —— 远程那层根本不在树里，
+  // 树一个都不展开。
+  //
+  // 真机实测（2026-10-19 装包）：切到远程格后，树里是 Win (C:) / Program (D:) …，
+  // 全部折叠，而右格明明是远程目录。
+  //
+  // 与 `handleSelectionChange` / `handlePaneNavigation` 一样，
+  // 这里也必须知道事件来自**哪个**窗格。
+  if (!shouldDriveTreeSelection(isSplitView.value, paneId, activeTabId.value)) {
+    return;
+  }
+
   folderTreeStore.setSelectedPath(entry?.path ?? null);
 }
 
@@ -662,14 +1037,9 @@ function applyPendingLaunchReveal() {
 }
 
 function getActivePaneRef(): FileBrowserInstance | undefined {
-  if (isSearchSelectionActive.value && globalSearchStore.isOpen) {
-    const searchFileBrowser = globalSearchViewRef.value?.getActiveFileBrowser?.();
-
-    if (searchFileBrowser) {
-      return searchFileBrowser;
-    }
-  }
-
+  // FORK-MODIFICATION 批次 C1：搜索面板不再挂 FileBrowser，
+  // 这里统一回落到导航格 —— 动作要作用在哪个条目上，
+  // 由 getActivePaneSelectedEntries() 决定，不再由「哪个窗格」决定。
   return getNavigatorPaneRef();
 }
 
@@ -698,6 +1068,17 @@ function syncActivePaneSelectionToGlobal() {
 }
 
 function getActivePaneSelectedEntries(): DirEntry[] {
+  // FORK-MODIFICATION 批次 C1：搜索激活时，选中项在全局搜索面板里，
+  // 导航格的选择已被清空 —— 必须直接读搜索面板的选择，
+  // 否则复制/剪切/删除/属性这些动作会全部退化成空操作。
+  if (isSearchSelectionActive.value) {
+    const searchSelection = globalSearchViewRef.value?.getSelectedEntries?.();
+
+    if (searchSelection) {
+      return searchSelection;
+    }
+  }
+
   const pane = getActivePaneRef();
 
   if (pane) {
@@ -738,6 +1119,34 @@ function getActiveCurrentPath(): string | undefined {
   return getTabGroupFallbackPath();
 }
 
+/**
+ * FORK-MODIFICATION 2026-11-11（T9 批次 9，判据 ②）：
+ * 「剪贴板里是远程条目 + 活动窗格也在远程」时，粘贴目标改成**对面那一格的本地目录**。
+ *
+ * 为什么：用户在网盘里 Ctrl+C 之后直接按 Ctrl+V 时，活动窗格往往还是那一格远程。
+ * 旧逻辑把粘贴目标解析成远程路径 ⇒ `handleRemotePaste` 命中「两个远程之间复制」分支 ⇒
+ * 用户看到「暂不支持在两个远程之间复制」。可用户真正想要的就是「下载到本地」。
+ *
+ * 这条规则与右键菜单里的「下载到本地」**完全同义**（目标都是对面那一格的本地目录），
+ * 只是把「先点一下对面那一格」这一步省掉了。
+ *
+ * 两侧都是远程时（没有本地格）⇒ 返回 `undefined`，仍然按「远程 → 远程」处理，
+ * 由 `handleRemotePaste` 给出可执行提示（见 `remote.transfer.remoteToRemoteNotSupported`）。
+ */
+function getRemoteDownloadPasteTarget(currentPath: string | undefined): string | undefined {
+  if (!currentPath || !isRemotePath(currentPath)) {
+    return undefined;
+  }
+
+  if (!clipboardStore.hasFileItems || !clipboardHoldsRemoteItems(clipboardStore.clipboardItems)) {
+    return undefined;
+  }
+
+  const { localPanePath } = useRemoteTransferTargets();
+
+  return localPanePath.value ?? undefined;
+}
+
 function getPasteTargetPath(): string | undefined {
   const currentPath = getActiveCurrentPath();
   const actionContext = getNavigatorActionContext(currentPath);
@@ -746,7 +1155,7 @@ function getPasteTargetPath(): string | undefined {
     return actionContext.actionDirectoryPath ?? undefined;
   }
 
-  return currentPath;
+  return getRemoteDownloadPasteTarget(currentPath) ?? currentPath;
 }
 
 async function handleGlobalSearchOpenEntry(entry: DirEntry) {
@@ -853,12 +1262,16 @@ async function handleCopyCurrentDirectoryPathShortcut() {
   }
 
   try {
-    await navigator.clipboard.writeText(currentPath);
+    // FORK-MODIFICATION 2026-11-06：内部路径是正斜杠，复制到剪贴板必须是原生写法。
+    // 真机实测（3.12.0，Ctrl+Shift+C）量到剪贴板拿到的是 `C:/Users/...`，
+    // 因为这条通道当时直接写入了 `currentPath`。
+    const nativePath = toNativePath(currentPath);
+    await navigator.clipboard.writeText(nativePath);
     toast.custom(markRaw(ToastStatic), {
       componentProps: {
         data: {
           title: t('dialogs.localShareManagerDialog.addressCopiedToClipboard'),
-          description: currentPath,
+          description: nativePath,
         },
       },
       duration: 2000,
@@ -916,6 +1329,14 @@ async function handlePasteToPane(paneIndex: number) {
 }
 
 function handleSelectAllShortcut() {
+  // FORK-MODIFICATION 批次 C1：焦点在搜索面板里（或搜索结果已有选中）时，
+  // Ctrl+A 全选的是搜索结果 —— 不能落到导航格上，
+  // 否则会把搜索面板里的选择清掉，还会在导航格里选中一批无关条目。
+  if (isSearchSelectionActive.value || globalSearchViewRef.value?.isSearchPanelFocused?.()) {
+    globalSearchViewRef.value?.selectAllResults?.();
+    return;
+  }
+
   const pane = getActivePaneRef();
 
   if (pane) {
@@ -930,7 +1351,13 @@ async function handleDeleteShortcut() {
   const activePaneSelection = getActivePaneSelectedEntries();
 
   if (activePaneSelection.length > 0) {
-    await pane.deleteItems(activePaneSelection, true);
+    const succeeded = await pane.deleteItems(activePaneSelection, true);
+
+    // FORK-MODIFICATION 批次 C1：搜索结果被删掉后清掉搜索面板里的选中态
+    // （旧实现里这一步由搜索面板自己的 FileBrowser 负责）。
+    if (succeeded) {
+      globalSearchViewRef.value?.clearSelections?.();
+    }
   }
 }
 
@@ -941,7 +1368,12 @@ async function handleDeletePermanentlyShortcut() {
   const activePaneSelection = getActivePaneSelectedEntries();
 
   if (activePaneSelection.length > 0) {
-    await pane.deleteItems(activePaneSelection, false);
+    const succeeded = await pane.deleteItems(activePaneSelection, false);
+
+    // FORK-MODIFICATION 批次 C1：同上，删除成功后清掉搜索面板里的选中态。
+    if (succeeded) {
+      globalSearchViewRef.value?.clearSelections?.();
+    }
   }
 }
 
@@ -1143,6 +1575,12 @@ function hasBlockingRekaDismissableLayersForNavigatorShortcuts(): boolean {
   return false;
 }
 
+function isExtendSelectionShortcutEvent(
+  event?: KeyboardEvent | MouseEvent,
+): boolean {
+  return event instanceof KeyboardEvent && event.shiftKey;
+}
+
 function callActivePaneMethod(method: keyof Pick<
   FileBrowserInstance,
   'navigateUp' | 'navigateDown' | 'navigateLeft' | 'navigateRight' | 'openSelected' | 'goBack' | 'goForward' | 'navigateToParent' | 'openCopiedPath'
@@ -1155,6 +1593,24 @@ function callActivePaneMethod(method: keyof Pick<
 
   if (pane?.[method]) {
     pane[method]!();
+    return true;
+  }
+
+  return false;
+}
+
+function callActivePaneNavigate(
+  method: 'navigateUp' | 'navigateDown' | 'navigateLeft' | 'navigateRight',
+  event?: KeyboardEvent | MouseEvent,
+): boolean {
+  if (hasBlockingDismissalLayersForNavigatorShortcuts()) return false;
+
+  if (hasBlockingRekaDismissableLayersForNavigatorShortcuts()) return false;
+
+  const pane = getActivePaneRef();
+
+  if (pane?.[method]) {
+    pane[method]!(isExtendSelectionShortcutEvent(event));
     return true;
   }
 
@@ -1206,10 +1662,22 @@ function registerShortcutHandlers() {
   shortcutsStore.registerHandler('delete', handleDeleteShortcut);
   shortcutsStore.registerHandler('deletePermanently', handleDeletePermanentlyShortcut);
   shortcutsStore.registerHandler('rename', () => {
-    const pane = getActivePaneRef();
     const activePaneSelection = getActivePaneSelectedEntries();
 
-    if (pane && activePaneSelection.length > 0) {
+    if (activePaneSelection.length === 0) {
+      return;
+    }
+
+    // FORK-MODIFICATION 批次 C1：搜索结果不在导航格的列表里，
+    // 就地编辑看不见 —— 改走搜索面板自带的重命名对话框。
+    if (isSearchSelectionActive.value) {
+      globalSearchViewRef.value?.startRename?.(activePaneSelection[0]);
+      return;
+    }
+
+    const pane = getActivePaneRef();
+
+    if (pane) {
       pane.startRename(activePaneSelection[0]);
     }
   }, { checkItemSelected: hasSelectedItems });
@@ -1225,10 +1693,10 @@ function registerShortcutHandlers() {
   shortcutsStore.registerHandler('switchToPreviousTab', handleSwitchToPreviousTabShortcut);
   shortcutsStore.registerHandler('openTerminal', handleOpenTerminalShortcut);
   shortcutsStore.registerHandler('openTerminalAdmin', handleOpenTerminalAdminShortcut);
-  shortcutsStore.registerHandler('navigateUp', () => callActivePaneMethod('navigateUp'));
-  shortcutsStore.registerHandler('navigateDown', () => callActivePaneMethod('navigateDown'));
-  shortcutsStore.registerHandler('navigateLeft', () => callActivePaneMethod('navigateLeft'));
-  shortcutsStore.registerHandler('navigateRight', () => callActivePaneMethod('navigateRight'));
+  shortcutsStore.registerHandler('navigateUp', event => callActivePaneNavigate('navigateUp', event));
+  shortcutsStore.registerHandler('navigateDown', event => callActivePaneNavigate('navigateDown', event));
+  shortcutsStore.registerHandler('navigateLeft', event => callActivePaneNavigate('navigateLeft', event));
+  shortcutsStore.registerHandler('navigateRight', event => callActivePaneNavigate('navigateRight', event));
   shortcutsStore.registerHandler('openSelected', () => callActivePaneMethod('openSelected'), { checkItemSelected: hasSelectedItems });
   shortcutsStore.registerHandler('navigateHistoryBack', handleNavigateHistoryBackShortcut);
   shortcutsStore.registerHandler('navigateHistoryForward', handleNavigateHistoryForwardShortcut);
@@ -1283,6 +1751,12 @@ onUnmounted(() => {
     @toggle-split-view="handleToggleSplitView"
     @toggle-info-panel="handleToggleInfoPanel"
     @toggle-folder-tree="handleToggleFolderTree"
+    @open-compare-sync="handleOpenCompareSync"
+  />
+  <CompareSyncDialog
+    v-model:open="showCompareSyncDialog"
+    :left-path="compareSyncLeftPath"
+    :right-path="compareSyncRightPath"
   />
   <div class="navigator-page">
     <TabBar v-if="!isSmallScreen" />
@@ -1323,9 +1797,9 @@ onUnmounted(() => {
               <ResizablePanel
                 v-if="showFolderTree"
                 :order="1"
-                :default-size="22"
+                :default-size="28"
                 :min-size="12"
-                :max-size="40"
+                :max-size="48"
                 class="navigator-page__folder-tree-panel"
               >
                 <FileBrowserTreeView
@@ -1348,6 +1822,82 @@ onUnmounted(() => {
                 class="navigator-page__panes-section"
               >
                 <div class="navigator-page__panes-container">
+                  <!-- FORK-MODIFICATION: 2026-10-16 —— 目录格在前、搜索面板在后。
+                       此前 GlobalSearchView 排在 ResizablePanelGroup 之前，于是
+                       「打开全局搜索」把搜索界面顶到左边、目录被挤到右边。
+
+                       用户要的是反过来：**左侧保持目录视图，右侧切到搜索界面**。
+                       这样眼睛不用来回横跨屏幕去对照「搜到的」和「在哪搜的」，
+                       也和「打开所属目录」那套左目录/右结果的布局一致。
+                       单格模式（下面第二处）没有左右之分，保持原样。 -->
+                  <ResizablePanelGroup
+                    direction="horizontal"
+                    class="navigator-page__panes"
+                  >
+                    <template v-if="workspacesStore.currentTabGroup && isSplitView">
+                      <template
+                        v-for="(tab, index) in workspacesStore.currentTabGroup"
+                        :key="tab.id"
+                      >
+                        <ResizablePanel
+                          :default-size="50"
+                          :min-size="15"
+                          @mousedown="handlePaneFocus(tab.id)"
+                        >
+                          <FileBrowser
+                            :ref="(el) => setPaneRef(el as FileBrowserInstance, tab.id)"
+                            :tab="tab"
+                            :pane-index="index"
+                            :layout="getLayoutForPath(tab.path)"
+                            :track-relative-time="trackNavigatorRelativeTime"
+                            :is-active-pane="activeTabId ? activeTabId === tab.id : index === 0"
+                            :is-split-view="true"
+                            class="navigator-page__pane"
+                            @swap-panes="handleSwapSplitPanePaths"
+                            @update:selected-entries="(entries) => handleSelectionChange(entries, tab.id)"
+                            @update:current-path="(path) => handlePaneNavigation(path, tab.id)"
+                            @update:current-dir-entry="(entry) => handleCurrentDirChange(entry, tab.id)"
+                          />
+                        </ResizablePanel>
+                        <ResizableHandle
+                          v-if="index === 0"
+                          with-handle
+                        />
+                      </template>
+                    </template>
+                    <template v-else-if="workspacesStore.currentTabGroup">
+                      <ResizablePanel :default-size="100">
+                        <FileBrowser
+                          :key="workspacesStore.currentTabGroup[0].id"
+                          :ref="(el) => setPaneRef(el as FileBrowserInstance, workspacesStore.currentTabGroup![0].id)"
+                          :tab="workspacesStore.currentTabGroup[0]"
+                          :pane-index="0"
+                          :layout="getLayoutForPath(workspacesStore.currentTabGroup[0].path)"
+                          :track-relative-time="trackNavigatorRelativeTime"
+                          :is-active-pane="true"
+                          class="navigator-page__pane"
+                          @update:selected-entries="(entries) => handleSelectionChange(entries, workspacesStore.currentTabGroup![0].id)"
+                          @update:current-path="(path) => handlePaneNavigation(path, workspacesStore.currentTabGroup![0].id)"
+                          @update:current-dir-entry="handleCurrentDirChange"
+                        />
+                      </ResizablePanel>
+                    </template>
+                    <ResizablePanel
+                      v-else
+                      :default-size="100"
+                    >
+                      <FileBrowser
+                        ref="singlePaneRef"
+                        :layout="getLayoutForPath(currentActivePath)"
+                        :track-relative-time="trackNavigatorRelativeTime"
+                        :is-active-pane="true"
+                        class="navigator-page__pane"
+                        @update:selected-entries="(entries) => handleSelectionChange(entries)"
+                        @update:current-dir-entry="handleCurrentDirChange"
+                      />
+                    </ResizablePanel>
+                  </ResizablePanelGroup>
+
                   <GlobalSearchView
                     ref="globalSearchViewRef"
                     v-show="globalSearchStore.isOpen"
@@ -1356,71 +1906,7 @@ onUnmounted(() => {
                     @open-entry="handleGlobalSearchOpenEntry"
                     @update:selected-entries="handleSearchSelectionChange"
                   />
-                  <ResizablePanelGroup
-                    direction="horizontal"
-                    class="navigator-page__panes"
-                  >
-                <template v-if="workspacesStore.currentTabGroup && isSplitView">
-                  <template
-                    v-for="(tab, index) in workspacesStore.currentTabGroup"
-                    :key="tab.id"
-                  >
-                    <ResizablePanel
-                      :default-size="50"
-                      :min-size="15"
-                      @mousedown="handlePaneFocus(tab.id)"
-                    >
-                      <FileBrowser
-                        :ref="(el) => setPaneRef(el as FileBrowserInstance, tab.id)"
-                        :tab="tab"
-                        :pane-index="index"
-                        :layout="getLayoutForPath(tab.path)"
-                        :track-relative-time="trackNavigatorRelativeTime"
-                        :is-active-pane="activeTabId ? activeTabId === tab.id : index === 0"
-                        :is-split-view="true"
-                        class="navigator-page__pane"
-                        @update:selected-entries="(entries) => handleSelectionChange(entries, tab.id)"
-                        @update:current-dir-entry="handleCurrentDirChange"
-                      />
-                    </ResizablePanel>
-                    <ResizableHandle
-                      v-if="index === 0"
-                      with-handle
-                    />
-                  </template>
-                </template>
-                <template v-else-if="workspacesStore.currentTabGroup">
-                  <ResizablePanel :default-size="100">
-                    <FileBrowser
-                      :key="workspacesStore.currentTabGroup[0].id"
-                      :ref="(el) => setPaneRef(el as FileBrowserInstance, workspacesStore.currentTabGroup![0].id)"
-                      :tab="workspacesStore.currentTabGroup[0]"
-                      :pane-index="0"
-                      :layout="getLayoutForPath(workspacesStore.currentTabGroup[0].path)"
-                      :track-relative-time="trackNavigatorRelativeTime"
-                      :is-active-pane="true"
-                      class="navigator-page__pane"
-                      @update:selected-entries="(entries) => handleSelectionChange(entries, workspacesStore.currentTabGroup![0].id)"
-                      @update:current-dir-entry="handleCurrentDirChange"
-                    />
-                  </ResizablePanel>
-                </template>
-                <ResizablePanel
-                  v-else
-                  :default-size="100"
-                >
-                  <FileBrowser
-                    ref="singlePaneRef"
-                    :layout="getLayoutForPath(currentActivePath)"
-                    :track-relative-time="trackNavigatorRelativeTime"
-                    :is-active-pane="true"
-                    class="navigator-page__pane"
-                    @update:selected-entries="(entries) => handleSelectionChange(entries)"
-                    @update:current-dir-entry="handleCurrentDirChange"
-                  />
-                </ResizablePanel>
-              </ResizablePanelGroup>
-              </div>
+                </div>
               </ResizablePanel>
             </ResizablePanelGroup>
             <ClipboardToolbar
@@ -1498,9 +1984,9 @@ onUnmounted(() => {
           <ResizablePanel
             v-if="showFolderTree"
             :order="1"
-            :default-size="22"
+            :default-size="28"
             :min-size="12"
-            :max-size="40"
+            :max-size="48"
             class="navigator-page__folder-tree-panel"
           >
             <FileBrowserTreeView
@@ -1535,65 +2021,68 @@ onUnmounted(() => {
                 direction="horizontal"
                 class="navigator-page__panes"
               >
-            <template v-if="workspacesStore.currentTabGroup && isSplitView">
-              <template
-                v-for="(tab, index) in workspacesStore.currentTabGroup"
-                :key="tab.id"
-              >
+                <template v-if="workspacesStore.currentTabGroup && isSplitView">
+                  <template
+                    v-for="(tab, index) in workspacesStore.currentTabGroup"
+                    :key="tab.id"
+                  >
+                    <ResizablePanel
+                      :default-size="50"
+                      :min-size="15"
+                      @mousedown="handlePaneFocus(tab.id)"
+                    >
+                      <FileBrowser
+                        :ref="(el) => setPaneRef(el as FileBrowserInstance, tab.id)"
+                        :tab="tab"
+                        :pane-index="index"
+                        :layout="getLayoutForPath(tab.path)"
+                        :track-relative-time="trackNavigatorRelativeTime"
+                        :is-active-pane="activeTabId ? activeTabId === tab.id : index === 0"
+                        :is-split-view="true"
+                        class="navigator-page__pane"
+                        @swap-panes="handleSwapSplitPanePaths"
+                        @update:selected-entries="(entries) => handleSelectionChange(entries, tab.id)"
+                        @update:current-path="(path) => handlePaneNavigation(path, tab.id)"
+                        @update:current-dir-entry="(entry) => handleCurrentDirChange(entry, tab.id)"
+                      />
+                    </ResizablePanel>
+                    <ResizableHandle
+                      v-if="index === 0"
+                      with-handle
+                    />
+                  </template>
+                </template>
+                <template v-else-if="workspacesStore.currentTabGroup">
+                  <ResizablePanel :default-size="100">
+                    <FileBrowser
+                      :key="workspacesStore.currentTabGroup[0].id"
+                      :ref="(el) => setPaneRef(el as FileBrowserInstance, workspacesStore.currentTabGroup![0].id)"
+                      :tab="workspacesStore.currentTabGroup[0]"
+                      :pane-index="0"
+                      :layout="getLayoutForPath(workspacesStore.currentTabGroup[0].path)"
+                      :track-relative-time="trackNavigatorRelativeTime"
+                      :is-active-pane="true"
+                      class="navigator-page__pane"
+                      @update:selected-entries="(entries) => handleSelectionChange(entries, workspacesStore.currentTabGroup![0].id)"
+                      @update:current-path="(path) => handlePaneNavigation(path, workspacesStore.currentTabGroup![0].id)"
+                      @update:current-dir-entry="handleCurrentDirChange"
+                    />
+                  </ResizablePanel>
+                </template>
                 <ResizablePanel
-                  :default-size="50"
-                  :min-size="15"
-                  @mousedown="handlePaneFocus(tab.id)"
+                  v-else
+                  :default-size="100"
                 >
                   <FileBrowser
-                    :ref="(el) => setPaneRef(el as FileBrowserInstance, tab.id)"
-                    :tab="tab"
-                    :pane-index="index"
-                    :layout="getLayoutForPath(tab.path)"
+                    ref="singlePaneRef"
+                    :layout="getLayoutForPath(currentActivePath)"
                     :track-relative-time="trackNavigatorRelativeTime"
-                    :is-active-pane="activeTabId ? activeTabId === tab.id : index === 0"
-                    :is-split-view="true"
+                    :is-active-pane="true"
                     class="navigator-page__pane"
-                    @update:selected-entries="(entries) => handleSelectionChange(entries, tab.id)"
+                    @update:selected-entries="(entries) => handleSelectionChange(entries)"
                     @update:current-dir-entry="handleCurrentDirChange"
                   />
                 </ResizablePanel>
-                <ResizableHandle
-                  v-if="index === 0"
-                  with-handle
-                />
-              </template>
-            </template>
-            <template v-else-if="workspacesStore.currentTabGroup">
-              <ResizablePanel :default-size="100">
-                <FileBrowser
-                  :key="workspacesStore.currentTabGroup[0].id"
-                  :ref="(el) => setPaneRef(el as FileBrowserInstance, workspacesStore.currentTabGroup![0].id)"
-                  :tab="workspacesStore.currentTabGroup[0]"
-                  :pane-index="0"
-                  :layout="getLayoutForPath(workspacesStore.currentTabGroup[0].path)"
-                  :track-relative-time="trackNavigatorRelativeTime"
-                  :is-active-pane="true"
-                  class="navigator-page__pane"
-                  @update:selected-entries="(entries) => handleSelectionChange(entries, workspacesStore.currentTabGroup![0].id)"
-                  @update:current-dir-entry="handleCurrentDirChange"
-                />
-              </ResizablePanel>
-            </template>
-            <ResizablePanel
-              v-else
-              :default-size="100"
-            >
-              <FileBrowser
-                ref="singlePaneRef"
-                :layout="getLayoutForPath(currentActivePath)"
-                :track-relative-time="trackNavigatorRelativeTime"
-                :is-active-pane="true"
-                class="navigator-page__pane"
-                @update:selected-entries="(entries) => handleSelectionChange(entries)"
-                @update:current-dir-entry="handleCurrentDirChange"
-              />
-            </ResizablePanel>
               </ResizablePanelGroup>
             </div>
           </ResizablePanel>
@@ -1630,6 +2119,12 @@ onUnmounted(() => {
         />
       </div>
     </div>
+    <!-- FORK-MODIFICATION: 远程权限设置对话框。整个页面**只渲染一个** ——
+         对话框状态是模块级的，两格各渲染一个会出现两个弹窗。 -->
+    <RemotePermissionsDialog
+      v-model:open="remotePermissionsDialog.isOpen.value"
+      :target="remotePermissionsDialog.target.value"
+    />
   </div>
 </template>
 
@@ -1752,14 +2247,39 @@ onUnmounted(() => {
 .navigator-page__folder-tree-panel {
   border: 1px solid hsl(var(--border) / 40%);
   border-radius: var(--radius-sm);
-  background-color: hsl(var(--background-2) / 60%);
+  background-color: hsl(var(--background-2) / 62%);
 }
 
-.navigator-page__folder-tree {
-  width: 100%;
-  height: 100%;
-  overflow: auto;
+/* FORK-MODIFICATION: 目录树过长时无法滚动（验收反馈 2026-10-15）。
+ *
+ * 真机验收推翻了这个文件原先的假设，结论记在这里以免再走一遍：
+ * 给面板写 `overflow-y: auto` 是**无效的**。reka-ui 的
+ * `computePanelFlexBoxStyle`（node_modules/reka-ui/dist/utils/style.js）给每个
+ * SplitterPanel 返回内联 `{ flexBasis:0; flexGrow:n; flexShrink:1;
+ * overflow:'hidden' }`，内联样式压过任何 CSS 规则 —— 跟特异性、书写顺序无关。
+ * 上一版注释里「0,3,0 压过 [data-panel] 的 0,2,0」的推理漏掉了内联这一层，
+ * 所以那条规则在打包产物里编译出来了、也确实排最后，却从未生效。
+ *
+ * 现在滚动容器是树自己（见 file-browser-tree-view.vue 的
+ * `.file-tree-view__scroll`；2026-10-19 起从 `.file-tree-view` 下移一层，
+ * 因为 trigger 的直接子元素上的模板 ref 会被 reka-ui 的 Slot 删掉）。
+ * 这里只保留 `flex-direction: column` —— 面板内联样式里没有 flex-direction，
+ * 这条仍然有效，且让面板成为纵向 flex 容器，树才能用 flex:1 撑满并自己滚。
+ * 不要在这里再加 overflow：写了也是白写，反而会让人以为滚动靠的是它。
+ * 更不要改 context-menu-trigger.vue 的 display:contents —— 那会波及文件浏览器、
+ * 空状态等所有 as-child 用法，回归面远大于本问题；正确的做法是在树的
+ * scoped 规则里局部覆盖它。
+ */
+
+.navigator-page__tree-and-panes :deep(.navigator-page__folder-tree-panel) {
+  flex-direction: column;
 }
+
+/* 原 `.navigator-page__folder-tree { width:100%; height:100%; overflow:auto }`
+   已删除：它是传给 <FileBrowserTreeView> 的 class，但该组件模板是双根节点
+   （FileBrowserTreeView.vue 的 <ContextMenu> + <FileBrowserRenameDialog>），
+   Vue 对 fragment 根的属性透传失效，这条规则从未匹配到任何元素。
+   留着它只会让人以为滚动是这么实现的。 */
 
 .navigator-page__panes-section {
   display: flex;

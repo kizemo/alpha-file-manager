@@ -3,25 +3,25 @@ import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import vueDevTools from 'vite-plugin-vue-devtools';
 import { run } from 'vite-plugin-run';
-import { assertNoRestrictedBackgroundSourceImport } from './src/build/background-source-import-guard';
+import { createBackgroundSourceBundleGuard } from './src/build/background-source-bundle-guard';
 import { rejectTestModulesInProductionBuild } from './src/build/reject-test-modules-in-production-build';
+import { backgroundMedia, DEFAULT_BACKGROUND_FILE_NAME } from './src/data/background-media';
 
 const host = process.env.TAURI_DEV_HOST;
 
-const backgroundSourceImportGuard = {
-  name: 'background-source-import-guard',
-  load(id: string) {
-    assertNoRestrictedBackgroundSourceImport(id);
-    return null;
-  },
-};
+// FORK-MODIFICATION 2026-10-28：守卫方向反转 —— 内置背景必须随安装包分发，
+// 详见 src/build/background-source-bundle-guard.ts 的说明。
+const backgroundSourceBundleGuard = createBackgroundSourceBundleGuard({
+  mediaFileNames: backgroundMedia.map(item => item.fileName),
+  defaultFileName: DEFAULT_BACKGROUND_FILE_NAME,
+});
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     vue(),
     vueDevTools(),
-    backgroundSourceImportGuard,
+    backgroundSourceBundleGuard,
     rejectTestModulesInProductionBuild(),
     run([
       {

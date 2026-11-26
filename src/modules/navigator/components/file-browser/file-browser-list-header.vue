@@ -30,6 +30,8 @@ import { useUserSettingsStore } from '@/stores/storage/user-settings';
 import { useFileBrowserContext } from './composables/use-file-browser-context';
 import { useFileBrowserListColumns } from './composables/use-file-browser-list-columns';
 import { useFileBrowserVisibleListColumns } from './composables/use-file-browser-visible-list-columns';
+// FORK-MODIFICATION 2026-10-20：按当前路径算「实际可见性」。
+import { useFileBrowserListColumnVisibility } from './composables/use-file-browser-list-column-visibility';
 import { measureHeaderColumnWidths } from './utils/file-browser-list-columns';
 import FileBrowserListHeaderCell from './file-browser-list-header-cell.vue';
 import FileBrowserListSortableColumn from './file-browser-list-sortable-column.vue';
@@ -49,7 +51,7 @@ const appliedFolderSettings = computed(() => resolveNavigatorFolderSettings(
   userSettingsStore.userSettings.navigator,
   ctx.currentPath.value,
 ));
-const columnVisibility = computed(() => userSettingsStore.userSettings.navigator.listColumnVisibility);
+const columnVisibility = useFileBrowserListColumnVisibility();
 const listColumnFillWidth = computed(() => userSettingsStore.userSettings.navigator.listColumnFillWidth);
 const listSortColumn = computed(() => appliedFolderSettings.value.listSortColumn);
 const listSortDirection = computed(() => appliedFolderSettings.value.listSortDirection);
@@ -84,6 +86,8 @@ const headerMeasurementSignature = computed(() => {
     locale.value,
     visibility.items,
     visibility.size,
+    // FORK-MODIFICATION 2026-10-20：新列必须进签名，否则切换它的可见性时表头不重算宽度。
+    visibility.availableSpace,
     visibility.modified,
     visibility.created,
     visibility.tags,
@@ -93,6 +97,8 @@ const headerMeasurementSignature = computed(() => {
     userSettingsStore.userSettings.navigator.listColumnWidths.name,
     userSettingsStore.userSettings.navigator.listColumnWidths.items,
     userSettingsStore.userSettings.navigator.listColumnWidths.size,
+    // FORK-MODIFICATION 2026-10-20：同上，新列的宽度也要进签名。
+    userSettingsStore.userSettings.navigator.listColumnWidths.availableSpace,
     userSettingsStore.userSettings.navigator.listColumnWidths.modified,
     userSettingsStore.userSettings.navigator.listColumnWidths.created,
     userSettingsStore.userSettings.navigator.listColumnWidths.tags,
@@ -281,7 +287,7 @@ defineExpose({
   padding: var(--file-browser-list-header-padding-y) var(--file-browser-list-header-padding-x);
   color: hsl(var(--muted-foreground));
   column-gap: var(--file-browser-list-column-gap);
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   font-weight: 500;
   grid-template-columns: var(--file-browser-list-columns);
   line-height: 1rem;
@@ -398,7 +404,7 @@ defineExpose({
 
 .file-browser-list-view__size-tooltip-title {
   color: hsl(var(--foreground));
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -427,7 +433,7 @@ defineExpose({
   background-color: hsl(var(--primary) / 15%);
   color: hsl(var(--primary));
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   font-weight: 500;
 }
 
@@ -447,7 +453,7 @@ defineExpose({
 
 .file-browser-list-view__size-tooltip-desc {
   color: hsl(var(--muted-foreground));
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   line-height: 1.4;
 }
 
@@ -455,7 +461,7 @@ defineExpose({
   padding-top: 6px;
   border-top: 1px solid hsl(var(--border) / 50%);
   color: hsl(var(--muted-foreground));
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   font-style: italic;
   line-height: 1.4;
 }

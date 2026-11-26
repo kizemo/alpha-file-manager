@@ -4,7 +4,9 @@ Copyright © 2021 - present Aleksey Hoffman. All rights reserved.
 -->
 
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from 'vue';
+import {
+  computed, ref, watch, nextTick, onMounted, onBeforeUnmount,
+} from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   EyeIcon,
@@ -12,6 +14,7 @@ import {
   XIcon,
   MenuIcon,
   EllipsisVerticalIcon,
+  BotIcon,
 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -39,8 +42,14 @@ import FileBrowserExtensionMenuItems from './file-browser-extension-menu-items.v
 import { useFileBrowserContext } from './composables/use-file-browser-context';
 import { formatBytes } from './utils';
 import type { LinkCreationKind } from '@/utils/link-operations';
+import { useMcpStore } from '@/stores/runtime/mcp';
+// FORK-MODIFICATION 2026-10-20：创建类动作要过门禁（交接文档 §7.1）。
+import { isActionBlockedByEntryPolicy } from '@/utils/entry-action-policy';
 
 const MAX_VISIBLE_ITEMS = 100;
+
+/** MCP 状态轮询间隔。开着才轮询 —— 关着的时候没有任何理由产生请求。 */
+const MCP_POLL_INTERVAL_MS = 10000;
 
 const props = withDefaults(defineProps<{
   dirContents: DirContents | null;
@@ -66,6 +75,51 @@ const { t } = useI18n();
 const ctx = useFileBrowserContext();
 
 const dirSizesStore = useDirSizesStore();
+const mcpStore = useMcpStore();
+
+/**
+ * 只在 MCP 真的开着时显示「N 个 agent 已连接」。
+ *
+ * 刻意不显示 0：常驻一个「0 个 agent」的徽标等于噪音，
+ * 而「开着但一个都没连」是正常状态，不该被当成异常。
+ */
+const showMcpIndicator = computed(() => mcpStore.isEnabled && mcpStore.status.activeClients > 0);
+
+let mcpPollTimer: ReturnType<typeof setInterval> | null = null;
+
+function stopMcpPolling() {
+  if (mcpPollTimer !== null) {
+    clearInterval(mcpPollTimer);
+    mcpPollTimer = null;
+  }
+}
+
+function startMcpPolling() {
+  stopMcpPolling();
+  mcpPollTimer = setInterval(() => {
+    void mcpStore.refresh();
+  }, MCP_POLL_INTERVAL_MS);
+}
+
+onMounted(async () => {
+  await mcpStore.refresh();
+
+  if (mcpStore.isEnabled) {
+    startMcpPolling();
+  }
+});
+
+// 服务可能被用户在设置里关掉：轮询要跟着停，否则关掉之后还在发请求。
+watch(() => mcpStore.isEnabled, (enabled) => {
+  if (enabled) {
+    startMcpPolling();
+  }
+  else {
+    stopMcpPolling();
+  }
+});
+
+onBeforeUnmount(stopMcpPolling);
 
 const showItemsPopoverOpen = ref(false);
 const itemsFilterQuery = ref('');
@@ -224,9 +278,17 @@ function handleAction(action: ContextMenuAction) {
   applyContextMenuState();
 
   if (action === 'create-file' || action === 'create-directory') {
-    const targetPaths = selectedEntriesArray.value
+    const selectedEntries = selectedEntriesArray.value;
+    const targetPaths = selectedEntries
       .filter(entry => entry.is_dir)
       .map(entry => entry.path);
+
+    // FORK-MODIFICATION 2026-10-20：创建类动作**必须**过门禁
+    // （交接文档 §7.1：之前这三个调用点直接 emit，门禁压根没被调用）。
+    if (isActionBlockedByEntryPolicy(action, selectedEntries, null)) {
+      return;
+    }
+
     ctx.openNewItemDialog(action === 'create-file' ? 'file' : 'directory', targetPaths);
     return;
   }
@@ -487,6 +549,18 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
           {{ t('fileBrowser.itemsTotal', { count: totalCount }) }}
         </span>
       </template>
+
+      <Tooltip v-if="showMcpIndicator">
+        <TooltipTrigger as-child>
+          <span class="file-browser-status-bar__mcp-indicator">
+            <BotIcon :size="12" />
+            {{ t('settings.experimental.mcp.clientsConnected', { count: mcpStore.status.activeClients }) }}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          {{ t('settings.experimental.mcp.indicatorTooltip') }}
+        </TooltipContent>
+      </Tooltip>
     </div>
   </div>
 </template>
@@ -503,7 +577,7 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
   background-color: hsl(var(--background-2));
   color: hsl(var(--muted-foreground));
   container-type: inline-size;
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   gap: 8px;
 }
 
@@ -550,6 +624,18 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
   gap: 8px;
 }
 
+.file-browser-status-bar__mcp-indicator {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: hsl(var(--primary) / 12%);
+  color: hsl(var(--primary));
+  font-size: calc(11px + var(--font-size-offset, 0px));
+  gap: 4px;
+}
+
 .file-browser-status-bar__selected-count {
   display: flex;
   flex-shrink: 0;
@@ -591,7 +677,7 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
 .file-browser-status-bar__button {
   height: 26px;
   padding: 0 8px;
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   gap: 4px;
 }
 
@@ -637,7 +723,7 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
 .file-browser-status-bar__items-header {
   padding: 4px 12px;
   color: hsl(var(--muted-foreground));
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
 }
 
 .file-browser-status-bar__scroll-area {
@@ -679,7 +765,7 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
 
 .file-browser-status-bar__item-name {
   overflow: hidden;
-  font-size: 13px;
+  font-size: calc(13px + var(--font-size-offset, 0px));
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -688,7 +774,7 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
 .file-browser-status-bar__item-path {
   overflow: hidden;
   color: hsl(var(--muted-foreground));
-  font-size: 11px;
+  font-size: calc(11px + var(--font-size-offset, 0px));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -701,7 +787,7 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
 .file-browser-status-bar__no-items {
   padding: 16px;
   color: hsl(var(--muted-foreground));
-  font-size: 12px;
+  font-size: calc(12px + var(--font-size-offset, 0px));
   text-align: center;
 }
 

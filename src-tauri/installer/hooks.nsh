@@ -24,7 +24,517 @@
 ; (We can't use $USERAPPDATA because NSIS 3.x reserves it as a built-in constant.)
 Var RESOLVEDAPPDATA
 
+; -----------------------------------------------------------------------
+; 2026-10-19 单实例守卫用的变量。
+;
+; AlphaSingleInstanceDuplicate = 1 表示「本安装器是重复实例，应当退出」。
+; AlphaSilentMode              = 1 表示安装器以 /S 静默模式运行（没有界面，
+;                               弹模态框会永远卡住）。
+; AlphaTempOption              是 GetOptions 的临时落点。
+; -----------------------------------------------------------------------
+Var AlphaSingleInstanceDuplicate
+Var AlphaSilentMode
+Var AlphaTempOption
+
+; -----------------------------------------------------------------------
+; 2026-10-22 安装日志用的变量。
+;
+; AlphaDetectedVersion   = 既有安装的版本号（没检测到就是空）
+; AlphaDetectedLocation  = 既有安装的位置（没检测到就是空）
+; AlphaLogPhase          = 写日志时标注的阶段
+; AlphaLogInstDir        = 本次安装最终选定的目录
+;
+; 为什么要有这份日志：安装器此前**只**有两个持久日志（单实例守卫日志、
+; 杀进程日志），**安装器自己的决定一个都没落盘** —— 装了哪个目录、检测到
+; 既有安装没有、既有版本是几、这次是不是同版本重装、最后有没有装完，
+; 全都只能靠猜。于是「我装完又装了一次，怎么像是激活了在线更新」这类
+; 问题无法从产物上回答：日志能证明「没有并发安装器」，却答不出版本。
+; -----------------------------------------------------------------------
+Var AlphaDetectedVersion
+Var AlphaDetectedLocation
+Var AlphaLogPhase
+Var AlphaLogInstDir
+
+; -----------------------------------------------------------------------
+; 2026-10-29 升级安装失败修复用的变量。
+;
+; AlphaKillInstDir   = 杀进程时要校验解锁的安装目录（PREINSTALL / PREUNINSTALL）
+; AlphaLegacyInstDir = 调用旧卸载器前，旧版本所在的安装目录
+; -----------------------------------------------------------------------
+Var AlphaKillInstDir
+Var AlphaLegacyInstDir
+
+; -----------------------------------------------------------------------
+; 2026-10-29 早期安装守卫（.onInit 阶段）用的变量。
+;
+; AlphaGuardInstallerVersion = 本次安装包的版本号（由 installer.nsi 写入）
+; AlphaGuardUninstKey       = 已安装产品记录的注册表子键（由 installer.nsi 写入）
+;
+; 为什么要这两个由模板来写：hooks.nsh 在 installer.nsi 的 !include 位置
+; 早于 !define VERSION / !define UNINSTKEY，宏展开时拿不到那两个编译期
+; 常量。所以值从模板传进来，逻辑留在本文件里。
+;
+; 2026-10-29：原先还有一个 AlphaGuardForce（命令行里有 /FORCE 时置 1），
+; 现已删除 —— 「/FORCE 有没有被识别」这个判断搬进了 early-guard.ps1
+; （PowerShell 有正则，也能被单元测试覆盖）。NSIS 侧用 StrCmp 匹配通配符
+; 实测不可用，详见 AlphaCaptureCommandLine 的注释。
+; -----------------------------------------------------------------------
+Var AlphaGuardInstallerVersion
+Var AlphaGuardUninstKey
+
+; -----------------------------------------------------------------------
+; AlphaNormalizeInstDir — the single gate between "a registry string" and
+; "$INSTDIR".
+;
+; ROOT CAUSE of three shipped bugs (short menu shortcut gone, directory
+; page showing "D\Program Files\..." with Next disabled, "Run Alpha File
+; Manager" launching nothing): Tauri's NSIS template writes the uninstall
+; record's InstallLocation as a QUOTED string
+;     WriteRegStr SHCTX "${UNINSTKEY}" "InstallLocation" "$\"$INSTDIR$\""
+; Reading that back and assigning it with
+;     StrCpy $INSTDIR "$0"
+; produces a doubly-quoted instruction ("$0" expands to itself quoted), and
+; NSIS's tokenizer then eats the drive colon: "D:\Program Files\..." becomes
+; "D\Program Files\...". With no drive colon, NSIS reads $INSTDIR as a path
+; RELATIVE to the system directory and rewrites it to
+; "C:\D\Program Files\Alpha File Manager" — a path that does not exist. Every
+; "$INSTDIR\..." expansion then resolves under that bogus root, which is why
+; the start-menu/desktop shortcuts pointed at C:\D\... and why
+; nsis_tauri_utils::RunAsUser "$INSTDIR\alpha-file-manager.exe" silently did
+; nothing.
+;
+; Everything below this function only produces a CANDIDATE. Only a candidate
+; that AlphaNormalizeInstDir marks "ok" is ever assigned to $INSTDIR.
+;
+; in:  $1 = raw candidate, exactly as read from the registry
+; out: $1 = normalized path (unchanged if unusable)
+;      $0 = "ok"  -> $1 is an absolute drive-letter path, safe to use
+;          "bad" -> $1 must NOT be assigned to $INSTDIR
+; -----------------------------------------------------------------------
+Function AlphaNormalizeInstDir
+  StrCpy $0 "bad"
+
+  ; 1. Strip the surrounding double quotes Tauri's template writes.
+  ;    Deliberately uses only StrCpy / IntOp / ${StrLoc}. StrFunc's ${StrRep}
+  ;    is NOT available here: hooks.nsh is included by both the generated
+  ;    installer.nsi and the generated uninstaller script, neither of which
+  ;    registers it, and building with `${StrRep}` fails makensis with
+  ;    "You forgot ${Using:StrFunc} StrRep". ${StrLoc} IS registered.
+  ;
+  ;    Locating the trailing quote without knowing the string length: append a
+  ;    sentinel that cannot occur in a Windows path ('|'), then ask ${StrLoc}
+  ;    where it landed -- its 0-based index from the start IS the length.
+  ;    (Direction is ">" = from the start; measured, "<" counts from the end.)
+  StrCpy $4 $1 1
+  ${If} $4 == '"'
+    StrCpy $1 $1 "" 1            ; drop the leading quote
+  ${EndIf}
+  ; Trailing quote: locate it the same way, and only if a sentinel really
+  ; landed (guard, so a StrLoc miss can never feed IntOp a garbage index).
+  ${If} $1 != ""
+    StrCpy $7 "$1|"
+    ${StrLoc} $3 $7 "|" ">"
+    ${If} $3 != ""
+      IntOp $6 $3 - 1            ; index of the last character
+      StrCpy $4 $1 1 $6
+      ${If} $4 == '"'
+        StrCpy $1 $1 $6          ; truncate: drops the trailing quote
+      ${EndIf}
+    ${EndIf}
+  ${EndIf}
+
+  ; 2. Repair a colon that an EARLIER broken round already ate, so machines
+  ;    that are corrupted right now self-heal instead of silently relocating
+  ;    to C:\Program Files and orphaning the user's real folder.
+  ;    Only the unambiguous "<letter>\<rest>" shape is repaired — nothing else
+  ;    is guessed at.
+  ;    StrFunc argument order: ResultVar, String, StrToSearchFor, Direction.
+  ${StrLoc} $3 $1 ":" ">"
+  ${If} $3 == ""
+    StrCpy $4 $1 1           ; first character (the drive letter)
+    StrCpy $5 $1 1 1         ; second character
+    ${If} $4 != ""
+    ${AndIf} $5 == "\"
+      StrCpy $6 $1 "" 1      ; everything from offset 1 onward
+      StrCpy $1 "$4:$6"
+    ${EndIf}
+  ${EndIf}
+
+  ; 3. Accept only an absolute drive-letter path, i.e. colon at index 1.
+  ;    Anything else (relative junk, UNC, empty) is rejected and the caller
+  ;    keeps the installer's built-in default.
+  ;    StrFunc argument order: ResultVar, String, StrToSearchFor, Direction.
+  ;    Direction ">" = search forward from the start and return a 0-based index
+  ;    from the start. Measured, not assumed: ">" gives 1 for "D:\abc", while
+  ;    "<" gives 4 because it counts from the END.
+  ${StrLoc} $3 $1 ":" ">"
+  ${If} $3 == 1
+    StrCpy $0 "ok"
+  ${EndIf}
+FunctionEnd
+
+; -----------------------------------------------------------------------
+; AlphaTerminateAppProcesses — 终止 Alpha/Sigma FM 及其整棵子进程树，
+; 但绝不碰调用者（安装器或卸载器）自己的子树。
+;
+; 存在的理由：旧的实现是一长串 taskkill /F /IM <image> /T。/T 会连整棵
+; 子进程树一起杀，而用户在 Alpha 里双击安装包时，安装器本身就是 Alpha 的
+; 子进程（alpha-file-manager.exe -> 安装器 -> taskkill.exe），于是安装器在
+; PREINSTALL 阶段把自己杀了，中途夭折且不报错。卸载器同理。
+;
+; PREINSTALL 与 PREUNINSTALL 共用这一个函数，所以内嵌脚本只有一份文本，
+; 不存在两处不同步的可能。用 installer/embed-kill-script.mjs --check 校验。
+;
+; 函数结束后 $0 是 PowerShell 的退出码，调用方据此打日志。
+; 函数体放进 !macro，底下包两个薄函数：
+;   AlphaTerminateAppProcesses      —— 给 Section Install（PREINSTALL）用
+;   un.AlphaTerminateAppProcesses   —— 给 Section Uninstall（PREUNINSTALL）用
+; NSIS 规定「从 Uninstall 段调用的函数名必须以 un. 开头」，直接共用一个函数名
+; 会报 "Call must be used with function names starting with "un." in the
+; uninstall section."。用 !macro 承载函数体是为了内嵌脚本仍然只有一份文本。
+; -----------------------------------------------------------------------
+!macro AlphaTerminateAppProcessesBody
+  ; >>> BEGIN EMBEDDED kill-app-tree.ps1 (generated by installer/embed-kill-script.mjs — DO NOT EDIT BY HAND)
+  ; kill-app-tree.ps1 由 makensis 在编译期内嵌，运行期原样解包到
+  ; $PLUGINSDIR。File 不经 ANSI 代码页转换，也不做任何转义，
+  ; 因此 269 行脚本能逐字节落盘 —— 这正是 FileWrite 方案做不到的。
+  File /oname=$PLUGINSDIR\kill-app-tree.ps1 "${__FILEDIR__}\kill-app-tree.ps1"
+  ; <<< END EMBEDDED kill-app-tree.ps1
+
+  ; v0.5.11: 不再传 -SelfPid。
+  ;
+  ; 原来这里写的是 -SelfPid $$0，那是错的：Tauri 模板在 installer.nsi:196 用
+  ; `StrCpy $0 0` 把 $0 初始化为 wix_detect 的 EnumRegKey 循环下标，到 PREINSTALL
+  ; 时它装的是「本机装了多少个程序」（这台机器是 76），跟安装器自己的 PID 毫无
+  ; 关系。于是要么 mandatory 参数绑定失败、脚本在动手之前就退出，要么碰巧命中
+  ; 某个目标进程的祖先、把它划进受保护集合 —— 两种情况的可见症状都是
+  ; 「Alpha 和 sidecar 全都没被杀掉，安装照常跑完」。
+  ;
+  ; 现在脚本自己取父进程 PID：nsExec 直接 spawn powershell.exe，所以它的父进程
+  ; 就是安装器。这条链路是结构性的，不会再漂。
+  ;
+  ; v3.6.6 (2026-10-29)：脚本现在会**等被杀的进程真的退出**，并且用「独占打开」
+  ; **证明**主程序二进制已经没有任何进程持有（-InstDir）。这两件事正是升级安装
+  ; 在 2026-10-29 失败的原因：杀完就返回，卸载器随后用 Windows Restart Manager
+  ; 一查，发现「还有进程在用这个 exe」，于是弹框、RmShutdown 失败、Abort。
+  ;
+  ; -DisableScheduledTask 交给脚本在动手之前先把 \KizemoFocusSync 停掉，
+  ; 免得 sidecar 在杀进程的中途被任务拉起来、又锁回二进制。
+  nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\kill-app-tree.ps1" -InstDir "$AlphaKillInstDir" -DisableScheduledTask'
+  Pop $0
+!macroend
+
+Function AlphaTerminateAppProcesses
+  !insertmacro AlphaTerminateAppProcessesBody
+FunctionEnd
+
+Function un.AlphaTerminateAppProcesses
+  !insertmacro AlphaTerminateAppProcessesBody
+FunctionEnd
+
+; -----------------------------------------------------------------------
+; AlphaPrepareLegacyUninstall — 2026-10-29 升级安装失败修复（**安装器**侧）。
+;
+; 失败链路（真机日志 2026-10-29 10:27）：
+;   1. setup 在 PageLeaveReinstall 里 ExecWait 旧卸载器（3.6.4/3.6.5 的
+;      uninstall.exe）。旧卸载器是**已经发布出去的二进制，改不了**。
+;   2. 旧卸载器的 PREUNINSTALL 钩子杀了应用，但**不等它退出**。
+;   3. 约 2.4 秒后，模板的 CheckIfAppIsRunning 用 Windows Restart Manager
+;      查「还有没有进程在用 $INSTDIR\alpha-file-manager.exe」，答案还是「有」
+;      → 弹出「程序正在运行！点击确定以终止运行」。
+;   4. 用户点确定 → RmShutdown 失败 → 卸载器 Abort（退出码非 0，POSTUNINSTALL
+;      不执行）→ setup 判失败 → 安装失败。
+;
+; 修法：**在调用旧卸载器之前**先把应用彻底关掉，并**证明**二进制已经解锁。
+; 这样旧卸载器跑到自己的 CheckIfAppIsRunning 时，Restart Manager 什么也查不到，
+; 既不会弹框，也不会 Abort。
+;
+; 这一步只能做在 setup 侧 —— 旧卸载器已经发出去了，改不了。
+; -----------------------------------------------------------------------
+Function AlphaPrepareLegacyUninstall
+  ; $4 = 旧版本的安装目录（模板在 reinst_uninstall 段从注册表读出）。
+  ; 读不到就退回 $INSTDIR。
+  StrCpy $AlphaLegacyInstDir "$4"
+  ${If} $AlphaLegacyInstDir == ""
+    StrCpy $AlphaLegacyInstDir "$INSTDIR"
+  ${EndIf}
+
+  ; 编译期内嵌原文件、运行期原样解包到 $PLUGINSDIR：字节精确，
+  ; 不经 ANSI 代码页转换，也不需要任何转义。
+  File /oname=$PLUGINSDIR\kill-app-tree.ps1 "${__FILEDIR__}\kill-app-tree.ps1"
+
+  DetailPrint "==> [PRE-LEGACY-UNINSTALL] Closing the running application in $AlphaLegacyInstDir before the old uninstaller runs ..."
+  nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\kill-app-tree.ps1" -InstDir "$AlphaLegacyInstDir" -DisableScheduledTask'
+  Pop $0
+
+  ${If} $0 == "0"
+    DetailPrint "==> [PRE-LEGACY-UNINSTALL] the application is closed and its binary is unlocked."
+  ${Else}
+    DetailPrint "==> WARNING: [PRE-LEGACY-UNINSTALL] kill-app-tree.ps1 returned $0"
+    DetailPrint "    The old uninstaller may still ask the user to close the application."
+  ${EndIf}
+FunctionEnd
+
+; -----------------------------------------------------------------------
+; NSIS_HOOK_PRELEGACY_UNINSTALL — 我们 vendor 出来的 NSIS 模板在
+; 「调用旧卸载器之前」调用它。模板里的调用点长这样：
+;
+;   !ifdef AFM_HOOK_PRELEGACY_UNINSTALL
+;     !insertmacro NSIS_HOOK_PRELEGACY_UNINSTALL
+;   !endif
+;
+; 用 !ifdef 包一层，是为了在 hooks.nsh 缺失时模板仍然能编译 ——
+; 模板与 hooks 不同步只会退回到「上游行为」，不会把整个安装包卡死。
+; -----------------------------------------------------------------------
+!define AFM_HOOK_PRELEGACY_UNINSTALL
+!macro NSIS_HOOK_PRELEGACY_UNINSTALL
+  Call AlphaPrepareLegacyUninstall
+!macroend
+
+; -----------------------------------------------------------------------
+; AFM_HOOK_EARLYINIT — 模板在 .onInit 的最前面调用它。
+;
+; installer.nsi 里长这样：
+;
+;   !ifdef AFM_HOOK_EARLYINIT
+;     StrCpy $AlphaGuardInstallerVersion "${VERSION}"
+;     StrCpy $AlphaGuardUninstKey "${UNINSTKEY}"
+;     !insertmacro NSIS_HOOK_EARLYINIT
+;   !endif
+;
+; 为什么必须是 .onInit：那是模板里**唯一**能在向导页出现之前拿到控制权的
+; 位置。PREINSTALL 太晚了 —— 向导已经弹出来了，关掉它对用户没有意义。
+;
+; 这个钩子解决的具体问题（2026-10-29 真机复现）：
+; 会话界面里带着安装包附件（<media type="file" src="...setup.exe" />），
+; 宿主渲染这个附件时会「自动打开」它 —— .exe 没有内置预览器，于是走
+; 系统默认处理 = 直接执行 setup.exe = NSIS 向导弹窗。**每次切回会话
+; 界面就重新渲染一次，于是每次都弹一次。**
+;
+; 安装包改不了宿主，但可以让「重复运行自己」变得无害：**同一个安装包文件**
+; 已经装出当前这个构建时（按 SHA256 判定，不是按版本号），根本没东西可装
+; —— 于是在任何窗口出现之前静默退出。
+;
+; 静默是刻意的：弹窗场景就是「用户没要求装」，任何模态框都只是把一种
+; 弹窗换成另一种弹窗。人工要重装 / 降级时用 setup.exe /FORCE。
+; -----------------------------------------------------------------------
+!define AFM_HOOK_EARLYINIT
+!macro NSIS_HOOK_EARLYINIT
+  Call AlphaCaptureCommandLine
+  Call AlphaEarlyInstallGuard
+!macroend
+
+; -----------------------------------------------------------------------
+; AlphaCaptureCommandLine — 把本次启动的完整命令行原样写进 $PLUGINSDIR。
+;
+; 「人工重装 / 降级」的逃生口是 setup.exe /FORCE。这个开关的**识别**放在
+; early-guard.ps1 里做（PowerShell 有正则，也有单元测试能覆盖），NSIS 这一侧
+; 只负责把原始命令行交出去。
+;
+; 为什么不在 NSIS 里用 StrCmp 匹配 /FORCE：
+;   实测（2026-10-29，本机 NSIS 3.x，最小复现探针 probe-force.nsi）：
+;   $CMDLINE 的内容确实是
+;       "C:\...\setup.exe" /FORCE
+;   但 StrCmp $CMDLINE "* /FORCE" 判定为**不相等**，8 种形态一次都没匹配上，
+;   于是 /FORCE 形同虚设（守卫日志里 force 永远是 0）。
+;
+; 为什么不用 $1 .. $9：
+;   实测同一个探针里，安装器进程中的 $1 是**空的** —— NSIS 只在卸载器里把
+;   命令行参数放进 $1..$9，安装器里拿不到。
+;
+; 为什么写成文件而不是直接当命令行参数传给 nsExec：
+;   $CMDLINE 里带双引号，插进 nsExec 的命令行会把引号结构打破。走文件没有
+;   这个问题。FileWrite 会原样写出内容（实测无换行污染）。
+; -----------------------------------------------------------------------
+Function AlphaCaptureCommandLine
+  InitPluginsDir
+  FileOpen $9 "$PLUGINSDIR\afm-commandline.txt" w
+  FileWrite $9 "$CMDLINE"
+  FileClose $9
+FunctionEnd
+
+; -----------------------------------------------------------------------
+; AlphaEarlyInstallGuard — 「这次运行值不值得弹界面」的判定。
+;
+; 判据（详见 early-guard.ps1 顶部注释）：
+;   没装过 / 版本更新 / 版本更旧 / 判不出来 -> 放行
+;   同版本 -> 比**构建身份**（安装包自身的 SHA256）：
+;            同一个安装包文件 -> 静默退出（宿主重复自动打开同一个附件）
+;            不同的安装包文件 -> 放行（版本号相同的新构建，走模板自带的
+;                                    「已安装相同版本，是否重新安装？」页）
+;
+; 为什么按构建身份而不是按版本号（2026-10-31 真机事故）：
+;   用户双击 release 里的 3.8.0 安装包，**一个窗口都没弹**。守卫按版本号
+;   判定「已安装 3.8.0 == 安装包 3.8.0 -> 没什么可装」，于是静默退出。
+;   但版本号**不是**构建身份：同一个版本号可以对应多个构建（重新打包、
+;   打补丁、换一次打包环境），版本号区分不出来。于是「同版本号的新构建」
+;   会被误判成「同一个包重复打开」，合法安装被挡在门外。
+;   构建身份 = 安装包文件的 SHA256。install 日志（write-install-log.ps1）
+;   每次成功安装都会记下 installerSha256，守卫据此判断「是不是同一个文件」。
+;
+;   降级（已装版本更新）同样放行：模板自带「已安装更新版本」的确认页，
+;   在守卫这一层拦掉它，用户连「要不要降级」都没机会回答。
+;
+; 判定逻辑放在独立的 PowerShell 脚本里（编译期内嵌、运行期原样解包到
+; $PLUGINSDIR），原因有二：
+;   1. 版本比较要读注册表、还要正确处理预发布号，NSIS 里写不划算；
+;   2. 「判不出来就放行」这条失败开放策略，用脚本更容易写清楚、也更容易
+;      被单测覆盖 —— 守卫坏了不能让产品装不上。
+;
+; 脚本通过「判定文件」回话，而不是靠 nsExec 的退出码：nsExec::ExecToLog
+; 不回传退出码，而 ExecToStack 的压栈顺序不值得赌（与本文件里既有的
+; 单实例守卫同一个理由）。
+; -----------------------------------------------------------------------
+Function AlphaEarlyInstallGuard
+  ; --- 1. 解包并运行判定脚本 ---------------------------------------------
+  InitPluginsDir
+  File /oname=$PLUGINSDIR\early-guard.ps1 "${__FILEDIR__}\early-guard.ps1"
+  Delete "$PLUGINSDIR\alpha-early-guard.verdict"
+
+  DetailPrint "==> [EARLY GUARD] checking whether this installer has anything to do ..."
+  DetailPrint "==> [EARLY GUARD] guard log: $TEMP\alpha-file-manager-early-guard.log"
+
+  ; -InstallerPath "$EXEPATH"：安装包自身（setup.exe）的路径。守卫要用它算
+  ; SHA256，据此判断「当前这个安装包文件」与「上次装成功用的那个文件」是不是
+  ; 同一个 —— 版本号做不到这件事，同一个版本号可以对应多个构建。
+  nsExec::ExecToLog /TIMEOUT=20000 'powershell -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\early-guard.ps1" -InstallerVersion "$AlphaGuardInstallerVersion" -UninstKey "$AlphaGuardUninstKey" -InstallerPath "$EXEPATH" -CommandLineFile "$PLUGINSDIR\afm-commandline.txt" -VerdictFile "$PLUGINSDIR\alpha-early-guard.verdict"'
+
+  ; --- 2. 只有「判定为不要弹界面」时脚本才会留下判定文件 ------------------
+  ; 文件不存在 = 放行。脚本自己跑挂 / 读不到注册表 / 版本比不出来 / 算不出
+  ; 哈希，都会走到「放行」这一侧。
+  IfFileExists "$PLUGINSDIR\alpha-early-guard.verdict" 0 alpha_early_guard_done
+    DetailPrint "==> [EARLY GUARD] this exact installer package already produced the installed build; nothing to do."
+    DetailPrint "==> [EARLY GUARD] exiting without showing the wizard."
+    DetailPrint "==> [EARLY GUARD] run the setup with /FORCE to show the wizard anyway."
+    Quit
+  alpha_early_guard_done:
+FunctionEnd
+
+; -----------------------------------------------------------------------
+; AlphaCheckSingleInstance — 2026-10-19 单实例守卫。
+;
+; 真机症状：用户只点了一次安装，同一份安装包却跑起了 6 个安装器进程
+; （kill 日志里 15:54:24 同时活着的就有 3 个）。每一个都完整跑一遍 PREINSTALL，
+; 每一个都把上一个刚启动的应用杀掉，于是表现为「装完又自动启动一次安装」。
+;
+; 已逐条排除的仓库内触发源：应用不 spawn setup.exe；自更新只弹 toast、
+; 由用户点按钮才运行安装包（且版本比较正确处理预发布号）；NSIS 模板不
+; 自重启动；注册表与启动项里没有自启动条目。**触发源在仓库之外**，
+; 但产品仍然必须扛得住它 —— 重复的安装器不许杀应用、不许再装一遍。
+;
+; 规则：**最低 PID 当选**。同一份 setup 可执行文件同时活着多个副本时，
+; PID 最小的那个继续安装，其余的立刻退出。
+;
+; 为什么不用「谁先到谁当选」：那是竞态 —— 两个安装器同时到 PREINSTALL 时
+; 可能互相都看不到对方，于是两个都装。最低 PID 当选是确定性的：无论怎么交错，
+; **恰好一个**会继续。不死锁、不重装。
+;
+; 为什么不用互斥体：互斥体要「整个安装期间」持有，而这里能拿锁的位置
+; 恰好就是现在做检查的地方 —— 锁和选举解决的是同一个问题。
+; （2026-10-29 更正：早先这里写的是「模板在向导页之前没有任何钩子」，那是
+; 错的 —— 我们自己在 vendor 模板的 .onInit 里挂了一个钩子。只是那个钩子
+; 判的是「版本要不要装」，不是「有没有别人在装」；单实例选举仍然只在这里做，
+; 因为它要看的是**还活着的安装器进程**，只有等安装器真的跑起来才有意义。）
+;
+; 判定逻辑在 installer/check-single-instance.ps1 里（可单测，见
+; installer/_acceptance/test-single-instance-guard.ps1）。本函数只负责
+; 把脚本解包出来、跑它、并把「判定为重复」这件事转成一个标记文件。
+; 用标记文件而不是读 nsExec 的退出码，是因为 nsExec 的 ExecToLog 不回传
+; 退出码，而 ExecToStack 的压栈顺序（先压返回值还是先压输出）不值得赌。
+; -----------------------------------------------------------------------
+Function AlphaCheckSingleInstance
+  StrCpy $AlphaSingleInstanceDuplicate 0
+
+  ; 编译期内嵌原文件、运行期原样解包到 $PLUGINSDIR：字节精确，
+  ; 不经 ANSI 代码页转换，也不需要任何转义。
+  File /oname=$PLUGINSDIR\check-single-instance.ps1 "${__FILEDIR__}\check-single-instance.ps1"
+
+  ; 先清掉残留的标记文件。这样「脚本根本没跑成」与「判定为重复」两种情况
+  ; 彻底分开：跑不成时标记文件不存在，守卫按「放行」处理 ——
+  ; 守卫坏了不能变成「谁都装不上」。
+  Delete "$PLUGINSDIR\alpha-single-instance-duplicate.flag"
+  ClearErrors
+
+  DetailPrint "==> [PREINSTALL HOOK] Checking whether another installer instance is running ..."
+  DetailPrint "==> [PREINSTALL HOOK] guard log: $TEMP\alpha-file-manager-installer-guard.log"
+  nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\check-single-instance.ps1" -VerdictFile "$PLUGINSDIR\alpha-single-instance-duplicate.flag"'
+
+  IfFileExists "$PLUGINSDIR\alpha-single-instance-duplicate.flag" 0 alpha_single_instance_done
+    StrCpy $AlphaSingleInstanceDuplicate 1
+  alpha_single_instance_done:
+FunctionEnd
+
+; -----------------------------------------------------------------------
+; AlphaLogInstall — 把本次安装的关键事实追加到持久日志。
+;
+; 日志路径：%TEMP%\alpha-file-manager-install.log（追加，不覆盖）。
+;
+; 记录的内容：本次安装器自身的版本、检测到的既有安装版本与位置、这次是不是
+; 同版本重装、最终选定的安装目录。这几项此前**一个都没有落盘**，于是
+; 「装完又装了一次」这类问题无法从产物上回答。
+;
+; 脚本本体是 write-install-log.ps1（与另外两个助手脚本一样在编译期内嵌、
+; 运行期原样解包到 $PLUGINSDIR，不经 ANSI 代码页转换）。
+; 时间戳由脚本自己打 —— NSIS 这边拿系统时间不值得赌寄存器。
+; -----------------------------------------------------------------------
+!macro AlphaLogInstallBody
+  File /oname=$PLUGINSDIR\write-install-log.ps1 "${__FILEDIR__}\write-install-log.ps1"
+  nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\write-install-log.ps1" -Phase "$AlphaLogPhase" -InstallerPath "$EXEPATH" -InstDir "$AlphaLogInstDir" -DetectedVersion "$AlphaDetectedVersion" -DetectedLocation "$AlphaDetectedLocation"'
+  Pop $2
+!macroend
+
+Function AlphaLogInstall
+  !insertmacro AlphaLogInstallBody
+FunctionEnd
+
+Function un.AlphaLogInstall
+  !insertmacro AlphaLogInstallBody
+FunctionEnd
+
 !macro NSIS_HOOK_PREINSTALL
+  ; ---------------------------------------------------------------------
+  ; 2026-10-19: 单实例守卫。**必须排在最前面** ——
+  ; 后面的 AlphaTerminateAppProcesses 会杀掉当前正在运行的应用，
+  ; 而重复的安装器正是「装完又启动一次安装」的元凶：它杀掉了上一个
+  ; 安装器刚启动的应用，于是用户看到应用反复重启。
+  ; 先判定、先退出，就不会有第二次杀应用。
+  ; ---------------------------------------------------------------------
+  Call AlphaCheckSingleInstance
+  ${If} $AlphaSingleInstanceDuplicate == "1"
+    DetailPrint "==> [PREINSTALL HOOK] Another installer instance is already running; this one exits without touching the installation."
+    ; 静默模式（/S）下没有界面，弹模态框会把安装永远卡住 —— 没人点它。
+    ; 所以只在有界面的情况下才提示。
+    StrCpy $AlphaSilentMode 0
+    ${GetOptions} $CMDLINE "/S" $AlphaTempOption
+    ${IfNot} ${Errors}
+      StrCpy $AlphaSilentMode 1
+    ${EndIf}
+    ${GetOptions} $CMDLINE "/s" $AlphaTempOption
+    ${IfNot} ${Errors}
+      StrCpy $AlphaSilentMode 1
+    ${EndIf}
+    ${If} $AlphaSilentMode == "0"
+      MessageBox MB_ICONINFORMATION|MB_OK "Another installation of Alpha File Manager is already running.$\n$\nThis installer will close now. The installation that is already running will finish normally."
+    ${EndIf}
+    Quit
+  ${EndIf}
+  ; ---------------------------------------------------------------------
+  ; ---------------------------------------------------------------------
+  ; v0.5.11: 把关键事实落盘。
+  ;
+  ; 之前唯一的日志是 MUI 进度面板，关掉窗口就没了。想回答「kill 脚本到底跑没跑、
+  ; 解析出的调用者 PID 是多少、跳过了哪些 PID」时产物上什么都查不到 —— 只能靠猜，
+  ; 而猜出来的原因已经错过两次了。日志没落盘，等于这个环节没有诊断能力。
+  ;
+  ; 这里**不用** NSIS 的 LogSet：它只接受 on|off，且要求编译期就定义
+  ; NSIS_CONFIG_LOG，而那个开关只能通过 makensis 命令行传，Tauri 的 bundler 不给，
+  ; 实测报 "LogSet specified, NSIS_CONFIG_LOG not defined." 并中止打包。
+  ; 与其为这个去改 Tauri 的构建调用，不如用本文件里已经在用的 FileOpen/FileWrite
+  ; 自己写一份 —— 那套写法不依赖任何编译期开关。
+  ;
+  ; 真正的过程日志（解析出的调用者 PID、目标清单、跳过清单、退出分支）由
+  ; kill-app-tree.ps1 写到 %TEMP%\alpha-file-manager-kill.log，那份更详细。
+  DetailPrint "==> [PREINSTALL HOOK] kill log: $TEMP\alpha-file-manager-kill.log"
   ; ---------------------------------------------------------------------
   ; Round 19e (2026-09-30): Defensive kill of any running sigma-file-manager.exe
   ; before file writes. POSTINSTALL writes user-extensions.json + extension
@@ -40,43 +550,73 @@ Var RESOLVEDAPPDATA
   ; plus also kill common case variants and Electron helper processes
   ; that Tauri apps spawn.
   ; ---------------------------------------------------------------------
-  DetailPrint "==> [PREINSTALL HOOK] Killing Sigma FM and helpers (taskkill /F /T) ..."
-  ; Case variants seen in the wild: 'sigma-file-manager.exe' (Tauri),
-  ; 'SigmaFileManager.exe' (case variant on some forks), and the
-  ; Electron helpers 'SigmaFileManagerHelper.exe' + 'Sigma File Manager.exe'.
-  ; v0.5.2: extend kill list to cover Chromium renderers + WebView2 +
-  ; crashpad + msedgewebview2 (these can hold the .exe via mmap even after
-  ; the main process exits). RSTRTMGR::RmGetList finds ALL of these; taskkill /F /T
-  ; must clear them before Tauri's CheckIfAppIsRunning passes.
-  nsExec::ExecToLog 'taskkill /F /IM sigma-file-manager.exe /T'
+  ; ---------------------------------------------------------------------
+  ; FORK-MODIFICATION 2026-10-13: 原来这里是一长串
+  ;   taskkill /F /IM <image> /T
+  ; 全部删掉，换成下面这个按 PID 精确终止的脚本。原因是一个真实故障：
+  ;
+  ;   /T 的语义是「连同整棵子进程树一起杀」。用户在 Alpha 里双击安装包时，
+  ;   进程树是 alpha-file-manager.exe -> 安装器 -> taskkill.exe，
+  ;   安装器是 Alpha 的**子进程**，于是这条命令把安装器自己一起杀了，
+  ;   安装在 PREINSTALL 阶段当场中断，且不留下任何可读的错误。
+  ;
+  ; kill-app-tree.ps1 的做法：先给全部进程拍快照，算出
+  ; 「受保护集合 = 调用者自己 + 调用者的全部后代」，算出「受害者集合 =
+  ; 目标进程 + 目标进程的所有后代」（等价于 /T），把受保护集合扣掉，
+  ; 再按「子进程先于父进程」的顺序逐个强杀。
+  ;
+  ; 两个性质：
+  ;   * 从资源管理器启动安装器时（常见情况），受保护集合与受害者集合没有
+  ;     交集，行为与原来的 taskkill /T 完全一致 —— WebView2 / crashpad
+  ;     那些持有 mmap 的孙进程照样清掉，Tauri 的 CheckIfAppIsRunning 能过；
+  ;   * 从 Alpha 里启动时，安装器与它派生的 taskkill / powershell 都在
+  ;     受保护集合里，一个都不会被误杀。
+  ;
+  ; 已用模拟进程树验证：新脚本 4 项断言全过；把同一套用例换回旧的
+  ; taskkill /T 跑，安装器（harness）在跑到一半时被杀、连结果文件都没
+  ; 写出来 —— 也就是本 bug 的原始形态。
+  ;
+  ; v3.6.6 (2026-10-29)：告诉脚本要校验哪个目录。杀完之后脚本会用「独占打开」
+  ; 证明 $INSTDIR\alpha-file-manager.exe 已经解锁 —— 这正是 Tauri 随后那次
+  ; Restart Manager 检查想要确认的东西。先证明，就能让那一步直接通过。
+  ; v0.6.0 (2026-11-10): disable the legacy Scheduled Task BEFORE any process is
+  ; killed. That task was registered with -RestartCount 3 -RestartInterval 1min
+  ; (extensions/kizemo.focus-sync/installer/register-scheduled-task.ps1), so
+  ; killing the sidecar while the task is still enabled makes Task Scheduler
+  ; respawn it about a minute later. The respawned instance holds the canonical
+  ; sidecar binary open, the STAGE 7 delete then fails, and the installer jumps
+  ; to stage9_skip -- leaving the legacy task registered for good.
+  ;
+  ; v0.5.11 (2026-10-05): the original spelling was
+  ;   schtasks /Change /TN "\KizemoFocusSync" /DISABLE 2>nul
+  ; and it never worked: nsExec talks to CreateProcess directly, with no
+  ; cmd.exe in between, so "2>nul" was handed to schtasks as a literal
+  ; argument (real-machine install on 2026-10-13: "invalid parameter -2>nul")
+  ; and the task was never disabled. The PowerShell cmdlet also expresses
+  ; "task does not exist, never mind" via -ErrorAction SilentlyContinue.
+  ; v0.6.1 (2026-11-10): the PowerShell cmdlet form did not take effect
+  ; inside the installer -- a real-machine 3.13.5 install left the task
+  ; registered and the installer printed nothing, although the identical
+  ; command removes it from a normal shell. schtasks.exe is a native
+  ; binary, so it does not depend on the ScheduledTasks module being
+  ; loadable in the installer context. nsExec talks to CreateProcess
+  ; directly: there is no cmd.exe, so there is no redirection either.
+  nsExec::ExecToLog 'schtasks /Change /TN KizemoFocusSync /DISABLE'
   Pop $0
-  nsExec::ExecToLog 'taskkill /F /IM SigmaFileManager.exe /T'
-  Pop $0
-  nsExec::ExecToLog 'taskkill /F /IM "Sigma File Manager.exe" /T'
-  Pop $0
-  nsExec::ExecToLog 'taskkill /F /IM SigmaFileManagerHelper.exe /T'
-  Pop $0
-  nsExec::ExecToLog 'taskkill /F /IM SigmaFileManagerRenderer.exe /T'
-  Pop $0
-  nsExec::ExecToLog 'taskkill /F /IM "Sigma File Manager Renderer.exe" /T'
-  Pop $0
-  nsExec::ExecToLog 'taskkill /F /IM msedgewebview2.exe /T'
-  Pop $0
-  nsExec::ExecToLog 'taskkill /F /IM crashpad_handler.exe /T'
-  Pop $0
-  ; Also any msiexec / WerFault / TiWorker that might be holding files.
-  nsExec::ExecToLog 'taskkill /F /IM TiWorker.exe /T 2>nul'
-  Pop $0
-  nsExec::ExecToLog 'taskkill /F /IM WerFault.exe /T 2>nul'
-  Pop $0
-  nsExec::ExecToLog 'taskkill /F /IM msiexec.exe /T 2>nul'
-  Pop $0
+  ${If} $0 != "0"
+    DetailPrint "==> NOTE: schtasks /Change /DISABLE returned $0 (the task may be absent)."
+  ${EndIf}
+
+  StrCpy $AlphaKillInstDir "$INSTDIR"
+  DetailPrint "==> [PREINSTALL HOOK] Terminating Alpha/Sigma FM and helpers (PID-targeted; installer subtree protected) ..."
+  Call AlphaTerminateAppProcesses
   ${If} $0 == "0"
-    DetailPrint "==> Sigma FM was running; terminated (taskkill exit 0)."
-  ${ElseIf} $0 == "128"
-    DetailPrint "==> No Sigma FM process found (taskkill exit 128 = no match)."
+    DetailPrint "==> kill-app-tree.ps1 completed; installer survived."
+  ${ElseIf} $0 == "3"
+    DetailPrint "==> WARNING: the application binary is still in use after the kill."
+    DetailPrint "    The Restart Manager check that follows may ask the user to close it."
   ${Else}
-    DetailPrint "==> taskkill returned $0 (continuing)."
+    DetailPrint "==> kill-app-tree.ps1 returned $0 (continuing)."
   ${EndIf}
 
   ; ---------------------------------------------------------------------
@@ -94,24 +634,26 @@ Var RESOLVEDAPPDATA
   ; Also disable the Scheduled Task so it doesn't immediately respawn
   ; spike.exe before our file writes complete.
   ; ---------------------------------------------------------------------
-  DetailPrint "==> [PREINSTALL HOOK] Killing any existing focus-sync sidecar (spike.exe) ..."
-  nsExec::ExecToLog 'taskkill /F /IM spike.exe /T'
-  Pop $0
-  ${If} $0 == "0"
-    DetailPrint "==> spike.exe was running; terminated (taskkill exit 0)."
-  ${ElseIf} $0 == "128"
-    DetailPrint "==> No spike.exe process found (taskkill exit 128 = no match)."
-  ${Else}
-    DetailPrint "==> taskkill returned $0 (continuing)."
-  ${EndIf}
-  ; Also try the legacy alias name in case an older sidecar still uses it.
-  nsExec::ExecToLog 'taskkill /F /IM focus-sync-sidecar.exe /T'
-  Pop $0
+  ; spike.exe / focus-sync-sidecar.exe 已经在上面那次调用里一并处理了：
+  ; kill-app-tree.ps1 的 HelperImages 默认就包含这两个名字，而且同样受
+  ; 「保护安装器自身子树」的约束保护 —— 它们若恰好是安装器的后代，也不会
+  ; 被误杀。原来这里是两条 taskkill /T，同样有杀到安装器的风险。
   ; Disable the Scheduled Task so it doesn't auto-respawn the sidecar
   ; during the brief window between kill and file overwrite.
-  nsExec::ExecToLog 'schtasks /Change /TN "\KizemoFocusSync" /DISABLE 2>nul'
-  Pop $0
-  ; Brief settle delay so the process can release any open handles.
+  ;
+  ; v0.5.11: 原来这里是 `schtasks /Change /TN "\KizemoFocusSync" /DISABLE 2>nul`，
+  ; 2026-10-13 真机安装时报错：
+  ;     错误: 无效参数/选项 "-2>null。
+  ;     键入 "SCHTASKS /CHANGE /?" 以了解用法。
+  ; 原因是 nsExec 直接走 CreateProcess，**中间没有 cmd.exe**，`2>nul` 于是被当成
+  ; 一个字面参数递给 schtasks，重定向压根没发生，计划任务也没有被禁用。
+  ;
+  ; 改用 PowerShell cmdlet：Disable-ScheduledTask 本身就是干这件事的，
+  ; 而且 -ErrorAction SilentlyContinue 天然表达「任务不存在就算了」。
+  ; The Disable-ScheduledTask call moved UP (right before the kill), so the
+  ; task cannot respawn the sidecar between "kill" and "overwrite the files".
+  ; What is left here is only the settle delay, so the killed processes have
+  ; released their open handles on the sidecar binary.
   Sleep 1500
 
   ; ---------------------------------------------------------------------
@@ -130,12 +672,49 @@ Var RESOLVEDAPPDATA
   ; cases Tauri misses (legacy makensis installs, FS-only installs).
   ; ---------------------------------------------------------------------
   DetailPrint "==> [PREINSTALL HOOK START] $INSTDIR (before detection) = $INSTDIR"
+  ; ---------------------------------------------------------------------
+  ; v2.2.0-beta (2026-10-10): every branch below only produces a CANDIDATE.
+  ; AlphaNormalizeInstDir is the only thing allowed to turn a candidate into
+  ; $INSTDIR. The old code assigned the raw registry string directly, which
+  ; silently corrupted the drive colon — see the function's comment for the
+  ; full chain (broken shortcuts / disabled Next / dead "Run" checkbox).
+  ; ---------------------------------------------------------------------
   StrCpy $0 ""
 
-  ; 1. Tauri registry key (perMachine install via current installer)
-  ReadRegStr $0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\com.sigma-file-manager.app_is1" "InstallLocation"
+  ; 0a. Tauri-native record. The template writes this UNQUOTED
+  ;     ("Save $INSTDIR in registry for future installations") and Tauri's
+  ;     own RestorePreviousInstallLocation reads it back, so it is the
+  ;     authoritative source for any install made by this or a later version.
+  ReadRegStr $0 HKLM "${MANUPRODUCTKEY}" ""
   ${If} $0 == ""
-    ReadRegStr $0 HKLM "SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\com.sigma-file-manager.app_is1" "InstallLocation"
+    ReadRegStr $0 HKLM "WOW6432Node\${MANUPRODUCTKEY}" ""
+  ${EndIf}
+
+  ; 0b. Uninstall record written by this installer's template — QUOTED, so it
+  ;     must go through AlphaNormalizeInstDir.
+  ;     v2.2.0-alpha: the P4 rename also changed the NSIS uninstall-record key
+  ;     from the identifier-based "com.sigma-file-manager.app_is1" to the
+  ;     productName-based "Alpha File Manager". Detection then only read the
+  ;     OLD name, so it missed a live install and let a reinstall fall through
+  ;     to the default C:\Program Files — leaving the user's previous folder
+  ;     (e.g. D:\) behind as an orphan directory nothing ever cleans up.
+  ;     Check the current name FIRST, then fall back to the legacy ones.
+  ${If} $0 == ""
+    ReadRegStr $0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}" "InstallLocation"
+  ${EndIf}
+  ${If} $0 == ""
+    ReadRegStr $0 HKLM "SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}" "InstallLocation"
+  ${EndIf}
+  ${If} $0 == ""
+    ReadRegStr $0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}_is1" "InstallLocation"
+  ${EndIf}
+
+  ; 1. Identifier-based record left by pre-rename builds of this fork
+  ${If} $0 == ""
+    ReadRegStr $0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\${BUNDLEID}_is1" "InstallLocation"
+  ${EndIf}
+  ${If} $0 == ""
+    ReadRegStr $0 HKLM "SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\${BUNDLEID}_is1" "InstallLocation"
   ${EndIf}
 
   ; 2. Legacy makensis registry key (upstream AppName)
@@ -156,17 +735,96 @@ Var RESOLVEDAPPDATA
   ${EndIf}
 
   ${If} $0 != ""
-    DetailPrint "==> [PREINSTALL HOOK] Found existing Sigma FM at: $0"
-    DetailPrint "    Reusing InstallDir (smart-upgrade)."
-    StrCpy $INSTDIR "$0"
+    ; Move the raw candidate into $1 (unquoted on purpose: $0 still carries
+    ; Tauri's literal quote characters, and StrCpy strips one quote layer,
+    ; which is exactly what we want before normalize() sees it).
+    StrCpy $1 $0
+    DetailPrint "==> [PREINSTALL HOOK] Existing-install candidate: $1"
+    Call AlphaNormalizeInstDir
+    ${If} $0 == "ok"
+      DetailPrint "==> [PREINSTALL HOOK] Reusing InstallDir (smart-upgrade): $1"
+      ; Safe to quote here: AlphaNormalizeInstDir guarantees $1 contains no
+      ; quote characters, so this cannot re-create the nested-quote bug.
+      StrCpy $INSTDIR "$1"
+      ; ---------------------------------------------------------------
+      ; Re-issue SetOutPath. The generated installer.nsi does
+      ;     Section Install
+      ;       SetOutPath $INSTDIR
+      ;       !insertmacro NSIS_HOOK_PREINSTALL     <-- we change $INSTDIR HERE
+      ;       ...
+      ;       File "${MAINBINARYSRCPATH}"           <-- writes to $OUTDIR
+      ; so $OUTDIR was frozen from the PRE-hook value. On a machine whose
+      ; record was still corrupted, that value is a drive-relative path
+      ; ("D\Program Files\..."), NSIS resolves it against the drive's current
+      ; directory, and the main executable is written somewhere else (or not
+      ; at all) while registry keys and shortcuts -- which use $INSTDIR
+      ; explicitly -- all look perfectly correct.
+      ; Measured on this machine: the very first install after this fix ran
+      ; left the 2.2.0 exe in place (silent no-op), and the next run, by which
+      ; time the registry had been repaired, wrote 2.2.1 correctly. Without
+      ; this line the failure only affects the FIRST upgrade on a corrupted
+      ; install -- i.e. exactly the users who need the upgrade most.
+      ; ---------------------------------------------------------------
+      SetOutPath "$INSTDIR"
+    ${Else}
+      DetailPrint "==> [PREINSTALL HOOK] Candidate is not an absolute drive path after normalize; ignored."
+      DetailPrint "==> [PREINSTALL HOOK] Keeping built-in default: $INSTDIR"
+    ${EndIf}
   ${Else}
-    DetailPrint "==> [PREINSTALL HOOK] No existing Sigma FM install detected via hook; using default path ($INSTDIR)."
+    DetailPrint "==> [PREINSTALL HOOK] No existing Alpha FM / Sigma FM install detected; using default path ($INSTDIR)."
   ${EndIf}
   DetailPrint "==> [PREINSTALL HOOK END] $INSTDIR (after detection) = $INSTDIR"
+
+  ; ---------------------------------------------------------------------
+  ; 2026-10-22: 记录「既有安装」的版本与位置。
+  ;
+  ; 有了这两项，安装日志才能回答「这次是不是同版本重装」——
+  ; 也就是「我明明装的就是同一个版本，为什么像是又装了一遍」这个问题。
+  ; 读的是同一个 Uninstall 键的 DisplayVersion / InstallLocation。
+  ; ---------------------------------------------------------------------
+  StrCpy $AlphaDetectedVersion ""
+  StrCpy $AlphaDetectedLocation ""
+
+  ReadRegStr $2 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}" "DisplayVersion"
+  ${If} $2 == ""
+    ReadRegStr $2 HKLM "SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}" "DisplayVersion"
+  ${EndIf}
+
+  ${If} $2 != ""
+    StrCpy $AlphaDetectedVersion $2
+    ReadRegStr $2 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}" "InstallLocation"
+    ${If} $2 == ""
+      ReadRegStr $2 HKLM "SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}" "InstallLocation"
+    ${EndIf}
+    StrCpy $AlphaDetectedLocation $2
+    DetailPrint "==> [PREINSTALL HOOK] Existing installation detected: version=$AlphaDetectedVersion location=$AlphaDetectedLocation"
+  ${Else}
+    DetailPrint "==> [PREINSTALL HOOK] No existing installation record found."
+  ${EndIf}
+
+  ; 落盘本次安装的第一条记录（此时 $INSTDIR 已定，既有版本也已知）。
+  StrCpy $AlphaLogPhase "PREINSTALL"
+  StrCpy $AlphaLogInstDir "$INSTDIR"
+  Call AlphaLogInstall
 !macroend
 
 !macro NSIS_HOOK_POSTINSTALL
   DetailPrint "==> [POSTINSTALL HOOK START] Deploying kizemo.focus-sync v0.3.0 (Scheduled Task mode) ..."
+
+  ; ---------------------------------------------------------------------
+  ; v2.2.0-beta (2026-10-10): repair the uninstall record's InstallLocation.
+  ; Tauri's template writes it as a QUOTED string
+  ;     WriteRegStr SHCTX "${UNINSTKEY}" "InstallLocation" "$\"$INSTDIR$\""
+  ; Our PREINSTALL used to read that back raw, and the quotes silently ate
+  ; the drive colon (see AlphaNormalizeInstDir). Rewriting it unquoted:
+  ;   * makes Add/Remove Programs display a real path instead of a quoted one
+  ;   * removes the trap for every future reader, including Tauri's own
+  ;     template on the next upgrade
+  ; NSIS uninstallers do NOT read this value (they embed $INSTDIR in the
+  ; uninstaller itself), so this is safe to rewrite.
+  ; ---------------------------------------------------------------------
+  WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}" "InstallLocation" "$INSTDIR"
+  DetailPrint "==> [POSTINSTALL HOOK] Rewrote InstallLocation unquoted: $INSTDIR"
 
   ; ---------------------------------------------------------------------
   ; STAGE 0 (round 19d): Resolve the ORIGINAL USER's %APPDATA% before any
@@ -233,6 +891,30 @@ Var RESOLVEDAPPDATA
   ; The /IM filter requires the exact exe name; the PS Where-Object filters
   ; by Path to confirm it's our binary before killing.
   ; ---------------------------------------------------------------------
+  ; v0.6.0 (2026-11-10): the legacy Scheduled Task must be GONE before we touch
+  ; the sidecar binary, not merely disabled. STAGE 7 can bail out with
+  ; "Goto stage9_skip" (missing binary / locked file / failed copy) and every
+  ; one of those jumps used to skip the task removal as well -- the task then
+  ; stayed registered and kept respawning a --service sidecar that fights the
+  ; new one for port 37421. Removing it here makes the cleanup independent of
+  ; whether the sidecar deployment later succeeds.
+  ; Both calls are idempotent when the task does not exist.
+  DetailPrint "==> Stage 0.5a: Removing the legacy 'KizemoFocusSync' Scheduled Task..."
+  ; v0.6.1 (2026-11-10): the inline `powershell -NoProfile -Command "..."`
+  ; form did not remove the task inside the installer (real-machine 3.13.5
+  ; install: the task survived, the installer printed nothing), although
+  ; the identical command removes it from a normal shell. The cleanup now
+  ; runs from a bundled helper invoked with `powershell -File` -- the form
+  ; that is known to work inside the installer (STAGE 6 uses it for
+  ; register.ps1). The helper uses schtasks.exe (native) and appends to
+  ; %TEMP%\afm-legacy-task-cleanup.log as real-machine evidence.
+  nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\tools\remove-legacy-focus-task.ps1"'
+  Pop $0
+  ${If} $0 != "0"
+    DetailPrint "==> WARNING: remove-legacy-focus-task.ps1 exited with code $0"
+    DetailPrint "    See %TEMP%\afm-legacy-task-cleanup.log for the details."
+  ${EndIf}
+
   DetailPrint "==> Stage 0.5: Killing legacy v0.2.0 spawn-mode sidecar (precise path filter)..."
   ; "$$_" is required: NSIS expands a bare "$_" as an (empty) variable, which
   ; turns this filter into the invalid "Where-Object { .Path -like ... }". The
@@ -240,16 +922,25 @@ Var RESOLVEDAPPDATA
   ; sidecar survived, kept port 37421, and the new Scheduled Task failed fast.
   ; makensis reported this as "warning 6000", but the Tauri bundler swallows
   ; makensis warnings, so it was invisible in the build log.
-  nsExec::ExecToLog 'powershell -NoProfile -Command "Get-Process focus-sync-sidecar,spike -ErrorAction SilentlyContinue | Where-Object { $$_.Path -like ''*\Sigma File Manager\tools\focus-sync-sidecar.exe'' -or $$_.Path -like ''*\kizemo.focus-sync\bin\focus-sync-sidecar.exe'' } | Stop-Process -Force"'
+  ;
+  ; v0.6.0 (2026-11-10): the kill now waits for the process to be really gone.
+  ; Stop-Process only requests the termination; the sidecar keeps a file handle
+  ; on its own binary until the process image is unmapped, so a Delete that runs
+  ; a moment later can still hit "file is open by another process".
+  nsExec::ExecToLog 'powershell -NoProfile -Command "$$p = Get-Process focus-sync-sidecar,spike -ErrorAction SilentlyContinue | Where-Object { $$_.Path -like ''*\Alpha File Manager\tools\focus-sync-sidecar.exe'' -or $$_.Path -like ''*\Sigma File Manager\tools\focus-sync-sidecar.exe'' -or $$_.Path -like ''*\kizemo.focus-sync\bin\focus-sync-sidecar.exe'' }; if ($$p) { $$p | Stop-Process -Force; $$p | Wait-Process -Timeout 5 -ErrorAction SilentlyContinue }"'
   Pop $0
   ; Non-zero exit is fine (no process to kill is success-equivalent)
 
-  ; v0.5.1 (2026-10-05): Also kill any Scheduled-Task-launched sidecar. The
-  ; binary at $INSTDIR\tools\focus-sync-sidecar.exe is launched by the
-  ; task as `spike.exe` (Cargo.toml [[bin]] name = "spike"). PREINSTALL
-  ; above also kills it; this is belt-and-suspenders for the install case.
-  nsExec::ExecToLog 'taskkill /F /IM spike.exe /T 2>nul'
-  Pop $0
+  ; v0.5.1 (2026-10-05) 在这里还有一条 `taskkill /F /IM spike.exe /T 2>nul`，
+  ; v0.5.11 删掉，两个原因：
+  ;   1. 镜像名是错的。计划任务启动的是 focus-sync-sidecar.exe（注册时写死了这个
+  ;      路径），spike.exe 只是 Cargo 的 bin 名，装完之后根本不存在这个名字。
+  ;   2. `2>nul` 在 nsExec 里不成立 —— nsExec 直接走 CreateProcess，中间没有
+  ;      cmd.exe，重定向会被当字面参数递给 taskkill。同样的错误在 PREINSTALL 的
+  ;      `schtasks ... 2>nul` 上已经被真机抓到过一次。
+  ; 现在 PREINSTALL 的 kill-app-tree.ps1（HelperImages 含 focus-sync-sidecar.exe
+  ; 与 spike.exe）已经覆盖了这个场景，并且计划任务已在 PREINSTALL 被真正禁用，
+  ; 不会在这 30 秒里被拉回来 —— 所以这行既无效又多余。
 
   ; ---------------------------------------------------------------------
   ; STAGE 1-3 (unchanged from v0.2.0): Copy extension files to APPDATA.
@@ -319,12 +1010,35 @@ Var RESOLVEDAPPDATA
   ${EndIf}
 
   CreateDirectory "$RESOLVEDAPPDATA\com.sigma-file-manager.app\extensions\kizemo.focus-sync\bin\focus-sync-sidecar"
+  ;
+  ; v0.5.11: 拷贝之前先把目标删掉，并且**确认真的删掉了**。
+  ;
+  ; 原来这里是直接 CopyFiles，然后只用一个 ${FileExists} 判断成功。但 FileExists
+  ; 只回答「这个路径下有没有文件」，不回答「刚才那次拷贝成没成」。目标位置上一版
+  ; 的旧二进制还在，拷贝又因为 sidecar 进程占着文件而失败时，FileExists 照样返回
+  ; true，于是打印 "Sidecar deployed to canonical path." —— 一次完美的假成功。
+  ;
+  ; 2026-10-13 真机就是这个结果：安装显示成功、钩子打印部署成功、新二进制还在
+  ; $INSTDIR\tools 里等着被 :770 那行 Delete 删掉、用户机器上留下的是 0.5.8，
+  ; 而 0.5.10 从这个世界上消失了。静默保留陈旧二进制，正是要消灭的失败模式。
+  ;
+  ; 删不掉就是真问题（sidecar 还活着且计划任务会拉起它），必须喊出来。
+  ClearErrors
+  Delete "$RESOLVEDAPPDATA\com.sigma-file-manager.app\extensions\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe"
+  ${If} ${FileExists} "$RESOLVEDAPPDATA\com.sigma-file-manager.app\extensions\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe"
+    DetailPrint "==> ERROR: stale sidecar binary is still locked and could not be removed."
+    DetailPrint "    A running focus-sync sidecar process is holding it open. The legacy"
+    DetailPrint "    Scheduled Task has already been removed at this point, so this is a"
+    DetailPrint "    sidecar owned by a running Alpha. Close Alpha and run this installer"
+    DetailPrint "    again; otherwise the OLD sidecar would keep being used."
+    Goto stage9_skip
+  ${EndIf}
   CopyFiles "$INSTDIR\tools\focus-sync-sidecar.exe" "$RESOLVEDAPPDATA\com.sigma-file-manager.app\extensions\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe"
   ${IfNot} ${FileExists} "$RESOLVEDAPPDATA\com.sigma-file-manager.app\extensions\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe"
     DetailPrint "==> ERROR: failed to copy sidecar to the canonical path."
     Goto stage9_skip
   ${EndIf}
-  DetailPrint "    Sidecar deployed to canonical path."
+  DetailPrint "    Sidecar deployed to canonical path (stale copy removed first)."
 
   ; ---------------------------------------------------------------------
   ; STAGE 8 (v0.3.0 focus-sync): Write registry key SidecarPath.
@@ -342,26 +1056,80 @@ Var RESOLVEDAPPDATA
   ; We invoke the PS via $INSTDIR\tools\register-scheduled-task.ps1 which
   ; is bundled into the installer by tauri.conf.json bundle.resources.
   ; ---------------------------------------------------------------------
-  DetailPrint "==> Stage 9: Registering Scheduled Task 'KizemoFocusSync'..."
-  nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\tools\register-scheduled-task.ps1" -SidecarPath "$RESOLVEDAPPDATA\com.sigma-file-manager.app\extensions\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe"'
+  ; ---------------------------------------------------------------------
+  ; v0.6.0 (2026-11-10): the sidecar is no longer a Scheduled Task.
+  ;
+  ; The lifecycle owner is Alpha itself: src/focus_sync_sidecar.rs spawns
+  ; tools\focus-sync-sidecar.exe during setup_handler, which makes the AFM
+  ; process its parent, and the sidecar's parent watchdog exits as soon as
+  ; that parent goes away (the Rust side also kills it on RunEvent::Exit).
+  ; A leftover Scheduled Task would
+  ; additionally outlive AFM and race the new instance for ports 37421 /
+  ; 42721, so every install -- new or upgrade -- now REMOVES the task.
+  ;
+  ; The removal itself happens in STAGE 0.5a, BEFORE the sidecar binary is
+  ; touched, because every error path of STAGE 7 jumps to stage9_skip and
+  ; would otherwise skip the task removal as well. The two calls below are
+  ; kept as an idempotent safety net; they do nothing when the task is
+  ; already gone.
+  ; ---------------------------------------------------------------------
+  DetailPrint "==> Stage 9: Verifying the legacy 'KizemoFocusSync' Scheduled Task is gone..."
+  ; Idempotent safety net. The removal itself happens in STAGE 0.5a, BEFORE
+  ; the sidecar binary is touched, because every error path of STAGE 7
+  ; jumps to stage9_skip and would otherwise skip the removal as well.
+  nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\tools\remove-legacy-focus-task.ps1"'
   Pop $0
   ${If} $0 != "0"
-    DetailPrint "==> WARNING: register-scheduled-task.ps1 exited with code $0"
-    DetailPrint "    Scheduled Task may not be created. Run manually: schtasks /Create ..."
+    DetailPrint "==> WARNING: remove-legacy-focus-task.ps1 exited with code $0 (see %TEMP%\afm-legacy-task-cleanup.log)"
   ${EndIf}
 
-  ; Drop the duplicate now that the task points at the canonical copy, so a
-  ; later install cannot silently fall back to a stale binary.
-  Delete "$INSTDIR\tools\focus-sync-sidecar.exe"
-  DetailPrint "    Removed the duplicate copy from $INSTDIR\tools\."
+  ; The helper script existed only to serve that task; drop it so a later
+  ; install cannot fall back to a stale copy.
+  ;
+  ; The sidecar binary itself is KEPT: it is now launched by the Alpha main
+  ; process during setup (src/focus_sync_sidecar.rs), so tools\ is where the
+  ; shipped copy lives.
+  Delete "$INSTDIR\tools\register-scheduled-task.ps1"
+  DetailPrint "    Legacy task verified gone; helper script removed."
 
   stage9_skip:
+
+  ; ---------------------------------------------------------------------
+  ; v2.2.0-alpha (2026-10-09): remove the legacy main binary.
+  ; The exe is named from the Cargo package name, which was renamed
+  ; sigma-file-manager.exe -> alpha-file-manager.exe. NSIS only manages the
+  ; files it wrote, so an in-place upgrade would otherwise leave a ~44 MB
+  ; orphan "sigma-file-manager.exe" next to the new one -- two launchers,
+  ; and the stale one would keep resurrecting on any old shortcut.
+  ; Placed AFTER stage9_skip so the Goto above cannot bypass it.
+  ; ---------------------------------------------------------------------
+  ${If} ${FileExists} "$INSTDIR\alpha-file-manager.exe"
+    ${If} ${FileExists} "$INSTDIR\sigma-file-manager.exe"
+      Delete "$INSTDIR\sigma-file-manager.exe"
+      ${If} ${FileExists} "$INSTDIR\sigma-file-manager.exe"
+        DetailPrint "==> WARNING: legacy sigma-file-manager.exe could not be removed."
+      ${Else}
+        DetailPrint "==> Removed legacy sigma-file-manager.exe from $INSTDIR."
+      ${EndIf}
+    ${EndIf}
+  ${EndIf}
 
   DetailPrint "==> [POSTINSTALL HOOK END] Deployed kizemo.focus-sync v0.3.0"
   DetailPrint "    Extension files: $RESOLVEDAPPDATA\com.sigma-file-manager.app\extensions\kizemo.focus-sync\"
   DetailPrint "    Sidecar binary:  $RESOLVEDAPPDATA\com.sigma-file-manager.app\extensions\kizemo.focus-sync\bin\focus-sync-sidecar\focus-sync-sidecar.exe (canonical, per-user)"
   DetailPrint "    Registry:        HKLM\SOFTWARE\kizemo\focus-sync\SidecarPath"
-  DetailPrint "    Scheduled Task:  KizemoFocusSync (AtLogOn, --service mode)"
+  DetailPrint "    Sidecar:         started by the Alpha main process at setup, exits with Alpha (no Scheduled Task)"
+
+  ; ---------------------------------------------------------------------
+  ; 落盘本次安装的第二条记录（安装已完成）。
+  ;
+  ; 注意 AlphaDetectedVersion 仍然是 PREINSTALL 阶段读到的**旧**版本 ——
+  ; 到这一步模板已经把注册表里的 DisplayVersion 改成新版本了，再读就会变成
+  ; 「3.4.0 vs 3.4.0」，同版本重装这个事实就永远看不出来了。
+  ; ---------------------------------------------------------------------
+  StrCpy $AlphaLogPhase "POSTINSTALL"
+  StrCpy $AlphaLogInstDir "$INSTDIR"
+  Call AlphaLogInstall
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
@@ -369,31 +1137,39 @@ Var RESOLVEDAPPDATA
   ; sidecar (`spike.exe`) and disable its Scheduled Task so NSIS can
   ; delete the sidecar binary and remove the Scheduled Task without
   ; "file in use" errors.
-  DetailPrint "==> [PREUNINSTALL HOOK] Killing focus-sync sidecar (spike.exe) ..."
-  nsExec::ExecToLog 'taskkill /F /IM spike.exe /T'
-  Pop $0
-  nsExec::ExecToLog 'taskkill /F /IM focus-sync-sidecar.exe /T'
-  Pop $0
-  ; Disable so it doesn't respawn during file deletion.
-  nsExec::ExecToLog 'schtasks /Change /TN "\KizemoFocusSync" /DISABLE 2>nul'
-  Pop $0
-  ; v0.5.2: also kill any residual Sigma FM processes (if user is uninstalling
-  ; only the extension, Sigma FM might still be running with WebView2 children
-  ; holding extension files). Belt-and-suspenders.
-  nsExec::ExecToLog 'taskkill /F /IM sigma-file-manager.exe /T 2>nul'
-  Pop $0
-  nsExec::ExecToLog 'taskkill /F /IM SigmaFileManager.exe /T 2>nul'
-  Pop $0
-  nsExec::ExecToLog 'taskkill /F /IM "Sigma File Manager.exe" /T 2>nul'
-  Pop $0
-  nsExec::ExecToLog 'taskkill /F /IM SigmaFileManagerHelper.exe /T 2>nul'
-  Pop $0
-  nsExec::ExecToLog 'taskkill /F /IM SigmaFileManagerRenderer.exe /T 2>nul'
-  Pop $0
-  nsExec::ExecToLog 'taskkill /F /IM msedgewebview2.exe /T 2>nul'
-  Pop $0
-  ; Brief settle delay so the process can release any open handles.
-  Sleep 1000
+  ;
+  ; v3.6.6 (2026-10-29)：这一段是 2026-10-29 那次升级安装失败的**直接原因**。
+  ; 旧版只发出 kill 请求就返回；卸载器随后让 Windows Restart Manager 检查
+  ; 「还有没有进程在用 $INSTDIR\alpha-file-manager.exe」，答案还是「有」，
+  ; 于是弹出「程序正在运行！点击确定以终止运行」，RmShutdown 失败后卸载器
+  ; Abort（退出码非 0）→ 上层 setup 判定卸载失败 → 安装失败。
+  ; 现在脚本会等进程真的退出，并用「独占打开」**证明**二进制已经解锁。
+  StrCpy $AlphaKillInstDir "$INSTDIR"
+  DetailPrint "==> [PREUNINSTALL HOOK] Terminating Alpha/Sigma FM, helpers and sidecar (PID-targeted; uninstaller subtree protected) ..."
+  Call un.AlphaTerminateAppProcesses
+  ${If} $0 == "3"
+    DetailPrint "==> WARNING: the application binary is still locked after the kill."
+    DetailPrint "    The Restart Manager check that follows may ask the user to close it."
+  ${ElseIf} $0 != "0"
+    DetailPrint "==> WARNING: kill-app-tree.ps1 returned $0 during uninstall"
+  ${EndIf}
+
+  ; NOTE: 这里原本还有一条
+  ;   taskkill /F /IM msedgewebview2.exe /T 2>nul
+  ; 它被删掉了，理由与 PREINSTALL 里删掉同一条一样 —— /IM 按镜像名全盘杀，
+  ; 会连带干掉本机其他应用（Edge、桌面组件等）持有的 msedgewebview2.exe。
+  ; PREINSTALL 早在 v2.2.0-beta 就因为实测「本机有 6 个别的应用的
+  ; msedgewebview2.exe」把它删了，这里却一直留着，属于两处不一致。
+  ; kill-app-tree.ps1 只清理「目标进程的子树」，其中自然包含它自己的
+  ; WebView2 子进程，既能解锁文件，又不会波及其他应用。
+  ; v3.6.6 (2026-10-29)：原来这里是 `Sleep 1000`（盲等一秒）。删掉了 ——
+  ; 等待现在由 kill-app-tree.ps1 负责，而且等的是「进程真的退出」而不是
+  ; 「睡够一秒」。盲等既不保证句柄已释放，又白白拖慢安装。
+
+  ; 卸载也要留痕：否则「装了几次、卸了几次」永远说不清。
+  StrCpy $AlphaLogPhase "PREUNINSTALL"
+  StrCpy $AlphaLogInstDir "$INSTDIR"
+  Call un.AlphaLogInstall
 !macroend
 
 !macro NSIS_HOOK_POSTUNINSTALL
@@ -454,5 +1230,39 @@ Var RESOLVEDAPPDATA
   DetailPrint "==> Stage 2: Deleting SidecarPath registry key..."
   DeleteRegKey HKLM "SOFTWARE\kizemo\focus-sync"
 
-  DetailPrint "==> [POSTUNINSTALL HOOK END] Cleanup complete (extension, sidecar binary, task, registry)."
+  ; ---------------------------------------------------------------------
+  ; STAGE 3 (v2.2.0-alpha): remove runtime-generated leftovers under $INSTDIR.
+  ;
+  ; NSIS only deletes files recorded in its own install manifest. The
+  ; resolve_user_appdata.ps1 outputs (user_appdata.txt, user_appdata_uninst.txt)
+  ; are produced by PowerShell at install/uninstall time and are never in that
+  ; manifest, so neither they nor the tools\ directory holding them survive an
+  ; uninstall -- the user is left with an orphaned folder and has to remove it
+  ; by hand.
+  ;
+  ; Delete first, then RMDir, and re-probe afterwards: a silent leftover is
+  ; exactly the failure mode this stage exists to prevent, so a still-present
+  ; directory is reported rather than passed over in silence.
+  ; ---------------------------------------------------------------------
+  DetailPrint "==> Stage 3: Removing runtime-generated files under $INSTDIR..."
+  Delete "$INSTDIR\tools\user_appdata.txt"
+  Delete "$INSTDIR\tools\user_appdata_uninst.txt"
+  RMDir /r "$INSTDIR\tools"
+  RMDir "$INSTDIR"
+
+  ${If} ${FileExists} "$INSTDIR\tools\user_appdata.txt"
+    DetailPrint "==> WARNING: $INSTDIR\tools\user_appdata.txt survived (file locked?)."
+  ${ElseIf} ${FileExists} "$INSTDIR\tools"
+    DetailPrint "==> WARNING: $INSTDIR\tools survived (directory locked?)."
+  ${ElseIf} ${FileExists} "$INSTDIR"
+    DetailPrint "==> WARNING: $INSTDIR survived (locked?)."
+  ${Else}
+    DetailPrint "==> $INSTDIR fully removed."
+  ${EndIf}
+
+  DetailPrint "==> [POSTUNINSTALL HOOK END] Cleanup complete (extension, sidecar binary, task, registry, install dir)."
+
+  StrCpy $AlphaLogPhase "POSTUNINSTALL"
+  StrCpy $AlphaLogInstDir "$INSTDIR"
+  Call un.AlphaLogInstall
 !macroend
