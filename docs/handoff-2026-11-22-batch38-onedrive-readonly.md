@@ -5165,3 +5165,78 @@ node .superpowers/sdd/b45/patch-cdp.cjs on     # 取证构建前
 node .superpowers/sdd/b45/patch-cdp.cjs off    # 取证构建后，必须回滚
 git checkout -- src-tauri/tauri.conf.json      # 正典回滚
 ```
+
+---
+
+## 三十四、批次 59 收口：已提交推送 + W-19 真机取证跑通、**判据为负（缺陷确认存在，未修）**
+
+（2026-11-26 下午接 §三十三。本条自带完整背景·目标·进度·计划，新会话不必回翻前文。）
+
+### 三十四·1 背景与本轮目标
+
+3.23.0 交付报告（`.superpowers/sdd/b58/delivery-report-3.23.0.md`）遗留 4 项，用户裁决：**第 1、2 项（语言类：提交 body 用中文、13 个非中英语种 changelog 停在 3.22.0 / W-22）明确不用解决**，后续轮不得自行捡回；只推进第 3 项（旧 SHA 外部引用 404）与第 4 项（W-21 / W-2 / W-18 / W-19 四项技术债）。§三十三 已把第 3 项与 W-21 / W-2 / W-18 的代码层做完，本轮只剩三件事：**门禁 → 提交推送 → W-19 真机取证**，之后重打干净交付包。
+
+### 三十四·2 已完成：提交与推送（工作已保住）
+
+- 提交前复跑门禁 `npm run check`：`Test Files 339 passed (339)` / `Tests 3641 passed (3641)` / `EXIT=0`，日志 `.superpowers/sdd/b59/gate.txt`。
+- **HEAD = `84055071f66e19a88df4a7d254a02bf8ed5202e0`**，暂存 14 文件、**+1845 / -87**；`git push origin HEAD` → `29df22db..84055071  HEAD -> main`，`PUSH_EXIT=0`。
+- 提交清单：`docs/handoff-2026-11-22-batch38-onedrive-readonly.md`、`docs/open-items-2026-11-24.md`、`docs/winget/README.md`、`docs/winget/manifests/k/kizemo/AlphaFileManager/3.23.0/`（4 个新 yaml）、`src-tauri/src/extensions/http.rs`、`src-tauri/src/global_search.rs`、`src-tauri/src/global_search/commands.rs`、`src-tauri/src/global_search/query.rs`、`src-tauri/src/global_search/substring_scan.rs`（新 501 行）、`src-tauri/src/mcp/tools.rs`、`src-tauri/src/process_runner.rs`。提交信息存 `.superpowers/sdd/b59/commit-msg.txt`（英文正文，记录 W-18 / W-21 / W-2 / docs 与门禁数字）。
+- `tauri.conf.json` 的 CDP 注入**没有进 commit**（提交后 `git status --porcelain` 复核该文件无输出）。
+
+### 三十四·3 W-19：CDP 取证通道**已打通**，三轮才跑对
+
+本机无 `computer_*` 工具 ⇒ 唯一路线是把 `additionalBrowserArgs`（`--remote-debugging-port=45777` 与 `--remote-allow-origins` 通配）baked 进 `src-tauri/tauri.conf.json` 后打包（`node .superpowers/sdd/b45/patch-cdp.cjs on`）；**环境变量 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 路线已死**。取证包烘焙成功：`src-tauri\target\release\alpha-file-manager.exe`（85,957,120 B / 12:40:43）对 `check-cdp-flag.ps1` 报 `CDP_FLAG_PRESENT=True`，并能在隔离桌面（`.superpowers/sdd/b56/b56-launch-cdp-sandbox.ps1`，CreateDesktop，不抢操作员焦点）里起出可 attach 的 page target。
+
+三轮取证的教训：
+
+- 一轮 `b59/w19-forensic.ps1`：CDP 就绪（`READY_PAGES_1`，pid 204608），但 booted 判据写成「DOM 节点数 > 300」，实测 1786 个节点其实是空壳 / SVG sprite，判据全 false，截图 `arrow-00-initial.png` 全黑中间一个转圈。
+- 二轮 `b59/w19-forensic2.ps1` + `b59/w19-boot-probe.cjs`：同样的 booted 误判，且 `Runtime.enable` 晚于 boot ⇒ **启动期 console 全丢**。
+- 三轮 `b59/w19-forensic3.ps1` + `b59/w19-boot-probe3.cjs`（**先 `Runtime.enable` 与 `Log.enable`，再 `Page.reload`**）跑通：`P3_READY=true`、`CONSOLE_LINES=68`、`P3_EXCEPTIONS=0`。判据脚本 `b59/cdp-arrow.cjs`（12,681 B）。
+
+### 三十四·4 启动期 console 证据（`.superpowers/sdd/b59/w19-boot3.log`）
+
+```
+background:globalSearch.initOnLaunch  start / end (126ms)
+background:extensions.init            start / end (1.94s)
+background:terminals.init             start / end (362ms)
+[dirsize] watcher attached
+[focus-sync] v0.6.2 attached: file input -> overlay
+PUSH raw="E:/办公文件" matched=undefined status=404
+```
+
+零 error、零 exception ⇒ **面板不是崩了或没初始化**。⚠️ 最后一条是**候选新发现**：从导航器往 router push 一个绝对文件路径时 `matched=undefined status=404`，落到 404 兜底路由。本轮未排查。
+
+### 三十四·5 W-19 最终判据：**未通过**（`b59/w19-arrow3.log`、`b59/cdp-arrow-out3/cdp-arrow-report.json`）
+
+| 阶段 | 实测 |
+| --- | --- |
+| 开面板 + 搜索 | `panelOpen=true`、`resultsRendered=true`、`rows=39`、`hasContent=true`，`inputValue` 为 `Midjourney` 与 `50` |
+| 点击结果行 | `focusedIndex="0"`，`activeElement.className` 为 `sigma-ui-context-menu-trigger global-search-result-list` |
+| 命中内容 | 云盘索引结果 `sfm://remote/0f0696…/我的资源/AI/AI做视频教程大合集（完结）/赠送_20000+AI绘画关键词`、`Midjourney 参数.xlsx` |
+| ArrowDown 四次 + ArrowUp 两次 | **五次按键全部 `focusedIndex=null`**；`activeElement` 变成 **`file-browser-list-view__entry file-browser-list-view__entry--dir`**（第四次是 `--hidden`） |
+| 判据 | `V_focusedRowAlwaysPresent=false`、`V_focusedNameChangedEveryPress=false`、`V_focusMovedDownStrictly=false`、`V_focusMovedByExactlyOneRow=false`、`focusMoved=false` |
+| 截图有效性 | `V_pixelsNonBlank=6 / V_shotsTaken=6`（单张约 855KB，非空白 ⇒ 判据可信） |
+
+**结论**：缺陷真实存在，且比原描述更严重——不是「每次移动不止一行」，而是**第一次按方向键焦点就从搜索结果列表整体逃逸到背景文件浏览器列表**；面板并未关闭（rows 仍 39、输入框内容仍在），只是搜索列表自己的 `focusedPath` 变成 `null`。附带收益：命中集是云盘结果 ⇒ 这同时构成 **W-18 云盘索引检索的一条真机侧证**。
+
+### 三十四·6 根因指针（**只读定位，未改动一行**）
+
+- `src/modules/global-search/components/global-search-result-list.vue`：`:255 handleListKeydown`、`:264 ArrowDown`、`:267 ArrowUp`、`:328 tabindex="0"`、`:329 @keydown="handleListKeydown"`、`:46 focusedPath prop`、`:112 isFocused`、`:299 watch focusedPath`。
+- `src/modules/global-search/global-search-view.vue`：`:197 focusedPath ref`、`:217 / :229 / :252 / :264 赋值`、`:280 currentIndex`、`:302`、`:318 置 null`、`:381 entries[0]`、`:517 @keydown.down.prevent="focusFirstResult"`（**只绑在搜索输入框上**）、`:518 enter`、`:759 :focused-path`。
+- 观察：容器 `div` 拿到 DOM 焦点后，方向键没有被 `handleListKeydown` 消化（`focusedPath` 反被置 `null`），事件逃逸 / 冒泡到背景文件浏览器的按键处理，焦点落到 `file-browser-list-view__entry`。修法方向（未验证）：容器 keydown 内 `preventDefault` 加 `stopPropagation` 并显式维护 `focusedPath` 的相邻行；或把 `focusFirstResult` 那套键位从输入框迁到列表容器。**这需要改代码 + 加测试 + 再一轮构建取证，约一小时以上。**
+
+### 三十四·7 本轮新增工具坑（务必勿再犯）
+
+1. **NSIS 安装包内搜 `remote-debugging-port` 是假阴性**：对含 CDP 的取证安装包 `Alpha File Manager_3.23.0_x64-setup.exe`（46,187,357 B）跑同一脚长得 `CDP_FLAG_PRESENT=False`，而解包后的 exe 是 `True`（payload 被压缩）。⇒ **干净交付判据只能跑在 `target\release\alpha-file-manager.exe` 上，跑在 setup.exe 上一律无效**（带 CDP 的包也能蒙混过关）。
+2. `Runtime.enable` 与 `Log.enable` 必须在 `Page.reload` **之前**，否则启动期 console 全丢（一轮、二轮因此瞎了）。
+3. 「应用已 boot」不能看 DOM 节点总数（空壳也有 1786 个）⇒ 看 `inputs` 或 `rows` 数量大于 0。
+4. `Set-Location $repo` 后写相对路径日志会被本地硬安全策略拒绝（"write/delete targets cannot be verified safely after a command working directory change"）⇒ 把命令取齐写成 `.ps1` 脚本文件、用 `pwsh -NoProfile -File` 执行（见 `b59/run-gate.ps1`）；git 操作用 `git -C $repo` 规避。
+5. PowerShell 内联 here-string 追加长中文段落不可靠（终止符易被内容吃掉）⇒ 台账追加改用编辑工具直接改文件。
+
+### 三十四·8 下一步计划（按顺序）
+
+1. **重打干净交付包**：`src-tauri/tauri.conf.json` 已 `git checkout --` 回滚干净，但盘上现有 exe 与安装包仍是**含 CDP 的取证版，不可交付** ⇒ 跑 `npm run tauri:build`（30–40 分钟，须早启动丢后台），产物判据 `check-cdp-flag.ps1 -Exe <target\release 的 exe>` 要求 `CDP_FLAG_PRESENT=False`；打包前杀 `alpha-file-manager.exe`，且不得与取证并发。
+2. **W-19 修复要不要本轮做由用户定**：修则多一轮代码 + 构建 + 取证（见·6）；不修则作为新工作项挂账，先交付干净包。
+3. 三十四·4 的 `status=404` 路由兜底线索值得单独开项排查。
+4. 外部人工环节本会话推不动：winget 版主审批（催审评论 7182189978 已发）、HelloGitHub 登录态收录。
+5. 提醒：每次取证脚本的 `pre-stop` 与 `teardown` 都会杀 `alpha-file-manager.exe`，操作员自己开着的实例可能已被关。
