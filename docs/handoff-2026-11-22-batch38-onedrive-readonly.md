@@ -5929,3 +5929,153 @@ W-18「云盘目录作用域递归检索」的**后端**在批次 59 已做成�
 - `bash` 里把 `Set-Location` 与 `> 文件` / `Out-File` 混用会被安全策略拦（`write/delete targets cannot be verified safely after a command working directory change`）⇒ 要么只用绝对路径且不改 cwd，要么 `npm --prefix <root>`。
 - `git ls-remote` 首次报 `Operation too slow. Less than 1000 bytes/sec transferred the last 60 seconds` 是瞬时速率触发，加 `-c http.lowSpeedLimit=0 -c http.lowSpeedTime=600` 重试即恢复，不必重启隧道（隧道进程一直活着、端口在听）。
 - 连续三次 `task_output` 同一后台任务会触发「停止轮询」提醒；`| Select-Object -Last N` 会缓冲全部输出，后台任务完成前看不到增量。
+
+## 四十三、批次 67：`hideStatusBar` 掩盖递归检索失败提示（批次 65 的修复对这类 pane 失效）
+
+**背景**：批次 65（W-18）把「递归检索不可用」的后端原文显示在状态栏里，解决的是「静默降级成只搜当前层」。但 `file-browser.vue` 当时是用 `v-if="!hideStatusBar"` 一刀切掉整条状态栏的 —— 一旦某个 pane 传了 `hideStatusBar`，提示跟着一起消失，等于回到静默降级。批次 66 的「⑨ 未做」把它列为待收尾项，本轮收掉。
+
+**落点核实（改前）**：`hideStatusBar` 全仓前端只有 2 处命中 —— `file-browser.vue:54` 的 prop 声明与 `:447` 的 `v-if`；`hide-status-bar` 在 `src` 里零命中 ⇒ **没有任何父组件给它传值**。也就是说它是组件对外暴露的能力，当前调用链打不到。因此本项不需要真机验收（构造不出界面路径），也不为它单独打 `tauri build`；证据档位与批次 65 相同（DOM 级挂载）。
+
+**改法（2 个源文件 + 1 个测试文件，共 3 处编辑）**：
+1. `file-browser-status-bar.vue`：新增 prop `hiddenByUser?: boolean`，默认 `false`；根节点加 `v-if="!hiddenByUser || recursiveSearchError"`。
+2. `file-browser.vue`：`<FileBrowserStatusBar>` 上的 `v-if="!hideStatusBar"` 删除，改绑 `:hidden-by-user="hideStatusBar"`，并留 4 行说明注释。
+3. `__tests__/file-browser-status-bar-recursive-search-error.test.ts`：`mountStatusBar(recursiveSearchError?, hiddenByUser?)` 扩一个可选参数；新增 3 条用例。
+
+**为什么把规则放进状态栏，而不是留在父组件**：`file-browser.vue` 全仓没有挂载夹具（依赖 `fb`、若干 store、DataSource），留在父组件就只能写「源码级守卫」去 grep 那个 `v-if`，属弱证据；搬进状态栏后「隐藏 + 有错 / 隐藏 + 无错」两个组合能在 DOM 层直接断言，而且错误块的 markup 与 scoped CSS 保持单一来源（若在父组件再写一条专用错误条，要复制一套 markup + 一套样式，两处必然漂移）。
+
+**已知外观代价（明确的取舍，不是遗漏）**：`hideStatusBar` 为真且错误存在期间，露出的是**整条**状态栏（选中数、项数、视图控件一并出现，底部 32px 临时占位）；查询清空、切目录或错误清除后随 `recursiveSearchError` 一起隐回。没有做「只显示错误条」：`__main` 下有十几个子块，逐个加门只为消掉这一条错误态的视觉噪音，代价远大于收益。
+
+**判据（盘上可复跑）**：
+- **鉴别力**：`.superpowers/sdd/b67-red-green.mjs` 把根节点改成 `v-if="true"`（模拟旧行为：状态栏永远渲染）跑一次 ⇒ **Test Files 1 failed (1) / Tests 1 failed | 5 passed (6)**，红的正是「隐藏 + 无错误：整条状态栏不渲染（隐藏依然生效）」，报 `AssertionError: expected true to be false`；`finally` 里逐字节还原后 **Tests 6 passed (6)**，`RESTORED_BYTE_IDENTICAL=true`。
+- **这组用例的鉴别点在哪**：单看「隐藏 + 有错」在旧代码下也是绿的（整条一直渲染，错误节点当然在），真正的鉴别项是「隐藏 + 无错必须不渲染」；两条合起来才把 `!hiddenByUser || recursiveSearchError` 这个布尔式钉死（若写成 `v-if="!hiddenByUser"`，则「隐藏 + 有错」会红）。
+- **全量门禁**（`npm run check`，日志 `.superpowers/sdd/b67-check.log`，退出码落在同目录 `b67-check.exit`）：`CHECK_EXIT=0`、**Test Files 342 passed (342)**、**Tests 3667 passed (3667)**（批次 66 为 342 files / 3664 tests，+3 即本轮新增）、`verify:sandbox` 两个扩展入口 `PASS`。
+
+**未做 / 未验证**：
+- 未做真机验收：该 prop 当前没有调用方，界面上构造不出「隐藏状态栏」的路径；结论只到 DOM 档。
+- 未做「错误条独立渲染」的样式打磨（见「已知外观代价」）。
+- 未改版本号、未打包、未发布：本轮是缺陷收尾，不是发版轮；`release/` 与站点均未触碰。
+
+## 四十四、批次 68：W-19 残留① —— 搜索结果列表的方向键逐行移动，用 DOM 级断言闭合
+
+**背景**：W-19 是「界面级像素 / 键盘复验通道」的总条目。批次 56 用 CDP 拿到了像素与键盘的 web 层证据，但**列表方向键逐行移动**这一项判据写坏了 —— `focusMovesThroughList` 只比较每一行的 `className` 字符串，而列表里每行的 className 完全相同，无论焦点有没有移动该判据都恒为真 ⇒ 零鉴别力，等于没验。批次 56 第二轮走查又因索引负载下 `Page.enable` / `Runtime.evaluate` 连续超过 30s 超时停摆（W-11 同源现象加剧），界面级重验一时无门。本轮把这条要求落到**组件层可复跑的 DOM 断言**上：方向键不只要「有反应」，还必须映射到正确方向、阻止浏览器的默认滚动、并让目标行拿到 `--focused` 类且被滚动进可视区。
+
+**落点核实（改前，盘上读码）**：
+- `src/modules/global-search/components/global-search-result-list.vue`（472 行）：`handleListKeydown()` 在 255 行 —— `Enter` 发 `activate`；`ArrowDown` / `ArrowUp` / `Home` / `End` 分别映射 `next` / `previous` / `first` / `last`，一律 `event.preventDefault()` 后 `emit('navigate', direction, event.shiftKey)`。
+- 同文件 `watch(() => props.focusedPath)`：`await nextTick()` 后调 `scrollFocusedRowIntoView(index)` 与 `listElementRef.value?.focus({ preventScroll: true })`；**`index < 0` 时直接 return** —— 外来路径既不滚动也不抢焦点。这条守卫此前没有任何测试覆盖。
+- `src/modules/global-search/global-search-view.vue`（1139 行）：`navigateResults()` 在 323 行把方向换算成目标下标（`first` 由 `let nextIndex = 0` 兜住），`extend` 为真走 `extendSelectionTo()`、否则 `focusEntryAt()`，**两者都写 `focusedPath.value = entry.path`**；`handleResultNavigate()`（353 行）直接委托。模板 815–825 行挂着 `:focused-path="focusedPath"` / `@navigate="handleResultNavigate"` / `@activate="handleResultActivate"`。
+
+**新增测试（1 文件 13 条，全绿）**：`src/modules/global-search/components/__tests__/global-search-result-list-keyboard-navigation.test.ts`（挂载夹具照抄同目录 `global-search-result-list-context-menu.test.ts` 的 mock 模板）。
+
+- 键盘映射：`it.each` 四条方向键，断言 `emitted('navigate')` **逐字**等于 `[[direction, false]]`，同时用手动构造 `KeyboardEvent` + `dispatchEvent` 取回的 `defaultPrevented === true`（防止浏览器把方向键当成列表滚动）。
+- `Shift+ArrowDown` ⇒ `[['next', true]]`；`Enter` ⇒ `activate` 恰好一次、无 `navigate`、`defaultPrevented` 为真；`key: 'a'` ⇒ 两个事件都不发、`defaultPrevented === false`（不劫持普通输入）。
+- 焦点与滚动：`setProps({ focusedPath: 第 2 条 })` ⇒ **只有第 2 行**带 `--focused`、**只有它**调 `scrollIntoView({ block: 'nearest' })` 一次、`document.activeElement` 是 listbox 本身。
+- 空 / 异组边界：`focusedPath: null` ⇒ 不滚动、无 `--focused` 行；`D:\Other\delta.png`（不在 `entries` 里）⇒ 不滚动、焦点仍留在测试自己先 `focus()` 的按钮上（**证明没有被抢走**）。
+- 接缝守卫 3 条（读源码文本，不挂整个视图）：`:focused-path="focusedPath"` / `@navigate="handleResultNavigate"` / `@activate="handleResultActivate"` 存在；`handleResultNavigate` 体内调 `navigateResults(direction, extend)`；`focusedPath.value = entry.path;` 出现 ≥ 2 次（点选与扩选两条路径）。
+
+**为什么用 DOM 档而不是再打真机包**：这条行为的全部逻辑就在这两个组件里，DOM 挂载能直接判「哪个方向、是否 preventDefault、哪一行加了类、是否滚动、焦点落在谁身上」；真机 CDP 通道在索引负载下有 W-11 回包停摆的已知问题，而批次 56 的教训恰恰是「类名字符串比较没有判别力」。证据档位与批次 67 相同（DOM 级），不是降级替代。
+
+**鉴别力（好样本 / 坏样本各跑一次）**：`.superpowers/sdd/b68-red-green.mjs`（纯 ASCII）对源码做 6 处单点改坏，每处单独跑该测试文件：
+
+```
+RED  arrow-down maps to previous
+RED  arrow no longer preventDefault
+RED  focused row class never applied
+RED  focused row not scrolled into view
+RED  foreign-group guard removed (focus steal)
+RED  view drops the navigate binding
+RESTORED_BYTE_IDENTICAL=true
+```
+
+⇒ **6/6 命中**，还原后与原文件 **sha256 逐字节一致**。日志 `.superpowers/sdd/b68-red-green.log`。
+
+**全量门禁（盘上回读）**：`npm run check`（日志 `.superpowers/sdd/b68-check.log`，16,380 B）
+
+- `Test Files 343 passed (343)` / `Tests 3680 passed (3680)` / `Duration 135.67s` —— 批次 67 是 342 文件 / 3667 用例，**+1 文件 / +13 用例**，与本轮新增逐字吻合。
+- `verify-changelog`：`OK    CHANGELOG.md 覆盖当前版本，条目顺序正确。`
+- `verify:sandbox`：两个扩展入口 `PASS extensions/kizemo.focus-sync/dist`、`PASS extensions/kizemo.git/dist`，末行 `[sandbox-gate] OK 全部扩展入口通过`。
+- 退出码 `EXIT=0`。
+- **台账落盘后在最终工作树复跑一次**（此时工作树已含本节的 handoff 改动、open-items 改动与 `.superpowers/sdd/*.mjs`）：`EXIT=0`、`Test Files 343 passed (343)`、`Tests 3680 passed (3680)`、`Duration 138.69s`、两扩展入口 `PASS` + `OK`，与首轮逐项一致；日志 `.superpowers/sdd/b68-check2.log`（16,380 B）。
+
+**本轮踩到的四个坑（可复用）**：
+1. **后台 bash 的工作目录是会话工作区根**（`F:\soft\00selfmade\filemanager`），不是项目子目录 ⇒ 直接在后台跑 `npm run check` 会 `ENOENT … package.json`，几秒就退，看着像「门禁秒过」。后台命令必须**在命令体内 `Set-Location` 到项目根**；日志重定向用**绝对路径**（`Set-Location` + 相对重定向会被本地安全策略拦下）。
+2. **新增测试文件的风格门禁**：`@stylistic/eol-last`（文件末尾必须换行）、`@stylistic/object-property-newline`（对象属性逐行）、`@stylistic/comma-dangle`（多行对象末尾要逗号）。三处全命中本轮新文件；单文件 `npx eslint --max-warnings 0 <file>` 比全套门禁快一个数量级，改完再跑全量。
+3. 本项目 vitest 里 **`import.meta.url` 不是 `file:` scheme** ⇒ `fileURLToPath(new URL('../../x.vue', import.meta.url))` 抛 `TypeError: The URL must be of scheme file`；读源码一律用 `resolve(process.cwd(), 'src/…')`（与 `navigator-arrow-ownership-global-search.test.ts` 同一姿势）。
+4. **VTU 的 `emitted()` 会把原生 DOM 事件也记进去**（`keydown` 也在内）⇒ 不能用 `expect(wrapper.emitted()).toEqual({})` 判「没 emit」，只能逐事件名断言 `emitted('navigate') === undefined`。
+
+**未做 / 未验证**：
+- **OS → 窗口级键盘注入**仍未做（AGENTS.md §2.8 第 664-668 行那条边界继续成立）；本轮只证到「组件收到 keydown 之后行为正确」。
+- W-19 残留②（第二轮 CDP 走查停摆）**未推进**：要先解决渲染进程回包停摆，属另一条线。
+- 未改版本号（仍 3.24.1）、未打包、未发布、未提交。
+
+## 四十五、批次 69：W-19 残留② 先量化 —— 渲染进程 CDP 回包停摆的测量装置（结论：扫描负载假设被证伪）
+
+**背景**：W-19 残留② 指批次 56 第二轮的 `Page.enable` / `Runtime.enable` / `Runtime.evaluate` 在索引负载下连续 >30s 超时，与 W-11（约 120s 回包延迟）同源。此前只有「30s 客户端超时 + 页面内无心跳」这一种观测手段 ⇒ **无法区分「渲染主线程被堵」与「传输/排队慢」**，任何结论都可能把慢队列读成「渲染进程已死」。本批不猜根因，先把「停摆」量化成曲线，并留下可复用装置。
+
+**装置**（`.superpowers/sdd/b69/b69-probe.mjs`，11,767 B，纯 ASCII，`node --check` 通过）：① 每次 CDP 往返默认 **180s** 超时（`B69_TIMEOUT_MS`），超时记为**数据点**、不中止采样；② 页面内装两个心跳 —— `requestAnimationFrame` 间隔与 **50ms `setInterval`** 间隔，分别记录 `maxRafGapMs` / `maxTimerGapMs`；③ **心跳读取 + `global_search_get_status` 合并进一次 `Runtime.evaluate`（awaitPromise）**，避免「多次往返自己制造延迟」；④ 判别器 `replyLagMs = clientRecvIso - pageIso`（小时 = 传输/排队慢，大时 = 渲染主线程被堵），verdict 四态 `NO_DATA / RENDERER_RESPONSIVE / TRANSPORT_SLOW_PAGE_FINE / RENDERER_BLOCKED_OR_QUEUE_SATURATED`；⑤ 产物 `.superpowers/sdd/b69/b69-probe.json` + `.jsonl`。驱动器 `.superpowers/sdd/b69/b69-run.ps1` 一次跑完「沙箱启动 → `--once` 冒烟 → 60 样本 × 2500ms」，全程落 `.superpowers/sdd/b69/b69-run.log`。
+
+**实测**（干净 release 调试包，exe mtime `2026-11-26 23:27:00` / 86,168,064 B，隔离桌面沙箱，CDP 目标 `http://tauri.localhost/navigator`）：
+
+- 往返 **60/60 成功、0 超时**，`p50=5ms` / `p95=9ms` / `max=56ms`；页面侧 `replyLagMs` 全程 **≤2ms**。
+- 页面健康：`maxRafGapMs` **77.3ms**、`maxTimerGapMs` **143.5ms**、`rafCount` 9555 / 163.5s ⇒ **≈58.6 fps**，`visibility=visible`。
+- 同期负载（同一批样本读回的 `global_search_get_status`）：`is_scan_in_progress=true`、`scan_phase=scanning`、`is_parallel_scan=true`、`is_committing=false`；`scan_indexed_item_count` 由 **3,650** 涨到 **526,160**（160s，**≈3,286 条/s**）；存量 `indexed_item_count=1,004,434`、`index_size_bytes=135,334,062`；上次全盘扫描耗时 `1,153,147ms`（≈19.2 分钟）。
+
+**结论**：verdict = `RENDERER_RESPONSIVE` ⇒ **「索引在跑 ⇒ 渲染进程必停摆」被证伪**。W-11 的约 120s 延迟与批次 56 的 >30s 超时**不能归因于扫描负载本身**；把负载继续加压也不会复现。剩余可判别候选（**均未验证**，按成本从低到高）：① **commit 阶段**（`is_committing=true` 时写索引/落盘，本轮 60 个样本全程 false，没覆盖到）；② **单目录病态条目数**（一次调用前页面已渲染超大结果集）；③ **`tauri dev` 开发态**（若批次 56 是在 dev 下跑的，Vue dev 反应式 + dev server 会显著放大主线程开销 —— 本项目的既有规矩是 dev 结论作废，这条最值得先排）。
+
+**本轮踩到的三个坑（可复用）**：
+1. 探针**只认 `--once`**，其余参数走环境变量；`--samples 60 --interval 2500` 会被**静默忽略**（首版 `b69-run.ps1` 就传了它，看着正常其实用的是默认值）。
+2. 后台 bash 里 **`| Select-Object -Last N` 会把输出缓冲到进程结束**，后台任务期间**看不到任何增量** ⇒ 排障不能靠任务输出，要靠脚本自己 `Add-Content` 落盘再 tail 日志。
+3. 干净重打包前**必须先 `Stop-Process alpha-file-manager`**（沙箱实例锁着 `target/release/alpha-file-manager.exe`，NSIS 打包会报 `os error 32`）—— 批次 65 已记，本轮再次踩。
+
+**收尾**：`patch-cdp.cjs off` ⇒ `PATCH_OK mode=off`、回读 `additionalBrowserArgs=<none>`、`CONF_CLEAN`；随后启动 `.superpowers/sdd/b56/build-clean-b56.cmd` 重打干净包（日志 `.superpowers/sdd/b56/b56-build-clean.log`）。
+
+**干净包重建结果（已回读）**：`BUILD_EXIT=0`，完成于 `2026-11-26 23:36:55`；`src-tauri\target\release\alpha-file-manager.exe` **86,169,600 B** / mtime `2026-11-26 23:36:55`（调试包 86,168,064 B，差 1,536 B）；NSIS 安装包 `Alpha File Manager_3.24.1_x64-setup.exe` **46,264,249 B** / mtime `2026-11-26 23:36:53`，已镜像到 `release\local-builds\`；构建后重读 `src-tauri/tauri.conf.json` 得 `additionalBrowserArgs=<none>` ⇒ **仓库内不留调试端口**。构建日志 2,420 行 / 256,958 B。
+
+**未做 / 未验证**：三个候选根因一个都没验；干净包已重打成功（`BUILD_EXIT=0`）但**只回读了产物大小/mtime 与配置干净度，未用干净包再跑一次真机冒烟**；未跑 `npm run check`（本批产品源码零改动，只新增 `.superpowers/sdd/b69/*` 脚本文档）；未提交、未推送、未改版本号（仍 3.24.1）、未发版。
+
+## 四十六、批次 70：候选 (c)「`tauri dev` 开发态」证伪，3.24.2 发版（`hideStatusBar` 修复随包发布）
+
+**背景**：批次 69 把「索引在跑 ⇒ 渲染进程必停摆」证伪后，按成本排出三个未验候选 —— ① commit 阶段（`is_committing=true`）、② 单目录病态条目数、③ `tauri dev` 开发态。用户指定先排 ③。本批先用**零构建的盘上证据**判死 ③，再把批次 67 的 `hideStatusBar` 修复升版发出去。
+
+**1. 候选 (c) 判定：不成立**
+
+- `src-tauri/tauri.conf.json`：`devUrl = http://localhost:1420`、`frontendDist = ../dist` ⇒ 开发态页面 origin 只能是 `http://localhost:1420`。
+- 批次 56 的 CDP 目标页 URL 是 **`http://tauri.localhost/navigator`**（`tauri.localhost` 只在打包态出现），五处证据一致：`.superpowers\sdd\b56\cdp-walk.log:1`、`cdp-walk2.cjs:136`、`cdp-walk2.log:1`、`launch-cdp.log:7`、`launch-cdp3.log:7`。
+- 批次 56 的构建入口就是打包：`.superpowers\sdd\b56\build-accept-b56.cmd:17` = `call "D:\Program Files\nodejs\npm.cmd" run tauri:build`；启动器 `.superpowers\sdd\b56\b56-launch-cdp-sandbox.ps1:21` 指向 `src-tauri\target\release\alpha-file-manager.exe`。
+- ⇒ 批次 56 那两次「回包停摆」发生在**打包产物**上，与 dev 无关；在 dev 上复现与否对该现象没有意义（本项目既有规矩：dev 上的界面结论作废）。
+- 判定留档：`.superpowers\sdd\b70\b70-candidate-c-verdict.md`（3,315 B）。
+- **剩下两个候选仍未验**：commit 阶段、单目录病态条目数。
+- **顺带收窄（推断，未验证）**：`b69-probe.json` 里 `Runtime.enable` / `Page.enable` / `Runtime.evaluate` 三项分别 56 / 2 / 1 ms 全绿，而批次 56 超时的正是这两个 enable ⇒ 差异不在 enable 本身。批次 56 相比 b69 多出的是 `Page.captureScreenshot({fromSurface:true})`（2561×1357，8 帧）、`Input.dispatchKeyEvent` 走查、已渲染的大结果集 ⇒ 下一层优先级：**截图通路 > 输入注入 > 已渲染大结果集布局开销**。
+
+**2. 版本 3.24.2**
+
+手工改 `package.json`（不跑 `prepare --bump`，避免它自己顶版本）→ `npm run sync-version` 输出 `Synced 3 Cargo manifests to 3.24.2`；回读 `src-tauri\Cargo.toml`、`src-tauri\default-file-manager-common\Cargo.toml`、`src-tauri\default-file-manager-launcher\Cargo.toml` 三处均 `version = "3.24.2"`。发版材料三份：`CHANGELOG.md` 新增 `## [3.24.2] - November 2026`、`public/changelog/ch/changelog.md` 新增中文条目、新建 `docs/release-notes/3.24.2.md`。README 的 `### What changed in 3.24.1` 截图表**未动**（那批截图属于 3.24.1，串改版本号会失真）。
+
+**3. 门禁**
+
+`npm run check` = `EXIT=0`（ts + lint + vitest + verify-changelog + verify:sandbox 一条链，`run-s` 首错即停）；尾部回读 `[sandbox-gate] PASS extensions/kizemo.focus-sync/dist`、`PASS extensions/kizemo.git/dist`、`[sandbox-gate] OK 全部扩展入口通过`。**本轮未回读 `Test Files` / `Tests` 计数**（只确认退出码与扩展入口），故本节不写用例数。
+
+**4. 干净包构建 + 首次无 CDP 冒烟**
+
+- 构建 `.superpowers\sdd\b70\build-clean-b70.cmd`（纯 ASCII；首行 `taskkill /F /T /IM alpha-file-manager.exe`、用 `ping -n 4 127.0.0.1 > nul` 替 `timeout`、`call vcvars64.bat`、Rust 1.90.0 工具链前置），`Start-Process cmd.exe -WindowStyle Hidden` 后台跑，日志 `.superpowers\sdd\b70\b70-build-clean.log`。
+- `BUILD_EXIT=0`；Rust `Finished \`release\` profile [optimized] target(s) in 7m 22s`。产物：`src-tauri\target\release\bundle\nsis\Alpha File Manager_3.24.2_x64-setup.exe` = **46,274,497 B**、sha256 **`0874fce64af3b974599277927ae277f8aec974ac08690bcfe012c8a172472db6`**；exe 86,168,064 B / mtime `2026-11-26 23:55:14`。镜像脚本把该包落在 `release\` 顶层（3.24.2 尚无已发布对应物，符合「顶层 = 待发布官方资产」规则），**未落 `local-builds\`**。
+- 冒烟（批次 69 遗留的「未做」）用新写的无 CDP 装置 `.superpowers\sdd\b70\b70-smoke-sandbox.ps1`：`CreateDesktop` + `CreateProcess(lpDesktop)` 起隔离桌面 `AFM-B70-72710`，`EnumDesktopWindows` 数窗、UIA 取后代，末了 kill + `CloseDesktop`；日志 `.superpowers\sdd\b70\b70-smoke.log`（921 B）。
+- 回读：`additionalBrowserArgs=<none>`（仓库内无调试端口）、沙箱桌面可见窗 **3** 个（标题 `Alpha File Manager` / `com.sigma-file-manager.app-siw` / 空标题）、UIA 后代 **611** 个、kill 前 `alive=True`、末行 `B70_SMOKE_DONE`。**UIA `ControlType.Text` 命中 0 个** —— WebView2 内容不暴露为 Text 控件，属本项目已知边界；故冒烟判据只到「窗口起来了、UI 树有实体、进程没崩」，**不声称验过任何界面文案**。
+
+**5. 发版结果（站点 + GitHub Release + 远端镜像）**
+
+- **站点预处理**：`prepare --bump none --skip-build --notes-file docs/release-notes/3.24.2.md` ⇒ 站点 `version.json` 保持 **3.24.2**、`VJ_BYTES=51463`、`HIST=20`（3.24.1 归档进 `history[]`）、`PUB=11/26/2026 15:56:50`（本地时区）；`release\` 内安装包副本 `Alpha_File_Manager_3.24.2_x64-setup.exe` sha256 与构建产物一致；`prepare --write-notes` 生成 `_release-notes-v3.24.2.md`（792 B）。
+- **提交**：`78e11388` `release: 3.24.2`（12 文件 / +425 / −9）。
+- **上传事故与修复（重要坑）**：`node scripts/release-publish.mjs upload` 内部**没有跳过逻辑**，会把站点目录全部 43 个包（1.31 GB）**全量重传**；后台 bash 在默认 **900 s** 被杀（进度 `WRITE_MB=0`，`ReadTransferCount` 由 1,313 → 2,433 MB）。因 paramiko 直写最终文件名，被杀即留下截断文件。处理顺序：① 写只读核对脚本 `.superpowers\sdd\b70\verify-remote-324.py`，首查 `SUMMARY ok=43 diff=1 missing=0 total=44`，唯一损坏 **`Alpha_File_Manager_3.9.2_x64-setup.exe` 线上 28,147,712 B / 应为 44,873,125 B**；② `python _upload_alpha_files.py --only Alpha_File_Manager_3.9.2_x64-setup.exe` 单包补传（服务器端 md5+size 一致，本地 md5 `ea4e9d46b36a89c96211954c9606df50`）；③ 复验 `ok=44 diff=0 missing=0 VERDICT=ALL_MATCH`。**结论：全量上传不要放进默认超时的后台任务；补传只能直接调 python 脚本，`release-publish.mjs` 不透传 `--only`。**
+- **公网回读**：`release-publish.mjs verify` ⇒ 线上版本 **3.24.2** / pub `2026-11-26T15:56:50Z` / 清单 sha256 **`0874fce6…72db6`**；本地包、源站包、边缘包三者均 **46,274,497 B** 且同 sha（边缘 `CF-Cache-Status=MISS`）⇒「版本号 / 大小 / sha256 三项均一致」。
+- **推送**：`git push origin main` **直连成功**（本轮无需隧道）⇒ `7cbab115..78e11388 main -> main`；硬判据 `git ls-remote origin refs/heads/main` = `78e11388755f93b0b02bc6d94dd20e28cf661268` == `git rev-parse HEAD`。
+- **GitHub Release**：`release-publish.mjs github` 建 https://github.com/kizemo/alpha-file-manager/releases/tag/v3.24.2 ，资产 `Alpha_File_Manager_3.24.2_x64-setup.exe` **46,274,497 B** / sha256 `0874fce6…72db6`；`gh api` 回读 `draft=false`、`prerelease=false`、`digest: sha256:0874fce6…72db6` 与本地一致。
+- **`release/` 镜像台账（本轮回读，覆盖旧记录）**：`gh api 'releases?per_page=100' --paginate` 落 `releases-324.json`（278,859 B）→ `.superpowers\sdd\b64\mirror-check-324.mjs <json> --apply` ⇒ **只重写 `SHA256SUMS.txt`**（12 条 / 1,955 B / mtime `2026-11-27 0:16:55`），**不写 README**（README mtime 仍 `22:11:58`），与脚本第 4 行注释「regenerates … README.md counters」不符 ⇒ README 里的「11 / 13 / 40」是过期手写值。
+- **README 计数重算（本轮新增脚本，已跑）**：新写 `.superpowers\sdd\b70\mirror-readme-sync.mjs`（调 mirror-check 取分类 + 自算全量 sha256 + 从 `releases.json` 的 `assets[].digest` 取官方 sha），重写「当前状态：」到「> 想让本地副本变成权威副本」之间的区块。实跑输出 `SUMMARY match=12 rebuild=23 no_official=56 total=91 top=36`，README **13,125 B → 18,193 B**（mtime `2026-11-27 00:19:14`）。权威分类：**顶层 36 个包 = 12 官方一致 + 7 本地重建 + 17 线上无对应资产**；`local-builds/` 55 个；合计 91。**顶层那 24 个违反「顶层只放官方资产」的旧包本轮未搬动**，已在 README 明写「待迁入 `local-builds/`」。
+
+**未做 / 未验证**
+
+- 批次 69 遗留的三个候选里，本轮只判死 ③ `tauri dev`；**① commit 阶段（`is_committing=true`）、② 单目录病态条目数仍未验**；新收窄的下一层候选「截图通路 > 输入注入 > 已渲染大结果集布局开销」也**全部未验**。
+- 干净包冒烟只到**窗口级**（3 窗 / 611 个 UIA 后代 / `ControlType.Text=0` / 进程存活），**没有任何界面文案或交互被验证**；无 CDP 通道，本轮未做 accept 构建，也未跑批次 56 那套回包判据。
+- `npm run check` 只回读了 **`EXIT=0`** 与两条扩展入口 `PASS`，**未回读 `Test Files` / `Tests` 计数**，故本轮所有台账都不写用例数。
+- `release/` 顶层 **24 个非官方旧包未迁入 `local-builds/`**（housekeeping，不在发版本轮范围，且会打断既有文档路径引用）；`LOCAL-BUILDS.txt`（13,706 B）未按 91 包的新分类重写。
+- 未验证「站点 43 包全量重传」之外的上传路径是否还有别的截断风险（本轮只做了全量 md5+size 复验，结果 `ALL_MATCH`）。
