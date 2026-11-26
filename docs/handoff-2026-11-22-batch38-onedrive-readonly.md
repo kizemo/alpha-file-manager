@@ -4742,3 +4742,174 @@ function handleEscapeKey(): boolean {
 - 走查脚本 `.superpowers/sdd/b58/cdp-walk-b58.cjs`；沙箱启动 `.superpowers/sdd/b58/b58-launch-cdp-sandbox.ps1`
 - 数据备份 / 恢复 `.superpowers/sdd/b58/backup-userdata.ps1` / `.superpowers/sdd/b58/restore-userdata.ps1`
 - 脚本目录 `.superpowers/sdd/b58/`（整目录在 .gitignore 内，不入库）
+
+## 三十二·批次 58 发版轮：对外发布三件套 + 全历史提交信息英文化 + 双通道发布（3.23.0）
+
+> 本节自包含：背景、目标、结论、过程、证据、下一步全部写在这里，新会话不需要回翻前面的章节。
+
+---
+
+### 三十二·1 背景与目标
+
+- **背景**：批次 58（三项功能 + 回归修复 + 真机 CDP 走查 + 干净交付包）已在上一节收口，当时版本号仍停在 3.22.0、未推送、未发版。
+- **本轮用户指令（原文）**：「请同时推送到github和aiec，修改readme文档、升级日志、版本文件。在github项目页的文件列表中，第二列显示有大量中文，请修改为对应的英文」。
+- **拆成三条主线**：
+  1. **双通道发布** —— 同一版本同时走 GitHub（`github.com/kizemo/alpha-file-manager`）与 AIEC（官网发布通道 `www.aiec.fun/alpha-file-manager/`，**不是 git 远端**）。
+  2. **发布三件套** —— README（英 + 中）、CHANGELOG（英 + 中）、版本文件（`package.json` + 3 个 `Cargo.toml`）。
+  3. **GitHub 项目页文件列表「第二列」中文化** —— 该列是「每个文件最近一次提交的标题（subject）」，只能靠改写 git 历史 + 强推解决。
+- **结论**：三条主线全部完成并已实测回读，详见 §三十二·5、§三十二·6。
+
+---
+
+### 三十二·2 版本号、CHANGELOG、README（三件套）
+
+- **版本号 3.22.0 → 3.23.0**（minor bump，承载批次 45–58）：
+  - `package.json`
+  - `src-tauri/Cargo.toml`
+  - `src-tauri/default-file-manager-common/Cargo.toml`
+  - `src-tauri/default-file-manager-launcher/Cargo.toml`（**不在仓库根**，根目录没有 Cargo.toml）
+  - 官方脚本 `node ./scripts/sync-version.js` 同步 → 输出 `Cargo manifests are already synced to 3.23.0`。
+  - `src-tauri/Cargo.lock` 里的 3 处版本由构建自动刷新，已单独提交（`chore(release): sync Cargo.lock to version 3.23.0`）。
+- **CHANGELOG**：`CHANGELOG.md` 顶部新增 `## [3.23.0] - November 2026`，共 **13 条**（3 Added / 7 Fixed / 3 Changed），体例为 `**Summary:**` + `### What changed` + `**Added/Fixed/Changed** **标题** - 正文`；中文版 `public/changelog/ch/changelog.md` 同步（`## [3.23.0] - 2026 年 11 月` + `**摘要：**` + `### 变更内容`）。3.22.0 及以下各节未动。`npm run verify-changelog` 判定 `OK    CHANGELOG.md 覆盖当前版本，条目顺序正确。`
+- **README**：`README.md` 524 行 / 48867 字节，第 175 行 `### What changed in 3.23.0`；`README.zh-CN.md` 478 行 / 42760 字节，第 165 行 `### 3.23.0 改了什么`。两边「新增了什么」逐条同序对应。顺带修正了过期的 OneDrive 只读表述、`Minimax Code` → `MiniMax Code`。
+- **发版说明**：`.superpowers/sdd/b58/notes-3.23.0.md`（站点与 GitHub release 共用正文），标题 `## Alpha File Manager 3.23.0`，分「新增 / 修复 / 变更 / 备注」四节，与 CHANGELOG 13 条逐条对应，并写明 **3.15.0 与 3.17.0–3.22.0 从未单独对外发布，内容并入本版**（避免版本号跳跃造成误解）。
+
+---
+
+### 三十二·3 GitHub 项目页「第二列」= 提交标题，全量英文化
+
+- **问题定位**：GitHub 仓库页文件表格是 `Name | Last commit message | Last commit date`，**第二列就是每个文件「最近一次提交」的标题（subject）**。仓库里有 447 条提交标题是中文，所以文件列表第二列大面积中文。
+- **为什么只能改写历史**：标题写在 commit 对象里，GitHub 每次按分支尖端重新计算，没有「改标题不改 SHA」的接口 ⇒ 只能 `git filter-repo` 改写历史 + 强推（force-push）。
+- **翻译范围**：**全量 447 条 subject**（不是抽样）。正文（body）**不翻译** —— 文件列表只显示 subject；但交付时必须披露「正文仍是中文」。
+- **翻译产物**：`.superpowers/sdd/b58/tr/map.json`（447 条 subject→英文）+ `sha-en.json`；两个 worker 并行产出 part-1（224 条）/ part-2（223 条），合并校验结果 **447/447 覆盖、0 缺失、0 冲突、0 残留中文、0 非法译文**。
+- **两轮改写**：
+  - **第 1 轮**：`git filter-repo --force --message-callback fr-message-callback.py` —— 解析 2034 个提交，写盘 3.86 秒 / 总计 18.85 秒；改写前后 tree 一致（`a53ff6c2…`）；tag 67、分支 19。
+  - **第 2 轮（BOM 剥离）**：`--message-callback fr-message-callback2.py`（回调体加 `lstrip("\ufeff")`）—— 解析 2035 个提交，写盘 3.25 秒 / 总计 14.17 秒，exit 0；tree 保持 `7e8bad5c22dc5c6c4a2d5bc9a5b5cd6f96cfd2c0`。
+  - **为什么要第二轮**：第 1 轮后仍有 **1 条** subject 带 UTF-8 BOM（BOM 夹在 `Revert "…"` 引用串中间），第 1 轮的回调没剥掉它。
+- **改写后的验证（本地 git 口径，全部盘上回读）**：
+  - 可达提交中 subject 含中文的：**0 条**；
+  - 受跟踪路径 2358 个，**最后一次提交标题含中文 0 个**（这正是 GitHub 的渲染口径）；
+  - 根目录 30 个条目，最后提交标题含中文 0 个；
+  - tag 68 个，tag 说明含中文 0 个。
+- **远端复核**：用 GitHub API 直接查列二的来源端点 `GET /repos/kizemo/alpha-file-manager/commits?path={path}&per_page=1`，对根目录全部条目 + `src/` + `docs/` 共 **68 个路径**抽查，**中文标题 0 条**（报告 `.superpowers/sdd/b58/gh-file-list-verify.txt`）。
+
+---
+
+### 三十二·4 门禁与打包
+
+- **门禁 `npm run check`** = `run-s ts lint:check test:unit:run verify-changelog verify:sandbox` → `Test Files 339 passed (339)` / `Tests 3641 passed (3641)` / `vue-tsc --build` 无错 / `eslint . --max-warnings 0` 无错 / `stylelint` 无错 / `verify-changelog` OK / 末行 `[sandbox-gate] OK  全部扩展入口通过` / `GATE_EXIT=0`。日志 `.superpowers/sdd/b58/check-3.23.0.log`。
+- **打包 `npm run tauri:build`**：
+  - **首轮失败（已定位并修掉）**：日志尾 `error: failed to remove file …src-tauri\target\release\alpha-file-manager.exe / 拒绝访问。 (os error 5)`。根因 = 上一轮真机验收遗留的 `alpha-file-manager.exe` 实例（PID 101336）锁住了产物，**前面所有 Rust 编译全部白跑**。修法 = 打包脚本首行加 `taskkill /F /IM alpha-file-manager.exe`，让构建自愈。这条坑 AGENTS.md §4 已有记载，本轮是把「脚本自愈」补上。
+  - **重打成功**：`.superpowers/sdd/b58/run-build-3.23.0b.cmd` → `.superpowers/sdd/b58/build-3.23.0.log` 末行 `DONE_MARKER`。
+  - **产物**：`release/Alpha File Manager_3.23.0_x64-setup.exe`，**46118501 字节 / SHA256 35B221B3BDDB783C455F9F1ED63A92C0EDA13C3FF08FD4AB52E120BA8FFA3840**（同内容副本 `src-tauri/target/release/bundle/nsis/Alpha File Manager_3.23.0_x64-setup.exe`）。
+
+---
+
+### 三十二·5 双通道发布（GitHub + AIEC）
+
+**A. GitHub**
+
+- **main 强推**：`d79f0a62f4a1947de38b0e0e13a25f1fb8b68e00` → `1a84bda602ea7bbb386eccec106d345c2d3d9ae9`（`--force-with-lease` 成功，未回退裸 force）。
+- **远端 tag 改指**：远端原有 44 个 tag 全部改指到改写后的提交（分 3 批推，15 / 15 / 14）。
+- **本地独有的 23 个 tag 不推**（远端没有，推了也只是多一份副本）。
+- **2 个中文 tag 说明就地重写**（`git tag -f -a`，**不改 tag 名字、不改目标提交**）：`rollback/3.1.1-baseline-20261014-212843`、`rollback/batch1-merged-20261014-230005`。
+- **新建 tag `v3.23.0`**（指向发布提交）。
+- **发布后远端回读**：远端 tag 共 **45** 个（含 v3.23.0），远端 main = `1a84bda602ea7bbb386eccec106d345c2d3d9ae9`。
+- **GitHub release `v3.23.0`**：https://github.com/kizemo/alpha-file-manager/releases/tag/v3.23.0
+  - 资产 `Alpha_File_Manager_3.23.0_x64-setup.exe`，**46118501 字节**，`digest=sha256:35B221B3BDDB783C455F9F1ED63A92C0EDA13C3FF08FD4AB52E120BA8FFA3840`，`state=uploaded`，非 draft / 非 prerelease。
+  - 正文由 `scripts/release-publish.mjs prepare --write-notes notes-3.23.0.md` 生成 `E:\办公文件\L1网站\alpha-file-manager/_release-notes-v3.23.0.md`；**`github` 子命令只读这个文件、不会自己生成**，不先跑 `--write-notes` 就会静默发出空正文。
+
+**B. AIEC（www.aiec.fun）**
+
+- 站点源目录 `E:\办公文件\L1网站\alpha-file-manager`；**AIEC 不是 git 远端**，是官网发布通道。
+- `node scripts/release-publish.mjs prepare --bump none --notes-file .superpowers/sdd/b58/notes-3.23.0.md --skip-build`
+  - `--bump none` 是必须的：`prepare` 默认会 patch 顶版本号；`--write-notes` 与完整 prepare 是**互斥分支**，不能混用。
+  - 旧版本 3.16.1 自动归档进 `history[]`（history 上限 20），写出新 `version.json`：`version=3.23.0`、`pub_date=2026-11-26T02:35:36Z`。
+  - 安装包已复制到站点目录并做 sha256 一致性校验。
+- **上传顺序固定：安装包先、`version.json` 最后**（AGENTS.md §4 已记此坑：否则用户会点到还没落盘的下载链接）。
+  - `python _upload_alpha_files.py --only Alpha_File_Manager_3.23.0_x64-setup.exe` → 服务端 md5+size 校验 **OK**。
+  - `python _upload_alpha_files.py --only version.json --only index.html --only .htaccess --only download.php` → 4 个文件服务端 md5+size **全部 OK**。
+  - 走**定向上传**（`--only`），不做全量重传（全量上传历史上会中途截断，且半截文件公网仍返 200）。
+- **公网回读（带 cache-busting，绕 Cloudflare 旧缓存）**：
+  - 线上版本 **3.23.0**，发布日期 **2026-11-26T02:35:36Z**；
+  - 清单 sha256 = 本地安装包 sha256（**35B221B3BDDB783C455F9F1ED63A92C0EDA13C3FF08FD4AB52E120BA8FFA3840**）；
+  - 源站包大小 = 边缘包大小 = **46118501 字节**，`CF-Cache-Status=MISS`；
+  - `release-publish.mjs verify` 判定「版本号 / 大小 / sha256 三项均一致」，**verify exit 0**。
+- 站点目录现有 exe **40** 个（历史版本全部保留），`version.json` 的 `history` 保留 **20** 条。
+
+---
+
+### 三十二·6 文档里的旧 SHA 回填（改写历史的副作用）
+
+- **问题**：改写历史后**每个提交的 SHA 都变了**，文档里引用的旧 SHA 在 GitHub 上全部失效（404）。
+- **第 1 次尝试失败（已定位）**：`phase2b.cjs` 的 `readMap()` 把 `git filter-repo` 的 `commit-map`（格式 `<old> <new>`）**当 `<new> <old>` 解析**，`map.set(o, n)` 方向整个反向 ⇒ 查表 0 命中 ⇒ 报告 `files changed 0 | replacements 0`，**没有产生任何回填提交**。
+  - **教训**：`git filter-repo` 的 `commit-map` **头行是 `old new`**，且**连续多次运行时 old 列始终是「最初改写前」的原始 SHA**，不是上一轮的产物 SHA。
+- **重写版 `backfill2.cjs`（自校验，不假设列序）**：用 `git cat-file --batch-check` 判定每个 SHA **今天是否还存在**，据此自动定向：
+  - round2 map：col0 今天存在 6 个、col1 今天存在 2035 个 ⇒ 方向判定为 `old,new`；解出 2029 组「旧→当前」。
+  - round1 map：原始 SHA 出现在 col0 有 2028 次、col1 有 0 次 ⇒ 方向判定为 `old,new`。
+  - 合成映射 **2469 条**（`.superpowers/sdd/b58/tr/commit-map-composed.tsv`）。
+- **回填结果**：扫描 547 个受跟踪文本文件（md / txt / json），**157 个文件、857 处**替换；只替换「旧 SHA 唯一前缀匹配 + 新 SHA 今天确实存在」的短 SHA，已存在的当前 SHA 与歧义项一律不动。明细 `.superpowers/sdd/b58/backfill-replacements.tsv`，报告 `.superpowers/sdd/b58/backfill-report.txt`。
+- **提交**：`1a84bda6` — `docs: refresh commit SHA references after the history rewrite`（157 files changed, 678 insertions(+), 678 deletions(-)）。
+
+---
+
+### 三十二·7 提交链（改写后的新 SHA）与遗留
+
+**提交链（改写后，从旧到新）**
+
+```
+afc77151  批次 58 功能（三项功能 + 回归修复）
+23f226c3  b58 handoff §三十一
+b41ec33a  handoff 订正
+4d804d51  chore(release): 3.23.0 version bump, changelog entry and README refresh
+67095607  chore(release): sync Cargo.lock to version 3.23.0
+1a84bda6  docs: refresh commit SHA references after the history rewrite
+```
+
+§三十二 自身的落盘提交接在最后（推送后远端 main 指向它）；落盘前远端 main = `1a84bda602ea7bbb386eccec106d345c2d3d9ae9`，本地 HEAD = `1a84bda602ea7bbb386eccec106d345c2d3d9ae9`。
+
+**遗留 / 风险（如实登记）**
+
+- **提交正文仍是中文**：本轮只英文化了 subject（447 条），body 没有翻译。文件列表只显示 subject，所以不影响「第二列」，但 `git log` 里正文仍是中文。
+- **13 个非中英语种 changelog 停在 3.22.0**（de / es / fa / fr / hi / it / ja / pt / ru / sl / tr / ur / vi）：运行时回退到英文条目，**不阻塞发布**；登记为 **W-22**（15 个语言包英文占位）。
+- 历史遗留未在本轮处理：**W-21**（端到端查询 260ms→1270ms）、**W-2**、**W-18**（云盘目录递归检索待拍板）、**W-19**（界面级像素通道）。
+- **改写历史后旧 SHA 全部失效**：任何外部链接（issue / PR / CI 记录）指向旧 SHA 都会 404；远端 main 与 44 个 tag 已同步改指，但**外部系统里的引用需要手工更新**。
+- **GitHub LFS 提示**：推 tag 时 GitHub 提示 `public/resources/linux/bin/ffmpeg/lib/libavcodec.so.60.17.100` 超过 50 MB 建议阈值（**警告不是错误**，推送成功）。
+- **代理抖动**：本机 `127.0.0.1:7897` 代理监听正常但 TLS 握手间歇性失败；直连因 DNS 污染 + TCP443 不通不可用。推送脚本内置 6 次指数退避重试。
+
+---
+
+### 三十二·8 证据路径
+
+| 内容 | 路径 |
+|---|---|
+| 本节正文源模板 | `.superpowers/sdd/b58/ledger-handoff-s32.tpl.md` |
+| open-items 行源模板 | `.superpowers/sdd/b58/ledger-openitems-row.tpl.md` |
+| 台账落盘 + 数字回读脚本 | `.superpowers/sdd/b58/append-ledger.cjs` |
+| 提交信息英文化映射表（447 条） | `.superpowers/sdd/b58/tr/map.json` / `sha-en.json` |
+| filter-repo 回调（第 1 轮 / 第 2 轮 BOM 剥离） | `.superpowers/sdd/b58/fr-message-callback.py` / `fr-message-callback2.py` |
+| 旧→新提交映射（2469 条） | `.superpowers/sdd/b58/tr/commit-map-composed.tsv` |
+| 回填明细（857 处） | `.superpowers/sdd/b58/backfill-replacements.tsv` |
+| 回填报告 | `.superpowers/sdd/b58/backfill-report.txt` |
+| 门禁日志 | `.superpowers/sdd/b58/check-3.23.0.log` |
+| 打包日志（末行 DONE_MARKER） | `.superpowers/sdd/b58/build-3.23.0.log` |
+| 首轮打包失败记录 | `.superpowers/sdd/b58/build-3.23.0-fail1.log` |
+| GitHub 文件列表第二列 API 复核 | `.superpowers/sdd/b58/gh-file-list-verify.txt` |
+| 推送脚本 | `.superpowers/sdd/b58/push-github.cjs` |
+| 站点发布脚本 | `.superpowers/sdd/b58/publish-site.cjs` |
+| GitHub release 脚本 | `.superpowers/sdd/b58/release-github.cjs` |
+| 发版说明（站点 + release 共用正文） | `.superpowers/sdd/b58/notes-3.23.0.md` |
+| 打包脚本（首行 taskkill 自愈） | `.superpowers/sdd/b58/run-build-3.23.0b.cmd` |
+| 安全网 bundle（改写前） | `.superpowers/sdd/b58/pre-rewrite.bundle` / `pre-rewrite2.bundle` |
+| 脚本目录（整目录在 .gitignore 内，不入库） | `.superpowers/sdd/b58/` |
+
+---
+
+### 三十二·9 下一步
+
+1. **本轮已收口**：3.23.0 双通道发布 + 发布三件套 + 全历史提交信息英化，台账见本节。
+2. **可立即做但本轮未做**：
+   - 把 **提交正文（body）** 也英文化（同样要改写历史 + 强推，代价与本轮相当，**需要单独授权**）；
+   - 把 **13 个非中英语种的 changelog** 补到 3.23.0（W-22）；
+   - 重新拍板 **W-18**（云盘目录递归检索：索引 vs 实时遍历）与 **W-21**（查询耗时 260ms→1270ms）。
+3. **下一批功能开工前**：版本号从 **3.23.0** 起，不要再把未发布版本号累加。
