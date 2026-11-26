@@ -2,7 +2,7 @@
 
 - 生成时间：2026-11-11
 - 仓库：`F:\soft\00selfmade\filemanager\sigma-file-manager`（会话工作目录必须是该目录本身，否则 `AGENTS.md` 不会注入）
-- 分支/提交起点：`main` = `2fcf1eb8`（与 `origin/main` 同步）
+- 分支/提交起点：`main` = `2d39c08c`（与 `origin/main` 同步）
 - 装机版本：3.13.6，`D:\Program Files\Alpha File Manager\alpha-file-manager.exe`
 - 上一份交接：`docs/handoff-2026-11-10-p5-release-3.13.6.md`
 

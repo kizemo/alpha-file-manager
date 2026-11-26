@@ -1,7 +1,7 @@
 # 批次 34 交接：远程（阿里云盘）缩略图 Rust 代理 —— 实现落地与门禁收口
 
 - 日期：2026-11-21
-- 仓库：`F:/soft/00selfmade/filemanager/sigma-file-manager`，分支 `main`，HEAD `46390569`
+- 仓库：`F:/soft/00selfmade/filemanager/sigma-file-manager`，分支 `main`，HEAD `524aee12`
 - **本批次全部改动仍未 commit**（`git status --porcelain` 共 12 条，见 §2）
 - 上游文档：`docs/handoff-2026-11-21-batch32-remote-thumbnail-verdict.md`（§4 方案与验收、§5 工装坑）
 - 本轮过程真源（进度台账）：`F:/soft/00selfmade/filemanager/sigma-file-manager/.superpowers/sdd/b32/STATUS-remote-thumb.md`
@@ -234,7 +234,7 @@ VERDICT=PASS
 2. ~~把新包发布进 `release/`~~ —— **本轮已完成**（`PUBLISH_EXIT=0`，新包在 `release\local-builds\`，逐文件 sha256 与 bundle 原件一致，见 §6）；剩余动作 = 用那份**装机取证**（判据见 §7 未验证 ④）。
 3. ~~把 §5 的门禁判据缺陷回写进 `gates-build-02.ps1`（抖动放行改成「多跑或换 `TMP`」）~~ —— **本轮已完成**（`FLAKY_ATTEMPT_RESULTS=[0]` / `FLAKE_RELEASE_BASIS=alone_run_1`，首跑即绿未启用换 `TMP` 兜底）。
 4. ~~清理 `image_thumbnails.rs:1807` 冗余形参~~ —— **本轮已完成**（只删调用点实参与签名形参，`cache_dir` 在函数体内仍用于 `create_dir_all` / `thumbnail_path` / `enforce_thumbnail_cache_limits`；同批删掉本轮判定为真 unused 的 `async_trait`）。**既存 5 条 `unused import` 本轮刻意未清**，理由与清单见 §11.3。
-5. 本批次改动 commit —— **主体已提交 `b1a40f86`**；本轮清理改动**另起一笔**（只含 `image_thumbnails.rs`、`remote/commands.rs` 两个文件 3 行删除）。
+5. 本批次改动 commit —— **主体已提交 `20aa4af6`**；本轮清理改动**另起一笔**（只含 `image_thumbnails.rs`、`remote/commands.rs` 两个文件 3 行删除）。
 6. **（新增）** 既存 5 条 `unused import` 独立清理：与远程缩略图无关、不影响任何判词，但会持续污染门禁输出。清单见 §11.3，注意 `ftps_provider.rs:1145` 有同形重复行、`image_edit.rs:25` 的 `Rgb` 在多行 import 内 —— 必须逐字定位，**不许凭推测删 import**（本轮已踩过：把 `RemoteErrorKind` 当 unused 删掉导致 `E0433` 两处、整轮 RED）。
 
 ## 9. 本轮工具坑（复用清单）

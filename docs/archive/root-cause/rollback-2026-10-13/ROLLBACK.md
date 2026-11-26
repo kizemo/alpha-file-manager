@@ -46,8 +46,8 @@ $env:PATH="C:\Users\Duanyi\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin;
 
 $s = 'F:\soft\00selfmade\filemanager\sigma-file-manager'
 
-# 撤销本次提交（回到它的父提交 087aecd9）
-& git -C $s revert --no-edit 311855ed
+# 撤销本次提交（回到它的父提交 8f7b3191）
+& git -C $s revert --no-edit 2c7c2dc2
 
 # 重新构建并部署
 Set-Location "$s\extensions\kizemo.focus-sync\sidecar"
@@ -60,7 +60,7 @@ Copy-Item "$PWD\target\release\spike.exe" `
 Start-ScheduledTask -TaskName 'KizemoFocusSync'
 ```
 
-> 注意：父提交 `087aecd9` **不含** v0.5.10 那批未提交的改动吗？—— 含。
+> 注意：父提交 `8f7b3191` **不含** v0.5.10 那批未提交的改动吗？—— 含。
 > v0.5.10（`is_classic_shell_signature`、`pick_filename_edit` 等）在本次提交
 > 之前就是未提交状态，本次提交把它们一并记录了进去。所以 revert 之后得到的是
 > **v0.5.10 的源码状态**，也就是修复前正在运行的那份。
@@ -100,7 +100,7 @@ Start-ScheduledTask -TaskName 'KizemoFocusSync'
 - 二进制备份哈希：`36AC01042BE843402ED9851643F603F00CB1D5B2D8205A9697E94F95BA357E24`
 - 备份文件：`_acceptance/rollback-2026-10-13/focus-sync-sidecar.v0.5.10.ORIGINAL.exe`
 - 备份产生时间：2026-10-13 21:39（部署新版本之前）
-- 提交：`311855ed`（在 sigma-file-manager 仓库，分支 `docs/navigator-behavior-parity-spec`）
+- 提交：`2c7c2dc2`（在 sigma-file-manager 仓库，分支 `docs/navigator-behavior-parity-spec`）
 
 > `sigma-file-manager/` 在**外层** `filemanager` 仓库里是 gitignore 的（注释写明
 > "fork 仓库目录，在 sigma-file-manager/ 子目录里独立管理"）。它是独立仓库，

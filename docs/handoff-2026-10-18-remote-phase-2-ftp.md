@@ -3,7 +3,7 @@
 > 日期：2026-10-18（深夜）
 > 仓库：`F:\soft\00selfmade\filemanager\sigma-file-manager`
 > 分支：`feat/remote-phase-1-connections-transport`
-> 三个新 commit：`fd35b2d8`（4.5 前端信任流）、`6f2290a5`（4.4 FTP provider）
+> 三个新 commit：`5e16bd80`（4.5 前端信任流）、`74112204`（4.4 FTP provider）
 > 上游快照：`handoff-2026-10-18-remote-phase-2-progress.md`（它写于 FTP 之前，
 > 其中「状态」一节已过时，本文件取代它）
 
@@ -37,12 +37,12 @@
 
 | commit | 内容 |
 |---|---|
-| `fd35b2d8` | 4.5 前端信任流：`hostKeyPrompt` / `HostKeyTrustDialog` / 设置页「已信任主机」分区 |
-| `6f2290a5` | 4.4 FTP provider：`ftp_parsing.rs`（纯解析）+ `ftp_provider.rs`（协议）+ command 层按协议分流 |
-| `db0d2b45` | 补一处测试覆盖缺口（`226` 校验）+ 本文件 |
-| `f81e1156` | FTPS 显式 / 隐式 + 证书固定 |
-| `dc61c843` | FTPS **端到端测试**（假服务端 + rcgen 自签证书）+ 修 `CryptoProvider` panic（第 5.8 节） |
-| `51e7c3d3` | `AUTH TLS` 被拒的判据从 `kind` 收紧到 `message` |
+| `5e16bd80` | 4.5 前端信任流：`hostKeyPrompt` / `HostKeyTrustDialog` / 设置页「已信任主机」分区 |
+| `74112204` | 4.4 FTP provider：`ftp_parsing.rs`（纯解析）+ `ftp_provider.rs`（协议）+ command 层按协议分流 |
+| `d7bdcc01` | 补一处测试覆盖缺口（`226` 校验）+ 本文件 |
+| `98fe505d` | FTPS 显式 / 隐式 + 证书固定 |
+| `ae646a16` | FTPS **端到端测试**（假服务端 + rcgen 自签证书）+ 修 `CryptoProvider` panic（第 5.8 节） |
+| `4bbb782c` | `AUTH TLS` 被拒的判据从 `kind` 收紧到 `message` |
 
 ---
 
@@ -106,7 +106,7 @@ SOCKS5 的 `BIND` 是 `CMD=0x02`，语义为「让代理在**代理侧**开监�
 
 ---
 
-## 4. 4.5 前端信任流（`fd35b2d8`）的三个决定
+## 4. 4.5 前端信任流（`5e16bd80`）的三个决定
 
 1. **影子类型**：`remote-directory.ts` 曾本地重复声明一个只含 `{kind, message}` 的
    `RemoteErrorPayload`，把 `@/types/remote` 的正式类型遮住，导致
@@ -123,7 +123,7 @@ SOCKS5 的 `BIND` 是 `CMD=0x02`，语义为「让代理在**代理侧**开监�
 
 ---
 
-## 5. FTPS：已接上证书固定（commit `f81e1156`）
+## 5. FTPS：已接上证书固定（commit `98fe505d`）
 
 `ftps_explicit` / `ftps_implicit` **不再是「暂不支持」**，固定的是**叶证书 DER 的
 SHA-256**，走与 SSH known_hosts 同构的那条链。
@@ -187,7 +187,7 @@ FTPS 里还留着同一个 —— 而这两个 bug 用户会分别遇到，且�
 补 `PROT` 时要做的是「先 `PBSZ 0` 再 `PROT P`，失败就**明确报错**」，
 绝不静默降级。
 
-### 5.7 端到端测试已补（`dc61c843`）—— 本节此前写的「没有」已作废
+### 5.7 端到端测试已补（`ae646a16`）—— 本节此前写的「没有」已作废
 
 **这一节原来写着「整个 FTPS 流程没有端到端测试，若要补需要能签自签证书的夹具
 + 会说 `AUTH TLS` 的假服务端，是独立的一块工作」。已经补完了。**
@@ -808,7 +808,7 @@ if (props.isGlobalSearchOpen || settingsScope.value === 'folder') return;
 
 所以 TDZ 的 `ReferenceError` 被吞成一条控制台警告，页面照常渲染。
 代价是致命的：`effect.run()` 没跑完，**一个依赖都没被收集**，
-这个 watch 从 2026-09-26（`bd17ed520`）建好那天起就永远不会触发。
+这个 watch 从 2026-09-26（`51da1558e`）建好那天起就永远不会触发。
 
 > ⚠️ **这条的教训值得单独立规矩**：
 > 「页面没崩」**不能**推出「代码没问题」。Vue 会把 watcher getter 的异常降级成警告，

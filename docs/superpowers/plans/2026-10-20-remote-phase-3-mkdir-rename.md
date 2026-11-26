@@ -2,7 +2,7 @@
 
 > 写入时间：2026-10-20
 > 仓库：`F:\soft\00selfmade\filemanager\sigma-file-manager`
-> 基线：`cc62d28b`（3.2.11 正式版发布提交）
+> 基线：`f9ab7979`（3.2.11 正式版发布提交）
 > 上游约束：`F:\soft\00selfmade\filemanager\AGENTS.md`
 > 规格：`docs/superpowers/specs/2026-10-17-ftp-sftp-remote-space-design.md` §5 / §6 / §8
 
@@ -195,7 +195,7 @@ Tauri 按「Rust 参数名的 camelCase 形式」匹配。传 `path` 给 `remote
 
 ### 4.1 单测门禁（基线逐字对照）
 
-| 项 | 基线（HEAD = `cc62d28b`） |
+| 项 | 基线（HEAD = `f9ab7979`） |
 |---|---|
 | `cargo test --lib` | 651 passed / 0 failed |
 | `npx vue-tsc --build` | 0 error |

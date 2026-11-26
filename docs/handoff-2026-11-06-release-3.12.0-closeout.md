@@ -16,7 +16,7 @@
 
 - 三任务真机验收**全部定案通过**（打包产物 `tauri build`，非 dev 构建）。
 - 站点侧：3.12.0 包 SHA256 `c3eb2c5d870a565aed87da012e9bcc0256d0fd9eb4583562c024692c9f5c302e`（45,112,805 B）；`finish-release-3120.cjs` 重写 4 个 winget yaml + `version.json` + release notes；`npm run check:winget` 全过；SFTP `UPLOAD_EXIT=0`；公网回读 `https://www.aiec.fun/alpha-file-manager/version.json` 已确认。
-- GitHub：commit `526dc45e`（66 files，+769/−46）已推送 `main`；annotated tag `v3.12.0` 已推送；**Release 已创建并回读验证**：https://github.com/kizemo/alpha-file-manager/releases/tag/v3.12.0 ，资产 `Alpha_File_Manager_3.12.0_x64-setup.exe`（45,112,805 B），标题风格对齐 v3.11.0。
+- GitHub：commit `dfd95188`（66 files，+769/−46）已推送 `main`；annotated tag `v3.12.0` 已推送；**Release 已创建并回读验证**：https://github.com/kizemo/alpha-file-manager/releases/tag/v3.12.0 ，资产 `Alpha_File_Manager_3.12.0_x64-setup.exe`（45,112,805 B），标题风格对齐 v3.11.0。
 - 门禁（提交前全量）：vitest 289 files / 2697 tests 通过；`eslint .` 180 errors（基线 188，无回归）；`cargo test --lib` 936 passed；`npm run ts` exit 0。
 - 用户数据已恢复真值：杀掉 `alpha-file-manager` 进程后依次 restore，`user-settings.json` 5645 B（`navigator.fileIconTheme` 回 `builtin:default`）、`user-workspaces.json` 2423 B（7 个 directory 标签页恢复）、`user-stats.json` 31,781 B 全程未动。
 - 7 个外来窗口已按 `occluders-3120g.round4.txt` 全部挪回原位并实测 rect 核对；验收残留进程（fixture-server / fixture-writer / npx electron remote-debugging）已杀清。

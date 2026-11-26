@@ -4,7 +4,7 @@
 
 **必交付**:用户装机测 v6,验证 5 项 sync 场景 + ancestor load 失败兜底。`release/Sigma-File-Manager-2.2.0-x64-setup.exe` 已覆盖到 `release/`。
 
-**分支/基线**:`feat/tree-view` HEAD = v6 commit,基于 `ec3389ba`(v5 改动前的基线)。父仓库根目录记录 plan/handoff,sigma-file-manager 子模块是代码。
+**分支/基线**:`feat/tree-view` HEAD = v6 commit,基于 `9e710ae8`(v5 改动前的基线)。父仓库根目录记录 plan/handoff,sigma-file-manager 子模块是代码。
 
 **禁止事项**:不要回退 v5 imperative ref forwarding、不要改 store Set mutation 用原地 set/delete、不要让 `useFileTree.ensureLoaded` throw、不要动 baseline type 补丁(它们配合 baseline 'tree' layout 漏的类型)。
 

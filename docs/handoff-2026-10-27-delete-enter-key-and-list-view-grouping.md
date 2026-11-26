@@ -12,10 +12,10 @@
 |---|---|
 | 项目是什么 | `F:\soft\00selfmade\filemanager\sigma-file-manager` = **Alpha File Manager（AFM）**，Tauri 2 + Vue 3 + reka-ui 的 Windows 文件管理器；fork 自上游 `aleksey-hoffman/sigma-file-manager`（SFM） |
 | 用户要什么（2026-10-28） | ① 回答「相较优化前资源占用减少多少」并给数据；② 版本升到 **3.6.4 并发版**（README / 升级日志 / aiec 版本文件 / GitHub / aiec.fun）；③ 解释上游 `global_search/scoring.rs` 短查询门槛缺陷的成因与影响并判断能否修 |
-| 本轮做到了哪 | ①②③ **全部完成**：3.6.4 已于 2026-10-28 发布（commit `bd375f1b` + `6c6aeb8e` → `origin/main`；GitHub release `v3.6.4` 与 aiec.fun 线上均为 3.6.4）；资源数据见 §19.3；scoring 缺陷已修并随 3.6.4 发布，见 §19.5 |
+| 本轮做到了哪 | ①②③ **全部完成**：3.6.4 已于 2026-10-28 发布（commit `a7cae9f9` + `1e6f2149` → `origin/main`；GitHub release `v3.6.4` 与 aiec.fun 线上均为 3.6.4）；资源数据见 §19.3；scoring 缺陷已修并随 3.6.4 发布，见 §19.5 |
 | 现在卡在哪 | 无阻塞。**下一阶段 = mac Finder 风格主题**（§20）：摸清主题机制 → 出 3 个方向初稿给用户选 → 落地浅色 / 深色两套 → 沙箱验收 → 发 **3.6.5** |
 | 已落盘的东西 | 3.6.4 安装包（`release/Alpha File Manager_3.6.4_x64-setup.exe`，20,697,849 B，sha256 `D070BB8D4ADF4716C8522CE071157C531CFCA8E080B355790DAAA4FCF0C79493`）、winget 3.6.4 清单四件套、站点 `version.json`（3.6.4 / history 19 条）、`_release-notes-v3.6.4.md`、17 个发版文档、交接文档 §19 + §20 |
-| 仓库状态 | 内层仓 `sigma-file-manager` 分支 `main`，HEAD = `6c6aeb8e`，与 `origin/main` 一致（用 `gh api repos/kizemo/alpha-file-manager/commits/main --jq '.sha'` 核对）；**工作树干净**；外层仓 `F:\soft\00selfmade\filemanager` 只改了 `AGENTS.md`（本地 commit `fcc9fae`，未 push） |
+| 仓库状态 | 内层仓 `sigma-file-manager` 分支 `main`，HEAD = `1e6f2149`，与 `origin/main` 一致（用 `gh api repos/kizemo/alpha-file-manager/commits/main --jq '.sha'` 核对）；**工作树干净**；外层仓 `F:\soft\00selfmade\filemanager` 只改了 `AGENTS.md`（本地 commit `fcc9fae`，未 push） |
 | 门禁基线 | `npx eslint .` = **188 errors / 0 warnings**；`npm run ts` exit 0；`npm run test` = 251 files / 2314 tests；`cargo check --all-targets` exit 0；`cargo test --lib` = 856 passed / **2 failed（存量环境问题：MCP 端口 55100–55199 被占、WSAEACCES，非回归）** |
 | 最容易踩的坑 | ① 真机验收只能用 `tauri build` 产物（`tauri dev` 路由页内容区全白）；② 验收必须跑在**隔离桌面沙箱**内（`AGENTS.md` §2.8）；③ `eslint .` 是整仓口径，基线 188；④ `.cmd` 的 `echo` 里不能有 `>`、`.cmd` 运行期间不能编辑；⑤ `.ps1`/`.cmd` 必须纯 ASCII；⑥ **push 先走默认代理**，清空代理会 `Recv failure: Connection was reset`；⑦ Node `fetch` 要 `NODE_USE_ENV_PROXY=1` + `HTTPS_PROXY=http://127.0.0.1:7897`；⑧ `release/` 里的历史安装包不许删（winget 清单按 sha256 比对） |
 
@@ -47,7 +47,7 @@
 ### 2.2 版本现状
 
 - **当前版本 = 3.6.4**（`package.json`；`src-tauri/Cargo.toml`、`src-tauri/default-file-manager-common/Cargo.toml`、`src-tauri/default-file-manager-launcher/Cargo.toml` 三处同步；`src-tauri/tauri.conf.json` 的 version 指向 `"../package.json"`，不用改）。
-- **3.6.4 已于 2026-10-28 发布完毕**（commit `bd375f1b` + `6c6aeb8e` → `origin/main`；GitHub release `v3.6.4`；站点 aiec.fun 线上 3.6.4）。
+- **3.6.4 已于 2026-10-28 发布完毕**（commit `a7cae9f9` + `1e6f2149` → `origin/main`；GitHub release `v3.6.4`；站点 aiec.fun 线上 3.6.4）。
   - 安装包：`release/Alpha File Manager_3.6.4_x64-setup.exe`，**20,697,849 B**，sha256 **`D070BB8D4ADF4716C8522CE071157C531CFCA8E080B355790DAAA4FCF0C79493`**（GitHub 资产 digest / 站点 `version.json` / winget `InstallerSha256` 四方一致）。
 - **下一版目标 = 3.6.5**（mac Finder 风格主题，见 §20）。升版本用 `npm run release:prepare -- --bump patch`；**万一只是重打包必须 `--bump none`**。
 - `release/` 目录里堆了 2.2.0 → 3.6.4 的历史安装包，**都在，别删**（winget 清单要按 sha256 比对这里的实际文件）。
@@ -73,8 +73,8 @@
 | 定位 B 的实现位置与复用点 | ✅ 完成 | 见第 5 节，带文件路径与行号 |
 | A 的方案定稿 | ✅ 完成 | 见第 4.4 节，含可直接抄的代码 |
 | B 的方案定稿 | ✅ 完成 | 见第 5 节，含全部一致性要求 |
-| **A 的代码 + 单测** | ✅ **已完成并提交** | `utils/permanent-delete-confirm-keyboard.ts`（13 用例）+ `permanent-delete-confirm-dialog.vue`；commit `82d42190` / `605efae8` |
-| **B 的代码 + 单测** | ✅ **已完成并提交** | 分区行模型 + `createGroupedListRows()`；commit `d1c96f70` / `dff656a4` |
+| **A 的代码 + 单测** | ✅ **已完成并提交** | `utils/permanent-delete-confirm-keyboard.ts`（13 用例）+ `permanent-delete-confirm-dialog.vue`；commit `dfcdd18e` / `d22c7883` |
+| **B 的代码 + 单测** | ✅ **已完成并提交** | 分区行模型 + `createGroupedListRows()`；commit `16f4b9a5` / `d17ee6b7` |
 | **发版文档成因描述修正** | ✅ 完成 | 18 个文件（全仓 grep 旧表述 = No matches found） |
 | **真机验收 A（裸回车 = 删除，Case A/B/C/D）** | ✅ **PASS** | `.superpowers\sdd\accept-363-enter-delete.ps1` + 截图 |
 | **真机验收 B（列表视图分区，4 条断言）** | ✅ **PASS** | `.superpowers\sdd\accept-363-list-grouping.ps1` + 截图 |
@@ -82,7 +82,7 @@
 | **优化 C 门禁** | ✅ 通过 | `eslint .` = 188 errors / 0 warnings（= 基线）；`npm run ts` exit 0 |
 | **3.6.3 重打包 + winget 清单 + 站点同步** | ✅ 完成 | 见第 14 节（新 sha / 字节数） |
 | **优化 C 真机验收** | ✅ **全部 PASS**（右键路径 / F2 / 回车 / ↓ / ↑ / Esc / 缩略图视图） | 见第 13.6 节 |
-| **发版提交 + push + 双端上传** | ✅ **已完成** | commit `a9fed27a` → `origin/main`；GitHub release `v3.6.3` + 站点 aiec.fun 线上均 3.6.3，`release:status` / `release:verify` 版本 / 大小 / sha256 三项一致 |
+| **发版提交 + push + 双端上传** | ✅ **已完成** | commit `ee44cb2c` → `origin/main`；GitHub release `v3.6.3` + 站点 aiec.fun 线上均 3.6.3，`release:status` / `release:verify` 版本 / 大小 / sha256 三项一致 |
 
 ---
 
@@ -478,7 +478,7 @@ npm --prefix $repo run check:winget
 
 > 接手 `F:\soft\00selfmade\filemanager\sigma-file-manager`（Alpha File Manager，Tauri 2 + Vue3 + reka-ui）：先读 `F:\soft\00selfmade\filemanager\AGENTS.md`（项目硬约束，**必读**：第 2 节真机验收铁律、§2.8 隔离桌面沙箱约束、§2.2 末尾 push/Node 代理两条新规）、`F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-10-27-delete-enter-key-and-list-view-grouping.md`（本文，**唯一权威状态源**：§0 速查表、§19 的 3.6.4 发布结果与资源数据、**§20 的主题制作计划与机制调研结论**、§7.2 与 §15.1 发版铁律、§16–18 的环境坑位）、以及 `F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\relay-rules-batch-c.md`（沙箱验收坑位清单，是纪律清单不是任务清单）。
 >
-> **3.6.4 已于 2026-10-28 全部发完**（commit `bd375f1b` + `6c6aeb8e` → `origin/main`；GitHub release `v3.6.4` 与站点 aiec.fun 线上均为 3.6.4，安装包 20,697,849 B / sha256 `D070BB8D4ADF4716C8522CE071157C531CFCA8E080B355790DAAA4FCF0C79493`）⇒ **不要重复发 3.6.4、不要重跑已完成的验收**。
+> **3.6.4 已于 2026-10-28 全部发完**（commit `a7cae9f9` + `1e6f2149` → `origin/main`；GitHub release `v3.6.4` 与站点 aiec.fun 线上均为 3.6.4，安装包 20,697,849 B / sha256 `D070BB8D4ADF4716C8522CE071157C531CFCA8E080B355790DAAA4FCF0C79493`）⇒ **不要重复发 3.6.4、不要重跑已完成的验收**。
 >
 > 下一轮做 **mac Finder 风格主题**（用户 2026-10-28 指定）：按 §20.5 的顺序 —— 先摸清主题变量的实际消费面（§20.2 已给全机制与文件行号，不必重新调研）→ 按 §20.4 出 3 个 mac Finder 方向初稿交用户选 → 落地浅色 / 深色两套主题（只改 `src/styles/vars.css` 的颜色与形状 token，**保持资源管理器布局框架不变**，浅色设为默认）→ 跑门禁 → `tauri build` 出包后在**隔离桌面沙箱**内做视觉验收（不得抢用户桌面焦点）→ 按 §7.2 / §15.1 的顺序发 **3.6.5**（README、升级日志、aiec 版本文件、push 到 GitHub 与 aiec.fun）。
 
@@ -761,7 +761,7 @@ F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\click-webview
 - `version.json`（version = 3.6.3，sha 前缀 `fee1f2a874fa8f89`，history = 18，**未重复归档**）
 - `_release-notes-v3.6.3.md`（1,404 B，**已含「就地重命名」**）
 
-### 14.5 发版文档（18 个文件已改，**已随 `a9fed27a` 提交**）
+### 14.5 发版文档（18 个文件已改，**已随 `ee44cb2c` 提交**）
 
 - `_notes.md`：首行加「；重命名改成在文件名上就地编辑」+ 新增「**就地重命名：**」段落。
 - 根 `CHANGELOG.md` + 14 个 `public/changelog/<loc>/changelog.md` 的 3.6.3 段：Summary 改为「Three things / 三件」并追加 `**Added: renaming happens in place.**` / `**新增：重命名就地编辑。**`。
@@ -793,8 +793,8 @@ F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\click-webview
 | 2 | 优化 C 真机验收 | `accept-363-inline-rename-v5/v6/v7/v8.ps1`（**锁屏下用 `PostMessage` + `WM_KEYDOWN`**，见第 13.5 节） | ✅ 全部 PASS |
 | 3 | 还原工作区 + 清夹具 | 先杀进程 → `node .superpowers\sdd\pin-workspace.cjs restore` → 核对 2,350 B / sha `1F586B6A…557C` → `mavis-trash.cmd -- "$env:USERPROFILE\afm-inline-lab"` | ✅ 已完成 |
 | 4 | 补提交信息 | `.superpowers\sdd\msg-363-release.txt` —— 已写入优化 A / B / C 三条 + 实测验收结论 + sha `FEE1F2A874FA8F89A32F71AA03B6B934C4A8A2E6DB4F23F95D7FF03B1E44644B` + 字节数 20,716,092 | ✅ |
-| 5 | 发版提交 | `git -C F:\soft\00selfmade\filemanager\sigma-file-manager add -A` → `git -C … commit -F F:\…\.superpowers\sdd\msg-363-release.txt`（**信息必须走文件**） | ✅ `a9fed27a`（42 files / +1600 / −102） |
-| 6 | push | `git -C … -c http.proxy= push origin main`；核对远端 SHA 用 `gh api repos/kizemo/alpha-file-manager/commits/main --jq '.sha'`（**不要用 `git ls-remote`**） | ✅ 远端 = `a9fed27a98708c8465b2ecc96f67f4c0a7c67eb5` |
+| 5 | 发版提交 | `git -C F:\soft\00selfmade\filemanager\sigma-file-manager add -A` → `git -C … commit -F F:\…\.superpowers\sdd\msg-363-release.txt`（**信息必须走文件**） | ✅ `ee44cb2c`（42 files / +1600 / −102） |
+| 6 | push | `git -C … -c http.proxy= push origin main`；核对远端 SHA 用 `gh api repos/kizemo/alpha-file-manager/commits/main --jq '.sha'`（**不要用 `git ls-remote`**） | ✅ 远端 = `ee44cb2cd8f8d847e31549b6f3fe8ef563b9e4d2` |
 | 7 | 双端上传 | `npm --prefix <repo> run release:upload`（aiec.fun）→ `npm --prefix <repo> run release:github`（GitHub release `v3.6.3`，资产名 `Alpha_File_Manager_3.6.3_x64-setup.exe`）→ `release:status` → `release:verify` | ✅ 站点 + GitHub 均已上线，版本 / 大小 / sha256 三项一致 |
 | 8 | 汇报 | 简体中文；**必须写明**：① **sticky 段头未做**（列表视图分区是随内容滚动的内联标题）；② winget PR 仍待 `#460744`（3.5.1）合并，3.6.3 只备清单未提 PR；③ 安装包**无代码签名**；④ workspace 已回滚到验收前快照；⑤ 缩略图视图的就地编辑**已**做真机验证 | ✅ 已汇报 |
 
@@ -885,8 +885,8 @@ F:\soft\00selfmade\filemanager\sigma-file-manager\.superpowers\sdd\click-webview
 
 | 环节 | 结果 |
 |---|---|
-| 发版提交 | `a9fed27a` —— `release: 发版 3.6.3 —— 永久删除确认框回车即生效；列表视图按类型分区；重命名就地编辑`（42 files / +1600 / −102） |
-| push | `origin/main` = `a9fed27a98708c8465b2ecc96f67f4c0a7c67eb5`（`gh api repos/kizemo/alpha-file-manager/commits/main --jq '.sha'` 核对一致） |
+| 发版提交 | `ee44cb2c` —— `release: 发版 3.6.3 —— 永久删除确认框回车即生效；列表视图按类型分区；重命名就地编辑`（42 files / +1600 / −102） |
+| push | `origin/main` = `ee44cb2cd8f8d847e31549b6f3fe8ef563b9e4d2`（`gh api repos/kizemo/alpha-file-manager/commits/main --jq '.sha'` 核对一致） |
 | GitHub release | `v3.6.3` 已创建：https://github.com/kizemo/alpha-file-manager/releases/tag/v3.6.3 ；资产 `Alpha_File_Manager_3.6.3_x64-setup.exe`，20,716,092 B，sha256 `FEE1F2A874FA8F89A32F71AA03B6B934C4A8A2E6DB4F23F95D7FF03B1E44644B` |
 | 站点 aiec.fun | SFTP 上传 + cache-busting 回读通过：线上版本 3.6.3，源站包 20,716,092 B，边缘包 20,716,092 B（`CF-Cache-Status=HIT`），sha256 一致 |
 | `release:status` | exit 0 —— package.json 3.6.3 / 安装包 20,716,092 B / 站点源 version.json 3.6.3，sha 三处相同 |
@@ -988,7 +988,7 @@ AFM **代码里没有任何进程内存自报机制**：
 
 > 完整计划见 `.superpowers/sdd/mem-plan-v2.md`。
 
-**⚠️ v1 的错误建议已作废**：v1 写「把 tantivy 换回默认 merge 策略」。**不能这样改** —— `NoMergePolicy` 是 2026-06-24 提交 `054e2472`「UX: indexing stability improvements」**刻意加入的稳定性措施**，同一提交还引入了 `BULK_INDEX_MEMORY_BUDGET_BYTES = 100_000_000` 与 `writer_with_num_threads(1, …)`。正确改法是**保留 NoMergePolicy，在扫描提交完成后显式 `merge()` + `wait_merging_threads()`**，让 segment 收敛而不回退稳定性改进。
+**⚠️ v1 的错误建议已作废**：v1 写「把 tantivy 换回默认 merge 策略」。**不能这样改** —— `NoMergePolicy` 是 2026-06-24 提交 `e8e54f52`「UX: indexing stability improvements」**刻意加入的稳定性措施**，同一提交还引入了 `BULK_INDEX_MEMORY_BUDGET_BYTES = 100_000_000` 与 `writer_with_num_threads(1, …)`。正确改法是**保留 NoMergePolicy，在扫描提交完成后显式 `merge()` + `wait_merging_threads()`**，让 segment 收敛而不回退稳定性改进。
 
 v2 补入的八条：F4（搜索物化 10 万）· F6（每盘符 FileBrowser）· F10（192 MB 解码上限）· F11（每目录线程）· F9（Rust 图标 LRU + 唯一无界项）· F12 的五项 P2 · 以及 `global-search-view.vue` / `use-image-thumbnails.ts` / `dir-sizes.ts` / `folder-tree.ts` 等深响应式容器。
 
@@ -996,11 +996,11 @@ v2 补入的八条：F4（搜索物化 10 万）· F6（每盘符 FileBrowser）
 
 | 批次 | 内容 | 文件（独占所有权） | 状态 |
 |---|---|---|---|
-| **A1** | 系统图标缓存加容量上限；`path:`/`dir:` 类必须可淘汰，`ext:` 类保留 | `src/composables/system-icon-cache.ts` + 新增测试 | ✅ 完成（`e8a41f3b`） |
-| **A2** | 缩略图前端缓存 `ref<Record>`+`reactive(Set)` → `shallowRef`+`Map`，写入改原地 `set`（消 O(n²)） | `.../file-browser/composables/use-image-thumbnails.ts` + 测试 | ✅ 完成（`e8a41f3b`） |
-| **B1** | 搜索查询：`truncate` 前移到物化之前；`TopDocs` limit 与实际返回对齐；reader 预算/空闲释放（能安全实现才做） | `src-tauri/src/global_search/query.rs`、`state.rs` + 测试 | ✅ 完成（`e8a41f3b`） |
-| **B2** | 缩略图：解码上限 192 MB → 64 MB + 并发闸门 2–4；**超限全清 → 按最旧淘汰**；限额 5000 张/1 GB → **2000 张/256 MB** | `src-tauri/src/image_thumbnails.rs` + 测试 | ✅ 完成（`e8a41f3b`） |
-| **B3** | Rust 图标：LRU 512 → 128 条（或按字节限额）；`UNSUPPORTED_SHELL_ICON_PATHS` 加上限 | `src-tauri/src/system_icons.rs` + 测试 | ✅ 完成（`e8a41f3b`） |
+| **A1** | 系统图标缓存加容量上限；`path:`/`dir:` 类必须可淘汰，`ext:` 类保留 | `src/composables/system-icon-cache.ts` + 新增测试 | ✅ 完成（`7a9babad`） |
+| **A2** | 缩略图前端缓存 `ref<Record>`+`reactive(Set)` → `shallowRef`+`Map`，写入改原地 `set`（消 O(n²)） | `.../file-browser/composables/use-image-thumbnails.ts` + 测试 | ✅ 完成（`7a9babad`） |
+| **B1** | 搜索查询：`truncate` 前移到物化之前；`TopDocs` limit 与实际返回对齐；reader 预算/空闲释放（能安全实现才做） | `src-tauri/src/global_search/query.rs`、`state.rs` + 测试 | ✅ 完成（`7a9babad`） |
+| **B2** | 缩略图：解码上限 192 MB → 64 MB + 并发闸门 2–4；**超限全清 → 按最旧淘汰**；限额 5000 张/1 GB → **2000 张/256 MB** | `src-tauri/src/image_thumbnails.rs` + 测试 | ✅ 完成（`7a9babad`） |
+| **B3** | Rust 图标：LRU 512 → 128 条（或按字节限额）；`UNSUPPORTED_SHELL_ICON_PATHS` 加上限 | `src-tauri/src/system_icons.rs` + 测试 | ✅ 完成（`7a9babad`） |
 | **C1** | 搜索结果页每盘符完整 `FileBrowser` → 轻量只读列表 | `src/modules/global-search/global-search-view.vue` | ✅ 完成（见 §18.12） |
 | **C2** | `dirContents` → `shallowRef`+`markRaw`；`workspaces` Tab 不再存 `dirEntries`；`clone(tab)` 前先清 | `use-file-browser-navigation.ts`、`stores/storage/workspaces.ts` | ✅ 完成（见 §18.12） |
 | **C3** | 虚拟行只算可视窗口；行 key 改下标，不再拼路径串 | `use-file-browser-virtual-layout.ts`、`utils/file-browser-virtual-rows.ts` | ✅ 完成（见 §18.12） |
@@ -1050,9 +1050,9 @@ v2 补入的八条：F4（搜索物化 10 万）· F6（每盘符 FileBrowser）
 
 > 这 5 个文件都在 `.superpowers/`（被 gitignore），**不进版本库**；接力会话用绝对路径读。
 
-### 18.10 批次 A/B 执行结果（2026-10-28，commit `e8a41f3b`，已 push）
+### 18.10 批次 A/B 执行结果（2026-10-28，commit `7a9babad`，已 push）
 
-**提交**：`e8a41f3b` 「perf: 降低常驻内存与磁盘占用（资源优化批次 A/B）」（9 文件，+1497 / −140）；`origin/main` = `e8a41f3b8b43b740f5078b84521823efd2625280`（`gh api .../commits/main --jq '.sha'` 核对一致）。
+**提交**：`7a9babad` 「perf: 降低常驻内存与磁盘占用（资源优化批次 A/B）」（9 文件，+1497 / −140）；`origin/main` = `7a9babad2b17c95ce991bac7c0f5b1100dfb0c85`（`gh api .../commits/main --jq '.sha'` 核对一致）。
 **未 bump 版本号**（仍 3.6.3）、**未发版**、`release/` 目录未动。
 
 | 切片 | 实际改动 | 测试 |
@@ -1063,7 +1063,7 @@ v2 补入的八条：F4（搜索物化 10 万）· F6（每盘符 FileBrowser）
 | B2 | `image_thumbnails.rs`：单图解码分配上限 **192 MB → 64 MB**；源像素上限 **16 MP**；并发解码闸门 **最多 3 张**（Mutex + Condvar，RAII 归还名额，解码期间不持锁）；缓存限额 **5000 张/1 GB → 2000 张/256 MB**；超限**按 mtime 淘汰最旧**（不再整体清空） | 新增 6 条，删掉 2 条前提失效的旧测试 |
 | B3 | `system_icons.rs`：图标 data URL LRU **512 → 128 条**；`UNSUPPORTED_SHELL_ICON_PATHS` 由无界 `HashSet` 改为容量 **512** 的 LRU ⇒ **Rust 侧最后一个严格无界项消除** | 2 条 |
 
-**统一门禁（全部在 `e8a41f3b` 上量）**
+**统一门禁（全部在 `7a9babad` 上量）**
 
 | 项 | 结果 |
 |---|---|
@@ -1245,7 +1245,7 @@ v2 补入的八条：F4（搜索物化 10 万）· F6（每盘符 FileBrowser）
 
 **一句话结论：被审计的 19 条资源占用问题（F1–F12e），AFM 二次编辑引入 0 条。** 全部 19 条的「首次引入 commit」都是上游 SFM 的提交（作者一律 `aleksey-hoffman`，`git merge-base --is-ancestor <sha> upstream/main` 全部返回 0）。
 
-**口径说明**：`upstream` remote = `aleksey-hoffman/sigma-file-manager`（**原仓 SFM**），`origin` = `kizemo/alpha-file-manager`（**AFM 自己**）。merge base = `fed49cee`（2026-08-27），上游独有提交 23 个、AFM 独有 302 个（文档旧值 251 已过期，AFM 在 10-19 之后又补了约 51 个提交）。
+**口径说明**：`upstream` remote = `aleksey-hoffman/sigma-file-manager`（**原仓 SFM**），`origin` = `kizemo/alpha-file-manager`（**AFM 自己**）。merge base = `4d788321`（2026-08-27），上游独有提交 23 个、AFM 独有 302 个（文档旧值 251 已过期，AFM 在 10-19 之后又补了约 51 个提交）。
 
 #### 归因汇总
 
@@ -1261,9 +1261,9 @@ v2 补入的八条：F4（搜索物化 10 万）· F6（每盘符 FileBrowser）
 
 | 占用块 | 实测量 | 归属 | 关键证据 |
 |---|---|---|---|
-| **F1 隐藏 Quick View renderer** | 171.9 MB（常驻第二个 renderer） | **纯上游** | 机制由上游 `d59e8e9e`（2026-06-30「New settings: Window memory / performance control」）引入；上游默认 `prelaunchQuickViewWindow: true`。AFM 只改过窗口标题（品牌改名 `d2be2373`）。批次 D1 已在**用户机器**上关掉（改设置，非代码） |
-| **F3 tantivy `NoMergePolicy`** | 搜索索引 299.16 MB（7+ segment 永不合并） | **纯上游** | 上游 `054e2472`（2026-06-24「UX: indexing stability improvements」）；AFM 对 `global_search/index.rs` 的提交数 = **0**；上游当前版本仍是 `NoMergePolicy` |
-| **F2 缩略图缓存** | 434.34 MB / 4,249 张 | 上游设计 + **AFM 放大量级** | 上游 `9f20b226` 定下 5000 张 / 1 GB；AFM 批次 A/B（B2）已改为 2000 张 / 256 MB 并按 mtime 淘汰。**四档缩略图尺寸是 AFM 独有的** ⇒ 同一源图落盘多份 |
+| **F1 隐藏 Quick View renderer** | 171.9 MB（常驻第二个 renderer） | **纯上游** | 机制由上游 `ced2775a`（2026-06-30「New settings: Window memory / performance control」）引入；上游默认 `prelaunchQuickViewWindow: true`。AFM 只改过窗口标题（品牌改名 `184fcdd1`）。批次 D1 已在**用户机器**上关掉（改设置，非代码） |
+| **F3 tantivy `NoMergePolicy`** | 搜索索引 299.16 MB（7+ segment 永不合并） | **纯上游** | 上游 `e8e54f52`（2026-06-24「UX: indexing stability improvements」）；AFM 对 `global_search/index.rs` 的提交数 = **0**；上游当前版本仍是 `NoMergePolicy` |
+| **F2 缩略图缓存** | 434.34 MB / 4,249 张 | 上游设计 + **AFM 放大量级** | 上游 `9737be1d` 定下 5000 张 / 1 GB；AFM 批次 A/B（B2）已改为 2000 张 / 256 MB 并按 mtime 淘汰。**四档缩略图尺寸是 AFM 独有的** ⇒ 同一源图落盘多份 |
 
 **WebView2 子树 888.8 MB 与 Rust 主进程 230.1 MB 的常驻成分，主要由上游 SFM 造成**（F1 隐藏 renderer + F3 索引常驻 + F12e `Index` 常驻 + 上游的 `dir_watcher` 每目录 2 线程）。
 
@@ -1271,42 +1271,42 @@ v2 补入的八条：F4（搜索物化 10 万）· F6（每盘符 FileBrowser）
 
 | 条目 | 上游引入 | 批次 C 对应切片 |
 |---|---|---|
-| F6 每命中一个盘符挂一个完整 `<FileBrowser>` | `7a62a0d0`（AFM 对 `global-search-view.vue` 提交数 = 0） | **C1** |
-| F7 `dirContents` 深响应式 / 每 Tab 各存一份 `dirEntries` / `clone(tab)` 深拷 | `ef1b1fed` + `ebc762ef` / `733e2f42` | **C2** |
-| F8 虚拟行全量物化 O(N) + 每行拼完整路径当 key | `afa479de` | **C3** |
-| F11 `dir_watcher` 每监听目录 2 个线程 + 无界 mpsc | `385157ae`（AFM 对 `dir_watcher.rs` 提交数 = 0） | **C4** |
-| F3 tantivy segment 不合并 | `054e2472` | **C5** |
-| F12a / F12b / F12c | `053fb4b2` / `9864c72c` / `6cc7928a`（AFM 三个文件提交数均为 0） | **C6** |
+| F6 每命中一个盘符挂一个完整 `<FileBrowser>` | `dc38aa33`（AFM 对 `global-search-view.vue` 提交数 = 0） | **C1** |
+| F7 `dirContents` 深响应式 / 每 Tab 各存一份 `dirEntries` / `clone(tab)` 深拷 | `d5a15638` + `92476d00` / `ab0aa722` | **C2** |
+| F8 虚拟行全量物化 O(N) + 每行拼完整路径当 key | `0590a139` | **C3** |
+| F11 `dir_watcher` 每监听目录 2 个线程 + 无界 mpsc | `cb833ee7`（AFM 对 `dir_watcher.rs` 提交数 = 0） | **C4** |
+| F3 tantivy segment 不合并 | `e8e54f52` | **C5** |
+| F12a / F12b / F12c | `3a2f874e` / `8b8e3dd6` / `ffe1d3fb`（AFM 三个文件提交数均为 0） | **C6** |
 
-**F12d**（启动时 5 个用户存储 JSON 常驻副本）**本轮未修** —— 它是上游 `b839e298` 的 `preloaded: Arc<OnceCell<…>>` 语义，改动面波及启动路径，留待下一批次。
+**F12d**（启动时 5 个用户存储 JSON 常驻副本）**本轮未修** —— 它是上游 `d2e3d5f5` 的 `preloaded: Arc<OnceCell<…>>` 语义，改动面波及启动路径，留待下一批次。
 
 #### 附带发现：上游还有一个**功能性**缺陷（与资源占用无关，但同属「上游自带」）
 
 `src-tauri/src/global_search/scoring.rs` 的 `get_min_score_for_query_length()`：查询长度 **1–3 字符 → 相似度门槛 0.9**，4–6 → 0.65，7–9 → 0.55，其余 → 0.5。
 而 `calculate_similarity_score()` 对「文件名包含查询词」只给 `0.8 + (len(query)/len(name)) * 0.15`：3 字符查询对 `a.txt`(0.89)、`report.txt`(0.845)、`2026年10月26日 20:53.txt`(0.821) **一律 < 0.9** ⇒ **1–3 字符的全局搜索恒返回 0 条**。
 实测对照：查询 `txt`（3 字符）→ 面板显示「什么都没找到」；查询 `2026`（4 字符，门槛 0.65）→ 「在 3 个驱动器上找到 96 项」。
-上游提交 `b8a1c1b4`（2026-03-28 拆文件提交），**AFM 从未修改该文件**（`git diff` 为空、`git log` 只有上游那条）⇒ 同属**上游自带**，本轮**未修**（改它等于改搜索排序策略，属产品决策）。
+上游提交 `bef6b501`（2026-03-28 拆文件提交），**AFM 从未修改该文件**（`git diff` 为空、`git log` 只有上游那条）⇒ 同属**上游自带**，本轮**未修**（改它等于改搜索排序策略，属产品决策）。
 ⚠️ **验收脚本必须用 ≥4 字符的查询词**，否则会把上游缺陷误判成 C1 回归。
 
 #### 归因方法的已知坑（接力时若要复核）
 
-- `git blame` 给的是「该行最后一次被触碰」，**不等于语义引入**（例：F3 的 `NoMergePolicy` 当前行 blame = `31c665c6f`，纯格式提交；语义引入其实是 `054e2472`）⇒ 一律以 `git log --reverse -S'<逐字字符串>'` 的首次出现为准。
+- `git blame` 给的是「该行最后一次被触碰」，**不等于语义引入**（例：F3 的 `NoMergePolicy` 当前行 blame = `7103b8255`，纯格式提交；语义引入其实是 `e8e54f52`）⇒ 一律以 `git log --reverse -S'<逐字字符串>'` 的首次出现为准。
 - `-S` 数的是**出现次数**，格式调整也会命中，要结合提交内容判断。
-- `git log --follow` 只在文件被 **rename** 时有效；本仓 2026-03-28 `b8a1c1b4` 是「拆文件」而非 rename ⇒ `--follow` 会断链，需按任意路径重查。
+- `git log --follow` 只在文件被 **rename** 时有效；本仓 2026-03-28 `bef6b501` 是「拆文件」而非 rename ⇒ `--follow` 会断链，需按任意路径重查。
 - 取证期间有并行 writer 在改同一工作副本（正是批次 C 的改动）⇒ 涉及被改文件的归因已用 `git blame HEAD` + `git log -S` 只读复核，结论不变。
 
 ### 18.14 批次 C 之后的待办（接力入口）
 
 | # | 事项 | 状态 |
 |---|---|---|
-| 1 | **批次 C 已 commit**：`bb003f97`（22 files / +3963 / −708，代码 + 本文回写同一个 perf commit）；**未 push、未发版、未 bump 版本号** | ✅ 已提交 |
+| 1 | **批次 C 已 commit**：`4ba49a59`（22 files / +3963 / −708，代码 + 本文回写同一个 perf commit）；**未 push、未发版、未 bump 版本号** | ✅ 已提交 |
 | 2 | **C1 真机验收**（沙箱内执行，脚本 `sandbox-c1-accept.ps1`）：已 PASS（见 §18.12） | ✅ |
-| 3 | **F12d 已评估·不修**：实测 5 个真实 JSON 合计约 **75 KB**（`user-stats.json` 34,477 B、`user-extensions.json` 32,461 B、`user-settings.json` 4,266 B、`user-workspaces.json` 2,736 B、`user-remote-connections.json` 1,154 B），载体是上游 `b839e298` 的 `preloaded: Arc<OnceCell<…>>`；常驻上限只是百 KB 级，改启动路径的风险与收益不成比例 | ⏸️ 已评估·不修 |
-| 4 | **`use-video-thumbnails.ts` 已按 A2 同款改造并提交**：`ref<Record>` → `shallowRef<Map>`，写入走 `setVideoThumbnail()`（等值早退 → `Map.set` → `triggerRef`，把单调增长时的 O(n²) 分配降为 O(1)），`clearThumbnails()` 改 `= new Map()`；测试断言同步改 `.value.size === 0`。已 commit `0d89768c`（3 files / +25 / −18，独立 follow-up，未 amend 进 `bb003f97`）；门禁 `eslint .` = **188 / 0**（与基线逐字一致）、`npm run test` **250 文件 / 2309 用例全通过**、`npm run ts` exit 0 | ✅ 已提交 |
+| 3 | **F12d 已评估·不修**：实测 5 个真实 JSON 合计约 **75 KB**（`user-stats.json` 34,477 B、`user-extensions.json` 32,461 B、`user-settings.json` 4,266 B、`user-workspaces.json` 2,736 B、`user-remote-connections.json` 1,154 B），载体是上游 `d2e3d5f5` 的 `preloaded: Arc<OnceCell<…>>`；常驻上限只是百 KB 级，改启动路径的风险与收益不成比例 | ⏸️ 已评估·不修 |
+| 4 | **`use-video-thumbnails.ts` 已按 A2 同款改造并提交**：`ref<Record>` → `shallowRef<Map>`，写入走 `setVideoThumbnail()`（等值早退 → `Map.set` → `triggerRef`，把单调增长时的 O(n²) 分配降为 O(1)），`clearThumbnails()` 改 `= new Map()`；测试断言同步改 `.value.size === 0`。已 commit `9b9304e1`（3 files / +25 / −18，独立 follow-up，未 amend 进 `4ba49a59`）；门禁 `eslint .` = **188 / 0**（与基线逐字一致）、`npm run test` **250 文件 / 2309 用例全通过**、`npm run ts` exit 0 | ✅ 已提交 |
 | 5 | **WebView2 子进程崩溃兜底**（§18.11 D3 建议 ②）：检测 + 提示 + 可恢复 —— **已完成**，实现与验收见 §18.15（取证基础见 §18.11 D3）。方案 = 「前端心跳 + sysinfo 进程树」（放弃 COM `IWebView2ProcessFailed`：`windows-core 0.62.2` 无 `implement` feature，做不了 COM 事件接收器）。落点：`webview_guard.rs`（纯逻辑）+ `webview_guard_runtime.rs`（tauri 接线）+ `use-webview-guard.ts` + 17 个语言包；门禁 `eslint .` 188/0、`npm run test` 251 文件 / 2314 用例、`cargo test --lib webview_guard` 13/0；沙箱真机验收见 §18.15.7 | ✅ 已完成 |
 | 6 | **版本号仍是 3.6.3**，批次 C 不单独发版；是否随下一版统一发由用户决定 | ⬜ 待决策 |
 | 7 | **索引重建代价**：实测一次完整重建约 **17 分钟**（1,016 s，1,956,015 条）；验收脚本必须先确认索引就绪再判 FAIL | ⚠️ 已知 |
-| 8 | **上游缺陷候选**：`global_search/scoring.rs` 的 `get_min_score_for_query_length()` 对 1–3 字符查询给 0.9 门槛，使「含扩展名的文件名」普遍落在 0.82–0.89 ⇒ **短查询恒 0 结果**（上游 `b8a1c1b4`，AFM 未改） | ⬜ 未修（上游） |
+| 8 | **上游缺陷候选**：`global_search/scoring.rs` 的 `get_min_score_for_query_length()` 对 1–3 字符查询给 0.9 门槛，使「含扩展名的文件名」普遍落在 0.82–0.89 ⇒ **短查询恒 0 结果**（上游 `bef6b501`，AFM 未改） | ⬜ 未修（上游） |
 | 9 | **真机验收必须进隔离桌面沙箱**（用户 2026-10-28 要求）：不得在用户桌面上启动 AFM 抢焦点；沙箱脚本 `sandbox-c1-accept.ps1`，坑位清单见 `.superpowers\sdd\relay-rules-batch-c.md` | ✅ 已落地 |
 | 10 | **新会话接力 prompt**：`.superpowers\sdd\relay-prompt-batch-c.txt`（一句话 + 完整路径，引导新会话读必要文档；已按「第 5 项已完成」的当前状态刷新，不重复本文内容） | ✅ 已落地 |
 
@@ -1560,7 +1560,7 @@ BrowserProcessGone（浏览器进程整体没了，reload 也没用）
 - **3.6.4 双端发布结果**：GitHub release `v3.6.4` 资产
   `Alpha_File_Manager_3.6.4_x64-setup.exe`（20,697,849 B，digest
   `sha256:d070bb8d4adf4716c8522ce071157c531cfca8e080b355790daaa4fcf0c79493`）；
-  aiec.fun 源站与边缘（`CF-Cache-Status=MISS`）大小/sha256 三项一致；提交 `bd375f1b` 已 push。
+  aiec.fun 源站与边缘（`CF-Cache-Status=MISS`）大小/sha256 三项一致；提交 `a7cae9f9` 已 push。
 
 ## 20. 下一阶段：AFM 主题制作（mac Finder 风格 · 浅色 / 深色）（2026-10-28 晚 新增）
 
@@ -1790,7 +1790,7 @@ vitest = **252 文件 / 2323 用例全部通过**（比 3.6.4 基线多 2 个测
 
 ### 21.8 当前状态（2026-10-29）
 
-- **未提交**：背景本地化的全部改动在工作树里，HEAD 仍是 `13427d04`，版本号仍是 **3.6.4**。
+- **未提交**：背景本地化的全部改动在工作树里，HEAD 仍是 `4bfc16d6`，版本号仍是 **3.6.4**。
   改动文件：`src-tauri/src/background_sources.rs`、`src-tauri/src/lib.rs`、
   `src/components/ui/infusion/infusion-wrapper.vue`、
   `src/modules/home/components/home-banner.vue`、
@@ -1925,9 +1925,9 @@ sha256 与备份一致）。
 
 | commit | 内容 |
 |---|---|
-| `521901d9` | `feat: 3.6.5 —— 默认背景本地化打包；新增六套 mac Finder 风格主题`（62 files, +1779 / −307） |
-| `666bee25` | `release: 补 winget manifest 3.6.5`（4 个新文件入库） |
-| `512c8f50` | `docs: 补 winget 3.6.5 清单登记与 3.5.1 PR 复查结论` |
+| `d960e11b` | `feat: 3.6.5 —— 默认背景本地化打包；新增六套 mac Finder 风格主题`（62 files, +1779 / −307） |
+| `e7564d1f` | `release: 补 winget manifest 3.6.5`（4 个新文件入库） |
+| `2c9846b2` | `docs: 补 winget 3.6.5 清单登记与 3.5.1 PR 复查结论` |
 
 - **`release:prepare --bump none --skip-build --notes-file .superpowers/sdd/notes-365.md`** → `PREPARE_EXIT=0`：
   版本 3.6.5 → 3.6.5；安装包 45,474,813 B / sha256 `b8848f9e…9d0`；

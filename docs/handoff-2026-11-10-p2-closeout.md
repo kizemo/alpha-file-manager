@@ -3,7 +3,7 @@
 - 日期：2026-11-10
 - 项目根：`F:\soft\00selfmade\filemanager\sigma-file-manager`
 - 上游会话 handoff：`docs/handoff-2026-11-10-p2-inner-volume-cleanup.md`、`docs/handoff-2026-11-10-root-unification.md`
-- 本轮 HEAD：`2cabae4a chore: 换根收尾适配与历史归档入库`（**未 push**）
+- 本轮 HEAD：`67e3d264 chore: 换根收尾适配与历史归档入库`（**未 push**）
 - 工作树：干净（`git status --porcelain -uall` 计数 = 0，本文件提交前）
 
 ---
@@ -24,7 +24,7 @@
   `src-tauri/src/reader.rs`、`src-tauri/src/state.rs`、`src-tauri/src/uia_inject.rs`，全部是换根收尾适配）
   + 345 个 `??`（`docs` 334、`scripts` 9、`AGENTS.md` 1、`extensions` 1）。
 - `AGENTS.md` 此前**从未入库**，本轮首次纳入版本管理。
-- 结果：`350 files changed, 88342 insertions(+), 21 deletions(-)`，commit `2cabae4a`。
+- 结果：`350 files changed, 88342 insertions(+), 21 deletions(-)`，commit `67e3d264`。
 - 提交信息文件：`.superpowers/sdd/commit-msg-1.txt`（`git commit -F <file>`，`-F -` 不读 stdin）。
 
 ### 2.2 临时探针迁出 sidecar 源码树
@@ -106,7 +106,7 @@
 ## 4. 已验证 / 推断 / 未验证
 
 **已验证（有产物或日志）**
-- commit `2cabae4a` 落地，工作树零残留。
+- commit `67e3d264` 落地，工作树零残留。
 - `superseded` 已进回收站（`MISSING`）。
 - NSIS 安装包与主 exe 均在 15:03 刷新；`tauri:build` 全链路（sync-version → vite build → cargo → bundle）跑通。
 - 新构建独立启动、主窗口出现、内容区已渲染、稳定不闪。
@@ -157,7 +157,7 @@
 2. **是否把 15:03 的新安装包同步到 `release\`** —— 同名 3.13.5 未被 publish 脚本覆盖。
    建议先查 `scripts/publish-bundle-to-release.mjs` 的跳过条件（按版本号跳过？），再决定手工替换或改脚本。
 3. **是否同步装机** —— 运行 `src-tauri\target\release\bundle\nsis\Alpha File Manager_3.13.5_x64-setup.exe`。
-4. **是否 push** —— `2cabae4a` 仅在本地；push 属对外发布，需明确授权。
+4. **是否 push** —— `67e3d264` 仅在本地；push 属对外发布，需明确授权。
 5. **eslint 177 errors 既有基线** —— 是否开专项清理，需用户决定（属「改变架构方向/大量耗时」类）。
 6. 可选小事：修 `docs/archive/focus-sync-legacy/.../2026-09-27-raw.log` 被嵌套 `.gitignore` 挡掉的问题。
 

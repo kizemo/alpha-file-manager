@@ -44,11 +44,11 @@
 
 - 移除 v5 的 `treeViewRef`、`syncTreeToActivePath`、`treeSelectedPath`、per-tab Map、4 处 watch
 - `handleCurrentDirChange` 一行多调:`folderTreeStore.setSelectedPath(entry?.path ?? null)`
-- baseline 不需要删任何 v5 代码(已经 reset 到 ec3389ba,基线干净)
+- baseline 不需要删任何 v5 代码(已经 reset 到 9e710ae8,基线干净)
 
-### 5. Baseline type 补丁(伴随 baseline `1c9b51f4` 加 'tree' layout 时漏掉的类型补全)
+### 5. Baseline type 补丁(伴随 baseline `ae1f6965` 加 'tree' layout 时漏掉的类型补全)
 
-baseline commit `1c9b51f4 feat(navigator): add tree layout option to toolbar dropdown` 把 `'list' | 'grid'` 类型扩到 `'list' | 'grid' | 'tree'` 但只更新了部分位置。剩下的 7 个文件本次一起补:
+baseline commit `ae1f6965 feat(navigator): add tree layout option to toolbar dropdown` 把 `'list' | 'grid'` 类型扩到 `'list' | 'grid' | 'tree'` 但只更新了部分位置。剩下的 7 个文件本次一起补:
 - `use-file-browser.ts` + 5 sub-composable 接受 layout 的参数类型
 - `use-file-browser-context.ts` + `file-browser.vue` provide 新加 `navigateToPath`(原 file-browser-content.vue onTreeActivate 用但缺)
 - `file-browser-entry-groups.ts` + `file-browser-box-selection-hit-test.ts` 内部 helper layout 类型
@@ -79,7 +79,7 @@ baseline commit `1c9b51f4 feat(navigator): add tree layout option to toolbar dro
 - 单跑 `src/modules/navigator/composables/__tests__/use-file-tree.test.ts` → 9/9
 - 单跑 `src/stores/runtime/__tests__/folder-tree.test.ts` → 19/19
 - 单跑 `src/modules/navigator/components/file-browser/__tests__/file-browser-tree-view.test.ts` → 5/5
-- 全套 vitest 跑(157 files)有 1 个 fail 在 `use-navigator-item-icon.test.ts` —— **baseline (ec3389ba) 同样 fail**(test isolation 问题,跨 Pinia 状态,跟本次改动无关)
+- 全套 vitest 跑(157 files)有 1 个 fail 在 `use-navigator-item-icon.test.ts` —— **baseline (9e710ae8) 同样 fail**(test isolation 问题,跨 Pinia 状态,跟本次改动无关)
 
 ---
 

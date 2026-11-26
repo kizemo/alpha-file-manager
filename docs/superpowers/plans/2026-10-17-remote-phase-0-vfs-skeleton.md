@@ -31,7 +31,7 @@
    call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" && cargo test --lib remote::
    ```
 
-3. **门禁基线（HEAD=`b87665ea`，本分支起点）** —— 必须逐字对照，混口径会误判成回归：
+3. **门禁基线（HEAD=`a4e6432f`，本分支起点）** —— 必须逐字对照，混口径会误判成回归：
 
    | 命令 | 基线 |
    |---|---|

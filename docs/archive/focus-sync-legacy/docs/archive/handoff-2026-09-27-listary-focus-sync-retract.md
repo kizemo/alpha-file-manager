@@ -13,7 +13,7 @@
 
 | 功能 | Release | Branch | 状态 |
 |---|---|---|---|
-| 目录树侧边栏(Folder Tree Sidebar) | `v2.2.0-tree.1` | `feat/tree-sidebar-v6-1` (HEAD `8caf14ae`) | ✅ 工作正常,装机验证通过 |
+| 目录树侧边栏(Folder Tree Sidebar) | `v2.2.0-tree.1` | `feat/tree-sidebar-v6-1` (HEAD `87b7d7fe`) | ✅ 工作正常,装机验证通过 |
 | 6 个 fork commit(259 unit tests pass)| | 同上 | |
 
 **这才是 fork 真正能用的部分。**
@@ -24,7 +24,7 @@
 |---|---|---|
 | Release `v2.2.0-focus.1` (Dialog Focus Sync) | 🗑️ 已删除 | scope 错配 — 没用户能触发的 UI 入口 |
 | `feat/dialog-focus-sync` 分支的 11 个 commit | 保留(代码作参考,不做 release)| 见下方 "scope 错配详细" |
-| README.md / README.zh-CN.md "Coming soon: dialog focus sync" | 🗑️ 已删除(commit `049dc9c1` 已 push 到 origin/main) | 同上 |
+| README.md / README.zh-CN.md "Coming soon: dialog focus sync" | 🗑️ 已删除(commit `d790db4b` 已 push 到 origin/main) | 同上 |
 | 上游 issue #547 (Dialog Focus Sync) | 🗑️ 已关闭(comment 解释撤回原因)| 同上 |
 
 ### 关键 commit 列表(meta 仓库)
@@ -32,7 +32,7 @@
 | Commit | 内容 |
 |---|---|
 | `7c20be1` | docs: open upstream issue #547 (现已 close)|
-| `049dc9c1` (fork repo origin/main) | docs(readme): retract misleading dialog focus sync coming-soon note |
+| `d790db4b` (fork repo origin/main) | docs(readme): retract misleading dialog focus sync coming-soon note |
 | (fork repo,release 撤回)| `gh release delete v2.2.0-focus.1 --repo kizemo/sigma-file-manager --yes` |
 
 ---
@@ -165,7 +165,7 @@
 
 1. **永远先验证 scope 是否对普通用户实际可触发** — 如果新功能没 UI 入口,做出来是死代码
 2. **永远不要做 "Listary 替代品" 这种 scope 假设** — 商业软件 10+ 年的护城河,先 spike 再决定
-3. **Tauri 2.x strict ACL 不要碰** — 任何在 `src-tauri/permissions/` 加手工 TOML 都会启用 strict mode,所有 `#[tauri::command]` 都需要 explicit allow。已踩过坑(`c1f51d29` fix)。如果将来真的需要权限文件,先**完整枚举**所有 user commands 再加 TOML
+3. **Tauri 2.x strict ACL 不要碰** — 任何在 `src-tauri/permissions/` 加手工 TOML 都会启用 strict mode,所有 `#[tauri::command]` 都需要 explicit allow。已踩过坑(`5b676dcc` fix)。如果将来真的需要权限文件,先**完整枚举**所有 user commands 再加 TOML
 4. **不要 ship 没用户能触发的功能** — 即使代码完美,没 UI 入口就是 dead code
 5. **fork-self-publish + PR upstream 同时进行是矛盾的** — 选定一个立场,不要混
 
@@ -197,7 +197,7 @@
 
 ## 九、tree 功能的当前状态(继续可用,不要动)
 
-- `feat/tree-sidebar-v6-1` 分支 HEAD `8caf14ae`,6 commits,259 unit tests pass
+- `feat/tree-sidebar-v6-1` 分支 HEAD `87b7d7fe`,6 commits,259 unit tests pass
 - Release `v2.2.0-tree.1` 仍在 GitHub(`Sigma.File.Manager_2.2.0_x64-setup.exe`,sha256 `c63ef919...`)
 - 本地 `F:\soft\00selfmade\filemanager\sigma-file-manager\release\Sigma-File-Manager-2.2.0-tree.1-x64-setup.exe` 仍是有效 build
 - README origin/main 的"kizemo fork additions" 段仍正确描述 tree feature
@@ -212,9 +212,9 @@
 ### Fork repo branch states(2026-09-27)
 
 ```
-main                              → README 撤回 dialog focus sync 段 (049dc9c1),剩下 tree feature
-feat/tree-sidebar-v6-1            → 6 commits,HEAD 8caf14ae,稳定
-feat/dialog-focus-sync            → 12 commits,HEAD c1f51d29(撤回,代码保留,future reference)
+main                              → README 撤回 dialog focus sync 段 (d790db4b),剩下 tree feature
+feat/tree-sidebar-v6-1            → 6 commits,HEAD 87b7d7fe,稳定
+feat/dialog-focus-sync            → 12 commits,HEAD 5b676dcc(撤回,代码保留,future reference)
 ```
 
 ### Local files

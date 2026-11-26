@@ -2,7 +2,7 @@
 
 > 制定日期：2026-11-19
 > 适用仓库：`F:\soft\00selfmade\filemanager\sigma-file-manager`（Alpha File Manager）
-> 基线：版本 `3.14.1`，分支 main，HEAD `f815d9d2`
+> 基线：版本 `3.14.1`，分支 main，HEAD `6e1100d3`
 > 插入理由：用户要求**在开发阿里云盘 / OneDrive 之前**先修这个严重 bug。
 
 ---

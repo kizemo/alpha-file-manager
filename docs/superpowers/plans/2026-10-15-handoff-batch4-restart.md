@@ -29,14 +29,14 @@
 
 | 提交 | 内容 | 状态 |
 |---|---|---|
-| `4770b2ca` | 修复反馈 2 行为：拆分窗口而不是新开标签 | 已验收（但语义仍不符，见 §4.1） |
-| `9427324e` | 第四批 5 条反馈的方案文档 | — |
-| `0ccd54e3` | 反馈 5：默认展开 + 缩进 28px + 面板 300px | ✅ 已验收 |
-| `34dabe8a` | 反馈 2：文案改「打开所属目录」+ 行为改拆分 | ✅ 文案验收，行为被 §4.1 推翻 |
-| `0c76db58` / `d6761a62` / `fc31b872` / `24d30282` | 第三批 N6 / N3 / N5 | ✅ 已验收 |
-| `1f49ad09` | **WIP**：反馈 3 递归搜索 | ❌ 未跑全量门禁、未打包、未验收 |
+| `ecd1b99d` | 修复反馈 2 行为：拆分窗口而不是新开标签 | 已验收（但语义仍不符，见 §4.1） |
+| `2316104f` | 第四批 5 条反馈的方案文档 | — |
+| `8dd0f5bd` | 反馈 5：默认展开 + 缩进 28px + 面板 300px | ✅ 已验收 |
+| `6d0327f5` | 反馈 2：文案改「打开所属目录」+ 行为改拆分 | ✅ 文案验收，行为被 §4.1 推翻 |
+| `28310b28` / `3d35352e` / `dea171ec` / `df8d58c7` | 第三批 N6 / N3 / N5 | ✅ 已验收 |
+| `dadcaf4b` | **WIP**：反馈 3 递归搜索 | ❌ 未跑全量门禁、未打包、未验收 |
 
-回滚点：分支 `rollback/batch3-baseline` + tag `rollback/batch3-baseline-20261015-105445` → `0f73f159`
+回滚点：分支 `rollback/batch3-baseline` + tag `rollback/batch3-baseline-20261015-105445` → `9bd3566b`
 
 **工作区干净**（所有改动已提交）。
 
@@ -81,7 +81,7 @@
 **用户原话**：在搜索结果中右键点「打开所属目录」时，右侧目录跳转了，
 **但左侧的搜索结果列表应当保留不变**。
 
-**当前实现做了什么**（`4770b2ca`）：
+**当前实现做了什么**（`ecd1b99d`）：
 `openNavigatorRevealEntry` 调 `workspacesStore.toggleSplitView()`，把导航器自己
 拆成两个并排 pane，右侧 pane 指向父目录。**全局搜索面板同时关闭了**。
 
@@ -128,7 +128,7 @@
 + `src/modules/navigator/pages/navigator.vue`（模板 + `:326` 的 watch）
 + 可能需要 store 暴露「在搜索面板右侧挂 pane」的能力。
 
-**`4770b2ca` 附带的另一处修复仍然是对的，不要回退**：
+**`ecd1b99d` 附带的另一处修复仍然是对的，不要回退**：
 `navigator.vue` 新增的 watch 把 store 侧 `currentTab` 变化同步到本地 `activeTabId`。
 拆分视图下这两个是两份状态，`activateTabPane` 之外的路径改了 store 侧本页不知情，
 `getNavigatorPaneRef()` 会落到 `tabGroup[0]`（左侧），选中就出现在错误面板。
@@ -146,7 +146,7 @@
 **另一个函数** `global_search_query_paths`（全局搜索的「优先路径」通道），
 不是目录内搜索的链路 —— 别再走那条错路。
 
-**已完成的代码**（提交 `1f49ad09`，工作区干净）：
+**已完成的代码**（提交 `dadcaf4b`，工作区干净）：
 - `src-tauri/src/global_search/query.rs` 新增 `search_directory_recursive_blocking`
   + `search_directory_recursive`：WalkDir 递归（`min_depth(1)` + `max_depth`）、
   上限截断（`collection_cap = limit * 20`）、内建忽略目录、按**文件名子串粗筛**、

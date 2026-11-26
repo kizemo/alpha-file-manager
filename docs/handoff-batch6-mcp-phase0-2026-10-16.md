@@ -1,7 +1,7 @@
 # 批次 6：MCP Phase 0 —— 可行性 spike 与只读工具集
 
 - 日期：2026-10-16
-- 基线：`3.1.3` 正式版已发布（`c07ed2b8`，HEAD == origin/main，工作区干净）
+- 基线：`3.1.3` 正式版已发布（`98bf768c`，HEAD == origin/main，工作区干净）
 - 本批范围：**只做 Phase 0 + Phase 1**。Phase 2（写工具）在本批之后重新评估
 - 调研报告（比本文档详细，含完整证据索引）：`docs/mcp-feasibility-report-2026-10-16.md`
 
@@ -268,7 +268,7 @@ DRAFT 在安全评审里发现过：
 
 ## 8. 门禁与基线
 
-| 项 | 基线（`0a09af18` 批次 5 结束时） |
+| 项 | 基线（`8a4ec346` 批次 5 结束时） |
 |---|---|
 | `cargo test --lib` | **324 passed, 0 failed** |
 | `npx vue-tsc --build` | 0 error |

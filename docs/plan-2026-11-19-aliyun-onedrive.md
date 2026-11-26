@@ -2,7 +2,7 @@
 
 > 制定日期：2026-11-19
 > 适用仓库：`F:\soft\00selfmade\filemanager\sigma-file-manager`（Alpha File Manager）
-> 基线：`package.json` version = `3.14.1`；分支 main，HEAD `385ef8ad`
+> 基线：`package.json` version = `3.14.1`；分支 main，HEAD `18f54134`
 > 依据：只读架构调研（未运行构建/测试）+ 仓库既有实现（夸克/百度网盘已落地并发布 3.14.0）
 
 ---

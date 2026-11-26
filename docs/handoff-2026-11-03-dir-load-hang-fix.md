@@ -4,7 +4,7 @@
 - 上一份交接：`F:\soft\00selfmade\filemanager\sigma-file-manager\docs\handoff-2026-11-03-stage5-batch3-actions-menu.md`
 - 本轮触发：用户报告「点击进入 `E:/办公文件/G1销售管理/00数据汇总分析` 后长时间不显示文件列表、刷新按键一直转圈，这个 bug 曾经出现过并修复过」。
 - 当前版本：`3.9.2`（`package.json` / `src-tauri/Cargo.toml` / `src-tauri/tauri.conf.json` 三处一致）
-- HEAD：`ceff7e38`，工作树改动**全部未提交**
+- HEAD：`e4e516d2`，工作树改动**全部未提交**
 
 ---
 
@@ -113,10 +113,10 @@ bug 现场目录：顶层 74 项（30 目录 / 44 文件），递归 **10674** �
 
 ### 5.4 为什么「曾经修过又复发」—— 已定案：**病灶与「历史修复」是同一个提交**
 
-- 历史修复点：`db15621b Refine: large dir loading performance`（8 文件 / 529+ / 194−，其中该 composable 429 行）、`288e0192 Refine: dir loading performance`。
-- **本轮已读 diff 正文**：`git log -S 'Promise.all' -S 'stopWatchingImmediately' -- .../use-file-browser-navigation.ts` 在该文件上**只命中 `db15621b`**；精确 hunk 显示正是它引入了
+- 历史修复点：`2f68745c Refine: large dir loading performance`（8 文件 / 529+ / 194−，其中该 composable 429 行）、`7d9d0fad Refine: dir loading performance`。
+- **本轮已读 diff 正文**：`git log -S 'Promise.all' -S 'stopWatchingImmediately' -- .../use-file-browser-navigation.ts` 在该文件上**只命中 `2f68745c`**；精确 hunk 显示正是它引入了
   `Promise.all([loadDirectoryContents(...), stopWatcherPromise])`。
-- ⚠️ **结论与上一版推断相反**：**不是「历史修复被后续重构覆盖」，而是「历史修复自己就把 watcher 停止和目录加载绑进了同一个 `Promise.all`」**。`enqueueWatcherOperation` 的串行队列把 `stopWatchingImmediately` 排在慢操作之后，`Promise.all` 让两者互相等待 ⇒ 那一轮为「性能」做的优化顺手造出了「列表不出」的病灶。`Promise.all` 耦合、`enqueueWatcherOperation` 串行队列、`stopWatchingImmediately` 三者都是 `db15621b` 自己种下的。
+- ⚠️ **结论与上一版推断相反**：**不是「历史修复被后续重构覆盖」，而是「历史修复自己就把 watcher 停止和目录加载绑进了同一个 `Promise.all`」**。`enqueueWatcherOperation` 的串行队列把 `stopWatchingImmediately` 排在慢操作之后，`Promise.all` 让两者互相等待 ⇒ 那一轮为「性能」做的优化顺手造出了「列表不出」的病灶。`Promise.all` 耦合、`enqueueWatcherOperation` 串行队列、`stopWatchingImmediately` 三者都是 `2f68745c` 自己种下的。
 - **`AGENTS.md`（仓库根 `F:\soft\00selfmade\filemanager\AGENTS.md`）里 grep `转圈|一直转|不显示条目|目录列表|刷新按键|读取目录` 零命中** ⇒ 这条 bug 的历史修复**没有进坑位清单**，所以它复发时没人认得出来。
 
 ### 5.5 「`drag_no_activate` 刷屏」—— 已钉死并修复：**只是日志体积问题，不是产品缺陷**
@@ -211,7 +211,7 @@ bug 现场目录：顶层 74 项（30 目录 / 44 文件），递归 **10674** �
 
 ### 8.2 本轮遗留（三项已全部闭环）
 
-1. **`db15621b` / `288e0192` 的 diff 正文** —— ✅ 已读。**结论与原推断相反**，见 §5.4。
+1. **`2f68745c` / `7d9d0fad` 的 diff 正文** —— ✅ 已读。**结论与原推断相反**，见 §5.4。
 2. **基线补跑** —— ✅
    - `cargo test --lib`：**880 passed / 0 failed**（改动前基线，脚本 `.superpowers/sdd/b7-cargo-base.cmd`）
    - 全量 vitest：**14 failed | 2587 passed (2601)**；红文件全是存量（`module-load-recovery` 1 / `readme-markdown-table` 1 / `file-browser-tree-view` 12），脚本 `b7-vitest-base.cmd`
@@ -409,7 +409,7 @@ bug 现场目录：顶层 74 项（30 目录 / 44 文件），递归 **10674** �
 
 - 目录加载卡死的根因链条（前端 `Promise.all` 耦合 + 全局串行队列毒化 + 状态清理顺序）—— 由红灯测试可复现地证明。
 - 修复后：目标单测 6/6 绿、`vue-tsc` 0、`eslint .` **186 errors = 基线**、`tauri build` `BUILD_EXIT=0`、沙箱真机 `pass=5 fail=0` / `ACCEPT_EXIT=0`（§6.3）。
-- **历史 diff 正文已读**（§5.4）：`Promise.all` 耦合 / `enqueueWatcherOperation` 队列 / `stopWatchingImmediately` **三者都是 `db15621b` 自己种下的**，不是「后续重构覆盖」—— 原推断已被推翻。
+- **历史 diff 正文已读**（§5.4）：`Promise.all` 耦合 / `enqueueWatcherOperation` 队列 / `stopWatchingImmediately` **三者都是 `2f68745c` 自己种下的**，不是「后续重构覆盖」—— 原推断已被推翻。
 - **`drag_no_activate` 刷屏已定案并修复**（§5.5）：状态翻转未收敛导致每帧重复记日志；修复后 Rust 单测 **912 passed / 0 failed**（含新增 3 个单测）。
 - `cargo test --lib` 基线补跑：改动前 **880 passed / 0 failed** ⇒ 本轮最终 **912 passed / 0 failed**。
 - 全量 vitest 基线补跑：改动前 **14 failed | 2587 passed (2601)** ⇒ 本轮最终 **14 failed | 2588 passed (2602)**；红文件仍全是存量。

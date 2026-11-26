@@ -4,7 +4,7 @@
 - 上一轮交接：`sigma-file-manager/docs/handoff-2026-11-09-focus-sync-sidecar-owner.md`
 - 外层仓库：`F:\soft\00selfmade\filemanager`（HEAD `90e87e6`，本轮无提交）
 - 内层仓库：`F:\soft\00selfmade\filemanager\sigma-file-manager`
-  （上一轮提交 `61f3e614 feat(focus-sync): 侧车改由 AFM 主进程持有，删除登录计划任务`）
+  （上一轮提交 `eaa9a3b2 feat(focus-sync): 侧车改由 AFM 主进程持有，删除登录计划任务`）
 
 > ⚠️ 本轮**两仓都只做本地提交，没有 push**（用户 2026-11-09 明确要求暂缓对外发布）。
 

@@ -11,7 +11,7 @@
 
 | 项 | 值 |
 |---|---|
-| **品牌仓** | `F:\soft\00selfmade\filemanager\sigma-file-manager`,`main` **`d2be2373`**,⚠️ **已提交、未推送**(领先 `origin/main` = `a3577184` 1 个提交) |
+| **品牌仓** | `F:\soft\00selfmade\filemanager\sigma-file-manager`,`main` **`184fcdd1`**,⚠️ **已提交、未推送**(领先 `origin/main` = `b0377e47` 1 个提交) |
 | **主仓** | `F:\soft\00selfmade\filemanager`,`main` **`4d9d294`**,已推送 |
 | **产物** | `src-tauri\target\release\bundle\nsis\Alpha File Manager_2.2.0_x64-setup.exe`,**17.12 MB**,sha256 `83925123E1731C88AA9CBC6C69761F43B33D46CDB749531BBC06DDCE3EAB3762` |
 | **装机现状** | 已装 `C:\Program Files\Alpha File Manager`,**正在运行**,功能已由用户实测确认 |
@@ -48,12 +48,12 @@
 
 ### 2.1 A 阶段:feature 分支快进合入品牌仓 `main` ✅
 
-`9e764a16 → a3577184`,1 个提交,两侧零分叉,已推送后被本轮的后续提交超越。
+`10571715 → b0377e47`,1 个提交,两侧零分叉,已推送后被本轮的后续提交超越。
 `feat/dialog-focus-sync` **有意不合入** —— 它是文件夹选择器(picker)功能,不是 sync 插件,
 最后一个提交字面意思是 `fix(tauri): remove app-level ACL TOML that broke all non-picker commands`,
 仍在进行中。sync 插件的 38 个文件当时已完整在 `main`。
 
-### 2.2 P4 改名 + P5 图标 ✅(`d2be2373`,83 文件)
+### 2.2 P4 改名 + P5 图标 ✅(`184fcdd1`,83 文件)
 
 **按 plan-v3 §3.3 的 12 处显示位**,另**补齐了计划没列到的品牌位** —— 装完第一版才发现:
 
@@ -160,7 +160,7 @@
 
 ### ❌ 未做 / 未验证
 
-- **`d2be2373` 未推送**(用户明确要求留给下个会话)
+- **`184fcdd1` 未推送**(用户明确要求留给下个会话)
 - **界面截图未能验证**:屏幕捕获中途失效(`CopyFromScreen: handle is invalid`)。
   目录树「代码编进构建产物」已证实(`dist/assets/folder-tree-*.js` + navigator 含 `showFolderTree`),
   但**没能在界面上确认树真的渲染出来**
@@ -175,7 +175,7 @@
 | # | 任务 | 状态 |
 |---|---|---|
 | **1** | **修目录树不刷新**(§3) | 🔧 **从这里开始** |
-| 2 | 推送 `d2be2373` | 用户指定留给下个会话 |
+| 2 | 推送 `184fcdd1` | 用户指定留给下个会话 |
 | 3 | 查扩展冷启动根因 | 独立 |
 | 4 | 验证卸载路径 | 建议在 1 之后 |
 | 5 | 修 `user-extensions.json` 的编码损坏 | 低优先级,纯观感 |
@@ -186,9 +186,9 @@
 
 | 位置 | 节点 | 说明 |
 |---|---|---|
-| **品牌仓** | **`d2be2373`** | ★ 当前状态,**未推送** |
-| 品牌仓 | `a3577184` | `origin/main`,已推送 |
-| 品牌仓 | `9e764a16` | 合并前的 `main`,祖先永久可达 |
+| **品牌仓** | **`184fcdd1`** | ★ 当前状态,**未推送** |
+| 品牌仓 | `b0377e47` | `origin/main`,已推送 |
+| 品牌仓 | `10571715` | 合并前的 `main`,祖先永久可达 |
 | **主仓** | **`4d9d294`** | ★ 已推送 |
 | 主仓 | `758f466` | A 阶段合并记录 |
 | 磁盘 | `C:\Temp\afm-p1-quarantine-2026-10-09\` | P1 移走的全部东西,可回滚 |

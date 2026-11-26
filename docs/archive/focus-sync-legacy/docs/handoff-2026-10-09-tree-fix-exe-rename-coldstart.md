@@ -11,7 +11,7 @@
 
 | 项 | 值 |
 |---|---|
-| **品牌仓** | `sigma-file-manager`,`main` **`3cdc9e7c`**,✅ **12 个文件已提交**(拆为 3 个提交)+ `d2be2373` **已推送**,本地不再领先远端 |
+| **品牌仓** | `sigma-file-manager`,`main` **`e370104b`**,✅ **12 个文件已提交**(拆为 3 个提交)+ `184fcdd1` **已推送**,本地不再领先远端 |
 | **主仓** | `filemanager`,`main` **`f950f72`**,无未推送;大量历史 docs 未跟踪,新增 `AGENTS.md` |
 | **装机现状** | `D:\Program Files\Alpha File Manager`,**正在运行**,插件已实测正常 |
 | **产物** | `src-tauri\target\release\bundle\nsis\Alpha File Manager_2.2.0_x64-setup.exe`(17.12 MB,21:29) |
@@ -67,13 +67,13 @@
 
 | 提交 | 范围 | 文件 |
 |---|---|---|
-| `b28e15b0` | 目录树缓存失效通道 | 7 个(前端 `src/**`) |
-| `1e03dcba` | exe 改名 | 3 个(`Cargo.toml`/`Cargo.lock`/`hooks.nsh`) |
-| `3cdc9e7c` | 冷启动 180.5s→18.8s | 2 个(`extensions.ts`/`http.rs`) |
+| `c3e4e812` | 目录树缓存失效通道 | 7 个(前端 `src/**`) |
+| `55143ab1` | exe 改名 | 3 个(`Cargo.toml`/`Cargo.lock`/`hooks.nsh`) |
+| `e370104b` | 冷启动 180.5s→18.8s | 2 个(`extensions.ts`/`http.rs`) |
 
-对账:`d2be2373..3cdc9e7c` 合计 **12 files / 837 insertions / 93 deletions**,与提交前的 `git diff --stat` 逐字节一致——无丢失、无夹带。
+对账:`184fcdd1..e370104b` 合计 **12 files / 837 insertions / 93 deletions**,与提交前的 `git diff --stat` 逐字节一致——无丢失、无夹带。
 
-推送验证:推送前 `origin/main` = `a3577184`,推送后 `git ls-remote origin refs/heads/main` 直查 = `3cdc9e7c`,与本地 HEAD 一致,`rev-list --count origin/main..HEAD` = 0。
+推送验证:推送前 `origin/main` = `b0377e47`,推送后 `git ls-remote origin refs/heads/main` 直查 = `e370104b`,与本地 HEAD 一致,`rev-list --count origin/main..HEAD` = 0。
 
 > ⚠️ **主仓仍有未跟踪文件**:本轮新建的 `AGENTS.md`,以及大量历史 `docs/**`(交接/计划/评审文档)。本轮按约定**未动主仓**,需要时单独提交。
 

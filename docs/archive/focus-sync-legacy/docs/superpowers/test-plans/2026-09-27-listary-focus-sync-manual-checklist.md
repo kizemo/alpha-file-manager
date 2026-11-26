@@ -240,7 +240,7 @@ spike 窗口 A 应打印 `path_update event ...`
 - [ ] 填好 §5 矩阵表格(贴到下一个 handoff)
 - [ ] 若 spike PASS:进入 Phase 2 spec 实施(见 `docs/superpowers/specs/2026-09-XX-listary-focus-sync-integration-design.md`,待写)
 - [ ] 若 spike FAIL:回退到 spike 路线优化,不要 push 当前 README commit
-- [ ] push README commit(commit hash `54186f87` 等验证完成后):`git push origin main`(在 fork repo 内)
+- [ ] push README commit(commit hash `8b19a890` 等验证完成后):`git push origin main`(在 fork repo 内)
 
 ---
 

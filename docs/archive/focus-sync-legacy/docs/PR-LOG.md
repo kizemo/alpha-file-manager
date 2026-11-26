@@ -4,7 +4,7 @@
 - PR: https://github.com/aleksey-hoffman/sigma-file-manager/pull/546
 - Issue: aleksey-hoffman/sigma-file-manager#528
 - 状态: **已开 PR,等维护者回复**
-- 提交: c0fc7cb0 "feat(settings): allow custom directory as startup page"
+- 提交: ba518983 "feat(settings): allow custom directory as startup page"
 - 改动统计: 22 文件,+169/-21
 - 合并后动作:
   - 删本地 `feat/custom-startup-path` 标签(没单独建,直接 main 提交)

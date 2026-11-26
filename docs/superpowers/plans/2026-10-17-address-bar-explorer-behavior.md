@@ -28,10 +28,10 @@
 
 | 任务 | 状态 | 提交 |
 |---|---|---|
-| Task A1 无结尾斜杠路径 | ✅ 已实施 | `4102a53f` |
-| Task A2 回车以输入框为准 | ✅ 已实施 | `a6ef3942` |
-| Task A3 目标目录行 + 树形导线 | ✅ 已实施 | `d49977cb` |
-| 追加：打开时整条选中 | ✅ 已实施 | `2aa2c02b` |
+| Task A1 无结尾斜杠路径 | ✅ 已实施 | `d58e6f0a` |
+| Task A2 回车以输入框为准 | ✅ 已实施 | `1b7b3808` |
+| Task A3 目标目录行 + 树形导线 | ✅ 已实施 | `a2b5d48d` |
+| 追加：打开时整条选中 | ✅ 已实施 | `77fd5dd9` |
 | Task B1 地址栏就地编辑 | ⛔ **已放弃**（用户 2026-10-17 决定：当前形态已满足要求） | — |
 | Task B2 浮层改锚定 | ⛔ **已放弃**（同上） | — |
 | Task B3 打包验收 | ⛔ 已放弃（Part A 已单独打包并由用户验收） | — |
@@ -63,7 +63,7 @@
 ## 三、Global Constraints
 
 - **面向用户的文案一律简体中文**；新增文案要进 17 个语言包 `src/localization/messages/*.json`（中文的 locale code 是 `ch`，不是 `zh`）。
-- **门禁基线（逐字对照，HEAD `ece6fd61`）**：`cargo test --lib` 386 passed ｜ `npx vue-tsc --build` 0 error ｜ `npx eslint src` **179 errors / 59 warnings** ｜ `npx vitest run` 183 文件 / 1434 用例 ｜ `node scripts/verify-changelog.mjs` 退出码 0。
+- **门禁基线（逐字对照，HEAD `21d0b5d2`）**：`cargo test --lib` 386 passed ｜ `npx vue-tsc --build` 0 error ｜ `npx eslint src` **179 errors / 59 warnings** ｜ `npx vitest run` 183 文件 / 1434 用例 ｜ `node scripts/verify-changelog.mjs` 退出码 0。
 - **eslint 口径必须是 `npx eslint src`**，不是 `eslint .`（整仓是 186/121，混口径会凭空多出 7 个「回归」）。
 - **`$ErrorActionPreference='Stop'` 前后调 `npm`/`npx` 必须显式切回 `Continue`**，否则原生命令的 stderr 会被当成终止错误。
 - **真机验收只能用 `tauri build` 产物**。`tauri dev` 下路由页内容区是空白，结论一律作废。

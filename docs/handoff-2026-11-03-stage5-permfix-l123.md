@@ -220,5 +220,5 @@ delete job 30c186eb-4b37-4c42-ad01-1386a2b59913 finished in 16.4179519s:
 ## 9. 工作树状态
 
 - 12 个已修改文件（M）+ 8 个未跟踪（??），含 `src/core/`、本 handoff 与 plan 文档、新测试文件。
-- HEAD = `ceff7e38 docs(handoff): 新增阶段四交接文档并更新接力 prompt`。
+- HEAD = `e4e516d2 docs(handoff): 新增阶段四交接文档并更新接力 prompt`。
 - **未经用户要求不 commit / 不 branch。**

@@ -3,7 +3,7 @@
 - **交接时间**：2026-10-13
 - **项目根目录**：`F:\soft\00selfmade\filemanager\sigma-file-manager`
 - **当前分支**：`docs/navigator-behavior-parity-spec`
-- **HEAD**：`087aecd9 feat(settings): 换用用户指定的软件简介文案`
+- **HEAD**：`8f7b3191 feat(settings): 换用用户指定的软件简介文案`
 - **工作区状态**：干净，仅有未跟踪的 `_acceptance/`（验收辅助脚本）与 `_notes.md`
 - **远端**：`origin` = `https://github.com/kizemo/alpha-file-manager`，
   `upstream` = `https://github.com/aleksey-hoffman/sigma-file-manager`
@@ -33,10 +33,10 @@ Alpha File Manager 是上游开源项目 Sigma File Manager（作者 Aleksey Hof
 
 | 提交 | 内容 |
 |---|---|
-| `16461d6b` | `file-tree-context-menu.vue:84,89` 的 `clipboardStore.setClipboard()` 第三参误传字符串，触发 TS2559 构建门禁失败。改为省略第三参，与 `use-dir-entry-actions.ts` 的 `copyItems`/`cutItems` 行为对齐 |
-| `fb0ca4d1` | 真机上目录树右键菜单「剪切」显示字面量 `fileBrowser.actions.cut` —— **17 个语言包一致地缺这道键**。根因：原 `messages-key-alignment.test.ts` 只比各语言包之间的 key 集合，不检查代码引用了哪些键，17 个一致地缺反而判「通过」。已补齐 17 个包，并新增 `src/localization/__tests__/messages-used-keys-exist.test.ts` 扫源码 `t('...')` 字面量逐个对 `en.json` 校验 |
+| `51353677` | `file-tree-context-menu.vue:84,89` 的 `clipboardStore.setClipboard()` 第三参误传字符串，触发 TS2559 构建门禁失败。改为省略第三参，与 `use-dir-entry-actions.ts` 的 `copyItems`/`cutItems` 行为对齐 |
+| `cd895343` | 真机上目录树右键菜单「剪切」显示字面量 `fileBrowser.actions.cut` —— **17 个语言包一致地缺这道键**。根因：原 `messages-key-alignment.test.ts` 只比各语言包之间的 key 集合，不检查代码引用了哪些键，17 个一致地缺反而判「通过」。已补齐 17 个包，并新增 `src/localization/__tests__/messages-used-keys-exist.test.ts` 扫源码 `t('...')` 字面量逐个对 `en.json` 校验 |
 
-> 关键影响认定：`b617b270`、`41a1b87d` 两轮改动**从未进入过任何安装包**。
+> 关键影响认定：`39ed07b5`、`4d2d58fe` 两轮改动**从未进入过任何安装包**。
 
 ### 2.2 打包与安装（两轮，均未发布）
 
@@ -74,7 +74,7 @@ build 产物 / repo `release/` / 站点 exe / `version.json` 的 `sha256` 字段
 
 ## 3. 本轮已完成的改动
 
-### 3.1 需求 5：设置页简介文案（commit `087aecd9`）
+### 3.1 需求 5：设置页简介文案（commit `8f7b3191`）
 
 按用户给定文案重写，新增 `app.developer` 键承载「开发：段燚」。
 

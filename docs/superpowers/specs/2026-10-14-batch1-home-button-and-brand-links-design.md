@@ -14,8 +14,8 @@
 开发前已在代码仓建立可回滚基线：
 
 ```
-tag    rollback/3.1.1-baseline-20261014-212843  →  4968a4ad
-分支   rollback/3.1.1-baseline                 →  4968a4ad
+tag    rollback/3.1.1-baseline-20261014-212843  →  394313ac
+分支   rollback/3.1.1-baseline                 →  394313ac
 ```
 
 ---
@@ -212,7 +212,7 @@ Discussions **不开**，对应菜单项一并删除——不做「留一个死�
 
 ## 7. 回滚
 
-本批开工前工作区干净、HEAD 为 `4968a4ad`，已建 tag 与分支双保险。
+本批开工前工作区干净、HEAD 为 `394313ac`，已建 tag 与分支双保险。
 
 - 只回滚本批：`git revert <commit>`（保留历史，不影响后续提交）
 - 整体回到发版基线：`git reset --hard rollback/3.1.1-baseline`

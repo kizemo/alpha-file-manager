@@ -1,7 +1,7 @@
 # 交接文档 · 批次 P3 收口（2026-11-10）
 
 - 仓库：`F:\soft\00selfmade\filemanager\sigma-file-manager`（Alpha File Manager，GitHub fork `kizemo/alpha-file-manager`，upstream `aleksey-hoffman/sigma-file-manager`，**不 push upstream**）
-- 本轮 HEAD：`2ab78e1b fix(focus-sync): repair installer sandbox-gate paths after the repo root move`（3 files, +104/-20）
+- 本轮 HEAD：`76222651 fix(focus-sync): repair installer sandbox-gate paths after the repo root move`（3 files, +104/-20）
 - 前置文档：`docs/handoff-2026-11-10-p2-closeout.md`、`docs/handoff-2026-11-10-p2-closeout-followup.md`、`AGENTS.md` §0 与 §2
 - 本轮工作区产物根：`.superpowers\sdd\`（gitignore，不入库）
 
@@ -23,7 +23,7 @@
 
 ## 二、已完成
 
-### 2.1 安装链路径修复（已提交，`2ab78e1b`）
+### 2.1 安装链路径修复（已提交，`76222651`）
 
 改动文件：
 
@@ -155,7 +155,7 @@
 
 1. **stylelint 174 错的独立提交**：先建视觉回归基线（打包产物截图 diff），再 `--fix`，避免盲改 CSS 级联。
 2. `address-bar-editor-utils.ts:624` 的 unhandled rejection 值得单独查一条：它不影响退出码，说明测试里存在被吞掉的异常路径。
-3. **push `2ab78e1b` 仍未做**，按惯例需用户明确授权。
+3. **push `76222651` 仍未做**，按惯例需用户明确授权。
 4. 安装链修复的真实价值在**仓库内 / dev 安装路径**；打包安装场景下 `$INSTDIR\tools` 无仓库 ⇒ 门禁合法跳过（脚本原有 else 分支即此设计）。若要打包场景也校验，需要把 scanner/sandbox 一起入包或改用构建期校验，属另立需求。
 5. 若要做键盘路径验收，需要给沙箱注入加键盘通道（`PostMessage` 送 `WM_KEYDOWN/WM_KEYUP`），或改走 CDP
    （需改 `tauri.conf.json` 的 `additionalBrowserArgs` 并**重打两次包**，代价高，本轮已因此放弃）。

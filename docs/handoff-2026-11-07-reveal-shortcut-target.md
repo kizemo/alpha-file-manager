@@ -151,7 +151,7 @@ Rust：
   代码、门禁、打包、两个分支的真机验收都已完成且通过，剩余只有 eslint 全量基线对照与发版决定。」
 - 状态外置：所有中间产物（脚本、日志、证据）落外层仓 `F:\soft\00selfmade\filemanager\.superpowers\sdd\`；
   对话里只留指针 + 结论，不贴长输出。
-- 当前工作副本**未提交**（HEAD 仍是 `b49fbd31`）：改动文件 =
+- 当前工作副本**未提交**（HEAD 仍是 `92dc67f0`）：改动文件 =
   `src-tauri/src/dir_reader/{read.rs,reveal.rs,commands.rs}`、`src-tauri/src/{lib.rs,system_icons.rs,clipboard_source.rs}`、
   `src-tauri/src/dir_reader/blocking_timeout.rs`、`src/utils/{resolve-reveal-entry-target.ts,reveal-containing-directory.ts}`、
   `src/utils/__tests__/{resolve-reveal-entry-target,reveal-containing-directory}.test.ts`。

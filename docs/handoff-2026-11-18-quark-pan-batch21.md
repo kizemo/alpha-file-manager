@@ -29,7 +29,7 @@
 
 | 项 | 批次 20 结束时的状态 | 本轮更正 |
 |---|---|---|
-| 焦点修复代码 | 已提交：`0d928289` 侧车写入闸门 v0.6.4 + `run-p`→`run-s` + 13 locale changelog；`385ef8ad` 台账 §20.15 + 批次 20 入口卡 | — |
+| 焦点修复代码 | 已提交：`5b0db31f` 侧车写入闸门 v0.6.4 + `run-p`→`run-s` + 13 locale changelog；`18f54134` 台账 §20.15 + 批次 20 入口卡 | — |
 | 版本 / 门禁 | `3.14.1`；`npm run check` `GATE_EXIT=0`（vitest 311 files / 3243 tests） | — |
 | 发版材料 | `release/` 顶层 3.14.1 包**不含**批次 20 的 v0.6.4 闸门 ⇒ 账面与代码不一致 | **更正 A**：该包实测是**批次 19 产物** `45,478,740 B / 1DD82EEED36127F21595FFB852FF1C65474498B44A99995CEB3B00BA3F6D2A83`（mtime 2026-11-18 16:43:01），**不是**批次 20 卡里写的 `82,772,736 B / 554D0564…` |
 | winget 清单 | `InstallerSha256` 指向批次 19 的包 | 真实路径是 `docs\winget\manifests\k\kizemo\AlphaFileManager\3.14.1\kizemo.AlphaFileManager.installer.yaml`（**不是** `docs/winget/com.sigma-file-manager.installer.yaml`；键名是 `InstallerSha256`，不是 `Sha256`） |

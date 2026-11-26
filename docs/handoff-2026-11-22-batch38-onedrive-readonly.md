@@ -4,7 +4,7 @@
 - 批次：38
 - 阶段：A 级（只读）交付收口 + 版本号裁决 + 打包 / 真机验收
 - 仓库根：`F:\soft\00selfmade\filemanager\sigma-file-manager`（外层目录不写文件）
-- 基线 commit：`97b3a22e feat(batch37)`；**批次 38 的全部改动当前仍未提交**（`git status --short` 56 项）
+- 基线 commit：`27110478 feat(batch37)`；**批次 38 的全部改动当前仍未提交**（`git status --short` 56 项）
 - 权威契约：`.superpowers/sdd/b38/impl-brief.md`；方案全文：`docs/plan-2026-11-22-batch38-onedrive-support.md`
 
 ---
@@ -46,7 +46,7 @@
 ### 2.1 版本号裁决：3.17.0 → 3.18.0（minor）
 
 **为什么必须 bump**：仓库里 `release/Alpha File Manager_3.17.0_x64-setup.exe`（46,004,374 B，2026-11-22 00:53:19）
-**今天已经作为线上资产发布**，而把版本顶到 3.17.0 的那次提交正是 `97b3a22e feat(batch37)`。
+**今天已经作为线上资产发布**，而把版本顶到 3.17.0 的那次提交正是 `27110478 feat(batch37)`。
 留在 3.17.0 会让两个内容不同的二进制都自称 3.17.0，而且更新通道指向的已发布 3.17.0 **不含 OneDrive**。
 
 **怎么做**：只改 `package.json` 的 `"version"`，再跑 `npm run sync-version` 同步 3 个 Cargo 清单。
@@ -364,7 +364,7 @@ OneDrive 连接表单（`应用（客户端）ID` 输入框存在且能写入）
 
 ### 10.1 核实为真
 
-- HEAD = `5c96adc0`，57 个文件，`git status --porcelain` 为空，未 push（`main...origin/main [ahead 2]`，批次 37 同样未推）。
+- HEAD = `c9be137a`，57 个文件，`git status --porcelain` 为空，未 push（`main...origin/main [ahead 2]`，批次 37 同样未推）。
 - 契约字面量：`src-tauri/src` 命中 `OnedrivePan|onedrive_pan` 13 处 / 5 文件；`src` 命中 `onedrive_pan` 字符串 8 处 / 4 文件；作废旧名 `RemoteProtocol::Onedrive` 与字面量 `onedrive`（独立引号形式）零命中。
 - 版本四处一致 3.18.0；`node scripts/verify-changelog.mjs` 亲跑 → 62 条目、顺序正确、EXIT=0；安装包 46,103,864 B 在 `release/local-builds/`，`LOCAL-BUILDS.txt` 登记 sha256 `b3be132c…858fe4` + 判定 `NO_OFFICIAL_ASSET`，`release/` 顶层无 3.18.0（归位口径一致）。
 - 双 README 的 4 处「OneDrive 在路上」预告已改为「已支持 / 本版只读」；commit 文件清单内无 `.log` / `.pyc` / `release/` 杂质。
@@ -386,7 +386,7 @@ OneDrive 连接表单（`应用（客户端）ID` 输入框存在且能写入）
 
 ### 10.4 仍待用户输入或授权（没有一项可由 Agent 单方推进）
 
-① 真实 Azure `client_id` + 可登录的 OneDrive 账号（装置 `accept-real-credentials.ps1` + `REAL-CREDENTIAL-ACCEPT.md` 已就绪，Microsoft 登录与 MFA 必须本人）；② push `5c96adc0`；③ 对外发布；④ 3.18.0 装机实测（需提权）；⑤ 批次 39（OneDrive B 级读写）与 `LOCAL-BUILDS.txt` 登记漂移（实际 17 个文件 vs 仅登记 3 条）。
+① 真实 Azure `client_id` + 可登录的 OneDrive 账号（装置 `accept-real-credentials.ps1` + `REAL-CREDENTIAL-ACCEPT.md` 已就绪，Microsoft 登录与 MFA 必须本人）；② push `c9be137a`；③ 对外发布；④ 3.18.0 装机实测（需提权）；⑤ 批次 39（OneDrive B 级读写）与 `LOCAL-BUILDS.txt` 登记漂移（实际 17 个文件 vs 仅登记 3 条）。
 
 ### 10.5 交接后第二轮取证：退出码补齐、ignored 口径差异解释、4 条进程事实全部落空（2026-11-22 22:20–22:50，本轮实测）
 
@@ -491,8 +491,8 @@ passed 两边同为 1667，ignored 差 2、总数差 2 ⇒ 差的正是后来新
    **【收尾轮更新】** 该基线现已由本会话**重新执行**并取得执行级证据（`close-318-gates.log`，见 §11.1），不再依赖 `reverify-318.log` 是否还在盘。
 3. 证据目录在本轮内被成批换掉（早先读到、随后 ABSENT），**原因未查，不属交付范围**；
    应对方式就是上面这条纪律，以及「缺退出码行 ⇒ 登记证据不完整，不写 PASS/FAIL」。
-4. §7 的下一步清单**不变**：真实凭据 5 用例仍未判定；3.18.0 装机实测仍未做；4 个提交（`5c96adc0`、
-   `b1cfddd2`、`d8e6907d` 及本节）仍未 push。用户已裁决本轮「都先不动，只交接」。
+4. §7 的下一步清单**不变**：真实凭据 5 用例仍未判定；3.18.0 装机实测仍未做；4 个提交（`c9be137a`、
+   `b02e1156`、`0f328bb5` 及本节）仍未 push。用户已裁决本轮「都先不动，只交接」。
    **【用户指令已更新】** 本轮用户改为要求「接手批次 38 收尾」，但 §10.4 列出的**授权边界未被撤销**，故 push / 发布 / 装机 / 真实凭据四项仍待用户批准。
 
 ---
@@ -563,12 +563,12 @@ passed 两边同为 1667，ignored 差 2、总数差 2 ⇒ 差的正是后来新
 | 计划文档契约漂移 | **已登记**（§11.5） |
 | 真实凭据 5 用例 | **仍未判定** — 需用户本人提供 Azure `client_id` 并完成 Microsoft 登录 / MFA |
 | 3.18.0 装机实测 | **已闭合** — 本轮授权后完成装机（3.18.0 / 85,634,048 B）+ 装机口径验收 13 项全 PASS（§11.7） |
-| push | **未做** — 需用户授权（`main` 现 ahead 6，含批次 37 的 `97b3a22e`） |
+| push | **未做** — 需用户授权（`main` 现 ahead 6，含批次 37 的 `27110478`） |
 | 对外发布 | **未做** — 需用户授权；顺序见 §7.3（`--bump none`） |
 | `BUILD_EXIT` / `GATE_EXIT` | **仍证据不完整** — 要补只能整轮重跑（`tauri build` 极慢），不建议为补一条退出码重跑 |
 | `ACCEPT_EXIT` | **已闭合** — 装机轮包装日志实测 `ACCEPT_EXIT=0`（§11.7）；裸产物轮 `accept-318b.log` 仍缺该行 |
 
-本轮 git 实况（本会话回读）：`HEAD = 5488cd6f`；提交链 `97b3a22e → 5c96adc0 feat(batch38) → b1cfddd2 → d8e6907d → 3292ddc6 → 5488cd6f`；`git status --porcelain` 仅 `?? reports/`（`reports/` **不在** `.gitignore` 内，是否入库待用户定）；`.superpowers/sdd/b38/` 现 44 项（§10.6 记的 34 项又已过期 ⇒ 再次印证「当场回读」纪律）。
+本轮 git 实况（本会话回读）：`HEAD = 74e27de0`；提交链 `27110478 → c9be137a feat(batch38) → b02e1156 → 0f328bb5 → b14179c9 → 74e27de0`；`git status --porcelain` 仅 `?? reports/`（`reports/` **不在** `.gitignore` 内，是否入库待用户定）；`.superpowers/sdd/b38/` 现 44 项（§10.6 记的 34 项又已过期 ⇒ 再次印证「当场回读」纪律）。
 
 ### 11.7 3.18.0 装机实测：**已完成且 13 项全 PASS**（用户授权后执行）
 
@@ -606,7 +606,7 @@ passed 两边同为 1667，ignored 差 2、总数差 2 ⇒ 差的正是后来新
 
 **真实凭据相关（本机事实，供批次 39 判可行性）**：本机是**纯本地账户** `dunyi-pc\duanyi`（RID 1001），`dsregcmd /status` 的 `AzureAdJoined / EnterpriseJoined / DomainJoined / WorkplaceJoined / NgcSet / IsDeviceJoined` **全为 NO**，`whoami /upn` 报 not a domain user ⇒ 不存在可静默复用的 Windows 侧 Microsoft 账户凭据。代码侧 `onedrive_oauth.rs:342-347` 的授权参数集**不含 `login_hint`**，所以连邮箱都不预填，第一次授权必须用户完整输入用户名 + 密码 + MFA；`offline_access` 拿到 refresh_token 后，之后所有登录无需再输入（`onedrive_auth.rs:59/84-86`）。
 
-**§11.7 之后的 git 实况（本会话亲跑）**：§11 文档 commit `69366f9b` → §11.7 再追加一条 docs commit；`main` ahead origin **8**，push 仍未做（用户裁决）。
+**§11.7 之后的 git 实况（本会话亲跑）**：§11 文档 commit `08208ea3` → §11.7 再追加一条 docs commit；`main` ahead origin **8**，push 仍未做（用户裁决）。
 
 ### 12. 真实凭据用例：装置已就绪、干跑全链闭合；5 个用例仍未判定 —— 唯一缺口是**合法的 Azure 应用(客户端)ID（GUID 形态）**（2026-11-22 22:22–22:33）
 
@@ -745,7 +745,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .superpowers\sdd\b38\acc
 
 #### 12.9 本轮**未做**（边界不变）
 
-- **未 push**（`HEAD=64c9f61a`，`ahead=8 / behind=0`）、**未对外发布**、**未动批次 39**、
+- **未 push**（`HEAD=56b0c7d8`，`ahead=8 / behind=0`）、**未对外发布**、**未动批次 39**、
   **未修 `LOCAL-BUILDS.txt` 登记漂移**（`release/local-builds/` 实有 **17** 个文件，`LOCAL-BUILDS.txt` 共 **18** 行含标题行，非一一对应）。
 - **未重跑 `tauri build`**（不为补 `BUILD_EXIT`/`GATE_EXIT`）；沿用已装机 **3.18.0**（`D:\Program Files\Alpha File Manager\alpha-file-manager.exe`，85,634,048 B）。
 - **`reports/` 未入库**（`git status --porcelain` 仍只有 `?? reports/`；本轮新增 `probe-readhost.cmd` + 2 个 patch 脚本）。
@@ -826,7 +826,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .superpowers\sdd\b38\acc
 
 ### 13.7 未做（边界不变）
 
-- **未 push**（`HEAD=64c9f61a`）、**未对外发布**（GitHub Release / winget / 站点上传均需用户授权）。
+- **未 push**（`HEAD=56b0c7d8`）、**未对外发布**（GitHub Release / winget / 站点上传均需用户授权）。
 - **未重跑 `tauri build`** ⇒ `BUILD_EXIT` / `GATE_EXIT` 仍**证据不完整**（不是失败），沿用已装机 **3.18.0**（`D:\Program Files\Alpha File Manager\alpha-file-manager.exe`，85,634,048 B，FileVersion 3.18.0，装机口径真机验收 **13/13 PASS**、`ACCEPT_EXIT=0`）。
 - **未动 OneDrive 3 处 dead code**（`ONEDRIVE_EXPIRY_WARN_SECONDS` / `ONEDRIVE_TENANT` / `onedrive_is_expiring_soon`，及 `with_timeouts`）⇒ 留批次 39（避免让已验收的包与源码失配）。
 - **`reports/` 未入库**（`git status --porcelain` 仍为 `M docs/handoff-...md` + `?? reports/`）。
@@ -1427,7 +1427,7 @@ provider 侧没问题；问题在**命令层没把已保存会话回填给探针
 1. **附带 bug 已修完并进包**：「位置页（Locations）「可用空间」列单元格内文字垂直居中」。
    根因：这一列在全仓 `src/**` 下**没有任何 CSS 规则**（既没有 `display:flex` + `align-items:center`，
    也没有共享的字号/颜色/省略号分组），于是它是行容器 grid 里唯一被拉伸后文字贴顶的普通 span 子项；
-   其余列各自已有居中规则。修法：把 `__entry-availableSpace` 补进居中分组与共享排版分组。commit `7f8f599f`。
+   其余列各自已有居中规则。修法：把 `__entry-availableSpace` 补进居中分组与共享排版分组。commit `dc42f947`。
 2. **3.20.0 已重新打包并装机**（含上述修复）：安装包 `release/local-builds/Alpha File Manager_3.20.0_x64-setup.exe`，
    46,061,676 B，sha256 `777577f968893b7635892c540d64df24edc41bb01ca650e9e401b01a75e8c6c2`；
    `setup.exe /S /FORCE` 静默安装 EXIT=0 / 26.2 s；安装器日志 PREINSTALL(00:27:10) + POSTINSTALL(00:27:23)
@@ -1439,8 +1439,8 @@ provider 侧没问题；问题在**命令层没把已保存会话回填给探针
    （本机无 `az` CLI，历史 run10 零进展）。
 5. **门禁全绿**：`ts` / `lint:check` / `test:unit:run` / `verify-changelog` 全 0；
    `verify-publish-quarantine` 7 项全 PASS。
-6. **已提交并已推送**：`affe26ae`（feat: OneDrive 写路径 + 3.20.0 发版元数据）、
-   `7f8f599f`（fix: 可用空间列居中 + 回归测试），直连路线推送成功 `0526669f..7f8f599f main -> main`。
+6. **已提交并已推送**：`0aed9296`（feat: OneDrive 写路径 + 3.20.0 发版元数据）、
+   `dc42f947`（fix: 可用空间列居中 + 回归测试），直连路线推送成功 `2891b951..dc42f947 main -> main`。
 7. **像素级渲染核验 = 未判定**（根因：本机锁屏），详见 §七。
 
 ### 二、按上一轮 §9 的四条优先级逐条对齐
@@ -1570,7 +1570,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\.superpowers\sdd\b41\a
 - scope 证据链（请求 scope 逐字 + 时间序 + 刷新不带 scope），见 §三。
 - 发布形态：产品侧零硬编码 client_id + 自填入口贯通到令牌体。
 - 探针 HTTP 400 / `invalid_grant` / `AADSTS9002313`（原文在报告 §7）。
-- 两个 commit 已推送：`0526669f..7f8f599f main -> main`（直连路线，EXIT=0）。
+- 两个 commit 已推送：`2891b951..dc42f947 main -> main`（直连路线，EXIT=0）。
 
 **推断（证据支持但未端到端跑通）**
 
@@ -1621,8 +1621,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\.superpowers\sdd\b41\a
 
 ### 九、最终表述（以此为准）
 
-- **批次 39/40 的 OneDrive 读写升级**：代码、发版元数据、装置、验收全绿，已提交 `affe26ae`。
-- **批次 41 的附带 bug**：可用空间列垂直居中已修，已进 3.20.0 新包并装机，提交 `7f8f599f`；
+- **批次 39/40 的 OneDrive 读写升级**：代码、发版元数据、装置、验收全绿，已提交 `0aed9296`。
+- **批次 41 的附带 bug**：可用空间列垂直居中已修，已进 3.20.0 新包并装机，提交 `dc42f947`；
   证据到**编译产物级**，**像素级未判定**（锁屏）。
 - **写路径真实 Graph 正向实测**：装置已就位，**只差用户一次性重新授权**（5 分钟内点同意）。
 - **发布形态登录闭环**：产品侧**无需改动**，只差自建 Entra GUID。
@@ -2311,7 +2311,7 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
   `verify-changelog` 输出 `OK CHANGELOG.md 覆盖当前版本，条目顺序正确。`、
   `verify:sandbox` 全部扩展入口 PASS。
 - 本轮**没有 Rust 侧改动**（缺陷 A 纯前端），因此不重跑 `cargo test`；
-  §十三 的 `CREATE_NO_WINDOW` 三个文件仍在 `c97644a4` 里未动。
+  §十三 的 `CREATE_NO_WINDOW` 三个文件仍在 `8b737cd0` 里未动。
 - 版本同步：`npm run sync-version` 输出 `Synced 3 Cargo manifests to 3.21.1`，
   四处版本一致（`package.json:3`、`src-tauri/Cargo.toml:4`、
   `default-file-manager-common/Cargo.toml:4`、`default-file-manager-launcher/Cargo.toml:4`）。
@@ -2386,12 +2386,12 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
 ### 十五·2 本轮零代码改动（避免下轮误以为还有实现债）
 
 - 本轮只做「读文档 → 核状态 → 出清单」，**未改任何产品代码、未改版本号、未打包**。
-- 批次 43 的修复本体已在 commit `3dbcf57d`（3.21.1），门禁 `Test Files 333 passed / Tests 3588 passed`
+- 批次 43 的修复本体已在 commit `e3d1ed3f`（3.21.1），门禁 `Test Files 333 passed / Tests 3588 passed`
   （`.superpowers/sdd/b43/check-b43-3.log`），装机证据 `.superpowers/sdd/b43/install-status.txt`。
 - 仓库现状（当场实测）：`package.json` = **3.21.1**；装机件
   `D:\Program Files\Alpha File Manager\alpha-file-manager.exe` `ProductVersion = 3.21.1`；
   工作树除 `?? reports/`（4 个批次 38/41 探针残留）外干净；
-  `git log origin/main..HEAD` 领先 **3 个提交**：`1b6c2ba0` / `c97644a4` / `3dbcf57d`（**均未推送**）。
+  `git log origin/main..HEAD` 领先 **3 个提交**：`9e420e91` / `8b737cd0` / `e3d1ed3f`（**均未推送**）。
 - `docs/marketing/` **已不是独立 git 仓库**（`Test-Path docs\marketing\.git` = False）
   ⇒ `docs/marketing/AFM-WEB-UI-MANUAL-STEPS.md:105-110` 记的「push 会推到 focus-sync」那条历史隐患**已不成立**。
 
@@ -2449,7 +2449,7 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
 | **O-2** 自愈补跑跨页切换可能多跑一次 | **闭合** | `src/composables/use-remote-global-search-index.ts`（模块级闸门） |
 | **O-3** 搜索页模板没有自动化测试 | **闭合**（6 例） | `src/modules/settings/ui/categories/search/__tests__/global-search-remote-index.test.ts`（新增） |
 | **O-6** `reports/` 残留目录未跟踪 | **闭合** | 4 个批次 38/41 探针文件归档到 `.superpowers/sdd/b38/reports-archive/` |
-| O-5 推送 origin | **闭合**（用户 2026-11-24 授权后已推送） | `origin/main` = 本地 `HEAD`（`af1add65`），领先/落后均为 0 |
+| O-5 推送 origin | **闭合**（用户 2026-11-24 授权后已推送） | `origin/main` = 本地 `HEAD`（`75dd8196`），领先/落后均为 0 |
 
 ### 十六·2 O-1 的实现：三个决定 + 一条链路
 
@@ -2525,7 +2525,7 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
 | CHANGELOG | 根 `CHANGELOG.md` + **14 个 locale** 全部插入 `## [3.22.0] - November 2026` |
 | 安装包 | `release/Alpha File Manager_3.22.0_x64-setup.exe`，**46,151,697 B** |
 | 装机 | `D:\Program Files\Alpha File Manager\alpha-file-manager.exe`，`ProductVersion = 3.22.0`（升级前 3.21.1） |
-| 提交 | `1b0b32e3 feat(batch44): …`（31 文件 / +1292 行），**已推送 origin**（连同收口文档提交一并推送） |
+| 提交 | `08f6c898 feat(batch44): …`（31 文件 / +1292 行），**已推送 origin**（连同收口文档提交一并推送） |
 
 > ⚠️ `src-tauri/src/global_search/scan.rs:387` 的 `unused variable: reader` 是**改动前既有基线**，本批次未动。
 
@@ -2572,8 +2572,8 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
 - 应用启动（恢复到「设置-搜索」路由）后界面出现「正在索引云盘」，且进程与网盘 API 保持
   `Established` 连接、CPU 持续增长 ⇒ **stale ⇒ 自动重建的触发被观测到，且扫描在推进**；
 - **推送已完成**：用户 2026-11-24 授权后 `git push origin main` 成功
-  （`0a6b38e4..af1add65  main -> main`，退出码 0）；
-  `git ls-remote origin refs/heads/main` = `af1add65`，本地 `origin/main..HEAD` 与 `HEAD..origin/main` 均为空。
+  （`3f4b89c1..75dd8196  main -> main`，退出码 0）；
+  `git ls-remote origin refs/heads/main` = `75dd8196`，本地 `origin/main..HEAD` 与 `HEAD..origin/main` 均为空。
 
 **推断**（有强证据但未直接观测）：
 - 「重建跑完后 `meta.json` 会带 `connection_id`」—— 依据：新 schema 由 `write_remote_index` 用
@@ -2621,7 +2621,7 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
 同期**直连是通的**（`Invoke-WebRequest https://github.com -Method Head` → 200，395 ms；
 `Test-NetConnection github.com -Port 443` → True）⇒ 判定问题出在代理这条路，不是 GitHub 不可达。
 ⇒ **绕过代理即可**：`git -c http.proxy= -c https.proxy= push origin main`
-⇒ `0a6b38e4..af1add65  main -> main`，退出码 0。
+⇒ `3f4b89c1..75dd8196  main -> main`，退出码 0。
 
 ### 十六·8 下一阶段（按优先级，接力时按此推进）
 
@@ -2634,7 +2634,7 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
 2. **B-1 交用户手工验收**（3 步，5 分钟）：取消勾选百度 → 搜百度独有文件名 → **立刻搜不到**；
    只勾百度 → 搜夸克/阿里独有文件名 → **搜不到**。
 3. **（已完成）O-5 推送**：用户 2026-11-24 明确授权后已推 `origin/main`
-   （`0a6b38e4..af1add65`）；推送前撞上代理中断，用
+   （`3f4b89c1..75dd8196`）；推送前撞上代理中断，用
    `git -c http.proxy= -c https.proxy= push origin main` 绕过（见 §十六·7 坑 6）。
 4. **升级后请打开一次「设置」页**（重要）：格式自愈只在进设置页时触发一次；
    从没进过设置页 ⇒ 云盘索引停在旧格式 ⇒ 云盘检索为空。这条要写进发布说明。
@@ -2655,7 +2655,7 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
 | 重建探测器 | `.superpowers/sdd/b44/poll-rebuild.cmd`、`.superpowers/sdd/b44/poll-rebuild2.cmd` |
 | Rust 单测日志 | `.superpowers/sdd/b44-cargo-test.log` |
 | CHANGELOG 写入脚本 | `.superpowers/sdd/b44-changelog-3.22.0.cjs` |
-| 提交 | `1b0b32e3 feat(batch44): …` |
+| 提交 | `08f6c898 feat(batch44): …` |
 
 ---
 
@@ -2768,9 +2768,9 @@ if (requested === 'onedrive_pan' && !ONEDRIVE_ENABLED) {
 |---|---|
 | ① 用户手工验收 B-1 | **已闭合，但判据换过**：不是「用户说搜不到」单独成立，而是「验收时刻盘上索引非空」把它撑起来（§十七·2）。残余见 §十七·3 |
 | ① 回读 `meta.json` 确认重建真机落地 | **已确认**：schema 带 `connection_id` + 索引含 20000 条（§十七·2/1-2） |
-| ② git 遗留 | 工作区干净、`HEAD = 8191bf1b`；`.superpowers/` 属被忽略的证据目录，沿用批次 44 口径**不入库**；worktree 清理待用户授权 |
+| ② git 遗留 | 工作区干净、`HEAD = ff6ba4f5`；`.superpowers/` 属被忽略的证据目录，沿用批次 44 口径**不入库**；worktree 清理待用户授权 |
 | ③ O-4 路线 | **待用户拍板**：A = 打验收专用包改 `AdditionalBrowserArguments` 拿 console / B = 继续 UIA + 手工验收。本轮给台账 §2 补了第三条取证渠道（应用日志，见 W-7/W-8） |
-| ④ CHANGELOG 措辞 | **已落地、无需补**：`1b0b32e3` 一次性把 12 行 3.22.0 条目写进根 `CHANGELOG.md` + 全部 14 个 `public/changelog/<lang>/changelog.md`；中文 `ch` 版第 14 行逐字含「应用会在你第一次打开搜索或远程设置时替你重建」。**订正**：§十六·8 说「待逐字核对」，现已核对 |
+| ④ CHANGELOG 措辞 | **已落地、无需补**：`08f6c898` 一次性把 12 行 3.22.0 条目写进根 `CHANGELOG.md` + 全部 14 个 `public/changelog/<lang>/changelog.md`；中文 `ch` 版第 14 行逐字含「应用会在你第一次打开搜索或远程设置时替你重建」。**订正**：§十六·8 说「待逐字核对」，现已核对 |
 | ⑤ 候选缺陷评估 | 「扫描期间冷启首查返回空」「`search_files.rs` 死代码清理」两项用户已拍板**暂不处理** → 本轮补录进台账 §5 已拍板不做（此前只散落在 handoff 里）；另新增 W-7 / W-8 |
 
 ### 十七·7 下轮开工指针（只给路径，不复述内容）
@@ -3169,7 +3169,7 @@ Rust 门禁的 warning 全是既有噪音（`unused variable: reader`、`field .
 ## 二十、批次 46：台账 §6 前三项推进 —— 提交落地 + 勾选过滤的运行时 A/B + 阿里云盘登录链路打通到扫码（2026-11-24 深夜）
 
 > 本轮目标来自 `docs/open-items-2026-11-24.md` §6 的第 1/2/3 项。
-> **结论先说**：第 1 项**闭合**（提交 `613e1958`）；第 2 项**判闭合**（判别性证据齐，唯一缺口是「鼠标点复选框」这个动作，属装置限制）；
+> **结论先说**：第 1 项**闭合**（提交 `2754a7e2`）；第 2 项**判闭合**（判别性证据齐，唯一缺口是「鼠标点复选框」这个动作，属装置限制）；
 > 第 3 项**推进到只能由人完成的最后一步**（阿里云盘扫码窗已开到扫码页，等用户扫码），Agent 侧动作已全部做完。
 > **⚠️ 22:54 订正**：该登录窗**已被关掉**（顶层窗列表里已无 `阿里云盘 登录`），且应用启动后 417 行日志里
 > **零 `aliyun` 记录** ⇒ 用户**尚未扫码**。重开两步见 §二十·4 末尾与 §二十·8 的脚本清单。
@@ -3189,12 +3189,12 @@ Rust 门禁的 warning 全是既有噪音（`unused variable: reader`、`field .
 
 ### 二十·2 §6-1 闭合：批次 45 配额改动 + 两份台账入版本库
 
-- 提交 **`613e1958`**：`4 files changed, 485 insertions(+), 94 deletions(-)`。
+- 提交 **`2754a7e2`**：`4 files changed, 485 insertions(+), 94 deletions(-)`。
   含 `src-tauri/src/global_search/{remote_index,commands}.rs`（配额口径「每连接 20k + 合计随连接数伸缩」）
   与两份 docs（`open-items-2026-11-24.md`、`handoff-2026-11-22-batch38-onedrive-readonly.md`）。
 - 提交信息见 `.superpowers/sdd/b46/commit-msg.txt`，**明确写了「版本号与 CHANGELOG 未动，待用户拍板」**，
   避免下一轮误以为已发版。
-- 提交后 `git status --short` 为空，`HEAD=613e1958`。
+- 提交后 `git status --short` 为空，`HEAD=2754a7e2`。
 
 ### 二十·3 §6-2：勾选过滤的运行时 A/B（改走应用自带 MCP，不再碰 UI）
 
@@ -3272,7 +3272,7 @@ token 取自 `%APPDATA%\com.sigma-file-manager.app\mcp-access.json` 的 `token` 
 **已验证（本轮当场执行或当场回读）**
 
 - 门禁：`cargo test --lib` 1693 passed / 0 failed / 3 ignored；`npm run check` EXIT=0。
-- §6-1：提交 `613e1958`，工作区干净。
+- §6-1：提交 `2754a7e2`，工作区干净。
 - §6-2：干净包 + MCP 通道 A/B（百度 13 条含 2 条远程；夸克 0 条）+ 索引内 49 条夸克条目 + 代码侧勾选集合链路。
 - §6-3：登录入口在「编辑」弹窗内；`打开登录窗口` 按钮可 Invoke（off-screen 亦生效）；登录窗已弹出且是扫码页。
 - 环境：`LOGONUI_ABSENT`、`THREAD_DESKTOP=Default`、`FOREGROUND_PID=603288` —— **不是锁屏、不是影刀虚拟桌面**。
@@ -3916,7 +3916,7 @@ ASCII 查询无子串通道 / `exact_match` 无子串通道 / 合并去重且保
 ### 二十四·7 下一步
 
 1. **W-14 等用户拍板排序规则**（见 二十四·5 的三个候选）—— 属台账 §5 拍板暂不做的范围，本轮未动。
-2. **本批次改动已提交**（主提交 `471ea5b1`，补记提交紧随其后）：本交接文档 + `docs/open-items-2026-11-24.md` + `src-tauri/src/global_search/query.rs`
+2. **本批次改动已提交**（主提交 `b87be76a`，补记提交紧随其后）：本交接文档 + `docs/open-items-2026-11-24.md` + `src-tauri/src/global_search/query.rs`
    （W-13 召回层修复 + 7 条单测）；**版本号与 CHANGELOG 未动**、**不推送**。
 3. **仍待用户拍板**：版本号（3.23.0？）与 CHANGELOG 是否更新；云盘索引配额最终口径；是否允许跑 `rustup` 修 stable。
 4. **仍待用户在场**：B-5（一次真实云盘下载触发杀毒超时）、B-6（三家网盘各一轮界面级验收）、W-4（360 误报复验）。
@@ -4060,7 +4060,7 @@ ASCII 查询无子串通道 / `exact_match` 无子串通道 / 合并去重且保
 - 缺陷 A（云盘子串索引 token 太粗）未修，需重建 23,334 条索引，用户已排到 B 之后。
 - 「同分带内每连接席位上限」未做，故靶子在 `分析` 里只到第 101 位而非进前 50。
 - 批次 46 B-3 验收清单、B-5 / B-6 / W-4 的带内交互、stable 1.97.1 是否授权修复、版本号与 CHANGELOG 口径 —— 均未变。
-- 本批**未提交、未推送**（HEAD 仍 `529e25ae`），未升版本号（仍 3.22.0），索引未重建。
+- 本批**未提交、未推送**（HEAD 仍 `49425567`），未升版本号（仍 3.22.0），索引未重建。
 
 ### 二十六·6 本轮工具坑（下轮直接抄）
 
@@ -4346,20 +4346,20 @@ fresh 实测（`.superpowers/sdd/b54/probe-limit50.ps1`，装机 3.22.0 `build-2
 3. **Tauri 覆盖 WebView2 调试参数**：`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 被 `AdditionalBrowserArguments` 覆盖 ⇒ CDP 9333 无监听，**界面级复验不能靠 CDP**。
 4. **Rust 单测夹具别放 `std::env::temp_dir()`**：`builtin_ignored_paths()` 会剪掉 `/AppData/Local/Temp` ⇒ 本批夹具改用 `%USERPROFILE%\afm-rust-search-fixtures\`。
 5. **遗留未清**：`F:\soft\00selfmake\...`（误建目录，含一份误置的 `install-b55.ps1` 副本）删除被运行时安全策略拒绝（非交互模式）⇒ **未绕过**，留给用户在交互终端清理。
-6. **门禁顺序**：本批首跑 `npm run check` 早于台账改动 ⇒ **提交态复跑才暴露**一处「**表格多一列**」：我在 `docs/open-items-2026-11-24.md` 的 W-16 行追加批次 55 闭合说明时多写了一个 `|`（表头 4 列、数据行写成 5 列 ⇒ GFM 会静默丢弃最后一列），门禁 `readme-markdown-table.test.ts` 报红（`expected [ { headerLine: 115 } ] to deeply equal []`）。**已修**：把批次 55 段落并入同一状态列。**规则**：台账 / handoff 的表格改动必须发生在**门禁之前**，不能拿改动前的绿灯当收口证据 —— 收口轮要**在文档改完后复跑一次门禁**。修表后**复跑门禁已绿**（`.superpowers/sdd/b55/npm-check-b55-postcommit2.log`：335 文件 / 3601 用例 / EXIT=0），修表补记提交 `b13ad4be`。
+6. **门禁顺序**：本批首跑 `npm run check` 早于台账改动 ⇒ **提交态复跑才暴露**一处「**表格多一列**」：我在 `docs/open-items-2026-11-24.md` 的 W-16 行追加批次 55 闭合说明时多写了一个 `|`（表头 4 列、数据行写成 5 列 ⇒ GFM 会静默丢弃最后一列），门禁 `readme-markdown-table.test.ts` 报红（`expected [ { headerLine: 115 } ] to deeply equal []`）。**已修**：把批次 55 段落并入同一状态列。**规则**：台账 / handoff 的表格改动必须发生在**门禁之前**，不能拿改动前的绿灯当收口证据 —— 收口轮要**在文档改完后复跑一次门禁**。修表后**复跑门禁已绿**（`.superpowers/sdd/b55/npm-check-b55-postcommit2.log`：335 文件 / 3601 用例 / EXIT=0），修表补记提交 `c7476d7a`。
 
 ### 二十七·12 遗留与下一步
 
 - **用户待拍板（均不阻塞本批）**：W-18 云盘目录递归检索口径 / 索引配额最终口径 / 版本号与 CHANGELOG / W-17 的 15 个外语包 / `rustup` 修复授权 / W-19 界面级像素复验通道。
 - **缺陷 A 仍未修**：跨 token 边界子串召不回，单列在 W-14 尾部（需加子字段 + 重建 23,334 条云盘索引）。
-- **本批提交**：主提交 `2f106328` → 提交号回填 `10f49025` → 修表补记 `b13ad4be`（**均不推送**；版本号仍 3.22.0、未改 CHANGELOG、未重建索引）。
+- **本批提交**：主提交 `58054737` → 提交号回填 `4b130f88` → 修表补记 `c7476d7a`（**均不推送**；版本号仍 3.22.0、未改 CHANGELOG、未重建索引）。
 - **本轮未做**：升版本号、改 CHANGELOG、重建索引、推送；W-17 的 15 个外语包仍未处理（用户未授权代笔翻译）。
 
 ---
 
 ## 二十八、批次 56 —— W-19 收口：路线 A 在 release 包上取到「界面级像素 + 键盘」真机证据
 
-> 本节是批次 55 唯一遗留「未验」标记的闭合记录。**批次 55 §二十七 里「界面级像素 / 键盘复验通道在本项目不可用」这句绝对化表述被本批推翻**（证据见 ·2）。环境：HEAD 起点 `e3352cf5`（批次 55 链末端）、版本号仍 **3.22.0**、未推送、远端只有 `gitee`。
+> 本节是批次 55 唯一遗留「未验」标记的闭合记录。**批次 55 §二十七 里「界面级像素 / 键盘复验通道在本项目不可用」这句绝对化表述被本批推翻**（证据见 ·2）。环境：HEAD 起点 `2a4ca9fe`（批次 55 链末端）、版本号仍 **3.22.0**、未推送、远端只有 `gitee`。
 
 ### 二十八·1 背景与目标
 
@@ -4452,9 +4452,9 @@ function handleEscapeKey(): boolean {
 - **Rust**：`src-tauri/.superpowers/sdd/b56/cargo-test-lib-b56.log` → `test result: ok. 1727 passed; 0 failed; 3 ignored; finished in 8.06s`（与 b55 基线逐字相同，盘上回读）。
 - **前端**：`src-tauri/.superpowers/sdd/b56/npm-check-b56.log`（run1）**红在 eslint**——4 条风格错全在新守卫文件（`@stylistic/arrow-parens` / `padding-line-between-statements` / `quotes` ×2），`ts` 与 `lint:stylelint:check` 无错。`npx eslint <该文件> --fix` 清零后单文件 `--max-warnings 0` 复跑 EXIT=0，守卫复跑仍 **9 passed / 9**。
 - **前端重跑**：`src-tauri/.superpowers/sdd/b56/npm-check-b56-run2.log` → **`Test Files 336 passed (336)` / `Tests 3610 passed (3610)` / Duration 120.19s**，`verify-changelog` 通过，`verify:sandbox` 末行 `[sandbox-gate] OK 全部扩展入口通过`（`RESULT: VALID (0 violations / 20 patterns)`），全程无 `exited with`。**336/3610 正好 = b55 的 335/3601 + 新增 1 个守卫文件 9 条用例**——数量自洽，可作为「本批只加了守卫、没动别的测试」的旁证。
-- **提交**：主提交 `1f2b00bb`（父 `e3352cf5`，批次 55 链尾）。本批改动 = 新守卫文件 + `docs/open-items-2026-11-24.md` + 本节。`src-tauri/tauri.conf.json` 已回滚干净、不在变更集内。**不推送**（远端仅 gitee，用户未要求）。未做：升版本号、改 CHANGELOG、重建索引、B-2 复验、§6 需用户在场的验收。
+- **提交**：主提交 `692deca6`（父 `2a4ca9fe`，批次 55 链尾）。本批改动 = 新守卫文件 + `docs/open-items-2026-11-24.md` + 本节。`src-tauri/tauri.conf.json` 已回滚干净、不在变更集内。**不推送**（远端仅 gitee，用户未要求）。未做：升版本号、改 CHANGELOG、重建索引、B-2 复验、§6 需用户在场的验收。
 - **收口补正（盘上回读）**：
-  - 后续小提交 `1b4911b6`（把 open-items §4 的 W-19 行由 **3 列补为 4 列**，与表头分隔行同形；
+  - 后续小提交 `d17ddb57`（把 open-items §4 的 W-19 行由 **3 列补为 4 列**，与表头分隔行同形；
     表格列数判据 = 竖线数 **+ 行尾是否闭合**：`### 4.` 表标准形状是 4 列 = 5 竖线，
     未闭合行 4 竖线也合法，已闭合行 4 竖线 = 只有 3 列会渲染错位）。本节这条补记自身的提交哈希不再回填。
   - **远端名待核**：上一行「远端仅 gitee」的说法在本轮盘上不成立——`git remote -v` 只列出
@@ -4630,7 +4630,7 @@ function handleEscapeKey(): boolean {
 **本批未做（下棒起点）**
 - 未升版本号 / 未推送 / 未发版；未做全局检索耗时分段计时（W-21 归因）；未测 OneDrive 配额耗尽与超大目录下的假阳性；
   未复验 B-2（需用户重新授权阿里云盘）。
-- 代码提交 `ae98e82f`（1 file，+95/−2，仅改 `query.rs`；`types.rs` 的 `BadQuery` 在其中）；
+- 代码提交 `376f7e26`（1 file，+95/−2，仅改 `query.rs`；`types.rs` 的 `BadQuery` 在其中）；
   本批台账与文档另起提交。**待用户裁决**：W-21 是否接受 / 是否发版。
 
 ## 三十一、批次 58（2026-11-26）：收藏卡全路径 + 就地编辑、侧边栏铅笔收藏编辑弹窗、设置页导出/导入设置

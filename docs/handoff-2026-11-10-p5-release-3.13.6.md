@@ -26,8 +26,8 @@
 
 **版本**：`3.13.6`，四处同源：`package.json`、`src-tauri/Cargo.toml`、`src-tauri/default-file-manager-common/Cargo.toml`、`src-tauri/default-file-manager-launcher/Cargo.toml`，`Cargo.lock` 已同步。
 
-**提交**：`e98f1aae` `feat(release): 3.13.6 - address bar fix, focus sync gate, build-time extension check`（23 文件，+299 / -15）。
-推送结果：`f8aeb30f..e98f1aae  main -> main`，推后 `git status -sb` 为 `## main...origin/main`。
+**提交**：`545d1083` `feat(release): 3.13.6 - address bar fix, focus sync gate, build-time extension check`（23 文件，+299 / -15）。
+推送结果：`22c9fde7..545d1083  main -> main`，推后 `git status -sb` 为 `## main...origin/main`。
 
 > `origin` = `https://github.com/kizemo/alpha-file-manager.git`（已推）。
 > `upstream` = `https://github.com/aleksey-hoffman/sigma-file-manager.git`，**按约定未推**。

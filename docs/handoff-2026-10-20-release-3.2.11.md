@@ -446,7 +446,7 @@ node scripts/release-publish.mjs verify
 | SHA-256 | `df6f451bd2615511867f4ffc51047bfc9a53127b7002a66247da2568cdc7fa6b` |
 | 站点清单 | `https://www.aiec.fun/alpha-file-manager/version.json`（version=3.2.11，pub_date=2026-10-20T05:45:35Z） |
 | GitHub release | `https://github.com/kizemo/alpha-file-manager/releases/tag/v3.2.11`（**Latest**，非预发布） |
-| 标签指向 | `v3.2.11` → `cfec0d06`（就是本轮发布提交） |
+| 标签指向 | `v3.2.11` → `87e3f53a`（就是本轮发布提交） |
 | 仓库 release/ | `release/Alpha File Manager_3.2.11_x64-setup.exe` |
 | 站点源说明文件 | `E:\办公文件\L1网站\alpha-file-manager\_release-notes-v3.2.11.md` |
 

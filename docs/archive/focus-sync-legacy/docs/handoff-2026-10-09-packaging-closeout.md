@@ -14,7 +14,7 @@
 | 主仓 | `F:\soft\00selfmade\filemanager` + `github.com/kizemo/focus-sync` |
 | 主仓 HEAD | **`35cfe8b`**(main),标签 **`v0.5.9-packaging-20261009`** ← **新回滚点** |
 | 主仓远程 | **领先 `origin/main` 4 个提交,未推送** |
-| Sigma FM fork | `…\sigma-file-manager`,HEAD **`4365281b`**(main),**未推送** |
+| Sigma FM fork | `…\sigma-file-manager`,HEAD **`27a7f94c`**(main),**未推送** |
 | 测试 | `cargo test --release` **73 passed / 0 failed** |
 | 沙箱门禁 | `VALID (0 violations / 19 patterns)` |
 | NSIS 门禁 | `PASS -- 0 warnings` |

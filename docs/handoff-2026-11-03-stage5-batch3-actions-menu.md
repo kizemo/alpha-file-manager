@@ -3,7 +3,7 @@
 - 日期：2026-11-03（本版为**收尾版**，覆盖此前同一文件的中间结论）
 - 仓库：`F:\soft\00selfmade\filemanager\sigma-file-manager`（仓库根 `F:\soft\00selfmade\filemanager`）
 - 版本：**3.9.2**（`package.json` / `src-tauri/Cargo.toml` / `src-tauri/tauri.conf.json` 三处一致，本轮未改）
-- 基线提交：`ceff7e38 docs(handoff): 新增阶段四交接文档并更新接力 prompt`
+- 基线提交：`e4e516d2 docs(handoff): 新增阶段四交接文档并更新接力 prompt`
 - 工作树状态：**批次 1–3 + permfix + L1–L3 全部未提交**；`src/core/` 整目录 untracked
 - 本轮结论：**代码完成、门禁无回归、真机验收 `pass=23 fail=0`、用户数据完好**；剩下的事项全部需要用户本人操作或裁决（见第八节）
 

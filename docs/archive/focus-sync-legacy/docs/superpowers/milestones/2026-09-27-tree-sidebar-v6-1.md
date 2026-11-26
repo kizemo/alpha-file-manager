@@ -3,8 +3,8 @@
 **日期**: 2026-09-27
 **里程碑状态**: ✓ Stable,所有 fork-only 功能基于此分支开发
 **Branch**: `feat/tree-sidebar-v6-1`
-**HEAD commit**: `8caf14ae`(6 commits,259 unit tests pass)
-**Upstream base**: `aleksey-hoffman/sigma-file-manager` HEAD `fed49cee`
+**HEAD commit**: `87b7d7fe`(6 commits,259 unit tests pass)
+**Upstream base**: `aleksey-hoffman/sigma-file-manager` HEAD `4d788321`
 **对应 release**: `v2.2.0-tree.1` (kizemo fork GitHub Releases)
 
 ---
@@ -16,7 +16,7 @@
 ## 为什么这样定位
 
 1. **259 单测全过**:tree sidebar 功能完整、稳定、覆盖充分
-2. **不依赖未发布功能**:完全基于 upstream `fed49cee` 已知 API,无 unknown unknowns
+2. **不依赖未发布功能**:完全基于 upstream `4d788321` 已知 API,无 unknown unknowns
 3. **release 工程已走通**:`v2.2.0-tree.1` GitHub Release artifact 完整(SHA256 verified,NSIS installer 通过 SmartScreen)
 4. **符合 fork 治理原则**:fork-only feature 不污染 upstream PR review;kizemo 维护成本可控
 
@@ -59,4 +59,4 @@ v2.3.0-focus.1 (or v2.2.0-tree.1+focus.1 bundled)
 - ❌ 改 tree sidebar 已合并的功能(除非有 critical bug fix)
 - ❌ 把 tree 分支 rebase 到 upstream newer commit(会引入未测过的 breaking change)
 - ❌ 把 experimental feature merge 进 tree 分支(违背"stable baseline"定位)
-- ❌ 删除或 force-push tree 分支 HEAD `8caf14ae`(已发布的 release 不能丢失历史)
+- ❌ 删除或 force-push tree 分支 HEAD `87b7d7fe`(已发布的 release 不能丢失历史)

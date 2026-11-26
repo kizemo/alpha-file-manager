@@ -152,7 +152,7 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 
 ### 5.2 ⚠️ 工作树现状：上一轮 7 个文件**未提交**（发版前必须先收口）
 
-`git status --porcelain`（HEAD = `a2b4e4ad`，tag `v3.10.1`，与 `origin/main` 同步）：
+`git status --porcelain`（HEAD = `e4204bc4`，tag `v3.10.1`，与 `origin/main` 同步）：
 
 ```
  M docs/handoff-2026-11-04-extension-official-featured-branding-and-release-310.md   （已回填 §12）
@@ -260,7 +260,7 @@ npm run verify-changelog → CHANGELOG 与 14 个语言目录的 changelog.md �
 - `image` crate 0.25（含 png/jpeg/gif/bmp/webp/tiff/ico）已在 `src-tauri/Cargo.toml` 依赖里。
 - `isImageFile` 存在于 `src/modules/navigator/components/file-browser/utils.ts`；`ORIGINAL_ONLY_IMAGE_EXTENSIONS = new Set(['svg'])` 在 `resolve-image-display-src.ts:7`。
 - 菜单可见性机制在 `src/core/actions/context-menu-adapter.ts`；动作门禁在 `src/utils/entry-action-policy.ts`。
-- 工作树 7 个未提交文件、`git diff --stat` 数字、版本三处均为 `3.10.1`、HEAD `a2b4e4ad`。
+- 工作树 7 个未提交文件、`git diff --stat` 数字、版本三处均为 `3.10.1`、HEAD `e4204bc4`。
 - 上一轮门禁数字：vitest 284/2648、eslint 186/0、cargo 919。
 
 ### 推断（源码一致，但**未在真机上复现**，新会话需实测确认）
@@ -340,7 +340,7 @@ npm run verify-changelog → CHANGELOG 与 14 个语言目录的 changelog.md �
 
 | 产物 | 位置 | 状态 |
 |---|---|---|
-| 代码提交 | `0173e16f`（搜索右键菜单 + 安装器 `/UPDATE` 无条件化）、`eab5eaff`（图片旋转/翻转修复）、`bb2f9baa`（3.11.0 winget 清单） | 已 push `origin/main` |
+| 代码提交 | `5125c3a6`（搜索右键菜单 + 安装器 `/UPDATE` 无条件化）、`34bc7311`（图片旋转/翻转修复）、`acf7f5cc`（3.11.0 winget 清单） | 已 push `origin/main` |
 | 版本 | `3.11.0`（package.json / Cargo.toml / tauri.conf.json 三处一致） | — |
 | 安装包 | `release/Alpha File Manager_3.11.0_x64-setup.exe` = 45,105,474 B，sha256 `b67b627e1d051540478bbcc42aeb0dc5b1af6f80f662d45be76431af4cf5a602` | 与站点、winget 清单四方一致 |
 | tag / release | `v3.11.0` + GitHub Release（`kizemo/alpha-file-manager`） | — |
@@ -362,7 +362,7 @@ npm run verify-changelog → CHANGELOG 与 14 个语言目录的 changelog.md �
 **根因（源码级）**：`apply_image_edit` 原来是**同步 Tauri 命令**，在主线程上跑 `image::imageops` + JPEG 编码，单次 5596 ms。同步命令期间主线程被占住 → WebView2 消息泵停摆 → `src-tauri/src/webview_guard_runtime.rs` 的心跳（`webview_guard.rs` `HEARTBEAT_TIMEOUT_MS = 20_000`）超时 → 守卫**误判 renderer 崩溃** → `restart_app()`（`app.exit(0)` + `spawn_delayed_restart`）。
 ⇒ **不是原生崩溃，是应用自己退出又重启**——用户看到的就是「崩溃退出」。
 
-**修复**（`eab5eaff`）：
+**修复**（`34bc7311`）：
 - 新的命令层 `src-tauri/src/image_edit_commands.rs`：`pub async fn apply_image_edit(...)` + `tokio::task::spawn_blocking`，**不再占用主线程**；
 - 内核 `src-tauri/src/image_edit.rs` 保持 **tauri-free**（不碰 `tauri::AppHandle` / `tauri::async_runtime::*` ⇒ `cargo test --lib` 的测试二进制不会把 tao 拖进来导致 `STATUS_ENTRYPOINT_NOT_FOUND`）；
 - `catch_unwind(AssertUnwindSafe(...))` + `JoinError` **双层兜底**：解码 panic 变成一条错误 toast，不带崩进程。
@@ -412,7 +412,7 @@ OCCLUDER_RESTORED pid=808224
 
 **根因**：`global-search-result-list.vue` 的结果列表被改写成轻量列表（`ControlType.ListItem`）后，右键菜单外壳（`ContextMenu` + `FileBrowserActionsMenu`）整个丢了，定位动作也没接上。
 
-**修复**（`0173e16f`）：结果行重新挂上 `ContextMenu` / `FileBrowserActionsMenu`（`is-search-results-view`），并抽出共享 util `src/utils/reveal-containing-directory.ts`（导航器与搜索面板走**同一条**定位路径）；新增 `src/utils/open-navigator-directory.ts`（应用内定位）。面板里做不了的动作（打开方式、编辑标签、两个「新建」）用 `EXCLUDED_ACTIONS` 排除。
+**修复**（`5125c3a6`）：结果行重新挂上 `ContextMenu` / `FileBrowserActionsMenu`（`is-search-results-view`），并抽出共享 util `src/utils/reveal-containing-directory.ts`（导航器与搜索面板走**同一条**定位路径）；新增 `src/utils/open-navigator-directory.ts`（应用内定位）。面板里做不了的动作（打开方式、编辑标签、两个「新建」）用 `EXCLUDED_ACTIONS` 排除。
 
 **验收**（真机，`.superpowers/sdd/accept-search-ctx-3110.ps1`）：
 
@@ -472,7 +472,7 @@ CLICKED_VIA=InvokePattern
 ### 11.9 仍未验证 / 遗留
 
 - **需求 1 的「应用内更新通道」那条路**（§三 判据 1.2）本轮**没有**单独复测；只测了手动双击 setup.exe 升级那条路（19:00 包）。
-- 21:29 产出的 3.11.0 包与 19:00 包的 NSIS 源码**同一份**（`0173e16f` 之后未再改 `installer.nsi`），但 3.11.0 包**未**重跑升级验收 ⇒ 判据 1.1 在最终发布包上属于**推断**，不是实测。
+- 21:29 产出的 3.11.0 包与 19:00 包的 NSIS 源码**同一份**（`5125c3a6` 之后未再改 `installer.nsi`），但 3.11.0 包**未**重跑升级验收 ⇒ 判据 1.1 在最终发布包上属于**推断**，不是实测。
 - winget PR **未提交**（3.5.1 的 PR #460744 仍 OPEN，按「同一包 ID 只提最新一版」原则先备清单不提交）。
 - `jpeg-encoder` 是 3.11.0 的**新增直接依赖**（feature `simd`）—— 换平台构建需确认 `simd` 在目标架构上可用。
 
@@ -523,8 +523,8 @@ if (m.notes) { document.getElementById('notes').textContent = m.notes; }
 
 ### 12.3 3.11.0 发布收口状态（全部已验证）
 
-- `origin/main` = `f8ad4499`（含 README 双语、CHANGELOG 母版、`public/changelog/ch/changelog.md` 补强）。
-- tag `v3.11.0` → commit `bb2f9baa`；GitHub Release 资产 digest `sha256:b67b627e…a602` / 45,105,474 B，与本地包一致。
+- `origin/main` = `d72d35e4`（含 README 双语、CHANGELOG 母版、`public/changelog/ch/changelog.md` 补强）。
+- tag `v3.11.0` → commit `acf7f5cc`；GitHub Release 资产 digest `sha256:b67b627e…a602` / 45,105,474 B，与本地包一致。
 - GitHub Release 正文已同步为准确口径（编码 5596 → 2117 毫秒，端到端 2243 毫秒）。
 - 站点源 `version.json` 的 `notes` 与 `history[0].notes` 已换成同一份准确文案 + `## 构建信息` 脚注；
   `--files-only` 增量上传后**公网读回确认** `version=3.11.0`、新文案已生效（`has5596=true`、旧的「约 6.5 秒」已消失）。

@@ -2,7 +2,7 @@
 
 > 写入时间：2026-10-17
 > 仓库：`F:\soft\00selfmade\filemanager\sigma-file-manager`
-> 基线：`aa530414`（批次 11 交接提交，3.2.4 正式版）
+> 基线：`2a238b0c`（批次 11 交接提交，3.2.4 正式版）
 > 状态：**待评审**
 > 上游约束：`F:\soft\00selfmade\filemanager\AGENTS.md`
 
@@ -564,7 +564,7 @@ feat/remote-phase-9-local-diff
 ### 8A.5 工作树
 
 用 `git worktree` 隔离各阶段的工作目录 —— 这套工具链本仓库已在用
-（AGENTS.md 记录过 `git worktree add --detach $env:TEMP\afm-baseline-eslint 0f73f159`
+（AGENTS.md 记录过 `git worktree add --detach $env:TEMP\afm-baseline-eslint 9bd3566b`
 做 eslint 基线逐字对照）。隔离后 `main` 随时可以发版，互不干扰。
 
 ### 8A.6 发版时的顺序铁律（批次 11 的教训）
@@ -583,7 +583,7 @@ feat/remote-phase-9-local-diff
 
 沿用本仓库既有门禁，逐字对照基线：
 
-| 项 | 基线（HEAD = `aa530414`） |
+| 项 | 基线（HEAD = `2a238b0c`） |
 |---|---|
 | `cargo test --lib` | 386 passed |
 | `npx vue-tsc --build` | 0 error |

@@ -1,7 +1,7 @@
 <!--
   阶段 1 执行计划 —— 由 superpowers:writing-plans 生成。
   规格来源：docs/superpowers/specs/2026-10-17-ftp-sftp-remote-space-design.md §8 阶段表
-  上游：阶段 0 已合入 main（3810069e）
+  上游：阶段 0 已合入 main（0b9e4ddd）
 -->
 
 # 阶段 1：连接管理 + 凭据存储 + 设置页 + 传输层
@@ -33,7 +33,7 @@ SOCKS5 委托 `fast-socks5`，HTTP CONNECT 自写 —— 阶段 2 接 FTP 时只
    那个 `.cmd` **必须保持纯 ASCII** —— cmd.exe 按 ANSI 读 `.cmd`，UTF-8 中文注释会变成
    一串「不是内部或外部命令」的假报错。
 
-3. **门禁基线**（HEAD=`3810069e`，本分支起点），必须逐字对照：
+3. **门禁基线**（HEAD=`0b9e4ddd`，本分支起点），必须逐字对照：
 
    | 命令 | 基线 |
    |---|---|

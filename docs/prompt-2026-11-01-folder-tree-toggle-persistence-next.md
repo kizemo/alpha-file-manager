@@ -35,5 +35,5 @@
 1. **代码在内层仓** `F:\soft\00selfmade\filemanager\sigma-file-manager`（remote `kizemo/alpha-file-manager`）；外层 `F:\soft\00selfmade\filemanager` 的 remote 是 `kizemo/focus-sync`，只放 `AGENTS.md` 与历史档，**不跟踪内层代码**。提交、推送、打 tag 一律在内层仓。
 2. **本次修复只动了默认设置对象**（`src/stores/storage/user-settings.ts`），**没改** `src/modules/navigator/**` 的运行时逻辑、**没改** schema 版本号 ⇒ 单测能证明「加载路径不再丢弃该键」，但**证明不了**「用户点一下开关、重启后仍然生效」⇒ **真机验收是必做项，不是可选项**，且要带**修复前的阴性对照**。
 3. **winget PR #467381 现在只等社区版主 `Moderator-Approved`**，不需要用户做任何操作（CLA 已达成，标签 `Needs-CLA` 是残留）。若往该分支推新 commit 导致校验重跑，可能又要 CLA —— **那种情况必须让账号本人执行**，agent 不得代选立场。
-4. **有三件事需要用户拍板**（其余按 handoff 自行判断，不用问）：① 目录树修复验收通过后是否发 **3.9.1**；② 是否顺带把 winget 清单补到 3.9.1（现存到 3.6.5）；③ 是否同步 upstream（AFM 与 upstream 已深度分叉，merge base `fed49cee`，判断口径见 `AGENTS.md` §2.2）。
+4. **有三件事需要用户拍板**（其余按 handoff 自行判断，不用问）：① 目录树修复验收通过后是否发 **3.9.1**；② 是否顺带把 winget 清单补到 3.9.1（现存到 3.6.5）；③ 是否同步 upstream（AFM 与 upstream 已深度分叉，merge base `4d788321`，判断口径见 `AGENTS.md` §2.2）。
 5. **不要用 `tauri dev` 做任何界面结论**，也不要为了省事在 dev 构建上截图；**不要**在没验收通过时把修复推上 `origin/main`。

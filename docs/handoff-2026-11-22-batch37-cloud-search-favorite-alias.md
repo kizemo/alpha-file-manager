@@ -303,4 +303,4 @@ npm --prefix $root run tauri:build
   `src-tauri/target/release/alpha-file-manager.exe`（85,265,920 B，mtime `2026-11-22T00:53:20`）
   的 mtime 晚于 `src/`、`src-shared/`、`src-tauri/src` 下**全部**源码 ⇒ 复用该产物，**不需要重跑 `tauri build`**。
 - `AGENTS.md` 已新增 **§2.11 沙箱真机验收的五个硬事实**，并显式**修正** §2.8 里「`PrintWindow` 在沙箱照样能出图」的旧口径（窗口框可出、内容区可能全白）。
-- 工作区状态：`HEAD = 0526669f`，批次 37 改动 **81 项**（73 改 + 8 新增，0 删除），已合并为批次 37 **单一 commit**（`git log --oneline --grep=batch37` 可见，含本节）。
+- 工作区状态：`HEAD = 2891b951`，批次 37 改动 **81 项**（73 改 + 8 新增，0 删除），已合并为批次 37 **单一 commit**（`git log --oneline --grep=batch37` 可见，含本节）。

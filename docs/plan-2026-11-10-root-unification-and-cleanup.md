@@ -20,7 +20,7 @@
 
 | 项目 | 实测值 |
 | --- | --- |
-| git 状态 | HEAD `dadf02fc`，`## main...origin/main`（与远端同步） |
+| git 状态 | HEAD `f6fc4aed`，`## main...origin/main`（与远端同步） |
 | 跟踪文件数 | **1884** |
 | 远端 | `origin` = kizemo/alpha-file-manager，`upstream` = aleksey-hoffman/sigma-file-manager |
 | 源码树 | `src/`、`src-tauri/`、`src-tauri/installer/`、`extensions/kizemo.focus-sync/`、`scripts/`、`.github/workflows/` 全部存在 |

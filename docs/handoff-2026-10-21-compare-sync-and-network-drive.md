@@ -207,7 +207,7 @@ net use Y: \\localhost\AFMDrv    →  成功
 于是门禁**时绿时红**，而脚本本身其实全部通过（输出 `OK: all single-instance guard cases passed`）。
 
 `runHarness` 里 spawnSync 本身就给了 120 秒预算，vitest 这边却还是 30 秒。
-现在两边统一给到 180 秒（commit `f0fa87cb`）。
+现在两边统一给到 180 秒（commit `ed44e695`）。
 
 > **判定「门禁红了」之前先问一句：是真红，还是超时？**
 > 这次的报错是 `Test timed out in 30000ms`，不是断言失败 —— 断言失败才有内容可看。
@@ -245,9 +245,9 @@ FileVersion / ProductVersion = 3.4.0
 
 | commit | 内容 |
 |---|---|
-| `f0fa87cb` | `fix(gate): 单实例守卫验收用例给足 vitest 超时` |
-| `d9ec5c69` | `fix(compare-sync): 修掉真机验收暴露的三个缺陷` |
-| `eb9da742` | `release: 3.4.0 —— 比较并同步 + 添加网络驱动器` |
+| `ed44e695` | `fix(gate): 单实例守卫验收用例给足 vitest 超时` |
+| `9acb74ba` | `fix(compare-sync): 修掉真机验收暴露的三个缺陷` |
+| `270de625` | `release: 3.4.0 —— 比较并同步 + 添加网络驱动器` |
 
 ### 4.4 发布
 
@@ -258,8 +258,8 @@ FileVersion / ProductVersion = 3.4.0
   —— 正式版（非 draft / 非 pre-release），正文 2380 字符（含构建信息），
   资产 `Alpha_File_Manager_3.4.0_x64-setup.exe` 20,455,261 字节，
   GitHub 侧摘要 `sha256:f85d160a…534c` 与本地一致。
-- **标签**：`v3.4.0`（附注标签，指向 `eb9da742`，与 v3.3.0 的写法一致）。
-- `origin/main` 已推送到 `eb9da742`。
+- **标签**：`v3.4.0`（附注标签，指向 `270de625`，与 v3.3.0 的写法一致）。
+- `origin/main` 已推送到 `270de625`。
 
 ---
 

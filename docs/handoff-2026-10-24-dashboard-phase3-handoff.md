@@ -18,7 +18,7 @@
 |---|---|
 | 代码在哪？ | `F:\soft\00selfmade\filemanager\sigma-file-manager`（**内层**，AFM 真代码，remote `kizemo/alpha-file-manager`） |
 | 工作约定在哪？ | `F:\soft\00selfmade\filemanager\AGENTS.md`（**外层**，Focus Sync 仓，但里面写的是 AFM 的约定） |
-| 当前 HEAD？ | 内层 `53dce15b`、外层 `1c48b9a`，**两仓 ahead/behind 均为 0/0**，工作区干净 |
+| 当前 HEAD？ | 内层 `dd3aeb87`、外层 `1c48b9a`，**两仓 ahead/behind 均为 0/0**，工作区干净 |
 | 门禁基线？ | `vitest` 241 文件 / 2114 用例；`eslint src` **175**；`eslint .` **188**（都是 HEAD 基线，不是 0） |
 | 最近产物？ | `src-tauri/target/release/alpha-file-manager.exe`（2026-10-24 00:25:18，55,970,816 字节） |
 | 下一步做什么？ | 见 [第 5 节](#5-下阶段计划)，**有两件事必须先等用户拍板** |
@@ -39,7 +39,7 @@ Alpha File Manager 是 `aleksey-hoffman/sigma-file-manager`（上游，代号 SF
 - 受保护常量（**不得改动**）：mDNS 服务名、legacy 数据目录名、Tauri `identifier`（`com.sigma-file-manager.app`）
 
 **关键历史**：AFM 是 upstream 的**重写式移植**，不是 cherry-pick。
-两仓 merge base 是 `fed49cee`（2026-08-27）；截至 2026-10-23 实测，
+两仓 merge base 是 `4d788321`（2026-08-27）；截至 2026-10-23 实测，
 **AFM 领先 251 个 commit，upstream 领先 23 个**。
 
 ### 1.2 两个仓库的关系（**别找错地方**）
@@ -63,7 +63,7 @@ F:\soft\00selfmade\filemanager\            ← 外层：remote = kizemo/focus-sy
 
 ### 1.3 upstream 同步判据（**不要用 `git cherry`**）
 
-AFM 历史上有过两轮上游移植（`86cf58ee` A 类「扩展安全加固」、`9e880451` B 类「连选/回收站确认/窗口状态/e2e 隔离」），
+AFM 历史上有过两轮上游移植（`6c709939` A 类「扩展安全加固」、`0f51ea60` B 类「连选/回收站确认/窗口状态/e2e 隔离」），
 都是**重写移植** ⇒ `git cherry` 会把 upstream 的 23 个 commit **全判成「未移植」**，**这是错的**。
 
 正确判据是**逐行命中率**：
@@ -122,18 +122,18 @@ node scripts/audit-upstream-port.mjs      # 取每个 upstream commit 补丁的�
 
 ## 3. 已完成的工作
 
-### 3.1 阶段 0：工程基线（2026-10-23，提交 `2c1ab20e` / `fd8e7b31` / `2c9e097e` / `40525c05` / `d3d3e86b`）
+### 3.1 阶段 0：工程基线（2026-10-23，提交 `8e773ac2` / `87252303` / `b48d4871` / `cd490951` / `b51c320e`）
 
 | 交付 | 提交 | 内容 |
 |---|---|---|
-| upstream 移植完成度审计脚本 | `2c1ab20e` 前序 | `scripts/audit-upstream-port.mjs`（逐行命中率判据） |
+| upstream 移植完成度审计脚本 | `8e773ac2` 前序 | `scripts/audit-upstream-port.mjs`（逐行命中率判据） |
 | CI `e2e-windows` job | — | 含「e2e 跑完不留残留数据」检查 |
-| locale 格式门禁 | `fd8e7b31` | `.editorconfig` + `sync-i18n.js` 只在变化时写盘 + 格式测试 |
-| 三个纯模块 + 13 条单测 | `2c9e097e` | `src/utils/tagged-sections.ts`、`page-drop-targets.ts`、`tag-colors.ts`（**阶段 3 标签侧栏的前置件**） |
-| upstream 仪表盘评估文档 | `40525c05` | `docs/handoff-2026-10-23-upstream-sync-and-dashboard-review.md` |
-| 4 张 upstream 真机截图 | `d3d3e86b` | `docs/screenshots/upstream-dashboard-*.png` |
+| locale 格式门禁 | `87252303` | `.editorconfig` + `sync-i18n.js` 只在变化时写盘 + 格式测试 |
+| 三个纯模块 + 13 条单测 | `b48d4871` | `src/utils/tagged-sections.ts`、`page-drop-targets.ts`、`tag-colors.ts`（**阶段 3 标签侧栏的前置件**） |
+| upstream 仪表盘评估文档 | `cd490951` | `docs/handoff-2026-10-23-upstream-sync-and-dashboard-review.md` |
+| 4 张 upstream 真机截图 | `b51c320e` | `docs/screenshots/upstream-dashboard-*.png` |
 
-### 3.2 阶段 1：四项低风险能力（提交 `4b94a2de`，已真机验收）
+### 3.2 阶段 1：四项低风险能力（提交 `4d77147c`，已真机验收）
 
 | 能力 | 实现 |
 |---|---|
@@ -147,9 +147,9 @@ node scripts/audit-upstream-port.mjs      # 取每个 upstream commit 补丁的�
 > ② 相对时间抽成纯模块**共用**（原来 `dashboard.vue` 里内联了一份）；
 > ③ `formatDashboardFileSize` 加 `Number.isFinite`（upstream 只判 `typeof`，NaN 会显示成「NaN B」）。
 
-### 3.3 阶段 2：Hero 沉浸封面 + 板块改名（提交 `fc6ecf66` / `98d3feba` / `32384774`）
+### 3.3 阶段 2：Hero 沉浸封面 + 板块改名（提交 `99c36038` / `d6898109` / `9ffe0c3f`）
 
-**Hero**（`src/modules/dashboard/components/dashboard-hero.vue`，移植自 upstream `3eca4c17`）：
+**Hero**（`src/modules/dashboard/components/dashboard-hero.vue`，移植自 upstream `ce633166`）：
 与 upstream 的四处理意差异 —— ① 封面图**向下不淡出**（去掉底部渐隐，底边收在圆角+描边里）；
 ② 浅色主题适配（`hsl(var(--background))` 横向纱 + 背景图 `opacity 0.5`，深色主题 opacity 1）；
 ③ 插槽放本仓胶囊页签而非四张计数卡；④ 出血量左右分开写（本仓容器 padding 左 40 / 右 46，不相等）。
@@ -170,7 +170,7 @@ node scripts/audit-upstream-port.mjs      # 取每个 upstream commit 补丁的�
 
 | 仓库 | HEAD | 状态 |
 |---|---|---|
-| 内层 `sigma-file-manager` | `53dce15b` `docs(handoff): 回填外层提交号 1c48b9a` | `origin/main` = HEAD，ahead/behind **0/0**，工作区干净 |
+| 内层 `sigma-file-manager` | `dd3aeb87` `docs(handoff): 回填外层提交号 1c48b9a` | `origin/main` = HEAD，ahead/behind **0/0**，工作区干净 |
 | 外层 `focus-sync` | `1c48b9a` `docs(agents): 补两条注入相关的硬约束` | `origin/main` = HEAD，ahead/behind **0/0** |
 
 外层有 3 个与 AFM 无关的未跟踪目录（`docs/blog/`、`docs/marketing/`、`docs/SFM-EXTENSION-DEVELOPMENT-GUIDE.md`），
@@ -370,4 +370,4 @@ MSVC 环境靠 `call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildT
 ---
 
 *文档生成时间：2026-10-24 09:4x（Asia/Shanghai）*
-*对应内层提交：`53dce15b` / 外层提交：`1c48b9a`*
+*对应内层提交：`dd3aeb87` / 外层提交：`1c48b9a`*

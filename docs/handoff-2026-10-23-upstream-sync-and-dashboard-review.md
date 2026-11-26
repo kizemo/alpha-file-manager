@@ -22,7 +22,7 @@ AFM 落后 upstream 的 **23 个 commit 里，10 个早就移植过了、4 个�
 
 | 项 | 值 |
 |---|---|
-| merge base | `fed49cee`（2026-08-27） |
+| merge base | `4d788321`（2026-08-27） |
 | AFM 领先 | **251** 个 commit |
 | upstream 领先 | **23** 个 commit |
 | upstream 侧改动文件 | 148 个（其中 **89 个 AFM 也改过** = 真冲突面，59 个 AFM 干净） |
@@ -34,8 +34,8 @@ AFM 历史上做过**两轮上游移植**：
 
 | 提交 | 内容 |
 |---|---|
-| `86cf58ee` | `fix(extensions): 上游扩展安全加固 —— SSRF 防护、权限主机侧判定、删掉假沙箱` |
-| `9e880451` | `feat(navigator): 上游 B 类改动移植 —— 连选、回收站确认、窗口状态、e2e 隔离` |
+| `6c709939` | `fix(extensions): 上游扩展安全加固 —— SSRF 防护、权限主机侧判定、删掉假沙箱` |
+| `0f51ea60` | `feat(navigator): 上游 B 类改动移植 —— 连选、回收站确认、窗口状态、e2e 隔离` |
 
 这两笔是**重写移植**而非 cherry-pick，代码不同 → 补丁 ID 不同 → `git cherry HEAD upstream/main`
 把 23 个**全部**判成「未移植」。**那个判据在本项目会得出完全错误的结论。**
@@ -57,16 +57,16 @@ node scripts/audit-upstream-port.mjs --max 60   # 只看低命中率的明细
 
 | upstream commit | 命中率 | AFM 现状 |
 |---|---|---|
-| `45cedf89` **SSRF / DNS rebinding 修复** | **100%** | `86cf58ee` 已移植 |
-| `4b0a2419` **扩展隔离加固** | **100%** | 同上 |
-| `5b6cab44` 扩展主流程测试 | 100% | 同上 |
-| `588165e6` Shift+方向键连选 | 100% | `9e880451` 已移植 |
-| `5f678f8b` 双击标题栏切换最大化 | 100% | 同上 |
-| `9560da51` 全屏后窗口状态恢复 | 99% | 差的 1% 是 SPDX 版权头注释 |
-| `0ae258d6` **SMB 移入回收站前确认** | 92% | `recycle-bin-delete.ts` 与 upstream **逐字节一致**，差的 8% 在测试文件 |
-| `979d6e2c` WebDriver 全新 Windows profile | 100% | 已移植 |
-| `8908e214` e2e 临时数据目录隔离 | 96% | `app_dirs.rs` **逐字节一致** |
-| `1305d81d` 隔离目录删除重试 | 100% | 已移植 |
+| `ad569d21` **SSRF / DNS rebinding 修复** | **100%** | `6c709939` 已移植 |
+| `0cc20431` **扩展隔离加固** | **100%** | 同上 |
+| `cf9d1924` 扩展主流程测试 | 100% | 同上 |
+| `888d598a` Shift+方向键连选 | 100% | `0f51ea60` 已移植 |
+| `bf0f95ce` 双击标题栏切换最大化 | 100% | 同上 |
+| `34c3866c` 全屏后窗口状态恢复 | 99% | 差的 1% 是 SPDX 版权头注释 |
+| `c2c7a58f` **SMB 移入回收站前确认** | 92% | `recycle-bin-delete.ts` 与 upstream **逐字节一致**，差的 8% 在测试文件 |
+| `d97af4e1` WebDriver 全新 Windows profile | 100% | 已移植 |
+| `f69c5535` e2e 临时数据目录隔离 | 96% | `app_dirs.rs` **逐字节一致** |
+| `83a354f3` 隔离目录删除重试 | 100% | 已移植 |
 
 > **两条安全修复（SSRF、扩展隔离）已经在 AFM 里了。** 这是最值得确认的一点 ——
 > AFM 没有裸奔在已知漏洞上。
@@ -75,21 +75,21 @@ node scripts/audit-upstream-port.mjs --max 60   # 只看低命中率的明细
 
 | upstream commit | 内容 | 本轮处置 |
 |---|---|---|
-| `b42aa683` + `7f9ebf2b` + `2b8bed43` | CI 加 `e2e-windows` job + e2e 残留数据检查 | **P1，已合入** |
-| `a4d4f4f1` | locale JSON 末尾换行 + 格式测试 | **P2，已补** |
+| `958e6ac1` + `510a8e40` + `ee5311c2` | CI 加 `e2e-windows` job + e2e 残留数据检查 | **P1，已合入** |
+| `09bea502` | locale JSON 末尾换行 + 格式测试 | **P2，已补** |
 
 **C. 价值取决于产品决策（P4）**
 
-`3eca4c17` + `4a33b290` 仪表盘重设计 —— 详见第 4 节。
+`ce633166` + `2ecbb60e` 仪表盘重设计 —— 详见第 4 节。
 
 **D. 明确不需要（4 个）**
 
 | commit | 判定依据 |
 |---|---|
-| `3df1570d` Flatpak/libayatana 修复 | AFM 只出 Windows 包 |
-| `c2295cec` Cargo 版本同步 | upstream 是一次性手工改版本号；AFM 已有 `scripts/sync-version.js` 自动同步 package.json + 3 个 Cargo.toml，**功能更强** |
-| `1a6400a2` + `4ea1afd5` SignPath 签名 CI | AFM 已有自己的 `sign-windows.yml`（**7,333 字节**，比 upstream 成熟）；且 AFM 发布链路走 `release-publish.mjs` + SFTP 自建站，**根本不走 GitHub Actions**。upstream 这两笔只加了 2 行超时参数 |
-| `74ddf622` SECURITY.md、`61cdbb61` README 签名政策 | 纯文档；AFM 是单人 fork 无漏洞值班 |
+| `0e550fa6` Flatpak/libayatana 修复 | AFM 只出 Windows 包 |
+| `2e518237` Cargo 版本同步 | upstream 是一次性手工改版本号；AFM 已有 `scripts/sync-version.js` 自动同步 package.json + 3 个 Cargo.toml，**功能更强** |
+| `b5003441` + `e1e40869` SignPath 签名 CI | AFM 已有自己的 `sign-windows.yml`（**7,333 字节**，比 upstream 成熟）；且 AFM 发布链路走 `release-publish.mjs` + SFTP 自建站，**根本不走 GitHub Actions**。upstream 这两笔只加了 2 行超时参数 |
+| `7e2f3897` SECURITY.md、`b18678b3` README 签名政策 | 纯文档；AFM 是单人 fork 无漏洞值班 |
 
 ---
 
@@ -105,19 +105,19 @@ upstream 加的「残留检查」守的是一件真事：e2e 用 `SFM_E2E_DATA_D
 移植时**只改了一处**：upstream 的 WebView2 策略键用的是它自己的二进制名
 `sigma-file-manager.exe`，本仓是 `alpha-file-manager.exe`（已改，带 FORK-MODIFICATION 注释）。
 
-提交：`2c1ab20e chore(ci): 补 Windows e2e 门禁与「e2e 跑完不留残留数据」检查`
+提交：`8e773ac2 chore(ci): 补 Windows e2e 门禁与「e2e 跑完不留残留数据」检查`
 
 ### 2.1 一个必须先纠正的认知
 
 **「AFM 语言包末尾换行已经不合规」是错的。** 实测 17 个语言包**全部合规**
-（无 CR、以恰好一个 `\n` 结尾）。`a4d4f4f1` 的真实缺口是：
+（无 CR、以恰好一个 `\n` 结尾）。`09bea502` 的真实缺口是：
 
 1. `scripts/sync-i18n.js` **没有「内容没变就不写盘」的判断** → 每次跑都重写 16 个语言包，
    改掉 mtime，触发前端热更新与无谓的 git 噪音；
 2. **没有格式回归测试** → 谁改了格式没有任何测试会发现；
 3. `.editorconfig` 缺 `[*.json]` 段。
 
-三处都补了（`fd8e7b31`），并新增 `src/localization/__tests__/locale-json-format.test.ts`
+三处都补了（`87252303`），并新增 `src/localization/__tests__/locale-json-format.test.ts`
 （3 条用例：末尾换行、无 CR、两空格缩进）。
 
 ---
@@ -158,7 +158,7 @@ upstream 的 `tagged-sections.ts` 还带一组「孤立标签」处理
 upstream 的 `removeTagFromAllItems` / `removeTaggedItem` 本仓也没有 —— 但那是**它的 UI 需要**
 （新界面里「删标签」和「删分组」是两个独立入口），本仓的删除入口只有一个，走 `deleteTag()` 已经够用。
 
-提交：`2c9e097e refactor(dashboard): 标签分组、拖放目标、标签色板抽成纯模块并补单测`
+提交：`b48d4871 refactor(dashboard): 标签分组、拖放目标、标签色板抽成纯模块并补单测`
 
 ---
 
@@ -246,7 +246,7 @@ upstream 把仪表盘从「标题 + 一行小胶囊页签 + 内容区平铺一�
 
 - 删 `dashboard-tag-section-header.vue`（171 行）：分组标题条不再在内容区；
 - 删 `entry-card-tags.vue`（288 行）：卡片上的标签 chip 改成新的共享组件 `item-tags-field.vue`；
-- 删收藏卡片的「取消收藏」X 按钮（`4a33b290`），**没有补替代入口** ——
+- 删收藏卡片的「取消收藏」X 按钮（`2ecbb60e`），**没有补替代入口** ——
   单条收藏的移除只能回资源管理器右键菜单；
 - `user-stats` store 新增 `removeTagFromAllItems` / `removeTaggedItem`（AFM 没有）；
 - `SortableList` 新增 `disabled` prop；
@@ -322,12 +322,12 @@ upstream 把仪表盘从「标题 + 一行小胶囊页签 + 内容区平铺一�
 
 | 仓库 | 提交 | 内容 |
 |---|---|---|
-| 内层 | `1c53860b` | `chore(scripts): 加 upstream 移植完成度审计脚本（git cherry 在本项目判据失效）` |
-| 内层 | `2c1ab20e` | `chore(ci): 补 Windows e2e 门禁与「e2e 跑完不留残留数据」检查` |
-| 内层 | `fd8e7b31` | `chore(i18n): 语言包文件格式钉一道门禁（末尾换行 + 两空格缩进）` |
-| 内层 | `2c9e097e` | `refactor(dashboard): 标签分组、拖放目标、标签色板抽成纯模块并补单测` |
-| 内层 | `40525c05` | `docs(handoff): 补上游同步与仪表盘改版评估文档` |
-| 内层 | `d3d3e86b` | `docs(dashboard): 补 upstream 新仪表盘真机截图与实测界面细节` |
+| 内层 | `06a37531` | `chore(scripts): 加 upstream 移植完成度审计脚本（git cherry 在本项目判据失效）` |
+| 内层 | `8e773ac2` | `chore(ci): 补 Windows e2e 门禁与「e2e 跑完不留残留数据」检查` |
+| 内层 | `87252303` | `chore(i18n): 语言包文件格式钉一道门禁（末尾换行 + 两空格缩进）` |
+| 内层 | `b48d4871` | `refactor(dashboard): 标签分组、拖放目标、标签色板抽成纯模块并补单测` |
+| 内层 | `cd490951` | `docs(handoff): 补上游同步与仪表盘改版评估文档` |
+| 内层 | `b51c320e` | `docs(dashboard): 补 upstream 新仪表盘真机截图与实测界面细节` |
 | 外层 | `ec5492a` | `docs(agents): 更新 eslint 基线（175/188）并更正仪表盘重设计的体量数字` |
 
 ---

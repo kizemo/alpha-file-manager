@@ -16,7 +16,7 @@ License: GNU GPLv3 or later. See the license file in the project root for more i
 
 ## Global Constraints
 
-- Branch: `feat/tree-view-toolbar` based on `feat/tree-view` HEAD (`49c2ea2e`); do NOT switch branches mid-task.
+- Branch: `feat/tree-view-toolbar` based on `feat/tree-view` HEAD (`812002bf`); do NOT switch branches mid-task.
 - i18n: en.json is the source of truth. Other locales are synced manually via `npm run sync:i18n` (runs `scripts/sync-i18n.js`); a post-edit hook may also auto-trigger after en.json changes.
 - Test command: `npx vitest run src/modules/navigator/` from `sigma-file-manager/`.
 - Typecheck command: `npx vue-tsc --noEmit -p tsconfig.json` from `sigma-file-manager/`.
@@ -68,7 +68,7 @@ If Option B: skip to Task 1.
 - Consumes: nothing (pure type definition)
 - Produces: `NavigatorLayout['type']['name']` now includes `'tree'`; `NavigatorLayout['type']['title']` now includes `'treeLayout'`
 
-Phase 2 commit `e8f663b3` extended the local `getLayoutForPath` return type but missed the global `NavigatorLayout` type, so writing `'tree'` to `navigator.layout.type.name` is currently a TypeScript error. Fix it now.
+Phase 2 commit `3bca53b6` extended the local `getLayoutForPath` return type but missed the global `NavigatorLayout` type, so writing `'tree'` to `navigator.layout.type.name` is currently a TypeScript error. Fix it now.
 
 - [ ] **Step 1: Edit `src/types/user-settings.ts` lines 394-395**
 

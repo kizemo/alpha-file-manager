@@ -56,7 +56,7 @@ GET http://127.0.0.1:37421/health
 
 ## 三、当前节点与回滚
 
-- 回滚 tag：`pre-focus-sync-afm-gate-2026-11-06`，指向内层仓 HEAD `c72e6e09c88c4264476d05294169718f9d1abba9`
+- 回滚 tag：`pre-focus-sync-afm-gate-2026-11-06`，指向内层仓 HEAD `8a527fa6fd4ca70e370ba87fa34bcf573174647b`
 - 回滚命令（在**内层仓**执行）：
 
   ```powershell

@@ -1391,7 +1391,7 @@ npm run tauri:build
 
 - 本轮**只读**了 `D:\Program Files\Quark\`，**未启动**夸克客户端、**未安装**任何东西、**未登录**任何账号。
 - 本轮**未修改**仓库中除 `docs/plan-2026-11-11-quark-pan.md` 与 `docs/review-2026-11-11-quark-pan.md`（评审报告）以外的任何文件；`.superpowers/sdd/quark/` 下为新建的中间产物。
-- 本轮介入时仓库工作区是**干净的**：P5b 发版那批改动（`CHANGELOG.md`、`package.json`、`src/localization/messages/*.json`、`src-tauri/Cargo.toml` / `Cargo.lock` 等）已在 P5b 的三条 commit（`d1236562` / `8e5c01b9` / `5e10ff46`）里入库，**不再是未提交状态**。
+- 本轮介入时仓库工作区是**干净的**：P5b 发版那批改动（`CHANGELOG.md`、`package.json`、`src/localization/messages/*.json`、`src-tauri/Cargo.toml` / `Cargo.lock` 等）已在 P5b 的三条 commit（`a28a9d49` / `955f6af4` / `65e138a6`）里入库，**不再是未提交状态**。
 
 ---
 

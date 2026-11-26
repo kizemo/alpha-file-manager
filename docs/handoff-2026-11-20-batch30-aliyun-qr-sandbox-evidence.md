@@ -5,7 +5,7 @@
 批次 30 修的是「阿里云盘登录二维码被撑成 809 CSS px」的布局缺陷：
 `src\modules\settings\ui\categories\remote\connection-form.vue:1824-1839` 给
 `.remote-connection-form__qr` 加了 `width/max-width/height/max-height: 180px; margin: 0 auto`。
-HEAD = `0f55acf2`，tag `v3.16.0` 已建，装机产物即验证对象（不重构建、不改 src）。
+HEAD = `ce4cf6af`，tag `v3.16.0` 已建，装机产物即验证对象（不重构建、不改 src）。
 
 本会话的任务只有一个：在**隔离桌面（沙箱）**里驱动**已装机**的
 `D:\Program Files\Alpha File Manager\alpha-file-manager.exe`
@@ -207,7 +207,7 @@ missing_targets = 空
 ### 当前状态
 
 - 源码改动（`connection-form.vue` + `aliyun-connection-form.test.ts`）**未 commit**；
-  HEAD 仍 `0f55acf2`，tag `v3.16.0` 未动，未重构建、未改 `src-tauri\target`。
+  HEAD 仍 `ce4cf6af`，tag `v3.16.0` 未动，未重构建、未改 `src-tauri\target`。
 - 批次 30 的**唯一未闭合项 = 建议项 1 的真机扫码闭环**（需要用户的手机）。
 
 ## 批次 30 续：建议项 1 扫码闭环已完成（2026-11-20 23:07）

@@ -1,7 +1,7 @@
 # 交接文档：快捷方式目标图标 + 地址栏原生分隔符（2026-11-07）
 
 > 内层仓：`F:\soft\00selfmade\filemanager\sigma-file-manager`
-> 基线提交：`9da52a16 docs: 3.12.0 发版收尾交接文档`
+> 基线提交：`360c4a6b docs: 3.12.0 发版收尾交接文档`
 > **发版流程仍处于暂停状态**（用户 2026-11-06 明确指令：本轮不改 README / CHANGELOG /
 > aiec 站点版本说明，不跑 `release:prepare`，不上传，不发 GitHub Release）。
 > 本轮**未提交任何 commit**（沿用「4 个侧车文件刻意不提交」的约束）。
@@ -334,12 +334,12 @@ README 两份各自语言表格），三处口径一致。README 只新增 3.12.
   含 17 份文档 + 3 份新增 docs + 4 个 winget yaml + 7 个 sidecar `.rs` + 两个版本文件 + `Cargo.lock` +
   两个 workspace 成员 `Cargo.toml` + `system_icons.rs` + `use-navigator-item-icon.ts` 及测试 +
   4 个地址栏前端文件 + 2 个测试。
-- `git commit -F …\.superpowers\sdd\commit-3121.txt` ⇒ **`dc173bd8`**，父提交 `9da52a16`。
-- `git push origin main` ⇒ `9da52a16..dc173bd8`（`PUSH_MAIN_EXIT=0`）；
+- `git commit -F …\.superpowers\sdd\commit-3121.txt` ⇒ **`f82505be`**，父提交 `360c4a6b`。
+- `git push origin main` ⇒ `360c4a6b..f82505be`（`PUSH_MAIN_EXIT=0`）；
   `git push origin v3.12.1` ⇒ `* [new tag]`（`PUSH_TAG_EXIT=0`）。
 - **顺序必须是 push 先于 `release:github`**：`scripts/release-publish.mjs` 的 `github()`
   走 `gh release create <tag>` 且**不带 `--target`** ⇒ 若 tag 不在远端，Release 会指向旧提交。
-  已回读 `gh api repos/kizemo/alpha-file-manager/tags`：`v3.12.1 -> dc173bd85d8c245adfde16cd129f3bad089e01ad` ✓
+  已回读 `gh api repos/kizemo/alpha-file-manager/tags`：`v3.12.1 -> f82505be230494b5ed3c35d81695ad5818013941` ✓
 - Release 回读（`gh api …/releases/tags/v3.12.1`）：`tag_name=v3.12.1`、
   `name=Alpha File Manager v3.12.1`、**`body` 长度 888**（非空正文，不是漏跑 `--write-notes` 的空壳）、
   资产 `Alpha_File_Manager_3.12.1_x64-setup.exe` `size=45123898` `state=uploaded`。

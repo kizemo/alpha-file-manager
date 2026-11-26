@@ -344,18 +344,18 @@ git push
 - `isPrerelease: false`、`isDraft: false`，列表中标记为 **Latest**
 - 资产 `Alpha_File_Manager_3.2.4_x64-setup.exe`，
   GitHub 侧 digest `sha256:5c6bfce8...` 与本地一致
-- tag `v3.2.4` → 提交 `f68b8260`
+- tag `v3.2.4` → 提交 `f02b7460`
 
 ### 9.4 代码推送
 
-`git push origin main`：`ece6fd61..f68b8260`，共 12 个提交
+`git push origin main`：`21d0b5d2..f02b7460`，共 12 个提交
 （地址栏 3 项 + 分屏互换 + 窄屏修复 + 三批 handoff + 正式版收尾）。
 
 ### 9.5 ⚠️ 本批踩到：release 的 tag 一开始指向了错误的提交
 
 `node scripts/release-publish.mjs github` 是在 `git push` **之前**跑的。
 `gh release create` 会把 tag 建在**当时远端默认分支的 HEAD** 上 ——
-也就是 `ece6fd61`（批次 8 之前，仓库版本号还停在 `3.2.1-beta`）。
+也就是 `21d0b5d2`（批次 8 之前，仓库版本号还停在 `3.2.1-beta`）。
 
 结果：release v3.2.4 挂着一个指向旧代码的 tag，资产是新的、代码是旧的。
 **release 本身不报错，`gh release view` 一切正常**，只有 `git ls-remote` 才看得出来。

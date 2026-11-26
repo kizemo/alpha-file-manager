@@ -2,7 +2,7 @@
 
 - 生成时间：2026-11-11
 - 仓库：`F:\soft\00selfmade\filemanager\sigma-file-manager`
-- 分支/提交起点：`main` = `2fcf1eb8`
+- 分支/提交起点：`main` = `2d39c08c`
 - 装机版本：**3.13.7**（`D:\Program Files\Alpha File Manager\alpha-file-manager.exe`，82,614,272 B）
 - 上一份交接：`docs/handoff-2026-11-11-p5b-shortcut-conflict-detection.md`（本次任务的作业计划，§2.3 为**禁重跑**的失效取证路径）
 - 下一阶段：夸克网盘接入 —— 方案 `docs/plan-2026-11-11-quark-pan.md`，**审核通过后先做 T0 实测**，不直接写实现

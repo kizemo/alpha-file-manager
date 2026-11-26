@@ -27,7 +27,7 @@
 - **版本**：`3.9.2`，三处必须一致 —— `package.json`、`src-tauri\Cargo.toml`、`src-tauri\tauri.conf.json`（`npm run sync-version` 负责）。
 - **构建**：`npm run tauri:build`（= `sync-version` → `tauri build` → `publish-bundle-to-release.mjs`；末步只把安装包复制到 `release/`，**不上传**）。
 - **真机验收铁律**：必须用 `tauri build` 的打包产物。`tauri dev` 下**所有路由页内容区空白**，dev 上的界面结论一律作废。
-- **最近提交**：`ceff7e38 docs(handoff): 新增阶段四交接文档并更新接力 prompt`。
+- **最近提交**：`e4e516d2 docs(handoff): 新增阶段四交接文档并更新接力 prompt`。
 
 ---
 
@@ -91,7 +91,7 @@
 
 #### 2.2.1 那 20 条失败 = 既有失败，**不是本轮回归**
 
-在 HEAD（`ceff7e38`）上建独立 worktree 复跑同样 4 个文件，**失败集与失败条数逐条相同**：
+在 HEAD（`e4e516d2`）上建独立 worktree 复跑同样 4 个文件，**失败集与失败条数逐条相同**：
 
 | 失败文件 | 条数 | 归属 |
 |---|---:|---|
@@ -294,7 +294,7 @@ shortcut-bindings.ts  绑定值判别与查表（批次 2 新增）
 ### 5.5 全量单测的失败必须**在 HEAD 基线上复跑**才能定性
 
 - 本轮全量 274 个文件里有 4 个文件 20 条失败，**光看这不能断言「没回归」**。
-- 处置：在 HEAD（`ceff7e38`）上 `git worktree add --detach $env:TEMP\afm-b2-baseline HEAD`，
+- 处置：在 HEAD（`e4e516d2`）上 `git worktree add --detach $env:TEMP\afm-b2-baseline HEAD`，
   把主仓 `node_modules` **做 junction 挂进去**（`New-Item -ItemType Junction`），
   在 worktree 里跑同样 4 个文件 ⇒ 失败集逐条相同 ⇒ 零回归。
 - ⇒ **比 stash 更稳**：stash 会在构建/测试同时跑时把工作区搅乱，worktree 不碰当前工作区。

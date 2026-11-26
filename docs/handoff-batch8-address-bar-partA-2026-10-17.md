@@ -1,7 +1,7 @@
 # 批次 8：地址栏 Explorer 化 Part A —— 实施结果与交接
 
 - 日期：2026-10-17
-- 基线：`ece6fd61`（批次 7 交接 + beta 预发布修复）→ 本批起点同为该提交
+- 基线：`21d0b5d2`（批次 7 交接 + beta 预发布修复）→ 本批起点同为该提交
 - 上一份交接：`docs/handoff-batch7-mcp-client-deploy-2026-10-17.md`
 - 实施计划：`docs/superpowers/plans/2026-10-17-address-bar-explorer-behavior.md`
 - 产物版本：**3.2.2-beta**
@@ -37,11 +37,11 @@
 
 | 提交 | 内容 |
 |---|---|
-| `4102a53f` | A1：无结尾斜杠的绝对路径也按浏览目录处理 + `getDirEntry` 返回 undefined 的兜底 |
-| `a6ef3942` | A2：回车以输入框内容为准，不再依赖选中项刷新时序 |
-| `d49977cb` | A3：列表加目标目录行 + 齐平缩进 + 树形导线 |
-| `4d4053c4` | chore(release)：3.2.2-beta 版本号四处同步 + 中英文 changelog |
-| `2aa2c02b` | 打开地址栏 / 点「编辑地址」按钮时整条选中当前路径（用户验收后追加） |
+| `d58e6f0a` | A1：无结尾斜杠的绝对路径也按浏览目录处理 + `getDirEntry` 返回 undefined 的兜底 |
+| `1b7b3808` | A2：回车以输入框内容为准，不再依赖选中项刷新时序 |
+| `a2b5d48d` | A3：列表加目标目录行 + 齐平缩进 + 树形导线 |
+| `43ffa6db` | chore(release)：3.2.2-beta 版本号四处同步 + 中英文 changelog |
+| `77fd5dd9` | 打开地址栏 / 点「编辑地址」按钮时整条选中当前路径（用户验收后追加） |
 
 ### 2.1 关键设计决策
 
@@ -83,7 +83,7 @@
 
 ## 3. 门禁（与基线逐字对照）
 
-| 项 | 基线（`ece6fd61`） | 本批 | 判定 |
+| 项 | 基线（`21d0b5d2`） | 本批 | 判定 |
 |---|---|---|---|
 | `cargo test --lib` | 386 passed | **386 passed / 0 failed** | ✅ 未变（本批零 Rust 改动） |
 | `npx vue-tsc --build` | 0 error | **0 error** | ✅ |

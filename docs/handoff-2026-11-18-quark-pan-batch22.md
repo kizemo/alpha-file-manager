@@ -25,7 +25,7 @@
 - 3.14.1 原地重建：`45,489,382 B`，sha `5F07F5B9…`（详见台账 §20.16）。
 - `npm run check:winget` 8 项绿；装机 `INSTALL_EXIT=0` + `VERIFY_OK reason=install-refreshed-appdata-sidecar`。
 - 装机 exe 归一化后 sha == 裸构建产物（bundle-type 标记差异已按 §2.10 归一化处理）。
-- 文档 HEAD = `385ef8ad`；**批次 21 / 22 文档尚未提交推送**。
+- 文档 HEAD = `18f54134`；**批次 21 / 22 文档尚未提交推送**。
 
 ### 1.2 本轮更正 C —— 送达哨兵用错了字符串
 `set_path_received` 在侧车源码全目录 **grep 0 命中**，历史上把它当「push 已送达」哨兵的推理链**全部作废**。
@@ -123,7 +123,7 @@ $env:B20_VISIT_TIMEOUT_MS='20000'
 ## 六、遗留项
 
 1. **⑪ 闭合**（本轮主线，见 §四）。
-2. 批次 21 + 22 文档**未提交未推送**（`git -C F:\soft\00selfmade\filemanager\sigma-file-manager status --porcelain`；HEAD `385ef8ad`）。push 若报 TLS EOF，用一次性绕过代理：`git -C <repo> -c http.proxy= -c https.proxy= push origin main`（勿改全局 config）。
+2. 批次 21 + 22 文档**未提交未推送**（`git -C F:\soft\00selfmade\filemanager\sigma-file-manager status --porcelain`；HEAD `18f54134`）。push 若报 TLS EOF，用一次性绕过代理：`git -C <repo> -c http.proxy= -c https.proxy= push origin main`（勿改全局 config）。
 3. GitHub Release v3.14.1 资产**未替换**为新 sha `5F07F5B9…`；winget PR 前置 #467381 仍 OPEN。
 4. `release/` 被 gitignore；未经用户授权不得对外发布、不得提交/推送、不得杀用户进程（AGENTS.md §2.9）。
 

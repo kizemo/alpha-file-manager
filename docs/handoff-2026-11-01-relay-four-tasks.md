@@ -3,7 +3,7 @@
 > **生成时间**：2026-11-01 23:30（本地，UTC+8）
 > **产出会话**：`mvs_971e5a1810d74c61af82e6bbcd389477`
 > **前置会话**：`mvs_51b8f568125d4cdea361fc183847b75f`（同一天更早的批次）
-> **仓库**：内层 `F:\soft\00selfmade\filemanager\sigma-file-manager`（HEAD `bc918a79`，version 3.9.1）
+> **仓库**：内层 `F:\soft\00selfmade\filemanager\sigma-file-manager`（HEAD `d7447cbf`，version 3.9.1）
 > **本文件是唯一权威交接源**。旧的 `docs/handoff-2026-11-01-readme-icon-and-delete-hang.md` 已降级为指针，不再维护。
 
 ---
@@ -29,7 +29,7 @@
 
 | 仓 | 路径 | HEAD | remote | 可否改动 |
 |---|---|---|---|---|
-| **内层（主）** | `F:\soft\00selfmade\filemanager\sigma-file-manager` | `bc918a79` | `origin/main` = `bc918a79` | ✅ 全部功能改动只在这里 |
+| **内层（主）** | `F:\soft\00selfmade\filemanager\sigma-file-manager` | `d7447cbf` | `origin/main` = `d7447cbf` | ✅ 全部功能改动只在这里 |
 | 外层 | `F:\soft\00selfmade\filemanager` | `71ffcac` | `https://github.com/kizemo/focus-sync.git` | ❌ 不做功能改动（**可作为搜索面读取**） |
 
 内层仓 `git ls-files` 共 **1728** 个跟踪文件；`core.sparseCheckout` 为空（非稀疏检出 ⇒ **工作树里没有 = git 也没跟踪**）。
@@ -543,7 +543,7 @@ pub fn reveal_in_explorer(path: String) -> Result<(), String> {
 | `%APPDATA%\...\extensions\`（4 个扩展） | `Select-String`（52 个文件，含 `dist/index.js`） | **0 命中** |
 | `%APPDATA%\...\extensions-storage\`（36 个文件） | `Select-String` | **0 命中** |
 | `Temp\sigma-file-manager\`、`Temp\sigma-fm-install-C\` | `Select-String` | **0 命中**（这两个目录只含 `clipboard/` / `Users/`，**不是源码检出**） |
-| 内层仓旧 worktree `Temp\afm-base-38`（3.8.0，commit `75248b8d`） | `git grep -F ... HEAD` | **0 命中** |
+| 内层仓旧 worktree `Temp\afm-base-38`（3.8.0，commit `d7a4bad5`） | `git grep -F ... HEAD` | **0 命中** |
 | `Temp\afm-311-payload`、`Temp\afm-a-work` | `Select-String` | **0 命中** |
 
 #### 6.7.2 字节级 ASCII 搜索（本机所有相关二进制）
@@ -764,7 +764,7 @@ AFM 原生 reveal 只有 `reveal_in_explorer`（`explorer.exe /select,<path>`）
 **结论四（新发现，重要）：AFM HEAD 没有可达的「打开文件所在目录」UI 入口**
 - 网格右键菜单组件是 `file-browser-actions-menu.vue`（含 `copy-path` / `open-with` / `quick-view` / `print` 等 24 个 `isActionVisible(...)`）：**只有 `open-containing-directory-in-app`**（搜索结果视图专用「打开所属目录」，在 Alpha 内分屏），**没有 `open-containing-directory`**。实测菜单 12 项（打开方式... / Shell 扩展 / 在终端中打开 / 压缩 / 快速查看 / 打印 / 复制路径到剪贴板 / 解除文件锁定 / 彻底删除 / 局域网共享 / 属性 / 添加到收藏），**无「打开文件所在目录」**。
 - 树右键菜单 `file-tree-context-menu.vue:126-131` **有** `open-containing-directory`（`showOpenContainingDirectory = !target.isDirectory`），但 `src/modules/navigator/composables/use-file-tree.ts:229-241` 有 FORK-MODIFICATION「目录树只显示目录（需求 9，2026-10-31）」，`entries.filter(entry => entry.is_dir === true)` ⇒ **树里永远没有文件 ⇒ 该菜单项永不显示**。
-- 历史核对：`git log -S'open-containing-directory' --all -- src/` 仅 3 条（`3ab81515` 目录树右键菜单引入、`b617b270` 树菜单 6 项、`68cbe1f0` 搜索结果新增「在 Alpha 中打开所属目录」）⇒ **该项从未进过网格菜单**。
+- 历史核对：`git log -S'open-containing-directory' --all -- src/` 仅 3 条（`4ef8146b` 目录树右键菜单引入、`39ed07b5` 树菜单 6 项、`f29b0b2f` 搜索结果新增「在 Alpha 中打开所属目录」）⇒ **该项从未进过网格菜单**。
 - ⇒ 后果：**无法在打包版里做端到端点击复现**；`reveal_in_explorer` 目前**仅编程可达**。本轮用「Explorer 层实验（TEST A / TEST C）+ Rust 单测 + 构造性论证」覆盖了修复效果。
 - ⇒ 用户的弹窗来自**更早的构建或别的动作路径**（例如 `open_with` → `ShellExecuteExW` 直接打开 `.lnk`，同样会让 Shell 去解那个失效快捷方式）。
 

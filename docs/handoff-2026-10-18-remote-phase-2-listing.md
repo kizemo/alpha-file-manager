@@ -20,8 +20,8 @@
 | | 状态 |
 |---|---|
 | 分支 | `feat/remote-phase-1-connections-transport` |
-| 最新 commit | `0c184551` |
-| 阶段 1 门禁 | `cargo test --lib` **495** · `vitest` **1562 / 192 文件** · `vue-tsc` **0** · `eslint src` **179**（= 分支起点 `3810069e` 基线）· `changelog` 0 · 远程 i18n **59 键 × 17 语言包** |
+| 最新 commit | `0671d324` |
+| 阶段 1 门禁 | `cargo test --lib` **495** · `vitest` **1562 / 192 文件** · `vue-tsc` **0** · `eslint src` **179**（= 分支起点 `0b9e4ddd` 基线）· `changelog` 0 · 远程 i18n **59 键 × 17 语言包** |
 | 打包产物 | `src-tauri/target/release/bundle/nsis/Alpha File Manager_3.2.4_x64-setup.exe`（18.89 MiB） |
 | 已装位置 | `D:\Program Files\Alpha File Manager\alpha-file-manager.exe` |
 | 用户真实连接 | `user-remote-connections.json` 里有 2 条，**两条都存了密码**（「速豹堂」SFTP 192.168.1.9:22 duanyi → `E:/website_sbt`；`Acceptance-localdir-01` FTP → `C:\Users\Duanyi\Documents`） |

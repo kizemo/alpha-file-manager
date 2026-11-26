@@ -18,7 +18,7 @@
 - 内层仓 `F:\soft\00selfmade\filemanager\sigma-file-manager`（Alpha File Manager / Sigma File Manager），基线 **3.12.1** 已发版。
 - 外层仓 `F:\soft\00selfmade\filemanager` 只放 `docs/`、`AGENTS.md`、`.superpowers/`。
 - **上一轮任务（「打开文件所在目录」对快捷方式失效）已闭环**：代码、门禁、打包、两个分支的真机验收全部通过，**不要重做**。
-  但改动**未提交**：HEAD 仍是 `b49fbd31`，11 个文件处于 modified 状态（清单见上一轮交接卡 §8）。
+  但改动**未提交**：HEAD 仍是 `92dc67f0`，11 个文件处于 modified 状态（清单见上一轮交接卡 §8）。
 - 用户 2026-11-07 20:13 追加了本卡的新需求，并明确「新开会话继续执行」。
 
 ## 2. 本轮目标

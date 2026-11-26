@@ -195,7 +195,7 @@ file_type  : 1 = 文件，0 = 目录；dir 另有布尔字段
 | R1 | T8 真机 14 条 | **已完成**：12 PASS / 2 FAIL（第 9、第 11 条）；逐条结论见 §12 |
 | R2 | T0 凭据销毁 | **已销毁**：`t0-cookie.txt`（含 `__pus` 明文）已删除；清理脚本 `t8-cleanup.ps1`；全库明文扫描仅命中一处源码变量名 |
 | R8 | ~~**真实应用里的下载仍会失败**~~ | **已闭环**（2026-11-13 回写）：§12.4 记的「登录时抓到的 cookie 罐缺 `__puus`」这条根因**已被 §13.1 / §17.4 推翻** —— `__puus` 是 **CDN 回源**那一跳的门槛 cookie，下载接口本身三种变体一律返 200/code=0。真正的修复在登录侧**等 `__puus` 落定**（R3/R5），装机版日志已见 `__pus(len=120) + __puus(len=248) + extras=20`（§17.2）；协议层 CDN 206 实测见 §17.3，UI 层落地 PASS 见 §16.2。**不再需要用户重登** |
-| R3 | 提交 | **已提交 3 条（未 push）**：`99c73632` Rust / `02897006` 前端+i18n / `ee0a23ea` 交接卡；版本 bump + changelog 作第 4 条。push 与 GitHub Release 仍未授权 |
+| R3 | 提交 | **已提交 3 条（未 push）**：`8574f7cc` Rust / `a426f253` 前端+i18n / `f3a92144` 交接卡；版本 bump + changelog 作第 4 条。push 与 GitHub Release 仍未授权 |
 | R4 | T7 译文质量 | 17 份为自撰人工翻译，**未做母语复核** |
 | R5 | `Ctrl+Shift+P` 本机不可达 | `Win32Error=1409`（OS 级 `RegisterHotKey` 占用）—— 冲突徽标真机复验须换机器，**不得伪造 PASS** |
 | R6 | `p5b-install.ps1` 哈希判据仍是错的 | **已修（2026-11-11）**：判据换成「大小一致 + 打包标记归一化后逐 64KB 块比对 + VersionInfo 交叉校验」，裸 sha256 降级为信息打印；`$Version` 改从 `package.json` 推导；安装参数加 `/FORCE`；新增 `-VerifyOnly`。阳/阴性对照均通过，见 §17.9 |
@@ -544,7 +544,7 @@ file_type  : 1 = 文件，0 = 目录；dir 另有布尔字段
 
 ## 14.11 批次 9 真机验收（沙箱轮）状态 —— **已被 §13.6 取代**
 
-真机安装身份已坐实（逐 64KB 块比对，仅 1 块 3 字节差异 = 预期打包标记 `__TAURI_BUNDLE_TYPE_VAR_NSS__`/`_UNK__`）；门禁全绿（Rust `cargo test --lib` 1427 passed / 0 failed / 1 ignored；`npm run check` EXIT=0，307 files / 3214 tests；定向前端 3 files 29 passed；`vue-tsc --noEmit` 与 `eslint --fix` EXIT=0）。代码在 `dddd8dbd`，未 push（本地领先 5 条）。
+真机安装身份已坐实（逐 64KB 块比对，仅 1 块 3 字节差异 = 预期打包标记 `__TAURI_BUNDLE_TYPE_VAR_NSS__`/`_UNK__`）；门禁全绿（Rust `cargo test --lib` 1427 passed / 0 failed / 1 ignored；`npm run check` EXIT=0，307 files / 3214 tests；定向前端 3 files 29 passed；`vue-tsc --noEmit` 与 `eslint --fix` EXIT=0）。代码在 `f9852660`，未 push（本地领先 5 条）。
 
 **已取得的真机证据（唯一一项）**：沙箱实例 `quark-login.log` 出现新登录态
 `login state ready: __pus(len=120) + __puus(len=248) + extras=20`（旧缺陷形态为无 `__puus` 的 `__pus(len=120) + extras=16`）⇒ **R3 登录侧修复真机生效**。
@@ -837,7 +837,7 @@ NEG_EXIT=5
 | 打包 | `npm run tauri:build` → `BUILD_EXIT=0`；新包 `Alpha File Manager_3.14.0_x64-setup.exe` = 45451606 B / sha256 `0d0462097376833d3e9a812ce9d5a4be4d1d268fb45a3da4d1d9b3f47185a3e6` |
 | 版本 | `package.json` / `Cargo.toml` 已是 3.14.0（上一轮已 bump），本轮 `prepare --bump none` **原地发版**，没有顶到 3.15.0 |
 | 站点 | `prepare` 写 `E:\办公文件\L1网站\alpha-file-manager\version.json`：3.13.5 已归档进 `history[]`（共 20 条），`version=3.14.0`，`sha256` 与本地包一致；安装包副本 `Alpha_File_Manager_3.14.0_x64-setup.exe` 已落到站点源目录 |
-| GitHub | commit `a5d34147` → `origin/main`（本地领先 16 条已全部推送）；tag `v3.14.0`（annotated）落在 `a5d34147`；release `v3.14.0` 已建（draft=false / prerelease=false），资产 `Alpha_File_Manager_3.14.0_x64-setup.exe` 45451606 B，正文取自 `_release-notes-v3.14.0.md` |
+| GitHub | commit `fc4eb65f` → `origin/main`（本地领先 16 条已全部推送）；tag `v3.14.0`（annotated）落在 `fc4eb65f`；release `v3.14.0` 已建（draft=false / prerelease=false），资产 `Alpha_File_Manager_3.14.0_x64-setup.exe` 45451606 B，正文取自 `_release-notes-v3.14.0.md` |
 | README | 中英文都新增「为什么比用 alist 挂载到资源管理器更省事」对照表 + 3.14.0 变更小节；CHANGELOG 补「登录态不完整就不会被存下来」 |
 
 ### 18.2 本轮踩到的坑（别再踩）
@@ -861,8 +861,8 @@ NEG_EXIT=5
 
 | 判据 | 结果 |
 | --- | --- |
-| tag 目标提交的 `package.json` 版本 == 发布版本 | ✅ `a5d34147` → `3.14.0` |
-| tag 目标包含本次功能提交 | ✅ `merge-base --is-ancestor 17563ae0 v3.14.0` = True |
+| tag 目标提交的 `package.json` 版本 == 发布版本 | ✅ `fc4eb65f` → `3.14.0` |
+| tag 目标包含本次功能提交 | ✅ `merge-base --is-ancestor 759ae9cb v3.14.0` = True |
 | tag 内能 grep 到本次新增标识符 | ✅ `v3.14.0:src-tauri/src/quark_login.rs` 含 `__puus` 落定等待与 `settle:` 日志 |
 
 ### 18.4 站点上传与公网核验
@@ -1132,7 +1132,7 @@ NEG_EXIT=5
 3. **没做真机 UI 复验**：缺陷 B 的复现要等「登录等待超时」那一步（`GIVE_UP` 窗口），
    本轮用**单测 ＋ 回退对照**做证伪性验证代替；装机复验需要用户空闲窗口 ＋ 扫码登录态。
    ⚠️ 本轮又查清了「为什么没法用 CDP 快跑一遍」以及**正确的复验路径**，见 §20.8。
-4. **没做 upstream 移植**：审计已跑（AFM 领先 436 / upstream 领先 36，merge-base `fed49cee`），
+4. **没做 upstream 移植**：审计已跑（AFM 领先 436 / upstream 领先 36，merge-base `4d788321`），
    未落地项多为产品级决策（导航面板树视图、仪表盘重设计），不属本批次范围。
 
 ### 20.8 真机验收：做到哪一步、卡在哪、下一步怎么走（2026-11-13）
@@ -1295,8 +1295,8 @@ NEG_EXIT=5
 ⚠️ 旧的 `netdisk-login-duplicate-toast.test.ts` 把 `@/components/ui/toaster` **整个 mock 掉**，
 所以它从来没能发现「生产渲染路径是空卡片」这件事。
 
-**与缺陷 B 的 A/B 无关**：git 溯源显示 `app-toast.ts` 最后一次改动是 `db684e30`（2026-04-05），
-对象形态调用由 `41120bc1`（2026-11-11）引入 ⇒ **基线二进制与修复后二进制的 toaster 代码完全一致**，
+**与缺陷 B 的 A/B 无关**：git 溯源显示 `app-toast.ts` 最后一次改动是 `811f3f3e`（2026-04-05），
+对象形态调用由 `22e9f7db`（2026-11-11）引入 ⇒ **基线二进制与修复后二进制的 toaster 代码完全一致**，
 §20.9.2 的 A/B 计数不被这个缺陷污染。
 
 #### 20.9.6 空 toast 修复的真机复验 ＋ 本轮收尾状态（2026-11-14）
@@ -2739,7 +2739,7 @@ launcher 线（双击手机进 AFM）8 条 argv 用例全过 ⇒ **launcher 层�
 
 ### 20.21 批次 25（插队）—— 手机缩略图/文件大小（25A）+ U 盘无法安全弹出（25B）：根因坐实（2026-11-19）
 
-批次 24 已提交为 `7ad71f68`。方案落盘 `docs/plan-2026-11-19-batch25-thumb-usb.md`。
+批次 24 已提交为 `05871376`。方案落盘 `docs/plan-2026-11-19-batch25-thumb-usb.md`。
 25B 全部证据在 `.superpowers/sdd/b25-usb-*`（20 个文件，原被 worker 写到仓库**外**的
 `F:\soft\00selfmade\filemanager\.superpowers\sdd\`，已由根会话归位进仓库）。
 

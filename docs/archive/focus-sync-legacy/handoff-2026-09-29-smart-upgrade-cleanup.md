@@ -89,7 +89,7 @@ type: project
 ?? release/                                (复制到 fork 的 release/ 副本)
 ```
 - 分支: `main` (fork 的 main,与 meta-repo 是独立仓库,不冲突 CLAUDE.md 红线)
-- HEAD: `02583ccf merge: feat/tree-sidebar-v6-1 (HEAD 8caf14ae, 11 commits) for v2.2.0-focus.1 release`
+- HEAD: `c772523d merge: feat/tree-sidebar-v6-1 (HEAD 87b7d7fe, 11 commits) for v2.2.0-focus.1 release`
 
 ### 3.3 未 commit 待用户决定
 两个 repo 都有未 commit 改动。需要用户决定:

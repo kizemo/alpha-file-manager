@@ -2,7 +2,7 @@
 
 > 面向新会话。本文件只给**指针 + 已探明的落点 + 陷阱**，不复制源文件内容。
 > 生成时仓库状态：内层 `F:\soft\00selfmade\filemanager\sigma-file-manager`，branch `main`，
-> HEAD `fc2514cb`（`chore(release): 3.7.0`），`git status --porcelain` 为空，`origin/main` 同步，
+> HEAD `d62972c8`（`chore(release): 3.7.0`），`git status --porcelain` 为空，`origin/main` 同步，
 > tag `v3.7.0` 已在远端。**3.7.0 已完整发版并装机**，本轮从干净基线起步。
 
 ---

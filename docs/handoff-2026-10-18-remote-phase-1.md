@@ -33,7 +33,7 @@
 
 ### 阶段 0（VFS 骨架）—— **已完成并合入 main**
 
-`main` 的 HEAD = `3810069e docs(plan): 阶段 0 门禁实测结果`，8 个 commit。
+`main` 的 HEAD = `0b9e4ddd docs(plan): 阶段 0 门禁实测结果`，8 个 commit。
 
 交付内容：
 - `src-tauri/src/remote/path.rs` —— `sfm://remote/<id>/<path>` 路径族（Rust 侧）
@@ -61,7 +61,7 @@
 | 7 17 个语言包 | 未开始 |
 | 8 全量门禁 + `tauri build` + 真机验收 | 未开始 |
 
-已提交的阶段 1 commit：`ea487ceb feat(remote): 阶段 1 Task 1 —— 传输层（纯函数部分）`
+已提交的阶段 1 commit：`11f3b2e5 feat(remote): 阶段 1 Task 1 —— 传输层（纯函数部分）`
 
 **未提交的部分**（写这份文档时处于 staged 未 commit 状态）：
 Task 1 的 socket 测试、Task 2 的 `connection.rs` 与 5 处 storage 注册。

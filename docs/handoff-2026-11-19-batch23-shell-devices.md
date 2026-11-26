@@ -191,9 +191,9 @@ test tests::ordinary_filesystem_paths_are_untouched ... ok
 
 | commit | 内容 |
 | --- | --- |
-| `4b0532b6` | docs(plan)：批次 23 落地方案 |
-| `7d118917` | feat(devices)：双端实现 + 新增单测 |
-| `6a60eb26` | release(3.15.0)：版本 bump + CHANGELOG + README + 台账 §20.19 |
+| `3b0ca277` | docs(plan)：批次 23 落地方案 |
+| `e9a51abc` | feat(devices)：双端实现 + 新增单测 |
+| `f92c455e` | release(3.15.0)：版本 bump + CHANGELOG + README + 台账 §20.19 |
 
 台账：`docs/handoff-2026-11-11-quark-pan.md` **§20.19**（根因、后端 10 文件表、前端 F1–F4、门禁输出、重大实证、已知限制、版本面、下一阶段起点）。
 
@@ -295,7 +295,7 @@ launcher worker 顺带登记的两条观察（未改，留给上层）：
 ## 十五、U 盘问题的实证结论（回答用户 14:19 第 1 问）
 
 **原来的 SFM 本来就支持带盘符 U 盘显示**，批次 23 不是「新增 U 盘支持」，而是两处加固：
-- 旧 `src-tauri/src/dir_reader/drives.rs`（`7d118917^`）已用 `sysinfo::Disks::new_with_refreshed_list()` 枚举**所有卷**，U 盘本就在内；
+- 旧 `src-tauri/src/dir_reader/drives.rs`（`e9a51abc^`）已用 `sysinfo::Disks::new_with_refreshed_list()` 枚举**所有卷**，U 盘本就在内；
   Windows 分支唯一会丢可移动盘的判据是 `#[cfg(windows)] if total_space == 0 { continue; }`。
 - 加固一：判据收紧为 `if total_space == 0 && !disk.is_removable() { continue; }` ⇒ **容量读不到的可移动盘不再丢**（读卡器、刚插未就绪的盘常见）。
 - 加固二：`drives_platform.rs` 新增 163 行 `append_windows_logical_drives`（`GetLogicalDrives` + `GetDriveTypeW`），

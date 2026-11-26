@@ -3,7 +3,7 @@
 > 日期：2026-10-18（晚间）
 > 仓库：`F:\soft\00selfmade\filemanager\sigma-file-manager`
 > 分支：`feat/remote-phase-1-connections-transport`
-> 最新 commit：`775d6750`
+> 最新 commit：`8cc13878`
 > **状态：Rust 侧全部就绪且门禁全绿；前端只做了「让 `sfm://remote/...` 有真实出口」的接线，
 > known_hosts 的确认弹窗与 FTP 都还没做 —— 现在构建出来的包，点远程连接会停在
 > 「首次连接到 …，指纹还没有被信任」且没有继续的路径。**
@@ -32,7 +32,7 @@
 
 ## 2. 已完成并门禁通过的部分
 
-### 2.1 前端连带项（commit `ea5648e9`）
+### 2.1 前端连带项（commit `17878dca`）
 
 | 文件 | 做了什么 |
 |---|---|
@@ -42,7 +42,7 @@
 | `.../file-browser/address-bar.vue` | 面包屑接连接名（复用 `settingsTabs.remote`，**没有新增 i18n 键**） |
 | `.../use-file-browser-navigation.ts` | 错误解包、Tab 名显示连接名、监听与目录大小守卫、`directoryPathExists` 远程分支 |
 
-### 2.2 Rust 侧（commits `6ebc4838` / `775d6750`）
+### 2.2 Rust 侧（commits `fd3fb013` / `8cc13878`）
 
 - `registry.rs` —— 连接表读取 + DPAPI 密码装配
 - `known_hosts.rs` —— 主机公钥记录与 `decide()` 判定

@@ -34,9 +34,9 @@
 ```
 $ git log --oneline -- src/modules/extensions/runtime/sandbox.ts
 
-9ee96cfc  Dev: lint
-ba3e5a3f  ... Add .constructor() with string args to static code validator patterns
-891fb146  Dev: large extension system refactor - Move to ESM - Use sandbox to fully isolate extensions
+712617e9  Dev: lint
+399ea090  ... Add .constructor() with string args to static code validator patterns
+6557bdfb  Dev: large extension system refactor - Move to ESM - Use sandbox to fully isolate extensions
 ```
 
 **`sandbox.ts` 在 git 历史中被改过,而且是往「增加 pattern」的方向改的。**
@@ -58,7 +58,7 @@ ba3e5a3f  ... Add .constructor() with string args to static code validator patte
 
 ### 1.2 我的实测确认
 
-**`ba3e5a3f` 那次 commit 的实际 diff**:
+**`399ea090` 那次 commit 的实际 diff**:
 ```diff
 +++ b/src/modules/extensions/runtime/sandbox.ts
 +    {
@@ -142,7 +142,7 @@ RESULT: VALID (0 violations / 19 patterns)             ✅
 **⚠️ 措辞说明(C-4 采纳)**:
 > 这 4 行在 **Sigma FM 2.2.0 + 当前 sandbox.ts** 下 0 violations。
 > **每次 Sigma FM 升级后必须重跑 `scan-sandbox-dynamic.cjs`** —— sandbox pattern 可能新增
-> (历史实证:`ba3e5a3f` 就新增了 `.constructor()`)。
+> (历史实证:`399ea090` 就新增了 `.constructor()`)。
 
 **为什么仍然保留 4 行而不是 0 行**:完全无注释会让后续维护者不知道为什么这个文件如此脆弱。4 行里已包含「去哪查」的指引。
 
@@ -445,8 +445,8 @@ Claude 建议:
   scan-sandbox.cjs 把 19 条 sandbox 正则硬编码,那是 2026-10-07 的快照
 
 **实证**:sandbox.ts 在 git 历史中被改过,且是往「增加 pattern」方向:
-  ba3e5a3f  Add .constructor() with string args to static code validator patterns
-  891fb146  Move to ESM - Use sandbox to fully isolate extensions
+  399ea090  Add .constructor() with string args to static code validator patterns
+  6557bdfb  Move to ESM - Use sandbox to fully isolate extensions
 
 **后果**:Sigma FM 升级改 pattern → 4 个 hook 全部静默失效
         → extension 再次被静默拒绝 → 第三次复发
@@ -501,7 +501,7 @@ Claude 建议:
   C-1 「硬编码 19 条正则」是根本缺陷 → 已实现 scan-sandbox-dynamic.cjs
      从 sandbox.ts 动态提取 pattern,提取失败 exit 2
      实证:sandbox.ts 在 git 历史中改过
-       ba3e5a3f  Add .constructor() to static code validator patterns
+       399ea090  Add .constructor() to static code validator patterns
      ⇒ Sigma 升级改 pattern 后,旧扫描器会静默失效导致第三次复发
 
 Phase 4 P0 三项(46 行,~40 分钟):

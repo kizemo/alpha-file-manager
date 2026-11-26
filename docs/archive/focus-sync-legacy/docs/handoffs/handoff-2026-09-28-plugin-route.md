@@ -163,7 +163,7 @@ Phase 2a 路线已修正为 Sigma 插件系统（kizemo/focus-sync v0.2.0 已发
 
 | 项 | 状态 |
 |---|---|
-| kizemo/sigma-file-manager fork | main HEAD = `54186f87`（README 已 push） |
+| kizemo/sigma-file-manager fork | main HEAD = `8b19a890`（README 已 push） |
 | kizemo fork open PRs | PR #546（settings, OPEN 4 天无活动） |
 | aleksey-hoffman/sigma-file-manager upstream | main 无 kizemo 的 tree PR |
 | Issue #499（Navigator tree view）| CLOSED，kizemo 评论未被回复 |

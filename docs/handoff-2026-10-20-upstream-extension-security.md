@@ -2,13 +2,13 @@
 
 ## 0. 本轮范围
 
-**来源**：上游 `sigma-file-manager` 的三个提交（本仓 `upstream/main` = `2b8bed43`，领先我们 23 个提交）。
+**来源**：上游 `sigma-file-manager` 的三个提交（本仓 `upstream/main` = `ee5311c2`，领先我们 23 个提交）。
 
 | 上游提交 | 内容 |
 |---|---|
-| `45cedf89` | 修扩展下载的 SSRF（DNS rebinding + 跳转） |
-| `4b0a2419` | 加固扩展隔离与权限判定（主机侧读 manifest、删掉进程内假沙箱） |
-| `5b6cab44` | 给扩展主流程补测试 |
+| `ad569d21` | 修扩展下载的 SSRF（DNS rebinding + 跳转） |
+| `0cc20431` | 加固扩展隔离与权限判定（主机侧读 manifest、删掉进程内假沙箱） |
+| `cf9d1924` | 给扩展主流程补测试 |
 
 **为什么挑这三条**：上一轮把上游 23 个提交逐条分类后（A 直接引入 / B 需二次开发 / C 无意义 / D 需拍板），这是「A 直接引入」里风险最高、收益最大的三条 —— 三条都是**安全边界**，且都只有上游改过、我们逐字停在修复前的版本。
 
@@ -52,10 +52,10 @@
 
 | 文件 | 取自 |
 |---|---|
-| `src-tauri/src/extensions/security.rs` | `45cedf89` |
-| `src-tauri/src/extensions/github.rs` | `45cedf89` |
-| `src-tauri/src/extensions/binaries.rs` | `45cedf89` |
-| `src-tauri/src/extensions/install.rs` | `45cedf89` |
+| `src-tauri/src/extensions/security.rs` | `ad569d21` |
+| `src-tauri/src/extensions/github.rs` | `ad569d21` |
+| `src-tauri/src/extensions/binaries.rs` | `ad569d21` |
+| `src-tauri/src/extensions/install.rs` | `ad569d21` |
 
 核对脚本：`.superpowers/sdd/verify-pre-fix-identical.ps1`（输出 `IDENTICAL-PRE` / `DIFFERS-PRE`）。
 取用脚本：`.superpowers/sdd/take-upstream-rust.ps1`。
@@ -76,8 +76,8 @@ const HTTP_CONNECT_TIMEOUT_SECS: u64 = 5;   // 本仓 5，上游 15
 
 ### 2.3 权限主机侧判定
 
-- `src-tauri/src/extensions/manifest_permissions.rs`：整份取上游 `4b0a2419`，另加本仓的 `require_extension_shell_permission` / `require_extension_shell_permission_in_dir`（§2.4）。
-- `src-tauri/src/extensions/processes.rs`：整份取上游 `4b0a2419`（本仓与上游修复前逐字相同），落点是两行：
+- `src-tauri/src/extensions/manifest_permissions.rs`：整份取上游 `0cc20431`，另加本仓的 `require_extension_shell_permission` / `require_extension_shell_permission_in_dir`（§2.4）。
+- `src-tauri/src/extensions/processes.rs`：整份取上游 `0cc20431`（本仓与上游修复前逐字相同），落点是两行：
 
 ```rust
 authorize_extension_caller(caller_extension_id.as_deref(), &extension_id)?;
@@ -88,7 +88,7 @@ super::manifest_permissions::require_extension_permission(&app_handle, &extensio
 
 ### 2.4 超出上游的一条：`rename_part_files_to_ts`
 
-**上游最新版本（`2b8bed43`）里这条命令也没有门禁**：
+**上游最新版本（`ee5311c2`）里这条命令也没有门禁**：
 
 ```rust
 #[tauri::command]
@@ -190,9 +190,9 @@ pattern: /\[\s*(['"`])(?:constructor|__proto__|prototype)\1\s*\]/g
 
 | 文件 | 取自 | 用例数 |
 |---|---|---|
-| `src/modules/extensions/runtime/__tests__/sandbox.test.ts` | `4b0a2419` | 5 |
-| `src/modules/extensions/api/__tests__/create-shell-api.test.ts` | `5b6cab44` | 4 |
-| `src/modules/extensions/runtime/__tests__/extension-main-flow.test.ts` | `5b6cab44` | 4 |
+| `src/modules/extensions/runtime/__tests__/sandbox.test.ts` | `0cc20431` | 5 |
+| `src/modules/extensions/api/__tests__/create-shell-api.test.ts` | `cf9d1924` | 4 |
+| `src/modules/extensions/runtime/__tests__/extension-main-flow.test.ts` | `cf9d1924` | 4 |
 
 `extension-main-flow.test.ts` **原样可用**，不用改：本仓 `loader.ts` 的 `loadExtensionRuntime` / `unloadExtensionRuntime` / `getLoadedRuntime` 签名、`workerHost.initialize(entryUrl)` 的入参、`activationContext` 的四个字段（`extensionId` / `extensionPath` / `storagePath` / `activationEvent`）与上游**完全一致**。
 
@@ -373,7 +373,7 @@ focus-sync 是本仓**最容易被误伤**的那个扩展：它的英文注释�
 
 focus-sync 声明的 `http` 权限是 `http://127.0.0.1:37421` —— 也就是**访问本机**。这正是 SSRF 守卫要拦的东西，必须确认它没被拦住。
 
-结论：**不受影响**。`src-tauri/src/extensions/extension_http.rs:29` 里扩展的 HTTP API **自己建了一个 reqwest 客户端**，既不是 `build_http_client()` 也不是 `build_remote_http_client()`。上游的 `45cedf89` 也没碰这个文件。
+结论：**不受影响**。`src-tauri/src/extensions/extension_http.rs:29` 里扩展的 HTTP API **自己建了一个 reqwest 客户端**，既不是 `build_http_client()` 也不是 `build_remote_http_client()`。上游的 `ad569d21` 也没碰这个文件。
 
 **这是一件需要盯住的事**：扩展的 HTTP 通道**至今没有** SSRF 防护（它靠 manifest 里的 host 白名单兜底）。上游也没加。本轮不扩这个范围，但值得记一笔（§10）。
 
@@ -400,12 +400,12 @@ focus-sync 声明的 `http` 权限是 `http://127.0.0.1:37421` —— 也就是*
 
 ## 10. 遗留与建议
 
-1. **上游 `2b8bed43` 里 `rename_part_files_to_ts` 仍然没有门禁** —— 本轮补的是本仓自己的。这条值得给上游提一个 issue / PR。
+1. **上游 `ee5311c2` 里 `rename_part_files_to_ts` 仍然没有门禁** —— 本轮补的是本仓自己的。这条值得给上游提一个 issue / PR。
 2. **上游其余 20 个提交**按上一轮的四类清单处理，B 类（需二次开发）里还有：e2e 数据隔离、Shift+方向键连选、删除前确认、窗口状态修复、仪表盘标签视图。
 3. **上游 `e2e-webdriver/wdio.conf.js` 有 `SFM_E2E_DATA_DIR` 隔离**，本仓**没有** —— 我们的 e2e 直接在真实用户目录跑。这条是 B 类，需要二次开发。
 4. **本仓的 17 个语言包没有上游那个自检测试**（`src/localization/__tests__/locale-json-format.test.ts`）—— 一行脚本就能补，属于 A 类但本轮没排上。
 5. **FTP / FTPS 的写操作仍无真机验证**（真机只有 SFTP），承自上一轮。
-6. **扩展自己的 HTTP 通道至今没有 SSRF 防护**。`extension_http.rs` 用的是自己建的 reqwest 客户端，只靠 manifest 里的 host 白名单兜底 —— 一个声明了 `http://127.0.0.1:*` 的扩展可以访问本机（focus-sync 就声明了 `http://127.0.0.1:37421`）。**上游也没加这一层**（`45cedf89` 没碰 `extension_http.rs`）。本轮不扩这个范围（会误伤 focus-sync 这类「连自己 sidecar」的正当用法），但要记一笔。
+6. **扩展自己的 HTTP 通道至今没有 SSRF 防护**。`extension_http.rs` 用的是自己建的 reqwest 客户端，只靠 manifest 里的 host 白名单兜底 —— 一个声明了 `http://127.0.0.1:*` 的扩展可以访问本机（focus-sync 就声明了 `http://127.0.0.1:37421`）。**上游也没加这一层**（`ad569d21` 没碰 `extension_http.rs`）。本轮不扩这个范围（会误伤 focus-sync 这类「连自己 sidecar」的正当用法），但要记一笔。
 
 ---
 

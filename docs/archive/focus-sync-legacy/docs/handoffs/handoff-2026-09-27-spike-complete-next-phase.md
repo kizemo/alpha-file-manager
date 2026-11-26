@@ -100,7 +100,7 @@ A  docs/superpowers/decisions/2026-09-27-listary-focus-sync-decision.md
 - **HEAD**: `905db31 feat(spike): integrate main.rs + 8 unit tests + verify script + spike-report PASS`
 - **上一 HEAD**: `8016f3d`
 - **Spike binary**: `sigma-listary-spike/target/release/spike.exe` (2.1MB)
-- **`feat/tree-sidebar-v6-1`**: HEAD `8caf14ae`,6 commits,259 unit tests pass(不动)
+- **`feat/tree-sidebar-v6-1`**: HEAD `87b7d7fe`,6 commits,259 unit tests pass(不动)
 - **`.other/`**:保留(PathWrap / qwen-code clone + 5 份调研报告)
 
 ---
@@ -132,7 +132,7 @@ A  docs/superpowers/decisions/2026-09-27-listary-focus-sync-decision.md
 ### 5.5 不要做的事
 
 - ❌ 不要开 `feat/dialog-focus-sync` 分支(死代码,counter-example)
-- ❌ 不要 rebase `feat/tree-sidebar-v6-1`(HEAD `8caf14ae`,已发稳定)
+- ❌ 不要 rebase `feat/tree-sidebar-v6-1`(HEAD `87b7d7fe`,已发稳定)
 - ❌ 不要走 14-task 自写 spike 路线(已废,本会话已证 port route 优)
 - ❌ 不要碰 release/ 目录(本机已删,重建要上游下载)
 - ❌ 不要现在改 `sigma-listary-spike/` 已 commit 的 3 个移植文件(版权头固定)
@@ -170,6 +170,6 @@ A  docs/superpowers/decisions/2026-09-27-listary-focus-sync-decision.md
 
 ## 九、tree 功能当前状态(继续可用,继承)
 
-- `feat/tree-sidebar-v6-1` HEAD `8caf14ae`,6 commits,259 unit tests pass
+- `feat/tree-sidebar-v6-1` HEAD `87b7d7fe`,6 commits,259 unit tests pass
 - `v2.2.0-tree.1` release 仍在 GitHub upstream(本地 `release/` 已删,上游可下载)
 - spike 在 `sigma-listary-spike/`,不影响 `sigma-file-manager/` 主项目

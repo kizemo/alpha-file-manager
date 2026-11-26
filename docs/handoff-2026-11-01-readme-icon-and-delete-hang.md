@@ -18,7 +18,7 @@
 - 代码只在**内层仓** `F:\soft\00selfmade\filemanager\sigma-file-manager`（remote `kizemo/alpha-file-manager`）。
   外层 `F:\soft\00selfmade\filemanager`（remote `kizemo/focus-sync`）**不要动**。
 - 当前版本 **3.9.1 已完整上线**（站点 + GitHub release `v3.9.1` + winget 清单已切 3.9.1）。
-  `origin/main` = `bc918a79`，工作树在写本卡时干净（本卡自身未提交，新会话可随自己的改动一起提交）。
+  `origin/main` = `d7447cbf`，工作树在写本卡时干净（本卡自身未提交，新会话可随自己的改动一起提交）。
 - **winget PR #467381 仍 OPEN**（`mergeable_state=blocked`，`reviewDecision=REVIEW_REQUIRED`），
   标题已是 `New package: kizemo.AlphaFileManager version 3.9.1`，head sha `5f453b2508`。
   - **当前 labels = `Azure-Pipeline-Passed` + `Validation-Completed` + `Needs-CLA` + `New-Package`**
@@ -45,7 +45,7 @@
 
 ## 2. 上一轮已完成（不要重做）
 
-交接卡 `docs/handoff-2026-11-01-folder-tree-toggle-persistence.md` 的 T1–T4 全部完成并写回该卡第 7 节（提交 `bc918a79`）：
+交接卡 `docs/handoff-2026-11-01-folder-tree-toggle-persistence.md` 的 T1–T4 全部完成并写回该卡第 7 节（提交 `d7447cbf`）：
 目录树开关持久化缺陷修复 → 出货 exe 沙箱真机验收通过（`rel-391b`）→ 真实用户数据恢复并 sha256 核对 MATCH →
 推送 → 发布 3.9.1（安装包 44,775,751 B，sha256 `67996F5B…DCF2`）→ winget 清单切 3.9.1。
 唯一遗留：winget CLA 需账号本人签署（见上）。

@@ -2,7 +2,7 @@
 
 - 生成时间：2026-11-09 00:15（本机时间）
 - 仓库：`F:\soft\00selfmade\filemanager\sigma-file-manager`
-- 分支：`feat/baidu-embedded-login`，HEAD `5c6e21e3`
+- 分支：`feat/baidu-embedded-login`，HEAD `23f89331`
 - 上一轮交接入口（历史上下文）：`docs/handoff-2026-11-08-release-3.13.0-locations-partitions.md`
 
 ---
@@ -234,8 +234,8 @@ f3 的自愈分支只按 UIA 找到表单按钮就直接 `SetCursorPos` + `mouse
 - 旧会话备份：`.superpowers/sdd/baidu-e2e-backup/remote-credentials.json`（793 B / `0AB64B4BE07D590A`）。
 
 ### 合并与门禁
-- 提交 `f2599a0f feat(remote): 百度网盘内嵌登录窗口`，已 **fast-forward 合并回 `main`**
-  （`main` = `f2599a0f`，ahead origin/main 1，**未推送**）。
+- 提交 `195d3628 feat(remote): 百度网盘内嵌登录窗口`，已 **fast-forward 合并回 `main`**
+  （`main` = `195d3628`，ahead origin/main 1，**未推送**）。
 - `cargo test --lib`：**1142 passed / 0 failed / 1 ignored**
 - `npx vue-tsc --build`：0；`node scripts/verify-changelog.mjs`：0
 - `npx eslint .`：177 errors / 0 warnings（存量；本次改动的 3 个前端文件**零错误**，基线 188）
@@ -290,7 +290,7 @@ f3 的自愈分支只按 UIA 找到表单按钮就直接 `SetCursorPos` + `mouse
 1. **⑤ 的下拉实拍**：需「先进真实目录（目录型路由）→ 再点开地址栏分隔符下拉」两步；遮挡机制目前只是静态推断（`dropdown-menu-content.vue:45` 走 `DropdownMenuPortal`、`:62` `z-index:50`、`:63` `overflow:hidden`，全仓最高业务 z-index 是 10 ⇒ 判为**裁切而非层序**）。若实拍仍见遮挡，需要用户重拍一张分辨层序 vs 裁切。
 2. **④ 需要用户执行**：设置 → 远程 → 速豹堂（以及很可能同样坏的 aiec.fun、jury.xin）「编辑」→ 重填密码 → 保存（保存链路调 `remote_connection_save_credential` 按连接 id 重建缺失密文键）。
 3. **changelog 落点未定**：`v3.13.0` 已打 tag、仓库无 Unreleased 惯例；「先不写」vs「新建 3.13.1 段并 `npm run sync-version`」已发问卷、用户尚未答复。
-4. **推送未做**：`main` = `118884dd`(docs) → `f2599a0f`(feat) → `5c6e21e3`，ahead origin/main 2；是否验收后直接推送打 tag 也已发问卷、未答复。
+4. **推送未做**：`main` = `03f2efda`(docs) → `195d3628`(feat) → `23f89331`，ahead origin/main 2；是否验收后直接推送打 tag 也已发问卷、未答复。
 5. 非 `ch` 语言包的 `embedded.hint` / `status.ready` / `status.error` 仍是旧译（`sync-i18n` 只补缺不覆盖），新键 `embedded.saved` 在 15 个非中文包是英文回退。
 6. `connection-form.vue` 密码行的 `v-else`（`:629`）现配对内嵌登录块 `v-if="isNetdisk"`（`:578`）⇒ **再动该块会让密码行翻转**，改前先确认配对。
 
@@ -591,7 +591,7 @@ C_UINFO STATUS=200 ERRNO=0 HAS_NAME=1      C_LIST STATUS=200 ERRNO=0 HAS_LIST=1 
 - 16 个外语语言包的 `missing_credential` 仍是旧英文措辞（中性、不误导，未改）。
 - **工作副本未提交**：3.13.2 / 3.13.3 两批（含本批次 F 的 6 处落点）都在工作副本里，
   `git status --short` 共 **45 个条目**、`git diff --stat` 42 文件 / +2211 / −557，
-  最后一次提交仍是 `118884dd docs: 补记百度内嵌登录根因定案…`。
+  最后一次提交仍是 `03f2efda docs: 补记百度内嵌登录根因定案…`。
 
 ## 2026-11-09 追加批次 F.9（3.13.3 真机实测结论 · 反馈 2 被服务端阻塞）
 
@@ -888,7 +888,7 @@ C_UINFO STATUS=200 ERRNO=0 HAS_NAME=1      C_LIST STATUS=200 ERRNO=0 HAS_LIST=1 
 
 ### F.14.3 GitHub 兜底 Release
 
-- tag `v3.13.4` **本地显式创建**在 `d9ceec55`（= `main` = `origin/main`），已推送（`git ls-remote` 复核指向一致）。
+- tag `v3.13.4` **本地显式创建**在 `85044846`（= `main` = `origin/main`），已推送（`git ls-remote` 复核指向一致）。
   （v3.13.0 那个 tag 也是轻量 tag，口径保持一致。）
 - `node scripts/release-publish.mjs github` → 创建 release 成功：
   - `tag=v3.13.4`、`name=Alpha File Manager v3.13.4`、`prerelease=false`、`draft=false`
@@ -917,5 +917,5 @@ C_UINFO STATUS=200 ERRNO=0 HAS_NAME=1      C_LIST STATUS=200 ERRNO=0 HAS_LIST=1 
 - 门禁：本轮**未改任何代码**（只新增 `.superpowers/sdd/upload-alpha-one.py` 这个一次性脚本），
   故沿用 F.13.3 的口径：`vue-tsc` 0 / `eslint .` 177 errors（与基线一致）/ `verify-changelog` 0 /
   `cargo test --lib` 1174 passed。
-- `main` 与 `origin/main` 一致（`d9ceec55`），**未推送新提交**（本轮无代码改动）。
+- `main` 与 `origin/main` 一致（`85044846`），**未推送新提交**（本轮无代码改动）。
 

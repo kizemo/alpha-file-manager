@@ -3,7 +3,7 @@
 > **生成时间**：2026-11-02 11:00（本地，UTC+8）
 > **产出会话**：`mvs_8a0d5f8e7f734112aca21150754203b1`
 > **前置交接文档**：`docs/handoff-2026-11-01-relay-four-tasks.md`（四任务接力版，**任务 1 / 3 / 4 的细节仍以那份为准**）
-> **仓库**：内层 `F:\soft\00selfmade\filemanager\sigma-file-manager`（HEAD `bc918a79`，version 3.9.1）
+> **仓库**：内层 `F:\soft\00selfmade\filemanager\sigma-file-manager`（HEAD `d7447cbf`，version 3.9.1）
 > **本文件是本批次（删除卡死 + 日志排查）的唯一权威交接源**
 
 ---
@@ -26,7 +26,7 @@
 
 | 仓 | 路径 | HEAD | 可否改动 |
 |---|---|---|---|
-| **内层（主）** | `F:\soft\00selfmade\filemanager\sigma-file-manager` | `bc918a79` | ✅ 全部功能改动只在这里 |
+| **内层（主）** | `F:\soft\00selfmade\filemanager\sigma-file-manager` | `d7447cbf` | ✅ 全部功能改动只在这里 |
 | 外层 | `F:\soft\00selfmade\filemanager` | `71ffcac` | ❌ 不做功能改动 |
 
 ### 1.1 工具链（本机实测路径）
@@ -297,12 +297,12 @@ reload 后 15 s 心跳没回来 ⇒ `escalate_to_prompt` 弹原生框。
 
 | 位置 | 事实 |
 |---|---|
-| 文件列表右键菜单 | `file-browser-actions-menu.vue` **从未渲染** `open-containing-directory` 这一项（`git log -S` 只命中 `68cbe1f0` 的 in-app 变体）⇒ 12 项菜单里没有任何原生 Explorer 定位入口 |
-| 目录树右键菜单 | `file-tree-context-menu.vue:59` `showOpenContainingDirectory = !target.isDirectory`；而 `use-file-tree.ts:240-241` 自 3.9.0 起过滤 `entry.is_dir === true`（提交 `d9dc92a1`，目录树只显示目录）⇒ 树里根本没有文件行，该项恒不显示 |
+| 文件列表右键菜单 | `file-browser-actions-menu.vue` **从未渲染** `open-containing-directory` 这一项（`git log -S` 只命中 `f29b0b2f` 的 in-app 变体）⇒ 12 项菜单里没有任何原生 Explorer 定位入口 |
+| 目录树右键菜单 | `file-tree-context-menu.vue:59` `showOpenContainingDirectory = !target.isDirectory`；而 `use-file-tree.ts:240-241` 自 3.9.0 起过滤 `entry.is_dir === true`（提交 `1e31aab0`，目录树只显示目录）⇒ 树里根本没有文件行，该项恒不显示 |
 
 ⇒ **原生 Explorer 定位通道在界面上完全不可达**（不是后端缺陷）。
 
-### 7.2 修复（提交 `11675643`）
+### 7.2 修复（提交 `f5ead165`）
 
 - `src/modules/navigator/components/file-browser/file-browser-actions-menu.vue`：按既有
   `isActionVisible('open-containing-directory')` 规则（仅 Windows + 仅 file）补上菜单项，

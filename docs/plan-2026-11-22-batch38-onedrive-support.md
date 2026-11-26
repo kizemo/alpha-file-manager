@@ -1,7 +1,7 @@
 # 批次 38 · AFM 云盘接入 OneDrive：研究与实施方案
 
 - 日期：2026-11-22
-- 状态：**研究阶段完成，尚未写任何产品代码**（工作区基线 `97b3a22e`，批次 37 收口 commit）
+- 状态：**研究阶段完成，尚未写任何产品代码**（工作区基线 `27110478`，批次 37 收口 commit）
 - 证据目录：`.superpowers/sdd/b38/recon-code.md`（代码落点，383 行）、`.superpowers/sdd/b38/recon-graph-api.md`（Graph 硬约束，275 行，58 处 `learn.microsoft.com` 引用）
 - 本文所有 `file:line` 为侦察时快照；实施前按符号名 grep 再核一次（符号名在本文与两份侦察报告中都已写全）
 
@@ -252,7 +252,7 @@ OneDrive 走回环则是**纯 Rust 侧**：建 `TcpListener` → 拼授权 URL �
 
 ## 11. 本轮做了什么 / 没做什么
 
-**做了**：读批次 37 交接文档与 `AGENTS.md`；核仓库基线（`97b3a22e`、干净、3.17.0）；派两个只读侦察子会话产出 `.superpowers/sdd/b38/recon-code.md` 与 `.superpowers/sdd/b38/recon-graph-api.md`；核实 `tauri-plugin-opener` / `tokio net` 可用性；合成本文。
+**做了**：读批次 37 交接文档与 `AGENTS.md`；核仓库基线（`27110478`、干净、3.17.0）；派两个只读侦察子会话产出 `.superpowers/sdd/b38/recon-code.md` 与 `.superpowers/sdd/b38/recon-graph-api.md`；核实 `tauri-plugin-opener` / `tokio net` 可用性；合成本文。
 
 **没做**：未写任何产品代码；未改任何既有文件；未跑构建/测试；**未跑 `CI=true npm run check`**（本轮只有文档新增，无产品代码变更，门禁留到实现批次）。
 

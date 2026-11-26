@@ -12,7 +12,7 @@
 | 项 | 值 |
 |---|---|
 | 产品名 | **Alpha File Manager**(代码里的 `productName` **尚未改**,见 P4) |
-| 品牌仓(fork) | `F:\soft\00selfmade\filemanager\sigma-file-manager`,HEAD **`9e764a16`**,**已推送,与 origin 一致** |
+| 品牌仓(fork) | `F:\soft\00selfmade\filemanager\sigma-file-manager`,HEAD **`10571715`**,**已推送,与 origin 一致** |
 | 品牌仓远程 | **`https://github.com/kizemo/alpha-file-manager.git`**(今天从 `sigma-file-manager` 改名而来) |
 | sync 仓(主仓) | `F:\soft\00selfmade\filemanager`,HEAD **`2109d59`**,领先 origin **6 个提交,未推送** |
 | 两仓工作区 | **被跟踪文件零改动**(fork 仅剩未跟踪的 `release/`) |
@@ -68,7 +68,7 @@
 ### 4.1 S0 —— fork 打包配置入库(解决上午 §5-1)
 
 ```
-bda28070  chore(packaging): fork 打包配置入库,关闭「有钩子但没接线」
+56d869ea  chore(packaging): fork 打包配置入库,关闭「有钩子但没接线」
           6 files changed, 1104 insertions(+), 1104 deletions(-)
 ```
 
@@ -144,9 +144,9 @@ kizemo/sigma-file-manager  →  kizemo/alpha-file-manager
 
 | 位置 | 节点 | 说明 |
 |---|---|---|
-| **fork** | `9e764a16` | ★ 当前状态,**已全部推送到 GitHub** |
-| fork | `bda28070` | S0 之前(配置未入库的状态) |
-| fork | `4365281b` | 本轮开工前 |
+| **fork** | `10571715` | ★ 当前状态,**已全部推送到 GitHub** |
+| fork | `56d869ea` | S0 之前(配置未入库的状态) |
+| fork | `27a7f94c` | 本轮开工前 |
 | **主仓** | `2109d59` | ★ 当前状态(**未推送**) |
 | 主仓 | `dc5f152` | 本轮开工前 |
 | 主仓 tag | `v0.5.9-packaging-20261009` | 上午的打包收尾基线,**仍然有效** |
@@ -192,7 +192,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\read-focus-trace.ps1
 ```
 读 F:\soft\00selfmade\filemanager\docs\handoff-2026-10-09-alpha-fm-rebrand.md(必读),
 再按它的 §2 顺序读完 1-6 号。当前状态已固化:fork 仓已改名 alpha-file-manager 并推送至
-9e764a16,主仓 2109d59 未推送,两仓工作区干净。计划在 §2-2 的 v3 文档里,决策已全部锁定,
+10571715,主仓 2109d59 未推送,两仓工作区干净。计划在 §2-2 的 v3 文档里,决策已全部锁定,
 不要重新讨论名字/图标/方案。直接执行 §5 的 P0.5 构建基线验证 —— 在它通过之前不要删任何
 .exe,那是 P1 的硬前置。动代码前务必读 §3 硬约束(注意第 13、15、17 条),并遵守 §9。
 ```

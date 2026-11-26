@@ -58,8 +58,8 @@
   `toast-header.vue` 再加一层防御（title 非字符串时不再抛错）。
 - **回归锁**：新建 `src/components/ui/toaster/app-toast.test.ts`，挂**真的** `Toaster` ＋ **真的** `toast()`（不走 mock）。
   ⚠️ 旧的 `netdisk-login-duplicate-toast.test.ts` 把整个 toaster 模块 mock 掉 ⇒ 从来没发现过这个问题。
-- **与 A/B 的关系**：git 溯源显示 `app-toast.ts` 最后一次改动是 `db684e30`（2026-04-05），
-  对象形态调用由 `41120bc1`（2026-11-11）引入 ⇒ **基线与修复后二进制的 toaster 代码完全一致**，A/B 计数不被污染。
+- **与 A/B 的关系**：git 溯源显示 `app-toast.ts` 最后一次改动是 `811f3f3e`（2026-04-05），
+  对象形态调用由 `22e9f7db`（2026-11-11）引入 ⇒ **基线与修复后二进制的 toaster 代码完全一致**，A/B 计数不被污染。
 
 ---
 

@@ -1,7 +1,7 @@
 # 批次 6：MCP Phase 0 + Phase 1（只读工具集）—— 实施结果与交接
 
 - 日期：2026-10-16
-- 基线：`3.1.3` 正式版（`c07ed2b8`）→ 本批起点 `730b4b0e`
+- 基线：`3.1.3` 正式版（`98bf768c`）→ 本批起点 `b3488e67`
 - 范围：**只做 Phase 0 + Phase 1**。Phase 2（写工具）仍未启动
 - 上一份交接（本文档要取代的范围说明）：`docs/handoff-batch6-mcp-phase0-2026-10-16.md`
 - 调研报告：`docs/mcp-feasibility-report-2026-10-16.md`
@@ -155,7 +155,7 @@ schema、不跑迁移的前提下独立读出。存进用户设置就得同时�
 
 ## 4. 门禁
 
-| 项 | 基线（`0a09af18` 批次 5 末） | 本批 | 判定 |
+| 项 | 基线（`8a4ec346` 批次 5 末） | 本批 | 判定 |
 |---|---|---|---|
 | `cargo test --lib` | 324 passed | **367 passed, 0 failed** | ✅ +43 |
 | `npx vue-tsc --build` | 0 error | 0 error | ✅ |

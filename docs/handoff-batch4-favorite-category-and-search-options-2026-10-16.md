@@ -4,7 +4,7 @@
 
 - 文档生成时间：2026-10-16（批次 3 收尾之后的同一个会话）
 - 仓库：`F:\soft\00selfmade\filemanager\sigma-file-manager`
-- 起点：`main` @ `6b85e2b7`（已发版 **3.1.2**）
+- 起点：`main` @ `21f0e68f`（已发版 **3.1.2**）
 - 交付形式：**3.1.3-beta.1 安装包**，只交付路径，不发布到 GitHub / aiec.fun
 
 ---

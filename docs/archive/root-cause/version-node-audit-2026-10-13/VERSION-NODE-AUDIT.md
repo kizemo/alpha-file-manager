@@ -10,7 +10,7 @@
 
 | 项 | 值 |
 |---|---|
-| **目标版本节点** | **`9ed9440a` / 应用 3.0.2** |
+| **目标版本节点** | **`8a5b0fa0` / 应用 3.0.2** |
 | 打包时间 | 2026-10-12 16:43:15 |
 | 内含 sidecar | **0.5.8** |
 | 内含扩展 `dist/index.js` | 37,144 bytes |
@@ -37,13 +37,13 @@
 - 大小：18,096,611 bytes
 - mtime：2026-10-12 16:43:15
 - sha256：`13aa89d44ab5aa977ae7d75a7e1c6033e9d2cdc4569c8aa09c4d877ca84eb7c4`
-- 对应提交：`9ed9440a`（10-12 17:01 `chore(release): 3.0.2 …`）
+- 对应提交：`8a5b0fa0`（10-12 17:01 `chore(release): 3.0.2 …`）
 
 ⇒ **3.0.2 是 3.0.3 之前唯一一次真正的打包发版。**
 
 ### 1.3 3.0.3 从未发布
 
-提交 `50c3ec97`（10-12 22:58）标题自带限定：
+提交 `090ae845`（10-12 22:58）标题自带限定：
 
 ```
 chore(release): 3.0.3 version bump (验证产物,未发布)
@@ -93,9 +93,9 @@ chore(release): 3.0.3 version bump (验证产物,未发布)
 
 ```
 git log -- extensions/kizemo.focus-sync/sidecar/src/
-f404215e | 10-13 22:27 | Revert "…stale-path gate…"        ← 本轮回滚
-311855ed | 10-13 21:48 | fix(…stale-path gate…)             ← 本轮改动
-a3577184 | 10-09 17:20 | feat(plugin): 插件源码并入本仓      ← 0.5.8 起点
+4fb6d15d | 10-13 22:27 | Revert "…stale-path gate…"        ← 本轮回滚
+2c7c2dc2 | 10-13 21:48 | fix(…stale-path gate…)             ← 本轮改动
+b0377e47 | 10-09 17:20 | feat(plugin): 插件源码并入本仓      ← 0.5.8 起点
 ```
 
 ⇒ **0.5.9 / 0.5.10 / 0.5.11 从未进入 git**，是纯工作区产物，现已不存在于磁盘。
@@ -104,20 +104,20 @@ a3577184 | 10-09 17:20 | feat(plugin): 插件源码并入本仓      ← 0.5.8 �
 ### 3.2 当前源码与 3.0.3 打包节点：零差异
 
 ```
-git rev-parse 087aecd9^{tree}  = 1399fb6dabc4105ee8e3442fe3509f9ddc90c9b6
-git rev-parse f404215e^{tree}  = 1399fb6dabc4105ee8e3442fe3509f9ddc90c9b6
-git rev-parse 311855ed^{tree}  = 23ce5865d015e9e9bd7b8543034d9fd8877dbfdb
+git rev-parse 8f7b3191^{tree}  = 1399fb6dabc4105ee8e3442fe3509f9ddc90c9b6
+git rev-parse 4fb6d15d^{tree}  = 1399fb6dabc4105ee8e3442fe3509f9ddc90c9b6
+git rev-parse 2c7c2dc2^{tree}  = 23ce5865d015e9e9bd7b8543034d9fd8877dbfdb
 ```
 
-`f404215e`（当前 HEAD）树哈希与 `087aecd9`（3.0.3 打包时源码）**完全相同**。
+`4fb6d15d`（当前 HEAD）树哈希与 `8f7b3191`（3.0.3 打包时源码）**完全相同**。
 
 ### 3.3 当前源码与 3.0.2 节点：sidecar 零差异，应用本体 66 文件
 
 ```
-git diff --stat 9ed9440a f404215e -- extensions/kizemo.focus-sync
+git diff --stat 8a5b0fa0 4fb6d15d -- extensions/kizemo.focus-sync
 （空）
 
-git diff --stat 9ed9440a f404215e -- . ':(exclude)extensions/kizemo.focus-sync'
+git diff --stat 8a5b0fa0 4fb6d15d -- . ':(exclude)extensions/kizemo.focus-sync'
 66 files changed, 3390 insertions(+), 215 deletions(-)
 ```
 
@@ -126,12 +126,12 @@ git diff --stat 9ed9440a f404215e -- . ':(exclude)extensions/kizemo.focus-sync'
 
 应用本体差异覆盖 10-12 17:01 → 10-13 10:22 的提交：
 
-- 列表缩略图三档弹窗 + 选项卡工具栏入口 + 17 语言包（`a849d2ee` `8870e2a2`）
-- 布局切换按钮移到选项卡工具栏、按选项卡独立设置（`cb2b66c0` `5895e049`）
-- 目录树右键菜单 6 项 + locations 盘符排序（`b617b270` `3ab81515`）
-- 主页标题行移出主题图、设置页官网链接（`b617b270` `41a1b87d`）
-- 设置页简介文案改写（`17768ef4` `087aecd9`）
-- `fileBrowser.actions.cut` 键补齐（`fb0ca4d1`）
+- 列表缩略图三档弹窗 + 选项卡工具栏入口 + 17 语言包（`df1c6fbd` `10240fc5`）
+- 布局切换按钮移到选项卡工具栏、按选项卡独立设置（`911a77e3` `1c0b84bb`）
+- 目录树右键菜单 6 项 + locations 盘符排序（`39ed07b5` `4ef8146b`）
+- 主页标题行移出主题图、设置页官网链接（`39ed07b5` `4d2d58fe`）
+- 设置页简介文案改写（`600e5435` `8f7b3191`）
+- `fileBrowser.actions.cut` 键补齐（`cd895343`）
 
 ---
 
@@ -148,7 +148,7 @@ sidecar 维度**已经完成恢复**：当前源码的 sidecar 与 3.0.2 逐字�
 
 ### 路径 B —— 严格回退到 3.0.2 全部源码
 
-`git checkout 9ed9440a -- .` 会连带放弃上述 66 文件的应用本体功能。
+`git checkout 8a5b0fa0 -- .` 会连带放弃上述 66 文件的应用本体功能。
 与用户此前「不要回滚过多」的指示冲突。
 
 ---

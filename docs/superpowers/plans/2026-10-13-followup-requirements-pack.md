@@ -2,7 +2,7 @@
 
 > 状态：**待执行**（用户已确认范围，等排期）
 > 分支：`docs/navigator-behavior-parity-spec`
-> 基线 commit：`087aecd9 feat(settings): 换用用户指定的软件简介文案`
+> 基线 commit：`8f7b3191 feat(settings): 换用用户指定的软件简介文案`
 > 版本号：**固定 3.0.3**，不得升到 3.0.4
 
 ---

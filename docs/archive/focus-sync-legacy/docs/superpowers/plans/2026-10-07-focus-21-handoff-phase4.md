@@ -322,7 +322,7 @@ Sigma FM 导航到任意目录
 - sidecar 大小 2,847,744 B:`Get-Item`
 - `patterns found: 19`:动态扫描器输出
 - 19 条正则:`sandbox.ts:207-284` 逐条读出来的
-- `ba3e5a3f` 加了 `.constructor()`:`git show` 的 diff
+- `399ea090` 加了 `.constructor()`:`git show` 的 diff
 - 22 项 gate PASS:`check-extension-gates.cjs` 输出
 - 3,306 行 spike / 894 行 uia_inject:`Get-Content | Measure-Object -Line`
 
@@ -345,7 +345,7 @@ sidecar 108 分钟 0 请求(last_ping_received_ts: 0)。sidecar 侧的 12 处修
   Step 2  node scripts\scan-sandbox-dynamic.cjs release\extension\dist\index.js
           → 必须 VALID (0 violations / 19 patterns)
           (用 dynamic 版,不用 scan-sandbox.cjs —— 后者硬编码 19 条,
-           sandbox.ts 在 git 历史中改过:ba3e5a3f 新增了 .constructor())
+           sandbox.ts 在 git 历史中改过:399ea090 新增了 .constructor())
   Step 3  部署到 %APPDATA%\...\kizemo.focus-sync\dist\index.js
   Step 4  加 4 hook 防护(全部改用动态扫描器)
           Hook1 build-with-sidecar.ps1 / Hook2 register.ps1 + manual-install.ps1

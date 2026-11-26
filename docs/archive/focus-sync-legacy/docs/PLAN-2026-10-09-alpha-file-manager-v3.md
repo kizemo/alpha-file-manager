@@ -2,7 +2,7 @@
 
 **时间**:2026-10-09 11:45
 **性质**:**规划文档。本轮未修改任何被跟踪文件,未提交、未推送、未切分支。**
-**基线**:主仓 `dc5f152` / fork `4365281b`(均未推送)
+**基线**:主仓 `dc5f152` / fork `27a7f94c`(均未推送)
 **取代**:`PLAN-2026-10-09-alpha-file-manager.md`(v2,已存档)。**本文是唯一权威版本。**
 **并入**:`review-2026-10-09-plan-alpha-file-manager.md`(Claude 评审,2026-10-09 11:35)
 
@@ -142,7 +142,7 @@ Claude 建议沉淀到 memory。已通过记忆三问:
 **我没有这个意思**,你装包验证通过了,我也没有任何证据说它有问题。
 而且那个「不能」下得太重。
 
-`git diff --name-status upstream/main...8caf14ae` 实测:
+`git diff --name-status upstream/main...87b7d7fe` 实测:
 
 | 分类 | 数量 | 说明 |
 |---|---|---|
@@ -389,7 +389,7 @@ File /a "/oname=tools\focus-sync-sidecar.exe" "…\sigma-file-manager\src-tauri\
 > P0.5 的首次构建会顺带证实或证伪它。
 
 **验证**:`git status` 干净;`git show HEAD:src-tauri/tauri.conf.json` 能查到 `installerHooks`
-**回滚**:`git reset --hard 4365281b`
+**回滚**:`git reset --hard 27a7f94c`
 **阻塞**:需要你授权 commit(硬约束 5)
 
 ### P0.5 · 构建基线验证(★ 新增)

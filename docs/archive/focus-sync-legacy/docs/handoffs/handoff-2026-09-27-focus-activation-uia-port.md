@@ -119,7 +119,7 @@ sigma-listary-spike/
 - **HEAD**: `f21c581 docs(plan): Listary focus sync spike — 14 tasks over 5 days`
 - **Tracked 状态**: 已清洁
 - **Untracked**: 仅 `.other/`(调研素材)
-- **`feat/tree-sidebar-v6-1`**: HEAD `8caf14ae`,6 commits,259 unit tests pass — **不动**
+- **`feat/tree-sidebar-v6-1`**: HEAD `87b7d7fe`,6 commits,259 unit tests pass — **不动**
 - **`.other/` 内容**:
   - `doc/00-research-overview.md`(5 句话)
   - `doc/01-uia-windows-rust-csharp.md`(PathWrap / QwenLM / Lertaro)
@@ -189,7 +189,7 @@ sigma-listary-spike/
 ### 6.6 不要做的事
 
 - ❌ 不要开 `feat/dialog-focus-sync` 分支(死代码,counter-example,从未存在过)
-- ❌ 不要 rebase `feat/tree-sidebar-v6-1` (HEAD `8caf14ae`,已发稳定)
+- ❌ 不要 rebase `feat/tree-sidebar-v6-1` (HEAD `87b7d7fe`,已发稳定)
 - ❌ 不要走 14-task 自写 spike 路线(本次已废)
 - ❌ 不要试图在本轮做 macOS / Linux(Windows only)
 - ❌ 不要碰 release/ 目录(已删,重建要上游下载)
@@ -233,6 +233,6 @@ sigma-listary-spike/
 
 ## 十、tree 功能当前状态(继续可用)
 
-- `feat/tree-sidebar-v6-1` HEAD `8caf14ae`,6 commits,259 unit tests pass
+- `feat/tree-sidebar-v6-1` HEAD `87b7d7fe`,6 commits,259 unit tests pass
 - `v2.2.0-tree.1` release 仍在 GitHub upstream(本地 `release/` 目录被本轮 reset 删除,但上游可下载)
 - 新路线在 spike 子目录,不影响 `sigma-file-manager/` 主项目

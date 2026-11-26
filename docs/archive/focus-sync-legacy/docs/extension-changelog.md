@@ -440,7 +440,7 @@ node scripts\scan-sandbox-dynamic.cjs release\extension\dist\index.js
 **所有 hook(构建 / 部署 / pre-commit)都会自动跑这条。**
 
 规则由扫描器**从 `sandbox.ts` 实时提取**,不是硬编码快照 ——
-`sandbox.ts` 在 git 历史中变更过(`ba3e5a3f` 新增了 `.constructor()`),
+`sandbox.ts` 在 git 历史中变更过(`399ea090` 新增了 `.constructor()`),
 硬编码会静默失效。
 
 ---

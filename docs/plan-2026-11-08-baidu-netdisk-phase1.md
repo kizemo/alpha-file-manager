@@ -1,6 +1,6 @@
 # 阶段 1 实现计划：百度网盘接入 AFM「远程位置」
 
-- 分支：`feat/baidu-remote-provider`（基线 `main` = `6eabbc67`）
+- 分支：`feat/baidu-remote-provider`（基线 `main` = `8a650319`）
 - 文档时间：2026-11-08
 - 前置文档：`docs/2026-11-07-baidu-netdisk-drive-feasibility.md`（可行性与工作量分析）
 - 预估：8–10 人天

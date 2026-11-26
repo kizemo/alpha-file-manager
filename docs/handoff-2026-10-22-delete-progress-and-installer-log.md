@@ -5,8 +5,8 @@
 > 外层仓：`F:\soft\00selfmade\filemanager`（origin `kizemo/focus-sync`；本轮取证知识已写入其 `AGENTS.md`）
 > 版本：3.4.0 → **3.5.0**
 > **当前状态：代码完成、门禁全绿、3.5.0 已打包并装机、安装日志验收通过、批量删除的回收站路径与永久删除路径（连同取消与并行）都已过真机验收。**
-> **已提交并推送**：内层仓 `8cbb9caa`（`release: 3.5.0 —— 批量删除进度重做 + 安装/更新链路修复`，39 个文件）、外层仓 `7f06dec`（`docs(agents): 更正永久删除入口的描述,并补四条真机验收沉淀`），均已推到各自 `origin/main`。
-> **未完成：无。**（2026-10-22 更新：本文件写成时「站点 / GitHub release 未发布、tag 未打」；后续同一天已获用户授权并完成发布，3.5.0 已上线，`v3.5.0` tag 已打，指向 `5776e946`。发布细节见 `handoff-2026-10-22-compare-fix-and-release-350.md` 第 8 节。本文件其余内容为当时的真实状态，未改。）
+> **已提交并推送**：内层仓 `93aaf9f8`（`release: 3.5.0 —— 批量删除进度重做 + 安装/更新链路修复`，39 个文件）、外层仓 `7f06dec`（`docs(agents): 更正永久删除入口的描述,并补四条真机验收沉淀`），均已推到各自 `origin/main`。
+> **未完成：无。**（2026-10-22 更新：本文件写成时「站点 / GitHub release 未发布、tag 未打」；后续同一天已获用户授权并完成发布，3.5.0 已上线，`v3.5.0` tag 已打，指向 `b540b01e`。发布细节见 `handoff-2026-10-22-compare-fix-and-release-350.md` 第 8 节。本文件其余内容为当时的真实状态，未改。）
 
 ---
 
@@ -142,12 +142,12 @@
 ### ⚠️ vitest 的数字要更正一下（2026-10-22 复核）
 
 原表里写的「基线 230 文件 / 2049 用例 → 本轮 234 文件 / 2087 用例」**两个数都对不上实测**。
-本轮用**同一条命令**在基线提交上重量了一遍（`git worktree add --detach <TEMP>\afm-baseline-vitest a4d66a5a`
+本轮用**同一条命令**在基线提交上重量了一遍（`git worktree add --detach <TEMP>\afm-baseline-vitest 5646d8a1`
 + `node_modules` 建 junction，跑同一条 `npx vitest run --reporter=json`），逐文件对照：
 
 | | 文件 | 用例 |
 |---|---|---|
-| 基线 `a4d66a5a`（干净 worktree） | 232 | 2060 |
+| 基线 `5646d8a1`（干净 worktree） | 232 | 2060 |
 | 本轮工作副本 | 234 | 2076 |
 | **差** | **+2** | **+16** |
 
@@ -422,7 +422,7 @@ finished in 18.3984672s: cancelled=true deleted_items=46921 freed_bytes=96061440
 5. **本地化 changelog**（`public/changelog/*/changelog.md`）仍停在 3.2.11 —— fork 早前就有的状态，`verify-changelog.mjs` 只警告不失败。
 6. ~~**站点 / GitHub release 未发布**。~~ —— **已发布（2026-10-22，见 `handoff-2026-10-22-compare-fix-and-release-350.md` 第 8 节）**。
    3.5.0 已上线：站点 `version.json` = 3.5.0、`https://www.aiec.fun/alpha-file-manager/` 可下载、
-   GitHub release `v3.5.0`（tag → `5776e946`）。安装包 sha256 `76f3a5957c4626378e1de53cafc1ca56331cfb689c163c14e168afe45f895ef4`，20,494,128 字节。
+   GitHub release `v3.5.0`（tag → `b540b01e`）。安装包 sha256 `76f3a5957c4626378e1de53cafc1ca56331cfb689c163c14e168afe45f895ef4`，20,494,128 字节。
 7. **【新增】删除进度日志的采样太稀**。进度事件每 10 个记一行（扫描阶段例外），删得快的时候
    删除阶段只剩几行。事实一条不少（终值那行带全了），但**过程**在日志里看不清。
    要彻底解决得改 `delete_job.rs` 的日志规则（哪怕删得只剩 16 个条目，也要把最后一条
@@ -450,7 +450,7 @@ finished in 18.3984672s: cancelled=true deleted_items=46921 freed_bytes=96061440
 ### 8.2 收尾
 
 5. 把本节结果写回本文件第 6 节。 —— **已完成（6.5）**
-6. 提交并推送（**中文提交信息**），`git push origin main` + 按需打 tag。 —— **已完成**：内层仓 `8cbb9caa`、外层仓 `7f06dec`，均已推到 `origin/main`；**tag 未打**（发布流程里打）。
+6. 提交并推送（**中文提交信息**），`git push origin main` + 按需打 tag。 —— **已完成**：内层仓 `93aaf9f8`、外层仓 `7f06dec`，均已推到 `origin/main`；**tag 未打**（发布流程里打）。
 7. 交付文件用 `<media>` 附上（安装包 + 交接文档）。 —— **已完成**（本次会话交付）。
 
 ### 8.3 可选（用户确认后再做）
@@ -517,7 +517,7 @@ node scripts/verify-changelog.mjs                     # 期望 OK
 
 ### 本轮留下的一个临时 worktree（无害，但要知道）
 
-`%TEMP%\afm-baseline-vitest` —— 第 4 节复核 vitest 基线时建的（`git worktree add --detach … a4d66a5a`）。
+`%TEMP%\afm-baseline-vitest` —— 第 4 节复核 vitest 基线时建的（`git worktree add --detach … 5646d8a1`）。
 本机的可恢复删除器只接受**工作区之内**的路径，这个目录在 `%TEMP%` 里，**删不掉**，
 所以留在那里（Windows 的临时目录清理会自己带走）。
 

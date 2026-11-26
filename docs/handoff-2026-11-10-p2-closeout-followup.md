@@ -3,7 +3,7 @@
 - 日期：2026-11-10
 - 项目根：`F:\soft\00selfmade\filemanager\sigma-file-manager`
 - 上轮 handoff：`docs/handoff-2026-11-10-p2-closeout.md`（§6「遗留待办」1–5 项即本轮执行范围）
-- 本轮 HEAD：`55bf310d style: 清零 eslint 门禁错误（177 -> 0，不改运行时行为）`
+- 本轮 HEAD：`152046f7 style: 清零 eslint 门禁错误（177 -> 0，不改运行时行为）`
 - 远端：`origin = https://github.com/kizemo/alpha-file-manager.git`（`upstream = https://github.com/aleksey-hoffman/sigma-file-manager.git`，不 push）
 - 工作树：干净（`git status --porcelain -uall` 计数 = 0）
 
@@ -74,15 +74,15 @@
 - **重启验证**：进程存活（PID 223756）；`EnumWindows` 枚举到主窗口 class `Tauri Window`、1936×1048、可见；
   WebView2 子进程 25 个；`FileVersion / ProductVersion` = 3.13.5。
 
-### 2.4 push `2cabae4a` + `1c7b49a4`
+### 2.4 push `67e3d264` + `7bf5edb8`
 
-- `git -C <repo> push origin main` ⇒ `dadf02fc..1c7b49a4  main -> main`，`PUSH_EXIT=0`。
+- `git -C <repo> push origin main` ⇒ `f6fc4aed..7bf5edb8  main -> main`，`PUSH_EXIT=0`。
 - 之后 `git status -sb` = `## main...origin/main`（无 ahead / behind）。
-- 本轮 eslint 清理（`55bf310d`）+ 本 handoff 另行成 commit 推送，不与上两个 commit 混在一起。
+- 本轮 eslint 清理（`152046f7`）+ 本 handoff 另行成 commit 推送，不与上两个 commit 混在一起。
 
 ### 2.5 eslint 专项清理：177 errors → 0
 
-- **基线**（HEAD `1c7b49a4` 上量，同一条命令 `eslint .`）：**177 errors / 0 warnings / 24 个文件**，全 severity 2。
+- **基线**（HEAD `7bf5edb8` 上量，同一条命令 `eslint .`）：**177 errors / 0 warnings / 24 个文件**，全 severity 2。
   规则分布：`@stylistic/object-property-newline` 86、`padding-line-between-statements` 27、
   `object-curly-newline` 22、`vue/max-attributes-per-line` 9、`@stylistic/arrow-parens` 8、
   `eol-last` 8、`brace-style` 4、`@typescript-eslint/no-require-imports` 4、
@@ -133,7 +133,7 @@
 | 装机 exe 与 `target\release\alpha-file-manager.exe` 的 3 字节差异 | **属设计内，非缺陷** | 差异位于 `__TAURI_BUNDLE_TYPE_VAR_UNKNOWN__` → `__TAURI_BUNDLE_TYPE_VAR_NSIS__`（偏移 72,197,744，3 bytes），是 tauri bundler 在打进 NSIS 的那份副本上改写 bundle-type 标记所致。装机 exe 与 setup 内嵌 payload SHA256 **完全一致**（`1FEBF3BA…`）；`target\release` 那份是未打标的 cargo 原始产物（`2E5B2FB6…`） |
 | eslint `.cjs` 的 `no-require-imports` | **config 级豁免**，不改扩展名 | `scan-sandbox-dynamic.cjs` 是 focus-sync 安装链的真实门禁，`installer/register.ps1:109`、`manual-install.ps1:50` 硬编码其 `.cjs` 路径；转 ESM/改名会破坏安装链且无功能收益 |
 | `no-raw-text` 的 `'✓'` / `'!'` | **脚本常量 + `{{ }}` 渲染** | 渲染输出逐字符不变；不给 17 个语言包新增纯标点翻译，也不把标点塞进 `ignoreText` 白名单 |
-| eslint 清理的提交粒度 | **单独成 commit** | 不与 `2cabae4a` / `1c7b49a4` 混在一起，便于回溯「格式化」与「入库」两类变更 |
+| eslint 清理的提交粒度 | **单独成 commit** | 不与 `67e3d264` / `7bf5edb8` 混在一起，便于回溯「格式化」与「入库」两类变更 |
 
 ---
 
@@ -143,9 +143,9 @@
 - F: 回收站已清空，空闲 88.62 GB → 122.54 GB。
 - 15:03 新包已按 publish 脚本设计落在 `release\local-builds\`，与 `bundle\nsis\` 下同名包逐字节一致。
 - 覆盖安装 `INSTALL_EXIT=0`（26.1 s），装机 exe 已刷新为 82,334,720 B @ 15:03:10，重启后主窗口正常。
-- `dadf02fc..1c7b49a4` 已 push 到 `origin/main`。
+- `f6fc4aed..7bf5edb8` 已 push 到 `origin/main`。
 - eslint 从 177 errors 降到 **0 errors / 0 warnings**；`vue-tsc --build`、3136 个单测、`verify-changelog` 全绿。
-- 本轮 commit `55bf310d` 落地，工作树零残留。
+- 本轮 commit `152046f7` 落地，工作树零残留。
 
 **推断（未直接取数）**
 - 3 字节差异的成因：是逐字节定位到 `__TAURI_BUNDLE_TYPE_VAR_UNKNOWN__` / `__TAURI_BUNDLE_TYPE_VAR_NSIS__`

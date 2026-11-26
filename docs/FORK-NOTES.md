@@ -46,7 +46,7 @@ expanded ancestors.
 ### Branch / commits
 
 - Branch: `feat/tree-sidebar-v6-1`
-- HEAD: `8caf14ae`
+- HEAD: `87b7d7fe`
 - Atomic commit series (v6 → v6.1 → v6.2 → v6.3 → v6.4 → v6.4.1):
   1. `fix(navigator): tree sync v6 — Pinia folder-tree store (issue #499)`
   2. `feat(navigator): sidebar tree + standalone toolbar toggle (v6.1, issue #499)`

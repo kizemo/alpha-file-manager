@@ -18,9 +18,9 @@
 | **线上已发布版本** | **3.9.0** —— 站点 `aiec.fun` 与 GitHub release `v3.9.0` 均已生效 |
 | 线上 3.9.0 安装包 | `Alpha_File_Manager_3.9.0_x64-setup.exe`，44,776,031 B，sha256 `EC0EDA4D305A0CD2A4E1E002DDA045DF9D3BDFF0D31D1388AF010F81535FEB05` |
 | 已安装版 | `D:\Program Files\Alpha File Manager\alpha-file-manager.exe`，FileVersion **3.9.0** |
-| 本轮结束时 HEAD | `8a8da593`（`fix(navigator): 修复目录树开关跨重启失效`）—— **本地提交、刻意未 push**；`origin/main` 仍停在 `62eab9cb` |
-| 本轮已推送的 4 个提交 | `d4e844a2`（feat ui 合并）→ `d9dc92a1`（feat ui 3.9.0 功能合集）→ `a9e7f8a9`（chore release 3.9.0）→ `62eab9cb`（docs readme 主题截图） |
-| **待推送的修复提交** | `8a8da593` —— 2 文件 +211 行（`src/stores/storage/user-settings.ts` +7 / 新增单测 204 行）；推不推由下一会话按 **T1 真机验收结果**决定 |
+| 本轮结束时 HEAD | `27b26aa0`（`fix(navigator): 修复目录树开关跨重启失效`）—— **本地提交、刻意未 push**；`origin/main` 仍停在 `b3534fc5` |
+| 本轮已推送的 4 个提交 | `8b0add66`（feat ui 合并）→ `1e31aab0`（feat ui 3.9.0 功能合集）→ `2725ad2f`（chore release 3.9.0）→ `b3534fc5`（docs readme 主题截图） |
+| **待推送的修复提交** | `27b26aa0` —— 2 文件 +211 行（`src/stores/storage/user-settings.ts` +7 / 新增单测 204 行）；推不推由下一会话按 **T1 真机验收结果**决定 |
 | winget PR | **#467381 open** —— https://github.com/microsoft/winget-pkgs/pull/467381 ，等社区版主 `Moderator-Approved` |
 | 真实用户数据 | **已恢复并核对 sha256**（三文件 MATCH_REAL），当前磁盘上是真实数据，不是夹具 |
 
@@ -31,7 +31,7 @@
 3. **winget 三步代劳**：关闭旧 PR #460744（被 3.9.0 取代）→ 以 New package 形式开出 **#467381** → PR 正文末尾的 CodeFlow 链接从 `pull/460744` 改成 `pull/467381`。
 4. **真实用户数据恢复**：杀进程 → restore → `user-settings.json` / `user-stats.json` / `user-workspaces.json` 三项 sha256 与备份**逐字节一致**。
 5. **清理旧演示目录副本**：`C:\Users\Duanyi\afm-demo-390`（26 个文件 / 3,186,749 B）已**可恢复地**移入回收站；主用目录 `C:\Users\Public\afm-demo-390`（26 个文件）完好。
-6. **修复「目录树开关跨重启失效」**：默认设置对象补 `navigator.showFolderTree: true`（+7 行，含中文 FORK-MODIFICATION 注释）+ 新增判别性单测 5 条（204 行）⇒ 本地提交 `8a8da593`，**未 push**（等 T1 真机验收）。
+6. **修复「目录树开关跨重启失效」**：默认设置对象补 `navigator.showFolderTree: true`（+7 行，含中文 FORK-MODIFICATION 注释）+ 新增判别性单测 5 条（204 行）⇒ 本地提交 `27b26aa0`，**未 push**（等 T1 真机验收）。
 
 ---
 
@@ -62,7 +62,7 @@
 
 **兼容语义**：默认值 `true` 与 `navigator.vue` 的 `?? true` 兜底一致 ⇒ 从未用过该开关的用户行为不变；已经关过的用户，磁盘上的 `false` 从此被正常读回。
 
-**修复已落地（本地提交 `8a8da593`，未 push）**：
+**修复已落地（本地提交 `27b26aa0`，未 push）**：
 
 | 文件 | 改动 |
 |---|---|
@@ -143,8 +143,8 @@
 
 ### T2 · 推送目录树修复的提交
 
-- 修复提交已在内层仓 `main` 上**本地提交**：**`8a8da593`** `fix(navigator): 修复目录树开关跨重启失效`（2 文件 +211 行；`src/stores/storage/user-settings.ts` +7 行 `showFolderTree: true` + 中文 FORK-MODIFICATION 注释，新增单测 `src/stores/storage/__tests__/user-settings-folder-tree.test.ts` 204 行 5 条用例）。
-- ⚠️ **该提交尚未 push**（`main` = `ahead 1`，`origin/main` 仍在 `62eab9cb`）—— **刻意如此**：真机验收（T1）没过就不该把未验收的修复推上去。
+- 修复提交已在内层仓 `main` 上**本地提交**：**`27b26aa0`** `fix(navigator): 修复目录树开关跨重启失效`（2 文件 +211 行；`src/stores/storage/user-settings.ts` +7 行 `showFolderTree: true` + 中文 FORK-MODIFICATION 注释，新增单测 `src/stores/storage/__tests__/user-settings-folder-tree.test.ts` 204 行 5 条用例）。
+- ⚠️ **该提交尚未 push**（`main` = `ahead 1`，`origin/main` 仍在 `b3534fc5`）—— **刻意如此**：真机验收（T1）没过就不该把未验收的修复推上去。
 - **验收通过后**再 `git push origin main`（推送姿势：**先带默认代理，失败再退回 `git -c http.proxy=` 重试** —— 本机代理 `127.0.0.1:7897` 的 TLS 握手间歇性坏，fetch 与 push 可能走不通的方向相反，别把结论写死）。
 - 若 T1 验收**没过**：先修再推，**不要**把没验收过的修复推上去。
 
@@ -153,7 +153,7 @@
 - **不要**用 `--bump none` 重发 3.9.0（理由见 1.1）。
 - 若目录树修复确认要对外发布 → 走 `--bump patch` 得 **3.9.1**，并按 `release-workflow.md` 走完六条命令（顺序不能乱，`release:prepare --write-notes` 不能省，否则会**安静地发出正文为空的 GitHub release**）。
 - `verify-changelog` 必须**早于**升版本号；`CHANGELOG.md` 与 `public\changelog\ch\changelog.md`（中文那一份）**都要补**。
-- **发版前需要用户拍板的事**：是否发 3.9.1、是否顺带把 winget 清单补到 3.9.1（现存到 3.6.5）、是否同步 upstream（AFM 与 upstream 已深度分叉，merge base `fed49cee`，判断口径见 `AGENTS.md` §2.2）。
+- **发版前需要用户拍板的事**：是否发 3.9.1、是否顺带把 winget 清单补到 3.9.1（现存到 3.6.5）、是否同步 upstream（AFM 与 upstream 已深度分叉，merge base `4d788321`，判断口径见 `AGENTS.md` §2.2）。
 
 ### T4 · winget PR #467381 跟进
 
@@ -183,7 +183,7 @@ cargo test --lib             # Rust 单测，基线 865 passed / 0 failed
 | `npm run ts` | — | **exit 0** | 通过 |
 | `cargo test --lib` | 865 passed / 0 failed | **865 passed / 0 failed** | 一致（本次无 Rust 改动） |
 
-> ⚠️ 上述基线数字是 **2026-11-01 在 `62eab9cb` 上现量的**。下一会话若在此之上又提交了东西，数字会变 ⇒ **一律现量，别拿这行对**。
+> ⚠️ 上述基线数字是 **2026-11-01 在 `b3534fc5` 上现量的**。下一会话若在此之上又提交了东西，数字会变 ⇒ **一律现量，别拿这行对**。
 
 **基线口径铁律**
 
@@ -259,8 +259,8 @@ cargo test --lib             # Rust 单测，基线 865 passed / 0 failed
 
 ### T2 推送 —— 完成
 
-`git push origin main`：`d3619943..2654de9d main -> main`，`origin/main` = `2654de9d`，工作树干净。
-本轮新增推送：upstream 4 个 worker 加固 commit（`85de0f3e` / `84bb5aef` / `46e1009a` / `a7ae97ed`）+ `2654de9d chore(release): 3.9.1`。
+`git push origin main`：`7963b24d..03567fb2 main -> main`，`origin/main` = `03567fb2`，工作树干净。
+本轮新增推送：upstream 4 个 worker 加固 commit（`e7ffbca5` / `15b2af96` / `c6291c1c` / `73140dc7`）+ `03567fb2 chore(release): 3.9.1`。
 
 ### T3 发版 3.9.1 —— 完成
 
@@ -268,7 +268,7 @@ cargo test --lib             # Rust 单测，基线 865 passed / 0 failed
 - 安装包 `release\Alpha File Manager_3.9.1_x64-setup.exe`，44,775,751 B，sha256 `67996F5B…DCF2`；被测 exe sha256 `8C7F3665…E75BD`。
 - 站点：`release:upload` 通过，公网回读 `release:verify` 通过 —— 线上版本 3.9.1、清单 sha256、源站与边缘包大小 44,775,751 B 三项一致。
 - GitHub release：`v3.9.1` 已发布，资产 `Alpha_File_Manager_3.9.1_x64-setup.exe`（44,775,751 B，digest sha256 与本地一致），正文含中文说明 + 构建信息。
-- upstream 同步范围：**只落 worker 加固 4 个 commit**（用户拍板）；仪表盘重设计 `3eca4c17` 未同步。
+- upstream 同步范围：**只落 worker 加固 4 个 commit**（用户拍板）；仪表盘重设计 `ce633166` 未同步。
 
 ### T4 winget PR #467381 —— 清单已切 3.9.1，只差 CLA
 

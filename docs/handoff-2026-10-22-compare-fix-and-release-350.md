@@ -5,7 +5,7 @@
 > 外层仓：`F:\soft\00selfmade\filemanager`（origin `kizemo/focus-sync`）—— 本轮只改了 `AGENTS.md`（`baa4187`）
 > 版本：3.4.0 → **3.5.0**（已上线）
 > **当前状态：代码完成、门禁全绿、3.5.0 已打包装机、真机验收通过、站点与 GitHub release 均已发布并回读校验通过。**
-> **已提交并推送**：内层仓 `a5bf6ecb`（比较修复 + 进度指示，25 文件）、`5776e946`（发布说明 + README + CHANGELOG，4 文件）、`60a55a45`（本交接文档），外层仓 `baa4187`（`AGENTS.md` 沉淀），均已推到各自 `origin/main`；tag `v3.5.0` 指向 `5776e946`。
+> **已提交并推送**：内层仓 `8579baf9`（比较修复 + 进度指示，25 文件）、`b540b01e`（发布说明 + README + CHANGELOG，4 文件）、`5c916eb2`（本交接文档），外层仓 `baa4187`（`AGENTS.md` 沉淀），均已推到各自 `origin/main`；tag `v3.5.0` 指向 `b540b01e`。
 > **未完成：无。** 上一份交接文档 `handoff-2026-10-22-delete-progress-and-installer-log.md` 第 7 节第 6 条「站点 / GitHub release 未发布」已在本轮完成，该行已同步更正。
 > **不需要接力会话**：用户提的两件事（线上发布 + 比较缺陷修复）均已闭环验收；第 10 节列的是**下一轮**可选项，不是未完成的活。
 
@@ -304,7 +304,7 @@ compare finished: total=100021 differences=58334 … elapsed=18.174789s
 - 资产：`Alpha_File_Manager_3.5.0_x64-setup.exe`，20,494,128 字节，
   GitHub 回报摘要 `sha256:76f3a5957c4626378e1de53cafc1ca56331cfb689c163c14e168afe45f895ef4` —— **与本地包逐位一致**
 - 正文：`_release-notes-v3.5.0.md`（9,294 字节）
-- tag `v3.5.0` → `5776e946`（与 `origin/main` HEAD 一致）
+- tag `v3.5.0` → `b540b01e`（与 `origin/main` HEAD 一致）
 
 ### 8.5 发布的命令序列
 
@@ -341,12 +341,12 @@ node scripts/release-publish.mjs status
 
 | 仓库 | 提交 | 内容 |
 |---|---|---|
-| 内层 | `a5bf6ecb` | `fix(compare): 比较撞上读不了的目录不再整个失败,提速约五十倍并加进度指示`（25 文件，+1858 / −125） |
-| 内层 | `5776e946` | `docs(release): 3.5.0 发布说明、README 与 CHANGELOG`（4 文件，+242 / −37） |
+| 内层 | `8579baf9` | `fix(compare): 比较撞上读不了的目录不再整个失败,提速约五十倍并加进度指示`（25 文件，+1858 / −125） |
+| 内层 | `b540b01e` | `docs(release): 3.5.0 发布说明、README 与 CHANGELOG`（4 文件，+242 / −37） |
 | 外层 | 无改动 | — |
 
 两仓本地 = 远端，`origin/main..HEAD` 与 `HEAD..origin/main` 均为 0。
-tag `v3.5.0` 已存在于远端，指向 `5776e946`。
+tag `v3.5.0` 已存在于远端，指向 `b540b01e`。
 
 ---
 

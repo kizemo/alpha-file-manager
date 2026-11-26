@@ -12,8 +12,8 @@
 
 - 批次 34 落地了「远程（阿里云盘）缩略图 Rust 代理」：应用向网盘**要图、自己下载字节、按本地同样方式解码缩放**，远程缩略图独立缓存目录（`%APPDATA%\com.sigma-file-manager.app\remote-image-thumbnails`）。**只有阿里云盘支持，百度/夸克仍是普通文件图标。**
 - 批次 34 的 J1/J2 真机验收在 run13 已 `VERDICT=PASS`；但当时仍有一处**真实产品缺陷**没修：远程目录读取失败时，UI 没有任何反馈（用户视角＝「点了没反应」）。
-- 版本号 3.16.0 在本地**存在两份不同内容的构建**（顶层 `release/` 那份构建自 `5018804f`，含**直链**方案、缩略图不工作；`release/local-builds/` 那份才是批次 34 的新构建）⇒ 继续用 3.16.0 会踩「同号两份」的坑，**必须升号**。
-- 线上 `https://www.aiec.fun/alpha-file-manager/version.json` 最新是 **3.14.0**；`v3.16.0` 标签指向 batch 29 提交 `0f55acf2`、**从未 push**、GitHub 上无 release ⇒ 3.15.0 / 3.16.0 都**未发布过**，本轮把 3.16.0 的内容并入 3.16.1 发布是安全的。
+- 版本号 3.16.0 在本地**存在两份不同内容的构建**（顶层 `release/` 那份构建自 `05722253`，含**直链**方案、缩略图不工作；`release/local-builds/` 那份才是批次 34 的新构建）⇒ 继续用 3.16.0 会踩「同号两份」的坑，**必须升号**。
+- 线上 `https://www.aiec.fun/alpha-file-manager/version.json` 最新是 **3.14.0**；`v3.16.0` 标签指向 batch 29 提交 `ce4cf6af`、**从未 push**、GitHub 上无 release ⇒ 3.15.0 / 3.16.0 都**未发布过**，本轮把 3.16.0 的内容并入 3.16.1 发布是安全的。
 
 ## 2. 本轮改动清单（`git status --porcelain` 实测，27 个文件）
 
@@ -183,14 +183,14 @@ J2_UNCHANGED_RATIO  = 0.01    J2_UNCHANGED_MEANABS = 1.0
 **未验证**
 
 1. 3.16.1 尚未推送、尚未上传站点、尚未打 tag。
-2. `release/` 顶层那份**未发布的 3.16.0 旧包**（45,849,872 B，构建自 `5018804f`）如何处置 —— 未动，留用户决定。
-3. 陈旧 `v3.16.0` 标签（指向 batch 29 提交 `0f55acf2`）是否清理 —— 未动，留用户决定。
+2. `release/` 顶层那份**未发布的 3.16.0 旧包**（45,849,872 B，构建自 `05722253`）如何处置 —— 未动，留用户决定。
+3. 陈旧 `v3.16.0` 标签（指向 batch 29 提交 `ce4cf6af`）是否清理 —— 未动，留用户决定。
 4. 百度/夸克盘的缩略图表现未逐个真机点验。
 
 ## 8. 下阶段建议（按优先级）
 
 1. **用户拍板发布**（本轮刻意不做，属对外动作）：推 `v3.16.1` tag + push + 上传安装包到站点 `version.json`。仓库自带发布脚本：`npm run release:status` / `release:prepare` / `release:upload` / `release:verify` / `release:github`。**注意 `main` 当前比 `origin/main` 领先 4 个提交**（批次 33、34、35 都还没 push），推 tag 前应先把分支推上去。
-2. **用户拍板清理**：陈旧 `v3.16.0` 标签（指向未发布的 `0f55acf2`）是否 `git tag -f` 改指或删除；`release/` 顶层那份 3.16.0 旧包是否移入 `local-builds/`。
+2. **用户拍板清理**：陈旧 `v3.16.0` 标签（指向未发布的 `ce4cf6af`）是否 `git tag -f` 改指或删除；`release/` 顶层那份 3.16.0 旧包是否移入 `local-builds/`。
 3. **上游恢复后补一次干净的 J1/J2**（不阻塞本轮交付）：run1 已是有效 PASS，但 run2/run3/run4/live-A **四次**都因阿里云盘 HTTP 400 未判定（run4 是 22:19–22:21 的复测）。等阿里云盘恢复（若是登录态失效，在应用里重新扫码登录一次）后，用同一条命令重跑 `.superpowers\sdd\b32\b32-accept-remote-ui.ps1` 取一份 `errors` 为空的报告即可。
 4. 若要继续「远程缩略图」线：把 `thumbnail_bytes` 能力从阿里云盘扩展到百度/夸克（trait 层已有默认实现可覆写，成本主要在各家 API 的取图接口）。
 5. 可选：把「远程读取失败必须可见」这条判据并入常驻回归脚本（它自带阴性对照，比人眼看截图可靠）。
@@ -304,7 +304,7 @@ J2_UNCHANGED_RATIO  = 0.01    J2_UNCHANGED_MEANABS = 1.0
 
 | 项 | 处置 | 复核 |
 | --- | --- | --- |
-| 本地标签 `v3.16.0`（指向未发布的 `0f55acf2`） | `git tag -d v3.16.0` | 删除前 `git ls-remote --tags origin` 只有 `v3.14.0` ⇒ **该标签从未 push**，远端无需处理 |
+| 本地标签 `v3.16.0`（指向未发布的 `ce4cf6af`） | `git tag -d v3.16.0` | 删除前 `git ls-remote --tags origin` 只有 `v3.14.0` ⇒ **该标签从未 push**，远端无需处理 |
 | `release\Alpha File Manager_3.16.0_x64-setup.exe`（45,849,872 B） | 移入 `release\local-builds\`，改名 `...build-20261121-112222.exe` | `local-builds/` 已有一份同名 3.16.0（45,938,661 B），改名避免覆盖；两份都是从未发布过的 3.16.0 构建 |
 | 站点源 `Alpha_File_Manager_3.16.0_x64-setup.exe`（45,847,038 B） | 改名 `...setup.unpublished`（**去掉 `.exe` 后缀**） | `_upload_alpha_files.py` 全量上传会收走目录里所有 `.exe`，不改名就会把含「直链缩略图」旧方案的包推到公网 |
 
@@ -319,8 +319,8 @@ commit → push origin main → git tag -a v3.16.1 → git push origin v3.16.1
 
 | 步骤 | 实测结果 |
 | --- | --- |
-| `git push origin main` | `46390569..c8427ccf`（批次 33/34/35 五个提交全部上去了） |
-| `git tag -a v3.16.1` + `push origin v3.16.1` | 远端 `v3.16.1^{}` = `c8427ccfcb5e267341f7afe49250d513072f929d` |
+| `git push origin main` | `524aee12..b14497a1`（批次 33/34/35 五个提交全部上去了） |
+| `git tag -a v3.16.1` + `push origin v3.16.1` | 远端 `v3.16.1^{}` = `b14497a1d8f72a73e6ca7bb924692c5d95f3a941` |
 | `prepare --bump none --skip-build --notes-file …` | 版本 3.16.1 → 3.16.1；安装包 45,941,645 B；sha256 `6ff25301dfecdcda0e4f968a9b183221f90996d8392e33c225b9c53e4c4593ab`；已复制到站点源目录（sha 一致） |
 | `_upload_alpha_files.py --only Alpha_File_Manager_3.16.1_x64-setup.exe` | 43.81 MB，服务器端 **md5 + size 双一致**（md5=`89230f26bde62c53550b53c65ada74af`） |
 | `_upload_alpha_files.py --files-only` | index.html / .htaccess / version.json / download.php，4 个文件 md5 + size 均一致 |
@@ -370,7 +370,7 @@ commit → push origin main → git tag -a v3.16.1 → git push origin v3.16.1
 
 ### 12.9 发布后状态
 
-- 本地 `main` 与 `origin/main` 同步（发布后 HEAD = `c8427ccf`），远端已有 `v3.16.1` 标签。
+- 本地 `main` 与 `origin/main` 同步（发布后 HEAD = `b14497a1`），远端已有 `v3.16.1` 标签。
 - 工作树干净；无残留出站防火墙规则；无应用进程在跑。
 - 唯一未闭合项仍是 §7 里的 J1/J2：上游阿里云盘 HTTP 400 恢复后补一次 `errors` 为空的干净报告（run1 已有效 PASS，不阻塞交付）。
 

@@ -25,8 +25,8 @@
 ## 起始状态
 
 ```
-分支：docs/batch1-design（HEAD 7368eede，仅含设计文档）
-回滚基线：rollback/3.1.1-baseline-20261014-212843 → 4968a4ad
+分支：docs/batch1-design（HEAD 6dc6feff，仅含设计文档）
+回滚基线：rollback/3.1.1-baseline-20261014-212843 → 394313ac
 ```
 
 ---

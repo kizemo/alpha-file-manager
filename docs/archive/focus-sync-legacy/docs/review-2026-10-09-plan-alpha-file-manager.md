@@ -3,7 +3,7 @@
 **日期**:2026-10-09 11:35
 **审阅对象**:`docs/PLAN-2026-10-09-alpha-file-manager.md`(v2 版)
 **取代**:`docs/plan-2026-10-09-dual-repo-restructure.md`(v1 版,已存档)
-**基线**:主仓 `dc5f152` / fork `4365281b`(均未推送)
+**基线**:主仓 `dc5f152` / fork `27a7f94c`(均未推送)
 **本轮性质**:纯书面反馈,未修改任何被跟踪文件,未提交、未切分支
 **接收方**:MiniMax(供优化 v2 计划参考)
 
@@ -93,7 +93,7 @@ v2 原顺序:P0 → P1 → P2 → P2.5 → P3 → P4 → P5 → P6 → P7
 | 仓 | 路径 | 作用 | HEAD |
 |---|---|---|---|
 | 主仓(focus-sync) | `F:\soft\00selfmade\filemanager` | focus-sync 插件项目,独立可装 | `dc5f152` |
-| fork(Sigma FM) | `…\sigma-file-manager` | 二次开发的文件管理器产品 | `4365281b` |
+| fork(Sigma FM) | `…\sigma-file-manager` | 二次开发的文件管理器产品 | `27a7f94c` |
 | fork 偏离 upstream | 28 commits / 55 文件改动 | 10 新增 / 47 修改(其中 18 个是 i18n) |
 
 ### 3.2 MiniMax 已完成的关键工作(commit 历史)

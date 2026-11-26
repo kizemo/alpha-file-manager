@@ -103,11 +103,11 @@ node scripts/verify-changelog.mjs   # exit 0（49 条目）
 
 | 提交 | 内容 |
 | --- | --- |
-| `d1bb55b8` | feat(locations): 「位置」页按分区/网盘/远程连接分区展示，空分区不显示标题（28 文件） |
-| `11b11762` | docs(baidu): 补百度网盘登录自动化可行性分析报告 |
-| `8e7bf810` | chore(release): 3.13.0 —— 版本号、更新日志与 README（22 文件） |
+| `ede3bcac` | feat(locations): 「位置」页按分区/网盘/远程连接分区展示，空分区不显示标题（28 文件） |
+| `800dd52d` | docs(baidu): 补百度网盘登录自动化可行性分析报告 |
+| `39805df7` | chore(release): 3.13.0 —— 版本号、更新日志与 README（22 文件） |
 
-`main` 由 `6eabbc67` 快进到 `8e7bf810`，已 `git push origin main`；特性分支也已推送。
+`main` 由 `8a650319` 快进到 `39805df7`，已 `git push origin main`；特性分支也已推送。
 
 ### 5.4 真机验收
 
@@ -152,7 +152,7 @@ VERDICT=LOCATIONS_FOUND
 | 项 | 值 |
 | --- | --- |
 | Release | `https://github.com/kizemo/alpha-file-manager/releases/tag/v3.13.0` |
-| tag 指向 | `f6f8f865`（= 本地 `main` HEAD） |
+| tag 指向 | `6d935140`（= 本地 `main` HEAD） |
 | 草稿 / 预发布 | `isDraft=false` / `isPrerelease=false`（会作为 Latest release） |
 | 发布时间 | `2026-11-08T14:13:45Z` |
 | 资产 | `Alpha_File_Manager_3.13.0_x64-setup.exe`，45,370,188 字节，digest sha256 与清单一致 |

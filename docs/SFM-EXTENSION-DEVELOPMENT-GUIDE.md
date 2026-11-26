@@ -244,7 +244,7 @@ host 白名单的模式规则：scheme 必须 `http`/`https` 且与请求一致�
    必须去诊断里看才有具体原因。
 
 > ⚠️ **自己写沙箱扫描脚本时，不要硬编码正则快照。**
-> `sandbox.ts` 在 git 历史里变更过（`ba3e5a3f` 新增了第 3 条 `.constructor()`），
+> `sandbox.ts` 在 git 历史里变更过（`399ea090` 新增了第 3 条 `.constructor()`），
 > 硬编码会静默失效。宿主自带 `sigma-file-manager/scripts/scan-sandbox-dynamic.cjs`，
 > 它**从 `sandbox.ts` 实时解析 pattern**。优先用它，或直接指向宿主那份。
 

@@ -2,7 +2,7 @@
 
 - 日期：2026-10-19
 - 分支：`feat/remote-phase-1-connections-transport`
-- 起点提交：`7bce70c5`
+- 起点提交：`04244103`
 - 上一轮交接：[handoff-2026-10-18-remote-phase-2-ftp.md](handoff-2026-10-18-remote-phase-2-ftp.md)
 
 > ⚠️ 本轮的全部改动**仍未提交**。工作区里叠着上一轮（§11–§15）的 52 个已跟踪文件改动

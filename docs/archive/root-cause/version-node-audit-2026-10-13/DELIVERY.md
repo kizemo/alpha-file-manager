@@ -12,18 +12,18 @@
 
 | 项 | 值 |
 |---|---|
-| **目标节点** | **`9ed9440a` / 应用 3.0.2** |
+| **目标节点** | **`8a5b0fa0` / 应用 3.0.2** |
 | 打包时间 | 2026-10-12 16:43:15 |
 | 内含 sidecar | **0.5.8** |
 | 是否上线 | **是**（3.0.3 之前唯一真正发布的版本） |
-| 3.0.3 是否上线 | **否** —— 提交 `50c3ec97` 标题自认「验证产物,未发布」 |
+| 3.0.3 是否上线 | **否** —— 提交 `090ae845` 标题自认「验证产物,未发布」 |
 
 完整证据链见同目录 `VERSION-NODE-AUDIT.md`。
 
 ### 关键反转
 
 ```
-git diff --stat 9ed9440a f404215e -- extensions/kizemo.focus-sync
+git diff --stat 8a5b0fa0 4fb6d15d -- extensions/kizemo.focus-sync
 （空）
 ```
 
@@ -131,7 +131,7 @@ git diff --stat 9ed9440a f404215e -- extensions/kizemo.focus-sync
 |---|---|
 | 0.5.11 部署备份 | `deployed-0.5.11.BACKUP.exe`（本目录） |
 | 0.5.10 部署备份 | `..\rollback-2026-10-13\focus-sync-sidecar.v0.5.10.ORIGINAL.exe` |
-| git 状态 | 未做任何 git 操作，HEAD 仍为 `f404215e` |
+| git 状态 | 未做任何 git 操作，HEAD 仍为 `4fb6d15d` |
 | git 工作区 | 仍只有 `extensions/kizemo.focus-sync/dist/index.js` 一处改动（用户要求保留） |
 
 恢复 0.5.11 只需把 `deployed-0.5.11.BACKUP.exe` 复制回部署路径并重启计划任务。

@@ -5,7 +5,7 @@
 - 仓根：`F:\soft\00selfmade\filemanager\sigma-file-manager`
 - 约定文件（改本项目代码前必读）：`F:\soft\00selfmade\filemanager\AGENTS.md`
 - 目标版本：**3.10.0**（feat 级 bump）
-- 上一发版提交：`8b0d8cd0 release: 发版 3.9.2`；本轮工作开始时 `HEAD = ceff7e38 docs(handoff): 新增阶段四交接文档并更新接力 prompt`
+- 上一发版提交：`8fd03c97 release: 发版 3.9.2`；本轮工作开始时 `HEAD = e4e516d2 docs(handoff): 新增阶段四交接文档并更新接力 prompt`
 
 ---
 
@@ -72,9 +72,9 @@
 
 全仓 grep 无任何测试引用这两个标识符 ⇒ 改签名不会打破测试契约（已验证）。
 
-## 四、本轮已落地改动（✅ 已进入发版提交 `18a349e7` 并推送 origin）
+## 四、本轮已落地改动（✅ 已进入发版提交 `1767cb46` 并推送 origin）
 
-> **2026-11-04 23:55 回填**：§四~§七 描述的改动随发版提交 **`18a349e7`**（`release: 发版 3.10.0`，131 files changed, +14546 / −473）提交并推送，
+> **2026-11-04 23:55 回填**：§四~§七 描述的改动随发版提交 **`1767cb46`**（`release: 发版 3.10.0`，131 files changed, +14546 / −473）提交并推送，
 > tag **`v3.10.0`** 已建并推送；提交后工作树干净（`git status --porcelain` = 0 行）。
 
 ### 4.1 代码
@@ -322,13 +322,13 @@ Text   | v0.5.8 | 1144,793 61x23                  <- 重启复验后的卡片版
 3. ✅ **产物已落地**：`src-tauri/target/release/bundle/nsis/Alpha File Manager_3.10.0_x64-setup.exe` = **44 938 742 B**（23:34:17），`release/` 同名副本已在位。
    沿用提醒：`publish-bundle-to-release.mjs` 遍历 `bundle/nsis/` 全部历史包逐个 rmSync + 复制，任一被锁就 exit 1，而 `tauri build` 本身早已成功
    ⇒ **要分清「构建失败」和「复制失败」**，后者用 `fs.copyFileSync` 单独补进 `release/` 即可，不必重打包。
-4. ✅ **发版提交已创建并推送**：`18a349e7 release: 发版 3.10.0`，`git push origin main` = `ceff7e38..18a349e7`。
+4. ✅ **发版提交已创建并推送**：`1767cb46 release: 发版 3.10.0`，`git push origin main` = `e4e516d2..1767cb46`。
    实测 **131 files changed, +14546 / −473**（交接时刻的 129 是更早快照）；提交后 `git status --porcelain` = **0 行**（工作树干净）。
    中文提交信息走 `git commit -F .superpowers/sdd/release-310-commit-msg.txt`（不要把中文放命令行）。
 5. ✅ **已打 tag `v3.10.0` 并推送 origin**（`git ls-remote --tags origin v3.10.0` 已确认）。tag 对象 sha `9b442333f7ff12ace6bc089a0f4d5e744a2ee78c`。
    发版三条必查（**本轮全绿，结论可复用**）：
-   - `git rev-parse v3.10.0^{commit}` = `18a349e71f0f8a6639e24c64636cab2518c6e1ca` = HEAD；`git show v3.10.0:package.json` ⇒ `3.10.0`
-   - `git merge-base --is-ancestor 18a349e7 v3.10.0` ⇒ exit 0
+   - `git rev-parse v3.10.0^{commit}` = `1767cb46090d61af77ee6d50e466ca9e48b3fe14` = HEAD；`git show v3.10.0:package.json` ⇒ `3.10.0`
+   - `git merge-base --is-ancestor 1767cb46 v3.10.0` ⇒ exit 0
    - `git show v3.10.0:src/data/extensions.ts` 命中 `OFFICIAL_EXTENSION_OWNERS = ['kizemo'];`；`v3.10.0:scripts/ext-market/registry.json` 命中 `"name": "Alpha File Manager"` + `"featured": true`；`v3.10.0:extensions/kizemo.focus-sync/package.json` 命中 `"name": "Alpha File Manager"`
 6. ✅ **站点已上传并线上核验通过**（`UPLOAD_310_EXIT=0` / `UPLOAD_310_DONE`，00:22:26）：33 个文件上传 **OK、0 个 failed**。
    脚本内置 `verify` 的线上结论（`logs/upload310.txt` 第 130~137 行，逐字）：`[verify] 线上版本：3.10.0`；
@@ -350,7 +350,7 @@ Text   | v0.5.8 | 1144,793 61x23                  <- 重启复验后的卡片版
    `integrity` 经两次下载实测 + Git Tools 判别性对照证实）；`publish.mjs --validate` 2 条目通过。
 9. ✅ 清单与文档入仓（2026-11-05）：`scripts/ext-market/registry.json`（+28 行 `kizemo.focus-sync` 条目，
    顺带修好 `kizemo.git` 里 `publisher.name` 行的缩进）与本 handoff 一起提交并推 `origin/main`；
-   **发版提交 `18a349e7` 与 tag `v3.10.0` 不动**（清单热更新，不需要再发一版应用）。提交 SHA 用
+   **发版提交 `1767cb46` 与 tag `v3.10.0` 不动**（清单热更新，不需要再发一版应用）。提交 SHA 用
    `git log -1 --format=%H -- docs/handoff-2026-11-04-extension-official-featured-branding-and-release-310.md` 取。
 10. ✅ **3.10.0 装机真机验收 §六 四项证据 —— 已完成**（2026-11-05 00:45 → 01:10，结论与原始证据见 §六）：
     3.10.0 已静默装到 `D:\Program Files\Alpha File Manager`（`ProductVersion` 3.9.2 → **3.10.0**，NSIS `/S` exit 0，
@@ -535,9 +535,9 @@ Text | Light color themes for Sigma File Manager.                 <- 同上
 
 ### 11.5 提交 / 推送 / tag（已验证）
 
-- 单提交 **`bf747ff7` `release: 发版 3.10.1`**，`24 files changed, 640 insertions(+), 37 deletions(-)`；`git add -A` 后 `STAGED_ENTRIES=24`。
-- `git push origin main` → `75979b3d..bf747ff7`，`PUSH_MAIN_EXIT=0`。
-- `git tag -a v3.10.1` → `git push origin v3.10.1` → `* [new tag]`；`git ls-remote --tags origin`：`5ad7afc1…`（tag 对象）+ `bf747ff7… refs/tags/v3.10.1^{}`。
+- 单提交 **`53761cef` `release: 发版 3.10.1`**，`24 files changed, 640 insertions(+), 37 deletions(-)`；`git add -A` 后 `STAGED_ENTRIES=24`。
+- `git push origin main` → `f1a6d56f..53761cef`，`PUSH_MAIN_EXIT=0`。
+- `git tag -a v3.10.1` → `git push origin v3.10.1` → `* [new tag]`；`git ls-remote --tags origin`：`5ad7afc1…`（tag 对象）+ `53761cef… refs/tags/v3.10.1^{}`。
 - 提交后 `git status --porcelain` = **0 行**。
 - 版本四处同步：`package.json` + 三个 `Cargo.toml` + `src-tauri/Cargo.lock` 均为 `3.10.1`。
 - `CHANGELOG.md` 的 `## [3.10.1] - November 2026` 段补齐四项（+13 行）；`README.md:286-299` 写明 `Publisher of our extensions: Alpha File Manager` 与 `badged *Official* next to their name`。
@@ -570,7 +570,7 @@ Text | Light color themes for Sigma File Manager.                 <- 同上
   `publishedAt=2026-11-05T02:15:16Z`、资产 `Alpha_File_Manager_3.10.1_x64-setup.exe` **44940588 B**、
   `digest=sha256:e074d02326ccf7d7a9c76ddb7cd922a31d71d8d6ff7cedb5cebc7f8e4de3e164`，
   URL `https://github.com/kizemo/alpha-file-manager/releases/tag/v3.10.1`。
-- 收尾提交：`3aa4df85 docs: 回填 3.10.1 发版记录（handoff §十一 + 5 条新工具坑）` 已 push；`git status --porcelain` 为空。
+- 收尾提交：`a7456156 docs: 回填 3.10.1 发版记录（handoff §十一 + 5 条新工具坑）` 已 push；`git status --porcelain` 为空。
 
 ### 11.7 本轮遗留（follow-up，不阻断发版）
 
@@ -586,7 +586,7 @@ Text | Light color themes for Sigma File Manager.                 <- 同上
 
 > 本节由**并发会话**追加，只给 §11.4~§11.6 的结论补一份独立证据；**全程只读取证，未重复执行任何发布动作**（避免撞 `target\release` 构建锁与 `release\` 复制锁）。
 
-- **git 真相重量**：`git tag --list` 含 **`v3.10.1`**，`git rev-parse 'v3.10.1^{commit}'` = **`bf747ff7`**；`HEAD` = `origin/main` = **`487a9477`**，`git rev-list --left-right --count origin/main...HEAD` = **`0 0`**；`git status --porcelain` = **0 行**（工作树干净，本节追加之前）。
+- **git 真相重量**：`git tag --list` 含 **`v3.10.1`**，`git rev-parse 'v3.10.1^{commit}'` = **`53761cef`**；`HEAD` = `origin/main` = **`9e4e8225`**，`git rev-list --left-right --count origin/main...HEAD` = **`0 0`**；`git status --porcelain` = **0 行**（工作树干净，本节追加之前）。
 - **出货包**：`release\Alpha File Manager_3.10.1_x64-setup.exe` **44 940 588 B** @ `2026-11-05 09:55:37`，sha256 **`e074d02326ccf7d7a9c76ddb7cd922a31d71d8d6ff7cedb5cebc7f8e4de3e164`** —— 与 §11.4 / §11.6 逐字一致。
 - **装机状态**：HKLM `DisplayVersion=3.10.1`、`InstallLocation=D:\Program Files\Alpha File Manager`；已装 `alpha-file-manager.exe` 80 659 968 B / `ver=3.10.1` / mtime **09:54:52** ⇒ 本机装的**就是最终出货包**，不是中间包。
 - ⚠️ **作废声明**：本会话早前那轮真机验收（`.superpowers\sdd\state-3101-accept.md`、`.superpowers\sdd\accept-3101-market\crop-3101-*.png`）针对的是 **`a30ed04d…42a37a` / 44 946 053 B** 的中间包（09:55 因 `tauri.conf.json` 的 `bundle.resources` 内嵌了 focus-sync 的 package.json/dist/locales 而重建）⇒ **该轮结论仅作过程记录，不再作为发版依据**。
@@ -600,7 +600,7 @@ Text | Light color themes for Sigma File Manager.                 <- 同上
 > **本轮范围**：只做 §11.7 的 7 条 follow-up，**不做发版动作**。版本号仍是 `3.10.1`，
 > `release/Alpha File Manager_3.10.1_x64-setup.exe`（已发布资产，sha256 `e074d023…e164`）**原样未动** ——
 > `scripts/publish-bundle-to-release.mjs` 对「同名异容」的产物会改写进 `release/local-builds/`，不会覆盖已发布资产。
-> 基线：HEAD `a2b4e4ad`（tag `v3.10.1`），本轮起始工作树干净。
+> 基线：HEAD `e4204bc4`（tag `v3.10.1`），本轮起始工作树干净。
 > 门禁全绿 + **需求 3 的「应用内确实走了中国镜像」硬证据已取到**（见 12.5）。
 
 ### 12.1 七条 follow-up 收口一览

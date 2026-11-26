@@ -2,7 +2,7 @@
 
 - 生成时间：2026-11-08 深夜
 - 仓库：`F:\soft\00selfmade\filemanager\sigma-file-manager`
-- 分支：`feat/baidu-embedded-login`（HEAD `5c6e21e3`，未提交的工作区改动即本轮成果）
+- 分支：`feat/baidu-embedded-login`（HEAD `23f89331`，未提交的工作区改动即本轮成果）
 - 上游入口文档：`docs/handoff-2026-11-08-release-3.13.0-locations-partitions.md`
 - 约定入口：`F:\soft\00selfmade\filemanager\AGENTS.md`
 

@@ -40,15 +40,15 @@
 
 | 文件 | 来源 | 说明 |
 |---|---|---|
-| `src/utils/dashboard-item-size.ts` | upstream `3eca4c17` | 两个纯函数：文件大小、目录大小格式化 |
-| `src/utils/dashboard-relative-time.ts` | upstream `3eca4c17` | 相对时间格式化（翻译函数由调用方注入） |
-| `src/modules/dashboard/composables/use-dashboard-item-sizes.ts` | upstream `3eca4c17` | 大小采集：文件逐个 stat、目录走 `useDirSizesStore` 批量 |
-| `src/modules/dashboard/composables/use-dashboard-entry-previews.ts` | upstream `3eca4c17` | 缩略图助手的 provide/inject 层 |
-| `src/modules/dashboard/composables/use-dashboard-entry-preview.ts` | upstream `3eca4c17`（**有改动**） | 单卡片缩略图：IntersectionObserver + 取消请求 |
-| `src/modules/dashboard/components/dashboard-tagged-item-meta.vue` | upstream `3eca4c17`（**有改动**） | 卡片底部的「类型 + 相对时间」一行 |
-| `src/modules/dashboard/components/dashboard-confirm-dialog.vue` | upstream `3eca4c17` | 通用确认框壳子（标题/描述由调用方给） |
-| `src/modules/dashboard/components/dashboard-hero.vue` | upstream `3eca4c17`（**有改动**） | Hero 顶部区（方向 C · 沉浸封面），四处理意差异见 6.3 |
-| `src/assets/media/dashboard/dashboard-top-bg.jpg` | upstream `3eca4c17` | Hero 封面图（69,249 字节） |
+| `src/utils/dashboard-item-size.ts` | upstream `ce633166` | 两个纯函数：文件大小、目录大小格式化 |
+| `src/utils/dashboard-relative-time.ts` | upstream `ce633166` | 相对时间格式化（翻译函数由调用方注入） |
+| `src/modules/dashboard/composables/use-dashboard-item-sizes.ts` | upstream `ce633166` | 大小采集：文件逐个 stat、目录走 `useDirSizesStore` 批量 |
+| `src/modules/dashboard/composables/use-dashboard-entry-previews.ts` | upstream `ce633166` | 缩略图助手的 provide/inject 层 |
+| `src/modules/dashboard/composables/use-dashboard-entry-preview.ts` | upstream `ce633166`（**有改动**） | 单卡片缩略图：IntersectionObserver + 取消请求 |
+| `src/modules/dashboard/components/dashboard-tagged-item-meta.vue` | upstream `ce633166`（**有改动**） | 卡片底部的「类型 + 相对时间」一行 |
+| `src/modules/dashboard/components/dashboard-confirm-dialog.vue` | upstream `ce633166` | 通用确认框壳子（标题/描述由调用方给） |
+| `src/modules/dashboard/components/dashboard-hero.vue` | upstream `ce633166`（**有改动**） | Hero 顶部区（方向 C · 沉浸封面），四处理意差异见 6.3 |
+| `src/assets/media/dashboard/dashboard-top-bg.jpg` | upstream `ce633166` | Hero 封面图（69,249 字节） |
 | `src/localization/__tests__/quick-access-rename.test.ts` | 本轮自写 | 板块改名门禁：13 个必需 key + 全量旧名扫描（4 例） |
 
 ### 1.2 改动文件
@@ -202,10 +202,10 @@
 
 | 仓库 | 提交 | 内容 |
 |---|---|---|
-| 内层 | `4b94a2de` | `feat(dashboard): 卡片补条目大小、相对时间、缩略图与破坏性操作确认框` |
-| 内层 | `fc6ecf66` | `feat(dashboard): 顶部加沉浸封面 Hero 区（upstream 版式，封面图向下不淡出）` |
-| 内层 | `98d3feba` | `feat(i18n): 板块标题「仪表板」全量改名为「快速访问」` |
-| 内层 | `32384774` | `fix(i18n): 补上第一轮漏改的 5 个 key，并加一道全量旧名门禁` |
+| 内层 | `4d77147c` | `feat(dashboard): 卡片补条目大小、相对时间、缩略图与破坏性操作确认框` |
+| 内层 | `99c36038` | `feat(dashboard): 顶部加沉浸封面 Hero 区（upstream 版式，封面图向下不淡出）` |
+| 内层 | `d6898109` | `feat(i18n): 板块标题「仪表板」全量改名为「快速访问」` |
+| 内层 | `9ffe0c3f` | `fix(i18n): 补上第一轮漏改的 5 个 key，并加一道全量旧名门禁` |
 | 外层 | `12c1bad` | `docs(agents): 补两条本轮真机踩到的硬约束` |
 | 外层 | `1c48b9a` | `docs(agents): 补两条注入相关的硬约束（40 字节 INPUT / 阳性对照在前）` |
 

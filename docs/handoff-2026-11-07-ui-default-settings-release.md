@@ -3,7 +3,7 @@
 - 日期：2026-11-07
 - 仓库：`F:\soft\00selfmade\filemanager\sigma-file-manager`（分支 `main`）
 - 起点交接卡：`docs/handoff-2026-11-07-ui-default-settings.md`
-- 状态：**3.12.2 已全渠道发布完成**——发版提交 `6e68d337`（annotated tag `v3.12.2`，tag 对象 `b50c3b08`，已推 origin），`main` HEAD = `6eabbc67` 且与 `origin/main` 同步；真机验收两阶段 9/9（见 §4）；站点与 GitHub Release 已上线并回读校验一致（见 §7.2）。
+- 状态：**3.12.2 已全渠道发布完成**——发版提交 `f0f59545`（annotated tag `v3.12.2`，tag 对象 `b50c3b08`，已推 origin），`main` HEAD = `8a650319` 且与 `origin/main` 同步；真机验收两阶段 9/9（见 §4）；站点与 GitHub Release 已上线并回读校验一致（见 §7.2）。
 
 ---
 
@@ -45,8 +45,8 @@
 
 | 提交 | 内容 |
 |---|---|
-| `067640dc` | fix(reveal)：快捷方式「打开文件所在目录」解析到目标目录并消除三个系统弹窗（上一轮遗留，7 个 Rust + 4 个前端/测试文件） |
-| `e9c41a10` | feat(settings)：视觉效果默认参数改为规格值（叠加模糊 / 不透明度 / 噪点归零）+ 4 条回归测试 + 3 个 docs md |
+| `e8bdea14` | fix(reveal)：快捷方式「打开文件所在目录」解析到目标目录并消除三个系统弹窗（上一轮遗留，7 个 Rust + 4 个前端/测试文件） |
+| `1c9e06e2` | feat(settings)：视觉效果默认参数改为规格值（叠加模糊 / 不透明度 / 噪点归零）+ 4 条回归测试 + 3 个 docs md |
 
 默认值只改了 6 个数值，位置在 `src/stores/storage/user-settings.ts`：
 
@@ -70,7 +70,7 @@
 | `npx vitest run src/stores/storage/__tests__ src/stores/schemas/__tests__` | 13 files / 184 tests 全过 |
 | 新增回归测试文件单跑 | 1 file / 14 tests 全过 |
 | `npx eslint src/stores/storage/user-settings.ts` + 新测试文件 | exit 0 / 0 问题 |
-| `eslint .` 全量基线对照 | HEAD（`b49fbd31`）**180 errors / 0 warnings** → 工作副本 **177 errors / 0 warnings**，**零新增**；唯一差异是 `src/utils/__tests__/reveal-containing-directory.test.ts` 由 3 → 0（上一轮重写顺手修掉 3 条存量错误）。历史 3.12.1 发版提交记录的基线同为 180，互相印证 |
+| `eslint .` 全量基线对照 | HEAD（`92dc67f0`）**180 errors / 0 warnings** → 工作副本 **177 errors / 0 warnings**，**零新增**；唯一差异是 `src/utils/__tests__/reveal-containing-directory.test.ts` 由 3 → 0（上一轮重写顺手修掉 3 条存量错误）。历史 3.12.1 发版提交记录的基线同为 180，互相印证 |
 
 版本对齐：`package.json` 3.12.1 → **3.12.2**，`npm run sync-version` 同步 3 个 Cargo manifest（`src-tauri/Cargo.toml`、`default-file-manager-common/Cargo.toml`、`default-file-manager-launcher/Cargo.toml`）；`src-tauri/tauri.conf.json` 的 version 引用 `"../package.json"`，无需改。
 
@@ -131,7 +131,7 @@
 
 1. ✅ `build-3122c.cmd` 重打完成（20:40:25，45169271 B），装到 `D:\Program Files\Alpha File Manager\`（3.12.2）。
 2. ✅ 阶段 A（全新用户数据首次启动）与阶段 B（点「将视觉效果重置为默认值」）在**最终打包产物**上各跑一遍，**均 PASS 9/9**。
-3. ✅ 第三个提交 `6e68d337`（23 个文件：4 个版本文件 + `Cargo.lock` + 18 个发版元数据文件 + `_notes-3.12.2.md`）。
+3. ✅ 第三个提交 `f0f59545`（23 个文件：4 个版本文件 + `Cargo.lock` + 18 个发版元数据文件 + `_notes-3.12.2.md`）。
 4. ✅ 交接卡（本文件）+ 接力 prompt（`docs/prompt-2026-11-07-ui-default-settings-release-next.md`）已落盘。
 
 未做 / 仍待处理（**线上发布已在 §7.2 完成，本节旧版本里「不做任何线上发布动作」的说法已作废，不要再拿它去问用户要不要发布**）：
@@ -150,7 +150,7 @@
 
 ## 7.2 3.12.2 对外发布（已完成）
 
-- **git push**：内层仓 `main` 由 `b49fbd31` 推到 `ca2215bb`（origin/main）；标签 `v3.12.2` 指向 **`6e68d337`（发版提交）**，与 `v3.12.1` 的惯例一致（tag = 发版提交，不是 HEAD）。
+- **git push**：内层仓 `main` 由 `92dc67f0` 推到 `38d9cb85`（origin/main）；标签 `v3.12.2` 指向 **`f0f59545`（发版提交）**，与 `v3.12.1` 的惯例一致（tag = 发版提交，不是 HEAD）。
 - **站点版本清单**：`node scripts/release-publish.mjs prepare --bump none --skip-build --notes-file _notes-3.12.2.md` ⇒ `E:\办公文件\L1网站\alpha-file-manager\version.json` 变为 **3.12.2** / `sha256 47e08c97…` / `pub_date 2026-11-07T13:43:02Z`；`history[]` 首条归档 3.12.1（站点上挂着的那一版被顶掉时才归档，与仓库版本号无关）。站点说明文字直接取仓库的 `_notes-3.12.2.md`（已核对：3.12.1 的站点 notes 与 `_notes-3.12.1.md` 逐字相同）。
 - **上传顺序（别改）**：① 先把 45 MB 安装包单独 put 到服务器（paramiko 单文件 + 远端 `md5sum`/`stat` 校验，脚本 `.superpowers/sdd/upload-one.py`）⇒ `REMOTE_MATCH`；② 再传 `index.html` / `.htaccess` / `version.json` / `download.php`（`_upload_alpha_files.py --files-only`，四个文件远端 md5+size 全部 OK）。反过来会把 version.json 先翻到 3.12.2，让用户点到还没传完的包。
 - **GitHub Release**：`v3.12.2` 已创建（`kizemo/alpha-file-manager`），资产 `Alpha_File_Manager_3.12.2_x64-setup.exe`，45169271 字节，官方 digest `sha256:47e08c976e8906c2848623a4a7f6cbfdd80cea8833607904fe7efd1614280cd4`（与本地包逐字节一致），`draft=false` / `prerelease=false`。

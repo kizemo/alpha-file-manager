@@ -141,9 +141,9 @@ eslint src → 170 errors / 0 warnings    （与交接文档基线逐字一致�
 
 | 节点 | 说明 |
 |---|---|
-| `2460aa22` | 版本号 3.3.0 + README/CHANGELOG/_notes.md |
-| `fee24ddd` | eslint 忽略项 + Cargo.lock 同步 |
-| 标签 `v3.3.0` | 指向 `fee24ddd` |
+| `41416e82` | 版本号 3.3.0 + README/CHANGELOG/_notes.md |
+| `48de1f18` | eslint 忽略项 + Cargo.lock 同步 |
+| 标签 `v3.3.0` | 指向 `48de1f18` |
 
 ---
 
@@ -227,8 +227,8 @@ https://github.com/kizemo/alpha-file-manager/releases/tag/v3.3.0
 
 ### 7.3 git
 
-`main` 已推到 `origin/main`（`6f4cdc43..fee24ddd`），标签 `v3.3.0` 已推，
-`git ls-remote` 确认 `refs/tags/v3.3.0^{}` = `fee24ddd`。
+`main` 已推到 `origin/main`（`ef6f18e3..48de1f18`），标签 `v3.3.0` 已推，
+`git ls-remote` 确认 `refs/tags/v3.3.0^{}` = `48de1f18`。
 
 ---
 

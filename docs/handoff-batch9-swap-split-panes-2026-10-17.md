@@ -1,7 +1,7 @@
 # 批次 9：分屏「左右互换」按钮 —— 实施结果与交接
 
 - 日期：2026-10-17
-- 基线：`a7084aaa`（3.2.2-beta + 地址栏整条选中）→ 本批起点同为该提交
+- 基线：`c1e9293a`（3.2.2-beta + 地址栏整条选中）→ 本批起点同为该提交
 - 上一份交接：`docs/handoff-batch8-address-bar-partA-2026-10-17.md`
 - 产物版本：**3.2.3-beta**
 
@@ -24,7 +24,7 @@
 - ~~候选列表从居中大窗改成贴在地址栏下方的浮层~~
 
 > **「打开时整条选中」没有跟着作废。** 它做在现有对话框的输入框上
-> （`focus()` + `select()`，提交 `2aa2c02b`），不依赖 Part B 的重构，
+> （`focus()` + `select()`，提交 `77fd5dd9`），不依赖 Part B 的重构，
 > 因此已经保留并仍在生效。若将来复活 Part B，这个行为会跟着地址栏本体一起走。
 
 计划文档 `docs/superpowers/plans/2026-10-17-address-bar-explorer-behavior.md`
@@ -101,7 +101,7 @@ store 只是调用方。模式与既有的 `utils/linked-split-sync.ts` 一致�
 
 ## 3. 门禁
 
-| 项 | 基线（`a7084aaa`） | 本批 | 判定 |
+| 项 | 基线（`c1e9293a`） | 本批 | 判定 |
 |---|---|---|---|
 | `npx vue-tsc --build` | 0 error | **0 error** | ✅ |
 | `npx eslint src` | 179 errors / **59 warnings** | **179 errors / 0 warnings** | ✅ error 与基线一致，**warning 清零** |
@@ -252,7 +252,7 @@ for (const locale of fs.readdirSync(MESSAGES_DIR)) {  // locale 是 'ch.json'，
 | 安装包 | `Alpha File Manager_3.2.4-beta_x64-setup.exe` |
 | 字节 | `19157927`（18.27 MiB） |
 | SHA-256 | `66B9C294D3CFB2B7BD5DE8EA5768E92375C55629BF6C387134B3234C9F6ECCCB` |
-| 提交 | `b83bc05c` |
+| 提交 | `0586b0d9` |
 
 
 ---

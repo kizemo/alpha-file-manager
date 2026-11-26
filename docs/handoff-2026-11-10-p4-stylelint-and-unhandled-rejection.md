@@ -1,7 +1,7 @@
 # P4 交接：stylelint 174 错清零 + 地址栏 unhandled rejection 归零
 
 - 日期：2026-11-10
-- 分支：`main`，基线 HEAD `070303a9`（P3 收口交接）
+- 分支：`main`，基线 HEAD `824c1a30`（P3 收口交接）
 - 版本：仍为 **3.13.5**（本轮是 lint / 健壮性改动，不动版本号）
 - 品牌：**Alpha File Manager**（未改）
 - 受保护常量（mDNS 服务名、legacy 数据目录名、Tauri `identifier`）：**未改**
@@ -152,7 +152,7 @@
 - **未被截图覆盖的界面**：compare-sync 弹窗、file-lock 弹窗、settings 子分类
   （mcp-server / connection-form / trusted-hosts）、quick-access hover 面板 —— 这些只有静态分析结论
   （template/script 逐字节未变 + CSS 层叠等价），没有像素证据。
-- **未 push**：`2ab78e1b`、`070303a9` 及本轮提交全部只在本地，推送需明确授权。
+- **未 push**：`76222651`、`824c1a30` 及本轮提交全部只在本地，推送需明确授权。
 
 ---
 

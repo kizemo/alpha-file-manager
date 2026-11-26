@@ -402,7 +402,7 @@ Spike 完成后必须交付:
 
 1. **绝对不要**跳过 spike 直接开始完整实现(违反 brainstorming 共识)
 2. **绝对不要**扩展 / cherry-pick / release `feat/dialog-focus-sync` 分支(死代码,反例保留)
-3. **绝对不要**rebase / squash `feat/tree-sidebar-v6-1` 分支(稳定已发布,HEAD 8caf14ae)
+3. **绝对不要**rebase / squash `feat/tree-sidebar-v6-1` 分支(稳定已发布,HEAD 87b7d7fe)
 4. **绝对不要**走 DLL 注入方案 B(杀软风险 + EV 证书 + WDAC 拒绝,商业软件护城河)
 5. **绝对不要**让 spike binary 进 upstream PR(spike 是 meta-repo 内部验证工具)
 6. **绝对不要**spike 覆盖率 < 70% 时降门槛通过(按 §3.3 承认不可行,README 增加限制说明)

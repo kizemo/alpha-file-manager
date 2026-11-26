@@ -41,22 +41,22 @@
 
 ## §2 当前 git 状态（本轮结束时）
 
-**主仓**：HEAD = `0f64f0d7`，工作树干净。
+**主仓**：HEAD = `057cabe9`，工作树干净。
 
-⚠️ **本地 9 个 commit 尚未 push**，`origin/main` 仍停在 `e6ca8afb`：
+⚠️ **本地 9 个 commit 尚未 push**，`origin/main` 仍停在 `fb387a44`：
 
 ```
-2fc908c5 → 2070f03b → cab049a6 → 174f1cd7 → 035662e2
-        → 11675643 → 3cfaab77 → 0fea5ab6 → 0f64f0d7
+a75ff895 → 671e82d8 → 7808ffcc → fff1697f → 7a44aa07
+        → f5ead165 → af9136ec → 337e5e81 → 057cabe9
 ```
 
 其中关键三个：
 
 | commit | 内容 |
 |---|---|
-| `11675643` | 任务 4 修复：`file-browser-actions-menu.vue` 补上从未渲染的 `open-containing-directory` 菜单项 + 3 条单测 |
-| `0fea5ab6` | `fix(release)`：发布脚本不再覆盖已发布资产，内容不同则隔离到 `release/local-builds/`；新增 `scripts/verify-publish-bundle-quarantine.mjs` 与 `npm run verify:publish-quarantine` |
-| `0f64f0d7` | 本文的前身文档补 §12 |
+| `f5ead165` | 任务 4 修复：`file-browser-actions-menu.vue` 补上从未渲染的 `open-containing-directory` 菜单项 + 3 条单测 |
+| `337e5e81` | `fix(release)`：发布脚本不再覆盖已发布资产，内容不同则隔离到 `release/local-builds/`；新增 `scripts/verify-publish-bundle-quarantine.mjs` 与 `npm run verify:publish-quarantine` |
+| `057cabe9` | 本文的前身文档补 §12 |
 
 **外层仓**：HEAD = `54a8f52`（`AGENTS.md` 新增 4 条坑），**同样未 push**。外层仓还有未跟踪文件（`docs/SFM-EXTENSION-DEVELOPMENT-GUIDE.md`、`docs/blog/`、`docs/marketing/`、`vt3.txt`），**本轮未动，也不要顺手提交**。
 
@@ -223,7 +223,7 @@ v2 验收脚本 `.superpowers\sdd\task3-search-accept-20261102-v2.ps1` 于 13:42
 1. 「关于」页里保留同等可达性（一个能点开 changelog 对话框的条目），文案沿用现有 i18n 键，**不要硬编码中文**
 2. 「常规」页移除该条目后，`general/index.vue` 的 import 与注册要一起清掉，别留死代码（eslint 会报 unused）
 3. 17 个语言包（`src\localization\messages\**`）里 `whatsNew` 搜索关键词的**归属分类**要跟着搬
-4. **补单测**：断言「关于」页渲染出该入口、「常规」页不再渲染。参考本轮 `11675643` 的写法（3 条单测 + 负对照）
+4. **补单测**：断言「关于」页渲染出该入口、「常规」页不再渲染。参考本轮 `f5ead165` 的写法（3 条单测 + 负对照）
 5. 门禁：`npm run ts` = 0、改动文件 eslint = 0、`npm run test:unit:run -- <files>` 全绿、stylelint 只允许 OLD 违规
 
 ### 任务 B：发版 3.9.2
@@ -261,7 +261,7 @@ v2 验收脚本 `.superpowers\sdd\task3-search-accept-20261102-v2.ps1` 于 13:42
   `npm run release:prepare` → `release:upload` → `release:verify` → `release:github` → `release:status`
 - `release:prepare` 用 `latestInstaller()` 的 sha256 写 `SITE_DIR/version.json`；
   `release:github` 的上传源是 **`SITE_DIR/Alpha_File_Manager_<ver>_x64-setup.exe`**（**不是 `release/`**）
-- ⚠️ `latestInstaller()` 在 `0fea5ab6` 之后**也会扫 `release/local-builds/`**
+- ⚠️ `latestInstaller()` 在 `337e5e81` 之后**也会扫 `release/local-builds/`**
 - ⚠️ **命名口径**：官方资产用**下划线**（`Alpha_File_Manager_<ver>_x64-setup.exe`），`release/` 本地镜像用**空格**（`Alpha File Manager_<ver>_x64-setup.exe`）
 - 🚨 **`docs\handoff-2026-10-22-delete-progress-and-installer-log.md:251-256` 记录过：`www.aiec.fun` 从这台机器上不可达**（`app updater: primary source aiec.fun failed`）。
   ⇒ **上传前必须先预检可达性**（`Invoke-WebRequest -Method Head https://www.aiec.fun/alpha-file-manager/version.json`）。
@@ -363,8 +363,8 @@ v2 验收脚本 `.superpowers\sdd\task3-search-accept-20261102-v2.ps1` 于 13:42
 
 | 任务 | 状态 | 结果 |
 |---|---|---|
-| A 「新功能」迁到「关于」页 | ✅ | commit `41d03516`。`whats-new.vue` 整条目平移到 `src/modules/settings/ui/categories/about/`，store 里 `category:'about'`、排在 `aboutInfo` 之后；新增单测 6 条全绿 + 负对照（改回 `general` → 2 条红 → 还原）；17 个语言包未动 |
-| B 发版 3.9.2 | ✅ | commit `8b0d8cd0` + 轻量 tag `v3.9.2`（已推 origin）；**含一次缺陷修复后的同版本重发**，见下 |
+| A 「新功能」迁到「关于」页 | ✅ | commit `912c20c1`。`whats-new.vue` 整条目平移到 `src/modules/settings/ui/categories/about/`，store 里 `category:'about'`、排在 `aboutInfo` 之后；新增单测 6 条全绿 + 负对照（改回 `general` → 2 条红 → 还原）；17 个语言包未动 |
+| B 发版 3.9.2 | ✅ | commit `8fd03c97` + 轻量 tag `v3.9.2`（已推 origin）；**含一次缺陷修复后的同版本重发**，见下 |
 | C 清理旧打包文件 | ✅ | 47 个旧安装包移出 `release/`；`src-tauri/target/debug`（69.74 GiB）整体迁出。**F: 净释放 62.3 GB**（74.3 → 136.60 GB），E: 暂存区再**回收 70.79 GB**（1,315 → 1,385.86 GB） |
 | D 任务 3 查询侧计时 | ✅ | 真机取到 `total=21ms`（index_open 0 / collect 18 / materialize 3，191 万文档）→ **查询侧不是瓶颈，不写修复代码**；瓶颈在扫描侧（4 轮 12.2–12.5 分钟/轮） |
 

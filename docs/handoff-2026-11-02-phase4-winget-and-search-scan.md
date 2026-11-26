@@ -63,8 +63,8 @@ sha256 fb9d4708ff1a6d3d0accaf41a3de44a31d8c3ee6b5a5b9cc6317f1b658d90428
 
 ### 2.2 仓库
 
-- HEAD = `959312dd`，`main` 已推 origin；tag `v3.9.2` → `8b0d8cd0`
-- 最近三个 commit：`959312dd` docs(handoff) / `8b0d8cd0` release: 发版 3.9.2 / `41d03516` feat(settings): 「新功能」条目迁移
+- HEAD = `abc575aa`，`main` 已推 origin；tag `v3.9.2` → `8fd03c97`
+- 最近三个 commit：`abc575aa` docs(handoff) / `8fd03c97` release: 发版 3.9.2 / `912c20c1` feat(settings): 「新功能」条目迁移
 - 工作树只剩**用户自己的**两个未提交文档改动：`docs\handoff-2026-11-01-relay-four-tasks.md`、`docs\winget-cla-signing-guide.md`
   ⇒ **不要顺手提交、不要改写它们**。
 
@@ -98,8 +98,8 @@ manifest 登记的是 **3.9.1**（`InstallerUrl` 指向 `v3.9.1`，`InstallerSha
 
 | 任务 | 结果 |
 |---|---|
-| A 「新功能」迁到「关于」页 | commit `41d03516`。`whats-new.vue` 整条目平移到 `src\modules\settings\ui\categories\about\`，store 里 `category:'about'`、排在 `aboutInfo` 之后；新增单测 6 条全绿 + 负对照（改回 `general` → 2 条红 → 还原）；17 个语言包未动 |
-| B 发版 3.9.2 | commit `8b0d8cd0` + tag `v3.9.2`（已推 origin）。**含一次缺陷修复后的同版本重发**（见 §5.1） |
+| A 「新功能」迁到「关于」页 | commit `912c20c1`。`whats-new.vue` 整条目平移到 `src\modules\settings\ui\categories\about\`，store 里 `category:'about'`、排在 `aboutInfo` 之后；新增单测 6 条全绿 + 负对照（改回 `general` → 2 条红 → 还原）；17 个语言包未动 |
+| B 发版 3.9.2 | commit `8fd03c97` + tag `v3.9.2`（已推 origin）。**含一次缺陷修复后的同版本重发**（见 §5.1） |
 | C 清理旧打包文件 | 47 个旧安装包移出 `release/`；`target\debug`（69.74 GiB）整体迁出并永久清除。F: +62.3 GB，E: +70.79 GB |
 | D 任务 3 查询侧计时 | 真机取到 `total=21ms`（index_open 0 / collect 18 / materialize 3，191 万文档）⇒ **查询侧不是瓶颈，不写修复代码** |
 

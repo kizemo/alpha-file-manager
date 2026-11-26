@@ -17,7 +17,7 @@
 | 是否有 bug | **查出并已修 5 条**，3 条归为清理项未修 | 见 §4 |
 | 站点是否已发 3.13.5 | **已生效** | `release:verify` 退出码 0，源站 + 边缘 sha256 全一致 |
 | GitHub release | **已创建** | https://github.com/kizemo/alpha-file-manager/releases/tag/v3.13.5 |
-| git tag `v3.13.5` | **已打并推送**，落 `778c3455` | `git rev-parse 'v3.13.5^{commit}'` = `778c3455…` |
+| git tag `v3.13.5` | **已打并推送**，落 `b01cb0f1` | `git rev-parse 'v3.13.5^{commit}'` = `b01cb0f1…` |
 | main 是否推送 | **已推送** | `origin/main...main` 同步，0 ahead |
 | 真机装机验收 | **未做** | 见 §6「未验证」 |
 
@@ -62,9 +62,9 @@ sha256 `c5b09252c42f7d1b078623c0c0855c06eda316bb6d1d536f8bbd19556e888502`。
 
 ## 4. verifier 只读复核：判 FAIL，本轮修了 5 条
 
-复核范围：当时 8 个未推送提交（`c56b029f`..`1b620000` 一带）。
+复核范围：当时 8 个未推送提交（`b8df23bb`..`c440ef56` 一带）。
 
-### 已修（全部在 `778c3455`，8 files / +622 / −81）
+### 已修（全部在 `b01cb0f1`，8 files / +622 / −81）
 
 1. **（高危）安装器顺序断言误绿** —— `src-tauri/installer/__tests__/focus-sync-standalone-installer.test.ts:120-128`
    原来用「子串在全文中的位置」判先后，换行/缩进一变就能假通过。改为正则
@@ -122,7 +122,7 @@ npm run release:github -- --tag v3.13.5
 
 # 7) 推 main 与 tag（tag 必须落在实际发版提交上）
 git -C F:\soft\00selfmade\filemanager\sigma-file-manager push origin main
-git -C F:\soft\00selfmade\filemanager\sigma-file-manager tag -a v3.13.5 778c3455 -m "Alpha File Manager v3.13.5"
+git -C F:\soft\00selfmade\filemanager\sigma-file-manager tag -a v3.13.5 b01cb0f1 -m "Alpha File Manager v3.13.5"
 git -C F:\soft\00selfmade\filemanager\sigma-file-manager push origin v3.13.5
 ```
 

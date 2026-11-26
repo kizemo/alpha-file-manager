@@ -6,7 +6,7 @@
 - 文档生成时间：2026-10-15 22:55（会话 `mvs_607b7d02d3514c8fbebb5d2c7ed40a73`）
 - 最后更新：2026-10-16 00:05，补完 small 档真机取证 + 记录本轮新踩的坑
 - 仓库：`F:\soft\00selfmade\filemanager\sigma-file-manager`
-- 分支 / HEAD：`main` @ `6b85e2b7`，**已发版 3.1.2**（工作已由用户提交 `99bba3d2` + `6b85e2b7` 并推到 `origin/main`）
+- 分支 / HEAD：`main` @ `21f0e68f`，**已发版 3.1.2**（工作已由用户提交 `81fdcabb` + `21f0e68f` 并推到 `origin/main`）
 
 ---
 

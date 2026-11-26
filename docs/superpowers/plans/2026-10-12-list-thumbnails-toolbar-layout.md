@@ -8,7 +8,7 @@
 
 **Tech Stack:** Vue 3 `<script setup>`、TypeScript、Pinia、vue-i18n、Vitest、@vue/test-utils、Tauri 2
 
-**设计依据：** `docs/superpowers/specs/2026-10-12-list-thumbnails-toolbar-layout-design.md`（commit `af86ba60`）
+**设计依据：** `docs/superpowers/specs/2026-10-12-list-thumbnails-toolbar-layout-design.md`（commit `9c3726c3`）
 
 ---
 
@@ -670,7 +670,7 @@ git commit -m "feat(navigator): 列表视图接入缩略图（上游 #231）"
 
 - [ ] **Step 1: 确认现有可复用件**
 
-本 Task 全部依赖该文件**已有**的实现，动手前先确认它们仍在（行号基于 `af86ba60`）：
+本 Task 全部依赖该文件**已有**的实现，动手前先确认它们仍在（行号基于 `9c3726c3`）：
 
 | 已有件 | 位置 | 内容 |
 |---|---|---|

@@ -199,7 +199,7 @@
 ### 5.4 upstream 同步剩余两项
 
 现状（2026-10-24 21:xx 实测 `git -c http.proxy= fetch upstream main`）：
-merge-base `fed49cee`，AFM **领先 280**，**落后 23**，upstream head `2b8bed43`。
+merge-base `4d788321`，AFM **领先 280**，**落后 23**，upstream head `ee5311c2`。
 
 23 个 upstream commit 里 10 个已无合并价值（SSRF 修复、扩展隔离加固、扩展主流程测试、
 Shift+方向键连选、双击标题栏最大化、全屏后窗口状态恢复、SMB 移入回收站前确认、
@@ -207,10 +207,10 @@ e2e 全新 Windows profile、e2e 临时数据目录隔离、隔离目录删除�
 
 **真正还没落地的只有两项**：
 1. **CI 的 `e2e-windows` job + e2e 残留数据检查**（upstream 一串 e2e commit：
-   `b42aa683` / `979d6e2c` / `8908e214` / `1305d81d` / `7f9ebf2b` / `2b8bed43` / `e00011fd` / `5b6cab44` / `4b0a2419`）。
+   `958e6ac1` / `d97af4e1` / `f69c5535` / `83a354f3` / `510a8e40` / `ee5311c2` / `ca96f212` / `cf9d1924` / `0cc20431`）。
    我们**已有全套 e2e 脚本**，但 `F:\soft\00selfmade\filemanager\sigma-file-manager\.github\workflows\ci.yml` 里
    **完全没有 e2e job**。这是两块拼图：移植 upstream 的 e2e 脚本 + 往 ci.yml 加 job。
-2. **locale JSON 末尾换行**（upstream `a4d4f4f1`）—— 我们的
+2. **locale JSON 末尾换行**（upstream `09bea502`）—— 我们的
    `F:\soft\00selfmade\filemanager\sigma-file-manager\scripts\sync-i18n.js` 会把末尾换行写掉，
    要改脚本而不是改 17 个文件。
 
@@ -355,4 +355,4 @@ cd 'F:\soft\00selfmade\filemanager\sigma-file-manager'; npx vitest run; npx esli
 
 ---
 
-*对应内层提交：`02a6650b` / `fad47ee6` / `db7abc76`；外层提交：`19a9c23` / `24472cf` / `4873cd7`*
+*对应内层提交：`fdd38dff` / `0931b3f9` / `7fd88f2a`；外层提交：`19a9c23` / `24472cf` / `4873cd7`*

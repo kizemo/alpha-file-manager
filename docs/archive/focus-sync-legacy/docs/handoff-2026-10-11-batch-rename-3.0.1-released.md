@@ -10,7 +10,7 @@
 | 文档仓（本文件所在地） | `F:\soft\00selfmade\filemanager\docs\` | `kizemo/focus-sync.git`（仓库名是历史遗留，内容已是 Alpha File Manager 文档） |
 | 站点源（**不在任何 git 仓内**） | `E:\办公文件\L1网站\alpha-file-manager\` | 无 |
 
-- 代码仓当前状态：分支 `main`，HEAD `711fb7cd`，**与 `origin/main` 同步**，工作区仅剩未跟踪的 `_notes.md`（发版说明草稿，按惯例不入库）。
+- 代码仓当前状态：分支 `main`，HEAD `c4bc1b77`，**与 `origin/main` 同步**，工作区仅剩未跟踪的 `_notes.md`（发版说明草稿，按惯例不入库）。
 - 项目硬约定见 `F:\soft\00selfmade\filemanager\AGENTS.md`（输出语言、最小化修改原则、受保护常量）。**新会话第一件事就读它。**
 
 ---
@@ -23,9 +23,9 @@
 2. **i18n** —— 新增 81 个 `batchRename.*` key，17 个语言包对齐（`ch` 中文，其余 15 个英文占位 = 已定方案 A）。新增门禁 `src/localization/__tests__/messages-key-alignment.test.ts`。
 3. **前端** —— 新建对话框、历史面板、composable、类型；纯追加接线到右键菜单、选中态、对话框状态机。
 4. **用户实测反馈 5 个问题，全部修复**（见 §4.1）。
-5. **发 3.0.0**（commit `7b6514fc`）。
+5. **发 3.0.0**（commit `3a83fcbe`）。
 6. **实测兑换循环/冲突阻断时，查出一条数据丢失缺陷并修复**（见 §5）。
-7. **发 3.0.1**（commit `711fb7cd`）—— 当前线上版本。
+7. **发 3.0.1**（commit `c4bc1b77`）—— 当前线上版本。
 
 ### 线上现状（2026-10-11 23:05 已回读确认）
 

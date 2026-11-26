@@ -97,7 +97,7 @@ EXITCODE=0
 ## 5. Step 4 — Hook 防护(4 个)
 
 所有 hook 一律调用 **`scan-sandbox-dynamic.cjs`**(动态读取 `sandbox.ts`),
-**不使用** `scan-sandbox.cjs`(硬编码 19 条快照,已在 `ba3e5a3f` 过期)。
+**不使用** `scan-sandbox.cjs`(硬编码 19 条快照,已在 `399ea090` 过期)。
 
 ### ⚠️ 实施中发现的真实缺陷(已修)
 

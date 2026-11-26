@@ -30,7 +30,7 @@
 - **版本**：`3.9.2`，三处必须一致 —— `package.json`、`src-tauri\Cargo.toml`、`src-tauri\tauri.conf.json`（`npm run sync-version` 负责）。
 - **构建**：`npm run tauri:build`（= `sync-version` → `tauri build` → `publish-bundle-to-release.mjs`；末步只把安装包复制到 `release/`，**不上传**）。
 - **真机验收铁律**：必须用 `tauri build` 的打包产物。`tauri dev` 下**所有路由页内容区空白**，dev 上的界面结论一律作废。
-- **最近提交**：`ceff7e38 docs(handoff): 新增阶段四交接文档并更新接力 prompt`。
+- **最近提交**：`e4e516d2 docs(handoff): 新增阶段四交接文档并更新接力 prompt`。
 
 ---
 

@@ -11,11 +11,11 @@
 
 | Task | 内容 | 状态 |
 |---|---|---|
-| 2.1 | FileTreeNode / FileTreeFlatRow 类型 + 测试 | ✅ commit `9e8adbb1` |
-| 2.2 | useFileTree composable + 懒加载 + 测试 | ✅ commit `8824c576` |
-| 2.3 | FileBrowserTreeView 组件 + lucide 图标 + scoped CSS | ✅ commit `04f0abc3` |
-| 2.4 | layout 加 'tree' 选项 + file-browser-content 派发 | ✅ commit `e8f663b3` |
-| 2.5 | E2E 占位(it.skip)×2 | ✅ commit `49c2ea2e` |
+| 2.1 | FileTreeNode / FileTreeFlatRow 类型 + 测试 | ✅ commit `a94ef1cc` |
+| 2.2 | useFileTree composable + 懒加载 + 测试 | ✅ commit `973bd03d` |
+| 2.3 | FileBrowserTreeView 组件 + lucide 图标 + scoped CSS | ✅ commit `21dd04b4` |
+| 2.4 | layout 加 'tree' 选项 + file-browser-content 派发 | ✅ commit `3bca53b6` |
+| 2.5 | E2E 占位(it.skip)×2 | ✅ commit `812002bf` |
 | 2.6 | docs/FORK-KEEP-LIST.md(meta-repo) | ✅ commit `59bb23a` |
 
 ## 二、当前 git 状态

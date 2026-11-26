@@ -2,7 +2,7 @@
 
 - 日期：2026-10-20
 - 分支：`feat/remote-phase-1-connections-transport`
-- 本轮提交：`b651cb4b20edb0f2e36cfc33d25083d216f1e9a3`
+- 本轮提交：`665255d5c0eba23cc9ceea207e6653c4fc24233f`
   （`feat(navigator): 删除改成真下拉菜单 + 远程文件可删 + 列表列按路径显隐 + 「大小」表头去重`，
   53 files changed / 2038 insertions / 103 deletions）
 - 上一轮交接：[handoff-2026-10-19-remote-phase-3-transfer-permissions.md](handoff-2026-10-19-remote-phase-3-transfer-permissions.md)

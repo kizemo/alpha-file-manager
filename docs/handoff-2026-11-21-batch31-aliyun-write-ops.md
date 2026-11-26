@@ -2,8 +2,8 @@
 
 - 日期：2026-11-21
 - 仓库：`F:\soft\00selfmade\filemanager\sigma-file-manager`（sigma-file-manager / Alpha File Manager，版本 3.16.0）
-- 起点提交：`98c76fc4`（批次 30：二维码 `img` 补非空 `alt`）
-- 当前 HEAD：`db0f94da`（批次 30 证据文档归档）
+- 起点提交：`6e59909f`（批次 30：二维码 `img` 补非空 `alt`）
+- 当前 HEAD：`8dc568d5`（批次 30 证据文档归档）
 - 状态：**API 规格 100% 实测坐实 → Rust 实现完成、1576 测试全绿 → build1 打包成功 → build2（含修正后 CHANGELOG）在跑 → 沙箱 GUI 验收进行中**
 
 > 本轮所有改动**尚未 git commit**。工作区改动清单见 §7。

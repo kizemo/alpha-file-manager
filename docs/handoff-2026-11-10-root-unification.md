@@ -7,7 +7,7 @@
 
 ```
 F:\soft\00selfmade\filemanager\                  <- 外层，仅 2 个一级条目
-├─ sigma-file-manager\                          <- 唯一项目根（HEAD dadf02fc，tracked 1884）
+├─ sigma-file-manager\                          <- 唯一项目根（HEAD f6fc4aed，tracked 1884）
 └─ _trash-2026-11-10\                           <- 回收目录（75 项，含外层 .git 全量 629 文件）
 ```
 

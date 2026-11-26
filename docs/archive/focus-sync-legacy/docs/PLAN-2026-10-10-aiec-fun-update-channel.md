@@ -263,8 +263,8 @@ Alpha 未配 `webviewInstallMode`,走 Tauri 默认引导下载。双渠道的收
 
 ## 8. 与现有工作的衔接
 
-- 安装包取自 `sigma-file-manager/release/`(提交 `535c6abf` 引入的发布目录)
-- 阶段 B/C 改动 `app_updater.rs` 与 `use-app-updater.ts`,与默认设置改动(`e3e3cee8`)**无文件重叠**
+- 安装包取自 `sigma-file-manager/release/`(提交 `01863998` 引入的发布目录)
+- 阶段 B/C 改动 `app_updater.rs` 与 `use-app-updater.ts`,与默认设置改动(`21518954`)**无文件重叠**
 - 注意 `tauri.conf.json` 的 `identifier` 仍为 `com.sigma-file-manager.app`,属**受保护常量**,本任务不动
 
 ---

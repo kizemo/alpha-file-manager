@@ -46,7 +46,7 @@
 - **Source attribution required** in `sigma-listary-spike/README.md` — link to upstream repos
 - License: Apache-2.0 / MIT dual for ported files (per-file header); scaffold: project license
 - **DO NOT extend / cherry-pick / release `feat/dialog-focus-sync` branch** (dead code, counter-example only)
-- **DO NOT rebase / squash `feat/tree-sidebar-v6-1` branch** (HEAD 8caf14ae, stable, shipped)
+- **DO NOT rebase / squash `feat/tree-sidebar-v6-1` branch** (HEAD 87b7d7fe, stable, shipped)
 
 ---
 

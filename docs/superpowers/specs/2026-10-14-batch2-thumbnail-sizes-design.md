@@ -3,7 +3,7 @@
 日期：2026-10-14
 状态：待用户评审
 所属系列：六项需求分批推进 · 第二批（需求 3.6）
-起点：`rollback/batch1-merged-20261014-230005`（= main `fe23ab0f`）
+起点：`rollback/batch1-merged-20261014-230005`（= main `962f5f3f`）
 
 ---
 
@@ -236,8 +236,8 @@ export function resolveThumbnailCssVariables(size: ThumbnailSize): Record<string
 起点即回滚点：
 
 ```
-tag    rollback/batch1-merged-20261014-230005 → fe23ab0f
-分支   rollback/batch1-merged                 → fe23ab0f
+tag    rollback/batch1-merged-20261014-230005 → 962f5f3f
+分支   rollback/batch1-merged                 → 962f5f3f
 ```
 
 整批回退：`git reset --hard rollback/batch1-merged`（**注意**：该仓库有大量历史分支与
