@@ -12,6 +12,7 @@ mod remote_index;
 mod scan;
 mod scoring;
 mod state;
+mod substring_scan;
 mod types;
 
 #[allow(unused_imports)]
@@ -42,13 +43,21 @@ pub(crate) fn global_search_query_blocking(
     query::global_search_query_blocking(base_dir, query, options)
 }
 
-/// 目录内递归搜索的阻塞内核。
+/// 目录内递归搜索的阻塞内核。`base_dir` 是 app-data 目录（云盘索引存放处）。
 pub(crate) fn search_directory_recursive_blocking(
     root_path: String,
     query: String,
     max_depth: u32,
     limit: u32,
     typo_tolerance: bool,
+    base_dir: std::path::PathBuf,
 ) -> Result<Vec<GlobalSearchResultEntry>, String> {
-    query::search_directory_recursive_blocking(root_path, query, max_depth, limit, typo_tolerance)
+    query::search_directory_recursive_blocking_with_base_dir(
+        root_path,
+        query,
+        max_depth,
+        limit,
+        typo_tolerance,
+        Some(&base_dir),
+    )
 }

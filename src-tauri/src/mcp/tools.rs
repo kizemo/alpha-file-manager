@@ -300,6 +300,7 @@ impl AlphaMcpServer {
                         SEARCH_DEFAULT_DEPTH,
                         limit as u32,
                         typo_tolerance,
+                        index_base_dir,
                     )
                 })
                 .await

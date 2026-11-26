@@ -16,19 +16,20 @@ use tantivy::Term;
 use walkdir::WalkDir;
 
 use super::ignore::{builtin_ignored_paths, get_drive_root, normalize_case, IgnoredPathMatcher};
-use super::incremental::escape_regex_literal;
 use super::index::{index_dir, open_or_create_index, remote_index_dir};
 use super::remote_index::open_remote_reader;
 use super::scoring::{calculate_similarity_score, get_min_score_for_query_length};
 use super::state::{
     is_reader_idle, mark_query_activity, now_millis, GlobalSearchIndexFields, GLOBAL_SEARCH_STATE,
 };
+use super::substring_scan::{substring_query_for, SubstringScan, MAX_SUBSTRING_MATCHED_TERMS};
 use super::types::{GlobalSearchQueryOptions, GlobalSearchResultEntry};
 
 pub(super) fn build_query(
     fields: &GlobalSearchIndexFields,
     query: &str,
     options: &GlobalSearchQueryOptions,
+    substring_scan: Option<&SubstringScan>,
 ) -> Box<dyn Query> {
     let normalized = normalize_case(query);
 
@@ -90,7 +91,7 @@ pub(super) fn build_query(
     // 「具体取哪几条」由 tantivy 的文档顺序决定；最终排序仍由
     // `materialize_candidates` / `finalize_results` 按名字相似度重排。
     for word in &words {
-        if let Some(substring_query) = build_substring_query(fields, word) {
+        if let Some(substring_query) = substring_query_for(fields, word, substring_scan) {
             subqueries.push((Occur::Should, substring_query));
         }
     }
@@ -98,42 +99,22 @@ pub(super) fn build_query(
     Box::new(BooleanQuery::from(subqueries))
 }
 
-/// 「这个词作为子串出现」的查询；对纯 ASCII 词返回 `None`（见 `build_query` 注释）。
-///
-/// tantivy 0.26 的 `RegexQuery` 底层是 `tantivy-fst::Regex` —— DFA 引擎，
-/// **全匹配**语义且不支持 `^` / `$` 这类零宽断言（见 `incremental.rs:192-195`），
-/// 所以两侧的 `.*` 是必需的，不能靠锚点。
-///
-/// 靶字段必须是**未分词**的 `name_lower`，不是 `name`：
-/// `name` 走 `default` 分词器，SimpleTokenizer 按「非字母数字」切分，
-/// 所以 `Midjourney 使用心得+关键词分析.mp4` 里的 `+` 是分隔符，那一段被切成
-/// `使用心得` 与 `关键词分析` 两个 term。`.*使用心得\+关键.*` 匹配的是**单个 term**，
-/// 跨不过那个边界 ⇒ 一条候选都取不到（真机症状：查「使用心得+关键」返 0 条）。
-/// `name_lower` 是 `STRING`，整条小写文件名就是一个 term，同一个正则天然跨标点。
-///
-/// 口径一致性：needle 与 `name_lower` 都是小写（写入侧 `normalize_case` /
-/// `to_lowercase`，查询侧 `normalize_case(query)`），而 `normalize_case` 只做
-/// `trim + to_lowercase`，**不动标点** ⇒ `+` 两侧都原样保留，能对上。
-fn build_substring_query(
-    fields: &GlobalSearchIndexFields,
-    word: &str,
-) -> Option<Box<dyn Query>> {
-    if word.is_ascii() {
-        return None;
-    }
-
-    let pattern = format!(".*{}.*", escape_regex_literal(word));
-
-    match RegexQuery::from_pattern(&pattern, fields.name_lower) {
-        Ok(query) => Some(Box::new(query)),
-        Err(error) => {
-            // 转义之后理论上不会失败；真失败就退化成「只有 fuzzy」，
-            // 也就是改动前的行为，不阻断查询。
-            log::warn!("[global-search] 子串查询正则构造失败（pattern={pattern}）：{error}");
-            None
-        }
-    }
-}
+// FORK-MODIFICATION: 2026-11-26 —— W-21：CJK 子串查询从 `RegexQuery` 改成「词典扫描 + `TermSetQuery`」。
+//
+// 旧实现（原来的 `build_substring_query`）用
+// `RegexQuery::from_pattern(".*<词>.*", fields.name_lower)` 做兜底：
+//
+//   · `RegexQuery` 走 `tantivy-fst` 的 DFA，而 `.*` 前缀让自动机**接受任意前缀**
+//     ⇒ 每次检索都要把整个 term 词典逐字节走一遍（**每个 segment 各一遍**）；
+//   · 一次用户查询里这条通道要跑**两遍**（`build_query` 的 Should 分支 +
+//     W-13 的独立子串池）⇒ 全局检索端到端从 ~260ms 劣化到 ~1270ms。
+//
+// 现在改为 `super::substring_scan`：手工扫一遍 term 词典挑出命中的 term，
+// 再用 `TermSetQuery`（常量分 1.0、命中集合 = 命中 term 的 postings 并集）取回文档。
+//
+// **命中集合与旧路径逐字一致**（含「正则里的 `.` 不匹配换行」这条反直觉规则），
+// 降级路径（命中 term 数超上限 / 扫描失败）直接退回旧 `RegexQuery`。
+// 详见 `substring_scan.rs` 的模块头注释。
 
 // FORK-MODIFICATION: 2026-11-25 —— W-13「CJK 子串命中在候选池饱和时被挤出」的召回层修复。
 //
@@ -212,6 +193,7 @@ fn build_substring_only_query(
     fields: &GlobalSearchIndexFields,
     query: &str,
     options: &GlobalSearchQueryOptions,
+    substring_scan: Option<&SubstringScan>,
 ) -> Option<Box<dyn Query>> {
     if options.exact_match {
         return None;
@@ -222,7 +204,7 @@ fn build_substring_only_query(
 
     let mut subqueries: Vec<(Occur, Box<dyn Query>)> = Vec::new();
     for word in &words {
-        if let Some(substring_query) = build_substring_query(fields, word) {
+        if let Some(substring_query) = substring_query_for(fields, word, substring_scan) {
             subqueries.push((Occur::Should, substring_query));
         }
     }
@@ -247,9 +229,11 @@ fn collect_substring_candidate_addresses(
     options: &GlobalSearchQueryOptions,
     limit: usize,
     connection_filter: Option<Box<dyn Query>>,
+    substring_scan: Option<&SubstringScan>,
 ) -> Result<(Vec<tantivy::DocAddress>, usize), String> {
-    let Some(substring_query) = build_substring_only_query(fields, query, options) else {
-        return Ok((Vec::new(), 0));
+    let substring_query = match build_substring_only_query(fields, query, options, substring_scan) {
+        Some(query) => query,
+        None => return Ok((Vec::new(), 0)),
     };
 
     let query_boxed: Box<dyn Query> = match connection_filter {
@@ -340,7 +324,7 @@ fn build_exact_match_query(
     Box::new(BooleanQuery::from(subqueries))
 }
 
-fn split_query_tokens(value: &str) -> Vec<String> {
+pub(super) fn split_query_tokens(value: &str) -> Vec<String> {
     value
         .split(|character: char| {
             character.is_whitespace() || character == '.' || character == '_' || character == '-'
@@ -474,9 +458,34 @@ pub(super) fn global_search_query_blocking(
     // 同时把物化量从 10 万级压到「limit x 盘符数」级。
     let drive_count = state.status.indexed_drive_roots.len();
     let candidate_limit = candidate_limit_for(&options, drive_count);
+
+    // FORK-MODIFICATION: 2026-11-26（W-21）：**一次**词典扫描，供主查询与子串池共用。
+    //
+    // 旧路径的 `RegexQuery` 每个 segment 都要把整个 term 词典走一遍，而且主查询与
+    // W-13 的子串池各跑一遍 ⇒ 一次用户查询要走两遍全词典。新路径只扫一遍，
+    // 命中的 term 用 `TermSetQuery` 取回（常量分 1.0，命中集合不变）。
+    //
+    // `exact_match` 模式本就不建子串通道 ⇒ 连词典都不碰（`None`）。
+    let substring_scan = if options.exact_match {
+        None
+    } else {
+        Some(SubstringScan::scan(
+            &searcher,
+            &fields,
+            &query,
+            MAX_SUBSTRING_MATCHED_TERMS,
+        ))
+    };
+
     let collect_started = std::time::Instant::now();
-    let primary_candidates =
-        collect_candidate_addresses(&searcher, &fields, &query, &options, candidate_limit)?;
+    let primary_candidates = collect_candidate_addresses(
+        &searcher,
+        &fields,
+        &query,
+        &options,
+        candidate_limit,
+        substring_scan.as_ref(),
+    )?;
 
     // FORK-MODIFICATION 2026-11-25（W-13）：追加「子串候选池」。
     //
@@ -491,6 +500,7 @@ pub(super) fn global_search_query_blocking(
         &options,
         substring_candidate_limit_for(&options),
         None,
+        substring_scan.as_ref(),
     )?;
     let substring_candidate_count = substring_candidates.len();
     let candidates = merge_candidate_pools(primary_candidates, substring_candidates);
@@ -586,6 +596,18 @@ fn search_remote_index(
         return Some(Vec::new());
     }
 
+    // FORK-MODIFICATION: 2026-11-26（W-21）：云盘侧同样只扫一遍词典（口径与本地一致）。
+    let substring_scan = if options.exact_match {
+        None
+    } else {
+        Some(SubstringScan::scan(
+            &searcher,
+            &fields,
+            query,
+            MAX_SUBSTRING_MATCHED_TERMS,
+        ))
+    };
+
     let primary_candidates = match collect_remote_candidate_addresses(
         &searcher,
         &fields,
@@ -593,6 +615,9 @@ fn search_remote_index(
         options,
         candidate_limit,
         &allowed_connection_ids,
+        substring_scan.as_ref(),
+        // 全局云盘检索不限作用域（W-18 的目录作用域由 `search_remote_directory_scoped` 传入）。
+        None,
     ) {
         Ok(candidates) => candidates,
         Err(error) => {
@@ -616,6 +641,7 @@ fn search_remote_index(
         options,
         substring_candidate_limit_for(options),
         Some(build_connection_filter(&fields, &allowed_connection_ids)),
+        substring_scan.as_ref(),
     ) {
         Ok(result) => result,
         Err(error) => {
@@ -753,13 +779,29 @@ fn collect_remote_candidate_addresses(
     options: &GlobalSearchQueryOptions,
     limit: usize,
     allowed_connection_ids: &std::collections::BTreeSet<String>,
+    substring_scan: Option<&SubstringScan>,
+    // FORK-MODIFICATION 批次 59（W-18）：目录作用域（`path` 前缀正则，全匹配语义）。
+    // `None` = 不限作用域，即原有的全局云盘检索，行为完全不变。
+    path_scope: Option<&str>,
 ) -> Result<Vec<tantivy::DocAddress>, String> {
-    let text_query = build_query(fields, query, options);
+    let text_query = build_query(fields, query, options, substring_scan);
     let connection_filter = build_connection_filter(fields, allowed_connection_ids);
+
+    let scoped_filter: Box<dyn Query> = match path_scope {
+        None => connection_filter,
+        Some(scope) => {
+            let scope_query = RegexQuery::from_pattern(scope, fields.path)
+                .map_err(|error| format!("云盘目录作用域正则无效（{scope}）：{error}"))?;
+            Box::new(BooleanQuery::new(vec![
+                (Occur::Must, connection_filter),
+                (Occur::Must, Box::new(scope_query) as Box<dyn Query>),
+            ]))
+        }
+    };
 
     let query_boxed: Box<dyn Query> = Box::new(BooleanQuery::new(vec![
         (Occur::Must, text_query),
-        (Occur::Must, connection_filter),
+        (Occur::Must, scoped_filter),
     ]));
 
     let top_docs = searcher
@@ -1009,8 +1051,9 @@ fn collect_candidate_addresses(
     query: &str,
     options: &GlobalSearchQueryOptions,
     limit: usize,
+    substring_scan: Option<&SubstringScan>,
 ) -> Result<Vec<tantivy::DocAddress>, String> {
-    let query_boxed = build_query(fields, query, options);
+    let query_boxed = build_query(fields, query, options, substring_scan);
     let top_docs = searcher
         .search(&query_boxed, &TopDocs::with_limit(limit).order_by_score())
         .map_err(|error| error.to_string())?;
@@ -1267,12 +1310,195 @@ fn should_include_recursive_entry(
 // 所以这里取一个明显更松的值。
 const TYPO_TOLERANCE_COEFFICIENT_THRESHOLD: f32 = 0.7;
 
+/// FORK-MODIFICATION 批次 59（W-18）：云盘目录作用域 → `path` 字段的前缀正则。
+///
+/// 索引里 `path` 是 raw STRING（整条路径 = 一个 term），tantivy-fst 的正则是
+/// **整串全匹配**（`^(re)$`），所以不能只写 `root/.*` 期望它当子串用 —— 必须把
+/// 「后续若干段」显式写进模式里。
+///
+/// 深度上界换算成路径段数：本地走 `WalkDir::max_depth(n)`，即 root 之下最多 n 层，
+/// 对应这里 n 个 `/[^/]+`。段数用 `[^/]+` 而不是 `.*`，是为了让 `.` 不吃掉 `/`，
+/// 一层就是一层。`max_depth` 夹在 1..=8：8 层以上的显式析取分支只是让正则变大，
+/// 对递归检索没有实际意义（真实网盘目录极少这么深），封顶是为了给词典遍历一个上界。
+fn scoped_path_pattern(root: &str, max_depth: u32) -> String {
+    let normalized = super::incremental::normalize_index_path(root);
+    let escaped = super::incremental::escape_regex_literal(normalized.trim_end_matches('/'));
+    let depth = (max_depth as usize).clamp(1, 8);
+
+    let mut branches: Vec<String> = Vec::with_capacity(depth);
+    let mut segments = String::new();
+    for _ in 0..depth {
+        segments.push_str("/[^/]+");
+        branches.push(format!("{escaped}{segments}"));
+    }
+
+    format!("(?s)({})", branches.join("|"))
+}
+
+/// FORK-MODIFICATION 批次 59（W-18）：**云盘目录作用域的递归检索**。
+///
+/// 批次 55 只做到「把静默的空结果改成明确报错」，本函数补上真正的新功能。
+/// 路线已由用户拍板：**走云盘索引**，不实时调网盘 API。
+///
+/// 为什么不走实时遍历：一次目录列举一个 API 调用，递归检索就是每层一次，
+/// 前端每次按键都会放大成几十次配额消耗（百度侧还有 QPS 限制），
+/// 而云盘索引已经在 `global_search/remote_index.rs` 里躺着了。
+/// 代价如实登记在台账：**只覆盖已建索引的连接**，且百度侧索引条数封顶 20,000，
+/// 深目录可能「搜到一半」。
+///
+/// 命中口径 = 名称匹配 ∩ 路径作用域 ∩ 当前勾选的连接，三者都是 `Occur::Must`：
+///
+/// - 作用域过滤落在**索引层**，不是物化后再筛 —— 沿用 O-1 的结论，
+///   后筛会让作用域外的目录条目先把候选预算吃光；
+/// - 连接过滤沿用 `build_connection_filter`，所以「取消勾选立刻搜不到」在这里同样成立。
+///
+/// 分数语义不变：`min_score` 门槛作用在 Rust 侧按 `name` 重算的 `name_score` 上
+/// （见 `materialize_candidates`），前缀子句只给同目录候选加同一个常量偏移，
+/// 动的是 top-N 的取回顺序，不是门槛 —— 所以加 `Must` 不会让结果被误杀。
+///
+/// 「没有索引」「连接没勾选」与「索引里没有匹配」必须分清：前两者是 `Err`，
+/// 后者是 `Ok(空)`。云盘侧一律从索引的 STORED 字段取元数据，
+/// **不得** `std::fs::metadata`（那会逐条打网盘 API 烧配额）。
+fn search_remote_directory_scoped(
+    root_path: &str,
+    query: &str,
+    max_depth: u32,
+    limit: u32,
+    typo_tolerance: bool,
+    base_dir: Option<&Path>,
+) -> Result<Vec<GlobalSearchResultEntry>, String> {
+    let Some(parsed) = crate::remote::parse_remote_path(root_path) else {
+        return Err(format!(
+            "云盘目录递归检索失败（{root_path}）：路径格式不合法，\
+             期望 sfm://remote/<连接id>/<目录路径>"
+        ));
+    };
+
+    let Some(base_dir) = base_dir else {
+        return Err(format!(
+            "云盘目录递归检索失败（{root_path}）：调用方没有提供索引目录（base_dir），\
+             无法定位云盘索引。"
+        ));
+    };
+
+    let index_path = remote_index_dir(base_dir);
+    let Some((reader, fields)) = open_remote_reader(&index_path) else {
+        return Err(format!(
+            "云盘目录递归检索失败（{root_path}）：云盘索引尚未建立（{}/remote-index 缺失或 schema 不匹配）。\
+             请先在设置里勾选该连接的「加入全局检索」并等待索引建完，\
+             或改用 list_directory 逐层列举。",
+            base_dir.display()
+        ));
+    };
+
+    let user_data_dir = super::remote_index::user_data_dir_in(base_dir);
+    let allowed_connection_ids = super::remote_index::enabled_connection_ids(&user_data_dir);
+    if !allowed_connection_ids.contains(&parsed.connection_id) {
+        return Err(format!(
+            "云盘目录递归检索失败（{root_path}）：该连接当前没有勾选「加入全局检索」，\
+             索引层不可见。请先在设置的云盘连接里勾选它。"
+        ));
+    }
+
+    let effective_limit = limit.max(1) as usize;
+    // 口径与本地递归一致：文件与目录都收，不做精确匹配，min_score 走按查询长度分档的默认值。
+    let options = GlobalSearchQueryOptions {
+        limit: effective_limit,
+        include_files: true,
+        include_directories: true,
+        exact_match: false,
+        typo_tolerance,
+        min_score_threshold: None,
+    };
+    let normalized_query = normalize_case(query);
+    let scope = scoped_path_pattern(root_path, max_depth);
+
+    let searcher = reader.searcher();
+    // 与本地递归一致：候选池比最终窗口宽，物化层还要按 name 重算分数并过 min_score。
+    let candidate_limit = effective_limit.saturating_mul(4).max(200);
+
+    let substring_scan = if options.exact_match {
+        None
+    } else {
+        Some(SubstringScan::scan(
+            &searcher,
+            &fields,
+            query,
+            MAX_SUBSTRING_MATCHED_TERMS,
+        ))
+    };
+
+    let scope_filter: Box<dyn Query> = Box::new(
+        RegexQuery::from_pattern(&scope, fields.path)
+            .map_err(|error| format!("云盘目录作用域正则无效（{scope}）：{error}"))?,
+    );
+
+    let primary_candidates = collect_remote_candidate_addresses(
+        &searcher,
+        &fields,
+        query,
+        &options,
+        candidate_limit,
+        &allowed_connection_ids,
+        substring_scan.as_ref(),
+        Some(&scope),
+    )?;
+
+    // 子串候选池（W-13）：这里直接复用它的过滤器入参，把「勾选集合 ∩ 作用域」
+    // 合成一个 Must 子句传进去，不再改它的签名。
+    let connection_filter = build_connection_filter(&fields, &allowed_connection_ids);
+    let scoped_connection_filter: Box<dyn Query> = Box::new(BooleanQuery::new(vec![
+        (Occur::Must, connection_filter),
+        (Occur::Must, scope_filter),
+    ]));
+    let (substring_candidates, _) = collect_substring_candidate_addresses(
+        &searcher,
+        &fields,
+        query,
+        &options,
+        candidate_limit,
+        Some(scoped_connection_filter),
+        substring_scan.as_ref(),
+    )?;
+
+    let candidates = merge_candidate_pools(primary_candidates, substring_candidates);
+    let (mut results, _) =
+        materialize_candidates(&searcher, &fields, &options, &normalized_query, &candidates);
+
+    order_remote_hits(&mut results);
+    results.truncate(effective_limit);
+    Ok(results)
+}
+
+/// 批次 55 的 5 参入口，仅供既有测试与「拿不到 app-data 目录」的旧链路使用：
+/// `base_dir = None`，因此云盘路径会退回明确报错（绝不静默给空结果）。
+/// 生产入口一律走 `search_directory_recursive_blocking_with_base_dir`。
+#[cfg(test)]
 pub(super) fn search_directory_recursive_blocking(
     root_path: String,
     query: String,
     max_depth: u32,
     limit: u32,
     typo_tolerance: bool,
+) -> Result<Vec<GlobalSearchResultEntry>, String> {
+    search_directory_recursive_blocking_with_base_dir(
+        root_path,
+        query,
+        max_depth,
+        limit,
+        typo_tolerance,
+        None,
+    )
+}
+
+/// 目录内递归检索。`base_dir` 为 app-data 目录，云盘作用域检索需要它。
+pub(super) fn search_directory_recursive_blocking_with_base_dir(
+    root_path: String,
+    query: String,
+    max_depth: u32,
+    limit: u32,
+    typo_tolerance: bool,
+    base_dir: Option<&Path>,
 ) -> Result<Vec<GlobalSearchResultEntry>, String> {
     let root = PathBuf::from(&root_path);
 
@@ -1283,15 +1509,19 @@ pub(super) fn search_directory_recursive_blocking(
     // 「这个通道不支持云盘」误读成「这个目录里没有匹配的文件」，
     // 拿到一个**看起来正常、实际是假**的空结果。
     //
-    // 现在改成明确报错，把「不支持」与「没有匹配」区分开。
-    // 修的是「静默给错答案」，不是「给云盘加递归检索」——
-    // 后者是新功能（走索引还是走实时遍历、每次按键烧多少 API 配额），
-    // 取舍待定，见台账 W-18。
+    // 批次 55 先改成明确报错，把「不支持」与「没有匹配」区分开。
+    // FORK-MODIFICATION 批次 59（W-18）：进一步接上真正的云盘递归检索 ——
+    // 走云盘索引（不实时打网盘 API），命中口径 = 名称 ∩ 路径作用域 ∩ 勾选连接。
+    // 拿不到 base_dir 时仍然退回明确报错，绝不静默给空结果。
     if crate::remote::is_remote_path(&root_path) {
-        return Err(format!(
-            "云盘目录暂不支持递归检索（{root_path}）：该通道只遍历本地磁盘。\
-             云盘文件请省略目录参数走全局索引检索，或用 list_directory 逐层列举。"
-        ));
+        return search_remote_directory_scoped(
+            &root_path,
+            &query,
+            max_depth,
+            limit,
+            typo_tolerance,
+            base_dir,
+        );
     }
 
     if !root.is_dir() {
@@ -1468,13 +1698,21 @@ pub async fn search_directory_recursive(
     max_depth: u32,
     limit: u32,
     typo_tolerance: bool,
+    base_dir: std::path::PathBuf,
 ) -> Result<Vec<GlobalSearchResultEntry>, String> {
     if root_path.trim().is_empty() {
         return Ok(Vec::new());
     }
 
     tauri::async_runtime::spawn_blocking(move || {
-        search_directory_recursive_blocking(root_path, query, max_depth, limit, typo_tolerance)
+        search_directory_recursive_blocking_with_base_dir(
+            root_path,
+            query,
+            max_depth,
+            limit,
+            typo_tolerance,
+            Some(&base_dir),
+        )
     })
     .await
     .map_err(|join_error| format!("Directory recursive search task failed: {join_error}"))?
@@ -1590,6 +1828,15 @@ mod tests {
     use crate::global_search::index::build_schema;
     use tantivy::doc;
 
+    /// W-21：跑一次词典扫描（新路径的测试入口）。
+    fn scan_for(
+        searcher: &tantivy::Searcher,
+        fields: &GlobalSearchIndexFields,
+        query_text: &str,
+    ) -> SubstringScan {
+        SubstringScan::scan(searcher, fields, query_text, MAX_SUBSTRING_MATCHED_TERMS)
+    }
+
     fn create_options(exact_match: bool) -> GlobalSearchQueryOptions {
         GlobalSearchQueryOptions {
             limit: 10,
@@ -1628,7 +1875,13 @@ mod tests {
 
         let reader = index.reader().unwrap();
         let searcher = reader.searcher();
-        let query = build_query(&fields, query_text, &create_options(exact_match));
+        let substring_scan = scan_for(&searcher, &fields, query_text);
+        let query = build_query(
+            &fields,
+            query_text,
+            &create_options(exact_match),
+            Some(&substring_scan),
+        );
         let top_docs = searcher
             .search(&query, &TopDocs::with_limit(10).order_by_score())
             .unwrap();
@@ -1690,6 +1943,7 @@ mod tests {
     //      `materialize_candidates` 二次过滤，等于没修。
     mod cjk_substring {
         use super::*;
+        use crate::global_search::incremental::escape_regex_literal;
 
         /// 与用户实测同形的夹具：CJK 连续串、中间没有分隔符。
         ///
@@ -1732,7 +1986,13 @@ mod tests {
             let (index, fields) = build_fixture_index();
             let reader = index.reader().unwrap();
             let searcher = reader.searcher();
-            let query = build_query(&fields, query_text, &create_options(false));
+            let substring_scan = scan_for(&searcher, &fields, query_text);
+            let query = build_query(
+                &fields,
+                query_text,
+                &create_options(false),
+                Some(&substring_scan),
+            );
 
             searcher
                 .search(&query, &TopDocs::with_limit(50).order_by_score())
@@ -1834,16 +2094,318 @@ mod tests {
         fn substring_query_is_built_only_for_non_ascii_words() {
             let (_schema, fields) = build_schema();
 
-            assert!(build_substring_query(&fields, "report").is_none());
-            assert!(build_substring_query(&fields, "meeting-notes").is_none());
-            assert!(build_substring_query(&fields, "技巧").is_some());
-            assert!(build_substring_query(&fields, "研").is_some());
+            // `None` 扫描 = 没有扫描结果 ⇒ 非 ASCII 词退回旧正则路径；
+            // 纯 ASCII 词仍然**没有**子串通道（与改动前一致）。
+            assert!(substring_query_for(&fields, "report", None).is_none());
+            assert!(substring_query_for(&fields, "meeting-notes", None).is_none());
+            assert!(substring_query_for(&fields, "技巧", None).is_some());
+            assert!(substring_query_for(&fields, "研", None).is_some());
         }
 
         #[test]
         fn regex_metacharacters_in_the_word_are_escaped() {
             // 名字里带 `.` `*` 时不能把正则语义改掉，否则命中范围会跑偏。
             assert_eq!(escape_regex_literal("a.b*c"), r"a\.b\*c");
+        }
+    }
+
+    /// W-21 差分守门：**最终可见结果**（top-N 的顺序与分数）必须与旧路径逐字一致。
+    ///
+    /// 旧路径 = `build_query(..., None)`（没有扫描结果 ⇒ 非 ASCII 词退回旧 `RegexQuery`）；
+    /// 新路径 = `build_query(..., Some(&scan))`（词典扫描 + `TermSetQuery`）。
+    ///
+    /// 两条路径的子串通道都是**常量分 1.0**：`RegexQuery` 与 `TermSetQuery` 都走
+    /// `AutomatonWeight` ⇒ `ConstScorer::new(doc_bitset, boost)`（boost = 1.0，见
+    /// tantivy-0.26.2 `src/query/automaton_weight.rs:109` 与
+    /// `src/query/set_query.rs:57-67`）⇒ 整条查询的分数也必须完全一致。
+    /// 只要评分口径有一处不同（例如 `TermSetQuery` 内层 BooleanWeight 的求和口径），
+    /// 这条测试就会红。
+    #[test]
+    fn new_substring_path_keeps_the_same_top_n_order_and_scores() {
+        let names = [
+            "2024年用户调研技巧汇总.docx",
+            "Midjourney 使用心得+关键词分析.mp4",
+            "report-2024.txt",
+            "技巧.txt",
+            "a.b*c技巧报告.pdf",
+            "会议记录2024.docx",
+            "技巧报告(最终版).pdf",
+            "深度学习模型分析报告.mp4",
+        ];
+        let (schema, fields) = build_schema();
+        let index = tantivy::Index::create_in_ram(schema);
+        let mut writer = index.writer(50_000_000).unwrap();
+        for name in names {
+            writer
+                .add_document(doc!(
+                    fields.path => format!("C:/test/{name}"),
+                    fields.name => name.to_string(),
+                    fields.name_lower => name.to_lowercase(),
+                    fields.is_file => 1u64,
+                    fields.is_dir => 0u64,
+                    fields.modified_time => 0u64,
+                    fields.size => 0u64,
+                ))
+                .unwrap();
+        }
+        writer.commit().unwrap();
+
+        let reader = index.reader().unwrap();
+        let searcher = reader.searcher();
+        let options = create_options(false);
+
+        let old_query = build_query(&fields, "技巧", &options, None);
+        let old_hits = searcher
+            .search(&old_query, &TopDocs::with_limit(10).order_by_score())
+            .unwrap();
+
+        let scan = scan_for(&searcher, &fields, "技巧");
+        let new_query = build_query(&fields, "技巧", &options, Some(&scan));
+        let new_hits = searcher
+            .search(&new_query, &TopDocs::with_limit(10).order_by_score())
+            .unwrap();
+
+        assert!(!old_hits.is_empty(), "夹具失效：旧路径一条都没命中");
+        assert_eq!(
+            old_hits, new_hits,
+            "新路径的 top-N 顺序与分数必须与旧 RegexQuery 路径完全一致"
+        );
+    }
+
+    /// W-21 合成索引基准：旧 `RegexQuery` 路径 vs 新「词典扫描 + `TermSetQuery`」路径。
+    ///
+    /// 只在 `SFM_W21_BENCH=1` 时真正跑（否则直接返回），以免拖慢 `cargo test --lib`。
+    /// 夹具是 `Index::create_in_ram` 现造的，**绝不打开真实用户索引**。
+    ///
+    /// 计时口径**分项拆解**，因为新旧两条路径共享一部分成本（fuzzy 分支、
+    /// 命中 term 的 postings 读取），只看端到端会把改动的收益淹没：
+    ///
+    /// - `fuzzy_only` 共享基线（两条路径完全一样，不算在改动的账上）；
+    /// - `old_channel_regex` = 旧子串通道的一次检索（**一遍全词典 DFA** + postings）；
+    /// - `new_scan` = 新路径的一次词典扫描；`new_termset` = `TermSetQuery` 取 postings；
+    /// - `old_full_query` / `new_full_query` = 一次完整查询（主查询 + W-13 子串池）。
+    ///
+    /// 生产口径下子串通道一次查询要跑**两遍**（主查询的 Should 分支 + W-13 子串池），
+    /// 所以旧通道总成本 = 2 × `old_channel_regex`，新通道总成本 = `new_scan` + 2 × `new_termset`。
+    ///
+    /// 跑两个查询词：
+    /// - 「技巧」= 高频词（命中 term 多 ⇒ postings 成本大）；
+    /// - 「量子纠缠」= 稀有词（命中 term 极少 ⇒ 几乎只剩**词典遍历**成本，
+    ///   用来单独看「全词典 DFA vs 词典 stream」的差距）。
+    #[test]
+    fn w21_benchmark_old_regex_vs_new_scan() {
+        if std::env::var("SFM_W21_BENCH").is_err() {
+            return;
+        }
+
+        const DOC_COUNT: usize = 120_000;
+        const ITERATIONS: usize = 12;
+        const WARMUP: usize = 2;
+
+        /// 采样只记 warmup 之后的。
+        fn record(samples: &mut Vec<f64>, warmup: usize, iteration: usize, value: f64) {
+            if iteration >= warmup {
+                samples.push(value);
+            }
+        }
+
+        fn median(values: &mut [f64]) -> f64 {
+            values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let count = values.len();
+            if count % 2 == 0 {
+                (values[count / 2 - 1] + values[count / 2]) / 2.0
+            } else {
+                values[count / 2]
+            }
+        }
+
+        let (schema, fields) = build_schema();
+        let index = tantivy::Index::create_in_ram(schema);
+        let mut writer = index.writer(500_000_000).unwrap();
+
+        for i in 0..DOC_COUNT {
+            // 一半纯 ASCII、一半 CJK；CJK 名里按固定比例含「技巧」⇒ 两类 term 都有。
+            let name = if i % 2 == 0 {
+                format!("report-{i:06}-annual-summary.txt")
+            } else if i % 10 == 1 {
+                format!("项目-{i:06}-技巧报告.docx")
+            } else {
+                format!("项目-{i:06}-调研汇总.docx")
+            };
+            writer
+                .add_document(doc!(
+                    fields.path => format!("C:/test/{name}"),
+                    fields.name => name.clone(),
+                    fields.name_lower => name.to_lowercase(),
+                    fields.is_file => 1u64,
+                    fields.is_dir => 0u64,
+                    fields.modified_time => 0u64,
+                    fields.size => 0u64,
+                ))
+                .unwrap();
+        }
+
+        // 稀有的 CJK 词：命中 term 极少 ⇒ 把「词典遍历」与「取 postings」的成本分开看。
+        for i in 0..8 {
+            let name = format!("量子纠缠{i:02}.docx");
+            writer
+                .add_document(doc!(
+                    fields.path => format!("C:/test/{name}"),
+                    fields.name => name.clone(),
+                    fields.name_lower => name.to_lowercase(),
+                    fields.is_file => 1u64,
+                    fields.is_dir => 0u64,
+                    fields.modified_time => 0u64,
+                    fields.size => 0u64,
+                ))
+                .unwrap();
+        }
+
+        writer.commit().unwrap();
+
+        let reader = index.reader().unwrap();
+        let searcher = reader.searcher();
+        let options = create_options(false);
+
+        for needle in ["技巧", "量子纠缠"] {
+            let mut fuzzy_ms: Vec<f64> = Vec::new();
+            let mut old_channel_ms: Vec<f64> = Vec::new();
+            let mut new_scan_ms: Vec<f64> = Vec::new();
+            let mut new_termset_ms: Vec<f64> = Vec::new();
+            let mut old_full_ms: Vec<f64> = Vec::new();
+            let mut new_full_ms: Vec<f64> = Vec::new();
+            let mut old_hits = 0usize;
+            let mut new_hits = 0usize;
+
+            for iteration in 0..(ITERATIONS + WARMUP) {
+                // ① 共享基线：只有 fuzzy 分支（两条路径完全一样）。
+                let started = std::time::Instant::now();
+                let fuzzy_query = tantivy::query::BooleanQuery::from(vec![(
+                    Occur::Should,
+                    Box::new(FuzzyTermQuery::new(
+                        Term::from_field_text(fields.name, needle),
+                        1,
+                        true,
+                    )) as Box<dyn Query>,
+                )]);
+                let _fuzzy_count = searcher.search(&fuzzy_query, &Count).unwrap();
+                record(
+                    &mut fuzzy_ms,
+                    WARMUP,
+                    iteration,
+                    started.elapsed().as_secs_f64() * 1000.0,
+                );
+
+                // ② 旧子串通道：一次 `RegexQuery` 检索 = 一遍全词典 DFA + 命中 term 的 postings。
+                let started = std::time::Instant::now();
+                let old_pool = build_substring_only_query(&fields, needle, &options, None).unwrap();
+                let old_count = searcher.search(&old_pool, &Count).unwrap();
+                record(
+                    &mut old_channel_ms,
+                    WARMUP,
+                    iteration,
+                    started.elapsed().as_secs_f64() * 1000.0,
+                );
+
+                // ③ 新路径第一步：一次词典扫描（term 词典 stream + 字节级子串匹配）。
+                let started = std::time::Instant::now();
+                let scan =
+                    SubstringScan::scan(&searcher, &fields, needle, MAX_SUBSTRING_MATCHED_TERMS);
+                record(
+                    &mut new_scan_ms,
+                    WARMUP,
+                    iteration,
+                    started.elapsed().as_secs_f64() * 1000.0,
+                );
+
+                // ④ 新路径第二步：`TermSetQuery` 取 postings（FST 只访问命中子树）。
+                let started = std::time::Instant::now();
+                let new_pool =
+                    build_substring_only_query(&fields, needle, &options, Some(&scan)).unwrap();
+                let new_count = searcher.search(&new_pool, &Count).unwrap();
+                record(
+                    &mut new_termset_ms,
+                    WARMUP,
+                    iteration,
+                    started.elapsed().as_secs_f64() * 1000.0,
+                );
+
+                // ⑤ 旧路径的一次完整查询：主查询（含 RegexQuery 分支）+ W-13 子串池（又一遍 RegexQuery）。
+                let started = std::time::Instant::now();
+                let old_main = build_query(&fields, needle, &options, None);
+                let old_main_hits = searcher
+                    .search(&old_main, &TopDocs::with_limit(100).order_by_score())
+                    .unwrap();
+                let old_pool = build_substring_only_query(&fields, needle, &options, None).unwrap();
+                let old_pool_hits = searcher.search(&old_pool, &Count).unwrap();
+                record(
+                    &mut old_full_ms,
+                    WARMUP,
+                    iteration,
+                    started.elapsed().as_secs_f64() * 1000.0,
+                );
+
+                // ⑥ 新路径的一次完整查询：一次扫描 + 主查询 + 子串池。
+                let started = std::time::Instant::now();
+                let scan =
+                    SubstringScan::scan(&searcher, &fields, needle, MAX_SUBSTRING_MATCHED_TERMS);
+                let new_main = build_query(&fields, needle, &options, Some(&scan));
+                let new_main_hits = searcher
+                    .search(&new_main, &TopDocs::with_limit(100).order_by_score())
+                    .unwrap();
+                let new_pool =
+                    build_substring_only_query(&fields, needle, &options, Some(&scan)).unwrap();
+                let new_pool_hits = searcher.search(&new_pool, &Count).unwrap();
+                record(
+                    &mut new_full_ms,
+                    WARMUP,
+                    iteration,
+                    started.elapsed().as_secs_f64() * 1000.0,
+                );
+
+                if iteration >= WARMUP {
+                    old_hits = old_main_hits.len() + old_pool_hits as usize;
+                    new_hits = new_main_hits.len() + new_pool_hits as usize;
+                    assert_eq!(
+                        old_count, new_count,
+                        "子串通道命中数必须一致：needle={needle}"
+                    );
+                }
+            }
+
+            let fuzzy_median = median(&mut fuzzy_ms);
+            let old_channel_median = median(&mut old_channel_ms);
+            let new_scan_median = median(&mut new_scan_ms);
+            let new_termset_median = median(&mut new_termset_ms);
+            let old_full_median = median(&mut old_full_ms);
+            let new_full_median = median(&mut new_full_ms);
+
+            let old_channel_total = old_channel_median * 2.0;
+            let new_channel_total = new_scan_median + new_termset_median * 2.0;
+
+            println!(
+                "W21_BENCH needle={needle} docs={DOC_COUNT} segments={} iterations={ITERATIONS}",
+                searcher.segment_readers().len()
+            );
+            println!(
+                "W21_BENCH needle={needle} fuzzy_only_ms={fuzzy_median:.3} old_channel_regex_ms={old_channel_median:.3} new_scan_ms={new_scan_median:.3} new_termset_ms={new_termset_median:.3}"
+            );
+            println!(
+                "W21_BENCH needle={needle} old_channel_total_ms={old_channel_total:.3} new_channel_total_ms={new_channel_total:.3} channel_speedup={:.2}x",
+                old_channel_total / new_channel_total
+            );
+            println!(
+                "W21_BENCH needle={needle} old_full_query_ms={old_full_median:.3} new_full_query_ms={new_full_median:.3} full_speedup={:.2}x old_hits={old_hits} new_hits={new_hits}",
+                old_full_median / new_full_median
+            );
+            println!("W21_BENCH needle={needle} samples fuzzy={fuzzy_ms:?}");
+            println!("W21_BENCH needle={needle} samples old_channel={old_channel_ms:?}");
+            println!("W21_BENCH needle={needle} samples new_scan={new_scan_ms:?}");
+            println!("W21_BENCH needle={needle} samples new_termset={new_termset_ms:?}");
+            println!("W21_BENCH needle={needle} samples old_full={old_full_ms:?}");
+            println!("W21_BENCH needle={needle} samples new_full={new_full_ms:?}");
+
+            assert_eq!(old_hits, new_hits, "新旧路径的命中条数必须一致");
         }
     }
 
@@ -1953,8 +2515,17 @@ mod tests {
             let searcher = reader.searcher();
             let options = create_options(false);
             let target = target_address(&searcher, &fields);
+            let substring_scan = scan_for(&searcher, &fields, "分析");
 
-            let primary = collect_candidate_addresses(&searcher, &fields, "分析", &options, 5).unwrap();
+            let primary = collect_candidate_addresses(
+                &searcher,
+                &fields,
+                "分析",
+                &options,
+                5,
+                Some(&substring_scan),
+            )
+            .unwrap();
 
             assert_eq!(primary.len(), 5, "夹具失效：主池没被填满");
             assert!(
@@ -1970,11 +2541,27 @@ mod tests {
             let searcher = reader.searcher();
             let options = create_options(false);
             let target = target_address(&searcher, &fields);
+            let substring_scan = scan_for(&searcher, &fields, "分析");
 
-            let primary = collect_candidate_addresses(&searcher, &fields, "分析", &options, 5).unwrap();
-            let (substring, matched) =
-                collect_substring_candidate_addresses(&searcher, &fields, "分析", &options, 512, None)
-                    .unwrap();
+            let primary = collect_candidate_addresses(
+                &searcher,
+                &fields,
+                "分析",
+                &options,
+                5,
+                Some(&substring_scan),
+            )
+            .unwrap();
+            let (substring, matched) = collect_substring_candidate_addresses(
+                &searcher,
+                &fields,
+                "分析",
+                &options,
+                512,
+                None,
+                Some(&substring_scan),
+            )
+            .unwrap();
 
             assert_eq!(matched, FILLER_COUNT + 1, "子串命中总数应当是全部 13 条");
             assert!(
@@ -2000,11 +2587,27 @@ mod tests {
             // W-13 的病灶在**候选阶段**，不在这一层的截断。
             let mut options = create_options(false);
             options.limit = 100;
+            let substring_scan = scan_for(&searcher, &fields, "分析");
 
-            let primary = collect_candidate_addresses(&searcher, &fields, "分析", &options, 5).unwrap();
-            let (substring, _matched) =
-                collect_substring_candidate_addresses(&searcher, &fields, "分析", &options, 512, None)
-                    .unwrap();
+            let primary = collect_candidate_addresses(
+                &searcher,
+                &fields,
+                "分析",
+                &options,
+                5,
+                Some(&substring_scan),
+            )
+            .unwrap();
+            let (substring, _matched) = collect_substring_candidate_addresses(
+                &searcher,
+                &fields,
+                "分析",
+                &options,
+                512,
+                None,
+                Some(&substring_scan),
+            )
+            .unwrap();
             let candidates = merge_candidate_pools(primary, substring);
 
             let (results, _materialized) =
@@ -2023,10 +2626,10 @@ mod tests {
             let options = create_options(false);
 
             assert!(
-                build_substring_only_query(&fields, "midjourney", &options).is_none(),
+                build_substring_only_query(&fields, "midjourney", &options, None).is_none(),
                 "纯 ASCII 查询不该多跑一次子串检索（行为必须与改动前一致）"
             );
-            assert!(build_substring_only_query(&fields, "分析", &options).is_some());
+            assert!(build_substring_only_query(&fields, "分析", &options, None).is_some());
         }
 
         #[test]
@@ -2035,7 +2638,7 @@ mod tests {
             let options = create_options(true);
 
             assert!(
-                build_substring_only_query(&fields, "分析", &options).is_none(),
+                build_substring_only_query(&fields, "分析", &options, None).is_none(),
                 "精确匹配模式下子串命中会被 matches_exact_name 筛掉，不该多跑一次检索"
             );
         }
@@ -2407,6 +3010,7 @@ mod tests {
             "needle",
             &query_options,
             candidate_limit_for(&query_options, 1),
+            Some(&scan_for(&searcher, &fields, "needle")),
         )
         .unwrap();
 
@@ -2478,6 +3082,7 @@ mod tests {
             "needle",
             &query_options,
             candidate_limit_for(&query_options, 1),
+            Some(&scan_for(&searcher, &fields, "needle")),
         )
         .unwrap();
         let (materialized, _) = materialize_candidates(
@@ -3327,8 +3932,9 @@ mod w18_remote_scope_guard {
         .expect_err("云盘目录必须明确报错，而不是静默返回 0 条");
 
         assert!(
-            error.contains("云盘") && error.contains("不支持"),
-            "错误信息要说清「不支持」，而不是让人误读成「没有匹配」，实际：{error}"
+            error.contains("云盘") && error.contains("base_dir"),
+            "批次 59（W-18）后云盘递归已是真功能：缺 base_dir 时要说清「无法定位云盘索引」，\
+             而不是静默 0 条。实际：{error}"
         );
         assert!(
             error.contains("sfm://remote/conn-baidu/my-drive"),
@@ -3347,7 +3953,10 @@ mod w18_remote_scope_guard {
         )
         .expect_err("连接根目录也必须明确报错");
 
-        assert!(error.contains("不支持"), "实际：{error}");
+        assert!(
+            error.contains("云盘目录递归检索失败") && error.contains("路径格式不合法"),
+            "连接根本身不是可作用域的目录，要给带期望格式的明确报错（W-18 后不再是「不支持」文案）。实际：{error}"
+        );
     }
 
     #[test]
@@ -3408,5 +4017,267 @@ mod w18_remote_scope_guard {
         );
 
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    // ==================== 批次 59（W-18）：真正的云盘目录作用域递归检索 ====================
+
+    const W18_ROOT: &str = "sfm://remote/conn-ali/08艺术";
+    const W18_NAME: &str = "Midjourney 使用心得+关键词分析.mp4";
+    const W18_QUERY: &str = "使用心得+关键";
+
+    /// 索引夹具的根必须是 base_dir 的**祖先目录**。
+    ///
+    /// `GlobalSearchQueryOptions::default()` 的 `max_index_depth = 3` 是**从 base_dir 起算**的，
+    /// 若把 TempDir 本身当根，作用目录下第 4 层的条目会被深度闸门剪掉 —— 而 `max_depth`
+    /// 允许到 8，测试就会假红。这里把根上提三层，让「作用域深度」和「索引深度」解耦。
+    fn w18_base_dir(root: &Path) -> PathBuf {
+        let p = root.join("afm-w18-a").join("afm-w18-b").join("afm-w18-c");
+        std::fs::create_dir_all(&p).expect("create the w18 index base dir");
+        p
+    }
+
+    fn w18_doc(path: &str, connection_id: &str) -> super::super::remote_index::RemoteIndexDoc {
+        super::super::remote_index::RemoteIndexDoc {
+            path: path.into(),
+            name: W18_NAME.into(),
+            is_dir: false,
+            size: 1_000,
+            modified_time: 10,
+            connection_id: connection_id.into(),
+        }
+    }
+
+    fn w18_write_index(
+        base_dir: &Path,
+        docs: &[super::super::remote_index::RemoteIndexDoc],
+        enabled: &[(&str, bool)],
+    ) {
+        let _ = super::super::remote_index::write_test_connections(
+            &super::super::remote_index::user_data_dir_in(base_dir),
+            enabled,
+        );
+        super::super::remote_index::write_remote_index(&remote_index_dir(base_dir), docs)
+            .expect("write the synthetic remote index");
+    }
+
+    /// 作用域模式：显式析取、字面转义、层数上界，且**不含 root 自身**。
+    #[test]
+    fn scoped_path_pattern_is_a_bounded_literal_prefix_disjunction() {
+        assert_eq!(
+            scoped_path_pattern("sfm://remote/conn-a/08艺术", 2),
+            "(?s)(sfm://remote/conn-a/08艺术/[^/]+|sfm://remote/conn-a/08艺术/[^/]+/[^/]+)"
+        );
+
+        // 正则元字符必须按字面转义，否则 `+` 会被自动机读成量词。
+        let escaped = scoped_path_pattern("sfm://remote/conn-a/a+b", 1);
+        assert_ne!(
+            escaped,
+            "(?s)(sfm://remote/conn-a/a+b/[^/]+)".to_string(),
+            "元字符不能被当成正则原样送进自动机：{escaped}"
+        );
+
+        // 尾斜杠不该凭空多出一层；深度夹在 1..=8。
+        assert_eq!(
+            scoped_path_pattern("sfm://remote/c/x/", 1),
+            scoped_path_pattern("sfm://remote/c/x", 1)
+        );
+        assert_eq!(
+            scoped_path_pattern("sfm://remote/c/x", 0).matches("[^/]+").count(),
+            1,
+            "max_depth=0 应夹到 1 层"
+        );
+        // d 层析取的段数 = 1+2+..+d；封顶 8 层 ⇒ 36。
+        assert_eq!(
+            scoped_path_pattern("sfm://remote/c/x", 99).matches("[^/]+").count(),
+            36,
+            "max_depth 应夹到 8，给词典遍历一个上界"
+        );
+    }
+
+    /// 主功能断言：只返回该目录（含其下若干层）里的命中，作用域外与别的连接都不给。
+    #[test]
+    fn scoped_remote_search_returns_only_hits_under_the_directory() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let base_dir_owned = w18_base_dir(temp.path());
+        let base_dir: &Path = &base_dir_owned;
+        w18_write_index(
+            &base_dir,
+            &[
+                w18_doc("sfm://remote/conn-ali/08艺术/Midjourney 使用心得+关键词分析.mp4", "conn-ali"),
+                w18_doc("sfm://remote/conn-ali/08艺术/子目录/Midjourney 使用心得+关键词分析.mp4", "conn-ali"),
+                // 同名文件，但在作用域外。
+                w18_doc("sfm://remote/conn-ali/09工作/Midjourney 使用心得+关键词分析.mp4", "conn-ali"),
+                // 同名文件、同样的目录名，但属于另一个连接。
+                w18_doc("sfm://remote/conn-tencent/08艺术/Midjourney 使用心得+关键词分析.mp4", "conn-tencent"),
+            ],
+            &[("conn-ali", true), ("conn-tencent", false)],
+        );
+
+        let hits = search_remote_directory_scoped(W18_ROOT, W18_QUERY, 2, 20, false, Some(base_dir))
+            .expect("scoped remote search to work");
+        let paths: Vec<&str> = hits.iter().map(|h| h.path.as_str()).collect();
+
+        assert!(
+            paths.contains(&"sfm://remote/conn-ali/08艺术/Midjourney 使用心得+关键词分析.mp4"),
+            "作用域内的直接子项必须命中，got {paths:?}"
+        );
+        assert!(
+            paths.contains(&"sfm://remote/conn-ali/08艺术/子目录/Midjourney 使用心得+关键词分析.mp4"),
+            "深度 2 之内的孙目录条目必须命中，got {paths:?}"
+        );
+        assert!(
+            paths.iter().all(|p| p.starts_with("sfm://remote/conn-ali/08艺术/")),
+            "作用域外（09工作）与别的连接（conn-tencent）一律不得出现，got {paths:?}"
+        );
+    }
+
+    /// 深度上界真的生效：`max_depth=1` 时孙目录条目不该出现（与本地 `WalkDir::max_depth` 同口径）。
+    #[test]
+    fn scoped_remote_search_honours_the_depth_bound() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let base_dir_owned = w18_base_dir(temp.path());
+        let base_dir: &Path = &base_dir_owned;
+        w18_write_index(
+            &base_dir,
+            &[
+                w18_doc("sfm://remote/conn-ali/08艺术/Midjourney 使用心得+关键词分析.mp4", "conn-ali"),
+                w18_doc("sfm://remote/conn-ali/08艺术/子目录/Midjourney 使用心得+关键词分析.mp4", "conn-ali"),
+            ],
+            &[("conn-ali", true)],
+        );
+
+        let shallow = search_remote_directory_scoped(W18_ROOT, W18_QUERY, 1, 20, false, Some(base_dir))
+            .expect("depth-1 scoped search to work");
+        let shallow_paths: Vec<&str> = shallow.iter().map(|h| h.path.as_str()).collect();
+        assert_eq!(
+            shallow_paths,
+            vec!["sfm://remote/conn-ali/08艺术/Midjourney 使用心得+关键词分析.mp4"],
+            "max_depth=1 只能看到一层，got {shallow_paths:?}"
+        );
+    }
+
+    /// 「没建索引」是 Err，不能和「索引里没有匹配」混成一个空结果。
+    #[test]
+    fn scoped_remote_search_without_an_index_is_an_explicit_error() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let base_dir = temp.path();
+
+        let error = search_remote_directory_scoped(W18_ROOT, W18_QUERY, 2, 20, false, Some(base_dir))
+            .expect_err("没有云盘索引时必须报错，不能静默给空结果");
+        assert!(
+            error.contains("云盘索引尚未建立"),
+            "错误要指出去哪儿补救：{error}"
+        );
+    }
+
+    /// 「连接没勾选」同样是 Err（沿用 O-1「取消勾选立刻搜不到」，但这里要给原因）。
+    #[test]
+    fn scoped_remote_search_on_an_unchecked_connection_is_an_explicit_error() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let base_dir_owned = w18_base_dir(temp.path());
+        let base_dir: &Path = &base_dir_owned;
+        w18_write_index(
+            &base_dir,
+            &[w18_doc(
+                "sfm://remote/conn-ali/08艺术/Midjourney 使用心得+关键词分析.mp4",
+                "conn-ali",
+            )],
+            // 索引里有 conn-ali 的条目，但勾选表里只开了另一个连接。
+            &[("conn-tencent", true)],
+        );
+
+        let error = search_remote_directory_scoped(W18_ROOT, W18_QUERY, 2, 20, false, Some(base_dir))
+            .expect_err("未勾选的连接不该假装搜不到东西");
+        assert!(error.contains("没有勾选"), "错误要说清是没勾选：{error}");
+    }
+
+    /// 「空结果」与「错误」必须能区分：作用域内确实没有匹配 ⇒ Ok(空)。
+    #[test]
+    fn scoped_remote_search_reports_empty_result_for_an_empty_directory() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let base_dir_owned = w18_base_dir(temp.path());
+        let base_dir: &Path = &base_dir_owned;
+        w18_write_index(
+            &base_dir,
+            &[w18_doc(
+                "sfm://remote/conn-ali/08艺术/Midjourney 使用心得+关键词分析.mp4",
+                "conn-ali",
+            )],
+            &[("conn-ali", true)],
+        );
+
+        let empty = search_remote_directory_scoped(
+            "sfm://remote/conn-ali/99空目录",
+            W18_QUERY,
+            3,
+            20,
+            false,
+            Some(base_dir),
+        )
+        .expect("有索引、已勾选，就该是 Ok(空) 而不是 Err");
+        assert!(empty.is_empty(), "作用域里没有该文件，got {empty:?}");
+    }
+
+    /// 接线断言：生产入口（带 base_dir 的递归内核）确实把云盘路径交给作用域检索，
+    /// 而**本地目录的行为一个字都没变** —— 同一次调用传本地目录仍然走 WalkDir。
+    #[test]
+    fn production_entry_routes_remote_paths_and_leaves_local_dirs_untouched() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let base_dir_owned = w18_base_dir(temp.path());
+        let base_dir: &Path = &base_dir_owned;
+        w18_write_index(
+            &base_dir,
+            &[
+                w18_doc("sfm://remote/conn-ali/08艺术/Midjourney 使用心得+关键词分析.mp4", "conn-ali"),
+                w18_doc("sfm://remote/conn-ali/09工作/Midjourney 使用心得+关键词分析.mp4", "conn-ali"),
+            ],
+            &[("conn-ali", true)],
+        );
+
+        let remote = search_directory_recursive_blocking_with_base_dir(
+            W18_ROOT.into(),
+            W18_QUERY.into(),
+            2,
+            20,
+            false,
+            Some(base_dir),
+        )
+        .expect("云盘目录递归检索");
+        assert_eq!(
+            remote.iter().map(|e| e.path.as_str()).collect::<Vec<_>>(),
+            vec!["sfm://remote/conn-ali/08艺术/Midjourney 使用心得+关键词分析.mp4"],
+            "生产入口要按作用域返回，且不含 09工作"
+        );
+
+        // 本地目录：同样的 6 参入口，行为与批次 55 之前一致。
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        // FORK-MODIFICATION: 2026-11-27 —— 本地夹具**不能用 std::env::temp_dir()**。
+        // `builtin_ignored_paths()` 覆盖 `/AppData/Local/Temp`，WalkDir 的 filter_entry
+        // 会把整棵夹具剪掉，表现得像「递归检索失效」（同 2695 行注释那次坑）。
+        // 按项目惯例挂到 USERPROFILE 下。
+        let local_root = PathBuf::from(
+            std::env::var("USERPROFILE").unwrap_or_else(|_| "C:/".to_string()),
+        )
+        .join("afm-rust-search-fixtures")
+        .join(format!("afm-w18-local-{}-{stamp}", std::process::id()));
+        let nested = local_root.join("子目录");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::write(nested.join("needle.txt"), b"x").unwrap();
+
+        let local = search_directory_recursive_blocking_with_base_dir(
+            local_root.display().to_string(),
+            "needle".into(),
+            3,
+            50,
+            false,
+            Some(base_dir),
+        )
+        .expect("本地递归检索不该受 base_dir 扩参影响");
+        assert_eq!(local.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(), vec!["needle.txt"]);
+
+        let _ = std::fs::remove_dir_all(&local_root);
     }
 }

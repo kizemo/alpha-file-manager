@@ -1054,11 +1054,6 @@ pub async fn download_url_bytes(
     .map_err(HttpRetryError::into_message)
 }
 
-#[allow(dead_code)]
-pub fn max_text_fetch_bytes() -> u64 {
-    MAX_TEXT_FETCH_BYTES
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

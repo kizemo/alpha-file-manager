@@ -208,13 +208,26 @@ pub async fn global_search_remote_index_state(app: tauri::AppHandle) -> Result<S
 // 且被全局搜索的「优先路径」流程依赖，改它的语义会波及那条链路。
 #[tauri::command]
 pub async fn search_directory_recursive(
+    app: tauri::AppHandle,
     root_path: String,
     query: String,
     max_depth: u32,
     limit: u32,
     typo_tolerance: bool,
 ) -> Result<Vec<GlobalSearchResultEntry>, String> {
-    super::query::search_directory_recursive(root_path, query, max_depth, limit, typo_tolerance).await
+    // 批次 59（W-18）：云盘目录检索要靠 app-data 下的云盘索引，
+    // 所以命令层必须把 base_dir 带下去。
+    let base_dir =
+        crate::app_dirs::app_data_dir(&app).map_err(|error: tauri::Error| error.to_string())?;
+    super::query::search_directory_recursive(
+        root_path,
+        query,
+        max_depth,
+        limit,
+        typo_tolerance,
+        base_dir,
+    )
+    .await
 }
 
 #[cfg(test)]

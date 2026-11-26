@@ -6,7 +6,6 @@ use std::process::{Command, ExitStatus, Stdio};
 use std::time::{Duration, Instant};
 
 #[derive(Debug)]
-#[allow(dead_code)]
 pub enum ProcessRunError {
     SpawnFailed(std::io::Error),
     WaitFailed(std::io::Error),

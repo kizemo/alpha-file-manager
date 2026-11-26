@@ -4913,3 +4913,255 @@ b41ec33a  handoff 订正
    - 把 **13 个非中英语种的 changelog** 补到 3.23.0（W-22）；
    - 重新拍板 **W-18**（云盘目录递归检索：索引 vs 实时遍历）与 **W-21**（查询耗时 260ms→1270ms）。
 3. **下一批功能开工前**：版本号从 **3.23.0** 起，不要再把未发布版本号累加。
+
+---
+
+## 三十三、批次 59：3.23.0 交付报告遗留 4 项的处置（W-18 落地 / W-21 修复 / W-2 清理 / 遗留 3 归档）
+
+> 本节**自带完整背景·目标·进度·计划·裁决**，新会话无需回翻派工书或摘要即可接手。
+> 所有具体数字（测试数、行号、字节数、SHA、加速比）**均已当场盘上回读**，不是从会话摘要转录。
+
+### 三十三·1 背景
+
+批次 58 发版轮（§三十二）交付 3.23.0 后，留下一份交付报告
+`.superpowers/sdd/b58/delivery-report-3.23.0.md`，其中列了 **4 项遗留问题**：
+
+| # | 遗留项 | 内容 |
+| --- | --- | --- |
+| 1 | 提交 body 未翻译 | 批次 58 只英文化了 subject（447 条），body 仍是中文 |
+| 2 | W-22 | 13 个非中英语种的 changelog 停在 3.22.0 |
+| 3 | 旧 SHA 全部失效 | §三十二·5 的两轮 `filter-repo` 改写历史 ⇒ 文档里引用的旧 commit SHA 在 GitHub 上全部 404 |
+| 4 | W-21 / W-2 / W-18 / W-19 | 四项技术债：检索性能回归、`allow(dead_code)` 待核实、云盘目录不支持递归检索、方向键逐行移动缺界面级证据 |
+
+### 三十三·2 用户裁决（本轮开工指令）
+
+用户原话：**「遗留的4项问题，前两项关于语言的，不用解决。3/4项，请进行任务推进。」**
+
+⇒ **第 1、2 项（语言类）明确不做**，本轮只推进第 3、4 项。这是用户的显式裁决，后续会话不要再自行把 body 英文化或 W-22 捡回来做。
+
+W-18 的技术路线用户也已拍板：走 **① 云盘索引**（快、零 API 配额；代价是只覆盖已建索引的连接，百度网盘封顶 20,000 条），**不走**实时遍历。
+
+### 三十三·3 遗留 3：旧 SHA 404 —— 已收口
+
+- 做法：**不改写历史**（批次 58 已经强推过两次，再来一次代价与风险都不划算），改为
+  把旧历史打包成**归档 bundle** 推到远端，让旧 SHA 重新可达。
+- 实测结果：bundle **397,653,185 B / 111 refs**，已推送；抽查的 **2032 / 2035** 两个旧 SHA 恢复可达。
+- 结论：外部系统若仍引用旧 SHA，可通过归档 bundle 解析；文档正文内的旧 SHA **未回填**（批次 58 已用
+  `backfill2.cjs` 回填过 157 文件 / 857 处新 SHA，本轮不再动）。
+
+### 三十三·4 W-2：`allow(dead_code)` 逐条核实 —— 已收口
+
+- 盘上逐个核实仓库内 **10 处 `#[allow(dead_code)]`**：全部**保留**（均有真实用途，不是遮掩死代码）。
+- 另删掉 **2 处真死代码**：`src-tauri/src/extensions/http.rs` 的 `max_text_fetch_bytes()`、
+  `src-tauri/src/extensions/process_runner.rs` 上的一处 `allow`。
+- **订正一处文档错误**：既有台账/注释里引用过 `remote_client.rs`，该文件**从未存在**，指针已订正。
+  （教训：写指针前先 `glob` 确认文件真的在盘上。）
+
+### 三十三·5 W-21：CJK 子串检索性能 —— 已收口，**但收益有限，如实记录**
+
+完整技术报告：`.superpowers/sdd/b59/w21-report.md`（根因、改法、命中集合等价性论证、全部实测数字）。
+
+- **根因**：CJK 子串兜底用 `RegexQuery(".*<词>.*", name_lower)`，`.*` 前缀让 tantivy-fst 的 DFA 接受任意前缀
+  ⇒ 每个 segment 全词典逐字节走一遍；且一次用户查询这条通道跑**两遍**（主查询 + W-13 子串池）。
+- **修法**：新增 `src-tauri/src/global_search/substring_scan.rs`，改为「手工扫一遍 term 词典（字节级子串匹配）
+  + `TermSetQuery` 取 postings」，扫描结果在两处**共享**。命中 term 数超 `MAX_SUBSTRING_MATCHED_TERMS = 100_000`
+  或扫描失败时**降级回旧正则路径**并 `log::warn!`（**不截断** —— 截断会改变命中集合）。
+- **未改索引 schema、未改 `Cargo.toml`、未碰真实用户索引、用户无需重建索引**。
+- **实测加速比（120000 docs / 8 segments / 12 iterations，盘上原始输出 `b59/w21-bench-run.txt`）**：
+  - 低频词 `量子纠缠`（16 命中）：`full_speedup = 1.89x`、`channel_speedup = 1.95x`
+  - 高频词 `技巧`（12100 命中）：`full_speedup = 1.06x`、`channel_speedup = 1.06x`
+  - 两组 `old_hits == new_hits`（16/16、12100/12100），命中集合一致。
+- **诚实评估（重要，别在后续会话里把它吹成"大幅提速"）**：
+  1. 手工扫描**单遍**成本（607/614ms）与正则 DFA **单遍**（625/605ms）**同量级** ⇒ 收益不来自更快的匹配器，
+     只来自「两遍全词典遍历 → 一遍扫描」的结构去重。
+  2. 加速比与命中 term 数**成反比**：`TermSetQuery` 成本几乎全在 postings 并集 ⇒ 低频词近乎免费（2.580ms），
+     高频词 283.951ms 把收益吃光。
+  3. **绝对耗时仍然高**：120k docs 上一次 CJK 子串查询仍 0.6–1.2s。W-21 **缓解**了这条通道，**没有消除**它。
+     要再降一个量级必须动索引结构（n-gram / trigram 分词字段），那会改 schema、要求用户重建索引 —— 本轮红线禁止，**未做**。
+
+### 三十三·6 W-18：云盘目录作用域递归检索 —— 代码与测试已闭环
+
+这是本轮**新落地的真功能**（此前云盘路径进来只会返回「不支持」的明确报错）。
+
+**核心实现（`src-tauri/src/global_search/query.rs`）**
+
+- `query.rs:1323 scoped_path_pattern(root, max_depth)`：normalize + 转义后输出**显式析取**
+  `(?s)(esc/[^/]+|esc/[^/]+/[^/]+|…)`。深度夹 `(max_depth as usize).clamp(1, 8)`，**封顶 8 层**，
+  **不含 root 自身**。刻意不用 `{1,N}` 量词（tantivy-fst 的 DFA 对区间量词构造成本高、且易触发状态爆炸）。
+- `query.rs:1362 search_remote_directory_scoped(root_path, query, max_depth, limit, typo_tolerance, base_dir: Option<&Path>)`
+  —— **四道闸门**，顺序即优先级：
+  1. `parse_remote_path` 失败 ⇒ `Err`「路径格式不合法，期望 `sfm://remote/<连接id>/<目录路径>`」
+  2. `base_dir` 为 `None` ⇒ `Err`「调用方没有提供索引目录（base_dir）」
+  3. `open_remote_reader(remote_index_dir(base_dir))` 为 `None` ⇒ `Err`「云盘索引尚未建立」
+  4. `enabled_connection_ids` 不含该连接 ⇒ `Err`「没有勾选」
+  四道全过后才进检索：`SubstringScan::scan` → 主候选池 `collect_remote_candidate_addresses(..., Some(&scope))`
+  → W-13 子串池（`BooleanQuery{Must(connection_filter), Must(scope_filter)}`）→ merge → materialize → order → truncate。
+- `collect_remote_candidate_addresses` 增尾参 `path_scope: Option<&str>`；导入区补 `RegexQuery`。
+- **作用域过滤落在索引层**：把「勾选连接集合」与「路径前缀正则」合成一个 `Must∩Must` 的 `BooleanQuery`
+  注入 W-13 子串池（**不改子串池签名**）。`min_score` 门槛作用在 Rust 侧 `name_score` 上，
+  `Must` 前缀子句**不会误杀**结果。
+
+**调用点接线（全部落盘、编译通过）**
+
+采用「**6 参真身 + `#[cfg(test)]` 5 参 shim**」结构，`base_dir` 统一放**最末位**参数：
+
+- `search_directory_recursive_blocking_with_base_dir`（6 参真身）+ `#[cfg(test)]` 5 参 shim（转发 `None`）
+  ⇒ **13 个既有测试调用点零改动**。
+- async 包装、`src-tauri/src/global_search.rs:47`、`src-tauri/src/mcp/tools.rs:297`（补 `index_base_dir`）。
+- `commands.rs:210`：Tauri 命令签名加 `app: tauri::AppHandle`，用 `crate::app_dirs::app_data_dir(&app)` 取 base_dir
+  ⇒ **前端 `invoke` 参数一个都不用改**。
+
+**测试（`query.rs:3918 #[cfg(test)] mod w18_remote_scope_guard`，query.rs 现约 4280 行）**
+
+新增 **7 条**单测：
+
+1. `scoped_path_pattern_is_a_bounded_literal_prefix_disjunction`
+2. `scoped_remote_search_returns_only_hits_under_the_directory`
+3. `scoped_remote_search_honours_the_depth_bound`
+4. `scoped_remote_search_without_an_index_is_an_explicit_error`
+5. `scoped_remote_search_on_an_unchecked_connection_is_an_explicit_error`
+6. `scoped_remote_search_reports_empty_result_for_an_empty_directory`
+7. `production_entry_routes_remote_paths_and_leaves_local_dirs_untouched`
+
+盘上实测（原始输出见 `b59/`）：
+
+- 编译：`cargo test --lib --no-run` 零 error（`w18-check1.txt`，43.69s）
+- 定向：`cargo test --lib -- scoped_ production_entry` = **`test result: ok. 7 passed; 0 failed`**（`w18-test1.txt`，0.72s）
+- 全量：**`test result: ok. 1745 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 7.40s`**（`w18-full-test2.txt`，`DONE-EXIT=0`）
+- 对账：W-21 基线 **1738** + W-18 净增 **7** = **1745**，**零回归**。
+
+**预期契约变更（不是回归，后续会话别当成 bug 修回去）**
+
+全量回归首轮出现 2 failed，是批次 55 的两条旧断言只认旧文案「不支持」：
+
+- `remote_directory_returns_explicit_error_instead_of_empty_result`（`query.rs:3934`）
+- `remote_connection_root_also_returns_explicit_error`（`query.rs:3955`）
+
+W-18 真功能落地后，报错分支语义变为「**拿不到 base_dir 才报错**」。两条断言已**就地更新**为新语义判据
+（前者认 `云盘` + `base_dir`，后者认 `云盘目录递归检索失败` + `路径格式不合法`）。
+**`Err` 契约本身不变**（仍是明确报错且带原因），只换了措辞断言。
+
+### 三十三·7 W-19：方向键逐行移动的界面级证据 —— **本节写作时仍在进行，未收口**
+
+- 路线：本机**没有 `computer_*` 工具** ⇒ 只能走 **CDP**（Chrome DevTools Protocol）取证。
+- 已做：`node .superpowers/sdd/b45/patch-cdp.cjs on` 实测成功（`PATCH_OK`，`src-tauri/tauri.conf.json` 28 行），
+  注入了 `additionalBrowserArgs: "--remote-debugging-port=45777 --remote-allow-origins=*"`；
+  `npm run tauri:build` 取证构建已后台启动。
+- **未做**：装/跑取证包、用 `.superpowers/sdd/b59/cdp-arrow.cjs`（12,681 B）取方向键逐行移动证据、
+  回滚 conf、重打干净交付包、验 exe 内无 `remote-debugging-port` 字符串。
+- **⚠️ 硬约束（下一会话必须先做这件事）**：`src-tauri/tauri.conf.json` 里的 CDP 注入是**临时改动，绝不能进 commit**。
+  回滚用 `node .superpowers/sdd/b45/patch-cdp.cjs off` 或正典做法 `git checkout -- src-tauri/tauri.conf.json`。
+  交付判据 = exe 内**搜不到** `remote-debugging-port`（脚本 `.superpowers/sdd/b45/check-cdp-flag.ps1`）。
+- 取证 exe **必须在隔离桌面跑**（AGENTS.md 2.8 硬规则，参考 `.superpowers/sdd/b56/b56-launch-cdp-sandbox.ps1` 模式），
+  不得抢操作员桌面焦点。CDP 判据：`cdp-arrow.cjs` + `:data-index` + `global-search-result-list__row--focused` + `aria-selected`。
+- 已知死路（`b56-launch-cdp-sandbox.ps1` 注释坐实）：**环境变量 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 路线已死**，
+  CDP 参数必须 baked 进 `tauri.conf.json`。
+
+### 三十三·8 推广申请件回复情况（用户第二问，已回读核实）
+
+| 申请件 | 状态 |
+| --- | --- |
+| `awesome-windows` #114 | **已合并** |
+| `awesome-tauri-apps` #36 | 仍 **OPEN**，**零回复** |
+| `awesome-free-apps` #429 | 仍 **OPEN**，**零回复** |
+| HelloGitHub | **未能验证**（本机走代理 `127.0.0.1:7897` 时返回 HTTP `000`，连接建立失败） |
+
+winget 侧：3.23.0 清单四文件全绿（sha256 `35B221B3…3840`），催审评论 **7182189978** 已发；
+**版主审批是外部人工环节**，本项目无法推进。
+
+### 三十三·9 已验证 / 推断 / 未验证（分账，别混）
+
+**已验证（盘上有原始输出或实测命令）**
+
+- W-21 全部基准分项数字、RED `3 passed; 3 failed`、GREEN `1738 passed; 0 failed`。
+- W-18 定向 `7 passed; 0 failed`、全量 `1745 passed; 0 failed; 3 ignored`、编译零 error。
+- W-2 的 10 处保留 / 2 处删除 / `remote_client.rs` 不存在。
+- 遗留 3 的 bundle 397,653,185 B / 111 refs / 2032·2035 可达。
+- 台账锚点（口径 = `(Get-Content $f).Count` 总行数）：handoff 追加本节前 **4915 行**（末行 = §三十二·9 的第 3 条）；
+  本节 `## 三十三、` 起于第 **4919** 行、收口后全文 **5167** 行。open-items 追加本轮行前 **401 行**、追加后 **402 行**（批次 59 行是最后一行，未转义管道符 = 3，仍是 2 列）。
+- 申请件三条 GitHub 状态。
+
+**推断（有依据但未实测）**
+
+- W-21 的成本结构分解（`旧=2×regex`、`新=scan+2×termset`）：由分项数字相加**逐项对齐**实测总数推出，
+  算术上完全吻合（1249.362 / 1175.269 / 1209.788 / 618.943），但**没有**用 profiler 直接验证调用次数。
+
+**未验证 / 未做**
+
+- W-19 全部（见 §三十三·7）。
+- HelloGitHub 收录状态。
+- W-18 的**真机端到端**：只验证到 Rust 层单测与全量回归，**没有**在装机的 3.23.0 上真实点一次云盘目录递归检索。
+  ⇒ 若下一轮要出 W-18 的界面级证据，需与 W-19 的取证包合并成**一次**构建，别打两遍（`tauri build` 每次 30–40 分钟）。
+
+### 三十三·10 本轮工具坑（新踩到的，勿再犯）
+
+1. **rustc 残留进程锁 incremental dep-graph** ⇒ `os error 32` / exit 101，全量测试首跑会显示 "failed"，
+   **这不是测试失败**。解法：`Get-Process cargo,rustc | Stop-Process -Force` 后重跑即好。
+   （本轮 `w18-full-test.txt` 是这次假红，`w18-full-test2.txt` 才是真结果。）
+2. **云盘递归的索引深度闸门以 `base_dir` 为参考**：夹具若把 `base_dir` 就设成检索根，
+   `max_index_depth=3` 会把深层条目剪掉，与 `max_depth ≤ 8` 冲突 ⇒ **夹具根必须比 base_dir 高**。
+   本轮解法：新增 `w18_base_dir(root)` 助手，base_dir 取夹具根下三层子目录 `afm-w18-a/b/c`。
+3. **Rust 夹具的本地目录检索不能放 `TempDir`**：`query.rs:2695` 注释坐实 `%USERPROFILE%\AppData\Local\Temp`
+   被 `builtin_ignored_paths()` 剪掉 ⇒ 本轮把本地夹具改到 `%USERPROFILE%\afm-rust-search-fixtures\`。
+   **这是本项目第二次踩同一个坑。**
+4. **断言只认错误码级关键词，别认整句文案**：批次 55 的判据 grep「不支持」随文案演进直接失效。
+5. **行数口径**：`(Get-Content $f).Count` 数总行数，`Measure-Object -Line` **只数非空行**。本轮实测同一个 handoff 文件
+   非空行 3785 / 总行 5164，差 **1379 行**。我先用了 `Measure-Object -Line`，结果把压缩摘要里**本来正确**的
+   handoff 4915 / open-items 401 当成错值"订正"掉了 —— **回读口径错比不回读更危险**，因为它会给出看起来很实的假数字。
+   凡进台账的行号，先确认量的是总行数。
+6. 前轮沿用仍有效：`-f $_.Filename` 别用 `Substring` 对齐；查「某物不存在」的结论须用宽松前缀再验一次；
+   `Get-ChildItem -Recurse -Include` 会误走 48GB 的 `target\`，改用 `glob` 工具；
+   `Out-File` 解析失败会写 2B 垃圾文件；判活用 `Get-Process` 不用文件长度。
+
+### 三十三·11 证据路径一览
+
+| 内容 | 路径 |
+| --- | --- |
+| W-21 技术报告（含全部数字） | `.superpowers/sdd/b59/w21-report.md` |
+| W-21 基准原始输出 | `.superpowers/sdd/b59/w21-bench-run.txt` |
+| W-21 RED / GREEN | `.superpowers/sdd/b59/w21-red.txt` / `w21-green.txt` |
+| W-18 全量回归（真结果） | `.superpowers/sdd/b59/w18-full-test2.txt` |
+| W-18 全量回归（rustc 锁假红，留档） | `.superpowers/sdd/b59/w18-full-test.txt` |
+| W-18 定向 7 条 / 编译检查 | `.superpowers/sdd/b59/w18-test1.txt` / `w18-check1.txt` |
+| W-19 CDP 取证构建日志 | `.superpowers/sdd/b59/w19-forensic-build.log` |
+| W-19 CDP 方向键取证脚本 | `.superpowers/sdd/b59/cdp-arrow.cjs` |
+| CDP 注入 / 回滚 / 判据脚本 | `.superpowers/sdd/b45/patch-cdp.cjs` / `check-cdp-flag.ps1` |
+| 隔离桌面起进程参考 | `.superpowers/sdd/b56/b56-launch-cdp-sandbox.ps1` |
+| 批次状态草稿 | `.superpowers/sdd/b59/batch59-state.md` |
+| 上一批交付报告（本轮任务来源） | `.superpowers/sdd/b58/delivery-report-3.23.0.md` |
+| 改写历史前的安全网 | `.superpowers/sdd/b58/pre-rewrite.bundle` |
+
+> `.superpowers/` 在 `.gitignore` 内，**不入库**；上表是给下一会话的盘上指针，不是仓库路径。
+
+### 三十三·12 下一步
+
+1. **W-19 收口**（唯一未完成项）：等取证构建出包 → 隔离桌面跑 → `cdp-arrow.cjs` 取方向键逐行移动证据
+   → **回滚 `src-tauri/tauri.conf.json`** → 重打干净交付包 → `check-cdp-flag.ps1` 验 exe 内无
+   `remote-debugging-port` → 交付 exe 到 `release/`。
+2. **顺手补 W-18 的真机端到端证据**（与 W-19 合并成同一次构建，别打两遍）。
+3. **W-21 若还想再降量级**：需要单独立项做 n-gram / trigram 分词字段，**会改 schema、要求用户重建索引**，
+   必须先取得用户授权。本轮已明确不做。
+4. **语言类遗留（提交 body 英文化、W-22）用户已裁决不做**，不要自行捡回。
+5. 版本号仍从 **3.23.0** 起，本轮**不发布、不累加未发布版本号**。
+
+### 三十三·13 本轮可复制命令
+
+```powershell
+# Rust 工具链必须钉 1.90.0，且 cargo 要在 PATH
+$env:PATH = 'C:\Users\Duanyi\.rustup\toolchains\1.90.0-x86_64-pc-windows-msvc\bin;' + $env:PATH
+Set-Location 'F:\soft\00selfmade\filemanager\sigma-file-manager\src-tauri'
+
+# 全量回归（只认 "test result:" 行）
+cargo test --lib 2>&1 | Out-File -Encoding utf8 '..\.superpowers\sdd\b59\w18-full-test2.txt'
+Select-String -Path '..\.superpowers\sdd\b59\w18-full-test2.txt' -Pattern 'test result:|FAILED|^error' |
+  ForEach-Object { $_.Line.Trim() }
+# 实测：test result: ok. 1745 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 7.40s
+
+# W-21 分项基准（默认不跑，环境变量门控）
+$env:SFM_W21_BENCH='1'; cargo test --lib -- w21_benchmark --nocapture
+
+# CDP 注入 / 回滚
+node .superpowers/sdd/b45/patch-cdp.cjs on     # 取证构建前
+node .superpowers/sdd/b45/patch-cdp.cjs off    # 取证构建后，必须回滚
+git checkout -- src-tauri/tauri.conf.json      # 正典回滚
+```
