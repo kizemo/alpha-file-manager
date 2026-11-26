@@ -172,6 +172,15 @@ Adding a netdisk here has none of that:
 | ![Dashboard quick access](docs/screenshots/afm-dashboard-hero-light-en.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
 | ![Dashboard cards](docs/screenshots/afm-dashboard-card-enrichment-en.png) | **Dashboard cards** — name, size and path on top, type and item count below, with drag, reorder and edit shortcuts on every card |
 
+### What changed in 3.24.0
+
+| | | | 
+|---|---|---|
+| 🗂️ | **A search can be limited to a folder of a netdisk** — a request that named a netdisk folder used to come back with an empty list, because it was walked over the local disks only; the scope is resolved against the netdisk index now, so one folder of a netdisk can be searched on its own. It says which precondition is missing — the path, the location of the index, the index itself, or the tick on the netdisk. The recursive search inside the file browser still walks local disks only |
+| 🔌 | **The app log says what the Focus Sync sidecar is doing** — the log carried one line saying the sidecar was started; it now carries the sidecar's own answer: version, mode, whether the extension is alive, whether it ever wrote a path, and how long ago it was last seen. A sidecar and an extension on different versions are reported as a warning, so a stale bundled sidecar shows up at once |
+| ⌨️ | **The arrow keys stay in the search result list** — the up and down arrow moved the selection in the file browser behind the panel, and the panel lost its focus at the first key press. The keys now walk the result list row by row and stop at its ends; nothing in the background moves |
+| ⚡ | **A Chinese search term is found considerably faster** — the walk over the term dictionary of the index runs over the index segments in parallel now. On a large index the matching part of a Chinese search went from about 0.6 seconds to about 0.13 seconds; the hits are the same and no index is rebuilt |
+
 ### What changed in 3.23.0
 
 | | | |
@@ -389,7 +398,7 @@ they compare.
 
 **Primary download:** [**www.aiec.fun/alpha-file-manager**](https://www.aiec.fun/alpha-file-manager/)
 — this is the update channel the app itself checks. The current release is
-**3.23.0**.
+**3.24.0**.
 
 | | Platform | How |
 |---|---|---|
@@ -399,7 +408,7 @@ they compare.
 
 GitHub releases carry the same installer and act as a fallback mirror:
 [releases/latest](https://github.com/kizemo/alpha-file-manager/releases/latest) —
-3.23.0 is there as well.
+3.24.0 is there as well.
 
 > **Windows builds are unsigned**, so SmartScreen reports *"Unknown publisher"* —
 > click **More info → Run anyway**. Upgrading in place keeps your settings,

@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.24.0] - November 2026
+
+**Summary:** A search that is meant to stay inside one folder of a netdisk now really looks in that folder instead of stopping at the edge of the cloud index - and when it cannot answer, it says which of the four preconditions is missing. The arrow keys belong to the search result list again, so they no longer move the file browser behind the panel. A Chinese search term is found considerably faster. And the app log now tells you what the Focus Sync sidecar is doing, so an extension that reports "not connected" can be told apart from one that never reached the sidecar at all.
+
+### What changed
+
+**Added** **A search can be limited to a folder of a netdisk** - A request that named a folder of a netdisk used to come back with an empty list, because it was walked over the local disks only. The scope is now resolved against the netdisk index, so one folder of a netdisk can be searched on its own. Four preconditions are checked first, and each one says which of them it was: the path has to be a netdisk path, the caller has to say where the netdisk index lives, the index has to have been built, and the netdisk has to be ticked for the global search. The recursive search inside the file browser still walks local disks only - it does not use this route.
+
+**Added** **The app log says what the Focus Sync sidecar is doing** - The log only carried one line saying that the sidecar was started, and that did not tell apart a sidecar that never came up, a sidecar of a version that does not match the extension, and a sidecar that is perfectly fine but has never been written to. The log now carries the sidecar's own answer: its version, its mode, whether the extension is alive, whether it has ever written a path, and how long ago it was last seen. When the sidecar and the extension carry different versions, that is said as a warning, so a stale bundled sidecar can be spotted at once. It stays a warning - the app starts either way.
+
+**Fixed** **The arrow keys stay in the search result list** - Pressing the up or down arrow with the global search panel open moved the selection in the file browser behind the panel, and the panel lost its focus at the very first key press. The keys now belong to the result list: they walk it row by row, they stop at its first and last row, and nothing in the background moves any more. The list only takes the keys while the panel is open, the focus is inside the panel and it is not in a text field.
+
+**Changed** **A Chinese search term is found considerably faster** - The way a search term is matched inside a file name walks the whole term dictionary of the index, and that walk now runs over the index segments in parallel. On a large index the matching part of a Chinese search went from about 0.6 seconds to about 0.13 seconds; the set of hits is unchanged, the index is not rebuilt and nothing has to be scanned again. A search that matches many thousands of names still takes longer than one that matches few - the remaining cost sits in the postings of the matched terms and is being looked at.
+
 ## [3.23.0] - November 2026
 
 **Summary:** The global search got much better at names in Chinese - a search term now reaches into the middle of a file name, and files on a netdisk no longer fall out of the result list because a local file happened to score the same. A favorite can now be edited where it stands, the quick-access list in the sidebar got a pencil of its own, and the settings page can write your setup to a file and read it back on another machine. None of this asks you to rebuild anything: the indexes you already have keep working as they are.
