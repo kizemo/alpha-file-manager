@@ -53,6 +53,11 @@ sync, batch rename, and a long list of day-to-day fixes. **If you have been look
 - 🧠 **Batch rename that does not lose work** — find-and-replace, case conversion,
   templates and numbering, with a live preview, conflicts blocked instead of
   silently overwriting, and undo.
+- ✏️ **Favourites you can edit, settings you can carry over** — the quick-access
+  card shows the full path and edits its title and path right on the card, and the
+  settings page exports and imports your whole setup in one file.
+- 🔤 **Search that reads Chinese** — a Chinese word, or a term with punctuation in
+  it, is found anywhere inside a file name, not only as a whole phrase.
 - 🔓 **A file that will not delete can be dealt with** — the right-click menu tells
   you which program is holding it open, and *Delete anyway* removes it even when
   Windows refuses to.
@@ -69,12 +74,15 @@ sync, batch rename, and a long list of day-to-day fixes. **If you have been look
 | 📱 | **Phones and USB drives** — plug one in and it shows up under *Locations* with its own name; open it and browse it right here, without switching to another program |
 | 🗂️ | **Tabs and split view** — swap the two panes with one button, and a synchronized-browsing toggle right beside it |
 | 🔎 | **Smart global search** — full-drive search with typo tolerance, and directory search that genuinely recurses |
+| 🔤 | **Search finds the word inside a name** — a Chinese term, or a term with punctuation in it, matches anywhere in the file name, not only whole phrases |
 | 🏷️ | **Tags** — organise files and folders, with a grouped, editable dashboard |
 | ⭐ | **Favourites by category** — adding one asks which category it belongs to; categories are editable |
+| ✏️ | **Favourites you can edit in place** — the quick-access card shows the full path, clicking its title or path opens an editor right on the card, and a pencil in the sidebar opens the same dialog with title, path and category |
 | 🎚️ | **Item filter** — narrow a large folder by name, size, date, type and more |
 | 🖼️ | **Thumbnails** — four sizes, generated lazily only for what is on screen; pictures on a netdisk use the thumbnail the drive itself hands out |
 | 📐 | **Per-folder layout** — list or grid, chosen per location rather than globally |
 | 🔓 | **Unlock a file that is in use** — the right-click menu lists the programs holding it, by name and process id; *Delete anyway* removes it even when Windows says no |
+| 💾 | **Your setup can be exported and imported** — the settings page writes your settings, favourites, remote connections and cloud-storage connections into one file and reads them back; credentials never leave the machine, and a connection that comes back without one is marked for you to sign in again |
 
 ### Compare and sync
 
@@ -106,6 +114,8 @@ sync, batch rename, and a long list of day-to-day fixes. **If you have been look
 | 📂 | **A netdisk browsed like a remote connection** — listing, creating a folder, renaming, deleting and downloading all reach the drive itself, not a shadow of a local folder |
 | ⚙️ | **Netdisks and remote servers are kept apart** — the settings page splits them into two tabs, *Netdisks* and *Remote connections*, so each connection sits where it belongs |
 | 🔗 | **OneDrive is in the list now** — pick it in the very same *Add netdisk* list next to the other three, sign in with your Microsoft account in the browser that opens, and the session is kept in the app's own encrypted credential store. This version browses and downloads, and the drive can take part in the global search; since 3.20.0 it writes as well - upload a file, create a folder, rename and delete on the drive itself |
+| ☁️ | **Netdisk hits keep their share of the result window** — when a netdisk file and a file of your own score the same, the window no longer fills up with the hits of one single connection: a share is reserved for netdisks, and it rotates between the connections |
+| 📇 | **Every netdisk gets its own share of the search index** — each netdisk may hold 20,000 indexed entries and the total grows with the number of connections, so adding a second netdisk is no longer starved by the first |
 
 #### Why this is simpler than mounting the drive with alist
 
@@ -161,6 +171,20 @@ Adding a netdisk here has none of that:
 |---|---|
 | ![Dashboard quick access](docs/screenshots/afm-dashboard-hero-light-en.png) | **Quick Access** — favourites grouped by category, with thumbnails, sizes and relative times |
 | ![Dashboard cards](docs/screenshots/afm-dashboard-card-enrichment-en.png) | **Dashboard cards** — name, size and path on top, type and item count below, with drag, reorder and edit shortcuts on every card |
+
+### What changed in 3.23.0
+
+| | | |
+|---|---|---|
+| ✏️ | **A favourite shows its full path and can be edited in place** — the quick-access card prints the whole path instead of only the parent folder, and clicking the title or the path opens an editor right on the card. A path that does not exist, or that another favourite already uses, is refused with a reason instead of being saved |
+| 🖊️ | **The sidebar's quick access list has a pencil button** — hovering the list shows a pencil that opens the favourite-edit dialog with title, path and category; the *Edit favourite* entry on the dashboard opens the same dialog |
+| 💾 | **Settings can be exported and imported** — the settings page writes your settings, your favourites, your remote connections and your cloud-storage connections into one file, and reads them back. Credentials are never written into that file, and a connection that comes back without one is marked, so you know which ones to sign in again |
+| 🔤 | **A Chinese word inside a name is found now** — searching for part of a Chinese name used to come back empty, because a whole run of characters was treated as one term. The substring is matched now, and a hit like that is no longer pushed out of the candidate pool before the result list is cut |
+| 🔍 | **A search term with punctuation in it works now** — `使用心得+关键词` used to find nothing, because the query was compared with the split-up terms of the name; it is compared with the whole name now. A query that cannot be turned into a valid search is reported as such instead of quietly turning into a broader one |
+| ☁️ | **Netdisk hits keep their share of the result window** — when a netdisk file and a file of your own score the same, the window no longer fills up with the hits of one single connection: a share is reserved for netdisks, and it rotates between the connections |
+| 📇 | **Every netdisk gets its own share of the search index** — each netdisk may hold 20,000 indexed entries and the total grows with the number of connections, so adding a second netdisk is no longer starved by the first |
+| 🧭 | **Searching inside a netdisk folder now says so** — the folder scope of a netdisk path used to answer with an empty list; it now tells you that this route only walks local disks, and points you at the global index |
+| ⌨️ | **The command palette no longer promises a search it cannot do** — the input said *type a command or search*, but the palette only lists commands; it now says *type a command* |
 
 ### What changed in 3.20.0
 
@@ -364,7 +388,8 @@ they compare.
 ## 📦 Download & install
 
 **Primary download:** [**www.aiec.fun/alpha-file-manager**](https://www.aiec.fun/alpha-file-manager/)
-— this is the update channel the app itself checks.
+— this is the update channel the app itself checks. The current release is
+**3.23.0**.
 
 | | Platform | How |
 |---|---|---|
@@ -373,7 +398,8 @@ they compare.
 | 🐧 | **Linux** | Builds are produced from source (`.deb` / `.AppImage`); see [build from source](#-build-from-source) |
 
 GitHub releases carry the same installer and act as a fallback mirror:
-[releases/latest](https://github.com/kizemo/alpha-file-manager/releases/latest).
+[releases/latest](https://github.com/kizemo/alpha-file-manager/releases/latest) —
+3.23.0 is there as well.
 
 > **Windows builds are unsigned**, so SmartScreen reports *"Unknown publisher"* —
 > click **More info → Run anyway**. Upgrading in place keeps your settings,

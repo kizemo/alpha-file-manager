@@ -1,5 +1,37 @@
 # Changelog
 
+## [3.23.0] - November 2026
+
+**Summary:** The global search got much better at names in Chinese - a search term now reaches into the middle of a file name, and files on a netdisk no longer fall out of the result list because a local file happened to score the same. A favorite can now be edited where it stands, the quick-access list in the sidebar got a pencil of its own, and the settings page can write your setup to a file and read it back on another machine. None of this asks you to rebuild anything: the indexes you already have keep working as they are.
+
+### What changed
+
+**Added** **A favorite on the quick-access page shows its full path and can be edited where it stands** - The cards in *Quick access* showed only the name of the file or folder behind them, so two favorites with the same name were hard to tell apart. The full path is now shown underneath. Clicking the title or the path turns it into an input field, where the title can be given another name and the path can point somewhere else. A path that does not exist, or one that already belongs to another favorite, is refused with the reason spelled out.
+
+**Added** **The quick-access list in the sidebar got a pencil of its own** - Hovering an entry in the sidebar's *Quick access* panel now shows a small pencil. Clicking it opens a dialog where the name, the path and the category of that favorite can be changed. The entry on the quick-access page that used to offer *Edit display name* now opens the same dialog, so a favorite can be edited from either side.
+
+**Added** **The settings page can export your setup and read it back** - *Settings* -> *Data & storage* now offers *Export settings* and *Import settings*. The export gathers your settings, your favorites, your remote connections and the details of your netdisk connections - Baidu Netdisk, Quark Netdisk, Aliyun Drive and OneDrive - into one JSON file that you can keep or move to another machine. Two things are deliberately left out: your browsing history and your frequently used items are not exported, and no password or token is written into the file. A connection that has no credential on the machine you import into is reported as still needing one.
+
+**Fixed** **A search term now reaches into the middle of a Chinese file name** - Searching for `技巧` used to find nothing unless the file was called almost exactly `技巧`, because the index treated a whole run of Chinese characters as one word and a term had to match that word nearly letter for letter. A term that is not plain Latin letters is now also matched against the file name as a whole, so `技巧`, `收集` and `心得` find the files that carry those characters - on your own drives and on your netdisks alike. Your index is not rebuilt for this; the results are there right after the update.
+
+**Fixed** **A search term that crosses a punctuation mark now finds the file** - A file called `Midjourney 使用心得+关键词分析.mp4` could not be found by `心得+关键`, because the match was made against the words the name was cut into rather than against the name itself. The match now runs against the whole file name, so a term that crosses a `+`, a `-` or a space is found again. This costs no index rebuild either.
+
+**Fixed** **Files on a netdisk no longer fall out of the search results** - When several files scored exactly the same - which happens a lot with a common Chinese word - the files of one netdisk took every place in the list, and a file on a netdisk you added later stayed invisible. The places in the list are handed out in turn now, one per netdisk, so every netdisk you ticked gets its share, and inside a netdisk the newer file comes first.
+
+**Fixed** **A netdisk no longer takes the whole cloud index** - The limit on how many entries the cloud search index may hold was shared by all netdisks together, so the first netdisk filled it and a second one you ticked contributed nothing - its files were then never found. Each netdisk now has a quota of its own and the total grows with the number of netdisks, so every netdisk you tick puts its files into the index.
+
+**Fixed** **A search scoped to a netdisk folder now says what it cannot do** - Asking for a recursive search inside a netdisk folder used to answer with nothing at all, which looks exactly like "there is nothing there". It now says that the channel only walks local disks, and points you at the global index or at walking the netdisk folder level by level.
+
+**Fixed** **A query the app cannot make sense of is reported instead of being run differently** - When a search term was not something the search could use as a pattern, the app quietly turned it into a loose "any of these words" search and answered a question you had not asked. It now says that the query cannot be used.
+
+**Fixed** **The command palette no longer promises to search your files** - The search box in the command palette said "type a command or search...", which read as if files could be found there. The panel has only ever listed commands, so the wording now says so - and the tooltip of the shortcut that opens the panel is no longer left in English.
+
+**Changed** **The app log now says what the cloud index is doing** - Rebuilding the index of your netdisks used to leave only one line per netdisk with a file count. The log now shows when a rebuild starts, how many entries were collected, how long the writing took and when it finished, and it says plainly when the index is missing or when no netdisk is ticked for the global search - so "nothing was found" and "nothing was indexed" can no longer be told apart by guesswork.
+
+**Changed** **The new wording is there in all 17 languages, but 15 of them carry the English text for now** - The text for favorites and for import and export is written out in English and Chinese. The other 15 language packs have the new entries in English until they are translated.
+
+**Changed** **A global search now takes noticeably longer** - The fix that lets a search term reach across punctuation works on the whole file name rather than on the words it was cut into, and on a large index a search now takes about five times as long as before - roughly a quarter of a second before, about one and a quarter seconds now. The same slowdown shows up in searches that do not use the new path, so it is being looked at rather than presented as the price of the fix.
+
 ## [3.22.0] - November 2026
 
 **Summary:** The global search now searches exactly the netdisks you ticked. Every entry in the cloud index now carries the netdisk it came from, and results are filtered against the drives you have ticked at the moment you search - so unticking a netdisk takes effect straight away, even if a rebuild failed half way. After this update the cloud index is rebuilt once, because the stored format now includes which netdisk each entry belongs to.
