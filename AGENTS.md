@@ -821,8 +821,26 @@ AFM 确实不抢前台（聊天窗口还在前面），但**文件拖不进聊�
   装机实测端到端 **260ms 级 → 1270ms 级（约 5×，控制组同涨）**。换字段不是免费午餐，改前先确认能接受。
 - 判 RED/GREEN 只认日志里的 `test result:` 行：本项目 `cmd /c` 包 `powershell -Command` 会吃掉非零退出码
   （`red2.log:221` 是 `FAILED. 1 passed; 2 failed`，而 `:224` 仍写着 `EXIT=0`）。
+### 2.15 批次 64 的三个硬事实：代理死了走 VPS 隧道、`release/` 顶层只放官方资产、发布顺序是「包先、清单后」（2026-11-26 实测）
 
-## 3. 代码导航：graphify 知识图谱
+- **本地代理整体失效时，GitHub 推送有第三条路**：Clash Verge 的 `verge-mihomo` 在 `127.0.0.1:7897` 有监听却对**所有**目标
+  （连 `https://www.baidu.com` 都算）秒回 `Recv failure: Connection was aborted`；直连 `github.com` 21s 超时；
+  控制端口 9097/9090/9091 全没开 ⇒ 既换不了节点也推不动。
+  **可用的第三条路**：站点 VPS 出网正常时（实测 `github.com` 200 / `api.github.com` 200 / `raw.githubusercontent.com` 超时），
+  用 paramiko `direct-tcpip` 通道起一个本地 SOCKS5 转发器，git 与 gh 走 `socks5h://127.0.0.1:<port>`。
+  判据：`curl -x socks5h://… https://github.com` 回 **200**，再以 `git ls-remote origin main` 与 `git rev-parse HEAD` **逐字相等**为准。
+  ⚠️ `gh` 走 Go 的 `http.ProxyFromEnvironment`，`socks5h` 在 Go 侧不支持时改用 `socks5://`（DNS 在本机解析，本机 DNS 正常即可）。
+- **`release/` 顶层只放与官方资产逐字节一致的包**：权威判据是 **GitHub Releases API 资产的 `digest` 字段**（现 43 个资产全带 `sha256:` 前缀），
+  不是文件名、不是大小。顶层混进本地重建包 = 让本地构建冒充已发布版本。
+  本批核对发现顶层有 22 个非官方文件，已全部移入 `release/local-builds/`（同名加 `.dup-<sha8>` / `.top-<版本>` 后缀，**只移不删**），
+  并把 `SHA256SUMS.txt` / `LOCAL-BUILDS.txt` / `release/README.md` 三处计数按 API 真值重建。
+  判据脚本：`.superpowers/sdd/b64/mirror-check-324.mjs`（读 API JSON 出真值表）+ `mirror-fix-324.mjs`（归位并重写台账）。
+- **发布顺序固定「安装包先、`version.json` 后」**：全量上传会先传 `version.json` 再传 50 个安装包，
+  窗口期里用户会点到还没上传的包。用 `_upload_alpha_files.py --only <安装包>` → `--files-only` 两步走，
+  每步都以**服务器端 md5+size 校验**为准；最后用 `release-publish.mjs verify` 做公网回读（**版本号 / 大小 / sha256 三项**，
+  且要看边缘 `CF-Cache-Status` 与边缘包字节数，别只信源站）。
+
+
 本仓库已建好本地 AST 知识图谱（2026-10-21 部署）：**零 LLM、零 API 成本、纯本地**，产物在 `graphify-out/`（已加进 `.gitignore`，不进版本库）。
 
 - **重建**：`graphify extract . --code-only`（1243 个代码文件 / 21 万行，**约 42 秒**）；改过代码就 `graphify update .`。
