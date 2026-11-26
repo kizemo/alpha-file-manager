@@ -73,6 +73,32 @@ function toDirEntry(raw: RecursiveSearchEntry): DirEntry {
   };
 }
 
+/**
+ * 把 invoke 的拒绝值转成一句能直接上屏的话。
+ *
+ * Tauri 的 `Err(String)` 会用**字符串本身**拒绝（不是 Error 实例），
+ * 而命令缺失、权限错误之类会以 Error 拒绝 —— 两种都要接住。
+ */
+export function toRecursiveSearchErrorMessage(error: unknown): string {
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+  }
+
+  return String(error);
+}
+
 export function useFileBrowserRecursiveSearch(options: {
   currentPath: Ref<string>;
   filterQuery: Ref<string>;
@@ -86,9 +112,16 @@ export function useFileBrowserRecursiveSearch(options: {
   // 递归命中项。与当前目录的条目并存在同一个列表里，所以对外仍叫 entries。
   const recursiveMatches = shallowRef<DirEntry[]>([]);
   const isRecursiveSearching = ref(false);
-  // 远程通道不可用时（命令缺失、权限错误、目录不可读）静默降级为「只搜当前层」，
-  // 不打断用户正在输入的过滤。
-  const recursiveSearchUnavailable = ref(false);
+  // FORK-MODIFICATION 批次 65（W-18）：递归通道失败时**不再静默降级**。
+  //
+  // 旧行为：`catch` 把错误整个吞掉，只留一个布尔标记，而那个标记从来没有向上透传
+  // （见 use-file-browser.ts 里那段「暂不向上透传」的注释）⇒ 用户在云盘目录里搜索时
+  // 看到的是「只有当前层的结果」，却完全不知道为什么 —— 后端其实早就给出了明确的
+  // 报错文案（「该连接当前没有勾选『加入全局检索』，索引层不可见」）。
+  //
+  // 现在把后端原文透上来交给界面显示。递归匹配拿不到时**仍然**退回「只搜当前层」
+  // （当前层的过滤照常生效），只是不再假装一切正常。
+  const recursiveSearchError = ref<string | null>(null);
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   // 单调递增的请求序号。invoke 没有 AbortController，早返回的旧响应必须被丢弃，
@@ -127,16 +160,18 @@ export function useFileBrowserRecursiveSearch(options: {
       }
 
       recursiveMatches.value = (rawResults ?? []).map(toDirEntry);
-      recursiveSearchUnavailable.value = false;
+      recursiveSearchError.value = null;
     }
-    catch {
-      // 目录不可读、命令不存在、参数不对……都走这里。降级成本地一层过滤。
+    catch (error) {
+      // 目录不可读、命令不存在、参数不对……都走这里。
+      // FORK-MODIFICATION 批次 65（W-18）：不再静默吞掉 —— 把后端原文带走，
+      // 交给界面显示（递归匹配仍退回「只搜当前层」，当前层的过滤照常生效）。
       if (sequence !== requestSequence) {
         return;
       }
 
       recursiveMatches.value = [];
-      recursiveSearchUnavailable.value = true;
+      recursiveSearchError.value = toRecursiveSearchErrorMessage(error);
     }
     finally {
       if (sequence === requestSequence) {
@@ -165,6 +200,9 @@ export function useFileBrowserRecursiveSearch(options: {
       if (!rootPath || !trimmedQuery) {
         cancelPendingSearch();
         recursiveMatches.value = [];
+        // FORK-MODIFICATION 批次 65（W-18）：查询清空后，上一次的报错不再成立，
+        // 留着会变成一条与当前状态无关的旧提示。
+        recursiveSearchError.value = null;
         return;
       }
 
@@ -178,7 +216,7 @@ export function useFileBrowserRecursiveSearch(options: {
   return {
     recursiveMatches,
     isRecursiveSearching,
-    recursiveSearchUnavailable,
+    recursiveSearchError,
     cancelPendingSearch,
   };
 }

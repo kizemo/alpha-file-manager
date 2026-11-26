@@ -449,6 +449,7 @@ defineExpose({
       :filtered-count="fb.entries.value.length"
       :selected-count="fb.selectedEntries.value.length"
       :selected-entries="fb.selectedEntries.value"
+      :recursive-search-error="fb.recursiveSearchError.value"
       :is-split-view="props.isSplitView"
       :is-active-pane="props.isActivePane ?? true"
       @select-all="fb.selectAll"

@@ -121,6 +121,9 @@ interface DataSource {
   focusFilter: () => void;
   clearFilterInputFocusRequest: () => void;
   closeFilter: () => void;
+  // FORK-MODIFICATION 2026-11-26（批次 65，W-18）：递归搜索失败原因（后端原文）。
+  // 为 null 表示这次没有失败过。外部模式不跑目录递归检索，恒为 null。
+  recursiveSearchError: ComputedRef<string | null>;
 }
 
 function setupNavigationDataSource(
@@ -163,12 +166,15 @@ function setupNavigationDataSource(
   const sortDirection = computed(() => sortSettings.value.direction);
   const applySort = computed(() => shouldApplyNavigatorSort(options.layout()));
   const foldersFirst = computed(() => userSettingsStore.userSettings.navigator.foldersFirst);
-  // FORK-MODIFICATION: 需求反馈 3 —— 递归通道的状态（isRecursiveSearching /
-  // recursiveSearchUnavailable）目前只在 useFileBrowserEntries 内部用于合并结果，
-  // 暂不向上透传：过滤框里没有位置放「正在搜索子目录…」的指示，先不做半成品 UI。
+  // FORK-MODIFICATION: 批次 65（W-18）—— 递归通道的**失败原因**现在要透传到界面。
+  // 「正在搜索子目录…」的加载指示仍然不做（过滤框里确实没有位置放），
+  // 但**失败必须让用户看见** —— 否则在云盘目录里搜索时，用户看到的是
+  // 「只有当前层的结果」，却不知道后端已经明确报了「该连接当前没有勾选
+  // 『加入全局检索』，索引层不可见」。
   const {
     entries: filteredEntries,
     isDirectoryEmpty: filteredIsDirectoryEmpty,
+    recursiveSearchError,
   } = useFileBrowserEntries(
     navigation.dirContents,
     filter.filterQuery,
@@ -194,6 +200,9 @@ function setupNavigationDataSource(
     entries: computed(() => filteredEntries.value),
     currentPath: computed(() => navigation.currentPath.value),
     isDirectoryEmpty: computed(() => filteredIsDirectoryEmpty.value),
+    // FORK-MODIFICATION: 批次 65（W-18）—— 递归搜索失败的原因（后端原文）。
+    // 为 null 表示这次没有失败过。
+    recursiveSearchError: computed(() => recursiveSearchError.value),
     dirContents: navigation.dirContents,
     // FORK-MODIFICATION 2026-10-18：主机公钥信任流（阶段 2 决策 3）。
     // 非 null 时 file-browser.vue 弹窗等用户决定。
@@ -285,6 +294,9 @@ function setupExternalDataSource(options: UseFileBrowserOptions): DataSource {
     silentRefresh: () => {
       globalSearchStore.search();
     },
+    // FORK-MODIFICATION 2026-11-26（批次 65，W-18）：外部模式不跑目录递归检索，
+    // 没有失败原因可言；字段必须存在，调用方才能无分支解构。
+    recursiveSearchError: computed(() => null),
     // FORK-MODIFICATION 2026-10-18：外部模式没有导航，也就不存在「为远程目录建连」
     // 这条链路，主机密钥信任流在这里只能是惰性桩。
     // 刻意不是 `undefined`：DataSource 是契约，让调用方不必分支就能安全解构。
@@ -682,6 +694,9 @@ export function useFileBrowser(options: UseFileBrowserOptions) {
     isLinkMetadataLoading: linkMetadata.isLinkMetadataLoading,
     isRefreshing: dataSource.isRefreshing,
     error: dataSource.error,
+    // FORK-MODIFICATION 2026-11-26（批次 65，W-18）：递归搜索失败原因上抛到界面，
+    // 让用户看见后端原文，而不是只看到「只有当前层的结果」。
+    recursiveSearchError: dataSource.recursiveSearchError,
 
     pathInput: dataSource.pathInput,
     canGoBack: dataSource.canGoBack,

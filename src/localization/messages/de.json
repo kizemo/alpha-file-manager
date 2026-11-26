@@ -1316,6 +1316,7 @@
     "refresh": "Aktualisieren",
     "quickSearch": "Schnellsuche",
     "searchThisDirectory": "Dieses Verzeichnis durchsuchen...",
+    "recursiveSearchUnavailableTitle": "Recursive search unavailable — only the current folder was searched",
     "quickSearchFilterByColumn": "In Spalte suchen",
     "quickSearchPropertyTooltip": {
       "name": "Nur in Name und Erweiterung suchen (nicht im Ordnerpfad).",

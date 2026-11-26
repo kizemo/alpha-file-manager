@@ -72,7 +72,7 @@ export function useFileBrowserEntries(
   const {
     recursiveMatches,
     isRecursiveSearching,
-    recursiveSearchUnavailable,
+    recursiveSearchError,
   } = useFileBrowserRecursiveSearch({
     currentPath: recursiveSearchRoot,
     filterQuery,
@@ -176,7 +176,7 @@ export function useFileBrowserEntries(
     entries,
     isDirectoryEmpty,
     isRecursiveSearching,
-    recursiveSearchUnavailable,
+    recursiveSearchError,
     searchOptions,
   };
 }

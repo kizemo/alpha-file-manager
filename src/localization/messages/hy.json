@@ -1354,6 +1354,7 @@
     "refresh": "Թարմացնել",
     "quickSearch": "Արագ որոնում",
     "searchThisDirectory": "Որոնել այս պանակում․․․",
+    "recursiveSearchUnavailableTitle": "Recursive search unavailable — only the current folder was searched",
     "quickSearchFilterByColumn": "Որոնել սյունակում",
     "quickSearchPropertyTooltip": {
       "name": "Որոնել միայն անունով և ընդլայնմամբ (ոչ թե պանակի ուղով):",

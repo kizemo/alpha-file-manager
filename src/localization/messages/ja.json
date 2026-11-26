@@ -1316,6 +1316,7 @@
     "refresh": "更新",
     "quickSearch": "クイック検索",
     "searchThisDirectory": "このディレクトリを検索...",
+    "recursiveSearchUnavailableTitle": "Recursive search unavailable — only the current folder was searched",
     "quickSearchFilterByColumn": "列で検索",
     "quickSearchPropertyTooltip": {
       "name": "名前と拡張子のみを検索します（フォルダーのパスは含みません）。",

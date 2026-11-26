@@ -1354,6 +1354,7 @@
     "refresh": "ताज़ा करना",
     "quickSearch": "त्वरित खोज",
     "searchThisDirectory": "यह निर्देशिका खोजें...",
+    "recursiveSearchUnavailableTitle": "Recursive search unavailable — only the current folder was searched",
     "quickSearchFilterByColumn": "कॉलम में खोजें",
     "quickSearchPropertyTooltip": {
       "name": "केवल नाम और एक्सटेंशन में खोजें (फ़ोल्डर पथ में नहीं)।",

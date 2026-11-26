@@ -1359,6 +1359,7 @@
     "refresh": "Refresh",
     "quickSearch": "Quick search",
     "searchThisDirectory": "Search this directory...",
+    "recursiveSearchUnavailableTitle": "Recursive search unavailable — only the current folder was searched",
     "quickSearchFilterByColumn": "Search in column",
     "quickSearchPropertyTooltip": {
       "name": "Search only in the name and extension (not the folder path).",

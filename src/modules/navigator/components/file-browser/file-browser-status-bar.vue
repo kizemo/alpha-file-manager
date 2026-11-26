@@ -15,6 +15,7 @@ import {
   MenuIcon,
   EllipsisVerticalIcon,
   BotIcon,
+  TriangleAlertIcon,
 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -58,11 +59,15 @@ const props = withDefaults(defineProps<{
   selectedEntries?: DirEntry[];
   isSplitView?: boolean;
   isActivePane?: boolean;
+  // FORK-MODIFICATION: 批次 65（W-18）—— 递归搜索失败时的后端原文。
+  // 非 null 时状态栏显示一条可见提示，而不是静默退回「只搜当前层」。
+  recursiveSearchError?: string | null;
 }>(), {
   selectedCount: undefined,
   selectedEntries: undefined,
   isSplitView: false,
   isActivePane: false,
+  recursiveSearchError: null,
 });
 
 const emit = defineEmits<{
@@ -550,6 +555,28 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
         </span>
       </template>
 
+      <!-- FORK-MODIFICATION: 批次 65（W-18）—— 递归搜索失败的原因（后端原文）。
+           旧行为是静默降级成「只搜当前层」，用户看不到任何解释。 -->
+      <Tooltip v-if="recursiveSearchError">
+        <TooltipTrigger as-child>
+          <span
+            class="file-browser-status-bar__recursive-error"
+            data-file-browser-recursive-search-error
+          >
+            <TriangleAlertIcon :size="12" />
+            <span class="file-browser-status-bar__recursive-error-title">
+              {{ t('fileBrowser.recursiveSearchUnavailableTitle') }}
+            </span>
+            <span class="file-browser-status-bar__recursive-error-detail">
+              {{ recursiveSearchError }}
+            </span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          {{ recursiveSearchError }}
+        </TooltipContent>
+      </Tooltip>
+
       <Tooltip v-if="showMcpIndicator">
         <TooltipTrigger as-child>
           <span class="file-browser-status-bar__mcp-indicator">
@@ -634,6 +661,31 @@ async function handleExtensionAction(registration: ContextMenuItemRegistration) 
   color: hsl(var(--primary));
   font-size: calc(11px + var(--font-size-offset, 0px));
   gap: 4px;
+}
+
+/* FORK-MODIFICATION: 批次 65（W-18）—— 递归搜索失败提示。
+   详情用省略号截断，完整文案在 tooltip 里 —— 状态栏只有 32px 高，
+   后端原文可能很长（「云盘目录递归检索失败（sfm://remote/…）：…」）。 */
+
+.file-browser-status-bar__recursive-error {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  color: hsl(var(--destructive));
+  gap: 4px;
+}
+
+.file-browser-status-bar__recursive-error-title {
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.file-browser-status-bar__recursive-error-detail {
+  overflow: hidden;
+  min-width: 0;
+  color: hsl(var(--muted-foreground));
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .file-browser-status-bar__selected-count {

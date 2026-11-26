@@ -1320,6 +1320,7 @@
     "refresh": "刷新",
     "quickSearch": "快速搜索",
     "searchThisDirectory": "搜索此目录...",
+    "recursiveSearchUnavailableTitle": "递归搜索不可用，仅搜索当前层",
     "quickSearchFilterByColumn": "在列中搜索",
     "quickSearchPropertyTooltip": {
       "name": "仅在名称和扩展名中搜索（不包括文件夹路径）。",
