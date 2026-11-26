@@ -5379,3 +5379,60 @@ PUSH raw="E:/办公文件" matched=undefined status=404
 6. **边界（勿误读）**：界面真机判据来自 **round 4 取证版**（与干净版同一 commit `84055071`、同一探针字节，仅差 conf 旗标）；
    干净交付包**没有再跑一次界面**——它不带 CDP 通道，再跑得重新注旗标重打。即「修复已在真机验证过」+「交付包不含取证仪器」
    是两份二进制，这是本项目取证路线的固有代价，不是遗漏。round 5 补充探针（Home/End、Shift 选区保持）脚本 `b59/w19-forensic5.ps1` 已就位未执行。
+
+### 三十六·8 批次 60 · W-18 装机版真机递归检索验收（通过）
+
+1. **被测产物 = 装机版**，不是 `target\release` 那份。静默安装 `release\local-builds\Alpha File Manager_3.23.0_x64-setup.exe`
+   （46,195,584 B）`/S` ⇒ `INSTALLER_EXITED=True`，**全程无 UAC 交互**。装后回读
+   `D:\Program Files\Alpha File Manager\alpha-file-manager.exe` = **85,987,328 B** / mtime **2026-11-26 15:47:00** /
+   FileVersion **3.23.0**，字节数与干净 exe 完全一致（升级前装的是 3.22.0 / 85,570,560 B）⇒ 真机验的是新代码。
+2. **通道**：装机版进程 `PID=9492` 监听 **55100**（区间 55100–55199），`initialize` 返回 200、`serverInfo.name=rmcp / 3.5.1`、
+   stateless（不回 `mcp-session-id`）；`%APPDATA%\com.sigma-file-manager.app\mcp-access.json` 的 `mode` = **`readOnly`**，
+   token 长度 32（**值未打印、未落日志**）。工具清单 7 个只读工具，`search_files` 带 `directory` 参数
+   （schema 原文：「限定在某棵子树下搜。不填则走全局索引。」），`result_limit` 默认 50 上限 500。
+3. **阳性（递归成立）**：scope = `sfm://remote/0f0696babf4f42d1aef22c61aa89b0a9/我的资源/AI`，query=`心得`，`result_limit=5`，
+   **ELAPSED_MS=99**；5 条命中**全部**位于该 scope 之下 **5–7 层**（如 `…/2025Deepseek从入门到精通+皇炸组合/1、Deepseek 王炸组合/
+   利用Deepseek+创客贴批量制作图文笔记/赠送资料文档/…`），响应体 `scope` 字段**逐字回显**该目录 ⇒ 不是浅层命中凑数。
+4. **阴性对照（有判别力）**：同 scope 搜 `客服培训心得` ⇒ **count=0 / results=[]**（119ms）；**全局**搜同一词 ⇒ **count=1**，
+   命中 `E:/办公文件/000临时事项/桌面文件/客服管理/客服培训心得.jpg`（499ms）。二者合起来证明该词确实存在、只是被 scope 正确排除；
+   「0 条」不是「词不存在」的假绿。
+5. **隔离性**：全局同 query 另有命中落在本地盘 `E:/办公文件/...` 与**另一条连接** `sfm://remote/646dacdb6ff34af4b26f88dd802baf02/08艺术/...`，
+   scope 内结果**未混入**它们。
+6. **边界**：只覆盖**已建索引**的连接（百度封顶 20,000 条），未建索引/未勾选的连接搜不到属设计现状；
+   `release\local-builds` 里**没有 3.22.0 安装器**（`*3.22.0*` 零命中）⇒ 想退回 3.22.0 无现成包。
+
+### 三十六·9 批次 60 · W-21 检索性能回归真实修复（按 segment 并行扫描）
+
+1. **改法（只动 `src-tauri/src/global_search/substring_scan.rs` 一个文件）**：Term 词典扫描按
+   `searcher.segment_readers()` 切块，`std::thread::scope` 并行；`chunk_size = segments.len().div_ceil(parallel)`，
+   `parallel = scan_parallelism().min(segments.len()).max(1)`，`scan_parallelism() = available_parallelism().clamp(1, 8)`
+   （封顶 8 控最坏内存）。归并按 chunk 顺序**串行** append、`overflowed[index] |= chunk_overflowed[index]`，
+   归并后 `len > MAX_SUBSTRING_MATCHED_TERMS` 才**整体降级回旧正则并 warn**——**不截断**，与串行语义等价。
+   `segments.is_empty()` 时走原空路径。**未改索引 schema、未改 `Cargo.toml`、用户无需重建索引**（批次 59 红线保持）。
+2. **合成基准 A/B（同一进程、同一语料 120000 docs / 8 segments / 12 iterations，`SFM_W21_BENCH=1`）**
+   —— 落盘 `.superpowers/sdd/b60/w21-bench-par.txt`，这是本轮**唯一严格对照**：
+   - `技巧`（高频，12100 命中）：`new_scan` **607.4 → 130.3 ms（4.66x）**；`channel_speedup` **1.06x → 1.74x**；
+     `full_speedup` **1.06x → 1.75x**
+   - `量子纠缠`（低频，16 命中）：`new_scan` **613.8 → 125.2 ms（4.90x）**；`channel_speedup` **1.95x → 9.65x**；
+     `full_speedup` **1.89x → 9.03x**
+   - 两轮均 `old_hits == new_hits`（12100 = 12100、16 = 16）⇒ **命中集合逐条一致，红线守住**。
+3. **高频词的天花板已换人**：`技巧` 现在 `new_termset_ms = 323.5`（postings 并集，主查询 + W-13 候选池各跑一遍 = 647ms）
+   已**超过**扫描的 130ms ⇒ 再压高频只剩两条路：动 W-13 候选池语义（`SUBSTRING_CANDIDATE_LIMIT=20_000` 下复用受限结果集
+   会改命中集合，受红线禁止）或 n-gram 字段（改 schema + 强制重建，批次 59 红线禁止）。**本轮到此为止是正确边界，不是遗漏。**
+4. **门禁**：`cargo test --lib` = **1745 passed / 0 failed / 3 ignored / 7.55s**（`.superpowers/sdd/b60/w21-full-test.txt`；
+   较批次 59 的 1738 多 7 条 = 其间并入的 W-18 用例）。本轮**只改 Rust、未碰前端** ⇒ 未跑 `npm run check`。
+5. **真实索引侧证（不是严格对照，请按侧证读）**：同一台机、同一 user-data、同端口探针
+   （`.superpowers/sdd/b60/w21-real.txt`，`cargo build --release` 产物 pid 222676 / 端口 55100 / 并行版）：
+
+   | 查询 | 装机 3.23.0（串行） | 并行修复版 | 说明 |
+   |---|---|---|---|
+   | 全局 `客服培训心得` | 499 ms | **227 ms** | 口径一致，**2.20x**，命中 1 条不变 |
+   | 全局 `心得` limit 12 | 520 ms | **268 ms** | 基线未记 limit，**近似对照**，命中 12 条集合一致 |
+   | scope 内 `心得` limit 5 | 99 ms | **91 ms** | 只 1.09x：scope 路径过滤后 term 少，扫描占比本来就小 |
+
+   ⇒ 真实 993k docs 索引上**没有回归、且确实变快**；但**精确倍率只认第 2 条合成基准**，上表仅作装机侧证。
+6. **新坑**：`cargo build --release` 产物 **52,983,808 B**，`npm run tauri:build` 产物 **85,987,328 B** —— 两者不同档
+   （差异原因未逐项核实，推测前者不含 Tauri 打包链路内嵌的那部分资源）。**前者只能当计时器/取证件，不得当交付包**；
+   也**不要拿两者尺寸或 SHA 互比**。
+7. **本轮未做**：未升版号（仍 **3.23.0**）、未重打安装器（现有 3.23.0 安装包 = 串行版，已装的那份也是串行版）、
+   未推送、未重建索引。并行修复等下一次发版固化进安装包。

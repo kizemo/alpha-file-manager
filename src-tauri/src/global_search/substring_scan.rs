@@ -32,7 +32,7 @@
 use std::collections::BTreeMap;
 
 use tantivy::query::{Query, RegexQuery, TermSetQuery};
-use tantivy::{Searcher, Term};
+use tantivy::{SegmentReader, Searcher, Term};
 
 use super::ignore::normalize_case;
 use super::incremental::escape_regex_literal;
@@ -83,54 +83,62 @@ impl SubstringScan {
         let mut matched: Vec<Vec<Term>> = vec![Vec::new(); needles.len()];
         let mut overflowed: Vec<bool> = vec![false; needles.len()];
 
-        for segment in searcher.segment_readers() {
-            let inverted_index = match segment.inverted_index(fields.name_lower) {
-                Ok(inverted_index) => inverted_index,
-                Err(error) => {
-                    log::warn!(
-                        "[global-search] 子串词典扫描读不到倒排索引，降级为正则路径：{error}"
+        // 按 segment 切块并行：每个 segment 的 term 词典互相独立（各自的 `.term`
+        // 文件、各自的 `TermStreamer`），扫描之间没有共享可变状态。
+        let segments = searcher.segment_readers();
+        let mut partials: Vec<(Vec<Vec<Term>>, Vec<bool>)> = Vec::new();
+        let mut failed = false;
+
+        if !segments.is_empty() {
+            let parallel = scan_parallelism().min(segments.len()).max(1);
+            let chunk_size = segments.len().div_ceil(parallel);
+
+            std::thread::scope(|scope| {
+                let mut handles = Vec::with_capacity(parallel);
+                for chunk in segments.chunks(chunk_size) {
+                    let needles = &needles;
+                    handles.push(
+                        scope.spawn(move || scan_segments(chunk, fields, needles, max_terms)),
                     );
-                    return SubstringScan::all_fallback(&needles);
                 }
-            };
-
-            let mut stream = match inverted_index.terms().stream() {
-                Ok(stream) => stream,
-                Err(error) => {
-                    log::warn!("[global-search] 子串词典扫描读不到 term 词典，降级为正则路径：{error}");
-                    return SubstringScan::all_fallback(&needles);
+                for handle in handles {
+                    match handle.join() {
+                        Ok(Some(partial)) => partials.push(partial),
+                        // 任一块读不到词典 ⇒ 整次扫描降级（与逐段串行时的行为一致）。
+                        Ok(None) | Err(_) => failed = true,
+                    }
                 }
-            };
+            });
+        }
 
-            while stream.advance() {
-                let key = stream.key();
+        if failed {
+            return SubstringScan::all_fallback(&needles);
+        }
 
-                // 纯 ASCII 的 term 不可能含非 ASCII 的 needle ⇒ 跳过（不改变命中集合）。
-                if key.is_ascii() {
+        // 归并：各块按 segment 顺序串行拼接 ⇒ 命中集合与逐段串行扫描逐条相同。
+        for (chunk_matched, chunk_overflowed) in &mut partials {
+            for (index, bucket) in chunk_matched.iter_mut().enumerate() {
+                overflowed[index] |= chunk_overflowed[index];
+                if overflowed[index] {
+                    // 该词已判定超上限 ⇒ 丢掉已收集的（不截断，走降级）。
+                    bucket.clear();
+                    matched[index].clear();
                     continue;
                 }
-
-                let Ok(text) = std::str::from_utf8(key) else {
-                    continue;
-                };
-
-                for (index, needle) in needles.iter().enumerate() {
-                    if overflowed[index] {
-                        continue;
-                    }
-                    if !term_contains_substring(text, needle) {
-                        continue;
-                    }
-                    matched[index].push(Term::from_field_text(fields.name_lower, text));
-                    if matched[index].len() > max_terms {
-                        // 命中数超上限 ⇒ **降级**（不截断）：截断会改变命中集合。
-                        overflowed[index] = true;
-                        matched[index].clear();
-                        log::warn!(
-                            "[global-search] 子串词「{needle}」命中的 term 超过上限 {max_terms}，降级为正则路径"
-                        );
-                    }
+                matched[index].append(bucket);
+                if matched[index].len() > max_terms {
+                    // 命中数超上限 ⇒ **降级**（不截断）：截断会改变命中集合。
+                    overflowed[index] = true;
+                    matched[index].clear();
                 }
+            }
+        }
+
+        for (index, needle) in needles.iter().enumerate() {
+            if overflowed[index] {
+                log::warn!(
+                    "[global-search] 子串词「{needle}」命中的 term 超过上限 {max_terms}，降级为正则路径"
+                );
             }
         }
 
@@ -183,6 +191,75 @@ impl SubstringScan {
             Some(SubstringMatch::FallbackToRegex) | None => build_regex_substring_query(fields, word),
         }
     }
+}
+
+/// 扫描指定的一段 segment，返回该块的命中列表与「超过上限」标记。
+///
+/// `None` = 该块读不到词典 ⇒ 调用方整次降级为正则路径（与串行实现一致）。
+fn scan_segments(
+    segments: &[SegmentReader],
+    fields: &GlobalSearchIndexFields,
+    needles: &[String],
+    max_terms: usize,
+) -> Option<(Vec<Vec<Term>>, Vec<bool>)> {
+    let mut matched: Vec<Vec<Term>> = vec![Vec::new(); needles.len()];
+    let mut overflowed: Vec<bool> = vec![false; needles.len()];
+
+    for segment in segments {
+        let inverted_index = match segment.inverted_index(fields.name_lower) {
+            Ok(inverted_index) => inverted_index,
+            Err(error) => {
+                log::warn!("[global-search] 子串词典扫描读不到倒排索引，降级为正则路径：{error}");
+                return None;
+            }
+        };
+
+        let mut stream = match inverted_index.terms().stream() {
+            Ok(stream) => stream,
+            Err(error) => {
+                log::warn!("[global-search] 子串词典扫描读不到 term 词典，降级为正则路径：{error}");
+                return None;
+            }
+        };
+
+        while stream.advance() {
+            let key = stream.key();
+
+            // 纯 ASCII 的 term 不可能含非 ASCII 的 needle ⇒ 跳过（不改变命中集合）。
+            if key.is_ascii() {
+                continue;
+            }
+
+            let Ok(text) = std::str::from_utf8(key) else {
+                continue;
+            };
+
+            for (index, needle) in needles.iter().enumerate() {
+                if overflowed[index] {
+                    continue;
+                }
+                if !term_contains_substring(text, needle) {
+                    continue;
+                }
+                matched[index].push(Term::from_field_text(fields.name_lower, text));
+                if matched[index].len() > max_terms {
+                    // 本块已超上限 ⇒ 标记后丢弃（不截断；归并时该词整体降级）。
+                    overflowed[index] = true;
+                    matched[index].clear();
+                }
+            }
+        }
+    }
+
+    Some((matched, overflowed))
+}
+
+/// 词典扫描的并行度：受可用核数限制并封顶 8（实际线程数还取段数的较小者）。
+fn scan_parallelism() -> usize {
+    std::thread::available_parallelism()
+        .map(|value| value.get())
+        .unwrap_or(1)
+        .clamp(1, 8)
 }
 
 /// 需要走子串通道的查询词：非 ASCII、去重、保序。
