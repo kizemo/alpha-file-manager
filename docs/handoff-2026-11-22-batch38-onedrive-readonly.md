@@ -6079,3 +6079,62 @@ RESTORED_BYTE_IDENTICAL=true
 - `npm run check` 只回读了 **`EXIT=0`** 与两条扩展入口 `PASS`，**未回读 `Test Files` / `Tests` 计数**，故本轮所有台账都不写用例数。
 - `release/` 顶层 **24 个非官方旧包未迁入 `local-builds/`**（housekeeping，不在发版本轮范围，且会打断既有文档路径引用）；`LOCAL-BUILDS.txt`（13,706 B）未按 91 包的新分类重写。
 - 未验证「站点 43 包全量重传」之外的上传路径是否还有别的截断风险（本轮只做了全量 md5+size 复验，结果 `ALL_MATCH`）。
+
+## 四十七、批次 71：截图通路与输入注入双双判死，W-19 残留② 只剩「已渲染大结果集布局开销」
+
+**背景**：批次 70 判死候选 (c) `tauri dev` 后，把残留②「渲染进程 CDP 回包停摆」的下一层收窄为 **截图通路 > 输入注入 > 已渲染大结果集布局开销**（三项全未验）。本批按此顺序做前两项，目标是把「停摆」的成因范围再切一刀 —— 不猜根因，只做能判死的实验。
+
+**1. 装置（全部新增在 `.superpowers/sdd/b71/`）**
+
+- `build-debug-b71.cmd`（纯 ASCII）：`taskkill` → **前置守卫** `findstr /C:"remote-debugging-port" src-tauri\tauri.conf.json`（未命中写 `BUILD_EXIT=91` 并退出，避免白跑 6 分钟）→ `call vcvars64.bat` → PATH 前置 Rust 1.90.0 工具链 → `npm run tauri:build`，日志 `> b71-build-debug.log 2>&1`（不吃 stdout 管道）。
+- `b71-probe.mjs`（17,132 B，纯 ASCII，`node --check` 通过）：复用批次 69 的 `Cdp` 类口径（**180 s** 超时、超时记数据点不中止、页面内 rAF + 50 ms timer 双心跳、`replyLagMs = clientRecvIso - pageIso`），新增六个阶段：
+  - A 基线：`Runtime.enable` / `Page.enable` 计时 + 5 次合并采样（心跳 + `global_search_get_status`）；
+  - B 8 帧 `Page.captureScreenshot({format:'png',fromSurface:true})` 计时，首帧落 `b71-shot0.png`；
+  - **B2 截图后重新 `Page.enable` / `Runtime.enable`**（正面检验批次 56 的停摆模式）；
+  - **C 队头阻塞决定性测试**：不 await 截图，300 ms 后另发一次心跳，比对心跳延迟与截图剩余时长，3 轮；
+  - D `fromSurface:false` 3 帧对照；
+  - E `Input.dispatchKeyEvent` ArrowDown/ArrowUp 20 对计时。
+  - verdict 组合：`CHANNELS_HEALTHY` / `SCREENSHOT_CHANNEL_SLOW` / `HEAD_OF_LINE_BLOCKING` / `POST_SHOT_ENABLES_STALLED` / `INPUT_CHANNEL_SLOW`。
+  - 设计取舍：批次 56 的停摆发生在**截图之前**的 `Page.enable`/`Runtime.enable`，单看截图耗时解释不了它，所以必须加 C 与 B2 两个「事后/并发」检验，否则本批只能证明「截图本身不快」。
+- `b71-run.ps1`（2,049 B）：STEP1 用 `.superpowers/sdd/b58/b58-launch-cdp-sandbox.ps1` 起隔离桌面并等 45777 的 page target → STEP2 `--once` 冒烟 → STEP3 全量（`B71_TIMEOUT_MS=180000`、`B71_SHOTS=8`）→ STEP4 kill app；汇总写 `b71-run.log`。
+
+**2. 构建与实测**
+
+- 补丁：`node .superpowers/sdd/b45/patch-cdp.cjs on` ⇒ `PATCH_OK mode=on additionalBrowserArgs=--remote-debugging-port=45777 --remote-allow-origins=*`（`src-tauri/tauri.conf.json:28`）。
+- 构建：`BUILD_EXIT=0`，Rust `Finished \`release\` profile [optimized] target(s) in 5m 51s`；产物 `src-tauri\target\release\alpha-file-manager.exe` **86,167,552 B** / mtime `2026-11-27 09:32:18`。`git status --porcelain -uall` 全程只有 `M src-tauri/tauri.conf.json` ⇒ **调试包没有落进 `release\`**。
+- 环境：隔离桌面 `AFM-B58CDP-64008`、`B58_LAUNCH_CDP_OK pid=35404`、CDP 45777 上 **pages=1**、目标 `http://tauri.localhost/navigator`（title `Alpha File Manager`）、视口 **2195×1187 / dpr 1.75**、**`rows=0`**。
+- 结果 **`CHANNELS_HEALTHY`**，12 样本 **0 失败 / 0 超时**，`reasons=[]`：
+
+| 观测量 | 实测 | 读法 |
+| --- | --- | --- |
+| 往返延迟 | `p50=4 / p95=36 / max=36 ms` | 通道本身不慢 |
+| 页面侧 `replyLagMs` | `p50=1 / max=1 ms` | 传输/排队不是瓶颈 |
+| `Runtime.enable` / `Page.enable` | `13 ms` / `1 ms` | 与批次 69 同档 |
+| 截图 8 帧（`fromSurface:true`） | `p50=257 / p95=271 / max=271 ms`，每帧 **556,932 B 完全相同** | 慢但稳定；帧字节一致 ⇒ 静态帧佐证 |
+| 截图后重新 enable（B2） | `Page.enable=1 ms` / `Runtime.enable=0 ms`，均 `ok` | **批次 56 停摆模式不复现** |
+| 截图 in-flight 时心跳（C，3 轮） | `4 / 3 / 5 ms`（`replyLag 1 / 0 / 0`），同轮截图约 300 ms 才回 | **「一张卡住的截图堵死会话 FIFO」证伪** |
+| `fromSurface:false`（D，3 帧） | `p50=451 / max=455 ms` | 比 `true` 慢约 1.75×，纯取证口径 |
+| 按键注入（E，20 对 / 40 次） | **0 失败**，`p50=2 / p95=11 / max=13 ms` | 输入通道健康 |
+| 页面心跳 | `rafCount=600`、`maxRafGapMs=46.3`、`maxTimerGapMs=173.7`（后者出现在按键之后） | 主线程未被堵 |
+| 同期负载 | `is_scan_in_progress=true`、`is_committing=false`、`indexed_item_count=1,004,434`、`index_size_bytes=135,334,062`、`scan_indexed_item_count` 9,490→83,161 | 再次印证扫描负载非因（与批次 69 一致） |
+
+**3. 判定与收窄**
+
+- **截图通路不是成因**：8/8 成功、无停摆、无队头阻塞，且在截图**之后**重新 enable 也毫秒级返回。
+- **输入注入不是成因**：40 次真实输入管线事件零失败。
+- 于是残留②在「截图 → 输入 → 大结果集」这条链上**只剩最后一类**：**已渲染大结果集布局开销**。本轮 `rows=0`（应用停在 `/navigator` 且没有任何结果集），这一类的条件**根本没被构造**，所以它对「停摆」的解释力没有被动摇。
+- 旧候选 **commit 阶段（`is_committing=true`）** 与 **单目录病态条目数** 同样仍未验。
+- 与批次 56 的差异仍无法用「enable 慢」「截图慢」「注入慢」任何一条解释 ⇒ 下一批的探针必须**先把大结果集渲染出来**（例如把搜索面板打到数百/数千行）再采样，否则会重复得到 `CHANNELS_HEALTHY`。
+
+**4. 坑**
+
+- 沙箱启动瞬间 page target 仍是 **`about:blank`**（`b58` 的 `CDP_TARGETS` 首条即如此），几秒后才导航到 `tauri.localhost`；探针必须按 `tauri.localhost` 选目标（`b71-probe.mjs:119`），否则会把空白页当应用页、`global_search_get_status` 直接不存在。
+- `fromSurface:false` 与 `true` 的耗时不可混算（差约 1.75×），对照必须分组统计。
+- 后台构建仍不能挂 stdout 管道；本轮 `Start-Process cmd.exe -WindowStyle Hidden` + 脚本内重定向可用。
+
+**未做 / 未验证**
+
+- 三个剩余候选（**已渲染大结果集布局开销** / commit 阶段 / 单目录病态条目数）**一个都没验**；本轮只做否证。
+- 未做 **OS 级键盘注入**（§2.8 第 664-668 行），本轮按键走的是 CDP `Input.dispatchKeyEvent`，只到「Chromium 输入管线」这一层。
+- 未跑 accept 构建；未跑 `npm run check`（**产品源码零改动**，只新增 `.superpowers/sdd/b71/*` 与两份 docs）。
+- **未升版本号（仍 3.24.2）、未打包、未动 `release\`、未发版**；`target\release\alpha-file-manager.exe` 现在是**带 45777 调试端口**的包，下次发版构建会重建，**不得直接把它当发布产物**。
